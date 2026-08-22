@@ -348,6 +348,19 @@ test.describe('Blog reading UI', () => {
   });
 
   test('walks the gallery from inside the lightbox', async ({ page }) => {
+    // The fixture post points at /mock/*.svg, which the repo does not ship. A
+    // broken image keeps its aspect ratio on some Chromium builds and collapses
+    // to a zero box on others, so the standalone card below the gallery is only
+    // clickable by luck. Serve the bytes and every card gets a real box.
+    await page.route('**/mock/*.svg', async (route) => {
+      const [width, height] = route.request().url().includes('portrait')
+        ? [800, 1200]
+        : [1200, 800];
+      await route.fulfill({
+        contentType: 'image/svg+xml',
+        body: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"></svg>`,
+      });
+    });
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
 
@@ -389,7 +402,9 @@ test.describe('Blog reading UI', () => {
 
     // An image the author placed on its own is not part of any set: it opens
     // alone, without the chrome that implies there is somewhere to go.
-    await page.locator('.kg-image-card img.kg-image').first().click();
+    const soloImage = page.locator('.kg-image-card img.kg-image').first();
+    await expect(soloImage).toBeVisible();
+    await soloImage.click();
     await expect(lightbox).toHaveClass(/is-solo/);
     await expect(counter).toBeHidden();
     await expect(lightbox.locator('.blog-lightbox__nav--next')).toBeHidden();
