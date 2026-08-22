@@ -5,25 +5,26 @@ group: Platform
 order: 2
 ---
 
-This document describes the reader-facing notification contract. The private
-implementation lives in `site-api`; the public site exposes the same routes
-under `/api/notify/*` through the `site` service binding. Direct Worker routes
-use `/notify/*` and the versioned `/v2/notify/*` compatibility redirect.
+This document describes the private API notify runtime in `site-api`. For
+the public-facing subscribe/confirm/unsubscribe/manage endpoints — parameters,
+response schemas, and error codes — see [Notify API](/docs/api/notify).
 
 ## Overview
 
-Canonical API:
+Canonical path is `/notify/*` (`NOTIFY_BASE_PATH` in `@bunizao/contracts/routes`);
+`/v2/notify/*` is kept alive as a legacy alias (`LEGACY_NOTIFY_BASE_PATH`) and
+resolves to the same handlers:
 
-- `POST https://api.buxx.me/v2/notify/subscribe`
-- `GET https://api.buxx.me/v2/notify/confirm`
-- `GET https://api.buxx.me/v2/notify/unsubscribe`
-- `GET|PATCH https://api.buxx.me/v2/notify/manage`
-- `POST https://api.buxx.me/v2/notify/manage/request`
-- `POST https://api.buxx.me/v2/notify/manage/email`
-- `GET https://api.buxx.me/v2/notify/change-email`
-- `POST https://api.buxx.me/v2/notify/dispatch`
-- `GET|POST https://api.buxx.me/v2/notify/schedule`
-- `GET|POST https://api.buxx.me/v2/notify/retry`
+- `POST https://api.buxx.me/notify/subscribe`
+- `GET https://api.buxx.me/notify/confirm`
+- `GET|POST https://api.buxx.me/notify/unsubscribe`
+- `GET|PATCH https://api.buxx.me/notify/manage`
+- `POST https://api.buxx.me/notify/manage/request`
+- `POST https://api.buxx.me/notify/manage/email`
+- `GET https://api.buxx.me/notify/change-email`
+- `POST https://api.buxx.me/notify/dispatch`
+- `GET|POST https://api.buxx.me/notify/schedule`
+- `GET|POST https://api.buxx.me/notify/retry`
 - `POST https://api.buxx.me/webhooks/telegram`
 
 Public compatibility:
@@ -67,7 +68,7 @@ native Cloudflare Rate Limiting binding plan remains pending.
 
 ## Delivery Modes
 
-`POST /v2/notify/subscribe` accepts:
+`POST /notify/subscribe` accepts:
 
 - `deliveryMode`: `immediate` | `every_5h` | `daily`
 - `timezone`: required for accurate local-day behavior in `daily` mode
@@ -77,7 +78,7 @@ native Cloudflare Rate Limiting binding plan remains pending.
 Example:
 
 ```bash
-curl -X POST "https://api.buxx.me/v2/notify/subscribe" \
+curl -X POST "https://api.buxx.me/notify/subscribe" \
   -H "content-type: application/json" \
   -d '{"email":"user@example.com","deliveryMode":"daily","timezone":"Asia/Shanghai","dailyHour":9,"turnstileToken":"<TURNSTILE_TOKEN>"}'
 ```

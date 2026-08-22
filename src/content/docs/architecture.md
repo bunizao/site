@@ -48,17 +48,24 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 
 ## API Endpoints
 
+For full parameter tables, request/response schemas, error codes, cache TTLs,
+and rate limits, see [API Overview](/docs/api/overview),
+[Mood API](/docs/api/mood), and [Notify API](/docs/api/notify). This section
+stays a short index of what exists and who owns it.
+
 **Public JSON, served by `site-api` on `buxx.me/api/*`:**
 - `GET|HEAD /api/ping` — Tiny uncached uptime endpoint for Better Stack monitors.
 - `GET /api/footer` — Cached footer status proxy backed by the Better Stack status page JSON API.
 - `GET /api/edge` — Uncached per-request edge diagnostics from Cloudflare `request.cf` (colo, protocol, TLS, TCP RTT, approximate visitor location, network) for the footer hover popover. Never cached, since values are visitor-specific.
 - `GET /api/github/contributions` — Cached GitHub contribution calendar for the homepage activity graph; `days` narrows the returned contribution days while preserving the last-year total.
 - `GET /api/health` — Lightweight compatibility health response for stale monitors. Use `?diagnostic=1` for the owner diagnostic report; add `&deep=1` for slower external probes.
-- `GET /api/moods` — Live mood feed with pagination (`?before=<id>`), used for freshness probes and live fallback
-- `GET /api/v2/mood` — Archive mood feed used for the default base render
-- `GET /api/v2/moods/live-counts?ids=<id,...>` — Batched live comments/reactions for visible archive-rendered posts
-- `GET /api/comments` — Comments
+- `GET /api/moods`, `GET /api/v1/mood` — Live mood feed with pagination (`?before=<id>`), used for freshness probes and live fallback (docs: `/docs/api/mood`)
+- `GET /api/v2/mood`, `GET /api/v2/mood/[id]`, `GET /api/v2/mood/[id]/comments`, `GET /api/v2/mood/search`, `GET /api/v2/mood/stats` — Archive mood feed, detail, comments, search, and stats used for the default base render (docs: `/docs/api/mood`)
+- `GET /api/v2/moods/live-counts?ids=<id,...>`, `GET /api/v1/mood/meta?ids=<id,...>` — Batched live comments/reactions for visible archive-rendered or live-rendered posts (docs: `/docs/api/mood`)
+- `GET /api/comments` — Legacy alias of the comments read path (docs: `/docs/api/mood`)
 - `GET /api/oembed.json` — oEmbed endpoint (docs: `/docs/api/oembed`)
+- `POST /notify/subscribe`, `GET /notify/confirm`, `GET|POST /notify/unsubscribe`, `GET|PATCH /notify/manage`, `POST /notify/manage/request` — Mood update email subscriptions, Turnstile-gated (docs: `/docs/api/notify`)
+- `GET /api/v2/posts`, `GET /api/v2/posts/[slug]` — Disabled placeholder; returns a `posts_coming_soon` error unless `ENABLE_POSTS_API` is set (docs: `/docs/api/overview#versioning-three-generations-one-worker`)
 - `POST /api/v2/analytics/listening` — First-party listening playback events. One cumulative record per playback captures requests, starts, heard time, progress, pauses, seeks, and completion.
 
 **Machine ingress (`site-api`):**

@@ -38,6 +38,9 @@ note.
 | [/docs/writing/tags](https://buxx.me/docs/writing/tags) | `src/content/docs/writing/tags.md` | Public tags and internal `#hash-` tags. |
 | [/docs/writing/media](https://buxx.me/docs/writing/media) | `src/content/docs/writing/media.md` | Images, blur-up, and code highlighting. |
 | [/docs/writing/publishing](https://buxx.me/docs/writing/publishing) | `src/content/docs/writing/publishing.md` | Ghost publish → deploy hook flow. |
+| [/docs/api/overview](https://buxx.me/docs/api/overview) | `src/content/docs/api/overview.md` | Who serves `/api`, versioning, auth tiers, rate limits, the two error shapes, caching, CORS. |
+| [/docs/api/mood](https://buxx.me/docs/api/mood) | `src/content/docs/api/mood.md` | The mood feed, detail, comments, search, stats, and live-counts endpoints. |
+| [/docs/api/notify](https://buxx.me/docs/api/notify) | `src/content/docs/api/notify.md` | Subscribe, confirm, unsubscribe, manage — the email subscription API. |
 | [/docs/api/oembed](https://buxx.me/docs/api/oembed) | `src/content/docs/api/oembed.md` | Embedding a mood elsewhere. |
 | [/docs/api/svg](https://buxx.me/docs/api/svg) | `src/content/docs/api/svg.md` | The SVG badge endpoints. |
 | [/docs/api/feeds](https://buxx.me/docs/api/feeds) | `src/content/docs/api/feeds.md` | RSS, sitemap, `llms.txt`, agent Markdown. |
