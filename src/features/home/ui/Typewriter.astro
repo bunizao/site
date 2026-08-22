@@ -7,7 +7,7 @@ interface Props {
   pauseDuration?: number;
 }
 
-const { texts, keystrokeMs = 150, delay = 0, pauseDuration = 2000 } = Astro.props;
+const { texts, keystrokeMs = 90, delay = 0, pauseDuration = 2000 } = Astro.props;
 const initialText = texts[0] ?? '';
 const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
 const placeholderText = `${longestText}_`;
@@ -135,7 +135,7 @@ const placeholderText = `${longestText}_`;
 
   const HERO_NAME_READY_EVENT = 'home:hero-name-ready';
   const FALLBACK_START_MS = 1100;
-  const DEFAULT_KEYSTROKE_MS = 150;
+  const DEFAULT_KEYSTROKE_MS = 90;
   const MIN_KEYSTROKE_MS = 40;
   const MAX_KEYSTROKE_MS = 400;
   // Backspacing is brisker than typing, the way it is on a real keyboard:
