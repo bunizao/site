@@ -1,4 +1,9 @@
-# OAuth Hub
+---
+title: Auth and OAuth hub
+description: The owner-auth boundary, the GitHub admin session, and the credential roadmap.
+group: Platform
+order: 3
+---
 
 The OAuth hub is the owner-auth control plane for the site. It starts with the GitHub OAuth admin session and gives future sandbox jobs, knowledge connectors, and MCP clients one place to request narrower credentials.
 

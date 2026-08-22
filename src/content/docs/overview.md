@@ -5,8 +5,6 @@ group: Start
 order: 0
 ---
 
-# Overview
-
 buxx.me is one Astro site deployed to Cloudflare Workers. It carries a handful of
 distinct surfaces — a home page, a publication, a running mood feed, a component
 register — and a small set of public endpoints that let other sites embed pieces

@@ -1,4 +1,9 @@
-# Telegram Pipeline
+---
+title: Telegram pipeline
+description: "How a Telegram post becomes a mood: ingestion, HD images, and the archive mirror."
+group: Platform
+order: 1
+---
 
 This document describes the private Telegram ingestion pipeline for mood posts, HD images, and email notifications.
 

@@ -1,4 +1,9 @@
-# Worker and Site
+---
+title: Worker and site
+description: "The public Cloudflare Worker: routing, the API fallback binding, and static asset delivery."
+group: Platform
+order: 0
+---
 
 ## Scope
 
@@ -22,9 +27,9 @@ It serves:
 
 Main files:
 
-- [`src/worker.ts`](../src/worker.ts)
-- [`src/lib/http/api-service-proxy.ts`](../src/lib/http/api-service-proxy.ts)
-- [`wrangler.jsonc`](../wrangler.jsonc)
+- [`src/worker.ts`](https://github.com/bunizao/site/blob/main/src/worker.ts)
+- [`src/lib/http/api-service-proxy.ts`](https://github.com/bunizao/site/blob/main/src/lib/http/api-service-proxy.ts)
+- [`wrangler.jsonc`](https://github.com/bunizao/site/blob/main/wrangler.jsonc)
 
 `src/worker.ts` is the Astro Cloudflare entrypoint. It no longer composes queue, cron, notify, or image-worker handlers.
 
@@ -111,7 +116,7 @@ Add Ghost's internal `#unlisted` tag (`hash-unlisted`) to publish a direct-link-
 
 ## Bindings and Secrets
 
-Direct public Worker bindings in [`wrangler.jsonc`](../wrangler.jsonc):
+Direct public Worker bindings in [`wrangler.jsonc`](https://github.com/bunizao/site/blob/main/wrangler.jsonc):
 
 - `API` service binding to `site-api`
 

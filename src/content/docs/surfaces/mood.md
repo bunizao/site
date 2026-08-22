@@ -1,4 +1,9 @@
-# Mood
+---
+title: Mood
+description: "The three-level mood surface: home preview, feed wheel, and detail page."
+group: Surfaces
+order: 2
+---
 
 ## Scope
 
@@ -21,11 +26,11 @@ This document covers:
 
 Main files:
 
-- [`src/pages/mood.astro`](../src/pages/mood.astro)
-- [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
-- [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
-- [`src/pages/mood/rss.xml.ts`](../src/pages/mood/rss.xml.ts)
-- [`src/pages/mood/subscribe.astro`](../src/pages/mood/subscribe.astro)
+- [`src/pages/mood.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood.astro)
+- [`src/pages/mood/[id].astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/[id].astro)
+- [`src/pages/mood/embed.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/embed.astro)
+- [`src/pages/mood/rss.xml.ts`](https://github.com/bunizao/site/blob/main/src/pages/mood/rss.xml.ts)
+- [`src/pages/mood/subscribe.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/subscribe.astro)
 
 Routing rules:
 
@@ -40,7 +45,7 @@ Routing rules:
 
 ## `L1` Feed
 
-Entry file: [`src/pages/mood.astro`](../src/pages/mood.astro)
+Entry file: [`src/pages/mood.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood.astro)
 
 Page-level responsibilities:
 
@@ -49,15 +54,15 @@ Page-level responsibilities:
   - RSS
   - Telegram
   - Notify
-- composes [`src/features/mood/ui/TimelineWheel.astro`](../src/features/mood/ui/TimelineWheel.astro), [`src/features/mood/ui/FeedShell.astro`](../src/features/mood/ui/FeedShell.astro), and [`src/features/mood/ui/NotifyPanel.astro`](../src/features/mood/ui/NotifyPanel.astro)
-- bootstraps [`src/features/mood/client/feed-controller.ts`](../src/features/mood/client/feed-controller.ts), [`src/features/mood/client/notify-panel-controller.ts`](../src/features/mood/client/notify-panel-controller.ts), and [`src/features/mood/client/timeline-wheel.ts`](../src/features/mood/client/timeline-wheel.ts)
+- composes [`src/features/mood/ui/TimelineWheel.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/TimelineWheel.astro), [`src/features/mood/ui/FeedShell.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/FeedShell.astro), and [`src/features/mood/ui/NotifyPanel.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/NotifyPanel.astro)
+- bootstraps [`src/features/mood/client/feed-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-controller.ts), [`src/features/mood/client/notify-panel-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/notify-panel-controller.ts), and [`src/features/mood/client/timeline-wheel.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/timeline-wheel.ts)
 
 Feed data flow:
 
 1. The browser requests `GET /api/v2/mood` when the page is archive-backed.
 2. The response contains channel metadata plus feed-shaped posts.
-3. [`src/features/mood/client/feed-media-hydration.ts`](../src/features/mood/client/feed-media-hydration.ts) hydrates the channel hero and deferred media behavior.
-4. [`src/features/mood/client/feed-renderer.ts`](../src/features/mood/client/feed-renderer.ts) groups posts by date and appends them into the feed.
+3. [`src/features/mood/client/feed-media-hydration.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-media-hydration.ts) hydrates the channel hero and deferred media behavior.
+4. [`src/features/mood/client/feed-renderer.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-renderer.ts) groups posts by date and appends them into the feed.
 5. Infinite loading continues in either direction against the active source.
 
 Anchor URLs represent a midpoint in the same continuous feed. Older pages use
@@ -106,11 +111,11 @@ Most feed items are still created client-side, but the route no longer owns the 
 
 Current client entrypoints:
 
-- [`src/features/mood/client/feed-controller.ts`](../src/features/mood/client/feed-controller.ts)
-- [`src/features/mood/client/feed-renderer.ts`](../src/features/mood/client/feed-renderer.ts)
-- [`src/features/mood/client/feed-media-hydration.ts`](../src/features/mood/client/feed-media-hydration.ts)
-- [`src/features/mood/client/feed-update-watcher.ts`](../src/features/mood/client/feed-update-watcher.ts)
-- [`src/features/mood/client/feed-comments-popover.ts`](../src/features/mood/client/feed-comments-popover.ts)
+- [`src/features/mood/client/feed-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-controller.ts)
+- [`src/features/mood/client/feed-renderer.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-renderer.ts)
+- [`src/features/mood/client/feed-media-hydration.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-media-hydration.ts)
+- [`src/features/mood/client/feed-update-watcher.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-update-watcher.ts)
+- [`src/features/mood/client/feed-comments-popover.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-comments-popover.ts)
 
 Rendering behavior:
 
@@ -128,18 +133,18 @@ Comment preview path:
 
 ## `L2` Detail
 
-Entry file: [`src/pages/mood/[id].astro`](../src/pages/mood/[id].astro)
+Entry file: [`src/pages/mood/[id].astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/[id].astro)
 
 Server-side responsibilities:
 
 - fetches one post by id through the archive reader, with a live-reader fallback
 - sets `404` when the post is missing
 - renders a controlled not-found or unavailable state instead of crashing
-- composes [`src/features/mood/ui/DetailArticle.astro`](../src/features/mood/ui/DetailArticle.astro), which in turn mounts [`src/features/mood/ui/CommentsSection.astro`](../src/features/mood/ui/CommentsSection.astro)
+- composes [`src/features/mood/ui/DetailArticle.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/DetailArticle.astro), which in turn mounts [`src/features/mood/ui/CommentsSection.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/CommentsSection.astro)
 
 Rendering behavior:
 
-- [`src/features/mood/ui/DetailArticle.astro`](../src/features/mood/ui/DetailArticle.astro) inserts gallery-aware HTML with `set:html={renderedPostContent}`
+- [`src/features/mood/ui/DetailArticle.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/DetailArticle.astro) inserts gallery-aware HTML with `set:html={renderedPostContent}`
 - forwarded metadata, reactions, and tags are rendered from parsed Telegram data
 - the page can show a Telegram `Leave a comment` CTA when channel config exists
 
@@ -153,13 +158,13 @@ Back navigation:
 Implementation files:
 
 - `site-api /api/comments`
-- [`src/features/mood/client/detail-comments-controller.ts`](../src/features/mood/client/detail-comments-controller.ts)
-- [`src/features/mood/shared/comments.ts`](../src/features/mood/shared/comments.ts)
+- [`src/features/mood/client/detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts)
+- [`src/features/mood/shared/comments.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/shared/comments.ts)
 
 Data flow:
 
-1. [`src/features/mood/ui/CommentsSection.astro`](../src/features/mood/ui/CommentsSection.astro) renders a skeleton comments section.
-2. [`src/features/mood/client/detail-comments-controller.ts`](../src/features/mood/client/detail-comments-controller.ts) fetches `GET /api/comments?postId=...`.
+1. [`src/features/mood/ui/CommentsSection.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/CommentsSection.astro) renders a skeleton comments section.
+2. [`src/features/mood/client/detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts) fetches `GET /api/comments?postId=...`.
 3. API validates `postId` and optional `before`.
 4. API reads the live Telegram mirror through the canonical v1 mood path.
 5. Client renders sanitized comments and paginates with `before=<commentId>`.
@@ -182,8 +187,8 @@ and visible reactions/counts stay live. Set `MOOD_READ_SOURCE=live` for rollback
 
 Core files:
 
-- [`src/features/mood/server/api-client.ts`](../src/features/mood/server/api-client.ts)
-- [`src/features/mood/shared/utils.ts`](../src/features/mood/shared/utils.ts)
+- [`src/features/mood/server/api-client.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/server/api-client.ts)
+- [`src/features/mood/shared/utils.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/shared/utils.ts)
 
 Machine-ingress responsibilities:
 
@@ -204,7 +209,7 @@ Machine-ingress responsibilities:
 
 ## Embed, RSS, and Subscribe
 
-Embed file: [`src/pages/mood/embed.astro`](../src/pages/mood/embed.astro)
+Embed file: [`src/pages/mood/embed.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/embed.astro)
 
 Supported embed query parameters:
 
@@ -218,7 +223,7 @@ Supported embed query parameters:
 - `refresh`
 - `link`
 
-RSS file: [`src/pages/mood/rss.xml.ts`](../src/pages/mood/rss.xml.ts)
+RSS file: [`src/pages/mood/rss.xml.ts`](https://github.com/bunizao/site/blob/main/src/pages/mood/rss.xml.ts)
 
 RSS behavior:
 
@@ -235,7 +240,7 @@ Subscribe entry:
 
 ## Security and Limits
 
-Relevant file: [`src/lib/security/rate-limit.ts`](../src/lib/security/rate-limit.ts)
+Relevant file: [`src/lib/security/rate-limit.ts`](https://github.com/bunizao/site/blob/main/src/lib/security/rate-limit.ts)
 
 Current limits:
 

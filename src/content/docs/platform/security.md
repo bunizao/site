@@ -1,4 +1,9 @@
-# Security
+---
+title: Security
+description: Headers, rate limits, Turnstile, embed isolation, and the static asset guard.
+group: Platform
+order: 4
+---
 
 ## Scope
 
@@ -12,7 +17,7 @@ This document covers shared security and security-adjacent behavior:
 
 ## Rate Limiting
 
-File: `[src/lib/security/rate-limit.ts](../src/lib/security/rate-limit.ts)`
+File: `[src/lib/security/rate-limit.ts](https://github.com/bunizao/site/blob/main/src/lib/security/rate-limit.ts)`
 
 Implementation:
 
@@ -42,7 +47,7 @@ Operational constraint:
 
 ## Turnstile Verification
 
-File: `[src/lib/security/turnstile.ts](../src/lib/security/turnstile.ts)`
+File: `[src/lib/security/turnstile.ts](https://github.com/bunizao/site/blob/main/src/lib/security/turnstile.ts)`
 
 Behavior:
 
@@ -74,7 +79,7 @@ Current usage:
 
 ## Static Proxy Restrictions
 
-File: `[src/pages/static/[...path].ts](../src/pages/static/[...path].ts)`
+File: `[src/pages/static/[...path].ts](https://github.com/bunizao/site/blob/main/src/pages/static/[...path].ts)`
 
 Role:
 
@@ -94,8 +99,8 @@ Hardening is selective rather than centralized.
 
 Current boundaries:
 
-- normal HTML pages do not apply a site-wide CSP in `[src/layouts/Layout.astro](../src/layouts/Layout.astro)`
-- embed responses use stricter headers in `[src/lib/embed-response.ts](../src/lib/embed-response.ts)`
+- normal HTML pages do not apply a site-wide CSP in `[src/layouts/Layout.astro](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro)`
+- embed responses use stricter headers in `[src/lib/embed-response.ts](https://github.com/bunizao/site/blob/main/src/lib/embed-response.ts)`
 - SVG API responses use CSP and hardening headers in `site-api`
 
 ## Implementation Summary

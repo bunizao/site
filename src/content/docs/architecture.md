@@ -1,18 +1,9 @@
-# Architecture Reference
-
-## Detailed Implementation Docs
-
-See [docs/README.md](./README.md) for the full index. Frequently needed:
-
-- [Home](./HOME.md)
-- [Mascot](./MASCOT.md)
-- [Mood](./MOOD.md)
-- [Shared Layout](./SHARED-LAYOUT.md)
-- [Security](./SECURITY.md)
-- [OAuth Hub](./OAUTH-HUB.md)
-- [Privacy Policy](./PRIVACY-POLICY.md)
-- [Email Notify + Admin Portal](./EMAIL-NOTIFY.md)
-- [Worker and Site](./WORKER-SITE.md)
+---
+title: Architecture
+description: Runtime shape, directory layout, data sources, endpoints, cache policy, and environment variables.
+group: Start
+order: 1
+---
 
 ## Runtime Shape
 
@@ -78,7 +69,7 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 
 **Owner auth surface:**
 - `GET /oauth` — Short public entry that redirects to the protected OAuth hub.
-- The owner-auth boundary is enforced in `src/middleware.ts` + `src/features/admin/server/access.ts`; see [OAUTH-HUB.md](./OAUTH-HUB.md) for the credential roadmap. (The former `/dev/portal/oauth` UI page was removed.)
+- The owner-auth boundary is enforced in `src/middleware.ts` + `src/features/admin/server/access.ts`; see [Auth and OAuth hub](/docs/platform/auth) for the credential roadmap. (The former `/dev/portal/oauth` UI page was removed.)
 
 **Local authoring surface:**
 - `GET /dev/blog/<24-character-post-id>` — Renders a Ghost draft through the production directive and blog prose pipeline behind the owner-auth boundary. Every response is private and uncached.
@@ -88,8 +79,8 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 
 Telegram references:
 
-- `docs/TELEGRAM-PIPELINE.md`
-- `docs/debug/README.md` for local-only investigation notes and temporary debug artifacts
+- [Telegram pipeline](/docs/platform/telegram)
+- `docs/debug/README.md` in the repo for local-only investigation notes and temporary debug artifacts
 
 **SVG** (all accept `?theme=light|dark`):
 - `GET /api/status.svg`, `GET /api/tech-stack.svg`, `GET /api/site-badge.svg`
@@ -135,7 +126,7 @@ Accessed via `import.meta.env.*`:
 - `LASTFM_API_KEY`, `LASTFM_USER` — Last.fm recent tracks integration for the home listening widget
 - `PUBLIC_SITE_URL`, `SITE_URL` — canonical base URLs for email links, previews, and health checks
 
-Cloudflare Worker bindings and non-secret vars are defined in [`wrangler.jsonc`](../wrangler.jsonc):
+Cloudflare Worker bindings and non-secret vars are defined in [`wrangler.jsonc`](https://github.com/bunizao/site/blob/main/wrangler.jsonc):
 
 - `API` — Cloudflare Worker service binding to `site-api`
 

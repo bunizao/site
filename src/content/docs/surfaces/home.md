@@ -1,4 +1,9 @@
-# Home
+---
+title: Home page
+description: Every section on the landing page, the reveal choreography, and the fixtures the tests drive it with.
+group: Surfaces
+order: 0
+---
 
 ## Scope
 
@@ -11,19 +16,19 @@ This document covers the home page entry and the sections rendered on `/`:
 
 ## Entry Composition
 
-Entry file: [`src/pages/index.astro`](../src/pages/index.astro)
+Entry file: [`src/pages/index.astro`](https://github.com/bunizao/site/blob/main/src/pages/index.astro)
 
 The page is a prerendered shell:
 
-- mounts [`src/layouts/Layout.astro`](../src/layouts/Layout.astro)
-- wraps content in [`src/features/home/ui/ParallaxWrapper.astro`](../src/features/home/ui/ParallaxWrapper.astro)
+- mounts [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro)
+- wraps content in [`src/features/home/ui/ParallaxWrapper.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/ParallaxWrapper.astro)
 - renders sections in fixed order:
-  - [`src/features/home/ui/Hero.astro`](../src/features/home/ui/Hero.astro)
-  - [`src/features/home/ui/Listening.astro`](../src/features/home/ui/Listening.astro)
-  - [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro)
-  - [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
-  - [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
-  - [`src/features/home/ui/Footer.astro`](../src/features/home/ui/Footer.astro)
+  - [`src/features/home/ui/Hero.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Hero.astro)
+  - [`src/features/home/ui/Listening.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Listening.astro)
+  - [`src/features/home/ui/Projects.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Projects.astro)
+  - [`src/features/home/ui/Posts.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Posts.astro)
+  - [`src/features/mood/ui/HomePreview.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/HomePreview.astro)
+  - [`src/features/home/ui/Footer.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Footer.astro)
 - keeps runtime-only data out of the route frontmatter so `/` can be served as static HTML
 
 Section anchors are owned by the shared layout navbar:
@@ -36,18 +41,18 @@ The hero block does not have a navbar anchor.
 
 Feature boundary:
 
-- home-private UI lives in [`src/features/home/ui/`](../src/features/home/ui)
-- home-private server helpers live in [`src/features/home/server/`](../src/features/home/server/)
-- shared site scaffolding lives in [`src/layouts/`](../src/layouts) and other feature-local UI shells
+- home-private UI lives in [`src/features/home/ui/`](https://github.com/bunizao/site/blob/main/src/features/home/ui)
+- home-private server helpers live in [`src/features/home/server/`](https://github.com/bunizao/site/blob/main/src/features/home/server/)
+- shared site scaffolding lives in [`src/layouts/`](https://github.com/bunizao/site/blob/main/src/layouts) and other feature-local UI shells
 
 ## Hero / Intro
 
 Implementation files:
 
-- [`src/features/home/ui/Hero.astro`](../src/features/home/ui/Hero.astro)
-- [`src/features/home/ui/Typewriter.astro`](../src/features/home/ui/Typewriter.astro)
-- [`src/features/home/ui/GitHubContributions.astro`](../src/features/home/ui/GitHubContributions.astro)
-- [`src/features/home/ui/TechMarquee.astro`](../src/features/home/ui/TechMarquee.astro)
+- [`src/features/home/ui/Hero.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Hero.astro)
+- [`src/features/home/ui/Typewriter.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Typewriter.astro)
+- [`src/features/home/ui/GitHubContributions.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/GitHubContributions.astro)
+- [`src/features/home/ui/TechMarquee.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/TechMarquee.astro)
 
 Implementation shape:
 
@@ -68,9 +73,9 @@ Client behavior:
 
 Implementation files:
 
-- [`src/features/home/ui/Projects.astro`](../src/features/home/ui/Projects.astro)
-- [`src/features/home/server/e2e-fixtures.ts`](../src/features/home/server/e2e-fixtures.ts)
-- [`src/lib/e2e.ts`](../src/lib/e2e.ts)
+- [`src/features/home/ui/Projects.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Projects.astro)
+- [`src/features/home/server/e2e-fixtures.ts`](https://github.com/bunizao/site/blob/main/src/features/home/server/e2e-fixtures.ts)
+- [`src/lib/e2e.ts`](https://github.com/bunizao/site/blob/main/src/lib/e2e.ts)
 
 Data flow:
 
@@ -94,8 +99,8 @@ Client behavior:
 
 Implementation files:
 
-- [`src/features/home/ui/Listening.astro`](../src/features/home/ui/Listening.astro)
-- [`src/features/home/server/listening.ts`](../src/features/home/server/listening.ts)
+- [`src/features/home/ui/Listening.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Listening.astro)
+- [`src/features/home/server/listening.ts`](https://github.com/bunizao/site/blob/main/src/features/home/server/listening.ts)
 - `site-api /api/listening`
 
 Data flow:
@@ -123,9 +128,9 @@ Client behavior:
 
 Implementation files:
 
-- [`src/features/home/ui/Posts.astro`](../src/features/home/ui/Posts.astro)
-- [`src/features/home/server/e2e-fixtures.ts`](../src/features/home/server/e2e-fixtures.ts)
-- [`src/lib/e2e.ts`](../src/lib/e2e.ts)
+- [`src/features/home/ui/Posts.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Posts.astro)
+- [`src/features/home/server/e2e-fixtures.ts`](https://github.com/bunizao/site/blob/main/src/features/home/server/e2e-fixtures.ts)
+- [`src/lib/e2e.ts`](https://github.com/bunizao/site/blob/main/src/lib/e2e.ts)
 
 Data flow:
 
@@ -165,7 +170,7 @@ Client behavior:
 
 Implementation files:
 
-- [`src/features/mood/ui/HomePreview.astro`](../src/features/mood/ui/HomePreview.astro)
+- [`src/features/mood/ui/HomePreview.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/HomePreview.astro)
 - `site-api /api/moods`
 
 Rendering strategy:
@@ -209,8 +214,8 @@ Debug hook:
 
 Relevant files:
 
-- [`src/layouts/Layout.astro`](../src/layouts/Layout.astro)
-- [`src/features/home/ui/ParallaxWrapper.astro`](../src/features/home/ui/ParallaxWrapper.astro)
+- [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro)
+- [`src/features/home/ui/ParallaxWrapper.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/ParallaxWrapper.astro)
 
 Cross-cutting behavior:
 

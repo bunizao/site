@@ -1,4 +1,9 @@
-# Shared Layout
+---
+title: Shared layout
+description: "Chrome that every page inherits: the layout shell, theme switch, command palette, and footer."
+group: Surfaces
+order: 3
+---
 
 ## Scope
 
@@ -11,7 +16,7 @@ This document covers shared cross-page UI behavior:
 
 ## Base Layout
 
-Main file: [`src/layouts/Layout.astro`](../src/layouts/Layout.astro)
+Main file: [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro)
 
 Responsibilities:
 
@@ -32,7 +37,7 @@ Theme behavior:
 
 ## Navbar Model
 
-Implementation lives in [`src/layouts/Layout.astro`](../src/layouts/Layout.astro).
+Implementation lives in [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro).
 
 Important design choice:
 
@@ -58,7 +63,7 @@ Header actions:
 
 ## Page Template Adaptation
 
-Main file: [`src/layouts/Page.astro`](../src/layouts/Page.astro)
+Main file: [`src/layouts/Page.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Page.astro)
 
 Purpose:
 
@@ -77,7 +82,7 @@ This keeps the global chrome but changes the navigation contract from section sc
 
 ## Shared Footer
 
-File: [`src/features/home/ui/Footer.astro`](../src/features/home/ui/Footer.astro)
+File: [`src/features/home/ui/Footer.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Footer.astro)
 
 Behavior:
 
@@ -98,7 +103,7 @@ The privacy page is therefore linked from:
 
 ## Motion Vocabulary
 
-Declared at `:root` in [`src/styles/globals.css`](../src/styles/globals.css). One
+Declared at `:root` in [`src/styles/globals.css`](https://github.com/bunizao/site/blob/main/src/styles/globals.css). One
 curve family, one duration scale, site-wide:
 
 | Token | Value |
@@ -112,7 +117,7 @@ curve family, one duration scale, site-wide:
 | `--dur-enter` | `240ms` |
 
 The scale was adopted from the portal, which was the only part of the site that
-had one; [`src/styles/portal.css`](../src/styles/portal.css) now aliases its
+had one; [`src/styles/portal.css`](https://github.com/bunizao/site/blob/main/src/styles/portal.css) now aliases its
 `--portal-*` names to these so its existing rules keep reading their own
 vocabulary.
 
@@ -121,7 +126,7 @@ is not one.**
 
 `--expo-out` is deliberately outside this scale — it is a `linear()` easing for
 the 1.5s theme wipe, a different register from UI motion.
-[`src/styles/home-reveal.css`](../src/styles/home-reveal.css) likewise owns its
+[`src/styles/home-reveal.css`](https://github.com/bunizao/site/blob/main/src/styles/home-reveal.css) likewise owns its
 own `--reveal-ease` by design.
 
 ### Adoption follow-ups

@@ -1,4 +1,9 @@
-# SEO
+---
+title: SEO and metadata
+description: Public identity strings, structured data, sitemaps, and per-page metadata.
+group: Platform
+order: 5
+---
 
 ## Public Identity
 
@@ -16,8 +21,8 @@ Search and sharing metadata use four distinct names:
 are intentionally not used because possessive template names blur the person,
 site, and publication entities.
 
-The shared identity source is [`src/data/site.ts`](../src/data/site.ts).
-[`src/lib/seo.ts`](../src/lib/seo.ts) derives structured data and the standard
+The shared identity source is [`src/data/site.ts`](https://github.com/bunizao/site/blob/main/src/data/site.ts).
+[`src/lib/seo.ts`](https://github.com/bunizao/site/blob/main/src/lib/seo.ts) derives structured data and the standard
 non-blog title suffix from it.
 
 ## Titles

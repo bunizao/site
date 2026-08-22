@@ -1,126 +1,8 @@
 ---
-# DESIGN.md for the 無人之境 blog zone.
-# Format: github.com/google-labs-code/design.md — YAML tokens are the normative
-# values; the prose below is context for how to apply them. Tokens here MIRROR
-# the live system: the ink colours are owned by `blogPalette` in
-# src/data/site.ts and emitted by BlogLayout.astro; greys and layout live in
-# src/styles/blog.css; the shared lockup lives in SiteWordmark.astro with its
-# font face in globals.css. Edit code first, then sync this file.
-name: 無人之境 — blog design system
-version: alpha
-description: >
-  The calm, ink-wash visual zone for the blog at blog.buxx.me. A single blue
-  hue graded by depth, near-black greys derived from the theme foreground, and a
-  720px reading column. Blog styling stays under .blog-zone; only the shared
-  publication lockup is also rendered in the homepage Writing doorway.
-
-colors:
-  # Surfaces — the page floor in each mode. Dark is near-black, never #000.
-  surface.light: '#FFFFFF'
-  surface.dark: '#0A0A0A'
-
-  # Greys — NOT fixed hex. Expressed as the theme foreground at alpha, so one
-  # declaration yields the calm light palette and a tuned dark variant for free.
-  ink: 'hsl(var(--foreground))'           # 100% — titles, strong text
-  body: 'hsl(var(--foreground) / 0.78)'   # article body copy
-  muted: 'hsl(var(--foreground) / 0.58)'  # list excerpts
-  faint: 'hsl(var(--foreground) / 0.42)'  # dates, meta, year ticks
-  line: 'hsl(var(--foreground) / 0.10)'   # hairline dividers
-  fill: 'hsl(var(--foreground) / 0.045)'  # sliding hover pill
-
-  # Ink set — one hue, three depths. Source of truth: blogPalette in site.ts.
-  # The mode-agnostic token is the live CSS var components consume; the
-  # .light/.dark entries below document the concrete value resolved in each mode.
-  dai: 'var(--blog-dai)'
-  dian: 'var(--blog-dian)'
-  ji: 'var(--blog-ji)'
-  dai.light: '#3C5D80'    # 黛 远山 — primary. WCAG 6.84:1 on surface.light
-  dai.dark: '#7FA8D6'     #            WCAG 7.99:1 on surface.dark
-  dian.light: '#27406E'   # 靛 靛青 — the mark. WCAG 10.27:1 on surface.light
-  dian.dark: '#6FA8FF'    #            WCAG 8.22:1 on surface.dark
-  ji.light: '#3E8BD8'     # 霁 雨过天青 — highlight FILL only. 3.57:1 — never text
-  ji.dark: '#6FB2F2'      #            WCAG 8.79:1 on surface.dark
-
-typography:
-  # Families. Body reads in Inter (the .reading contract); code in the mono
-  # stack; the publication lockup uses a tiny WenKai subset for 無人之境 sillage.
-  family.sans: "'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
-  family.mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
-  family.display: "'WenKai Lockup', 'Songti SC', 'Noto Serif CJK SC', serif"
-
-  masthead:     { fontFamily: '{typography.family.display}', cjkSize: '50px', latinSize: '20px', lineHeight: '1', cjkLetterSpacing: '0.10em', fontWeight: 400 }
-  article-h1:   { fontFamily: '{typography.family.sans}', fontSize: 'clamp(27px, 4.4vw, 34px)', lineHeight: '1.3', letterSpacing: '-0.02em', fontWeight: 600 }
-  article-h2:   { fontFamily: '{typography.family.sans}', fontSize: '22px', lineHeight: '1.4', letterSpacing: '-0.01em', fontWeight: 600 }
-  article-h3:   { fontFamily: '{typography.family.sans}', fontSize: '19px', lineHeight: '1.45', fontWeight: 600 }
-  body:         { fontFamily: '{typography.family.sans}', fontSize: '17.5px', lineHeight: '1.85', letterSpacing: '0.003em', fontWeight: 400 }
-  post-title:   { fontFamily: '{typography.family.sans}', fontSize: '19px', lineHeight: '1.45', letterSpacing: '-0.012em', fontWeight: 500 }
-  excerpt:      { fontFamily: '{typography.family.sans}', fontSize: '15px', lineHeight: '1.55', fontWeight: 400 }
-  meta:         { fontFamily: '{typography.family.sans}', fontSize: '13px', lineHeight: '1.4', fontWeight: 400 }
-  eyebrow:      { fontFamily: '{typography.family.sans}', fontSize: '13px', letterSpacing: '0.02em', fontWeight: 500 }
-  tag:          { fontFamily: '{typography.family.sans}', fontSize: '11.5px', lineHeight: '1', fontWeight: 500 }
-  inline-code:  { fontFamily: '{typography.family.mono}', fontSize: '0.875em', fontWeight: 400 }
-
-spacing:
-  # 2px base, used as a calm 4px-ish rhythm. The named steps below are the ones
-  # the zone actually reaches for.
-  xs: '4px'
-  sm: '8px'
-  md: '12px'
-  lg: '16px'
-  xl: '24px'
-  section: '40px'
-  floor: '96px'
-
-rounded:
-  none: '0'        # single-sided / borderless surfaces (mobile list rows)
-  inline: '6px'    # inline code, kbd, small chips
-  image: '10px'    # media corners
-  card: '12px'     # cards, callouts, share row, subscribe panel
-  pill: '999px'    # tag pills, sliding hover pill, round controls
-
-layout:
-  measure: '720px'           # the reading column — every shell maxes here
-  shell-padding: '40px 24px 96px'
-  image-edge.light: 'inset 0 0 0 1px rgba(0, 0, 0, 0.1)'
-  image-edge.dark: 'inset 0 0 0 1px rgba(255, 255, 255, 0.1)'
-
-components:
-  post-item:
-    typography: '{typography.post-title}'
-    textColor: '{colors.ink}'
-    backgroundColor: 'transparent'
-  post-item-hover:
-    backgroundColor: '{colors.fill}'
-    rounded: '{rounded.pill}'
-  link:
-    textColor: '{colors.dai}'
-  tag-pill:
-    typography: '{typography.tag}'
-    textColor: '{colors.dai}'
-    backgroundColor: 'color-mix(in srgb, {colors.dai} 12%, transparent)'
-    rounded: '{rounded.pill}'
-    padding: '4px 9px'
-  search-mark:
-    backgroundColor: 'color-mix(in srgb, {colors.ji} 26%, transparent)'
-    textColor: 'inherit'
-    rounded: '3px'
-  not-by-ai:
-    typography: '{typography.meta}'
-    textColor: '{colors.dian}'
-  callout:
-    typography: '{typography.excerpt}'
-    textColor: '{colors.body}'
-    backgroundColor: '{colors.fill}'
-    rounded: '{rounded.card}'
-    padding: '16px 18px'
-  inline-code:
-    typography: '{typography.inline-code}'
-    backgroundColor: '{colors.fill}'
-    rounded: '{rounded.inline}'
-    padding: '0.15em 0.4em'
-  divider:
-    backgroundColor: '{colors.line}'
-    height: '1px'
+title: Blog design system
+description: The ink-wash design language of 無人之境 — one blue hue, foreground-derived greys, and a single reading column.
+group: Surfaces
+order: 1
 ---
 
 ## Overview
@@ -261,3 +143,127 @@ Components compose the tokens above; they never introduce new colour or type.
 - **Don't** use pure `#000` for the dark surface, or full-opacity dividers.
 - **Don't** let any blog token leak outside `.blog-zone`, and don't pull the
   main-site identity tokens in.
+
+## Token reference
+
+The normative values. These mirror the live system — `blogPalette` in `src/data/site.ts`
+owns the inks, `src/styles/blog.css` owns the greys and layout. Edit the code first,
+then sync this block.
+
+```yaml
+name: 無人之境 — blog design system
+version: alpha
+description: >
+  The calm, ink-wash visual zone for the blog at blog.buxx.me. A single blue
+  hue graded by depth, near-black greys derived from the theme foreground, and a
+  720px reading column. Blog styling stays under .blog-zone; only the shared
+  publication lockup is also rendered in the homepage Writing doorway.
+
+colors:
+  # Surfaces — the page floor in each mode. Dark is near-black, never #000.
+  surface.light: '#FFFFFF'
+  surface.dark: '#0A0A0A'
+
+  # Greys — NOT fixed hex. Expressed as the theme foreground at alpha, so one
+  # declaration yields the calm light palette and a tuned dark variant for free.
+  ink: 'hsl(var(--foreground))'           # 100% — titles, strong text
+  body: 'hsl(var(--foreground) / 0.78)'   # article body copy
+  muted: 'hsl(var(--foreground) / 0.58)'  # list excerpts
+  faint: 'hsl(var(--foreground) / 0.42)'  # dates, meta, year ticks
+  line: 'hsl(var(--foreground) / 0.10)'   # hairline dividers
+  fill: 'hsl(var(--foreground) / 0.045)'  # sliding hover pill
+
+  # Ink set — one hue, three depths. Source of truth: blogPalette in site.ts.
+  # The mode-agnostic token is the live CSS var components consume; the
+  # .light/.dark entries below document the concrete value resolved in each mode.
+  dai: 'var(--blog-dai)'
+  dian: 'var(--blog-dian)'
+  ji: 'var(--blog-ji)'
+  dai.light: '#3C5D80'    # 黛 远山 — primary. WCAG 6.84:1 on surface.light
+  dai.dark: '#7FA8D6'     #            WCAG 7.99:1 on surface.dark
+  dian.light: '#27406E'   # 靛 靛青 — the mark. WCAG 10.27:1 on surface.light
+  dian.dark: '#6FA8FF'    #            WCAG 8.22:1 on surface.dark
+  ji.light: '#3E8BD8'     # 霁 雨过天青 — highlight FILL only. 3.57:1 — never text
+  ji.dark: '#6FB2F2'      #            WCAG 8.79:1 on surface.dark
+
+typography:
+  # Families. Body reads in Inter (the .reading contract); code in the mono
+  # stack; the publication lockup uses a tiny WenKai subset for 無人之境 sillage.
+  family.sans: "'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
+  family.mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+  family.display: "'WenKai Lockup', 'Songti SC', 'Noto Serif CJK SC', serif"
+
+  masthead:     { fontFamily: '{typography.family.display}', cjkSize: '50px', latinSize: '20px', lineHeight: '1', cjkLetterSpacing: '0.10em', fontWeight: 400 }
+  article-h1:   { fontFamily: '{typography.family.sans}', fontSize: 'clamp(27px, 4.4vw, 34px)', lineHeight: '1.3', letterSpacing: '-0.02em', fontWeight: 600 }
+  article-h2:   { fontFamily: '{typography.family.sans}', fontSize: '22px', lineHeight: '1.4', letterSpacing: '-0.01em', fontWeight: 600 }
+  article-h3:   { fontFamily: '{typography.family.sans}', fontSize: '19px', lineHeight: '1.45', fontWeight: 600 }
+  body:         { fontFamily: '{typography.family.sans}', fontSize: '17.5px', lineHeight: '1.85', letterSpacing: '0.003em', fontWeight: 400 }
+  post-title:   { fontFamily: '{typography.family.sans}', fontSize: '19px', lineHeight: '1.45', letterSpacing: '-0.012em', fontWeight: 500 }
+  excerpt:      { fontFamily: '{typography.family.sans}', fontSize: '15px', lineHeight: '1.55', fontWeight: 400 }
+  meta:         { fontFamily: '{typography.family.sans}', fontSize: '13px', lineHeight: '1.4', fontWeight: 400 }
+  eyebrow:      { fontFamily: '{typography.family.sans}', fontSize: '13px', letterSpacing: '0.02em', fontWeight: 500 }
+  tag:          { fontFamily: '{typography.family.sans}', fontSize: '11.5px', lineHeight: '1', fontWeight: 500 }
+  inline-code:  { fontFamily: '{typography.family.mono}', fontSize: '0.875em', fontWeight: 400 }
+
+spacing:
+  # 2px base, used as a calm 4px-ish rhythm. The named steps below are the ones
+  # the zone actually reaches for.
+  xs: '4px'
+  sm: '8px'
+  md: '12px'
+  lg: '16px'
+  xl: '24px'
+  section: '40px'
+  floor: '96px'
+
+rounded:
+  none: '0'        # single-sided / borderless surfaces (mobile list rows)
+  inline: '6px'    # inline code, kbd, small chips
+  image: '10px'    # media corners
+  card: '12px'     # cards, callouts, share row, subscribe panel
+  pill: '999px'    # tag pills, sliding hover pill, round controls
+
+layout:
+  measure: '720px'           # the reading column — every shell maxes here
+  shell-padding: '40px 24px 96px'
+  image-edge.light: 'inset 0 0 0 1px rgba(0, 0, 0, 0.1)'
+  image-edge.dark: 'inset 0 0 0 1px rgba(255, 255, 255, 0.1)'
+
+components:
+  post-item:
+    typography: '{typography.post-title}'
+    textColor: '{colors.ink}'
+    backgroundColor: 'transparent'
+  post-item-hover:
+    backgroundColor: '{colors.fill}'
+    rounded: '{rounded.pill}'
+  link:
+    textColor: '{colors.dai}'
+  tag-pill:
+    typography: '{typography.tag}'
+    textColor: '{colors.dai}'
+    backgroundColor: 'color-mix(in srgb, {colors.dai} 12%, transparent)'
+    rounded: '{rounded.pill}'
+    padding: '4px 9px'
+  search-mark:
+    backgroundColor: 'color-mix(in srgb, {colors.ji} 26%, transparent)'
+    textColor: 'inherit'
+    rounded: '3px'
+  not-by-ai:
+    typography: '{typography.meta}'
+    textColor: '{colors.dian}'
+  callout:
+    typography: '{typography.excerpt}'
+    textColor: '{colors.body}'
+    backgroundColor: '{colors.fill}'
+    rounded: '{rounded.card}'
+    padding: '16px 18px'
+  inline-code:
+    typography: '{typography.inline-code}'
+    backgroundColor: '{colors.fill}'
+    rounded: '{rounded.inline}'
+    padding: '0.15em 0.4em'
+  divider:
+    backgroundColor: '{colors.line}'
+    height: '1px'
+```

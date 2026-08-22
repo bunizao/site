@@ -1,4 +1,9 @@
-# Spotlight Overlay
+---
+title: Spotlight overlay
+description: The pointer-tracking spotlight over the dot grid, and why it is one fixed layer.
+group: Surfaces
+order: 4
+---
 
 ## Purpose
 

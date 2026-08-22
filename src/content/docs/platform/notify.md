@@ -1,4 +1,9 @@
-# Email notification lifecycle
+---
+title: Email notifications
+description: The Resend-backed notify runtime, its queues, and the admin surface that drives it.
+group: Platform
+order: 2
+---
 
 This document describes the reader-facing notification contract. The private
 implementation lives in `site-api`; the public site exposes the same routes

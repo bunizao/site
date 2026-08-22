@@ -1,4 +1,9 @@
-# Mascot
+---
+title: Mascot
+description: "peek, the site mascot: where the sprites live, how it is placed, and what it must never do."
+group: Surfaces
+order: 5
+---
 
 `peek` is the site mascot.
 
@@ -24,12 +29,12 @@ If a mascot change needs a pile of ceremony, the design is probably wrong.
 
 ## Current Usage
 
-- Navbar brand mark in [`src/layouts/Layout.astro`](../src/layouts/Layout.astro)
-- Logo data in [`src/features/logos/data/peek.ts`](../src/features/logos/data/peek.ts)
-- Extra looks in [`src/features/logos/data/peek-looks.ts`](../src/features/logos/data/peek-looks.ts)
-- Preview surface in [`src/pages/dev/preview.astro`](../src/pages/dev/preview.astro)
-- SVG route in [`src/pages/logo/[id].svg.ts`](../src/pages/logo/[id].svg.ts)
-- Sticker assets in [`public/mascot/peek/stickers/`](../public/mascot/peek/stickers/) with metadata in [`src/features/mascot/peek/stickers.ts`](../src/features/mascot/peek/stickers.ts)
+- Navbar brand mark in [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro)
+- Logo data in [`src/features/logos/data/peek.ts`](https://github.com/bunizao/site/blob/main/src/features/logos/data/peek.ts)
+- Extra looks in [`src/features/logos/data/peek-looks.ts`](https://github.com/bunizao/site/blob/main/src/features/logos/data/peek-looks.ts)
+- Preview surface in [`src/pages/dev/preview.astro`](https://github.com/bunizao/site/blob/main/src/pages/dev/preview.astro)
+- SVG route in [`src/pages/logo/[id].svg.ts`](https://github.com/bunizao/site/blob/main/src/pages/logo/[id].svg.ts)
+- Sticker assets in [`public/mascot/peek/stickers/`](https://github.com/bunizao/site/blob/main/public/mascot/peek/stickers/) with metadata in [`src/features/mascot/peek/stickers.ts`](https://github.com/bunizao/site/blob/main/src/features/mascot/peek/stickers.ts)
 
 ## Current Problem
 

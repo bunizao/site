@@ -1,8 +1,8 @@
 ---
 title: Publishing
 description: How a post gets from a Ghost draft to a deployed page, and what breaks when it doesn't.
-group: Blog
-order: 0
+group: Writing
+order: 9
 ---
 
 The publication 無人之境 lives at `/blog`. Posts are authored in Ghost and

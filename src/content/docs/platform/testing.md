@@ -1,4 +1,9 @@
-# E2E Behavior Scope
+---
+title: Test coverage
+description: The behavior surface the Playwright suite covers, and what it deliberately does not.
+group: Platform
+order: 6
+---
 
 This document defines the public behavior surface covered by the Playwright suite.
 

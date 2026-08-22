@@ -37,7 +37,9 @@ Homepage copy, section toggles, footer, projects, and SEO/OG meta are curated in
 
 ## Docs
 
-[`docs/README.md`](docs/README.md) is the index: living reference in `docs/`, active work in `docs/plans/`, shipped records in `docs/archive/`. Start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+The living reference is published at [buxx.me/docs](https://buxx.me/docs) and authored in [`src/content/docs/`](src/content/docs). Start with [Architecture](https://buxx.me/docs/architecture) or [Local development](https://buxx.me/docs/development).
+
+[`docs/README.md`](docs/README.md) indexes it, and keeps what is not reference material: active work in `docs/plans/`, shipped records in `docs/archive/`.
 
 Environment variables are documented in [`.env`](.env).
 

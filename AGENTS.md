@@ -50,8 +50,8 @@ This is the public Worker. The private Worker `site-api` lives in the sibling re
 **Astro v7** + **React** (@astrojs/react) + **TailwindCSS** + **TypeScript**. Runtime target: **Cloudflare Workers** (`site`).
 
 - `@` maps to `./src` (configured in `astro.config.mjs`). Use `@/lib/utils` instead of relative paths.
-- See `docs/ARCHITECTURE.md` for full directory structure, API endpoints, data sources, and environment variables.
-- `docs/README.md` is the docs index: living reference in `docs/`, active plans in `docs/plans/`, frozen shipped records in `docs/archive/`. When a code change makes a living doc wrong, fix the doc in the same PR; never update anything in `docs/archive/`.
+- The living reference is published at `/docs` and authored in `src/content/docs/`. `src/content/docs/architecture.md` has the full directory structure, API endpoints, data sources, and environment variables.
+- `docs/README.md` indexes the published pages and keeps what is not reference material: active plans in `docs/plans/`, frozen shipped records in `docs/archive/`. When a code change makes a published doc wrong, fix the doc in the same PR; never update anything in `docs/archive/`.
 
 ## Image Uploads
 
