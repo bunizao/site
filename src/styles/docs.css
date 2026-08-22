@@ -13,11 +13,9 @@
   --docs-line-soft: hsl(var(--foreground) / 0.06);
   --docs-surface: hsl(var(--foreground) / 0.03);
   --docs-surface-hover: hsl(var(--foreground) / 0.055);
-  /* The bar height is load-bearing twice over: the rail pins flush under it so
-     the divider runs unbroken from the chrome, and an anchored heading comes to
-     rest clear of it. */
-  --docs-bar-h: 3.25rem;
-  --docs-rail-top: 4.75rem;
+  /* Every column starts here: the rail, the prose, and the on-this-page list.
+     It used to be four unrelated numbers, so the three tops never lined up. */
+  --docs-top: 1.75rem;
   --docs-anchor-offset: 5.5rem;
 
   min-height: 100vh;
@@ -36,12 +34,20 @@ body:has(.docs) .spotlight-overlay {
   display: none;
 }
 
-/* Docs have no horizontal axis — the fences and tables scroll inside their own
-   frames. A two-finger swipe reaching an edge would otherwise chain out to the
-   browser's back gesture, which looks exactly like the page being dragged.
-   globals.css already clips the overflow itself; only the chaining is left. */
+/* Neither axis overscrolls on a docs page. Horizontally there is nothing to
+   scroll — the fences and tables scroll inside their own frames — so a swipe
+   reaching an edge would chain out to the browser back gesture, which looks
+   exactly like the page being dragged. Vertically the rubber-band at the foot
+   of the page carries the rail with it, because a sticky element rides the
+   document it is stuck to. globals.css already clips the horizontal overflow
+   itself; only the chaining is left. */
 html:has(.docs) {
-  overscroll-behavior-x: none;
+  /* Declared on the root, not on .docs: the top bar lives in the site header,
+     outside the .docs subtree, and it has to agree with the rail on this number
+     or the two stop lining up. */
+  --docs-bar-h: 3.25rem;
+
+  overscroll-behavior: none;
 }
 
 /* globals.css gives every bare <section> the home page's band treatment (48px of
@@ -67,13 +73,16 @@ html:has(.docs) {
   top: var(--site-nav-mobile-top, 0px);
   left: 0;
   right: 0;
-  height: 3.25rem;
+  height: var(--docs-bar-h);
   gap: 0;
   padding: 0 4rem 0 1rem;
   z-index: 60;
-  background: hsl(var(--background) / 0.86);
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  /* Opaque, not frosted. A backdrop-filter on a full-width fixed bar makes the
+     compositor re-read and re-blur the strip behind it on every scrolled frame,
+     and the only thing it had to soften was prose passing underneath. An opaque
+     bar has nothing to soften, so the effect paid a per-frame cost it could not
+     be seen earning. */
+  background: hsl(var(--background));
   border-bottom: 1px solid hsl(var(--foreground) / 0.07);
 }
 
@@ -250,7 +259,7 @@ body:has(.site-nav--docs) .global-header-actions {
     height: calc(100dvh - var(--docs-bar-h));
     display: flex;
     flex-direction: column;
-    padding-right: 1.25rem;
+    padding-right: 0.75rem;
     border-radius: 0;
     background: none;
     box-shadow: none;
@@ -273,13 +282,19 @@ body:has(.site-nav--docs) .global-header-actions {
   }
 
   .docs-nav-body {
-    padding: 1.15rem 0 0;
+    padding: var(--docs-top) 0 0;
   }
 
   .docs-nav-tree {
     flex: 1 1 auto;
     min-height: 0;
+    /* The gutter the thumb draws in. macOS overlay scrollbars paint over
+       content rather than displacing it, so without this the thumb lands on
+       the active row's highlight and on the badges. scrollbar-gutter keeps
+       classic scrollbars from shifting the rows when the tree grows. */
+    padding-right: 0.5rem;
     padding-bottom: 0.9rem;
+    scrollbar-gutter: stable;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
@@ -333,8 +348,14 @@ body:has(.site-nav--docs) .global-header-actions {
 }
 
 @media (min-width: 64rem) {
-  .docs-nav-search {
-    margin-top: 0.15rem;
+  /* Search and the foot stop where the tree's rows stop, so the rail keeps one
+     right edge and the scrollbar gutter is not a notch in the middle of it.
+     width:auto because an over-constrained block ignores its own right margin,
+     which is why this has to undo the 100% above. */
+  .docs-nav-search,
+  .docs-nav-foot {
+    width: auto;
+    margin-right: 0.5rem;
   }
 }
 
@@ -490,8 +511,8 @@ body:has(.site-nav--docs) .global-header-actions {
   .docs-toc {
     display: block;
     position: sticky;
-    top: var(--docs-rail-top);
-    max-height: calc(100vh - var(--docs-rail-top) - 2rem);
+    top: calc(var(--docs-bar-h) + var(--docs-top));
+    max-height: calc(100vh - var(--docs-bar-h) - var(--docs-top) - 2rem);
     overflow-y: auto;
     align-self: start;
     scrollbar-width: none;
@@ -548,7 +569,7 @@ body:has(.site-nav--docs) .global-header-actions {
 /* --- Article head ------------------------------------------------------- */
 .docs-article {
   min-width: 0;
-  padding-top: 2.5rem;
+  padding-top: var(--docs-top);
   padding-bottom: 5rem;
 }
 
