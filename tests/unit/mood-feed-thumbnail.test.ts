@@ -13,16 +13,27 @@ describe('mood feed thumbnails', () => {
     );
   });
 
-  test('reserves the priority portrait box before the image loads', () => {
+  test('reserves the portrait box before the image loads', () => {
     expect(
       getMoodFeedThumbnailStyle({
         imageWidth: 600,
         imageHeight: 800,
         imageLayout: 'portrait',
-        priority: true,
       })
     ).toBe(
       'aspect-ratio:600 / 800;--mood-thumb-ratio:600 / 800;--mood-thumb-reserved-width:210px;--mood-thumb-reserved-width-sm:240px;--mood-thumb-reserved-width-lg:260px;'
+    );
+  });
+
+  test('reserves the ultra-tall box before the image loads', () => {
+    expect(
+      getMoodFeedThumbnailStyle({
+        imageWidth: 400,
+        imageHeight: 1000,
+        imageLayout: 'ultra-tall',
+      })
+    ).toBe(
+      'aspect-ratio:400 / 1000;--mood-thumb-ratio:400 / 1000;--mood-thumb-reserved-width:128px;--mood-thumb-reserved-width-sm:144px;--mood-thumb-reserved-width-lg:160px;'
     );
   });
 });

@@ -469,9 +469,6 @@ export function createFeedRenderer({
     } else if (hasImagePreview || isTooBigVideoPreview) {
       const thumbWrap = document.createElement('div');
       thumbWrap.className = 'mood-item-thumb';
-      if (isPriorityMedia) {
-        thumbWrap.classList.add('mood-item-thumb--priority');
-      }
       if (isTooBigVideoPreview) {
         thumbWrap.classList.add('mood-item-thumb--video');
       }
@@ -509,7 +506,6 @@ export function createFeedRenderer({
           imageWidth,
           imageHeight,
           imageLayout,
-          priority: isPriorityMedia,
         });
         if (thumbnailStyle) {
           thumbWrap.setAttribute('style', thumbnailStyle);
