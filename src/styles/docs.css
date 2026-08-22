@@ -1,34 +1,38 @@
-/* Docs — the reference surface at /docs. Built on the same monochrome register as
-   the rest of the site: one ink ramp for hierarchy, hairlines drawn as inset
-   rings rather than borders, no shadows. Shared by the hub (/docs) and the
-   article route (/docs/[...slug]) so the two cannot drift apart. */
+/* Docs — the reference surface at /docs. Same monochrome register as the rest of
+   the site (one ink ramp for hierarchy, hairlines as inset rings, no shadows),
+   but tuned to reference density rather than essay density: smaller type, a
+   persistent rail, and vertical rhythm sized so a long endpoint page still scans.
+   Shared by the hub and the article route so the two cannot drift apart. */
 
 .docs {
-  /* Hierarchy is carried by these four opacities, weight, and size — never by
-     rules between sections. Matches the ramp /privacy established. */
-  --ink-strong: hsl(var(--foreground) / 0.92);
-  --ink-lede: hsl(var(--foreground) / 0.78);
-  --ink-body: hsl(var(--foreground) / 0.64);
-  --ink-faint: hsl(var(--foreground) / 0.55);
+  --ink-strong: hsl(var(--foreground) / 0.94);
+  --ink-lede: hsl(var(--foreground) / 0.72);
+  --ink-body: hsl(var(--foreground) / 0.66);
+  --ink-faint: hsl(var(--foreground) / 0.5);
   --docs-line: hsl(var(--foreground) / 0.1);
-  --docs-surface: hsl(var(--foreground) / 0.025);
-  /* Clears the fixed brand bar when a heading is reached by anchor. */
-  --docs-anchor-offset: 6rem;
+  --docs-line-soft: hsl(var(--foreground) / 0.06);
+  --docs-surface: hsl(var(--foreground) / 0.03);
+  --docs-surface-hover: hsl(var(--foreground) / 0.055);
+  /* Where the sticky rails pin, and where an anchored heading comes to rest —
+     both have to clear the fixed brand bar. */
+  --docs-rail-top: 4.75rem;
+  --docs-anchor-offset: 5.5rem;
 
   min-height: 100vh;
-  padding: 1rem 0 6rem;
+  padding: 0 0 6rem;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* The dot grid behind the page reads as noise under dense reference text. */
 body:has(.docs)::before {
   display: none;
 }
 
-/* globals.css gives every bare <section> the home page's band treatment (48px
-   of vertical padding plus a bottom hairline). Docs sections are content groups,
+/* globals.css gives every bare <section> the home page's band treatment (48px of
+   vertical padding plus a bottom hairline). Docs sections are content groups,
    not bands, so opt out once here and let the rules below own the rhythm. */
 .docs section {
   padding: 0;
@@ -36,31 +40,30 @@ body:has(.docs)::before {
 }
 
 /* --- Shell -------------------------------------------------------------- */
-/* Two shells, one class. The hub is a single column and stays narrow; the
-   article route adds the sidebar once there is room beside the prose, and the
-   on-this-page rail one breakpoint later. The extra columns are scoped to the
-   --article modifier on purpose: applied to the base they would drop the hub's
-   only child into the 13.5rem sidebar track. */
+/* One column on a phone; the rail appears once there is room beside the prose,
+   and the on-this-page column one breakpoint later. */
 .docs-shell {
-  width: min(62rem, 100% - 2.5rem);
+  width: min(88rem, 100% - 2.5rem);
   margin: 0 auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 2rem;
+  gap: 1.5rem;
+  padding-top: 1.25rem;
 }
 
-@media (min-width: 60rem) {
+@media (min-width: 64rem) {
   .docs-shell--article {
-    width: min(78rem, 100% - 3rem);
-    grid-template-columns: 13.5rem minmax(0, 1fr);
-    gap: 3rem;
+    width: min(88rem, 100% - 3.5rem);
+    grid-template-columns: 15rem minmax(0, 1fr);
+    gap: 3.5rem;
     align-items: start;
+    padding-top: 0;
   }
 }
 
-@media (min-width: 84rem) {
+@media (min-width: 90rem) {
   .docs-shell--article {
-    grid-template-columns: 13.5rem minmax(0, 1fr) 11rem;
+    grid-template-columns: 15rem minmax(0, 1fr) 13rem;
   }
 }
 
@@ -76,10 +79,10 @@ body:has(.docs)::before {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.8rem 1rem;
+  padding: 0.7rem 0.9rem;
   cursor: pointer;
   font-family: var(--font-sans);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-weight: 500;
   letter-spacing: -0.012em;
   color: var(--ink-strong);
@@ -107,19 +110,21 @@ body:has(.docs)::before {
 }
 
 .docs-nav-body {
-  padding: 0.25rem 1rem 1rem;
+  padding: 0.15rem 0.9rem 0.9rem;
 }
 
-@media (min-width: 60rem) {
-  /* Desktop: the disclosure is meaningless — flatten it to a plain sticky rail.
-     `details` still needs to render its content when closed, so force display
-     rather than relying on the open attribute. */
+@media (min-width: 64rem) {
+  /* Desktop: the disclosure is meaningless. Flatten it into a full-height rail
+     that scrolls on its own, so a thirty-page tree never pushes the article
+     down and the nav is still there at the bottom of a long endpoint page. */
   .docs-nav {
     position: sticky;
-    top: 2.5rem;
+    top: var(--docs-rail-top);
+    height: calc(100vh - var(--docs-rail-top));
     border-radius: 0;
     background: none;
     box-shadow: none;
+    overflow: visible;
   }
 
   .docs-nav-summary {
@@ -127,21 +132,78 @@ body:has(.docs)::before {
   }
 
   .docs-nav-body {
-    display: block;
-    padding: 0;
+    height: 100%;
+    padding: 0 1.25rem 2.5rem 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-right: 1px solid var(--docs-line-soft);
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.16) transparent;
+  }
+
+  .docs-nav-body::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .docs-nav-body::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background: hsl(var(--foreground) / 0.16);
+  }
+}
+
+.docs-nav-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0 0 1.35rem;
+  padding: 0.45rem 0.6rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--docs-surface);
+  box-shadow: inset 0 0 0 1px var(--docs-line);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  letter-spacing: -0.008em;
+  color: var(--ink-faint);
+  transition: color 0.15s ease, box-shadow 0.18s ease;
+}
+
+.docs-nav-search:hover,
+.docs-nav-search:focus-visible {
+  color: var(--ink-strong);
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.2);
+}
+
+.docs-nav-search-label {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.docs-nav-search-keys {
+  display: inline-flex;
+  gap: 0.15rem;
+  opacity: 0.75;
+}
+
+@media (min-width: 64rem) {
+  .docs-nav-search {
+    margin-top: 0.15rem;
   }
 }
 
 .docs-nav-group + .docs-nav-group {
-  margin-top: 1.6rem;
+  margin-top: 1.35rem;
 }
 
 .docs-nav-group-label {
-  margin: 0 0 0.6rem;
+  margin: 0 0 0.45rem;
+  padding-left: 0.6rem;
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 400;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--ink-faint);
 }
@@ -150,32 +212,23 @@ body:has(.docs)::before {
   margin: 0;
   padding: 0;
   list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
 }
 
+/* A filled pill for the current page rather than a cursor rule: at this density
+   a 1px mark beside twelve near-identical rows is not findable at a glance. */
 .docs-nav-link {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.3rem 0;
+  gap: 0.5rem;
+  padding: 0.32rem 0.6rem;
+  border-radius: 0.4rem;
   font-family: var(--font-sans);
-  font-size: 0.9rem;
-  letter-spacing: -0.01em;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  letter-spacing: -0.008em;
   color: var(--ink-body);
   text-decoration: none;
-  transition: color 0.15s ease;
-}
-
-/* Same cursor idiom as the On-this-page rail, so the two rails on a docs page
-   read as one system rather than two nav styles. */
-.docs-nav-cursor {
-  flex: none;
-  width: 0.9rem;
-  height: 1px;
-  background: hsl(var(--foreground) / 0.2);
-  transition: width 0.18s cubic-bezier(0.23, 1, 0.32, 1), background-color 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease;
 }
 
 .docs-nav-link-text {
@@ -185,43 +238,112 @@ body:has(.docs)::before {
 .docs-nav-link:hover,
 .docs-nav-link:focus-visible {
   color: hsl(var(--foreground));
+  background: var(--docs-surface);
 }
 
 .docs-nav-link[aria-current='page'] {
   color: hsl(var(--foreground));
   font-weight: 500;
-}
-
-.docs-nav-link[aria-current='page'] .docs-nav-cursor {
-  width: 1.5rem;
-  background: hsl(var(--foreground));
+  background: var(--docs-surface-hover);
 }
 
 .docs-nav-badge {
   flex: none;
-  padding: 0.1em 0.4em;
+  padding: 0.1em 0.38em;
   border-radius: 0.3rem;
-  background: hsl(var(--foreground) / 0.06);
+  background: hsl(var(--foreground) / 0.07);
   font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-faint);
 }
 
+/* --- On this page ------------------------------------------------------- */
+.docs-toc {
+  display: none;
+}
+
+@media (min-width: 90rem) {
+  .docs-toc {
+    display: block;
+    position: sticky;
+    top: var(--docs-rail-top);
+    max-height: calc(100vh - var(--docs-rail-top) - 2rem);
+    overflow-y: auto;
+    align-self: start;
+    scrollbar-width: none;
+  }
+
+  .docs-toc::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.docs-toc-label {
+  margin: 0 0 0.65rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.docs-toc-nav {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--docs-line-soft);
+}
+
+.docs-toc-link {
+  padding: 0.3rem 0 0.3rem 0.8rem;
+  margin-left: -1px;
+  border-left: 1px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  letter-spacing: -0.008em;
+  color: var(--ink-faint);
+  text-decoration: none;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.docs-toc-link--sub {
+  padding-left: 1.6rem;
+  font-size: 0.78rem;
+}
+
+.docs-toc-link:hover,
+.docs-toc-link:focus-visible {
+  color: hsl(var(--foreground));
+}
+
+.docs-toc-link.is-active {
+  color: hsl(var(--foreground));
+  border-left-color: hsl(var(--foreground));
+}
+
 /* --- Article head ------------------------------------------------------- */
 .docs-article {
   min-width: 0;
+  padding-top: 2.5rem;
+}
+
+@media (max-width: 63.99rem) {
+  .docs-article {
+    padding-top: 1.75rem;
+  }
 }
 
 .docs-eyebrow {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 0.85rem;
-  font-family: var(--font-sans);
-  font-size: 0.8125rem;
-  letter-spacing: -0.005em;
+  gap: 0.45rem;
+  margin: 0 0 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
   color: var(--ink-faint);
 }
 
@@ -237,35 +359,39 @@ body:has(.docs)::before {
 }
 
 .docs-title {
-  max-width: 18ch;
-  margin: 0 0 0.9rem;
+  max-width: 24ch;
+  margin: 0 0 0.7rem;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 4.2vw, 2.9rem);
+  font-size: clamp(1.85rem, 3vw, 2.35rem);
   font-weight: 700;
-  line-height: 1.04;
-  letter-spacing: -0.035em;
+  line-height: 1.08;
+  letter-spacing: -0.032em;
   color: hsl(var(--foreground));
   text-wrap: balance;
 }
 
 .docs-lede {
-  max-width: 46rem;
-  margin: 0 0 2.75rem;
+  max-width: 44rem;
+  margin: 0 0 2.5rem;
   font-family: var(--font-sans);
-  font-size: 1.15rem;
-  line-height: 1.6;
+  font-size: 1.0625rem;
+  line-height: 1.55;
   letter-spacing: -0.014em;
   color: var(--ink-lede);
   text-wrap: pretty;
 }
 
 /* --- Prose -------------------------------------------------------------- */
-/* Wider measure than the essay pages on purpose: reference prose here is mostly
-   parameter tables and fenced examples, and a 36rem column forces both to
-   scroll. Running text still tops out near 70 characters. */
+/* Reference density: 15px on a 44rem column runs about 78 characters, which is
+   long for an essay and right for a page that is mostly parameter tables and
+   fenced examples — both of which scroll the moment the column narrows. */
 .docs-prose {
-  max-width: 46rem;
+  max-width: 44rem;
   font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.72;
+  letter-spacing: -0.006em;
+  color: var(--ink-body);
 }
 
 .docs-prose > :first-child {
@@ -273,56 +399,48 @@ body:has(.docs)::before {
 }
 
 .docs-prose h2 {
-  margin: 3.5rem 0 1.1rem;
+  margin: 3rem 0 0.9rem;
   scroll-margin-top: var(--docs-anchor-offset);
   font-family: var(--font-display);
-  font-size: clamp(1.3rem, 2.2vw, 1.55rem);
+  font-size: 1.3rem;
   font-weight: 650;
-  line-height: 1.2;
-  letter-spacing: -0.028em;
-  color: var(--ink-strong);
+  line-height: 1.25;
+  letter-spacing: -0.026em;
+  color: hsl(var(--foreground));
   text-wrap: balance;
 }
 
 .docs-prose h3 {
-  margin: 2.5rem 0 0.85rem;
+  margin: 2.1rem 0 0.7rem;
   scroll-margin-top: var(--docs-anchor-offset);
   font-family: var(--font-sans);
-  font-size: 1.075rem;
+  font-size: 1rem;
   font-weight: 600;
-  line-height: 1.3;
-  letter-spacing: -0.018em;
+  line-height: 1.35;
+  letter-spacing: -0.016em;
   color: var(--ink-strong);
 }
 
 .docs-prose h4 {
-  margin: 1.75rem 0 0.6rem;
+  margin: 1.5rem 0 0.5rem;
   scroll-margin-top: var(--docs-anchor-offset);
   font-family: var(--font-sans);
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.012em;
   color: var(--ink-lede);
 }
 
-.docs-prose p,
-.docs-prose li {
-  font-size: 1.0625rem;
-  line-height: 1.7;
-  letter-spacing: -0.009em;
-  color: var(--ink-body);
+.docs-prose p {
+  margin: 0 0 1rem;
   text-wrap: pretty;
   overflow-wrap: break-word;
 }
 
-.docs-prose p {
-  margin: 0 0 1.15rem;
-}
-
 .docs-prose ul,
 .docs-prose ol {
-  margin: 0 0 1.15rem;
-  padding-left: 1.1rem;
+  margin: 0 0 1rem;
+  padding-left: 1.15rem;
 }
 
 .docs-prose ul {
@@ -333,16 +451,25 @@ body:has(.docs)::before {
   list-style: decimal;
 }
 
+.docs-prose li {
+  overflow-wrap: break-word;
+}
+
 .docs-prose li + li {
-  margin-top: 0.55rem;
+  margin-top: 0.4rem;
 }
 
 .docs-prose li::marker {
-  color: hsl(var(--foreground) / 0.28);
+  color: hsl(var(--foreground) / 0.3);
 }
 
 .docs-prose li > p {
   margin: 0;
+}
+
+.docs-prose li > ul,
+.docs-prose li > ol {
+  margin: 0.4rem 0 0;
 }
 
 .docs-prose strong {
@@ -353,9 +480,9 @@ body:has(.docs)::before {
 .docs-prose a {
   color: hsl(var(--foreground));
   text-decoration: underline;
-  text-decoration-color: hsl(var(--foreground) / 0.28);
+  text-decoration-color: hsl(var(--foreground) / 0.3);
   text-decoration-thickness: 1px;
-  text-underline-offset: 0.22em;
+  text-underline-offset: 0.2em;
   transition: text-decoration-color 0.18s ease;
 }
 
@@ -364,20 +491,19 @@ body:has(.docs)::before {
   text-decoration-color: hsl(var(--foreground));
 }
 
-/* Section break. The migrated API references use `---` between endpoints; keep
-   it as breathing room plus a hairline, not a heavy divider. */
 .docs-prose hr {
-  margin: 3rem 0;
+  margin: 2.75rem 0;
   border: 0;
-  border-top: 1px solid var(--docs-line);
+  border-top: 1px solid var(--docs-line-soft);
 }
 
+/* Blockquotes are used as callouts here, not as pull quotes. */
 .docs-prose blockquote {
-  margin: 1.75rem 0;
-  padding: 1.05rem 1.3rem;
-  border-radius: 0.875rem;
-  background: hsl(var(--foreground) / 0.035);
-  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.07);
+  margin: 1.5rem 0;
+  padding: 0.9rem 1.1rem;
+  border-radius: 0.6rem;
+  border-left: 2px solid hsl(var(--foreground) / 0.28);
+  background: var(--docs-surface);
 }
 
 .docs-prose blockquote > :last-child {
@@ -385,34 +511,40 @@ body:has(.docs)::before {
 }
 
 /* --- Tables ------------------------------------------------------------- */
-/* Parameter tables are the backbone of this section, and several are wider than
-   the column on a phone. `display: block` is what makes a table scrollable in
-   its own right — without it the overflow escapes and the whole page pans. The
-   cost is that the table no longer fills the column when it is narrow, which is
-   why width is pinned back on at the breakpoint where it always fits. */
+/* Parameter tables are the backbone of this section and several are wider than
+   the column on a phone. Wrapping the table in its own scroll container is what
+   keeps that overflow local — a bare table pans the whole page instead. */
 .docs-prose table {
   display: block;
   width: max-content;
   max-width: 100%;
-  margin: 0 0 1.75rem;
+  margin: 0 0 1.5rem;
   overflow-x: auto;
   border-collapse: collapse;
-  font-size: 0.9375rem;
-  line-height: 1.55;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.docs-prose thead {
+  border-bottom: 1px solid var(--docs-line);
 }
 
 .docs-prose th,
 .docs-prose td {
-  padding: 0.55rem 1rem 0.55rem 0;
+  padding: 0.5rem 1.25rem 0.5rem 0;
   text-align: left;
   vertical-align: top;
-  border-bottom: 1px solid var(--docs-line);
   white-space: normal;
 }
 
+.docs-prose tbody tr {
+  border-top: 1px solid var(--docs-line-soft);
+}
+
 .docs-prose th {
+  padding-bottom: 0.6rem;
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   font-weight: 400;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -420,41 +552,34 @@ body:has(.docs)::before {
   white-space: nowrap;
 }
 
-.docs-prose td {
-  color: var(--ink-body);
-}
-
-/* First column of a parameter table is the parameter name — keep it on one line
-   so `prefers-color-scheme` never wraps mid-token. */
+/* First column of a parameter table is the parameter itself — keep it on one
+   line so a token never wraps mid-name. */
 .docs-prose td:first-child {
   color: var(--ink-strong);
   white-space: nowrap;
 }
 
-.docs-prose tbody tr:last-child td {
-  border-bottom: 0;
-}
-
 /* --- Code --------------------------------------------------------------- */
 .docs-prose :not(pre) > code {
-  padding: 0.12em 0.34em;
+  padding: 0.14em 0.36em;
   border-radius: 0.3rem;
   background: hsl(var(--foreground) / 0.06);
   font-family: var(--font-code);
-  font-size: 0.875em;
+  font-size: 0.86em;
   letter-spacing: -0.01em;
   color: var(--ink-strong);
+  overflow-wrap: break-word;
 }
 
 .docs-prose pre.astro-code {
-  margin: 0 0 1.75rem;
-  padding: 1rem 1.15rem;
-  border-radius: var(--radius);
+  margin: 0 0 1.5rem;
+  padding: 0.9rem 1.05rem;
+  border-radius: 0.6rem;
   background: var(--docs-surface) !important;
-  box-shadow: inset 0 0 0 1px var(--docs-line);
+  box-shadow: inset 0 0 0 1px var(--docs-line-soft);
   overflow-x: auto;
-  font-size: 0.85rem;
-  line-height: 1.65;
+  font-size: 0.8125rem;
+  line-height: 1.62;
   tab-size: 2;
 }
 
@@ -465,7 +590,7 @@ body:has(.docs)::before {
 }
 
 /* Dual-theme fences. shikiConfig runs with `defaultColor: false`, so tokens ship
-   both palettes as custom properties and the theme class picks one — same
+   both palettes as custom properties and the theme class picks one — the same
    contract code-box.css renders under. */
 .docs-prose pre.astro-code,
 .docs-prose pre.astro-code span {
@@ -486,20 +611,20 @@ html.dark .docs-prose pre.astro-code span {
 /* --- Pager -------------------------------------------------------------- */
 .docs-pager {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
-  gap: 0.75rem;
-  max-width: 46rem;
-  margin-top: 4rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--docs-line);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.6rem;
+  max-width: 44rem;
+  margin-top: 3.5rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--docs-line-soft);
 }
 
 .docs-pager-link {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.9rem 1.1rem;
-  border-radius: 0.75rem;
+  gap: 0.2rem;
+  padding: 0.75rem 0.95rem;
+  border-radius: 0.6rem;
   box-shadow: inset 0 0 0 1px var(--docs-line);
   text-decoration: none;
   transition: background-color 0.18s ease, box-shadow 0.18s ease;
@@ -517,72 +642,67 @@ html.dark .docs-prose pre.astro-code span {
 
 .docs-pager-dir {
   font-family: var(--font-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.12em;
+  font-size: 0.62rem;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--ink-faint);
 }
 
 .docs-pager-title {
   font-family: var(--font-sans);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 500;
   letter-spacing: -0.014em;
   color: var(--ink-strong);
 }
 
-/* --- Hub ---------------------------------------------------------------- */
-.docs-hub-head {
-  margin-bottom: 3.25rem;
+.docs-source {
+  max-width: 44rem;
+  margin: 1.5rem 0 0;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: var(--ink-faint);
 }
 
-/* The lede's own bottom margin is sized for an article, where prose follows it
-   directly. In the hub it is the last child of the header, so drop it rather
-   than stacking two gaps. */
+.docs-source a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: hsl(var(--foreground) / 0.22);
+  text-underline-offset: 0.2em;
+  transition: color 0.15s ease;
+}
+
+.docs-source a:hover,
+.docs-source a:focus-visible {
+  color: var(--ink-strong);
+}
+
+/* --- Hub ---------------------------------------------------------------- */
+.docs-hub-head {
+  max-width: 44rem;
+  margin-bottom: 2.25rem;
+}
+
+/* The lede's bottom margin is sized for an article, where prose follows it
+   directly. In the hub it is the last child of the header. */
 .docs-hub-head .docs-lede {
   margin-bottom: 0;
 }
 
-.docs-hub-section + .docs-hub-section {
-  margin-top: 2.75rem;
-  padding-top: 2.75rem;
-  border-top: 1px solid var(--docs-line);
-}
-
-.docs-hub-section-head {
-  margin: 0 0 1.25rem;
-}
-
-.docs-hub-section-label {
-  margin: 0 0 0.3rem;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-
-.docs-hub-section-blurb {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 0.95rem;
-  line-height: 1.55;
-  letter-spacing: -0.01em;
-  color: var(--ink-body);
-}
-
-.docs-hub-grid {
+.docs-hub-start {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 0.6rem;
+  max-width: 56rem;
+  margin-bottom: 3.25rem;
 }
 
 .docs-card {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 1.15rem 1.3rem;
-  border-radius: 0.875rem;
+  gap: 0.3rem;
+  padding: 0.95rem 1.1rem;
+  border-radius: 0.7rem;
   box-shadow: inset 0 0 0 1px var(--docs-line);
   text-decoration: none;
   transition: background-color 0.18s ease, box-shadow 0.18s ease;
@@ -597,11 +717,11 @@ html.dark .docs-prose pre.astro-code span {
 .docs-card-title {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   font-family: var(--font-sans);
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
-  letter-spacing: -0.018em;
+  letter-spacing: -0.016em;
   color: var(--ink-strong);
 }
 
@@ -616,20 +736,104 @@ html.dark .docs-prose pre.astro-code span {
 }
 
 .docs-card-desc {
-  margin: 0;
   font-family: var(--font-sans);
-  font-size: 0.9rem;
-  line-height: 1.55;
-  letter-spacing: -0.008em;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  letter-spacing: -0.006em;
   color: var(--ink-body);
   text-wrap: pretty;
 }
 
-/* Outbound row — the aggregation half of the hub. Not cards: these are places
-   on the site, not pages of the reference, and the flat row keeps that distinct. */
+/* The index proper. Rows rather than cards: thirty cards is a wall, and a reader
+   scanning for one page wants a list they can run an eye down. */
+.docs-hub-section {
+  max-width: 56rem;
+}
+
+.docs-hub-section + .docs-hub-section {
+  margin-top: 2.5rem;
+}
+
+.docs-hub-section-head {
+  margin: 0 0 0.85rem;
+}
+
+.docs-hub-section-label {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 400;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.docs-hub-section-blurb {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  letter-spacing: -0.008em;
+  color: var(--ink-body);
+}
+
+.docs-hub-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--docs-line-soft);
+}
+
+.docs-hub-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.1rem;
+  padding: 0.65rem 0.6rem;
+  border-bottom: 1px solid var(--docs-line-soft);
+  border-radius: 0.4rem;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+@media (min-width: 40rem) {
+  .docs-hub-row {
+    grid-template-columns: 13rem minmax(0, 1fr);
+    align-items: baseline;
+    gap: 1.25rem;
+  }
+}
+
+.docs-hub-row:hover,
+.docs-hub-row:focus-visible {
+  background: var(--docs-surface);
+}
+
+.docs-hub-row-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: -0.014em;
+  color: var(--ink-strong);
+}
+
+.docs-hub-row-desc {
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+  color: var(--ink-faint);
+  text-wrap: pretty;
+}
+
+/* Outbound row — the aggregation half of the hub. Not rows in the index: these
+   are places on the site, not pages of the reference. */
 .docs-hub-elsewhere {
-  margin-top: 4rem;
-  padding-top: 2rem;
+  max-width: 56rem;
+  margin-top: 3.5rem;
+  padding-top: 1.75rem;
   border-top: 1px solid var(--docs-line);
 }
 
@@ -637,7 +841,7 @@ html.dark .docs-prose pre.astro-code span {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1.75rem;
-  margin: 0;
+  margin: 0.75rem 0 0;
   padding: 0;
   list-style: none;
 }
@@ -645,9 +849,9 @@ html.dark .docs-prose pre.astro-code span {
 .docs-hub-elsewhere-link {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: 0.45rem;
   font-family: var(--font-sans);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   letter-spacing: -0.012em;
   color: var(--ink-strong);
   text-decoration: none;
@@ -655,19 +859,19 @@ html.dark .docs-prose pre.astro-code span {
 
 .docs-hub-elsewhere-link span {
   color: var(--ink-faint);
-  font-size: 0.875rem;
+  font-size: 0.84rem;
 }
 
 .docs-hub-elsewhere-link:hover,
 .docs-hub-elsewhere-link:focus-visible {
   text-decoration: underline;
   text-decoration-color: hsl(var(--foreground) / 0.35);
-  text-underline-offset: 0.22em;
+  text-underline-offset: 0.2em;
 }
 
 @media (max-width: 560px) {
   .docs {
-    padding: 0.75rem 0 4.5rem;
+    padding-bottom: 4.5rem;
   }
 
   .docs-shell {
@@ -675,27 +879,17 @@ html.dark .docs-prose pre.astro-code span {
   }
 
   .docs-title {
-    max-width: 15ch;
+    max-width: 18ch;
   }
 
   .docs-lede {
-    font-size: 1.05rem;
-  }
-
-  .docs-prose p,
-  .docs-prose li {
     font-size: 1rem;
-    line-height: 1.68;
-  }
-
-  .docs-prose h2 {
-    margin-top: 2.75rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .docs-nav-chevron,
-  .docs-nav-cursor,
+  .docs-nav-link,
   .docs-card,
   .docs-card-arrow,
   .docs-pager-link,

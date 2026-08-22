@@ -11,9 +11,26 @@ export interface DocsGroup {
 // a trailing catch-all rather than disappearing, so a typo in frontmatter is
 // visible on the page instead of silently swallowing a doc.
 const GROUPS: Array<{ label: string; blurb: string }> = [
-  { label: 'Start', blurb: 'What this site is and how its pieces fit together.' },
-  { label: 'API', blurb: 'Public endpoints anyone can call — embeds, badges, feeds.' },
-  { label: 'Blog', blurb: 'How writing gets from a draft to a published post.' },
+  {
+    label: 'Start',
+    blurb: 'What this site is, how it is put together, and how to run it.',
+  },
+  {
+    label: 'Writing',
+    blurb: 'Composing a post: the directive grammar, every directive, and tags.',
+  },
+  {
+    label: 'API',
+    blurb: 'Public endpoints anyone can call — embeds, badges, feeds.',
+  },
+  {
+    label: 'Surfaces',
+    blurb: 'The pages themselves and the design rules each one follows.',
+  },
+  {
+    label: 'Platform',
+    blurb: 'Workers, ingestion, delivery, auth, and what the tests cover.',
+  },
 ];
 
 const UNGROUPED = { label: 'More', blurb: 'Everything else.' };

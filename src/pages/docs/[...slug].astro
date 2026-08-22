@@ -2,8 +2,8 @@
 import { render, type CollectionEntry } from 'astro:content';
 import Layout from '@/layouts/Layout.astro';
 import Footer from '@/features/home/ui/Footer.astro';
-import OnThisPage from '@/features/components/ui/OnThisPage.astro';
 import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
+import DocsToc, { type DocsTocItem } from '@/features/docs/ui/DocsToc.astro';
 import { docPath, getDocsNav, getDocsSiblings, type DocsGroup } from '@/features/docs/server/nav';
 import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/docs.css';
@@ -28,13 +28,18 @@ const { entry, groups } = Astro.props;
 const { title, description, group } = entry.data;
 const { Content, headings } = await render(entry);
 
-// H2s only. Every migrated reference nests H3/H4 under an endpoint heading, and
-// listing all three depths turns the rail into a second copy of the page.
-const toc = headings
-  .filter((heading) => heading.depth === 2)
-  .map((heading) => ({ id: heading.slug, label: heading.text }));
+// Two depths. H4 is used inside a directive's own subsections and would turn the
+// rail into a second copy of the page.
+const toc: DocsTocItem[] = headings
+  .filter((heading) => heading.depth === 2 || heading.depth === 3)
+  .map((heading) => ({
+    id: heading.slug,
+    label: heading.text,
+    depth: heading.depth as 2 | 3,
+  }));
 
 const { prev, next } = getDocsSiblings(groups, entry.id);
+const sourceUrl = `https://github.com/bunizao/site/blob/main/src/content/docs/${entry.id}.md`;
 ---
 
 <Layout
@@ -46,7 +51,7 @@ const { prev, next } = getDocsSiblings(groups, entry.id);
   showSiteNav
   brandVariant="home"
 >
-  <main class="docs">
+  <main class="docs docs--article">
     <div class="docs-shell docs-shell--article">
       <DocsSidebar groups={groups} current={entry.id} />
 
@@ -63,25 +68,27 @@ const { prev, next } = getDocsSiblings(groups, entry.id);
           <Content />
         </div>
 
-        {(prev || next) && (
-          <nav class="docs-pager" aria-label="Docs pagination">
-            {prev && (
-              <a class="docs-pager-link docs-pager-link--prev" href={docPath(prev.id)} rel="prev">
-                <span class="docs-pager-dir">Previous</span>
-                <span class="docs-pager-title">{prev.data.title}</span>
-              </a>
-            )}
-            {next && (
-              <a class="docs-pager-link docs-pager-link--next" href={docPath(next.id)} rel="next">
-                <span class="docs-pager-dir">Next</span>
-                <span class="docs-pager-title">{next.data.title}</span>
-              </a>
-            )}
-          </nav>
-        )}
+        <nav class="docs-pager" aria-label="Docs pagination">
+          {prev ? (
+            <a class="docs-pager-link docs-pager-link--prev" href={docPath(prev.id)} rel="prev">
+              <span class="docs-pager-dir">Previous</span>
+              <span class="docs-pager-title">{prev.data.title}</span>
+            </a>
+          ) : <span class="docs-pager-gap"></span>}
+          {next && (
+            <a class="docs-pager-link docs-pager-link--next" href={docPath(next.id)} rel="next">
+              <span class="docs-pager-dir">Next</span>
+              <span class="docs-pager-title">{next.data.title}</span>
+            </a>
+          )}
+        </nav>
+
+        <p class="docs-source">
+          <a href={sourceUrl} rel="noopener noreferrer" target="_blank">Edit this page on GitHub</a>
+        </p>
       </article>
 
-      {toc.length > 1 && <OnThisPage items={toc} />}
+      {toc.length > 1 && <DocsToc items={toc} />}
     </div>
   </main>
   <Footer />

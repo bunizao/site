@@ -1,4 +1,5 @@
 ---
+import Kbd from '@/components/Kbd.astro';
 import type { DocsGroup } from '@/features/docs/server/nav';
 import { docPath } from '@/features/docs/server/nav';
 
@@ -21,33 +22,42 @@ const currentEntry = current
 <details class="docs-nav" open data-docs-nav>
   <summary class="docs-nav-summary">
     <span class="docs-nav-summary-label">
-      {currentEntry ? `${currentEntry.data.group} · ${currentEntry.data.title}` : 'All docs'}
+      {currentEntry ? currentEntry.data.title : 'All docs'}
     </span>
     <svg class="docs-nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
   </summary>
 
-  <nav class="docs-nav-body" aria-label="Docs">
-    {groups.map((group) => (
-      <section class="docs-nav-group">
-        <p class="docs-nav-group-label">{group.label}</p>
-        <ul class="docs-nav-list">
-          {group.entries.map((entry) => (
-            <li>
-              <a
-                class="docs-nav-link"
-                href={docPath(entry.id)}
-                aria-current={entry.id === current ? 'page' : undefined}
-              >
-                <span class="docs-nav-cursor" aria-hidden="true"></span>
-                <span class="docs-nav-link-text">{entry.data.title}</span>
-                {entry.data.badge && <span class="docs-nav-badge">{entry.data.badge}</span>}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
-    ))}
-  </nav>
+  <div class="docs-nav-body">
+    {/* Reuses the global command palette rather than shipping a second index —
+        pagefind already crawls /docs during the build. */}
+    <button class="docs-nav-search" type="button" data-command-open aria-label="Search docs">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <span class="docs-nav-search-label">Search</span>
+      <span class="docs-nav-search-keys" aria-hidden="true"><Kbd icon="command" /><Kbd>K</Kbd></span>
+    </button>
+
+    <nav class="docs-nav-tree" aria-label="Docs">
+      {groups.map((group) => (
+        <section class="docs-nav-group">
+          <p class="docs-nav-group-label">{group.label}</p>
+          <ul class="docs-nav-list">
+            {group.entries.map((entry) => (
+              <li>
+                <a
+                  class="docs-nav-link"
+                  href={docPath(entry.id)}
+                  aria-current={entry.id === current ? 'page' : undefined}
+                >
+                  <span class="docs-nav-link-text">{entry.data.title}</span>
+                  {entry.data.badge && <span class="docs-nav-badge">{entry.data.badge}</span>}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </nav>
+  </div>
 </details>
 
 <script>
@@ -56,11 +66,17 @@ const currentEntry = current
   (() => {
     const nav = document.querySelector<HTMLDetailsElement>('[data-docs-nav]');
     if (!nav) return;
-    const wide = window.matchMedia('(min-width: 60rem)');
+    const wide = window.matchMedia('(min-width: 64rem)');
     const sync = () => {
       nav.open = wide.matches;
     };
     sync();
     wide.addEventListener('change', sync);
+
+    // Keep the active entry in view when the rail is taller than the viewport.
+    const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+    if (active && wide.matches) {
+      active.scrollIntoView({ block: 'nearest' });
+    }
   })();
 </script>

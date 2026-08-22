@@ -1,6 +1,7 @@
 ---
 import Layout from '@/layouts/Layout.astro';
 import Footer from '@/features/home/ui/Footer.astro';
+import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
 import { docPath, getDocsNav } from '@/features/docs/server/nav';
 import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/docs.css';
@@ -8,10 +9,28 @@ import '@/styles/docs.css';
 export const prerender = true;
 
 const groups = await getDocsNav();
+const pageCount = groups.reduce((total, group) => total + group.entries.length, 0);
 
-// The aggregation half of the hub: where to go when you did not come here for
-// the reference. Notes are what each place actually is, not a restatement of
-// its name.
+// Three doors, one per kind of reader: someone new to the codebase, someone
+// about to write a post, someone about to call an endpoint.
+const START_HERE = [
+  {
+    href: '/docs/overview',
+    label: 'Overview',
+    note: 'What buxx.me is and which surface owns what.',
+  },
+  {
+    href: '/docs/writing/directives',
+    label: 'Directives',
+    note: 'The [!name] grammar every post is composed with.',
+  },
+  {
+    href: '/docs/api/oembed',
+    label: 'Embed a mood',
+    note: 'oEmbed, the iframe widget, and the postMessage contract.',
+  },
+];
+
 const ELSEWHERE = [
   { href: '/blog', label: 'Blog', note: 'Essays and notes — 無人之境' },
   { href: '/mood', label: 'Mood', note: 'The running short-form feed' },
@@ -19,62 +38,73 @@ const ELSEWHERE = [
   { href: '/projects', label: 'Projects', note: 'What I ship, and why' },
   { href: 'https://github.com/bunizao/site', label: 'Source', note: 'This site on GitHub' },
 ];
-
-const title = formatSiteTitle('Docs');
-const description =
-  'Reference for buxx.me — the public endpoints you can call, the embeds you can drop into someone else’s page, and how the writing gets published.';
 ---
 
 <Layout
   preloadFont={['display', 'sans', 'mono']}
-  title={title}
-  description={description}
+  title={formatSiteTitle('Docs')}
+  description="Reference for buxx.me — architecture, the post composing syntax, public API endpoints, and how every surface is built."
   url="/docs"
   navVariant="page"
   showSiteNav
   brandVariant="home"
 >
-  <main class="docs">
-    <div class="docs-shell">
+  <main class="docs docs--hub">
+    <div class="docs-shell docs-shell--article">
+      <DocsSidebar groups={groups} />
+
       <div class="docs-article">
         <header class="docs-hub-head">
-          <p class="docs-eyebrow">Documentation</p>
-          <h1 class="docs-title">Everything this site exposes.</h1>
+          <p class="docs-eyebrow"><span>Documentation</span></p>
+          <h1 class="docs-title">Everything this site does, written down.</h1>
           <p class="docs-lede">
-            One reference for the public surface of buxx.me — embeds, badges, feeds, and the
-            path a post takes from draft to deploy. No keys, no signup; read the cache notes
-            before you point a poller at anything.
+            {pageCount} pages covering how buxx.me is built: the runtime and its
+            boundaries, the directive syntax posts are composed with, the public
+            endpoints anyone can call, and the rules each surface follows.
           </p>
         </header>
 
+        <section class="docs-hub-start" aria-label="Start here">
+          {START_HERE.map((item) => (
+            <a class="docs-card" href={item.href}>
+              <span class="docs-card-title">
+                {item.label}
+                <svg class="docs-card-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+              </span>
+              <span class="docs-card-desc">{item.note}</span>
+            </a>
+          ))}
+        </section>
+
         {groups.map((group) => (
           <section class="docs-hub-section">
-            <header class="docs-hub-section-head">
-              <p class="docs-hub-section-label">{group.label}</p>
+            <div class="docs-hub-section-head">
+              <h2 class="docs-hub-section-label">{group.label}</h2>
               <p class="docs-hub-section-blurb">{group.blurb}</p>
-            </header>
-            <div class="docs-hub-grid">
-              {group.entries.map((entry) => (
-                <a class="docs-card" href={docPath(entry.id)}>
-                  <span class="docs-card-title">
-                    {entry.data.title}
-                    <svg class="docs-card-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
-                  </span>
-                  <p class="docs-card-desc">{entry.data.description}</p>
-                </a>
-              ))}
             </div>
+            <ul class="docs-hub-list">
+              {group.entries.map((entry) => (
+                <li>
+                  <a class="docs-hub-row" href={docPath(entry.id)}>
+                    <span class="docs-hub-row-title">
+                      {entry.data.title}
+                      {entry.data.badge && <span class="docs-nav-badge">{entry.data.badge}</span>}
+                    </span>
+                    <span class="docs-hub-row-desc">{entry.data.description}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
           </section>
         ))}
 
         <section class="docs-hub-elsewhere">
-          <p class="docs-hub-section-label">Elsewhere</p>
+          <h2 class="docs-hub-section-label">Elsewhere</h2>
           <ul class="docs-hub-elsewhere-list">
             {ELSEWHERE.map((item) => (
               <li>
                 <a class="docs-hub-elsewhere-link" href={item.href}>
-                  {item.label}
-                  <span>{item.note}</span>
+                  {item.label}<span>{item.note}</span>
                 </a>
               </li>
             ))}
