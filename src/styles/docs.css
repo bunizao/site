@@ -781,6 +781,33 @@ body:has(.site-nav--docs) .global-header-actions {
   line-height: 1.5;
 }
 
+/* Both of the prose's horizontal scrollers get the same bar. The OS default is
+   an opaque grey slab that reads as a progress bar rather than an affordance —
+   and a table full of parameters is exactly where the reader least needs a
+   second horizontal line under the last row. */
+.docs-prose table,
+.docs-prose pre.astro-code {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--foreground) / 0.18) transparent;
+}
+
+.docs-prose table::-webkit-scrollbar,
+.docs-prose pre.astro-code::-webkit-scrollbar {
+  height: 6px;
+}
+
+.docs-prose table::-webkit-scrollbar-thumb,
+.docs-prose pre.astro-code::-webkit-scrollbar-thumb {
+  border: 0;
+  border-radius: 3px;
+  background: hsl(var(--foreground) / 0.18);
+}
+
+.docs-prose table::-webkit-scrollbar-track,
+.docs-prose pre.astro-code::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .docs-prose thead {
   border-bottom: 1px solid var(--docs-line);
 }
@@ -894,24 +921,6 @@ body:has(.site-nav--docs) .global-header-actions {
   font-size: 0.8125rem;
   line-height: 1.62;
   tab-size: 2;
-  /* The OS scrollbar is 15px of opaque grey sitting under every fence, which
-     reads as a progress bar rather than an affordance. Same thin treatment the
-     rail uses. */
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--foreground) / 0.18) transparent;
-}
-
-.docs-prose pre.astro-code::-webkit-scrollbar {
-  height: 6px;
-}
-
-.docs-prose pre.astro-code::-webkit-scrollbar-thumb {
-  border-radius: 3px;
-  background: hsl(var(--foreground) / 0.18);
-}
-
-.docs-prose pre.astro-code::-webkit-scrollbar-track {
-  background: transparent;
 }
 
 .docs-prose pre.astro-code code {
