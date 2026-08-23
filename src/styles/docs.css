@@ -1242,17 +1242,22 @@ html.dark .docs-prose pre.astro-code span {
    site, not pages of the reference, so they are enclosed rather than divided:
    a panel says "different kind of thing" without leaving a hairline floating
    in the gap under the last section. */
-.docs-hub-elsewhere {
+/* The extra .docs is load-bearing, not noise: the blanket `.docs section`
+   opt-out above outranks a lone class, so a bare .docs-hub-elsewhere loses its
+   padding and the heading lands on the panel's own border. */
+.docs .docs-hub-elsewhere {
   max-width: 56rem;
   margin-top: 4rem;
-  padding: 1.15rem;
+  /* Short at the foot because the last row of pills carries 0.45rem of its own,
+     which would otherwise read as a deeper bottom edge than top. */
+  padding: 1.15rem 1.15rem 0.75rem;
   border-radius: 0.9rem;
   background: var(--docs-surface);
   box-shadow: inset 0 0 0 1px var(--docs-line);
 }
 
 .docs-hub-elsewhere .docs-hub-section-label {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.25rem;
   padding-left: 0.55rem;
   font-size: 1rem;
   letter-spacing: -0.02em;
