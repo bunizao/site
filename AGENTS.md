@@ -53,6 +53,31 @@ This is the public Worker. The private Worker `site-api` lives in the sibling re
 - The living reference is published at `/docs` and authored in `src/content/docs/`. `src/content/docs/architecture.md` has the full directory structure, API endpoints, data sources, and environment variables.
 - `docs/README.md` indexes the published pages and keeps what is not reference material: active plans in `docs/plans/`, frozen shipped records in `docs/archive/`. When a code change makes a published doc wrong, fix the doc in the same PR; never update anything in `docs/archive/`.
 
+## Keeping the API reference current
+
+`/docs/api/*` documents every HTTP route both Workers answer, and
+`bun run check:docs-coverage` fails when one is missing. Run it after adding,
+renaming, or deleting anything under `src/pages/` in **either** repo.
+
+- The guard walks `src/pages/**/*.{ts,js}` in `site` and `../site-api`, derives
+  each public path, and checks that some page under `src/content/docs/` names
+  it. Pass a different sibling path as `bun scripts/check-docs-coverage.ts <path>`
+  or via `SITE_API_REPO`; without the sibling repo it checks the `site` half and
+  says so.
+- Fix a failure by documenting the route, not by loosening the matcher. A route
+  that genuinely should not be documented goes in `EXEMPT` in the script with a
+  reason.
+- Coverage is the floor, not the goal — the guard only proves a path is
+  *mentioned*. Updating a route's contract means updating its prose too.
+- site-api strips a leading `/api` at ingress, so `src/pages/footer.ts` there
+  serves `buxx.me/api/footer`. Write the `/api`-prefixed form in docs; the guard
+  accepts either.
+- Which page: public JSON by topic (`mood`, `listening`, `status`, `content`,
+  `notify`, `analytics`), `site-routes` for routes the public Worker answers
+  itself, and `internal` for admin, webhook, and cron routes — those get path,
+  purpose, and auth tier only, never request or response contracts, because
+  `/docs` is public and `site-api` is the private half of the boundary.
+
 ## Image Uploads
 
 - **MUST** compress images before uploading to save tokens.
