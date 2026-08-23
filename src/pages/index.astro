@@ -41,17 +41,14 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
     --font-code: var(--font-mono);
   }
 
-  /* No `content-visibility` on the sections. They measure 284-629px against a
-     720px reservation, so every one of them collapsed the document by hundreds
-     of pixels as it materialised — the scroll position got clamped mid-gesture
-     and reveal triggers were left pointing at stale offsets. The sections are
-     small enough that skipping their layout was never worth that. The footer
-     keeps it: it is last, so a late size correction has nothing below it to
-     disturb, and its reservation now matches its real height. */
-  :global(.page-container > footer) {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 210px;
-  }
+  /* No `content-visibility` on this page, the footer included. The sections
+     measure 284-629px against a 720px reservation, so every one of them
+     collapsed the document by hundreds of pixels as it materialised — the
+     scroll position got clamped mid-gesture and reveal triggers were left
+     pointing at stale offsets. The footer went the same way: its 210px
+     reservation was 80px short of the 290px it actually renders at, so the
+     document still grew under the reader on the way down, and skipping layout
+     for one short flex column at the very bottom never paid for that. */
 </style>
 
 {/* Arms the reveal before first paint, so the hidden state is never painted
