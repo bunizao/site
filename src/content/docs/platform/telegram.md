@@ -16,7 +16,7 @@ The Telegram pipeline affects:
 - immediate email notify dispatch
 - public mood pages that still consume Telegram content during this migration wave
 
-## Current Flow
+## Current flow
 
 ```mermaid
 flowchart TD
@@ -31,44 +31,29 @@ flowchart TD
   I --> J["Resend sends immediate notify emails"]
 ```
 
-## Responsibility Split
+## Who does what
 
-### `site-api`
-
-Responsibilities:
-
-- validate Telegram webhook secrets
-- parse `channel_post`
-- resolve media-group image indexing
-- ingest mood images into R2
-- enqueue durable immediate notify dispatch jobs
-- dispatch notification email through `/v2/notify/dispatch`
-
-### Public `site`
-
-Responsibilities:
-
-- render mood feed and detail pages
-- consume `/api/moods` and `/api/comments` from `site-api`
-- use `PUBLIC_HD_IMAGE_URL` for primary image URLs
-- preserve `/static/...telegram CDN...` fallback behavior
+| `site-api` (private) | Public `site` |
+| --- | --- |
+| Validate the Telegram webhook secret | Render mood feed and detail pages |
+| Parse `channel_post` and resolve media-group image indexing | Consume `/api/moods` and `/api/comments` |
+| Ingest mood images into R2 | Use `PUBLIC_HD_IMAGE_URL` for primary image URLs |
+| Enqueue durable immediate notify dispatch jobs | Preserve the `/static/…` Telegram CDN fallback |
+| Dispatch notification email through `/v2/notify/dispatch` | — |
 
 ## Key URLs
 
-Canonical private URLs:
+| URL | Role |
+| --- | --- |
+| `https://api.buxx.me/webhooks/telegram` | Webhook ingress. Private. |
+| `https://buxx.me/api/v2/images/*` | Public image reads, served from R2 |
+| `https://api.buxx.me/v2/notify/dispatch` | Queue consumer target for immediate notify |
+| `https://buxx.me/api/*` | Routed directly to `site-api` in production |
 
-- `https://api.buxx.me/webhooks/telegram`
-- `https://buxx.me/api/v2/images/*`
-- `https://api.buxx.me/v2/notify/dispatch`
+## Failure modes
 
-Public compatibility:
-
-- `https://buxx.me/api/*` is directly routed to `site-api`
-
-## Failure Modes
-
-**Webhook not configured.** New posts do not enter private ingest, R2 objects do not update, and immediate notification dispatch does not run.
-
-**Image ingest fails.** Public mood pages can use stored Telegram CDN fallbacks when `site-api` returns them, but email links cannot auto-fallback after delivery.
-
-**Notify queue handoff fails.** The webhook should return a retryable failure so Telegram can redeliver the update.
+| What breaks | What happens |
+| --- | --- |
+| Webhook not configured | New posts never enter private ingest: R2 objects do not update and immediate notification dispatch never runs. |
+| Image ingest fails | Public mood pages fall back to the stored Telegram CDN URLs when `site-api` returns them. **Email cannot fall back** — a link is fixed at delivery. |
+| Notify queue handoff fails | The webhook returns a retryable failure so Telegram redelivers the update. |
