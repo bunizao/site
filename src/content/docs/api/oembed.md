@@ -178,28 +178,21 @@ Every other parameter is permissive: `maxwidth`, `maxheight`, and `count` are
 clamped into range rather than rejected, and an unrecognized `density`, `font`,
 or `theme` silently falls back to its default. Only `url` can fail the request.
 
-### The `www.` host check is broken
+### `www.` and the bare host are one origin
 
-The host comparison intends to treat `www.buxx.me` and `buxx.me` as the same
-origin. It does not:
+The host comparison strips a leading `www.` from both sides before comparing,
+so all four combinations resolve:
 
-```js
-const normalizeHost = (value) => value.replace(/^www\\./i, '').toLowerCase();
-```
+| Endpoint host | `url` host | Result |
+| --- | --- | --- |
+| `buxx.me` | `buxx.me` | OK |
+| `buxx.me` | `www.buxx.me` | OK |
+| `www.buxx.me` | `buxx.me` | OK |
+| `www.buxx.me` | `www.buxx.me` | OK |
 
-In a regex literal, `\\.` is an escaped backslash followed by "any character" —
-so this matches a literal `www\` plus one more character, which no hostname
-contains. The `www.` prefix is never stripped, and the function only
-lowercases.
-
-The practical effect: a request to `https://buxx.me/api/oembed.json` carrying
-`url=https://www.buxx.me/mood` compares `www.buxx.me` against `buxx.me`, and
-gets `403 URL host not allowed for embedding`. That is the exact shape of a
-real oEmbed consumer's request — discover the endpoint from one host, hand back
-the page URL from another — so a `www.`-served page cannot embed itself.
-
-**Until this is fixed, pass the `url` on the same host you called the endpoint
-on.** Both work in isolation; only the mismatch fails.
+That is the shape a real oEmbed consumer produces — discover the endpoint from
+one host, hand back the page URL from another — so a `www.`-served page can
+embed itself. Any other host is `403 URL host not allowed for embedding`.
 
 ## CORS and caching
 

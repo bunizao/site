@@ -142,10 +142,8 @@ email-changed, and delete-record templates, plus the notify callback pages.
 | `sample` | `rich`, `live` | `rich` |
 | `timezone` | any valid IANA zone | `Australia/Melbourne` |
 
-**This endpoint has no auth gate and no rate limit.** With `sample=rich` it
-renders fixture content, which is harmless. With `sample=live` it reads the
-real latest mood post and channel metadata — all of it already public via
-[`/api/mood`](/docs/api/mood), so nothing is disclosed that is not already
-published, but it does mean an unauthenticated caller can make the Worker do a
-D1 read and render eight email templates per request. Treat it as a development
-tool that happens to be reachable, not as a deliberate public endpoint.
+It sits outside `/admin/` but is gated the same way: middleware lists it
+alongside the admin API, so an unauthenticated request gets
+`401 {"error":"unauthorized"}`. It needs the gate because `sample=live` reads
+the real latest mood post and channel metadata, and every request renders eight
+email templates — cheap to call, not cheap to serve.

@@ -124,9 +124,11 @@ works against `/api/admin/subscribers` and `401`s here, that is why — see
 [Internal Endpoints](/docs/api/internal#admin-auth).
 
 `limit` and `days` are read with `Number()` and fall back to `50` / `30` when
-the result is not finite. They are **not** clamped, so `?days=100000` is
-passed through to the query as-is. `article/{slug}` additionally returns
-`400 {"error":"slug_required"}` for an empty slug.
+the result is not finite, then clamped inside the query layer — `limit` to
+1-200, `days` to 1-365. An out-of-range value is silently clamped rather than
+rejected, so `?days=100000` returns 365 days and no error.
+`article/{slug}` additionally returns `400 {"error":"slug_required"}` for an
+empty slug.
 
 Response bodies are admin-facing aggregates and are not specified here, on the
 same grounds as the rest of [Internal Endpoints](/docs/api/internal).

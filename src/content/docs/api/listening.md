@@ -106,21 +106,20 @@ trip rather than a thundering herd.
 
 Both error responses switch to `Cache-Control: no-store, max-age=0`.
 
-### The legacy alias hops twice
+### The legacy alias
 
 ```
-GET /api/listening   →  308  →  /v2/listening
+GET /api/listening   →  308  →  /api/v2/listening
 ```
 
-`/api/listening` is a `308` to `LISTENING_PATH`, and the redirect helper
-rewrites only the pathname — it does not re-add the `/api` prefix. On
-`buxx.me` that lands on `/v2/listening`, which the public `site` Worker
-`308`s again to `/api/v2/listening`. Two redirects to reach one endpoint.
+`/api/listening` is a `308` to `LISTENING_PATH`. The redirect helper re-adds the
+`/api` prefix when the request came in on `buxx.me` or `www.buxx.me`, so the
+`Location` is a path the same host actually serves. On `api.buxx.me` there is no
+prefix in play and `api.buxx.me/listening` redirects to
+`api.buxx.me/v2/listening`.
 
-On `api.buxx.me` there is no prefix to lose, so `api.buxx.me/listening`
-redirects straight to `api.buxx.me/v2/listening` in one hop.
-
-Call `/api/v2/listening` directly and neither hop happens.
+One hop either way, but `308` preserves the method and a client that does not
+follow redirects sees nothing. Call `/api/v2/listening` directly.
 
 ## Report a playback event
 
