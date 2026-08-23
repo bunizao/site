@@ -138,17 +138,40 @@ const ELSEWHERE = [
       }
     }
 
-    // Keep the active entry in view when the tree is taller than the rail.
-    const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
-    if (active && wide.matches) {
-      active.scrollIntoView({ block: 'nearest' });
-    }
-
     // Tell the tree which of its ends still has rows behind it; the mask in
     // docs.css fades only those. Two classes rather than inline styles so the
     // lengths stay in the stylesheet with the rest of the rail's geometry.
     const tree = nav.querySelector<HTMLElement>('.docs-nav-tree');
     if (tree) {
+      // Every docs hop is a full document load, so the rail's scroll offset has
+      // to be carried across by hand — otherwise reading down a long section
+      // throws you back to the top of the tree on each click. Session-scoped
+      // because it is a reading position, not a preference.
+      const SCROLL_STORE = 'docs-nav-scroll';
+      try {
+        const saved = Number(sessionStorage.getItem(SCROLL_STORE));
+        if (Number.isFinite(saved) && saved > 0) tree.scrollTop = saved;
+      } catch {
+        /* private mode — the rail just starts at the top */
+      }
+      let queued = false;
+      tree.addEventListener(
+        'scroll',
+        () => {
+          if (queued) return;
+          queued = true;
+          requestAnimationFrame(() => {
+            queued = false;
+            try {
+              sessionStorage.setItem(SCROLL_STORE, String(tree.scrollTop));
+            } catch {
+              /* ignore */
+            }
+          });
+        },
+        { passive: true },
+      );
+
       const syncFade = () => {
         const slack = tree.scrollHeight - tree.clientHeight;
         tree.classList.toggle('is-fade-top', tree.scrollTop > 1);
@@ -160,6 +183,13 @@ const ELSEWHERE = [
       // new height is not laid out until the frame after the event.
       nav.addEventListener('toggle', () => requestAnimationFrame(syncFade), true);
       syncFade();
+    }
+
+    // Runs after the restore above so it only corrects the offset when the entry
+    // you navigated to is genuinely off-screen; `nearest` is a no-op otherwise.
+    const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+    if (active && wide.matches) {
+      active.scrollIntoView({ block: 'nearest' });
     }
   })();
 </script>
