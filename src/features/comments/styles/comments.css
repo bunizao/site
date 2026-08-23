@@ -453,9 +453,9 @@
 .blog-compose__input {
   min-width: 0;
   height: 34px;
-  padding: 0 11px;
+  padding: 0 14px;
   border: 1px solid var(--blog-line);
-  border-radius: 9px;
+  border-radius: 999px;
   background: hsl(var(--background));
   color: var(--blog-body);
   font: inherit;
@@ -533,7 +533,13 @@
    about — it steps back to a quiet way out, and the three ways carry the
    weight. Labels swap in CSS off the same aria state that drives the panel, so
    there is one source of truth and no text to keep in sync in script. */
+/* Open, the button has nothing left to be primary about: it shrinks to the way
+   out and lets the three ways carry the row. Both the treatment and the label
+   read the same aria state that drives the panel, so the visual state and the
+   announced state cannot drift. */
 .blog-compose__go[aria-expanded='true'] {
+  width: 34px;
+  padding: 0;
   border-color: var(--blog-line);
   background: transparent;
   color: var(--blog-muted);
@@ -545,7 +551,9 @@
 }
 
 .blog-compose__go[aria-expanded='true'] .blog-compose__go-close {
-  display: inline;
+  display: block;
+  width: 15px;
+  height: 15px;
 }
 
 .blog-compose__go:hover {
@@ -563,34 +571,37 @@
 }
 
 /* --- The three ways in ---------------------------------------------------- */
-/* Folded away until the primary button asks for them. Three is the right
-   number for the audience and the wrong number to meet head-on under a field
-   nobody has typed in yet. */
-.blog-compose__ways {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--blog-line);
+/* One row inside the footer, not a panel under it. Two providers and an email
+   field fit on a line at the reading measure, so asking for them costs the box
+   no height — a sign-in slab taller than the field you are signing in to write
+   in has its priorities backwards. The hint steps aside to make room. */
+.blog-compose__foot:has([aria-expanded='true']) .blog-compose__hint {
+  display: none;
 }
 
-.blog-compose__oauth {
+.blog-compose__ways {
   display: flex;
-  gap: 8px;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
 }
 
 .blog-way {
   display: inline-flex;
-  flex: 1;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 38px;
+  gap: 7px;
+  height: 34px;
+  padding: 0 13px;
   border: 1px solid var(--blog-line);
-  border-radius: 10px;
-  background: hsl(var(--background));
+  border-radius: 999px;
   color: var(--blog-ink);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   text-decoration: none;
+  white-space: nowrap;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
@@ -600,64 +611,73 @@
 }
 
 .blog-way svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* Rule through the label rather than a bare line with text parked over it —
-   the gradient-free version leaves a visible seam behind the word. */
-.blog-compose__or {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 12px 0;
-  font-size: 12px;
-  color: var(--blog-faint);
-}
-
-.blog-compose__or::before,
-.blog-compose__or::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--blog-line);
+  width: 15px;
+  height: 15px;
 }
 
 .blog-compose__magic {
   display: flex;
-  gap: 8px;
+  flex: 1 1 150px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .blog-compose__magic .blog-compose__input {
-  flex: 1 1 0;
-  height: 38px;
-  border-radius: 10px;
+  flex: 1 1 auto;
+  width: 100%;
 }
 
-.blog-compose__magic .blog-compose__go {
-  height: 38px;
-  border-radius: 10px;
+/* Icon-only, so the row stays inside the measure. Its label is on the button. */
+.blog-compose__send {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid hsl(var(--foreground));
+  border-radius: 999px;
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  cursor: pointer;
+  transition: opacity 0.15s ease, scale 0.15s ease;
 }
 
-.blog-compose__fineprint {
-  margin: 10px 0 0;
-  font-size: 12px;
-  line-height: 1.5;
-  text-wrap: pretty;
-  color: var(--blog-faint);
+.blog-compose__send:hover {
+  opacity: 0.86;
 }
 
+.blog-compose__send:active {
+  scale: 0.96;
+}
+
+.blog-compose__send:focus-visible,
+.blog-way:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 2px;
+}
+
+.blog-compose__send svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Under the measure the email field takes its own line rather than squeezing
+   the two providers into unreadable stubs. */
 @media (max-width: 560px) {
-  .blog-compose__magic {
+  .blog-compose__ways {
     flex-wrap: wrap;
   }
 
-  .blog-compose__magic .blog-compose__input {
-    flex: 1 1 100%;
+  .blog-compose__magic {
+    flex-basis: 100%;
   }
 
-  .blog-compose__magic .blog-compose__go {
-    flex: 1 1 100%;
+  /* Once the row wraps, centring the dismiss against two lines strands it in
+     the gutter — park it level with the first. */
+  .blog-compose__foot:has([aria-expanded='true']) {
+    align-items: flex-start;
   }
 }
 
