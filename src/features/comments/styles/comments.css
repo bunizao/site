@@ -27,13 +27,13 @@
    pinned here per theme, so every generated face lands on the same contrast
    step no matter which hue a name happens to draw. */
 .blog-avatar-seed {
-  background: oklch(0.9 0.055 var(--seed-hue, 0));
-  color: oklch(0.42 0.1 var(--seed-hue, 0));
+  background: oklch(0.93 0.035 var(--seed-hue, 0));
+  color: oklch(0.46 0.085 var(--seed-hue, 0));
 }
 
 .dark .blog-avatar-seed {
-  background: oklch(0.35 0.05 var(--seed-hue, 0));
-  color: oklch(0.87 0.075 var(--seed-hue, 0));
+  background: oklch(0.32 0.035 var(--seed-hue, 0));
+  color: oklch(0.84 0.06 var(--seed-hue, 0));
 }
 
 .blog-avatar-initials {
@@ -397,47 +397,19 @@
   color: var(--blog-faint);
 }
 
-/* --- Compose ------------------------------------------------------------- */
-/* First thing under the heading, in both states. Signed out it keeps the same
-   footprint and carries the invitation, so the way in is never something the
-   reader has to hunt for. */
+/* --- Compose ------------------------------------------------------------ */
+/* First thing under the heading, and writable before anyone has signed in —
+   the identity step comes after the words exist, not before. No avatar beside
+   it: signed out there is no face to show, and a placeholder circle next to a
+   100px box only advertises the gap. Who you are posting as is said in words
+   in the footer instead, which is more use than a repeat of your own face. */
 .blog-compose {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
   margin-bottom: 30px;
-}
-
-.blog-compose__avatar {
-  flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  /* Centred on the field's first line, not on the box: the avatar is taller
-     than the line, so aligning the boxes leaves it visibly high. */
-  margin-top: 12px;
-  border-radius: 50%;
-  font-size: 12px;
-  object-fit: cover;
-}
-
-.blog-compose__avatar--ghost {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--blog-fill);
-  color: var(--blog-faint);
-}
-
-.blog-compose__avatar--ghost svg {
-  width: 16px;
-  height: 16px;
 }
 
 /* Outer 14px against 12px of padding leaves the inner controls room for their
    own radius without either edge looking wrung out. */
 .blog-compose__box {
-  flex: 1;
-  min-width: 0;
   padding: 12px 14px;
   border: 1px solid var(--blog-line);
   border-radius: 14px;
@@ -476,6 +448,37 @@
   outline: none;
 }
 
+/* Inner controls: 9px against the box's 14px, so the nesting stays concentric
+   across the 12px of padding between them. */
+.blog-compose__input {
+  min-width: 0;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--blog-line);
+  border-radius: 9px;
+  background: hsl(var(--background));
+  color: var(--blog-body);
+  font: inherit;
+  font-size: 16px;
+}
+
+.blog-compose__input::placeholder {
+  color: var(--blog-faint);
+}
+
+.blog-compose__input:focus {
+  outline: none;
+  border-color: hsl(var(--foreground) / 0.32);
+}
+
+.blog-compose__name {
+  margin-top: 10px;
+}
+
+.blog-compose__name .blog-compose__input {
+  width: 100%;
+}
+
 .blog-compose__foot {
   display: flex;
   align-items: center;
@@ -489,14 +492,31 @@
   color: var(--blog-faint);
 }
 
-.blog-compose__submit,
-.blog-compose__signin {
+.blog-compose__who {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--blog-muted);
+}
+
+.blog-compose__whoface {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 9.5px;
+  object-fit: cover;
+}
+
+.blog-compose__go {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   flex: 0 0 auto;
-  height: 32px;
+  height: 34px;
   padding: 0 15px;
   border: 1px solid hsl(var(--foreground));
   border-radius: 999px;
@@ -506,49 +526,139 @@
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  text-decoration: none;
   transition: opacity 0.15s ease, scale 0.15s ease;
 }
 
-.blog-compose__submit:hover,
-.blog-compose__signin:hover {
+/* Once the choices are open the primary button has nothing left to be primary
+   about — it steps back to a quiet way out, and the three ways carry the
+   weight. Labels swap in CSS off the same aria state that drives the panel, so
+   there is one source of truth and no text to keep in sync in script. */
+.blog-compose__go[aria-expanded='true'] {
+  border-color: var(--blog-line);
+  background: transparent;
+  color: var(--blog-muted);
+}
+
+.blog-compose__go-close,
+.blog-compose__go[aria-expanded='true'] .blog-compose__go-open {
+  display: none;
+}
+
+.blog-compose__go[aria-expanded='true'] .blog-compose__go-close {
+  display: inline;
+}
+
+.blog-compose__go:hover {
   opacity: 0.86;
 }
 
-.blog-compose__submit:active,
-.blog-compose__signin:active {
+.blog-compose__go:active {
   scale: 0.96;
 }
 
-.blog-compose__submit:focus-visible,
-.blog-compose__signin:focus-visible {
+.blog-compose__go:focus-visible,
+.blog-way:focus-visible {
   outline: 2px solid var(--blog-accent);
   outline-offset: 2px;
 }
 
-.blog-compose__signin svg {
-  width: 15px;
-  height: 15px;
+/* --- The three ways in ---------------------------------------------------- */
+/* Folded away until the primary button asks for them. Three is the right
+   number for the audience and the wrong number to meet head-on under a field
+   nobody has typed in yet. */
+.blog-compose__ways {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--blog-line);
 }
 
-/* Prompt variant: the box holds a line of copy and the button instead of a
-   field, at the same height, so the two states do not shove the thread up and
-   down as the reader signs in. */
-.blog-compose__box--prompt {
+.blog-compose__oauth {
+  display: flex;
+  gap: 8px;
+}
+
+.blog-way {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  border: 1px solid var(--blog-line);
+  border-radius: 10px;
+  background: hsl(var(--background));
+  color: var(--blog-ink);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.blog-way:hover {
+  border-color: hsl(var(--foreground) / 0.26);
+  background: var(--blog-fill);
+}
+
+.blog-way svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Rule through the label rather than a bare line with text parked over it —
+   the gradient-free version leaves a visible seam behind the word. */
+.blog-compose__or {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+  font-size: 12px;
+  color: var(--blog-faint);
 }
 
-.blog-compose__prompt {
-  margin: 0;
-  flex: 1 1 260px;
-  font-size: 14px;
-  line-height: 1.55;
+.blog-compose__or::before,
+.blog-compose__or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--blog-line);
+}
+
+.blog-compose__magic {
+  display: flex;
+  gap: 8px;
+}
+
+.blog-compose__magic .blog-compose__input {
+  flex: 1 1 0;
+  height: 38px;
+  border-radius: 10px;
+}
+
+.blog-compose__magic .blog-compose__go {
+  height: 38px;
+  border-radius: 10px;
+}
+
+.blog-compose__fineprint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
   text-wrap: pretty;
-  color: var(--blog-muted);
+  color: var(--blog-faint);
+}
+
+@media (max-width: 560px) {
+  .blog-compose__magic {
+    flex-wrap: wrap;
+  }
+
+  .blog-compose__magic .blog-compose__input {
+    flex: 1 1 100%;
+  }
+
+  .blog-compose__magic .blog-compose__go {
+    flex: 1 1 100%;
+  }
 }
 
 /* --- Thread -------------------------------------------------------------- */
@@ -567,18 +677,18 @@
 /* Replies indent by the avatar column so the thread reads as one hanging
    ladder rather than two unrelated lists. */
 .blog-comment--reply {
-  margin-left: 40px;
+  margin-left: 36px;
 }
 
 .blog-comment__avatar {
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  /* Same first-line centring as the compose box; a 28px circle beside a 21px
-     line has to rise a little to sit level with the name. */
-  margin-top: -2px;
+  width: 24px;
+  height: 24px;
+  /* Centred on the name's line box, not aligned to it: a circle taller than
+     the line sits visibly low when the boxes are flush. */
+  margin-top: 0;
   border-radius: 50%;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .blog-comment__body {

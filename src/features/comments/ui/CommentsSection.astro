@@ -14,11 +14,12 @@ import type { BlogComment, Viewer } from '@/features/comments/types';
 interface Props {
   comments?: BlogComment[];
   state?: 'loaded' | 'loading' | 'empty';
-  signedIn?: boolean;
+  /** Reader standing, passed straight through to the compose box. */
+  phase?: 'anonymous' | 'naming' | 'ready';
   viewer?: Viewer;
 }
 
-const { comments = [], state = 'loaded', signedIn = false, viewer } = Astro.props;
+const { comments = [], state = 'loaded', phase = 'anonymous', viewer } = Astro.props;
 
 const tally = comments.filter((comment) => !comment.pending).length;
 
@@ -37,7 +38,7 @@ const skeletonRows = [
     )}
   </div>
 
-  <CommentForm signedIn={signedIn} viewer={viewer} />
+  <CommentForm phase={phase} viewer={viewer} />
 
   {state === 'loading' && (
     <div class="blog-comments__skeleton" aria-hidden="true">

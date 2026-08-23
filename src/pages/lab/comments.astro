@@ -6,7 +6,7 @@
 //
 // Query params flip the states worth reviewing side by side:
 //   ?state=loaded | loading | empty   (comment list)
-//   ?signedin=1                       (hides the sign-in prompt)
+//   ?phase=anonymous | naming | ready (reader standing in the compose box)
 //   ?reacted=1                        (filled heart, xia accent)
 //
 // Delete once /blog/[slug] carries the real thing.
@@ -26,7 +26,8 @@ if (!import.meta.env.DEV) return new Response(null, { status: 404 });
 const params = Astro.url.searchParams;
 const rawState = params.get('state');
 const state = rawState === 'loading' || rawState === 'empty' ? rawState : 'loaded';
-const signedIn = params.get('signedin') === '1';
+const rawPhase = params.get('phase');
+const phase = rawPhase === 'naming' || rawPhase === 'ready' ? rawPhase : 'anonymous';
 const reacted = params.get('reacted') === '1';
 
 // Real faces on purpose: a stack of five identical initial-circles reads as one
@@ -162,14 +163,14 @@ await billing.invoice(payload)</code></pre>
         client:idle
         count={24}
         reacted={reacted}
-        signedIn={signedIn}
+        signedIn={phase !== 'anonymous'}
         reactors={reactors}
       />
 
       <CommentsSection
         comments={comments}
         state={state}
-        signedIn={signedIn}
+        phase={phase}
         viewer={{ name: 'Tutu Xiao' }}
       />
     </article>
