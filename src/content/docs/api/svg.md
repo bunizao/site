@@ -2,7 +2,7 @@
 title: SVG Endpoints
 description: Server-rendered badges and cards for GitHub READMEs and anywhere else that only accepts a static image.
 group: API
-order: 1
+order: 8
 badge: SSR
 ---
 
@@ -175,6 +175,77 @@ An infinite-scrolling horizontal marquee of technology tags.
 ```
 
 ---
+
+## `GET /logo/{id}.svg`
+
+The site's pixel-art marks, used as favicons and wherever the logo appears as
+an image. Prerendered static files, not SSR like the badges above — which is
+why they are the one SVG family served from `buxx.me` directly rather than
+through `/api`.
+
+| `id` | Mark | Served by |
+| --- | --- | --- |
+| `tutu` | Blue accent (`oklch(0.7 0.12 240)`), 12 × 14 grid | both Workers |
+| `peek` | Red accent (`oklch(0.62 0.13 25)`), 12 × 9 grid | both Workers |
+| `tutu-dev`, `peek-dev` | Same marks on a fixed amber tile (`#f59e0b`) | `site` only |
+
+**Cache:** `public, max-age=31536000, immutable` — they are content-stable and
+cached for a year.
+
+The `-dev` variants exist so a local dev tab is visually distinguishable from
+production at favicon size. They are only built by the `site` Worker;
+`api.buxx.me/logo/tutu-dev.svg` does not exist.
+
+Two details matter if you embed these anywhere other than a favicon:
+
+- **No `width` or `height` attributes.** Only a `viewBox`, so the mark scales to
+  whatever box you put it in and will happily render enormous inside a
+  container with no constraint. Set a size on the `<img>`.
+- **The non-`dev` marks are theme-reactive.** The foreground is a
+  `var(--favicon-fg)` driven by a `prefers-color-scheme` media query inside the
+  SVG, flipping between `#0a0a0a` and `#fafafa`. That means they invert with the
+  viewer's OS theme with no `<picture>` element needed — but also that they will
+  disappear against a background matching the viewer's theme. The `-dev`
+  variants are fixed-color and do not do this.
+
+Any other `id` is a `404` from the static asset layer, not from a handler.
+
+---
+
+## Errors and validation
+
+None of the badge endpoints validate their query parameters in the way you
+might expect. Bad input almost never produces a `4xx`:
+
+| Endpoint | Bad input behavior |
+| --- | --- |
+| `activity-panel.svg` | Every value is rendered verbatim. No numeric parsing, no clamping. |
+| `status.svg`, `tech-stack.svg`, `project.svg` | `theme` is `light` only on an exact match; every other value, including a typo like `Light`, silently means `dark`. |
+| `site-badge.svg` | Unknown `theme` falls back to `dark`; unknown `style` behaves as `default`. |
+| `project.svg` | Unknown `project` is the one real error: `404` with a plain-text `Project not found` body. |
+
+`activity-panel.svg` returns `401 Unauthorized` (plain text,
+`Cache-Control: private, no-store`) when `ACTIVITY_PANEL_SIGNING_SECRET` is set
+and `sig`/`exp` do not verify. When that secret is **not** set the signature
+check is skipped entirely and the endpoint is open — which is the deployed
+state unless the secret has been configured.
+
+Every SVG response carries a locked-down header set:
+
+```
+Content-Type: image/svg+xml; charset=utf-8
+X-Content-Type-Options: nosniff
+Referrer-Policy: no-referrer
+Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; font-src 'self';
+```
+
+No `Access-Control-Allow-Origin`, no `ETag`, no `Vary`. The CSP is what makes
+it safe to serve caller-influenced text inside an SVG document: no script, no
+external fetches, inline styles only.
+
+`project.svg` fetches its star count from GitHub on every cache miss and
+swallows every failure — an outage, a rate limit, or a missing token all
+produce a card with the star count simply absent, never an error response.
 
 ## Theme Colors
 

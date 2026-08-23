@@ -2,7 +2,7 @@
 title: Mood API
 description: The mood feed, detail, comments, search, stats, and live-counts endpoints — every parameter, cache tier, and error code, read straight from site-api.
 group: API
-order: 0
+order: 1
 ---
 
 Mood has two independent read paths that happen to return the same shape.
@@ -71,7 +71,12 @@ error. Note the shape difference — see
 
 ```
 GET /api/v2/mood/{id}
+GET /api/v1/mood/{id}
 ```
+
+Both paths run the same handler against different repositories: `v2` reads the
+D1 archive, `v1` reads the live Telegram mirror. The response shape is
+identical, so a client can retry `v1` on a `v2` miss without branching.
 
 Same `fresh` flag as the feed (also accepts `probe` as a bypass synonym here).
 Returns the single post document. `404
@@ -85,7 +90,10 @@ and the cache write.
 
 ```
 GET /api/v2/mood/{id}/comments
+GET /api/v1/mood/{id}/comments
 ```
+
+Same archive/live split as detail above, same response shape on both.
 
 | Parameter | Type | Default | Notes |
 | --- | --- | --- | --- |

@@ -2,7 +2,7 @@
 title: Feeds & Machine Output
 description: RSS, llms.txt, sitemaps, and Markdown content negotiation for anything reading the site programmatically.
 group: API
-order: 2
+order: 6
 ---
 
 Every long-form surface on this site is readable without a browser. There are
@@ -10,14 +10,23 @@ three ways in, in rough order of how much you care about presentation.
 
 ## RSS
 
-| Feed | Path | Contents |
-| --- | --- | --- |
-| Blog | `/blog/rss.xml` | Full posts from 無人之境, newest first. |
-| Mood | `/mood/rss.xml` | The short-form feed. |
+| Feed | Path | Contents | Rendering |
+| --- | --- | --- | --- |
+| Blog | `/blog/rss.xml` | Full posts from 無人之境, newest first. | Prerendered at build time |
+| Mood | `/mood/rss.xml` | The short-form feed, newest 50 items. | Rendered per request |
 
-Both are `application/rss+xml` and prerendered at build time, so they are static
-assets served from the edge. The blog feed changes only on deploy; the mood feed
-is rebuilt on its own cadence.
+Both are `application/rss+xml`, but they are not built the same way and it
+matters if you poll them.
+
+`/blog/rss.xml` is a static asset baked at build time. Its contents change only
+on deploy, so polling it more often than the site ships is pure waste.
+
+`/mood/rss.xml` is server-rendered on every request against the D1 archive and
+capped at 50 items. It answers `Cache-Control: public, max-age=0, s-maxage=300`
+— no browser caching, five minutes at the Cloudflare edge — so a new mood shows
+up within about five minutes without a deploy. A failure renders as a plain-text
+`500` rather than an empty feed, so a reader keeps the last good copy instead of
+silently emptying your subscription.
 
 ## Markdown content negotiation
 

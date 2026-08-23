@@ -2,7 +2,7 @@
 title: oEmbed & Embeds
 description: Embed mood posts on any page — the oEmbed protocol, the raw iframe widget, and the postMessage contract.
 group: API
-order: 0
+order: 7
 ---
 
 
@@ -154,3 +154,67 @@ iframe.contentWindow.postMessage({
   theme: 'dark' // or 'light'
 }, '*');
 ```
+
+## Errors and validation
+
+The `url` parameter is checked in four stages, and each failure has its own
+status. All of them carry the CORS headers below, so a browser can read the
+error body rather than seeing an opaque network failure.
+
+| Status | Body | Cause |
+| --- | --- | --- |
+| `400` | `{"error":"Missing required parameter: url"}` | `url` absent or empty after trimming. |
+| `400` | `{"error":"Invalid URL format"}` | `url` is not parseable by `new URL()`. |
+| `400` | `{"error":"Unsupported URL protocol"}` | Parsed fine, but the scheme is not `http:` or `https:`. |
+| `403` | `{"error":"URL host not allowed for embedding"}` | The host in `url` does not match the host serving the request. |
+| `404` | `{"error":"URL not supported for embedding"}` | Host matched, but the path is neither `/mood` nor `/mood/{id}`. |
+| `429` | `{"error":"Too Many Requests"}` | Over 120 / 60s. Advertised only — see [Rate limits](/docs/api/overview#rate-limits). |
+
+A trailing slash is stripped before the path check, so `/mood/` and `/mood`
+are the same request. Anything deeper than two segments — `/mood/123/comments`
+— is a `404`.
+
+Every other parameter is permissive: `maxwidth`, `maxheight`, and `count` are
+clamped into range rather than rejected, and an unrecognized `density`, `font`,
+or `theme` silently falls back to its default. Only `url` can fail the request.
+
+### The `www.` host check is broken
+
+The host comparison intends to treat `www.buxx.me` and `buxx.me` as the same
+origin. It does not:
+
+```js
+const normalizeHost = (value) => value.replace(/^www\\./i, '').toLowerCase();
+```
+
+In a regex literal, `\\.` is an escaped backslash followed by "any character" —
+so this matches a literal `www\` plus one more character, which no hostname
+contains. The `www.` prefix is never stripped, and the function only
+lowercases.
+
+The practical effect: a request to `https://buxx.me/api/oembed.json` carrying
+`url=https://www.buxx.me/mood` compares `www.buxx.me` against `buxx.me`, and
+gets `403 URL host not allowed for embedding`. That is the exact shape of a
+real oEmbed consumer's request — discover the endpoint from one host, hand back
+the page URL from another — so a `www.`-served page cannot embed itself.
+
+**Until this is fixed, pass the `url` on the same host you called the endpoint
+on.** Both work in isolation; only the mismatch fails.
+
+## CORS and caching
+
+```
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, OPTIONS
+Access-Control-Allow-Headers: Content-Type
+```
+
+`OPTIONS` returns `204` with those headers and nothing else. This is one of
+the few endpoints on the API that is genuinely cross-origin readable — the
+mood JSON routes are not, which is the main reason this endpoint exists.
+
+There is **no `Cache-Control` header** on any oEmbed response, success or
+error. The successful body carries `"cache_age": 3600`, which is an oEmbed
+protocol field advising the consumer to hold the result for an hour; it is a
+hint to the client, not an HTTP directive, and nothing on the Cloudflare edge
+acts on it. If you are polling this endpoint, honor `cache_age` yourself.

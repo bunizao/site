@@ -21,7 +21,7 @@ const GROUPS: Array<{ label: string; blurb: string }> = [
   },
   {
     label: 'API',
-    blurb: 'Public endpoints anyone can call — embeds, badges, feeds.',
+    blurb: 'Every HTTP route on buxx.me — public, gated, and internal.',
   },
   {
     label: 'Surfaces',

@@ -27,6 +27,25 @@ secrets and write access live, so keeping it a separate deploy target is the
 actual public/private security boundary, not just a code-organization
 choice.
 
+## Path forms: `/api` is a prefix, not a directory
+
+Every path in this reference is written the way you call it on `buxx.me` — with
+the `/api` prefix. Inside `site-api` that prefix does not exist: the Worker
+strips a leading `/api` at ingress (`normalizeApiIngressRequest`) before its
+router sees the request, so `buxx.me/api/footer` is handled by the route file
+that also answers `api.buxx.me/footer`.
+
+| Origin | How to call `footer` |
+| --- | --- |
+| `buxx.me` (canonical) | `https://buxx.me/api/footer` |
+| `api.buxx.me` | `https://api.buxx.me/footer` — the whole hostname is the API, so no prefix |
+| `admin.buxx.me` | Admin portal and `/admin/*` only; public pages redirect back to `buxx.me` |
+
+Both prefixed and bare forms work on either host — the strip is unconditional —
+but use the prefixed form on `buxx.me` and the bare form on `api.buxx.me`.
+Mixing them (`api.buxx.me/api/footer`) resolves, and is a coin-flip against a
+future ingress change.
+
 ## Versioning: three generations, one worker
 
 | Prefix | What it is | Status |
@@ -71,33 +90,60 @@ four headers, success or failure:
 
 ```
 X-RateLimit-Limit: 180
-X-RateLimit-Remaining: 179
+X-RateLimit-Remaining: 180
 X-RateLimit-Reset: 1755900000
-X-RateLimit-Mode: <edge|durable>
+X-RateLimit-Mode: <observability|durable>
 ```
 
-`X-RateLimit-Reset` is a Unix timestamp in seconds, not a delta. A request
-that exceeds its limit gets `429` plus `Retry-After: <seconds>`; the body is
-either `{"error":"Too Many Requests"}` or plain text depending on the route
-(see [Error shapes](#error-shapes-there-are-two)). `X-RateLimit-Mode` tells
-you which limiter answered: `edge` is a fast per-colo counter that can
-slightly over-admit under distributed load, `durable` is a single
-strongly-consistent counter (used for `notify/manage`'s `PATCH`, where
-double-admitting would let a client race its own state).
+`X-RateLimit-Reset` is a Unix timestamp in seconds, not a delta.
+
+**Read `X-RateLimit-Mode` before you trust the other three.** It reports which
+limiter answered, and only one of the two actually enforces anything:
+
+| Mode | Behavior |
+| --- | --- |
+| `durable` | A single strongly-consistent counter backed by a Durable Object. Really counts, really rejects. |
+| `observability` | Counts nothing and rejects nothing. The headers are computed from the route's configured limit and emitted for measurement; `X-RateLimit-Remaining` always equals `X-RateLimit-Limit`, and every request is admitted. |
+
+Today `durable` is used by exactly three endpoints — `notify/manage`'s `PATCH`,
+`notify/manage/email`, and `notify/manage/delete` — the three places where
+double-admitting would let a caller race their own state or put mail in an
+inbox. Everything else on the surface runs in `observability` mode.
+
+So the per-route limits below describe the *intended* budget and the numbers
+you will see in the headers, not a wall you will hit. A `429` from any route
+outside those three is currently unreachable, and client code that only handles
+`429` for backpressure is, in practice, unprotected. Do not read the absence of
+`429`s as licence to poll hard — the mode can be switched per route without
+notice, and the underlying resources (Ghost, GitHub, Telegram, D1) have their
+own limits that this surface does not shield you from.
+
+A request that does exceed a `durable` limit gets `429` plus
+`Retry-After: <seconds>`; the body is either `{"error":"Too Many Requests"}` or
+plain text depending on the route (see
+[Error shapes](#error-shapes-there-are-two)).
 
 Limits are per-route, not a single account-wide budget:
 
-| Route family | Window | Max |
-| --- | --- | --- |
-| `moods`, `v2/mood` (normal) | 60s | 180 |
-| `moods`, `v2/mood` with `?fresh=1` (bypasses cache) | 60s | 30 |
-| `v2/mood/search` | 60s | 30 |
-| `v2/moods/live-counts`, `v1/mood/meta` | 60s | 240 |
-| `notify/subscribe` | 10 min | 120 |
-| `notify/manage/request` | 10 min | 30 |
-| `notify/manage` `GET` | 10 min | 120 |
-| `notify/manage` `PATCH` | 10 min | 60 (durable) |
-| `notify/confirm`, `notify/unsubscribe` | 10 min | 30 |
+| Route family | Window | Max | Enforced |
+| --- | --- | --- | --- |
+| `moods`, `v2/mood` (normal) | 60s | 180 | No |
+| `moods`, `v2/mood` with `?fresh=1` (bypasses cache) | 60s | 30 | No |
+| `v2/mood/search` | 60s | 30 | No |
+| `v2/moods/live-counts`, `v1/mood/meta` | 60s | 240 | No |
+| `v2/listening`, `writing`, `footer`, `github/contributions` | 60s | 60 | No |
+| `musickit/token` | 60s | 30 | No |
+| `oembed.json` | 60s | 120 | No |
+| `static/*` (media proxy, on the `site` Worker) | 60s | 240 | No |
+| `webhooks/ghost` | 60s | 30 | No |
+| `notify/subscribe` | 10 min | 120 | No |
+| `notify/manage/request` | 10 min | 30 | No |
+| `notify/manage` `GET` | 10 min | 120 | No |
+| `notify/confirm`, `notify/unsubscribe` | 10 min | 30 | No |
+| `notify/change-email`, `notify/delete-record` | 10 min | 30 | No |
+| **`notify/manage` `PATCH`** | 10 min | 60 | **Yes** |
+| **`notify/manage/email`** | 60 min | 5 | **Yes** |
+| **`notify/manage/delete`** | 60 min | 5 | **Yes** |
 
 ## Error shapes — there are two
 
