@@ -15,7 +15,7 @@ This document explains the public Cloudflare Worker target for:
 
 Private admin, OAuth, notify, Telegram webhook, image ingest, queue, and cron work belong to the separate `site-api` Worker.
 
-## Runtime Target
+## Runtime target
 
 The public runtime is one Cloudflare Worker named `site`.
 
@@ -33,7 +33,7 @@ Main files:
 
 `src/worker.ts` is the Astro Cloudflare entrypoint. It no longer composes queue, cron, notify, or image-worker handlers.
 
-## Private API Boundary
+## Private API boundary
 
 The private API Worker is `site-api`.
 
@@ -57,28 +57,18 @@ Public compatibility:
 }
 ```
 
-## Public Site Responsibilities
+## Public site responsibilities
 
-The public Worker owns:
+| The public Worker owns | It does not own |
+| --- | --- |
+| Public HTML routes | Concrete public API endpoints under `buxx.me/api/*` |
+| Legacy Ghost and blog-subdomain redirects into `/blog` | Notify subscription, dispatch, schedule, retry, and email templates |
+| Public mood feed and detail shells | Admin subscriber and broadcast APIs |
+| Public mood rendering from `site-api` | GitHub OAuth session issuance |
+| Local and preview fallback proxying for public API URLs | Telegram webhook ingress and HD image ingest routes |
+| Protected docs gating through `site-api /v2/admin/session` | Queue consumers and cron triggers |
 
-- public HTML routes
-- legacy Ghost/blog-subdomain redirects into `/blog`
-- public mood feed/detail shells
-- public mood rendering from `site-api`
-- local and preview fallback proxying for public API URLs
-- protected docs gating through `site-api /v2/admin/session`
-
-The public Worker does not own:
-
-- notify subscription, dispatch, schedule, retry, or email templates
-- admin subscriber or broadcast APIs
-- GitHub OAuth session issuance
-- Telegram webhook ingress
-- HD image ingest/storage routes
-- concrete public API endpoints under `buxx.me/api/*`
-- queue consumers or cron triggers
-
-## Blog Cutover
+## Blog cutover
 
 `blog.buxx.me` is not routed to the public `site` Worker. Ghost admin and
 Ghost's own app/API paths must keep reaching the Ghost origin. Legacy public
@@ -91,7 +81,7 @@ path redirects belong in Cloudflare Redirect Rules, not Worker routes.
 - legacy Ghost taxonomy routes redirect to the matching `/blog/tags` or
   `/blog/tag/<slug>` route.
 
-## Ghost Publishing Hook
+## Ghost publishing hook
 
 The Writing section and `/blog` routes are rendered at build time from the Ghost
 Content API. Ghost post changes do not appear on `buxx.me` until the Cloudflare
@@ -114,22 +104,23 @@ Production setup:
 
 Add Ghost's internal `#unlisted` tag (`hash-unlisted`) to publish a direct-link-only post. The build still emits `/blog/<slug>`, but the post is excluded from the homepage, blog and tag lists, RSS, sitemaps, Pagefind, palette data, `llms.txt`, adjacent navigation, and generated agent Markdown indexes and assets. The HTML and direct Markdown response both carry crawler exclusion directives. `site-api` applies the same internal-tag check at the Ghost content-source and webhook boundaries, so unlisted posts do not enter immediate notifications, retries, digest windows, welcome emails, or the public latest-writing cache.
 
-## Bindings and Secrets
+## Bindings and secrets
 
-Direct public Worker bindings in [`wrangler.jsonc`](https://github.com/bunizao/site/blob/main/wrangler.jsonc):
+One binding, in [`wrangler.jsonc`](https://github.com/bunizao/site/blob/main/wrangler.jsonc):
+`API`, a service binding to `site-api`.
 
-- `API` service binding to `site-api`
+Public runtime vars — all non-secret, all readable in the browser bundle where
+they carry a `PUBLIC_` prefix:
 
-Public runtime vars:
+| Variable | What it feeds |
+| --- | --- |
+| `SITE_URL`, `PUBLIC_SITE_URL` | Canonical base URLs for links, previews, and health checks. |
+| `PUBLIC_GHOST_URL` | Ghost origin the blog reads from. |
+| `PUBLIC_BLOG_OG_IMAGE_ENDPOINT` | OGIS endpoint for generated `/blog` Open Graph images. |
+| `PUBLIC_HD_IMAGE_URL` | HD mood image base URL served by `site-api`. |
+| `PUBLIC_TURNSTILE_SITE_KEY` | Turnstile widget on the subscribe form. |
+| `LASTFM_USER` | Whose scrobbles the listening card reads. |
+| `CHANNEL`, `TELEGRAM_HOST` | Telegram channel slug and host for embed lookups. |
 
-- `SITE_URL`
-- `PUBLIC_SITE_URL`
-- `PUBLIC_GHOST_URL`
-- `PUBLIC_BLOG_OG_IMAGE_ENDPOINT`
-- `LASTFM_USER`
-- `PUBLIC_HD_IMAGE_URL`
-- `PUBLIC_TURNSTILE_SITE_KEY`
-- `CHANNEL`
-- `TELEGRAM_HOST`
-
-Secrets for notify, admin, Telegram webhook, D1, R2, queues, and cron belong to `site-api`.
+Secrets for notify, admin, the Telegram webhook, D1, R2, queues, and cron
+belong to `site-api`, not here. That is the boundary, not an oversight.
