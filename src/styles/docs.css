@@ -300,12 +300,43 @@ body:has(.site-nav--docs) .global-header-actions {
        Chrome drops every ::-webkit-scrollbar rule the moment scrollbar-width is
        set. scrollbar-gutter keeps classic scrollbars from shifting the rows. */
     padding-right: 1rem;
-    padding-bottom: 0.9rem;
+    padding-bottom: 1.3rem;
     scrollbar-gutter: stable;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--foreground) / 0.13) transparent;
+    /* Both ends of the tree are hard edges — the search field above, the exits'
+       hairline below — so a row scrolled halfway past either one gets guillotined
+       and reads as a rendering fault. Dissolve the last 1.5rem instead. The two
+       lengths are 0 until the script says there is something behind that end, so
+       a tree that fits the rail carries no mask at all. A gradient mask rather
+       than a backdrop-filter strip: this surface repaints on every scroll frame,
+       and it needs no extra element to hang the blur on. */
+    --tree-fade-top: 0px;
+    --tree-fade-bottom: 0px;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--tree-fade-top),
+      #000 calc(100% - var(--tree-fade-bottom)),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--tree-fade-top),
+      #000 calc(100% - var(--tree-fade-bottom)),
+      transparent 100%
+    );
+  }
+
+  .docs-nav-tree.is-fade-top {
+    --tree-fade-top: 1.5rem;
+  }
+
+  .docs-nav-tree.is-fade-bottom {
+    --tree-fade-bottom: 1.5rem;
   }
 
   .docs-nav-tree:hover {
@@ -429,7 +460,10 @@ body:has(.site-nav--docs) .global-header-actions {
 .docs-nav-foot {
   display: flex;
   flex-direction: column;
-  padding: 0.55rem 0 0.85rem;
+  /* The rule needs matching air on both faces. It had 0.55 under it against the
+     tree's 0.9 above, which tipped the divider toward the exits and made it look
+     like their heading rather than a boundary between two blocks. */
+  padding: 0.8rem 0 0.9rem;
   /* Opaque, because the tree scrolls under this block and half its entries
      share names with the Surfaces group that lands directly above it. What
      separates the two is the rule running the full width of the rail, not the
@@ -474,6 +508,10 @@ body:has(.site-nav--docs) .global-header-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  /* Clears the tree's fade band. scrollIntoView('nearest') parks the current
+     page flush against whichever edge it entered from, which is exactly where
+     the mask dissolves it — the one row that has to stay legible. */
+  scroll-margin-block: 1.6rem;
   padding: 0.32rem 0.6rem;
   border-radius: 0.4rem;
   font-family: var(--font-sans);

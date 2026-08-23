@@ -127,5 +127,23 @@ const ELSEWHERE = [
     if (active && wide.matches) {
       active.scrollIntoView({ block: 'nearest' });
     }
+
+    // Tell the tree which of its ends still has rows behind it; the mask in
+    // docs.css fades only those. Two classes rather than inline styles so the
+    // lengths stay in the stylesheet with the rest of the rail's geometry.
+    const tree = nav.querySelector<HTMLElement>('.docs-nav-tree');
+    if (tree) {
+      const syncFade = () => {
+        const slack = tree.scrollHeight - tree.clientHeight;
+        tree.classList.toggle('is-fade-top', tree.scrollTop > 1);
+        tree.classList.toggle('is-fade-bottom', slack - tree.scrollTop > 1);
+      };
+      tree.addEventListener('scroll', syncFade, { passive: true });
+      new ResizeObserver(syncFade).observe(tree);
+      // Folding a group changes scrollHeight without resizing the tree, and the
+      // new height is not laid out until the frame after the event.
+      nav.addEventListener('toggle', () => requestAnimationFrame(syncFade), true);
+      syncFade();
+    }
   })();
 </script>
