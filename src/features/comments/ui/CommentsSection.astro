@@ -1,0 +1,97 @@
+---
+/* The public comment thread on a post. Presentational only — fetching,
+   pagination, and the compose form land with client/comments-controller.ts and
+   ui/CommentForm.astro.
+
+   /blog/[slug] is prerendered, so the list always starts as a skeleton and the
+   real rows arrive after hydration. */
+
+import type { BlogComment } from '@/features/comments/types';
+
+interface Props {
+  comments?: BlogComment[];
+  state?: 'loaded' | 'loading' | 'empty';
+}
+
+const { comments = [], state = 'loaded' } = Astro.props;
+
+const tally = comments.filter((comment) => !comment.pending).length;
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map((part) => Array.from(part)[0] ?? '').join('');
+}
+
+const skeletonRows = [
+  { delay: '0s', author: '104px', body: '92%' },
+  { delay: '0.15s', author: '78px', body: '64%' },
+  { delay: '0.3s', author: '120px', body: '80%' },
+];
+---
+
+<section class="blog-comments" data-pagefind-ignore>
+  <div class="blog-comments__head">
+    <span class="blog-comments__title">Comments</span>
+    {state === 'loaded' && tally > 0 && (
+      <span class="blog-comments__tally">· {tally}</span>
+    )}
+  </div>
+
+  {state === 'loading' && (
+    <div class="blog-comments__skeleton" aria-hidden="true">
+      {skeletonRows.map((row) => (
+        <div class="blog-comment">
+          <span
+            class="blog-skel blog-skel--avatar blog-comment__avatar"
+            style={`--skel-delay:${row.delay}`}
+          ></span>
+          <div class="blog-comment__body" style="flex:1">
+            <div class="blog-comment__meta">
+              <span
+                class="blog-skel blog-skel--line"
+                style={`--skel-width:${row.author};--skel-delay:${row.delay}`}
+              ></span>
+            </div>
+            <span
+              class="blog-skel blog-skel--line"
+              style={`--skel-width:${row.body};--skel-delay:${row.delay}`}
+            ></span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+
+  {state === 'empty' && (
+    <p class="blog-comments__empty">Nothing here yet. Be the first to say something.</p>
+  )}
+
+  {state === 'loaded' && (
+    <div class="blog-comments__list">
+      {comments.map((comment) => (
+        <article
+          class:list={[
+            'blog-comment',
+            { 'blog-comment--reply': comment.isReply },
+            { 'blog-comment--pending': comment.pending },
+          ]}
+        >
+          <span class="blog-comment__avatar" aria-hidden="true">{initials(comment.author)}</span>
+          <div class="blog-comment__body">
+            <div class="blog-comment__meta">
+              <span class="blog-comment__author">{comment.author}</span>
+              {comment.byAuthor && <span class="blog-comment__badge">Author</span>}
+              <span class="blog-comment__date">{comment.date}</span>
+            </div>
+            <p class="blog-comment__text">{comment.text}</p>
+            {comment.pending && (
+              <p class="blog-comment__note">
+                Held for review. Only you can see this until it clears.
+              </p>
+            )}
+          </div>
+        </article>
+      ))}
+    </div>
+  )}
+</section>
