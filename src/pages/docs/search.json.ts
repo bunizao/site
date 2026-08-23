@@ -3,6 +3,7 @@
 // reads, so the index and the nav can never disagree about what pages exist.
 import { render } from 'astro:content';
 import { getDocsNav } from '@/features/docs/server/nav';
+import { docsHtmlToText } from '@/features/docs/server/search-text';
 
 export const prerender = true;
 
@@ -26,22 +27,6 @@ interface SearchEntry {
 // the whole article.
 const MAX_BODY_CHARS = 4000;
 
-// Rendered markdown -> plain text. A regex strip is enough at build time: no
-// DOM parser available here, and the output only feeds substring matching.
-function htmlToText(html: string): string {
-  return html
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 export async function GET() {
   const groups = await getDocsNav();
   const entries: SearchEntry[] = [];
@@ -63,7 +48,7 @@ export async function GET() {
             text: heading.text,
             depth: heading.depth as 2 | 3,
           })),
-        text: htmlToText(entry.rendered?.html ?? '').slice(0, MAX_BODY_CHARS),
+        text: docsHtmlToText(entry.rendered?.html ?? '').slice(0, MAX_BODY_CHARS),
       });
     }
   }
