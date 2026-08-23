@@ -46,6 +46,11 @@ html:has(.docs) {
      outside the .docs subtree, and it has to agree with the rail on this number
      or the two stop lining up. */
   --docs-bar-h: 3.25rem;
+  /* The three hairlines that frame the page — the bar's underside, the rail's
+     edge, and the divider above the rail's exits — meet each other at corners
+     and T-junctions. They were 0.07, 0.06 and 0.1, which at a junction reads as
+     one line changing weight halfway. One value for all three. */
+  --docs-chrome-line: hsl(var(--foreground) / 0.08);
 
   overscroll-behavior: none;
 }
@@ -83,7 +88,7 @@ html:has(.docs) {
      bar has nothing to soften, so the effect paid a per-frame cost it could not
      be seen earning. */
   background: hsl(var(--background));
-  border-bottom: 1px solid hsl(var(--foreground) / 0.07);
+  border-bottom: 1px solid var(--docs-chrome-line);
 }
 
 .site-nav--docs .site-brand {
@@ -263,7 +268,7 @@ body:has(.site-nav--docs) .global-header-actions {
     border-radius: 0;
     background: none;
     box-shadow: none;
-    border-right: 1px solid var(--docs-line-soft);
+    border-right: 1px solid var(--docs-chrome-line);
   }
 
   /* Chrome slots the body into ::details-content, so there that pseudo is the
@@ -349,10 +354,19 @@ body:has(.site-nav--docs) .global-header-actions {
      right edge and the scrollbar gutter is not a notch in the middle of it.
      width:auto because an over-constrained block ignores its own right margin,
      which is why this has to undo the 100% above. */
-  .docs-nav-search,
-  .docs-nav-foot {
+  .docs-nav-search {
     width: auto;
     margin-right: 1rem;
+  }
+
+  /* The foot's rule is the only one of the three that has a right end, so it
+     has to land on the rail's border rather than on the tree's gutter: out
+     0.75rem past the rail's padding, with the inset put back as padding so the
+     links stay where the rows are. */
+  .docs-nav-foot {
+    width: auto;
+    margin-right: -0.75rem;
+    padding-right: 1.75rem;
   }
 }
 
@@ -416,11 +430,11 @@ body:has(.site-nav--docs) .global-header-actions {
   display: flex;
   flex-direction: column;
   padding: 0.55rem 0 0.85rem;
-  /* Opaque, and on the full line rather than the soft one: the tree scrolls
-     under this block, and half its entries share names with the Surfaces group
-     that lands directly above it. A faint hairline was not enough to tell the
-     two apart. */
-  border-top: 1px solid var(--docs-line);
+  /* Opaque, because the tree scrolls under this block and half its entries
+     share names with the Surfaces group that lands directly above it. What
+     separates the two is the rule running the full width of the rail, not the
+     rule being darker than the rail's own edge. */
+  border-top: 1px solid var(--docs-chrome-line);
   background: hsl(var(--background));
 }
 
@@ -1035,9 +1049,18 @@ html.dark .docs-prose pre.astro-code span {
 }
 
 /* --- Hub ---------------------------------------------------------------- */
+/* The hub renders no on-this-page column, so the article shell's third track
+   would sit empty and squeeze the content into a measure narrower than the one
+   it declares. Two tracks here; the sections cap themselves. */
+@media (min-width: 90rem) {
+  .docs-shell--hub {
+    grid-template-columns: 15rem minmax(0, 1fr);
+  }
+}
+
 .docs-hub-head {
   max-width: 44rem;
-  margin-bottom: 2.25rem;
+  margin-bottom: 3rem;
 }
 
 /* The lede's bottom margin is sized for an article, where prose follows it
@@ -1048,18 +1071,20 @@ html.dark .docs-prose pre.astro-code span {
 
 .docs-hub-start {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
-  gap: 0.6rem;
-  max-width: 56rem;
-  margin-bottom: 3.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.75rem;
 }
 
+/* Filled by default rather than on hover. An outlined card on a white page is a
+   rectangle of nothing until you point at it; a card that already reads as an
+   object only has to brighten. */
 .docs-card {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  padding: 0.95rem 1.1rem;
-  border-radius: 0.7rem;
+  padding: 0.9rem 1rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--docs-surface);
   box-shadow: inset 0 0 0 1px var(--docs-line);
   text-decoration: none;
   transition: background-color 0.18s ease, box-shadow 0.18s ease;
@@ -1067,29 +1092,49 @@ html.dark .docs-prose pre.astro-code span {
 
 .docs-card:hover,
 .docs-card:focus-visible {
-  background: var(--docs-surface);
+  background: var(--docs-surface-hover);
   box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.2);
 }
 
-.docs-card-title {
+.docs-card-head {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+  color: var(--ink-faint);
+  transition: color 0.18s ease;
+}
+
+.docs-card:hover .docs-card-head {
+  color: var(--ink-strong);
+}
+
+.docs-card-icon {
+  flex: none;
+}
+
+/* Parked at the card's top corner with the icon rather than tucked after the
+   title: the title is a phrase of unknown length, so an arrow trailing it lands
+   somewhere different on every card. */
+.docs-card-arrow {
+  flex: none;
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+  transform: translate(-2px, 2px);
+}
+
+.docs-card:hover .docs-card-arrow,
+.docs-card:focus-visible .docs-card-arrow {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+.docs-card-title {
   font-family: var(--font-sans);
   font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.016em;
   color: var(--ink-strong);
-}
-
-.docs-card-arrow {
-  flex: none;
-  color: var(--ink-faint);
-  transition: transform 0.18s cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-.docs-card:hover .docs-card-arrow {
-  transform: translate(2px, -2px);
 }
 
 .docs-card-desc {
@@ -1101,53 +1146,61 @@ html.dark .docs-prose pre.astro-code span {
   text-wrap: pretty;
 }
 
-/* The index proper. Rows rather than cards: thirty cards is a wall, and a reader
-   scanning for one page wants a list they can run an eye down. */
+/* The index proper. Rows rather than cards: thirty-five cards is a wall, and a
+   reader scanning for one page wants a list they can run an eye down. */
 .docs-hub-section {
   max-width: 56rem;
 }
 
 .docs-hub-section + .docs-hub-section {
-  margin-top: 2.5rem;
+  margin-top: 3.25rem;
 }
 
 .docs-hub-section-head {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.9rem;
 }
 
+/* A heading, not an eyebrow. Five uppercase mono labels at half the body's
+   size left the page with no visible structure — the sections were only
+   findable by the gaps between them. Matches .docs-prose h2 so the hub and the
+   article pages read at the same scale. */
 .docs-hub-section-label {
-  margin: 0 0 0.25rem;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  font-weight: 400;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
+  margin: 0 0 0.3rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.026em;
+  color: hsl(var(--foreground));
 }
 
 .docs-hub-section-blurb {
   margin: 0;
+  max-width: 44rem;
   font-family: var(--font-sans);
   font-size: 0.875rem;
   line-height: 1.5;
   letter-spacing: -0.008em;
   color: var(--ink-body);
+  text-wrap: pretty;
 }
 
+/* No rules between rows. Thirty-five hairlines stacked down the page read as a
+   table nobody asked for, and every one of them competed with the rail's
+   border and the section breaks for the same attention. The title column is
+   already a hard vertical edge; spacing and a hover pill do the rest. */
 .docs-hub-list {
-  margin: 0;
+  margin: 0 -0.6rem;
   padding: 0;
   list-style: none;
-  border-top: 1px solid var(--docs-line-soft);
 }
 
 .docs-hub-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.1rem;
-  padding: 0.65rem 0.6rem;
-  border-bottom: 1px solid var(--docs-line-soft);
-  border-radius: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.5rem;
   text-decoration: none;
   transition: background-color 0.15s ease;
 }
@@ -1185,45 +1238,91 @@ html.dark .docs-prose pre.astro-code span {
   text-wrap: pretty;
 }
 
-/* Outbound row — the aggregation half of the hub. Not rows in the index: these
-   are places on the site, not pages of the reference. */
+/* Outbound block — the aggregation half of the hub. These are places on the
+   site, not pages of the reference, so they are enclosed rather than divided:
+   a panel says "different kind of thing" without leaving a hairline floating
+   in the gap under the last section. */
 .docs-hub-elsewhere {
   max-width: 56rem;
-  margin-top: 3.5rem;
-  padding-top: 1.75rem;
-  border-top: 1px solid var(--docs-line);
+  margin-top: 4rem;
+  padding: 1.15rem;
+  border-radius: 0.9rem;
+  background: var(--docs-surface);
+  box-shadow: inset 0 0 0 1px var(--docs-line);
 }
 
+.docs-hub-elsewhere .docs-hub-section-label {
+  margin: 0 0 0.5rem;
+  padding-left: 0.55rem;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+/* A fixed count, not auto-fit. Auto-fit gave five items four tracks and left
+   Source alone on a second row; five tracks fit, but at 170px the notes broke
+   mid-phrase. Three is the widest count where every note still sits on one
+   line, and a short last row inside a panel costs nothing. */
 .docs-hub-elsewhere-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.75rem;
-  margin: 0.75rem 0 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.1rem;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.docs-hub-elsewhere-link {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  font-family: var(--font-sans);
-  font-size: 0.9rem;
-  letter-spacing: -0.012em;
-  color: var(--ink-strong);
-  text-decoration: none;
+@media (min-width: 30rem) {
+  .docs-hub-elsewhere-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-.docs-hub-elsewhere-link span {
-  color: var(--ink-faint);
-  font-size: 0.84rem;
+@media (min-width: 48rem) {
+  .docs-hub-elsewhere-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Stacked, not inline. Inline label-plus-note pairs wrap at whatever width is
+   left, which left "Projects" and "Source" orphaned on a ragged second line. */
+.docs-hub-elsewhere-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  /* 0.55 inner + 0.35 gap to the panel's own 1.15rem padding lands the pill's
+     radius concentric with the panel's. */
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.55rem;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
 }
 
 .docs-hub-elsewhere-link:hover,
 .docs-hub-elsewhere-link:focus-visible {
-  text-decoration: underline;
-  text-decoration-color: hsl(var(--foreground) / 0.35);
-  text-underline-offset: 0.2em;
+  background: var(--docs-surface-hover);
+}
+
+.docs-hub-elsewhere-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--ink-strong);
+}
+
+.docs-hub-elsewhere-label svg {
+  opacity: 0.45;
+}
+
+.docs-hub-elsewhere-note {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  letter-spacing: -0.006em;
+  color: var(--ink-faint);
 }
 
 @media (max-width: 560px) {
@@ -1248,6 +1347,7 @@ html.dark .docs-prose pre.astro-code span {
   .docs-nav-chevron,
   .docs-nav-link,
   .docs-card,
+  .docs-card-head,
   .docs-card-arrow,
   .docs-pager-link,
   .docs-prose a {
