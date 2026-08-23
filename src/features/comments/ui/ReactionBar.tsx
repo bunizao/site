@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { mountMagnetic } from '@/features/comments/client/use-magnetic';
+import { initials, seedHue } from '@/features/comments/identity';
 import type { Reactor } from '@/features/comments/types';
 
 interface Props {
@@ -21,15 +22,6 @@ interface Props {
 
 const HEART_PATH =
   'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
-
-function initials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => Array.from(part)[0] ?? '')
-    .join('');
-}
 
 /** One burst of hearts per like. Keyed by id so a fast double-tap stacks. */
 interface Spark {
@@ -175,29 +167,49 @@ export default function ReactionBar({
       </div>
 
       {faces.length > 0 && (
-        <AvatarGroup className="blog-react__stack">
+        /* Tighter than the component default: the faces have to read as one
+           overlapping stack, not a row that happens to touch. Paint order runs
+           left to right via an explicit z-index, so each face clips the one
+           before it — including its badge, which is what makes the row look
+           stacked rather than like hearts scattered on top. */
+        <AvatarGroup className="blog-react__stack -space-x-[10px]">
           {faces.map((reactor, i) => (
             <Avatar
               key={reactor.name}
               size="lg"
               data-magnetic
               className="blog-react__avatar"
-              style={{ ['--entry-delay' as string]: `${i * 60}ms` }}
+              style={{
+                zIndex: i,
+                ['--entry-delay' as string]: `${i * 60}ms`,
+                ['--seed-hue' as string]: seedHue(reactor.name),
+              }}
             >
               {reactor.avatar && <AvatarImage src={reactor.avatar} alt={reactor.name} />}
-              <AvatarFallback>{initials(reactor.name)}</AvatarFallback>
+              <AvatarFallback className="blog-avatar-seed blog-avatar-initials">
+                {initials(reactor.name)}
+              </AvatarFallback>
               <AvatarBadge className="blog-react__avatar-badge">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d={HEART_PATH} />
                 </svg>
               </AvatarBadge>
+              {/* Hover names the face instead of pulling it clear of the stack:
+                  the overlap is the point, and a face that jumps to the front
+                  reshuffles the row every time the pointer crosses it. Hidden
+                  from assistive tech — the image alt already carries the name.
+                  Sits below the circles, so it is never clipped by the next
+                  face's stacking context. */}
+              <span className="blog-react__name" aria-hidden="true">
+                {reactor.name}
+              </span>
             </Avatar>
           ))}
           {overflow > 0 && (
             <AvatarGroupCount
               data-magnetic
               className="blog-react__avatar blog-react__more"
-              style={{ ['--entry-delay' as string]: `${faces.length * 60}ms` }}
+              style={{ zIndex: faces.length, ['--entry-delay' as string]: `${faces.length * 60}ms` }}
             >
               +{overflow}
             </AvatarGroupCount>

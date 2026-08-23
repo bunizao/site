@@ -1,26 +1,26 @@
 ---
 /* The public comment thread on a post. Presentational only — fetching,
-   pagination, and the compose form land with client/comments-controller.ts and
-   ui/CommentForm.astro.
+   pagination, and submission land with client/comments-controller.ts.
 
    /blog/[slug] is prerendered, so the list always starts as a skeleton and the
-   real rows arrive after hydration. */
+   real rows arrive after hydration. The compose box is not part of that: it
+   renders immediately in both states, so the way in is on screen before
+   anything has loaded. */
 
-import type { BlogComment } from '@/features/comments/types';
+import CommentForm from '@/features/comments/ui/CommentForm.astro';
+import { initials, seedHue } from '@/features/comments/identity';
+import type { BlogComment, Viewer } from '@/features/comments/types';
 
 interface Props {
   comments?: BlogComment[];
   state?: 'loaded' | 'loading' | 'empty';
+  signedIn?: boolean;
+  viewer?: Viewer;
 }
 
-const { comments = [], state = 'loaded' } = Astro.props;
+const { comments = [], state = 'loaded', signedIn = false, viewer } = Astro.props;
 
 const tally = comments.filter((comment) => !comment.pending).length;
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((part) => Array.from(part)[0] ?? '').join('');
-}
 
 const skeletonRows = [
   { delay: '0s', author: '104px', body: '92%' },
@@ -31,11 +31,13 @@ const skeletonRows = [
 
 <section class="blog-comments" data-pagefind-ignore>
   <div class="blog-comments__head">
-    <span class="blog-comments__title">Comments</span>
+    <h2 class="blog-comments__title">Comments</h2>
     {state === 'loaded' && tally > 0 && (
-      <span class="blog-comments__tally">· {tally}</span>
+      <span class="blog-comments__tally">{tally}</span>
     )}
   </div>
+
+  <CommentForm signedIn={signedIn} viewer={viewer} />
 
   {state === 'loading' && (
     <div class="blog-comments__skeleton" aria-hidden="true">
@@ -76,7 +78,13 @@ const skeletonRows = [
             { 'blog-comment--pending': comment.pending },
           ]}
         >
-          <span class="blog-comment__avatar" aria-hidden="true">{initials(comment.author)}</span>
+          {/* Same generated identity the reaction stack uses — plain markup
+              rather than the React Avatar, because a thread of static rows has
+              nothing to hydrate and one island per row would be absurd. */}
+          <span
+            class="blog-comment__avatar blog-avatar-seed blog-avatar-initials"
+            style={`--seed-hue:${seedHue(comment.author)}`}
+            aria-hidden="true">{initials(comment.author)}</span>
           <div class="blog-comment__body">
             <div class="blog-comment__meta">
               <span class="blog-comment__author">{comment.author}</span>

@@ -7,6 +7,12 @@ export interface Reactor {
   avatar?: string;
 }
 
+/** The signed-in reader, as far as the compose box needs to know them. */
+export interface Viewer {
+  name: string;
+  avatar?: string;
+}
+
 export interface BlogComment {
   id: string;
   author: string;

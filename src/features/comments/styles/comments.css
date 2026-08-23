@@ -1,7 +1,13 @@
 /* Reader reactions + comments for the /blog zone.
    Scoped under .blog-zone so it inherits the publication's greys and cannot
    leak into the mood or docs surfaces. Read together with blog.css, which owns
-   the tokens this layers on top of. */
+   the tokens this layers on top of.
+
+   Type note: the blog zone is a reading surface (body.blog-zone.reading sets
+   --font-sans), and everything here inherits that. No mono anywhere — the mono
+   face is the site's identity voice, and wearing it here made the thread read
+   as a terminal readout bolted under an essay. Changing values still get
+   tabular figures, which is the part mono was actually buying. */
 
 .blog-zone {
   /* xia (霞 — evening glow): the reserved reaction-only accent from
@@ -13,6 +19,35 @@
 
 .dark .blog-zone {
   --blog-xia: #ee7fa8;
+}
+
+/* --- Generated identity -------------------------------------------------- */
+/* Readers with no avatar get a colour derived from their name (see
+   identity.ts). Only the hue travels in the markup; lightness and chroma are
+   pinned here per theme, so every generated face lands on the same contrast
+   step no matter which hue a name happens to draw. */
+.blog-avatar-seed {
+  background: oklch(0.9 0.055 var(--seed-hue, 0));
+  color: oklch(0.42 0.1 var(--seed-hue, 0));
+}
+
+.dark .blog-avatar-seed {
+  background: oklch(0.35 0.05 var(--seed-hue, 0));
+  color: oklch(0.87 0.075 var(--seed-hue, 0));
+}
+
+.blog-avatar-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  /* Centre the CAPS, not the em box. Uppercase-only text sits high in a
+     centred line box because the box reserves descender room the letters never
+     use; trimming to cap-height and the baseline makes the centring optically
+     true. Engines without text-box fall back to the ordinary line box. */
+  text-box: trim-both cap alphabetic;
 }
 
 /* --- Reaction bar -------------------------------------------------------- */
@@ -130,8 +165,7 @@
   background: hsl(var(--foreground));
   border-color: hsl(var(--foreground));
   color: hsl(var(--background));
-  font-family: var(--font-display);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
@@ -155,7 +189,6 @@
   width: 3ch;
   height: 1.5em;
   overflow: hidden;
-  font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -215,6 +248,9 @@
 }
 
 /* --- Reactor stack ------------------------------------------------------- */
+/* Paint order runs left to right off an inline z-index, so each face clips the
+   one before it. That single rule is what makes the row read as a stack: the
+   heart badges are clipped by the next circle instead of floating over it. */
 .blog-react__stack {
   display: flex;
   align-items: center;
@@ -232,19 +268,20 @@
      finish before it writes anything. It only runs once on mount. */
   animation: blog-react-enter 0.5s var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
   animation-delay: var(--entry-delay, 0ms);
-  background: hsl(var(--foreground) / 0.06);
-  color: var(--blog-faint);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-transform: uppercase;
+}
+
+.blog-react__avatar .blog-avatar-initials {
+  font-size: 14px;
 }
 
 .blog-react__more {
   width: 40px;
   height: 40px;
-  font-size: 11.5px;
+  background: hsl(var(--foreground) / 0.06);
+  color: var(--blog-muted);
+  font-size: 12px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  text-transform: none;
 }
 
 @keyframes blog-react-enter {
@@ -258,26 +295,65 @@
   }
 }
 
+/* Hangs off the bottom edge rather than sitting in the corner. The corner is
+   exactly where the next face lands, so a badge parked there is swallowed whole;
+   dropped below the circle it clears the neighbour's arc and stays half-read,
+   which is the look the row is after. */
 .blog-react__avatar-badge {
-  width: 13px;
-  height: 13px;
-  inset-inline-end: -1px;
-  inset-block-end: -1px;
+  width: 15px;
+  height: 15px;
+  inset-inline-end: 1px;
+  inset-block-end: -4px;
   background: var(--blog-xia);
   color: hsl(var(--background));
   box-shadow: 0 0 0 2px hsl(var(--background));
 }
 
 .blog-react__avatar-badge svg {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
+}
+
+/* --- Face name ----------------------------------------------------------- */
+/* Hover names the face instead of lifting it out of the stack. It hangs BELOW
+   the circles, clear of every sibling's box, so it is never clipped by the next
+   face's stacking context — which is the price of a fixed paint order. */
+.blog-react__name {
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 50%;
+  z-index: 1;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -3px) scale(0.98);
+  /* Delayed in, instant out: crossing the row must not leave a trail of pills
+     fading behind the cursor. */
+  transition-property: opacity, transform;
+  transition-duration: 0s;
+}
+
+.blog-react__avatar:hover .blog-react__name {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+  transition-delay: 80ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .blog-react__faces,
   .blog-react__reel,
   .blog-react__glyph,
-  .blog-react__avatar {
+  .blog-react__avatar,
+  .blog-react__name {
     transition: none !important;
     animation: none !important;
   }
@@ -288,9 +364,8 @@
 }
 
 /* --- Comments ------------------------------------------------------------ */
-/* Same measure as the prose. The visual language is borrowed from the mood
-   comment list (avatar + initial fallback + relative date + skeleton), retuned
-   to the blog zone's greys. */
+/* Same measure as the prose, and the same voice: this is more of the page's
+   reading, not a control panel appended to it. */
 .blog-comments {
   margin-top: 40px;
   padding-top: 28px;
@@ -299,31 +374,188 @@
 
 .blog-comments__head {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 22px;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 18px;
 }
 
 .blog-comments__title {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--blog-faint);
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--blog-ink);
 }
 
 .blog-comments__tally {
-  font-family: var(--font-mono);
-  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--blog-fill);
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   color: var(--blog-faint);
 }
 
+/* --- Compose ------------------------------------------------------------- */
+/* First thing under the heading, in both states. Signed out it keeps the same
+   footprint and carries the invitation, so the way in is never something the
+   reader has to hunt for. */
+.blog-compose {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.blog-compose__avatar {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  /* Centred on the field's first line, not on the box: the avatar is taller
+     than the line, so aligning the boxes leaves it visibly high. */
+  margin-top: 12px;
+  border-radius: 50%;
+  font-size: 12px;
+  object-fit: cover;
+}
+
+.blog-compose__avatar--ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--blog-fill);
+  color: var(--blog-faint);
+}
+
+.blog-compose__avatar--ghost svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Outer 14px against 12px of padding leaves the inner controls room for their
+   own radius without either edge looking wrung out. */
+.blog-compose__box {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--blog-line);
+  border-radius: 14px;
+  background: hsl(var(--foreground) / 0.02);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.blog-compose__box:focus-within {
+  border-color: hsl(var(--foreground) / 0.24);
+  background: transparent;
+}
+
+.blog-compose__field {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: none;
+  resize: none;
+  color: var(--blog-body);
+  /* 16px is the floor that stops iOS Safari zooming the page on focus, and it
+     is the right reading size for a field people write paragraphs into. */
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.65;
+  /* Grow with the text rather than sitting at a fixed three empty rows.
+     Engines without field-sizing keep the rows="2" box. */
+  field-sizing: content;
+  min-height: 3.3em;
+}
+
+.blog-compose__field::placeholder {
+  color: var(--blog-faint);
+}
+
+.blog-compose__field:focus {
+  outline: none;
+}
+
+.blog-compose__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.blog-compose__hint {
+  font-size: 12.5px;
+  color: var(--blog-faint);
+}
+
+.blog-compose__submit,
+.blog-compose__signin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 15px;
+  border: 1px solid hsl(var(--foreground));
+  border-radius: 999px;
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.15s ease, scale 0.15s ease;
+}
+
+.blog-compose__submit:hover,
+.blog-compose__signin:hover {
+  opacity: 0.86;
+}
+
+.blog-compose__submit:active,
+.blog-compose__signin:active {
+  scale: 0.96;
+}
+
+.blog-compose__submit:focus-visible,
+.blog-compose__signin:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 2px;
+}
+
+.blog-compose__signin svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Prompt variant: the box holds a line of copy and the button instead of a
+   field, at the same height, so the two states do not shove the thread up and
+   down as the reader signs in. */
+.blog-compose__box--prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.blog-compose__prompt {
+  margin: 0;
+  flex: 1 1 260px;
+  font-size: 14px;
+  line-height: 1.55;
+  text-wrap: pretty;
+  color: var(--blog-muted);
+}
+
+/* --- Thread -------------------------------------------------------------- */
 .blog-comments__list {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
 }
 
 .blog-comment {
@@ -340,18 +572,13 @@
 
 .blog-comment__avatar {
   flex: 0 0 auto;
-  display: grid;
-  place-items: center;
   width: 28px;
   height: 28px;
-  margin-top: 2px;
+  /* Same first-line centring as the compose box; a 28px circle beside a 21px
+     line has to rise a little to sit level with the name. */
+  margin-top: -2px;
   border-radius: 50%;
-  background: hsl(var(--foreground) / 0.08);
-  color: var(--blog-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1;
-  text-transform: uppercase;
+  font-size: 12px;
 }
 
 .blog-comment__body {
@@ -363,38 +590,38 @@
   align-items: baseline;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 3px;
+  /* The page's 1.625 body leading is for paragraphs; a name and a date sit in
+     one short line and only need enough room for the badge. */
+  line-height: 1.5;
+  margin-bottom: 4px;
 }
 
 .blog-comment__author {
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 600;
   color: var(--blog-ink);
 }
 
 .blog-comment__date {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--blog-faint);
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
+  color: var(--blog-faint);
 }
 
 /* Author's own replies get a mark, not a colour — the zone is monochrome and
    xia is spent on the heart. */
 .blog-comment__badge {
-  padding: 1px 6px;
+  padding: 1px 7px;
   border: 1px solid var(--blog-line);
   border-radius: 999px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--blog-faint);
 }
 
 .blog-comment__text {
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 15.5px;
+  line-height: 1.75;
   color: var(--blog-body);
   overflow-wrap: anywhere;
 }
@@ -406,8 +633,8 @@
 
 .blog-comment__note {
   margin-top: 5px;
-  font-size: 12.5px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.55;
   color: var(--blog-faint);
 }
 
@@ -420,7 +647,7 @@
 .blog-comments__skeleton {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
 }
 
 .blog-skel {

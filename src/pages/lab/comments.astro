@@ -166,13 +166,18 @@ await billing.invoice(payload)</code></pre>
         reactors={reactors}
       />
 
-      <CommentsSection comments={comments} state={state} />
+      <CommentsSection
+        comments={comments}
+        state={state}
+        signedIn={signedIn}
+        viewer={{ name: 'Tutu Xiao' }}
+      />
     </article>
   </div>
 
   <footer class="blog-end">
     <div class="blog-end__bar">
-      <span class="blog-comments__title">Article foot sits here</span>
+      <span class="blog-comment__date">Article foot sits here</span>
     </div>
   </footer>
 

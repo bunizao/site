@@ -35,9 +35,6 @@ export function mountMagnetic(scope: HTMLElement, options: MagneticOptions = {})
   let frame = 0;
 
   function apply(pointerX: number, pointerY: number) {
-    let nearest: HTMLElement | null = null;
-    let nearestPull = 0;
-
     for (const el of targets) {
       const box = el.getBoundingClientRect();
       const dx = pointerX - (box.left + box.width / 2);
@@ -53,30 +50,20 @@ export function mountMagnetic(scope: HTMLElement, options: MagneticOptions = {})
       // squared curve collapses to nothing a third of the way out and reads as
       // no effect at all.
       const pull = (1 - distance / radius) ** 1.6;
-      if (pull > nearestPull) {
-        nearestPull = pull;
-        nearest = el;
-      }
 
       el.style.transitionDuration = GLIDE_DURATION;
       el.style.transitionTimingFunction = GLIDE_EASE;
-      el.style.zIndex = '';
       el.style.transform =
         `translate3d(${(dx * strength * pull).toFixed(2)}px, ` +
         `${(dy * strength * pull + lift * pull).toFixed(2)}px, 0) ` +
         `scale(${(1 + (scale - 1) * pull).toFixed(4)})`;
     }
-
-    // The faces overlap, so whichever one is being pulled hardest has to come
-    // forward or its ring is clipped by the next one along.
-    if (nearest) nearest.style.zIndex = '2';
   }
 
   function release(el: HTMLElement) {
     if (el.style.transform === '' || el.style.transform === 'none') return;
     el.style.transitionDuration = SPRING_DURATION;
     el.style.transitionTimingFunction = SPRING_EASE;
-    el.style.zIndex = '';
     el.style.transform = '';
   }
 
@@ -104,7 +91,6 @@ export function mountMagnetic(scope: HTMLElement, options: MagneticOptions = {})
       el.style.transform = '';
       el.style.transitionDuration = '';
       el.style.transitionTimingFunction = '';
-      el.style.zIndex = '';
     });
   };
 }
