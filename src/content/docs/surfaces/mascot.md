@@ -9,14 +9,14 @@ order: 5
 
 This document exists to keep mascot work simple. It is not a deployment guide, not a migration diary, and not a place to design a framework around a cat.
 
-## What `peek` Does
+## What `peek` does
 
 - Acts as the navbar brand mark.
 - Provides a small set of motion and expression states for the site UI.
 - Powers the mascot preview at `/dev/preview`.
 - Supplies the public SVG used by favicon and related consumers.
 
-## What Matters
+## What matters
 
 When working on `peek`, keep these rules intact:
 
@@ -27,16 +27,18 @@ When working on `peek`, keep these rules intact:
 
 If a mascot change needs a pile of ceremony, the design is probably wrong.
 
-## Current Usage
+## Where it lives
 
-- Navbar brand mark in [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro)
-- Logo data in [`src/features/logos/data/peek.ts`](https://github.com/bunizao/site/blob/main/src/features/logos/data/peek.ts)
-- Extra looks in [`src/features/logos/data/peek-looks.ts`](https://github.com/bunizao/site/blob/main/src/features/logos/data/peek-looks.ts)
-- Preview surface in [`src/pages/dev/preview.astro`](https://github.com/bunizao/site/blob/main/src/pages/dev/preview.astro)
-- SVG route in [`src/pages/logo/[id].svg.ts`](https://github.com/bunizao/site/blob/main/src/pages/logo/[id].svg.ts)
-- Sticker assets in [`public/mascot/peek/stickers/`](https://github.com/bunizao/site/blob/main/public/mascot/peek/stickers/) with metadata in [`src/features/mascot/peek/stickers.ts`](https://github.com/bunizao/site/blob/main/src/features/mascot/peek/stickers.ts)
+| Piece | File |
+| --- | --- |
+| Navbar brand mark | [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro) |
+| Logo data | [`src/features/logos/data/peek.ts`](https://github.com/bunizao/site/blob/main/src/features/logos/data/peek.ts) |
+| Extra looks | [`src/features/logos/data/peek-looks.ts`](https://github.com/bunizao/site/blob/main/src/features/logos/data/peek-looks.ts) |
+| Preview surface | [`src/pages/dev/preview.astro`](https://github.com/bunizao/site/blob/main/src/pages/dev/preview.astro) |
+| SVG route | [`src/pages/logo/[id].svg.ts`](https://github.com/bunizao/site/blob/main/src/pages/logo/[id].svg.ts) |
+| Sticker assets | [`public/mascot/peek/stickers/`](https://github.com/bunizao/site/blob/main/public/mascot/peek/stickers/), with dimensions in [`src/features/mascot/peek/stickers.ts`](https://github.com/bunizao/site/blob/main/src/features/mascot/peek/stickers.ts) |
 
-## Current Problem
+## Current problem
 
 The mascot data is carrying too much in one place.
 
@@ -60,7 +62,7 @@ The right direction is animation-authoring first:
 
 Low complexity wins here. A mascot is branding content with behavior, not infrastructure.
 
-## Authoring New Motions
+## Authoring new motions
 
 Pose and motion data lives in `src/features/mascot/peek/`. For repeated animation, define named source frames and schedule them with timeline beats.
 
@@ -154,7 +156,7 @@ Sticker-style source art lives outside the grid catalog when exact raster fideli
 
 The current SVG stickers are self-contained wrappers around cropped source PNG data. That is deliberate: they preserve the supplied artwork exactly for review. Do not pretend these are pure vector assets until they have been redrawn or traced into editable paths or pixel rectangles.
 
-## Definition Of Done
+## Definition of done
 
 A mascot change is in good shape when:
 

@@ -5,31 +5,17 @@ group: Surfaces
 order: 4
 ---
 
-## Purpose
+A full-page overlay that highlights the existing `24px` dot grid as the pointer
+moves. It draws nothing new — no canvas, no particles. It reveals a brighter
+copy of the same grid through two moving CSS masks, so the whole effect is one
+fixed layer with a `requestAnimationFrame` loop writing custom properties.
 
-This document describes the current full-page spotlight overlay implementation used to highlight the existing dot grid as the pointer moves.
+Files: [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro) (markup and the inline script) and [`src/styles/globals.css`](https://github.com/bunizao/site/blob/main/src/styles/globals.css) (every layer).
 
-The effect is designed to stay visually clean:
+## DOM structure
 
-- Reuse the same `24px` dot grid already rendered by `body::before`
-- Highlight dots across the whole page, not only inside the hero
-- Fade out smoothly when pointer movement stops
-- Keep runtime work isolated to a single fixed overlay layer
-
-## Implementation Summary
-
-The spotlight is implemented as a global fixed overlay mounted in the base layout.
-
-Files involved:
-
-- `src/layouts/Layout.astro`
-- `src/styles/globals.css`
-
-The overlay does not render new particles or draw to canvas. It only reveals a brighter copy of the same dot grid through moving CSS masks.
-
-## DOM Structure
-
-The overlay is mounted once near the top of `<body>`:
+Mounted once near the top of `<body>`; the rest of the page is wrapped in
+`.site-shell` so content stays above the overlay in stacking order.
 
 ```html
 <div class="spotlight-overlay" data-spotlight-overlay aria-hidden="true">
@@ -38,157 +24,117 @@ The overlay is mounted once near the top of `<body>`:
 </div>
 ```
 
-The rest of the page content is wrapped in `.site-shell` so content remains above the overlay in stacking order.
+## Layers
 
-## Visual Layers
+All three paint the same dot pattern. What differs is the blur and the mask.
 
-### Base Grid
+| Layer | Element | Blur | Mask | Role |
+| --- | --- | --- | --- | --- |
+| Base grid | `body::before` | — | None, always visible | The baseline texture |
+| Soft highlight | `.spotlight-overlay__grid--soft` | Slight | Ellipse offset by pointer velocity | A trailing edge without glow bloom |
+| Core highlight | `.spotlight-overlay__grid--core` | None | Tighter ellipse centered on the pointer | The crisp part that makes it feel precise |
 
-The static grid remains on `body::before`:
+The base grid is a `radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px)`
+at `background-size: 24px 24px`.
 
-```css
-body::before {
-  background-image: radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-```
+## When it runs
 
-This layer is always visible and acts as the baseline visual texture.
+| Condition | Behavior |
+| --- | --- |
+| `(prefers-reduced-motion: reduce)`, or `(pointer: fine)` fails | The script sets both opacities to `0` and returns before binding a single listener. Touch devices get the static grid. |
+| `pointermove` with a `pointerType` other than `mouse` | Ignored — a pen or touch contact does not move the spotlight. |
+| `mouseout`, `blur` | Treated as maximum idle: the fade runs to zero. |
+| Everything settled | The loop drops `is-active` and stops. It is not a permanent ticker; a `pointermove` restarts it. |
 
-### Soft Highlight Layer
+## State
 
-`.spotlight-overlay__grid--soft` uses:
+| Field | Holds |
+| --- | --- |
+| `targetX`, `targetY` | Latest pointer coordinates |
+| `currentX`, `currentY` | Smoothed spotlight coordinates |
+| `velocityX`, `velocityY` | Recent pointer delta, decaying every frame |
+| `tailX`, `tailY` | The velocity smoothed again — this is what shapes the trailing ellipse |
+| `lastPointerMoveTime` | Timestamp of the latest movement |
+| `currentOpacity` | Smoothed rendered opacity |
 
-- The same dot pattern as the base grid
-- Slight blur
-- An elliptical mask offset by pointer velocity
-
-This creates a subtle trailing edge without introducing a visible shadow or glow bloom.
-
-### Core Highlight Layer
-
-`.spotlight-overlay__grid--core` uses:
-
-- The same dot pattern
-- No blur
-- A tighter ellipse centered on the pointer
-
-This provides the crisp highlight that makes the spotlight feel precise.
-
-## Runtime Behavior
-
-The animation logic lives in an inline script in `Layout.astro`.
-
-### Input Handling
-
-The script listens to:
-
-- `pointermove`
-- `mouseout`
-- `blur`
-
-Only fine pointers are enabled:
+Every blend is an exponential of elapsed time rather than a fixed per-frame
+increment, so the motion holds up across refresh rates and through dropped
+frames:
 
 ```ts
-const prefersFinePointer = window.matchMedia('(pointer: fine)');
+const deltaMs = Math.min(32, timestamp - lastFrameTime || 16.67);
+const positionBlend = 1 - Math.exp(-deltaMs / positionSmoothingMs);
+const opacityBlend  = 1 - Math.exp(-deltaMs / opacitySmoothingMs);
+const velocityDecay = Math.exp(-deltaMs / velocityDecayMs);
+const tailBlend     = 1 - Math.exp(-deltaMs / tailSmoothingMs);
 ```
 
-Reduced motion disables the effect entirely:
+The tail is its own spring: it lerps toward the decaying velocity rather than
+reading it directly, which smooths out micro-jitter and gives the soft layer a
+comet-like lag. Its magnitude drives the radii through a normalized, square-rooted
+speed, so slow movement still reads as motion:
 
 ```ts
-const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const rawSpeed = Math.hypot(tailX, tailY);
+const speed = Math.min(1, Math.sqrt(rawSpeed / 20));
 ```
 
-### State Model
-
-The effect tracks:
-
-- `targetX`, `targetY`: latest pointer coordinates
-- `currentX`, `currentY`: smoothed spotlight coordinates
-- `velocityX`, `velocityY`: recent pointer delta for trailing shape
-- `lastPointerMoveTime`: timestamp of latest movement
-- `currentOpacity`: smoothed rendered opacity
-
-### Idle Fade
-
-The spotlight now starts fading immediately when pointer movement stops.
-
-It does not wait before fading. Instead, visibility is derived continuously from elapsed idle time:
+Idle visibility is derived continuously from elapsed time, not scheduled with a
+timer, so the spotlight starts fading the instant the pointer stops rather than
+waiting out a delay. The curve is a smoothstep, so the glow sinks in instead of
+dropping linearly:
 
 ```ts
 const idleElapsedMs = hasPointer
   ? Math.max(0, timestamp - lastPointerMoveTime)
   : idleFadeDurationMs;
 
-const idleVisibility = Math.max(0, 1 - idleElapsedMs / idleFadeDurationMs);
-targetOpacity = idleVisibility;
+const idleT = Math.min(1, idleElapsedMs / idleFadeDurationMs);
+targetOpacity = 1 - (idleT * idleT * (3 - 2 * idleT));
 ```
 
-Current fade duration:
+## Constants and tuning
 
-- `idleFadeDurationMs = 600`
+| Constant | Value | Controls | Lower it | Raise it |
+| --- | --- | --- | --- | --- |
+| `positionSmoothingMs` | `38` | How fast the spotlight catches the pointer | More responsive | More stable |
+| `opacitySmoothingMs` | `90` | Fade in and out | More responsive | Softer |
+| `velocityDecayMs` | `72` | How long velocity survives after the pointer stops | Shorter tail | More stable tail |
+| `tailSmoothingMs` | `110` | How far the soft layer lags behind the velocity | Tighter to the pointer | Longer comet |
+| `idleFadeDurationMs` | `800` | Pointer stop to zero opacity | Fades sooner | Lingers |
 
-This means:
+The radii and opacities are computed per frame from the smoothed state:
 
-- Moving pointer: spotlight stays fully active
-- Pointer stops: spotlight begins fading immediately
-- After 600 ms of no movement: spotlight reaches zero opacity
+| Output | Formula | Governs |
+| --- | --- | --- |
+| Soft radius | `170px + speed * 30` | Size of the trailing halo |
+| Core radius | `88px + speed * 14` | Size of the crisp highlight |
+| Soft opacity | `currentOpacity * 0.26` | Brightness of the halo |
+| Core opacity | `currentOpacity * 0.98` | Brightness of the highlight |
+| Tail offset | `tailX * 1.4`, `tailY * 1.4` | How far the soft mask trails the pointer |
 
-## Animation Model
+Make it smaller by reducing the two base radii; make it brighter by raising the
+two opacity multipliers, or the dot alpha in `.spotlight-overlay__grid` if the
+dots themselves are too faint.
 
-The effect is driven by `requestAnimationFrame`.
+## CSS variable contract
 
-Instead of fixed per-frame increments, smoothing is time-based:
+The script mutates variables on `.spotlight-overlay` only — never on `html` or
+`body` — which keeps style invalidation inside the overlay subtree.
 
-```ts
-const deltaMs = Math.min(32, timestamp - lastFrameTime || 16.67);
-const positionBlend = 1 - Math.exp(-deltaMs / positionSmoothingMs);
-const opacityBlend = 1 - Math.exp(-deltaMs / opacitySmoothingMs);
-const velocityDecay = Math.exp(-deltaMs / velocityDecayMs);
-```
+| Variable | Written from |
+| --- | --- |
+| `--spotlight-x`, `--spotlight-y` | `currentX`, `currentY` |
+| `--spotlight-tail-x`, `--spotlight-tail-y` | The tail spring, scaled `1.4×` |
+| `--spotlight-soft-radius`, `--spotlight-core-radius` | The radius formulas above |
+| `--spotlight-soft-opacity`, `--spotlight-core-opacity` | The opacity formulas above |
 
-This keeps the motion more stable across different refresh rates and under occasional frame drops.
+## Performance
 
-Current timing constants:
-
-- `positionSmoothingMs = 42`
-- `opacitySmoothingMs = 72`
-- `velocityDecayMs = 58`
-
-These values were tuned for a more responsive, less floaty feel.
-
-## CSS Variable Contract
-
-The script only mutates variables on `.spotlight-overlay`, not on `html` or `body`.
-
-Variables updated at runtime:
-
-- `--spotlight-x`
-- `--spotlight-y`
-- `--spotlight-tail-x`
-- `--spotlight-tail-y`
-- `--spotlight-soft-radius`
-- `--spotlight-core-radius`
-- `--spotlight-soft-opacity`
-- `--spotlight-core-opacity`
-
-This keeps style invalidation scoped to the overlay subtree.
-
-## Performance Notes
-
-The current implementation intentionally avoids canvas and keeps the effect CSS-driven.
-
-Performance-related choices:
-
-- Use one fixed overlay instead of per-section effects
-- Reuse the existing grid pattern
-- Write CSS variables to the overlay element only
-- Add `contain: strict` to the overlay
-- Add `contain: paint` to child layers
-- Avoid timers for fade orchestration
-- Use a single `requestAnimationFrame` loop only while animation is active
-
-Relevant CSS:
+The effect stays CSS-driven on purpose: one fixed overlay instead of per-section
+effects, the existing grid pattern reused instead of a second one, variables
+written to a single element, no timers, and the animation loop running only
+while something is actually animating.
 
 ```css
 .spotlight-overlay {
@@ -202,60 +148,15 @@ Relevant CSS:
 }
 ```
 
-## Tuning Guide
-
-### Make It More Responsive
-
-Reduce:
-
-- `positionSmoothingMs`
-- `opacitySmoothingMs`
-
-### Make It More Stable
-
-Increase:
-
-- `positionSmoothingMs`
-- `velocityDecayMs`
-
-### Make It Smaller
-
-Reduce:
-
-- Base `--spotlight-soft-radius`
-- Base `--spotlight-core-radius`
-
-### Make It Brighter
-
-Increase:
-
-- Soft layer opacity multiplier
-- Core layer opacity multiplier
-- Dot alpha in `.spotlight-overlay__grid`
-
-## Current Defaults
-
-Current radius values generated by the script:
-
-- Soft radius: `236px + speed * 28`
-- Core radius: `124px + speed * 14`
-
-Current opacity scaling:
-
-- Soft layer: `currentOpacity * 0.28`
-- Core layer: `currentOpacity * 0.96`
-
 ## Limitations
 
-- The effect is pointer-driven, so touch devices do not use it
-- The overlay assumes the base grid stays at `24px` spacing
-- If the base grid style changes, the spotlight grid must be updated to match
+- Pointer-driven, so touch devices never see it.
+- The overlay hardcodes `24px` spacing to match the base grid. Change one and
+  the other stops lining up — promoting the spacing to a shared custom property
+  is the fix, and has not been done.
 
-## Future Improvements
+## Possible refinements
 
-Possible refinements if needed later:
-
-- Respect hover-capable devices instead of only fine pointers
-- Add route-level opt-out for pages that should stay fully static
-- Promote the grid spacing to a shared CSS custom property to remove duplication
-- Add DevTools-friendly debug mode for radius and opacity tuning
+- Key on hover-capable devices instead of only fine pointers.
+- A route-level opt-out for pages that should stay fully static.
+- A DevTools-friendly debug mode for radius and opacity tuning.

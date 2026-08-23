@@ -38,18 +38,19 @@ read as a single voice, so the accents are three blues — not blue plus a warm
 counter-colour. Each shade owns exactly one job, and the job is fixed by WCAG
 contrast against the surface it sits on:
 
-- `{colors.dai}` — **primary**. Links, table-of-contents progress, focus rings,
-  hover. The greyed slate-blue shanshui painters dilute to push a ridge into the
-  haze. Text-safe in both modes (6.84:1 / 7.99:1).
-- `{colors.dian}` — **the mark**. The "Not by AI" pledge and the author byline.
-  A deep, concentrated indigo — the firmest blue on the page, because it stands
-  for the human behind the work. Text-safe in both modes (10.27:1 / 8.22:1).
-- `{colors.ji}` — **highlight, fill only**. The pale "sky after rain" wash for
-  emphasis on the reading surface. (Blog search now lives in the site-wide ⌘K
-  palette, which uses its own neutral mark, so `ji` is a reserved reading-zone
-  fill rather than a search-hit colour.) It measures **3.57:1** on the light
-  surface, so it **fails AA as text** — it may only ever be a background wash,
-  never a foreground colour. The constraint picks the role.
+| Token | Job | Contrast (light / dark) | Safe as text |
+| --- | --- | --- | --- |
+| `{colors.dai}` 黛 | Primary — links, table-of-contents progress, focus rings, hover | 6.84:1 / 7.99:1 | Both modes |
+| `{colors.dian}` 靛 | The mark — the "Not by AI" pledge and the author byline | 10.27:1 / 8.22:1 | Both modes |
+| `{colors.ji}` 霁 | Highlight wash on the reading surface | **3.57:1** / 8.79:1 | **No — fill only** |
+
+`dai` is the greyed slate-blue shanshui painters dilute to push a ridge into the
+haze. `dian` is the firmest blue on the page because it stands for the human
+behind the work, which is why it appears nowhere else. `ji` fails AA as text on
+the light surface, so it may only ever be a background — the constraint picks
+the role, not taste. Blog search now lives in the site-wide ⌘K palette with its
+own neutral mark, so `ji` is a reserved reading-zone fill rather than a
+search-hit colour.
 
 **Surfaces.** `{colors.surface.dark}` is `#0A0A0A`, not `#000`: pure black
 smears on OLED during scroll, and white text on it hits 21:1, which haloes in
