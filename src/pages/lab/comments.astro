@@ -6,7 +6,7 @@
 //
 // Query params flip the states worth reviewing side by side:
 //   ?state=loaded | loading | empty   (comment list)
-//   ?phase=anonymous | naming | ready (reader standing in the compose box)
+//   ?phase=anonymous | ready          (reader standing in the compose box)
 //   ?reacted=1                        (filled heart, xia accent)
 //
 // Delete once /blog/[slug] carries the real thing.
@@ -27,7 +27,7 @@ const params = Astro.url.searchParams;
 const rawState = params.get('state');
 const state = rawState === 'loading' || rawState === 'empty' ? rawState : 'loaded';
 const rawPhase = params.get('phase');
-const phase = rawPhase === 'naming' || rawPhase === 'ready' ? rawPhase : 'anonymous';
+const phase = rawPhase === 'ready' ? rawPhase : 'anonymous';
 const reacted = params.get('reacted') === '1';
 
 // Real faces on purpose: a stack of five identical initial-circles reads as one

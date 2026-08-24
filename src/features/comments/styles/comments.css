@@ -487,12 +487,25 @@
   border-color: hsl(var(--foreground) / 0.32);
 }
 
-.blog-compose__name {
+/* The identity row: asked for once, at submit, and never again on this
+   browser. Name first because it is the part the reader chooses; the address
+   is only the part they have to prove. */
+.blog-compose__id {
+  display: flex;
+  gap: 7px;
   margin-top: 10px;
 }
 
-.blog-compose__name .blog-compose__input {
+.blog-compose__id .blog-compose__input {
+  flex: 1 1 auto;
   width: 100%;
+}
+
+/* A display name needs room for a handle, not a sentence, so it takes the
+   smaller share and leaves the address the half that actually runs long.
+   Scoped to the row so it outweighs the shared `flex: 1 1 auto` above. */
+.blog-compose__id .blog-compose__input--name {
+  flex: 0 1 38%;
 }
 
 .blog-compose__foot {
@@ -545,33 +558,6 @@
   transition: opacity 0.15s ease, scale 0.15s ease;
 }
 
-/* Once the choices are open the primary button has nothing left to be primary
-   about — it steps back to a quiet way out, and the three ways carry the
-   weight. Labels swap in CSS off the same aria state that drives the panel, so
-   there is one source of truth and no text to keep in sync in script. */
-/* Open, the button has nothing left to be primary about: it shrinks to the way
-   out and lets the three ways carry the row. Both the treatment and the label
-   read the same aria state that drives the panel, so the visual state and the
-   announced state cannot drift. */
-.blog-compose__go[aria-expanded='true'] {
-  width: 34px;
-  padding: 0;
-  border-color: var(--blog-line);
-  background: transparent;
-  color: var(--blog-muted);
-}
-
-.blog-compose__go-close,
-.blog-compose__go[aria-expanded='true'] .blog-compose__go-open {
-  display: none;
-}
-
-.blog-compose__go[aria-expanded='true'] .blog-compose__go-close {
-  display: block;
-  width: 15px;
-  height: 15px;
-}
-
 .blog-compose__go:hover {
   opacity: 0.86;
 }
@@ -580,118 +566,39 @@
   scale: 0.96;
 }
 
-.blog-compose__go:focus-visible,
-.blog-way:focus-visible {
+.blog-compose__go:focus-visible {
   outline: 2px solid var(--blog-accent);
   outline-offset: 2px;
 }
 
-/* --- The three ways in ---------------------------------------------------- */
-/* One row inside the footer, not a panel under it. Two providers and an email
-   field fit on a line at the reading measure, so asking for them costs the box
-   no height — a sign-in slab taller than the field you are signing in to write
-   in has its priorities backwards. The hint steps aside to make room. */
-.blog-compose__foot:has([aria-expanded='true']) .blog-compose__hint {
+/* --- Asking who you are -------------------------------------------------- */
+/* The hint under the box carries the whole argument for the email round trip,
+   so it changes the moment the row appears: shut it is housekeeping, open it
+   is the promise that this is paid once rather than once per comment. It
+   reads the same aria state that drives the row, so what is shown and what is
+   announced cannot drift. */
+.blog-compose__hint--open,
+.blog-compose__foot:has([aria-expanded='true']) .blog-compose__hint--shut {
   display: none;
 }
 
-.blog-compose__ways {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
+.blog-compose__foot:has([aria-expanded='true']) .blog-compose__hint--open {
+  display: inline;
 }
 
-.blog-way {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  height: 34px;
-  padding: 0 13px;
-  border: 1px solid var(--blog-line);
-  border-radius: var(--blog-r-pill);
-  color: var(--blog-ink);
-  font-size: 13px;
-  font-weight: 500;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-
-.blog-way:hover {
-  border-color: hsl(var(--foreground) / 0.26);
-  background: var(--blog-fill);
-}
-
-.blog-way svg {
-  width: 15px;
-  height: 15px;
-}
-
-.blog-compose__magic {
-  display: flex;
-  flex: 1 1 150px;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.blog-compose__magic .blog-compose__input {
-  flex: 1 1 auto;
-  width: 100%;
-}
-
-/* Icon-only, so the row stays inside the measure. Its label is on the button. */
-.blog-compose__send {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid hsl(var(--foreground));
-  border-radius: var(--blog-r-pill);
-  background: hsl(var(--foreground));
-  color: hsl(var(--background));
-  cursor: pointer;
-  transition: opacity 0.15s ease, scale 0.15s ease;
-}
-
-.blog-compose__send:hover {
-  opacity: 0.86;
-}
-
-.blog-compose__send:active {
-  scale: 0.96;
-}
-
-.blog-compose__send:focus-visible,
-.blog-way:focus-visible {
-  outline: 2px solid var(--blog-accent);
-  outline-offset: 2px;
-}
-
-.blog-compose__send svg {
-  width: 15px;
-  height: 15px;
-}
-
-/* Under the measure the email field takes its own line rather than squeezing
-   the two providers into unreadable stubs. */
+/* Under the measure the two fields stack rather than squeezing an address
+   into an unreadable stub. */
 @media (max-width: 560px) {
-  .blog-compose__ways {
+  .blog-compose__id {
     flex-wrap: wrap;
   }
 
-  .blog-compose__magic {
+  .blog-compose__id .blog-compose__input--name {
     flex-basis: 100%;
   }
 
-  /* Once the row wraps, centring the dismiss against two lines strands it in
-     the gutter — park it level with the first. */
+  /* The open hint is a full sentence; centring the button against two lines of
+     it strands the button in the gutter — park it level with the first. */
   .blog-compose__foot:has([aria-expanded='true']) {
     align-items: flex-start;
   }
