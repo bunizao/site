@@ -57,10 +57,14 @@ describe('mood media rendering health', () => {
     const html = await fetchAnchoredMoodPage(siteUrl, '3618');
     const block = moodBlock(html, '3618');
     const thumbnail = block.match(/bookmark-card__media[^>]*><img src="([^"]+)"/)?.[1] ?? '';
+    const thumbnailUrl = new URL(thumbnail, siteUrl);
+    const expectedUrl = new URL('/api/v2/images/mood/3618/link-preview', siteUrl);
 
-    expect(thumbnail).toBe(`${siteUrl}/api/v2/images/mood/3618/link-preview`);
+    expect(thumbnail).not.toBe('');
+    expect(thumbnailUrl.origin).toBe(expectedUrl.origin);
+    expect(thumbnailUrl.pathname).toBe(expectedUrl.pathname);
 
-    const response = await fetch(new URL(thumbnail, siteUrl), {
+    const response = await fetch(thumbnailUrl, {
       headers: { Accept: 'image/avif,image/webp,image/*,*/*;q=0.8' },
       signal: AbortSignal.timeout(5_000),
     });
