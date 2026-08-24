@@ -80,7 +80,7 @@ Nothing here needs inventing:
 
 | Need | Existing implementation |
 | --- | --- |
-| Signed one-time token | `createNotifyToken` / `verifyNotifyToken` in `site-api` `src/features/notify/server/security.ts` — HMAC-SHA256 over a base64url payload with `action`, `exp`, optional `jti` |
+| Signed one-time token | `createNotifyToken` / `verifyNotifyToken` in `site-api` `src/features/notify/server/security.ts` — HMAC-SHA256 over a base64url payload with `action`, `exp`, optional `jti`. Comments do **not** clone this; it is lifted to a shared email-challenge module (see "One challenge, two callers") |
 | One-time-use token table | The `jti` PK + `token_hash` UNIQUE + `expires_at` + `consumed_at` shape from `0008_email_change_requests.sql` |
 | Email delivery | Resend, via `notify/server/resend.ts` and `templates.ts` |
 | **Model calls** | `features/mood/server/mood-sentiment.ts` — `@ai-sdk/openai` + `generateText` with `Output.object({ schema })`, `temperature: 0`, `AI_API_KEY` / `AI_BASE_URL`, and a primary/fallback model pair |
@@ -214,16 +214,74 @@ template and closes both. It also keeps the reader on the page with their
 draft, their scroll position, and the thread they were reading, which the link
 round trip does not.
 
-Shape: six digits, 10 minutes, five attempts, single use, bound to the pending
-comment. The link keeps notify's 24-hour confirm TTL. The code goes in the
-**subject line** as well as the body — `123456 is your comment code for
-buxx.me` — so it can be read from a notification without opening the mail. The
-input takes `autocomplete="one-time-code"`.
+Shape: six digits, five attempts, single use, bound to the pending comment.
+**One TTL for both carriers — 30 minutes.** The earlier draft gave the link 24
+hours and the code 10 minutes while also claiming that verifying either
+consumes both, which cannot be true of two things that die at different times:
+a reader who comes back after half an hour would hold a dead code and a live
+link with nothing in the UI to say which. One grant, one expiry.
+
+The code goes in the **subject line** as well as the body — `123456 is your
+comment code for buxx.me` — so it can be read from a notification without
+opening the mail. The input takes `autocomplete="one-time-code"`.
 
 The draft is never lost, it survives opening the link on a different device,
 and unverified comments are invisible until the round trip completes — which is
 spam protection for free, and costs zero model tokens on anything that never
 gets verified.
+
+### One challenge, two callers
+
+Proving control of an email address is one piece of business, and notify
+already implements it. Comments must not get a second copy of it.
+
+So `notify/server/security.ts`'s token half is lifted to
+`site-api` `src/lib/email-challenge.ts`: `action` is renamed `purpose`, gains
+`comment_verify`, and both features call the same create/verify pair. The
+six-digit code is **derived from the token** — `digits6(HMAC(secret, token))` —
+not minted as a second secret, which is what makes "one grant, two carriers"
+structurally true rather than a promise the code has to keep by hand.
+
+What is shared: the module, the `purpose` enum, the secret policy, the
+rate-limit policy, the email component that renders a code-and-link block, and
+the audit event shape. What is **not** shared:
+
+- **The session secret.** `COMMENTS_SESSION_SECRET` stays distinct from
+  `EMAIL_NOTIFY_SECRET`. A 30-minute challenge and a 180-day rolling cookie
+  have nothing in common but an algorithm, and rotating one must not invalidate
+  the other.
+- **The code itself, for subscribe.** Subscription confirmation stays
+  link-only. It has no draft to preserve and no cross-device problem to solve,
+  so a code would buy nothing and would cost notify the property that an
+  unconfirmed subscribe request writes **zero rows** — the attempt counter a
+  code needs is state, and that state is a spam-write surface notify does not
+  have today. Subscribe shares the module, not the carrier. Flipping it on
+  later is one flag.
+
+**No `blog_reader_tokens` table.** Where the attempt counter has to live, it
+lives on a row that must exist anyway — the pending comment gets a
+`code_attempts` column — or on the existing `RateLimitDO`. The boundary rule,
+written down so it stops being re-litigated:
+
+> Low-stakes address proof (confirm a subscription, publish a held comment) is
+> stateless and idempotent: the consumption record **is** the target row's
+> state machine. Destructive actions (`change_email`, `delete_record`) keep the
+> `jti` row from `0008_email_change_requests.sql` and stay link-only.
+
+**Open tracking is not identity, and never becomes it.** The 1×1 pixel at
+`src/pages/analytics/newsletter/open.ts` exists and stays where it is. Apple
+Mail Privacy Protection pre-fetches every remote image on Apple's proxies
+whether or not a human opened the message, so an "open" can be triggered by
+anyone who types someone else's address; and clients that block remote images
+never report an open a real reader did make. False positives an attacker can
+summon, false negatives that lock out real readers. Tolerable as an analytics
+metric, disqualifying as a credential.
+
+The same argument, weaker but real, applies to a bare `GET` confirm link:
+enterprise mail scanners follow every link in a message.
+`src/pages/notify/confirm.ts` confirms on `GET` today. Landing on a page whose
+button `POST`s the consumption closes it, and is the right shape for both
+callers.
 
 ### Session
 
@@ -673,17 +731,20 @@ behind the auto-linking rule. Purely a speed improvement on a working system.
 **`site-api`**
 
 3. Migration `scripts/sql/migrations/0011_blog_comments.sql` against
-   **`NOTIFY_DB`**, not `MOOD_DB`: `blog_readers`, `blog_reader_tokens`,
-   `blog_comments` (including the moderation verdict columns), `blog_reactions`,
-   plus indexes. Follow the house style — `CREATE TABLE IF NOT EXISTS`, `CHECK`
+   **`NOTIFY_DB`**, not `MOOD_DB`: `blog_readers`, `blog_comments` (including
+   the moderation verdict columns and `code_attempts`), `blog_reactions`, plus
+   indexes. There is no token table — see "One challenge, two callers". Follow the house style — `CREATE TABLE IF NOT EXISTS`, `CHECK`
    constraints for enums, TEXT timestamps, ids via `lower(hex(randomblob(n)))`
    with a type-tag prefix. Applying it is the owner's manual step
    (`wrangler d1 migrations apply NOTIFY_DB --remote`), not part of CI. (M)
-4. `features/comments/server/security.ts`: token create/verify and session
-   create/verify, built on the notify HMAC helpers with its own secret. TTLs:
-   24h for the verify link, 10 min and five attempts for the six-digit code,
-   1h for a management link, 180 days rolling for the session. The code and the
-   link are two carriers of one grant — verifying either consumes both. (M)
+4. `src/lib/email-challenge.ts`: notify's token half lifted out verbatim —
+   `action` renamed `purpose`, `comment_verify` added, the derived six-digit
+   code (`digits6(HMAC(secret, token))`) alongside it. `notify/server/security.ts`
+   re-exports from it so the notify call sites do not churn, and the `jti` path
+   for `change_email` / `delete_record` is untouched. (S)
+4b. `features/comments/server/security.ts`: **session** create/verify only,
+   under `COMMENTS_SESSION_SECRET`. TTLs: 30 min for the challenge (link and
+   code alike), 1h for a management link, 180 days rolling for the session. (S)
 5. **Deferred to Phase 3** — `features/comments/server/oauth.ts`:
    authorize/callback for GitHub and Google behind one small provider interface,
    state with PKCE, verified-email lookup, reader upsert, session mint, redirect
@@ -873,9 +934,11 @@ Small, and none of them block starting Phase 1.
 - Contract types land here first and sync to `site-api` via
   `bun run sync:contracts`. Reconcile the existing `notify.ts` drift first
   (task 0).
-- New secrets, distinct from the admin ones, uploaded out of band via
-  `bun run secrets:upload` in `site-api`: `COMMENTS_SESSION_SECRET` and
-  `COMMENTS_TOKEN_SECRET`. The four reader-OAuth credentials
+- One new secret, distinct from the admin ones, uploaded out of band via
+  `bun run secrets:upload` in `site-api`: `COMMENTS_SESSION_SECRET`. There is no
+  `COMMENTS_TOKEN_SECRET` — the challenge is signed with the existing
+  `EMAIL_NOTIFY_SECRET`, because the `purpose` field is signed into the payload,
+  so a `subscribe` token can never be replayed as a `comment_verify` one. The four reader-OAuth credentials
   (`GITHUB_READER_OAUTH_CLIENT_ID` / `_SECRET`,
   `GOOGLE_READER_OAUTH_CLIENT_ID` / `_SECRET`) are not needed until Phase 3.
 - `AI_API_KEY` and `AI_BASE_URL` already exist for mood sentiment and are
