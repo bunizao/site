@@ -1,14 +1,13 @@
 import * as React from 'react';
 import {
   Avatar,
-  AvatarBadge,
   AvatarFallback,
   AvatarGroup,
   AvatarGroupCount,
   AvatarImage,
 } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { mountMagnetic } from '@/features/comments/client/use-magnetic';
+import { mountAvatarComb } from '@/features/comments/client/use-avatar-comb';
 import { initials, seedHue } from '@/features/comments/identity';
 import type { Reactor } from '@/features/comments/types';
 
@@ -38,6 +37,7 @@ export default function ReactionBar({
   reactors = [],
   faceLimit = 5,
 }: Props) {
+  const stack = React.useRef<HTMLDivElement>(null);
   const scope = React.useRef<HTMLDivElement>(null);
   const [liked, setLiked] = React.useState(reacted);
   const [flipped, setFlipped] = React.useState(false);
@@ -49,9 +49,9 @@ export default function ReactionBar({
   const overflow = Math.max(0, total - faces.length);
 
   React.useEffect(() => {
-    if (!scope.current) return;
-    return mountMagnetic(scope.current, { radius: 110, strength: 0.45, lift: -8, scale: 1.12 });
-  }, []);
+    if (!stack.current) return;
+    return mountAvatarComb(stack.current);
+  }, [faces.length, overflow]);
 
   // Turning the pill back over is a dismissal, so it answers to the two things
   // every dismissal answers to.
@@ -102,7 +102,7 @@ export default function ReactionBar({
           it. Both faces share a min-width, which is what keeps the flip from
           resizing the row mid-turn. */}
       <div className={cn('blog-react__flip', flipped && 'is-flipped')}>
-        <div className="blog-react__faces" data-magnetic>
+        <div className="blog-react__faces">
           <div className="blog-react__face-front">
             <button
               type="button"
@@ -157,8 +157,19 @@ export default function ReactionBar({
 
           <div className="blog-react__face-back">
             <button type="button" className="blog-react__signin" tabIndex={flipped ? 0 : -1}>
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M12 2A10 10 0 0 0 8.84 21.5c.5.08.66-.23.66-.5v-1.69C6.73 19.91 6.14 18 6.14 18A2.69 2.69 0 0 0 5 16.5c-.91-.62.07-.6.07-.6a2.1 2.1 0 0 1 1.53 1 2.15 2.15 0 0 0 2.91.83 2.16 2.16 0 0 1 .63-1.34c-2.14-.24-4.52-1.07-4.52-4.91a3.86 3.86 0 0 1 1-2.71 3.58 3.58 0 0 1 .1-2.64s.84-.27 2.75 1.02a9.63 9.63 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02a3.58 3.58 0 0 1 .1 2.64 3.86 3.86 0 0 1 1 2.71c0 3.85-2.34 4.67-4.57 4.91a2.39 2.39 0 0 1 .69 1.85V21c0 .27.16.59.67.5A10 10 0 0 0 12 2Z" />
+              {/* A door, not a provider mark: this face opens the choice
+                  between three ways in, and stamping one vendor's logo on it
+                  promises a path the button does not take. */}
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
               </svg>
               Sign in
             </button>
@@ -170,14 +181,19 @@ export default function ReactionBar({
         /* Tighter than the component default: the faces have to read as one
            overlapping stack, not a row that happens to touch. Paint order runs
            left to right via an explicit z-index, so each face clips the one
-           before it — including its badge, which is what makes the row look
-           stacked rather than like hearts scattered on top. */
-        <AvatarGroup className="blog-react__stack -space-x-[10px]">
+           before it.
+
+           No heart badge on each face. Every face in this stack reacted — that
+           is what the stack IS — so a heart on all five says nothing the row
+           does not already say, and the overlap clips each one to a crescent
+           with its glyph hidden underneath the next circle. It read as a
+           rendering fault, which is an expensive way to repeat yourself. */
+        <AvatarGroup ref={stack} className="blog-react__stack -space-x-[9px]">
           {faces.map((reactor, i) => (
             <Avatar
               key={reactor.name}
-              size="lg"
-              data-magnetic
+              size="default"
+              data-comb-item
               className="blog-react__avatar"
               style={{
                 zIndex: i,
@@ -189,11 +205,6 @@ export default function ReactionBar({
               <AvatarFallback className="blog-avatar-seed blog-avatar-initials">
                 {initials(reactor.name)}
               </AvatarFallback>
-              <AvatarBadge className="blog-react__avatar-badge">
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d={HEART_PATH} />
-                </svg>
-              </AvatarBadge>
               {/* Hover names the face instead of pulling it clear of the stack:
                   the overlap is the point, and a face that jumps to the front
                   reshuffles the row every time the pointer crosses it. Hidden
@@ -207,7 +218,7 @@ export default function ReactionBar({
           ))}
           {overflow > 0 && (
             <AvatarGroupCount
-              data-magnetic
+              data-comb-item
               className="blog-react__avatar blog-react__more"
               style={{ zIndex: faces.length, ['--entry-delay' as string]: `${faces.length * 60}ms` }}
             >

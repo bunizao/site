@@ -15,6 +15,21 @@
      it moves into blogPalette in src/data/site.ts when the design lands, at
      which point docs/surfaces/blog.md gains the stated exception. */
   --blog-xia: #b84a6e;
+
+  /* One radius scale for the whole feature. Anything the height of a control
+     is a pill; anything that holds content is a box; anything nested inside a
+     box takes the inner step, which is the box minus its own padding. */
+  --blog-r-box: 14px;
+  --blog-r-inner: 8px;
+  --blog-r-pill: 999px;
+
+  /* Avatar comb (transitions.dev #11), read by client/use-avatar-comb.ts. */
+  --avatar-lift: -4px;
+  --avatar-dur: 320ms;
+  --avatar-scale: 1.05;
+  --avatar-falloff: 0.45;
+  --avatar-ease-in: cubic-bezier(0.22, 1, 0.36, 1);
+  --avatar-ease-out: cubic-bezier(0.34, 3.85, 0.64, 1);
 }
 
 .dark .blog-zone {
@@ -62,7 +77,7 @@
   margin-top: 40px;
   /* Reserve the row before the counts arrive. /blog/[slug] is prerendered, so
      the numbers land after hydration; without this the prev/next nav jumps. */
-  min-height: 40px;
+  min-height: 36px;
 }
 
 /* --- The pill, and its reverse ------------------------------------------- */
@@ -84,10 +99,15 @@
   transform: rotateY(180deg);
 }
 
+/* Left-aligned rather than stretched. The cell is as wide as the wider face,
+   which is the sign-in one; letting the like pill fill it too was what put 26px
+   of dead slack inside a chip with 13px of padding, so the padding read as
+   crooked when it was the width that was wrong. */
 .blog-react__face-front,
 .blog-react__face-back {
   grid-area: 1 / 1;
   display: flex;
+  justify-content: flex-start;
   backface-visibility: hidden;
 }
 
@@ -98,15 +118,16 @@
 .blog-react__pill,
 .blog-react__signin {
   display: inline-flex;
-  flex: 1;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  /* One width for both faces: the row must not resize as the card turns. */
-  min-width: 104px;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 999px;
+  gap: 8px;
+  height: 36px;
+  /* Asymmetric on purpose. A leading icon carries its own optical whitespace
+     inside the viewBox, so matching the numeral's padding on that side leaves
+     the glyph looking marooned; 2px off the start squares the two edges up. */
+  padding: 0 15px 0 13px;
+  border-radius: var(--blog-r-pill);
   border: 1px solid var(--blog-line);
   cursor: pointer;
   white-space: nowrap;
@@ -134,7 +155,7 @@
 }
 
 .blog-react__pill:active {
-  transform: scale(0.96);
+  scale: 0.96;
 }
 
 .blog-react__pill.is-liked {
@@ -149,8 +170,8 @@
 }
 
 .blog-react__glyph {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
   transition: transform 0.2s var(--ease-bounce, cubic-bezier(0.34, 1.36, 0.64, 1));
 }
 
@@ -182,25 +203,23 @@
 
 /* --- Slot-machine count -------------------------------------------------- */
 /* Both values stay mounted and the column slides, so the digits travel rather
-   than blink. Fixed 3ch so the pill never resizes mid-roll. */
+   than blink. Sized to the digits with a 2ch floor rather than a fixed 3ch: a
+   two-digit count centred in three characters leaves half a character of dead
+   space on each side, which reads as the pill having crooked padding. Tabular
+   figures keep the width steady through the roll. */
 .blog-react__roller {
-  position: relative;
-  display: inline-block;
-  width: 3ch;
+  display: inline-grid;
+  min-width: 2ch;
   height: 1.5em;
   overflow: hidden;
   font-size: 14px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  text-align: center;
 }
 
 .blog-react__reel {
-  position: absolute;
-  left: 0;
   display: flex;
   flex-direction: column;
-  width: 100%;
   transition: transform 0.45s var(--ease-bounce, cubic-bezier(0.34, 1.36, 0.64, 1));
 }
 
@@ -250,7 +269,11 @@
 /* --- Reactor stack ------------------------------------------------------- */
 /* Paint order runs left to right off an inline z-index, so each face clips the
    one before it. That single rule is what makes the row read as a stack: the
-   heart badges are clipped by the next circle instead of floating over it. */
+   heart badges are clipped by the next circle instead of floating over it.
+
+   32px, down from 40. Beside a 36px pill and a 15.5px reading column, 40px
+   faces were the loudest thing on the page and the bar sat taller than the
+   paragraph rhythm above it. */
 .blog-react__stack {
   display: flex;
   align-items: center;
@@ -264,22 +287,33 @@
   box-shadow:
     0 0 0 2px hsl(var(--background)),
     0 1px 3px hsl(var(--foreground) / 0.12);
-  /* The magnetic controller owns `transform`, so the entry animation has to
-     finish before it writes anything. It only runs once on mount. */
+  /* Comb hover: the hovered face lifts and drags its neighbours with it by a
+     power falloff, so the row responds as one object. client/use-avatar-comb.ts
+     writes the two variables and swaps the timing function between the two
+     directions. The entry animation owns `transform` while it runs and hands it
+     back on its own, so the two never fight. */
+  transform-origin: center;
+  transform: translateY(var(--shift, 0px)) scale(var(--scale-active, 1));
+  transition: transform var(--avatar-dur) var(--avatar-ease-in);
+  will-change: transform;
   animation: blog-react-enter 0.5s var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
   animation-delay: var(--entry-delay, 0ms);
 }
 
 .blog-react__avatar .blog-avatar-initials {
-  font-size: 14px;
+  font-size: 12px;
 }
 
+/* Opaque, and painted from the page's own two colours. A translucent fill here
+   let the face underneath show through the +N, which read as a rendering fault
+   rather than as a chip — the whole point of the stack is that each circle
+   hides the one behind it. */
 .blog-react__more {
-  width: 40px;
-  height: 40px;
-  background: hsl(var(--foreground) / 0.06);
+  width: 32px;
+  height: 32px;
+  background: color-mix(in oklab, hsl(var(--foreground)) 7%, hsl(var(--background)));
   color: var(--blog-muted);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -295,36 +329,17 @@
   }
 }
 
-/* Hangs off the bottom edge rather than sitting in the corner. The corner is
-   exactly where the next face lands, so a badge parked there is swallowed whole;
-   dropped below the circle it clears the neighbour's arc and stays half-read,
-   which is the look the row is after. */
-.blog-react__avatar-badge {
-  width: 15px;
-  height: 15px;
-  inset-inline-end: 1px;
-  inset-block-end: -4px;
-  background: var(--blog-xia);
-  color: hsl(var(--background));
-  box-shadow: 0 0 0 2px hsl(var(--background));
-}
-
-.blog-react__avatar-badge svg {
-  width: 8px;
-  height: 8px;
-}
-
 /* --- Face name ----------------------------------------------------------- */
 /* Hover names the face instead of lifting it out of the stack. It hangs BELOW
    the circles, clear of every sibling's box, so it is never clipped by the next
    face's stacking context — which is the price of a fixed paint order. */
 .blog-react__name {
   position: absolute;
-  top: calc(100% + 9px);
+  top: calc(100% + 8px);
   left: 50%;
   z-index: 1;
-  padding: 5px 11px;
-  border-radius: 999px;
+  padding: 4px 10px;
+  border-radius: var(--blog-r-pill);
   background: hsl(var(--foreground));
   color: hsl(var(--background));
   font-size: 12.5px;
@@ -356,6 +371,7 @@
   .blog-react__name {
     transition: none !important;
     animation: none !important;
+    transform: none !important;
   }
 
   .blog-react__spark {
@@ -390,7 +406,7 @@
 
 .blog-comments__tally {
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--blog-r-pill);
   background: var(--blog-fill);
   font-size: 12.5px;
   font-variant-numeric: tabular-nums;
@@ -412,7 +428,7 @@
 .blog-compose__box {
   padding: 12px 14px;
   border: 1px solid var(--blog-line);
-  border-radius: 14px;
+  border-radius: var(--blog-r-box);
   background: hsl(var(--foreground) / 0.02);
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
@@ -455,7 +471,7 @@
   height: 34px;
   padding: 0 14px;
   border: 1px solid var(--blog-line);
-  border-radius: 999px;
+  border-radius: var(--blog-r-pill);
   background: hsl(var(--background));
   color: var(--blog-body);
   font: inherit;
@@ -519,7 +535,7 @@
   height: 34px;
   padding: 0 15px;
   border: 1px solid hsl(var(--foreground));
-  border-radius: 999px;
+  border-radius: var(--blog-r-pill);
   background: hsl(var(--foreground));
   color: hsl(var(--background));
   font-size: 13px;
@@ -596,7 +612,7 @@
   height: 34px;
   padding: 0 13px;
   border: 1px solid var(--blog-line);
-  border-radius: 999px;
+  border-radius: var(--blog-r-pill);
   color: var(--blog-ink);
   font-size: 13px;
   font-weight: 500;
@@ -637,7 +653,7 @@
   width: 34px;
   height: 34px;
   border: 1px solid hsl(var(--foreground));
-  border-radius: 999px;
+  border-radius: var(--blog-r-pill);
   background: hsl(var(--foreground));
   color: hsl(var(--background));
   cursor: pointer;
@@ -682,10 +698,16 @@
 }
 
 /* --- Thread -------------------------------------------------------------- */
+/* Metrics, measured rather than guessed. The author line is 14.5px at 1.45,
+   so its line box is 21px; a 28px face centred on that line needs
+   (21 − 28) / 2 = −3.5px of lift, rounded to −3 so the number stays whole and
+   the rows stay on a shared grid. The gutter is 12px and the reply indent is
+   28 + 12 = 40px, which is the same column, so a reply's face lands exactly
+   under its parent's text rather than somewhere near it. */
 .blog-comments__list {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 20px;
 }
 
 .blog-comment {
@@ -694,25 +716,24 @@
   gap: 12px;
 }
 
-/* Replies indent by the avatar column so the thread reads as one hanging
-   ladder rather than two unrelated lists. */
 .blog-comment--reply {
-  margin-left: 36px;
+  margin-left: 40px;
 }
 
 .blog-comment__avatar {
   flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   /* Centred on the name's line box, not aligned to it: a circle taller than
-     the line sits visibly low when the boxes are flush. */
-  margin-top: 0;
+     the line sits visibly low when the two boxes are flush at the top. */
+  margin-top: -3px;
   border-radius: 50%;
-  font-size: 11px;
+  font-size: 11.5px;
 }
 
 .blog-comment__body {
   min-width: 0;
+  flex: 1;
 }
 
 .blog-comment__meta {
@@ -722,8 +743,8 @@
   flex-wrap: wrap;
   /* The page's 1.625 body leading is for paragraphs; a name and a date sit in
      one short line and only need enough room for the badge. */
-  line-height: 1.5;
-  margin-bottom: 4px;
+  line-height: 1.45;
+  margin-bottom: 3px;
 }
 
 .blog-comment__author {
@@ -743,7 +764,7 @@
 .blog-comment__badge {
   padding: 1px 7px;
   border: 1px solid var(--blog-line);
-  border-radius: 999px;
+  border-radius: var(--blog-r-pill);
   font-size: 12px;
   font-weight: 500;
   color: var(--blog-faint);
@@ -768,6 +789,113 @@
   color: var(--blog-faint);
 }
 
+/* --- Row actions --------------------------------------------------------- */
+/* Quiet until wanted. These sit under every comment in a thread of hundreds,
+   so they are text-weight by default and only take a fill on hover — a row of
+   outlined buttons under each paragraph would out-shout the writing. Pulled
+   4px left so the glyph's own whitespace lines the label up with the text
+   above it instead of the button's box. */
+.blog-comment__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 5px 0 0 -8px;
+}
+
+.blog-comment__act {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--blog-r-pill);
+  background: none;
+  color: var(--blog-faint);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.blog-comment__act:hover {
+  background: var(--blog-fill);
+  color: var(--blog-ink);
+}
+
+.blog-comment__act:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 1px;
+}
+
+/* 1.6 stroke against 500-weight text: an icon beside a label carries the
+   label's optical weight, and a hairline next to medium reads as broken. */
+.blog-comment__act svg {
+  width: 14px;
+  height: 14px;
+}
+
+.blog-comment__act-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Liking is the one place in the thread xia is spent, same as the post's own
+   heart. The count moving is the static cue; the fill is the flourish. */
+.blog-comment__act--like[aria-pressed='true'] {
+  color: var(--blog-xia);
+}
+
+.blog-comment__act--like[aria-pressed='true'] svg {
+  fill: currentColor;
+  animation: blog-like-pop 0.32s var(--ease-bounce, cubic-bezier(0.34, 1.36, 0.64, 1));
+}
+
+.blog-comment__act--like:hover {
+  color: var(--blog-xia);
+}
+
+@keyframes blog-like-pop {
+  0% {
+    transform: scale(0.7);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* --- Inline reply -------------------------------------------------------- */
+/* The same box as the composer at the top, because it is the same act. It
+   moves into whichever row is being answered rather than being cloned per
+   comment. */
+.blog-reply {
+  margin: 10px 0 2px;
+}
+
+.blog-reply__field {
+  font-size: 15.5px;
+  min-height: 2.6em;
+}
+
+.blog-reply__buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-comment__act,
+  .blog-comment__act--like[aria-pressed='true'] svg {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
 /* --- Empty and loading --------------------------------------------------- */
 .blog-comments__empty {
   font-size: 14.5px;
@@ -781,7 +909,7 @@
 }
 
 .blog-skel {
-  border-radius: 6px;
+  border-radius: var(--blog-r-pill);
   background: hsl(var(--foreground) / 0.07);
   animation: blog-skel-pulse 1.4s var(--ease-linear, linear) infinite;
   animation-delay: var(--skel-delay, 0s);
