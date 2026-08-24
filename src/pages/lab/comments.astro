@@ -47,6 +47,7 @@ const comments: BlogComment[] = [
     author: 'Nina Kato',
     date: '2d',
     text: '这段关于"删掉一层抽象比加一层更难"的说法很准。我们上个季度做的事情几乎一模一样，最后省下来的不是代码行数，是每次改动前要读的东西。',
+    likes: 7,
   },
   {
     id: '2',
@@ -55,12 +56,15 @@ const comments: BlogComment[] = [
     text: 'Exactly that. The line count barely moved — what changed is how much you have to hold in your head before you can touch it.',
     byAuthor: true,
     isReply: true,
+    likes: 12,
+    liked: true,
   },
   {
     id: '3',
     author: 'Oskar Lind',
     date: '5d',
     text: 'Curious whether you kept the adapter around for the migration window or cut it in one go. The one-go version always sounds cleaner than it turns out to be.',
+    likes: 2,
   },
   {
     id: '4',

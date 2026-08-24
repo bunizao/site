@@ -24,4 +24,9 @@ export interface BlogComment {
   /** Held by the moderation classifier; visible to its writer only. */
   pending?: boolean;
   isReply?: boolean;
+  /** Reactions on the comment itself. A thread is a conversation, and most of
+      what people want to say back is "agreed" — a like says it without adding
+      a row nobody reads. */
+  likes?: number;
+  liked?: boolean;
 }
