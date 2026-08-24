@@ -1,7 +1,7 @@
 # Executive Plan: Blog Comments & Reactions
 
 Reader-facing comments and reactions on `/blog/[slug]`. Participation requires
-an identity — GitHub, Google, or an email magic link. Avatars come from Gravatar
+an identity, proved by an email round trip; OAuth is deferred. Avatars come from Gravatar
 through our own proxy, moderation is a single small model that sees the post it
 is moderating, and the commenter chooses
 whether each comment they write appears in the public comment section.
@@ -122,38 +122,53 @@ The email and its hash never leave the worker.
 name-and-email guest comments, no read-only-but-can-still-like path. Reading is
 open to everyone; writing anything requires a session.
 
-### Three ways in, one account
+### One way in: the email round trip
 
-| Path | Friction | When it is used |
+| Path | Friction | Status |
 | --- | --- | --- |
-| GitHub OAuth | one click | The reference case, and the audience fit |
-| Google OAuth | one click | Everyone without a GitHub account |
-| Email magic link | one email round trip | The fallback, and the only path that works when both providers are blocked |
+| Email code or link | one round trip, once per browser | **The way in** |
+| GitHub OAuth | one click | Deferred |
+| Google OAuth | one click | Deferred |
 
-All three converge on the same `blog_readers` row keyed by `email_hash`.
+OAuth is deferred, not rejected. Two provider applications, two secret pairs,
+PKCE, the verified-email auto-link check and two callback surfaces is the
+largest single piece of work in this plan, and it buys speed for exactly the
+readers who were going to comment anyway. The email path has to exist
+regardless — it is the only one that survives both providers being blocked —
+so it ships first and alone. `/v2/blog/auth/<provider>` stays reserved in the
+route namespace so a provider is additive later, and the account is keyed on
+`email_hash` either way, so an OAuth sign-in added afterwards adopts the
+existing reader row rather than forking a second identity.
 
-**Auto-linking rule**: an OAuth sign-in adopts an existing reader row **only**
-when the provider asserts the email is verified — `email_verified === true` on
-Google, a verified primary email from `GET /user/emails` on GitHub. Otherwise it
-creates a distinct reader. Skipping this check is the standard account-takeover
-hole in email-linked identity, and it costs one boolean to close. It applies to
-both providers identically; there is no per-provider exception.
+**When OAuth lands, the auto-linking rule still applies**: a provider sign-in
+adopts an existing reader row **only** when the provider asserts the email is
+verified — `email_verified === true` on Google, a verified primary email from
+`GET /user/emails` on GitHub. Otherwise it creates a distinct reader. Skipping
+this check is the standard account-takeover hole in email-linked identity, and
+it costs one boolean to close.
 
-Each provider gets its own reader-scoped OAuth application and its own secret
-pair, distinct from the admin app's credentials. The callback lands on
-`site-api`, which mints the reader session and 302s back to the post.
+What the deferral costs, and how it is paid: a stranger can no longer react in
+one click, so reactions stop being a feature that stands on its own and ride on
+the session the first comment establishes. See Phases.
 
 ### Display name: the reader types it
 
-The reader chooses their own display name. Not the OAuth profile name, not the
-email local-part, not a derived handle — asked for once, on the first write,
-in a single field beside the compose box, and editable afterwards from
-`/subscribe/manage`.
+The reader chooses their own display name. Not a derived handle, and above all
+not the email's local part — asked for once, in the same row as the email, and
+editable afterwards from `/subscribe/manage`.
 
-OAuth does hand us a name, and using it silently would save a field. It would
-also publish whatever someone's GitHub profile happens to say next to their
-comment on a stranger's blog, which is a disclosure they never agreed to. An
-explicit field is one input and removes the whole question.
+With OAuth deferred there is no profile name to inherit anyway, which settles
+the question by default rather than by argument. It stays settled when OAuth
+lands: using a provider's name silently would save a field and publish whatever
+someone's GitHub profile happens to say next to their comment on a stranger's
+blog, which is a disclosure they never agreed to.
+
+Deriving it from the address is worse and worth naming, because it is the
+tempting shortcut once the email is the only thing being asked for: it prints a
+fragment of a private address beside a public comment.
+
+Asking for it beside the email rather than in a step of its own is what keeps
+this to one row. There is no separate naming phase in the compose box.
 
 Rules: 1–32 characters, trimmed, no newlines or control characters, rendered
 escaped like any other reader content. Uniqueness is **not** enforced — this is
@@ -161,32 +176,54 @@ a comment section, not a username registry, and the avatar plus the owner's view
 of the underlying account are enough to tell two 张三 apart. Blocking names that
 impersonate the site owner is the one exception worth a check.
 
-The name is required before the first comment *or* the first reaction, since a
-reaction puts the reader in the public avatar stack. Nothing else about the
-reader is ever shown.
+The name is collected with the first comment, which is also the only way to get
+a session, so a reactor always has one by the time they can react. Nothing else
+about the reader is ever shown.
 
-### Auth flow for comments: hold the draft, then verify
+### Auth flow: hold the draft, then verify
 
-For the magic-link path only. The obvious flow — make people sign in before they
-can type — loses the comment that motivated them to sign in. Instead:
+The obvious flow — make people sign in before they can type — loses the comment
+that motivated them to sign in. It also renders badly here specifically: the
+post is prerendered, so a field gated on identity has to paint locked and
+unlock once `/v2/blog/me` answers, and every returning reader watches their own
+compose box grey out and come back. Instead:
 
-1. Reader writes the comment, enters their email, solves Turnstile, submits.
-2. `site-api` stores the comment with `status = 'pending_verification'` and
-   issues a magic-link token carrying the comment's id.
-3. Email arrives. Clicking the link hits `site-api`, which verifies the token,
-   runs moderation, flips the comment to `published` or `held`, sets the reader
-   session cookie, and 302s to
-   `/blog/<slug>?c=<comment_id>#comment-<comment_id>`.
-4. The client controller sees the `c` param, scrolls to the comment, and shows
-   a confirmation.
+1. Reader writes the comment. The compose box is writable from first paint and
+   its primary button always says **Post**.
+2. Pressing Post while signed out reveals one row — display name and email —
+   below the draft. An empty draft reveals nothing and just focuses the field:
+   asking for a name and an address before anyone has written a word is the
+   door charge this whole design exists to avoid.
+3. Pressing Post again submits. `site-api` stores the comment with
+   `status = 'pending_verification'` and mails a **six-digit code and a link**,
+   both carrying the comment's id.
+4. Either half completes it. The link 302s to
+   `/blog/<slug>?c=<comment_id>#comment-<comment_id>`; the code is typed into
+   the box the reader is already looking at and completes in place. Both verify
+   the token, run moderation, flip the comment to `published` or `held`, and
+   set the reader session cookie.
+5. After that the cookie means every later comment and reaction posts instantly,
+   with no second email, until the reader clears cookies or changes browser.
 
-The draft is never lost, it survives opening the link on a different device, and
-unverified comments are invisible until the round trip completes — which is spam
-protection for free. After step 3 the session cookie means every later comment
-and reaction posts instantly with no second email.
+**The code is not decoration — it is the fix for the failure mode that makes
+magic links feel broken.** A link opened from a mail client lands in whatever
+browser the OS considers default, so the session cookie is set somewhere the
+reader was not writing; and a reader who reads mail on their phone but wrote on
+a laptop cannot use the link at all. A code costs one extra line in the
+template and closes both. It also keeps the reader on the page with their
+draft, their scroll position, and the thread they were reading, which the link
+round trip does not.
 
-OAuth sign-in skips all of this: the draft is held in `sessionStorage`, the
-popup returns, and the comment posts directly.
+Shape: six digits, 10 minutes, five attempts, single use, bound to the pending
+comment. The link keeps notify's 24-hour confirm TTL. The code goes in the
+**subject line** as well as the body — `123456 is your comment code for
+buxx.me` — so it can be read from a notification without opening the mail. The
+input takes `autocomplete="one-time-code"`.
+
+The draft is never lost, it survives opening the link on a different device,
+and unverified comments are invisible until the round trip completes — which is
+spam protection for free, and costs zero model tokens on anything that never
+gets verified.
 
 ### Session
 
@@ -199,7 +236,12 @@ emailing a link per heart-click is absurd.
 
 So readers get a cookie: `reader_session`, secret `COMMENTS_SESSION_SECRET`,
 the same two-segment HMAC shape as the notify token but its own code path and
-key. 90-day TTL, `HttpOnly; Secure; SameSite=Lax`.
+key. **180-day TTL**, `HttpOnly; Secure; SameSite=Lax`, and **rolling**: any
+authenticated request that finds a cookie older than 30 days re-issues it. A
+reader who keeps reading is therefore never signed out, which is the entire
+point — with OAuth deferred, the cost of falling out of a session is a full
+email round trip, so the session has to be the durable part. This is a personal
+blog, not a bank.
 
 Revocation reuses the existing generation-stamping trick rather than inventing
 one. Notify tokens embed `subscriberCreatedAt` and re-check it against the live
@@ -207,6 +249,50 @@ row on every verify, so a token minted for a deleted-and-recreated subscriber is
 rejected even though its signature and expiry are fine. Reader sessions embed
 `readerCreatedAt` and do the same. Zero new columns, zero KV, and it closes the
 delete-then-recreate hole for free.
+
+**The cookie is the authority; `localStorage` only stops the flash.** The post
+is prerendered, so a signed-in reader would otherwise see "Post" on a stranger's
+compose box for as long as `/v2/blog/me` takes to answer. Mirror
+`{ readerId, displayName }` into `buxx:blog-reader` at verify time and render
+the signed-in footer from it optimistically, reconciled when `me` returns and
+cleared on any `401`. It is a display cache and never an authorisation input;
+nothing server-side ever reads it.
+
+Deliberately **not** in that key, and deliberately not shared with anything: a
+browser fingerprint. Canvas, WebGL, and font-enumeration fingerprints are a
+privacy-policy contradiction on a site whose privacy page is a selling point,
+they degrade every year as browsers close the surfaces, and they buy nothing
+here — Turnstile plus Cloudflare's edge bot score is a better bot signal than
+any fingerprint we could compute, and the identity question is already answered
+by a proven address. The existing anonymous analytics id
+(`buxx:blog-analytics:visitor-id`) stays in its own namespace and is **never**
+joined to a reader: linking it would silently convert anonymous analytics into
+identified analytics, which is a privacy regression dressed up as reuse.
+
+### What the shared email identity actually buys
+
+`notify_subscribers` is primary-keyed on `email_hash` and `blog_readers` uses
+the same hash, so the two halves are joinable without a join table. Three
+concrete payoffs, and one non-payoff worth naming so nobody goes looking for it:
+
+- **Verify once, subscribe free.** A checkbox in the identity row — "also send
+  me new posts". The verification click already proved the address, so the
+  subscriber row is written `active` with **no second confirmation email**. This
+  is the one place sharing identity pays real interest.
+- **Subscribers skip the round trip from `/subscribe/manage`.** That page
+  already authenticates with a manage token. Setting a display name there mints
+  a reader session directly, so an existing subscriber can be ready to comment
+  without ever seeing a code.
+- **Newsletter arrivals prefill.** A reader arriving on a post from a newsletter
+  link carries the long-lived footer token; `site-api` can prefill the email
+  field from it. It **cannot** mint a session from it — a forwarded newsletter
+  would hand the recipient someone else's voice — so the code or link is still
+  required. This saves typing, nothing more.
+- **Not a payoff**: an already-confirmed subscription does not let a *new
+  browser* skip verification. It proves the address is real and that somebody
+  once clicked; it does not prove the person typing it into the comment box is
+  that somebody. Treating it as proof would make every subscriber's address a
+  usable identity for anyone who knows it.
 
 ### Avatars: proxy them, never hotlink Gravatar
 
@@ -291,8 +377,10 @@ overflow chip, and a sign-in prompt for signed-out visitors.
 
 Reactions require identity. That is the decided posture, and it is what makes
 the avatar stack possible; a hashed-IP counter would raise the number and leave
-the good part empty. It does mean the sign-in path has to be genuinely one
-click, which is why OAuth moves into Phase 1 (see Phases).
+the good part empty. With OAuth deferred there is no one-click way in, so
+reactions cannot lead: they ship alongside comments and run on the session the
+first comment establishes. A signed-out reader gets the same prompt the compose
+box gives, pointing at the same one round trip (see Phases).
 
 ### The heart
 
@@ -484,10 +572,11 @@ Cheapest first, so each layer only sees what the one before it let through:
 
 1. Turnstile on the email-request step and on the first comment, with a
    dedicated `expectedAction` of `blog_comment_create`.
-2. A mandatory identity — OAuth round trip or email round trip — before anything
-   becomes visible.
-3. `withDurableRateLimit`: 5 magic links per hour per IP, 10 comments per hour
-   per reader, 30 reaction toggles per minute per reader.
+2. A mandatory identity — the email round trip — before anything becomes
+   visible.
+3. `withDurableRateLimit`: 5 verification mails per hour per IP, 5 code attempts
+   per pending comment, 10 comments per hour per reader, 30 reaction toggles per
+   minute per reader.
 4. Model classification, fail-closed (above).
 5. A zone-level rule added to `scripts/configure-cloudflare-rate-limits.ts` so a
    flood never reaches the Worker.
@@ -512,7 +601,7 @@ This is not optional polish. `src/content/pages/privacy.md` currently states
 that "the only information you provide directly is an email address, and only if
 you choose to subscribe to mood notifications." Shipping this makes that
 sentence false. The policy update lands in the same PR as Phase 1 and must
-declare: comment and reaction records, OAuth provider identities, Gravatar as a
+declare: comment and reaction records, the reader session cookie, Gravatar as a
 processor, **the model provider as a processor for comment text**, retention,
 and the deletion route.
 
@@ -522,27 +611,33 @@ readers have to be told.
 
 ## Phases
 
-**Phase 1 — Identity and reactions.** OAuth (GitHub + Google), session cookie,
-`blog_readers`, avatar proxy, post-level ❤️ with the avatar stack. The `xia`
-token and the design-doc amendment ship here. Privacy policy update ships here.
-
-**Phase 2 — Public comments.** Email magic link with the draft-hold flow, flat
+**Phase 1 — Identity, comments, and reactions.** The email round trip (code and
+link), session cookie, `blog_readers`, the hold-then-verify comment flow, flat
 list, plaintext rendering, model moderation, admin moderation queue, ops-bot
-notifications, "my comments" in `/subscribe/manage` with delete.
+notifications, post-level ❤️ with the avatar stack, avatar proxy, "my comments"
+in `/subscribe/manage` with delete. The `xia` token, the design-doc amendment,
+and the privacy policy update ship here.
 
-**Phase 3 — Private comments and replies.** The visibility toggle, the
+**Phase 2 — Private comments and replies.** The visibility toggle, the
 `scope=mine` overlay, after-the-fact visibility changes, one-level threading,
 reply notifications.
 
-> **Reordering note.** The earlier draft put OAuth last and made the magic link
-> the Phase 1 identity. With anonymous participation ruled out, that combination
-> ships a reaction button whose cost is "check your email and come back" — the
-> conversion rate on that is approximately zero, and the empty avatar stack would
-> read as a broken feature rather than a quiet one. OAuth is therefore the Phase 1
-> identity and the magic link arrives in Phase 2, where a two-minute round trip
-> is proportionate to the two-minute act of writing a comment. This also makes
-> Phase 1 genuinely smaller: the draft-hold flow is the most intricate piece in
-> the whole plan and reactions do not need it at all.
+**Phase 3 — OAuth.** GitHub and Google against the existing `blog_readers` row,
+behind the auto-linking rule. Purely a speed improvement on a working system.
+
+> **Reordering note.** Two rounds of this. The first draft made the magic link
+> the Phase 1 identity; the second moved OAuth in front of it, because with
+> anonymous participation ruled out a reaction button whose cost is "check your
+> email and come back" converts at approximately zero, and an empty avatar stack
+> reads as a broken feature rather than a quiet one.
+>
+> Deferring OAuth brings that problem back, and the fix is to stop shipping
+> reactions on their own. A reaction is not worth an email round trip; a comment
+> plainly is. So identity now arrives with the thing that justifies it, and the
+> avatar stack fills with the readers who commented. The cost is that Phase 1 is
+> no longer small — it carries the draft-hold flow, which is the most intricate
+> piece in the plan — but it is one coherent shippable feature instead of two
+> halves that are each unconvincing alone.
 
 ## Non-goals
 
@@ -585,12 +680,15 @@ reply notifications.
    with a type-tag prefix. Applying it is the owner's manual step
    (`wrangler d1 migrations apply NOTIFY_DB --remote`), not part of CI. (M)
 4. `features/comments/server/security.ts`: token create/verify and session
-   create/verify, built on the notify HMAC helpers with its own secret. Token
-   TTLs mirror notify's: 24h to verify a comment, 1h for a management link. (M)
-5. `features/comments/server/oauth.ts`: authorize/callback for **both** GitHub
-   and Google behind one small provider interface — state parameter with PKCE,
-   verified-email lookup, reader upsert, session mint, redirect back. Reader
-   apps and secrets are distinct from the admin ones. (L)
+   create/verify, built on the notify HMAC helpers with its own secret. TTLs:
+   24h for the verify link, 10 min and five attempts for the six-digit code,
+   1h for a management link, 180 days rolling for the session. The code and the
+   link are two carriers of one grant — verifying either consumes both. (M)
+5. **Deferred to Phase 3** — `features/comments/server/oauth.ts`:
+   authorize/callback for GitHub and Google behind one small provider interface,
+   state with PKCE, verified-email lookup, reader upsert, session mint, redirect
+   back. Reader apps and secrets distinct from the admin ones. Not built now;
+   the route namespace is reserved. (L)
 6. `features/comments/server/moderation.ts`: one `moderate(text, postContext)`
    call. Mirrors `mood-sentiment.ts` structurally — zod schema, `Output.object`,
    `temperature: 0`, primary/fallback — under a 3s timeout, with the fail-closed
@@ -619,10 +717,11 @@ reply notifications.
 
 **`site`**
 
-15. `src/features/comments/` — `ui/ReactionBar.astro`, `ui/CommentsSection.astro`,
-    `ui/CommentForm.astro`, `ui/SignInPrompt.astro`,
-    `client/reactions-controller.ts`, `client/comments-controller.ts`,
-    `server/contracts.ts`, `styles/`. (L)
+15. `src/features/comments/` — `ui/ReactionBar.tsx`, `ui/CommentsSection.astro`,
+    `ui/CommentForm.astro`, `ui/VerifyRow.astro` (the code field, shown in place
+    after submit), `client/reactions-controller.ts`,
+    `client/comments-controller.ts`, `server/contracts.ts`, `styles/`. No
+    `SignInPrompt` — the compose box is the prompt. (L)
 16. `src/data/site.ts`: add `xia` to `blogPalette`; `src/styles/blog.css`: the
     `--blog-xia` custom property for both modes. (XS)
 17. Slot into `src/pages/blog/[slug].astro` after `<Prose>`, inside `<article>`,
@@ -632,8 +731,9 @@ reply notifications.
 20. `src/content/pages/privacy.md` update, including OpenAI as a processor for
     comment text sent to the moderation classifier. (S)
 21. Docs, all in the published collection: amend
-    `src/content/docs/surfaces/blog.md` with the `xia` exception, note the reader
-    OAuth apps in `src/content/docs/platform/auth.md`, extend
+    `src/content/docs/surfaces/blog.md` with the `xia` exception, note the
+    reader session as a second, separate auth system in
+    `src/content/docs/platform/auth.md`, extend
     `src/content/docs/platform/testing.md` with the new e2e scope, and add
     `src/content/docs/surfaces/comments.md` as the living reference. Add the
     index rows to `plans/README.md`. (S)
@@ -677,15 +777,19 @@ In `site-api`: `scripts/sql/migrations/0011_blog_comments.sql`,
   here. Mitigated by filtering in SQL rather than the client, by separate
   endpoints with separate cache keys, and by an e2e test asserting an anonymous
   fetch of a post with private comments returns none of their text.
-- **Two OAuth providers means two callback surfaces to get right.** Mitigated by
-  one shared provider interface with per-provider config, so state validation,
-  PKCE, the verified-email check, and session minting have exactly one
-  implementation each.
-- **Reader auth drifting into admin auth.** Mitigated by separate secrets, files,
-  and OAuth applications, and by the non-goal above being explicit.
-- **Email deliverability**: a magic link that lands in spam reads as a broken
-  site. Resend is already warmed for notify, and the submit UI must say "check
+- **Reader auth drifting into admin auth.** Mitigated by separate secrets and
+  files, and by the non-goal above being explicit.
+- **Email deliverability is now the whole front door.** With OAuth deferred
+  there is no path around a mail that lands in spam, so a deliverability
+  problem is a total participation outage rather than a degraded one. Mitigated
+  by Resend already being warmed for notify, by the code in the subject line
+  (readable from a notification, no click), and by the submit UI saying "check
   your spam folder" explicitly rather than just "email sent".
+- **The verification round trip is the conversion cliff.** Every reader who
+  writes something and never clicks is a comment lost after the hard part was
+  done. Mitigated by the code path keeping them on the page, and worth measuring
+  as a ratio of `pending_verification` rows that never verify — if that number
+  is bad, it is the evidence that moves OAuth up.
 - **Static pages mean a visible loading state** on every post. Mitigated by
   reserving the reaction bar's height so arriving counts do not shift layout,
   and by rendering the comment skeleton the way mood already does.
@@ -694,8 +798,9 @@ In `site-api`: `scripts/sql/migrations/0011_blog_comments.sql`,
 
 - Preview deploy with the feature behind `PUBLIC_COMMENTS_ENABLED`, off in
   production until Phase 1 is verified end to end.
-- Manual pass on both OAuth round trips and, in Phase 2, on the magic link
-  including opening it on a different device from the one that submitted.
+- Manual pass on the verification mail: the link on the same device, the link
+  opened in a *different* browser from the one that submitted, and the code
+  typed in from a phone while the draft sits on a laptop.
 - E2E, added to `src/content/docs/platform/testing.md` in the same change:
   reaction toggle optimism and reconciliation, signed-out sign-in prompt,
   comment submit to pending state, private-comment invisibility to anonymous
@@ -721,14 +826,24 @@ Recorded so they are not relitigated:
    dedicated guard model — none of them classify spam. Fail closed on error or
    `unsure`.
 3. **`ops-bot` notifies only.** Moderation actions live in the admin portal.
-4. **Both GitHub and Google.** Reader-scoped apps, verified-email auto-link
-   required for both.
+4. **OAuth is deferred to Phase 3.** The email round trip is the only way in at
+   launch. Reader-scoped apps and the verified-email auto-link rule stand as
+   written for when it lands; `/v2/blog/auth/*` is reserved for it.
 5. **The heart is pink**, admitted to the palette as `xia` with a documented
    reaction-only scope.
 6. **Public vs private is the writer's own choice** about their own comment's
    place in the public comment section.
-7. **Readers type their own display name.** Never derived from the OAuth profile
+7. **Readers type their own display name.** Never derived from an OAuth profile
    or the email address.
+8. **Verification mails carry a code and a link.** The code is what makes the
+   flow work across devices and across browsers, and what keeps the reader on
+   the page with their draft.
+9. **The compose field is never locked.** Identity is asked for at submit, on a
+   row that appears under the draft; the primary button says Post in every
+   state.
+10. **No browser fingerprinting, and no joining the analytics visitor id to a
+    reader.** The session cookie is the persistence mechanism; Turnstile and the
+    edge bot score are the bot signal.
 
 ## Open decisions
 
@@ -758,10 +873,11 @@ Small, and none of them block starting Phase 1.
 - Contract types land here first and sync to `site-api` via
   `bun run sync:contracts`. Reconcile the existing `notify.ts` drift first
   (task 0).
-- New secrets, all distinct from the admin ones, uploaded out of band via
-  `bun run secrets:upload` in `site-api`: `COMMENTS_SESSION_SECRET`,
-  `COMMENTS_TOKEN_SECRET`, `GITHUB_READER_OAUTH_CLIENT_ID` / `_SECRET`,
-  `GOOGLE_READER_OAUTH_CLIENT_ID` / `_SECRET`.
+- New secrets, distinct from the admin ones, uploaded out of band via
+  `bun run secrets:upload` in `site-api`: `COMMENTS_SESSION_SECRET` and
+  `COMMENTS_TOKEN_SECRET`. The four reader-OAuth credentials
+  (`GITHUB_READER_OAUTH_CLIENT_ID` / `_SECRET`,
+  `GOOGLE_READER_OAUTH_CLIENT_ID` / `_SECRET`) are not needed until Phase 3.
 - `AI_API_KEY` and `AI_BASE_URL` already exist for mood sentiment and are
   reused as-is.
 - Applying the D1 migration is a manual owner step, not CI.
