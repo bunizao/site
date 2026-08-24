@@ -1,4 +1,7 @@
-/* Docs code fences get two things markdown does not give them: a header strip
+import { isMermaidLanguage, renderMermaidDiagram } from '../../content/mermaid';
+
+/* Mermaid fences become shared diagram markup on every Markdown surface. Docs
+   code fences get two things markdown does not give them: a header strip
    carrying the language and a copy button, and — for a fence tagged `demo` —
    a slot underneath that the docs route fills with the snippet run through the
    real directive pipeline.
@@ -11,8 +14,8 @@
 
    Header and slot are siblings of the fence, not a wrapper: docs.css joins them
    into one frame with adjacent-sibling rules, which keeps this plugin to two
-   insertions and no tree surgery. Only files under src/content/docs are
-   touched — every other markdown source keeps the plain fence. */
+   insertions and no tree surgery. Non-Mermaid enhancements only touch files
+   under src/content/docs; every other markdown source keeps the plain fence. */
 
 import { codeLanguageLabel, codeLanguageLogoHtml } from '../../../lib/code-language';
 
@@ -55,9 +58,13 @@ function headHtml(lang: string | null | undefined): string {
   );
 }
 
-export const docsCodePlugin = {
-  name: 'docs-code',
+export const contentCodePlugin = {
+  name: 'content-code',
   code(node: CodeNode, ctx: MdastContext) {
+    if (isMermaidLanguage(node.lang)) {
+      return { rawHtml: renderMermaidDiagram(node.value ?? '') };
+    }
+
     if (!ctx.fileURL?.pathname.includes(DOCS_SOURCE)) return;
 
     ctx.insertBefore(node, { rawHtml: headHtml(node.lang) });

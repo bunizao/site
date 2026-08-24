@@ -42,6 +42,7 @@ import '../features/mood/styles/feed-rich-text.css';
 import { Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import CommandPalette from '@/components/CommandPalette.astro';
+import MermaidSupport from '@/features/content/ui/MermaidSupport.astro';
 import PageScroller from '@/components/PageScroller.astro';
 import PerformanceDebugPanel from '@/components/PerformanceDebugPanel.astro';
 import SearchButton from '@/components/SearchButton.astro';
@@ -1513,6 +1514,6 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
         navObserver.observe(statusEl);
       })();
     </script>
-
+    <MermaidSupport />
   </body>
 </html>
