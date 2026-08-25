@@ -18,7 +18,7 @@
   overscroll-behavior-x: contain;
 }
 
-.mermaid-diagram[data-mermaid-state='rendered'] .mermaid-diagram__canvas {
+.js .mermaid-diagram__canvas {
   display: grid;
   place-items: center;
 }
@@ -53,8 +53,16 @@
   color: inherit;
 }
 
-.mermaid-diagram[data-mermaid-state='rendered'] .mermaid-diagram__source {
+.js .mermaid-diagram__source {
   display: none;
+}
+
+.js .mermaid-diagram[data-mermaid-state='error'] .mermaid-diagram__canvas {
+  display: none;
+}
+
+.js .mermaid-diagram[data-mermaid-state='error'] .mermaid-diagram__source {
+  display: block;
 }
 
 .docs-prose .mermaid-diagram {
