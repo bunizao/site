@@ -20,7 +20,7 @@ leverage without a user selection step.
 | 005  | Remove stray root design scraps | P3 | S | — | DONE |
 | 006  | Mood navigation & read-path performance (PRD) | P1 | L | working-tree perf WIP deployed (see PRD §3) | DONE (verified 2026-07-19: WS1–WS5 all landed) |
 | 007  | Reconcile canonical contracts across `site` and `site-api` | P1 | M | — | TODO (drift now: index.ts, telegram-ops.ts, package.json) |
-| 008  | Escape JSON embedded in script elements | P1 | S | — | TODO (mood sinks re-confirmed 2026-07-19: FeedShell.astro:320, HomePreview.astro:38) |
+| 008  | Escape JSON embedded in script elements | P1 | S | — | DONE (`d690018d`, all five sinks via `serializeScriptJson()`) |
 | 009  | Harden mood live-count hydration + live comment parsing | P1 | S | ../site-api 016 (deploy order only) | TODO |
 | 010  | Update watcher → archive probe + bfcache restart | P1 | S | — | TODO |
 | 011  | Visible mood feed failure states | P2 | S | — | TODO |
@@ -108,7 +108,7 @@ Recorded so the next audit doesn't re-litigate them:
 - **`getTagArchive(slug, 1, 9999)` "unbounded" pagination**: operates on the in-memory dataset at build time; no API fan-out. Fine at this blog's scale.
 - **Blur-up 8s timeout stacking**: enrichment runs concurrently in `getStaticPaths` `Promise.all`; worst case adds ~8s to a build, negative-cached per URL. Not worth a plan.
 - **BroadcastConsole preview iframe XSS** (`sandbox=""` at `BroadcastConsole.tsx:396`): an *empty* sandbox is the strictest setting — no scripts, no forms, no same-origin. The suggested "add allow-same-origin" fix would weaken it. Current code is correct.
-- **CSRF on admin portal POSTs**: requests are JSON-content-type behind Cloudflare Access; cross-origin form posts can't set `application/json` without a preflight. Server-side enforcement lives in `../site-api`. Verify there if paranoid; no change in this repo.
+- **CSRF on admin portal POSTs**: requests are JSON-content-type behind Cloudflare Access; cross-origin form posts can't set `application/json` without a preflight. No change in this repo; the server-side half is tracked in `site-api`.
 - **Playwright `retries: 2` in CI masking flakiness**: standard practice; no evidence of a specific flaky test being hidden.
 - **Lighthouse config lacks thresholds**: the perf gate medians metrics across runs elsewhere in ops tooling (see `config/lighthouse.cjs` comment about median-of-5); reports-only LHCI here is deliberate.
 - **Apple Music e2e test "regressed" to preview-only**: preview-first playback without MusicKit auth is the recorded product decision on this branch; the test now matches the product.
@@ -116,7 +116,7 @@ Recorded so the next audit doesn't re-litigate them:
 - **`.env.example` missing `ASTRO_DEV_BACKGROUND` / `ASTRO_E2E_STRICT_PORT`**: both are set by the scripts/config that need them; no developer action required.
 - **Date-sort NaN hardening** (`content.ts:90`) and **RSS epoch fallback** (`rss.ts:27,46`): real but negligible — the adapter guarantees `publishedAt` is a string and Ghost emits valid ISO dates. One-liner hardening, do opportunistically, not plan-worthy.
 - **CSP `script-src 'unsafe-inline'`** (`middleware.ts:58-66`): weak by CSP standards but required by Astro inline scripts without a nonce pipeline; treating as accepted tradeoff.
-- **Portal API proxy dot-segment normalization** (`/dev/portal/api/admin/..%2f...` escaping the `/api/admin` prefix via `URL` pathname normalization): requester is already an Access-authenticated admin and the reachable surface (`/api/*`, `/v2/*`) is publicly routed anyway. Hardening only; not planned.
+- **Portal API proxy dot-segment normalization**: was real — the prefix check ran before `URL` collapsed dot segments. Impact was bounded (Access-authenticated admin, publicly routed target surface), but the guard was three lines. Fixed in `cebedfca` with a regression test; no longer an accepted risk.
 - **Mood detail double `getChannelInfo`** (`channel-service.ts`): pre-existing, parallel by design for live reads; D1/v2 remains backup-only per recorded decision.
 
 ## August 1, 2026 navigation-animation audit (home → blog → post)
