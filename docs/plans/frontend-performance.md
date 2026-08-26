@@ -1,6 +1,6 @@
 # Executive Plan: Frontend Performance
 
-Workstream of the July 2026 architecture audit — report `docs/reviews/architecture-audit-2026-07.md` ([#64](https://github.com/bunizao/site/pull/64)).
+Workstream of the July 2026 architecture audit — report `docs/reviews/architecture-audit-2026-07.md` in `site-api` ([#64](https://github.com/bunizao/site/pull/64)).
 
 ## Objective
 

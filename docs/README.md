@@ -10,7 +10,7 @@ How this tree works:
 - `docs/plans/` — **active plans**. Work that is proposed or in progress. When a plan ships, move it to `docs/archive/`.
 - `docs/archive/` — **frozen records**. Shipped PRDs, completed migrations, resolved investigations. Never updated; they explain why things were built the way they were.
 - `docs/research/` — dated research notes. Frozen once written.
-- `docs/reviews/` — audits and their remediation indexes.
+- `docs/reviews/` — policy only. Audit reports go in `site-api` (see its README).
 - `docs/debug/` — local-only debug artifacts, not committed (see its README).
 
 Root-level `plans/` (repo root, numbered files) is the mood-hardening workstream backlog, separate from `docs/plans/`.
