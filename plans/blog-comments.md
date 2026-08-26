@@ -18,7 +18,7 @@ explicitly rule out reader accounts, sessions, and OAuth.
 
 That is now decided against — participation requires sign-in — so this document
 supersedes the PRD's identity, moderation, and data model. Move it to
-`docs/archive/` when this plan is approved.
+`notes/archive/` when this plan is approved.
 
 What survives from it unchanged, and is folded in below: the contracts-first
 sequencing, the Turnstile widget lifecycle reuse from `subscribe-panel.ts`, the
@@ -636,8 +636,8 @@ reply notifications.
     OAuth apps in `src/content/docs/platform/auth.md`, extend
     `src/content/docs/platform/testing.md` with the new e2e scope, and add
     `src/content/docs/surfaces/comments.md` as the living reference. Add the
-    index rows to `docs/README.md`. (S)
-22. Move `.agents/tasks/prd-blog-comments-likes.md` to `docs/archive/` once this
+    index rows to `plans/README.md`. (S)
+22. Move `.agents/tasks/prd-blog-comments-likes.md` to `notes/archive/` once this
     plan is approved, so the superseded anonymous design stops reading as
     current intent. (XS)
 
@@ -648,7 +648,7 @@ reply notifications.
 `src/pages/static/[...path].ts`, `src/pages/subscribe/manage.astro`,
 `src/data/site.ts`, `src/styles/blog.css`, `src/content/pages/privacy.md`,
 `src/content/docs/surfaces/{blog,comments}.md`,
-`src/content/docs/platform/{auth,testing}.md`, `docs/README.md`,
+`src/content/docs/platform/{auth,testing}.md`, `plans/README.md`,
 `tests/e2e/blog-comments.pw.ts` (new).
 In `site-api`: `scripts/sql/migrations/0011_blog_comments.sql`,
 `src/features/comments/**` (new), `src/pages/v2/blog/**` (new),

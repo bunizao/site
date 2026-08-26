@@ -9,7 +9,7 @@ That is the mistake this file exists to prevent.
 
 Write audit reports in `site-api/docs/reviews/` instead — the private half can
 hold findings about either side, the public half cannot. The remediation work
-splits normally: public workstreams get a plan under `docs/plans/` here,
+splits normally: public workstreams get a plan under `plans/` here,
 private ones there.
 
 The July 2026 report is now `docs/reviews/architecture-audit-2026-07.md` in

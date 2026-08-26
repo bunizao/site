@@ -87,7 +87,7 @@ stays a short index of what exists and who owns it.
 Telegram references:
 
 - [Telegram pipeline](/docs/platform/telegram)
-- `docs/debug/README.md` in the repo for local-only investigation notes and temporary debug artifacts
+- `notes/debug/README.md` in the repo for local-only investigation notes and temporary debug artifacts
 
 **SVG** (all accept `?theme=light|dark`):
 - `GET /api/status.svg`, `GET /api/tech-stack.svg`, `GET /api/site-badge.svg`

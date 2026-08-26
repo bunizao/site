@@ -39,7 +39,7 @@ Homepage copy, section toggles, footer, projects, and SEO/OG meta are curated in
 
 The living reference is published at [buxx.me/docs](https://buxx.me/docs) and authored in [`src/content/docs/`](src/content/docs). Start with [Architecture](https://buxx.me/docs/architecture) or [Local development](https://buxx.me/docs/development).
 
-[`docs/README.md`](docs/README.md) indexes it, and keeps what is not reference material: active work in `docs/plans/`, shipped records in `docs/archive/`.
+Work that is not reference material lives outside it: active plans in [`plans/`](plans/), written-once records in [`notes/`](notes/).
 
 Environment variables are documented in [`.env`](.env).
 

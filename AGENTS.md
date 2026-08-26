@@ -51,7 +51,7 @@ This is the public Worker. The private Worker `site-api` lives in the sibling re
 
 - `@` maps to `./src` (configured in `astro.config.mjs`). Use `@/lib/utils` instead of relative paths.
 - The living reference is published at `/docs` and authored in `src/content/docs/`. `src/content/docs/architecture.md` has the full directory structure, API endpoints, data sources, and environment variables.
-- `docs/README.md` indexes the published pages and keeps what is not reference material: active plans in `docs/plans/`, frozen shipped records in `docs/archive/`. When a code change makes a published doc wrong, fix the doc in the same PR; never update anything in `docs/archive/`.
+- Work that is not reference material lives outside it: active plans in `plans/`, written-once records in `notes/` (see `notes/README.md`). When a code change makes a published doc wrong, fix the doc in the same PR; never update anything in `notes/archive/`.
 
 ## Keeping the API reference current
 
