@@ -9,6 +9,7 @@ import { FALLBACK_TRACK } from '@/features/home/server/listening';
 import ProjectStack from '@/components/project-cards/ProjectStack';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import ContactLinksPreview from '@/features/components/previews/ContactLinksPreview.astro';
+import ConversationPreview from '@/features/components/previews/ConversationPreview.astro';
 import HoverListPreview from '@/features/components/previews/HoverListPreview.astro';
 import MoodButtonPreview from '@/features/components/previews/MoodButtonPreview.astro';
 import TagsPreview from '@/features/components/previews/TagsPreview.astro';
@@ -70,6 +71,7 @@ const listeningDemoTrack = { ...FALLBACK_TRACK, isNowPlaying: false };
     )}
     {slug === 'decode-text' && <DecodeTextPreview client:visible />}
     {slug === 'contact-links' && <ContactLinksPreview />}
+    {slug === 'conversation' && <ConversationPreview />}
     {slug === 'tag-cards' && <TagsPreview />}
     {slug === 'github-activity' && (
       <div class="preview-contributions">
