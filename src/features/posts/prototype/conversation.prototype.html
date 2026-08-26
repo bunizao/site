@@ -201,7 +201,22 @@ html[data-theme='dark'] .grp { --name: var(--name-dark); }
   user-select: none;
 }
 
-.chat-thread[data-names='off'] .bub-name { display: none; }
+/* Your own run shows no visible name — the alignment and the accent fill say
+   "you" — and data-names='off' drops every visible name. Neither position nor
+   colour reaches a screen reader, so in both cases the label stays in the
+   accessibility tree instead of leaving the message unattributed.
+   1px rather than 0: some screen readers skip zero-sized boxes. */
+.bub-name--sr,
+.chat-thread[data-names='off'] .bub-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 /* --- bubble ------------------------------------------------------------- */
 
@@ -700,13 +715,16 @@ function render(el, src) {
       ';--name-dark:' + nameOn(s.accent, BUBBLE_BG.dark) + ';' + d;
     const bubbles = it.bubbles.map((b, bi) => {
       const last = bi === it.bubbles.length - 1 ? ' bub--last' : '';
-      // Only the top bubble of a run is labelled, and never your own.
-      const named = bi === 0 && !s.me;
+      // The top bubble of a run carries the speaker. Your own run renders the
+      // label sr-only rather than dropping it: without it the message is
+      // attributed by alignment and fill alone, which no screen reader sees.
+      const labelled = bi === 0;
+      const shown = labelled && !s.me;
       // Short single-line bubbles centre; anything that can wrap — or that
-      // carries a name — aligns to start.
-      const wide = named || b.paras.length > 1 || b.paras[0].length > 12 ? ' bub--wide' : '';
+      // carries a visible name — aligns to start.
+      const wide = shown || b.paras.length > 1 || b.paras[0].length > 12 ? ' bub--wide' : '';
       return '<div class="bub' + last + wide + '">' +
-        (named ? '<div class="bub-name">' + esc(s.label) + '</div>' : '') +
+        (labelled ? '<div class="bub-name' + (shown ? '' : ' bub-name--sr') + '">' + esc(s.label) + '</div>' : '') +
         b.paras.map((p) => '<p>' + inline(p) + '</p>').join('') + '</div>';
     }).join('');
     return '<div class="grp grp--' + (s.me ? 'out' : 'in') + '" style="' + style + '">' +
