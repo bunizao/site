@@ -31,7 +31,11 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
     <h1 class="nf-sr-only">Page not found</h1>
 
     <div class="nf-stage">
-      <p class="nf-number" aria-hidden="true">404</p>
+      <p class="nf-number" aria-hidden="true"
+        ><span class="nf-digit">4</span
+        ><span class="nf-digit">0</span
+        ><span class="nf-digit">4</span
+      ></p>
 
       <p class="nf-path">
         <span class="nf-sr-only">Requested path:</span>
@@ -82,6 +86,34 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
       pathLabel.textContent = uri.length > 48 ? `${uri.slice(0, 47)}…` : uri;
     }
 
+    // The digits lean with the cursor. --mx/--my are -1..1 across the viewport;
+    // each digit scales them by its own depth so the 0 lags behind the fours.
+    const numberEl = document.querySelector<HTMLElement>('.nf-number');
+    let leanFrame = 0;
+
+    const setLean = (mx: number, my: number): void => {
+      numberEl?.style.setProperty('--mx', mx.toFixed(3));
+      numberEl?.style.setProperty('--my', my.toFixed(3));
+    };
+
+    const applyLean = (event: PointerEvent): void => {
+      if (!numberEl || leanFrame) return;
+      const { clientX, clientY } = event;
+      leanFrame = window.requestAnimationFrame(() => {
+        leanFrame = 0;
+        setLean(
+          (clientX / (window.innerWidth || 1)) * 2 - 1,
+          (clientY / (window.innerHeight || 1)) * 2 - 1,
+        );
+      });
+    };
+
+    const releaseLean = (): void => {
+      window.cancelAnimationFrame(leanFrame);
+      leanFrame = 0;
+      setLean(0, 0);
+    };
+
     // Peek follows the cursor while idle, looks up on hover, dissolves on click.
     const TRACK_POSES = JSON.parse(notFound?.dataset.peekTrackPoses ?? '[]') as string[];
     let trackingBucket: number | null = null;
@@ -107,7 +139,9 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
 
     if (notFound && canAnimate.matches) {
       notFound.addEventListener('pointermove', applyTrack);
+      notFound.addEventListener('pointermove', applyLean);
       notFound.addEventListener('pointerleave', releaseTrack);
+      notFound.addEventListener('pointerleave', releaseLean);
     }
 
     if (homeLink) {
@@ -172,15 +206,43 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
 
   /* The stage arrives in reading order. --nf-rise scales the travel to the
      size of the element so the big numeral does not look static. */
-  .nf-number,
+  .nf-digit,
   .nf-path,
   .nf-home {
     animation: nf-enter 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  .nf-number {
-    --nf-rise: 20px;
-    animation-delay: 60ms;
+  /* The digits land one after another, then follow the cursor. Entrance uses
+     transform and the lean uses translate, so the two never overwrite. */
+  .nf-digit {
+    --nf-rise: 24px;
+    display: inline-block;
+    animation-delay: calc(60ms + var(--nf-depth-i) * 90ms);
+    translate:
+      calc(var(--mx, 0) * var(--nf-pull-x))
+      calc(var(--my, 0) * var(--nf-pull-y));
+    transition: translate 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Pull rises evenly across the three digits, so every gap opens by the same
+     amount and the number reads as one plane tilting rather than a broken
+     word-space. */
+  .nf-digit:nth-child(1) {
+    --nf-depth-i: 0;
+    --nf-pull-x: 0.035em;
+    --nf-pull-y: 0.018em;
+  }
+
+  .nf-digit:nth-child(2) {
+    --nf-depth-i: 1;
+    --nf-pull-x: 0.075em;
+    --nf-pull-y: 0.030em;
+  }
+
+  .nf-digit:nth-child(3) {
+    --nf-depth-i: 2;
+    --nf-pull-x: 0.115em;
+    --nf-pull-y: 0.042em;
   }
 
   .nf-path {
@@ -204,6 +266,8 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
   }
 
   .nf-number {
+    --mx: 0;
+    --my: 0;
     margin: 0;
     font-size: min(30svh, 15rem);
     font-weight: 520;
@@ -318,10 +382,15 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .nf-number,
+    .nf-digit,
     .nf-path,
     .nf-home {
       animation: none;
+    }
+
+    .nf-digit {
+      translate: none;
+      transition: none;
     }
 
     .nf-home-label,
