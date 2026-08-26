@@ -20,6 +20,7 @@ Root-level `plans/` (repo root, numbered files) is the mood-hardening workstream
 | [MOOD.md](MOOD.md) | Anything under `/mood`: feed, detail, read path (D1 archive + live fallback), hydration. |
 | [HOME.md](HOME.md) | Home page sections, hero, Ghost publish → deploy hook flow. |
 | [BLOG-DESIGN.md](BLOG-DESIGN.md) | `/blog` visual system — normative design tokens for 無人之境. |
+| [CONVERSATION-SYNTAX.md](CONVERSATION-SYNTAX.md) | The ```conversation fenced block: chat-thread syntax, cast lines, accents, avatars. |
 | [TELEGRAM-PIPELINE.md](TELEGRAM-PIPELINE.md) | Telegram ingestion, webhook, HD images (owned by site-api; this is the site-side view). |
 | [EMAIL-NOTIFY.md](EMAIL-NOTIFY.md) | Mood email subscriptions and the admin portal touchpoints. |
 | [WORKER-SITE.md](WORKER-SITE.md) | The `site` Worker itself: assets, routes, deploy, CI. |
