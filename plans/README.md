@@ -19,16 +19,16 @@ leverage without a user selection step.
 | 004  | Turnstile widget lifecycle cleanup in ManagePreferences | P3 | S | — | DONE |
 | 005  | Remove stray root design scraps | P3 | S | — | DONE |
 | 006  | Mood navigation & read-path performance (PRD) | P1 | L | working-tree perf WIP deployed (see PRD §3) | DONE (verified 2026-07-19: WS1–WS5 all landed) |
-| 007  | Reconcile canonical contracts across `site` and `site-api` | P1 | M | — | TODO (drift now: index.ts, telegram-ops.ts, package.json) |
+| 007  | Reconcile canonical contracts across `site` and `site-api` | P1 | M | — | DONE (`37257e2b`; `sync:contracts --check` gates site-api CI) |
 | 008  | Escape JSON embedded in script elements | P1 | S | — | DONE (`d690018d`, all five sinks via `serializeScriptJson()`) |
-| 009  | Harden mood live-count hydration + live comment parsing | P1 | S | ../site-api 016 (deploy order only) | TODO |
-| 010  | Update watcher → archive probe + bfcache restart | P1 | S | — | TODO |
-| 011  | Visible mood feed failure states | P2 | S | — | TODO |
-| 012  | Unify SSR/client date grouping (visitor timezone) | P1 | M | — | TODO |
-| 013  | Include images in mood RSS content | P2 | S | — | TODO |
-| 014  | Restore srcset on archive images | P2 | M | 011 | TODO |
-| 015  | Clickable mood tag filters | P2 | M | 009–014 (branch order) | TODO |
-| 016  | Mood search UI | P2 | M | ../site-api 017 | TODO |
+| 009  | Harden mood live-count hydration + live comment parsing | P1 | S | ../site-api 016 (deploy order only) | DONE (`e7757b56`) |
+| 010  | Update watcher → archive probe + bfcache restart | P1 | S | — | DONE (`30bc8060`) |
+| 011  | Visible mood feed failure states | P2 | S | — | DONE (`5a5da8c8`) |
+| 012  | Unify SSR/client date grouping (visitor timezone) | P1 | M | — | DONE (`9c3f7540`) |
+| 013  | Include images in mood RSS content | P2 | S | — | DONE (`986d0119`, dedup hardened in `ef32c12e`) |
+| 014  | Restore srcset on archive images | P2 | M | 011 | DONE (`c0199b21`) |
+| 015  | Clickable mood tag filters | P2 | M | 009–014 (branch order) | DONE (`a73f6fee`) |
+| 016  | Mood search UI | P2 | M | ../site-api 017 | DONE (`f2e6054d`) — shipped in the ⌘K palette, not the hero panel |
 | 017  | View-transition name broker (only the activated, on-screen element morphs) | P1 | M | — | DONE |
 | 018  | Home → blog is a threshold: the mark is the only shared element | P1 | S | 017 | DONE |
 | 019  | Root transition opacity ramp + reduced-motion crossfade | P2 | S | — | DONE |
@@ -46,6 +46,10 @@ leverage without a user selection step.
 | 031  | Mood feed entrance/exit/skeleton retune | P2 | S | owner decision | DONE (`2ca74e42`, A2+B1+C1) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
+
+Statuses were last verified against the code on 2026-08-26 — every row above is
+checked, not reported. Plans 007–016 had all shipped while the index still read
+TODO; if you are about to act on a row here, confirm it in the code first.
 
 ## Dependency notes
 
