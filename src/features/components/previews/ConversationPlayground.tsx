@@ -1,7 +1,5 @@
 import * as React from 'react';
-import { Toggle } from '@base-ui/react/toggle';
-import { ToggleGroup } from '@base-ui/react/toggle-group';
-import { CircleUserRound, Tag } from 'lucide-react';
+import { Switch } from '@base-ui/react/switch';
 import { Tabs, TabsList, TabsTab } from '@/components/coss/tabs';
 import { renderConversation } from '@/features/content/conversation';
 
@@ -98,13 +96,28 @@ const SAMPLES: { name: string; source: string }[] = [
 
 const LABEL = 'mb-2 block text-xs font-medium tracking-wide text-foreground/48';
 
-const GROUP = 'flex items-center gap-0.5 rounded-lg bg-foreground/6 p-0.5';
-
-const TOGGLE =
-  'flex h-9 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-medium ' +
-  'text-foreground/60 outline-none transition-colors hover:text-foreground/80 ' +
-  'focus-visible:ring-2 focus-visible:ring-ring data-[pressed]:bg-background ' +
-  'data-[pressed]:text-foreground data-[pressed]:shadow-sm sm:h-8';
+function Field({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}): React.ReactElement {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground/72 select-none">
+      <Switch.Root
+        checked={checked}
+        onCheckedChange={onChange}
+        className="h-4.5 w-8 shrink-0 rounded-full bg-foreground/16 p-0.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring data-[checked]:bg-foreground"
+      >
+        <Switch.Thumb className="block size-3.5 rounded-full bg-background transition-transform data-[checked]:translate-x-3.5" />
+      </Switch.Root>
+      {label}
+    </label>
+  );
+}
 
 export default function ConversationPlayground(): React.ReactElement {
   const [sample, setSample] = React.useState(SAMPLES[0].name);
@@ -157,26 +170,13 @@ export default function ConversationPlayground(): React.ReactElement {
           </TabsList>
         </Tabs>
 
-        {/* Pressed toggles, not checkboxes: these two switch what the thread
-            shows, so they belong in the same pill language as the samples. */}
-        <ToggleGroup
-          multiple
-          value={[avatars ? 'avatars' : '', names ? 'names' : ''].filter(Boolean)}
-          onValueChange={(value) => {
-            setAvatars(value.includes('avatars'));
-            setNames(value.includes('names'));
-          }}
-          className={GROUP}
-        >
-          <Toggle value="avatars" className={TOGGLE}>
-            <CircleUserRound className="size-4" aria-hidden="true" />
-            Avatars
-          </Toggle>
-          <Toggle value="names" className={TOGGLE}>
-            <Tag className="size-4" aria-hidden="true" />
-            Names
-          </Toggle>
-        </ToggleGroup>
+        {/* Switches, not another row of pills: the samples already own the
+            pill, and two of them side by side read as one control with a
+            selection rather than two independent on/off states. */}
+        <div className="flex items-center gap-5">
+          <Field label="Avatars" checked={avatars} onChange={setAvatars} />
+          <Field label="Names" checked={names} onChange={setNames} />
+        </div>
       </div>
 
       <label className={LABEL} htmlFor="conv-source">
