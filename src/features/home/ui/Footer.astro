@@ -64,7 +64,13 @@ const socials = socialNames
         <span class="footer-region-label">Edge:</span>
         <span class="footer-region-code" data-footer-region-code>—</span>
       </button>
-      <span class="footer-edge-pop" id="footer-edge-pop" role="tooltip" popover data-footer-edge-pop>
+      <span
+        class="footer-edge-pop"
+        id="footer-edge-pop"
+        role="tooltip"
+        popover="manual"
+        data-footer-edge-pop
+      >
         <span class="footer-edge-arrow" aria-hidden="true"></span>
         <span class="footer-edge-rows" data-footer-edge-rows>
           <span class="footer-edge-loading">Tracing route…</span>
@@ -230,6 +236,8 @@ const socials = socialNames
 
     let loaded = false;
     let inflight: Promise<void> | null = null;
+    let pinned = false;
+    let hovered = false;
 
     const isOpen = () => pop.matches(':popover-open');
 
@@ -242,29 +250,54 @@ const socials = socialNames
       const centre = anchor.left + anchor.width / 2;
       const maxX = Math.max(POP_EDGE, window.innerWidth - POP_EDGE - width);
       const x = Math.min(Math.max(centre - width / 2, POP_EDGE), maxX);
-      const y = Math.max(POP_EDGE, anchor.top - POP_GAP - height);
+      const maxY = Math.max(POP_EDGE, window.innerHeight - POP_EDGE - height);
+      const spaceAbove = anchor.top - POP_GAP - POP_EDGE;
+      const spaceBelow = window.innerHeight - POP_EDGE - POP_GAP - anchor.bottom;
+      const placement = height <= spaceAbove || spaceAbove >= spaceBelow ? 'above' : 'below';
+      const preferredY = placement === 'above'
+        ? anchor.top - POP_GAP - height
+        : anchor.bottom + POP_GAP;
+      const y = Math.min(Math.max(preferredY, POP_EDGE), maxY);
+      const arrowX = Math.min(Math.max(centre - x, POP_EDGE), width - POP_EDGE);
       pop.style.setProperty('--pop-x', `${Math.round(x)}px`);
       pop.style.setProperty('--pop-y', `${Math.round(y)}px`);
-      pop.style.setProperty('--pop-arrow-x', `${Math.round(centre - x)}px`);
+      pop.style.setProperty('--pop-arrow-x', `${Math.round(arrowX)}px`);
+      pop.dataset.placement = placement;
     }
 
     const reposition = () => {
       if (isOpen()) place();
     };
 
-    // One source of truth for the open state: Escape and light-dismiss close
-    // the popover without going through open()/close(), and this keeps
-    // aria-expanded and the scroll listeners honest either way.
-    pop.addEventListener('toggle', (event: Event) => {
-      const opened = (event as Event & { newState?: string }).newState === 'open';
+    function dismiss(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node) || trigger.contains(target) || pop.contains(target)) return;
+      pinned = false;
+      close();
+    }
+
+    function handleKeydown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      pinned = false;
+      close();
+    }
+
+    // The toggle event is the single source of truth for exposed state and
+    // global listeners, including programmatic closes and DOM removal.
+    pop.addEventListener('toggle', () => {
+      const opened = isOpen();
       trigger.setAttribute('aria-expanded', opened ? 'true' : 'false');
       if (opened) {
         place();
         window.addEventListener('scroll', reposition, { passive: true, capture: true });
         window.addEventListener('resize', reposition);
+        document.addEventListener('pointerdown', dismiss, { capture: true });
+        document.addEventListener('keydown', handleKeydown);
       } else {
         window.removeEventListener('scroll', reposition, { capture: true });
         window.removeEventListener('resize', reposition);
+        document.removeEventListener('pointerdown', dismiss, { capture: true });
+        document.removeEventListener('keydown', handleKeydown);
       }
     });
 
@@ -300,13 +333,22 @@ const socials = socialNames
 
     region.addEventListener('pointerenter', () => void load());
     trigger.addEventListener('focus', () => void load());
-    trigger.addEventListener('pointerenter', open);
-    trigger.addEventListener('pointerleave', close);
+    trigger.addEventListener('pointerenter', () => {
+      hovered = true;
+      open();
+    });
+    trigger.addEventListener('pointerleave', () => {
+      hovered = false;
+      if (!pinned && document.activeElement !== trigger) close();
+    });
     trigger.addEventListener('focus', open);
-    trigger.addEventListener('blur', close);
+    trigger.addEventListener('blur', () => {
+      if (!pinned && !hovered) close();
+    });
     trigger.addEventListener('click', () => {
       void load();
-      isOpen() ? close() : open();
+      pinned = !pinned;
+      pinned ? open() : close();
     });
   }
 
@@ -520,7 +562,7 @@ const socials = socialNames
     top: var(--pop-y, 0px);
     z-index: 20;
     width: max-content;
-    min-width: 220px;
+    min-width: min(220px, calc(100vw - 24px));
     max-width: min(300px, calc(100vw - 24px));
     margin: 0;
     padding: 11px 13px;
@@ -573,10 +615,24 @@ const socials = socialNames
     transform: rotate(45deg);
   }
 
+  .footer-edge-pop[data-placement='below'] .footer-edge-arrow {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: -5px;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 1px solid hsl(var(--foreground) / 0.08);
+    border-top: 1px solid hsl(var(--foreground) / 0.08);
+  }
+
   .footer-edge-rows {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
   }
 
   /* Rows are injected via innerHTML at runtime, so they don't carry Astro's
