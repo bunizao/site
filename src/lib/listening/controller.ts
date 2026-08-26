@@ -27,74 +27,78 @@ type ListeningTrackPayload = {
 };
 
 const LISTENING_REFRESH_MS = 45_000;
-const ARTWORK_SAMPLE_SIZE = 24;
-const HUE_BUCKET_SIZE = 18;
-const SATURATION_BUCKETS = 4;
-const LIGHTNESS_BUCKETS = 4;
-const artworkAccentCache = new Map<string, string>();
+// Accent sampling. The artwork is reduced to a small grid and bucketed in
+// OKLCH: coverage decides which region of the cover wins, chroma decides
+// whether that region is a color at all. Both gates exist because most album
+// art is not colorful — a black-and-white photograph must stay black and
+// white rather than be handed a hue invented from sensor noise.
+const ARTWORK_SAMPLE_SIZE = 32;
+const HUE_BUCKET_SIZE = 20;
+const CHROMA_BUCKET_SIZE = 0.04;
+const LIGHTNESS_BUCKET_SIZE = 0.22;
+// Pixels this dark or this pale carry no reliable hue.
+const MIN_PIXEL_LIGHTNESS = 0.1;
+const MAX_PIXEL_LIGHTNESS = 0.95;
+// If the 90th-percentile pixel is this close to grey, the whole cover is grey.
+const MONOCHROME_CHROMA = 0.02;
+// A winning region has to be this colorful and this large to be believed.
+const MIN_ACCENT_CHROMA = 0.03;
+const MIN_ACCENT_COVERAGE = 0.045;
+// Chroma is capped, never raised: the accent may be duller than the cover, it
+// may never be more saturated than the cover actually is.
+const MAX_ACCENT_CHROMA = 0.155;
+// Past this, extra chroma stops earning a region any more ranking weight.
+const CHROMA_KNEE = 0.11;
+
+type ArtworkAccent = {
+  chroma: number;
+  hue: number;
+};
+
+// `null` is a real cached answer ("this cover has no accent"), so reads go
+// through `has()` rather than treating a missing entry as uncached.
+const artworkAccentCache = new Map<string, ArtworkAccent | null>();
 const playedAtDateFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',
 });
 
+// Averaged in OKLab, not OKLCH: hue is an angle and averaging it directly
+// breaks across the 0/360 wrap.
 type ColorBucket = {
-  redTotal: number;
-  greenTotal: number;
-  blueTotal: number;
-  weightTotal: number;
+  aTotal: number;
+  bTotal: number;
   count: number;
-  saturationTotal: number;
-  lightnessTotal: number;
 };
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-
-const rgbToHsl = (red: number, green: number, blue: number): [number, number, number] => {
-  const r = red / 255;
-  const g = green / 255;
-  const b = blue / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const lightness = (max + min) / 2;
-
-  if (max === min) {
-    return [0, 0, lightness];
-  }
-
-  const delta = max - min;
-  const saturation = lightness > 0.5
-    ? delta / (2 - max - min)
-    : delta / (max + min);
-  let hue = 0;
-
-  if (max === r) {
-    hue = (g - b) / delta + (g < b ? 6 : 0);
-  } else if (max === g) {
-    hue = (b - r) / delta + 2;
-  } else {
-    hue = (r - g) / delta + 4;
-  }
-
-  return [hue * 60, saturation, lightness];
+const linearize = (channel: number): number => {
+  const value = channel / 255;
+  return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
 };
 
-const getColorBucketKey = (hue: number, saturation: number, lightness: number): string => {
-  const hueBucket = Math.floor(hue / HUE_BUCKET_SIZE);
-  const saturationBucket = Math.floor(clamp(saturation, 0, 0.999) * SATURATION_BUCKETS);
-  const lightnessBucket = Math.floor(clamp(lightness, 0, 0.999) * LIGHTNESS_BUCKETS);
-  return `${hueBucket}:${saturationBucket}:${lightnessBucket}`;
+/** sRGB bytes to OKLab. Returns [lightness, a, b]. */
+const rgbToOklab = (red: number, green: number, blue: number): [number, number, number] => {
+  const r = linearize(red);
+  const g = linearize(green);
+  const b = linearize(blue);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+  ];
 };
 
-const scoreColorBucket = (bucket: ColorBucket): number => {
-  const saturation = bucket.saturationTotal / bucket.count;
-  const lightness = bucket.lightnessTotal / bucket.count;
-  const midLightness = 1 - Math.abs(lightness - 0.54) * 1.7;
-  const usableLightness = clamp(midLightness, 0.12, 1);
+const hueOf = (a: number, b: number): number => (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
 
-  return bucket.count * Math.pow(clamp(saturation, 0.08, 1), 1.35) * usableLightness;
-};
-
-const sampleArtworkAccent = (image: HTMLImageElement): string | null => {
+/**
+ * Pick the artwork's accent as chroma + hue, leaving lightness to CSS so one
+ * sample serves both themes. Returns null when the cover has no color worth
+ * showing — the caller falls back to the neutral foreground.
+ */
+const sampleArtworkAccent = (image: HTMLImageElement): ArtworkAccent | null => {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d', { willReadFrequently: true });
   if (!context || !image.naturalWidth || !image.naturalHeight) {
@@ -107,62 +111,60 @@ const sampleArtworkAccent = (image: HTMLImageElement): string | null => {
 
   const { data } = context.getImageData(0, 0, ARTWORK_SAMPLE_SIZE, ARTWORK_SAMPLE_SIZE);
   const buckets = new Map<string, ColorBucket>();
+  const pixelChromas: number[] = [];
 
   for (let index = 0; index < data.length; index += 4) {
     const alpha = data[index + 3] ?? 0;
     if (alpha < 180) continue;
 
-    const red = data[index] ?? 0;
-    const green = data[index + 1] ?? 0;
-    const blue = data[index + 2] ?? 0;
-    const [hue, saturation, lightness] = rgbToHsl(red, green, blue);
-    if (saturation < 0.08 || lightness < 0.12 || lightness > 0.9) continue;
+    const [lightness, a, b] = rgbToOklab(data[index] ?? 0, data[index + 1] ?? 0, data[index + 2] ?? 0);
+    const chroma = Math.hypot(a, b);
+    pixelChromas.push(chroma);
 
-    const key = getColorBucketKey(hue, saturation, lightness);
-    const bucket = buckets.get(key) ?? {
-      redTotal: 0,
-      greenTotal: 0,
-      blueTotal: 0,
-      weightTotal: 0,
-      count: 0,
-      saturationTotal: 0,
-      lightnessTotal: 0
-    };
-    const weight = 0.35 + saturation * 1.8 + clamp(1 - Math.abs(lightness - 0.54) * 1.6, 0, 1);
-    bucket.redTotal += red * weight;
-    bucket.greenTotal += green * weight;
-    bucket.blueTotal += blue * weight;
-    bucket.weightTotal += weight;
+    if (lightness < MIN_PIXEL_LIGHTNESS || lightness > MAX_PIXEL_LIGHTNESS) continue;
+
+    const key = `${Math.floor(hueOf(a, b) / HUE_BUCKET_SIZE)}`
+      + `:${Math.floor(chroma / CHROMA_BUCKET_SIZE)}`
+      + `:${Math.floor(lightness / LIGHTNESS_BUCKET_SIZE)}`;
+    const bucket = buckets.get(key) ?? { aTotal: 0, bTotal: 0, count: 0 };
+    bucket.aTotal += a;
+    bucket.bTotal += b;
     bucket.count += 1;
-    bucket.saturationTotal += saturation;
-    bucket.lightnessTotal += lightness;
     buckets.set(key, bucket);
   }
 
-  let selectedBucket: ColorBucket | null = null;
-  let selectedScore = 0;
-
-  for (const bucket of buckets.values()) {
-    const score = scoreColorBucket(bucket);
-    if (score > selectedScore) {
-      selectedBucket = bucket;
-      selectedScore = score;
-    }
-  }
-
-  if (!selectedBucket || selectedBucket.weightTotal <= 0) {
+  if (!pixelChromas.length) {
     return null;
   }
 
-  const [hue, saturation, lightness] = rgbToHsl(
-    selectedBucket.redTotal / selectedBucket.weightTotal,
-    selectedBucket.greenTotal / selectedBucket.weightTotal,
-    selectedBucket.blueTotal / selectedBucket.weightTotal
-  );
-  const boostedSaturation = clamp(saturation * 1.16, 0.4, 0.86);
-  const boostedLightness = clamp(lightness * 1.04, 0.42, 0.66);
+  // Whole-image gate, independent of how the buckets fell: a greyscale cover
+  // has no dominant hue, only the most-saturated noise.
+  pixelChromas.sort((first, second) => first - second);
+  const chromaCeiling = pixelChromas[Math.floor(pixelChromas.length * 0.9)] ?? 0;
+  if (chromaCeiling < MONOCHROME_CHROMA) {
+    return null;
+  }
 
-  return `hsl(${Math.round(hue)} ${Math.round(boostedSaturation * 100)}% ${Math.round(boostedLightness * 100)}%)`;
+  let selected: ArtworkAccent | null = null;
+  let selectedScore = 0;
+
+  for (const bucket of buckets.values()) {
+    const a = bucket.aTotal / bucket.count;
+    const b = bucket.bTotal / bucket.count;
+    const chroma = Math.hypot(a, b);
+    const coverage = bucket.count / pixelChromas.length;
+    if (chroma < MIN_ACCENT_CHROMA || coverage < MIN_ACCENT_COVERAGE) continue;
+
+    // Coverage leads; chroma only breaks ties. Ranking by saturation instead
+    // is how a 2%-of-the-frame sticker beats the wall behind it.
+    const score = coverage * (0.15 + 0.85 * Math.min(chroma, CHROMA_KNEE) / CHROMA_KNEE);
+    if (score <= selectedScore) continue;
+
+    selectedScore = score;
+    selected = { chroma: Math.min(chroma, MAX_ACCENT_CHROMA), hue: hueOf(a, b) };
+  }
+
+  return selected;
 };
 
 const runWhenIdle = (callback: () => void, timeout = 1500) => {
@@ -224,6 +226,22 @@ export const initListeningCards = (root: ParentNode = document): void => {
       surface: inferListeningSurface(window.location.pathname),
     }));
 
+    // Only chroma and hue are written; listening.css picks the lightness that
+    // reads against the current theme. data-accent is the switch between the
+    // sampled color and the neutral foreground default.
+    const applyAccent = (accent: ArtworkAccent | null) => {
+      if (!accent) {
+        delete root.dataset.accent;
+        root.style.removeProperty('--listening-accent-c');
+        root.style.removeProperty('--listening-accent-h');
+        return;
+      }
+
+      root.dataset.accent = '';
+      root.style.setProperty('--listening-accent-c', accent.chroma.toFixed(3));
+      root.style.setProperty('--listening-accent-h', accent.hue.toFixed(1));
+    };
+
     const updateArtworkAccent = () => {
       if (!(artwork instanceof HTMLImageElement)) {
         return;
@@ -234,20 +252,18 @@ export const initListeningCards = (root: ParentNode = document): void => {
         return;
       }
 
-      const cachedAccent = artworkAccentCache.get(artworkSrc);
-      if (cachedAccent) {
-        root.style.setProperty('--listening-accent', cachedAccent);
+      if (artworkAccentCache.has(artworkSrc)) {
+        applyAccent(artworkAccentCache.get(artworkSrc) ?? null);
         return;
       }
 
       runWhenIdle(() => {
         try {
           const accent = sampleArtworkAccent(artwork);
-          if (!accent) return;
           artworkAccentCache.set(artworkSrc, accent);
-          root.style.setProperty('--listening-accent', accent);
+          applyAccent(accent);
         } catch {
-          root.style.removeProperty('--listening-accent');
+          applyAccent(null);
         }
       });
     };
@@ -476,7 +492,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
       if (artwork instanceof HTMLImageElement && nextArtwork) {
         const currentArtwork = artwork.currentSrc || artwork.src;
         if (currentArtwork !== nextArtwork) {
-          root.style.removeProperty('--listening-accent');
+          applyAccent(null);
           artwork.src = nextArtwork;
         } else if (artwork.complete) {
           updateArtworkAccent();

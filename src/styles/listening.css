@@ -4,6 +4,9 @@
    src/lib/listening/markup.ts). Keep selectors class-based and global. */
 
 .listening {
+  /* Neutral until the artwork proves it has a color: a black-and-white cover
+     keeps a black-and-white meter. See sampleArtworkAccent() in
+     src/lib/listening/controller.ts. */
   --listening-accent: hsl(var(--foreground));
   --record-rotation: 0turn;
   display: grid;
@@ -13,6 +16,19 @@
   width: fit-content;
   max-width: min(100%, 520px);
   color: hsl(var(--muted-foreground));
+}
+
+/* Chroma and hue come from the artwork; lightness belongs to the theme, so one
+   canvas read serves light and dark and survives a theme switch untouched. */
+.listening[data-accent] {
+  --listening-accent-l: 0.56;
+  --listening-accent: oklch(
+    var(--listening-accent-l) var(--listening-accent-c) var(--listening-accent-h)
+  );
+}
+
+.dark .listening[data-accent] {
+  --listening-accent-l: 0.74;
 }
 
 .listening.is-loading .listening-track {
