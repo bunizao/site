@@ -9,6 +9,7 @@ import HoverListPreview from '@/features/components/previews/HoverListPreview.as
 import MoodButtonPreview from '@/features/components/previews/MoodButtonPreview.astro';
 import ContactLinksPreview from '@/features/components/previews/ContactLinksPreview.astro';
 import TagsPreview from '@/features/components/previews/TagsPreview.astro';
+import ConversationPreview from '@/features/components/previews/ConversationPreview.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import '@/styles/components.css';
 import { formatSiteTitle } from '@/lib/seo';
@@ -148,6 +149,18 @@ const description =
         </div>
         <a class="cgrid-cap cgrid-cap--link" href="/components/list-hover">
           List hover
+          <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+      </section>
+
+      <!-- Band 4 — the conversation thread, full width: a chat UI written as
+           plain text, sized by container queries rather than the viewport. -->
+      <section class="cgrid-tile cgrid-tile--conversation cgrid-tile--link" data-cgrid-tile style="--i:10">
+        <div class="cgrid-stage cgrid-stage--conversation">
+          <ConversationPreview />
+        </div>
+        <a class="cgrid-cap cgrid-cap--link" href="/components/conversation">
+          Conversation
           <svg class="cgrid-cap-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
         </a>
       </section>

@@ -1,0 +1,299 @@
+---
+// Live playground for the conversation component. The renderer is pure and has
+// no Node dependencies, so the exact module that renders blog posts on the
+// server also runs in the browser here: what you see is the shipping output,
+// not a reimplementation of it.
+import '@/styles/globals.css';
+import '@/styles/conversation.css';
+
+export const prerender = true;
+
+const SAMPLES: Record<string, string> = {
+  Two: [
+    '@reader me avatar=🙋',
+    '@tutu label="图图" accent=#B4603A avatar=🐈',
+    '',
+    'reader: 所以这个对话框到底难在哪？',
+    'tutu: 宽度。',
+    'tutu: 一句「好」和一段三百字的回复，得用同一套规则排出来，而且都要好看。',
+    '--- 换个说法',
+    'tutu: 气泡宽度上限写成 `30em`。中文一个字正好 1em，拉丁字母大约 0.5em——',
+    '  所以同一个数字，中文落在 30 字左右，英文落在 60 字左右，两边都在舒服的行长里。',
+    'reader: 那容器变窄呢？',
+    'tutu: 全部走 **container query**。它不关心视口有多宽，只关心自己被塞进了多宽的地方。',
+  ].join('\n'),
+
+  Group: [
+    '@me me label="You"',
+    '@ada label="Ada"',
+    '@grace label="Grace" accent=#4E7A5E',
+    '@alan label="Alan" accent=#7C5CD6',
+    '',
+    'ada: Ship it?',
+    'grace: One thing first.',
+    'grace: A run of messages from one person is labelled once, at the top.',
+    'grace: Like this. Three bubbles, one name.',
+    'alan: And the last bubble of a run squares off the corner nearest its speaker.',
+    'me: Right — no drawn tail. Alignment carries the rest.',
+    '--- ',
+    'ada: Ship it.',
+  ].join('\n'),
+
+  Avatars: [
+    '@you me label="You" accent=#3C5D80',
+    '@octo label="Octocat" avatar=https://avatars.githubusercontent.com/u/583231?v=4',
+    '@emoji label="Emoji" accent=#B4603A avatar=🐈',
+    '@ada label="Ada Lovelace" accent=#4E7A5E',
+    '',
+    'you: How many avatar forms are there?',
+    'octo: A URL — `avatar=https://…`, or any site-relative path.',
+    'emoji: A glyph works too.',
+    'ada: Write nothing and you get initials; a CJK label takes its last character.',
+    '--- ',
+    'you: Why is there no avatar on my side?',
+    'octo: Because that one is you. Readers do not need reminding what they look like.',
+  ].join('\n'),
+
+  Stress: [
+    '@a me label="A"',
+    '@b label="B"',
+    '',
+    'a: ok',
+    'b: 好',
+    'a: A single word bubble still has to look like a bubble and not a stray pill.',
+    'b: 这一条会长很多，长到必须换行，用来确认长文本在气泡里依然守着同一条 measure，' +
+      '并且不会把整段话拉成一个圆角的段落——那样对话的隐喻就死了。',
+    'a: https://example.com/a/very/long/unbroken/url/that/must/not/overflow/the/bubble',
+  ].join('\n'),
+};
+
+const names = Object.keys(SAMPLES);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Conversation preview</title>
+    <script is:inline>
+      (() => {
+        const media = window.matchMedia('(prefers-color-scheme: dark)');
+        const applyTheme = () => {
+          let stored = null;
+          try {
+            stored = localStorage.getItem('theme');
+          } catch {}
+          const dark = stored === 'dark' || (stored !== 'light' && media.matches);
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        };
+        applyTheme();
+        media.addEventListener('change', applyTheme);
+      })();
+    </script>
+  </head>
+  <body>
+    <main class="fixture">
+      <div class="pane">
+        <label class="pane-label" for="source">Source</label>
+        <textarea id="source" spellcheck="false" autocomplete="off">{SAMPLES[names[0]]}</textarea>
+      </div>
+
+      <div class="pane">
+        <span class="pane-label">Rendered</span>
+        <!-- Resizable so the container queries can be exercised directly: drag
+             the corner and the thread reflows against its own width, not the
+             viewport's. -->
+        <div class="stage" id="stage"></div>
+      </div>
+    </main>
+
+    <div class="bar">
+      {names.map((name, index) => (
+        <button
+          type="button"
+          data-sample
+          data-source={SAMPLES[name]}
+          aria-pressed={index === 0 ? 'true' : 'false'}
+        >
+          {name}
+        </button>
+      ))}
+      <span class="sep"></span>
+      <button type="button" id="theme">Theme</button>
+      <button type="button" id="avatars" aria-pressed="true">Avatars</button>
+      <button type="button" id="names" aria-pressed="true">Names</button>
+    </div>
+
+    <script>
+      import { renderConversation } from '@/features/content/conversation';
+
+      const source = document.querySelector<HTMLTextAreaElement>('#source')!;
+      const stage = document.querySelector<HTMLElement>('#stage')!;
+      const avatars = document.querySelector<HTMLButtonElement>('#avatars')!;
+      const names = document.querySelector<HTMLButtonElement>('#names')!;
+
+      const draw = () => {
+        stage.innerHTML = renderConversation(source.value);
+        const thread = stage.querySelector<HTMLElement>('.conv-thread');
+        if (!thread) return;
+        // Both toggles are component behaviour, not playground chrome: the
+        // stylesheet reads them off the thread in a real post too.
+        thread.dataset.avatars = avatars.getAttribute('aria-pressed') === 'true' ? 'on' : 'off';
+        thread.dataset.names = names.getAttribute('aria-pressed') === 'true' ? 'on' : 'off';
+      };
+
+      const toggle = (button: HTMLButtonElement) => {
+        button.setAttribute(
+          'aria-pressed',
+          button.getAttribute('aria-pressed') === 'true' ? 'false' : 'true'
+        );
+        draw();
+      };
+
+      source.addEventListener('input', draw);
+      avatars.addEventListener('click', () => toggle(avatars));
+      names.addEventListener('click', () => toggle(names));
+
+      document.querySelectorAll<HTMLButtonElement>('[data-sample]').forEach((button) => {
+        button.addEventListener('click', () => {
+          document
+            .querySelectorAll('[data-sample]')
+            .forEach((other) => other.setAttribute('aria-pressed', String(other === button)));
+          source.value = button.dataset.source ?? '';
+          draw();
+        });
+      });
+
+      document.querySelector('#theme')!.addEventListener('click', () => {
+        const dark = document.documentElement.classList.toggle('dark');
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        try {
+          localStorage.setItem('theme', dark ? 'dark' : 'light');
+        } catch {}
+      });
+
+      draw();
+    </script>
+
+    <style>
+      :global(body) {
+        margin: 0;
+        min-height: 100vh;
+        color: hsl(var(--foreground));
+        background: hsl(var(--background));
+        font-family: var(--font-sans);
+      }
+
+      .fixture {
+        display: grid;
+        grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+        gap: 1.5rem;
+        align-items: start;
+        padding: 1.5rem 1.5rem 5.5rem;
+      }
+
+      @media (max-width: 60rem) {
+        .fixture {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      .pane {
+        min-width: 0;
+      }
+
+      .pane-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-family: var(--font-mono);
+        font-size: 0.62rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: hsl(var(--muted-foreground));
+      }
+
+      textarea {
+        width: 100%;
+        height: 30rem;
+        padding: 0.875rem 1rem;
+        border: 1px solid hsl(var(--foreground) / 0.12);
+        border-radius: var(--radius-md);
+        background: hsl(var(--foreground) / 0.03);
+        color: hsl(var(--foreground));
+        font-family: var(--font-code);
+        font-size: 0.8125rem;
+        line-height: 1.7;
+        resize: vertical;
+        tab-size: 2;
+      }
+
+      textarea:focus-visible {
+        outline: 2px solid hsl(var(--ring));
+        outline-offset: 2px;
+      }
+
+      /* The stage is the query container's parent, so resizing it is what
+         actually exercises @container in the component. */
+      .stage {
+        min-width: 12rem;
+        max-width: 100%;
+        padding: 0 1rem;
+        border: 1px dashed hsl(var(--foreground) / 0.14);
+        border-radius: var(--radius-md);
+        overflow: auto;
+        resize: horizontal;
+      }
+
+      .bar {
+        position: fixed;
+        left: 50%;
+        bottom: 1rem;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem;
+        border: 1px solid hsl(var(--foreground) / 0.12);
+        border-radius: 999px;
+        background: hsl(var(--background) / 0.9);
+        backdrop-filter: blur(12px);
+      }
+
+      .bar button {
+        padding: 0.35rem 0.75rem;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: hsl(var(--muted-foreground));
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+      }
+
+      .bar button:hover {
+        color: hsl(var(--foreground));
+        background: hsl(var(--foreground) / 0.06);
+      }
+
+      .bar button[aria-pressed='true'] {
+        color: hsl(var(--background));
+        background: hsl(var(--foreground));
+      }
+
+      .bar button:focus-visible {
+        outline: 2px solid hsl(var(--ring));
+        outline-offset: 2px;
+      }
+
+      .sep {
+        width: 1px;
+        height: 1.1rem;
+        margin: 0 0.25rem;
+        background: hsl(var(--foreground) / 0.14);
+      }
+    </style>
+  </body>
+</html>
