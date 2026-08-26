@@ -1,6 +1,8 @@
 import * as React from 'react';
+import { Toggle } from '@base-ui/react/toggle';
+import { ToggleGroup } from '@base-ui/react/toggle-group';
+import { CircleUserRound, Tag } from 'lucide-react';
 import { Tabs, TabsList, TabsTab } from '@/components/coss/tabs';
-import { Checkbox } from '@/components/coss/checkbox';
 import { renderConversation } from '@/features/content/conversation';
 
 // Live playground for the conversation component, embedded on
@@ -94,7 +96,15 @@ const SAMPLES: { name: string; source: string }[] = [
   },
 ];
 
-const LABEL = 'mb-2 block text-xs font-medium tracking-wide text-muted-foreground';
+const LABEL = 'mb-2 block text-xs font-medium tracking-wide text-foreground/48';
+
+const GROUP = 'flex items-center gap-0.5 rounded-lg bg-foreground/6 p-0.5';
+
+const TOGGLE =
+  'flex h-9 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-medium ' +
+  'text-foreground/60 outline-none transition-colors hover:text-foreground/80 ' +
+  'focus-visible:ring-2 focus-visible:ring-ring data-[pressed]:bg-background ' +
+  'data-[pressed]:text-foreground data-[pressed]:shadow-sm sm:h-8';
 
 export default function ConversationPlayground(): React.ReactElement {
   const [sample, setSample] = React.useState(SAMPLES[0].name);
@@ -147,24 +157,26 @@ export default function ConversationPlayground(): React.ReactElement {
           </TabsList>
         </Tabs>
 
-        <div className="flex items-center gap-4">
-          <label htmlFor="conv-avatars" className="flex cursor-pointer items-center gap-2 text-sm">
-            <Checkbox
-              id="conv-avatars"
-              checked={avatars}
-              onCheckedChange={(next) => setAvatars(Boolean(next))}
-            />
+        {/* Pressed toggles, not checkboxes: these two switch what the thread
+            shows, so they belong in the same pill language as the samples. */}
+        <ToggleGroup
+          multiple
+          value={[avatars ? 'avatars' : '', names ? 'names' : ''].filter(Boolean)}
+          onValueChange={(value) => {
+            setAvatars(value.includes('avatars'));
+            setNames(value.includes('names'));
+          }}
+          className={GROUP}
+        >
+          <Toggle value="avatars" className={TOGGLE}>
+            <CircleUserRound className="size-4" aria-hidden="true" />
             Avatars
-          </label>
-          <label htmlFor="conv-names" className="flex cursor-pointer items-center gap-2 text-sm">
-            <Checkbox
-              id="conv-names"
-              checked={names}
-              onCheckedChange={(next) => setNames(Boolean(next))}
-            />
+          </Toggle>
+          <Toggle value="names" className={TOGGLE}>
+            <Tag className="size-4" aria-hidden="true" />
             Names
-          </label>
-        </div>
+          </Toggle>
+        </ToggleGroup>
       </div>
 
       <label className={LABEL} htmlFor="conv-source">
@@ -176,7 +188,7 @@ export default function ConversationPlayground(): React.ReactElement {
         autoComplete="off"
         value={source}
         onChange={(event) => setSource(event.target.value)}
-        className="h-64 w-full resize-y rounded-lg border border-input bg-foreground/3 px-4 py-3 text-[0.8125rem] leading-relaxed text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-64 w-full resize-y rounded-lg border border-foreground/10 bg-foreground/3 px-4 py-3 text-[0.8125rem] leading-relaxed text-foreground outline-none transition-colors focus-visible:border-foreground/24"
         style={{ fontFamily: 'var(--font-code)', tabSize: 2 }}
       />
 
@@ -186,7 +198,7 @@ export default function ConversationPlayground(): React.ReactElement {
           viewport's. */}
       <div
         ref={stage}
-        className="max-w-full min-w-48 resize-x overflow-auto rounded-lg border border-dashed border-foreground/14 px-4"
+        className="max-w-full min-w-48 resize-x overflow-auto rounded-lg border border-dashed border-foreground/12 px-4"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>
