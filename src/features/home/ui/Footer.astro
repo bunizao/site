@@ -64,7 +64,13 @@ const socials = socialNames
         <span class="footer-region-label">Edge:</span>
         <span class="footer-region-code" data-footer-region-code>—</span>
       </button>
-      <span class="footer-edge-pop" id="footer-edge-pop" role="tooltip" data-footer-edge-pop>
+      <span
+        class="footer-edge-pop"
+        id="footer-edge-pop"
+        role="tooltip"
+        popover="manual"
+        data-footer-edge-pop
+      >
         <span class="footer-edge-arrow" aria-hidden="true"></span>
         <span class="footer-edge-rows" data-footer-edge-rows>
           <span class="footer-edge-loading">Tracing route…</span>
@@ -147,7 +153,8 @@ const socials = socialNames
       const region = parseRegion(res.headers.get('x-cloudflare-colo'));
       if (region && regionEl && regionCodeEl) {
         regionCodeEl.textContent = region;
-        regionEl.title = `Edge region: ${REGION_NAMES[region] ?? region}`;
+        // No `title` here — the popover already names the datacenter, and the
+        // OS tooltip would stack a second box on top of it on hover.
         regionEl.hidden = false;
         if (regionSepEl) regionSepEl.hidden = false;
       }
@@ -207,19 +214,99 @@ const socials = socialNames
     return rows.length ? rows.join('') : '<span class="footer-edge-loading">No edge data</span>';
   }
 
+  // Space between the trigger and the popover, and the clearance the popover
+  // keeps from the viewport edges.
+  const POP_GAP = 10;
+  const POP_EDGE = 12;
+
   function setupEdgePopover() {
     const regionMaybe = document.querySelector<HTMLElement>('[data-footer-region]');
-    const trigger = document.querySelector<HTMLButtonElement>('[data-footer-region-trigger]');
+    const triggerMaybe = document.querySelector<HTMLButtonElement>('[data-footer-region-trigger]');
     const rowsMaybe = document.querySelector<HTMLElement>('[data-footer-edge-rows]');
-    if (!regionMaybe || !trigger || !rowsMaybe) return;
+    const popMaybe = document.querySelector<HTMLElement>('[data-footer-edge-pop]');
+    if (!regionMaybe || !triggerMaybe || !rowsMaybe || !popMaybe) return;
     const region = regionMaybe;
+    const trigger = triggerMaybe;
     const rowsEl = rowsMaybe;
+    const pop = popMaybe;
+
+    // Without the Popover API there is no top layer to draw into, and the CSS
+    // leaves the popover hidden rather than dropping it into the flow.
+    if (typeof pop.showPopover !== 'function') return;
 
     let loaded = false;
     let inflight: Promise<void> | null = null;
+    let pinned = false;
+    let hovered = false;
 
-    const open = () => trigger.setAttribute('aria-expanded', 'true');
-    const close = () => trigger.setAttribute('aria-expanded', 'false');
+    const isOpen = () => pop.matches(':popover-open');
+
+    // Top-layer boxes are positioned against the viewport, not the footer, so
+    // the coordinates are recomputed on open, on scroll, on resize, and every
+    // time the rows change the popover's height.
+    function place() {
+      const anchor = trigger.getBoundingClientRect();
+      const { width, height } = pop.getBoundingClientRect();
+      const centre = anchor.left + anchor.width / 2;
+      const maxX = Math.max(POP_EDGE, window.innerWidth - POP_EDGE - width);
+      const x = Math.min(Math.max(centre - width / 2, POP_EDGE), maxX);
+      const maxY = Math.max(POP_EDGE, window.innerHeight - POP_EDGE - height);
+      const spaceAbove = anchor.top - POP_GAP - POP_EDGE;
+      const spaceBelow = window.innerHeight - POP_EDGE - POP_GAP - anchor.bottom;
+      const placement = height <= spaceAbove || spaceAbove >= spaceBelow ? 'above' : 'below';
+      const preferredY = placement === 'above'
+        ? anchor.top - POP_GAP - height
+        : anchor.bottom + POP_GAP;
+      const y = Math.min(Math.max(preferredY, POP_EDGE), maxY);
+      const arrowX = Math.min(Math.max(centre - x, POP_EDGE), width - POP_EDGE);
+      pop.style.setProperty('--pop-x', `${Math.round(x)}px`);
+      pop.style.setProperty('--pop-y', `${Math.round(y)}px`);
+      pop.style.setProperty('--pop-arrow-x', `${Math.round(arrowX)}px`);
+      pop.dataset.placement = placement;
+    }
+
+    const reposition = () => {
+      if (isOpen()) place();
+    };
+
+    function dismiss(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node) || trigger.contains(target) || pop.contains(target)) return;
+      pinned = false;
+      close();
+    }
+
+    function handleKeydown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      pinned = false;
+      close();
+    }
+
+    // The toggle event is the single source of truth for exposed state and
+    // global listeners, including programmatic closes and DOM removal.
+    pop.addEventListener('toggle', () => {
+      const opened = isOpen();
+      trigger.setAttribute('aria-expanded', opened ? 'true' : 'false');
+      if (opened) {
+        place();
+        window.addEventListener('scroll', reposition, { passive: true, capture: true });
+        window.addEventListener('resize', reposition);
+        document.addEventListener('pointerdown', dismiss, { capture: true });
+        document.addEventListener('keydown', handleKeydown);
+      } else {
+        window.removeEventListener('scroll', reposition, { capture: true });
+        window.removeEventListener('resize', reposition);
+        document.removeEventListener('pointerdown', dismiss, { capture: true });
+        document.removeEventListener('keydown', handleKeydown);
+      }
+    });
+
+    const open = () => {
+      if (!isOpen()) pop.showPopover();
+    };
+    const close = () => {
+      if (isOpen()) pop.hidePopover();
+    };
 
     async function load() {
       if (loaded || inflight) return inflight ?? undefined;
@@ -238,6 +325,7 @@ const socials = socialNames
           region.setAttribute('data-edge-state', 'error');
         } finally {
           inflight = null;
+          reposition();
         }
       })();
       return inflight;
@@ -245,13 +333,22 @@ const socials = socialNames
 
     region.addEventListener('pointerenter', () => void load());
     trigger.addEventListener('focus', () => void load());
-    trigger.addEventListener('pointerenter', open);
-    trigger.addEventListener('pointerleave', close);
+    trigger.addEventListener('pointerenter', () => {
+      hovered = true;
+      open();
+    });
+    trigger.addEventListener('pointerleave', () => {
+      hovered = false;
+      if (!pinned && document.activeElement !== trigger) close();
+    });
     trigger.addEventListener('focus', open);
-    trigger.addEventListener('blur', close);
+    trigger.addEventListener('blur', () => {
+      if (!pinned && !hovered) close();
+    });
     trigger.addEventListener('click', () => {
       void load();
-      trigger.getAttribute('aria-expanded') === 'true' ? close() : open();
+      pinned = !pinned;
+      pinned ? open() : close();
     });
   }
 
@@ -443,14 +540,33 @@ const socials = socialNames
     color: hsl(var(--muted-foreground) / 0.75);
   }
 
+  /* The popover reaches past the footer's top edge the moment a long value (an
+     ISP name, a long city) wraps a row, and the footer sits inside a clipping
+     ancestor on more than one surface — a scroll container on blog pages, and
+     paint containment wherever `content-visibility` gets applied. So it is not
+     positioned inside the footer at all: `popover` puts it in the top layer,
+     above every ancestor's clip, and setupEdgePopover() drives --pop-x/--pop-y
+     in viewport coordinates. Nothing about the footer's box can crop it now.
+
+     The UA sheet gives [popover] its own inset/margin/border/background/
+     overflow — each of those is overridden below, `overflow` included, or the
+     arrow gets clipped by the popover itself. Browsers without the Popover
+     API never match :popover-open, so the whole thing stays display: none. */
   .footer-edge-pop {
-    position: absolute;
-    bottom: calc(100% + 10px);
-    left: 50%;
+    --pop-lift: 4px;
+
+    display: none;
+    position: fixed;
+    inset: auto;
+    left: var(--pop-x, 0px);
+    top: var(--pop-y, 0px);
     z-index: 20;
-    min-width: 220px;
+    width: max-content;
+    min-width: min(220px, calc(100vw - 24px));
     max-width: min(300px, calc(100vw - 24px));
+    margin: 0;
     padding: 11px 13px;
+    overflow: visible;
     border-radius: 12px;
     border: 1px solid hsl(var(--foreground) / 0.1);
     background: hsl(var(--card) / 0.92);
@@ -459,24 +575,34 @@ const socials = socialNames
     box-shadow:
       0 16px 40px -16px hsl(var(--foreground) / 0.28),
       inset 0 1px 0 hsl(0 0% 100% / 0.06);
+    color: hsl(var(--muted-foreground));
     text-align: left;
     opacity: 0;
-    transform: translate(-50%, 4px);
-    transform-origin: bottom center;
-    pointer-events: none;
-    transition: opacity 0.18s ease, transform 0.18s ease;
+    transform: translateY(var(--pop-lift));
+    transition:
+      opacity 0.18s ease,
+      transform 0.18s ease,
+      overlay 0.18s ease allow-discrete,
+      display 0.18s ease allow-discrete;
   }
 
-  .footer-region-trigger[aria-expanded='true'] + .footer-edge-pop {
+  .footer-edge-pop:popover-open {
+    display: block;
     opacity: 1;
-    transform: translate(-50%, 0);
-    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  @starting-style {
+    .footer-edge-pop:popover-open {
+      opacity: 0;
+      transform: translateY(var(--pop-lift));
+    }
   }
 
   .footer-edge-arrow {
     position: absolute;
     top: 100%;
-    left: 50%;
+    left: var(--pop-arrow-x, 50%);
     width: 10px;
     height: 10px;
     margin-left: -5px;
@@ -489,10 +615,24 @@ const socials = socialNames
     transform: rotate(45deg);
   }
 
+  .footer-edge-pop[data-placement='below'] .footer-edge-arrow {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: -5px;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 1px solid hsl(var(--foreground) / 0.08);
+    border-top: 1px solid hsl(var(--foreground) / 0.08);
+  }
+
   .footer-edge-rows {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
   }
 
   /* Rows are injected via innerHTML at runtime, so they don't carry Astro's
@@ -532,30 +672,12 @@ const socials = socialNames
     color: hsl(var(--muted-foreground) / 0.55);
   }
 
-  /* On narrow screens the trigger sits near the right edge; centering the
-     popover on it would overflow. Anchor it to the region's right edge and
-     let it grow leftward, keeping the arrow under the trigger. */
-  @media (max-width: 560px) {
-    .footer-edge-pop {
-      left: auto;
-      right: 0;
-      transform: translate(0, 4px);
-    }
-
-    .footer-region-trigger[aria-expanded='true'] + .footer-edge-pop {
-      transform: translate(0, 0);
-    }
-
-    .footer-edge-arrow {
-      left: auto;
-      right: 16px;
-      margin-left: 0;
-    }
-  }
+  /* No narrow-screen special case: place() clamps the popover inside the
+     viewport at every width and slides the arrow to stay under the trigger. */
 
   @media (prefers-reduced-motion: reduce) {
     .footer-edge-pop {
-      transition: opacity 0.18s ease;
+      --pop-lift: 0px;
     }
   }
 
