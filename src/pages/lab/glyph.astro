@@ -1,8 +1,11 @@
 ---
-// Design lab: a faint monospace glyph field confined to a band at the top of
-// the page. Dense grid, per-cell alpha weighted so almost every glyph is
-// near-invisible, double-masked so the field dissolves before it reaches the
-// copy. Reference: aiforui.dev.
+// Design lab: a faint monospace rain field confined to a band at the top of
+// the page, with a pointer glow that lights the glyphs it passes over.
+//
+// Mechanic ported from aiforui.dev's MatrixRain: per-column falling heads that
+// leave decaying trails over a static floor, plus a separate glow channel the
+// pointer paints into. Adapted achromatic — the reference shifts hue for the
+// glow, this site has no hue to shift, so the glow carries on alpha alone.
 //
 // Standalone document on purpose — it must not inherit the site's own
 // background layers, or the concepts would be judged on top of the thing they
@@ -100,9 +103,9 @@ if (!import.meta.env.DEV) {
     inset: 0 0 auto 0;
     display: flex;
     justify-content: center;
+    overflow: hidden;
     pointer-events: none;
     z-index: 0;
-    overflow: hidden;
   }
   .field canvas {
     display: block;
@@ -111,10 +114,10 @@ if (!import.meta.env.DEV) {
        reaches the copy, and inward from both edges so it never ends on a
        visible vertical seam. */
     -webkit-mask-image:
-      linear-gradient(#000 46%, transparent 96%),
+      linear-gradient(to bottom, #000 50%, transparent 96%),
       linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
     mask-image:
-      linear-gradient(#000 46%, transparent 96%),
+      linear-gradient(to bottom, #000 50%, transparent 96%),
       linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
     -webkit-mask-composite: source-in;
     mask-composite: intersect;
@@ -261,7 +264,7 @@ if (!import.meta.env.DEV) {
 
   .rack {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 0.5rem 1rem;
     border-top: 1px solid var(--hair);
     padding-top: 0.7rem;
@@ -358,7 +361,7 @@ if (!import.meta.env.DEV) {
   }
 
   @media (max-width: 860px) {
-    .stage { padding-bottom: 30rem; }
+    .stage { padding-bottom: 32rem; }
     h1 { font-size: 28px; }
     .bio { font-size: 14px; }
     .hint { display: none; }
@@ -416,7 +419,7 @@ if (!import.meta.env.DEV) {
       </div>
     </section>
 
-    <p class="tail">The field belongs to the hero — scroll and it leaves with it.</p>
+    <p class="tail">Move the pointer across the band — the glyphs light under it.</p>
   </div>
 </div>
 
@@ -427,28 +430,36 @@ if (!import.meta.env.DEV) {
 
     <div class="rack">
       <div class="knob">
-        <label for="k-height">Band <b id="v-height">420px</b></label>
-        <input id="k-height" type="range" autocomplete="off" min="200" max="900" step="10" value="420" />
+        <label for="k-height">Band <b id="v-height">400px</b></label>
+        <input id="k-height" type="range" autocomplete="off" min="200" max="900" step="10" value="400" />
       </div>
       <div class="knob">
         <label for="k-width">Width <b id="v-width">1200px</b></label>
-        <input id="k-width" type="range" autocomplete="off" min="600" max="1600" step="20" value="1200" />
+        <input id="k-width" type="range" autocomplete="off" min="600" max="1800" step="20" value="1200" />
       </div>
       <div class="knob">
-        <label for="k-cell">Cell <b id="v-cell">15px</b></label>
-        <input id="k-cell" type="range" autocomplete="off" min="9" max="28" step="1" value="15" />
+        <label for="k-font">Type <b id="v-font">12px</b></label>
+        <input id="k-font" type="range" autocomplete="off" min="8" max="20" step="1" value="12" />
       </div>
       <div class="knob">
-        <label for="k-alpha">Peak ink <b id="v-alpha">14%</b></label>
-        <input id="k-alpha" type="range" autocomplete="off" min="2" max="40" step="1" value="14" />
+        <label for="k-speed">Fall <b id="v-speed">1.00&times;</b></label>
+        <input id="k-speed" type="range" autocomplete="off" min="0" max="200" step="5" value="100" />
       </div>
       <div class="knob">
-        <label for="k-bias">Falloff <b id="v-bias">2.6</b></label>
-        <input id="k-bias" type="range" autocomplete="off" min="10" max="60" step="1" value="26" />
+        <label for="k-head">Head <b id="v-head">62%</b></label>
+        <input id="k-head" type="range" autocomplete="off" min="10" max="100" step="1" value="62" />
       </div>
       <div class="knob">
-        <label for="k-churn">Churn <b id="v-churn">6/tick</b></label>
-        <input id="k-churn" type="range" autocomplete="off" min="0" max="60" step="1" value="6" />
+        <label for="k-trail">Trail <b id="v-trail">0.940</b></label>
+        <input id="k-trail" type="range" autocomplete="off" min="700" max="990" step="2" value="940" />
+      </div>
+      <div class="knob">
+        <label for="k-glowr">Glow r <b id="v-glowr">88px</b></label>
+        <input id="k-glowr" type="range" autocomplete="off" min="0" max="220" step="2" value="88" />
+      </div>
+      <div class="knob">
+        <label for="k-glow">Glow ink <b id="v-glow">100%</b></label>
+        <input id="k-glow" type="range" autocomplete="off" min="10" max="100" step="1" value="100" />
       </div>
       <div class="knob">
         <label>Glyphs <b id="v-set">code</b></label>
@@ -472,8 +483,8 @@ if (!import.meta.env.DEV) {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   const SETS = {
-    code:    'ADEILPS01$#*<>=+-',
-    symbols: '<>/=+-*#$|~^?!;:.,_',
+    code:    'CLPSAR01<>=+*-#$',
+    symbols: '<>/=+-*#$|~^?!;:._',
     hex:     '0123456789ABCDEF',
     binary:  '01',
     braille: '⠁⠂⠄⠈⠐⠠⡀⢀⠃⠅⠘⠨⠰⣀⠇⠋',
@@ -483,58 +494,74 @@ if (!import.meta.env.DEV) {
   const CONCEPTS = [
     {
       id: 'current', no: '01', name: 'Current', field: false,
-      thesis: 'What ships today: a 24px dot lattice across the whole viewport, plus a cursor comet that only exists for <strong>fine pointers with motion enabled</strong>. Here as the A/B — switch away and back.',
+      thesis: 'What ships today: a 24px dot lattice across the whole viewport. Here as the A/B — switch away and back.',
     },
     {
-      id: 'faint', no: '02', name: 'Faint', field: true,
-      p: { height: 420, width: 1200, cell: 15, alpha: 12, bias: 30, churn: 6, set: 'code' },
-      thesis: 'The reference calibration, achromatic. A dense grid where <strong>almost every glyph is invisible</strong> and a handful are merely faint — the texture comes from the distribution, not from any one character. Masked out before it reaches the copy.',
+      id: 'rain', no: '02', name: 'Rain', field: true,
+      p: { height: 400, width: 1200, font: 12, speed: 100, head: 62, trail: 940, glowr: 88, glow: 100, set: 'code' },
+      thesis: 'The reference mechanic, achromatic. Each column drops a bright <strong>head</strong> that leaves a trail decaying toward a per-cell floor, so the field is mostly static haze with movement running through it. The pointer paints a second channel that lights whatever it passes over — <strong>brighter and heavier</strong>, since an achromatic field has no hue to shift.',
     },
     {
-      id: 'deep', no: '03', name: 'Deep', field: true,
-      p: { height: 680, width: 1280, cell: 15, alpha: 10, bias: 34, churn: 8, set: 'code' },
-      thesis: 'Same field, taller band. It reaches past the headline and dissolves through the bio instead of stopping above it, so the hero sits <strong>inside</strong> the texture rather than on top of it. Lower peak ink to pay for the extra coverage.',
+      id: 'drift', no: '03', name: 'Drift', field: true,
+      p: { height: 720, width: 1280, font: 12, speed: 35, head: 52, trail: 972, glowr: 104, glow: 96, set: 'code' },
+      thesis: 'Slower fall, much longer trails, band deep enough to hold the whole hero. The motion stops reading as rain and starts reading as <strong>slow vertical weather</strong> — you notice it only if you look for it.',
     },
     {
       id: 'column', no: '04', name: 'Column', field: true,
-      p: { height: 520, width: 760, cell: 13, alpha: 16, bias: 26, churn: 5, set: 'code' },
-      thesis: 'Field narrowed to the <strong>720px text column</strong>. It stops being wallpaper and starts being a property of the column itself — the same move as a margin note. Denser ink, because there is far less of it.',
+      p: { height: 560, width: 760, font: 11, speed: 80, head: 58, trail: 950, glowr: 76, glow: 98, set: 'code' },
+      thesis: 'Field narrowed to the <strong>720px text column</strong>. It stops being wallpaper and becomes a property of the column itself — the same move as a margin note.',
     },
     {
-      id: 'coarse', no: '05', name: 'Coarse', field: true,
-      p: { height: 460, width: 1200, cell: 22, alpha: 9, bias: 22, churn: 10, set: 'symbols' },
-      thesis: 'Bigger cells, punctuation only, more churn. Reads as <strong>structure</strong> rather than as text you might try to parse — closer to a texture, further from a terminal. Worth comparing if the code set feels too on-the-nose.',
+      id: 'ember', no: '05', name: 'Ember', field: true,
+      p: { height: 460, width: 1200, font: 12, speed: 0, head: 62, trail: 940, glowr: 120, glow: 100, set: 'code' },
+      thesis: 'No rain at all. The field rests at its floor and the <strong>pointer is the only light source</strong> — glyphs bloom under the cursor and fade behind it. An untouched page runs zero frames.',
     },
   ];
 
   const state = {
     concept: CONCEPTS[1],
-    height: 420, width: 1200, cell: 15, alpha: 12, bias: 30, churn: 6, set: 'code',
+    height: 400, width: 1200, font: 12, speed: 100,
+    head: 62, trail: 940, glowr: 88, glow: 100, set: 'code',
   };
 
   /* ── Field ────────────────────────────────────────────────────────────── */
 
-  let cols = 0, rows = 0, dpr = 1;
-  let chars = [];    // glyph per cell
-  let weights = [];  // ink weight per cell, 0..1
-  let fg = '0 0 0';
-  let ceiling = 0.12;
+  const TICK_MS = 90;        // ~11fps, same as the reference
+  const GLOW_DECAY = 0.82;
 
-  // Heavy falloff: most cells land near zero, a few carry real ink. This
-  // distribution is the whole effect — a uniform roll reads as grey noise.
-  // The roll stays normalised so theme and peak-ink changes only repaint.
-  const roll = () => Math.pow(Math.random(), state.bias / 10);
+  let columns = [];
+  let colCount = 0, rowCount = 0, colW = 0, rowH = 0;
+  let fg = '0 0 0';
+  let gain = 0.6;
+
+  const pick = () => {
+    const set = SETS[state.set];
+    return set[(Math.random() * set.length) | 0];
+  };
 
   function readTheme() {
     fg = getComputedStyle(root).getPropertyValue('--fg-rgb').trim() || '0 0 0';
-    // Light ink on a dark ground carries further than dark ink on white, so
-    // the same nominal alpha reads hotter. Pull it back to match.
-    ceiling = (state.alpha / 100) * (fg.startsWith('255') ? 0.8 : 1);
+    // Light ink on a dark ground carries further than dark ink on white, so the
+    // same nominal alpha reads hotter. The reference handles this with
+    // `opacity-60 dark:opacity-50`; same ratio, applied per glyph.
+    gain = fg.startsWith('255') ? 0.5 : 0.6;
+  }
+
+  // A column restarts above the band with a fresh speed. Its extent and
+  // brightness only re-roll occasionally, so a column keeps a recognisable
+  // character across several passes instead of flickering between them.
+  function respawn(col, initial) {
+    col.head = initial ? Math.random() * rowCount * 2 : -Math.random() * rowCount * 1.5;
+    col.speed = 0.25 + 0.75 * Math.random();
+    if (initial || Math.random() < 0.2) {
+      col.maxRow = Math.floor(rowCount * (0.35 + 0.65 * Math.random()));
+      col.brightness = 0.5 + 0.5 * Math.random();
+    }
   }
 
   function build() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = Math.min(state.width, window.innerWidth);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = state.width;
     const h = state.height;
 
     fieldEl.style.height = h + 'px';
@@ -542,73 +569,168 @@ if (!import.meta.env.DEV) {
     canvas.style.height = h + 'px';
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
-
-    cols = Math.ceil(w / state.cell);
-    rows = Math.ceil(h / state.cell);
-
-    const n = cols * rows;
-    chars = new Array(n);
-    weights = new Float32Array(n);
-    const set = SETS[state.set];
-    for (let i = 0; i < n; i++) {
-      chars[i] = set[(Math.random() * set.length) | 0];
-      weights[i] = roll();
-    }
-    paintAll();
-  }
-
-  function cellBox(i) {
-    return [(i % cols) * state.cell, ((i / cols) | 0) * state.cell];
-  }
-
-  function drawCell(i, half) {
-    const a = weights[i] * ceiling;
-    if (a < 0.004) return;
-    const [x, y] = cellBox(i);
-    ctx.fillStyle = 'rgb(' + fg + ' / ' + a.toFixed(3) + ')';
-    ctx.fillText(chars[i], x + half, y + half);
-  }
-
-  function paintAll() {
-    readTheme();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.font = Math.round(state.cell * 0.8) + "px 'Geist Mono', ui-monospace, monospace";
-    const half = state.cell / 2;
-    for (let i = 0; i < weights.length; i++) drawCell(i, half);
+
+    ctx.font = state.font + "px 'Geist Mono', ui-monospace, monospace";
+    // Columns sit 70% wider than a glyph, so the rain reads as discrete
+    // streaks rather than as solid text.
+    colW = 1.7 * ctx.measureText('0').width;
+    rowH = Math.round(state.font * 1.333);
+    colCount = Math.ceil(w / colW);
+    rowCount = Math.ceil(h / rowH);
+
+    columns = Array.from({ length: colCount }, () => {
+      const col = {
+        chars: Array.from({ length: rowCount }, pick),
+        alphas: new Float32Array(rowCount),
+        floors: new Float32Array(rowCount),
+        glows: new Float32Array(rowCount),
+        head: 0, speed: 0, maxRow: 0, brightness: 1,
+      };
+      for (let r = 0; r < rowCount; r++) {
+        col.floors[r] = 0.04 + 0.08 * Math.random();
+        col.alphas[r] = col.floors[r];
+      }
+      respawn(col, true);
+      return col;
+    });
+
+    // Run the simulation forward before the first paint so the band opens
+    // mid-flow instead of visibly filling in.
+    for (let i = 0; i < rowCount * 4; i++) step();
+    paint();
   }
 
-  // Repaint only the cells that changed — a full redraw at this density costs
-  // far more than the churn is worth.
-  function churn() {
-    const set = SETS[state.set];
-    const half = state.cell / 2;
-    for (let k = 0; k < state.churn; k++) {
-      const i = (Math.random() * weights.length) | 0;
-      const [x, y] = cellBox(i);
-      ctx.clearRect(x, y, state.cell, state.cell);
-      chars[i] = set[(Math.random() * set.length) | 0];
-      weights[i] = roll();
-      drawCell(i, half);
+  function step() {
+    const head = state.head / 100;
+    const trail = state.trail / 1000;
+    const rate = state.speed / 100;
+    const falling = rate > 0;
+
+    for (const col of columns) {
+      if (falling) col.head += col.speed * rate;
+      const at = Math.floor(col.head);
+
+      for (let r = 0; r <= col.maxRow; r++) {
+        if (col.alphas[r] > 0) col.alphas[r] = Math.max(col.alphas[r] * trail, col.floors[r]);
+      }
+      if (falling && at >= 0 && at <= col.maxRow && at < rowCount) col.alphas[at] = head;
+
+      for (let r = 0; r < rowCount; r++) {
+        if (col.glows[r] > 0) col.glows[r] = col.glows[r] < 0.03 ? 0 : col.glows[r] * GLOW_DECAY;
+      }
+
+      if (Math.random() < 0.4) col.chars[(Math.random() * rowCount) | 0] = pick();
+      if (falling && at > col.maxRow + 4) respawn(col, false);
     }
   }
 
-  /* ── Frame loop — visibility gated, slow tick ─────────────────────────── */
+  const GLOW_WEIGHT = 600;
+  const lit = [];   // cells the pointer is lighting, drawn in a second pass
 
-  const TICK_MS = 1000 / 10;
+  function paint() {
+    ctx.clearRect(0, 0, state.width, state.height);
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgb(' + fg + ')';
+    ctx.font = state.font + "px 'Geist Mono', ui-monospace, monospace";
+    lit.length = 0;
+
+    for (let c = 0; c < colCount; c++) {
+      const col = columns[c];
+      const x = c * colW;
+      for (let r = 0; r < rowCount; r++) {
+        const rain = col.alphas[r] * col.brightness;
+        const glow = col.glows[r];
+        // Defer the glow-dominant cells so the weight switch happens once per
+        // frame instead of once per glyph.
+        if (glow > rain) { lit.push(x, r * rowH, col.chars[r], glow * gain); continue; }
+        if (rain * gain < 0.012) continue;
+        ctx.globalAlpha = rain * gain;
+        ctx.fillText(col.chars[r], x, r * rowH);
+      }
+    }
+
+    if (lit.length) {
+      ctx.font = GLOW_WEIGHT + ' ' + state.font + "px 'Geist Mono', ui-monospace, monospace";
+      for (let i = 0; i < lit.length; i += 4) {
+        ctx.globalAlpha = lit[i + 3];
+        ctx.fillText(lit[i + 2], lit[i], lit[i + 1]);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ── Pointer glow ─────────────────────────────────────────────────────── */
+
+  let glowQueued = false;
+
+  function onPointerMove(event) {
+    const radius = state.glowr;
+    if (!radius || !columns.length || !state.concept.field) return;
+
+    const box = canvas.getBoundingClientRect();
+    const x = event.clientX - box.left;
+    const y = event.clientY - box.top;
+    if (x < -radius || x > state.width + radius) return;
+    if (y < -radius || y > state.height + radius) return;
+
+    const c0 = Math.max(0, Math.floor((x - radius) / colW));
+    const c1 = Math.min(colCount - 1, Math.ceil((x + radius) / colW));
+    const r0 = Math.max(0, Math.floor((y - radius) / rowH));
+    const r1 = Math.min(rowCount - 1, Math.ceil((y + radius) / rowH));
+    const peak = state.glow / 100;
+
+    for (let c = c0; c <= c1; c++) {
+      const col = columns[c];
+      const dx = c * colW + colW / 2 - x;
+      for (let r = r0; r <= r1; r++) {
+        const d = Math.hypot(dx, r * rowH + rowH / 2 - y);
+        if (d > radius) continue;
+        const g = peak * Math.pow(1 - d / radius, 1.5);
+        if (g > col.glows[r]) col.glows[r] = g;
+      }
+    }
+
+    // Repaint on the next frame rather than per event — a fast pointer fires
+    // far more often than the display can show it.
+    if (glowQueued) return;
+    glowQueued = true;
+    requestAnimationFrame(() => { glowQueued = false; paint(); });
+  }
+
+  // Ember has no rain, so nothing decays its glow back down. Idle it down on
+  // its own clock instead of leaving the last smear burnt into the field.
+  let emberTimer = 0;
+  function emberFade() {
+    clearInterval(emberTimer);
+    emberTimer = window.setInterval(() => {
+      if (state.speed > 0 || !state.concept.field) return;
+      let lit = false;
+      for (const col of columns) {
+        for (let r = 0; r < rowCount; r++) {
+          if (col.glows[r] <= 0) continue;
+          col.glows[r] = col.glows[r] < 0.03 ? 0 : col.glows[r] * GLOW_DECAY;
+          lit = true;
+        }
+      }
+      if (lit) paint();
+    }, TICK_MS);
+  }
+
+  /* ── Frame loop — visibility gated ────────────────────────────────────── */
+
   let raf = 0, last = 0, running = false, onScreen = true;
 
   const shouldRun = () =>
-    state.concept.field && state.churn > 0 && onScreen
+    state.concept.field && state.speed > 0 && onScreen
     && document.visibilityState === 'visible' && !reduced.matches;
 
   function frame(now) {
     raf = requestAnimationFrame(frame);
     if (now - last < TICK_MS) return;
     last = now;
-    churn();
+    step();
+    paint();
   }
 
   function sync() {
@@ -626,9 +748,10 @@ if (!import.meta.env.DEV) {
 
   document.addEventListener('visibilitychange', sync);
   reduced.addEventListener('change', sync);
+  window.addEventListener('pointermove', onPointerMove, { passive: true });
 
   // The field only exists at the top of the document, so stop the moment it
-  // scrolls away rather than churning pixels nobody can see.
+  // scrolls away rather than simulating rows nobody can see.
   new IntersectionObserver((entries) => {
     onScreen = entries[0].isIntersecting;
     sync();
@@ -637,7 +760,7 @@ if (!import.meta.env.DEV) {
   let resizeTimer = 0;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = window.setTimeout(build, 120);
+    resizeTimer = window.setTimeout(() => { build(); sync(); }, 120);
   }, { passive: true });
 
   /* ── Dock ─────────────────────────────────────────────────────────────── */
@@ -646,11 +769,17 @@ if (!import.meta.env.DEV) {
   const KNOBS = [
     ['height', 'k-height', 'v-height', (v) => v + 'px'],
     ['width', 'k-width', 'v-width', (v) => v + 'px'],
-    ['cell', 'k-cell', 'v-cell', (v) => v + 'px'],
-    ['alpha', 'k-alpha', 'v-alpha', (v) => v + '%'],
-    ['bias', 'k-bias', 'v-bias', (v) => (v / 10).toFixed(1)],
-    ['churn', 'k-churn', 'v-churn', (v) => v + '/tick'],
+    ['font', 'k-font', 'v-font', (v) => v + 'px'],
+    ['speed', 'k-speed', 'v-speed', (v) => (v / 100).toFixed(2) + '×'],
+    ['head', 'k-head', 'v-head', (v) => v + '%'],
+    ['trail', 'k-trail', 'v-trail', (v) => (v / 1000).toFixed(3)],
+    ['glowr', 'k-glowr', 'v-glowr', (v) => v + 'px'],
+    ['glow', 'k-glow', 'v-glow', (v) => v + '%'],
   ];
+  // Only geometry needs the field rebuilt; the rest feed the running simulation.
+  const GEOMETRY = new Set(['height', 'width', 'font']);
+
+  const segSet = el('seg-set');
 
   function paintRack() {
     for (const [key, ki, vi, fmt] of KNOBS) {
@@ -661,24 +790,22 @@ if (!import.meta.env.DEV) {
     for (const b of segSet.children) b.setAttribute('aria-pressed', String(b.dataset.v === state.set));
   }
 
-  const REPAINT_ONLY = new Set(['alpha', 'churn']);
   for (const [key, ki] of KNOBS) {
     el(ki).addEventListener('input', () => {
       state[key] = Number(el(ki).value);
       paintRack();
-      if (REPAINT_ONLY.has(key)) paintAll(); else build();
+      if (GEOMETRY.has(key)) build(); else paint();
       sync();
     });
   }
 
-  const segSet = el('seg-set');
   for (const id of SET_NAMES) {
     const b = document.createElement('button');
     b.type = 'button';
     b.dataset.v = id;
     b.textContent = id;
     b.setAttribute('aria-pressed', 'false');
-    b.addEventListener('click', () => { state.set = id; paintRack(); build(); });
+    b.addEventListener('click', () => { state.set = id; paintRack(); build(); sync(); });
     segSet.appendChild(b);
   }
 
@@ -707,7 +834,8 @@ if (!import.meta.env.DEV) {
 
   el('theme-btn').addEventListener('click', () => {
     root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
-    paintAll();
+    readTheme();
+    paint();
   });
   el('bare-btn').addEventListener('click', () => {
     body.dataset.bare = body.dataset.bare === '1' ? '0' : '1';
@@ -721,12 +849,17 @@ if (!import.meta.env.DEV) {
     if (e.key === 'h' || e.key === 'H') return el('bare-btn').click();
   });
 
-  // Geist Mono arrives async; a field measured against the fallback face has
-  // the wrong optical density, so repaint once the real one lands.
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(paintAll);
+  // Geist Mono arrives async and the column advance is measured from it — a
+  // field built against the fallback face has the wrong pitch.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => { build(); sync(); });
+  }
 
+  readTheme();
   applyConcept(CONCEPTS[1]);
+  emberFade();
 })();
 </script>
+
 </body>
 </html>
