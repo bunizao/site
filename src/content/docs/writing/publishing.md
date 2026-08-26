@@ -52,3 +52,32 @@ components.
 The practical rule: write plain Ghost content and let this site style it. Custom
 HTML in a post will render, but it will not inherit the type scale and it will
 not adapt to the theme.
+
+## Unlisted posts
+
+Use Ghost's internal `#unlisted` tag when a post should work as a direct link
+without entering the publication's discovery surfaces. Ghost exposes this tag
+with the slug `hash-unlisted`; the site treats that exact internal tag as the
+marker. A public post with any other tag remains listed.
+
+The build keeps two post collections separate:
+
+| Collection | Source | Includes `#unlisted` posts | Used by |
+| --- | --- | --- | --- |
+| Accessible | `getAccessiblePosts()` | Yes | `/blog/<slug>/` static paths and direct slug lookup |
+| Listed | `getListedPosts()` | No | Home and blog indexes, tag directories and archives, adjacent links, RSS, sitemap, Pagefind, palette data, `llms.txt`, and generated agent Markdown indexes |
+
+An unlisted post therefore has a stable URL, but readers must already have the
+URL. The article response emits `noindex, nofollow, noarchive, nosnippet` in
+the `robots` meta tag. The layout also marks the whole document with
+`data-pagefind-ignore="all"` and suppresses its `text/markdown` alternate link.
+The generated static Markdown asset is omitted; a direct request with
+`Accept: text/markdown` renders at runtime and returns the same directives in
+`X-Robots-Tag`.
+
+Do not remove the tag from a post and assume the page is immediately discoverable.
+The Ghost publish webhook starts a new site build, and the post enters listed
+surfaces only after that build deploys. The source of truth for this rule is
+[`src/features/posts/unlisted.ts`](https://github.com/bunizao/site/blob/main/src/features/posts/unlisted.ts);
+the collection split lives in
+[`src/features/posts/adapter/provider.ts`](https://github.com/bunizao/site/blob/main/src/features/posts/adapter/provider.ts).

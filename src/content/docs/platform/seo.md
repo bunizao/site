@@ -59,6 +59,10 @@ canonical, Open Graph, and favicon metadata rather than replacing them.
   `https://buxx.me/blog/`.
 - Sitemap priority is not used as a result-balancing mechanism.
 
+For direct-link-only articles, see [Unlisted posts](/docs/writing/publishing#unlisted-posts).
+That page documents the exact Ghost marker and the corresponding sitemap, feed,
+search, Markdown, and crawler behavior.
+
 ## Search Favicons
 
 The Blog keeps its thinking-woman favicon in browser chrome. Search engines
