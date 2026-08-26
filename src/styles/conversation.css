@@ -58,6 +58,13 @@
      floor that still carries a three-line message. */
   line-height: 1.5;
   letter-spacing: 0.003em;
+  /* The gap between a CJK character and a Latin one is spacing, not a
+     character. The renderer never inserts a space the author did not type
+     (conversation.ts:joinWrapped); the browser draws the optical gap here.
+     Declared rather than left to the initial value so the dependency is
+     visible, and so a UA that ignores the property simply renders the source
+     as written. */
+  text-autospace: normal;
   display: flex;
   flex-direction: column;
   gap: var(--conv-group-gap);

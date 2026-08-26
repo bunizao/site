@@ -64,10 +64,11 @@ const CJK = /[　-〿㐀-䶿一-鿿豈-﫿＀-￯]/;
  * source for readability and do not expect a visible break where they hit
  * return.
  *
- * Latin text needs a space at the seam; CJK text carries none between
- * characters, so inserting one would show a gap the author never typed. When
- * either side of the seam is CJK, join tight. The rule errs toward never adding
- * a character that is not in the source.
+ * Latin text needs a space at the seam, because the space is what separates
+ * two words. CJK carries none between characters, so when either side of the
+ * seam is CJK the join is tight: the gap a mixed seam wants is spacing, not a
+ * character, and `text-autospace` draws it at render time
+ * (conversation.css). The rule never adds a character the source lacks.
  */
 function joinWrapped(head: string, tail: string): string {
   if (!head) return tail;

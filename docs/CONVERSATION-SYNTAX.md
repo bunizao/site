@@ -19,7 +19,9 @@ import Conversation from '@/features/content/ui/Conversation.astro';
 <Conversation source={source} />
 ```
 
-Live playground: `/components/preview/conversation`.
+The docs page renders the component itself and carries a live playground —
+edit the source, drag the stage narrower, toggle avatars and names:
+[buxx.me/components/conversation](https://buxx.me/components/conversation#playground).
 
 ## Messages
 
@@ -61,9 +63,11 @@ ada: A CJK glyph is 1em and a Latin glyph about half that,
   so one number lands on ~30 Chinese characters and ~60 Latin ones.
 ```
 
-Latin text gets a space at the seam. When either side of the seam is CJK the
-join is tight, so no gap appears that the author never typed. The rule errs
-toward never adding a character that is not in the source.
+Latin text gets a space at the seam — that space is what separates two words.
+When either side of the seam is CJK the join is tight: a mixed seam like
+`拉丁字母大约` + `0.5em` wants spacing, not a character, and the thread sets
+`text-autospace: normal` so the browser draws it. The renderer never adds a
+character the source lacks.
 
 A **blank** line ends the current bubble, so the next message from the same
 speaker starts a fresh one instead of continuing it.
