@@ -186,15 +186,20 @@ html[data-theme='dark'] .grp { --name: var(--name-dark); }
    top. This is what every group chat converged on, and it is why a run only
    needs one name no matter how long it gets.
 
-   Caption role: 13/1.4/500. Weight 500 and not 600 — emphasis within a role
-   is ONE step up from the body's 400; two steps makes a name read as a
-   heading over its own sentence. It carries no bottom margin: at 1.4 and 1.5
-   the two line boxes already contribute ~6px of half-leading between them,
-   and anything added on top detaches the label from the message it names. */
+   Caption role at 13/500. Weight 500 and not 600 — emphasis within a role is
+   ONE step up from the body's 400; two steps makes a name read as a heading
+   over its own sentence. It carries no bottom margin: the two line boxes
+   already contribute their half-leading between them, and anything added on
+   top detaches the label from the message it names.
+
+   Leading is 1.5, not the caption role's 1.4, because this label is not a
+   paragraph — its line-height is pure spacing. Sharing the body's ratio puts
+   both on one vertical rhythm, so the half-leading above the name matches the
+   half-leading below the last line and the padding lands symmetric. */
 .bub-name {
   font-size: 0.8125em;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1.5;
   letter-spacing: 0.005em;
   color: var(--name);
   /* Not part of the sentence — never let it be dragged into a quote. */
@@ -229,11 +234,13 @@ html[data-theme='dark'] .grp { --name: var(--name-dark); }
      that could actually wrap opts back into start-alignment via .bub--wide. */
   min-width: calc(var(--radius) * 2 + 8px);
   /* em, so the padding tracks the font-size the container queries hand down.
-     Symmetric top/bottom: the old 9/10 split was hand-eyeballed against a
-     1.6 leading. At 1.5 the line box already centres the text, and 0.4375em
-     (7px) plus 4px of half-leading lands the optical inset at ~11px against
-     14px inline — the vertical-tighter ratio a bubble wants. */
-  padding: 0.4375em 0.875em;
+     The number that matters is the OPTICAL inset — padding plus the half-leading
+     the line box already carries — not the declared padding. Both name and body
+     run 1.5, so each end contributes 4px at 16px, and 0.625em (10px) lands the
+     optical inset at ~14px top and bottom against 14px inline. Even all round:
+     a radius this large eats the corners, so equal inset is what reads balanced.
+     0.4375em measured 9.6/11 and read cramped and top-heavy. */
+  padding: 0.625em 0.875em;
   border-radius: var(--radius);
   background: var(--neutral);
   color: var(--neutral-fg);
