@@ -1,0 +1,732 @@
+---
+// Design lab: a faint monospace glyph field confined to a band at the top of
+// the page. Dense grid, per-cell alpha weighted so almost every glyph is
+// near-invisible, double-masked so the field dissolves before it reaches the
+// copy. Reference: aiforui.dev.
+//
+// Standalone document on purpose — it must not inherit the site's own
+// background layers, or the concepts would be judged on top of the thing they
+// are meant to replace.
+export const prerender = false;
+
+// Dev-only surface. It is a design scratchpad, not a public page.
+if (!import.meta.env.DEV) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Collapsar Glyph Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+</head>
+<body>
+<style is:inline>
+  /* ── Tokens: lifted verbatim from src/styles/globals.css so every concept is
+       judged against the real ground, not a flattering approximation. ── */
+  :root {
+    --ground: #ffffff;
+    --fg: #000000;
+    --fg-rgb: 0 0 0;
+    --muted: #666666;
+    --faint: rgba(0, 0, 0, 0.45);
+    --grid: rgba(0, 0, 0, 0.12);
+    --hair: rgba(0, 0, 0, 0.14);
+    --chip: rgba(0, 0, 0, 0.045);
+    --chip-on: #000000;
+    --chip-on-fg: #ffffff;
+    --dock: rgba(255, 255, 255, 0.88);
+
+    --mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --col: 720px;
+    --ease: cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0a0a0a;
+      --fg: #ffffff;
+      --fg-rgb: 255 255 255;
+      --muted: #878787;
+      --faint: rgba(255, 255, 255, 0.42);
+      --grid: rgba(255, 255, 255, 0.10);
+      --hair: rgba(255, 255, 255, 0.13);
+      --chip: rgba(255, 255, 255, 0.06);
+      --chip-on: #ffffff;
+      --chip-on-fg: #000000;
+      --dock: rgba(10, 10, 10, 0.88);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0a0a;
+    --fg: #ffffff;
+    --fg-rgb: 255 255 255;
+    --muted: #878787;
+    --faint: rgba(255, 255, 255, 0.42);
+    --grid: rgba(255, 255, 255, 0.10);
+    --hair: rgba(255, 255, 255, 0.13);
+    --chip: rgba(255, 255, 255, 0.06);
+    --chip-on: #ffffff;
+    --chip-on-fg: #000000;
+    --dock: rgba(10, 10, 10, 0.88);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.625;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: clip;
+  }
+
+  /* ── Background layers ───────────────────────────────────────────────── */
+
+  /* The field is a band pinned to the top of the document, not the viewport:
+     it belongs to the hero, and scrolling should carry it away. */
+  .field {
+    position: absolute;
+    inset: 0 0 auto 0;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .field canvas {
+    display: block;
+    flex: 0 0 auto;
+    /* Two gradients intersected: the field fades out downward before it
+       reaches the copy, and inward from both edges so it never ends on a
+       visible vertical seam. */
+    -webkit-mask-image:
+      linear-gradient(#000 46%, transparent 96%),
+      linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+    mask-image:
+      linear-gradient(#000 46%, transparent 96%),
+      linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+  body[data-concept="current"] .field { display: none; }
+
+  .dots {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    display: none;
+    background-image: radial-gradient(circle, var(--grid) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  body[data-concept="current"] .dots { display: block; }
+
+  /* ── Content mock: real hero copy, real column width, real type ─────── */
+
+  .stage { position: relative; z-index: 1; transition: opacity 200ms var(--ease); }
+  body[data-bare="1"] .stage { opacity: 0; }
+
+  .col { max-width: var(--col); margin-inline: auto; padding-inline: 1rem; }
+
+  .hero {
+    min-height: calc(100svh - 120px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-top: 5rem;
+    padding-bottom: 8rem;
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+  .status i { width: 7px; height: 7px; background: var(--fg); display: block; }
+
+  h1 {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin: 0 0 0.5rem;
+    line-height: 1.2;
+  }
+
+  .chips { font-size: 12px; color: var(--faint); letter-spacing: 0.08em; margin: 0 0 0.75rem; }
+  .role { font-size: 14px; color: var(--muted); margin: 0 0 1.5rem; }
+  .bio { font-size: 15px; line-height: 1.7; color: var(--muted); margin: 0; }
+  .bio b { color: var(--fg); font-weight: 400; }
+
+  .socials {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    font-size: 14px;
+  }
+  .socials span:first-child { color: var(--muted); }
+  .socials a { color: var(--fg); text-decoration: none; border-bottom: 1px solid transparent; }
+  .socials a:hover, .socials a:focus-visible { border-bottom-color: var(--fg); outline: none; }
+
+  .band { padding: 4rem 0; border-top: 1px solid var(--grid); }
+  .band h2 {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 1.5rem;
+    font-weight: 500;
+  }
+  .rows { display: flex; flex-direction: column; gap: 1px; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--grid);
+    font-size: 14px;
+  }
+  .row span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .tail {
+    padding: 5rem 0 8rem;
+    color: var(--faint);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ── Dock ────────────────────────────────────────────────────────────── */
+
+  .dock {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 10;
+    background: var(--dock);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border-top: 1px solid var(--hair);
+  }
+  .dock-inner {
+    max-width: 1180px;
+    margin-inline: auto;
+    padding: 0.75rem 1rem 1rem;
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .tabs { display: flex; gap: 0.375rem; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.4rem 0.7rem;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    background: var(--chip);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 130ms var(--ease), background 130ms var(--ease);
+  }
+  .tab:hover { color: var(--fg); }
+  .tab:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .tab em { font-style: normal; opacity: 0.55; font-variant-numeric: tabular-nums; }
+  .tab[aria-selected="true"] { background: var(--chip-on); color: var(--chip-on-fg); }
+  .tab[aria-selected="true"] em { opacity: 0.6; }
+
+  .thesis { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); max-width: 94ch; }
+  .thesis strong { color: var(--fg); font-weight: 600; }
+
+  .rack {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.5rem 1rem;
+    border-top: 1px solid var(--hair);
+    padding-top: 0.7rem;
+  }
+  .knob { display: grid; gap: 0.25rem; min-width: 0; }
+  .knob > label {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .knob > label b { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  .knob input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 14px;
+    background: transparent;
+    cursor: pointer;
+    margin: 0;
+  }
+  .knob input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: var(--hair); }
+  .knob input[type="range"]::-moz-range-track { height: 2px; background: var(--hair); }
+  .knob input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--fg);
+    margin-top: -4px;
+  }
+  .knob input[type="range"]::-moz-range-thumb {
+    width: 10px; height: 10px; border: 0; border-radius: 50%; background: var(--fg);
+  }
+  .knob input:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+
+  .seg { display: flex; gap: 2px; flex-wrap: wrap; }
+  .seg button {
+    flex: 1 1 auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.25rem;
+    color: var(--muted);
+    background: var(--chip);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .seg button:hover { color: var(--fg); }
+  .seg button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .seg button[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-fg); }
+
+  .controls {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 10;
+    display: flex;
+    gap: 0.375rem;
+  }
+  .ctl {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.4rem 0.6rem;
+    color: var(--muted);
+    background: var(--dock);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--hair);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .ctl:hover { color: var(--fg); }
+  .ctl:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+  .hint {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 10;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+    pointer-events: none;
+  }
+
+  @media (max-width: 860px) {
+    .stage { padding-bottom: 30rem; }
+    h1 { font-size: 28px; }
+    .bio { font-size: 14px; }
+    .hint { display: none; }
+  }
+</style>
+
+<div class="field" aria-hidden="true"><canvas id="glyphs"></canvas></div>
+<div class="dots" aria-hidden="true"></div>
+
+<p class="hint">1–5 switch · T theme · H hide content</p>
+
+<div class="controls">
+  <button class="ctl" id="theme-btn" type="button">Theme</button>
+  <button class="ctl" id="bare-btn" type="button">Hide content</button>
+</div>
+
+<div class="stage">
+  <div class="col">
+    <header class="hero">
+      <div class="status"><i></i><span>Learning</span></div>
+      <h1>Collapsar_</h1>
+      <p class="chips">18 y.o. · INFP · Libra</p>
+      <p class="role">Student / Developer / Blogger</p>
+      <p class="bio">
+        I make interesting things.<br>
+        Curious about <b>frontend design</b>, <b>proxy systems</b>, and contributing to <b>open source</b>.<br>
+        Obsessed with <b>speed</b> and always asking how things can be <b>smaller</b>.<br>
+        Outside of coding, I read for curiosity and write to make sense of things.<br>
+        Currently studying Computer Science at <b>Monash University</b>.
+      </p>
+      <nav class="socials">
+        <span>Find me at</span>
+        <a href="#projects">Blog</a>
+        <a href="#projects">GitHub</a>
+        <a href="#projects">Email</a>
+        <a href="#projects">Telegram</a>
+        <a href="#projects">Instagram</a>
+      </nav>
+    </header>
+
+    <section class="band" id="projects">
+      <h2>Projects</h2>
+      <div class="rows">
+        <div class="row"><span>BroadcastChannel</span><span>Astro · Telegram</span></div>
+        <div class="row"><span>site-api</span><span>Workers · D1</span></div>
+        <div class="row"><span>buxx.me</span><span>Astro v7 · React</span></div>
+      </div>
+    </section>
+
+    <section class="band">
+      <h2>Experience</h2>
+      <div class="rows">
+        <div class="row"><span>Monash University</span><span>2025 —</span></div>
+        <div class="row"><span>Open source</span><span>3602 contributions</span></div>
+      </div>
+    </section>
+
+    <p class="tail">The field belongs to the hero — scroll and it leaves with it.</p>
+  </div>
+</div>
+
+<div class="dock">
+  <div class="dock-inner">
+    <div class="tabs" role="tablist" id="tabs" aria-label="Glyph field concepts"></div>
+    <p class="thesis" id="thesis"></p>
+
+    <div class="rack">
+      <div class="knob">
+        <label for="k-height">Band <b id="v-height">420px</b></label>
+        <input id="k-height" type="range" autocomplete="off" min="200" max="900" step="10" value="420" />
+      </div>
+      <div class="knob">
+        <label for="k-width">Width <b id="v-width">1200px</b></label>
+        <input id="k-width" type="range" autocomplete="off" min="600" max="1600" step="20" value="1200" />
+      </div>
+      <div class="knob">
+        <label for="k-cell">Cell <b id="v-cell">15px</b></label>
+        <input id="k-cell" type="range" autocomplete="off" min="9" max="28" step="1" value="15" />
+      </div>
+      <div class="knob">
+        <label for="k-alpha">Peak ink <b id="v-alpha">14%</b></label>
+        <input id="k-alpha" type="range" autocomplete="off" min="2" max="40" step="1" value="14" />
+      </div>
+      <div class="knob">
+        <label for="k-bias">Falloff <b id="v-bias">2.6</b></label>
+        <input id="k-bias" type="range" autocomplete="off" min="10" max="60" step="1" value="26" />
+      </div>
+      <div class="knob">
+        <label for="k-churn">Churn <b id="v-churn">6/tick</b></label>
+        <input id="k-churn" type="range" autocomplete="off" min="0" max="60" step="1" value="6" />
+      </div>
+      <div class="knob">
+        <label>Glyphs <b id="v-set">code</b></label>
+        <div class="seg" id="seg-set"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+(() => {
+  'use strict';
+
+  const root = document.documentElement;
+  const body = document.body;
+  const canvas = document.getElementById('glyphs');
+  const fieldEl = document.querySelector('.field');
+  const ctx = canvas.getContext('2d');
+  const tabsEl = document.getElementById('tabs');
+  const thesisEl = document.getElementById('thesis');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  const SETS = {
+    code:    'ADEILPS01$#*<>=+-',
+    symbols: '<>/=+-*#$|~^?!;:.,_',
+    hex:     '0123456789ABCDEF',
+    binary:  '01',
+    braille: '⠁⠂⠄⠈⠐⠠⡀⢀⠃⠅⠘⠨⠰⣀⠇⠋',
+  };
+  const SET_NAMES = Object.keys(SETS);
+
+  const CONCEPTS = [
+    {
+      id: 'current', no: '01', name: 'Current', field: false,
+      thesis: 'What ships today: a 24px dot lattice across the whole viewport, plus a cursor comet that only exists for <strong>fine pointers with motion enabled</strong>. Here as the A/B — switch away and back.',
+    },
+    {
+      id: 'faint', no: '02', name: 'Faint', field: true,
+      p: { height: 420, width: 1200, cell: 15, alpha: 12, bias: 30, churn: 6, set: 'code' },
+      thesis: 'The reference calibration, achromatic. A dense grid where <strong>almost every glyph is invisible</strong> and a handful are merely faint — the texture comes from the distribution, not from any one character. Masked out before it reaches the copy.',
+    },
+    {
+      id: 'deep', no: '03', name: 'Deep', field: true,
+      p: { height: 680, width: 1280, cell: 15, alpha: 10, bias: 34, churn: 8, set: 'code' },
+      thesis: 'Same field, taller band. It reaches past the headline and dissolves through the bio instead of stopping above it, so the hero sits <strong>inside</strong> the texture rather than on top of it. Lower peak ink to pay for the extra coverage.',
+    },
+    {
+      id: 'column', no: '04', name: 'Column', field: true,
+      p: { height: 520, width: 760, cell: 13, alpha: 16, bias: 26, churn: 5, set: 'code' },
+      thesis: 'Field narrowed to the <strong>720px text column</strong>. It stops being wallpaper and starts being a property of the column itself — the same move as a margin note. Denser ink, because there is far less of it.',
+    },
+    {
+      id: 'coarse', no: '05', name: 'Coarse', field: true,
+      p: { height: 460, width: 1200, cell: 22, alpha: 9, bias: 22, churn: 10, set: 'symbols' },
+      thesis: 'Bigger cells, punctuation only, more churn. Reads as <strong>structure</strong> rather than as text you might try to parse — closer to a texture, further from a terminal. Worth comparing if the code set feels too on-the-nose.',
+    },
+  ];
+
+  const state = {
+    concept: CONCEPTS[1],
+    height: 420, width: 1200, cell: 15, alpha: 12, bias: 30, churn: 6, set: 'code',
+  };
+
+  /* ── Field ────────────────────────────────────────────────────────────── */
+
+  let cols = 0, rows = 0, dpr = 1;
+  let chars = [];    // glyph per cell
+  let weights = [];  // ink weight per cell, 0..1
+  let fg = '0 0 0';
+  let ceiling = 0.12;
+
+  // Heavy falloff: most cells land near zero, a few carry real ink. This
+  // distribution is the whole effect — a uniform roll reads as grey noise.
+  // The roll stays normalised so theme and peak-ink changes only repaint.
+  const roll = () => Math.pow(Math.random(), state.bias / 10);
+
+  function readTheme() {
+    fg = getComputedStyle(root).getPropertyValue('--fg-rgb').trim() || '0 0 0';
+    // Light ink on a dark ground carries further than dark ink on white, so
+    // the same nominal alpha reads hotter. Pull it back to match.
+    ceiling = (state.alpha / 100) * (fg.startsWith('255') ? 0.8 : 1);
+  }
+
+  function build() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.min(state.width, window.innerWidth);
+    const h = state.height;
+
+    fieldEl.style.height = h + 'px';
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+
+    cols = Math.ceil(w / state.cell);
+    rows = Math.ceil(h / state.cell);
+
+    const n = cols * rows;
+    chars = new Array(n);
+    weights = new Float32Array(n);
+    const set = SETS[state.set];
+    for (let i = 0; i < n; i++) {
+      chars[i] = set[(Math.random() * set.length) | 0];
+      weights[i] = roll();
+    }
+    paintAll();
+  }
+
+  function cellBox(i) {
+    return [(i % cols) * state.cell, ((i / cols) | 0) * state.cell];
+  }
+
+  function drawCell(i, half) {
+    const a = weights[i] * ceiling;
+    if (a < 0.004) return;
+    const [x, y] = cellBox(i);
+    ctx.fillStyle = 'rgb(' + fg + ' / ' + a.toFixed(3) + ')';
+    ctx.fillText(chars[i], x + half, y + half);
+  }
+
+  function paintAll() {
+    readTheme();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.font = Math.round(state.cell * 0.8) + "px 'Geist Mono', ui-monospace, monospace";
+    const half = state.cell / 2;
+    for (let i = 0; i < weights.length; i++) drawCell(i, half);
+  }
+
+  // Repaint only the cells that changed — a full redraw at this density costs
+  // far more than the churn is worth.
+  function churn() {
+    const set = SETS[state.set];
+    const half = state.cell / 2;
+    for (let k = 0; k < state.churn; k++) {
+      const i = (Math.random() * weights.length) | 0;
+      const [x, y] = cellBox(i);
+      ctx.clearRect(x, y, state.cell, state.cell);
+      chars[i] = set[(Math.random() * set.length) | 0];
+      weights[i] = roll();
+      drawCell(i, half);
+    }
+  }
+
+  /* ── Frame loop — visibility gated, slow tick ─────────────────────────── */
+
+  const TICK_MS = 1000 / 10;
+  let raf = 0, last = 0, running = false, onScreen = true;
+
+  const shouldRun = () =>
+    state.concept.field && state.churn > 0 && onScreen
+    && document.visibilityState === 'visible' && !reduced.matches;
+
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    if (now - last < TICK_MS) return;
+    last = now;
+    churn();
+  }
+
+  function sync() {
+    if (shouldRun()) {
+      if (running) return;
+      running = true;
+      last = performance.now();
+      raf = requestAnimationFrame(frame);
+    } else {
+      running = false;
+      cancelAnimationFrame(raf);
+      raf = 0;
+    }
+  }
+
+  document.addEventListener('visibilitychange', sync);
+  reduced.addEventListener('change', sync);
+
+  // The field only exists at the top of the document, so stop the moment it
+  // scrolls away rather than churning pixels nobody can see.
+  new IntersectionObserver((entries) => {
+    onScreen = entries[0].isIntersecting;
+    sync();
+  }, { rootMargin: '64px' }).observe(fieldEl);
+
+  let resizeTimer = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(build, 120);
+  }, { passive: true });
+
+  /* ── Dock ─────────────────────────────────────────────────────────────── */
+
+  const el = (id) => document.getElementById(id);
+  const KNOBS = [
+    ['height', 'k-height', 'v-height', (v) => v + 'px'],
+    ['width', 'k-width', 'v-width', (v) => v + 'px'],
+    ['cell', 'k-cell', 'v-cell', (v) => v + 'px'],
+    ['alpha', 'k-alpha', 'v-alpha', (v) => v + '%'],
+    ['bias', 'k-bias', 'v-bias', (v) => (v / 10).toFixed(1)],
+    ['churn', 'k-churn', 'v-churn', (v) => v + '/tick'],
+  ];
+
+  function paintRack() {
+    for (const [key, ki, vi, fmt] of KNOBS) {
+      el(ki).value = String(state[key]);
+      el(vi).textContent = fmt(state[key]);
+    }
+    el('v-set').textContent = state.set;
+    for (const b of segSet.children) b.setAttribute('aria-pressed', String(b.dataset.v === state.set));
+  }
+
+  const REPAINT_ONLY = new Set(['alpha', 'churn']);
+  for (const [key, ki] of KNOBS) {
+    el(ki).addEventListener('input', () => {
+      state[key] = Number(el(ki).value);
+      paintRack();
+      if (REPAINT_ONLY.has(key)) paintAll(); else build();
+      sync();
+    });
+  }
+
+  const segSet = el('seg-set');
+  for (const id of SET_NAMES) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.v = id;
+    b.textContent = id;
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => { state.set = id; paintRack(); build(); });
+    segSet.appendChild(b);
+  }
+
+  function applyConcept(c) {
+    state.concept = c;
+    body.dataset.concept = c.id;
+    if (c.p) Object.assign(state, c.p);
+    thesisEl.innerHTML = c.thesis;
+    for (const t of tabsEl.children) t.setAttribute('aria-selected', String(t.dataset.id === c.id));
+    paintRack();
+    if (c.field) build();
+    sync();
+  }
+
+  for (const c of CONCEPTS) {
+    const t = document.createElement('button');
+    t.type = 'button';
+    t.className = 'tab';
+    t.role = 'tab';
+    t.dataset.id = c.id;
+    t.setAttribute('aria-selected', 'false');
+    t.innerHTML = '<em>' + c.no + '</em>' + c.name;
+    t.addEventListener('click', () => applyConcept(c));
+    tabsEl.appendChild(t);
+  }
+
+  el('theme-btn').addEventListener('click', () => {
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    paintAll();
+  });
+  el('bare-btn').addEventListener('click', () => {
+    body.dataset.bare = body.dataset.bare === '1' ? '0' : '1';
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLInputElement) return;
+    const n = Number(e.key);
+    if (n >= 1 && n <= CONCEPTS.length) return applyConcept(CONCEPTS[n - 1]);
+    if (e.key === 't' || e.key === 'T') return el('theme-btn').click();
+    if (e.key === 'h' || e.key === 'H') return el('bare-btn').click();
+  });
+
+  // Geist Mono arrives async; a field measured against the fallback face has
+  // the wrong optical density, so repaint once the real one lands.
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(paintAll);
+
+  applyConcept(CONCEPTS[1]);
+})();
+</script>
+</body>
+</html>
