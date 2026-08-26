@@ -63,7 +63,8 @@ renaming, or deleting anything under `src/pages/` in **either** repo.
   each public path, and checks that some page under `src/content/docs/` names
   it. Pass a different sibling path as `bun scripts/check-docs-coverage.ts <path>`
   or via `SITE_API_REPO`; without the sibling repo it checks the `site` half and
-  says so.
+  says so. An explicitly supplied path is strict: if it does not contain
+  `site-api` routes, the command fails instead of silently checking one repo.
 - Fix a failure by documenting the route, not by loosening the matcher. A route
   that genuinely should not be documented goes in `EXEMPT` in the script with a
   reason.

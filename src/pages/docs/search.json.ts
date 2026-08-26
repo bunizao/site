@@ -22,11 +22,6 @@ interface SearchEntry {
   text: string;
 }
 
-// Truncate per page so the whole corpus stays a small, single fetch — the
-// client only ever needs enough body text to find and snippet a match, not
-// the whole article.
-const MAX_BODY_CHARS = 4000;
-
 export async function GET() {
   const groups = await getDocsNav();
   const entries: SearchEntry[] = [];
@@ -48,7 +43,7 @@ export async function GET() {
             text: heading.text,
             depth: heading.depth as 2 | 3,
           })),
-        text: docsHtmlToText(entry.rendered?.html ?? '').slice(0, MAX_BODY_CHARS),
+        text: docsHtmlToText(entry.rendered?.html ?? ''),
       });
     }
   }

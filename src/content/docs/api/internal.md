@@ -7,143 +7,75 @@ badge: Gated
 ---
 
 Everything on this page is part of the URL surface of `buxx.me`, so it belongs
-in a complete route reference. None of it is callable by you.
+in a complete route reference. None of it is a public API.
 
-This page gives the path, the method, the purpose, and the gate. It does not
-give request or response contracts, because `site-api` is the private half of
-the [public/private boundary](/docs/api/overview#who-answers-a-request) and
-publishing the shape of an admin write endpoint on a public docs site is how
-that boundary stops being one. Contracts for these live in the `site-api`
-repository next to the handlers.
+This page deliberately stops at path, purpose, and auth tier. Request fields,
+response shapes, status codes, limits, and implementation details stay beside
+the handlers in the private `site-api` repository.
 
-Paths are written in their bare form here. On `buxx.me` they carry the `/api`
-prefix (`buxx.me/api/admin/session`); on `api.buxx.me` and `admin.buxx.me` they
-do not — see [Path forms](/docs/api/overview#path-forms-api-is-a-prefix-not-a-directory).
-The admin portal pages are the exception: they are host-gated to
-`admin.buxx.me` and `308` there from anywhere else.
+Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
+[Path forms](/docs/api/overview#path-forms-api-is-a-prefix-not-a-directory).
 
-## Admin auth
+## Admin authentication
 
-Admin access is GitHub OAuth in front of a session cookie, with Cloudflare
-Access as an additional layer where it is configured.
-
-| Path | Method | What it does |
+| Path | Purpose | Auth tier |
 | --- | --- | --- |
-| `/admin/auth/start` | `GET` | Begins the OAuth flow. `302` to the provider, or to `/oauth/login?error=config` when OAuth is not configured. Honors `?next=`, default `/admin`. |
-| `/admin/auth/callback` | `GET` | Provider redirect target. Exchanges the code and sets the session cookie. |
-| `/admin/auth/logout` | `GET` | Clears the session. |
-| `/admin/session` | `GET`, `HEAD` | Returns the signed-in identity (`login`, `avatarUrl`) so the portal can render who you are. `HEAD` is a `204` liveness check. |
-| `/oauth/login` | `GET` | The login landing page for the OAuth hub. |
+| `/admin/auth/start` | Starts owner sign-in. | Public OAuth entry |
+| `/admin/auth/callback` | Completes owner sign-in. | Verified OAuth callback |
+| `/admin/auth/logout` | Ends the owner session. | Admin session |
+| `/admin/session` | Reads the current owner identity. | Admin session |
+| `/oauth/login` | Renders the sign-in landing page. | Public OAuth entry |
 
-Every other `/admin/*` route is guarded in middleware, before the handler runs.
-An unauthenticated request gets `401` — not a `302` to a login page — because
-these are API routes and a redirect would be indistinguishable from success to
-a script. `/admin/session` is the only route that assumes a session already
-exists, since middleware guarantees one by the time it is reached.
+## Admin API
 
-## Admin JSON API
+| Path | Purpose | Auth tier |
+| --- | --- | --- |
+| `/admin/audit` | Reads operator audit records. | Admin session |
+| `/admin/ai/test` | Checks the configured AI provider. | Admin session |
+| `/admin/broadcasts` | Manages newsletter broadcasts. | Admin session |
+| `/admin/broadcasts/:id` | Manages one broadcast. | Admin session |
+| `/admin/broadcasts/:id/progress` | Reads broadcast delivery progress. | Admin session |
+| `/admin/broadcasts/preview` | Renders a broadcast preview. | Admin session |
+| `/admin/subscribers` | Manages subscribers. | Admin session |
+| `/admin/subscribers/:hash` | Manages one subscriber. | Admin session |
+| `/admin/subscribers/:hash/blog-welcome` | Sends one blog welcome message. | Admin session |
+| `/admin/mood/search` | Searches the mood archive. | Admin session |
+| `/admin/mood/health` | Reads mood pipeline health. | Admin session |
+| `/admin/mood/ai-config` | Manages mood AI configuration. | Admin session |
+| `/admin/notify-gate` | Reads the notification dispatch gate. | Admin session |
+| `/admin/notify-gate/release` | Releases queued notifications. | Admin session |
+| `/v2/admin/*` | Preserves the legacy admin API path. | Admin session |
 
-All gated by the admin session.
+## Admin portal
 
-| Path | Purpose |
-| --- | --- |
-| `/admin/audit` | Audit log entries. |
-| `/admin/ai/test` | Exercises the AI provider configuration. |
-| `/admin/broadcasts` | Newsletter broadcast list and creation. |
-| `/admin/broadcasts/:id` | A single broadcast. |
-| `/admin/broadcasts/:id/progress` | Send progress for a broadcast in flight. |
-| `/admin/broadcasts/preview` | Renders a broadcast without sending it. |
-| `/admin/subscribers` | Subscriber list. |
-| `/admin/subscribers/:hash` | A single subscriber, addressed by hash rather than email. |
-| `/admin/subscribers/:hash/blog-welcome` | Manually sends the blog welcome email. |
-| `/admin/mood/search` | Admin-side mood search. |
-| `/admin/mood/health` | Mood pipeline health — ingest, queue, and archive state. |
-| `/admin/mood/ai-config` | Mood AI configuration. |
-| `/admin/notify-gate` | Notify dispatch gate status. |
-| `/admin/notify-gate/release` | Releases the gate so queued notifications send. |
-
-Subscribers are addressed by `:hash`, never by email address, so an admin URL
-in a log or a browser history does not carry a subscriber's address with it.
-
-`/v2/admin/*` is a legacy alias and redirects to `/admin/*`.
-
-## Admin portal pages
-
-HTML, not JSON — the operator UI. Same session gate.
-
-`/admin` · `/admin/analytics` · `/admin/newsletter` · `/admin/mascot` ·
-`/admin/mood-embed` · `/admin/oauth` · `/admin/svg` ·
-`/admin/portal/broadcasts` · `/admin/portal/broadcasts/:id` ·
-`/admin/portal/subscribers` · `/admin/portal/subscribers/:hash`
+| Path | Purpose | Auth tier |
+| --- | --- | --- |
+| `/admin` | Opens the operator dashboard. | Admin session |
+| `/admin/analytics` | Opens analytics. | Admin session |
+| `/admin/newsletter` | Opens newsletter operations. | Admin session |
+| `/admin/mascot` | Opens mascot tools. | Admin session |
+| `/admin/mood-embed` | Opens mood embed tools. | Admin session |
+| `/admin/oauth` | Opens OAuth management. | Admin session |
+| `/admin/svg` | Opens SVG tools. | Admin session |
+| `/admin/portal/broadcasts` | Opens broadcast operations. | Admin session |
+| `/admin/portal/broadcasts/:id` | Opens one broadcast. | Admin session |
+| `/admin/portal/subscribers` | Opens subscriber operations. | Admin session |
+| `/admin/portal/subscribers/:hash` | Opens one subscriber. | Admin session |
 
 ## Webhooks
 
-Called by third parties, never by a browser.
-
-### Ghost
-
-```
-POST /webhooks/ghost
-```
-
-Ghost calls this when a post is published; it enqueues the blog notification.
-Authenticated by an HMAC-SHA256 signature over the raw body, verified in
-constant time against `GHOST_WEBHOOK_SECRET`, with a shared-secret bearer as an
-alternative. Rate limit: 30 requests / 60s.
-
-A bad or missing signature is `401 {"error":"Unauthorized"}`. A well-formed
-call for a post that should not notify returns `200` with
-`{"status":"ignored","reason":"not_published"|"unlisted"}` rather than an
-error — Ghost retries on failure, and a `4xx` for "correctly received, nothing
-to do" would produce a retry loop.
-
-`/ghost/webhook` and `/v2/ghost/webhook` are legacy aliases that redirect here.
-
-### Telegram
-
-```
-POST /webhooks/telegram
-```
-
-The mood ingest entry point. Handled in middleware rather than as a page route,
-so it does not appear in the route tree alongside the others. Authenticated by
-Telegram's own secret-token header, compared against `TELEGRAM_WEBHOOK_SECRET`.
-
-## Cron and dispatch
-
-These run the notification pipeline on a schedule. They are gated by a shared
-secret presented as a bearer credential, not by an admin session, because a
-cron trigger has no user to authenticate as.
-
-| Path | Method | Purpose | Rate limit |
-| --- | --- | --- | --- |
-| `/notify/dispatch` | `POST` | Sends a notification batch. | 20 / 60s |
-| `/notify/schedule` | `GET`, `POST` | Runs scheduled digest delivery. | 40 / 60s |
-| `/notify/retry` | `GET`, `POST` | Reprocesses failed deliveries. | 40 / 60s |
-
-All three answer `401 {"error":"Unauthorized"}` without the secret, and a
-plain-text `405 Method Not Allowed` for other methods.
-
-## Email preview
-
-```
-GET /notify/preview?mode=daily&sample=rich&timezone=Australia/Melbourne
-```
-
-Renders every notification email template as HTML strings in one JSON response,
-so a change to an email template can be reviewed without sending mail. It
-covers the subscribe confirmation, welcome, mood, digest, cancel, change-email,
-email-changed, and delete-record templates, plus the notify callback pages.
-`Cache-Control: no-store, max-age=0`.
-
-| Parameter | Values | Default |
+| Path | Purpose | Auth tier |
 | --- | --- | --- |
-| `mode` | `daily`, `every_5h` | `daily` |
-| `sample` | `rich`, `live` | `rich` |
-| `timezone` | any valid IANA zone | `Australia/Melbourne` |
+| `/webhooks/ghost` | Receives Ghost publication events. | Signed Ghost webhook |
+| `/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
+| `/v2/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
+| `/webhooks/telegram` | Receives Telegram mood events. | Telegram secret token |
 
-It sits outside `/admin/` but is gated the same way: middleware lists it
-alongside the admin API, so an unauthenticated request gets
-`401 {"error":"unauthorized"}`. It needs the gate because `sample=live` reads
-the real latest mood post and channel metadata, and every request renders eight
-email templates — cheap to call, not cheap to serve.
+## Scheduled notification routes
+
+| Path | Purpose | Auth tier |
+| --- | --- | --- |
+| `/notify/dispatch` | Sends a notification batch. | Scheduled-job bearer |
+| `/notify/schedule` | Runs scheduled digest delivery. | Scheduled-job bearer |
+| `/notify/retry` | Reprocesses failed deliveries. | Scheduled-job bearer |
+| `/notify/preview` | Renders notification templates for operator review. | Admin session |

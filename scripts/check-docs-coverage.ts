@@ -14,7 +14,8 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join, resolve, relative } from 'node:path';
 
-const apiRepo = resolve(process.argv[2] ?? process.env.SITE_API_REPO ?? '../site-api');
+const requestedApiRepo = process.argv[2] ?? process.env.SITE_API_REPO;
+const apiRepo = resolve(requestedApiRepo ?? '../site-api');
 const docsDir = resolve('src/content/docs');
 
 // Routes that exist but are deliberately not documented, each with the reason.
@@ -98,6 +99,10 @@ async function main(): Promise<void> {
   // in the docs counts as covering it.
   const apiRoutes = await routesOf(apiRepo, '/api');
   if (apiRoutes.size === 0) {
+    if (requestedApiRepo) {
+      console.error(`No site-api routes found at ${apiRepo}.`);
+      process.exit(1);
+    }
     console.warn(`No site-api routes found at ${apiRepo} — skipping that half.`);
     console.warn('Pass the repo path as an argument or set SITE_API_REPO.');
   }

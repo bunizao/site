@@ -179,16 +179,16 @@ colors:
   dai: 'var(--blog-dai)'
   dian: 'var(--blog-dian)'
   ji: 'var(--blog-ji)'
-  dai.light: '#3C5D80'    # 黛 远山 — primary. WCAG 6.84:1 on surface.light
+  dai.light: '#3C5D80'    # Distant-mountain ink — primary. WCAG 6.84:1 on surface.light
   dai.dark: '#7FA8D6'     #            WCAG 7.99:1 on surface.dark
-  dian.light: '#27406E'   # 靛 靛青 — the mark. WCAG 10.27:1 on surface.light
+  dian.light: '#27406E'   # Indigo ink — the mark. WCAG 10.27:1 on surface.light
   dian.dark: '#6FA8FF'    #            WCAG 8.22:1 on surface.dark
-  ji.light: '#3E8BD8'     # 霁 雨过天青 — highlight FILL only. 3.57:1 — never text
+  ji.light: '#3E8BD8'     # Clear-sky blue — highlight FILL only. 3.57:1 — never text
   ji.dark: '#6FB2F2'      #            WCAG 8.79:1 on surface.dark
 
 typography:
   # Families. Body reads in Inter (the .reading contract); code in the mono
-  # stack; the publication lockup uses a tiny WenKai subset for 無人之境 sillage.
+  # stack; the publication lockup uses a tiny WenKai subset for its Chinese sillage.
   family.sans: "'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
   family.mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
   family.display: "'WenKai Lockup', 'Songti SC', 'Noto Serif CJK SC', serif"

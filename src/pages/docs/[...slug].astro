@@ -27,7 +27,7 @@ interface Props {
   entry: CollectionEntry<'docs'>;
   groups: DocsGroup[];
 }
-const { entry, groups } = Astro.props;
+const { entry, groups } = Astro.props as Props;
 const { title, description, group } = entry.data;
 const { Content, headings } = await render(entry);
 
