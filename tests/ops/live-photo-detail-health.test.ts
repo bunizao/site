@@ -17,6 +17,12 @@ function getLivePhotoIds(): string[] {
     .filter(Boolean);
 }
 
+function readImageSources(html: string): string[] {
+  return [...html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/g)]
+    .map((match) => match[1])
+    .filter((value): value is string => Boolean(value));
+}
+
 describe('live photo detail health', () => {
   test('live photo detail pages render HD fallback images', async () => {
     const siteUrl = getSiteUrl().replace(/\/+$/, '');
@@ -35,8 +41,20 @@ describe('live photo detail health', () => {
       await expectHttpOk(response, `GET ${siteUrl}/mood/${encodeURIComponent(id)}`);
 
       const html = await response.text();
-      expect(html).toContain(`<img src="https://buxx.me/api/v2/images/mood/${id}/0"`);
+      const expectedUrl = new URL(`/api/v2/images/mood/${encodeURIComponent(id)}/0`, siteUrl);
+      const imageUrl = readImageSources(html)
+        .map((src) => new URL(src, siteUrl))
+        .find((url) => url.origin === expectedUrl.origin && url.pathname === expectedUrl.pathname);
+
+      expect(imageUrl, `mood ${id} should render its HD image URL`).toBeDefined();
       expect(html).not.toContain('Open Telegram to view this live photo');
+      if (!imageUrl) continue;
+
+      const imageResponse = await fetch(imageUrl, {
+        headers: { Accept: 'image/avif,image/webp,image/*,*/*;q=0.8' },
+        signal: AbortSignal.timeout(5_000),
+      });
+      await expectHttpOk(imageResponse, `GET ${imageUrl}`);
     }
   });
 });

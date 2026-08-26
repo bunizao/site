@@ -74,6 +74,10 @@ export interface ConfirmResult {
   status: 'subscribed';
   email: string;
   deliveryMode: DeliveryMode;
+  /** Short-lived manage-page grant. Confirming is itself proof of the address,
+      so the reader is handed the panel instead of a second round trip. Secret:
+      never log it and never put it in a JSON response. */
+  manageToken: string;
 }
 
 export interface UnsubscribeResult {

@@ -1460,3 +1460,152 @@ test.describe('Projects editorial ledger', () => {
     expect(firstEntry.bodyTop).toBeGreaterThanOrEqual(firstEntry.visualBottom);
   });
 });
+
+test.describe('Footer edge popover', () => {
+  // The longest network name the edge API has actually returned. It is what
+  // wrapped the row, grew the popover past the footer's top edge, and got
+  // cropped there while the footer was paint-contained.
+  const EDGE_INFO = {
+    colo: 'MEL',
+    country: 'AU',
+    city: 'Melbourne',
+    region: 'Victoria',
+    protocol: 'HTTP/3',
+    tls: 'TLSv1.3',
+    rtt: 0,
+    network: 'SUPERLOOP (AUSTRALIA) PTY LTD',
+  };
+
+  async function stubEdge(page: Page): Promise<void> {
+    await page.route('**/api/footer', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'x-cloudflare-colo': 'MEL' },
+        body: JSON.stringify({ status: 'operational' }),
+      });
+    });
+    await page.route('**/api/edge', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(EDGE_INFO),
+      });
+    });
+  }
+
+  // The home page paints the footer directly; the blog nests it in a scroll
+  // container. The popover renders in the top layer, so neither can crop it.
+  for (const path of ['/', '/blog']) {
+    test(`paints every row clear of the footer box on ${path}`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await stubEdge(page);
+      await page.goto(path);
+
+      const trigger = page.locator('[data-footer-region-trigger]');
+      await trigger.scrollIntoViewIfNeeded();
+      await expect(trigger).toBeVisible();
+      await trigger.hover();
+
+      const pop = page.locator('[data-footer-edge-pop]');
+      await expect(pop).toBeVisible();
+      await expect(pop.locator('.footer-edge-row')).toHaveCount(5);
+
+      const painted = await page.evaluate(() => {
+        const el = document.querySelector<HTMLElement>('[data-footer-edge-pop]');
+        if (!el) return null;
+        const box = el.getBoundingClientRect();
+        const rows = Array.from(el.querySelectorAll<HTMLElement>('.footer-edge-row'));
+        const rowPaints = (row: HTMLElement | undefined) => {
+          if (!row) return false;
+          const rowBox = row.getBoundingClientRect();
+          const painted = document.elementFromPoint(
+            rowBox.left + rowBox.width / 2,
+            rowBox.top + rowBox.height / 2
+          );
+          return row.contains(painted);
+        };
+        return {
+          insideViewport:
+            box.top >= 0 &&
+            box.left >= 0 &&
+            box.right <= window.innerWidth &&
+            box.bottom <= window.innerHeight,
+          firstRow: rowPaints(rows[0]),
+          lastRow: rowPaints(rows.at(-1)),
+        };
+      });
+
+      expect(painted).toEqual({ insideViewport: true, firstRow: true, lastRow: true });
+    });
+  }
+
+  test('keeps click, keyboard, and Escape state in sync', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await stubEdge(page);
+    await page.goto('/');
+
+    const trigger = page.locator('[data-footer-region-trigger]');
+    const pop = page.locator('[data-footer-edge-pop]');
+    await trigger.scrollIntoViewIfNeeded();
+    await expect(trigger).toBeVisible();
+
+    await trigger.click();
+    await expect(pop).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await page.mouse.move(0, 0);
+    await expect(pop).toBeVisible();
+
+    await trigger.click();
+    await expect(pop).toBeHidden();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    await trigger.click();
+    await expect(pop).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await page.mouse.click(0, 0);
+    await expect(pop).toBeHidden();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    await trigger.focus();
+    await expect(pop).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(pop).toBeHidden();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    await page.keyboard.press('Enter');
+    await expect(pop).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await page.keyboard.press('Escape');
+    await expect(pop).toBeHidden();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('repositions inside a narrow and short viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await stubEdge(page);
+    await page.goto('/');
+
+    const trigger = page.locator('[data-footer-region-trigger]');
+    const pop = page.locator('[data-footer-edge-pop]');
+    await trigger.scrollIntoViewIfNeeded();
+    await trigger.focus();
+    await expect(pop.locator('.footer-edge-row')).toHaveCount(5);
+
+    await page.setViewportSize({ width: 200, height: 100 });
+    await expect.poll(async () =>
+      pop.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        return (
+          box.left >= 12 &&
+          box.top >= 12 &&
+          box.right <= window.innerWidth - 12 &&
+          box.bottom <= window.innerHeight - 12
+        );
+      })
+    ).toBe(true);
+  });
+});
