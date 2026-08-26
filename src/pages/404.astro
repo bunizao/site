@@ -28,179 +28,127 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
     data-peek-click={trackerClickAnimation}
     data-peek-track-poses={JSON.stringify(trackerPoseKeys)}
   >
+    <h1 class="nf-sr-only">Page not found</h1>
+
     <div class="nf-stage">
-      <div class="nf-number" data-text="404" aria-hidden="true"
-        ><span class="nf-digit" style="--idx: 0">4</span
-        ><span class="nf-digit" style="--idx: 1">0</span
-        ><span class="nf-digit" style="--idx: 2">4</span
-        ><span class="nf-scan" aria-hidden="true"></span
-      ></div>
+      <p class="nf-number" aria-hidden="true"
+        ><span class="nf-digit">4</span
+        ><span class="nf-digit">0</span
+        ><span class="nf-digit">4</span
+      ></p>
 
-      <div class="nf-path" aria-hidden="true">
-        <span class="nf-path-prefix">GET</span>
-        <span class="nf-path-url" data-nf-path-url>{displayPath}</span>
-        <span class="nf-path-sep">·</span>
-        <span class="nf-path-status">page not found</span>
-      </div>
+      <p class="nf-path">
+        <span class="nf-sr-only">Requested path:</span>
+        <span data-nf-path-url>{displayPath}</span>
+      </p>
 
-      <div class="nf-trace" aria-hidden="true">
-        <span class="nf-trace-cell" style="--idx: 0">trace</span>
-        <span class="nf-trace-cell nf-trace-dot" style="--idx: 1">·</span>
-        <span class="nf-trace-cell nf-trace-mono" style="--idx: 2">0100</span>
-        <span class="nf-trace-cell nf-trace-dot" style="--idx: 3">·</span>
-        <span class="nf-trace-cell nf-trace-mono" style="--idx: 4">0000</span>
-        <span class="nf-trace-cell nf-trace-dot" style="--idx: 5">·</span>
-        <span class="nf-trace-cell nf-trace-mono" style="--idx: 6">0100</span>
-        <span class="nf-trace-cell nf-trace-dot" style="--idx: 7">·</span>
-        <span class="nf-trace-cell" style="--idx: 8">vector ∅</span>
-      </div>
-
-      <div class="nf-cta" data-nf-cta>
-        <a href="/" class="nf-home" data-nf-home>
-          <span class="nf-cta-peek" data-nf-peek aria-hidden="true">
-            <AnimatedLogo
-              definition={PEEK_NOT_FOUND_LOGO}
-              animation={trackerDefaultAnimation}
-              size={72}
-              title="peek"
-              eventChannel="nf"
-              eventAnimations={[
-                trackerHoverAnimation,
-                trackerClickAnimation,
-                ...trackerPoseKeys,
-              ]}
-            />
-          </span>
-          <span class="nf-home-label">
-            <span class="nf-home-arrow" aria-hidden="true">←</span>
-            <span class="nf-home-text">go home</span>
-          </span>
-        </a>
-      </div>
-    </div>
-
-    <h1 class="nf-sr-title">Page not found</h1>
-
-    <div class="nf-status" aria-hidden="true">
-      <span class="nf-status-dot"></span>
-      <span class="nf-status-text">404 · not found</span>
+      <a href="/" class="nf-home">
+        <span class="nf-peek" data-nf-peek aria-hidden="true">
+          <AnimatedLogo
+            definition={PEEK_NOT_FOUND_LOGO}
+            animation={trackerDefaultAnimation}
+            size={150}
+            title="peek"
+            eventChannel="nf"
+            eventAnimations={[
+              trackerHoverAnimation,
+              trackerClickAnimation,
+              ...trackerPoseKeys,
+            ]}
+          />
+        </span>
+        <span class="nf-home-label">
+          <span class="nf-home-arrow" aria-hidden="true">←</span>
+          <span class="nf-home-text">go home</span>
+        </span>
+      </a>
     </div>
   </main>
 
   <script>
-    const notFound = document.querySelector('.not-found') as HTMLElement | null;
-    const notFoundNumber = document.querySelector('.nf-number') as HTMLElement | null;
+    const notFound = document.querySelector<HTMLElement>('.not-found');
     const homeLink = document.querySelector<HTMLAnchorElement>('.nf-home');
-    const peekMount = document.querySelector<HTMLElement>('[data-nf-peek]');
-    const canAnimate = window.matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)');
-    let recallTimer = 0;
+    const canAnimate = window.matchMedia(
+      '(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)',
+    );
 
-    const dispatchPeek = (
-      kind: 'set' | 'revert',
-      detail?: { animation: string; holdMs?: number },
-    ): void => {
+    const dispatchPeek = (kind: 'set' | 'revert', animation?: string): void => {
       window.dispatchEvent(
-        new CustomEvent(`peek:nf:${kind}`, detail ? { detail } : undefined),
+        new CustomEvent(`peek:nf:${kind}`, animation ? { detail: { animation } } : undefined),
       );
     };
 
-    if (peekMount) {
-      window.requestAnimationFrame(() => peekMount.classList.add('is-peek-ready'));
-    }
-
+    // Static 404s render at build time, so the served path is the only source
+    // for what the visitor actually asked for.
     const pathLabel = document.querySelector<HTMLElement>('[data-nf-path-url]');
-    const formatRequestedUri = (value: string): string => (
-      value.length > 48 ? `${value.slice(0, 47)}…` : value
-    );
-
     if (pathLabel) {
-      pathLabel.textContent = formatRequestedUri(
-        `${window.location.pathname}${window.location.search}${window.location.hash}`,
-      );
+      const uri = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      pathLabel.textContent = uri.length > 48 ? `${uri.slice(0, 47)}…` : uri;
     }
 
-    if (notFound && notFoundNumber && canAnimate.matches) {
-      let numberRect = notFoundNumber.getBoundingClientRect();
-      const syncNumberRect = () => {
-        numberRect = notFoundNumber.getBoundingClientRect();
-      };
+    // The digits lean with the cursor. --mx/--my are -1..1 across the viewport;
+    // each digit scales them by its own depth so the 0 lags behind the fours.
+    const numberEl = document.querySelector<HTMLElement>('.nf-number');
+    let leanFrame = 0;
 
-      const onMove = (event: PointerEvent) => {
-        const cx = numberRect.left + numberRect.width / 2;
-        const cy = numberRect.top + numberRect.height / 2;
-        const dx = (event.clientX - cx) / (numberRect.width / 2);
-        const dy = (event.clientY - cy) / (numberRect.height / 2);
-        notFoundNumber.style.setProperty('--mx', Math.max(-1, Math.min(1, dx)).toFixed(3));
-        notFoundNumber.style.setProperty('--my', Math.max(-1, Math.min(1, dy)).toFixed(3));
-      };
+    const setLean = (mx: number, my: number): void => {
+      numberEl?.style.setProperty('--mx', mx.toFixed(3));
+      numberEl?.style.setProperty('--my', my.toFixed(3));
+    };
 
-      notFoundNumber.addEventListener('pointerenter', () => {
-        syncNumberRect();
-        window.clearTimeout(recallTimer);
-        notFound.classList.remove('is-number-recalling');
-        notFoundNumber.classList.remove('is-number-recalling');
-        notFound.classList.add('is-number-hovered');
-        notFoundNumber.classList.add('is-number-hovered');
-        notFoundNumber.addEventListener('pointermove', onMove);
+    const applyLean = (event: PointerEvent): void => {
+      if (!numberEl || leanFrame) return;
+      const { clientX, clientY } = event;
+      leanFrame = window.requestAnimationFrame(() => {
+        leanFrame = 0;
+        setLean(
+          (clientX / (window.innerWidth || 1)) * 2 - 1,
+          (clientY / (window.innerHeight || 1)) * 2 - 1,
+        );
       });
+    };
 
-      notFoundNumber.addEventListener('pointerleave', () => {
-        notFound.classList.remove('is-number-hovered');
-        notFoundNumber.classList.remove('is-number-hovered');
-        notFound.classList.add('is-number-recalling');
-        notFoundNumber.classList.add('is-number-recalling');
-        notFoundNumber.removeEventListener('pointermove', onMove);
-        notFoundNumber.style.setProperty('--mx', '0');
-        notFoundNumber.style.setProperty('--my', '0');
+    const releaseLean = (): void => {
+      window.cancelAnimationFrame(leanFrame);
+      leanFrame = 0;
+      setLean(0, 0);
+    };
 
-        recallTimer = window.setTimeout(() => {
-          notFound.classList.remove('is-number-recalling');
-          notFoundNumber.classList.remove('is-number-recalling');
-        }, 940);
-      });
-
-      window.addEventListener('resize', syncNumberRect, { passive: true });
-      window.addEventListener('scroll', syncNumberRect, { passive: true });
-    }
-
-    // Three-act story: scan (idle) → alert (hover) → dissolve (click).
-    // Peek also tracks the cursor across the whole page when idle.
+    // Peek follows the cursor while idle, looks up on hover, dissolves on click.
     const TRACK_POSES = JSON.parse(notFound?.dataset.peekTrackPoses ?? '[]') as string[];
     let trackingBucket: number | null = null;
-    let revertTimer = 0;
     let isHovering = false;
     let isLeaving = false;
 
     const applyTrack = (event: PointerEvent): void => {
-      if (isHovering || isLeaving) return;
-      const w = window.innerWidth || 1;
+      if (isHovering || isLeaving || TRACK_POSES.length === 0) return;
       const bucket = Math.min(
         TRACK_POSES.length - 1,
-        Math.max(0, Math.floor((event.clientX / w) * TRACK_POSES.length)),
+        Math.max(0, Math.floor((event.clientX / (window.innerWidth || 1)) * TRACK_POSES.length)),
       );
       if (bucket === trackingBucket) return;
       trackingBucket = bucket;
-      dispatchPeek('set', { animation: TRACK_POSES[bucket] });
+      dispatchPeek('set', TRACK_POSES[bucket]);
     };
 
     const releaseTrack = (): void => {
-      if (isHovering || isLeaving) return;
-      if (trackingBucket === null) return;
+      if (isHovering || isLeaving || trackingBucket === null) return;
       trackingBucket = null;
       dispatchPeek('revert');
     };
 
     if (notFound && canAnimate.matches) {
       notFound.addEventListener('pointermove', applyTrack);
+      notFound.addEventListener('pointermove', applyLean);
       notFound.addEventListener('pointerleave', releaseTrack);
+      notFound.addEventListener('pointerleave', releaseLean);
     }
 
     if (homeLink) {
       const onHover = () => {
         isHovering = true;
         trackingBucket = null;
-        window.clearTimeout(revertTimer);
-        dispatchPeek('set', { animation: notFound?.dataset.peekHover ?? 'alert' });
+        dispatchPeek('set', notFound?.dataset.peekHover ?? 'alert');
       };
       const onUnhover = () => {
         isHovering = false;
@@ -214,7 +162,7 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
 
       homeLink.addEventListener('click', () => {
         isLeaving = true;
-        dispatchPeek('set', { animation: notFound?.dataset.peekClick ?? 'dissolve' });
+        dispatchPeek('set', notFound?.dataset.peekClick ?? 'dissolve');
       });
     }
   </script>
@@ -230,229 +178,118 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
   }
 
   .not-found {
-    --nf-bg: hsl(var(--background));
     --nf-fg: hsl(var(--foreground));
-    --nf-muted: hsl(var(--muted-foreground));
-    --nf-grid-y: hsl(var(--foreground) / 0.05);
-    --nf-grid-x: hsl(var(--foreground) / 0.045);
-    --nf-scan-fg: hsl(var(--foreground) / 0.32);
-    --nf-trace: hsl(var(--foreground) / 0.42);
-    --nf-trace-strong: hsl(var(--foreground) / 0.7);
-    --nf-trace-dim: hsl(var(--foreground) / 0.28);
-    --nf-secondary: hsl(var(--foreground) / 0.55);
-    --nf-dot: hsl(var(--foreground) / 0.7);
-    --nf-ring: hsl(var(--foreground) / 0.3);
-    --nf-prefix: hsl(var(--foreground) / 0.3);
-    --nf-footer-bottom: clamp(28px, 4svh, 48px);
+    --nf-path: hsl(var(--foreground) / 0.5);
     position: relative;
     display: grid;
     place-items: center;
     min-height: 100svh;
-    overflow: hidden;
     color: var(--nf-fg);
-    background: var(--nf-bg);
+    background: hsl(var(--background));
     font-family: var(--font-mono);
-    cursor: default;
-    isolation: isolate;
     user-select: none;
     -webkit-user-select: none;
   }
 
   :global(.dark) .not-found {
-    --nf-bg: hsl(0 0% 7%);
-    --nf-fg: hsl(0 0% 76%);
-    --nf-muted: hsl(0 0% 56%);
-    --nf-grid-y: hsl(0 0% 100% / 0.028);
-    --nf-grid-x: hsl(0 0% 100% / 0.024);
-    --nf-scan-fg: hsl(0 0% 78% / 0.18);
-    --nf-trace: hsl(0 0% 78% / 0.32);
-    --nf-trace-strong: hsl(0 0% 80% / 0.52);
-    --nf-trace-dim: hsl(0 0% 78% / 0.18);
-    --nf-secondary: hsl(0 0% 78% / 0.6);
-    --nf-dot: hsl(0 0% 80% / 0.48);
-    --nf-ring: hsl(0 0% 80% / 0.18);
-    --nf-prefix: hsl(0 0% 78% / 0.32);
+    --nf-fg: hsl(0 0% 78%);
+    --nf-path: hsl(0 0% 78% / 0.5);
   }
 
-  .not-found::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    opacity: 0.42;
-    background-image:
-      linear-gradient(var(--nf-grid-y) 1px, transparent 1px),
-      linear-gradient(90deg, var(--nf-grid-x) 1px, transparent 1px);
-    background-size: 100% clamp(72px, 11svh, 112px), clamp(72px, 11svh, 112px) 100%;
-    transition: opacity 720ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .not-found.is-number-hovered::before {
-    opacity: 0.62;
-  }
-
+  /* The number and the path are one statement, so they sit close; the link is a
+     separate move and gets the larger gap. */
   .nf-stage {
-    position: relative;
-    z-index: 1;
     display: grid;
-    place-items: center;
-    gap: clamp(28px, 4svh, 48px);
+    justify-items: center;
+    gap: clamp(10px, 1.6svh, 18px);
+  }
+
+  /* The stage arrives in reading order. --nf-rise scales the travel to the
+     size of the element so the big numeral does not look static. */
+  .nf-digit,
+  .nf-path,
+  .nf-home {
+    animation: nf-enter 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* The digits land one after another, then follow the cursor. Entrance uses
+     transform and the lean uses translate, so the two never overwrite. */
+  .nf-digit {
+    --nf-rise: 24px;
+    display: inline-block;
+    animation-delay: calc(60ms + var(--nf-depth-i) * 90ms);
+    translate:
+      calc(var(--mx, 0) * var(--nf-pull-x))
+      calc(var(--my, 0) * var(--nf-pull-y));
+    transition: translate 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Pull rises evenly across the three digits, so every gap opens by the same
+     amount and the number reads as one plane tilting rather than a broken
+     word-space. */
+  .nf-digit:nth-child(1) {
+    --nf-depth-i: 0;
+    --nf-pull-x: 0.035em;
+    --nf-pull-y: 0.018em;
+  }
+
+  .nf-digit:nth-child(2) {
+    --nf-depth-i: 1;
+    --nf-pull-x: 0.075em;
+    --nf-pull-y: 0.030em;
+  }
+
+  .nf-digit:nth-child(3) {
+    --nf-depth-i: 2;
+    --nf-pull-x: 0.115em;
+    --nf-pull-y: 0.042em;
+  }
+
+  .nf-path {
+    animation-delay: 220ms;
+  }
+
+  .nf-home {
+    animation-delay: 340ms;
+  }
+
+  @keyframes nf-enter {
+    from {
+      opacity: 0;
+      transform: translateY(var(--nf-rise, 12px));
+    }
+
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 
   .nf-number {
     --mx: 0;
     --my: 0;
-    position: relative;
-    width: min(92vw, 1100px);
-    color: var(--nf-fg);
-    font-size: min(38svh, 21rem);
+    margin: 0;
+    font-size: min(30svh, 15rem);
     font-weight: 520;
     font-variation-settings: "wght" 520;
     line-height: 0.82;
     letter-spacing: -0.03em;
-    text-align: center;
     font-variant-numeric: tabular-nums;
-    transform-origin: 50% 52%;
-    transform: translateY(-1svh);
-    transition:
-      transform 680ms cubic-bezier(0.16, 1, 0.3, 1),
-      letter-spacing 680ms cubic-bezier(0.16, 1, 0.3, 1),
-      font-weight 680ms cubic-bezier(0.16, 1, 0.3, 1),
-      font-variation-settings 680ms cubic-bezier(0.16, 1, 0.3, 1);
-    will-change: transform;
-  }
-
-  .nf-digit {
-    display: inline-block;
-    transform-origin: 50% 60%;
-    animation: nf-digit-breathe 5.4s cubic-bezier(0.45, 0, 0.2, 1) infinite;
-    animation-delay: calc(var(--idx) * 420ms);
-    transition: transform 720ms cubic-bezier(0.16, 1, 0.3, 1);
-    will-change: transform;
-  }
-
-  .nf-number::before,
-  .nf-number::after {
-    content: attr(data-text);
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    color: var(--nf-fg);
-    pointer-events: none;
-    text-align: center;
-    transition:
-      opacity 360ms ease,
-      transform 680ms cubic-bezier(0.16, 1, 0.3, 1);
-    will-change: opacity, transform;
-  }
-
-  .nf-number::before {
-    opacity: 0.08;
-    transform: translate(-0.02em, -0.007em);
-    animation: nf-idle-a 4.8s cubic-bezier(0.45, 0, 0.2, 1) infinite;
-  }
-
-  .nf-number::after {
-    opacity: 0.045;
-    transform: translate(0.026em, 0.009em);
-    animation: nf-idle-b 4.8s cubic-bezier(0.45, 0, 0.2, 1) 180ms infinite;
-  }
-
-  .nf-scan {
-    position: absolute;
-    left: 6%;
-    right: 6%;
-    top: 50%;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      var(--nf-scan-fg) 50%,
-      transparent 100%
-    );
-    transform: translateY(-50%);
-    pointer-events: none;
-    opacity: 0;
-    animation: nf-scan-idle 9.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-    will-change: transform, opacity;
   }
 
   .nf-path {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 10px;
-    max-width: min(68ch, 92vw);
-    padding: 6px 14px;
-    font-size: clamp(12px, 1.3svh, 14px);
+    margin: 0;
+    max-width: min(48ch, 88vw);
+    overflow: hidden;
+    color: var(--nf-path);
+    font-family: var(--font-code);
+    font-size: clamp(12px, 1.3svh, 13px);
     line-height: 1.2;
-    color: var(--nf-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    pointer-events: none;
-    transition: color 360ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .nf-path-prefix {
-    color: var(--nf-prefix);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.08em;
-  }
-
-  .nf-path-url {
-    flex: 0 1 auto;
-    max-width: 48ch;
-    overflow: hidden;
     text-overflow: ellipsis;
-    color: var(--nf-trace-strong);
+    white-space: nowrap;
   }
 
-  .nf-path-sep {
-    color: var(--nf-trace-dim);
-  }
-
-  .nf-path-status {
-    color: var(--nf-secondary);
-    text-transform: lowercase;
-    letter-spacing: 0.02em;
-  }
-
-  .nf-trace {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 8px;
-    font-size: 11px;
-    line-height: 1;
-    letter-spacing: 0.04em;
-    color: var(--nf-trace);
-    text-transform: lowercase;
-    font-variant-numeric: tabular-nums;
-    opacity: 0;
-    transform: translateY(-6px);
-    transition:
-      opacity 520ms cubic-bezier(0.16, 1, 0.3, 1),
-      transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
-    pointer-events: none;
-  }
-
-  .nf-trace-cell {
-    display: inline-block;
-    opacity: 0;
-    transform: translateY(4px);
-    transition:
-      opacity 320ms ease,
-      transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .nf-trace-mono {
-    color: var(--nf-trace-strong);
-  }
-
-  .nf-trace-dot {
-    color: var(--nf-trace-dim);
-  }
-
-  .nf-sr-title {
+  .nf-sr-only {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -464,93 +301,26 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
     border: 0;
   }
 
-  .nf-status {
-    position: absolute;
-    top: clamp(22px, 3vw, 38px);
-    right: clamp(20px, 3vw, 36px);
-    z-index: 3;
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    margin: 0;
-    font-size: 11px;
-    line-height: 1;
-    letter-spacing: 0.06em;
-    text-transform: lowercase;
-    color: var(--nf-secondary);
-    font-variant-numeric: tabular-nums;
-    pointer-events: none;
-  }
-
-  .nf-status-dot {
-    position: relative;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--nf-dot);
-    animation: nf-status-pulse 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
-
-  .nf-status-dot::after {
-    content: "";
-    position: absolute;
-    inset: -3px;
-    border-radius: 50%;
-    border: 1px solid var(--nf-ring);
-    opacity: 0;
-    animation: nf-status-ring 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
-
-  .nf-cta {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: clamp(14px, 2.4svh, 26px);
-    margin-top: clamp(8px, 2svh, 20px);
-  }
-
-  .nf-cta-peek {
-    display: inline-flex;
-    color: var(--nf-fg);
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-    filter: drop-shadow(0 2px 0 hsl(var(--foreground) / 0.14))
-      drop-shadow(0 6px 14px hsl(var(--foreground) / 0.08));
-    transition:
-      opacity 720ms cubic-bezier(0.16, 1, 0.3, 1) 200ms,
-      transform 720ms cubic-bezier(0.16, 1, 0.3, 1) 200ms,
-      filter 360ms cubic-bezier(0.16, 1, 0.3, 1);
-    pointer-events: none;
-  }
-
-  :global(.dark) .nf-cta-peek {
-    filter: drop-shadow(0 2px 0 hsl(0 0% 0% / 0.55))
-      drop-shadow(0 6px 16px hsl(0 0% 0% / 0.35));
-  }
-
-  .nf-cta-peek.is-peek-ready {
-    opacity: 0.88;
-    transform: translateY(0) scale(1);
-    transform: translateY(0);
-  }
-
   .nf-home {
-    position: relative;
-    z-index: 3;
     display: inline-flex;
     flex-direction: column;
     align-items: center;
+    margin-top: clamp(22px, 3.6svh, 42px);
     gap: clamp(12px, 2svh, 18px);
+    color: var(--nf-fg);
     font-size: 13px;
     line-height: 1;
     letter-spacing: 0.02em;
-    text-transform: lowercase;
-    color: var(--nf-fg);
     text-decoration: none;
-    pointer-events: auto;
-    transition:
-      gap 320ms cubic-bezier(0.16, 1, 0.3, 1),
-      color 220ms ease;
+    text-transform: lowercase;
+  }
+
+  .nf-home:focus-visible {
+    outline: none;
+  }
+
+  .nf-peek {
+    display: inline-flex;
   }
 
   .nf-home-label {
@@ -564,14 +334,12 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
     display: inline-block;
     width: 13px;
     font-size: 14px;
-    line-height: 1;
     text-align: center;
-    transition: transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .nf-home-text {
     position: relative;
-    display: inline-block;
   }
 
   .nf-home-text::after {
@@ -587,11 +355,6 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
     transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .nf-home:hover,
-  .nf-home:focus-visible {
-    outline: none;
-  }
-
   .nf-home:hover .nf-home-label,
   .nf-home:focus-visible .nf-home-label {
     gap: 14px;
@@ -602,119 +365,15 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
     transform: translateX(-5px);
   }
 
-  .nf-home:hover .nf-cta-peek,
-  .nf-home:focus-visible .nf-cta-peek {
-    filter: drop-shadow(0 3px 0 hsl(var(--foreground) / 0.16))
-      drop-shadow(0 10px 20px hsl(var(--foreground) / 0.1));
-  }
-
   .nf-home:hover .nf-home-text::after,
   .nf-home:focus-visible .nf-home-text::after {
     transform: scaleX(1);
     transform-origin: left center;
   }
 
-  @media (hover: hover) and (pointer: fine) {
-    .nf-number.is-number-hovered {
-      font-weight: 485;
-      font-variation-settings: "wght" 485;
-      letter-spacing: -0.034em;
-      transform: translateY(-1.25svh) scale(1.012);
-    }
-
-    .nf-number.is-number-hovered .nf-digit {
-      animation-play-state: paused;
-    }
-
-    .nf-number.is-number-hovered .nf-digit:nth-child(1) {
-      transform:
-        translate3d(
-          calc(var(--mx) * -0.018em - 0.026em),
-          calc(var(--my) * -0.014em - 0.006em),
-          0
-        )
-        rotate(-0.7deg);
-    }
-
-    .nf-number.is-number-hovered .nf-digit:nth-child(2) {
-      transform:
-        translate3d(
-          calc(var(--mx) * 0.02em),
-          calc(var(--my) * 0.022em - 0.014em),
-          0
-        )
-        scale(1.024);
-    }
-
-    .nf-number.is-number-hovered .nf-digit:nth-child(3) {
-      transform:
-        translate3d(
-          calc(var(--mx) * 0.018em + 0.026em),
-          calc(var(--my) * 0.014em - 0.006em),
-          0
-        )
-        rotate(0.7deg);
-    }
-
-    .nf-number.is-number-hovered::before {
-      opacity: 0.16;
-      transform: translate(
-        calc(var(--mx) * -0.05em - 0.038em),
-        calc(var(--my) * -0.034em - 0.012em)
-      );
-      animation: none;
-    }
-
-    .nf-number.is-number-hovered::after {
-      opacity: 0.085;
-      transform: translate(
-        calc(var(--mx) * 0.05em + 0.044em),
-        calc(var(--my) * 0.034em + 0.014em)
-      );
-      animation: none;
-    }
-
-    .nf-number.is-number-hovered .nf-scan {
-      animation: nf-scan-hover 1.6s cubic-bezier(0.45, 0, 0.2, 1) infinite;
-    }
-
-    .not-found.is-number-hovered .nf-trace {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .not-found.is-number-hovered .nf-trace-cell {
-      opacity: 1;
-      transform: translateY(0);
-      transition-delay: calc(var(--idx) * 50ms);
-    }
-
-    .nf-number.is-number-recalling::before {
-      animation: nf-callback-hover-a 780ms cubic-bezier(0.16, 1, 0.3, 1) both;
-    }
-
-    .nf-number.is-number-recalling::after {
-      animation: nf-callback-hover-b 860ms cubic-bezier(0.16, 1, 0.3, 1) 40ms both;
-    }
-  }
-
   @media (max-width: 640px) {
     .nf-number {
-      width: min(96vw, 420px);
-      font-size: min(28svh, 10rem);
-      transform: translateY(-4svh);
-    }
-
-    .nf-trace {
-      font-size: 10px;
-      gap: 6px;
-    }
-
-    .nf-status {
-      top: clamp(14px, 4vw, 22px);
-      right: clamp(14px, 4vw, 22px);
-      font-size: 10px;
-      gap: 8px;
+      font-size: min(24svh, 9rem);
     }
 
     .nf-home {
@@ -723,233 +382,26 @@ const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .nf-number::before,
-    .nf-number::after,
     .nf-digit,
-    .nf-scan,
-    .nf-status-dot,
-    .nf-status-dot::after {
+    .nf-path,
+    .nf-home {
       animation: none;
     }
 
-    .nf-number,
-    .nf-home,
-    .nf-home-arrow,
-    .nf-home-text::after,
-    .nf-trace,
-    .nf-trace-cell {
+    .nf-digit {
+      translate: none;
       transition: none;
     }
 
-    .nf-number:hover {
-      font-weight: 520;
-      font-variation-settings: "wght" 520;
-      letter-spacing: -0.03em;
-      transform: translateY(-1svh);
-    }
-
-    .nf-home:hover,
-    .nf-home:focus-visible {
-      gap: clamp(12px, 2svh, 18px);
-    }
-
-    .nf-home:hover .nf-home-label,
-    .nf-home:focus-visible .nf-home-label {
-      gap: 9px;
+    .nf-home-label,
+    .nf-home-arrow,
+    .nf-home-text::after {
+      transition: none;
     }
 
     .nf-home:hover .nf-home-arrow,
     .nf-home:focus-visible .nf-home-arrow {
       transform: none;
-    }
-  }
-
-  @keyframes nf-digit-breathe {
-    0%,
-    100% {
-      transform: translate3d(0, 0, 0);
-    }
-
-    26% {
-      transform: translate3d(0, -0.014em, 0);
-    }
-
-    52% {
-      transform: translate3d(0.005em, 0.004em, 0);
-    }
-
-    74% {
-      transform: translate3d(-0.004em, -0.006em, 0);
-    }
-  }
-
-  @keyframes nf-scan-idle {
-    0%,
-    78% {
-      opacity: 0;
-      transform: translateY(-58%) scaleX(0.5);
-    }
-
-    82% {
-      opacity: 0;
-      transform: translateY(-58%) scaleX(0.6);
-    }
-
-    88% {
-      opacity: 0.55;
-      transform: translateY(-50%) scaleX(1);
-    }
-
-    96% {
-      opacity: 0.25;
-      transform: translateY(-44%) scaleX(0.9);
-    }
-
-    100% {
-      opacity: 0;
-      transform: translateY(-42%) scaleX(0.5);
-    }
-  }
-
-  @keyframes nf-scan-hover {
-    0% {
-      opacity: 0;
-      transform: translateY(-110%) scaleX(0.7);
-    }
-
-    18% {
-      opacity: 0.85;
-      transform: translateY(-50%) scaleX(1);
-    }
-
-    82% {
-      opacity: 0.55;
-      transform: translateY(40%) scaleX(1);
-    }
-
-    100% {
-      opacity: 0;
-      transform: translateY(120%) scaleX(0.7);
-    }
-  }
-
-  @keyframes nf-idle-a {
-    0%,
-    100% {
-      opacity: 0.065;
-      transform: translate(-0.016em, -0.005em);
-    }
-
-    34% {
-      opacity: 0.12;
-      transform: translate(-0.03em, -0.01em);
-    }
-
-    58% {
-      opacity: 0.055;
-      transform: translate(-0.008em, -0.002em);
-    }
-
-    76% {
-      opacity: 0.09;
-      transform: translate(-0.024em, -0.008em);
-    }
-  }
-
-  @keyframes nf-idle-b {
-    0%,
-    100% {
-      opacity: 0.035;
-      transform: translate(0.02em, 0.007em);
-    }
-
-    30% {
-      opacity: 0.075;
-      transform: translate(0.038em, 0.012em);
-    }
-
-    55% {
-      opacity: 0.025;
-      transform: translate(0.006em, 0.002em);
-    }
-
-    78% {
-      opacity: 0.05;
-      transform: translate(0.028em, 0.009em);
-    }
-  }
-
-  @keyframes nf-callback-hover-a {
-    0% {
-      opacity: 0.075;
-      transform: translate(-0.018em, -0.006em);
-    }
-
-    32% {
-      opacity: 0.18;
-      transform: translate(-0.056em, -0.018em);
-    }
-
-    64% {
-      opacity: 0.055;
-      transform: translate(-0.004em, 0.002em);
-    }
-
-    100% {
-      opacity: 0.105;
-      transform: translate(-0.028em, -0.009em);
-    }
-  }
-
-  @keyframes nf-callback-hover-b {
-    0% {
-      opacity: 0.04;
-      transform: translate(0.024em, 0.008em);
-    }
-
-    32% {
-      opacity: 0.12;
-      transform: translate(0.062em, 0.02em);
-    }
-
-    66% {
-      opacity: 0.025;
-      transform: translate(-0.006em, -0.002em);
-    }
-
-    100% {
-      opacity: 0.055;
-      transform: translate(0.034em, 0.011em);
-    }
-  }
-
-  @keyframes nf-status-pulse {
-    0%,
-    100% {
-      opacity: 0.55;
-      transform: scale(1);
-    }
-
-    50% {
-      opacity: 1;
-      transform: scale(1.18);
-    }
-  }
-
-  @keyframes nf-status-ring {
-    0% {
-      opacity: 0.45;
-      transform: scale(0.8);
-    }
-
-    70% {
-      opacity: 0;
-      transform: scale(2.2);
-    }
-
-    100% {
-      opacity: 0;
-      transform: scale(2.2);
     }
   }
 </style>
