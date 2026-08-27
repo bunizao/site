@@ -72,8 +72,8 @@ URL. The article response emits `noindex, nofollow, noarchive, nosnippet` in
 the `robots` meta tag. The layout also marks the whole document with
 `data-pagefind-ignore="all"` and suppresses its `text/markdown` alternate link.
 The generated static Markdown asset is omitted; a direct request with
-`Accept: text/markdown` renders at runtime and returns the same directives in
-`X-Robots-Tag`.
+`Accept: text/markdown`, or through `<post URL>/index.md`, renders at runtime
+and returns the same directives in `X-Robots-Tag`.
 
 Do not remove the tag from a post and assume the page is immediately discoverable.
 The Ghost publish webhook starts a new site build, and the post enters listed

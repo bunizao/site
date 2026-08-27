@@ -449,7 +449,12 @@ test.describe('Blog routes', () => {
     await page.goto(firstPostHref);
     const alternate = page.locator('link[rel="alternate"][type="text/markdown"]');
     await expect(alternate).toHaveCount(1);
-    expect(await alternate.first().getAttribute('href')).toBe(`https://buxx.me${firstPostHref}`);
+    expect(await alternate.first().getAttribute('href'))
+      .toBe(`https://buxx.me${firstPostHref.replace(/\/$/, '')}/index.md`);
+
+    const explicitMarkdown = await request.get(`${firstPostHref.replace(/\/$/, '')}/index.md`);
+    expect(explicitMarkdown.ok()).toBeTruthy();
+    expect(explicitMarkdown.headers()['content-type']).toContain('text/markdown');
 
     const llms = await request.get('/llms.txt');
     expect(llms.ok()).toBeTruthy();

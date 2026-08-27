@@ -53,7 +53,10 @@ import {
   getPeekRuntimeSlotKey,
 } from '@/features/logos/data/peek-runtime';
 import { meta, navLinks } from '@/data/site';
-import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
+import {
+  hasMarkdownRenderer,
+  markdownAlternatePath,
+} from '@/features/agent-markdown/server/registry';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
 import { SITE_FAVICON } from '@/lib/favicon';
 
@@ -104,7 +107,7 @@ const site = Astro.site ?? new URL('https://buxx.me');
 const siteName = meta.siteName;
 const canonicalUrl = new URL(url ?? Astro.url?.pathname ?? '/', site).href;
 const markdownAlternateUrl = hasMarkdownRenderer(new URL(canonicalUrl).pathname)
-  ? canonicalUrl
+  ? new URL(markdownAlternatePath(new URL(canonicalUrl).pathname), site).href
   : null;
 const ogImageUrl = new URL(image, site).href;
 const ogLogoUrl = new URL('/logo/peek.svg?v=3', site).href;

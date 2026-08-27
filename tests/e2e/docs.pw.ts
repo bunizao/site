@@ -48,6 +48,22 @@ test.describe('Developer reference', () => {
     await expect(page.locator('.docs-demo-render').first()).toContainText('雨巷');
   });
 
+  test('advertises and serves explicit Markdown URLs', async ({ page, request }) => {
+    await page.goto('/docs/writing/poem');
+
+    const alternate = page.locator('link[rel="alternate"][type="text/markdown"]');
+    await expect(alternate).toHaveAttribute(
+      'href',
+      'https://buxx.me/docs/writing/poem/index.md',
+    );
+
+    const response = await request.get('/docs/writing/poem/index.md');
+    expect(response.ok()).toBeTruthy();
+    expect(response.headers()['content-type']).toContain('text/markdown');
+    expect(response.headers()['x-markdown-tokens']).toBeTruthy();
+    expect(await response.text()).toContain('# Poems');
+  });
+
   test('keeps the mobile article inside the viewport', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/docs/architecture');

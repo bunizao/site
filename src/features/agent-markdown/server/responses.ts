@@ -5,6 +5,7 @@ import {
   MARKDOWN_CONTENT_TYPE,
   MARKDOWN_TOKEN_HEADER,
   type ContentRoutePolicy,
+  explicitMarkdownSourcePath,
   getContentRoutePolicy,
   getMarkdownRenderer,
   hasMarkdownRenderer,
@@ -19,7 +20,9 @@ export function contentEdgeCacheVersion(
   const normalizedPath = pathname === '/' ? pathname : pathname.replace(/\/+$/, '');
   const isBuildBackedContent = normalizedPath === '/'
     || normalizedPath === '/blog'
-    || normalizedPath.startsWith('/blog/');
+    || normalizedPath.startsWith('/blog/')
+    || normalizedPath === '/docs'
+    || normalizedPath.startsWith('/docs/');
 
   return isBuildBackedContent
     ? `${EDGE_CACHE_VERSION}:${buildId?.trim() || 'dev'}`
@@ -177,14 +180,16 @@ export async function renderMarkdownIfRequested(context: {
   site?: URL;
 }): Promise<Response | null> {
   if (context.request.method !== 'GET') return null;
-  if (!prefersMarkdown(context.request.headers.get('accept'))) return null;
 
   const url = new URL(context.request.url);
-  if (isNeverCachePath(url.pathname)) return null;
+  const explicitSourcePath = explicitMarkdownSourcePath(url.pathname);
+  if (!explicitSourcePath && !prefersMarkdown(context.request.headers.get('accept'))) return null;
+  if (isNeverCachePath(explicitSourcePath ?? url.pathname)) return null;
 
-  const match = getMarkdownRenderer(url.pathname);
+  const sourcePath = explicitSourcePath ?? url.pathname;
+  const match = getMarkdownRenderer(sourcePath);
   if (!match) return null;
-  const cacheVersion = contentEdgeCacheVersion(url.pathname);
+  const cacheVersion = contentEdgeCacheVersion(sourcePath);
 
   const cached = await readEdgeCache(context.request, {
     namespace: 'content',
@@ -202,7 +207,7 @@ export async function renderMarkdownIfRequested(context: {
   const result = await match.renderer.render({
     request: context.request,
     locals: context.locals as App.Locals,
-    url,
+    url: new URL(`${sourcePath}${url.search}`, url.origin),
     site: siteUrlForContext(context),
     params: match.params,
   });

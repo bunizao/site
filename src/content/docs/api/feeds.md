@@ -28,12 +28,19 @@ up within about five minutes without a deploy. A failure renders as a plain-text
 `500` rather than an empty feed, so a reader keeps the last good copy instead of
 silently emptying your subscription.
 
-## Markdown content negotiation
+## Markdown pages
 
-Send `Accept: text/markdown` to a page URL and you get Markdown back instead of
-HTML — the same content, minus the layout, navigation, and scripts. This is meant
-for language models and scrapers that would otherwise burn tokens parsing a
-rendered page.
+Append `/index.md` to a supported page URL and it returns Markdown directly,
+without requiring a special request header. Pages advertise this explicit URL
+in their `<head>`, so agents and crawlers can discover it:
+
+```bash
+curl https://buxx.me/docs/writing/poem/index.md
+curl https://buxx.me/blog/index.md
+```
+
+Content negotiation remains available. Send `Accept: text/markdown` to the
+canonical page URL and it returns the same Markdown instead of HTML:
 
 ```bash
 curl -H 'Accept: text/markdown' https://buxx.me/blog
@@ -43,10 +50,10 @@ curl -H 'Accept: text/markdown' https://buxx.me/mood
 Pages that carry a Markdown representation advertise it in their `<head>`:
 
 ```html
-<link rel="alternate" type="text/markdown" href="https://buxx.me/blog" />
+<link rel="alternate" type="text/markdown" href="https://buxx.me/blog/index.md" />
 ```
 
-Currently negotiable:
+Supported pages:
 
 | Path | Returns |
 | --- | --- |
@@ -57,11 +64,12 @@ Currently negotiable:
 | `/mood` | The feed, paginated by cursor. |
 | `/mood/{id}` | One mood post. |
 | `/privacy` | The privacy policy. |
+| `/docs`, `/docs/{path}` | The documentation index and source content. |
 
 Responses carry an `x-markdown-tokens` header with an approximate token count of
 the body, so a client can budget before it reads.
 
-Anything else falls through to HTML. Negotiation is strict about quality values:
+Anything else falls through to HTML. Header negotiation is strict about quality values:
 `Accept: text/html, text/markdown;q=0.9` gets you HTML, as it should.
 
 ## llms.txt
@@ -75,8 +83,8 @@ convention — a title, a one-line summary, then link sections with a short note
 why a model would open each one. It is generated from the same site data the
 pages render from, so it does not drift.
 
-Use it as the entry point: read `llms.txt`, pick a URL, then fetch that URL with
-`Accept: text/markdown`.
+Use it as the entry point: read `llms.txt`, pick a URL, then append `/index.md`
+or fetch the canonical URL with `Accept: text/markdown`.
 
 ## Sitemap
 
