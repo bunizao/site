@@ -114,18 +114,26 @@ describe('conversation parsing', () => {
     expect(cast.size).toBe(0);
   });
 
-  test('capitalises a key into a display label, so `label=` is only for real names', () => {
-    const { cast } = parseConversation(['ann: hi', '@图图 accent=#B4603A', '图图: 嗨'].join('\n'));
+  test('labels a speaker exactly as first written, matching on case-insensitively', () => {
+    const { cast } = parseConversation(['@Ada accent=#B4603A', 'ada: hi', 'ADA: again'].join('\n'));
 
-    expect(cast.get('ann')?.label).toBe('Ann');
-    // No case to add: a CJK key is left exactly as written.
-    expect(cast.get('图图')?.label).toBe('图图');
+    expect(cast.size).toBe(1);
+    expect(cast.get('ada')?.label).toBe('Ada');
   });
 
-  test('an explicit label still wins over the capitalised default', () => {
-    const { cast } = parseConversation('@ada label="ada lovelace"');
+  test('reads a bracketed display name, the names a key cannot spell', () => {
+    const { cast } = parseConversation(['@ada [Ada Lovelace]', '@tutu [图图] avatar=\u{1F408}'].join('\n'));
 
-    expect(cast.get('ada')?.label).toBe('ada lovelace');
+    expect(cast.get('ada')?.label).toBe('Ada Lovelace');
+    expect(cast.get('tutu')?.label).toBe('图图');
+    expect(cast.get('tutu')?.avatar).toBe('\u{1F408}');
+  });
+
+  test('does not read the me flag out of a display name', () => {
+    const { cast } = parseConversation(['@a [call me maybe]', '@b label="call me maybe"'].join('\n'));
+
+    expect(cast.get('a')?.me).toBe(false);
+    expect(cast.get('b')?.me).toBe(false);
   });
 
   test('reads label, accent and avatar off a cast line', () => {
@@ -151,7 +159,7 @@ describe('conversation rendering', () => {
     // Alignment and fill are the only visible attribution, and neither reaches
     // a screen reader.
     expect(html).toContain('conv-name conv-name--sr');
-    expect(html).toContain('Ann');
+    expect(html).toContain('ann');
   });
 
   test('escapes markup in message bodies and speaker labels', () => {

@@ -33,9 +33,9 @@ ann: is that all?
 bob: that's all.
 ```
 
-That renders two speakers named **Ann** and **Bob**, with Ann on the trailing
-side: the key is lowercased for matching, capitalised for display, and the
-first voice takes the `me` side.
+The key is lowercased for matching but shown exactly as you first wrote it, so
+`Ann:` renders **Ann** and `ann:` renders **ann** — the parser never restyles
+your name. The first voice takes the trailing side.
 
 Both `:` and `：` work as the separator, so a Chinese keyboard never has to
 switch. A name is at most 24 characters and may not contain a colon.
@@ -97,29 +97,45 @@ A line starting with `@` declares a speaker before they talk. Every attribute
 is optional — cast lines exist to override defaults, not to satisfy the parser.
 
 ```conversation
-@ada accent=#4E7A5E
-@tutu label="图图" accent=#B4603A avatar=🐈 me
+@Ada accent=#4E7A5E
+@tutu [图图] accent=#B4603A avatar=🐈 me
 ```
 
-| Attribute | Effect |
+| Written as | Effect |
 | --- | --- |
-| `label="…"` | Display name. Defaults to the key, capitalised. Quote it if it has spaces. |
+| `[…]` | Display name. Defaults to the key, exactly as first written. |
 | `accent=#RRGGBB` | Custom hue for the fill and the name. Must be a hex colour. |
 | `avatar=…` | See below. |
 | `me` | Renders this speaker on the trailing side with the filled bubble. |
 
-Reach for a cast line only when a default is wrong. `@ada` alone buys you
-nothing — the key already registers on first use and its label is already
-`Ada` — so a line with no attributes on it is a line to delete.
+Values are `name=value`; the display name is a content block in brackets,
+borrowed from [Typst](https://typst.app), where `[…]` means *this is prose, not
+a token*. A name is the one attribute that is a phrase, so it is the one that
+should not need quoting or escaping. `label="…"` is the same thing spelled
+long, and still works.
 
-### `label`
+`me` is the one bare word. It is read from what is left of the line after every
+value has been claimed, so a speaker called `[call me maybe]` stays a name.
 
-The key is what you type before a colon: short, lowercase, typed a hundred
-times. The label is what a reader sees once, above a bubble — so the default
-capitalises it. `@ada` renders as **Ada**, `ann: hi` renders as **Ann**.
+### `[name]`
 
-`label=` is therefore for names the key cannot spell — `label="Ada Lovelace"`,
-`label="图图"` — and not for adding a capital letter.
+The label defaults to the key **as first written**, and nothing rewrites it.
+Capitalisation is therefore not something to declare — it is something to type:
+
+```conversation
+@Ada accent=#4E7A5E
+
+ada: Case only matters the first time. Match it however you like after that.
+```
+
+Brackets are for the names a key cannot spell — a space, a script the key is
+not in, a name that is not the handle:
+
+```conversation
+@ada [Ada Lovelace]
+@tutu [图图] avatar=🐈
+@octo [Octocat] avatar=https://avatars.githubusercontent.com/u/583231?v=4
+```
 
 ### `me`
 

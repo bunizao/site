@@ -271,7 +271,7 @@ export function keepItBoring() {
 <h2>Conversation</h2>
 <p>A fenced conversation block renders as a chat thread in the prose column, so the blog path exercises the same renderer the playground previews. The mixed line is the case that matters: the source joins tight and the browser draws the CJK/Latin gap.</p>
 <figure class="kg-card kg-code-card">
-  <pre><code class="language-conversation">@tutu label="Tu Tu" accent=#B4603A
+  <pre><code class="language-conversation">@tutu [Tu Tu] accent=#B4603A
 
 you: how wide should a bubble be?
 tutu: 30em.

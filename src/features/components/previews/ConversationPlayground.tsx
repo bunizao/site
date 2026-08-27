@@ -14,8 +14,7 @@ const SAMPLES: { name: string; source: string }[] = [
   {
     name: 'Basics',
     source: [
-      '@you avatar=🙋',
-      '@ada accent=#B4603A avatar=🐈',
+      '@Ada accent=#B4603A avatar=🐈',
       '',
       'you: so what is actually hard about a chat bubble?',
       'ada: Width.',
@@ -32,8 +31,9 @@ const SAMPLES: { name: string; source: string }[] = [
     name: 'Group',
     source: [
       '@you me',
-      '@grace accent=#4E7A5E',
-      '@alan accent=#7C5CD6',
+      '@Ada',
+      '@Grace accent=#4E7A5E',
+      '@Alan accent=#7C5CD6',
       '',
       'ada: Ship it?',
       'grace: One thing first.',
@@ -49,9 +49,9 @@ const SAMPLES: { name: string; source: string }[] = [
     name: 'Avatars',
     source: [
       '@you accent=#3C5D80',
-      '@octo label="Octocat" avatar=https://avatars.githubusercontent.com/u/583231?v=4',
-      '@emoji accent=#B4603A avatar=🐈',
-      '@ada label="Ada Lovelace" accent=#4E7A5E',
+      '@octo [Octocat] avatar=https://avatars.githubusercontent.com/u/583231?v=4',
+      '@Emoji accent=#B4603A avatar=🐈',
+      '@ada [Ada Lovelace] accent=#4E7A5E',
       '',
       'you: How many avatar forms are there?',
       'octo: A URL — `avatar=https://…`, or any site-relative path.',
@@ -67,7 +67,7 @@ const SAMPLES: { name: string; source: string }[] = [
     // between a CJK character and a Latin one, so no space is ever invented.
     name: 'Mixed',
     source: [
-      '@tutu label="图图" accent=#B4603A avatar=🐈',
+      '@tutu [图图] accent=#B4603A avatar=🐈',
       '',
       'you: 中英混排会不会打架？',
       'tutu: 不会。一个汉字正好 1em，拉丁字母大约',

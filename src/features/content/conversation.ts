@@ -7,7 +7,7 @@
 // Syntax (see docs/CONVERSATION-SYNTAX.md):
 //
 //   @ada accent=#4E7A5E avatar=🐈     cast line: override a default
-//   @tutu label="图图" me              me = the trailing, filled side
+//   @tutu [图图] me                    [name] = label, me = the own side
 //
 //   you: how wide should a bubble be?    message
 //   ada: 30em.
@@ -15,10 +15,10 @@
 //     glyph about half that.             indented -> soft wrap, same bubble
 //   --- later                            divider, with or without a label
 //
-// Speakers auto-register on first use with a capitalised label, and the first
-// voice takes the `me` side, so a two-party exchange needs no cast lines at
-// all. Cast lines exist to override those defaults, never to satisfy the
-// parser.
+// Speakers auto-register on first use, labelled exactly as first written, and
+// the first voice takes the `me` side, so a two-party exchange needs no cast
+// lines at all. Cast lines exist to override those defaults, never to satisfy
+// the parser.
 
 export const CONVERSATION_LANGUAGE = 'conversation';
 
@@ -47,6 +47,8 @@ type Item =
 
 const DECLARATION = /^@([^\s:]+)\s*(.*)$/;
 const ATTRIBUTE = /(\w+)=("[^"]*"|\S+)/g;
+/** Typst's content block: a name is prose, so it is delimited, not quoted. */
+const LABEL_BLOCK = /\[([^\]]*)\]/;
 const MESSAGE = /^([^\s:：][^:：]{0,23})[:：]\s*(.*)$/;
 
 /**
@@ -59,16 +61,6 @@ function isPlausibleName(head: string): boolean {
 }
 
 const CJK = /[　-〿㐀-䶿一-鿿豈-﫿＀-￯]/;
-
-/**
- * A key is typed the way you type it in a message line — lowercase, short — but
- * the name drawn above a bubble is a name. Capitalising the default is what
- * lets `@ada` stand alone instead of needing `label="Ada"` to add one letter.
- * Only a letter is touched, so an emoji or CJK key survives untouched.
- */
-function displayName(name: string): string {
-  return name.replace(/^\p{L}/u, (character) => character.toUpperCase());
-}
 
 /**
  * An indented line is a soft wrap, exactly as in Markdown: it continues the
@@ -99,7 +91,7 @@ export function parseConversation(source: string): { cast: Map<string, Speaker>;
     const key = name.toLowerCase();
     let found = cast.get(key);
     if (!found) {
-      found = { key, label: displayName(name), avatar: '', me: false, accent: '' };
+      found = { key, label: name, avatar: '', me: false, accent: '' };
       cast.set(key, found);
     }
     return found;
@@ -119,16 +111,25 @@ export function parseConversation(source: string): { cast: Map<string, Speaker>;
     const declaration = !indented ? DECLARATION.exec(line) : null;
     if (declaration) {
       const target = speaker(declaration[1]);
-      if (/(^|\s)me(\s|$)/.test(declaration[2])) target.me = true;
+      const rest = declaration[2];
+
+      const block = LABEL_BLOCK.exec(rest);
+      if (block) target.label = block[1].trim();
 
       ATTRIBUTE.lastIndex = 0;
       let attribute: RegExpExecArray | null;
-      while ((attribute = ATTRIBUTE.exec(declaration[2]))) {
+      while ((attribute = ATTRIBUTE.exec(rest))) {
         const value = attribute[2].replace(/^"|"$/g, '');
         if (attribute[1] === 'accent') target.accent = value;
         else if (attribute[1] === 'avatar') target.avatar = value;
         else if (attribute[1] === 'label') target.label = value;
       }
+
+      // `me` is the one bare word on a cast line, so it is read from what is
+      // left after every value has been claimed. Scanning the raw line instead
+      // makes a speaker called `[call me maybe]` silently take the own side.
+      const bare = rest.replace(LABEL_BLOCK, ' ').replace(ATTRIBUTE, ' ');
+      if (/(^|\s)me(\s|$)/.test(bare)) target.me = true;
       continue;
     }
 
