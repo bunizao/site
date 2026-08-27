@@ -180,7 +180,7 @@ const inferListeningSurface = (_pathname: string): 'other' => 'other';`,
         rewriteImports
       ),
       await readRepoRegistryFile(
-        'src/features/home/types.ts',
+        'packages/contracts/src/listening.ts',
         'lib/listening-types.ts',
         'registry:lib'
       ),
@@ -193,7 +193,7 @@ const inferListeningSurface = (_pathname: string): 'other' => 'other';`,
         'src/lib/listening/controller.ts',
         'lib/listening-controller.ts',
         'registry:lib',
-        removeSiteAnalytics
+        (content) => removeSiteAnalytics(rewriteImports(content))
       ),
       await readRepoRegistryFile(
         'src/styles/listening.css',

@@ -22,6 +22,7 @@ import type {
   BlogAnalyticsSummaryResult,
   ContentDocument,
   MoodFeedResponse,
+  ListeningTrack,
   ListeningAnalyticsEventInput,
   ListeningAnalyticsSummary,
   NewsletterAnalyticsSummary,
@@ -40,6 +41,31 @@ describe('@bunizao/contracts', () => {
     expect(MOOD_LIVE_COUNTS_PATH).toBe('/v2/moods/live-counts');
     expect(MOOD_MEDIA_PROXY_BASE_PATH).toBe('/v2/media');
     expect(TELEGRAM_WEBHOOK_PATH).toBe('/webhooks/telegram');
+  });
+
+  test('exports the listening track accent contract', () => {
+    const track = {
+      id: 'track-1',
+      appleCatalogId: '123',
+      title: 'Example',
+      artist: 'Artist',
+      collection: 'Album',
+      appleMusicUrl: 'https://music.apple.com/song/123',
+      artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/example/600x600bb.jpg',
+      thumbUrl: 'https://is1-ssl.mzstatic.com/image/thumb/example/100x100bb.jpg',
+      accent: { hue: 48, chromaLight: 0.12, chromaDark: 0.1 },
+      previewUrl: '',
+      year: '2026',
+      genre: 'Alternative',
+      releaseKind: 'album',
+      trackNumber: '1',
+      trackCount: '10',
+      sourceUrl: 'https://www.last.fm/music/example',
+      isNowPlaying: true,
+      playedAt: '',
+    } satisfies ListeningTrack;
+
+    expect(track.accent.hue).toBe(48);
   });
 
   test('accepts mood and post content documents under one DTO shape', () => {

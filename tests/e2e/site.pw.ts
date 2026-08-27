@@ -56,6 +56,7 @@ function createListeningPayload(overrides: Record<string, unknown>) {
       appleMusicUrl: 'https://music.apple.com/test',
       artworkUrl: '/avatar.webp',
       thumbUrl: '/avatar.webp',
+      accent: { hue: 48, chromaLight: 0.12, chromaDark: 0.1 },
       previewUrl: '',
       year: '2010',
       genre: 'Hip-Hop/Rap',
@@ -795,6 +796,20 @@ test.describe('Home page', () => {
     const title = page.locator('[data-listening-title]');
 
     await expect(page.locator('[data-listening-title-label]')).toHaveText('All of the Lights');
+    const listening = page.locator('[data-listening]');
+    await expect(listening).toHaveAttribute('data-accent', '');
+    await expect(page.locator('[data-listening-artwork]')).not.toHaveAttribute('crossorigin', /.+/u);
+    expect(await listening.evaluate((element) => ({
+      hue: (element as HTMLElement).style.getPropertyValue('--listening-accent-h'),
+      chromaLight: (element as HTMLElement).style.getPropertyValue('--listening-accent-c-light'),
+      chromaDark: (element as HTMLElement).style.getPropertyValue('--listening-accent-c-dark'),
+      canvases: element.querySelectorAll('canvas').length,
+    }))).toEqual({
+      hue: '48.0',
+      chromaLight: '0.120',
+      chromaDark: '0.100',
+      canvases: 0,
+    });
     await expect(track).toHaveClass(/is-inline/);
     await expect(title).not.toHaveClass(/is-marquee/);
     expect(legacyRequests).toBe(0);

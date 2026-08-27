@@ -26,6 +26,11 @@
       "import": "./src/content.ts",
       "default": "./src/content.ts"
     },
+    "./listening": {
+      "types": "./src/listening.ts",
+      "import": "./src/listening.ts",
+      "default": "./src/listening.ts"
+    },
     "./mood": {
       "types": "./src/mood.ts",
       "import": "./src/mood.ts",
