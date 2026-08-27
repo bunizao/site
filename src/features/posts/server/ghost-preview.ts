@@ -12,6 +12,7 @@ import {
   transformPostDirectives,
   type DirectiveTransformResult,
 } from './directives';
+import { promoteConversationBlocks } from './code-blocks';
 
 const E2E_POST_ID = '5ddc9141c35e7700383b2937';
 
@@ -53,6 +54,14 @@ function e2eGhostAdminClient(): GhostAdminClient {
         html: [
           '<p>[!authors ai="anthropic/claude-opus-4-6" note="reviewed the draft"]</p>',
           '<blockquote><p>E2E preview line — Ada</p></blockquote>',
+          '<figure class="kg-card kg-code-card"><pre><code class="language-conversation">',
+          '```conversation\n',
+          '@conversation avatars=on names=on tints=off\n',
+          '@gemini [Gemini] accent=#6E7FD8 tints=on\n',
+          'you: preview this draft\n',
+          'gemini: render this as conversation\n',
+          '```',
+          '</code></pre></figure>',
         ].join(''),
         status: 'draft',
         updatedAt: '2026-07-31T11:59:00.000Z',
@@ -113,7 +122,7 @@ export async function resolveGhostDraftPreview(
     return {
       ok: true,
       post,
-      html: transformed.html,
+      html: promoteConversationBlocks(transformed.html),
       meta: transformed.meta,
     };
   } catch (error) {

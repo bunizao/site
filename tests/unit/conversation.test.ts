@@ -9,7 +9,10 @@ import {
   textOnAccent,
   tintedBubble,
 } from '@/features/content/conversation';
-import { splitBlogProse } from '@/features/posts/server/code-blocks';
+import {
+  promoteConversationBlocks,
+  splitBlogProse,
+} from '@/features/posts/server/code-blocks';
 
 const BUBBLE_LIGHT = '#ECECEC';
 const BUBBLE_DARK = '#232323';
@@ -509,6 +512,27 @@ describe('conversation fences in blog prose', () => {
     const fragments = splitBlogProse('<pre><code class="language-ts">const a = 1;</code></pre>');
 
     expect(fragments).toEqual([{ kind: 'code', code: 'const a = 1;', lang: 'ts' }]);
+  });
+
+  test('promotes draft conversations without rewriting ordinary code cards', () => {
+    const ordinary = '<pre><code class="language-ts">const a = 1;</code></pre>';
+    const conversation = [
+      '<figure class="kg-card kg-code-card"><pre><code class="language-conversation">',
+      '```conversation\n',
+      '@conversation tints=off\n',
+      '@gemini [Gemini] accent=#6E7FD8 tints=on\n',
+      'you: preview\n',
+      'gemini: promoted\n',
+      '```',
+      '</code></pre></figure>',
+    ].join('');
+
+    const html = promoteConversationBlocks(ordinary + conversation);
+
+    expect(html.startsWith(ordinary)).toBe(true);
+    expect(html).toContain('class="conv-thread"');
+    expect(html).toContain('data-tints="off"');
+    expect(html).not.toContain('language-conversation');
   });
 
   test('matches the language case-insensitively', () => {

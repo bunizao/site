@@ -1,5 +1,5 @@
 import { load } from 'cheerio';
-import { isConversationLanguage } from '@/features/content/conversation';
+import { isConversationLanguage, renderConversation } from '@/features/content/conversation';
 
 export type BlogProseFragment =
   | { kind: 'html'; html: string }
@@ -30,7 +30,7 @@ function codeLanguage(className: string | undefined, dataLanguage: string | unde
   return (languageClass?.replace(/^(?:language|lang)-/, '') || dataLanguage || 'text').toLowerCase();
 }
 
-export function splitBlogProse(html: string): BlogProseFragment[] {
+function findCodeBlocks(html: string): CodeBlock[] {
   const $ = load(html, { sourceCodeLocationInfo: true }, false);
   const blocks: CodeBlock[] = [];
 
@@ -56,6 +56,11 @@ export function splitBlogProse(html: string): BlogProseFragment[] {
   });
 
   blocks.sort((left, right) => left.start - right.start);
+  return blocks;
+}
+
+export function splitBlogProse(html: string): BlogProseFragment[] {
+  const blocks = findCodeBlocks(html);
   if (blocks.length === 0) return [{ kind: 'html', html }];
 
   const fragments: BlogProseFragment[] = [];
@@ -79,4 +84,26 @@ export function splitBlogProse(html: string): BlogProseFragment[] {
   }
 
   return fragments;
+}
+
+/**
+ * Draft previews keep ordinary Ghost code cards unchanged to avoid loading the
+ * full CodeBox syntax-highlighting bundle into the Worker. Conversation cards
+ * are lightweight and can still use the same renderer as published posts.
+ */
+export function promoteConversationBlocks(html: string): string {
+  const blocks = findCodeBlocks(html).filter((block) => isConversationLanguage(block.lang));
+  if (blocks.length === 0) return html;
+
+  const fragments: string[] = [];
+  let cursor = 0;
+
+  for (const block of blocks) {
+    if (block.start < cursor) continue;
+    fragments.push(html.slice(cursor, block.start), renderConversation(block.code));
+    cursor = block.end;
+  }
+
+  fragments.push(html.slice(cursor));
+  return fragments.join('');
 }

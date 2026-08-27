@@ -421,6 +421,11 @@ test.describe('Blog reading UI', () => {
     await expect(page.locator('[data-ghost-draft-preview]')).toBeVisible();
     await expect(page.locator('.blog-article__title')).toHaveText('E2E Ghost draft');
     await expect(page.locator('.blog-prose blockquote')).toContainText('E2E preview line');
+    const conversation = page.locator('.blog-prose .conv-thread');
+    await expect(conversation).toHaveCount(1);
+    await expect(conversation).toHaveAttribute('data-tints', 'off');
+    await expect(conversation.locator('.conv-group--in')).toHaveAttribute('data-tints', 'on');
+    await expect(page.locator('.blog-prose pre code.language-conversation')).toHaveCount(0);
     await expect(page.locator('.ai-credit')).toContainText('Claude Opus 4.6');
     await expect(page.locator('.ai-credit')).toContainText('reviewed the draft.');
     await expect(page.locator('.not-by-ai')).toHaveCount(0);
