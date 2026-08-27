@@ -239,6 +239,7 @@ describe('conversation parsing', () => {
       '@a [A]avatar=x',
       '@a []',
       '@a accent=#fff accent=#000',
+      '@a tints=maybe',
     ]) {
       const { cast, items } = parseConversation(line);
 
@@ -287,13 +288,16 @@ describe('conversation parsing', () => {
     expect(cast.get('octo')?.avatar).toBe('https://example.com/o.png');
   });
 
-  test('reads label, accent and avatar off a cast line', () => {
-    const { cast } = parseConversation('@tu [Tu Tu] accent=#B4603A avatar=🐈');
+  test('reads label, accent, visibility overrides and avatar off a cast line', () => {
+    const { cast } = parseConversation(
+      '@tu [Tu Tu] accent=#B4603A avatar=🐈 avatars=off names=on tints=off',
+    );
     const speaker = cast.get('tu');
 
     expect(speaker?.label).toBe('Tu Tu');
     expect(speaker?.accent).toBe('#B4603A');
     expect(speaker?.avatar).toBe('🐈');
+    expect(speaker?.options).toEqual({ avatars: false, names: true, tints: false });
   });
 });
 
@@ -411,7 +415,7 @@ describe('conversation rendering', () => {
     expect(html).toContain('--conv-tint-dark:' + tintedBubble('#4E7A5E', BUBBLE_DARK));
   });
 
-  test('marks the thread so the tint can be switched off wholesale', () => {
+  test('applies the thread tint default to every speaker', () => {
     const on = renderConversation(['@a accent=#4E7A5E', 'a: hi'].join('\n'));
     const off = renderConversation(
       ['@conversation tints=off', '@a accent=#4E7A5E', 'a: hi'].join('\n'),
@@ -419,9 +423,30 @@ describe('conversation rendering', () => {
 
     expect(on).toContain('data-tints="on"');
     expect(off).toContain('data-tints="off"');
-    // The speaker keeps its colours either way: the switch is one CSS rule on
-    // the thread, so nothing has to re-render to flip it.
+    expect(off).toContain(
+      'class="conv-group conv-group--out" data-avatars="on" data-names="on" data-tints="off"',
+    );
     expect(off).toContain('--conv-tint-light:');
+  });
+
+  test('lets each speaker override every thread option', () => {
+    const html = renderConversation(
+      [
+        '@conversation avatars=off names=off tints=off',
+        '@gemini [Gemini] accent=#6E7FD8 avatars=on names=on tints=on',
+        '@ada [Ada] accent=#6F8F9D',
+        'you: compare',
+        'gemini: overridden',
+        'ada: inherited',
+      ].join('\n'),
+    );
+
+    expect(html).toContain(
+      'class="conv-group conv-group--in" data-avatars="on" data-names="on" data-tints="on" style="--conv-accent:#6E7FD8',
+    );
+    expect(html).toContain(
+      'class="conv-group conv-group--in" data-avatars="off" data-names="off" data-tints="off" style="--conv-accent:#6F8F9D',
+    );
   });
 
   test('leaves the bubble neutral when no accent is declared', () => {

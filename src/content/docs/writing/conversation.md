@@ -37,21 +37,28 @@ header and cannot be used as a speaker key:
 
 ````markdown
 ```conversation
-@conversation avatars=off names=off
+@conversation avatars=on names=on tints=off
+@gemini [Gemini] accent=#6E7FD8 tints=on
+@ada [Ada] accent=#6F8F9D
 
-you: this source is ready to paste.
-ada: Both switches are part of the source.
+gemini: My tint overrides the thread default.
+ada: I inherit the neutral receiving bubble.
 ```
 ````
 
 | Option | Default | Effect when `off` |
 | --- | --- | --- |
-| `avatars` | `on` | Hides every avatar while preserving the alignment gutter. |
-| `names` | `on` | Hides visible speaker names; accessible labels remain. |
-| `tints` | `on` | Drops the accent tint; every receiving bubble goes neutral. |
+| `avatars` | `on` | Hides avatars while preserving their alignment gutters. |
+| `names` | `on` | Hides visible names; accessible labels remain. |
+| `tints` | `on` | Leaves receiving bubbles neutral. |
 
 Only `on` and `off` are valid. Unknown, repeated, malformed, or misplaced
 options remain visible as prose instead of being partially applied.
+
+Thread options are defaults inherited by every speaker. Put the same option on
+a cast line to override it for that speaker only; omitted speaker options keep
+the thread value. This precedence applies uniformly to `avatars`, `names`, and
+`tints`.
 
 ## Messages
 
@@ -164,7 +171,8 @@ A line starting with `@` declares a speaker before they talk. Every attribute
 is optional — cast lines exist to override defaults, not to satisfy the parser.
 
 ```conversation
-@Ada accent=#4E7A5E
+@gemini [Gemini] accent=#6E7FD8 tints=on
+@ada [Ada] accent=#6F8F9D
 @tutu [图图] accent=#B4603A avatar=🐈
 ```
 
@@ -173,6 +181,9 @@ is optional — cast lines exist to override defaults, not to satisfy the parser
 | `[…]` | Display name. Defaults to the key, exactly as first written. |
 | `accent=#RRGGBB` | Custom hue for the own-side fill, receiving-side tint, and name. Must be a hex colour. |
 | `avatar=…` | See below. |
+| `avatars=on` or `avatars=off` | Overrides the thread avatar default for this speaker. |
+| `names=on` or `names=off` | Overrides the thread name default for this speaker. |
+| `tints=on` or `tints=off` | Overrides the thread tint default for this speaker. |
 
 A value is one token: `name=value`, never quoted. The display name is the one
 thing that is a phrase, so it is the one thing that is a content block —
@@ -240,6 +251,10 @@ The tint is what makes a colour worth declaring on a thread running
 the only surface left. It stays a tint on purpose — one side filled outright is
 what tells a reader which way the conversation runs, and two filled sides lose
 that. `tints=off` drops it entirely.
+
+Put `tints=off` on a cast line to keep only that speaker's receiving bubbles
+neutral. The speaker value overrides the thread default in either direction, so
+`tints=on` can opt one speaker back in when `@conversation tints=off`.
 
 The tint is **not** your hex mixed into the bubble. It keeps the hue, pins
 lightness beside the bubble's own, and caps chroma, all in OKLCH. That is what
