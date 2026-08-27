@@ -7,18 +7,18 @@
 // Syntax (see docs/CONVERSATION-SYNTAX.md):
 //
 //   @ada accent=#4E7A5E avatar=🐈     cast line: override a default
-//   @tutu [图图] me                    [name] = label, me = the own side
+//   @tutu [图图]                       [name] = the label
 //
-//   you: how wide should a bubble be?    message
+//   you: how wide should a bubble be?    message; you/me/你/我 = the own side
 //   ada: 30em.
 //   ada: A CJK glyph is 1em and a Latin
 //     glyph about half that.             indented -> soft wrap, same bubble
 //   --- later                            divider, with or without a label
 //
 // Speakers auto-register on first use, labelled exactly as first written, and
-// the first voice takes the `me` side, so a two-party exchange needs no cast
-// lines at all. Cast lines exist to override those defaults, never to satisfy
-// the parser.
+// the first voice takes the own side when no own-side key appears, so a
+// two-party exchange needs no cast lines at all. Cast lines exist to override
+// those defaults, never to satisfy the parser.
 
 export const CONVERSATION_LANGUAGE = 'conversation';
 
@@ -31,7 +31,7 @@ interface Speaker {
   key: string;
   label: string;
   avatar: string;
-  /** Renders on the trailing side with the filled bubble. At most one wins. */
+  /** Renders on the trailing side, filled, with no visible name or avatar. */
   me: boolean;
   /** Author-supplied hex. Empty means the monochrome default. */
   accent: string;
@@ -49,6 +49,21 @@ const DECLARATION = /^@([^\s:]+)\s*(.*)$/;
 const ATTRIBUTE = /(\w+)=("[^"]*"|\S+)/g;
 /** Typst's content block: a name is prose, so it is delimited, not quoted. */
 const LABEL_BLOCK = /\[([^\]]*)\]/;
+
+/**
+ * The own side of a thread draws no name and no avatar — a reader does not need
+ * reminding what they look like — so it needs no identity, only a key to group
+ * its runs under. These are those keys.
+ *
+ * `me:` and `you:` are the two framings a thread gets written in: the author
+ * speaking, or the reader cast as the one asking. 我 and 你 are the same two,
+ * reachable without leaving a Chinese keyboard, exactly as `：` is.
+ *
+ * Naming the side at the point of use is the whole trick. The alternative was a
+ * bare `me` on a cast line, which is a token that renders nothing, exists only
+ * to move a bubble, and reads as an identity next to a key that is also one.
+ */
+const OWN_SIDE = new Set(['me', 'you', '我', '你']);
 const MESSAGE = /^([^\s:：][^:：]{0,23})[:：]\s*(.*)$/;
 
 /**
@@ -91,7 +106,7 @@ export function parseConversation(source: string): { cast: Map<string, Speaker>;
     const key = name.toLowerCase();
     let found = cast.get(key);
     if (!found) {
-      found = { key, label: name, avatar: '', me: false, accent: '' };
+      found = { key, label: name, avatar: '', me: OWN_SIDE.has(key), accent: '' };
       cast.set(key, found);
     }
     return found;
@@ -124,12 +139,6 @@ export function parseConversation(source: string): { cast: Map<string, Speaker>;
         else if (attribute[1] === 'avatar') target.avatar = value;
         else if (attribute[1] === 'label') target.label = value;
       }
-
-      // `me` is the one bare word on a cast line, so it is read from what is
-      // left after every value has been claimed. Scanning the raw line instead
-      // makes a speaker called `[call me maybe]` silently take the own side.
-      const bare = rest.replace(LABEL_BLOCK, ' ').replace(ATTRIBUTE, ' ');
-      if (/(^|\s)me(\s|$)/.test(bare)) target.me = true;
       continue;
     }
 
@@ -163,8 +172,8 @@ export function parseConversation(source: string): { cast: Map<string, Speaker>;
     items.push({ type: 'note', text: line });
   }
 
-  // With no explicit `me`, the first voice on stage owns the trailing side. An
-  // author writing a two-party exchange gets the right layout for free.
+  // With no own-side key on stage, the first voice takes that side. Two named
+  // strangers still lay out as a conversation rather than as two columns.
   if (![...cast.values()].some((s) => s.me) && firstVoice) firstVoice.me = true;
 
   return { cast, items };

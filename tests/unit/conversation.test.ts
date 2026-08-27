@@ -39,18 +39,29 @@ describe('conversation parsing', () => {
     expect(items[0]).toMatchObject({ type: 'group' });
   });
 
-  test('gives the trailing side to the first voice when no speaker declares me', () => {
+  test('gives the trailing side to the first voice when no own-side key speaks', () => {
     const { cast } = parseConversation(['ann: hello', 'bob: hi'].join('\n'));
 
     expect(cast.get('ann')?.me).toBe(true);
     expect(cast.get('bob')?.me).toBe(false);
   });
 
-  test('an explicit me wins over the first-voice default', () => {
-    const { cast } = parseConversation(['@bob me', 'ann: hello', 'bob: hi'].join('\n'));
+  test('an own-side key takes that side wherever it speaks', () => {
+    const { cast } = parseConversation(['ann: hello', 'me: hi'].join('\n'));
 
     expect(cast.get('ann')?.me).toBe(false);
-    expect(cast.get('bob')?.me).toBe(true);
+    expect(cast.get('me')?.me).toBe(true);
+  });
+
+  test('reads you, 我 and 你 as own-side keys too', () => {
+    const { cast } = parseConversation(['ann: hello', 'you: a', '我: b', '你: c'].join('\n'));
+
+    expect(cast.get('ann')?.me).toBe(false);
+    expect([cast.get('you'), cast.get('我'), cast.get('你')].map((s) => s?.me)).toEqual([
+      true,
+      true,
+      true,
+    ]);
   });
 
   test('collapses consecutive messages from one speaker into a single run', () => {
@@ -129,11 +140,10 @@ describe('conversation parsing', () => {
     expect(cast.get('tutu')?.avatar).toBe('\u{1F408}');
   });
 
-  test('does not read the me flag out of a display name', () => {
-    const { cast } = parseConversation(['@a [call me maybe]', '@b label="call me maybe"'].join('\n'));
+  test('a display name is never mistaken for the own side', () => {
+    const { cast } = parseConversation(['ann: hi', '@ann [call me maybe]'].join('\n'));
 
-    expect(cast.get('a')?.me).toBe(false);
-    expect(cast.get('b')?.me).toBe(false);
+    expect(cast.get('ann')?.label).toBe('call me maybe');
   });
 
   test('reads label, accent and avatar off a cast line', () => {
@@ -148,9 +158,11 @@ describe('conversation parsing', () => {
 
 describe('conversation rendering', () => {
   test('labels only the first bubble of a run', () => {
-    const html = renderConversation(['@bob me', 'ann: one', 'ann: two'].join('\n'));
+    const html = renderConversation(['me: hi', 'ann: one', 'ann: two'].join('\n'));
 
-    expect(html.match(/conv-name/g)).toHaveLength(1);
+    // One visible name for Ann's run, plus the screen-reader-only one on mine.
+    expect(html.match(/class="conv-name/g)).toHaveLength(2);
+    expect(html.match(/conv-name--sr/g)).toHaveLength(1);
   });
 
   test('keeps the own-side label in the accessibility tree instead of dropping it', () => {

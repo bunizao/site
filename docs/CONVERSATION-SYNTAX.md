@@ -35,7 +35,7 @@ bob: that's all.
 
 The key is lowercased for matching but shown exactly as you first wrote it, so
 `Ann:` renders **Ann** and `ann:` renders **ann** — the parser never restyles
-your name. The first voice takes the trailing side.
+your name.
 
 Both `:` and `：` work as the separator, so a Chinese keyboard never has to
 switch. A name is at most 24 characters and may not contain a colon.
@@ -44,6 +44,33 @@ Not every `x: y` line becomes a message. A head that is a URL scheme
 (`https`, `mailto`, `tel`, `ftp`) or that contains Markdown punctuation is
 treated as prose, so a bare link on its own line does not turn into a
 phantom speaker.
+
+### The own side
+
+Four keys are reserved: **`me`**, **`you`**, **`我`**, **`你`**. Whoever speaks
+under one of them is drawn on the trailing edge, filled, with no name and no
+avatar — a reader does not need reminding what they look like.
+
+```conversation
+@Ada avatar=🐈
+
+me: how wide should a bubble be?
+ada: 30em.
+```
+
+`me:` and `you:` are the two framings a thread gets written in — you speaking,
+or the reader cast as the one asking — and 我 / 你 are the same two without
+leaving a Chinese keyboard, exactly as `：` is. Pick whichever reads right; the
+output is identical.
+
+Naming the side where you use it means there is no attribute for it. If no
+reserved key speaks, **the first voice** takes that side — which is why the
+`ann` / `bob` thread above already lays out as a conversation.
+
+The name on the own side is still emitted, screen-reader-only. Alignment and
+fill are the only visible attribution and neither reaches assistive technology,
+so dropping the label outright would leave those messages unattributed. Give it
+one worth hearing with a cast line: `@me [Lucian]`.
 
 ### Runs
 
@@ -98,7 +125,7 @@ is optional — cast lines exist to override defaults, not to satisfy the parser
 
 ```conversation
 @Ada accent=#4E7A5E
-@tutu [图图] accent=#B4603A avatar=🐈 me
+@tutu [图图] accent=#B4603A avatar=🐈
 ```
 
 | Written as | Effect |
@@ -106,7 +133,6 @@ is optional — cast lines exist to override defaults, not to satisfy the parser
 | `[…]` | Display name. Defaults to the key, exactly as first written. |
 | `accent=#RRGGBB` | Custom hue for the fill and the name. Must be a hex colour. |
 | `avatar=…` | See below. |
-| `me` | Renders this speaker on the trailing side with the filled bubble. |
 
 Values are `name=value`; the display name is a content block in brackets,
 borrowed from [Typst](https://typst.app), where `[…]` means *this is prose, not
@@ -114,8 +140,8 @@ a token*. A name is the one attribute that is a phrase, so it is the one that
 should not need quoting or escaping. `label="…"` is the same thing spelled
 long, and still works.
 
-`me` is the one bare word. It is read from what is left of the line after every
-value has been claimed, so a speaker called `[call me maybe]` stays a name.
+There is no attribute for which side a speaker sits on. That is the key's job —
+see [the own side](#the-own-side).
 
 ### `[name]`
 
@@ -136,22 +162,6 @@ not in, a name that is not the handle:
 @tutu [图图] avatar=🐈
 @octo [Octocat] avatar=https://avatars.githubusercontent.com/u/583231?v=4
 ```
-
-### `me`
-
-`me` is a bare flag, not a name: it says *this speaker is the one holding the
-phone*, and it is the only thing on a cast line that is not `key=value`. That
-speaker is drawn on the trailing edge, filled, and without an avatar — a reader
-does not need reminding what they look like.
-
-With no explicit `me`, **the first voice to speak** takes that side, so a
-two-party exchange gets the right layout with no cast lines at all. `@you me`
-is only worth writing when the person on your side is *not* the one who opens
-the thread.
-
-The name on a `me` run is still emitted, screen-reader-only. Alignment and fill
-are the only visible attribution and neither reaches assistive technology, so
-dropping the label outright would leave those messages unattributed.
 
 ### `accent`
 

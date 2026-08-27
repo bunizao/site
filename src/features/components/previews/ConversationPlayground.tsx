@@ -30,7 +30,6 @@ const SAMPLES: { name: string; source: string }[] = [
   {
     name: 'Group',
     source: [
-      '@you me',
       '@Ada',
       '@Grace accent=#4E7A5E',
       '@Alan accent=#7C5CD6',
@@ -69,7 +68,7 @@ const SAMPLES: { name: string; source: string }[] = [
     source: [
       '@tutu [图图] accent=#B4603A avatar=🐈',
       '',
-      'you: 中英混排会不会打架？',
+      '我: 中英混排会不会打架？',
       'tutu: 不会。一个汉字正好 1em，拉丁字母大约',
       '  0.5em，所以同一个 `30em` 既是 30 个汉字，也是 60 个字母。',
       'tutu: 缝隙是排版画出来的，源码里一个空格都没多。',
