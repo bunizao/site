@@ -12,7 +12,10 @@ import {
 } from '@/features/mood/shared/feed-anchor';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import { findTooBigVideoMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
-import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
+import {
+  getMoodFeedThumbnailStyle,
+  resolveMoodFeedImageLayout,
+} from '@/features/mood/shared/feed-thumbnail';
 import { formatMoodDateHeader, formatMoodTime } from '@/features/mood/shared/date-grouping';
 import { getMoodTagHref } from '@/features/mood/shared/tag-filter';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
@@ -52,26 +55,6 @@ function isLongContent(text: string): boolean {
 
 function isPositiveDimension(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
-}
-
-type FeedImageLayout = 'landscape' | 'portrait' | 'ultra-tall';
-
-function resolveFeedImageLayout(
-  value: unknown,
-  width: number | null,
-  height: number | null,
-): FeedImageLayout | null {
-  if (value === 'landscape' || value === 'portrait' || value === 'ultra-tall') {
-    return value;
-  }
-  if (!isPositiveDimension(width) || !isPositiveDimension(height)) {
-    return null;
-  }
-
-  const aspectRatio = width / height;
-  if (aspectRatio < 0.6) return 'ultra-tall';
-  if (aspectRatio < 0.8) return 'portrait';
-  return 'landscape';
 }
 
 function buildPreviewFragment(previewText: string, previewHtml?: string): DocumentFragment {
@@ -478,7 +461,7 @@ export function createFeedRenderer({
 
       const imageLayout = isTooBigVideoPreview
         ? null
-        : resolveFeedImageLayout(mood.imageLayout, imageWidth, imageHeight);
+        : resolveMoodFeedImageLayout(mood.imageLayout, imageWidth, imageHeight);
       if (imageLayout === 'portrait') {
         thumbWrap.classList.add('mood-item-thumb--portrait');
       } else if (imageLayout === 'ultra-tall') {
@@ -588,7 +571,7 @@ export function createFeedRenderer({
             return;
           }
 
-          const loadedImageLayout = resolveFeedImageLayout(null, img.naturalWidth, img.naturalHeight);
+          const loadedImageLayout = resolveMoodFeedImageLayout(null, img.naturalWidth, img.naturalHeight);
           if (loadedImageLayout === 'ultra-tall') {
             thumbWrap.classList.add('mood-item-thumb--ultra-tall');
           } else if (loadedImageLayout === 'portrait') {

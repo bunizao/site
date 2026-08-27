@@ -4,6 +4,8 @@ export interface MoodFeedThumbnailInput {
   imageLayout?: 'landscape' | 'portrait' | 'ultra-tall' | null;
 }
 
+export type MoodFeedImageLayout = 'landscape' | 'portrait' | 'ultra-tall';
+
 function isPositiveNumber(value: number | null | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }
@@ -20,6 +22,25 @@ const containedBoxByLayout = {
     { name: '-lg', maxWidth: 220, maxHeight: 400 },
   ],
 } as const;
+
+/** Resolve the layout consistently before and after client hydration. */
+export function resolveMoodFeedImageLayout(
+  value: unknown,
+  imageWidth?: number | null,
+  imageHeight?: number | null,
+): MoodFeedImageLayout | null {
+  if (value === 'landscape' || value === 'portrait' || value === 'ultra-tall') {
+    return value;
+  }
+  if (!isPositiveNumber(imageWidth) || !isPositiveNumber(imageHeight)) {
+    return null;
+  }
+
+  const aspectRatio = imageWidth / imageHeight;
+  if (aspectRatio < 0.6) return 'ultra-tall';
+  if (aspectRatio < 0.8) return 'portrait';
+  return 'landscape';
+}
 
 function formatCssNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
@@ -41,8 +62,9 @@ export function getMoodFeedThumbnailStyle(input: MoodFeedThumbnailInput): string
      tall. Every feed item with one collapsed and then popped open mid-scroll.
      These widths are the contained box the image will land in, so the wrapper
      holds its own height from first paint. */
-  if (input.imageLayout === 'portrait' || input.imageLayout === 'ultra-tall') {
-    const boxes = containedBoxByLayout[input.imageLayout];
+  const layout = resolveMoodFeedImageLayout(input.imageLayout, input.imageWidth, input.imageHeight);
+  if (layout === 'portrait' || layout === 'ultra-tall') {
+    const boxes = containedBoxByLayout[layout];
     boxes.forEach((box) => {
       const width = Math.min(box.maxWidth, box.maxHeight * ratio);
       declarations.push(`--mood-thumb-reserved-width${box.name}:${formatCssNumber(width)}px`);

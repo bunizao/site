@@ -3,7 +3,10 @@ import Hero from '@/features/mood/ui/Hero.astro';
 import type { MoodFeedItem, MoodChannelSummary } from '@/features/mood/server/contracts';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
 import { findTooBigVideoMedia, hasStructuredMoodFeedMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
-import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
+import {
+  getMoodFeedThumbnailStyle,
+  resolveMoodFeedImageLayout,
+} from '@/features/mood/shared/feed-thumbnail';
 import {
   getMoodDetailHref,
   getMoodFeedAnchorFragmentId,
@@ -114,9 +117,10 @@ function getThumbClass(
     classes.push('mood-item-thumb--sticker');
   }
   if (!isTooBigVideoPreview) {
-    if (post.imageLayout === 'portrait') {
+    const imageLayout = resolveMoodFeedImageLayout(post.imageLayout, post.imageWidth, post.imageHeight);
+    if (imageLayout === 'portrait') {
       classes.push('mood-item-thumb--portrait');
-    } else if (post.imageLayout === 'ultra-tall') {
+    } else if (imageLayout === 'ultra-tall') {
       classes.push('mood-item-thumb--ultra-tall');
     }
   }

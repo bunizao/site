@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 
-import { getMoodFeedThumbnailStyle } from '../../src/features/mood/shared/feed-thumbnail';
+import {
+  getMoodFeedThumbnailStyle,
+  resolveMoodFeedImageLayout,
+} from '../../src/features/mood/shared/feed-thumbnail';
 
 describe('mood feed thumbnails', () => {
   test('does not reserve a square background when image height is unknown', () => {
@@ -22,6 +25,19 @@ describe('mood feed thumbnails', () => {
       })
     ).toBe(
       'aspect-ratio:600 / 800;--mood-thumb-ratio:600 / 800;--mood-thumb-reserved-width:210px;--mood-thumb-reserved-width-sm:240px;--mood-thumb-reserved-width-lg:260px;'
+    );
+  });
+
+  test('derives the portrait box when image layout metadata is missing', () => {
+    expect(resolveMoodFeedImageLayout(null, 960, 1280)).toBe('portrait');
+    expect(
+      getMoodFeedThumbnailStyle({
+        imageWidth: 960,
+        imageHeight: 1280,
+        imageLayout: null,
+      })
+    ).toBe(
+      'aspect-ratio:960 / 1280;--mood-thumb-ratio:960 / 1280;--mood-thumb-reserved-width:210px;--mood-thumb-reserved-width-sm:240px;--mood-thumb-reserved-width-lg:260px;'
     );
   });
 
