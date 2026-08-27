@@ -938,6 +938,89 @@ test.describe('Mood routes', () => {
     expect(dateGroupsHaveItems).toBe(true);
   });
 
+  test('hydrates anchored live metadata before the first visible positioning', async ({ page }) => {
+    const anchorId = '1000';
+    const reactionId = '1001';
+    const channel = { slug: 'e2e', title: 'E2E Channel' };
+    const posts = Array.from({ length: 25 }, (_value, index) => {
+      const id = String(1024 - index);
+      return createMoodFeedPost(id, `E2E anchor metadata item ${id} ${'body '.repeat(50)}`);
+    });
+
+    await page.addInitScript(({ targetId, hydratedId }) => {
+      const originalScrollIntoView = Element.prototype.scrollIntoView;
+      const originalScrollBy = HTMLElement.prototype.scrollBy;
+      (window as any).__anchorPositioning = [];
+      (window as any).__anchorScrollByCalls = 0;
+      Element.prototype.scrollIntoView = function patchedScrollIntoView(
+        arg?: boolean | ScrollIntoViewOptions
+      ) {
+        if (this instanceof HTMLElement && this.dataset.moodId === targetId) {
+          (window as any).__anchorPositioning.push({
+            liveMetaReady: Boolean(document.querySelector(
+              `[data-mood-id="${hydratedId}"] [data-mood-reaction-key]`
+            )),
+          });
+        }
+        return originalScrollIntoView.call(this, arg as any);
+      };
+      HTMLElement.prototype.scrollBy = function patchedScrollBy(
+        this: HTMLElement,
+        first?: number | ScrollToOptions,
+        second?: number,
+      ) {
+        if (this.matches('[data-page-scroller]')) {
+          (window as any).__anchorScrollByCalls += 1;
+        }
+        if (typeof first === 'number') return originalScrollBy.call(this, first, second ?? 0);
+        return (originalScrollBy as (this: HTMLElement, options?: ScrollToOptions) => void).call(this, first);
+      } as typeof HTMLElement.prototype.scrollBy;
+    }, { targetId: anchorId, hydratedId: reactionId });
+
+    await page.route('**/api/v2/moods/live-counts**', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          counts: Object.fromEntries(posts.map((post) => [
+            post.id,
+            {
+              commentsCount: 0,
+              reactions: post.id === reactionId
+                ? [{ emoji: '💩', count: '3', isPaid: false }]
+                : [],
+            },
+          ])),
+        }),
+      });
+    });
+
+    await page.route(/\/api\/v2\/mood(?:\?|$)/, async (route) => {
+      const before = new URL(route.request().url()).searchParams.get('before');
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts: before === '1011' ? posts : [], channel }),
+      });
+    });
+
+    await page.goto(`/mood?${anchorId}&source=archive`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator(`[data-mood-id="${anchorId}"]`)).toBeVisible();
+    await expect(page.locator(`[data-mood-id="${reactionId}"] [data-mood-reaction-key]`)).toHaveCount(1);
+    await expect.poll(() => page.locator(`[data-mood-id="${anchorId}"]`).evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.top >= 0 && rect.bottom <= window.innerHeight;
+    })).toBe(true);
+
+    const result = await page.evaluate(() => ({
+      positioning: (window as any).__anchorPositioning,
+      scrollByCalls: (window as any).__anchorScrollByCalls,
+    }));
+    expect(result.positioning).toEqual([{ liveMetaReady: true }]);
+    expect(result.scrollByCalls).toBe(0);
+  });
+
   test('renders a grouped album once and preserves a member alias through detail navigation', async ({ page }) => {
     const canonicalId = '3470';
     const anchorId = '3472';
