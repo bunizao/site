@@ -9,6 +9,11 @@ function normalizePortalApiPath(path: string | undefined): string | null {
   if (cleanPath !== 'admin' && !cleanPath.startsWith('admin/')) {
     return null;
   }
+  // The prefix check above runs before `url.pathname` collapses dot segments,
+  // so `admin/../../v2/...` would pass it and then resolve outside `/api/admin`.
+  if (cleanPath.split('/').some((segment) => segment === '.' || segment === '..')) {
+    return null;
+  }
   return `/api/${cleanPath}`;
 }
 

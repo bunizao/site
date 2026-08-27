@@ -34,6 +34,26 @@ describe('portal admin API proxy', () => {
     expect(await response.json()).toEqual({ rows: [], total: 0 });
   });
 
+  test('rejects dot segments that would resolve outside the admin prefix', async () => {
+    let called = false;
+    const api = createApiBinding(() => {
+      called = true;
+      return Response.json({});
+    });
+
+    for (const path of ['admin/../../v2/mood/feed', 'admin/./../v2', 'admin/subscribers/..']) {
+      const response = await ALL({
+        request: new Request(`https://buxx.me/dev/portal/api/${path}`),
+        params: { path },
+        locals: { env: { API: api } },
+      } as never);
+
+      expect(response.status).toBe(404);
+    }
+
+    expect(called).toBe(false);
+  });
+
   test('rejects non-admin portal API paths', async () => {
     let called = false;
     const api = createApiBinding(() => {

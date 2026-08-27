@@ -468,8 +468,8 @@ describe('Cloudflare runtime configuration', () => {
 
   test('documents Ghost publishing through Cloudflare deploy hooks', () => {
     const docsText = [
-      'docs/HOME.md',
-      'docs/WORKER-SITE.md',
+      'src/content/docs/surfaces/home.md',
+      'src/content/docs/platform/worker.md',
     ].map(readText).join('\n');
 
     expect(docsText).toContain('Cloudflare Workers Builds deploy hook');

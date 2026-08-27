@@ -1,0 +1,78 @@
+---
+// Right rail for a docs page. Unlike the shared OnThisPage, this one carries two
+// depths: reference pages nest three or four subsections under every endpoint or
+// directive, and a flat H2 list hides exactly the anchors a reader is hunting.
+export interface DocsTocItem {
+  id: string;
+  label: string;
+  depth: 2 | 3;
+}
+
+interface Props {
+  items: DocsTocItem[];
+}
+const { items } = Astro.props;
+---
+
+<aside class="docs-toc" aria-label="On this page">
+  <p class="docs-toc-label">On this page</p>
+  <nav class="docs-toc-nav" data-docs-toc>
+    {items.map((item) => (
+      <a
+        class:list={['docs-toc-link', item.depth === 3 && 'docs-toc-link--sub']}
+        href={`#${item.id}`}
+        data-docs-toc-link={item.id}
+      >{item.label}</a>
+    ))}
+  </nav>
+</aside>
+
+<script>
+  (() => {
+    const nav = document.querySelector('[data-docs-toc]');
+    if (!nav) return;
+
+    const links = new Map<string, HTMLElement>();
+    nav.querySelectorAll<HTMLElement>('[data-docs-toc-link]').forEach((el) => {
+      const id = el.dataset.docsTocLink;
+      if (id) links.set(id, el);
+    });
+
+    const headings = [...links.keys()]
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => Boolean(el));
+    if (headings.length === 0) return;
+
+    const setActive = (id: string) => {
+      links.forEach((el, key) => el.classList.toggle('is-active', key === id));
+    };
+
+    // Last heading whose top has passed the reading line. An IntersectionObserver
+    // alone goes blank between two widely spaced headings; this always has an
+    // answer, and the observer is only here to decide when it is worth recomputing.
+    const readingLine = () => window.innerHeight * 0.28;
+    const sync = () => {
+      const line = readingLine();
+      let current = headings[0];
+      for (const heading of headings) {
+        if (heading.getBoundingClientRect().top - line > 0) break;
+        current = heading;
+      }
+      setActive(current.id);
+    };
+
+    let queued = false;
+    const schedule = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        sync();
+      });
+    };
+
+    sync();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+  })();
+</script>
