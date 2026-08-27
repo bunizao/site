@@ -25,8 +25,8 @@
      Cap in em, not px: a CJK glyph is 1em and a Latin glyph about 0.5em, so one
      number lands on ~30 Chinese characters AND ~60 Latin characters, both
      inside a comfortable measure. That is the whole trick for mixed text. */
-  --conv-avatar: 28px;
-  --conv-lead: 40px;
+  --conv-avatar: 34px;
+  --conv-lead: 46px;
   --conv-inset: max(56px, 15cqi);
   --conv-measure: 30em;
   --conv-bubble-max: min(
@@ -79,8 +79,8 @@
 @container (max-width: 520px) {
   .conv-thread {
     --conv-inset: max(26px, 8cqi);
-    --conv-avatar: 24px;
-    --conv-lead: 32px;
+    --conv-avatar: 28px;
+    --conv-lead: 38px;
   }
 }
 
@@ -103,14 +103,17 @@
   align-items: flex-end;
   gap: 12px;
   min-width: 0;
-  /* Both name colours are emitted per speaker, each already walked to AA
-     against that theme's bubble floor. The theme picks which is live, so
-     toggling never re-runs the maths. */
+  /* Both fills and both name colours are emitted per speaker, each already
+     walked to AA against that theme's bubble floor. The theme picks which is
+     live, so toggling never re-runs the maths. The fallback is what an
+     accentless speaker gets: the neutral bubble, unchanged. */
   --conv-name: var(--conv-name-light);
+  --conv-fill: var(--conv-fill-light, var(--conv-neutral));
 }
 
 .dark .conv-group {
   --conv-name: var(--conv-name-dark);
+  --conv-fill: var(--conv-fill-dark, var(--conv-neutral));
 }
 
 .conv-group--out {
@@ -180,19 +183,26 @@
 
    Caption role at 13/500. Weight 500 and not 600: emphasis within a role is one
    step up from the body's 400, and two steps makes a name read as a heading
-   over its own sentence. No bottom margin, because the two line boxes already
-   contribute their half-leading between them and anything added on top detaches
-   the label from the message it names.
+   over its own sentence.
 
-   Leading is 1.5, not the caption role's 1.4, because this label is not a
-   paragraph and its line-height is pure spacing. Sharing the body's ratio puts
-   both on one vertical rhythm, so the half-leading above the name matches the
-   half-leading below the last line and the padding lands symmetric. */
+   Leading is 1.3, not the body's 1.5: this label is one line and its leading is
+   pure spacing, so borrowing the body's ratio only spends the gap where it is
+   least useful — split evenly above and below a line that needs neither. The
+   two margins spend it where it reads instead. Both are on the name and not on
+   the bubble, so they apply exactly when a name is visible: a screen-reader-only
+   name is out of flow and its margins never land. */
 .conv-name {
   font-size: 0.8125em;
   font-weight: 500;
-  line-height: 1.5;
+  line-height: 1.3;
   letter-spacing: 0.005em;
+  /* 13px text set under a 16px corner radius reads crammed at the same inset as
+     16px body text: the curve is still eating the corner where the label
+     starts. */
+  margin-top: 0.15em;
+  /* Enough to separate the label from the sentence it names, not enough to
+     detach it — it has to stay closer to its message than to the bubble edge. */
+  margin-bottom: 0.35em;
   color: var(--conv-name);
   /* Not part of the sentence: never let it be dragged into a quote. */
   user-select: none;
@@ -227,14 +237,14 @@
   min-width: calc(var(--conv-radius) * 2 + 8px);
   /* em, so the padding tracks the font-size the container queries hand down.
      The number that matters is the OPTICAL inset, padding plus the half-leading
-     the line box already carries, not the declared padding. Both name and body
-     run 1.5, so each end contributes 4px at 16px, and 0.625em (10px) lands the
-     optical inset at ~14px top and bottom against 14px inline. Even all round:
-     a radius this large eats the corners, so equal inset is what reads
-     balanced. 0.4375em measured 9.6/11 and read cramped and top-heavy. */
-  padding: 0.625em 0.875em;
+     the line box already carries, not the declared padding. The body runs 1.5,
+     so each end contributes 4px at 16px, and 0.6875em (11px) lands the optical
+     inset at ~15px top and bottom against 14px inline. Even all round: a radius
+     this large eats the corners, so equal inset is what reads balanced.
+     0.4375em measured 9.6/11 and read cramped and top-heavy. */
+  padding: 0.6875em 0.875em;
   border-radius: var(--conv-radius);
-  background: var(--conv-neutral);
+  background: var(--conv-fill, var(--conv-neutral));
   color: var(--conv-neutral-fg);
   overflow-wrap: anywhere;
   word-break: normal;

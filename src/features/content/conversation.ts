@@ -445,6 +445,21 @@ export function nameOnBubble(accent: string, bubbleBackground: string): string {
  */
 const BUBBLE_BACKGROUND = { light: '#ECECEC', dark: '#232323' };
 
+/**
+ * How much of the accent reaches the receiving side's bubble. The own side is
+ * filled outright, so this has to stay a wash: enough that a colour means
+ * something on a thread with names and avatars switched off, not so much that
+ * both sides read as filled and the direction of the conversation is lost.
+ */
+const TINT = 0.2;
+
+/** The receiving side's fill: the accent washed over that theme's bubble floor. */
+export function tintedBubble(accent: string, background: string): string {
+  const floor = toRgb(background);
+  const fill = toRgb(accent);
+  return toHex(floor.map((value, index) => value + (fill[index] - value) * TINT));
+}
+
 /* --- avatars -------------------------------------------------------------- */
 
 function initials(label: string): string {
@@ -493,15 +508,23 @@ function renderAvatar(speaker: Speaker): string {
  */
 function speakerStyle(speaker: Speaker): string {
   if (!HEX.test(speaker.accent)) return '';
+  // The name is walked against the tinted floor, not the neutral one, because
+  // the tint is what it ends up sitting on.
+  const light = tintedBubble(speaker.accent, BUBBLE_BACKGROUND.light);
+  const dark = tintedBubble(speaker.accent, BUBBLE_BACKGROUND.dark);
   return (
     '--conv-accent:' +
     speaker.accent +
     ';--conv-on-accent:' +
     textOnAccent(speaker.accent) +
+    ';--conv-fill-light:' +
+    light +
+    ';--conv-fill-dark:' +
+    dark +
     ';--conv-name-light:' +
-    nameOnBubble(speaker.accent, BUBBLE_BACKGROUND.light) +
+    nameOnBubble(speaker.accent, light) +
     ';--conv-name-dark:' +
-    nameOnBubble(speaker.accent, BUBBLE_BACKGROUND.dark) +
+    nameOnBubble(speaker.accent, dark) +
     ';'
   );
 }

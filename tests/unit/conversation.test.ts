@@ -7,6 +7,7 @@ import {
   renderConversation,
   setConversationOption,
   textOnAccent,
+  tintedBubble,
 } from '@/features/content/conversation';
 import { splitBlogProse } from '@/features/posts/server/code-blocks';
 
@@ -396,6 +397,21 @@ describe('conversation rendering', () => {
     }
   });
 
+  test('washes the receiving side\'s bubble with the accent', () => {
+    const html = renderConversation(['@a accent=#4E7A5E', 'a: hi', 'you: yo'].join('\n'));
+
+    // Without this the accent has nowhere to land on a thread whose names and
+    // avatars are switched off: the own side is the only filled one.
+    expect(html).toContain('--conv-fill-light:' + tintedBubble('#4E7A5E', BUBBLE_LIGHT));
+    expect(html).toContain('--conv-fill-dark:' + tintedBubble('#4E7A5E', BUBBLE_DARK));
+  });
+
+  test('leaves the bubble neutral when no accent is declared', () => {
+    const html = renderConversation(['a: hi', 'you: yo'].join('\n'));
+
+    expect(html).not.toContain('--conv-fill');
+  });
+
   test('rejects an accent that is not a hex colour', () => {
     const html = renderConversation(['@a accent=javascript:alert(1)', 'a: hi'].join('\n'));
 
@@ -412,9 +428,12 @@ describe('conversation contrast', () => {
 
   test('walks a name colour to AA against both bubble floors', () => {
     // Hexes chosen as fills; several land near 4:1 when reused as name text.
+    // The floor is the washed bubble, which is what the name sits on.
     for (const accent of ['#3C5D80', '#B4603A', '#4E7A5E', '#7C5CD6', '#A8455F', '#2F6E7A']) {
-      expect(ratio(nameOnBubble(accent, BUBBLE_LIGHT), BUBBLE_LIGHT)).toBeGreaterThanOrEqual(4.5);
-      expect(ratio(nameOnBubble(accent, BUBBLE_DARK), BUBBLE_DARK)).toBeGreaterThanOrEqual(4.5);
+      for (const floor of [BUBBLE_LIGHT, BUBBLE_DARK]) {
+        const washed = tintedBubble(accent, floor);
+        expect(ratio(nameOnBubble(accent, washed), washed)).toBeGreaterThanOrEqual(4.5);
+      }
     }
   });
 });

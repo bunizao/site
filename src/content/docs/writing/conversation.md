@@ -168,7 +168,7 @@ is optional — cast lines exist to override defaults, not to satisfy the parser
 | Written as | Effect |
 | --- | --- |
 | `[…]` | Display name. Defaults to the key, exactly as first written. |
-| `accent=#RRGGBB` | Custom hue for the fill and the name. Must be a hex colour. |
+| `accent=#RRGGBB` | Custom hue for the bubble and the name. Must be a hex colour. |
 | `avatar=…` | See below. |
 
 A value is one token: `name=value`, never quoted. The display name is the one
@@ -224,10 +224,23 @@ not in, a name that is not the handle:
 The default is monochrome, derived from the site's `--foreground`, and is AA in
 both themes by construction.
 
-Supplying `accent=#RRGGBB` opts into a hue. A hex chosen to look good as a
-*fill* routinely lands near 4:1 when reused as *name text*, so the accent is
-walked toward the far end of the bubble in 4% steps until it clears 4.5:1 —
-once per theme, at build time. You keep as much of the chosen hue as the
+Supplying `accent=#RRGGBB` opts into a hue, and where it lands depends on which
+side the speaker is on:
+
+| Side | What the accent paints |
+| --- | --- |
+| own side (`me:`, `you:`, `我:`, `你:`) | the whole bubble, filled |
+| everyone else | a 20% wash of the accent over the neutral bubble, plus the name |
+
+The wash is what makes a colour worth declaring on a thread running
+`avatars=off names=off`: with no name and no avatar to tint, the bubble is the
+only surface left. It stays a wash on purpose — one side filled outright is what
+tells a reader which way the conversation runs, and two filled sides lose that.
+
+A hex chosen to look good as a *fill* routinely lands near 4:1 when reused as
+*name text*, so the accent is walked toward the far end of the bubble in 4%
+steps until it clears 4.5:1 — once per theme, at build time, against the washed
+bubble the name actually sits on. You keep as much of the chosen hue as the
 contrast ratio allows, and no configuration can produce unreadable text.
 
 Anything that is not a hex colour makes the cast line invalid and leaves it
