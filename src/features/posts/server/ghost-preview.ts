@@ -12,6 +12,7 @@ import {
   transformPostDirectives,
   type DirectiveTransformResult,
 } from './directives';
+import { promoteConversationBlocks } from './code-blocks';
 
 const E2E_POST_ID = '5ddc9141c35e7700383b2937';
 
@@ -121,7 +122,7 @@ export async function resolveGhostDraftPreview(
     return {
       ok: true,
       post,
-      html: transformed.html,
+      html: promoteConversationBlocks(transformed.html),
       meta: transformed.meta,
     };
   } catch (error) {
