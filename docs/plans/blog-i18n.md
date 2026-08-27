@@ -54,22 +54,56 @@ versions; nothing load-bearing should sit downstream of it.
 Normalize with `.toLowerCase()` and split on the **first** colon. Ghost slugs
 cannot contain colons, so the split is unambiguous.
 
+Confirmed against the live instance — a tag named `#en:test-test` comes back as:
+
+```json
+{ "name": "#en:test-test", "slug": "hash-en-test-test", "visibility": "internal" }
+```
+
+The colon survives in `name` and is gone from `slug`, exactly as assumed.
+
 ### Publishing checklist
 
 1. New post, write the translation, same feature image.
 2. Tag it `#en:<canonical-slug>`. Nothing else, nowhere else.
-3. Publish **without sending email** — the newsletter already went out for the
-   original.
-4. Do **not** set `canonical_url`. Pointing it at the original deindexes the
-   translation; `hreflang` is the correct signal and step 5 below emits it.
+3. Do **not** set `canonical_url`. Pointing it at the original deindexes the
+   translation; `hreflang` is the correct signal and the site work emits it.
+4. Do **not** add `#unlisted` — see below.
 
-**Verify first:** confirm in Ghost that a tag named `#en:test` is accepted and
-that the Content API returns `name` unchanged. The whole convention rests on it
-and it has not been tested against a live instance.
+### The newsletter must not re-broadcast translations
 
-**Also verify:** whether `../site-api` runs a `post.published` webhook that
-broadcasts to subscribers. If it does, publishing a translation must not
-re-notify.
+Publishing any post fires Ghost's `post.published` webhook at `../site-api`
+(`src/pages/webhooks/ghost.ts`), which broadcasts to blog subscribers after a
+300s delay. A translation is not a new article and must never send. This has
+already happened once, to 5 subscribers, with a test post.
+
+**`#unlisted` does not stop it, and never would have.** There is no tag gating
+anywhere in site-api: the webhook reads the slug, `createGhostBlogSource.loadPost`
+fetches the post with no tag filter, and `NotifyMoodPost` carries no `tags` field
+at all — so the decision cannot be made downstream even in principle. Nothing
+intercepts, so nothing was missed.
+
+`#unlisted` would also be the wrong tool if it did work. It sets
+`noindex, nofollow, noarchive, nosnippet`, and that HTML is exactly what gets
+served at `?lang=en` — the English variant would drop out of the index while
+`hreflang` kept pointing at it. **Translations must not carry `#unlisted`.**
+
+The fix is a rule, not a habit: **site-api skips any post carrying a
+`#<locale>:<canonical>` tag.** Such a post is by definition a version of
+something already announced. In `../site-api`:
+
+- `ghostPostToNotifyPost` carries the internal tag names onto `NotifyMoodPost`,
+  or a single derived `translationOf?: string`.
+- `dispatchBlogNotification` returns early with a distinct
+  `skippedReason: 'translation'` — not `post_not_found_or_not_supported`, which
+  would lie in the logs.
+- The tag parser lives in `@bunizao/contracts` (`src/content.ts`), the surface
+  both repos already share byte-identically. `site` stays canonical; run
+  `bun run sync:contracts` in `../site-api` after editing.
+- Regression test: a post tagged `#en:foo` produces zero sends.
+
+**This ships before the first real translation is published.** Everything else
+in this plan is reversible; a newsletter is not.
 
 ## Language resolution
 
@@ -274,7 +308,14 @@ finding the copy. Done this way, that day is filling in a table.
 
 ## Agents
 
-Contract lands first; A and B are then fully parallel.
+Contract lands first; A and B are then fully parallel. The site-api gate is a
+separate repo and a hard prerequisite for publishing, not for coding — it can run
+alongside, but no translation goes live until it has shipped.
+
+### Blocking — site-api translation gate
+
+Different repo (`../site-api`), own deploy. Scope is the whole of
+[The newsletter must not re-broadcast translations](#the-newsletter-must-not-re-broadcast-translations).
 
 ### Lead — contract
 
@@ -284,6 +325,7 @@ Everything below depends on this and nothing below can start without it.
   grammar, canonical-slug keying. Update `tests/unit/blog-i18n.test.ts`.
 - `resolveRequestLocale()` — the precedence chain, q-values, RFC 4647 Lookup.
 - Manifest shape and the `?lang` / `blog_lang` / `data-*` contracts.
+- Put the tag parser in `@bunizao/contracts` so site-api consumes the same one.
 - Translation-pair fixtures in `adapter/mock.ts`.
 
 ### Agent A — edge and build
