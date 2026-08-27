@@ -171,7 +171,7 @@ is optional — cast lines exist to override defaults, not to satisfy the parser
 | Written as | Effect |
 | --- | --- |
 | `[…]` | Display name. Defaults to the key, exactly as first written. |
-| `accent=#RRGGBB` | Custom hue for the bubble and the name. Must be a hex colour. |
+| `accent=#RRGGBB` | Custom hue for the own-side fill, receiving-side tint, and name. Must be a hex colour. |
 | `avatar=…` | See below. |
 
 A value is one token: `name=value`, never quoted. The display name is the one
@@ -249,10 +249,10 @@ also the only way light mode stays clean — an accent picked as a fill is
 mid-dark, and mixing one into a light bubble lands on a dirty pastel every time.
 
 A hex chosen to look good as a *fill* routinely lands near 4:1 when reused as
-*name text*, so the accent is walked toward the far end of the bubble in 4%
-steps until it clears 4.5:1 — once per theme, at build time, against the tinted
-bubble the name actually sits on. You keep as much of the chosen hue as the
-contrast ratio allows, and no configuration can produce unreadable text.
+*name text*, so the accent is walked toward the far end of the page background in
+4% steps until it clears 4.5:1 — once per theme, when the conversation is
+rendered. You keep as much of the chosen hue as the contrast ratio allows, and
+no configuration can produce unreadable text.
 
 Anything that is not a hex colour makes the cast line invalid and leaves it
 visible as prose.

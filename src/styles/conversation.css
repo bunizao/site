@@ -43,9 +43,9 @@
   --conv-neutral-fg: hsl(var(--foreground) / 0.88);
 
   /* Monochrome by default: derived from --foreground, so it is AA in both
-     themes by construction and needs no build-time contrast maths. An author
-     who writes accent=#xxxxxx overrides these per speaker with hexes already
-     walked to AA against the bubble floor. */
+     themes by construction and needs no contrast maths. An author who writes
+     accent=#xxxxxx overrides these per speaker with name colours already walked
+     to AA against each theme's page background. */
   --conv-accent: hsl(var(--foreground));
   --conv-on-accent: hsl(var(--background));
   --conv-name-light: hsl(var(--foreground) / 0.62);
@@ -116,10 +116,8 @@
   --conv-tint: var(--conv-tint-dark, var(--conv-neutral));
 }
 
-/* Off puts every receiving bubble back on the neutral floor. The name keeps the
-   colour it was given: it was walked to AA against the TINTED floor, and the
-   neutral one is further from the accent in both themes, so dropping the tint
-   only ever raises its contrast. */
+/* Off puts every receiving bubble back on the neutral floor. The speaker's name
+   keeps its accent-coloured text: the switch changes the bubble background only. */
 .conv-thread[data-tints='off'] .conv-group {
   --conv-tint: var(--conv-neutral);
 }
