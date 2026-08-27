@@ -134,6 +134,39 @@
   .lang__chev svg { width: 12px; height: 12px; transition: rotate 160ms ease; }
   .lang__pill[aria-expanded="true"] .lang__chev svg { rotate: 180deg; }
 
+  /* --- treatments: the pill has to read as a CONTROL, not as one more tag --- */
+
+  /* rule — a hairline saying "different group". Proximity does the work, so the
+     pill itself can stay neutral and quiet. */
+  .tag-sep { width: 1px; height: 15px; flex: none; background: hsl(var(--foreground) / 0.15); }
+
+  /* tint — 12% accent, the house idiom already used by .blog-row__tag:hover and
+     .toc-topbar__link.active. Article tags hover to neutral ink, never accent,
+     so nothing in this row collides with it. */
+  .lang[data-treat="tint"] .lang__pill,
+  .lang[data-treat="both"] .lang__pill {
+    color: var(--blog-accent);
+    background: color-mix(in srgb, var(--blog-accent) 12%, transparent);
+  }
+  .lang[data-treat="tint"] .lang__pill:hover,
+  .lang[data-treat="both"] .lang__pill:hover {
+    background: color-mix(in srgb, var(--blog-accent) 19%, transparent);
+  }
+  .lang[data-treat="tint"] .lang__chev,
+  .lang[data-treat="both"] .lang__chev { color: color-mix(in srgb, var(--blog-accent) 55%, transparent); }
+
+  /* outline — fill vs outline is the loudest structural difference available
+     without spending colour: every tag is filled, this one is not. */
+  .lang[data-treat="outline"] .lang__pill {
+    color: var(--blog-accent); background: transparent;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blog-accent) 45%, transparent);
+  }
+  .lang[data-treat="outline"] .lang__pill:hover {
+    background: color-mix(in srgb, var(--blog-accent) 8%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blog-accent) 48%, transparent);
+  }
+  .lang[data-treat="outline"] .lang__chev { color: color-mix(in srgb, var(--blog-accent) 55%, transparent); }
+
   /* Concentric: 12px outer = 8px inner + 4px padding. */
   .menu {
     position: absolute; z-index: 40; top: calc(100% + 7px); min-width: 138px;
@@ -163,9 +196,11 @@
 
 <div class="chrome">
   <div class="chrome__group">
-    <span class="chrome__label">position</span>
-    <button data-set="position" data-val="lead">lead</button>
-    <button data-set="position" data-val="trail">trail</button>
+    <span class="chrome__label">treatment</span>
+    <button data-set="treat" data-val="rule">rule</button>
+    <button data-set="treat" data-val="tint">tint</button>
+    <button data-set="treat" data-val="outline">outline</button>
+    <button data-set="treat" data-val="both">rule+tint</button>
   </div>
   <div class="chrome__group">
     <span class="chrome__label">versions</span>
@@ -277,7 +312,8 @@ const I = {
 // ---------------------------------------------------------------------------
 // state
 // ---------------------------------------------------------------------------
-const S = { position: 'lead', langCount: 3, reader: 'en', decided: false, theme: 'light', open: false };
+// Position is settled: the pill trails the tags.
+const S = { treat: 'both', langCount: 3, reader: 'en', decided: false, theme: 'light', open: false };
 
 const available = () => LANGS.slice(0, S.langCount).map((l) => l[0]);
 const versionsOf = (p) => p.translated ? available() : [p.origin];
@@ -318,10 +354,11 @@ function renderArticle() {
   const v = versionsOf(p);
   const cur = resolveFor(p);
   const ui = copy(cur);
-  const anchor = S.position === 'lead' ? 'left' : 'right';
+  const anchor = 'right';   // pill trails the row, so the menu hangs off its right edge
+  const ruled = S.treat === 'rule' || S.treat === 'both';
 
   // One version = no control. Nothing to switch to, so nothing is drawn.
-  const langPill = v.length < 2 ? '' : `<li class="lang">
+  const langPill = v.length < 2 ? '' : `<li class="lang" data-treat="${S.treat}">
     <button class="lang__pill" data-toggle="open" aria-expanded="${S.open}"
       aria-haspopup="menu" aria-label="${ui.pick}">
       <span class="lang__glyph">${I.languages}</span>
@@ -336,13 +373,14 @@ function renderArticle() {
   </li>`;
 
   const tags = p.tags.map((t) => `<li><a class="blog-tag">${t}</a></li>`).join('');
+  const sep = (ruled && v.length > 1) ? '<li class="tag-sep" aria-hidden="true"></li>' : '';
 
   return `<div class="blog-topbar"><a class="blog-mark">← 無人之境</a>
       <button class="blog-iconbtn" aria-label="主题">${I.sun}</button></div>
     <div class="blog-article__header">
       <h1 class="blog-article__title" lang="${cur}">${p.title[cur] || p.title[p.origin]}</h1>
       <p class="blog-article__meta"><span>${p.date}</span><span>${p.read}</span></p>
-      <ul class="blog-tags">${S.position === 'lead' ? langPill + tags : tags + langPill}</ul>
+      <ul class="blog-tags">${tags}${sep}${langPill}</ul>
       <div class="blog-cover"></div>
     </div>
     <div class="blog-prose" lang="${cur}">${body(cur).map((t) => `<p>${t}</p>`).join('')}</div>`;
@@ -351,15 +389,13 @@ function renderArticle() {
 // ---------------------------------------------------------------------------
 // notes
 // ---------------------------------------------------------------------------
-const NOTE = `<h1>v4 — 语言 pill 进 tags 行</h1>
-  <p><b>删掉了「记住」开关。</b> 显式点一个语言就直接写 cookie，不解释、不确认 —— 和主题切换完全一样的做法。开关本身是在给一个没人会问的问题做 UI。</p>
-  <p><b>删掉了横排选项、搜索框、右侧字母代码、键盘提示。</b> 上限五种语言，这些全部是为一百种语言准备的脚手架，现在是纯负担。菜单剩下：勾 + 语言名，宽度 138px 起。</p>
-  <p><b>pill 用 <code>.blog-tag</code> 的几何长出来</b> —— 同样的 <code>12.5px</code>、同样的 <code>padding 6px 11px</code>、同样的 <code>999px</code>。这是第一版那个 <code>en</code> 圆角对不齐的<b>结构性</b>解法：不是把数字调到看起来一样，而是让它没法不一样。</p>
-  <p><b>它靠三件事和 tag 区分开：</b>accent 色的 languages 图标（和主页那个标记同一个字形、同一个颜色，这是两屏之间唯一的视觉连线）、ink 色的标签（tag 是 muted）、以及一个 chevron 说明「这会打开东西」。</p>
-  <p><b>纵向节奏一点没动。</b> 塞进已有的 <code>.blog-tags</code>（<code>margin-top: 16px</code>、<code>gap: 8px</code>），所以文章头没有多出任何一行、任何一档间距 —— 这才是把它放进 tag 行最硬的理由，比「看起来顺眼」硬。</p>
-  <p><b>只有一种语言的文章不画 pill。</b> 没有可切的东西就没有控件。</p>
-  <p class="cost">同心圆角 12px = 内项 8px + 内边距 4px · 图标 1.5px 描边配 12.5px 400 字重 · 热区 <code>::before inset:-5px -3px</code> → 34px，且不越过 tag 之间那 8px 间隙（热区不许重叠）· ↑↓ / Enter / Esc 仍然可用，只是不再写在脸上</p>
-  <p class="cost">POSITION 是唯一没定的：lead = pill 领头，位置固定、不随 tag 数量漂移，我选这个；trail = 排在 tag 后面，读起来更像「附加信息」而不是「第一个 tag」。</p>`;
+const NOTE = `<h1>v5 — 让 pill 从 tag 堆里站出来</h1>
+  <p>位置定了：<b>trail</b>，pill 排在 tag 后面。剩下的问题是它长得太像第五个 tag —— 因为它<b>就是</b>按 tag 的几何长的，这是对齐的代价。四个解法，黑条里切：</p>
+  <p><b>rule</b> —— 加一条 1px×15px 的竖线，pill 本身保持中性。这条靠的是接近性：线左边是分类，右边是控件。最安静，也最不会和 tag 抢注意力。缺点是它只说了「不是一伙的」，没说「这个能点开东西」。</p>
+  <p><b>tint</b> —— <code>color-mix(in srgb, var(--blog-accent) 12%, transparent)</code> + accent 文字。这个 12% 不是我编的，是仓库里现成的惯例，<code>.blog-row__tag:hover</code> 和 <code>.toc-topbar__link.active</code> 用的都是它。文章页的 <code>.blog-tag:hover</code> 走中性 ink、不碰 accent，所以这一行里不会有「一个永远处于 hover 态的 tag」的误读。它同时接上了主页那个 accent 标记 —— 两屏一条色线。</p>
+  <p><b>outline</b> —— 透明底 + 1px accent 描边。tag 全是实心的，就它是空心的；「实心 vs 空心」是不花颜色就能拿到的最大结构差异。比 tint 轻，但在深色下描边容易糊。</p>
+  <p><b>rule+tint（默认，我选这个）</b> —— 两件事各干各的：竖线负责「这是另一组」，tint 负责「这是个控件」。单用 rule 不够明显（你已经说了），单用 tint 它还是排在 tag 序列里像个高亮 tag。两个一起才把分组和可操作性都讲清楚，而代价只有一条 1px 的线。</p>
+  <p class="cost">几何完全没动：仍然是 <code>12.5px / padding 6px 11px / 999px</code>，和 tag 同高 25px · 竖线不吃额外间距，用 <code>.blog-tags</code> 自己的 <code>gap: 8px</code> · 菜单靠右挂（pill 在行尾）· 热区 87×35，不越过 8px 间隙</p>`;
 
 // ---------------------------------------------------------------------------
 // render + events
@@ -375,7 +411,7 @@ function render() {
   document.getElementById('state').innerHTML =
     `versions <b>${v.length}</b> · reader <b>${S.reader}</b> · resolved <b>${resolveFor(p)}</b>` +
     ` · source <b>${S.decided ? 'cookie blog_lang' : 'Accept-Language'}</b>` +
-    ` · control <b>${v.length < 2 ? 'none' : 'pill'}</b>` +
+    ` · control <b>${v.length < 2 ? 'none' : S.treat}</b>` +
     ` · listing rows swapped <b>${POSTS.filter((q) => listingLangFor(q) !== q.origin).length}</b>`;
 
   document.getElementById('verdict').innerHTML = NOTE;
