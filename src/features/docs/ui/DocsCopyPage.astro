@@ -1,8 +1,14 @@
 ---
+import { Check, Copy, FileText } from 'lucide-react';
+
 // Linear-style split control: the left half copies the page's Markdown, the
 // chevron opens the same action plus a link to the raw `/index.md` URL. Both
 // read the one path the layout already advertises as `rel="alternate"`, so the
 // button never points somewhere the Markdown route does not answer.
+//
+// On success only the mark changes — copy → check, the label stays put — which
+// is what keeps the pill from jittering mid-sentence. The swap itself is the
+// site's shared one (styles/copy-button.css).
 interface Props {
   markdownPath: string;
 }
@@ -16,11 +22,12 @@ const { markdownPath } = Astro.props as Props;
     data-page-copy-trigger
     data-markdown-url={markdownPath}
   >
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <rect x="9" y="9" width="11" height="11" rx="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-    <span data-page-copy-label>Copy page</span>
+    <span class="copy-btn-icons" aria-hidden="true">
+      <Copy className="copy-btn-icon copy-btn-icon--copy" />
+      <Check className="copy-btn-icon copy-btn-icon--check" />
+    </span>
+    Copy page
+    <span class="copy-btn-tip" data-page-copy-tip role="status">Copied</span>
   </button>
 
   <button
@@ -31,7 +38,7 @@ const { markdownPath } = Astro.props as Props;
     aria-label="More page formats"
     data-page-copy-toggle
   >
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="m6 9 6 6 6-6" />
     </svg>
   </button>
@@ -43,21 +50,18 @@ const { markdownPath } = Astro.props as Props;
       data-page-copy-trigger
       data-markdown-url={markdownPath}
     >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="9" y="9" width="11" height="11" rx="2" />
-        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-      </svg>
+      <span class="copy-btn-icons docs-copy-page-item-mark" aria-hidden="true">
+        <Copy className="copy-btn-icon copy-btn-icon--copy" />
+        <Check className="copy-btn-icon copy-btn-icon--check" />
+      </span>
       <span class="docs-copy-page-item-text">
-        <span class="docs-copy-page-item-title" data-page-copy-label>Copy page</span>
+        <span class="docs-copy-page-item-title">Copy page</span>
         <span class="docs-copy-page-item-note">Copy page as Markdown for LLMs</span>
       </span>
     </button>
 
     <a class="docs-copy-page-item" href={markdownPath} target="_blank" rel="noopener">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-        <path d="M7 15V9l2.5 3L12 9v6M15.5 9v6h2.5" />
-      </svg>
+      <FileText className="docs-copy-page-item-mark" aria-hidden="true" />
       <span class="docs-copy-page-item-text">
         <span class="docs-copy-page-item-title">
           View as Markdown
@@ -72,13 +76,23 @@ const { markdownPath } = Astro.props as Props;
 <script>
   const OPEN_ATTR = 'data-open';
 
+  function setMenu(root: HTMLElement, open: boolean) {
+    root.toggleAttribute(OPEN_ATTR, open);
+    root.querySelector('[data-page-copy-toggle]')?.setAttribute('aria-expanded', String(open));
+    const menu = root.querySelector<HTMLElement>('[data-page-copy-menu]');
+    if (open) menu?.removeAttribute('hidden');
+    else menu?.setAttribute('hidden', '');
+  }
+
   function closeMenus(except?: Element | null) {
     document.querySelectorAll<HTMLElement>(`[data-docs-page-copy][${OPEN_ATTR}]`).forEach((root) => {
-      if (root === except) return;
-      root.removeAttribute(OPEN_ATTR);
-      root.querySelector('[data-page-copy-toggle]')?.setAttribute('aria-expanded', 'false');
-      root.querySelector<HTMLElement>('[data-page-copy-menu]')?.setAttribute('hidden', '');
+      if (root !== except) setMenu(root, false);
     });
+  }
+
+  function tip(root: HTMLElement, text: string) {
+    const node = root.querySelector<HTMLElement>('[data-page-copy-tip]');
+    if (node) node.textContent = text;
   }
 
   async function copyPage(root: HTMLElement, url: string) {
@@ -88,14 +102,9 @@ const { markdownPath } = Astro.props as Props;
     if (!response.ok) throw new Error(`Markdown request failed: ${response.status}`);
     await navigator.clipboard.writeText(await response.text());
 
-    if (root.dataset.copied) return;
-    root.dataset.copied = 'true';
-    const labels = root.querySelectorAll<HTMLElement>('[data-page-copy-label]');
-    labels.forEach((label) => { label.textContent = 'Copied'; });
-    setTimeout(() => {
-      labels.forEach((label) => { label.textContent = 'Copy page'; });
-      delete root.dataset.copied;
-    }, 1600);
+    tip(root, 'Copied');
+    root.dataset.copied = '';
+    setTimeout(() => delete root.dataset.copied, 1600);
   }
 
   document.addEventListener('click', (event) => {
@@ -106,26 +115,20 @@ const { markdownPath } = Astro.props as Props;
       return;
     }
 
-    const toggle = target?.closest('[data-page-copy-toggle]');
-    if (toggle) {
-      const open = root.toggleAttribute(OPEN_ATTR);
-      toggle.setAttribute('aria-expanded', String(open));
-      const menu = root.querySelector<HTMLElement>('[data-page-copy-menu]');
-      if (open) menu?.removeAttribute('hidden');
-      else menu?.setAttribute('hidden', '');
+    if (target?.closest('[data-page-copy-toggle]')) {
+      const open = !root.hasAttribute(OPEN_ATTR);
       closeMenus(root);
+      setMenu(root, open);
       return;
     }
 
     const trigger = target?.closest<HTMLElement>('[data-page-copy-trigger]');
-    if (!trigger) return;
+    if (!trigger || root.dataset.copied !== undefined) return;
     closeMenus();
     void copyPage(root, trigger.dataset.markdownUrl ?? '').catch(() => {
-      const labels = root.querySelectorAll<HTMLElement>('[data-page-copy-label]');
-      labels.forEach((label) => { label.textContent = 'Copy failed'; });
-      setTimeout(() => {
-        labels.forEach((label) => { label.textContent = 'Copy page'; });
-      }, 1600);
+      tip(root, 'Copy failed');
+      root.dataset.failed = '';
+      setTimeout(() => delete root.dataset.failed, 1600);
     });
   });
 

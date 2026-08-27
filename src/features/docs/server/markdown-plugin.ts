@@ -14,23 +14,10 @@
    insertions and no tree surgery. Only files under src/content/docs are
    touched — every other markdown source keeps the plain fence. */
 
+import { codeLanguageLabel, codeLanguageLogoHtml } from '../../../lib/code-language';
+
 const DOCS_SOURCE = '/src/content/docs/';
 const DEMO_META = /(?:^|\s)demo(?:\s|$)/u;
-
-// Shiki labels an unlabelled fence "plaintext"; that is not worth a chip.
-const LANGUAGE_LABELS: Record<string, string> = {
-  bash: 'Shell',
-  css: 'CSS',
-  html: 'HTML',
-  js: 'JavaScript',
-  json: 'JSON',
-  jsonc: 'JSON',
-  md: 'Markdown',
-  sh: 'Shell',
-  ts: 'TypeScript',
-  tsx: 'TSX',
-  yaml: 'YAML',
-};
 
 interface CodeNode {
   lang?: string | null;
@@ -45,12 +32,24 @@ interface MdastContext {
 }
 
 function headHtml(lang: string | null | undefined): string {
-  const label = lang ? LANGUAGE_LABELS[lang] ?? lang : '';
+  // An unlabelled fence still gets the generic code mark: the strip carries a
+  // copy button on the right, and a mark on the left is what keeps it a header
+  // rather than a blank band.
+  const label = lang ? codeLanguageLabel(lang) : '';
+  const logo = codeLanguageLogoHtml(lang, 'docs-code-logo');
+
+  // Same icon-only copy control as the rest of the site (styles/copy-button.css);
+  // the icons are inlined here because this runs as a string transform, with no
+  // component layer to import lucide from.
   return (
     '<div class="docs-code-head">' +
-    `<span class="docs-code-lang">${label}</span>` +
-    '<button class="docs-code-copy" type="button" data-docs-copy>' +
-    '<span data-docs-copy-label>Copy</span>' +
+    `<span class="docs-code-lang">${logo}${label}</span>` +
+    '<button class="copy-btn" type="button" data-docs-copy aria-label="Copy code">' +
+    '<span class="copy-btn-icons" aria-hidden="true">' +
+    '<svg class="copy-btn-icon copy-btn-icon--copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
+    '<svg class="copy-btn-icon copy-btn-icon--check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+    '</span>' +
+    '<span class="copy-btn-tip" role="status">Copied</span>' +
     '</button>' +
     '</div>'
   );

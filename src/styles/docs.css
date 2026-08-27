@@ -154,6 +154,23 @@ body:has(.site-nav--docs) .global-header-actions {
   }
 }
 
+/* The bar's controls are bare glyphs, the same ghost treatment the home header
+   uses on mobile (globals.css): the docs chrome already carries a hairline under
+   it, and a boxed button hanging off that line reads as a second frame. */
+body:has(.site-nav--docs) .global-header-actions .header-action-btn {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
+  background: hsl(var(--foreground) / 0.06);
+  border-color: transparent;
+  color: hsl(var(--foreground));
+}
+
 /* --- Navigation --------------------------------------------------------- */
 /* Reading reference material is page-hopping, and the site's arrival tween —
    240ms out plus a 460ms rise — reads as drag when you are stepping through a
@@ -720,13 +737,16 @@ body:has(.site-nav--docs) .global-header-actions {
 }
 
 .docs-copy-page {
+  /* Linear's proportion: a 16px mark against 14px text. Anything smaller and
+     the mark reads as a bullet rather than the button's subject. */
+  --copy-btn-icon: 1rem;
   position: relative;
   display: inline-flex;
   flex-shrink: 0;
   align-items: stretch;
-  height: 1.95rem;
+  height: 2.1rem;
   border: 1px solid var(--docs-line);
-  border-radius: 0.55rem;
+  border-radius: 0.6rem;
   background: var(--docs-surface);
 }
 
@@ -734,25 +754,26 @@ body:has(.site-nav--docs) .global-header-actions {
 .docs-copy-page-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0 0.6rem;
+  gap: 0.45rem;
+  padding: 0 0.65rem;
   border: 0;
   background: none;
   cursor: pointer;
   font-family: var(--font-sans);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.012em;
   color: var(--ink-body);
-  transition: color 0.12s ease, background-color 0.12s ease;
+  transition: color 0.14s ease, background-color 0.14s ease;
 }
 
 .docs-copy-page-action {
+  position: relative;
   border-radius: 0.5rem 0 0 0.5rem;
 }
 
 .docs-copy-page-toggle {
-  padding: 0 0.4rem;
+  padding: 0 0.35rem;
   border-left: 1px solid var(--docs-line);
   border-radius: 0 0.5rem 0.5rem 0;
   color: var(--ink-faint);
@@ -768,24 +789,42 @@ body:has(.site-nav--docs) .global-header-actions {
 }
 
 .docs-copy-page-toggle svg {
-  transition: rotate 0.16s cubic-bezier(0.2, 0, 0, 1);
+  transition: rotate 0.18s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .docs-copy-page[data-open] .docs-copy-page-toggle svg {
   rotate: 180deg;
 }
 
+/* The bubble only shows while the control is in one of its two end states. */
+.docs-copy-page[data-failed] .copy-btn-tip {
+  opacity: 1;
+  translate: -50% 0;
+  scale: 1;
+}
+
+/* A hairline plus one soft, short shadow. A long blurred drop reads as a
+   floating card on a page whose every other edge is a 1px line. */
 .docs-copy-page-menu {
   position: absolute;
   z-index: 30;
   top: calc(100% + 0.4rem);
   right: 0;
-  width: 17rem;
+  width: 16.5rem;
   padding: 0.3rem;
   border: 1px solid var(--docs-line);
   border-radius: 0.7rem;
   background: hsl(var(--background));
-  box-shadow: 0 12px 30px hsl(var(--foreground) / 0.12);
+  box-shadow: 0 1px 1px hsl(var(--foreground) / 0.04), 0 6px 14px -8px hsl(var(--foreground) / 0.16);
+  animation: docs-copy-page-menu-in 0.14s cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes docs-copy-page-menu-in {
+  from {
+    opacity: 0;
+    translate: 0 -3px;
+    scale: 0.985;
+  }
 }
 
 .docs-copy-page-menu[hidden] {
@@ -813,8 +852,10 @@ body:has(.site-nav--docs) .global-header-actions {
   background: var(--docs-surface-hover);
 }
 
-.docs-copy-page-item svg {
+.docs-copy-page-item-mark {
   flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
   margin-top: 0.1rem;
   color: var(--ink-faint);
 }
@@ -831,15 +872,10 @@ body:has(.site-nav--docs) .global-header-actions {
   align-items: center;
   gap: 0.25rem;
   font-family: var(--font-sans);
-  font-size: 0.83rem;
+  font-size: 0.84rem;
   font-weight: 600;
   letter-spacing: -0.012em;
   color: hsl(var(--foreground));
-}
-
-.docs-copy-page-item-title svg {
-  margin-top: 0;
-  color: currentColor;
 }
 
 .docs-copy-page-item-note {
@@ -847,6 +883,14 @@ body:has(.site-nav--docs) .global-header-actions {
   font-size: 0.75rem;
   line-height: 1.35;
   color: var(--ink-faint);
+}
+
+@media (max-width: 30rem) {
+  /* Narrow enough that the label plus the crumb no longer share a line. */
+  .docs-copy-page-action {
+    padding-inline: 0.55rem;
+    font-size: 0.82rem;
+  }
 }
 
 /* --- Prose -------------------------------------------------------------- */
@@ -1079,7 +1123,7 @@ body:has(.site-nav--docs) .global-header-actions {
   justify-content: space-between;
   gap: 0.75rem;
   height: 2.15rem;
-  padding: 0 0.35rem 0 0.85rem;
+  padding: 0 0.3rem 0 0.8rem;
   border: 1px solid var(--docs-line);
   border-bottom: 0;
   border-radius: 0.6rem 0.6rem 0 0;
@@ -1087,38 +1131,20 @@ body:has(.site-nav--docs) .global-header-actions {
 }
 
 .docs-code-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-family: var(--font-code);
   font-size: 0.7rem;
   letter-spacing: 0.02em;
   color: var(--ink-faint);
 }
 
-/* Concentric: the frame's 0.6rem minus the 0.35rem of padding beside it. */
-.docs-code-copy {
-  padding: 0.22rem 0.45rem;
-  border: 0;
-  border-radius: 0.25rem;
-  background: none;
-  cursor: pointer;
-  font-family: var(--font-code);
-  font-size: 0.7rem;
-  letter-spacing: 0.02em;
-  color: var(--ink-faint);
-  transition: color 0.12s ease, background-color 0.12s ease, scale 0.12s ease;
-}
-
-.docs-code-copy:hover,
-.docs-code-copy:focus-visible {
-  background: hsl(var(--foreground) / 0.06);
-  color: var(--ink-strong);
-}
-
-.docs-code-copy:active {
-  scale: 0.96;
-}
-
-.docs-code-copy[data-copied] {
-  color: var(--ink-strong);
+.docs-code-logo {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+  color: hsl(var(--foreground) / 0.7);
 }
 
 .docs-prose pre.astro-code {

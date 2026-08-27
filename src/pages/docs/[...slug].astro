@@ -113,22 +113,18 @@ const { prev, next } = getDocsSiblings(groups, entry.id);
 
 <script>
   // The head strip is injected by the markdown plugin, so the handler lives with
-  // the route rather than with a component. One listener, delegated.
+  // the route rather than with a component. One listener, delegated. Visual
+  // feedback is the shared copy button's: [data-copied] drives the icon swap and
+  // the "Copied" bubble (styles/copy-button.css).
   document.addEventListener('click', (event) => {
     const button = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-docs-copy]');
-    if (!button) return;
+    if (!button || button.dataset.copied !== undefined) return;
     const code = button.closest('.docs-code-head')?.nextElementSibling;
     if (!code) return;
 
     void navigator.clipboard.writeText(code.textContent ?? '').then(() => {
-      const label = button.querySelector('[data-docs-copy-label]');
-      if (!label || button.dataset.copied) return;
-      button.dataset.copied = 'true';
-      label.textContent = 'Copied';
-      setTimeout(() => {
-        label.textContent = 'Copy';
-        delete button.dataset.copied;
-      }, 1400);
+      button.dataset.copied = '';
+      setTimeout(() => delete button.dataset.copied, 1600);
     });
   });
 </script>

@@ -78,7 +78,10 @@ test.describe('Developer reference', () => {
 
     await menu.locator('[data-page-copy-trigger]').click();
     await expect(menu).toBeHidden();
-    await expect(page.locator('[data-page-copy-label]').first()).toHaveText('Copied');
+    // Only the mark changes on success; the label stays put and the bubble shows.
+    await expect(page.locator('[data-docs-page-copy]')).toHaveAttribute('data-copied', '');
+    await expect(page.locator('[data-page-copy-tip]')).toHaveText('Copied');
+    await expect(page.locator('.docs-copy-page-action')).toContainText('Copy page');
 
     const clipboard = await page.evaluate(() => navigator.clipboard.readText());
     expect(clipboard).toContain('# Poems');

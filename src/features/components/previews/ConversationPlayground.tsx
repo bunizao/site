@@ -220,14 +220,21 @@ export default function ConversationPlayground(): React.ReactElement {
         <label className="block text-xs font-medium tracking-wide text-foreground/48" htmlFor="conv-source">
           Source · paste into a Markdown editor
         </label>
+        {/* Labelled variant of the site's copy control: only the mark swaps, so
+            the row does not reflow mid-click (styles/copy-button.css). */}
         <button
           type="button"
           onClick={() => void copySource()}
           aria-label="Copy complete conversation source"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/48 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+          data-copied={copied ? '' : undefined}
+          className="relative inline-flex items-center gap-1.5 text-xs font-medium text-foreground/48 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground data-[copied]:text-foreground"
         >
-          {copied ? <Check className="size-3.5" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
-          {copied ? 'Copied' : 'Copy all'}
+          <span className="copy-btn-icons" aria-hidden="true">
+            <Copy className="copy-btn-icon copy-btn-icon--copy" />
+            <Check className="copy-btn-icon copy-btn-icon--check" />
+          </span>
+          Copy all
+          <span className="copy-btn-tip" role="status">Copied</span>
         </button>
       </div>
       <textarea
