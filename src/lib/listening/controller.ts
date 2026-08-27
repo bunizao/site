@@ -8,6 +8,11 @@ import {
   createBrowserListeningAnalytics,
   inferListeningSurface,
 } from '@/lib/listening/analytics';
+import {
+  ACCENT_LIGHTNESS,
+  sampleArtworkAccent,
+  type ArtworkAccent,
+} from '@/lib/listening/artwork-accent';
 
 type ListeningTrackPayload = {
   id?: string;
@@ -27,42 +32,6 @@ type ListeningTrackPayload = {
 };
 
 const LISTENING_REFRESH_MS = 45_000;
-// Accent sampling. The artwork is reduced to a small grid and bucketed in
-// OKLCH: coverage decides which region of the cover wins, chroma decides
-// whether that region is a color at all. Both gates exist because most album
-// art is not colorful — a black-and-white photograph must stay black and
-// white rather than be handed a hue invented from sensor noise.
-// 48 is where the answer converges: measured against a 96x96 reference over a
-// 226-cover corpus, 48 agrees on hue for 99% of covers and 32 for 97%.
-const ARTWORK_SAMPLE_SIZE = 48;
-const HUE_BUCKET_SIZE = 20;
-const CHROMA_BUCKET_SIZE = 0.04;
-const LIGHTNESS_BUCKET_SIZE = 0.22;
-// Pixels this dark or this pale carry no reliable hue.
-const MIN_PIXEL_LIGHTNESS = 0.1;
-const MAX_PIXEL_LIGHTNESS = 0.95;
-// If the 90th-percentile pixel is this close to grey, the whole cover is grey.
-const MONOCHROME_CHROMA = 0.02;
-// A winning region has to be this colorful and this large to be believed.
-const MIN_ACCENT_CHROMA = 0.03;
-// Raising this starves the page of color: over a 226-cover corpus, 0.045 sends
-// 37% of covers to neutral against 25% here, and a winner at this floor still
-// owns 4% of the frame at the 10th percentile.
-const MIN_ACCENT_COVERAGE = 0.03;
-// Past this, extra chroma stops earning a region any more ranking weight.
-const CHROMA_KNEE = 0.11;
-// Lightness the accent renders at, per theme. Kept here rather than in
-// listening.css because the sRGB gamut boundary depends on lightness, so the
-// chroma clamp below cannot be computed without them.
-const ACCENT_LIGHTNESS = { light: 0.56, dark: 0.74 };
-
-type ArtworkAccent = {
-  hue: number;
-  /** Chroma clamped into the sRGB gamut at each theme's lightness. */
-  chromaLight: number;
-  chromaDark: number;
-};
-
 // `null` is a real cached answer ("this cover has no accent"), so reads go
 // through `has()` rather than treating a missing entry as uncached.
 const artworkAccentCache = new Map<string, ArtworkAccent | null>();
@@ -70,152 +39,6 @@ const playedAtDateFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',
 });
-
-// Averaged in OKLab, not OKLCH: hue is an angle and averaging it directly
-// breaks across the 0/360 wrap.
-type ColorBucket = {
-  aTotal: number;
-  bTotal: number;
-  count: number;
-};
-
-const linearize = (channel: number): number => {
-  const value = channel / 255;
-  return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-};
-
-/** sRGB bytes to OKLab. Returns [lightness, a, b]. */
-const rgbToOklab = (red: number, green: number, blue: number): [number, number, number] => {
-  const r = linearize(red);
-  const g = linearize(green);
-  const b = linearize(blue);
-  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-  return [
-    0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
-    1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
-    0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
-  ];
-};
-
-const hueOf = (a: number, b: number): number => (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
-
-/** OKLab to linear sRGB, before the transfer function and without clipping. */
-const oklabToLinearRgb = (L: number, a: number, b: number): [number, number, number] => {
-  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
-  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
-  const s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
-  return [
-    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
-  ];
-};
-
-/**
- * Largest chroma that still fits in sRGB at this lightness and hue.
- *
- * The gamut boundary swings hard with hue — at L 0.56 a magenta holds 0.269
- * and a cyan only 0.095 — so a single constant cap either clips or wastes
- * range. Clipping is not harmless: the browser gamut-maps out-of-range colors
- * with an algorithm of its choosing, which moves hue as well as chroma.
- */
-const maxChroma = (lightness: number, hue: number): number => {
-  const radians = hue * Math.PI / 180;
-  const cos = Math.cos(radians);
-  const sin = Math.sin(radians);
-  let low = 0;
-  let high = 0.4;
-
-  for (let step = 0; step < 20; step += 1) {
-    const mid = (low + high) / 2;
-    const rgb = oklabToLinearRgb(lightness, mid * cos, mid * sin);
-    if (rgb.every((channel) => channel >= -1e-4 && channel <= 1 + 1e-4)) low = mid;
-    else high = mid;
-  }
-
-  return low;
-};
-
-/**
- * Pick the artwork's accent as chroma + hue, leaving lightness to CSS so one
- * sample serves both themes. Returns null when the cover has no color worth
- * showing — the caller falls back to the neutral foreground.
- */
-const sampleArtworkAccent = (image: HTMLImageElement): ArtworkAccent | null => {
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d', { willReadFrequently: true });
-  if (!context || !image.naturalWidth || !image.naturalHeight) {
-    return null;
-  }
-
-  canvas.width = ARTWORK_SAMPLE_SIZE;
-  canvas.height = ARTWORK_SAMPLE_SIZE;
-  context.drawImage(image, 0, 0, ARTWORK_SAMPLE_SIZE, ARTWORK_SAMPLE_SIZE);
-
-  const { data } = context.getImageData(0, 0, ARTWORK_SAMPLE_SIZE, ARTWORK_SAMPLE_SIZE);
-  const buckets = new Map<string, ColorBucket>();
-  const pixelChromas: number[] = [];
-
-  for (let index = 0; index < data.length; index += 4) {
-    const alpha = data[index + 3] ?? 0;
-    if (alpha < 180) continue;
-
-    const [lightness, a, b] = rgbToOklab(data[index] ?? 0, data[index + 1] ?? 0, data[index + 2] ?? 0);
-    const chroma = Math.hypot(a, b);
-    pixelChromas.push(chroma);
-
-    if (lightness < MIN_PIXEL_LIGHTNESS || lightness > MAX_PIXEL_LIGHTNESS) continue;
-
-    const key = `${Math.floor(hueOf(a, b) / HUE_BUCKET_SIZE)}`
-      + `:${Math.floor(chroma / CHROMA_BUCKET_SIZE)}`
-      + `:${Math.floor(lightness / LIGHTNESS_BUCKET_SIZE)}`;
-    const bucket = buckets.get(key) ?? { aTotal: 0, bTotal: 0, count: 0 };
-    bucket.aTotal += a;
-    bucket.bTotal += b;
-    bucket.count += 1;
-    buckets.set(key, bucket);
-  }
-
-  if (!pixelChromas.length) {
-    return null;
-  }
-
-  // Whole-image gate, independent of how the buckets fell: a greyscale cover
-  // has no dominant hue, only the most-saturated noise.
-  pixelChromas.sort((first, second) => first - second);
-  const chromaCeiling = pixelChromas[Math.floor(pixelChromas.length * 0.9)] ?? 0;
-  if (chromaCeiling < MONOCHROME_CHROMA) {
-    return null;
-  }
-
-  let selected: ArtworkAccent | null = null;
-  let selectedScore = 0;
-
-  for (const bucket of buckets.values()) {
-    const a = bucket.aTotal / bucket.count;
-    const b = bucket.bTotal / bucket.count;
-    const chroma = Math.hypot(a, b);
-    const coverage = bucket.count / pixelChromas.length;
-    if (chroma < MIN_ACCENT_CHROMA || coverage < MIN_ACCENT_COVERAGE) continue;
-
-    // Coverage leads; chroma only breaks ties. Ranking by saturation instead
-    // is how a 2%-of-the-frame sticker beats the wall behind it.
-    const score = coverage * (0.15 + 0.85 * Math.min(chroma, CHROMA_KNEE) / CHROMA_KNEE);
-    if (score <= selectedScore) continue;
-
-    const hue = hueOf(a, b);
-    selectedScore = score;
-    selected = {
-      hue,
-      chromaLight: Math.min(chroma, maxChroma(ACCENT_LIGHTNESS.light, hue)),
-      chromaDark: Math.min(chroma, maxChroma(ACCENT_LIGHTNESS.dark, hue))
-    };
-  }
-
-  return selected;
-};
 
 const ACCENT_PROPERTIES = [
   '--listening-accent-h',
