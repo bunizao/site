@@ -4,11 +4,22 @@ import BlogMasthead from '@/features/posts/ui/BlogMasthead.astro';
 import BlogColophon from '@/features/posts/ui/BlogColophon.astro';
 import PostRow from '@/features/posts/ui/PostRow.astro';
 import PostHover from '@/features/posts/ui/PostHover.astro';
-import { getListedPosts, groupPostsByYear } from '@/features/posts/server/content';
+import {
+  getAccessiblePosts,
+  getListedPosts,
+  groupPostsByYear,
+} from '@/features/posts/server/content';
+import { mapOtherLanguages } from '@/features/posts/i18n';
 import Footer from '@/features/home/ui/Footer.astro';
 import { blog } from '@/data/site';
 
-const groups = groupPostsByYear(await getListedPosts());
+const [listedPosts, accessiblePosts] = await Promise.all([
+  getListedPosts(),
+  getAccessiblePosts({ outputTarget: 'web' }),
+]);
+const groups = groupPostsByYear(listedPosts);
+// One pass for the whole page: a row cannot see its own siblings.
+const otherLanguages = mapOtherLanguages(accessiblePosts);
 ---
 
 <BlogLayout
@@ -35,7 +46,7 @@ const groups = groupPostsByYear(await getListedPosts());
       <h2 class="blog-year__heading">{group.year}</h2>
       <ul class="blog-list">
         {group.posts.map((post) => (
-          <PostRow post={post} />
+          <PostRow post={post} otherLanguages={otherLanguages.get(post.slug)} />
         ))}
       </ul>
     </section>

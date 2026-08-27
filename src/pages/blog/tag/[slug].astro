@@ -4,10 +4,12 @@ import BlogLayout from '@/layouts/BlogLayout.astro';
 import PostRow from '@/features/posts/ui/PostRow.astro';
 import PostHover from '@/features/posts/ui/PostHover.astro';
 import {
+  getAccessiblePosts,
   getPublicTagDirectory,
   getTagArchive,
   groupPostsByYear,
 } from '@/features/posts/server/content';
+import { mapOtherLanguages } from '@/features/posts/i18n';
 
 export const getStaticPaths = (async () => {
   const tags = await getPublicTagDirectory();
@@ -26,6 +28,7 @@ if (!archive) {
 
 const { tag, archive: { posts } } = archive;
 const groups = groupPostsByYear(posts);
+const otherLanguages = mapOtherLanguages(await getAccessiblePosts({ outputTarget: 'web' }));
 const accent = tag.accentColor ?? 'var(--blog-accent)';
 ---
 
@@ -50,7 +53,7 @@ const accent = tag.accentColor ?? 'var(--blog-accent)';
       <h2 class="blog-year__heading">{group.year}</h2>
       <ul class="blog-list">
         {group.posts.map((post) => (
-          <PostRow post={post} />
+          <PostRow post={post} otherLanguages={otherLanguages.get(post.slug)} />
         ))}
       </ul>
     </section>
