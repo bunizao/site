@@ -1,0 +1,8 @@
+<script>
+  const mode = new URL(window.location.href).searchParams.get('debug');
+  if (mode === 'performance' || mode === 'observe') {
+    void import('@/lib/performance-debug-panel').then(({ initPerformanceDebugPanel }) => {
+      initPerformanceDebugPanel();
+    });
+  }
+</script>
