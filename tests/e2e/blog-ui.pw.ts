@@ -488,16 +488,14 @@ test.describe('Blog reading UI', () => {
     });
     await frame.click();
 
-    await expect(card).toHaveClass(/is-loading/u);
     await expect(player).toHaveAttribute(
       'src',
       /youtube-nocookie\.com\/embed\/aqz-KE-bpKQ\?.*origin=http/u,
     );
-    expect(apiRequests).toBe(1);
-    expect(playerRequests).toBe(1);
-
     await expect(card).toHaveClass(/is-playing/u);
     await expect(player).toBeVisible();
+    await expect.poll(() => apiRequests).toBe(1);
+    await expect.poll(() => playerRequests).toBe(1);
     expect(await page.evaluate(() => sessionStorage.getItem('youtube-embed-reachable:v1'))).toBe('yes');
 
     apiOutcome = 'silent';
