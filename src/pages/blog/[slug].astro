@@ -44,7 +44,7 @@ export const getStaticPaths = (async () => {
   return Promise.all(
     posts.map(async (post) => ({
       params: { slug: post.slug },
-      props: await buildPostPageProps(post, listedPosts),
+      props: await buildPostPageProps(post, listedPosts, posts),
     })),
   );
 }) satisfies GetStaticPaths;
@@ -53,20 +53,27 @@ export const getStaticPaths = (async () => {
 // path is server-rendered so middleware negotiation can be tested under
 // `astro dev`; production keeps the static article files for Pagefind.
 const slug = Astro.params.slug ?? '';
-let { post, featureBlur, prev, next } = Astro.props as Partial<PostPageProps>;
+let { post, featureBlur, prev, next, versions } = Astro.props as Partial<PostPageProps>;
 
 if (!post) {
-  const [rawPost, listedPosts] = await Promise.all([
+  const [rawPost, listedPosts, accessiblePosts] = await Promise.all([
     getPostBySlug(slug, { outputTarget: 'web' }),
     getListedPosts(),
+    getAccessiblePosts({ outputTarget: 'web' }),
   ]);
 
   if (!rawPost) {
     return new Response(null, { status: 404 });
   }
 
-  ({ post, featureBlur, prev, next } = await buildPostPageProps(rawPost, listedPosts));
+  ({ post, featureBlur, prev, next, versions } = await buildPostPageProps(
+    rawPost,
+    listedPosts,
+    accessiblePosts,
+  ));
 }
+
+versions ??= [];
 
 prev ??= null;
 next ??= null;
@@ -149,7 +156,11 @@ const unlisted = isUnlistedPost(post);
           style="view-transition-class:post-title"
         >{post.title}</h1>
         <PostMeta post={post} />
-        <TagList tags={post.tags} />
+        <TagList
+          tags={post.tags}
+          versions={versions}
+          languageLabel={blog.copy[versions.find((version) => version.current)?.locale ?? blog.locale.blog].languageSwitcher.open}
+        />
       </header>
 
       {post.featureImage && (

@@ -300,6 +300,21 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   font-variant-numeric: tabular-nums;
 }
 
+/* Translated row mark. A glyph and nothing else: two letters per language does
+   not survive a third language, and the whole row is already one link target,
+   so this is a mark and never a control. The accessible name carries what the
+   glyph cannot say. */
+.blog-row__lang {
+  display: inline-flex;
+  align-items: center;
+  color: var(--blog-accent);
+}
+
+.blog-row__lang svg {
+  width: 14px;
+  height: 14px;
+}
+
 .blog-row__tags {
   display: inline-flex;
   flex-wrap: wrap;
@@ -741,10 +756,19 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 .blog-tags {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   list-style: none;
   margin: 16px 0 0;
   padding: 0;
+}
+
+/* An inline-level chip drags its line box's descender space into the <li>,
+   making the item 2px taller than the chip. Flex items have no line box, so
+   every row item measures exactly its own content and the row aligns by
+   construction rather than by nudging. */
+.blog-tags > li {
+  display: flex;
 }
 
 /* Post-page tag chips: soft filled pill — the original rounded shape. */
@@ -764,6 +788,189 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 .blog-tag:hover {
   color: var(--blog-ink);
   background: hsl(var(--foreground) / 0.09);
+}
+
+/* --- Article language switcher ------------------------------------------ */
+/* One pill in the tag row. Built from .blog-tag's own numbers (12.5px, 6/11
+   padding, 999px) so it cannot drift out of alignment the way a hand-tuned
+   chip does, and so the header gains no extra row. Two cues keep it from
+   reading as one more tag: the hairline says "different group", the accent
+   tint says "this one does something". */
+
+.blog-tags__sep {
+  width: 1px;
+  height: 15px;
+  flex: none;
+  background: hsl(var(--foreground) / 0.15);
+}
+
+.blog-lang {
+  position: relative;
+  display: inline-flex;
+}
+
+.blog-lang__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1;
+  cursor: pointer;
+  /* -2px on the chevron side, optical: a chevron reads further right than its box. */
+  padding: 6px 9px 6px 10px;
+  border: none;
+  border-radius: 999px;
+  color: var(--blog-accent);
+  background: color-mix(in srgb, var(--blog-accent) 12%, transparent);
+  transition:
+    background-color 0.16s ease,
+    scale 0.12s ease;
+}
+
+/* 24.5px already clears WCAG 2.5.8 AA; this lifts the target to ~35px without
+   reaching into the neighbouring tag's 8px gutter. Hit areas must not overlap. */
+.blog-lang__pill::before {
+  content: '';
+  position: absolute;
+  inset: -5px -3px;
+}
+
+.blog-lang__pill:hover {
+  background: color-mix(in srgb, var(--blog-accent) 19%, transparent);
+}
+
+.blog-lang__pill:active {
+  scale: 0.96;
+}
+
+/* The icons must not set the pill's height — the label does, exactly as in a
+   tag beside it. A bare svg is inline-level, so it sits on the baseline and
+   drags the descender space in with it, which made the pill 2px taller than
+   every chip in the row. Block svg inside a line-box-height wrapper keeps the
+   two geometries identical by construction rather than by tuning. */
+.blog-lang__glyph,
+.blog-lang__chev {
+  display: inline-flex;
+  align-items: center;
+  height: 12.5px;
+}
+
+.blog-lang__glyph svg,
+.blog-lang__chev svg {
+  display: block;
+}
+
+.blog-lang__glyph svg {
+  width: 13px;
+  height: 13px;
+}
+
+.blog-lang__chev {
+  color: color-mix(in srgb, var(--blog-accent) 55%, transparent);
+}
+
+.blog-lang__chev svg {
+  width: 12px;
+  height: 12px;
+  transition: rotate 0.16s ease;
+}
+
+.blog-lang__pill[aria-expanded='true'] .blog-lang__chev svg {
+  rotate: 180deg;
+}
+
+/* Concentric: 12px outer = 8px inner + 4px padding. */
+.blog-lang__menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 7px);
+  min-width: 138px;
+  padding: 4px;
+  border-radius: 12px;
+  background: hsl(var(--background));
+  box-shadow:
+    0 0 0 1px hsl(var(--foreground) / 0.08),
+    0 8px 24px hsl(var(--foreground) / 0.12),
+    0 2px 5px hsl(var(--foreground) / 0.05);
+}
+
+.blog-lang__menu[hidden] {
+  display: none;
+}
+
+/* Optical justify: the menu's labels sit on the same vertical line as the
+   pill's label, not its box edge. The pill's label starts 10 + 13 + 6 = 29px
+   from its left, the menu's 4 + 8 + 13 + 8 = 33px from its own, so the menu
+   shifts -4px. Right-anchored is the collision fallback (the script flips it),
+   where there is nothing to line up against. */
+.blog-lang__menu[data-anchor='left'] {
+  left: -4px;
+}
+
+.blog-lang__menu[data-anchor='right'] {
+  right: 0;
+}
+
+/* Bridges the 7px gap so travelling pill -> menu never leaves .blog-lang and
+   never fires pointerout. Cheaper and steadier than a safe-triangle. */
+.blog-lang__menu::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -7px;
+  height: 7px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .blog-lang__menu {
+    animation: blog-lang-in 0.14s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  @keyframes blog-lang-in {
+    from {
+      opacity: 0;
+      scale: 0.97;
+      translate: 0 -3px;
+    }
+  }
+}
+
+.blog-lang__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1;
+  padding: 8px 11px 8px 8px;
+  border-radius: 8px;
+  color: var(--blog-muted);
+  transition:
+    color 0.12s ease,
+    background-color 0.12s ease;
+}
+
+.blog-lang__item:hover {
+  color: var(--blog-ink);
+  background: hsl(var(--foreground) / 0.05);
+}
+
+.blog-lang__item[aria-checked='true'] {
+  color: var(--blog-ink);
+}
+
+.blog-lang__check {
+  width: 13px;
+  flex: none;
+  display: inline-flex;
+  color: var(--blog-accent);
+}
+
+.blog-lang__check svg {
+  width: 13px;
+  height: 13px;
 }
 
 /* --- Table of contents: dotted progress rail (ported from chl.ee) ------- */
