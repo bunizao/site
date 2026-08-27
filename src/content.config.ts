@@ -31,7 +31,25 @@ const components = defineCollection({
   }),
 });
 
+// One entry per documentation page. The entry id is the URL path under /docs
+// (`api/oembed.md` -> /docs/api/oembed), so the folder layout is the route
+// layout. `group` decides which sidebar section it lands in; the group order
+// itself lives in features/docs/server/nav.ts.
+const docs = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/docs' }),
+  schema: z.object({
+    title: z.string(),
+    description: z.string(),
+    group: z.string(),
+    order: z.number().default(0),
+    // Optional one-word label rendered next to the sidebar entry (e.g. "SSR").
+    badge: z.string().optional(),
+    draft: z.boolean().default(false),
+  }),
+});
+
 export const collections = {
   pages,
   components,
+  docs,
 };

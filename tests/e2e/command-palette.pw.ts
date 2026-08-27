@@ -127,7 +127,7 @@ test.describe('Site command palette', () => {
     });
 
     await page.goto('/privacy');
-    await page.keyboard.press('Control+K');
+    await page.getByRole('button', { name: 'Search and commands' }).click();
 
     const palette = page.getByRole('dialog', { name: 'Site search and commands' });
     await palette.getByRole('combobox', { name: 'Search commands' }).fill('calm');

@@ -38,7 +38,7 @@ const bioLines = bio.map((line) => line.split('**'));
     <div class="hero-name-shell mb-2 text-[28px] font-semibold sm:text-[36px]">
       <span class="hero-lcp-anchor" aria-hidden="true">{lcpAnchorName}</span>
       <h1 class="hero-animate m-0" data-hero-name>
-        <Typewriter texts={typewriterNames} speed={80} />
+        <Typewriter texts={typewriterNames} keystrokeMs={90} />
       </h1>
     </div>
 
@@ -218,6 +218,12 @@ const bioLines = bio.map((line) => line.split('**'));
   const statusText = document.getElementById('status-text');
   const statusDot = document.querySelector<HTMLElement>('.status-dot');
   const HOME_HERO_GITHUB_READY_EVENT = 'home:hero-github-ready';
+  const HOME_HERO_NAME_TYPED_EVENT = 'home:hero-name-typed';
+  // Runs the next stage even if the typewriter never reports -- no canvas, a
+  // thrown error, an empty name list.
+  const PHASE_TWO_FALLBACK_S = 3;
+  // The bio leads, the widgets follow just behind it.
+  const WIDGET_LAG_S = 0.25;
 
   // Status verbs are curated in src/data/site.ts and passed through a data
   // attribute so the client bundle never imports the data module (which would
@@ -251,33 +257,40 @@ const bioLines = bio.map((line) => line.split('**'));
       ease: 'back.out(1.25)'
     }, 0);
 
-    // Kick the name decoder as its line settles in.
+    // Type only once the name's own line has landed (it rises 0.08 -> 0.68), so
+    // characters never appear on an element that is still moving.
     heroTl.call(() => {
       window.dispatchEvent(new CustomEvent('home:hero-name-ready'));
-    }, [], 0.1);
+    }, [], 0.6);
 
-    // Hand off to the bio decoder once the name is resolving.
-    heroTl.call(() => {
-      window.dispatchEvent(new CustomEvent('home:hero-bio-ready'));
-    }, [], 0.7);
-
-    // Phase 2: socials, listening, GitHub, tech — after the identity is set.
-    heroTl.to(widgets, {
-      opacity: 1,
-      y: 0,
-      duration: 0.6,
-      stagger: 0.08,
-      ease: 'back.out(1.25)'
-    }, 1.15);
-
+    // Phase 2 hangs off the name actually finishing, not a fixed offset.
     const githubWidget = widgets.find((el) => el.hasAttribute('data-hero-github'));
-    const githubWidgetIndex = githubWidget ? widgets.indexOf(githubWidget) : 0;
-    const githubRevealAt = 1.15 + Math.max(0, githubWidgetIndex) * 0.08;
+    const githubWidgetIndex = githubWidget ? Math.max(0, widgets.indexOf(githubWidget)) : 0;
+    let phaseTwoStarted = false;
 
-    heroTl.call(() => {
-      (window as Window & { __homeHeroGithubReady?: boolean }).__homeHeroGithubReady = true;
-      window.dispatchEvent(new CustomEvent(HOME_HERO_GITHUB_READY_EVENT));
-    }, [], githubRevealAt);
+    const startPhaseTwo = () => {
+      if (phaseTwoStarted) return;
+      phaseTwoStarted = true;
+
+      window.dispatchEvent(new CustomEvent('home:hero-bio-ready'));
+
+      gsap.to(widgets, {
+        opacity: 1,
+        y: 0,
+        duration: 0.6,
+        stagger: 0.08,
+        ease: 'back.out(1.25)',
+        delay: WIDGET_LAG_S
+      });
+
+      gsap.delayedCall(WIDGET_LAG_S + githubWidgetIndex * 0.08, () => {
+        (window as Window & { __homeHeroGithubReady?: boolean }).__homeHeroGithubReady = true;
+        window.dispatchEvent(new CustomEvent(HOME_HERO_GITHUB_READY_EVENT));
+      });
+    };
+
+    window.addEventListener(HOME_HERO_NAME_TYPED_EVENT, startPhaseTwo, { once: true });
+    gsap.delayedCall(PHASE_TWO_FALLBACK_S, startPhaseTwo);
 
     const magneticButtons = document.querySelectorAll('[data-magnetic]');
     magneticButtons.forEach((button) => {

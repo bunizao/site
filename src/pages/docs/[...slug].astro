@@ -1,0 +1,122 @@
+---
+import { render, type CollectionEntry } from 'astro:content';
+import Layout from '@/layouts/Layout.astro';
+import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
+import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
+import DocsToc, { type DocsTocItem } from '@/features/docs/ui/DocsToc.astro';
+import { docPath, getDocsNav, getDocsSiblings, type DocsGroup } from '@/features/docs/server/nav';
+import { expandDocsDemos } from '@/features/docs/server/demo';
+import { formatSiteTitle } from '@/lib/seo';
+import '@/styles/blog-prose.css';
+import '@/styles/embed-youtube.css';
+import '@/styles/docs.css';
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const groups = await getDocsNav();
+  return groups.flatMap((group) =>
+    group.entries.map((entry) => ({
+      params: { slug: entry.id },
+      props: { entry, groups },
+    })),
+  );
+}
+
+interface Props {
+  entry: CollectionEntry<'docs'>;
+  groups: DocsGroup[];
+}
+const { entry, groups } = Astro.props as Props;
+const { title, description, group } = entry.data;
+const { Content, headings } = await render(entry);
+
+// Fences tagged `demo` leave a slot behind (see markdown-plugin.ts) that only a
+// route can fill. Nothing to fill means nothing to do — fall back to <Content />
+// so a page without demos never pays for the string round-trip.
+const renderedHtml = entry.rendered?.html ?? '';
+const prose = renderedHtml.includes('data-docs-demo')
+  ? await expandDocsDemos(renderedHtml)
+  : null;
+
+// Two depths. H4 is used inside a directive's own subsections and would turn the
+// rail into a second copy of the page.
+const toc: DocsTocItem[] = headings
+  .filter((heading) => heading.depth === 2 || heading.depth === 3)
+  .map((heading) => ({
+    id: heading.slug,
+    label: heading.text,
+    depth: heading.depth as 2 | 3,
+  }));
+
+const { prev, next } = getDocsSiblings(groups, entry.id);
+---
+
+<Layout
+  preloadFont={['display', 'sans', 'mono']}
+  title={formatSiteTitle(title)}
+  description={description}
+  url={docPath(entry.id)}
+  navVariant="docs"
+>
+  <main class="docs docs--article">
+    <div class="docs-shell docs-shell--article">
+      <DocsSidebar groups={groups} current={entry.id} />
+
+      <article class="docs-article">
+        <p class="docs-eyebrow">
+          <a href="/docs">Docs</a>
+          <span aria-hidden="true">/</span>
+          <span>{group}</span>
+        </p>
+        <h1 class="docs-title">{title}</h1>
+        <p class="docs-lede">{description}</p>
+
+        <div class="docs-prose">
+          {prose ? <Fragment set:html={prose} /> : <Content />}
+        </div>
+
+        <nav class="docs-pager" aria-label="Docs pagination">
+          {prev ? (
+            <a class="docs-pager-link docs-pager-link--prev" href={docPath(prev.id)} rel="prev">
+              <span class="docs-pager-dir">Previous</span>
+              <span class="docs-pager-title">{prev.data.title}</span>
+            </a>
+          ) : <span class="docs-pager-gap"></span>}
+          {next && (
+            <a class="docs-pager-link docs-pager-link--next" href={docPath(next.id)} rel="next">
+              <span class="docs-pager-dir">Next</span>
+              <span class="docs-pager-title">{next.data.title}</span>
+            </a>
+          )}
+        </nav>
+      </article>
+
+      {toc.length > 1 && <DocsToc items={toc} />}
+    </div>
+  </main>
+
+  <DocsSearch />
+</Layout>
+
+<script>
+  // The head strip is injected by the markdown plugin, so the handler lives with
+  // the route rather than with a component. One listener, delegated.
+  document.addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-docs-copy]');
+    if (!button) return;
+    const code = button.closest('.docs-code-head')?.nextElementSibling;
+    if (!code) return;
+
+    void navigator.clipboard.writeText(code.textContent ?? '').then(() => {
+      const label = button.querySelector('[data-docs-copy-label]');
+      if (!label || button.dataset.copied) return;
+      button.dataset.copied = 'true';
+      label.textContent = 'Copied';
+      setTimeout(() => {
+        label.textContent = 'Copy';
+        delete button.dataset.copied;
+      }, 1400);
+    });
+  });
+</script>
