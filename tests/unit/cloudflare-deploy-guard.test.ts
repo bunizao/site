@@ -7,12 +7,12 @@ const root = join(import.meta.dir, '../..');
 const guardScript = join(root, 'scripts/cloudflare-deploy-guard.mjs');
 const workspaces: string[] = [];
 
-function createWorkspace(html = '<a href="/blog/email-philosophy/">Real post</a>') {
+function createWorkspace(html = '<a href="/blog/email-philosophy">Real post</a>') {
   const workspace = mkdtempSync(join(tmpdir(), 'cloudflare-deploy-guard-'));
   workspaces.push(workspace);
-  mkdirSync(join(workspace, 'dist/client/blog'), { recursive: true });
+  mkdirSync(join(workspace, 'dist/client'), { recursive: true });
   mkdirSync(join(workspace, 'dist/server'), { recursive: true });
-  writeFileSync(join(workspace, 'dist/client/blog/index.html'), html);
+  writeFileSync(join(workspace, 'dist/client/blog.html'), html);
   writeFileSync(
     join(workspace, 'dist/server/wrangler.json'),
     '{"name":"site","legacy_env":true}\n',
@@ -59,7 +59,7 @@ describe('Cloudflare deploy guard', () => {
 
   test('blocks fixture blog artifacts before upload', () => {
     const workspace = createWorkspace(
-      '<a href="/blog/demo-effects/">Mock</a><a href="/blog/quiet-architecture/">Mock</a>',
+      '<a href="/blog/demo-effects">Mock</a><a href="/blog/quiet-architecture">Mock</a>',
     );
     runGuard(workspace, 'install');
     const result = runGuard(workspace, 'check');
@@ -67,6 +67,14 @@ describe('Cloudflare deploy guard', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Cloudflare deploy blocked mock Ghost posts');
     expect(result.stderr).toContain('demo-effects, quiet-architecture');
+  });
+
+  test('does not block a real slug that only shares a mock prefix', () => {
+    const workspace = createWorkspace('<a href="/blog/demo-effects-retrospective">Real post</a>');
+    runGuard(workspace, 'install');
+    const result = runGuard(workspace, 'check');
+
+    expect(result.exitCode).toBe(0);
   });
 
   test('blocks artifacts that omit the upload hook', () => {

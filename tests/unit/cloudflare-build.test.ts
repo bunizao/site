@@ -9,11 +9,11 @@ const stubBunSource = `#!/usr/bin/env node
 const { mkdirSync, writeFileSync } = require('node:fs');
 
 const blogHtml = process.env.STUB_BLOG_HTML
-  || '<a href="/blog/email-philosophy/">Real post</a>';
+  || '<a href="/blog/email-philosophy">Real post</a>';
 
-mkdirSync('dist/client/blog', { recursive: true });
+mkdirSync('dist/client', { recursive: true });
 mkdirSync('dist/server', { recursive: true });
-writeFileSync('dist/client/blog/index.html', blogHtml);
+writeFileSync('dist/client/blog.html', blogHtml);
 writeFileSync('dist/server/wrangler.json', JSON.stringify({
   build: { command: 'node scripts/cloudflare-deploy-guard.mjs check' },
 }));
@@ -125,7 +125,7 @@ describe('Cloudflare build guard', () => {
     const result = runCloudflareBuild({
       GHOST_CONTENT_API_KEY: 'test-key',
       PUBLIC_GHOST_URL: 'https://blog.buxx.me',
-      STUB_BLOG_HTML: '<a href="/blog/demo-effects/">Mock post</a>',
+      STUB_BLOG_HTML: '<a href="/blog/demo-effects">Mock post</a>',
     });
 
     expect(result.exitCode).toBe(1);
