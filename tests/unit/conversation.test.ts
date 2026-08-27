@@ -239,6 +239,7 @@ describe('conversation parsing', () => {
       '@a [A]avatar=x',
       '@a []',
       '@a accent=#fff accent=#000',
+      '@a tints=maybe',
     ]) {
       const { cast, items } = parseConversation(line);
 
@@ -287,13 +288,14 @@ describe('conversation parsing', () => {
     expect(cast.get('octo')?.avatar).toBe('https://example.com/o.png');
   });
 
-  test('reads label, accent and avatar off a cast line', () => {
-    const { cast } = parseConversation('@tu [Tu Tu] accent=#B4603A avatar=🐈');
+  test('reads label, accent, tint preference and avatar off a cast line', () => {
+    const { cast } = parseConversation('@tu [Tu Tu] accent=#B4603A avatar=🐈 tints=off');
     const speaker = cast.get('tu');
 
     expect(speaker?.label).toBe('Tu Tu');
     expect(speaker?.accent).toBe('#B4603A');
     expect(speaker?.avatar).toBe('🐈');
+    expect(speaker?.tints).toBe(false);
   });
 });
 
@@ -411,7 +413,7 @@ describe('conversation rendering', () => {
     expect(html).toContain('--conv-tint-dark:' + tintedBubble('#4E7A5E', BUBBLE_DARK));
   });
 
-  test('marks the thread so the tint can be switched off wholesale', () => {
+  test('applies the thread tint default to every speaker', () => {
     const on = renderConversation(['@a accent=#4E7A5E', 'a: hi'].join('\n'));
     const off = renderConversation(
       ['@conversation tints=off', '@a accent=#4E7A5E', 'a: hi'].join('\n'),
@@ -419,9 +421,29 @@ describe('conversation rendering', () => {
 
     expect(on).toContain('data-tints="on"');
     expect(off).toContain('data-tints="off"');
-    // The speaker keeps its colours either way: the switch is one CSS rule on
-    // the thread, so nothing has to re-render to flip it.
+    expect(off).toContain('class="conv-group conv-group--out" data-tints="off"');
     expect(off).toContain('--conv-tint-light:');
+  });
+
+  test('lets each speaker override the thread tint default', () => {
+    const disabled = renderConversation(
+      ['@gemini [Gemini] accent=#4057C8 tints=off', 'you: compare', 'gemini: neutral'].join('\n'),
+    );
+    const enabled = renderConversation(
+      [
+        '@conversation tints=off',
+        '@ada [Ada] accent=#287B74 tints=on',
+        'you: compare',
+        'ada: tinted',
+      ].join('\n'),
+    );
+
+    expect(disabled).toContain(
+      'class="conv-group conv-group--in" data-tints="off" style="--conv-accent:#4057C8',
+    );
+    expect(enabled).toContain(
+      'class="conv-group conv-group--in" data-tints="on" style="--conv-accent:#287B74',
+    );
   });
 
   test('leaves the bubble neutral when no accent is declared', () => {

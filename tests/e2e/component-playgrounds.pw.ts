@@ -49,6 +49,52 @@ test.describe('component playgrounds', () => {
     await expect(page.getByText('saved draft', { exact: true })).toBeVisible();
   });
 
+  test('conversation names align with body text and speakers can disable tints', async ({ page }) => {
+    await openConversationPlayground(page);
+
+    const source = page.locator('#conv-source');
+    await source.fill(
+      [
+        '```conversation',
+        '@conversation avatars=off names=on tints=on',
+        '@gemini [Gemini] accent=#4057C8 tints=off',
+        '@ada [Ada] accent=#287B74',
+        '@neutral [Neutral]',
+        'you: compare',
+        'gemini: neutral override',
+        'ada: tinted default',
+        'neutral: neutral baseline',
+        '```',
+      ].join('\n'),
+    );
+
+    const groups = page.locator('#playground .conv-group--in');
+    await expect(groups.nth(0)).toHaveAttribute('data-tints', 'off');
+    await expect(groups.nth(1)).toHaveAttribute('data-tints', 'on');
+
+    const [geminiBackground, adaBackground, neutralBackground] = await Promise.all(
+      [0, 1, 2].map((index) =>
+        groups
+          .nth(index)
+          .locator('.conv-bubble')
+          .evaluate((bubble) => getComputedStyle(bubble).backgroundColor),
+      ),
+    );
+    expect(geminiBackground).toBe(neutralBackground);
+    expect(adaBackground).not.toBe(neutralBackground);
+
+    const offset = await groups.nth(0).evaluate((group) => {
+      const name = group.querySelector('.conv-name');
+      const body = group.querySelector('.conv-bubble > p');
+      if (!name?.firstChild || !body) throw new Error('conversation text is missing');
+
+      const range = document.createRange();
+      range.selectNodeContents(name.firstChild);
+      return Math.abs(range.getBoundingClientRect().left - body.getBoundingClientRect().left);
+    });
+    expect(offset).toBeLessThan(1);
+  });
+
   test('pages with playgrounds expose a colored link beside the introduction', async ({ page }) => {
     await page.goto('/components/decode-text');
     await expect(page.locator('.detail-playground-link')).toHaveAttribute('href', '#playground');

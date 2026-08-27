@@ -116,9 +116,9 @@
   --conv-tint: var(--conv-tint-dark, var(--conv-neutral));
 }
 
-/* Off puts every receiving bubble back on the neutral floor. The speaker's name
-   keeps its accent-coloured text: the switch changes the bubble background only. */
-.conv-thread[data-tints='off'] .conv-group {
+/* Each group carries the effective value after its speaker override is applied
+   to the thread default. Off changes the receiving bubble background only. */
+.conv-group[data-tints='off'] {
   --conv-tint: var(--conv-neutral);
 }
 
@@ -212,10 +212,9 @@
   font-weight: 500;
   line-height: 1.35;
   letter-spacing: 0.005em;
-  /* Not hard-aligned to the bubble edge and not to the text inside it: a hair
-     of inset reads as belonging to the column below without looking indented
-     against a corner that is curving away anyway. */
-  padding-inline: 0.35em;
+  /* Match the bubble body's 0.875em inset. The name is 0.8125 of the body size,
+     so 1.077em lands both text starts on the same vertical line. */
+  padding-inline: 1.077em;
   color: var(--conv-name);
   /* Not part of the sentence: never let it be dragged into a quote. */
   user-select: none;

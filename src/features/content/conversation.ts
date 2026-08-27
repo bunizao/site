@@ -7,8 +7,8 @@
 // Syntax reference: https://buxx.me/docs/writing/conversation
 //
 //   @conversation avatars=off names=off tints=off   whole-thread visibility
-//   @ada [Ada Lovelace] accent=#4E7A5E  cast line: override a default
-//   @tutu [图图] avatar=🐈           key is one token, [name] is prose
+//   @ada [Ada Lovelace] accent=#4E7A5E tints=off  per-speaker overrides
+//   @tutu [图图] avatar=🐈                    key is one token, [name] is prose
 //
 //   you: how wide should a bubble be?    message; you/me/你/我 = the own side
 //   ada: 30em.
@@ -45,6 +45,8 @@ interface Speaker {
   me: boolean;
   /** Author-supplied hex. Empty means the monochrome default. */
   accent: string;
+  /** Overrides the thread tint default when declared. */
+  tints?: boolean;
 }
 
 interface Bubble {
@@ -177,6 +179,7 @@ interface Declaration {
   label?: string;
   accent?: string;
   avatar?: string;
+  tints?: boolean;
 }
 
 /**
@@ -217,7 +220,10 @@ function parseDeclaration(line: string): Declaration | null {
       if (!HEX.test(value)) return null;
       declaration.accent = value;
     } else if (name === 'avatar') declaration.avatar = value;
-    else return null;
+    else if (name === 'tints') {
+      if (value !== 'on' && value !== 'off') return null;
+      declaration.tints = value === 'on';
+    } else return null;
   }
 
   return declaration;
@@ -291,6 +297,7 @@ export function parseConversation(source: string): {
       if (declaration.label !== undefined) target.label = declaration.label;
       if (declaration.accent !== undefined) target.accent = declaration.accent;
       if (declaration.avatar !== undefined) target.avatar = declaration.avatar;
+      if (declaration.tints !== undefined) target.tints = declaration.tints;
       continue;
     }
 
@@ -642,6 +649,7 @@ export function renderConversation(source: string): string {
 
       const speaker = item.speaker;
       const style = speakerStyle(speaker);
+      const tints = speaker.tints ?? options.tints;
       const bubbles = item.bubbles
         .map((bubble, index) => {
           const last = index === item.bubbles.length - 1 ? ' conv-bubble--last' : '';
@@ -673,6 +681,8 @@ export function renderConversation(source: string): string {
       return (
         '<div class="conv-group conv-group--' +
         (speaker.me ? 'out' : 'in') +
+        '" data-tints="' +
+        (tints ? 'on' : 'off') +
         '"' +
         (style ? ' style="' + style + '"' : '') +
         '>' +
