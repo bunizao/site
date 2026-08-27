@@ -1,6 +1,7 @@
 ---
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
+import '@/styles/mood-image.css';
 
 interface Props {
   initialPosts?: MoodFeedItem[];
@@ -407,7 +408,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     flex-shrink: 0;
   }
 
-  #moods-section .mood-thumbnail img {
+  #moods-section .mood-thumbnail > img:not(.mood-image-blur) {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -579,6 +580,8 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   import type { MediaItem } from '@bunizao/contracts/content';
   import { getMoodDetailHref } from '@/features/mood/shared/feed-anchor';
   import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
+  import { getMoodImagePlaceholderSrc } from '@/features/mood/shared/image-srcset';
+  import { initMoodImageFrames } from '@/features/mood/client/image-frame';
   import { withWidthParam } from '@/lib/media/responsive-image';
 
   let pretextPromise: Promise<typeof import('@chenglou/pretext')> | null = null;
@@ -1284,6 +1287,19 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
         if (thumbnailSrc) {
           const thumbnail = document.createElement('div');
           thumbnail.className = 'mood-thumbnail';
+          const placeholderSrc = getMoodImagePlaceholderSrc(thumbnailSrc);
+          if (placeholderSrc) {
+            thumbnail.classList.add('mood-image-frame');
+            thumbnail.dataset.moodImageFrame = '';
+            const placeholder = document.createElement('img');
+            placeholder.className = 'mood-image-blur';
+            placeholder.src = placeholderSrc;
+            placeholder.alt = '';
+            placeholder.setAttribute('aria-hidden', 'true');
+            placeholder.loading = 'lazy';
+            placeholder.decoding = 'async';
+            thumbnail.appendChild(placeholder);
+          }
           const img = document.createElement('img');
           img.src = withWidthParam(thumbnailSrc, HOME_THUMBNAIL_WIDTH);
           const fallback = mood.image && typeof mood.imageFallback === 'string' ? mood.imageFallback.trim() : '';
@@ -1304,7 +1320,14 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
           };
           img.alt = '';
           img.loading = 'lazy';
+          img.decoding = 'async';
+          img.width = PRETEXT_THUMBNAIL_HEIGHT;
+          img.height = PRETEXT_THUMBNAIL_HEIGHT;
+          if (placeholderSrc) {
+            img.dataset.moodImageMain = '';
+          }
           thumbnail.appendChild(img);
+          initMoodImageFrames(thumbnail);
           meta.appendChild(thumbnail);
         }
 

@@ -3,7 +3,10 @@ import Hero from '@/features/mood/ui/Hero.astro';
 import type { MoodFeedItem, MoodChannelSummary } from '@/features/mood/server/contracts';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
 import { findTooBigVideoMedia, hasStructuredMoodFeedMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
-import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
+import {
+  getMoodFeedThumbnailStyle,
+  resolveMoodFeedImageLayout,
+} from '@/features/mood/shared/feed-thumbnail';
 import {
   getMoodDetailHref,
   getMoodFeedAnchorFragmentId,
@@ -15,7 +18,11 @@ import {
   formatMoodDateKey,
   formatMoodTime,
 } from '@/features/mood/shared/date-grouping';
-import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
+import {
+  buildArchiveSrcSet,
+  getMoodImagePlaceholderSrc,
+  getMoodImageRatio,
+} from '@/features/mood/shared/image-srcset';
 import { getMoodTagHref, normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
@@ -75,6 +82,8 @@ const initialFeedPayload = {
 };
 const hasInitialFeedPayload = initialPosts.length > 0 || Boolean(initialChannel);
 const initialFeedPayloadJson = serializeScriptJson(initialFeedPayload);
+const quoteImageErrorHandler =
+  "this.closest('.mood-item-quote-media')?.classList.add('is-media-error');this.remove();";
 
 function groupPostsByDate(posts: MoodFeedItem[]): Array<{ dateKey: string; posts: MoodFeedItem[] }> {
   const groups = new Map<string, MoodFeedItem[]>();
@@ -113,10 +122,15 @@ function getThumbClass(
   if (post.imageKind === 'sticker') {
     classes.push('mood-item-thumb--sticker');
   }
-  if (!isTooBigVideoPreview) {
-    if (post.imageLayout === 'portrait') {
+  if (!isTooBigVideoPreview && post.imageKind !== 'sticker') {
+    const ratio = getMoodImageRatio(post.imageWidth, post.imageHeight, post.imageLayout);
+    classes.push('mood-image-frame');
+    if (!ratio.exact) classes.push('mood-image-frame--estimated');
+
+    const imageLayout = resolveMoodFeedImageLayout(post.imageLayout, post.imageWidth, post.imageHeight);
+    if (imageLayout === 'portrait') {
       classes.push('mood-item-thumb--portrait');
-    } else if (post.imageLayout === 'ultra-tall') {
+    } else if (imageLayout === 'ultra-tall') {
       classes.push('mood-item-thumb--ultra-tall');
     }
   }
@@ -320,6 +334,10 @@ function shouldHideQuoteAuthor(value?: string): boolean {
               const thumbHeight = isTooBigVideoPreview ? (post.imageHeight ?? tooBigVideoMedia?.height ?? null) : post.imageHeight;
               const hasGalleryPreview = !hasStructuredMedia && !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
               const thumbResponsive = thumbImage ? buildArchiveSrcSet(thumbImage) : null;
+              const hasThumbFrame = Boolean(thumbImage && !isTooBigVideoPreview && post.imageKind !== 'sticker');
+              const thumbPlaceholder = hasThumbFrame && thumbImage
+                ? getMoodImagePlaceholderSrc(thumbImage)
+                : null;
               const fragmentId = getMoodFeedAnchorFragmentId(post.id);
 
               return (
@@ -370,12 +388,13 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                             class={`mood-item-quote${post.quote.thumbnailSrc && /^(Media|Video)$/i.test(post.quote.text) ? ' mood-item-quote--media-only' : post.quote.thumbnailSrc ? ' mood-item-quote--with-media' : ''}`}
                             href={post.quote.href}
                             data-quote-id={post.quote.href.match(/\/mood\/(\d+)/)?.[1]}
+                            aria-label={post.quote.thumbnailSrc && /^(Media|Video)$/i.test(post.quote.text) ? 'View quoted media' : undefined}
                             target={/^https?:\/\//i.test(post.quote.href) ? '_blank' : undefined}
                             rel={/^https?:\/\//i.test(post.quote.href) ? 'noopener noreferrer' : undefined}
                           >
                             {post.quote.thumbnailSrc ? (
                               <span class="mood-item-quote-media">
-                                <img class="mood-item-quote-image" src={post.quote.thumbnailSrc} alt="" loading="lazy" decoding="async" />
+                                <img class="mood-item-quote-image" src={post.quote.thumbnailSrc} alt="" loading="lazy" decoding="async" onerror={quoteImageErrorHandler} />
                               </span>
                             ) : null}
                             <span class="mood-item-quote-body">
@@ -393,7 +412,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                           <div class={`mood-item-quote${post.quote.thumbnailSrc ? ' mood-item-quote--with-media' : ''}`}>
                             {post.quote.thumbnailSrc ? (
                               <span class="mood-item-quote-media">
-                                <img class="mood-item-quote-image" src={post.quote.thumbnailSrc} alt="" loading="lazy" decoding="async" />
+                                <img class="mood-item-quote-image" src={post.quote.thumbnailSrc} alt="" loading="lazy" decoding="async" onerror={quoteImageErrorHandler} />
                               </span>
                             ) : null}
                             <span class="mood-item-quote-body">
@@ -431,10 +450,23 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                           imageWidth: thumbWidth,
                           imageHeight: thumbHeight,
                           imageLayout: isTooBigVideoPreview ? null : post.imageLayout,
+                          mediaKind: isTooBigVideoPreview ? 'video' : post.imageKind === 'sticker' ? 'sticker' : 'image',
                         })}
+                        data-mood-image-frame={hasThumbFrame ? '' : undefined}
                       >
+                        {thumbPlaceholder ? (
+                          <img
+                            class="mood-image-blur"
+                            src={thumbPlaceholder}
+                            alt=""
+                            aria-hidden="true"
+                            loading={isPriorityMedia ? 'eager' : 'lazy'}
+                            decoding="async"
+                          />
+                        ) : null}
                         {thumbImage ? (
                           <img
+                            data-mood-image-main={hasThumbFrame ? '' : undefined}
                             alt=""
                             width={thumbWidth ?? undefined}
                             height={thumbHeight ?? undefined}

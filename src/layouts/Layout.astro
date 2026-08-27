@@ -43,6 +43,7 @@ import { Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import CommandPalette from '@/components/CommandPalette.astro';
 import PageScroller from '@/components/PageScroller.astro';
+import PerformanceDebugPanel from '@/components/PerformanceDebugPanel.astro';
 import SearchButton from '@/components/SearchButton.astro';
 import SiteBrand from '@/components/SiteBrand.astro';
 import Topbar from '@/components/Topbar.astro';
@@ -265,6 +266,7 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
     <title>{title}</title>
   </head>
   <body>
+    <PerformanceDebugPanel />
     <div class="spotlight-overlay" data-spotlight-overlay aria-hidden="true">
       <div class="spotlight-overlay__grid spotlight-overlay__grid--soft"></div>
       <div class="spotlight-overlay__grid spotlight-overlay__grid--core"></div>

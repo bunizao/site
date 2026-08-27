@@ -1,9 +1,9 @@
-import justifiedLayout from 'justified-layout';
 import {
   renderMoodGalleryMarkup,
   type MoodGallery,
   type MoodGalleryVariant,
 } from '@/features/mood/shared/gallery-render';
+import { initMoodImageFrames } from '@/features/mood/client/image-frame';
 
 interface CreateMoodGalleryElementOptions {
   variant: MoodGalleryVariant;
@@ -75,32 +75,11 @@ function applyFallbackImage(img: HTMLImageElement): void {
   }
 }
 
-function classifySlideFromImage(slide: HTMLElement, img: HTMLImageElement): void {
-  const width = img.naturalWidth || img.width;
-  const height = img.naturalHeight || img.height;
-  if (!width || !height) return;
-
-  slide.dataset.aspectRatio = String(width / height);
-  slide.style.setProperty('--mood-gallery-ratio', `${width} / ${height}`);
-
-  slide.classList.remove('mood-gallery-slide--portrait', 'mood-gallery-slide--ultra-tall');
-  const ratio = width / height;
-  if (ratio < 0.6) {
-    slide.classList.add('mood-gallery-slide--ultra-tall');
-    return;
-  }
-  if (ratio < 0.8) {
-    slide.classList.add('mood-gallery-slide--portrait');
-  }
-}
-
 function hydrateGalleryImage(img: HTMLImageElement): void {
   if (img.dataset.deferredHydrated === '1') return;
 
   const deferredSrc = img.dataset.deferredSrc || '';
   if (!deferredSrc) return;
-
-  const slide = img.closest<HTMLElement>('[data-mood-gallery-slide]');
 
   img.dataset.deferredHydrated = '1';
   img.src = deferredSrc;
@@ -118,16 +97,6 @@ function hydrateGalleryImage(img: HTMLImageElement): void {
     applyFallbackImage(img);
   };
 
-  const classify = () => {
-    if (!slide) return;
-    classifySlideFromImage(slide, img);
-  };
-
-  if (img.complete) {
-    classify();
-  } else {
-    img.addEventListener('load', classify, { once: true });
-  }
 }
 
 function hydrateSlideAtIndex(slides: HTMLElement[], index: number): void {
@@ -137,64 +106,6 @@ function hydrateSlideAtIndex(slides: HTMLElement[], index: number): void {
   if (!img) return;
 
   hydrateGalleryImage(img);
-}
-
-function getDetailTargetRowHeight(trackWidth: number): number {
-  if (trackWidth >= 1440) return 420;
-  if (trackWidth >= 1200) return 360;
-  if (trackWidth >= 1024) return 320;
-  if (trackWidth >= 640) return 260;
-  return 210;
-}
-
-function applyDetailJustifiedLayout(track: HTMLElement, slides: HTMLElement[]): void {
-  const trackWidth = Math.floor(track.clientWidth);
-  if (trackWidth <= 0) return;
-
-  const geometry = justifiedLayout(
-    slides.map((slide) => {
-      const img = slide.querySelector<HTMLImageElement>('[data-mood-gallery-image]');
-      const naturalWidth = img?.naturalWidth ?? 0;
-      const naturalHeight = img?.naturalHeight ?? 0;
-      const width = naturalWidth > 0 ? naturalWidth : Number.parseFloat(img?.getAttribute('width') ?? '');
-      const height = naturalHeight > 0 ? naturalHeight : Number.parseFloat(img?.getAttribute('height') ?? '');
-      const aspectRatio = Number.parseFloat(slide.dataset.aspectRatio ?? '');
-
-      if (Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0) {
-        return { width, height };
-      }
-
-      return Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 1;
-    }),
-    {
-      containerWidth: trackWidth,
-      containerPadding: 0,
-      boxSpacing: {
-        horizontal: trackWidth >= 1024 ? 18 : trackWidth >= 640 ? 16 : 14,
-        vertical: trackWidth >= 1024 ? 18 : trackWidth >= 640 ? 16 : 14,
-      },
-      targetRowHeight: getDetailTargetRowHeight(trackWidth),
-      targetRowHeightTolerance: 0.22,
-      showWidows: true,
-      widowLayoutStyle: 'left',
-    }
-  );
-
-  track.style.height = `${Math.ceil(geometry.containerHeight)}px`;
-  track.dataset.moodGalleryLayout = 'justified';
-
-  geometry.boxes.forEach((box, index) => {
-    const slide = slides[index];
-    const img = slide?.querySelector<HTMLImageElement>('[data-mood-gallery-image]');
-    if (!slide || !img) return;
-
-    slide.style.left = `${Math.round(box.left)}px`;
-    slide.style.top = `${Math.round(box.top)}px`;
-    slide.style.width = `${Math.round(box.width)}px`;
-    slide.style.height = `${Math.round(box.height)}px`;
-    img.style.width = '100%';
-    img.style.height = '100%';
-  });
 }
 
 function initMoodGallery(gallery: HTMLElement): void {
@@ -215,6 +126,8 @@ function initMoodGallery(gallery: HTMLElement): void {
   if (!slides.length) {
     return;
   }
+
+  initMoodImageFrames(gallery);
 
   const isFeed = variant === 'feed';
 
@@ -362,52 +275,9 @@ function initMoodGallery(gallery: HTMLElement): void {
       slides.forEach((_slide, index) => {
         hydrateSlideAtIndex(slides, index);
       });
-
-      let resizeFrame = 0;
-      const relayout = (): void => {
-        if (resizeFrame) {
-          window.cancelAnimationFrame(resizeFrame);
-        }
-
-        resizeFrame = window.requestAnimationFrame(() => {
-          resizeFrame = 0;
-          applyDetailJustifiedLayout(track, slides);
-        });
-      };
-
-      slides.forEach((slide) => {
-        const img = slide.querySelector<HTMLImageElement>('[data-mood-gallery-image]');
-        if (!img) return;
-
-        if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
-          classifySlideFromImage(slide, img);
-          return;
-        }
-
-        img.addEventListener('load', () => {
-          classifySlideFromImage(slide, img);
-          relayout();
-        });
-      });
-
-      const resizeObserver = typeof ResizeObserver !== 'undefined'
-        ? new ResizeObserver(() => {
-            relayout();
-          })
-        : null;
-      resizeObserver?.observe(track);
-      window.addEventListener('resize', relayout);
-      relayout();
-
       galleryControllers.set(gallery, {
         containerObserver: null,
-        cleanupTrack: () => {
-          if (resizeFrame) {
-            window.cancelAnimationFrame(resizeFrame);
-          }
-          resizeObserver?.disconnect();
-          window.removeEventListener('resize', relayout);
-        },
+        cleanupTrack: null,
       });
       return;
     }

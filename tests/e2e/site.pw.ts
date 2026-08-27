@@ -1,6 +1,26 @@
 import { devices, type Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
+test.describe('Performance diagnostics', () => {
+  test('loads only when requested and exposes an agent-readable snapshot', async ({ page }) => {
+    await page.goto('/?debug=performance', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-performance-debug]')).toBeAttached();
+    await expect.poll(() => page.evaluate(() => Boolean(window.__BUXX_PERF_DEBUG__))).toBe(true);
+
+    const snapshot = await page.evaluate(() => window.__BUXX_PERF_DEBUG__?.snapshot());
+    expect(snapshot?.metrics).toEqual(expect.objectContaining({
+      cls: expect.any(Number),
+      longTasks: expect.any(Number),
+      scrollCalls: expect.any(Number),
+    }));
+    expect(snapshot?.records.some((record) => record.kind === 'panel')).toBe(true);
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-performance-debug]')).toHaveCount(0);
+    expect(await page.evaluate(() => Boolean(window.__BUXX_PERF_DEBUG__))).toBe(false);
+  });
+});
+
 function isIgnorableDevConsoleError(message: string): boolean {
   return message.includes('Outdated Optimize Dep');
 }

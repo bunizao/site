@@ -7,15 +7,24 @@ import {
   loadMoodFeed,
   moodDocumentToFeedItem,
 } from '@/features/mood/server/api-client';
-import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery';
+import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
 import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
+import {
+  getMoodFeedThumbnailStyle,
+  resolveMoodFeedImageLayout,
+} from '@/features/mood/shared/feed-thumbnail';
+import {
+  buildArchiveSrcSet,
+  getMoodImagePlaceholderSrc,
+  getMoodImageRatio,
+} from '@/features/mood/shared/image-srcset';
 import { getMoodDetailHref, getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
 import { readMoodEmbedQuery } from '@/features/mood/server/embed-query';
-import { buildSrcSet } from '@/lib/media/responsive-image';
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import { getEmbedHeaders } from '../../lib/embed-response';
 import '@/features/mood/styles/feed-rich-text.css';
 import '@/styles/mood-gallery.css';
+import '@/styles/mood-image.css';
 import '@/styles/embed-youtube.css';
 
 export const prerender = false;
@@ -51,10 +60,9 @@ if (idParam) {
   channelAvatar = toMoodAvatarUrl(feed.channel.avatar || '', Astro.locals);
 }
 
-const responsiveImageWidths = [480, 800, 1200];
 const embedImageSizes = '(min-width: 640px) 520px, 100vw';
 const quoteImageErrorHandler =
-  "this.closest('.mood-item-quote-media')?.remove();const q=this.closest('.mood-item-quote');q?.classList.remove('mood-item-quote--with-media','mood-item-quote--media-only');if(q&&!q.textContent.trim())q.remove();";
+  "this.closest('.mood-item-quote-media')?.classList.add('is-media-error');this.remove();";
 
 // Set embed-friendly headers
 const embedHeaders = getEmbedHeaders(hasRefreshParam ? { maxAge: 0, staleWhileRevalidate: 0 } : { maxAge: 300 });
@@ -122,11 +130,15 @@ function isExternalHref(value: string | undefined): boolean {
 }
 
 function getImageClassName(post: MoodFeedItem): string {
+  const layout = resolveMoodFeedImageLayout(post.imageLayout, post.imageWidth, post.imageHeight);
+  const ratio = getMoodImageRatio(post.imageWidth, post.imageHeight, layout);
+  const isSticker = post.imageKind === 'sticker';
   return [
     'mood-item-thumb',
-    post.imageKind === 'sticker' ? 'mood-item-thumb--sticker' : '',
-    post.imageLayout === 'portrait' ? 'mood-item-thumb--portrait' : '',
-    post.imageLayout === 'ultra-tall' ? 'mood-item-thumb--ultra-tall' : '',
+    isSticker ? 'mood-item-thumb--sticker' : 'mood-image-frame',
+    !isSticker && !ratio.exact ? 'mood-image-frame--estimated' : '',
+    layout === 'portrait' ? 'mood-item-thumb--portrait' : '',
+    layout === 'ultra-tall' ? 'mood-item-thumb--ultra-tall' : '',
   ].filter(Boolean).join(' ');
 }
 ---
@@ -395,15 +407,17 @@ function getImageClassName(post: MoodFeedItem): string {
       overflow: hidden;
       background: hsl(var(--foreground) / 0.02);
       position: relative;
+      aspect-ratio: var(--mood-thumb-ratio, 4 / 3);
     }
 
-    .mood-item-thumb img {
+    .mood-item-thumb > img:not(.mood-image-blur) {
       display: block;
       width: 100%;
-      height: auto;
+      height: 100%;
+      object-fit: contain;
     }
 
-    .mood-item-thumb:not(.mood-item-thumb--sticker) img {
+    .mood-item-thumb:not(.mood-item-thumb--sticker) > img:not(.mood-image-blur) {
       box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
     }
 
@@ -411,13 +425,15 @@ function getImageClassName(post: MoodFeedItem): string {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: fit-content;
+      width: min(100%, 256px);
       max-width: min(100%, 256px);
+      aspect-ratio: 1 / 1;
       background: transparent;
     }
 
     .mood-item-thumb--sticker img {
-      width: min(100%, 256px);
+      width: 100%;
+      height: 100%;
       object-fit: contain;
     }
 
@@ -425,14 +441,17 @@ function getImageClassName(post: MoodFeedItem): string {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: fit-content;
-      max-width: min(100%, 220px);
+      width: min(100%, var(--mood-thumb-reserved-width, 220px));
+      max-width: min(100%, var(--mood-thumb-reserved-width, 220px));
+      aspect-ratio: var(--mood-thumb-ratio, 3 / 4);
       background: hsl(var(--foreground) / 0.04);
     }
 
-    .mood-item-thumb--portrait img {
-      max-width: 220px;
-      max-height: 280px;
+    .mood-item-thumb--portrait > img:not(.mood-image-blur) {
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      max-height: none;
       object-fit: contain;
     }
 
@@ -440,14 +459,17 @@ function getImageClassName(post: MoodFeedItem): string {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: fit-content;
-      max-width: min(100%, 180px);
+      width: min(100%, var(--mood-thumb-reserved-width, 180px));
+      max-width: min(100%, var(--mood-thumb-reserved-width, 180px));
+      aspect-ratio: var(--mood-thumb-ratio, 9 / 16);
       background: hsl(var(--foreground) / 0.03);
     }
 
-    .mood-item-thumb--ultra-tall img {
-      max-width: 180px;
-      max-height: 320px;
+    .mood-item-thumb--ultra-tall > img:not(.mood-image-blur) {
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      max-height: none;
       object-fit: contain;
     }
 
@@ -569,6 +591,20 @@ function getImageClassName(post: MoodFeedItem): string {
         const quoteHref = post.quote?.href;
         const QuoteElement = quoteHref ? 'a' : 'div';
         const quoteIsExternal = isExternalHref(quoteHref);
+        const imageLayout = resolveMoodFeedImageLayout(post.imageLayout, post.imageWidth, post.imageHeight);
+        const imageStyle = getMoodFeedThumbnailStyle({
+          imageWidth: post.imageWidth,
+          imageHeight: post.imageHeight,
+          imageLayout,
+          mediaKind: post.imageKind === 'sticker' ? 'sticker' : 'image',
+        });
+        const imagePlaceholder = image && post.imageKind !== 'sticker'
+          ? getMoodImagePlaceholderSrc(image)
+          : null;
+        const hasImageFrame = Boolean(image && post.imageKind !== 'sticker');
+        const imageResponsive = image
+          ? buildArchiveSrcSet(image, { sizes: embedImageSizes })
+          : null;
 
         return (
           <article class="embed-card">
@@ -594,6 +630,7 @@ function getImageClassName(post: MoodFeedItem): string {
                   target={quoteIsExternal ? '_blank' : undefined}
                   rel={quoteIsExternal ? 'noopener noreferrer' : undefined}
                   class={getQuoteClassName(post)}
+                  aria-label={isMediaOnlyQuote(post) ? 'View quoted media' : undefined}
                 >
                   {post.quote.thumbnailSrc && (
                     <span class="mood-item-quote-media">
@@ -627,11 +664,28 @@ function getImageClassName(post: MoodFeedItem): string {
               {!structuredMediaHtml && gallery ? (
                 <Fragment set:html={renderMoodGalleryMarkup(gallery, { variant: 'feed' })} />
               ) : !structuredMediaHtml && image && (
-                <div class={getImageClassName(post)}>
+                <div
+                  class={getImageClassName(post)}
+                  style={imageStyle}
+                  data-mood-image-frame={hasImageFrame ? '' : undefined}
+                >
+                  {imagePlaceholder ? (
+                    <img
+                      class="mood-image-blur"
+                      src={imagePlaceholder}
+                      alt=""
+                      aria-hidden="true"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : null}
                   <img
                     src={image}
-                    srcset={image ? buildSrcSet(image, responsiveImageWidths) : undefined}
-                    sizes={embedImageSizes}
+                    srcset={imageResponsive?.srcset}
+                    sizes={imageResponsive?.sizes}
+                    width={post.imageWidth ?? undefined}
+                    height={post.imageHeight ?? undefined}
+                    data-mood-image-main={hasImageFrame ? '' : undefined}
                     data-fallback-src={post.imageFallback || undefined}
                     alt=""
                     loading="lazy"
@@ -673,8 +727,10 @@ function getImageClassName(post: MoodFeedItem): string {
   )}
 
   <script>
+    import { initMoodImageFrames } from '@/features/mood/client/image-frame';
     import { initYouTubeEmbeds } from '@/lib/embed/youtube-controller';
 
+    initMoodImageFrames();
     initYouTubeEmbeds();
   </script>
 

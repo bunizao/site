@@ -11,6 +11,7 @@ interface MoodMetaPatcherOptions {
 }
 
 interface MoodMetaPatcher {
+  patch(ids: readonly string[]): Promise<void>;
   patchVisible(): Promise<void>;
 }
 
@@ -208,6 +209,29 @@ export function createMoodMetaPatcher({
   let pending: Promise<void> | null = null;
   let observer: IntersectionObserver | null = null;
 
+  const patch = async (requestedIds: readonly string[]): Promise<void> => {
+    if (!enabled) return;
+    if (pending) await pending;
+
+    const ids = [...new Set(requestedIds.map((id) => id.trim()).filter(Boolean))]
+      .filter((id) => !attemptedIds.has(id))
+      .slice(0, MAX_VISIBLE_IDS);
+    if (!ids.length) return;
+
+    pending = fetchCounts(ids)
+      .then((counts) => {
+        // Mark ids attempted only on success so a failed fetch stays retryable.
+        ids.forEach((id) => attemptedIds.add(id));
+        Object.entries(counts).forEach(([id, count]) => patchMoodTarget(root, id, count));
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        pending = null;
+      });
+
+    await pending;
+  };
+
   const observePosts = (): void => {
     if (!enabled || !('IntersectionObserver' in window)) return;
     observer ??= new IntersectionObserver((entries) => {
@@ -223,25 +247,12 @@ export function createMoodMetaPatcher({
   };
 
   const patchVisible = async (): Promise<void> => {
-    if (!enabled || pending) return pending ?? Promise.resolve();
+    if (!enabled) return;
 
     observePosts();
     const ids = collectVisibleMoodIds(root, attemptedIds);
-    if (!ids.length) return;
-
-    pending = fetchCounts(ids)
-      .then((counts) => {
-        // Mark ids attempted only on success so a failed fetch stays retryable.
-        ids.forEach((id) => attemptedIds.add(id));
-        Object.entries(counts).forEach(([id, count]) => patchMoodTarget(root, id, count));
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        pending = null;
-      });
-
-    return pending;
+    await patch(ids);
   };
 
-  return { patchVisible };
+  return { patch, patchVisible };
 }

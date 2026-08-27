@@ -16,6 +16,7 @@ import {
 import BlogSearch from '@/features/posts/ui/BlogSearch.astro';
 import CommandPalette from '@/components/CommandPalette.astro';
 import PageScroller from '@/components/PageScroller.astro';
+import PerformanceDebugPanel from '@/components/PerformanceDebugPanel.astro';
 import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
 import { BLOG_FAVICON } from '@/lib/favicon';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
@@ -260,6 +261,7 @@ const paletteCss = [
     class="blog-zone reading"
     data-pagefind-ignore={excludesIndexing ? 'all' : undefined}
   >
+    <PerformanceDebugPanel />
     <!-- Outside the scroller: it is a fixed lid, and a fixed layer inside a
          scroll container cannot read that container's anonymous timeline. It gets
          driven by the named one the scroller publishes instead. -->

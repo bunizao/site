@@ -1,43 +1,30 @@
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
-import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
+import {
+  getMoodImagePlaceholderSrc,
+  getMoodImageRatio,
+} from '@/features/mood/shared/image-srcset';
+import {
+  renderMoodGalleryMarkup,
+  type MoodGallery,
+  type MoodGalleryItem,
+  type MoodGalleryLayout,
+} from '@/features/mood/shared/gallery-render';
 
-export type MoodGalleryVariant = 'feed' | 'detail';
-export type MoodGalleryLayout = 'landscape' | 'portrait' | 'ultra-tall';
-
-export interface MoodGalleryItem {
-  src: string;
-  fallbackSrc: string | null;
-  width: number | null;
-  height: number | null;
-  layout: MoodGalleryLayout | null;
-  alt: string;
-}
-
-export interface MoodGallery {
-  items: MoodGalleryItem[];
-  count: number;
-}
+export { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
+export type {
+  MoodGallery,
+  MoodGalleryItem,
+  MoodGalleryLayout,
+  MoodGalleryVariant,
+} from '@/features/mood/shared/gallery-render';
 
 interface MoodGalleryPlaceholder {
   index: number;
   gallery: MoodGallery;
 }
 
-interface RenderMoodGalleryOptions {
-  variant: MoodGalleryVariant;
-  priority?: boolean;
-}
-
 const GALLERY_PLACEHOLDER_ATTR = 'data-mood-gallery-placeholder';
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function parsePositiveInteger(value: string | undefined): number | null {
   if (!value) return null;
@@ -114,42 +101,6 @@ function readMoodGalleryLayoutFromClassName(className: string): MoodGalleryLayou
 function extractBackgroundImageUrl(style: string): string {
   const match = style.match(/background-image\s*:\s*url\((['"]?)(.*?)\1\)/i);
   return (match?.[2] ?? '').trim();
-}
-
-export function getMoodGallerySizes(variant: MoodGalleryVariant): string {
-  if (variant === 'detail') {
-    return '(min-width: 1024px) 720px, (min-width: 640px) 90vw, calc(100vw - 48px)';
-  }
-
-  return '(min-width: 1024px) 560px, (min-width: 640px) 480px, calc(100vw - 96px)';
-}
-
-export function getMoodGalleryAspectRatio(item: MoodGalleryItem): string {
-  if (item.width && item.height) {
-    return `${item.width} / ${item.height}`;
-  }
-
-  if (item.layout === 'portrait') {
-    return '3 / 4';
-  }
-  if (item.layout === 'ultra-tall') {
-    return '9 / 16';
-  }
-  return '4 / 3';
-}
-
-export function getMoodGalleryAspectRatioValue(item: MoodGalleryItem): number {
-  if (item.width && item.height) {
-    return item.width / item.height;
-  }
-
-  if (item.layout === 'portrait') {
-    return 3 / 4;
-  }
-  if (item.layout === 'ultra-tall') {
-    return 9 / 16;
-  }
-  return 4 / 3;
 }
 
 function normalizeGalleryItems(items: MoodGalleryItem[]): MoodGallery | null {
@@ -339,52 +290,61 @@ export function replaceMoodGalleryWithPlaceholders(content: string): {
   };
 }
 
-export function renderMoodGalleryMarkup(
-  gallery: MoodGallery,
-  options: RenderMoodGalleryOptions,
-): string {
-  const { variant, priority = false } = options;
-  const slides = gallery.items
-    .map((item, index) => {
-      const layoutClass = item.layout ? ` mood-gallery-slide--${item.layout}` : '';
-      const aspectRatio = getMoodGalleryAspectRatioValue(item);
-      const responsive = buildArchiveSrcSet(item.src, { sizes: getMoodGallerySizes(variant) });
-      const attrs = [
-        'class="mood-gallery-image"',
-        'data-mood-gallery-image',
-        `data-gallery-index="${index}"`,
-        `data-deferred-src="${escapeHtml(item.src)}"`,
-        responsive.srcset ? `data-deferred-srcset="${escapeHtml(responsive.srcset)}"` : '',
-        responsive.srcset && responsive.sizes ? `data-sizes="${escapeHtml(responsive.sizes)}"` : '',
-        item.fallbackSrc ? `data-fallback-src="${escapeHtml(item.fallbackSrc)}"` : '',
-        item.width ? `width="${item.width}"` : '',
-        item.height ? `height="${item.height}"` : '',
-        `alt="${escapeHtml(item.alt)}"`,
-        'decoding="async"',
-        'loading="lazy"',
-      ]
-        .filter(Boolean)
-        .join(' ');
+function appendStyle(existing: string, declaration: string): string {
+  const trimmed = existing.trim();
+  return `${trimmed}${trimmed && !trimmed.endsWith(';') ? ';' : ''}${declaration}`;
+}
 
-      return [
-        `<div class="mood-gallery-slide${layoutClass}" data-mood-gallery-slide data-gallery-index="${index}" data-aspect-ratio="${escapeHtml(String(aspectRatio))}" style="--mood-gallery-ratio:${escapeHtml(getMoodGalleryAspectRatio(item))};">`,
-        `<img ${attrs} />`,
-        '</div>',
-      ].join('');
-    })
-    .join('');
+function enhanceStandaloneMoodImages(content: string): string {
+  const $ = cheerio.load(content, null, false);
 
-  return [
-    `<div class="mood-gallery mood-gallery--${variant}" data-mood-gallery data-mood-gallery-variant="${variant}" data-mood-gallery-count="${gallery.count}"${priority ? ' data-mood-gallery-priority="true"' : ''}>`,
-    `<div class="mood-gallery-track" data-mood-gallery-track>${slides}</div>`,
-    '</div>',
-  ].join('');
+  $('.image-preview-wrap').each((_index, wrapper) => {
+    const $wrapper = $(wrapper);
+    if ($wrapper.hasClass('modal') || $wrapper.closest('.mood-gallery').length > 0) return;
+
+    const image = $wrapper.find('img:not(.modal-img):not(.mood-image-blur)').first();
+    const src = (image.attr('src') ?? '').trim();
+    if (!image.length || !src) return;
+
+    const width = parsePositiveInteger(image.attr('width'))
+      ?? parseStylePixelValue($wrapper.attr('style') ?? '', '--image-width');
+    const height = parsePositiveInteger(image.attr('height'))
+      ?? parseStylePixelValue($wrapper.attr('style') ?? '', '--image-height');
+    const layout = readMoodGalleryLayoutFromClassName($wrapper.attr('class') ?? '')
+      ?? deriveMoodGalleryLayout(width, height);
+    const ratio = getMoodImageRatio(width, height, layout);
+
+    $wrapper.addClass('mood-image-frame');
+    if (!ratio.exact) $wrapper.addClass('mood-image-frame--estimated');
+    $wrapper.attr('data-mood-image-frame', '');
+    $wrapper.attr(
+      'style',
+      appendStyle($wrapper.attr('style') ?? '', `--mood-image-ratio:${ratio.css};`),
+    );
+    image.attr('data-mood-image-main', '');
+
+    const placeholderSrc = getMoodImagePlaceholderSrc(src);
+    if (placeholderSrc) {
+      const placeholder = $('<img>')
+        .addClass('mood-image-blur')
+        .attr({
+          src: placeholderSrc,
+          alt: '',
+          'aria-hidden': 'true',
+          loading: 'lazy',
+          decoding: 'async',
+        });
+      image.before(placeholder);
+    }
+  });
+
+  return $.root().html() ?? content;
 }
 
 export function renderMoodContentWithGalleries(content: string): string {
   const { contentHtml, placeholders } = replaceMoodGalleryWithPlaceholders(content);
   if (!placeholders.length) {
-    return content;
+    return enhanceStandaloneMoodImages(content);
   }
 
   const $ = cheerio.load(contentHtml);
@@ -395,5 +355,6 @@ export function renderMoodContentWithGalleries(content: string): string {
     );
   });
 
-  return $('body').html()?.trim() || $.root().html() || content;
+  const rendered = $('body').html()?.trim() || $.root().html() || content;
+  return enhanceStandaloneMoodImages(rendered);
 }

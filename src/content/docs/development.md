@@ -64,6 +64,27 @@ There is a second gap worth knowing: mood pages read from the **live** source in
 dev and the **D1 archive** in production. Profiling or debugging `/mood` without
 `?source=archive` means measuring a code path that production never takes.
 
+## Performance diagnostics
+
+Append `?debug=performance` to any site page to load the opt-in performance
+panel. `debug=observe` is retained as an alias for older investigation links.
+The production build includes the diagnostic module, but ordinary visits do not
+load or run it.
+
+The panel records layout shifts and their source nodes, LCP, long tasks, slow
+resources, frame gaps, image frame geometry, fonts, visual viewport changes,
+scroll calls, and meaningful element resizes. **Copy** exports the complete log;
+the visible panel keeps only the latest entries. Agents can read the same data
+without scraping the UI:
+
+```js
+window.__BUXX_PERF_DEBUG__.snapshot()
+window.__BUXX_PERF_DEBUG__.text()
+```
+
+Resource entries contain only origins and paths. Page text and resource query
+parameters are deliberately excluded from the log.
+
 ## Checks
 
 ```bash
