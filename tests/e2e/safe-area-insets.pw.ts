@@ -11,7 +11,7 @@ const FAKE_INSET = 59; // iPhone 16 Pro portrait status-bar band.
 
 async function openDemoPost(page: import('@playwright/test').Page) {
   await page.setViewportSize(PHONE);
-  await page.goto('/blog/demo-effects/', { waitUntil: 'networkidle' });
+  await page.goto('/blog/demo-effects', { waitUntil: 'networkidle' });
 }
 
 async function scrollPageTo(page: import('@playwright/test').Page, top: number) {
@@ -21,7 +21,7 @@ async function scrollPageTo(page: import('@playwright/test').Page, top: number) 
 }
 
 test('every zone opts into the hardware band', async ({ page }) => {
-  for (const path of ['/blog/', '/blog/demo-effects/', '/', '/mood']) {
+  for (const path of ['/blog', '/blog/demo-effects', '/', '/mood']) {
     await page.goto(path, { waitUntil: 'domcontentloaded' });
     const content = await page.getAttribute('meta[name="viewport"]', 'content');
     expect(content, `${path} must declare cover`).toContain('viewport-fit=cover');

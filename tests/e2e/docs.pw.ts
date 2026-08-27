@@ -62,6 +62,10 @@ test.describe('Developer reference', () => {
     expect(response.headers()['content-type']).toContain('text/markdown');
     expect(response.headers()['x-markdown-tokens']).toBeTruthy();
     expect(await response.text()).toContain('# Poems');
+
+    const shorthand = await request.get('/docs/writing/authors.md', { maxRedirects: 0 });
+    expect(shorthand.status()).toBe(308);
+    expect(shorthand.headers().location).toBe('/docs/writing/authors/index.md');
   });
 
   test('copies the page Markdown from the docs header control', async ({ page, context }) => {

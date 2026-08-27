@@ -84,10 +84,10 @@ describe('blog footnotes directive', () => {
       );
 
       expect(result.html).toContain(
-        'href="https://buxx.me/blog/footnote-contract/#fn-1"',
+        'href="https://buxx.me/blog/footnote-contract#fn-1"',
       );
       expect(result.html).toContain(
-        'href="https://buxx.me/blog/footnote-contract/#fnref-1"',
+        'href="https://buxx.me/blog/footnote-contract#fnref-1"',
       );
       expect(result.html).not.toContain('href="#');
     }

@@ -24,17 +24,15 @@ export function formatPostDateShort(isoDate: string): string {
   return SHORT_DATE_FORMAT.format(new Date(isoDate));
 }
 
-// Canonical blog paths, always with a trailing slash. The prerendered pages are
-// directories (`/blog/slug/index.html`), so the slashless form costs a 307
-// redirect at the edge before the HTML request even starts. Every internal
-// link, RSS item, and sitemap entry goes through these so navigation never
-// pays that round-trip.
+// Canonical blog paths are extensionless and slashless. Every internal link,
+// RSS item, and sitemap entry goes through these helpers so alternate URL forms
+// never leak back into discovery surfaces.
 export function postPath(slug: string): string {
-  return `/blog/${slug}/`;
+  return `/blog/${slug}`;
 }
 
 export function tagPath(slug: string): string {
-  return `/blog/tag/${slug}/`;
+  return `/blog/tag/${slug}`;
 }
 
 // A `view-transition-name` must be a valid CSS custom-ident: it can't start with

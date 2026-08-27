@@ -1,8 +1,8 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
-const BLOG_POST_PATH_RE = /^\/blog\/[^/?#]+\/$/;
-const BLOG_TAG_PATH_RE = /^\/blog\/tag\/[^/?#]+\/$/;
+const BLOG_POST_PATH_RE = /^\/blog\/[^/?#]+$/;
+const BLOG_TAG_PATH_RE = /^\/blog\/tag\/[^/?#]+$/;
 
 async function readPageScrollTop(page: Page): Promise<number> {
   return page.locator('[data-page-scroller]').evaluate((scroller) => scroller.scrollTop);
@@ -37,7 +37,7 @@ async function openBlogIndex(page: Page): Promise<void> {
   const response = await page.goto('/blog');
 
   expect(response?.ok()).toBeTruthy();
-  await expect(page).toHaveURL(/\/blog\/?$/);
+  await expect(page).toHaveURL(/\/blog$/);
   await expect(page.locator('.blog-shell')).toBeVisible();
 }
 
@@ -309,7 +309,7 @@ test.describe('Blog routes', () => {
       publisher: {
         '@type': 'Organization',
         name: '無人之境',
-        url: 'https://buxx.me/blog/',
+        url: 'https://buxx.me/blog',
         logo: {
           '@type': 'ImageObject',
           width: 128,
@@ -324,7 +324,7 @@ test.describe('Blog routes', () => {
 
     await page.locator('.blog-row__link').first().click();
 
-    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(firstPostHref)}/?$`));
+    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(firstPostHref)}$`));
 
     const article = page.locator('article[data-pagefind-body]');
     await expect(article).toBeVisible();
@@ -353,7 +353,7 @@ test.describe('Blog routes', () => {
   });
 
   test('keeps an unlisted post direct-only and excluded from crawlers and Pagefind', async ({ page }) => {
-    await page.goto('/blog/private-link-demo/');
+    await page.goto('/blog/private-link-demo');
 
     await expect(page).toHaveTitle(/Direct link only fixture/);
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
@@ -364,14 +364,14 @@ test.describe('Blog routes', () => {
     await expect(page.locator('link[rel="alternate"][type="text/markdown"]')).toHaveCount(0);
     await expect(page.getByRole('navigation', { name: 'More posts' })).toHaveCount(0);
 
-    await page.goto('/blog/');
+    await page.goto('/blog');
     await expect(page.getByText('Direct link only fixture')).toHaveCount(0);
   });
 
   test('renders model credits from post metadata without leaking the carrier or overflowing', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 900 });
 
-    const response = await page.goto('/blog/demo-effects/');
+    const response = await page.goto('/blog/demo-effects');
 
     expect(response?.ok()).toBeTruthy();
 
@@ -389,14 +389,14 @@ test.describe('Blog routes', () => {
     expect(creditBounds!.x).toBeGreaterThanOrEqual(0);
     expect(creditBounds!.x + creditBounds!.width).toBeLessThanOrEqual(321);
 
-    await page.goto('/blog/quiet-architecture/');
+    await page.goto('/blog/quiet-architecture');
     await expect(page.locator('.not-by-ai')).toHaveText('本文由真人撰写，未使用 AI 创作。');
     await expect(page.locator('.ai-credit')).toHaveCount(0);
     await expect(page.locator('.not-by-ai__trigger, .not-by-ai__card')).toHaveCount(0);
   });
 
   test('renders Ghost code through the shared code box component', async ({ page }) => {
-    const response = await page.goto('/blog/demo-effects/');
+    const response = await page.goto('/blog/demo-effects');
 
     expect(response?.ok()).toBeTruthy();
 
@@ -461,7 +461,7 @@ test.describe('Blog routes', () => {
     expect(llms.headers()['content-type']).toContain('text/plain');
     expect(llms.headers()['cache-control']).toContain('s-maxage=300');
     const body = await llms.text();
-    expect(body).toContain('https://buxx.me/blog/');
+    expect(body).toContain('https://buxx.me/blog');
     expect(body).toContain('https://buxx.me/mood');
   });
 
@@ -473,7 +473,7 @@ test.describe('Blog routes', () => {
     const response = await page.goto(firstTagHref as string);
 
     expect(response?.ok()).toBeTruthy();
-    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(firstTagHref as string)}/?$`));
+    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(firstTagHref as string)}$`));
     await expect(page.locator('.tag-archive__title')).toContainText(firstTagName as string);
     await expect(page.locator('.tag-archive__count')).toHaveText(/\d+\s+posts?/);
     await expect(page.locator('.blog-row__link').first()).toBeVisible();
@@ -499,7 +499,7 @@ test.describe('Blog routes', () => {
 
     expect(xml).toContain('<rss version="2.0"');
     expect(xml).toContain('<channel>');
-    expect(xml).toContain('<link>https://buxx.me/blog/</link>');
+    expect(xml).toContain('<link>https://buxx.me/blog</link>');
     expect(xml).toMatch(/<item>[\s\S]*<link>https:\/\/buxx\.me\/blog\/[^<]+<\/link>/);
     expect(xml).not.toContain('blog.buxx.me/rss');
   });
@@ -508,7 +508,7 @@ test.describe('Blog routes', () => {
     const { firstPostHref, firstTagHref } = await collectBlogIndexTargets(page);
     const xml = await readTextRoute(request, '/sitemap.xml', /(?:application|text)\/xml/i);
 
-    expect(xml).toContain(canonicalLoc('/blog/'));
+    expect(xml).toContain(canonicalLoc('/blog'));
     expect(xml).toContain(canonicalLoc(firstPostHref));
 
     if (firstTagHref) {

@@ -64,7 +64,7 @@ The build keeps two post collections separate:
 
 | Collection | Source | Includes `#unlisted` posts | Used by |
 | --- | --- | --- | --- |
-| Accessible | `getAccessiblePosts()` | Yes | `/blog/<slug>/` static paths and direct slug lookup |
+| Accessible | `getAccessiblePosts()` | Yes | `/blog/<slug>` static paths and direct slug lookup |
 | Listed | `getListedPosts()` | No | Home and blog indexes, tag directories and archives, adjacent links, RSS, sitemap, Pagefind, palette data, `llms.txt`, and generated agent Markdown indexes |
 
 An unlisted post therefore has a stable URL, but readers must already have the

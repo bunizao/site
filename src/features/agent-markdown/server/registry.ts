@@ -171,7 +171,7 @@ function buildHomeAgentMarkdown(baseUrl: URL): string {
     '',
     '## Links',
     '',
-    `- [Blog](${new URL('/blog/', baseUrl).href})`,
+    `- [Blog](${new URL('/blog', baseUrl).href})`,
     `- [Mood](${new URL('/mood', baseUrl).href})`,
     `- [Projects](${new URL('/projects', baseUrl).href})`,
     `- [Privacy](${new URL('/privacy', baseUrl).href})`,

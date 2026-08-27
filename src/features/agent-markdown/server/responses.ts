@@ -2,6 +2,7 @@ import { cacheEdgeResponse, readEdgeCache } from '@/lib/http/edge-cache';
 import { estimateMarkdownTokens, prefersMarkdown } from './negotiation';
 import {
   EDGE_CACHE_HEADER,
+  MARKDOWN_PATH_SUFFIX,
   MARKDOWN_CONTENT_TYPE,
   MARKDOWN_TOKEN_HEADER,
   type ContentRoutePolicy,
@@ -9,6 +10,7 @@ import {
   getContentRoutePolicy,
   getMarkdownRenderer,
   hasMarkdownRenderer,
+  markdownAlternatePath,
 } from './registry';
 
 const EDGE_CACHE_VERSION = '2';
@@ -77,6 +79,33 @@ export function publicCacheControl(ttlSeconds: number, staleWhileRevalidateSecon
       ? `stale-while-revalidate=${staleWhileRevalidateSeconds}`
       : '',
   ].filter(Boolean).join(', ');
+}
+
+export function redirectCanonicalUrl(request: Request): Response | null {
+  const url = new URL(request.url);
+  let pathname = url.pathname;
+
+  if (pathname !== '/') {
+    pathname = pathname.replace(/\/+$/, '');
+  }
+
+  if (pathname.endsWith('.md') && !pathname.endsWith(MARKDOWN_PATH_SUFFIX)) {
+    const sourcePath = pathname.slice(0, -'.md'.length) || '/';
+    if (hasMarkdownRenderer(sourcePath)) {
+      pathname = markdownAlternatePath(sourcePath);
+    }
+  }
+
+  if (pathname === url.pathname) return null;
+
+  url.pathname = pathname;
+  return new Response(null, {
+    status: 308,
+    headers: {
+      'Cache-Control': 'public, max-age=3600',
+      Location: `${url.pathname}${url.search}`,
+    },
+  });
 }
 
 export function cloudflareCdnCacheControl(

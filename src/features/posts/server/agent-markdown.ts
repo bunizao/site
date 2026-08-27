@@ -17,6 +17,21 @@ function toAbsoluteUrl(value: string, baseUrl: URL): string {
   return new URL(trimmed, baseUrl).href;
 }
 
+function toAbsolutePageUrl(value: string, baseUrl: URL): string {
+  const absolute = toAbsoluteUrl(value, baseUrl);
+  if (absolute.startsWith('#')) return absolute;
+
+  try {
+    const url = new URL(absolute);
+    if (url.origin === baseUrl.origin && url.pathname !== '/') {
+      url.pathname = url.pathname.replace(/\/+$/, '');
+    }
+    return url.href;
+  } catch {
+    return absolute;
+  }
+}
+
 function normalizeInline(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
@@ -70,7 +85,7 @@ function renderInline($: LoadedCheerio, nodes: cheerio.Cheerio<AnyNode>, baseUrl
     } else if (tagName === 'a') {
       const body = normalizeInline(text()) || normalizeInline(element.text());
       const href = element.attr('href');
-      if (body && href) parts.push(`[${body}](${toAbsoluteUrl(href, baseUrl)})`);
+      if (body && href) parts.push(`[${body}](${toAbsolutePageUrl(href, baseUrl)})`);
       else if (body) parts.push(body);
     } else if (tagName === 'img') {
       const src = element.attr('src');
@@ -106,7 +121,7 @@ function renderBookmarkCard(
   if (!href) return title ? [title] : [];
 
   const label = title || href;
-  return [`[${label}](${toAbsoluteUrl(href, baseUrl)})`];
+  return [`[${label}](${toAbsolutePageUrl(href, baseUrl)})`];
 }
 
 function renderBlockNode($: LoadedCheerio, node: AnyNode, baseUrl: URL): string[] {
@@ -204,12 +219,15 @@ function htmlToMarkdown(html: string, baseUrl: URL): string {
 
 function absolutizeMarkdownLinks(markdown: string, baseUrl: URL): string {
   return markdown.replace(/(!?\[[^\]]*\]\()([^)]+)(\))/g, (_match, prefix: string, url: string, suffix: string) => {
-    return `${prefix}${toAbsoluteUrl(url, baseUrl)}${suffix}`;
+    const absolute = prefix.startsWith('!')
+      ? toAbsoluteUrl(url, baseUrl)
+      : toAbsolutePageUrl(url, baseUrl);
+    return `${prefix}${absolute}${suffix}`;
   });
 }
 
 function postCanonicalUrl(post: Pick<Post, 'slug' | 'canonicalUrl'>, baseUrl: URL): string {
-  return post.canonicalUrl?.trim() || new URL(postPath(post.slug), baseUrl).href;
+  return toAbsolutePageUrl(post.canonicalUrl?.trim() || postPath(post.slug), baseUrl);
 }
 
 export function buildPostAgentMarkdown(post: Post, baseUrl: URL): string {

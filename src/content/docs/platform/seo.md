@@ -52,11 +52,14 @@ canonical, Open Graph, and favicon metadata rather than replacing them.
 
 ## Indexing
 
+- Public page URLs are extensionless and have no trailing slash. `/` is the only
+  natural exception. Alternate slash forms receive a permanent `308`, while
+  canonical tags, sitemaps, feeds, and internal links emit the slashless form.
 - `/mood` is indexable.
 - `/mood/[id]` emits `noindex, follow` so crawlers can discover the directive
   without the detail archive crowding out editorial results.
 - Blog indexes, tags, and articles remain indexable and canonical under
-  `https://buxx.me/blog/`.
+  `https://buxx.me/blog`.
 - Sitemap priority is not used as a result-balancing mechanism.
 
 For direct-link-only articles, see [Unlisted posts](/docs/writing/publishing#unlisted-posts).

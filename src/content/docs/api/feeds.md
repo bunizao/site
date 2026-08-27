@@ -39,6 +39,9 @@ curl https://buxx.me/docs/writing/poem/index.md
 curl https://buxx.me/blog/index.md
 ```
 
+The shorter `<page>.md` form permanently redirects to the explicit alternate:
+`/docs/writing/authors.md` becomes `/docs/writing/authors/index.md`.
+
 Content negotiation remains available. Send `Accept: text/markdown` to the
 canonical page URL and it returns the same Markdown instead of HTML:
 
