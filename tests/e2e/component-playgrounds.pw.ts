@@ -49,7 +49,7 @@ test.describe('component playgrounds', () => {
     await expect(page.getByText('saved draft', { exact: true })).toBeVisible();
   });
 
-  test('conversation names align with body text and speakers can disable tints', async ({ page }) => {
+  test('conversation names align and speakers override thread options', async ({ page }) => {
     await openConversationPlayground(page);
 
     const source = page.locator('#conv-source');
@@ -93,6 +93,33 @@ test.describe('component playgrounds', () => {
       return Math.abs(range.getBoundingClientRect().left - body.getBoundingClientRect().left);
     });
     expect(offset).toBeLessThan(1);
+
+    await source.fill(
+      [
+        '```conversation',
+        '@conversation avatars=off names=off tints=off',
+        '@gemini [Gemini] accent=#6E7FD8 avatars=on names=on tints=on',
+        '@ada [Ada] accent=#6F8F9D',
+        'you: compare',
+        'gemini: overridden',
+        'ada: inherited',
+        '```',
+      ].join('\n'),
+    );
+
+    const overridden = page.locator('#playground .conv-group--in').nth(0);
+    const inherited = page.locator('#playground .conv-group--in').nth(1);
+    await expect(overridden).toHaveAttribute('data-avatars', 'on');
+    await expect(overridden).toHaveAttribute('data-names', 'on');
+    await expect(overridden).toHaveAttribute('data-tints', 'on');
+    await expect(overridden.locator('.conv-avatar')).toHaveCSS('visibility', 'visible');
+    await expect(overridden.locator('.conv-name')).toHaveCSS('position', 'static');
+
+    await expect(inherited).toHaveAttribute('data-avatars', 'off');
+    await expect(inherited).toHaveAttribute('data-names', 'off');
+    await expect(inherited).toHaveAttribute('data-tints', 'off');
+    await expect(inherited.locator('.conv-avatar')).toHaveCSS('visibility', 'hidden');
+    await expect(inherited.locator('.conv-name')).toHaveCSS('position', 'absolute');
   });
 
   test('pages with playgrounds expose a colored link beside the introduction', async ({ page }) => {
