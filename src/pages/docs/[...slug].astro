@@ -5,8 +5,10 @@ import Layout from '@/layouts/Layout.astro';
 import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
 import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
 import DocsToc, { type DocsTocItem } from '@/features/docs/ui/DocsToc.astro';
+import DocsCopyPage from '@/features/docs/ui/DocsCopyPage.astro';
 import { docPath, getDocsNav, getDocsSiblings, type DocsGroup } from '@/features/docs/server/nav';
 import { expandDocsDemos } from '@/features/docs/server/demo';
+import { markdownAlternatePath } from '@/features/agent-markdown/server/registry';
 import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/blog-prose.css';
 import '@/styles/embed-youtube.css';
@@ -65,11 +67,14 @@ const { prev, next } = getDocsSiblings(groups, entry.id);
       <DocsSidebar groups={groups} current={entry.id} />
 
       <article class="docs-article">
-        <p class="docs-eyebrow">
-          <a href="/docs">Docs</a>
-          <span aria-hidden="true">/</span>
-          <span>{group}</span>
-        </p>
+        <div class="docs-article-head">
+          <p class="docs-eyebrow">
+            <a href="/docs">Docs</a>
+            <span aria-hidden="true">/</span>
+            <span>{group}</span>
+          </p>
+          <DocsCopyPage markdownPath={markdownAlternatePath(docPath(entry.id))} />
+        </div>
         <h1 class="docs-title">{title}</h1>
         <p class="docs-lede">{description}</p>
         {playground && (

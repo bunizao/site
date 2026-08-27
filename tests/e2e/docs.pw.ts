@@ -64,6 +64,26 @@ test.describe('Developer reference', () => {
     expect(await response.text()).toContain('# Poems');
   });
 
+  test('copies the page Markdown from the docs header control', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.goto('/docs/writing/poem');
+
+    await page.getByRole('button', { name: 'More page formats' }).click();
+    const menu = page.locator('[data-page-copy-menu]');
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('link')).toHaveAttribute(
+      'href',
+      '/docs/writing/poem/index.md',
+    );
+
+    await menu.locator('[data-page-copy-trigger]').click();
+    await expect(menu).toBeHidden();
+    await expect(page.locator('[data-page-copy-label]').first()).toHaveText('Copied');
+
+    const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clipboard).toContain('# Poems');
+  });
+
   test('keeps the mobile article inside the viewport', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/docs/architecture');

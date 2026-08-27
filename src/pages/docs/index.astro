@@ -2,7 +2,9 @@
 import Layout from '@/layouts/Layout.astro';
 import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
 import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
+import DocsCopyPage from '@/features/docs/ui/DocsCopyPage.astro';
 import { docPath, getDocsNav } from '@/features/docs/server/nav';
+import { markdownAlternatePath } from '@/features/agent-markdown/server/registry';
 import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/docs.css';
 
@@ -63,7 +65,10 @@ const ELSEWHERE = [
 
       <div class="docs-article">
         <header class="docs-hub-head">
-          <p class="docs-eyebrow"><span>Documentation</span></p>
+          <div class="docs-article-head">
+            <p class="docs-eyebrow"><span>Documentation</span></p>
+            <DocsCopyPage markdownPath={markdownAlternatePath('/docs')} />
+          </div>
           <h1 class="docs-title">Everything this site does, written down.</h1>
           <p class="docs-lede">
             {pageCount} pages covering how buxx.me is built: the runtime and its

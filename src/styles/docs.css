@@ -703,6 +703,152 @@ body:has(.site-nav--docs) .global-header-actions {
   transform: translate(2px, -2px);
 }
 
+/* --- Copy page ---------------------------------------------------------- */
+/* The eyebrow and the control share one line: the crumb is the shortest thing
+   on the page, so the row costs no vertical space the article did not already
+   spend. */
+.docs-article-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.7rem;
+}
+
+.docs-article-head .docs-eyebrow {
+  margin-bottom: 0;
+}
+
+.docs-copy-page {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: stretch;
+  height: 1.95rem;
+  border: 1px solid var(--docs-line);
+  border-radius: 0.55rem;
+  background: var(--docs-surface);
+}
+
+.docs-copy-page-action,
+.docs-copy-page-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.6rem;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink-body);
+  transition: color 0.12s ease, background-color 0.12s ease;
+}
+
+.docs-copy-page-action {
+  border-radius: 0.5rem 0 0 0.5rem;
+}
+
+.docs-copy-page-toggle {
+  padding: 0 0.4rem;
+  border-left: 1px solid var(--docs-line);
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: var(--ink-faint);
+}
+
+.docs-copy-page-action:hover,
+.docs-copy-page-action:focus-visible,
+.docs-copy-page-toggle:hover,
+.docs-copy-page-toggle:focus-visible,
+.docs-copy-page[data-open] .docs-copy-page-toggle {
+  background: var(--docs-surface-hover);
+  color: var(--ink-strong);
+}
+
+.docs-copy-page-toggle svg {
+  transition: rotate 0.16s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.docs-copy-page[data-open] .docs-copy-page-toggle svg {
+  rotate: 180deg;
+}
+
+.docs-copy-page-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  width: 17rem;
+  padding: 0.3rem;
+  border: 1px solid var(--docs-line);
+  border-radius: 0.7rem;
+  background: hsl(var(--background));
+  box-shadow: 0 12px 30px hsl(var(--foreground) / 0.12);
+}
+
+.docs-copy-page-menu[hidden] {
+  display: none;
+}
+
+.docs-copy-page-item {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.55rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  color: var(--ink-body);
+  transition: background-color 0.12s ease;
+}
+
+.docs-copy-page-item:hover,
+.docs-copy-page-item:focus-visible {
+  background: var(--docs-surface-hover);
+}
+
+.docs-copy-page-item svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: var(--ink-faint);
+}
+
+.docs-copy-page-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.docs-copy-page-item-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--font-sans);
+  font-size: 0.83rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: hsl(var(--foreground));
+}
+
+.docs-copy-page-item-title svg {
+  margin-top: 0;
+  color: currentColor;
+}
+
+.docs-copy-page-item-note {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--ink-faint);
+}
+
 /* --- Prose -------------------------------------------------------------- */
 /* Reference density: 15px on a 44rem column runs about 78 characters, which is
    long for an essay and right for a page that is mostly parameter tables and

@@ -66,6 +66,10 @@ Supported pages:
 | `/privacy` | The privacy policy. |
 | `/docs`, `/docs/{path}` | The documentation index and source content. |
 
+Every page under `/docs` also carries a **Copy page** control beside its
+breadcrumb. It fetches that page's `/index.md` and writes it to the clipboard;
+the menu beside it opens the same URL in a tab for reading.
+
 Responses carry an `x-markdown-tokens` header with an approximate token count of
 the body, so a client can budget before it reads.
 
