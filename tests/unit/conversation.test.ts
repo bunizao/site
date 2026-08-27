@@ -288,14 +288,16 @@ describe('conversation parsing', () => {
     expect(cast.get('octo')?.avatar).toBe('https://example.com/o.png');
   });
 
-  test('reads label, accent, tint preference and avatar off a cast line', () => {
-    const { cast } = parseConversation('@tu [Tu Tu] accent=#B4603A avatar=🐈 tints=off');
+  test('reads label, accent, visibility overrides and avatar off a cast line', () => {
+    const { cast } = parseConversation(
+      '@tu [Tu Tu] accent=#B4603A avatar=🐈 avatars=off names=on tints=off',
+    );
     const speaker = cast.get('tu');
 
     expect(speaker?.label).toBe('Tu Tu');
     expect(speaker?.accent).toBe('#B4603A');
     expect(speaker?.avatar).toBe('🐈');
-    expect(speaker?.tints).toBe(false);
+    expect(speaker?.options).toEqual({ avatars: false, names: true, tints: false });
   });
 });
 
@@ -421,28 +423,29 @@ describe('conversation rendering', () => {
 
     expect(on).toContain('data-tints="on"');
     expect(off).toContain('data-tints="off"');
-    expect(off).toContain('class="conv-group conv-group--out" data-tints="off"');
+    expect(off).toContain(
+      'class="conv-group conv-group--out" data-avatars="on" data-names="on" data-tints="off"',
+    );
     expect(off).toContain('--conv-tint-light:');
   });
 
-  test('lets each speaker override the thread tint default', () => {
-    const disabled = renderConversation(
-      ['@gemini [Gemini] accent=#4057C8 tints=off', 'you: compare', 'gemini: neutral'].join('\n'),
-    );
-    const enabled = renderConversation(
+  test('lets each speaker override every thread option', () => {
+    const html = renderConversation(
       [
-        '@conversation tints=off',
-        '@ada [Ada] accent=#287B74 tints=on',
+        '@conversation avatars=off names=off tints=off',
+        '@gemini [Gemini] accent=#6E7FD8 avatars=on names=on tints=on',
+        '@ada [Ada] accent=#6F8F9D',
         'you: compare',
-        'ada: tinted',
+        'gemini: overridden',
+        'ada: inherited',
       ].join('\n'),
     );
 
-    expect(disabled).toContain(
-      'class="conv-group conv-group--in" data-tints="off" style="--conv-accent:#4057C8',
+    expect(html).toContain(
+      'class="conv-group conv-group--in" data-avatars="on" data-names="on" data-tints="on" style="--conv-accent:#6E7FD8',
     );
-    expect(enabled).toContain(
-      'class="conv-group conv-group--in" data-tints="on" style="--conv-accent:#287B74',
+    expect(html).toContain(
+      'class="conv-group conv-group--in" data-avatars="off" data-names="off" data-tints="off" style="--conv-accent:#6F8F9D',
     );
   });
 

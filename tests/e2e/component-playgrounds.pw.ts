@@ -56,21 +56,21 @@ test.describe('component playgrounds', () => {
     await source.fill(
       [
         '```conversation',
-        '@conversation avatars=off names=on tints=on',
-        '@gemini [Gemini] accent=#4057C8 tints=off',
-        '@ada [Ada] accent=#287B74',
+        '@conversation avatars=on names=on tints=off',
+        '@gemini [Gemini] accent=#6E7FD8 tints=on',
+        '@ada [Ada] accent=#6F8F9D',
         '@neutral [Neutral]',
         'you: compare',
-        'gemini: neutral override',
-        'ada: tinted default',
+        'gemini: tinted override',
+        'ada: neutral default',
         'neutral: neutral baseline',
         '```',
       ].join('\n'),
     );
 
     const groups = page.locator('#playground .conv-group--in');
-    await expect(groups.nth(0)).toHaveAttribute('data-tints', 'off');
-    await expect(groups.nth(1)).toHaveAttribute('data-tints', 'on');
+    await expect(groups.nth(0)).toHaveAttribute('data-tints', 'on');
+    await expect(groups.nth(1)).toHaveAttribute('data-tints', 'off');
 
     const [geminiBackground, adaBackground, neutralBackground] = await Promise.all(
       [0, 1, 2].map((index) =>
@@ -80,8 +80,8 @@ test.describe('component playgrounds', () => {
           .evaluate((bubble) => getComputedStyle(bubble).backgroundColor),
       ),
     );
-    expect(geminiBackground).toBe(neutralBackground);
-    expect(adaBackground).not.toBe(neutralBackground);
+    expect(geminiBackground).not.toBe(neutralBackground);
+    expect(adaBackground).toBe(neutralBackground);
 
     const offset = await groups.nth(0).evaluate((group) => {
       const name = group.querySelector('.conv-name');

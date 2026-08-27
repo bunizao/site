@@ -45,8 +45,8 @@ interface Speaker {
   me: boolean;
   /** Author-supplied hex. Empty means the monochrome default. */
   accent: string;
-  /** Overrides the thread tint default when declared. */
-  tints?: boolean;
+  /** Per-speaker visibility overrides. Missing values inherit the thread. */
+  options: Partial<ConversationOptions>;
 }
 
 interface Bubble {
@@ -179,7 +179,7 @@ interface Declaration {
   label?: string;
   accent?: string;
   avatar?: string;
-  tints?: boolean;
+  options?: Partial<ConversationOptions>;
 }
 
 /**
@@ -220,9 +220,10 @@ function parseDeclaration(line: string): Declaration | null {
       if (!HEX.test(value)) return null;
       declaration.accent = value;
     } else if (name === 'avatar') declaration.avatar = value;
-    else if (name === 'tints') {
+    else if (OPTION_NAMES.includes(name as ConversationOption)) {
       if (value !== 'on' && value !== 'off') return null;
-      declaration.tints = value === 'on';
+      declaration.options ??= {};
+      declaration.options[name as ConversationOption] = value === 'on';
     } else return null;
   }
 
@@ -274,7 +275,7 @@ export function parseConversation(source: string): {
     const key = name.toLowerCase();
     let found = cast.get(key);
     if (!found) {
-      found = { key, label: name, avatar: '', me: false, accent: '' };
+      found = { key, label: name, avatar: '', me: false, accent: '', options: {} };
       cast.set(key, found);
     }
     return found;
@@ -297,7 +298,7 @@ export function parseConversation(source: string): {
       if (declaration.label !== undefined) target.label = declaration.label;
       if (declaration.accent !== undefined) target.accent = declaration.accent;
       if (declaration.avatar !== undefined) target.avatar = declaration.avatar;
-      if (declaration.tints !== undefined) target.tints = declaration.tints;
+      if (declaration.options) Object.assign(target.options, declaration.options);
       continue;
     }
 
@@ -649,7 +650,14 @@ export function renderConversation(source: string): string {
 
       const speaker = item.speaker;
       const style = speakerStyle(speaker);
-      const tints = speaker.tints ?? options.tints;
+      const optionAttributes = OPTION_NAMES.map(
+        (option) =>
+          ' data-' +
+          option +
+          '="' +
+          ((speaker.options[option] ?? options[option]) ? 'on' : 'off') +
+          '"',
+      ).join('');
       const bubbles = item.bubbles
         .map((bubble, index) => {
           const last = index === item.bubbles.length - 1 ? ' conv-bubble--last' : '';
@@ -681,9 +689,8 @@ export function renderConversation(source: string): string {
       return (
         '<div class="conv-group conv-group--' +
         (speaker.me ? 'out' : 'in') +
-        '" data-tints="' +
-        (tints ? 'on' : 'off') +
         '"' +
+        optionAttributes +
         (style ? ' style="' + style + '"' : '') +
         '>' +
         '<div class="conv-avatar" aria-hidden="true">' +

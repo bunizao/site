@@ -165,7 +165,7 @@
 /* Hidden rather than removed: the gutter still reserves its width, so the two
    sides of the thread keep the same optical margin. */
 .conv-group--out .conv-avatar,
-.conv-thread[data-avatars='off'] .conv-avatar {
+.conv-group[data-avatars='off'] .conv-avatar {
   visibility: hidden;
 }
 
@@ -226,7 +226,7 @@
    accessibility tree instead of leaving the message unattributed.
    1px rather than 0: some screen readers skip zero-sized boxes. */
 .conv-name--sr,
-.conv-thread[data-names='off'] .conv-name {
+.conv-group[data-names='off'] .conv-name {
   position: absolute;
   width: 1px;
   height: 1px;
