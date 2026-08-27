@@ -1,0 +1,15 @@
+---
+// Thin wrapper over renderConversation. The heavy lifting is in the pure
+// module so the same output is testable without a renderer; this file only
+// pulls in the stylesheet and injects the markup.
+import '@/styles/conversation.css';
+import { renderConversation } from '@/features/content/conversation';
+
+interface Props {
+  source: string;
+}
+
+const { source } = Astro.props;
+---
+
+<Fragment set:html={renderConversation(source)} />

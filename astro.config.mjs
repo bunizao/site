@@ -1,4 +1,6 @@
 import { defineConfig } from 'astro/config';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import react from '@astrojs/react';
 import cloudflare from '@astrojs/cloudflare';
@@ -6,6 +8,23 @@ import { satteri } from '@astrojs/markdown-satteri';
 import sitemap from '@astrojs/sitemap';
 
 import { docsCodePlugin } from './src/features/docs/server/markdown-plugin.ts';
+
+const projectRoot = fileURLToPath(new URL('.', import.meta.url));
+
+/**
+ * Vite serves only what lives under the project root. A git worktree keeps its
+ * node_modules in the main checkout — outside that root — so every dependency
+ * 403s in dev and no React island ever hydrates. Walk up and allow the first
+ * ancestor that actually owns a node_modules directory.
+ */
+function dependencyRoots() {
+  const roots = [];
+  for (let dir = projectRoot; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, 'node_modules'))) roots.push(dir);
+    if (dir === dirname(dir)) break;
+  }
+  return roots;
+}
 
 const isCoverageEnabled = process.env.COVERAGE === '1';
 const isE2EStrictPort = process.env.ASTRO_E2E_STRICT_PORT === '1';
@@ -129,6 +148,9 @@ export default defineConfig({
   },
   vite: {
     plugins: coveragePlugins,
+    server: {
+      fs: { allow: [projectRoot, ...dependencyRoots()] },
+    },
     optimizeDeps: {
       include: devOptimizerIncludes,
       exclude: devOptimizerExcludes,
