@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="zh" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Language switcher — prototype v3</title>
+<!--
+  THROWAWAY PROTOTYPE v3. Not wired to anything, not shipped, no tests.
+
+  Settled: article = C2, listing = follows preference.
+  Open when v2 closed: the article selector was hard to use, and the listing
+  marker should be the `languages` glyph alone, no letters.
+
+  v3 rebuilds the selector against .agents/skills (better-ui, better-accessibility).
+  Flip SELECTOR old/new in the black bar to A/B it.
+-->
+<style>
+  * { box-sizing: border-box; }
+  html { color-scheme: light; }
+  html[data-theme="dark"] { color-scheme: dark; }
+  body { margin: 0; background: #fff; color: #17171a;
+         font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'PingFang SC', 'Noto Sans SC', sans-serif; }
+
+  /* --- prototype chrome (deliberately NOT the design being judged) -------- */
+  .chrome { position: sticky; top: 0; z-index: 100; background: #0b0b0d; color: #e8e8ea;
+            border-bottom: 1px solid #222; padding: 9px 16px; display: flex; flex-wrap: wrap;
+            align-items: center; gap: 7px 16px; font-size: 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .chrome__group { display: flex; align-items: center; gap: 5px; }
+  .chrome__label { color: #6e6e78; text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
+  .chrome button { font: inherit; font-size: 11px; cursor: pointer; background: #1a1a1f; color: #b8b8c0;
+                   border: 1px solid #2a2a32; border-radius: 5px; padding: 4px 9px; transition: 0.12s; }
+  .chrome button:hover { background: #24242c; color: #fff; }
+  .chrome button[aria-pressed="true"] { background: #e8e8ea; color: #0b0b0d; border-color: #e8e8ea; }
+  .chrome__state { width: 100%; color: #6e6e78; font-size: 11px; border-top: 1px solid #1c1c22;
+                   margin-top: 2px; padding-top: 7px; }
+  .chrome__state b { color: #9ecbff; font-weight: 500; }
+
+  .verdict { max-width: 1400px; margin: 0 auto; padding: 18px 24px 0; font-size: 13px; line-height: 1.62; }
+  .verdict h1 { font-size: 14px; margin: 0 0 5px; letter-spacing: -0.01em; }
+  .verdict p { margin: 0 0 4px; color: #6b6b72; max-width: 84ch; }
+  .verdict code { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; }
+  .verdict .cost { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #8a8a92; }
+  html[data-theme="dark"] body { background: #050505; color: #d8d8dc; }
+  html[data-theme="dark"] .verdict p { color: #85858e; }
+  html[data-theme="dark"] .verdict h1 { color: #e8e8ea; }
+
+  .stage { max-width: 1400px; margin: 0 auto; padding: 16px 24px 120px; display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 1080px) { .stage { grid-template-columns: 1fr 1fr; } }
+  .screen { border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; overflow: hidden; }
+  .screen__bar { font-family: ui-monospace, Menlo, monospace; font-size: 11px; padding: 7px 12px; color: #7a7a82;
+                 background: rgba(0,0,0,0.03); border-bottom: 1px solid rgba(0,0,0,0.08); }
+  html[data-theme="dark"] .screen { border-color: rgba(255,255,255,0.12); }
+  html[data-theme="dark"] .screen__bar { background: rgba(255,255,255,0.04); border-bottom-color: rgba(255,255,255,0.08); color: #8a8a92; }
+
+  a { text-decoration: none; color: inherit; }
+
+  /* --- real blog tokens, copied from src/styles/blog.css ------------------ */
+  .blog-zone {
+    --foreground: 0 0% 0%; --background: 0 0% 100%;
+    --blog-accent: #3C5D80; --blog-dian: #27406E;
+    --blog-ink: hsl(var(--foreground));
+    --blog-body: hsl(var(--foreground) / 0.78);
+    --blog-muted: hsl(var(--foreground) / 0.58);
+    --blog-faint: hsl(var(--foreground) / 0.42);
+    --blog-line: hsl(var(--foreground) / 0.1);
+    color: var(--blog-body); background: hsl(var(--background));
+    padding: 24px 26px 34px; min-height: 460px;
+  }
+  html[data-theme="dark"] .blog-zone {
+    --foreground: 0 0% 100%; --background: 0 0% 4%;
+    --blog-accent: #7FA8D6; --blog-dian: #6FA8FF;
+  }
+
+  /* One focus recipe for the whole zone. 2px, offset 2, project accent. */
+  .blog-zone :focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 2px; border-radius: 999px; }
+
+  .blog-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+  .blog-mark { font-size: 15px; letter-spacing: 0.04em; color: var(--blog-ink); }
+  .blog-iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px;
+                  border-radius: 999px; color: var(--blog-faint); background: none; border: none; cursor: pointer; }
+  .blog-iconbtn svg { width: 18px; height: 18px; }
+
+  /* --- listing ----------------------------------------------------------- */
+  .blog-list { list-style: none; margin: 0; padding: 0; }
+  .blog-row { border-bottom: 1px solid var(--blog-line); }
+  .blog-row__title { font-size: 16.5px; font-weight: 500; line-height: 1.45; color: var(--blog-ink); margin: 14px 0 0; letter-spacing: -0.005em; }
+  .blog-row__excerpt { margin-top: 5px; font-size: 15px; line-height: 1.55; color: var(--blog-muted); }
+  .blog-row__meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin: 9px 0 0; padding-bottom: 16px; }
+  .blog-row__date { font-size: 13px; line-height: 1.4; color: var(--blog-faint); font-variant-numeric: tabular-nums; }
+  .blog-row__tags { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+  .blog-row__tag { font-size: 11.5px; line-height: 1; padding: 4px 9px; border-radius: 999px;
+                   color: var(--blog-faint); background: hsl(var(--foreground) / 0.04); }
+
+  /* The listing marker. Glyph only — no code, no letters. It is a MARK, not a
+     control: the row is already one link target and the real switcher lives in
+     the article, so nothing interactive is nested inside the row link. */
+  .row-lang { display: inline-flex; align-items: center; color: var(--blog-accent); }
+  .row-lang svg { width: 14px; height: 14px; }
+
+  /* --- article ----------------------------------------------------------- */
+  .blog-article__header { margin-bottom: 26px; }
+  .blog-article__title { font-size: 27px; line-height: 1.3; font-weight: 600; letter-spacing: -0.02em; color: var(--blog-ink); margin: 0 0 14px; }
+  .blog-article__meta { font-size: 14px; line-height: 20px; color: var(--blog-faint); font-variant-numeric: tabular-nums;
+                        margin: 0; display: flex; align-items: center; flex-wrap: wrap; }
+  .blog-article__meta > * + *::before { content: '·'; margin: 0 8px; }
+  .blog-prose p { font-size: 16px; line-height: 1.85; color: var(--blog-body); margin: 0 0 14px; }
+
+  /* ======================================================================= */
+  /* OLD selector (v2), kept only for the A/B                                */
+  /* ======================================================================= */
+  .seg { display: inline-flex; align-items: center; gap: 2px; margin-bottom: 14px; padding: 2px;
+         border-radius: 999px; background: hsl(var(--foreground) / 0.05); }
+  .seg__item { font: inherit; font-size: 12.5px; line-height: 1; cursor: pointer; padding: 6px 12px;
+               border-radius: 999px; border: none; background: transparent; color: var(--blog-faint);
+               display: inline-flex; align-items: center; gap: 7px; }
+  .seg__item[aria-current="true"] { background: hsl(var(--background)); color: var(--blog-ink); box-shadow: 0 1px 2px hsl(var(--foreground) / 0.12); }
+  .seg__pin { display: inline-flex; padding: 0; background: none; border: none; cursor: pointer; color: var(--blog-faint); opacity: 0.55; }
+  .seg__pin svg { width: 12px; height: 12px; }
+  .seg__pin[data-pinned="true"] { color: var(--blog-accent); opacity: 1; }
+  .seg__pin[data-pinned="true"] svg { fill: currentColor; }
+
+  /* ======================================================================= */
+  /* NEW selector (v3)                                                       */
+  /* ======================================================================= */
+  .lang { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+
+  /* — inline layout, <= 4 versions. Each version is an <a href>, because each
+       version HAS a url; that buys Cmd-click, middle-click and Tab for free. */
+  .lang__versions { display: inline-flex; align-items: center; gap: 2px; padding: 2px;
+                    border-radius: 999px; background: hsl(var(--foreground) / 0.05); }
+  .lang__v {
+    font-size: 12.5px; line-height: 1; padding: 7px 13px; border-radius: 999px;
+    color: var(--blog-muted); transition-property: color, background-color; transition-duration: 140ms; transition-timing-function: ease-out;
+  }
+  .lang__v:hover { color: var(--blog-ink); }
+  .lang__v[aria-current="true"] {
+    background: hsl(var(--background)); color: var(--blog-ink);
+    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.06), 0 1px 2px -1px hsl(var(--foreground) / 0.10);
+    cursor: default;
+  }
+
+  /* — trigger layout, > 4 versions. One button, never mistakable for a version. */
+  .lang__trigger {
+    display: inline-flex; align-items: center; gap: 7px;
+    font: inherit; font-size: 12.5px; line-height: 1; cursor: pointer;
+    padding: 8px 11px 8px 13px;   /* icon side -2px, optical */
+    border-radius: 999px; border: none; color: var(--blog-ink);
+    background: hsl(var(--foreground) / 0.05);
+    transition-property: background-color, scale; transition-duration: 140ms; transition-timing-function: ease-out;
+  }
+  .lang__trigger:hover { background: hsl(var(--foreground) / 0.09); }
+  .lang__trigger:active { scale: 0.96; }
+  .lang__trigger svg { width: 14px; height: 14px; color: var(--blog-faint); }
+  .lang__count { color: var(--blog-faint); font-variant-numeric: tabular-nums; }
+  .lang__chev { transition: rotate 160ms ease-out; }
+  .lang__trigger[aria-expanded="true"] .lang__chev { rotate: 180deg; }
+
+  /* — the memory control. Out of the version group entirely: it is not a
+       version, and a button nested inside a button was never valid anyway.
+       Labelled, because a bare pin glyph is not self-explanatory. */
+  .lang__memory {
+    position: relative; display: inline-flex; align-items: center; gap: 6px;
+    font: inherit; font-size: 12.5px; line-height: 1; cursor: pointer;
+    padding: 7px 12px 7px 10px; border-radius: 999px; border: none;
+    background: transparent; color: var(--blog-faint);
+    transition-property: color, background-color; transition-duration: 140ms; transition-timing-function: ease-out;
+  }
+  .lang__memory::before { content: ''; position: absolute; inset: -4px; }   /* >= 24px target */
+  .lang__memory:hover { color: var(--blog-ink); background: hsl(var(--foreground) / 0.05); }
+  .lang__memory svg { width: 14px; height: 14px; }
+  .lang__memory[aria-checked="true"] { color: var(--blog-accent); background: color-mix(in srgb, var(--blog-accent) 10%, transparent); }
+  .lang__memory[aria-checked="true"] svg { fill: currentColor; }
+
+  /* — the panel. Concentric: 13px outer = 8px inner + 5px padding. */
+  .panel {
+    position: absolute; z-index: 40; top: calc(100% + 6px); left: 0;
+    width: 268px; padding: 5px; border-radius: 13px;
+    background: hsl(var(--background));
+    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.08),
+                0 12px 32px hsl(var(--foreground) / 0.13),
+                0 2px 6px hsl(var(--foreground) / 0.05);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .panel { animation: panel-in 150ms cubic-bezier(0.2, 0, 0, 1); }
+    @keyframes panel-in { from { opacity: 0; scale: 0.98; translate: 0 -2px; } }
+  }
+  .panel__search { position: relative; padding: 3px 3px 6px; }
+  .panel__search input {
+    width: 100%; font: inherit; font-size: 13px; padding: 8px 10px 8px 31px;
+    border-radius: 8px; border: none; background: hsl(var(--foreground) / 0.05);
+    color: var(--blog-ink); outline: none;
+  }
+  .panel__search input::placeholder { color: var(--blog-faint); }
+  .panel__search input:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--blog-accent) 45%, transparent); }
+  .panel__search svg { position: absolute; left: 13px; top: 50%; margin-top: -9px; width: 14px; height: 14px; color: var(--blog-faint); pointer-events: none; }
+  .panel__scroll { max-height: 262px; overflow-y: auto; overscroll-behavior: contain; }
+  .panel__group { font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase;
+                  color: var(--blog-faint); padding: 9px 10px 5px; }
+  .panel__item {
+    display: flex; align-items: center; gap: 9px; width: 100%; font-size: 13.5px;
+    padding: 8px 10px; border-radius: 8px; color: var(--blog-body);
+    transition-property: background-color; transition-duration: 120ms;
+  }
+  .panel__item:hover { background: hsl(var(--foreground) / 0.05); }
+  .panel__item[aria-current="true"] { color: var(--blog-ink); font-weight: 500; }
+  .panel__check { width: 15px; flex: none; display: inline-flex; color: var(--blog-accent); }
+  .panel__check svg { width: 14px; height: 14px; }
+  .panel__code { margin-left: auto; font-size: 10.5px; letter-spacing: 0.06em; color: var(--blog-faint); font-family: ui-monospace, Menlo, monospace; }
+  .panel__empty { padding: 14px 10px; font-size: 13px; color: var(--blog-faint); }
+  .panel__hint { padding: 8px 10px 6px; margin-top: 3px; font-size: 11.5px; color: var(--blog-faint);
+                 box-shadow: 0 -1px 0 var(--blog-line); }
+  .panel__hint kbd { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px;
+                     padding: 1px 4px; border-radius: 4px; background: hsl(var(--foreground) / 0.06); }
+</style>
+</head>
+<body>
+
+<div class="chrome">
+  <div class="chrome__group">
+    <span class="chrome__label">selector</span>
+    <button data-set="selector" data-val="old">old (v2)</button>
+    <button data-set="selector" data-val="new">new (v3)</button>
+  </div>
+  <div class="chrome__group">
+    <span class="chrome__label">versions</span>
+    <button data-set="langCount" data-val="2">2</button>
+    <button data-set="langCount" data-val="4">4</button>
+    <button data-set="langCount" data-val="5">5</button>
+    <button data-set="langCount" data-val="100">100</button>
+  </div>
+  <div class="chrome__group">
+    <span class="chrome__label">reader</span>
+    <button data-set="reader" data-val="zh">zh</button>
+    <button data-set="reader" data-val="en">en</button>
+    <button data-set="reader" data-val="ja">ja</button>
+    <button data-set="reader" data-val="pt">pt</button>
+  </div>
+  <div class="chrome__group">
+    <span class="chrome__label">memory</span>
+    <button data-set="remembered" data-val="0">browser</button>
+    <button data-set="remembered" data-val="1">pinned</button>
+  </div>
+  <div class="chrome__group">
+    <span class="chrome__label">theme</span>
+    <button data-set="theme" data-val="light">light</button>
+    <button data-set="theme" data-val="dark">dark</button>
+  </div>
+  <div class="chrome__state" id="state"></div>
+</div>
+
+<div class="verdict" id="verdict"></div>
+
+<div class="stage">
+  <div class="screen">
+    <div class="screen__bar">/blog &nbsp;—&nbsp; listing · follows preference</div>
+    <div class="blog-zone" id="listing"></div>
+  </div>
+  <div class="screen">
+    <div class="screen__bar">/blog/lun-chenmo &nbsp;—&nbsp; article</div>
+    <div class="blog-zone" id="article"></div>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// data
+// ---------------------------------------------------------------------------
+const LANGS = [
+  ['zh','中文'],['en','English'],['ja','日本語'],['fr','Français'],['ko','한국어'],
+  ['de','Deutsch'],['es','Español'],['pt','Português'],['it','Italiano'],['ru','Русский'],
+  ['ar','العربية'],['hi','हिन्दी'],['bn','বাংলা'],['pa','ਪੰਜਾਬੀ'],['ur','اردو'],
+  ['fa','فارسی'],['tr','Türkçe'],['vi','Tiếng Việt'],['th','ไทย'],['id','Bahasa Indonesia'],
+  ['ms','Bahasa Melayu'],['tl','Tagalog'],['nl','Nederlands'],['pl','Polski'],['uk','Українська'],
+  ['sv','Svenska'],['nb','Norsk'],['da','Dansk'],['fi','Suomi'],['is','Íslenska'],
+  ['cs','Čeština'],['sk','Slovenčina'],['hu','Magyar'],['ro','Română'],['bg','Български'],
+  ['el','Ελληνικά'],['he','עברית'],['sr','Српски'],['hr','Hrvatski'],['sl','Slovenščina'],
+  ['lt','Lietuvių'],['lv','Latviešu'],['et','Eesti'],['sq','Shqip'],['mk','Македонски'],
+  ['bs','Bosanski'],['ca','Català'],['eu','Euskara'],['gl','Galego'],['af','Afrikaans'],
+  ['sw','Kiswahili'],['am','አማርኛ'],['ha','Hausa'],['yo','Yorùbá'],['ig','Igbo'],
+  ['zu','isiZulu'],['xh','isiXhosa'],['so','Soomaali'],['ta','தமிழ்'],['te','తెలుగు'],
+  ['kn','ಕನ್ನಡ'],['ml','മലയാളം'],['mr','मराठी'],['gu','ગુજરાતી'],['or','ଓଡ଼ିଆ'],
+  ['si','සිංහල'],['ne','नेपाली'],['my','မြန်မာ'],['km','ខ្មែរ'],['lo','ລາວ'],
+  ['ka','ქართული'],['hy','Հայերեն'],['az','Azərbaycan'],['kk','Қазақша'],['uz','Oʻzbekcha'],
+  ['ky','Кыргызча'],['tg','Тоҷикӣ'],['mn','Монгол'],['ps','پښتو'],['ku','Kurdî'],
+  ['ug','ئۇيغۇرچە'],['bo','བོད་ཡིག'],['dv','ދިވެހި'],['mt','Malti'],['ga','Gaeilge'],
+  ['cy','Cymraeg'],['gd','Gàidhlig'],['br','Brezhoneg'],['oc','Occitan'],['co','Corsu'],
+  ['la','Latina'],['eo','Esperanto'],['yi','ייִדיש'],['lb','Lëtzebuergesch'],['fo','Føroyskt'],
+  ['kl','Kalaallisut'],['mi','Māori'],['sm','Gagana Samoa'],['fj','Vosa Vakaviti'],['haw','ʻŌlelo Hawaiʻi'],
+];
+const NAME = Object.fromEntries(LANGS);
+
+// Every reader-facing string keyed by the language it is written IN.
+// In the real thing this is blog.copy[locale]; nothing hardcoded in .astro.
+const COPY = {
+  zh: { versions:'阅读语言', pick:'选择语言', search:'搜索语言', mine:'你的浏览器', all:(n)=>`全部 ${n} 种`, results:(n)=>`${n} 个结果`,
+        remember:'记住', remembered:'已记住', memoOn:'以后自动用这个语言打开', memoOff:'只在这一页生效',
+        none:'没有匹配的语言', hint:'↑↓ 选择 · Enter 打开 · Esc 关闭', mark:(l)=>`也有${l}版本` },
+  en: { versions:'Reading language', pick:'Choose a language', search:'Search languages', mine:'From your browser', all:(n)=>`All ${n}`, results:(n)=>`${n} result${n===1?'':'s'}`,
+        remember:'Remember', remembered:'Remembered', memoOn:'Open future articles in this language', memoOff:'Applies to this page only',
+        none:'No matching language', hint:'↑↓ move · Enter open · Esc close', mark:(l)=>`Also available in ${l}` },
+  ja: { versions:'表示言語', pick:'言語を選ぶ', search:'言語を検索', mine:'ブラウザの言語', all:(n)=>`すべて ${n} 件`, results:(n)=>`${n} 件の結果`,
+        remember:'記憶', remembered:'記憶済み', memoOn:'今後もこの言語で開く', memoOff:'このページのみ',
+        none:'該当する言語がありません', hint:'↑↓ 移動 · Enter 開く · Esc 閉じる', mark:(l)=>`${l}版もあります` },
+  pt: { versions:'Idioma de leitura', pick:'Escolher idioma', search:'Procurar idiomas', mine:'Do seu navegador', all:(n)=>`Todos os ${n}`, results:(n)=>`${n} resultado${n===1?'':'s'}`,
+        remember:'Lembrar', remembered:'Lembrado', memoOn:'Abrir os próximos artigos neste idioma', memoOff:'Só nesta página',
+        none:'Nenhum idioma corresponde', hint:'↑↓ mover · Enter abrir · Esc fechar', mark:(l)=>`Também em ${l}` },
+};
+const copy = (l) => COPY[l] || COPY.en;
+
+const POSTS = [
+  { slug:'lun-chenmo', origin:'zh', translated:true,
+    title:{ zh:'论沉默', en:'On Silence', ja:'沈黙について', pt:'Sobre o silêncio', fr:'Du silence' },
+    excerpt:{ zh:'不说话不是没有话说。有些句子在被讲出来的那一刻就死了，所以我把它们留在原地。',
+              en:'Saying nothing is not having nothing to say. Some sentences die the moment they are spoken, so I leave them where they are.',
+              ja:'黙っていることは、言うことがないということではない。',
+              pt:'Não dizer nada não é não ter nada a dizer.' },
+    date:'Aug 27, 2026', read:'6 min read', tags:['随笔','语言'] },
+  { slug:'yi-xiang', origin:'zh', translated:false,
+    title:{ zh:'在异乡醒来' },
+    excerpt:{ zh:'第一个月我数窗外的乌鸦，第二个月我开始听懂它们在吵什么。' },
+    date:'Jul 14, 2026', read:'9 min read', tags:['迁徙','生活'] },
+  { slug:'notes-on-latency', origin:'en', translated:true,
+    title:{ en:'Notes on Latency', zh:'关于延迟的笔记', ja:'レイテンシについての覚書', pt:'Notas sobre latência' },
+    excerpt:{ en:'Every millisecond you shave off is a millisecond someone else spends waiting for you to notice they were there.',
+              zh:'你省下的每一毫秒，都是别人在等你注意到他们的一毫秒。',
+              ja:'削り取った一ミリ秒は、誰かが待っていた一ミリ秒だ。',
+              pt:'Cada milissegundo que você economiza é um milissegundo de espera para outra pessoa.' },
+    date:'May 02, 2026', read:'11 min read', tags:['engineering','perf'] },
+  { slug:'shou-ji-pi', origin:'zh', translated:false,
+    title:{ zh:'关于收集癖' },
+    excerpt:{ zh:'我买的不是书，是"以后会读它"这件事本身。' },
+    date:'Mar 09, 2026', read:'4 min read', tags:['癖好'] },
+];
+const BODY = {
+  zh:['一个人不说话的时候，别人总以为他在等一个更好的时机。事实上他只是不想让那句话变成别的东西。',
+      '语言是一种压缩算法，而且是有损的。你把一整个下午的光线、一杯凉掉的茶、和一次没打出去的电话压进四个字里，然后交给对方去解压。'],
+  en:['When someone stays quiet, everyone assumes they are waiting for a better moment. In fact they simply do not want the sentence to become something else.',
+      'Language is a compression algorithm, and a lossy one. You pack an entire afternoon of light, a cup of tea gone cold, and a call you never placed into four words, then hand it over to be decompressed by someone else.'],
+  ja:['人が黙っているとき、周りはもっと良い機会を待っているのだと思う。実際は、その言葉が別の何かになるのを望んでいないだけだ。',
+      '言語は圧縮アルゴリズムであり、しかも不可逆だ。'],
+  pt:['Quando alguém fica em silêncio, todos supõem que espera um momento melhor. Na verdade, só não quer que a frase se torne outra coisa.',
+      'A língua é um algoritmo de compressão, e com perdas.'],
+};
+const body = (c) => BODY[c] || BODY.en;
+
+// stroke 1.5 beside regular (400) text, 2 beside semibold — better-ui/icons.md
+const svg = (d, w = 1.5) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const I = {
+  languages: (w) => svg('<path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/>', w),
+  check: svg('<path d="M20 6 9 17l-5-5"/>', 2),
+  chevron: svg('<path d="m6 9 6 6 6-6"/>'),
+  pin: svg('<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>'),
+  search: svg('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>'),
+  sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>'),
+};
+
+// ---------------------------------------------------------------------------
+// state
+// ---------------------------------------------------------------------------
+const S = { selector: 'new', langCount: 2, reader: 'en', remembered: false, theme: 'light', open: false, query: '' };
+const SITE_DEFAULT = 'zh';
+const INLINE_MAX = 4;   // above this the versions stop fitting as pills
+
+const available = () => LANGS.slice(0, S.langCount).map((l) => l[0]);
+const versionsOf = (p) => p.translated ? available() : [p.origin];
+const resolveFor = (p) => versionsOf(p).includes(S.reader) ? S.reader : p.origin;
+// The listing follows an EXPLICIT preference only. A sniffed guess is not a decision.
+const listingLangFor = (p) =>
+  (S.remembered && versionsOf(p).includes(S.reader)) ? S.reader : p.origin;
+// Simulated navigator.languages — the reader's, then their usual fallback.
+const browserLangs = () => [...new Set([S.reader, 'en', SITE_DEFAULT])];
+
+// ---------------------------------------------------------------------------
+// LISTING — the mark is a glyph, nothing else
+// ---------------------------------------------------------------------------
+function renderListing() {
+  const rows = POSTS.map((p) => {
+    const lang = listingLangFor(p);
+    // Show the mark when the article is readable in the reader's language and
+    // is not only that language. One glyph, whatever the version count is.
+    const marked = versionsOf(p).length > 1 && versionsOf(p).includes(S.reader);
+    return `<li class="blog-row">
+      <a><h2 class="blog-row__title" lang="${lang}">${p.title[lang] || p.title[p.origin]}</h2>
+      <p class="blog-row__excerpt" lang="${lang}">${p.excerpt[lang] || p.excerpt[p.origin]}</p></a>
+      <p class="blog-row__meta">
+        <span class="blog-row__date">${p.date}</span>
+        ${marked ? `<span class="row-lang" role="img" aria-label="${copy(S.reader).mark(NAME[S.reader])}"
+            title="${copy(S.reader).mark(NAME[S.reader])}">${I.languages(1.5)}</span>` : ''}
+        <span class="blog-row__tags">${p.tags.map((t) => `<a class="blog-row__tag">${t}</a>`).join('')}</span>
+      </p></li>`;
+  }).join('');
+  return `<div class="blog-topbar"><a class="blog-mark">無人之境</a>
+      <button class="blog-iconbtn" aria-label="主题">${I.sun}</button></div>
+    <ul class="blog-list">${rows}</ul>`;
+}
+
+// ---------------------------------------------------------------------------
+// the panel — search first, reader's own languages first
+// ---------------------------------------------------------------------------
+function renderPanel(versions, cur, ui) {
+  const q = S.query.trim().toLowerCase();
+  const match = (c) => (NAME[c] + ' ' + c).toLowerCase().includes(q);
+  const item = (c) => `<a class="panel__item" role="option" aria-current="${c === cur}" data-pick="${c}" lang="${c}" tabindex="-1">
+      <span class="panel__check">${c === cur ? I.check : ''}</span><span>${NAME[c]}</span>
+      <span class="panel__code">${c.toUpperCase()}</span></a>`;
+
+  let groups;
+  if (q) {
+    const hits = versions.filter(match);
+    groups = hits.length ? `<div class="panel__group">${ui.results(hits.length)}</div>${hits.map(item).join('')}`
+                         : `<p class="panel__empty">${ui.none}</p>`;
+  } else {
+    // The two or three the reader actually wants, lifted to the top. This is the
+    // whole difference between a usable 100-item list and an unusable one.
+    const mine = browserLangs().filter((c) => versions.includes(c));
+    const rest = versions.filter((c) => !mine.includes(c));
+    groups = `<div class="panel__group">${ui.mine}</div>${mine.map(item).join('')}
+              <div class="panel__group">${ui.all(rest.length)}</div>${rest.map(item).join('')}`;
+  }
+
+  return `<div class="panel" data-panel role="listbox" aria-label="${ui.pick}">
+    <div class="panel__search">${I.search}
+      <input type="search" data-q value="${S.query}" placeholder="${ui.search}" aria-label="${ui.search}"></div>
+    <div class="panel__scroll">${groups}</div>
+    <p class="panel__hint">${ui.hint}</p>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// ARTICLE
+// ---------------------------------------------------------------------------
+function renderArticle() {
+  const p = POSTS[0];
+  const v = versionsOf(p);
+  const cur = resolveFor(p);
+  const ui = copy(cur);
+  let control;
+
+  if (S.selector === 'old') {
+    const front = [...new Set([SITE_DEFAULT, cur, ...v])].filter((c) => v.includes(c)).slice(0, 3);
+    const rest = v.filter((c) => !front.includes(c));
+    control = `<div class="seg">
+      ${front.map((c) => `<button class="seg__item" aria-current="${c === cur}" lang="${c}" data-pick="${c}">
+        ${NAME[c]}${c === cur ? `<span class="seg__pin" data-pinned="${S.remembered}" data-toggle="remembered">${I.pin}</span>` : ''}</button>`).join('')}
+      ${rest.length ? `<button class="seg__item" data-toggle="open">+${rest.length}</button>` : ''}
+    </div>${S.open ? `<div style="position:relative">${renderPanel(v, cur, ui)}</div>` : ''}`;
+  } else {
+    // Two layouts, one family. Which one you get depends only on how many
+    // versions exist, and no reader ever sees both for the same article.
+    const versionsUI = v.length <= INLINE_MAX
+      ? `<div class="lang__versions" role="group" aria-label="${ui.versions}">
+          ${v.map((c) => c === cur
+            ? `<span class="lang__v" aria-current="true" lang="${c}">${NAME[c]}</span>`
+            : `<a class="lang__v" href="?lang=${c}" hreflang="${c}" lang="${c}" rel="alternate" data-pick="${c}">${NAME[c]}</a>`).join('')}
+         </div>`
+      : `<button class="lang__trigger" data-toggle="open" aria-expanded="${S.open}"
+           aria-haspopup="listbox" aria-label="${ui.versions}">
+          ${I.languages(1.5)}<span lang="${cur}">${NAME[cur]}</span>
+          <span class="lang__count">${v.length}</span>
+          <span class="lang__chev">${I.chevron}</span>
+         </button>`;
+
+    control = `<div class="lang" style="position:relative">
+      ${versionsUI}
+      <button class="lang__memory" role="switch" aria-checked="${S.remembered}" data-toggle="remembered"
+        title="${S.remembered ? ui.memoOn : ui.memoOff}">
+        ${I.pin}<span>${S.remembered ? ui.remembered : ui.remember}</span></button>
+      ${S.open ? renderPanel(v, cur, ui) : ''}
+    </div>`;
+  }
+
+  return `<div class="blog-topbar"><a class="blog-mark">← 無人之境</a>
+      <button class="blog-iconbtn" aria-label="主题">${I.sun}</button></div>
+    <div class="blog-article__header">
+      <h1 class="blog-article__title" lang="${cur}">${p.title[cur] || p.title[p.origin]}</h1>
+      ${control}
+      <p class="blog-article__meta"><span>${p.date}</span><span>${p.read}</span></p>
+    </div>
+    <div class="blog-prose" lang="${cur}">${body(cur).map((t) => `<p>${t}</p>`).join('')}</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// notes
+// ---------------------------------------------------------------------------
+const NOTES = {
+  old: `<h1>old (v2) — 为什么难用</h1>
+    <p><b>1. <code>+97</code> 伪装成一个语言。</b> 它和 <code>中文</code>、<code>English</code> 长得一模一样、挨在一起，但点下去的行为完全不同 —— 一个当场切换，一个弹面板。同一排里两种交互模型,这是最主要的那一下。</p>
+    <p><b>2. 图钉是嵌在按钮里的按钮。</b> <code>&lt;button&gt;</code> 套 <code>&lt;button&gt;</code> 是无效 HTML，热区互相吃掉，而且那枚 12px 的图钉远低于 WCAG 2.5.8 的 24×24 底线。</p>
+    <p><b>3. 一百个语言是一条没有结构的滚动条。</b> 要在 100 项里找 Português 只能滚或者搜，而读者真正想要的那一两个每次都埋在中间。</p>
+    <p><b>4. 用 <code>&lt;button&gt;</code> 做导航。</b> 每个版本都有自己的 URL，却不能 Cmd 点开新标签、不能中键、不能复制链接。</p>
+    <p class="cost">另外：分段控件没有方向键漫游，面板没有焦点归位。</p>`,
+  new: `<h1>new (v3) — 改了什么</h1>
+    <p><b>版本永远是 <code>&lt;a href&gt;</code>。</b> 每个版本有 URL，所以它们是链接不是按钮 —— Cmd 点、中键、复制链接、Tab 全部白送，这是 better-accessibility 的「先用平台」。当前那个渲染成 <code>&lt;span aria-current&gt;</code>，因为它不通向任何地方。</p>
+    <p><b>≤4 个版本是并排 pill，>4 个是一颗触发按钮。</b> 关键是<b>没有任何一篇文章会同时出现两种</b>，所以读者永远只学一种。溢出不再伪装成语言：触发按钮带 languages 图标、当前语言名、总数和一个 chevron，一眼就知道它是「打开一个列表」而不是「一个版本」。</p>
+    <p><b>面板先给你自己的语言。</b> 未搜索时分两组：<code>你的浏览器</code>（navigator.languages ∩ 本文版本，通常 1–3 个）在最上面，其余归入<code>全部 N 种</code>。一搜索就拍平成结果列表。100 项和 5 项的体感差别，全在这一条。</p>
+    <p><b>记忆控件搬出版本组，并且带文字。</b> 它不是一个版本，所以不该长在版本组里；「记住 / 已记住」是 <code>role="switch"</code>，热区用 <code>::before</code> 撑到 24px 以上。上一轮我留给你拍板的「图钉可不可发现」——答案是写出来。</p>
+    <p><b>键盘打通。</b> ↑↓ 在选项间移动、Enter 打开、Esc 关闭并把焦点还给触发按钮；焦点环统一 2px accent + 2px offset；面板入场 150ms <code>cubic-bezier(0.2,0,0,1)</code>，并在 <code>prefers-reduced-motion</code> 下整个取消。</p>
+    <p><b>选一个语言 = 直接记住。</b> 显式点击是你能拿到的最强信号，所以它当场写 cookie；自动记忆只有在<b>看不见</b>的时候才讨厌，而这里旁边那颗开关会立刻变成「已记住」，一下就能撤销。这条你可以否决 —— 关掉之后开关就变成纯手动。</p>
+    <p class="cost">同心圆角：面板 13px = 内项 8px + 内边距 5px · 图标 1.5px 描边配 400 字重 · 触发按钮图标侧内边距 −2px 光学补偿</p>`,
+};
+
+// ---------------------------------------------------------------------------
+// render + events
+// ---------------------------------------------------------------------------
+function render(focusPanel) {
+  document.documentElement.dataset.theme = S.theme;
+  document.querySelectorAll('.chrome button[data-set]').forEach((b) => {
+    const val = S[b.dataset.set];
+    b.setAttribute('aria-pressed', String(val === true ? 1 : val === false ? 0 : val) === b.dataset.val);
+  });
+
+  const p = POSTS[0], v = versionsOf(p);
+  document.getElementById('state').innerHTML =
+    `versions <b>${v.length}</b> · layout <b>${S.selector === 'old' ? 'segmented' : v.length <= INLINE_MAX ? 'inline pills' : 'trigger + panel'}</b>` +
+    ` · reader <b>${S.reader}</b> · resolved <b>${resolveFor(p)}</b>` +
+    ` · source <b>${S.remembered ? 'cookie blog_lang' : 'Accept-Language'}</b>` +
+    ` · listing rows in reader's language <b>${POSTS.filter((q) => listingLangFor(q) !== q.origin).length}</b>`;
+
+  document.getElementById('verdict').innerHTML = NOTES[S.selector];
+  document.getElementById('listing').innerHTML = renderListing();
+  document.getElementById('article').innerHTML = renderArticle();
+
+  if (S.open) {
+    const q = document.querySelector('[data-q]');
+    if (q && focusPanel !== false) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+  }
+}
+
+const options = () => [...document.querySelectorAll('.panel__item')];
+function moveFocus(dir) {
+  const opts = options();
+  if (!opts.length) return;
+  const i = opts.indexOf(document.activeElement);
+  const next = i === -1 ? (dir > 0 ? 0 : opts.length - 1) : (i + dir + opts.length) % opts.length;
+  opts[next].focus();
+  opts[next].scrollIntoView({ block: 'nearest' });
+}
+function closePanel(restore) {
+  S.open = false; S.query = '';
+  render(false);
+  if (restore) document.querySelector('.lang__trigger, .seg__item:last-child')?.focus();
+}
+
+document.addEventListener('click', (e) => {
+  const set = e.target.closest('[data-set]');
+  if (set) {
+    const { set: k, val } = set.dataset;
+    S[k] = k === 'langCount' ? Number(val) : k === 'remembered' ? val === '1' : val;
+    S.open = false; S.query = '';
+    return render();
+  }
+  const toggle = e.target.closest('[data-toggle]');
+  if (toggle) {
+    e.preventDefault();
+    const k = toggle.dataset.toggle;
+    if (k === 'open') { S.open = !S.open; S.query = ''; return render(); }
+    S[k] = !S[k];
+    return render(false);
+  }
+  const pick = e.target.closest('[data-pick]');
+  if (pick) {
+    e.preventDefault();
+    // Picking a language IS the decision — the strongest signal there is, so it
+    // writes the cookie straight away. Auto-persist is only hostile when it is
+    // invisible; here the switch right next to it flips to "已记住" and undoes
+    // it in one click. Veto-able: flip this off and the switch becomes opt-in.
+    S.reader = pick.dataset.pick; S.remembered = true; S.open = false; S.query = '';
+    render(false);
+    document.querySelector('.lang__trigger')?.focus();
+    return;
+  }
+  if (S.open && !e.target.closest('[data-panel]')) closePanel(false);
+});
+
+document.addEventListener('input', (e) => {
+  if (e.target.matches('[data-q]')) { S.query = e.target.value; render(); }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (!S.open) return;
+  if (e.key === 'Escape') { e.preventDefault(); return closePanel(true); }
+  if (e.key === 'ArrowDown') { e.preventDefault(); return moveFocus(1); }
+  if (e.key === 'ArrowUp') { e.preventDefault(); return moveFocus(-1); }
+  if (e.key === 'Enter' && document.activeElement?.matches('[data-q]')) {
+    e.preventDefault();
+    const first = options()[0];
+    if (first) first.click();
+  }
+});
+
+render();
+</script>
+</body>
+</html>
