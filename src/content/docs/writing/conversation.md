@@ -112,8 +112,10 @@ one worth hearing with a cast line: `@me [Lucian]`.
 ### Runs
 
 Consecutive messages from one speaker collapse into a **run**: each message
-keeps its own bubble, but the name is drawn once, at the top of the first one,
-and only the last bubble squares off the corner nearest its speaker.
+keeps its own bubble, but the name is drawn once, on its own line above the
+first one, and only the last bubble squares off the corner nearest its speaker.
+The name sits beside the bubbles rather than inside them — the bubble is the
+message, the name is who sent it.
 
 ```conversation
 grace: One thing first.

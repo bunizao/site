@@ -184,36 +184,40 @@
   align-items: flex-end;
 }
 
-/* The name lives INSIDE the first bubble of a run, not on a line above it. A
-   label floating outside the bubble reads as a caption and costs a whole row of
-   vertical rhythm per speaker change; inside, it reads as the bubble's own
-   header and a stack of five messages is labelled exactly once, at the top.
+/* The name heads the run from OUTSIDE the bubble, one row above the stack. It
+   lived inside the first bubble while the bubble was a neutral slab and a
+   floating label read as orphaned — but the tint gave the bubble the speaker's
+   colour, so the surface now says who is talking and the label is free to be
+   what it is: attribution, not content. Keeping it out also stops an
+   accent-coloured name from having to sit on an accent-tinted floor, which is
+   what forced it so far from the author's hex.
 
-   Caption role at 12/500, a whole step below the body's 16 rather than the
-   half step 13 was: a label one notch off the sentence it names competes with
-   it, and this one repeats down the whole thread. Tracking opens as the size
-   drops, which is what keeps 12px from setting tight. Weight 500 and not 600:
-   emphasis within a role is one step up from the body's 400, and two steps
-   makes a name read as a heading over its own sentence.
+   The cost is one row of vertical rhythm per speaker change. That is the price
+   of the split, and it is the right one: a stack of five messages is still
+   labelled exactly once, at the top.
 
-   Leading is 1.35, not the body's 1.5: this label is one line and its leading is
-   pure spacing, so borrowing the body's ratio only spends the gap where it is
-   least useful — split evenly above and below a line that needs neither. The
-   two margins spend it where it reads instead. Both are on the name and not on
-   the bubble, so they apply exactly when a name is visible: a screen-reader-only
-   name is out of flow and its margins never land. */
+   Caption role at 13/500, the site's own — the same size as a figcaption in
+   blog prose, which a thread often sits next to. Smaller than the body because
+   a run is labelled once and read many times, so the size belongs to the thing
+   that is read every pass, not to its index. Smaller by only half a step
+   because on a monochrome thread — no accent declared, or tints=off — the name
+   has nothing but 62% against the body's 88% and one weight step to set it
+   apart. Give up the size step too and a default thread leans on opacity alone.
+   Weight 500 and not 600: emphasis within a role is one step up from the body's
+   400, and two steps makes a name read as a heading over its own sentence.
+
+   Leading is 1.35, not the body's 1.5: this label is one line and its leading
+   is pure spacing, so borrowing the body's ratio only spends the gap where it
+   is least useful. The stack's own gap sits below it. */
 .conv-name {
-  font-size: 0.75em;
+  font-size: 0.8125em;
   font-weight: 500;
   line-height: 1.35;
-  letter-spacing: 0.01em;
-  /* 12px text set under a 16px corner radius reads crammed at the same inset as
-     16px body text: the curve is still eating the corner where the label
-     starts. */
-  margin-top: 0.15em;
-  /* Enough to separate the label from the sentence it names, not enough to
-     detach it — it has to stay closer to its message than to the bubble edge. */
-  margin-bottom: 0.35em;
+  letter-spacing: 0.005em;
+  /* Not hard-aligned to the bubble edge and not to the text inside it: a hair
+     of inset reads as belonging to the column below without looking indented
+     against a corner that is curving away anyway. */
+  padding-inline: 0.35em;
   color: var(--conv-name);
   /* Not part of the sentence: never let it be dragged into a quote. */
   user-select: none;
@@ -249,11 +253,11 @@
   /* em, so the padding tracks the font-size the container queries hand down.
      The number that matters is the OPTICAL inset, padding plus the half-leading
      the line box already carries, not the declared padding. The body runs 1.5,
-     so each end contributes 4px at 16px, and 0.6875em (11px) lands the optical
-     inset at ~15px top and bottom against 14px inline. Even all round: a radius
+     so each end contributes 4px at 16px, and 0.625em (10px) lands the optical
+     inset at ~14px top and bottom against 14px inline. Even all round: a radius
      this large eats the corners, so equal inset is what reads balanced.
      0.4375em measured 9.6/11 and read cramped and top-heavy. */
-  padding: 0.6875em 0.875em;
+  padding: 0.625em 0.875em;
   border-radius: var(--conv-radius);
   background: var(--conv-tint, var(--conv-neutral));
   color: var(--conv-neutral-fg);

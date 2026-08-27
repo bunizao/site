@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   isConversationLanguage,
-  nameOnBubble,
+  nameOnBackground,
   parseConversation,
   renderConversation,
   setConversationOption,
@@ -13,6 +13,8 @@ import { splitBlogProse } from '@/features/posts/server/code-blocks';
 
 const BUBBLE_LIGHT = '#ECECEC';
 const BUBBLE_DARK = '#232323';
+const PAGE_LIGHT = '#FFFFFF';
+const PAGE_DARK = '#0A0A0A';
 
 function toRgb(hex: string): [number, number, number] {
   const raw = hex.replace('#', '');
@@ -303,12 +305,15 @@ describe('conversation rendering', () => {
     expect(html).toContain('data-names="off"');
   });
 
-  test('labels only the first bubble of a run', () => {
+  test('labels a run once, above the stack rather than inside a bubble', () => {
     const html = renderConversation(['me: hi', 'ann: one', 'ann: two'].join('\n'));
 
     // One visible name for Ann's run, plus the screen-reader-only one on mine.
     expect(html.match(/class="conv-name/g)).toHaveLength(2);
     expect(html.match(/conv-name--sr/g)).toHaveLength(1);
+    // The name heads the stack; the bubbles below it hold nothing but content.
+    expect(html).toContain('<div class="conv-stack"><div class="conv-name"');
+    expect(html).not.toContain('conv-bubble--wide"><div class="conv-name');
   });
 
   test('keeps the own-side label in the accessibility tree instead of dropping it', () => {
@@ -439,14 +444,21 @@ describe('conversation contrast', () => {
     expect(textOnAccent('#F2E8C9')).toBe('#0A0A0A');
   });
 
-  test('walks a name colour to AA against both bubble floors', () => {
+  test('walks a name colour to AA against both page backgrounds', () => {
     // Hexes chosen as fills; several land near 4:1 when reused as name text.
-    // The floor is the washed bubble, which is what the name sits on.
+    // The name sits beside the bubble, so the page is what it is read against.
     for (const accent of ['#3C5D80', '#B4603A', '#4E7A5E', '#7C5CD6', '#A8455F', '#2F6E7A']) {
-      for (const floor of [BUBBLE_LIGHT, BUBBLE_DARK]) {
-        const washed = tintedBubble(accent, floor);
-        expect(ratio(nameOnBubble(accent, washed), washed)).toBeGreaterThanOrEqual(4.5);
+      for (const page of [PAGE_LIGHT, PAGE_DARK]) {
+        expect(ratio(nameOnBackground(accent, page), page)).toBeGreaterThanOrEqual(4.5);
       }
+    }
+  });
+
+  test('keeps a tinted bubble readable under its own body text', () => {
+    // The tint replaces the neutral bubble, so the body copy has to survive it.
+    for (const accent of ['#3C5D80', '#B4603A', '#4E7A5E', '#7C5CD6', '#A8455F', '#2F6E7A']) {
+      expect(ratio('#0A0A0A', tintedBubble(accent, BUBBLE_LIGHT))).toBeGreaterThanOrEqual(4.5);
+      expect(ratio('#FFFFFF', tintedBubble(accent, BUBBLE_DARK))).toBeGreaterThanOrEqual(4.5);
     }
   });
 });

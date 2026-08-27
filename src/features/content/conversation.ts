@@ -430,11 +430,11 @@ export function textOnAccent(accent: string): string {
 
 /**
  * A hex picked to look good as a bubble FILL routinely lands near 4:1 when
- * reused as name text. Walk it toward the far end of the bubble in 4% steps
+ * reused as name text. Walk it toward the far end of the background in 4% steps
  * until it clears AA, keeping as much of the chosen hue as the ratio allows.
  */
-export function nameOnBubble(accent: string, bubbleBackground: string): string {
-  const floor = toRgb(bubbleBackground);
+export function nameOnBackground(accent: string, background: string): string {
+  const floor = toRgb(background);
   const start = toRgb(accent);
   const target = luminance(floor) > 0.4 ? 0 : 255;
   for (let t = 0; t < 1; t += 0.04) {
@@ -445,11 +445,18 @@ export function nameOnBubble(accent: string, bubbleBackground: string): string {
 }
 
 /**
- * --conv-neutral composited over each theme's page background: the floor a name
- * actually sits on. Measured from the rendered component, not assumed — the
- * bubble is what the eye compares against, not the page.
+ * --conv-neutral composited over each theme's page background: the floor the
+ * tint is built beside. Measured from the rendered component, not assumed.
  */
 const BUBBLE_BACKGROUND = { light: '#ECECEC', dark: '#232323' };
+
+/**
+ * The name sits beside the bubble rather than inside it, so this is the floor
+ * it is read against. Both themes are further from a mid-dark accent than the
+ * bubble was, which means the name walks LESS and keeps more of the hex the
+ * author actually chose.
+ */
+const PAGE_BACKGROUND = { light: '#FFFFFF', dark: '#0A0A0A' };
 
 /* --- tint -----------------------------------------------------------------
    The receiving side's bubble carries the speaker's accent as a tint, which is
@@ -604,8 +611,6 @@ function renderAvatar(speaker: Speaker): string {
  */
 function speakerStyle(speaker: Speaker): string {
   if (!HEX.test(speaker.accent)) return '';
-  // The name is walked against the tinted floor, not the neutral one, because
-  // the tint is what it ends up sitting on.
   const light = tintedBubble(speaker.accent, BUBBLE_BACKGROUND.light);
   const dark = tintedBubble(speaker.accent, BUBBLE_BACKGROUND.dark);
   return (
@@ -618,9 +623,9 @@ function speakerStyle(speaker: Speaker): string {
     ';--conv-tint-dark:' +
     dark +
     ';--conv-name-light:' +
-    nameOnBubble(speaker.accent, light) +
+    nameOnBackground(speaker.accent, PAGE_BACKGROUND.light) +
     ';--conv-name-dark:' +
-    nameOnBubble(speaker.accent, dark) +
+    nameOnBackground(speaker.accent, PAGE_BACKGROUND.dark) +
     ';'
   );
 }
@@ -640,35 +645,30 @@ export function renderConversation(source: string): string {
       const bubbles = item.bubbles
         .map((bubble, index) => {
           const last = index === item.bubbles.length - 1 ? ' conv-bubble--last' : '';
-          // The top bubble of a run carries the speaker. A `me` run keeps the
-          // label screen-reader-only rather than dropping it: without it the
-          // message is attributed by alignment and fill alone, which no screen
-          // reader can perceive.
-          const labelled = index === 0;
-          const visible = labelled && !speaker.me;
-          // Short single-line bubbles centre; anything that can wrap, or that
-          // carries a visible name, aligns to start.
-          const wide = visible || bubble.text.length > 12 ? ' conv-bubble--wide' : '';
-          const name = labelled
-            ? '<div class="conv-name' +
-              (visible ? '' : ' conv-name--sr') +
-              '">' +
-              escapeHtml(speaker.label) +
-              '</div>'
-            : '';
+          // Short single-line bubbles centre; anything that can wrap aligns to
+          // start.
+          const wide = bubble.text.length > 12 ? ' conv-bubble--wide' : '';
           return (
             '<div class="conv-bubble' +
             last +
             wide +
-            '">' +
-            name +
-            '<p>' +
+            '"><p>' +
             renderInline(bubble.text) +
-            '</p>' +
-            '</div>'
+            '</p></div>'
           );
         })
         .join('');
+
+      // One name per run, above the stack. A `me` run keeps the label
+      // screen-reader-only rather than dropping it: without it the message is
+      // attributed by alignment and fill alone, which no screen reader can
+      // perceive. Either way it is the first thing read in the run.
+      const name =
+        '<div class="conv-name' +
+        (speaker.me ? ' conv-name--sr' : '') +
+        '">' +
+        escapeHtml(speaker.label) +
+        '</div>';
 
       return (
         '<div class="conv-group conv-group--' +
@@ -680,6 +680,7 @@ export function renderConversation(source: string): string {
         renderAvatar(speaker) +
         '</div>' +
         '<div class="conv-stack">' +
+        name +
         bubbles +
         '</div>' +
         '</div>'
