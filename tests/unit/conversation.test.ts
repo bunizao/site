@@ -146,6 +146,23 @@ describe('conversation parsing', () => {
     expect(cast.get('ann')?.label).toBe('call me maybe');
   });
 
+  test('keeps a spaced key on one speaker, matching the spaced message head', () => {
+    const { cast } = parseConversation(
+      ['@Ada Lovelace accent=#4E7A5E', 'ada lovelace: hi'].join('\n')
+    );
+
+    expect(cast.size).toBe(1);
+    expect(cast.get('ada lovelace')?.label).toBe('Ada Lovelace');
+    expect(cast.get('ada lovelace')?.accent).toBe('#4E7A5E');
+  });
+
+  test('ends the key at the attributes, not at a colon inside one', () => {
+    const { cast } = parseConversation('@octo avatar=https://example.com/o.png');
+
+    expect([...cast.keys()]).toEqual(['octo']);
+    expect(cast.get('octo')?.avatar).toBe('https://example.com/o.png');
+  });
+
   test('reads label, accent and avatar off a cast line', () => {
     const { cast } = parseConversation('@tu label="Tu Tu" accent=#B4603A avatar=🐈');
     const speaker = cast.get('tu');

@@ -38,7 +38,10 @@ The key is lowercased for matching but shown exactly as you first wrote it, so
 your name.
 
 Both `:` and `：` work as the separator, so a Chinese keyboard never has to
-switch. A name is at most 24 characters and may not contain a colon.
+switch. A name is at most 24 characters and may not contain a colon. It **may**
+contain spaces — `Ada Lovelace: hi` is one speaker — though a name you type on
+every line is usually better kept short and given a [bracketed
+label](#name) instead.
 
 Not every `x: y` line becomes a message. A head that is a URL scheme
 (`https`, `mailto`, `tel`, `ftp`) or that contains Markdown punctuation is
@@ -143,6 +146,8 @@ long, and still works.
 There is no attribute for which side a speaker sits on. That is the key's job —
 see [the own side](#the-own-side).
 
+<a id="name"></a>
+
 ### `[name]`
 
 The label defaults to the key **as first written**, and nothing rewrites it.
@@ -162,6 +167,12 @@ not in, a name that is not the handle:
 @tutu [图图] avatar=🐈
 @octo [Octocat] avatar=https://avatars.githubusercontent.com/u/583231?v=4
 ```
+
+A key may hold the space itself — `@Ada Lovelace accent=#4E7A5E`, then
+`Ada Lovelace: …` on every message line. The key runs up to the first `[…]`,
+the first `name=value`, or a colon, so nothing needs quoting there either. It
+is the same speaker written the long way round; pick whichever you would rather
+type a dozen times.
 
 ### `accent`
 
