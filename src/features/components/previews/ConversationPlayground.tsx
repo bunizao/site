@@ -18,7 +18,7 @@ import {
 
 const fenced = (lines: string[]): string => [
   '```conversation',
-  '@conversation avatars=on names=on',
+  '@conversation avatars=on names=on tints=on',
   ...lines,
   '```',
 ].join('\n');
@@ -212,6 +212,11 @@ export default function ConversationPlayground(): React.ReactElement {
             label="Names"
             checked={options.names}
             onChange={(enabled) => setOption('names', enabled)}
+          />
+          <Field
+            label="Tints"
+            checked={options.tints}
+            onChange={(enabled) => setOption('tints', enabled)}
           />
         </div>
       </div>

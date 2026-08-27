@@ -108,12 +108,20 @@
      live, so toggling never re-runs the maths. The fallback is what an
      accentless speaker gets: the neutral bubble, unchanged. */
   --conv-name: var(--conv-name-light);
-  --conv-fill: var(--conv-fill-light, var(--conv-neutral));
+  --conv-tint: var(--conv-tint-light, var(--conv-neutral));
 }
 
 .dark .conv-group {
   --conv-name: var(--conv-name-dark);
-  --conv-fill: var(--conv-fill-dark, var(--conv-neutral));
+  --conv-tint: var(--conv-tint-dark, var(--conv-neutral));
+}
+
+/* Off puts every receiving bubble back on the neutral floor. The name keeps the
+   colour it was given: it was walked to AA against the TINTED floor, and the
+   neutral one is further from the accent in both themes, so dropping the tint
+   only ever raises its contrast. */
+.conv-thread[data-tints='off'] .conv-group {
+  --conv-tint: var(--conv-neutral);
 }
 
 .conv-group--out {
@@ -181,22 +189,25 @@
    vertical rhythm per speaker change; inside, it reads as the bubble's own
    header and a stack of five messages is labelled exactly once, at the top.
 
-   Caption role at 13/500. Weight 500 and not 600: emphasis within a role is one
-   step up from the body's 400, and two steps makes a name read as a heading
-   over its own sentence.
+   Caption role at 12/500, a whole step below the body's 16 rather than the
+   half step 13 was: a label one notch off the sentence it names competes with
+   it, and this one repeats down the whole thread. Tracking opens as the size
+   drops, which is what keeps 12px from setting tight. Weight 500 and not 600:
+   emphasis within a role is one step up from the body's 400, and two steps
+   makes a name read as a heading over its own sentence.
 
-   Leading is 1.3, not the body's 1.5: this label is one line and its leading is
+   Leading is 1.35, not the body's 1.5: this label is one line and its leading is
    pure spacing, so borrowing the body's ratio only spends the gap where it is
    least useful — split evenly above and below a line that needs neither. The
    two margins spend it where it reads instead. Both are on the name and not on
    the bubble, so they apply exactly when a name is visible: a screen-reader-only
    name is out of flow and its margins never land. */
 .conv-name {
-  font-size: 0.8125em;
+  font-size: 0.75em;
   font-weight: 500;
-  line-height: 1.3;
-  letter-spacing: 0.005em;
-  /* 13px text set under a 16px corner radius reads crammed at the same inset as
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  /* 12px text set under a 16px corner radius reads crammed at the same inset as
      16px body text: the curve is still eating the corner where the label
      starts. */
   margin-top: 0.15em;
@@ -244,7 +255,7 @@
      0.4375em measured 9.6/11 and read cramped and top-heavy. */
   padding: 0.6875em 0.875em;
   border-radius: var(--conv-radius);
-  background: var(--conv-fill, var(--conv-neutral));
+  background: var(--conv-tint, var(--conv-neutral));
   color: var(--conv-neutral-fg);
   overflow-wrap: anywhere;
   word-break: normal;

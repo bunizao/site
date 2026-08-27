@@ -48,6 +48,7 @@ ada: Both switches are part of the source.
 | --- | --- | --- |
 | `avatars` | `on` | Hides every avatar while preserving the alignment gutter. |
 | `names` | `on` | Hides visible speaker names; accessible labels remain. |
+| `tints` | `on` | Drops the accent tint; every receiving bubble goes neutral. |
 
 Only `on` and `off` are valid. Unknown, repeated, malformed, or misplaced
 options remain visible as prose instead of being partially applied.
@@ -230,16 +231,24 @@ side the speaker is on:
 | Side | What the accent paints |
 | --- | --- |
 | own side (`me:`, `you:`, `我:`, `你:`) | the whole bubble, filled |
-| everyone else | a 20% wash of the accent over the neutral bubble, plus the name |
+| everyone else | a tint on the bubble, plus the name |
 
-The wash is what makes a colour worth declaring on a thread running
-`avatars=off names=off`: with no name and no avatar to tint, the bubble is the
-only surface left. It stays a wash on purpose — one side filled outright is what
-tells a reader which way the conversation runs, and two filled sides lose that.
+The tint is what makes a colour worth declaring on a thread running
+`avatars=off names=off`: with no name and no avatar to carry it, the bubble is
+the only surface left. It stays a tint on purpose — one side filled outright is
+what tells a reader which way the conversation runs, and two filled sides lose
+that. `tints=off` drops it entirely.
+
+The tint is **not** your hex mixed into the bubble. It keeps the hue, pins
+lightness beside the bubble's own, and caps chroma, all in OKLCH. That is what
+keeps a thread even: a vivid violet and a muted sage arrive at the same weight,
+so no speaker shouts louder than another for a reason you did not choose. It is
+also the only way light mode stays clean — an accent picked as a fill is
+mid-dark, and mixing one into a light bubble lands on a dirty pastel every time.
 
 A hex chosen to look good as a *fill* routinely lands near 4:1 when reused as
 *name text*, so the accent is walked toward the far end of the bubble in 4%
-steps until it clears 4.5:1 — once per theme, at build time, against the washed
+steps until it clears 4.5:1 — once per theme, at build time, against the tinted
 bubble the name actually sits on. You keep as much of the chosen hue as the
 contrast ratio allows, and no configuration can produce unreadable text.
 

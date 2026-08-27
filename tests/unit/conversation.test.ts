@@ -42,7 +42,7 @@ describe('conversation parsing', () => {
     ].join('\n');
     const { items, options } = parseConversation(source);
 
-    expect(options).toEqual({ avatars: false, names: true });
+    expect(options).toEqual({ avatars: false, names: true, tints: true });
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({ type: 'group' });
   });
@@ -57,7 +57,7 @@ describe('conversation parsing', () => {
 
     expect(setConversationOption(source, 'avatars', false)).toBe([
       '```conversation',
-      '@conversation avatars=off names=on',
+      '@conversation avatars=off names=on tints=on',
       'me: hi',
       '```',
     ].join('\n'));
@@ -67,7 +67,7 @@ describe('conversation parsing', () => {
     const malformed = parseConversation('@conversation avatars=hidden\nme: hi');
     const misplaced = parseConversation('me: hi\n@conversation names=off');
 
-    expect(malformed.options).toEqual({ avatars: true, names: true });
+    expect(malformed.options).toEqual({ avatars: true, names: true, tints: true });
     expect(malformed.items[0]).toEqual({ type: 'note', text: '@conversation avatars=hidden' });
     expect(misplaced.items[1]).toEqual({ type: 'note', text: '@conversation names=off' });
   });
@@ -402,14 +402,27 @@ describe('conversation rendering', () => {
 
     // Without this the accent has nowhere to land on a thread whose names and
     // avatars are switched off: the own side is the only filled one.
-    expect(html).toContain('--conv-fill-light:' + tintedBubble('#4E7A5E', BUBBLE_LIGHT));
-    expect(html).toContain('--conv-fill-dark:' + tintedBubble('#4E7A5E', BUBBLE_DARK));
+    expect(html).toContain('--conv-tint-light:' + tintedBubble('#4E7A5E', BUBBLE_LIGHT));
+    expect(html).toContain('--conv-tint-dark:' + tintedBubble('#4E7A5E', BUBBLE_DARK));
+  });
+
+  test('marks the thread so the tint can be switched off wholesale', () => {
+    const on = renderConversation(['@a accent=#4E7A5E', 'a: hi'].join('\n'));
+    const off = renderConversation(
+      ['@conversation tints=off', '@a accent=#4E7A5E', 'a: hi'].join('\n'),
+    );
+
+    expect(on).toContain('data-tints="on"');
+    expect(off).toContain('data-tints="off"');
+    // The speaker keeps its colours either way: the switch is one CSS rule on
+    // the thread, so nothing has to re-render to flip it.
+    expect(off).toContain('--conv-tint-light:');
   });
 
   test('leaves the bubble neutral when no accent is declared', () => {
     const html = renderConversation(['a: hi', 'you: yo'].join('\n'));
 
-    expect(html).not.toContain('--conv-fill');
+    expect(html).not.toContain('--conv-tint');
   });
 
   test('rejects an accent that is not a hex colour', () => {
