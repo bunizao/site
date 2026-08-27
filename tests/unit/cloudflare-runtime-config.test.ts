@@ -160,6 +160,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(astroConfig).toContain("from '@astrojs/cloudflare'");
     expect(astroConfig).toContain("imageService: 'passthrough'");
     expect(astroConfig).toContain("prerenderEnvironment: 'node'");
+    expect(astroConfig).toContain("trailingSlash: 'never'");
+    expect(astroConfig).toContain("format: 'file'");
     expect(astroConfig).not.toContain("from '@astrojs/vercel'");
     expect(packageJson.scripts?.preview).toBe('bun run preview:cloudflare');
     expect(packageJson.scripts?.['build:cloudflare']).toBe('node scripts/build-cloudflare.mjs');
@@ -221,6 +223,7 @@ describe('Cloudflare runtime configuration', () => {
       assets?: {
         directory?: string;
         binding?: string;
+        html_handling?: string;
         run_worker_first?: string[];
       };
       routes?: Array<{ pattern?: string; zone_name?: string; custom_domain?: boolean }>;
@@ -236,6 +239,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.placement?.mode).toBe('smart');
     expect(config.assets?.directory).toBe('./dist');
     expect(config.assets?.binding).toBe('ASSETS');
+    expect(config.assets?.html_handling).toBe('drop-trailing-slash');
     expect(config.assets?.run_worker_first).toEqual([
       '/',
       '/api/*',

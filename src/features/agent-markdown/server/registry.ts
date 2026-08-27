@@ -39,6 +39,7 @@ import privacyMarkdownRaw from '@/content/pages/privacy.md?raw';
 
 export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 export const MARKDOWN_TOKEN_HEADER = 'x-markdown-tokens';
+export const MARKDOWN_PATH_SUFFIX = '/index.md';
 export const EDGE_CACHE_HEADER = 'X-Buxx-Edge-Cache';
 export const MOOD_PAGE_CACHE_HEADER = 'X-Buxx-Mood-Page-Cache';
 export const MOOD_FEED_PAGE_CACHE_TTL_SECONDS = 300;
@@ -105,6 +106,27 @@ function matchMoodPost(pathname: string): Record<string, string> | null {
   return id && isValidCursor(id) ? { id } : null;
 }
 
+function matchDocsPage(pathname: string): Record<string, string> | null {
+  const normalized = normalizePathname(pathname);
+  const match = normalized.match(/^\/docs\/(.+)$/);
+  if (!match || match[1] === 'search.json') return null;
+
+  return { slug: safeDecode(match[1]) };
+}
+
+export function markdownAlternatePath(pathname: string): string {
+  const normalized = normalizePathname(pathname);
+  return normalized === '/' ? '/index.md' : `${normalized}${MARKDOWN_PATH_SUFFIX}`;
+}
+
+export function explicitMarkdownSourcePath(pathname: string): string | null {
+  const normalized = normalizePathname(pathname);
+  if (normalized === '/index.md') return '/';
+  if (!normalized.endsWith(MARKDOWN_PATH_SUFFIX)) return null;
+
+  return normalized.slice(0, -MARKDOWN_PATH_SUFFIX.length) || '/';
+}
+
 function normalizeMoodFeedCacheSearch(url: URL): string | null {
   if (!url.search) return '';
 
@@ -149,7 +171,7 @@ function buildHomeAgentMarkdown(baseUrl: URL): string {
     '',
     '## Links',
     '',
-    `- [Blog](${new URL('/blog/', baseUrl).href})`,
+    `- [Blog](${new URL('/blog', baseUrl).href})`,
     `- [Mood](${new URL('/mood', baseUrl).href})`,
     `- [Projects](${new URL('/projects', baseUrl).href})`,
     `- [Privacy](${new URL('/privacy', baseUrl).href})`,
@@ -270,6 +292,46 @@ async function renderBlogPost(context: MarkdownRendererContext) {
   );
 }
 
+async function renderDocsIndex(context: MarkdownRendererContext) {
+  const { getDocsNav } = await import('@/features/docs/server/nav');
+  const groups = await getDocsNav();
+  const lines = [
+    '# Documentation',
+    '',
+    'Reference for buxx.me.',
+    '',
+    ...groups.flatMap((group) => [
+      `## ${group.label}`,
+      '',
+      group.blurb,
+      '',
+      ...group.entries.map((entry) =>
+        `- [${entry.data.title}](${new URL(markdownAlternatePath(`/docs/${entry.id}`), context.site).href}): ${entry.data.description}`
+      ),
+      '',
+    ]),
+  ];
+
+  return markdownResult(lines.join('\n'));
+}
+
+async function renderDocsPage(context: MarkdownRendererContext) {
+  const slug = context.params.slug ?? '';
+  const { getCollection } = await import('astro:content');
+  const entries = await getCollection('docs', ({ data }) => !data.draft);
+  const entry = entries.find((candidate) => candidate.id === slug);
+  if (!entry) return markdownResult('Documentation page not found.\n', 404);
+
+  return markdownResult([
+    `# ${entry.data.title}`,
+    '',
+    entry.data.description,
+    '',
+    entry.body?.trim() ?? '',
+    '',
+  ].join('\n'));
+}
+
 const renderers: MarkdownRenderer[] = [
   {
     id: 'home',
@@ -282,6 +344,18 @@ const renderers: MarkdownRenderer[] = [
     cacheTtlSeconds: 3600,
     match: matchExact('/privacy'),
     render: () => markdownResult(`${stripFrontmatter(privacyMarkdownRaw)}\n`),
+  },
+  {
+    id: 'docs-index',
+    cacheTtlSeconds: 3600,
+    match: matchExact('/docs'),
+    render: renderDocsIndex,
+  },
+  {
+    id: 'docs-page',
+    cacheTtlSeconds: 3600,
+    match: matchDocsPage,
+    render: renderDocsPage,
   },
   {
     id: 'blog-index',

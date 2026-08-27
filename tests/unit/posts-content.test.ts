@@ -331,8 +331,8 @@ describe('blog subscription feed', () => {
     expect(xml).toContain('<rss version="2.0"');
     expect(xml).toContain('<title>無人之境</title>');
     expect(xml).toContain('<atom:link href="https://buxx.me/blog/rss.xml"');
-    expect(xml).toContain('<link>https://buxx.me/blog/</link>');
-    expect(xml).toContain('https://buxx.me/blog/demo-effects/');
+    expect(xml).toContain('<link>https://buxx.me/blog</link>');
+    expect(xml).toContain('https://buxx.me/blog/demo-effects');
     expect(xml).not.toContain('members-only-notes');
     expect(xml).not.toContain('private-link-demo');
     expect(xml).not.toContain('blog.buxx.me/rss');
@@ -396,9 +396,9 @@ describe('blog subscription feed', () => {
     const xml = await response.text();
 
     expect(response.status).toBe(200);
-    expect(xml).toContain('<loc>https://buxx.me/blog/</loc>');
-    expect(xml).toContain('<loc>https://buxx.me/blog/demo-effects/</loc>');
-    expect(xml).toContain('<loc>https://buxx.me/blog/tag/systems/</loc>');
+    expect(xml).toContain('<loc>https://buxx.me/blog</loc>');
+    expect(xml).toContain('<loc>https://buxx.me/blog/demo-effects</loc>');
+    expect(xml).toContain('<loc>https://buxx.me/blog/tag/systems</loc>');
     expect(xml).not.toContain('members-only-notes');
     expect(xml).not.toContain('private-link-demo');
   });

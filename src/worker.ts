@@ -3,6 +3,7 @@ import {
   cacheHtmlPageResponse,
   isNeverCachePath,
   readCachedHtmlPage,
+  redirectCanonicalUrl,
   renderMarkdownIfRequested,
   withContentPolicy,
 } from '@/features/agent-markdown/server/responses';
@@ -51,6 +52,9 @@ async function fetchStaticAsset(request: Request, env: WorkerEnv): Promise<Respo
 export default {
   async fetch(request: Request, env: WorkerEnv, context: WorkerExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const canonicalRedirect = redirectCanonicalUrl(request);
+    if (canonicalRedirect) return canonicalRedirect;
+
     const locals = createLocals(env);
     const markdownResponse = await renderMarkdownIfRequested({
       request,

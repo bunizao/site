@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const CONFIG_PATH = 'dist/server/wrangler.json';
-const BLOG_ARTIFACT_PATH = 'dist/client/blog/index.html';
+const BLOG_ARTIFACT_PATH = 'dist/client/blog.html';
 const DEPLOY_GUARD_COMMAND = 'node scripts/cloudflare-deploy-guard.mjs check';
 const MOCK_POST_SLUGS = [
   'demo-effects',
@@ -26,7 +26,9 @@ function readConfig() {
 }
 
 function findMockSlugs(html) {
-  return MOCK_POST_SLUGS.filter((slug) => html.includes(`/blog/${slug}/`));
+  return MOCK_POST_SLUGS.filter((slug) => (
+    new RegExp(`href=["']/blog/${slug}(?:["'?#]|/)`).test(html)
+  ));
 }
 
 export function installCloudflareDeployGuard() {
@@ -63,7 +65,9 @@ export function verifyCloudflareDeployArtifacts() {
     return false;
   }
 
-  const blogPostLinks = html.match(/href=["']\/blog\/(?!tag\/|tags\/)[^\/"']+\/["']/g) ?? [];
+  const blogPostLinks = html.match(
+    /href=["']\/blog\/(?!tag\/|tags["'])[^\/"']+["']/g,
+  ) ?? [];
   if (blogPostLinks.length === 0) {
     console.error('Cloudflare deploy blocked an empty blog artifact.');
     return false;

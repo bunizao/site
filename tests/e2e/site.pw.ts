@@ -324,8 +324,8 @@ test.describe('Home page', () => {
     await expect(page.locator('#writing-section .post-meta').first()).toHaveCSS('display', 'flex');
     await expect(page.getByRole('button', { name: 'Tell me more' }).first()).toBeVisible();
     // Writing is a doorway into the blog now: the publication sign and the
-    // bottom CTA both link internally to the canonical trailing-slash route.
-    await expect(page.locator('#writing-section .writing-portal')).toHaveAttribute('href', '/blog/');
+    // bottom CTA both link internally to the canonical slashless route.
+    await expect(page.locator('#writing-section .writing-portal')).toHaveAttribute('href', '/blog');
     await expect(page.locator('#writing-section .writing-enter')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
 
@@ -1357,7 +1357,7 @@ test.describe('Home page', () => {
 
 test.describe('Blog posts', () => {
   test('hides the table of contents for posts tagged no-toc', async ({ page }) => {
-    const response = await page.goto('/blog/quiet-architecture/');
+    const response = await page.goto('/blog/quiet-architecture');
     expect(response?.ok()).toBeTruthy();
 
     await expect(page.locator('.toc-container')).toHaveAttribute('hidden', '');
@@ -1365,7 +1365,7 @@ test.describe('Blog posts', () => {
   });
 
   test('renders the table of contents for posts with enough headings', async ({ page }) => {
-    await page.goto('/blog/demo-effects/');
+    await page.goto('/blog/demo-effects');
 
     await expect(page.locator('.toc-container')).toBeVisible();
     expect(await page.locator('.toc-link').count()).toBeGreaterThanOrEqual(2);

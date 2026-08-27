@@ -86,12 +86,12 @@ test.describe('Preview smoke', () => {
     const rss = await request.get('/blog/rss.xml');
     expect(rss.ok()).toBeTruthy();
     expect(rss.headers()['content-type']).toContain('application/rss+xml');
-    expect(await rss.text()).toContain('<link>https://buxx.me/blog/</link>');
+    expect(await rss.text()).toContain('<link>https://buxx.me/blog</link>');
 
     const sitemap = await request.get('/sitemap.xml');
     expect(sitemap.ok()).toBeTruthy();
     expect(sitemap.headers()['content-type']).toContain('application/xml');
-    expect(await sitemap.text()).toContain('<loc>https://buxx.me/blog/</loc>');
+    expect(await sitemap.text()).toContain('<loc>https://buxx.me/blog</loc>');
   });
 
   test('redirects the dev root to the admin portal', async ({ request }) => {

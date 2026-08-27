@@ -1,17 +1,60 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  explicitMarkdownSourcePath,
   getContentRoutePolicy,
   hasMarkdownRenderer,
+  markdownAlternatePath,
 } from '@/features/agent-markdown/server/registry';
 import {
   cloudflareCdnCacheControl,
   publicCacheControl,
+  redirectCanonicalUrl,
   renderMarkdownIfRequested,
   withContentPolicy,
 } from '@/features/agent-markdown/server/responses';
 
 describe('agent markdown registry', () => {
+  test('maps public pages to explicit index.md alternates', () => {
+    expect(markdownAlternatePath('/')).toBe('/index.md');
+    expect(markdownAlternatePath('/docs/writing/poem/')).toBe('/docs/writing/poem/index.md');
+    expect(explicitMarkdownSourcePath('/index.md')).toBe('/');
+    expect(explicitMarkdownSourcePath('/docs/writing/poem/index.md'))
+      .toBe('/docs/writing/poem');
+    expect(explicitMarkdownSourcePath('/docs/writing/poem')).toBeNull();
+  });
+
+  test('serves explicit index.md URLs without content negotiation', async () => {
+    const response = await renderMarkdownIfRequested({
+      request: new Request('https://buxx.me/privacy/index.md'),
+      locals: {},
+    });
+
+    expect(response?.status).toBe(200);
+    expect(response?.headers.get('Content-Type')).toContain('text/markdown');
+    expect(await response?.text()).toContain('# Privacy Policy');
+  });
+
+  test('redirects alternate URL forms to slashless canonical paths', () => {
+    const trailingSlash = redirectCanonicalUrl(
+      new Request('https://buxx.me/docs/writing/authors/?view=full'),
+    );
+    const markdownShorthand = redirectCanonicalUrl(
+      new Request('https://buxx.me/docs/writing/authors.md?view=full'),
+    );
+
+    expect(trailingSlash?.status).toBe(308);
+    expect(trailingSlash?.headers.get('Location'))
+      .toBe('/docs/writing/authors?view=full');
+    expect(markdownShorthand?.status).toBe(308);
+    expect(markdownShorthand?.headers.get('Location'))
+      .toBe('/docs/writing/authors/index.md?view=full');
+    expect(redirectCanonicalUrl(new Request('https://buxx.me/docs/writing/authors')))
+      .toBeNull();
+    expect(redirectCanonicalUrl(new Request('https://buxx.me/docs/writing/authors/index.md')))
+      .toBeNull();
+  });
+
   test('matches mood detail ids without stealing sibling mood utility routes', () => {
     expect(hasMarkdownRenderer('/mood/990001')).toBe(true);
     expect(hasMarkdownRenderer('/mood/rss.xml')).toBe(false);

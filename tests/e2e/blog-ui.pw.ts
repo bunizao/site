@@ -150,7 +150,7 @@ async function firstBlogPostHref(page: Page): Promise<string> {
   await expect(firstPost).toBeVisible();
 
   const href = await firstPost.getAttribute('href');
-  expect(href).toMatch(/^\/blog\/[^/]+\/$/);
+  expect(href).toMatch(/^\/blog\/[^/]+$/);
 
   return href as string;
 }
@@ -325,7 +325,7 @@ test.describe('Blog reading UI', () => {
 
   test('remeasures the TOC after preceding media changes height', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
 
     const headings = page.locator('.blog-prose h2, .blog-prose h3');
     const tocLinks = page.locator('.toc-link');
@@ -362,7 +362,7 @@ test.describe('Blog reading UI', () => {
       });
     });
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
 
     const galleryImages = page.locator('.kg-gallery-card .kg-gallery-image img');
     await expect(galleryImages).toHaveCount(3);
@@ -463,7 +463,7 @@ test.describe('Blog reading UI', () => {
     });
 
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
 
     const card = page.locator('[data-yt]');
     const frame = card.locator('[data-yt-frame]');
@@ -523,7 +523,7 @@ test.describe('Blog reading UI', () => {
       });
     });
 
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => {
       document.documentElement.dataset.country = 'US';
       sessionStorage.removeItem('youtube-embed-reachable:v1');
@@ -563,7 +563,7 @@ test.describe('Blog reading UI', () => {
       });
     });
 
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => sessionStorage.removeItem('youtube-embed-reachable:v1'));
 
     const card = page.locator('[data-yt]');

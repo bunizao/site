@@ -48,6 +48,49 @@ test.describe('Developer reference', () => {
     await expect(page.locator('.docs-demo-render').first()).toContainText('雨巷');
   });
 
+  test('advertises and serves explicit Markdown URLs', async ({ page, request }) => {
+    await page.goto('/docs/writing/poem');
+
+    const alternate = page.locator('link[rel="alternate"][type="text/markdown"]');
+    await expect(alternate).toHaveAttribute(
+      'href',
+      'https://buxx.me/docs/writing/poem/index.md',
+    );
+
+    const response = await request.get('/docs/writing/poem/index.md');
+    expect(response.ok()).toBeTruthy();
+    expect(response.headers()['content-type']).toContain('text/markdown');
+    expect(response.headers()['x-markdown-tokens']).toBeTruthy();
+    expect(await response.text()).toContain('# Poems');
+
+    const shorthand = await request.get('/docs/writing/authors.md', { maxRedirects: 0 });
+    expect(shorthand.status()).toBe(308);
+    expect(shorthand.headers().location).toBe('/docs/writing/authors/index.md');
+  });
+
+  test('copies the page Markdown from the docs header control', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.goto('/docs/writing/poem');
+
+    await page.getByRole('button', { name: 'More page formats' }).click();
+    const menu = page.locator('[data-page-copy-menu]');
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('link')).toHaveAttribute(
+      'href',
+      '/docs/writing/poem/index.md',
+    );
+
+    await menu.locator('[data-page-copy-trigger]').click();
+    await expect(menu).toBeHidden();
+    // Only the mark changes on success; the label stays put and the bubble shows.
+    await expect(page.locator('[data-docs-page-copy]')).toHaveAttribute('data-copied', '');
+    await expect(page.locator('[data-page-copy-tip]')).toHaveText('Copied');
+    await expect(page.locator('.docs-copy-page-action')).toContainText('Copy page');
+
+    const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clipboard).toContain('# Poems');
+  });
+
   test('keeps the mobile article inside the viewport', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/docs/architecture');

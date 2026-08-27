@@ -112,7 +112,7 @@ Production setup:
 
 ### Unlisted posts
 
-Add Ghost's internal `#unlisted` tag (`hash-unlisted`) to publish a direct-link-only post. The build still emits `/blog/<slug>/`, but the post is excluded from the homepage, blog and tag lists, RSS, sitemaps, Pagefind, palette data, `llms.txt`, adjacent navigation, and generated agent Markdown indexes and assets. The HTML and direct Markdown response both carry crawler exclusion directives. `site-api` applies the same internal-tag check at the Ghost content-source and webhook boundaries, so unlisted posts do not enter immediate notifications, retries, digest windows, welcome emails, or the public latest-writing cache.
+Add Ghost's internal `#unlisted` tag (`hash-unlisted`) to publish a direct-link-only post. The build still emits `/blog/<slug>`, but the post is excluded from the homepage, blog and tag lists, RSS, sitemaps, Pagefind, palette data, `llms.txt`, adjacent navigation, and generated agent Markdown indexes and assets. The HTML and direct Markdown response both carry crawler exclusion directives. `site-api` applies the same internal-tag check at the Ghost content-source and webhook boundaries, so unlisted posts do not enter immediate notifications, retries, digest windows, welcome emails, or the public latest-writing cache.
 
 ## Bindings and Secrets
 

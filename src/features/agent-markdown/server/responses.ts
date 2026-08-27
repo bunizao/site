@@ -2,12 +2,15 @@ import { cacheEdgeResponse, readEdgeCache } from '@/lib/http/edge-cache';
 import { estimateMarkdownTokens, prefersMarkdown } from './negotiation';
 import {
   EDGE_CACHE_HEADER,
+  MARKDOWN_PATH_SUFFIX,
   MARKDOWN_CONTENT_TYPE,
   MARKDOWN_TOKEN_HEADER,
   type ContentRoutePolicy,
+  explicitMarkdownSourcePath,
   getContentRoutePolicy,
   getMarkdownRenderer,
   hasMarkdownRenderer,
+  markdownAlternatePath,
 } from './registry';
 
 const EDGE_CACHE_VERSION = '2';
@@ -19,7 +22,9 @@ export function contentEdgeCacheVersion(
   const normalizedPath = pathname === '/' ? pathname : pathname.replace(/\/+$/, '');
   const isBuildBackedContent = normalizedPath === '/'
     || normalizedPath === '/blog'
-    || normalizedPath.startsWith('/blog/');
+    || normalizedPath.startsWith('/blog/')
+    || normalizedPath === '/docs'
+    || normalizedPath.startsWith('/docs/');
 
   return isBuildBackedContent
     ? `${EDGE_CACHE_VERSION}:${buildId?.trim() || 'dev'}`
@@ -74,6 +79,33 @@ export function publicCacheControl(ttlSeconds: number, staleWhileRevalidateSecon
       ? `stale-while-revalidate=${staleWhileRevalidateSeconds}`
       : '',
   ].filter(Boolean).join(', ');
+}
+
+export function redirectCanonicalUrl(request: Request): Response | null {
+  const url = new URL(request.url);
+  let pathname = url.pathname;
+
+  if (pathname !== '/') {
+    pathname = pathname.replace(/\/+$/, '');
+  }
+
+  if (pathname.endsWith('.md') && !pathname.endsWith(MARKDOWN_PATH_SUFFIX)) {
+    const sourcePath = pathname.slice(0, -'.md'.length) || '/';
+    if (hasMarkdownRenderer(sourcePath)) {
+      pathname = markdownAlternatePath(sourcePath);
+    }
+  }
+
+  if (pathname === url.pathname) return null;
+
+  url.pathname = pathname;
+  return new Response(null, {
+    status: 308,
+    headers: {
+      'Cache-Control': 'public, max-age=3600',
+      Location: `${url.pathname}${url.search}`,
+    },
+  });
 }
 
 export function cloudflareCdnCacheControl(
@@ -177,14 +209,16 @@ export async function renderMarkdownIfRequested(context: {
   site?: URL;
 }): Promise<Response | null> {
   if (context.request.method !== 'GET') return null;
-  if (!prefersMarkdown(context.request.headers.get('accept'))) return null;
 
   const url = new URL(context.request.url);
-  if (isNeverCachePath(url.pathname)) return null;
+  const explicitSourcePath = explicitMarkdownSourcePath(url.pathname);
+  if (!explicitSourcePath && !prefersMarkdown(context.request.headers.get('accept'))) return null;
+  if (isNeverCachePath(explicitSourcePath ?? url.pathname)) return null;
 
-  const match = getMarkdownRenderer(url.pathname);
+  const sourcePath = explicitSourcePath ?? url.pathname;
+  const match = getMarkdownRenderer(sourcePath);
   if (!match) return null;
-  const cacheVersion = contentEdgeCacheVersion(url.pathname);
+  const cacheVersion = contentEdgeCacheVersion(sourcePath);
 
   const cached = await readEdgeCache(context.request, {
     namespace: 'content',
@@ -202,7 +236,7 @@ export async function renderMarkdownIfRequested(context: {
   const result = await match.renderer.render({
     request: context.request,
     locals: context.locals as App.Locals,
-    url,
+    url: new URL(`${sourcePath}${url.search}`, url.origin),
     site: siteUrlForContext(context),
     params: match.params,
   });
