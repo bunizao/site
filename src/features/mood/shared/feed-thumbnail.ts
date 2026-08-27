@@ -1,12 +1,17 @@
+import {
+  getMoodImageRatio,
+  resolveMoodImageLayout,
+  type MoodImageLayout,
+} from '@/features/mood/shared/image-srcset';
+
 export interface MoodFeedThumbnailInput {
   imageWidth?: number | null;
   imageHeight?: number | null;
-  imageLayout?: 'landscape' | 'portrait' | 'ultra-tall' | null;
+  imageLayout?: MoodImageLayout | null;
+  mediaKind?: 'image' | 'sticker' | 'video';
 }
 
-function isPositiveNumber(value: number | null | undefined): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0;
-}
+export type MoodFeedImageLayout = MoodImageLayout;
 
 const containedBoxByLayout = {
   portrait: [
@@ -25,15 +30,26 @@ function formatCssNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
 }
 
-export function getMoodFeedThumbnailStyle(input: MoodFeedThumbnailInput): string | undefined {
-  if (!isPositiveNumber(input.imageWidth) || !isPositiveNumber(input.imageHeight)) {
-    return undefined;
-  }
+export function resolveMoodFeedImageLayout(
+  value: unknown,
+  imageWidth?: number | null,
+  imageHeight?: number | null,
+): MoodFeedImageLayout | null {
+  return resolveMoodImageLayout(value, imageWidth, imageHeight);
+}
 
-  const ratio = input.imageWidth / input.imageHeight;
+export function getMoodFeedThumbnailStyle(input: MoodFeedThumbnailInput): string {
+  const layout = resolveMoodFeedImageLayout(input.imageLayout, input.imageWidth, input.imageHeight);
+  let ratio = getMoodImageRatio(input.imageWidth, input.imageHeight, layout);
+  if (!ratio.exact && !layout && input.mediaKind === 'sticker') {
+    ratio = { css: '1 / 1', value: 1, exact: false };
+  } else if (!ratio.exact && !layout && input.mediaKind === 'video') {
+    ratio = { css: '16 / 9', value: 16 / 9, exact: false };
+  }
   const declarations = [
-    `aspect-ratio:${input.imageWidth} / ${input.imageHeight}`,
-    `--mood-thumb-ratio:${input.imageWidth} / ${input.imageHeight}`,
+    `aspect-ratio:${ratio.css}`,
+    `--mood-thumb-ratio:${ratio.css}`,
+    `--mood-image-ratio:${ratio.css}`,
   ];
 
   /* Portrait and ultra-tall thumbs size to `fit-content`, so before the image
@@ -41,10 +57,10 @@ export function getMoodFeedThumbnailStyle(input: MoodFeedThumbnailInput): string
      tall. Every feed item with one collapsed and then popped open mid-scroll.
      These widths are the contained box the image will land in, so the wrapper
      holds its own height from first paint. */
-  if (input.imageLayout === 'portrait' || input.imageLayout === 'ultra-tall') {
-    const boxes = containedBoxByLayout[input.imageLayout];
+  if (layout === 'portrait' || layout === 'ultra-tall') {
+    const boxes = containedBoxByLayout[layout];
     boxes.forEach((box) => {
-      const width = Math.min(box.maxWidth, box.maxHeight * ratio);
+      const width = Math.min(box.maxWidth, box.maxHeight * ratio.value);
       declarations.push(`--mood-thumb-reserved-width${box.name}:${formatCssNumber(width)}px`);
     });
   }

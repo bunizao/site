@@ -71,13 +71,31 @@ describe('structured mood detail content rendering', () => {
     expect(html).toContain('fetchpriority="high"');
   });
 
+  test('keeps LCP priority on the sharp image instead of its blur layer', () => {
+    const html = prioritizeMoodDetailMedia([
+      '<figure class="rich-content-media--image mood-image-frame">',
+      '  <img class="mood-image-blur" src="/api/v2/images/mood/42/0?w=32" loading="lazy" />',
+      '  <img data-mood-image-main src="/api/v2/images/mood/42/0" loading="lazy" decoding="async" />',
+      '</figure>',
+    ].join(''));
+    const $ = cheerio.load(html, null, false);
+    const blur = $('.mood-image-blur');
+    const main = $('[data-mood-image-main]');
+
+    expect(blur.attr('loading')).toBe('lazy');
+    expect(blur.attr('fetchpriority')).toBeUndefined();
+    expect(main.attr('loading')).toBe('eager');
+    expect(main.attr('fetchpriority')).toBe('high');
+    expect(main.attr('decoding')).toBe('sync');
+  });
+
   test('renders body, image media, and mood-specific structured media', () => {
     const html = renderStructuredMoodDetailContent(createDocument({
       media: [
         {
           id: 'hero',
           type: 'image',
-          src: 'https://image.example.test/mood/42/0.jpg',
+          src: '/api/v2/images/mood/42/0',
           width: 1200,
           height: 800,
           layout: 'landscape',
@@ -109,7 +127,11 @@ describe('structured mood detail content rendering', () => {
 
     expect(html).toContain('class="mood-post-rich-body"');
     expect(html).toContain('class="mood-post-rich-media"');
-    expect(html).toContain('class="rich-content-media rich-content-media--image rich-content-media--landscape"');
+    expect(html).toContain('rich-content-media--image');
+    expect(html).toContain('mood-image-frame');
+    expect(html).toContain('--mood-image-ratio:1200 / 800');
+    expect(html).toContain('class="mood-image-blur"');
+    expect(html).toContain('src="/api/v2/images/mood/42/0?w=32"');
     expect(html).toContain('class="mood-item-media"');
     expect(html).toContain('bookmark-card bookmark-card--side-media');
     expect(html).toContain('Example Story');

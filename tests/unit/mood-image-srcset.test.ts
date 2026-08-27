@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import {
   MOOD_ARCHIVE_IMAGE_WIDTHS,
   buildArchiveSrcSet,
+  getMoodImagePlaceholderSrc,
+  getMoodImageRatio,
   isArchiveImageUrl,
   withWidth,
 } from '../../src/features/mood/shared/image-srcset';
@@ -35,6 +37,27 @@ describe('withWidth', () => {
 
   test('replaces an existing width param', () => {
     expect(withWidth('/api/v2/images/mood/3641/0?w=320', 800)).toBe('/api/v2/images/mood/3641/0?w=800');
+  });
+});
+
+describe('mood image presentation', () => {
+  test('uses a dedicated 32px archive placeholder', () => {
+    expect(getMoodImagePlaceholderSrc('/api/v2/images/mood/3641/0?v=2'))
+      .toBe('/api/v2/images/mood/3641/0?v=2&w=32');
+    expect(getMoodImagePlaceholderSrc('https://cdn4.telesco.pe/file/photo.jpg')).toBeNull();
+  });
+
+  test('falls back to a stable ratio when dimensions are incomplete', () => {
+    expect(getMoodImageRatio(225, null, null)).toEqual({
+      css: '4 / 3',
+      value: 4 / 3,
+      exact: false,
+    });
+    expect(getMoodImageRatio(null, null, 'portrait')).toEqual({
+      css: '3 / 4',
+      value: 3 / 4,
+      exact: false,
+    });
   });
 });
 

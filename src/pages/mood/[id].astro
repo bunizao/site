@@ -8,6 +8,7 @@ import {
   resolveMoodReadSource,
 } from '@/features/mood/server/api-client';
 import '@/styles/mood-gallery.css';
+import '@/styles/mood-image.css';
 import '@/styles/listening.css';
 import '@/styles/embed-youtube.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
@@ -113,29 +114,11 @@ const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
   import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
   import { initMoodDetailComments } from '@/features/mood/client/detail-comments-controller';
   import { initMoodGalleries } from '@/features/mood/client/gallery';
+  import { initMoodImageFrames } from '@/features/mood/client/image-frame';
   import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
   import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
   import { initListeningCards } from '@/lib/listening/controller';
   import { initYouTubeEmbeds } from '@/lib/embed/youtube-controller';
-
-  document.querySelectorAll('.mood-post-content .rich-content-media--image img').forEach((node) => {
-    if (!(node instanceof HTMLImageElement)) return;
-    const classify = () => {
-      const figure = node.closest('.rich-content-media');
-      if (!figure || !node.naturalWidth || !node.naturalHeight) return;
-      const ratio = node.naturalWidth / node.naturalHeight;
-      if (ratio < 0.6) {
-        figure.classList.add('rich-content-media--ultra-tall');
-      } else if (ratio < 0.8) {
-        figure.classList.add('rich-content-media--portrait');
-      }
-    };
-    if (node.complete) {
-      classify();
-    } else {
-      node.addEventListener('load', classify, { once: true });
-    }
-  });
 
   document.querySelectorAll('.mood-post-content video').forEach((node) => {
     if (!(node instanceof HTMLVideoElement)) return;
@@ -182,6 +165,7 @@ const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
   if (moodPostContent instanceof HTMLElement) {
     replaceReplyNodesWithCommentQuotes(moodPostContent);
     initMoodGalleries(moodPostContent);
+    initMoodImageFrames(moodPostContent);
     hydrateMoodRichText(moodPostContent);
     initListeningCards(moodPostContent);
     initYouTubeEmbeds(moodPostContent);

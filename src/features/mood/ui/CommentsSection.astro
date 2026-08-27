@@ -346,6 +346,7 @@ const {
   }
 
   .mood-comment-body:has(.image-list-container) {
+    width: min(100%, 270px);
     max-width: min(100%, 270px);
   }
 
@@ -413,7 +414,7 @@ const {
     display: grid;
     gap: 6px;
     margin: 4px 0 2px;
-    width: fit-content;
+    width: min(100%, 220px);
     max-width: min(100%, 220px);
   }
 
@@ -437,11 +438,13 @@ const {
     overflow: hidden;
     background: hsl(var(--foreground) / 0.06);
     cursor: pointer;
+    aspect-ratio: 1 / 1;
   }
 
   .mood-comment-content p:has(> .sticker:only-child) {
-    width: fit-content;
+    width: 256px;
     max-width: 100%;
+    aspect-ratio: 1 / 1;
     border-radius: var(--radius-sm);
     background: color-mix(in oklab, hsl(var(--foreground)) 3.5%, hsl(var(--background)));
     overflow: hidden;
@@ -449,8 +452,10 @@ const {
 
   .mood-comment-content .sticker {
     display: block;
-    max-width: min(100%, 256px);
-    height: auto;
+    width: 100%;
+    max-width: 256px;
+    height: 100%;
+    object-fit: contain;
     border-radius: inherit;
     transform: scale(1.2);
     transform-origin: center;
@@ -459,7 +464,8 @@ const {
   .mood-comment-content .image-preview-wrap img {
     display: block;
     width: 100%;
-    max-height: 260px;
+    height: 100%;
+    max-height: none;
     object-fit: cover;
   }
 

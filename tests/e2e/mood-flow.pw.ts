@@ -30,6 +30,12 @@ function createMoodFeedPost(
     groupIds: string[];
     media: Array<Record<string, unknown>>;
     previewMediaType: string;
+    quote: {
+      text: string;
+      author?: string;
+      href?: string;
+      thumbnailSrc?: string;
+    } | null;
   }> = {}
 ) {
   return {
@@ -312,6 +318,58 @@ test.describe('Mood routes', () => {
       .toBeLessThanOrEqual(400);
   });
 
+  test('contains an unknown-dimension portrait inside a stable feed frame', async ({ page }) => {
+    const moodId = '9903769';
+    const imageUrl = 'https://image.example.test/mood/9903769/0';
+    const payload = {
+      posts: [createMoodFeedPost(moodId, 'Portrait with incomplete metadata', {
+        image: imageUrl,
+        imageHeight: null,
+        imageLayout: null,
+        imageWidth: 225,
+      })],
+      channel: { slug: 'e2e', title: 'E2E Channel' },
+    };
+    let releaseImage!: () => void;
+    const imageGate = new Promise<void>((resolve) => {
+      releaseImage = resolve;
+    });
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(url.searchParams.get('probe') === '1' ? { latestId: moodId } : payload),
+      });
+    });
+    await page.route(imageUrl, async (route) => {
+      await imageGate;
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="589" height="1280"></svg>',
+      });
+    });
+
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+    const frame = page.locator(`[data-mood-id="${moodId}"] .mood-item-thumb`);
+    const image = frame.locator('[data-mood-image-main]');
+    const before = await frame.boundingBox();
+    expect(before).not.toBeNull();
+    expect(before!.height).toBeGreaterThan(100);
+
+    releaseImage();
+    await expect.poll(() => image.evaluate((node) => {
+      const element = node as HTMLImageElement;
+      return element.complete && element.naturalHeight > element.naturalWidth;
+    })).toBe(true);
+    const after = await frame.boundingBox();
+    expect(after).not.toBeNull();
+    expect(Math.abs(after!.height - before!.height)).toBeLessThan(1);
+    expect(await image.evaluate((node) => getComputedStyle(node).objectFit)).toBe('contain');
+  });
+
   test('keeps sticker thumbnails left-aligned at the tuned size', async ({ page }) => {
     const moodId = '9903669';
     const imageUrl = 'https://image.example.test/mood/9903669/sticker.webp';
@@ -387,6 +445,55 @@ test.describe('Mood routes', () => {
     expect(geometry.thumbnailWidth).toBe(256);
     expect(geometry.imageWidth).toBe(256);
     await expect(image).toBeVisible();
+  });
+
+  test('keeps a failed media-only quote slot stable', async ({ page }) => {
+    const moodId = '9903770';
+    const imageUrl = 'https://image.example.test/mood/broken-quote.jpg';
+    const payload = {
+      posts: [
+        createMoodFeedPost(moodId, '', {
+          quote: {
+            text: 'Media',
+            href: '/mood/9903769',
+            thumbnailSrc: imageUrl,
+          },
+        }),
+      ],
+      channel: { slug: 'e2e', title: 'E2E Channel' },
+    };
+    let releaseImage!: () => void;
+    const imageGate = new Promise<void>((resolve) => {
+      releaseImage = resolve;
+    });
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(url.searchParams.get('probe') === '1' ? { latestId: moodId } : payload),
+      });
+    });
+    await page.route(imageUrl, async (route) => {
+      await imageGate;
+      await route.fulfill({ status: 404, body: 'not found' });
+    });
+
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+    const quote = page.locator(`[data-mood-id="${moodId}"] .mood-item-quote--media-only`);
+    await expect(quote).toBeVisible();
+    await expect(quote).toHaveAccessibleName('View quoted media');
+    const before = await quote.boundingBox();
+    expect(before).not.toBeNull();
+
+    releaseImage();
+    await expect(quote.locator('.mood-item-quote-media')).toHaveClass(/is-media-error/);
+    await expect(quote.locator('img')).toHaveCount(0);
+    const after = await quote.boundingBox();
+    expect(after).not.toBeNull();
+    expect(Math.abs(after!.width - before!.width)).toBeLessThan(1);
+    expect(Math.abs(after!.height - before!.height)).toBeLessThan(1);
   });
 
   test('loads the mood flow from the archive fixture', async ({ page }) => {
@@ -2345,6 +2452,60 @@ test.describe('Mood routes', () => {
     }
   });
 
+  test('reserves a single comment image before its bytes arrive', async ({ page, request }) => {
+    const latestMoodId = await getLatestMoodId(request);
+    test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+    const imageUrl = 'https://image.example.test/comment-photo-single.gif';
+    const tinyGif = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
+    let releaseImage!: () => void;
+    const imageGate = new Promise<void>((resolve) => {
+      releaseImage = resolve;
+    });
+
+    await page.route('**/api/comments?postId=*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          comments: [{
+            id: 'single-image-comment',
+            author: 'E2E',
+            authorAvatar: '',
+            datetime: '2026-02-10T13:10:00+00:00',
+            content: `<div class="image-list-container"><button class="image-preview-button image-preview-wrap"><img src="${imageUrl}" alt="" loading="eager" /></button></div>`,
+            reactions: [],
+          }],
+          hasMore: false,
+          nextBefore: '',
+        }),
+      });
+    });
+    await page.route(imageUrl, async (route) => {
+      await imageGate;
+      await route.fulfill({ status: 200, contentType: 'image/gif', body: tinyGif });
+    });
+
+    await page.goto(`/mood/${latestMoodId}#comments`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-comments-loading]')).toHaveCount(0, { timeout: 30_000 });
+
+    const frame = page.locator('.mood-comment-content .image-preview-wrap');
+    const before = await frame.boundingBox();
+    expect(before).not.toBeNull();
+    expect(before!.width).toBeGreaterThan(100);
+    expect(Math.abs(before!.height - before!.width)).toBeLessThan(1);
+
+    releaseImage();
+    const image = frame.locator('img');
+    await expect.poll(() => image.evaluate((node) => {
+      const img = node as HTMLImageElement;
+      return img.complete && img.naturalWidth > 0;
+    })).toBe(true);
+    const after = await frame.boundingBox();
+    expect(after).not.toBeNull();
+    expect(Math.abs(after!.height - before!.height)).toBeLessThan(1);
+  });
+
   test('clips sticker media in detail comments without changing the comment bubble shape', async ({ page, request }) => {
     const latestMoodId = await getLatestMoodId(request);
     test.skip(!latestMoodId, 'No mood id available from /api/moods');
@@ -2353,6 +2514,10 @@ test.describe('Mood routes', () => {
 
     const stickerImage = 'https://image.example.test/comment-sticker.webp';
     const tinyGif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64');
+    let releaseSticker!: () => void;
+    const stickerGate = new Promise<void>((resolve) => {
+      releaseSticker = resolve;
+    });
 
     await page.route('**/api/comments?postId=*', async (route) => {
       await route.fulfill({
@@ -2376,6 +2541,7 @@ test.describe('Mood routes', () => {
     });
 
     await page.route(stickerImage, async (route) => {
+      await stickerGate;
       await route.fulfill({
         status: 200,
         contentType: 'image/gif',
@@ -2387,6 +2553,19 @@ test.describe('Mood routes', () => {
 
     const sticker = page.locator('[data-comments-list] .mood-comment-content img.sticker');
     await expect(sticker).toBeVisible({ timeout: 30_000 });
+    const matte = sticker.locator('..');
+    const before = await matte.boundingBox();
+    expect(before).not.toBeNull();
+    expect(before!.height).toBeGreaterThan(100);
+
+    releaseSticker();
+    await expect.poll(() => sticker.evaluate((node) => {
+      const image = node as HTMLImageElement;
+      return image.complete && image.naturalWidth > 0;
+    })).toBe(true);
+    const after = await matte.boundingBox();
+    expect(after).not.toBeNull();
+    expect(Math.abs(after!.height - before!.height)).toBeLessThan(1);
 
     const styles = await sticker.evaluate((image) => {
       const stickerStyle = getComputedStyle(image);
@@ -2771,7 +2950,7 @@ test.describe('Mood routes', () => {
     await expect(images.nth(2)).toHaveAttribute('src', /\/2$/);
   });
 
-  test('renders the detail gallery with a justified Flickr-style layout', async ({ page }) => {
+  test('renders the detail gallery with a stable ratio-aware layout', async ({ page }) => {
     const tinyGif = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
 
     await page.route('https://image.example.test/**', async (route) => {
@@ -2797,7 +2976,76 @@ test.describe('Mood routes', () => {
     await expect(images.nth(1)).toHaveAttribute('src', /\/1$/);
     await expect(images.nth(2)).toHaveAttribute('src', /\/2$/);
     expect(await track.evaluate((element) => getComputedStyle(element).overflowX)).toBe('visible');
-    expect(await track.getAttribute('data-mood-gallery-layout')).toBe('justified');
+    expect(await track.evaluate((element) => getComputedStyle(element).display)).toBe('flex');
+  });
+
+  test('reserves a detail gallery without client JavaScript', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.route('**/*.js', (route) => route.abort());
+    await page.route('https://image.example.test/**', (route) => route.abort());
+
+    await page.goto('/mood/990777', { waitUntil: 'domcontentloaded' });
+
+    const track = page.locator('.mood-gallery--detail [data-mood-gallery-track]');
+    const box = await track.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.height).toBeGreaterThan(300);
+    expect(box!.height).toBeLessThan(450);
+    const slides = track.locator('[data-mood-gallery-slide]');
+    await expect(slides).toHaveCount(3);
+    const geometry = await slides.evaluateAll((nodes) => nodes.map((node) => {
+      const rect = node.getBoundingClientRect();
+      return { top: rect.top, right: rect.right, height: rect.height };
+    }));
+    expect(Math.abs(geometry[1].right - (box!.x + box!.width))).toBeLessThan(2);
+    expect(Math.abs(geometry[0].top - geometry[1].top)).toBeLessThan(1);
+    expect(geometry[2].top).toBeGreaterThan(geometry[0].top + geometry[0].height);
+    expect(geometry[2].height).toBeLessThanOrEqual(210);
+  });
+
+  test('reserves a single detail image and paints its blur placeholder before load', async ({ page }) => {
+    const imagePattern = '**/api/v2/images/mood/990778/0*';
+    const tinyGif = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
+    let releaseImages!: () => void;
+    const imageGate = new Promise<void>((resolve) => {
+      releaseImages = resolve;
+    });
+
+    await page.route(imagePattern, async (route) => {
+      if (new URL(route.request().url()).searchParams.get('w') === '32') {
+        await route.fulfill({ status: 200, contentType: 'image/gif', body: tinyGif });
+        return;
+      }
+      await imageGate;
+      await route.fulfill({ status: 200, contentType: 'image/gif', body: tinyGif });
+    });
+    await page.goto('/mood/990778', { waitUntil: 'domcontentloaded' });
+
+    const frame = page.locator('.mood-post-content [data-mood-image-frame]').first();
+    const mainImage = frame.locator('[data-mood-image-main]');
+    const blurImage = frame.locator('.mood-image-blur');
+    const before = await frame.boundingBox();
+    expect(before).not.toBeNull();
+    expect(before!.width).toBeGreaterThan(100);
+    expect(before!.height).toBeGreaterThan(100);
+    await expect(blurImage).toHaveAttribute('src', /\?w=32$/);
+    await expect.poll(() => blurImage.evaluate((node) => {
+      const image = node as HTMLImageElement;
+      return image.complete && image.naturalWidth > 0;
+    })).toBe(true);
+    const blurBox = await blurImage.boundingBox();
+    expect(blurBox).not.toBeNull();
+    expect(blurBox!.width).toBeGreaterThan(before!.width);
+    expect(await blurImage.evaluate((node) => getComputedStyle(node).objectFit)).toBe('cover');
+
+    releaseImages();
+    await expect.poll(() => mainImage.evaluate((node) => {
+      const img = node as HTMLImageElement;
+      return img.complete && img.naturalWidth > 0;
+    })).toBe(true);
+    const after = await frame.boundingBox();
+    expect(after).not.toBeNull();
+    expect(Math.abs(after!.height - before!.height)).toBeLessThan(1);
   });
 
   test('keeps detail reactions visually stable on hover', async ({ page }) => {
@@ -2910,6 +3158,52 @@ test.describe('Mood routes', () => {
     await expect(page.locator('.mood-gallery--feed')).toBeVisible();
     await expect(page.locator('.mood-gallery-image')).toHaveCount(3);
     await expect(page.locator('.mood-image')).toHaveCount(0);
+  });
+
+  test('reserves an embedded image before its bytes arrive', async ({ page }) => {
+    const imagePattern = '**/api/v2/images/mood/990778/0*';
+    const blurSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#999" /></svg>';
+    const sharpSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><rect width="800" height="800" fill="#333" /></svg>';
+    let releaseImages!: () => void;
+    const imageGate = new Promise<void>((resolve) => {
+      releaseImages = resolve;
+    });
+
+    await page.route(imagePattern, async (route) => {
+      if (new URL(route.request().url()).searchParams.get('w') === '32') {
+        await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: blurSvg });
+        return;
+      }
+      await imageGate;
+      await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: sharpSvg });
+    });
+    await page.goto('/mood/embed?id=990778&theme=light&link=false', { waitUntil: 'domcontentloaded' });
+
+    const frame = page.locator('.mood-item-thumb[data-mood-image-frame]');
+    const before = await frame.boundingBox();
+    expect(before).not.toBeNull();
+    expect(before!.width).toBeGreaterThan(100);
+    expect(before!.height).toBeGreaterThan(100);
+    const blurImage = frame.locator('.mood-image-blur');
+    await expect(blurImage).toHaveAttribute('src', /\?w=32$/);
+    await expect.poll(() => blurImage.evaluate((node) => {
+      const image = node as HTMLImageElement;
+      return image.complete && image.naturalWidth > 0;
+    })).toBe(true);
+    const blurBox = await blurImage.boundingBox();
+    expect(blurBox).not.toBeNull();
+    expect(blurBox!.width).toBeGreaterThan(before!.width);
+    expect(await blurImage.evaluate((node) => getComputedStyle(node).objectFit)).toBe('cover');
+    releaseImages();
+    const mainImage = frame.locator('[data-mood-image-main]');
+    await expect.poll(() => mainImage.evaluate((node) => {
+      const image = node as HTMLImageElement;
+      return image.complete && image.naturalWidth > 0;
+    })).toBe(true);
+    const after = await frame.boundingBox();
+    expect(after).not.toBeNull();
+    expect(Math.abs(after!.height - before!.height)).toBeLessThan(1);
+    expect(await mainImage.evaluate((node) => getComputedStyle(node).objectFit)).toBe('contain');
   });
 
   test('falls back to /static image when HD image request fails', async ({ page }) => {

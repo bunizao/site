@@ -99,6 +99,13 @@ describe('homepage performance assets', () => {
     expect(moods).toContain('--reveal-delay: 1000ms; --reveal-duration: 400ms');
   });
 
+  test('keeps the home mood blur layer independent from sharp thumbnail sizing', () => {
+    const moods = readText('src/features/mood/ui/HomePreview.astro');
+
+    expect(moods).toContain('.mood-thumbnail > img:not(.mood-image-blur)');
+    expect(moods).toContain("placeholder.className = 'mood-image-blur'");
+  });
+
   test('pauses ambient homepage animation while inactive', () => {
     const contributions = readText('src/features/home/ui/GitHubContributions.astro');
     const projectStack = readText('src/components/project-cards/ProjectStack.tsx');

@@ -12,7 +12,15 @@ import {
 } from '@/features/mood/shared/feed-anchor';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import { findTooBigVideoMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
-import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
+import {
+  getMoodFeedThumbnailStyle,
+  resolveMoodFeedImageLayout,
+} from '@/features/mood/shared/feed-thumbnail';
+import {
+  getMoodImagePlaceholderSrc,
+  getMoodImageRatio,
+} from '@/features/mood/shared/image-srcset';
+import { initMoodImageFrames } from '@/features/mood/client/image-frame';
 import { formatMoodDateHeader, formatMoodTime } from '@/features/mood/shared/date-grouping';
 import { getMoodTagHref } from '@/features/mood/shared/tag-filter';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
@@ -48,30 +56,6 @@ interface FeedRenderer {
 
 function isLongContent(text: string): boolean {
   return (text || '').length > 280;
-}
-
-function isPositiveDimension(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0;
-}
-
-type FeedImageLayout = 'landscape' | 'portrait' | 'ultra-tall';
-
-function resolveFeedImageLayout(
-  value: unknown,
-  width: number | null,
-  height: number | null,
-): FeedImageLayout | null {
-  if (value === 'landscape' || value === 'portrait' || value === 'ultra-tall') {
-    return value;
-  }
-  if (!isPositiveDimension(width) || !isPositiveDimension(height)) {
-    return null;
-  }
-
-  const aspectRatio = width / height;
-  if (aspectRatio < 0.6) return 'ultra-tall';
-  if (aspectRatio < 0.8) return 'portrait';
-  return 'landscape';
 }
 
 function buildPreviewFragment(previewText: string, previewHtml?: string): DocumentFragment {
@@ -113,12 +97,10 @@ function shouldTrackClickForCurrentTab(event: MouseEvent): boolean {
   );
 }
 
-function removeBrokenQuoteMedia(img: HTMLImageElement, quoteWrap: HTMLElement): void {
+function preserveBrokenQuoteMedia(img: HTMLImageElement): void {
   img.addEventListener('error', () => {
-    img.closest('.mood-item-quote-media')?.remove();
-    quoteWrap.classList.remove('mood-item-quote--with-media', 'mood-item-quote--media-only');
-    if (quoteWrap.textContent?.trim()) return;
-    quoteWrap.remove();
+    img.closest('.mood-item-quote-media')?.classList.add('is-media-error');
+    img.remove();
   }, { once: true });
 }
 
@@ -345,6 +327,7 @@ export function createFeedRenderer({
       const isMediaOnlyQuote = Boolean(quote.thumbnailSrc && /^(Media|Video)$/i.test(quote.text));
       if (isMediaOnlyQuote) {
         quoteWrap.classList.add('mood-item-quote--media-only');
+        quoteWrap.setAttribute('aria-label', 'View quoted media');
       } else if (quote.thumbnailSrc) {
         quoteWrap.classList.add('mood-item-quote--with-media');
       }
@@ -370,7 +353,7 @@ export function createFeedRenderer({
         quoteImage.alt = '';
         quoteImage.loading = 'lazy';
         quoteImage.decoding = 'async';
-        removeBrokenQuoteMedia(quoteImage, quoteWrap);
+        preserveBrokenQuoteMedia(quoteImage);
 
         quoteMedia.appendChild(quoteImage);
         quoteWrap.appendChild(quoteMedia);
@@ -478,7 +461,8 @@ export function createFeedRenderer({
 
       const imageLayout = isTooBigVideoPreview
         ? null
-        : resolveFeedImageLayout(mood.imageLayout, imageWidth, imageHeight);
+        : resolveMoodFeedImageLayout(mood.imageLayout, imageWidth, imageHeight);
+      const imageRatio = getMoodImageRatio(imageWidth, imageHeight, imageLayout);
       if (imageLayout === 'portrait') {
         thumbWrap.classList.add('mood-item-thumb--portrait');
       } else if (imageLayout === 'ultra-tall') {
@@ -506,9 +490,16 @@ export function createFeedRenderer({
           imageWidth,
           imageHeight,
           imageLayout,
+          mediaKind: mood.imageKind === 'sticker' ? 'sticker' : 'image',
         });
         if (thumbnailStyle) {
           thumbWrap.setAttribute('style', thumbnailStyle);
+        }
+        if (mood.imageKind !== 'sticker') {
+          thumbWrap.classList.add('mood-image-frame');
+          if (!imageRatio.exact) {
+            thumbWrap.classList.add('mood-image-frame--estimated');
+          }
         }
       }
 
@@ -537,8 +528,29 @@ export function createFeedRenderer({
       };
 
       if (hasImagePreview) {
+        const placeholderSrc = !isTooBigVideoPreview && mood.imageKind !== 'sticker'
+          ? getMoodImagePlaceholderSrc(imageSrc)
+          : null;
+        const hasImageFrame = !isTooBigVideoPreview && mood.imageKind !== 'sticker';
+        if (hasImageFrame) {
+          thumbWrap.dataset.moodImageFrame = '';
+        }
+        if (placeholderSrc) {
+          const placeholder = document.createElement('img');
+          placeholder.className = 'mood-image-blur';
+          placeholder.src = placeholderSrc;
+          placeholder.alt = '';
+          placeholder.setAttribute('aria-hidden', 'true');
+          placeholder.loading = isPriorityMedia ? 'eager' : 'lazy';
+          placeholder.decoding = 'async';
+          thumbWrap.appendChild(placeholder);
+        }
+
         const img = document.createElement('img');
         img.alt = '';
+        if (hasImageFrame) {
+          img.dataset.moodImageMain = '';
+        }
         if (typeof imageWidth === 'number' && imageWidth > 0) {
           img.width = imageWidth;
         }
@@ -552,80 +564,23 @@ export function createFeedRenderer({
           mediaHydrator.attachImageFallback(img);
         }
 
-        const hasKnownImageBox = isPositiveDimension(imageWidth) && isPositiveDimension(imageHeight);
-        if (hasKnownImageBox && isTooBigVideoPreview) {
-          thumbWrap.style.setProperty('--mood-thumb-ratio', `${imageWidth} / ${imageHeight}`);
-        }
-
-        const hasResolvedImageLayout = Boolean(imageLayout) || isTooBigVideoPreview || hasKnownImageBox;
-        const shouldWaitForImageBeforeInsert = isPriorityMedia && !hasResolvedImageLayout;
         mediaHydrator.setImageHints(img, { priority: isPriorityMedia });
-
-        const thumbMarker = document.createElement('span');
-        thumbMarker.style.display = 'block';
-        thumbMarker.style.width = '100%';
-        thumbMarker.style.minHeight = '1px';
-        let thumbInserted = false;
-        const insertThumb = (): void => {
-          if (thumbInserted) return;
-          thumbInserted = true;
-          if (thumbMarker.parentNode) {
-            thumbMarker.parentNode.insertBefore(thumbWrap, thumbMarker);
-          }
-          thumbMarker.remove();
-        };
-
-        const classifyLoadedImage = () => {
-          if (!img.naturalWidth || !img.naturalHeight) return;
-          if (isTooBigVideoPreview) {
-            const aspectRatio = img.naturalWidth / img.naturalHeight;
-            thumbWrap.style.setProperty('--mood-thumb-ratio', `${img.naturalWidth} / ${img.naturalHeight}`);
-            if (aspectRatio < 0.6) {
-              thumbWrap.classList.add('mood-item-thumb--video-ultra-tall');
-            } else if (aspectRatio < 0.8) {
-              thumbWrap.classList.add('mood-item-thumb--video-portrait');
-            }
-            return;
-          }
-
-          const loadedImageLayout = resolveFeedImageLayout(null, img.naturalWidth, img.naturalHeight);
-          if (loadedImageLayout === 'ultra-tall') {
-            thumbWrap.classList.add('mood-item-thumb--ultra-tall');
-          } else if (loadedImageLayout === 'portrait') {
-            thumbWrap.classList.add('mood-item-thumb--portrait');
-          }
-        };
-
-        const resolveUnknownLayoutThumb = (): void => {
-          classifyLoadedImage();
-          insertThumb();
-        };
-        if (!hasResolvedImageLayout) {
-          if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
-            resolveUnknownLayoutThumb();
-          } else {
-            img.addEventListener('load', resolveUnknownLayoutThumb, { once: true });
-          }
-        }
 
         thumbWrap.appendChild(img);
         if (isTooBigVideoPreview) {
           appendTooBigVideoOverlay();
         }
 
-        if (hasResolvedImageLayout || !shouldWaitForImageBeforeInsert) {
-          content.appendChild(thumbWrap);
-        } else {
-          content.appendChild(thumbMarker);
-        }
+        content.appendChild(thumbWrap);
+        initMoodImageFrames(thumbWrap);
 
-        if (isPriorityMedia || !hasResolvedImageLayout) {
+        if (isPriorityMedia) {
           mediaHydrator.applyResponsiveImage(img, imageSrc);
         } else {
           img.dataset.deferredSrc = imageSrc;
         }
 
-        if (!isPriorityMedia && hasResolvedImageLayout) {
+        if (!isPriorityMedia) {
           mediaHydrator.registerDeferredImage(thumbWrap, () => {
             mediaHydrator.hydrateDeferredImage(img);
           });
