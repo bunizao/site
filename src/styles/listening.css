@@ -18,17 +18,19 @@
   color: hsl(var(--muted-foreground));
 }
 
-/* Chroma and hue come from the artwork; lightness belongs to the theme, so one
-   canvas read serves light and dark and survives a theme switch untouched. */
+/* The artwork fixes the hue; each theme gets its own lightness and its own
+   chroma, both computed in controller.ts because the sRGB gamut boundary moves
+   with lightness. One canvas read serves light and dark. */
 .listening[data-accent] {
-  --listening-accent-l: 0.56;
   --listening-accent: oklch(
-    var(--listening-accent-l) var(--listening-accent-c) var(--listening-accent-h)
+    var(--listening-accent-l-light) var(--listening-accent-c-light) var(--listening-accent-h)
   );
 }
 
 .dark .listening[data-accent] {
-  --listening-accent-l: 0.74;
+  --listening-accent: oklch(
+    var(--listening-accent-l-dark) var(--listening-accent-c-dark) var(--listening-accent-h)
+  );
 }
 
 .listening.is-loading .listening-track {
