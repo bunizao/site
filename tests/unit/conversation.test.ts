@@ -146,14 +146,20 @@ describe('conversation parsing', () => {
     expect(cast.get('ann')?.label).toBe('call me maybe');
   });
 
-  test('keeps a spaced key on one speaker, matching the spaced message head', () => {
-    const { cast } = parseConversation(
-      ['@Ada Lovelace accent=#4E7A5E', 'ada lovelace: hi'].join('\n')
-    );
+  test('rejects a cast line the grammar has no place for, rendering it as prose', () => {
+    for (const line of ['@Ada Lovelace accent=#4E7A5E', '@ada colour=#fff', '@ada label="Ada"']) {
+      const { cast, items } = parseConversation(line);
 
-    expect(cast.size).toBe(1);
-    expect(cast.get('ada lovelace')?.label).toBe('Ada Lovelace');
-    expect(cast.get('ada lovelace')?.accent).toBe('#4E7A5E');
+      expect(cast.size).toBe(0);
+      expect(items).toEqual([{ type: 'note', text: line }]);
+    }
+  });
+
+  test('a key is one token, so a sentence with a colon stays prose', () => {
+    const { cast, items } = parseConversation('So here is the thing: it works');
+
+    expect(cast.size).toBe(0);
+    expect(items).toEqual([{ type: 'note', text: 'So here is the thing: it works' }]);
   });
 
   test('ends the key at the attributes, not at a colon inside one', () => {
@@ -164,7 +170,7 @@ describe('conversation parsing', () => {
   });
 
   test('reads label, accent and avatar off a cast line', () => {
-    const { cast } = parseConversation('@tu label="Tu Tu" accent=#B4603A avatar=🐈');
+    const { cast } = parseConversation('@tu [Tu Tu] accent=#B4603A avatar=🐈');
     const speaker = cast.get('tu');
 
     expect(speaker?.label).toBe('Tu Tu');
@@ -193,7 +199,7 @@ describe('conversation rendering', () => {
 
   test('escapes markup in message bodies and speaker labels', () => {
     const html = renderConversation(
-      ['@x label="<script>"', 'x: <img src=x onerror=alert(1)>'].join('\n')
+      ['@x [<script>]', 'x: <img src=x onerror=alert(1)>'].join('\n')
     );
 
     expect(html).not.toContain('<script>');
@@ -213,7 +219,7 @@ describe('conversation rendering', () => {
   test('renders each avatar form', () => {
     const html = renderConversation(
       [
-        '@a label="Ada Lovelace"',
+        '@a [Ada Lovelace]',
         '@b avatar=https://example.com/b.png',
         '@c avatar=#sprite',
         '@d avatar=🐈',
@@ -231,7 +237,7 @@ describe('conversation rendering', () => {
   });
 
   test('takes the last character as the avatar for a CJK label', () => {
-    const html = renderConversation(['@t label="图图"', 't: hi'].join('\n'));
+    const html = renderConversation(['@t [图图]', 't: hi'].join('\n'));
 
     expect(html).toContain('>图<');
   });

@@ -7,7 +7,7 @@
 // Syntax (see docs/CONVERSATION-SYNTAX.md):
 //
 //   @ada [Ada Lovelace] accent=#4E7A5E  cast line: override a default
-//   @tutu [图图] avatar=🐈           [name] = the label, spaces and all
+//   @tutu [图图] avatar=🐈           key is one token, [name] is prose
 //
 //   you: how wide should a bubble be?    message; you/me/你/我 = the own side
 //   ada: 30em.
@@ -45,20 +45,18 @@ type Item =
   | { type: 'group'; speaker: Speaker; bubbles: Bubble[] }
   | { type: 'note'; text: string };
 
-const DECLARATION = /^@(\S.*)$/;
 /**
- * Where the key stops: a bracketed name, a `name=value`, or a colon. What
- * precedes it is the key, spaces and all — a message head may contain them
- * (`Ada Lovelace: hi`), so a cast line has to agree, or `@Ada Lovelace` would
- * declare `ada` and the messages would register a second speaker beside it.
- *
- * The colon is last in the alternation but leftmost wins, which is what keeps
- * `avatar=https://…` from ending the key at its scheme.
+ * A key is ONE token: no whitespace, no colon. A cast line and a message head
+ * take the same one, which is the only reason `@ada` and `ada:` cannot drift
+ * apart. A name that will not fit in a token is not a key — it is a `[name]`.
  */
-const KEY_END = /\s(?=\[|\w+=)|[:：]/;
-const ATTRIBUTE = /(\w+)=("[^"]*"|\S+)/g;
+const DECLARATION = /^@([^\s:：]+)(\s.*)?$/;
+const MESSAGE = /^([^\s:：]{1,24})[:：]\s*(.*)$/;
+
 /** Typst's content block: a name is prose, so it is delimited, not quoted. */
 const LABEL_BLOCK = /\[([^\]]*)\]/;
+/** A value is one token too. Anything that wants a space is a `[name]`. */
+const ATTRIBUTE = /(\w+)=(\S+)/g;
 
 /**
  * The own side of a thread draws no name and no avatar — a reader does not need
@@ -74,15 +72,54 @@ const LABEL_BLOCK = /\[([^\]]*)\]/;
  * to move a bubble, and reads as an identity next to a key that is also one.
  */
 const OWN_SIDE = new Set(['me', 'you', '我', '你']);
-const MESSAGE = /^([^\s:：][^:：]{0,23})[:：]\s*(.*)$/;
 
 /**
- * A head like `https` or `note` would otherwise turn a URL or a stray colon
- * into a phantom speaker, and Markdown punctuation in the head means the line
- * is prose, not an attribution.
+ * A head that is a URL scheme would turn a bare link into a phantom speaker,
+ * Markdown punctuation means the line is prose rather than an attribution, and
+ * a leading `@` means it is a cast line the grammar rejected.
  */
 function isPlausibleName(head: string): boolean {
-  return !/^(https?|mailto|tel|ftp)$/i.test(head) && !/[`*[\]()]/.test(head);
+  return (
+    !head.startsWith('@') &&
+    !/^(https?|mailto|tel|ftp)$/i.test(head) &&
+    !/[`*[\]()]/.test(head)
+  );
+}
+
+interface Declaration {
+  key: string;
+  label?: string;
+  accent?: string;
+  avatar?: string;
+}
+
+/**
+ * A cast line is a key, then nothing but one `[name]` and `name=value` pairs.
+ * A stray token, or an attribute the grammar has no place for, makes the line
+ * not a cast line at all: it falls through and renders as written, where the
+ * author can see it. The alternative is applying half of it and dropping the
+ * rest in silence, which is how `@Ada Lovelace` used to declare `ada`.
+ */
+function parseDeclaration(line: string): Declaration | null {
+  const matched = DECLARATION.exec(line);
+  if (!matched) return null;
+
+  const declaration: Declaration = { key: matched[1] };
+  let rest = matched[2] ?? '';
+
+  const block = LABEL_BLOCK.exec(rest);
+  if (block) {
+    declaration.label = block[1].trim();
+    rest = rest.replace(LABEL_BLOCK, ' ');
+  }
+
+  for (const [, name, value] of rest.matchAll(ATTRIBUTE)) {
+    if (name === 'accent') declaration.accent = value;
+    else if (name === 'avatar') declaration.avatar = value;
+    else return null;
+  }
+
+  return rest.replace(ATTRIBUTE, ' ').trim() ? null : declaration;
 }
 
 const CJK = /[　-〿㐀-䶿一-鿿豈-﫿＀-￯]/;
@@ -133,24 +170,12 @@ export function parseConversation(source: string): { cast: Map<string, Speaker>;
       continue;
     }
 
-    const declaration = !indented ? DECLARATION.exec(line) : null;
+    const declaration = !indented ? parseDeclaration(line) : null;
     if (declaration) {
-      const body = declaration[1];
-      const end = body.search(KEY_END);
-      const target = speaker((end === -1 ? body : body.slice(0, end)).trim());
-      const rest = end === -1 ? '' : body.slice(end);
-
-      const block = LABEL_BLOCK.exec(rest);
-      if (block) target.label = block[1].trim();
-
-      ATTRIBUTE.lastIndex = 0;
-      let attribute: RegExpExecArray | null;
-      while ((attribute = ATTRIBUTE.exec(rest))) {
-        const value = attribute[2].replace(/^"|"$/g, '');
-        if (attribute[1] === 'accent') target.accent = value;
-        else if (attribute[1] === 'avatar') target.avatar = value;
-        else if (attribute[1] === 'label') target.label = value;
-      }
+      const target = speaker(declaration.key);
+      if (declaration.label !== undefined) target.label = declaration.label;
+      if (declaration.accent !== undefined) target.accent = declaration.accent;
+      if (declaration.avatar !== undefined) target.avatar = declaration.avatar;
       continue;
     }
 

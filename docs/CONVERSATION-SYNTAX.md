@@ -33,20 +33,23 @@ ann: is that all?
 bob: that's all.
 ```
 
+A key is **one token**: no whitespace, no colon, at most 24 characters. A cast
+line and a message head take the same one, which is the only reason `@ada` and
+`ada:` cannot drift apart. A name that will not fit in a token is not a key —
+it is a [`[name]`](#name).
+
 The key is lowercased for matching but shown exactly as you first wrote it, so
-`Ann:` renders **Ann** and `ann:` renders **ann** — the parser never restyles
+`Ann:` renders **Ann** and `ann:` renders **ann**. The parser never restyles
 your name.
 
 Both `:` and `：` work as the separator, so a Chinese keyboard never has to
-switch. A name is at most 24 characters and may not contain a colon. It **may**
-contain spaces — `Ada Lovelace: hi` is one speaker — though a name you type on
-every line is usually better kept short and given a [bracketed
-label](#name) instead.
+switch.
 
-Not every `x: y` line becomes a message. A head that is a URL scheme
-(`https`, `mailto`, `tel`, `ftp`) or that contains Markdown punctuation is
-treated as prose, so a bare link on its own line does not turn into a
-phantom speaker.
+Not every `x: y` line becomes a message. The head has to be a key, so
+`So here is the thing: it works` is prose, not a speaker. On top of that a head
+that is a URL scheme (`https`, `mailto`, `tel`, `ftp`), that contains Markdown
+punctuation, or that starts with `@` is prose too — a bare link on its own line
+does not turn into a phantom speaker.
 
 ### The own side
 
@@ -137,11 +140,23 @@ is optional — cast lines exist to override defaults, not to satisfy the parser
 | `accent=#RRGGBB` | Custom hue for the fill and the name. Must be a hex colour. |
 | `avatar=…` | See below. |
 
-Values are `name=value`; the display name is a content block in brackets,
+A value is one token: `name=value`, never quoted. The display name is the one
+thing that is a phrase, so it is the one thing that is a content block —
 borrowed from [Typst](https://typst.app), where `[…]` means *this is prose, not
-a token*. A name is the one attribute that is a phrase, so it is the one that
-should not need quoting or escaping. `label="…"` is the same thing spelled
-long, and still works.
+a token*. Tokens do not need quoting and prose does not need escaping, so
+nothing on a cast line ever needs either.
+
+That is the whole grammar. A cast line is a key, then at most one `[name]` and
+any number of `name=value` pairs, and **nothing else** — a stray word or an
+attribute that is not on the list means the line is not a cast line, so it
+falls through and renders as written:
+
+```conversation
+@Ada Lovelace accent=#4E7A5E
+```
+
+That is a key with a space in it, so it is not a key. The line appears in the
+thread verbatim rather than declaring `ada` and dropping the rest in silence.
 
 There is no attribute for which side a speaker sits on. That is the key's job —
 see [the own side](#the-own-side).
@@ -168,11 +183,6 @@ not in, a name that is not the handle:
 @octo [Octocat] avatar=https://avatars.githubusercontent.com/u/583231?v=4
 ```
 
-A key may hold the space itself — `@Ada Lovelace accent=#4E7A5E`, then
-`Ada Lovelace: …` on every message line. The key runs up to the first `[…]`,
-the first `name=value`, or a colon, so nothing needs quoting there either. It
-is the same speaker written the long way round; pick whichever you would rather
-type a dozen times.
 
 ### `accent`
 
