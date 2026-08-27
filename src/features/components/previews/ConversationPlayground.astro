@@ -1,0 +1,9 @@
+---
+// Thin host for the playground island: the stylesheet belongs to the component,
+// so it is pulled in here rather than by the detail page, which has no other
+// reason to carry it.
+import '@/styles/conversation.css';
+import ConversationPlayground from './ConversationPlayground';
+---
+
+<ConversationPlayground client:visible />

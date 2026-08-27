@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
 import ComponentPreview from '@/features/components/ui/ComponentPreview.astro';
 import DecodeTextPlayground from '@/features/components/previews/DecodeTextPlayground';
+import ConversationPlayground from '@/features/components/previews/ConversationPlayground.astro';
 import OnThisPage from '@/features/components/ui/OnThisPage.astro';
 import { InstallTabs, type InstallSpec } from '@/features/components/ui/InstallTabs';
 import CodeBox from '@/features/components/ui/CodeBox.astro';
@@ -41,10 +42,10 @@ const registryUrl = new URL(`/r/${slug}`, Astro.site ?? 'https://buxx.me').href;
 const spec: InstallSpec =
   install.type === 'npm' ? { type: 'npm', pkg: install.pkg } : { type: 'registry', url: registryUrl };
 
-// Only decode-text ships a playground; it is the one entry whose options are
-// worth feeling rather than reading. Keep the gate a plain slug check until a
-// second entry earns a dispatcher.
-const hasPlayground = slug === 'decode-text';
+// A playground is for entries whose options are worth feeling rather than
+// reading: decode-text has effect settings, conversation has a syntax. Keep the
+// gate a plain slug check until a third entry earns a dispatcher.
+const hasPlayground = slug === 'decode-text' || slug === 'conversation';
 
 const toc = [
   { id: 'preview', label: 'Preview' },
@@ -94,7 +95,7 @@ const creditsHtml = (raw: string) =>
         {hasPlayground && (
           <section class="detail-section" id="playground" aria-labelledby="playground-label">
             <h2 class="detail-section-label" id="playground-label">Playground</h2>
-            <DecodeTextPlayground client:visible />
+            {slug === 'decode-text' ? <DecodeTextPlayground client:visible /> : <ConversationPlayground />}
           </section>
         )}
 

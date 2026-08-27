@@ -61,3 +61,7 @@
 /blog/sitemap-pages.xml /sitemap.xml 301
 /blog/sitemap-tags.xml /sitemap.xml 301
 /blog/sitemap-authors.xml /sitemap.xml 301
+
+# Legacy component playground.
+/components/preview/conversation /components/conversation#playground 301
+/components/preview/conversation/ /components/conversation#playground 301
