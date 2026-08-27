@@ -674,6 +674,35 @@ body:has(.site-nav--docs) .global-header-actions {
   text-wrap: pretty;
 }
 
+.docs-lede:has(+ .docs-playground-link) {
+  margin-bottom: 0.9rem;
+}
+
+.docs-playground-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 2.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #a84f2c;
+  text-decoration: none;
+}
+
+.dark .docs-playground-link {
+  color: #ee9a73;
+}
+
+.docs-playground-link svg {
+  transition: transform 0.16s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.docs-playground-link:hover svg,
+.docs-playground-link:focus-visible svg {
+  transform: translate(2px, -2px);
+}
+
 /* --- Prose -------------------------------------------------------------- */
 /* Reference density: 15px on a 44rem column runs about 78 characters, which is
    long for an essay and right for a page that is mostly parameter tables and

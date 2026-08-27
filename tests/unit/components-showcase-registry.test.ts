@@ -16,6 +16,7 @@ const showcasedSlugs = [
   'github-activity',
   'update-pills',
   'list-hover',
+  'conversation',
 ] as const;
 const publishedSlugs = [
   'button',
@@ -73,6 +74,13 @@ describe('components showcase registry', () => {
     for (const item of items) {
       expect(item.files.length).toBeGreaterThan(0);
     }
+  });
+
+  test('installs conversation into the disposable registry consumer', () => {
+    const verifier = readText('scripts/verify-component-registry.ts');
+
+    expect(verifier).toContain("'conversation'");
+    expect(verifier).toContain('src/content/components/conversation.md');
   });
 
   test('keeps decode text component and engine targets distinct', async () => {

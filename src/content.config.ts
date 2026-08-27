@@ -44,6 +44,8 @@ const docs = defineCollection({
     order: z.number().default(0),
     // Optional one-word label rendered next to the sidebar entry (e.g. "SSR").
     badge: z.string().optional(),
+    // Optional live tool linked beside the page introduction.
+    playground: z.string().regex(/^\/[^\s]+$/u).optional(),
     draft: z.boolean().default(false),
   }),
 });

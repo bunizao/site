@@ -4,8 +4,9 @@
 // in the Ghost prose path, the markdown path, and unit tests. Everything the
 // browser needs is in the markup plus conversation.css.
 //
-// Syntax (see src/content/docs/writing/conversation.md):
+// Syntax reference: https://buxx.me/docs/writing/conversation
 //
+//   @conversation avatars=off names=off  optional whole-thread visibility
 //   @ada [Ada Lovelace] accent=#4E7A5E  cast line: override a default
 //   @tutu [图图] avatar=🐈           key is one token, [name] is prose
 //
@@ -21,6 +22,13 @@
 // those defaults, never to satisfy the parser.
 
 export const CONVERSATION_LANGUAGE = 'conversation';
+
+export interface ConversationOptions {
+  avatars: boolean;
+  names: boolean;
+}
+
+export type ConversationOption = keyof ConversationOptions;
 
 export function isConversationLanguage(lang: string): boolean {
   return lang.toLowerCase() === CONVERSATION_LANGUAGE;
@@ -57,6 +65,9 @@ const MESSAGE = /^([^\s:：]+)[:：]\s*(.*)$/u;
 const LABEL_BLOCK = /^\[([^\]]+)\]/u;
 /** A value is one token too. Anything that wants a space is a `[name]`. */
 const ATTRIBUTE = /^([A-Za-z][A-Za-z0-9_]*)=([^\s]+)$/u;
+const CONVERSATION_HEADER = '@conversation';
+const FENCED_SOURCE = /^(\s*```conversation[^\S\r\n]*\r?\n)([\s\S]*?)(\r?\n```[^\S\r\n]*\s*)$/iu;
+const DEFAULT_OPTIONS: ConversationOptions = { avatars: true, names: true };
 
 /**
  * The own side of a thread draws no name and no avatar — a reader does not need
@@ -87,9 +98,72 @@ function isValidKey(head: string): boolean {
     Array.from(head).length > 0 &&
     !/[\s:：]/u.test(head) &&
     !head.startsWith('@') &&
+    head.toLowerCase() !== CONVERSATION_LANGUAGE &&
     !/^(https?|mailto|tel|ftp)$/i.test(head) &&
     !MARKDOWN_PUNCTUATION.test(head)
   );
+}
+
+function splitConversationSource(source: string): {
+  body: string;
+  wrap: (body: string) => string;
+} {
+  const fenced = FENCED_SOURCE.exec(source);
+  if (!fenced) return { body: source, wrap: (body) => body };
+
+  return {
+    body: fenced[2],
+    wrap: (body) => fenced[1] + body + fenced[3],
+  };
+}
+
+function parseConversationOptions(line: string): ConversationOptions | null {
+  const matched = /^@conversation\s+(.+)$/u.exec(line);
+  if (!matched) return null;
+
+  const options = { ...DEFAULT_OPTIONS };
+  const seen = new Set<ConversationOption>();
+  for (const token of matched[1].split(/\s+/u)) {
+    const attribute = ATTRIBUTE.exec(token);
+    if (!attribute) return null;
+
+    const name = attribute[1] as ConversationOption;
+    const value = attribute[2];
+    if ((name !== 'avatars' && name !== 'names') || (value !== 'on' && value !== 'off')) {
+      return null;
+    }
+    if (seen.has(name)) return null;
+    seen.add(name);
+    options[name] = value === 'on';
+  }
+
+  return options;
+}
+
+export function setConversationOption(
+  source: string,
+  name: ConversationOption,
+  enabled: boolean,
+): string {
+  const framed = splitConversationSource(source);
+  const lines = framed.body.split('\n');
+  const firstContent = lines.findIndex((line) => line.trim().length > 0);
+  const firstLine = firstContent >= 0 ? lines[firstContent].trim() : '';
+  const options = firstLine.startsWith(CONVERSATION_HEADER)
+    ? parseConversationOptions(firstLine) ?? { ...DEFAULT_OPTIONS }
+    : { ...DEFAULT_OPTIONS };
+
+  options[name] = enabled;
+  const header = `${CONVERSATION_HEADER} avatars=${options.avatars ? 'on' : 'off'} names=${options.names ? 'on' : 'off'}`;
+  if (firstLine.startsWith(CONVERSATION_HEADER)) {
+    lines[firstContent] = header;
+  } else if (firstContent >= 0) {
+    lines.splice(firstContent, 0, header);
+  } else {
+    lines.splice(0, lines.length, header);
+  }
+
+  return framed.wrap(lines.join('\n'));
 }
 
 interface Declaration {
@@ -163,7 +237,21 @@ function joinWrapped(head: string, tail: string): string {
   return CJK.test(head[head.length - 1]) || CJK.test(tail[0]) ? head + tail : head + ' ' + tail;
 }
 
-export function parseConversation(source: string): { cast: Map<string, Speaker>; items: Item[] } {
+export function parseConversation(source: string): {
+  cast: Map<string, Speaker>;
+  items: Item[];
+  options: ConversationOptions;
+} {
+  const framed = splitConversationSource(source);
+  const lines = framed.body.split('\n');
+  const firstContent = lines.findIndex((line) => line.trim().length > 0);
+  const firstLine = firstContent >= 0 ? lines[firstContent].trim() : '';
+  const parsedOptions = firstLine.startsWith(CONVERSATION_HEADER)
+    ? parseConversationOptions(firstLine)
+    : null;
+  const options = parsedOptions ?? { ...DEFAULT_OPTIONS };
+  if (parsedOptions) lines.splice(firstContent, 1);
+
   const cast = new Map<string, Speaker>();
   const items: Item[] = [];
   let group: Extract<Item, { type: 'group' }> | null = null;
@@ -180,7 +268,7 @@ export function parseConversation(source: string): { cast: Map<string, Speaker>;
     return found;
   };
 
-  for (const raw of source.split('\n')) {
+  for (const raw of lines) {
     const line = raw.trim();
     const indented = /^\s+\S/.test(raw);
 
@@ -237,7 +325,7 @@ export function parseConversation(source: string): { cast: Map<string, Speaker>;
   // strangers still lay out as a conversation rather than as two columns.
   if (![...cast.values()].some((s) => s.me) && firstVoice) firstVoice.me = true;
 
-  return { cast, items };
+  return { cast, items, options };
 }
 
 /* --- escaping and inline markup ------------------------------------------ */
@@ -419,7 +507,7 @@ function speakerStyle(speaker: Speaker): string {
 }
 
 export function renderConversation(source: string): string {
-  const { items } = parseConversation(source);
+  const { items, options } = parseConversation(source);
 
   const body = items
     .map((item) => {
@@ -480,5 +568,13 @@ export function renderConversation(source: string): string {
     })
     .join('');
 
-  return '<div class="conv"><div class="conv-thread">' + body + '</div></div>';
+  return (
+    '<div class="conv"><div class="conv-thread" data-avatars="' +
+    (options.avatars ? 'on' : 'off') +
+    '" data-names="' +
+    (options.names ? 'on' : 'off') +
+    '">' +
+    body +
+    '</div></div>'
+  );
 }

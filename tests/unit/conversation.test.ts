@@ -5,6 +5,7 @@ import {
   nameOnBubble,
   parseConversation,
   renderConversation,
+  setConversationOption,
   textOnAccent,
 } from '@/features/content/conversation';
 import { splitBlogProse } from '@/features/posts/server/code-blocks';
@@ -31,6 +32,45 @@ function ratio(a: string, b: string): number {
 }
 
 describe('conversation parsing', () => {
+  test('reads visibility options from a complete fenced source', () => {
+    const source = [
+      '```conversation',
+      '@conversation avatars=off names=on',
+      'me: hi',
+      '```',
+    ].join('\n');
+    const { items, options } = parseConversation(source);
+
+    expect(options).toEqual({ avatars: false, names: true });
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ type: 'group' });
+  });
+
+  test('rewrites a visibility option inside the copyable source', () => {
+    const source = [
+      '```conversation',
+      '@conversation avatars=on names=on',
+      'me: hi',
+      '```',
+    ].join('\n');
+
+    expect(setConversationOption(source, 'avatars', false)).toBe([
+      '```conversation',
+      '@conversation avatars=off names=on',
+      'me: hi',
+      '```',
+    ].join('\n'));
+  });
+
+  test('keeps malformed or misplaced conversation options visible', () => {
+    const malformed = parseConversation('@conversation avatars=hidden\nme: hi');
+    const misplaced = parseConversation('me: hi\n@conversation names=off');
+
+    expect(malformed.options).toEqual({ avatars: true, names: true });
+    expect(malformed.items[0]).toEqual({ type: 'note', text: '@conversation avatars=hidden' });
+    expect(misplaced.items[1]).toEqual({ type: 'note', text: '@conversation names=off' });
+  });
+
   test('auto-registers speakers so a two-party exchange needs no cast lines', () => {
     const { cast, items } = parseConversation(['ann: hello', 'bob: hi'].join('\n'));
 
@@ -255,6 +295,13 @@ describe('conversation parsing', () => {
 });
 
 describe('conversation rendering', () => {
+  test('renders source visibility options on the thread', () => {
+    const html = renderConversation('@conversation avatars=off names=off\nme: hi');
+
+    expect(html).toContain('data-avatars="off"');
+    expect(html).toContain('data-names="off"');
+  });
+
   test('labels only the first bubble of a run', () => {
     const html = renderConversation(['me: hi', 'ann: one', 'ann: two'].join('\n'));
 

@@ -1,7 +1,13 @@
 import * as React from 'react';
 import { Switch } from '@base-ui/react/switch';
+import { Check, Copy } from 'lucide-react';
 import { Tabs, TabsList, TabsTab } from '@/components/coss/tabs';
-import { renderConversation } from '@/features/content/conversation';
+import {
+  parseConversation,
+  renderConversation,
+  setConversationOption,
+  type ConversationOption,
+} from '@/features/content/conversation';
 
 // Live playground for the conversation component, embedded on
 // /components/conversation.
@@ -10,10 +16,17 @@ import { renderConversation } from '@/features/content/conversation';
 // renders blog posts on the server also runs in the browser here: what you edit
 // is the shipping output, not a reimplementation of it.
 
+const fenced = (lines: string[]): string => [
+  '```conversation',
+  '@conversation avatars=on names=on',
+  ...lines,
+  '```',
+].join('\n');
+
 const SAMPLES: { name: string; source: string }[] = [
   {
     name: 'Basics',
-    source: [
+    source: fenced([
       '@Ada accent=#B4603A avatar=🐈',
       '',
       'you: so what is actually hard about a chat bubble?',
@@ -25,11 +38,11 @@ const SAMPLES: { name: string; source: string }[] = [
       'you: and when the container gets narrow?',
       'ada: All **container queries**. It never asks how wide the viewport is,',
       '  only how wide the hole it was dropped into is.',
-    ].join('\n'),
+    ]),
   },
   {
     name: 'Group',
-    source: [
+    source: fenced([
       '@Ada',
       '@Grace accent=#4E7A5E',
       '@Alan accent=#7C5CD6',
@@ -42,11 +55,11 @@ const SAMPLES: { name: string; source: string }[] = [
       'you: Right — no drawn tail. Alignment carries the rest.',
       '--- ',
       'ada: Ship it.',
-    ].join('\n'),
+    ]),
   },
   {
     name: 'Avatars',
-    source: [
+    source: fenced([
       '@you accent=#3C5D80',
       '@octo [Octocat] avatar=https://avatars.githubusercontent.com/u/583231?v=4',
       '@Emoji accent=#B4603A avatar=🐈',
@@ -59,24 +72,24 @@ const SAMPLES: { name: string; source: string }[] = [
       '--- ',
       'you: Why is there no avatar on my side?',
       'octo: Because that one is you. Readers do not need reminding what they look like.',
-    ].join('\n'),
+    ]),
   },
   {
     // The seam case: the source joins tight and `text-autospace` draws the gap
     // between a CJK character and a Latin one, so no space is ever invented.
     name: 'Mixed',
-    source: [
+    source: fenced([
       '@tutu [图图] accent=#B4603A avatar=🐈',
       '',
       '我: 中英混排会不会打架？',
       'tutu: 不会。一个汉字正好 1em，拉丁字母大约',
       '  0.5em，所以同一个 `30em` 既是 30 个汉字，也是 60 个字母。',
       'tutu: 缝隙是排版画出来的，源码里一个空格都没多。',
-    ].join('\n'),
+    ]),
   },
   {
     name: 'Stress',
-    source: [
+    source: fenced([
       'a: ok',
       'b: 好',
       'a: A single word bubble still has to look like a bubble and not a stray pill.',
@@ -84,11 +97,20 @@ const SAMPLES: { name: string; source: string }[] = [
       '  message keeps the same measure instead of turning the whole thread into a',
       '  paragraph with rounded corners — that is where the metaphor dies.',
       'a: https://example.com/a/very/long/unbroken/url/that/must/not/overflow/the/bubble',
-    ].join('\n'),
+    ]),
   },
 ];
 
 const LABEL = 'mb-2 block text-xs font-medium tracking-wide text-foreground/48';
+const STORAGE_KEY = 'conversation-playground-source:v1';
+
+function initialSource(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEY) || SAMPLES[0].source;
+  } catch {
+    return SAMPLES[0].source;
+  }
+}
 
 function Field({
   label,
@@ -104,6 +126,7 @@ function Field({
       <Switch.Root
         checked={checked}
         onCheckedChange={onChange}
+        aria-label={label}
         className="h-4.5 w-8 shrink-0 rounded-full bg-foreground/16 p-0.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring data-[checked]:bg-foreground"
       >
         <Switch.Thumb className="block size-3.5 rounded-full bg-background transition-transform data-[checked]:translate-x-3.5" />
@@ -114,28 +137,40 @@ function Field({
 }
 
 export default function ConversationPlayground(): React.ReactElement {
-  const [sample, setSample] = React.useState(SAMPLES[0].name);
-  const [source, setSource] = React.useState(SAMPLES[0].source);
-  const [avatars, setAvatars] = React.useState(true);
-  const [names, setNames] = React.useState(true);
-  const stage = React.useRef<HTMLDivElement>(null);
+  const [source, setSource] = React.useState(initialSource);
+  const [copied, setCopied] = React.useState(false);
 
   const html = React.useMemo(() => renderConversation(source), [source]);
+  const options = React.useMemo(() => parseConversation(source).options, [source]);
+  const sample = SAMPLES.find((entry) => entry.source === source)?.name ?? '';
 
-  // Both toggles are component behaviour, not playground chrome: the stylesheet
-  // reads them off the thread in a real post too.
-  React.useEffect(() => {
-    const thread = stage.current?.querySelector<HTMLElement>('.conv-thread');
-    if (!thread) return;
-    thread.dataset.avatars = avatars ? 'on' : 'off';
-    thread.dataset.names = names ? 'on' : 'off';
-  }, [html, avatars, names]);
+  const updateSource = React.useCallback((next: string) => {
+    setSource(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, next);
+    } catch {
+      // The playground still works in memory when persistence is unavailable.
+    }
+  }, []);
 
   const pick = (name: string) => {
     const found = SAMPLES.find((entry) => entry.name === name);
     if (!found) return;
-    setSample(found.name);
-    setSource(found.source);
+    updateSource(found.source);
+  };
+
+  const setOption = (name: ConversationOption, enabled: boolean) => {
+    updateSource(setConversationOption(source, name, enabled));
+  };
+
+  const copySource = async () => {
+    try {
+      await navigator.clipboard.writeText(source);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      // The textarea remains selectable when clipboard permission is denied.
+    }
   };
 
   return (
@@ -168,20 +203,39 @@ export default function ConversationPlayground(): React.ReactElement {
             pill, and two of them side by side read as one control with a
             selection rather than two independent on/off states. */}
         <div className="flex items-center gap-5">
-          <Field label="Avatars" checked={avatars} onChange={setAvatars} />
-          <Field label="Names" checked={names} onChange={setNames} />
+          <Field
+            label="Avatars"
+            checked={options.avatars}
+            onChange={(enabled) => setOption('avatars', enabled)}
+          />
+          <Field
+            label="Names"
+            checked={options.names}
+            onChange={(enabled) => setOption('names', enabled)}
+          />
         </div>
       </div>
 
-      <label className={LABEL} htmlFor="conv-source">
-        Source
-      </label>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <label className="block text-xs font-medium tracking-wide text-foreground/48" htmlFor="conv-source">
+          Source · paste into a Markdown editor
+        </label>
+        <button
+          type="button"
+          onClick={() => void copySource()}
+          aria-label="Copy complete conversation source"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/48 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+        >
+          {copied ? <Check className="size-3.5" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
+          {copied ? 'Copied' : 'Copy all'}
+        </button>
+      </div>
       <textarea
         id="conv-source"
         spellCheck={false}
         autoComplete="off"
         value={source}
-        onChange={(event) => setSource(event.target.value)}
+        onChange={(event) => updateSource(event.target.value)}
         className="h-64 w-full resize-y rounded-lg border border-foreground/10 bg-foreground/3 px-4 py-3 text-[0.8125rem] leading-relaxed text-foreground outline-none transition-colors focus-visible:border-foreground/24"
         style={{ fontFamily: 'var(--font-code)', tabSize: 2 }}
       />
@@ -191,7 +245,6 @@ export default function ConversationPlayground(): React.ReactElement {
           corner and the thread reflows against its own width, not the
           viewport's. */}
       <div
-        ref={stage}
         className="max-w-full min-w-48 resize-x overflow-auto rounded-lg border border-dashed border-foreground/12 px-4"
         dangerouslySetInnerHTML={{ __html: html }}
       />

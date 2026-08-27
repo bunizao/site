@@ -3,6 +3,7 @@ title: Conversation blocks
 description: The conversation fence grammar, speaker declarations, bubble boundaries, inline markup, avatars, and layout behavior.
 group: Writing
 order: 6
+playground: /components/conversation#playground
 ---
 
 A chat thread written as plain text. In a blog post, fence it as `conversation`:
@@ -24,9 +25,32 @@ import Conversation from '@/features/content/ui/Conversation.astro';
 <Conversation source={source} />
 ```
 
-The docs page renders the component itself and carries a live playground —
-edit the source, drag the stage narrower, toggle avatars and names:
-[buxx.me/components/conversation](https://buxx.me/components/conversation#playground).
+The playground's **Source** is a complete Markdown fence. Copy it as-is into a
+Markdown editor or a Ghost Markdown card. In a Ghost code card, set the language
+to `conversation` and paste only the lines inside the outer backticks.
+
+## Thread options
+
+The optional `@conversation` line controls the whole thread. It must be the
+first non-empty line inside the fence. `conversation` is reserved for this
+header and cannot be used as a speaker key:
+
+````markdown
+```conversation
+@conversation avatars=off names=off
+
+you: this source is ready to paste.
+ada: Both switches are part of the source.
+```
+````
+
+| Option | Default | Effect when `off` |
+| --- | --- | --- |
+| `avatars` | `on` | Hides every avatar while preserving the alignment gutter. |
+| `names` | `on` | Hides visible speaker names; accessible labels remain. |
+
+Only `on` and `off` are valid. Unknown, repeated, malformed, or misplaced
+options remain visible as prose instead of being partially applied.
 
 ## Messages
 
@@ -247,13 +271,9 @@ thread in a narrow column adapts to that column rather than to the window. At
 container widths under 520px the avatar gutter and the far-side channel shrink;
 under 360px avatars are dropped and the body steps down to 15px.
 
-Two attributes on `.conv-thread` are read by the stylesheet and are how the
-playground's toggles work:
-
-| Attribute | Effect |
-| --- | --- |
-| `data-avatars="off"` | Hides avatars, keeping the gutter so both sides stay optically even. |
-| `data-names="off"` | Hides visible names; they stay in the accessibility tree. |
+The renderer translates `@conversation` into namespaced attributes on the
+thread. The playground edits that source line directly, so its switches never
+create a visual state that cannot be copied back into an editor.
 
 Custom properties are namespaced `--conv-*`. `--accent` and `--radius` are
 global site tokens, and an un-prefixed name on the thread would shadow them for

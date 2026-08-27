@@ -86,6 +86,12 @@ const creditsHtml = (raw: string) =>
 
         <h1 class="detail-title">{title}</h1>
         <p class="detail-tagline">{tagline}</p>
+        {hasPlayground && (
+          <a class="detail-playground-link" href="#playground">
+            Playground
+            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </a>
+        )}
 
         <section class="detail-section" id="preview" aria-labelledby="preview-label">
           <h2 class="detail-section-label" id="preview-label">Preview</h2>

@@ -1,5 +1,6 @@
 ---
 import { render, type CollectionEntry } from 'astro:content';
+import { ArrowUpRight } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
 import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
 import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
@@ -28,7 +29,7 @@ interface Props {
   groups: DocsGroup[];
 }
 const { entry, groups } = Astro.props as Props;
-const { title, description, group } = entry.data;
+const { title, description, group, playground } = entry.data;
 const { Content, headings } = await render(entry);
 
 // Fences tagged `demo` leave a slot behind (see markdown-plugin.ts) that only a
@@ -71,6 +72,12 @@ const { prev, next } = getDocsSiblings(groups, entry.id);
         </p>
         <h1 class="docs-title">{title}</h1>
         <p class="docs-lede">{description}</p>
+        {playground && (
+          <a class="docs-playground-link" href={playground}>
+            Playground
+            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </a>
+        )}
 
         <div class="docs-prose">
           {prose ? <Fragment set:html={prose} /> : <Content />}

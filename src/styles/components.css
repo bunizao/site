@@ -707,6 +707,31 @@ html.dark .cgrid-tile:hover {
   text-wrap: pretty;
 }
 
+.detail-playground-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.9rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #a84f2c;
+  text-decoration: none;
+}
+
+.dark .detail-playground-link {
+  color: #ee9a73;
+}
+
+.detail-playground-link svg {
+  transition: transform 0.16s var(--ease-out);
+}
+
+.detail-playground-link:hover svg,
+.detail-playground-link:focus-visible svg {
+  transform: translate(2px, -2px);
+}
+
 /* Vertical rhythm + hairline dividers come from the global `section` rule
    (48px padding + faint border-bottom); don't stack extra margin on top. */
 .detail-section {
