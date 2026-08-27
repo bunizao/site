@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Conversation UI — prototype</title>
+<style>
+/* ===========================================================================
+   PROTOTYPE — throwaway. Answers: "what should the blog conversation block
+   look like, and what syntax authors it?"
+   Standalone on purpose: no build, no fonts, no deps. Double-click to open.
+   Tokens below mirror docs/BLOG-DESIGN.md so what you see is what the blog
+   zone would render.
+   =========================================================================== */
+
+:root {
+  --surface: #FFFFFF;
+  --fg: 0 0% 0%;
+  --ink:   hsl(var(--fg));
+  --body:  hsl(var(--fg) / 0.78);
+  --muted: hsl(var(--fg) / 0.58);
+  --faint: hsl(var(--fg) / 0.42);
+  --line:  hsl(var(--fg) / 0.10);
+  --fill:  hsl(var(--fg) / 0.045);
+
+  --blog-dai: #3C5D80;
+  --blog-dian: #27406E;
+  --blog-ji: #3E8BD8;
+
+  --sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur: 190ms;
+}
+
+html[data-theme='dark'] {
+  --surface: #0A0A0A;
+  --fg: 0 0% 100%;
+  --blog-dai: #7FA8D6;
+  --blog-dian: #6FA8FF;
+  --blog-ji: #6FB2F2;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 16px; }
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--body);
+  font-family: var(--sans);
+  line-height: 1.85;
+  -webkit-font-smoothing: antialiased;
+  padding: 40px 20px 220px;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+/* ===========================================================================
+   1. THE COMPONENT — everything under .chat ships. Everything else on this
+      page is prototype chrome.
+   =========================================================================== */
+
+/* .chat is the query container; .chat-thread carries the tokens, because an
+   element is never its own container and `cqi` inside .chat would resolve
+   against an ancestor instead. */
+.chat {
+  container-type: inline-size;
+  margin: 40px 0;
+}
+
+.chat-thread {
+  /* --- the two numbers that decide whether this reads as a conversation ---
+     lead  : the avatar gutter, reserved even when avatars are off so both
+             sides of the thread keep the same optical margin.
+     inset : the empty channel on the far side of every bubble. This is what
+             makes a bubble read as "addressed to someone" rather than as a
+             paragraph. Without it a long message becomes full-width prose in
+             a rounded box and the whole metaphor dies.
+     Cap in `em`, not px: a CJK glyph is 1em and a Latin glyph ~0.5em, so one
+     number lands on ~30 Chinese characters AND ~60 Latin characters — both
+     inside a comfortable measure. That is the whole trick for mixed text. */
+  --avatar: 28px;
+  --lead: 40px;
+  --inset: max(56px, 15cqi);
+  --measure: 30em;
+  --bubble-max: min(var(--measure), calc(100cqi - var(--lead) - var(--inset)));
+
+  --radius: 16px;
+  --notch: 4px;          /* the one squared corner that points at the speaker */
+  --bubble-gap: 4px;     /* between bubbles inside one speaker's group */
+  --group-gap: 18px;     /* between groups */
+
+  --neutral: hsl(var(--fg) / 0.075);
+  --neutral-fg: hsl(var(--fg) / 0.88);
+
+  font-family: var(--sans);
+  font-size: 16px;
+  /* Body role: 16/1.5/400. The page runs 1.85 because it is an article; a
+     bubble is not a column of prose, and article leading inside one reads as
+     a gap. 1.5 is the floor that still carries a 3+ line message. */
+  line-height: 1.5;
+  letter-spacing: 0.003em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--group-gap);
+}
+
+html[data-theme='dark'] .chat-thread {
+  --neutral: hsl(var(--fg) / 0.10);
+}
+
+/* A narrow container (sidebar, phone) cannot afford a 15% channel. Only
+   --inset is overridden; --bubble-max re-resolves from it automatically. */
+@container (max-width: 520px) {
+  .chat-thread { --inset: max(26px, 8cqi); --avatar: 24px; --lead: 32px; }
+}
+@container (max-width: 360px) {
+  .chat-thread { --lead: 0px; --inset: max(18px, 6cqi); font-size: 15px; }
+  .chat-thread .grp-avatar { display: none; }
+}
+
+/* --- group: one speaker's consecutive run ------------------------------- */
+
+.grp {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* --name-light / --name-dark are both emitted inline per speaker, each one
+   already walked to AA against that theme's bubble floor. The theme picks
+   which is live, so toggling never re-runs the maths. */
+.grp { --name: var(--name-light); }
+html[data-theme='dark'] .grp { --name: var(--name-dark); }
+
+.grp--out { flex-direction: row-reverse; }
+
+.grp-avatar {
+  flex: 0 0 auto;
+  width: var(--avatar);
+  height: var(--avatar);
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: calc(var(--avatar) * 0.56);
+  line-height: 1;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--name) 18%, transparent);
+  color: var(--name);
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: 0;
+  user-select: none;
+  /* Sits on the last bubble's baseline, not the group's middle — a tall group
+     with a centred avatar looks like it is floating away from the run. */
+  margin-bottom: 1px;
+}
+
+/* An external photo covers the circle; the tint behind it doubles as the
+   load placeholder. A sprite icon keeps the tint as its chip and inherits
+   the speaker's readable accent. */
+.grp-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.grp-avatar svg { width: 68%; height: 68%; fill: currentColor; }
+
+.grp--out .grp-avatar { visibility: hidden; }
+.chat-thread[data-avatars='off'] .grp-avatar { visibility: hidden; }
+
+.grp-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--bubble-gap);
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.grp--out .grp-stack { align-items: flex-end; }
+
+/* The name lives INSIDE the first bubble of a run, not on a line above it.
+   A label floating outside the bubble reads as a caption and costs a whole
+   row of vertical rhythm per speaker change; inside, it reads as the bubble's
+   own header and a stack of five messages is labelled exactly once, at the
+   top. This is what every group chat converged on, and it is why a run only
+   needs one name no matter how long it gets.
+
+   Caption role at 13/500. Weight 500 and not 600 — emphasis within a role is
+   ONE step up from the body's 400; two steps makes a name read as a heading
+   over its own sentence. It carries no bottom margin: the two line boxes
+   already contribute their half-leading between them, and anything added on
+   top detaches the label from the message it names.
+
+   Leading is 1.5, not the caption role's 1.4, because this label is not a
+   paragraph — its line-height is pure spacing. Sharing the body's ratio puts
+   both on one vertical rhythm, so the half-leading above the name matches the
+   half-leading below the last line and the padding lands symmetric. */
+.bub-name {
+  font-size: 0.8125em;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.005em;
+  color: var(--name);
+  /* Not part of the sentence — never let it be dragged into a quote. */
+  user-select: none;
+}
+
+/* Your own run shows no visible name — the alignment and the accent fill say
+   "you" — and data-names='off' drops every visible name. Neither position nor
+   colour reaches a screen reader, so in both cases the label stays in the
+   accessibility tree instead of leaving the message unattributed.
+   1px rather than 0: some screen readers skip zero-sized boxes. */
+.bub-name--sr,
+.chat-thread[data-names='off'] .bub-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- bubble ------------------------------------------------------------- */
+
+.bub {
+  position: relative;
+  width: fit-content;
+  max-width: var(--bubble-max);
+  /* A one-word bubble narrower than its own radius stack reads as a pill with
+     no room for the glyph, so floor the width and centre short lines. Anything
+     that could actually wrap opts back into start-alignment via .bub--wide. */
+  min-width: calc(var(--radius) * 2 + 8px);
+  /* em, so the padding tracks the font-size the container queries hand down.
+     The number that matters is the OPTICAL inset — padding plus the half-leading
+     the line box already carries — not the declared padding. Both name and body
+     run 1.5, so each end contributes 4px at 16px, and 0.625em (10px) lands the
+     optical inset at ~14px top and bottom against 14px inline. Even all round:
+     a radius this large eats the corners, so equal inset is what reads balanced.
+     0.4375em measured 9.6/11 and read cramped and top-heavy. */
+  padding: 0.625em 0.875em;
+  border-radius: var(--radius);
+  background: var(--neutral);
+  color: var(--neutral-fg);
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-break: strict;
+  text-align: center;
+  transition: background var(--dur) var(--ease);
+}
+
+.bub--wide { text-align: start; }
+
+/* font-size: inherit is load-bearing, not defensive. Any host that styles bare
+   `p` — this page's article chrome, the blog's own .reading contract, both at
+   17.5px — otherwise wins over the 16px on .chat-thread, and the em padding and
+   the name's 0.8125em are left sized for a body they no longer match. */
+.bub > p { margin: 0; font-size: inherit; }
+.bub > p + p { margin-top: 0.62em; }
+
+.bub a { color: inherit; text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; opacity: 0.92; }
+.bub a:hover { opacity: 1; }
+
+.bub code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 5px;
+  background: hsl(var(--fg) / 0.07);
+}
+
+.grp--out .bub {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.grp--out .bub code { background: hsl(0 0% 100% / 0.18); }
+html[data-theme='dark'] .grp--out .bub code { background: hsl(0 0% 0% / 0.18); }
+
+/* --- notch: the one squared corner ---------------------------------------
+   A drawn tail was tried twice — hand-rolled, then daisyUI's own mask — and
+   both read as cheap next to blog body copy. The notch says the same thing
+   with no ink: the last bubble of a run squares off the corner nearest its
+   speaker. Alignment carries the rest. */
+
+.bub--last { border-end-start-radius: var(--notch); }
+.grp--out .bub--last { border-end-start-radius: var(--radius); border-end-end-radius: var(--notch); }
+
+/* --- divider / system note ---------------------------------------------- */
+
+.chat-note {
+  align-self: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  padding: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+}
+
+.chat-note::before, .chat-note::after {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: var(--line);
+}
+
+/* A bare `---` is a beat, not a label. Two orphan dashes around nothing reads
+   as a rendering bug, so it collapses to a single rule. */
+.chat-note--rule { gap: 0; }
+.chat-note--rule::before { width: 64px; }
+.chat-note--rule::after { display: none; }
+
+/* --- entrance ----------------------------------------------------------- */
+
+.chat-thread .grp,
+.chat-thread .chat-note {
+  opacity: 0;
+  transform: translateY(7px);
+}
+
+.chat-thread.is-in .grp,
+.chat-thread.is-in .chat-note {
+  opacity: 1;
+  transform: none;
+  transition: opacity 420ms var(--ease), transform 420ms var(--ease);
+  transition-delay: var(--d, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-thread .grp, .chat-thread .chat-note { opacity: 1; transform: none; transition: none; }
+}
+
+/* ===========================================================================
+   2. PROTOTYPE CHROME — nothing below this line ships.
+   =========================================================================== */
+
+/* --- measure guides (debug) --------------------------------------------- */
+.chat-thread[data-guides='on'] { position: relative; }
+.chat-thread[data-guides='on']::before,
+.chat-thread[data-guides='on']::after {
+  content: '';
+  position: absolute;
+  top: -10px; bottom: -10px;
+  width: 1px;
+  background: repeating-linear-gradient(to bottom, var(--blog-ji) 0 4px, transparent 4px 8px);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.chat-thread[data-guides='on']::before { left: calc(var(--lead) + var(--bubble-max)); }
+.chat-thread[data-guides='on']::after  { right: calc(var(--lead) + var(--bubble-max)); }
+
+/* ===========================================================================
+   3. PROTOTYPE CHROME
+   =========================================================================== */
+
+.wrap { max-width: 720px; margin: 0 auto; }
+
+h1 { font-size: clamp(27px, 4.4vw, 34px); line-height: 1.3; letter-spacing: -0.02em; font-weight: 600; color: var(--ink); margin: 0 0 8px; }
+h2 { font-size: 22px; line-height: 1.4; letter-spacing: -0.01em; font-weight: 600; color: var(--ink); margin: 68px 0 4px; }
+p { font-size: 17.5px; margin: 0 0 4px; }
+.lede { color: var(--muted); }
+.cap { font-family: var(--mono); font-size: 12px; color: var(--faint); letter-spacing: 0.02em; line-height: 1.7; }
+.cap b { color: var(--blog-dai); font-weight: 500; }
+
+pre.spec {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.8;
+  background: var(--fill);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+  overflow-x: auto;
+  color: var(--ink);
+  margin: 16px 0;
+}
+pre.spec b { color: var(--blog-dai); font-weight: 600; }
+pre.spec i { color: var(--faint); font-style: normal; }
+
+table.rules { width: 100%; border-collapse: collapse; font-size: 14px; margin: 16px 0; }
+table.rules td { padding: 10px 0; border-top: 1px solid var(--line); vertical-align: top; line-height: 1.6; }
+table.rules td:first-child { font-family: var(--mono); font-size: 12.5px; color: var(--ink); white-space: nowrap; padding-right: 18px; width: 1%; }
+table.rules code { font-family: var(--mono); font-size: 0.92em; background: var(--fill); padding: 0.1em 0.35em; border-radius: 5px; }
+
+.resizer {
+  resize: horizontal;
+  overflow: auto;
+  min-width: 260px;
+  max-width: 100%;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 4px 16px 14px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 240px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.7;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--fill);
+  color: var(--ink);
+  resize: vertical;
+  outline: none;
+  margin-top: 16px;
+}
+textarea:focus { border-color: color-mix(in oklab, var(--blog-dai) 55%, transparent); }
+
+.bar {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--surface) 86%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: 0 10px 34px hsl(var(--fg) / 0.12);
+  max-width: calc(100vw - 24px);
+}
+
+.bar button, .bar label {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.bar button:hover { background: var(--fill); color: var(--ink); }
+.bar button[aria-pressed='true'] { background: var(--ink); color: var(--surface); }
+.bar .sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+.bar input[type='color'] { width: 24px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 999px; background: transparent; cursor: pointer; }
+.bar label { display: inline-flex; align-items: center; gap: 7px; padding-left: 8px; cursor: default; }
+</style>
+</head>
+<body>
+
+<!-- Stand-in for the site's real icon sprite. `avatar=#av-bot` resolves here. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="av-bot" viewBox="0 0 24 24">
+    <path d="M12 2a1.6 1.6 0 0 1 1.6 1.6v1.4h3.2A3.2 3.2 0 0 1 20 8.2v7.6a3.2 3.2 0 0 1-3.2 3.2h-1.6l-3.2 3v-3H7.2A3.2 3.2 0 0 1 4 15.8V8.2A3.2 3.2 0 0 1 7.2 5h3.2V3.6A1.6 1.6 0 0 1 12 2ZM9 10a1.4 1.4 0 1 0 0 2.8A1.4 1.4 0 0 0 9 10Zm6 0a1.4 1.4 0 1 0 0 2.8A1.4 1.4 0 0 0 15 10Z"/>
+  </symbol>
+  <symbol id="av-quill" viewBox="0 0 24 24">
+    <path d="M20 3c-6.5.4-10.8 3-12.8 7.7-.8 1.9-1 3.8-.8 5.6l-2 2a1 1 0 1 0 1.4 1.4l2-2c4.6.7 8.5-1.3 10.6-5.3H14a1 1 0 1 1 0-2h5.1c.3-.9.5-1.8.6-2.7H16a1 1 0 1 1 0-2h3.8c.1-.9.2-1.8.2-2.7Z"/>
+  </symbol>
+</svg>
+
+<div class="wrap">
+
+<h1>Conversation UI</h1>
+<p class="lede">A chat block for the end of a post. One fenced syntax, two or n speakers, per-speaker accent. Prototype — nothing here is wired into the blog yet.</p>
+
+<h2>The syntax</h2>
+<p class="cap">A <b>```chat</b> fence — the same delivery path Mermaid already uses, so no new remark plugin. Cast lines first, transcript after.</p>
+
+<pre class="spec"><b>@reader</b>  <i>me</i>  <i>accent</i>=#3C5D80  <i>avatar</i>=🙋
+<b>@tutu</b>   <i>label</i>="图图"  <i>accent</i>=#B4603A  <i>avatar</i>=🐈
+
+<b>reader:</b> 这个对话 UI 到底该长什么样？
+<b>tutu:</b> 先定语法，再定视觉。
+<b>tutu:</b> 语法定不好，写起来就会痛苦。
+  同一个人连着说话会自动并成一组，只有最后一条长尾巴。
+<b>---</b> 隔天
+<b>reader:</b> 懂了。</pre>
+
+<table class="rules">
+  <tr><td>@name …</td><td>Declares a speaker. The flag <code>me</code> puts them on the right with a filled accent bubble. Keys: <code>accent</code>, <code>avatar</code>, <code>label</code>. The whole cast block is optional — undeclared speakers are auto-created on first use with a palette accent, and the first voice on stage becomes <code>me</code>.</td></tr>
+  <tr><td>avatar=…</td><td>A URL or path (<code>https://…</code>, <code>/img/x.png</code>), a <code>data:</code> URI, a sprite id (<code>#av-bot</code>, rendered as <code>&lt;use&gt;</code> and tinted with the speaker's accent), or a literal emoji. Omit it and the speaker gets initials.</td></tr>
+  <tr><td>name: text</td><td>One bubble. Consecutive bubbles from the same speaker group automatically: the name sits inside the <em>top</em> bubble of the run, the avatar next to the last, and only the last squares off its corner.</td></tr>
+  <tr><td>&nbsp;&nbsp;indented</td><td>Another paragraph inside the <em>same</em> bubble. Two levels of grouping, because chats really do have both.</td></tr>
+  <tr><td>--- text</td><td>Centred divider — a day break, a scene note, or nothing at all.</td></tr>
+  <tr><td>inline</td><td><code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, <code>[text](url)</code>.</td></tr>
+</table>
+
+<h2>Two people</h2>
+<p class="cap">Drag the dashed corner to resize. Every breakpoint here is a <b>container</b> query, not a viewport query — so it survives being dropped into a 720px post, a sidebar, or a phone.</p>
+<div class="resizer">
+  <div class="chat"><div class="chat-thread" data-src="two"></div></div>
+</div>
+
+<h2>Group chat</h2>
+<p class="cap">Four voices. Names and avatars carry the accent; bubbles stay neutral — five coloured bubbles is a rainbow, not a conversation. Each name is walked toward the bubble until it clears WCAG AA, so no accent an author picks can render unreadable.</p>
+<div class="chat"><div class="chat-thread" data-src="group"></div></div>
+
+<h2>Avatars</h2>
+<p class="cap">Five forms, all through the one <code>avatar=</code> key: external URL, site sprite <code>#id</code>, <code>data:</code> SVG, a bare emoji, or nothing at all (initials). Raw inline <code>&lt;svg&gt;</code> markup is deliberately not a form — it would make a cast line unreadable, and <code>data:</code> covers it.</p>
+<div class="chat"><div class="chat-thread" data-src="avatars"></div></div>
+
+<h2>Length stress test</h2>
+<p class="cap">One character, one word, a Latin wall, a Chinese wall, mixed script, an unbreakable URL, inline code, and a three-paragraph bubble. Turn on <b>guides</b> to see the measure cap.</p>
+<div class="chat"><div class="chat-thread" data-src="stress"></div></div>
+
+<h2>Playground</h2>
+<p class="cap">Edit and it re-renders. This textarea is the entire authoring surface.</p>
+<textarea id="editor" spellcheck="false"></textarea>
+<div class="chat"><div class="chat-thread" data-src="live"></div></div>
+
+</div>
+
+<div class="bar" id="bar">
+  <button id="theme">dark</button>
+  <button id="avatars" aria-pressed="true">avatars</button>
+  <button id="guides">guides</button>
+  <span class="sep"></span>
+  <label>accent <input type="color" id="accent" value="#3C5D80" /></label>
+</div>
+
+<script>
+/* ===========================================================================
+   PARSER — text in, a flat list of {group | note} out.
+   =========================================================================== */
+
+const DECL = /^@([^\s:]+)\s*(.*)$/;
+const KV   = /(\w+)=("[^"]*"|\S+)/g;
+const MSG  = /^([^\s:：][^:：]{0,23})[:：]\s*(.*)$/;
+
+const PALETTE = ['#3C5D80', '#B4603A', '#4E7A5E', '#7C5CD6', '#A8455F', '#2F6E7A'];
+
+function parseChat(src) {
+  const cast = new Map();
+  const items = [];
+  let group = null;   // current speaker run
+  let bubble = null;  // current bubble (target for continuation lines)
+  let autoMe = null;
+
+  const speaker = (name) => {
+    const key = name.toLowerCase();
+    if (!cast.has(key)) {
+      cast.set(key, {
+        key, label: name, avatar: '', me: false,
+        accent: PALETTE[cast.size % PALETTE.length],
+      });
+    }
+    return cast.get(key);
+  };
+
+  for (const raw of src.split('\n')) {
+    const line = raw.trim();
+    const indented = /^\s+\S/.test(raw);
+
+    if (!line) { bubble = null; continue; }
+
+    // @declaration
+    const d = !indented && line.match(DECL);
+    if (d) {
+      const s = speaker(d[1]);
+      if (/(^|\s)me(\s|$)/.test(d[2])) s.me = true;
+      let kv;
+      KV.lastIndex = 0;
+      while ((kv = KV.exec(d[2]))) {
+        const v = kv[2].replace(/^"|"$/g, '');
+        if (kv[1] === 'accent') s.accent = v;
+        else if (kv[1] === 'avatar') s.avatar = v;
+        else if (kv[1] === 'label') s.label = v;
+      }
+      continue;
+    }
+
+    // --- divider
+    if (!indented && line.startsWith('---')) {
+      items.push({ type: 'note', text: line.slice(3).trim() });
+      group = null; bubble = null;
+      continue;
+    }
+
+    // name: message — only when the line is not an indented continuation and
+    // the head is either a known speaker or a plausible new name.
+    const m = !indented && line.match(MSG);
+    const head = m && m[1].trim();
+    const known = head && cast.has(head.toLowerCase());
+    const plausible = head && !/^(https?|mailto|tel|ftp)$/i.test(head) && !/[`*[\]()]/.test(head);
+
+    if (m && (known || plausible)) {
+      const s = speaker(head);
+      if (!autoMe) autoMe = s;
+      if (!group || group.speaker !== s) {
+        group = { type: 'group', speaker: s, bubbles: [] };
+        items.push(group);
+      }
+      bubble = { paras: [m[2]] };
+      group.bubbles.push(bubble);
+      continue;
+    }
+
+    // continuation
+    if (bubble) { bubble.paras.push(line); continue; }
+    items.push({ type: 'note', text: line });
+  }
+
+  // No explicit `me`: the first voice on stage owns the right side.
+  if (![...cast.values()].some((s) => s.me) && autoMe) autoMe.me = true;
+
+  return { cast, items };
+}
+
+/* ===========================================================================
+   RENDER
+   =========================================================================== */
+
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function inline(s) {
+  return esc(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" rel="noopener">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
+}
+
+/* --- contrast ------------------------------------------------------------
+   The point of a configurable accent is that no configuration can produce
+   unreadable text. The accent has two jobs and each needs its own guarantee:
+   as a bubble FILL the text on top flips (onAccent), and as the speaker NAME
+   the accent IS the text (nameOn). */
+
+const rgb = (hex) => {
+  const h = hex.replace('#', '');
+  const n = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  return [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16));
+};
+
+const lum = (c) => {
+  const [r, g, b] = c
+    .map((v) => v / 255)
+    .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+const ratio = (a, b) => {
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+const toHex = (c) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
+
+function onAccent(accent) {
+  const a = rgb(accent);
+  return ratio(rgb('#FFFFFF'), a) >= ratio(rgb('#0A0A0A'), a) ? '#FFFFFF' : '#0A0A0A';
+}
+
+/* A hex picked to look good as a FILL routinely lands near 4:1 as text —
+   three of this file's own six palette entries do, and an author's hex is a
+   coin flip. Walk the accent toward the far end of the bubble in 4% steps
+   until it clears AA, keeping as much of the chosen hue as the ratio allows. */
+function nameOn(accent, bg) {
+  const b = rgb(bg);
+  const a = rgb(accent);
+  const to = lum(b) > 0.4 ? 0 : 255;
+  for (let t = 0; t < 1; t += 0.04) {
+    const c = a.map((v) => v + (to - v) * t);
+    if (ratio(c, b) >= 4.5) return toHex(c);
+  }
+  return to ? '#FFFFFF' : '#000000';
+}
+
+/* --neutral composited over each surface: the floor the name actually sits
+   on. Not the surface itself — the bubble is what the eye compares against. */
+const BUBBLE_BG = { light: '#ECECEC', dark: '#232323' };
+
+function initials(label) {
+  if (/[一-鿿]/.test(label)) return label.slice(-1);
+  return label.split(/[\s._-]+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase();
+}
+
+/* Four avatar forms, in the order an author is likely to reach for them:
+     avatar=https://… | /local.png | data:image/svg+xml,…   → <img>
+     avatar=#icon-id                                        → sprite <use>
+     avatar=🐱                                              → the glyph itself
+     (omitted)                                              → initials
+   Raw inline <svg> markup is deliberately NOT a form: it would wreck the
+   readability of a cast line, and data: covers the same ground. Note the
+   referrerpolicy — an external avatar still leaks reader IPs to its host, so
+   the real component should route these through the site's image proxy. */
+function avatarHTML(s) {
+  if (!s.avatar) return esc(initials(s.label));
+  if (/^(https?:|\/\/|\/|data:)/.test(s.avatar)) {
+    return '<img src="' + esc(s.avatar) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />';
+  }
+  if (s.avatar[0] === '#') {
+    return '<svg aria-hidden="true"><use href="' + esc(s.avatar) + '"></use></svg>';
+  }
+  return esc(s.avatar);
+}
+
+function render(el, src) {
+  const { items } = parseChat(src);
+  let i = 0;
+  el.classList.remove('is-in');
+  el.innerHTML = items.map((it) => {
+    const d = '--d:' + Math.min(i++ * 55, 660) + 'ms';
+    if (it.type === 'note') {
+      const rule = it.text ? '' : ' chat-note--rule';
+      return '<div class="chat-note' + rule + '" style="' + d + '">' + esc(it.text) + '</div>';
+    }
+    const s = it.speaker;
+    const style = '--accent:' + esc(s.accent) +
+      ';--on-accent:' + onAccent(s.accent) +
+      ';--name-light:' + nameOn(s.accent, BUBBLE_BG.light) +
+      ';--name-dark:' + nameOn(s.accent, BUBBLE_BG.dark) + ';' + d;
+    const bubbles = it.bubbles.map((b, bi) => {
+      const last = bi === it.bubbles.length - 1 ? ' bub--last' : '';
+      // The top bubble of a run carries the speaker. Your own run renders the
+      // label sr-only rather than dropping it: without it the message is
+      // attributed by alignment and fill alone, which no screen reader sees.
+      const labelled = bi === 0;
+      const shown = labelled && !s.me;
+      // Short single-line bubbles centre; anything that can wrap — or that
+      // carries a visible name — aligns to start.
+      const wide = shown || b.paras.length > 1 || b.paras[0].length > 12 ? ' bub--wide' : '';
+      return '<div class="bub' + last + wide + '">' +
+        (labelled ? '<div class="bub-name' + (shown ? '' : ' bub-name--sr') + '">' + esc(s.label) + '</div>' : '') +
+        b.paras.map((p) => '<p>' + inline(p) + '</p>').join('') + '</div>';
+    }).join('');
+    return '<div class="grp grp--' + (s.me ? 'out' : 'in') + '" style="' + style + '">' +
+      '<div class="grp-avatar" aria-hidden="true">' + avatarHTML(s) + '</div>' +
+      '<div class="grp-stack">' + bubbles + '</div>' +
+      '</div>';
+  }).join('');
+  requestAnimationFrame(() => el.classList.add('is-in'));
+}
+
+/* ===========================================================================
+   DEMOS
+   =========================================================================== */
+
+const SOURCES = {
+  avatars: '@you me label="你" accent=#3C5D80\n' +
+'@octo label="Octocat" accent=#3C5D80 avatar=https://avatars.githubusercontent.com/u/583231?v=4\n' +
+'@bot label="Sprite" accent=#7C5CD6 avatar=#av-bot\n' +
+"@svg label=\"Data URI\" accent=#2F6E7A avatar=data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20fill='%232F6E7A'/%3E%3Ccircle%20cx='16'%20cy='12.5'%20r='5'%20fill='%23fff'/%3E%3Cpath%20d='M5,30c0-6,5-9.5,11-9.5S27,24,27,30Z'%20fill='%23fff'/%3E%3C/svg%3E\n" +
+'@emoji label="Emoji" accent=#B4603A avatar=🐈\n' +
+'@ada label="Ada Lovelace" accent=#4E7A5E\n' +
+'\n' +
+'you: 头像能写成几种？\n' +
+'octo: 外链一种：`avatar=https://…`，任何 URL 或站内路径都行。\n' +
+'bot: 站内 sprite 一种：`avatar=#av-bot`，渲染成 `<use>`，单色图标会继承说话人的 accent。\n' +
+'svg: 内联 SVG 一种：`avatar=data:image/svg+xml,…`，一个请求都不用发。\n' +
+'emoji: 直接写字形也算一种。\n' +
+'ada: 什么都不写就取首字母；中文名取最后一个字。\n' +
+'--- \n' +
+'you: 右边为什么没有头像？\n' +
+'octo: 因为那是你自己。读者不需要被提醒自己长什么样。\n' +
+'octo: 另外外链头像会把读者 IP 泄露给对方主机——这里加了 `referrerpolicy="no-referrer"`，\n' +
+'  真正上线时应该走站内的图片代理。',
+
+  two: '@reader me avatar=🙋\n' +
+'@tutu label="图图" accent=#B4603A avatar=🐈\n' +
+'\n' +
+'reader: 所以这个对话框到底难在哪？\n' +
+'tutu: 宽度。\n' +
+'tutu: 一句「好」和一段三百字的回复，得用同一套规则排出来，而且都要好看。\n' +
+'--- 换个说法\n' +
+'tutu: 气泡宽度上限写成 `30em`。中文一个字正好 1em，拉丁字母大约 0.5em——\n' +
+'  所以同一个数字，中文落在 30 字左右，英文落在 60 字左右，两边都在舒服的行长里。\n' +
+'reader: 那容器变窄呢？\n' +
+'tutu: 全部走 **container query**。它不关心视口有多宽，只关心自己被塞进了多宽的地方。',
+
+  group: '@tutu me label="图图" accent=#B4603A avatar=🐈\n' +
+'@lin label="小林" accent=#4E7A5E avatar=🌿\n' +
+'@wei label="阿伟" accent=#7C5CD6 avatar=🛠\n' +
+'@may label="May" accent=#2F6E7A avatar=✨\n' +
+'\n' +
+'--- 周四 21:40\n' +
+'lin: 群里问一下，博客底部那个对话组件，头像要不要保留？\n' +
+'wei: 两个人的时候不用，四个人的时候必须要。\n' +
+'wei: 不然全是灰气泡，根本分不清谁在说话。\n' +
+'may: 同意。名字用各自的 accent，气泡保持中性。\n' +
+'tutu: 就这么定。\n' +
+'lin: 那 accent 谁配？\n' +
+'tutu: 作者自己配，语法里一行搞定：`@lin accent=#4E7A5E`\n' +
+'may: 好耶',
+
+  stress: '@a me label="Me" accent=#3C5D80 avatar=🙋\n' +
+'@b label="Edge Cases" accent=#A8455F avatar=⚠\n' +
+'\n' +
+'a: 好\n' +
+'b: OK\n' +
+'a: 短。\n' +
+'b: A single message that runs long enough to hit the measure cap, wrap onto several lines, and prove the bubble stops growing exactly where a comfortable reading line ends instead of stretching to fill the whole column the way an ordinary paragraph would.\n' +
+'a: 这是一段足够长的中文，用来验证在同一个 30em 上限下，中日韩文字每行大约落在三十个字左右，既不会窄到变成一根竖条，也不会宽到读起来需要转头，标点也应该正常避头尾。\n' +
+'b: 混排 test：中文 and English 交替出现的时候 line-break 不能把 English 单词从中间劈开，also 标点不该跑到行首。\n' +
+'a: https://buxx.me/posts/a-very-long-slug-that-cannot-be-broken-anywhere-at-all\n' +
+'b: 装了 `overflow-wrap: anywhere`，所以就算是一整串不可断的 URL 也只会换行，不会把容器撑破。\n' +
+'a: 行内也支持 `code`、**加粗**、*斜体* 和 [链接](https://buxx.me)。\n' +
+'b: 一个气泡里也可以写好几段。\n' +
+'  第二段用缩进续写，段间距 0.62em，比行距大、比气泡间距小。\n' +
+'  第三段结束——注意尾巴只长在这一组的最后一个气泡上。\n' +
+'---\n' +
+'a: 收工',
+};
+
+SOURCES.live = SOURCES.two;
+
+/* ===========================================================================
+   WIRING
+   =========================================================================== */
+
+const threads = [...document.querySelectorAll('.chat-thread')];
+const editor = document.getElementById('editor');
+editor.value = SOURCES.live;
+
+const setAll = (attr, val) => threads.forEach((t) => t.setAttribute(attr, val));
+setAll('data-avatars', 'on');
+
+function paint() {
+  for (const el of threads) render(el, el.dataset.src === 'live' ? editor.value : SOURCES[el.dataset.src]);
+  applyAccent();
+}
+
+editor.addEventListener('input', () => {
+  render(threads.find((t) => t.dataset.src === 'live'), editor.value);
+  applyAccent();
+});
+
+const bar = document.getElementById('bar');
+
+const theme = document.getElementById('theme');
+theme.addEventListener('click', () => {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  document.documentElement.dataset.theme = dark ? 'light' : 'dark';
+  theme.textContent = dark ? 'dark' : 'light';
+  theme.setAttribute('aria-pressed', String(!dark));
+});
+
+const toggle = (el, attr) => el.addEventListener('click', () => {
+  const on = el.getAttribute('aria-pressed') === 'true';
+  el.setAttribute('aria-pressed', String(!on));
+  setAll(attr, on ? 'off' : 'on');
+});
+toggle(document.getElementById('avatars'), 'data-avatars');
+toggle(document.getElementById('guides'), 'data-guides');
+
+/* The accent picker overrides every `me` bubble at once, so the colour can be
+   judged without editing four cast blocks. */
+const accentInput = document.getElementById('accent');
+function applyAccent() {
+  const v = accentInput.value;
+  if (v.toLowerCase() === '#3c5d80') return; // untouched — leave authored accents alone
+  document.querySelectorAll('.grp--out').forEach((g) => {
+    g.style.setProperty('--accent', v);
+    g.style.setProperty('--on-accent', onAccent(v));
+  });
+}
+accentInput.addEventListener('input', () => {
+  const v = accentInput.value;
+  document.querySelectorAll('.grp--out').forEach((g) => {
+    g.style.setProperty('--accent', v);
+    g.style.setProperty('--on-accent', onAccent(v));
+  });
+});
+
+paint();
+</script>
+</body>
+</html>

@@ -1,8 +1,10 @@
 import { load } from 'cheerio';
+import { isConversationLanguage } from '@/features/content/conversation';
 
 export type BlogProseFragment =
   | { kind: 'html'; html: string }
-  | { kind: 'code'; code: string; lang: string };
+  | { kind: 'code'; code: string; lang: string }
+  | { kind: 'conversation'; source: string };
 
 interface SourceLocation {
   startOffset: number;
@@ -64,7 +66,11 @@ export function splitBlogProse(html: string): BlogProseFragment[] {
     if (block.start > cursor) {
       fragments.push({ kind: 'html', html: html.slice(cursor, block.start) });
     }
-    fragments.push({ kind: 'code', code: block.code, lang: block.lang });
+    fragments.push(
+      isConversationLanguage(block.lang)
+        ? { kind: 'conversation', source: block.code }
+        : { kind: 'code', code: block.code, lang: block.lang }
+    );
     cursor = block.end;
   }
 
