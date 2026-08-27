@@ -99,7 +99,6 @@
     "framer-motion": "^13.1.1",
     "gsap": "^3.15.0",
     "jose": "^6.2.9",
-    "justified-layout": "4.1.0",
     "lottie-web": "5.13.0",
     "lru-cache": "^11.5.2",
     "lucide-react": "^1.33.0",

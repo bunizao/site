@@ -86,11 +86,20 @@ describe('mood gallery extraction', () => {
     expect(html).not.toContain('modal-img');
   });
 
-  test('leaves single-image markup untouched', () => {
-    const html = renderMoodContentWithGalleries(singleImageContent);
+  test('reserves single-image geometry before the image loads', () => {
+    const html = renderMoodContentWithGalleries(
+      singleImageContent.replace(
+        'https://image.example.test/mood/1/0',
+        '/api/v2/images/mood/1/0'
+      )
+    );
 
     expect(html).toContain('image-preview-wrap');
     expect(html).not.toContain('data-mood-gallery');
     expect(html).toContain('modal-img');
+    expect(html).toContain('mood-image-frame');
+    expect(html).toContain('--mood-image-ratio:720 / 960');
+    expect(html).toContain('class="mood-image-blur"');
+    expect(html).toContain('src="/api/v2/images/mood/1/0?w=32"');
   });
 });
