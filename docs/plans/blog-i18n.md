@@ -255,16 +255,31 @@ Google.
 ### 7. The switcher
 
 Renders **only when the article actually has another version** — a control that
-appears is a control that works. In `PostMeta.astro`, beside the date, at the
-top: a reader who landed in the wrong language should not have to scroll a whole
-essay to find the way out.
+appears is a control that works. Near the top: a reader who landed in the wrong
+language should not have to scroll a whole essay to find the way out.
 
-It is a plain `<a href="?lang=en">`. No client JS, and `prefetch` (already
-`prefetchAll` on hover) warms the target so the switch lands instantly.
+It is `LanguagePill.astro`, rendered into `TagList`'s `trailing` slot so it
+shares the tag row. That placement is the point. The pill is built from
+`.blog-tag`'s own numbers — `12.5px`, `padding 6px 11px`, `border-radius 999px`
+— so it cannot drift out of alignment, and the header gains no extra row or
+spacing step. A `1px` hairline separates it from the tags ("different group")
+and a 12% accent tint marks it as a control ("this one does something"); 12% is
+the mix `.blog-row__tag:hover` and `.toc-topbar__link.active` already use.
 
-Label it in the **target** language — "Read in English" / "阅读中文版" — never in
-the current one. Someone who cannot read this page must still be able to read
-the escape hatch.
+Each version is an `<a href="?lang=en">` — one canonical URL, language on the
+query. They are links because every version *has* a URL, which buys Cmd-click,
+middle-click and Tab for free.
+
+**This step now costs client JS**, which the earlier draft of this plan ruled
+out. The menu opens on hover with a 90ms/200ms intent delay, closes on Escape
+with focus restored, moves on ↑↓, and flips its anchor when it would overflow
+the reading column. That is roughly 60 lines in the component, and it buys a
+control that scales past two languages. A no-JS `<a>` was the right call while
+the answer was "one link"; it stops being the right call once the answer is "a
+menu". The pill degrades to a plain visible label with no menu when JS fails.
+
+Endonyms only — 中文 / English, each in its own language and tagged `lang`.
+Never a flag (languages are not countries), never a two-letter code.
 
 ### 8. Listing
 
@@ -272,10 +287,27 @@ the escape hatch.
 runs through `selectListedPosts`, which keeps one row per translation group, so
 a translated article appears once and in Chinese.
 
-Grouped posts get an **`EN` chip** in `PostRow.astro`. The list stays one
-language and never mixes, while an English reader can still see which pieces
-have a version for them. Sitemap is the one surface that deliberately does not
-follow the listing (step 4).
+Translated rows get the lucide **`languages` glyph** in `PostRow.astro` —
+accent-coloured, `14px`, beside the date. No letters. An `EN` chip does not
+survive a third language (a hundred languages would mean a hundred chips), and
+the two-letter code was the wrong unit anyway: the row does not need to
+enumerate what exists, only to say *this one is multilingual*. It is a mark and
+not a control — the row is already a single link target, so nothing interactive
+nests inside it. The accessible name carries what the glyph cannot: "也有
+English 版本", built from `blog.copy[locale].languageSwitcher.alsoIn`.
+
+A row cannot see its own siblings — the tag link runs translation → canonical,
+not back — so each listing page builds `mapOtherLanguages(accessiblePosts)`
+once and passes each row its own entry.
+
+**Known gap.** The mark currently means "this article has another version", not
+"this article has *your* language". The stronger reading needs the listing
+rendered per reader, which this step deliberately does not do. With `zh`/`en`
+the two readings coincide for an English reader; they diverge the moment a
+third locale lands. Revisit together with listing negotiation.
+
+The list stays one language and never mixes. Sitemap is the one surface that
+deliberately does not follow the listing (step 4).
 
 Prev/next needs no change: a translation is absent from `listedPosts`, so
 `buildPostPageProps` resolves `listedIndex === -1` and returns `null`/`null` —
