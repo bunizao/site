@@ -50,13 +50,13 @@ type Item =
  * take the same one, which is the only reason `@ada` and `ada:` cannot drift
  * apart. A name that will not fit in a token is not a key — it is a `[name]`.
  */
-const DECLARATION = /^@([^\s:：]+)(\s.*)?$/;
-const MESSAGE = /^([^\s:：]{1,24})[:：]\s*(.*)$/;
+const DECLARATION = /^@([^\s:：]+)(?:\s+(.*))?$/u;
+const MESSAGE = /^([^\s:：]+)[:：]\s*(.*)$/u;
 
 /** Typst's content block: a name is prose, so it is delimited, not quoted. */
-const LABEL_BLOCK = /\[([^\]]*)\]/;
+const LABEL_BLOCK = /^\[([^\]]+)\]/u;
 /** A value is one token too. Anything that wants a space is a `[name]`. */
-const ATTRIBUTE = /(\w+)=(\S+)/g;
+const ATTRIBUTE = /^([A-Za-z][A-Za-z0-9_]*)=([^\s]+)$/u;
 
 /**
  * The own side of a thread draws no name and no avatar — a reader does not need
@@ -78,11 +78,17 @@ const OWN_SIDE = new Set(['me', 'you', '我', '你']);
  * Markdown punctuation means the line is prose rather than an attribution, and
  * a leading `@` means it is a cast line the grammar rejected.
  */
-function isPlausibleName(head: string): boolean {
+const MARKDOWN_PUNCTUATION = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~\p{P}]/u;
+const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+function isValidKey(head: string): boolean {
   return (
+    Array.from(head).length <= 24 &&
+    Array.from(head).length > 0 &&
+    !/[\s:：]/u.test(head) &&
     !head.startsWith('@') &&
     !/^(https?|mailto|tel|ftp)$/i.test(head) &&
-    !/[`*[\]()]/.test(head)
+    !MARKDOWN_PUNCTUATION.test(head)
   );
 }
 
@@ -104,22 +110,37 @@ function parseDeclaration(line: string): Declaration | null {
   const matched = DECLARATION.exec(line);
   if (!matched) return null;
 
-  const declaration: Declaration = { key: matched[1] };
-  let rest = matched[2] ?? '';
+  if (!isValidKey(matched[1])) return null;
 
-  const block = LABEL_BLOCK.exec(rest);
-  if (block) {
+  const declaration: Declaration = { key: matched[1] };
+  let rest = matched[2]?.trim() ?? '';
+
+  if (rest.startsWith('[')) {
+    const block = LABEL_BLOCK.exec(rest);
+    if (!block) return null;
     declaration.label = block[1].trim();
-    rest = rest.replace(LABEL_BLOCK, ' ');
+    rest = rest.slice(block[0].length);
+    if (rest && !/^\s/u.test(rest)) return null;
+    rest = rest.trim();
   }
 
-  for (const [, name, value] of rest.matchAll(ATTRIBUTE)) {
-    if (name === 'accent') declaration.accent = value;
-    else if (name === 'avatar') declaration.avatar = value;
+  if (!rest) return declaration;
+
+  const attributes = new Set<string>();
+  for (const token of rest.split(/\s+/u)) {
+    const attribute = ATTRIBUTE.exec(token);
+    if (!attribute || /[\[\]"']/.test(attribute[2])) return null;
+    const [, name, value] = attribute;
+    if (attributes.has(name)) return null;
+    attributes.add(name);
+    if (name === 'accent') {
+      if (!HEX.test(value)) return null;
+      declaration.accent = value;
+    } else if (name === 'avatar') declaration.avatar = value;
     else return null;
   }
 
-  return rest.replace(ATTRIBUTE, ' ').trim() ? null : declaration;
+  return declaration;
 }
 
 const CJK = /[　-〿㐀-䶿一-鿿豈-﫿＀-￯]/;
@@ -153,7 +174,7 @@ export function parseConversation(source: string): { cast: Map<string, Speaker>;
     const key = name.toLowerCase();
     let found = cast.get(key);
     if (!found) {
-      found = { key, label: name, avatar: '', me: OWN_SIDE.has(key), accent: '' };
+      found = { key, label: name, avatar: '', me: false, accent: '' };
       cast.set(key, found);
     }
     return found;
@@ -188,8 +209,9 @@ export function parseConversation(source: string): { cast: Map<string, Speaker>;
 
     const message = !indented ? MESSAGE.exec(line) : null;
     const head = message?.[1].trim();
-    if (message && head && (cast.has(head.toLowerCase()) || isPlausibleName(head))) {
+    if (message && head && isValidKey(head)) {
       const target = speaker(head);
+      target.me = OWN_SIDE.has(target.key);
       if (!firstVoice) firstVoice = target;
       // Consecutive messages from one speaker collapse into a single run, which
       // is what lets a stack of five bubbles carry exactly one name.
@@ -202,10 +224,12 @@ export function parseConversation(source: string): { cast: Map<string, Speaker>;
       continue;
     }
 
-    if (bubble) {
+    if (indented && bubble) {
       bubble.text = joinWrapped(bubble.text, line);
       continue;
     }
+    group = null;
+    bubble = null;
     items.push({ type: 'note', text: line });
   }
 
@@ -231,19 +255,54 @@ function escapeHtml(value: string): string {
  * a sign the content belongs in prose instead.
  */
 function renderInline(value: string): string {
-  return escapeHtml(value)
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" rel="noopener">$1</a>')
+  let html = escapeHtml(value);
+  const codeSpans: string[] = [];
+  const links: string[] = [];
+
+  html = html.replace(/`([^`]+)`/g, (_match, code: string) => {
+    const token = `\u0001C${codeSpans.length}\u0001`;
+    codeSpans.push('<code>' + code + '</code>');
+    return token;
+  });
+
+  html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, text: string, href: string) => {
+    const safeHref = linkHref(href);
+    if (!safeHref) return match;
+    const token = `\u0000${links.length}\u0000`;
+    links.push('<a href="' + safeHref + '" rel="noopener">' + text + '</a>');
+    return token;
+  });
+
+  return html
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
+    .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
+    .replace(/\u0000(\d+)\u0000/g, (_match, index: string) => links[Number(index)] ?? '')
+    .replace(/\u0001C(\d+)\u0001/g, (_match, index: string) => codeSpans[Number(index)] ?? '');
+}
+
+function linkHref(value: string): string | null {
+  const decoded = value.replace(/&amp;/g, '&');
+  if (/^https?:\/\//i.test(decoded)) {
+    try {
+      const url = new URL(decoded);
+      if (url.username || url.password) return null;
+      return value;
+    } catch {
+      return null;
+    }
+  }
+
+  if (/^\/(?![\\/])/u.test(decoded) || /^#[^\s]/u.test(decoded)) {
+    return value;
+  }
+
+  return null;
 }
 
 /* --- contrast -------------------------------------------------------------
    Only runs when an author opts into a custom accent. The default is
    monochrome and derives from --foreground in CSS, where it is AA by
    construction in both themes and needs no maths at all. */
-
-const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 function toRgb(hex: string): [number, number, number] {
   const raw = hex.replace('#', '');

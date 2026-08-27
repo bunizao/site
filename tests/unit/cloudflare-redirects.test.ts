@@ -137,10 +137,26 @@ describe('Cloudflare blog redirects', () => {
     expect(findRedirect('/tag/not-in-sitemap')).toBeNull();
   });
 
+  test('keeps the legacy conversation playground URL on the detail page', () => {
+    expect(findRedirect('/components/preview/conversation')).toEqual({
+      source: '/components/preview/conversation',
+      target: '/components/conversation#playground',
+      status: 301,
+    });
+    expect(findRedirect('/components/preview/conversation/')).toMatchObject({
+      target: '/components/conversation#playground',
+      status: 301,
+    });
+  });
+
   test('keeps redirects in Cloudflare static asset format', () => {
-    expect(rules).toHaveLength(57);
+    expect(rules).toHaveLength(59);
     expect(rules.every((rule) => rule.source.startsWith('/'))).toBe(true);
-    expect(rules.every((rule) => rule.target.startsWith('/blog') || rule.target === '/sitemap.xml')).toBe(true);
+    expect(rules.every((rule) => (
+      rule.target.startsWith('/blog')
+      || rule.target === '/sitemap.xml'
+      || rule.target === '/components/conversation#playground'
+    ))).toBe(true);
     expect(rules.every((rule) => rule.status === 301)).toBe(true);
   });
 });

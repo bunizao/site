@@ -48,7 +48,8 @@ switch.
 Not every `x: y` line becomes a message. The head has to be a key, so
 `So here is the thing: it works` is prose, not a speaker. On top of that a head
 that is a URL scheme (`https`, `mailto`, `tel`, `ftp`), that contains Markdown
-punctuation, or that starts with `@` is prose too — a bare link on its own line
+punctuation, or that starts with `@` is prose too. The same rule applies even
+when a cast line was written for that spelling — a bare link on its own line
 does not turn into a phantom speaker.
 
 ### The own side
@@ -107,7 +108,8 @@ When either side of the seam is CJK the join is tight: a mixed seam like
 character the source lacks.
 
 A **blank** line ends the current bubble, so the next message from the same
-speaker starts a fresh one instead of continuing it.
+speaker starts a fresh one instead of continuing it. Only an indented line can
+continue a bubble; unindented prose and malformed syntax remain separate notes.
 
 There is deliberately no multi-paragraph bubble. Two paragraphs is two
 messages, which is what people actually send.
@@ -145,6 +147,10 @@ thing that is a phrase, so it is the one thing that is a content block —
 borrowed from [Typst](https://typst.app), where `[…]` means *this is prose, not
 a token*. Tokens do not need quoting and prose does not need escaping, so
 nothing on a cast line ever needs either.
+
+The key, message head, and cast declaration use the same validator: one token,
+no whitespace or colon, at most 24 characters, and no Markdown punctuation.
+Each listed cast attribute may appear at most once.
 
 That is the whole grammar. A cast line is a key, then at most one `[name]` and
 any number of `name=value` pairs, and **nothing else** — a stray word or an
@@ -195,7 +201,8 @@ walked toward the far end of the bubble in 4% steps until it clears 4.5:1 —
 once per theme, at build time. You keep as much of the chosen hue as the
 contrast ratio allows, and no configuration can produce unreadable text.
 
-Anything that is not a hex colour is ignored rather than passed through.
+Anything that is not a hex colour makes the cast line invalid and leaves it
+visible as prose.
 
 ### `avatar`
 
@@ -219,7 +226,9 @@ on, but routing through the site's image proxy is better where it is available.
 
 A deliberately small subset — `` `code` ``, `**bold**`, `*italic*`, and
 `[links](https://example.com)`. A conversation is dialogue; headings and lists
-inside a chat bubble are a sign the content belongs in prose instead.
+inside a chat bubble are a sign the content belongs in prose instead. Links are
+limited to HTTP(S), root-relative, and fragment targets; other schemes remain
+literal text.
 
 ## Layout notes
 

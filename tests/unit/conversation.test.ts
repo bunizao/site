@@ -104,6 +104,39 @@ describe('conversation parsing', () => {
     expect(items[1]).toEqual({ type: 'note', text: 'loose line' });
   });
 
+  test('does not put an empty line inside a bubble', () => {
+    const { items } = parseConversation(['ann: first', '', 'ann: second'].join('\n'));
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      type: 'group',
+      bubbles: [{ text: 'first' }, { text: 'second' }],
+    });
+  });
+
+  test('keeps an unindented prose line out of the current bubble', () => {
+    const { items } = parseConversation(['ann: first', 'So here is the thing: it works'].join('\n'));
+
+    expect(items).toHaveLength(2);
+    expect(items[1]).toEqual({ type: 'note', text: 'So here is the thing: it works' });
+  });
+
+  test('keeps malformed cast lines visible after a message', () => {
+    const { items } = parseConversation(['ann: first', '@bad unknown'].join('\n'));
+
+    expect(items).toHaveLength(2);
+    expect(items[1]).toEqual({ type: 'note', text: '@bad unknown' });
+  });
+
+  test('does not keep a run open across an unindented note', () => {
+    const { items } = parseConversation(['ann: first', 'plain prose', 'ann: second'].join('\n'));
+
+    expect(items).toHaveLength(3);
+    expect(items[0]).toMatchObject({ type: 'group' });
+    expect(items[1]).toEqual({ type: 'note', text: 'plain prose' });
+    expect(items[2]).toMatchObject({ type: 'group' });
+  });
+
   test('parses dividers with and without a label', () => {
     const { items } = parseConversation(['ann: hi', '--- later', 'ann: back', '---'].join('\n'));
 
@@ -123,6 +156,13 @@ describe('conversation parsing', () => {
     const { cast } = parseConversation('https://example.com/a');
 
     expect(cast.size).toBe(0);
+  });
+
+  test('keeps the first-voice fallback when a reserved speaker is only declared', () => {
+    const { cast } = parseConversation(['@you [Reader]', 'ann: hi'].join('\n'));
+
+    expect(cast.get('you')?.me).toBe(false);
+    expect(cast.get('ann')?.me).toBe(true);
   });
 
   test('labels a speaker exactly as first written, matching on case-insensitively', () => {
@@ -147,11 +187,46 @@ describe('conversation parsing', () => {
   });
 
   test('rejects a cast line the grammar has no place for, rendering it as prose', () => {
-    for (const line of ['@Ada Lovelace accent=#4E7A5E', '@ada colour=#fff', '@ada label="Ada"']) {
+    for (const line of [
+      '@Ada Lovelace accent=#4E7A5E',
+      '@ada colour=#fff',
+      '@ada label="Ada"',
+      '@a accent=#fff[Injected]',
+      '@a avatar="🐈"',
+      '@a [A]avatar=x',
+      '@a []',
+      '@a accent=#fff accent=#000',
+    ]) {
       const { cast, items } = parseConversation(line);
 
       expect(cast.size).toBe(0);
       expect(items).toEqual([{ type: 'note', text: line }]);
+    }
+  });
+
+  test('rejects a key above the shared 24-character limit', () => {
+    const key = 'a'.repeat(25);
+    const { cast, items } = parseConversation(`@${key} accent=#4E7A5E`);
+
+    expect(cast.size).toBe(0);
+    expect(items).toEqual([{ type: 'note', text: `@${key} accent=#4E7A5E` }]);
+  });
+
+  test('counts Unicode code points rather than UTF-16 units in the key limit', () => {
+    const key = '😀'.repeat(13);
+    const { cast, items } = parseConversation(`${key}: hi`);
+
+    expect(cast.has(key)).toBe(true);
+    expect(items).toHaveLength(1);
+  });
+
+  test('does not let declarations bypass message-head safety', () => {
+    for (const source of ['@https\nhttps: hi', '@a_b\na_b: hi', '@a*b\na*b: hi']) {
+      const { cast, items } = parseConversation(source);
+
+      expect(cast.size).toBe(0);
+      expect(items).toHaveLength(2);
+      expect(items[1]).toMatchObject({ type: 'note' });
     }
   });
 
@@ -216,6 +291,20 @@ describe('conversation rendering', () => {
     expect(html).toContain('<a href="https://example.com" rel="noopener">link</a>');
   });
 
+  test('does not create links for unsupported URL schemes', () => {
+    const html = renderConversation('ann: [run](javascript:alert%281%29)');
+
+    expect(html).not.toContain('<a ');
+    expect(html).toContain('javascript:alert%281%29');
+  });
+
+  test('keeps markdown-looking text inside code spans literal', () => {
+    const html = renderConversation('ann: `[run](https://example.com)`');
+
+    expect(html).toContain('<code>[run](https://example.com)</code>');
+    expect(html).not.toContain('<a ');
+  });
+
   test('renders each avatar form', () => {
     const html = renderConversation(
       [
@@ -260,11 +349,11 @@ describe('conversation rendering', () => {
     }
   });
 
-  test('ignores an accent that is not a hex colour', () => {
+  test('rejects an accent that is not a hex colour', () => {
     const html = renderConversation(['@a accent=javascript:alert(1)', 'a: hi'].join('\n'));
 
     expect(html).not.toContain('--conv-accent');
-    expect(html).not.toContain('javascript:');
+    expect(html).toContain('@a accent=javascript:alert(1)');
   });
 });
 
