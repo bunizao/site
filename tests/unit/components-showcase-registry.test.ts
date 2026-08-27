@@ -94,13 +94,15 @@ describe('components showcase registry', () => {
     expect(item.files[0]?.content).toContain("from '@/lib/listening-controller'");
     expect(item.files[0]?.content).toContain("import '@/lib/listening.css'");
     expect(item.files[1]?.content).toBe(readText('src/features/home/types.ts'));
-    expect(item.files[3]?.content).not.toContain("from '@/lib/listening/analytics'");
-    expect(item.files[3]?.content).toContain('ListeningAnalytics | null => null');
-    expect(item.files[6]?.target).toBe('types/musickit.d.ts');
+    expect(item.files[4]?.content).toContain("from '@/lib/listening-artwork-accent'");
+    expect(item.files[4]?.content).not.toContain("from '@/lib/listening/analytics'");
+    expect(item.files[4]?.content).toContain('ListeningAnalytics | null => null');
+    expect(item.files[7]?.target).toBe('types/musickit.d.ts');
     expect(item.files.map(({ path }) => path)).toEqual([
       'features/home/ui/Listening.astro',
       'lib/listening-types.ts',
       'lib/listening-markup.ts',
+      'lib/listening-artwork-accent.ts',
       'lib/listening-controller.ts',
       'lib/listening.css',
       'lib/musickit/player.ts',
