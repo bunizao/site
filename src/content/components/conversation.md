@@ -14,8 +14,7 @@ credits: Original conversation syntax and thread layout by Bunizao.
 import Conversation from '@/components/ui/conversation.astro';
 
 const source = `
-@you me
-@ada label="Ada" accent=#4E7A5E
+@ada accent=#4E7A5E
 
 you: how wide should a bubble be?
 ada: 30em.

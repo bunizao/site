@@ -33,6 +33,10 @@ ann: is that all?
 bob: that's all.
 ```
 
+That renders two speakers named **Ann** and **Bob**, with Ann on the trailing
+side: the key is lowercased for matching, capitalised for display, and the
+first voice takes the `me` side.
+
 Both `:` and `：` work as the separator, so a Chinese keyboard never has to
 switch. A name is at most 24 characters and may not contain a colon.
 
@@ -93,23 +97,41 @@ A line starting with `@` declares a speaker before they talk. Every attribute
 is optional — cast lines exist to override defaults, not to satisfy the parser.
 
 ```conversation
-@you me
-@tutu label="图图" accent=#B4603A avatar=🐈
+@ada accent=#4E7A5E
+@tutu label="图图" accent=#B4603A avatar=🐈 me
 ```
 
 | Attribute | Effect |
 | --- | --- |
-| `me` | Renders this speaker on the trailing side with the filled bubble. |
-| `label="…"` | Display name. Defaults to the key. Quote it if it has spaces. |
+| `label="…"` | Display name. Defaults to the key, capitalised. Quote it if it has spaces. |
 | `accent=#RRGGBB` | Custom hue for the fill and the name. Must be a hex colour. |
 | `avatar=…` | See below. |
+| `me` | Renders this speaker on the trailing side with the filled bubble. |
+
+Reach for a cast line only when a default is wrong. `@ada` alone buys you
+nothing — the key already registers on first use and its label is already
+`Ada` — so a line with no attributes on it is a line to delete.
+
+### `label`
+
+The key is what you type before a colon: short, lowercase, typed a hundred
+times. The label is what a reader sees once, above a bubble — so the default
+capitalises it. `@ada` renders as **Ada**, `ann: hi` renders as **Ann**.
+
+`label=` is therefore for names the key cannot spell — `label="Ada Lovelace"`,
+`label="图图"` — and not for adding a capital letter.
 
 ### `me`
 
-The `me` side is drawn on the trailing edge, filled, and without an avatar —
-a reader does not need reminding what they look like. With no explicit `me`,
-**the first voice to speak** takes that side, so a two-party exchange gets the
-right layout with no cast lines at all.
+`me` is a bare flag, not a name: it says *this speaker is the one holding the
+phone*, and it is the only thing on a cast line that is not `key=value`. That
+speaker is drawn on the trailing edge, filled, and without an avatar — a reader
+does not need reminding what they look like.
+
+With no explicit `me`, **the first voice to speak** takes that side, so a
+two-party exchange gets the right layout with no cast lines at all. `@you me`
+is only worth writing when the person on your side is *not* the one who opens
+the thread.
 
 The name on a `me` run is still emitted, screen-reader-only. Alignment and fill
 are the only visible attribution and neither reaches assistive technology, so

@@ -6,17 +6,19 @@
 //
 // Syntax (see docs/CONVERSATION-SYNTAX.md):
 //
-//   @you me avatar=🙋                     cast line: declare a speaker
-//   @tutu label="Tu Tu" accent=#B4603A
+//   @ada accent=#4E7A5E avatar=🐈     cast line: override a default
+//   @tutu label="图图" me              me = the trailing, filled side
 //
-//   you: how wide should a bubble be?     message
-//   tutu: 30em.
-//   tutu: A CJK glyph is 1em and a Latin
-//     glyph about half that.              indented -> soft wrap, same bubble
-//   --- later                             divider, with or without a label
+//   you: how wide should a bubble be?    message
+//   ada: 30em.
+//   ada: A CJK glyph is 1em and a Latin
+//     glyph about half that.             indented -> soft wrap, same bubble
+//   --- later                            divider, with or without a label
 //
-// Speakers are auto-registered on first use, so the two-party case needs no
-// cast lines at all.
+// Speakers auto-register on first use with a capitalised label, and the first
+// voice takes the `me` side, so a two-party exchange needs no cast lines at
+// all. Cast lines exist to override those defaults, never to satisfy the
+// parser.
 
 export const CONVERSATION_LANGUAGE = 'conversation';
 
@@ -59,6 +61,16 @@ function isPlausibleName(head: string): boolean {
 const CJK = /[　-〿㐀-䶿一-鿿豈-﫿＀-￯]/;
 
 /**
+ * A key is typed the way you type it in a message line — lowercase, short — but
+ * the name drawn above a bubble is a name. Capitalising the default is what
+ * lets `@ada` stand alone instead of needing `label="Ada"` to add one letter.
+ * Only a letter is touched, so an emoji or CJK key survives untouched.
+ */
+function displayName(name: string): string {
+  return name.replace(/^\p{L}/u, (character) => character.toUpperCase());
+}
+
+/**
  * An indented line is a soft wrap, exactly as in Markdown: it continues the
  * sentence rather than starting a new paragraph. Authors wrap long messages in
  * source for readability and do not expect a visible break where they hit
@@ -87,7 +99,7 @@ export function parseConversation(source: string): { cast: Map<string, Speaker>;
     const key = name.toLowerCase();
     let found = cast.get(key);
     if (!found) {
-      found = { key, label: name, avatar: '', me: false, accent: '' };
+      found = { key, label: displayName(name), avatar: '', me: false, accent: '' };
       cast.set(key, found);
     }
     return found;

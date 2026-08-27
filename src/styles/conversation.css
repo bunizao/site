@@ -307,12 +307,13 @@
 
 /* --- divider / system note ------------------------------------------------ */
 
+/* Sans, not mono: a divider is an aside in the author's voice — "three hours
+   later" — not a token from the transcript. Mono framed it as data. */
 .conv-note {
   align-self: center;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1;
-  letter-spacing: 0.06em;
+  font-size: 12px;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
   color: var(--blog-faint, hsl(var(--foreground) / 0.42));
   padding: 2px 0;
   display: flex;

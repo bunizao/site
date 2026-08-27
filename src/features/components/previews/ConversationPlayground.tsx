@@ -14,8 +14,8 @@ const SAMPLES: { name: string; source: string }[] = [
   {
     name: 'Basics',
     source: [
-      '@you me avatar=🙋',
-      '@ada label="Ada" accent=#B4603A avatar=🐈',
+      '@you avatar=🙋',
+      '@ada accent=#B4603A avatar=🐈',
       '',
       'you: so what is actually hard about a chat bubble?',
       'ada: Width.',
@@ -31,17 +31,16 @@ const SAMPLES: { name: string; source: string }[] = [
   {
     name: 'Group',
     source: [
-      '@me me label="You"',
-      '@ada label="Ada"',
-      '@grace label="Grace" accent=#4E7A5E',
-      '@alan label="Alan" accent=#7C5CD6',
+      '@you me',
+      '@grace accent=#4E7A5E',
+      '@alan accent=#7C5CD6',
       '',
       'ada: Ship it?',
       'grace: One thing first.',
       'grace: A run of messages from one person is labelled once, at the top.',
       'grace: Like this. Three bubbles, one name.',
       'alan: And the last bubble of a run squares off the corner nearest its speaker.',
-      'me: Right — no drawn tail. Alignment carries the rest.',
+      'you: Right — no drawn tail. Alignment carries the rest.',
       '--- ',
       'ada: Ship it.',
     ].join('\n'),
@@ -49,9 +48,9 @@ const SAMPLES: { name: string; source: string }[] = [
   {
     name: 'Avatars',
     source: [
-      '@you me label="You" accent=#3C5D80',
+      '@you accent=#3C5D80',
       '@octo label="Octocat" avatar=https://avatars.githubusercontent.com/u/583231?v=4',
-      '@emoji label="Emoji" accent=#B4603A avatar=🐈',
+      '@emoji accent=#B4603A avatar=🐈',
       '@ada label="Ada Lovelace" accent=#4E7A5E',
       '',
       'you: How many avatar forms are there?',
@@ -68,7 +67,6 @@ const SAMPLES: { name: string; source: string }[] = [
     // between a CJK character and a Latin one, so no space is ever invented.
     name: 'Mixed',
     source: [
-      '@you me label="You"',
       '@tutu label="图图" accent=#B4603A avatar=🐈',
       '',
       'you: 中英混排会不会打架？',
@@ -80,9 +78,6 @@ const SAMPLES: { name: string; source: string }[] = [
   {
     name: 'Stress',
     source: [
-      '@a me label="A"',
-      '@b label="B"',
-      '',
       'a: ok',
       'b: 好',
       'a: A single word bubble still has to look like a bubble and not a stray pill.',

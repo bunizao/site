@@ -114,6 +114,20 @@ describe('conversation parsing', () => {
     expect(cast.size).toBe(0);
   });
 
+  test('capitalises a key into a display label, so `label=` is only for real names', () => {
+    const { cast } = parseConversation(['ann: hi', '@图图 accent=#B4603A', '图图: 嗨'].join('\n'));
+
+    expect(cast.get('ann')?.label).toBe('Ann');
+    // No case to add: a CJK key is left exactly as written.
+    expect(cast.get('图图')?.label).toBe('图图');
+  });
+
+  test('an explicit label still wins over the capitalised default', () => {
+    const { cast } = parseConversation('@ada label="ada lovelace"');
+
+    expect(cast.get('ada')?.label).toBe('ada lovelace');
+  });
+
   test('reads label, accent and avatar off a cast line', () => {
     const { cast } = parseConversation('@tu label="Tu Tu" accent=#B4603A avatar=🐈');
     const speaker = cast.get('tu');
@@ -137,7 +151,7 @@ describe('conversation rendering', () => {
     // Alignment and fill are the only visible attribution, and neither reaches
     // a screen reader.
     expect(html).toContain('conv-name conv-name--sr');
-    expect(html).toContain('ann');
+    expect(html).toContain('Ann');
   });
 
   test('escapes markup in message bodies and speaker labels', () => {
