@@ -11,15 +11,23 @@ test.describe('component playgrounds', () => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
     const source = page.locator('#conv-source');
-    await expect(source).toHaveValue(/^```conversation\n@conversation avatars=on names=on\n/);
+    await expect(source).toHaveValue(
+      /^```conversation\n@conversation avatars=on names=on tints=on\n/,
+    );
 
     await page.getByRole('switch', { name: 'Avatars' }).click();
-    await expect(source).toHaveValue(/^```conversation\n@conversation avatars=off names=on\n/);
+    await expect(source).toHaveValue(
+      /^```conversation\n@conversation avatars=off names=on tints=on\n/,
+    );
 
     await page.getByRole('switch', { name: 'Names' }).click();
-    await expect(source).toHaveValue(/^```conversation\n@conversation avatars=off names=off\n/);
+    await page.getByRole('switch', { name: 'Tints' }).click();
+    await expect(source).toHaveValue(
+      /^```conversation\n@conversation avatars=off names=off tints=off\n/,
+    );
     await expect(page.locator('#playground .conv-thread')).toHaveAttribute('data-avatars', 'off');
     await expect(page.locator('#playground .conv-thread')).toHaveAttribute('data-names', 'off');
+    await expect(page.locator('#playground .conv-thread')).toHaveAttribute('data-tints', 'off');
 
     await page.getByRole('button', { name: 'Copy complete conversation source' }).click();
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(

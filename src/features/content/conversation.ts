@@ -6,7 +6,7 @@
 //
 // Syntax reference: https://buxx.me/docs/writing/conversation
 //
-//   @conversation avatars=off names=off  optional whole-thread visibility
+//   @conversation avatars=off names=off tints=off   whole-thread visibility
 //   @ada [Ada Lovelace] accent=#4E7A5E  cast line: override a default
 //   @tutu [图图] avatar=🐈           key is one token, [name] is prose
 //
@@ -26,6 +26,8 @@ export const CONVERSATION_LANGUAGE = 'conversation';
 export interface ConversationOptions {
   avatars: boolean;
   names: boolean;
+  /** The accent wash on the receiving side. Off leaves every bubble neutral. */
+  tints: boolean;
 }
 
 export type ConversationOption = keyof ConversationOptions;
@@ -67,7 +69,8 @@ const LABEL_BLOCK = /^\[([^\]]+)\]/u;
 const ATTRIBUTE = /^([A-Za-z][A-Za-z0-9_]*)=([^\s]+)$/u;
 const CONVERSATION_HEADER = '@conversation';
 const FENCED_SOURCE = /^(\s*```conversation[^\S\r\n]*\r?\n)([\s\S]*?)(\r?\n```[^\S\r\n]*\s*)$/iu;
-const DEFAULT_OPTIONS: ConversationOptions = { avatars: true, names: true };
+const DEFAULT_OPTIONS: ConversationOptions = { avatars: true, names: true, tints: true };
+const OPTION_NAMES = Object.keys(DEFAULT_OPTIONS) as ConversationOption[];
 
 /**
  * The own side of a thread draws no name and no avatar — a reader does not need
@@ -129,7 +132,7 @@ function parseConversationOptions(line: string): ConversationOptions | null {
 
     const name = attribute[1] as ConversationOption;
     const value = attribute[2];
-    if ((name !== 'avatars' && name !== 'names') || (value !== 'on' && value !== 'off')) {
+    if (!OPTION_NAMES.includes(name) || (value !== 'on' && value !== 'off')) {
       return null;
     }
     if (seen.has(name)) return null;
@@ -154,7 +157,10 @@ export function setConversationOption(
     : { ...DEFAULT_OPTIONS };
 
   options[name] = enabled;
-  const header = `${CONVERSATION_HEADER} avatars=${options.avatars ? 'on' : 'off'} names=${options.names ? 'on' : 'off'}`;
+  const header = OPTION_NAMES.reduce(
+    (line, option) => `${line} ${option}=${options[option] ? 'on' : 'off'}`,
+    CONVERSATION_HEADER,
+  );
   if (firstLine.startsWith(CONVERSATION_HEADER)) {
     lines[firstContent] = header;
   } else if (firstContent >= 0) {
@@ -424,11 +430,11 @@ export function textOnAccent(accent: string): string {
 
 /**
  * A hex picked to look good as a bubble FILL routinely lands near 4:1 when
- * reused as name text. Walk it toward the far end of the bubble in 4% steps
+ * reused as name text. Walk it toward the far end of the background in 4% steps
  * until it clears AA, keeping as much of the chosen hue as the ratio allows.
  */
-export function nameOnBubble(accent: string, bubbleBackground: string): string {
-  const floor = toRgb(bubbleBackground);
+export function nameOnBackground(accent: string, background: string): string {
+  const floor = toRgb(background);
   const start = toRgb(accent);
   const target = luminance(floor) > 0.4 ? 0 : 255;
   for (let t = 0; t < 1; t += 0.04) {
@@ -439,11 +445,123 @@ export function nameOnBubble(accent: string, bubbleBackground: string): string {
 }
 
 /**
- * --conv-neutral composited over each theme's page background: the floor a name
- * actually sits on. Measured from the rendered component, not assumed — the
- * bubble is what the eye compares against, not the page.
+ * --conv-neutral composited over each theme's page background: the floor the
+ * tint is built beside. Measured from the rendered component, not assumed.
  */
 const BUBBLE_BACKGROUND = { light: '#ECECEC', dark: '#232323' };
+
+/**
+ * The name sits beside the bubble rather than inside it, so this is the floor
+ * it is read against. Both themes are further from a mid-dark accent than the
+ * bubble was, which means the name walks LESS and keeps more of the hex the
+ * author actually chose.
+ */
+const PAGE_BACKGROUND = { light: '#FFFFFF', dark: '#0A0A0A' };
+
+/* --- tint -----------------------------------------------------------------
+   The receiving side's bubble carries the speaker's accent as a tint, which is
+   the only surface an accent has left on a thread running names=off
+   avatars=off.
+
+   Mixing the accent INTO the bubble colour was the obvious way to get one, and
+   it is wrong in light mode: an accent picked as a fill is a mid-dark colour,
+   so mixing drags the bubble's lightness down toward it and lands on a heavy,
+   dirty pastel. It is also uneven across hues — the same 20% of a violet reads
+   twice as loud as 20% of a sage, because sRGB mixing says nothing about how
+   light a colour looks.
+
+   So the tint is not a mix. It keeps the accent's HUE, pins lightness beside
+   the bubble's own, and caps chroma at a fixed ceiling. In OKLCH those three
+   are separable and lightness matches perception, which is the whole reason to
+   pay for the conversion: every speaker's tint then sits at the same weight,
+   whatever hue the author picked. */
+
+const LINEAR_LMS = [
+  [0.4122214708, 0.5363325363, 0.0514459929],
+  [0.2119034982, 0.6806995451, 0.1073969566],
+  [0.0883024619, 0.2817188376, 0.6299787005],
+];
+
+const LMS_OKLAB = [
+  [0.2104542553, 0.793617785, -0.0040720468],
+  [1.9779984951, -2.428592205, 0.4505937099],
+  [0.0259040371, 0.7827717662, -0.808675766],
+];
+
+const OKLAB_LMS = [
+  [1, 0.3963377774, 0.2158037573],
+  [1, -0.1055613458, -0.0638541728],
+  [1, -0.0894841775, -1.291485548],
+];
+
+const LMS_RGB = [
+  [4.0767416621, -3.3077115913, 0.2309699292],
+  [-1.2684380046, 2.6097574011, -0.3413193965],
+  [-0.0041960863, -0.7034186147, 1.707614701],
+];
+
+const apply = (matrix: number[][], v: number[]): number[] =>
+  matrix.map((row) => row[0] * v[0] + row[1] * v[1] + row[2] * v[2]);
+
+const toLinear = (v: number): number =>
+  v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+
+const fromLinear = (v: number): number =>
+  v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+
+interface Oklch {
+  lightness: number;
+  chroma: number;
+  hue: number;
+}
+
+function toOklch(hex: string): Oklch {
+  const linear = toRgb(hex).map((v) => toLinear(v / 255));
+  const [lightness, a, b] = apply(LMS_OKLAB, apply(LINEAR_LMS, linear).map(Math.cbrt));
+  return { lightness, chroma: Math.hypot(a, b), hue: Math.atan2(b, a) };
+}
+
+/**
+ * Chroma is the only one of the three that can leave sRGB, and it leaves it
+ * gradually, so walking it down is enough — no gamut solver, and the tints this
+ * is asked for are pale enough that the loop almost never runs twice.
+ */
+function fromOklch({ lightness, chroma, hue }: Oklch): string {
+  for (let c = chroma; c > 0; c -= 0.002) {
+    const lms = apply(OKLAB_LMS, [lightness, Math.cos(hue) * c, Math.sin(hue) * c]);
+    const rgb = apply(LMS_RGB, lms.map((v) => v ** 3)).map(fromLinear);
+    if (rgb.every((v) => v >= 0 && v <= 1)) return toHex(rgb.map((v) => v * 255));
+  }
+  return toHex(apply(LMS_RGB, apply(OKLAB_LMS, [lightness, 0, 0]).map((v) => v ** 3))
+    .map((v) => fromLinear(v) * 255));
+}
+
+/**
+ * How far the tint sits from the bubble it replaces, and how much colour it is
+ * allowed. Dark themes take both a little heavier: a tint has to climb away
+ * from a dark floor to register at all, and the same chroma reads quieter
+ * against black than against white.
+ *
+ * The ceiling is what keeps a thread even. Capping rather than scaling means a
+ * violet at C=0.17 and a sage at C=0.06 both arrive at the same weight, so no
+ * speaker shouts louder than another for reasons the author never chose.
+ */
+const TINT = {
+  light: { shift: -0.03, ceiling: 0.03 },
+  dark: { shift: 0.055, ceiling: 0.034 },
+};
+
+/** The receiving side's bubble: the accent's hue at the bubble's own weight. */
+export function tintedBubble(accent: string, background: string): string {
+  const floor = toOklch(background);
+  const hue = toOklch(accent);
+  const { shift, ceiling } = floor.lightness > 0.5 ? TINT.light : TINT.dark;
+  return fromOklch({
+    lightness: floor.lightness + shift,
+    chroma: Math.min(hue.chroma, ceiling),
+    hue: hue.hue,
+  });
+}
 
 /* --- avatars -------------------------------------------------------------- */
 
@@ -493,15 +611,21 @@ function renderAvatar(speaker: Speaker): string {
  */
 function speakerStyle(speaker: Speaker): string {
   if (!HEX.test(speaker.accent)) return '';
+  const light = tintedBubble(speaker.accent, BUBBLE_BACKGROUND.light);
+  const dark = tintedBubble(speaker.accent, BUBBLE_BACKGROUND.dark);
   return (
     '--conv-accent:' +
     speaker.accent +
     ';--conv-on-accent:' +
     textOnAccent(speaker.accent) +
+    ';--conv-tint-light:' +
+    light +
+    ';--conv-tint-dark:' +
+    dark +
     ';--conv-name-light:' +
-    nameOnBubble(speaker.accent, BUBBLE_BACKGROUND.light) +
+    nameOnBackground(speaker.accent, PAGE_BACKGROUND.light) +
     ';--conv-name-dark:' +
-    nameOnBubble(speaker.accent, BUBBLE_BACKGROUND.dark) +
+    nameOnBackground(speaker.accent, PAGE_BACKGROUND.dark) +
     ';'
   );
 }
@@ -521,35 +645,30 @@ export function renderConversation(source: string): string {
       const bubbles = item.bubbles
         .map((bubble, index) => {
           const last = index === item.bubbles.length - 1 ? ' conv-bubble--last' : '';
-          // The top bubble of a run carries the speaker. A `me` run keeps the
-          // label screen-reader-only rather than dropping it: without it the
-          // message is attributed by alignment and fill alone, which no screen
-          // reader can perceive.
-          const labelled = index === 0;
-          const visible = labelled && !speaker.me;
-          // Short single-line bubbles centre; anything that can wrap, or that
-          // carries a visible name, aligns to start.
-          const wide = visible || bubble.text.length > 12 ? ' conv-bubble--wide' : '';
-          const name = labelled
-            ? '<div class="conv-name' +
-              (visible ? '' : ' conv-name--sr') +
-              '">' +
-              escapeHtml(speaker.label) +
-              '</div>'
-            : '';
+          // Short single-line bubbles centre; anything that can wrap aligns to
+          // start.
+          const wide = bubble.text.length > 12 ? ' conv-bubble--wide' : '';
           return (
             '<div class="conv-bubble' +
             last +
             wide +
-            '">' +
-            name +
-            '<p>' +
+            '"><p>' +
             renderInline(bubble.text) +
-            '</p>' +
-            '</div>'
+            '</p></div>'
           );
         })
         .join('');
+
+      // One name per run, above the stack. A `me` run keeps the label
+      // screen-reader-only rather than dropping it: without it the message is
+      // attributed by alignment and fill alone, which no screen reader can
+      // perceive. Either way it is the first thing read in the run.
+      const name =
+        '<div class="conv-name' +
+        (speaker.me ? ' conv-name--sr' : '') +
+        '">' +
+        escapeHtml(speaker.label) +
+        '</div>';
 
       return (
         '<div class="conv-group conv-group--' +
@@ -561,6 +680,7 @@ export function renderConversation(source: string): string {
         renderAvatar(speaker) +
         '</div>' +
         '<div class="conv-stack">' +
+        name +
         bubbles +
         '</div>' +
         '</div>'
@@ -568,13 +688,9 @@ export function renderConversation(source: string): string {
     })
     .join('');
 
-  return (
-    '<div class="conv"><div class="conv-thread" data-avatars="' +
-    (options.avatars ? 'on' : 'off') +
-    '" data-names="' +
-    (options.names ? 'on' : 'off') +
-    '">' +
-    body +
-    '</div></div>'
-  );
+  const attributes = OPTION_NAMES.map(
+    (option) => ' data-' + option + '="' + (options[option] ? 'on' : 'off') + '"',
+  ).join('');
+
+  return '<div class="conv"><div class="conv-thread"' + attributes + '>' + body + '</div></div>';
 }

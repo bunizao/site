@@ -48,6 +48,7 @@ ada: Both switches are part of the source.
 | --- | --- | --- |
 | `avatars` | `on` | Hides every avatar while preserving the alignment gutter. |
 | `names` | `on` | Hides visible speaker names; accessible labels remain. |
+| `tints` | `on` | Drops the accent tint; every receiving bubble goes neutral. |
 
 Only `on` and `off` are valid. Unknown, repeated, malformed, or misplaced
 options remain visible as prose instead of being partially applied.
@@ -111,8 +112,10 @@ one worth hearing with a cast line: `@me [Lucian]`.
 ### Runs
 
 Consecutive messages from one speaker collapse into a **run**: each message
-keeps its own bubble, but the name is drawn once, at the top of the first one,
-and only the last bubble squares off the corner nearest its speaker.
+keeps its own bubble, but the name is drawn once, on its own line above the
+first one, and only the last bubble squares off the corner nearest its speaker.
+The name sits beside the bubbles rather than inside them — the bubble is the
+message, the name is who sent it.
 
 ```conversation
 grace: One thing first.
@@ -168,7 +171,7 @@ is optional — cast lines exist to override defaults, not to satisfy the parser
 | Written as | Effect |
 | --- | --- |
 | `[…]` | Display name. Defaults to the key, exactly as first written. |
-| `accent=#RRGGBB` | Custom hue for the fill and the name. Must be a hex colour. |
+| `accent=#RRGGBB` | Custom hue for the own-side fill, receiving-side tint, and name. Must be a hex colour. |
 | `avatar=…` | See below. |
 
 A value is one token: `name=value`, never quoted. The display name is the one
@@ -224,11 +227,32 @@ not in, a name that is not the handle:
 The default is monochrome, derived from the site's `--foreground`, and is AA in
 both themes by construction.
 
-Supplying `accent=#RRGGBB` opts into a hue. A hex chosen to look good as a
-*fill* routinely lands near 4:1 when reused as *name text*, so the accent is
-walked toward the far end of the bubble in 4% steps until it clears 4.5:1 —
-once per theme, at build time. You keep as much of the chosen hue as the
-contrast ratio allows, and no configuration can produce unreadable text.
+Supplying `accent=#RRGGBB` opts into a hue, and where it lands depends on which
+side the speaker is on:
+
+| Side | What the accent paints |
+| --- | --- |
+| own side (`me:`, `you:`, `我:`, `你:`) | the whole bubble, filled |
+| everyone else | a tint on the bubble, plus the name |
+
+The tint is what makes a colour worth declaring on a thread running
+`avatars=off names=off`: with no name and no avatar to carry it, the bubble is
+the only surface left. It stays a tint on purpose — one side filled outright is
+what tells a reader which way the conversation runs, and two filled sides lose
+that. `tints=off` drops it entirely.
+
+The tint is **not** your hex mixed into the bubble. It keeps the hue, pins
+lightness beside the bubble's own, and caps chroma, all in OKLCH. That is what
+keeps a thread even: a vivid violet and a muted sage arrive at the same weight,
+so no speaker shouts louder than another for a reason you did not choose. It is
+also the only way light mode stays clean — an accent picked as a fill is
+mid-dark, and mixing one into a light bubble lands on a dirty pastel every time.
+
+A hex chosen to look good as a *fill* routinely lands near 4:1 when reused as
+*name text*, so the accent is walked toward the far end of the page background in
+4% steps until it clears 4.5:1 — once per theme, when the conversation is
+rendered. You keep as much of the chosen hue as the contrast ratio allows, and
+no configuration can produce unreadable text.
 
 Anything that is not a hex colour makes the cast line invalid and leaves it
 visible as prose.
