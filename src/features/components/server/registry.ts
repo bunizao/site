@@ -142,7 +142,6 @@ async function buildListeningItem(): Promise<RegistryItem> {
     .replace("@/assets/apple-logo.svg?raw", '@/lib/apple-logo.svg?raw')
     .replace("@/lib/listening/markup", '@/lib/listening-markup')
     .replace("@/lib/listening/controller", '@/lib/listening-controller')
-    .replace("@/lib/listening/artwork-accent", '@/lib/listening-artwork-accent')
     .replace("@/styles/listening.css", '@/lib/listening.css');
   const removeSiteAnalytics = (content: string) => content.replace(
     `import {
@@ -181,18 +180,13 @@ const inferListeningSurface = (_pathname: string): 'other' => 'other';`,
         rewriteImports
       ),
       await readRepoRegistryFile(
-        'src/features/home/types.ts',
+        'packages/contracts/src/listening.ts',
         'lib/listening-types.ts',
         'registry:lib'
       ),
       await readRepoRegistryFile(
         'src/lib/listening/markup.ts',
         'lib/listening-markup.ts',
-        'registry:lib'
-      ),
-      await readRepoRegistryFile(
-        'src/lib/listening/artwork-accent.ts',
-        'lib/listening-artwork-accent.ts',
         'registry:lib'
       ),
       await readRepoRegistryFile(

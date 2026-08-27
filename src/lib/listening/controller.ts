@@ -8,11 +8,7 @@ import {
   createBrowserListeningAnalytics,
   inferListeningSurface,
 } from '@/lib/listening/analytics';
-import {
-  ACCENT_LIGHTNESS,
-  sampleArtworkAccent,
-  type ArtworkAccent,
-} from '@/lib/listening/artwork-accent';
+import type { ListeningAccent } from '@/features/home/types';
 
 type ListeningTrackPayload = {
   id?: string;
@@ -25,6 +21,7 @@ type ListeningTrackPayload = {
   sourceUrl?: string;
   artworkUrl?: string;
   thumbUrl?: string;
+  accent?: ListeningAccent | null;
   previewUrl?: string;
   year?: string;
   playedAt?: string;
@@ -32,9 +29,6 @@ type ListeningTrackPayload = {
 };
 
 const LISTENING_REFRESH_MS = 45_000;
-// `null` is a real cached answer ("this cover has no accent"), so reads go
-// through `has()` rather than treating a missing entry as uncached.
-const artworkAccentCache = new Map<string, ArtworkAccent | null>();
 const playedAtDateFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',
@@ -42,21 +36,9 @@ const playedAtDateFormatter = new Intl.DateTimeFormat(undefined, {
 
 const ACCENT_PROPERTIES = [
   '--listening-accent-h',
-  '--listening-accent-l-light',
-  '--listening-accent-l-dark',
   '--listening-accent-c-light',
   '--listening-accent-c-dark'
 ] as const;
-
-const runWhenIdle = (callback: () => void, timeout = 1500) => {
-  const requestIdle = window.requestIdleCallback;
-  if (typeof requestIdle === 'function') {
-    requestIdle(callback, { timeout });
-    return;
-  }
-
-  window.setTimeout(callback, 0);
-};
 
 export const initListeningCards = (root: ParentNode = document): void => {
   const roots = root.querySelectorAll('[data-listening]');
@@ -107,10 +89,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
       surface: inferListeningSurface(window.location.pathname),
     }));
 
-    // One hue plus a lightness/chroma pair per theme; listening.css selects the
-    // pair. data-accent is the switch between the sampled color and the neutral
-    // foreground default.
-    const applyAccent = (accent: ArtworkAccent | null) => {
+    const applyAccent = (accent: ListeningAccent | null) => {
       if (!accent) {
         delete root.dataset.accent;
         for (const name of ACCENT_PROPERTIES) root.style.removeProperty(name);
@@ -119,41 +98,9 @@ export const initListeningCards = (root: ParentNode = document): void => {
 
       root.dataset.accent = '';
       root.style.setProperty('--listening-accent-h', accent.hue.toFixed(1));
-      root.style.setProperty('--listening-accent-l-light', String(ACCENT_LIGHTNESS.light));
-      root.style.setProperty('--listening-accent-l-dark', String(ACCENT_LIGHTNESS.dark));
       root.style.setProperty('--listening-accent-c-light', accent.chromaLight.toFixed(3));
       root.style.setProperty('--listening-accent-c-dark', accent.chromaDark.toFixed(3));
     };
-
-    const updateArtworkAccent = () => {
-      if (!(artwork instanceof HTMLImageElement)) {
-        return;
-      }
-
-      const artworkSrc = artwork.currentSrc || artwork.src;
-      if (!artworkSrc || artwork.naturalWidth === 0) {
-        return;
-      }
-
-      if (artworkAccentCache.has(artworkSrc)) {
-        applyAccent(artworkAccentCache.get(artworkSrc) ?? null);
-        return;
-      }
-
-      runWhenIdle(() => {
-        try {
-          const accent = sampleArtworkAccent(artwork);
-          artworkAccentCache.set(artworkSrc, accent);
-          applyAccent(accent);
-        } catch {
-          applyAccent(null);
-        }
-      });
-    };
-
-    if (artwork instanceof HTMLImageElement) {
-      artwork.addEventListener('load', updateArtworkAccent);
-    }
 
     const setLiveState = (nextIsLive: boolean) => {
       isLive = nextIsLive;
@@ -341,6 +288,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
       const nextCatalogId = normalizeCatalogId(track);
       const nextYear = track.year?.trim() || formatPlayedAt(track.playedAt ?? '');
       const nextIsLive = Boolean(track.isNowPlaying);
+      applyAccent(track.accent ?? null);
 
       trackTitle = nextTitle;
       trackArtist = nextArtist;
@@ -375,10 +323,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
       if (artwork instanceof HTMLImageElement && nextArtwork) {
         const currentArtwork = artwork.currentSrc || artwork.src;
         if (currentArtwork !== nextArtwork) {
-          applyAccent(null);
           artwork.src = nextArtwork;
-        } else if (artwork.complete) {
-          updateArtworkAccent();
         }
       }
 

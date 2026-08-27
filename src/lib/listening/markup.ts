@@ -14,6 +14,7 @@ export interface ListeningCardProps {
   /** Second meta segment. Empty string hides it (and its separator dot). */
   year: string;
   artworkUrl: string;
+  accent?: { hue: number; chromaLight: number; chromaDark: number } | null;
   /** Track link (Apple Music / t.me / source). Empty string disables it. */
   linkUrl: string;
   previewUrl: string;
@@ -66,6 +67,7 @@ export function renderListeningCardMarkup(props: ListeningCardProps): string {
     collection,
     year,
     artworkUrl,
+    accent = null,
     linkUrl,
     previewUrl,
     appleCatalogId,
@@ -95,8 +97,6 @@ export function renderListeningCardMarkup(props: ListeningCardProps): string {
     : 'Loading listening track';
 
   // Cover style drops the turntable disc + tonearm for a plain album-art tile.
-  // It also skips crossorigin (no groove-accent sampling), so same-origin mood
-  // artwork always renders instead of tripping CORS.
   const artInner = isCover
     ? [
         '<span class="listening-art-frame">',
@@ -111,7 +111,7 @@ export function renderListeningCardMarkup(props: ListeningCardProps): string {
         '<span class="listening-art-frame">',
         '<span class="listening-art-record" aria-hidden="true"></span>',
         `<img src="${escapeHtml(artworkUrl)}" alt="" class="listening-art-img" data-listening-artwork`,
-        ' crossorigin="anonymous" loading="lazy" decoding="async" fetchpriority="low"',
+        ' loading="lazy" decoding="async" fetchpriority="low"',
         ' referrerpolicy="no-referrer" width="40" height="40" />',
         `<span class="listening-art-icons" aria-hidden="true">${playIcon}${pauseIcon}${loadingIcon}</span>`,
         badgeHtml,
@@ -119,9 +119,14 @@ export function renderListeningCardMarkup(props: ListeningCardProps): string {
         tonearm,
       ].join('');
 
+  const accentAttributes = accent
+    ? ` data-accent style="--listening-accent-h:${accent.hue.toFixed(1)};--listening-accent-c-light:${accent.chromaLight.toFixed(3)};--listening-accent-c-dark:${accent.chromaDark.toFixed(3)}"`
+    : '';
+
   return [
     `<aside class="listening ${liveClass}${playbackClass}${isLoading ? ' is-loading' : ''}${isCover ? ' is-cover' : ''}"`,
     ' data-listening',
+    accentAttributes,
     ` data-has-initial-track="${hasTrack}"`,
     ` data-now-playing="${isLive}"`,
     ` data-static="${isStatic}"`,

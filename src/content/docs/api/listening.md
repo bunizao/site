@@ -35,6 +35,7 @@ No parameters, no auth. Rate limit: 60 requests / 60s (advertised — see
     "appleMusicUrl": "https://music.apple.com/tw/album/all-the-love/1888707282?i=1888707290&l=en-GB",
     "artworkUrl": "https://is1-ssl.mzstatic.com/.../600x600bb.jpg",
     "thumbUrl": "https://is1-ssl.mzstatic.com/.../100x100bb.jpg",
+    "accent": null,
     "previewUrl": "https://audio-ssl.itunes.apple.com/.../mzaf_....m4a",
     "year": "2026",
     "genre": "Hip-Hop/Rap",
@@ -50,15 +51,27 @@ No parameters, no auth. Rate limit: 60 requests / 60s (advertised — see
 }
 ```
 
-Every `track` field is a string except `isNowPlaying` (boolean) and
+Every scalar `track` field is a string except `isNowPlaying` (boolean) and
 `releaseKind` (`"album"` | `"single"`). The numeric-looking ones —
 `trackNumber`, `trackCount`, `year` — are strings, not numbers. `playedAt` is
 `""` when the track is playing right now rather than a past scrobble, so treat
 empty as "now", not as missing.
 
+`accent` is either `null` or a server-selected colour:
+
+```json
+{ "hue": 229.6, "chromaLight": 0.037, "chromaDark": 0.037 }
+```
+
+The Worker extracts it once from Apple artwork and caches the result for a
+week. `null` is a deliberate instruction to render the neutral foreground —
+usually because the cover is monochrome — not a missing field and not a signal
+to sample the image again in the browser.
+
 The identifiers come from Apple Music, not Last.fm: Last.fm supplies the
 artist and title, and the handler resolves that pair against Apple's catalog
-to get artwork, a preview stream, and a linkable URL.
+to get artwork, a preview stream, a linkable URL, and the artwork palette used
+as a bounded fallback when image extraction is unavailable.
 
 ### Read `source` before rendering
 
