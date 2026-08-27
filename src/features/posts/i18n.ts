@@ -101,3 +101,53 @@ export function selectListedPosts(posts: Post[]): Post[] {
     return !key || preferred.get(key) === post;
   });
 }
+
+export interface PostVersion {
+  locale: BlogLocale;
+  /** Endonym — the name the language calls itself. Never a flag, never a code. */
+  label: string;
+  /** One canonical URL per article; the language rides on the query string. */
+  href: string;
+  current: boolean;
+}
+
+// Fixed locale order, not "current first": a menu that reshuffles between posts
+// makes the reader re-read it every time. Empty when there is nothing to switch
+// to, so a control that appears is always a control that works.
+export function getPostVersions(post: Post, posts: Post[]): PostVersion[] {
+  const translations = getTranslations(post, posts);
+
+  if (translations.length === 0) {
+    return [];
+  }
+
+  const here = getPostLocale(post);
+  const present = new Set<BlogLocale>([
+    here,
+    ...translations.map((translation) => translation.locale),
+  ]);
+
+  return KNOWN_LOCALES.filter((locale) => present.has(locale)).map((locale) => ({
+    locale,
+    label: blog.copy[locale].languageSwitcher.language,
+    href: `?lang=${locale}`,
+    current: locale === here,
+  }));
+}
+
+// Endonyms of the *other* languages each post exists in, keyed by slug. Built
+// once per listing page: a row cannot tell it has siblings from its own tags,
+// because the link runs translation -> canonical and not back.
+export function mapOtherLanguages(posts: Post[]): Map<string, string[]> {
+  const byPost = new Map<string, string[]>();
+
+  for (const post of posts) {
+    const others = getPostVersions(post, posts).filter((version) => !version.current);
+
+    if (others.length > 0) {
+      byPost.set(post.slug, others.map((version) => version.label));
+    }
+  }
+
+  return byPost;
+}

@@ -90,6 +90,17 @@ export interface BlogLocaleCopy {
      */
     fallback: string;
   };
+  languageSwitcher: {
+    /** Endonym — what this language calls itself. Shown on the article pill. */
+    language: string;
+    /** Accessible name of the article control. */
+    open: string;
+    /**
+     * Listing mark. `{languages}` is replaced by the endonyms of the other
+     * versions, joined for this locale.
+     */
+    alsoIn: string;
+  };
 }
 
 export const blog = {
@@ -110,6 +121,11 @@ export const blog = {
       aiCredit: {
         fallback: '本文在 {models} 的协助下完成。',
       },
+      languageSwitcher: {
+        language: '中文',
+        open: '切换语言',
+        alsoIn: '也有 {languages} 版本',
+      },
     },
     en: {
       name: 'Sillage',
@@ -121,6 +137,11 @@ export const blog = {
       },
       aiCredit: {
         fallback: 'Written with {models}.',
+      },
+      languageSwitcher: {
+        language: 'English',
+        open: 'Change language',
+        alsoIn: 'Also in {languages}',
       },
     },
   } satisfies Record<BlogLocale, BlogLocaleCopy>,
