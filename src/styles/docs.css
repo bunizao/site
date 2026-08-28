@@ -1,0 +1,1609 @@
+/* Docs — the reference surface at /docs. Same monochrome register as the rest of
+   the site (one ink ramp for hierarchy, hairlines as inset rings, no shadows),
+   but tuned to reference density rather than essay density: smaller type, a
+   persistent rail, and vertical rhythm sized so a long endpoint page still scans.
+   Shared by the hub and the article route so the two cannot drift apart. */
+
+.docs {
+  --ink-strong: hsl(var(--foreground) / 0.94);
+  --ink-lede: hsl(var(--foreground) / 0.72);
+  --ink-body: hsl(var(--foreground) / 0.66);
+  --ink-faint: hsl(var(--foreground) / 0.5);
+  --docs-line: hsl(var(--foreground) / 0.1);
+  --docs-line-soft: hsl(var(--foreground) / 0.06);
+  --docs-surface: hsl(var(--foreground) / 0.03);
+  --docs-surface-hover: hsl(var(--foreground) / 0.055);
+  /* Every column starts here: the rail, the prose, and the on-this-page list.
+     It used to be four unrelated numbers, so the three tops never lined up. */
+  --docs-top: 1.75rem;
+  --docs-anchor-offset: 5.5rem;
+
+  min-height: 100vh;
+  padding: 0;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* The dot grid behind the page reads as noise under dense reference text —
+   both the static layer and the pointer-following one, which on a page this
+   dense looks like the whole surface is being dragged around. */
+body:has(.docs)::before,
+body:has(.docs) .spotlight-overlay {
+  display: none;
+}
+
+/* Neither axis overscrolls on a docs page. Horizontally there is nothing to
+   scroll — the fences and tables scroll inside their own frames — so a swipe
+   reaching an edge would chain out to the browser back gesture, which looks
+   exactly like the page being dragged. Vertically the rubber-band at the foot
+   of the page carries the rail with it, because a sticky element rides the
+   document it is stuck to. globals.css already clips the horizontal overflow
+   itself; only the chaining is left. */
+html:has(.docs) {
+  /* Declared on the root, not on .docs: the top bar lives in the site header,
+     outside the .docs subtree, and it has to agree with the rail on this number
+     or the two stop lining up. */
+  --docs-bar-h: 3.25rem;
+  /* The three hairlines that frame the page — the bar's underside, the rail's
+     edge, and the divider above the rail's exits — meet each other at corners
+     and T-junctions. They were 0.07, 0.06 and 0.1, which at a junction reads as
+     one line changing weight halfway. One value for all three. */
+  --docs-chrome-line: hsl(var(--foreground) / 0.08);
+
+  overscroll-behavior: none;
+}
+
+/* globals.css gives every bare <section> the home page's band treatment (48px of
+   vertical padding plus a bottom hairline). Docs sections are content groups,
+   not bands, so opt out once here and let the rules below own the rhythm. */
+.docs section {
+  padding: 0;
+  border-bottom: 0;
+}
+
+/* --- Chrome ------------------------------------------------------------- */
+/* Docs run their own top bar. The site's floating brand pill has nothing to
+   anchor against once a fixed rail owns the left gutter, and the home lockup is
+   three times the identity a reference page needs. What is left is the smallest
+   thing that still says where you are: mark, wordmark, `/ Docs`. Search is not
+   here — the rail owns it, and one palette does not need two triggers. */
+.site-nav--docs {
+  /* Matches .docs-shell--article's measure so the bar's ends line up with the
+     rail on the left and the on-this-page column on the right. */
+  --docs-chrome-inset: max(1.75rem, calc((100vw - 88rem) / 2));
+
+  display: flex;
+  top: var(--site-nav-mobile-top, 0px);
+  left: 0;
+  right: 0;
+  height: var(--docs-bar-h);
+  gap: 0;
+  padding: 0 4rem 0 1rem;
+  z-index: 60;
+  /* Opaque, not frosted. A backdrop-filter on a full-width fixed bar makes the
+     compositor re-read and re-blur the strip behind it on every scrolled frame,
+     and the only thing it had to soften was prose passing underneath. An opaque
+     bar has nothing to soften, so the effect paid a per-frame cost it could not
+     be seen earning. */
+  background: hsl(var(--background));
+  border-bottom: 1px solid var(--docs-chrome-line);
+}
+
+.site-nav--docs .site-brand {
+  --brand-logo-height: 18px;
+}
+
+@media (min-width: 900px) {
+  .site-nav--docs {
+    /* body carries padding-left: calc(100vw - 100%); the bar is fixed and sits
+       outside it, so it repeats the compensation or lands a scrollbar-width
+       left of the column it aligns with. */
+    padding-left: calc(var(--docs-chrome-inset) + (100vw - 100%));
+  }
+}
+
+/* mark | rule | Docs. A slash between the mark and the label reads as a path
+   segment with nothing before it; a hairline rule just separates identity from
+   section, which is all it is doing. */
+.nav-docs-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-left: 0.7rem;
+  text-decoration: none;
+}
+
+.nav-docs-rule {
+  width: 1px;
+  height: 0.95rem;
+  background: hsl(var(--foreground) / 0.18);
+}
+
+.nav-docs-label {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.011em;
+  color: hsl(var(--foreground) / 0.82);
+  transition: color 0.15s ease;
+}
+
+.nav-docs-crumb:hover .nav-docs-label,
+.nav-docs-crumb:focus-visible .nav-docs-label {
+  color: hsl(var(--foreground));
+}
+
+/* The bar is fixed and .site-shell is its sibling, so nothing pushes the page
+   below it. */
+body:has(.site-nav--docs) .site-shell {
+  padding-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 3.25rem);
+}
+
+/* Re-centre the theme control into the bar. */
+body:has(.site-nav--docs) .global-header-actions {
+  top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.625rem);
+  right: 1rem;
+  z-index: 61;
+}
+
+@media (min-width: 900px) {
+  body:has(.site-nav--docs) .global-header-actions {
+    right: max(1.75rem, calc((100vw - 88rem) / 2));
+  }
+}
+
+/* The bar's controls are bare glyphs, the same ghost treatment the home header
+   uses on mobile (globals.css): the docs chrome already carries a hairline under
+   it, and a boxed button hanging off that line reads as a second frame. */
+body:has(.site-nav--docs) .global-header-actions .header-action-btn {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
+  background: hsl(var(--foreground) / 0.06);
+  border-color: transparent;
+  color: hsl(var(--foreground));
+}
+
+/* --- Navigation --------------------------------------------------------- */
+/* Reading reference material is page-hopping, and the site's arrival tween —
+   240ms out plus a 460ms rise — reads as drag when you are stepping through a
+   tree. Docs cross-fade instead, inside the 150ms window a high-frequency
+   interaction gets. Only pages that load this sheet are affected. */
+::view-transition-old(root) {
+  animation: docs-vt-out 90ms linear both;
+}
+
+::view-transition-new(root) {
+  animation: docs-vt-in 120ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes docs-vt-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes docs-vt-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* --- Shell -------------------------------------------------------------- */
+/* One column on a phone; the rail appears once there is room beside the prose,
+   and the on-this-page column one breakpoint later. */
+.docs-shell {
+  width: min(88rem, 100% - 2.5rem);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  padding-top: 1.25rem;
+}
+
+@media (min-width: 64rem) {
+  .docs-shell--article {
+    width: min(88rem, 100% - 3.5rem);
+    grid-template-columns: 15rem minmax(0, 1fr);
+    gap: 3.5rem;
+    align-items: start;
+    padding-top: 0;
+  }
+}
+
+@media (min-width: 90rem) {
+  .docs-shell--article {
+    grid-template-columns: 15rem minmax(0, 1fr) 13rem;
+  }
+}
+
+/* --- Sidebar ------------------------------------------------------------ */
+.docs-nav {
+  border-radius: 0.75rem;
+  background: var(--docs-surface);
+  box-shadow: inset 0 0 0 1px var(--docs-line);
+}
+
+.docs-nav-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--ink-strong);
+  list-style: none;
+}
+
+.docs-nav-summary::-webkit-details-marker {
+  display: none;
+}
+
+.docs-nav-summary-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.docs-nav-chevron {
+  flex: none;
+  color: var(--ink-faint);
+  transition: transform 0.18s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.docs-nav[open] .docs-nav-chevron {
+  transform: rotate(180deg);
+}
+
+.docs-nav-body {
+  padding: 0.15rem 0.9rem 0.9rem;
+}
+
+@media (min-width: 64rem) {
+  /* Desktop: the disclosure is meaningless. Flatten it into a viewport-height
+     rail pinned under the bar — search at the top, the tree scrolling between,
+     the exits at the foot. Only the middle band moves, so the rail reads as
+     chrome rather than as another column of page. */
+  .docs-nav {
+    position: sticky;
+    top: var(--docs-bar-h);
+    height: calc(100dvh - var(--docs-bar-h));
+    display: flex;
+    flex-direction: column;
+    padding-right: 0.75rem;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    border-right: 1px solid var(--docs-chrome-line);
+  }
+
+  /* Chrome slots the body into ::details-content, so there that pseudo is the
+     flex item and .docs-nav-body is its child; elsewhere the body is the item
+     directly. One rule covering both keeps the column upright either way. */
+  .docs-nav::details-content,
+  .docs-nav-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .docs-nav-summary {
+    display: none;
+  }
+
+  .docs-nav-body {
+    padding: var(--docs-top) 0 0;
+  }
+
+  .docs-nav-tree {
+    flex: 1 1 auto;
+    min-height: 0;
+    /* macOS overlay scrollbars paint over content rather than displacing it, so
+       the rows have to stand back far enough that the thumb reads as a separate
+       object instead of a stripe welded to the edge of the hover pill. The
+       standoff is what buys that air; the thumb's own shape cannot, because
+       Chrome drops every ::-webkit-scrollbar rule the moment scrollbar-width is
+       set. scrollbar-gutter keeps classic scrollbars from shifting the rows. */
+    padding-right: 1rem;
+    padding-bottom: 1.3rem;
+    scrollbar-gutter: stable;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.13) transparent;
+    /* Both ends of the tree are hard edges — the search field above, the exits'
+       hairline below — so a row scrolled halfway past either one gets guillotined
+       and reads as a rendering fault. Dissolve the last 1.5rem instead. The two
+       lengths are 0 until the script says there is something behind that end, so
+       a tree that fits the rail carries no mask at all. A gradient mask rather
+       than a backdrop-filter strip: this surface repaints on every scroll frame,
+       and it needs no extra element to hang the blur on. */
+    --tree-fade-top: 0px;
+    --tree-fade-bottom: 0px;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--tree-fade-top),
+      #000 calc(100% - var(--tree-fade-bottom)),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--tree-fade-top),
+      #000 calc(100% - var(--tree-fade-bottom)),
+      transparent 100%
+    );
+  }
+
+  .docs-nav-tree.is-fade-top {
+    --tree-fade-top: 1.5rem;
+  }
+
+  .docs-nav-tree.is-fade-bottom {
+    --tree-fade-bottom: 1.5rem;
+  }
+
+  .docs-nav-tree:hover {
+    scrollbar-color: hsl(var(--foreground) / 0.22) transparent;
+  }
+}
+
+.docs-nav-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0 0 1.35rem;
+  padding: 0.45rem 0.6rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--docs-surface);
+  box-shadow: inset 0 0 0 1px var(--docs-line);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  letter-spacing: -0.008em;
+  color: var(--ink-faint);
+  transition: color 0.15s ease, box-shadow 0.18s ease;
+}
+
+.docs-nav-search:hover,
+.docs-nav-search:focus-visible {
+  color: var(--ink-strong);
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.2);
+}
+
+.docs-nav-search-label {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.docs-nav-search-keys {
+  display: inline-flex;
+  gap: 0.15rem;
+  opacity: 0.75;
+}
+
+@media (min-width: 64rem) {
+  /* Search and the foot stop where the tree's rows stop, so the rail keeps one
+     right edge and the scrollbar gutter is not a notch in the middle of it.
+     width:auto because an over-constrained block ignores its own right margin,
+     which is why this has to undo the 100% above. */
+  .docs-nav-search {
+    width: auto;
+    margin-right: 1rem;
+  }
+
+  /* The foot's rule is the only one of the three that has a right end, so it
+     has to land on the rail's border rather than on the tree's gutter: out
+     0.75rem past the rail's padding, with the inset put back as padding so the
+     links stay where the rows are. */
+  .docs-nav-foot {
+    width: auto;
+    margin-right: -0.75rem;
+    padding-right: 1.75rem;
+  }
+}
+
+.docs-nav-group + .docs-nav-group {
+  margin-top: 1.1rem;
+}
+
+/* Each group folds. Thirty-three pages in five sections is more than a rail can
+   hold at once, and the reader working through Writing does not need Platform
+   expanded under it. */
+.docs-nav-group-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.3rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.docs-nav-group-label::-webkit-details-marker {
+  display: none;
+}
+
+.docs-nav-group-label:hover,
+.docs-nav-group-label:focus-visible {
+  color: var(--ink-strong);
+  background: var(--docs-surface);
+}
+
+/* Always visible, never loud: a fold with no mark is a disclosure the reader
+   cannot see. */
+.docs-nav-group-chevron {
+  flex: none;
+  opacity: 0.5;
+  rotate: -90deg;
+  transition: rotate 0.18s cubic-bezier(0.2, 0, 0, 1), opacity 0.15s ease;
+}
+
+.docs-nav-group[open] > .docs-nav-group-label .docs-nav-group-chevron {
+  rotate: 0deg;
+}
+
+.docs-nav-group-label:hover .docs-nav-group-chevron {
+  opacity: 1;
+}
+
+/* --- Rail foot ---------------------------------------------------------- */
+/* Docs drop the site footer: a rail this tall makes the page end twice. The
+   handful of ways out live here instead, pinned where Linear puts them. */
+.docs-nav-foot {
+  display: flex;
+  flex-direction: column;
+  /* The rule needs matching air on both faces. It had 0.55 under it against the
+     tree's 0.9 above, which tipped the divider toward the exits and made it look
+     like their heading rather than a boundary between two blocks. */
+  padding: 0.8rem 0 0.9rem;
+  /* Opaque, because the tree scrolls under this block and half its entries
+     share names with the Surfaces group that lands directly above it. What
+     separates the two is the rule running the full width of the rail, not the
+     rule being darker than the rail's own edge. */
+  border-top: 1px solid var(--docs-chrome-line);
+  background: hsl(var(--background));
+}
+
+.docs-nav-foot-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.26rem 0.6rem;
+  border-radius: 0.4rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  letter-spacing: -0.006em;
+  color: hsl(var(--foreground) / 0.44);
+  text-decoration: none;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.docs-nav-foot-link:hover,
+.docs-nav-foot-link:focus-visible {
+  color: hsl(var(--foreground));
+  background: var(--docs-surface);
+}
+
+.docs-nav-foot-link svg {
+  opacity: 0.55;
+}
+
+.docs-nav-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A filled pill for the current page rather than a cursor rule: at this density
+   a 1px mark beside twelve near-identical rows is not findable at a glance. */
+.docs-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* Clears the tree's fade band. scrollIntoView('nearest') parks the current
+     page flush against whichever edge it entered from, which is exactly where
+     the mask dissolves it — the one row that has to stay legible. */
+  scroll-margin-block: 1.6rem;
+  padding: 0.32rem 0.6rem;
+  border-radius: 0.4rem;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  letter-spacing: -0.008em;
+  color: var(--ink-body);
+  text-decoration: none;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.docs-nav-link-text {
+  flex: 1 1 auto;
+}
+
+.docs-nav-link:hover,
+.docs-nav-link:focus-visible {
+  color: hsl(var(--foreground));
+  background: var(--docs-surface);
+}
+
+.docs-nav-link[aria-current='page'] {
+  color: hsl(var(--foreground));
+  font-weight: 500;
+  background: var(--docs-surface-hover);
+}
+
+.docs-nav-badge {
+  flex: none;
+  padding: 0.1em 0.38em;
+  border-radius: 0.3rem;
+  background: hsl(var(--foreground) / 0.07);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* --- On this page ------------------------------------------------------- */
+.docs-toc {
+  display: none;
+}
+
+@media (min-width: 90rem) {
+  .docs-toc {
+    display: block;
+    position: sticky;
+    top: calc(var(--docs-bar-h) + var(--docs-top));
+    max-height: calc(100vh - var(--docs-bar-h) - var(--docs-top) - 2rem);
+    overflow-y: auto;
+    align-self: start;
+    scrollbar-width: none;
+  }
+
+  .docs-toc::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.docs-toc-label {
+  margin: 0 0 0.65rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.docs-toc-nav {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--docs-line-soft);
+}
+
+.docs-toc-link {
+  padding: 0.3rem 0 0.3rem 0.8rem;
+  margin-left: -1px;
+  border-left: 1px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  letter-spacing: -0.008em;
+  color: var(--ink-faint);
+  text-decoration: none;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.docs-toc-link--sub {
+  padding-left: 1.6rem;
+  font-size: 0.78rem;
+}
+
+.docs-toc-link:hover,
+.docs-toc-link:focus-visible {
+  color: hsl(var(--foreground));
+}
+
+.docs-toc-link.is-active {
+  color: hsl(var(--foreground));
+  border-left-color: hsl(var(--foreground));
+}
+
+/* --- Article head ------------------------------------------------------- */
+.docs-article {
+  min-width: 0;
+  padding-top: var(--docs-top);
+  padding-bottom: 5rem;
+}
+
+@media (max-width: 63.99rem) {
+  .docs-article {
+    padding-top: 1.75rem;
+  }
+}
+
+.docs-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.docs-eyebrow a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.docs-eyebrow a:hover,
+.docs-eyebrow a:focus-visible {
+  color: var(--ink-strong);
+}
+
+.docs-title {
+  max-width: 24ch;
+  margin: 0 0 0.7rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.85rem, 3vw, 2.35rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.032em;
+  color: hsl(var(--foreground));
+  text-wrap: balance;
+}
+
+.docs-lede {
+  max-width: 44rem;
+  margin: 0 0 2.5rem;
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  letter-spacing: -0.014em;
+  color: var(--ink-lede);
+  text-wrap: pretty;
+}
+
+.docs-lede:has(+ .docs-playground-link) {
+  margin-bottom: 0.9rem;
+}
+
+.docs-playground-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 2.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #a84f2c;
+  text-decoration: none;
+}
+
+.dark .docs-playground-link {
+  color: #ee9a73;
+}
+
+.docs-playground-link svg {
+  transition: transform 0.16s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.docs-playground-link:hover svg,
+.docs-playground-link:focus-visible svg {
+  transform: translate(2px, -2px);
+}
+
+/* --- Copy page ---------------------------------------------------------- */
+/* The eyebrow and the control share one line: the crumb is the shortest thing
+   on the page, so the row costs no vertical space the article did not already
+   spend. */
+.docs-article-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.7rem;
+}
+
+.docs-article-head .docs-eyebrow {
+  margin-bottom: 0;
+}
+
+.docs-copy-page {
+  /* Linear's proportion: a 16px mark against 14px text. Anything smaller and
+     the mark reads as a bullet rather than the button's subject. */
+  --copy-btn-icon: 1rem;
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: stretch;
+  height: 2.1rem;
+  border: 1px solid var(--docs-line);
+  border-radius: 0.6rem;
+  background: var(--docs-surface);
+}
+
+.docs-copy-page-action,
+.docs-copy-page-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.65rem;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--ink-body);
+  transition: color 0.14s ease, background-color 0.14s ease;
+}
+
+.docs-copy-page-action {
+  position: relative;
+  border-radius: 0.5rem 0 0 0.5rem;
+}
+
+.docs-copy-page-toggle {
+  padding: 0 0.35rem;
+  border-left: 1px solid var(--docs-line);
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: var(--ink-faint);
+}
+
+.docs-copy-page-action:hover,
+.docs-copy-page-action:focus-visible,
+.docs-copy-page-toggle:hover,
+.docs-copy-page-toggle:focus-visible,
+.docs-copy-page[data-open] .docs-copy-page-toggle {
+  background: var(--docs-surface-hover);
+  color: var(--ink-strong);
+}
+
+.docs-copy-page-toggle svg {
+  transition: rotate 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.docs-copy-page[data-open] .docs-copy-page-toggle svg {
+  rotate: 180deg;
+}
+
+/* The bubble only shows while the control is in one of its two end states. */
+.docs-copy-page[data-failed] .copy-btn-tip {
+  opacity: 1;
+  translate: -50% 0;
+  scale: 1;
+}
+
+/* A hairline plus one soft, short shadow. A long blurred drop reads as a
+   floating card on a page whose every other edge is a 1px line. */
+.docs-copy-page-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  width: 16.5rem;
+  padding: 0.3rem;
+  border: 1px solid var(--docs-line);
+  border-radius: 0.7rem;
+  background: hsl(var(--background));
+  box-shadow: 0 1px 1px hsl(var(--foreground) / 0.04), 0 6px 14px -8px hsl(var(--foreground) / 0.16);
+  animation: docs-copy-page-menu-in 0.14s cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes docs-copy-page-menu-in {
+  from {
+    opacity: 0;
+    translate: 0 -3px;
+    scale: 0.985;
+  }
+}
+
+.docs-copy-page-menu[hidden] {
+  display: none;
+}
+
+.docs-copy-page-item {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.55rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  color: var(--ink-body);
+  transition: background-color 0.12s ease;
+}
+
+.docs-copy-page-item:hover,
+.docs-copy-page-item:focus-visible {
+  background: var(--docs-surface-hover);
+}
+
+.docs-copy-page-item-mark {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.1rem;
+  color: var(--ink-faint);
+}
+
+.docs-copy-page-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.docs-copy-page-item-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: hsl(var(--foreground));
+}
+
+.docs-copy-page-item-note {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 30rem) {
+  /* Narrow enough that the label plus the crumb no longer share a line. */
+  .docs-copy-page-action {
+    padding-inline: 0.55rem;
+    font-size: 0.82rem;
+  }
+}
+
+/* --- Prose -------------------------------------------------------------- */
+/* Reference density: 15px on a 44rem column runs about 78 characters, which is
+   long for an essay and right for a page that is mostly parameter tables and
+   fenced examples — both of which scroll the moment the column narrows. */
+.docs-prose {
+  max-width: 44rem;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.72;
+  letter-spacing: -0.006em;
+  color: var(--ink-body);
+}
+
+.docs-prose > :first-child {
+  margin-top: 0;
+}
+
+.docs-prose h2 {
+  margin: 3rem 0 0.9rem;
+  scroll-margin-top: var(--docs-anchor-offset);
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.026em;
+  color: hsl(var(--foreground));
+  text-wrap: balance;
+}
+
+.docs-prose h3 {
+  margin: 2.1rem 0 0.7rem;
+  scroll-margin-top: var(--docs-anchor-offset);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.016em;
+  color: var(--ink-strong);
+}
+
+.docs-prose h4 {
+  margin: 1.5rem 0 0.5rem;
+  scroll-margin-top: var(--docs-anchor-offset);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--ink-lede);
+}
+
+.docs-prose p {
+  margin: 0 0 1rem;
+  text-wrap: pretty;
+  overflow-wrap: break-word;
+}
+
+.docs-prose ul,
+.docs-prose ol {
+  margin: 0 0 1rem;
+  padding-left: 1.15rem;
+}
+
+.docs-prose ul {
+  list-style: disc;
+}
+
+.docs-prose ol {
+  list-style: decimal;
+}
+
+.docs-prose li {
+  overflow-wrap: break-word;
+}
+
+.docs-prose li + li {
+  margin-top: 0.4rem;
+}
+
+.docs-prose li::marker {
+  color: hsl(var(--foreground) / 0.3);
+}
+
+.docs-prose li > p {
+  margin: 0;
+}
+
+.docs-prose li > ul,
+.docs-prose li > ol {
+  margin: 0.4rem 0 0;
+}
+
+.docs-prose strong {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.docs-prose a {
+  color: hsl(var(--foreground));
+  text-decoration: underline;
+  text-decoration-color: hsl(var(--foreground) / 0.3);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  transition: text-decoration-color 0.18s ease;
+}
+
+.docs-prose a:hover,
+.docs-prose a:focus-visible {
+  text-decoration-color: hsl(var(--foreground));
+}
+
+.docs-prose hr {
+  margin: 2.75rem 0;
+  border: 0;
+  border-top: 1px solid var(--docs-line-soft);
+}
+
+/* Blockquotes are used as callouts here, not as pull quotes. */
+.docs-prose blockquote {
+  margin: 1.5rem 0;
+  padding: 0.9rem 1.1rem;
+  border-radius: 0.6rem;
+  border-left: 2px solid hsl(var(--foreground) / 0.28);
+  background: var(--docs-surface);
+}
+
+.docs-prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* --- Tables ------------------------------------------------------------- */
+/* Parameter tables are the backbone of this section and several are wider than
+   the column on a phone. Wrapping the table in its own scroll container is what
+   keeps that overflow local — a bare table pans the whole page instead. */
+.docs-prose table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 0 1.5rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Both of the prose's horizontal scrollers get the same bar. The OS default is
+   an opaque grey slab that reads as a progress bar rather than an affordance —
+   and a table full of parameters is exactly where the reader least needs a
+   second horizontal line under the last row. */
+.docs-prose table,
+.docs-prose pre.astro-code {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--foreground) / 0.18) transparent;
+}
+
+.docs-prose table::-webkit-scrollbar,
+.docs-prose pre.astro-code::-webkit-scrollbar {
+  height: 6px;
+}
+
+.docs-prose table::-webkit-scrollbar-thumb,
+.docs-prose pre.astro-code::-webkit-scrollbar-thumb {
+  border: 0;
+  border-radius: 3px;
+  background: hsl(var(--foreground) / 0.18);
+}
+
+.docs-prose table::-webkit-scrollbar-track,
+.docs-prose pre.astro-code::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.docs-prose thead {
+  border-bottom: 1px solid var(--docs-line);
+}
+
+.docs-prose th,
+.docs-prose td {
+  padding: 0.5rem 1.25rem 0.5rem 0;
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+}
+
+.docs-prose tbody tr {
+  border-top: 1px solid var(--docs-line-soft);
+}
+
+.docs-prose th {
+  padding-bottom: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* First column of a parameter table is the parameter itself — keep it on one
+   line so a token never wraps mid-name. */
+.docs-prose td:first-child {
+  color: var(--ink-strong);
+  white-space: nowrap;
+}
+
+/* --- Code --------------------------------------------------------------- */
+.docs-prose :not(pre) > code {
+  padding: 0.14em 0.36em;
+  border-radius: 0.3rem;
+  background: hsl(var(--foreground) / 0.06);
+  font-family: var(--font-code);
+  font-size: 0.86em;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+  overflow-wrap: break-word;
+}
+
+/* Every fence is framed: a header strip carrying the language and a copy
+   button, the code under it, and — for a `demo` fence — the rendered result
+   below that. The three are siblings, joined here rather than wrapped, so the
+   markdown plugin stays two insertions long. Borders, not rings: the seam
+   between the parts is structure, and one shared line reads cleaner than two
+   inset rings meeting. */
+.docs-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  height: 2.15rem;
+  padding: 0 0.3rem 0 0.8rem;
+  border: 1px solid var(--docs-line);
+  border-bottom: 0;
+  border-radius: 0.6rem 0.6rem 0 0;
+  background: var(--docs-surface);
+}
+
+.docs-code-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-code);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+}
+
+.docs-code-logo {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+  color: hsl(var(--foreground) / 0.7);
+}
+
+.docs-prose pre.astro-code {
+  margin: 0 0 1.5rem;
+  padding: 0.9rem 1.05rem;
+  border: 1px solid var(--docs-line);
+  border-radius: 0 0 0.6rem 0.6rem;
+  background: var(--docs-surface) !important;
+  overflow-x: auto;
+  /* Swiping a long line to its end must stop there. Without this the scroll
+     chains to the document and the whole page slides under the cursor. */
+  overscroll-behavior-x: contain;
+  font-size: 0.8125rem;
+  line-height: 1.62;
+  tab-size: 2;
+}
+
+.docs-prose pre.astro-code code {
+  font-family: var(--font-code);
+  background: none;
+  padding: 0;
+}
+
+/* --- Demos -------------------------------------------------------------- */
+/* A `demo` fence renders its own snippet through the directive pipeline and
+   shows the result attached under the source, so the page proves the syntax
+   instead of describing it. */
+.docs-prose pre.astro-code:has(+ .docs-demo) {
+  margin-bottom: 0;
+  border-radius: 0;
+}
+
+.docs-demo {
+  max-width: 44rem;
+  margin: 0 0 1.5rem;
+  border: 1px solid var(--docs-line);
+  border-top: 0;
+  border-radius: 0 0 0.6rem 0.6rem;
+  overflow: hidden;
+}
+
+.docs-demo-label {
+  display: flex;
+  align-items: center;
+  height: 2.15rem;
+  padding: 0 0.85rem;
+  border-bottom: 1px solid var(--docs-line);
+  background: var(--docs-surface);
+  font-family: var(--font-code);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+}
+
+.docs-demo-render {
+  /* blog-prose.css reads its palette off .blog-zone, which docs are not in.
+     Seed the tokens it touches so the card looks exactly as it does in a post. */
+  --blog-ink: hsl(var(--foreground));
+  --blog-body: hsl(var(--foreground) / 0.78);
+  --blog-muted: hsl(var(--foreground) / 0.58);
+  --blog-faint: hsl(var(--foreground) / 0.42);
+  --blog-line: hsl(var(--foreground) / 0.1);
+  --blog-img-edge: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+
+  max-width: 36rem;
+  margin-inline: auto;
+  padding: 0.35rem 1.05rem;
+  color: var(--blog-body);
+}
+
+html.dark .docs-demo-render {
+  --blog-img-edge: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* The cards carry a post's vertical rhythm; inside a demo frame the frame owns
+   the spacing. */
+.docs-demo-render > :first-child {
+  margin-top: 0;
+}
+
+.docs-demo-render > :last-child {
+  margin-bottom: 0;
+}
+
+/* Dual-theme fences. shikiConfig runs with `defaultColor: false`, so tokens ship
+   both palettes as custom properties and the theme class picks one — the same
+   contract code-box.css renders under. */
+.docs-prose pre.astro-code,
+.docs-prose pre.astro-code span {
+  color: var(--shiki-light);
+  font-style: var(--shiki-light-font-style);
+  font-weight: var(--shiki-light-font-weight);
+  text-decoration: var(--shiki-light-text-decoration);
+}
+
+html.dark .docs-prose pre.astro-code,
+html.dark .docs-prose pre.astro-code span {
+  color: var(--shiki-dark);
+  font-style: var(--shiki-dark-font-style);
+  font-weight: var(--shiki-dark-font-weight);
+  text-decoration: var(--shiki-dark-text-decoration);
+}
+
+/* --- Pager -------------------------------------------------------------- */
+.docs-pager {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.6rem;
+  max-width: 44rem;
+  margin-top: 3.5rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--docs-line-soft);
+}
+
+.docs-pager-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 0.95rem;
+  border-radius: 0.6rem;
+  box-shadow: inset 0 0 0 1px var(--docs-line);
+  text-decoration: none;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.docs-pager-link:hover,
+.docs-pager-link:focus-visible {
+  background: var(--docs-surface);
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.2);
+}
+
+.docs-pager-link--next {
+  text-align: right;
+}
+
+.docs-pager-dir {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.docs-pager-title {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: -0.014em;
+  color: var(--ink-strong);
+}
+
+/* --- Hub ---------------------------------------------------------------- */
+/* The hub renders no on-this-page column, so the article shell's third track
+   would sit empty and squeeze the content into a measure narrower than the one
+   it declares. Two tracks here; the sections cap themselves. */
+@media (min-width: 90rem) {
+  .docs-shell--hub {
+    grid-template-columns: 15rem minmax(0, 1fr);
+  }
+}
+
+.docs-hub-head {
+  max-width: 44rem;
+  margin-bottom: 3rem;
+}
+
+/* The lede's bottom margin is sized for an article, where prose follows it
+   directly. In the hub it is the last child of the header. */
+.docs-hub-head .docs-lede {
+  margin-bottom: 0;
+}
+
+.docs-hub-start {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.75rem;
+}
+
+/* Filled by default rather than on hover. An outlined card on a white page is a
+   rectangle of nothing until you point at it; a card that already reads as an
+   object only has to brighten. */
+.docs-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--docs-surface);
+  box-shadow: inset 0 0 0 1px var(--docs-line);
+  text-decoration: none;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.docs-card:hover,
+.docs-card:focus-visible {
+  background: var(--docs-surface-hover);
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.2);
+}
+
+.docs-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+  color: var(--ink-faint);
+  transition: color 0.18s ease;
+}
+
+.docs-card:hover .docs-card-head {
+  color: var(--ink-strong);
+}
+
+.docs-card-icon {
+  flex: none;
+}
+
+/* Parked at the card's top corner with the icon rather than tucked after the
+   title: the title is a phrase of unknown length, so an arrow trailing it lands
+   somewhere different on every card. */
+.docs-card-arrow {
+  flex: none;
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+  transform: translate(-2px, 2px);
+}
+
+.docs-card:hover .docs-card-arrow,
+.docs-card:focus-visible .docs-card-arrow {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+.docs-card-title {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.016em;
+  color: var(--ink-strong);
+}
+
+.docs-card-desc {
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+  color: var(--ink-body);
+  text-wrap: pretty;
+}
+
+/* The index proper. Rows rather than cards: thirty-five cards is a wall, and a
+   reader scanning for one page wants a list they can run an eye down. */
+.docs-hub-section {
+  max-width: 56rem;
+}
+
+.docs-hub-section + .docs-hub-section {
+  margin-top: 3.25rem;
+}
+
+.docs-hub-section-head {
+  margin: 0 0 0.9rem;
+}
+
+/* A heading, not an eyebrow. Five uppercase mono labels at half the body's
+   size left the page with no visible structure — the sections were only
+   findable by the gaps between them. Matches .docs-prose h2 so the hub and the
+   article pages read at the same scale. */
+.docs-hub-section-label {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.026em;
+  color: hsl(var(--foreground));
+}
+
+.docs-hub-section-blurb {
+  margin: 0;
+  max-width: 44rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  letter-spacing: -0.008em;
+  color: var(--ink-body);
+  text-wrap: pretty;
+}
+
+/* No rules between rows. Thirty-five hairlines stacked down the page read as a
+   table nobody asked for, and every one of them competed with the rail's
+   border and the section breaks for the same attention. The title column is
+   already a hard vertical edge; spacing and a hover pill do the rest. */
+.docs-hub-list {
+  margin: 0 -0.6rem;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-hub-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.1rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+@media (min-width: 40rem) {
+  .docs-hub-row {
+    grid-template-columns: 13rem minmax(0, 1fr);
+    align-items: baseline;
+    gap: 1.25rem;
+  }
+}
+
+.docs-hub-row:hover,
+.docs-hub-row:focus-visible {
+  background: var(--docs-surface);
+}
+
+.docs-hub-row-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: -0.014em;
+  color: var(--ink-strong);
+}
+
+.docs-hub-row-desc {
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+  color: var(--ink-faint);
+  text-wrap: pretty;
+}
+
+/* Outbound block — the aggregation half of the hub. These are places on the
+   site, not pages of the reference, so they are enclosed rather than divided:
+   a panel says "different kind of thing" without leaving a hairline floating
+   in the gap under the last section. */
+/* The extra .docs is load-bearing, not noise: the blanket `.docs section`
+   opt-out above outranks a lone class, so a bare .docs-hub-elsewhere loses its
+   padding and the heading lands on the panel's own border. */
+.docs .docs-hub-elsewhere {
+  max-width: 56rem;
+  margin-top: 4rem;
+  /* Short at the foot because the last row of pills carries 0.45rem of its own,
+     which would otherwise read as a deeper bottom edge than top. */
+  padding: 1.15rem 1.15rem 0.75rem;
+  border-radius: 0.9rem;
+  background: var(--docs-surface);
+  box-shadow: inset 0 0 0 1px var(--docs-line);
+}
+
+.docs-hub-elsewhere .docs-hub-section-label {
+  margin: 0 0 0.25rem;
+  padding-left: 0.55rem;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+/* A fixed count, not auto-fit. Auto-fit gave five items four tracks and left
+   Source alone on a second row; five tracks fit, but at 170px the notes broke
+   mid-phrase. Three is the widest count where every note still sits on one
+   line, and a short last row inside a panel costs nothing. */
+.docs-hub-elsewhere-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 30rem) {
+  .docs-hub-elsewhere-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 48rem) {
+  .docs-hub-elsewhere-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Stacked, not inline. Inline label-plus-note pairs wrap at whatever width is
+   left, which left "Projects" and "Source" orphaned on a ragged second line. */
+.docs-hub-elsewhere-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  /* 0.55 inner + 0.35 gap to the panel's own 1.15rem padding lands the pill's
+     radius concentric with the panel's. */
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.55rem;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.docs-hub-elsewhere-link:hover,
+.docs-hub-elsewhere-link:focus-visible {
+  background: var(--docs-surface-hover);
+}
+
+.docs-hub-elsewhere-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--ink-strong);
+}
+
+.docs-hub-elsewhere-label svg {
+  opacity: 0.45;
+}
+
+.docs-hub-elsewhere-note {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  letter-spacing: -0.006em;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 560px) {
+  .docs {
+    padding-bottom: 4.5rem;
+  }
+
+  .docs-shell {
+    width: calc(100% - 2rem);
+  }
+
+  .docs-title {
+    max-width: 18ch;
+  }
+
+  .docs-lede {
+    font-size: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-nav-chevron,
+  .docs-nav-link,
+  .docs-card,
+  .docs-card-head,
+  .docs-card-arrow,
+  .docs-pager-link,
+  .docs-prose a {
+    transition: none;
+  }
+}

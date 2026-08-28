@@ -1,4 +1,4 @@
-import { access, mkdtemp, rm } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -8,6 +8,7 @@ const PUBLIC_REGISTRY_SLUGS = [
   'button',
   'card',
   'contact-links',
+  'conversation',
   'decode-text',
   'github-activity',
   'list-hover',
@@ -142,6 +143,17 @@ async function assertBuiltRegistry(): Promise<void> {
   }
 }
 
+async function installConversationUsage(consumerRoot: string): Promise<void> {
+  const entry = await readFile(
+    resolve(process.cwd(), 'src/content/components/conversation.md'),
+    'utf8',
+  );
+  const usage = entry.match(/```astro\n([\s\S]*?)\n```/u)?.[1];
+  if (!usage) throw new Error('Conversation usage example is missing its Astro fence.');
+
+  await Bun.write(join(consumerRoot, 'src/pages/conversation.astro'), usage);
+}
+
 function cleanup(): Promise<void> {
   cleanupPromise ??= (async () => {
     server?.stop(true);
@@ -210,6 +222,8 @@ async function main(): Promise<void> {
       '--overwrite',
     ], consumerRoot);
 
+    console.log('[registry] Pasting the conversation usage example');
+    await installConversationUsage(consumerRoot);
     console.log('[registry] Typechecking consumer');
     await run(['bun', 'run', 'typecheck'], consumerRoot);
     console.log('[registry] Building consumer');

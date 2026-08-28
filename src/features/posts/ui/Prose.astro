@@ -1,9 +1,11 @@
 ---
 // Renders Ghost-provided HTML while promoting code blocks into the shared
-// components showcase CodeBox. The remaining .kg-* markup stays verbatim and
-// gets a small progressive-enhancement layer for media and poem blocks.
+// components showcase CodeBox, and ```conversation blocks into a chat thread.
+// The remaining .kg-* markup stays verbatim and gets a small
+// progressive-enhancement layer for media and poem blocks.
 import '../../../styles/blog-prose.css';
 import CodeBox from '@/features/components/ui/CodeBox.astro';
+import Conversation from '@/features/content/ui/Conversation.astro';
 import { splitBlogProse } from '@/features/posts/server/code-blocks';
 
 interface Props {
@@ -15,10 +17,11 @@ const fragments = splitBlogProse(html);
 ---
 
 <div class="blog-prose">
-  {fragments.map((fragment) => fragment.kind === 'code'
-    ? <CodeBox code={fragment.code} lang={fragment.lang} />
-    : <Fragment set:html={fragment.html} />
-  )}
+  {fragments.map((fragment) => {
+    if (fragment.kind === 'code') return <CodeBox code={fragment.code} lang={fragment.lang} />;
+    if (fragment.kind === 'conversation') return <Conversation source={fragment.source} />;
+    return <Fragment set:html={fragment.html} />;
+  })}
 </div>
 
 <script>

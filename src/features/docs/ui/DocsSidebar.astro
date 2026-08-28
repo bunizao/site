@@ -1,0 +1,165 @@
+---
+import Kbd from '@/components/Kbd.astro';
+import type { DocsGroup } from '@/features/docs/server/nav';
+import { docPath } from '@/features/docs/server/nav';
+
+interface Props {
+  groups: DocsGroup[];
+  current?: string;
+}
+const { groups, current } = Astro.props;
+
+const currentEntry = current
+  ? groups.flatMap((group) => group.entries).find((entry) => entry.id === current)
+  : undefined;
+
+// Docs have no page footer — the rail is the whole chrome, so the handful of
+// links out of it are pinned at its foot.
+const ELSEWHERE = [
+  { href: '/blog', label: 'Blog' },
+  { href: '/mood', label: 'Mood' },
+  { href: '/components', label: 'Components' },
+  { href: 'https://github.com/bunizao/site', label: 'Source', external: true },
+];
+---
+
+{/* One markup tree for both breakpoints. It renders open so a no-JS or wide
+    viewport always has the full nav; the script below collapses it only when the
+    viewport is narrow enough for the summary to be showing. Doing it that way
+    round means CSS never has to fight the UA's hiding of closed details
+    content. */}
+<details class="docs-nav" open data-docs-nav>
+  <summary class="docs-nav-summary">
+    <span class="docs-nav-summary-label">
+      {currentEntry ? currentEntry.data.title : 'All docs'}
+    </span>
+    <svg class="docs-nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+
+  <div class="docs-nav-body">
+    {/* Opens the docs-scoped search dialog (DocsSearch.astro), not the
+        site-wide command palette — this trigger only searches docs content. */}
+    <button class="docs-nav-search" type="button" data-docs-search-open aria-label="Search docs">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <span class="docs-nav-search-label">Search</span>
+      <span class="docs-nav-search-keys" aria-hidden="true"><Kbd icon="command" /><Kbd>K</Kbd></span>
+    </button>
+
+    <nav class="docs-nav-tree" aria-label="Docs">
+      {groups.map((group) => (
+        <details
+          class="docs-nav-group"
+          open
+          data-docs-group={group.label}
+          data-docs-group-current={group.entries.some((entry) => entry.id === current) ? '' : undefined}
+        >
+          <summary class="docs-nav-group-label">
+            <span>{group.label}</span>
+            <svg class="docs-nav-group-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <ul class="docs-nav-list">
+            {group.entries.map((entry) => (
+              <li>
+                <a
+                  class="docs-nav-link"
+                  href={docPath(entry.id)}
+                  aria-current={entry.id === current ? 'page' : undefined}
+                >
+                  <span class="docs-nav-link-text">{entry.data.title}</span>
+                  {entry.data.badge && <span class="docs-nav-badge">{entry.data.badge}</span>}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ))}
+    </nav>
+
+    <div class="docs-nav-foot">
+      {ELSEWHERE.map((item) => (
+        <a class="docs-nav-foot-link" href={item.href}>
+          {item.label}
+          {item.external && (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+          )}
+        </a>
+      ))}
+    </div>
+  </div>
+</details>
+
+<script>
+  // Collapse the nav only where the summary is visible. The markup ships open so
+  // the wide layout and the no-JS case are both correct without this running.
+  (() => {
+    const nav = document.querySelector<HTMLDetailsElement>('[data-docs-nav]');
+    if (!nav) return;
+    const wide = window.matchMedia('(min-width: 64rem)');
+    const sync = () => {
+      nav.open = wide.matches;
+    };
+    sync();
+    wide.addEventListener('change', sync);
+
+    const groups = nav.querySelectorAll<HTMLDetailsElement>('[data-docs-group]');
+    if (wide.matches) {
+      // Group collapse has to survive navigation or it is useless — docs reading
+      // is page-hopping, and a section folded away would reopen on every click.
+      const STORE = 'docs-nav-collapsed';
+      const read = (): string[] => {
+        try {
+          return JSON.parse(localStorage.getItem(STORE) ?? '[]');
+        } catch {
+          return [];
+        }
+      };
+      const collapsed = new Set(read());
+      for (const group of groups) {
+        const key = group.dataset.docsGroup ?? '';
+        if (collapsed.has(key)) group.open = false;
+        group.addEventListener('toggle', () => {
+          if (group.open) collapsed.delete(key);
+          else collapsed.add(key);
+          try {
+            localStorage.setItem(STORE, JSON.stringify([...collapsed]));
+          } catch {
+            /* private mode — collapse still works, it just will not persist */
+          }
+        });
+      }
+    } else {
+      // The narrow layout puts the whole tree inside a dropdown, and every group
+      // expanded makes that dropdown taller than the screen. Open only the
+      // section being read; the rest are one tap away. The persisted preference
+      // is deliberately not applied here — it belongs to the rail, which is a
+      // column with its own scroll.
+      for (const group of groups) {
+        group.open = group.dataset.docsGroupCurrent !== undefined;
+      }
+    }
+
+    // Keep the active entry in view when the tree is taller than the rail.
+    const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+    if (active && wide.matches) {
+      active.scrollIntoView({ block: 'nearest' });
+    }
+
+    // Tell the tree which of its ends still has rows behind it; the mask in
+    // docs.css fades only those. Two classes rather than inline styles so the
+    // lengths stay in the stylesheet with the rest of the rail's geometry.
+    const tree = nav.querySelector<HTMLElement>('.docs-nav-tree');
+    if (tree) {
+      const syncFade = () => {
+        const slack = tree.scrollHeight - tree.clientHeight;
+        tree.classList.toggle('is-fade-top', tree.scrollTop > 1);
+        tree.classList.toggle('is-fade-bottom', slack - tree.scrollTop > 1);
+      };
+      tree.addEventListener('scroll', syncFade, { passive: true });
+      new ResizeObserver(syncFade).observe(tree);
+      // Folding a group changes scrollHeight without resizing the tree, and the
+      // new height is not laid out until the frame after the event.
+      nav.addEventListener('toggle', () => requestAnimationFrame(syncFade), true);
+      syncFade();
+    }
+  })();
+</script>

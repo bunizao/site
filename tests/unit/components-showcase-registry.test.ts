@@ -16,6 +16,7 @@ const showcasedSlugs = [
   'github-activity',
   'update-pills',
   'list-hover',
+  'conversation',
 ] as const;
 const publishedSlugs = [
   'button',
@@ -75,6 +76,13 @@ describe('components showcase registry', () => {
     }
   });
 
+  test('installs conversation into the disposable registry consumer', () => {
+    const verifier = readText('scripts/verify-component-registry.ts');
+
+    expect(verifier).toContain("'conversation'");
+    expect(verifier).toContain('src/content/components/conversation.md');
+  });
+
   test('keeps decode text component and engine targets distinct', async () => {
     const item = await buildRegistryItem(registryEntry('decode-text'));
 
@@ -93,7 +101,7 @@ describe('components showcase registry', () => {
     expect(item.files[0]?.content).toContain("from '@/lib/listening-markup'");
     expect(item.files[0]?.content).toContain("from '@/lib/listening-controller'");
     expect(item.files[0]?.content).toContain("import '@/lib/listening.css'");
-    expect(item.files[1]?.content).toBe(readText('src/features/home/types.ts'));
+    expect(item.files[1]?.content).toBe(readText('packages/contracts/src/listening.ts'));
     expect(item.files[3]?.content).not.toContain("from '@/lib/listening/analytics'");
     expect(item.files[3]?.content).toContain('ListeningAnalytics | null => null');
     expect(item.files[6]?.target).toBe('types/musickit.d.ts');

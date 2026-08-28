@@ -354,6 +354,7 @@ export const navLinks: NavLink[] = [
   { label: 'Blog', href: '/blog', section: 'writing' },
   { label: 'Moods', href: '/mood', section: 'moods' },
   { label: 'Components', href: '/components' },
+  { label: 'Docs', href: '/docs' },
 ];
 
 // --- Section visibility -----------------------------------------------------

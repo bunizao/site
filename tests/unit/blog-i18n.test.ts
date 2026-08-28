@@ -131,15 +131,15 @@ describe('getPostVersions', () => {
   const zhVersion: PostVersion = {
     locale: 'zh',
     label: '中文',
-    href: '/blog/lun-chenmo/?lang=zh',
-    indexedHref: '/blog/lun-chenmo/',
+    href: '/blog/lun-chenmo?lang=zh',
+    indexedHref: '/blog/lun-chenmo',
     current: true,
   };
   const enVersion: PostVersion = {
     locale: 'en',
     label: 'English',
-    href: '/blog/lun-chenmo/?lang=en',
-    indexedHref: '/blog/lun-chenmo/?lang=en',
+    href: '/blog/lun-chenmo?lang=en',
+    indexedHref: '/blog/lun-chenmo?lang=en',
     current: false,
   };
 
@@ -158,9 +158,9 @@ describe('getPostVersions', () => {
     const [zhOut, enOut] = getPostVersions(zh, [zh, en]);
 
     // The switcher always says which language it means; the index must not.
-    expect(zhOut?.href).toBe('/blog/lun-chenmo/?lang=zh');
-    expect(zhOut?.indexedHref).toBe('/blog/lun-chenmo/');
-    expect(enOut?.indexedHref).toBe('/blog/lun-chenmo/?lang=en');
+    expect(zhOut?.href).toBe('/blog/lun-chenmo?lang=zh');
+    expect(zhOut?.indexedHref).toBe('/blog/lun-chenmo');
+    expect(enOut?.indexedHref).toBe('/blog/lun-chenmo?lang=en');
   });
 
   test('is empty when there is nothing to switch to', () => {

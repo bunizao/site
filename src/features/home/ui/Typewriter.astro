@@ -1,12 +1,13 @@
 ---
 interface Props {
   texts: string[];
-  speed?: number;
+  /** Milliseconds per keystroke. Every character lands on this exact beat. */
+  keystrokeMs?: number;
   delay?: number;
   pauseDuration?: number;
 }
 
-const { texts, speed = 80, delay = 0, pauseDuration = 2000 } = Astro.props;
+const { texts, keystrokeMs = 90, delay = 0, pauseDuration = 2000 } = Astro.props;
 const initialText = texts[0] ?? '';
 const longestText = texts.reduce((a, b) => a.length > b.length ? a : b, '');
 const placeholderText = `${longestText}_`;
@@ -16,13 +17,13 @@ const placeholderText = `${longestText}_`;
   class="typewriter-wrapper"
   data-typewriter-root
   data-texts={JSON.stringify(texts)}
-  data-speed={speed}
+  data-keystroke={keystrokeMs}
   data-delay={delay}
   data-pause={pauseDuration}
 >
   <!-- Hidden placeholder keeps the canvas stage stable. -->
   <span class="typewriter-placeholder" aria-hidden="true">{placeholderText}</span>
-  <span class="typewriter" data-typewriter-visual aria-label={initialText}><span class="typewriter-text" data-typewriter-text>{initialText}</span><canvas class="typewriter-canvas" data-typewriter-canvas aria-hidden="true"></canvas></span>
+  <span class="typewriter" data-typewriter-visual aria-label={initialText}><span class="typewriter-text" data-typewriter-text>{initialText}</span><canvas class="typewriter-canvas" data-typewriter-canvas aria-hidden="true"></canvas><span class="typewriter-caret" data-typewriter-caret aria-hidden="true">_</span></span>
 </span>
 
 <style>
@@ -67,6 +68,17 @@ const placeholderText = `${longestText}_`;
     white-space: pre;
   }
 
+  /* The caret runs on its own CSS clock so it never syncs to the keystrokes,
+     and so nothing has to repaint the canvas while the name sits idle. */
+  .typewriter-caret {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: none;
+    white-space: pre;
+    will-change: opacity, transform;
+  }
+
   .typewriter.is-enhanced .typewriter-text {
     color: transparent;
   }
@@ -75,12 +87,26 @@ const placeholderText = `${longestText}_`;
     opacity: 1;
   }
 
+  .typewriter.is-enhanced .typewriter-caret {
+    display: block;
+    animation: typewriter-caret 1s ease infinite;
+  }
+
+  /* A soft pulse rather than a hard on/off — a binary blink reads as a widget,
+     this reads as hardware idling. */
+  @keyframes typewriter-caret {
+    0%, 100% { opacity: 0.1; }
+    50% { opacity: 1; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .typewriter.is-enhanced .typewriter-text {
       color: currentColor;
     }
 
-    .typewriter.is-enhanced .typewriter-canvas {
+    .typewriter.is-enhanced .typewriter-canvas,
+    .typewriter.is-enhanced .typewriter-caret {
+      display: none;
       opacity: 0;
     }
   }
@@ -93,7 +119,6 @@ const placeholderText = `${longestText}_`;
     _typewriterStartTimer?: number;
     _typewriterLoopTimer?: number;
     _typewriterFrame?: number;
-    _typewriterCursorTimer?: number;
     _typewriterAbort?: AbortController;
     _typewriterCurrentText?: string;
     _typewriterResizeObserver?: ResizeObserver;
@@ -108,37 +133,25 @@ const placeholderText = `${longestText}_`;
     baseline: number;
   }
 
-  interface GlyphToken {
-    char: string;
-    alpha: number;
-    advance: string;
-    ghostChar?: string;
-    ghostAlpha?: number;
-  }
-
-  interface DecodeGlyph {
-    target: string;
-    temp: string;
-    previousTemp: string;
-    placeholder: string;
-    startAt: number;
-    mashAt: number;
-    settleAt: number;
-  }
-
-  interface DecodeAnimation {
-    text: string;
-    pool: string[];
-    glyphs: DecodeGlyph[];
-    lastMutationFrame: number;
-  }
-
   const HERO_NAME_READY_EVENT = 'home:hero-name-ready';
+  // Announced once the first name is fully struck. The hero sequence keys its
+  // next stage off this rather than a guessed offset, so retuning the beat
+  // cannot desynchronise the page.
+  const HERO_NAME_TYPED_EVENT = 'home:hero-name-typed';
   const FALLBACK_START_MS = 1100;
-  const SCRAMBLE_CHARS = '_--/\\|<>'.split('');
-  const SCRAMBLE_MUTATION_MS = 58;
-  const CURSOR_CHAR = '_';
-  const CURSOR_BLINK_MS = 575;
+  const DEFAULT_KEYSTROKE_MS = 90;
+  const MIN_KEYSTROKE_MS = 40;
+  const MAX_KEYSTROKE_MS = 400;
+  // Backspacing is brisker than typing, the way it is on a real keyboard:
+  // one deliberate press per character going in, a held key coming out.
+  const BACKSPACE_RATIO = 0.45;
+  // A struck slot shows a quiet underscore for one beat before it inks. This is
+  // soulwire's cursor band -- the calm stretch his decode runs between the show
+  // and mash fronts -- rather than a scramble: one stable glyph that sits on the
+  // baseline, carries little ink and can never be misread as a letter.
+  const LANDING_CHAR = '_';
+  const LANDING_ALPHA = 0.38;
+  const LANDING_BEATS = 1;
 
   const prefersReducedMotion = (): boolean =>
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -152,50 +165,9 @@ const placeholderText = `${longestText}_`;
     }
   };
 
-  const stepDelayFor = (speed: number): number =>
-    Math.max(34, Math.min(58, Math.round(speed * 0.58)));
-
-  const durationFor = (text: string, speed: number): number =>
-    Math.max(480, Math.min(860, text.length * stepDelayFor(speed) * 1.55));
-
-  const clamp01 = (value: number): number =>
-    Math.max(0, Math.min(1, value));
-
-  const easeOutCubic = (value: number): number => {
-    const progress = clamp01(value);
-    return 1 - Math.pow(1 - progress, 3);
-  };
-
-  const randomFrom = (pool: string[]): string =>
-    pool[Math.floor(Math.random() * pool.length)] ?? '_';
-
-  const randomBetween = (min: number, max: number): number =>
-    min + Math.random() * (max - min);
-
-  const createDecodeAnimation = (text: string): DecodeAnimation => {
-    const inputChars = Array.from(new Set(text.toLowerCase().split('').filter(Boolean)));
-    const pool = [...SCRAMBLE_CHARS, ...inputChars];
-    const glyphCount = Math.max(1, text.length);
-    const slotSpan = 0.68 / glyphCount;
-    const glyphs = Array.from(text).map((target, index): DecodeGlyph => {
-      const startAt = Math.min(0.72, index * slotSpan * 0.92 + randomBetween(0, slotSpan * 0.18));
-      const mashAt = Math.min(0.84, startAt + randomBetween(0.06, 0.1));
-      const settleDelay = index === 0 ? randomBetween(0.13, 0.18) : randomBetween(0.22, 0.32);
-      const settleAt = Math.min(0.96, startAt + settleDelay);
-      const temp = randomFrom(pool);
-
-      return {
-        target,
-        temp,
-        previousTemp: temp,
-        placeholder: randomFrom(['-', '_']),
-        startAt,
-        mashAt,
-        settleAt,
-      };
-    });
-
-    return { text, pool, glyphs, lastMutationFrame: -1 };
+  const readNumber = (raw: string | undefined, fallback: number): number => {
+    const value = Number.parseInt(raw || '', 10);
+    return Number.isFinite(value) ? value : fallback;
   };
 
   const setupCanvas = (visual: HTMLElement, canvas: HTMLCanvasElement): CanvasState | null => {
@@ -241,12 +213,15 @@ const placeholderText = `${longestText}_`;
     };
   };
 
-  const drawGlyphs = (
-    state: CanvasState,
-    glyphs: GlyphToken[],
-    showCursor = true,
-    cursorAlpha = 1
-  ): void => {
+  interface Glyph {
+    char: string;
+    alpha: number;
+    /** Layout width always comes from the final character, so nothing reflows. */
+    advance: string;
+  }
+
+  /** Paints the glyphs and returns where the caret should sit. */
+  const drawGlyphs = (state: CanvasState, glyphs: Glyph[]): number => {
     const { context, width, height, font, color, baseline } = state;
 
     context.clearRect(0, 0, width, height);
@@ -254,112 +229,23 @@ const placeholderText = `${longestText}_`;
     context.fillStyle = color;
     context.textBaseline = 'alphabetic';
 
-    let cursorX = 0;
-    glyphs.forEach((glyph) => {
-      if (glyph.ghostChar && glyph.ghostAlpha && glyph.ghostChar !== glyph.char) {
-        context.globalAlpha = glyph.ghostAlpha;
-        context.fillText(glyph.ghostChar, cursorX, baseline);
-      }
-
+    let x = 0;
+    for (const glyph of glyphs) {
+      const advance = context.measureText(glyph.advance).width;
       context.globalAlpha = glyph.alpha;
-      context.fillText(glyph.char, cursorX, baseline);
-      cursorX += context.measureText(glyph.advance).width;
-    });
-
-    if (!showCursor) {
-      context.globalAlpha = 1;
-      return;
+      context.fillText(glyph.char, x, baseline);
+      x += advance;
     }
 
-    context.globalAlpha = cursorAlpha;
-    context.fillText(CURSOR_CHAR, cursorX, baseline);
     context.globalAlpha = 1;
+    return x;
   };
 
-  const drawWord = (state: CanvasState, word: string, showCursor = true): void => {
-    drawGlyphs(
-      state,
-      Array.from(word).map((char) => ({ char, alpha: 1, advance: char })),
-      showCursor
-    );
-  };
+  const drawText = (state: CanvasState, text: string): number =>
+    drawGlyphs(state, Array.from(text).map((char) => ({ char, alpha: 1, advance: char })));
 
-  const mutateTempChars = (
-    animation: DecodeAnimation,
-    progress: number,
-    elapsed: number
-  ): void => {
-    const mutationFrame = Math.floor(elapsed / SCRAMBLE_MUTATION_MS);
-    if (mutationFrame === animation.lastMutationFrame) return;
-
-    animation.lastMutationFrame = mutationFrame;
-
-    animation.glyphs.forEach((glyph) => {
-      if (progress < glyph.mashAt || progress >= glyph.settleAt) return;
-
-      if (Math.random() < 0.64) {
-        glyph.previousTemp = glyph.temp;
-        glyph.temp = randomFrom(animation.pool);
-      }
-    });
-  };
-
-  const drawDecodeFrame = (
-    state: CanvasState,
-    animation: DecodeAnimation,
-    progress: number,
-    elapsed = 0
-  ): void => {
-    const { text } = animation;
-
-    if (progress >= 1) {
-      drawWord(state, text, true);
-      return;
-    }
-
-    const glyphs: GlyphToken[] = [];
-
-    mutateTempChars(animation, progress, elapsed);
-
-    for (const glyph of animation.glyphs) {
-      if (progress < glyph.startAt) break;
-
-      const slotProgress = clamp01((progress - glyph.startAt) / Math.max(0.001, glyph.settleAt - glyph.startAt));
-
-      if (progress >= glyph.settleAt) {
-        const settleFade = easeOutCubic((progress - glyph.settleAt) / 0.1);
-        glyphs.push({
-          char: glyph.target,
-          alpha: 0.82 + settleFade * 0.18,
-          advance: glyph.target,
-          ghostChar: glyph.temp,
-          ghostAlpha: 0.12 * (1 - settleFade),
-        });
-        continue;
-      }
-
-      if (progress < glyph.mashAt) {
-        glyphs.push({
-          char: glyph.placeholder,
-          alpha: 0.12 + easeOutCubic(slotProgress / 0.35) * 0.15,
-          advance: glyph.target,
-        });
-        continue;
-      }
-
-      const mashProgress = clamp01((progress - glyph.mashAt) / Math.max(0.001, glyph.settleAt - glyph.mashAt));
-      const pulse = Math.sin(mashProgress * Math.PI);
-
-      glyphs.push({
-        char: glyph.temp,
-        alpha: 0.24 + pulse * 0.18,
-        advance: glyph.target,
-        ghostChar: glyph.previousTemp,
-        ghostAlpha: 0.06 + pulse * 0.05,
-      });
-    }
-
-    drawGlyphs(state, glyphs, true, 0.5 + Math.sin(progress * Math.PI) * 0.22);
+  const placeCaret = (caret: HTMLElement, x: number): void => {
+    caret.style.transform = `translateX(${x}px)`;
   };
 
   const cancelFrame = (root: TypewriterRoot): void => {
@@ -369,81 +255,22 @@ const placeholderText = `${longestText}_`;
     }
   };
 
-  const clearCursorTimer = (root: TypewriterRoot): void => {
-    window.clearInterval(root._typewriterCursorTimer);
-    root._typewriterCursorTimer = undefined;
-  };
-
-  const startCursorBlink = (
-    root: TypewriterRoot,
-    state: CanvasState,
-    word: string
-  ): void => {
-    let showCursor = true;
-    clearCursorTimer(root);
-    drawWord(state, word, showCursor);
-
-    root._typewriterCursorTimer = window.setInterval(() => {
-      showCursor = !showCursor;
-      drawWord(state, word, showCursor);
-    }, CURSOR_BLINK_MS);
-  };
-
-  const animateText = (
-    root: TypewriterRoot,
-    visual: HTMLElement,
-    canvas: HTMLCanvasElement,
-    text: string,
-    speed: number,
-    onDone?: () => void
-  ): void => {
-    const state = setupCanvas(visual, canvas);
-    if (!state) return;
-
-    cancelFrame(root);
-    clearCursorTimer(root);
-    root._typewriterCurrentText = text;
-    visual.setAttribute('aria-label', text);
-    visual.classList.remove('is-typed');
-    visual.classList.add('is-enhanced', 'is-typing');
-
-    const duration = durationFor(text, speed);
-    const startedAt = performance.now();
-    const animation = createDecodeAnimation(text);
-    drawDecodeFrame(state, animation, 0.06);
-
-    const drawNext = (now: number): void => {
-      const elapsed = now - startedAt;
-      const progress = Math.min(1, (now - startedAt) / duration);
-      drawDecodeFrame(state, animation, progress, elapsed);
-
-      if (progress < 1) {
-        root._typewriterFrame = window.requestAnimationFrame(drawNext);
-        return;
-      }
-
-      root._typewriterFrame = undefined;
-      visual.classList.remove('is-typing');
-      visual.classList.add('is-typed');
-      startCursorBlink(root, state, text);
-      onDone?.();
-    };
-
-    root._typewriterFrame = window.requestAnimationFrame(drawNext);
-  };
-
   const initOne = (root: TypewriterRoot): void => {
     if (root._typewriterReady) return;
     root._typewriterReady = true;
 
     const visual = root.querySelector<HTMLElement>('[data-typewriter-visual]');
     const canvas = root.querySelector<HTMLCanvasElement>('[data-typewriter-canvas]');
+    const caret = root.querySelector<HTMLElement>('[data-typewriter-caret]');
     const texts = parseTexts(root);
-    const speed = Number.parseInt(root.dataset.speed || '80', 10);
-    const delay = Number.parseInt(root.dataset.delay || '0', 10);
-    const pauseDuration = Number.parseInt(root.dataset.pause || '2000', 10);
+    const keystrokeMs = Math.max(
+      MIN_KEYSTROKE_MS,
+      Math.min(MAX_KEYSTROKE_MS, readNumber(root.dataset.keystroke, DEFAULT_KEYSTROKE_MS))
+    );
+    const delay = readNumber(root.dataset.delay, 0);
+    const pauseDuration = readNumber(root.dataset.pause, 2000);
 
-    if (!visual || !canvas || texts.length === 0 || prefersReducedMotion()) {
+    if (!visual || !canvas || !caret || texts.length === 0 || prefersReducedMotion()) {
       return;
     }
 
@@ -452,11 +279,12 @@ const placeholderText = `${longestText}_`;
     root._typewriterAbort = abort;
 
     const redrawSettledText = (): void => {
-      if (!root._typewriterCurrentText || !visual.classList.contains('is-typed')) return;
+      const text = root._typewriterCurrentText;
+      if (!text || root._typewriterFrame !== undefined) return;
 
       const state = setupCanvas(visual, canvas);
       if (state) {
-        startCursorBlink(root, state, root._typewriterCurrentText);
+        placeCaret(caret, drawText(state, text));
       }
     };
 
@@ -467,26 +295,92 @@ const placeholderText = `${longestText}_`;
 
     document.fonts?.ready.then(redrawSettledText).catch(() => {});
 
+    const backspaceMs = Math.max(24, Math.round(keystrokeMs * BACKSPACE_RATIO));
+
+    /** Walks the visible character count from `from` to `to`, one per beat. */
+    const animate = (
+      text: string,
+      from: number,
+      to: number,
+      stepMs: number,
+      onDone: () => void
+    ): void => {
+      const state = setupCanvas(visual, canvas);
+      if (!state) return;
+
+      cancelFrame(root);
+
+      const chars = Array.from(text);
+      const direction = to > from ? 1 : -1;
+      const steps = Math.abs(to - from);
+      // Only ink on the way in. Erasing a character through a landing glyph
+      // would read as a typo being fixed, not as the name being taken back.
+      const landingMs = direction > 0 ? stepMs * LANDING_BEATS : 0;
+      const startedAt = performance.now();
+
+      const drawNext = (now: number): void => {
+        // The beat is absolute rather than a share of the word, so "Tutu"
+        // types at exactly the pace of "Collapsar".
+        const elapsed = now - startedAt;
+        const step = Math.min(steps, Math.floor(elapsed / stepMs));
+        const next = from + direction * step;
+
+        placeCaret(caret, drawGlyphs(state, chars.slice(0, next).map((char, index) => {
+          const struckAt = (index - from + 1) * stepMs;
+          return elapsed - struckAt < landingMs
+            ? { char: LANDING_CHAR, alpha: LANDING_ALPHA, advance: char }
+            : { char, alpha: 1, advance: char };
+        })));
+
+        // The last character still owes its landing beat once the walk is done.
+        if (step < steps || elapsed < steps * stepMs + landingMs) {
+          root._typewriterFrame = window.requestAnimationFrame(drawNext);
+          return;
+        }
+
+        root._typewriterFrame = undefined;
+        onDone();
+      };
+
+      drawNext(startedAt);
+    };
+
+    let announced = false;
+
+    const playName = (): void => {
+      const text = texts[index];
+      const length = Array.from(text).length;
+
+      root._typewriterCurrentText = text;
+      visual.setAttribute('aria-label', text);
+      visual.classList.add('is-enhanced');
+
+      animate(text, 0, length, keystrokeMs, () => {
+        if (!announced) {
+          announced = true;
+          window.dispatchEvent(new CustomEvent(HERO_NAME_TYPED_EVENT));
+        }
+
+        if (texts.length < 2) return;
+
+        // Let the finished name sit before the carriage takes it back.
+        root._typewriterLoopTimer = window.setTimeout(() => {
+          animate(text, length, 0, backspaceMs, () => {
+            root._typewriterCurrentText = '';
+            index = (index + 1) % texts.length;
+            // One empty beat, so the next name does not start on the same
+            // frame the last one vanished.
+            root._typewriterLoopTimer = window.setTimeout(playName, keystrokeMs);
+          });
+        }, pauseDuration);
+      });
+    };
+
     const startFirstRun = (): void => {
       if (root._typewriterStarted) return;
       root._typewriterStarted = true;
       window.clearTimeout(root._typewriterStartTimer);
-      animateText(root, visual, canvas, texts[index], speed, () => {
-        if (texts.length > 1) {
-          root._typewriterLoopTimer = window.setTimeout(runLoop, pauseDuration);
-        }
-      });
-    };
-
-    const runLoop = (): void => {
-      index = (index + 1) % texts.length;
-      const nextText = texts[index];
-
-      requestAnimationFrame(() => {
-        animateText(root, visual, canvas, nextText, speed, () => {
-          root._typewriterLoopTimer = window.setTimeout(runLoop, pauseDuration);
-        });
-      });
+      playName();
     };
 
     window.addEventListener(HERO_NAME_READY_EVENT, startFirstRun, {
@@ -505,7 +399,6 @@ const placeholderText = `${longestText}_`;
       window.clearTimeout(root._typewriterStartTimer);
       window.clearTimeout(root._typewriterLoopTimer);
       cancelFrame(root);
-      clearCursorTimer(root);
       root._typewriterAbort?.abort();
       root._typewriterResizeObserver?.disconnect();
       root._typewriterResizeObserver = undefined;

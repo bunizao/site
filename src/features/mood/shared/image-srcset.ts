@@ -3,9 +3,20 @@
 // via `?w=`, snapping to the widths below. External/legacy URLs must pass
 // through untouched so we never rewrite something the proxy can't resize.
 
-// Matches the proxy's `resolveResizeWidth` snap list in site-api
-// (telegram-image-proxy.ts). Keep in sync if the proxy changes.
+// Matches the proxy's regular responsive widths in site-api. The proxy also
+// accepts the separate 32px placeholder below; keep both policies in sync.
 export const MOOD_ARCHIVE_IMAGE_WIDTHS = [320, 480, 640, 800, 1200] as const;
+// Kept out of the responsive ladder: this variant only paints the tiny blurred
+// placeholder behind a content image. site-api normalizes it independently.
+export const MOOD_IMAGE_PLACEHOLDER_WIDTH = 32;
+
+export type MoodImageLayout = 'landscape' | 'portrait' | 'ultra-tall';
+
+export interface MoodImageRatio {
+  css: string;
+  value: number;
+  exact: boolean;
+}
 
 // The public proxy path is `/api/v2/images/...`; `/v2/images` is the private
 // Worker mount (MOOD_IMAGE_PROXY_BASE_PATH in @bunizao/contracts/routes —
@@ -53,6 +64,56 @@ export function withWidth(url: string, width: number): string {
   } catch {
     return trimmed;
   }
+}
+
+function isPositiveDimension(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+export function resolveMoodImageLayout(
+  value: unknown,
+  width?: number | null,
+  height?: number | null,
+): MoodImageLayout | null {
+  if (value === 'landscape' || value === 'portrait' || value === 'ultra-tall') {
+    return value;
+  }
+  if (!isPositiveDimension(width) || !isPositiveDimension(height)) {
+    return null;
+  }
+
+  const ratio = width / height;
+  if (ratio < 0.6) return 'ultra-tall';
+  if (ratio < 0.8) return 'portrait';
+  return 'landscape';
+}
+
+export function getMoodImageRatio(
+  width?: number | null,
+  height?: number | null,
+  layout?: MoodImageLayout | null,
+): MoodImageRatio {
+  if (isPositiveDimension(width) && isPositiveDimension(height)) {
+    return {
+      css: `${width} / ${height}`,
+      value: width / height,
+      exact: true,
+    };
+  }
+
+  const resolvedLayout = resolveMoodImageLayout(layout, width, height);
+  if (resolvedLayout === 'portrait') {
+    return { css: '3 / 4', value: 3 / 4, exact: false };
+  }
+  if (resolvedLayout === 'ultra-tall') {
+    return { css: '9 / 16', value: 9 / 16, exact: false };
+  }
+
+  return { css: '4 / 3', value: 4 / 3, exact: false };
+}
+
+export function getMoodImagePlaceholderSrc(url: string): string | null {
+  return isArchiveImageUrl(url) ? withWidth(url, MOOD_IMAGE_PLACEHOLDER_WIDTH) : null;
 }
 
 // Feed thumbnails span the mood column (max 680px, 720px at ≥1024px). This

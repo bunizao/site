@@ -1,0 +1,42 @@
+.mood-image-frame {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  aspect-ratio: var(--mood-image-ratio, 4 / 3);
+  background: hsl(var(--foreground) / 0.035);
+}
+
+.mood-image-frame > img.mood-image-blur {
+  position: absolute;
+  top: -16px;
+  left: -16px;
+  z-index: 0;
+  display: block;
+  width: calc(100% + 32px);
+  height: calc(100% + 32px);
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  object-fit: cover;
+  filter: blur(14px);
+  transform: scale(1.04);
+  pointer-events: none;
+}
+
+.mood-image-frame > [data-mood-image-main] {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  object-fit: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mood-image-frame > img.mood-image-blur {
+    transform: none;
+  }
+}

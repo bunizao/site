@@ -120,6 +120,25 @@ describe('mood meta patcher live-count hydration', () => {
 
     expect(called).toBe(false);
   });
+
+  test('patches an explicit offscreen anchor window before positioning', async () => {
+    const { createMoodMetaPatcher } = await importPatcher();
+    const root = createRoot([createMoodElement('3757'), createMoodElement('3758')]);
+    const calls: string[][] = [];
+    const patcher = createMoodMetaPatcher({
+      root,
+      readSource: 'archive',
+      fetchCounts: async (ids) => {
+        calls.push([...ids]);
+        return {};
+      },
+    });
+
+    await patcher.patch(['3758', '3757', '3758']);
+    await patcher.patch(['3757']);
+
+    expect(calls).toEqual([['3758', '3757']]);
+  });
 });
 
 describe('parseAbbreviatedCount', () => {

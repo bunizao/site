@@ -14,7 +14,7 @@ const pages = [
   { path: '/', priority: '1.0', changefreq: 'weekly' },
   { path: '/mood', priority: '0.8', changefreq: 'daily' },
   { path: '/privacy', priority: '0.3', changefreq: 'yearly' },
-  { path: '/blog/', priority: '0.7', changefreq: 'weekly' },
+  { path: '/blog', priority: '0.7', changefreq: 'weekly' },
 ];
 
 export const GET: APIRoute = async () => {

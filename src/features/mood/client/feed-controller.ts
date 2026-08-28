@@ -47,9 +47,7 @@ export function initMoodFeedController(): void {
     const initialRetryButton = document.querySelector('[data-mood-initial-retry]') as HTMLButtonElement | null;
     const ALWAYS_LOADING = import.meta.env.PUBLIC_DEBUG_ALWAYS_LOADING === 'true';
     const ANCHOR_COMPENSATION_MAX_MS = 2600;
-    const ANCHOR_COMPENSATION_MIN_MS = 1000;
-    const ANCHOR_COMPENSATION_QUIET_FRAMES = 8;
-    const ANCHOR_COMPENSATION_EPSILON = 0.5;
+    const ANCHOR_COMPENSATION_EPSILON = 1;
     const RETURN_ANCHOR_MAX_AGE_MS = 5 * 60 * 1000;
 
     if (loadingEl && errorEl && feedEl && list && status && sentinel) {
@@ -147,6 +145,10 @@ export function initMoodFeedController(): void {
       let metaPatchFrame = 0;
 
       const patchVisibleMoodMeta = (): void => {
+        // An anchored window is hydrated in one batch before its first visible
+        // positioning. Starting a viewport-only request here would race that
+        // batch and let card heights change after Safari begins scrolling.
+        if (feedAnchorId && !feedAnchorHandled) return;
         if (metaPatchFrame) return;
         metaPatchFrame = window.requestAnimationFrame(() => {
           metaPatchFrame = 0;
@@ -509,105 +511,54 @@ export function initMoodFeedController(): void {
         || (event.key === ' ' && event.shiftKey)
       );
 
-      const stabilizeAnchorPosition = async (id: string, preferredTop?: number | null): Promise<boolean> => {
+      const stabilizeReturnedAnchorPosition = (id: string, top: number): Promise<boolean> => {
         const target = getMoodAnchorTarget(id);
-        if (!target) return false;
-
-        const expectedTop = typeof preferredTop === 'number' && Number.isFinite(preferredTop)
-          ? preferredTop
-          : target.getBoundingClientRect().top;
+        if (!target) return Promise.resolve(false);
 
         return new Promise((resolve) => {
-          let frame = 0;
-          let timer = 0;
-          let quietFrames = 0;
+          let maxTimer = 0;
           let stopped = false;
-          const startedAt = performance.now();
-
-          const clearScheduledTick = (): void => {
-            if (frame) {
-              window.cancelAnimationFrame(frame);
-              frame = 0;
-            }
-            if (timer) {
-              window.clearTimeout(timer);
-              timer = 0;
-            }
-          };
 
           const cleanup = (): void => {
-            clearScheduledTick();
-            window.removeEventListener('wheel', stop);
+            window.clearTimeout(maxTimer);
+            resizeObserver.disconnect();
+            mutationObserver.disconnect();
             window.removeEventListener('touchstart', stop);
+            window.removeEventListener('wheel', stop);
             window.removeEventListener('keydown', stopOnScrollKey);
           };
-
           const finish = (result: boolean): void => {
             if (stopped) return;
             stopped = true;
             cleanup();
             resolve(result);
           };
-
           const stop = (): void => finish(false);
           const stopOnScrollKey = (event: KeyboardEvent): void => {
             if (isScrollIntentKey(event)) stop();
           };
-
-          const compensate = (): void => {
-            const delta = target.getBoundingClientRect().top - expectedTop;
-            if (Math.abs(delta) <= ANCHOR_COMPENSATION_EPSILON) {
-              quietFrames += 1;
-              return;
-            }
-
-            quietFrames = 0;
-            scroll.el.scrollBy({ top: delta, behavior: 'auto' });
-          };
-
-          const tick = (now: number): void => {
-            if (stopped) return;
+          const correct = (): void => {
             if (!target.isConnected) {
               finish(false);
               return;
             }
-
-            compensate();
-
-            const elapsed = now - startedAt;
-            if (
-              elapsed >= ANCHOR_COMPENSATION_MAX_MS
-              || (
-                preferredTop === null
-                && elapsed >= ANCHOR_COMPENSATION_MIN_MS
-                && quietFrames >= ANCHOR_COMPENSATION_QUIET_FRAMES
-              )
-            ) {
-              finish(true);
-              return;
-            }
-
-            scheduleTick();
+            alignAnchorToTop(id, top);
           };
+          // ResizeObserver and MutationObserver run only when layout or content
+          // actually changes. Correcting at those boundaries preserves a saved
+          // return position without the old every-frame feedback loop.
+          const resizeObserver = new ResizeObserver(correct);
+          const mutationObserver = new MutationObserver(correct);
 
-          function scheduleTick(): void {
-            clearScheduledTick();
-            let hasRun = false;
-            const run = (now = performance.now()): void => {
-              if (hasRun) return;
-              hasRun = true;
-              clearScheduledTick();
-              tick(now);
-            };
-
-            frame = window.requestAnimationFrame(run);
-            timer = window.setTimeout(run, 50);
-          }
-
-          window.addEventListener('wheel', stop, { passive: true });
+          resizeObserver.observe(list);
+          mutationObserver.observe(list, { childList: true, subtree: true });
           window.addEventListener('touchstart', stop, { passive: true });
+          window.addEventListener('wheel', stop, { passive: true });
           window.addEventListener('keydown', stopOnScrollKey);
-          scheduleTick();
+          maxTimer = window.setTimeout(() => {
+            correct();
+            finish(true);
+          }, ANCHOR_COMPENSATION_MAX_MS);
         });
       };
 
@@ -639,6 +590,15 @@ export function initMoodFeedController(): void {
           if (interrupted) return true;
 
           const preferredTop = options.preferredTop ?? null;
+          const ids = Array.from(list.querySelectorAll<HTMLElement>('[data-mood-id]'))
+            .map((item) => item.dataset.moodId?.trim() ?? '')
+            .filter(Boolean);
+          await metaPatcher.patch(ids);
+          await new Promise<void>((resolve) => {
+            window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+          });
+          if (interrupted) return true;
+
           const target = getMoodAnchorTarget(id);
           if (!target) return false;
 
@@ -647,7 +607,9 @@ export function initMoodFeedController(): void {
             : isTargetFullyVisible(target) || renderer.scrollToMood(id, { behavior: 'auto', highlight: options.highlight });
           if (!aligned) return false;
 
-          await stabilizeAnchorPosition(id, preferredTop);
+          if (typeof preferredTop === 'number') {
+            await stabilizeReturnedAnchorPosition(id, preferredTop);
+          }
           return true;
         } finally {
           cleanup();

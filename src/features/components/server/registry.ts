@@ -180,7 +180,7 @@ const inferListeningSurface = (_pathname: string): 'other' => 'other';`,
         rewriteImports
       ),
       await readRepoRegistryFile(
-        'src/features/home/types.ts',
+        'packages/contracts/src/listening.ts',
         'lib/listening-types.ts',
         'registry:lib'
       ),
@@ -193,7 +193,7 @@ const inferListeningSurface = (_pathname: string): 'other' => 'other';`,
         'src/lib/listening/controller.ts',
         'lib/listening-controller.ts',
         'registry:lib',
-        removeSiteAnalytics
+        (content) => removeSiteAnalytics(rewriteImports(content))
       ),
       await readRepoRegistryFile(
         'src/styles/listening.css',
@@ -259,6 +259,30 @@ async function buildProjectsDeckItem(): Promise<RegistryItem> {
   };
 }
 
+async function buildConversationItem(): Promise<RegistryItem> {
+  const renderer = await readRegistryFile('features/content/conversation.ts', 'registry:lib');
+  renderer.target = '@lib/conversation.ts';
+
+  const stylesheet = await readRegistryFile('styles/conversation.css', 'registry:lib');
+  stylesheet.target = '@lib/conversation.css';
+
+  const component = await readRegistryFile('features/content/ui/Conversation.astro', 'registry:ui');
+  component.target = '@ui/conversation.astro';
+  component.content = component.content
+    .replace("@/styles/conversation.css", '@/lib/conversation.css')
+    .replace("@/features/content/conversation", '@/lib/conversation');
+
+  // No cssVars: every token is declared on .conv-thread, so a :root entry
+  // written into the consumer's globals would lose the cascade and do nothing.
+  // The knobs are the syntax itself and overriding --conv-* on the thread.
+  return {
+    $schema: REGISTRY_ITEM_SCHEMA,
+    name: 'conversation',
+    type: 'registry:ui',
+    files: [component, renderer, stylesheet],
+  };
+}
+
 async function buildPreviewItem(
   name: string,
   paths: string[],
@@ -288,6 +312,7 @@ export async function buildRegistryItem(
   if (entry.id === 'listening') return buildListeningItem();
   if (entry.id === 'decode-text') return buildDecodeTextItem();
   if (entry.id === 'projects-deck') return buildProjectsDeckItem();
+  if (entry.id === 'conversation') return buildConversationItem();
   if (entry.id === 'contact-links') {
     const item = await buildPreviewItem(
       entry.id,

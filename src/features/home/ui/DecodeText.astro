@@ -36,7 +36,9 @@ const { class: className } = Astro.props;
   };
 
   const BIO_READY_EVENT = 'home:hero-bio-ready';
+  const NAME_READY_EVENT = 'home:hero-name-ready';
   const FALLBACK_START_MS = 1500;
+  const FALLBACK_DEADLINE_MS = FALLBACK_START_MS * 2;
 
   const initOne = async (root: DecodeRoot): Promise<void> => {
     if (root._decodeReady) return;
@@ -50,12 +52,26 @@ const { class: className } = Astro.props;
       // shows the text.
       root.classList.add('dt-prepared');
 
+      let started = false;
       const start = (): void => {
+        if (started) return;
+        started = true;
         window.clearTimeout(root._decodeTimer);
         controller.start();
       };
+
+      // The typewriter owns the identity timing. Once its line is ready, keep
+      // the old fallback interval as a grace period instead of letting the
+      // fallback race the first name's keystrokes.
+      const deferFallback = (): void => {
+        if (started) return;
+        window.clearTimeout(root._decodeTimer);
+        root._decodeTimer = window.setTimeout(start, FALLBACK_START_MS);
+      };
+
       window.addEventListener(BIO_READY_EVENT, start, { once: true });
-      root._decodeTimer = window.setTimeout(start, FALLBACK_START_MS);
+      window.addEventListener(NAME_READY_EVENT, deferFallback, { once: true });
+      root._decodeTimer = window.setTimeout(start, FALLBACK_DEADLINE_MS);
     } catch {
       root.classList.add('dt-prepared');
     }

@@ -1,5 +1,6 @@
 import type { ChannelInfo } from '@/features/mood/client/feed-types';
 import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
+import { initMoodImageFrames } from '@/features/mood/client/image-frame';
 
 interface AnimatedEmojiHydrator {
   hydrate(root?: ParentNode): Promise<void>;
@@ -166,24 +167,6 @@ export function createFeedMediaHydrator(
       setImageHints(node, { priority });
       attachImageFallback(node);
 
-      const thumb = node.closest('.mood-item-thumb');
-      if (!thumb || thumb.classList.contains('mood-item-thumb--video')) return;
-      if (thumb.classList.contains('mood-item-thumb--portrait') || thumb.classList.contains('mood-item-thumb--ultra-tall')) return;
-
-      const classify = () => {
-        if (!node.naturalWidth || !node.naturalHeight) return;
-        const ratio = node.naturalWidth / node.naturalHeight;
-        if (ratio < 0.6) {
-          thumb.classList.add('mood-item-thumb--ultra-tall');
-        } else if (ratio < 0.8) {
-          thumb.classList.add('mood-item-thumb--portrait');
-        }
-      };
-      if (node.complete) {
-        classify();
-      } else {
-        node.addEventListener('load', classify, { once: true });
-      }
     });
 
     root.querySelectorAll('iframe').forEach((node) => {
@@ -213,6 +196,8 @@ export function createFeedMediaHydrator(
         node.addEventListener('loadedmetadata', classify, { once: true });
       }
     });
+
+    initMoodImageFrames(root);
   };
 
   const hydrateDeferredImage = (img: HTMLImageElement): void => {

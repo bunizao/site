@@ -26,6 +26,7 @@
     "guard:cloudflare-deploy": "node scripts/cloudflare-deploy-guard.mjs check",
     "check": "astro sync && node scripts/astro-check-legacy-typescript.mjs",
     "check:route-contracts": "bun scripts/check-route-contracts.ts",
+    "check:docs-coverage": "bun scripts/check-docs-coverage.ts",
     "preview": "bun run preview:cloudflare",
     "deploy:cloudflare": "bun run build:cloudflare && bun run guard:cloudflare-deploy && wrangler deploy --config dist/server/wrangler.json",
     "upload:cloudflare": "bun run guard:cloudflare-deploy && wrangler versions upload --config dist/server/wrangler.json",
@@ -50,6 +51,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@astrojs/cloudflare": "14.2.3",
+    "@astrojs/markdown-satteri": "0.3.7",
     "@astrojs/react": "^6.0.4",
     "@astrojs/sitemap": "^3.7.3",
     "@cloudflare/workers-types": "^5.20260820.1",
@@ -97,7 +99,6 @@
     "framer-motion": "^13.1.1",
     "gsap": "^3.15.0",
     "jose": "^6.2.9",
-    "justified-layout": "4.1.0",
     "lottie-web": "5.13.0",
     "lru-cache": "^11.5.2",
     "lucide-react": "^1.33.0",

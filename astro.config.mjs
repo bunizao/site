@@ -1,8 +1,30 @@
 import { defineConfig } from 'astro/config';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import react from '@astrojs/react';
 import cloudflare from '@astrojs/cloudflare';
+import { satteri } from '@astrojs/markdown-satteri';
 import sitemap from '@astrojs/sitemap';
+
+import { docsCodePlugin } from './src/features/docs/server/markdown-plugin.ts';
+
+const projectRoot = fileURLToPath(new URL('.', import.meta.url));
+
+/**
+ * Vite serves only what lives under the project root. A git worktree keeps its
+ * node_modules in the main checkout — outside that root — so every dependency
+ * 403s in dev and no React island ever hydrates. Walk up and allow the first
+ * ancestor that actually owns a node_modules directory.
+ */
+function dependencyRoots() {
+  const roots = [];
+  for (let dir = projectRoot; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, 'node_modules'))) roots.push(dir);
+    if (dir === dirname(dir)) break;
+  }
+  return roots;
+}
 
 const isCoverageEnabled = process.env.COVERAGE === '1';
 const isE2EStrictPort = process.env.ASTRO_E2E_STRICT_PORT === '1';
@@ -59,6 +81,20 @@ if (isCoverageEnabled) {
 }
 
 export default defineConfig({
+  markdown: {
+    // Docs fences carry a header strip and, when tagged `demo`, a slot the
+    // docs route fills with the rendered snippet. No-ops elsewhere.
+    processor: satteri({ mdastPlugins: [docsCodePlugin] }),
+    // Dual-theme fences so markdown code blocks follow the site theme instead of
+    // painting one fixed palette. `defaultColor: false` emits --shiki-light /
+    // --shiki-dark custom properties rather than inline colors; the CSS picks a
+    // side off `html.dark`. Same contract CodeBox already renders under, so
+    // docs.css and code-box.css style the output identically.
+    shikiConfig: {
+      themes: { light: 'github-light', dark: 'github-dark' },
+      defaultColor: false,
+    },
+  },
   integrations: [
     {
       name: 'buxx-negotiated-content-dev-ssr',
@@ -74,7 +110,13 @@ export default defineConfig({
     },
     react(),
     sitemap({
-      filter: (page) => publicSitemapPaths.has(new URL(page).pathname),
+      // Explicit allowlist plus the whole /docs tree — the reference is static,
+      // public, and worth indexing as a unit, so listing each page by hand would
+      // just rot the moment a doc is added.
+      filter: (page) => {
+        const { pathname } = new URL(page);
+        return publicSitemapPaths.has(pathname) || pathname.startsWith('/docs/');
+      },
     }),
   ],
   devToolbar: {
@@ -82,6 +124,10 @@ export default defineConfig({
   },
   site: 'https://buxx.me',
   output: 'static',
+  trailingSlash: 'never',
+  build: {
+    format: 'file',
+  },
   compressHTML: true,
   // Prefetch internal links on hover/focus. Portal (`/dev/*`) pages set
   // `data-astro-prefetch="false"` on their own links so authenticated routes
@@ -106,6 +152,9 @@ export default defineConfig({
   },
   vite: {
     plugins: coveragePlugins,
+    server: {
+      fs: { allow: [projectRoot, ...dependencyRoots()] },
+    },
     optimizeDeps: {
       include: devOptimizerIncludes,
       exclude: devOptimizerExcludes,

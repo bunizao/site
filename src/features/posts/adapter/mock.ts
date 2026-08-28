@@ -280,6 +280,18 @@ export function keepItBoring() {
   <p>Short lines stay short.</p>
   <p>— Author, somewhere quieter</p>
 </blockquote>
+<h2>Conversation</h2>
+<p>A fenced conversation block renders as a chat thread in the prose column, so the blog path exercises the same renderer the playground previews. The mixed line is the case that matters: the source joins tight and the browser draws the CJK/Latin gap.</p>
+<figure class="kg-card kg-code-card">
+  <pre><code class="language-conversation">@tutu [Tu Tu] accent=#B4603A
+
+you: how wide should a bubble be?
+tutu: 30em.
+tutu: 一个汉字是 1em，拉丁字母大约
+  0.5em，所以同一个数字既装得下 30 个汉字，也装得下 60 个字母。
+--- later
+you: ship it</code></pre>
+</figure>
 <h2>Mood embed</h2>
 <p>A Ghost HTML card can embed a buxx.me mood post. The author hardcodes a short height with overflow hidden; the runtime listens for the embed's resize message and grows the frame so nothing clips.</p>
 <!--kg-card-begin: html-->

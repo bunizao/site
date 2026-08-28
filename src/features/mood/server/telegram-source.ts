@@ -269,7 +269,7 @@ const telegramEmbedStateCache = new LRUCache<string, CachedTelegramEmbedState>({
 
 const TELEGRAM_PARSE_CACHE_VERSION = 'sticker-fallback-v1';
 const QUOTE_IMAGE_ERROR_HANDLER =
-  "this.closest('.mood-item-quote-media')?.remove();const q=this.closest('.mood-item-quote');q?.classList.remove('mood-item-quote--with-media','mood-item-quote--media-only','mood-detail-quote--with-media','mood-detail-quote--media-only');if(q&&!q.textContent.trim())q.remove();";
+  "this.closest('.mood-item-quote-media')?.classList.add('is-media-error');this.remove();";
 
 function getEnv(env: ImportMetaEnv, Astro: any, name: string): string {
   return readRuntimeEnv(Astro.locals, name, env);
@@ -1188,6 +1188,7 @@ function buildDetailReplyCard(
     ? `<span class="mood-detail-quote-media mood-item-quote-media"><img class="mood-detail-quote-image mood-item-quote-image" src="${escapeHtml(replyPreviewSrc)}" alt="" loading="lazy" onerror="${escapeHtml(QUOTE_IMAGE_ERROR_HANDLER)}" /></span>`
     : '';
   const isMediaOnlyQuote = Boolean(replyPreviewSrc && /^(media|video)$/i.test(text));
+  const ariaLabelAttr = isMediaOnlyQuote ? ' aria-label="View quoted media"' : '';
   const textMarkup =
     isMediaOnlyQuote
       ? ''
@@ -1205,7 +1206,7 @@ function buildDetailReplyCard(
     .filter(Boolean)
     .join(' ');
 
-  return `<${tagName} class="${quoteClassName}"${hrefAttr}${externalAttrs}>${previewMarkup}${bodyMarkup}</${tagName}>`;
+  return `<${tagName} class="${quoteClassName}"${hrefAttr}${externalAttrs}${ariaLabelAttr}>${previewMarkup}${bodyMarkup}</${tagName}>`;
 }
 
 function sanitizeUrlValue(value: string, type: 'href' | 'src'): string {

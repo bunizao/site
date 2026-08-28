@@ -6,6 +6,7 @@ import {
   type DecodeLayout,
   type DecodeOrder,
 } from '@bunizao/decode-text';
+import { codeLanguageLogo } from '@/lib/code-language';
 
 // The package's demo playground, rehomed onto /components/decode-text so the
 // knobs sit next to the install command. Every control maps to exactly one
@@ -381,18 +382,24 @@ export function DecodeTextPlayground() {
       {/* Same frame as the Usage block below, so the readout reads as code. */}
       <figure className="code-box">
         <figcaption className="code-box-head">
-          <span className="code-box-lang">TypeScript</span>
+          <span className="code-box-lang">
+            <svg className="code-box-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d={codeLanguageLogo('ts').path} />
+            </svg>
+            TypeScript
+          </span>
           <button
             type="button"
-            className="code-box-copy"
+            className="copy-btn"
             onClick={() => void copy()}
             data-copied={copied ? '' : undefined}
             aria-label="Copy snippet"
           >
-            <span className="code-box-icons" aria-hidden="true">
-              <Copy className="code-box-icon code-box-icon--copy" />
-              <Check className="code-box-icon code-box-icon--check" />
+            <span className="copy-btn-icons" aria-hidden="true">
+              <Copy className="copy-btn-icon copy-btn-icon--copy" />
+              <Check className="copy-btn-icon copy-btn-icon--check" />
             </span>
+            <span className="copy-btn-tip" role="status">Copied</span>
           </button>
         </figcaption>
         <div className="code-box-body">

@@ -1,15 +1,29 @@
 import { describe, expect, test } from 'bun:test';
 
-import { getMoodFeedThumbnailStyle } from '../../src/features/mood/shared/feed-thumbnail';
+import {
+  getMoodFeedThumbnailStyle,
+  resolveMoodFeedImageLayout,
+} from '../../src/features/mood/shared/feed-thumbnail';
 
 describe('mood feed thumbnails', () => {
-  test('does not reserve a square background when image height is unknown', () => {
-    expect(getMoodFeedThumbnailStyle({ imageWidth: 800, imageHeight: null })).toBeUndefined();
+  test('reserves a stable fallback box when image height is unknown', () => {
+    expect(getMoodFeedThumbnailStyle({ imageWidth: 800, imageHeight: null })).toBe(
+      'aspect-ratio:4 / 3;--mood-thumb-ratio:4 / 3;--mood-image-ratio:4 / 3;'
+    );
   });
 
   test('reserves the real aspect ratio when both image dimensions are known', () => {
     expect(getMoodFeedThumbnailStyle({ imageWidth: 800, imageHeight: 450 })).toBe(
-      'aspect-ratio:800 / 450;--mood-thumb-ratio:800 / 450;'
+      'aspect-ratio:800 / 450;--mood-thumb-ratio:800 / 450;--mood-image-ratio:800 / 450;'
+    );
+  });
+
+  test('uses stable media-specific ratios when dimensions are missing', () => {
+    expect(getMoodFeedThumbnailStyle({ mediaKind: 'sticker' })).toBe(
+      'aspect-ratio:1 / 1;--mood-thumb-ratio:1 / 1;--mood-image-ratio:1 / 1;'
+    );
+    expect(getMoodFeedThumbnailStyle({ mediaKind: 'video' })).toBe(
+      'aspect-ratio:16 / 9;--mood-thumb-ratio:16 / 9;--mood-image-ratio:16 / 9;'
     );
   });
 
@@ -21,7 +35,20 @@ describe('mood feed thumbnails', () => {
         imageLayout: 'portrait',
       })
     ).toBe(
-      'aspect-ratio:600 / 800;--mood-thumb-ratio:600 / 800;--mood-thumb-reserved-width:210px;--mood-thumb-reserved-width-sm:240px;--mood-thumb-reserved-width-lg:260px;'
+      'aspect-ratio:600 / 800;--mood-thumb-ratio:600 / 800;--mood-image-ratio:600 / 800;--mood-thumb-reserved-width:210px;--mood-thumb-reserved-width-sm:240px;--mood-thumb-reserved-width-lg:260px;'
+    );
+  });
+
+  test('derives the portrait box when image layout metadata is missing', () => {
+    expect(resolveMoodFeedImageLayout(null, 960, 1280)).toBe('portrait');
+    expect(
+      getMoodFeedThumbnailStyle({
+        imageWidth: 960,
+        imageHeight: 1280,
+        imageLayout: null,
+      })
+    ).toBe(
+      'aspect-ratio:960 / 1280;--mood-thumb-ratio:960 / 1280;--mood-image-ratio:960 / 1280;--mood-thumb-reserved-width:210px;--mood-thumb-reserved-width-sm:240px;--mood-thumb-reserved-width-lg:260px;'
     );
   });
 
@@ -33,7 +60,7 @@ describe('mood feed thumbnails', () => {
         imageLayout: 'ultra-tall',
       })
     ).toBe(
-      'aspect-ratio:400 / 1000;--mood-thumb-ratio:400 / 1000;--mood-thumb-reserved-width:128px;--mood-thumb-reserved-width-sm:144px;--mood-thumb-reserved-width-lg:160px;'
+      'aspect-ratio:400 / 1000;--mood-thumb-ratio:400 / 1000;--mood-image-ratio:400 / 1000;--mood-thumb-reserved-width:128px;--mood-thumb-reserved-width-sm:144px;--mood-thumb-reserved-width-lg:160px;'
     );
   });
 });

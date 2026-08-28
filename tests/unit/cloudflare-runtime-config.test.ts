@@ -160,6 +160,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(astroConfig).toContain("from '@astrojs/cloudflare'");
     expect(astroConfig).toContain("imageService: 'passthrough'");
     expect(astroConfig).toContain("prerenderEnvironment: 'node'");
+    expect(astroConfig).toContain("trailingSlash: 'never'");
+    expect(astroConfig).toContain("format: 'file'");
     expect(astroConfig).not.toContain("from '@astrojs/vercel'");
     expect(packageJson.scripts?.preview).toBe('bun run preview:cloudflare');
     expect(packageJson.scripts?.['build:cloudflare']).toBe('node scripts/build-cloudflare.mjs');
@@ -221,6 +223,7 @@ describe('Cloudflare runtime configuration', () => {
       assets?: {
         directory?: string;
         binding?: string;
+        html_handling?: string;
         run_worker_first?: string[];
       };
       routes?: Array<{ pattern?: string; zone_name?: string; custom_domain?: boolean }>;
@@ -236,6 +239,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.placement?.mode).toBe('smart');
     expect(config.assets?.directory).toBe('./dist');
     expect(config.assets?.binding).toBe('ASSETS');
+    expect(config.assets?.html_handling).toBe('drop-trailing-slash');
     expect(config.assets?.run_worker_first).toEqual([
       '/',
       '/api/*',
@@ -355,13 +359,17 @@ describe('Cloudflare runtime configuration', () => {
     const renderer = readText('src/features/mood/client/feed-renderer.ts');
     const feedShell = readText('src/features/mood/ui/FeedShell.astro');
     const mediaHydration = readText('src/features/mood/client/feed-media-hydration.ts');
+    const feedThumbnail = readText('src/features/mood/shared/feed-thumbnail.ts');
 
     expect(feedShell).toContain('src={thumbImage}');
     expect(feedShell).not.toContain('withWidthParam(thumbImage');
     expect(feedShell).not.toContain('srcset={buildSrcSet(thumbImage');
     expect(mediaHydration).toContain("img.removeAttribute('srcset')");
     expect(mediaHydration).toContain("img.removeAttribute('sizes')");
-    expect(renderer).toContain('const shouldWaitForImageBeforeInsert = isPriorityMedia && !hasResolvedImageLayout');
+    expect(feedThumbnail).toContain('getMoodImageRatio');
+    expect(renderer).toContain('img.dataset.deferredSrc = imageSrc');
+    expect(renderer).toContain('mediaHydrator.registerDeferredImage(thumbWrap');
+    expect(renderer).not.toContain('shouldWaitForImageBeforeInsert');
     expect(renderer).not.toContain("img.loading = 'eager'");
     expect(feedShell).toContain("decoding={isPriorityMedia ? 'sync' : 'async'}");
   });
@@ -409,6 +417,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(decodeEngine).toContain('document.fonts?.ready');
     expect(decodeEngine).toContain('window.setTimeout(resolve, opts.fontTimeout)');
     expect(decodeText).toContain('const FALLBACK_START_MS = 1500;');
+    expect(decodeText).toContain('const FALLBACK_DEADLINE_MS = FALLBACK_START_MS * 2;');
+    expect(decodeText).toContain('window.addEventListener(NAME_READY_EVENT, deferFallback, { once: true });');
     expect(decodeEngine).toContain('durationPerChar:');
     // One eased clock for the paragraph. Easing per line instead gives each its
     // own accelerate/settle cycle and the bio reveals as a top-to-bottom queue.
@@ -417,7 +427,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(hero).toContain('const identity = heroElements.filter((el) => !el.hasAttribute');
     expect(hero).toContain('gsap.set(heroElements, { opacity: 0, y: 20 });');
     expect(hero).toContain('heroTl.to(identity, {');
-    expect(hero).toContain('heroTl.to(widgets, {');
+    expect(hero).toContain('gsap.to(widgets, {');
+    expect(hero).toContain('window.addEventListener(HOME_HERO_NAME_TYPED_EVENT, startPhaseTwo');
     expect(hero).toContain("window.dispatchEvent(new CustomEvent('home:hero-bio-ready'))");
     const listeningMarkup = readText('src/lib/listening/markup.ts');
     const listeningStyles = readText('src/styles/listening.css');
@@ -465,8 +476,8 @@ describe('Cloudflare runtime configuration', () => {
 
   test('documents Ghost publishing through Cloudflare deploy hooks', () => {
     const docsText = [
-      'docs/HOME.md',
-      'docs/WORKER-SITE.md',
+      'src/content/docs/surfaces/home.md',
+      'src/content/docs/platform/worker.md',
     ].map(readText).join('\n');
 
     expect(docsText).toContain('Cloudflare Workers Builds deploy hook');

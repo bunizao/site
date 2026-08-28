@@ -13,6 +13,7 @@ interface Props {
 
 import '@/styles/globals.css';
 import '@/styles/portal.css';
+import PerformanceDebugPanel from '@/components/PerformanceDebugPanel.astro';
 import { ClientRouter } from 'astro:transitions';
 import { ExternalLink, LogOut, Moon, Sun } from 'lucide-react';
 import { PORTAL_NAV_GROUPS, type PortalNavKey } from '@/features/admin/portal-nav';
@@ -66,6 +67,7 @@ const user = userProp
     <ClientRouter />
   </head>
   <body>
+    <PerformanceDebugPanel />
     <div class="portal-shell" data-chrome={chrome}>
       {chrome === 'full' && (
         <aside class="portal-sidebar">

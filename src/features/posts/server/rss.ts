@@ -51,7 +51,7 @@ export function buildBlogRssXml(posts: Post[]): string {
     '  <channel>',
     `    <title>${escapeXml(blog.name)}</title>`,
     `    <description>${escapeXml(blog.copy[blog.locale.blog].tagline)}</description>`,
-    `    <link>${escapeXml(canonical('/blog/'))}</link>`,
+    `    <link>${escapeXml(canonical('/blog'))}</link>`,
     `    <atom:link href="${escapeXml(canonical('/blog/rss.xml'))}" rel="self" type="application/rss+xml" />`,
     `    <language>zh-CN</language>`,
     `    <lastBuildDate>${escapeXml(rfc822(updatedAt))}</lastBuildDate>`,

@@ -35,10 +35,10 @@ const accent = tag.accentColor ?? 'var(--blog-accent)';
 <BlogLayout
   title={`#${tag.name}`}
   description={tag.description ?? `Writing tagged ${tag.name} on 無人之境.`}
-  path={`/blog/tag/${tag.slug}/`}
+  path={`/blog/tag/${tag.slug}`}
 >
   <header class="tag-archive__head" style={`--tag-accent:${accent}`}>
-    <a class="tag-index__back" href="/blog/tags/">← All tags</a>
+    <a class="tag-index__back" href="/blog/tags">← All tags</a>
     <h1 class="tag-archive__title">
       <span class="tag-archive__hash" aria-hidden="true">#</span>{tag.name}
     </h1>

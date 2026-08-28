@@ -34,7 +34,7 @@ import {
   isTranslation,
   selectRequestedVersion,
 } from '@/features/posts/i18n';
-import { formatPostDate, postTitleTransitionName } from '@/features/posts/format';
+import { formatPostDate, postPath, postTitleTransitionName } from '@/features/posts/format';
 import { buildBlogOgImageUrl } from '@/features/posts/server/og-image';
 import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
@@ -61,7 +61,7 @@ export const getStaticPaths = (async () => {
 const slug = Astro.params.slug ?? '';
 // Which version of the article this request wants. Only the server-rendered
 // path can honour it: a prerendered file is one language by construction, and
-// in production the swap happens at the edge (docs/plans/blog-i18n.md, step 5).
+// in production the swap happens at the edge (plans/blog-i18n.md, step 5).
 // `astro dev` runs this route as SSR precisely so the switcher is testable.
 const requestedLocale = Astro.url.searchParams.get('lang');
 let { post, featureBlur, prev, next, versions } = Astro.props as Partial<PostPageProps>;
@@ -136,7 +136,7 @@ const postLocale = getPostLocale(post);
 // that every hreflang target is self-canonical and the cluster survives.
 const canonicalPath =
   versions.find((version) => version.current)?.indexedHref
-  ?? `/blog/${getCanonicalSlug(post)}/`;
+  ?? postPath(getCanonicalSlug(post));
 // Out of Pagefind, still in Google: English prose segmented by the CJK
 // tokenizer surfaces as a duplicate hit for what its sibling already covers.
 const translated = isTranslation(post);
@@ -167,12 +167,12 @@ const translated = isTranslation(post);
   } : undefined}
 >
   <ReadingTopbar slot="readingbar" noToc={hasNoTocTag} />
-  <a class="blog-back" href="/blog/">← All posts</a>
+  <a class="blog-back" href="/blog">← All posts</a>
 
   <div class="blog-article-wrap">
     <aside class="blog-aside">
       <div class="blog-aside__sticky">
-        <a class="blog-back-rail" href="/blog/">← Blog</a>
+        <a class="blog-back-rail" href="/blog">← Blog</a>
         <TableOfContents />
       </div>
     </aside>

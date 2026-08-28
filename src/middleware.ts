@@ -6,6 +6,7 @@ import {
   cacheHtmlPageResponse,
   isNeverCachePath,
   readCachedHtmlPage,
+  redirectCanonicalUrl,
   renderMarkdownIfRequested,
   withContentPolicy,
 } from '@/features/agent-markdown/server/responses';
@@ -107,6 +108,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const pathname = url.pathname;
   const legacyGhostRedirect = redirectLegacyGhostHost(url);
   if (legacyGhostRedirect) return legacyGhostRedirect;
+
+  const canonicalRedirect = redirectCanonicalUrl(context.request);
+  if (canonicalRedirect) return canonicalRedirect;
 
   const markdownResponse = await renderMarkdownIfRequested(context);
   if (markdownResponse) return markdownResponse;

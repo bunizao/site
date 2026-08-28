@@ -2,6 +2,7 @@ import type { ChannelInfo, Post } from '@/features/mood/server/legacy-types';
 
 const DEFAULT_MOOD_ID = '990001';
 const MULTI_IMAGE_MOOD_ID = '990777';
+const SINGLE_IMAGE_MOOD_ID = '990778';
 const E2E_REACTIONS = [
   {
     emoji: '👍',
@@ -37,7 +38,34 @@ function createE2EMultiImageContent(id: string): string {
   ].join('');
 }
 
+function createE2ESingleImageContent(id: string): string {
+  return [
+    '<p>E2E single-image detail post</p>',
+    `<button class="image-preview-button image-preview-wrap image-preview-wrap--portrait" style="--image-width:589px;--image-height:1280px" popovertarget="modal-${id}-0" popovertargetaction="show">`,
+    `  <img src="/api/v2/images/mood/${id}/0" alt="" width="589" height="1280" loading="lazy" />`,
+    '</button>',
+    `<button class="image-preview-button modal" id="modal-${id}-0" popovertarget="modal-${id}-0" popovertargetaction="hide" popover>`,
+    `  <img class="modal-img" src="/api/v2/images/mood/${id}/0" alt="" loading="lazy" />`,
+    '</button>',
+    '<p>Detail text continues after the image.</p>',
+  ].join('');
+}
+
 export function createE2EPost(id = DEFAULT_MOOD_ID): Post {
+  if (id === SINGLE_IMAGE_MOOD_ID) {
+    return {
+      id,
+      title: `E2E Mood ${id}`,
+      type: 'text',
+      datetime: '2026-02-10T13:00:00+00:00',
+      tags: ['e2e'],
+      text: 'E2E single-image mood',
+      content: createE2ESingleImageContent(id),
+      reactions: E2E_REACTIONS,
+      commentsCount: 1,
+    };
+  }
+
   if (id === MULTI_IMAGE_MOOD_ID) {
     return {
       id,

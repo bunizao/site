@@ -196,7 +196,7 @@ function escapeAttribute(value: string): string {
 
 function absoluteFragmentUrl(context: DirectiveContext, fragment: string): string {
   const encodedSlug = context.slug.split('/').map(encodeURIComponent).join('/');
-  const url = new URL(canonical(`/blog/${encodedSlug}/`));
+  const url = new URL(canonical(`/blog/${encodedSlug}`));
   url.hash = fragment;
   return url.toString();
 }

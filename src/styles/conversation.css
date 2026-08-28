@@ -1,0 +1,367 @@
+/* Conversation thread rendered from a ```conversation fenced block.
+   See src/features/content/conversation.ts for the markup contract.
+
+   Every custom property is namespaced --conv-*. --accent and --radius are
+   global site tokens (globals.css); an un-prefixed name here would shadow them
+   for every descendant of the thread, and --accent in particular is stored as
+   a bare HSL triplet, so a hex would resolve to an invalid colour. */
+
+/* .conv is the query container; .conv-thread carries the tokens, because an
+   element is never its own container and cqi inside .conv would resolve
+   against an ancestor instead. */
+.conv {
+  container-type: inline-size;
+  margin: 2.5rem 0;
+}
+
+.conv-thread {
+  /* --- the two numbers that decide whether this reads as a conversation ---
+     lead  : the avatar gutter, reserved even when avatars are hidden so both
+             sides of the thread keep the same optical margin.
+     inset : the empty channel on the far side of every bubble. This is what
+             makes a bubble read as "addressed to someone" rather than as a
+             paragraph. Without it a long message becomes full-width prose in a
+             rounded box and the whole metaphor dies.
+     Cap in em, not px: a CJK glyph is 1em and a Latin glyph about 0.5em, so one
+     number lands on ~30 Chinese characters AND ~60 Latin characters, both
+     inside a comfortable measure. That is the whole trick for mixed text. */
+  --conv-avatar: 34px;
+  --conv-lead: 46px;
+  --conv-inset: max(56px, 15cqi);
+  --conv-measure: 30em;
+  --conv-bubble-max: min(
+    var(--conv-measure),
+    calc(100cqi - var(--conv-lead) - var(--conv-inset))
+  );
+
+  --conv-radius: 16px;
+  --conv-notch: 4px; /* the one squared corner that points at the speaker */
+  --conv-bubble-gap: 4px; /* between bubbles inside one speaker's run */
+  --conv-group-gap: 18px; /* between runs */
+
+  --conv-neutral: hsl(var(--foreground) / 0.075);
+  --conv-neutral-fg: hsl(var(--foreground) / 0.88);
+
+  /* Monochrome by default: derived from --foreground, so it is AA in both
+     themes by construction and needs no contrast maths. An author who writes
+     accent=#xxxxxx overrides these per speaker with name colours already walked
+     to AA against each theme's page background. */
+  --conv-accent: hsl(var(--foreground));
+  --conv-on-accent: hsl(var(--background));
+  --conv-name-light: hsl(var(--foreground) / 0.62);
+  --conv-name-dark: hsl(var(--foreground) / 0.62);
+
+  font-family: var(--font-sans);
+  font-size: 16px;
+  /* Body role: 16/1.5/400. An article runs looser leading, but a bubble is not
+     a column of prose and article leading inside one reads as a gap. 1.5 is the
+     floor that still carries a three-line message. */
+  line-height: 1.5;
+  letter-spacing: 0.003em;
+  /* The gap between a CJK character and a Latin one is spacing, not a
+     character. The renderer never inserts a space the author did not type
+     (conversation.ts:joinWrapped); the browser draws the optical gap here.
+     Declared rather than left to the initial value so the dependency is
+     visible, and so a UA that ignores the property simply renders the source
+     as written. */
+  text-autospace: normal;
+  display: flex;
+  flex-direction: column;
+  gap: var(--conv-group-gap);
+}
+
+.dark .conv-thread {
+  --conv-neutral: hsl(var(--foreground) / 0.1);
+}
+
+/* A narrow container (sidebar, phone) cannot afford a 15% channel. Only
+   --conv-inset is overridden; --conv-bubble-max re-resolves from it. */
+@container (max-width: 520px) {
+  .conv-thread {
+    --conv-inset: max(26px, 8cqi);
+    --conv-avatar: 28px;
+    --conv-lead: 38px;
+  }
+}
+
+@container (max-width: 360px) {
+  .conv-thread {
+    --conv-lead: 0px;
+    --conv-inset: max(18px, 6cqi);
+    font-size: 15px;
+  }
+
+  .conv-thread .conv-avatar {
+    display: none;
+  }
+}
+
+/* --- group: one speaker's consecutive run -------------------------------- */
+
+.conv-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: 0;
+  /* Both fills and both name colours are emitted per speaker, each already
+     walked to AA against that theme's bubble floor. The theme picks which is
+     live, so toggling never re-runs the maths. The fallback is what an
+     accentless speaker gets: the neutral bubble, unchanged. */
+  --conv-name: var(--conv-name-light);
+  --conv-tint: var(--conv-tint-light, var(--conv-neutral));
+}
+
+.dark .conv-group {
+  --conv-name: var(--conv-name-dark);
+  --conv-tint: var(--conv-tint-dark, var(--conv-neutral));
+}
+
+/* Each group carries the effective value after its speaker override is applied
+   to the thread default. Off changes the receiving bubble background only. */
+.conv-group[data-tints='off'] {
+  --conv-tint: var(--conv-neutral);
+}
+
+.conv-group--out {
+  flex-direction: row-reverse;
+}
+
+.conv-avatar {
+  flex: 0 0 auto;
+  width: var(--conv-avatar);
+  height: var(--conv-avatar);
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: calc(var(--conv-avatar) * 0.56);
+  line-height: 1;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--conv-name) 18%, transparent);
+  color: var(--conv-name);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0;
+  user-select: none;
+  /* Sits on the last bubble's baseline, not the run's middle: a tall run with a
+     centred avatar looks like it is floating away from its own messages. */
+  margin-bottom: 1px;
+}
+
+/* An external photo covers the circle and the tint behind it doubles as the
+   load placeholder. A sprite icon keeps the tint as its chip and inherits the
+   speaker's readable accent. */
+.conv-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.conv-avatar svg {
+  width: 68%;
+  height: 68%;
+  fill: currentColor;
+}
+
+/* Hidden rather than removed: the gutter still reserves its width, so the two
+   sides of the thread keep the same optical margin. */
+.conv-group--out .conv-avatar,
+.conv-group[data-avatars='off'] .conv-avatar {
+  visibility: hidden;
+}
+
+.conv-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--conv-bubble-gap);
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.conv-group--out .conv-stack {
+  align-items: flex-end;
+}
+
+/* The name heads the run from OUTSIDE the bubble, one row above the stack. It
+   lived inside the first bubble while the bubble was a neutral slab and a
+   floating label read as orphaned — but the tint gave the bubble the speaker's
+   colour, so the surface now says who is talking and the label is free to be
+   what it is: attribution, not content. Keeping it out also stops an
+   accent-coloured name from having to sit on an accent-tinted floor, which is
+   what forced it so far from the author's hex.
+
+   The cost is one row of vertical rhythm per speaker change. That is the price
+   of the split, and it is the right one: a stack of five messages is still
+   labelled exactly once, at the top.
+
+   Caption role at 13/500, the site's own — the same size as a figcaption in
+   blog prose, which a thread often sits next to. Smaller than the body because
+   a run is labelled once and read many times, so the size belongs to the thing
+   that is read every pass, not to its index. Smaller by only half a step
+   because on a monochrome thread — no accent declared, or tints=off — the name
+   has nothing but 62% against the body's 88% and one weight step to set it
+   apart. Give up the size step too and a default thread leans on opacity alone.
+   Weight 500 and not 600: emphasis within a role is one step up from the body's
+   400, and two steps makes a name read as a heading over its own sentence.
+
+   Leading is 1.35, not the body's 1.5: this label is one line and its leading
+   is pure spacing, so borrowing the body's ratio only spends the gap where it
+   is least useful. The stack's own gap sits below it. */
+.conv-name {
+  font-size: 0.8125em;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.005em;
+  /* Match the bubble body's 0.875em inset. The name is 0.8125 of the body size,
+     so 1.077em lands both text starts on the same vertical line. */
+  padding-inline: 1.077em;
+  color: var(--conv-name);
+  /* Not part of the sentence: never let it be dragged into a quote. */
+  user-select: none;
+}
+
+/* A `me` run shows no visible name (alignment and the accent fill say "you")
+   and data-names='off' drops every visible name. Neither position nor colour
+   reaches a screen reader, so in both cases the label stays in the
+   accessibility tree instead of leaving the message unattributed.
+   1px rather than 0: some screen readers skip zero-sized boxes. */
+.conv-name--sr,
+.conv-group[data-names='off'] .conv-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- bubble --------------------------------------------------------------- */
+
+.conv-bubble {
+  position: relative;
+  width: fit-content;
+  max-width: var(--conv-bubble-max);
+  /* A one-word bubble narrower than its own radius stack reads as a pill with
+     no room for the glyph, so floor the width and centre short lines. Anything
+     that could actually wrap opts back into start alignment. */
+  min-width: calc(var(--conv-radius) * 2 + 8px);
+  /* em, so the padding tracks the font-size the container queries hand down.
+     The number that matters is the OPTICAL inset, padding plus the half-leading
+     the line box already carries, not the declared padding. The body runs 1.5,
+     so each end contributes 4px at 16px, and 0.625em (10px) lands the optical
+     inset at ~14px top and bottom against 14px inline. Even all round: a radius
+     this large eats the corners, so equal inset is what reads balanced.
+     0.4375em measured 9.6/11 and read cramped and top-heavy. */
+  padding: 0.625em 0.875em;
+  border-radius: var(--conv-radius);
+  background: var(--conv-tint, var(--conv-neutral));
+  color: var(--conv-neutral-fg);
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-break: strict;
+  text-align: center;
+}
+
+.conv-bubble--wide {
+  text-align: start;
+}
+
+/* font-size: inherit is load-bearing, not defensive. Any host that styles bare
+   `p` (the blog's own prose contract does, at 17.5px) otherwise wins over the
+   16px on .conv-thread, and the em padding and the name's 0.8125em are left
+   sized for a body they no longer match. */
+.conv-bubble > p {
+  margin: 0;
+  font-size: inherit;
+}
+
+.conv-bubble a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  opacity: 0.92;
+}
+
+.conv-bubble a:hover {
+  opacity: 1;
+}
+
+.conv-bubble code {
+  font-family: var(--font-code);
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 5px;
+  background: hsl(var(--foreground) / 0.07);
+}
+
+.conv-group--out .conv-bubble {
+  background: var(--conv-accent);
+  color: var(--conv-on-accent);
+}
+
+/* On a filled bubble the neutral chip disappears, so code falls back to a
+   translucent scrim of whichever end of the scale the fill is not. */
+.conv-group--out .conv-bubble code {
+  background: hsl(0 0% 100% / 0.18);
+}
+
+.dark .conv-group--out .conv-bubble code {
+  background: hsl(0 0% 0% / 0.18);
+}
+
+/* --- notch: the one squared corner ----------------------------------------
+   A drawn tail was tried twice, hand-rolled and then with a mask, and both read
+   as cheap next to blog body copy. The notch says the same thing with no ink:
+   the last bubble of a run squares off the corner nearest its speaker.
+   Alignment carries the rest. */
+
+.conv-bubble--last {
+  border-end-start-radius: var(--conv-notch);
+}
+
+.conv-group--out .conv-bubble--last {
+  border-end-start-radius: var(--conv-radius);
+  border-end-end-radius: var(--conv-notch);
+}
+
+/* --- divider / system note ------------------------------------------------ */
+
+/* Sans, not mono: a divider is an aside in the author's voice — "three hours
+   later" — not a token from the transcript. Mono framed it as data. */
+.conv-note {
+  align-self: center;
+  font-size: 12px;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--blog-faint, hsl(var(--foreground) / 0.42));
+  padding: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+}
+
+.conv-note::before,
+.conv-note::after {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: var(--blog-line, hsl(var(--foreground) / 0.1));
+}
+
+/* A bare `---` is a beat, not a label. Two orphan dashes around nothing reads
+   as a rendering bug, so it collapses to a single rule. */
+.conv-note--rule {
+  gap: 0;
+}
+
+.conv-note--rule::before {
+  width: 64px;
+}
+
+.conv-note--rule::after {
+  display: none;
+}

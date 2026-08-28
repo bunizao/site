@@ -16,7 +16,11 @@ import {
 import BlogSearch from '@/features/posts/ui/BlogSearch.astro';
 import CommandPalette from '@/components/CommandPalette.astro';
 import PageScroller from '@/components/PageScroller.astro';
-import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
+import PerformanceDebugPanel from '@/components/PerformanceDebugPanel.astro';
+import {
+  hasMarkdownRenderer,
+  markdownAlternatePath,
+} from '@/features/agent-markdown/server/registry';
 import { BLOG_FAVICON } from '@/lib/favicon';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
 import { profileAlternateNames, profileName } from '@/lib/seo';
@@ -25,7 +29,7 @@ import ViewTransitionReveal from './client/ViewTransitionReveal.astro';
 interface Props {
   title: string;
   description?: string;
-  /** Path under the site origin, e.g. "/blog/" or "/blog/my-post/". */
+  /** Path under the site origin, e.g. "/blog" or "/blog/my-post". */
   path?: string;
   ogType?: 'website' | 'article';
   ogImage?: string;
@@ -59,7 +63,7 @@ interface Props {
 const {
   title,
   description = blog.copy.zh.tagline,
-  path = '/blog/',
+  path = '/blog',
   ogType = 'website',
   ogImage: customOgImage,
   ogImageAlt,
@@ -84,7 +88,7 @@ const excludesIndexing = robots
   ?.split(',')
   .some((directive) => directive.trim().toLowerCase() === 'noindex') ?? false;
 const markdownAlternateUrl = !excludesIndexing && hasMarkdownRenderer(new URL(canonical).pathname)
-  ? canonical
+  ? new URL(markdownAlternatePath(new URL(canonical).pathname), meta.siteUrl).href
   : null;
 const pageTitle = normalizeBlogMetaText(title) || blog.name;
 const fullTitle = pageTitle === blog.name ? pageTitle : `${pageTitle} — ${blog.name}`;
@@ -136,7 +140,7 @@ const articleStructuredData = ogType === 'article'
       publisher: {
         '@type': 'Organization',
         name: blog.name,
-        url: new URL('/blog/', meta.siteUrl).href,
+        url: new URL('/blog', meta.siteUrl).href,
         logo: {
           '@type': 'ImageObject',
           url: new URL(BLOG_FAVICON, meta.siteUrl).href,
@@ -352,6 +356,7 @@ const paletteCss = [
     class="blog-zone reading"
     data-pagefind-ignore={excludesIndexing || excludeFromSearch ? 'all' : undefined}
   >
+    <PerformanceDebugPanel />
     <!-- Outside the scroller: it is a fixed lid, and a fixed layer inside a
          scroll container cannot read that container's anonymous timeline. It gets
          driven by the named one the scroller publishes instead. -->
@@ -359,7 +364,7 @@ const paletteCss = [
     <PageScroller class="blog-scroller" restorationKey="blog-scroll">
       <div class="blog-shell">
         <header class="blog-topbar">
-          <a class="blog-mark" href="/blog/" aria-label={blog.name} style="view-transition-name:blog-mark">
+          <a class="blog-mark" href="/blog" aria-label={blog.name} style="view-transition-name:blog-mark">
             <img src={blogMarkAsset} alt={blog.name} width="40" height="40" />
           </a>
 

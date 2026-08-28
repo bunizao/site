@@ -351,6 +351,22 @@ html.dark .cgrid-tile:hover {
   overflow: visible;
 }
 
+/* Band D */
+.cgrid-tile--conversation {
+  grid-column: 1 / 13;
+  grid-row: 22 / 28;
+}
+
+/* The thread is the subject, so it gets room to breathe and centres in the
+   tile rather than sitting against the cap. */
+.cgrid-stage--conversation {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 /* ── List hover specimen — invented rows + a cursor-tracked side preview ──── */
 
 .hoverlist {
@@ -579,6 +595,11 @@ html.dark .cgrid-tile:hover {
     grid-column: 4 / 7;
     grid-row: 21 / 23;
   }
+
+  .cgrid-tile--conversation {
+    grid-column: 1 / 7;
+    grid-row: 23 / 29;
+  }
 }
 
 /* ── Mobile — single-column stack ────────────────────────────────────────── */
@@ -684,6 +705,31 @@ html.dark .cgrid-tile:hover {
   line-height: 1.55;
   color: hsl(var(--muted-foreground));
   text-wrap: pretty;
+}
+
+.detail-playground-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.9rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #a84f2c;
+  text-decoration: none;
+}
+
+.dark .detail-playground-link {
+  color: #ee9a73;
+}
+
+.detail-playground-link svg {
+  transition: transform 0.16s var(--ease-out);
+}
+
+.detail-playground-link:hover svg,
+.detail-playground-link:focus-visible svg {
+  transform: translate(2px, -2px);
 }
 
 /* Vertical rhythm + hairline dividers come from the global `section` rule
@@ -1333,96 +1379,9 @@ html.dark .cgrid-tile:hover {
   display: none;
 }
 
-.copy-command-btn {
-  position: relative;
-  flex-shrink: 0;
-  display: inline-grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  cursor: pointer;
-  transition: transform 0.16s var(--ease-out), border-color 0.16s ease;
-}
-
-.copy-command-btn:hover {
-  border-color: var(--line2);
-}
-
-.copy-command-btn:active {
-  transform: scale(0.97);
-}
-
-.copy-command-btn:focus-visible {
-  outline: 2px solid hsl(var(--foreground));
-  outline-offset: 2px;
-}
-
-.copy-command-icons {
-  position: relative;
-  display: grid;
-  width: 0.9rem;
-  height: 0.9rem;
-}
-
-.copy-command-icon {
-  grid-area: 1 / 1;
-  width: 0.9rem;
-  height: 0.9rem;
-  transition: opacity 0.2s ease, filter 0.2s ease;
-}
-
-/* Crossfade masked with a 2px blur — the swap dissolves rather than cuts. */
-.copy-command-icon--copy {
-  opacity: 1;
-  filter: blur(0);
-}
-
-.copy-command-icon--check {
-  opacity: 0;
-  filter: blur(2px);
-}
-
-.copy-command-btn[data-copied] .copy-command-icon--copy {
-  opacity: 0;
-  filter: blur(2px);
-}
-
-.copy-command-btn[data-copied] .copy-command-icon--check {
-  opacity: 1;
-  filter: blur(0);
-}
-
-/* Tooltip appears instantly — no fade — so the confirmation reads immediate. */
-.copy-command-tip {
-  position: absolute;
-  bottom: calc(100% + 0.5rem);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.2rem 0.5rem;
-  border-radius: var(--radius-sm);
-  background: hsl(var(--foreground));
-  color: hsl(var(--background));
-  font-family: var(--font-sans);
-  font-size: 0.7rem;
-  font-weight: 500;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-@media (hover: none) {
-  .copy-command-btn:active {
-    transform: scale(0.97);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .install-tabs-layer--ink,
-  .install-tabs-underline,
-  .copy-command-icon {
+  .install-tabs-underline {
     transition-duration: 0.01ms;
   }
 }

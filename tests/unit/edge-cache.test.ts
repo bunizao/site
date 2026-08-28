@@ -20,6 +20,9 @@ describe('variant edge cache', () => {
     expect(contentEdgeCacheVersion('/blog/private-link-demo/', 'deploy-a')).not.toBe(
       contentEdgeCacheVersion('/blog/private-link-demo/', 'deploy-b'),
     );
+    expect(contentEdgeCacheVersion('/docs/writing/poem', 'deploy-a')).not.toBe(
+      contentEdgeCacheVersion('/docs/writing/poem', 'deploy-b'),
+    );
     expect(contentEdgeCacheVersion('/mood/123', 'deploy-a')).toBe(
       contentEdgeCacheVersion('/mood/123', 'deploy-b'),
     );

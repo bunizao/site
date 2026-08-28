@@ -1,0 +1,138 @@
+---
+import { Check, Copy, FileText } from 'lucide-react';
+
+// Linear-style split control: the left half copies the page's Markdown, the
+// chevron opens the same action plus a link to the raw `/index.md` URL. Both
+// read the one path the layout already advertises as `rel="alternate"`, so the
+// button never points somewhere the Markdown route does not answer.
+//
+// On success only the mark changes — copy → check, the label stays put — which
+// is what keeps the pill from jittering mid-sentence. The swap itself is the
+// site's shared one (styles/copy-button.css).
+interface Props {
+  markdownPath: string;
+}
+const { markdownPath } = Astro.props as Props;
+---
+
+<div class="docs-copy-page" data-docs-page-copy>
+  <button
+    class="docs-copy-page-action"
+    type="button"
+    data-page-copy-trigger
+    data-markdown-url={markdownPath}
+  >
+    <span class="copy-btn-icons" aria-hidden="true">
+      <Copy className="copy-btn-icon copy-btn-icon--copy" />
+      <Check className="copy-btn-icon copy-btn-icon--check" />
+    </span>
+    Copy page
+    <span class="copy-btn-tip" data-page-copy-tip role="status">Copied</span>
+  </button>
+
+  <button
+    class="docs-copy-page-toggle"
+    type="button"
+    aria-haspopup="true"
+    aria-expanded="false"
+    aria-label="More page formats"
+    data-page-copy-toggle
+  >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  </button>
+
+  <div class="docs-copy-page-menu" data-page-copy-menu hidden>
+    <button
+      class="docs-copy-page-item"
+      type="button"
+      data-page-copy-trigger
+      data-markdown-url={markdownPath}
+    >
+      <span class="copy-btn-icons docs-copy-page-item-mark" aria-hidden="true">
+        <Copy className="copy-btn-icon copy-btn-icon--copy" />
+        <Check className="copy-btn-icon copy-btn-icon--check" />
+      </span>
+      <span class="docs-copy-page-item-text">
+        <span class="docs-copy-page-item-title">Copy page</span>
+        <span class="docs-copy-page-item-note">Copy page as Markdown for LLMs</span>
+      </span>
+    </button>
+
+    <a class="docs-copy-page-item" href={markdownPath} target="_blank" rel="noopener">
+      <FileText className="docs-copy-page-item-mark" aria-hidden="true" />
+      <span class="docs-copy-page-item-text">
+        <span class="docs-copy-page-item-title">
+          View as Markdown
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8" /></svg>
+        </span>
+        <span class="docs-copy-page-item-note">View this page as plain text</span>
+      </span>
+    </a>
+  </div>
+</div>
+
+<script>
+  const OPEN_ATTR = 'data-open';
+
+  function setMenu(root: HTMLElement, open: boolean) {
+    root.toggleAttribute(OPEN_ATTR, open);
+    root.querySelector('[data-page-copy-toggle]')?.setAttribute('aria-expanded', String(open));
+    const menu = root.querySelector<HTMLElement>('[data-page-copy-menu]');
+    if (open) menu?.removeAttribute('hidden');
+    else menu?.setAttribute('hidden', '');
+  }
+
+  function closeMenus(except?: Element | null) {
+    document.querySelectorAll<HTMLElement>(`[data-docs-page-copy][${OPEN_ATTR}]`).forEach((root) => {
+      if (root !== except) setMenu(root, false);
+    });
+  }
+
+  function tip(root: HTMLElement, text: string) {
+    const node = root.querySelector<HTMLElement>('[data-page-copy-tip]');
+    if (node) node.textContent = text;
+  }
+
+  async function copyPage(root: HTMLElement, url: string) {
+    // The Markdown route is the same content the page renders from, so fetching
+    // it beats scraping the DOM back into Markdown.
+    const response = await fetch(url, { headers: { accept: 'text/markdown' } });
+    if (!response.ok) throw new Error(`Markdown request failed: ${response.status}`);
+    await navigator.clipboard.writeText(await response.text());
+
+    tip(root, 'Copied');
+    root.dataset.copied = '';
+    setTimeout(() => delete root.dataset.copied, 1600);
+  }
+
+  document.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement | null;
+    const root = target?.closest<HTMLElement>('[data-docs-page-copy]');
+    if (!root) {
+      closeMenus();
+      return;
+    }
+
+    if (target?.closest('[data-page-copy-toggle]')) {
+      const open = !root.hasAttribute(OPEN_ATTR);
+      closeMenus(root);
+      setMenu(root, open);
+      return;
+    }
+
+    const trigger = target?.closest<HTMLElement>('[data-page-copy-trigger]');
+    if (!trigger || root.dataset.copied !== undefined) return;
+    closeMenus();
+    void copyPage(root, trigger.dataset.markdownUrl ?? '').catch(() => {
+      tip(root, 'Copy failed');
+      root.dataset.failed = '';
+      setTimeout(() => delete root.dataset.failed, 1600);
+    });
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeMenus();
+  });
+</script>

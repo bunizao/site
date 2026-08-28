@@ -1,0 +1,368 @@
+---
+// Docs-scoped search dialog. Same shell architecture as the site-wide
+// CommandPalette (native <dialog>, top layer, focus trap and Esc for free)
+// but its own instance: results are docs pages/headings only, built from
+// /docs/search.json rather than the palette's mixed sources. Kept separate
+// instead of teaching CommandPalette a "docs mode" because the two have
+// nothing else in common — different data, different result shape, no
+// navigation/actions/socials groups to reuse.
+import Kbd from '@/components/Kbd.astro';
+import '@/styles/docs-search.css';
+---
+
+<dialog id="docs-search" class="docs-search" data-docs-search aria-label="Search documentation">
+  <div class="docs-search-panel">
+    <div class="docs-search-input-row">
+      <svg class="docs-search-input-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input
+        type="text"
+        data-docs-search-input
+        placeholder="Search docs…"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        aria-label="Search documentation"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="docs-search-list"
+        aria-autocomplete="list"
+      />
+      <button class="docs-search-close" type="button" data-docs-search-close aria-label="Close search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="docs-search-body">
+      <p class="docs-search-status" data-docs-search-status role="status" aria-live="polite" hidden>Loading…</p>
+      <div class="docs-search-list" id="docs-search-list" role="listbox" aria-label="Docs search results" data-docs-search-list></div>
+      <div class="docs-search-empty" data-docs-search-empty hidden>
+        <p class="docs-search-empty-text" data-docs-search-empty-text></p>
+        <!-- data-command-open reuses CommandPalette's own global click wiring
+             (it scans for that attribute at page load) so the site-wide
+             search opens without touching CommandPalette.astro. -->
+        <button type="button" class="docs-search-empty-action" data-docs-search-fallback data-command-open>
+          Search the whole site instead
+          <span aria-hidden="true">↗</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="docs-search-footer" aria-hidden="true">
+      <span><Kbd>↑</Kbd><Kbd>↓</Kbd> Navigate</span>
+      <span class="docs-search-footer-sep"></span>
+      <span><Kbd>↵</Kbd> Open</span>
+      <span class="docs-search-footer-sep"></span>
+      <span><Kbd>esc</Kbd> Close</span>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  interface DocsSearchHeading {
+    slug: string;
+    text: string;
+    depth: 2 | 3;
+  }
+
+  interface DocsSearchEntry {
+    id: string;
+    title: string;
+    description: string;
+    group: string;
+    headings: DocsSearchHeading[];
+    text: string;
+  }
+
+  interface ResultRow {
+    href: string;
+    titleHtml: string;
+    snippetHtml: string;
+    score: number;
+  }
+
+  (() => {
+    const dialog = document.querySelector<HTMLDialogElement>('[data-docs-search]');
+    if (!dialog) return;
+    const input = dialog.querySelector<HTMLInputElement>('[data-docs-search-input]');
+    const listEl = dialog.querySelector<HTMLElement>('[data-docs-search-list]');
+    const statusEl = dialog.querySelector<HTMLElement>('[data-docs-search-status]');
+    const emptyEl = dialog.querySelector<HTMLElement>('[data-docs-search-empty]');
+    const emptyTextEl = dialog.querySelector<HTMLElement>('[data-docs-search-empty-text]');
+    const fallbackBtn = dialog.querySelector<HTMLButtonElement>('[data-docs-search-fallback]');
+    if (!input || !listEl || !statusEl || !emptyEl || !emptyTextEl) return;
+
+    const FILE_ICON =
+      '<svg class="docs-search-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>';
+
+    let rowEls: HTMLAnchorElement[] = [];
+    let activeIndex = 0;
+
+    // --- text matching -----------------------------------------------------
+    // Plain substring matching, no tokenizing: splitting the query on
+    // whitespace would break Chinese input, which rarely has spaces between
+    // words. `.toLowerCase()` case-folds Latin text and is a no-op on CJK, so
+    // one code path covers both.
+    const ESCAPE_MAP: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => ESCAPE_MAP[c]);
+
+    const highlight = (text: string, query: string): string => {
+      const idx = text.toLowerCase().indexOf(query.toLowerCase());
+      if (idx < 0) return escapeHtml(text);
+      const before = text.slice(0, idx);
+      const match = text.slice(idx, idx + query.length);
+      const after = text.slice(idx + query.length);
+      return `${escapeHtml(before)}<mark>${escapeHtml(match)}</mark>${escapeHtml(after)}`;
+    };
+
+    // A window of context around the hit, not the whole body: the body text
+    // can run to thousands of characters and the row only has two lines.
+    const SNIPPET_RADIUS = 70;
+    const snippetAround = (text: string, query: string): string => {
+      const idx = text.toLowerCase().indexOf(query.toLowerCase());
+      if (idx < 0) return '';
+      const start = Math.max(0, idx - SNIPPET_RADIUS);
+      const end = Math.min(text.length, idx + query.length + SNIPPET_RADIUS);
+      const prefix = start > 0 ? '… ' : '';
+      const suffix = end < text.length ? ' …' : '';
+      return prefix + highlight(text.slice(start, end), query) + suffix;
+    };
+
+    const MAX_HEADINGS_PER_PAGE = 4;
+    const MAX_ROWS_PER_GROUP = 8;
+    const SUGGESTIONS_PER_GROUP = 4;
+
+    // Score: title > heading > description > body. Grouped by docs group and
+    // ordered the way the sidebar orders them, because the index array already
+    // arrives in that order (see getDocsNav) — grouping here just has to
+    // preserve first-seen order rather than re-derive it.
+    const buildGroups = (entries: DocsSearchEntry[], rawQuery: string): Map<string, ResultRow[]> => {
+      const query = rawQuery.trim();
+      const byGroup = new Map<string, ResultRow[]>();
+      const pushRow = (group: string, row: ResultRow) => {
+        const list = byGroup.get(group) ?? [];
+        list.push(row);
+        byGroup.set(group, list);
+      };
+
+      if (!query) {
+        for (const entry of entries) {
+          const list = byGroup.get(entry.group) ?? [];
+          if (list.length >= SUGGESTIONS_PER_GROUP) continue;
+          list.push({
+            href: `/docs/${entry.id}`,
+            titleHtml: escapeHtml(entry.title),
+            snippetHtml: escapeHtml(entry.description),
+            score: 0,
+          });
+          byGroup.set(entry.group, list);
+        }
+        return byGroup;
+      }
+
+      const lowerQuery = query.toLowerCase();
+      for (const entry of entries) {
+        const href = `/docs/${entry.id}`;
+        const lowerTitle = entry.title.toLowerCase();
+        const lowerDesc = entry.description.toLowerCase();
+        const lowerBody = entry.text.toLowerCase();
+
+        if (lowerTitle.includes(lowerQuery)) {
+          pushRow(entry.group, {
+            href,
+            titleHtml: highlight(entry.title, query),
+            snippetHtml: escapeHtml(entry.description),
+            score: 30,
+          });
+        } else if (lowerDesc.includes(lowerQuery)) {
+          pushRow(entry.group, {
+            href,
+            titleHtml: escapeHtml(entry.title),
+            snippetHtml: highlight(entry.description, query),
+            score: 15,
+          });
+        } else if (lowerBody.includes(lowerQuery)) {
+          pushRow(entry.group, {
+            href,
+            titleHtml: escapeHtml(entry.title),
+            snippetHtml: snippetAround(entry.text, query),
+            score: 10,
+          });
+        }
+
+        let headingHits = 0;
+        for (const heading of entry.headings) {
+          if (headingHits >= MAX_HEADINGS_PER_PAGE) break;
+          if (!heading.text.toLowerCase().includes(lowerQuery)) continue;
+          headingHits += 1;
+          pushRow(entry.group, {
+            href: `${href}#${heading.slug}`,
+            titleHtml: `${escapeHtml(entry.title)}<span class="docs-search-crumb" aria-hidden="true">›</span>${highlight(heading.text, query)}`,
+            snippetHtml: '',
+            score: 20,
+          });
+        }
+      }
+
+      for (const list of byGroup.values()) {
+        list.sort((a, b) => b.score - a.score);
+        list.length = Math.min(list.length, MAX_ROWS_PER_GROUP);
+      }
+      return byGroup;
+    };
+
+    const setActive = (index: number, scroll = true) => {
+      if (rowEls.length === 0) {
+        input.removeAttribute('aria-activedescendant');
+        return;
+      }
+      activeIndex = Math.max(0, Math.min(index, rowEls.length - 1));
+      const activeEl = rowEls[activeIndex];
+      rowEls.forEach((el) => {
+        el.classList.toggle('is-active', el === activeEl);
+        el.setAttribute('aria-selected', String(el === activeEl));
+      });
+      input.setAttribute('aria-activedescendant', activeEl.id);
+      if (scroll) activeEl.scrollIntoView({ block: 'nearest' });
+    };
+
+    let indexData: DocsSearchEntry[] | null = null;
+    let indexPromise: Promise<DocsSearchEntry[]> | null = null;
+
+    // Fetched on first open only, then cached for the rest of the page's
+    // life — a page you never search on should never pay for the index.
+    const ensureIndex = (): Promise<DocsSearchEntry[]> => {
+      if (!indexPromise) {
+        indexPromise = fetch('/docs/search.json')
+          .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`search.json ${res.status}`))))
+          .catch(() => [] as DocsSearchEntry[]);
+      }
+      return indexPromise;
+    };
+
+    const render = (rawQuery: string) => {
+      if (!indexData) return; // still loading; the status line is doing the talking
+      listEl.replaceChildren();
+      rowEls = [];
+
+      const byGroup = buildGroups(indexData, rawQuery);
+      let total = 0;
+      let rowIndex = 0;
+
+      for (const [group, rows] of byGroup) {
+        if (rows.length === 0) continue;
+        total += rows.length;
+
+        const groupEl = document.createElement('div');
+        groupEl.className = 'docs-search-group';
+        groupEl.setAttribute('role', 'group');
+        groupEl.setAttribute('aria-label', group);
+        const heading = document.createElement('div');
+        heading.className = 'docs-search-group-label';
+        heading.textContent = group;
+        groupEl.appendChild(heading);
+
+        rows.forEach((row) => {
+          const a = document.createElement('a');
+          a.className = 'docs-search-item';
+          a.href = row.href;
+          a.id = `docs-search-item-${rowIndex}`;
+          a.setAttribute('role', 'option');
+          a.innerHTML =
+            FILE_ICON +
+            `<span class="docs-search-item-main">` +
+            `<span class="docs-search-item-title">${row.titleHtml}</span>` +
+            (row.snippetHtml ? `<span class="docs-search-item-snippet">${row.snippetHtml}</span>` : '') +
+            `</span>`;
+          a.addEventListener('pointermove', () => {
+            const idx = rowEls.indexOf(a);
+            if (idx >= 0 && idx !== activeIndex) setActive(idx, false);
+          });
+          a.addEventListener('click', close);
+          groupEl.appendChild(a);
+          rowEls.push(a);
+          rowIndex += 1;
+        });
+
+        listEl.appendChild(groupEl);
+      }
+
+      const query = rawQuery.trim();
+      emptyEl.hidden = total > 0;
+      if (total === 0) {
+        emptyTextEl.textContent = query
+          ? `No results for "${query}" in the docs.`
+          : 'Nothing to show yet.';
+      }
+      setActive(0, false);
+    };
+
+    const close = () => {
+      if (dialog.open) dialog.close();
+    };
+
+    const open = () => {
+      if (dialog.open) return;
+      input.value = '';
+      dialog.showModal();
+      input.focus();
+
+      if (indexData) {
+        render('');
+        return;
+      }
+      statusEl.hidden = false;
+      emptyEl.hidden = true;
+      listEl.replaceChildren();
+      void ensureIndex().then((data) => {
+        indexData = data;
+        statusEl.hidden = true;
+        render(input.value);
+      });
+    };
+
+    input.addEventListener('input', () => render(input.value));
+
+    dialog.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setActive(activeIndex + 1);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setActive(activeIndex - 1);
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        rowEls[activeIndex]?.click();
+      }
+    });
+
+    // Backdrop click: the panel fills the dialog box, so a click landing on
+    // the dialog element itself can only be on the backdrop.
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) close();
+    });
+
+    dialog.querySelector('[data-docs-search-close]')?.addEventListener('click', close);
+    fallbackBtn?.addEventListener('click', close); // CommandPalette opens itself via its own data-command-open wiring
+
+    document.querySelectorAll<HTMLElement>('[data-docs-search-open]').forEach((trigger) => {
+      trigger.addEventListener('click', open);
+    });
+
+    // Capture phase + stopPropagation beats CommandPalette's bubble-phase ⌘K
+    // listener on the same `document` node, so docs pages open this dialog
+    // instead of the site-wide one. Everywhere else this script isn't even
+    // mounted, so ⌘K falls through to CommandPalette unchanged.
+    document.addEventListener(
+      'keydown',
+      (event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+          event.preventDefault();
+          event.stopPropagation();
+          dialog.open ? close() : open();
+        }
+      },
+      true,
+    );
+  })();
+</script>

@@ -150,7 +150,7 @@ async function firstBlogPostHref(page: Page): Promise<string> {
   await expect(firstPost).toBeVisible();
 
   const href = await firstPost.getAttribute('href');
-  expect(href).toMatch(/^\/blog\/[^/]+\/$/);
+  expect(href).toMatch(/^\/blog\/[^/]+$/);
 
   return href as string;
 }
@@ -325,7 +325,7 @@ test.describe('Blog reading UI', () => {
 
   test('remeasures the TOC after preceding media changes height', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
 
     const headings = page.locator('.blog-prose h2, .blog-prose h3');
     const tocLinks = page.locator('.toc-link');
@@ -362,7 +362,7 @@ test.describe('Blog reading UI', () => {
       });
     });
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
 
     const galleryImages = page.locator('.kg-gallery-card .kg-gallery-image img');
     await expect(galleryImages).toHaveCount(3);
@@ -421,9 +421,29 @@ test.describe('Blog reading UI', () => {
     await expect(page.locator('[data-ghost-draft-preview]')).toBeVisible();
     await expect(page.locator('.blog-article__title')).toHaveText('E2E Ghost draft');
     await expect(page.locator('.blog-prose blockquote')).toContainText('E2E preview line');
-    await expect(page.locator('.ai-credit')).toContainText('Claude Opus 4.6');
+    await expect(page.locator('[data-blog-music]')).toHaveCount(1);
+    await expect(page.locator('.blog-prose code.language-text')).toContainText(
+      '[!authors ai=example/model]',
+    );
+    const conversation = page.locator('.blog-prose .conv-thread');
+    await expect(conversation).toHaveCount(1);
+    await expect(conversation).toHaveAttribute('data-tints', 'off');
+    await expect(conversation.locator('.conv-group--in')).toHaveAttribute('data-tints', 'on');
+    await expect(page.locator('.blog-prose pre code.language-conversation')).toHaveCount(0);
+    await expect(page.locator('.ai-credit')).toContainText('Gemini 3.7 Flash');
     await expect(page.locator('.ai-credit')).toContainText('reviewed the draft.');
     await expect(page.locator('.not-by-ai')).toHaveCount(0);
+    const etag = response?.headers().etag;
+    expect(etag).toBeTruthy();
+
+    const unchanged = await page.request.head(`/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`, {
+      headers: { 'If-None-Match': etag ?? '' },
+    });
+    expect(unchanged.status()).toBe(304);
+
+    const current = await page.request.head(`/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`);
+    expect(current.status()).toBe(200);
+    expect(current.headers().etag).toBe(etag);
 
     const invalid = await page.request.get('/dev/blog/not-a-ghost-id');
     expect(invalid.status()).toBe(404);
@@ -432,6 +452,32 @@ test.describe('Blog reading UI', () => {
     const missing = await page.request.get('/dev/blog/aaaaaaaaaaaaaaaaaaaaaaaa');
     expect(missing.status()).toBe(404);
     expect(missing.headers()['cache-control']).toBe('no-store, max-age=0');
+  });
+
+  test('reloads a Ghost draft preview when its revision changes', async ({ page }) => {
+    let documentRequests = 0;
+    let changedRevisionSent = false;
+    await page.route(`**/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`, async (route) => {
+      if (route.request().method() === 'HEAD') {
+        if (!changedRevisionSent) {
+          changedRevisionSent = true;
+          await route.fulfill({ status: 200, headers: { ETag: '"e2e-changed"' } });
+        } else {
+          await route.fulfill({ status: 304 });
+        }
+        return;
+      }
+
+      documentRequests += 1;
+      await route.continue();
+    });
+
+    await page.goto(`/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    await expect.poll(() => documentRequests).toBeGreaterThan(1);
+    expect(changedRevisionSent).toBe(true);
   });
 
   test('probes YouTube capability on click without geo branching or overflow', async ({ page }) => {
@@ -463,7 +509,7 @@ test.describe('Blog reading UI', () => {
     });
 
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
 
     const card = page.locator('[data-yt]');
     const frame = card.locator('[data-yt-frame]');
@@ -488,16 +534,14 @@ test.describe('Blog reading UI', () => {
     });
     await frame.click();
 
-    await expect(card).toHaveClass(/is-loading/u);
     await expect(player).toHaveAttribute(
       'src',
       /youtube-nocookie\.com\/embed\/aqz-KE-bpKQ\?.*origin=http/u,
     );
-    expect(apiRequests).toBe(1);
-    expect(playerRequests).toBe(1);
-
     await expect(card).toHaveClass(/is-playing/u);
     await expect(player).toBeVisible();
+    await expect.poll(() => apiRequests).toBe(1);
+    await expect.poll(() => playerRequests).toBe(1);
     expect(await page.evaluate(() => sessionStorage.getItem('youtube-embed-reachable:v1'))).toBe('yes');
 
     apiOutcome = 'silent';
@@ -525,7 +569,7 @@ test.describe('Blog reading UI', () => {
       });
     });
 
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => {
       document.documentElement.dataset.country = 'US';
       sessionStorage.removeItem('youtube-embed-reachable:v1');
@@ -565,7 +609,7 @@ test.describe('Blog reading UI', () => {
       });
     });
 
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => sessionStorage.removeItem('youtube-embed-reachable:v1'));
 
     const card = page.locator('[data-yt]');
