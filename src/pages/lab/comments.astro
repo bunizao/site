@@ -5,9 +5,15 @@
 // dark mode, and the hairline they share with .blog-end are all honest.
 //
 // Query params flip the states worth reviewing side by side:
-//   ?state=loaded | loading | empty   (comment list)
-//   ?phase=anonymous | ready          (reader standing in the compose box)
-//   ?reacted=1                        (filled heart, xia accent)
+//   ?state=loaded | loading | empty | error   (thread)
+//   ?phase=anonymous | claimed | ready         (reader standing, compose box)
+//   ?receipt=submitting | posted | held | nudge | error   (compose receipt)
+//   ?open=1                                    (identity row forced open)
+//   ?more=1  ?moreState=loading                (load-more cursor button)
+//   ?reacted=1                                 (filled heart, xia accent)
+//
+// Own/editing/tombstone/edited comment rows are fixture data below, not query
+// params — they are thread content, not a state of the box or the list.
 //
 // Delete once /blog/[slug] carries the real thing.
 import BlogLayout from '@/layouts/BlogLayout.astro';
@@ -17,18 +23,35 @@ import BackToTop from '@/features/posts/ui/BackToTop.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import ReactionBar from '@/features/comments/ui/ReactionBar';
 import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
-import type { BlogComment } from '@/features/comments/types';
+import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import '@/features/comments/styles/comments.css';
 
 export const prerender = false;
 if (!import.meta.env.DEV) return new Response(null, { status: 404 });
 
 const params = Astro.url.searchParams;
+
 const rawState = params.get('state');
-const state = rawState === 'loading' || rawState === 'empty' ? rawState : 'loaded';
+const state = rawState === 'loading' || rawState === 'empty' || rawState === 'error' ? rawState : 'loaded';
+
 const rawPhase = params.get('phase');
-const phase = rawPhase === 'ready' ? rawPhase : 'anonymous';
+const phase: ReaderPhase = rawPhase === 'claimed' || rawPhase === 'ready' ? rawPhase : 'anonymous';
+
+const rawReceipt = params.get('receipt');
+const receipt: ComposeReceipt =
+  rawReceipt === 'submitting' || rawReceipt === 'posted' || rawReceipt === 'held'
+  || rawReceipt === 'nudge' || rawReceipt === 'error'
+    ? rawReceipt
+    : 'idle';
+
+const open = params.get('open') === '1';
+const hasMore = params.get('more') === '1';
+const loadMoreState = params.get('moreState') === 'loading' ? 'loading' : 'idle';
 const reacted = params.get('reacted') === '1';
+
+const viewer: Viewer = { name: 'Tutu Xiao' };
+const claimed: ClaimedIdentity = { name: 'Murray', email: 'murray@example.com' };
+const draftText = "Might be worth mentioning the rollback plan too — did you keep one on standby, or was cutting it part of the point?";
 
 // Real faces on purpose: a stack of five identical initial-circles reads as one
 // grey mass, which is a property of the fixture, not of the design. The shipped
@@ -40,6 +63,8 @@ const reactors = [
   { name: 'Priya R', avatar: 'https://avatars.githubusercontent.com/u/1024025?s=96' },
   { name: 'Tom Beck' },
 ];
+
+const editWindowSoon = Date.now() + 8 * 60 * 1000 + 24 * 1000; // ~8:24 left, for the countdown
 
 const comments: BlogComment[] = [
   {
@@ -65,13 +90,55 @@ const comments: BlogComment[] = [
     date: '5d',
     text: 'Curious whether you kept the adapter around for the migration window or cut it in one go. The one-go version always sounds cleaner than it turns out to be.',
     likes: 2,
+    edited: true,
   },
   {
     id: '4',
     author: 'You',
     date: 'now',
     text: 'Second this — a migration window with two live paths is where most of the cost hides.',
-    pending: true,
+    held: true,
+    own: true,
+  },
+  // Tombstone: the root is gone but the reply under it stays put — one-level
+  // threading has nowhere else to hang it.
+  {
+    id: '5',
+    author: 'Deleted',
+    date: '4d',
+    text: '',
+    tombstone: true,
+  },
+  {
+    id: '6',
+    author: 'Priya R',
+    date: '4d',
+    text: "Following up on that anyway — the rollback plan is the part I'd want written down before I tried this on our stack.",
+    isReply: true,
+    likes: 1,
+  },
+  // Own, still inside the 15-minute edit window — Edit is live and counting
+  // down; Delete always is.
+  {
+    id: '7',
+    author: 'Tutu Xiao',
+    date: 'now',
+    text: 'One more thing: the retry policy move is the part I keep pointing people to when this comes up internally.',
+    own: true,
+    editDeadline: editWindowSoon,
+    likes: 3,
+  },
+  // Own, already mid-edit — the inline textarea swap, on screen without a
+  // click.
+  {
+    id: '8',
+    author: 'Tutu Xiao',
+    date: '1h',
+    text: 'Typo in my last one — meant the retry policy, not the retry budget.',
+    own: true,
+    editing: true,
+    editDeadline: Date.now() + 3 * 60 * 1000,
+    likes: 0,
   },
 ];
 ---
@@ -175,7 +242,13 @@ await billing.invoice(payload)</code></pre>
         comments={comments}
         state={state}
         phase={phase}
-        viewer={{ name: 'Tutu Xiao' }}
+        viewer={viewer}
+        claimed={claimed}
+        receipt={receipt}
+        draftText={draftText}
+        open={open}
+        hasMore={hasMore}
+        loadMoreState={loadMoreState}
       />
     </article>
   </div>
