@@ -147,6 +147,13 @@ repo keeps only a thin service-binding fallback for preview environments.
 Keep them split. The boundary is a security boundary, not an organizational
 preference.
 
-`@bunizao/contracts` is duplicated byte-for-byte in both repos and **this repo is
-canonical**. After editing a contract here, run `bun run sync:contracts` in
-`../site-api`.
+`@bunizao/contracts` is maintained in this public repo and released as a public
+npm package. The initial release is `@bunizao/contracts@0.1.0`; the package
+source and release metadata live in [`packages/contracts/`](https://github.com/bunizao/site/tree/main/packages/contracts).
+Consumers, including `site-api`, pin an exact package version and upgrade it
+deliberately. Local development in this repo keeps the workspace dependency so
+contract changes can be tested before a release. The root `check`, tests, and
+build commands prepare the workspace package automatically; run
+`bun run contracts:build` before starting a focused dev server. Publish a
+version only from a matching `contracts-v<version>` tag; the release workflow
+uses npm trusted publishing with provenance.

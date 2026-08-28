@@ -170,9 +170,11 @@ describe('Cloudflare runtime configuration', () => {
     expect(packageJson.scripts?.['preview:cloudflare']).toBe('bun run build:cloudflare && wrangler dev --config dist/server/wrangler.json');
     expect(packageJson.scripts?.['tail:cloudflare']).toBe('wrangler tail');
     expect(packageJson.scripts?.['types:cloudflare']).toBe('wrangler types');
-    expect(packageJson.scripts?.check).toBe('astro sync && node scripts/astro-check-legacy-typescript.mjs');
+    expect(packageJson.scripts?.check).toBe(
+      'bun run contracts:build && astro sync && node scripts/astro-check-legacy-typescript.mjs',
+    );
     expect(readText('scripts/astro-check-legacy-typescript.mjs')).toContain('typescript-astro-check');
-    expect(packageJson.scripts?.build).toStartWith('astro build');
+    expect(packageJson.scripts?.build).toStartWith('bun run contracts:build && astro build');
     expect(packageJson.scripts?.build).toContain('bun scripts/generate-agent-markdown.ts');
     expect(packageJson.scripts?.build).toContain('cloudflare-deploy-guard.mjs install');
     expect(packageJson.scripts?.dev).toContain('astro dev');
