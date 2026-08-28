@@ -20,6 +20,7 @@ import {
   type Dataset,
 } from './ghost/dataset';
 import { type GhostAdapterOptions } from './ghost/config';
+import { selectListedPosts } from '../i18n';
 import { isUnlistedPost } from '../unlisted';
 
 function paginate<T>(
@@ -108,8 +109,13 @@ export function createGhostContentProvider(
     return getPublicPosts((await getDataset()).posts);
   }
 
+  // Two rules, one seam. Everything that shows a list of posts — the listing,
+  // tag archives, RSS, sitemap, search, prev/next — reads through here, so a
+  // translation cannot leak into one of them by being wired up separately.
   async function getListedPosts() {
-    return (await getAccessiblePosts()).filter((post) => !isUnlistedPost(post));
+    const listed = (await getAccessiblePosts()).filter((post) => !isUnlistedPost(post));
+
+    return selectListedPosts(listed);
   }
 
   async function getAllPages() {
