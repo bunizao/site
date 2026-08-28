@@ -125,6 +125,33 @@ Components compose the tokens above; they never introduce new colour or type.
 - `{components.callout}` / `{components.inline-code}` — quiet `{colors.fill}`
   surfaces at card / inline radius.
 
+### Sea footer
+
+`BlogSeaFooter.astro` closes the `/blog` index with a drawn sea and a sailboat —
+the literal reading of *sillage*, the wake a boat leaves behind. It sits outside
+the token system on purpose: it is artwork, not chrome, and its palette is the
+drawing's, not the blog's ink set.
+
+Four layers drift over the page background: clouds, far sea, boat, near sea. The
+boat sits **between** the two water layers so the near crests occlude its hull —
+without that stacking it reads as a sticker on the water. Art lives in
+`public/sillage/` (placeholders today; `public/sillage/README.md` carries the
+drawing spec), and swapping it is four URL edits in the component.
+
+Two things are worth knowing before touching it:
+
+- **The sky is the page background, not a painted layer.** With a pure white
+  light background and a near-black dark one, no painted sky matches both. Each
+  water layer instead masks its own alpha at the top, so the page shows through
+  and one set of assets serves both themes.
+- **There is no dark art set.** Night is the same files under a
+  `brightness`/`saturate`/`hue-rotate` filter driven by four custom properties.
+  The filter is on the drawn layers only — the horizon haze is air, not artwork,
+  and carries its own per-theme alpha.
+
+The whole band is `aria-hidden` and stops entirely under
+`prefers-reduced-motion`.
+
 ## Do's and Don'ts
 
 - **Do** keep every accent inside the blue ink set. If a new surface needs an

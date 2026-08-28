@@ -2,6 +2,7 @@
 import BlogLayout from '@/layouts/BlogLayout.astro';
 import BlogMasthead from '@/features/posts/ui/BlogMasthead.astro';
 import BlogColophon from '@/features/posts/ui/BlogColophon.astro';
+import BlogSeaFooter from '@/features/posts/ui/BlogSeaFooter.astro';
 import PostRow from '@/features/posts/ui/PostRow.astro';
 import PostHover from '@/features/posts/ui/PostHover.astro';
 import { getListedPosts, groupPostsByYear } from '@/features/posts/server/content';
@@ -44,6 +45,8 @@ const groups = groupPostsByYear(await getListedPosts());
   <BlogColophon />
 
   <Footer />
+
+  <BlogSeaFooter />
 
   <PostHover />
 </BlogLayout>
