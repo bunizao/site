@@ -13,6 +13,9 @@ import AiCredit from '@/features/posts/ui/AiCredit.astro';
 import ShareRow from '@/features/posts/ui/ShareRow.astro';
 import BlogArticleBeacon from '@/features/posts/ui/BlogArticleBeacon.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
+import ReactionBar from '@/features/comments/ui/ReactionBar';
+import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
+import '@/features/comments/styles/comments.css';
 import { blog } from '@/data/site';
 import Footer from '@/features/home/ui/Footer.astro';
 import {
@@ -176,6 +179,17 @@ const unlisted = isUnlistedPost(post);
       )}
 
       <Prose html={post.html} />
+
+      {/* Reactions stay presentational/local-only in this pass -- see the
+          task report. Comments hydrate for real: client/comments-controller.ts
+          fetches the thread and owns every submit, edit, delete, and like. */}
+      <ReactionBar client:idle count={0} signedIn={true} />
+
+      <CommentsSection
+        state="loading"
+        postId={post.id}
+        turnstileSiteKey={turnstileSiteKey}
+      />
     </article>
   </div>
 
@@ -195,4 +209,9 @@ const unlisted = isUnlistedPost(post);
 
   <BackToTop />
   <BlogArticleBeacon slug={post.slug} />
+
+  <script>
+    import { initCommentsController } from '@/features/comments/client/comments-controller';
+    initCommentsController();
+  </script>
 </BlogLayout>

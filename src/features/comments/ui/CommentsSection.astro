@@ -36,6 +36,16 @@ interface Props {
   /** A cursor page remains beyond what's rendered. */
   hasMore?: boolean;
   loadMoreState?: 'idle' | 'loading';
+  /** Ghost's post.id -- read by client/comments-controller.ts off the
+      section's own `data-post-id` to know which thread to fetch and post
+      to. Omitted entirely in the lab/preview pages, which never hydrate a
+      controller. */
+  postId?: string;
+  /** Cloudflare Turnstile site key, read by the controller the same way --
+      empty when Turnstile is unconfigured (e2e fixtures, local dev without
+      a key), in which case the controller skips minting a widget and lets
+      site-api's own `not_configured` response decide what happens. */
+  turnstileSiteKey?: string;
 }
 
 const {
@@ -49,6 +59,8 @@ const {
   open = false,
   hasMore = false,
   loadMoreState = 'idle',
+  postId,
+  turnstileSiteKey = '',
 } = Astro.props;
 
 const tally = comments.filter((comment) => !comment.held && !comment.tombstone).length;
@@ -63,7 +75,12 @@ const skeletonRows = [
 ];
 ---
 
-<section class="blog-comments" data-pagefind-ignore>
+<section
+  class="blog-comments"
+  data-pagefind-ignore
+  data-post-id={postId}
+  data-turnstile-site-key={turnstileSiteKey}
+>
   <div class="blog-comments__head">
     <h2 class="blog-comments__title">Comments</h2>
     {state === 'loaded' && tally > 0 && (

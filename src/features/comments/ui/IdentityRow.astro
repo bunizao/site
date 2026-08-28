@@ -45,4 +45,19 @@ const { id, open = false } = Astro.props;
     placeholder="Email"
     required
   />
+  {/* Honeypot -- risk stack step 3 (plans/blog-comments.md "The risk
+      stack"). A human never reaches this: it is off-screen, unreachable by
+      Tab, and hidden from assistive tech, not merely visually hidden --
+      real bots that fill every field regardless of visibility are the only
+      thing that ever populates it. Any value here silently drops the
+      submission, comment-service.ts's honeypot check. */}
+  <input
+    type="text"
+    name="website"
+    data-honeypot
+    tabindex="-1"
+    autocomplete="off"
+    aria-hidden="true"
+    style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;"
+  />
 </div>
