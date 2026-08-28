@@ -48,7 +48,7 @@ ada: I inherit the neutral receiving bubble.
 
 | Option | Default | Effect when `off` |
 | --- | --- | --- |
-| `avatars` | `on` | Hides avatars while preserving their alignment gutters. |
+| `avatars` | `on` | Hides avatars; wide threads keep their alignment gutters, narrow ones close them. |
 | `names` | `on` | Hides visible names; accessible labels remain. |
 | `tints` | `on` | Leaves receiving bubbles neutral. |
 
@@ -307,8 +307,11 @@ for mixed text.
 
 Everything reflows on **container queries**, not viewport media queries, so a
 thread in a narrow column adapts to that column rather than to the window. At
-container widths under 520px the avatar gutter and the far-side channel shrink;
-under 360px avatars are dropped and the body steps down to 15px.
+container widths under 520px the avatar gutter and the far-side channel shrink,
+and any row without a visible avatar — every sending run, and both sides under
+`avatars=off` — stops reserving the gutter and closes to the column edge, so the
+two sides of the thread end on the same line the surrounding prose does. Under
+360px avatars are dropped everywhere and the body steps down to 15px.
 
 The renderer translates `@conversation` into namespaced attributes on the
 thread. The playground edits that source line directly, so its switches never
