@@ -442,8 +442,8 @@ Everything below depends on this and nothing below can start without it.
 - Canonical and `og:url` rewiring for translations; the three `hreflang` links.
 - `NotByAI` / `AiCredit` follow the article's locale; masthead and colophon do
   not.
-- The switcher in `PostMeta.astro`.
-- `EN` chip in `PostRow.astro`.
+- The switcher as `LanguagePill.astro` in `TagList`'s `trailing` slot.
+- The `languages` glyph on translated rows in `PostRow.astro`.
 - `selectListedPosts` wired into `content.ts`; `getIndexablePosts` for sitemap.
 - All new copy through `blog.copy[locale]`.
 
