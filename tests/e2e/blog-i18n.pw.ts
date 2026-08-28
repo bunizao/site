@@ -19,4 +19,3 @@ test.describe('blog i18n without JavaScript', () => {
     );
   });
 });
-
