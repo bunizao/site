@@ -1,0 +1,77 @@
+---
+// Dev-only harness for /reader/confirm — the lazy-verification landing page
+// from plans/blog-comments.md → "Lazy verification": the mail carries one
+// link here, GET renders, and only the button's POST consumes the token (a
+// GET that consumed it would let mail-scanner prefetch — Apple MPP, corporate
+// link checkers — silently burn it before the reader ever clicks). No such
+// route or token exists yet, so a query param stands in for what a real
+// lookup would otherwise decide.
+//
+//   ?s=valid | confirmed | expired | already
+//
+// Delete once /reader/confirm carries the real thing.
+import BlogLayout from '@/layouts/BlogLayout.astro';
+import Footer from '@/features/home/ui/Footer.astro';
+import '@/features/comments/styles/comments.css';
+
+export const prerender = false;
+if (!import.meta.env.DEV) return new Response(null, { status: 404 });
+
+const raw = Astro.url.searchParams.get('s');
+const state = raw === 'confirmed' || raw === 'expired' || raw === 'already' ? raw : 'valid';
+const email = 'reader@example.com';
+---
+
+<BlogLayout title="Lab — reader confirm" path="/lab/reader-confirm" description="Dev harness">
+  <a class="blog-back" href="/blog/">← All posts</a>
+
+  <div class="reader-confirm">
+    <div class="reader-confirm__card" data-state={state}>
+      {state === 'valid' && (
+        <>
+          <h1 class="reader-confirm__title">Confirm it's you</h1>
+          <p class="reader-confirm__email">{email}</p>
+          <ul class="reader-confirm__perks">
+            <li>Manage your comments from any device</li>
+            <li>Get notified when someone replies</li>
+            <li>One-tap subscribe to new posts</li>
+          </ul>
+          {/* GET renders this button; only its POST consumes the token — see
+              the file header. No handler exists yet, so the form has nowhere
+              to go, on purpose. */}
+          <form method="post">
+            <button type="submit" class="blog-compose__go reader-confirm__go">Confirm</button>
+          </form>
+        </>
+      )}
+
+      {state === 'confirmed' && (
+        <>
+          <h1 class="reader-confirm__title">You're confirmed</h1>
+          <p class="reader-confirm__body">{email} now manages its comments from anywhere, and reply notifications are armed.</p>
+          <a class="reader-confirm__back" href="/blog/">← Back to the post</a>
+        </>
+      )}
+
+      {state === 'expired' && (
+        <>
+          <h1 class="reader-confirm__title">This link expired</h1>
+          <p class="reader-confirm__body">Confirmation links don't last forever. Send a new one to {email}.</p>
+          <form method="post">
+            <button type="submit" class="blog-compose__go reader-confirm__go">Resend link</button>
+          </form>
+        </>
+      )}
+
+      {state === 'already' && (
+        <>
+          <h1 class="reader-confirm__title">Already confirmed</h1>
+          <p class="reader-confirm__body">{email} was confirmed earlier. Nothing else to do here.</p>
+          <a class="reader-confirm__back" href="/blog/">← Back to the post</a>
+        </>
+      )}
+    </div>
+  </div>
+
+  <Footer />
+</BlogLayout>
