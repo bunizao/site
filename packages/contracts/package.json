@@ -21,6 +21,11 @@
       "import": "./src/admin.ts",
       "default": "./src/admin.ts"
     },
+    "./comments": {
+      "types": "./src/comments.ts",
+      "import": "./src/comments.ts",
+      "default": "./src/comments.ts"
+    },
     "./content": {
       "types": "./src/content.ts",
       "import": "./src/content.ts",
