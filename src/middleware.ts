@@ -4,6 +4,9 @@ import { redirectLegacyGhostHost } from '@/lib/http/legacy-ghost-redirect';
 import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 import {
   cacheHtmlPageResponse,
+  fetchBlogAsset,
+  resolveBlogRequest,
+  withBlogVariantHeaders,
   isNeverCachePath,
   readCachedHtmlPage,
   redirectCanonicalUrl,
@@ -115,8 +118,30 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const markdownResponse = await renderMarkdownIfRequested(context);
   if (markdownResponse) return markdownResponse;
 
-  const cachedHtmlPage = isNeverCachePath(pathname) ? null : await readCachedHtmlPage(context.request);
-  if (cachedHtmlPage) return withHtmlSecurityHeaders(context.request, cachedHtmlPage);
+  const blogResolution = await resolveBlogRequest(context.request, context.locals);
+  if (blogResolution?.redirect) return blogResolution.redirect;
+  if (blogResolution?.grouped && blogResolution.locale) {
+    (context.locals as unknown as Record<string, unknown>).blogLocale = blogResolution.locale;
+  }
+
+  const cachedHtmlPage = isNeverCachePath(pathname)
+    ? null
+    : await readCachedHtmlPage(context.request, context.locals);
+  if (cachedHtmlPage) {
+    const secured = withHtmlSecurityHeaders(context.request, cachedHtmlPage);
+    return blogResolution
+      ? withBlogVariantHeaders(context.request, secured, blogResolution)
+      : secured;
+  }
+
+  const blogAsset = await fetchBlogAsset(context.request, context.locals);
+  if (blogAsset) {
+    return cacheHtmlPageResponse(
+      context.request,
+      withContentPolicy(context.request, withHtmlSecurityHeaders(context.request, blogAsset)),
+      context.locals,
+    );
+  }
 
   // Admin portal: served by this worker, gated by Cloudflare Access in production.
   if (isDevPortalPath(pathname)) {
@@ -132,9 +157,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next()));
   }
 
-  const response = withContentPolicy(
+  const response = withBlogVariantHeaders(context.request, withContentPolicy(
     context.request,
     withHtmlSecurityHeaders(context.request, await next()),
-  );
-  return cacheHtmlPageResponse(context.request, response);
+  ), blogResolution ?? { grouped: false, locale: null, assetSlug: '' });
+  return cacheHtmlPageResponse(context.request, response, context.locals);
 });

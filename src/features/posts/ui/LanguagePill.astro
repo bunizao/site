@@ -65,6 +65,15 @@ const current = versions.find((version) => version.current) ?? versions[0];
         </a>
       ))}
     </div>
+    <noscript>
+      <div class="blog-lang__noscript">
+        {versions.map((version) => (
+          <a href={version.href} hreflang={version.locale} lang={version.locale} rel="alternate">
+            {version.label}
+          </a>
+        ))}
+      </div>
+    </noscript>
   </li>
 )}
 

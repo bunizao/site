@@ -809,6 +809,26 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   display: inline-flex;
 }
 
+.blog-lang__noscript {
+  display: none;
+}
+
+html:not(.js) .blog-lang__pill,
+html:not(.js) .blog-lang__menu {
+  display: none;
+}
+
+html:not(.js) .blog-lang__noscript {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+html:not(.js) .blog-lang__noscript a {
+  color: var(--blog-accent);
+}
+
 /* Lifted out of the page snapshot so the control the reader just used stays
    crisp and travels while everything around it dissolves — the one element that
    should not look replaced by a language switch is the thing that performed it.

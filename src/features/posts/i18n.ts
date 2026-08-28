@@ -26,6 +26,7 @@ export interface PostTranslation {
 }
 
 const KNOWN_LOCALES = Object.keys(blog.copy) as BlogLocale[];
+export { resolveRequestLocale, type RequestLocaleOptions } from '@/features/agent-markdown/server/negotiation';
 
 function isKnownLocale(locale: string): locale is BlogLocale {
   return (KNOWN_LOCALES as string[]).includes(locale);
@@ -101,15 +102,16 @@ export function selectRequestedVersion(
   posts: Post[],
   requested: string | null,
 ): Post {
-  if (!requested || !isKnownLocale(requested)) return post;
-  if (getPostLocale(post) === requested) return post;
+  const normalizedRequested = requested?.trim().toLowerCase() ?? '';
+  if (!normalizedRequested || !isKnownLocale(normalizedRequested)) return post;
+  if (getPostLocale(post) === normalizedRequested) return post;
 
   const canonical = getCanonicalSlug(post);
 
   return (
     posts.find(
       (candidate) =>
-        getCanonicalSlug(candidate) === canonical && getPostLocale(candidate) === requested,
+        getCanonicalSlug(candidate) === canonical && getPostLocale(candidate) === normalizedRequested,
     ) ?? post
   );
 }

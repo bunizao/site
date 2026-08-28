@@ -63,7 +63,8 @@ const slug = Astro.params.slug ?? '';
 // path can honour it: a prerendered file is one language by construction, and
 // in production the swap happens at the edge (plans/blog-i18n.md, step 5).
 // `astro dev` runs this route as SSR precisely so the switcher is testable.
-const requestedLocale = Astro.url.searchParams.get('lang');
+const requestedLocale = (Astro.locals as unknown as { blogLocale?: string }).blogLocale
+  ?? Astro.url.searchParams.get('lang');
 let { post, featureBlur, prev, next, versions } = Astro.props as Partial<PostPageProps>;
 
 if (!post) {
@@ -82,6 +83,16 @@ if (!post) {
     listedPosts,
     accessiblePosts,
   ));
+} else if (requestedLocale) {
+  const accessiblePosts = await getAccessiblePosts({ outputTarget: 'web' });
+  const rawPost = await getPostBySlug(slug, { outputTarget: 'web' });
+  if (rawPost) {
+    ({ post, featureBlur, prev, next, versions } = await buildPostPageProps(
+      selectRequestedVersion(rawPost, accessiblePosts, requestedLocale),
+      await getListedPosts(),
+      accessiblePosts,
+    ));
+  }
 }
 
 versions ??= [];
