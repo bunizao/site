@@ -809,6 +809,16 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   display: inline-flex;
 }
 
+/* Lifted out of the page snapshot so the control the reader just used stays
+   crisp and travels while everything around it dissolves — the one element that
+   should not look replaced by a language switch is the thing that performed it.
+   Static rather than brokered (@/lib/view-transition-names): unlike a list row,
+   there is exactly one pill per document and it is the same object on both
+   sides of every navigation that has one. Timing lives in globals.css. */
+.blog-lang__pill {
+  view-transition-name: blog-lang-pill;
+}
+
 .blog-lang__pill {
   display: inline-flex;
   align-items: center;
@@ -888,6 +898,8 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   min-width: 138px;
   padding: 4px;
   border-radius: 12px;
+  /* Left-anchored is the normal case; the collision fallback flips it below. */
+  transform-origin: top left;
   background: hsl(var(--background));
   box-shadow:
     0 0 0 1px hsl(var(--foreground) / 0.08),
@@ -910,6 +922,8 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 
 .blog-lang__menu[data-anchor='right'] {
   right: 0;
+  /* Scale out of the corner nearest the pill, whichever side it ended up on. */
+  transform-origin: top right;
 }
 
 /* Bridges the 7px gap so travelling pill -> menu never leaves .blog-lang and
@@ -923,13 +937,41 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   height: 7px;
 }
 
+/* A transition, not a keyframe: the menu opens and closes on hover intent, so
+   the cursor crossing the tag row twice must retarget from wherever the motion
+   currently is instead of restarting it. `allow-discrete` keeps the `hidden`
+   attribute as the single source of open/closed — the animation follows the
+   semantics rather than shadowing them with a second state. */
 @media (prefers-reduced-motion: no-preference) {
   .blog-lang__menu {
-    animation: blog-lang-in 0.14s cubic-bezier(0.2, 0, 0, 1);
+    opacity: 1;
+    scale: 1;
+    translate: 0;
+    transition:
+      opacity 0.16s cubic-bezier(0.2, 0, 0, 1),
+      scale 0.16s cubic-bezier(0.2, 0, 0, 1),
+      translate 0.16s cubic-bezier(0.2, 0, 0, 1),
+      display 0.16s allow-discrete;
   }
 
-  @keyframes blog-lang-in {
-    from {
+  /* Exits are shorter and softer than enters: the reader has already decided,
+     and the menu is no longer what they are looking at. `pointer-events` goes
+     first — `display` is still the open value until the transition ends, so
+     without this a closing menu stays clickable for another 110ms. */
+  .blog-lang__menu[hidden] {
+    opacity: 0;
+    scale: 0.97;
+    translate: 0 -3px;
+    pointer-events: none;
+    transition:
+      opacity 0.11s ease-out,
+      scale 0.11s ease-out,
+      translate 0.11s ease-out,
+      display 0.11s allow-discrete;
+  }
+
+  @starting-style {
+    .blog-lang__menu:not([hidden]) {
       opacity: 0;
       scale: 0.97;
       translate: 0 -3px;
@@ -949,12 +991,20 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   color: var(--blog-muted);
   transition:
     color 0.12s ease,
-    background-color 0.12s ease;
+    background-color 0.12s ease,
+    scale 0.15s ease-out;
 }
 
 .blog-lang__item:hover {
   color: var(--blog-ink);
   background: hsl(var(--foreground) / 0.05);
+}
+
+/* The only feedback the reader gets for the choice itself. Picking a language
+   commits a cross-document navigation, which freezes this page at the moment it
+   starts — anything not already on screen by then never appears at all. */
+.blog-lang__item:active {
+  scale: 0.96;
 }
 
 .blog-lang__item[aria-checked='true'] {

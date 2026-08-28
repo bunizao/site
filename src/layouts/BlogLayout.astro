@@ -252,6 +252,54 @@ const paletteCss = [
         const isDark = setting === 'dark' || (setting === 'system' && prefersDark);
         document.documentElement.dataset.themeSetting = setting;
         document.documentElement.classList.toggle('dark', isDark);
+
+        // Tag a language switch so the root view transition can be a swap
+        // rather than an arrival (see globals.css). Same article, same layout,
+        // same boxes — only the words change, and the arrival's lift, scale and
+        // 460ms of expo is what made the switcher feel stuck.
+        //
+        // This lives in the no-FOUC script and not in a bundled module because
+        // `pagereveal` fires ~25ms *before* deferred module scripts execute: by
+        // the time an import has run, the transition it was meant to describe
+        // has already started. Cross-document transitions are styled by the new
+        // document, so the arriving side is the only side that can do this, and
+        // view-transition types set on the outgoing `pageswap` do not carry
+        // over.
+        window.addEventListener('pagereveal', (event) => {
+          const transition = event.viewTransition;
+          if (!transition) return;
+          // The Navigation API reports the entry actually left, so a back or
+          // forward traversal reads as the move it is; `document.referrer` is
+          // the fallback, and carries the full URL on a same-origin navigation.
+          /** @type {any} Navigation API; not in this TypeScript's `lib.dom`. */
+          const nav = window;
+          const activation = nav.navigation && nav.navigation.activation;
+          const from = (activation && activation.from && activation.from.url) || document.referrer;
+          if (!from) return;
+
+          let isSwitch = false;
+          try {
+            const left = new URL(from);
+            const right = new URL(location.href);
+            // Parsed, not string-compared: `/blog/x` and `/blog/x/` are one
+            // article, and the *absence* of the parameter — the default locale,
+            // which owns the bare URL — has to compare equal to itself rather
+            // than to every other value.
+            isSwitch =
+              left.origin === right.origin &&
+              left.pathname.replace(/\/$/, '') === right.pathname.replace(/\/$/, '') &&
+              left.searchParams.get('lang') !== right.searchParams.get('lang');
+          } catch (e) {}
+          if (!isSwitch) return;
+
+          const root = document.documentElement;
+          root.dataset.vtKind = 'lang';
+          // The attribute describes the navigation in flight and nothing else.
+          // Left behind it would hand the next one a transition written for
+          // this one.
+          const clear = () => delete root.dataset.vtKind;
+          transition.finished.then(clear, clear);
+        });
       })();
     </script>
   </head>

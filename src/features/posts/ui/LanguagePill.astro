@@ -69,12 +69,28 @@ const current = versions.find((version) => version.current) ?? versions[0];
 )}
 
 <script>
+  import { prefetch } from 'astro:prefetch';
+
   const root = document.querySelector<HTMLElement>('.blog-lang');
   const pill = root?.querySelector<HTMLButtonElement>('.blog-lang__pill');
   const menu = root?.querySelector<HTMLElement>('.blog-lang__menu');
 
   if (root && pill && menu) {
     const items = () => [...menu.querySelectorAll<HTMLAnchorElement>('.blog-lang__item')];
+
+    // Switching language is a full document navigation, so whatever is not in
+    // the HTTP cache when the reader clicks is dead time with the old page
+    // frozen on screen — most of what reads as a sluggish switcher. Astro's
+    // default hover strategy only warms a version once the cursor is on that
+    // row; reaching for the pill is intent enough, and there are never more
+    // than a handful of versions. Once per page: `prefetch` dedupes anyway,
+    // but the flag keeps the whole thing off the hover path after the first.
+    let warmed = false;
+    const warm = () => {
+      if (warmed) return;
+      warmed = true;
+      for (const item of items()) prefetch(item.href);
+    };
 
     const open = (focus: boolean) => {
       menu.hidden = false;
@@ -123,10 +139,29 @@ const current = versions.find((version) => version.current) ?? versions[0];
       if (fromMouse(event) && !root.contains(event.relatedTarget as Node | null)) intend(false);
     });
 
+    pill.addEventListener('pointerenter', warm);
+    pill.addEventListener('focus', warm);
+
     pill.addEventListener('click', () => {
+      // Touch has no hover, so the tap that opens the menu is the first signal.
+      warm();
       clearTimeout(timer);
       if (menu.hidden) open(true);
       else close(true);
+    });
+
+    menu.addEventListener('click', (event) => {
+      // A modifier or middle click opens a new tab: this page is not going
+      // anywhere, so neither is its menu.
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      if (!(event.target as Element).closest('.blog-lang__item')) return;
+      // Selecting dismisses at once, the way a native menu does. The exit
+      // transition is suppressed rather than awaited because the navigation is
+      // already in flight: a menu caught half-open is what the outgoing view
+      // transition snapshot would otherwise carry across the crossfade, and a
+      // dropdown dissolving over the new article is clutter, not motion.
+      menu.style.transition = 'none';
+      close(false);
     });
 
     document.addEventListener('keydown', (event) => {

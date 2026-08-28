@@ -281,6 +281,69 @@ menu". The pill degrades to a plain visible label with no menu when JS fails.
 Endonyms only — 中文 / English, each in its own language and tagged `lang`.
 Never a flag (languages are not countries), never a two-letter code.
 
+**Motion.** Two separate problems, and the second is the one that read as
+sluggish.
+
+The *menu* enters and exits on a transition rather than a keyframe
+(`opacity`/`scale`/`translate` plus `display` with `allow-discrete`), so the
+cursor crossing the tag row twice retargets the motion instead of restarting it,
+and `hidden` stays the single source of open/closed. 160ms in, 110ms out —
+exits are shorter than enters because the reader has already decided. A closing
+menu drops `pointer-events` on its first frame: `display` is still the open
+value until the transition ends, and a menu that can still navigate while it
+disappears is a bug, not a flourish.
+
+The *navigation* gets its own root transition. Switching language is not an
+arrival — same article, same layout, the same boxes in the same places, only the
+words change — and the baseline (240ms out, then 460ms of expo with a lift and a
+scale) spends most of a second moving a page that never moved. `data-vt-kind`
+on `<html>` selects a flat 200ms dissolve instead, and pins the `blog-hero`,
+`blog-mark` and `blog-lang-pill` morphs to the same window so large snapshot
+layers do not outlive the text. The attribute is set from BlogLayout's no-FOUC
+script and not from a bundled module: `pagereveal` fires ~25ms before deferred
+modules execute, and a cross-document transition is styled by the *new*
+document, so the arriving side is both the only side that can decide and the one
+with no time to import anything. View-transition types set on the outgoing
+`pageswap` do not carry over — that was measured, not assumed.
+
+The dissolve declares `mix-blend-mode: plus-lighter` explicitly. The UA applies
+it through its *default* animation only, so overriding `animation` on
+`::view-transition-old/new(root)` silently drops the blend back to `normal`,
+and under normal blending the two layers' opacities have to sum to exactly 1 or
+the composite brightens and dims through the tween. Measured on the first cut:
+0.947 → 1.190 → 1.119 → 0.955. That swing was the "whole page flickers once"
+report — not the curve, not the duration. With the blend restored and both
+sides on complementary linear ramps the sum holds at 1.000 across the window.
+
+Selecting a language dismisses the menu synchronously, with its exit transition
+suppressed rather than awaited. The outgoing snapshot is taken at `pageswap`,
+a few milliseconds after the click, so an animating menu is simply captured
+half-open and then dissolves over the new article. A modifier or middle click
+is exempt: that opens a new tab, this page is not going anywhere, and neither
+is its menu.
+
+The switcher pill is lifted out of the page snapshot
+(`view-transition-name: blog-lang-pill`, static in `blog.css` — there is exactly
+one per document, so it needs no broker) and travels instead of dissolving. The
+one element that should not look replaced by a language switch is the control
+that performed it.
+
+The pill also warms every version with `prefetch()` on hover and focus. Astro's
+default hover strategy only fires once the cursor is on a row; reaching for the
+pill is intent enough, and a cross-document navigation that has to fetch on
+click is dead time with the old page frozen on screen. That, not the curve, is
+most of what "sticky" means.
+
+**Resolution.** `?lang=` is read in `[slug].astro` and resolved by
+`selectRequestedVersion()`, which walks the translation group for the requested
+locale and falls back to the post itself when the group has no such version — a
+language we do not publish is still a language the reader should be able to read
+the article in, so it does not 404. Only the server-rendered path can honour
+this: a prerendered file is one language by construction. `astro dev` runs the
+route as SSR (`negotiatedContentPageEntrypoints` in `astro.config.mjs`) so the
+switcher is testable, and production still depends on the edge asset swap in
+step 5.
+
 ### 8. Listing
 
 `/blog`, RSS, `llms.txt` and the home preview stay Chinese. `getListedPosts()`
