@@ -140,6 +140,10 @@ export interface ReactionToggleInput {
   emoji?: string;
   /** Desired final state. Repeating the same request is safe. */
   reacted: boolean;
+  /** `expectedAction: 'blog_reaction'` -- plans/blog-comments.md "The risk
+      stack" step 2. The widget solves invisibly (managed mode), so this
+      never costs the reader a prompt or a round trip of their own. */
+  turnstileToken: string;
 }
 
 export interface ReactionToggleResult {
