@@ -1,4 +1,9 @@
+import { isConversationLanguage } from '../../content/conversation';
 import { transformPostDirectives } from '../../posts/server/directives';
+import {
+  readAuthorshipCredits,
+  type AuthorshipCredit,
+} from '../../posts/server/directives/authors';
 
 /* A docs demo shows the real thing, not a picture of it: the snippet in the
    fence is fed to the same directive pipeline a published post goes through,
@@ -73,34 +78,63 @@ export function demoSourceToEditorHtml(source: string): string {
   return blocks.join('');
 }
 
-async function renderDocsDemo(source: string): Promise<string> {
-  const { html } = await transformPostDirectives(demoSourceToEditorHtml(source), {
+/* A conversation demo arrives two ways. `conversation` fences are the thread on
+   its own; a `markdown` fence is the whole thing an author pastes into an
+   editor, outer backticks included. Both should render the same thread, so the
+   wrapper is unwrapped rather than given a second code path. */
+const WRAPPED_CONVERSATION = /^`{3,}[ \t]*conversation[ \t]*\n([\s\S]*?)\n`{3,}\s*$/u;
+
+/** The thread source inside a demo fence, or null when the fence is not one. */
+export function readConversationSource(lang: string, source: string): string | null {
+  if (isConversationLanguage(lang)) return source;
+  return WRAPPED_CONVERSATION.exec(source.trim())?.[1] ?? null;
+}
+
+export interface DemoRender {
+  /** Post body HTML, empty when the snippet is nothing but meta directives. */
+  html: string;
+  /** What `[!authors]` put in the footer. Empty for every other snippet. */
+  credits: readonly AuthorshipCredit[];
+}
+
+/** Runs a snippet through the post pipeline and hands back both halves of what
+    a post would show: the body, and the footer credit a meta directive yields.
+    `[!authors]` renders nothing in place, so without the second half its demo
+    would be an empty box. */
+export async function renderDemo(source: string): Promise<DemoRender> {
+  const { html, meta } = await transformPostDirectives(demoSourceToEditorHtml(source), {
     slug: 'docs-demo',
     locale: 'en',
     outputTarget: 'web',
   });
-  // .blog-prose is where the directive styles are scoped; the demo is the same
-  // markup a post gets, so it wants the same scope.
-  return (
-    '<figure class="docs-demo">' +
-    '<figcaption class="docs-demo-label">Rendered</figcaption>' +
-    `<div class="blog-prose docs-demo-render">${html}</div>` +
-    '</figure>'
-  );
+  return { html, credits: readAuthorshipCredits(meta, 'docs-demo') };
 }
 
-const DEMO_SLOT_RE = /<div data-docs-demo="([A-Za-z0-9+/=]*)"><\/div>/gu;
+export type DocsFragment =
+  | { kind: 'html'; html: string }
+  | { kind: 'demo'; lang: string; source: string };
 
-/** Fills the slots the markdown plugin left behind. Runs in the docs route,
-    which — unlike astro.config — can reach the directive pipeline. */
-export async function expandDocsDemos(html: string): Promise<string> {
-  const slots = [...html.matchAll(DEMO_SLOT_RE)];
-  if (slots.length === 0) return html;
+const DEMO_SLOT_RE = /<div data-docs-demo="([A-Za-z0-9+/=]*)" data-docs-demo-lang="([a-z0-9-]*)"><\/div>/gu;
 
-  const rendered = await Promise.all(
-    slots.map((slot) => renderDocsDemo(Buffer.from(slot[1] ?? '', 'base64').toString('utf8'))),
-  );
+/** Splits rendered docs HTML around the slots the markdown plugin left behind.
+    A slot cannot be filled here because a demo may need a component — the
+    conversation thread, the authorship credit — so the route renders them and
+    this only says where they go. */
+export function splitDocsFragments(html: string): DocsFragment[] {
+  const fragments: DocsFragment[] = [];
+  let cursor = 0;
 
-  let index = 0;
-  return html.replace(DEMO_SLOT_RE, () => rendered[index++] ?? '');
+  for (const slot of html.matchAll(DEMO_SLOT_RE)) {
+    const start = slot.index ?? 0;
+    if (start > cursor) fragments.push({ kind: 'html', html: html.slice(cursor, start) });
+    fragments.push({
+      kind: 'demo',
+      lang: slot[2] ?? '',
+      source: Buffer.from(slot[1] ?? '', 'base64').toString('utf8'),
+    });
+    cursor = start + slot[0].length;
+  }
+
+  if (cursor < html.length) fragments.push({ kind: 'html', html: html.slice(cursor) });
+  return fragments;
 }

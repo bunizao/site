@@ -9,7 +9,7 @@ order: 4
 renders the same card the feed uses, in an iframe that resizes itself to its
 content.
 
-```
+```md demo
 [!mood id=482]
 [!mood id=482 theme=dark density=compact]
 ```
@@ -30,7 +30,7 @@ The ID is the number in the mood permalink: `/mood/482`.
 
 The same thing, written inline:
 
-```
+```md demo
 [mood:482]
 [mood:482 theme=dark density=compact]
 ```
