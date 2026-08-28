@@ -464,18 +464,37 @@
   outline: none;
 }
 
-/* Inner controls: 9px against the box's 14px, so the nesting stays concentric
-   across the 12px of padding between them. */
+/* The identity row: asked for once, at submit, and never again on this
+   browser (both fields required — plans/blog-comments.md → "Compose: name +
+   email, post immediately"). Name first because it is the part the reader
+   chooses; the address is only the part they have to prove. Always in the
+   DOM — see IdentityRow.astro's comment on `data-compose-identity` — so the
+   claimed footer's "换一个" has a row to reveal without a re-render.
+
+   Ghost fields, not a box-in-a-box: no border or fill of their own, so the
+   compose box keeps exactly one border and one radius. A hairline above the
+   row is the only separation from the textarea, and the inputs match its
+   typography — font-size 16px, same body/placeholder colours — so the whole
+   box reads as one field that grew a second line, not two stacked controls. */
+.blog-compose__identity {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--blog-line);
+}
+
 .blog-compose__input {
   min-width: 0;
-  height: 34px;
-  padding: 0 14px;
-  border: 1px solid var(--blog-line);
-  border-radius: var(--blog-r-pill);
-  background: hsl(var(--background));
+  flex: 1 1 auto;
+  padding: 2px 0 4px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
   color: var(--blog-body);
   font: inherit;
   font-size: 16px;
+  transition: border-color 0.15s ease;
 }
 
 .blog-compose__input::placeholder {
@@ -484,28 +503,13 @@
 
 .blog-compose__input:focus {
   outline: none;
-  border-color: hsl(var(--foreground) / 0.32);
-}
-
-/* The identity row: asked for once, at submit, and never again on this
-   browser. Name first because it is the part the reader chooses; the address
-   is only the part they have to prove. */
-.blog-compose__id {
-  display: flex;
-  gap: 7px;
-  margin-top: 10px;
-}
-
-.blog-compose__id .blog-compose__input {
-  flex: 1 1 auto;
-  width: 100%;
+  border-bottom-color: var(--blog-line);
 }
 
 /* A display name needs room for a handle, not a sentence, so it takes the
-   smaller share and leaves the address the half that actually runs long.
-   Scoped to the row so it outweighs the shared `flex: 1 1 auto` above. */
-.blog-compose__id .blog-compose__input--name {
-  flex: 0 1 38%;
+   smaller share and leaves the address the half that actually runs long. */
+.blog-compose__input--name {
+  flex: 0 1 34%;
 }
 
 .blog-compose__foot {
@@ -516,13 +520,34 @@
   margin-top: 8px;
 }
 
+/* One footer slot, three tenants. All three render every time (see
+   CommentForm.astro) and only `data-phase` on the wrapper decides which one
+   is visible, so switching phase client-side — the claimed footer's
+   "换一个" — is a single attribute write instead of swapping DOM. */
+.blog-compose__who,
+.blog-compose__claim,
+.blog-compose__hint {
+  display: none;
+}
+
+.blog-compose[data-phase='ready'] .blog-compose__who {
+  display: inline-flex;
+}
+
+.blog-compose[data-phase='claimed'] .blog-compose__claim {
+  display: inline-flex;
+}
+
+.blog-compose[data-phase='anonymous'] .blog-compose__hint {
+  display: inline;
+}
+
 .blog-compose__hint {
   font-size: 12.5px;
   color: var(--blog-faint);
 }
 
 .blog-compose__who {
-  display: inline-flex;
   align-items: center;
   gap: 7px;
   min-width: 0;
@@ -537,6 +562,38 @@
   border-radius: 50%;
   font-size: 9.5px;
   object-fit: cover;
+}
+
+/* The claimed identity: an unverified name+email pair mirrored into
+   localStorage, never a proof — so it reads as plain text next to a quiet
+   text-button, not as a signed-in chip with a face. */
+.blog-compose__claim {
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--blog-muted);
+}
+
+.blog-compose__claim-switch {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--blog-faint);
+  font: inherit;
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.blog-compose__claim-switch:hover {
+  color: var(--blog-ink);
+}
+
+.blog-compose__claim-switch:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 2px;
 }
 
 .blog-compose__go {
@@ -571,36 +628,126 @@
   outline-offset: 2px;
 }
 
-/* --- Asking who you are -------------------------------------------------- */
-/* The hint under the box carries the whole argument for the email round trip,
-   so it changes the moment the row appears: shut it is housekeeping, open it
-   is the promise that this is paid once rather than once per comment. It
-   reads the same aria state that drives the row, so what is shown and what is
-   announced cannot drift. */
-.blog-compose__hint--open,
-.blog-compose__foot:has([aria-expanded='true']) .blog-compose__hint--shut {
-  display: none;
+/* Submitting: disabled and read-only, no spinner — the round trip is fast
+   enough that one would just flash. Opacity is the only cue, which is enough
+   next to a button that stops responding to clicks. */
+.blog-compose__field[readonly] {
+  opacity: 0.6;
 }
 
-.blog-compose__foot:has([aria-expanded='true']) .blog-compose__hint--open {
-  display: inline;
+.blog-compose__go[disabled] {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* --- Receipt / nudge ------------------------------------------------------
+   Sits under the box, never inside it: the compose box is done with a
+   submission once the receipt line shows, and folding it into the box would
+   read as though the box were still doing something. */
+.blog-compose__receipt {
+  margin-top: 10px;
+  padding: 0 2px;
+}
+
+.blog-compose__receipt-line {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--blog-muted);
+}
+
+.blog-compose__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--blog-ink);
+}
+
+.blog-compose__error svg {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  color: var(--blog-faint);
+}
+
+/* The one non-blocking upsell in the whole feature: text-weight and
+   dismissable, the same register as the row actions below the thread — never
+   a banner, never a modal. plans/blog-comments.md → "Subscribe prompt". */
+.blog-compose__nudge {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--blog-line);
+}
+
+.blog-compose__nudge-text {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 180px;
+  font-size: 12.5px;
+  color: var(--blog-faint);
+}
+
+.blog-compose__nudge-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  font-size: 12.5px;
+  color: var(--blog-muted);
+  cursor: pointer;
+}
+
+.blog-compose__nudge-sub input {
+  accent-color: hsl(var(--foreground));
+}
+
+.blog-compose__nudge-dismiss {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--blog-faint);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.blog-compose__nudge-dismiss:hover {
+  background: var(--blog-fill);
+  color: var(--blog-ink);
+}
+
+.blog-compose__nudge-dismiss:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 2px;
+}
+
+.blog-compose__nudge-dismiss svg {
+  width: 12px;
+  height: 12px;
 }
 
 /* Under the measure the two fields stack rather than squeezing an address
    into an unreadable stub. */
 @media (max-width: 560px) {
-  .blog-compose__id {
+  .blog-compose__identity {
     flex-wrap: wrap;
   }
 
-  .blog-compose__id .blog-compose__input--name {
+  .blog-compose__identity .blog-compose__input--name {
     flex-basis: 100%;
-  }
-
-  /* The open hint is a full sentence; centring the button against two lines of
-     it strands the button in the gutter — park it level with the first. */
-  .blog-compose__foot:has([aria-expanded='true']) {
-    align-items: flex-start;
   }
 }
 
