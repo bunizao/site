@@ -179,10 +179,19 @@ test.describe('Blog routes', () => {
     await expect(firstYear.locator('.blog-year__heading')).toHaveText(/^(?:\d{4}|Unknown)$/);
     await expect(firstYear.locator('.blog-list .blog-row').first()).toBeVisible();
 
-    const colophon = page.locator('.blog-colophon');
-    await expect(colophon).toBeVisible();
-    await expect(colophon.getByRole('heading', { name: 'sillage' })).toBeVisible();
-    await expect(colophon.locator('.blog-colophon__body > p')).toHaveCount(3);
+    // The sillage prose is retired from the index; the sea footer carries the
+    // idea now. Assert its layering, not just its presence: the boat between the
+    // two water layers is the whole point, and a reordered DOM would break it
+    // silently.
+    const sea = page.locator('.sillage-sea');
+    await expect(sea).toBeVisible();
+    await expect(sea).toHaveAttribute('aria-hidden', 'true');
+    await expect(page.locator('.blog-colophon')).toHaveCount(0);
+    expect(
+      await sea.evaluate((el) =>
+        Array.from(el.children).map((child) => child.className.replace('sillage-sea__', '')),
+      ),
+    ).toEqual(['haze', 'clouds', 'far', 'boat', 'near']);
 
     const firstPostHref = pathFromHref(
       await page.locator('.blog-row__link').first().getAttribute('href'),
