@@ -1,0 +1,48 @@
+---
+/* Name + email, asked once at submit and never shown before it — the one
+   identity row shared by every place a reader can write anonymously: the
+   compose box at the top of a thread and the travelling reply box (see
+   compose-reveal.ts, which wires the "hidden until submit" behaviour for
+   both from this one partial rather than two copies that could drift).
+
+   Ghost fields, not a second box: no border or fill of their own, same
+   font-size and placeholder colour as the textarea above them, separated
+   from it by a hairline rather than a nested border — the compose box keeps
+   exactly one border and one radius. */
+
+interface Props {
+  /** Base id for this mount's two inputs (`${id}-name` / `${id}-email`) and
+      for the row itself, so the compose box and the reply box — both on
+      screen from the same render — never collide on an id. */
+  id: string;
+  /** SSR-only: render already open. Used for a submission retry, where the
+      fields are still the reader's draft, and for the lab's `?open=1`
+      preview. The client-side reveal never re-renders this — it just flips
+      `hidden` — so this prop is not read after first paint. */
+  open?: boolean;
+}
+
+const { id, open = false } = Astro.props;
+---
+
+<div class="blog-compose__identity" id={id} data-compose-identity hidden={!open}>
+  <label class="sr-only" for={`${id}-name`}>Display name</label>
+  <input
+    id={`${id}-name`}
+    class="blog-compose__input blog-compose__input--name"
+    type="text"
+    maxlength="32"
+    autocomplete="nickname"
+    placeholder="Name"
+    required
+  />
+  <label class="sr-only" for={`${id}-email`}>Email</label>
+  <input
+    id={`${id}-email`}
+    class="blog-compose__input"
+    type="email"
+    autocomplete="email"
+    placeholder="Email"
+    required
+  />
+</div>
