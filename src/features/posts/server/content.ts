@@ -3,6 +3,7 @@ import { blog } from '@/data/site';
 import { createGhostContentProvider } from '../adapter';
 import { getGhostRuntimeConfig } from '../adapter/ghost/config';
 import { findStandaloneDirectiveMarkers } from './directives/syntax';
+import { normalizeDirectiveCodeBlocks } from './code-blocks';
 import type {
   DirectiveOutputTarget,
   DirectiveWarning,
@@ -25,6 +26,7 @@ export interface PostContentOptions {
 }
 
 let provider: ContentProvider | null = null;
+const AUTHORSHIP_SOURCE_NAMES = new Set(['authors']);
 
 export function getPostsProvider(): ContentProvider {
   if (!provider) {
@@ -137,8 +139,8 @@ async function transformPostContent(
   post: Post,
   outputTarget: DirectiveOutputTarget,
 ): Promise<Post> {
-  const { transformPostDirectives } = await import('./directives');
-  const result = await transformPostDirectives(post.html, {
+  const { renderPostContent } = await import('./rich-content');
+  const result = await renderPostContent(post.html, {
     slug: post.slug,
     locale: blog.locale.blog,
     outputTarget,
@@ -154,7 +156,8 @@ async function transformPostContent(
 }
 
 function sanitizePostDerivedText(post: Post): Post {
-  const carriers = findStandaloneDirectiveMarkers(post.html, 'authors');
+  const normalized = normalizeDirectiveCodeBlocks(post.html, AUTHORSHIP_SOURCE_NAMES);
+  const carriers = findStandaloneDirectiveMarkers(normalized, 'authors');
   if (carriers.length === 0) return post;
 
   return {

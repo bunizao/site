@@ -20,7 +20,10 @@ const POST: GhostAdminPost = {
 };
 
 function clientWith(readPostById: GhostAdminClient['readPostById']): GhostAdminClient {
-  return { readPostById };
+  return {
+    readPostById,
+    readPostRevisionById: async (id) => (await readPostById(id)).updatedAt,
+  };
 }
 
 describe('Ghost draft preview', () => {
@@ -60,9 +63,10 @@ describe('Ghost draft preview', () => {
     expect(result.html).toContain('class="blog-poem"');
     expect(result.html).toContain('<cite class="blog-poem__attribution">— Ada</cite>');
     expect(result.html).not.toContain('[!authors');
-    expect(result.meta).toEqual({
-      authors: [{ ai: 'anthropic/claude-opus-4-6', note: 'reviewed the draft' }],
-    });
+    expect(result.authorshipCredits).toMatchObject([{
+      model: { id: 'anthropic/claude-opus-4-6' },
+      note: 'reviewed the draft',
+    }]);
   });
 
   test('maps client and unexpected failures to sanitized responses', async () => {

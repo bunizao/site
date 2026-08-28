@@ -108,6 +108,27 @@ describe('Ghost Admin client', () => {
     expect(didFetch).toBe(false);
   });
 
+  test('reads only the post revision for live preview probes', async () => {
+    let requestUrl = '';
+    const client = createGhostAdminClient({
+      url: 'https://blog.example.test',
+      adminApiKey: ADMIN_KEY,
+      fetch: async (input) => {
+        requestUrl = String(input);
+        return Response.json({
+          posts: [{ id: POST_ID, updated_at: '2026-07-31T12:01:00.000Z' }],
+        });
+      },
+    });
+
+    const revision = await client.readPostRevisionById(POST_ID);
+
+    expect(requestUrl).toBe(
+      `https://blog.example.test/ghost/api/admin/posts/${POST_ID}/?fields=id%2Cupdated_at`,
+    );
+    expect(revision).toBe('2026-07-31T12:01:00.000Z');
+  });
+
   test('reads the Admin key from server runtime configuration', async () => {
     let requestUrl = '';
     const client = createGhostAdminClient({

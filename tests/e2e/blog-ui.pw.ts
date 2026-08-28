@@ -421,14 +421,29 @@ test.describe('Blog reading UI', () => {
     await expect(page.locator('[data-ghost-draft-preview]')).toBeVisible();
     await expect(page.locator('.blog-article__title')).toHaveText('E2E Ghost draft');
     await expect(page.locator('.blog-prose blockquote')).toContainText('E2E preview line');
+    await expect(page.locator('[data-blog-music]')).toHaveCount(1);
+    await expect(page.locator('.blog-prose code.language-text')).toContainText(
+      '[!authors ai=example/model]',
+    );
     const conversation = page.locator('.blog-prose .conv-thread');
     await expect(conversation).toHaveCount(1);
     await expect(conversation).toHaveAttribute('data-tints', 'off');
     await expect(conversation.locator('.conv-group--in')).toHaveAttribute('data-tints', 'on');
     await expect(page.locator('.blog-prose pre code.language-conversation')).toHaveCount(0);
-    await expect(page.locator('.ai-credit')).toContainText('Claude Opus 4.6');
+    await expect(page.locator('.ai-credit')).toContainText('Gemini 3.7 Flash');
     await expect(page.locator('.ai-credit')).toContainText('reviewed the draft.');
     await expect(page.locator('.not-by-ai')).toHaveCount(0);
+    const etag = response?.headers().etag;
+    expect(etag).toBeTruthy();
+
+    const unchanged = await page.request.head(`/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`, {
+      headers: { 'If-None-Match': etag ?? '' },
+    });
+    expect(unchanged.status()).toBe(304);
+
+    const current = await page.request.head(`/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`);
+    expect(current.status()).toBe(200);
+    expect(current.headers().etag).toBe(etag);
 
     const invalid = await page.request.get('/dev/blog/not-a-ghost-id');
     expect(invalid.status()).toBe(404);
@@ -437,6 +452,32 @@ test.describe('Blog reading UI', () => {
     const missing = await page.request.get('/dev/blog/aaaaaaaaaaaaaaaaaaaaaaaa');
     expect(missing.status()).toBe(404);
     expect(missing.headers()['cache-control']).toBe('no-store, max-age=0');
+  });
+
+  test('reloads a Ghost draft preview when its revision changes', async ({ page }) => {
+    let documentRequests = 0;
+    let changedRevisionSent = false;
+    await page.route(`**/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`, async (route) => {
+      if (route.request().method() === 'HEAD') {
+        if (!changedRevisionSent) {
+          changedRevisionSent = true;
+          await route.fulfill({ status: 200, headers: { ETag: '"e2e-changed"' } });
+        } else {
+          await route.fulfill({ status: 304 });
+        }
+        return;
+      }
+
+      documentRequests += 1;
+      await route.continue();
+    });
+
+    await page.goto(`/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    await expect.poll(() => documentRequests).toBeGreaterThan(1);
+    expect(changedRevisionSent).toBe(true);
   });
 
   test('probes YouTube capability on click without geo branching or overflow', async ({ page }) => {
