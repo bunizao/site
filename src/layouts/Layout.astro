@@ -1,5 +1,6 @@
 ---
 import { FONT_FILES, type Face } from '@/lib/fonts';
+import ViewTransitionReveal from './client/ViewTransitionReveal.astro';
 
 interface Props {
   title: string;
@@ -244,6 +245,10 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
       })();
     </script>
 
+    <!-- Incoming half of the view-transition name broker. Inline and in <head>
+         because `pagereveal` fires before any deferred module can run. -->
+    <ViewTransitionReveal />
+
     <script>
       // Dynamic import keeps the overscroll handler in a bundled, HTTP-cached
       // chunk instead of Astro inlining it into every HTML response.
@@ -251,8 +256,10 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
     </script>
 
     <script>
-      // Decides which single element (if any) may morph across the next
-      // navigation. Must register before any click can navigate away.
+      // Outgoing half: decides which single element (if any) may morph across
+      // the next navigation. Deferred is fine — it only has to beat a click.
+      // The incoming half is <ViewTransitionReveal /> above, which must be
+      // inline to beat `pagereveal`.
       import { initViewTransitionNames } from '@/lib/view-transition-names';
       initViewTransitionNames();
     </script>

@@ -17,6 +17,10 @@
  * BlogLayout keeps a static name because it is the same element in the same
  * place on every page of the blog zone, so its morph is a no-op that holds the
  * mark still through the fade.
+ *
+ * Only the outgoing half lives here. The incoming half is inline in
+ * layouts/client/ViewTransitionReveal.astro because `pagereveal` fires before a
+ * deferred module can run; the two halves meet at the `vt-morph` handoff below.
  */
 
 /** Handoff from the outgoing document to the incoming one. */
@@ -35,6 +39,16 @@ interface Intent {
   /** The destination the reader aimed at, so an unrelated navigation can't inherit it. */
   url: string;
 }
+
+/**
+ * Identity of a destination, as the incoming half will recompute it from its own
+ * `location`. Trailing slash is dropped because a link may point at `/blog/x` and
+ * land on `/blog/x/`; origin is absent because sessionStorage is origin-scoped.
+ */
+const revealKey = (url: string): string => {
+  const target = new URL(url, location.href);
+  return target.pathname.replace(/\/$/, '') + target.search;
+};
 
 /** Names are earned by visibility: an element the user cannot see cannot morph. */
 const isOnScreen = (el: Element): boolean => {
@@ -68,24 +82,6 @@ const isSameDocument = (a: string, b: string): boolean => {
 
 const findCandidate = (name: string): HTMLElement | null =>
   document.querySelector<HTMLElement>(`[${ATTR}="${CSS.escape(name)}"]`);
-
-/** Read-and-clear: a stale handoff must never morph a later navigation. */
-const takeHandoff = (): Intent | null => {
-  let raw: string | null = null;
-  try {
-    raw = sessionStorage.getItem(HANDOFF_KEY);
-    sessionStorage.removeItem(HANDOFF_KEY);
-  } catch {
-    return null;
-  }
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Partial<Intent>;
-    return parsed.name && parsed.url ? { name: parsed.name, url: parsed.url } : null;
-  } catch {
-    return null;
-  }
-};
 
 export const initViewTransitionNames = (): void => {
   let armed: Intent | null = null;
@@ -131,22 +127,11 @@ export const initViewTransitionNames = (): void => {
     try {
       sessionStorage.setItem(
         HANDOFF_KEY,
-        JSON.stringify({ name: intent.name, url: destination ?? intent.url }),
+        JSON.stringify({ name: intent.name, key: revealKey(destination ?? intent.url) }),
       );
     } catch {
       // Private mode: no handoff, so the incoming side stays unnamed and the
       // pair degrades to the root dissolve. Nothing to recover.
     }
-  });
-
-  // Incoming document, before its first render — the counterpart's one chance
-  // to claim the name. The URL check catches the navigation that was written
-  // for one destination and abandoned before it got there.
-  window.addEventListener('pagereveal', (event) => {
-    const handoff = takeHandoff();
-    if (!(event as TransitionalPageEvent).viewTransition || !handoff) return;
-    if (!isSameDocument(handoff.url, location.href)) return;
-    const target = findCandidate(handoff.name);
-    if (target) target.style.viewTransitionName = handoff.name;
   });
 };

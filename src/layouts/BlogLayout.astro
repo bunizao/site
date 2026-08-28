@@ -20,6 +20,7 @@ import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
 import { BLOG_FAVICON } from '@/lib/favicon';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
 import { profileAlternateNames, profileName } from '@/lib/seo';
+import ViewTransitionReveal from './client/ViewTransitionReveal.astro';
 
 interface Props {
   title: string;
@@ -254,6 +255,10 @@ const paletteCss = [
         document.documentElement.classList.toggle('dark', isDark);
       })();
     </script>
+
+    <!-- Incoming half of the view-transition name broker. Inline and in <head>
+         because `pagereveal` fires before any deferred module can run. -->
+    <ViewTransitionReveal />
   </head>
 
   <body
@@ -305,8 +310,10 @@ const paletteCss = [
       import { initViewTransitionNames } from '@/lib/view-transition-names';
       initSubscribePanels();
       initYouTubeEmbeds();
-      // Decides which single element (if any) may morph across the next
-      // navigation. Must register before any click can navigate away.
+      // Outgoing half: decides which single element (if any) may morph across
+      // the next navigation. Deferred is fine — it only has to beat a click.
+      // The incoming half is <ViewTransitionReveal /> in <head>, which must be
+      // inline to beat `pagereveal`.
       initViewTransitionNames();
     </script>
 
