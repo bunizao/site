@@ -131,7 +131,7 @@ describe('posts content provider', () => {
       '[!authors ai="anthropic/claude-opus-4-6" note="reviewed the final structure"]';
     record.html = [
       '<p>Article body.</p>',
-      `<p>${carrier}</p>`,
+      `<pre><code>\n${carrier}\n</code></pre>`,
     ].join('');
     record.markdown = [
       'Article body.  ',

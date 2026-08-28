@@ -42,6 +42,21 @@ a route skip work it does not need:
 | `bun dev:portal` | Admin portal with the auth bypass on |
 | `bun dev:api` | Proxy `/api/*` at a local `site-api` instead of production |
 
+## Draft preview
+
+`/dev/blog/<ghost-post-id>` renders the current Ghost draft through the same
+rich-source compiler used by published posts. Registered directive markers may
+be standalone paragraphs or exact, unlabelled Ghost code cards. Conversation,
+authors, listening, mood, and YouTube share one transform order owned by that
+compiler.
+
+The preview checks the draft revision every 1.5 seconds while its tab is visible.
+When Ghost saves a newer revision, the page reloads automatically and restores
+the contained reading scroll position. A full-page reload initializes listening,
+video, image, and embed behavior once and prevents partial replacement from
+duplicating event listeners. Failed probes keep the current preview visible and
+retry with bounded backoff.
+
 ## The dev/production runtime gap
 
 This trips people up, so it is worth stating plainly: **`astro dev` runs on Astro's

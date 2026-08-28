@@ -49,6 +49,11 @@ dark. Code fences are rehighlighted, images get a blur-up placeholder, and
 YouTube and Apple Music embeds are replaced with local, privacy-preserving
 components.
 
+`src/features/posts/server/rich-content.ts` is the shared rich-source compiler
+for published posts and authenticated Ghost draft previews. It normalizes exact
+directive source cards, runs registered directives, and promotes conversation
+blocks in one fixed order. The compiler owns the feature list for both callers.
+
 The practical rule: write plain Ghost content and let this site style it. Custom
 HTML in a post will render, but it will not inherit the type scale and it will
 not adapt to the theme.

@@ -8,11 +8,12 @@ import {
   type GhostAdminClient,
   type GhostAdminPost,
 } from './ghost-admin';
+import type { DirectiveTransformResult } from './directives';
 import {
-  transformPostDirectives,
-  type DirectiveTransformResult,
-} from './directives';
-import { promoteConversationBlocks } from './code-blocks';
+  readAuthorshipCredits,
+  type AuthorshipCredit,
+} from './directives/authors';
+import { renderPostContent } from './rich-content';
 
 const E2E_POST_ID = '5ddc9141c35e7700383b2937';
 
@@ -21,13 +22,21 @@ export type GhostDraftPreviewResult =
       ok: true;
       post: GhostAdminPost;
       html: string;
-      meta: DirectiveTransformResult['meta'];
+      authorshipCredits: readonly AuthorshipCredit[];
+      warnings: DirectiveTransformResult['warnings'];
+      revision: string;
     }
-  | {
-      ok: false;
-      status: 404 | 500 | 502 | 503 | 504;
-      message: string;
-    };
+  | GhostDraftPreviewFailure;
+
+export interface GhostDraftPreviewFailure {
+  ok: false;
+  status: 404 | 500 | 502 | 503 | 504;
+  message: string;
+}
+
+export type GhostDraftRevisionResult =
+  | { ok: true; revision: string }
+  | GhostDraftPreviewFailure;
 
 export interface ResolveGhostDraftPreviewOptions {
   id: string;
@@ -52,7 +61,9 @@ function e2eGhostAdminClient(): GhostAdminClient {
         slug: 'e2e-ghost-draft',
         title: 'E2E Ghost draft',
         html: [
-          '<p>[!authors ai="anthropic/claude-opus-4-6" note="reviewed the draft"]</p>',
+          '<pre><code>\n[!authors ai=gemini/gemini-3.7-flash note="reviewed the draft"]\n</code></pre>',
+          '<pre><code>\n[!music id=1888707290]\n</code></pre>',
+          '<pre><code class="language-text">[!authors ai=example/model]</code></pre>',
           '<blockquote><p>E2E preview line — Ada</p></blockquote>',
           '<figure class="kg-card kg-code-card"><pre><code class="language-conversation">',
           '```conversation\n',
@@ -67,6 +78,16 @@ function e2eGhostAdminClient(): GhostAdminClient {
         updatedAt: '2026-07-31T11:59:00.000Z',
       };
     },
+    async readPostRevisionById(id) {
+      if (id !== E2E_POST_ID) {
+        throw new GhostAdminClientError(
+          'not_found',
+          'Ghost Admin post was not found.',
+          404,
+        );
+      }
+      return '2026-07-31T11:59:00.000Z';
+    },
   };
 }
 
@@ -76,7 +97,7 @@ function createConfiguredClient(locals: RuntimeEnvLocals | undefined): GhostAdmi
     : createGhostAdminClient({ locals });
 }
 
-function mapGhostPreviewError(error: unknown): GhostDraftPreviewResult {
+function mapGhostPreviewError(error: unknown): GhostDraftPreviewFailure {
   if (!(error instanceof GhostAdminClientError)) {
     console.error('Ghost draft preview failed.', {
       errorType: error instanceof Error ? error.name : typeof error,
@@ -113,7 +134,7 @@ export async function resolveGhostDraftPreview(
   try {
     const client = options.createClient?.() ?? createConfiguredClient(options.locals);
     const post = await client.readPostById(options.id);
-    const transformed = await transformPostDirectives(post.html, {
+    const transformed = await renderPostContent(post.html, {
       slug: post.slug,
       locale: blog.locale.blog,
       outputTarget: 'preview',
@@ -122,9 +143,27 @@ export async function resolveGhostDraftPreview(
     return {
       ok: true,
       post,
-      html: promoteConversationBlocks(transformed.html),
-      meta: transformed.meta,
+      html: transformed.html,
+      authorshipCredits: readAuthorshipCredits(transformed.meta, post.slug),
+      warnings: transformed.warnings,
+      revision: post.updatedAt ?? post.id,
     };
+  } catch (error) {
+    return mapGhostPreviewError(error);
+  }
+}
+
+export async function resolveGhostDraftRevision(
+  options: ResolveGhostDraftPreviewOptions,
+): Promise<GhostDraftRevisionResult> {
+  if (!isGhostAdminPostId(options.id)) {
+    return { ok: false, status: 404, message: 'Not found.' };
+  }
+
+  try {
+    const client = options.createClient?.() ?? createConfiguredClient(options.locals);
+    const updatedAt = await client.readPostRevisionById(options.id);
+    return { ok: true, revision: updatedAt ?? options.id };
   } catch (error) {
     return mapGhostPreviewError(error);
   }

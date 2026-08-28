@@ -1,5 +1,10 @@
 const DIRECTIVE_ATTRIBUTES_SOURCE = `(?:[^"'\\]]|"[^"]*"|'[^']*')*`;
 
+export const DIRECTIVE_SOURCE_RE = new RegExp(
+  `^\\s*\\[!([a-z][a-z0-9-]*)(?:\\s+(${DIRECTIVE_ATTRIBUTES_SOURCE}))?\\]\\s*$`,
+  'iu',
+);
+
 export const DIRECTIVE_PARAGRAPH_RE = new RegExp(
   `<p\\b[^>]*>\\s*\\[!([a-z][a-z0-9-]*)(?:\\s+(${DIRECTIVE_ATTRIBUTES_SOURCE}))?\\]\\s*</p>`,
   'giu',
