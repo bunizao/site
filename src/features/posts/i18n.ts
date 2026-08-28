@@ -88,6 +88,33 @@ export function getTranslations(post: Post, posts: Post[]): PostTranslation[] {
 }
 
 /**
+ * The version of this article the request asked for, or the post itself when it
+ * asked for nothing we publish.
+ *
+ * `?lang=` names a language, not a slug: the article is the group, and every
+ * member of it answers at the canonical URL. Falling back to `post` rather than
+ * 404ing is deliberate — a language we do not have is a language the reader
+ * should still be able to read the article in.
+ */
+export function selectRequestedVersion(
+  post: Post,
+  posts: Post[],
+  requested: string | null,
+): Post {
+  if (!requested || !isKnownLocale(requested)) return post;
+  if (getPostLocale(post) === requested) return post;
+
+  const canonical = getCanonicalSlug(post);
+
+  return (
+    posts.find(
+      (candidate) =>
+        getCanonicalSlug(candidate) === canonical && getPostLocale(candidate) === requested,
+    ) ?? post
+  );
+}
+
+/**
  * One row per article: translations are dropped, everything else passes through.
  *
  * A post written in English first carries the bare `#en` form and is its own

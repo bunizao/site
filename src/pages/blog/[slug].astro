@@ -28,6 +28,7 @@ import {
   buildPostPageProps,
   type PostPageProps,
 } from '@/features/posts/server/page-props';
+import { selectRequestedVersion } from '@/features/posts/i18n';
 import { formatPostDate, postTitleTransitionName } from '@/features/posts/format';
 import { buildBlogOgImageUrl } from '@/features/posts/server/og-image';
 import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
@@ -53,6 +54,11 @@ export const getStaticPaths = (async () => {
 // path is server-rendered so middleware negotiation can be tested under
 // `astro dev`; production keeps the static article files for Pagefind.
 const slug = Astro.params.slug ?? '';
+// Which version of the article this request wants. Only the server-rendered
+// path can honour it: a prerendered file is one language by construction, and
+// in production the swap happens at the edge (docs/plans/blog-i18n.md, step 5).
+// `astro dev` runs this route as SSR precisely so the switcher is testable.
+const requestedLocale = Astro.url.searchParams.get('lang');
 let { post, featureBlur, prev, next, versions } = Astro.props as Partial<PostPageProps>;
 
 if (!post) {
@@ -67,7 +73,7 @@ if (!post) {
   }
 
   ({ post, featureBlur, prev, next, versions } = await buildPostPageProps(
-    rawPost,
+    selectRequestedVersion(rawPost, accessiblePosts, requestedLocale),
     listedPosts,
     accessiblePosts,
   ));

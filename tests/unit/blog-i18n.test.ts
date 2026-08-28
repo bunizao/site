@@ -8,6 +8,7 @@ import {
   isTranslation,
   mapOtherLanguages,
   selectListedPosts,
+  selectRequestedVersion,
 } from '@/features/posts/i18n';
 import type { Post } from '@/features/posts/types';
 
@@ -189,5 +190,37 @@ describe('mapOtherLanguages', () => {
 
   test('leaves untranslated posts out entirely', () => {
     expect(mapOtherLanguages([zh, en, unrelated]).has('night-boat')).toBe(false);
+  });
+});
+
+describe('selectRequestedVersion', () => {
+  const zh = createPost('lun-chenmo', '论沉默');
+  const en = createPost('on-silence', 'On Silence', ['#en:lun-chenmo']);
+  const posts = [zh, en];
+
+  test('serves the requested language at the canonical URL', () => {
+    expect(selectRequestedVersion(zh, posts, 'en')).toBe(en);
+  });
+
+  test('serves the canonical post back from the translation', () => {
+    expect(selectRequestedVersion(en, posts, 'zh')).toBe(zh);
+  });
+
+  test('keeps the post when it already is the language asked for', () => {
+    expect(selectRequestedVersion(zh, posts, 'zh')).toBe(zh);
+  });
+
+  test('keeps the post when nothing was asked for', () => {
+    expect(selectRequestedVersion(zh, posts, null)).toBe(zh);
+  });
+
+  test('keeps the post when the language is not one we publish', () => {
+    expect(selectRequestedVersion(zh, posts, 'fr')).toBe(zh);
+  });
+
+  // A language we do not have is still a language the reader should be able to
+  // read the article in, so the group falls back rather than 404ing.
+  test('keeps the post when the group has no such version', () => {
+    expect(selectRequestedVersion(zh, [zh], 'en')).toBe(zh);
   });
 });
