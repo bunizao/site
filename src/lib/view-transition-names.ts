@@ -29,7 +29,7 @@ const ATTR = 'data-vt-name';
 
 /** Not in `lib.dom` yet; only the fields this module reads are declared. */
 interface TransitionalPageEvent extends Event {
-  viewTransition?: unknown;
+  viewTransition?: { finished: Promise<unknown> };
   /** `pageswap` only: where this navigation is actually going. */
   activation?: { entry?: { url?: string } };
 }
@@ -124,14 +124,30 @@ export const initViewTransitionNames = (): void => {
     const source = findCandidate(intent.name);
     if (!source || !isOnScreen(source)) return;
     source.style.viewTransitionName = intent.name;
+    const handoff = JSON.stringify({
+      name: intent.name,
+      key: revealKey(destination ?? intent.url),
+    });
     try {
-      sessionStorage.setItem(
-        HANDOFF_KEY,
-        JSON.stringify({ name: intent.name, key: revealKey(destination ?? intent.url) }),
-      );
+      sessionStorage.setItem(HANDOFF_KEY, handoff);
     } catch {
       // Private mode: no handoff, so the incoming side stays unnamed and the
       // pair degrades to the root dissolve. Nothing to recover.
     }
+    // `finished` also settles when this navigation is stopped. In that case
+    // the old document survives, so undo both pieces of transition state.
+    const clearFinishedTransition = () => {
+      if (source.style.viewTransitionName === intent.name) {
+        source.style.removeProperty('view-transition-name');
+      }
+      try {
+        if (sessionStorage.getItem(HANDOFF_KEY) === handoff) {
+          sessionStorage.removeItem(HANDOFF_KEY);
+        }
+      } catch {
+        // Storage became unavailable after the handoff was written.
+      }
+    };
+    void swap.viewTransition.finished.then(clearFinishedTransition, clearFinishedTransition);
   });
 };
