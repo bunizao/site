@@ -904,3 +904,91 @@ test.describe('Blog reading UI', () => {
     expect(typeof submittedPayload.timezone).toBe('string');
   });
 });
+
+interface MorphProbe {
+  transition: boolean;
+  claimed: string | null;
+}
+
+/**
+ * Records what the destination's morph candidate is named at the moment the new
+ * snapshot is captured: a `requestAnimationFrame` from inside `pagereveal` runs
+ * at the top of the very rendering opportunity the capture reads from, so it
+ * sees exactly what the transition will see.
+ */
+async function installMorphProbe(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const root = globalThis as typeof globalThis & { __vtMorph?: MorphProbe };
+    root.__vtMorph = { transition: false, claimed: null };
+    window.addEventListener('pagereveal', (event) => {
+      const transition = Boolean((event as Event & { viewTransition?: unknown }).viewTransition);
+      requestAnimationFrame(() => {
+        const candidate = document.querySelector<HTMLElement>('[data-vt-name]');
+        root.__vtMorph = {
+          transition,
+          claimed: candidate?.style.viewTransitionName || null,
+        };
+      });
+    });
+  });
+}
+
+async function firstRowTarget(page: Page): Promise<{ name: string; href: string }> {
+  const row = page.locator('.blog-row__title').first();
+  const name = await row.getAttribute('data-vt-name');
+  const href = await row.evaluate((el) => el.closest('a')?.getAttribute('href') ?? '');
+  expect(name).toMatch(/^post-/);
+  expect(href).toMatch(/^\/blog\//);
+  return { name: name as string, href };
+}
+
+test.describe('Post title shared-element morph', () => {
+  test('the clicked row title claims its name on the destination headline', async ({ page }) => {
+    await installMorphProbe(page);
+    await page.goto('/blog');
+
+    const { name, href } = await firstRowTarget(page);
+    await Promise.all([
+      page.waitForURL(`**${href}`),
+      page.locator('.blog-row__title').first().click(),
+    ]);
+
+    const probe = await test.step('read the destination probe', async () => {
+      let latest: MorphProbe = { transition: false, claimed: null };
+      await expect.poll(async () => {
+        latest = await page.evaluate(
+          () => (globalThis as typeof globalThis & { __vtMorph?: MorphProbe }).__vtMorph,
+        ) as MorphProbe;
+        return latest.claimed;
+      }).not.toBeNull();
+      return latest;
+    });
+
+    // The claim is what the broker's incoming half exists to do, and it can only
+    // happen if that half is registered before `pagereveal` — a deferred module
+    // is ~20-175ms too late, which silently degraded this to the root dissolve.
+    expect(probe.transition).toBe(true);
+    expect(probe.claimed).toBe(name);
+    await expect(page.locator(`h1[data-vt-name="${name}"]`)).toHaveAttribute(
+      'style',
+      new RegExp(`view-transition-name:\\s*${name}`),
+    );
+  });
+
+  test('a direct arrival leaves the headline unnamed', async ({ page }) => {
+    await installMorphProbe(page);
+    await page.goto('/blog');
+    const { href } = await firstRowTarget(page);
+
+    // Nothing was clicked, so nothing may fly. Without this the test above would
+    // still pass with the name baked unconditionally into the markup, which is
+    // the exact bug the broker was built to remove.
+    await page.goto(href);
+    await expect(page.locator('h1[data-vt-name]')).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (globalThis as typeof globalThis & { __vtMorph?: MorphProbe }).__vtMorph,
+      ),
+    ).toMatchObject({ claimed: null });
+  });
+});
