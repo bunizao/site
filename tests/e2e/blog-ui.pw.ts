@@ -909,7 +909,7 @@ test.describe('Blog reading UI', () => {
 // reduced motion on purpose; these need the real thing.
 test.describe('Article language switcher motion', () => {
   // The fixture pair: `quiet-architecture` (中文) and its `#en:` translation.
-  const ARTICLE = '/blog/quiet-architecture/';
+  const ARTICLE = '/blog/quiet-architecture';
 
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
@@ -994,7 +994,7 @@ test.describe('Article language switcher motion', () => {
 
     await page.evaluate(() => {
       (window as unknown as { __vt: unknown }).__vt = null;
-      location.href = '/blog/notes-from-the-links-lab/';
+      location.href = '/blog/notes-from-the-links-lab';
     });
     await page.waitForURL(/notes-from-the-links-lab/);
 
