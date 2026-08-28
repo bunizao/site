@@ -28,6 +28,7 @@ GET /api/v1/mood
 | `after` | string (post id) | — | Cursor: posts newer than this id. Same validation as `before`. |
 | `tag` | string | — | Filters to one mood tag; normalized through `normalizeMoodTag`. |
 | `fresh` | boolean flag | `false` | Any value other than `0`/`false`/`no`/`off` counts as true. Forces `no-store` and skips the edge cache read (see rate limit note below). |
+| `fallback` | boolean flag | `true` | `fallback=0` disables the live Telegram fallback, so an empty or unavailable archive returns as-is. Still edge-cached, under its own cache entry. The site SSR sends `fallback=0` on every archive read. |
 | `probe` | boolean flag | `false` | Returns `{"latestId": "..."}` instead of a page — a cheap way to check for new posts without paying for the full payload. |
 | `probe=image` | — | — | Returns `{"latestImage": {...} | null}` — the latest post carrying an image, for the OG/preview pipeline. |
 
@@ -55,8 +56,8 @@ Response body:
 }
 ```
 
-`before`/`after` and `limit` are hashed into the edge cache key, so identical
-requests share one cache entry. A request with no cursor (the "latest" page)
+`before`/`after`, `limit`, `tag`, and the `fallback` flag are hashed into the
+edge cache key, so identical requests share one cache entry. A request with no cursor (the "latest" page)
 caches for 30s; a request with `before`/`after` (paging through history)
 caches for 300s, since history doesn't change once written.
 
