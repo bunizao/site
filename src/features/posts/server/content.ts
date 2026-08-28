@@ -1,6 +1,6 @@
 import { blog } from '@/data/site';
 
-import { createGhostContentProvider } from '../adapter';
+import { createGhostContentProvider } from '../adapter/provider';
 import { getGhostRuntimeConfig } from '../adapter/ghost/config';
 import { findStandaloneDirectiveMarkers } from './directives/syntax';
 import { normalizeDirectiveCodeBlocks } from './code-blocks';

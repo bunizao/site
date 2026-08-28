@@ -10,11 +10,10 @@ import {
   promoteConversationBlocks,
 } from './code-blocks';
 
-const sourceDirectiveNames = new Set(
-  postDirectiveRegistry
-    .filter((directive) => directive.kind !== 'inline')
-    .map((directive) => directive.name.toLowerCase()),
-);
+const sourceDirectiveNames = new Set<string>();
+for (const directive of postDirectiveRegistry) {
+  if (directive.kind !== 'inline') sourceDirectiveNames.add(directive.name.toLowerCase());
+}
 
 /**
  * The single rich-source compiler shared by published posts and draft preview.
