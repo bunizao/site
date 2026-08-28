@@ -28,7 +28,12 @@ import {
   buildPostPageProps,
   type PostPageProps,
 } from '@/features/posts/server/page-props';
-import { selectRequestedVersion } from '@/features/posts/i18n';
+import {
+  getCanonicalSlug,
+  getPostLocale,
+  isTranslation,
+  selectRequestedVersion,
+} from '@/features/posts/i18n';
 import { formatPostDate, postTitleTransitionName } from '@/features/posts/format';
 import { buildBlogOgImageUrl } from '@/features/posts/server/og-image';
 import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
@@ -123,12 +128,30 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
   : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
 const unlisted = isUnlistedPost(post);
+// A translation renders as if it lives at the canonical URL, because its bytes
+// are served from there. Everything derived from `path` — canonical, og:url,
+// JSON-LD @id, the markdown alternate — follows that, not the build path.
+const postLocale = getPostLocale(post);
+// The default locale owns the bare URL; a translation owns its `?lang=` URL, so
+// that every hreflang target is self-canonical and the cluster survives.
+const canonicalPath =
+  versions.find((version) => version.current)?.indexedHref
+  ?? `/blog/${getCanonicalSlug(post)}/`;
+// Out of Pagefind, still in Google: English prose segmented by the CJK
+// tokenizer surfaces as a duplicate hit for what its sibling already covers.
+const translated = isTranslation(post);
 ---
 
 <BlogLayout
   title={post.title}
   description={postDescription}
-  path={`/blog/${post.slug}/`}
+  path={canonicalPath}
+  locale={postLocale}
+  excludeFromSearch={translated}
+  languageAlternates={versions.map((version) => ({
+    locale: version.locale,
+    href: version.indexedHref,
+  }))}
   ogType="article"
   ogImage={postOgImage}
   ogImageAlt={`${post.title} preview image`}
@@ -165,7 +188,7 @@ const unlisted = isUnlistedPost(post);
         <TagList
           tags={post.tags}
           versions={versions}
-          languageLabel={blog.copy[versions.find((version) => version.current)?.locale ?? blog.locale.blog].languageSwitcher.open}
+          languageLabel={blog.copy[postLocale].languageSwitcher.open}
         />
       </header>
 
@@ -198,7 +221,9 @@ const unlisted = isUnlistedPost(post);
 
   <footer class="blog-end">
     <div class="blog-end__bar">
-      {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
+      {authorshipCredits.length > 0
+        ? <AiCredit credits={authorshipCredits} locale={postLocale} />
+        : <NotByAI locale={postLocale} />}
       <div class="blog-article-sub">
         <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
         <ShareRow title={post.title} />

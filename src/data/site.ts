@@ -78,6 +78,11 @@ export type BlogLocale = 'zh' | 'en';
 export interface BlogLocaleCopy {
   name: string;
   tagline: string;
+  /**
+   * Open Graph wants `language_TERRITORY`, not a bare BCP 47 tag. It is the one
+   * place a locale needs a territory it does not otherwise have an opinion on.
+   */
+  ogLocale: string;
   notByAI: {
     prefix: string;
     emphasis: string;
@@ -113,6 +118,7 @@ export const blog = {
     zh: {
       name: '無人之境',
       tagline: '生长于共鸣、独白、文学、与沉默之间。',
+      ogLocale: 'zh_CN',
       notByAI: {
         prefix: '本文由真人撰写，',
         emphasis: '未使用 AI 创作',
@@ -130,6 +136,7 @@ export const blog = {
     en: {
       name: 'Sillage',
       tagline: 'Grown between resonance, monologue, literature, and silence.',
+      ogLocale: 'en_US',
       notByAI: {
         prefix: 'This post is written by human(s), ',
         emphasis: 'not by AI',

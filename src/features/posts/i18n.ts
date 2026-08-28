@@ -131,8 +131,19 @@ export interface PostVersion {
   locale: BlogLocale;
   /** Endonym — the name the language calls itself. Never a flag, never a code. */
   label: string;
-  /** One canonical URL per article; the language rides on the query string. */
+  /**
+   * Where the switcher sends the reader. Always explicit, including for the
+   * default locale: picking 中文 has to be recorded as a choice, or a reader
+   * whose browser asks for English lands back in English on the next post.
+   */
   href: string;
+  /**
+   * The URL this version is indexed under. The default locale owns the bare
+   * canonical; every other language owns its `?lang=` URL. They have to differ
+   * from `href` — an hreflang target that declares a different canonical is a
+   * target Google drops, which is the whole cluster gone.
+   */
+  indexedHref: string;
   current: boolean;
 }
 
@@ -160,6 +171,7 @@ export function getPostVersions(post: Post, posts: Post[]): PostVersion[] {
     // reachable until the edge redirect runs, and a relative query there would
     // ask for a language at a URL that does not serve languages.
     href: `${canonical}?lang=${locale}`,
+    indexedHref: locale === blog.locale.default ? canonical : `${canonical}?lang=${locale}`,
     current: locale === here,
   }));
 }

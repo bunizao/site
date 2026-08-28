@@ -9,6 +9,7 @@ import {
   mapOtherLanguages,
   selectListedPosts,
   selectRequestedVersion,
+  type PostVersion,
 } from '@/features/posts/i18n';
 import type { Post } from '@/features/posts/types';
 
@@ -127,18 +128,39 @@ describe('getPostVersions', () => {
   const zh = createPost('lun-chenmo', '论沉默');
   const en = createPost('on-silence', 'On Silence', ['#en:lun-chenmo']);
 
+  const zhVersion: PostVersion = {
+    locale: 'zh',
+    label: '中文',
+    href: '/blog/lun-chenmo/?lang=zh',
+    indexedHref: '/blog/lun-chenmo/',
+    current: true,
+  };
+  const enVersion: PostVersion = {
+    locale: 'en',
+    label: 'English',
+    href: '/blog/lun-chenmo/?lang=en',
+    indexedHref: '/blog/lun-chenmo/?lang=en',
+    current: false,
+  };
+
   test('lists every version at the one canonical URL', () => {
-    expect(getPostVersions(zh, [zh, en])).toEqual([
-      { locale: 'zh', label: '中文', href: '/blog/lun-chenmo/?lang=zh', current: true },
-      { locale: 'en', label: 'English', href: '/blog/lun-chenmo/?lang=en', current: false },
-    ]);
+    expect(getPostVersions(zh, [zh, en])).toEqual([zhVersion, enVersion]);
   });
 
   test('points the translation at the canonical URL too, and marks it current', () => {
     expect(getPostVersions(en, [zh, en])).toEqual([
-      { locale: 'zh', label: '中文', href: '/blog/lun-chenmo/?lang=zh', current: false },
-      { locale: 'en', label: 'English', href: '/blog/lun-chenmo/?lang=en', current: true },
+      { ...zhVersion, current: false },
+      { ...enVersion, current: true },
     ]);
+  });
+
+  test('gives the default locale the bare URL and every other one its own', () => {
+    const [zhOut, enOut] = getPostVersions(zh, [zh, en]);
+
+    // The switcher always says which language it means; the index must not.
+    expect(zhOut?.href).toBe('/blog/lun-chenmo/?lang=zh');
+    expect(zhOut?.indexedHref).toBe('/blog/lun-chenmo/');
+    expect(enOut?.indexedHref).toBe('/blog/lun-chenmo/?lang=en');
   });
 
   test('is empty when there is nothing to switch to', () => {

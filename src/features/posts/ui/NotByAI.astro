@@ -7,9 +7,15 @@
 // touch fallback and its reduced-motion rule all existed to hide one sentence
 // that the pledge already implies. The manifesto is still authored in
 // `authors[id].manifesto` and wants a page of its own, not a footer popover.
-import { blog } from '@/data/site';
+import { blog, type BlogLocale } from '@/data/site';
 
-const blogCopy = blog.copy[blog.locale.blog];
+interface Props {
+  /** The article's language — this pledge is part of the article, not the site. */
+  locale?: BlogLocale;
+}
+
+const { locale = blog.locale.blog } = Astro.props;
+const blogCopy = blog.copy[locale];
 ---
 
 <aside class="not-by-ai">
