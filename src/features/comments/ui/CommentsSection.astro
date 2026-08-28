@@ -4,30 +4,54 @@
 
    /blog/[slug] is prerendered, so the list always starts as a skeleton and the
    real rows arrive after hydration. The compose box is not part of that: it
-   renders immediately in both states, so the way in is on screen before
+   renders immediately in every phase, so the way in is on screen before
    anything has loaded.
 
-   Two actions hang under every row. Reply is what makes this a discussion
-   rather than a guestbook; like is the cheap version of the reply most people
-   would otherwise write, and keeping it cheap is what stops the thread filling
-   with agreement. Both are vanilla — opening a box and flipping a pressed
-   state need no island. */
+   Row states, from plans/blog-comments.md → "Frontend states" → "Comment
+   row": normal, own (quiet edit/delete, 15-min edit window live-counted
+   down), editing (inline textarea swap), held (writer-only visibility note,
+   renamed from `pending` to match the status enum), tombstone (kept for
+   thread shape), edited marker, by-author badge, reply-open, like. Four
+   actions hang under an ordinary row — like, reply, and on owned rows edit
+   and delete — all vanilla: opening a box, swapping a paragraph for a
+   textarea, and flipping a pressed state need no island. */
 
 import CommentForm from '@/features/comments/ui/CommentForm.astro';
+import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
 import { initials, seedHue } from '@/features/comments/identity';
-import type { BlogComment, Viewer } from '@/features/comments/types';
+import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 
 interface Props {
   comments?: BlogComment[];
-  state?: 'loaded' | 'loading' | 'empty';
-  /** Reader standing, passed straight through to the compose box. */
-  phase?: 'anonymous' | 'ready';
+  state?: 'loaded' | 'loading' | 'empty' | 'error';
+  /** Reader standing and the current submission receipt, passed straight
+      through to the compose box. */
+  phase?: ReaderPhase;
   viewer?: Viewer;
+  claimed?: ClaimedIdentity;
+  receipt?: ComposeReceipt;
+  draftText?: string;
+  /** Dev/lab-only: forces the compose box's identity row open. */
+  open?: boolean;
+  /** A cursor page remains beyond what's rendered. */
+  hasMore?: boolean;
+  loadMoreState?: 'idle' | 'loading';
 }
 
-const { comments = [], state = 'loaded', phase = 'anonymous', viewer } = Astro.props;
+const {
+  comments = [],
+  state = 'loaded',
+  phase = 'anonymous',
+  viewer,
+  claimed,
+  receipt = 'idle',
+  draftText = '',
+  open = false,
+  hasMore = false,
+  loadMoreState = 'idle',
+} = Astro.props;
 
-const tally = comments.filter((comment) => !comment.pending).length;
+const tally = comments.filter((comment) => !comment.held && !comment.tombstone).length;
 
 const HEART_PATH =
   'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
@@ -47,7 +71,7 @@ const skeletonRows = [
     )}
   </div>
 
-  <CommentForm phase={phase} viewer={viewer} />
+  <CommentForm phase={phase} viewer={viewer} claimed={claimed} receipt={receipt} draftText={draftText} open={open} />
 
   {state === 'loading' && (
     <div class="blog-comments__skeleton" aria-hidden="true">
@@ -78,16 +102,46 @@ const skeletonRows = [
     <p class="blog-comments__empty">Nothing here yet. Be the first to say something.</p>
   )}
 
+  {state === 'error' && (
+    <div class="blog-comments__error">
+      <p>Couldn't load comments.</p>
+      <button type="button" class="blog-comments__more-btn" data-retry-load>Retry</button>
+    </div>
+  )}
+
   {state === 'loaded' && (
     <div class="blog-comments__list">
-      {comments.map((comment) => (
+      {comments.map((comment) => comment.tombstone ? (
+        /* Kept for shape, not content: a reply hanging under a deleted root
+           has nowhere else to go, since threading is one level only. No
+           actions — there is nothing left here to like or reply to. */
+        <article
+          id={`comment-${comment.id}`}
+          class:list={['blog-comment', 'blog-comment--tombstone', { 'blog-comment--reply': comment.isReply }]}
+        >
+          <span class="blog-comment__avatar blog-comment__avatar--ghost" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M6 6l12 12"></path>
+            </svg>
+          </span>
+          <div class="blog-comment__body">
+            <div class="blog-comment__meta">
+              <span class="blog-comment__date">{comment.date}</span>
+            </div>
+            <p class="blog-comment__text blog-comment__text--tombstone">此评论已删除</p>
+          </div>
+        </article>
+      ) : (
         <article
           id={`comment-${comment.id}`}
           class:list={[
             'blog-comment',
             { 'blog-comment--reply': comment.isReply },
-            { 'blog-comment--pending': comment.pending },
+            { 'blog-comment--held': comment.held },
           ]}
+          data-own={comment.own ? 'true' : undefined}
+          data-edit-deadline={comment.own && !comment.held ? comment.editDeadline : undefined}
         >
           {/* Same generated identity the reaction stack uses — plain markup
               rather than the React Avatar, because a thread of static rows has
@@ -101,18 +155,41 @@ const skeletonRows = [
               <span class="blog-comment__author">{comment.author}</span>
               {comment.byAuthor && <span class="blog-comment__badge">Author</span>}
               <span class="blog-comment__date">{comment.date}</span>
+              {comment.edited && <span class="blog-comment__edited">(edited)</span>}
             </div>
-            <p class="blog-comment__text">{comment.text}</p>
-            {comment.pending && (
+
+            <p class="blog-comment__text" data-comment-text hidden={comment.editing}>{comment.text}</p>
+
+            {/* Always rendered, hidden by default: the Edit button below
+                toggles this pair client-side, and a box that was never in the
+                DOM has nothing for that script to reveal. */}
+            {comment.own && !comment.held && (
+              <div class="blog-compose__box blog-comment__edit" data-comment-edit-box hidden={!comment.editing}>
+                <label class="sr-only" for={`comment-edit-${comment.id}`}>Edit your comment</label>
+                <textarea
+                  id={`comment-edit-${comment.id}`}
+                  class="blog-compose__field blog-comment__edit-field"
+                  data-comment-edit-field
+                  rows="2"
+                  set:text={comment.text}></textarea>
+                <div class="blog-comment__edit-actions">
+                  <button type="button" class="blog-comment__act" data-comment-edit-cancel>Cancel</button>
+                  <button type="button" class="blog-compose__go" data-comment-edit-save>Save</button>
+                </div>
+              </div>
+            )}
+
+            {comment.held && (
               <p class="blog-comment__note">
                 Held for review. Only you can see this until it clears.
               </p>
             )}
 
-            {/* Held back on a pending row: nothing can be replied to or liked
-                until it is public, and offering the buttons would imply it is. */}
-            {!comment.pending && (
-              <div class="blog-comment__actions">
+            {/* Held back on a held row: nothing can be replied to, liked, or
+                edited until it is public, and offering the buttons would imply
+                it is. */}
+            {!comment.held && (
+              <div class="blog-comment__actions" hidden={comment.editing}>
                 <button
                   type="button"
                   class="blog-comment__act blog-comment__act--like"
@@ -146,6 +223,13 @@ const skeletonRows = [
                   ><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>
                   Reply
                 </button>
+                {comment.own && (
+                  <>
+                    <button type="button" class="blog-comment__act" data-comment-edit-open>Edit</button>
+                    <span class="blog-comment__edit-window" data-edit-countdown hidden></span>
+                    <button type="button" class="blog-comment__act" data-comment-delete>Delete</button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -154,28 +238,65 @@ const skeletonRows = [
 
       {/* One box, moved to whichever row is being answered. A hidden copy per
           comment would multiply a textarea across the whole thread to show at
-          most one of them. */}
-      <div class="blog-reply" id="blog-reply" hidden>
+          most one of them. Carries `.blog-compose` and `data-phase` too, on
+          top of its own `.blog-reply` — an anonymous or claimed reader gets
+          the same name/email disclosure here as in the box at the top (see
+          IdentityRow.astro and compose-reveal.ts), and a ready reader skips
+          it exactly the way Post already does. */}
+      <div class="blog-compose blog-reply" id="blog-reply" data-phase={phase} hidden>
         <div class="blog-compose__box">
           <label class="sr-only" for="blog-reply-text">Write a reply</label>
           <textarea
             id="blog-reply-text"
             class="blog-compose__field blog-reply__field"
             rows="2"></textarea>
+
+          <IdentityRow id="blog-reply-id" />
+
           <div class="blog-compose__foot">
-            <span class="blog-compose__hint" data-reply-label></span>
+            <span class="blog-reply__label" data-reply-label></span>
             <span class="blog-reply__buttons">
               <button type="button" class="blog-comment__act" data-reply-cancel>Cancel</button>
-              <button type="button" class="blog-compose__go">Reply</button>
+              <button
+                type="button"
+                class="blog-compose__go"
+                data-compose-submit
+                aria-expanded="false"
+                aria-controls="blog-reply-id"
+              >Reply</button>
             </span>
           </div>
         </div>
       </div>
+
+      {hasMore && (
+        <div class="blog-comments__more">
+          <button
+            type="button"
+            class="blog-comments__more-btn"
+            data-load-more
+            aria-busy={loadMoreState === 'loading' ? 'true' : 'false'}
+            disabled={loadMoreState === 'loading'}
+          >
+            <span>{loadMoreState === 'loading' ? 'Loading' : 'Load more'}</span>
+            {loadMoreState === 'loading' && (
+              <span class="blog-comments__more-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   )}
 </section>
 
 <script>
+  // Wires the reply box's own submit button — see compose-reveal.ts. Idempotent
+  // and namespaced by a data attribute, so it does not matter that the compose
+  // box's script calls the same function against the same document.
+  import { wireComposeIdentityReveal } from '@/features/comments/compose-reveal';
+
+  wireComposeIdentityReveal();
+
   // Reply: the box is a single node that travels to the row being answered,
   // so the thread never holds more than one open composer and Escape always
   // means the same thing.
@@ -189,6 +310,14 @@ const skeletonRows = [
     home.append(box);
     document.querySelector('[data-reply-to][aria-expanded="true"]')
       ?.setAttribute('aria-expanded', 'false');
+
+    // Reset the identity row for the next row this box travels to — it
+    // should never arrive already open on a comment the reader has not
+    // pressed Reply→Reply on yet.
+    const submit = box.querySelector<HTMLButtonElement>('[data-compose-submit]');
+    const identity = box.querySelector<HTMLElement>('[data-compose-identity]');
+    submit?.setAttribute('aria-expanded', 'false');
+    if (identity) identity.hidden = true;
   }
 
   if (box && field && home) {
@@ -229,5 +358,69 @@ const skeletonRows = [
       const next = Number(count.textContent ?? 0) + (liked ? -1 : 1);
       count.textContent = String(Math.max(0, next));
     });
+  });
+
+  // Inline edit: swap the body paragraph for a textarea in place. Presentational
+  // only — persisting the edit and re-running moderation is the controller's
+  // job once it exists; Save here just mirrors the field back onto the row.
+  document.querySelectorAll<HTMLElement>('.blog-comment[data-own="true"]').forEach((row) => {
+    const openBtn = row.querySelector<HTMLButtonElement>('[data-comment-edit-open]');
+    const cancelBtn = row.querySelector<HTMLButtonElement>('[data-comment-edit-cancel]');
+    const saveBtn = row.querySelector<HTMLButtonElement>('[data-comment-edit-save]');
+    const actions = row.querySelector<HTMLElement>('.blog-comment__actions');
+    const text = row.querySelector<HTMLElement>('[data-comment-text]');
+    const editBox = row.querySelector<HTMLElement>('[data-comment-edit-box]');
+    const field = row.querySelector<HTMLTextAreaElement>('[data-comment-edit-field]');
+    if (!openBtn || !text || !editBox || !field) return;
+
+    function open() {
+      text!.hidden = true;
+      editBox!.hidden = false;
+      if (actions) actions.hidden = true;
+      field!.focus();
+    }
+
+    function close() {
+      editBox!.hidden = true;
+      text!.hidden = false;
+      if (actions) actions.hidden = false;
+    }
+
+    openBtn.addEventListener('click', open);
+    cancelBtn?.addEventListener('click', close);
+    saveBtn?.addEventListener('click', () => {
+      text!.textContent = field!.value;
+      close();
+    });
+  });
+
+  // Edit window: server-enforced 15 minutes; this only mirrors the deadline so
+  // the affordance disappears without a reload once it has passed. One
+  // setInterval per owned row — the thread holds few enough of those that a
+  // per-second tick costs nothing.
+  document.querySelectorAll<HTMLElement>('.blog-comment[data-edit-deadline]').forEach((row) => {
+    const deadline = Number(row.dataset.editDeadline);
+    const editBtn = row.querySelector<HTMLButtonElement>('[data-comment-edit-open]');
+    const countdown = row.querySelector<HTMLElement>('[data-edit-countdown]');
+    if (!deadline || !editBtn || !countdown) return;
+
+    function tick(): boolean {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        editBtn!.hidden = true;
+        countdown!.hidden = true;
+        return false;
+      }
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      countdown!.hidden = false;
+      countdown!.textContent = `${mins}:${String(secs).padStart(2, '0')} to edit`;
+      return true;
+    }
+
+    if (!tick()) return;
+    const id = window.setInterval(() => {
+      if (!tick()) window.clearInterval(id);
+    }, 1000);
   });
 </script>
