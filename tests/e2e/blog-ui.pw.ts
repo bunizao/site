@@ -904,3 +904,164 @@ test.describe('Blog reading UI', () => {
     expect(typeof submittedPayload.timezone).toBe('string');
   });
 });
+
+interface MorphProbe {
+  transition: boolean;
+  claimed: string | null;
+}
+
+/**
+ * Records what the destination's morph candidate is named at the moment the new
+ * snapshot is captured: a `requestAnimationFrame` from inside `pagereveal` runs
+ * at the top of the very rendering opportunity the capture reads from, so it
+ * sees exactly what the transition will see.
+ */
+async function installMorphProbe(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const root = globalThis as typeof globalThis & { __vtMorph?: MorphProbe };
+    root.__vtMorph = { transition: false, claimed: null };
+    window.addEventListener('pagereveal', (event) => {
+      const transition = Boolean((event as Event & { viewTransition?: unknown }).viewTransition);
+      requestAnimationFrame(() => {
+        const candidate = document.querySelector<HTMLElement>('[data-vt-name]');
+        root.__vtMorph = {
+          transition,
+          claimed: candidate?.style.viewTransitionName || null,
+        };
+      });
+    });
+  });
+}
+
+async function stopNextNavigationAfterPageSwap(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    window.addEventListener('pageswap', (event) => {
+      if (sessionStorage.getItem('__stop-next-pageswap') !== '1') return;
+      sessionStorage.removeItem('__stop-next-pageswap');
+      const transition = (event as Event & {
+        viewTransition?: { finished: Promise<unknown>; ready: Promise<unknown> };
+      }).viewTransition;
+      const markFinished = () => sessionStorage.setItem('__stopped-pageswap-finished', '1');
+      void transition?.ready.catch(() => undefined);
+      transition?.finished.then(markFinished, markFinished);
+      queueMicrotask(() => window.stop());
+    });
+  });
+}
+
+async function firstRowTarget(page: Page): Promise<{ name: string; href: string }> {
+  const row = page.locator('.blog-row__title').first();
+  const name = await row.getAttribute('data-vt-name');
+  const href = await row.evaluate((el) => el.closest('a')?.getAttribute('href') ?? '');
+  expect(name).toMatch(/^post-/);
+  expect(href).toMatch(/^\/blog\//);
+  return { name: name as string, href };
+}
+
+test.describe('Post title shared-element morph', () => {
+  test('the clicked row title claims its name on the destination headline', async ({ page }) => {
+    await installMorphProbe(page);
+    await page.goto('/blog');
+
+    const { name, href } = await firstRowTarget(page);
+    await Promise.all([
+      page.waitForURL(`**${href}`),
+      page.locator('.blog-row__title').first().click(),
+    ]);
+
+    const probe = await test.step('read the destination probe', async () => {
+      let latest: MorphProbe = { transition: false, claimed: null };
+      await expect.poll(async () => {
+        latest = await page.evaluate(
+          () => (globalThis as typeof globalThis & { __vtMorph?: MorphProbe }).__vtMorph,
+        ) as MorphProbe;
+        return latest.claimed;
+      }).not.toBeNull();
+      return latest;
+    });
+
+    // The claim is what the broker's incoming half exists to do, and it can only
+    // happen if that half is registered before `pagereveal` — a deferred module
+    // is ~20-175ms too late, which silently degraded this to the root dissolve.
+    expect(probe.transition).toBe(true);
+    expect(probe.claimed).toBe(name);
+    await expect(page.locator(`h1[data-vt-name="${name}"]`)).toHaveAttribute(
+      'style',
+      new RegExp(`view-transition-name:\\s*${name}`),
+    );
+  });
+
+  test('a direct arrival leaves the headline unnamed', async ({ page }) => {
+    await installMorphProbe(page);
+    await page.goto('/blog');
+    const { href } = await firstRowTarget(page);
+
+    // Nothing was clicked, so nothing may fly. Without this the test above would
+    // still pass with the name baked unconditionally into the markup, which is
+    // the exact bug the broker was built to remove.
+    await page.goto(href);
+    await expect(page.locator('h1[data-vt-name]')).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (globalThis as typeof globalThis & { __vtMorph?: MorphProbe }).__vtMorph,
+      ),
+    ).toMatchObject({ claimed: null });
+  });
+
+  test('an aborted click cannot lend its morph to a later palette navigation', async ({ page }) => {
+    await installMorphProbe(page);
+    await stopNextNavigationAfterPageSwap(page);
+    await page.route('**/api/v2/mood/search*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{"results":[]}' }),
+    );
+    await page.route('**/pagefind/pagefind.js*', (route) => route.abort());
+
+    let palettePost = { title: '', path: '' };
+    await page.route('**/palette.json', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts: [palettePost] }),
+      }),
+    );
+
+    await page.goto('/blog');
+    const { name, href } = await firstRowTarget(page);
+    palettePost = {
+      title: (await page.locator('.blog-row__title').first().innerText()).trim(),
+      path: href,
+    };
+
+    await page.evaluate(() => sessionStorage.setItem('__stop-next-pageswap', '1'));
+    await page.locator('.blog-row__title').first().click({ noWaitAfter: true });
+    await expect.poll(
+      () => page.evaluate(() => sessionStorage.getItem('__stopped-pageswap-finished')),
+    ).toBe('1');
+    await expect(page).toHaveURL(/\/blog\/?$/);
+    expect(await page.evaluate(() => sessionStorage.getItem('vt-morph'))).toBeNull();
+    await expect(page.locator('.blog-row__title').first()).not.toHaveAttribute(
+      'style',
+      /view-transition-name/,
+    );
+
+    await page.getByRole('button', { name: 'Search and commands' }).click();
+    const palette = page.getByRole('dialog', { name: 'Site search and commands' });
+    const option = palette.getByRole('option', { name: palettePost.title });
+    await expect(option).toBeVisible();
+    await expect(option.locator('[data-vt-name]')).toHaveCount(0);
+    await Promise.all([page.waitForURL(`**${href}`), option.click()]);
+
+    await expect.poll(() => page.evaluate(
+      () => (globalThis as typeof globalThis & { __vtMorph?: MorphProbe }).__vtMorph?.transition,
+    )).toBe(true);
+    expect(
+      await page.evaluate(
+        () => (globalThis as typeof globalThis & { __vtMorph?: MorphProbe }).__vtMorph,
+      ),
+    ).toMatchObject({ transition: true, claimed: null });
+    await expect(page.locator(`h1[data-vt-name="${name}"]`)).not.toHaveAttribute(
+      'style',
+      /view-transition-name/,
+    );
+  });
+});
