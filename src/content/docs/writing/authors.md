@@ -12,8 +12,13 @@ Every post carries one of two lines at its foot. By default it is the pledge:
 A post that used a model says so instead, naming which one and what it did. That
 is what `[!authors]` is for.
 
-```
+```md demo
 [!authors ai=anthropic/claude-opus-4-6]
+```
+
+With a note, the model gets its own sentence:
+
+```md demo
 [!authors ai=anthropic/claude-opus-4-6 note="重写了迁移那一节的表格"]
 ```
 
@@ -61,7 +66,7 @@ gets a full stop, not `。`.
 Repeat the directive. Order in the footer follows the order the directives appear
 in the post.
 
-```
+```md demo
 [!authors ai=anthropic/claude-opus-4-6 note="drafted the pipeline diagram"]
 [!authors ai=openai/gpt-5 note="checked the numbers"]
 ```

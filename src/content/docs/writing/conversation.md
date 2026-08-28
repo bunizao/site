@@ -8,7 +8,7 @@ playground: /components/conversation#playground
 
 A chat thread written as plain text. In a blog post, fence it as `conversation`:
 
-````markdown
+````markdown demo
 ```conversation
 you: how wide should a bubble be?
 ada: 30em.
@@ -35,7 +35,7 @@ The optional `@conversation` line controls the whole thread. It must be the
 first non-empty line inside the fence. `conversation` is reserved for this
 header and cannot be used as a speaker key:
 
-````markdown
+````markdown demo
 ```conversation
 @conversation avatars=on names=on tints=off
 @gemini [Gemini] accent=#6E7FD8 tints=on
@@ -65,7 +65,7 @@ the thread value. This precedence applies uniformly to `avatars`, `names`, and
 A line of the form `name: text` is a message. Speakers are auto-registered on
 first use, so the simplest possible thread needs nothing else:
 
-```conversation
+```conversation demo
 ann: is that all?
 bob: that's all.
 ```
@@ -95,7 +95,7 @@ Four keys are reserved: **`me`**, **`you`**, **`我`**, **`你`**. Whoever speak
 under one of them is drawn on the trailing edge, filled, with no name and no
 avatar — a reader does not need reminding what they look like.
 
-```conversation
+```conversation demo
 @Ada avatar=🐈
 
 me: how wide should a bubble be?
@@ -124,7 +124,7 @@ first one, and only the last bubble squares off the corner nearest its speaker.
 The name sits beside the bubbles rather than inside them — the bubble is the
 message, the name is who sent it.
 
-```conversation
+```conversation demo
 grace: One thing first.
 grace: A run of messages from one person is labelled once.
 grace: Like this. Three bubbles, one name.
@@ -135,7 +135,7 @@ grace: Like this. Three bubbles, one name.
 An **indented** line is a soft wrap, exactly as in Markdown — it continues the
 sentence rather than starting a new paragraph:
 
-```conversation
+```conversation demo
 ada: A CJK glyph is 1em and a Latin glyph about half that,
   so one number lands on ~30 Chinese characters and ~60 Latin ones.
 ```
@@ -159,7 +159,7 @@ A line starting with `---` is a divider. With text after it, it renders as a
 labelled beat; bare, it collapses to a single rule. Either way it breaks the
 current run, so the next message is labelled again.
 
-```conversation
+```conversation demo
 ann: morning
 --- three hours later
 ann: afternoon
@@ -170,10 +170,14 @@ ann: afternoon
 A line starting with `@` declares a speaker before they talk. Every attribute
 is optional — cast lines exist to override defaults, not to satisfy the parser.
 
-```conversation
+```conversation demo
 @gemini [Gemini] accent=#6E7FD8 tints=on
 @ada [Ada] accent=#6F8F9D
 @tutu [图图] accent=#B4603A avatar=🐈
+
+gemini: Declared before I say anything.
+ada: Nothing here needed a cast line either.
+tutu: 只是想换个颜色。
 ```
 
 | Written as | Effect |
@@ -200,7 +204,7 @@ any number of `name=value` pairs, and **nothing else** — a stray word or an
 attribute that is not on the list means the line is not a cast line, so it
 falls through and renders as written:
 
-```conversation
+```conversation demo
 @Ada Lovelace accent=#4E7A5E
 ```
 
@@ -217,7 +221,7 @@ see [the own side](#the-own-side).
 The label defaults to the key **as first written**, and nothing rewrites it.
 Capitalisation is therefore not something to declare — it is something to type:
 
-```conversation
+```conversation demo
 @Ada accent=#4E7A5E
 
 ada: Case only matters the first time. Match it however you like after that.
@@ -226,10 +230,14 @@ ada: Case only matters the first time. Match it however you like after that.
 Brackets are for the names a key cannot spell — a space, a script the key is
 not in, a name that is not the handle:
 
-```conversation
+```conversation demo
 @ada [Ada Lovelace]
 @tutu [图图] avatar=🐈
 @octo [Octocat] avatar=https://avatars.githubusercontent.com/u/583231?v=4
+
+ada: A name with a space in it.
+tutu: 一个键写不出的名字。
+octo: A handle that is not the name.
 ```
 
 

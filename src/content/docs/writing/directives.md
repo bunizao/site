@@ -7,7 +7,7 @@ order: 1
 
 A directive is a marker written on a line of its own in the Ghost editor:
 
-```
+```md demo
 [!mood id=482 theme=dark]
 ```
 
@@ -58,8 +58,8 @@ visible `[!moood id=1]` on the page telling you what you got wrong.
 Attributes are `key=value` pairs separated by whitespace. Values may be bare,
 double-quoted, or single-quoted:
 
-```
-[!authors ai=anthropic/claude-opus-4 note="drafted the migration table"]
+```md demo
+[!authors ai=anthropic/claude-opus-4-6 note="drafted the migration table"]
 ```
 
 The rules:
