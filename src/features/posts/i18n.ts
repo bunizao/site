@@ -1,18 +1,23 @@
+import { parsePostLocaleTag } from '@bunizao/contracts/content';
 import { blog, type BlogLocale } from '@/data/site';
+import { postPath } from './format';
 import type { Post } from './types';
 
-// Ghost has no native i18n, so language lives in internal tags — the same
-// convention as #unlisted / #no-toc. A post without a #lang-* tag is written in
-// the publication's default locale, which keeps every existing post untouched.
+// Ghost has no native i18n and no custom fields on the Content API, so language
+// lives in an internal tag — the same channel as #unlisted and #no-toc.
 //
-//   #lang-en      this post is English
-//   #tr-<key>     translation group; sibling versions share one key
+//   #<locale>              this post is written in <locale>
+//   #<locale>:<canonical>  this post is the <locale> version of <canonical>
 //
-// Slugs stay idiomatic per language (/blog/lun-chenmo/ and /blog/on-silence/)
-// rather than following a `-en` suffix rule: Ghost recomputes the slug when the
-// title changes, and a suffix convention would break the pairing silently.
-const LANG_TAG_PREFIX = 'hash-lang-';
-const TRANSLATION_TAG_PREFIX = 'hash-tr-';
+// <canonical> is the default-locale post's slug, which is also the article's one
+// public URL. The Chinese original therefore carries no tag at all: publishing a
+// translation is one tag on one post, so "tagged the translation, forgot the
+// original" is not a state that can exist.
+//
+// The grammar is parsed from `tag.name`, never `tag.slug` — Ghost slugifies the
+// colon away, and once it is gone `#zh-tw:notes` and `#zh:tw-notes` collapse to
+// the same string. The parser is shared with site-api through
+// @bunizao/contracts so both repos agree on what a translation is.
 
 export interface PostTranslation {
   locale: BlogLocale;
@@ -22,31 +27,45 @@ export interface PostTranslation {
 
 const KNOWN_LOCALES = Object.keys(blog.copy) as BlogLocale[];
 
-function readInternalTagSuffix(
-  post: Pick<Post, 'tags'>,
-  prefix: string,
-): string | null {
-  const tag = post.tags.find(
-    (candidate) =>
-      candidate.visibility === 'internal' && candidate.slug.startsWith(prefix),
-  );
+function isKnownLocale(locale: string): locale is BlogLocale {
+  return (KNOWN_LOCALES as string[]).includes(locale);
+}
 
-  const suffix = tag?.slug.slice(prefix.length).trim();
+// `#unlisted` and `#no-toc` are valid BCP 47 shapes, so the grammar alone cannot
+// tell a language tag from the site's other internal conventions. A colon can:
+// only a translation tag has one. A bare tag is a language tag only when it
+// names a language we actually publish.
+function readLocaleTag(post: Pick<Post, 'tags'>) {
+  for (const tag of post.tags) {
+    if (tag.visibility !== 'internal') continue;
 
-  return suffix ? suffix : null;
+    const parsed = parsePostLocaleTag(tag.name);
+    if (!parsed) continue;
+    if (parsed.canonicalSlug || isKnownLocale(parsed.locale)) return parsed;
+  }
+
+  return null;
 }
 
 /** Language the post is written in. Unmarked posts are the default locale. */
 export function getPostLocale(post: Pick<Post, 'tags'>): BlogLocale {
-  const suffix = readInternalTagSuffix(post, LANG_TAG_PREFIX);
-  const locale = KNOWN_LOCALES.find((candidate) => candidate === suffix);
+  const locale = readLocaleTag(post)?.locale;
 
-  return locale ?? blog.locale.default;
+  return locale && isKnownLocale(locale) ? locale : blog.locale.default;
 }
 
-/** Translation group key, or null when the post has no sibling versions. */
-export function getTranslationKey(post: Pick<Post, 'tags'>): string | null {
-  return readInternalTagSuffix(post, TRANSLATION_TAG_PREFIX);
+/**
+ * Slug of the article this post belongs to — its own unless it is a translation.
+ * This is the group key and the one public URL, which are deliberately the same
+ * thing: an article that cannot be addressed cannot be a group.
+ */
+export function getCanonicalSlug(post: Pick<Post, 'slug' | 'tags'>): string {
+  return readLocaleTag(post)?.canonicalSlug ?? post.slug;
+}
+
+/** True when this post is a version of some other post. */
+export function isTranslation(post: Pick<Post, 'tags'>): boolean {
+  return readLocaleTag(post)?.canonicalSlug !== undefined;
 }
 
 // Linear scan per post. At a personal blog's scale that is cheaper than the
@@ -54,16 +73,12 @@ export function getTranslationKey(post: Pick<Post, 'tags'>): string | null {
 // posts, not the listed ones — a translation is deliberately absent from the
 // listing but must still be linkable from its sibling.
 export function getTranslations(post: Post, posts: Post[]): PostTranslation[] {
-  const key = getTranslationKey(post);
-
-  if (!key) {
-    return [];
-  }
+  const canonical = getCanonicalSlug(post);
 
   return posts
     .filter(
       (candidate) =>
-        candidate.slug !== post.slug && getTranslationKey(candidate) === key,
+        candidate.slug !== post.slug && getCanonicalSlug(candidate) === canonical,
     )
     .map((candidate) => ({
       locale: getPostLocale(candidate),
@@ -72,34 +87,17 @@ export function getTranslations(post: Post, posts: Post[]): PostTranslation[] {
     }));
 }
 
-// One row per translation group: the default-locale version when it exists,
-// otherwise the group's only version. Posts outside any group pass through.
-//
-// The narrower rule — keep only default-locale posts — reads the same today and
-// costs one line, but it silently drops a post written in English first. This
-// rule gives the same listing (translations never show up twice, the feed stays
-// Chinese) without that hole.
-//
-// `posts` arrives newest-first and already excludes #unlisted; order is kept.
+/**
+ * One row per article: translations are dropped, everything else passes through.
+ *
+ * A post written in English first carries the bare `#en` form and is its own
+ * canonical, so it stays listed — the rule reads the whole grammar rather than
+ * assuming the default locale is the original.
+ *
+ * `posts` arrives newest-first and already excludes #unlisted; order is kept.
+ */
 export function selectListedPosts(posts: Post[]): Post[] {
-  const preferred = new Map<string, Post>();
-
-  for (const post of posts) {
-    const key = getTranslationKey(post);
-    if (!key) continue;
-
-    const held = preferred.get(key);
-    const isDefaultLocale = getPostLocale(post) === blog.locale.default;
-
-    if (!held || (isDefaultLocale && getPostLocale(held) !== blog.locale.default)) {
-      preferred.set(key, post);
-    }
-  }
-
-  return posts.filter((post) => {
-    const key = getTranslationKey(post);
-    return !key || preferred.get(key) === post;
-  });
+  return posts.filter((post) => !isTranslation(post));
 }
 
 export interface PostVersion {
@@ -122,6 +120,7 @@ export function getPostVersions(post: Post, posts: Post[]): PostVersion[] {
   }
 
   const here = getPostLocale(post);
+  const canonical = postPath(getCanonicalSlug(post));
   const present = new Set<BlogLocale>([
     here,
     ...translations.map((translation) => translation.locale),
@@ -130,22 +129,47 @@ export function getPostVersions(post: Post, posts: Post[]): PostVersion[] {
   return KNOWN_LOCALES.filter((locale) => present.has(locale)).map((locale) => ({
     locale,
     label: blog.copy[locale].languageSwitcher.language,
-    href: `?lang=${locale}`,
+    // Absolute rather than a bare `?lang=`: a translation's own build path is
+    // reachable until the edge redirect runs, and a relative query there would
+    // ask for a language at a URL that does not serve languages.
+    href: `${canonical}?lang=${locale}`,
     current: locale === here,
   }));
 }
 
 // Endonyms of the *other* languages each post exists in, keyed by slug. Built
 // once per listing page: a row cannot tell it has siblings from its own tags,
-// because the link runs translation -> canonical and not back.
+// because the tag runs translation -> canonical and not back.
 export function mapOtherLanguages(posts: Post[]): Map<string, string[]> {
-  const byPost = new Map<string, string[]>();
+  const groups = new Map<string, Post[]>();
 
   for (const post of posts) {
-    const others = getPostVersions(post, posts).filter((version) => !version.current);
+    const canonical = getCanonicalSlug(post);
+    const group = groups.get(canonical);
 
-    if (others.length > 0) {
-      byPost.set(post.slug, others.map((version) => version.label));
+    if (group) group.push(post);
+    else groups.set(canonical, [post]);
+  }
+
+  const byPost = new Map<string, string[]>();
+
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+
+    const present = new Set(group.map(getPostLocale));
+
+    for (const post of group) {
+      const here = getPostLocale(post);
+      const others = KNOWN_LOCALES.filter(
+        (locale) => locale !== here && present.has(locale),
+      );
+
+      if (others.length > 0) {
+        byPost.set(
+          post.slug,
+          others.map((locale) => blog.copy[locale].languageSwitcher.language),
+        );
+      }
     }
   }
 
