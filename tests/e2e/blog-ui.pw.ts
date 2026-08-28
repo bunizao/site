@@ -958,6 +958,8 @@ test.describe('Article language switcher motion', () => {
       .then((handle) => handle.jsonValue() as Promise<{ kind: string | null; root: number[] }>);
     expect(arrival.kind).toBeNull();
     expect(arrival.root).toEqual([460]);
+  });
+});
 
 interface MorphProbe {
   transition: boolean;
