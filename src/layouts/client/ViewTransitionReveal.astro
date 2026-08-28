@@ -17,8 +17,8 @@
 
 <script is:inline>
   (() => {
-    // Read-and-clear on every reveal, transition or not: a handoff that missed
-    // its navigation must never morph a later one.
+    // Read-and-clear on every reveal, transition or not. The sender also clears
+    // after an outgoing transition settles without reaching this document.
     const take = () => {
       let raw = null;
       try {
