@@ -90,10 +90,6 @@
   .conv-thread .conv-avatar {
     display: none;
   }
-
-  .conv-group {
-    --conv-near: 0px;
-  }
 }
 
 /* --- group: one speaker's consecutive run -------------------------------- */
@@ -195,6 +191,16 @@
 
   .conv-group--out,
   .conv-group[data-avatars='off'] {
+    --conv-near: 0px;
+  }
+}
+
+/* Under 360px nothing has an avatar, so no row reserves a gutter. This has to
+   sit after .conv-group's own declaration: same specificity, so source order is
+   what decides, and the version of this rule that lived up with the other
+   360px overrides was silently losing to it. */
+@container (max-width: 360px) {
+  .conv-group {
     --conv-near: 0px;
   }
 }

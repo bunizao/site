@@ -313,6 +313,16 @@ and any row without a visible avatar — every sending run, and both sides under
 two sides of the thread end on the same line the surrounding prose does. Under
 360px avatars are dropped everywhere and the body steps down to 15px.
 
+A bubble is sized to hug its own text, which CSS alone cannot express: once a
+message wraps, `width: fit-content` locks the box to the cap and whatever the
+line breaker could not spend stays inside the right border as dead space — worst
+on CJK, where a trailing 「吗？」 cannot be split and drops to the next line
+whole. A small client pass measures the line boxes and sets the width to the
+widest one, so the gap at the right border matches the padding at the left. It
+never narrows a bubble past a line already laid out, so line breaks are
+identical with and without it; with no JavaScript the bubble simply keeps the
+cap.
+
 The renderer translates `@conversation` into namespaced attributes on the
 thread. The playground edits that source line directly, so its switches never
 create a visual state that cannot be copied back into an editor.

@@ -8,6 +8,7 @@ import {
   setConversationOption,
   type ConversationOption,
 } from '@/features/content/conversation';
+import { observeConversations } from '@/features/content/client/conversation-fit';
 
 // Live playground for the conversation component, embedded on
 // /components/conversation.
@@ -141,6 +142,12 @@ export default function ConversationPlayground(): React.ReactElement {
   const [copied, setCopied] = React.useState(false);
 
   const html = React.useMemo(() => renderConversation(source), [source]);
+  const rendered = React.useRef<HTMLDivElement>(null);
+
+  // Every edit replaces the thread wholesale, so the fit pass has to be pointed
+  // at the new nodes. The drag handle below resizes the column without resizing
+  // the window, which is exactly the case the observer exists for.
+  React.useLayoutEffect(() => observeConversations(rendered.current), [html]);
   const options = React.useMemo(() => parseConversation(source).options, [source]);
   const sample = SAMPLES.find((entry) => entry.source === source)?.name ?? '';
 
@@ -257,6 +264,7 @@ export default function ConversationPlayground(): React.ReactElement {
           corner and the thread reflows against its own width, not the
           viewport's. */}
       <div
+        ref={rendered}
         className="max-w-full min-w-48 resize-x overflow-auto rounded-lg border border-dashed border-foreground/12 px-4"
         dangerouslySetInnerHTML={{ __html: html }}
       />
