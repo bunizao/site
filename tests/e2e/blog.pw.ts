@@ -389,7 +389,7 @@ test.describe('Blog routes', () => {
     expect(creditBounds!.x).toBeGreaterThanOrEqual(0);
     expect(creditBounds!.x + creditBounds!.width).toBeLessThanOrEqual(321);
 
-    await page.goto('/blog/quiet-architecture');
+    await page.goto('/blog/quiet-architecture?lang=zh');
     await expect(page.locator('.not-by-ai')).toHaveText('本文由真人撰写，未使用 AI 创作。');
     await expect(page.locator('.ai-credit')).toHaveCount(0);
     await expect(page.locator('.not-by-ai__trigger, .not-by-ai__card')).toHaveCount(0);
