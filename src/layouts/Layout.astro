@@ -150,8 +150,12 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
          were inert until now; every inset is 0 on hardware without a notch. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content={description} />
+    {/* Body faces yield bandwidth to render-blocking CSS; they paint via the
+        swap fallback either way, so CSS finishing sooner moves LCP while the
+        fonts' own arrival time barely changes. The wordmark stays high: it is
+        tiny and font-display: block. */}
     {preloadFontHrefs.map((href) => (
-      <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
+      <link rel="preload" href={href} as="font" type="font/woff2" crossorigin fetchpriority="low" />
     ))}
     {isHomeNav && (
       <link rel="preload" href={wordmarkFontHref} as="font" type="font/woff2" crossorigin fetchpriority="high" />
