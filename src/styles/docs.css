@@ -703,12 +703,14 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
   font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 600;
-  color: #a84f2c;
+  /* dai 黛, the blog's primary ink — blogPalette.dai in src/data/site.ts. Docs
+     sit on the same two surfaces the ink was contrast-checked against. */
+  color: #3c5d80;
   text-decoration: none;
 }
 
 .dark .docs-playground-link {
-  color: #ee9a73;
+  color: #7fa8d6;
 }
 
 .docs-playground-link svg {
