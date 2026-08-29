@@ -138,3 +138,12 @@ const { prev, next } = getDocsSiblings(groups, entry.id);
     });
   });
 </script>
+
+<script>
+  // A `demo` fence renders the real embed markup, so the docs page is a mood
+  // embed host too — without this the frame keeps its fallback height and
+  // ignores the theme, and the demo stops matching what a post looks like.
+  import { wireMoodEmbeds } from '@/features/posts/client/mood-embeds';
+
+  wireMoodEmbeds(document);
+</script>
