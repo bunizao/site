@@ -1,4 +1,9 @@
-import { cacheEdgeResponse, readEdgeCache } from '@/lib/http/edge-cache';
+import {
+  cacheEdgeResponse,
+  readEdgeCache,
+  type EdgeCacheHit,
+  type EdgeCacheWaitContext,
+} from '@/lib/http/edge-cache';
 import { estimateMarkdownTokens, prefersMarkdown } from './negotiation';
 import {
   EDGE_CACHE_HEADER,
@@ -231,7 +236,8 @@ export async function renderMarkdownIfRequested(context: {
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown'),
   });
-  if (cached) return cached;
+  // Markdown passes no staleWhileRevalidateSeconds, so a hit is always fresh.
+  if (cached) return cached.response;
 
   const result = await match.renderer.render({
     request: context.request,
@@ -277,6 +283,7 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
     variant: 'html',
     version: contentEdgeCacheVersion(url.pathname),
     ttlSeconds: policy.cacheTtlSeconds,
+    staleWhileRevalidateSeconds: policy.cacheStaleWhileRevalidateSeconds,
     headerName: policy.cacheHeaderName,
     cacheControl: publicCacheControl(
       policy.cacheTtlSeconds,
@@ -296,16 +303,20 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
   };
 }
 
-export async function readCachedHtmlPage(request: Request): Promise<Response | null> {
+export async function readCachedHtmlPage(request: Request): Promise<EdgeCacheHit | null> {
   const options = createHtmlCacheOptions(request);
   if (!options) return null;
 
   return readEdgeCache(request, options);
 }
 
-export async function cacheHtmlPageResponse(request: Request, response: Response): Promise<Response> {
+export async function cacheHtmlPageResponse(
+  request: Request,
+  response: Response,
+  context?: EdgeCacheWaitContext,
+): Promise<Response> {
   const options = createHtmlCacheOptions(request);
   if (!options) return response;
 
-  return cacheEdgeResponse(request, response, options);
+  return cacheEdgeResponse(request, response, options, context);
 }

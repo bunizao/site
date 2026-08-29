@@ -338,7 +338,15 @@ describe('Cloudflare runtime configuration', () => {
     expect(responses).toContain("variant: 'html'");
     expect(responses).toContain("variant: 'markdown'");
     expect(responses).toContain('url.search');
-    expect(middleware).toContain('readCachedHtmlPage');
+    // The worker entrypoint owns the edge HTML cache — one read, one write
+    // deferred via waitUntil, stale entries revalidated in the background. The
+    // middleware only decorates responses.
+    const worker = readText('src/worker.ts');
+    expect(worker).toContain('readCachedHtmlPage');
+    expect(worker).toContain('waitUntil(revalidateHtmlPage');
+    expect(middleware).not.toContain('readCachedHtmlPage');
+    expect(edgeCache).toContain('x-edge-cached-at');
+    expect(edgeCache).toContain("'STALE'");
     expect(registry).toContain('data-mood-initial-feed');
     expect(registry).toContain('data-mood-id=');
     expect(registry).toContain('X-Buxx-Mood-Page-Cache');

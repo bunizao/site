@@ -3,9 +3,7 @@ import { readCloudflareAccessIdentity } from '@/features/admin/server/access';
 import { redirectLegacyGhostHost } from '@/lib/http/legacy-ghost-redirect';
 import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 import {
-  cacheHtmlPageResponse,
   isNeverCachePath,
-  readCachedHtmlPage,
   redirectCanonicalUrl,
   renderMarkdownIfRequested,
   withContentPolicy,
@@ -115,9 +113,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const markdownResponse = await renderMarkdownIfRequested(context);
   if (markdownResponse) return markdownResponse;
 
-  const cachedHtmlPage = isNeverCachePath(pathname) ? null : await readCachedHtmlPage(context.request);
-  if (cachedHtmlPage) return withHtmlSecurityHeaders(context.request, cachedHtmlPage);
-
   // Admin portal: served by this worker, gated by Cloudflare Access in production.
   if (isDevPortalPath(pathname)) {
     const session = await readAdminSession({ ...context, allowDevBypass: true });
@@ -132,9 +127,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next()));
   }
 
-  const response = withContentPolicy(
+  // The edge HTML cache lives in src/worker.ts, the production entrypoint;
+  // this middleware only decorates the rendered response. Dev therefore always
+  // renders fresh, which is what dev wants.
+  return withContentPolicy(
     context.request,
     withHtmlSecurityHeaders(context.request, await next()),
   );
-  return cacheHtmlPageResponse(context.request, response);
 });

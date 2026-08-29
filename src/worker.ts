@@ -49,6 +49,33 @@ async function fetchStaticAsset(request: Request, env: WorkerEnv): Promise<Respo
   return response;
 }
 
+async function renderHtmlPage(
+  request: Request,
+  env: WorkerEnv,
+  context: WorkerExecutionContext,
+): Promise<Response> {
+  const assetResponse = await fetchStaticAsset(request, env);
+  const response = assetResponse ?? (await siteWorker.fetch(request, env, context));
+  return withContentPolicy(request, response);
+}
+
+async function revalidateHtmlPage(
+  request: Request,
+  env: WorkerEnv,
+  context: WorkerExecutionContext,
+): Promise<void> {
+  try {
+    const response = await renderHtmlPage(request, env, context);
+    await cacheHtmlPageResponse(request, response);
+  } catch {
+    // The stale copy keeps serving; the next stale hit retries.
+  }
+}
+
+// This worker owns the edge HTML cache: one read before rendering, one write
+// after, deferred past the response via waitUntil. The Astro middleware only
+// decorates responses (security headers, content policy) and never touches
+// the cache, so a miss costs a single read and a single background write.
 export default {
   async fetch(request: Request, env: WorkerEnv, context: WorkerExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -64,19 +91,19 @@ export default {
 
     if (markdownResponse) return markdownResponse;
 
-    const cachedHtmlPage = isNeverCachePath(url.pathname) ? null : await readCachedHtmlPage(request);
-    if (cachedHtmlPage) return cachedHtmlPage;
-
-    const assetResponse = isNeverCachePath(url.pathname)
-      ? null
-      : await fetchStaticAsset(request, env);
-    if (assetResponse) {
-      return cacheHtmlPageResponse(request, withContentPolicy(request, assetResponse));
+    if (isNeverCachePath(url.pathname)) {
+      return siteWorker.fetch(request, env, context);
     }
 
-    const response = await siteWorker.fetch(request, env, context);
-    if (isNeverCachePath(url.pathname)) return response;
+    const cachedHtmlPage = await readCachedHtmlPage(request);
+    if (cachedHtmlPage) {
+      if (cachedHtmlPage.isStale) {
+        context.waitUntil(revalidateHtmlPage(request, env, context));
+      }
+      return cachedHtmlPage.response;
+    }
 
-    return cacheHtmlPageResponse(request, withContentPolicy(request, response));
+    const response = await renderHtmlPage(request, env, context);
+    return cacheHtmlPageResponse(request, response, context);
   },
 };

@@ -8,6 +8,8 @@ import {
 } from '@/features/agent-markdown/server/responses';
 import {
   buildVariantCacheKey,
+  cacheEdgeResponse,
+  readEdgeCache,
   shouldBypassEdgeCache,
 } from '@/lib/http/edge-cache';
 import { getContentRoutePolicy } from '@/features/agent-markdown/server/registry';
@@ -76,9 +78,10 @@ describe('variant edge cache', () => {
 
     expect(stored.headers.get('X-Buxx-Edge-Cache')).toBe('MISS');
     expect(stored.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
-    expect(cached?.headers.get('X-Buxx-Edge-Cache')).toBe('HIT');
-    expect(cached?.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
-    expect(await cached?.text()).toBe('<!doctype html><p>cached embed</p>');
+    expect(cached?.isStale).toBe(false);
+    expect(cached?.response.headers.get('X-Buxx-Edge-Cache')).toBe('HIT');
+    expect(cached?.response.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+    expect(await cached?.response.text()).toBe('<!doctype html><p>cached embed</p>');
   });
 
   test('bypasses mood embed HTML cache when refresh is present', async () => {
@@ -128,8 +131,8 @@ describe('variant edge cache', () => {
 
     expect(stored.headers.get('X-Buxx-Mood-Page-Cache')).toBe('MISS');
     expect(stored.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
-    expect(cached?.headers.get('X-Buxx-Mood-Page-Cache')).toBe('HIT');
-    expect(await cached?.text()).toBe(body);
+    expect(cached?.response.headers.get('X-Buxx-Mood-Page-Cache')).toBe('HIT');
+    expect(await cached?.response.text()).toBe(body);
   });
 
   test('keeps fallback anchor renders out of the shared HTML cache', async () => {
@@ -148,5 +151,59 @@ describe('variant edge cache', () => {
 
     expect(stored.headers.get('X-Buxx-Mood-Page-Cache')).toBeNull();
     expect(await readCachedHtmlPage(request)).toBeNull();
+  });
+
+  test('marks entries past ttl but inside the swr window as stale', async () => {
+    const options = {
+      namespace: 'content',
+      variant: 'html' as const,
+      version: 'swr-test',
+      ttlSeconds: 0,
+      staleWhileRevalidateSeconds: 60,
+      headerName: 'X-Test-Cache',
+      cacheControl: 'public, max-age=0, stale-while-revalidate=60',
+    };
+    const request = new Request('https://buxx.me/swr-test');
+
+    await cacheEdgeResponse(
+      request,
+      new Response('stale-candidate', { headers: { 'Content-Type': 'text/html' } }),
+      options,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const hit = await readEdgeCache(request, options);
+
+    expect(hit?.isStale).toBe(true);
+    expect(hit?.response.headers.get('X-Test-Cache')).toBe('STALE');
+    expect(await hit?.response.text()).toBe('stale-candidate');
+  });
+
+  test('defers the cache write through waitUntil when a context is provided', async () => {
+    const tasks: Promise<unknown>[] = [];
+    const options = {
+      namespace: 'content',
+      variant: 'html' as const,
+      version: 'waituntil-test',
+      ttlSeconds: 60,
+      headerName: 'X-Test-Cache',
+      cacheControl: 'public, max-age=60',
+    };
+    const request = new Request('https://buxx.me/waituntil-test');
+
+    const outgoing = await cacheEdgeResponse(
+      request,
+      new Response('deferred', { headers: { 'Content-Type': 'text/html' } }),
+      options,
+      { waitUntil: (promise) => tasks.push(promise) },
+    );
+
+    expect(outgoing.headers.get('X-Test-Cache')).toBe('MISS');
+    expect(await outgoing.text()).toBe('deferred');
+    expect(tasks).toHaveLength(1);
+    await Promise.all(tasks);
+
+    const hit = await readEdgeCache(request, options);
+    expect(hit?.isStale).toBe(false);
+    expect(await hit?.response.text()).toBe('deferred');
   });
 });
