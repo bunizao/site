@@ -20,6 +20,9 @@
    put three lines of prose between the heading and the first thing a reader
    can type. */
 
+import { blog } from '@/data/site';
+import { commentsCopy } from '@/features/comments/copy';
+
 interface Props {
   /** Base id for this mount's two inputs (`${id}-name` / `${id}-email`) and
       for the row itself, so the compose box and the reply box — both on
@@ -28,27 +31,28 @@ interface Props {
 }
 
 const { id } = Astro.props;
+const t = commentsCopy[blog.locale.blog];
 ---
 
 <div class="blog-compose__identity" id={id} data-compose-identity>
   <div class="blog-compose__fields">
-    <label class="sr-only" for={`${id}-name`}>Display name</label>
+    <label class="sr-only" for={`${id}-name`}>{t.nameLabel}</label>
     <input
       id={`${id}-name`}
       class="blog-compose__input blog-compose__input--name"
       type="text"
       maxlength="32"
       autocomplete="nickname"
-      placeholder="Displayed name"
+      placeholder={t.namePlaceholder}
       required
     />
-    <label class="sr-only" for={`${id}-email`}>Email</label>
+    <label class="sr-only" for={`${id}-email`}>{t.emailLabel}</label>
     <input
       id={`${id}-email`}
       class="blog-compose__input"
       type="email"
       autocomplete="email"
-      placeholder="Email (never shown)"
+      placeholder={t.emailPlaceholder}
       required
     />
   </div>

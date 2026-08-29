@@ -15,6 +15,9 @@
    client/comments-controller.ts, which runs validateCompose() before it sends
    anything. */
 
+import { copyFor } from '@/features/comments/copy';
+import type { CommentsCopy } from '@/features/comments/copy';
+
 type ComposeField = HTMLInputElement | HTMLTextAreaElement;
 
 /** Every field a submission needs, in the order a reader reads them. Claimed
@@ -28,16 +31,14 @@ function requiredFields(compose: HTMLElement): ComposeField[] {
   return [...identity, ...(body ? [body] : [])];
 }
 
-function messageFor(field: ComposeField): string | null {
+function messageFor(field: ComposeField, t: CommentsCopy): string | null {
   const value = field.value.trim();
   if (!value) {
-    if (field instanceof HTMLTextAreaElement) return 'Write something first.';
-    return field.type === 'email'
-      ? 'An email is needed for your avatar and reply notices.'
-      : 'Everyone in a conversation deserves a name.';
+    if (field instanceof HTMLTextAreaElement) return t.needBody;
+    return field.type === 'email' ? t.needEmail : t.needName;
   }
   if (field instanceof HTMLInputElement && field.type === 'email' && !field.checkValidity()) {
-    return "That email doesn't look right.";
+    return t.badEmail;
   }
   return null;
 }
@@ -58,11 +59,15 @@ function say(compose: HTMLElement, message: string | null): void {
     from both the component's own script and the controller on the same
     click. */
 export function validateCompose(compose: HTMLElement): boolean {
+  // Resolved per compose element -- the compose box and the reply box are
+  // both descendants of the same locale-stamped thread root, so this always
+  // matches the table the calling component rendered its own text from.
+  const t = copyFor(compose);
   const fields = requiredFields(compose);
   for (const field of fields) field.removeAttribute('aria-invalid');
 
   for (const field of fields) {
-    const message = messageFor(field);
+    const message = messageFor(field, t);
     if (!message) continue;
     field.setAttribute('aria-invalid', 'true');
     say(compose, message);

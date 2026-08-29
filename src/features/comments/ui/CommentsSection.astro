@@ -20,6 +20,8 @@ import CommentForm from '@/features/comments/ui/CommentForm.astro';
 import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
 import { initials, seedHue } from '@/features/comments/identity';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
+import { blog } from '@/data/site';
+import { commentsCopy } from '@/features/comments/copy';
 
 interface Props {
   comments?: BlogComment[];
@@ -73,6 +75,11 @@ const skeletonRows = [
   { delay: '0.15s', author: '78px', body: '64%' },
   { delay: '0.3s', author: '120px', body: '80%' },
 ];
+
+// One language for the whole thread -- see copy.ts. `data-locale` on the
+// section is how the client controller finds the same table.
+const locale = blog.locale.blog;
+const t = commentsCopy[locale];
 ---
 
 <section
@@ -80,15 +87,16 @@ const skeletonRows = [
   data-pagefind-ignore
   data-post-id={postId}
   data-turnstile-site-key={turnstileSiteKey}
+  data-locale={locale}
 >
   <div class="blog-comments__head">
-    <h2 class="blog-comments__title">Comments</h2>
+    <h2 class="blog-comments__title">{t.title}</h2>
     {state === 'loaded' && tally > 0 && (
       <span class="blog-comments__tally">{tally}</span>
     )}
   </div>
 
-  <p class="blog-comments__invite">Leave a trace, say anything.</p>
+  <p class="blog-comments__invite">{t.invite}</p>
 
   <CommentForm phase={phase} viewer={viewer} claimed={claimed} receipt={receipt} draftText={draftText} />
 
@@ -118,13 +126,13 @@ const skeletonRows = [
   )}
 
   {state === 'empty' && (
-    <p class="blog-comments__empty">Nothing here yet. Be the first to say something.</p>
+    <p class="blog-comments__empty">{t.empty}</p>
   )}
 
   {state === 'error' && (
     <div class="blog-comments__error">
-      <p>Couldn't load comments.</p>
-      <button type="button" class="blog-comments__more-btn" data-retry-load>Retry</button>
+      <p>{t.loadError}</p>
+      <button type="button" class="blog-comments__more-btn" data-retry-load>{t.retry}</button>
     </div>
   )}
 
@@ -148,7 +156,7 @@ const skeletonRows = [
             <div class="blog-comment__meta">
               <span class="blog-comment__date">{comment.date}</span>
             </div>
-            <p class="blog-comment__text blog-comment__text--tombstone">此评论已删除</p>
+            <p class="blog-comment__text blog-comment__text--tombstone">{t.tombstone}</p>
           </div>
         </article>
       ) : (
@@ -173,9 +181,9 @@ const skeletonRows = [
           <div class="blog-comment__body">
             <div class="blog-comment__meta">
               <span class="blog-comment__author">{comment.author}</span>
-              {comment.byAuthor && <span class="blog-comment__badge">Author</span>}
+              {comment.byAuthor && <span class="blog-comment__badge">{t.authorBadge}</span>}
               <span class="blog-comment__date">{comment.date}</span>
-              {comment.edited && <span class="blog-comment__edited">(edited)</span>}
+              {comment.edited && <span class="blog-comment__edited">{t.edited}</span>}
             </div>
 
             <p class="blog-comment__text" data-comment-text hidden={comment.editing}>{comment.text}</p>
@@ -188,7 +196,7 @@ const skeletonRows = [
                 would move down to make room for it. */}
             {comment.own && !comment.held && (
               <>
-                <label class="sr-only" for={`comment-edit-${comment.id}`}>Edit your comment</label>
+                <label class="sr-only" for={`comment-edit-${comment.id}`}>{t.editLabel}</label>
                 <textarea
                   id={`comment-edit-${comment.id}`}
                   class="blog-comment__edit-field"
@@ -200,9 +208,7 @@ const skeletonRows = [
             )}
 
             {comment.held && (
-              <p class="blog-comment__note">
-                Held for review. Only you can see this until it clears.
-              </p>
+              <p class="blog-comment__note">{t.held}</p>
             )}
 
             {/* Held back on a held row: nothing can be replied to, liked, or
@@ -223,7 +229,7 @@ const skeletonRows = [
                     class="blog-comment__act blog-comment__act--like"
                     data-comment-like
                     aria-pressed={comment.liked ? 'true' : 'false'}
-                    aria-label={`Like ${comment.author}'s comment`}
+                    aria-label={t.likeLabel(comment.author)}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"
                     ><path d={HEART_PATH}></path></svg>
@@ -237,7 +243,7 @@ const skeletonRows = [
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
                     ><path d={REPLY_PATH}></path></svg>
-                    Reply
+                    {t.reply}
                   </button>
                   {comment.own && (
                     <>
@@ -248,12 +254,12 @@ const skeletonRows = [
                       <button type="button" class="blog-comment__act" data-comment-edit-open>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
                         ><path d={EDIT_PATH}></path></svg>
-                        Edit<span class="blog-comment__act-time" data-edit-countdown hidden></span>
+                        {t.edit}<span class="blog-comment__act-time" data-edit-countdown hidden></span>
                       </button>
                       <button type="button" class="blog-comment__act blog-comment__act--danger" data-comment-delete>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
                         ><path d={TRASH_PATH}></path></svg>
-                        Delete
+                        {t.remove}
                       </button>
                     </>
                   )}
@@ -261,10 +267,10 @@ const skeletonRows = [
 
                 {comment.own && !comment.held && (
                   <span class="blog-comment__acts blog-comment__acts--editing" data-comment-edit-actions hidden={!comment.editing}>
-                    <button type="button" class="blog-comment__act blog-comment__act--go" data-comment-edit-save>Post</button>
+                    <button type="button" class="blog-comment__act blog-comment__act--go" data-comment-edit-save>{t.save}</button>
                     {/* Turns into its own confirmation on the first press when
                         the field has been touched -- see the script below. */}
-                    <button type="button" class="blog-comment__act" data-comment-edit-cancel>Cancel</button>
+                    <button type="button" class="blog-comment__act" data-comment-edit-cancel>{t.cancel}</button>
                     <span class="blog-comment__act-time blog-comment__act-time--left" data-edit-countdown hidden></span>
                   </span>
                 )}
@@ -298,13 +304,13 @@ const skeletonRows = [
         <div class="blog-compose__box">
           <IdentityRow id="blog-reply-id" />
 
-          <label class="sr-only" for="blog-reply-text">Write a reply</label>
+          <label class="sr-only" for="blog-reply-text">{t.replyBodyLabel}</label>
           <textarea
             id="blog-reply-text"
             class="blog-compose__field blog-reply__field"
             rows="2"></textarea>
           <div class="blog-compose__bar">
-            <button type="button" class="blog-compose__go" data-compose-submit aria-label="Post reply" title="Reply">
+            <button type="button" class="blog-compose__go" data-compose-submit aria-label={t.replyPostAria} title={t.replyPost}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 19V5M5 12l7-7 7 7"></path>
               </svg>
@@ -322,7 +328,7 @@ const skeletonRows = [
             aria-busy={loadMoreState === 'loading' ? 'true' : 'false'}
             disabled={loadMoreState === 'loading'}
           >
-            <span>{loadMoreState === 'loading' ? 'Loading' : 'Load more'}</span>
+            <span>{loadMoreState === 'loading' ? t.loading : t.loadMore}</span>
             {loadMoreState === 'loading' && (
               <span class="blog-comments__more-dots" aria-hidden="true"><span></span><span></span><span></span></span>
             )}
@@ -338,8 +344,14 @@ const skeletonRows = [
   // Idempotent and namespaced by a data attribute, so it does not matter that
   // the compose box's script calls the same function against the same document.
   import { wireComposeValidation } from '@/features/comments/compose-validate';
+  import { copyFor } from '@/features/comments/copy';
 
   wireComposeValidation();
+
+  // Same table the markup above rendered from, found through `data-locale` on
+  // the section rather than imported, so this script never has to know which
+  // locale the page was built in.
+  const t = copyFor(document.querySelector('.blog-comments'));
 
   // Reply: the box is a single node that travels to the row being answered,
   // so the thread never holds more than one open composer and Escape always
@@ -376,7 +388,7 @@ const skeletonRows = [
         const name = button.dataset.replyName ?? '';
         button.setAttribute('aria-expanded', 'true');
         // The placeholder is the only place the name needs to appear.
-        field.placeholder = `Reply to ${name}…`;
+        field.placeholder = t.replyTo(name);
         button.closest('.blog-comment')?.querySelector('.blog-comment__body')?.append(box);
         box.hidden = false;
         field.focus();
@@ -432,9 +444,15 @@ const skeletonRows = [
     function paint(remaining: number): void {
       const mins = Math.floor(remaining / 60000);
       const secs = Math.floor((remaining % 60000) / 1000);
+      const clock = `${mins}:${String(secs).padStart(2, '0')}`;
       for (const slot of slots) {
         slot.hidden = false;
-        slot.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+        // The clock inside the Edit button is already labelled by the button;
+        // the one standing alone beside Save needs the word, and the word does
+        // not sit on the same side of the number in every language.
+        slot.textContent = slot.classList.contains('blog-comment__act-time--left')
+          ? t.timeLeft(clock)
+          : clock;
       }
     }
 
@@ -461,7 +479,7 @@ const skeletonRows = [
     function armCancel(armed: boolean) {
       if (!cancelBtn) return;
       cancelBtn.classList.toggle('blog-comment__act--confirm', armed);
-      cancelBtn.textContent = armed ? 'Discard?' : 'Cancel';
+      cancelBtn.textContent = armed ? t.discard : t.cancel;
     }
 
     function setEditing(editing: boolean) {

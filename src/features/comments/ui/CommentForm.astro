@@ -36,6 +36,8 @@
 import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
 import { initials, seedHue } from '@/features/comments/identity';
 import type { ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
+import { blog } from '@/data/site';
+import { commentsCopy } from '@/features/comments/copy';
 
 interface Props {
   /** Reader's current standing. Defaults to signed out, nothing claimed. */
@@ -60,6 +62,7 @@ const {
   draftText = '',
 } = Astro.props;
 
+const t = commentsCopy[blog.locale.blog];
 const busy = receipt === 'submitting';
 const fieldValue = busy || receipt === 'error' ? draftText : '';
 const showReceipt = receipt !== 'idle' && !busy;
@@ -92,27 +95,27 @@ const showReceipt = receipt !== 'idle' && !busy;
   <div class="blog-compose__box">
     <IdentityRow id="blog-compose-id" />
 
-    <label class="sr-only" for="blog-compose-text">Write a comment</label>
+    <label class="sr-only" for="blog-compose-text">{t.bodyLabel}</label>
     <textarea
       id="blog-compose-text"
       class="blog-compose__field"
       name="comment"
       rows="4"
       readonly={busy}
-      placeholder="Add to the conversation…"
+      placeholder={t.bodyPlaceholder}
       set:text={fieldValue}></textarea>
     {/* The bar along the bottom of the box: the note about what can be typed
         into it, and the button that sends it. Both belong to this surface, and
         a 40px disc in a footer of its own made the send button the loudest
         object on the page for the one action nobody needs help finding. */}
     <div class="blog-compose__bar">
-      <span class="blog-compose__hint">Markdown supported.</span>
+      <span class="blog-compose__hint">{t.hint}</span>
       <button
         type="button"
         class="blog-compose__go"
         data-compose-submit
-        aria-label="Post comment"
-        title="Post"
+        aria-label={t.postAria}
+        title={t.post}
         disabled={busy}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -138,7 +141,7 @@ const showReceipt = receipt !== 'idle' && !busy;
               style={`--seed-hue:${seedHue(viewer.name)}`}
               aria-hidden="true">{initials(viewer.name)}</span>
           )}
-          Posting as {viewer.name}
+          {t.postingAs(viewer.name)}
         </>
       )}
     </span>
@@ -146,8 +149,8 @@ const showReceipt = receipt !== 'idle' && !busy;
     <span class="blog-compose__claim">
       {claimed && (
         <>
-          以 {claimed.name} 评论
-          <button type="button" class="blog-compose__claim-switch" data-compose-switch>换一个</button>
+          {t.claimedAs(claimed.name)}
+          <button type="button" class="blog-compose__claim-switch" data-compose-switch>{t.switchIdentity}</button>
         </>
       )}
     </span>
@@ -162,12 +165,12 @@ const showReceipt = receipt !== 'idle' && !busy;
             <circle cx="12" cy="12" r="9"></circle>
             <path d="M12 8v5M12 16h.01"></path>
           </svg>
-          Couldn't post that — your draft is still here. Try again.
+          {t.receiptError}
         </p>
       ) : (
         <>
           <p class="blog-compose__receipt-line">
-            {receipt === 'held' ? '评论已提交，正在等待审核' : '已发布'}
+            {receipt === 'held' ? t.receiptHeld : t.receiptPosted}
           </p>
 
           {receipt === 'nudge' && (
@@ -177,12 +180,12 @@ const showReceipt = receipt !== 'idle' && !busy;
                once per session, never again after a dismissal — the real
                controller owns that memory; this only owns the reveal. */
             <div class="blog-compose__nudge" data-compose-nudge>
-              <p class="blog-compose__nudge-text">确认邮箱后可管理评论、接收回复通知</p>
+              <p class="blog-compose__nudge-text">{t.nudgeText}</p>
               <label class="blog-compose__nudge-sub">
                 <input type="checkbox" data-compose-subscribe />
-                订阅新文章邮件
+                {t.nudgeSubscribe}
               </label>
-              <button type="button" class="blog-compose__nudge-dismiss" data-compose-dismiss aria-label="Dismiss">
+              <button type="button" class="blog-compose__nudge-dismiss" data-compose-dismiss aria-label={t.dismiss}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                   <path d="M5 5l14 14M19 5L5 19"></path>
                 </svg>

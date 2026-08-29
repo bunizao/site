@@ -396,7 +396,29 @@
 /* --- Comments ------------------------------------------------------------ */
 /* Same measure as the prose, and the same voice: this is more of the page's
    reading, not a control panel appended to it. */
+/* Four sizes, and everything in the thread takes one of them.
+
+   There were ten: 16 and 15.5, 14.5 and 14 and 13.5 and 13, 12.5 and 12. In
+   Latin that is invisible sloppiness; in Chinese it is not. A CJK glyph fills
+   its em box, so a half-pixel nobody notices between two English words shows
+   up as two visibly different sizes between two Chinese ones. The worst pair
+   was the compose box at 16px posting comments that rendered at 15.5px -- you
+   typed at one size and it came back at another.
+
+   `body` is anything holding a sentence the reader wrote or is writing. It is
+   16px because that is also the size below which iOS Safari zooms the page on
+   focusing an input: one number instead of a mobile-only media query.
+   `note` is secondary UI prose, `meta` is labels and counters.
+
+   `lead` is roomier than a Latin UI would ask for, for the reason .blog-prose
+   runs at 1.85: CJK has no ascender/descender rhythm to open the lines up, so
+   it has to be given the leading outright. */
 .blog-comments {
+  --comment-body: 16px;
+  --comment-note: 14px;
+  --comment-meta: 12.5px;
+  --comment-lead: 1.75;
+
   margin-top: 40px;
   padding-top: 28px;
   border-top: 1px solid var(--blog-line);
@@ -422,7 +444,7 @@
   padding: 1px 8px;
   border-radius: var(--blog-r-pill);
   background: var(--blog-fill);
-  font-size: 12.5px;
+  font-size: var(--comment-meta);
   font-variant-numeric: tabular-nums;
   color: var(--blog-faint);
 }
@@ -433,7 +455,7 @@
    what makes a form feel like a toll gate. */
 .blog-comments__invite {
   margin: 0 0 16px;
-  font-size: 14.5px;
+  font-size: var(--comment-note);
   line-height: 1.55;
   color: var(--blog-muted);
 }
@@ -513,7 +535,7 @@
   color: var(--blog-body);
   font: inherit;
   /* 16px is the floor that stops iOS Safari zooming the page on focus. */
-  font-size: 16px;
+  font-size: var(--comment-body);
 }
 
 .blog-compose__input--name {
@@ -570,7 +592,7 @@
   border-radius: 10px;
   background: color-mix(in oklab, var(--blog-danger) 13%, transparent);
   color: var(--blog-danger);
-  font-size: 13.5px;
+  font-size: var(--comment-note);
   font-weight: 500;
   line-height: 1.4;
   animation: blog-alert-in 0.2s cubic-bezier(0.2, 0, 0, 1);
@@ -598,8 +620,8 @@
   resize: none;
   color: var(--blog-body);
   font: inherit;
-  font-size: 16px;
-  line-height: 1.65;
+  font-size: var(--comment-body);
+  line-height: var(--comment-lead);
   /* Grow with the text rather than sitting at a fixed height. Engines without
      field-sizing keep the rows="4" box. 4.1em is ~66px: the area a reader
      writes into, one golden step above the 41px row above it. */
@@ -626,7 +648,7 @@
 /* Left end of the bar, out of the way until the reader wonders whether
    asterisks will work. */
 .blog-compose__hint {
-  font-size: 12px;
+  font-size: var(--comment-meta);
   line-height: 1;
   color: var(--blog-faint);
 }
@@ -668,7 +690,7 @@
   align-items: center;
   gap: 7px;
   min-width: 0;
-  font-size: 12.5px;
+  font-size: var(--comment-meta);
   color: var(--blog-muted);
 }
 
@@ -687,7 +709,7 @@
 .blog-compose__claim {
   align-items: center;
   gap: 6px;
-  font-size: 12.5px;
+  font-size: var(--comment-meta);
   color: var(--blog-muted);
 }
 
@@ -697,7 +719,7 @@
   padding: 0;
   color: var(--blog-faint);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--comment-meta);
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
@@ -783,7 +805,7 @@
 
 .blog-compose__receipt-line {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--comment-note);
   line-height: 1.5;
   color: var(--blog-muted);
 }
@@ -793,7 +815,7 @@
   align-items: flex-start;
   gap: 7px;
   margin: 0;
-  font-size: 13px;
+  font-size: var(--comment-note);
   line-height: 1.5;
   color: var(--blog-ink);
 }
@@ -824,7 +846,7 @@
   align-items: center;
   gap: 6px;
   flex: 0 0 auto;
-  font-size: 12.5px;
+  font-size: var(--comment-meta);
   color: var(--blog-muted);
   cursor: pointer;
 }
@@ -837,7 +859,7 @@
   margin: 0;
   flex: 1 1 auto;
   min-width: 180px;
-  font-size: 12.5px;
+  font-size: var(--comment-meta);
   color: var(--blog-faint);
 }
 
@@ -886,10 +908,20 @@
    the rows stay on a shared grid. The gutter is 12px and the reply indent is
    28 + 12 = 40px, which is the same column, so a reply's face lands exactly
    under its parent's text rather than somewhere near it. */
+/* 20px is the gap inside one exchange -- a reply sits this close under the
+   comment it answers, and the 40px indent already says which is which. */
 .blog-comments__list {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+/* A new voice gets more. One flat 20px made every boundary in the thread the
+   same size, so the only thing saying "this answers the comment above" rather
+   than "this is someone else entirely" was the 40px indent -- one signal doing
+   two jobs. Now the gap agrees with the indent instead of ignoring it. */
+.blog-comment + .blog-comment:not(.blog-comment--reply) {
+  margin-top: 12px;
 }
 
 .blog-comment {
@@ -907,10 +939,13 @@
   width: 28px;
   height: 28px;
   /* Centred on the name's line box, not aligned to it: a circle taller than
-     the line sits visibly low when the two boxes are flush at the top. */
-  margin-top: -3px;
+     the line sits visibly low when the two boxes are flush at the top. The
+     editing state re-centres it on the field's first line instead -- see the
+     [data-editing] rule below. */
+  margin-top: -4px;
   border-radius: 50%;
   font-size: 11.5px;
+  transition: translate 0.18s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .blog-comment__body {
@@ -930,13 +965,13 @@
 }
 
 .blog-comment__author {
-  font-size: 14.5px;
+  font-size: var(--comment-note);
   font-weight: 600;
   color: var(--blog-ink);
 }
 
 .blog-comment__date {
-  font-size: 12.5px;
+  font-size: var(--comment-meta);
   font-variant-numeric: tabular-nums;
   color: var(--blog-faint);
 }
@@ -947,7 +982,7 @@
   padding: 1px 7px;
   border: 1px solid var(--blog-line);
   border-radius: var(--blog-r-pill);
-  font-size: 12px;
+  font-size: var(--comment-meta);
   font-weight: 500;
   color: var(--blog-faint);
 }
@@ -955,13 +990,13 @@
 /* A second edit never overwrites the marker with a diff — it just says the
    words on screen are not the words first posted. */
 .blog-comment__edited {
-  font-size: 12px;
+  font-size: var(--comment-meta);
   color: var(--blog-faint);
 }
 
 .blog-comment__text {
-  font-size: 15.5px;
-  line-height: 1.75;
+  font-size: var(--comment-body);
+  line-height: var(--comment-lead);
   color: var(--blog-body);
   overflow-wrap: anywhere;
 }
@@ -973,7 +1008,7 @@
 
 .blog-comment__note {
   margin-top: 5px;
-  font-size: 13px;
+  font-size: var(--comment-note);
   line-height: 1.55;
   color: var(--blog-faint);
 }
@@ -1001,8 +1036,8 @@
   resize: none;
   color: var(--blog-body);
   font: inherit;
-  font-size: 15.5px;
-  line-height: 1.75;
+  font-size: var(--comment-body);
+  line-height: var(--comment-lead);
   field-sizing: content;
   min-height: 1.75em;
   transition: background-color 0.2s ease, box-shadow 0.2s ease;
@@ -1026,6 +1061,17 @@
 
 .blog-comment[data-editing] .blog-comment__edit-field {
   margin-top: 0;
+}
+
+/* ...which leaves the avatar with nothing to be centred on. It kept its -3px
+   and so sat level with the top CORNER of the field's tint, 12px above the
+   first word -- a face pointing at a box edge instead of at the sentence it
+   belongs to. 10px of field padding, less the half-pixel the taller line box
+   gives back, puts the circle back on the first line. Moved with `translate`
+   rather than margin so the shift is compositable and interruptible when the
+   reader opens and closes the editor. */
+.blog-comment[data-editing] .blog-comment__avatar {
+  translate: 0 13.5px;
 }
 
 /* --- Tombstone --------------------------------------------------------- */
@@ -1089,7 +1135,7 @@
   background: none;
   color: var(--blog-faint);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--comment-meta);
   font-weight: 500;
   cursor: pointer;
   transition:
@@ -1133,15 +1179,11 @@
 
 .blog-comment__act-time--left {
   padding-left: 6px;
-  font-size: 12.5px;
+  font-size: var(--comment-meta);
 }
 
 .blog-comment__act-time--left::before {
   content: none;
-}
-
-.blog-comment__act-time--left::after {
-  content: ' left';
 }
 
 /* Delete keeps the row's text weight until it is aimed at. Colour on hover and
@@ -1236,7 +1278,6 @@
 }
 
 .blog-reply__field {
-  font-size: 15.5px;
   min-height: 2.6em;
   padding-top: 12px;
 }
@@ -1244,6 +1285,7 @@
 @media (prefers-reduced-motion: reduce) {
   .blog-comment__act,
   .blog-comment__act--like[aria-pressed='true'] svg,
+  .blog-comment__avatar,
   .blog-compose__alert,
   .blog-compose__input[aria-invalid='true'],
   .blog-compose__box:has([aria-invalid='true']) {
@@ -1267,7 +1309,7 @@
   align-items: center;
   gap: 10px;
   padding: 12px 0;
-  font-size: 14px;
+  font-size: var(--comment-note);
   color: var(--blog-faint);
   text-align: center;
 }
@@ -1287,7 +1329,7 @@
   background: none;
   color: var(--blog-muted);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--comment-note);
   font-weight: 500;
   cursor: pointer;
   transition:
@@ -1356,7 +1398,7 @@
 
 /* --- Empty and loading --------------------------------------------------- */
 .blog-comments__empty {
-  font-size: 14.5px;
+  font-size: var(--comment-note);
   color: var(--blog-faint);
 }
 

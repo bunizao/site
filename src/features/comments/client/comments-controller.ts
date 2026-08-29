@@ -25,6 +25,7 @@ import type {
 import { validateCompose } from '@/features/comments/compose-validate';
 import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { initials, seedHue } from '@/features/comments/identity';
+import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
 
 const CLAIMED_STORAGE_KEY = 'buxx:reader';
@@ -167,31 +168,33 @@ function heartIcon(): SVGElement {
 // Comment -> BlogComment mapping, and relative-date formatting.
 // ---------------------------------------------------------------------------
 
-function formatRelativeDate(iso: string): string {
+function formatRelativeDate(iso: string, t: CommentsCopy): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
+  const r = t.relativeDate;
   const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (seconds < 60) return 'now';
+  if (seconds < 60) return r.now;
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return r.minutes(minutes);
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
+  if (hours < 24) return r.hours(hours);
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d`;
+  if (days < 30) return r.days(days);
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo`;
-  return `${Math.floor(months / 12)}y`;
+  if (months < 12) return r.months(months);
+  return r.years(Math.floor(months / 12));
 }
 
 function toBlogComment(
   comment: Comment,
   reactions: ReactionBatchResult['reactions'],
+  t: CommentsCopy,
 ): BlogComment {
   const reaction = reactions[`comment:${comment.id}`]?.[0];
   return {
     id: comment.id,
     author: comment.tombstone ? '' : comment.author.name,
-    date: formatRelativeDate(comment.createdAt),
+    date: formatRelativeDate(comment.createdAt, t),
     text: comment.tombstone ? '' : comment.body,
     byAuthor: comment.author.byAuthor,
     held: comment.status === 'held',
@@ -247,6 +250,11 @@ export function initCommentsController(): void {
   const section: HTMLElement = sectionEl;
   const postId: string = postIdValue;
   const compose: HTMLElement = composeEl;
+
+  // Same table CommentsSection.astro rendered from -- found through
+  // `data-locale` on the section rather than imported, so this controller
+  // never has to know which locale the page was built in.
+  const t = copyFor(section);
 
   const turnstileSiteKey = section.dataset.turnstileSiteKey ?? '';
   const head = section.querySelector<HTMLElement>('.blog-comments__head');
@@ -322,8 +330,8 @@ export function initCommentsController(): void {
       'div',
       { class: 'blog-comments__error' },
       [
-        el('p', {}, ["Couldn't load comments."]),
-        el('button', { type: 'button', class: 'blog-comments__more-btn', 'data-retry-load': '' }, ['Retry']),
+        el('p', {}, [t.loadError]),
+        el('button', { type: 'button', class: 'blog-comments__more-btn', 'data-retry-load': '' }, [t.retry]),
       ],
     );
     error.querySelector('[data-retry-load]')?.addEventListener('click', () => {
@@ -336,7 +344,7 @@ export function initCommentsController(): void {
   function toggleEmptyState(empty: boolean): void {
     let node = section.querySelector('.blog-comments__empty');
     if (empty && !node) {
-      node = el('p', { class: 'blog-comments__empty' }, ['Nothing here yet. Be the first to say something.']);
+      node = el('p', { class: 'blog-comments__empty' }, [t.empty]);
       list.before(node);
     } else if (!empty) {
       node?.remove();
@@ -369,7 +377,7 @@ export function initCommentsController(): void {
       type: 'button',
       class: 'blog-comments__more-btn',
       'data-load-more': '',
-    }, [el('span', {}, ['Load more'])]);
+    }, [el('span', {}, [t.loadMore])]);
     const wrap = el('div', { class: 'blog-comments__more' }, [moreButton]);
     list.append(wrap);
     moreButton.addEventListener('click', () => void loadMore());
@@ -379,7 +387,7 @@ export function initCommentsController(): void {
     if (!moreButton || !nextBefore) return;
     moreButton.setAttribute('aria-busy', 'true');
     moreButton.disabled = true;
-    moreButton.textContent = 'Loading';
+    moreButton.textContent = t.loading;
 
     const page = await fetchJson<CommentListResult>(
       `/api/v2/comments?post=${encodeURIComponent(postId)}&before=${encodeURIComponent(nextBefore)}&limit=${PAGE_SIZE}`,
@@ -403,7 +411,7 @@ export function initCommentsController(): void {
       : {};
 
     for (const { comment, parentId } of orderForRender(comments)) {
-      const row = toBlogComment(comment, reactions);
+      const row = toBlogComment(comment, reactions, t);
       const article = renderCommentRow(row, parentId);
       wireCommentRow(article, row, parentId);
       replyBox.before(article);
@@ -479,7 +487,7 @@ export function initCommentsController(): void {
       applyPhase(replyBox, phase, claimed, viewer);
     }
 
-    const row = toBlogComment(comment, {});
+    const row = toBlogComment(comment, {}, t);
     row.own = true;
     const article = renderCommentRow(row, parentId);
     wireCommentRow(article, row, parentId);
@@ -536,23 +544,23 @@ export function initCommentsController(): void {
 
     if (receipt === 'error') {
       const node = el('div', { class: 'blog-compose__receipt', 'data-compose-receipt': '', 'aria-live': 'polite' }, [
-        el('p', { class: 'blog-compose__error' }, [parseStaticSvg(ERROR_ICON_SVG), "Couldn't post that — your draft is still here. Try again."]),
+        el('p', { class: 'blog-compose__error' }, [parseStaticSvg(ERROR_ICON_SVG), t.receiptError]),
       ]);
       box.append(node);
       return;
     }
 
-    const line = el('p', { class: 'blog-compose__receipt-line' }, [receipt === 'held' ? '评论已提交，正在等待审核' : '已发布']);
+    const line = el('p', { class: 'blog-compose__receipt-line' }, [receipt === 'held' ? t.receiptHeld : t.receiptPosted]);
     const children: Node[] = [line];
 
     if (receipt === 'nudge') {
       const nudge = el('div', { class: 'blog-compose__nudge', 'data-compose-nudge': '' }, [
-        el('p', { class: 'blog-compose__nudge-text' }, ['确认邮箱后可管理评论、接收回复通知']),
+        el('p', { class: 'blog-compose__nudge-text' }, [t.nudgeText]),
         el('label', { class: 'blog-compose__nudge-sub' }, [
           el('input', { type: 'checkbox', 'data-compose-subscribe': '' }),
-          '订阅新文章邮件',
+          t.nudgeSubscribe,
         ]),
-        el('button', { type: 'button', class: 'blog-compose__nudge-dismiss', 'data-compose-dismiss': '', 'aria-label': 'Dismiss' }, [
+        el('button', { type: 'button', class: 'blog-compose__nudge-dismiss', 'data-compose-dismiss': '', 'aria-label': t.dismiss }, [
           parseStaticSvg(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"></path></svg>`),
         ]),
       ]);
@@ -577,10 +585,10 @@ export function initCommentsController(): void {
       ]),
       el('div', { class: 'blog-compose__box' }, [
         buildIdentityRow('blog-reply-id'),
-        el('label', { class: 'sr-only', for: 'blog-reply-text' }, ['Write a reply']),
+        el('label', { class: 'sr-only', for: 'blog-reply-text' }, [t.replyBodyLabel]),
         el('textarea', { id: 'blog-reply-text', class: 'blog-compose__field blog-reply__field', rows: '2' }),
         el('div', { class: 'blog-compose__bar' }, [
-          el('button', { type: 'button', class: 'blog-compose__go', 'data-compose-submit': '', 'aria-label': 'Post reply', title: 'Reply' }, [parseStaticSvg(SEND_ICON_SVG)]),
+          el('button', { type: 'button', class: 'blog-compose__go', 'data-compose-submit': '', 'aria-label': t.replyPostAria, title: t.replyPost }, [parseStaticSvg(SEND_ICON_SVG)]),
         ]),
       ]),
     ]);
@@ -592,10 +600,10 @@ export function initCommentsController(): void {
     // renders that one and a live thread renders this one.
     return el('div', { class: 'blog-compose__identity', id, 'data-compose-identity': '' }, [
       el('div', { class: 'blog-compose__fields' }, [
-        el('label', { class: 'sr-only', for: `${id}-name` }, ['Display name']),
-        el('input', { id: `${id}-name`, class: 'blog-compose__input blog-compose__input--name', type: 'text', maxlength: '32', autocomplete: 'nickname', placeholder: 'Displayed name', required: '' }),
-        el('label', { class: 'sr-only', for: `${id}-email` }, ['Email']),
-        el('input', { id: `${id}-email`, class: 'blog-compose__input', type: 'email', autocomplete: 'email', placeholder: 'Email (never shown)', required: '' }),
+        el('label', { class: 'sr-only', for: `${id}-name` }, [t.nameLabel]),
+        el('input', { id: `${id}-name`, class: 'blog-compose__input blog-compose__input--name', type: 'text', maxlength: '32', autocomplete: 'nickname', placeholder: t.namePlaceholder, required: '' }),
+        el('label', { class: 'sr-only', for: `${id}-email` }, [t.emailLabel]),
+        el('input', { id: `${id}-email`, class: 'blog-compose__input', type: 'email', autocomplete: 'email', placeholder: t.emailPlaceholder, required: '' }),
       ]),
       el('input', {
         type: 'text', name: 'website', 'data-honeypot': '', tabindex: '-1', autocomplete: 'off', 'aria-hidden': 'true',
@@ -617,7 +625,7 @@ export function initCommentsController(): void {
 
     replyBox.dataset.replyTarget = commentId;
     // The placeholder is the only place the name needs to appear.
-    replyField.placeholder = `Reply to ${authorName}…`;
+    replyField.placeholder = t.replyTo(authorName);
     rowBody.append(replyBox);
     replyBox.hidden = false;
     replyField.focus();
@@ -652,7 +660,7 @@ export function initCommentsController(): void {
         el('span', { class: 'blog-comment__avatar blog-comment__avatar--ghost', 'aria-hidden': 'true' }, [parseStaticSvg(GHOST_ICON_SVG)]),
         el('div', { class: 'blog-comment__body' }, [
           el('div', { class: 'blog-comment__meta' }, [el('span', { class: 'blog-comment__date' }, [comment.date])]),
-          el('p', { class: 'blog-comment__text blog-comment__text--tombstone' }, ['此评论已删除']),
+          el('p', { class: 'blog-comment__text blog-comment__text--tombstone' }, [t.tombstone]),
         ]),
       ]);
       if (parentId) article.dataset.parentId = parentId;
@@ -660,9 +668,9 @@ export function initCommentsController(): void {
     }
 
     const meta = el('div', { class: 'blog-comment__meta' }, [el('span', { class: 'blog-comment__author' }, [comment.author])]);
-    if (comment.byAuthor) meta.append(el('span', { class: 'blog-comment__badge' }, ['Author']));
+    if (comment.byAuthor) meta.append(el('span', { class: 'blog-comment__badge' }, [t.authorBadge]));
     meta.append(el('span', { class: 'blog-comment__date' }, [comment.date]));
-    if (comment.edited) meta.append(el('span', { class: 'blog-comment__edited' }, ['(edited)']));
+    if (comment.edited) meta.append(el('span', { class: 'blog-comment__edited' }, [t.edited]));
 
     const body = el('div', { class: 'blog-comment__body' }, [
       meta,
@@ -671,37 +679,37 @@ export function initCommentsController(): void {
 
     if (comment.own && !comment.held) {
       body.append(
-        el('label', { class: 'sr-only', for: `comment-edit-${comment.id}` }, ['Edit your comment']),
+        el('label', { class: 'sr-only', for: `comment-edit-${comment.id}` }, [t.editLabel]),
         el('textarea', { id: `comment-edit-${comment.id}`, class: 'blog-comment__edit-field', 'data-comment-edit-field': '', rows: '2', hidden: '' }, [comment.text]),
       );
     }
 
     if (comment.held) {
-      body.append(el('p', { class: 'blog-comment__note' }, ['Held for review. Only you can see this until it clears.']));
+      body.append(el('p', { class: 'blog-comment__note' }, [t.held]));
     } else {
       // Two sets of controls in one strip, exactly one on screen -- mirrors
       // CommentsSection.astro, which renders the same row server-side.
       const acts = el('span', { class: 'blog-comment__acts' }, [
         el('button', {
           type: 'button', class: 'blog-comment__act blog-comment__act--like', 'data-comment-like': '',
-          'aria-pressed': comment.liked ? 'true' : 'false', 'aria-label': `Like ${comment.author}'s comment`,
+          'aria-pressed': comment.liked ? 'true' : 'false', 'aria-label': t.likeLabel(comment.author),
         }, [heartIcon(), el('span', { class: 'blog-comment__act-count', 'data-like-count': '' }, [String(comment.likes ?? 0)])]),
-        el('button', { type: 'button', class: 'blog-comment__act', 'data-reply-to': comment.id, 'data-reply-name': comment.author }, [parseStaticSvg(REPLY_ICON_SVG), 'Reply']),
+        el('button', { type: 'button', class: 'blog-comment__act', 'data-reply-to': comment.id, 'data-reply-name': comment.author }, [parseStaticSvg(REPLY_ICON_SVG), t.reply]),
       ]);
       const actions = el('div', { class: 'blog-comment__actions' }, [acts]);
       if (comment.own) {
         acts.append(
           el('button', { type: 'button', class: 'blog-comment__act', 'data-comment-edit-open': '' }, [
             parseStaticSvg(EDIT_ICON_SVG),
-            'Edit',
+            t.edit,
             el('span', { class: 'blog-comment__act-time', 'data-edit-countdown': '', hidden: '' }),
           ]),
-          el('button', { type: 'button', class: 'blog-comment__act blog-comment__act--danger', 'data-comment-delete': '' }, [parseStaticSvg(TRASH_ICON_SVG), 'Delete']),
+          el('button', { type: 'button', class: 'blog-comment__act blog-comment__act--danger', 'data-comment-delete': '' }, [parseStaticSvg(TRASH_ICON_SVG), t.remove]),
         );
         actions.append(
           el('span', { class: 'blog-comment__acts blog-comment__acts--editing', 'data-comment-edit-actions': '', hidden: '' }, [
-            el('button', { type: 'button', class: 'blog-comment__act blog-comment__act--go', 'data-comment-edit-save': '' }, ['Post']),
-            el('button', { type: 'button', class: 'blog-comment__act', 'data-comment-edit-cancel': '' }, ['Cancel']),
+            el('button', { type: 'button', class: 'blog-comment__act blog-comment__act--go', 'data-comment-edit-save': '' }, [t.save]),
+            el('button', { type: 'button', class: 'blog-comment__act', 'data-comment-edit-cancel': '' }, [t.cancel]),
             el('span', { class: 'blog-comment__act-time blog-comment__act-time--left', 'data-edit-countdown': '', hidden: '' }),
           ]),
         );
@@ -787,7 +795,7 @@ export function initCommentsController(): void {
     const armCancel = (armed: boolean): void => {
       if (!cancelBtn) return;
       cancelBtn.classList.toggle('blog-comment__act--confirm', armed);
-      cancelBtn.textContent = armed ? 'Discard?' : 'Cancel';
+      cancelBtn.textContent = armed ? t.discard : t.cancel;
     };
 
     // The strip swaps its contents; nothing in the row is removed, so the
@@ -848,7 +856,7 @@ export function initCommentsController(): void {
     });
 
     if (!response.ok) {
-      field.after(el('p', { class: 'blog-comment__edit-error blog-compose__error' }, ["Couldn't save that edit."]));
+      field.after(el('p', { class: 'blog-comment__edit-error blog-compose__error' }, [t.editError]));
       return;
     }
 
@@ -858,12 +866,12 @@ export function initCommentsController(): void {
 
     const meta = article.querySelector('.blog-comment__meta');
     if (meta && !meta.querySelector('.blog-comment__edited')) {
-      meta.append(el('span', { class: 'blog-comment__edited' }, ['(edited)']));
+      meta.append(el('span', { class: 'blog-comment__edited' }, [t.edited]));
     }
   }
 
   async function deleteComment(commentId: string, article: HTMLElement, parentId: string | null): Promise<void> {
-    if (!window.confirm('Delete this comment?')) return;
+    if (!window.confirm(t.removeConfirm)) return;
     const response = await fetch(`/api/v2/comments/${encodeURIComponent(commentId)}`, { method: 'DELETE' });
     if (!response.ok) return;
 
@@ -907,9 +915,15 @@ export function initCommentsController(): void {
       }
       const mins = Math.floor(remaining / 60000);
       const secs = Math.floor((remaining % 60000) / 1000);
+      const clock = `${mins}:${String(secs).padStart(2, '0')}`;
       for (const slot of slots) {
         slot.hidden = false;
-        slot.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+        // The clock inside the Edit button is already labelled by the button;
+        // the one standing alone beside Save needs the word, and the word does
+        // not sit on the same side of the number in every language.
+        slot.textContent = slot.classList.contains('blog-comment__act-time--left')
+          ? t.timeLeft(clock)
+          : clock;
       }
       return true;
     }
@@ -950,21 +964,21 @@ export function initCommentsController(): void {
         const face = currentViewer.avatarUrl
           ? el('img', { class: 'blog-compose__whoface', src: currentViewer.avatarUrl, alt: '', width: '20', height: '20' })
           : el('span', { class: 'blog-compose__whoface blog-avatar-seed blog-avatar-initials', style: `--seed-hue:${seedHue(currentViewer.displayName)}`, 'aria-hidden': 'true' }, [initials(currentViewer.displayName)]);
-        who.append(face, `Posting as ${currentViewer.displayName}`);
+        who.append(face, t.postingAs(currentViewer.displayName));
       }
     }
 
     if (claim) {
       claim.replaceChildren();
       if (currentPhase === 'claimed' && claimedIdentity) {
-        const switchBtn = el('button', { type: 'button', class: 'blog-compose__claim-switch', 'data-compose-switch': '' }, ['换一个']);
+        const switchBtn = el('button', { type: 'button', class: 'blog-compose__claim-switch', 'data-compose-switch': '' }, [t.switchIdentity]);
         switchBtn.addEventListener('click', () => {
           phase = 'anonymous';
           applyPhase(compose, phase, claimed, viewer);
           applyPhase(replyBox, phase, claimed, viewer);
           box.querySelector<HTMLInputElement>('[data-compose-identity] input')?.focus();
         });
-        claim.append(`以 ${claimedIdentity.name} 评论`, switchBtn);
+        claim.append(t.claimedAs(claimedIdentity.name), switchBtn);
       }
     }
   }
