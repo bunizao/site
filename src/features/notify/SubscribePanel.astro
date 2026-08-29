@@ -563,16 +563,24 @@ const intro =
     left: 0;
     width: calc(100% / var(--sub-seg-count));
     border-radius: 7px;
-    /* The selected pill has to sit ABOVE its trough. Painted with --background
-       it went the other way in dark mode — a 4% pill inside a trough already
-       lightened by the panel surface, so the selection read as a hole. */
-    background: var(--sub-raised);
-    box-shadow: 0 1px 3px hsl(0 0% 0% / 0.25), 0 0 0 1px hsl(var(--foreground) / 0.06);
+    /* Light mode gets a flat tint, not a raised card. The panel surface is
+       already white, so a white pill on it could only be seen through its
+       shadow — and a 25%-black shadow under a hairline-thin white rectangle
+       reads as a smudge on the page rather than as a selection. A 6% swatch
+       says the same thing with one colour and no elevation. */
+    background: hsl(var(--foreground) / 0.06);
     transform: translate3d(var(--sub-seg-offset), 0, 0);
     -webkit-transform: translate3d(var(--sub-seg-offset), 0, 0);
     transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
     z-index: 0;
     pointer-events: none;
+  }
+
+  /* Dark mode keeps the raised card: on an 11% surface a 17% pill is legible
+     as a lift, and a tint that faint would disappear. */
+  .dark .sub-seg__pill {
+    background: var(--sub-raised);
+    box-shadow: 0 1px 3px hsl(0 0% 0% / 0.25), 0 0 0 1px hsl(var(--foreground) / 0.06);
   }
 
   .sub-seg__input {
