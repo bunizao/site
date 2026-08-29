@@ -5,6 +5,29 @@ async function openConversationPlayground(page: import('@playwright/test').Page)
   await page.locator('#conv-source').waitFor();
 }
 
+async function setConversationContainerWidth(
+  page: import('@playwright/test').Page,
+  width: number,
+): Promise<void> {
+  const conversation = page.locator('#playground .conv');
+  await conversation.evaluate((node, targetWidth) => {
+    const preview = node.parentElement;
+    if (!preview) throw new Error('conversation preview is missing');
+
+    const previewWidth = preview.getBoundingClientRect().width;
+    const conversationWidth = node.getBoundingClientRect().width;
+    preview.style.width = `${targetWidth + previewWidth - conversationWidth}px`;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const actualWidth = node.getBoundingClientRect().width;
+      const currentWidth = parseFloat(preview.style.width);
+      preview.style.width = `${currentWidth + targetWidth - actualWidth}px`;
+    }
+  }, width);
+  await expect
+    .poll(() => conversation.evaluate((node) => node.getBoundingClientRect().width))
+    .toBeCloseTo(width, 1);
+}
+
 test.describe('component playgrounds', () => {
   test('conversation controls update a complete copyable source', async ({ page, context }) => {
     await openConversationPlayground(page);
@@ -165,6 +188,106 @@ test.describe('component playgrounds', () => {
       .toBeLessThan(1.5);
   });
 
+  test('conversation gutters switch strictly below 520px', async ({ page }) => {
+    await openConversationPlayground(page);
+    await page.locator('#conv-source').fill(
+      [
+        '```conversation',
+        '@conversation avatars=on names=on tints=on',
+        '@ada [Ada]',
+        'you: outgoing edge',
+        'ada: incoming edge',
+        '```',
+      ].join('\n'),
+    );
+
+    const geometry = () => page.locator('#playground .conv-thread').evaluate((thread) => {
+      const threadRect = thread.getBoundingClientRect();
+      const incoming = thread.querySelector('.conv-group--in');
+      const outgoing = thread.querySelector('.conv-group--out');
+      const incomingBubble = incoming?.querySelector('.conv-bubble');
+      const outgoingBubble = outgoing?.querySelector('.conv-bubble');
+      const incomingAvatar = incoming?.querySelector('.conv-avatar');
+      const outgoingAvatar = outgoing?.querySelector('.conv-avatar');
+      if (!incomingBubble || !outgoingBubble || !incomingAvatar || !outgoingAvatar) {
+        throw new Error('conversation geometry is incomplete');
+      }
+
+      const incomingBubbleRect = incomingBubble.getBoundingClientRect();
+      const outgoingBubbleRect = outgoingBubble.getBoundingClientRect();
+      const incomingAvatarStyle = getComputedStyle(incomingAvatar);
+      const outgoingAvatarStyle = getComputedStyle(outgoingAvatar);
+      return {
+        avatarToken: getComputedStyle(thread).getPropertyValue('--conv-avatar').trim(),
+        incomingAvatarDisplay: incomingAvatarStyle.display,
+        incomingAvatarWidth: incomingAvatar.getBoundingClientRect().width,
+        incomingEdge: incomingBubbleRect.left - threadRect.left,
+        outgoingAvatarDisplay: outgoingAvatarStyle.display,
+        outgoingAvatarWidth: outgoingAvatar.getBoundingClientRect().width,
+        outgoingEdge: threadRect.right - outgoingBubbleRect.right,
+      };
+    });
+
+    await setConversationContainerWidth(page, 519);
+    const below = await geometry();
+    expect(below.avatarToken).toBe('28px');
+    expect(below.incomingAvatarDisplay).not.toBe('none');
+    expect(below.incomingAvatarWidth).toBeCloseTo(28, 1);
+    expect(below.incomingEdge).toBeCloseTo(40, 1);
+    expect(below.outgoingAvatarDisplay).toBe('none');
+    expect(below.outgoingAvatarWidth).toBe(0);
+    expect(below.outgoingEdge).toBeCloseTo(0, 1);
+
+    for (const width of [520, 521]) {
+      await setConversationContainerWidth(page, width);
+      const wide = await geometry();
+      console.log('geometry', width, wide);
+      expect(wide.avatarToken).toBe('34px');
+      expect(wide.incomingAvatarDisplay).not.toBe('none');
+      expect(wide.incomingAvatarWidth).toBeCloseTo(34, 1);
+      expect(wide.incomingEdge).toBeCloseTo(46, 1);
+      expect(wide.outgoingAvatarDisplay).not.toBe('none');
+      expect(wide.outgoingAvatarWidth).toBeCloseTo(34, 1);
+      expect(wide.outgoingEdge).toBeCloseTo(46, 1);
+    }
+  });
+
+  test('avatars off removes both narrow gutters', async ({ page }) => {
+    await openConversationPlayground(page);
+    await page.locator('#conv-source').fill(
+      [
+        '```conversation',
+        '@conversation avatars=off names=on tints=on',
+        '@ada [Ada]',
+        'you: outgoing edge',
+        'ada: incoming edge',
+        '```',
+      ].join('\n'),
+    );
+    await setConversationContainerWidth(page, 519);
+
+    const edges = await page.locator('#playground .conv-thread').evaluate((thread) => {
+      const threadRect = thread.getBoundingClientRect();
+      const incoming = thread.querySelector('.conv-group--in');
+      const outgoing = thread.querySelector('.conv-group--out');
+      const incomingBubble = incoming?.querySelector('.conv-bubble');
+      const outgoingBubble = outgoing?.querySelector('.conv-bubble');
+      const avatars = [...thread.querySelectorAll('.conv-avatar')];
+      if (!incomingBubble || !outgoingBubble || avatars.length !== 2) {
+        throw new Error('conversation geometry is incomplete');
+      }
+
+      return {
+        avatarDisplays: avatars.map((avatar) => getComputedStyle(avatar).display),
+        incoming: incomingBubble.getBoundingClientRect().left - threadRect.left,
+        outgoing: threadRect.right - outgoingBubble.getBoundingClientRect().right,
+      };
+    });
+    expect(edges.avatarDisplays).toEqual(['none', 'none']);
+    expect(edges.incoming).toBeCloseTo(0, 1);
+    expect(edges.outgoing).toBeCloseTo(0, 1);
+  });
+
   test('pages with playgrounds expose a colored link beside the introduction', async ({ page }) => {
     await page.goto('/components/decode-text');
     await expect(page.locator('.detail-playground-link')).toHaveAttribute('href', '#playground');
@@ -179,5 +302,29 @@ test.describe('component playgrounds', () => {
       '/components/conversation#playground',
     );
     await expect(page.locator('.docs-playground-link')).toHaveCSS('color', 'rgb(168, 79, 44)');
+  });
+
+  test('playground controls keep keyboard focus and minimum target sizes', async ({ page }) => {
+    await openConversationPlayground(page);
+
+    const avatarSwitch = page.getByRole('switch', { name: 'Avatars' });
+    const copyButton = page.getByRole('button', { name: 'Copy complete conversation source' });
+
+    await avatarSwitch.focus();
+    await expect(avatarSwitch).toBeFocused();
+    await expect
+      .poll(() => avatarSwitch.evaluate((node) => getComputedStyle(node).boxShadow))
+      .not.toBe('none');
+    await avatarSwitch.press('Space');
+    await expect(avatarSwitch).not.toBeChecked();
+
+    for (const target of [avatarSwitch, copyButton]) {
+      const size = await target.evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        return { width: rect.width, height: rect.height };
+      });
+      expect(size.width).toBeGreaterThanOrEqual(24);
+      expect(size.height).toBeGreaterThanOrEqual(24);
+    }
   });
 });

@@ -128,9 +128,9 @@ function Field({
         checked={checked}
         onCheckedChange={onChange}
         aria-label={label}
-        className="h-4.5 w-8 shrink-0 rounded-full bg-foreground/16 p-0.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring data-[checked]:bg-foreground"
+        className="relative min-h-6 w-8 shrink-0 rounded-full bg-transparent py-[3px] outline-none before:absolute before:inset-y-[3px] before:inset-x-0 before:rounded-full before:bg-foreground/16 before:transition-colors focus-visible:ring-2 focus-visible:ring-ring data-[checked]:before:bg-foreground"
       >
-        <Switch.Thumb className="block size-3.5 rounded-full bg-background transition-transform data-[checked]:translate-x-3.5" />
+        <Switch.Thumb className="relative ml-0.5 block size-3.5 rounded-full bg-background transition-transform data-[checked]:translate-x-3.5" />
       </Switch.Root>
       {label}
     </label>
@@ -239,7 +239,7 @@ export default function ConversationPlayground(): React.ReactElement {
           onClick={() => void copySource()}
           aria-label="Copy complete conversation source"
           data-copied={copied ? '' : undefined}
-          className="relative inline-flex items-center gap-1.5 text-xs font-medium text-foreground/48 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground data-[copied]:text-foreground"
+          className="relative inline-flex min-h-6 items-center gap-1.5 text-xs font-medium text-foreground/48 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground data-[copied]:text-foreground"
         >
           <span className="copy-btn-icons" aria-hidden="true">
             <Copy className="copy-btn-icon copy-btn-icon--copy" />
