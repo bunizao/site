@@ -511,7 +511,11 @@ function shouldHideQuoteAuthor(value?: string): boolean {
 
                     {isLongPreview ? <a class="mood-item-details link" href={detailHref}>View details</a> : null}
 
-                    <div class="mood-item-reactions">
+                    {/* Hidden while empty so the live-counts patch never collapses
+                        a rendered row (each empty row costs the column gap plus its
+                        own margin, and hiding it after paint shifts the feed). The
+                        patcher un-hides it when live data adds pills or comments. */}
+                    <div class={`mood-item-reactions${post.reactions.length === 0 && commentsInfo.count === 0 ? ' is-hidden' : ''}`}>
                       {post.reactions.map((reaction) => (
                         <span
                           class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}
