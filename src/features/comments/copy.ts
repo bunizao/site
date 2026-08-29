@@ -134,7 +134,7 @@ const zh: CommentsCopy = {
 
   authorBadge: '作者',
   edited: '已编辑',
-  tombstone: '此评论已删除',
+  tombstone: '这条评论已删除。',
   held: '这条评论正在审核中。',
   reply: '回复',
   edit: '编辑',
@@ -180,10 +180,10 @@ const en: CommentsCopy = {
   loadMore: 'Load more',
   loading: 'Loading',
 
-  nameLabel: 'Display name',
-  namePlaceholder: 'Displayed name',
+  nameLabel: 'Name',
+  namePlaceholder: 'Name',
   emailLabel: 'Email',
-  emailPlaceholder: 'Email (never shown)',
+  emailPlaceholder: 'Email (private)',
   bodyLabel: 'Write a comment',
   bodyPlaceholder: 'Say something…',
   replyBodyLabel: 'Write a reply',

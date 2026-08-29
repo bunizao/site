@@ -27,6 +27,7 @@ import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import Colophon from '@/features/posts/ui/Colophon.astro';
 import ShareRow from '@/features/posts/ui/ShareRow.astro';
 import { blog } from '@/data/site';
+import { commentsCopy } from '@/features/comments/copy';
 import { resolveAuthorshipModel } from '@/data/authorship';
 import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
@@ -81,18 +82,24 @@ const authorshipCredits: AuthorshipCredit[] =
 
 const editWindowSoon = Date.now() + 8 * 60 * 1000 + 24 * 1000; // ~8:24 left, for the countdown
 
+// Fixture timestamps come off the same table the thread does, so the page is
+// readable in one language at a time. Hardcoded strings left the rows dated in
+// Chinese while every label around them was English, which is exactly the kind
+// of drift this page exists to catch.
+const t = commentsCopy[blog.locale.blog];
+
 const comments: BlogComment[] = [
   {
     id: '1',
     author: 'Nina Kato',
-    date: '2天前',
+    date: t.relativeDate.days(2),
     text: '这段关于"删掉一层抽象比加一层更难"的说法很准。我们上个季度做的事情几乎一模一样，最后省下来的不是代码行数，是每次改动前要读的东西。',
     likes: 7,
   },
   {
     id: '2',
     author: 'Murray',
-    date: '2天前',
+    date: t.relativeDate.days(2),
     text: 'Exactly that. The line count barely moved — what changed is how much you have to hold in your head before you can touch it.',
     byAuthor: true,
     isReply: true,
@@ -102,7 +109,7 @@ const comments: BlogComment[] = [
   {
     id: '3',
     author: 'Oskar Lind',
-    date: '5天前',
+    date: t.relativeDate.days(5),
     text: 'Curious whether you kept the adapter around for the migration window or cut it in one go. The one-go version always sounds cleaner than it turns out to be.',
     likes: 2,
     edited: true,
@@ -110,7 +117,7 @@ const comments: BlogComment[] = [
   {
     id: '4',
     author: 'You',
-    date: '刚刚',
+    date: t.relativeDate.now,
     text: 'Second this — a migration window with two live paths is where most of the cost hides.',
     held: true,
     own: true,
@@ -120,14 +127,14 @@ const comments: BlogComment[] = [
   {
     id: '5',
     author: 'Deleted',
-    date: '4天前',
+    date: t.relativeDate.days(4),
     text: '',
     tombstone: true,
   },
   {
     id: '6',
     author: 'Priya R',
-    date: '4天前',
+    date: t.relativeDate.days(4),
     text: "Following up on that anyway — the rollback plan is the part I'd want written down before I tried this on our stack.",
     isReply: true,
     likes: 1,
@@ -137,7 +144,7 @@ const comments: BlogComment[] = [
   {
     id: '7',
     author: 'Tutu Xiao',
-    date: '刚刚',
+    date: t.relativeDate.now,
     text: 'One more thing: the retry policy move is the part I keep pointing people to when this comes up internally.',
     own: true,
     editDeadline: editWindowSoon,
@@ -148,7 +155,7 @@ const comments: BlogComment[] = [
   {
     id: '8',
     author: 'Tutu Xiao',
-    date: '1小时前',
+    date: t.relativeDate.hours(1),
     text: 'Typo in my last one — meant the retry policy, not the retry budget.',
     own: true,
     editing: true,
