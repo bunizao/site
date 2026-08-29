@@ -423,6 +423,10 @@ const previewCleanupSelectors = [
   '.tgme_widget_message_poll, .tgme_widget_message_document_wrap, .tgme_widget_message_video_player, .tgme_widget_message_location_wrap',
 ];
 
+// Bookmark card modifiers that survive preview sanitization; the base
+// `bookmark-card` class is re-applied unconditionally.
+const preservedBookmarkCardModifiers = new Set(['bookmark-card--side-media']);
+
 interface TextPreviewHtmlOptions {
   preserveBookmarks?: boolean;
 }
@@ -761,10 +765,14 @@ export function getTextPreviewHtml(
           return;
         }
 
+        const modifiers = className
+          .split(/\s+/)
+          .filter((value) => preservedBookmarkCardModifiers.has(value));
+
         const attributes = Object.keys(element.attribs ?? {});
         attributes.forEach((attr) => $(element).removeAttr(attr));
         $(element).attr('href', safeHref);
-        $(element).attr('class', 'bookmark-card');
+        $(element).attr('class', ['bookmark-card', ...modifiers].join(' '));
         $(element).attr('target', '_blank');
         $(element).attr('rel', 'noopener noreferrer');
         return;
