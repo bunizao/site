@@ -67,7 +67,10 @@ const {
 
 const activeTagFilter = normalizeMoodTagSlug(tagFilter);
 
-const criticalInitialPosts = getCriticalInitialPosts(initialPosts, anchorId);
+// SSR the whole initial window, not just the critical prefix. Client-rendering
+// the remainder at hydration minted visible date groups ~1s after first paint,
+// a hard layout shift; the payload stubs below keep the inline JSON small.
+const criticalInitialPosts = getCriticalInitialPosts(initialPosts, anchorId, initialPosts.length);
 const criticalDateGroups = groupPostsByDate(criticalInitialPosts);
 const criticalPriorityPostId = criticalInitialPosts.find(hasRenderableMoodFeedMedia)?.id ?? '';
 const hasCriticalInitialPosts = criticalInitialPosts.length > 0;

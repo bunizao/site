@@ -30,6 +30,30 @@ const MAX_VISIBLE_RECORDS = 80;
 const SLOW_RESOURCE_MS = 800;
 const JANK_FRAME_MS = 50;
 
+// Groups each record kind into a color family for the log view.
+// critical = errors/CLS, warning = jank signals, measure = timing data,
+// layout = size/viewport churn, quiet = low-signal chatter.
+type RecordCategory = 'critical' | 'warning' | 'measure' | 'layout' | 'quiet';
+const KIND_CATEGORY: Record<string, RecordCategory> = {
+  error: 'critical',
+  cls: 'critical',
+  'image-warning': 'warning',
+  'frame-gap': 'warning',
+  'long-task': 'warning',
+  lcp: 'measure',
+  navigation: 'measure',
+  resource: 'measure',
+  interaction: 'measure',
+  image: 'measure',
+  resize: 'layout',
+  viewport: 'layout',
+  scroll: 'quiet',
+  'scroll-call': 'quiet',
+  font: 'quiet',
+  panel: 'quiet',
+  support: 'quiet',
+};
+
 function number(value: number | undefined, digits = 1): string {
   return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '-';
 }
@@ -74,6 +98,21 @@ function scrollArguments(args: unknown[]): string {
   return JSON.stringify(args.slice(0, 2));
 }
 
+// CLS thresholds follow web-vitals: good <= 0.1, needs-improvement <= 0.25, poor above.
+function clsTone(value: number): 'good' | 'warn' | 'bad' {
+  if (value <= 0.1) return 'good';
+  if (value <= 0.25) return 'warn';
+  return 'bad';
+}
+
+// LCP thresholds follow web-vitals: good <= 2500ms, needs-improvement <= 4000ms, poor above.
+function lcpTone(value: number): 'good' | 'warn' | 'bad' | '' {
+  if (!value) return '';
+  if (value <= 2500) return 'good';
+  if (value <= 4000) return 'warn';
+  return 'bad';
+}
+
 export function initPerformanceDebugPanel(): void {
   if (window.__BUXX_PERF_DEBUG__) return;
 
@@ -99,39 +138,105 @@ export function initPerformanceDebugPanel(): void {
   shadow.innerHTML = `
     <style>
       :host { all: initial; }
-      .panel { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 2147483647; overflow: hidden; border: 1px solid #f04f4f; border-radius: 9px; background: rgba(8, 10, 12, .94); color: #d5ffe0; box-shadow: 0 10px 34px rgba(0, 0, 0, .35); font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
-      .bar { display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 5px 7px 5px 10px; border-bottom: 1px solid rgba(255,255,255,.13); }
-      .title { color: #fff; font-weight: 700; white-space: nowrap; }
-      .summary { min-width: 0; flex: 1; overflow: hidden; color: #8ef0aa; text-overflow: ellipsis; white-space: nowrap; }
-      button { appearance: none; min-height: 25px; padding: 4px 7px; border: 1px solid rgba(142,240,170,.55); border-radius: 5px; background: #11171a; color: #bfffcf; font: inherit; cursor: pointer; }
-      button:active { background: #203029; }
-      .log { max-height: min(38vh, 300px); margin: 0; padding: 8px 10px 10px; overflow: auto; color: #bce8c7; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-overflow-scrolling: touch; }
+      .panel {
+        --c-critical: #ff6b6b;
+        --c-warning: #f5a623;
+        --c-measure: #57c7ff;
+        --c-layout: #b39ddb;
+        --c-quiet: #6b7280;
+        position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        z-index: 2147483647; overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, .1);
+        border-radius: 10px;
+        background: rgba(8, 10, 12, .94);
+        color: #c7ccd4;
+        box-shadow: 0 10px 34px rgba(0, 0, 0, .45);
+        font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-variant-numeric: tabular-nums;
+      }
+      .bar { display: flex; align-items: center; gap: 6px 8px; padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.1); }
+      .title { color: #e8eaed; font-weight: 700; white-space: nowrap; letter-spacing: .01em; }
+      .summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; flex: 1; }
+      .chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); white-space: nowrap; }
+      .chip-label { color: #8a94a6; font-size: 9.5px; text-transform: uppercase; letter-spacing: .02em; }
+      .chip-value { color: #d7dadd; font-weight: 600; }
+      .chip[data-tone="good"] { background: rgba(74,222,128,.08); border-color: rgba(74,222,128,.4); }
+      .chip[data-tone="good"] .chip-value { color: #4ade80; }
+      .chip[data-tone="warn"] { background: rgba(245,166,35,.09); border-color: rgba(245,166,35,.45); }
+      .chip[data-tone="warn"] .chip-value { color: #f5a623; }
+      .chip[data-tone="bad"] { background: rgba(255,107,107,.1); border-color: rgba(255,107,107,.5); }
+      .chip[data-tone="bad"] .chip-value { color: #ff6b6b; }
+      button { appearance: none; min-height: 40px; min-width: 40px; padding: 4px 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 6px; background: #14181b; color: #d7dadd; font: inherit; font-weight: 600; cursor: pointer; }
+      button:hover { background: #1a2024; border-color: rgba(255,255,255,.22); }
+      button:active { background: #20272b; }
+      button:focus-visible { outline: 2px solid rgba(87,199,255,.6); outline-offset: 1px; }
+      button[aria-pressed="true"] { background: rgba(245,166,35,.15); border-color: rgba(245,166,35,.55); color: #ffd28a; }
+      .log { max-height: min(38vh, 300px); margin: 0; padding: 4px 4px 8px; overflow: auto; overflow-wrap: anywhere; user-select: text; -webkit-overflow-scrolling: touch; }
+      .row { display: flex; align-items: flex-start; gap: 8px; padding: 2px 8px; border-left: 3px solid transparent; }
+      .row[data-category="critical"] { border-left-color: var(--c-critical); background: rgba(255,107,107,.05); }
+      .row[data-category="critical"] .badge { color: var(--c-critical); }
+      .row[data-category="critical"] .msg { color: #f2b8b5; }
+      .row[data-category="warning"] { border-left-color: var(--c-warning); }
+      .row[data-category="warning"] .badge { color: var(--c-warning); }
+      .row[data-category="measure"] { border-left-color: var(--c-measure); }
+      .row[data-category="measure"] .badge { color: var(--c-measure); }
+      .row[data-category="layout"] { border-left-color: var(--c-layout); }
+      .row[data-category="layout"] .badge { color: var(--c-layout); }
+      .row[data-category="quiet"] .badge { color: var(--c-quiet); }
+      .row[data-category="quiet"] .msg { color: #7d8590; }
+      .badge { flex: 0 0 78px; overflow: hidden; color: #9aa3af; font-size: 9px; font-weight: 700; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; }
+      .time { flex: 0 0 56px; color: #8a94a6; text-align: right; }
+      .msg { flex: 1 1 auto; min-width: 0; color: #c7ccd4; white-space: pre-wrap; overflow-wrap: anywhere; }
       .panel.collapsed .log { display: none; }
       .panel.collapsed .bar { border-bottom: 0; }
-      @media (max-width: 560px) { .title { display: none; } .summary { font-size: 10px; } button { padding-inline: 6px; } }
+      @media (max-width: 560px) {
+        .title { display: none; }
+        .chip-label { font-size: 9px; }
+        button { padding-inline: 8px; }
+        .badge { flex-basis: 66px; font-size: 8.5px; }
+        .time { flex-basis: 48px; }
+      }
     </style>
     <section class="panel">
       <div class="bar">
         <span class="title">Performance audit</span>
-        <span class="summary"></span>
-        <button type="button" data-action="pause">Pause</button>
+        <div class="summary" aria-label="Metrics summary">
+          <span class="chip" data-metric="cls"><span class="chip-label">CLS</span><span class="chip-value" data-field="cls"></span></span>
+          <span class="chip" data-metric="lcp"><span class="chip-label">LCP</span><span class="chip-value" data-field="lcp"></span></span>
+          <span class="chip"><span class="chip-label">long</span><span class="chip-value" data-field="long"></span></span>
+          <span class="chip"><span class="chip-label">jank</span><span class="chip-value" data-field="jank"></span></span>
+          <span class="chip"><span class="chip-label">slow</span><span class="chip-value" data-field="slow"></span></span>
+          <span class="chip"><span class="chip-label">scroll</span><span class="chip-value" data-field="scroll"></span></span>
+        </div>
+        <button type="button" data-action="pause" aria-pressed="false">Pause</button>
         <button type="button" data-action="clear">Clear</button>
         <button type="button" data-action="copy">Copy</button>
-        <button type="button" data-action="collapse">−</button>
+        <button type="button" data-action="collapse" aria-label="Collapse panel">−</button>
       </div>
-      <pre class="log"></pre>
+      <div class="log" role="log" aria-live="polite"></div>
     </section>
   `;
   document.body.appendChild(host);
 
   const panel = shadow.querySelector<HTMLElement>('.panel');
-  const summary = shadow.querySelector<HTMLElement>('.summary');
   const log = shadow.querySelector<HTMLElement>('.log');
   const pauseButton = shadow.querySelector<HTMLButtonElement>('[data-action="pause"]');
   const copyButton = shadow.querySelector<HTMLButtonElement>('[data-action="copy"]');
   const collapseButton = shadow.querySelector<HTMLButtonElement>('[data-action="collapse"]');
-  if (!panel || !summary || !log || !pauseButton || !copyButton || !collapseButton) return;
+  const clsChip = shadow.querySelector<HTMLElement>('[data-metric="cls"]');
+  const lcpChip = shadow.querySelector<HTMLElement>('[data-metric="lcp"]');
+  const clsValue = shadow.querySelector<HTMLElement>('[data-field="cls"]');
+  const lcpValue = shadow.querySelector<HTMLElement>('[data-field="lcp"]');
+  const longValue = shadow.querySelector<HTMLElement>('[data-field="long"]');
+  const jankValue = shadow.querySelector<HTMLElement>('[data-field="jank"]');
+  const slowValue = shadow.querySelector<HTMLElement>('[data-field="slow"]');
+  const scrollValue = shadow.querySelector<HTMLElement>('[data-field="scroll"]');
+  if (
+    !panel || !log || !pauseButton || !copyButton || !collapseButton ||
+    !clsChip || !lcpChip || !clsValue || !lcpValue || !longValue || !jankValue || !slowValue || !scrollValue
+  ) return;
 
+  // Plain-text summary line used only by text() — the bug-report format must stay byte-identical.
   const summaryText = (): string => [
     `CLS ${metrics.cls.toFixed(3)}`,
     `LCP ${metrics.lcp ? `${Math.round(metrics.lcp)}ms` : '-'}`,
@@ -153,13 +258,41 @@ export function initPerformanceDebugPanel(): void {
     return [...header, ...records.map((record) => `${number(record.at, 0)}ms [${record.kind}] ${record.message}`)].join('\n');
   };
 
+  // Updates the chip row in the bar; independent of summaryText() above.
+  const updateSummary = (): void => {
+    clsValue.textContent = metrics.cls.toFixed(3);
+    clsChip.dataset.tone = clsTone(metrics.cls);
+    lcpValue.textContent = metrics.lcp ? `${Math.round(metrics.lcp)}ms` : '-';
+    const tone = lcpTone(metrics.lcp);
+    if (tone) lcpChip.dataset.tone = tone;
+    else delete lcpChip.dataset.tone;
+    longValue.textContent = String(metrics.longTasks);
+    jankValue.textContent = `${metrics.droppedFrames}/${Math.round(metrics.largestFrameGap)}ms`;
+    slowValue.textContent = String(metrics.slowResources);
+    scrollValue.textContent = String(metrics.scrollCalls);
+  };
+
   const render = (): void => {
     renderFrame = 0;
-    summary.textContent = summaryText();
-    log.textContent = records
-      .slice(-MAX_VISIBLE_RECORDS)
-      .map((record) => `${number(record.at, 0)}ms [${record.kind}] ${record.message}`)
-      .join('\n');
+    updateSummary();
+    const fragment = document.createDocumentFragment();
+    for (const item of records.slice(-MAX_VISIBLE_RECORDS)) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.dataset.category = KIND_CATEGORY[item.kind] ?? 'quiet';
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = item.kind;
+      const time = document.createElement('span');
+      time.className = 'time';
+      time.textContent = `${number(item.at, 0)}ms`;
+      const msg = document.createElement('span');
+      msg.className = 'msg';
+      msg.textContent = item.message;
+      row.append(badge, time, msg);
+      fragment.appendChild(row);
+    }
+    log.replaceChildren(fragment);
     log.scrollTop = log.scrollHeight;
   };
 
@@ -182,6 +315,7 @@ export function initPerformanceDebugPanel(): void {
   pauseButton.addEventListener('click', () => {
     paused = !paused;
     pauseButton.textContent = paused ? 'Resume' : 'Pause';
+    pauseButton.setAttribute('aria-pressed', String(paused));
     if (!paused) record('panel', 'recording resumed');
   });
   shadow.querySelector('[data-action="clear"]')?.addEventListener('click', () => {
