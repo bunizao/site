@@ -66,6 +66,19 @@ const showReceipt = receipt !== 'idle' && !busy;
 ---
 
 <div class="blog-compose" data-pagefind-ignore data-phase={phase} data-receipt={receipt}>
+  {/* Spoken only when Post has been pressed on an unfinished box. At the top
+      of the stack, filled and coloured, because as a 13px grey line in the
+      footer it was the same weight as the hint next to it and readers walked
+      straight past it. compose-validate.ts also rings the offending field and
+      puts the cursor in it. */}
+  <p class="blog-compose__alert" data-compose-error role="alert" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"></circle>
+      <path d="M12 7v6M12 16.5h.01"></path>
+    </svg>
+    <span data-compose-error-text></span>
+  </p>
+
   {/* Hidden by CSS on claimed/ready — those readers have an identity on file
       and are told so in the footer instead. Always in the DOM so the claimed
       footer's "换一个" has a row to give back without a re-render. */}
@@ -81,17 +94,32 @@ const showReceipt = receipt !== 'idle' && !busy;
       readonly={busy}
       placeholder="Add to the conversation…"
       set:text={fieldValue}></textarea>
-    {/* Inside the box it describes. As a line under the box it stacked with
-        the validation line to put two rows of small grey text between the
-        writing and the button. */}
-    <span class="blog-compose__hint">Markdown supported.</span>
+    {/* The bar along the bottom of the box: the note about what can be typed
+        into it, and the button that sends it. Both belong to this surface, and
+        a 40px disc in a footer of its own made the send button the loudest
+        object on the page for the one action nobody needs help finding. */}
+    <div class="blog-compose__bar">
+      <span class="blog-compose__hint">Markdown supported.</span>
+      <button
+        type="button"
+        class="blog-compose__go"
+        data-compose-submit
+        aria-label="Post comment"
+        title="Post"
+        disabled={busy}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 19V5M5 12l7-7 7 7"></path>
+        </svg>
+      </button>
+    </div>
   </div>
 
   <div class="blog-compose__foot">
-    {/* All three read as one source of truth in script: only data-phase on
-        the wrapper decides which is visible (see comments.css), so the
-        claimed → anonymous switch below is a one-line attribute flip
-        instead of three branches of DOM surgery. */}
+    {/* Both read as one source of truth in script: only data-phase on the
+        wrapper decides which is visible — and whether the footer exists at all
+        (see comments.css) — so the claimed → anonymous switch below is a
+        one-line attribute flip instead of DOM surgery. */}
     <span class="blog-compose__who">
       {viewer && (
         <>
@@ -117,24 +145,6 @@ const showReceipt = receipt !== 'idle' && !busy;
       )}
     </span>
 
-    {/* One line, spoken only when Post has been pressed on an unfinished box,
-        in the slot the hint used to occupy. A disabled button would say the
-        same thing by going grey and would never say which field it was
-        waiting on. */}
-    <p class="blog-compose__ask-error" data-compose-error role="alert" hidden></p>
-
-    <button
-      type="button"
-      class="blog-compose__go"
-      data-compose-submit
-      aria-label="Post comment"
-      title="Post"
-      disabled={busy}
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M12 19V5M5 12l7-7 7 7"></path>
-      </svg>
-    </button>
   </div>
 
   {showReceipt && (

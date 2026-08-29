@@ -34,7 +34,7 @@ function messageFor(field: ComposeField): string | null {
     if (field instanceof HTMLTextAreaElement) return 'Write something first.';
     return field.type === 'email'
       ? 'An email is needed for your avatar and reply notices.'
-      : 'Pick a name to post under.';
+      : 'Everyone in a conversation deserves a name.';
   }
   if (field instanceof HTMLInputElement && field.type === 'email' && !field.checkValidity()) {
     return "That email doesn't look right.";
@@ -42,14 +42,18 @@ function messageFor(field: ComposeField): string | null {
   return null;
 }
 
-function clearNote(compose: HTMLElement): void {
+/* The alert carries an icon beside its text, so the message goes into the slot
+   rather than over the whole element. Falls back to the element itself, which
+   keeps this honest against any markup that has only a bare line. */
+function say(compose: HTMLElement, message: string | null): void {
   const note = compose.querySelector<HTMLElement>('[data-compose-error]');
   if (!note) return;
-  note.textContent = '';
-  note.hidden = true;
+  const slot = note.querySelector<HTMLElement>('[data-compose-error-text]') ?? note;
+  slot.textContent = message ?? '';
+  note.hidden = !message;
 }
 
-/** Mark the first unfilled field, say why in one line, and put the cursor
+/** Mark the first unfilled field, say why in the alert, and put the cursor
     there. Returns true when the box is ready to send. Idempotent: safe to run
     from both the component's own script and the controller on the same
     click. */
@@ -61,16 +65,12 @@ export function validateCompose(compose: HTMLElement): boolean {
     const message = messageFor(field);
     if (!message) continue;
     field.setAttribute('aria-invalid', 'true');
-    const note = compose.querySelector<HTMLElement>('[data-compose-error]');
-    if (note) {
-      note.textContent = message;
-      note.hidden = false;
-    }
+    say(compose, message);
     field.focus();
     return false;
   }
 
-  clearNote(compose);
+  say(compose, null);
   return true;
 }
 
@@ -96,7 +96,7 @@ export function wireComposeValidation(root: ParentNode = document): void {
       const field = event.target as HTMLElement;
       if (field.getAttribute('aria-invalid') !== 'true') return;
       field.removeAttribute('aria-invalid');
-      clearNote(compose);
+      say(compose, null);
     });
   });
 }

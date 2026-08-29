@@ -88,7 +88,20 @@ const skeletonRows = [
     )}
   </div>
 
-  <p class="blog-comments__invite">Finished reading? Leave a word.</p>
+  {/* The invite and the subscribe trigger share one line. Subscribe used to
+      sit in the article footer, BELOW the whole thread -- the wrong side of a
+      hundred comments for an offer aimed at someone who has just finished
+      reading. Up here it is also next to the one field it has in common with
+      the comment box: the reader's address (see lib/reader-email.ts, which
+      lets whichever form is filled in first hand it to the other).
+
+      A slot rather than an import, so this component keeps knowing nothing
+      about the notify feature and the page decides whether there is a panel
+      to mount at all. */}
+  <div class="blog-comments__invite">
+    <p class="blog-comments__invite-line">Leave a trace, say anything.</p>
+    <slot name="subscribe" />
+  </div>
 
   <CommentForm phase={phase} viewer={viewer} claimed={claimed} receipt={receipt} draftText={draftText} />
 
@@ -160,6 +173,7 @@ const skeletonRows = [
             { 'blog-comment--held': comment.held },
           ]}
           data-own={comment.own ? 'true' : undefined}
+          data-editing={comment.editing ? 'true' : undefined}
           data-edit-deadline={comment.own && !comment.held ? comment.editDeadline : undefined}
         >
           {/* Same generated identity the reaction stack uses — plain markup
@@ -261,6 +275,8 @@ const skeletonRows = [
                 {comment.own && !comment.held && (
                   <span class="blog-comment__acts blog-comment__acts--editing" data-comment-edit-actions hidden={!comment.editing}>
                     <button type="button" class="blog-comment__act blog-comment__act--go" data-comment-edit-save>Post</button>
+                    {/* Turns into its own confirmation on the first press when
+                        the field has been touched -- see the script below. */}
                     <button type="button" class="blog-comment__act" data-comment-edit-cancel>Cancel</button>
                     <span class="blog-comment__act-time blog-comment__act-time--left" data-edit-countdown hidden></span>
                   </span>
@@ -279,29 +295,34 @@ const skeletonRows = [
           IdentityRow.astro and compose-validate.ts), and claimed or ready
           readers skip that row the same way. */}
       <div class="blog-compose blog-reply" id="blog-reply" data-phase={phase} hidden>
+        <p class="blog-compose__alert" data-compose-error role="alert" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 7v6M12 16.5h.01"></path>
+          </svg>
+          <span data-compose-error-text></span>
+        </p>
+
         <IdentityRow id="blog-reply-id" />
 
+        {/* No footer: the "Replying to X" line said what the field's own
+            placeholder already says, and Cancel duplicated the Reply button
+            sitting one line above — which closes this, holds a pressed state
+            while it is open, and is where the reader's hand already is.
+            Escape closes it too. */}
         <div class="blog-compose__box">
           <label class="sr-only" for="blog-reply-text">Write a reply</label>
           <textarea
             id="blog-reply-text"
             class="blog-compose__field blog-reply__field"
             rows="2"></textarea>
-        </div>
-
-        <div class="blog-compose__foot">
-          {/* Who is being answered, and — only after an unfinished Reply press
-              — what is still missing. One slot, never two stacked lines. */}
-          <span class="blog-reply__label" data-reply-label></span>
-          <p class="blog-compose__ask-error" data-compose-error role="alert" hidden></p>
-          <span class="blog-reply__buttons">
-            <button type="button" class="blog-comment__act" data-reply-cancel>Cancel</button>
+          <div class="blog-compose__bar">
             <button type="button" class="blog-compose__go" data-compose-submit aria-label="Post reply" title="Reply">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 19V5M5 12l7-7 7 7"></path>
               </svg>
             </button>
-          </span>
+          </div>
         </div>
       </div>
 
@@ -352,14 +373,12 @@ const skeletonRows = [
     const note = box.querySelector<HTMLElement>('[data-compose-error]');
     box.querySelectorAll('[aria-invalid]').forEach((field) => field.removeAttribute('aria-invalid'));
     if (note) {
-      note.textContent = '';
+      note.querySelector('[data-compose-error-text]')?.replaceChildren();
       note.hidden = true;
     }
   }
 
   if (box && field && home) {
-    const label = box.querySelector<HTMLElement>('[data-reply-label]');
-
     document.querySelectorAll<HTMLElement>('[data-reply-to]').forEach((button) => {
       button.setAttribute('aria-expanded', 'false');
       button.setAttribute('aria-controls', 'blog-reply');
@@ -369,8 +388,7 @@ const skeletonRows = [
         if (open) return;
         const name = button.dataset.replyName ?? '';
         button.setAttribute('aria-expanded', 'true');
-        // The name is the payload of that line; "Replying to" is scaffolding.
-        if (label) label.replaceChildren('Replying to ', Object.assign(document.createElement('strong'), { textContent: name }));
+        // The placeholder is the only place the name needs to appear.
         field.placeholder = `Reply to ${name}…`;
         button.closest('.blog-comment')?.querySelector('.blog-comment__body')?.append(box);
         box.hidden = false;
@@ -378,7 +396,6 @@ const skeletonRows = [
       });
     });
 
-    box.querySelector('[data-reply-cancel]')?.addEventListener('click', closeReply);
     box.addEventListener('keydown', (event) => {
       if ((event as KeyboardEvent).key === 'Escape') closeReply();
     });
@@ -452,11 +469,24 @@ const skeletonRows = [
       }, 1000);
     }
 
+    // Cancel asks a second time before throwing away typing, by becoming the
+    // question itself rather than opening a dialog over it.
+    function armCancel(armed: boolean) {
+      if (!cancelBtn) return;
+      cancelBtn.classList.toggle('blog-comment__act--confirm', armed);
+      cancelBtn.textContent = armed ? 'Discard?' : 'Cancel';
+    }
+
     function setEditing(editing: boolean) {
       text!.hidden = editing;
       field!.hidden = !editing;
       if (acts) acts.hidden = editing;
       if (editActs) editActs.hidden = !editing;
+      // The byline hides while the field is open (comments.css) -- one
+      // attribute, so the row's shape is described in one place.
+      if (editing) row.dataset.editing = 'true';
+      else delete row.dataset.editing;
+      armCancel(false);
 
       if (editing) {
         window.clearInterval(timer);
@@ -470,7 +500,19 @@ const skeletonRows = [
     }
 
     openBtn.addEventListener('click', () => setEditing(true));
+
+    // Typing again withdraws the question -- a reader who went back to the
+    // field has answered it.
+    field.addEventListener('input', () => armCancel(false));
+
     cancelBtn?.addEventListener('click', () => {
+      const dirty = field.value !== (text.textContent ?? '');
+      const armed = cancelBtn.classList.contains('blog-comment__act--confirm');
+      // Nothing typed, nothing to lose: close on the first press.
+      if (dirty && !armed) {
+        armCancel(true);
+        return;
+      }
       field.value = text.textContent ?? '';
       setEditing(false);
     });

@@ -22,6 +22,8 @@ import BackToTop from '@/features/posts/ui/BackToTop.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import ReactionBar from '@/features/comments/ui/ReactionBar';
 import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
+import SubscribePanel from '@/features/notify/SubscribePanel.astro';
+import { blog } from '@/data/site';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import '@/features/comments/styles/comments.css';
 
@@ -246,7 +248,11 @@ await billing.invoice(payload)</code></pre>
         draftText={draftText}
         hasMore={hasMore}
         loadMoreState={loadMoreState}
-      />
+      >
+        <div class="blog-article-sub" slot="subscribe">
+          <SubscribePanel variant="blog" anchor="right" feed={blog.feed} />
+        </div>
+      </CommentsSection>
     </article>
   </div>
 

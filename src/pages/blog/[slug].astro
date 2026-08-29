@@ -185,11 +185,18 @@ const unlisted = isUnlistedPost(post);
           fetches the thread and owns every submit, edit, delete, and like. */}
       <ReactionBar client:idle count={0} signedIn={true} />
 
+      {/* Subscribe rides in the comments head, not the article foot: it asks
+          for the same address the comment box does, and below the thread it
+          was an offer a reader only met after scrolling past everyone else. */}
       <CommentsSection
         state="loading"
         postId={post.id}
         turnstileSiteKey={turnstileSiteKey}
-      />
+      >
+        <div class="blog-article-sub" slot="subscribe">
+          <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
+        </div>
+      </CommentsSection>
     </article>
   </div>
 
@@ -197,7 +204,6 @@ const unlisted = isUnlistedPost(post);
     <div class="blog-end__bar">
       {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
       <div class="blog-article-sub">
-        <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
         <ShareRow title={post.title} />
       </div>
     </div>

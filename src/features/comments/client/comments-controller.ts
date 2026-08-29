@@ -23,6 +23,7 @@ import type {
   ReaderMeResult,
 } from '@bunizao/contracts/comments';
 import { validateCompose } from '@/features/comments/compose-validate';
+import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { initials, seedHue } from '@/features/comments/identity';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
 
@@ -154,6 +155,7 @@ const EDIT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 const TRASH_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 7V5h4v2M6 7l1 12h10l1-12M10 11v5M14 11v5"></path></svg>`;
 const GHOST_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M6 6l12 12"></path></svg>`;
 const ERROR_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>`;
+const ALERT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5h.01"></path></svg>`;
 
 function heartIcon(): SVGElement {
   return parseStaticSvg(
@@ -311,6 +313,8 @@ export function initCommentsController(): void {
     replyField = replyBox.querySelector<HTMLTextAreaElement>('.blog-compose__field')!;
     applyPhase(replyBox, phase, claimed, viewer);
     wireReplyBoxMechanics();
+    // Both boxes exist by now, so one call covers them.
+    prefillKnownEmail();
   }
 
   function showError(): void {
@@ -561,18 +565,21 @@ export function initCommentsController(): void {
 
   // --- Reply box --------------------------------------------------------
 
+  // Mirrors the reply box in CommentsSection.astro: alert, identity, and one
+  // surface holding the field and its send button. No footer -- "Replying to
+  // X" repeated the placeholder, and Cancel repeated the Reply button one line
+  // above, which closes this and holds a pressed state while it is open.
   function buildReplyBox(): HTMLElement {
     const box = el('div', { class: 'blog-compose blog-reply', id: 'blog-reply', 'data-phase': phase, hidden: '' }, [
+      el('p', { class: 'blog-compose__alert', 'data-compose-error': '', role: 'alert', hidden: '' }, [
+        parseStaticSvg(ALERT_ICON_SVG),
+        el('span', { 'data-compose-error-text': '' }),
+      ]),
       buildIdentityRow('blog-reply-id'),
       el('div', { class: 'blog-compose__box' }, [
         el('label', { class: 'sr-only', for: 'blog-reply-text' }, ['Write a reply']),
         el('textarea', { id: 'blog-reply-text', class: 'blog-compose__field blog-reply__field', rows: '2' }),
-      ]),
-      el('div', { class: 'blog-compose__foot' }, [
-        el('span', { class: 'blog-reply__label', 'data-reply-label': '' }),
-        el('p', { class: 'blog-compose__ask-error', 'data-compose-error': '', role: 'alert', hidden: '' }),
-        el('span', { class: 'blog-reply__buttons' }, [
-          el('button', { type: 'button', class: 'blog-comment__act', 'data-reply-cancel': '' }, ['Cancel']),
+        el('div', { class: 'blog-compose__bar' }, [
           el('button', { type: 'button', class: 'blog-compose__go', 'data-compose-submit': '', 'aria-label': 'Post reply', title: 'Reply' }, [parseStaticSvg(SEND_ICON_SVG)]),
         ]),
       ]),
@@ -586,7 +593,7 @@ export function initCommentsController(): void {
     return el('div', { class: 'blog-compose__identity', id, 'data-compose-identity': '' }, [
       el('div', { class: 'blog-compose__fields' }, [
         el('label', { class: 'sr-only', for: `${id}-name` }, ['Display name']),
-        el('input', { id: `${id}-name`, class: 'blog-compose__input blog-compose__input--name', type: 'text', maxlength: '32', autocomplete: 'nickname', placeholder: 'Name', required: '' }),
+        el('input', { id: `${id}-name`, class: 'blog-compose__input blog-compose__input--name', type: 'text', maxlength: '32', autocomplete: 'nickname', placeholder: 'Displayed name', required: '' }),
         el('label', { class: 'sr-only', for: `${id}-email` }, ['Email']),
         el('input', { id: `${id}-email`, class: 'blog-compose__input', type: 'email', autocomplete: 'email', placeholder: 'Email (never shown)', required: '' }),
       ]),
@@ -598,7 +605,6 @@ export function initCommentsController(): void {
   }
 
   function wireReplyBoxMechanics(): void {
-    replyBox.querySelector('[data-reply-cancel]')?.addEventListener('click', closeReplyBox);
     replyBox.addEventListener('keydown', (event) => {
       if ((event as KeyboardEvent).key === 'Escape') closeReplyBox();
     });
@@ -610,12 +616,7 @@ export function initCommentsController(): void {
     if (wasOpenFor === commentId) return; // pressing the same row's Reply again just closes it
 
     replyBox.dataset.replyTarget = commentId;
-    const label = replyBox.querySelector<HTMLElement>('[data-reply-label]');
-    if (label) {
-      const who = document.createElement('strong');
-      who.textContent = authorName;
-      label.replaceChildren('Replying to ', who);
-    }
+    // The placeholder is the only place the name needs to appear.
     replyField.placeholder = `Reply to ${authorName}…`;
     rowBody.append(replyBox);
     replyBox.hidden = false;
@@ -634,7 +635,7 @@ export function initCommentsController(): void {
     const note = replyBox.querySelector<HTMLElement>('[data-compose-error]');
     replyBox.querySelectorAll('[aria-invalid]').forEach((f) => f.removeAttribute('aria-invalid'));
     if (note) {
-      note.textContent = '';
+      note.querySelector('[data-compose-error-text]')?.replaceChildren();
       note.hidden = true;
     }
     replyField.value = '';
@@ -780,13 +781,26 @@ export function initCommentsController(): void {
     // CommentsSection.astro, and the note there about the server's own clock.
     const clock = comment.editDeadline ? startEditCountdown(article, comment.editDeadline, openBtn) : null;
 
+    // Cancel asks a second time before throwing away typing by becoming the
+    // question itself -- same wiring as CommentsSection.astro, which renders
+    // this row server-side.
+    const armCancel = (armed: boolean): void => {
+      if (!cancelBtn) return;
+      cancelBtn.classList.toggle('blog-comment__act--confirm', armed);
+      cancelBtn.textContent = armed ? 'Discard?' : 'Cancel';
+    };
+
     // The strip swaps its contents; nothing in the row is removed, so the
-    // countdown keeps its place through the edit it is limiting.
+    // countdown keeps its place through the edit it is limiting. The byline
+    // steps out of the way for the same span, on one attribute (comments.css).
     const setEditing = (editing: boolean): void => {
       if (text) text.hidden = editing;
       if (field) field.hidden = !editing;
       if (acts) acts.hidden = editing;
       if (editActs) editActs.hidden = !editing;
+      if (editing) article.dataset.editing = 'true';
+      else delete article.dataset.editing;
+      armCancel(false);
       if (editing) {
         clock?.pause();
         field?.focus();
@@ -797,7 +811,15 @@ export function initCommentsController(): void {
 
     if (openBtn && text && field) {
       openBtn.addEventListener('click', () => setEditing(true));
+      // Typing again withdraws the question.
+      field.addEventListener('input', () => armCancel(false));
       cancelBtn?.addEventListener('click', () => {
+        const dirty = field.value !== (text.textContent ?? '');
+        // Nothing typed, nothing to lose: close on the first press.
+        if (dirty && !cancelBtn.classList.contains('blog-comment__act--confirm')) {
+          armCancel(true);
+          return;
+        }
         field.value = text.textContent ?? '';
         setEditing(false);
       });
@@ -962,10 +984,27 @@ export function initCommentsController(): void {
   }
 
   function writeClaimedIdentity(identity: ClaimedIdentity): void {
+    // Also handed to the subscribe panel, which asks for the same address
+    // (lib/reader-email.ts). The claim keeps the richer name+email record;
+    // that one keeps the lowest common denominator both forms can use.
+    rememberReaderEmail(identity.email, 'comment');
     try {
       window.localStorage.setItem(CLAIMED_STORAGE_KEY, JSON.stringify(identity));
     } catch {
       // Private browsing or a full quota -- the claim just won't survive reload.
+    }
+  }
+
+  /** An address the reader has already given the subscribe panel on this
+      browser. Fills the email field so an anonymous first comment is one
+      field of typing instead of two -- editable, and never overwriting
+      anything the reader has put there. */
+  function prefillKnownEmail(): void {
+    const known = readReaderEmail();
+    if (!known) return;
+    for (const box of [compose, replyBox]) {
+      const input = box?.querySelector<HTMLInputElement>('[data-compose-identity] input[type="email"]');
+      if (input && !input.value) input.value = known.email;
     }
   }
 

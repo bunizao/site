@@ -424,10 +424,27 @@
    straight away, and opening on two form fields with nothing said first is
    what makes a form feel like a toll gate. */
 .blog-comments__invite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
   margin: 0 0 16px;
+}
+
+.blog-comments__invite-line {
+  margin: 0;
   font-size: 14.5px;
   line-height: 1.55;
   color: var(--blog-muted);
+}
+
+/* The subscribe trigger keeps the pill it wore in the article foot, so it is
+   the same object that used to live down there rather than a new control that
+   happens to say the same word. It sits on the invite's line and costs no
+   vertical space of its own. */
+.blog-comments__invite .blog-article-sub {
+  margin-left: auto;
 }
 
 /* --- Compose ------------------------------------------------------------ */
@@ -445,18 +462,21 @@
 
    THE PROPORTIONS. Three surfaces of the same weight, one of them three times
    taller than the others, reads as a mistake -- which is what a shared radius
-   and a shared padding produced. Hierarchy is carried by all three at once:
+   and a shared padding produced. Hierarchy is carried by all of them at once:
 
      identity field   10px/14px padding, 10px radius, ~41px tall
-     body surface     14px padding, 14px radius, ~108px tall
+     typing area      ~66px tall
+     body surface     14px padding, 14px radius, ~132px tall
 
-   41 x 2.618 = 107. The body is a golden square of the field it sits under,
-   and its radius grows with it -- 10px on a 41px control is the same optical
-   roundness as 14px on a 108px one. The name/email split is the same ratio
-   turned sideways: 38.2 / 61.8, because a handle is short and an address is
-   not. Vertical rhythm runs 6 / 10 / 16 (each step ~1.6x the last): 10px
-   between the fields and the body they belong to, 16px before the footer,
-   which belongs to neither. */
+   41 x 1.618 = 66: the area a reader writes into is a golden step above the
+   field they filled in first, and the radius grows with the surface -- 10px on
+   a 41px control is the same optical roundness as 14px on a 132px one. The
+   name/email split is the same ratio turned sideways, 38.2 / 61.8, because a
+   handle is short and an address is not.
+
+   The surface is taller than it was because it swallowed the send button, and
+   the form as a whole is ~22px shorter for it: a 40px footer holding one
+   button became a 30px bar inside the box the button submits. */
 .blog-compose {
   display: flex;
   flex-direction: column;
@@ -511,24 +531,82 @@
   background: transparent;
 }
 
-/* No red anywhere in this feature, so an unfinished field is marked by a firm
-   edge rather than a colour the rest of the zone never uses. The line in the
-   footer carries the actual reason; this only says which one it is about. */
+/* An unfinished field is the one thing in this monochrome zone that gets to
+   borrow the danger colour. A firmer grey edge was the polite version and it
+   was invisible: a reader who has just pressed a button and had nothing happen
+   is not scanning for a slightly darker hairline. Ring, colour, and the alert
+   above (see `.blog-compose__alert`) all say the same thing at once, and the
+   guard puts the cursor here as well -- four channels, because this is the one
+   moment the form refuses to do what was asked of it. */
 .blog-compose__input[aria-invalid='true'],
 .blog-compose__box:has([aria-invalid='true']) {
-  border-color: hsl(var(--foreground) / 0.42);
+  border-color: var(--blog-danger);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--blog-danger) 16%, transparent);
+  /* One pass, on the element that was just marked -- enough to catch an eye
+     travelling back up the form, not a wobble that has to be waited out. */
+  animation: blog-compose-nudge 0.4s cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* The body surface. It holds the field and the one note about it -- "Markdown
-   supported" belongs to this box, and as a separate line under it, it stacked
-   with the validation line to make two rows of small grey text between the
-   writing and the button. */
+@keyframes blog-compose-nudge {
+  0%, 100% { translate: 0; }
+  22% { translate: -4px; }
+  55% { translate: 3px; }
+  80% { translate: -1px; }
+}
+
+/* The complaint itself, at the top of the stack rather than as a grey line
+   under it. It was one 13px sentence the same colour as everything else, in a
+   footer slot, below the fold of the reader's attention -- which is why nobody
+   read it. Filled, coloured, and carrying the alert glyph, it is the only
+   thing in the compose stack that is allowed to shout. */
+.blog-compose__alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--blog-danger) 13%, transparent);
+  color: var(--blog-danger);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  animation: blog-alert-in 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.blog-compose__alert svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes blog-alert-in {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+
+/* The body surface. It holds everything to do with writing: the field, the one
+   note about it, and the button that sends it. "Markdown supported" as a
+   separate line under the box stacked with the validation line to make two
+   rows of small grey text between the writing and the button, and the button
+   as a 40px disc in its own footer was the loudest object on the page for an
+   action nobody needs help finding. Both live on one 30px bar along the bottom
+   edge of the box now. */
 .blog-compose__box {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   padding: 14px;
   border-radius: var(--blog-r-box);
+}
+
+.blog-compose__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
 }
 
 .blog-compose__field {
@@ -542,11 +620,10 @@
   font-size: 16px;
   line-height: 1.65;
   /* Grow with the text rather than sitting at a fixed height. Engines without
-     field-sizing keep the rows="4" box. 4.9em plus 14px of padding top and
-     bottom lands the surface at ~108px, phi-squared above the 41px field it
-     sits under. */
+     field-sizing keep the rows="4" box. 4.1em is ~66px: the area a reader
+     writes into, one golden step above the 41px field they filled in first. */
   field-sizing: content;
-  min-height: 4.9em;
+  min-height: 4.1em;
 }
 
 .blog-compose__field::placeholder {
@@ -557,31 +634,28 @@
   outline: none;
 }
 
-/* Inside the box it belongs to, at the bottom edge, out of the way until the
-   reader wonders whether asterisks will work. */
+/* Left end of the bar, out of the way until the reader wonders whether
+   asterisks will work. */
 .blog-compose__hint {
   font-size: 12px;
   line-height: 1;
   color: var(--blog-faint);
 }
 
-/* Spoken only after Post has been pressed on an unfinished box, in the
-   footer's left slot -- the one place small text is allowed to appear, so it
-   never stacks with anything. */
-.blog-compose__ask-error {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--blog-ink);
+/* Whose name is going on the comment. Hidden outright when there is nothing to
+   say -- an anonymous reader has already answered that question in the two
+   fields above, and an empty strip below the box was 46px of nothing holding
+   the thread away from the form. */
+.blog-compose__foot {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  min-height: 26px;
 }
 
-.blog-compose__foot {
+.blog-compose[data-phase='ready'] .blog-compose__foot,
+.blog-compose[data-phase='claimed'] .blog-compose__foot {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 40px;
-  margin-top: 6px;
 }
 
 /* One footer slot, three tenants. All three render every time (see
@@ -650,38 +724,45 @@
   outline-offset: 2px;
 }
 
-/* Post is a round icon button. The word said the same thing the placeholder,
-   the heading and the footer already said, and spending a labelled pill on it
-   made the busiest corner of the form the least informative one. 40px is the
-   footer's own height, so the row is one object tall rather than a button
-   floating in a taller strip. */
+/* Post is a round icon button on the bar inside the box. The word said what
+   the placeholder and the heading had already said; a 40px filled disc in its
+   own footer then made the least informative corner of the form the loudest
+   object on the page.
+
+   Quiet at rest, solid the moment the box is being written in. A send button
+   only matters while there is something to send, and `:focus-within` is that
+   condition without a keystroke listener to maintain. */
 .blog-compose__go {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  /* The footer's left slot is empty in the common case -- no receipt, no
-     claim, nothing to complain about -- and space-between on a single child
-     parks it at the start. The button is always the row's right edge. */
+  /* Whether or not the hint is there, the button is the bar's right edge. */
   margin-left: auto;
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: 0;
   border-radius: var(--blog-r-pill);
-  background: hsl(var(--foreground));
-  color: hsl(var(--background));
+  background: hsl(var(--foreground) / 0.08);
+  color: var(--blog-muted);
   cursor: pointer;
-  transition: opacity 0.15s ease, scale 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease,
+    scale 0.15s ease;
 }
 
 .blog-compose__go svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
+.blog-compose__box:focus-within .blog-compose__go,
 .blog-compose__go:hover {
-  opacity: 0.86;
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
 }
 
 .blog-compose__go:active {
@@ -749,14 +830,6 @@
   border-top: 1px dashed var(--blog-line);
 }
 
-.blog-compose__nudge-text {
-  margin: 0;
-  flex: 1 1 auto;
-  min-width: 180px;
-  font-size: 12.5px;
-  color: var(--blog-faint);
-}
-
 .blog-compose__nudge-sub {
   display: inline-flex;
   align-items: center;
@@ -769,6 +842,14 @@
 
 .blog-compose__nudge-sub input {
   accent-color: hsl(var(--foreground));
+}
+
+.blog-compose__nudge-text {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 180px;
+  font-size: 12.5px;
+  color: var(--blog-faint);
 }
 
 .blog-compose__nudge-dismiss {
@@ -944,6 +1025,20 @@
   box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.18);
 }
 
+/* The byline steps out of the way while the row is being edited. Nobody needs
+   to be told whose comment this is at the one moment it is certainly theirs,
+   and the field's negative top margin -- there so the first line lands where
+   the paragraph's first line was -- pulled the tint up flush against the name.
+   With the name gone the field is the row's first line, so that margin goes
+   too and the tint sits square with the avatar. */
+.blog-comment[data-editing] .blog-comment__meta {
+  display: none;
+}
+
+.blog-comment[data-editing] .blog-comment__edit-field {
+  margin-top: 0;
+}
+
 /* --- Tombstone --------------------------------------------------------- */
 /* Kept only so a reply underneath still has a parent to sit under — one-level
    threading has nowhere else to put it. No name, no actions: there is nothing
@@ -1069,6 +1164,19 @@
   background: color-mix(in oklab, var(--blog-danger) 8%, transparent);
 }
 
+/* Cancel, once it has been pressed on an edit with unsaved changes, becomes
+   the confirmation it is asking for: same button, new word, coloured, and
+   sitting still until it is pressed again. A window.confirm() for a sentence a
+   reader has just typed is heavier than the thing being thrown away, and a
+   second button appearing beside the first would move Post out from under the
+   cursor. Cancel on an untouched field still closes on the first press --
+   there is nothing to confirm losing. */
+.blog-comment__act--confirm,
+.blog-comment__act--confirm:hover {
+  color: var(--blog-danger);
+  background: color-mix(in oklab, var(--blog-danger) 12%, transparent);
+}
+
 /* Posting an edit is the one committing action in the strip, so it is the one
    thing wearing a fill -- at the strip's own scale, not the compose box's. */
 .blog-comment__act--go {
@@ -1128,18 +1236,14 @@
   border-left: 2px solid var(--blog-line);
 }
 
-/* The name is what that line is for; "Replying to" is scaffolding around it. */
-.blog-reply__label strong {
-  font-weight: 600;
-  color: var(--blog-body);
-}
-
-/* The reply's own footer label ("Replying to X") — distinct from
-   `.blog-compose__hint`, which now means the anonymous-only compose hint and
-   would otherwise hide this on a claimed/ready reader. */
-.blog-reply__label {
-  font-size: 12.5px;
-  color: var(--blog-faint);
+/* No "Replying to X" line and no Cancel button. The placeholder in the field
+   already carries the name, and the row's own Reply button is both what opened
+   this and what closes it -- it sits directly above, and it holds a pressed
+   state while the box is open, so the way out is the way in. Escape closes it
+   too. */
+.blog-comment__act[aria-expanded='true'] {
+  background: var(--blog-fill);
+  color: var(--blog-ink);
 }
 
 .blog-reply__field {
@@ -1147,19 +1251,12 @@
   min-height: 2.6em;
 }
 
-/* Who is being answered and what is still missing are both about the box on
-   the left; the controls are the right edge. Without this the footer's three
-   children space themselves out and the complaint drifts into the middle. */
-.blog-reply__buttons {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .blog-comment__act,
-  .blog-comment__act--like[aria-pressed='true'] svg {
+  .blog-comment__act--like[aria-pressed='true'] svg,
+  .blog-compose__alert,
+  .blog-compose__input[aria-invalid='true'],
+  .blog-compose__box:has([aria-invalid='true']) {
     transition: none !important;
     animation: none !important;
   }
