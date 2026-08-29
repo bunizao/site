@@ -1,0 +1,105 @@
+---
+/* Everything that closes a post, under one hairline.
+   The end of an article used to be three bands: a short dash with the
+   human-authorship pledge, then a rule with the reaction/subscribe/share row,
+   then another rule with the comments head. Three horizontal lines inside
+   150px, for one idea -- "the text stops here".
+
+   One rule now, and inside it two layers in the order they belong to the text:
+   facts about the post (who wrote it with what, and how it may be reused),
+   then the things a reader can do about it.
+
+   Provenance is declared, not pledged. A line on every post saying no model
+   was involved is a claim the reader cannot check, printed most often when
+   there is nothing to report; AiCredit speaks only when a post carries an
+   [!authors] directive, and stays silent otherwise. The licence is the line
+   that is always true, so it is the one that is always there. */
+import { blog } from '@/data/site';
+import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
+
+import AiCredit from './AiCredit.astro';
+
+interface Props {
+  /** Model co-authors, from the post's [!authors] directives. */
+  credits?: readonly AuthorshipCredit[];
+}
+
+const { credits = [] } = Astro.props;
+const t = blog.copy[blog.locale.blog].license;
+const hasActions = Astro.slots.has('default');
+---
+
+<footer class="blog-colophon">
+  {credits.length > 0 && <AiCredit credits={credits} />}
+
+  <p class="blog-colophon__license">
+    {t.prefix}<a
+      class="blog-colophon__link"
+      href={t.href}
+      target="_blank"
+      rel="license noopener noreferrer">{t.name}</a
+    >{t.suffix}
+  </p>
+
+  {
+    hasActions && (
+      <div class="blog-colophon__actions">
+        <slot />
+      </div>
+    )
+  }
+</footer>
+
+<style>
+  .blog-colophon {
+    margin-top: 44px;
+    padding-top: 28px;
+    border-top: 1px solid var(--blog-line);
+  }
+
+  /* Same metadata voice as the opening byline and as AiCredit's lines: 14/20,
+     faint, tabular. Provenance and reuse terms are the same class of fact, so
+     they are set as one small block rather than two. */
+  .blog-colophon__license {
+    margin: 0;
+    max-width: 56ch;
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--blog-faint);
+    font-variant-numeric: tabular-nums;
+    text-wrap: pretty;
+  }
+
+  /* The 6px matches AiCredit's own inter-line gap, so a credited post reads as
+     one paragraph of provenance with the licence as its last line. */
+  :global(.ai-credit) + .blog-colophon__license {
+    margin-top: 6px;
+  }
+
+  .blog-colophon__link {
+    color: var(--blog-faint);
+    text-decoration: underline;
+    text-decoration-thickness: from-font;
+    text-underline-position: from-font;
+    text-decoration-color: var(--blog-line);
+    transition: color 0.15s ease, text-decoration-color 0.15s ease;
+  }
+
+  .blog-colophon__link:hover {
+    color: var(--blog-dai);
+    text-decoration-color: currentColor;
+  }
+
+  /* Everything you can do about this post without writing anything: the hearts
+     on the left, subscribe and share on the right. Far enough below the
+     provenance lines to read as a different layer, with no rule needed to say
+     so. */
+  .blog-colophon__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    margin-top: 24px;
+  }
+</style>

@@ -78,17 +78,22 @@ export type BlogLocale = 'zh' | 'en';
 export interface BlogLocaleCopy {
   name: string;
   tagline: string;
-  notByAI: {
-    prefix: string;
-    emphasis: string;
-    suffix: string;
-  };
   aiCredit: {
     /**
      * Shown for models credited without a hand-written `note`. `{models}` is
      * replaced by the credited model names, joined for this locale.
      */
     fallback: string;
+  };
+  /**
+   * Reuse terms, in the colophon under every post. Split so the licence name
+   * can be the only link in the line.
+   */
+  license: {
+    prefix: string;
+    name: string;
+    suffix: string;
+    href: string;
   };
   subscribe: SubscribeCopy;
   share: ShareCopy;
@@ -155,13 +160,14 @@ export const blog = {
     zh: {
       name: '無人之境',
       tagline: '生长于共鸣、独白、文学、与沉默之间。',
-      notByAI: {
-        prefix: '本文由真人撰写，',
-        emphasis: '未使用 AI 创作',
-        suffix: '。',
-      },
       aiCredit: {
         fallback: '本文在 {models} 的协助下完成。',
+      },
+      license: {
+        prefix: '本文采用 ',
+        name: 'CC BY 4.0',
+        suffix: ' 授权，转载请注明出处。',
+        href: 'https://creativecommons.org/licenses/by/4.0/deed.zh',
       },
       subscribe: {
         trigger: '订阅',
@@ -203,13 +209,14 @@ export const blog = {
     en: {
       name: 'Sillage',
       tagline: 'Grown between resonance, monologue, literature, and silence.',
-      notByAI: {
-        prefix: 'This post is written by human(s), ',
-        emphasis: 'not by AI',
-        suffix: '.',
-      },
       aiCredit: {
         fallback: 'Written with {models}.',
+      },
+      license: {
+        prefix: 'Licensed under ',
+        name: 'CC BY 4.0',
+        suffix: ' — please credit the source.',
+        href: 'https://creativecommons.org/licenses/by/4.0/',
       },
       subscribe: {
         trigger: 'Subscribe',

@@ -928,30 +928,35 @@ const intro =
     gap: 6px;
   }
 
-  /* No box. An outlined pill here made subscribe a fourth bordered rectangle
-     in a region that already had too many, for something that holds no state
-     and takes no input -- a border in this zone means "put a value in me".
-     What is left is the language the comment thread below already speaks in
-     its own actions: quiet text weight, a fill only when it is aimed at.
-     Icon-only, same 34x34 round shape as ShareRow's .share-btn, so the three
-     buttons in this row are visually one control group — the visible "订阅"
-     label and caret only make sense on the masthead's flatter text trigger,
-     not stacked next to two bare icon buttons. */
+  /* Named, where copy-link and share are not. Three identical bare icons put
+     the one thing worth asking for at the foot of a post -- come back for the
+     next one -- at exactly the weight of "copy this URL", and an envelope on
+     its own is a guess the reader has to take. It keeps the row's round pill
+     shape and its 34px height, so the group still reads as one cluster; it
+     just carries a resting fill and its own word, which is the whole
+     difference between the action and the two conveniences beside it.
+
+     Still no border: a border in this zone means "put a value in me", and the
+     field this opens is inside the panel. */
   .blog-article-sub .sub-trigger {
     position: relative;
-    display: grid;
-    place-items: center;
-    width: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     height: 34px;
-    padding: 0;
-    color: var(--blog-muted, hsl(var(--muted-foreground)));
-    background: none;
+    /* 2px off the icon side: a leading glyph carries its own whitespace. */
+    padding: 0 12px 0 10px;
+    color: var(--blog-ink, hsl(var(--foreground)));
+    background: hsl(var(--foreground) / 0.05);
     border: 0;
     border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
     transition: color 0.15s ease, background 0.15s ease, scale 0.12s ease;
   }
 
-  .blog-article-sub .sub-trigger > span,
+  /* The caret belongs to the masthead's flatter text trigger, where the row of
+     nav words needs something saying which one opens. Here the pill says it. */
   .blog-article-sub .sub-trigger__caret {
     display: none;
   }
@@ -967,7 +972,7 @@ const intro =
   .blog-article-sub .sub-trigger:hover,
   .blog-article-sub .sub-trigger[aria-expanded='true'] {
     color: var(--blog-ink, hsl(var(--foreground)));
-    background: hsl(var(--foreground) / 0.07);
+    background: hsl(var(--foreground) / 0.1);
   }
 
   .blog-article-sub .sub-trigger:focus-visible {
@@ -975,32 +980,9 @@ const intro =
     outline-offset: 2px;
   }
 
-  /* Same tooltip mechanism as .share-btn::after (ShareRow), so the three
-     buttons in this row behave identically. */
-  .blog-article-sub .sub-trigger::after {
-    content: attr(data-tip);
-    position: absolute;
-    bottom: calc(100% + 7px);
-    left: 50%;
-    transform: translate(-50%, 3px);
-    padding: 4px 8px;
-    font-size: 11px;
-    font-weight: 500;
-    line-height: 1;
-    white-space: nowrap;
-    color: hsl(var(--background));
-    background: hsl(var(--foreground) / 0.92);
-    border-radius: 6px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.14s ease, transform 0.14s ease;
-  }
-
-  .blog-article-sub .sub-trigger:hover::after,
-  .blog-article-sub .sub-trigger:focus-visible::after {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
+  /* No tooltip: this trigger wears its label, and a hover bubble repeating the
+     word it already shows is noise. Copy-link and share keep theirs (ShareRow)
+     because they have nothing else to say what they do. */
 
   @media (max-width: 639px) {
     .subscribe-panel {
@@ -1012,11 +994,6 @@ const intro =
   @media (hover: none) and (pointer: coarse) {
     .sub-input {
       font-size: 16px;
-    }
-
-    /* No hover surface on touch — the tooltip only adds clutter there. */
-    .blog-article-sub .sub-trigger::after {
-      display: none;
     }
   }
 

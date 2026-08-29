@@ -678,52 +678,12 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
    the page's (prev/next, under the thread). Same hairline and the same air,
    because they are the same kind of break -- the reader should not be able to
    tell that one of them moved. */
-.blog-end,
-.blog-article-foot {
+/* The post's closing band (provenance, licence, actions) owns its own rule and
+   spacing -- see Colophon.astro. This is the prev/next footer that follows it. */
+.blog-end {
   margin-top: 44px;
   padding-top: 28px;
   border-top: 1px solid var(--blog-line);
-}
-
-/* Everything you can do about this post without writing anything, and nothing
-   else: the hearts on the left, subscribe and share on the right. They were
-   two bands with a hairline between them, which drew a line through the middle
-   of a single idea. */
-.blog-article-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px 24px;
-}
-
-/* The authorship line closes the article's text, above the hairline rather
-   than below it. Who wrote a post is the same class of fact as when it was
-   published -- provenance, not an action -- so under a row of four controls it
-   read as their caption. Nearer the prose (32px) than the rule beneath it
-   (44px), because that is what it belongs to. */
-.blog-prose + .not-by-ai,
-.blog-prose + .ai-credit {
-  margin-top: 32px;
-}
-
-/* Pledge sits left, action pills hug right. With only the pills present (no
-   #not-by-ai tag) the single child falls back to the left edge. */
-.blog-end__bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 20px 24px;
-}
-
-/* Stack the pledge above the pills on narrow screens (the pills keep their own
-   left alignment), so the in-flow pledge card pushes them down cleanly. */
-@media (max-width: 639px) {
-  .blog-end__bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
 }
 
 /* --- Prev / next -------------------------------------------------------- */

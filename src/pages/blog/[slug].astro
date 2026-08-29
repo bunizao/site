@@ -8,8 +8,7 @@ import TableOfContents from '@/features/posts/ui/TableOfContents.astro';
 import ReadingTopbar from '@/features/posts/ui/ReadingTopbar.astro';
 import AdjacentNav from '@/features/posts/ui/AdjacentNav.astro';
 import BackToTop from '@/features/posts/ui/BackToTop.astro';
-import NotByAI from '@/features/posts/ui/NotByAI.astro';
-import AiCredit from '@/features/posts/ui/AiCredit.astro';
+import Colophon from '@/features/posts/ui/Colophon.astro';
 import ShareRow from '@/features/posts/ui/ShareRow.astro';
 import BlogArticleBeacon from '@/features/posts/ui/BlogArticleBeacon.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
@@ -180,28 +179,18 @@ const unlisted = isUnlistedPost(post);
 
       <Prose html={post.html} />
 
-      {/* Provenance closes the text. It is a fact about the article, the same
-          class as its date, so it stays on the prose side of the hairline
-          instead of sitting under the controls as their caption. */}
-      {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
-
-      {/* The article's own footer, and one band rather than two. Reactions,
-          subscribe and share are the same layer of meaning -- everything you
-          can do about this post without writing anything -- so a hairline
-          between the hearts and the buttons was drawing a line through the
-          middle of one idea. What is left below is the only genuinely
-          different layer: the one that asks you to write.
-
-          Reactions stay presentational/local-only in this pass -- see the task
-          report. Comments hydrate for real: client/comments-controller.ts
-          fetches the thread and owns every submit, edit, delete, and like. */}
-      <footer class="blog-article-foot">
-        <ReactionBar client:idle count={0} signedIn={true} />
+      {/* One band closes the post: provenance and reuse terms, then the things
+          a reader can do about it. Reactions stay presentational/local-only in
+          this pass -- see the task report. Comments hydrate for real:
+          client/comments-controller.ts fetches the thread and owns every
+          submit, edit, delete, and like. */}
+      <Colophon credits={authorshipCredits}>
+        <ReactionBar client:idle count={0} />
         <div class="blog-article-sub">
           <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
           <ShareRow title={post.title} />
         </div>
-      </footer>
+      </Colophon>
 
       {/* Last on the page, and open-ended: a thread has no fixed height, so
           anything under it is at an address that moves. */}

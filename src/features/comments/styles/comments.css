@@ -72,12 +72,12 @@
 }
 
 /* --- Reaction bar -------------------------------------------------------- */
-/* Lives on the article foot's one row, sharing it with subscribe and share
-   (see .blog-article-foot in blog.css). No rule and no margin of its own:
-   the foot supplies both, and this carried a 40px top margin from when it was
-   a standalone block after the prose -- inside a centred flex row that margin
-   is part of the item's box, so it made this 76px tall and dropped the hearts
-   20px below the buttons they are level with. */
+/* Lives on the colophon's action row, sharing it with subscribe and share
+   (see Colophon.astro). No rule and no margin of its own: the row supplies
+   both, and this carried a 40px top margin from when it was a standalone block
+   after the prose -- inside a centred flex row that margin is part of the
+   item's box, so it made this 76px tall and dropped the hearts 20px below the
+   buttons they are level with. */
 .blog-react {
   display: flex;
   align-items: center;
@@ -88,48 +88,19 @@
   min-height: 36px;
 }
 
-/* --- The pill, and its reverse ------------------------------------------- */
-/* Signed out there is nothing to press, so instead of parking a line of copy
-   next to the bar the pill turns over and offers the way in. */
-.blog-react__flip {
-  perspective: 1000px;
-
-  /* The magnetic pull writes only duration, timing and transform inline, so the
-     property it animates has to be declared here. Duration is a placeholder —
-     the script overrides it per direction, a short glide out and a spring back. */
+/* --- The pill ------------------------------------------------------------ */
+/* The magnetic pull's target. It writes only duration, timing and transform
+   inline, so the property it animates has to be declared here; the duration is
+   a placeholder the script overrides per direction, a short glide out and a
+   spring back. Shrink-wrapped, so the pill is as wide as its own contents. */
+.blog-react__pull {
+  display: flex;
+  justify-content: flex-start;
   transition: transform 140ms cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-/* Both faces occupy the same grid cell, so the card sizes to the wider of the
-   two and neither one is clipped by the other's box. */
-.blog-react__faces {
-  display: grid;
-  transition: transform 0.55s var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1));
-  transform-style: preserve-3d;
-}
-
-.blog-react__flip.is-flipped .blog-react__faces {
-  transform: rotateY(180deg);
-}
-
-/* Left-aligned rather than stretched. The cell is as wide as the wider face,
-   which is the sign-in one; letting the like pill fill it too was what put 26px
-   of dead slack inside a chip with 13px of padding, so the padding read as
-   crooked when it was the width that was wrong. */
-.blog-react__face-front,
-.blog-react__face-back {
-  grid-area: 1 / 1;
-  display: flex;
-  justify-content: flex-start;
-  backface-visibility: hidden;
-}
-
-.blog-react__face-back {
-  transform: rotateY(180deg);
-}
-
-.blog-react__pill,
-.blog-react__signin {
+.blog-react__pill {
+  position: relative;
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -141,24 +112,20 @@
      the glyph looking marooned; 2px off the start squares the two edges up. */
   padding: 0 15px 0 13px;
   border-radius: var(--blog-r-pill);
-  border: 1px solid var(--blog-line);
   cursor: pointer;
   white-space: nowrap;
-  transition:
-    background-color 0.25s ease,
-    border-color 0.25s ease,
-    color 0.25s ease;
-}
-
-.blog-react__pill {
   /* Glass rather than a flat fill: the bar sits under a column of body text and
      a solid chip there reads as a button bolted on. The zone's 10% hairline is
      too quiet to hold a 104px pill on white, so this edge runs a step darker
      than the dividers around it. */
-  border-color: hsl(var(--foreground) / 0.16);
+  border: 1px solid hsl(var(--foreground) / 0.16);
   background: hsl(var(--foreground) / 0.03);
   backdrop-filter: blur(6px);
   color: var(--blog-muted);
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease;
 }
 
 .blog-react__pill:hover {
@@ -176,8 +143,7 @@
   color: var(--blog-xia);
 }
 
-.blog-react__pill:focus-visible,
-.blog-react__signin:focus-visible {
+.blog-react__pill:focus-visible {
   outline: 2px solid var(--blog-accent);
   outline-offset: 2px;
 }
@@ -191,27 +157,6 @@
 .blog-react__pill:hover .blog-react__glyph,
 .blog-react__pill.is-liked .blog-react__glyph {
   transform: scale(1.12);
-}
-
-/* Sign-in face: solid, so the reverse reads as a different surface and not as
-   the same pill with new words. */
-.blog-react__signin {
-  background: hsl(var(--foreground));
-  border-color: hsl(var(--foreground));
-  color: hsl(var(--background));
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.blog-react__signin svg {
-  width: 15px;
-  height: 15px;
-  transition: transform 0.3s var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1));
-}
-
-.blog-react__signin:hover svg {
-  transform: rotate(12deg);
 }
 
 /* --- Slot-machine count -------------------------------------------------- */
@@ -377,8 +322,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .blog-react__flip,
-  .blog-react__faces,
+  .blog-react__pull,
   .blog-react__reel,
   .blog-react__glyph,
   .blog-react__avatar,

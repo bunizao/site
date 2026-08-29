@@ -11,14 +11,12 @@ const previewPolicyHeaders = {
 
 const [
   { default: BlogLayout },
-  { default: AiCredit },
-  { default: NotByAI },
+  { default: Colophon },
   { formatPostDate },
   { resolveGhostDraftPreview, resolveGhostDraftRevision },
 ] = await Promise.all([
   import('@/layouts/BlogLayout.astro'),
-  import('@/features/posts/ui/AiCredit.astro'),
-  import('@/features/posts/ui/NotByAI.astro'),
+  import('@/features/posts/ui/Colophon.astro'),
   import('@/features/posts/format'),
   import('@/features/posts/server/ghost-preview'),
 ]);
@@ -108,11 +106,7 @@ const title = post.title.trim() || 'Untitled draft';
     </article>
   </div>
 
-  <footer class="blog-end">
-    <div class="blog-end__bar">
-      {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
-    </div>
-  </footer>
+  <Colophon credits={authorshipCredits} />
 </BlogLayout>
 
 <script>

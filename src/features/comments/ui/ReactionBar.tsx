@@ -10,14 +10,16 @@ import { cn } from '@/lib/utils';
 import { mountAvatarComb } from '@/features/comments/client/use-avatar-comb';
 import { mountMagnetic } from '@/features/comments/client/use-magnetic';
 import { initials, seedHue } from '@/features/comments/identity';
+import { resolveCommentsCopy } from '@/features/comments/copy';
 import type { Reactor } from '@/features/comments/types';
 
 interface Props {
   count: number;
   reacted?: boolean;
-  signedIn?: boolean;
   reactors?: Reactor[];
   faceLimit?: number;
+  /** Page locale. The island renders before any DOM exists to read it from. */
+  locale?: string;
 }
 
 const HEART_PATH =
@@ -34,14 +36,14 @@ interface Spark {
 export default function ReactionBar({
   count,
   reacted = false,
-  signedIn = false,
   reactors = [],
   faceLimit = 5,
+  locale,
 }: Props) {
+  const t = resolveCommentsCopy(locale);
   const stack = React.useRef<HTMLDivElement>(null);
   const scope = React.useRef<HTMLDivElement>(null);
   const [liked, setLiked] = React.useState(reacted);
-  const [flipped, setFlipped] = React.useState(false);
   const [sparks, setSparks] = React.useState<Spark[]>([]);
   const sparkId = React.useRef(0);
 
@@ -62,31 +64,7 @@ export default function ReactionBar({
     return mountMagnetic(scope.current, { radius: 110, strength: 0.45, lift: -8, scale: 1.12 });
   }, []);
 
-  // Turning the pill back over is a dismissal, so it answers to the two things
-  // every dismissal answers to.
-  React.useEffect(() => {
-    if (!flipped) return;
-    const away = (event: MouseEvent) => {
-      if (!scope.current?.contains(event.target as Node)) setFlipped(false);
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setFlipped(false);
-    };
-    document.addEventListener('pointerdown', away);
-    document.addEventListener('keydown', escape);
-    return () => {
-      document.removeEventListener('pointerdown', away);
-      document.removeEventListener('keydown', escape);
-    };
-  }, [flipped]);
-
   function toggle() {
-    // Signed out the pill is not inert — pressing it turns the card over and
-    // offers the way in. Hover would strand every touch device.
-    if (!signedIn) {
-      setFlipped(true);
-      return;
-    }
     const next = !liked;
     setLiked(next);
     if (!next) return;
@@ -106,84 +84,59 @@ export default function ReactionBar({
 
   return (
     <div ref={scope} className="blog-react" data-pagefind-ignore>
-      {/* Signed out, pressing the pill turns it over and offers the way in, so
-          the bar never has to carry a line of "sign in to react" copy beside
-          it. Both faces share a min-width, which is what keeps the flip from
-          resizing the row mid-turn. */}
-      <div className={cn('blog-react__flip', flipped && 'is-flipped')} data-magnetic>
-        <div className="blog-react__faces">
-          <div className="blog-react__face-front">
-            <button
-              type="button"
-              onClick={toggle}
-              aria-pressed={signedIn ? liked : undefined}
-              aria-label={
-                signedIn ? (liked ? 'Remove your reaction' : 'Like this post') : 'Sign in to react'
-              }
-              tabIndex={flipped ? -1 : 0}
-              className={cn('blog-react__pill', liked && 'is-liked')}
-            >
-              <span className="blog-react__sparks" aria-hidden="true">
-                {sparks.map((spark) => (
-                  <svg
-                    key={spark.id}
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    className="blog-react__spark"
-                    style={{
-                      ['--spark-x' as string]: `${spark.x}px`,
-                      ['--spark-rot' as string]: `${spark.rot}deg`,
-                      animationDelay: `${spark.delay}ms`,
-                    }}
-                  >
-                    <path d={HEART_PATH} />
-                  </svg>
-                ))}
-              </span>
+      {/* Liking a post asks for no account. It is a count, not a signature: the
+          pill used to flip over to a Sign in door on the first press, which
+          charged a reader an identity for one bit of feedback and turned the
+          cheapest gesture on the page into the most expensive one. Anonymous
+          presses are still counted -- they just put no face in the stack,
+          because the site has no name to put there. */}
+      <div className="blog-react__pull" data-magnetic>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-pressed={liked}
+          aria-label={liked ? t.reactRemove : t.reactAdd}
+          className={cn('blog-react__pill', liked && 'is-liked')}
+        >
+          <span className="blog-react__sparks" aria-hidden="true">
+            {sparks.map((spark) => (
               <svg
+                key={spark.id}
                 viewBox="0 0 24 24"
-                fill={liked ? 'currentColor' : 'none'}
-                stroke="currentColor"
-                strokeWidth="1.5"
-                className="blog-react__glyph"
-                aria-hidden="true"
+                fill="currentColor"
+                className="blog-react__spark"
+                style={{
+                  ['--spark-x' as string]: `${spark.x}px`,
+                  ['--spark-rot' as string]: `${spark.rot}deg`,
+                  animationDelay: `${spark.delay}ms`,
+                }}
               >
                 <path d={HEART_PATH} />
               </svg>
-              {/* Slot-machine roller: both values are always mounted and the
-                  column slides, so the digits travel instead of blinking. */}
-              <span className="blog-react__roller">
-                <span
-                  className="blog-react__reel"
-                  style={{ transform: `translateY(${liked === reacted ? '0' : '-1.5em'})` }}
-                >
-                  <span>{count}</span>
-                  <span>{total}</span>
-                </span>
-              </span>
-            </button>
-          </div>
-
-          <div className="blog-react__face-back">
-            <button type="button" className="blog-react__signin" tabIndex={flipped ? 0 : -1}>
-              {/* A door, not a provider mark: this face opens the choice
-                  between three ways in, and stamping one vendor's logo on it
-                  promises a path the button does not take. */}
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
-              </svg>
-              Sign in
-            </button>
-          </div>
-        </div>
+            ))}
+          </span>
+          <svg
+            viewBox="0 0 24 24"
+            fill={liked ? 'currentColor' : 'none'}
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="blog-react__glyph"
+            aria-hidden="true"
+          >
+            <path d={HEART_PATH} />
+          </svg>
+          {/* Slot-machine roller: both values are always mounted and the
+              column slides, so the digits travel instead of blinking. */}
+          <span className="blog-react__roller">
+            <span
+              className="blog-react__reel"
+              style={{ transform: `translateY(${liked === reacted ? '0' : '-1.5em'})` }}
+            >
+              <span>{count}</span>
+              <span>{total}</span>
+            </span>
+          </span>
+        </button>
       </div>
 
       {faces.length > 0 && (

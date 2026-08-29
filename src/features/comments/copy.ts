@@ -77,6 +77,11 @@ export interface CommentsCopy {
     years: (n: number) => string;
   };
 
+  /* --- Reaction bar ------------------------------------------------------ */
+  /** Liking a post needs no account, so these are the only two states. */
+  reactAdd: string;
+  reactRemove: string;
+
   /* --- Receipt ----------------------------------------------------------- */
   receiptPosted: string;
   receiptHeld: string;
@@ -143,6 +148,9 @@ const zh: CommentsCopy = {
     years: (n) => `${n} 年前`,
   },
 
+  reactAdd: '喜欢这篇',
+  reactRemove: '取消喜欢',
+
   receiptPosted: '已发布',
   receiptHeld: '已提交，正在等待审核',
   receiptError: '没能发出去，草稿还在。再试一次。',
@@ -206,6 +214,9 @@ const en: CommentsCopy = {
     months: (n) => `${n}mo`,
     years: (n) => `${n}y`,
   },
+
+  reactAdd: 'Like this post',
+  reactRemove: 'Remove your reaction',
 
   receiptPosted: 'Posted',
   receiptHeld: 'Submitted — waiting for review',

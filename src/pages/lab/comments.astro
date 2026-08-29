@@ -23,7 +23,7 @@ import Footer from '@/features/home/ui/Footer.astro';
 import ReactionBar from '@/features/comments/ui/ReactionBar';
 import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
-import NotByAI from '@/features/posts/ui/NotByAI.astro';
+import Colophon from '@/features/posts/ui/Colophon.astro';
 import ShareRow from '@/features/posts/ui/ShareRow.astro';
 import { blog } from '@/data/site';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
@@ -232,24 +232,16 @@ await billing.invoice(payload)</code></pre>
         </p>
       </div>
 
-      <NotByAI />
-
-      {/* The real components, not stand-ins: the article foot sits directly
-          above the comments head, and the only way to judge that seam is to
-          render both sides of it for real. */}
-      <footer class="blog-article-foot">
-        <ReactionBar
-          client:idle
-          count={24}
-          reacted={reacted}
-          signedIn={phase !== 'anonymous'}
-          reactors={reactors}
-        />
+      {/* The real components, not stand-ins: the colophon sits directly above
+          the comments head, and the only way to judge that seam is to render
+          both sides of it for real. */}
+      <Colophon>
+        <ReactionBar client:idle count={24} reacted={reacted} reactors={reactors} />
         <div class="blog-article-sub">
           <SubscribePanel variant="blog" anchor="right" feed={blog.feed} />
           <ShareRow title="少一层，而不是多一层" />
         </div>
-      </footer>
+      </Colophon>
 
       <CommentsSection
         comments={comments}
