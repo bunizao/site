@@ -79,12 +79,19 @@ const showReceipt = receipt !== 'idle' && !busy;
     <span data-compose-error-text></span>
   </p>
 
-  {/* Hidden by CSS on claimed/ready — those readers have an identity on file
-      and are told so in the footer instead. Always in the DOM so the claimed
-      footer's "换一个" has a row to give back without a re-render. */}
-  <IdentityRow id="blog-compose-id" />
+  {/* One surface for the whole form. Three bordered boxes stacked -- name,
+      email, body -- were three objects for one act, and the compose area
+      out-boxed everything around it. Inside, the parts are told apart by two
+      hairlines instead of three borders, and focus lights the form up as the
+      single thing it is.
 
+      The identity strip is hidden by CSS on claimed/ready — those readers have
+      an identity on file and are told so in the footer instead. Always in the
+      DOM so the claimed footer's "换一个" has a row to give back without a
+      re-render. */}
   <div class="blog-compose__box">
+    <IdentityRow id="blog-compose-id" />
+
     <label class="sr-only" for="blog-compose-text">Write a comment</label>
     <textarea
       id="blog-compose-text"

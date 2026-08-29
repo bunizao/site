@@ -673,15 +673,36 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 /* One bracketed zone for everything after the prose: a hairline, the actions
    row (human pledge + subscribe/share), a second hairline, then prev/next.
    Each piece used to invent its own top margin — this gives them one rhythm. */
-/* Two rules under one shape: the article's own footer (credit + share, closing
-   the article above the comments) and the page's (prev/next, under the
-   thread). Same hairline and the same air, because they are the same kind of
-   break -- the reader should not be able to tell that one of them moved. */
+/* Two rules under one shape: the article's own footer (reactions, subscribe,
+   share and the authorship line, closing the article above the comments) and
+   the page's (prev/next, under the thread). Same hairline and the same air,
+   because they are the same kind of break -- the reader should not be able to
+   tell that one of them moved. */
 .blog-end,
 .blog-article-foot {
   margin-top: 44px;
   padding-top: 28px;
   border-top: 1px solid var(--blog-line);
+}
+
+/* Everything you can do about this post without writing anything, on one row:
+   the hearts on the left, subscribe and share on the right. They were two
+   bands with a hairline between them, which drew a line through the middle of
+   a single idea. */
+.blog-article-foot__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+
+/* The authorship line sits under that row, not in it. It is a statement about
+   the article, not an action on it, and on the same line it competed with the
+   controls for the reader's eye. */
+.blog-article-foot .not-by-ai,
+.blog-article-foot .ai-credit {
+  margin-top: 18px;
 }
 
 /* Pledge sits left, action pills hug right. With only the pills present (no

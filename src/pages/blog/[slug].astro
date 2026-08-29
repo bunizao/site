@@ -180,30 +180,25 @@ const unlisted = isUnlistedPost(post);
 
       <Prose html={post.html} />
 
-      {/* Reactions stay presentational/local-only in this pass -- see the
-          task report. Comments hydrate for real: client/comments-controller.ts
-          fetches the thread and owns every submit, edit, delete, and like. */}
-      <ReactionBar client:idle count={0} signedIn={true} />
+      {/* The article's own footer, and one band rather than two. Reactions,
+          subscribe and share are the same layer of meaning -- everything you
+          can do about this post without writing anything -- so a hairline
+          between the hearts and the buttons was drawing a line through the
+          middle of one idea. What is left below is the only genuinely
+          different layer: the one that asks you to write.
 
-      {/* The article's own footer — who wrote it, and how to pass it on. It
-          belongs to the article, so it closes the article, above the
-          conversation about it rather than below a thread that can run to any
-          length. */}
+          Reactions stay presentational/local-only in this pass -- see the task
+          report. Comments hydrate for real: client/comments-controller.ts
+          fetches the thread and owns every submit, edit, delete, and like. */}
       <footer class="blog-article-foot">
-        <div class="blog-end__bar">
-          {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
-          {/* Subscribe and share are one pair: both are "do something with
-              this post beyond reading it". Split across two bands they were
-              two identical pills on the same right edge a hundred pixels
-              apart, which reads as a mistake. The strip sits directly above
-              the comment box now, so subscribe is still within a glance of the
-              email field it shares (and lib/reader-email.ts carries the
-              address between them either way). */}
+        <div class="blog-article-foot__row">
+          <ReactionBar client:idle count={0} signedIn={true} />
           <div class="blog-article-sub">
             <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
             <ShareRow title={post.title} />
           </div>
         </div>
+        {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
       </footer>
 
       {/* Last on the page, and open-ended: a thread has no fixed height, so

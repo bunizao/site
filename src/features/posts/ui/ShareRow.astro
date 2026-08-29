@@ -53,19 +53,24 @@ const { title } = Astro.props;
      sits beside (see SubscribePanel's .blog-article-sub override). Monochrome
      and restrained at rest; lifts its surface on hover. The accent only ever
      appears for the copy-success check, so it stays a single point of colour. */
+  /* No box. These sit beside the subscribe trigger in the article foot, and
+     an outlined square each made three bordered rectangles for three actions
+     that hold no state -- a border in the blog zone means "put a value in me".
+     They keep the round hit area and take a fill only when aimed at, the same
+     way the comment thread's own actions do. */
   .share-btn {
     position: relative;
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     padding: 0;
     color: var(--blog-muted, hsl(var(--muted-foreground)));
-    background: hsl(var(--foreground) / 0.035);
-    border: 1px solid hsl(var(--foreground) / 0.09);
-    border-radius: 11px;
+    background: none;
+    border: 0;
+    border-radius: 999px;
     cursor: pointer;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, scale 0.12s ease;
+    transition: color 0.15s ease, background 0.15s ease, scale 0.12s ease;
   }
 
   /* Keep the 36px visual pill but extend the tap target to 40×40 (36 + 2 + 2).
@@ -83,7 +88,6 @@ const { title } = Astro.props;
   .share-btn:hover {
     color: var(--blog-ink, hsl(var(--foreground)));
     background: hsl(var(--foreground) / 0.07);
-    border-color: hsl(var(--foreground) / 0.14);
   }
 
   .share-btn:active {

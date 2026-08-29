@@ -896,22 +896,26 @@ const intro =
   .blog-article-sub {
     display: flex;
     align-items: center;
-    gap: 6px;
+    /* Pulled right by the button's own padding, so the cluster's last glyph
+       lines up with the column edge rather than its hit area. */
+    margin-right: -10px;
+    gap: 2px;
   }
 
-  /* Subscribe trigger as a pill, matching ShareRow's .share-btn. Scoped to the
-     foot so the masthead trigger stays the quiet text button it was. */
+  /* No box. An outlined pill here made subscribe a fourth bordered rectangle
+     in a region that already had too many, for something that holds no state
+     and takes no input -- a border in this zone means "put a value in me".
+     What is left is the language the comment thread below already speaks in
+     its own actions: quiet text weight, a fill only when it is aimed at. */
   .blog-article-sub .sub-trigger {
-    height: 36px;
-    /* Tighter on the right: the caret is light and hugs the label (negative
-       margin below), so it needs less breathing room than the leading icon. */
-    padding: 0 11px 0 13px;
+    height: 34px;
+    padding: 0 10px 0 11px;
     gap: 8px;
     color: var(--blog-muted, hsl(var(--muted-foreground)));
-    background: hsl(var(--foreground) / 0.035);
-    border: 1px solid hsl(var(--foreground) / 0.09);
-    border-radius: 11px;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, scale 0.12s ease;
+    background: none;
+    border: 0;
+    border-radius: 999px;
+    transition: color 0.15s ease, background 0.15s ease, scale 0.12s ease;
   }
 
   /* The caret belongs to the label, not the icon — pull it in so it reads as a
@@ -924,7 +928,6 @@ const intro =
   .blog-article-sub .sub-trigger[aria-expanded='true'] {
     color: var(--blog-ink, hsl(var(--foreground)));
     background: hsl(var(--foreground) / 0.07);
-    border-color: hsl(var(--foreground) / 0.14);
   }
 
   @media (max-width: 639px) {

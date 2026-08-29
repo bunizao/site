@@ -290,14 +290,14 @@ const skeletonRows = [
           <span data-compose-error-text></span>
         </p>
 
-        <IdentityRow id="blog-reply-id" />
-
         {/* No footer: the "Replying to X" line said what the field's own
             placeholder already says, and Cancel duplicated the Reply button
             sitting one line above — which closes this, holds a pressed state
             while it is open, and is where the reader's hand already is.
             Escape closes it too. */}
         <div class="blog-compose__box">
+          <IdentityRow id="blog-reply-id" />
+
           <label class="sr-only" for="blog-reply-text">Write a reply</label>
           <textarea
             id="blog-reply-text"

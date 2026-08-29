@@ -431,35 +431,28 @@
 }
 
 /* --- Compose ------------------------------------------------------------ */
-/* First thing under the heading, and the reader is asked who they are before
-   they write. The earlier version hid the identity fields and grew them out
-   of the first Post press: one border, one radius, and a row that appeared
-   under the reader's hands mid-thought. Asking up front costs the impulse
-   comment and buys a form that holds still while it is being filled in.
+/* ONE surface. The form used to be three bordered boxes in a column -- name,
+   email, body -- plus a fourth for the send button's footer, and the top of
+   the thread was the most boxed-in region on the page. They are one act, so
+   they are one object: the parts are separated by two hairlines inside it, and
+   :focus-within lights the whole thing up rather than one third of it.
 
-   Not one box any more, but a short stack of ordinary controls -- identity
-   fields, the body, the footer -- each with its own surface. A single
-   wrapping border around all of it would have to contain fields that already
-   look like fields, and box-in-a-box is the thing that made the old row need
-   to be a ghost.
+   What earns a border in this zone: something you can put a value into, or
+   something holding a state. The form does. The send button does not, and
+   neither do the article's own actions above it (see .blog-article-sub in
+   blog.css) -- those speak the thread's own quiet action language instead.
 
-   THE PROPORTIONS. Three surfaces of the same weight, one of them three times
-   taller than the others, reads as a mistake -- which is what a shared radius
-   and a shared padding produced. Hierarchy is carried by all of them at once:
+   PROPORTIONS. Padding lives on the parts, not the box, so each one can be
+   sized to what it holds:
 
-     identity field   10px/14px padding, 10px radius, ~41px tall
-     typing area      ~66px tall
-     body surface     14px padding, 14px radius, ~132px tall
+     identity strip   11px/14px, ~41px tall
+     typing area      14px, ~66px tall
+     send bar         30px tall, 12px below
 
    41 x 1.618 = 66: the area a reader writes into is a golden step above the
-   field they filled in first, and the radius grows with the surface -- 10px on
-   a 41px control is the same optical roundness as 14px on a 132px one. The
-   name/email split is the same ratio turned sideways, 38.2 / 61.8, because a
-   handle is short and an address is not.
-
-   The surface is taller than it was because it swallowed the send button, and
-   the form as a whole is ~22px shorter for it: a 40px footer holding one
-   button became a 30px bar inside the box the button submits. */
+   row they identify themselves in. The name/email split is the same ratio
+   turned sideways, 38.2 / 61.8, because a handle is short and an address is
+   not. */
 .blog-compose {
   display: flex;
   flex-direction: column;
@@ -475,24 +468,40 @@
   display: none;
 }
 
-.blog-compose__fields {
-  display: flex;
-  gap: 10px;
-}
-
-.blog-compose__input,
 .blog-compose__box {
+  display: flex;
+  flex-direction: column;
+  /* The identity strip runs edge to edge and its hairline has to stop cleanly
+     inside the corner radius. */
+  overflow: hidden;
   border: 1px solid var(--blog-line);
+  border-radius: var(--blog-r-box);
   background: hsl(var(--foreground) / 0.02);
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-/* A handle is short and an address is not: 38.2 / 61.8 of the row. */
+.blog-compose__box:focus-within {
+  border-color: hsl(var(--foreground) / 0.24);
+  background: transparent;
+}
+
+/* Two fields, one hairline between them and one under the pair. Borderless:
+   they are rooms in the form, not separate forms. */
+.blog-compose__identity {
+  border-bottom: 1px solid var(--blog-line);
+}
+
+.blog-compose__fields {
+  display: flex;
+}
+
 .blog-compose__input {
   min-width: 0;
+  /* A handle is short and an address is not: 38.2 / 61.8 of the row. */
   flex: 0 1 61.8%;
-  padding: 10px 14px;
-  border-radius: 10px;
+  padding: 11px 14px;
+  border: 0;
+  background: none;
   color: var(--blog-body);
   font: inherit;
   /* 16px is the floor that stops iOS Safari zooming the page on focus. */
@@ -501,27 +510,29 @@
 
 .blog-compose__input--name {
   flex: 0 1 38.2%;
+  border-right: 1px solid var(--blog-line);
 }
 
 .blog-compose__input::placeholder {
   color: var(--blog-faint);
 }
 
-.blog-compose__input:focus,
-.blog-compose__box:focus-within {
+.blog-compose__input:focus {
   outline: none;
-  border-color: hsl(var(--foreground) / 0.24);
-  background: transparent;
 }
 
 /* An unfinished field is the one thing in this monochrome zone that gets to
    borrow the danger colour. A firmer grey edge was the polite version and it
    was invisible: a reader who has just pressed a button and had nothing happen
-   is not scanning for a slightly darker hairline. Ring, colour, and the alert
-   above (see `.blog-compose__alert`) all say the same thing at once, and the
-   guard puts the cursor here as well -- four channels, because this is the one
-   moment the form refuses to do what was asked of it. */
-.blog-compose__input[aria-invalid='true'],
+   is not scanning for a slightly darker hairline. The field has no border of
+   its own to redden any more, so it takes a tint; the box it sits in reddens
+   around it. Ring, tint, the alert above, and the cursor landing here -- four
+   channels, because this is the one moment the form refuses to do what was
+   asked of it. */
+.blog-compose__input[aria-invalid='true'] {
+  background: color-mix(in oklab, var(--blog-danger) 11%, transparent);
+}
+
 .blog-compose__box:has([aria-invalid='true']) {
   border-color: var(--blog-danger);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--blog-danger) 16%, transparent);
@@ -537,11 +548,11 @@
   80% { translate: -1px; }
 }
 
-/* The complaint itself, at the top of the stack rather than as a grey line
-   under it. It was one 13px sentence the same colour as everything else, in a
-   footer slot, below the fold of the reader's attention -- which is why nobody
-   read it. Filled, coloured, and carrying the alert glyph, it is the only
-   thing in the compose stack that is allowed to shout. */
+/* The complaint itself, above the form rather than as a grey line inside it.
+   It was one 13px sentence the same colour as everything else, in a footer
+   slot, below the fold of the reader's attention -- which is why nobody read
+   it. Filled, coloured, and carrying the alert glyph, it is the only thing in
+   the compose stack that is allowed to shout. */
 .blog-compose__alert {
   display: flex;
   align-items: center;
@@ -570,31 +581,10 @@
   }
 }
 
-/* The body surface. It holds everything to do with writing: the field, the one
-   note about it, and the button that sends it. "Markdown supported" as a
-   separate line under the box stacked with the validation line to make two
-   rows of small grey text between the writing and the button, and the button
-   as a 40px disc in its own footer was the loudest object on the page for an
-   action nobody needs help finding. Both live on one 30px bar along the bottom
-   edge of the box now. */
-.blog-compose__box {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px;
-  border-radius: var(--blog-r-box);
-}
-
-.blog-compose__bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 30px;
-}
-
 .blog-compose__field {
   display: block;
   width: 100%;
+  padding: 14px 14px 0;
   border: 0;
   background: none;
   resize: none;
@@ -604,7 +594,7 @@
   line-height: 1.65;
   /* Grow with the text rather than sitting at a fixed height. Engines without
      field-sizing keep the rows="4" box. 4.1em is ~66px: the area a reader
-     writes into, one golden step above the 41px field they filled in first. */
+     writes into, one golden step above the 41px row above it. */
   field-sizing: content;
   min-height: 4.1em;
 }
@@ -615,6 +605,14 @@
 
 .blog-compose__field:focus {
   outline: none;
+}
+
+.blog-compose__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  padding: 8px 12px 12px 14px;
 }
 
 /* Left end of the bar, out of the way until the reader wonders whether
@@ -1232,6 +1230,7 @@
 .blog-reply__field {
   font-size: 15.5px;
   min-height: 2.6em;
+  padding-top: 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {

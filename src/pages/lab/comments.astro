@@ -232,25 +232,24 @@ await billing.invoice(payload)</code></pre>
         </p>
       </div>
 
-      <ReactionBar
-        client:idle
-        count={24}
-        reacted={reacted}
-        signedIn={phase !== 'anonymous'}
-        reactors={reactors}
-      />
-
-      {/* The real components, not stand-ins: the article foot now sits
-          directly above the comments head, and the only way to judge that
-          seam is to render both sides of it for real. */}
+      {/* The real components, not stand-ins: the article foot sits directly
+          above the comments head, and the only way to judge that seam is to
+          render both sides of it for real. */}
       <footer class="blog-article-foot">
-        <div class="blog-end__bar">
-          <NotByAI />
+        <div class="blog-article-foot__row">
+          <ReactionBar
+            client:idle
+            count={24}
+            reacted={reacted}
+            signedIn={phase !== 'anonymous'}
+            reactors={reactors}
+          />
           <div class="blog-article-sub">
             <SubscribePanel variant="blog" anchor="right" feed={blog.feed} />
             <ShareRow title="少一层，而不是多一层" />
           </div>
         </div>
+        <NotByAI />
       </footer>
 
       <CommentsSection

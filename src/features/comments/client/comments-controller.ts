@@ -575,8 +575,8 @@ export function initCommentsController(): void {
         parseStaticSvg(ALERT_ICON_SVG),
         el('span', { 'data-compose-error-text': '' }),
       ]),
-      buildIdentityRow('blog-reply-id'),
       el('div', { class: 'blog-compose__box' }, [
+        buildIdentityRow('blog-reply-id'),
         el('label', { class: 'sr-only', for: 'blog-reply-text' }, ['Write a reply']),
         el('textarea', { id: 'blog-reply-text', class: 'blog-compose__field blog-reply__field', rows: '2' }),
         el('div', { class: 'blog-compose__bar' }, [
