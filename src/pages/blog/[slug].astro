@@ -1,5 +1,8 @@
 ---
 import type { GetStaticPaths } from 'astro';
+// Embed styles ride the article page, not BlogLayout — list pages never render
+// post bodies, so they should not pay for embed CSS.
+import '@/styles/embed-youtube.css';
 import BlogLayout from '@/layouts/BlogLayout.astro';
 import PostMeta from '@/features/posts/ui/PostMeta.astro';
 import TagList from '@/features/posts/ui/TagList.astro';

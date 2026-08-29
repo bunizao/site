@@ -89,7 +89,7 @@ verse.
 ## Output
 
 ```html
-<blockquote class="blog-poem blog-poem--center">
+<blockquote class="blog-poem">
   <p class="blog-poem__title">雨巷</p>
   <p>撑着油纸伞，独自<br>彷徨在悠长、悠长</p>
   <p>我希望逢着<br>一个丁香一样地</p>

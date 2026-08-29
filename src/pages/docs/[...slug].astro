@@ -6,8 +6,9 @@ import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
 import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
 import DocsToc, { type DocsTocItem } from '@/features/docs/ui/DocsToc.astro';
 import DocsCopyPage from '@/features/docs/ui/DocsCopyPage.astro';
+import DocsDemo from '@/features/docs/ui/DocsDemo.astro';
 import { docPath, getDocsNav, getDocsSiblings, type DocsGroup } from '@/features/docs/server/nav';
-import { expandDocsDemos } from '@/features/docs/server/demo';
+import { splitDocsFragments } from '@/features/docs/server/demo';
 import { markdownAlternatePath } from '@/features/agent-markdown/server/registry';
 import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/blog-prose.css';
@@ -35,11 +36,12 @@ const { title, description, group, playground } = entry.data;
 const { Content, headings } = await render(entry);
 
 // Fences tagged `demo` leave a slot behind (see markdown-plugin.ts) that only a
-// route can fill. Nothing to fill means nothing to do — fall back to <Content />
-// so a page without demos never pays for the string round-trip.
+// route can fill, because a demo may need a component rather than a string.
+// Nothing to fill means nothing to do — fall back to <Content /> so a page
+// without demos never pays for the split.
 const renderedHtml = entry.rendered?.html ?? '';
-const prose = renderedHtml.includes('data-docs-demo')
-  ? await expandDocsDemos(renderedHtml)
+const fragments = renderedHtml.includes('data-docs-demo')
+  ? splitDocsFragments(renderedHtml)
   : null;
 
 // Two depths. H4 is used inside a directive's own subsections and would turn the
@@ -85,7 +87,15 @@ const { prev, next } = getDocsSiblings(groups, entry.id);
         )}
 
         <div class="docs-prose">
-          {prose ? <Fragment set:html={prose} /> : <Content />}
+          {fragments
+            ? fragments.map((fragment) =>
+                fragment.kind === 'demo' ? (
+                  <DocsDemo lang={fragment.lang} source={fragment.source} />
+                ) : (
+                  <Fragment set:html={fragment.html} />
+                ),
+              )
+            : <Content />}
         </div>
 
         <nav class="docs-pager" aria-label="Docs pagination">
@@ -127,4 +137,13 @@ const { prev, next } = getDocsSiblings(groups, entry.id);
       setTimeout(() => delete button.dataset.copied, 1600);
     });
   });
+</script>
+
+<script>
+  // A `demo` fence renders the real embed markup, so the docs page is a mood
+  // embed host too — without this the frame keeps its fallback height and
+  // ignores the theme, and the demo stops matching what a post looks like.
+  import { wireMoodEmbeds } from '@/features/posts/client/mood-embeds';
+
+  wireMoodEmbeds(document);
 </script>
