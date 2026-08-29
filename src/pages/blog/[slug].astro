@@ -87,6 +87,11 @@ const featureImageSrcSet = post.featureImage && isBlogImageProxyUrl(post.feature
   : undefined;
 const featureImageSizes = '(min-width: 960px) 920px, calc(100vw - 40px)';
 const hasNoTocTag = post.tags.some((tag) => tag.slug === 'hash-no-toc' || tag.name === '#no-toc');
+// Same mechanism as #no-toc: an internal Ghost tag, so closing a thread is an
+// editorial act in the editor rather than a deploy. No post id reaches the
+// section, and the controller already bails without one -- nothing is fetched
+// for a thread nobody can add to.
+const noComments = post.tags.some((tag) => tag.slug === 'hash-no-comments' || tag.name === '#no-comments');
 // Authorship footer. A post that credits no model asserts the human pledge, so
 // the pledge is the default rather than a #not-by-ai opt-in — the tag no longer
 // gates anything here.
@@ -195,8 +200,8 @@ const unlisted = isUnlistedPost(post);
       {/* Last on the page, and open-ended: a thread has no fixed height, so
           anything under it is at an address that moves. */}
       <CommentsSection
-        state="loading"
-        postId={post.id}
+        state={noComments ? 'closed' : 'loading'}
+        postId={noComments ? undefined : post.id}
         turnstileSiteKey={turnstileSiteKey}
       />
     </article>

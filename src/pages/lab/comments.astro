@@ -5,7 +5,7 @@
 // dark mode, and the hairline they share with .blog-end are all honest.
 //
 // Query params flip the states worth reviewing side by side:
-//   ?state=loaded | loading | empty | error   (thread)
+//   ?state=loaded | loading | empty | error | closed   (thread)
 //   ?phase=anonymous | claimed | ready         (reader standing, compose box)
 //   ?receipt=submitting | posted | held | nudge | error   (compose receipt)
 //   ?more=1  ?moreState=loading                (load-more cursor button)
@@ -39,7 +39,10 @@ if (!import.meta.env.DEV) return new Response(null, { status: 404 });
 const params = Astro.url.searchParams;
 
 const rawState = params.get('state');
-const state = rawState === 'loading' || rawState === 'empty' || rawState === 'error' ? rawState : 'loaded';
+const state =
+  rawState === 'loading' || rawState === 'empty' || rawState === 'error' || rawState === 'closed'
+    ? rawState
+    : 'loaded';
 
 const rawPhase = params.get('phase');
 const phase: ReaderPhase = rawPhase === 'claimed' || rawPhase === 'ready' ? rawPhase : 'anonymous';
