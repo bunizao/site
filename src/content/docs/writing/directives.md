@@ -7,7 +7,7 @@ order: 1
 
 A directive is a marker written on a line of its own in the Ghost editor:
 
-```
+```md demo
 [!mood id=482 theme=dark]
 ```
 
@@ -65,8 +65,8 @@ visible `[!moood id=1]` on the page telling you what you got wrong.
 Attributes are `key=value` pairs separated by whitespace. Values may be bare,
 double-quoted, or single-quoted:
 
-```
-[!authors ai=anthropic/claude-opus-4 note="drafted the migration table"]
+```md demo
+[!authors ai=anthropic/claude-opus-4-6 note="drafted the migration table"]
 ```
 
 The rules:
@@ -76,7 +76,7 @@ The rules:
 - A quoted value may contain the other quote character but not its own.
 - A repeated key is an error, not a last-one-wins.
 - An attribute the directive does not declare is an error.
-- `key=` with nothing after it is a legal empty string.
+- An empty value must be written `key=""`. A bare `key=` is a parse error.
 
 Anything that fails to parse produces `invalid-directive-attributes` and the
 marker is dropped from the output.

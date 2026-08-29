@@ -63,8 +63,14 @@ export const docsCodePlugin = {
     ctx.insertBefore(node, { rawHtml: headHtml(node.lang) });
 
     if (DEMO_META.test(node.meta ?? '')) {
+      // The language travels with the snippet: `conversation` is rendered by the
+      // conversation module and everything else by the directive pipeline, and
+      // only the fence knows which.
       const source = Buffer.from(node.value ?? '', 'utf8').toString('base64');
-      ctx.insertAfter(node, { rawHtml: `<div data-docs-demo="${source}"></div>` });
+      const lang = (node.lang ?? '').toLowerCase().replace(/[^a-z0-9-]/gu, '');
+      ctx.insertAfter(node, {
+        rawHtml: `<div data-docs-demo="${source}" data-docs-demo-lang="${lang}"></div>`,
+      });
     }
   },
 };

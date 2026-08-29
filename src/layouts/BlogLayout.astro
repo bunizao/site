@@ -5,7 +5,6 @@
 // dark mode stays in sync with the rest of buxx.me.
 import '../styles/globals.css';
 import '../styles/blog.css';
-import '../styles/embed-youtube.css';
 import { meta, blog, blogPalette } from '@/data/site';
 import {
   BLOG_OG_IMAGE_HEIGHT,
@@ -205,12 +204,16 @@ const paletteCss = [
       />
     )}
 
+    <!-- Body face yields bandwidth to render-blocking CSS; it paints via the
+         swap fallback either way, so CSS finishing sooner moves LCP while the
+         font's own arrival time barely changes. -->
     <link
       rel="preload"
       href="/fonts/inter-variable.woff2"
       as="font"
       type="font/woff2"
       crossorigin
+      fetchpriority="low"
     />
     <link
       rel="preload"

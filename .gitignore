@@ -13,7 +13,9 @@ dist-ssr
 .astro
 .tmp
 *.local
-.claude
+# .claude is local state except settings.json, which carries the project hooks
+.claude/*
+!.claude/settings.json
 .codex
 .agents
 skills-lock.json

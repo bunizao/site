@@ -29,7 +29,7 @@ test.describe('component playgrounds', () => {
     await expect(page.locator('#playground .conv-thread')).toHaveAttribute('data-names', 'off');
     await expect(page.locator('#playground .conv-thread')).toHaveAttribute('data-tints', 'off');
 
-    await page.getByRole('button', { name: 'Copy complete conversation source' }).click();
+    await page.getByRole('button', { name: 'Copy the conversation source' }).click();
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(
       await source.inputValue(),
     );
@@ -125,7 +125,7 @@ test.describe('component playgrounds', () => {
   test('pages with playgrounds expose a colored link beside the introduction', async ({ page }) => {
     await page.goto('/components/decode-text');
     await expect(page.locator('.detail-playground-link')).toHaveAttribute('href', '#playground');
-    await expect(page.locator('.detail-playground-link')).toHaveCSS('color', 'rgb(168, 79, 44)');
+    await expect(page.locator('.detail-playground-link')).toHaveCSS('color', 'rgb(60, 93, 128)');
 
     await page.goto('/components/conversation');
     await expect(page.locator('.detail-playground-link')).toHaveAttribute('href', '#playground');
@@ -135,6 +135,6 @@ test.describe('component playgrounds', () => {
       'href',
       '/components/conversation#playground',
     );
-    await expect(page.locator('.docs-playground-link')).toHaveCSS('color', 'rgb(168, 79, 44)');
+    await expect(page.locator('.docs-playground-link')).toHaveCSS('color', 'rgb(60, 93, 128)');
   });
 });
