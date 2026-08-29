@@ -438,6 +438,95 @@ describe('Ghost Admin client', () => {
     }
   });
 
+  test('lists posts with the Ghost Admin JWT contract and summary fields', async () => {
+    let requestUrl = '';
+    let requestInit: RequestInit | undefined;
+    const client = createGhostAdminClient({
+      url: 'https://blog.example.test/',
+      adminApiKey: ADMIN_KEY,
+      now: () => NOW_MS,
+      fetch: async (input, init) => {
+        requestUrl = String(input);
+        requestInit = init;
+
+        return Response.json({
+          posts: [
+            {
+              id: POST_ID,
+              uuid: POST_UUID,
+              slug: 'draft-post',
+              title: 'Draft post',
+              status: 'draft',
+              updated_at: '2026-07-31T11:59:00.000Z',
+              published_at: null,
+            },
+            {
+              id: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+              uuid: POST_UUID,
+              slug: 'published-post',
+              title: 'Published post',
+              status: 'published',
+              updated_at: '2026-07-30T10:00:00.000Z',
+              published_at: '2026-07-30T10:00:00.000Z',
+            },
+          ],
+        });
+      },
+    });
+
+    const posts = await client.listPosts();
+    const requestHeaders = new Headers(requestInit?.headers);
+    const authorization = requestHeaders.get('Authorization') ?? '';
+
+    expect(requestUrl).toBe(
+      'https://blog.example.test/ghost/api/admin/posts/'
+      + '?fields=id%2Cuuid%2Cslug%2Ctitle%2Cstatus%2Cupdated_at%2Cpublished_at'
+      + '&order=updated_at+desc&limit=100&formats=',
+    );
+    expect(requestInit?.method).toBe('GET');
+    expect(authorization.startsWith('Ghost ')).toBe(true);
+    expect(posts).toEqual([
+      {
+        id: POST_ID,
+        uuid: POST_UUID,
+        slug: 'draft-post',
+        title: 'Draft post',
+        status: 'draft',
+        updatedAt: '2026-07-31T11:59:00.000Z',
+        publishedAt: null,
+      },
+      {
+        id: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+        uuid: POST_UUID,
+        slug: 'published-post',
+        title: 'Published post',
+        status: 'published',
+        updatedAt: '2026-07-30T10:00:00.000Z',
+        publishedAt: '2026-07-30T10:00:00.000Z',
+      },
+    ]);
+  });
+
+  test('rejects a malformed posts list payload without leaking upstream data', async () => {
+    const client = createGhostAdminClient({
+      url: 'https://blog.example.test',
+      adminApiKey: ADMIN_KEY,
+      fetch: async () => Response.json({
+        posts: [{ id: POST_ID, uuid: POST_UUID, slug: 'missing-title', status: 'draft' }],
+      }),
+    });
+
+    try {
+      await client.listPosts();
+      throw new Error('Expected the malformed list payload to fail');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'invalid_response',
+        message: 'Ghost Admin returned an invalid response.',
+      });
+    }
+  });
+
   test('keeps the timeout active while reading the response body', async () => {
     const client = createGhostAdminClient({
       url: 'https://blog.example.test',

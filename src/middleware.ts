@@ -16,10 +16,15 @@ import {
 } from '@/features/admin/server/dev-bypass';
 
 const DEV_PORTAL_PREFIX = '/dev';
+const DEV_BLOG_PREVIEW_PREFIX = '/dev/blog/';
 const MOOD_EMBED_PATH = '/mood/embed';
 
 function isDevPortalPath(pathname: string): boolean {
   return pathname === DEV_PORTAL_PREFIX || pathname.startsWith(`${DEV_PORTAL_PREFIX}/`);
+}
+
+function isDevBlogPreviewPath(pathname: string): boolean {
+  return pathname.startsWith(DEV_BLOG_PREVIEW_PREFIX);
 }
 
 function isMoodEmbedPath(pathname: string): boolean {
@@ -60,7 +65,11 @@ export function withHtmlSecurityHeaders(request: Request, response: Response): R
       }
     } else {
       headers.set('Content-Security-Policy', createHtmlScriptCsp({
-        frameAncestors: isDevPortalPath(pathname) ? 'none' : 'self',
+        // /dev/blog/[id] is iframed by the portal blog preview page (same
+        // origin), so it needs 'self' while every other /dev path stays 'none'.
+        frameAncestors: isDevBlogPreviewPath(pathname)
+          ? 'self'
+          : isDevPortalPath(pathname) ? 'none' : 'self',
       }));
     }
   }

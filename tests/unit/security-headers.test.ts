@@ -48,6 +48,16 @@ describe('html security headers', () => {
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
 
+  test('dev blog preview pages get frame-ancestors self so the portal can iframe them', () => {
+    const response = withHtmlSecurityHeaders(
+      new Request('https://buxx.me/dev/blog/5ddc9141c35e7700383b2937'),
+      htmlResponse(),
+    );
+
+    expect(response.headers.get('Content-Security-Policy')).toContain("frame-ancestors 'self'");
+    expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
   test('mood embed keeps its own frame-ancestors * CSP', () => {
     const embedCsp = "default-src 'self'; frame-ancestors *";
     const response = withHtmlSecurityHeaders(
