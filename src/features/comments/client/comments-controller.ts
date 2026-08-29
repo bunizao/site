@@ -157,6 +157,9 @@ const TRASH_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 const GHOST_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M6 6l12 12"></path></svg>`;
 const ERROR_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>`;
 const ALERT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5h.01"></path></svg>`;
+// Byte-for-byte the bubble in CommentsSection.astro's error notice -- the two
+// renderers have to agree, and a dashed stroke is easy to let drift.
+const THREAD_ERROR_MARK_SVG = `<svg class="blog-comments__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3.5" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="3"></rect><path d="M8.4 16v3.9a.45.45 0 0 0 .75.33L13.6 16"></path></svg>`;
 
 function heartIcon(): SVGElement {
   return parseStaticSvg(
@@ -307,6 +310,14 @@ export function initCommentsController(): void {
     setMoreVisible(pageResult.hasMore);
   }
 
+  /* The privacy footnote is server-rendered as the section's last child, so
+     everything this controller adds has to land above it rather than after. */
+  function appendToSection(node: Element): void {
+    const footnote = section.querySelector('.blog-comments__privacy');
+    if (footnote) footnote.before(node);
+    else section.append(node);
+  }
+
   function buildLoadedShell(): void {
     const skeleton = section.querySelector('.blog-comments__skeleton');
     skeleton?.remove();
@@ -316,7 +327,7 @@ export function initCommentsController(): void {
     list = el('div', { class: 'blog-comments__list' });
     replyBox = buildReplyBox();
     list.append(replyBox);
-    section.append(list);
+    appendToSection(list);
 
     replyField = replyBox.querySelector<HTMLTextAreaElement>('.blog-compose__field')!;
     applyPhase(replyBox, phase, claimed, viewer);
@@ -328,8 +339,9 @@ export function initCommentsController(): void {
   function showError(): void {
     const error = el(
       'div',
-      { class: 'blog-comments__error' },
+      { class: 'blog-comments__notice blog-comments__error' },
       [
+        parseStaticSvg(THREAD_ERROR_MARK_SVG),
         el('p', {}, [t.loadError]),
         el('button', { type: 'button', class: 'blog-comments__more-btn', 'data-retry-load': '' }, [t.retry]),
       ],
@@ -338,7 +350,7 @@ export function initCommentsController(): void {
       error.remove();
       void bootstrap();
     }, { once: true });
-    section.append(error);
+    appendToSection(error);
   }
 
   function toggleEmptyState(empty: boolean): void {

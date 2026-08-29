@@ -639,52 +639,6 @@
   height: 15px;
 }
 
-/* Second item in the bar, one step quieter than the Markdown hint beside it:
-   the hint answers a question the reader is having, this answers one they are
-   entitled to an answer to but did not ask. Separated by a middot rather than
-   a gap, because two faint runs of the same size and colour with only space
-   between them read as one sentence. */
-.blog-compose__privacy {
-  /* Deliberately NOT inline-flex: the copy carries a space on each side of the
-     link, and a flex container turns each text run into an item whose leading
-     and trailing whitespace is dropped -- which would silently glue the bold,
-     underlined link to the CJK either side of it. Plain inline flow keeps the
-     spaces the copy asked for. */
-  min-width: 0;
-  font-size: var(--comment-meta);
-  line-height: 1;
-  white-space: nowrap;
-  color: var(--blog-faint);
-  opacity: 0.75;
-}
-
-.blog-compose__privacy::before {
-  content: '·';
-  margin-inline-end: 8px;
-  opacity: 0.6;
-}
-
-.blog-compose__privacy a {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  text-decoration-thickness: from-font;
-  transition: color 0.15s ease;
-}
-
-.blog-compose__privacy a:hover {
-  color: var(--blog-ink);
-}
-
-/* Narrow boxes drop it rather than wrapping the bar onto a second line: the
-   send button is the bar's right edge, and it cannot move to make room for a
-   note. The same sentence is one tap away on /privacy. */
-@media (max-width: 520px) {
-  .blog-compose__privacy {
-    display: none;
-  }
-}
-
 /* Whose name is going on the comment. Hidden outright when there is nothing to
    say -- an anonymous reader has already answered that question in the two
    fields above, and an empty strip below the box was 46px of nothing holding
@@ -1425,19 +1379,30 @@
   margin-top: 4px;
 }
 
-.blog-comments__error {
+/* The shape both "there is no thread here" states share: a mark, a line, and
+   for the error, the way back. Centred, because neither one is a comment and
+   sitting them at the thread's left margin made them read as the first row. */
+.blog-comments__notice {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 12px 0;
+  padding: 26px 0 30px;
   font-size: var(--comment-note);
   color: var(--blog-faint);
   text-align: center;
 }
 
-.blog-comments__error p {
+.blog-comments__notice p {
   margin: 0;
+}
+
+/* Behind the words, not beside them: the sentence is the message and the
+   drawing only sets the tone. */
+.blog-comments__mark {
+  width: 30px;
+  height: 30px;
+  opacity: 0.45;
 }
 
 .blog-comments__more-btn {
@@ -1516,6 +1481,40 @@
     animation: none;
     opacity: 0.7;
   }
+}
+
+/* A closed thread is read-only, full stop. Rather than pick which of like,
+   reply, edit and delete survive -- and defend that list later -- the whole
+   action row and the reply box go. `display: none` also takes them out of the
+   tab order, which hiding them any other way would not. */
+.blog-comments[data-state='closed'] .blog-comment__actions,
+.blog-comments[data-state='closed'] .blog-reply {
+  display: none;
+}
+
+/* --- Privacy footnote ---------------------------------------------------- */
+/* The last line in the section, and the quietest. It was in the compose bar
+   for a day and it was too loud there -- a second run of grey text beside the
+   Markdown hint, in the one place a reader is trying to concentrate. Down here
+   it is where a footnote goes: findable, skippable, out of the way. */
+.blog-comments__privacy {
+  margin: 30px 0 0;
+  font-size: var(--comment-meta);
+  line-height: 1.6;
+  color: var(--blog-faint);
+  opacity: 0.62;
+}
+
+.blog-comments__privacy a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: from-font;
+  transition: color 0.15s ease;
+}
+
+.blog-comments__privacy a:hover {
+  color: var(--blog-ink);
 }
 
 /* --- Empty and loading --------------------------------------------------- */

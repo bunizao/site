@@ -21,6 +21,11 @@ export interface CommentsCopy {
   empty: string;
   loadError: string;
   retry: string;
+  /** The author closed the thread on this post -- an internal `#no-comments`
+      tag in Ghost, read in blog/[slug].astro. Covers both cases with one
+      string: a post that never opened comments, and one locked after the
+      fact, which still renders whatever was already written below this. */
+  closed: string;
   loadMore: string;
   loading: string;
 
@@ -40,11 +45,13 @@ export interface CommentsCopy {
   /** The travelling reply box points at whoever it landed under. */
   replyTo: (author: string) => string;
   hint: string;
-  /** The other half of the compose bar: what happens to the address the box
-      just asked for. Split around the link to /privacy and concatenated with no
-      separator, so each language carries its own spacing -- Chinese wants a gap
-      on both sides, because the link renders bold and underlined and a Latin
-      style rule set that tight against CJK reads as a typo. */
+  /** A footnote under the whole thread, not a label on the compose box: it is
+      about the feature, not about one field, and beside the Markdown hint it
+      doubled the text in a bar that reads better with one thing in it.
+      Split around the link to /privacy and concatenated with no separator, so
+      each language carries its own spacing -- Chinese wants a gap on both
+      sides, because the link renders underlined and a Latin style rule set
+      that tight against CJK reads as a typo. */
   privacy: { prefix: string; link: string; suffix: string };
   post: string;
   postAria: string;
@@ -115,8 +122,9 @@ export interface CommentsCopy {
 const zh: CommentsCopy = {
   title: '评论',
   empty: '还没有人来过。第一个说点什么吧。',
-  loadError: '评论没能加载。',
+  loadError: '评论好像迷路了。',
   retry: '重试',
+  closed: '这篇的评论区打烊了。',
   loadMore: '更多评论',
   loading: '加载中',
 
@@ -185,8 +193,9 @@ const zh: CommentsCopy = {
 const en: CommentsCopy = {
   title: 'Comments',
   empty: 'Nothing here yet. Be the first to say something.',
-  loadError: "Couldn't load comments.",
+  loadError: "The comments didn't make it.",
   retry: 'Retry',
+  closed: 'Comments are closed on this post.',
   loadMore: 'Load more',
   loading: 'Loading',
 
