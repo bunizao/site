@@ -110,9 +110,13 @@ const plainParts = plain.length
     display: inline-flex;
     align-items: baseline;
     gap: 5px;
+    /* One step up from the line's faint grey, and no accent. The name used to
+       take --blog-dian, which put a link-blue word in a line that is not a
+       link and set it against the vendor mark's own brand colour immediately
+       to its left -- two colours inside 14px of metadata. The mark is the only
+       thing here that gets to be coloured; the name is told apart by weight. */
+    color: var(--blog-body);
     font-weight: 600;
-    /* --blog-dian is the ink reserved for this exact mark (see src/data/site.ts). */
-    color: var(--blog-dian);
     white-space: nowrap;
   }
 </style>

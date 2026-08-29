@@ -304,14 +304,16 @@ export interface BlogInk {
 
 export const blogPalette = {
   dai: { light: '#3C5D80', dark: '#7FA8D6', role: 'primary' },
+  /* Unspent since the "Not by AI" pledge was removed -- see docs/surfaces/blog.md. */
   dian: { light: '#27406E', dark: '#6FA8FF', role: 'mark' },
   ji: { light: '#3E8BD8', dark: '#6FB2F2', role: 'highlight' },
 } as const satisfies Record<string, BlogInk>;
 
 // --- Authors ----------------------------------------------------------------
-// Bylines for the "Not by AI" pledge (and any future multi-author posts). The
-// avatar reuses the site avatar; `manifesto` is the note revealed on hover at
-// the foot of an article tagged #not-by-ai.
+// Bylines for the publication (and any future multi-author posts). The avatar
+// reuses the site avatar; `manifesto` is the author's own note on how they
+// write, which wants a page of its own -- it used to be a hover card at the
+// foot of every article, hiding one sentence behind a popover.
 
 export interface Author {
   name: string;

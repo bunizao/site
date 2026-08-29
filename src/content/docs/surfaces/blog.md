@@ -41,9 +41,12 @@ contrast against the surface it sits on:
 - `{colors.dai}` — **primary**. Links, table-of-contents progress, focus rings,
   hover. The greyed slate-blue shanshui painters dilute to push a ridge into the
   haze. Text-safe in both modes (6.84:1 / 7.99:1).
-- `{colors.dian}` — **the mark**. The "Not by AI" pledge and the author byline.
-  A deep, concentrated indigo — the firmest blue on the page, because it stands
-  for the human behind the work. Text-safe in both modes (10.27:1 / 8.22:1).
+- `{colors.dian}` — **reserved**. A deep, concentrated indigo, the firmest blue
+  on the page. It was the ink of the "Not by AI" pledge; that pledge is gone
+  (provenance is now declared by `{components.ai-credit}` when a post credits a
+  model, rather than claimed on every post), and nothing has taken the shade
+  over. It stays in the set, unspent, until something needs an ink that is not
+  a link. Text-safe in both modes (10.27:1 / 8.22:1).
 - `{colors.ji}` — **highlight, fill only**. The pale "sky after rain" wash for
   emphasis on the reading surface. (Blog search now lives in the site-wide ⌘K
   palette, which uses its own neutral mark, so `ji` is a reserved reading-zone
@@ -117,8 +120,10 @@ Components compose the tokens above; they never introduce new colour or type.
 - `{components.tag-pill}` — `{colors.dai}` text on a 12% `{colors.dai}` wash. A
   tag may override its own accent via `--tag-accent`; absent that, it falls back
   to `{colors.dai}`.
-- `{components.not-by-ai}` — the pledge trigger and byline, in `{colors.dian}`.
-  This is the only place the deepest ink appears, by design.
+- `{components.ai-credit}` — the model co-author line in the post's colophon.
+  Carries no accent of its own: the vendor mark beside each model name is
+  already coloured, and a second colour inside 14px of metadata reads as two
+  competing marks. The name is told apart by weight on `{colors.body}`.
 - `{components.search-mark}` — reserved. Blog full-text search (Pagefind) now
   renders inside the site-wide ⌘K palette, which owns its own neutral highlight;
   the blog zone no longer draws its own search mark.
@@ -128,8 +133,9 @@ Components compose the tokens above; they never introduce new colour or type.
 ## Do's and Don'ts
 
 - **Do** keep every accent inside the blue ink set. If a new surface needs an
-  accent, it is `{colors.dai}` unless it is specifically the human mark
-  (`{colors.dian}`) or a highlight wash (`{colors.ji}`).
+  accent, it is `{colors.dai}` unless it is a highlight wash (`{colors.ji}`);
+  `{colors.dian}` is currently unspent and stays that way until a surface has a
+  reason for an ink that is not a link.
 - **Do** derive greys from `{colors.ink}`'s alpha scale, so both modes stay in
   sync for free.
 - **Do** confirm any new text/background pair clears **WCAG AA 4.5:1** in *both*
@@ -249,9 +255,9 @@ components:
     backgroundColor: 'color-mix(in srgb, {colors.ji} 26%, transparent)'
     textColor: 'inherit'
     rounded: '3px'
-  not-by-ai:
+  ai-credit:
     typography: '{typography.meta}'
-    textColor: '{colors.dian}'
+    textColor: '{colors.body}'
   callout:
     typography: '{typography.excerpt}'
     textColor: '{colors.body}'
