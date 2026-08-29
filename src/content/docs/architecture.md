@@ -36,6 +36,31 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 - Custom color system via CSS variables (HSL format) in `globals.css`
 - `tailwindcss-animate` plugin for animation utilities
 
+## Locale and Copy
+
+The blog picks its language per surface in `blog.locale` (`src/data/site.ts`):
+`home` is English, `blog` is Chinese, `default` covers everything else. There
+are two places the words themselves live, split by where they have to be
+rendered:
+
+1. **`blog.copy[locale]` in `src/data/site.ts`** — page chrome: publication
+   name and tagline, the AI co-author credit, the reuse licence, the whole
+   subscribe panel, and the share buttons. Server-rendered only. `site.ts`
+   must never be imported into a client bundle, so the few strings a client
+   controller writes after the fact (subscribe outcomes, the copied-link
+   label) are stamped onto the DOM as `data-*` attributes and read back from
+   there.
+2. **`src/features/comments/copy.ts`** — everything the comment thread says.
+   It lives apart because `client/comments-controller.ts` renders rows in the
+   browser and needs the table there. `CommentsSection.astro` stamps
+   `data-locale` on the thread root; `copyFor(node)` resolves a locale from
+   any descendant, which is what keeps the server renderer and the client
+   renderer from drifting apart on language.
+
+Add a string to the interface first — both tables are `satisfies
+Record<BlogLocale, …>`, so a missing translation is a type error, not a
+silently English page.
+
 ## Data Sources
 
 1. **Ghost CMS** (`src/features/posts/server/content.ts`, `src/features/posts/server/ghost-admin.ts`) — Public blog posts use the Content API during builds. Discovery surfaces read `getListedPosts()`, while direct slug route generation reads `getAccessiblePosts()`. A public post carrying the internal Ghost tag `#unlisted` (`hash-unlisted`) remains reachable by slug but is removed from lists, archives, feeds, sitemaps, search, agent indexes, and notification sources. Local draft previews use the server-only Admin API and never expose its credential to the browser.
