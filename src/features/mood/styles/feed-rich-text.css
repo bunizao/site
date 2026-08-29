@@ -317,16 +317,22 @@
   cursor: text;
 }
 
-/* Expandable blockquote — JS adds .is-collapsible (clamp) only when it
-   overflows, then .is-expanded toggles the full height. */
-.tg-blockquote-expandable.is-collapsible {
+/* Expandable blockquote — clamped from first paint whenever JS will hydrate
+   (html.js is set by an inline head script), so hydration never shifts layout.
+   hydrateMoodRichText then adds .is-collapsible (affordance) on quotes that
+   overflow or .is-static (lifts the clamp, visually a no-op) on quotes that
+   fit. Without JS the quote stays fully visible. */
+html.js .tg-blockquote-expandable:not(.is-expanded):not(.is-static) {
   position: relative;
   max-height: 5.4em;
   overflow: hidden;
+}
+
+.tg-blockquote-expandable.is-collapsible {
   cursor: pointer;
 }
 
-.tg-blockquote-expandable.is-collapsible::after {
+.tg-blockquote-expandable.is-collapsible:not(.is-expanded)::after {
   content: "";
   position: absolute;
   inset-inline: 0;
@@ -334,14 +340,6 @@
   height: 2.2em;
   background: linear-gradient(to bottom, transparent, hsl(var(--background)));
   pointer-events: none;
-}
-
-.tg-blockquote-expandable.is-expanded {
-  max-height: none;
-}
-
-.tg-blockquote-expandable.is-expanded::after {
-  display: none;
 }
 
 @media (min-width: 640px) {
