@@ -101,7 +101,16 @@ Incident mechanics first, so fixes map to causes: with `Type=oneshot` and no
 and a systemd timer does not trigger a unit that is already activating, so
 every later tick is silently skipped. One hung MTProto connect (2026-08-11)
 froze the pipeline for 18 days. The freeze was not "stopped running"; it was
-"still running, therefore never re-run".
+"still running, therefore never re-run". Post-mortem detail from the kill on
+08-29: the hung process had consumed **2w 3d 16h of CPU** — a GramJS
+reconnect loop spinning at full burn, not a passive socket wait. A spinning
+loop can starve in-process guards, which is why the external
+`TimeoutStartSec` is the primary defense and the in-script watchdog only the
+second layer. Note `Type=oneshot` defaults `TimeoutStartSec` to *infinity* —
+the drop-in is mandatory, not optional hardening. After the kill, the
+pending timer trigger fired immediately and the run completed in 3 s:
+verified 100, previews 3 (posts 3765/3771/3779 confirmed healed in the
+archive read path).
 
 Checklist, both units:
 
