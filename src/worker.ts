@@ -1,6 +1,9 @@
 import astroWorker from '@astrojs/cloudflare/entrypoints/server';
 import {
   cacheHtmlPageResponse,
+  fetchBlogAsset,
+  resolveBlogRequest,
+  withBlogVariantHeaders,
   isNeverCachePath,
   readCachedHtmlPage,
   redirectCanonicalUrl,
@@ -64,19 +67,33 @@ export default {
 
     if (markdownResponse) return markdownResponse;
 
-    const cachedHtmlPage = isNeverCachePath(url.pathname) ? null : await readCachedHtmlPage(request);
-    if (cachedHtmlPage) return cachedHtmlPage;
+    const blogResolution = await resolveBlogRequest(request, locals);
+    if (blogResolution?.redirect) return blogResolution.redirect;
+
+    const cachedHtmlPage = isNeverCachePath(url.pathname)
+      ? null
+      : await readCachedHtmlPage(request, createLocals(env));
+    if (cachedHtmlPage) {
+      return blogResolution
+        ? withBlogVariantHeaders(request, cachedHtmlPage, blogResolution)
+        : cachedHtmlPage;
+    }
+
+    const blogAsset = await fetchBlogAsset(request, createLocals(env));
+    if (blogAsset) {
+      return cacheHtmlPageResponse(request, withContentPolicy(request, blogAsset), createLocals(env));
+    }
 
     const assetResponse = isNeverCachePath(url.pathname)
       ? null
       : await fetchStaticAsset(request, env);
     if (assetResponse) {
-      return cacheHtmlPageResponse(request, withContentPolicy(request, assetResponse));
+      return cacheHtmlPageResponse(request, withContentPolicy(request, assetResponse), createLocals(env));
     }
 
     const response = await siteWorker.fetch(request, env, context);
     if (isNeverCachePath(url.pathname)) return response;
 
-    return cacheHtmlPageResponse(request, withContentPolicy(request, response));
+    return cacheHtmlPageResponse(request, withContentPolicy(request, response), createLocals(env));
   },
 };

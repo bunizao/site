@@ -20,7 +20,7 @@
     "dev:preview": "DEV_SURFACE=preview PUBLIC_DEV_SURFACE=preview ASTRO_DEV_BACKGROUND=0 NODE_OPTIONS=--max-old-space-size=1024 astro dev",
     "dev:portal": "ADMIN_DEV_BYPASS=1 DEV_SURFACE=preview PUBLIC_DEV_SURFACE=preview ASTRO_DEV_BACKGROUND=0 NODE_OPTIONS=--max-old-space-size=1024 astro dev",
     "dev:api": "API_DEV_ORIGIN=http://127.0.0.1:8787 ASTRO_DEV_BACKGROUND=0 NODE_OPTIONS=--max-old-space-size=1024 astro dev",
-    "build": "bun run contracts:build && astro build && bun scripts/generate-agent-markdown.ts && pagefind --site dist/client --force-language zh && node scripts/cloudflare-deploy-guard.mjs install",
+    "build": "bun run contracts:build && astro build && bun scripts/generate-i18n-manifest.ts && bun scripts/generate-agent-markdown.ts && pagefind --site dist/client --force-language zh && node scripts/cloudflare-deploy-guard.mjs install",
     "sync:models": "node scripts/sync-model-registry.mjs",
     "contracts:build": "bun run --cwd packages/contracts build",
     "contracts:check": "bun run --cwd packages/contracts check",

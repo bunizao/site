@@ -31,7 +31,13 @@ import {
   buildPostPageProps,
   type PostPageProps,
 } from '@/features/posts/server/page-props';
-import { formatPostDate, postTitleTransitionName } from '@/features/posts/format';
+import {
+  getCanonicalSlug,
+  getPostLocale,
+  isTranslation,
+  selectRequestedVersion,
+} from '@/features/posts/i18n';
+import { formatPostDate, postPath, postTitleTransitionName } from '@/features/posts/format';
 import { buildBlogOgImageUrl } from '@/features/posts/server/og-image';
 import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
@@ -47,7 +53,7 @@ export const getStaticPaths = (async () => {
   return Promise.all(
     posts.map(async (post) => ({
       params: { slug: post.slug },
-      props: await buildPostPageProps(post, listedPosts),
+      props: await buildPostPageProps(post, listedPosts, posts),
     })),
   );
 }) satisfies GetStaticPaths;
@@ -56,20 +62,43 @@ export const getStaticPaths = (async () => {
 // path is server-rendered so middleware negotiation can be tested under
 // `astro dev`; production keeps the static article files for Pagefind.
 const slug = Astro.params.slug ?? '';
-let { post, featureBlur, prev, next } = Astro.props as Partial<PostPageProps>;
+// Which version of the article this request wants. Only the server-rendered
+// path can honour it: a prerendered file is one language by construction, and
+// in production the swap happens at the edge (plans/blog-i18n.md, step 5).
+// `astro dev` runs this route as SSR precisely so the switcher is testable.
+const requestedLocale = (Astro.locals as unknown as { blogLocale?: string }).blogLocale
+  ?? Astro.url.searchParams.get('lang');
+let { post, featureBlur, prev, next, versions } = Astro.props as Partial<PostPageProps>;
 
 if (!post) {
-  const [rawPost, listedPosts] = await Promise.all([
+  const [rawPost, listedPosts, accessiblePosts] = await Promise.all([
     getPostBySlug(slug, { outputTarget: 'web' }),
     getListedPosts(),
+    getAccessiblePosts({ outputTarget: 'web' }),
   ]);
 
   if (!rawPost) {
     return new Response(null, { status: 404 });
   }
 
-  ({ post, featureBlur, prev, next } = await buildPostPageProps(rawPost, listedPosts));
+  ({ post, featureBlur, prev, next, versions } = await buildPostPageProps(
+    selectRequestedVersion(rawPost, accessiblePosts, requestedLocale),
+    listedPosts,
+    accessiblePosts,
+  ));
+} else if (requestedLocale) {
+  const accessiblePosts = await getAccessiblePosts({ outputTarget: 'web' });
+  const rawPost = await getPostBySlug(slug, { outputTarget: 'web' });
+  if (rawPost) {
+    ({ post, featureBlur, prev, next, versions } = await buildPostPageProps(
+      selectRequestedVersion(rawPost, accessiblePosts, requestedLocale),
+      await getListedPosts(),
+      accessiblePosts,
+    ));
+  }
 }
+
+versions ??= [];
 
 prev ??= null;
 next ??= null;
@@ -113,12 +142,30 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
   : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
 const unlisted = isUnlistedPost(post);
+// A translation renders as if it lives at the canonical URL, because its bytes
+// are served from there. Everything derived from `path` — canonical, og:url,
+// JSON-LD @id, the markdown alternate — follows that, not the build path.
+const postLocale = getPostLocale(post);
+// The default locale owns the bare URL; a translation owns its `?lang=` URL, so
+// that every hreflang target is self-canonical and the cluster survives.
+const canonicalPath =
+  versions.find((version) => version.current)?.indexedHref
+  ?? postPath(getCanonicalSlug(post));
+// Out of Pagefind, still in Google: English prose segmented by the CJK
+// tokenizer surfaces as a duplicate hit for what its sibling already covers.
+const translated = isTranslation(post);
 ---
 
 <BlogLayout
   title={post.title}
   description={postDescription}
-  path={`/blog/${post.slug}`}
+  path={canonicalPath}
+  locale={postLocale}
+  excludeFromSearch={translated}
+  languageAlternates={versions.map((version) => ({
+    locale: version.locale,
+    href: version.indexedHref,
+  }))}
   ogType="article"
   ogImage={postOgImage}
   ogImageAlt={`${post.title} preview image`}
@@ -152,7 +199,11 @@ const unlisted = isUnlistedPost(post);
           style="view-transition-class:post-title"
         >{post.title}</h1>
         <PostMeta post={post} />
-        <TagList tags={post.tags} />
+        <TagList
+          tags={post.tags}
+          versions={versions}
+          languageLabel={blog.copy[postLocale].languageSwitcher.open}
+        />
       </header>
 
       {post.featureImage && (
@@ -184,7 +235,9 @@ const unlisted = isUnlistedPost(post);
 
   <footer class="blog-end">
     <div class="blog-end__bar">
-      {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
+      {authorshipCredits.length > 0
+        ? <AiCredit credits={authorshipCredits} locale={postLocale} />
+        : <NotByAI locale={postLocale} />}
       <div class="blog-article-sub">
         <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
         <ShareRow title={post.title} />

@@ -904,6 +904,106 @@ test.describe('Blog reading UI', () => {
     expect(typeof submittedPayload.timezone).toBe('string');
   });
 });
+// The switcher is the one control on the blog that moves the whole page, so its
+// motion is asserted rather than eyeballed. `Blog reading UI` above runs under
+// reduced motion on purpose; these need the real thing.
+test.describe('Article language switcher motion', () => {
+  // The fixture pair: `quiet-architecture` (中文) and its `#en:` translation.
+  const ARTICLE = '/blog/quiet-architecture';
+
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+  });
+
+  test('opens and closes the menu as an interruptible transition', async ({ page }) => {
+    await page.goto(ARTICLE, { waitUntil: 'load' });
+
+    const menu = page.locator('.blog-lang__menu');
+    await page.locator('.blog-lang__pill').click();
+    await expect(menu).not.toHaveAttribute('hidden', /.*/);
+    await expect(menu).toHaveCSS('opacity', '1');
+
+    // Closing keeps the element rendered for the length of the exit — that is
+    // what `display` + `allow-discrete` buys — but it must stop taking clicks
+    // immediately, or a closing menu can still navigate.
+    await page.locator('.blog-lang__pill').click();
+    const closing = await menu.evaluate((node) => ({
+      display: getComputedStyle(node).display,
+      pointerEvents: getComputedStyle(node).pointerEvents,
+      transitions: node.getAnimations().length,
+    }));
+    expect(closing.display).toBe('block');
+    expect(closing.pointerEvents).toBe('none');
+    expect(closing.transitions).toBeGreaterThan(0);
+
+    await expect(menu).toHaveCSS('display', 'none');
+  });
+
+  test('dismisses the menu before the outgoing page is captured', async ({ page }) => {
+    // The outgoing snapshot is taken at `pageswap` and then crossfades over the
+    // new article. A dropdown dissolving there is clutter, not motion.
+    await page.addInitScript(() => {
+      window.addEventListener('pageswap', () => {
+        const menu = document.querySelector('.blog-lang__menu');
+        sessionStorage.setItem('menu-at-swap', menu ? getComputedStyle(menu).display : 'missing');
+      });
+    });
+
+    await page.goto(ARTICLE, { waitUntil: 'load' });
+    await page.locator('.blog-lang__pill').click();
+    await page.locator('.blog-lang__item[hreflang="en"]').click();
+    await page.waitForURL(/\?lang=en$/);
+
+    expect(await page.evaluate(() => sessionStorage.getItem('menu-at-swap'))).toBe('none');
+  });
+
+  test('swaps the page on a language switch and keeps the arrival elsewhere', async ({ page }) => {
+    // `pagereveal` fires before any bundled module runs, so the marker is read
+    // from the frame after it — the same window the transition itself uses.
+    await page.addInitScript(() => {
+      (window as unknown as { __vt?: unknown }).__vt = null;
+      window.addEventListener('pagereveal', (event) => {
+        if (!(event as Event & { viewTransition?: unknown }).viewTransition) return;
+        requestAnimationFrame(() => {
+          (window as unknown as { __vt: unknown }).__vt = {
+            kind: document.documentElement.getAttribute('data-vt-kind'),
+            root: document
+              .getAnimations()
+              .filter((a) => (a.effect as KeyframeEffect | null)?.pseudoElement === '::view-transition-new(root)')
+              .map((a) => a.effect?.getTiming().duration),
+          };
+        });
+      });
+    });
+
+    await page.goto(ARTICLE, { waitUntil: 'load' });
+    await page.locator('.blog-lang__pill').click();
+    await page.locator('.blog-lang__item[hreflang="en"]').click();
+    await page.waitForURL(/\?lang=en$/);
+
+    const swap = await page.waitForFunction(() => (window as unknown as { __vt: unknown }).__vt)
+      .then((handle) => handle.jsonValue() as Promise<{ kind: string | null; root: number[] }>);
+    expect(swap.kind).toBe('lang');
+    expect(swap.root).toEqual([200]);
+
+    // And it is only ever the navigation in flight: left behind, it would hand
+    // the next one a transition written for this one.
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.getAttribute('data-vt-kind')))
+      .toBeNull();
+
+    await page.evaluate(() => {
+      (window as unknown as { __vt: unknown }).__vt = null;
+      location.href = '/blog/notes-from-the-links-lab';
+    });
+    await page.waitForURL(/notes-from-the-links-lab/);
+
+    const arrival = await page.waitForFunction(() => (window as unknown as { __vt: unknown }).__vt)
+      .then((handle) => handle.jsonValue() as Promise<{ kind: string | null; root: number[] }>);
+    expect(arrival.kind).toBeNull();
+    expect(arrival.root).toEqual([460]);
+  });
+});
 
 interface MorphProbe {
   transition: boolean;

@@ -1,0 +1,198 @@
+---
+// Article language switcher: one pill in the tag row that opens a short menu of
+// the versions this article exists in. Renders nothing when there is only one —
+// a control that appears is a control that works.
+//
+// It lives inside .blog-tags on purpose. Built from .blog-tag's own geometry
+// (same size, padding and radius) it cannot drift out of alignment, and the
+// header gains no extra row. A hairline plus an accent tint keep it from
+// reading as one more tag: the rule says "different group", the tint says
+// "this one does something".
+import type { PostVersion } from '../i18n';
+
+interface Props {
+  versions: PostVersion[];
+  /** Written in the language the reader is currently being shown. */
+  label: string;
+}
+
+const { versions, label } = Astro.props;
+const current = versions.find((version) => version.current) ?? versions[0];
+---
+
+{versions.length > 1 && (
+  <li class="blog-lang">
+    <button
+      class="blog-lang__pill"
+      type="button"
+      aria-label={label}
+      aria-haspopup="menu"
+      aria-expanded="false"
+    >
+      <span class="blog-lang__glyph" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" />
+          <path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
+        </svg>
+      </span>
+      <span lang={current.locale}>{current.label}</span>
+      <span class="blog-lang__chev" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </span>
+    </button>
+
+    <div class="blog-lang__menu" role="menu" aria-label={label} hidden>
+      {versions.map((version) => (
+        <a
+          class="blog-lang__item"
+          role="menuitemradio"
+          aria-checked={version.current}
+          href={version.href}
+          hreflang={version.locale}
+          lang={version.locale}
+          rel="alternate"
+        >
+          <span class="blog-lang__check" aria-hidden="true">
+            {version.current && (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            )}
+          </span>
+          <span>{version.label}</span>
+        </a>
+      ))}
+    </div>
+    <noscript>
+      <div class="blog-lang__noscript">
+        {versions.map((version) => (
+          <a href={version.href} hreflang={version.locale} lang={version.locale} rel="alternate">
+            {version.label}
+          </a>
+        ))}
+      </div>
+    </noscript>
+  </li>
+)}
+
+<script>
+  import { prefetch } from 'astro:prefetch';
+
+  const root = document.querySelector<HTMLElement>('.blog-lang');
+  const pill = root?.querySelector<HTMLButtonElement>('.blog-lang__pill');
+  const menu = root?.querySelector<HTMLElement>('.blog-lang__menu');
+
+  if (root && pill && menu) {
+    const items = () => [...menu.querySelectorAll<HTMLAnchorElement>('.blog-lang__item')];
+
+    // Switching language is a full document navigation, so whatever is not in
+    // the HTTP cache when the reader clicks is dead time with the old page
+    // frozen on screen — most of what reads as a sluggish switcher. Astro's
+    // default hover strategy only warms a version once the cursor is on that
+    // row; reaching for the pill is intent enough, and there are never more
+    // than a handful of versions. Once per page: `prefetch` dedupes anyway,
+    // but the flag keeps the whole thing off the hover path after the first.
+    let warmed = false;
+    const warm = () => {
+      if (warmed) return;
+      warmed = true;
+      for (const item of items()) prefetch(item.href);
+    };
+
+    const open = (focus: boolean) => {
+      menu.hidden = false;
+      pill.setAttribute('aria-expanded', 'true');
+      // Left-anchored so the menu's labels sit on the same vertical line as the
+      // pill's; flipped only when that would run past the reading column.
+      menu.dataset.anchor = 'left';
+      const column = root.closest('.blog-zone')?.getBoundingClientRect().right;
+      if (menu.getBoundingClientRect().right > (column ?? window.innerWidth) - 24) {
+        menu.dataset.anchor = 'right';
+      }
+      // Hovering must not steal focus — the cursor is not the keyboard.
+      if (focus) {
+        const list = items();
+        (list.find((item) => item.getAttribute('aria-checked') === 'true') ?? list[0])?.focus();
+      }
+    };
+
+    const close = (restore: boolean) => {
+      menu.hidden = true;
+      pill.setAttribute('aria-expanded', 'false');
+      if (restore) pill.focus();
+    };
+
+    // Hover opens on fine pointers only; touch has no hover and would open on
+    // the same tap that should activate. The delays are the whole trick: 90ms
+    // in stops the menu flashing as the cursor crosses the tag row, 200ms out
+    // survives the diagonal travel down into it.
+    const hoverable = matchMedia('(hover: hover) and (pointer: fine)');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const intend = (wanted: boolean) => {
+      clearTimeout(timer);
+      if (wanted === !menu.hidden) return;
+      timer = setTimeout(() => (wanted ? open(false) : close(false)), wanted ? 90 : 200);
+    };
+
+    const fromMouse = (event: PointerEvent) =>
+      hoverable.matches && event.pointerType === 'mouse';
+
+    root.addEventListener('pointerover', (event) => {
+      if (fromMouse(event)) intend(true);
+    });
+    root.addEventListener('pointerout', (event) => {
+      // Staying inside .blog-lang means we only moved between pill and menu.
+      if (fromMouse(event) && !root.contains(event.relatedTarget as Node | null)) intend(false);
+    });
+
+    pill.addEventListener('pointerenter', warm);
+    pill.addEventListener('focus', warm);
+
+    pill.addEventListener('click', () => {
+      // Touch has no hover, so the tap that opens the menu is the first signal.
+      warm();
+      clearTimeout(timer);
+      if (menu.hidden) open(true);
+      else close(true);
+    });
+
+    menu.addEventListener('click', (event) => {
+      // A modifier or middle click opens a new tab: this page is not going
+      // anywhere, so neither is its menu.
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      if (!(event.target as Element).closest('.blog-lang__item')) return;
+      // Selecting dismisses at once, the way a native menu does. The exit
+      // transition is suppressed rather than awaited because the navigation is
+      // already in flight: a menu caught half-open is what the outgoing view
+      // transition snapshot would otherwise carry across the crossfade, and a
+      // dropdown dissolving over the new article is clutter, not motion.
+      menu.style.transition = 'none';
+      close(false);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (menu.hidden) return;
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close(true);
+        return;
+      }
+
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+
+      event.preventDefault();
+      const list = items();
+      const at = list.indexOf(document.activeElement as HTMLAnchorElement);
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      list[at === -1 ? 0 : (at + step + list.length) % list.length]?.focus();
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!menu.hidden && !root.contains(event.target as Node)) close(false);
+    });
+  }
+</script>

@@ -1170,6 +1170,76 @@ html.no-transition * {
   object-fit: cover;
 }
 
+/* ─── Language switch ───────────────────────────────────────────────────────
+   Same article, same layout, the same boxes in the same places — only the words
+   change. The baseline above is written for two pages that differ, and reads as
+   arriving somewhere: 240ms out, then 460ms of expo with a lift and a scale.
+   Spent on a page that never moved, that is ~0.7s of travel to report a text
+   swap, which is exactly what felt stuck.
+
+   So: no transform, no expo, and a window short enough that the switch reads as
+   one gesture. The two snapshots are pixel-identical apart from the prose, so a
+   straight dissolve lands as the words changing in place rather than as a page
+   replacing a page.
+
+   `data-vt-kind` is set on the *incoming* document by BlogLayout's no-FOUC
+   script — a cross-document transition is styled by the new document, so that
+   is the only side that can know, and `pagereveal` fires before any bundled
+   module could tell it. */
+/* The UA applies `mix-blend-mode: plus-lighter` through its *default* animation,
+   never through a static rule, so overriding `animation` silently drops it and
+   the two snapshots start compositing normally. Restoring it by hand is not
+   optional: under normal blending the pair's opacities have to sum to exactly 1
+   or the page brightens where they go over and dims where they fall short.
+   Measured at 1.19 mid-tween with the first pass's mismatched ramps (120ms out
+   against a front-loaded 200ms in) — one bright lurch and a dip, which is what
+   read as the whole page flinching. plus-lighter plus complementary *linear*
+   ramps is the only combination that holds luminance flat end to end, and it is
+   why neither side here is eased. */
+:root[data-vt-kind='lang']::view-transition-old(root),
+:root[data-vt-kind='lang']::view-transition-new(root) {
+  mix-blend-mode: plus-lighter;
+}
+
+:root[data-vt-kind='lang']::view-transition-old(root) {
+  animation: vt-root-out 200ms linear both;
+}
+
+:root[data-vt-kind='lang']::view-transition-new(root) {
+  animation: vt-fade-in 200ms linear both;
+}
+
+/* What outlives the switch travels instead of dissolving: the publication mark,
+   the hero, and the pill the reader just used. Their own crossfades match the
+   dissolve so nothing ghosts, but their boxes keep settling for a beat longer.
+   The prose reflows between languages, so these genuinely have somewhere to go
+   — letting them arrive just after the text has landed is what makes the switch
+   read as one considered move rather than a page being replaced. */
+:root[data-vt-kind='lang']::view-transition-old(blog-hero),
+:root[data-vt-kind='lang']::view-transition-new(blog-hero),
+:root[data-vt-kind='lang']::view-transition-old(blog-mark),
+:root[data-vt-kind='lang']::view-transition-new(blog-mark),
+:root[data-vt-kind='lang']::view-transition-old(blog-lang-pill),
+:root[data-vt-kind='lang']::view-transition-new(blog-lang-pill) {
+  animation-duration: 200ms;
+  animation-timing-function: linear;
+}
+
+:root[data-vt-kind='lang']::view-transition-group(blog-hero),
+:root[data-vt-kind='lang']::view-transition-group(blog-mark),
+:root[data-vt-kind='lang']::view-transition-group(blog-lang-pill) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* The switcher pill is a shared element on every navigation between two
+   translated articles, not just on a language switch, so it needs a baseline in
+   step with the rest of the arrival. */
+::view-transition-group(blog-lang-pill) {
+  animation-duration: 460ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* No WebKit override lives here on purpose, and as of 2026-08-01 no skip either.
    WebKit used to stutter on these navigations, but that was measured against a
    transition this file no longer describes: a full-viewport crossfade plus three
@@ -1279,11 +1349,13 @@ html.no-transition * {
   }
 
   ::view-transition-new(root) {
-    animation: vt-reduced-in 150ms linear both !important;
+    animation: vt-fade-in 150ms linear both !important;
   }
 }
 
-@keyframes vt-reduced-in {
+/* Opacity and nothing else. Shared by the two navigations that must not move
+   the page: reduced motion, and the language switch. */
+@keyframes vt-fade-in {
   from {
     opacity: 0;
   }

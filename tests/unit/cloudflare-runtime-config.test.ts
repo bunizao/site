@@ -335,8 +335,10 @@ describe('Cloudflare runtime configuration', () => {
     expect(responses).toContain('stale-while-revalidate=');
     expect(responses).toContain('NO_STORE_CACHE_CONTROL');
     expect(registry).toContain('readBuiltBlogMarkdown');
-    expect(responses).toContain("variant: 'html'");
-    expect(responses).toContain("variant: 'markdown'");
+    expect(responses).toContain("variant: grouped ? `html:${blogResolution?.locale}` : 'html'");
+    expect(responses).toContain('`markdown:${blogResolution.locale}`');
+    expect(responses).toContain(": 'markdown'");
+    expect(edgeCache).toContain('`html:${string}`');
     expect(responses).toContain('url.search');
     expect(middleware).toContain('readCachedHtmlPage');
     expect(registry).toContain('data-mood-initial-feed');

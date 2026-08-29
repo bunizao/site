@@ -4,12 +4,18 @@
 import type { Post } from '../types';
 import { formatPostDate, postPath, postTitleTransitionName, tagPath } from '../format';
 import { withWidthParam } from '@/lib/media/responsive-image';
+import { blog } from '@/data/site';
 
 interface Props {
   post: Post;
+  /**
+   * Endonyms of the other languages this post exists in. Empty for the vast
+   * majority of rows; the listing pages compute it once for the whole page.
+   */
+  otherLanguages?: string[];
 }
 
-const { post } = Astro.props;
+const { post, otherLanguages = [] } = Astro.props;
 // The hover preview card renders well under 640px; don't let a hover pull the
 // full-size capture through the image proxy.
 const heroPreview = post.featureImage && post.featureImage.includes('/api/v2/images/blog/')
@@ -25,6 +31,16 @@ const titleVT = postTitleTransitionName(post.slug);
 // post link is a stretched overlay (blog.css), so the whole row still opens the
 // post while these chips stay independently clickable above it.
 const metaTags = post.tags.filter((tag) => tag.visibility === 'public').slice(0, 3);
+// A translated row is marked with the `languages` glyph and nothing else. Two
+// letters per language does not survive a third language, and the row is
+// already one link target, so this is a mark rather than a control. The
+// accessible name carries what the glyph cannot say.
+const languageMark = otherLanguages.length > 0
+  ? blog.copy[blog.locale.blog].languageSwitcher.alsoIn.replace(
+      '{languages}',
+      otherLanguages.join(blog.locale.blog === 'zh' ? '、' : ', '),
+    )
+  : null;
 ---
 
 <li
@@ -42,6 +58,14 @@ const metaTags = post.tags.filter((tag) => tag.visibility === 'public').slice(0,
   </a>
   <p class="blog-row__meta">
     <span class="blog-row__date">{formatPostDate(post.publishedAt)}</span>
+    {languageMark && (
+      <span class="blog-row__lang" role="img" aria-label={languageMark} title={languageMark}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" />
+          <path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
+        </svg>
+      </span>
+    )}
     {metaTags.length > 0 && (
       <span class="blog-row__tags">
         {metaTags.map((tag) => (

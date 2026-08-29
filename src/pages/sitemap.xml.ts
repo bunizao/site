@@ -1,7 +1,12 @@
 import type { APIRoute } from 'astro';
 import { canonical } from '@/lib/seo';
 import { postPath, tagPath } from '@/features/posts/format';
-import { getListedPosts, getPublicTagDirectory } from '@/features/posts/server/content';
+import {
+  getAccessiblePosts,
+  getListedPosts,
+  getPublicTagDirectory,
+} from '@/features/posts/server/content';
+import { getPostVersions } from '@/features/posts/i18n';
 
 export const prerender = true;
 
@@ -14,8 +19,11 @@ const pages = [
 
 export const GET: APIRoute = async () => {
   const updatedAt = new Date().toISOString();
-  const posts = await getListedPosts();
-  const tags = await getPublicTagDirectory();
+  const [posts, accessiblePosts, tags] = await Promise.all([
+    getListedPosts(),
+    getAccessiblePosts(),
+    getPublicTagDirectory(),
+  ]);
   const staticUrls = pages
     .map(({ path, priority, changefreq }) => {
       return [
@@ -28,15 +36,26 @@ export const GET: APIRoute = async () => {
       ].join('\n');
     })
     .join('\n');
+  // The listing carries one row per article; the sitemap deliberately does not.
+  // A `?lang=` variant is a form Google indexes, and a translation that is not
+  // in here is a translation nobody finds — its own build path is not a public
+  // URL and 301s away.
   const postUrls = posts
-    .map((post) => [
-      '  <url>',
-      `    <loc>${canonical(postPath(post.slug))}</loc>`,
-      `    <lastmod>${post.updatedAt || post.publishedAt}</lastmod>`,
-      '    <changefreq>monthly</changefreq>',
-      '    <priority>0.6</priority>',
-      '  </url>',
-    ].join('\n'))
+    .flatMap((post) => {
+      const versions = getPostVersions(post, accessiblePosts);
+      const paths = versions.length > 0
+        ? versions.map((version) => version.indexedHref)
+        : [postPath(post.slug)];
+
+      return paths.map((path) => [
+        '  <url>',
+        `    <loc>${canonical(path)}</loc>`,
+        `    <lastmod>${post.updatedAt || post.publishedAt}</lastmod>`,
+        '    <changefreq>monthly</changefreq>',
+        '    <priority>0.6</priority>',
+        '  </url>',
+      ].join('\n'));
+    })
     .join('\n');
   const tagUrls = tags
     .map((tag) => [

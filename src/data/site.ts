@@ -78,6 +78,11 @@ export type BlogLocale = 'zh' | 'en';
 export interface BlogLocaleCopy {
   name: string;
   tagline: string;
+  /**
+   * Open Graph wants `language_TERRITORY`, not a bare BCP 47 tag. It is the one
+   * place a locale needs a territory it does not otherwise have an opinion on.
+   */
+  ogLocale: string;
   notByAI: {
     prefix: string;
     emphasis: string;
@@ -89,6 +94,17 @@ export interface BlogLocaleCopy {
      * replaced by the credited model names, joined for this locale.
      */
     fallback: string;
+  };
+  languageSwitcher: {
+    /** Endonym — what this language calls itself. Shown on the article pill. */
+    language: string;
+    /** Accessible name of the article control. */
+    open: string;
+    /**
+     * Listing mark. `{languages}` is replaced by the endonyms of the other
+     * versions, joined for this locale.
+     */
+    alsoIn: string;
   };
 }
 
@@ -102,6 +118,7 @@ export const blog = {
     zh: {
       name: '無人之境',
       tagline: '生长于共鸣、独白、文学、与沉默之间。',
+      ogLocale: 'zh_CN',
       notByAI: {
         prefix: '本文由真人撰写，',
         emphasis: '未使用 AI 创作',
@@ -110,10 +127,16 @@ export const blog = {
       aiCredit: {
         fallback: '本文在 {models} 的协助下完成。',
       },
+      languageSwitcher: {
+        language: '中文',
+        open: '切换语言',
+        alsoIn: '也有 {languages} 版本',
+      },
     },
     en: {
       name: 'Sillage',
       tagline: 'Grown between resonance, monologue, literature, and silence.',
+      ogLocale: 'en_US',
       notByAI: {
         prefix: 'This post is written by human(s), ',
         emphasis: 'not by AI',
@@ -121,6 +144,11 @@ export const blog = {
       },
       aiCredit: {
         fallback: 'Written with {models}.',
+      },
+      languageSwitcher: {
+        language: 'English',
+        open: 'Change language',
+        alsoIn: 'Also in {languages}',
       },
     },
   } satisfies Record<BlogLocale, BlogLocaleCopy>,
