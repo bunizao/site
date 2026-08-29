@@ -81,17 +81,23 @@ The 20 MB Bot API limit splits the problem:
    generation `ready`. Retirement work is a plain R2 `DeleteObject` from the
    Worker. No MTProto, no VPS. Workers memory (128 MB) comfortably streams
    20 MB.
-2. **> 20 MB: measure before designing.** Count affected posts first
-   (`mood_media_objects` by size). If rare: mark `deferred-large`, alert
-   through the hourly monitor, handle manually (or re-post compressed). If
-   common: GitHub Actions cron running the existing `media-sync.mjs`
-   unchanged (MTProto session in repo secrets) — same trade-offs as the
-   rejected reconcile alternative, but here MTProto is genuinely required,
-   so the external runner earns its keep. Decide on data, not taste.
+2. **> 20 MB: alert + manual oneshot.** GitHub Actions is rejected (owner
+   decision: schedule reliability). Mark oversized generations
+   `deferred-large`; the hourly monitor lists them via the ops bot. Handling
+   is a manual run of the existing `media-sync.mjs` oneshot from a laptop —
+   it already works from any machine with a `.env`; only the systemd wrapper
+   is retired. Still measure the tail first (`mood_media_objects` by size):
+   if it is empty, this path never fires; if it turns out to be frequent,
+   the Cloudflare-native automation option is a cron-triggered Cloudflare
+   Container running the same script — evaluate only if the alert actually
+   becomes a chore.
 
-End state: zero VPS. Worker handles previews, verification, tombstones, and
-all normal media; the only conditional external piece is a GH Actions job for
-oversized files, if the data says it is needed.
+Unifying principle: automation lives in the Worker; anything that genuinely
+needs MTProto degrades to an alert plus a laptop oneshot. No standing timers
+outside Cloudflare.
+
+End state: zero VPS, zero external schedulers. Worker handles previews,
+verification, tombstones, and all normal media.
 
 ## Order
 
