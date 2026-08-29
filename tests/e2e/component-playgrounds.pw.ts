@@ -52,7 +52,7 @@ test.describe('component playgrounds', () => {
     await expect(page.locator('#playground .conv-thread')).toHaveAttribute('data-names', 'off');
     await expect(page.locator('#playground .conv-thread')).toHaveAttribute('data-tints', 'off');
 
-    await page.getByRole('button', { name: 'Copy the conversation source' }).click();
+    await page.getByRole('button', { name: 'Copy complete conversation source' }).click();
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(
       await source.inputValue(),
     );
