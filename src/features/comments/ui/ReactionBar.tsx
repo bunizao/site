@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { mountAvatarComb } from '@/features/comments/client/use-avatar-comb';
+import { mountMagnetic } from '@/features/comments/client/use-magnetic';
 import { initials, seedHue } from '@/features/comments/identity';
 import type { Reactor } from '@/features/comments/types';
 
@@ -52,6 +53,14 @@ export default function ReactionBar({
     if (!stack.current) return;
     return mountAvatarComb(stack.current);
   }, [faces.length, overflow]);
+
+  // The pull rides the whole bar, not the pill, so the card starts drifting
+  // before the cursor is over anything to press. It targets the flip wrapper —
+  // see use-magnetic for why it cannot be the faces.
+  React.useEffect(() => {
+    if (!scope.current) return;
+    return mountMagnetic(scope.current, { radius: 110, strength: 0.45, lift: -8, scale: 1.12 });
+  }, []);
 
   // Turning the pill back over is a dismissal, so it answers to the two things
   // every dismissal answers to.
@@ -101,7 +110,7 @@ export default function ReactionBar({
           the bar never has to carry a line of "sign in to react" copy beside
           it. Both faces share a min-width, which is what keeps the flip from
           resizing the row mid-turn. */}
-      <div className={cn('blog-react__flip', flipped && 'is-flipped')}>
+      <div className={cn('blog-react__flip', flipped && 'is-flipped')} data-magnetic>
         <div className="blog-react__faces">
           <div className="blog-react__face-front">
             <button

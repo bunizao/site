@@ -93,6 +93,11 @@
    next to the bar the pill turns over and offers the way in. */
 .blog-react__flip {
   perspective: 1000px;
+
+  /* The magnetic pull writes only duration, timing and transform inline, so the
+     property it animates has to be declared here. Duration is a placeholder —
+     the script overrides it per direction, a short glide out and a spring back. */
+  transition: transform 140ms cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 /* Both faces occupy the same grid cell, so the card sizes to the wider of the
@@ -372,6 +377,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .blog-react__flip,
   .blog-react__faces,
   .blog-react__reel,
   .blog-react__glyph,
