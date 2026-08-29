@@ -133,12 +133,12 @@ const unlisted = isUnlistedPost(post);
   } : undefined}
 >
   <ReadingTopbar slot="readingbar" noToc={hasNoTocTag} />
-  <a class="blog-back" href="/blog">← All posts</a>
+  <a class="blog-back" href="/blog">{blog.copy[blog.locale.blog].back.index}</a>
 
   <div class="blog-article-wrap">
     <aside class="blog-aside">
       <div class="blog-aside__sticky">
-        <a class="blog-back-rail" href="/blog">← Blog</a>
+        <a class="blog-back-rail" href="/blog">{blog.copy[blog.locale.blog].back.rail}</a>
         <TableOfContents />
       </div>
     </aside>

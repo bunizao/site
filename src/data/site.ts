@@ -87,6 +87,10 @@ export interface BlogLocaleCopy {
   };
   subscribe: SubscribeCopy;
   share: ShareCopy;
+  /** The two ways off a post: the inline link above the title on narrow
+      screens, and the rail in the gutter that replaces it on wide ones. Both
+      say the same thing at different lengths. */
+  back: { index: string; rail: string };
 }
 
 /**
@@ -191,6 +195,7 @@ export const blog = {
         linkCopied: '链接已复制',
         share: '分享',
       },
+      back: { index: '← 全部文章', rail: '← 博客' },
     },
     en: {
       name: 'Sillage',
@@ -233,6 +238,7 @@ export const blog = {
         linkCopied: 'Link copied',
         share: 'Share',
       },
+      back: { index: '← All posts', rail: '← Blog' },
     },
   } satisfies Record<BlogLocale, BlogLocaleCopy>,
   /** Canonical publication name. Surfaces may opt into `copy[locale].name`. */
