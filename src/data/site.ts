@@ -85,16 +85,6 @@ export interface BlogLocaleCopy {
      */
     fallback: string;
   };
-  /**
-   * Reuse terms, in the colophon under every post. Split so the licence name
-   * can be the only link in the line.
-   */
-  license: {
-    prefix: string;
-    name: string;
-    suffix: string;
-    href: string;
-  };
   subscribe: SubscribeCopy;
   share: ShareCopy;
 }
@@ -163,12 +153,6 @@ export const blog = {
       aiCredit: {
         fallback: '本文在 {models} 的协助下完成。',
       },
-      license: {
-        prefix: '本文采用 ',
-        name: 'CC BY 4.0',
-        suffix: ' 授权，转载请注明出处。',
-        href: 'https://creativecommons.org/licenses/by/4.0/deed.zh',
-      },
       subscribe: {
         trigger: '订阅',
         title: '订阅',
@@ -211,12 +195,6 @@ export const blog = {
       tagline: 'Grown between resonance, monologue, literature, and silence.',
       aiCredit: {
         fallback: 'Written with {models}.',
-      },
-      license: {
-        prefix: 'Licensed under ',
-        name: 'CC BY 4.0',
-        suffix: ' — please credit the source.',
-        href: 'https://creativecommons.org/licenses/by/4.0/',
       },
       subscribe: {
         trigger: 'Subscribe',

@@ -6,15 +6,14 @@
    150px, for one idea -- "the text stops here".
 
    One rule now, and inside it two layers in the order they belong to the text:
-   facts about the post (who wrote it with what, and how it may be reused),
-   then the things a reader can do about it.
+   who wrote it with what, then the things a reader can do about it.
 
-   Provenance is declared, not pledged. A line on every post saying no model
-   was involved is a claim the reader cannot check, printed most often when
-   there is nothing to report; AiCredit speaks only when a post carries an
-   [!authors] directive, and stays silent otherwise. The licence is the line
-   that is always true, so it is the one that is always there. */
-import { blog } from '@/data/site';
+   Provenance is declared, not pledged: AiCredit names the models a post
+   actually credits, in place of a line on every post claiming none were
+   involved -- a claim the reader cannot check. In practice nearly every post
+   carries an [!authors] directive, so treat the credit as the normal case and
+   the creditless post as the exception; the actions row keeps its own top
+   margin either way. */
 import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
 
 import AiCredit from './AiCredit.astro';
@@ -25,21 +24,11 @@ interface Props {
 }
 
 const { credits = [] } = Astro.props;
-const t = blog.copy[blog.locale.blog].license;
 const hasActions = Astro.slots.has('default');
 ---
 
 <footer class="blog-colophon">
   {credits.length > 0 && <AiCredit credits={credits} />}
-
-  <p class="blog-colophon__license">
-    {t.prefix}<a
-      class="blog-colophon__link"
-      href={t.href}
-      target="_blank"
-      rel="license noopener noreferrer">{t.name}</a
-    >{t.suffix}
-  </p>
 
   {
     hasActions && (
@@ -57,49 +46,21 @@ const hasActions = Astro.slots.has('default');
     border-top: 1px solid var(--blog-line);
   }
 
-  /* Same metadata voice as the opening byline and as AiCredit's lines: 14/20,
-     faint, tabular. Provenance and reuse terms are the same class of fact, so
-     they are set as one small block rather than two. */
-  .blog-colophon__license {
-    margin: 0;
-    max-width: 56ch;
-    font-size: 14px;
-    line-height: 20px;
-    color: var(--blog-faint);
-    font-variant-numeric: tabular-nums;
-    text-wrap: pretty;
-  }
-
-  /* The 6px matches AiCredit's own inter-line gap, so a credited post reads as
-     one paragraph of provenance with the licence as its last line. */
-  :global(.ai-credit) + .blog-colophon__license {
-    margin-top: 6px;
-  }
-
-  .blog-colophon__link {
-    color: var(--blog-faint);
-    text-decoration: underline;
-    text-decoration-thickness: from-font;
-    text-underline-position: from-font;
-    text-decoration-color: var(--blog-line);
-    transition: color 0.15s ease, text-decoration-color 0.15s ease;
-  }
-
-  .blog-colophon__link:hover {
-    color: var(--blog-dai);
-    text-decoration-color: currentColor;
-  }
-
   /* Everything you can do about this post without writing anything: the hearts
-     on the left, subscribe and share on the right. Far enough below the
-     provenance lines to read as a different layer, with no rule needed to say
-     so. */
+     on the left, subscribe and share on the right. Far enough below the credit
+     to read as a different layer, with no rule needed to say so. A post with
+     no credit above them loses the margin -- the hairline is then the only
+     thing over the row, and 28 + 24 of air under a rule reads as a gap someone
+     forgot to fill. */
   .blog-colophon__actions {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 16px 24px;
+  }
+
+  :global(.ai-credit) + .blog-colophon__actions {
     margin-top: 24px;
   }
 </style>

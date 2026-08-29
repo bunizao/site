@@ -44,8 +44,8 @@ are two places the words themselves live, split by where they have to be
 rendered:
 
 1. **`blog.copy[locale]` in `src/data/site.ts`** — page chrome: publication
-   name and tagline, the AI co-author credit, the reuse licence, the whole
-   subscribe panel, and the share buttons. Server-rendered only. `site.ts`
+   name and tagline, the AI co-author credit, the whole subscribe panel, and
+   the share buttons. Server-rendered only. `site.ts`
    must never be imported into a client bundle, so the few strings a client
    controller writes after the fact (subscribe outcomes, the copied-link
    label) are stamped onto the DOM as `data-*` attributes and read back from

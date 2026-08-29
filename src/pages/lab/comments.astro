@@ -10,6 +10,7 @@
 //   ?receipt=submitting | posted | held | nudge | error   (compose receipt)
 //   ?more=1  ?moreState=loading                (load-more cursor button)
 //   ?reacted=1                                 (filled heart, xia accent)
+//   ?credits=0                                 (colophon with no model credit)
 //
 // Own/editing/tombstone/edited comment rows are fixture data below, not query
 // params — they are thread content, not a state of the box or the list.
@@ -26,6 +27,8 @@ import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import Colophon from '@/features/posts/ui/Colophon.astro';
 import ShareRow from '@/features/posts/ui/ShareRow.astro';
 import { blog } from '@/data/site';
+import { resolveAuthorshipModel } from '@/data/authorship';
+import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import '@/features/comments/styles/comments.css';
 
@@ -65,6 +68,16 @@ const reactors = [
   { name: 'Priya R', avatar: 'https://avatars.githubusercontent.com/u/1024025?s=96' },
   { name: 'Tom Beck' },
 ];
+
+// Nearly every post credits a model, so the harness renders one: the colophon
+// has to be judged with its provenance line present, not in the rare state.
+// `?credits=0` shows the creditless post.
+const showCredits = params.get('credits') !== '0';
+const creditModel = resolveAuthorshipModel('anthropic/claude-opus-4-6');
+const authorshipCredits: AuthorshipCredit[] =
+  showCredits && creditModel
+    ? [{ model: creditModel, note: '读了三版草稿，指出第二节在重复第一节' }]
+    : [];
 
 const editWindowSoon = Date.now() + 8 * 60 * 1000 + 24 * 1000; // ~8:24 left, for the countdown
 
@@ -235,7 +248,7 @@ await billing.invoice(payload)</code></pre>
       {/* The real components, not stand-ins: the colophon sits directly above
           the comments head, and the only way to judge that seam is to render
           both sides of it for real. */}
-      <Colophon>
+      <Colophon credits={authorshipCredits}>
         <ReactionBar client:idle count={24} reacted={reacted} reactors={reactors} />
         <div class="blog-article-sub">
           <SubscribePanel variant="blog" anchor="right" feed={blog.feed} />
