@@ -18,6 +18,8 @@ import type { BlogLocale } from '@/data/site';
 export interface CommentsCopy {
   /* --- Thread ------------------------------------------------------------ */
   title: string;
+  /** The line under the heading. It is the prompt, so the compose box below it
+      carries no placeholder of its own -- the two sat one above the other. */
   invite: string;
   empty: string;
   loadError: string;
@@ -31,6 +33,7 @@ export interface CommentsCopy {
   emailLabel: string;
   emailPlaceholder: string;
   bodyLabel: string;
+  /** Empty on purpose: `invite`, one line above the box, already says it. */
   bodyPlaceholder: string;
   replyBodyLabel: string;
   /** The travelling reply box points at whoever it landed under. */
@@ -99,19 +102,19 @@ export interface CommentsCopy {
 
 const zh: CommentsCopy = {
   title: '评论',
-  invite: '留下一点痕迹，说什么都好。',
+  invite: '说点什么…',
   empty: '还没有人来过。第一个说点什么吧。',
   loadError: '评论没能加载。',
   retry: '重试',
   loadMore: '更多评论',
   loading: '加载中',
 
-  nameLabel: '你的名字',
-  namePlaceholder: '你的名字',
+  nameLabel: '昵称',
+  namePlaceholder: '昵称',
   emailLabel: '邮箱',
-  emailPlaceholder: '邮箱，不公开',
+  emailPlaceholder: '邮箱（私密）',
   bodyLabel: '写评论',
-  bodyPlaceholder: '说点什么…',
+  bodyPlaceholder: '',
   replyBodyLabel: '写回复',
   replyTo: (author) => `回复 ${author}…`,
   hint: '支持 Markdown',
@@ -125,9 +128,9 @@ const zh: CommentsCopy = {
   switchIdentity: '换一个',
 
   authorBadge: '作者',
-  edited: '（已编辑）',
+  edited: '已编辑',
   tombstone: '此评论已删除',
-  held: '待审核，通过之前只有你能看到。',
+  held: '这条评论被挂起了。',
   reply: '回复',
   edit: '编辑',
   editLabel: '编辑你的评论',
@@ -138,14 +141,14 @@ const zh: CommentsCopy = {
   removeConfirm: '删除这条评论？',
   editError: '这次修改没能保存。',
   likeLabel: (author) => `给 ${author} 的评论点赞`,
-  timeLeft: (clock) => `还剩 ${clock}`,
+  timeLeft: (clock) => `还剩${clock}`,
   relativeDate: {
     now: '刚刚',
-    minutes: (n) => `${n} 分钟前`,
-    hours: (n) => `${n} 小时前`,
-    days: (n) => `${n} 天前`,
-    months: (n) => `${n} 个月前`,
-    years: (n) => `${n} 年前`,
+    minutes: (n) => `${n}分钟前`,
+    hours: (n) => `${n}小时前`,
+    days: (n) => `${n}天前`,
+    months: (n) => `${n}个月前`,
+    years: (n) => `${n}年前`,
   },
 
   reactAdd: '喜欢这篇',
@@ -158,7 +161,7 @@ const zh: CommentsCopy = {
   nudgeSubscribe: '订阅新文章邮件',
   dismiss: '关闭',
 
-  needBody: '先写点什么。',
+  needBody: '评论一定要有文字。',
   needName: '参与讨论的人，值得一个好名字。',
   needEmail: '需要邮箱来显示头像、接收回复通知。',
   badEmail: '这个邮箱看起来不太对。',
@@ -166,7 +169,7 @@ const zh: CommentsCopy = {
 
 const en: CommentsCopy = {
   title: 'Comments',
-  invite: 'Leave a trace, say anything.',
+  invite: 'Say something…',
   empty: 'Nothing here yet. Be the first to say something.',
   loadError: "Couldn't load comments.",
   retry: 'Retry',
@@ -178,7 +181,7 @@ const en: CommentsCopy = {
   emailLabel: 'Email',
   emailPlaceholder: 'Email (never shown)',
   bodyLabel: 'Write a comment',
-  bodyPlaceholder: 'Add to the conversation…',
+  bodyPlaceholder: '',
   replyBodyLabel: 'Write a reply',
   replyTo: (author) => `Reply to ${author}…`,
   hint: 'Markdown supported',
@@ -192,9 +195,9 @@ const en: CommentsCopy = {
   switchIdentity: 'Use another',
 
   authorBadge: 'Author',
-  edited: '(edited)',
+  edited: 'edited',
   tombstone: 'This comment was deleted.',
-  held: 'Held for review. Only you can see this until it clears.',
+  held: 'This comment is on hold.',
   reply: 'Reply',
   edit: 'Edit',
   editLabel: 'Edit your comment',
@@ -225,7 +228,7 @@ const en: CommentsCopy = {
   nudgeSubscribe: 'Also email me new posts',
   dismiss: 'Dismiss',
 
-  needBody: 'Write something first.',
+  needBody: 'A comment needs words.',
   needName: 'Everyone in a conversation deserves a name.',
   needEmail: 'An email is needed for your avatar and reply notices.',
   badEmail: "That email doesn't look right.",

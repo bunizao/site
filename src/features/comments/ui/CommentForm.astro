@@ -109,7 +109,17 @@ const showReceipt = receipt !== 'idle' && !busy;
         a 40px disc in a footer of its own made the send button the loudest
         object on the page for the one action nobody needs help finding. */}
     <div class="blog-compose__bar">
-      <span class="blog-compose__hint">{t.hint}</span>
+      {/* The Markdown mark, drawn to the row's own stroke language rather than
+          dropped in as a vendor asset: a rounded frame with the M and the
+          descending arrow, which is the shape people recognise. */}
+      <span class="blog-compose__hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2" y="5" width="20" height="14" rx="2.5"></rect>
+          <path d="M6 15V9l2.6 3L11.2 9v6"></path>
+          <path d="M17.4 9v5M17.4 14l-1.9-2M17.4 14l1.9-2"></path>
+        </svg>
+        {t.hint}
+      </span>
       <button
         type="button"
         class="blog-compose__go"
