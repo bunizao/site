@@ -960,10 +960,9 @@ function getLinkPreview($: CheerioAPI, item: Element, { staticProxy, index }: Co
   const src = extractBackgroundImage(image.attr('style') ?? '');
   const imageSrc = src ? sanitizeUrlValue(toStaticProxyUrl(src, staticProxy), 'src') : '';
   const cardClass = isSideImage ? 'bookmark-card bookmark-card--side-media' : 'bookmark-card';
-  const mediaClass = isSideImage ? 'bookmark-card__media bookmark-card__media--side' : 'bookmark-card__media';
 
   const imageMarkup = imageSrc
-    ? `<span class="${mediaClass}"><img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(rawTitle)}" loading="${getFeedImageLoading(index)}" /></span>`
+    ? `<span class="bookmark-card__media"><img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(rawTitle)}" loading="${getFeedImageLoading(index)}" /></span>`
     : '';
   const descriptionMarkup = shortDescription
     ? `<span class="bookmark-card__description">${escapeHtml(shortDescription)}</span>`
