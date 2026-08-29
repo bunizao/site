@@ -720,6 +720,7 @@
    only matters while there is something to send, and `:focus-within` is that
    condition without a keystroke listener to maintain. */
 .blog-compose__go {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -744,6 +745,9 @@
 .blog-compose__go svg {
   width: 16px;
   height: 16px;
+  transition:
+    translate 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.18s ease;
 }
 
 .blog-compose__box:focus-within .blog-compose__go,
@@ -768,6 +772,66 @@
 .blog-compose__go[disabled] {
   cursor: default;
   opacity: 0.6;
+}
+
+/* --- Sending --------------------------------------------------------------
+   The press used to produce nothing but two elements at 60% opacity, which is
+   what a form looks like when it has stopped working rather than when it is
+   working. The arrow leaves the way it points -- up and out of the circle --
+   and a ring takes its place for as long as the request is open.
+
+   Everything hangs off `data-receipt` on the wrapper, which the controller
+   already sets (setBusy / showComposeReceipt in comments-controller.ts), so
+   the reply box gets the same behaviour without a second implementation. */
+.blog-compose[data-receipt='submitting'] .blog-compose__go {
+  /* Solid through the wait even after focus leaves the box, and not dimmed by
+     the disabled rule above -- the button is busy, not unavailable. */
+  opacity: 1;
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+}
+
+.blog-compose[data-receipt='submitting'] .blog-compose__go svg {
+  translate: 0 -20px;
+  opacity: 0;
+}
+
+.blog-compose__go::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0;
+  transition: opacity 0.18s ease 0.1s;
+  pointer-events: none;
+}
+
+.blog-compose[data-receipt='submitting'] .blog-compose__go::after {
+  opacity: 1;
+  animation: blog-compose-spin 0.7s linear infinite;
+}
+
+@keyframes blog-compose-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* The arrow comes back from below rather than fading in where it left: a fresh
+   one has arrived, which is the same thing the empty field underneath says. */
+.blog-compose[data-receipt='posted'] .blog-compose__go svg,
+.blog-compose[data-receipt='held'] .blog-compose__go svg,
+.blog-compose[data-receipt='nudge'] .blog-compose__go svg {
+  animation: blog-compose-reload 0.34s var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+@keyframes blog-compose-reload {
+  from {
+    translate: 0 14px;
+    opacity: 0;
+  }
 }
 
 /* --- Receipt / nudge ------------------------------------------------------

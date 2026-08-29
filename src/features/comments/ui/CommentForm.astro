@@ -213,8 +213,12 @@ const showReceipt = receipt !== 'idle' && !busy;
   // compose-validate.ts. Everything left here is specific to this box: the
   // claimed footer's "换一个", and dismissing the subscribe nudge.
   import { wireComposeValidation } from '@/features/comments/compose-validate';
+  import { wireDrafts } from '@/features/comments/client/drafts';
 
   wireComposeValidation();
+  // Both boxes on the page, this one and the reply box -- see drafts.ts for
+  // why only one of them is written to storage.
+  wireDrafts();
 
   document.querySelectorAll<HTMLElement>('.blog-compose').forEach((compose) => {
     const switchBtn = compose.querySelector<HTMLButtonElement>('[data-compose-switch]');
