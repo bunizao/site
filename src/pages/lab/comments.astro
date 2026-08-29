@@ -256,7 +256,7 @@ await billing.invoice(payload)</code></pre>
           the comments head, and the only way to judge that seam is to render
           both sides of it for real. */}
       <Colophon credits={authorshipCredits}>
-        <ReactionBar client:idle count={24} reacted={reacted} reactors={reactors} />
+        <ReactionBar client:idle count={24} reacted={reacted} reactors={reactors} locale={blog.locale.blog} />
         <div class="blog-article-sub">
           <SubscribePanel variant="blog" anchor="right" feed={blog.feed} />
           <ShareRow title="少一层，而不是多一层" />
