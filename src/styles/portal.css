@@ -115,13 +115,25 @@ html.theme-portal section {
   grid-template-columns: 1fr;
 }
 
+/* The page scrolls on <body>, so the rail has to pin itself. `align-self:
+   start` stops the grid stretching it to the row height (a stretched item can
+   never stick), and its own overflow keeps a long nav reachable on short
+   viewports. */
 .portal-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: var(--portal-space);
   padding: 20px 12px;
   border-right: 1px solid hsl(var(--border));
   background: var(--portal-surface-0);
+  scrollbar-width: thin;
 }
 
 .portal-sidebar-brand {
@@ -1399,10 +1411,13 @@ a.portal-feed-row:focus-visible,
     position: sticky;
     top: 0;
     z-index: 30;
+    /* Undo the desktop full-height rail: here it is a horizontal bar. */
+    height: auto;
     flex-direction: row;
     align-items: center;
     gap: 4px;
     overflow-x: auto;
+    overflow-y: hidden;
     padding: 10px 12px;
     border-right: 0;
     border-bottom: 1px solid hsl(var(--border));
