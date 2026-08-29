@@ -1,7 +1,6 @@
 ---
 import BlogLayout from '@/layouts/BlogLayout.astro';
 import BlogMasthead from '@/features/posts/ui/BlogMasthead.astro';
-import BlogColophon from '@/features/posts/ui/BlogColophon.astro';
 import BlogSeaFooter from '@/features/posts/ui/BlogSeaFooter.astro';
 import PostRow from '@/features/posts/ui/PostRow.astro';
 import PostHover from '@/features/posts/ui/PostHover.astro';
@@ -42,7 +41,9 @@ const groups = groupPostsByYear(await getListedPosts());
     </section>
   ))}
 
-  <BlogColophon />
+  {/* The sillage prose is retired from the index: BlogSeaFooter now says the
+      same thing without the wall of text. Component and blog.sillage copy are
+      both kept — the writing is still good, it just wants a page of its own. */}
 
   <Footer />
 
