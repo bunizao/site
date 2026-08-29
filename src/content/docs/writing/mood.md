@@ -35,10 +35,9 @@ The same thing, written inline:
 [mood:482 theme=dark density=compact]
 ```
 
-A shortcode alone in its paragraph becomes a block embed. One in the middle of a
-sentence becomes an inline embed. The directive form only produces the block
-version, which is the reason to prefer the shortcode when you want the inline
-one.
+A shortcode is rewritten wherever it sits, mid-sentence included, and produces
+the same block-level embed the directive does. The shortcode is the shorter
+spelling, not a second layout.
 
 Ghost bookmark cards and bare `<iframe>` elements pointing at `/mood/embed` are
 rewritten into the same component, so pasting an embed URL also works.

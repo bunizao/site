@@ -76,7 +76,7 @@ The rules:
 - A quoted value may contain the other quote character but not its own.
 - A repeated key is an error, not a last-one-wins.
 - An attribute the directive does not declare is an error.
-- `key=` with nothing after it is a legal empty string.
+- An empty value must be written `key=""`. A bare `key=` is a parse error.
 
 Anything that fails to parse produces `invalid-directive-attributes` and the
 marker is dropped from the output.
