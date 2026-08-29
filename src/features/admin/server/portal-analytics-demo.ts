@@ -167,10 +167,10 @@ export const DEMO_ANALYTICS: PortalAnalytics = {
   },
   events: {
     events: [
-      event({ eventId: 'e1', slug: 'on-quiet-software', refSource: 'telegram', platform: 'chrome', os: 'Windows', browser: 'Chrome', deviceType: 'desktop', country: 'CN', city: 'Shanghai' }),
-      event({ eventId: 'e2', slug: 'a-year-of-mood', refSource: 'direct', platform: 'safari', deviceType: 'mobile', dwellMs: 41_000, scrollDepth: 0.55, completed: false, openedAt: tsISO(38), createdAt: tsISO(38) }),
-      event({ eventId: 'e3', slug: 'building-the-portal', refSource: 'search', platform: 'wechat', os: 'iOS', browser: 'WeChat', deviceType: 'mobile', country: 'CN', openedAt: tsISO(96), createdAt: tsISO(96) }),
-      event({ eventId: 'e4', slug: 'notes-on-typography', refSource: 'twitter', platform: 'firefox', os: 'Linux', browser: 'Firefox', country: 'US', city: 'Austin', openedAt: tsISO(190), createdAt: tsISO(190) }),
+      event({ eventId: 'e1', slug: 'on-quiet-software', refSource: 'telegram', platform: 'chrome', os: 'Windows', browser: 'Chrome', deviceType: 'desktop', country: 'CN', city: 'Shanghai', ip: '203.0.113.7', ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36' }),
+      event({ eventId: 'e2', slug: 'a-year-of-mood', refSource: 'direct', platform: 'safari', deviceType: 'mobile', dwellMs: 41_000, scrollDepth: 0.55, completed: false, openedAt: tsISO(38), createdAt: tsISO(38), ip: '2001:db8:85a3::8a2e:370:7334', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/19.0 Mobile/15E148 Safari/604.1' }),
+      event({ eventId: 'e3', slug: 'building-the-portal', refSource: 'search', platform: 'wechat', os: 'iOS', browser: 'WeChat', deviceType: 'mobile', country: 'CN', openedAt: tsISO(96), createdAt: tsISO(96), ip: '198.51.100.42', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.54' }),
+      event({ eventId: 'e4', slug: 'notes-on-typography', refSource: 'twitter', platform: 'firefox', os: 'Linux', browser: 'Firefox', country: 'US', city: 'Austin', openedAt: tsISO(190), createdAt: tsISO(190), ip: '192.0.2.201', ua: 'Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0' }),
     ],
   },
 };
