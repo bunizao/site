@@ -241,7 +241,6 @@ test.describe('component playgrounds', () => {
     for (const width of [520, 521]) {
       await setConversationContainerWidth(page, width);
       const wide = await geometry();
-      console.log('geometry', width, wide);
       expect(wide.avatarToken).toBe('34px');
       expect(wide.incomingAvatarDisplay).not.toBe('none');
       expect(wide.incomingAvatarWidth).toBeCloseTo(34, 1);
