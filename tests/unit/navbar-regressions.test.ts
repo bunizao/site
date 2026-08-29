@@ -12,10 +12,11 @@ describe('navbar regression guards', () => {
     expect(source).toContain("headerActionsVariant?: 'default' | 'home'");
     expect(source).toContain("const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';");
     expect(source).toContain("rel=\"preload\"");
-    // The hrefs come from FONT_FILES now; the guard is that 'mono' — the site
-    // identity face — stays in the default preload set.
-    expect(source).toContain("preloadFont = ['mono', 'sans']");
-    expect(source).toContain('FONT_FILES[face]');
+    // Body faces are never preloaded — Chrome holds first paint until every
+    // preloaded font arrives. The wordmark (2.6KB, font-display: block) is the
+    // one exception, on the home nav.
+    expect(source).not.toContain('preloadFont');
+    expect(source).toContain('wenkai-wordmark.woff2');
     expect(source).toContain("'global-header-actions--home': useHomeHeaderActions");
   });
 
