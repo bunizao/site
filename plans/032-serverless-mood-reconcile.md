@@ -122,21 +122,37 @@ Every graceful-degradation path must have a paired alarm; this is the pairing.
   ≤15 min to ~30 s at the cost of a consumer and delivery-delay tuning. Not
   worth it now; easy to add later if the latency ever bothers.
 
-## Open decisions
+## Decisions (resolved 2026-08-29)
 
-1. **Tombstone confirmation policy** — two consecutive dead rounds is the
-   proposal; the gap between rounds (one tick? one hour?) trades deletion
-   latency against false-positive resistance.
-2. **Alert thresholds** — 24h watermark staleness and the needs_preview
-   backlog cap are placeholders; pick values that would have caught the
-   2026-08-11 outage within a day.
+1. **Tombstone confirmation policy** — two dead observations at least 30
+   minutes apart (`dead_candidate_at` stamp on the first, tombstone on the
+   second past the gap). A transient t.me glitch cannot delete archive rows;
+   deletion latency stays under an hour.
+2. **Alert thresholds** — 6h for both the `MAX(last_verified_at)` watermark
+   and the oldest needs_preview post; each condition dedupes to one ops-bot
+   push per 20h via KV. Would have flagged the 2026-08-11 outage same-day.
 
-## Implementation order (site-api)
+## Implementation status (2026-08-29)
 
-1. Extract embed-page fetch + card/reply/alive parsing into a reusable module
-   (parser already exists in the fallback repository; add the embed entry).
-2. Scheduled task on `*/15`: due selection → probe → internal report write.
-3. Two-round tombstone confirmation + safety valve carry-over.
-4. Hourly staleness alerts via ops bot.
-5. Run one week with the systemd timer left stopped as control; then delete
+Implemented on `claude/serverless-mood-reconcile` in site-api
+(`ce48512..b034ebf`):
+
+- `mood-reconcile.ts` — `queryReconcileDue` / `applyReconcileReport` extracted
+  from the HTTP handlers so the scheduled probe calls them directly; the
+  signed endpoints remain thin wrappers until retirement.
+- `migrations/0011_mood_dead_candidate.sql` — `dead_candidate_at` column.
+- `mood-probe.ts` — embed-page probe on the `*/15` cron: budget 20 per run,
+  concurrency 3, 5s fetch timeout. The "Post not found" page wraps its error
+  in a `.tgme_widget_message` shell, so the error check runs first. Safety
+  valve: >10 fresh not-founds in one run reports nothing dead and alerts.
+- `mood-pipeline-monitor.ts` — hourly dead-man switch on the two thresholds
+  above, alerts via `ops-bot/alerts.ts` (`sendOpsAlertOnce`, KV-deduped).
+- Worker `scheduled` dispatch wired; crons were already configured.
+- Tests run the real migrations against bun:sqlite with captured live t.me
+  fixtures (alive link post, missing post, reply post).
+
+Remaining before retirement:
+
+1. Deploy site-api and apply migration 0011 to prod D1.
+2. Run one week with the systemd timer left running as control; then delete
    the script directory, endpoints, secrets, and update docs.
