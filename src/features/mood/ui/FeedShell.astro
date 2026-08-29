@@ -20,6 +20,7 @@ import {
 } from '@/features/mood/shared/date-grouping';
 import {
   buildArchiveSrcSet,
+  getMoodFeedThumbSizes,
   getMoodImagePlaceholderSrc,
   getMoodImageRatio,
 } from '@/features/mood/shared/image-srcset';
@@ -333,7 +334,16 @@ function shouldHideQuoteAuthor(value?: string): boolean {
               const thumbWidth = isTooBigVideoPreview ? (post.imageWidth ?? tooBigVideoMedia?.width ?? null) : post.imageWidth;
               const thumbHeight = isTooBigVideoPreview ? (post.imageHeight ?? tooBigVideoMedia?.height ?? null) : post.imageHeight;
               const hasGalleryPreview = !hasStructuredMedia && !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
-              const thumbResponsive = thumbImage ? buildArchiveSrcSet(thumbImage) : null;
+              const thumbLayout = resolveMoodFeedImageLayout(
+                isTooBigVideoPreview ? null : post.imageLayout,
+                thumbWidth,
+                thumbHeight,
+              );
+              const thumbResponsive = thumbImage
+                ? buildArchiveSrcSet(thumbImage, {
+                    sizes: getMoodFeedThumbSizes(thumbLayout, post.imageKind),
+                  })
+                : null;
               const hasThumbFrame = Boolean(thumbImage && !isTooBigVideoPreview && post.imageKind !== 'sticker');
               const thumbPlaceholder = hasThumbFrame && thumbImage
                 ? getMoodImagePlaceholderSrc(thumbImage)
