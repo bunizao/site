@@ -180,11 +180,11 @@ const intro =
             subscribe-panel.ts. */}
         <div data-sub-turnstile hidden></div>
 
-        <p class="sub-privacy">
-          {t.privacy.prefix}
-          <a href="/privacy" class="sub-privacy__link" target="_blank" rel="noopener noreferrer">{t.privacy.link}</a>
-          {t.privacy.suffix}
-        </p>
+        {/* One line, no incidental whitespace: broken across three the markup
+            collapsed each newline into a space, which put one before the full
+            stop in English and around the link in Chinese. Whatever spacing a
+            language needs is in its own strings. */}
+        <p class="sub-privacy">{t.privacy.prefix}<a href="/privacy" class="sub-privacy__link" target="_blank" rel="noopener noreferrer">{t.privacy.link}</a>{t.privacy.suffix}</p>
 
         <div class="sub-actions">
           <div class="sub-elsewhere">

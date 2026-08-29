@@ -114,6 +114,9 @@ export interface SubscribeCopy {
   moods: { title: string; meta: string };
   freqLabel: string;
   freq: { instant: string; every5h: string; daily: string };
+  /** Split around the link to /privacy. The parts are concatenated with no
+      separator, so any space a language needs belongs inside its own string --
+      Chinese wants none, English wants one before the link. */
   privacy: { prefix: string; link: string; suffix: string };
   rss: string;
   telegram: string;
@@ -208,7 +211,7 @@ export const blog = {
         moods: { title: 'Moods', meta: 'Sent at the rate below' },
         freqLabel: 'Mood delivery rate',
         freq: { instant: 'Instant', every5h: 'Every 5h', daily: 'Daily' },
-        privacy: { prefix: 'Handled under the', link: 'privacy policy', suffix: '.' },
+        privacy: { prefix: 'Handled under the ', link: 'privacy policy', suffix: '.' },
         rss: 'Subscribe by RSS',
         telegram: 'Follow on Telegram',
         submit: 'Subscribe',
