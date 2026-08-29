@@ -59,7 +59,7 @@ Page-shell behavior:
 
 ## What the Policy Covers in the Current Implementation
 
-The content in [`src/content/pages/privacy.md`](https://github.com/bunizao/site/blob/main/src/content/pages/privacy.md) matches active site features.
+The content in [`src/content/pages/privacy.md`](https://github.com/bunizao/site/blob/main/src/content/pages/privacy.md) matches active site features, except where a subsection below says otherwise.
 
 ### Hosting, Observability, and Performance
 
@@ -136,6 +136,39 @@ Supporting infrastructure:
 - email delivery is handled through Resend in `site-api`
 - token creation and verification live in `site-api`
 
+### Blog Comments and Reactions
+
+Covered implementation:
+
+- reader-facing surfaces live in this repo: the thread and compose box under
+  [`src/features/comments/`](https://github.com/bunizao/site/tree/main/src/features/comments)
+  and the confirm page at
+  [`src/pages/reader/confirm.astro`](https://github.com/bunizao/site/blob/main/src/pages/reader/confirm.astro)
+- the endpoints behind them are `site-api`'s and are specified in
+  [the comments API reference](/docs/api/comments): `/v2/comments`,
+  `/v2/comments/:id`, `/v2/comments/dwell-token`, `/v2/reactions`,
+  `/v2/reactions/toggle`, `/v2/reader/me`, `/v2/reader/verify`,
+  `/v2/reader/resend`, `/v2/reader/avatar/:key`, and `/oauth/reader/:provider`
+- a post can carry the `#no-comments` internal tag, which renders the thread
+  closed and sends no request at all
+
+Supporting infrastructure:
+
+- comment rows, reactions, and reader records live in the private API's D1
+- avatars are cached in R2 and served from `sha256(normalized email)`, so the
+  plaintext address never reaches a response body or the public page
+- confirmation email for a first unverified comment goes through Resend in
+  `site-api`
+- Turnstile guards both the compose box and the reaction control
+- rate limits are keyed on the anonymous session, the IP, and a server-side
+  fingerprint
+- submitted text is screened by an external language-model provider before it
+  appears
+
+`site-api` does not serve these routes yet. This section documents the
+contract the published policy is written against; confirm it against the
+shipped implementation when the endpoints land.
+
 ### Cloudflare Anti-Abuse and Infrastructure
 
 Covered implementation:
@@ -172,5 +205,7 @@ Typical triggers:
 - adding or changing listening-data providers
 - changing subscription storage or email delivery providers
 - changing anti-abuse controls
+- changing what a comment, reaction, or reader record stores
+- changing the moderation provider or what it receives
 - changing public content sources or media proxy behavior
 - changing what edge connection diagnostics `/api/edge` exposes
