@@ -1,56 +1,65 @@
 ---
-/* Name + email, asked once at submit and never shown before it — the one
-   identity row shared by every place a reader can write anonymously: the
-   compose box at the top of a thread and the travelling reply box (see
-   compose-reveal.ts, which wires the "hidden until submit" behaviour for
-   both from this one partial rather than two copies that could drift).
+/* Name + email — the one identity row shared by every place a reader can
+   write anonymously: the compose box at the top of a thread and the
+   travelling reply box (see compose-validate.ts, which guards both from this
+   one partial rather than two copies that could drift).
 
-   Ghost fields, not a second box: no border or fill of their own, same
-   font-size and placeholder colour as the textarea above them, separated
-   from it by a hairline rather than a nested border — the compose box keeps
-   exactly one border and one radius. */
+   On screen from first paint, above the textarea. The older design hid this
+   row and grew it out of the first Post press, which made one button mean
+   "expand" and then "submit" — two different answers to the same click, and
+   two unlabelled fields appearing under the reader's hands. Asking first
+   costs the impulse comment; it buys a form that never moves while it is
+   being filled in.
+
+   Real fields, not ghosts: each input carries its own fill and radius, so the
+   row reads as controls to complete rather than as underlines that appeared.
+
+   Two fields, no label above them and no note below. "Why do you want my
+   email" is the question that stops people here, and the answer costs three
+   words inside the placeholder -- a labelled group with a sentence under it
+   put three lines of prose between the heading and the first thing a reader
+   can type. */
 
 interface Props {
   /** Base id for this mount's two inputs (`${id}-name` / `${id}-email`) and
       for the row itself, so the compose box and the reply box — both on
       screen from the same render — never collide on an id. */
   id: string;
-  /** SSR-only: render already open. Used for a submission retry, where the
-      fields are still the reader's draft, and for the lab's `?open=1`
-      preview. The client-side reveal never re-renders this — it just flips
-      `hidden` — so this prop is not read after first paint. */
-  open?: boolean;
 }
 
-const { id, open = false } = Astro.props;
+const { id } = Astro.props;
 ---
 
-<div class="blog-compose__identity" id={id} data-compose-identity hidden={!open}>
-  <label class="sr-only" for={`${id}-name`}>Display name</label>
-  <input
-    id={`${id}-name`}
-    class="blog-compose__input blog-compose__input--name"
-    type="text"
-    maxlength="32"
-    autocomplete="nickname"
-    placeholder="Name"
-    required
-  />
-  <label class="sr-only" for={`${id}-email`}>Email</label>
-  <input
-    id={`${id}-email`}
-    class="blog-compose__input"
-    type="email"
-    autocomplete="email"
-    placeholder="Email"
-    required
-  />
+<div class="blog-compose__identity" id={id} data-compose-identity>
+  <div class="blog-compose__fields">
+    <label class="sr-only" for={`${id}-name`}>Display name</label>
+    <input
+      id={`${id}-name`}
+      class="blog-compose__input blog-compose__input--name"
+      type="text"
+      maxlength="32"
+      autocomplete="nickname"
+      placeholder="Name"
+      required
+    />
+    <label class="sr-only" for={`${id}-email`}>Email</label>
+    <input
+      id={`${id}-email`}
+      class="blog-compose__input"
+      type="email"
+      autocomplete="email"
+      placeholder="Email (never shown)"
+      required
+    />
+  </div>
+
   {/* Honeypot -- risk stack step 3 (plans/blog-comments.md "The risk
       stack"). A human never reaches this: it is off-screen, unreachable by
       Tab, and hidden from assistive tech, not merely visually hidden --
       real bots that fill every field regardless of visibility are the only
       thing that ever populates it. Any value here silently drops the
-      submission, comment-service.ts's honeypot check. */}
+      submission, comment-service.ts's honeypot check. Nothing visible is
+      named `website`, so a real reader has no field to lose a comment to. */}
   <input
     type="text"
     name="website"

@@ -16,6 +16,11 @@
      which point docs/surfaces/blog.md gains the stated exception. */
   --blog-xia: #b84a6e;
 
+  /* The only destructive colour in the feature, worn by Delete on hover and
+     focus and nowhere else — a permanently red button under every one of your
+     own comments reads as a warning about the comment, not about the button. */
+  --blog-danger: #b4232b;
+
   /* One radius scale for the whole feature. Anything the height of a control
      is a pill; anything that holds content is a box; anything nested inside a
      box takes the inner step, which is the box minus its own padding. */
@@ -34,6 +39,7 @@
 
 .dark .blog-zone {
   --blog-xia: #ee7fa8;
+  --blog-danger: #f1707a;
 }
 
 /* --- Generated identity -------------------------------------------------- */
@@ -392,7 +398,7 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-bottom: 18px;
+  margin-bottom: 6px;
 }
 
 .blog-comments__title {
@@ -413,29 +419,116 @@
   color: var(--blog-faint);
 }
 
+/* One line under the heading, in the reader's own moment: they have just
+   finished the post. The compose box below asks for a name and an address
+   straight away, and opening on two form fields with nothing said first is
+   what makes a form feel like a toll gate. */
+.blog-comments__invite {
+  margin: 0 0 16px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--blog-muted);
+}
+
 /* --- Compose ------------------------------------------------------------ */
-/* First thing under the heading, and writable before anyone has signed in —
-   the identity step comes after the words exist, not before. No avatar beside
-   it: signed out there is no face to show, and a placeholder circle next to a
-   100px box only advertises the gap. Who you are posting as is said in words
-   in the footer instead, which is more use than a repeat of your own face. */
+/* First thing under the heading, and the reader is asked who they are before
+   they write. The earlier version hid the identity fields and grew them out
+   of the first Post press: one border, one radius, and a row that appeared
+   under the reader's hands mid-thought. Asking up front costs the impulse
+   comment and buys a form that holds still while it is being filled in.
+
+   Not one box any more, but a short stack of ordinary controls -- identity
+   fields, the body, the footer -- each with its own surface. A single
+   wrapping border around all of it would have to contain fields that already
+   look like fields, and box-in-a-box is the thing that made the old row need
+   to be a ghost.
+
+   THE PROPORTIONS. Three surfaces of the same weight, one of them three times
+   taller than the others, reads as a mistake -- which is what a shared radius
+   and a shared padding produced. Hierarchy is carried by all three at once:
+
+     identity field   10px/14px padding, 10px radius, ~41px tall
+     body surface     14px padding, 14px radius, ~108px tall
+
+   41 x 2.618 = 107. The body is a golden square of the field it sits under,
+   and its radius grows with it -- 10px on a 41px control is the same optical
+   roundness as 14px on a 108px one. The name/email split is the same ratio
+   turned sideways: 38.2 / 61.8, because a handle is short and an address is
+   not. Vertical rhythm runs 6 / 10 / 16 (each step ~1.6x the last): 10px
+   between the fields and the body they belong to, 16px before the footer,
+   which belongs to neither. */
 .blog-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   margin-bottom: 30px;
 }
 
-/* Outer 14px against 12px of padding leaves the inner controls room for their
-   own radius without either edge looking wrung out. */
+/* Claimed and ready readers have an identity on file -- the footer says whose
+   it is, and "换一个" flips the phase back to anonymous to get this row
+   returned. Kept in the DOM in every phase so that flip is one attribute
+   write, not a re-render. */
+.blog-compose:not([data-phase='anonymous']) .blog-compose__identity {
+  display: none;
+}
+
+.blog-compose__fields {
+  display: flex;
+  gap: 10px;
+}
+
+.blog-compose__input,
 .blog-compose__box {
-  padding: 12px 14px;
   border: 1px solid var(--blog-line);
-  border-radius: var(--blog-r-box);
   background: hsl(var(--foreground) / 0.02);
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
+/* A handle is short and an address is not: 38.2 / 61.8 of the row. */
+.blog-compose__input {
+  min-width: 0;
+  flex: 0 1 61.8%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: var(--blog-body);
+  font: inherit;
+  /* 16px is the floor that stops iOS Safari zooming the page on focus. */
+  font-size: 16px;
+}
+
+.blog-compose__input--name {
+  flex: 0 1 38.2%;
+}
+
+.blog-compose__input::placeholder {
+  color: var(--blog-faint);
+}
+
+.blog-compose__input:focus,
 .blog-compose__box:focus-within {
+  outline: none;
   border-color: hsl(var(--foreground) / 0.24);
   background: transparent;
+}
+
+/* No red anywhere in this feature, so an unfinished field is marked by a firm
+   edge rather than a colour the rest of the zone never uses. The line in the
+   footer carries the actual reason; this only says which one it is about. */
+.blog-compose__input[aria-invalid='true'],
+.blog-compose__box:has([aria-invalid='true']) {
+  border-color: hsl(var(--foreground) / 0.42);
+}
+
+/* The body surface. It holds the field and the one note about it -- "Markdown
+   supported" belongs to this box, and as a separate line under it, it stacked
+   with the validation line to make two rows of small grey text between the
+   writing and the button. */
+.blog-compose__box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: var(--blog-r-box);
 }
 
 .blog-compose__field {
@@ -445,15 +538,15 @@
   background: none;
   resize: none;
   color: var(--blog-body);
-  /* 16px is the floor that stops iOS Safari zooming the page on focus, and it
-     is the right reading size for a field people write paragraphs into. */
   font: inherit;
   font-size: 16px;
   line-height: 1.65;
-  /* Grow with the text rather than sitting at a fixed three empty rows.
-     Engines without field-sizing keep the rows="2" box. */
+  /* Grow with the text rather than sitting at a fixed height. Engines without
+     field-sizing keep the rows="4" box. 4.9em plus 14px of padding top and
+     bottom lands the surface at ~108px, phi-squared above the 41px field it
+     sits under. */
   field-sizing: content;
-  min-height: 3.3em;
+  min-height: 4.9em;
 }
 
 .blog-compose__field::placeholder {
@@ -464,52 +557,22 @@
   outline: none;
 }
 
-/* The identity row: asked for once, at submit, and never again on this
-   browser (both fields required — plans/blog-comments.md → "Compose: name +
-   email, post immediately"). Name first because it is the part the reader
-   chooses; the address is only the part they have to prove. Always in the
-   DOM — see IdentityRow.astro's comment on `data-compose-identity` — so the
-   claimed footer's "换一个" has a row to reveal without a re-render.
-
-   Ghost fields, not a box-in-a-box: no border or fill of their own, so the
-   compose box keeps exactly one border and one radius. A hairline above the
-   row is the only separation from the textarea, and the inputs match its
-   typography — font-size 16px, same body/placeholder colours — so the whole
-   box reads as one field that grew a second line, not two stacked controls. */
-.blog-compose__identity {
-  display: flex;
-  gap: 14px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--blog-line);
-}
-
-.blog-compose__input {
-  min-width: 0;
-  flex: 1 1 auto;
-  padding: 2px 0 4px;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  background: none;
-  color: var(--blog-body);
-  font: inherit;
-  font-size: 16px;
-  transition: border-color 0.15s ease;
-}
-
-.blog-compose__input::placeholder {
+/* Inside the box it belongs to, at the bottom edge, out of the way until the
+   reader wonders whether asterisks will work. */
+.blog-compose__hint {
+  font-size: 12px;
+  line-height: 1;
   color: var(--blog-faint);
 }
 
-.blog-compose__input:focus {
-  outline: none;
-  border-bottom-color: var(--blog-line);
-}
-
-/* A display name needs room for a handle, not a sentence, so it takes the
-   smaller share and leaves the address the half that actually runs long. */
-.blog-compose__input--name {
-  flex: 0 1 34%;
+/* Spoken only after Post has been pressed on an unfinished box, in the
+   footer's left slot -- the one place small text is allowed to appear, so it
+   never stacks with anything. */
+.blog-compose__ask-error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--blog-ink);
 }
 
 .blog-compose__foot {
@@ -517,7 +580,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 8px;
+  min-height: 40px;
+  margin-top: 6px;
 }
 
 /* One footer slot, three tenants. All three render every time (see
@@ -525,8 +589,7 @@
    is visible, so switching phase client-side — the claimed footer's
    "换一个" — is a single attribute write instead of swapping DOM. */
 .blog-compose__who,
-.blog-compose__claim,
-.blog-compose__hint {
+.blog-compose__claim {
   display: none;
 }
 
@@ -536,15 +599,6 @@
 
 .blog-compose[data-phase='claimed'] .blog-compose__claim {
   display: inline-flex;
-}
-
-.blog-compose[data-phase='anonymous'] .blog-compose__hint {
-  display: inline;
-}
-
-.blog-compose__hint {
-  font-size: 12.5px;
-  color: var(--blog-faint);
 }
 
 .blog-compose__who {
@@ -596,23 +650,34 @@
   outline-offset: 2px;
 }
 
+/* Post is a round icon button. The word said the same thing the placeholder,
+   the heading and the footer already said, and spending a labelled pill on it
+   made the busiest corner of the form the least informative one. 40px is the
+   footer's own height, so the row is one object tall rather than a button
+   floating in a taller strip. */
 .blog-compose__go {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
   flex: 0 0 auto;
-  height: 34px;
-  padding: 0 15px;
-  border: 1px solid hsl(var(--foreground));
+  /* The footer's left slot is empty in the common case -- no receipt, no
+     claim, nothing to complain about -- and space-between on a single child
+     parks it at the start. The button is always the row's right edge. */
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
   border-radius: var(--blog-r-pill);
   background: hsl(var(--foreground));
   color: hsl(var(--background));
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
   cursor: pointer;
   transition: opacity 0.15s ease, scale 0.15s ease;
+}
+
+.blog-compose__go svg {
+  width: 18px;
+  height: 18px;
 }
 
 .blog-compose__go:hover {
@@ -628,9 +693,6 @@
   outline-offset: 2px;
 }
 
-/* Submitting: disabled and read-only, no spinner — the round trip is fast
-   enough that one would just flash. Opacity is the only cue, which is enough
-   next to a button that stops responding to clicks. */
 .blog-compose__field[readonly] {
   opacity: 0.6;
 }
@@ -742,12 +804,8 @@
 /* Under the measure the two fields stack rather than squeezing an address
    into an unreadable stub. */
 @media (max-width: 560px) {
-  .blog-compose__identity {
-    flex-wrap: wrap;
-  }
-
-  .blog-compose__identity .blog-compose__input--name {
-    flex-basis: 100%;
+  .blog-compose__fields {
+    flex-direction: column;
   }
 }
 
@@ -851,31 +909,39 @@
 }
 
 /* --- Own row: inline edit -------------------------------------------------
-   Reuses the compose box chrome (`.blog-compose__box`/`__field`) rather than
-   inventing a second text-box style for one row at a time. */
-.blog-comment__edit {
-  margin-top: 6px;
-}
+   The field stands exactly where the paragraph stood: same size, leading and
+   colour, no border, and negative margins that cancel its own padding so the
+   first line lands on the line the reader was reading. A bordered composer
+   here pushed the row open and put a box inside a box inside the thread; the
+   only thing that should change on Edit is that the words became typable.
 
+   The tint is the static cue that they did. */
 .blog-comment__edit-field {
+  display: block;
+  width: 100%;
+  /* The negative margin cancels the padding exactly, so the first line of the
+     field lands on the line the paragraph occupied. 10px of room inside the
+     tint, not the 4px that made it read as a highlight drawn over the words;
+     the horizontal 10 stays inside the row's 12px gutter. */
+  margin: -10px -10px -4px;
+  padding: 10px;
+  border: 0;
+  border-radius: var(--blog-r-inner);
+  background: hsl(var(--foreground) / 0.045);
+  resize: none;
+  color: var(--blog-body);
+  font: inherit;
   font-size: 15.5px;
-  min-height: 2.6em;
+  line-height: 1.75;
+  field-sizing: content;
+  min-height: 1.75em;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.blog-comment__edit-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-/* The 15-minute window, live-counted down beside the Edit button. Once it
-   hits zero the script hides both this and the button — deleting stays
-   available forever, editing in place does not. */
-.blog-comment__edit-window {
-  font-size: 12px;
-  color: var(--blog-faint);
-  font-variant-numeric: tabular-nums;
+.blog-comment__edit-field:focus {
+  outline: none;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.18);
 }
 
 /* --- Tombstone --------------------------------------------------------- */
@@ -911,6 +977,21 @@
   align-items: center;
   gap: 2px;
   margin: 5px 0 0 -8px;
+}
+
+/* Two sets of controls in one strip -- ordinary and mid-edit -- with exactly
+   one of them on screen. The strip itself never empties, so starting an edit
+   does not collapse the row's last line and shift everything under it. */
+.blog-comment__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Mid-edit the strip follows a padded surface rather than a line of text, so
+   it needs the gap the paragraph's own leading used to provide. */
+.blog-comment__acts--editing {
+  padding-top: 6px;
 }
 
 .blog-comment__act {
@@ -953,6 +1034,60 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The remaining edit window, written into both slots by the row's ticker: the
+   one inside the Edit button, where a dot ties it to the label, and the one
+   beside Post while the edit is open, where it needs the word. Tabular so a
+   digit rolling over does not shuffle the strip. */
+.blog-comment__act-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--blog-faint);
+}
+
+.blog-comment__act-time::before {
+  content: ' · ';
+}
+
+.blog-comment__act-time--left {
+  padding-left: 6px;
+  font-size: 12.5px;
+}
+
+.blog-comment__act-time--left::before {
+  content: none;
+}
+
+.blog-comment__act-time--left::after {
+  content: ' left';
+}
+
+/* Delete keeps the row's text weight until it is aimed at. Colour on hover and
+   focus only, and never as the only cue -- the trash glyph is the one that is
+   always there. */
+.blog-comment__act--danger:hover,
+.blog-comment__act--danger:focus-visible {
+  color: var(--blog-danger);
+  background: color-mix(in oklab, var(--blog-danger) 8%, transparent);
+}
+
+/* Posting an edit is the one committing action in the strip, so it is the one
+   thing wearing a fill -- at the strip's own scale, not the compose box's. */
+.blog-comment__act--go {
+  padding: 0 12px;
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  font-weight: 600;
+}
+
+.blog-comment__act--go:hover {
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  opacity: 0.86;
+}
+
+.blog-comment__act--go:active {
+  scale: 0.96;
+}
+
 /* Liking is the one place in the thread xia is spent, same as the post's own
    heart. The count moving is the static cue; the fill is the flourish. */
 .blog-comment__act--like[aria-pressed='true'] {
@@ -988,7 +1123,15 @@
    equal specificity, later in the cascade. It moves into whichever row is
    being answered rather than being cloned per comment. */
 .blog-reply {
-  margin: 10px 0 2px;
+  margin: 12px 0 2px;
+  padding-left: 13px;
+  border-left: 2px solid var(--blog-line);
+}
+
+/* The name is what that line is for; "Replying to" is scaffolding around it. */
+.blog-reply__label strong {
+  font-weight: 600;
+  color: var(--blog-body);
 }
 
 /* The reply's own footer label ("Replying to X") — distinct from
@@ -1004,10 +1147,14 @@
   min-height: 2.6em;
 }
 
+/* Who is being answered and what is still missing are both about the box on
+   the left; the controls are the right edge. Without this the footer's three
+   children space themselves out and the complaint drifts into the middle. */
 .blog-reply__buttons {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
+  margin-left: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {

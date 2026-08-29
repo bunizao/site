@@ -22,7 +22,7 @@ import type {
   ReaderMe,
   ReaderMeResult,
 } from '@bunizao/contracts/comments';
-import { revealComposeIdentity } from '@/features/comments/compose-reveal';
+import { validateCompose } from '@/features/comments/compose-validate';
 import { initials, seedHue } from '@/features/comments/identity';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
 
@@ -149,6 +149,9 @@ function parseStaticSvg(svg: string): SVGElement {
 }
 
 const REPLY_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>`;
+const SEND_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>`;
+const EDIT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z"></path></svg>`;
+const TRASH_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 7V5h4v2M6 7l1 12h10l1-12M10 11v5M14 11v5"></path></svg>`;
 const GHOST_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M6 6l12 12"></path></svg>`;
 const ERROR_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>`;
 
@@ -405,33 +408,29 @@ export function initCommentsController(): void {
 
   // --- Compose (root) submit ------------------------------------------------
 
-  // Capture-phase so this runs before compose-reveal.ts's own bubble-phase
-  // listener on the same button -- reading `identity.hidden` here always
-  // sees the pre-click state, which is what decides "this press only
-  // revealed the row" vs. "this press should actually submit". See the
-  // task notes: this is the one place a click's meaning depends on state a
-  // sibling script is about to mutate.
+  // Every press of Post is a submit attempt. The identity fields are on screen
+  // from first paint (IdentityRow.astro), so there is no second meaning for
+  // this click to carry and no sibling script whose ordering matters --
+  // handleSubmit runs the same guard the box's own script runs.
   document.addEventListener('click', (event) => {
     const submitBtn = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-compose-submit]');
     if (!submitBtn) return;
     const box = submitBtn.closest<HTMLElement>('.blog-compose');
     if (!box) return;
-    const identity = box.querySelector<HTMLElement>('[data-compose-identity]');
-    const wasOpen = identity ? !identity.hidden : false;
-    const boxPhase = box.dataset.phase ?? 'anonymous';
-    if (boxPhase === 'anonymous' && !wasOpen) return; // let compose-reveal.ts do the reveal
     void handleSubmit(box);
-  }, { capture: true });
+  });
 
   async function handleSubmit(box: HTMLElement): Promise<void> {
+    // The guard marks the first unfinished field and says why -- see
+    // compose-validate.ts. Nothing below runs until the box is complete.
+    if (!validateCompose(box)) return;
+
     const field = box.querySelector<HTMLTextAreaElement>('.blog-compose__field');
     const text = field?.value.trim() ?? '';
-    if (!text) return;
-
     const isReply = box === replyBox;
     const parentId = isReply ? box.dataset.replyTarget ?? null : null;
     const identity = readIdentity(box);
-    if (!identity) return; // anonymous with no name/email typed yet -- nothing to send
+    if (!identity) return; // guard passed but the fields are gone -- nothing to send
 
     setBusy(box, true);
 
@@ -564,16 +563,17 @@ export function initCommentsController(): void {
 
   function buildReplyBox(): HTMLElement {
     const box = el('div', { class: 'blog-compose blog-reply', id: 'blog-reply', 'data-phase': phase, hidden: '' }, [
+      buildIdentityRow('blog-reply-id'),
       el('div', { class: 'blog-compose__box' }, [
         el('label', { class: 'sr-only', for: 'blog-reply-text' }, ['Write a reply']),
         el('textarea', { id: 'blog-reply-text', class: 'blog-compose__field blog-reply__field', rows: '2' }),
-        buildIdentityRow('blog-reply-id'),
-        el('div', { class: 'blog-compose__foot' }, [
-          el('span', { class: 'blog-reply__label', 'data-reply-label': '' }),
-          el('span', { class: 'blog-reply__buttons' }, [
-            el('button', { type: 'button', class: 'blog-comment__act', 'data-reply-cancel': '' }, ['Cancel']),
-            el('button', { type: 'button', class: 'blog-compose__go', 'data-compose-submit': '', 'aria-expanded': 'false', 'aria-controls': 'blog-reply-id' }, ['Reply']),
-          ]),
+      ]),
+      el('div', { class: 'blog-compose__foot' }, [
+        el('span', { class: 'blog-reply__label', 'data-reply-label': '' }),
+        el('p', { class: 'blog-compose__ask-error', 'data-compose-error': '', role: 'alert', hidden: '' }),
+        el('span', { class: 'blog-reply__buttons' }, [
+          el('button', { type: 'button', class: 'blog-comment__act', 'data-reply-cancel': '' }, ['Cancel']),
+          el('button', { type: 'button', class: 'blog-compose__go', 'data-compose-submit': '', 'aria-label': 'Post reply', title: 'Reply' }, [parseStaticSvg(SEND_ICON_SVG)]),
         ]),
       ]),
     ]);
@@ -581,11 +581,15 @@ export function initCommentsController(): void {
   }
 
   function buildIdentityRow(id: string): HTMLElement {
-    return el('div', { class: 'blog-compose__identity', id, 'data-compose-identity': '', hidden: '' }, [
-      el('label', { class: 'sr-only', for: `${id}-name` }, ['Display name']),
-      el('input', { id: `${id}-name`, class: 'blog-compose__input blog-compose__input--name', type: 'text', maxlength: '32', autocomplete: 'nickname', placeholder: 'Name', required: '' }),
-      el('label', { class: 'sr-only', for: `${id}-email` }, ['Email']),
-      el('input', { id: `${id}-email`, class: 'blog-compose__input', type: 'email', autocomplete: 'email', placeholder: 'Email', required: '' }),
+    // Mirrors IdentityRow.astro -- the two have to agree, since the lab
+    // renders that one and a live thread renders this one.
+    return el('div', { class: 'blog-compose__identity', id, 'data-compose-identity': '' }, [
+      el('div', { class: 'blog-compose__fields' }, [
+        el('label', { class: 'sr-only', for: `${id}-name` }, ['Display name']),
+        el('input', { id: `${id}-name`, class: 'blog-compose__input blog-compose__input--name', type: 'text', maxlength: '32', autocomplete: 'nickname', placeholder: 'Name', required: '' }),
+        el('label', { class: 'sr-only', for: `${id}-email` }, ['Email']),
+        el('input', { id: `${id}-email`, class: 'blog-compose__input', type: 'email', autocomplete: 'email', placeholder: 'Email (never shown)', required: '' }),
+      ]),
       el('input', {
         type: 'text', name: 'website', 'data-honeypot': '', tabindex: '-1', autocomplete: 'off', 'aria-hidden': 'true',
         style: 'position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;',
@@ -607,7 +611,11 @@ export function initCommentsController(): void {
 
     replyBox.dataset.replyTarget = commentId;
     const label = replyBox.querySelector<HTMLElement>('[data-reply-label]');
-    if (label) label.textContent = `Replying to ${authorName}`;
+    if (label) {
+      const who = document.createElement('strong');
+      who.textContent = authorName;
+      label.replaceChildren('Replying to ', who);
+    }
     replyField.placeholder = `Reply to ${authorName}…`;
     rowBody.append(replyBox);
     replyBox.hidden = false;
@@ -621,10 +629,14 @@ export function initCommentsController(): void {
     list.append(replyBox);
     delete replyBox.dataset.replyTarget;
     document.querySelector('[data-reply-to][aria-expanded="true"]')?.setAttribute('aria-expanded', 'false');
-    const submit = replyBox.querySelector<HTMLButtonElement>('[data-compose-submit]');
-    const identity = replyBox.querySelector<HTMLElement>('[data-compose-identity]');
-    submit?.setAttribute('aria-expanded', 'false');
-    if (identity) identity.hidden = true;
+    // The box travels between rows: a complaint about the last one has
+    // nothing to do with the next.
+    const note = replyBox.querySelector<HTMLElement>('[data-compose-error]');
+    replyBox.querySelectorAll('[aria-invalid]').forEach((f) => f.removeAttribute('aria-invalid'));
+    if (note) {
+      note.textContent = '';
+      note.hidden = true;
+    }
     replyField.value = '';
   }
 
@@ -657,32 +669,40 @@ export function initCommentsController(): void {
     ]);
 
     if (comment.own && !comment.held) {
-      const editBox = el('div', { class: 'blog-compose__box blog-comment__edit', 'data-comment-edit-box': '', hidden: '' }, [
+      body.append(
         el('label', { class: 'sr-only', for: `comment-edit-${comment.id}` }, ['Edit your comment']),
-        el('textarea', { id: `comment-edit-${comment.id}`, class: 'blog-compose__field blog-comment__edit-field', 'data-comment-edit-field': '', rows: '2' }, [comment.text]),
-        el('div', { class: 'blog-comment__edit-actions' }, [
-          el('button', { type: 'button', class: 'blog-comment__act', 'data-comment-edit-cancel': '' }, ['Cancel']),
-          el('button', { type: 'button', class: 'blog-compose__go', 'data-comment-edit-save': '' }, ['Save']),
-        ]),
-      ]);
-      body.append(editBox);
+        el('textarea', { id: `comment-edit-${comment.id}`, class: 'blog-comment__edit-field', 'data-comment-edit-field': '', rows: '2', hidden: '' }, [comment.text]),
+      );
     }
 
     if (comment.held) {
       body.append(el('p', { class: 'blog-comment__note' }, ['Held for review. Only you can see this until it clears.']));
     } else {
-      const actions = el('div', { class: 'blog-comment__actions' }, [
+      // Two sets of controls in one strip, exactly one on screen -- mirrors
+      // CommentsSection.astro, which renders the same row server-side.
+      const acts = el('span', { class: 'blog-comment__acts' }, [
         el('button', {
           type: 'button', class: 'blog-comment__act blog-comment__act--like', 'data-comment-like': '',
           'aria-pressed': comment.liked ? 'true' : 'false', 'aria-label': `Like ${comment.author}'s comment`,
         }, [heartIcon(), el('span', { class: 'blog-comment__act-count', 'data-like-count': '' }, [String(comment.likes ?? 0)])]),
         el('button', { type: 'button', class: 'blog-comment__act', 'data-reply-to': comment.id, 'data-reply-name': comment.author }, [parseStaticSvg(REPLY_ICON_SVG), 'Reply']),
       ]);
+      const actions = el('div', { class: 'blog-comment__actions' }, [acts]);
       if (comment.own) {
+        acts.append(
+          el('button', { type: 'button', class: 'blog-comment__act', 'data-comment-edit-open': '' }, [
+            parseStaticSvg(EDIT_ICON_SVG),
+            'Edit',
+            el('span', { class: 'blog-comment__act-time', 'data-edit-countdown': '', hidden: '' }),
+          ]),
+          el('button', { type: 'button', class: 'blog-comment__act blog-comment__act--danger', 'data-comment-delete': '' }, [parseStaticSvg(TRASH_ICON_SVG), 'Delete']),
+        );
         actions.append(
-          el('button', { type: 'button', class: 'blog-comment__act', 'data-comment-edit-open': '' }, ['Edit']),
-          el('span', { class: 'blog-comment__edit-window', 'data-edit-countdown': '', hidden: '' }),
-          el('button', { type: 'button', class: 'blog-comment__act', 'data-comment-delete': '' }, ['Delete']),
+          el('span', { class: 'blog-comment__acts blog-comment__acts--editing', 'data-comment-edit-actions': '', hidden: '' }, [
+            el('button', { type: 'button', class: 'blog-comment__act blog-comment__act--go', 'data-comment-edit-save': '' }, ['Post']),
+            el('button', { type: 'button', class: 'blog-comment__act', 'data-comment-edit-cancel': '' }, ['Cancel']),
+            el('span', { class: 'blog-comment__act-time blog-comment__act-time--left', 'data-edit-countdown': '', hidden: '' }),
+          ]),
         );
       }
       body.append(actions);
@@ -751,43 +771,52 @@ export function initCommentsController(): void {
     const cancelBtn = article.querySelector<HTMLButtonElement>('[data-comment-edit-cancel]');
     const saveBtn = article.querySelector<HTMLButtonElement>('[data-comment-edit-save]');
     const deleteBtn = article.querySelector<HTMLButtonElement>('[data-comment-delete]');
-    const actions = article.querySelector<HTMLElement>('.blog-comment__actions');
+    const acts = article.querySelector<HTMLElement>('.blog-comment__acts');
+    const editActs = article.querySelector<HTMLElement>('[data-comment-edit-actions]');
     const text = article.querySelector<HTMLElement>('[data-comment-text]');
-    const editBox = article.querySelector<HTMLElement>('[data-comment-edit-box]');
     const field = article.querySelector<HTMLTextAreaElement>('[data-comment-edit-field]');
 
-    if (openBtn && text && editBox && field) {
-      openBtn.addEventListener('click', () => {
-        text.hidden = true;
-        editBox.hidden = false;
-        if (actions) actions.hidden = true;
-        field.focus();
-      });
+    // The window stops while the field is open -- see the same wiring in
+    // CommentsSection.astro, and the note there about the server's own clock.
+    const clock = comment.editDeadline ? startEditCountdown(article, comment.editDeadline, openBtn) : null;
+
+    // The strip swaps its contents; nothing in the row is removed, so the
+    // countdown keeps its place through the edit it is limiting.
+    const setEditing = (editing: boolean): void => {
+      if (text) text.hidden = editing;
+      if (field) field.hidden = !editing;
+      if (acts) acts.hidden = editing;
+      if (editActs) editActs.hidden = !editing;
+      if (editing) {
+        clock?.pause();
+        field?.focus();
+      } else {
+        clock?.resume();
+      }
+    };
+
+    if (openBtn && text && field) {
+      openBtn.addEventListener('click', () => setEditing(true));
       cancelBtn?.addEventListener('click', () => {
         field.value = text.textContent ?? '';
-        editBox.hidden = true;
-        text.hidden = false;
-        if (actions) actions.hidden = false;
+        setEditing(false);
       });
-      saveBtn?.addEventListener('click', () => void saveEdit(comment.id, article, text, editBox, field, actions));
+      saveBtn?.addEventListener('click', () => void saveEdit(comment.id, article, text, field, setEditing));
     }
 
     deleteBtn?.addEventListener('click', () => void deleteComment(comment.id, article, parentId));
-
-    if (comment.editDeadline) startEditCountdown(article, comment.editDeadline, openBtn);
   }
 
   async function saveEdit(
     commentId: string,
     article: HTMLElement,
     text: HTMLElement,
-    editBox: HTMLElement,
     field: HTMLTextAreaElement,
-    actions: HTMLElement | null,
+    setEditing: (editing: boolean) => void,
   ): Promise<void> {
     const body = field.value.trim();
     if (!body) return;
-    editBox.querySelector('.blog-comment__edit-error')?.remove();
+    article.querySelector('.blog-comment__edit-error')?.remove();
 
     const input: CommentEditInput = { body };
     const response = await fetch(`/api/v2/comments/${encodeURIComponent(commentId)}`, {
@@ -797,15 +826,13 @@ export function initCommentsController(): void {
     });
 
     if (!response.ok) {
-      editBox.append(el('p', { class: 'blog-comment__edit-error blog-compose__error' }, ["Couldn't save that edit."]));
+      field.after(el('p', { class: 'blog-comment__edit-error blog-compose__error' }, ["Couldn't save that edit."]));
       return;
     }
 
     const data = (await response.json()) as CommentEditResult;
     text.textContent = data.comment.body;
-    editBox.hidden = true;
-    text.hidden = false;
-    if (actions) actions.hidden = false;
+    setEditing(false);
 
     const meta = article.querySelector('.blog-comment__meta');
     if (meta && !meta.querySelector('.blog-comment__edited')) {
@@ -834,28 +861,58 @@ export function initCommentsController(): void {
     setTally(Math.max(0, total - 1));
   }
 
-  function startEditCountdown(article: HTMLElement, deadline: number, editBtn: HTMLButtonElement | null): void {
-    const countdown = article.querySelector<HTMLElement>('[data-edit-countdown]');
-    if (!editBtn || !countdown) return;
+  function startEditCountdown(
+    article: HTMLElement,
+    initialDeadline: number,
+    editBtn: HTMLButtonElement | null,
+  ): { pause: () => void; resume: () => void } | null {
+    // Both slots: the one inside the Edit button and the one beside Post. Only
+    // one is ever on screen, and writing both means the clock survives the
+    // moment the reader acts on it.
+    const slots = [...article.querySelectorAll<HTMLElement>('[data-edit-countdown]')];
+    if (!editBtn || !slots.length) return null;
+
+    let deadline = initialDeadline;
+    let pausedAt = 0;
+    let timer = 0;
 
     function tick(): boolean {
       const remaining = deadline - Date.now();
       if (remaining <= 0) {
         editBtn!.hidden = true;
-        countdown!.hidden = true;
+        for (const slot of slots) slot.hidden = true;
         return false;
       }
       const mins = Math.floor(remaining / 60000);
       const secs = Math.floor((remaining % 60000) / 1000);
-      countdown!.hidden = false;
-      countdown!.textContent = `${mins}:${String(secs).padStart(2, '0')} to edit`;
+      for (const slot of slots) {
+        slot.hidden = false;
+        slot.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+      }
       return true;
     }
 
-    if (!tick()) return;
-    const id = window.setInterval(() => {
-      if (!tick()) window.clearInterval(id);
-    }, 1000);
+    function run(): void {
+      if (!tick()) return;
+      timer = window.setInterval(() => {
+        if (!tick()) window.clearInterval(timer);
+      }, 1000);
+    }
+
+    run();
+
+    return {
+      pause() {
+        window.clearInterval(timer);
+        pausedAt = Date.now();
+      },
+      resume() {
+        if (!pausedAt) return;
+        deadline += Date.now() - pausedAt;
+        pausedAt = 0;
+        run();
+      },
+    };
   }
 
   // --- Phase / identity ---------------------------------------------------
@@ -883,7 +940,7 @@ export function initCommentsController(): void {
           phase = 'anonymous';
           applyPhase(compose, phase, claimed, viewer);
           applyPhase(replyBox, phase, claimed, viewer);
-          revealComposeIdentity(box);
+          box.querySelector<HTMLInputElement>('[data-compose-identity] input')?.focus();
         });
         claim.append(`以 ${claimedIdentity.name} 评论`, switchBtn);
       }

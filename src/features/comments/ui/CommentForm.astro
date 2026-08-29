@@ -7,19 +7,20 @@
    the post, and the thing they might want to do is write, not scroll past
    other people's writing to find the field.
 
-   The field is writable before anyone has signed in, and the primary button
-   always says Post — plans/blog-comments.md → "Compose: name + email, post
-   immediately" point 1. Identity is asked for at submit, not at the door:
-   making people authenticate before they can type loses the comment that
-   motivated them to write in the first place, and posting is not gated on it
-   at all any more — the round trip only proves an address, it never blocks a
-   comment.
+   Order is identity, then words. The earlier design kept the fields hidden
+   and grew them out of the first Post press — writable before anyone had
+   said who they were — but that made one button mean "expand" on the first
+   press and "submit" on the second, and dropped two unlabelled fields under
+   the reader's hands at the moment they were trying to finish. The fields
+   are on screen from first paint instead, saying what the address is for in
+   their own placeholder, and Post checks them (compose-validate.ts). It costs
+   the impulse comment; it buys a form that holds still.
 
    Three grades the wrapper's `data-phase` can hold (Design → "Identity: three
    grades, one table"):
-     anonymous — nothing on file; Post reveals a name + email row
-     claimed   — `buxx:reader` in localStorage; footer offers "someone else"
-                 instead of asking again
+     anonymous — nothing on file; the identity row is asked for
+     claimed   — `buxx:reader` in localStorage; the row gives way to
+                 "以 {name} 评论" with "换一个" to ask again
      ready     — a verified `reader_session`; "Posting as {name}" with avatar
 
    ...crossed with what the current submission attempt is doing, on
@@ -29,7 +30,7 @@
    Presentational only. Submission, the risk stack, and the lazy-verification
    round trip land with client/comments-controller.ts — this component never
    fetches. The reply box in CommentsSection.astro asks the same question the
-   same way, sharing IdentityRow.astro and compose-reveal.ts rather than
+   same way, sharing IdentityRow.astro and compose-validate.ts rather than
    duplicating either. */
 
 import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
@@ -44,9 +45,6 @@ interface Props {
   /** Required when phase is 'claimed' — the localStorage mirror, never a
       proof, so it never carries an avatar. */
   claimed?: ClaimedIdentity;
-  /** Dev/lab-only: force the identity row open without a click, to preview
-      the `identity` state on its own. */
-  open?: boolean;
   /** Where the current submission attempt stands. */
   receipt?: ComposeReceipt;
   /** The body text to preserve across `submitting` and `error` — the two
@@ -58,77 +56,85 @@ const {
   phase = 'anonymous',
   viewer,
   claimed,
-  open = false,
   receipt = 'idle',
   draftText = '',
 } = Astro.props;
 
 const busy = receipt === 'submitting';
-// The identity row only auto-opens for the two states that grew out of an
-// open row: mid-flight (submitting) and needing another try (error, where the
-// name and email are as much "the draft" as the body is). A successful
-// outcome (posted/held/nudge) is reached once the reader has a phase above
-// anonymous, so it does not need to force the row open on its own.
-const identityOpen = open || (phase === 'anonymous' && (busy || receipt === 'error'));
 const fieldValue = busy || receipt === 'error' ? draftText : '';
 const showReceipt = receipt !== 'idle' && !busy;
 ---
 
 <div class="blog-compose" data-pagefind-ignore data-phase={phase} data-receipt={receipt}>
+  {/* Hidden by CSS on claimed/ready — those readers have an identity on file
+      and are told so in the footer instead. Always in the DOM so the claimed
+      footer's "换一个" has a row to give back without a re-render. */}
+  <IdentityRow id="blog-compose-id" />
+
   <div class="blog-compose__box">
     <label class="sr-only" for="blog-compose-text">Write a comment</label>
     <textarea
       id="blog-compose-text"
       class="blog-compose__field"
       name="comment"
-      rows="2"
+      rows="4"
       readonly={busy}
       placeholder="Add to the conversation…"
       set:text={fieldValue}></textarea>
+    {/* Inside the box it describes. As a line under the box it stacked with
+        the validation line to put two rows of small grey text between the
+        writing and the button. */}
+    <span class="blog-compose__hint">Markdown supported.</span>
+  </div>
 
-    <IdentityRow id="blog-compose-id" open={identityOpen} />
+  <div class="blog-compose__foot">
+    {/* All three read as one source of truth in script: only data-phase on
+        the wrapper decides which is visible (see comments.css), so the
+        claimed → anonymous switch below is a one-line attribute flip
+        instead of three branches of DOM surgery. */}
+    <span class="blog-compose__who">
+      {viewer && (
+        <>
+          {viewer.avatar ? (
+            <img class="blog-compose__whoface" src={viewer.avatar} alt="" width="20" height="20" />
+          ) : (
+            <span
+              class="blog-compose__whoface blog-avatar-seed blog-avatar-initials"
+              style={`--seed-hue:${seedHue(viewer.name)}`}
+              aria-hidden="true">{initials(viewer.name)}</span>
+          )}
+          Posting as {viewer.name}
+        </>
+      )}
+    </span>
 
-    <div class="blog-compose__foot">
-      {/* All three read as one source of truth in script: only data-phase on
-          the wrapper decides which is visible (see comments.css), so the
-          claimed → anonymous switch below is a one-line attribute flip
-          instead of three branches of DOM surgery. */}
-      <span class="blog-compose__who">
-        {viewer && (
-          <>
-            {viewer.avatar ? (
-              <img class="blog-compose__whoface" src={viewer.avatar} alt="" width="20" height="20" />
-            ) : (
-              <span
-                class="blog-compose__whoface blog-avatar-seed blog-avatar-initials"
-                style={`--seed-hue:${seedHue(viewer.name)}`}
-                aria-hidden="true">{initials(viewer.name)}</span>
-            )}
-            Posting as {viewer.name}
-          </>
-        )}
-      </span>
+    <span class="blog-compose__claim">
+      {claimed && (
+        <>
+          以 {claimed.name} 评论
+          <button type="button" class="blog-compose__claim-switch" data-compose-switch>换一个</button>
+        </>
+      )}
+    </span>
 
-      <span class="blog-compose__claim">
-        {claimed && (
-          <>
-            以 {claimed.name} 评论
-            <button type="button" class="blog-compose__claim-switch" data-compose-switch>换一个</button>
-          </>
-        )}
-      </span>
+    {/* One line, spoken only when Post has been pressed on an unfinished box,
+        in the slot the hint used to occupy. A disabled button would say the
+        same thing by going grey and would never say which field it was
+        waiting on. */}
+    <p class="blog-compose__ask-error" data-compose-error role="alert" hidden></p>
 
-      <span class="blog-compose__hint">Markdown supported.</span>
-
-      <button
-        type="button"
-        class="blog-compose__go"
-        data-compose-submit
-        aria-expanded={identityOpen ? 'true' : 'false'}
-        aria-controls="blog-compose-id"
-        disabled={busy}
-      >Post</button>
-    </div>
+    <button
+      type="button"
+      class="blog-compose__go"
+      data-compose-submit
+      aria-label="Post comment"
+      title="Post"
+      disabled={busy}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 19V5M5 12l7-7 7 7"></path>
+      </svg>
+    </button>
   </div>
 
   {showReceipt && (
@@ -173,23 +179,23 @@ const showReceipt = receipt !== 'idle' && !busy;
 </div>
 
 <script>
-  // The Post-reveals-identity behaviour is shared with the reply box — see
-  // compose-reveal.ts. Everything left here is specific to this box: the
+  // The press-Post-and-be-told behaviour is shared with the reply box — see
+  // compose-validate.ts. Everything left here is specific to this box: the
   // claimed footer's "换一个", and dismissing the subscribe nudge.
-  import { revealComposeIdentity, wireComposeIdentityReveal } from '@/features/comments/compose-reveal';
+  import { wireComposeValidation } from '@/features/comments/compose-validate';
 
-  wireComposeIdentityReveal();
+  wireComposeValidation();
 
   document.querySelectorAll<HTMLElement>('.blog-compose').forEach((compose) => {
     const switchBtn = compose.querySelector<HTMLButtonElement>('[data-compose-switch]');
     const nudge = compose.querySelector<HTMLElement>('[data-compose-nudge]');
 
     // "换一个": drop the claimed identity and ask again, same as a
-    // first-time anonymous Post. Only the phase attribute needs to change —
-    // comments.css keys the footer's who/claim/hint on it.
+    // first-time anonymous reader. Only the phase attribute needs to change —
+    // comments.css keys both the footer and the identity row on it.
     switchBtn?.addEventListener('click', () => {
       compose.dataset.phase = 'anonymous';
-      revealComposeIdentity(compose);
+      compose.querySelector<HTMLInputElement>('[data-compose-identity] input')?.focus();
     });
 
     nudge?.querySelector('[data-compose-dismiss]')?.addEventListener('click', () => {
