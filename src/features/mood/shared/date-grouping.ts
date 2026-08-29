@@ -2,6 +2,10 @@
 // getters resolve to UTC; the client runs in the visitor's local timezone. Both
 // paths call these helpers, so the only difference is the ambient timezone. The
 // rekey pass below reconciles the two after hydration.
+//
+// KEEP IN SYNC with the pre-paint copy in
+// src/features/mood/client/rekey-server-groups-inline.js; the
+// mood-date-grouping unit test compares both implementations.
 
 const MONTH_NAMES = [
   'January',

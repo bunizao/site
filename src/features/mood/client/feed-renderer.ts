@@ -602,7 +602,11 @@ export function createFeedRenderer({
     const hasReactions = mood.reactions && mood.reactions.length > 0;
     const commentsInfo = getCommentsCountInfo(mood.commentsCount);
     const reactionsWrap = document.createElement('div');
-    reactionsWrap.className = 'mood-item-reactions';
+    // Hidden while empty, matching the SSR markup, so the live-counts patch
+    // never collapses an already-painted row. The patcher un-hides it.
+    reactionsWrap.className = hasReactions || commentsInfo.count > 0
+      ? 'mood-item-reactions'
+      : 'mood-item-reactions is-hidden';
 
     if (hasReactions) {
       (mood.reactions ?? []).forEach((reaction) => {

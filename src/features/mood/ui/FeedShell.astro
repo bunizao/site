@@ -27,6 +27,7 @@ import {
 import { getMoodTagHref, normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
+import rekeyServerGroupsInline from '@/features/mood/client/rekey-server-groups-inline.js?raw';
 
 interface SkeletonItem {
   index: number;
@@ -510,7 +511,11 @@ function shouldHideQuoteAuthor(value?: string): boolean {
 
                     {isLongPreview ? <a class="mood-item-details link" href={detailHref}>View details</a> : null}
 
-                    <div class="mood-item-reactions">
+                    {/* Hidden while empty so the live-counts patch never collapses
+                        a rendered row (each empty row costs the column gap plus its
+                        own margin, and hiding it after paint shifts the feed). The
+                        patcher un-hides it when live data adds pills or comments. */}
+                    <div class={`mood-item-reactions${post.reactions.length === 0 && commentsInfo.count === 0 ? ' is-hidden' : ''}`}>
                       {post.reactions.map((reaction) => (
                         <span
                           class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}
@@ -584,6 +589,9 @@ function shouldHideQuoteAuthor(value?: string): boolean {
         </div>
       ))}
     </div>
+    {/* Regroups the SSR stream into the visitor's timezone during HTML parsing,
+        before first paint, so the hydrated rekey pass finds nothing to move. */}
+    {hasCriticalInitialPosts && <script is:inline set:html={rekeyServerGroupsInline}></script>}
     <div class="mood-load-controls">
       <p class="mood-load-status" data-load-status aria-live="polite"></p>
       <button class="mood-load-retry" type="button" data-mood-load-retry hidden>Retry</button>
