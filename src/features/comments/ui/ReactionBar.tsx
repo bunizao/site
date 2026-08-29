@@ -25,6 +25,21 @@ interface Props {
 const HEART_PATH =
   'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
 
+function Heart({ filled = false }: { filled?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="blog-react__glyph"
+      aria-hidden="true"
+    >
+      <path d={HEART_PATH} />
+    </svg>
+  );
+}
+
 /** One burst of hearts per like. Keyed by id so a fast double-tap stacks. */
 interface Spark {
   id: number;
@@ -47,7 +62,12 @@ export default function ReactionBar({
   const [sparks, setSparks] = React.useState<Spark[]>([]);
   const sparkId = React.useRef(0);
 
-  const total = count + (liked && !reacted ? 1 : 0) - (!liked && reacted ? 1 : 0);
+  // The two faces of the card are the two counts, so each is derived once here
+  // rather than animated from one into the other: `base` is the tally without
+  // this reader, `mine` the same tally with them in it.
+  const base = reacted ? count - 1 : count;
+  const mine = base + 1;
+  const total = liked ? mine : base;
   const faces = reactors.slice(0, faceLimit);
   const overflow = Math.max(0, total - faces.length);
 
@@ -85,56 +105,50 @@ export default function ReactionBar({
   return (
     <div ref={scope} className="blog-react" data-pagefind-ignore>
       {/* Liking a post asks for no account. It is a count, not a signature: the
-          pill used to flip over to a Sign in door on the first press, which
-          charged a reader an identity for one bit of feedback and turned the
-          cheapest gesture on the page into the most expensive one. Anonymous
-          presses are still counted -- they just put no face in the stack,
+          card used to turn over to a Sign in door on the first press, which
+          charged a reader an identity for one bit of feedback. It still turns
+          over -- that was the good part -- but the far side is now the liked
+          state itself, so the flip IS the feedback rather than a toll gate.
+          Anonymous presses are counted; they just put no face in the stack,
           because the site has no name to put there. */}
       <div className="blog-react__pull" data-magnetic>
+        {/* Outside the card, so the burst happens in flat screen space over a
+            face that is mid-rotation. */}
+        <span className="blog-react__sparks" aria-hidden="true">
+          {sparks.map((spark) => (
+            <svg
+              key={spark.id}
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="blog-react__spark"
+              style={{
+                ['--spark-x' as string]: `${spark.x}px`,
+                ['--spark-rot' as string]: `${spark.rot}deg`,
+                animationDelay: `${spark.delay}ms`,
+              }}
+            >
+              <path d={HEART_PATH} />
+            </svg>
+          ))}
+        </span>
+
         <button
           type="button"
           onClick={toggle}
           aria-pressed={liked}
           aria-label={liked ? t.reactRemove : t.reactAdd}
-          className={cn('blog-react__pill', liked && 'is-liked')}
+          className={cn('blog-react__card', liked && 'is-flipped')}
         >
-          <span className="blog-react__sparks" aria-hidden="true">
-            {sparks.map((spark) => (
-              <svg
-                key={spark.id}
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                className="blog-react__spark"
-                style={{
-                  ['--spark-x' as string]: `${spark.x}px`,
-                  ['--spark-rot' as string]: `${spark.rot}deg`,
-                  animationDelay: `${spark.delay}ms`,
-                }}
-              >
-                <path d={HEART_PATH} />
-              </svg>
-            ))}
+          {/* Both faces are always mounted and stacked in one grid cell, which
+              is also what keeps them the same width when the two counts have a
+              different number of digits. */}
+          <span className="blog-react__pill" aria-hidden={liked}>
+            <Heart />
+            <span className="blog-react__count">{base}</span>
           </span>
-          <svg
-            viewBox="0 0 24 24"
-            fill={liked ? 'currentColor' : 'none'}
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className="blog-react__glyph"
-            aria-hidden="true"
-          >
-            <path d={HEART_PATH} />
-          </svg>
-          {/* Slot-machine roller: both values are always mounted and the
-              column slides, so the digits travel instead of blinking. */}
-          <span className="blog-react__roller">
-            <span
-              className="blog-react__reel"
-              style={{ transform: `translateY(${liked === reacted ? '0' : '-1.5em'})` }}
-            >
-              <span>{count}</span>
-              <span>{total}</span>
-            </span>
+          <span className="blog-react__pill blog-react__pill--liked" aria-hidden={!liked}>
+            <Heart filled />
+            <span className="blog-react__count">{mine}</span>
           </span>
         </button>
       </div>

@@ -88,21 +88,57 @@
   min-height: 36px;
 }
 
-/* --- The pill ------------------------------------------------------------ */
-/* The magnetic pull's target. It writes only duration, timing and transform
-   inline, so the property it animates has to be declared here; the duration is
-   a placeholder the script overrides per direction, a short glide out and a
-   spring back. Shrink-wrapped, so the pill is as wide as its own contents. */
+/* --- The card ------------------------------------------------------------ */
+/* The magnetic pull's target, and the stage the flip turns on. The pull writes
+   only duration, timing and transform inline, so the property it animates has
+   to be declared here; the duration is a placeholder the script overrides per
+   direction, a short glide out and a spring back. Shrink-wrapped, so the card
+   is as wide as its own contents. */
 .blog-react__pull {
+  position: relative;
   display: flex;
   justify-content: flex-start;
+  perspective: 900px;
   transition: transform 140ms cubic-bezier(0.33, 1, 0.68, 1);
 }
 
+/* The button is the hinge and nothing else -- no box of its own, both faces
+   inside it. One control rather than two, so aria-pressed and focus have a
+   single home and the turn cannot leave the reader holding a different element
+   than the one they pressed. */
+.blog-react__card {
+  display: grid;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--blog-r-pill);
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.6, 0.04, 0.2, 1);
+}
+
+.blog-react__card.is-flipped {
+  transform: rotateY(180deg);
+}
+
+/* Independent of the rotation above, which is why it is `scale` and not a
+   second transform -- the two would otherwise overwrite each other. */
+.blog-react__card:active {
+  scale: 0.96;
+}
+
+.blog-react__card:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 3px;
+}
+
+/* Both faces share the one grid cell. That stack is also what keeps the card
+   from changing width as it turns: the cell is as wide as the wider face, so
+   99 on the front and 100 on the back still describe one rectangle. */
 .blog-react__pill {
-  position: relative;
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
   display: inline-flex;
-  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -112,7 +148,6 @@
      the glyph looking marooned; 2px off the start squares the two edges up. */
   padding: 0 15px 0 13px;
   border-radius: var(--blog-r-pill);
-  cursor: pointer;
   white-space: nowrap;
   /* Glass rather than a flat fill: the bar sits under a column of body text and
      a solid chip there reads as a button bolted on. The zone's 10% hairline is
@@ -128,24 +163,18 @@
     color 0.25s ease;
 }
 
-.blog-react__pill:hover {
+/* The far side of the card, already wearing the liked colour before it comes
+   into view -- the turn is the transition, so nothing here needs to fade. */
+.blog-react__pill--liked {
+  transform: rotateY(180deg);
+  border-color: color-mix(in oklab, var(--blog-xia) 45%, transparent);
+  color: var(--blog-xia);
+}
+
+.blog-react__card:hover .blog-react__pill {
   border-color: color-mix(in oklab, var(--blog-xia) 45%, transparent);
   background: color-mix(in oklab, var(--blog-xia) 6%, transparent);
   color: var(--blog-xia);
-}
-
-.blog-react__pill:active {
-  scale: 0.96;
-}
-
-.blog-react__pill.is-liked {
-  border-color: color-mix(in oklab, var(--blog-xia) 45%, transparent);
-  color: var(--blog-xia);
-}
-
-.blog-react__pill:focus-visible {
-  outline: 2px solid var(--blog-accent);
-  outline-offset: 2px;
 }
 
 .blog-react__glyph {
@@ -154,38 +183,19 @@
   transition: transform 0.2s var(--ease-bounce, cubic-bezier(0.34, 1.36, 0.64, 1));
 }
 
-.blog-react__pill:hover .blog-react__glyph,
-.blog-react__pill.is-liked .blog-react__glyph {
+.blog-react__card:hover .blog-react__glyph {
   transform: scale(1.12);
 }
 
-/* --- Slot-machine count -------------------------------------------------- */
-/* Both values stay mounted and the column slides, so the digits travel rather
-   than blink. Sized to the digits with a 2ch floor rather than a fixed 3ch: a
-   two-digit count centred in three characters leaves half a character of dead
-   space on each side, which reads as the pill having crooked padding. Tabular
-   figures keep the width steady through the roll. */
-.blog-react__roller {
-  display: inline-grid;
+/* Tabular figures with a 2ch floor rather than a fixed 3ch: a two-digit count
+   centred in three characters leaves half a character of dead space each side,
+   which reads as the pill having crooked padding. */
+.blog-react__count {
   min-width: 2ch;
-  height: 1.5em;
-  overflow: hidden;
   font-size: 14px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-}
-
-.blog-react__reel {
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.45s var(--ease-bounce, cubic-bezier(0.34, 1.36, 0.64, 1));
-}
-
-.blog-react__reel > span {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 1.5em;
+  text-align: center;
 }
 
 /* --- Heart burst --------------------------------------------------------- */
@@ -323,7 +333,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .blog-react__pull,
-  .blog-react__reel,
+  .blog-react__card,
   .blog-react__glyph,
   .blog-react__avatar,
   .blog-react__name {
@@ -606,9 +616,17 @@
 /* Left end of the bar, out of the way until the reader wonders whether
    asterisks will work. */
 .blog-compose__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: var(--comment-meta);
   line-height: 1;
   color: var(--blog-faint);
+}
+
+.blog-compose__hint svg {
+  width: 15px;
+  height: 15px;
 }
 
 /* Whose name is going on the comment. Hidden outright when there is nothing to
@@ -1116,10 +1134,16 @@
 }
 
 /* 1.6 stroke against 500-weight text: an icon beside a label carries the
-   label's optical weight, and a hairline next to medium reads as broken. */
+   label's optical weight, and a hairline next to medium reads as broken.
+
+   15, not 14, and the reason is the script. A lucide glyph carries about a
+   pixel of its own padding inside the viewBox, so a 14px icon draws at ~12px
+   of ink -- next to Latin that is fine, because lowercase sits well below the
+   em box and the two look level. A CJK label at 13px fills its 13px box
+   completely, so the same icon read as visibly the smaller of the pair. */
 .blog-comment__act svg {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
 }
 
 .blog-comment__act-count {
