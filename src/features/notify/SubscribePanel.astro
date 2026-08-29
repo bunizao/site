@@ -99,7 +99,6 @@ const intro =
   data-copy-need-channel={t.needChannel}
   data-copy-rate-limited={t.rateLimited}
   data-copy-network={t.network}
-  data-copy-verify-pending={t.verifyPending}
   data-copy-verify-failed={t.verifyFailed}
   role="dialog"
   aria-label={t.title}
@@ -176,9 +175,10 @@ const intro =
           </div>
         </div>
 
-        <div data-sub-turnstile class="sub-turnstile"></div>
-
-        <p class="sub-hint" data-sub-hint></p>
+        {/* Mount point only. The challenge is invisible and is executed at
+            submit time, so nothing is ever drawn here -- see
+            subscribe-panel.ts. */}
+        <div data-sub-turnstile hidden></div>
 
         <p class="sub-privacy">
           {t.privacy.prefix}
@@ -209,9 +209,6 @@ const intro =
             )}
           </div>
           <button type="submit" class="sub-submit" data-sub-submit>
-            <span class="sub-submit__lock" data-sub-submit-lock aria-hidden="true">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 1 1 8 0v3"></path></svg>
-            </span>
             <span data-sub-submit-text>{t.submit}</span>
             <svg class="sub-submit__arrow" data-sub-submit-arrow viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
             <span class="sub-spinner is-hidden" data-sub-submit-spinner></span>
@@ -611,37 +608,6 @@ const intro =
     outline-offset: 1px;
   }
 
-  .sub-turnstile {
-    --sub-turnstile-scale: 0.92;
-    margin-top: 12px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    min-height: 0;
-    transition: min-height 0.2s ease;
-  }
-
-  .sub-turnstile.has-widget {
-    min-height: 62px;
-  }
-
-  .sub-turnstile.has-widget > div {
-    transform: scale(var(--sub-turnstile-scale));
-    transform-origin: center top;
-    display: block;
-  }
-
-  .sub-hint {
-    margin: 8px 0 0;
-    font-size: 10.5px;
-    line-height: 1.4;
-    color: hsl(var(--muted-foreground) / 0.78);
-  }
-
-  .sub-hint:empty {
-    display: none;
-  }
-
   .sub-privacy {
     margin: 10px 0 0;
     font-size: 10.5px;
@@ -766,31 +732,6 @@ const intro =
     height: 15px;
   }
 
-  .sub-submit.is-locked,
-  .sub-submit.is-locked:disabled {
-    opacity: 1;
-    color: hsl(var(--muted-foreground));
-    background: transparent;
-    border-color: hsl(var(--foreground) / 0.14);
-    cursor: not-allowed;
-  }
-
-  .sub-submit.is-locked .sub-submit__arrow {
-    display: none;
-  }
-
-  .sub-submit__lock {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.6;
-  }
-
-  .sub-submit.is-locked .sub-submit__lock {
-    display: inline-flex;
-  }
-
-  .sub-submit[aria-busy='true'] .sub-submit__lock,
   .sub-submit[aria-busy='true'] .sub-submit__arrow {
     display: none;
   }

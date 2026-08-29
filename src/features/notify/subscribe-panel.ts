@@ -24,7 +24,6 @@ function panelCopy(panel: HTMLElement) {
     needChannel: read('copyNeedChannel', 'Pick at least one.'),
     rateLimited: read('copyRateLimited', 'Too many tries. Give it a minute.'),
     network: read('copyNetwork', 'Network trouble — check your connection.'),
-    verifyPending: read('copyVerifyPending', 'Finish the security check first.'),
     verifyFailed: read('copyVerifyFailed', 'That check failed. Try again.'),
   };
 }
@@ -60,9 +59,7 @@ function setupPanel(panel: HTMLElement): void {
   const modeInputs = Array.from(panel.querySelectorAll<HTMLInputElement>('[data-sub-mode]'));
   const segGroup = panel.querySelector<HTMLElement>('.sub-seg');
   const submit = panel.querySelector<HTMLButtonElement>('[data-sub-submit]')!;
-  const submitLock = panel.querySelector<HTMLElement>('[data-sub-submit-lock]')!;
   const submitSpinner = panel.querySelector<HTMLElement>('[data-sub-submit-spinner]')!;
-  const hint = panel.querySelector<HTMLElement>('[data-sub-hint]')!;
   const errorMsg = panel.querySelector<HTMLElement>('[data-sub-error]')!;
   const successText = panel.querySelector<HTMLElement>('[data-sub-success-text]')!;
   const errorText = panel.querySelector<HTMLElement>('[data-sub-error-text]')!;
@@ -72,14 +69,13 @@ function setupPanel(panel: HTMLElement): void {
 
   const anchor = panel.dataset.anchor === 'left' ? 'left' : 'right';
   const siteKey = panel.dataset.turnstileSiteKey || '';
-  const requiresTurnstile = Boolean(siteKey);
   const supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
   let turnstileWidgetId: string | null = null;
-  let turnstileReady = false;
-  let turnstileToken = '';
+  let turnstileScript: Promise<void> | null = null;
+  let tokenPromise: Promise<string> | null = null;
+  let settleToken: ((token: string) => void) | null = null;
   let isSubmitting = false;
-  let lockedHint = t.verifyPending;
   let isOpen = false;
   let hoverCloseTimer: number | null = null;
 
@@ -150,10 +146,6 @@ function setupPanel(panel: HTMLElement): void {
     }
   };
 
-  const setHint = (message: string) => {
-    hint.textContent = message;
-  };
-
   const syncSegment = () => {
     if (!segGroup || modeInputs.length === 0) return;
     const index = Math.max(0, modeInputs.findIndex((input) => input.checked));
@@ -165,81 +157,82 @@ function setupPanel(panel: HTMLElement): void {
 
   const getDeliveryMode = () => modeInputs.find((input) => input.checked)?.value || 'instant';
 
+  // Nothing to gate on any more: the challenge is invisible and is asked for
+  // at submit time, so the only reason to hold the button is a request already
+  // in flight. The padlock and the "finish the security check" hint that used
+  // to live here went with the visible widget.
   const syncGate = () => {
-    const verified = !requiresTurnstile || Boolean(turnstileToken);
-    submit.disabled = !verified || isSubmitting;
-    submit.classList.toggle('is-locked', !verified);
-    submitLock.classList.toggle('is-hidden', verified || isSubmitting);
-    setHint(!requiresTurnstile || verified ? '' : lockedHint);
+    submit.disabled = isSubmitting;
   };
 
-  const renderTurnstile = () => {
-    const turnstile = (window as unknown as { turnstile?: any }).turnstile;
-    if (!siteKey || !turnstileReady || !turnstile || turnstileWidgetId !== null) return;
-    turnstileContainer.classList.add('has-widget');
-    turnstileWidgetId = turnstile.render(turnstileContainer, {
-      sitekey: siteKey,
-      action: 'notify_subscribe',
-      theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
-      size: 'normal',
-      callback: (token: string) => {
-        turnstileToken = token || '';
-        errorMsg.textContent = '';
-        lockedHint = t.verifyPending;
-        syncGate();
-      },
-      'expired-callback': () => {
-        turnstileToken = '';
-        lockedHint = t.verifyFailed;
-        syncGate();
-      },
-      'error-callback': () => {
-        turnstileToken = '';
-        lockedHint = t.verifyFailed;
-        syncGate();
-      },
-      'timeout-callback': () => {
-        turnstileToken = '';
-        lockedHint = t.verifyFailed;
-        syncGate();
-      },
+  // ---- Turnstile, invisible ------------------------------------------------
+  // Same shape as the comment box (comments-controller.ts): a hidden widget
+  // that is executed for a token when the reader submits, rather than a
+  // challenge box sitting in the form asking to be solved first. The panel is
+  // three fields and a button; a 65px Cloudflare card under them was the
+  // largest object in it.
+
+  const loadTurnstile = (): Promise<void> => {
+    if (turnstileScript) return turnstileScript;
+    turnstileScript = new Promise((resolve) => {
+      if (!siteKey || (window as unknown as { turnstile?: unknown }).turnstile) {
+        resolve();
+        return;
+      }
+      if (document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')) {
+        resolve();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onSubscribeTurnstileLoad';
+      script.async = true;
+      (window as unknown as { onSubscribeTurnstileLoad?: () => void }).onSubscribeTurnstileLoad = () => resolve();
+      document.head.appendChild(script);
     });
+    return turnstileScript;
   };
 
-  const loadTurnstile = () => {
-    if (!siteKey || turnstileReady) return;
-    if (document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')) {
-      turnstileReady = true;
-      renderTurnstile();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onSubscribeTurnstileLoad';
-    script.async = true;
-    (window as unknown as { onSubscribeTurnstileLoad?: () => void }).onSubscribeTurnstileLoad = () => {
-      turnstileReady = true;
-      renderTurnstile();
-    };
-    document.head.appendChild(script);
+  /** A fresh single-use token. An empty site key means Turnstile is
+      unconfigured (e2e fixtures, local dev) -- resolve to '' and let the
+      server's own `not_configured` answer decide, rather than blocking a
+      submission on a widget that will never load. */
+  const requestToken = (): Promise<string> => {
+    if (!siteKey) return Promise.resolve('');
+    if (tokenPromise) return tokenPromise;
+
+    tokenPromise = new Promise<string>((resolve) => {
+      settleToken = resolve;
+      const settle = (token: string) => settleToken?.(token || '');
+      void loadTurnstile().then(() => {
+        const turnstile = (window as unknown as { turnstile?: any }).turnstile;
+        if (!turnstile) {
+          settle('');
+          return;
+        }
+        if (turnstileWidgetId === null) {
+          turnstileWidgetId = turnstile.render(turnstileContainer, {
+            sitekey: siteKey,
+            action: 'notify_subscribe',
+            size: 'invisible',
+            callback: settle,
+            'expired-callback': () => settle(''),
+            'error-callback': () => settle(''),
+            'timeout-callback': () => settle(''),
+          });
+        } else {
+          turnstile.reset(turnstileWidgetId);
+        }
+      });
+    });
+
+    return tokenPromise;
   };
 
-  const resetTurnstile = (nextHint: string = t.verifyPending) => {
-    const turnstile = (window as unknown as { turnstile?: any }).turnstile;
-    if (turnstileWidgetId !== null && turnstile) {
-      turnstile.reset(turnstileWidgetId);
-    }
-    turnstileToken = '';
-    lockedHint = nextHint;
-    syncGate();
-  };
-
-  const getToken = (): string => {
-    if (turnstileToken) return turnstileToken;
-    const turnstile = (window as unknown as { turnstile?: any }).turnstile;
-    if (turnstileWidgetId !== null && turnstile) {
-      turnstileToken = turnstile.getResponse(turnstileWidgetId) || '';
-    }
-    return turnstileToken;
+  /** Tokens are spent server-side on first use -- drop ours after every
+      attempt so the next one runs the widget again instead of replaying it. */
+  const releaseToken = () => {
+    tokenPromise = null;
+    settleToken = null;
   };
 
   const resetForm = () => {
@@ -247,7 +240,7 @@ function setupPanel(panel: HTMLElement): void {
     errorMsg.textContent = '';
     successText.textContent = t.success;
     isSubmitting = false;
-    lockedHint = t.verifyPending;
+    releaseToken();
     submitSpinner.classList.add('is-hidden');
     submit.removeAttribute('aria-busy');
     syncGate();
@@ -270,7 +263,7 @@ function setupPanel(panel: HTMLElement): void {
     toggle.setAttribute('aria-expanded', 'true');
     toggle.classList.add('is-active');
     if (focusEmail) email.focus();
-    loadTurnstile();
+    void loadTurnstile();
   };
 
   const closePanel = () => {
@@ -313,10 +306,7 @@ function setupPanel(panel: HTMLElement): void {
 
   closeBtn.addEventListener('click', closePanel);
   doneBtn.addEventListener('click', closePanel);
-  retryBtn.addEventListener('click', () => {
-    resetForm();
-    resetTurnstile();
-  });
+  retryBtn.addEventListener('click', resetForm);
 
   document.addEventListener('click', (event) => {
     if (isOpen && !panel.contains(event.target as Node) && !toggle.contains(event.target as Node)) {
@@ -368,18 +358,16 @@ function setupPanel(panel: HTMLElement): void {
       return;
     }
 
-    const token = getToken();
-    if (requiresTurnstile && !token) {
-      lockedHint = t.verifyPending;
-      syncGate();
-      return;
-    }
-
     errorMsg.textContent = '';
     isSubmitting = true;
     syncGate();
     submit.setAttribute('aria-busy', 'true');
     submitSpinner.classList.remove('is-hidden');
+
+    // Asked for after the button is already busy: an invisible challenge
+    // normally settles in well under a second, and the spinner is the honest
+    // description of that wait.
+    const token = await requestToken();
 
     try {
       const response = await fetch('/api/notify/subscribe', {
@@ -401,10 +389,9 @@ function setupPanel(panel: HTMLElement): void {
         successText.textContent = data.status === 'already_subscribed' ? t.already : t.success;
         showView('success');
       } else if (response.status === 429) {
-        resetTurnstile();
         errorMsg.textContent = t.rateLimited;
       } else if (data.code?.startsWith('turnstile')) {
-        resetTurnstile(t.verifyFailed);
+        errorMsg.textContent = t.verifyFailed;
       } else {
         errorText.textContent = data.error || t.error;
         showView('error');
@@ -413,6 +400,7 @@ function setupPanel(panel: HTMLElement): void {
       errorText.textContent = t.network;
       showView('error');
     } finally {
+      releaseToken();
       isSubmitting = false;
       submit.removeAttribute('aria-busy');
       submitSpinner.classList.add('is-hidden');

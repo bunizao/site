@@ -128,7 +128,6 @@ export interface SubscribeCopy {
   needChannel: string;
   rateLimited: string;
   network: string;
-  verifyPending: string;
   verifyFailed: string;
 }
 
@@ -180,7 +179,6 @@ export const blog = {
         needChannel: '至少选一样。',
         rateLimited: '太频繁了，稍后再试。',
         network: '网络不太好，检查下连接。',
-        verifyPending: '请先完成安全校验。',
         verifyFailed: '校验失败，重试一下。',
       },
       share: {
@@ -223,7 +221,6 @@ export const blog = {
         needChannel: 'Pick at least one.',
         rateLimited: 'Too many tries. Give it a minute.',
         network: 'Network trouble — check your connection.',
-        verifyPending: 'Finish the security check first.',
         verifyFailed: 'That check failed. Try again.',
       },
       share: {
