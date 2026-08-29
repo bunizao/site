@@ -115,8 +115,9 @@ export interface SubscribeCopy {
   freqLabel: string;
   freq: { instant: string; every5h: string; daily: string };
   /** Split around the link to /privacy. The parts are concatenated with no
-      separator, so any space a language needs belongs inside its own string --
-      Chinese wants none, English wants one before the link. */
+      separator, so any space a language needs belongs inside its own string.
+      Chinese wants one on each side: the link renders bold and underlined, and
+      a Latin-styled rule set flush against CJK glyphs reads as a mistake. */
   privacy: { prefix: string; link: string; suffix: string };
   rss: string;
   telegram: string;
@@ -169,7 +170,7 @@ export const blog = {
         moods: { title: '闲谈', meta: '按下方频率推送' },
         freqLabel: '闲谈推送频率',
         freq: { instant: '即时', every5h: '每 5 时', daily: '每日' },
-        privacy: { prefix: '订阅信息受', link: '隐私政策', suffix: '保护。' },
+        privacy: { prefix: '订阅信息受 ', link: '隐私政策', suffix: ' 保护。' },
         rss: '通过 RSS 订阅',
         telegram: '订阅 Telegram 频道',
         submit: '订阅',
