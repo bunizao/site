@@ -11,7 +11,16 @@
 // in either zone; only the accent differs (blog gets its Verdigris/Glacier).
 // The publication name in the welcome line is set apart by colour + weight, not
 // a display font — that stays plain on purpose.
-import { blog } from '@/data/site';
+import { blog, type BlogLocale } from '@/data/site';
+
+// Trigger tooltip/aria-label strings, local to this component because it does
+// not own src/data/site.ts. TODO: fold into blog.copy[locale] there once that
+// table grows enough shared UI strings to be worth centralizing.
+const triggerCopy = {
+  zh: { subscribe: '订阅' },
+  en: { subscribe: 'Subscribe' },
+} satisfies Record<BlogLocale, { subscribe: string }>;
+const t = triggerCopy[blog.locale.blog];
 
 interface Props {
   variant: 'mood' | 'blog';
@@ -37,7 +46,7 @@ const {
   telegram,
   anchor = variant === 'blog' ? 'left' : 'right',
   withTrigger = variant === 'blog',
-  triggerLabel = '订阅',
+  triggerLabel = t.subscribe,
 } = Astro.props;
 
 // Welcome copy per surface. The stream name is wrapped in <em> and set apart by
@@ -54,12 +63,17 @@ const intro =
     type="button"
     class="sub-trigger"
     data-subscribe-toggle={id}
+    data-tip={t.subscribe}
     aria-haspopup="dialog"
     aria-expanded="false"
+    aria-label={t.subscribe}
   >
+    <!-- Envelope: this trigger opens an email subscription panel, so the glyph
+         should say "email" unambiguously at 16px — the old newspaper/document
+         icon read as an unidentifiable rectangle at that size. -->
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M4 22a2 2 0 0 1-2-2V8h4V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2Z"></path>
-      <path d="M10 7h7M10 11h7M10 15h4"></path>
+      <rect width="20" height="16" x="2" y="4" rx="2"></rect>
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
     </svg>
     <span>{triggerLabel}</span>
     <svg class="sub-trigger__caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -896,21 +910,32 @@ const intro =
   .blog-article-sub {
     display: flex;
     align-items: center;
-    /* Pulled right by the button's own padding, so the cluster's last glyph
-       lines up with the column edge rather than its hit area. */
-    margin-right: -10px;
-    gap: 2px;
+    /* Pulled right so the cluster's last glyph (inside its 34px round hit
+       area) lines up with the column edge rather than the box edge — measured
+       against the text column in the browser, not guessed. */
+    margin-right: -9px;
+    /* Same gap as .share's inner gap (ShareRow) so all three round buttons —
+       subscribe, copy-link, native-share — read as one evenly spaced group
+       instead of two different rhythms stitched together. */
+    gap: 6px;
   }
 
   /* No box. An outlined pill here made subscribe a fourth bordered rectangle
      in a region that already had too many, for something that holds no state
      and takes no input -- a border in this zone means "put a value in me".
      What is left is the language the comment thread below already speaks in
-     its own actions: quiet text weight, a fill only when it is aimed at. */
+     its own actions: quiet text weight, a fill only when it is aimed at.
+     Icon-only, same 34x34 round shape as ShareRow's .share-btn, so the three
+     buttons in this row are visually one control group — the visible "订阅"
+     label and caret only make sense on the masthead's flatter text trigger,
+     not stacked next to two bare icon buttons. */
   .blog-article-sub .sub-trigger {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 34px;
     height: 34px;
-    padding: 0 10px 0 11px;
-    gap: 8px;
+    padding: 0;
     color: var(--blog-muted, hsl(var(--muted-foreground)));
     background: none;
     border: 0;
@@ -918,16 +943,55 @@ const intro =
     transition: color 0.15s ease, background 0.15s ease, scale 0.12s ease;
   }
 
-  /* The caret belongs to the label, not the icon — pull it in so it reads as a
-     subordinate affordance rather than a third equal-weight element. */
+  .blog-article-sub .sub-trigger > span,
   .blog-article-sub .sub-trigger__caret {
-    margin-left: -4px;
+    display: none;
+  }
+
+  /* Let the icon track the button's own color like .share-btn's icons do,
+     instead of the masthead trigger's separate accent-on-hover treatment. */
+  .blog-article-sub .sub-trigger > svg:first-child,
+  .blog-article-sub .sub-trigger:hover > svg:first-child,
+  .blog-article-sub .sub-trigger[aria-expanded='true'] > svg:first-child {
+    color: inherit;
   }
 
   .blog-article-sub .sub-trigger:hover,
   .blog-article-sub .sub-trigger[aria-expanded='true'] {
     color: var(--blog-ink, hsl(var(--foreground)));
     background: hsl(var(--foreground) / 0.07);
+  }
+
+  .blog-article-sub .sub-trigger:focus-visible {
+    outline: 2px solid var(--blog-accent, hsl(var(--foreground)));
+    outline-offset: 2px;
+  }
+
+  /* Same tooltip mechanism as .share-btn::after (ShareRow), so the three
+     buttons in this row behave identically. */
+  .blog-article-sub .sub-trigger::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 50%;
+    transform: translate(-50%, 3px);
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    color: hsl(var(--background));
+    background: hsl(var(--foreground) / 0.92);
+    border-radius: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.14s ease, transform 0.14s ease;
+  }
+
+  .blog-article-sub .sub-trigger:hover::after,
+  .blog-article-sub .sub-trigger:focus-visible::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
   }
 
   @media (max-width: 639px) {
@@ -940,6 +1004,11 @@ const intro =
   @media (hover: none) and (pointer: coarse) {
     .sub-input {
       font-size: 16px;
+    }
+
+    /* No hover surface on touch — the tooltip only adds clutter there. */
+    .blog-article-sub .sub-trigger::after {
+      display: none;
     }
   }
 
@@ -956,6 +1025,10 @@ const intro =
     .sub-trigger__caret,
     .sub-seg__pill {
       transition: none;
+    }
+
+    .blog-article-sub .sub-trigger::after {
+      transition: opacity 0.12s ease;
     }
 
     .sub-submit:active:not(:disabled),
