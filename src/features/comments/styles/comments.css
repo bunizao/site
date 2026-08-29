@@ -15,6 +15,10 @@
      it moves into blogPalette in src/data/site.ts when the design lands, at
      which point docs/surfaces/blog.md gains the stated exception. */
   --blog-xia: #b84a6e;
+  /* The ink that sits ON a filled xia surface. Not a shade of xia -- the fill
+     is the accent at full strength, so the label has to come from the other
+     end of the scale, and the two themes need opposite ends of it. */
+  --blog-xia-on: #fff;
 
   /* The only destructive colour in the feature, worn by Delete on hover and
      focus and nowhere else — a permanently red button under every one of your
@@ -39,6 +43,7 @@
 
 .dark .blog-zone {
   --blog-xia: #ee7fa8;
+  --blog-xia-on: #2b0f19;
   --blog-danger: #f1707a;
 }
 
@@ -164,17 +169,35 @@
 }
 
 /* The far side of the card, already wearing the liked colour before it comes
-   into view -- the turn is the transition, so nothing here needs to fade. */
+   into view -- the turn is the transition, so nothing here needs to fade.
+
+   Filled, not outlined. A tinted border and pink text was the same pale card
+   with a different edge on it, so a half-second turn arrived somewhere that
+   looked like where it started; xia at full strength makes the flip land on a
+   different object. The border matches the fill so the pill is one shape
+   rather than a fill inside an outline, and the glass goes with it -- there is
+   nothing to see through an opaque surface. */
 .blog-react__pill--liked {
   transform: rotateY(180deg);
-  border-color: color-mix(in oklab, var(--blog-xia) 45%, transparent);
-  color: var(--blog-xia);
+  border-color: var(--blog-xia);
+  background: var(--blog-xia);
+  backdrop-filter: none;
+  color: var(--blog-xia-on);
 }
 
-.blog-react__card:hover .blog-react__pill {
+/* Front face only. The same rule across both put a 6% wash and xia-coloured
+   text over the solid back face, which is xia text on a xia fill. */
+.blog-react__card:hover .blog-react__pill:not(.blog-react__pill--liked) {
   border-color: color-mix(in oklab, var(--blog-xia) 45%, transparent);
   background: color-mix(in oklab, var(--blog-xia) 6%, transparent);
   color: var(--blog-xia);
+}
+
+/* Darkened rather than tinted: on a surface this saturated, a lightening wash
+   reads as the fill losing strength instead of the button answering. */
+.blog-react__card:hover .blog-react__pill--liked {
+  border-color: color-mix(in oklab, var(--blog-xia) 88%, var(--blog-xia-on));
+  background: color-mix(in oklab, var(--blog-xia) 88%, var(--blog-xia-on));
 }
 
 .blog-react__glyph {
