@@ -9,8 +9,6 @@ import {
 } from '@/features/mood/server/api-client';
 import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
-import listeningCssHref from '@/styles/listening.css?url';
-import embedYouTubeCssHref from '@/styles/embed-youtube.css?url';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import {
   prioritizeMoodDetailMedia,
@@ -78,9 +76,15 @@ const renderedContent = post
     : renderMoodContentWithGalleries(post.bodyHtml)
   : '';
 const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
-// Embed styles ship only when the rendered post actually contains one.
-const hasListeningCard = renderedPostContent.includes('data-listening');
-const hasYouTubeEmbed = renderedPostContent.includes('data-yt');
+// Embed styles ship only when the rendered post actually contains one. The
+// css?url modules load via dynamic import so Astro does not hoist them into
+// <head> as unconditional page styles.
+const listeningCssHref = renderedPostContent.includes('data-listening')
+  ? (await import('@/styles/listening.css?url')).default
+  : null;
+const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
+  ? (await import('@/styles/embed-youtube.css?url')).default
+  : null;
 ---
 
 <Layout
@@ -95,8 +99,8 @@ const hasYouTubeEmbed = renderedPostContent.includes('data-yt');
   hideSiteNav
 >
   <main class="page-container">
-    {hasListeningCard && <link rel="stylesheet" href={listeningCssHref} />}
-    {hasYouTubeEmbed && <link rel="stylesheet" href={embedYouTubeCssHref} />}
+    {listeningCssHref && <link rel="stylesheet" href={listeningCssHref} />}
+    {embedYouTubeCssHref && <link rel="stylesheet" href={embedYouTubeCssHref} />}
     <DetailArticle
       post={post}
       error={error}
@@ -171,18 +175,12 @@ const hasYouTubeEmbed = renderedPostContent.includes('data-yt');
     hydrateMoodRichText(moodPostContent);
     // Load the embed controllers only when the post actually contains one.
     if (moodPostContent.querySelector('[data-listening]')) {
-      void Promise.all([
-        import('@/styles/listening.css'),
-        import('@/lib/listening/controller'),
-      ]).then(([, { initListeningCards }]) => {
+      void import('@/lib/listening/controller').then(({ initListeningCards }) => {
         initListeningCards(moodPostContent);
       });
     }
     if (moodPostContent.querySelector('[data-yt]')) {
-      void Promise.all([
-        import('@/styles/embed-youtube.css'),
-        import('@/lib/embed/youtube-controller'),
-      ]).then(([, { initYouTubeEmbeds }]) => {
+      void import('@/lib/embed/youtube-controller').then(({ initYouTubeEmbeds }) => {
         initYouTubeEmbeds(moodPostContent);
       });
     }

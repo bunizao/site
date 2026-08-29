@@ -27,8 +27,6 @@ import { profile } from '@/data/site';
 import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
-import listeningCssHref from '@/styles/listening.css?url';
-import embedYouTubeCssHref from '@/styles/embed-youtube.css?url';
 import { parseYouTubeVideoUrl } from '@/lib/embed/youtube';
 
 export const prerender = false;
@@ -94,6 +92,13 @@ const hasYouTubeEmbed = initialPosts.some((post) =>
       Boolean(parseYouTubeVideoUrl(item.href ?? item.originalUrl ?? '')),
   ),
 );
+// Dynamic imports keep these css?url modules out of the page's static module
+// graph — a static import would make Astro hoist the stylesheet into <head>
+// unconditionally, defeating the point.
+const listeningCssUrl = (await import('@/styles/listening.css?url')).default;
+const embedYouTubeCssUrl = (await import('@/styles/embed-youtube.css?url')).default;
+const listeningCssHref = hasListeningCard ? listeningCssUrl : null;
+const embedYouTubeCssHref = hasYouTubeEmbed ? embedYouTubeCssUrl : null;
 // The feed mirrors a Telegram channel, so subscribing there is a real
 // alternative to email. The slug is the channel username; without it the
 // subscribe panel just drops the tile.
@@ -151,8 +156,8 @@ const skeletonGroups = [
        identity plus search + notify. -->
   <MoodNavbar slot="topbar" initialChannel={initialFeed?.channel} />
   <main class="page-container mood-route">
-    {hasListeningCard && <link rel="stylesheet" href={listeningCssHref} />}
-    {hasYouTubeEmbed && <link rel="stylesheet" href={embedYouTubeCssHref} />}
+    {listeningCssHref && <link rel="stylesheet" href={listeningCssHref} />}
+    {embedYouTubeCssHref && <link rel="stylesheet" href={embedYouTubeCssHref} />}
     <TimelineWheel />
     <FeedShell
       skeletonGroups={skeletonGroups}
@@ -161,6 +166,8 @@ const skeletonGroups = [
       anchorId={moodFeedAnchorId}
       readSource={moodReadSource}
       tagFilter={moodTagFilter}
+      listeningCssHref={listeningCssUrl}
+      embedYouTubeCssHref={embedYouTubeCssUrl}
     />
   </main>
   <SubscribePanel variant="mood" id="mood" anchor="right" withTrigger={false} feed={rssHref} telegram={telegramHref} turnstileSiteKey={turnstileSiteKey} />

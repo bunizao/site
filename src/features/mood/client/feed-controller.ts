@@ -26,20 +26,32 @@ import type {
 // Listening cards and YouTube embeds are rare in the feed. Their controllers
 // (plus the MusicKit player behind the listening one) load only when matching
 // markup is actually in the tree, instead of shipping in the startup bundle.
-function hydrateFeedEmbeds(root: ParentNode): void {
+// Their stylesheets cannot ride along as CSS imports here — Astro hoists any
+// CSS reachable from a page script into <head> unconditionally — so the feed
+// element carries the built asset URLs and this injects a <link> on demand.
+function ensureStylesheet(href: string | undefined): void {
+  if (!href) return;
+  const links = document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]');
+  for (const link of links) {
+    if (link.getAttribute('href') === href) return;
+  }
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+function hydrateFeedEmbeds(root: HTMLElement): void {
+  const feed = root.closest<HTMLElement>('[data-mood-feed]');
   if (root.querySelector('[data-listening]')) {
-    void Promise.all([
-      import('@/styles/listening.css'),
-      import('@/lib/listening/controller'),
-    ]).then(([, { initListeningCards }]) => {
+    ensureStylesheet(feed?.dataset.listeningCss);
+    void import('@/lib/listening/controller').then(({ initListeningCards }) => {
       initListeningCards(root);
     });
   }
   if (root.querySelector('[data-yt]')) {
-    void Promise.all([
-      import('@/styles/embed-youtube.css'),
-      import('@/lib/embed/youtube-controller'),
-    ]).then(([, { initYouTubeEmbeds }]) => {
+    ensureStylesheet(feed?.dataset.embedYoutubeCss);
+    void import('@/lib/embed/youtube-controller').then(({ initYouTubeEmbeds }) => {
       initYouTubeEmbeds(root);
     });
   }

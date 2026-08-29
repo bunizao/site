@@ -46,6 +46,11 @@ interface Props {
   anchorId?: string;
   readSource?: 'live' | 'archive';
   tagFilter?: string;
+  // Built asset URLs for the on-demand embed stylesheets. The feed controller
+  // injects them as <link> when a listening card or YouTube embed streams in
+  // and the SSR window did not already link them.
+  listeningCssHref?: string;
+  embedYouTubeCssHref?: string;
 }
 
 const {
@@ -55,6 +60,8 @@ const {
   anchorId = '',
   readSource = 'live',
   tagFilter = '',
+  listeningCssHref,
+  embedYouTubeCssHref,
 } = Astro.props;
 
 const activeTagFilter = normalizeMoodTagSlug(tagFilter);
@@ -298,6 +305,8 @@ function shouldHideQuoteAuthor(value?: string): boolean {
     data-mood-anchor-id={anchorId || undefined}
     data-mood-read-source={readSource}
     data-mood-tag={activeTagFilter || undefined}
+    data-listening-css={listeningCssHref || undefined}
+    data-embed-youtube-css={embedYouTubeCssHref || undefined}
   >
     {hasInitialFeedPayload && (
       <script is:inline type="application/json" data-mood-initial-feed set:html={initialFeedPayloadJson}></script>
