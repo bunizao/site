@@ -1014,22 +1014,30 @@
 }
 
 /* --- Own row: inline edit -------------------------------------------------
-   The field stands exactly where the paragraph stood: same size, leading and
-   colour, no border, and negative margins that cancel its own padding so the
-   first line lands on the line the reader was reading. A bordered composer
-   here pushed the row open and put a box inside a box inside the thread; the
-   only thing that should change on Edit is that the words became typable.
+   Same size, leading and colour as the paragraph it replaces, and no border. A
+   bordered composer here pushed the row open and put a box inside a box inside
+   the thread; the only thing that should change on Edit is that the words
+   became typable.
 
    The tint is the static cue that they did. */
 .blog-comment__edit-field {
   display: block;
   width: 100%;
-  /* The negative margin cancels the padding exactly, so the first line of the
-     field lands on the line the paragraph occupied. 10px of room inside the
-     tint, not the 4px that made it read as a highlight drawn over the words;
-     the horizontal 10 stays inside the row's 12px gutter. */
-  margin: -10px -10px -4px;
-  padding: 10px;
+  /* The tint fills the body column exactly, and the text takes the padding.
+
+     It used to pull itself 10px left and up with negative margins so the first
+     line landed precisely where the paragraph's line had been -- continuity
+     bought at three prices: the filled rectangle came to within 2px of the
+     avatar, where every other row has a 12px gutter; `width: 100%` meant the
+     negative right margin shifted the box instead of widening it, so it also
+     stopped 10px short of the measure; and the -4px bottom left Save sitting
+     1px under it. An indent while typing is the cheaper trade, and 14px of it
+     is what the compose box at the top of the thread already indents its own
+     text by -- the two typing surfaces sit in different columns, so the shared
+     number is the inset, not the edge. Vertically it stays at 10px: a row is
+     denser than the composer. */
+  margin: 0 0 6px;
+  padding: 10px 14px;
   border: 0;
   border-radius: var(--blog-r-inner);
   background: hsl(var(--foreground) / 0.045);
@@ -1057,10 +1065,6 @@
    too and the tint sits square with the avatar. */
 .blog-comment[data-editing] .blog-comment__meta {
   display: none;
-}
-
-.blog-comment[data-editing] .blog-comment__edit-field {
-  margin-top: 0;
 }
 
 /* ...which leaves the avatar with nothing to be centred on. It kept its -3px
