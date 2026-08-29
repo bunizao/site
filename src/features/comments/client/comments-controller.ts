@@ -310,14 +310,6 @@ export function initCommentsController(): void {
     setMoreVisible(pageResult.hasMore);
   }
 
-  /* The privacy footnote is server-rendered as the section's last child, so
-     everything this controller adds has to land above it rather than after. */
-  function appendToSection(node: Element): void {
-    const footnote = section.querySelector('.blog-comments__privacy');
-    if (footnote) footnote.before(node);
-    else section.append(node);
-  }
-
   function buildLoadedShell(): void {
     const skeleton = section.querySelector('.blog-comments__skeleton');
     skeleton?.remove();
@@ -327,7 +319,7 @@ export function initCommentsController(): void {
     list = el('div', { class: 'blog-comments__list' });
     replyBox = buildReplyBox();
     list.append(replyBox);
-    appendToSection(list);
+    section.append(list);
 
     replyField = replyBox.querySelector<HTMLTextAreaElement>('.blog-compose__field')!;
     applyPhase(replyBox, phase, claimed, viewer);
@@ -350,7 +342,7 @@ export function initCommentsController(): void {
       error.remove();
       void bootstrap();
     }, { once: true });
-    appendToSection(error);
+    section.append(error);
   }
 
   function toggleEmptyState(empty: boolean): void {

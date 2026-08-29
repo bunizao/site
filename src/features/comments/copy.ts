@@ -45,22 +45,6 @@ export interface CommentsCopy {
   /** The travelling reply box points at whoever it landed under. */
   replyTo: (author: string) => string;
   hint: string;
-  /** A footnote under the whole thread, not a label on the compose box: it is
-      about the feature, not about one field, and beside the Markdown hint it
-      doubled the text in a bar that reads better with one thing in it.
-
-      It names what the address is actually for, because "protected by the
-      privacy policy" tells a reader nothing they could act on -- it is the
-      sentence every site writes and nobody believes. Both claims are true of
-      this stack: the avatar is served from `sha256(email)` and the plaintext
-      address never reaches a response (see docs/api/comments.md).
-
-      Split around the link to /privacy and concatenated with no separator, so
-      each language carries its own spacing. The Chinese link takes a space
-      before it -- a Latin-styled underline flush against CJK reads as a typo
-      -- but none after, because a full stop belongs against the word it
-      ends. */
-  privacy: { prefix: string; link: string; suffix: string };
   post: string;
   postAria: string;
   replyPost: string;
@@ -148,7 +132,6 @@ const zh: CommentsCopy = {
   replyBodyLabel: '写回复',
   replyTo: (author) => `回复 ${author}…`,
   hint: '支持 Markdown',
-  privacy: { prefix: '邮箱只用来生成头像和回复提醒，不会公开。详见 ', link: '隐私政策', suffix: '。' },
   post: '发表',
   postAria: '发表评论',
   replyPost: '回复',
@@ -216,11 +199,6 @@ const en: CommentsCopy = {
   replyBodyLabel: 'Write a reply',
   replyTo: (author) => `Reply to ${author}…`,
   hint: 'Markdown supported',
-  privacy: {
-    prefix: 'Your email is only used for your avatar and reply notifications, and is never shown publicly. See the ',
-    link: 'privacy policy',
-    suffix: '.',
-  },
   post: 'Post',
   postAria: 'Post comment',
   replyPost: 'Reply',

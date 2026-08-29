@@ -363,16 +363,6 @@ const t = commentsCopy[locale];
     </div>
   )}
 
-  {/* Out of the compose bar and down here. Next to the Markdown hint it was a
-      second run of grey text in a bar that reads better with one thing in it,
-      and it is a note about the feature rather than a label on a field. Last
-      in the section on purpose -- the controller inserts the list and the
-      error notice before it, so it stays the final line whatever happens
-      above. Not shown on a closed thread: nobody is being asked for an
-      address there. */}
-  {state !== 'closed' && (
-    <p class="blog-comments__privacy">{t.privacy.prefix}<a href="/privacy" target="_blank" rel="noopener noreferrer">{t.privacy.link}</a>{t.privacy.suffix}</p>
-  )}
 </section>
 
 <script>

@@ -1492,38 +1492,6 @@
   display: none;
 }
 
-/* --- Privacy footnote ---------------------------------------------------- */
-/* The last line in the section, and the quietest. It was in the compose bar
-   for a day and it was too loud there -- a second run of grey text beside the
-   Markdown hint, in the one place a reader is trying to concentrate. Down here
-   it is where a footnote goes: findable, skippable, out of the way. */
-.blog-comments__privacy {
-  margin: 30px 0 0;
-  font-size: var(--comment-meta);
-  line-height: 1.6;
-  /* Two lines in English at a full measure, so it gets the same wrapping care
-     as prose: no orphan on the last line. */
-  text-wrap: pretty;
-  color: var(--blog-faint);
-  opacity: 0.62;
-}
-
-.blog-comments__privacy a {
-  /* "privacy policy" is two words and an underline: broken over a line end it
-     reads as two separate links. It is short enough that holding it together
-     never costs a line. */
-  white-space: nowrap;
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  text-decoration-thickness: from-font;
-  transition: color 0.15s ease;
-}
-
-.blog-comments__privacy a:hover {
-  color: var(--blog-ink);
-}
-
 /* --- Empty and loading --------------------------------------------------- */
 .blog-comments__empty {
   font-size: var(--comment-note);
