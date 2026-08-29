@@ -73,7 +73,7 @@
 
 /* --- Reaction bar -------------------------------------------------------- */
 /* Lives on the article foot's one row, sharing it with subscribe and share
-   (see .blog-article-foot__row in blog.css). No rule and no margin of its own:
+   (see .blog-article-foot in blog.css). No rule and no margin of its own:
    the foot supplies both, and this carried a 40px top margin from when it was
    a standalone block after the prose -- inside a centred flex row that margin
    is part of the item's box, so it made this 76px tall and dropped the hearts

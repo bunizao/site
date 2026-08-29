@@ -180,6 +180,11 @@ const unlisted = isUnlistedPost(post);
 
       <Prose html={post.html} />
 
+      {/* Provenance closes the text. It is a fact about the article, the same
+          class as its date, so it stays on the prose side of the hairline
+          instead of sitting under the controls as their caption. */}
+      {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
+
       {/* The article's own footer, and one band rather than two. Reactions,
           subscribe and share are the same layer of meaning -- everything you
           can do about this post without writing anything -- so a hairline
@@ -191,14 +196,11 @@ const unlisted = isUnlistedPost(post);
           report. Comments hydrate for real: client/comments-controller.ts
           fetches the thread and owns every submit, edit, delete, and like. */}
       <footer class="blog-article-foot">
-        <div class="blog-article-foot__row">
-          <ReactionBar client:idle count={0} signedIn={true} />
-          <div class="blog-article-sub">
-            <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
-            <ShareRow title={post.title} />
-          </div>
+        <ReactionBar client:idle count={0} signedIn={true} />
+        <div class="blog-article-sub">
+          <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
+          <ShareRow title={post.title} />
         </div>
-        {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
       </footer>
 
       {/* Last on the page, and open-ended: a thread has no fixed height, so
