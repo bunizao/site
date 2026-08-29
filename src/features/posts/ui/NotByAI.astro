@@ -35,17 +35,36 @@ const blogCopy = blog.copy[blog.locale.blog];
     }
   }
 
+  /* A short hairline dash marks this as metadata about the article rather
+     than the article's own voice — the same job the opening byline does with
+     its typography, just made visible here since a closing line has no
+     heading above it to signal the shift. Echoes the --blog-line hairline
+     that follows in .blog-article-foot, at a fifth of its width. */
+  .not-by-ai::before {
+    content: '';
+    display: block;
+    width: 28px;
+    height: 1px;
+    margin-bottom: 8px;
+    background: var(--blog-line);
+  }
+
   .not-by-ai__line {
     margin: 0;
     max-width: 56ch;
+    /* Matches .blog-article__meta (the opening byline) instead of inventing a
+       new metadata voice: 14px / 20px leading / faint / tabular numerals. */
     font-size: 14px;
-    line-height: 1.6;
-    color: var(--blog-muted);
+    line-height: 20px;
+    color: var(--blog-faint);
+    font-variant-numeric: tabular-nums;
     text-wrap: pretty;
   }
 
   .not-by-ai__em {
     font-weight: 600;
-    color: var(--blog-ink);
+    /* --blog-dian is the ink reserved for this exact mark (see src/data/site.ts) —
+       the pledge gets the publication's own colour instead of plain foreground. */
+    color: var(--blog-dian);
   }
 </style>

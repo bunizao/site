@@ -105,12 +105,28 @@ const plainParts = plain.length
     }
   }
 
+  /* Same colophon dash as NotByAI — the two occupy the same slot and a reader
+     never sees both, so they carry the same "this is metadata" marker. It sits
+     once above the whole block, not per line, so a 3-model credit doesn't
+     repeat it. */
+  .ai-credit::before {
+    content: '';
+    display: block;
+    width: 28px;
+    height: 1px;
+    margin-bottom: 8px;
+    background: var(--blog-line);
+  }
+
   .ai-credit__line {
     margin: 0;
     max-width: 56ch;
+    /* Matches .blog-article__meta (the opening byline) instead of inventing a
+       new metadata voice: 14px / 20px leading / faint / tabular numerals. */
     font-size: 14px;
-    line-height: 1.6;
-    color: var(--blog-muted);
+    line-height: 20px;
+    color: var(--blog-faint);
+    font-variant-numeric: tabular-nums;
     text-wrap: pretty;
   }
 
@@ -120,7 +136,9 @@ const plainParts = plain.length
     align-items: baseline;
     gap: 5px;
     font-weight: 600;
-    color: var(--blog-ink);
+    /* --blog-dian is the ink reserved for this exact mark (see src/data/site.ts) —
+       the same token NotByAI's pledge uses, so both credits share one voice. */
+    color: var(--blog-dian);
     white-space: nowrap;
   }
 </style>
