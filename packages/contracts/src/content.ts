@@ -1,6 +1,41 @@
 export const CONTENT_DOCUMENT_SOURCES = ['mood', 'post'] as const;
 
 export type ContentDocumentSource = (typeof CONTENT_DOCUMENT_SOURCES)[number];
+
+export interface PostLocaleTag {
+  locale: string;
+  canonicalSlug?: string;
+}
+
+const POST_LOCALE_RE = /^[a-z]{2,8}(?:-[a-z0-9]{1,8})*$/;
+const POST_CANONICAL_SLUG_RE = /^[^\s:/?#]+$/;
+
+/**
+ * Parses Ghost's internal post locale tag from tag.name.
+ *
+ * `#<locale>` marks the post's own locale. `#<locale>:<canonical>` marks a
+ * translated version of the canonical post. Ghost removes the colon from
+ * tag.slug, so callers must pass tag.name.
+ */
+export function parsePostLocaleTag(tagName: string): PostLocaleTag | null {
+  const normalized = tagName.trim().toLowerCase();
+  if (!normalized.startsWith('#')) return null;
+
+  const value = normalized.slice(1);
+  const separatorIndex = value.indexOf(':');
+  const locale = separatorIndex === -1 ? value : value.slice(0, separatorIndex);
+  const canonicalSlug = separatorIndex === -1
+    ? undefined
+    : value.slice(separatorIndex + 1);
+
+  if (!POST_LOCALE_RE.test(locale)) return null;
+  if (canonicalSlug !== undefined && !POST_CANONICAL_SLUG_RE.test(canonicalSlug)) {
+    return null;
+  }
+
+  return canonicalSlug ? { locale, canonicalSlug } : { locale };
+}
+
 export type ContentMediaType =
   | 'image'
   | 'video'

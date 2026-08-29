@@ -36,6 +36,24 @@ bun preview              # Preview production build locally (wrangler dev on bui
 
 No separate linter is configured.
 
+## Dev Server & Worktree Hygiene
+
+RAM is the scarce resource on this machine; leaked dev servers and stale
+worktrees are the main offenders. Rules for agent sessions:
+
+- Do not start a dev server unless the task needs browser verification.
+  `bun run check` and unit tests are the default verification path.
+- One dev server per checkout, max 3 machine-wide. A PreToolUse hook
+  (`scripts/hooks/dev-server-guard.ts`) denies starts beyond that. When
+  denied, reuse the running server (`bunx astro dev status`) instead of
+  retrying; restart via `bunx astro dev stop` only when genuinely needed.
+- The background server of a checkout is stopped automatically when the
+  session ends (SessionEnd hook, `scripts/hooks/stop-dev-server.sh`).
+- `bash scripts/worktree-gc.sh` lists merged or stale worktrees; `--apply`
+  removes them and prunes registrations. Run it when worktrees pile up.
+- Dev scripts cap the Node heap at 1GB (`NODE_OPTIONS` in package.json), so a
+  long-lived server GCs instead of ballooning.
+
 **Dev runtime note:** `astro dev` runs on Astro's native Node SSR — the Cloudflare adapter (and its workerd runner) only applies during `build`. In dev, `/api/*`, `/v2/*`, and `/oauth*` are proxied over HTTP via `API_DEV_ORIGIN` (default `https://buxx.me`). Use `bun dev:api` to redirect that proxy to a local `wrangler dev` site-api instead. Set `API_DEV_ORIGIN` in `.env.local` to target a preview deployment or any other origin.
 
 ## Related Repository (site-api)

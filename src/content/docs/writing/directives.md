@@ -7,13 +7,14 @@ order: 1
 
 A directive is a marker written on a line of its own in the Ghost editor:
 
-```
+```md demo
 [!mood id=482 theme=dark]
 ```
 
-Ghost wraps that line in a paragraph, and the build matches paragraphs whose
-*entire* content is a marker. That "entire" is not a technicality — it is the
-whole reason the syntax is safe to use in prose.
+Ghost normally wraps that line in a paragraph, and the build matches paragraphs
+whose *entire* content is a marker. An unlabelled Ghost code card whose entire
+content is one registered marker is also an authoring carrier. This is useful
+when the editor will not keep a marker in its own paragraph.
 
 ## Matching
 
@@ -31,12 +32,18 @@ None of these are:
 ```
 
 So you can write about the syntax in a post without triggering it, as long as the
-marker shares its paragraph with something. Inside a code block you do not even
-need that — code is masked before directives run.
+marker shares its paragraph with something. Code labelled `text` or with another
+ordinary language is also masked before directives run. Use one of those labels
+when the whole code sample is itself a valid marker. The special `directive`
+language opts a code card into authoring syntax; an unlabelled exact marker is
+the compatibility form.
 
 In the Ghost editor, put the marker in its own paragraph with a blank line above
 and below it. If it renders as normal text on the published page, it was almost
 certainly wrapped in formatting or joined to the paragraph before it.
+
+If paragraph authoring is awkward, use a code card containing only the marker.
+Do not put commentary or a second marker in the same card.
 
 ## Names
 
@@ -58,8 +65,8 @@ visible `[!moood id=1]` on the page telling you what you got wrong.
 Attributes are `key=value` pairs separated by whitespace. Values may be bare,
 double-quoted, or single-quoted:
 
-```
-[!authors ai=anthropic/claude-opus-4 note="drafted the migration table"]
+```md demo
+[!authors ai=anthropic/claude-opus-4-6 note="drafted the migration table"]
 ```
 
 The rules:
@@ -69,7 +76,7 @@ The rules:
 - A quoted value may contain the other quote character but not its own.
 - A repeated key is an error, not a last-one-wins.
 - An attribute the directive does not declare is an error.
-- `key=` with nothing after it is a legal empty string.
+- An empty value must be written `key=""`. A bare `key=` is a parse error.
 
 Anything that fails to parse produces `invalid-directive-attributes` and the
 marker is dropped from the output.

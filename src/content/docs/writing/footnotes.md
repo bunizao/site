@@ -46,8 +46,10 @@ either way.
 
 Repeat references to one label all point at the same note and share its number:
 
-```
+```md demo
 …as the pricing docs say.[^billing] …which is also why the queue is batched.[^billing]
+
+[^billing]: Workers Paid, as of the 2024 pricing change.
 ```
 
 Each reference gets its own anchor — `fnref-1`, `fnref-1a`, `fnref-1b` — but the

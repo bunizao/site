@@ -3,6 +3,7 @@ export const prerender = false;
 
 import '../../../styles/blog-prose.css';
 import '../../../styles/conversation.css';
+import '../../../styles/embed-youtube.css';
 
 const previewPolicyHeaders = {
   'Cache-Control': 'private, no-store',
@@ -14,19 +15,38 @@ const [
   { default: AiCredit },
   { default: NotByAI },
   { formatPostDate },
-  { readAuthorshipCredits },
-  { resolveGhostDraftPreview },
+  { resolveGhostDraftPreview, resolveGhostDraftRevision },
 ] = await Promise.all([
   import('@/layouts/BlogLayout.astro'),
   import('@/features/posts/ui/AiCredit.astro'),
   import('@/features/posts/ui/NotByAI.astro'),
   import('@/features/posts/format'),
-  import('@/features/posts/server/directives/authors'),
   import('@/features/posts/server/ghost-preview'),
 ]);
 
+const postId = Astro.params.id ?? '';
+if (Astro.request.method === 'HEAD') {
+  const result = await resolveGhostDraftRevision({
+    id: postId,
+    locals: Astro.locals,
+  });
+  if (!result.ok) {
+    return new Response(null, {
+      status: result.status,
+      headers: previewPolicyHeaders,
+    });
+  }
+
+  return new Response(null, {
+    status: Astro.request.headers.get('If-None-Match') === JSON.stringify(result.revision)
+      ? 304
+      : 200,
+    headers: { ...previewPolicyHeaders, ETag: JSON.stringify(result.revision) },
+  });
+}
+
 const result = await resolveGhostDraftPreview({
-  id: Astro.params.id ?? '',
+  id: postId,
   locals: Astro.locals,
 });
 if (!result.ok) {
@@ -42,10 +62,10 @@ if (!result.ok) {
 for (const [name, value] of Object.entries(previewPolicyHeaders)) {
   Astro.response.headers.set(name, value);
 }
+Astro.response.headers.set('ETag', JSON.stringify(result.revision));
 
-const { post, html, meta } = result;
+const { post, html, authorshipCredits, revision, warnings } = result;
 const title = post.title.trim() || 'Untitled draft';
-const authorshipCredits = readAuthorshipCredits(meta, post.slug);
 ---
 
 <BlogLayout
@@ -55,7 +75,12 @@ const authorshipCredits = readAuthorshipCredits(meta, post.slug);
 >
   <a class="blog-back" href="/blog">← All posts</a>
 
-  <div class="blog-article-wrap" data-ghost-draft-preview>
+  <div
+    class="blog-article-wrap"
+    data-ghost-draft-preview
+    data-preview-revision={revision}
+    data-preview-poll-ms="1500"
+  >
     <aside class="blog-aside">
       <div class="blog-aside__sticky">
         <a class="blog-back-rail" href="/blog">← Blog</a>
@@ -69,8 +94,16 @@ const authorshipCredits = readAuthorshipCredits(meta, post.slug);
           <span>Draft preview</span>
           <span>{post.status}</span>
           {post.updatedAt ? <span>Updated {formatPostDate(post.updatedAt)}</span> : null}
+          <span data-ghost-draft-live-status aria-live="polite">Live preview</span>
         </p>
       </header>
+
+      {warnings.length > 0 ? (
+        <aside class="blog-preview-warnings" role="alert">
+          <strong>Preview warnings</strong>
+          <ul>{warnings.map((warning) => <li>{warning.message}</li>)}</ul>
+        </aside>
+      ) : null}
 
       <div class="blog-prose" set:html={html} />
     </article>
@@ -85,4 +118,29 @@ const authorshipCredits = readAuthorshipCredits(meta, post.slug);
 
 <script>
   import '@/features/posts/client/prose';
+  import { startGhostDraftLiveReload } from '@/features/posts/client/draft-live-reload';
+
+  const preview = document.querySelector<HTMLElement>('[data-ghost-draft-preview]');
+  if (preview) startGhostDraftLiveReload(preview);
 </script>
+
+<style>
+  .blog-preview-warnings {
+    margin: 0 0 28px;
+    padding: 14px 16px;
+    border: 1px solid hsl(var(--foreground) / 0.14);
+    border-radius: 10px;
+    color: var(--blog-muted);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .blog-preview-warnings strong {
+    color: var(--blog-ink);
+  }
+
+  .blog-preview-warnings ul {
+    margin: 6px 0 0;
+    padding-inline-start: 18px;
+  }
+</style>

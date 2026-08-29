@@ -42,6 +42,21 @@ a route skip work it does not need:
 | `bun dev:portal` | Admin portal with the auth bypass on |
 | `bun dev:api` | Proxy `/api/*` at a local `site-api` instead of production |
 
+## Draft preview
+
+`/dev/blog/<ghost-post-id>` renders the current Ghost draft through the same
+rich-source compiler used by published posts. Registered directive markers may
+be standalone paragraphs or exact, unlabelled Ghost code cards. Conversation,
+authors, listening, mood, and YouTube share one transform order owned by that
+compiler.
+
+The preview checks the draft revision every 1.5 seconds while its tab is visible.
+When Ghost saves a newer revision, the page reloads automatically and restores
+the contained reading scroll position. A full-page reload initializes listening,
+video, image, and embed behavior once and prevents partial replacement from
+duplicating event listeners. Failed probes keep the current preview visible and
+retry with bounded backoff.
+
 ## The dev/production runtime gap
 
 This trips people up, so it is worth stating plainly: **`astro dev` runs on Astro's
@@ -132,6 +147,13 @@ repo keeps only a thin service-binding fallback for preview environments.
 Keep them split. The boundary is a security boundary, not an organizational
 preference.
 
-`@bunizao/contracts` is duplicated byte-for-byte in both repos and **this repo is
-canonical**. After editing a contract here, run `bun run sync:contracts` in
-`../site-api`.
+`@bunizao/contracts` is maintained in this public repo and released as a public
+npm package. The initial release is `@bunizao/contracts@0.1.0`; the package
+source and release metadata live in [`packages/contracts/`](https://github.com/bunizao/site/tree/main/packages/contracts).
+Consumers, including `site-api`, pin an exact package version and upgrade it
+deliberately. Local development in this repo keeps the workspace dependency so
+contract changes can be tested before a release. The root `check`, tests, and
+build commands prepare the workspace package automatically; run
+`bun run contracts:build` before starting a focused dev server. Publish a
+version only from a matching `contracts-v<version>` tag; the release workflow
+uses npm trusted publishing with provenance.

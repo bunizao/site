@@ -51,6 +51,12 @@ export interface PostAuthorshipValidationInput {
   meta: DirectiveTransformResult['meta'];
 }
 
+function normalizeAuthorshipModelReference(reference: string): string {
+  return reference.startsWith('gemini/')
+    ? `google/${reference.slice('gemini/'.length)}`
+    : reference;
+}
+
 function readCredit(attributes: DirectiveAttributes, slug: string): AuthorshipCredit {
   rejectUnsupportedAttributes(attributes, AUTHORS_ATTRIBUTES);
 
@@ -58,11 +64,12 @@ function readCredit(attributes: DirectiveAttributes, slug: string): AuthorshipCr
   if (!ai) {
     throw new DirectiveAttributeError('attribute "ai" is required.');
   }
-  const model = resolveAuthorshipModel(ai);
+  const modelReference = normalizeAuthorshipModelReference(ai);
+  const model = resolveAuthorshipModel(modelReference);
   if (!model) {
     // Not a DirectiveAttributeError: a typo'd model reference must stop the
     // build, not degrade to a warning and drop the credit off the post.
-    throw new AuthorshipValidationError('unknown-model', slug, ai);
+    throw new AuthorshipValidationError('unknown-model', slug, modelReference);
   }
 
   const note = attributes.note?.trim();
@@ -82,7 +89,15 @@ function parseAuthorsAttributes(
   rawAttributes: string,
   context: DirectiveContext,
 ): DirectiveAttributes {
-  const credit = readCredit(parseKeyValueAttributes(rawAttributes), context.slug);
+  let credit: AuthorshipCredit;
+  try {
+    credit = readCredit(parseKeyValueAttributes(rawAttributes), context.slug);
+  } catch (error) {
+    if (context.outputTarget === 'preview' && error instanceof AuthorshipValidationError) {
+      throw new DirectiveAttributeError(error.message);
+    }
+    throw error;
+  }
   return { ai: credit.model.id, ...(credit.note ? { note: credit.note } : {}) };
 }
 

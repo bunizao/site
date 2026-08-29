@@ -12,8 +12,13 @@ Every post carries one of two lines at its foot. By default it is the pledge:
 A post that used a model says so instead, naming which one and what it did. That
 is what `[!authors]` is for.
 
-```
+```md demo
 [!authors ai=anthropic/claude-opus-4-6]
+```
+
+With a note, the model gets its own sentence:
+
+```md demo
 [!authors ai=anthropic/claude-opus-4-6 note="重写了迁移那一节的表格"]
 ```
 
@@ -36,10 +41,16 @@ Valid references come from `src/data/generated/model-registry.json`, a snapshot 
 is hand-maintained. If a credit names a model newer than the snapshot, re-run the
 sync.
 
-**An unknown model stops the build.** This is the only directive error that is
-not a warning. Everything else degrades to a skipped marker and a log line; a
-typo'd model reference would silently drop an authorship claim off a published
-post, which is worse than a red build.
+`gemini/<model>` is accepted as an authoring shorthand and normalized to
+`google/<model>` before the registry lookup. For example,
+`gemini/gemini-3.7-flash` records the canonical
+`google/gemini-3.7-flash` credit and displays Google as the provider.
+
+**An unknown model stops the production build.** The draft preview keeps the
+article visible and shows the validation error as a warning, so it can be fixed
+without losing the preview. This is the only directive error that becomes a
+build failure; a typo'd model reference would otherwise silently drop an
+authorship claim off a published post, which is worse than a red build.
 
 ## Notes and the two footer lines
 
@@ -61,7 +72,7 @@ gets a full stop, not `。`.
 Repeat the directive. Order in the footer follows the order the directives appear
 in the post.
 
-```
+```md demo
 [!authors ai=anthropic/claude-opus-4-6 note="drafted the pipeline diagram"]
 [!authors ai=openai/gpt-5 note="checked the numbers"]
 ```

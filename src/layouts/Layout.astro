@@ -1,5 +1,6 @@
 ---
 import { FONT_FILES, type Face } from '@/lib/fonts';
+import ViewTransitionReveal from './client/ViewTransitionReveal.astro';
 
 interface Props {
   title: string;
@@ -38,6 +39,7 @@ interface Props {
 }
 
 import '../styles/globals.css';
+import '../styles/site-chrome.css';
 import '../features/mood/styles/feed-rich-text.css';
 import { Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
@@ -149,8 +151,12 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
          were inert until now; every inset is 0 on hardware without a notch. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content={description} />
+    {/* Body faces yield bandwidth to render-blocking CSS; they paint via the
+        swap fallback either way, so CSS finishing sooner moves LCP while the
+        fonts' own arrival time barely changes. The wordmark stays high: it is
+        tiny and font-display: block. */}
     {preloadFontHrefs.map((href) => (
-      <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
+      <link rel="preload" href={href} as="font" type="font/woff2" crossorigin fetchpriority="low" />
     ))}
     {isHomeNav && (
       <link rel="preload" href={wordmarkFontHref} as="font" type="font/woff2" crossorigin fetchpriority="high" />
@@ -253,6 +259,10 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
       })();
     </script>
 
+    <!-- Incoming half of the view-transition name broker. Inline and in <head>
+         because `pagereveal` fires before any deferred module can run. -->
+    <ViewTransitionReveal />
+
     <script>
       // Dynamic import keeps the overscroll handler in a bundled, HTTP-cached
       // chunk instead of Astro inlining it into every HTML response.
@@ -260,8 +270,10 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
     </script>
 
     <script>
-      // Decides which single element (if any) may morph across the next
-      // navigation. Must register before any click can navigate away.
+      // Outgoing half: decides which single element (if any) may morph across
+      // the next navigation. Deferred is fine — it only has to beat a click.
+      // The incoming half is <ViewTransitionReveal /> above, which must be
+      // inline to beat `pagereveal`.
       import { initViewTransitionNames } from '@/lib/view-transition-names';
       initViewTransitionNames();
     </script>
