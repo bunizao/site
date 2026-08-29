@@ -399,11 +399,14 @@
   border-top: 1px solid var(--blog-line);
 }
 
+/* 6px here used to be the gap to a line of invite text, which then carried its
+   own 16px down to the box. The heading now sits directly above the box and
+   owns the whole distance. */
 .blog-comments__head {
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-bottom: 6px;
+  margin-bottom: 18px;
 }
 
 .blog-comments__title {
@@ -422,17 +425,6 @@
   font-size: var(--comment-meta);
   font-variant-numeric: tabular-nums;
   color: var(--blog-faint);
-}
-
-/* One line under the heading, in the reader's own moment: they have just
-   finished the post. The compose box below asks for a name and an address
-   straight away, and opening on two form fields with nothing said first is
-   what makes a form feel like a toll gate. */
-.blog-comments__invite {
-  margin: 0 0 16px;
-  font-size: var(--comment-note);
-  line-height: 1.55;
-  color: var(--blog-muted);
 }
 
 /* --- Compose ------------------------------------------------------------ */

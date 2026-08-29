@@ -18,9 +18,6 @@ import type { BlogLocale } from '@/data/site';
 export interface CommentsCopy {
   /* --- Thread ------------------------------------------------------------ */
   title: string;
-  /** The line under the heading. It is the prompt, so the compose box below it
-      carries no placeholder of its own -- the two sat one above the other. */
-  invite: string;
   empty: string;
   loadError: string;
   retry: string;
@@ -33,7 +30,11 @@ export interface CommentsCopy {
   emailLabel: string;
   emailPlaceholder: string;
   bodyLabel: string;
-  /** Empty on purpose: `invite`, one line above the box, already says it. */
+  /** The prompt, and the only place it appears. It used to be a line of its own
+      between the heading and the box, which said the same thing one line early
+      and put a sentence between "评论" and the thing it names. Inside the box
+      it is in the reader's way at the moment it applies, and it leaves when
+      they start writing. */
   bodyPlaceholder: string;
   replyBodyLabel: string;
   /** The travelling reply box points at whoever it landed under. */
@@ -106,7 +107,6 @@ export interface CommentsCopy {
 
 const zh: CommentsCopy = {
   title: '评论',
-  invite: '说点什么…',
   empty: '还没有人来过。第一个说点什么吧。',
   loadError: '评论没能加载。',
   retry: '重试',
@@ -118,7 +118,7 @@ const zh: CommentsCopy = {
   emailLabel: '邮箱',
   emailPlaceholder: '邮箱（私密）',
   bodyLabel: '写评论',
-  bodyPlaceholder: '',
+  bodyPlaceholder: '说点什么…',
   replyBodyLabel: '写回复',
   replyTo: (author) => `回复 ${author}…`,
   hint: '支持 Markdown',
@@ -173,7 +173,6 @@ const zh: CommentsCopy = {
 
 const en: CommentsCopy = {
   title: 'Comments',
-  invite: 'Say something…',
   empty: 'Nothing here yet. Be the first to say something.',
   loadError: "Couldn't load comments.",
   retry: 'Retry',
@@ -185,7 +184,7 @@ const en: CommentsCopy = {
   emailLabel: 'Email',
   emailPlaceholder: 'Email (never shown)',
   bodyLabel: 'Write a comment',
-  bodyPlaceholder: '',
+  bodyPlaceholder: 'Say something…',
   replyBodyLabel: 'Write a reply',
   replyTo: (author) => `Reply to ${author}…`,
   hint: 'Markdown supported',

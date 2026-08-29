@@ -96,8 +96,6 @@ const t = commentsCopy[locale];
     )}
   </div>
 
-  <p class="blog-comments__invite">{t.invite}</p>
-
   <CommentForm phase={phase} viewer={viewer} claimed={claimed} receipt={receipt} draftText={draftText} />
 
   {state === 'loading' && (
