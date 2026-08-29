@@ -54,6 +54,10 @@ export interface CommentsCopy {
   authorBadge: string;
   edited: string;
   tombstone: string;
+  /** Shown on a row the moderation pass held back -- and only to its writer,
+      who is the only person the row is served to. It says what happened, not
+      who is looking: "held for review, and until it clears only you can see
+      it" made the reader the subject of a sentence about their own comment. */
   held: string;
   reply: string;
   edit: string;
@@ -130,7 +134,7 @@ const zh: CommentsCopy = {
   authorBadge: '作者',
   edited: '已编辑',
   tombstone: '此评论已删除',
-  held: '这条评论被挂起了。',
+  held: '这条评论先搁一下。',
   reply: '回复',
   edit: '编辑',
   editLabel: '编辑你的评论',
@@ -155,7 +159,7 @@ const zh: CommentsCopy = {
   reactRemove: '取消喜欢',
 
   receiptPosted: '已发布',
-  receiptHeld: '已提交，正在等待审核',
+  receiptHeld: '收到了，先搁一下',
   receiptError: '没能发出去，草稿还在。再试一次。',
   nudgeText: '确认邮箱后可管理评论、接收回复通知',
   nudgeSubscribe: '订阅新文章邮件',
@@ -222,7 +226,7 @@ const en: CommentsCopy = {
   reactRemove: 'Remove your reaction',
 
   receiptPosted: 'Posted',
-  receiptHeld: 'Submitted — waiting for review',
+  receiptHeld: 'Got it — on hold for a moment',
   receiptError: "Couldn't post that — your draft is still here. Try again.",
   nudgeText: 'Confirm your email to manage your comments and get reply notices',
   nudgeSubscribe: 'Also email me new posts',

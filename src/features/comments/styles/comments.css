@@ -964,10 +964,25 @@
 }
 
 /* A second edit never overwrites the marker with a diff — it just says the
-   words on screen are not the words first posted. */
+   words on screen are not the words first posted.
+
+   Bound to the date with a middot rather than left to float on the row's 8px
+   gap. Both are the same size and the same faint grey, so a plain space
+   between them read as one run-on token -- "5天前已编辑" -- with no way to see
+   where the timestamp ended. The dot says they are two facts in one clause,
+   and holds them on the same line when the row is narrow. */
 .blog-comment__edited {
+  display: inline-flex;
+  align-items: baseline;
   font-size: var(--comment-meta);
   color: var(--blog-faint);
+  white-space: nowrap;
+}
+
+.blog-comment__edited::before {
+  content: '·';
+  margin-inline-end: 7px;
+  opacity: 0.6;
 }
 
 .blog-comment__text {
