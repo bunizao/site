@@ -57,7 +57,7 @@ if (Astro.request.method === 'POST') {
 ---
 
 <BlogLayout title="Confirm it's you" path="/reader/confirm" description="Confirm a comment on buxx.me" robots="noindex, nofollow">
-  <a class="blog-back" href="/blog/">← All posts</a>
+  <a class="blog-back" href="/blog">← All posts</a>
 
   <div class="reader-confirm">
     <div class="reader-confirm__card" data-state={state}>
@@ -82,7 +82,7 @@ if (Astro.request.method === 'POST') {
           <p class="reader-confirm__body">
             {displayName ? `${displayName} now manages` : 'You now manage'} comments from any device, and reply notifications are armed.
           </p>
-          <a class="reader-confirm__back" href="/blog/">← Back to the post</a>
+          <a class="reader-confirm__back" href="/blog">← Back to the post</a>
         </>
       )}
 
@@ -90,7 +90,7 @@ if (Astro.request.method === 'POST') {
         <>
           <h1 class="reader-confirm__title">Already confirmed</h1>
           <p class="reader-confirm__body">This address was confirmed earlier. Nothing else to do here.</p>
-          <a class="reader-confirm__back" href="/blog/">← Back to the post</a>
+          <a class="reader-confirm__back" href="/blog">← Back to the post</a>
         </>
       )}
 
@@ -121,7 +121,7 @@ if (Astro.request.method === 'POST') {
         <>
           <h1 class="reader-confirm__title">Check your inbox</h1>
           <p class="reader-confirm__body">If that address has a comment on file, a fresh confirmation link is on its way.</p>
-          <a class="reader-confirm__back" href="/blog/">← Back to the post</a>
+          <a class="reader-confirm__back" href="/blog">← Back to the post</a>
         </>
       )}
     </div>

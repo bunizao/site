@@ -23,7 +23,7 @@ const email = 'reader@example.com';
 ---
 
 <BlogLayout title="Lab — reader confirm" path="/lab/reader-confirm" description="Dev harness">
-  <a class="blog-back" href="/blog/">← All posts</a>
+  <a class="blog-back" href="/blog">← All posts</a>
 
   <div class="reader-confirm">
     <div class="reader-confirm__card" data-state={state}>
@@ -49,7 +49,7 @@ const email = 'reader@example.com';
         <>
           <h1 class="reader-confirm__title">You're confirmed</h1>
           <p class="reader-confirm__body">{email} now manages its comments from anywhere, and reply notifications are armed.</p>
-          <a class="reader-confirm__back" href="/blog/">← Back to the post</a>
+          <a class="reader-confirm__back" href="/blog">← Back to the post</a>
         </>
       )}
 
@@ -67,7 +67,7 @@ const email = 'reader@example.com';
         <>
           <h1 class="reader-confirm__title">Already confirmed</h1>
           <p class="reader-confirm__body">{email} was confirmed earlier. Nothing else to do here.</p>
-          <a class="reader-confirm__back" href="/blog/">← Back to the post</a>
+          <a class="reader-confirm__back" href="/blog">← Back to the post</a>
         </>
       )}
     </div>
