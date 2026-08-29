@@ -27,8 +27,9 @@ import { profile } from '@/data/site';
 import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
-import '@/styles/listening.css';
-import '@/styles/embed-youtube.css';
+import listeningCssHref from '@/styles/listening.css?url';
+import embedYouTubeCssHref from '@/styles/embed-youtube.css?url';
+import { parseYouTubeVideoUrl } from '@/lib/embed/youtube';
 
 export const prerender = false;
 
@@ -79,6 +80,20 @@ async function loadInitialMoodFeed() {
 }
 
 const initialFeed = await loadInitialMoodFeed();
+// Listening/YouTube styles ship only when the SSR window actually renders such
+// an embed. Posts streamed in later load them through the feed controller's
+// dynamic imports, so the common feed pays nothing.
+const initialPosts = initialFeed?.posts ?? [];
+const hasListeningCard = initialPosts.some((post) =>
+  post.media?.some((item) => item.type === 'audio'),
+);
+const hasYouTubeEmbed = initialPosts.some((post) =>
+  post.media?.some(
+    (item) =>
+      item.type === 'link-preview' &&
+      Boolean(parseYouTubeVideoUrl(item.href ?? item.originalUrl ?? '')),
+  ),
+);
 // The feed mirrors a Telegram channel, so subscribing there is a real
 // alternative to email. The slug is the channel username; without it the
 // subscribe panel just drops the tile.
@@ -119,7 +134,6 @@ const skeletonGroups = [
 ---
 
 <Layout
-  preloadFont={['code', 'mono', 'sans']}
   title={title}
   description={description}
   image="/mood-og.png"
@@ -137,6 +151,8 @@ const skeletonGroups = [
        identity plus search + notify. -->
   <MoodNavbar slot="topbar" initialChannel={initialFeed?.channel} />
   <main class="page-container mood-route">
+    {hasListeningCard && <link rel="stylesheet" href={listeningCssHref} />}
+    {hasYouTubeEmbed && <link rel="stylesheet" href={embedYouTubeCssHref} />}
     <TimelineWheel />
     <FeedShell
       skeletonGroups={skeletonGroups}
@@ -2075,9 +2091,19 @@ const skeletonGroups = [
 </style>
 
 <script>
-  import { initSubscribePanels } from '@/features/notify/subscribe-panel';
-
-  initSubscribePanels();
+  // The subscribe panel opens from the navbar, never during initial paint, so
+  // its wiring (and Turnstile plumbing) waits for idle and loads as its own
+  // chunk off the startup path.
+  const initPanels = () => {
+    void import('@/features/notify/subscribe-panel').then(({ initSubscribePanels }) => {
+      initSubscribePanels();
+    });
+  };
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(initPanels, { timeout: 2000 });
+  } else {
+    window.setTimeout(initPanels, 800);
+  }
 </script>
 
 <script>

@@ -6,8 +6,6 @@ import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watc
 import { initMoodGalleries } from '@/features/mood/client/gallery';
 import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
-import { initListeningCards } from '@/lib/listening/controller';
-import { initYouTubeEmbeds } from '@/lib/embed/youtube-controller';
 import { pageScroll } from '@/lib/page-scroll';
 import { formatMoodDateKey, rekeyMoodServerRenderedGroups } from '@/features/mood/shared/date-grouping';
 import {
@@ -24,6 +22,28 @@ import type {
   ChannelInfo,
   MoodData,
 } from '@/features/mood/client/feed-types';
+
+// Listening cards and YouTube embeds are rare in the feed. Their controllers
+// (plus the MusicKit player behind the listening one) load only when matching
+// markup is actually in the tree, instead of shipping in the startup bundle.
+function hydrateFeedEmbeds(root: ParentNode): void {
+  if (root.querySelector('[data-listening]')) {
+    void Promise.all([
+      import('@/styles/listening.css'),
+      import('@/lib/listening/controller'),
+    ]).then(([, { initListeningCards }]) => {
+      initListeningCards(root);
+    });
+  }
+  if (root.querySelector('[data-yt]')) {
+    void Promise.all([
+      import('@/styles/embed-youtube.css'),
+      import('@/lib/embed/youtube-controller'),
+    ]).then(([, { initYouTubeEmbeds }]) => {
+      initYouTubeEmbeds(root);
+    });
+  }
+}
 
 const MOOD_FETCH_ATTEMPTS = 2;
 const MOOD_FETCH_RETRY_DELAY_MS = 200;
@@ -716,8 +736,7 @@ export function initMoodFeedController(): void {
         rekeyMoodServerRenderedGroups(list);
         mediaHydrator.applyMediaHints(list);
         initMoodGalleries(list);
-        initListeningCards(list);
-        initYouTubeEmbeds(list);
+        hydrateFeedEmbeds(list);
       }
 
       const appendMoods = (posts: MoodData[], startIndex = totalCount): void => {
@@ -726,8 +745,7 @@ export function initMoodFeedController(): void {
           updateWatcher.syncLatestSeenId();
         }
         hydrateMoodRichText(list);
-        initListeningCards(list);
-        initYouTubeEmbeds(list);
+        hydrateFeedEmbeds(list);
         patchVisibleMoodMeta();
         revealFeedAnchor();
       };
@@ -743,8 +761,7 @@ export function initMoodFeedController(): void {
         if (heightDelta > 0) {
           scroll.el.scrollTo({ top: scroll.el.scrollTop + heightDelta, behavior: 'auto' });
         }
-        initListeningCards(list);
-        initYouTubeEmbeds(list);
+        hydrateFeedEmbeds(list);
         patchVisibleMoodMeta();
       };
 
