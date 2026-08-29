@@ -153,6 +153,59 @@ describe('structured mood feed media rendering', () => {
     expect(html).toContain('class="bookmark-card bookmark-card--side-media" href="https://example.test/profile"');
   });
 
+  test('derives the compact layout from thumbnail dimensions when linkPreviewLayout is absent', () => {
+    // Archive rows unfurled before linkPreviewLayout existed carry only
+    // width/height. The threshold mirrors getLinkPreviewLayout in
+    // site-api/src/features/mood/server/mood-repository.ts (ratio < 1.5).
+    const html = renderStructuredMoodFeedMediaMarkup([
+      {
+        type: 'link-preview',
+        href: 'https://example.test/square',
+        title: 'Square thumbnail',
+        thumbnailSrc: 'https://image.example.test/square.jpg',
+        width: 400,
+        height: 400,
+      },
+      {
+        type: 'link-preview',
+        href: 'https://example.test/banner',
+        title: 'Wide OG banner',
+        thumbnailSrc: 'https://image.example.test/banner.jpg',
+        width: 1200,
+        height: 630,
+      },
+      {
+        type: 'link-preview',
+        href: 'https://example.test/threshold',
+        title: 'Exactly at threshold',
+        thumbnailSrc: 'https://image.example.test/threshold.jpg',
+        width: 600,
+        height: 400,
+      },
+      {
+        type: 'link-preview',
+        href: 'https://example.test/no-dims',
+        title: 'No dimensions',
+        thumbnailSrc: 'https://image.example.test/no-dims.jpg',
+      },
+      {
+        type: 'link-preview',
+        href: 'https://example.test/explicit',
+        title: 'Explicit layout wins over dimensions',
+        thumbnailSrc: 'https://image.example.test/explicit.jpg',
+        width: 400,
+        height: 400,
+        linkPreviewLayout: 'large',
+      },
+    ]);
+
+    expect(html).toContain('class="bookmark-card bookmark-card--side-media" href="https://example.test/square"');
+    expect(html).toContain('class="bookmark-card" href="https://example.test/banner"');
+    expect(html).toContain('class="bookmark-card" href="https://example.test/threshold"');
+    expect(html).toContain('class="bookmark-card" href="https://example.test/no-dims"');
+    expect(html).toContain('class="bookmark-card" href="https://example.test/explicit"');
+  });
+
   test('skips image convenience media and unsafe URLs', () => {
     const html = renderStructuredMoodFeedMediaMarkup([
       {
