@@ -23,6 +23,8 @@ import Footer from '@/features/home/ui/Footer.astro';
 import ReactionBar from '@/features/comments/ui/ReactionBar';
 import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
+import NotByAI from '@/features/posts/ui/NotByAI.astro';
+import ShareRow from '@/features/posts/ui/ShareRow.astro';
 import { blog } from '@/data/site';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import '@/features/comments/styles/comments.css';
@@ -238,11 +240,15 @@ await billing.invoice(payload)</code></pre>
         reactors={reactors}
       />
 
+      {/* The real components, not stand-ins: the article foot now sits
+          directly above the comments head, and the only way to judge that
+          seam is to render both sides of it for real. */}
       <footer class="blog-article-foot">
         <div class="blog-end__bar">
-          <span class="blog-comment__date">Not by AI · authorship credit</span>
+          <NotByAI />
           <div class="blog-article-sub">
-            <span class="blog-comment__date">Share row</span>
+            <SubscribePanel variant="blog" anchor="right" feed={blog.feed} />
+            <ShareRow title="少一层，而不是多一层" />
           </div>
         </div>
       </footer>
@@ -257,17 +263,14 @@ await billing.invoice(payload)</code></pre>
         draftText={draftText}
         hasMore={hasMore}
         loadMoreState={loadMoreState}
-      >
-        <div class="blog-article-sub" slot="subscribe">
-          <SubscribePanel variant="blog" anchor="right" feed={blog.feed} />
-        </div>
-      </CommentsSection>
+      />
     </article>
   </div>
 
   <footer class="blog-end">
     <span class="blog-comment__date">Prev / next sits here</span>
   </footer>
+
 
   <Footer />
   <BackToTop />

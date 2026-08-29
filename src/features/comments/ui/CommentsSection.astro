@@ -88,20 +88,7 @@ const skeletonRows = [
     )}
   </div>
 
-  {/* The invite and the subscribe trigger share one line. Subscribe used to
-      sit in the article footer, BELOW the whole thread -- the wrong side of a
-      hundred comments for an offer aimed at someone who has just finished
-      reading. Up here it is also next to the one field it has in common with
-      the comment box: the reader's address (see lib/reader-email.ts, which
-      lets whichever form is filled in first hand it to the other).
-
-      A slot rather than an import, so this component keeps knowing nothing
-      about the notify feature and the page decides whether there is a panel
-      to mount at all. */}
-  <div class="blog-comments__invite">
-    <p class="blog-comments__invite-line">Leave a trace, say anything.</p>
-    <slot name="subscribe" />
-  </div>
+  <p class="blog-comments__invite">Leave a trace, say anything.</p>
 
   <CommentForm phase={phase} viewer={viewer} claimed={claimed} receipt={receipt} draftText={draftText} />
 

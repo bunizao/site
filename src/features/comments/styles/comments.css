@@ -424,27 +424,10 @@
    straight away, and opening on two form fields with nothing said first is
    what makes a form feel like a toll gate. */
 .blog-comments__invite {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px 16px;
   margin: 0 0 16px;
-}
-
-.blog-comments__invite-line {
-  margin: 0;
   font-size: 14.5px;
   line-height: 1.55;
   color: var(--blog-muted);
-}
-
-/* The subscribe trigger keeps the pill it wore in the article foot, so it is
-   the same object that used to live down there rather than a new control that
-   happens to say the same word. It sits on the invite's line and costs no
-   vertical space of its own. */
-.blog-comments__invite .blog-article-sub {
-  margin-left: auto;
 }
 
 /* --- Compose ------------------------------------------------------------ */

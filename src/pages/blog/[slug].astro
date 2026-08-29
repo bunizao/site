@@ -192,26 +192,27 @@ const unlisted = isUnlistedPost(post);
       <footer class="blog-article-foot">
         <div class="blog-end__bar">
           {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
+          {/* Subscribe and share are one pair: both are "do something with
+              this post beyond reading it". Split across two bands they were
+              two identical pills on the same right edge a hundred pixels
+              apart, which reads as a mistake. The strip sits directly above
+              the comment box now, so subscribe is still within a glance of the
+              email field it shares (and lib/reader-email.ts carries the
+              address between them either way). */}
           <div class="blog-article-sub">
+            <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
             <ShareRow title={post.title} />
           </div>
         </div>
       </footer>
 
       {/* Last on the page, and open-ended: a thread has no fixed height, so
-          anything under it is at an address that moves. Subscribe rides in its
-          head rather than in the article foot above — it asks for the same
-          address the comment box does, and the two should be within a glance
-          of each other. */}
+          anything under it is at an address that moves. */}
       <CommentsSection
         state="loading"
         postId={post.id}
         turnstileSiteKey={turnstileSiteKey}
-      >
-        <div class="blog-article-sub" slot="subscribe">
-          <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
-        </div>
-      </CommentsSection>
+      />
     </article>
   </div>
 
