@@ -1,4 +1,10 @@
-import type { BlogAnalyticsEventRecord } from '@bunizao/contracts';
+import type {
+  BlogAnalyticsEventRecord,
+  ListeningAnalyticsDailyStats,
+  ListeningAnalyticsSummary,
+  ListeningAnalyticsSurfaceStats,
+  ListeningAnalyticsTrackStats,
+} from '@bunizao/contracts';
 import type { PortalAnalytics } from './portal-client';
 
 // Local-dev fixture for the analytics page, mirroring the overview demo. Gives
@@ -59,6 +65,53 @@ function event(over: Partial<BlogAnalyticsEventRecord> & Pick<BlogAnalyticsEvent
   };
 }
 
+// Eight-day listening wave, small enough that the section stays obviously demo
+// data while still exercising the stat cards, chart, surfaces, and tracks table.
+const LISTENING_PLAYS = [12, 18, 15, 21, 26, 24, 19, 23];
+const listeningDaily: ListeningAnalyticsDailyStats[] = LISTENING_PLAYS.map((plays, i) => {
+  const requests = plays + Math.round(plays * 0.35);
+  const uniqueListeners = Math.round(plays * 0.72);
+  const totalListenedMs = plays * 118_000;
+  return {
+    day: dayISO(LISTENING_PLAYS.length - 1 - i),
+    requests,
+    plays,
+    uniqueListeners,
+    totalListenedMs,
+    avgListenedMs: Math.round(totalListenedMs / Math.max(1, plays)),
+    completionRate: 0.4 + (i % 4) * 0.05,
+  };
+});
+
+const listeningTracks: ListeningAnalyticsTrackStats[] = [
+  { trackId: 't1', trackTitle: 'Nightdrive', trackArtist: 'Kavinsky', requests: 88, plays: 74, uniqueListeners: 61, totalListenedMs: 74 * 148_000, avgListenedMs: 148_000, completionRate: 0.58 },
+  { trackId: 't2', trackTitle: 'Weightless', trackArtist: 'Marconi Union', requests: 61, plays: 52, uniqueListeners: 44, totalListenedMs: 52 * 210_000, avgListenedMs: 210_000, completionRate: 0.66 },
+  { trackId: 't3', trackTitle: 'Static Sea', trackArtist: null, requests: 47, plays: 38, uniqueListeners: 33, totalListenedMs: 38 * 96_000, avgListenedMs: 96_000, completionRate: 0.34 },
+  { trackId: 't4', trackTitle: 'Glass Room', trackArtist: 'Yui Sasaki', requests: 29, plays: 22, uniqueListeners: 20, totalListenedMs: 22 * 132_000, avgListenedMs: 132_000, completionRate: 0.41 },
+];
+
+const listeningSurfaces: ListeningAnalyticsSurfaceStats[] = [
+  { surface: 'home', requests: 108, plays: 89, uniqueListeners: 71, totalListenedMs: 89 * 121_000, avgListenedMs: 121_000, completionRate: 0.51 },
+  { surface: 'blog', requests: 67, plays: 54, uniqueListeners: 46, totalListenedMs: 54 * 138_000, avgListenedMs: 138_000, completionRate: 0.47 },
+  { surface: 'mood', requests: 33, plays: 26, uniqueListeners: 22, totalListenedMs: 26 * 104_000, avgListenedMs: 104_000, completionRate: 0.38 },
+  { surface: 'components', requests: 9, plays: 7, uniqueListeners: 6, totalListenedMs: 7 * 88_000, avgListenedMs: 88_000, completionRate: 0.29 },
+];
+
+const listening: ListeningAnalyticsSummary = {
+  totals: {
+    requests: listeningDaily.reduce((sum, d) => sum + d.requests, 0),
+    plays: listeningDaily.reduce((sum, d) => sum + d.plays, 0),
+    uniqueListeners: 148,
+    totalListenedMs: listeningDaily.reduce((sum, d) => sum + d.totalListenedMs, 0),
+    avgListenedMs: 118_000,
+    completionRate: 0.47,
+  },
+  tracks: listeningTracks,
+  surfaces: listeningSurfaces,
+  daily: listeningDaily,
+  recent: [],
+};
+
 export const DEMO_ANALYTICS: PortalAnalytics = {
   summary: {
     range: { from: dayISO(13), to: dayISO(0), days: 14 },
@@ -110,6 +163,7 @@ export const DEMO_ANALYTICS: PortalAnalytics = {
       ],
       daily: newsletterDaily,
     },
+    listening,
   },
   events: {
     events: [

@@ -1,7 +1,6 @@
 ---
 import PortalLayout from '@/layouts/PortalLayout.astro';
 import {
-  Badge,
   Card,
   CardContent,
   CardDescription,
@@ -19,7 +18,7 @@ import EmptyState from '@/components/portal/EmptyState.astro';
 import PortalSection from '@/components/portal/PortalSection.astro';
 import SegmentedNav from '@/components/portal/SegmentedNav.astro';
 import RankedBreakdown from '@/components/portal/RankedBreakdown.astro';
-import { Activity, Clock3, Compass, Cpu, Eye, FileText, Gauge, Globe2, Layers, MailOpen, Map as MapIcon, Monitor, MousePointer2, Send, Smartphone, Tablet, Terminal, TrendingUp, type LucideIcon } from 'lucide-react';
+import { Activity, Clock3, Compass, Cpu, Eye, FileText, Gauge, Globe2, Headphones, Layers, MailOpen, Map as MapIcon, MousePointer2, Music2, PlayCircle, Send, TrendingUp, Users, type LucideIcon } from 'lucide-react';
 
 // Local row shape for RankedBreakdown (Astro components can't export types).
 interface RankedRow {
@@ -30,15 +29,17 @@ interface RankedRow {
 }
 import {
   BLOG_ANALYTICS_COMPLETION_SCROLL_DEPTH,
+  BLOG_ANALYTICS_EVENTS_DEFAULT_LIMIT,
   BLOG_ANALYTICS_RANGE_OPTIONS,
   BLOG_ANALYTICS_READ_THRESHOLD_MS,
   type NewsletterAnalyticsSummary,
 } from '@bunizao/contracts/analytics';
 import { loadPortalAnalytics, type PortalAnalytics } from '@/features/admin/server/portal-client';
 import { DEMO_ANALYTICS } from '@/features/admin/server/portal-analytics-demo';
-import { NewsletterDailyChart, NewsletterFunnel, TrafficChart } from '@/features/admin/ui/AnalyticsCharts';
+import { ListeningDailyChart, NewsletterDailyChart, NewsletterFunnel, TrafficChart } from '@/features/admin/ui/AnalyticsCharts';
 import { WorldChoropleth } from '@/features/admin/ui/WorldChoropleth';
 import { EngagementScatter, SourceQualityChart } from '@/features/admin/ui/EngagementCharts';
+import EventLog from '@/features/admin/ui/EventLog';
 
 export const prerender = false;
 
@@ -125,11 +126,6 @@ function newsletterTypeLabel(value: string | null | undefined): string {
 function rateOf(reads: number, views: number): number | null {
   return views > 0 ? reads / views : null;
 }
-function deviceIcon(type: string | null): LucideIcon {
-  if (type === 'mobile') return Smartphone;
-  if (type === 'tablet') return Tablet;
-  return Monitor;
-}
 
 const readThrough = rateOf(totals.reads, totals.views) ?? 0;
 
@@ -169,6 +165,30 @@ function tally(getKey: (e: (typeof eventSample)[number]) => string | null): Rank
 }
 const deviceRows = tally((e) => e.deviceType);
 const osRows = tally((e) => e.os);
+
+// Listening analytics is an optional slice of the summary — site-api ships it
+// once the endpoint backs it, so the section renders only when there is
+// actually something to show.
+const listening = summary.listening ?? null;
+const hasListening = Boolean(
+  listening
+    && (listening.totals.plays > 0
+      || listening.totals.requests > 0
+      || listening.tracks.length > 0
+      || listening.surfaces.length > 0
+      || listening.daily.length > 0),
+);
+const listeningCards: { label: string; value: string; foot: string; Icon: LucideIcon; tone: Tone }[] = listening
+  ? [
+      { label: 'Plays', value: formatCount(listening.totals.plays), foot: `${formatCount(listening.totals.requests)} requests`, Icon: PlayCircle, tone: 'accent' },
+      { label: 'Unique listeners', value: formatCount(listening.totals.uniqueListeners), foot: `${formatMs(listening.totals.avgListenedMs)} avg per play`, Icon: Users, tone: 'success' },
+      { label: 'Total listened', value: formatMs(listening.totals.totalListenedMs), foot: `${formatCount(listening.tracks.length)} tracks`, Icon: Clock3, tone: 'warning' },
+      { label: 'Completion', value: formatPercent(listening.totals.completionRate), foot: 'plays reaching the end', Icon: Gauge, tone: 'neutral' },
+    ]
+  : [];
+const surfaceRows: RankedRow[] = listening
+  ? listening.surfaces.map((s) => ({ key: s.surface, label: labelFor(s.surface), value: s.plays, rate: s.completionRate }))
+  : [];
 
 const rangeItems = (BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).map((days) => ({
   label: `${days}d`,
@@ -422,31 +442,78 @@ const rangeItems = (BLOG_ANALYTICS_RANGE_OPTIONS as readonly number[]).map((days
     )}
   </PortalSection>
 
-  <PortalSection title="Raw event log" eyebrow="Debug" meta={`${formatCount(events.events.length)} latest`} class="portal-mt-lg">
-    {events.events.length === 0 ? (
-      <Card><EmptyState Icon={Terminal} title="No raw events yet" hint="The latest first-party read events stream in here." /></Card>
-    ) : (
-      <ol class="portal-log">
-        {events.events.map((event) => {
-          const DeviceIcon = deviceIcon(event.deviceType);
-          return (
-            <li class="portal-log-row">
-              <span class="portal-log-lead">
-                <span class="portal-dot" data-tone={event.completed ? 'success' : 'warning'}></span>
-                <DeviceIcon />
-              </span>
-              <div class="portal-log-body">
-                <span class="portal-log-slug">{event.slug}</span>
-                <span class="portal-log-meta">{event.platform} · {event.os ?? 'unknown OS'} · {event.country ?? '—'} · {formatDate(event.openedAt)}</span>
-              </div>
-              <div class="portal-log-aside">
-                <Badge variant="outline" size="sm">{event.refSource}</Badge>
-                <span class="portal-log-metric">{formatMs(event.dwellMs)}</span>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-    )}
+  {listening && hasListening && (
+    <PortalSection
+      title="Listening"
+      eyebrow="Audio"
+      meta={`${formatCount(listening.tracks.length)} tracks`}
+      class="portal-mt-lg"
+    >
+      <div class="portal-grid" data-columns="cards">
+        {listeningCards.map((metric) => (
+          <StatCard label={metric.label} value={metric.value} Icon={metric.Icon} tone={metric.tone} foot={metric.foot} />
+        ))}
+      </div>
+
+      <div class="portal-grid" data-columns="wide">
+        <Card className="portal-span-full">
+          <CardHeader>
+            <CardTitle className="portal-card-title"><Headphones size={14} /> Daily activity</CardTitle>
+            <CardDescription>Plays and unique listeners per day.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <ListeningDailyChart daily={listening.daily} client:load />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="portal-card-title"><Compass size={14} /> Surfaces</CardTitle>
+            <CardDescription>Where playback started · chip is completion rate.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {surfaceRows.length === 0 ? (
+              <EmptyState Icon={Compass} title="No surface data yet" />
+            ) : (
+              <RankedBreakdown rows={surfaceRows} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {listening.tracks.length === 0 ? (
+        <Card><EmptyState Icon={Music2} title="No tracks played yet" /></Card>
+      ) : (
+        <Table variant="card" className="portal-table-static">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Track</TableHead>
+              <TableHead className="text-right">Plays</TableHead>
+              <TableHead className="text-right">Listeners</TableHead>
+              <TableHead className="text-right">Avg listened</TableHead>
+              <TableHead className="text-right">Completion</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {listening.tracks.map((track) => (
+              <TableRow>
+                <TableCell>
+                  <span>{track.trackTitle}</span>
+                  {track.trackArtist && <span class="block text-xs text-muted-foreground">{track.trackArtist}</span>}
+                </TableCell>
+                <TableCell className="text-right">{formatCount(track.plays)}</TableCell>
+                <TableCell className="text-right">{formatCount(track.uniqueListeners)}</TableCell>
+                <TableCell className="text-right">{formatMs(track.avgListenedMs)}</TableCell>
+                <TableCell className="text-right">{formatPercent(track.completionRate)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </PortalSection>
+  )}
+
+  <PortalSection title="Raw event log" eyebrow="Debug" meta={`${formatCount(events.events.length)} initial · live via auto-refresh`} class="portal-mt-lg">
+    <EventLog events={events.events} limit={BLOG_ANALYTICS_EVENTS_DEFAULT_LIMIT} client:load />
   </PortalSection>
 </PortalLayout>
