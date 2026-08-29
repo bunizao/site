@@ -101,10 +101,10 @@ const zh: CommentsCopy = {
   loadMore: '更多评论',
   loading: '加载中',
 
-  nameLabel: '显示的名字',
-  namePlaceholder: '显示的名字',
+  nameLabel: '你的名字',
+  namePlaceholder: '你的名字',
   emailLabel: '邮箱',
-  emailPlaceholder: '邮箱（不会公开）',
+  emailPlaceholder: '邮箱，不公开',
   bodyLabel: '写评论',
   bodyPlaceholder: '说点什么…',
   replyBodyLabel: '写回复',

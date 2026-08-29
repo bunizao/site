@@ -416,7 +416,10 @@
 .blog-comments {
   --comment-body: 16px;
   --comment-note: 14px;
-  --comment-meta: 12.5px;
+  /* 13, not 12.5: two Chinese characters are the shortest a button label gets,
+     and 12.5px of 保存 is a smaller target than 12.5px of Save because there is
+     no lowercase x-height doing the work -- the glyph is the box. */
+  --comment-meta: 13px;
   --comment-lead: 1.75;
 
   margin-top: 40px;
@@ -536,6 +539,17 @@
   font: inherit;
   /* 16px is the floor that stops iOS Safari zooming the page on focus. */
   font-size: var(--comment-body);
+}
+
+/* Past the phones, the floor stops applying and these go back to being what
+   they are: two chrome fields asking who you are, not the sentence you came to
+   write. At 16px they matched the comment body underneath them and the form
+   read as three lines of equal importance -- in Chinese especially, where the
+   glyphs fill their em box and 16px of 你的名字 is a wide, heavy thing. */
+@media (min-width: 640px) {
+  .blog-compose__input {
+    font-size: var(--comment-note);
+  }
 }
 
 .blog-compose__input--name {
@@ -1212,19 +1226,20 @@
   background: color-mix(in oklab, var(--blog-danger) 12%, transparent);
 }
 
-/* Posting an edit is the one committing action in the strip, so it is the one
-   thing wearing a fill -- at the strip's own scale, not the compose box's. */
+/* Saving an edit is the committing action in the strip, so it is the darkest
+   and heaviest thing in it -- but it does not get a fill. Filled black, a
+   26px pill for a typo fix was the strongest object on the whole page, louder
+   than the compose box's own send button and louder than the article. Ink and
+   600 put it first in its own strip and nowhere else. */
 .blog-comment__act--go {
-  padding: 0 12px;
-  background: hsl(var(--foreground));
-  color: hsl(var(--background));
+  padding: 0 10px;
+  color: var(--blog-ink);
   font-weight: 600;
 }
 
 .blog-comment__act--go:hover {
-  background: hsl(var(--foreground));
-  color: hsl(var(--background));
-  opacity: 0.86;
+  background: var(--blog-fill);
+  color: var(--blog-ink);
 }
 
 .blog-comment__act--go:active {
