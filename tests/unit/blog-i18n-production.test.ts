@@ -101,8 +101,9 @@ describe('production blog i18n edge seam', () => {
     expect(stored.headers.get('X-Buxx-Edge-Cache')).toBe('MISS');
     expect(stored.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
     const cached = await readCachedHtmlPage(request, locals);
-    expect(cached?.headers.get('X-Buxx-Edge-Cache')).toBe('HIT');
-    expect(await cached?.text()).toContain('English');
+    expect(cached?.isStale).toBe(false);
+    expect(cached?.response.headers.get('X-Buxx-Edge-Cache')).toBe('HIT');
+    expect(await cached?.response.text()).toContain('English');
     expect(reads()).toBe(1);
   });
 

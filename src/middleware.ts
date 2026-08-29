@@ -3,12 +3,10 @@ import { readCloudflareAccessIdentity } from '@/features/admin/server/access';
 import { redirectLegacyGhostHost } from '@/lib/http/legacy-ghost-redirect';
 import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 import {
-  cacheHtmlPageResponse,
   fetchBlogAsset,
   resolveBlogRequest,
   withBlogVariantHeaders,
   isNeverCachePath,
-  readCachedHtmlPage,
   redirectCanonicalUrl,
   renderMarkdownIfRequested,
   withContentPolicy,
@@ -124,22 +122,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
     (context.locals as unknown as Record<string, unknown>).blogLocale = blogResolution.locale;
   }
 
-  const cachedHtmlPage = isNeverCachePath(pathname)
-    ? null
-    : await readCachedHtmlPage(context.request, context.locals);
-  if (cachedHtmlPage) {
-    const secured = withHtmlSecurityHeaders(context.request, cachedHtmlPage);
-    return blogResolution
-      ? withBlogVariantHeaders(context.request, secured, blogResolution)
-      : secured;
-  }
-
+  // Blog assets still resolve here: dev runs the middleware without src/worker.ts.
   const blogAsset = await fetchBlogAsset(context.request, context.locals);
   if (blogAsset) {
-    return cacheHtmlPageResponse(
+    return withContentPolicy(
       context.request,
-      withContentPolicy(context.request, withHtmlSecurityHeaders(context.request, blogAsset)),
-      context.locals,
+      withHtmlSecurityHeaders(context.request, blogAsset),
     );
   }
 
@@ -157,9 +145,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next()));
   }
 
-  const response = withBlogVariantHeaders(context.request, withContentPolicy(
+  // The edge HTML cache lives in src/worker.ts, the production entrypoint;
+  // this middleware only decorates the rendered response. Dev therefore always
+  // renders fresh, which is what dev wants.
+  return withBlogVariantHeaders(
     context.request,
-    withHtmlSecurityHeaders(context.request, await next()),
-  ), blogResolution ?? { grouped: false, locale: null, assetSlug: '' });
-  return cacheHtmlPageResponse(context.request, response, context.locals);
+    withContentPolicy(
+      context.request,
+      withHtmlSecurityHeaders(context.request, await next()),
+    ),
+    blogResolution ?? { grouped: false, locale: null, assetSlug: '' },
+  );
 });

@@ -2,7 +2,8 @@ import type { MoodFeedItem } from '@bunizao/contracts/mood';
 import { getCriticalInitialPosts, hasRenderableMoodFeedMedia } from '@/features/mood/shared/initial-feed';
 import { findTooBigVideoMedia, hasStructuredMoodFeedMedia } from '@/features/mood/shared/feed-media';
 import { getMoodGallerySizes } from '@/features/mood/shared/gallery-render';
-import { buildArchiveSrcSet, MOOD_FEED_IMAGE_SIZES } from '@/features/mood/shared/image-srcset';
+import { resolveMoodFeedImageLayout } from '@/features/mood/shared/feed-thumbnail';
+import { buildArchiveSrcSet, getMoodFeedThumbSizes } from '@/features/mood/shared/image-srcset';
 
 export interface MoodPreloadImage {
   href: string;
@@ -50,6 +51,15 @@ export function getMoodFeedPreloadImage(
   if (hasStructuredMedia || mediaHtml || isTooBigVideoPreview) return null;
   if (!priorityPost.image) return null;
 
-  const responsive = buildArchiveSrcSet(priorityPost.image, { sizes: MOOD_FEED_IMAGE_SIZES });
+  // Same sizes as the rendered thumb (FeedShell.astro), or the preload and the
+  // <img> pick different responsive candidates and both get downloaded.
+  const thumbLayout = resolveMoodFeedImageLayout(
+    priorityPost.imageLayout,
+    priorityPost.imageWidth,
+    priorityPost.imageHeight,
+  );
+  const responsive = buildArchiveSrcSet(priorityPost.image, {
+    sizes: getMoodFeedThumbSizes(thumbLayout, priorityPost.imageKind),
+  });
   return { href: priorityPost.image, imageSrcSet: responsive.srcset, imageSizes: responsive.sizes };
 }

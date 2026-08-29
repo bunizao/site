@@ -1,4 +1,9 @@
-import { cacheEdgeResponse, readEdgeCache } from '@/lib/http/edge-cache';
+import {
+  cacheEdgeResponse,
+  readEdgeCache,
+  type EdgeCacheHit,
+  type EdgeCacheWaitContext,
+} from '@/lib/http/edge-cache';
 import { readRuntimeEnvSource, type RuntimeEnvLocals } from '@/lib/runtime/env';
 import {
   isBlogPostPath,
@@ -348,7 +353,8 @@ export async function renderMarkdownIfRequested(context: {
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown'),
   });
-  if (cached) return cached;
+  // Markdown passes no staleWhileRevalidateSeconds, so a hit is always fresh.
+  if (cached) return cached.response;
 
   const result = await match.renderer.render({
     request: context.request,
@@ -402,6 +408,7 @@ async function createHtmlCacheOptions(request: Request, locals?: unknown): Promi
     variant: grouped ? `html:${blogResolution?.locale}` : 'html',
     version: contentEdgeCacheVersion(url.pathname),
     ttlSeconds: policy.cacheTtlSeconds,
+    staleWhileRevalidateSeconds: policy.cacheStaleWhileRevalidateSeconds,
     headerName: policy.cacheHeaderName,
     cacheControl: publicCacheControl(
       policy.cacheTtlSeconds,
@@ -421,16 +428,21 @@ async function createHtmlCacheOptions(request: Request, locals?: unknown): Promi
   };
 }
 
-export async function readCachedHtmlPage(request: Request, locals?: unknown): Promise<Response | null> {
+export async function readCachedHtmlPage(request: Request, locals?: unknown): Promise<EdgeCacheHit | null> {
   const options = await createHtmlCacheOptions(request, locals);
   if (!options) return null;
 
   return readEdgeCache(request, options);
 }
 
-export async function cacheHtmlPageResponse(request: Request, response: Response, locals?: unknown): Promise<Response> {
+export async function cacheHtmlPageResponse(
+  request: Request,
+  response: Response,
+  locals?: unknown,
+  context?: EdgeCacheWaitContext,
+): Promise<Response> {
   const options = await createHtmlCacheOptions(request, locals);
   if (!options) return response;
 
-  return cacheEdgeResponse(request, response, options);
+  return cacheEdgeResponse(request, response, options, context);
 }

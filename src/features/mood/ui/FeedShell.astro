@@ -20,6 +20,7 @@ import {
 } from '@/features/mood/shared/date-grouping';
 import {
   buildArchiveSrcSet,
+  getMoodFeedThumbSizes,
   getMoodImagePlaceholderSrc,
   getMoodImageRatio,
 } from '@/features/mood/shared/image-srcset';
@@ -45,6 +46,11 @@ interface Props {
   anchorId?: string;
   readSource?: 'live' | 'archive';
   tagFilter?: string;
+  // Built asset URLs for the on-demand embed stylesheets. The feed controller
+  // injects them as <link> when a listening card or YouTube embed streams in
+  // and the SSR window did not already link them.
+  listeningCssHref?: string;
+  embedYouTubeCssHref?: string;
 }
 
 const {
@@ -54,6 +60,8 @@ const {
   anchorId = '',
   readSource = 'live',
   tagFilter = '',
+  listeningCssHref,
+  embedYouTubeCssHref,
 } = Astro.props;
 
 const activeTagFilter = normalizeMoodTagSlug(tagFilter);
@@ -297,6 +305,8 @@ function shouldHideQuoteAuthor(value?: string): boolean {
     data-mood-anchor-id={anchorId || undefined}
     data-mood-read-source={readSource}
     data-mood-tag={activeTagFilter || undefined}
+    data-listening-css={listeningCssHref || undefined}
+    data-embed-youtube-css={embedYouTubeCssHref || undefined}
   >
     {hasInitialFeedPayload && (
       <script is:inline type="application/json" data-mood-initial-feed set:html={initialFeedPayloadJson}></script>
@@ -333,7 +343,16 @@ function shouldHideQuoteAuthor(value?: string): boolean {
               const thumbWidth = isTooBigVideoPreview ? (post.imageWidth ?? tooBigVideoMedia?.width ?? null) : post.imageWidth;
               const thumbHeight = isTooBigVideoPreview ? (post.imageHeight ?? tooBigVideoMedia?.height ?? null) : post.imageHeight;
               const hasGalleryPreview = !hasStructuredMedia && !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
-              const thumbResponsive = thumbImage ? buildArchiveSrcSet(thumbImage) : null;
+              const thumbLayout = resolveMoodFeedImageLayout(
+                isTooBigVideoPreview ? null : post.imageLayout,
+                thumbWidth,
+                thumbHeight,
+              );
+              const thumbResponsive = thumbImage
+                ? buildArchiveSrcSet(thumbImage, {
+                    sizes: getMoodFeedThumbSizes(thumbLayout, post.imageKind),
+                  })
+                : null;
               const hasThumbFrame = Boolean(thumbImage && !isTooBigVideoPreview && post.imageKind !== 'sticker');
               const thumbPlaceholder = hasThumbFrame && thumbImage
                 ? getMoodImagePlaceholderSrc(thumbImage)

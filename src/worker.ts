@@ -52,6 +52,40 @@ async function fetchStaticAsset(request: Request, env: WorkerEnv): Promise<Respo
   return response;
 }
 
+async function renderHtmlPage(
+  request: Request,
+  env: WorkerEnv,
+  context: WorkerExecutionContext,
+  locals: App.Locals,
+): Promise<Response> {
+  const blogAsset = await fetchBlogAsset(request, locals);
+  if (blogAsset) return withContentPolicy(request, blogAsset);
+
+  const assetResponse = await fetchStaticAsset(request, env);
+  const response = assetResponse ?? (await siteWorker.fetch(request, env, context));
+  return withContentPolicy(request, response);
+}
+
+async function revalidateHtmlPage(
+  request: Request,
+  env: WorkerEnv,
+  context: WorkerExecutionContext,
+  locals: App.Locals,
+): Promise<void> {
+  try {
+    const response = await renderHtmlPage(request, env, context, locals);
+    // Locals pick the locale variant, so the refresh lands in the same slot the
+    // stale hit was read from.
+    await cacheHtmlPageResponse(request, response, locals);
+  } catch {
+    // The stale copy keeps serving; the next stale hit retries.
+  }
+}
+
+// This worker owns the edge HTML cache: one read before rendering, one write
+// after, deferred past the response via waitUntil. The Astro middleware only
+// decorates responses (security headers, content policy) and never touches
+// the cache, so a miss costs a single read and a single background write.
 export default {
   async fetch(request: Request, env: WorkerEnv, context: WorkerExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -70,30 +104,21 @@ export default {
     const blogResolution = await resolveBlogRequest(request, locals);
     if (blogResolution?.redirect) return blogResolution.redirect;
 
-    const cachedHtmlPage = isNeverCachePath(url.pathname)
-      ? null
-      : await readCachedHtmlPage(request, createLocals(env));
+    if (isNeverCachePath(url.pathname)) {
+      return siteWorker.fetch(request, env, context);
+    }
+
+    const cachedHtmlPage = await readCachedHtmlPage(request, locals);
     if (cachedHtmlPage) {
+      if (cachedHtmlPage.isStale) {
+        context.waitUntil(revalidateHtmlPage(request, env, context, locals));
+      }
       return blogResolution
-        ? withBlogVariantHeaders(request, cachedHtmlPage, blogResolution)
-        : cachedHtmlPage;
+        ? withBlogVariantHeaders(request, cachedHtmlPage.response, blogResolution)
+        : cachedHtmlPage.response;
     }
 
-    const blogAsset = await fetchBlogAsset(request, createLocals(env));
-    if (blogAsset) {
-      return cacheHtmlPageResponse(request, withContentPolicy(request, blogAsset), createLocals(env));
-    }
-
-    const assetResponse = isNeverCachePath(url.pathname)
-      ? null
-      : await fetchStaticAsset(request, env);
-    if (assetResponse) {
-      return cacheHtmlPageResponse(request, withContentPolicy(request, assetResponse), createLocals(env));
-    }
-
-    const response = await siteWorker.fetch(request, env, context);
-    if (isNeverCachePath(url.pathname)) return response;
-
-    return cacheHtmlPageResponse(request, withContentPolicy(request, response), createLocals(env));
+    const response = await renderHtmlPage(request, env, context, locals);
+    return cacheHtmlPageResponse(request, response, locals, context);
   },
 };
