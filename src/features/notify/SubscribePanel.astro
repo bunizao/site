@@ -11,16 +11,7 @@
 // in either zone; only the accent differs (blog gets its Verdigris/Glacier).
 // The publication name in the welcome line is set apart by colour + weight, not
 // a display font — that stays plain on purpose.
-import { blog, type BlogLocale } from '@/data/site';
-
-// Trigger tooltip/aria-label strings, local to this component because it does
-// not own src/data/site.ts. TODO: fold into blog.copy[locale] there once that
-// table grows enough shared UI strings to be worth centralizing.
-const triggerCopy = {
-  zh: { subscribe: '订阅' },
-  en: { subscribe: 'Subscribe' },
-} satisfies Record<BlogLocale, { subscribe: string }>;
-const t = triggerCopy[blog.locale.blog];
+import { blog } from '@/data/site';
 
 interface Props {
   variant: 'mood' | 'blog';
@@ -46,16 +37,21 @@ const {
   telegram,
   anchor = variant === 'blog' ? 'left' : 'right',
   withTrigger = variant === 'blog',
-  triggerLabel = t.subscribe,
+  triggerLabel,
 } = Astro.props;
+
+// The blog surface follows the blog's locale; the mood feed is not a localized
+// surface, so it takes the site default.
+const locale = variant === 'blog' ? blog.locale.blog : blog.locale.default;
+const t = blog.copy[locale].subscribe;
+const label = triggerLabel ?? t.trigger;
 
 // Welcome copy per surface. The stream name is wrapped in <em> and set apart by
 // colour + weight only — never a display font.
 const intro =
   variant === 'blog'
-    ? { lead: '欢迎订阅', name: blog.name, tail: '，感谢您阅读我的文章。' }
-    : { lead: '欢迎订阅', name: '闲谈手记', tail: '，第一时间收到更新。' };
-
+    ? { name: blog.copy[locale].name, tail: t.blogTail }
+    : { name: t.moodName, tail: t.moodTail };
 ---
 
 {withTrigger && (
@@ -63,10 +59,10 @@ const intro =
     type="button"
     class="sub-trigger"
     data-subscribe-toggle={id}
-    data-tip={t.subscribe}
+    data-tip={label}
     aria-haspopup="dialog"
     aria-expanded="false"
-    aria-label={t.subscribe}
+    aria-label={label}
   >
     <!-- Envelope: this trigger opens an email subscription panel, so the glyph
          should say "email" unambiguously at 16px — the old newspaper/document
@@ -75,7 +71,7 @@ const intro =
       <rect width="20" height="16" x="2" y="4" rx="2"></rect>
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
     </svg>
-    <span>{triggerLabel}</span>
+    <span>{label}</span>
     <svg class="sub-trigger__caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="m6 9 6 6 6-6"></path>
     </svg>
@@ -87,21 +83,33 @@ const intro =
      panel scales on open, and a scrim inside it would scale with it. -->
 <div class="subscribe-scrim" data-subscribe-scrim data-subscribe-id={id} aria-hidden="true"></div>
 
+<!-- The data-copy-* attributes carry the outcome strings the controller writes
+     after a submit. Reading them off the panel keeps src/data/site.ts out of
+     the client bundle — the same trick ShareRow uses for its copied labels. -->
 <div
   class="subscribe-panel"
   data-subscribe-panel
   data-subscribe-id={id}
   data-anchor={anchor}
   data-turnstile-site-key={turnstileSiteKey}
+  data-copy-success={t.success}
+  data-copy-already={t.already}
+  data-copy-error={t.errorGeneric}
+  data-copy-invalid-email={t.invalidEmail}
+  data-copy-need-channel={t.needChannel}
+  data-copy-rate-limited={t.rateLimited}
+  data-copy-network={t.network}
+  data-copy-verify-pending={t.verifyPending}
+  data-copy-verify-failed={t.verifyFailed}
   role="dialog"
-  aria-label="订阅"
+  aria-label={t.title}
   aria-hidden="true"
 >
   <div class="subscribe-panel__inner">
     <div data-sub-form-view>
       <div class="sub-header">
-        <span class="sub-title">订阅</span>
-        <button type="button" class="sub-close" data-sub-close aria-label="关闭">
+        <span class="sub-title">{t.title}</span>
+        <button type="button" class="sub-close" data-sub-close aria-label={t.close}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M18 6 6 18"></path>
             <path d="m6 6 12 12"></path>
@@ -110,20 +118,20 @@ const intro =
       </div>
 
       <p class="sub-intro">
-        {intro.lead} <em>{intro.name}</em>{intro.tail}
+        {t.introLead} <em>{intro.name}</em>{intro.tail}
       </p>
 
       <form data-sub-form autocomplete="off" novalidate>
         <input
           type="email"
           class="sub-input"
-          placeholder="请留邮箱"
+          placeholder={t.emailPlaceholder}
           required
           autocomplete="email"
           data-sub-email
         />
 
-        <div class="sub-streams" role="group" aria-label="订阅内容">
+        <div class="sub-streams" role="group" aria-label={t.streamsLabel}>
           <div class="sub-channel">
             <label class="sub-channel__head">
               <input type="checkbox" name="channels" value="blog" checked data-sub-channel />
@@ -133,8 +141,8 @@ const intro =
                 <path d="M8 13h8M8 17h5"></path>
               </svg>
               <span class="sub-channel__text">
-                <span class="sub-channel__title">Posts</span>
-                <span class="sub-channel__meta">更新即推送</span>
+                <span class="sub-channel__title">{t.posts.title}</span>
+                <span class="sub-channel__meta">{t.posts.meta}</span>
               </span>
               <span class="sub-switch" aria-hidden="true"></span>
             </label>
@@ -148,21 +156,21 @@ const intro =
                 <path d="M9 9h6M9 12h4"></path>
               </svg>
               <span class="sub-channel__text">
-                <span class="sub-channel__title">Moods</span>
-                <span class="sub-channel__meta">按下方频率推送</span>
+                <span class="sub-channel__title">{t.moods.title}</span>
+                <span class="sub-channel__meta">{t.moods.meta}</span>
               </span>
               <span class="sub-switch" aria-hidden="true"></span>
             </label>
 
             <div class="sub-channel__freq" data-sub-freq>
-              <div class="sub-seg" role="radiogroup" aria-label="Moods 推送频率">
+              <div class="sub-seg" role="radiogroup" aria-label={t.freqLabel}>
                 <span class="sub-seg__pill" aria-hidden="true"></span>
                 <input type="radio" id={`${id}-mode-instant`} name="deliveryMode" value="instant" class="sub-seg__input" data-sub-mode checked />
-                <label for={`${id}-mode-instant`} class="sub-seg__label">即时</label>
+                <label for={`${id}-mode-instant`} class="sub-seg__label">{t.freq.instant}</label>
                 <input type="radio" id={`${id}-mode-5h`} name="deliveryMode" value="every_5h" class="sub-seg__input" data-sub-mode />
-                <label for={`${id}-mode-5h`} class="sub-seg__label">每 5 时</label>
+                <label for={`${id}-mode-5h`} class="sub-seg__label">{t.freq.every5h}</label>
                 <input type="radio" id={`${id}-mode-daily`} name="deliveryMode" value="daily" class="sub-seg__input" data-sub-mode />
-                <label for={`${id}-mode-daily`} class="sub-seg__label">每日</label>
+                <label for={`${id}-mode-daily`} class="sub-seg__label">{t.freq.daily}</label>
               </div>
             </div>
           </div>
@@ -173,15 +181,15 @@ const intro =
         <p class="sub-hint" data-sub-hint></p>
 
         <p class="sub-privacy">
-          订阅信息受
-          <a href="/privacy" class="sub-privacy__link" target="_blank" rel="noopener noreferrer">隐私政策</a>
-          保护。
+          {t.privacy.prefix}
+          <a href="/privacy" class="sub-privacy__link" target="_blank" rel="noopener noreferrer">{t.privacy.link}</a>
+          {t.privacy.suffix}
         </p>
 
         <div class="sub-actions">
           <div class="sub-elsewhere">
             {feed && (
-              <a class="sub-out" href={feed} target="_blank" rel="noopener noreferrer" aria-label="通过 RSS 订阅" title="通过 RSS 订阅">
+              <a class="sub-out" href={feed} target="_blank" rel="noopener noreferrer" aria-label={t.rss} title={t.rss}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M4 11a9 9 0 0 1 9 9"></path>
                   <path d="M4 4a16 16 0 0 1 16 16"></path>
@@ -190,7 +198,7 @@ const intro =
               </a>
             )}
             {telegram && (
-              <a class="sub-out" href={telegram} target="_blank" rel="noopener noreferrer" aria-label="订阅 Telegram 频道" title="订阅 Telegram 频道">
+              <a class="sub-out" href={telegram} target="_blank" rel="noopener noreferrer" aria-label={t.telegram} title={t.telegram}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M21.5 3.5 2.5 10.9a.5.5 0 0 0 .04.94l4.6 1.42"></path>
                   <path d="M21.5 3.5 18.4 20.2a.5.5 0 0 1-.8.29l-4.9-3.86"></path>
@@ -204,7 +212,7 @@ const intro =
             <span class="sub-submit__lock" data-sub-submit-lock aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 1 1 8 0v3"></path></svg>
             </span>
-            <span data-sub-submit-text>订阅</span>
+            <span data-sub-submit-text>{t.submit}</span>
             <svg class="sub-submit__arrow" data-sub-submit-arrow viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
             <span class="sub-spinner is-hidden" data-sub-submit-spinner></span>
           </button>
@@ -220,15 +228,15 @@ const intro =
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
           <path d="m9 11 3 3L22 4"></path>
         </svg>
-        <p class="sub-result__text" data-sub-success-text>确认邮件已发，去收件箱点一下。</p>
-        <button type="button" class="sub-submit sub-submit--block" data-sub-done>好</button>
+        <p class="sub-result__text" data-sub-success-text>{t.success}</p>
+        <button type="button" class="sub-submit sub-submit--block" data-sub-done>{t.done}</button>
       </div>
     </div>
 
     <div data-sub-error-view class="is-hidden">
       <div class="sub-result">
-        <p class="sub-result__text sub-result__text--error" data-sub-error-text>出错了，稍后重试。</p>
-        <button type="button" class="sub-submit sub-submit--block" data-sub-retry>重试</button>
+        <p class="sub-result__text sub-result__text--error" data-sub-error-text>{t.errorGeneric}</p>
+        <button type="button" class="sub-submit sub-submit--block" data-sub-retry>{t.retry}</button>
       </div>
     </div>
   </div>

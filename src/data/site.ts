@@ -90,6 +90,59 @@ export interface BlogLocaleCopy {
      */
     fallback: string;
   };
+  subscribe: SubscribeCopy;
+  share: ShareCopy;
+}
+
+/**
+ * Every word the subscribe panel says. It serves two surfaces from one
+ * component, so the stream names and the two intro tails both live here rather
+ * than as ternaries in the template.
+ *
+ * The panel renders all of this server-side; the outcome strings its client
+ * controller writes after a submit ride to the browser as `data-*` attributes
+ * on the panel root. Nothing under `blog.copy` is ever imported
+ * into a client bundle — site.ts would drag the whole site config with it.
+ */
+export interface SubscribeCopy {
+  trigger: string;
+  title: string;
+  close: string;
+  emailPlaceholder: string;
+  /** "欢迎订阅 <name>，…" — the name is the stream, set apart by colour. */
+  introLead: string;
+  blogTail: string;
+  moodName: string;
+  moodTail: string;
+  streamsLabel: string;
+  posts: { title: string; meta: string };
+  moods: { title: string; meta: string };
+  freqLabel: string;
+  freq: { instant: string; every5h: string; daily: string };
+  privacy: { prefix: string; link: string; suffix: string };
+  rss: string;
+  telegram: string;
+  submit: string;
+  done: string;
+  retry: string;
+  /* Outcomes the controller writes. */
+  success: string;
+  already: string;
+  errorGeneric: string;
+  invalidEmail: string;
+  needChannel: string;
+  rateLimited: string;
+  network: string;
+  verifyPending: string;
+  verifyFailed: string;
+}
+
+export interface ShareCopy {
+  copyLink: string;
+  copied: string;
+  /** Screen-reader form of `copied` — a label has to say what was copied. */
+  linkCopied: string;
+  share: string;
 }
 
 export const blog = {
@@ -110,6 +163,42 @@ export const blog = {
       aiCredit: {
         fallback: '本文在 {models} 的协助下完成。',
       },
+      subscribe: {
+        trigger: '订阅',
+        title: '订阅',
+        close: '关闭',
+        emailPlaceholder: '留个邮箱',
+        introLead: '欢迎订阅',
+        blogTail: '，感谢您读到这里。',
+        moodName: '闲谈手记',
+        moodTail: '，第一时间收到更新。',
+        streamsLabel: '订阅内容',
+        posts: { title: '文章', meta: '更新即推送' },
+        moods: { title: '闲谈', meta: '按下方频率推送' },
+        freqLabel: '闲谈推送频率',
+        freq: { instant: '即时', every5h: '每 5 时', daily: '每日' },
+        privacy: { prefix: '订阅信息受', link: '隐私政策', suffix: '保护。' },
+        rss: '通过 RSS 订阅',
+        telegram: '订阅 Telegram 频道',
+        submit: '订阅',
+        done: '好',
+        retry: '重试',
+        success: '确认邮件已发，去收件箱点一下。',
+        already: '已经订阅过了。',
+        errorGeneric: '出错了，稍后重试。',
+        invalidEmail: '这个邮箱看起来不太对。',
+        needChannel: '至少选一样。',
+        rateLimited: '太频繁了，稍后再试。',
+        network: '网络不太好，检查下连接。',
+        verifyPending: '请先完成安全校验。',
+        verifyFailed: '校验失败，重试一下。',
+      },
+      share: {
+        copyLink: '复制链接',
+        copied: '已复制',
+        linkCopied: '链接已复制',
+        share: '分享',
+      },
     },
     en: {
       name: 'Sillage',
@@ -121,6 +210,42 @@ export const blog = {
       },
       aiCredit: {
         fallback: 'Written with {models}.',
+      },
+      subscribe: {
+        trigger: 'Subscribe',
+        title: 'Subscribe',
+        close: 'Close',
+        emailPlaceholder: 'Your email',
+        introLead: 'Subscribe to',
+        blogTail: ' — thanks for reading this far.',
+        moodName: 'Moods',
+        moodTail: ' — updates as they land.',
+        streamsLabel: 'What to send',
+        posts: { title: 'Posts', meta: 'Sent on publish' },
+        moods: { title: 'Moods', meta: 'Sent at the rate below' },
+        freqLabel: 'Mood delivery rate',
+        freq: { instant: 'Instant', every5h: 'Every 5h', daily: 'Daily' },
+        privacy: { prefix: 'Handled under the', link: 'privacy policy', suffix: '.' },
+        rss: 'Subscribe by RSS',
+        telegram: 'Follow on Telegram',
+        submit: 'Subscribe',
+        done: 'Done',
+        retry: 'Retry',
+        success: 'Confirmation sent — tap the link in your inbox.',
+        already: "You're already subscribed.",
+        errorGeneric: 'Something broke. Try again in a moment.',
+        invalidEmail: "That email doesn't look right.",
+        needChannel: 'Pick at least one.',
+        rateLimited: 'Too many tries. Give it a minute.',
+        network: 'Network trouble — check your connection.',
+        verifyPending: 'Finish the security check first.',
+        verifyFailed: 'That check failed. Try again.',
+      },
+      share: {
+        copyLink: 'Copy link',
+        copied: 'Copied',
+        linkCopied: 'Link copied',
+        share: 'Share',
       },
     },
   } satisfies Record<BlogLocale, BlogLocaleCopy>,

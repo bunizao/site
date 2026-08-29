@@ -10,10 +10,24 @@ import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const SUCCESS_TEXT = '确认邮件已发，去收件箱点一下。';
-const ALREADY_TEXT = '已经订阅过了。';
-const LOCKED_HINT = '请先完成安全校验。';
-const LOCKED_HINT_FAILED = '校验失败，重试一下。';
+/* Everything this controller says is authored in blog.copy (src/data/site.ts)
+   and stamped onto the panel root as data-copy-*; site.ts itself never enters
+   a client bundle. Fallbacks are English so a missing attribute degrades to
+   readable text rather than to an empty element. */
+function panelCopy(panel: HTMLElement) {
+  const read = (key: string, fallback: string) => panel.dataset[key] || fallback;
+  return {
+    success: read('copySuccess', 'Confirmation sent.'),
+    already: read('copyAlready', "You're already subscribed."),
+    error: read('copyError', 'Something broke. Try again in a moment.'),
+    invalidEmail: read('copyInvalidEmail', "That email doesn't look right."),
+    needChannel: read('copyNeedChannel', 'Pick at least one.'),
+    rateLimited: read('copyRateLimited', 'Too many tries. Give it a minute.'),
+    network: read('copyNetwork', 'Network trouble — check your connection.'),
+    verifyPending: read('copyVerifyPending', 'Finish the security check first.'),
+    verifyFailed: read('copyVerifyFailed', 'That check failed. Try again.'),
+  };
+}
 
 const MOBILE_BREAKPOINT = 640;
 const MOBILE_PANEL_PADDING = 10;
@@ -21,6 +35,7 @@ const MOBILE_PANEL_MIN_TOP = 72;
 const HOVER_CLOSE_DELAY_MS = 140;
 
 function setupPanel(panel: HTMLElement): void {
+  const t = panelCopy(panel);
   const id = panel.dataset.subscribeId || '';
   const toggle = document.querySelector<HTMLElement>(`[data-subscribe-toggle="${id}"]`);
   if (!toggle) return;
@@ -64,7 +79,7 @@ function setupPanel(panel: HTMLElement): void {
   let turnstileReady = false;
   let turnstileToken = '';
   let isSubmitting = false;
-  let lockedHint = LOCKED_HINT;
+  let lockedHint = t.verifyPending;
   let isOpen = false;
   let hoverCloseTimer: number | null = null;
 
@@ -170,22 +185,22 @@ function setupPanel(panel: HTMLElement): void {
       callback: (token: string) => {
         turnstileToken = token || '';
         errorMsg.textContent = '';
-        lockedHint = LOCKED_HINT;
+        lockedHint = t.verifyPending;
         syncGate();
       },
       'expired-callback': () => {
         turnstileToken = '';
-        lockedHint = LOCKED_HINT_FAILED;
+        lockedHint = t.verifyFailed;
         syncGate();
       },
       'error-callback': () => {
         turnstileToken = '';
-        lockedHint = LOCKED_HINT_FAILED;
+        lockedHint = t.verifyFailed;
         syncGate();
       },
       'timeout-callback': () => {
         turnstileToken = '';
-        lockedHint = LOCKED_HINT_FAILED;
+        lockedHint = t.verifyFailed;
         syncGate();
       },
     });
@@ -208,7 +223,7 @@ function setupPanel(panel: HTMLElement): void {
     document.head.appendChild(script);
   };
 
-  const resetTurnstile = (nextHint: string = LOCKED_HINT) => {
+  const resetTurnstile = (nextHint: string = t.verifyPending) => {
     const turnstile = (window as unknown as { turnstile?: any }).turnstile;
     if (turnstileWidgetId !== null && turnstile) {
       turnstile.reset(turnstileWidgetId);
@@ -230,9 +245,9 @@ function setupPanel(panel: HTMLElement): void {
   const resetForm = () => {
     showView('form');
     errorMsg.textContent = '';
-    successText.textContent = SUCCESS_TEXT;
+    successText.textContent = t.success;
     isSubmitting = false;
-    lockedHint = LOCKED_HINT;
+    lockedHint = t.verifyPending;
     submitSpinner.classList.add('is-hidden');
     submit.removeAttribute('aria-busy');
     syncGate();
@@ -342,20 +357,20 @@ function setupPanel(panel: HTMLElement): void {
     event.preventDefault();
     const value = email.value.trim();
     if (!EMAIL_RE.test(value)) {
-      errorMsg.textContent = '请输入有效的邮箱地址。';
+      errorMsg.textContent = t.invalidEmail;
       email.focus();
       return;
     }
 
     const channels = channelInputs.filter((input) => input.checked).map((input) => input.value);
     if (channels.length === 0) {
-      errorMsg.textContent = '请至少选择一个订阅内容。';
+      errorMsg.textContent = t.needChannel;
       return;
     }
 
     const token = getToken();
     if (requiresTurnstile && !token) {
-      lockedHint = LOCKED_HINT;
+      lockedHint = t.verifyPending;
       syncGate();
       return;
     }
@@ -383,19 +398,19 @@ function setupPanel(panel: HTMLElement): void {
       if (response.ok) {
         // Hand it to the comment box, which asks for the same thing.
         rememberReaderEmail(value, 'subscribe');
-        successText.textContent = data.status === 'already_subscribed' ? ALREADY_TEXT : SUCCESS_TEXT;
+        successText.textContent = data.status === 'already_subscribed' ? t.already : t.success;
         showView('success');
       } else if (response.status === 429) {
         resetTurnstile();
-        errorMsg.textContent = '太频繁了，稍后再试。';
+        errorMsg.textContent = t.rateLimited;
       } else if (data.code?.startsWith('turnstile')) {
-        resetTurnstile(LOCKED_HINT_FAILED);
+        resetTurnstile(t.verifyFailed);
       } else {
-        errorText.textContent = data.error || '出错了，稍后重试。';
+        errorText.textContent = data.error || t.error;
         showView('error');
       }
     } catch {
-      errorText.textContent = '网络错误，检查下连接。';
+      errorText.textContent = t.network;
       showView('error');
     } finally {
       isSubmitting = false;
