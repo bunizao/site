@@ -1045,6 +1045,26 @@ a.portal-feed-row:focus-visible,
   color: hsl(var(--portal-chip-accent));
 }
 
+/* Two containers that set a size once for everything inside them. Tailwind's
+   ramp (12/14px) does not line up with the portal scale (12/13px), so islands
+   that reached for `text-xs`/`text-sm` per element drifted a pixel off the
+   tables beside them. Size the container, let the children inherit. */
+.portal-controls {
+  font-size: var(--portal-text-xs);
+}
+
+.portal-detail {
+  font-size: var(--portal-text-sm);
+  line-height: var(--portal-leading-snug);
+}
+
+/* Secondary line under a primary value — counts, hashes, timestamps. The one
+   size below the reading floor that is not a small-caps label. */
+.portal-meta {
+  font-size: var(--portal-text-2xs);
+  color: hsl(var(--muted-foreground));
+}
+
 /* Segmented control — anchor links with a single active pill. The pill carries
    a view-transition-name, so under Astro's ClientRouter it slides between
    options on navigation instead of teleporting. */

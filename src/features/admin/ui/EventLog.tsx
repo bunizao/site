@@ -111,7 +111,7 @@ function FilterChip({ active, onClick, children }: ChipProps) {
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'rounded-full border px-2.5 py-1 text-xs capitalize transition-colors',
+        'rounded-full border px-2.5 py-1 capitalize transition-colors',
         active
           ? 'border-primary/60 bg-primary/10 text-foreground'
           : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30',
@@ -126,32 +126,34 @@ interface DetailFieldProps {
   label: string;
   children: React.ReactNode;
   mono?: boolean;
+  /** Span the full detail grid — for values long enough to wrap (UA, referrer). */
+  wide?: boolean;
 }
 
-function DetailField({ label, children, mono }: DetailFieldProps) {
+// Labels use the portal's single micro-label class; values inherit their size
+// from the .portal-detail container so nothing here names a size of its own.
+function DetailField({ label, children, mono, wide }: DetailFieldProps) {
   return (
-    <div className="min-w-0">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={cn('mt-0.5 text-xs break-words text-foreground', mono && 'portal-mono')}>{children}</div>
+    <div className={cn('min-w-0', wide && 'col-span-2 sm:col-span-3 lg:col-span-4')}>
+      <div className="portal-eyebrow">{label}</div>
+      <div className={cn('mt-0.5 break-words text-foreground', mono && 'portal-mono')}>{children}</div>
     </div>
   );
 }
 
 function EventDetail({ event }: { event: BlogAnalyticsEventRecord }) {
   return (
-    <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 lg:grid-cols-4">
-      <div className="col-span-2 min-w-0 sm:col-span-3 lg:col-span-4">
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">User agent</div>
-        <div className="portal-mono mt-0.5 whitespace-pre-wrap break-all text-xs text-foreground">{event.ua ?? '—'}</div>
-      </div>
+    <div className="portal-detail grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 lg:grid-cols-4">
+      <DetailField label="User agent" mono wide>
+        <span className="whitespace-pre-wrap break-all">{event.ua ?? '—'}</span>
+      </DetailField>
       <DetailField label="ASN">{event.asn ? `AS${event.asn}${event.asOrg ? ` · ${event.asOrg}` : ''}` : '—'}</DetailField>
       <DetailField label="Colo">{event.colo ?? '—'}</DetailField>
       <DetailField label="Language">{event.lang ?? '—'}</DetailField>
       <DetailField label="Ref source">{labelFor(event.refSource)}</DetailField>
-      <div className="col-span-2 min-w-0 sm:col-span-3 lg:col-span-4">
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Referrer</div>
-        <div className="mt-0.5 break-all text-xs text-foreground">{event.referrer ?? '—'}</div>
-      </div>
+      <DetailField label="Referrer" wide>
+        <span className="break-all">{event.referrer ?? '—'}</span>
+      </DetailField>
       <DetailField label="Visitor ID" mono>{event.visitorId}</DetailField>
       <DetailField label="Session ID" mono>{event.sessionId ?? '—'}</DetailField>
       <DetailField label="Event ID" mono>{event.eventId}</DetailField>
@@ -225,14 +227,14 @@ export default function EventLog({ events: initialEvents, limit }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="portal-controls flex flex-wrap items-center gap-2">
         <input
           type="text"
           value={filterText}
           onChange={(event) => setFilterText(event.target.value)}
           placeholder="Filter by slug, IP, UA, or country"
           aria-label="Filter events"
-          className="h-8 min-w-[220px] flex-1 rounded-md border border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-8 min-w-[220px] flex-1 rounded-md border border-border bg-background px-2.5 text-[length:inherit] text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
 
         {platforms.map((platform) => (
@@ -259,7 +261,7 @@ export default function EventLog({ events: initialEvents, limit }: Props) {
           onClick={() => setAutoRefresh((prev) => !prev)}
           aria-pressed={autoRefresh}
           className={cn(
-            'ml-auto inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors',
+            'ml-auto inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-medium transition-colors',
             autoRefresh
               ? 'border-success/40 bg-success/10 text-success-foreground'
               : 'border-border text-muted-foreground hover:text-foreground',
@@ -276,12 +278,12 @@ export default function EventLog({ events: initialEvents, limit }: Props) {
           {autoRefresh ? 'Live' : 'Auto-refresh'}
         </button>
         {lastRefreshed && (
-          <span className="portal-mono text-[11px] text-muted-foreground">Updated {formatTime(lastRefreshed)}</span>
+          <span className="portal-mono text-muted-foreground">Updated {formatTime(lastRefreshed)}</span>
         )}
       </div>
 
       {refreshError && (
-        <p className="text-xs text-destructive-foreground">Refresh failed: {refreshError}</p>
+        <p className="portal-controls text-destructive-foreground">Refresh failed: {refreshError}</p>
       )}
 
       <Table variant="card">
@@ -301,7 +303,7 @@ export default function EventLog({ events: initialEvents, limit }: Props) {
         <TableBody>
           {filtered.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={COLUMN_COUNT} className="py-8 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={COLUMN_COUNT} className="py-8 text-center text-muted-foreground">
                 {events.length === 0 ? 'No raw events yet.' : 'No events match these filters.'}
               </TableCell>
             </TableRow>
@@ -331,7 +333,7 @@ export default function EventLog({ events: initialEvents, limit }: Props) {
                         <ChevronRight className={cn('size-3.5 transition-transform', isExpanded && 'rotate-90')} />
                       </button>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
                       {formatDateTime(event.openedAt)}
                     </TableCell>
                     <TableCell>
@@ -344,7 +346,7 @@ export default function EventLog({ events: initialEvents, limit }: Props) {
                         {event.slug}
                       </a>
                     </TableCell>
-                    <TableCell className="text-xs">
+                    <TableCell>
                       <span className="inline-flex items-center gap-1.5">
                         <DeviceIcon className="size-3.5 text-muted-foreground" />
                         {event.browser ?? 'unknown'} · {event.os ?? 'unknown'}
@@ -353,17 +355,17 @@ export default function EventLog({ events: initialEvents, limit }: Props) {
                     <TableCell>
                       <Badge variant="outline" size="sm">{labelFor(event.platform)}</Badge>
                     </TableCell>
-                    <TableCell className="text-xs">{geoLabel(event)}</TableCell>
+                    <TableCell>{geoLabel(event)}</TableCell>
                     <TableCell>
                       {event.ip ? (
-                        <span className="portal-mono text-xs" title={event.ip}>{truncateMiddle(event.ip)}</span>
+                        <span className="portal-mono" title={event.ip}>{truncateMiddle(event.ip)}</span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right text-xs">{formatMs(event.dwellMs)}</TableCell>
+                    <TableCell className="text-right">{formatMs(event.dwellMs)}</TableCell>
                     <TableCell className="text-right">
-                      <span className="inline-flex items-center justify-end gap-1.5 text-xs">
+                      <span className="inline-flex items-center justify-end gap-1.5">
                         {Math.round(event.scrollDepth * 100)}%
                         {event.completed ? (
                           <CircleCheck className="size-3.5 text-success" aria-label="Completed" />

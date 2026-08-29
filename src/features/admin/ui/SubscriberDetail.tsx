@@ -298,7 +298,7 @@ function SubscriberSummaryCard({
         <div className="flex items-start justify-between gap-3">
           <div>
             <CardTitle className="text-lg">{subscriber.email}</CardTitle>
-            <div className="font-mono text-[11px] text-muted-foreground mt-1">{subscriber.emailHash}</div>
+            <div className="portal-meta font-mono mt-1">{subscriber.emailHash}</div>
           </div>
           <Badge variant={subscriber.status === 'active' ? 'success' : subscriber.status === 'pending' ? 'warning' : 'secondary'}>
             {subscriber.status}
