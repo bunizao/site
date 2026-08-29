@@ -110,10 +110,9 @@ Every graceful-degradation path must have a paired alarm; this is the pairing.
 
 - **GitHub Actions cron running the existing script.** Rejected outright
   (owner decision: GH Actions schedule reliability is not acceptable). If
-  embed-probe false positives ever prove unacceptable, the fallback is not a
-  timer anywhere — it is the staleness alert plus a manual oneshot run of
-  `reconcile.mjs` from a laptop. The script is already a oneshot; only the
-  systemd wrapper dies.
+  embed-probe false positives ever prove unacceptable, the fallback is
+  keeping the MTProto reconciler on the hardened VPS (plan 033) instead of
+  retiring it in step 5 — not a new scheduler.
 - **GramJS inside the Worker (MTProto over WebSocket).** Technically plausible,
   operationally a joke. No.
 - **Read-path live merge (`fallback=1`).** Moves the external dependency from
