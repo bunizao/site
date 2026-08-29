@@ -40,6 +40,12 @@ export interface CommentsCopy {
   /** The travelling reply box points at whoever it landed under. */
   replyTo: (author: string) => string;
   hint: string;
+  /** The other half of the compose bar: what happens to the address the box
+      just asked for. Split around the link to /privacy and concatenated with no
+      separator, so each language carries its own spacing -- Chinese wants a gap
+      on both sides, because the link renders bold and underlined and a Latin
+      style rule set that tight against CJK reads as a typo. */
+  privacy: { prefix: string; link: string; suffix: string };
   post: string;
   postAria: string;
   replyPost: string;
@@ -117,12 +123,16 @@ const zh: CommentsCopy = {
   nameLabel: '昵称',
   namePlaceholder: '昵称',
   emailLabel: '邮箱',
+  /* Deliberately not a translation of the English, which names the reason
+     (for avatar); 私密 names the guarantee, and that is the half that reads
+     better in Chinese. */
   emailPlaceholder: '邮箱（私密）',
   bodyLabel: '写评论',
   bodyPlaceholder: '说点什么…',
   replyBodyLabel: '写回复',
   replyTo: (author) => `回复 ${author}…`,
   hint: '支持 Markdown',
+  privacy: { prefix: '评论受 ', link: '隐私政策', suffix: ' 保护' },
   post: '发表',
   postAria: '发表评论',
   replyPost: '回复',
@@ -183,12 +193,13 @@ const en: CommentsCopy = {
   nameLabel: 'Name',
   namePlaceholder: 'Name',
   emailLabel: 'Email',
-  emailPlaceholder: 'Email (private)',
+  emailPlaceholder: 'Email (for avatar)',
   bodyLabel: 'Write a comment',
   bodyPlaceholder: 'Say something…',
   replyBodyLabel: 'Write a reply',
   replyTo: (author) => `Reply to ${author}…`,
   hint: 'Markdown supported',
+  privacy: { prefix: 'Handled under the ', link: 'privacy policy', suffix: '' },
   post: 'Post',
   postAria: 'Post comment',
   replyPost: 'Reply',

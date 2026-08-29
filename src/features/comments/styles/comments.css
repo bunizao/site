@@ -639,6 +639,52 @@
   height: 15px;
 }
 
+/* Second item in the bar, one step quieter than the Markdown hint beside it:
+   the hint answers a question the reader is having, this answers one they are
+   entitled to an answer to but did not ask. Separated by a middot rather than
+   a gap, because two faint runs of the same size and colour with only space
+   between them read as one sentence. */
+.blog-compose__privacy {
+  /* Deliberately NOT inline-flex: the copy carries a space on each side of the
+     link, and a flex container turns each text run into an item whose leading
+     and trailing whitespace is dropped -- which would silently glue the bold,
+     underlined link to the CJK either side of it. Plain inline flow keeps the
+     spaces the copy asked for. */
+  min-width: 0;
+  font-size: var(--comment-meta);
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--blog-faint);
+  opacity: 0.75;
+}
+
+.blog-compose__privacy::before {
+  content: '·';
+  margin-inline-end: 8px;
+  opacity: 0.6;
+}
+
+.blog-compose__privacy a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: from-font;
+  transition: color 0.15s ease;
+}
+
+.blog-compose__privacy a:hover {
+  color: var(--blog-ink);
+}
+
+/* Narrow boxes drop it rather than wrapping the bar onto a second line: the
+   send button is the bar's right edge, and it cannot move to make room for a
+   note. The same sentence is one tap away on /privacy. */
+@media (max-width: 520px) {
+  .blog-compose__privacy {
+    display: none;
+  }
+}
+
 /* Whose name is going on the comment. Hidden outright when there is nothing to
    say -- an anonymous reader has already answered that question in the two
    fields above, and an empty strip below the box was 46px of nothing holding

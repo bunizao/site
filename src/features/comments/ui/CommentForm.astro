@@ -120,6 +120,12 @@ const showReceipt = receipt !== 'idle' && !busy;
         </svg>
         {t.hint}
       </span>
+      {/* The box asks for an address, so it is also the place to say what
+          happens to it -- but at the quietest weight the form has, in the bar
+          that was already 13px grey and half empty. A line of its own under
+          the box would have been a third band between the form and the
+          thread. Concatenated with no separator; the spacing is in the copy. */}
+      <span class="blog-compose__privacy">{t.privacy.prefix}<a href="/privacy" target="_blank" rel="noopener noreferrer">{t.privacy.link}</a>{t.privacy.suffix}</span>
       <button
         type="button"
         class="blog-compose__go"
