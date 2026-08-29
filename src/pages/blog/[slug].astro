@@ -185,9 +185,24 @@ const unlisted = isUnlistedPost(post);
           fetches the thread and owns every submit, edit, delete, and like. */}
       <ReactionBar client:idle count={0} signedIn={true} />
 
-      {/* Subscribe rides in the comments head, not the article foot: it asks
-          for the same address the comment box does, and below the thread it
-          was an offer a reader only met after scrolling past everyone else. */}
+      {/* The article's own footer — who wrote it, and how to pass it on. It
+          belongs to the article, so it closes the article, above the
+          conversation about it rather than below a thread that can run to any
+          length. */}
+      <footer class="blog-article-foot">
+        <div class="blog-end__bar">
+          {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
+          <div class="blog-article-sub">
+            <ShareRow title={post.title} />
+          </div>
+        </div>
+      </footer>
+
+      {/* Last on the page, and open-ended: a thread has no fixed height, so
+          anything under it is at an address that moves. Subscribe rides in its
+          head rather than in the article foot above — it asks for the same
+          address the comment box does, and the two should be within a glance
+          of each other. */}
       <CommentsSection
         state="loading"
         postId={post.id}
@@ -200,14 +215,9 @@ const unlisted = isUnlistedPost(post);
     </article>
   </div>
 
+  {/* Leaving the post is the one thing that stays under the thread: it is
+      navigation away, not part of the article. */}
   <footer class="blog-end">
-    <div class="blog-end__bar">
-      {authorshipCredits.length > 0 ? <AiCredit credits={authorshipCredits} /> : <NotByAI />}
-      <div class="blog-article-sub">
-        <ShareRow title={post.title} />
-      </div>
-    </div>
-
     <AdjacentNav prev={prev} next={next} />
   </footer>
 

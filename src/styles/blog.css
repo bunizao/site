@@ -673,7 +673,12 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 /* One bracketed zone for everything after the prose: a hairline, the actions
    row (human pledge + subscribe/share), a second hairline, then prev/next.
    Each piece used to invent its own top margin — this gives them one rhythm. */
-.blog-end {
+/* Two rules under one shape: the article's own footer (credit + share, closing
+   the article above the comments) and the page's (prev/next, under the
+   thread). Same hairline and the same air, because they are the same kind of
+   break -- the reader should not be able to tell that one of them moved. */
+.blog-end,
+.blog-article-foot {
   margin-top: 44px;
   padding-top: 28px;
   border-top: 1px solid var(--blog-line);
