@@ -263,6 +263,12 @@ async function buildConversationItem(): Promise<RegistryItem> {
   const renderer = await readRegistryFile('features/content/conversation.ts', 'registry:lib');
   renderer.target = '@lib/conversation.ts';
 
+  const fitter = await readRegistryFile(
+    'features/content/client/conversation-fit.ts',
+    'registry:lib'
+  );
+  fitter.target = '@lib/conversation-fit.ts';
+
   const stylesheet = await readRegistryFile('styles/conversation.css', 'registry:lib');
   stylesheet.target = '@lib/conversation.css';
 
@@ -270,7 +276,8 @@ async function buildConversationItem(): Promise<RegistryItem> {
   component.target = '@ui/conversation.astro';
   component.content = component.content
     .replace("@/styles/conversation.css", '@/lib/conversation.css')
-    .replace("@/features/content/conversation", '@/lib/conversation');
+    .replace("@/features/content/conversation", '@/lib/conversation')
+    .replace("@/features/content/client/conversation-fit", '@/lib/conversation-fit');
 
   // No cssVars: every token is declared on .conv-thread, so a :root entry
   // written into the consumer's globals would lose the cascade and do nothing.
@@ -279,7 +286,7 @@ async function buildConversationItem(): Promise<RegistryItem> {
     $schema: REGISTRY_ITEM_SCHEMA,
     name: 'conversation',
     type: 'registry:ui',
-    files: [component, renderer, stylesheet],
+    files: [component, renderer, fitter, stylesheet],
   };
 }
 

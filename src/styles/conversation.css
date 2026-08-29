@@ -16,8 +16,10 @@
 
 .conv-thread {
   /* --- the two numbers that decide whether this reads as a conversation ---
-     lead  : the avatar gutter, reserved even when avatars are hidden so both
-             sides of the thread keep the same optical margin.
+     avatar+gap : the leading gutter of a row. Kept as its two parts rather than
+             as a total, because .conv-group derives --conv-near from them and a
+             hand-written total silently stops matching the moment a breakpoint
+             resizes the avatar.
      inset : the empty channel on the far side of every bubble. This is what
              makes a bubble read as "addressed to someone" rather than as a
              paragraph. Without it a long message becomes full-width prose in a
@@ -26,13 +28,9 @@
      number lands on ~30 Chinese characters AND ~60 Latin characters, both
      inside a comfortable measure. That is the whole trick for mixed text. */
   --conv-avatar: 34px;
-  --conv-lead: 46px;
+  --conv-gap: 12px; /* avatar to stack */
   --conv-inset: max(56px, 15cqi);
   --conv-measure: 30em;
-  --conv-bubble-max: min(
-    var(--conv-measure),
-    calc(100cqi - var(--conv-lead) - var(--conv-inset))
-  );
 
   --conv-radius: 16px;
   --conv-notch: 4px; /* the one squared corner that points at the speaker */
@@ -74,19 +72,19 @@
   --conv-neutral: hsl(var(--foreground) / 0.1);
 }
 
-/* A narrow container (sidebar, phone) cannot afford a 15% channel. Only
-   --conv-inset is overridden; --conv-bubble-max re-resolves from it. */
-@container (max-width: 520px) {
+/* A narrow container (sidebar, phone) cannot afford a 15% channel. Only the
+   inputs are overridden; --conv-near and --conv-bubble-max re-resolve. */
+/* Container queries compare against layout pixels, so an integer maximum is
+   the interoperable form of the strict below-520px boundary. */
+@container (max-width: 519px) {
   .conv-thread {
     --conv-inset: max(26px, 8cqi);
     --conv-avatar: 28px;
-    --conv-lead: 38px;
   }
 }
 
 @container (max-width: 360px) {
   .conv-thread {
-    --conv-lead: 0px;
     --conv-inset: max(18px, 6cqi);
     font-size: 15px;
   }
@@ -101,8 +99,18 @@
 .conv-group {
   display: flex;
   align-items: flex-end;
-  gap: 12px;
+  gap: var(--conv-gap);
   min-width: 0;
+  /* Every row is [near gutter][bubble][far channel]. The row owns both numbers
+     because a run without an avatar has no near gutter to pay for, and the cap
+     has to know that — hence --conv-bubble-max here and not on the thread: a
+     custom property resolves its own var()s where it is declared, so a value
+     inherited from .conv-thread would keep the thread's --conv-near forever. */
+  --conv-near: calc(var(--conv-avatar) + var(--conv-gap));
+  --conv-bubble-max: min(
+    var(--conv-measure),
+    calc(100cqi - var(--conv-near) - var(--conv-inset))
+  );
   /* Both fills and both name colours are emitted per speaker, each already
      walked to AA against that theme's bubble floor. The theme picks which is
      live, so toggling never re-runs the maths. The fallback is what an
@@ -167,6 +175,36 @@
 .conv-group--out .conv-avatar,
 .conv-group[data-avatars='off'] .conv-avatar {
   visibility: hidden;
+}
+
+/* ...until the row cannot afford it. A reserved-but-empty gutter costs 40px of
+   a 374px column — 11% spent on an avatar that is not there — and it shows: the
+   outgoing bubble stops short of the column edge while the incoming avatar sits
+   flush against it, so the strip left over reads as a broken margin rather than
+   as the channel. Below 520px the placeholder is removed and the run closes to
+   the edge, which is what every messaging app does at phone width. Keyed on
+   "has no avatar", not on direction, so avatars=off collapses both sides
+   together instead of indenting only the incoming one. */
+@container (max-width: 519px) {
+  .conv-group--out .conv-avatar,
+  .conv-group[data-avatars='off'] .conv-avatar {
+    display: none;
+  }
+
+  .conv-group--out,
+  .conv-group[data-avatars='off'] {
+    --conv-near: 0px;
+  }
+}
+
+/* Under 360px nothing has an avatar, so no row reserves a gutter. This has to
+   sit after .conv-group's own declaration: same specificity, so source order is
+   what decides, and the version of this rule that lived up with the other
+   360px overrides was silently losing to it. */
+@container (max-width: 360px) {
+  .conv-group {
+    --conv-near: 0px;
+  }
 }
 
 .conv-stack {
