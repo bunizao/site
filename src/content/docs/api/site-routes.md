@@ -115,14 +115,36 @@ to the default rather than redirecting off-site.
 ## Dev portal
 
 ```
-ALL /dev                    → 302 /dev/portal
-ALL /dev/portal/api/*       → forwarded to site-api, admin paths only
+ALL /dev                                → 302 /dev/portal
+ALL /dev/blog                           → 302 /dev/portal/blog
+GET /dev/portal/api/analytics-events    → site-api /api/analytics/events, JWT forwarded
+GET /dev/portal/api/ghost-posts         → Ghost Admin API post list, answered locally
+GET /dev/portal/api/notify-preview      → site-api /api/notify/preview, params whitelisted
+ALL /dev/portal/api/*                   → forwarded to site-api, admin paths only
 ```
 
 The forwarder is registered as a catch-all but narrows itself: only paths under
 `admin` are forwarded (to site-api's `/api/admin/*`), and anything else is
 `404 {"error":"Not found"}` with `no-store`. It is a narrow window onto the
 admin API, not a second general proxy — see [Internal Endpoints](/docs/api/internal).
+
+Three static sibling routes sit in front of the catch-all (literal paths win
+over the rest parameter) and are the same-origin data sources for portal
+islands — all behind the portal's Cloudflare Access gate, all `no-store`,
+GET-only (`405` otherwise):
+
+| Path | Behavior |
+| --- | --- |
+| `/dev/portal/api/analytics-events` | Forwards to site-api's `/api/analytics/events` over the service binding with the `cf-access-jwt-assertion` header, clamping `limit` to 1–200. Backs the analytics event log's auto-refresh. In dev without the binding it answers with demo fixture events; otherwise failures are `503 {"error":"analytics_events_unavailable"}`. |
+| `/dev/portal/api/ghost-posts` | Answered locally: lists up to 100 Ghost posts (id, uuid, slug, title, status, updated/published timestamps) straight from the Ghost Admin API using `GHOST_ADMIN_API_KEY` + `PUBLIC_GHOST_URL`. Backs the blog preview workspace's live list. Missing configuration is `503` with a hint, upstream timeout `504`, other upstream failures `502`. |
+| `/dev/portal/api/notify-preview` | Forwards to site-api's `/api/notify/preview`, passing only `mode`, `sample`, and `timezone` through. Exists because a direct browser fetch of `buxx.me/api/notify/preview` is rejected by edge access rules; the service binding path is not. Backs the email template preview page. |
+
+`/dev/portal/blog` is the blog preview workspace: a grouped Ghost post list
+(drafts, scheduled, published) that re-polls `/dev/portal/api/ghost-posts`
+every 5 seconds while visible, beside an iframe of the selected post's
+`/dev/blog/<id>` live preview. `/dev/blog/*` pages carry
+`frame-ancestors 'self'` for exactly that iframe; every other `/dev` path
+keeps `frame-ancestors 'none'`.
 
 ## Static JSON
 
