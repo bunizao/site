@@ -74,7 +74,9 @@
 
 /* A narrow container (sidebar, phone) cannot afford a 15% channel. Only the
    inputs are overridden; --conv-near and --conv-bubble-max re-resolve. */
-@container (max-width: 519.99px) {
+/* Container queries compare against layout pixels, so an integer maximum is
+   the interoperable form of the strict below-520px boundary. */
+@container (max-width: 519px) {
   .conv-thread {
     --conv-inset: max(26px, 8cqi);
     --conv-avatar: 28px;
@@ -183,7 +185,7 @@
    the edge, which is what every messaging app does at phone width. Keyed on
    "has no avatar", not on direction, so avatars=off collapses both sides
    together instead of indenting only the incoming one. */
-@container (max-width: 519.99px) {
+@container (max-width: 519px) {
   .conv-group--out .conv-avatar,
   .conv-group[data-avatars='off'] .conv-avatar {
     display: none;
