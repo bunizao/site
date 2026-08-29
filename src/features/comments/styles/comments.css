@@ -72,17 +72,19 @@
 }
 
 /* --- Reaction bar -------------------------------------------------------- */
-/* Sits inside <article> directly after the prose, so it takes the reading
-   measure. No rule of its own: .blog-end already draws one below, and two
-   hairlines that close together read as a broken table. */
+/* Lives on the article foot's one row, sharing it with subscribe and share
+   (see .blog-article-foot__row in blog.css). No rule and no margin of its own:
+   the foot supplies both, and this carried a 40px top margin from when it was
+   a standalone block after the prose -- inside a centred flex row that margin
+   is part of the item's box, so it made this 76px tall and dropped the hearts
+   20px below the buttons they are level with. */
 .blog-react {
   display: flex;
   align-items: center;
   gap: 18px;
   flex-wrap: wrap;
-  margin-top: 40px;
   /* Reserve the row before the counts arrive. /blog/[slug] is prerendered, so
-     the numbers land after hydration; without this the prev/next nav jumps. */
+     the numbers land after hydration; without this the page jumps. */
   min-height: 36px;
 }
 
