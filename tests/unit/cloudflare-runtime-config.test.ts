@@ -250,6 +250,7 @@ describe('Cloudflare runtime configuration', () => {
       '/mood*',
       '/privacy*',
       '/projects*',
+      '/reader*',
       '/sitemap.xml',
       '/dev',
       '/dev/*',
