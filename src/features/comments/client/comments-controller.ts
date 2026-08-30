@@ -34,6 +34,7 @@ import {
   setTurnstileHost,
   warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
+import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
 import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { initials, seedHue } from '@/features/comments/identity';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
@@ -781,10 +782,13 @@ export function initCommentsController(): void {
     meta.append(el('span', { class: 'blog-comment__date' }, [comment.date]));
     if (comment.edited) meta.append(el('span', { class: 'blog-comment__edited' }, [t.edited]));
 
-    const body = el('div', { class: 'blog-comment__body' }, [
-      meta,
-      el('p', { class: 'blog-comment__text', 'data-comment-text': '' }, [comment.text]),
-    ]);
+    // A div, not a paragraph: the body is a rendered document now (see
+    // comment-markdown.ts), and a <p> cannot legally hold the blockquote or
+    // list a comment may have asked for -- the browser would break the tag
+    // open and scatter the row.
+    const text = el('div', { class: 'blog-comment__text', 'data-comment-text': '' });
+    setCommentText(text, comment.text);
+    const body = el('div', { class: 'blog-comment__body' }, [meta, text]);
 
     if (comment.own && !comment.held) {
       body.append(
@@ -952,13 +956,17 @@ export function initCommentsController(): void {
       // Typing again withdraws the question.
       field.addEventListener('input', () => armCancel(false));
       cancelBtn?.addEventListener('click', () => {
-        const dirty = field.value !== (text.textContent ?? '');
+        // Against the source, not the rendering: the paragraph holds a parsed
+        // tree now (comment-markdown.ts), so `**bold**` reads back out of
+        // `textContent` as `bold` and every formatted comment would look
+        // dirty the instant its field opened.
+        const dirty = field.value !== readCommentText(text);
         // Nothing typed, nothing to lose: close on the first press.
         if (dirty && !cancelBtn.classList.contains('blog-comment__act--confirm')) {
           armCancel(true);
           return;
         }
-        field.value = text.textContent ?? '';
+        field.value = readCommentText(text);
         setEditing(false);
       });
       saveBtn?.addEventListener('click', () => void saveEdit(comment.id, article, text, field, setEditing));
@@ -1003,7 +1011,7 @@ export function initCommentsController(): void {
     }
 
     const data = (await response.json()) as CommentEditResult;
-    text.textContent = data.comment.body;
+    setCommentText(text, data.comment.body);
     // The server re-moderates every edit, and the verdict moves in both
     // directions -- see the PATCH route in site-api. Dropping it on the floor
     // is not cosmetic: a row that quietly went `held` is invisible to

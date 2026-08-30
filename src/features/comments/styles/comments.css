@@ -1183,6 +1183,106 @@
   overflow-wrap: anywhere;
 }
 
+/* --- Markdown in a comment ------------------------------------------------
+   The compose box has claimed "支持 Markdown" under a hand-drawn icon since
+   the first pass; comment-markdown.ts is what finally makes that true, and
+   this is what the six things it renders look like.
+
+   Everything below is deliberately quieter than the same element would be in
+   the post above. A comment is a reply, not a second article: its blockquote
+   is a rule and an indent rather than a pull quote, its lists sit at the
+   paragraph's own size, and nothing here is allowed to introduce a typeface,
+   a weight, or a margin the thread does not already use. The one exception is
+   mono on code -- the type note at the top of this file rules mono out for
+   the thread's chrome, and code is not chrome. */
+
+.blog-comment__text > :first-child {
+  margin-top: 0;
+}
+
+.blog-comment__text > :last-child {
+  margin-bottom: 0;
+}
+
+.blog-comment__text p {
+  margin: 0.65em 0 0;
+}
+
+.blog-comment__text strong {
+  font-weight: 600;
+  color: var(--blog-ink);
+}
+
+.blog-comment__text em {
+  font-style: italic;
+}
+
+.blog-comment__text a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.blog-comment__text a:hover {
+  text-decoration-color: currentColor;
+}
+
+.blog-comment__text code {
+  padding: 0.1em 0.36em;
+  border-radius: 4px;
+  background: var(--blog-field-fill);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  /* Mono runs large next to the sans it sits inside; 0.9em is where the two
+     x-heights meet on Geist. */
+  font-size: 0.9em;
+}
+
+.blog-comment__text pre {
+  margin: 0.7em 0 0;
+  padding: 10px 12px;
+  border-radius: var(--blog-r-inner);
+  background: var(--blog-field-fill);
+  /* The one thing in a comment that cannot be reflowed to fit. It scrolls
+     inside its own box rather than widening the row and taking the whole
+     thread's layout with it. */
+  overflow-x: auto;
+}
+
+.blog-comment__text pre code {
+  padding: 0;
+  background: none;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.blog-comment__text blockquote {
+  margin: 0.7em 0 0;
+  padding-inline-start: 12px;
+  border-inline-start: 2px solid var(--blog-line);
+  color: var(--blog-faint);
+}
+
+.blog-comment__text ul,
+.blog-comment__text ol {
+  margin: 0.65em 0 0;
+  padding-inline-start: 1.35em;
+}
+
+.blog-comment__text ul {
+  list-style: disc;
+}
+
+.blog-comment__text ol {
+  list-style: decimal;
+}
+
+.blog-comment__text li {
+  margin-top: 0.2em;
+}
+
 /* Held for moderation: visible to its author only, and it has to say why. */
 .blog-comment--held .blog-comment__text {
   color: var(--blog-faint);

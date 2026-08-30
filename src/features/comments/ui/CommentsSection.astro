@@ -21,6 +21,7 @@ import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
 import { initials, seedHue } from '@/features/comments/identity';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import { blog } from '@/data/site';
+import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
 import { commentsCopy } from '@/features/comments/copy';
 
 interface Props {
@@ -211,7 +212,21 @@ const t = commentsCopy[locale];
               {comment.edited && <span class="blog-comment__edited">{t.edited}</span>}
             </div>
 
-            <p class="blog-comment__text" data-comment-text hidden={comment.editing}>{comment.text}</p>
+            {/* A div rather than a paragraph: the body is a rendered
+                document (comment-markdown.ts), and a <p> cannot legally hold
+                the blockquote or list a comment may have asked for. The raw
+                source rides along on `data-md` -- it is what the edit field
+                opens with and what Cancel compares against, and it can no
+                longer be read back out of the rendered tree. `set:html` is
+                safe here and only here: the string is built by our own
+                renderer, which escapes every reader-supplied character and
+                emits a closed tag set. */}
+            <div
+              class="blog-comment__text"
+              data-comment-text
+              data-md={comment.text}
+              hidden={comment.editing}
+              set:html={commentMarkdownToHtml(comment.text)}></div>
 
             {/* Editing happens where the paragraph is, not in a box that opens
                 under it: the field inherits the paragraph's size, leading and
@@ -401,6 +416,7 @@ const t = commentsCopy[locale];
   // the compose box's script calls the same function against the same document.
   import { wireComposeValidation } from '@/features/comments/compose-validate';
   import { copyFor } from '@/features/comments/copy';
+  import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
 
   wireComposeValidation();
 
@@ -572,18 +588,25 @@ const t = commentsCopy[locale];
     field.addEventListener('input', () => armCancel(false));
 
     cancelBtn?.addEventListener('click', () => {
-      const dirty = field.value !== (text.textContent ?? '');
+      // Against the source on `data-md`, not the rendered tree: `**bold**`
+      // reads back out of `textContent` as `bold`, which would make every
+      // formatted comment look dirty the instant its field opened.
+      const dirty = field.value !== readCommentText(text);
       const armed = cancelBtn.classList.contains('blog-comment__act--confirm');
       // Nothing typed, nothing to lose: close on the first press.
       if (dirty && !armed) {
         armCancel(true);
         return;
       }
-      field.value = text.textContent ?? '';
+      field.value = readCommentText(text);
       setEditing(false);
     });
+    // Local only, and only ever reached on /lab/comments -- a real thread's
+    // rows are built and wired by comments-controller.ts, which sends the
+    // PATCH. Rendering through the same function keeps the lab honest about
+    // what Markdown a comment actually supports.
     saveBtn?.addEventListener('click', () => {
-      text.textContent = field.value;
+      setCommentText(text, field.value);
       setEditing(false);
     });
 
