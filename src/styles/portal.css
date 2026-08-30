@@ -32,7 +32,9 @@
   --portal-tracking-wide: 0.06em;
 
   --portal-space: 4px;
-  --portal-surface-0: hsl(0 0% 96%);
+  /* Sidebar rail sits one step below the page ground so the shell reads as two
+     planes without needing a heavier divider. */
+  --portal-surface-0: hsl(240 6% 5%);
   --portal-surface-1: hsl(var(--card));
   --portal-surface-2: hsl(var(--accent));
 
@@ -47,15 +49,15 @@
   --portal-dur-base: var(--dur-base);
   --portal-dur-enter: var(--dur-enter);
 
-  /* Depth: layered transparent shadows tuned for the near-black surface. The
-     coss card already paints a hairline top highlight; these add grounded
-     elevation without fighting the palette's restraint. */
-  --portal-shadow-card:
-    0 1px 2px -1px hsl(240 12% 2% / 0.5),
-    0 2px 6px -2px hsl(240 12% 2% / 0.35);
+  /* Depth. A card is *lighter* than the ground here, so separation comes from
+     the value step and the hairline — not from a blur. At rest that leaves one
+     1px contact shadow; the diffuse layer is spent only on hover, where the
+     card actually leaves the surface. Wider blurs read as grey haze on a
+     near-black ground and blunt the card's edge. */
+  --portal-shadow-card: 0 1px 1px hsl(240 14% 2% / 0.4);
   --portal-shadow-lift:
-    0 2px 4px -2px hsl(240 12% 2% / 0.55),
-    0 10px 28px -8px hsl(240 12% 2% / 0.5);
+    0 1px 1px hsl(240 14% 2% / 0.4),
+    0 8px 20px -10px hsl(240 14% 2% / 0.7);
 
   /* Semantic accents for tinted chips / deltas. Never decorative — each hue
      carries meaning (blue = live, green = up, amber = waiting, red = down). */
@@ -64,10 +66,6 @@
   --portal-chip-success: 152 46% 50%;
   --portal-chip-warning: 38 88% 58%;
   --portal-chip-danger: 0 72% 60%;
-}
-
-.theme-portal.dark {
-  --portal-surface-0: hsl(240 6% 5%);
 }
 
 html.theme-portal,
@@ -117,13 +115,25 @@ html.theme-portal section {
   grid-template-columns: 1fr;
 }
 
+/* The page scrolls on <body>, so the rail has to pin itself. `align-self:
+   start` stops the grid stretching it to the row height (a stretched item can
+   never stick), and its own overflow keeps a long nav reachable on short
+   viewports. */
 .portal-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: var(--portal-space);
   padding: 20px 12px;
   border-right: 1px solid hsl(var(--border));
   background: var(--portal-surface-0);
+  scrollbar-width: thin;
 }
 
 .portal-sidebar-brand {
@@ -361,36 +371,6 @@ html.theme-portal section {
 
 .portal-topbar-spacer {
   flex: 1;
-}
-
-.portal-theme-toggle {
-  display: inline-grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border: 1px solid hsl(var(--border));
-  border-radius: 7px;
-  background: hsl(var(--card));
-  color: hsl(var(--muted-foreground));
-  cursor: pointer;
-}
-
-.portal-theme-toggle:hover {
-  color: hsl(var(--foreground));
-  background: var(--portal-surface-2);
-}
-
-.portal-theme-icon {
-  grid-area: 1 / 1;
-}
-
-.portal-theme-icon--dark,
-.dark .portal-theme-icon--light {
-  display: none;
-}
-
-.dark .portal-theme-icon--dark {
-  display: block;
 }
 
 .portal-page {
@@ -1065,6 +1045,26 @@ a.portal-feed-row:focus-visible,
   color: hsl(var(--portal-chip-accent));
 }
 
+/* Two containers that set a size once for everything inside them. Tailwind's
+   ramp (12/14px) does not line up with the portal scale (12/13px), so islands
+   that reached for `text-xs`/`text-sm` per element drifted a pixel off the
+   tables beside them. Size the container, let the children inherit. */
+.portal-controls {
+  font-size: var(--portal-text-xs);
+}
+
+.portal-detail {
+  font-size: var(--portal-text-sm);
+  line-height: var(--portal-leading-snug);
+}
+
+/* Secondary line under a primary value — counts, hashes, timestamps. The one
+   size below the reading floor that is not a small-caps label. */
+.portal-meta {
+  font-size: var(--portal-text-2xs);
+  color: hsl(var(--muted-foreground));
+}
+
 /* Segmented control — anchor links with a single active pill. The pill carries
    a view-transition-name, so under Astro's ClientRouter it slides between
    options on navigation instead of teleporting. */
@@ -1431,10 +1431,13 @@ a.portal-feed-row:focus-visible,
     position: sticky;
     top: 0;
     z-index: 30;
+    /* Undo the desktop full-height rail: here it is a horizontal bar. */
+    height: auto;
     flex-direction: row;
     align-items: center;
     gap: 4px;
     overflow-x: auto;
+    overflow-y: hidden;
     padding: 10px 12px;
     border-right: 0;
     border-bottom: 1px solid hsl(var(--border));

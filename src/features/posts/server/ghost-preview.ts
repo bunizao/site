@@ -7,6 +7,7 @@ import {
   isGhostAdminPostId,
   type GhostAdminClient,
   type GhostAdminPost,
+  type GhostAdminPostSummary,
 } from './ghost-admin';
 import type { DirectiveTransformResult } from './directives';
 import {
@@ -87,6 +88,17 @@ function e2eGhostAdminClient(): GhostAdminClient {
         );
       }
       return '2026-07-31T11:59:00.000Z';
+    },
+    async listPosts(): Promise<GhostAdminPostSummary[]> {
+      return [{
+        id: E2E_POST_ID,
+        uuid: 'a5aa9bd8-ea31-415c-b452-3040dae1e730',
+        slug: 'e2e-ghost-draft',
+        title: 'E2E Ghost draft',
+        status: 'draft',
+        updatedAt: '2026-07-31T11:59:00.000Z',
+        publishedAt: null,
+      }];
     },
   };
 }

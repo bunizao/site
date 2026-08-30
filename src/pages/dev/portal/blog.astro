@@ -1,0 +1,446 @@
+---
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Card } from '@/components/coss';
+import EmptyState from '@/components/portal/EmptyState.astro';
+import { readOptionalEnv } from '@/lib/runtime/env';
+import {
+  createGhostAdminClient,
+  GhostAdminClientError,
+  type GhostAdminPostSummary,
+} from '@/features/posts/server/ghost-admin';
+import { AlertTriangle, NotebookPen } from 'lucide-react';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+let posts: GhostAdminPostSummary[] = [];
+let loadError: string | null = null;
+let errorHint: string | null = null;
+
+try {
+  const client = createGhostAdminClient({ locals: Astro.locals });
+  posts = await client.listPosts();
+} catch (error) {
+  if (error instanceof GhostAdminClientError) {
+    loadError = error.message;
+    if (error.code === 'invalid_configuration') {
+      errorHint = 'Set GHOST_ADMIN_API_KEY and PUBLIC_GHOST_URL in your env to enable Ghost post previews.';
+    }
+  } else {
+    loadError = 'Ghost draft preview is unavailable.';
+  }
+}
+
+const ghostUrl = readOptionalEnv(Astro.locals, 'PUBLIC_GHOST_URL');
+const ghostEditorBase = ghostUrl ? `${ghostUrl.replace(/\/+$/u, '')}/ghost/#/editor/post/` : '';
+
+type StatusGroupKey = 'draft' | 'scheduled' | 'published' | 'other';
+
+function groupKeyFor(status: string): StatusGroupKey {
+  return status === 'draft' || status === 'scheduled' || status === 'published' ? status : 'other';
+}
+
+const GROUP_ORDER: { key: StatusGroupKey; label: string }[] = [
+  { key: 'draft', label: 'Drafts' },
+  { key: 'scheduled', label: 'Scheduled' },
+  { key: 'published', label: 'Published' },
+  { key: 'other', label: 'Other' },
+];
+
+const groups = GROUP_ORDER
+  .map((group) => ({ ...group, items: posts.filter((post) => groupKeyFor(post.status) === group.key) }))
+  .filter((group) => group.items.length > 0);
+
+const firstPost = groups.find((group) => group.key === 'draft')?.items[0] ?? posts[0] ?? null;
+
+const relativeFormatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+function relativeTime(iso: string | null): string {
+  if (!iso) return 'never';
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return 'unknown';
+
+  const diffMinutes = Math.round((Date.now() - then) / 60_000);
+  if (Math.abs(diffMinutes) < 1) return 'just now';
+  if (Math.abs(diffMinutes) < 60) return relativeFormatter.format(-diffMinutes, 'minute');
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 24) return relativeFormatter.format(-diffHours, 'hour');
+
+  const diffDays = Math.round(diffHours / 24);
+  return relativeFormatter.format(-diffDays, 'day');
+}
+---
+
+<PortalLayout
+  title="Blog previews"
+  description="Browse Ghost posts and live-preview drafts as they change."
+  active="blog"
+  user={{ login: session?.login || 'admin' }}
+>
+  {loadError && (
+    <div class="portal-notice" data-variant="error">
+      <AlertTriangle size={14} />
+      <span>
+        Ghost posts unavailable: <code>{loadError}</code>
+        {errorHint ? ` — ${errorHint}` : null}
+      </span>
+    </div>
+  )}
+
+  <div class="blog-portal" data-ghost-editor-base={ghostEditorBase} data-selected-id={firstPost?.id ?? ''}>
+    <Card className="blog-portal-list" aria-label="Ghost posts">
+      <div class="blog-portal-list-head">
+        <span class="portal-eyebrow">Posts</span>
+        <span class="blog-portal-count" data-post-count>{posts.length}</span>
+      </div>
+      <div class="blog-portal-groups" data-post-groups>
+        {groups.length === 0 ? (
+          <EmptyState
+            Icon={NotebookPen}
+            title="No Ghost posts yet"
+            hint="Posts you create in Ghost will show up here."
+          />
+        ) : (
+          groups.map((group) => (
+            <div class="blog-portal-group" data-group={group.key}>
+              <div class="blog-portal-group-label">{group.label} <span>{group.items.length}</span></div>
+              <ul class="blog-portal-rows" role="list">
+                {group.items.map((post) => (
+                  <li
+                    class="blog-post-row"
+                    data-post-id={post.id}
+                    data-slug={post.slug}
+                    data-status={post.status}
+                    data-updated-at={post.updatedAt ?? ''}
+                    aria-current={post.id === firstPost?.id ? 'true' : undefined}
+                  >
+                    <button type="button" class="blog-post-row-main">
+                      <span class="blog-post-row-title">{post.title.trim() || 'Untitled'}</span>
+                      <span class="blog-post-row-meta">
+                        <span class="blog-status-chip" data-status={post.status}>{post.status}</span>
+                        <span class="blog-post-row-slug">{post.slug}</span>
+                        <span class="blog-post-row-time" data-updated-label>{relativeTime(post.updatedAt)}</span>
+                      </span>
+                    </button>
+                    <span class="blog-post-row-actions">
+                      {ghostEditorBase && (
+                        <a
+                          class="blog-post-row-action"
+                          href={`${ghostEditorBase}${post.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Ghost
+                        </a>
+                      )}
+                      {post.status === 'published' && (
+                        <a class="blog-post-row-action" href={`/blog/${post.slug}`} target="_blank" rel="noreferrer">
+                          View
+                        </a>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        )}
+      </div>
+    </Card>
+
+    <Card className="blog-portal-preview">
+      <div class="blog-portal-preview-head">
+        <div class="blog-portal-preview-title" data-preview-title>{firstPost?.title.trim() || 'No post selected'}</div>
+        {ghostEditorBase && (
+          <a
+            class="blog-post-row-action"
+            data-preview-ghost-link
+            href={firstPost ? `${ghostEditorBase}${firstPost.id}` : '#'}
+            hidden={!firstPost}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open in Ghost
+          </a>
+        )}
+      </div>
+      <p class="blog-portal-preview-hint">
+        This pane loads the live draft preview — it polls Ghost every ~1.5s while open, so edits saved in Ghost
+        appear here shortly after.
+      </p>
+      <div class="blog-portal-frame" data-preview-frame>
+        {firstPost ? (
+          <iframe class="blog-portal-iframe" title="Ghost post preview" src={`/dev/blog/${firstPost.id}`} />
+        ) : (
+          <EmptyState title="Select a post" hint="Choose a post from the list to preview it here." />
+        )}
+      </div>
+    </Card>
+  </div>
+</PortalLayout>
+
+<script>
+  import { startGhostPostsLiveList } from '@/features/posts/client/blog-posts-live-list';
+
+  const root = document.querySelector<HTMLElement>('.blog-portal');
+  if (root) startGhostPostsLiveList(root);
+</script>
+
+<style is:global>
+  /* Rows here are rebuilt by blog-posts-live-list.ts on every poll, so these
+     rules must stay global (not Astro's scoped-per-page styles) or freshly
+     created elements would render unstyled. */
+  .blog-portal {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  @media (max-width: 960px) {
+    .blog-portal {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .blog-portal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 14px;
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+  }
+
+  @media (max-width: 960px) {
+    .blog-portal-list {
+      max-height: 360px;
+    }
+  }
+
+  .blog-portal-list-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 4px 12px;
+  }
+
+  .blog-portal-count {
+    font-family: var(--font-code);
+    font-size: var(--portal-text-xs);
+    color: hsl(var(--muted-foreground));
+  }
+
+  .blog-portal-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .blog-portal-group-label {
+    padding: 0 4px 6px;
+    font-size: var(--portal-text-2xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--portal-tracking-wide);
+    color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  .blog-portal-group-label span {
+    font-family: var(--font-code);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: normal;
+    color: hsl(var(--muted-foreground) / 0.6);
+  }
+
+  .blog-portal-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .blog-post-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 8px;
+    transition: background var(--portal-dur-fast) var(--portal-ease);
+  }
+
+  .blog-post-row:hover {
+    background: hsl(var(--accent) / 0.35);
+  }
+
+  .blog-post-row[aria-current='true'] {
+    background: hsl(var(--accent) / 0.6);
+  }
+
+  .blog-post-row-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+  }
+
+  .blog-post-row-title {
+    font-size: var(--portal-text-sm);
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .blog-post-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .blog-post-row-slug {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-code);
+    font-size: var(--portal-text-2xs);
+    color: hsl(var(--muted-foreground) / 0.75);
+  }
+
+  .blog-post-row-time {
+    flex: 0 0 auto;
+    font-size: var(--portal-text-2xs);
+    color: hsl(var(--muted-foreground) / 0.6);
+  }
+
+  .blog-post-row-actions {
+    display: flex;
+    gap: 4px;
+    flex: 0 0 auto;
+    padding-right: 6px;
+  }
+
+  .blog-post-row-action {
+    font-size: var(--portal-text-2xs);
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    text-decoration: none;
+    padding: 3px 6px;
+    border-radius: 6px;
+    border: 1px solid hsl(var(--border));
+    white-space: nowrap;
+    transition: color var(--portal-dur-fast) var(--portal-ease), background var(--portal-dur-fast) var(--portal-ease);
+  }
+
+  .blog-post-row-action:hover {
+    color: hsl(var(--foreground));
+    background: hsl(var(--accent) / 0.4);
+  }
+
+  .blog-status-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: var(--portal-text-2xs);
+    font-weight: 600;
+    text-transform: capitalize;
+    color: hsl(var(--portal-chip-neutral));
+    background: hsl(var(--portal-chip-neutral) / 0.14);
+  }
+
+  .blog-status-chip[data-status='scheduled'] {
+    color: hsl(var(--portal-chip-warning));
+    background: hsl(var(--portal-chip-warning) / 0.14);
+  }
+
+  .blog-status-chip[data-status='published'] {
+    color: hsl(var(--portal-chip-success));
+    background: hsl(var(--portal-chip-success) / 0.14);
+  }
+
+  @keyframes blog-post-row-flash {
+    0% { background: hsl(var(--portal-chip-accent) / 0.3); }
+    100% { background: transparent; }
+  }
+
+  .blog-post-row--flash {
+    animation: blog-post-row-flash 1.2s var(--portal-ease-out);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .blog-post-row--flash {
+      animation-duration: 0.3s;
+    }
+  }
+
+  .blog-portal-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    min-width: 0;
+  }
+
+  .blog-portal-preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .blog-portal-preview-title {
+    font-size: var(--portal-text-md);
+    font-weight: 550;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .blog-portal-preview-hint {
+    margin: 0;
+    font-size: var(--portal-text-xs);
+    color: hsl(var(--muted-foreground));
+  }
+
+  .blog-portal-frame {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+    overflow: hidden;
+    min-height: 60vh;
+    background: hsl(var(--background));
+  }
+
+  .blog-portal-frame > .portal-empty {
+    margin: auto;
+  }
+
+  .blog-portal-iframe {
+    flex: 1;
+    width: 100%;
+    min-height: 60vh;
+    border: 0;
+    display: block;
+    background: hsl(0 0% 100%);
+    color-scheme: light;
+  }
+
+  @media (max-width: 960px) {
+    .blog-portal-frame,
+    .blog-portal-iframe {
+      min-height: 50vh;
+    }
+  }
+</style>

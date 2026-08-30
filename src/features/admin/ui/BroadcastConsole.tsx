@@ -326,7 +326,7 @@ export default function BroadcastConsole() {
                   )}
                 </div>
                 {CHANNEL_OPTIONS.some((channel) => recipientChannelCounts[channel.value] !== undefined) && (
-                  <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                  <div className="portal-meta mt-1 flex flex-wrap gap-2">
                     {CHANNEL_OPTIONS.map((channel) => {
                       const count = recipientChannelCounts[channel.value];
                       if (count === undefined) return null;
@@ -440,13 +440,13 @@ export default function BroadcastConsole() {
                         <a className="hover:underline" href={`/dev/portal/broadcasts/${bc.id}`} data-astro-prefetch="false">{bc.subject}</a>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant={STATUS_VARIANTS[bc.status]} className="text-[10px] py-0">{bc.status}</Badge>
-                          <span className="text-[11px] text-muted-foreground">{bc.sentCount}/{bc.recipientCount} · {bc.failedCount} failed</span>
+                          <span className="portal-meta">{bc.sentCount}/{bc.recipientCount} · {bc.failedCount} failed</span>
                         </div>
-                        <div className="mt-1 text-[11px] text-muted-foreground">
+                        <div className="portal-meta mt-1">
                           Sources: {formatChannelList(normalizeChannels(bc.audience.channels))}
                         </div>
                       </TableCell>
-                      <TableCell className="text-[11px] text-muted-foreground align-top whitespace-nowrap">
+                      <TableCell className="text-muted-foreground align-top whitespace-nowrap">
                         {formatDate(bc.sentAt || bc.createdAt)}
                       </TableCell>
                     </TableRow>

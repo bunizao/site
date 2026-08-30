@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import type {
   BlogAnalyticsDailyStats,
+  ListeningAnalyticsDailyStats,
   NewsletterAnalyticsDailyStats,
   NewsletterAnalyticsTotals,
 } from '@bunizao/contracts';
@@ -126,6 +127,33 @@ export function NewsletterDailyChart({ daily }: { daily: NewsletterAnalyticsDail
         <Bar dataKey="sent" name="Sent" fill={SERIES.sent} radius={[3, 3, 0, 0]} />
         <Bar dataKey="opened" name="Opened" fill={SERIES.opened} radius={[3, 3, 0, 0]} />
         <Bar dataKey="clicked" name="Clicked" fill={SERIES.clicked} radius={[3, 3, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function ListeningDailyChart({ daily }: { daily: ListeningAnalyticsDailyStats[] }) {
+  if (!daily.length) {
+    return <div className="portal-empty">No listening activity in this range.</div>;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={daily} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+        <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
+        <XAxis
+          dataKey="day"
+          tickFormatter={formatDay}
+          stroke={AXIS_COLOR}
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis stroke={AXIS_COLOR} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+        <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(value) => formatDay(String(value))} cursor={{ fill: 'hsl(240 4% 14% / 0.6)' }} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Bar dataKey="plays" name="Plays" fill={SERIES.views} radius={[3, 3, 0, 0]} />
+        <Bar dataKey="uniqueListeners" name="Listeners" fill={SERIES.reads} radius={[3, 3, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

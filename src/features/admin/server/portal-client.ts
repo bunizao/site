@@ -21,7 +21,7 @@ import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 // public `site` worker; the data lives behind the private `site-api` worker.
 // We reach it through the API service binding, forwarding the Cloudflare Access
 // JWT so site-api authenticates the same admin identity.
-async function adminGet<T>(
+export async function adminGet<T>(
   path: string,
   request: Request,
   locals: RuntimeEnvLocals | undefined,

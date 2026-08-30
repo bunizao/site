@@ -933,39 +933,13 @@ html.no-transition * {
 }
 
 /* Linear-flavored portal theme. Scoped under .theme-portal so the public site
-   keeps its current tokens unchanged. */
-.theme-portal {
-  color-scheme: light;
-  --background: 0 0% 98%;
-  --foreground: 240 6% 10%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 6% 10%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 6% 10%;
-  --primary: 240 6% 10%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 240 5% 94%;
-  --secondary-foreground: 240 6% 10%;
-  --muted: 240 5% 94%;
-  --muted-foreground: 240 4% 42%;
-  --accent: 240 5% 91%;
-  --accent-foreground: 240 6% 10%;
-  --destructive: 0 70% 50%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 240 6% 86%;
-  --input: 240 6% 86%;
-  --ring: 240 4% 42%;
-  --radius: 0.625rem;
-  --portal-accent: 217 91% 60%;
-  --portal-success: 142 71% 38%;
-  --portal-warning: 38 92% 48%;
-  --portal-danger: 0 72% 50%;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-family: var(--font-display);
-}
+   keeps its current tokens unchanged.
 
-.theme-portal.dark {
+   Dark only. Every surface treatment below the token block — hairline borders
+   at hsl(0 0% 100% / x), the card top highlight, the shadow ramp — is authored
+   against a near-black ground and has no light-mode equivalent. PortalLayout
+   pins `dark` on <html> so coss's `dark:` variants resolve the same way. */
+.theme-portal {
   color-scheme: dark;
   --background: 240 8% 6%;
   --foreground: 220 16% 96%;

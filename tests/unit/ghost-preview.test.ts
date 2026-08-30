@@ -23,6 +23,7 @@ function clientWith(readPostById: GhostAdminClient['readPostById']): GhostAdminC
   return {
     readPostById,
     readPostRevisionById: async (id) => (await readPostById(id)).updatedAt,
+    listPosts: async () => [],
   };
 }
 

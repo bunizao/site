@@ -430,7 +430,7 @@ test.describe('Home page', () => {
       .not.toBe(projectBefore);
   });
 
-  test('cleans up theme transitions across both theme controls', async ({ page }) => {
+  test('cleans up theme transitions after switching', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto('/');
 
@@ -446,29 +446,31 @@ test.describe('Home page', () => {
         )
       )
       .toBe(false);
-
-    await page.goto('/dev/portal');
-    const portalToggle = page.locator('[data-portal-theme-toggle]');
-    await expect(portalToggle).toBeVisible();
-    await portalToggle.click();
-    await expect(page.locator('html')).not.toHaveClass(/dark/);
-    await expect
-      .poll(() =>
-        page.locator('html').evaluate((node) =>
-          ['theme-wipe', 'theme-wipe-webkit', 'no-transition'].some((name) => node.classList.contains(name))
-        )
-      )
-      .toBe(false);
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).toBe('light');
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).toBe('dark');
   });
 
   test('skips transient theme classes with reduced motion', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/dev/portal');
-    await page.locator('[data-portal-theme-toggle]').click();
+    await page.goto('/');
+    await page.locator('[data-theme-dropdown]').hover();
+    await page.locator('[data-theme-option="dark"]').click();
 
     await expect(page.locator('html')).toHaveClass(/dark/);
     await expect(page.locator('html')).not.toHaveClass(/theme-wipe|theme-wipe-webkit|no-transition/);
+  });
+
+  test('portal is dark only and carries no theme control', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('[data-theme-dropdown]').hover();
+    await page.locator('[data-theme-option="light"]').click();
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
+
+    // The portal ignores the stored site theme: its surfaces are authored for a
+    // near-black ground and it pins `dark` server-side.
+    await page.goto('/dev/portal');
+    await expect(page.locator('html')).toHaveClass(/theme-portal/);
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await expect(page.locator('[data-portal-theme-toggle]')).toHaveCount(0);
   });
 
   test('keeps runtime home data out of the initial HTML', async ({ page }) => {
