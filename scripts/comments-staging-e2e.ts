@@ -472,9 +472,14 @@ async function main() {
       skip('D1', 'tombstone delete', 'R1 missing');
     }
     if (r1) {
+      // Deletes are always soft (deleteOwnComment keeps the row with
+      // status='deleted'); a reply-less leaf simply vanishes from the
+      // public list instead of rendering a tombstone.
       const r = await call(jE2, 'DELETE', `/api/v2/comments/${r1.id}`);
       const row = dbRow(r1.id);
-      record('D2', 'delete leaf reply -> hard delete', r.status === 200 && r.json?.tombstone === false && row === null, `status=${r.status} tombstone=${r.json?.tombstone} row=${row ? 'still there' : 'gone'}`);
+      const list = await call(jar('anon-d2'), 'GET', `/api/v2/comments?post=${POST_ID}`);
+      const listed = ((list.json?.comments ?? []) as any[]).some((c) => c.id === r1.id);
+      record('D2', 'delete leaf reply -> soft-deleted, hidden from list', r.status === 200 && r.json?.tombstone === false && row?.status === 'deleted' && !listed, `status=${r.status} tombstone=${r.json?.tombstone} db=${row?.status ?? 'gone'} listed=${listed}`);
     }
   } else {
     skip('E1', 'edit/delete lifecycle', 'C1 missing');
