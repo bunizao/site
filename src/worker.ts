@@ -92,6 +92,16 @@ export default {
     const canonicalRedirect = redirectCanonicalUrl(request);
     if (canonicalRedirect) return canonicalRedirect;
 
+    // Non-GET requests carry a body the page handler still has to read.
+    // The asset probe in renderHtmlPage passes the original request to
+    // ASSETS.fetch, which consumes that body even on a 404 miss, so a form
+    // POST (e.g. /reader/confirm) would reach Astro body-less and throw
+    // "Body has already been used". Assets and the HTML edge cache are
+    // GET-only surfaces anyway -- render directly.
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      return siteWorker.fetch(request, env, context);
+    }
+
     const locals = createLocals(env);
     const markdownResponse = await renderMarkdownIfRequested({
       request,
