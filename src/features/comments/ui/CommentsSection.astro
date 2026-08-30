@@ -1,0 +1,233 @@
+---
+/* The public comment thread on a post. Presentational only — fetching,
+   pagination, and submission land with client/comments-controller.ts.
+
+   /blog/[slug] is prerendered, so the list always starts as a skeleton and the
+   real rows arrive after hydration. The compose box is not part of that: it
+   renders immediately in both states, so the way in is on screen before
+   anything has loaded.
+
+   Two actions hang under every row. Reply is what makes this a discussion
+   rather than a guestbook; like is the cheap version of the reply most people
+   would otherwise write, and keeping it cheap is what stops the thread filling
+   with agreement. Both are vanilla — opening a box and flipping a pressed
+   state need no island. */
+
+import CommentForm from '@/features/comments/ui/CommentForm.astro';
+import { initials, seedHue } from '@/features/comments/identity';
+import type { BlogComment, Viewer } from '@/features/comments/types';
+
+interface Props {
+  comments?: BlogComment[];
+  state?: 'loaded' | 'loading' | 'empty';
+  /** Reader standing, passed straight through to the compose box. */
+  phase?: 'anonymous' | 'ready';
+  viewer?: Viewer;
+}
+
+const { comments = [], state = 'loaded', phase = 'anonymous', viewer } = Astro.props;
+
+const tally = comments.filter((comment) => !comment.pending).length;
+
+const HEART_PATH =
+  'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
+
+const skeletonRows = [
+  { delay: '0s', author: '104px', body: '92%' },
+  { delay: '0.15s', author: '78px', body: '64%' },
+  { delay: '0.3s', author: '120px', body: '80%' },
+];
+---
+
+<section class="blog-comments" data-pagefind-ignore>
+  <div class="blog-comments__head">
+    <h2 class="blog-comments__title">Comments</h2>
+    {state === 'loaded' && tally > 0 && (
+      <span class="blog-comments__tally">{tally}</span>
+    )}
+  </div>
+
+  <CommentForm phase={phase} viewer={viewer} />
+
+  {state === 'loading' && (
+    <div class="blog-comments__skeleton" aria-hidden="true">
+      {skeletonRows.map((row) => (
+        <div class="blog-comment">
+          <span
+            class="blog-skel blog-skel--avatar blog-comment__avatar"
+            style={`--skel-delay:${row.delay}`}
+          ></span>
+          <div class="blog-comment__body" style="flex:1">
+            <div class="blog-comment__meta">
+              <span
+                class="blog-skel blog-skel--line"
+                style={`--skel-width:${row.author};--skel-delay:${row.delay}`}
+              ></span>
+            </div>
+            <span
+              class="blog-skel blog-skel--line"
+              style={`--skel-width:${row.body};--skel-delay:${row.delay}`}
+            ></span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+
+  {state === 'empty' && (
+    <p class="blog-comments__empty">Nothing here yet. Be the first to say something.</p>
+  )}
+
+  {state === 'loaded' && (
+    <div class="blog-comments__list">
+      {comments.map((comment) => (
+        <article
+          id={`comment-${comment.id}`}
+          class:list={[
+            'blog-comment',
+            { 'blog-comment--reply': comment.isReply },
+            { 'blog-comment--pending': comment.pending },
+          ]}
+        >
+          {/* Same generated identity the reaction stack uses — plain markup
+              rather than the React Avatar, because a thread of static rows has
+              nothing to hydrate and one island per row would be absurd. */}
+          <span
+            class="blog-comment__avatar blog-avatar-seed blog-avatar-initials"
+            style={`--seed-hue:${seedHue(comment.author)}`}
+            aria-hidden="true">{initials(comment.author)}</span>
+          <div class="blog-comment__body">
+            <div class="blog-comment__meta">
+              <span class="blog-comment__author">{comment.author}</span>
+              {comment.byAuthor && <span class="blog-comment__badge">Author</span>}
+              <span class="blog-comment__date">{comment.date}</span>
+            </div>
+            <p class="blog-comment__text">{comment.text}</p>
+            {comment.pending && (
+              <p class="blog-comment__note">
+                Held for review. Only you can see this until it clears.
+              </p>
+            )}
+
+            {/* Held back on a pending row: nothing can be replied to or liked
+                until it is public, and offering the buttons would imply it is. */}
+            {!comment.pending && (
+              <div class="blog-comment__actions">
+                <button
+                  type="button"
+                  class="blog-comment__act blog-comment__act--like"
+                  data-comment-like
+                  aria-pressed={comment.liked ? 'true' : 'false'}
+                  aria-label={`Like ${comment.author}'s comment`}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    aria-hidden="true"
+                  ><path d={HEART_PATH}></path></svg>
+                  <span class="blog-comment__act-count" data-like-count>{comment.likes ?? 0}</span>
+                </button>
+                <button
+                  type="button"
+                  class="blog-comment__act"
+                  data-reply-to={comment.id}
+                  data-reply-name={comment.author}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  ><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>
+                  Reply
+                </button>
+              </div>
+            )}
+          </div>
+        </article>
+      ))}
+
+      {/* One box, moved to whichever row is being answered. A hidden copy per
+          comment would multiply a textarea across the whole thread to show at
+          most one of them. */}
+      <div class="blog-reply" id="blog-reply" hidden>
+        <div class="blog-compose__box">
+          <label class="sr-only" for="blog-reply-text">Write a reply</label>
+          <textarea
+            id="blog-reply-text"
+            class="blog-compose__field blog-reply__field"
+            rows="2"></textarea>
+          <div class="blog-compose__foot">
+            <span class="blog-compose__hint" data-reply-label></span>
+            <span class="blog-reply__buttons">
+              <button type="button" class="blog-comment__act" data-reply-cancel>Cancel</button>
+              <button type="button" class="blog-compose__go">Reply</button>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )}
+</section>
+
+<script>
+  // Reply: the box is a single node that travels to the row being answered,
+  // so the thread never holds more than one open composer and Escape always
+  // means the same thing.
+  const box = document.getElementById('blog-reply');
+  const field = document.getElementById('blog-reply-text') as HTMLTextAreaElement | null;
+  const home = box?.parentElement ?? null;
+
+  function closeReply() {
+    if (!box || !home) return;
+    box.hidden = true;
+    home.append(box);
+    document.querySelector('[data-reply-to][aria-expanded="true"]')
+      ?.setAttribute('aria-expanded', 'false');
+  }
+
+  if (box && field && home) {
+    const label = box.querySelector<HTMLElement>('[data-reply-label]');
+
+    document.querySelectorAll<HTMLElement>('[data-reply-to]').forEach((button) => {
+      button.setAttribute('aria-expanded', 'false');
+      button.setAttribute('aria-controls', 'blog-reply');
+      button.addEventListener('click', () => {
+        const open = button.getAttribute('aria-expanded') === 'true';
+        closeReply();
+        if (open) return;
+        const name = button.dataset.replyName ?? '';
+        button.setAttribute('aria-expanded', 'true');
+        if (label) label.textContent = `Replying to ${name}`;
+        field.placeholder = `Reply to ${name}…`;
+        button.closest('.blog-comment')?.querySelector('.blog-comment__body')?.append(box);
+        box.hidden = false;
+        field.focus();
+      });
+    });
+
+    box.querySelector('[data-reply-cancel]')?.addEventListener('click', closeReply);
+    box.addEventListener('keydown', (event) => {
+      if ((event as KeyboardEvent).key === 'Escape') closeReply();
+    });
+  }
+
+  // Like: optimistic locally so the press has an answer before the round trip.
+  // The count and the pressed state both move, because motion is never the
+  // only channel a state change travels on.
+  document.querySelectorAll<HTMLElement>('[data-comment-like]').forEach((button) => {
+    const count = button.querySelector<HTMLElement>('[data-like-count]');
+    button.addEventListener('click', () => {
+      const liked = button.getAttribute('aria-pressed') === 'true';
+      button.setAttribute('aria-pressed', String(!liked));
+      if (!count) return;
+      const next = Number(count.textContent ?? 0) + (liked ? -1 : 1);
+      count.textContent = String(Math.max(0, next));
+    });
+  });
+</script>
