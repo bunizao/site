@@ -84,8 +84,7 @@ Unchanged from v1; properties of the system, not preferences.
 | --- | --- |
 | Signed one-time token | `notify/server/security.ts` HMAC token, lifted to a shared `src/lib/email-challenge.ts` with a `purpose` field (unchanged from v1) |
 | Email delivery | Resend via `notify/server/resend.ts` + `templates.ts` |
-| Model calls | `mood-sentiment.ts` pattern: `@ai-sdk/openai`, `Output.object`, `temperature: 0`, primary/fallback pair |
-| Model config | KV-backed config a la `mood-ai-config.ts`, key `comments:ai:config`, editable from the portal |
+| Moderation | Akismet `comment-check` (`AKISMET_API_KEY`; `AKISMET_TEST_MODE=1` on staging so probes never train the classifier) |
 | Bot defence | `site-api` `src/lib/security/turnstile.ts`; the blog page already receives `turnstileSiteKey` |
 | Rate limiting | `withDurableRateLimit` (`RateLimitDO`). The sibling `withRateLimit` is observability-only and must not be used on write paths |
 | Edge rate limits | `scripts/configure-cloudflare-rate-limits.ts` |
@@ -109,9 +108,13 @@ grade the browser holds:
 | **L1 verified email** | Click the link in the lazy-verification mail, press the button | A row in the reader table shared with the newsletter: manage all your comments from any browser via `/subscribe/manage`, opt into reply notifications, one-tap subscribe |
 | **L2 OAuth** | GitHub or Google, one click (phase 3) | L1 instantly, plus provider avatar and display name pre-filled |
 
-The compose box needs **name and email, both required**. The email is what
-makes the avatar work (Gravatar chain below), pre-arms lazy verification, and
-is the natural key that later unifies with the subscriber list. The name is
+The compose box needs **a name; the email is optional**. Requiring the
+address just manufactured fakes — and every fake fed the verification-mail
+bounce exposure the suppression ledger exists to absorb. A supplied email is
+what makes the avatar work (Gravatar chain below), pre-arms lazy
+verification, and is the natural key that later unifies with the subscriber
+list; an omitted one means the comment is owned by its anon session alone
+(identicon avatar, no reply notifications, never claimable). The name is
 the reader's own choice, never derived from the email's local part — deriving
 it would publish an address fragment beside their words.
 
@@ -123,29 +126,35 @@ is the kill switch. The one thing an unverified address can **never** do is
 receive email (see Notifications) — that line is what keeps us from being an
 open relay, and it is not negotiable.
 
-### Compose: name + email, post immediately
+### Compose: name required, email recommended, post immediately
 
 1. The field is writable from first paint. Primary button always says Post.
-2. First Post press with an empty identity row reveals it: name + email under
-   the draft. (An empty draft reveals nothing and focuses the field.)
-3. Second press submits: Turnstile token, honeypot, dwell-time stamp, body,
-   name, email. `site-api` runs the risk stack and moderation **inline** and
-   answers `published` or `held`. The row appears in the thread immediately —
-   real, not optimistic-pending.
-4. The response sets the `reader_anon` cookie. Name and email mirror into
+2. First Post press with an empty identity row reveals it: name (required) +
+   email (optional) under the draft. (An empty draft reveals nothing and
+   focuses the field.)
+3. A Post press with the email still empty arms a one-shot green
+   recommendation box — benefit-framed (reply notifications, your own
+   avatar), never an error state — and the next press submits as anonymous.
+   A filled email submits on the first press. The second press is the
+   "post without email" confirmation, so the friction only ever lands on
+   the no-email path and carries information.
+4. The submit carries: Turnstile token, honeypot, dwell-time stamp, body,
+   name, email (when given). `site-api` runs the risk stack and moderation
+   **inline** and answers `published` or `held`. The row appears in the
+   thread immediately — real, not optimistic-pending.
+5. The response sets the `reader_anon` cookie. Name and email mirror into
    `localStorage` (`buxx:reader`), so the identity row never has to be typed
    twice on this browser; on later visits the box footer shows the claimed
    identity ("以 {name} 的身份评论 · 换一个") instead of the input row.
-5. If the email is not yet a verified reader, the receipt area under the box
+6. If a supplied email is not yet a verified reader, the receipt area under the box
    shows one non-blocking line: verification nudge and, when applicable, the
    subscribe offer (see below). Dismissable; never modal; never gates anything.
 
 Moderation now runs on every accepted submission rather than only on verified
-ones, so the v1 property "unverified spam costs zero model tokens" is gone.
-The replacement bound: nothing reaches the model without passing Turnstile,
-the honeypot, dwell time, heuristics, and rate limits — and the model is a
-nano-class call. Cost stays pennies unless someone burns effort defeating
-Turnstile, at which point the shadow-ban list and edge rules take over.
+ones. Nothing reaches Akismet without passing Turnstile, the honeypot, dwell
+time, heuristics, and rate limits, and a comment-check call is cheap; if
+someone burns effort defeating Turnstile, the shadow-ban list and edge rules
+take over.
 
 ### Lazy verification: a link and a button
 
@@ -278,22 +287,26 @@ is blog-scoped, so a future surface (mood reactions, whatever) reuses the
 session and the `/v2/reader/*` endpoints as-is. Separate OAuth apps from
 admin's, per constraint 4.
 
-### Moderation: one general model, given the post as context
+### Moderation: Akismet
 
-Unchanged from v1, summarised: purpose-built guard models (omni-moderation,
-Llama Guard, ShieldGemma…) classify *harm*, not *spam*, and mostly not in
-Chinese; so moderation is one nano-class general model call, bilingual prompt,
-given the post title + excerpt as context, returning
-`publish | hold | reject | unsure` plus a reason enum and one-line note.
-`temperature: 0`, primary/fallback pair, KV config `comments:ai:config`
-editable from the portal. Fail closed to `held` on error or `unsure` — a held
-comment is visible to its writer with the "Held for review" note and to the
-owner in the portal queue.
+Replaced the v1/v2 LLM-gateway call (task-guard alias, `comments:ai:config`
+KV pair). Akismet is the purpose-built comment-spam service: it takes the
+request-level signals a text-only model never saw (IP, user agent, referrer,
+permalink) alongside the body and author fields, carries two decades of
+cross-site reputation data, and answers in ~100-400ms instead of 2-3s — so
+the submit round-trip usually publishes synchronously instead of riding the
+held-then-upgrade continuation. Mapping: ham → `publish`; spam → `hold` (the
+owner can rescue a false positive); the `X-akismet-pro-tip: discard` header
+("blatant spam") → `reject`, so a spam wave never floods the queue. Fail
+closed to `held` on any error, timeout, or non-verdict — a held comment is
+visible to its writer with the "Held for review" note and to the owner in
+the moderation queue. Toxicity that is not spam-shaped is out of Akismet's
+scope on purpose: the owner reads every comment and can delete or
+shadow-ban, which is the real enforcement layer on a personal blog.
 
-New in v2: the call happens **inline on submit** (there is no verification
-step to defer it to). Budget guarded by the risk stack below; latency is
-acceptable because a held-vs-published answer is exactly what the submit
-receipt wants to show.
+The call happens **inline on submit** (there is no verification step to
+defer it to), budget-guarded by the risk stack below — a flood never
+reaches Akismet.
 
 ### The risk stack
 
@@ -328,13 +341,12 @@ cost zero tokens.
    and none at all to an address on the suppression ledger (bounced or
    complained, fed by the Resend webhook at `/webhooks/resend`) or on a
    domain DNS says cannot receive mail (DoH MX/A check, cached, fails open).
-7. **Model moderation** (above).
+7. **Akismet moderation** (above).
 8. **Shadow-ban list**: KV set keyed by email_hash / ip_hash / fingerprint;
    listed writers get `held` unconditionally and never know. Portal-managed.
-9. **Optional second opinion**: Akismet (free personal tier) as a
-   post-model asynchronous check that can flip `published → held` and page the
-   owner. Behind a flag, off at launch — added only if the model alone
-   misses real spam.
+9. ~~**Optional second opinion**: Akismet as a post-model check~~ — retired:
+   Akismet was promoted to the primary moderation layer (step 7) and the
+   LLM path it was meant to double-check is gone.
 
 **Fingerprint**, defined precisely: `fp_hash = hash(ip /24 + UA + salt)` plus
 retained raw signals `ip_hash`, `ua`, `country`, `asn` on each comment row.
@@ -382,9 +394,10 @@ receipt-ledger pattern.
 The privacy policy update lands in the same PR as phase 1 and now declares:
 comment records (name, email, body), the anon and reader session cookies,
 server-derived risk signals (IP hash, UA, country, ASN) and their 90-day
-retention, the avatar chain (QQ/Cravatar/Gravatar as processors), **the model
-provider as a processor for comment text**, and the deletion route. The v1
-sentence still applies: the processor line is the legally interesting one.
+retention, the avatar chain (QQ/Cravatar/Gravatar as processors), **Akismet
+(Automattic) as a processor for comment text, author fields, IP, and user
+agent**, and the deletion route. The v1 sentence still applies: the
+processor line is the legally interesting one.
 
 ## Data model
 
@@ -544,8 +557,8 @@ Each phase ships alone; nothing in 1 waits on 2.
 7. **Server-side risk signals are retained** (ip_hash, ua, country, asn,
    fp_hash; 90-day retention on rows), declared in the privacy policy. No
    client-side fingerprinting. Signals are never identity.
-8. **Moderation**: one nano-class general model, post as context, inline on
-   submit, fail closed to `held`. (Carried from v1.)
+8. **Moderation**: Akismet comment-check, inline on submit, fail closed to
+   `held`. (Replaced the v1/v2 general-model call.)
 9. **ops-bot notifies only**; actions live in the portal. (Carried.)
 10. **The heart is pink** via the `xia` token, reaction-only scope. (Carried.)
 11. **Edit window 15 minutes, delete any time**, tombstone when replied-to.
@@ -565,8 +578,8 @@ Each phase ships alone; nothing in 1 waits on 2.
    comments to whoever types their address.
 3. **Rejected-row retention**: 30 days then hard delete (carried from v1),
    vs keeping a spam corpus. My call stands: 30 days.
-4. **Model default** for `comments:ai:config`: bake-off on twenty real
-   Chinese comments before writing the default. (Carried.)
+4. ~~**Model default** for `comments:ai:config`~~ — retired with the LLM
+   path; moderation is Akismet now (see "Moderation: Akismet").
 5. **Comment key**: confirm Ghost `post.id` stability on one real post before
    the migration lands. (Carried.)
 

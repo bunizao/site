@@ -35,7 +35,8 @@ site-api-staging                              ← clone of `site-api`
                                                  would steal prod queue messages
    Resend: real key (real emails, our inboxes only)
    Telegram ops bot: real token (messages carry staging URLs, self-labeling)
-   AI: real key via comments:ai:config in staging KV
+   Akismet: real AKISMET_API_KEY, with AKISMET_TEST_MODE=1 so staging
+   probes never train the classifier
 ```
 
 Facts that make this work (verified in code):
@@ -120,8 +121,9 @@ Risk stack, one probe per gate (assert both the HTTP response and the stored
 - Disposable email domain → per design. Length caps → 400.
 - Duplicate `body_hash` → held. Burst posting → DO rate limit 429
   (fresh DO namespace = clean counters).
-- LLM moderation fail-closed: with `comments:ai:config` unset → held. Set the
-  config → benign text publishes, hostile text held with moderation fields.
+- Akismet moderation fail-closed: with `AKISMET_API_KEY` unset → held. Set
+  the key → benign text publishes; `comment_author: viagra-test-123` (the
+  documented Akismet test trigger) held as spam with moderation fields.
 - Shadow-ban KV entry → author still sees own comment, others don't.
 - Telegram ops notification arrives for publish and for held.
 

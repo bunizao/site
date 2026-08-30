@@ -6,10 +6,12 @@ order: 5.5
 ---
 
 Comments on `/blog/[slug]` are anonymous-first: reading is open to everyone,
-and posting a comment or reacting needs only a name and an email — no
-account, no verification gate. Email verification and OAuth sign-in are
-upgrade paths (grades L1/L2 below), never a door charge, and the address
-itself never appears in a response body or public HTML.
+and posting a comment or reacting needs only a name — the email is optional.
+An address buys reply notifications, a persistent avatar, and the claiming
+path; leaving it empty just means the comment belongs to its anonymous
+session alone. Email verification and OAuth sign-in are upgrade paths
+(grades L1/L2 below), never a door charge, and the address itself never
+appears in a response body or public HTML.
 
 Not `mood`'s per-post comment count (see
 [Mood API](/docs/api/mood#comments)) — this is a separate feature, a
@@ -95,10 +97,16 @@ POST /api/v2/comments
 
 `body` is 1-2000 characters. `displayName` is 1-32 characters, no control
 characters, and can't collide with a small reserved list (the blog owner's
-own names). `turnstileToken` uses `expectedAction: 'blog_comment_create'`.
+own names). `email` is optional — omitted or empty means an anonymous
+comment (session-owned, identicon avatar, no reply notifications, never
+claimable); a non-empty value must be a valid address (`400` otherwise).
+`turnstileToken` uses `expectedAction: 'blog_comment_create'`.
 `dwellToken` is minted by `GET /api/v2/comments/dwell-token` (see below) —
 required. `website` is a visually-hidden honeypot field; a human never fills
 it in. `notifyReplies` only takes effect once the address is verified.
+
+A comment written without an email serializes with `avatarUrl: ""`; the
+client renders a deterministic identicon for it.
 
 Every submission runs the full risk stack, in order:
 
@@ -126,10 +134,12 @@ Every submission runs the full risk stack, in order:
    [Rate limits](/docs/api/overview#rate-limits)) — the only rate-limited
    route family on this whole site running in durable, not observability,
    mode.
-5. **Model moderation** (skipped when heuristics already held) — one
-   general-purpose model call given the post's title and excerpt as
-   context, `publish`/`hold`/`reject`/`unsure`. Fails closed to `hold` on
-   any model error or an `unsure` verdict.
+5. **Akismet moderation** (skipped when heuristics already held) — one
+   `comment-check` call carrying the body, author fields, IP, user agent,
+   referrer, and post permalink. Ham publishes; spam holds (the owner can
+   rescue a false positive); Akismet's "blatant spam" signal rejects so a
+   spam wave never floods the moderation queue. Fails closed to `hold` on
+   any error, timeout, or non-verdict response.
 6. **Shadow-ban.** A shadow-banned writer's otherwise-`publish` verdict is
    quietly downgraded to `hold` — they see their own comment as normal;
    nobody else ever does.
@@ -138,11 +148,13 @@ Every submission runs the full risk stack, in order:
 { "outcome": "published", "comment": { "...": "..." }, "unverifiedEmail": true }
 ```
 
-`outcome` is `"published"` or `"held"`. `unverifiedEmail` is true when
-`email` doesn't already belong to a verified reader — the client shows the
-verification nudge. On the true first comment from an unverified address, a
-lazy-verification email goes out automatically (see below); this call never
-waits on that send.
+`outcome` is `"published"` or `"held"`. `unverifiedEmail` is true when a
+supplied `email` doesn't already belong to a verified reader — the client
+shows the verification nudge. It is always false when no email was sent;
+the add-an-email recommendation is the client's own state, not this flag.
+On the true first comment from an unverified address, a lazy-verification
+email goes out automatically (see below); this call never waits on that
+send. A create without an email never sends mail at all.
 
 **Errors:** `400` for a malformed body (see the field list above for exact
 messages), `400 invalid_parent` for a `parentId` that doesn't exist, isn't a
