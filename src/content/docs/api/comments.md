@@ -111,9 +111,17 @@ Every submission runs the full risk stack, in order:
 3. **Heuristics** (disposable email domain, keyword blocklist, link count,
    first link from a first-time session) — a hit **holds** the comment (it
    is created, but only its writer can see it) rather than dropping it.
+   A verified (L1/L2) writer skips the two holds that exist to price out
+   throwaway identities — the disposable-domain check and the
+   first-session-link hold — and gets a higher link ceiling (4 instead
+   of 2). The duplicate-body tripwire and the keyword blocklist apply to
+   everyone.
 4. **Rate limits**, durably enforced across three dimensions (anonymous
    session, IP, server-derived fingerprint) and two windows each: 3/minute
-   and 10/hour. The first exhausted limit returns `429` with the standard
+   and 10/hour for anonymous writers; 6/minute and 30/hour for verified
+   readers, who are additionally budgeted on a fourth per-`reader_id`
+   dimension so their allowance follows the account rather than the
+   network. The first exhausted limit returns `429` with the standard
    `X-RateLimit-*`/`Retry-After` headers (see
    [Rate limits](/docs/api/overview#rate-limits)) — the only rate-limited
    route family on this whole site running in durable, not observability,
@@ -243,7 +251,11 @@ against the same Ghost post registry `POST /api/v2/comments` uses.
 ```
 
 Rate-limited at 30/minute per identity (reader, or a keyed hash of the
-anonymous session), durably enforced. **Errors:** `400` for a malformed
+anonymous session), durably enforced, plus hashed-IP network budgets that
+exist to stop anonymous cookie churn: 30/minute and 120/hour per IP.
+A verified reader — whose identity cannot churn — is exempt from the
+per-minute IP cap and bound only by their own identity budget and the
+hourly network ceiling. **Errors:** `400` for a malformed
 body, `400 turnstile_failed` / `503 turnstile_unavailable`, `404 not_found`
 for an unknown target, `503 reaction_target_unavailable`.
 
@@ -332,8 +344,18 @@ limit below — this can never be used to probe which addresses have
 commented. Two independent rate limits apply, both durably enforced: a
 per-IP route limit (5/minute, answers `429` — this one carries no address
 information, so it's safe to surface) and a per-address send suppression (1
-mail per 10 minutes, 5 per day — enforced silently inside the send path,
-never surfaced as a `429` here).
+mail per 10 minutes, 5 per day, 8 per 30 days — enforced silently inside
+the send path, never surfaced as a `429` here).
+
+Beyond the counters, the send path itself refuses two classes of address
+outright, equally silently: anything on the suppression ledger (an address
+that ever hard-bounced or raised a spam complaint — fed by the Resend
+delivery webhook, see [internal routes](/docs/api/internal)), and anything
+whose domain verifiably cannot receive mail (no MX and no fallback address
+record, checked over DNS-over-HTTPS with a per-domain cache; DNS trouble
+fails open). Both guards protect the sending domain's bounce and complaint
+rates — the numbers mail providers score reputation on — from the fake
+addresses a no-account comment box inevitably collects.
 
 ## Reader avatar
 

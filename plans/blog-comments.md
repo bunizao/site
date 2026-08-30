@@ -310,15 +310,24 @@ cost zero tokens.
 4. **Dwell time**: the form embeds a signed server timestamp at first
    interaction; submits younger than ~3s → drop. Bots type fast.
 5. **Heuristics** (pure functions, KV-configurable):
-   - link count > 2 → hold; any link on a first-time session → hold
+   - link count > 2 → hold (verified readers: > 4); any link on a
+     first-time session → hold (skipped for verified readers)
    - keyword blocklist (KV, portal-editable)
    - disposable-email domain list (vendored from the public
-     disposable-email-domains dataset)
+     disposable-email-domains dataset; skipped for verified readers — they
+     already proved the mailbox)
    - duplicate body hash across recent comments → drop
    - body length bounds (1–2000 chars, request body ≤ 16 KiB)
 6. **Durable rate limits** (`withDurableRateLimit`): per IP, per anon session,
-   per fingerprint — 10 comments/hour, 3/minute; 30 reaction toggles/minute;
-   1 verification mail per address per 10 minutes, 5/day.
+   per fingerprint — 10 comments/hour, 3/minute for anonymous writers;
+   verified readers are judged at 30/hour, 6/minute and additionally
+   budgeted per reader_id so a shared NAT can't starve them. 30 reaction
+   toggles/minute per identity plus hashed-IP churn budgets (30/minute —
+   waived for verified readers, whose identity can't churn — and 120/hour);
+   1 verification mail per address per 10 minutes, 5/day, 8/30 days —
+   and none at all to an address on the suppression ledger (bounced or
+   complained, fed by the Resend webhook at `/webhooks/resend`) or on a
+   domain DNS says cannot receive mail (DoH MX/A check, cached, fails open).
 7. **Model moderation** (above).
 8. **Shadow-ban list**: KV set keyed by email_hash / ip_hash / fingerprint;
    listed writers get `held` unconditionally and never know. Portal-managed.

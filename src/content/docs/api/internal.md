@@ -70,6 +70,7 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
 | `/v2/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
 | `/webhooks/telegram` | Receives Telegram mood events. | Telegram secret token |
+| `/webhooks/resend` | Receives Resend delivery events (bounces, complaints) and feeds the outbound-email suppression ledger. | Svix signature |
 
 ## Scheduled notification routes
 
