@@ -11,6 +11,8 @@
 // runs both implementations on the same fixtures and fails on divergence. The
 // module version still runs after hydration as an idempotent safety net.
 (() => {
+  const feedList = document.querySelector('[data-mood-list]');
+  if (!feedList) return;
   try {
     const MONTH_NAMES = [
       'January', 'February', 'March', 'April', 'May', 'June',
@@ -78,8 +80,7 @@
       return { group, items };
     };
 
-    const list = document.querySelector('[data-mood-list]');
-    if (!list) return;
+    const list = feedList;
     const ownerDocument = list.ownerDocument;
     if (!ownerDocument) return;
 
@@ -152,5 +153,9 @@
     });
   } catch {
     // Leave the SSR grouping in place; the hydrated controller still rekeys.
+  } finally {
+    // The list is server-rendered with visibility:hidden so the regroup above
+    // never mutates painted content. Reveal it whether or not the rekey ran.
+    feedList.style.removeProperty('visibility');
   }
 })();
