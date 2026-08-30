@@ -42,7 +42,7 @@ Superseded v1 decisions, recorded here so the reversal is explicit:
   shared across comments, reactions, and subscriptions.
 - **`blog_readers` as a comments-only table** → replaced. There is one reader
   table for the whole site, and it is the subscriber table grown up (see Data
-  model). The drafted `0011_blog_comments.sql` in the `site-api`
+  model). The drafted `0016_blog_comments.sql` in the `site-api`
   `blog-comments` worktree reflects v1 and must be reworked before it lands.
 
 What did **not** change: the moderation design (one small general model, given
@@ -380,7 +380,7 @@ sentence still applies: the processor line is the legally interesting one.
 ## Data model
 
 All in `NOTIFY_DB` (`scripts/sql/migrations/` in `site-api`). The drafted
-`0011_blog_comments.sql` in the site-api `blog-comments` worktree implements
+`0016_blog_comments.sql` in the site-api `blog-comments` worktree implements
 v1 (pending_verification status, token table, comments-only reader table) and
 gets reworked to this shape.
 
@@ -564,7 +564,7 @@ Each phase ships alone; nothing in 1 waits on 2.
 ## Dependencies
 
 - `site-api` owns the migration, risk stack, moderation, and all `/v2/*`
-  routes; rework its `blog-comments` worktree draft (`0011_blog_comments.sql`)
+  routes; rework its `blog-comments` worktree draft (`0016_blog_comments.sql`)
   to the v2 shape before anything lands.
 - Contract types land here first, sync via `bun run sync:contracts`.
 - Docs: `/docs/api/*` pages for every route above (coverage guard),

@@ -103,3 +103,60 @@ Supplementary (not in runbook): pre-apply `COUNT(request_version)=0`,
 - The prod dump at `.wrangler/rehearsal/site-notify-prod-2026-08-30.sql`
   (site-api worktree, gitignored) — the cutover backup artifact.
 - `wrangler.staging.jsonc` committed on `wt/blog-comments`.
+
+---
+
+# Re-run after fix — same day, 06:30–06:45 Melbourne
+
+## Verdict
+
+**Verdict: 0016 is safe to apply to prod — all 7 subscriber rows, including
+`request_version`, survive the rebuild verbatim.**
+
+## The fix (site-api `wt/blog-comments`)
+
+- `f1e2c84` `chore(migrations): backfill 0007-0015 from main` — the nine
+  migration files prod has applied but the branch predated, byte-identical
+  from `main`.
+- `adceb53` `fix(migrations): renumber blog comments migration and carry
+  request_version` — `0011_blog_comments.sql` → `0016_blog_comments.sql`;
+  `request_version TEXT` added to `notify_subscribers_new` and both copy
+  lists; code comment references updated (`readers.ts`,
+  `comments-oauth-routes.test.ts`).
+- Plans updated in this worktree: `blog-comments.md` and
+  `comments-staging-test.md` renamed references; the rehearsal runbook now
+  expects the 0002–0016 series, 14 `d1_migrations` rows, `0016` pending, and
+  carries `request_version` in its fingerprint query.
+
+The branch remains 88 commits behind main overall — only the migrations dir
+was backfilled (append-only files, identical content, trivially mergeable).
+The eventual rebase is unaffected.
+
+## Re-rehearsal
+
+Staging reset per runbook step 4 (26 tables dropped), re-imported from the
+same dump (sha256 unchanged), re-scrubbed (7 emails, 455 analytics rows).
+Bookkeeping now matched the corrected expectation exactly: 14 rows,
+0002–0015. Pending check: exactly `0016_blog_comments.sql`. Apply: 18
+commands, ✅.
+
+Fingerprints pre/post byte-identical, now including the column the first run
+could not measure:
+
+```
+n=7  with_status=7  confirmed=7  distinct_hashes=7
+email_len=259  channels_len=98  rv_nonnull=0  rv_len=0
+min_created=2026-02-10T11:33:20.040Z  max_updated=2026-08-29T16:38:30.980Z
+status breakdown: active=7
+```
+
+All step-10 assertions passed again: table set, all 11 indexes (partial
+unique `reader_id` intact), no pending migrations, probes 1–5 (NULL-status
+reader insert OK, duplicate `reader_id` UNIQUE-fails, bogus statuses
+CHECK-fail on both tables, `held` comment inserts), probe cleanup verified
+(subscribers=7, comments=0, reactions=0).
+
+Staging now holds the post-0016 schema — phase 1 can build on it directly.
+Prod cutover: run the same `d1 migrations apply` shape against prod config
+from `wt/blog-comments` at `adceb53` or later, with the dump as the backup
+artifact.

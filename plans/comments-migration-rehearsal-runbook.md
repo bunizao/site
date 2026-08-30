@@ -7,7 +7,7 @@ Results — including bad ones — are findings to report, never to massage.
 
 ## Mission
 
-Rehearse migration `0011_blog_comments.sql` against a staging copy of the
+Rehearse migration `0016_blog_comments.sql` against a staging copy of the
 production `site-notify` D1 database, proving the `notify_subscribers`
 rebuild-and-swap preserves every subscriber row before the same command
 sequence ever runs on prod. Scope is the migration only: no worker deploys, no
@@ -68,7 +68,9 @@ bunx wrangler whoami            # must succeed; else ABORT per Environment
 git rev-parse --abbrev-ref HEAD # expect wt/blog-comments
 mkdir -p .wrangler/rehearsal
 ```
-Confirm `scripts/sql/migrations/` contains exactly 0002–0006 and 0011.
+Confirm `scripts/sql/migrations/` contains exactly 0002–0015 and 0016 (the
+series backfilled from main on 2026-08-30 plus the renumbered comments
+migration).
 
 ### 1. Staging database
 
@@ -124,8 +126,9 @@ bunx wrangler d1 execute site-notify-staging --remote \
   --file .wrangler/rehearsal/site-notify-prod-2026-08-30.sql
 ```
 Then verify migration bookkeeping came through:
-`SELECT id, name FROM d1_migrations ORDER BY id` — expect rows for 0002–0006
-and NOT 0011. If `d1_migrations` is missing or empty, the dump import is the
+`SELECT id, name FROM d1_migrations ORDER BY id` — expect 14 rows for
+0002–0015 (prod's applied series, including `0011_notify_email_outbox.sql`)
+and NOT 0016. If `d1_migrations` is missing or empty, the dump import is the
 problem — fix the import rather than hand-inserting rows; hand-insert only as
 a last resort and flag it in the report.
 
@@ -159,6 +162,8 @@ SELECT COUNT(*) AS n, COUNT(status) AS with_status,
        COUNT(DISTINCT email_hash) AS distinct_hashes,
        COALESCE(SUM(LENGTH(email)), 0) AS email_len,
        COALESCE(SUM(LENGTH(channels)), 0) AS channels_len,
+       COUNT(request_version) AS rv_nonnull,
+       COALESCE(SUM(LENGTH(request_version)), 0) AS rv_len,
        MIN(created_at) AS min_created, MAX(updated_at) AS max_updated
 FROM notify_subscribers;
 
@@ -169,7 +174,7 @@ FROM notify_subscribers GROUP BY 1 ORDER BY 1;
 ### 8. Pending check
 
 `bunx wrangler d1 migrations list NOTIFY_DB -c wrangler.staging.jsonc --remote`
-must list exactly `0011_blog_comments.sql` as pending. Anything else pending
+must list exactly `0016_blog_comments.sql` as pending. Anything else pending
 means the bookkeeping is wrong — go back to step 5, do not apply.
 
 ### 9. Apply — the moment the rehearsal exists for
@@ -214,7 +219,7 @@ Constraint probes (staging writes, cleaned up after):
 1. Write `notes/comments-migration-rehearsal.md` in the SITE worktree: what
    ran, timings, dump size + sha256 (path only, no contents), fingerprints
    pre/post, every assertion's outcome, any self-repairs performed, and an
-   explicit verdict line: `Verdict: 0011 is safe to apply to prod` or
+   explicit verdict line: `Verdict: 0016 is safe to apply to prod` or
    `Verdict: DO NOT apply — <reason>`.
 2. Commit (both are local-only, `--no-gpg-sign`):
    - site-api worktree: `wrangler.staging.jsonc` →
@@ -222,7 +227,7 @@ Constraint probes (staging writes, cleaned up after):
    - site worktree: the notes file →
      `docs(notes): record comments migration rehearsal`
 3. PushNotification, one line, either
-   `Rehearsal passed: 0011 preserves all N subscriber rows, staging ready` or
+   `Rehearsal passed: 0016 preserves all N subscriber rows, staging ready` or
    `Rehearsal FAILED at step X: <one-line reason>`.
 4. Leave `site-notify-staging` and the dump in place — phase 1 (staging
    workers + behavior tests) builds on both. Do not tear down.

@@ -7,7 +7,7 @@ registration + DB writes, comment edit/reply/delete, and the risk stack.
 
 ## Why a clone, not prod
 
-Migration `0011_blog_comments.sql` rebuild-and-swaps `notify_subscribers` — the
+Migration `0016_blog_comments.sql` rebuild-and-swaps `notify_subscribers` — the
 table holding real newsletter subscribers. First application must happen against
 a copy, not the live table. Also: `COMMENTS_ENABLED` is **already `"true"` in
 site-api's prod vars**, so the next `wrangler deploy` of this branch to the prod
