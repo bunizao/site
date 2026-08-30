@@ -292,6 +292,11 @@ editable from the portal. Fail closed to `held` on error or `unsure` — a held
 comment is visible to its writer with the "Held for review" note and to the
 owner in the portal queue.
 
+Verified on staging after the rewrite: an off-topic one-liner and an off-topic,
+blunt, openly critical comment both **published**; a link-free Chinese spam ad
+was **rejected**. The link-free part matters — with no URL the heuristics could
+not catch it, so that verdict was the model's alone.
+
 The prompt is a safety filter, not an editor, and that took a rewrite to
 achieve. The v1 wording made `publish` a conjunction — on-topic *and* civil
 *and* no spam signals — and left `hold` as the widest category, described by
@@ -560,8 +565,9 @@ and is drawn rather than left native — at this size the platform control was
 1.53:1 against the page, and it is the only thing in the row anyone can press.
 
 **Failure messages** (`comment-error.ts`) are keyed by the reader's next move,
-not by the status: reconnect (`NET`), wait (`RATE`), refresh (`BOT`, `THREAD`),
-give up (`GONE`, `CLOSED`), reword (`INPUT`), try later (`SERVER`). One line for
+not by the status: reconnect (`NET`), wait (`RATE`), refresh (`BOT`, `THREAD`,
+`INPUT`), give up (`GONE`, `CLOSED`), fix a field (`NAME`, `EMAIL`), try later
+(`SERVER`). One line for
 all of them sent a rate-limited reader straight back into the limit and told a
 reader whose edit window had closed to try again. Each carries its code and
 status in a badge at the end of the alert — the sentence is for the reader
@@ -569,6 +575,22 @@ acting on it, the code is for the reader who has stopped acting and wants to
 report it. The classifier prefers a slug the server volunteered over the status
 it arrived with, because `400` and `503` each mean several things on this route
 family.
+
+It reads **every** field of the envelope, not the first one set. A refused
+Turnstile answers `{error: "turnstile_failed", code: "invalid_token"}`, where
+`error` is the category and `code` the sub-reason; returning the first hit
+picked the sub-reason, matched nothing, and dropped the most common bot-check
+failure into the `INPUT` catch-all — which then told the reader to reword a
+comment that was never the problem. `NAME` and `EMAIL` came out of the same
+catch-all for the same reason: a reserved display name and a rejected mail
+domain are both fixable, and neither is fixed by rewording. What is left in
+`INPUT` is stale page state (`dwellToken`, `postId`, `parentId`), so it says
+refresh.
+
+`dwellToken is required` is the one worth remembering: the dwell token is
+fetched separately from the submit, so a mobile network that drops that one
+request yields a plain `400 INPUT` on an otherwise perfect comment. That is a
+real failure seen in the wild, not a hypothetical.
 
 **Thread**: `skeleton` (exists), `empty` (exists), `loaded`, `load-more`
 (cursor button + loading), `error` (retry).
