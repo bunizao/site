@@ -30,4 +30,18 @@ describe('blog code blocks', () => {
       { kind: 'code', code: 'bun run build', lang: 'shell' },
     ]);
   });
+
+  test('promotes Mermaid code blocks into diagram fragments', () => {
+    const fragments = splitBlogProse([
+      '<p>Before</p>',
+      '<pre><code class="language-mermaid">flowchart LR\n  A --&gt; B</code></pre>',
+      '<p>After</p>',
+    ].join(''));
+
+    expect(fragments).toEqual([
+      { kind: 'html', html: '<p>Before</p>' },
+      { kind: 'mermaid', source: 'flowchart LR\n  A --> B' },
+      { kind: 'html', html: '<p>After</p>' },
+    ]);
+  });
 });

@@ -1,11 +1,13 @@
 import { load } from 'cheerio';
 import { isConversationLanguage, renderConversation } from '@/features/content/conversation';
+import { isMermaidLanguage } from '@/features/content/mermaid';
 import { DIRECTIVE_SOURCE_RE } from './directives/syntax';
 
 export type BlogProseFragment =
   | { kind: 'html'; html: string }
   | { kind: 'code'; code: string; lang: string }
-  | { kind: 'conversation'; source: string };
+  | { kind: 'conversation'; source: string }
+  | { kind: 'mermaid'; source: string };
 
 interface SourceLocation {
   startOffset: number;
@@ -82,11 +84,13 @@ export function splitBlogProse(html: string): BlogProseFragment[] {
     if (block.start > cursor) {
       fragments.push({ kind: 'html', html: html.slice(cursor, block.start) });
     }
-    fragments.push(
-      isConversationLanguage(block.lang)
-        ? { kind: 'conversation', source: block.code }
-        : { kind: 'code', code: block.code, lang: block.lang }
-    );
+    if (isConversationLanguage(block.lang)) {
+      fragments.push({ kind: 'conversation', source: block.code });
+    } else if (isMermaidLanguage(block.lang)) {
+      fragments.push({ kind: 'mermaid', source: block.code });
+    } else {
+      fragments.push({ kind: 'code', code: block.code, lang: block.lang });
+    }
     cursor = block.end;
   }
 

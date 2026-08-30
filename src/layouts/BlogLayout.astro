@@ -14,6 +14,7 @@ import {
   normalizeBlogMetaText,
 } from '@/features/posts/server/og-image';
 import BlogSearch from '@/features/posts/ui/BlogSearch.astro';
+import MermaidSupport from '@/features/content/ui/MermaidSupport.astro';
 import CommandPalette from '@/components/CommandPalette.astro';
 import PageScroller from '@/components/PageScroller.astro';
 import PerformanceDebugPanel from '@/components/PerformanceDebugPanel.astro';
@@ -450,6 +451,6 @@ const paletteCss = [
         }
       })();
     </script>
-
+    <MermaidSupport />
   </body>
 </html>

@@ -7,7 +7,7 @@ import cloudflare from '@astrojs/cloudflare';
 import { satteri } from '@astrojs/markdown-satteri';
 import sitemap from '@astrojs/sitemap';
 
-import { docsCodePlugin } from './src/features/docs/server/markdown-plugin.ts';
+import { contentCodePlugin } from './src/features/docs/server/markdown-plugin.ts';
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 
@@ -82,9 +82,9 @@ if (isCoverageEnabled) {
 
 export default defineConfig({
   markdown: {
-    // Docs fences carry a header strip and, when tagged `demo`, a slot the
-    // docs route fills with the rendered snippet. No-ops elsewhere.
-    processor: satteri({ mdastPlugins: [docsCodePlugin] }),
+    // Mermaid fences become shared diagrams. Other docs fences carry a header
+    // strip and, when tagged `demo`, a slot filled by the docs route.
+    processor: satteri({ mdastPlugins: [contentCodePlugin] }),
     // Dual-theme fences so markdown code blocks follow the site theme instead of
     // painting one fixed palette. `defaultColor: false` emits --shiki-light /
     // --shiki-dark custom properties rather than inline colors; the CSS picks a
