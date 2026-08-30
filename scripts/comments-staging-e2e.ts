@@ -201,6 +201,20 @@ function dbRow(id: string): any | null {
   return r[0] ?? null;
 }
 
+// The create endpoint answers within ~1.5s even when the AI verdict is still
+// in flight: the row inserts as held and the verdict lands via waitUntil.
+// Poll until the row leaves 'held' or the timeout passes; a row that is
+// genuinely held (heuristic, shadow-ban) simply rides out the timeout.
+async function dbRowSettled(id: string, timeoutMs: number): Promise<any | null> {
+  const deadline = Date.now() + timeoutMs;
+  let row = dbRow(id);
+  while (row && row.status === 'held' && Date.now() < deadline) {
+    await sleep(2000);
+    row = dbRow(id);
+  }
+  return row;
+}
+
 // -- identities -------------------------------------------------------------
 
 const E1 = 'bunizaoccc+stg1@gmail.com'; // anon author, later claims via verify
@@ -292,9 +306,12 @@ async function main() {
   {
     const r = await call(jE1, 'POST', '/api/v2/comments', createBody(jE1, { email: E1, body: C1_BODY, notifyReplies: true }));
     c1 = r.json?.comment ?? null;
-    const row = c1 ? dbRow(c1.id) : null;
-    const ok = r.status === 201 && r.json?.outcome === benignOutcome && !!row && row.status === benignOutcome && r.json?.unverifiedEmail === true;
-    record('C1', `anon benign create -> ${benignOutcome} + DB row + unverifiedEmail`, ok, `status=${r.status} outcome=${r.json?.outcome} db=${row?.status} unverified=${r.json?.unverifiedEmail}`);
+    // Wire outcome is 'published' when the verdict beat the 1.5s deadline,
+    // 'held' when it went async -- both are correct; the DB row settles.
+    const wireOk = aiUp ? (r.json?.outcome === 'published' || r.json?.outcome === 'held') : r.json?.outcome === 'held';
+    const row = c1 ? await dbRowSettled(c1.id, aiUp ? 15_000 : 0) : null;
+    const ok = r.status === 201 && wireOk && !!row && row.status === benignOutcome && r.json?.unverifiedEmail === true;
+    record('C1', `anon benign create -> db settles ${benignOutcome} + unverifiedEmail`, ok, `status=${r.status} outcome=${r.json?.outcome} db=${row?.status} unverified=${r.json?.unverifiedEmail}`);
   }
   {
     const r = await call(jE1, 'POST', '/api/v2/comments', createBody(jE1, { email: E1, body: `C2 links ${RUN} https://a.example https://b.example https://c.example` }));
@@ -410,9 +427,10 @@ async function main() {
   if (c1) {
     const r = await call(jE2, 'POST', '/api/v2/comments', createBody(jE2, { email: E2, body: '同感，最近也常有这种时刻，看到有人写出来就安心了些。', parentId: c1.id }));
     r1 = r.json?.comment ?? null;
-    const row = r1 ? dbRow(r1.id) : null;
-    const ok = r.status === 201 && r.json?.outcome === benignOutcome && row?.parent_id === c1.id && !!row?.reader_id && r.json?.unverifiedEmail === false;
-    record('R1', `verified reply -> ${benignOutcome}, parent + reader_id set, no verify nudge`, ok, `status=${r.status} outcome=${r.json?.outcome} parent=${row?.parent_id === c1.id} reader=${!!row?.reader_id} unverified=${r.json?.unverifiedEmail}`);
+    const wireOk = aiUp ? (r.json?.outcome === 'published' || r.json?.outcome === 'held') : r.json?.outcome === 'held';
+    const row = r1 ? await dbRowSettled(r1.id, aiUp ? 15_000 : 0) : null;
+    const ok = r.status === 201 && wireOk && row?.status === benignOutcome && row?.parent_id === c1.id && !!row?.reader_id && r.json?.unverifiedEmail === false;
+    record('R1', `verified reply -> db settles ${benignOutcome}, parent + reader_id set, no verify nudge`, ok, `status=${r.status} outcome=${r.json?.outcome} db=${row?.status} parent=${row?.parent_id === c1.id} reader=${!!row?.reader_id} unverified=${r.json?.unverifiedEmail}`);
   } else {
     skip('R1', 'verified reply', 'C1 missing');
   }
@@ -425,12 +443,14 @@ async function main() {
     // shadow-ban flip only converts a publish verdict into a hold, so a
     // body the model itself holds or rejects would never exercise it.
     const r = await call(jE4, 'POST', '/api/v2/comments', createBody(jE4, { email: E4, body: '写得真好，很多话像是替我说出来的，收藏了。' }));
-    const row = r.json?.comment ? dbRow(r.json.comment.id) : null;
-    record('C7', 'shadow-banned email -> held despite benign body', r.status === 201 && r.json?.outcome === 'held' && row?.status === 'held', `status=${r.status} db=${row?.status ?? 'missing'}`);
+    // An 8s settle window proves the async continuation also respects the
+    // ban -- the flip must hold whether the verdict beat the deadline or not.
+    const row = r.json?.comment ? await dbRowSettled(r.json.comment.id, 8_000) : null;
+    record('C7', 'shadow-banned email -> stays held despite benign body', r.status === 201 && r.json?.outcome === 'held' && row?.status === 'held', `status=${r.status} db=${row?.status ?? 'missing'}`);
   }
   if (aiUp) {
     const r = await call(jE1, 'POST', '/api/v2/comments', createBody(jE1, { email: E1, body: `C8 you are all worthless idiots and I hope this site burns ${RUN}` }));
-    const row = r.json?.comment ? dbRow(r.json.comment.id) : null;
+    const row = r.json?.comment ? await dbRowSettled(r.json.comment.id, 15_000) : null;
     // A reject verdict stores status='rejected' but the wire outcome is
     // always 'held' -- the API never tells a writer they were rejected.
     // Both held and rejected rows prove the model caught it.
