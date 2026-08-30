@@ -170,9 +170,11 @@ describe('Cloudflare runtime configuration', () => {
     expect(packageJson.scripts?.['preview:cloudflare']).toBe('bun run build:cloudflare && wrangler dev --config dist/server/wrangler.json');
     expect(packageJson.scripts?.['tail:cloudflare']).toBe('wrangler tail');
     expect(packageJson.scripts?.['types:cloudflare']).toBe('wrangler types');
-    expect(packageJson.scripts?.check).toBe('astro sync && node scripts/astro-check-legacy-typescript.mjs');
+    expect(packageJson.scripts?.check).toBe(
+      'bun run contracts:build && astro sync && node scripts/astro-check-legacy-typescript.mjs',
+    );
     expect(readText('scripts/astro-check-legacy-typescript.mjs')).toContain('typescript-astro-check');
-    expect(packageJson.scripts?.build).toStartWith('astro build');
+    expect(packageJson.scripts?.build).toStartWith('bun run contracts:build && astro build');
     expect(packageJson.scripts?.build).toContain('bun scripts/generate-agent-markdown.ts');
     expect(packageJson.scripts?.build).toContain('cloudflare-deploy-guard.mjs install');
     expect(packageJson.scripts?.dev).toContain('astro dev');
@@ -333,10 +335,20 @@ describe('Cloudflare runtime configuration', () => {
     expect(responses).toContain('stale-while-revalidate=');
     expect(responses).toContain('NO_STORE_CACHE_CONTROL');
     expect(registry).toContain('readBuiltBlogMarkdown');
-    expect(responses).toContain("variant: 'html'");
-    expect(responses).toContain("variant: 'markdown'");
+    expect(responses).toContain("variant: grouped ? `html:${blogResolution?.locale}` : 'html'");
+    expect(responses).toContain('`markdown:${blogResolution.locale}`');
+    expect(responses).toContain(": 'markdown'");
+    expect(edgeCache).toContain('`html:${string}`');
     expect(responses).toContain('url.search');
-    expect(middleware).toContain('readCachedHtmlPage');
+    // The worker entrypoint owns the edge HTML cache — one read, one write
+    // deferred via waitUntil, stale entries revalidated in the background. The
+    // middleware only decorates responses.
+    const worker = readText('src/worker.ts');
+    expect(worker).toContain('readCachedHtmlPage');
+    expect(worker).toContain('waitUntil(revalidateHtmlPage');
+    expect(middleware).not.toContain('readCachedHtmlPage');
+    expect(edgeCache).toContain('x-edge-cached-at');
+    expect(edgeCache).toContain("'STALE'");
     expect(registry).toContain('data-mood-initial-feed');
     expect(registry).toContain('data-mood-id=');
     expect(registry).toContain('X-Buxx-Mood-Page-Cache');

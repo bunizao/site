@@ -1,25 +1,42 @@
 {
   "name": "@bunizao/contracts",
   "version": "0.1.0",
-  "private": true,
+  "description": "Shared TypeScript contracts for buxx.me services and clients.",
   "type": "module",
   "sideEffects": false,
-  "types": "./src/index.ts",
+  "license": "UNLICENSED",
+  "author": "bunizao",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bunizao/site.git",
+    "directory": "packages/contracts"
+  },
+  "bugs": {
+    "url": "https://github.com/bunizao/site/issues"
+  },
+  "homepage": "https://github.com/bunizao/site/tree/main/packages/contracts",
+  "keywords": [
+    "buxx.me",
+    "typescript",
+    "api-contracts",
+    "cloudflare-workers"
+  ],
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./analytics": {
-      "types": "./src/analytics.ts",
-      "import": "./src/analytics.ts",
-      "default": "./src/analytics.ts"
+      "types": "./dist/analytics.d.ts",
+      "import": "./dist/analytics.js",
+      "default": "./dist/analytics.js"
     },
     "./admin": {
-      "types": "./src/admin.ts",
-      "import": "./src/admin.ts",
-      "default": "./src/admin.ts"
+      "types": "./dist/admin.d.ts",
+      "import": "./dist/admin.js",
+      "default": "./dist/admin.js"
     },
     "./comments": {
       "types": "./src/comments.ts",
@@ -27,34 +44,51 @@
       "default": "./src/comments.ts"
     },
     "./content": {
-      "types": "./src/content.ts",
-      "import": "./src/content.ts",
-      "default": "./src/content.ts"
+      "types": "./dist/content.d.ts",
+      "import": "./dist/content.js",
+      "default": "./dist/content.js"
     },
     "./listening": {
-      "types": "./src/listening.ts",
-      "import": "./src/listening.ts",
-      "default": "./src/listening.ts"
+      "types": "./dist/listening.d.ts",
+      "import": "./dist/listening.js",
+      "default": "./dist/listening.js"
     },
     "./mood": {
-      "types": "./src/mood.ts",
-      "import": "./src/mood.ts",
-      "default": "./src/mood.ts"
+      "types": "./dist/mood.d.ts",
+      "import": "./dist/mood.js",
+      "default": "./dist/mood.js"
     },
     "./notify": {
-      "types": "./src/notify.ts",
-      "import": "./src/notify.ts",
-      "default": "./src/notify.ts"
+      "types": "./dist/notify.d.ts",
+      "import": "./dist/notify.js",
+      "default": "./dist/notify.js"
     },
     "./routes": {
-      "types": "./src/routes.ts",
-      "import": "./src/routes.ts",
-      "default": "./src/routes.ts"
+      "types": "./dist/routes.d.ts",
+      "import": "./dist/routes.js",
+      "default": "./dist/routes.js"
     },
     "./telegram-ops": {
-      "types": "./src/telegram-ops.ts",
-      "import": "./src/telegram-ops.ts",
-      "default": "./src/telegram-ops.ts"
+      "types": "./dist/telegram-ops.d.ts",
+      "import": "./dist/telegram-ops.js",
+      "default": "./dist/telegram-ops.js"
     }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepack": "node scripts/build.mjs",
+    "check": "node scripts/verify-package.mjs",
+    "test": "node --test tests/package.test.mjs",
+    "pack:check": "npm pack --dry-run --json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "tag": "latest"
   }
 }

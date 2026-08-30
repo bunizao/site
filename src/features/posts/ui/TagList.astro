@@ -1,22 +1,38 @@
 ---
 // Public tags as quiet chips, each linking to its archive at /blog/tag/:slug.
+// The language switcher rides in this row rather than taking a header row of
+// its own; a hairline keeps the two groups from reading as one flat list.
+//
+// The switcher is a prop rather than a slot: the separator and the pill have to
+// appear and disappear together, and a slot can always be filled with nothing.
 import type { Tag } from '../types';
+import type { PostVersion } from '../i18n';
 import { tagPath } from '../format';
+import LanguagePill from './LanguagePill.astro';
 
 interface Props {
   tags: Tag[];
+  /** Versions of this article. Fewer than two means nothing to switch to. */
+  versions?: PostVersion[];
+  /** Accessible name of the switcher, in the language being shown. */
+  languageLabel?: string;
 }
 
-const { tags } = Astro.props;
+const { tags, versions = [], languageLabel = '' } = Astro.props;
 const publicTags = tags.filter((tag) => tag.visibility === 'public');
+const hasSwitcher = versions.length > 1;
 ---
 
-{publicTags.length > 0 && (
+{(publicTags.length > 0 || hasSwitcher) && (
   <ul class="blog-tags" aria-label="Tags" data-pagefind-ignore>
     {publicTags.map((tag) => (
       <li>
         <a class="blog-tag" href={tagPath(tag.slug)}>{tag.name}</a>
       </li>
     ))}
+    {hasSwitcher && publicTags.length > 0 && (
+      <li class="blog-tags__sep" aria-hidden="true"></li>
+    )}
+    <LanguagePill versions={versions} label={languageLabel} />
   </ul>
 )}

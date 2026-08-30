@@ -15,20 +15,23 @@
    the creditless post as the exception; the actions row keeps its own top
    margin either way. */
 import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
+import type { BlogLocale } from '@/data/site';
 
 import AiCredit from './AiCredit.astro';
 
 interface Props {
   /** Model co-authors, from the post's [!authors] directives. */
   credits?: readonly AuthorshipCredit[];
+  /** The post's own language, so the credit line follows the article. */
+  locale?: BlogLocale;
 }
 
-const { credits = [] } = Astro.props;
+const { credits = [], locale } = Astro.props;
 const hasActions = Astro.slots.has('default');
 ---
 
 <footer class="blog-colophon">
-  {credits.length > 0 && <AiCredit credits={credits} />}
+  {credits.length > 0 && <AiCredit credits={credits} locale={locale} />}
 
   {
     hasActions && (

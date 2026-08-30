@@ -8,6 +8,7 @@ import {
   setConversationOption,
   type ConversationOption,
 } from '@/features/content/conversation';
+import { observeConversations } from '@/features/content/client/conversation-fit';
 
 // Live playground for the conversation component, embedded on
 // /components/conversation.
@@ -127,9 +128,9 @@ function Field({
         checked={checked}
         onCheckedChange={onChange}
         aria-label={label}
-        className="h-4.5 w-8 shrink-0 rounded-full bg-foreground/16 p-0.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring data-[checked]:bg-foreground"
+        className="relative min-h-6 w-8 shrink-0 rounded-full bg-transparent py-[3px] outline-none before:absolute before:inset-y-[3px] before:inset-x-0 before:rounded-full before:bg-foreground/16 before:transition-colors focus-visible:ring-2 focus-visible:ring-ring data-[checked]:before:bg-foreground"
       >
-        <Switch.Thumb className="block size-3.5 rounded-full bg-background transition-transform data-[checked]:translate-x-3.5" />
+        <Switch.Thumb className="relative ml-0.5 block size-3.5 rounded-full bg-background transition-transform data-[checked]:translate-x-3.5" />
       </Switch.Root>
       {label}
     </label>
@@ -141,6 +142,12 @@ export default function ConversationPlayground(): React.ReactElement {
   const [copied, setCopied] = React.useState(false);
 
   const html = React.useMemo(() => renderConversation(source), [source]);
+  const rendered = React.useRef<HTMLDivElement>(null);
+
+  // Every edit replaces the thread wholesale, so the fit pass has to be pointed
+  // at the new nodes. The drag handle below resizes the column without resizing
+  // the window, which is exactly the case the observer exists for.
+  React.useLayoutEffect(() => observeConversations(rendered.current), [html]);
   const options = React.useMemo(() => parseConversation(source).options, [source]);
   const sample = SAMPLES.find((entry) => entry.source === source)?.name ?? '';
 
@@ -232,7 +239,7 @@ export default function ConversationPlayground(): React.ReactElement {
           onClick={() => void copySource()}
           aria-label="Copy complete conversation source"
           data-copied={copied ? '' : undefined}
-          className="relative inline-flex items-center gap-1.5 text-xs font-medium text-foreground/48 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground data-[copied]:text-foreground"
+          className="relative inline-flex min-h-6 items-center gap-1.5 text-xs font-medium text-foreground/48 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground data-[copied]:text-foreground"
         >
           <span className="copy-btn-icons" aria-hidden="true">
             <Copy className="copy-btn-icon copy-btn-icon--copy" />
@@ -257,6 +264,7 @@ export default function ConversationPlayground(): React.ReactElement {
           corner and the thread reflows against its own width, not the
           viewport's. */}
       <div
+        ref={rendered}
         className="max-w-full min-w-48 resize-x overflow-auto rounded-lg border border-dashed border-foreground/12 px-4"
         dangerouslySetInnerHTML={{ __html: html }}
       />

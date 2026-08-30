@@ -715,12 +715,15 @@ html.dark .cgrid-tile:hover {
   font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 600;
-  color: #a84f2c;
+  /* dai 黛, the blog's primary ink — blogPalette.dai in src/data/site.ts. Same
+     link, same colour, whether it points at the playground from /docs or from
+     the component page's own header. */
+  color: #3c5d80;
   text-decoration: none;
 }
 
 .dark .detail-playground-link {
-  color: #ee9a73;
+  color: #7fa8d6;
 }
 
 .detail-playground-link svg {
@@ -1294,6 +1297,78 @@ html.dark .cgrid-tile:hover {
   .playground-range::-webkit-slider-thumb {
     transition: none;
   }
+}
+
+/* ── Playground (conversation) ───────────────────────────────────────────────
+   Two panes in the frame the Usage block already uses, so the editor and its
+   result read as part of the page rather than as loose controls dropped on it.
+   The head strip carries the language mark and the site's copy control; the
+   body is the only thing that changes between them.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.conv-play-input {
+  display: block;
+  width: 100%;
+  min-height: 16rem;
+  /* Same metrics as a highlighted body (code-box.css), so switching between
+     reading the docs and editing here is not a change of typeface size. */
+  padding: 1.15rem 1.25rem;
+  border: 0;
+  background: transparent;
+  color: hsl(var(--foreground));
+  font-family: var(--font-code);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  tab-size: 2;
+  resize: vertical;
+  outline: none;
+  /* The global bar (globals.css) paints a solid --muted thumb, which inside a
+     frame this size reads as a second border down the right edge. */
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--foreground) / 0.22) transparent;
+}
+
+.conv-play-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conv-play-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conv-play-input::-webkit-scrollbar-thumb {
+  background: hsl(var(--foreground) / 0.18);
+  border: 0;
+  border-radius: 999px;
+}
+
+/* The frame takes the focus ring, not the field: the textarea runs edge to
+   edge inside it, so a ring on the field would trace the same rectangle. */
+.conv-play-source:has(.conv-play-input:focus-visible) {
+  box-shadow: inset 0 0 0 1px var(--cb-line-strong);
+}
+
+/* The Preview frame, re-aimed: a thread fills its container rather than sitting
+   centred in it, and this one is draggable because container width is the thing
+   being demonstrated. `overflow` is what makes `resize` take effect at all. */
+.conv-play-result {
+  display: block;
+  /* `.preview-frame` centres its specimen with `place-items`, which Chrome now
+     honours in block layout too: left on, it shrink-wraps the thread, and a
+     `container-type: inline-size` box shrink-wrapped is a box 0px wide. */
+  place-items: normal;
+  margin-top: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  min-width: 18rem;
+  max-width: 100%;
+  resize: horizontal;
+  overflow: auto;
+}
+
+/* The component carries article margins for a post; inside the frame they only
+   push the thread off its own padding. */
+.conv-play-result .conv {
+  margin: 0;
 }
 
 /* ── Install tabs ────────────────────────────────────────────────────────── */

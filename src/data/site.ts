@@ -78,12 +78,28 @@ export type BlogLocale = 'zh' | 'en';
 export interface BlogLocaleCopy {
   name: string;
   tagline: string;
+  /**
+   * Open Graph wants `language_TERRITORY`, not a bare BCP 47 tag. It is the one
+   * place a locale needs a territory it does not otherwise have an opinion on.
+   */
+  ogLocale: string;
   aiCredit: {
     /**
      * Shown for models credited without a hand-written `note`. `{models}` is
      * replaced by the credited model names, joined for this locale.
      */
     fallback: string;
+  };
+  languageSwitcher: {
+    /** Endonym — what this language calls itself. Shown on the article pill. */
+    language: string;
+    /** Accessible name of the article control. */
+    open: string;
+    /**
+     * Listing mark. `{languages}` is replaced by the endonyms of the other
+     * versions, joined for this locale.
+     */
+    alsoIn: string;
   };
   subscribe: SubscribeCopy;
   share: ShareCopy;
@@ -157,6 +173,7 @@ export const blog = {
     zh: {
       name: '無人之境',
       tagline: '生长于共鸣、独白、文学、与沉默之间。',
+      ogLocale: 'zh_CN',
       aiCredit: {
         fallback: '本文在 {models} 的协助下完成。',
       },
@@ -196,10 +213,16 @@ export const blog = {
         share: '分享',
       },
       back: { index: '← 全部文章', rail: '← 博客' },
+      languageSwitcher: {
+        language: '中文',
+        open: '切换语言',
+        alsoIn: '也有 {languages} 版本',
+      },
     },
     en: {
       name: 'Sillage',
       tagline: 'Grown between resonance, monologue, literature, and silence.',
+      ogLocale: 'en_US',
       aiCredit: {
         fallback: 'Written with {models}.',
       },
@@ -239,6 +262,11 @@ export const blog = {
         share: 'Share',
       },
       back: { index: '← All posts', rail: '← Blog' },
+      languageSwitcher: {
+        language: 'English',
+        open: 'Change language',
+        alsoIn: 'Also in {languages}',
+      },
     },
   } satisfies Record<BlogLocale, BlogLocaleCopy>,
   /** Canonical publication name. Surfaces may opt into `copy[locale].name`. */

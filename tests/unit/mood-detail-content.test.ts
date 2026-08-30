@@ -33,11 +33,14 @@ describe('structured mood detail content rendering', () => {
     expect(source).not.toContain('animation: fade-in');
     expect(source).not.toContain('@keyframes fade-in');
     expect(source).toMatch(/@view-transition\s*\{\s*navigation:\s*none;/);
-    // Inter carries the article body, so the route must still preload it —
-    // alongside the JetBrains hero title and the Geist Mono meta it also paints.
-    expect(route).toContain("preloadFont={['code', 'mono', 'sans']}");
-    expect(layout).toContain('preloadFont?: Face | Face[]');
-    expect(layout).toContain('FONT_FILES[face]');
+    // Body faces are never preloaded: Chrome holds first paint until every
+    // preloaded font arrives, and the metric-matched fallback faces in
+    // globals.css already neutralize the swap. Only the tiny wordmark keeps a
+    // preload, on the home nav.
+    expect(route).not.toContain('preloadFont');
+    expect(layout).not.toContain('preloadFont');
+    expect(layout.match(/as="font"/g)?.length).toBe(1);
+    expect(layout).toContain('wenkai-wordmark.woff2');
     expect(route).toMatch(/requestAnimationFrame\(\(\) => \{\s*requestAnimationFrame\(\(\) => \{/);
   });
 

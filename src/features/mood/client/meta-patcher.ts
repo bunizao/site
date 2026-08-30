@@ -16,7 +16,11 @@ interface MoodMetaPatcher {
 }
 
 const MAX_VISIBLE_IDS = 30;
-const VIEWPORT_MARGIN_PX = 320;
+// Live counts can add or remove reaction pills and comment chips, which
+// changes item height. Patching 1200px ahead of the viewport keeps those
+// changes offscreen (out of CLS) by the time the reader scrolls to them;
+// 320px left the patch racing the scroll and shifting visible items.
+const VIEWPORT_MARGIN_PX = 1200;
 const LIVE_COUNTS_ENDPOINT = '/api/v2/moods/live-counts';
 
 export function getMoodReactionKey(reaction: Pick<MoodReaction, 'emoji' | 'emojiId' | 'emojiImage' | 'isPaid'>): string {
@@ -37,20 +41,22 @@ function isInViewport(element: Element): boolean {
 }
 
 function collectVisibleMoodIds(root: ParentNode, excluded: ReadonlySet<string>): string[] {
-  const ids: string[] = [];
+  // Near-viewport posts first so they always fit the batch cap; the rest of
+  // the rendered feed fills the remainder. Patching posts while they are
+  // still offscreen keeps count-driven height changes out of CLS.
+  const nearIds: string[] = [];
+  const farIds: string[] = [];
   const seen = new Set<string>();
 
   root.querySelectorAll<HTMLElement>('[data-mood-id]').forEach((element) => {
-    if (ids.length >= MAX_VISIBLE_IDS || !isInViewport(element)) return;
-
     const id = element.dataset.moodId?.trim() ?? '';
     if (!id || seen.has(id) || excluded.has(id)) return;
 
     seen.add(id);
-    ids.push(id);
+    (isInViewport(element) ? nearIds : farIds).push(id);
   });
 
-  return ids;
+  return [...nearIds, ...farIds].slice(0, MAX_VISIBLE_IDS);
 }
 
 function isMoodLiveCount(value: unknown): value is MoodLiveCount {

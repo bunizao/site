@@ -703,12 +703,14 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
   font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 600;
-  color: #a84f2c;
+  /* dai 黛, the blog's primary ink — blogPalette.dai in src/data/site.ts. Docs
+     sit on the same two surfaces the ink was contrast-checked against. */
+  color: #3c5d80;
   text-decoration: none;
 }
 
 .dark .docs-playground-link {
-  color: #ee9a73;
+  color: #7fa8d6;
 }
 
 .docs-playground-link svg {
@@ -1177,26 +1179,70 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
   border-radius: 0;
 }
 
+/* Collapsed by default: every example on these pages carries a demo, and an
+   always-open result panel would double the length of a page read mostly for
+   its syntax. The summary is the same strip as the fence header above it, so
+   closed the pair reads as one framed block with a footer. */
 .docs-demo {
   max-width: 44rem;
   margin: 0 0 1.5rem;
   border: 1px solid var(--docs-line);
   border-top: 0;
   border-radius: 0 0 0.6rem 0.6rem;
-  overflow: hidden;
+}
+
+.docs-demo-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.15rem;
+  padding: 0 0.85rem;
+  border-radius: 0 0 0.5rem 0.5rem;
+  background: var(--docs-surface);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+/* Safari still draws its own triangle from the shadow DOM. */
+.docs-demo-summary::-webkit-details-marker {
+  display: none;
+}
+
+.docs-demo[open] .docs-demo-summary {
+  border-bottom: 1px solid var(--docs-line);
+  border-radius: 0;
+}
+
+.docs-demo-summary:hover .docs-demo-label,
+.docs-demo-summary:focus-visible .docs-demo-label {
+  color: var(--ink-strong);
+}
+
+.docs-demo-summary:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.5);
+  outline-offset: -2px;
+}
+
+.docs-demo-caret {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex: none;
+  color: var(--ink-faint);
+  transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.docs-demo[open] .docs-demo-caret {
+  transform: rotate(90deg);
 }
 
 .docs-demo-label {
-  display: flex;
-  align-items: center;
-  height: 2.15rem;
-  padding: 0 0.85rem;
-  border-bottom: 1px solid var(--docs-line);
-  background: var(--docs-surface);
   font-family: var(--font-code);
   font-size: 0.7rem;
   letter-spacing: 0.02em;
   color: var(--ink-faint);
+  transition: color 0.15s ease;
 }
 
 .docs-demo-render {
@@ -1209,9 +1255,7 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
   --blog-line: hsl(var(--foreground) / 0.1);
   --blog-img-edge: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
 
-  max-width: 36rem;
-  margin-inline: auto;
-  padding: 0.35rem 1.05rem;
+  padding: 1rem 1.05rem;
   color: var(--blog-body);
 }
 

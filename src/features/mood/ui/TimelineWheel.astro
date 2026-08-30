@@ -461,15 +461,31 @@ const { compact = false } = Astro.props;
 </style>
 
 <script>
-  import { mountTimelineWheel } from '@/features/mood/client/timeline-wheel';
+  // The wheel is display:none below 1024px (rule above), so narrow viewports
+  // skip its module and scroll wiring entirely. It mounts lazily the first
+  // time the viewport crosses the breakpoint.
+  const mountAll = async () => {
+    const { mountTimelineWheel } = await import('@/features/mood/client/timeline-wheel');
+    document.querySelectorAll('[data-timeline-wheel]').forEach((root) => {
+      const habitat = root.closest('main');
+      const feed = habitat?.querySelector('[data-mood-feed]');
+      const list = habitat?.querySelector('[data-mood-list]');
 
-  document.querySelectorAll('[data-timeline-wheel]').forEach((root) => {
-    const habitat = root.closest('main');
-    const feed = habitat?.querySelector('[data-mood-feed]');
-    const list = habitat?.querySelector('[data-mood-list]');
+      if (root instanceof HTMLElement && feed instanceof HTMLElement && list instanceof HTMLElement) {
+        mountTimelineWheel(root, { feed, list });
+      }
+    });
+  };
 
-    if (root instanceof HTMLElement && feed instanceof HTMLElement && list instanceof HTMLElement) {
-      mountTimelineWheel(root, { feed, list });
-    }
-  });
+  const wide = window.matchMedia('(min-width: 1024px)');
+  if (wide.matches) {
+    void mountAll();
+  } else {
+    const onWiden = (event: MediaQueryListEvent) => {
+      if (!event.matches) return;
+      wide.removeEventListener('change', onWiden);
+      void mountAll();
+    };
+    wide.addEventListener('change', onWiden);
+  }
 </script>

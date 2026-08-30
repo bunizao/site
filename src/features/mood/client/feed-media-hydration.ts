@@ -1,5 +1,5 @@
 import type { ChannelInfo } from '@/features/mood/client/feed-types';
-import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
+import { buildArchiveSrcSet, getMoodFeedThumbSizes } from '@/features/mood/shared/image-srcset';
 import { initMoodImageFrames } from '@/features/mood/client/image-frame';
 
 interface AnimatedEmojiHydrator {
@@ -209,12 +209,30 @@ export function createFeedMediaHydrator(
     hydrateResponsiveImage(img, src);
   };
 
+  // Feed thumbnails carry their layout as wrapper classes (set by the
+  // renderer); contained layouts get a narrower `sizes` so the browser fetches
+  // the variant it will actually paint instead of a column-width one.
+  const getThumbSizes = (img: HTMLImageElement): string => {
+    const thumb = img.closest('.mood-item-thumb');
+    if (!thumb) return getMoodFeedThumbSizes(null);
+    if (thumb.classList.contains('mood-item-thumb--sticker')) {
+      return getMoodFeedThumbSizes(null, 'sticker');
+    }
+    if (thumb.classList.contains('mood-item-thumb--ultra-tall')) {
+      return getMoodFeedThumbSizes('ultra-tall');
+    }
+    if (thumb.classList.contains('mood-item-thumb--portrait')) {
+      return getMoodFeedThumbSizes('portrait');
+    }
+    return getMoodFeedThumbSizes(null);
+  };
+
   const hydrateResponsiveImage = (img: HTMLImageElement, src: string): void => {
     img.src = src;
     // Archive URLs get width negotiation; anything else (external, legacy, or a
     // non-archive fallback swap) must clear stale srcset/sizes so the browser
     // uses the plain src.
-    const responsive = buildArchiveSrcSet(src);
+    const responsive = buildArchiveSrcSet(src, { sizes: getThumbSizes(img) });
     if (responsive.srcset) {
       img.srcset = responsive.srcset;
       if (responsive.sizes) {

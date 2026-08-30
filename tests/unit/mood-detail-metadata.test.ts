@@ -65,7 +65,7 @@ describe('buildMoodDetailMetadata', () => {
       bodyHtml: `
         <a href="https://x.com/dviolettchan/status/2060659248959299645">https://x.com/dviolettchan/status/2060659248959299645</a><br><br>看哭了
         <a class="bookmark-card bookmark-card--side-media" href="https://x.com/dviolettchan/status/2060659248959299645">
-          <span class="bookmark-card__media bookmark-card__media--side">
+          <span class="bookmark-card__media">
             <img src="/static/https:/cdn4.telesco.pe/file/x-avatar.jpg" alt="紫云 (@dviolettchan) on X" />
           </span>
           <span class="bookmark-card__content">

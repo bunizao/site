@@ -9,8 +9,6 @@ import {
 } from '@/features/mood/server/api-client';
 import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
-import '@/styles/listening.css';
-import '@/styles/embed-youtube.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import {
   prioritizeMoodDetailMedia,
@@ -78,6 +76,15 @@ const renderedContent = post
     : renderMoodContentWithGalleries(post.bodyHtml)
   : '';
 const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
+// Embed styles ship only when the rendered post actually contains one. The
+// css?url modules load via dynamic import so Astro does not hoist them into
+// <head> as unconditional page styles.
+const listeningCssHref = renderedPostContent.includes('data-listening')
+  ? (await import('@/styles/listening.css?url')).default
+  : null;
+const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
+  ? (await import('@/styles/embed-youtube.css?url')).default
+  : null;
 ---
 
 <Layout
@@ -89,10 +96,11 @@ const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
   imageHeight={metadata.imageHeight}
   oembed={oembed}
   robots="noindex, follow"
-  preloadFont={['code', 'mono', 'sans']}
   hideSiteNav
 >
   <main class="page-container">
+    {listeningCssHref && <link rel="stylesheet" href={listeningCssHref} />}
+    {embedYouTubeCssHref && <link rel="stylesheet" href={embedYouTubeCssHref} />}
     <DetailArticle
       post={post}
       error={error}
@@ -117,8 +125,6 @@ const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
   import { initMoodImageFrames } from '@/features/mood/client/image-frame';
   import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
   import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
-  import { initListeningCards } from '@/lib/listening/controller';
-  import { initYouTubeEmbeds } from '@/lib/embed/youtube-controller';
 
   document.querySelectorAll('.mood-post-content video').forEach((node) => {
     if (!(node instanceof HTMLVideoElement)) return;
@@ -167,8 +173,17 @@ const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
     initMoodGalleries(moodPostContent);
     initMoodImageFrames(moodPostContent);
     hydrateMoodRichText(moodPostContent);
-    initListeningCards(moodPostContent);
-    initYouTubeEmbeds(moodPostContent);
+    // Load the embed controllers only when the post actually contains one.
+    if (moodPostContent.querySelector('[data-listening]')) {
+      void import('@/lib/listening/controller').then(({ initListeningCards }) => {
+        initListeningCards(moodPostContent);
+      });
+    }
+    if (moodPostContent.querySelector('[data-yt]')) {
+      void import('@/lib/embed/youtube-controller').then(({ initYouTubeEmbeds }) => {
+        initYouTubeEmbeds(moodPostContent);
+      });
+    }
   }
 
   const animatedEmoji = createAnimatedEmojiManager();

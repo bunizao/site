@@ -57,6 +57,8 @@ leverage without a user selection step.
 | 029  | Reduced motion for the marquee, pointer gating for 13 hover transforms | P2 | M | — | DONE (`686cb8d9`, 11 real sites — see plan) |
 | 030  | Three `scale(0)` entrances and one exit curve | P3 | S | — | DONE (`686cb8d9`) |
 | 031  | Mood feed entrance/exit/skeleton retune | P2 | S | owner decision | DONE (`2ca74e42`, A2+B1+C1) |
+| 032  | Serverless mood reconcile: move the VPS timer onto Workers cron | P1 | L | ../site-api | IN PROGRESS — built in ../site-api (`ce48512..b034ebf`); awaits prod deploy + migration 0011, then one control week |
+| 033  | Mood external-server dependency audit | P1 | M | 032 | IN PROGRESS — findings recorded; `mood-media-sync` retirement and the monitor gap stay open |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 

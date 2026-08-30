@@ -1,0 +1,86 @@
+name: Contracts Release
+
+on:
+  push:
+    tags:
+      - contracts-v*
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: contracts-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish @bunizao/contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="$(node -p "require('./packages/contracts/package.json').version")"
+          expected="contracts-v${version}"
+          test "$RELEASE_TAG" = "$expected" || {
+            echo "Tag $RELEASE_TAG does not match $expected."
+            exit 1
+          }
+
+      - name: Build package
+        run: bun run contracts:build
+
+      - name: Check package metadata
+        run: bun run contracts:check
+
+      - name: Test package metadata
+        run: bun run contracts:test
+
+      - name: Verify package contents
+        run: npm pack ./packages/contracts --dry-run
+
+      - name: Reject an existing immutable version
+        run: |
+          version="$(node -p "require('./packages/contracts/package.json').version")"
+          set +e
+          lookup="$(npm view "@bunizao/contracts@${version}" version 2>&1)"
+          lookup_status=$?
+          set -e
+          if test "$lookup_status" -eq 0; then
+            echo "@bunizao/contracts@${version} already exists; versions are immutable."
+            exit 1
+          fi
+          case "$lookup" in
+            *E404*|*"404 Not Found"*) ;;
+            *)
+              echo "Unable to verify whether @bunizao/contracts@${version} exists."
+              echo "$lookup"
+              exit 1
+              ;;
+          esac
+
+      - name: Publish with npm provenance
+        run: npm publish ./packages/contracts --access public --provenance

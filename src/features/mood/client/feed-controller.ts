@@ -6,8 +6,6 @@ import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watc
 import { initMoodGalleries } from '@/features/mood/client/gallery';
 import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
-import { initListeningCards } from '@/lib/listening/controller';
-import { initYouTubeEmbeds } from '@/lib/embed/youtube-controller';
 import { pageScroll } from '@/lib/page-scroll';
 import { formatMoodDateKey, rekeyMoodServerRenderedGroups } from '@/features/mood/shared/date-grouping';
 import {
@@ -24,6 +22,40 @@ import type {
   ChannelInfo,
   MoodData,
 } from '@/features/mood/client/feed-types';
+
+// Listening cards and YouTube embeds are rare in the feed. Their controllers
+// (plus the MusicKit player behind the listening one) load only when matching
+// markup is actually in the tree, instead of shipping in the startup bundle.
+// Their stylesheets cannot ride along as CSS imports here — Astro hoists any
+// CSS reachable from a page script into <head> unconditionally — so the feed
+// element carries the built asset URLs and this injects a <link> on demand.
+function ensureStylesheet(href: string | undefined): void {
+  if (!href) return;
+  const links = document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]');
+  for (const link of links) {
+    if (link.getAttribute('href') === href) return;
+  }
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+function hydrateFeedEmbeds(root: HTMLElement): void {
+  const feed = root.closest<HTMLElement>('[data-mood-feed]');
+  if (root.querySelector('[data-listening]')) {
+    ensureStylesheet(feed?.dataset.listeningCss);
+    void import('@/lib/listening/controller').then(({ initListeningCards }) => {
+      initListeningCards(root);
+    });
+  }
+  if (root.querySelector('[data-yt]')) {
+    ensureStylesheet(feed?.dataset.embedYoutubeCss);
+    void import('@/lib/embed/youtube-controller').then(({ initYouTubeEmbeds }) => {
+      initYouTubeEmbeds(root);
+    });
+  }
+}
 
 const MOOD_FETCH_ATTEMPTS = 2;
 const MOOD_FETCH_RETRY_DELAY_MS = 200;
@@ -714,10 +746,12 @@ export function initMoodFeedController(): void {
         // timezone so per-post times read local and later client appends merge
         // into the same date groups. Runs before any append or anchor reveal.
         rekeyMoodServerRenderedGroups(list);
+        // The SSR list ships visibility:hidden until the inline pre-paint
+        // script reveals it; keep the feed usable if that script was stripped.
+        list.style.removeProperty('visibility');
         mediaHydrator.applyMediaHints(list);
         initMoodGalleries(list);
-        initListeningCards(list);
-        initYouTubeEmbeds(list);
+        hydrateFeedEmbeds(list);
       }
 
       const appendMoods = (posts: MoodData[], startIndex = totalCount): void => {
@@ -726,8 +760,7 @@ export function initMoodFeedController(): void {
           updateWatcher.syncLatestSeenId();
         }
         hydrateMoodRichText(list);
-        initListeningCards(list);
-        initYouTubeEmbeds(list);
+        hydrateFeedEmbeds(list);
         patchVisibleMoodMeta();
         revealFeedAnchor();
       };
@@ -743,8 +776,7 @@ export function initMoodFeedController(): void {
         if (heightDelta > 0) {
           scroll.el.scrollTo({ top: scroll.el.scrollTop + heightDelta, behavior: 'auto' });
         }
-        initListeningCards(list);
-        initYouTubeEmbeds(list);
+        hydrateFeedEmbeds(list);
         patchVisibleMoodMeta();
       };
 

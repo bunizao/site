@@ -40,7 +40,7 @@ lookup fails the card still renders, labelled generically.
 ## Other output targets
 
 ```html
-<p><a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42">Watch this video on YouTube</a></p>
+<p><a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42s">Watch this video on YouTube</a></p>
 ```
 
 The `start` offset is carried into the link, so a feed reader lands at the same

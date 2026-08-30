@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { getMoodFeedPreloadImage } from '../../src/features/mood/shared/lcp-preload';
 import { getMoodGallerySizes } from '../../src/features/mood/shared/gallery-render';
-import { MOOD_FEED_IMAGE_SIZES } from '../../src/features/mood/shared/image-srcset';
+import { getMoodFeedThumbSizes, MOOD_FEED_IMAGE_SIZES } from '../../src/features/mood/shared/image-srcset';
 import type { MoodFeedItem } from '@bunizao/contracts/mood';
 import type { MediaItem } from '@bunizao/contracts/content';
 
@@ -49,6 +49,18 @@ describe('mood lcp preload selection', () => {
     expect(preload?.href).toBe(ARCHIVE_IMAGE);
     expect(preload?.imageSizes).toBe(MOOD_FEED_IMAGE_SIZES);
     expect(preload?.imageSrcSet).toContain('320w');
+  });
+
+  test('preloads a portrait thumb with the contained-layout sizes', () => {
+    const posts = [
+      createPost('1', { image: ARCHIVE_IMAGE, imageWidth: 600, imageHeight: 900 }),
+    ];
+
+    // Must match the sizes FeedShell renders on the thumb <img>, or the
+    // preload and the element fetch different responsive candidates.
+    const preload = getMoodFeedPreloadImage(posts);
+    expect(preload?.imageSizes).toBe(getMoodFeedThumbSizes('portrait'));
+    expect(preload?.imageSizes).not.toBe(MOOD_FEED_IMAGE_SIZES);
   });
 
   test('preloads the gallery first item with gallery sizes', () => {

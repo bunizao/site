@@ -83,6 +83,35 @@ describe('components showcase registry', () => {
     expect(verifier).toContain('src/content/components/conversation.md');
   });
 
+  test('publishes every conversation runtime at a stable library target', async () => {
+    const item = await buildRegistryItem(registryEntry('conversation'));
+
+    expect(item.files.map(({ path, target, type }) => ({ path, target, type }))).toEqual([
+      {
+        path: 'features/content/ui/Conversation.astro',
+        target: '@ui/conversation.astro',
+        type: 'registry:ui',
+      },
+      {
+        path: 'features/content/conversation.ts',
+        target: '@lib/conversation.ts',
+        type: 'registry:lib',
+      },
+      {
+        path: 'features/content/client/conversation-fit.ts',
+        target: '@lib/conversation-fit.ts',
+        type: 'registry:lib',
+      },
+      {
+        path: 'styles/conversation.css',
+        target: '@lib/conversation.css',
+        type: 'registry:lib',
+      },
+    ]);
+    expect(item.files[0]?.content).toContain("from '@/lib/conversation-fit'");
+    expect(item.files.some(({ content }) => content.includes('@/features/'))).toBe(false);
+  });
+
   test('keeps decode text component and engine targets distinct', async () => {
     const item = await buildRegistryItem(registryEntry('decode-text'));
 
@@ -171,7 +200,7 @@ describe('components showcase registry', () => {
     ]);
     expect(item.files[0]?.content).toContain("from '@/lib/timeline-date-tracker'");
     expect(item.files[0]?.content).toContain("from '@/lib/feed-anchor'");
-    expect(item.files[4]?.content).toContain("from '@/lib/timeline-wheel'");
+    expect(item.files[4]?.content).toContain("import('@/lib/timeline-wheel')");
     expect(item.files[4]?.content).toContain('data-timeline-wheel');
     expect(item.files.some(({ content }) => content.includes('@/features/'))).toBe(false);
   });

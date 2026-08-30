@@ -100,6 +100,9 @@ The privacy page is therefore linked from:
 - shared UI concerns are centralized in `Layout.astro`
 - content pages reuse the same shell and mutate the nav through `Page.astro`
 - the shared layout is optimized for the home page first, then adapted for document-style pages
+- chrome styles (navigation, header actions, menus, theme dropdown) live in
+  `src/styles/site-chrome.css`, loaded by `Layout.astro` alongside
+  `globals.css`; layouts without this DOM (blog, portal) load only `globals.css`
 
 ## Motion Vocabulary
 

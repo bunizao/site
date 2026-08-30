@@ -1,5 +1,5 @@
 ---
-import { FONT_FILES, type Face } from '@/lib/fonts';
+import ViewTransitionReveal from './client/ViewTransitionReveal.astro';
 
 interface Props {
   title: string;
@@ -18,10 +18,6 @@ interface Props {
   containedScroll?: boolean;
   scrollRestorationKey?: string;
   structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
-  // The faces this route paints above the fold, in priority order. Every face
-  // is font-display: swap, so one that is painted early but not preloaded is a
-  // guaranteed reflow the moment it arrives.
-  preloadFont?: Face | Face[];
   preloadImages?: Array<{
     href: string;
     imageSrcSet?: string;
@@ -38,6 +34,7 @@ interface Props {
 }
 
 import '../styles/globals.css';
+import '../styles/site-chrome.css';
 import '../features/mood/styles/feed-rich-text.css';
 import { Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
@@ -77,10 +74,6 @@ const {
   containedScroll = false,
   scrollRestorationKey,
   structuredData,
-  // Geist Mono carries the site identity (nav brand, meta) and Inter is the
-  // body face on every page, so both are worth the priority everywhere. Routes
-  // whose headline uses a third face add it themselves.
-  preloadFont = ['mono', 'sans'],
   preloadImages = [],
   rss,
   oembed,
@@ -131,9 +124,6 @@ const navbarSectionActiveAnimation = getPeekRuntimeSlotKey('navbar.section.activ
 const navbarSectionActiveHoldMs = getPeekRuntimeSlot('navbar.section.active').holdMs ?? 600;
 const navbarFastScrollHoldMs = getPeekRuntimeSlot('navbar.brand.hover').holdMs ?? 1000;
 const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
-const preloadFontHrefs = (Array.isArray(preloadFont) ? preloadFont : [preloadFont]).map(
-  (face) => FONT_FILES[face],
-);
 const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
 ---
 
@@ -149,9 +139,10 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
          were inert until now; every inset is 0 on hardware without a notch. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content={description} />
-    {preloadFontHrefs.map((href) => (
-      <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
-    ))}
+    {/* Body faces are never preloaded: Chrome holds first paint until every
+        preloaded font arrives, so preloading them trades ~1s of blank screen
+        against a swap the metric-matched fallback faces already neutralize.
+        The wordmark is the one exception: 2.6KB and font-display: block. */}
     {isHomeNav && (
       <link rel="preload" href={wordmarkFontHref} as="font" type="font/woff2" crossorigin fetchpriority="high" />
     )}
@@ -253,6 +244,10 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
       })();
     </script>
 
+    <!-- Incoming half of the view-transition name broker. Inline and in <head>
+         because `pagereveal` fires before any deferred module can run. -->
+    <ViewTransitionReveal />
+
     <script>
       // Dynamic import keeps the overscroll handler in a bundled, HTTP-cached
       // chunk instead of Astro inlining it into every HTML response.
@@ -260,8 +255,10 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
     </script>
 
     <script>
-      // Decides which single element (if any) may morph across the next
-      // navigation. Must register before any click can navigate away.
+      // Outgoing half: decides which single element (if any) may morph across
+      // the next navigation. Deferred is fine — it only has to beat a click.
+      // The incoming half is <ViewTransitionReveal /> above, which must be
+      // inline to beat `pagereveal`.
       import { initViewTransitionNames } from '@/lib/view-transition-names';
       initViewTransitionNames();
     </script>

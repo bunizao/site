@@ -7,18 +7,19 @@
 // author wrote a `note` for get their own sentence with the model as subject;
 // models without one collapse into a single generic line, so "Written with"
 // never repeats.
-import { blog } from '@/data/site';
+import { blog, type BlogLocale } from '@/data/site';
 import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
 
 import AiMark from './AiMark.astro';
 
 interface Props {
   credits: readonly AuthorshipCredit[];
+  /** The article's language — this credit is part of the article, not the site. */
+  locale?: BlogLocale;
 }
 
-const { credits } = Astro.props;
+const { credits, locale = blog.locale.blog } = Astro.props;
 
-const locale = blog.locale.blog;
 const blogCopy = blog.copy[locale];
 
 const noted = credits.filter((credit) => credit.note);

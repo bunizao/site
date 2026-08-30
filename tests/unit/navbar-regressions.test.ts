@@ -12,10 +12,11 @@ describe('navbar regression guards', () => {
     expect(source).toContain("headerActionsVariant?: 'default' | 'home'");
     expect(source).toContain("const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';");
     expect(source).toContain("rel=\"preload\"");
-    // The hrefs come from FONT_FILES now; the guard is that 'mono' — the site
-    // identity face — stays in the default preload set.
-    expect(source).toContain("preloadFont = ['mono', 'sans']");
-    expect(source).toContain('FONT_FILES[face]');
+    // Body faces are never preloaded — Chrome holds first paint until every
+    // preloaded font arrives. The wordmark (2.6KB, font-display: block) is the
+    // one exception, on the home nav.
+    expect(source).not.toContain('preloadFont');
+    expect(source).toContain('wenkai-wordmark.woff2');
     expect(source).toContain("'global-header-actions--home': useHomeHeaderActions");
   });
 
@@ -35,14 +36,14 @@ describe('navbar regression guards', () => {
 
   test('mobile navbar keeps Safari safe-area offset and exposes the menu sheet', () => {
     const layoutSource = read('src/layouts/Layout.astro');
-    const globalStyles = read('src/styles/globals.css');
+    const chromeStyles = read('src/styles/site-chrome.css');
 
-    expect(globalStyles).toContain('.site-nav--home {');
-    expect(globalStyles).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
-    expect(globalStyles).toContain('top: var(--site-nav-mobile-top);');
-    expect(globalStyles).toContain('.site-nav--home::before');
-    expect(globalStyles).toContain('height: env(safe-area-inset-top, 0px);');
-    expect(globalStyles).toContain('.site-nav .nav-links {\n      display: none;\n    }');
+    expect(chromeStyles).toContain('.site-nav--home {');
+    expect(chromeStyles).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
+    expect(chromeStyles).toContain('top: var(--site-nav-mobile-top);');
+    expect(chromeStyles).toContain('.site-nav--home::before');
+    expect(chromeStyles).toContain('height: env(safe-area-inset-top, 0px);');
+    expect(chromeStyles).toContain('.site-nav .nav-links {\n      display: none;\n    }');
     expect(layoutSource).toContain('id="site-menu-sheet"');
     expect(layoutSource).toContain('role="dialog"');
     expect(layoutSource).toContain('aria-modal="true"');
@@ -52,7 +53,7 @@ describe('navbar regression guards', () => {
   test('layout compensates fixed mobile chrome for visual viewport movement', () => {
     const layoutSource = read('src/layouts/Layout.astro');
     const viewportSource = read('src/layouts/client/visual-viewport.ts');
-    const globalStyles = read('src/styles/globals.css');
+    const chromeStyles = read('src/styles/site-chrome.css');
     const pageStyles = read('src/layouts/Page.astro');
 
     expect(layoutSource).toContain("import('@/layouts/client/visual-viewport')");
@@ -62,22 +63,22 @@ describe('navbar regression guards', () => {
     expect(viewportSource).toContain('const offsetTop = isBottomOverscrollOffset(rawOffsetTop) ? 0 : Math.round(rawOffsetTop);');
     expect(viewportSource).toContain("window.addEventListener('scroll', requestSync");
     expect(viewportSource).toContain("root.style.setProperty('--visual-viewport-top'");
-    expect(globalStyles).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
-    expect(globalStyles).toContain('top: var(--site-nav-mobile-top);');
-    expect(globalStyles).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.3rem);');
+    expect(chromeStyles).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
+    expect(chromeStyles).toContain('top: var(--site-nav-mobile-top);');
+    expect(chromeStyles).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.3rem);');
     expect(pageStyles).toContain('top: var(--site-nav-mobile-top);');
   });
 
   test('home and page navbars share brand chrome tokens', () => {
-    const globalStyles = read('src/styles/globals.css');
+    const chromeStyles = read('src/styles/site-chrome.css');
     const pageStyles = read('src/layouts/Page.astro');
     const brandStyles = read('src/styles/brand.css');
 
-    expect(globalStyles).toContain('--site-nav-brand-gap: 0.375rem;');
-    expect(globalStyles).toContain('--site-nav-mobile-height: 3.25rem;');
-    expect(globalStyles).toContain('--site-nav-mobile-padding: 0 4rem 0 1rem;');
-    expect(globalStyles).toContain('--site-nav-mobile-logo-height: 14px;');
-    expect(globalStyles).toContain('--site-nav-mobile-wordmark-width: 5.6rem;');
+    expect(chromeStyles).toContain('--site-nav-brand-gap: 0.375rem;');
+    expect(chromeStyles).toContain('--site-nav-mobile-height: 3.25rem;');
+    expect(chromeStyles).toContain('--site-nav-mobile-padding: 0 4rem 0 1rem;');
+    expect(chromeStyles).toContain('--site-nav-mobile-logo-height: 14px;');
+    expect(chromeStyles).toContain('--site-nav-mobile-wordmark-width: 5.6rem;');
     expect(brandStyles).toContain('.site-brand-row {');
     expect(brandStyles).toContain('--brand-logo-height');
     expect(pageStyles).toContain('height: var(--site-nav-mobile-height);');

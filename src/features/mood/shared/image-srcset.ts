@@ -120,6 +120,20 @@ export function getMoodImagePlaceholderSrc(url: string): string | null {
 // `sizes` value is derived from `.mood-stream` in src/pages/mood.astro.
 export const MOOD_FEED_IMAGE_SIZES = '(max-width: 720px) 100vw, 680px';
 
+// Contained layouts paint far narrower than the feed column — bounds come from
+// feed-thumbnail.ts's contained boxes and the sticker rule in mood.astro. A
+// matching `sizes` stops the browser from fetching a column-width variant it
+// will paint at ~220px.
+export function getMoodFeedThumbSizes(
+  layout?: MoodImageLayout | null,
+  mediaKind?: string | null,
+): string {
+  if (mediaKind === 'sticker') return '256px';
+  if (layout === 'portrait') return '260px';
+  if (layout === 'ultra-tall') return '220px';
+  return MOOD_FEED_IMAGE_SIZES;
+}
+
 export function buildArchiveSrcSet(
   url: string,
   options: { widths?: readonly number[]; sizes?: string } = {},

@@ -33,4 +33,23 @@ describe('getTextPreviewHtml', () => {
     expect(html).not.toContain('style=');
     expect(html).not.toContain('unsafe');
   });
+
+  test('keeps allowlisted bookmark card modifiers and drops unknown ones', () => {
+    const content = [
+      '<a class="bookmark-card bookmark-card--side-media bookmark-card--unknown" href="https://example.org/article">',
+      '<span class="bookmark-card__media bookmark-card__media--side">',
+      '<span class="bookmark-card__content">',
+      '<span class="bookmark-card__title">Long title</span>',
+      '</span>',
+      '</span>',
+      '</a>',
+    ].join('');
+
+    const html = getTextPreviewHtml({ content }, { preserveBookmarks: true });
+
+    expect(html).toContain('class="bookmark-card bookmark-card--side-media"');
+    expect(html).not.toContain('bookmark-card--unknown');
+    expect(html).toContain('class="bookmark-card__media"');
+    expect(html).not.toContain('bookmark-card__media--side');
+  });
 });
