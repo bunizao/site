@@ -49,6 +49,13 @@ export interface BlogComment {
       from `pending` to match the status enum in plans/blog-comments.md
       (`published | held | rejected | deleted`). */
   held?: boolean;
+  /** The resolved proxy URL from `CommentAuthor.avatarUrl` -- empty or absent
+      when the writer left no email, since there is then no address to
+      resolve an avatar from. Not yet rendered as an image (see
+      identity.ts); today its only job is picking the generated fallback's
+      seed, so a name that many anonymous writers reuse does not draw the
+      same coloured circle for all of them. */
+  avatarUrl?: string;
   isReply?: boolean;
   /** Reactions on the comment itself. A thread is a conversation, and most of
       what people want to say back is "agreed" — a like says it without adding

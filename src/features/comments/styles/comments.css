@@ -21,6 +21,12 @@
      own comments reads as a warning about the comment, not about the button. */
   --blog-danger: #b4232b;
 
+  /* The only encouraging colour in the feature, worn solely by the
+     email recommendation beside an anonymous writer's empty field
+     (confirmAnonymousSubmit() in compose-validate.ts) — a suggestion, not a
+     complaint, so it does not borrow --blog-danger's alarm register. */
+  --blog-good: #2f8f4e;
+
   /* One radius scale for the whole feature. Anything the height of a control
      is a pill; anything that holds content is a box; anything nested inside a
      box takes the inner step, which is the box minus its own padding. */
@@ -40,6 +46,7 @@
 .dark .blog-zone {
   --blog-xia: #ee7fa8;
   --blog-danger: #f1707a;
+  --blog-good: #6cc98a;
 }
 
 /* --- Generated identity -------------------------------------------------- */
@@ -490,6 +497,32 @@
 
 .blog-compose__fields {
   display: flex;
+}
+
+/* The email recommendation -- see confirmAnonymousSubmit() in
+   compose-validate.ts. Sits directly under the two fields, inside the same
+   identity strip, so it reads as being about the field above it rather than
+   about the box as a whole. Green rather than the alert's red: a suggestion,
+   not a thing standing between the reader and Post. */
+.blog-compose__recommend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 14px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--blog-good) 13%, transparent);
+  color: var(--blog-good);
+  font-size: var(--comment-note);
+  font-weight: 500;
+  line-height: 1.4;
+  animation: blog-alert-in 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.blog-compose__recommend svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
 }
 
 .blog-compose__input {
@@ -1363,6 +1396,7 @@
   .blog-comment__act--like[aria-pressed='true'] svg,
   .blog-comment__avatar,
   .blog-compose__alert,
+  .blog-compose__recommend,
   .blog-compose__input[aria-invalid='true'],
   .blog-compose__box:has([aria-invalid='true']) {
     transition: none !important;

@@ -22,10 +22,15 @@ import type {
   ReaderMe,
   ReaderMeResult,
 } from '@bunizao/contracts/comments';
-import { validateCompose } from '@/features/comments/compose-validate';
+import {
+  confirmAnonymousSubmit,
+  dismissRecommendOnFill,
+  resetAnonymousConfirm,
+  validateCompose,
+} from '@/features/comments/compose-validate';
 import { getTurnstileToken, releaseTurnstileToken } from '@/features/comments/client/turnstile-token';
 import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
-import { initials, seedHue } from '@/features/comments/identity';
+import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
 
@@ -67,6 +72,9 @@ const TRASH_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 const GHOST_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M6 6l12 12"></path></svg>`;
 const ERROR_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>`;
 const ALERT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5h.01"></path></svg>`;
+// Byte-for-byte the icon beside the email recommendation in IdentityRow.astro
+// -- the two renderers have to agree.
+const MAIL_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M4 7l8 6 8-6"></path></svg>`;
 // Byte-for-byte the bubble in CommentsSection.astro's error notice -- the two
 // renderers have to agree, and a dashed stroke is easy to let drift.
 const THREAD_ERROR_MARK_SVG = `<svg class="blog-comments__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3.5" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="3"></rect><path d="M8.4 16v3.9a.45.45 0 0 0 .75.33L13.6 16"></path></svg>`;
@@ -109,6 +117,7 @@ function toBlogComment(
     author: comment.tombstone ? '' : comment.author.name,
     date: formatRelativeDate(comment.createdAt, t),
     text: comment.tombstone ? '' : comment.body,
+    avatarUrl: comment.tombstone ? undefined : comment.author.avatarUrl || undefined,
     byAuthor: comment.author.byAuthor,
     held: comment.status === 'held',
     isReply: comment.parentId !== null,
@@ -354,6 +363,11 @@ export function initCommentsController(): void {
     // compose-validate.ts. Nothing below runs until the box is complete.
     if (!validateCompose(box)) return;
 
+    // An anonymous writer with an empty email field gets one more press: the
+    // first one arms the box and shows the recommendation instead of
+    // sending anything. See confirmAnonymousSubmit() for the state machine.
+    if (!confirmAnonymousSubmit(box)) return;
+
     const field = box.querySelector<HTMLTextAreaElement>('.blog-compose__field');
     const text = field?.value.trim() ?? '';
     const isReply = box === replyBox;
@@ -395,6 +409,9 @@ export function initCommentsController(): void {
 
     field!.value = '';
     if (field) field.readOnly = false;
+    // The comment is on its way -- the next one in this box starts a fresh
+    // attempt and earns its own first press.
+    resetAnonymousConfirm(box);
 
     if (phase === 'anonymous') {
       claimed = { name: identity.displayName, email: identity.email };
@@ -484,8 +501,9 @@ export function initCommentsController(): void {
       return { displayName: claimed.name, email: claimed.email };
     }
     const name = box.querySelector<HTMLInputElement>('[data-compose-identity] input[type="text"]')?.value.trim() ?? '';
+    // Email is optional -- an empty one posts the comment anonymously.
     const email = box.querySelector<HTMLInputElement>('[data-compose-identity] input[type="email"]')?.value.trim() ?? '';
-    if (!name || !email) return null;
+    if (!name) return null;
     return { displayName: name, email };
   }
 
@@ -563,7 +581,15 @@ export function initCommentsController(): void {
         el('label', { class: 'sr-only', for: `${id}-name` }, [t.nameLabel]),
         el('input', { id: `${id}-name`, class: 'blog-compose__input blog-compose__input--name', type: 'text', maxlength: '32', autocomplete: 'nickname', placeholder: t.namePlaceholder, required: '' }),
         el('label', { class: 'sr-only', for: `${id}-email` }, [t.emailLabel]),
-        el('input', { id: `${id}-email`, class: 'blog-compose__input', type: 'email', autocomplete: 'email', placeholder: t.emailPlaceholder, required: '' }),
+        el('input', { id: `${id}-email`, class: 'blog-compose__input', type: 'email', autocomplete: 'email', placeholder: t.emailPlaceholder }),
+      ]),
+      // The two-click anonymous-post confirm's recommendation -- see
+      // confirmAnonymousSubmit() in compose-validate.ts. Green, and beside
+      // the field it is about, because it is a suggestion and the field it
+      // suggests filling is still right there to fill.
+      el('p', { class: 'blog-compose__recommend', 'data-compose-recommend': '', 'aria-live': 'polite', hidden: '' }, [
+        parseStaticSvg(MAIL_ICON_SVG),
+        t.emailRecommend,
       ]),
       el('input', {
         type: 'text', name: 'website', 'data-honeypot': '', tabindex: '-1', autocomplete: 'off', 'aria-hidden': 'true',
@@ -576,6 +602,10 @@ export function initCommentsController(): void {
     replyBox.addEventListener('keydown', (event) => {
       if ((event as KeyboardEvent).key === 'Escape') closeReplyBox();
     });
+    // The reply box is built once and travels between rows, so it never goes
+    // through wireComposeValidation() -- wire the same "typing an email hides
+    // the recommendation" behaviour directly.
+    dismissRecommendOnFill(replyBox);
   }
 
   function openReplyBox(commentId: string, authorName: string, rowBody: HTMLElement): void {
@@ -606,6 +636,9 @@ export function initCommentsController(): void {
       note.querySelector('[data-compose-error-text]')?.replaceChildren();
       note.hidden = true;
     }
+    // Landing on a different row starts a fresh reply attempt -- the arm from
+    // whatever was typed for the last one has nothing to do with this one.
+    resetAnonymousConfirm(replyBox);
     replyField.value = '';
   }
 
@@ -681,7 +714,7 @@ export function initCommentsController(): void {
       id: `comment-${comment.id}`,
       class: `blog-comment${comment.isReply ? ' blog-comment--reply' : ''}`,
     }, [
-      el('span', { class: 'blog-comment__avatar blog-avatar-seed blog-avatar-initials', style: `--seed-hue:${seedHue(comment.author)}`, 'aria-hidden': 'true' }, [initials(comment.author)]),
+      el('span', { class: 'blog-comment__avatar blog-avatar-seed blog-avatar-initials', style: `--seed-hue:${seedHue(avatarSeed(comment.id, comment.author, comment.avatarUrl))}`, 'aria-hidden': 'true' }, [initials(comment.author)]),
       body,
     ]);
     if (comment.own) article.dataset.own = 'true';

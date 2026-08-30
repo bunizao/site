@@ -34,6 +34,12 @@ export interface CommentsCopy {
   namePlaceholder: string;
   emailLabel: string;
   emailPlaceholder: string;
+  /** The green recommendation beside the email field -- shown once per
+      compose attempt, on the first press of Post, when an anonymous writer
+      left it empty. Friendly, not a gate: it names the upside (reply
+      notices, an avatar of your own) and says outright that skipping it is
+      fine, because the second press of the same button posts either way. */
+  emailRecommend: string;
   bodyLabel: string;
   /** The prompt, and the only place it appears. It used to be a line of its own
       between the heading and the box, which said the same thing one line early
@@ -107,7 +113,9 @@ export interface CommentsCopy {
   /* --- Validation (compose-validate.ts) ---------------------------------- */
   needBody: string;
   needName: string;
-  needEmail: string;
+  /** Email has no "missing" message any more -- it is optional, so an empty
+      field is never a validation failure. A malformed one still is: see
+      badEmail. */
   badEmail: string;
 }
 
@@ -123,10 +131,8 @@ const zh: CommentsCopy = {
   nameLabel: '昵称',
   namePlaceholder: '昵称',
   emailLabel: '邮箱',
-  /* Deliberately not a translation of the English, which names the reason
-     (for avatar); 私密 names the guarantee, and that is the half that reads
-     better in Chinese. */
-  emailPlaceholder: '邮箱（私密）',
+  emailPlaceholder: '邮箱（选填）',
+  emailRecommend: '留个邮箱，回复时能通知你，还能有自己的头像。不留也可以发。',
   bodyLabel: '写评论',
   bodyPlaceholder: '说点什么…',
   replyBodyLabel: '写回复',
@@ -177,7 +183,6 @@ const zh: CommentsCopy = {
 
   needBody: '评论一定要有文字。',
   needName: '参与讨论的人，值得一个好名字。',
-  needEmail: '需要邮箱来显示头像、接收回复通知。',
   badEmail: '这个邮箱看起来不太对。',
 };
 
@@ -193,7 +198,8 @@ const en: CommentsCopy = {
   nameLabel: 'Name',
   namePlaceholder: 'Name',
   emailLabel: 'Email',
-  emailPlaceholder: 'Email (for avatar)',
+  emailPlaceholder: 'Email (optional)',
+  emailRecommend: 'Add an email to get notified on replies and have your own avatar. Or post without one.',
   bodyLabel: 'Write a comment',
   bodyPlaceholder: 'Say something…',
   replyBodyLabel: 'Write a reply',
@@ -244,7 +250,6 @@ const en: CommentsCopy = {
 
   needBody: 'A comment needs words.',
   needName: 'Everyone in a conversation deserves a name.',
-  needEmail: 'An email is needed for your avatar and reply notices.',
   badEmail: "That email doesn't look right.",
 };
 

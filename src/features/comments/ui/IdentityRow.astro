@@ -18,7 +18,13 @@
    email" is the question that stops people here, and the answer costs three
    words inside the placeholder -- a labelled group with a sentence under it
    put three lines of prose between the heading and the first thing a reader
-   can type. */
+   can type.
+
+   Email is optional -- name is the only field Post actually needs. Leaving
+   it empty and pressing Post once does not send anything either, though: it
+   shows the green recommendation below, and only the second press posts
+   (with an email if one got typed in the meantime, anonymously otherwise).
+   See confirmAnonymousSubmit() in compose-validate.ts, which owns that. */
 
 import { blog } from '@/data/site';
 import { commentsCopy } from '@/features/comments/copy';
@@ -53,9 +59,23 @@ const t = commentsCopy[blog.locale.blog];
       type="email"
       autocomplete="email"
       placeholder={t.emailPlaceholder}
-      required
     />
   </div>
+
+  {/* Green because it's a suggestion, not a complaint -- the field it is
+      about is still right there to fill. Shown once per compose attempt by
+      the two-click anonymous-post confirm in compose-validate.ts
+      (confirmAnonymousSubmit): a first press of Post with this field empty
+      stops here instead of sending anything; the next press posts either
+      way. Hidden by default and toggled purely by that script -- nothing
+      here decides when it shows. */}
+  <p class="blog-compose__recommend" data-compose-recommend aria-live="polite" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2.5"></rect>
+      <path d="M4 7l8 6 8-6"></path>
+    </svg>
+    {t.emailRecommend}
+  </p>
 
   {/* Honeypot -- risk stack step 3 (plans/blog-comments.md "The risk
       stack"). A human never reaches this: it is off-screen, unreachable by

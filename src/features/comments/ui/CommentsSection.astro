@@ -18,7 +18,7 @@
 
 import CommentForm from '@/features/comments/ui/CommentForm.astro';
 import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
-import { initials, seedHue } from '@/features/comments/identity';
+import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import { blog } from '@/data/site';
 import { commentsCopy } from '@/features/comments/copy';
@@ -201,7 +201,7 @@ const t = commentsCopy[locale];
               nothing to hydrate and one island per row would be absurd. */}
           <span
             class="blog-comment__avatar blog-avatar-seed blog-avatar-initials"
-            style={`--seed-hue:${seedHue(comment.author)}`}
+            style={`--seed-hue:${seedHue(avatarSeed(comment.id, comment.author, comment.avatarUrl))}`}
             aria-hidden="true">{initials(comment.author)}</span>
           <div class="blog-comment__body">
             <div class="blog-comment__meta">
@@ -369,7 +369,7 @@ const t = commentsCopy[locale];
   // Wires the reply box's own submit button — see compose-validate.ts.
   // Idempotent and namespaced by a data attribute, so it does not matter that
   // the compose box's script calls the same function against the same document.
-  import { wireComposeValidation } from '@/features/comments/compose-validate';
+  import { resetAnonymousConfirm, wireComposeValidation } from '@/features/comments/compose-validate';
   import { copyFor } from '@/features/comments/copy';
 
   wireComposeValidation();
@@ -401,6 +401,8 @@ const t = commentsCopy[locale];
       note.querySelector('[data-compose-error-text]')?.replaceChildren();
       note.hidden = true;
     }
+    // Landing on a different row starts a fresh reply attempt.
+    resetAnonymousConfirm(box);
   }
 
   if (box && field && home) {
