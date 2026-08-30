@@ -292,6 +292,26 @@ editable from the portal. Fail closed to `held` on error or `unsure` — a held
 comment is visible to its writer with the "Held for review" note and to the
 owner in the portal queue.
 
+The prompt is a safety filter, not an editor, and that took a rewrite to
+achieve. The v1 wording made `publish` a conjunction — on-topic *and* civil
+*and* no spam signals — and left `hold` as the widest category, described by
+vibes ("borderline", "mildly off-topic"). Combined with `unsure` failing closed,
+the model held any comment whose relation to the post it could not establish,
+and readers lost ordinary off-topic remarks into a queue they were never told
+about. The rewrite inverts the burden: publish is the default, `reject` is a
+closed list (sexual, graphically violent, illegal, targeted harassment, spam or
+scam links, exposed private details), and a paragraph names what is explicitly
+*not* grounds — off-topic, critical, blunt, short, any language, discussing a
+heavy subject rather than publishing one. It also states the cost asymmetry the
+model was never told: a wrongly published comment is one click for an owner who
+reads everything, a wrongly held one is invisible with no appeal.
+
+Topicality and tone are retired as grounds, but `off_topic` and `promotional`
+stay in `MODERATION_REASONS` — the column, the admin queue, and the Telegram
+card all read rows written under the old policy. `applyPolicyFloor` publishes
+any hold or reject resting only on those two, so the policy holds even if the
+model drifts back to them.
+
 New in v2: the call happens **inline on submit** (there is no verification
 step to defer it to). Budget guarded by the risk stack below; latency is
 acceptable because a held-vs-published answer is exactly what the submit
