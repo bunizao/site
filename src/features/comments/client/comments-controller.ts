@@ -24,6 +24,11 @@ import type {
 } from '@bunizao/contracts/comments';
 import { sayComposeAlert, validateCompose } from '@/features/comments/compose-validate';
 import {
+  describeCommentFailure,
+  failureTag,
+  readErrorSlug,
+} from '@/features/comments/comment-error';
+import {
   getTurnstileToken,
   releaseTurnstileToken,
   warmTurnstileToken,
@@ -412,8 +417,11 @@ export function initCommentsController(): void {
 
     if (!response.ok) {
       // Same slot an unfinished field complains in -- see sayComposeAlert.
+      // What the line says depends on what was refused: a rate limit and a
+      // dropped connection want opposite next moves out of the reader.
+      const failure = describeCommentFailure(response.status, response.slug, t.submitError);
       box.dataset.receipt = 'error';
-      sayComposeAlert(box, t.receiptError);
+      sayComposeAlert(box, failure.message, failureTag(failure));
       return;
     }
 
@@ -586,6 +594,7 @@ export function initCommentsController(): void {
       el('p', { class: 'blog-compose__alert', 'data-compose-error': '', role: 'alert', hidden: '' }, [
         parseStaticSvg(ALERT_ICON_SVG),
         el('span', { 'data-compose-error-text': '' }),
+        el('code', { class: 'blog-compose__code', 'data-compose-error-code': '', hidden: '' }),
       ]),
       el('div', { class: 'blog-compose__box' }, [
         buildIdentityRow('blog-reply-id'),
@@ -655,6 +664,11 @@ export function initCommentsController(): void {
     replyBox.querySelectorAll('[aria-invalid]').forEach((f) => f.removeAttribute('aria-invalid'));
     if (note) {
       note.querySelector('[data-compose-error-text]')?.replaceChildren();
+      const badge = note.querySelector<HTMLElement>('[data-compose-error-code]');
+      if (badge) {
+        badge.replaceChildren();
+        badge.hidden = true;
+      }
       note.hidden = true;
     }
     replyField.value = '';
@@ -888,7 +902,19 @@ export function initCommentsController(): void {
     });
 
     if (!response.ok) {
-      field.after(el('p', { class: 'blog-comment__edit-error blog-compose__error' }, [t.editError]));
+      // Same taxonomy as a submission -- see comment-error.ts. An edit past
+      // its window (409) and an edit that hit a rate limit are different
+      // problems, and "that didn't save, try again" was wrong for both: the
+      // window never reopens, and retrying a limit deepens it.
+      const failure = describeCommentFailure(
+        response.status,
+        readErrorSlug(await response.json().catch(() => null)),
+        t.submitError,
+      );
+      field.after(el('p', { class: 'blog-comment__edit-error blog-compose__error' }, [
+        failure.message,
+        el('code', { class: 'blog-compose__code' }, [failureTag(failure)]),
+      ]));
       return;
     }
 
@@ -1074,17 +1100,26 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
-async function postJson<T>(url: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; status: number }> {
+type PostResult<T> = { ok: true; data: T } | { ok: false; status: number; slug: string };
+
+/** Status 0 means the request never reached a server -- offline, DNS, a
+    killed tab. Distinct from every real refusal, and the only failure where
+    "try again" is honest advice on its own. The refusal body is read for its
+    error slug (see comment-error.ts); a body that is missing or not JSON is
+    normal on a 5xx and costs nothing but an empty slug. */
+async function postJson<T>(url: string, body: unknown): Promise<PostResult<T>> {
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!response.ok) return { ok: false, status: response.status };
+    if (!response.ok) {
+      return { ok: false, status: response.status, slug: readErrorSlug(await response.json().catch(() => null)) };
+    }
     return { ok: true, data: (await response.json()) as T };
   } catch {
-    return { ok: false, status: 0 };
+    return { ok: false, status: 0, slug: '' };
   }
 }
 

@@ -14,6 +14,7 @@
    the type import costs nothing in the client bundle. */
 
 import type { BlogLocale } from '@/data/site';
+import type { CommentErrorCode } from '@/features/comments/comment-error';
 
 export interface CommentsCopy {
   /* --- Thread ------------------------------------------------------------ */
@@ -60,16 +61,19 @@ export interface CommentsCopy {
   authorBadge: string;
   edited: string;
   tombstone: string;
-  /** Shown on a row the moderation pass held back -- and only to its writer,
-      who is the only person the row is served to. Plain status, in the register
-      every other platform uses for this: "held for review, and until it clears
-      only you can see it" said the same thing in a clause about the reader
-      rather than about the comment. */
+  /** Shown on a row the moderation pass held back, and only ever to its
+      writer -- nobody else is served the row at all. Which is the one fact it
+      has to carry: "这条评论正在审核中" named a verdict the reader did not
+      ask about and left the obvious question unanswered -- if it is under
+      review, why am I looking at it? Naming the audience answers that and
+      drops the accusation in the same breath. */
   held: string;
   /** A row this browser has just posted while the moderation verdict is still
       in flight. It almost always clears within seconds, so it is a mark on the
       byline rather than the block note `held` carries -- announcing a review
-      that is about to end is how a working thread reads as a stuck one. */
+      that is about to end is how a working thread reads as a stuck one. It
+      says what is happening (the comment is going up), not what is being done
+      to it. */
   verifying: string;
   reply: string;
   edit: string;
@@ -80,7 +84,6 @@ export interface CommentsCopy {
   discard: string;
   remove: string;
   removeConfirm: string;
-  editError: string;
   likeLabel: (author: string) => string;
   /** `clock` is always `M:SS`; only the words around it move. */
   timeLeft: (clock: string) => string;
@@ -109,7 +112,9 @@ export interface CommentsCopy {
      the failure has to be spoken, and it is spoken in the same slot the
      validation complaints use (compose-validate.ts) rather than a second one
      below the box. */
-  receiptError: string;
+  /** Keyed by what the reader can do next -- see comment-error.ts for how a
+      status and a server slug pick one. Rendered beside its code. */
+  submitError: Record<CommentErrorCode, string>;
   nudgeText: string;
   nudgeSubscribe: string;
   dismiss: string;
@@ -154,8 +159,8 @@ const zh: CommentsCopy = {
   authorBadge: '作者',
   edited: '已编辑',
   tombstone: '这条评论已删除。',
-  held: '这条评论正在审核中。',
-  verifying: '正在检查',
+  held: '这条评论已发出，暂时只有你能看到。',
+  verifying: '发布中',
   reply: '回复',
   edit: '编辑',
   editLabel: '编辑你的评论',
@@ -164,7 +169,6 @@ const zh: CommentsCopy = {
   discard: '不保存？',
   remove: '删除',
   removeConfirm: '删除这条评论？',
-  editError: '这次修改没能保存。',
   likeLabel: (author) => `给 ${author} 的评论点赞`,
   timeLeft: (clock) => `还剩${clock}`,
   relativeDate: {
@@ -179,7 +183,16 @@ const zh: CommentsCopy = {
   reactAdd: '喜欢这篇',
   reactDone: '已喜欢',
 
-  receiptError: '没能发出去，草稿还在。再试一次。',
+  submitError: {
+    NET: '网络断了，草稿还在。连上再试一次。',
+    RATE: '发得有点快，歇一分钟再来。草稿还在。',
+    BOT: '人机验证过期了，刷新页面再试一次。',
+    GONE: '这篇的评论区暂时用不了。',
+    THREAD: '要回复的那条评论不在了，刷新一下看看。',
+    CLOSED: '这条已经不能改了。',
+    INPUT: '这条没能通过，换个说法再试试。',
+    SERVER: '服务器出了点问题，草稿还在。等会儿再试。',
+  },
   nudgeText: '确认邮箱后可管理评论、接收回复通知',
   nudgeSubscribe: '订阅新文章邮件',
   dismiss: '关闭',
@@ -220,8 +233,8 @@ const en: CommentsCopy = {
   authorBadge: 'Author',
   edited: 'edited',
   tombstone: 'This comment was deleted.',
-  held: 'This comment is on hold.',
-  verifying: 'Checking',
+  held: 'Posted — for now, only you can see it.',
+  verifying: 'Publishing',
   reply: 'Reply',
   edit: 'Edit',
   editLabel: 'Edit your comment',
@@ -230,7 +243,6 @@ const en: CommentsCopy = {
   discard: 'Discard?',
   remove: 'Delete',
   removeConfirm: 'Delete this comment?',
-  editError: "Couldn't save that edit.",
   likeLabel: (author) => `Like ${author}'s comment`,
   timeLeft: (clock) => `${clock} left`,
   relativeDate: {
@@ -245,7 +257,16 @@ const en: CommentsCopy = {
   reactAdd: 'Like this post',
   reactDone: 'Liked',
 
-  receiptError: "Couldn't post that — your draft is still here. Try again.",
+  submitError: {
+    NET: "You're offline — your draft is safe. Try again once you're back.",
+    RATE: "That's a lot at once. Wait a minute — your draft is safe.",
+    BOT: 'The bot check expired. Refresh the page and try again.',
+    GONE: "Comments on this post aren't available right now.",
+    THREAD: "The comment you're replying to is gone. Refresh to see the thread.",
+    CLOSED: "That can't be changed any more.",
+    INPUT: "That didn't go through. Try rewording it.",
+    SERVER: 'Something broke on our end — your draft is safe. Try again shortly.',
+  },
   nudgeText: 'Confirm your email to manage your comments and get reply notices',
   nudgeSubscribe: 'Also email me new posts',
   dismiss: 'Dismiss',

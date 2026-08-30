@@ -485,7 +485,7 @@ vanilla controller (`src/features/comments/client/comments-controller.ts`).
 | `posted` | 201 published | Field clears; row appears in thread. **No receipt line** — the row is the receipt |
 | `held` | 201 held | Same, and the row carries the pending mark until the verdict polls settle it |
 | `nudge` | posted with unverified email | The one thing still drawn under the box: verify line + optional subscribe checkbox; dismissable |
-| `error` | 4xx/5xx | The alert **above** the box — same slot a missing field uses — draft preserved, retry |
+| `error` | 4xx/5xx | The alert **above** the box — same slot a missing field uses — draft preserved, message chosen by what the reader can do next, plus a reference code |
 
 Only one thing is ever said in any one place. Identity is a standing fact and
 lives in the form; failure is a complaint and lives in the alert above it; the
@@ -508,6 +508,23 @@ pending mark, not as "under review": nearly every hold is the classifier still
 thinking and clears inside the poll window, and announcing a review that is
 about to end is how a working thread reads as a stuck one. The plain hold note
 appears only once the polls give up.
+
+That note names the audience rather than the verdict — "已发出，暂时只有你能
+看到" — because a held row is only ever served to its own writer, and the
+version that said "正在审核中" left the reader with an unanswered question: if
+this is under review, why is it on my screen? Naming who can see it answers
+that and drops the accusation in one line.
+
+**Failure messages** (`comment-error.ts`) are keyed by the reader's next move,
+not by the status: reconnect (`NET`), wait (`RATE`), refresh (`BOT`, `THREAD`),
+give up (`GONE`, `CLOSED`), reword (`INPUT`), try later (`SERVER`). One line for
+all of them sent a rate-limited reader straight back into the limit and told a
+reader whose edit window had closed to try again. Each carries its code and
+status in a badge at the end of the alert — the sentence is for the reader
+acting on it, the code is for the reader who has stopped acting and wants to
+report it. The classifier prefers a slug the server volunteered over the status
+it arrived with, because `400` and `503` each mean several things on this route
+family.
 
 **Thread**: `skeleton` (exists), `empty` (exists), `loaded`, `load-more`
 (cursor button + loading), `error` (retry).

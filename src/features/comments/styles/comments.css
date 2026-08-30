@@ -604,6 +604,29 @@
   height: 16px;
 }
 
+/* The reference code, in both places a failure prints: the alert above a
+   compose box and the inline error under an edit field. Pushed to the far
+   end so it is out of the sentence a reader is actually acting on -- it is
+   for the reader who has stopped acting and wants to report the thing. Mono
+   because it is meant to be copied or read aloud character by character. */
+.blog-compose__code {
+  flex: 0 0 auto;
+  margin-left: auto;
+  align-self: center;
+  padding: 1px 6px;
+  /* Outlined, not filled. A tinted chip inside an already-tinted alert put
+     the code on a more saturated wash of its own colour and dropped it to
+     3.55:1 -- under the bar for 11px text. The border draws the same chip
+     and costs the text nothing. */
+  border: 1px solid color-mix(in oklab, currentColor 28%, transparent);
+  border-radius: 5px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
 @keyframes blog-alert-in {
   from {
     opacity: 0;

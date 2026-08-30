@@ -319,6 +319,7 @@ const t = commentsCopy[locale];
             <path d="M12 7v6M12 16.5h.01"></path>
           </svg>
           <span data-compose-error-text></span>
+          <code class="blog-compose__code" data-compose-error-code hidden></code>
         </p>
 
         {/* No footer: the "Replying to X" line said what the field's own
@@ -428,6 +429,11 @@ const t = commentsCopy[locale];
     box.querySelectorAll('[aria-invalid]').forEach((field) => field.removeAttribute('aria-invalid'));
     if (note) {
       note.querySelector('[data-compose-error-text]')?.replaceChildren();
+      const badge = note.querySelector<HTMLElement>('[data-compose-error-code]');
+      if (badge) {
+        badge.replaceChildren();
+        badge.hidden = true;
+      }
       note.hidden = true;
     }
   }

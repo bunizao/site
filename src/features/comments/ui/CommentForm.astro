@@ -78,7 +78,7 @@ const fieldValue = busy || receipt === 'error' ? draftText : '';
    the form any more. `posted` and `held` render nothing at all: the comment
    arrives in the list under the box with the reader's name on it, which is the
    receipt. What is left below is the one thing that is not a status at all. */
-const alertText = receipt === 'error' ? t.receiptError : '';
+const alertText = receipt === 'error' ? t.submitError.SERVER : '';
 const showNudge = receipt === 'nudge';
 ---
 
@@ -98,6 +98,9 @@ const showNudge = receipt === 'nudge';
       <path d="M12 7v6M12 16.5h.01"></path>
     </svg>
     <span data-compose-error-text>{alertText}</span>
+    {/* Reference code, right-aligned and out of the reading path. Only a
+        server refusal earns one — see comment-error.ts. */}
+    <code class="blog-compose__code" data-compose-error-code hidden></code>
   </p>
 
   {/* One surface for the whole form. Three bordered boxes stacked -- name,

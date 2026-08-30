@@ -52,12 +52,22 @@ function messageFor(field: ComposeField, t: CommentsCopy): string | null {
 
     The alert carries an icon beside its text, so the message goes into the
     slot rather than over the whole element. Falls back to the element itself,
-    which keeps this honest against any markup that has only a bare line. */
-export function sayComposeAlert(compose: HTMLElement, message: string | null): void {
+    which keeps this honest against any markup that has only a bare line.
+
+    `tag` is the short reference code the server's refusal earned (see
+    comment-error.ts). Only submissions have one -- an empty field is not a
+    fault anybody needs to report -- so it is optional and clears with the
+    message. */
+export function sayComposeAlert(compose: HTMLElement, message: string | null, tag = ''): void {
   const note = compose.querySelector<HTMLElement>('[data-compose-error]');
   if (!note) return;
   const slot = note.querySelector<HTMLElement>('[data-compose-error-text]') ?? note;
   slot.textContent = message ?? '';
+  const badge = note.querySelector<HTMLElement>('[data-compose-error-code]');
+  if (badge) {
+    badge.textContent = tag;
+    badge.hidden = !tag;
+  }
   note.hidden = !message;
 }
 
