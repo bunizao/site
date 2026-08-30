@@ -105,7 +105,7 @@ async function call(
   method: string,
   path: string,
   body?: unknown,
-): Promise<{ status: number; json: any; text: string }> {
+): Promise<{ status: number; json: any; text: string; headers: Headers }> {
   // Browsers send Origin on every non-GET fetch; without it Astro's CSRF
   // check rejects a body-less DELETE as a cross-site form submission.
   const headers: Record<string, string> = { 'user-agent': j.ua, origin: ORIGIN };
@@ -127,7 +127,7 @@ async function call(
   try {
     json = JSON.parse(text);
   } catch {}
-  return { status: res.status, json, text };
+  return { status: res.status, json, text, headers: res.headers };
 }
 
 // -- wrangler shell-outs ----------------------------------------------------
@@ -227,10 +227,15 @@ async function main() {
     readEnvFile('/Users/tutu/Dev/site-api/.env.local').AI_API_KEY ??
     '';
   if (aiKey) {
-    const r = await fetch('https://api.openai.com/v1/models', {
+    // Moderation rides the tuuhub gateway with the task-guard alias; the
+    // publish path is only live when the key works AND the alias exists.
+    const r = await fetch('https://ai.tuuhub.com/v1/models', {
       headers: { authorization: `Bearer ${aiKey}` },
     });
-    aiUp = r.status === 200;
+    if (r.status === 200) {
+      const models: any = await r.json().catch(() => null);
+      aiUp = (models?.data ?? []).some((m: any) => m?.id === 'task-guard');
+    }
   }
   console.log(`AI moderation key: ${aiUp ? 'VALID (publish path live)' : 'INVALID/absent (fail-closed: everything holds)'}\n`);
   const benignOutcome = aiUp ? 'published' : 'held';
@@ -471,7 +476,53 @@ async function main() {
     record('L1', 'public list shows no held/rejected', r.status === 200 && !heldLeaked, `status=${r.status} count=${listed.length} leaked=${heldLeaked}`);
   }
 
-  // -- 10. turnstile reject path (runs LAST: each secret put rolls a new
+  // -- 10. reaction abuse controls (abuse-control research P0/P1) ------------
+  // Every request uses a fresh jar, so no cookie is ever replayed and each
+  // toggle arrives as a brand-new identity. The identity budget therefore
+  // never accumulates; only the hashed-IP minute budget (30) can stop the
+  // run -- exactly the cookie-churn bypass the research doc flagged as P0.
+  // reacted:false toggles are accepted no-ops, so no rows or counts change.
+  // Budget note: this consumes 31 of the 120/h reaction IP budget per run.
+  {
+    const toggleBody = { targetType: 'post', targetId: POST_ID, reacted: false, turnstileToken: TURNSTILE_DUMMY };
+    let firstDenied = 0;
+    let denied: Awaited<ReturnType<typeof call>> | null = null;
+    let cookieOnAccept = false;
+    for (let i = 1; i <= 31; i++) {
+      const j = jar(`rx-${i}`);
+      const r = await call(j, 'POST', '/api/v2/reactions/toggle', toggleBody);
+      if (r.status === 200 && j.cookies.has('__Host-reader_anon')) cookieOnAccept = true;
+      if (r.status !== 200) {
+        firstDenied = i;
+        denied = r;
+        break;
+      }
+    }
+    record(
+      'RX1',
+      'anon identity churn from one IP -> 429 at request 31',
+      firstDenied === 31 && denied?.status === 429,
+      `firstDenied=${firstDenied || 'never'} status=${denied?.status ?? 200}`,
+    );
+    if (denied?.status === 429) {
+      const h = denied.headers;
+      const ok = !!h.get('retry-after')
+        && !!h.get('x-ratelimit-limit')
+        && h.get('x-ratelimit-remaining') === '0'
+        && !h.get('set-cookie');
+      record(
+        'RX2',
+        '429 carries rate-limit headers, no cookie',
+        ok,
+        `retryAfter=${h.get('retry-after')} limit=${h.get('x-ratelimit-limit')} remaining=${h.get('x-ratelimit-remaining')} cookie=${!!h.get('set-cookie')}`,
+      );
+    } else {
+      skip('RX2', 'rate-limit headers on 429', 'RX1 never hit the limiter');
+    }
+    record('RX3', 'accepted toggle issues the anon cookie', cookieOnAccept, cookieOnAccept ? 'cookie set on 200' : 'no __Host-reader_anon on any accepted toggle');
+  }
+
+  // -- 11. turnstile reject path (runs LAST: each secret put rolls a new
   // worker version, and the minutes after a roll can flake DO calls and
   // in-flight requests -- keep that turbulence away from the create series) --
   {
