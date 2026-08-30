@@ -204,7 +204,11 @@ export interface CommentCreateInput {
   /** Root comment id this replies to. Omitted or null for a root comment. */
   parentId?: string | null;
   displayName: string;
-  email: string;
+  /** Optional. Supplied: must be valid; triggers lazy verification and
+      enables reply notifications, claiming, and a Gravatar-backed avatar.
+      Omitted or empty: the comment is owned by its anon session only and
+      the client renders an identicon. */
+  email?: string;
   turnstileToken: string;
   /** Visually-hidden honeypot field. Must arrive empty. */
   website?: string;
@@ -223,8 +227,10 @@ export type CommentCreateOutcome = (typeof COMMENT_CREATE_OUTCOMES)[number];
 export interface CommentCreateResult {
   outcome: CommentCreateOutcome;
   comment: Comment;
-  /** True when `email` was not already a verified reader — the client shows
-      the verification nudge (and, when accepted, the subscribe offer). */
+  /** True when a supplied `email` was not already a verified reader — the
+      client shows the verification nudge (and, when accepted, the subscribe
+      offer). Always false when no email was supplied; the add-an-email
+      nudge is driven client-side by the missing address, not by this flag. */
   unverifiedEmail: boolean;
 }
 
