@@ -216,7 +216,10 @@ export function initCommentsController(): void {
     nextBefore = pageResult.nextBefore;
     await renderPage(pageResult.comments);
     setTally(pageResult.total);
-    toggleEmptyState(total === 0);
+    // `total` counts published comments only, but the page also renders the
+    // viewer's own held ones -- keying the empty state off the rendered rows
+    // stops "no one has been here yet" from sitting above a visible comment.
+    toggleEmptyState(pageResult.comments.length === 0);
     setMoreVisible(pageResult.hasMore);
   }
 
@@ -413,6 +416,49 @@ export function initCommentsController(): void {
       closeReplyBox();
     } else {
       showComposeReceipt(box, receipt);
+    }
+
+    if (outcome === 'held') {
+      void upgradeWhenVerdictLands(comment.id, parentId, article, box, isReply, Boolean(unverifiedEmail));
+    }
+  }
+
+  // The API answers within ~1.5s even while the AI verdict is still in
+  // flight: the comment lands as held and flips to published in the
+  // background. Probe the list a few times so the writer sees the flip
+  // without reloading. A comment that stays held (genuine hold, reject, or
+  // an edit during the race) keeps its held rendering -- the wire never
+  // says which.
+  const VERDICT_POLL_DELAYS_MS = [2500, 3500, 6000];
+
+  async function upgradeWhenVerdictLands(
+    commentId: string,
+    parentId: string | null,
+    article: HTMLElement,
+    box: HTMLElement,
+    isReply: boolean,
+    unverifiedEmail: boolean,
+  ): Promise<void> {
+    for (const delay of VERDICT_POLL_DELAYS_MS) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      const page = await fetchJson<CommentListResult>(
+        `/api/v2/comments?post=${encodeURIComponent(postId)}&limit=${PAGE_SIZE}`,
+      );
+      const match = page?.comments.find((c) => c.id === commentId);
+      if (!match) return;
+      if (match.status === 'held') continue;
+      if (match.status !== 'published') return;
+
+      const row = toBlogComment(match, {}, t);
+      row.own = true;
+      const fresh = renderCommentRow(row, parentId);
+      wireCommentRow(fresh, row, parentId);
+      if (article.isConnected) article.replaceWith(fresh);
+      setTally(total + 1);
+      if (!isReply && box.dataset.receipt === 'held') {
+        showComposeReceipt(box, unverifiedEmail ? 'nudge' : 'posted');
+      }
+      return;
     }
   }
 
