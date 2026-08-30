@@ -42,17 +42,18 @@ browser).
 
 ## Behavioral matrix results
 
-Final run (2026-08-30 evening, `run=mtfnqmn0`, both workers on the merged
-branches): **34 probes — 33 pass, 0 fail, 1 skip.**
+Final run (2026-08-30 late evening, `run=mtfs8x0j`, both workers on the
+merged branches with the risk-control rework and async moderation live):
+**37 probes — 37 pass, 0 fail, 0 skip.**
 
 | Series | Probes | Result |
 | --- | --- | --- |
 | P: bot tripwires | dwell-token parity; missing/young dwell; honeypot; oversize body; unknown post; duplicate body; Turnstile reject + restore | all pass |
-| C: create + risk stack | benign anon create held (fail-closed AI); link count; keyword blocklist; disposable domain; first-session link; shadow ban; 4th-in-a-minute 429 | all pass |
+| C: create + risk stack | benign anon create settles published (live AI verdict); link count; keyword blocklist; disposable domain; first-session link; shadow ban held through the async continuation; hostile body settles rejected; 4th-in-a-minute 429 | all pass |
 | M/V: email + verification | Resend delivery; verify/confirm; re-verify; tampered token; expired token; subscribe-on-verify; comment claim on verify; reader/me; resend cap (5 then 429) | all pass |
-| R/E/D: lifecycle | verified reply; edit in window; foreign edit 403; unknown id 404; edit after 15 min 409; root delete → tombstone; leaf delete → soft-deleted + hidden | all pass |
+| R/E/D: lifecycle | verified reply settles published with parent + reader_id; edit in window; foreign edit 403; unknown id 404; edit after 15 min 409; root delete → tombstone; leaf delete → soft-deleted + hidden | all pass |
 | L: visibility | public list leaks no held/rejected rows | pass |
-| C8 (skip) | hostile-body AI probe | skipped: AI key invalid |
+| RX: reaction limits | identity churn from one IP → 429 at request 31; 429 carries rate-limit headers + no cookie; accepted toggle issues the cookie | all pass |
 
 Two earlier same-day runs also informed the final state: run 2 (within the
 hour) proved the 10/h IP cap fires exactly as designed, and run 3 exposed
@@ -64,11 +65,16 @@ turbulence can't touch the create series. None of that affects production:
 prod never swaps secrets mid-traffic, and the fail-closed behavior is the
 intended posture.
 
-The one skip in that run was C8 (hostile-body AI probe): moderation was
-pointed at `api.openai.com`, where the configured key 401s. The key was
+An earlier iteration skipped C8 (hostile-body AI probe) because moderation
+was pointed at `api.openai.com`, where the configured key 401s. The key was
 never the problem — it is a valid key for the `ai.tuuhub.com` gateway (see
 the risk-control rework below), and after repointing `AI_BASE_URL` the
 publish path went live and C8 became runnable.
+
+One operational lesson from the final rerun: the 10/h create budget is a
+fixed window per IP that opens on the first attempt, so the reset time
+moves with whoever last played on staging. Trust the `X-RateLimit-Reset`
+header on a 429, not arithmetic from an earlier run.
 
 ## Risk-control rework (post-acceptance)
 
@@ -128,6 +134,29 @@ tests or local dev:
 5. **Turnstile testing-key semantics** — the always-pass secret accepts any
    token, which masked action mismatches locally; the verify path now checks
    `expectedAction` explicitly.
+6. **Form POSTs 500 with "Body has already been used"** — the public worker's
+   asset probe passed the original request to `ASSETS.fetch`, which consumes a
+   POST body even on a 404 miss, so `/reader/confirm`'s Confirm button died
+   before Astro could read the form. GETs carry no body, which is why every
+   page *load* worked. `src/worker.ts` now routes non-GET/HEAD requests
+   straight to Astro — assets and the HTML edge cache are GET-only surfaces.
+7. **Gateway rejects `temperature`** — ai.tuuhub.com routes `task-guard`
+   across backends and the reasoning-model ones reject the parameter
+   per-request, so moderation failed closed intermittently
+   (`moderation_model` NULL). The moderation call now sends no sampling
+   params.
+8. **Empty state above a visible comment** — the client keyed "no one has
+   been here yet" off `total`, which counts published comments only, while
+   the list also renders the viewer's own held rows. Now keyed off rendered
+   rows.
+9. **Submit latency** — the AI verdict (1.7–3.4s measured) sat in the create
+   request's critical path. The API now waits at most 1.5s
+   (`MODERATION_DEADLINE_MS`); a slower verdict inserts the row as held and
+   lands via `waitUntil`, guarded on `updated_at` so a writer edit during the
+   race is never clobbered (a raced edit stays held). The client polls the
+   list a few times after a held submit and upgrades the row in place when
+   the verdict publishes. The wire still never distinguishes held from
+   rejected.
 
 ## Merge summary (both branches converged onto main)
 
