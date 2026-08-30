@@ -281,9 +281,16 @@ async function main() {
   console.log('\nshadow-ban KV seeded for E4\n');
 
   // -- 3. create batch 1 (attempts 1-4; 4th trips the minute window) --------
+  // C1/R1 bodies reach the live AI moderator when the key is up, so they
+  // read like genuine comments -- the model flags visible probe tags as
+  // suspicious ("明显突兀") and holds them. The bodies are fixed across
+  // runs: the duplicate check is per-post against live DB rows, and the
+  // pre-run cleanup deletes every probe row, so only P8's deliberate
+  // in-run reuse of C1_BODY trips it.
+  const C1_BODY = '读完这篇好像被轻轻拍了拍肩膀，谢谢你写下来。';
   let c1: any = null;
   {
-    const r = await call(jE1, 'POST', '/api/v2/comments', createBody(jE1, { email: E1, body: `C1 benign root comment ${RUN}`, notifyReplies: true }));
+    const r = await call(jE1, 'POST', '/api/v2/comments', createBody(jE1, { email: E1, body: C1_BODY, notifyReplies: true }));
     c1 = r.json?.comment ?? null;
     const row = c1 ? dbRow(c1.id) : null;
     const ok = r.status === 201 && r.json?.outcome === benignOutcome && !!row && row.status === benignOutcome && r.json?.unverifiedEmail === true;
@@ -308,7 +315,7 @@ async function main() {
 
   // -- 4. zero-budget: duplicate body (drops before rate limit) -------------
   {
-    const r = await call(jMisc, 'POST', '/api/v2/comments', createBody(jMisc, { email: E2, body: `C1 benign root comment ${RUN}` }));
+    const r = await call(jMisc, 'POST', '/api/v2/comments', createBody(jMisc, { email: E2, body: C1_BODY }));
     const fake = r.status === 201 && r.json?.outcome === 'held' && !dbRow(r.json?.comment?.id ?? 'x');
     record('P8', 'duplicate body -> fake held, no DB row', fake, `status=${r.status} outcome=${r.json?.outcome}`);
   }
@@ -401,7 +408,7 @@ async function main() {
   }
   let r1: any = null;
   if (c1) {
-    const r = await call(jE2, 'POST', '/api/v2/comments', createBody(jE2, { email: E2, body: `R1 reply from verified reader ${RUN}`, parentId: c1.id }));
+    const r = await call(jE2, 'POST', '/api/v2/comments', createBody(jE2, { email: E2, body: '同感，最近也常有这种时刻，看到有人写出来就安心了些。', parentId: c1.id }));
     r1 = r.json?.comment ?? null;
     const row = r1 ? dbRow(r1.id) : null;
     const ok = r.status === 201 && r.json?.outcome === benignOutcome && row?.parent_id === c1.id && !!row?.reader_id && r.json?.unverifiedEmail === false;
@@ -414,15 +421,21 @@ async function main() {
   console.log('\nwaiting 65s for the minute window...\n');
   await sleep(65_000);
   {
-    const r = await call(jE4, 'POST', '/api/v2/comments', createBody(jE4, { email: E4, body: `C7 shadow banned but perfectly nice ${RUN}` }));
+    // The body must be benign enough that the AI publishes it -- the
+    // shadow-ban flip only converts a publish verdict into a hold, so a
+    // body the model itself holds or rejects would never exercise it.
+    const r = await call(jE4, 'POST', '/api/v2/comments', createBody(jE4, { email: E4, body: '写得真好，很多话像是替我说出来的，收藏了。' }));
     const row = r.json?.comment ? dbRow(r.json.comment.id) : null;
     record('C7', 'shadow-banned email -> held despite benign body', r.status === 201 && r.json?.outcome === 'held' && row?.status === 'held', `status=${r.status} db=${row?.status ?? 'missing'}`);
   }
   if (aiUp) {
     const r = await call(jE1, 'POST', '/api/v2/comments', createBody(jE1, { email: E1, body: `C8 you are all worthless idiots and I hope this site burns ${RUN}` }));
     const row = r.json?.comment ? dbRow(r.json.comment.id) : null;
+    // A reject verdict stores status='rejected' but the wire outcome is
+    // always 'held' -- the API never tells a writer they were rejected.
+    // Both held and rejected rows prove the model caught it.
     const ok = r.status === 201 && r.json?.outcome === 'held' && row != null && row.status !== 'published';
-    record('C8', 'hostile body -> AI holds it', ok, `status=${r.status} outcome=${r.json?.outcome} db=${row?.status ?? 'missing'}`);
+    record('C8', 'hostile body -> AI holds or rejects it', ok, `status=${r.status} outcome=${r.json?.outcome} db=${row?.status ?? 'missing'}`);
   } else {
     skip('C8', 'hostile body AI probe', 'AI key invalid; fail-closed already proven by C1=held');
   }

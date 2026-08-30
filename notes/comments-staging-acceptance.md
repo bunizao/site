@@ -64,12 +64,41 @@ turbulence can't touch the create series. None of that affects production:
 prod never swaps secrets mid-traffic, and the fail-closed behavior is the
 intended posture.
 
-The one skip is C8 (hostile-body AI probe): the configured `AI_API_KEY`
-returns 401, so the AI moderation call cannot be exercised. The fail-closed
-path it protects *is* proven — C1 shows an unverifiable body being held, and
-moderation holds everything while the key is bad. Replacing the key is a
-cutover item, not a launch-day surprise, but note that with a dead key every
-comment from an unknown session is held for manual release.
+The one skip in that run was C8 (hostile-body AI probe): moderation was
+pointed at `api.openai.com`, where the configured key 401s. The key was
+never the problem — it is a valid key for the `ai.tuuhub.com` gateway (see
+the risk-control rework below), and after repointing `AI_BASE_URL` the
+publish path went live and C8 became runnable.
+
+## Risk-control rework (post-acceptance)
+
+The abuse-control research doc
+(`notes/research/2026-08-30-blog-comments-reactions-abuse-control.md`)
+found the reaction limiter bypassable: it counted only the anonymous
+identity, and the identity lives in a cookie the caller mints for free, so
+discarding the cookie each request meant unlimited reactions from one
+machine (35/35 rotated requests succeeded in the live probe). Changes, all
+regression-tested in `tests/unit/comments-reaction-limits.test.ts` and live
+via the RX probes in the matrix:
+
+- **Hashed-IP budgets on the reaction toggle** — 30/min and 120/h per
+  hashed client IP (`hashIp` keyed with the session secret, same primitive
+  the comment path uses), alongside the existing per-identity 30/min.
+  Identity churn no longer buys anything.
+- **Rate-limit headers on reaction 429s** — `Retry-After`,
+  `X-RateLimit-Limit`, `X-RateLimit-Remaining`, matching the comment path.
+- **Cookie only on accepted writes** — both the reaction toggle and comment
+  POST previously attached a fresh `__Host-reader_anon` cookie to rejected
+  responses, handing abusers a new identity per rejection. Rejections are
+  now cookie-free.
+- **AI moderation on the tuuhub gateway** — `AI_BASE_URL` now defaults to
+  `https://ai.tuuhub.com/v1` (code, `wrangler.jsonc`, and
+  `wrangler.staging.jsonc`) and the default model alias is `task-guard`,
+  the purpose-routed moderation model on that gateway. Primary and
+  fallback are deliberately the same alias: the gateway owns backend
+  routing, and a second alias would fail together with the first whenever
+  the gateway itself is down. Models remain KV-overridable via
+  `comments:ai:config`.
 
 ## Root causes found and fixed on staging
 
@@ -128,8 +157,12 @@ In order:
 1. **Publish `@bunizao/contracts@0.2.0`** from `site` (contracts-release.yml
    workflow), then `bun install` in site-api so bun.lock trues up (it still
    holds a 0.1.0 entry; staging was deployed from a local tarball).
-2. **Replace `AI_API_KEY`** — the current 51-char key 401s. Until it works,
-   moderation fails closed and every unknown-session comment is held.
+2. **Verify AI moderation config on prod** — the key is valid; it just has
+   to reach the right host. `wrangler.jsonc` now ships
+   `AI_BASE_URL=https://ai.tuuhub.com/v1`; confirm the `AI_API_KEY` secret
+   is present on prod site-api (it is shared with mood AI). If the gateway
+   or the `task-guard` alias is ever down, moderation fails closed and
+   unknown-session comments are held — a delay, not a leak.
 3. **Back up prod D1** (fresh export), then apply migration
    `0016_blog_comments.sql` to production.
 4. **Upload prod secrets** to site-api: `GITHUB_READER_OAUTH_CLIENT_ID/SECRET`,
