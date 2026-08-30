@@ -427,6 +427,7 @@ export function initCommentsController(): void {
     const ghost = renderGhostRow(identity.displayName, text, parentId);
 
     setSubmitEnabled(box, false);
+    playSendGesture(box);
     sayComposeAlert(box, null);
     insertNewRow(ghost, parentId);
     toggleEmptyState(false);
@@ -642,6 +643,23 @@ export function initCommentsController(): void {
       is still in ComposeReceipt, still rendered by CommentForm.astro, and
       still styled: /lab/comments draws every receipt on purpose, and a state
       the lab documents is not dead just because the happy path outruns it. */
+  /** The arrow leaves and a fresh one arrives -- the one piece of motion the
+      press is owed, now that nothing else about the box waits.
+
+      Restarting a CSS animation means the attribute has to actually change,
+      and on a second comment it is already set from the first. Removing it and
+      setting it again in the same task is not a change as far as the style
+      engine is concerned; reading a layout property in between forces it to
+      notice. Ugly, and the alternative is duplicating the keyframes in
+      JavaScript. */
+  function playSendGesture(box: HTMLElement): void {
+    const submitBtn = box.querySelector<HTMLElement>('[data-compose-submit]');
+    if (!submitBtn) return;
+    submitBtn.removeAttribute('data-sent');
+    void submitBtn.offsetWidth;
+    submitBtn.setAttribute('data-sent', '');
+  }
+
   function setSubmitEnabled(box: HTMLElement, enabled: boolean): void {
     const submitBtn = box.querySelector<HTMLButtonElement>('[data-compose-submit]');
     if (submitBtn) submitBtn.disabled = !enabled;
@@ -908,6 +926,9 @@ export function initCommentsController(): void {
       own: true,
     }, parentId);
     markPending(ghost);
+    // Only this row. The swap that replaces it must not run the entrance a
+    // second time, three seconds after the reader has already read it.
+    ghost.dataset.enter = 'true';
     return ghost;
   }
 
@@ -1102,8 +1123,9 @@ export function initCommentsController(): void {
         readErrorSlug(await response.json().catch(() => null)),
         t.submitError,
       );
-      field.after(el('p', { class: 'blog-comment__edit-error blog-compose__error' }, [
-        failure.message,
+      field.after(el('p', { class: 'blog-comment__edit-error blog-compose__alert', role: 'alert' }, [
+        parseStaticSvg(ALERT_ICON_SVG),
+        el('span', {}, [failure.message]),
         el('code', { class: 'blog-compose__code' }, [failureTag(failure)]),
       ]));
       return;

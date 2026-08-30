@@ -886,12 +886,43 @@
   }
 }
 
-/* The arrow comes back from below rather than fading in where it left: a fresh
-   one has arrived, which is the same thing the empty field underneath says. */
-.blog-compose[data-receipt='posted'] .blog-compose__go svg,
-.blog-compose[data-receipt='held'] .blog-compose__go svg,
-.blog-compose[data-receipt='nudge'] .blog-compose__go svg {
-  animation: blog-compose-reload 0.34s var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1));
+/* --- The send gesture -----------------------------------------------------
+   The arrow leaves the way it points and a fresh one arrives from below --
+   which is the same thing the emptied field underneath says.
+
+   It used to be two halves driven by `data-receipt`: the launch on
+   `submitting`, the return on `posted`. The optimistic path never enters
+   `submitting` (comments-controller.ts), so the launch stopped firing and the
+   press produced an arrow appearing from nowhere -- a return with nothing to
+   return from. Both halves are one keyframe now on an attribute the press
+   sets directly, so the gesture belongs to the press rather than to the state
+   of a request that is no longer being waited on.
+
+   The `submitting` rules above still stand for /lab/comments, which draws
+   every receipt on purpose. */
+.blog-compose__go[data-sent] svg {
+  animation: blog-compose-send 0.5s var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+@keyframes blog-compose-send {
+  0% {
+    translate: 0 0;
+    opacity: 1;
+  }
+  38% {
+    translate: 0 -18px;
+    opacity: 0;
+  }
+  /* Held empty for a beat. Without it the two halves read as one bounce, and
+     the point is that a different arrow came back. */
+  46% {
+    translate: 0 14px;
+    opacity: 0;
+  }
+  100% {
+    translate: 0 0;
+    opacity: 1;
+  }
 }
 
 @keyframes blog-compose-reload {
@@ -913,24 +944,15 @@
   padding: 0 2px;
 }
 
-/* Worn by the inline edit failure inside a comment row -- the compose box's
-   own failures moved up into the alert. */
-.blog-compose__error {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  margin: 0;
-  font-size: var(--comment-note);
-  line-height: 1.5;
-  color: var(--blog-ink);
-}
-
-.blog-compose__error svg {
-  flex: 0 0 auto;
-  width: 15px;
-  height: 15px;
-  margin-top: 1px;
-  color: var(--blog-faint);
+/* The inline edit failure, which now wears `.blog-compose__alert` -- the same
+   filled, red, glyphed object the compose box's own failures use. It used to
+   have a style of its own here: `--blog-ink` on no background, which is the
+   colour of ordinary text. So "这条已经不能改了" -- a refusal that ends the
+   reader's options on that row -- printed at the weight of a caption, in a
+   thread where the pending note and the byline are already grey text at that
+   size. One failure, one look, wherever it lands. */
+.blog-comment__edit-error {
+  margin-top: 8px;
 }
 
 /* The one non-blocking upsell in the whole feature: text-weight and
@@ -1281,6 +1303,27 @@
 
 .blog-comment__text li {
   margin-top: 0.2em;
+}
+
+/* --- Arriving -------------------------------------------------------------
+   Only ever the stand-in row, marked by the controller on the press. Rows
+   built by the thread's first load, by "more comments", and by the swap that
+   replaces this one all appear without it -- an animation that plays on the
+   swap would run the whole entrance a second time, three seconds after the
+   reader had already read the row.
+
+   Short and small on purpose. The row is not making an entrance; it is
+   answering a press that happened 3ms ago, and anything longer than a
+   glance turns an instant post back into a wait. */
+.blog-comment[data-enter] {
+  animation: blog-comment-in 0.34s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes blog-comment-in {
+  from {
+    opacity: 0;
+    translate: 0 -7px;
+  }
 }
 
 /* --- An edit still in the air ---------------------------------------------
@@ -1668,7 +1711,10 @@
   .blog-comment__act--like[aria-pressed='true'] svg,
   .blog-comment__heart,
   .blog-comment[data-pending] .blog-comment__note,
+  .blog-comment[data-enter],
+  .blog-comment[data-sending] .blog-comment__text,
   .blog-comment__avatar,
+  .blog-compose__go[data-sent] svg,
   .blog-compose__alert,
   .blog-compose__turnstile,
   .blog-compose__input[aria-invalid='true'],
