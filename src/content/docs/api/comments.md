@@ -113,12 +113,12 @@ Every submission runs the full risk stack, in order:
    is created, but only its writer can see it) rather than dropping it.
    A verified (L1/L2) writer skips the two holds that exist to price out
    throwaway identities — the disposable-domain check and the
-   first-session-link hold — and gets a higher link ceiling (4 instead
+   first-session-link hold — and gets a higher link ceiling (6 instead
    of 2). The duplicate-body tripwire and the keyword blocklist apply to
    everyone.
 4. **Rate limits**, durably enforced across three dimensions (anonymous
    session, IP, server-derived fingerprint) and two windows each: 3/minute
-   and 10/hour for anonymous writers; 6/minute and 30/hour for verified
+   and 10/hour for anonymous writers; 10/minute and 60/hour for verified
    readers, who are additionally budgeted on a fourth per-`reader_id`
    dimension so their allowance follows the account rather than the
    network. The first exhausted limit returns `429` with the standard

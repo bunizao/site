@@ -310,7 +310,7 @@ cost zero tokens.
 4. **Dwell time**: the form embeds a signed server timestamp at first
    interaction; submits younger than ~3s → drop. Bots type fast.
 5. **Heuristics** (pure functions, KV-configurable):
-   - link count > 2 → hold (verified readers: > 4); any link on a
+   - link count > 2 → hold (verified readers: > 6); any link on a
      first-time session → hold (skipped for verified readers)
    - keyword blocklist (KV, portal-editable)
    - disposable-email domain list (vendored from the public
@@ -320,7 +320,7 @@ cost zero tokens.
    - body length bounds (1–2000 chars, request body ≤ 16 KiB)
 6. **Durable rate limits** (`withDurableRateLimit`): per IP, per anon session,
    per fingerprint — 10 comments/hour, 3/minute for anonymous writers;
-   verified readers are judged at 30/hour, 6/minute and additionally
+   verified readers are judged at 60/hour, 10/minute and additionally
    budgeted per reader_id so a shared NAT can't starve them. 30 reaction
    toggles/minute per identity plus hashed-IP churn budgets (30/minute —
    waived for verified readers, whose identity can't churn — and 120/hour);
