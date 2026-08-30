@@ -640,8 +640,8 @@ button instead of showing one that goes nowhere.
 
 **Failure messages** (`comment-error.ts`) are keyed by the reader's next move,
 not by the status: reconnect (`NET`), wait (`RATE`), refresh (`BOT`, `THREAD`,
-`INPUT`), give up (`GONE`, `CLOSED`), fix a field (`NAME`, `EMAIL`), try later
-(`SERVER`). One line for
+`STALE`, `INPUT`), shorten (`LONG`), give up (`GONE`, `CLOSED`), fix a field
+(`NAME`, `EMAIL`), try later (`SERVER`). One line for
 all of them sent a rate-limited reader straight back into the limit and told a
 reader whose edit window had closed to try again. Each carries its code and
 status in a badge at the end of the alert — the sentence is for the reader
@@ -650,6 +650,12 @@ report it. The classifier prefers a slug the server volunteered over the status
 it arrived with, because `400` and `503` each mean several things on this route
 family.
 
+The refusal is drawn the same way wherever it lands. The inline edit failure
+used to have a style of its own — `--blog-ink` on no background, the colour of
+ordinary text — so "这条已经不能改了", which ends the reader's options on that
+row, printed at the weight of a caption in a thread already full of grey text
+at that size. It wears `.blog-compose__alert` now: one failure, one look.
+
 It reads **every** field of the envelope, not the first one set. A refused
 Turnstile answers `{error: "turnstile_failed", code: "invalid_token"}`, where
 `error` is the category and `code` the sub-reason; returning the first hit
@@ -657,14 +663,28 @@ picked the sub-reason, matched nothing, and dropped the most common bot-check
 failure into the `INPUT` catch-all — which then told the reader to reword a
 comment that was never the problem. `NAME` and `EMAIL` came out of the same
 catch-all for the same reason: a reserved display name and a rejected mail
-domain are both fixable, and neither is fixed by rewording. What is left in
-`INPUT` is stale page state (`dwellToken`, `postId`, `parentId`), so it says
-refresh.
+domain are both fixable, and neither is fixed by rewording.
+
+That left `INPUT` still standing for five unrelated things, which is the same
+mistake one level down. site-api spends `400` on seven refusals and exactly
+one of them is about the words the reader wrote:
+
+| slug | code | next move |
+| --- | --- | --- |
+| `body must be 1-2000 characters`, `body is required (1-2000 characters)` | `LONG` | shorten it — the message names the cap |
+| `dwellToken is required`, `postId is required`, `parentId must be…`, `Invalid JSON body` | `STALE` | refresh; nothing about the comment is wrong |
+| `displayName must be…` | `NAME` | fix the name field |
+| `A valid email is required` | `EMAIL` | fix the email field |
+| `turnstile_failed` | `BOT` | refresh |
+| `invalid_parent` | `THREAD` | refresh the thread |
+| anything else | `INPUT` | says it does not know, rather than guessing |
 
 `dwellToken is required` is the one worth remembering: the dwell token is
 fetched separately from the submit, so a mobile network that drops that one
-request yields a plain `400 INPUT` on an otherwise perfect comment. That is a
-real failure seen in the wild, not a hypothetical.
+request yields a refusal on an otherwise perfect comment. That is a real
+failure seen in the wild, not a hypothetical — and under the old catch-all it
+was answered with "换个说法再试试", advice for a sentence nobody had
+objected to.
 
 **Thread**: `skeleton` (exists), `empty` (exists), `loaded`, `load-more`
 (cursor button + loading), `error` (retry).
