@@ -35,7 +35,22 @@ interface TurnstileWidgetState {
   /** Whether `tokenPromise` has already handed a token out. Tells a real
       expiry apart from a challenge that failed before it ever produced one. */
   settled: boolean;
+  /** When the current token was solved. Only meaningful while `settled`. */
+  solvedAt: number;
 }
+
+/** Cloudflare expires a solved token at about five minutes. Stop trusting one
+    well before that: it still has to survive the flight to site-api, and the
+    clock started when the token was solved, not when Post was pressed.
+
+    'expired-callback' above already re-mints on expiry, and on a desktop tab
+    left open that is enough. It is a timer inside the widget, though, and a
+    phone that slept -- or backgrounded the tab, or froze it for bfcache --
+    wakes up holding a token whose expiry never ran. The submission then spends
+    a dead token and comes back 400 invalid_token, which is what warming a
+    token minutes before it is used bought us. Checking the age where the token
+    is read cannot be skipped by a timer that did not fire. */
+const TOKEN_MAX_AGE_MS = 240_000;
 
 const turnstileWidgets = new Map<TurnstileAction, TurnstileWidgetState>();
 const turnstileHosts = new Map<TurnstileAction, HTMLElement>();
@@ -88,7 +103,7 @@ function widgetFor(action: TurnstileAction): TurnstileWidgetState {
     const container = document.createElement('div');
     if (hidden) container.style.display = 'none';
     parent.appendChild(container);
-    state = { container, widgetId: null, tokenPromise: null, resolveCurrent: null, settled: false };
+    state = { container, widgetId: null, tokenPromise: null, resolveCurrent: null, settled: false, solvedAt: 0 };
     turnstileWidgets.set(action, state);
   }
   return state;
@@ -103,8 +118,22 @@ function setInteractive(state: TurnstileWidgetState, open: boolean): void {
 
 function settleWidget(state: TurnstileWidgetState, token: string): void {
   state.settled = true;
+  state.solvedAt = Date.now();
   setInteractive(state, false);
   state.resolveCurrent?.(token);
+}
+
+/** Only a token that has actually been handed out can be too old. A promise
+    still waiting on the widget is in flight, not stale, and discarding it
+    would abandon a solve that is about to land.
+
+    Takes its clock as an argument and reads nothing but two numbers, so the
+    rule can be tested without standing up a DOM and a fake Cloudflare. */
+export function isTokenStale(
+  token: { settled: boolean; solvedAt: number },
+  now: number,
+): boolean {
+  return token.settled && now - token.solvedAt > TOKEN_MAX_AGE_MS;
 }
 
 /** Cloudflare expires a token about five minutes after it is solved. Warming
@@ -159,6 +188,10 @@ export async function getTurnstileToken(siteKey: string, action: TurnstileAction
   if (!siteKey) return '';
   await loadTurnstileScript();
   const state = widgetFor(action);
+  // Costs a fresh ~2.3s solve, but only on the submission that would otherwise
+  // have been refused outright -- and by here the reader has pressed Post, so
+  // the receipt line is already saying something.
+  if (isTokenStale(state, Date.now())) state.tokenPromise = null;
   return state.tokenPromise ?? mintToken(state, siteKey, action);
 }
 
