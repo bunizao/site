@@ -93,6 +93,10 @@ export interface ReaderVerifyResult {
     so this can never be used to probe which addresses have commented. */
 export interface ReaderResendInput {
   email: string;
+  /** Carries the original "notify me of replies" intent into the fresh
+      verification link, recovered from the stale token's payload. Optional;
+      a bare resend defaults to false. */
+  notifyReplies?: boolean;
 }
 
 export interface ReaderResendResult {

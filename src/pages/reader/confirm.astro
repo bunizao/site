@@ -50,8 +50,24 @@ if (Astro.request.method === 'POST') {
       state = 'invalid';
     }
   } else if (typeof postedEmail === 'string' && postedEmail) {
-    await callApi<ReaderResendResult>('/api/v2/reader/resend', { email: postedEmail });
+    await callApi<ReaderResendResult>('/api/v2/reader/resend', {
+      email: postedEmail,
+      notifyReplies: readStaleSubscribeIntent(token),
+    });
     state = 'resent';
+  }
+}
+
+// The stale token's signature can't be checked here (COMMENTS_EMAIL_SECRET
+// lives only in site-api) and doesn't need to be: this only recovers the
+// reader's original notify-replies intent for the fresh link, which they
+// still have to confirm from their own inbox.
+function readStaleSubscribeIntent(staleToken: string): boolean {
+  try {
+    const payload = JSON.parse(Buffer.from(staleToken.split('.')[0] ?? '', 'base64url').toString('utf8'));
+    return payload?.subscribe === true;
+  } catch {
+    return false;
   }
 }
 ---
