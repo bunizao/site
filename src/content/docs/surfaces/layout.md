@@ -5,106 +5,104 @@ group: Surfaces
 order: 3
 ---
 
-## Scope
+Every route on the site renders inside the same shell. This page covers what
+that shell owns, the four navbar variants it can render, and the theme and
+footer behavior that comes with it.
 
-This document covers shared cross-page UI behavior:
+## Shells at a glance
 
-- layout shell
-- navbar and header actions
-- page-template adaptation
-- shared footer
+| File | What it owns | Who renders it |
+| --- | --- | --- |
+| [`Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro) | The HTML shell, canonical/OG/Twitter metadata, RSS and oEmbed discovery links, the navbar, the site menu, the theme dropdown, the command palette, and the spotlight overlay | Nearly every page, directly |
+| [`Page.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Page.astro) | `Layout` with `navVariant="page"` plus `body.page-template-active` and a `main.page-template` wrapper | Nothing right now — `/privacy` composes `Layout` itself |
+| [`BlogLayout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/BlogLayout.astro), [`PortalLayout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/PortalLayout.astro) | Reading chrome for `/blog`, and the admin portal shell | `/blog/*`, `/dev/portal/*` |
+| [`Footer.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Footer.astro) | The shared footer | Composed per page, not injected by the shell |
 
-## Base Layout
+No third-party analytics script is mounted anywhere in the shell.
 
-Main file: [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro)
+## Navbar variants
 
-Responsibilities:
+The navbar is section-anchor based, not route-aware — its links are `#`
+anchors on the home page, which is why every other variant either drops them
+or replaces them. `navVariant` picks the shape:
 
-- owns the HTML shell for most routes
-- sets canonical, OG, and Twitter metadata
-- exposes optional RSS and oEmbed discovery links
-- mounts the shared section navbar by default
-- mounts the shared theme dropdown
-- avoids mounting third-party analytics scripts
+| `navVariant` | Brand | Links | Active indicator |
+| --- | --- | --- | --- |
+| `home` | 40px animated peek plus wordmark | `navLinks` from `@/data/site` | Yes |
+| `page` | Mark plus wordmark, linking `/` | None — the brand is the only way out | No |
+| `docs` | Mark alone, followed by a `/ Docs` breadcrumb | None — the rail beside the page is the navigation | No |
+| unset | 20px mark; add `brandVariant="home"` for the full brand in a plain horizontal bar, as `/privacy` and `/components` do | `navLinks` | Yes |
 
-Theme behavior:
+Two more props sit alongside it: `hideSiteNav` removes the bar and the site
+menu entirely (embedded specimens, chrome-free pages), and `showSiteNav`
+controls only whether the bar is visible on mobile. Docs force that on.
 
-- runs before paint with an inline script
-- reads `localStorage.theme`
-- falls back to `prefers-color-scheme`
-- applies `html.dark`
-- stores the current selection in `html[data-theme-setting]`
+Behavior on the home variants:
 
-## Navbar Model
+- Nav labels are rewritten into per-character spans so the mascot can react to
+  individual letters.
+- Scrolling updates the active section, and smooth scrolling is handled in
+  client code rather than CSS.
+- An `IntersectionObserver` on the hero status element switches the bar between
+  horizontal and vertical modes.
+- The active indicator animates in vertical mode only.
 
-Implementation lives in [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro).
+## Header actions
 
-Important design choice:
+`[data-header-actions]` is the shell's registration surface, top right. It
+always carries the theme dropdown, and the command-palette search button on
+every variant except `docs` — docs carry their own search in the rail, and two
+triggers for one palette is one too many. Individual pages inject their own
+buttons into the same container; `/mood` puts RSS, Telegram, and Notify there.
+The shell also exposes a small hook for GSAP header-button animation.
 
-- the navbar is section-anchor based, not route-aware
+## Theme
 
-Behavior:
+An inline script runs before paint, so the incoming page of a navigation is
+already correct rather than flashing:
 
-- default links target:
-  - `#projects-section`
-  - `#writing-section`
-  - `#moods-section`
-- nav labels are rewritten into per-character spans
-- scrolling updates the active section
-- smooth scrolling is handled in client code
-- `IntersectionObserver` switches the nav between horizontal and vertical modes based on hero visibility
-- the active indicator is animated only in vertical mode
+1. Read `localStorage.theme`, inside a `try` — a blocked storage read falls
+   through to the system preference instead of throwing.
+2. Resolve the effective theme: a stored `light`/`dark` wins, otherwise
+   `prefers-color-scheme`.
+3. Write `html[data-theme-setting]` — `light`, `dark`, or `system`. This drives
+   which icon the dropdown shows, and is deliberately not the same value as the
+   effective theme.
+4. Toggle `html.dark`.
 
-Header actions:
+Switching later goes through the same resolution, plus a theme-wipe transition
+that is skipped when the effective theme would not actually change or when
+reduced motion is set.
 
-- `Layout.astro` owns the theme dropdown
-- individual pages can inject extra buttons into `[data-header-actions]`
-- `Layout.astro` exposes a small registration surface for GSAP header-button animation
+## Footer
 
-## Page Template Adaptation
+[`Footer.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Footer.astro) is composed per page rather than emitted by the shell. Links and the
+status URL come from `footer` in `@/data/site`; the contact badges are the
+GitHub, Email, and Telegram entries of `profile.links`. Two client fetches
+hydrate it:
 
-Main file: [`src/layouts/Page.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Page.astro)
+| Fetch | Fills |
+| --- | --- |
+| `GET /api/footer` | The status pill — `data-footer-status` starts as `unknown` and reads *Checking* until it answers |
+| `GET /api/edge` | The region popover, hidden until the request resolves |
 
-Purpose:
+The privacy page is reachable from the global footer and from the mood notify
+panel.
 
-- reuse the same base layout for document-style pages such as `/privacy`
+## Page template adaptation
 
-How it adapts the shared nav:
+[`Page.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Page.astro)
+reuses the base layout for document-style pages such as `/privacy`. It adds
+`body.page-template-active`, keeps the first nav item as a `buxx.me` link to
+`/`, and removes the section indicator and extra separators.
 
-- adds `body.page-template-active`
-- keeps only the first nav item
-- renames that item to `buxx.me`
-- rewires it to `/`
-- removes the active indicator
-- removes extra links and separators
+The shared layout is optimized for the home page first, then adapted for
+document-style pages. Chrome styles live in
+[`src/styles/site-chrome.css`](https://github.com/bunizao/site/blob/main/src/styles/site-chrome.css),
+loaded alongside `globals.css`; Blog and Portal layouts load only the shared
+globals because they own different chrome.
 
-This keeps the global chrome but changes the navigation contract from section scrolling to home navigation.
-
-## Shared Footer
-
-File: [`src/features/home/ui/Footer.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Footer.astro)
-
-Behavior:
-
-- static footer
-- exposes `/privacy`
-- exposes the GitHub source repository
-
-The privacy page is therefore linked from:
-
-- the global footer
-- the mood notify panel
-
-## Implementation Summary
-
-- shared UI concerns are centralized in `Layout.astro`
-- content pages reuse the same shell and mutate the nav through `Page.astro`
-- the shared layout is optimized for the home page first, then adapted for document-style pages
-- chrome styles (navigation, header actions, menus, theme dropdown) live in
-  `src/styles/site-chrome.css`, loaded by `Layout.astro` alongside
-  `globals.css`; layouts without this DOM (blog, portal) load only `globals.css`
-
-## Motion Vocabulary
+## Motion vocabulary
 
 Declared at `:root` in [`src/styles/globals.css`](https://github.com/bunizao/site/blob/main/src/styles/globals.css). One
 curve family, one duration scale, site-wide:

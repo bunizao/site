@@ -5,108 +5,92 @@ group: Platform
 order: 4
 ---
 
-## Scope
+Security here is endpoint-focused rather than centralized in one middleware
+layer. This page is the map of which mechanism protects what, and which Worker
+owns it.
 
-This document covers shared security and security-adjacent behavior:
+| Mechanism | Owner | Protects |
+| --- | --- | --- |
+| Rate limiting | Both Workers, separate implementations | Every public API route, and the static media proxy |
+| Turnstile verification | `site-api` | Subscription intake |
+| Signed URLs | `site-api` | Selected generated resources, such as the activity SVG |
+| Static proxy allowlist | `site` | The `/static/*` media proxy |
+| Response hardening | Per response type | Embeds and SVG documents, not the site shell |
 
-- rate limiting
-- Turnstile verification
-- signed URLs
-- static proxy restrictions
-- response hardening boundaries
+## Rate limiting
 
-## Rate Limiting
+The two Workers do not share a limiter, and the difference matters when you
+are reading headers.
 
-File: [`src/lib/security/rate-limit.ts`](https://github.com/bunizao/site/blob/main/src/lib/security/rate-limit.ts)
+| Property | `site` | `site-api` |
+| --- | --- | --- |
+| Implementation | [`src/lib/security/rate-limit.ts`](https://github.com/bunizao/site/blob/main/src/lib/security/rate-limit.ts) — an in-memory bucket store | A Durable Object counter, or a counting-only observability mode |
+| Durability | Per isolate, resets with it | Strongly consistent in `durable` mode |
+| Really rejects? | Best effort | Only in `durable` mode — see [Rate limits](/docs/api/overview#rate-limits) |
+| Used by | `/static/*` | Nearly every `/api/*` route |
 
-Implementation:
+The `site` implementation keys on `{prefix}:{clientIp}`, cleans expired entries
+on access, and caps the store at 10,000 keys so a flood of unique IPs cannot
+grow it without bound. Client IP is resolved in this order:
 
-- in-memory IP-based bucket store
-- key format is `{prefix}:{clientIp}`
-- expired entries are cleaned on access
-- store size is capped
+1. Runtime IP from platform locals
+2. Trusted proxy headers
+3. `x-forwarded-for`
+4. Fallback client headers
+5. `anonymous`
 
-IP resolution order:
+Both Workers answer with `X-RateLimit-Limit`, `X-RateLimit-Remaining`,
+`X-RateLimit-Reset`, and `Retry-After` on rejection. The header contract and
+the enforced-versus-advertised split are documented once, in
+[API Overview](/docs/api/overview#rate-limits).
 
-- runtime IP from platform locals
-- trusted proxy headers
-- `x-forwarded-for`
-- fallback client headers
-- `anonymous`
+## Turnstile verification
 
-Response headers:
+Owned by `site-api` (`src/lib/security/turnstile.ts` there). It reads the
+secret from build or runtime env, posts to Cloudflare Turnstile, forwards
+`remoteip` when available, validates the challenge hostname against the current
+request host, optionally validates `action`, and returns structured result
+codes rather than throwing.
 
-- `X-RateLimit-Limit`
-- `X-RateLimit-Remaining`
-- `X-RateLimit-Reset`
-- `Retry-After` on rejection
-
-Operational constraint:
-
-- state is process-local and not durable
-
-## Turnstile Verification
-
-File: [`src/lib/security/turnstile.ts`](https://github.com/bunizao/site/blob/main/src/lib/security/turnstile.ts)
-
-Behavior:
-
-- reads secret from build env or runtime env
-- posts verification requests to Cloudflare Turnstile
-- forwards `remoteip` when available
-- validates challenge hostname against the current request host
-- optionally validates `action`
-- returns structured result codes instead of throwing
-
-Current primary usage:
-
-- `site-api /v2/notify/subscribe` with expected action `notify_subscribe`
+Current usage is `notify/subscribe` (expected action `notify_subscribe`) and
+`notify/manage/request`. The four accepted token carriers and the `400`
+versus `503` failure split are in
+[Notify API](/docs/api/notify#turnstile).
 
 ## Signed URLs
 
-Owner: `site-api`
+Owned by `site-api`. Signs `pathname` plus normalized search params with
+HMAC-SHA256, excludes `sig` from the signing payload, requires a numeric `exp`,
+and rejects expired signatures. It currently protects the activity SVG endpoint
+— and only when `ACTIVITY_PANEL_SIGNING_SECRET` is set, which is the caveat
+spelled out in [SVG Endpoints](/docs/api/svg#errors-and-validation).
 
-Behavior:
+## Static proxy restrictions
 
-- signs `pathname + normalized search params` with HMAC-SHA256
-- excludes `sig` from the signing payload
-- requires numeric `exp`
-- rejects expired signatures
+File: [`src/pages/static/[...path].ts`](https://github.com/bunizao/site/blob/main/src/pages/static/%5B...path%5D.ts)
 
-Current usage:
+| Guard | Behavior |
+| --- | --- |
+| Host allowlist | Telegram family plus the YouTube poster and avatar hosts. Every redirect hop is re-checked. |
+| Private network block | Localhost and private-range targets are rejected. |
+| Redirect depth | At most three hops. |
+| Content type | Only `image/*`, `video/*`, `audio/*`, `font/*`; anything else is `415`. |
+| Rate limit | The shared in-memory limiter above, 240 / 60s. |
+| Signing | `STATIC_PROXY_MODE` decides whether an unsigned or badly signed URL is served or `403`ed — see [Request signing](/docs/api/site-routes#request-signing). |
 
-- protects selected generated resources such as the activity SVG endpoint
+The YouTube route (`/static/youtube/<11-character-id>/<quality>.jpg`) accepts
+only `maxresdefault` and `hqdefault`, rejects query strings, and maps those
+values to `i.ytimg.com` server-side. That host is added only to the per-request
+redirect allowlist for a validated poster path; it is not reachable through the
+arbitrary-target proxy path.
 
-## Static Proxy Restrictions
+## Response hardening boundaries
 
-File: `[src/pages/static/[...path].ts](https://github.com/bunizao/site/blob/main/src/pages/static/[...path].ts)`
+Hardening is selective, not site-wide.
 
-Role:
-
-- allowlisted proxy for Telegram-related static assets
-- bounded YouTube poster route at `/static/youtube/<11-character-id>/<quality>.jpg`
-- blocks localhost and private-network misuse
-- limits redirect chains
-- uses the shared rate limiter
-
-The YouTube route accepts only `maxresdefault` and `hqdefault`, rejects query strings, and maps those values to `i.ytimg.com` server-side. That host is added only to the per-request redirect allowlist for a validated YouTube poster path; it is not available through the legacy arbitrary-target proxy path.
-
-This is security-adjacent infrastructure, even though it is not under `src/lib/security`.
-
-## Response Hardening Boundaries
-
-Hardening is selective rather than centralized.
-
-Current boundaries:
-
-- normal HTML pages do not apply a site-wide CSP in [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro)
-- embed responses use stricter headers in [`src/lib/embed-response.ts`](https://github.com/bunizao/site/blob/main/src/lib/embed-response.ts)
-- SVG API responses use CSP and hardening headers in `site-api`
-
-## Implementation Summary
-
-- security is endpoint-focused, not centralized in one middleware layer
-- rate limiting is the common baseline across public APIs
-- Turnstile protects subscription intake
-- signed URLs protect selected generated resources
-- response hardening exists for specific response types, not for the full site shell
+| Response type | Hardening |
+| --- | --- |
+| Normal HTML pages | No site-wide CSP in [`Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro) |
+| Embed responses | Stricter CSP and framing headers in [`embed-response.ts`](https://github.com/bunizao/site/blob/main/src/lib/embed-response.ts) |
+| SVG API responses | `default-src 'none'` CSP, `nosniff`, `no-referrer` — set in `site-api` |
+| Notify HTML result pages | `no-store`, `no-referrer`, locked-down CSP so a token in the URL cannot leak through `Referer` |

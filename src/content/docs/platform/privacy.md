@@ -5,172 +5,62 @@ group: Platform
 order: 7
 ---
 
-## Scope
+The published policy lives at [`/privacy`](/privacy). This page is the other
+half of it: which feature each clause is describing, and what to re-check when
+one of them changes.
 
-This document covers the technical implementation of the privacy policy page and how it maps to live site features.
+## How the page is built
 
-## Source Files
+| File | Role |
+| --- | --- |
+| [`src/content/pages/privacy.md`](https://github.com/bunizao/site/blob/main/src/content/pages/privacy.md) | The policy itself — the source of truth for every word |
+| [`src/pages/privacy.astro`](https://github.com/bunizao/site/blob/main/src/pages/privacy.astro) | A thin route: imports `Content` and `frontmatter`, renders the body inside `Layout` with `navVariant="page"` |
+| [`src/content.config.ts`](https://github.com/bunizao/site/blob/main/src/content.config.ts) | The `pages` collection schema — `title` and `description` required, `updatedAt` optional |
+| [`src/lib/content-revision.ts`](https://github.com/bunizao/site/blob/main/src/lib/content-revision.ts) | Resolves the *Updated* line and its commit link from git history at build time |
 
-Main files:
+Keeping the policy in Markdown means wording changes never touch layout code,
+and the date is not something anyone has to remember to bump: git is the source
+of truth for when the policy last changed, and the `updatedAt` frontmatter is
+only the fallback for a build without history.
 
-- [`src/pages/privacy.astro`](https://github.com/bunizao/site/blob/main/src/pages/privacy.astro)
-- [`src/layouts/Page.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Page.astro)
-- [`src/content/pages/privacy.md`](https://github.com/bunizao/site/blob/main/src/content/pages/privacy.md)
-- [`src/content.config.ts`](https://github.com/bunizao/site/blob/main/src/content.config.ts)
+## What the policy has to match
 
-## Rendering Path
+Each clause maps to something the site actually runs. If one of these rows stops
+being true, the policy text is wrong, not merely stale.
 
-Route file: [`src/pages/privacy.astro`](https://github.com/bunizao/site/blob/main/src/pages/privacy.astro)
+| Feature | What is collected | Where it goes | Third parties |
+| --- | --- | --- | --- |
+| Hosting | Standard request logs | Cloudflare Worker `site`, routed on `buxx.me` and `www.buxx.me` | Cloudflare |
+| Edge diagnostics | Colo, protocol, TLS, TCP RTT, approximate location, network — read from `request.cf` | Reflected to the requesting visitor only, `no-store`, never stored | Cloudflare |
+| Home listening card | Nothing from the visitor | `site-api /api/listening`, refreshed client-side rather than baked into the HTML | Last.fm (recent tracks), Apple (artwork, preview, links) |
+| Playback analytics | One cumulative record per playback: heard time, media position, duration, play/pause/seek/complete, plus visitor and session ids shared with reading analytics | `site-api /api/v2/analytics/listening`, upserted as one row in `listening_analytics_events`, enriched server-side with IP-derived location, referrer, language, browser, OS, and device | First-party |
+| YouTube embeds | A session-scoped `yes`/`no` reachability verdict. No country data | Poster and avatar bytes come through `/static/youtube/<id>/…`, so the browser contacts nothing until play | YouTube, and only after the reader presses play |
+| Mood pages | Nothing from the visitor | Public Telegram-derived content through `site-api` | Telegram |
+| Mood subscription | Email address, channel and delivery preferences, delivery records | `NOTIFY_DB` in `site-api`; tokens are minted and verified there | Resend (delivery) |
+| Anti-abuse | A Turnstile token on subscribe and manage-request | Verified inside `site-api` before the handler runs | Cloudflare Turnstile |
+| Writing and contributions | Nothing from the visitor | Ghost at build time; `site-api /api/github/contributions` at runtime | Ghost, GitHub |
 
-The route is intentionally thin:
+No third-party analytics script is mounted anywhere — [`Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro) loads none, and
+the playback and reading analytics above are first-party endpoints on this
+site's own API.
 
-- imports `Content` and `frontmatter` from `src/content/pages/privacy.md`
-- passes `title`, `description`, `updatedAt`, and `url="/privacy"` into `Page.astro`
-- renders the markdown body through `<Content />`
+Two things worth being precise about, because the short version reads wrong:
 
-This means:
+- **Playback events are not anonymous.** They carry a stable visitor id, reuse
+  the reading-analytics session, and are enriched with IP-derived location. The
+  row is per playback, not per event, but it is still a per-visitor record.
+- **Mood content reads the archive first.** `MOOD_READ_SOURCE=archive` is the
+  default; the live Telegram mirror is the fallback and the source for comments
+  and freshness. Both are public channel content either way.
 
-- the markdown file is the source of truth
-- page chrome and typography come from `Page.astro`
-- route logic stays separate from policy content
+## When to update the policy
 
-## Content Collection
+Any change to one of these means the policy text needs re-reading, not just this
+page:
 
-Schema file: [`src/content.config.ts`](https://github.com/bunizao/site/blob/main/src/content.config.ts)
-
-The privacy page is part of the `pages` content collection.
-
-The frontmatter used by the route is validated through the content collection schema, including:
-
-- `title`
-- `description`
-- `updatedAt`
-
-## Page Shell
-
-Layout file: [`src/layouts/Page.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Page.astro)
-
-Page-shell behavior:
-
-- reuses the global `Layout.astro`
-- collapses the shared navbar into a single home link
-- renders `updatedAt` above the markdown body when present
-- applies document-style spacing and typography instead of the home-page section layout
-
-## What the Policy Covers in the Current Implementation
-
-The content in [`src/content/pages/privacy.md`](https://github.com/bunizao/site/blob/main/src/content/pages/privacy.md) matches active site features.
-
-### Hosting, Observability, and Performance
-
-Covered implementation:
-
-- site pages and API routes run on the Cloudflare Worker target `site`
-- [`wrangler.jsonc`](https://github.com/bunizao/site/blob/main/wrangler.jsonc) binds the Worker to `buxx.me`, `www.buxx.me`, and `image.buxx.me`
-- Cloudflare Worker observability and request logs cover operational monitoring
-- [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro) does not mount a third-party analytics script
-
-Edge connection diagnostics:
-
-- [`src/features/home/ui/Footer.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Footer.astro) renders the edge indicator and its hover popover
-- `site-api /api/edge` reads Cloudflare `request.cf` (colo, protocol, TLS, TCP RTT, approximate location, network) and returns it with `Cache-Control: no-store`
-- values are per-request and reflected only to the requesting visitor; nothing is stored
-
-### Homepage Listening
-
-Covered implementation:
-
-- [`src/features/home/ui/Listening.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Listening.astro) renders the listening card on the homepage
-- `site-api /api/listening` exposes the data used by the client
-- [`src/features/home/server/listening.ts`](https://github.com/bunizao/site/blob/main/src/features/home/server/listening.ts) fetches the latest Last.fm track and enriches it with Apple music metadata
-
-Provider behavior the policy now needs to reflect:
-
-- Last.fm is the primary source for recent listening activity
-- Apple's music metadata search endpoints are used to enrich results with album data, artwork, preview audio, and Apple Music links
-- the listening card refreshes through this site's API route rather than embedding static personal listening data into the prerendered home HTML
-
-### Listening Playback Analytics
-
-Covered implementation:
-
-- [`src/lib/listening/analytics.ts`](https://github.com/bunizao/site/blob/main/src/lib/listening/analytics.ts) creates one cumulative first-party record per playback and sends checkpoints to `site-api /api/v2/analytics/listening`
-- [`src/lib/listening/controller.ts`](https://github.com/bunizao/site/blob/main/src/lib/listening/controller.ts) instruments shared listening cards on the homepage, mood, and component surfaces
-- [`src/features/posts/client/prose.ts`](https://github.com/bunizao/site/blob/main/src/features/posts/client/prose.ts) instruments Apple Music cards embedded in blog prose
-- the tracker distinguishes play requests from successful starts and records progress, pause, seek, and completion events
-- cumulative heard time is measured from active playback intervals, while media position and duration are retained separately
-- playback events reuse the visitor and session identifiers already created by first-party blog reading analytics
-- `site-api` enriches the event with request-derived IP, Cloudflare location, referrer, language, browser, operating system, device, and user-agent metadata and stores one upserted row per playback in `listening_analytics_events`
-
-### YouTube Embeds
-
-Covered implementation:
-
-- [`src/lib/embed/youtube.ts`](https://github.com/bunizao/site/blob/main/src/lib/embed/youtube.ts) renders a first-party facade whose poster and channel avatar use bounded `/static/youtube/<id>/...` routes
-- [`src/lib/embed/youtube-controller.ts`](https://github.com/bunizao/site/blob/main/src/lib/embed/youtube-controller.ts) creates the `youtube-nocookie.com` iframe only after the reader presses play
-- the controller stores only a session-scoped `yes` or `no` reachability verdict; country data is not used
-- the static proxy fetches YouTube poster and channel-avatar bytes server-side, so the reader's browser does not contact YouTube before playback
-
-### Mood Pages and Public Content
-
-Covered implementation:
-
-- `/mood` and `/mood/[id]` fetch public Telegram-derived content through the live v1 mood mirror
-- `site-api /api/moods` and `site-api /api/comments` expose public data used by the mood pages
-- [`src/features/mood/server/api-client.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/server/api-client.ts) and [`src/features/mood/shared/utils.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/shared/utils.ts) shape public mood content and media references
-
-### Mood Subscription Flow
-
-Covered implementation:
-
-- subscribe: `site-api /v2/notify/subscribe`
-- confirm: `site-api /v2/notify/confirm`
-- unsubscribe: `site-api /v2/notify/unsubscribe`
-- preferences: `site-api /v2/notify/manage`
-- address change: `site-api /v2/notify/manage/email` requests it, `site-api /v2/notify/change-email` applies it after the new address confirms
-- dispatch / schedule / retry: `site-api /v2/notify/*`
-
-Supporting infrastructure:
-
-- subscriber state and delivery records live in the private API `NOTIFY_DB`
-- email delivery is handled through Resend in `site-api`
-- token creation and verification live in `site-api`
-
-### Cloudflare Anti-Abuse and Infrastructure
-
-Covered implementation:
-
-- Turnstile verification runs in [`src/lib/security/turnstile.ts`](https://github.com/bunizao/site/blob/main/src/lib/security/turnstile.ts)
-- the private mood subscribe endpoint uses that verification when the secret is configured
-- Cloudflare D1, R2, queue, and scheduled-event infrastructure for notify live in `site-api`
-
-### Third-Party Content Sources
-
-Covered implementation:
-
-- Ghost is used for writing links in [`src/features/home/ui/Posts.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Posts.astro)
-- GitHub is used for the contribution graph through `site-api /api/github/contributions`
-- Telegram-derived content is read live for user-facing mood pages; the private API also ingests Telegram updates into D1 as a structured archive
-- YouTube provides optional video playback only after a reader activates an embed; poster and channel-avatar requests stay behind the bounded static proxy
-
-## Why the Policy Is Markdown-Backed
-
-This implementation keeps the privacy page maintainable:
-
-- policy text changes do not require layout edits
-- route logic stays minimal
-- metadata stays versioned with the content itself
-- policy wording can evolve without changing page plumbing
-
-## Update Rules
-
-When implementation changes affect personal data handling, update [`src/content/pages/privacy.md`](https://github.com/bunizao/site/blob/main/src/content/pages/privacy.md).
-
-Typical triggers:
-
-- adding or removing analytics vendors
-- adding or changing listening-data providers
-- changing subscription storage or email delivery providers
-- changing anti-abuse controls
-- changing public content sources or media proxy behavior
-- changing what edge connection diagnostics `/api/edge` exposes
+- Adding or removing an analytics vendor, or changing what an existing one stores.
+- Changing the listening-data providers.
+- Changing subscription storage or the email delivery provider.
+- Changing anti-abuse controls.
+- Changing public content sources or media-proxy behavior.
+- Changing what `/api/edge` exposes.

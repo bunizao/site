@@ -5,273 +5,122 @@ group: Surfaces
 order: 2
 ---
 
-## Scope
+The mood surface is three levels deep — a preview on the home page, the feed at
+`/mood`, and one post at `/mood/[id]` — plus the embed, RSS, and subscribe
+entrypoints hanging off it. This page covers `L1` and `L2`; `L0` lives in
+[Home](/docs/surfaces/home). For the HTTP contracts themselves, see
+[Mood API](/docs/api/mood).
+
+## Routes at a glance
+
+Every route here is dynamic — none of them prerender.
+
+| Route | File | Indexed | What it is |
+| --- | --- | --- | --- |
+| `/mood` | [`src/pages/mood.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood.astro) | Yes | `L1`, the feed |
+| `/mood/[id]` | [`src/pages/mood/[id].astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/[id].astro) | `noindex, follow` | `L2`, one post |
+| `/mood/[id]?embed=1` | — | — | Redirects to `/mood/embed?id=…&theme=…&link=false` |
+| `/mood/embed` | [`src/pages/mood/embed.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/embed.astro) | — | The iframe widget, documented in [oEmbed](/docs/api/oembed) |
+| `/mood/rss.xml` | [`src/pages/mood/rss.xml.ts`](https://github.com/bunizao/site/blob/main/src/pages/mood/rss.xml.ts) | — | RSS from the feed source |
+| `/mood/subscribe` | [`src/pages/mood/subscribe.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/subscribe.astro) | — | Redirects to `/mood?subscribe=1` |
+
+The detail pages are `noindex` on purpose: the feed stays discoverable without
+letting an unbounded archive of short posts crowd editorial pages out of search
+results.
+
+## Which API a page reads
+
+| Prefix | What it is | Read it for |
+| --- | --- | --- |
+| `/api/v2/mood*` | The D1 archive, and the default base reader for public pages | Feed and detail content |
+| `/api/v1/mood*` | The live Telegram mirror | Comments, freshness probes, visible reactions and counts, and archive fallback |
+| `?api-v2=true` | Deprecated migration scaffolding | Nothing. Keep it out of canonical docs, RSS links, oEmbed targets, and user-facing URLs |
+| `api.buxx.me` | Machine ingress | Not the canonical public surface — that stays `buxx.me` pages plus the compatibility JSON routes |
+
+`MOOD_READ_SOURCE=archive` is the default. A failed archive call falls back to
+the bounded live reader; `MOOD_READ_SOURCE=live` is the rollback switch, and
+`?source=live|archive` overrides one uncached request. Shaping lives in
+[`server/api-client.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/server/api-client.ts) and [`shared/utils.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/shared/utils.ts).
+
+**Dev serves `live` and production serves `archive`**, so a profiling run on
+`bun dev` measures the fallback path unless you pass `?source=archive`.
+
+## `L1` feed
+
+[`src/pages/mood.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood.astro) hides the home section navbar, injects RSS, Telegram, and Notify into the
+shared header actions, and composes [`TimelineWheel`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/TimelineWheel.astro), [`FeedShell`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/FeedShell.astro), and [`NotifyPanel`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/NotifyPanel.astro).
+
+| Client module | Job |
+| --- | --- |
+| [`feed-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-controller.ts) | Owns the fetch loop and infinite scroll |
+| [`feed-renderer.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-renderer.ts) | Groups posts by day and appends them |
+| [`feed-media-hydration.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-media-hydration.ts) | Channel hero and deferred media |
+| [`feed-update-watcher.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-update-watcher.ts) | Freshness probe and the update notice |
+| [`feed-comments-popover.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-comments-popover.ts) | Lazy comment previews on badge hover |
+| [`timeline-wheel.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/timeline-wheel.ts), [`notify-panel-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/notify-panel-controller.ts) | The date wheel and the notify panel |
+
+Paging is one continuous feed read from both ends: an anchor URL is a midpoint,
+older pages use `before=<oldestPostId>`, newer pages use `after=<newestPostId>`,
+and both APIs return the adjacent window in descending display order. A
+transient archive failure is retried before the client drops to the live reader.
+
+Rendering rules that are not obvious from the markup:
+
+- Inline media stays expanded in the feed; long text-only posts clamp and link
+  to detail.
+- Visible archive posts hydrate live comment and reaction counts through
+  `GET /api/v2/moods/live-counts`.
+- Hovering a comments badge fetches `GET /api/comments?postId=…` and shows up to
+  three comments, linking through to `/mood/{id}#comments`.
+- The feed can run against E2E fixtures instead of the live source.
+
+Freshness: the page polls `GET /api/moods?probe=1&fresh=1` every 75 seconds,
+shows an update notice when a newer post exists, and can refresh on its own when
+the reader is near the top.
+
+### The feed post shape
+
+`site-api /api/moods` returns posts already shaped for feed rendering rather
+than raw Telegram documents ([`server/feed-service.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/server/feed-service.ts)):
+
+| Field | Carries |
+| --- | --- |
+| `previewText`, `previewHtml` | Clamped text, plain and rendered |
+| `mediaHtml` | An inline media preview, when one exists |
+| `image`, `imageFallback`, `gallery` | The lead still image and its gallery — **`null` whenever `mediaHtml` is set** |
+| `needsDetailPage` | `true` when there is no inline preview and the post is long, media-heavy, or carries an over-size video |
+| `forwardedFrom`, `quote` | Forward attribution, and a quote card whose link resolves to the parent mood pathname |
+| `reactions`, `commentsCount` | Counts, refreshed live for archive posts |
+
+Primary image URLs prefer `PUBLIC_HD_IMAGE_URL`; fallbacks point at Telegram
+media through the site proxy.
+
+## `L2` detail
+
+[`src/pages/mood/[id].astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/[id].astro) fetches one post through the archive reader with a live-reader fallback,
+sets `404` when it is missing, and renders a controlled not-found or unavailable
+state rather than crashing. It composes [`DetailArticle.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/DetailArticle.astro), which mounts
+[`CommentsSection.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/CommentsSection.astro).
+
+- `DetailArticle` inserts gallery-aware HTML with `set:html={renderedPostContent}`.
+- Forwarded metadata, reactions, and tags render from parsed Telegram data.
+- A Telegram *Leave a comment* CTA appears when channel config exists.
+- Back navigation prefers browser history, falling back to `/mood`.
 
-This document covers:
+### Comments
 
-- `L1` mood feed at `/mood`
-- `L2` mood detail at `/mood/[id]`
-- the feed and comments APIs they depend on
-- shared Telegram parsing and mood shaping
-- embed, RSS, and subscribe entrypoints
+1. [`CommentsSection.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/CommentsSection.astro) renders a skeleton.
+2. [`detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts) fetches `GET /api/comments?postId=…`.
+3. `site-api` validates `postId` and optional `before`, then reads the live
+   Telegram mirror through the canonical v1 path.
+4. The client renders sanitized comments and pages with `before=<commentId>`.
 
-## Mood API Taxonomy
+Normalization in [`shared/comments.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/shared/comments.ts): reply blocks become quote cards, loose text
+nodes are wrapped into paragraphs, avatar and image URLs are sanitized before
+insertion, and duplicate comment ids are filtered client-side.
 
-- **v2** (`/api/v2/mood*`) is the D1 archive and the default base reader for public mood pages.
-- **v1** (`/api/v1/mood*`) is the live Telegram mirror for comments, reactions, freshness checks, and archive fallback.
-- `?api-v2=true` is deprecated migration scaffolding. Do not add it to canonical docs, RSS links, oEmbed targets, or user-facing URLs.
-- `api.buxx.me` is machine ingress, not the canonical public API surface. The public contract remains the `buxx.me` pages and compatibility JSON routes.
+## What machine ingress owns
 
-## Route Map
-
-Main files:
-
-- [`src/pages/mood.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood.astro)
-- [`src/pages/mood/[id].astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/[id].astro)
-- [`src/pages/mood/embed.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/embed.astro)
-- [`src/pages/mood/rss.xml.ts`](https://github.com/bunizao/site/blob/main/src/pages/mood/rss.xml.ts)
-- [`src/pages/mood/subscribe.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/subscribe.astro)
-
-Routing rules:
-
-- `/mood` is dynamic and not prerendered.
-- `/mood/[id]` is dynamic and not prerendered.
-- `/mood` is indexable; `/mood/[id]` emits `noindex, follow` so the feed remains
-  discoverable without letting the unbounded detail archive crowd out editorial
-  pages in search results.
-- `/mood/[id]?embed=1` redirects to `/mood/embed?id=...&theme=...&link=false`.
-- `/mood/rss.xml` emits RSS from the feed source.
-- `/mood/subscribe` redirects to `/mood?subscribe=1`.
-
-## `L1` Feed
-
-Entry file: [`src/pages/mood.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood.astro)
-
-Page-level responsibilities:
-
-- hides the normal home section navbar
-- injects header actions into the shared layout:
-  - RSS
-  - Telegram
-  - Notify
-- composes [`src/features/mood/ui/TimelineWheel.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/TimelineWheel.astro), [`src/features/mood/ui/FeedShell.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/FeedShell.astro), and [`src/features/mood/ui/NotifyPanel.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/NotifyPanel.astro)
-- bootstraps [`src/features/mood/client/feed-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-controller.ts), [`src/features/mood/client/notify-panel-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/notify-panel-controller.ts), and [`src/features/mood/client/timeline-wheel.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/timeline-wheel.ts)
-
-Feed data flow:
-
-1. The browser requests `GET /api/v2/mood` when the page is archive-backed.
-2. The response contains channel metadata plus feed-shaped posts.
-3. [`src/features/mood/client/feed-media-hydration.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-media-hydration.ts) hydrates the channel hero and deferred media behavior.
-4. [`src/features/mood/client/feed-renderer.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-renderer.ts) groups posts by date and appends them into the feed.
-5. Infinite loading continues in either direction against the active source.
-
-Anchor URLs represent a midpoint in the same continuous feed. Older pages use
-`before=<oldestPostId>` and newer pages use `after=<newestPostId>`; both APIs
-return the adjacent window in descending display order. Transient archive
-failures are retried before the client falls back to the live reader.
-
-Freshness behavior:
-
-- the page polls `GET /api/moods?probe=1&fresh=1` every 75 seconds
-- if a newer post exists, the page shows an update notice
-- refresh can happen automatically when the user is near the top
-
-## Feed API
-
-Implementation owner: `site-api /api/moods`
-
-Upstream dependency:
-
-- the D1 archive through `GET /api/v2/mood`, with the live reader as fallback
-
-Returned post shape is optimized for feed rendering:
-
-- `previewText`
-- `previewHtml`
-- `image`
-- `imageFallback`
-- `mediaHtml`
-- `needsDetailPage`
-- `forwardedFrom`
-- `quote`
-- `reactions`
-- `commentsCount`
-
-Important shaping rules:
-
-- `needsDetailPage` becomes `true` when there is no inline media preview and the post is either long text or media-heavy.
-- primary image URLs prefer `PUBLIC_HD_IMAGE_URL`.
-- fallback image URLs point at Telegram media through the site proxy when needed.
-- archived replies preserve a quote edge whose link resolves to the parent mood pathname.
-- the feed can run in E2E fixture mode instead of the live source.
-
-## Feed Rendering Strategy
-
-Most feed items are still created client-side, but the route no longer owns the DOM logic directly.
-
-Current client entrypoints:
-
-- [`src/features/mood/client/feed-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-controller.ts)
-- [`src/features/mood/client/feed-renderer.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-renderer.ts)
-- [`src/features/mood/client/feed-media-hydration.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-media-hydration.ts)
-- [`src/features/mood/client/feed-update-watcher.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-update-watcher.ts)
-- [`src/features/mood/client/feed-comments-popover.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/feed-comments-popover.ts)
-
-Rendering behavior:
-
-- posts are grouped by day
-- inline media stays expanded in the feed
-- long text-only posts clamp and link to detail
-- visible archive posts hydrate live comments/reactions through `GET /api/v2/moods/live-counts`
-- hovering the comments badge lazily fetches comment previews
-
-Comment preview path:
-
-- fetches `GET /api/comments?postId=...`
-- shows up to 3 comments in a popover
-- links to `/mood/{id}#comments`
-
-## `L2` Detail
-
-Entry file: [`src/pages/mood/[id].astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/[id].astro)
-
-Server-side responsibilities:
-
-- fetches one post by id through the archive reader, with a live-reader fallback
-- sets `404` when the post is missing
-- renders a controlled not-found or unavailable state instead of crashing
-- composes [`src/features/mood/ui/DetailArticle.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/DetailArticle.astro), which in turn mounts [`src/features/mood/ui/CommentsSection.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/CommentsSection.astro)
-
-Rendering behavior:
-
-- [`src/features/mood/ui/DetailArticle.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/DetailArticle.astro) inserts gallery-aware HTML with `set:html={renderedPostContent}`
-- forwarded metadata, reactions, and tags are rendered from parsed Telegram data
-- the page can show a Telegram `Leave a comment` CTA when channel config exists
-
-Back navigation:
-
-- prefers browser history when available
-- otherwise falls back to `/mood`
-
-## Comments
-
-Implementation files:
-
-- `site-api /api/comments`
-- [`src/features/mood/client/detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts)
-- [`src/features/mood/shared/comments.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/shared/comments.ts)
-
-Data flow:
-
-1. [`src/features/mood/ui/CommentsSection.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/CommentsSection.astro) renders a skeleton comments section.
-2. [`src/features/mood/client/detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts) fetches `GET /api/comments?postId=...`.
-3. API validates `postId` and optional `before`.
-4. API reads the live Telegram mirror through the canonical v1 mood path.
-5. Client renders sanitized comments and paginates with `before=<commentId>`.
-
-Comment normalization:
-
-- reply blocks become quote cards
-- loose text nodes are wrapped into paragraphs
-- avatar and image URLs are sanitized before insertion
-- duplicate comment ids are filtered client-side
-
-## Mood Shaping
-
-### Read source — archive base, live hydration
-
-Public feed and detail pages read D1 archive content by default through `MOOD_READ_SOURCE=archive`.
-The site falls back to the bounded live reader if an archive call fails; comments, freshness probes,
-and visible reactions/counts stay live. Set `MOOD_READ_SOURCE=live` for rollback, or use
-`?source=live|archive` for an uncached request-level override.
-
-Core files:
-
-- [`src/features/mood/server/api-client.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/server/api-client.ts)
-- [`src/features/mood/shared/utils.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/shared/utils.ts)
-
-Machine-ingress responsibilities:
-
-- expose `/api/v1/mood*` as the live Telegram mirror
-- expose `/api/v2/mood*` as the D1 archive / structured read
-- ingest Telegram webhook updates into D1 for backup, search, AI, and debugging
-- normalize media URLs into `https://buxx.me/api/v2/images/*`
-- keep `api.buxx.me` as machine ingress rather than the canonical public API surface
-
-`src/features/mood/shared/utils.ts` responsibilities:
-
-- strip Telegram HTML into preview text
-- keep a limited preview HTML subset
-- extract first image and fallback image
-- detect media-heavy or long posts
-- derive quote preview data
-- group posts by date
-
-## Embed, RSS, and Subscribe
-
-Embed file: [`src/pages/mood/embed.astro`](https://github.com/bunizao/site/blob/main/src/pages/mood/embed.astro)
-
-Supported embed query parameters:
-
-- `id`
-- `count`
-- `theme`
-- `frame`
-- `density`
-- `font`
-- `origin`
-- `refresh`
-- `link`
-
-RSS file: [`src/pages/mood/rss.xml.ts`](https://github.com/bunizao/site/blob/main/src/pages/mood/rss.xml.ts)
-
-RSS behavior:
-
-- fetches the mood list
-- sorts by numeric post id descending
-- emits up to 50 items
-- absolutizes URLs inside content HTML
-- emits full `content:encoded`
-
-Subscribe entry:
-
-- `/mood/subscribe` only redirects into the feed UI
-- actual subscribe, confirm, unsubscribe, schedule, retry, and dispatch logic lives in the notify routes
-
-## Security and Limits
-
-Relevant file: [`src/lib/security/rate-limit.ts`](https://github.com/bunizao/site/blob/main/src/lib/security/rate-limit.ts)
-
-Current limits:
-
-- `/api/moods`: 180/min normally
-- `/api/moods?fresh=1`: 30/min
-- `/api/moods?probe=1`: 90/min
-- `/api/comments`: 90/min
-
-Validation rules:
-
-- `before`, `after`, `postId`, and comment cursors must be numeric
-- invalid cursors return `400`
-- limit violations return `429` with rate-limit headers
-
-Important constraint:
-
-- rate limiting is in-memory per instance, not shared across deployments
-
-## Operations Health
-
-Ordinary archive ingestion preserves a known positive `reply_to` when a lower-fidelity update omits the relationship. The authenticated mood health response exposes `replyIntegrity` with the edge count, unresolved same-channel targets, a capped child-ID sample, the number of live posts never reconciled, and the oldest verification timestamp.
-
-The scheduled ops suite checks configured reply canaries against strict archive detail reads using
-`fresh=1&fallback=0`. `MOOD_REPLY_CANARIES` is a capped comma-separated list of positive integer
-`child:parent` mappings; each child must expose a quote whose URL pathname is `/mood/<parent>`.
-The production workflow currently uses `1609:1600`.
-
-## Edge Cases
-
-- missing detail pages still render a controlled fallback UI
-- feed rendering deduplicates post ids
-- comment pagination deduplicates comment ids and stops when Telegram stops giving a usable cursor
-- E2E fixtures can replace live Telegram calls for feed, detail, and comments
-- animated Telegram emoji enhance progressively and fall back safely when loading fails
+- `/api/v1/mood*` as the live Telegram mirror, `/api/v2/mood*` as the D1 archive.
+- Ingesting Telegram webhook updates into D1 for backup, search, AI, and debugging.
+- Normalizing media URLs into `https://buxx.me/api/v2/images/*`.

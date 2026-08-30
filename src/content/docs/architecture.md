@@ -48,54 +48,42 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 
 ## API Endpoints
 
-For full parameter tables, request/response schemas, error codes, cache TTLs,
-and rate limits, see [API Overview](/docs/api/overview),
-[Mood API](/docs/api/mood), and [Notify API](/docs/api/notify). This section
-stays a short index of what exists and who owns it.
+This is a short index of what exists and who owns it. Parameter tables,
+schemas, error codes, cache TTLs, and rate limits live in the API reference —
+[Overview](/docs/api/overview), [Mood](/docs/api/mood),
+[Notify](/docs/api/notify), and the rest of that group.
 
-**Public JSON, served by `site-api` on `buxx.me/api/*`:**
-- `GET|HEAD /api/ping` — Tiny uncached uptime endpoint for Better Stack monitors.
-- `GET /api/footer` — Cached footer status proxy backed by the Better Stack status page JSON API.
-- `GET /api/edge` — Uncached per-request edge diagnostics from Cloudflare `request.cf` (colo, protocol, TLS, TCP RTT, approximate visitor location, network) for the footer hover popover. Never cached, since values are visitor-specific.
-- `GET /api/github/contributions` — Cached GitHub contribution calendar for the homepage activity graph; `days` narrows the returned contribution days while preserving the last-year total.
-- `GET /api/health` — Lightweight compatibility health response for stale monitors. Use `?diagnostic=1` for the owner diagnostic report; add `&deep=1` for slower external probes.
-- `GET /api/moods`, `GET /api/v1/mood` — Live mood feed with pagination (`?before=<id>`), used for freshness probes and live fallback (docs: `/docs/api/mood`)
-- `GET /api/v2/mood`, `GET /api/v2/mood/[id]`, `GET /api/v2/mood/[id]/comments`, `GET /api/v2/mood/search`, `GET /api/v2/mood/stats` — Archive mood feed, detail, comments, search, and stats used for the default base render (docs: `/docs/api/mood`)
-- `GET /api/v2/moods/live-counts?ids=<id,...>`, `GET /api/v1/mood/meta?ids=<id,...>` — Batched live comments/reactions for visible archive-rendered or live-rendered posts (docs: `/docs/api/mood`)
-- `GET /api/comments` — Legacy alias of the comments read path (docs: `/docs/api/mood`)
-- `GET /api/oembed.json` — oEmbed endpoint (docs: `/docs/api/oembed`)
-- `POST /notify/subscribe`, `GET /notify/confirm`, `GET|POST /notify/unsubscribe`, `GET|PATCH /notify/manage`, `POST /notify/manage/request` — Mood update email subscriptions, Turnstile-gated (docs: `/docs/api/notify`)
-- `GET /api/v2/posts`, `GET /api/v2/posts/[slug]` — Disabled placeholder; returns a `posts_coming_soon` error unless `ENABLE_POSTS_API` is set (docs: `/docs/api/overview#versioning-three-generations-one-worker`)
-- `POST /api/v2/analytics/listening` — First-party listening playback events. One cumulative record per playback captures requests, starts, heard time, progress, pauses, seeks, and completion.
+Public JSON, served by `site-api` on `buxx.me/api/*`:
 
-**Machine ingress (`site-api`):**
-- `api.buxx.me` is machine ingress, not the canonical public API surface.
-- `/api/v1/mood*` — live Telegram mirror for comments, reactions, freshness probes, and archive fallback.
-- `/api/v2/mood*` — D1 archive / structured base render for public mood pages, search, AI, debugging, and ops.
-- Admin/OAuth/notify/webhook/image routes are owned by `site-api`, not by this public Worker.
+| Endpoint | What it is | Reference |
+| --- | --- | --- |
+| `GET`, `HEAD /api/ping`, `GET /api/health` | Uptime probe and compatibility health response. `health?diagnostic=1` adds the owner report, `&deep=1` adds external probes. | [Status](/docs/api/status) |
+| `GET /api/footer` | Better Stack status proxy behind the footer pill. | [Status](/docs/api/status#footer-status) |
+| `GET /api/edge` | Per-request Cloudflare facts for the footer popover. Never cached — the values are visitor-specific. | [Status](/docs/api/status#edge) |
+| `GET /api/v2/mood*` | Archive feed, detail, comments, search, stats — the default base render. | [Mood](/docs/api/mood) |
+| `GET /api/v1/mood*`, `GET /api/moods` | Live Telegram mirror: freshness probes and archive fallback. | [Mood](/docs/api/mood) |
+| `GET /api/v2/moods/live-counts`, `GET /api/v1/mood/meta` | Batched comment and reaction counts for already-rendered posts. | [Mood](/docs/api/mood) |
+| `GET /api/comments` | Legacy alias of the live comments read path. | [Content](/docs/api/content#comments-by-post-id) |
+| `GET /api/writing`, `GET /api/github/contributions`, `GET /api/musickit/token` | Ghost posts, the contribution grid, and the Apple MusicKit token. | [Content](/docs/api/content) |
+| `GET /api/v2/listening`, `POST /api/v2/analytics/listening` | Now-playing track and the player's own playback events. | [Listening](/docs/api/listening) |
+| `GET /api/oembed.json` | oEmbed discovery for mood embeds. | [oEmbed](/docs/api/oembed) |
+| `/notify/*` | Mood update email subscriptions, Turnstile-gated. | [Notify](/docs/api/notify) |
+| `GET /api/v2/posts*` | Disabled placeholder behind `ENABLE_POSTS_API`. | [Content](/docs/api/content#posts-not-enabled) |
 
-**Owner auth surface:**
-- `GET /oauth` — Short public entry that redirects to the protected OAuth hub.
-- The owner-auth boundary is enforced in `src/middleware.ts` + `src/features/admin/server/access.ts`; see [Auth and OAuth hub](/docs/platform/auth) for the credential roadmap. (The former `/dev/portal/oauth` UI page was removed.)
+Everything else on the URL surface:
 
-**Local authoring surface:**
-- `GET /dev/blog/<24-character-post-id>` — Renders a Ghost draft through the production directive and blog prose pipeline behind the owner-auth boundary. Every response is private and uncached.
+| Surface | Owner | Notes |
+| --- | --- | --- |
+| `api.buxx.me` | `site-api` | Machine ingress for webhooks, notify, image processing, archive reads, and ops — not the canonical public API host. |
+| Admin, OAuth, webhook, and image routes | `site-api` | Listed, not specified — see [Internal Endpoints](/docs/api/internal). |
+| `GET /oauth` | `site` | Short public entry that redirects to the protected OAuth hub. The boundary itself is `src/middleware.ts` + `src/features/admin/server/access.ts`; see [Auth](/docs/platform/auth). |
+| `GET /dev/blog/<24-char post id>` | `site` | Ghost draft rendered through the production pipeline, behind owner auth. Private and uncached. |
+| `GET`, `HEAD /static/*` | `site` | Allowlisted media proxy, including the fixed YouTube poster, avatar, and metadata routes. |
+| SVG badges, `/logo/{id}.svg` | `site` | `?theme=light\|dark` on all of them; `project.svg` also needs `?project=`. See [SVG](/docs/api/svg). |
+| `GET /mood/rss.xml`, `/blog/rss.xml`, `/llms.txt`, `/sitemap.xml` | `site` | See [Feeds](/docs/api/feeds). |
 
-**Public asset proxy, served by the `site` Worker:**
-- `GET|HEAD /static/youtube/<11-character-id>/<maxresdefault|hqdefault|avatar>.jpg` and `/static/youtube/<11-character-id>/metadata.json` — Fixed YouTube poster, channel-avatar, and channel-metadata boundary. The routes reject query strings and arbitrary upstream targets; no signing secret is exposed to client-rendered Mood cards.
-
-Telegram references:
-
-- [Telegram pipeline](/docs/platform/telegram)
-- `notes/debug/README.md` in the repo for local-only investigation notes and temporary debug artifacts
-
-**SVG** (all accept `?theme=light|dark`):
-- `GET /api/status.svg`, `GET /api/tech-stack.svg`, `GET /api/site-badge.svg`
-- `GET /api/project.svg` (requires `?project=<name>`)
-- SVG font stacks come from `src/lib/fonts.ts`, which mirrors the CSS font tokens for server-rendered documents.
-- Full docs: `/docs/api/svg`
-
-**RSS:** `GET /mood/rss.xml`
+Telegram ingest is documented in [Telegram pipeline](/docs/platform/telegram);
+`notes/debug/README.md` in the repo holds local-only investigation notes.
 
 ## Agent Markdown and Edge Cache Policy
 
@@ -123,21 +111,24 @@ The edge cache key includes the negotiated variant (`html` or `markdown`) plus p
 ## Environment Variables
 
 Accessed via `import.meta.env.*`:
-- `PUBLIC_GHOST_URL` — Ghost CMS URL (default: https://blog.buxx.me)
-- `GHOST_CONTENT_API_KEY` — Ghost CMS content API key; required in the Cloudflare build environment for the prerendered Writing section
-- `GHOST_ADMIN_API_KEY` — Server-only Ghost Admin key for authenticated draft previews. Configure it as a Cloudflare Worker secret in production and keep it in `.env.local` during local development. Never use a `PUBLIC_` prefix.
-- `PUBLIC_BLOG_OG_IMAGE_ENDPOINT` — OGIS endpoint for generated `/blog` Open Graph images
-- `GITHUB_TOKEN` — GitHub GraphQL token for project data
-- `PUBLIC_HD_IMAGE_URL` — HD mood image base URL served by `site-api`
-- `MOOD_READ_SOURCE` — `archive` (default base render) or `live` (immediate rollback); `?source=live|archive` overrides one request without caching it
-- `CHANNEL` — Telegram public channel slug used for media-group indexing
-- `TELEGRAM_HOST` — Telegram public host for embed lookups (default: `t.me`)
-- `LASTFM_API_KEY`, `LASTFM_USER` — Last.fm recent tracks integration for the home listening widget
-- `PUBLIC_SITE_URL`, `SITE_URL` — canonical base URLs for email links, previews, and health checks
 
-Cloudflare Worker bindings and non-secret vars are defined in [`wrangler.jsonc`](https://github.com/bunizao/site/blob/main/wrangler.jsonc):
+| Variable | Required | What it does |
+| --- | --- | --- |
+| `PUBLIC_GHOST_URL` | Yes | Ghost CMS URL. Defaults to `https://blog.buxx.me`. |
+| `GHOST_CONTENT_API_KEY` | Yes in CI | Ghost Content API key. The Cloudflare build environment needs it for the prerendered Writing section. |
+| `GHOST_ADMIN_API_KEY` | No | Server-only Ghost Admin key for authenticated draft previews. Worker secret in production, `.env.local` locally. **Never give it a `PUBLIC_` prefix.** |
+| `PUBLIC_BLOG_OG_IMAGE_ENDPOINT` | No | OGIS endpoint for generated `/blog` Open Graph images. |
+| `GITHUB_TOKEN` | No | GitHub GraphQL token for project card data. |
+| `PUBLIC_HD_IMAGE_URL` | No | HD mood image base URL served by `site-api`. |
+| `MOOD_READ_SOURCE` | No | `archive` (default base render) or `live` (immediate rollback). `?source=live\|archive` overrides one request without caching it. |
+| `CHANNEL` | No | Telegram public channel slug used for media-group indexing. |
+| `TELEGRAM_HOST` | No | Telegram public host for embed lookups. Defaults to `t.me`. |
+| `LASTFM_API_KEY`, `LASTFM_USER` | No | Last.fm recent tracks for the home listening widget. |
+| `PUBLIC_SITE_URL`, `SITE_URL` | Yes | Canonical base URLs for email links, previews, and health checks. |
 
-- `API` — Cloudflare Worker service binding to `site-api`
+Cloudflare Worker bindings and non-secret vars are defined in
+[`wrangler.jsonc`](https://github.com/bunizao/site/blob/main/wrangler.jsonc).
+There is exactly one binding: `API`, a service binding to `site-api`.
 
 ## Key Dependencies
 
