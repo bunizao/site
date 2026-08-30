@@ -55,7 +55,8 @@ describe('describeCommentFailure', () => {
     expect(classify(503, { code: 'turnstile_unavailable' })).toBe('BOT');
     expect(classify(400, { error: 'invalid_parent' })).toBe('THREAD');
     expect(classify(503, { code: 'comment_target_unavailable' })).toBe('GONE');
-    expect(classify(400, { error: 'Body is required' })).toBe('INPUT');
+    expect(classify(400, { error: 'body must be 1-2000 characters' })).toBe('LONG');
+    expect(classify(400, { error: 'dwellToken is required' })).toBe('STALE');
   });
 
   test('an expired claim on a comment is not a retry', () => {
@@ -122,7 +123,47 @@ describe('identity refusals', () => {
   });
 
   test('an unrecognised 400 is still the INPUT catch-all', () => {
-    const slug = readErrorSlug({ error: 'dwellToken is required' });
+    const slug = readErrorSlug({ error: 'something nobody has named yet' });
     expect(describeCommentFailure(400, slug, zh).code).toBe('INPUT');
+  });
+});
+
+// site-api spends 400 on seven distinct refusals. Exactly one of them is
+// about the words the reader wrote, and answering the other six with "adjust
+// your wording" sent people back to edit a sentence that was never refused.
+describe('the 400s, told apart', () => {
+  test('over the cap is the one the reader can fix, and fix precisely', () => {
+    // Both routes phrase the same refusal differently.
+    for (const error of ['body must be 1-2000 characters', 'body is required (1-2000 characters)']) {
+      expect(describeCommentFailure(400, readErrorSlug({ error }), zh).code).toBe('LONG');
+    }
+    expect(zh.LONG).toContain('2000');
+  });
+
+  test('a stale form is a refresh, not a rewrite', () => {
+    const stale = [
+      'dwellToken is required',      // the one in the reader's screenshot
+      'postId is required',
+      'parentId must be a string or null',
+      'Invalid JSON body',
+    ];
+    for (const error of stale) {
+      expect(describeCommentFailure(400, readErrorSlug({ error }), zh).code).toBe('STALE');
+    }
+  });
+
+  // `displayName must be 1-32 characters` also opens with a field and a
+  // length, and must not be swept up by the body rule.
+  test('the identity refusals keep their own codes', () => {
+    const slug = readErrorSlug({
+      error: 'displayName must be 1-32 characters and cannot use control characters or reserved names',
+    });
+    expect(describeCommentFailure(400, slug, zh).code).toBe('NAME');
+  });
+
+  test('each 400 reads out under its own badge', () => {
+    const codes = ['body must be 1-2000 characters', 'dwellToken is required', 'A valid email is required']
+      .map((error) => failureTag(describeCommentFailure(400, readErrorSlug({ error }), zh)));
+    expect(codes).toEqual(['LONG 400', 'STALE 400', 'EMAIL 400']);
   });
 });
