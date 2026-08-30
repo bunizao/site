@@ -322,7 +322,12 @@ function shouldHideQuoteAuthor(value?: string): boolean {
         <button class="mood-load-retry" type="button" data-mood-newer-retry hidden>Retry</button>
       </div>
     )}
-    <div class="mood-stream" data-mood-list role="region" aria-label="Mood feed">
+    {/* Ship the SSR feed hidden: streamed HTML can paint the UTC grouping
+        before the parser reaches the inline rekey script below, and regrouping
+        painted content is a layout shift. Hidden moves are CLS-exempt; the
+        inline script reveals the list once local groups are in place. */}
+    {hasCriticalInitialPosts && <noscript><style is:inline>[data-mood-list]{visibility:visible !important}</style></noscript>}
+    <div class="mood-stream" data-mood-list role="region" aria-label="Mood feed" style={hasCriticalInitialPosts ? 'visibility:hidden' : undefined}>
       {criticalDateGroups.map((group) => (
         <div class="mood-date-group" data-date={group.dateKey}>
           <div class="mood-date-header">

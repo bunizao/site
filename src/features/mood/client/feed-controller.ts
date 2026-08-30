@@ -746,6 +746,9 @@ export function initMoodFeedController(): void {
         // timezone so per-post times read local and later client appends merge
         // into the same date groups. Runs before any append or anchor reveal.
         rekeyMoodServerRenderedGroups(list);
+        // The SSR list ships visibility:hidden until the inline pre-paint
+        // script reveals it; keep the feed usable if that script was stripped.
+        list.style.removeProperty('visibility');
         mediaHydrator.applyMediaHints(list);
         initMoodGalleries(list);
         hydrateFeedEmbeds(list);
