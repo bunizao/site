@@ -1283,6 +1283,18 @@
   margin-top: 0.2em;
 }
 
+/* --- An edit still in the air ---------------------------------------------
+   Save writes the new text straight into the row and sends the PATCH after
+   -- see saveEdit. The row is telling the truth about what the reader typed
+   and is one round trip from telling it about what was stored, and the half
+   step of colour is the whole difference: enough to read as not-yet-settled,
+   not enough to read as a problem. It clears either way, on the response or
+   on the revert. */
+.blog-comment[data-sending] .blog-comment__text {
+  color: color-mix(in oklab, var(--blog-body) 62%, transparent);
+  transition: color 0.2s ease;
+}
+
 /* Held for moderation: visible to its author only, and it has to say why. */
 .blog-comment--held .blog-comment__text {
   color: var(--blog-faint);

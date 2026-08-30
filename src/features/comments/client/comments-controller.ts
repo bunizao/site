@@ -413,7 +413,32 @@ export function initCommentsController(): void {
     const identity = readIdentity(box);
     if (!identity) return; // guard passed but the fields are gone -- nothing to send
 
-    setBusy(box, true);
+    // Everything the reader can see happens here, before a single byte leaves
+    // the browser. The press used to buy a spinner and a locked field for as
+    // long as a Turnstile solve plus a moderation call took -- two to four
+    // seconds of a form that had visibly stopped working, for a comment that
+    // was going to be accepted. Neither wait is the reader's to sit through:
+    // the words are already written, the thread has room for them, and the
+    // one honest use of the round trip is to correct the page if it turns out
+    // wrong. Which it does, below, on the rare path.
+    const replyName = parentId
+      ? document.querySelector<HTMLElement>(`[data-reply-to="${cssEscape(parentId)}"]`)?.dataset.replyName ?? ''
+      : '';
+    const ghost = renderGhostRow(identity.displayName, text, parentId);
+
+    setSubmitEnabled(box, false);
+    sayComposeAlert(box, null);
+    insertNewRow(ghost, parentId);
+    toggleEmptyState(false);
+    // Cleared and left writable: a reader with a second thing to say can
+    // start typing it while the first is still in the air. The synthetic
+    // `input` is what drafts.ts listens on -- it drops the saved copy and
+    // disarms the unload prompt, neither of which a programmatic write fires
+    // on its own.
+    field!.value = '';
+    field!.dispatchEvent(new Event('input', { bubbles: true }));
+    if (isReply) closeReplyBox();
+    else showComposeReceipt(box, 'posted');
 
     // Warm by now in every ordinary case -- the reader focused this box before
     // they could type into it, which is what started the solve.
@@ -438,12 +463,22 @@ export function initCommentsController(): void {
     warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
     void mintDwellToken();
 
-    setBusy(box, false);
+    setSubmitEnabled(box, true);
 
     if (!response.ok) {
-      // Same slot an unfinished field complains in -- see sayComposeAlert.
-      // What the line says depends on what was refused: a rate limit and a
-      // dropped connection want opposite next moves out of the reader.
+      // Take it all back, in the order it was given: the row goes, the words
+      // return to the box they were written in, and the reply box reopens
+      // under the comment it was answering. Then the complaint -- in the same
+      // slot an unfinished field uses, saying which refusal it was, because a
+      // rate limit and a dropped connection want opposite next moves.
+      ghost.remove();
+      const parentBody = parentId
+        ? list.querySelector<HTMLElement>(`#comment-${cssEscape(parentId)} .blog-comment__body`)
+        : null;
+      if (parentId && parentBody) openReplyBox(parentId, replyName, parentBody);
+      field!.value = text;
+      field!.dispatchEvent(new Event('input', { bubbles: true }));
+      toggleEmptyState(!list.querySelector('.blog-comment'));
       const failure = describeCommentFailure(response.status, response.slug, t.submitError);
       box.dataset.receipt = 'error';
       sayComposeAlert(box, failure.message, failureTag(failure));
@@ -451,10 +486,6 @@ export function initCommentsController(): void {
     }
 
     const { outcome, comment, unverifiedEmail } = response.data;
-    sayComposeAlert(box, null);
-
-    field!.value = '';
-    if (field) field.readOnly = false;
 
     if (phase === 'anonymous') {
       claimed = { name: identity.displayName, email: identity.email };
@@ -464,6 +495,10 @@ export function initCommentsController(): void {
       applyPhase(replyBox, phase, claimed, viewer);
     }
 
+    // The real row, built the one way rows are built, swapped in over the
+    // stand-in. Nothing about the placeholder has to be patched into
+    // correctness -- it is thrown away whole, which is why it was allowed to
+    // guess at the parts it could not know.
     const row = toBlogComment(comment, {}, t);
     row.own = true;
     const article = renderCommentRow(row, parentId);
@@ -472,15 +507,15 @@ export function initCommentsController(): void {
     // still in flight rather than a decision -- render it as posted until the
     // polls below say otherwise. See markPending.
     if (outcome === 'held') markPending(article);
-    insertNewRow(article, parentId);
-    toggleEmptyState(false);
+    if (ghost.isConnected) ghost.replaceWith(article);
+    else insertNewRow(article, parentId);
     if (outcome !== 'held') setTally(total + 1);
 
-    // Success draws nothing: the row above is the receipt. The nudge is not a
-    // receipt -- it is an offer, and it stands whether the comment published
-    // or is still being checked.
-    if (isReply) closeReplyBox();
-    else showComposeReceipt(box, unverifiedEmail ? 'nudge' : 'posted');
+    // The nudge is not a receipt -- the row above is. It is an offer, and it
+    // is the one thing here that genuinely could not be shown before the
+    // answer came back, because only the server knows whether this address
+    // has ever been confirmed.
+    if (!isReply && unverifiedEmail) showComposeReceipt(box, 'nudge');
 
     if (outcome === 'held') void upgradeWhenVerdictLands(comment.id, parentId, article);
   }
@@ -598,12 +633,18 @@ export function initCommentsController(): void {
     return { displayName: name, email };
   }
 
-  function setBusy(box: HTMLElement, busy: boolean): void {
-    box.dataset.receipt = busy ? 'submitting' : box.dataset.receipt ?? 'idle';
-    const field = box.querySelector<HTMLTextAreaElement>('.blog-compose__field');
+  /** The only thing about the compose box that still waits for the server.
+      Not a busy state: the field stays writable and `data-receipt` has
+      already moved on to `posted`, so nothing spins. This is a double-post
+      guard and nothing more -- one press of Post, one comment.
+
+      `submitting` is therefore a state the live thread no longer enters. It
+      is still in ComposeReceipt, still rendered by CommentForm.astro, and
+      still styled: /lab/comments draws every receipt on purpose, and a state
+      the lab documents is not dead just because the happy path outruns it. */
+  function setSubmitEnabled(box: HTMLElement, enabled: boolean): void {
     const submitBtn = box.querySelector<HTMLButtonElement>('[data-compose-submit]');
-    if (field) field.readOnly = busy;
-    if (submitBtn) submitBtn.disabled = busy;
+    if (submitBtn) submitBtn.disabled = !enabled;
   }
 
   /** `data-receipt` still carries every state -- the send button's spinner and
@@ -843,6 +884,33 @@ export function initCommentsController(): void {
     return article;
   }
 
+  /** The row that appears under the reader's finger the moment they press
+      Post, before anything has been asked of the server.
+
+      It is rendered through the `held` branch on purpose, which is the branch
+      that draws the note and draws no action strip. Both are exactly right
+      for a row with no id yet: `markPending` turns the note into "发布中", and
+      a Reply or Delete button here would address a comment the server has
+      never heard of. Everything it cannot know -- the real id, the edit
+      window, the author badge, whether a moderator wants a look -- it simply
+      does not claim, because the response replaces it whole.
+
+      The id is a throwaway. Nothing looks a row up by it during the second or
+      two this one exists, and `insertNewRow` places replies by their parent. */
+  function renderGhostRow(authorName: string, body: string, parentId: string | null): HTMLElement {
+    const ghost = renderCommentRow({
+      id: `pending-${Date.now()}`,
+      author: authorName,
+      date: t.relativeDate.now,
+      text: body,
+      held: true,
+      isReply: parentId !== null,
+      own: true,
+    }, parentId);
+    markPending(ghost);
+    return ghost;
+  }
+
   function wireCommentRow(article: HTMLElement, comment: BlogComment, parentId: string | null): void {
     if (comment.tombstone) return;
 
@@ -986,6 +1054,27 @@ export function initCommentsController(): void {
     if (!body) return;
     article.querySelector('.blog-comment__edit-error')?.remove();
 
+    const previous = readCommentText(text);
+    // Pressing Save on an untouched field is a way of closing it. Sending it
+    // would put the comment through moderation again for no change, and the
+    // verdict can come back different.
+    if (previous === body) {
+      setEditing(false);
+      return;
+    }
+
+    const meta = article.querySelector('.blog-comment__meta');
+    const wasEdited = Boolean(meta?.querySelector('.blog-comment__edited'));
+
+    // Same bargain as posting: the server re-moderates every edit, so Save sat
+    // under the reader's finger for a whole model call with nothing on screen
+    // acknowledging the press -- no spinner, no disabled button, not even a
+    // colour change. The words go up now and the round trip corrects them.
+    setCommentText(text, body);
+    setEditing(false);
+    article.dataset.sending = 'true';
+    if (meta && !wasEdited) meta.append(el('span', { class: 'blog-comment__edited' }, [t.edited]));
+
     const input: CommentEditInput = { body };
     const response = await fetch(`/api/v2/comments/${encodeURIComponent(commentId)}`, {
       method: 'PATCH',
@@ -993,7 +1082,17 @@ export function initCommentsController(): void {
       body: JSON.stringify(input),
     });
 
+    delete article.dataset.sending;
+
     if (!response.ok) {
+      // Put the row back the way it was and reopen the field still holding
+      // what was typed -- an edit refused is an edit the reader has not
+      // finished, and throwing their sentence away to show them an error
+      // would be the second thing to go wrong.
+      setCommentText(text, previous);
+      if (!wasEdited) meta?.querySelector('.blog-comment__edited')?.remove();
+      field.value = body;
+      setEditing(true);
       // Same taxonomy as a submission -- see comment-error.ts. An edit past
       // its window (409) and an edit that hit a rate limit are different
       // problems, and "that didn't save, try again" was wrong for both: the
@@ -1011,21 +1110,17 @@ export function initCommentsController(): void {
     }
 
     const data = (await response.json()) as CommentEditResult;
+    // Re-set from the response rather than trusting what was optimistically
+    // painted: the server owns the stored text, and a trim or a normalisation
+    // there should show here.
     setCommentText(text, data.comment.body);
-    // The server re-moderates every edit, and the verdict moves in both
-    // directions -- see the PATCH route in site-api. Dropping it on the floor
-    // is not cosmetic: a row that quietly went `held` is invisible to
-    // everybody except its writer, and the writer's own screen was the one
-    // place still drawing it as published. The reverse case is milder but
-    // just as wrong -- an edit that cleared a hold kept claiming nobody else
-    // could see it.
+    // The verdict moves in both directions -- see the PATCH route in
+    // site-api. Dropping it on the floor is not cosmetic: a row that quietly
+    // went `held` is invisible to everybody except its writer, and the
+    // writer's own screen was the one place still drawing it as published.
+    // The reverse case is milder but just as wrong -- an edit that cleared a
+    // hold kept claiming nobody else could see it.
     applyHeldState(article, data.comment.status !== 'published');
-    setEditing(false);
-
-    const meta = article.querySelector('.blog-comment__meta');
-    if (meta && !meta.querySelector('.blog-comment__edited')) {
-      meta.append(el('span', { class: 'blog-comment__edited' }, [t.edited]));
-    }
   }
 
   async function deleteComment(commentId: string, article: HTMLElement, parentId: string | null): Promise<void> {
