@@ -1,0 +1,61 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // Staging clone for the comments behavior tests (plans/comments-staging-test.md
+  // and plans/comments-staging-pipeline-runbook.md). Public origin of the
+  // staging pair; talks to site-api-staging via the service binding only.
+  "name": "site-staging-9669e7",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-04-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "cache": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "html_handling": "drop-trailing-slash",
+    "run_worker_first": [
+      "/",
+      "/api/*",
+      "/blog*",
+      "/llms.txt",
+      "/mood*",
+      "/privacy*",
+      "/projects*",
+      "/sitemap.xml",
+      "/dev",
+      "/dev/*",
+      "/oauth*",
+      "/v2/*"
+    ]
+  },
+  "services": [
+    { "binding": "API", "service": "site-api-staging" }
+  ],
+  "kv_namespaces": [
+    { "binding": "SESSION", "id": "0c2d9cc49dd94956a707483752843919" }
+  ],
+  "keep_vars": false,
+  "vars": {
+    "SITE_URL": "https://site-staging-9669e7.bunizao.workers.dev",
+    "PUBLIC_SITE_URL": "https://site-staging-9669e7.bunizao.workers.dev",
+    "PUBLIC_GHOST_URL": "https://blog.buxx.me",
+    "PUBLIC_BLOG_OG_IMAGE_ENDPOINT": "https://og.tuuhub.com/api/og",
+    "LASTFM_USER": "bunizao",
+    "PUBLIC_HD_IMAGE_URL": "https://site-staging-9669e7.bunizao.workers.dev/api/v2/images",
+    "MOOD_READ_SOURCE": "archive",
+    "PUBLIC_TURNSTILE_SITE_KEY": "1x00000000000000000000BB",
+    "CHANNEL": "tutumood",
+    "TELEGRAM_HOST": "t.me"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "persist": true
+    }
+  }
+}
