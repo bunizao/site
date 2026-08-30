@@ -515,6 +515,30 @@ version that said "正在审核中" left the reader with an unanswered question:
 this is under review, why is it on my screen? Naming who can see it answers
 that and drops the accusation in one line.
 
+**Turnstile** solves ahead of the press, on two triggers: the thread crossing
+into the viewport (400px of rootMargin, once) and the first focus in a compose
+box as a backstop. Neither fires on page load — a reader who never comments
+never fetches Cloudflare's script. The widget lives in `.blog-compose__turnstile`
+under the box (and in the reaction bar for `blog_reaction`), not in a hidden div
+on `<body>`: invisible mode stays invisible only until Cloudflare wants a human,
+and a challenge with nowhere to render turned every challenged submission into a
+dead end whose one exit was a page reload. The host is a `minmax(0, 0fr)` grid
+row that opens to `1fr` on `before-interactive-callback`, so it reserves nothing
+until there is a challenge to hold.
+
+**Edits are re-moderated server-side, and the client has to redraw the row's
+status.** It used to keep the pre-edit rendering, which meant an edit that
+tripped moderation left a row drawn as published on the only screen that could
+still see it — the writer's — while it was invisible to everyone else. Reads as
+a moderation bypass from the outside; it was a display bug. `rejected` gets the
+held note too: both mean the row is drawn for its writer and nobody else.
+
+**The verify nudge** names the address it was sent to. A reader who mistyped
+their own email otherwise finds out by never hearing anything again. Its one
+checkbox sits next to the sentence rather than at the opposite edge of the row,
+and is drawn rather than left native — at this size the platform control was
+1.53:1 against the page, and it is the only thing in the row anyone can press.
+
 **Failure messages** (`comment-error.ts`) are keyed by the reader's next move,
 not by the status: reconnect (`NET`), wait (`RATE`), refresh (`BOT`, `THREAD`),
 give up (`GONE`, `CLOSED`), reword (`INPUT`), try later (`SERVER`). One line for

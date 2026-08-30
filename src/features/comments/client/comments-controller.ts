@@ -31,6 +31,7 @@ import {
 import {
   getTurnstileToken,
   releaseTurnstileToken,
+  setTurnstileHost,
   warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
 import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
@@ -77,6 +78,10 @@ const GHOST_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 const ALERT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5h.01"></path></svg>`;
 // Byte-for-byte the bubble in CommentsSection.astro's error notice -- the two
 // renderers have to agree, and a dashed stroke is easy to let drift.
+// Gives the nudge an identity of its own. Without it the row read as a strip
+// of controls that happened to sit under the box, which is how a message ends
+// up ignored by the people it is for.
+const NUDGE_MAIL_SVG = `<svg class="blog-compose__nudge-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="M3.5 7.5l7.3 5.1a2 2 0 0 0 2.4 0l7.3-5.1"></path></svg>`;
 const THREAD_ERROR_MARK_SVG = `<svg class="blog-comments__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3.5" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="3"></rect><path d="M8.4 16v3.9a.45.45 0 0 0 .75.33L13.6 16"></path></svg>`;
 
 function heartIcon(): SVGElement {
@@ -203,14 +208,33 @@ export function initCommentsController(): void {
   // A Turnstile solve costs ~2.3s. Asked for at submit time it landed entirely
   // between the press of Post and the request leaving the browser -- the one
   // stretch of the whole flow where the reader has finished their part and is
-  // watching a spinner. Solved on the first focus in either box instead, it
-  // overlaps the time they spend typing and is almost always already in hand.
-  // Not on page load: that would fetch Cloudflare's script for every reader of
-  // every post, most of whom never write anything.
+  // watching a spinner.
+  //
+  // Two triggers, both ahead of the press and both cheap. Reaching the thread
+  // is the earliest honest signal of intent: a reader scrolled past the whole
+  // post to get here, and the solve then overlaps the time they spend reading
+  // other people's comments rather than the time they spend waiting on their
+  // own. Focus stays as the backstop for anyone who lands on an anchor or
+  // tabs straight in. Neither fires on page load -- that would fetch
+  // Cloudflare's script for every reader of every post, and most of them
+  // never write anything.
+  const turnstileHost = compose.querySelector<HTMLElement>('[data-turnstile-host]');
+  if (turnstileHost) setTurnstileHost('blog_comment_create', turnstileHost);
+
+  const warmCreate = () => warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
+  if (typeof IntersectionObserver === 'function') {
+    // rootMargin buys the solve a head start on the scroll that reveals the
+    // box, so it is usually finished by the time anyone reads far enough to
+    // type. Once only -- the token outlives any number of crossings.
+    const watcher = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      watcher.disconnect();
+      warmCreate();
+    }, { rootMargin: '400px 0px' });
+    watcher.observe(section);
+  }
   section.addEventListener('focusin', (event) => {
-    if ((event.target as HTMLElement).closest('.blog-compose')) {
-      warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
-    }
+    if ((event.target as HTMLElement).closest('.blog-compose')) warmCreate();
   });
 
   // Build the "loaded" shell up front -- state="loading"'s skeleton never
@@ -484,6 +508,30 @@ export function initCommentsController(): void {
 
   /** No verdict inside the window, or one that was not `published`: this is a
       real hold now, and the row says the real thing. */
+  /** Add or remove a row's "only you can see this" note after its status has
+      moved. `rejected` gets the same note as `held`: both mean the row is
+      drawn for its writer and for nobody else, which is the whole claim the
+      note makes.
+
+      The action row is deliberately left alone. A row that just became held
+      is exactly the one its writer wants to edit again, and the edit window
+      has not closed -- stripping the controls to match a fresh render would
+      lock them out of fixing the thing they were just told about. */
+  function applyHeldState(article: HTMLElement, hidden: boolean): void {
+    const existing = article.querySelector<HTMLElement>('.blog-comment__note');
+    delete article.dataset.pending;
+    if (!hidden) {
+      existing?.remove();
+      return;
+    }
+    if (existing) {
+      existing.textContent = t.held;
+      return;
+    }
+    const body = article.querySelector<HTMLElement>('.blog-comment__body') ?? article;
+    body.append(el('p', { class: 'blog-comment__note' }, [t.held]));
+  }
+
   function settlePending(article: HTMLElement): void {
     const note = article.querySelector<HTMLElement>('.blog-comment__note');
     delete article.dataset.pending;
@@ -569,10 +617,11 @@ export function initCommentsController(): void {
     if (receipt !== 'nudge') return;
 
     const nudge = el('div', { class: 'blog-compose__nudge', 'data-compose-nudge': '' }, [
-      el('p', { class: 'blog-compose__nudge-text' }, [t.nudgeText]),
+      parseStaticSvg(NUDGE_MAIL_SVG),
+      el('p', { class: 'blog-compose__nudge-text' }, [t.nudgeText(claimed?.email ?? '')]),
       el('label', { class: 'blog-compose__nudge-sub' }, [
         el('input', { type: 'checkbox', 'data-compose-subscribe': '' }),
-        t.nudgeSubscribe,
+        el('span', {}, [t.nudgeSubscribe]),
       ]),
       el('button', { type: 'button', class: 'blog-compose__nudge-dismiss', 'data-compose-dismiss': '', 'aria-label': t.dismiss }, [
         parseStaticSvg(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"></path></svg>`),
@@ -920,6 +969,14 @@ export function initCommentsController(): void {
 
     const data = (await response.json()) as CommentEditResult;
     text.textContent = data.comment.body;
+    // The server re-moderates every edit, and the verdict moves in both
+    // directions -- see the PATCH route in site-api. Dropping it on the floor
+    // is not cosmetic: a row that quietly went `held` is invisible to
+    // everybody except its writer, and the writer's own screen was the one
+    // place still drawing it as published. The reverse case is milder but
+    // just as wrong -- an edit that cleared a hold kept claiming nobody else
+    // could see it.
+    applyHeldState(article, data.comment.status !== 'published');
     setEditing(false);
 
     const meta = article.querySelector('.blog-comment__meta');

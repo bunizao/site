@@ -936,40 +936,139 @@
 /* The one non-blocking upsell in the whole feature: text-weight and
    dismissable, the same register as the row actions below the thread — never
    a banner, never a modal. plans/blog-comments.md → "Subscribe prompt". */
+/* Where an interactive Turnstile challenge opens, in both places a reader can
+   be challenged: under the compose box and inside the reaction bar. Invisible
+   mode draws nothing until Cloudflare wants a human, so this reserves no space
+   until it has something to hold -- a permanent gap under a box that is
+   challenged maybe once in a hundred submissions is the wrong trade, and the
+   compose area is already the densest thing on the page.
+
+   Collapsed with a 0fr/1fr grid row rather than height, so the challenge can
+   be whatever size Cloudflare renders and the open still animates. */
+.blog-compose__turnstile {
+  display: grid;
+  /* minmax(0, ...), not a bare 0fr: an `fr` track keeps an automatic
+     min-content floor, and Cloudflare's challenge iframe carries a definite
+     height, so a bare `0fr` track sits at the iframe's own height and never
+     closes again. */
+  grid-template-rows: minmax(0, 0fr);
+  transition: grid-template-rows 0.28s cubic-bezier(0.2, 0, 0, 1), margin-top 0.28s;
+}
+
+.blog-compose__turnstile > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.blog-compose__turnstile[data-turnstile-interactive] {
+  /* Plain 1fr, not minmax(0, 1fr): in an auto-height container an `fr` track
+     resolves against zero free space, so the open state needs the very
+     min-content floor the closed state has to suppress. */
+  grid-template-rows: 1fr;
+  margin-top: 10px;
+}
+
+/* One message with one optional extra, in that order and next to each other.
+   The text used to take `flex: 1 1 auto`, which pinned the sentence to the
+   left edge and the checkbox to the right with a hand's width of nothing in
+   between -- three things spaced like a toolbar rather than a line anyone
+   would read. Only the dismiss travels to the far end now. */
 .blog-compose__nudge {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px 14px;
   margin-top: 8px;
-  padding-top: 8px;
+  padding-top: 9px;
   border-top: 1px dashed var(--blog-line);
+}
+
+.blog-compose__nudge-mark {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  color: var(--blog-faint);
+}
+
+.blog-compose__nudge-text {
+  margin: 0;
+  flex: 0 1 auto;
+  font-size: var(--comment-meta);
+  color: var(--blog-muted);
 }
 
 .blog-compose__nudge-sub {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   flex: 0 0 auto;
   font-size: var(--comment-meta);
   color: var(--blog-muted);
   cursor: pointer;
 }
 
-.blog-compose__nudge-sub input {
-  accent-color: hsl(var(--foreground));
+.blog-compose__nudge-sub:hover {
+  color: var(--blog-ink);
 }
 
-.blog-compose__nudge-text {
+/* The native control is ~13px of grey on grey and reads as a rendering
+   artefact next to text at this size -- which matters more than usual here,
+   because it is the only thing in the row a reader can act on. Drawn to match
+   the compose box's own field edges instead. */
+.blog-compose__nudge-sub input {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  display: grid;
+  place-content: center;
+  width: 15px;
+  height: 15px;
   margin: 0;
-  flex: 1 1 auto;
-  min-width: 180px;
-  font-size: var(--comment-meta);
-  color: var(--blog-faint);
+  /* Its own edge weight, not --blog-field-edge. That token is tuned for a
+     hairline *inside* an already-filled box; out here on the page background
+     it measured 1.53:1, under the 3:1 a control's boundary needs -- and this
+     is the only control in the row, so it was also the one thing a reader had
+     to be able to find. */
+  border: 1px solid hsl(var(--foreground) / 0.45);
+  border-radius: 4px;
+  background: var(--blog-field-fill);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.blog-compose__nudge-sub input::after {
+  content: '';
+  width: 3.5px;
+  height: 7px;
+  margin-top: -2px;
+  border: solid hsl(var(--background));
+  border-width: 0 1.6px 1.6px 0;
+  rotate: 45deg;
+  scale: 0;
+  transition: scale 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.blog-compose__nudge-sub input:hover {
+  border-color: hsl(var(--foreground) / 0.7);
+}
+
+.blog-compose__nudge-sub input:checked {
+  border-color: hsl(var(--foreground));
+  background: hsl(var(--foreground));
+}
+
+.blog-compose__nudge-sub input:checked::after {
+  scale: 1;
+}
+
+.blog-compose__nudge-sub input:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 2px;
 }
 
 .blog-compose__nudge-dismiss {
   flex: 0 0 auto;
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1496,6 +1595,8 @@
   .blog-comment[data-pending] .blog-comment__note,
   .blog-comment__avatar,
   .blog-compose__alert,
+  .blog-compose__turnstile,
+  .blog-compose__nudge-sub input::after,
   .blog-compose__input[aria-invalid='true'],
   .blog-compose__box:has([aria-invalid='true']) {
     transition: none !important;

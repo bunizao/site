@@ -115,7 +115,11 @@ export interface CommentsCopy {
   /** Keyed by what the reader can do next -- see comment-error.ts for how a
       status and a server slug pick one. Rendered beside its code. */
   submitError: Record<CommentErrorCode, string>;
-  nudgeText: string;
+  /** Names the address, so a typo is catchable at the one moment it still
+      matters -- a reader who mistyped their own email otherwise finds out by
+      never hearing anything again. Takes the empty string where no address is
+      on hand (the server-rendered demo state) and says the generic thing. */
+  nudgeText: (email: string) => string;
   nudgeSubscribe: string;
   dismiss: string;
 
@@ -193,7 +197,9 @@ const zh: CommentsCopy = {
     INPUT: '这条没能通过，换个说法再试试。',
     SERVER: '服务器出了点问题，草稿还在。等会儿再试。',
   },
-  nudgeText: '确认邮箱后可管理评论、接收回复通知',
+  nudgeText: (email) => (email
+    ? `去 ${email} 收确认信，之后就能管理评论、接收回复提醒。`
+    : '确认邮箱后，就能管理评论、接收回复提醒。'),
   nudgeSubscribe: '订阅新文章邮件',
   dismiss: '关闭',
 
@@ -267,7 +273,9 @@ const en: CommentsCopy = {
     INPUT: "That didn't go through. Try rewording it.",
     SERVER: 'Something broke on our end — your draft is safe. Try again shortly.',
   },
-  nudgeText: 'Confirm your email to manage your comments and get reply notices',
+  nudgeText: (email) => (email
+    ? `Check ${email} to confirm — then you can manage your comments and get reply notices.`
+    : 'Confirm your email to manage your comments and get reply notices.'),
   nudgeSubscribe: 'Also email me new posts',
   dismiss: 'Dismiss',
 

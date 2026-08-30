@@ -191,6 +191,13 @@ const showNudge = receipt === 'nudge';
     </div>
   </div>
 
+  {/* Where an interactive Turnstile challenge opens. Collapsed to nothing
+      until Cloudflare asks for one (see turnstile-token.ts), so it costs no
+      space in the ordinary case and the box above keeps its current spacing.
+      The widget itself is invisible mode: it lives here from the first solve
+      onward and draws nothing until it has something to ask. */}
+  <div class="blog-compose__turnstile" data-turnstile-host></div>
+
   {showNudge && (
     /* The only thing left under the box, and it is an offer rather than a
        status: confirm the address and the comments become manageable.
@@ -201,10 +208,17 @@ const showNudge = receipt === 'nudge';
        this only owns the reveal. */
     <div class="blog-compose__receipt" data-compose-receipt aria-live="polite">
       <div class="blog-compose__nudge" data-compose-nudge>
-        <p class="blog-compose__nudge-text">{t.nudgeText}</p>
+        <svg class="blog-compose__nudge-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="14" rx="3"></rect>
+          <path d="M3.5 7.5l7.3 5.1a2 2 0 0 0 2.4 0l7.3-5.1"></path>
+        </svg>
+        {/* No address server-side: this component renders the demo state, and
+            the real one is filled by the controller from the identity that was
+            just submitted. */}
+        <p class="blog-compose__nudge-text">{t.nudgeText('')}</p>
         <label class="blog-compose__nudge-sub">
           <input type="checkbox" data-compose-subscribe />
-          {t.nudgeSubscribe}
+          <span>{t.nudgeSubscribe}</span>
         </label>
         <button type="button" class="blog-compose__nudge-dismiss" data-compose-dismiss aria-label={t.dismiss}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">

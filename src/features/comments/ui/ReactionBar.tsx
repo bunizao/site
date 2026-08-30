@@ -9,7 +9,11 @@ import {
 import { cn } from '@/lib/utils';
 import { mountAvatarComb } from '@/features/comments/client/use-avatar-comb';
 import { mountMagnetic } from '@/features/comments/client/use-magnetic';
-import { getTurnstileToken, releaseTurnstileToken } from '@/features/comments/client/turnstile-token';
+import {
+  getTurnstileToken,
+  releaseTurnstileToken,
+  setTurnstileHost,
+} from '@/features/comments/client/turnstile-token';
 import { initials, seedHue } from '@/features/comments/identity';
 import { resolveCommentsCopy } from '@/features/comments/copy';
 import type { Reactor } from '@/features/comments/types';
@@ -79,6 +83,7 @@ export default function ReactionBar({
   const [sparks, setSparks] = React.useState<Spark[]>([]);
   const sparkId = React.useRef(0);
   const inflight = React.useRef(false);
+  const challenge = React.useRef<HTMLDivElement>(null);
 
   // /blog/[slug] is prerendered, so the island always ships with a zero
   // tally and asks for the live one on mount.
@@ -122,6 +127,14 @@ export default function ReactionBar({
     if (!stack.current) return;
     return mountAvatarComb(stack.current);
   }, [faces.length, overflow]);
+
+  // Somewhere for an interactive Turnstile challenge to open. Invisible mode
+  // stays invisible right up until Cloudflare wants a human, and a widget
+  // living in a hidden div can never show one -- the press would just fail.
+  // Collapsed until then, so the bar keeps its size.
+  React.useEffect(() => {
+    if (challenge.current) setTurnstileHost('blog_reaction', challenge.current);
+  }, []);
 
   // The pull rides the whole bar, not the pill, so the card starts drifting
   // before the cursor is over anything to press. It targets the flip wrapper —
@@ -182,6 +195,7 @@ export default function ReactionBar({
 
   return (
     <div ref={scope} className="blog-react" data-pagefind-ignore>
+      <div ref={challenge} className="blog-compose__turnstile" />
       {/* Liking a post asks for no account. It is a count, not a signature: the
           card used to turn over to a Sign in door on the first press, which
           charged a reader an identity for one bit of feedback. It still turns

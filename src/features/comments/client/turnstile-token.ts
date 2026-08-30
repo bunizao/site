@@ -9,9 +9,18 @@
 // every millisecond of that between the press of Post and the request leaving
 // the browser, which is the worst place for it: nothing is on screen to
 // explain the wait and the reader has already finished their part. So the
-// token is solved on intent (warmTurnstileToken, called from the compose
-// box's first focus) and read back instantly when there is finally something
-// to send.
+// token is solved ahead of the submission -- on the thread scrolling into
+// view, and again on the first focus in a compose box -- and read back
+// instantly when there is finally something to send.
+//
+// The widget also has to be somewhere a reader can reach. Invisible mode is
+// only invisible until Cloudflare decides it wants a human: it then opens an
+// interactive challenge inside its own container, and a container parked in a
+// `display: none` div off the end of <body> can never show one. That turned
+// every challenged submission into a dead end whose only exit was a page
+// reload. setTurnstileHost puts the container in the page instead, and the
+// interactive callbacks flag the host so it can open for the challenge and
+// close again after.
 
 export type TurnstileAction = 'blog_comment_create' | 'blog_reaction';
 
@@ -29,7 +38,28 @@ interface TurnstileWidgetState {
 }
 
 const turnstileWidgets = new Map<TurnstileAction, TurnstileWidgetState>();
+const turnstileHosts = new Map<TurnstileAction, HTMLElement>();
 let turnstileScriptPromise: Promise<void> | null = null;
+
+/** Marks the host while Cloudflare is showing a challenge in it. The host is
+    collapsed the rest of the time, so nothing is reserved in the layout until
+    there is something to reserve it for -- see `.blog-compose__turnstile`. */
+const INTERACTIVE_ATTR = 'data-turnstile-interactive';
+
+/** Give an action's widget a home in the page. Safe to call before or after
+    the first solve: an existing container moves. Without it the widget falls
+    back to a hidden div on <body>, which still mints tokens fine but cannot
+    show a challenge -- so call this wherever a reader could be challenged. */
+export function setTurnstileHost(action: TurnstileAction, host: HTMLElement): void {
+  turnstileHosts.set(action, host);
+  const existing = turnstileWidgets.get(action);
+  if (existing && existing.container.parentElement !== host) host.appendChild(existing.container);
+}
+
+function hostFor(action: TurnstileAction): { parent: HTMLElement; hidden: boolean } {
+  const host = turnstileHosts.get(action);
+  return host ? { parent: host, hidden: false } : { parent: document.body, hidden: true };
+}
 
 function loadTurnstileScript(): Promise<void> {
   if (turnstileScriptPromise) return turnstileScriptPromise;
@@ -54,17 +84,26 @@ function loadTurnstileScript(): Promise<void> {
 function widgetFor(action: TurnstileAction): TurnstileWidgetState {
   let state = turnstileWidgets.get(action);
   if (!state) {
+    const { parent, hidden } = hostFor(action);
     const container = document.createElement('div');
-    container.style.display = 'none';
-    document.body.appendChild(container);
+    if (hidden) container.style.display = 'none';
+    parent.appendChild(container);
     state = { container, widgetId: null, tokenPromise: null, resolveCurrent: null, settled: false };
     turnstileWidgets.set(action, state);
   }
   return state;
 }
 
+function setInteractive(state: TurnstileWidgetState, open: boolean): void {
+  const host = state.container.parentElement;
+  if (!host || host === document.body) return;
+  if (open) host.setAttribute(INTERACTIVE_ATTR, '');
+  else host.removeAttribute(INTERACTIVE_ATTR);
+}
+
 function settleWidget(state: TurnstileWidgetState, token: string): void {
   state.settled = true;
+  setInteractive(state, false);
   state.resolveCurrent?.(token);
 }
 
@@ -98,6 +137,11 @@ function mintToken(state: TurnstileWidgetState, siteKey: string, action: Turnsti
         'error-callback': () => settleWidget(state, ''),
         'timeout-callback': () => settleWidget(state, ''),
         'expired-callback': () => expireWidget(state, siteKey, action),
+        // Cloudflare wants a human. Open the host so the challenge has room
+        // and the reader can answer it here, rather than hitting a refusal
+        // whose only remedy was reloading the page.
+        'before-interactive-callback': () => setInteractive(state, true),
+        'after-interactive-callback': () => setInteractive(state, false),
       });
     } else {
       turnstile.reset(state.widgetId);
