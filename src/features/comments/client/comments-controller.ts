@@ -611,6 +611,41 @@ export function initCommentsController(): void {
       announced by the comment; a failed one by the alert above the form; and
       the two of them plus an identity line used to take turns in a single slot
       under the box, which is what made the area unreadable. */
+  /** Hands the subscribe offer to the panel the page already has, instead of
+      answering it here. The nudge used to carry a bare checkbox: nothing read
+      it, nothing submitted it, and there was no button in that row to submit
+      it with -- so ticking it did nothing at all, which is a worse promise
+      than not making one.
+
+      Clicking the page's own `[data-subscribe-toggle]` opens the real panel,
+      and that panel already seeds its email field from readReaderEmail() --
+      the same store this nudge reads the address out of -- so the reader
+      arrives at a form that is filled in and one press from done.
+
+      A page with no subscribe panel (the components lab) gets no offer rather
+      than a button that goes nowhere. */
+  function wireSubscribeOffer(nudge: HTMLElement): void {
+    const offer = nudge.querySelector<HTMLElement>('[data-compose-subscribe]');
+    if (!offer) return;
+    const toggle = document.querySelector<HTMLElement>('[data-subscribe-toggle]');
+    if (!toggle) {
+      offer.remove();
+      return;
+    }
+    offer.addEventListener('click', (event) => {
+      // Stop the press here. The panel closes itself on any document click
+      // landing outside it and outside its own toggle -- and this button is
+      // outside both, so letting the press continue would shut the panel the
+      // same tick it opened. The toggle guards its own click the same way.
+      event.stopPropagation();
+      // The toggle toggles; this button only ever opens. Pressing "subscribe"
+      // and having the form disappear because it happened to be open already
+      // is not a thing a subscribe button should do. `aria-expanded` is the
+      // state the toggle publishes for exactly this question.
+      if (toggle.getAttribute('aria-expanded') !== 'true') toggle.click();
+    });
+  }
+
   function showComposeReceipt(box: HTMLElement, receipt: ComposeReceipt): void {
     box.dataset.receipt = receipt;
     box.querySelector('[data-compose-receipt]')?.remove();
@@ -619,15 +654,15 @@ export function initCommentsController(): void {
     const nudge = el('div', { class: 'blog-compose__nudge', 'data-compose-nudge': '' }, [
       parseStaticSvg(NUDGE_MAIL_SVG),
       el('p', { class: 'blog-compose__nudge-text' }, [t.nudgeText(claimed?.email ?? '')]),
-      el('label', { class: 'blog-compose__nudge-sub' }, [
-        el('input', { type: 'checkbox', 'data-compose-subscribe': '' }),
-        el('span', {}, [t.nudgeSubscribe]),
+      el('button', { type: 'button', class: 'blog-compose__nudge-sub', 'data-compose-subscribe': '' }, [
+        t.nudgeSubscribe,
       ]),
       el('button', { type: 'button', class: 'blog-compose__nudge-dismiss', 'data-compose-dismiss': '', 'aria-label': t.dismiss }, [
         parseStaticSvg(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"></path></svg>`),
       ]),
     ]);
     nudge.querySelector('[data-compose-dismiss]')?.addEventListener('click', () => { nudge.hidden = true; });
+    wireSubscribeOffer(nudge);
 
     box.append(el('div', { class: 'blog-compose__receipt', 'data-compose-receipt': '', 'aria-live': 'polite' }, [nudge]));
   }

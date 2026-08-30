@@ -165,9 +165,9 @@ an unverified email (and again only on explicit "resend"):
    verified `reader_session` cookie (180-day rolling, `COMMENTS_SESSION_SECRET`,
    generation-stamped for revocation — unchanged from v1), and binds the
    browser's past anonymous comments (same email hash) to the reader row.
-4. If the reader ticked "also subscribe" in the nudge, the same POST activates
-   the subscription — one email, one click, both confirmations. Double opt-in
-   is preserved because the confirm button **is** the opt-in.
+4. Subscribing is a separate act, taken in the subscribe panel the page
+   already carries. The nudge only offers the door (see "The verify nudge"
+   below); it does not fold a subscription into the verify email.
 
 No token table. The action is idempotent (confirm + optionally subscribe), so
 single-use enforcement buys nothing; the consumption record is the reader
@@ -509,7 +509,7 @@ vanilla controller (`src/features/comments/client/comments-controller.ts`).
 | `submitting` | in flight | Field readonly; the send arrow leaves and a ring spins in its place |
 | `posted` | 201 published | Field clears; row appears in thread. **No receipt line** — the row is the receipt |
 | `held` | 201 held | Same, and the row carries the pending mark until the verdict polls settle it |
-| `nudge` | posted with unverified email | The one thing still drawn under the box: verify line + optional subscribe checkbox; dismissable |
+| `nudge` | posted with unverified email | The one thing still drawn under the box: verify line + a button opening the subscribe panel; dismissable |
 | `error` | 4xx/5xx | The alert **above** the box — same slot a missing field uses — draft preserved, message chosen by what the reader can do next, plus a reference code |
 
 Only one thing is ever said in any one place. Identity is a standing fact and
@@ -560,9 +560,26 @@ held note too: both mean the row is drawn for its writer and nobody else.
 
 **The verify nudge** names the address it was sent to. A reader who mistyped
 their own email otherwise finds out by never hearing anything again. Its one
-checkbox sits next to the sentence rather than at the opposite edge of the row,
-and is drawn rather than left native — at this size the platform control was
-1.53:1 against the page, and it is the only thing in the row anyone can press.
+subscribe offer sits next to the sentence rather than at the opposite edge of
+the row.
+
+That offer is a **button that opens the page's own subscribe panel**, not a
+checkbox. It was a checkbox, and the checkbox was a lie twice over: nothing in
+the codebase ever read it, and there was no submit control in that row to
+commit it with even if something had — so it asked for a decision and then had
+nowhere to put it. The panel is the surface that actually subscribes, and it
+seeds its email field from `readReaderEmail()`, the same store the nudge reads
+the address out of, so the reader lands on a filled-in form one press from
+done.
+
+Two details the wiring has to get right, both found by testing the real press
+rather than a synthetic one. The button stops its own click from propagating —
+the panel closes on any document click outside itself and its toggle, so an
+un-stopped press would shut the panel the same tick it opened it. And it opens
+rather than toggles, gated on the toggle's `aria-expanded`: a subscribe button
+that hides the form because it happened to be open already is not behaviour
+anyone wants. A page with no subscribe panel (the components lab) drops the
+button instead of showing one that goes nowhere.
 
 **Failure messages** (`comment-error.ts`) are keyed by the reader's next move,
 not by the status: reconnect (`NET`), wait (`RATE`), refresh (`BOT`, `THREAD`,

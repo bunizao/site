@@ -216,10 +216,13 @@ const showNudge = receipt === 'nudge';
             the real one is filled by the controller from the identity that was
             just submitted. */}
         <p class="blog-compose__nudge-text">{t.nudgeText('')}</p>
-        <label class="blog-compose__nudge-sub">
-          <input type="checkbox" data-compose-subscribe />
-          <span>{t.nudgeSubscribe}</span>
-        </label>
+        {/* Opens the page's own subscribe panel, which fills its email field
+            from the same store this nudge reads the address out of. Wired by
+            the controller (wireSubscribeOffer), which also removes it on a
+            page that has no panel to open. */}
+        <button type="button" class="blog-compose__nudge-sub" data-compose-subscribe>
+          {t.nudgeSubscribe}
+        </button>
         <button type="button" class="blog-compose__nudge-dismiss" data-compose-dismiss aria-label={t.dismiss}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
             <path d="M5 5l14 14M19 5L5 19"></path>

@@ -120,6 +120,8 @@ export interface CommentsCopy {
       never hearing anything again. Takes the empty string where no address is
       on hand (the server-rendered demo state) and says the generic thing. */
   nudgeText: (email: string) => string;
+  /** Label on the button that opens the page's subscribe panel. A verb, not
+      a checkbox label: pressing it opens something. */
   nudgeSubscribe: string;
   dismiss: string;
 
@@ -202,7 +204,7 @@ const zh: CommentsCopy = {
   nudgeText: (email) => (email
     ? `去 ${email} 收确认信，之后就能管理评论、接收回复提醒。`
     : '确认邮箱后，就能管理评论、接收回复提醒。'),
-  nudgeSubscribe: '订阅新文章邮件',
+  nudgeSubscribe: '订阅新文章',
   dismiss: '关闭',
 
   needBody: '评论一定要有文字。',
@@ -280,7 +282,7 @@ const en: CommentsCopy = {
   nudgeText: (email) => (email
     ? `Check ${email} to confirm — then you can manage your comments and get reply notices.`
     : 'Confirm your email to manage your comments and get reply notices.'),
-  nudgeSubscribe: 'Also email me new posts',
+  nudgeSubscribe: 'Subscribe to new posts',
   dismiss: 'Dismiss',
 
   needBody: 'A comment needs words.',

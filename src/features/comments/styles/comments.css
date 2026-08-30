@@ -997,73 +997,36 @@
   color: var(--blog-muted);
 }
 
+/* The offer is a button now, not a checkbox. A tick box with no submit
+   control beside it asked the reader to set a preference and then gave them
+   nowhere to commit it -- and nothing in the codebase ever read the box. This
+   opens the subscribe panel the page already has, which arrives with the
+   address already filled in. Underlined rather than boxed: the row is one
+   sentence and a dismiss, and a filled button in it would outweigh the
+   comment that was just posted. */
 .blog-compose__nudge-sub {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
   flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
   font-size: var(--comment-meta);
-  color: var(--blog-muted);
+  color: var(--blog-ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+  text-underline-offset: 3px;
   cursor: pointer;
+  transition: text-decoration-color 0.15s ease;
 }
 
 .blog-compose__nudge-sub:hover {
-  color: var(--blog-ink);
+  text-decoration-color: currentColor;
 }
 
-/* The native control is ~13px of grey on grey and reads as a rendering
-   artefact next to text at this size -- which matters more than usual here,
-   because it is the only thing in the row a reader can act on. Drawn to match
-   the compose box's own field edges instead. */
-.blog-compose__nudge-sub input {
-  appearance: none;
-  -webkit-appearance: none;
-  flex: 0 0 auto;
-  display: grid;
-  place-content: center;
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  /* Its own edge weight, not --blog-field-edge. That token is tuned for a
-     hairline *inside* an already-filled box; out here on the page background
-     it measured 1.53:1, under the 3:1 a control's boundary needs -- and this
-     is the only control in the row, so it was also the one thing a reader had
-     to be able to find. */
-  border: 1px solid hsl(var(--foreground) / 0.45);
-  border-radius: 4px;
-  background: var(--blog-field-fill);
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.blog-compose__nudge-sub input::after {
-  content: '';
-  width: 3.5px;
-  height: 7px;
-  margin-top: -2px;
-  border: solid hsl(var(--background));
-  border-width: 0 1.6px 1.6px 0;
-  rotate: 45deg;
-  scale: 0;
-  transition: scale 0.15s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.blog-compose__nudge-sub input:hover {
-  border-color: hsl(var(--foreground) / 0.7);
-}
-
-.blog-compose__nudge-sub input:checked {
-  border-color: hsl(var(--foreground));
-  background: hsl(var(--foreground));
-}
-
-.blog-compose__nudge-sub input:checked::after {
-  scale: 1;
-}
-
-.blog-compose__nudge-sub input:focus-visible {
+.blog-compose__nudge-sub:focus-visible {
   outline: 2px solid var(--blog-accent);
-  outline-offset: 2px;
+  outline-offset: 3px;
+  border-radius: 3px;
 }
 
 .blog-compose__nudge-dismiss {
@@ -1596,7 +1559,6 @@
   .blog-comment__avatar,
   .blog-compose__alert,
   .blog-compose__turnstile,
-  .blog-compose__nudge-sub input::after,
   .blog-compose__input[aria-invalid='true'],
   .blog-compose__box:has([aria-invalid='true']) {
     transition: none !important;
