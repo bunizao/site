@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { mountAvatarComb } from '@/features/comments/client/use-avatar-comb';
 import { mountMagnetic } from '@/features/comments/client/use-magnetic';
+import { getTurnstileToken, releaseTurnstileToken } from '@/features/comments/client/turnstile-token';
 import { initials, seedHue } from '@/features/comments/identity';
 import { resolveCommentsCopy } from '@/features/comments/copy';
 import type { Reactor } from '@/features/comments/types';
@@ -20,6 +21,12 @@ interface Props {
   faceLimit?: number;
   /** Page locale. The island renders before any DOM exists to read it from. */
   locale?: string;
+  /** Ghost post.id. When set, the bar loads its live tally from
+      /api/v2/reactions on mount and persists presses through
+      /api/v2/reactions/toggle; without it (lab page) presses stay local. */
+  postId?: string;
+  /** Turnstile site key for the invisible 'blog_reaction' widget. */
+  siteKey?: string;
 }
 
 const HEART_PATH =
@@ -54,21 +61,54 @@ export default function ReactionBar({
   reactors = [],
   faceLimit = 5,
   locale,
+  postId,
+  siteKey = '',
 }: Props) {
   const t = resolveCommentsCopy(locale);
   const stack = React.useRef<HTMLDivElement>(null);
   const scope = React.useRef<HTMLDivElement>(null);
+  const [summary, setSummary] = React.useState({ count, reacted, reactors });
   const [liked, setLiked] = React.useState(reacted);
   const [sparks, setSparks] = React.useState<Spark[]>([]);
   const sparkId = React.useRef(0);
+  const inflight = React.useRef(false);
+
+  // /blog/[slug] is prerendered, so the island always ships with a zero
+  // tally and asks for the live one on mount.
+  React.useEffect(() => {
+    if (!postId) return;
+    const key = `post:${postId}`;
+    let cancelled = false;
+    fetch(`/api/v2/reactions?targets=${encodeURIComponent(key)}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((json) => {
+        const live = json?.reactions?.[key]?.[0];
+        if (cancelled || !live) return;
+        setSummary({
+          count: live.count,
+          reacted: live.reacted,
+          reactors: (live.reactors ?? []).map(
+            (chip: { name: string; avatarUrl: string | null }): Reactor => ({
+              name: chip.name,
+              avatar: chip.avatarUrl ?? undefined,
+            }),
+          ),
+        });
+        setLiked(live.reacted);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [postId]);
 
   // The two faces of the card are the two counts, so each is derived once here
   // rather than animated from one into the other: `base` is the tally without
   // this reader, `mine` the same tally with them in it.
-  const base = reacted ? count - 1 : count;
+  const base = summary.reacted ? summary.count - 1 : summary.count;
   const mine = base + 1;
   const total = liked ? mine : base;
-  const faces = reactors.slice(0, faceLimit);
+  const faces = summary.reactors.slice(0, faceLimit);
   const overflow = Math.max(0, total - faces.length);
 
   React.useEffect(() => {
@@ -84,11 +124,7 @@ export default function ReactionBar({
     return mountMagnetic(scope.current, { radius: 110, strength: 0.45, lift: -8, scale: 1.12 });
   }, []);
 
-  function toggle() {
-    const next = !liked;
-    setLiked(next);
-    if (!next) return;
-
+  function spawnSparks() {
     const burst = Array.from({ length: 5 }, (_, i) => ({
       id: sparkId.current++,
       x: (i - 2) * 7 + (i % 2 ? 3 : -3),
@@ -100,6 +136,38 @@ export default function ReactionBar({
       () => setSparks((current) => current.filter((s) => !burst.some((b) => b.id === s.id))),
       1100,
     );
+  }
+
+  async function toggle() {
+    // One request at a time: a press mid-flight would race the reconcile
+    // below, and a heart is not worth a queue.
+    if (inflight.current) return;
+    const next = !liked;
+    setLiked(next);
+    if (next) spawnSparks();
+    if (!postId) return;
+
+    inflight.current = true;
+    try {
+      const turnstileToken = await getTurnstileToken(siteKey, 'blog_reaction');
+      const response = await fetch('/api/v2/reactions/toggle', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ targetType: 'post', targetId: postId, reacted: next, turnstileToken }),
+      });
+      releaseTurnstileToken('blog_reaction');
+      if (!response.ok) throw new Error(String(response.status));
+      const json = await response.json();
+      const live = json?.reaction;
+      if (live && typeof live.count === 'number') {
+        setSummary((current) => ({ ...current, count: live.count, reacted: live.reacted }));
+        setLiked(Boolean(live.reacted));
+      }
+    } catch {
+      setLiked(!next);
+    } finally {
+      inflight.current = false;
+    }
   }
 
   return (

@@ -185,12 +185,12 @@ const unlisted = isUnlistedPost(post);
       <Prose html={post.html} />
 
       {/* One band closes the post: provenance and reuse terms, then the things
-          a reader can do about it. Reactions stay presentational/local-only in
-          this pass -- see the task report. Comments hydrate for real:
-          client/comments-controller.ts fetches the thread and owns every
-          submit, edit, delete, and like. */}
+          a reader can do about it. The reaction bar loads its live tally and
+          persists presses through /api/v2/reactions; comments hydrate via
+          client/comments-controller.ts, which fetches the thread and owns
+          every submit, edit, delete, and like. */}
       <Colophon credits={authorshipCredits}>
-        <ReactionBar client:idle count={0} locale={blog.locale.blog} />
+        <ReactionBar client:idle count={0} locale={blog.locale.blog} postId={post.id} siteKey={turnstileSiteKey} />
         <div class="blog-article-sub">
           <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
           <ShareRow title={post.title} />
