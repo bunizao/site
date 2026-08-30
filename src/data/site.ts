@@ -318,7 +318,7 @@ export const blog = {
 // 21:1, which haloes in long-form reading):
 //
 //   dai 黛 — primary.   Links, TOC progress, focus.   text-safe (6.8:1 / 8.0:1)
-//   dian 靛 — the mark.  NotByAI pledge, byline.       text-safe (10.3:1 / 8.2:1)
+//   dian 靛 — the mark.  AiCredit line, byline.        text-safe (10.3:1 / 8.2:1)
 //   ji 霁 — highlight.   <mark>, selection. FILL ONLY  (3.6:1 fails AA as text)
 //
 // dai (远山黛) is the greyed slate-blue shanshui painters dilute to push a ridge
