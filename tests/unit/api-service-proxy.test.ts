@@ -133,6 +133,46 @@ describe('api service proxy', () => {
     }
   });
 
+  test('aligns dev HTTP Origin with the upstream API origin', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalDev = process.env.DEV;
+    const originalApiDevOrigin = process.env.API_DEV_ORIGIN;
+    let upstreamOrigin: string | null = null;
+    let forwardedOrigin: string | null = null;
+
+    process.env.DEV = 'true';
+    process.env.API_DEV_ORIGIN = 'http://127.0.0.1:8787';
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const request = input instanceof Request ? input : new Request(input);
+      upstreamOrigin = request.headers.get('origin');
+      forwardedOrigin = request.headers.get('x-forwarded-origin');
+      return Response.json({ ok: true });
+    }) as unknown as typeof fetch;
+
+    try {
+      await proxyApiRequest(new Request(
+        'http://localhost:4321/api/admin/broadcasts',
+        {
+          method: 'POST',
+          headers: {
+            Origin: 'http://localhost:4321',
+            'Sec-Fetch-Site': 'same-origin',
+          },
+          body: '{}',
+        },
+      ), { env: {} });
+
+      expect(upstreamOrigin).toBe('http://127.0.0.1:8787');
+      expect(forwardedOrigin).toBe('http://localhost:4321');
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalDev === undefined) delete process.env.DEV;
+      else process.env.DEV = originalDev;
+      if (originalApiDevOrigin === undefined) delete process.env.API_DEV_ORIGIN;
+      else process.env.API_DEV_ORIGIN = originalApiDevOrigin;
+    }
+  });
+
   test('caches dev mood responses and serves stale data when refresh fails', async () => {
     const originalFetch = globalThis.fetch;
     const originalDev = process.env.DEV;

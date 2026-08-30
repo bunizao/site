@@ -152,6 +152,11 @@ export async function proxyApiRequest(request: Request, locals: RuntimeEnvLocals
 
 async function proxyApiHttpRequest(request: Request, origin: string): Promise<Response> {
   const upstreamRequest = createApiServiceRequest(request, origin);
+  // The dev server is a same-origin browser proxy, but the upstream sees its
+  // own origin in the request URL. Align Origin with that URL so the API's
+  // CSRF gate does not reject local portal mutations. The original browser
+  // origin remains available in X-Forwarded-Origin for audit/debugging.
+  upstreamRequest.headers.set('origin', new URL(origin).origin);
   // Let fetch negotiate encodings it can decompress. Forwarding a browser's
   // zstd preference can leave Node streaming compressed bytes to the client.
   upstreamRequest.headers.delete('accept-encoding');
