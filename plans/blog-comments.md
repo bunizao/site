@@ -131,9 +131,18 @@ open relay, and it is not negotiable.
 3. Post submits: Turnstile token, honeypot, dwell-time stamp, body, name,
    email. The token is solved on the first focus in the box, not at submit --
    at submit it cost ~2.3s of dead time between the press and the request
-   (client/turnstile-token.ts, `warmTurnstileToken`). `site-api` runs the risk stack and moderation **inline** and
-   answers `published` or `held`. The row appears in the thread immediately —
-   real, not optimistic-pending.
+   (client/turnstile-token.ts, `warmTurnstileToken`). `site-api` runs the risk
+   stack and moderation **inline** and answers `published` or `held`.
+   The row appears in the thread **before the request leaves the browser**:
+   measured on staging, 1-3ms after the press against 3.0-4.1s for the
+   response. Warming the token removed the wait it could remove; the rest is
+   a model call, and no amount of tuning makes a reader want to watch one.
+   Everything the reader can see -- the row, the cleared field, the closed
+   reply box -- is done synchronously, and the response is spent replacing
+   the stand-in row with the real one. On a refusal the whole thing is taken
+   back in the order it was given: row removed, words returned to the box
+   they were written in, reply box reopened under the comment it was
+   answering, and only then the complaint.
 4. The response sets the `reader_anon` cookie. Name and email mirror into
    `localStorage` (`buxx:reader`), so the identity row never has to be typed
    twice on this browser; on later visits the box's top row states the claimed
@@ -148,6 +157,47 @@ The replacement bound: nothing reaches the model without passing Turnstile,
 the honeypot, dwell time, heuristics, and rate limits — and the model is a
 nano-class call. Cost stays pennies unless someone burns effort defeating
 Turnstile, at which point the shadow-ban list and edge rules take over.
+
+### Comment bodies: a small Markdown
+
+The compose box has said "支持 Markdown" under a hand-drawn icon since the
+first draft of this feature, and for just as long nothing was behind it:
+`Comment.body` is plain text and both renderers put it on the page with
+`textContent`, so every asterisk came out as an asterisk. The same shape as
+the subscribe checkbox that used to sit beside it — a promise with no
+implementation — and this was the half worth building rather than deleting.
+
+`src/features/comments/comment-markdown.ts`. The grammar stops where a
+comment stops wanting one: **bold**, *italic*, `code`, fenced code, quote,
+list, `[text](url)`, and bare http(s) URLs. Three deliberate omissions —
+headings, which would let a comment out-shout the post above it; images,
+which would let anyone paste a remote URL that every reader of the thread
+then requests; and raw HTML, at all.
+
+- **Rendering, not storage.** The contract keeps saying plain text, and
+  `Comment.body` still is. This is the "escaping and autolinking happen at
+  render" line finally meaning something. site-api is untouched, and the
+  admin queue, the owner's Telegram card and the notify emails keep showing
+  the source, which is the honest thing for them to show.
+- **Two renderers, one tree.** `parseCommentMarkdown` is shared;
+  `setCommentText` builds DOM nodes for the live thread and
+  `commentMarkdownToHtml` builds an escaped string for
+  `CommentsSection.astro`. They cannot drift because neither owns the
+  grammar.
+- **A comment cannot become markup.** The client path never touches
+  `innerHTML`, so the browser has no parser to trick. The server path escapes
+  every reader-supplied character and emits a closed tag set. Link targets go
+  through `safeHref`: absolute http(s), `mailto:`, or a path on this site, and
+  anything else renders as the text it was written as.
+- **The body is a `<div>` now.** A `<p>` cannot legally hold a blockquote or
+  a list; the browser would break the tag open and scatter the row. The source
+  rides along on `data-md`, which is what the edit field opens with and what
+  Cancel compares against — it can no longer be read back out of the rendered
+  tree.
+
+/lab/comments carries a fixture using all six constructs. It is the only
+place the server renderer runs at all, and the only place they can be seen
+next to each other.
 
 ### Lazy verification: a link and a button
 
@@ -184,7 +234,14 @@ row grows quiet edit/delete affordances.
 - **Edit**: within 15 minutes of posting (server-enforced). Edits re-run
   moderation and the row shows an "edited" marker. After 15 minutes, edit is
   delete-and-repost — a longer window plus replies underneath equals silently
-  rewriting a conversation.
+  rewriting a conversation. Save is optimistic for the same reason Post is,
+  and the case was worse: because the server re-moderates, Save sat under the
+  reader's finger for a whole model call (2.9s measured) with **nothing** on
+  screen acknowledging the press — no spinner, no disabled button, no colour
+  change. The new text goes into the row on the press, behind a half step of
+  colour that clears on the response. A refusal puts the previous text back
+  and reopens the field still holding what was typed, because an edit refused
+  is an edit the reader has not finished.
 - **Delete**: any time you still hold the session. A deleted comment with
   replies becomes a tombstone row ("此评论已删除") so the thread keeps its
   shape; without replies it disappears. Soft delete either way (status +
@@ -502,13 +559,13 @@ vanilla controller (`src/features/comments/client/comments-controller.ts`).
 
 | State | Trigger | What shows |
 | --- | --- | --- |
-| `idle` | default | Field + "Markdown supported." + Post |
+| `idle` | default | Field + "Markdown supported." + Post — and since `comment-markdown.ts`, that line is true |
 | `identity` | Post pressed, no stored identity | Name + email row unfolds; hint swaps to what the email is for |
 | `claimed` | localStorage has name+email | Box's top row states "以 {name} 评论 · 换一个" in the input row's own slot |
 | `ready` | verified session (`/v2/reader/me`) | Same slot: "Posting as {name}" with avatar |
-| `submitting` | in flight | Field readonly; the send arrow leaves and a ring spins in its place |
-| `posted` | 201 published | Field clears; row appears in thread. **No receipt line** — the row is the receipt |
-| `held` | 201 held | Same, and the row carries the pending mark until the verdict polls settle it |
+| `submitting` | in flight | Field readonly; the send arrow leaves and a ring spins in its place. **Lab-only** — a live thread posts optimistically and never enters this state |
+| `posted` | Post pressed | Set synchronously, not on the response. Field clears and stays writable; the row is already in the thread. **No receipt line** — the row is the receipt |
+| `held` | 201 held | Same, and the row carries the pending mark until the verdict polls settle it. The stand-in row wears the same mark from the press onward, which is what the mark was already for |
 | `nudge` | posted with unverified email | The one thing still drawn under the box: verify line + a button opening the subscribe panel; dismissable |
 | `error` | 4xx/5xx | The alert **above** the box — same slot a missing field uses — draft preserved, message chosen by what the reader can do next, plus a reference code |
 
