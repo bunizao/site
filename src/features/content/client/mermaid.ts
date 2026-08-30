@@ -105,6 +105,13 @@ async function renderDiagrams(): Promise<void> {
 
 function queueRender(): void {
   renderQueue = renderQueue.then(renderDiagrams).catch((error) => {
+    // Keep the source fallback visible when the lazy Mermaid chunk cannot be
+    // loaded (for example, an offline reader or a blocked asset request).
+    // Without this state transition `.js` hides the source indefinitely.
+    document.querySelectorAll<HTMLElement>('[data-mermaid-diagram]').forEach((diagram) => {
+      diagram.dataset.mermaidState = 'error';
+      diagram.querySelector<HTMLElement>('[data-mermaid-canvas]')?.removeAttribute('aria-hidden');
+    });
     console.warn('Unable to load Mermaid.', error);
   });
 }
