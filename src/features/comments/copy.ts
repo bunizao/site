@@ -66,6 +66,11 @@ export interface CommentsCopy {
       only you can see it" said the same thing in a clause about the reader
       rather than about the comment. */
   held: string;
+  /** A row this browser has just posted while the moderation verdict is still
+      in flight. It almost always clears within seconds, so it is a mark on the
+      byline rather than the block note `held` carries -- announcing a review
+      that is about to end is how a working thread reads as a stuck one. */
+  verifying: string;
   reply: string;
   edit: string;
   editLabel: string;
@@ -92,13 +97,18 @@ export interface CommentsCopy {
   };
 
   /* --- Reaction bar ------------------------------------------------------ */
-  /** Liking a post needs no account, so these are the only two states. */
+  /** Liking a post needs no account, and cannot be taken back -- see
+      ReactionBar.tsx. `reactDone` is what the control says once it has been
+      spent, not an invitation to press it again. */
   reactAdd: string;
-  reactRemove: string;
+  reactDone: string;
 
-  /* --- Receipt ----------------------------------------------------------- */
-  receiptPosted: string;
-  receiptHeld: string;
+  /* --- Receipt -----------------------------------------------------------
+     Success says nothing: the comment itself arrives in the list under the box
+     with the reader's name on it, which is better evidence than a label. Only
+     the failure has to be spoken, and it is spoken in the same slot the
+     validation complaints use (compose-validate.ts) rather than a second one
+     below the box. */
   receiptError: string;
   nudgeText: string;
   nudgeSubscribe: string;
@@ -145,6 +155,7 @@ const zh: CommentsCopy = {
   edited: '已编辑',
   tombstone: '这条评论已删除。',
   held: '这条评论正在审核中。',
+  verifying: '正在检查',
   reply: '回复',
   edit: '编辑',
   editLabel: '编辑你的评论',
@@ -166,10 +177,8 @@ const zh: CommentsCopy = {
   },
 
   reactAdd: '喜欢这篇',
-  reactRemove: '取消喜欢',
+  reactDone: '已喜欢',
 
-  receiptPosted: '已发布',
-  receiptHeld: '已提交，正在审核',
   receiptError: '没能发出去，草稿还在。再试一次。',
   nudgeText: '确认邮箱后可管理评论、接收回复通知',
   nudgeSubscribe: '订阅新文章邮件',
@@ -212,6 +221,7 @@ const en: CommentsCopy = {
   edited: 'edited',
   tombstone: 'This comment was deleted.',
   held: 'This comment is on hold.',
+  verifying: 'Checking',
   reply: 'Reply',
   edit: 'Edit',
   editLabel: 'Edit your comment',
@@ -233,10 +243,8 @@ const en: CommentsCopy = {
   },
 
   reactAdd: 'Like this post',
-  reactRemove: 'Remove your reaction',
+  reactDone: 'Liked',
 
-  receiptPosted: 'Posted',
-  receiptHeld: 'Submitted — waiting for review',
   receiptError: "Couldn't post that — your draft is still here. Try again.",
   nudgeText: 'Confirm your email to manage your comments and get reply notices',
   nudgeSubscribe: 'Also email me new posts',

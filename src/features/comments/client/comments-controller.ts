@@ -22,8 +22,12 @@ import type {
   ReaderMe,
   ReaderMeResult,
 } from '@bunizao/contracts/comments';
-import { validateCompose } from '@/features/comments/compose-validate';
-import { getTurnstileToken, releaseTurnstileToken } from '@/features/comments/client/turnstile-token';
+import { sayComposeAlert, validateCompose } from '@/features/comments/compose-validate';
+import {
+  getTurnstileToken,
+  releaseTurnstileToken,
+  warmTurnstileToken,
+} from '@/features/comments/client/turnstile-token';
 import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { initials, seedHue } from '@/features/comments/identity';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
@@ -65,7 +69,6 @@ const SEND_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 const EDIT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z"></path></svg>`;
 const TRASH_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 7V5h4v2M6 7l1 12h10l1-12M10 11v5M14 11v5"></path></svg>`;
 const GHOST_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M6 6l12 12"></path></svg>`;
-const ERROR_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>`;
 const ALERT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5h.01"></path></svg>`;
 // Byte-for-byte the bubble in CommentsSection.astro's error notice -- the two
 // renderers have to agree, and a dashed stroke is easy to let drift.
@@ -74,6 +77,12 @@ const THREAD_ERROR_MARK_SVG = `<svg class="blog-comments__mark" viewBox="0 0 24 
 function heartIcon(): SVGElement {
   return parseStaticSvg(
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="${HEART_PATH}"></path></svg>`,
+  );
+}
+
+function filledHeartIcon(): SVGElement {
+  return parseStaticSvg(
+    `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${HEART_PATH}"></path></svg>`,
   );
 }
 
@@ -185,6 +194,19 @@ export function initCommentsController(): void {
 
   applyPhase(compose, phase, claimed, viewer);
   void mintDwellToken();
+
+  // A Turnstile solve costs ~2.3s. Asked for at submit time it landed entirely
+  // between the press of Post and the request leaving the browser -- the one
+  // stretch of the whole flow where the reader has finished their part and is
+  // watching a spinner. Solved on the first focus in either box instead, it
+  // overlaps the time they spend typing and is almost always already in hand.
+  // Not on page load: that would fetch Cloudflare's script for every reader of
+  // every post, most of whom never write anything.
+  section.addEventListener('focusin', (event) => {
+    if ((event.target as HTMLElement).closest('.blog-compose')) {
+      warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
+    }
+  });
 
   // Build the "loaded" shell up front -- state="loading"'s skeleton never
   // carries the reply box or list container, so nothing below exists until
@@ -363,9 +385,9 @@ export function initCommentsController(): void {
 
     setBusy(box, true);
 
-    const [turnstileToken] = await Promise.all([
-      getTurnstileToken(turnstileSiteKey, 'blog_comment_create'),
-    ]);
+    // Warm by now in every ordinary case -- the reader focused this box before
+    // they could type into it, which is what started the solve.
+    const turnstileToken = await getTurnstileToken(turnstileSiteKey, 'blog_comment_create');
 
     const input: CommentCreateInput = {
       postId,
@@ -380,18 +402,23 @@ export function initCommentsController(): void {
     };
 
     const response = await postJson<CommentCreateResult>('/api/v2/comments', input);
+    // Spent either way, so a fresh one starts solving now: a reader who posts
+    // twice should not pay the widget's 2.3s again on the second comment.
     releaseTurnstileToken('blog_comment_create');
+    warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
     void mintDwellToken();
 
     setBusy(box, false);
 
     if (!response.ok) {
-      showComposeReceipt(box, 'error');
+      // Same slot an unfinished field complains in -- see sayComposeAlert.
+      box.dataset.receipt = 'error';
+      sayComposeAlert(box, t.receiptError);
       return;
     }
 
     const { outcome, comment, unverifiedEmail } = response.data;
-    const receipt: ComposeReceipt = outcome === 'held' ? 'held' : unverifiedEmail ? 'nudge' : 'posted';
+    sayComposeAlert(box, null);
 
     field!.value = '';
     if (field) field.readOnly = false;
@@ -408,19 +435,21 @@ export function initCommentsController(): void {
     row.own = true;
     const article = renderCommentRow(row, parentId);
     wireCommentRow(article, row, parentId);
+    // A hold this browser just caused is nearly always the moderation verdict
+    // still in flight rather than a decision -- render it as posted until the
+    // polls below say otherwise. See markPending.
+    if (outcome === 'held') markPending(article);
     insertNewRow(article, parentId);
     toggleEmptyState(false);
     if (outcome !== 'held') setTally(total + 1);
 
-    if (isReply) {
-      closeReplyBox();
-    } else {
-      showComposeReceipt(box, receipt);
-    }
+    // Success draws nothing: the row above is the receipt. The nudge is not a
+    // receipt -- it is an offer, and it stands whether the comment published
+    // or is still being checked.
+    if (isReply) closeReplyBox();
+    else showComposeReceipt(box, unverifiedEmail ? 'nudge' : 'posted');
 
-    if (outcome === 'held') {
-      void upgradeWhenVerdictLands(comment.id, parentId, article, box, isReply, Boolean(unverifiedEmail));
-    }
+    if (outcome === 'held') void upgradeWhenVerdictLands(comment.id, parentId, article);
   }
 
   // The API answers within ~1.5s even while the AI verdict is still in
@@ -431,13 +460,32 @@ export function initCommentsController(): void {
   // says which.
   const VERDICT_POLL_DELAYS_MS = [2500, 3500, 6000];
 
+  /** The row was just written by this browser and came back held. Almost every
+      one of those is the classifier still thinking, not a decision, and it
+      resolves inside the poll window below -- so the row reads as posted and
+      the note carries the softer word until the polls give up on it. Telling a
+      reader their comment is "under review" and then silently withdrawing it
+      four seconds later is how a thread that works reads as one that does
+      not. */
+  function markPending(article: HTMLElement): void {
+    const note = article.querySelector<HTMLElement>('.blog-comment__note');
+    if (!note) return;
+    article.dataset.pending = 'true';
+    note.textContent = t.verifying;
+  }
+
+  /** No verdict inside the window, or one that was not `published`: this is a
+      real hold now, and the row says the real thing. */
+  function settlePending(article: HTMLElement): void {
+    const note = article.querySelector<HTMLElement>('.blog-comment__note');
+    delete article.dataset.pending;
+    if (note) note.textContent = t.held;
+  }
+
   async function upgradeWhenVerdictLands(
     commentId: string,
     parentId: string | null,
     article: HTMLElement,
-    box: HTMLElement,
-    isReply: boolean,
-    unverifiedEmail: boolean,
   ): Promise<void> {
     for (const delay of VERDICT_POLL_DELAYS_MS) {
       await new Promise((resolve) => setTimeout(resolve, delay));
@@ -445,9 +493,15 @@ export function initCommentsController(): void {
         `/api/v2/comments?post=${encodeURIComponent(postId)}&limit=${PAGE_SIZE}`,
       );
       const match = page?.comments.find((c) => c.id === commentId);
-      if (!match) return;
+      if (!match) {
+        settlePending(article);
+        return;
+      }
       if (match.status === 'held') continue;
-      if (match.status !== 'published') return;
+      if (match.status !== 'published') {
+        settlePending(article);
+        return;
+      }
 
       const row = toBlogComment(match, {}, t);
       row.own = true;
@@ -455,11 +509,9 @@ export function initCommentsController(): void {
       wireCommentRow(fresh, row, parentId);
       if (article.isConnected) article.replaceWith(fresh);
       setTally(total + 1);
-      if (!isReply && box.dataset.receipt === 'held') {
-        showComposeReceipt(box, unverifiedEmail ? 'nudge' : 'posted');
-      }
       return;
     }
+    settlePending(article);
   }
 
   function insertNewRow(article: HTMLElement, parentId: string | null): void {
@@ -497,38 +549,30 @@ export function initCommentsController(): void {
     if (submitBtn) submitBtn.disabled = busy;
   }
 
+  /** `data-receipt` still carries every state -- the send button's spinner and
+      its returning arrow are keyed off it (comments.css). What is *drawn*
+      below the box is one thing only: the subscribe offer. A posted comment is
+      announced by the comment; a failed one by the alert above the form; and
+      the two of them plus an identity line used to take turns in a single slot
+      under the box, which is what made the area unreadable. */
   function showComposeReceipt(box: HTMLElement, receipt: ComposeReceipt): void {
     box.dataset.receipt = receipt;
     box.querySelector('[data-compose-receipt]')?.remove();
-    if (receipt === 'idle' || receipt === 'submitting') return;
+    if (receipt !== 'nudge') return;
 
-    if (receipt === 'error') {
-      const node = el('div', { class: 'blog-compose__receipt', 'data-compose-receipt': '', 'aria-live': 'polite' }, [
-        el('p', { class: 'blog-compose__error' }, [parseStaticSvg(ERROR_ICON_SVG), t.receiptError]),
-      ]);
-      box.append(node);
-      return;
-    }
+    const nudge = el('div', { class: 'blog-compose__nudge', 'data-compose-nudge': '' }, [
+      el('p', { class: 'blog-compose__nudge-text' }, [t.nudgeText]),
+      el('label', { class: 'blog-compose__nudge-sub' }, [
+        el('input', { type: 'checkbox', 'data-compose-subscribe': '' }),
+        t.nudgeSubscribe,
+      ]),
+      el('button', { type: 'button', class: 'blog-compose__nudge-dismiss', 'data-compose-dismiss': '', 'aria-label': t.dismiss }, [
+        parseStaticSvg(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"></path></svg>`),
+      ]),
+    ]);
+    nudge.querySelector('[data-compose-dismiss]')?.addEventListener('click', () => { nudge.hidden = true; });
 
-    const line = el('p', { class: 'blog-compose__receipt-line' }, [receipt === 'held' ? t.receiptHeld : t.receiptPosted]);
-    const children: Node[] = [line];
-
-    if (receipt === 'nudge') {
-      const nudge = el('div', { class: 'blog-compose__nudge', 'data-compose-nudge': '' }, [
-        el('p', { class: 'blog-compose__nudge-text' }, [t.nudgeText]),
-        el('label', { class: 'blog-compose__nudge-sub' }, [
-          el('input', { type: 'checkbox', 'data-compose-subscribe': '' }),
-          t.nudgeSubscribe,
-        ]),
-        el('button', { type: 'button', class: 'blog-compose__nudge-dismiss', 'data-compose-dismiss': '', 'aria-label': t.dismiss }, [
-          parseStaticSvg(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"></path></svg>`),
-        ]),
-      ]);
-      nudge.querySelector('[data-compose-dismiss]')?.addEventListener('click', () => { nudge.hidden = true; });
-      children.push(nudge);
-    }
-
-    box.append(el('div', { class: 'blog-compose__receipt', 'data-compose-receipt': '', 'aria-live': 'polite' }, children));
+    box.append(el('div', { class: 'blog-compose__receipt', 'data-compose-receipt': '', 'aria-live': 'polite' }, [nudge]));
   }
 
   // --- Reply box --------------------------------------------------------
@@ -545,6 +589,13 @@ export function initCommentsController(): void {
       ]),
       el('div', { class: 'blog-compose__box' }, [
         buildIdentityRow('blog-reply-id'),
+        // Same top row as the box at the top of the thread: the fields when
+        // nobody is on file, the answer when somebody is. applyPhase fills
+        // whichever of the two spans data-phase leaves on screen.
+        el('p', { class: 'blog-compose__signed' }, [
+          el('span', { class: 'blog-compose__who' }),
+          el('span', { class: 'blog-compose__claim' }),
+        ]),
         el('label', { class: 'sr-only', for: 'blog-reply-text' }, [t.replyBodyLabel]),
         el('textarea', { id: 'blog-reply-text', class: 'blog-compose__field blog-reply__field', rows: '2' }),
         el('div', { class: 'blog-compose__bar' }, [
@@ -694,7 +745,7 @@ export function initCommentsController(): void {
     if (comment.tombstone) return;
 
     const likeBtn = article.querySelector<HTMLButtonElement>('[data-comment-like]');
-    likeBtn?.addEventListener('click', () => void toggleLike(comment.id, likeBtn));
+    likeBtn?.addEventListener('click', () => void likeComment(comment.id, likeBtn));
 
     const replyBtn = article.querySelector<HTMLButtonElement>('[data-reply-to]');
     replyBtn?.addEventListener('click', () => {
@@ -707,32 +758,53 @@ export function initCommentsController(): void {
     }
   }
 
-  async function toggleLike(commentId: string, button: HTMLButtonElement): Promise<void> {
+  /** One way on purpose. A like here is applause, not a vote to be withdrawn,
+      and the toggle it used to be had a worse problem than the extra press: a
+      reader who pressed again to say "yes, really" took their own like back
+      and watched the count fall. So the second press and every press after it
+      costs nothing and spends hearts instead -- which is the only thing anyone
+      was asking for by pressing twice. Undoing one is a page reload away,
+      which is the right amount of friction for a heart. */
+  async function likeComment(commentId: string, button: HTMLButtonElement): Promise<void> {
+    burstHearts(button);
+    // Set before the first await, so presses arriving mid-flight stop here
+    // rather than racing a second write.
+    if (button.getAttribute('aria-pressed') === 'true') return;
+    button.setAttribute('aria-pressed', 'true');
+
     const countEl = button.querySelector<HTMLElement>('[data-like-count]');
-    const wasLiked = button.getAttribute('aria-pressed') === 'true';
-    const nextLiked = !wasLiked;
-    button.setAttribute('aria-pressed', String(nextLiked));
-    if (countEl) {
-      const current = Number(countEl.textContent ?? 0);
-      countEl.textContent = String(Math.max(0, current + (nextLiked ? 1 : -1)));
-    }
+    if (countEl) countEl.textContent = String(Number(countEl.textContent ?? 0) + 1);
 
     const turnstileToken = await getTurnstileToken(turnstileSiteKey, 'blog_reaction');
     const response = await postJson<{ reaction: { count: number; reacted: boolean } }>('/api/v2/reactions/toggle', {
       targetType: 'comment',
       targetId: commentId,
-      reacted: nextLiked,
+      reacted: true,
       turnstileToken,
     });
     releaseTurnstileToken('blog_reaction');
 
     if (!response.ok) {
-      button.setAttribute('aria-pressed', String(wasLiked));
-      if (countEl) countEl.textContent = String(Math.max(0, Number(countEl.textContent ?? 0) + (wasLiked ? 1 : -1)));
+      button.setAttribute('aria-pressed', 'false');
+      if (countEl) countEl.textContent = String(Math.max(0, Number(countEl.textContent ?? 0) - 1));
       return;
     }
     button.setAttribute('aria-pressed', String(response.data.reaction.reacted));
     if (countEl) countEl.textContent = String(response.data.reaction.count);
+  }
+
+  /** Three hearts up and out of the button, per press. Sized and timed to the
+      26px action pill rather than borrowed from the post-level bar, which
+      throws five across a 36px card. */
+  function burstHearts(button: HTMLButtonElement): void {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    for (let i = 0; i < 3; i += 1) {
+      const heart = filledHeartIcon();
+      heart.classList.add('blog-comment__heart');
+      heart.setAttribute('style', `--heart-x:${(i - 1) * 9}px;--heart-rot:${(i - 1) * 18}deg;animation-delay:${i * 55}ms`);
+      button.append(heart);
+      window.setTimeout(() => heart.remove(), 1000 + i * 55);
+    }
   }
 
   function wireOwnRow(article: HTMLElement, comment: BlogComment, parentId: string | null): void {

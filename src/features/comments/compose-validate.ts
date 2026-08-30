@@ -43,10 +43,17 @@ function messageFor(field: ComposeField, t: CommentsCopy): string | null {
   return null;
 }
 
-/* The alert carries an icon beside its text, so the message goes into the slot
-   rather than over the whole element. Falls back to the element itself, which
-   keeps this honest against any markup that has only a bare line. */
-function say(compose: HTMLElement, message: string | null): void {
+/** The one slot in a compose box that says something went wrong -- above the
+    form, filled and coloured, exported because the controller's submit failure
+    belongs in exactly the same place as this module's "you left a field
+    empty". Two complaint surfaces around one box (this one above, a receipt
+    line below) meant a reader had to learn which kind of trouble printed
+    where; there is one now, and `null` clears it.
+
+    The alert carries an icon beside its text, so the message goes into the
+    slot rather than over the whole element. Falls back to the element itself,
+    which keeps this honest against any markup that has only a bare line. */
+export function sayComposeAlert(compose: HTMLElement, message: string | null): void {
   const note = compose.querySelector<HTMLElement>('[data-compose-error]');
   if (!note) return;
   const slot = note.querySelector<HTMLElement>('[data-compose-error-text]') ?? note;
@@ -70,12 +77,12 @@ export function validateCompose(compose: HTMLElement): boolean {
     const message = messageFor(field, t);
     if (!message) continue;
     field.setAttribute('aria-invalid', 'true');
-    say(compose, message);
+    sayComposeAlert(compose, message);
     field.focus();
     return false;
   }
 
-  say(compose, null);
+  sayComposeAlert(compose, null);
   return true;
 }
 
@@ -101,7 +108,7 @@ export function wireComposeValidation(root: ParentNode = document): void {
       const field = event.target as HTMLElement;
       if (field.getAttribute('aria-invalid') !== 'true') return;
       field.removeAttribute('aria-invalid');
-      say(compose, null);
+      sayComposeAlert(compose, null);
     });
   });
 }

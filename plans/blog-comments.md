@@ -128,14 +128,16 @@ open relay, and it is not negotiable.
 1. The field is writable from first paint. Primary button always says Post.
 2. First Post press with an empty identity row reveals it: name + email under
    the draft. (An empty draft reveals nothing and focuses the field.)
-3. Second press submits: Turnstile token, honeypot, dwell-time stamp, body,
-   name, email. `site-api` runs the risk stack and moderation **inline** and
+3. Post submits: Turnstile token, honeypot, dwell-time stamp, body, name,
+   email. The token is solved on the first focus in the box, not at submit --
+   at submit it cost ~2.3s of dead time between the press and the request
+   (client/turnstile-token.ts, `warmTurnstileToken`). `site-api` runs the risk stack and moderation **inline** and
    answers `published` or `held`. The row appears in the thread immediately —
    real, not optimistic-pending.
 4. The response sets the `reader_anon` cookie. Name and email mirror into
    `localStorage` (`buxx:reader`), so the identity row never has to be typed
-   twice on this browser; on later visits the box footer shows the claimed
-   identity ("以 {name} 的身份评论 · 换一个") instead of the input row.
+   twice on this browser; on later visits the box's top row states the claimed
+   identity ("以 {name} 评论 · 换一个") in place of the input row.
 5. If the email is not yet a verified reader, the receipt area under the box
    shows one non-blocking line: verification nudge and, when applicable, the
    subscribe offer (see below). Dismissable; never modal; never gates anything.
@@ -477,18 +479,35 @@ vanilla controller (`src/features/comments/client/comments-controller.ts`).
 | --- | --- | --- |
 | `idle` | default | Field + "Markdown supported." + Post |
 | `identity` | Post pressed, no stored identity | Name + email row unfolds; hint swaps to what the email is for |
-| `claimed` | localStorage has name+email | Footer shows "以 {name} 评论 · 换一个"; no input row |
-| `ready` | verified session (`/v2/reader/me`) | "Posting as {name}" with avatar |
-| `submitting` | in flight | Button disabled, spinner-less (fast path), field readonly |
-| `posted` | 201 published | Field clears; receipt line; row appears in thread |
-| `held` | 201 held | Same, receipt says held; row appears with pending treatment |
-| `nudge` | posted with unverified email | Receipt gains verify line + optional subscribe checkbox; dismissable |
-| `error` | 4xx/5xx | Inline error under the box, draft preserved, retry |
+| `claimed` | localStorage has name+email | Box's top row states "以 {name} 评论 · 换一个" in the input row's own slot |
+| `ready` | verified session (`/v2/reader/me`) | Same slot: "Posting as {name}" with avatar |
+| `submitting` | in flight | Field readonly; the send arrow leaves and a ring spins in its place |
+| `posted` | 201 published | Field clears; row appears in thread. **No receipt line** — the row is the receipt |
+| `held` | 201 held | Same, and the row carries the pending mark until the verdict polls settle it |
+| `nudge` | posted with unverified email | The one thing still drawn under the box: verify line + optional subscribe checkbox; dismissable |
+| `error` | 4xx/5xx | The alert **above** the box — same slot a missing field uses — draft preserved, retry |
+
+Only one thing is ever said in any one place. Identity is a standing fact and
+lives in the form; failure is a complaint and lives in the alert above it; the
+subscribe nudge is an offer and lives below. Success says nothing, because the
+comment has just appeared two lines down with the reader's name on it. The
+earlier layout stacked all four in one strip under the box, taking turns.
 
 **Comment row**: `normal`, `own` (edit/delete affordances, 15-min edit
 window live-counted down), `editing` (inline textarea swap), `held` (writer
 view only), `tombstone`, `by-author` badge, `reply-open` (travelling reply
-box, exists), like `pressed/unpressed` with count.
+box, exists), like `unpressed → pressed` with count.
+
+A like is one-way. Pressing an already-liked row costs no request and spends a
+burst of hearts instead: the second press is someone saying it louder, not
+someone retracting, and the toggle read the two as the same gesture. Removing
+one is a reload away, which is the right amount of friction for a heart.
+
+A row this browser just posted and got back `held` renders as posted with a
+pending mark, not as "under review": nearly every hold is the classifier still
+thinking and clears inside the poll window, and announcing a review that is
+about to end is how a working thread reads as a stuck one. The plain hold note
+appears only once the polls give up.
 
 **Thread**: `skeleton` (exists), `empty` (exists), `loaded`, `load-more`
 (cursor button + loading), `error` (retry).

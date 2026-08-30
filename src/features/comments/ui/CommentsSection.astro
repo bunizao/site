@@ -327,7 +327,36 @@ const t = commentsCopy[locale];
             while it is open, and is where the reader's hand already is.
             Escape closes it too. */}
         <div class="blog-compose__box">
+          {/* Same top row as the box at the top of the thread: the fields when
+              nobody is on file, the answer when somebody is. Both boxes are
+              the same act and have to ask it the same way. */}
           <IdentityRow id="blog-reply-id" />
+
+          <p class="blog-compose__signed">
+            <span class="blog-compose__who">
+              {viewer && (
+                <>
+                  {viewer.avatar ? (
+                    <img class="blog-compose__whoface" src={viewer.avatar} alt="" width="20" height="20" />
+                  ) : (
+                    <span
+                      class="blog-compose__whoface blog-avatar-seed blog-avatar-initials"
+                      style={`--seed-hue:${seedHue(viewer.name)}`}
+                      aria-hidden="true">{initials(viewer.name)}</span>
+                  )}
+                  {t.postingAs(viewer.name)}
+                </>
+              )}
+            </span>
+            <span class="blog-compose__claim">
+              {claimed && (
+                <>
+                  {t.claimedAs(claimed.name)}
+                  <button type="button" class="blog-compose__claim-switch" data-compose-switch>{t.switchIdentity}</button>
+                </>
+              )}
+            </span>
+          </p>
 
           <label class="sr-only" for="blog-reply-text">{t.replyBodyLabel}</label>
           <textarea
