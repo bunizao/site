@@ -15,9 +15,11 @@ function classify(status: number, body: unknown) {
 
 describe('readErrorSlug', () => {
   // site-api answers with two unrelated envelopes; both have to land.
+  // Both fields, not the first one that happens to be set -- either half can
+  // be the one carrying the slug classify() knows.
   test('reads the flat jsonError() shape', () => {
     expect(readErrorSlug({ error: 'Turnstile verification failed', code: 'turnstile_failed' }))
-      .toBe('turnstile_failed');
+      .toContain('turnstile_failed');
   });
 
   test('reads the nested mood-family shape', () => {
@@ -80,5 +82,47 @@ describe('failureTag', () => {
   // Printing "NET 0" would invent a server response that never happened.
   test('omits a status the request never got', () => {
     expect(failureTag({ code: 'NET', status: 0, message: '' })).toBe('NET');
+  });
+});
+
+// The bug behind an "INPUT 400" badge on a screenshot of a real submission.
+// A refused Turnstile is the one branch that fills both envelope fields, and
+// readErrorSlug used to return whichever it saw first.
+describe('envelopes carrying both a category and a sub-reason', () => {
+  test('a refused Turnstile reads as BOT, not INPUT', () => {
+    const slug = readErrorSlug({ error: 'turnstile_failed', code: 'invalid_token' });
+    expect(describeCommentFailure(400, slug, zh).code).toBe('BOT');
+  });
+
+  test('every turnstile sub-reason still classifies on the category', () => {
+    for (const code of ['missing_token', 'invalid_token', 'hostname_mismatch', 'action_mismatch']) {
+      const slug = readErrorSlug({ error: 'turnstile_failed', code });
+      expect(describeCommentFailure(400, slug, zh).code).toBe('BOT');
+    }
+  });
+
+  test('the sub-reason is kept, so it can still be matched on', () => {
+    expect(readErrorSlug({ error: 'turnstile_failed', code: 'invalid_token' }))
+      .toContain('invalid_token');
+  });
+});
+
+// Two refusals that are about the identity fields, not the comment body.
+describe('identity refusals', () => {
+  test('a reserved or malformed display name reads as NAME', () => {
+    const slug = readErrorSlug({
+      error: 'displayName must be 1-32 characters and cannot use control characters or reserved names',
+    });
+    expect(describeCommentFailure(400, slug, zh).code).toBe('NAME');
+  });
+
+  test('a rejected email domain reads as EMAIL', () => {
+    const slug = readErrorSlug({ error: 'A valid email is required' });
+    expect(describeCommentFailure(400, slug, zh).code).toBe('EMAIL');
+  });
+
+  test('an unrecognised 400 is still the INPUT catch-all', () => {
+    const slug = readErrorSlug({ error: 'dwellToken is required' });
+    expect(describeCommentFailure(400, slug, zh).code).toBe('INPUT');
   });
 });

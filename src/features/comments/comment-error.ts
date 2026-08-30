@@ -24,6 +24,8 @@ export type CommentErrorCode =
   | 'GONE'
   | 'THREAD'
   | 'CLOSED'
+  | 'NAME'
+  | 'EMAIL'
   | 'INPUT'
   | 'SERVER';
 
@@ -38,17 +40,26 @@ export interface CommentFailure {
     message}}` for the mood family, `{error: "...", code?: "..."}` for
     everything built on jsonError() -- and a slug like `invalid_parent` can
     arrive as the `code` extra or as the error text itself. Look in all three
-    places and hand back whatever string turns up; classify() matches on a
-    substring so it does not matter which one it was. */
+    places and hand back every string that turns up; classify() matches on a
+    substring so it does not matter which one it was.
+
+    Every one of them, not the first: a refused Turnstile answers with BOTH
+    (`{error: "turnstile_failed", code: "invalid_token"}`), where `error` is the
+    category and `code` is the sub-reason. Returning the first hit picked
+    `invalid_token`, which matches nothing here, so the single most common real
+    failure on this route fell through to INPUT and told the reader to reword a
+    comment that was never the problem. */
 export function readErrorSlug(body: unknown): string {
   if (!body || typeof body !== 'object') return '';
   const { error, code } = body as { error?: unknown; code?: unknown };
-  if (typeof code === 'string') return code;
+  const found: string[] = [];
+  if (typeof error === 'string') found.push(error);
   if (error && typeof error === 'object') {
     const nested = (error as { code?: unknown }).code;
-    if (typeof nested === 'string') return nested;
+    if (typeof nested === 'string') found.push(nested);
   }
-  return typeof error === 'string' ? error : '';
+  if (typeof code === 'string') found.push(code);
+  return found.join(' ');
 }
 
 /** Ordered by how specific the signal is. A slug the server volunteered beats
@@ -60,6 +71,12 @@ function classify(status: number, slug: string): CommentErrorCode {
   if (slug.includes('turnstile')) return 'BOT';
   if (slug.includes('invalid_parent')) return 'THREAD';
   if (slug.includes('comment_target_unavailable')) return 'GONE';
+  // Two refusals a reader can actually act on, and neither is about the words
+  // they wrote: a name that is reserved or malformed, and an email whose
+  // domain is not a real one. Both used to land in INPUT and be answered with
+  // "try rewording it", which is advice for a field they had not touched.
+  if (slug.includes('displayname')) return 'NAME';
+  if (slug.includes('valid email')) return 'EMAIL';
   // 403 not_owner and 409 edit_window_closed both mean the reader's claim on
   // this comment has run out. Retrying either is a guaranteed second refusal.
   if (status === 403 || status === 409) return 'CLOSED';

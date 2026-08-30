@@ -194,7 +194,9 @@ const zh: CommentsCopy = {
     GONE: '这篇的评论区暂时用不了。',
     THREAD: '要回复的那条评论不在了，刷新一下看看。',
     CLOSED: '这条已经不能改了。',
-    INPUT: '这条没能通过，换个说法再试试。',
+    NAME: '这个名字不能用，换一个再试试。',
+    EMAIL: '这个邮箱地址用不了，换一个再试试。',
+    INPUT: '这条没能发出去，刷新页面再试一次。草稿还在。',
     SERVER: '服务器出了点问题，草稿还在。等会儿再试。',
   },
   nudgeText: (email) => (email
@@ -270,7 +272,9 @@ const en: CommentsCopy = {
     GONE: "Comments on this post aren't available right now.",
     THREAD: "The comment you're replying to is gone. Refresh to see the thread.",
     CLOSED: "That can't be changed any more.",
-    INPUT: "That didn't go through. Try rewording it.",
+    NAME: "That name can't be used here. Try another one.",
+    EMAIL: "That email address won't work. Try another one.",
+    INPUT: "That didn't go through — your draft is safe. Refresh the page and try again.",
     SERVER: 'Something broke on our end — your draft is safe. Try again shortly.',
   },
   nudgeText: (email) => (email
