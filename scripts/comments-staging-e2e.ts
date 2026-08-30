@@ -247,33 +247,6 @@ async function main() {
     record('P1', 'dwell-token endpoint mints, secret parity', r.status === 200 && parity, `status=${r.status} parity=${parity}`);
   }
   {
-    // Cloudflare's always-pass testing secret passes ANY token, so a garbage
-    // token can't exercise the reject path. Swap in the documented
-    // always-fail secret, probe, and swap back. The probe body also trips
-    // the honeypot, which sits AFTER Turnstile: under the fail secret it
-    // answers 400 turnstile_failed, under the pass secret 201 fake-held --
-    // either way it consumes no rate limit and writes no row.
-    const ALWAYS_FAIL = '2x0000000000000000000000000000000AA';
-    const ALWAYS_PASS = '1x0000000000000000000000000000000AA';
-    const pollBody = () => createBody(jMisc, { website: 'https://poll.example', body: `turnstile poll ${RUN} ${Date.now()}` });
-    secretPut('TURNSTILE_SECRET_KEY', ALWAYS_FAIL);
-    let rejected = false;
-    for (let i = 0; i < 10 && !rejected; i++) {
-      const r = await call(jMisc, 'POST', '/api/v2/comments', pollBody());
-      if (r.status === 400 && r.json?.error === 'turnstile_failed') rejected = true;
-      else await sleep(2000);
-    }
-    record('P2', 'failing turnstile verdict -> 400 turnstile_failed', rejected, rejected ? 'reject path live' : 'never rejected under always-fail secret');
-    secretPut('TURNSTILE_SECRET_KEY', ALWAYS_PASS);
-    let restored = false;
-    for (let i = 0; i < 10 && !restored; i++) {
-      const r = await call(jMisc, 'POST', '/api/v2/comments', pollBody());
-      if (r.status === 201) restored = true;
-      else await sleep(2000);
-    }
-    record('P2b', 'always-pass secret restored', restored, restored ? 'pass path live again' : 'STAGING STUCK ON FAIL SECRET');
-  }
-  {
     const b = createBody(jMisc, {});
     delete (b as any).dwellToken;
     const r = await call(jMisc, 'POST', '/api/v2/comments', b);
@@ -496,6 +469,37 @@ async function main() {
     const listed: any[] = r.json?.comments ?? [];
     const heldLeaked = listed.some((c) => c.status === 'held' || c.status === 'rejected');
     record('L1', 'public list shows no held/rejected', r.status === 200 && !heldLeaked, `status=${r.status} count=${listed.length} leaked=${heldLeaked}`);
+  }
+
+  // -- 10. turnstile reject path (runs LAST: each secret put rolls a new
+  // worker version, and the minutes after a roll can flake DO calls and
+  // in-flight requests -- keep that turbulence away from the create series) --
+  {
+    // Cloudflare's always-pass testing secret passes ANY token, so a garbage
+    // token can't exercise the reject path. Swap in the documented
+    // always-fail secret, probe, and swap back. The probe body also trips
+    // the honeypot, which sits AFTER Turnstile: under the fail secret it
+    // answers 400 turnstile_failed, under the pass secret 201 fake-held --
+    // either way it consumes no rate limit and writes no row.
+    const ALWAYS_FAIL = '2x0000000000000000000000000000000AA';
+    const ALWAYS_PASS = '1x0000000000000000000000000000000AA';
+    const pollBody = () => createBody(jMisc, { website: 'https://poll.example', body: `turnstile poll ${RUN} ${Date.now()}` });
+    secretPut('TURNSTILE_SECRET_KEY', ALWAYS_FAIL);
+    let rejected = false;
+    for (let i = 0; i < 30 && !rejected; i++) {
+      const r = await call(jMisc, 'POST', '/api/v2/comments', pollBody());
+      if (r.status === 400 && r.json?.error === 'turnstile_failed') rejected = true;
+      else await sleep(2000);
+    }
+    record('P2', 'failing turnstile verdict -> 400 turnstile_failed', rejected, rejected ? 'reject path live' : 'never rejected under always-fail secret');
+    secretPut('TURNSTILE_SECRET_KEY', ALWAYS_PASS);
+    let restored = false;
+    for (let i = 0; i < 30 && !restored; i++) {
+      const r = await call(jMisc, 'POST', '/api/v2/comments', pollBody());
+      if (r.status === 201) restored = true;
+      else await sleep(2000);
+    }
+    record('P2b', 'always-pass secret restored', restored, restored ? 'pass path live again' : 'STAGING STUCK ON FAIL SECRET');
   }
 
   // -- summary ---------------------------------------------------------------
