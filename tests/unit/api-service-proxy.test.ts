@@ -61,6 +61,27 @@ describe('api service proxy', () => {
     expect(await proxied.json()).toEqual({ postId: '123' });
   });
 
+  test('translates a same-origin Origin header to the binding origin', () => {
+    const request = new Request('https://buxx.me/api/v2/comments/abc', {
+      method: 'DELETE',
+      headers: { Origin: 'https://buxx.me' },
+    });
+    const proxied = createApiServiceRequest(request);
+
+    expect(proxied.headers.get('origin')).toBe('https://site-api.internal');
+    expect(proxied.headers.get('x-forwarded-origin')).toBe('https://buxx.me');
+  });
+
+  test('forwards a cross-site Origin header untouched', () => {
+    const request = new Request('https://buxx.me/api/v2/comments/abc', {
+      method: 'DELETE',
+      headers: { Origin: 'https://evil.example' },
+    });
+    const proxied = createApiServiceRequest(request);
+
+    expect(proxied.headers.get('origin')).toBe('https://evil.example');
+  });
+
   test('returns 503 when the API service binding is unavailable', async () => {
     const response = await proxyApiRequest(new Request('https://buxx.me/api/health'), { env: {} });
     const body = await response.json() as { error?: string };

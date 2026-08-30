@@ -106,7 +106,9 @@ async function call(
   path: string,
   body?: unknown,
 ): Promise<{ status: number; json: any; text: string }> {
-  const headers: Record<string, string> = { 'user-agent': j.ua };
+  // Browsers send Origin on every non-GET fetch; without it Astro's CSRF
+  // check rejects a body-less DELETE as a cross-site form submission.
+  const headers: Record<string, string> = { 'user-agent': j.ua, origin: ORIGIN };
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (j.cookies.size) {
     headers.cookie = [...j.cookies.entries()].map(([k, v]) => `${k}=${v}`).join('; ');

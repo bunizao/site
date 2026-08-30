@@ -98,6 +98,15 @@ export function createApiServiceRequest(request: Request, originUrl: string = AP
   headers.set('X-Forwarded-Origin', source.origin);
   headers.set('X-Buxx-Forwarded-Url', source.toString());
 
+  // The URL above is rewritten to the binding origin, but the browser's
+  // Origin header still names the public origin, so site-api's CSRF check
+  // would reject every body-less non-GET request as cross-site. Translate a
+  // same-origin Origin to the target origin; a genuinely foreign Origin is
+  // forwarded untouched so the check still fires downstream.
+  if (headers.get('Origin') === source.origin) {
+    headers.set('Origin', target.origin);
+  }
+
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     init.body = request.body;
     init.duplex = 'half';
