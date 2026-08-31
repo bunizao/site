@@ -119,8 +119,11 @@ Risk stack, one probe per gate (assert both the HTTP response and the stored
 - Dwell token younger than 3s → rejected; missing dwell token → rejected.
 - Link count over threshold → held. KV keyword blocklist hit → held.
 - Disposable email domain → per design. Length caps → 400.
-- Duplicate `body_hash` → held. Burst posting → DO rate limit 429
-  (fresh DO namespace = clean counters).
+- Duplicate `body_hash` → held, but only with a probe body of 20+
+  characters — shorter bodies are exempt on purpose (two readers posting the
+  same short praise must both land). Burst posting → DO rate limit 429 at
+  the 6th create in a minute (anon windows are 5/min, 20/h since the launch
+  loosening; fresh DO namespace = clean counters).
 - Akismet moderation fail-closed: with `AKISMET_API_KEY` unset → held. Set
   the key → benign text publishes; `comment_author: viagra-test-123` (the
   documented Akismet test trigger) held as spam with moderation fields.
