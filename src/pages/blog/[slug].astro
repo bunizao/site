@@ -188,12 +188,12 @@ const translated = isTranslation(post);
   } : undefined}
 >
   <ReadingTopbar slot="readingbar" noToc={hasNoTocTag} />
-  <a class="blog-back" href="/blog">{blog.copy[blog.locale.blog].back.index}</a>
+  <a class="blog-back" href="/blog">{blog.copy[postLocale].back.index}</a>
 
   <div class="blog-article-wrap">
     <aside class="blog-aside">
       <div class="blog-aside__sticky">
-        <a class="blog-back-rail" href="/blog">{blog.copy[blog.locale.blog].back.rail}</a>
+        <a class="blog-back-rail" href="/blog">{blog.copy[postLocale].back.rail}</a>
         <TableOfContents />
       </div>
     </aside>
@@ -244,22 +244,21 @@ const translated = isTranslation(post);
           client/comments-controller.ts, which fetches the thread and owns
           every submit, edit, delete, and like. */}
       <Colophon credits={authorshipCredits} locale={postLocale}>
-        {/* The reaction bar's own copy (like/unlike labels) has to agree with
-            CommentsSection right below it, so both read from the site's own
-            blog UI locale (blog.locale.blog) rather than this post's content
-            locale -- a translated post's English edition still runs a
-            Chinese-language reader interface, and the two widgets used to
-            disagree about which one that was. */}
-        <ReactionBar client:idle count={0} locale={blog.locale.blog} postId={post.id} siteKey={turnstileSiteKey} />
+        {/* An English post runs an English interface end to end (owner
+            decision): every widget on this page takes the post's own locale,
+            so the reaction bar, subscribe panel, share row, and the comment
+            thread below all agree with the article they sit under. */}
+        <ReactionBar client:idle count={0} locale={postLocale} postId={post.id} siteKey={turnstileSiteKey} />
         <div class="blog-article-sub">
-          <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
-          <ShareRow title={post.title} />
+          <SubscribePanel variant="blog" locale={postLocale} anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
+          <ShareRow title={post.title} locale={postLocale} />
         </div>
       </Colophon>
 
       {/* Last on the page, and open-ended: a thread has no fixed height, so
           anything under it is at an address that moves. */}
       <CommentsSection
+        locale={postLocale}
         state={noComments ? 'closed' : 'loading'}
         postId={noComments ? undefined : post.id}
         turnstileSiteKey={turnstileSiteKey}

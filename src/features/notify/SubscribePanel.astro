@@ -11,10 +11,13 @@
 // in either zone; only the accent differs (blog gets its Verdigris/Glacier).
 // The publication name in the welcome line is set apart by colour + weight, not
 // a display font — that stays plain on purpose.
-import { blog } from '@/data/site';
+import { blog, type BlogLocale } from '@/data/site';
 
 interface Props {
   variant: 'mood' | 'blog';
+  /** UI language override. Post pages pass the post's own locale so an
+      English post runs an English interface end to end. */
+  locale?: BlogLocale;
   /** Pairs the trigger to its panel; unique per page is enough. */
   id?: string;
   turnstileSiteKey?: string;
@@ -31,6 +34,7 @@ interface Props {
 
 const {
   variant,
+  locale: localeOverride,
   id = variant,
   turnstileSiteKey = '',
   feed,
@@ -40,9 +44,10 @@ const {
   triggerLabel,
 } = Astro.props;
 
-// The blog surface follows the blog's locale; the mood feed is not a localized
-// surface, so it takes the site default.
-const locale = variant === 'blog' ? blog.locale.blog : blog.locale.default;
+// The blog surface follows the blog's locale unless the page says otherwise
+// (a post page passes its own); the mood feed is not a localized surface, so
+// it takes the site default.
+const locale = localeOverride ?? (variant === 'blog' ? blog.locale.blog : blog.locale.default);
 const t = blog.copy[locale].subscribe;
 const label = triggerLabel ?? t.trigger;
 

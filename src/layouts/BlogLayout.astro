@@ -40,9 +40,10 @@ interface Props {
   tags?: string[];
   robots?: string;
   /**
-   * Language of the page's *content*. The publication's chrome — masthead,
-   * colophon, nav — stays in `blog.locale.blog` regardless: this is the
-   * article's voice, not the site's identity.
+   * Language of the page's *content* — and, on post pages, of the whole
+   * interface: an English post runs an English UI end to end (owner
+   * decision), so /blog/[slug] passes the post's locale to every widget it
+   * renders. List pages stay in `blog.locale.blog`.
    */
   locale?: BlogLocale;
   /**

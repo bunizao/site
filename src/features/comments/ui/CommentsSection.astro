@@ -22,11 +22,15 @@ import CommentForm from '@/features/comments/ui/CommentForm.astro';
 import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
 import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
-import { blog } from '@/data/site';
+import { blog, type BlogLocale } from '@/data/site';
 import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
 import { commentsCopy } from '@/features/comments/copy';
 
 interface Props {
+  /** Language of the whole thread UI. An English post runs an English
+      interface end to end (owner decision), so /blog/[slug] passes the
+      post's own locale; surfaces without one fall back to the blog zone's. */
+  locale?: BlogLocale;
   comments?: BlogComment[];
   /** `closed` is the author's call, not a failure: no compose box, no privacy
       footnote, and whatever was already written still renders below the
@@ -55,6 +59,7 @@ interface Props {
 }
 
 const {
+  locale = blog.locale.blog,
   comments = [],
   state = 'loaded',
   phase = 'anonymous',
@@ -84,7 +89,6 @@ const skeletonRows = [
 
 // One language for the whole thread -- see copy.ts. `data-locale` on the
 // section is how the client controller finds the same table.
-const locale = blog.locale.blog;
 const t = commentsCopy[locale];
 ---
 
