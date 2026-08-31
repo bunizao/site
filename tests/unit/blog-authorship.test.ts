@@ -121,10 +121,6 @@ describe('authors meta directive', () => {
         carrier: '[!authors ai="anthropic/claude-opus-4-6" note=""]',
         message: 'attribute "note" must not be empty.',
       },
-      {
-        carrier: `[!authors ai="anthropic/claude-opus-4-6" note="${'x'.repeat(161)}"]`,
-        message: 'attribute "note" must be at most 160 characters.',
-      },
     ] as const;
 
     for (const { carrier, message } of cases) {
@@ -146,6 +142,16 @@ describe('authors meta directive', () => {
         ],
       });
     }
+  });
+
+  test('accepts long notes with inline Markdown', async () => {
+    const note = `Reviewed the **English** translation and ${'expanded the context. '.repeat(12)}`;
+    const result = await transformPostDirectives(
+      `<p>[!authors ai="anthropic/claude-opus-4-6" note="${note}"]</p>`,
+      context,
+    );
+
+    expect(readAuthorshipCredits(result.meta, context.slug)[0]?.note).toBe(note.trim());
   });
 
   test('fails an unknown model through a typed error naming the post and model', async () => {

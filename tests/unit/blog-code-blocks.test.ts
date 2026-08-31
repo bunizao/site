@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 
-import { splitBlogProse } from '@/features/posts/server/code-blocks';
+import {
+  normalizeDirectiveCodeBlocks,
+  splitBlogProse,
+} from '@/features/posts/server/code-blocks';
 
 describe('blog code blocks', () => {
   test('promotes Ghost code cards into shared code box fragments', () => {
@@ -43,5 +46,23 @@ describe('blog code blocks', () => {
       { kind: 'mermaid', source: 'flowchart LR\n  A --> B' },
       { kind: 'html', html: '<p>After</p>' },
     ]);
+  });
+
+  test('normalizes several directives from one Ghost code card', () => {
+    const html = [
+      '<p>Before</p>',
+      '<figure class="kg-card kg-code-card"><pre><code>',
+      '[!authors ai=google/gemini-3.7-flash note="drafted the article"]\n',
+      '[!authors ai=google/gemini-3.7-flash note="translated into **English**"]',
+      '</code></pre></figure>',
+      '<p>After</p>',
+    ].join('');
+
+    expect(normalizeDirectiveCodeBlocks(html, new Set(['authors']))).toBe([
+      '<p>Before</p>',
+      '<p>[!authors ai=google/gemini-3.7-flash note="drafted the article"]</p>',
+      '<p>[!authors ai=google/gemini-3.7-flash note="translated into **English**"]</p>',
+      '<p>After</p>',
+    ].join(''));
   });
 });

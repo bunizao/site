@@ -25,7 +25,7 @@ With a note, the model gets its own sentence:
 | Attribute | Required | Value |
 | --- | --- | --- |
 | `ai` | yes | `provider/model` from the model registry |
-| `note` | no | One clause saying what the model did. Max 160 characters. |
+| `note` | no | Markdown-capable text saying what the model did. |
 
 The directive is *meta*: the marker is removed from wherever you wrote it and
 never renders in place. Put it anywhere; the credit lands in the footer.
@@ -58,7 +58,8 @@ The `note` decides how a credit reads.
 
 **With a note**, the model gets its own sentence with the model as the subject —
 your clause completes it. Write the predicate, not a full sentence: `note="重写了
-迁移那一节的表格"`, not `note="Claude 重写了…"`.
+迁移那一节的表格"`, not `note="Claude 重写了…"`. Notes support inline Markdown
+for emphasis, code, strikethrough, and links; raw HTML stays escaped.
 
 **Without a note**, the credit joins a single generic line — `本文在 A 和 B 的协
 助下完成。` — so "Written with" never repeats down the footer.

@@ -8,6 +8,7 @@
 // models without one collapse into a single generic line, so "Written with"
 // never repeats.
 import { blog, type BlogLocale } from '@/data/site';
+import { renderAuthorshipNoteMarkdown } from '@/features/posts/server/authorship-note';
 import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
 
 import AiMark from './AiMark.astro';
@@ -79,7 +80,7 @@ const plainParts = plain.length
           />
           {credit.model.name}
         </span>{' '}
-        {terminate(credit.note!)}
+        <Fragment set:html={renderAuthorshipNoteMarkdown(terminate(credit.note!))} />
       </p>
     ))
   }

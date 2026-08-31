@@ -18,10 +18,6 @@ import type {
 
 const AUTHORS_ATTRIBUTES = ['ai', 'note'] as const;
 
-// A note is one clause completing "<model> ___" — long enough to say what the
-// model did, short enough to stay on the footer's two lines.
-const NOTE_MAX_LENGTH = 160;
-
 export type AuthorshipValidationCode = 'unknown-model';
 
 export class AuthorshipValidationError extends Error {
@@ -75,11 +71,6 @@ function readCredit(attributes: DirectiveAttributes, slug: string): AuthorshipCr
   const note = attributes.note?.trim();
   if (note !== undefined && !note) {
     throw new DirectiveAttributeError('attribute "note" must not be empty.');
-  }
-  if (note && note.length > NOTE_MAX_LENGTH) {
-    throw new DirectiveAttributeError(
-      `attribute "note" must be at most ${NOTE_MAX_LENGTH} characters.`,
-    );
   }
 
   return { model, ...(note ? { note } : {}) };

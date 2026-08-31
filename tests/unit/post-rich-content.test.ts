@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 
 import { resetAppleMusicEmbedLookupCacheForTests } from '@/features/posts/server/apple-music';
 import { renderPostContent } from '@/features/posts/server/rich-content';
+import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
 
 const context = {
   slug: 'rich-source-cards',
@@ -35,5 +36,24 @@ describe('rich post content', () => {
     expect(result.html).toContain('class="conv-thread"');
     expect(result.html).toContain('<code class="language-text">[!authors ai=example/model]</code>');
     expect(result.html).not.toContain('[!music id=1888707290]');
+  });
+
+  test('hoists several long Markdown authorship notes from one Ghost code card', async () => {
+    const firstNote = `Organized the transcripts and ${'expanded the bridging narration. '.repeat(8)}`;
+    const secondNote = 'Translated the article from **Chinese** into English.';
+    const result = await renderPostContent(
+      [
+        '<figure class="kg-card kg-code-card"><pre><code>',
+        `[!authors ai=google/gemini-3.7-flash note="${firstNote}"]\n`,
+        `[!authors ai=google/gemini-3.7-flash note="${secondNote}"]`,
+        '</code></pre></figure>',
+      ].join(''),
+      context,
+    );
+
+    expect(result.html).not.toContain('[!authors');
+    const [credit] = readAuthorshipCredits(result.meta, context.slug);
+    expect(credit?.model.id).toBe('google/gemini-3.7-flash');
+    expect(credit?.note).toBe(`${firstNote.trim()}, ${secondNote}`);
   });
 });

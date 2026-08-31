@@ -125,17 +125,25 @@ export function promoteConversationBlocks(html: string): string {
 
 /**
  * Ghost authors use an unlabelled code card as a stable carrier for custom
- * source syntax. Only an entire registered marker is exposed to the directive
- * transformer; explicitly labelled code and partial examples stay protected.
+ * source syntax. Only blocks made entirely of registered markers are exposed
+ * to the directive transformer; explicitly labelled code and partial examples
+ * stay protected.
  */
 export function normalizeDirectiveCodeBlocks(
   html: string,
   directiveNames: ReadonlySet<string>,
 ): string {
-  const blocks = findCodeBlocks(html).filter((block) => {
-    if (block.declaredLanguage && block.declaredLanguage !== 'directive') return false;
-    const match = DIRECTIVE_SOURCE_RE.exec(block.code);
-    return Boolean(match && directiveNames.has(match[1].toLowerCase()));
+  const blocks = findCodeBlocks(html).flatMap((block) => {
+    if (block.declaredLanguage && block.declaredLanguage !== 'directive') return [];
+    const sources = block.code.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean);
+    if (sources.length === 0) return [];
+
+    const registered = sources.every((source) => {
+      const match = DIRECTIVE_SOURCE_RE.exec(source);
+      return Boolean(match && directiveNames.has(match[1].toLowerCase()));
+    });
+
+    return registered ? [{ ...block, sources }] : [];
   });
   if (blocks.length === 0) return html;
 
@@ -144,8 +152,11 @@ export function normalizeDirectiveCodeBlocks(
 
   for (const block of blocks) {
     if (block.start < cursor) continue;
-    const source = block.code.trim().replace(/</gu, '&lt;').replace(/>/gu, '&gt;');
-    fragments.push(html.slice(cursor, block.start), `<p>${source}</p>`);
+    const source = block.sources
+      .map((marker) => marker.replace(/</gu, '&lt;').replace(/>/gu, '&gt;'))
+      .map((marker) => `<p>${marker}</p>`)
+      .join('');
+    fragments.push(html.slice(cursor, block.start), source);
     cursor = block.end;
   }
 
