@@ -715,6 +715,33 @@
   color: var(--blog-danger);
 }
 
+/* The crossing, and the Save press the row editor refuses for length. The box
+   already has a nudge of its own (blog-compose-nudge, above), but that one is
+   a 4px travel on a 700px surface -- read as the whole form flinching, and it
+   only fires on a press. This is the four characters that just went red
+   saying it was them, at the moment they went red. Smaller amplitude on
+   purpose: 4px across a 40px number is a lurch, not a nudge.
+
+   `translate` rather than `transform`, so a shake never fights the transform
+   an ancestor is mid-animation on. Colour is the state; this is only the
+   announcement, which is why it runs once and leaves nothing behind. */
+.blog-compose__count[data-nudge] {
+  animation: blog-count-nudge 0.32s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes blog-count-nudge {
+  0%, 100% { translate: 0; }
+  22% { translate: -3px; }
+  55% { translate: 2px; }
+  80% { translate: -1px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-compose__count[data-nudge] {
+    animation: none;
+  }
+}
+
 /* Whose name is going on the comment, in the identity row's own slot at the
    top of the box: the fields when nobody is on file, the answer when somebody
    is. One question, one place, whichever way it is being answered.

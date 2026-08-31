@@ -24,6 +24,7 @@ import type {
 } from '@bunizao/contracts/comments';
 import {
   MAX_BODY_LENGTH,
+  nudgeBodyCount,
   sayComposeAlert,
   validateCompose,
   wireBodyCounter,
@@ -1083,6 +1084,9 @@ export function initCommentsController(): void {
         // sentence site-api would have sent (compose-validate.ts).
         if (field.value.trim().length > MAX_BODY_LENGTH) {
           sayEditAlert(field, t.submitError.LONG);
+          // The edit strip has no box to redden around the field, so the
+          // count is the only thing here that can point at itself.
+          nudgeBodyCount(count);
           return;
         }
         void saveEdit(comment.id, article, text, field, setEditing);

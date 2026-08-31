@@ -52,19 +52,61 @@ export function sayBodyCount(slot: HTMLElement | null, length: number): void {
   if (!slot) return;
   const show = length >= COUNT_FROM;
   slot.hidden = !show;
+  // Cleared on the way out too. A hidden slot holding a stale `data-over` is
+  // invisible until the reader types back up past COUNT_FROM and the number
+  // returns already red.
+  slot.toggleAttribute('data-over', show && length > MAX_BODY_LENGTH);
   if (!show) return;
   slot.textContent = `${length}/${MAX_BODY_LENGTH}`;
-  slot.toggleAttribute('data-over', length > MAX_BODY_LENGTH);
+}
+
+/** One pass of the count's refusal animation, restarted if it is already
+    running. Fired on the crossing by `wireBodyCounter`, and by the row
+    editor, whose Save button is the only place a length refusal happens
+    without the compose box's own nudge
+    (`.blog-compose__box:has([aria-invalid])`) firing around it.
+
+    Dropping the attribute and reading a layout property makes the engine
+    retire the previous run before the next one is declared -- without the
+    reflow the two coalesce and nothing moves. It costs a synchronous layout,
+    which is affordable here because this fires on a crossing and a refused
+    press, never on a keystroke. */
+export function nudgeBodyCount(slot: HTMLElement | null): void {
+  if (!slot) return;
+  slot.removeAttribute('data-nudge');
+  void slot.offsetWidth;
+  slot.setAttribute('data-nudge', '');
 }
 
 /** Keep `slot` in step with `field`. Used by the compose box and the reply box
     (below) and by the row's inline edit field (comments-controller.ts), which
-    is the same rule on a surface that is not a `.blog-compose`. */
+    is the same rule on a surface that is not a `.blog-compose`.
+
+    Owns the crossing, because it is the only caller that can tell a change
+    from a first paint. First paint states the count and says nothing about
+    it: a draft restored from `localStorage` that was already over the cap
+    should arrive red, not shaking at a reader who has not typed yet. And only
+    upward -- getting back under the line is good news, and good news does not
+    need announcing. */
 export function wireBodyCounter(field: ComposeField, slot: HTMLElement | null): void {
   if (!slot) return;
-  const update = () => sayBodyCount(slot, bodyLength(field));
-  field.addEventListener('input', update);
-  update();
+  let over = bodyLength(field) > MAX_BODY_LENGTH;
+  sayBodyCount(slot, bodyLength(field));
+
+  field.addEventListener('input', (event) => {
+    const length = bodyLength(field);
+    sayBodyCount(slot, length);
+    // Two guards, both about not shaking at somebody who did not do anything.
+    // `!over`: typing is a high-frequency interaction, so a shake on every
+    // keystroke past the cap is a twitch rather than feedback -- from the
+    // crossing on, the red number carries the state by itself. `isTrusted`:
+    // three places write this field and dispatch `input` to announce it (the
+    // draft restore in drafts.ts, and both halves of a submission in
+    // comments-controller.ts), and a program replaying a long draft is not a
+    // reader crossing a line.
+    if (length > MAX_BODY_LENGTH && !over && event.isTrusted) nudgeBodyCount(slot);
+    over = length > MAX_BODY_LENGTH;
+  });
 }
 
 /** Every field a submission needs, in the order a reader reads them. Claimed
