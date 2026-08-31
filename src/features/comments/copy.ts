@@ -14,6 +14,7 @@
    the type import costs nothing in the client bundle. */
 
 import type { BlogLocale } from '@/data/site';
+import type { CommentErrorCode } from '@/features/comments/comment-error';
 
 export interface CommentsCopy {
   /* --- Thread ------------------------------------------------------------ */
@@ -66,12 +67,20 @@ export interface CommentsCopy {
   authorBadge: string;
   edited: string;
   tombstone: string;
-  /** Shown on a row the moderation pass held back -- and only to its writer,
-      who is the only person the row is served to. Plain status, in the register
-      every other platform uses for this: "held for review, and until it clears
-      only you can see it" said the same thing in a clause about the reader
-      rather than about the comment. */
+  /** Shown on a row the moderation pass held back, and only ever to its
+      writer -- nobody else is served the row at all. Which is the one fact it
+      has to carry: "这条评论正在审核中" named a verdict the reader did not
+      ask about and left the obvious question unanswered -- if it is under
+      review, why am I looking at it? Naming the audience answers that and
+      drops the accusation in the same breath. */
   held: string;
+  /** A row this browser has just posted while the moderation verdict is still
+      in flight. It almost always clears within seconds, so it is a mark on the
+      byline rather than the block note `held` carries -- announcing a review
+      that is about to end is how a working thread reads as a stuck one. It
+      says what is happening (the comment is going up), not what is being done
+      to it. */
+  verifying: string;
   reply: string;
   edit: string;
   editLabel: string;
@@ -88,7 +97,6 @@ export interface CommentsCopy {
   discard: string;
   remove: string;
   removeConfirm: string;
-  editError: string;
   likeLabel: (author: string) => string;
   /** `clock` is always `M:SS`; only the words around it move. */
   timeLeft: (clock: string) => string;
@@ -105,15 +113,39 @@ export interface CommentsCopy {
   };
 
   /* --- Reaction bar ------------------------------------------------------ */
-  /** Liking a post needs no account, so these are the only two states. */
+  /** Liking a post needs no account, and cannot be taken back -- see
+      ReactionBar.tsx. `reactDone` is what the control says once it has been
+      spent, not an invitation to press it again. */
   reactAdd: string;
-  reactRemove: string;
+  reactDone: string;
 
-  /* --- Receipt ----------------------------------------------------------- */
-  receiptPosted: string;
-  receiptHeld: string;
-  receiptError: string;
-  nudgeText: string;
+  /* --- Receipt -----------------------------------------------------------
+     Success says nothing: the comment itself arrives in the list under the box
+     with the reader's name on it, which is better evidence than a label. Only
+     the failure has to be spoken, and it is spoken in the same slot the
+     validation complaints use (compose-validate.ts) rather than a second one
+     below the box. */
+  /** Keyed by what the reader can do next -- see comment-error.ts for how a
+      status and a server slug pick one. Rendered beside its code.
+
+      Register: say what happened, say the next move, and put the
+      reassurance in a clause of its own where there is one to give. The
+      earlier set was correct and clipped -- "网络断了，草稿还在。连上再试一
+      次。" is three imperatives in eleven characters, which reads like a
+      terminal, not like the rest of this page. Softer is not vaguer: every
+      line still names the same next move it named before.
+
+      `LONG` is also the client-side complaint when the box is over the cap
+      (compose-validate.ts), so the reader meets the same sentence whether the
+      browser or the server counted. One cap, one wording. */
+  submitError: Record<CommentErrorCode, string>;
+  /** Names the address, so a typo is catchable at the one moment it still
+      matters -- a reader who mistyped their own email otherwise finds out by
+      never hearing anything again. Takes the empty string where no address is
+      on hand (the server-rendered demo state) and says the generic thing. */
+  nudgeText: (email: string) => string;
+  /** Label on the button that opens the page's subscribe panel. A verb, not
+      a checkbox label: pressing it opens something. */
   nudgeSubscribe: string;
   dismiss: string;
 
@@ -157,7 +189,8 @@ const zh: CommentsCopy = {
   authorBadge: '作者',
   edited: '已编辑',
   tombstone: '这条评论已删除。',
-  held: '这条评论正在审核中。',
+  held: '这条评论已发出，暂时只有你能看到。',
+  verifying: '发布中',
   reply: '回复',
   edit: '编辑',
   editLabel: '编辑你的评论',
@@ -167,7 +200,6 @@ const zh: CommentsCopy = {
   discard: '不保存？',
   remove: '删除',
   removeConfirm: '删除这条评论？',
-  editError: '这次修改没能保存。',
   likeLabel: (author) => `给 ${author} 的评论点赞`,
   timeLeft: (clock) => `还剩${clock}`,
   relativeDate: {
@@ -180,18 +212,31 @@ const zh: CommentsCopy = {
   },
 
   reactAdd: '喜欢这篇',
-  reactRemove: '取消喜欢',
+  reactDone: '已喜欢',
 
-  receiptPosted: '已发布',
-  receiptHeld: '已提交，正在审核',
-  receiptError: '没能发出去，草稿还在。再试一次。',
-  nudgeText: '确认邮箱后可管理评论、接收回复通知',
-  nudgeSubscribe: '订阅新文章邮件',
+  submitError: {
+    NET: '好像断网了，等网络回来再发一次吧。草稿都还在。',
+    RATE: '发得有点太快啦，歇一分钟再来。草稿还在。',
+    BOT: '人机验证过期了，刷新一下页面就好。',
+    GONE: '这篇文章的评论区暂时用不了。',
+    THREAD: '要回复的那条评论已经不在了，刷新一下看看？',
+    CLOSED: '过了可以修改的时间，这条改不了啦。',
+    NAME: '这个名字用不了，换一个试试？',
+    EMAIL: '这个邮箱地址用不了，换一个试试？',
+    LONG: '字数有点超啦（上限 2000 字），精简一下再发吧。',
+    STALE: '页面停留太久失效了，刷新一下再发吧。别担心，草稿已保存。',
+    INPUT: '这条没能发出去，刷新页面再试一次吧。草稿已经保存了。',
+    SERVER: '服务器打了个盹，等会儿再试试。草稿已保存，别担心。',
+  },
+  nudgeText: (email) => (email
+    ? `确认信已经发到 ${email} 了，点一下就能管理评论、接收回复提醒。`
+    : '确认邮箱后，就能管理评论、接收回复提醒。'),
+  nudgeSubscribe: '订阅新文章',
   dismiss: '关闭',
 
-  needBody: '评论一定要有文字。',
+  needBody: '还空着呢，写点什么再发吧。',
   needName: '参与讨论的人，值得一个好名字。',
-  badEmail: '这个邮箱看起来不太对。',
+  badEmail: '这个邮箱看起来不太对，检查一下？',
 };
 
 const en: CommentsCopy = {
@@ -225,7 +270,8 @@ const en: CommentsCopy = {
   authorBadge: 'Author',
   edited: 'edited',
   tombstone: 'This comment was deleted.',
-  held: 'This comment is on hold.',
+  held: 'Posted — for now, only you can see it.',
+  verifying: 'Publishing',
   reply: 'Reply',
   edit: 'Edit',
   editLabel: 'Edit your comment',
@@ -235,7 +281,6 @@ const en: CommentsCopy = {
   discard: 'Discard?',
   remove: 'Delete',
   removeConfirm: 'Delete this comment?',
-  editError: "Couldn't save that edit.",
   likeLabel: (author) => `Like ${author}'s comment`,
   timeLeft: (clock) => `${clock} left`,
   relativeDate: {
@@ -248,18 +293,31 @@ const en: CommentsCopy = {
   },
 
   reactAdd: 'Like this post',
-  reactRemove: 'Remove your reaction',
+  reactDone: 'Liked',
 
-  receiptPosted: 'Posted',
-  receiptHeld: 'Submitted — waiting for review',
-  receiptError: "Couldn't post that — your draft is still here. Try again.",
-  nudgeText: 'Confirm your email to manage your comments and get reply notices',
-  nudgeSubscribe: 'Also email me new posts',
+  submitError: {
+    NET: "Looks like you're offline. Post again once you're back — your draft's safe.",
+    RATE: "Whoa, that's a lot at once. Give it a minute — your draft's safe.",
+    BOT: 'The bot check timed out. Refresh the page and it should be fine.',
+    GONE: "Comments on this post aren't available right now.",
+    THREAD: "The comment you're replying to is gone. Refresh to see the thread?",
+    CLOSED: "The edit window has closed — this one can't be changed now.",
+    NAME: "That name won't work here. Try another?",
+    EMAIL: "That email address won't work. Try another?",
+    LONG: "That's a bit long (2000 characters max). Trim it and post again.",
+    STALE: 'This page sat open long enough to go stale. Refresh and post again — your draft is saved.',
+    INPUT: "That didn't go through. Refresh the page and try again — your draft is saved.",
+    SERVER: 'Something dozed off on our end. Try again shortly — your draft is saved.',
+  },
+  nudgeText: (email) => (email
+    ? `A confirmation is on its way to ${email} — one click and you can manage your comments and get reply notices.`
+    : 'Confirm your email to manage your comments and get reply notices.'),
+  nudgeSubscribe: 'Subscribe to new posts',
   dismiss: 'Dismiss',
 
-  needBody: 'A comment needs words.',
+  needBody: 'Nothing there yet — write something first.',
   needName: 'Everyone in a conversation deserves a name.',
-  badEmail: "That email doesn't look right.",
+  badEmail: "That email doesn't look right. Mind checking it?",
 };
 
 export const commentsCopy = { zh, en } satisfies Record<BlogLocale, CommentsCopy>;

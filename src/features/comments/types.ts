@@ -34,7 +34,13 @@ export interface Viewer {
 
 /** Where the current submission attempt stands. `idle` is "nothing in
     flight" — the box shows whatever `phase` says. Everything else is a
-    receipt for one Post press. */
+    receipt for one Post press.
+
+    `submitting` is a state the live thread no longer enters: comments and
+    edits are posted optimistically, so the row is on the page before the
+    request leaves the browser and there is nothing left to spin about. It
+    stays here, and stays rendered by CommentForm.astro and styled in
+    comments.css, because /lab/comments draws every receipt on purpose. */
 export type ComposeReceipt = 'idle' | 'submitting' | 'posted' | 'held' | 'nudge' | 'error';
 
 export interface BlogComment {

@@ -25,10 +25,25 @@ import type {
 import {
   confirmAnonymousSubmit,
   dismissRecommendOnFill,
+  MAX_BODY_LENGTH,
+  nudgeBodyCount,
   resetAnonymousConfirm,
+  sayComposeAlert,
   validateCompose,
+  wireBodyCounter,
 } from '@/features/comments/compose-validate';
-import { getTurnstileToken, releaseTurnstileToken } from '@/features/comments/client/turnstile-token';
+import {
+  describeCommentFailure,
+  failureTag,
+  readErrorSlug,
+} from '@/features/comments/comment-error';
+import {
+  getTurnstileToken,
+  releaseTurnstileToken,
+  setTurnstileHost,
+  warmTurnstileToken,
+} from '@/features/comments/client/turnstile-token';
+import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
 import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
@@ -70,18 +85,27 @@ const SEND_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 const EDIT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z"></path></svg>`;
 const TRASH_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 7V5h4v2M6 7l1 12h10l1-12M10 11v5M14 11v5"></path></svg>`;
 const GHOST_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M6 6l12 12"></path></svg>`;
-const ERROR_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>`;
 const ALERT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5h.01"></path></svg>`;
 // Byte-for-byte the icon beside the email recommendation in IdentityRow.astro
 // -- the two renderers have to agree.
 const MAIL_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M4 7l8 6 8-6"></path></svg>`;
 // Byte-for-byte the bubble in CommentsSection.astro's error notice -- the two
 // renderers have to agree, and a dashed stroke is easy to let drift.
+// Gives the nudge an identity of its own. Without it the row read as a strip
+// of controls that happened to sit under the box, which is how a message ends
+// up ignored by the people it is for.
+const NUDGE_MAIL_SVG = `<svg class="blog-compose__nudge-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="M3.5 7.5l7.3 5.1a2 2 0 0 0 2.4 0l7.3-5.1"></path></svg>`;
 const THREAD_ERROR_MARK_SVG = `<svg class="blog-comments__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3.5" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="3"></rect><path d="M8.4 16v3.9a.45.45 0 0 0 .75.33L13.6 16"></path></svg>`;
 
 function heartIcon(): SVGElement {
   return parseStaticSvg(
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="${HEART_PATH}"></path></svg>`,
+  );
+}
+
+function filledHeartIcon(): SVGElement {
+  return parseStaticSvg(
+    `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${HEART_PATH}"></path></svg>`,
   );
 }
 
@@ -208,6 +232,38 @@ export function initCommentsController(): void {
 
   applyPhase(compose, phase, claimed, viewer);
   void mintDwellToken();
+
+  // A Turnstile solve costs ~2.3s. Asked for at submit time it landed entirely
+  // between the press of Post and the request leaving the browser -- the one
+  // stretch of the whole flow where the reader has finished their part and is
+  // watching a spinner.
+  //
+  // Two triggers, both ahead of the press and both cheap. Reaching the thread
+  // is the earliest honest signal of intent: a reader scrolled past the whole
+  // post to get here, and the solve then overlaps the time they spend reading
+  // other people's comments rather than the time they spend waiting on their
+  // own. Focus stays as the backstop for anyone who lands on an anchor or
+  // tabs straight in. Neither fires on page load -- that would fetch
+  // Cloudflare's script for every reader of every post, and most of them
+  // never write anything.
+  const turnstileHost = compose.querySelector<HTMLElement>('[data-turnstile-host]');
+  if (turnstileHost) setTurnstileHost('blog_comment_create', turnstileHost);
+
+  const warmCreate = () => warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
+  if (typeof IntersectionObserver === 'function') {
+    // rootMargin buys the solve a head start on the scroll that reveals the
+    // box, so it is usually finished by the time anyone reads far enough to
+    // type. Once only -- the token outlives any number of crossings.
+    const watcher = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      watcher.disconnect();
+      warmCreate();
+    }, { rootMargin: '400px 0px' });
+    watcher.observe(section);
+  }
+  section.addEventListener('focusin', (event) => {
+    if ((event.target as HTMLElement).closest('.blog-compose')) warmCreate();
+  });
 
   // Build the "loaded" shell up front -- state="loading"'s skeleton never
   // carries the reply box or list container, so nothing below exists until
@@ -389,11 +445,37 @@ export function initCommentsController(): void {
     const identity = readIdentity(box);
     if (!identity) return; // guard passed but the fields are gone -- nothing to send
 
-    setBusy(box, true);
+    // Everything the reader can see happens here, before a single byte leaves
+    // the browser. The press used to buy a spinner and a locked field for as
+    // long as a Turnstile solve plus a moderation call took -- two to four
+    // seconds of a form that had visibly stopped working, for a comment that
+    // was going to be accepted. Neither wait is the reader's to sit through:
+    // the words are already written, the thread has room for them, and the
+    // one honest use of the round trip is to correct the page if it turns out
+    // wrong. Which it does, below, on the rare path.
+    const replyName = parentId
+      ? document.querySelector<HTMLElement>(`[data-reply-to="${cssEscape(parentId)}"]`)?.dataset.replyName ?? ''
+      : '';
+    const ghost = renderGhostRow(identity.displayName, text, parentId);
 
-    const [turnstileToken] = await Promise.all([
-      getTurnstileToken(turnstileSiteKey, 'blog_comment_create'),
-    ]);
+    setSubmitEnabled(box, false);
+    playSendGesture(box);
+    sayComposeAlert(box, null);
+    insertNewRow(ghost, parentId);
+    toggleEmptyState(false);
+    // Cleared and left writable: a reader with a second thing to say can
+    // start typing it while the first is still in the air. The synthetic
+    // `input` is what drafts.ts listens on -- it drops the saved copy and
+    // disarms the unload prompt, neither of which a programmatic write fires
+    // on its own.
+    field!.value = '';
+    field!.dispatchEvent(new Event('input', { bubbles: true }));
+    if (isReply) closeReplyBox();
+    else showComposeReceipt(box, 'posted');
+
+    // Warm by now in every ordinary case -- the reader focused this box before
+    // they could type into it, which is what started the solve.
+    const turnstileToken = await getTurnstileToken(turnstileSiteKey, 'blog_comment_create');
 
     const input: CommentCreateInput = {
       postId,
@@ -408,23 +490,38 @@ export function initCommentsController(): void {
     };
 
     const response = await postJson<CommentCreateResult>('/api/v2/comments', input);
+    // Spent either way, so a fresh one starts solving now: a reader who posts
+    // twice should not pay the widget's 2.3s again on the second comment.
     releaseTurnstileToken('blog_comment_create');
+    warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
     void mintDwellToken();
 
-    setBusy(box, false);
+    setSubmitEnabled(box, true);
 
     if (!response.ok) {
-      showComposeReceipt(box, 'error');
+      // Take it all back, in the order it was given: the row goes, the words
+      // return to the box they were written in, and the reply box reopens
+      // under the comment it was answering. Then the complaint -- in the same
+      // slot an unfinished field uses, saying which refusal it was, because a
+      // rate limit and a dropped connection want opposite next moves.
+      ghost.remove();
+      const parentBody = parentId
+        ? list.querySelector<HTMLElement>(`#comment-${cssEscape(parentId)} .blog-comment__body`)
+        : null;
+      if (parentId && parentBody) openReplyBox(parentId, replyName, parentBody);
+      field!.value = text;
+      field!.dispatchEvent(new Event('input', { bubbles: true }));
+      toggleEmptyState(!list.querySelector('.blog-comment'));
+      const failure = describeCommentFailure(response.status, response.slug, t.submitError);
+      box.dataset.receipt = 'error';
+      sayComposeAlert(box, failure.message, failureTag(failure));
       return;
     }
 
     const { outcome, comment, unverifiedEmail } = response.data;
-    const receipt: ComposeReceipt = outcome === 'held' ? 'held' : unverifiedEmail ? 'nudge' : 'posted';
-
-    field!.value = '';
-    if (field) field.readOnly = false;
-    // The comment is on its way -- the next one in this box starts a fresh
-    // attempt and earns its own first press.
+    // Success only -- a failed submit restores the draft, and the retry press
+    // should send it, not re-arm the add-an-email recommendation. The next
+    // comment in this box starts a fresh attempt and earns its own first press.
     resetAnonymousConfirm(box);
 
     if (phase === 'anonymous') {
@@ -435,28 +532,35 @@ export function initCommentsController(): void {
       applyPhase(replyBox, phase, claimed, viewer);
     }
 
-    // `mine` is forced here rather than trusted from the response: the
-    // session cookie this row belongs to may be the one this very response
-    // just minted, so the server's own `mine` check can lag by one request.
+    // The real row, built the one way rows are built, swapped in over the
+    // stand-in. Nothing about the placeholder has to be patched into
+    // correctness -- it is thrown away whole, which is why it was allowed to
+    // guess at the parts it could not know.
+    //
+    // `own` is forced rather than trusted from the response: the session
+    // cookie this row belongs to may be the one this very response just
+    // minted, so the server's own `mine` check can lag by one request.
     // Edit/delete rights are never touched by this -- they stay whatever
     // `comment.editableUntil`/`comment.deletable` actually said.
     const row = toBlogComment(comment, {}, t);
     row.own = true;
     const article = renderCommentRow(row, parentId);
     wireCommentRow(article, row, parentId);
-    insertNewRow(article, parentId);
-    toggleEmptyState(false);
+    // A hold this browser just caused is nearly always the moderation verdict
+    // still in flight rather than a decision -- render it as posted until the
+    // polls below say otherwise. See markPending.
+    if (outcome === 'held') markPending(article);
+    if (ghost.isConnected) ghost.replaceWith(article);
+    else insertNewRow(article, parentId);
     if (outcome !== 'held') setTally(total + 1);
 
-    if (isReply) {
-      closeReplyBox();
-    } else {
-      showComposeReceipt(box, receipt);
-    }
+    // The nudge is not a receipt -- the row above is. It is an offer, and it
+    // is the one thing here that genuinely could not be shown before the
+    // answer came back, because only the server knows whether this address
+    // has ever been confirmed.
+    if (!isReply && unverifiedEmail) showComposeReceipt(box, 'nudge');
 
-    if (outcome === 'held') {
-      void upgradeWhenVerdictLands(comment.id, parentId, article, box, isReply, Boolean(unverifiedEmail));
-    }
+    if (outcome === 'held') void upgradeWhenVerdictLands(comment.id, parentId, article);
   }
 
   // The API answers within ~1.5s even while the AI verdict is still in
@@ -467,13 +571,56 @@ export function initCommentsController(): void {
   // says which.
   const VERDICT_POLL_DELAYS_MS = [2500, 3500, 6000];
 
+  /** The row was just written by this browser and came back held. Almost every
+      one of those is the classifier still thinking, not a decision, and it
+      resolves inside the poll window below -- so the row reads as posted and
+      the note carries the softer word until the polls give up on it. Telling a
+      reader their comment is "under review" and then silently withdrawing it
+      four seconds later is how a thread that works reads as one that does
+      not. */
+  function markPending(article: HTMLElement): void {
+    const note = article.querySelector<HTMLElement>('.blog-comment__note');
+    if (!note) return;
+    article.dataset.pending = 'true';
+    note.textContent = t.verifying;
+  }
+
+  /** No verdict inside the window, or one that was not `published`: this is a
+      real hold now, and the row says the real thing. */
+  /** Add or remove a row's "only you can see this" note after its status has
+      moved. `rejected` gets the same note as `held`: both mean the row is
+      drawn for its writer and for nobody else, which is the whole claim the
+      note makes.
+
+      The action row is deliberately left alone. A row that just became held
+      is exactly the one its writer wants to edit again, and the edit window
+      has not closed -- stripping the controls to match a fresh render would
+      lock them out of fixing the thing they were just told about. */
+  function applyHeldState(article: HTMLElement, hidden: boolean): void {
+    const existing = article.querySelector<HTMLElement>('.blog-comment__note');
+    delete article.dataset.pending;
+    if (!hidden) {
+      existing?.remove();
+      return;
+    }
+    if (existing) {
+      existing.textContent = t.held;
+      return;
+    }
+    const body = article.querySelector<HTMLElement>('.blog-comment__body') ?? article;
+    body.append(el('p', { class: 'blog-comment__note' }, [t.held]));
+  }
+
+  function settlePending(article: HTMLElement): void {
+    const note = article.querySelector<HTMLElement>('.blog-comment__note');
+    delete article.dataset.pending;
+    if (note) note.textContent = t.held;
+  }
+
   async function upgradeWhenVerdictLands(
     commentId: string,
     parentId: string | null,
     article: HTMLElement,
-    box: HTMLElement,
-    isReply: boolean,
-    unverifiedEmail: boolean,
   ): Promise<void> {
     for (const delay of VERDICT_POLL_DELAYS_MS) {
       await new Promise((resolve) => setTimeout(resolve, delay));
@@ -481,9 +628,15 @@ export function initCommentsController(): void {
         `/api/v2/comments?post=${encodeURIComponent(postId)}&limit=${PAGE_SIZE}`,
       );
       const match = page?.comments.find((c) => c.id === commentId);
-      if (!match) return;
+      if (!match) {
+        settlePending(article);
+        return;
+      }
       if (match.status === 'held') continue;
-      if (match.status !== 'published') return;
+      if (match.status !== 'published') {
+        settlePending(article);
+        return;
+      }
 
       const row = toBlogComment(match, {}, t);
       row.own = true;
@@ -491,11 +644,9 @@ export function initCommentsController(): void {
       wireCommentRow(fresh, row, parentId);
       if (article.isConnected) article.replaceWith(fresh);
       setTally(total + 1);
-      if (!isReply && box.dataset.receipt === 'held') {
-        showComposeReceipt(box, unverifiedEmail ? 'nudge' : 'posted');
-      }
       return;
     }
+    settlePending(article);
   }
 
   function insertNewRow(article: HTMLElement, parentId: string | null): void {
@@ -543,46 +694,97 @@ export function initCommentsController(): void {
     return { displayName: name, email };
   }
 
-  function setBusy(box: HTMLElement, busy: boolean): void {
-    box.dataset.receipt = busy ? 'submitting' : box.dataset.receipt ?? 'idle';
-    const field = box.querySelector<HTMLTextAreaElement>('.blog-compose__field');
+  /** The only thing about the compose box that still waits for the server.
+      Not a busy state: the field stays writable and `data-receipt` has
+      already moved on to `posted`, so nothing spins. This is a double-post
+      guard and nothing more -- one press of Post, one comment.
+
+      `submitting` is therefore a state the live thread no longer enters. It
+      is still in ComposeReceipt, still rendered by CommentForm.astro, and
+      still styled: /lab/comments draws every receipt on purpose, and a state
+      the lab documents is not dead just because the happy path outruns it. */
+  /** The arrow leaves and a fresh one arrives -- the one piece of motion the
+      press is owed, now that nothing else about the box waits.
+
+      Restarting a CSS animation means the attribute has to actually change,
+      and on a second comment it is already set from the first. Removing it and
+      setting it again in the same task is not a change as far as the style
+      engine is concerned; reading a layout property in between forces it to
+      notice. Ugly, and the alternative is duplicating the keyframes in
+      JavaScript. */
+  function playSendGesture(box: HTMLElement): void {
+    const submitBtn = box.querySelector<HTMLElement>('[data-compose-submit]');
+    if (!submitBtn) return;
+    submitBtn.removeAttribute('data-sent');
+    void submitBtn.offsetWidth;
+    submitBtn.setAttribute('data-sent', '');
+  }
+
+  function setSubmitEnabled(box: HTMLElement, enabled: boolean): void {
     const submitBtn = box.querySelector<HTMLButtonElement>('[data-compose-submit]');
-    if (field) field.readOnly = busy;
-    if (submitBtn) submitBtn.disabled = busy;
+    if (submitBtn) submitBtn.disabled = !enabled;
+  }
+
+  /** `data-receipt` still carries every state -- the send button's spinner and
+      its returning arrow are keyed off it (comments.css). What is *drawn*
+      below the box is one thing only: the subscribe offer. A posted comment is
+      announced by the comment; a failed one by the alert above the form; and
+      the two of them plus an identity line used to take turns in a single slot
+      under the box, which is what made the area unreadable. */
+  /** Hands the subscribe offer to the panel the page already has, instead of
+      answering it here. The nudge used to carry a bare checkbox: nothing read
+      it, nothing submitted it, and there was no button in that row to submit
+      it with -- so ticking it did nothing at all, which is a worse promise
+      than not making one.
+
+      Clicking the page's own `[data-subscribe-toggle]` opens the real panel,
+      and that panel already seeds its email field from readReaderEmail() --
+      the same store this nudge reads the address out of -- so the reader
+      arrives at a form that is filled in and one press from done.
+
+      A page with no subscribe panel (the components lab) gets no offer rather
+      than a button that goes nowhere. */
+  function wireSubscribeOffer(nudge: HTMLElement): void {
+    const offer = nudge.querySelector<HTMLElement>('[data-compose-subscribe]');
+    if (!offer) return;
+    const toggle = document.querySelector<HTMLElement>('[data-subscribe-toggle]');
+    if (!toggle) {
+      offer.remove();
+      return;
+    }
+    offer.addEventListener('click', (event) => {
+      // Stop the press here. The panel closes itself on any document click
+      // landing outside it and outside its own toggle -- and this button is
+      // outside both, so letting the press continue would shut the panel the
+      // same tick it opened. The toggle guards its own click the same way.
+      event.stopPropagation();
+      // The toggle toggles; this button only ever opens. Pressing "subscribe"
+      // and having the form disappear because it happened to be open already
+      // is not a thing a subscribe button should do. `aria-expanded` is the
+      // state the toggle publishes for exactly this question.
+      if (toggle.getAttribute('aria-expanded') !== 'true') toggle.click();
+    });
   }
 
   function showComposeReceipt(box: HTMLElement, receipt: ComposeReceipt): void {
     box.dataset.receipt = receipt;
     box.querySelector('[data-compose-receipt]')?.remove();
-    if (receipt === 'idle' || receipt === 'submitting') return;
+    if (receipt !== 'nudge') return;
 
-    if (receipt === 'error') {
-      const node = el('div', { class: 'blog-compose__receipt', 'data-compose-receipt': '', 'aria-live': 'polite' }, [
-        el('p', { class: 'blog-compose__error' }, [parseStaticSvg(ERROR_ICON_SVG), t.receiptError]),
-      ]);
-      box.append(node);
-      return;
-    }
+    const nudge = el('div', { class: 'blog-compose__nudge', 'data-compose-nudge': '' }, [
+      parseStaticSvg(NUDGE_MAIL_SVG),
+      el('p', { class: 'blog-compose__nudge-text' }, [t.nudgeText(claimed?.email ?? '')]),
+      el('button', { type: 'button', class: 'blog-compose__nudge-sub', 'data-compose-subscribe': '' }, [
+        t.nudgeSubscribe,
+      ]),
+      el('button', { type: 'button', class: 'blog-compose__nudge-dismiss', 'data-compose-dismiss': '', 'aria-label': t.dismiss }, [
+        parseStaticSvg(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"></path></svg>`),
+      ]),
+    ]);
+    nudge.querySelector('[data-compose-dismiss]')?.addEventListener('click', () => { nudge.hidden = true; });
+    wireSubscribeOffer(nudge);
 
-    const line = el('p', { class: 'blog-compose__receipt-line' }, [receipt === 'held' ? t.receiptHeld : t.receiptPosted]);
-    const children: Node[] = [line];
-
-    if (receipt === 'nudge') {
-      const nudge = el('div', { class: 'blog-compose__nudge', 'data-compose-nudge': '' }, [
-        el('p', { class: 'blog-compose__nudge-text' }, [t.nudgeText]),
-        el('label', { class: 'blog-compose__nudge-sub' }, [
-          el('input', { type: 'checkbox', 'data-compose-subscribe': '' }),
-          t.nudgeSubscribe,
-        ]),
-        el('button', { type: 'button', class: 'blog-compose__nudge-dismiss', 'data-compose-dismiss': '', 'aria-label': t.dismiss }, [
-          parseStaticSvg(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"></path></svg>`),
-        ]),
-      ]);
-      nudge.querySelector('[data-compose-dismiss]')?.addEventListener('click', () => { nudge.hidden = true; });
-      children.push(nudge);
-    }
-
-    box.append(el('div', { class: 'blog-compose__receipt', 'data-compose-receipt': '', 'aria-live': 'polite' }, children));
+    box.append(el('div', { class: 'blog-compose__receipt', 'data-compose-receipt': '', 'aria-live': 'polite' }, [nudge]));
   }
 
   // --- Reply box --------------------------------------------------------
@@ -603,12 +805,21 @@ export function initCommentsController(): void {
       el('p', { class: 'blog-compose__alert', 'data-compose-error': '', role: 'alert', hidden: '' }, [
         parseStaticSvg(ALERT_ICON_SVG),
         el('span', { 'data-compose-error-text': '' }),
+        el('code', { class: 'blog-compose__code', 'data-compose-error-code': '', hidden: '' }),
       ]),
       el('div', { class: 'blog-compose__box' }, [
         buildIdentityRow('blog-reply-id'),
+        // Same top row as the box at the top of the thread: the fields when
+        // nobody is on file, the answer when somebody is. applyPhase fills
+        // whichever of the two spans data-phase leaves on screen.
+        el('p', { class: 'blog-compose__signed' }, [
+          el('span', { class: 'blog-compose__who' }),
+          el('span', { class: 'blog-compose__claim' }),
+        ]),
         el('label', { class: 'sr-only', for: 'blog-reply-text' }, [t.replyBodyLabel]),
         el('textarea', { id: 'blog-reply-text', class: 'blog-compose__field blog-reply__field', rows: '2' }),
         el('div', { class: 'blog-compose__bar' }, [
+          el('span', { class: 'blog-compose__count', 'data-compose-count': '', 'aria-hidden': 'true', hidden: '' }),
           el('button', { type: 'button', class: 'blog-compose__go', 'data-compose-submit': '', 'aria-label': t.replyPostAria, title: t.replyPost }, [parseStaticSvg(SEND_ICON_SVG)]),
         ]),
       ]),
@@ -646,6 +857,12 @@ export function initCommentsController(): void {
   }
 
   function wireReplyBoxMechanics(): void {
+    // This box is built here rather than rendered by CommentsSection.astro,
+    // so `wireComposeValidation` never sees it -- its Post is checked by
+    // handleSubmit calling validateCompose directly. The counter has no such
+    // second path, and needs saying out loud.
+    wireBodyCounter(replyField, replyBox.querySelector<HTMLElement>('[data-compose-count]'));
+
     replyBox.addEventListener('keydown', (event) => {
       if ((event as KeyboardEvent).key === 'Escape') closeReplyBox();
     });
@@ -681,6 +898,11 @@ export function initCommentsController(): void {
     replyBox.querySelectorAll('[aria-invalid]').forEach((f) => f.removeAttribute('aria-invalid'));
     if (note) {
       note.querySelector('[data-compose-error-text]')?.replaceChildren();
+      const badge = note.querySelector<HTMLElement>('[data-compose-error-code]');
+      if (badge) {
+        badge.replaceChildren();
+        badge.hidden = true;
+      }
       note.hidden = true;
     }
     // Landing on a different row starts a fresh reply attempt -- the arm from
@@ -712,10 +934,13 @@ export function initCommentsController(): void {
     meta.append(el('span', { class: 'blog-comment__date' }, [comment.date]));
     if (comment.edited) meta.append(el('span', { class: 'blog-comment__edited' }, [t.edited]));
 
-    const body = el('div', { class: 'blog-comment__body' }, [
-      meta,
-      el('p', { class: 'blog-comment__text', 'data-comment-text': '' }, [comment.text]),
-    ]);
+    // A div, not a paragraph: the body is a rendered document now (see
+    // comment-markdown.ts), and a <p> cannot legally hold the blockquote or
+    // list a comment may have asked for -- the browser would break the tag
+    // open and scatter the row.
+    const text = el('div', { class: 'blog-comment__text', 'data-comment-text': '' });
+    setCommentText(text, comment.text);
+    const body = el('div', { class: 'blog-comment__body' }, [meta, text]);
 
     const { canEdit, canDelete } = commentRights(comment);
 
@@ -771,6 +996,7 @@ export function initCommentsController(): void {
           el('span', { class: 'blog-comment__acts blog-comment__acts--editing', 'data-comment-edit-actions': '', hidden: '' }, [
             el('button', { type: 'button', class: 'blog-comment__act blog-comment__act--go', 'data-comment-edit-save': '' }, [t.save]),
             el('button', { type: 'button', class: 'blog-comment__act', 'data-comment-edit-cancel': '' }, [t.cancel]),
+            el('span', { class: 'blog-compose__count', 'data-comment-count': '', 'aria-hidden': 'true', hidden: '' }),
             el('span', { class: 'blog-comment__act-time blog-comment__act-time--left', 'data-edit-countdown': '', hidden: '' }),
           ]),
         );
@@ -793,11 +1019,41 @@ export function initCommentsController(): void {
     return article;
   }
 
+  /** The row that appears under the reader's finger the moment they press
+      Post, before anything has been asked of the server.
+
+      It is rendered through the `held` branch on purpose, which is the branch
+      that draws the note and draws no action strip. Both are exactly right
+      for a row with no id yet: `markPending` turns the note into "发布中", and
+      a Reply or Delete button here would address a comment the server has
+      never heard of. Everything it cannot know -- the real id, the edit
+      window, the author badge, whether a moderator wants a look -- it simply
+      does not claim, because the response replaces it whole.
+
+      The id is a throwaway. Nothing looks a row up by it during the second or
+      two this one exists, and `insertNewRow` places replies by their parent. */
+  function renderGhostRow(authorName: string, body: string, parentId: string | null): HTMLElement {
+    const ghost = renderCommentRow({
+      id: `pending-${Date.now()}`,
+      author: authorName,
+      date: t.relativeDate.now,
+      text: body,
+      held: true,
+      isReply: parentId !== null,
+      own: true,
+    }, parentId);
+    markPending(ghost);
+    // The entrance plays here, via insertNewRow -> announceNewRow. The swap
+    // that replaces this row uses replaceWith and must not run it a second
+    // time, three seconds after the reader has already read the row.
+    return ghost;
+  }
+
   function wireCommentRow(article: HTMLElement, comment: BlogComment, parentId: string | null): void {
     if (comment.tombstone) return;
 
     const likeBtn = article.querySelector<HTMLButtonElement>('[data-comment-like]');
-    likeBtn?.addEventListener('click', () => void toggleLike(comment.id, likeBtn));
+    likeBtn?.addEventListener('click', () => void likeComment(comment.id, likeBtn));
 
     const replyBtn = article.querySelector<HTMLButtonElement>('[data-reply-to]');
     replyBtn?.addEventListener('click', () => {
@@ -811,32 +1067,53 @@ export function initCommentsController(): void {
     }
   }
 
-  async function toggleLike(commentId: string, button: HTMLButtonElement): Promise<void> {
+  /** One way on purpose. A like here is applause, not a vote to be withdrawn,
+      and the toggle it used to be had a worse problem than the extra press: a
+      reader who pressed again to say "yes, really" took their own like back
+      and watched the count fall. So the second press and every press after it
+      costs nothing and spends hearts instead -- which is the only thing anyone
+      was asking for by pressing twice. Undoing one is a page reload away,
+      which is the right amount of friction for a heart. */
+  async function likeComment(commentId: string, button: HTMLButtonElement): Promise<void> {
+    burstHearts(button);
+    // Set before the first await, so presses arriving mid-flight stop here
+    // rather than racing a second write.
+    if (button.getAttribute('aria-pressed') === 'true') return;
+    button.setAttribute('aria-pressed', 'true');
+
     const countEl = button.querySelector<HTMLElement>('[data-like-count]');
-    const wasLiked = button.getAttribute('aria-pressed') === 'true';
-    const nextLiked = !wasLiked;
-    button.setAttribute('aria-pressed', String(nextLiked));
-    if (countEl) {
-      const current = Number(countEl.textContent ?? 0);
-      countEl.textContent = String(Math.max(0, current + (nextLiked ? 1 : -1)));
-    }
+    if (countEl) countEl.textContent = String(Number(countEl.textContent ?? 0) + 1);
 
     const turnstileToken = await getTurnstileToken(turnstileSiteKey, 'blog_reaction');
     const response = await postJson<{ reaction: { count: number; reacted: boolean } }>('/api/v2/reactions/toggle', {
       targetType: 'comment',
       targetId: commentId,
-      reacted: nextLiked,
+      reacted: true,
       turnstileToken,
     });
     releaseTurnstileToken('blog_reaction');
 
     if (!response.ok) {
-      button.setAttribute('aria-pressed', String(wasLiked));
-      if (countEl) countEl.textContent = String(Math.max(0, Number(countEl.textContent ?? 0) + (wasLiked ? 1 : -1)));
+      button.setAttribute('aria-pressed', 'false');
+      if (countEl) countEl.textContent = String(Math.max(0, Number(countEl.textContent ?? 0) - 1));
       return;
     }
     button.setAttribute('aria-pressed', String(response.data.reaction.reacted));
     if (countEl) countEl.textContent = String(response.data.reaction.count);
+  }
+
+  /** Three hearts up and out of the button, per press. Sized and timed to the
+      26px action pill rather than borrowed from the post-level bar, which
+      throws five across a 36px card. */
+  function burstHearts(button: HTMLButtonElement): void {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    for (let i = 0; i < 3; i += 1) {
+      const heart = filledHeartIcon();
+      heart.classList.add('blog-comment__heart');
+      heart.setAttribute('style', `--heart-x:${(i - 1) * 9}px;--heart-rot:${(i - 1) * 18}deg;animation-delay:${i * 55}ms`);
+      button.append(heart);
+      window.setTimeout(() => heart.remove(), 1000 + i * 55);
+    }
   }
 
   function wireOwnRow(article: HTMLElement, comment: BlogComment, parentId: string | null): void {
@@ -848,6 +1125,7 @@ export function initCommentsController(): void {
     const editActs = article.querySelector<HTMLElement>('[data-comment-edit-actions]');
     const text = article.querySelector<HTMLElement>('[data-comment-text]');
     const field = article.querySelector<HTMLTextAreaElement>('[data-comment-edit-field]');
+    const count = article.querySelector<HTMLElement>('[data-comment-count]');
 
     // The window stops while the field is open -- see the same wiring in
     // CommentsSection.astro, and the note there about the server's own clock.
@@ -883,19 +1161,40 @@ export function initCommentsController(): void {
 
     if (openBtn && text && field) {
       openBtn.addEventListener('click', () => setEditing(true));
-      // Typing again withdraws the question.
-      field.addEventListener('input', () => armCancel(false));
+      wireBodyCounter(field, count);
+      field.addEventListener('input', () => {
+        // Typing again withdraws the question.
+        armCancel(false);
+        // ...and withdraws whatever the last press was told, which may well
+        // be the thing they are now fixing.
+        article.querySelector('.blog-comment__edit-error')?.remove();
+      });
       cancelBtn?.addEventListener('click', () => {
-        const dirty = field.value !== (text.textContent ?? '');
+        // Against the source, not the rendering: the paragraph holds a parsed
+        // tree now (comment-markdown.ts), so `**bold**` reads back out of
+        // `textContent` as `bold` and every formatted comment would look
+        // dirty the instant its field opened.
+        const dirty = field.value !== readCommentText(text);
         // Nothing typed, nothing to lose: close on the first press.
         if (dirty && !cancelBtn.classList.contains('blog-comment__act--confirm')) {
           armCancel(true);
           return;
         }
-        field.value = text.textContent ?? '';
+        field.value = readCommentText(text);
         setEditing(false);
       });
-      saveBtn?.addEventListener('click', () => void saveEdit(comment.id, article, text, field, setEditing));
+      saveBtn?.addEventListener('click', () => {
+        // Refused here rather than three seconds later by site-api, with the
+        // sentence site-api would have sent (compose-validate.ts).
+        if (field.value.trim().length > MAX_BODY_LENGTH) {
+          sayEditAlert(field, t.submitError.LONG);
+          // The edit strip has no box to redden around the field, so the
+          // count is the only thing here that can point at itself.
+          nudgeBodyCount(count);
+          return;
+        }
+        void saveEdit(comment.id, article, text, field, setEditing);
+      });
     }
 
     deleteBtn?.addEventListener('click', () => void deleteComment(comment.id, article, parentId));
@@ -912,6 +1211,27 @@ export function initCommentsController(): void {
     if (!body) return;
     article.querySelector('.blog-comment__edit-error')?.remove();
 
+    const previous = readCommentText(text);
+    // Pressing Save on an untouched field is a way of closing it. Sending it
+    // would put the comment through moderation again for no change, and the
+    // verdict can come back different.
+    if (previous === body) {
+      setEditing(false);
+      return;
+    }
+
+    const meta = article.querySelector('.blog-comment__meta');
+    const wasEdited = Boolean(meta?.querySelector('.blog-comment__edited'));
+
+    // Same bargain as posting: the server re-moderates every edit, so Save sat
+    // under the reader's finger for a whole model call with nothing on screen
+    // acknowledging the press -- no spinner, no disabled button, not even a
+    // colour change. The words go up now and the round trip corrects them.
+    setCommentText(text, body);
+    setEditing(false);
+    article.dataset.sending = 'true';
+    if (meta && !wasEdited) meta.append(el('span', { class: 'blog-comment__edited' }, [t.edited]));
+
     const input: CommentEditInput = { body };
     const response = await fetch(`/api/v2/comments/${encodeURIComponent(commentId)}`, {
       method: 'PATCH',
@@ -919,19 +1239,56 @@ export function initCommentsController(): void {
       body: JSON.stringify(input),
     });
 
+    delete article.dataset.sending;
+
     if (!response.ok) {
-      field.after(el('p', { class: 'blog-comment__edit-error blog-compose__error' }, [t.editError]));
+      // Put the row back the way it was and reopen the field still holding
+      // what was typed -- an edit refused is an edit the reader has not
+      // finished, and throwing their sentence away to show them an error
+      // would be the second thing to go wrong.
+      setCommentText(text, previous);
+      if (!wasEdited) meta?.querySelector('.blog-comment__edited')?.remove();
+      field.value = body;
+      setEditing(true);
+      // Same taxonomy as a submission -- see comment-error.ts. An edit past
+      // its window (409) and an edit that hit a rate limit are different
+      // problems, and "that didn't save, try again" was wrong for both: the
+      // window never reopens, and retrying a limit deepens it.
+      const failure = describeCommentFailure(
+        response.status,
+        readErrorSlug(await response.json().catch(() => null)),
+        t.submitError,
+      );
+      sayEditAlert(field, failure.message, failureTag(failure));
       return;
     }
 
     const data = (await response.json()) as CommentEditResult;
-    text.textContent = data.comment.body;
-    setEditing(false);
+    // Re-set from the response rather than trusting what was optimistically
+    // painted: the server owns the stored text, and a trim or a normalisation
+    // there should show here.
+    setCommentText(text, data.comment.body);
+    // The verdict moves in both directions -- see the PATCH route in
+    // site-api. Dropping it on the floor is not cosmetic: a row that quietly
+    // went `held` is invisible to everybody except its writer, and the
+    // writer's own screen was the one place still drawing it as published.
+    // The reverse case is milder but just as wrong -- an edit that cleared a
+    // hold kept claiming nobody else could see it.
+    applyHeldState(article, data.comment.status !== 'published');
+  }
 
-    const meta = article.querySelector('.blog-comment__meta');
-    if (meta && !meta.querySelector('.blog-comment__edited')) {
-      meta.append(el('span', { class: 'blog-comment__edited' }, [t.edited]));
-    }
+  /** The row's own copy of the compose alert -- the same filled, red, glyphed
+      object, in the one place a comment body can be written outside a compose
+      box. `tag` is the server's reference code where there is one; a refusal
+      the browser made by itself has no response to report, so it prints
+      without a badge rather than inventing a status. */
+  function sayEditAlert(field: HTMLTextAreaElement, message: string, tag = ''): void {
+    field.parentElement?.querySelector('.blog-comment__edit-error')?.remove();
+    field.after(el('p', { class: 'blog-comment__edit-error blog-compose__alert', role: 'alert' }, [
+      parseStaticSvg(ALERT_ICON_SVG),
+      el('span', {}, [message]),
+      ...(tag ? [el('code', { class: 'blog-compose__code' }, [tag])] : []),
+    ]));
   }
 
   async function deleteComment(commentId: string, article: HTMLElement, parentId: string | null): Promise<void> {
@@ -1120,17 +1477,26 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
-async function postJson<T>(url: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; status: number }> {
+type PostResult<T> = { ok: true; data: T } | { ok: false; status: number; slug: string };
+
+/** Status 0 means the request never reached a server -- offline, DNS, a
+    killed tab. Distinct from every real refusal, and the only failure where
+    "try again" is honest advice on its own. The refusal body is read for its
+    error slug (see comment-error.ts); a body that is missing or not JSON is
+    normal on a 5xx and costs nothing but an empty slug. */
+async function postJson<T>(url: string, body: unknown): Promise<PostResult<T>> {
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!response.ok) return { ok: false, status: response.status };
+    if (!response.ok) {
+      return { ok: false, status: response.status, slug: readErrorSlug(await response.json().catch(() => null)) };
+    }
     return { ok: true, data: (await response.json()) as T };
   } catch {
-    return { ok: false, status: 0 };
+    return { ok: false, status: 0, slug: '' };
   }
 }
 

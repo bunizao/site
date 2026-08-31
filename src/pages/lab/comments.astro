@@ -193,6 +193,31 @@ const comments: BlogComment[] = [
     deletable: true,
     likes: 0,
   },
+  // The whole of the Markdown a comment supports, in one row -- see
+  // comment-markdown.ts for why the list stops where it does. This page is
+  // the only place the six constructs can be seen next to each other, and
+  // the only place the server renderer is exercised at all.
+  {
+    id: '9',
+    author: 'Wren',
+    date: t.relativeDate.days(6),
+    text: [
+      'The **retry budget** and the *retry policy* are different things, and `maxAttempts` is',
+      'only the first one. Worth splitting in the post:',
+      '',
+      '- budget: how much total delay a request may spend',
+      '- policy: which failures are worth another try',
+      '',
+      '> a retry that was never going to succeed is a slower failure',
+      '',
+      '```',
+      'if (!retryable(err)) throw err;',
+      '```',
+      '',
+      'Context in [the AWS write-up](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/).',
+    ].join('\n'),
+    likes: 4,
+  },
 ];
 ---
 

@@ -9,7 +9,11 @@ import {
 import { cn } from '@/lib/utils';
 import { mountAvatarComb } from '@/features/comments/client/use-avatar-comb';
 import { mountMagnetic } from '@/features/comments/client/use-magnetic';
-import { getTurnstileToken, releaseTurnstileToken } from '@/features/comments/client/turnstile-token';
+import {
+  getTurnstileToken,
+  releaseTurnstileToken,
+  setTurnstileHost,
+} from '@/features/comments/client/turnstile-token';
 import { initials, seedHue } from '@/features/comments/identity';
 import { resolveCommentsCopy } from '@/features/comments/copy';
 import type { Reactor } from '@/features/comments/types';
@@ -32,6 +36,10 @@ interface Props {
 const HEART_PATH =
   'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
 
+/** Live hearts on screen at once. Six bursts' worth -- past that they overlap
+    into a smear anyway, and the DOM stops growing. */
+const SPARK_LIMIT = 30;
+
 function Heart({ filled = false }: { filled?: boolean }) {
   return (
     <svg
@@ -47,7 +55,10 @@ function Heart({ filled = false }: { filled?: boolean }) {
   );
 }
 
-/** One burst of hearts per like. Keyed by id so a fast double-tap stacks. */
+/** One burst of hearts per press. Keyed by id so a fast double-tap stacks --
+    which is now the whole point of a second press, since a like cannot be
+    taken back. Capped in spawnSparks so a stuck pointer cannot mount an
+    unbounded number of them. */
 interface Spark {
   id: number;
   x: number;
@@ -72,6 +83,7 @@ export default function ReactionBar({
   const [sparks, setSparks] = React.useState<Spark[]>([]);
   const sparkId = React.useRef(0);
   const inflight = React.useRef(false);
+  const challenge = React.useRef<HTMLDivElement>(null);
 
   // /blog/[slug] is prerendered, so the island always ships with a zero
   // tally and asks for the live one on mount.
@@ -116,6 +128,14 @@ export default function ReactionBar({
     return mountAvatarComb(stack.current);
   }, [faces.length, overflow]);
 
+  // Somewhere for an interactive Turnstile challenge to open. Invisible mode
+  // stays invisible right up until Cloudflare wants a human, and a widget
+  // living in a hidden div can never show one -- the press would just fail.
+  // Collapsed until then, so the bar keeps its size.
+  React.useEffect(() => {
+    if (challenge.current) setTurnstileHost('blog_reaction', challenge.current);
+  }, []);
+
   // The pull rides the whole bar, not the pill, so the card starts drifting
   // before the cursor is over anything to press. It targets the flip wrapper —
   // see use-magnetic for why it cannot be the faces.
@@ -131,20 +151,23 @@ export default function ReactionBar({
       rot: (i - 2) * 14,
       delay: i * 45,
     }));
-    setSparks((current) => [...current, ...burst]);
+    // Each burst clears itself after ~1.1s, so the ceiling only ever binds
+    // under a held-down pointer or an autoclicker -- and there it binds hard.
+    setSparks((current) => [...current, ...burst].slice(-SPARK_LIMIT));
     window.setTimeout(
       () => setSparks((current) => current.filter((s) => !burst.some((b) => b.id === s.id))),
       1100,
     );
   }
 
-  async function toggle() {
-    // One request at a time: a press mid-flight would race the reconcile
-    // below, and a heart is not worth a queue.
-    if (inflight.current) return;
-    const next = !liked;
-    setLiked(next);
-    if (next) spawnSparks();
+  /** One way. A like is applause, not a vote, and the toggle it used to be
+      punished the reader who pressed again to mean it: the second press took
+      the first one back. Every press now spends hearts; only the first one
+      spends a request. */
+  async function like() {
+    spawnSparks();
+    if (liked || inflight.current) return;
+    setLiked(true);
     if (!postId) return;
 
     inflight.current = true;
@@ -153,7 +176,7 @@ export default function ReactionBar({
       const response = await fetch('/api/v2/reactions/toggle', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ targetType: 'post', targetId: postId, reacted: next, turnstileToken }),
+        body: JSON.stringify({ targetType: 'post', targetId: postId, reacted: true, turnstileToken }),
       });
       releaseTurnstileToken('blog_reaction');
       if (!response.ok) throw new Error(String(response.status));
@@ -164,7 +187,7 @@ export default function ReactionBar({
         setLiked(Boolean(live.reacted));
       }
     } catch {
-      setLiked(!next);
+      setLiked(false);
     } finally {
       inflight.current = false;
     }
@@ -172,13 +195,16 @@ export default function ReactionBar({
 
   return (
     <div ref={scope} className="blog-react" data-pagefind-ignore>
+      <div ref={challenge} className="blog-compose__turnstile" />
       {/* Liking a post asks for no account. It is a count, not a signature: the
           card used to turn over to a Sign in door on the first press, which
           charged a reader an identity for one bit of feedback. It still turns
           over -- that was the good part -- but the far side is now the liked
           state itself, so the flip IS the feedback rather than a toll gate.
           Anonymous presses are counted; they just put no face in the stack,
-          because the site has no name to put there. */}
+          because the site has no name to put there.
+
+          The turn happens once. Nothing here turns back: see like(). */}
       <div className="blog-react__pull" data-magnetic>
         {/* Outside the card, so the burst happens in flat screen space over a
             face that is mid-rotation. */}
@@ -202,9 +228,9 @@ export default function ReactionBar({
 
         <button
           type="button"
-          onClick={toggle}
+          onClick={like}
           aria-pressed={liked}
-          aria-label={liked ? t.reactRemove : t.reactAdd}
+          aria-label={liked ? t.reactDone : t.reactAdd}
           className={cn('blog-react__card', liked && 'is-flipped')}
         >
           {/* Both faces are always mounted and stacked in one grid cell, which

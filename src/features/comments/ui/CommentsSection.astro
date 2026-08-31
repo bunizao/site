@@ -23,6 +23,7 @@ import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
 import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import { blog } from '@/data/site';
+import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
 import { commentsCopy } from '@/features/comments/copy';
 
 interface Props {
@@ -225,7 +226,21 @@ const t = commentsCopy[locale];
               {comment.edited && <span class="blog-comment__edited">{t.edited}</span>}
             </div>
 
-            <p class="blog-comment__text" data-comment-text hidden={comment.editing}>{comment.text}</p>
+            {/* A div rather than a paragraph: the body is a rendered
+                document (comment-markdown.ts), and a <p> cannot legally hold
+                the blockquote or list a comment may have asked for. The raw
+                source rides along on `data-md` -- it is what the edit field
+                opens with and what Cancel compares against, and it can no
+                longer be read back out of the rendered tree. `set:html` is
+                safe here and only here: the string is built by our own
+                renderer, which escapes every reader-supplied character and
+                emits a closed tag set. */}
+            <div
+              class="blog-comment__text"
+              data-comment-text
+              data-md={comment.text}
+              hidden={comment.editing}
+              set:html={commentMarkdownToHtml(comment.text)}></div>
 
             {/* Editing happens where the paragraph is, not in a box that opens
                 under it: the field inherits the paragraph's size, leading and
@@ -324,6 +339,12 @@ const t = commentsCopy[locale];
                     {/* Turns into its own confirmation on the first press when
                         the field has been touched -- see the script below. */}
                     <button type="button" class="blog-comment__act" data-comment-edit-cancel>{t.cancel}</button>
+                    {/* The same counter the compose box carries, on the other
+                        surface a body can be written on. It reads `1842/2000`
+                        rather than "还剩 158 字" partly to stay out of the way
+                        and partly because the countdown standing beside it
+                        already says "还剩" about a clock. */}
+                    <span class="blog-compose__count" data-comment-count aria-hidden="true" hidden></span>
                     <span class="blog-comment__act-time blog-comment__act-time--left" data-edit-countdown hidden></span>
                   </span>
                 )}
@@ -348,6 +369,7 @@ const t = commentsCopy[locale];
             <path d="M12 7v6M12 16.5h.01"></path>
           </svg>
           <span data-compose-error-text></span>
+          <code class="blog-compose__code" data-compose-error-code hidden></code>
         </p>
 
         {/* No "Replying to X" line and no Cancel: the field's own placeholder
@@ -358,7 +380,36 @@ const t = commentsCopy[locale];
             so a claimed or ready reader sees their own name here too instead
             of an identity row that quietly went nowhere. */}
         <div class="blog-compose__box">
+          {/* Same top row as the box at the top of the thread: the fields when
+              nobody is on file, the answer when somebody is. Both boxes are
+              the same act and have to ask it the same way. */}
           <IdentityRow id="blog-reply-id" />
+
+          <p class="blog-compose__signed">
+            <span class="blog-compose__who">
+              {viewer && (
+                <>
+                  {viewer.avatar ? (
+                    <img class="blog-compose__whoface" src={viewer.avatar} alt="" width="20" height="20" />
+                  ) : (
+                    <span
+                      class="blog-compose__whoface blog-avatar-seed blog-avatar-initials"
+                      style={`--seed-hue:${seedHue(viewer.name)}`}
+                      aria-hidden="true">{initials(viewer.name)}</span>
+                  )}
+                  {t.postingAs(viewer.name)}
+                </>
+              )}
+            </span>
+            <span class="blog-compose__claim">
+              {claimed && (
+                <>
+                  {t.claimedAs(claimed.name)}
+                  <button type="button" class="blog-compose__claim-switch" data-compose-switch>{t.switchIdentity}</button>
+                </>
+              )}
+            </span>
+          </p>
 
           <label class="sr-only" for="blog-reply-text">{t.replyBodyLabel}</label>
           <textarea
@@ -366,6 +417,7 @@ const t = commentsCopy[locale];
             class="blog-compose__field blog-reply__field"
             rows="2"></textarea>
           <div class="blog-compose__bar">
+            <span class="blog-compose__count" data-compose-count aria-hidden="true" hidden></span>
             <button type="button" class="blog-compose__go" data-compose-submit aria-label={t.replyPostAria} title={t.replyPost}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 19V5M5 12l7-7 7 7"></path>
@@ -427,8 +479,9 @@ const t = commentsCopy[locale];
   // Wires the reply box's own submit button — see compose-validate.ts.
   // Idempotent and namespaced by a data attribute, so it does not matter that
   // the compose box's script calls the same function against the same document.
-  import { resetAnonymousConfirm, wireComposeValidation } from '@/features/comments/compose-validate';
+  import { resetAnonymousConfirm, wireBodyCounter, wireComposeValidation } from '@/features/comments/compose-validate';
   import { copyFor } from '@/features/comments/copy';
+  import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
 
   wireComposeValidation();
 
@@ -457,6 +510,11 @@ const t = commentsCopy[locale];
     box.querySelectorAll('[aria-invalid]').forEach((field) => field.removeAttribute('aria-invalid'));
     if (note) {
       note.querySelector('[data-compose-error-text]')?.replaceChildren();
+      const badge = note.querySelector<HTMLElement>('[data-compose-error-code]');
+      if (badge) {
+        badge.replaceChildren();
+        badge.hidden = true;
+      }
       note.hidden = true;
     }
     // Landing on a different row starts a fresh reply attempt.
@@ -522,6 +580,8 @@ const t = commentsCopy[locale];
     const text = row.querySelector<HTMLElement>('[data-comment-text]');
     const field = row.querySelector<HTMLTextAreaElement>('[data-comment-edit-field]');
     if (!openBtn || !text || !field) return;
+
+    wireBodyCounter(field, row.querySelector<HTMLElement>('[data-comment-count]'));
 
     // Both slots are written: the one inside the Edit button and the one
     // beside Post. Only ever one is on screen, and writing both means the
@@ -601,18 +661,25 @@ const t = commentsCopy[locale];
     field.addEventListener('input', () => armCancel(false));
 
     cancelBtn?.addEventListener('click', () => {
-      const dirty = field.value !== (text.textContent ?? '');
+      // Against the source on `data-md`, not the rendered tree: `**bold**`
+      // reads back out of `textContent` as `bold`, which would make every
+      // formatted comment look dirty the instant its field opened.
+      const dirty = field.value !== readCommentText(text);
       const armed = cancelBtn.classList.contains('blog-comment__act--confirm');
       // Nothing typed, nothing to lose: close on the first press.
       if (dirty && !armed) {
         armCancel(true);
         return;
       }
-      field.value = text.textContent ?? '';
+      field.value = readCommentText(text);
       setEditing(false);
     });
+    // Local only, and only ever reached on /lab/comments -- a real thread's
+    // rows are built and wired by comments-controller.ts, which sends the
+    // PATCH. Rendering through the same function keeps the lab honest about
+    // what Markdown a comment actually supports.
     saveBtn?.addEventListener('click', () => {
-      text.textContent = field.value;
+      setCommentText(text, field.value);
       setEditing(false);
     });
 

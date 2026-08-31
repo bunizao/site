@@ -1002,7 +1002,7 @@ a.portal-feed-row:hover,
     transform var(--portal-dur-press) var(--portal-ease-out);
 }
 .theme-portal [data-slot='button']:active:not(:disabled):not([aria-disabled='true']) {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
 /* buttonVariants() rendered on a plain <a> (CTAs, back-links) carries no
@@ -1646,3 +1646,227 @@ a.portal-feed-row:focus-visible,
 .portal-geo-rate[data-tone='success'] { color: hsl(var(--portal-chip-success)); }
 .portal-geo-rate[data-tone='neutral'] { color: hsl(var(--portal-chip-accent)); }
 .portal-geo-rate[data-tone='muted'] { color: hsl(var(--muted-foreground) / 0.75); }
+
+/* ---- Comment moderation queue ------------------------------------------ */
+
+/* A queue is one surface worked down, not a stack of independent objects.
+   The first pass gave every comment its own card, which put three borders and
+   three shadows around three sentences and made a list of five look like a
+   dashboard. Rows share a card and a hairline instead. */
+.portal-comment {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-areas:
+    'face head'
+    'face sub'
+    '.    body'
+    '.    verdict'
+    '.    acts';
+  gap: 6px 12px;
+  padding: 18px 0;
+  border-top: 1px solid hsl(var(--border) / 0.55);
+  transition:
+    opacity var(--portal-dur-fast) var(--portal-ease-out),
+    translate var(--portal-dur-fast) var(--portal-ease-out);
+}
+
+.portal-comment:first-child {
+  padding-top: 2px;
+  border-top: 0;
+}
+
+.portal-comment:last-child {
+  padding-bottom: 2px;
+}
+
+/* Acted on. Out in 160ms and upward, so the press reads as a decision taken
+   rather than as the row blinking out of existence. A fixed 8px travel, not
+   the row's height: the rows below close the gap in a frame, and the eye is
+   on the row that left, not on the seam. */
+.portal-comment[data-leaving] {
+  opacity: 0;
+  translate: 0 -8px;
+  pointer-events: none;
+}
+
+/* Drawn from the same two pure functions as the public thread's faces
+   (features/comments/identity.ts), so a writer is the same letters and the
+   same hue in the queue and on the page their comment is headed for. Only the
+   hue varies -- lightness and chroma are fixed per theme, so no unlucky name
+   draws an unreadable pair. */
+.portal-comment__face {
+  grid-area: face;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: oklch(0.93 0.035 var(--seed-hue, 0));
+  color: oklch(0.46 0.085 var(--seed-hue, 0));
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  /* Centre the caps, not the em box, which reserves descender room these
+     letters never use. Engines without text-box fall back to the line box. */
+  text-box: trim-both cap alphabetic;
+}
+
+.theme-portal.dark .portal-comment__face {
+  background: oklch(0.32 0.035 var(--seed-hue, 0));
+  color: oklch(0.84 0.06 var(--seed-hue, 0));
+}
+
+.portal-comment__head {
+  grid-area: head;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-height: 20px;
+}
+
+.portal-comment__name {
+  font-size: var(--portal-text-base);
+  font-weight: 550;
+  line-height: var(--portal-leading-snug);
+}
+
+/* Timestamp doubles as the row's permalink -- it is the anchor the ops bot's
+   Review button lands on. That is also why no comment id is printed: a column
+   of ULIDs down the queue is noise the owner reads past, and the one time the
+   id is wanted it is in the address bar. */
+.portal-comment__when {
+  margin-left: auto;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--portal-text-xs);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: color var(--portal-dur-fast) var(--portal-ease);
+}
+
+.portal-comment__when:hover {
+  color: hsl(var(--foreground) / 0.85);
+}
+
+.portal-comment__sub {
+  grid-area: sub;
+  min-width: 0;
+  overflow: hidden;
+  color: hsl(var(--muted-foreground) / 0.85);
+  font-size: var(--portal-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-comment__sub a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: hsl(var(--muted-foreground) / 0.35);
+  text-underline-offset: 2px;
+  transition:
+    color var(--portal-dur-fast) var(--portal-ease),
+    text-decoration-color var(--portal-dur-fast) var(--portal-ease);
+}
+
+.portal-comment__sub a:hover {
+  color: hsl(var(--foreground) / 0.9);
+  text-decoration-color: hsl(var(--foreground) / 0.5);
+}
+
+/* The words being judged, at reading size and in the writer's own breaks.
+   `anywhere` because half of what lands here is a spam URL long enough to
+   push the whole card sideways otherwise. */
+.portal-comment__body {
+  grid-area: body;
+  margin: 2px 0 0;
+  max-width: 68ch;
+  color: hsl(var(--foreground) / 0.92);
+  font-size: var(--portal-text-base);
+  line-height: var(--portal-leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* What the machine thought, visibly not what the human wrote. It used to be a
+   grey line in the same style as the timestamp, which put the model's opinion
+   and the comment's metadata at the same rank. */
+.portal-comment__verdict {
+  grid-area: verdict;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-left: 2px solid hsl(var(--portal-chip-warning) / 0.55);
+  background: hsl(var(--portal-chip-warning) / 0.07);
+  color: hsl(var(--muted-foreground));
+  font-size: var(--portal-text-xs);
+  line-height: var(--portal-leading-snug);
+}
+
+.portal-comment__verdict[data-tone='danger'] {
+  border-left-color: hsl(var(--portal-chip-danger) / 0.55);
+  background: hsl(var(--portal-chip-danger) / 0.07);
+}
+
+.portal-comment__verdict[data-tone='neutral'] {
+  border-left-color: hsl(var(--muted-foreground) / 0.35);
+  background: hsl(var(--foreground) / 0.04);
+}
+
+.portal-comment__verdict svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.portal-comment__model {
+  color: hsl(var(--muted-foreground) / 0.7);
+}
+
+.portal-comment__acts {
+  grid-area: acts;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* coss's `destructive-outline` resolves `--destructive-foreground` to
+   near-white in this theme, which leaves Delete looking exactly like Hide.
+   The button stays quiet on purpose -- a filled red button next to Approve is
+   the loudest thing in the row and invites the very misclick it is warning
+   about -- so the colour goes on the label instead. */
+.portal-comment__acts [data-act='delete']:not(:disabled) {
+  color: hsl(var(--portal-chip-danger));
+}
+
+.portal-comment__acts [data-act='delete']:not(:disabled):hover {
+  border-color: hsl(var(--portal-chip-danger) / 0.45);
+}
+
+/* The receipt for the last decision, above the list. Named so a mis-press is
+   visible immediately -- "hidden" and "deleted" are one button apart. */
+.portal-comment-receipt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 12px;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--portal-text-xs);
+}
+
+.portal-comment-receipt svg {
+  color: hsl(var(--portal-chip-success));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-comment {
+    transition: none;
+  }
+  .portal-comment[data-leaving] {
+    translate: none;
+  }
+}

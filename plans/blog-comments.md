@@ -139,22 +139,85 @@ open relay, and it is not negotiable.
    "post without email" confirmation, so the friction only ever lands on
    the no-email path and carries information.
 4. The submit carries: Turnstile token, honeypot, dwell-time stamp, body,
-   name, email (when given). `site-api` runs the risk stack and moderation
-   **inline** and answers `published` or `held`. The row appears in the
-   thread immediately — real, not optimistic-pending.
+   name, email (when given). The token is solved on the first focus in the
+   box, not at submit -- at submit it cost ~2.3s of dead time between the
+   press and the request (client/turnstile-token.ts, `warmTurnstileToken`).
+   `site-api` runs the risk stack and moderation **inline** and answers
+   `published` or `held`. The row appears in the thread **before the request
+   leaves the browser**: measured on staging (pre-Akismet), 1-3ms after the
+   press against 3.0-4.1s for the response. Warming the token removed the
+   wait it could remove; the rest is the moderation call, and no amount of
+   tuning makes a reader want to watch one. Everything the reader can see --
+   the row, the cleared field, the closed reply box -- is done synchronously,
+   and the response is spent replacing the stand-in row with the real one. On
+   a refusal the whole thing is taken back in the order it was given: row
+   removed, words returned to the box they were written in, reply box
+   reopened under the comment it was answering, and only then the complaint.
 5. The response sets the `reader_anon` cookie. Name and email mirror into
    `localStorage` (`buxx:reader`), so the identity row never has to be typed
-   twice on this browser; on later visits the box footer shows the claimed
-   identity ("以 {name} 的身份评论 · 换一个") instead of the input row.
+   twice on this browser; on later visits the box's top row states the claimed
+   identity ("以 {name} 评论 · 换一个") in place of the input row.
 6. If a supplied email is not yet a verified reader, the receipt area under the box
    shows one non-blocking line: verification nudge and, when applicable, the
    subscribe offer (see below). Dismissable; never modal; never gates anything.
+7. The body length appears only once it is worth knowing: a `1842/2000`
+   counter in the bar, revealed at 1800 characters and turning red past the
+   cap (`compose-validate.ts`, `wireBodyCounter`). No `maxlength` attribute —
+   silently swallowing the tail of a paste is worse than saying so — and the
+   number is `aria-hidden`, because a live region re-announcing four digits
+   on every keystroke is worse than no announcement; the `role="alert"`
+   refusal on Post is the accessible path. It counts `value.trim().length`,
+   the same measure `isBodyLengthValid` applies server-side, and reuses
+   `t.submitError.LONG`, so the browser and the server can never disagree
+   about the cap in front of the reader. Present in all three compose
+   surfaces: the main box, the reply box, and the edit strip.
 
 Moderation now runs on every accepted submission rather than only on verified
 ones. Nothing reaches Akismet without passing Turnstile, the honeypot, dwell
 time, heuristics, and rate limits, and a comment-check call is cheap; if
 someone burns effort defeating Turnstile, the shadow-ban list and edge rules
 take over.
+
+### Comment bodies: a small Markdown
+
+The compose box has said "支持 Markdown" under a hand-drawn icon since the
+first draft of this feature, and for just as long nothing was behind it:
+`Comment.body` is plain text and both renderers put it on the page with
+`textContent`, so every asterisk came out as an asterisk. The same shape as
+the subscribe checkbox that used to sit beside it — a promise with no
+implementation — and this was the half worth building rather than deleting.
+
+`src/features/comments/comment-markdown.ts`. The grammar stops where a
+comment stops wanting one: **bold**, *italic*, `code`, fenced code, quote,
+list, `[text](url)`, and bare http(s) URLs. Three deliberate omissions —
+headings, which would let a comment out-shout the post above it; images,
+which would let anyone paste a remote URL that every reader of the thread
+then requests; and raw HTML, at all.
+
+- **Rendering, not storage.** The contract keeps saying plain text, and
+  `Comment.body` still is. This is the "escaping and autolinking happen at
+  render" line finally meaning something. site-api is untouched, and the
+  admin queue, the owner's Telegram card and the notify emails keep showing
+  the source, which is the honest thing for them to show.
+- **Two renderers, one tree.** `parseCommentMarkdown` is shared;
+  `setCommentText` builds DOM nodes for the live thread and
+  `commentMarkdownToHtml` builds an escaped string for
+  `CommentsSection.astro`. They cannot drift because neither owns the
+  grammar.
+- **A comment cannot become markup.** The client path never touches
+  `innerHTML`, so the browser has no parser to trick. The server path escapes
+  every reader-supplied character and emits a closed tag set. Link targets go
+  through `safeHref`: absolute http(s), `mailto:`, or a path on this site, and
+  anything else renders as the text it was written as.
+- **The body is a `<div>` now.** A `<p>` cannot legally hold a blockquote or
+  a list; the browser would break the tag open and scatter the row. The source
+  rides along on `data-md`, which is what the edit field opens with and what
+  Cancel compares against — it can no longer be read back out of the rendered
+  tree.
+
+/lab/comments carries a fixture using all six constructs. It is the only
+place the server renderer runs at all, and the only place they can be seen
+next to each other.
 
 ### Lazy verification: a link and a button
 
@@ -172,9 +235,9 @@ an unverified email (and again only on explicit "resend"):
    verified `reader_session` cookie (180-day rolling, `COMMENTS_SESSION_SECRET`,
    generation-stamped for revocation — unchanged from v1), and binds the
    browser's past anonymous comments (same email hash) to the reader row.
-4. If the reader ticked "also subscribe" in the nudge, the same POST activates
-   the subscription — one email, one click, both confirmations. Double opt-in
-   is preserved because the confirm button **is** the opt-in.
+4. Subscribing is a separate act, taken in the subscribe panel the page
+   already carries. The nudge only offers the door (see "The verify nudge"
+   below); it does not fold a subscription into the verify email.
 
 No token table. The action is idempotent (confirm + optionally subscribe), so
 single-use enforcement buys nothing; the consumption record is the reader
@@ -195,7 +258,15 @@ the wire fields `editableUntil`/`deletable`, never off `mine`.
 - **Edit**: verified owner only, within 15 minutes of posting
   (server-enforced). Edits re-run moderation and the row shows an "edited"
   marker. After 15 minutes, edit is delete-and-repost — a longer window plus
-  replies underneath equals silently rewriting a conversation.
+  replies underneath equals silently rewriting a conversation. Save is
+  optimistic for the same reason Post is, and the case was worse: because the
+  server re-moderates, Save sat under the reader's finger for a whole
+  moderation call (2.9s measured, pre-Akismet) with **nothing** on screen
+  acknowledging the press — no spinner, no disabled button, no colour change.
+  The new text goes into the row on the press, behind a half step of colour
+  that clears on the response. A refusal puts the previous text back and
+  reopens the field still holding what was typed, because an edit refused is
+  an edit the reader has not finished.
 - **Delete**: verified owner only, any time. A deleted comment with
   replies becomes a tombstone row ("此评论已删除") so the thread keeps its
   shape; without replies it disappears. Soft delete either way (status +
@@ -312,6 +383,11 @@ The call happens **inline on submit** (there is no verification step to
 defer it to), budget-guarded by the risk stack below — a flood never
 reaches Akismet.
 
+(The retired LLM gateway went through a prompt rewrite before it was
+replaced — publish-by-default, reject as a closed list, off-topic and tone
+retired as grounds. That posture carried into the Akismet mapping above:
+hold is rescueable, only `discard`-grade spam is rejected outright.)
+
 ### The risk stack
 
 Cheapest first; each layer only sees what the previous one passed. Layers 1–6
@@ -367,15 +443,31 @@ a comment.
 
 ### Analytics
 
-Comment-surface events flow into the existing `blog_analytics_events`
-pipeline with a `comment_` prefix: `comment_submitted`, `comment_published`,
-`comment_held`, `comment_rejected`, `comment_edited`, `comment_deleted`,
-`reaction_toggled`, `verify_sent`, `verify_confirmed`, `subscribe_prompted`,
+**Shipped: derived from `blog_comments`, not from an event stream.**
+`site-api/src/features/comments/server/comments-admin.ts` answers the
+questions the owner actually asks — how many are waiting, how long the oldest
+has waited, what the automatic pass flagged them for, which post is
+attracting comments, and a 14-day daily series — with GROUP BYs over a table
+already indexed on `(status, created_at)`. One `GET /admin/comments` serves
+both the portal page and the ops bot; post ids are named through the cached
+commentable-post registry.
+
+The trade, stated so nobody rediscovers it: derived counts cannot see
+anything that never became a row. A submission the risk stack dropped
+silently leaves no trace, and neither does a reader who typed and gave up.
+
+**Deferred, and still the right design for the funnel:** comment-surface
+events into the existing `blog_analytics_events` pipeline with a `comment_`
+prefix — `comment_submitted`, `comment_published`, `comment_held`,
+`comment_rejected`, `comment_edited`, `comment_deleted`, `reaction_toggled`,
+`verify_sent`, `verify_confirmed`, `subscribe_prompted`,
 `subscribe_accepted`. Payload: post id, risk-signal summary (country, asn,
 fp_hash), moderation verdict + reason, and grade (L0/L1/L2) — enough to graph
-the funnel (submit → publish rate, verify conversion, prompt conversion) and
-to spot a spam wave by fingerprint clustering, without joining to the
-anonymous page-view visitor id, which stays in its own namespace.
+submit → publish rate, verify conversion and prompt conversion, and to spot a
+spam wave by fingerprint clustering, without joining to the anonymous
+page-view visitor id, which stays in its own namespace. It goes in beside the
+derived counts, not instead of them, when a funnel question is actually
+asked.
 
 Retention for risk signals on comment rows: 90 days, then nulled by the
 existing cron sweep pattern; the aggregate analytics events keep only hashes.
@@ -383,9 +475,11 @@ existing cron sweep pattern; the aggregate analytics events keep only hashes.
 ### Notifications
 
 - **Owner**: every new comment via Telegram `ops-bot` — post title, excerpt,
-  verdict + model note, deep link into the portal queue. Plain messages, no
-  inline buttons, no `ops_pending_actions`. Held/rejected flagged loudly;
-  published ones are FYI.
+  verdict + model note, deep link into the portal queue. Held/rejected
+  flagged loudly; published ones are FYI. Superseded in part: the cards do
+  carry inline buttons (`comment:approve|hide|delete|reply:<id>`), and
+  `/comments` asks the bot for the queue rather than waiting to be pushed at.
+  See decision 9.
 - **Commenter (reply notifications)**: opt-in checkbox, but the flag only
   **arms after verification**. An unverified address never receives reply
   mail — someone typing `victim@example.com` must never cause us to email a
@@ -505,21 +599,133 @@ vanilla controller (`src/features/comments/client/comments-controller.ts`).
 
 | State | Trigger | What shows |
 | --- | --- | --- |
-| `idle` | default | Field + "Markdown supported." + Post |
+| `idle` | default | Field + "Markdown supported." + Post — and since `comment-markdown.ts`, that line is true |
 | `identity` | Post pressed, no stored identity | Name + email row unfolds; hint swaps to what the email is for |
-| `claimed` | localStorage has name+email | Footer shows "以 {name} 评论 · 换一个"; no input row |
-| `ready` | verified session (`/v2/reader/me`) | "Posting as {name}" with avatar |
-| `submitting` | in flight | Button disabled, spinner-less (fast path), field readonly |
-| `posted` | 201 published | Field clears; receipt line; row appears in thread |
-| `held` | 201 held | Same, receipt says held; row appears with pending treatment |
-| `nudge` | posted with unverified email | Receipt gains verify line + optional subscribe checkbox; dismissable |
-| `error` | 4xx/5xx | Inline error under the box, draft preserved, retry |
+| `claimed` | localStorage has name+email | Box's top row states "以 {name} 评论 · 换一个" in the input row's own slot |
+| `ready` | verified session (`/v2/reader/me`) | Same slot: "Posting as {name}" with avatar |
+| `submitting` | in flight | Field readonly; the send arrow leaves and a ring spins in its place. **Lab-only** — a live thread posts optimistically and never enters this state |
+| `posted` | Post pressed | Set synchronously, not on the response. Field clears and stays writable; the row is already in the thread. **No receipt line** — the row is the receipt |
+| `held` | 201 held | Same, and the row carries the pending mark until the verdict polls settle it. The stand-in row wears the same mark from the press onward, which is what the mark was already for |
+| `nudge` | posted with unverified email | The one thing still drawn under the box: verify line + a button opening the subscribe panel; dismissable |
+| `error` | 4xx/5xx | The alert **above** the box — same slot a missing field uses — draft preserved, message chosen by what the reader can do next, plus a reference code |
+
+Only one thing is ever said in any one place. Identity is a standing fact and
+lives in the form; failure is a complaint and lives in the alert above it; the
+subscribe nudge is an offer and lives below. Success says nothing, because the
+comment has just appeared two lines down with the reader's name on it. The
+earlier layout stacked all four in one strip under the box, taking turns.
 
 **Comment row**: `normal`, `own` (highlight; edit/delete affordances only
 when `editableUntil`/`deletable` say so — anonymous own rows get neither,
 15-min edit window live-counted down), `editing` (inline textarea swap), `held` (writer
 view only), `tombstone`, `by-author` badge, `reply-open` (travelling reply
-box, exists), like `pressed/unpressed` with count.
+box, exists), like `unpressed → pressed` with count.
+
+A like is one-way. Pressing an already-liked row costs no request and spends a
+burst of hearts instead: the second press is someone saying it louder, not
+someone retracting, and the toggle read the two as the same gesture. Removing
+one is a reload away, which is the right amount of friction for a heart.
+
+A row this browser just posted and got back `held` renders as posted with a
+pending mark, not as "under review": nearly every hold is the classifier still
+thinking and clears inside the poll window, and announcing a review that is
+about to end is how a working thread reads as a stuck one. The plain hold note
+appears only once the polls give up.
+
+That note names the audience rather than the verdict — "已发出，暂时只有你能
+看到" — because a held row is only ever served to its own writer, and the
+version that said "正在审核中" left the reader with an unanswered question: if
+this is under review, why is it on my screen? Naming who can see it answers
+that and drops the accusation in one line.
+
+**Turnstile** solves ahead of the press, on two triggers: the thread crossing
+into the viewport (400px of rootMargin, once) and the first focus in a compose
+box as a backstop. Neither fires on page load — a reader who never comments
+never fetches Cloudflare's script. The widget lives in `.blog-compose__turnstile`
+under the box (and in the reaction bar for `blog_reaction`), not in a hidden div
+on `<body>`: invisible mode stays invisible only until Cloudflare wants a human,
+and a challenge with nowhere to render turned every challenged submission into a
+dead end whose one exit was a page reload. The host is a `minmax(0, 0fr)` grid
+row that opens to `1fr` on `before-interactive-callback`, so it reserves nothing
+until there is a challenge to hold.
+
+**Edits are re-moderated server-side, and the client has to redraw the row's
+status.** It used to keep the pre-edit rendering, which meant an edit that
+tripped moderation left a row drawn as published on the only screen that could
+still see it — the writer's — while it was invisible to everyone else. Reads as
+a moderation bypass from the outside; it was a display bug. `rejected` gets the
+held note too: both mean the row is drawn for its writer and nobody else.
+
+**The verify nudge** names the address it was sent to. A reader who mistyped
+their own email otherwise finds out by never hearing anything again. Its one
+subscribe offer sits next to the sentence rather than at the opposite edge of
+the row.
+
+That offer is a **button that opens the page's own subscribe panel**, not a
+checkbox. It was a checkbox, and the checkbox was a lie twice over: nothing in
+the codebase ever read it, and there was no submit control in that row to
+commit it with even if something had — so it asked for a decision and then had
+nowhere to put it. The panel is the surface that actually subscribes, and it
+seeds its email field from `readReaderEmail()`, the same store the nudge reads
+the address out of, so the reader lands on a filled-in form one press from
+done.
+
+Two details the wiring has to get right, both found by testing the real press
+rather than a synthetic one. The button stops its own click from propagating —
+the panel closes on any document click outside itself and its toggle, so an
+un-stopped press would shut the panel the same tick it opened it. And it opens
+rather than toggles, gated on the toggle's `aria-expanded`: a subscribe button
+that hides the form because it happened to be open already is not behaviour
+anyone wants. A page with no subscribe panel (the components lab) drops the
+button instead of showing one that goes nowhere.
+
+**Failure messages** (`comment-error.ts`) are keyed by the reader's next move,
+not by the status: reconnect (`NET`), wait (`RATE`), refresh (`BOT`, `THREAD`,
+`STALE`, `INPUT`), shorten (`LONG`), give up (`GONE`, `CLOSED`), fix a field
+(`NAME`, `EMAIL`), try later (`SERVER`). One line for
+all of them sent a rate-limited reader straight back into the limit and told a
+reader whose edit window had closed to try again. Each carries its code and
+status in a badge at the end of the alert — the sentence is for the reader
+acting on it, the code is for the reader who has stopped acting and wants to
+report it. The classifier prefers a slug the server volunteered over the status
+it arrived with, because `400` and `503` each mean several things on this route
+family.
+
+The refusal is drawn the same way wherever it lands. The inline edit failure
+used to have a style of its own — `--blog-ink` on no background, the colour of
+ordinary text — so "这条已经不能改了", which ends the reader's options on that
+row, printed at the weight of a caption in a thread already full of grey text
+at that size. It wears `.blog-compose__alert` now: one failure, one look.
+
+It reads **every** field of the envelope, not the first one set. A refused
+Turnstile answers `{error: "turnstile_failed", code: "invalid_token"}`, where
+`error` is the category and `code` the sub-reason; returning the first hit
+picked the sub-reason, matched nothing, and dropped the most common bot-check
+failure into the `INPUT` catch-all — which then told the reader to reword a
+comment that was never the problem. `NAME` and `EMAIL` came out of the same
+catch-all for the same reason: a reserved display name and a rejected mail
+domain are both fixable, and neither is fixed by rewording.
+
+That left `INPUT` still standing for five unrelated things, which is the same
+mistake one level down. site-api spends `400` on seven refusals and exactly
+one of them is about the words the reader wrote:
+
+| slug | code | next move |
+| --- | --- | --- |
+| `body must be 1-2000 characters`, `body is required (1-2000 characters)` | `LONG` | shorten it — the message names the cap |
+| `dwellToken is required`, `postId is required`, `parentId must be…`, `Invalid JSON body` | `STALE` | refresh; nothing about the comment is wrong |
+| `displayName must be…` | `NAME` | fix the name field |
+| `A valid email is required` | `EMAIL` | fix the email field |
+| `turnstile_failed` | `BOT` | refresh |
+| `invalid_parent` | `THREAD` | refresh the thread |
+| anything else | `INPUT` | says it does not know, rather than guessing |
+
+`dwellToken is required` is the one worth remembering: the dwell token is
+fetched separately from the submit, so a mobile network that drops that one
+request yields a refusal on an otherwise perfect comment. That is a real
+failure seen in the wild, not a hypothetical — and under the old catch-all it
+was answered with "换个说法再试试", advice for a sentence nobody had
+objected to.
 
 **Thread**: `skeleton` (exists), `empty` (exists), `loaded`, `load-more`
 (cursor button + loading), `error` (retry).
@@ -568,7 +774,15 @@ Each phase ships alone; nothing in 1 waits on 2.
    client-side fingerprinting. Signals are never identity.
 8. **Moderation**: Akismet comment-check, inline on submit, fail closed to
    `held`. (Replaced the v1/v2 general-model call.)
-9. **ops-bot notifies only**; actions live in the portal. (Carried.)
+9. **Revised: the ops bot acts, and the portal is the wider surface.** The
+   original rule ("notifies only") did not survive contact with a phone at a
+   bus stop: the decision on a held comment is one bit, and making it require
+   a laptop is what turns a queue into a backlog. Both surfaces call the same
+   `owner-moderation.ts`, told which one they are, so the audit note records
+   where the decision came from. The bot handles what fits in a card — the
+   oldest held comment, the counts, approve/hide/delete/reply — and
+   `/dev/portal/comments` handles everything that needs reading: the full
+   body, filters by status, the reason breakdown, the daily series.
 10. **The heart is pink** via the `xia` token, reaction-only scope. (Carried.)
 11. **Edit and delete are verified-reader-only** (the anon session cookie
     grants visibility, never mutation); edit window 15 minutes, delete any
