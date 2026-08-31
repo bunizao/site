@@ -137,15 +137,17 @@ describe('api service proxy', () => {
     const originalFetch = globalThis.fetch;
     const originalDev = process.env.DEV;
     const originalApiDevOrigin = process.env.API_DEV_ORIGIN;
-    let upstreamOrigin: string | null = null;
-    let forwardedOrigin: string | null = null;
+    const capturedOrigins: { upstream: string | null; forwarded: string | null } = {
+      upstream: null,
+      forwarded: null,
+    };
 
     process.env.DEV = 'true';
     process.env.API_DEV_ORIGIN = 'http://127.0.0.1:8787';
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       const request = input instanceof Request ? input : new Request(input);
-      upstreamOrigin = request.headers.get('origin');
-      forwardedOrigin = request.headers.get('x-forwarded-origin');
+      capturedOrigins.upstream = request.headers.get('origin');
+      capturedOrigins.forwarded = request.headers.get('x-forwarded-origin');
       return Response.json({ ok: true });
     }) as unknown as typeof fetch;
 
@@ -162,8 +164,8 @@ describe('api service proxy', () => {
         },
       ), { env: {} });
 
-      expect(upstreamOrigin).toBe('http://127.0.0.1:8787');
-      expect(forwardedOrigin).toBe('http://localhost:4321');
+      expect(capturedOrigins.upstream).toBe('http://127.0.0.1:8787');
+      expect(capturedOrigins.forwarded).toBe('http://localhost:4321');
     } finally {
       globalThis.fetch = originalFetch;
       if (originalDev === undefined) delete process.env.DEV;
