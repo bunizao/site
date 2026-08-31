@@ -150,6 +150,17 @@ open relay, and it is not negotiable.
 5. If the email is not yet a verified reader, the receipt area under the box
    shows one non-blocking line: verification nudge and, when applicable, the
    subscribe offer (see below). Dismissable; never modal; never gates anything.
+6. The body length appears only once it is worth knowing: a `1842/2000`
+   counter in the bar, revealed at 1800 characters and turning red past the
+   cap (`compose-validate.ts`, `wireBodyCounter`). No `maxlength` attribute —
+   silently swallowing the tail of a paste is worse than saying so — and the
+   number is `aria-hidden`, because a live region re-announcing four digits
+   on every keystroke is worse than no announcement; the `role="alert"`
+   refusal on Post is the accessible path. It counts `value.trim().length`,
+   the same measure `isBodyLengthValid` applies server-side, and reuses
+   `t.submitError.LONG`, so the browser and the server can never disagree
+   about the cap in front of the reader. Present in all three compose
+   surfaces: the main box, the reply box, and the edit strip.
 
 Moderation now runs on every accepted submission rather than only on verified
 ones, so the v1 property "unverified spam costs zero model tokens" is gone.
@@ -422,15 +433,31 @@ a comment.
 
 ### Analytics
 
-Comment-surface events flow into the existing `blog_analytics_events`
-pipeline with a `comment_` prefix: `comment_submitted`, `comment_published`,
-`comment_held`, `comment_rejected`, `comment_edited`, `comment_deleted`,
-`reaction_toggled`, `verify_sent`, `verify_confirmed`, `subscribe_prompted`,
+**Shipped: derived from `blog_comments`, not from an event stream.**
+`site-api/src/features/comments/server/comments-admin.ts` answers the
+questions the owner actually asks — how many are waiting, how long the oldest
+has waited, what the automatic pass flagged them for, which post is
+attracting comments, and a 14-day daily series — with GROUP BYs over a table
+already indexed on `(status, created_at)`. One `GET /admin/comments` serves
+both the portal page and the ops bot; post ids are named through the cached
+commentable-post registry.
+
+The trade, stated so nobody rediscovers it: derived counts cannot see
+anything that never became a row. A submission the risk stack dropped
+silently leaves no trace, and neither does a reader who typed and gave up.
+
+**Deferred, and still the right design for the funnel:** comment-surface
+events into the existing `blog_analytics_events` pipeline with a `comment_`
+prefix — `comment_submitted`, `comment_published`, `comment_held`,
+`comment_rejected`, `comment_edited`, `comment_deleted`, `reaction_toggled`,
+`verify_sent`, `verify_confirmed`, `subscribe_prompted`,
 `subscribe_accepted`. Payload: post id, risk-signal summary (country, asn,
 fp_hash), moderation verdict + reason, and grade (L0/L1/L2) — enough to graph
-the funnel (submit → publish rate, verify conversion, prompt conversion) and
-to spot a spam wave by fingerprint clustering, without joining to the
-anonymous page-view visitor id, which stays in its own namespace.
+submit → publish rate, verify conversion and prompt conversion, and to spot a
+spam wave by fingerprint clustering, without joining to the anonymous
+page-view visitor id, which stays in its own namespace. It goes in beside the
+derived counts, not instead of them, when a funnel question is actually
+asked.
 
 Retention for risk signals on comment rows: 90 days, then nulled by the
 existing cron sweep pattern; the aggregate analytics events keep only hashes.
@@ -438,9 +465,11 @@ existing cron sweep pattern; the aggregate analytics events keep only hashes.
 ### Notifications
 
 - **Owner**: every new comment via Telegram `ops-bot` — post title, excerpt,
-  verdict + model note, deep link into the portal queue. Plain messages, no
-  inline buttons, no `ops_pending_actions`. Held/rejected flagged loudly;
-  published ones are FYI.
+  verdict + model note, deep link into the portal queue. Held/rejected
+  flagged loudly; published ones are FYI. Superseded in part: the cards do
+  carry inline buttons (`comment:approve|hide|delete|reply:<id>`), and
+  `/comments` asks the bot for the queue rather than waiting to be pushed at.
+  See decision 9.
 - **Commenter (reply notifications)**: opt-in checkbox, but the flag only
   **arms after verification**. An unverified address never receives reply
   mail — someone typing `victim@example.com` must never cause us to email a
@@ -733,7 +762,15 @@ Each phase ships alone; nothing in 1 waits on 2.
    client-side fingerprinting. Signals are never identity.
 8. **Moderation**: one nano-class general model, post as context, inline on
    submit, fail closed to `held`. (Carried from v1.)
-9. **ops-bot notifies only**; actions live in the portal. (Carried.)
+9. **Revised: the ops bot acts, and the portal is the wider surface.** The
+   original rule ("notifies only") did not survive contact with a phone at a
+   bus stop: the decision on a held comment is one bit, and making it require
+   a laptop is what turns a queue into a backlog. Both surfaces call the same
+   `owner-moderation.ts`, told which one they are, so the audit note records
+   where the decision came from. The bot handles what fits in a card — the
+   oldest held comment, the counts, approve/hide/delete/reply — and
+   `/dev/portal/comments` handles everything that needs reading: the full
+   body, filters by status, the reason breakdown, the daily series.
 10. **The heart is pink** via the `xia` token, reaction-only scope. (Carried.)
 11. **Edit window 15 minutes, delete any time**, tombstone when replied-to.
 12. **Avatar chain**: OAuth → QQ → Cravatar/Gravatar → generated identicon,

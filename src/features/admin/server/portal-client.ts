@@ -55,6 +55,52 @@ export interface PortalAnalytics {
   events: BlogAnalyticsEventsResult;
 }
 
+/* Comment moderation shapes. Declared here rather than in
+   `@bunizao/contracts` on purpose: that package is the *public* API surface,
+   duplicated byte-for-byte into site-api and published to npm, and a queue
+   only the owner can reach is not part of it. The mirror lives at
+   site-api `src/features/comments/server/comments-admin.ts`; the two are kept
+   honest by the portal breaking loudly if they drift, which is the right
+   amount of ceremony for a private read model that ships in one deploy. */
+
+export type PortalCommentStatus = 'held' | 'published' | 'rejected' | 'deleted';
+
+export interface PortalComment {
+  id: string;
+  postId: string;
+  /** Resolved from the commentable-post registry; null when it was unreachable. */
+  postTitle: string | null;
+  postSlug: string | null;
+  parentId: string | null;
+  author: string;
+  verified: boolean;
+  body: string;
+  status: PortalCommentStatus;
+  moderationAction: string | null;
+  moderationReason: string | null;
+  moderationNote: string | null;
+  moderationModel: string | null;
+  country: string | null;
+  createdAt: string;
+  editedAt: string | null;
+}
+
+export interface PortalCommentSummary {
+  byStatus: Record<PortalCommentStatus, number>;
+  today: number;
+  oldestHeldAt: string | null;
+  reasons: Array<{ reason: string; count: number }>;
+  topPosts: Array<{ postId: string; count: number; title: string | null; slug: string | null }>;
+  daily: Array<{ date: string; count: number }>;
+}
+
+export interface PortalComments {
+  summary: PortalCommentSummary;
+  comments: PortalComment[];
+  total: number;
+  nextOffset: number | null;
+}
+
 export async function loadPortalOverview(
   request: Request,
   locals: RuntimeEnvLocals | undefined,
@@ -130,6 +176,18 @@ export async function loadArticleAnalytics(
   } catch {
     return null;
   }
+}
+
+export async function loadPortalComments(
+  request: Request,
+  locals: RuntimeEnvLocals | undefined,
+  options: { status?: PortalCommentStatus | 'all'; limit?: number } = {},
+): Promise<PortalComments> {
+  const query = new URLSearchParams({
+    status: options.status ?? 'held',
+    limit: String(options.limit ?? 25),
+  });
+  return adminGet<PortalComments>(`/api/admin/comments?${query}`, request, locals);
 }
 
 export async function loadNotifyGateStatus(
