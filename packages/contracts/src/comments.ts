@@ -178,12 +178,18 @@ export interface Comment {
   status: CommentStatus;
   createdAt: string;
   editedAt: string | null;
-  /** True when this browser owns the row (verified reader match, or the
-      `reader_anon` session matches). Grows edit/delete affordances. */
+  /** True when this browser wrote the row (verified reader match, or the
+      `reader_anon` session matches). Highlights the row as yours; mutation
+      rights are signalled by `editableUntil`/`deletable`, not by this. */
   mine: boolean;
   /** Server clock deadline for the 15-minute edit window, ms since epoch.
-      Present only when `mine` is true and the window has not closed. */
+      Present only when the viewer is the verified reader who owns the row
+      and the window has not closed. Always null for session-owned rows --
+      anonymous comments cannot be edited. */
   editableUntil: number | null;
+  /** True when the viewer may delete this row: verified reader owns it and
+      it is not already a tombstone. Always false for session-owned rows. */
+  deletable: boolean;
   /** Soft-deleted but kept as a shape-preserving placeholder because a reply
       hangs underneath it. `body`/`author` are empty on a tombstone. */
   tombstone: boolean;
