@@ -61,6 +61,19 @@ What optional email does **not** fix: sybil-farming of verified identities
 (those attackers *want* the email path); the plus-addressing watch item
 from the hardening note stands.
 
+## 3. Mutation is verified-reader-only (same-day follow-up)
+
+Anonymous sessions lost edit/delete. The anon cookie is a bearer key — on a
+shared or library machine the next person at the keyboard inherits it — so
+it now grants visibility (`mine`, held-row echo) but never writes. Backend:
+`canMutateRow` (reader_id match only) beside `ownsRow`; wire contract gains
+`deletable` and `editableUntil` goes null for session-owned rows, so the
+fake-success envelope for tripwired bots keeps field parity (`deletable:
+false`, null `editableUntil` — exactly what a real anon create returns).
+Consequence worth stating: a no-email comment is permanently frozen as
+written (never claimable by design); a with-email anon comment becomes
+mutable when the address verifies and claiming attaches the reader.
+
 ## Cutover deltas (on top of both earlier checklists)
 
 1. Apply migration `0018_optional_comment_email.sql` (D1 table rebuild;

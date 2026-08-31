@@ -21,8 +21,8 @@ different table, and a different identity model.
 
 | Grade | How it's reached | What it unlocks |
 | --- | --- | --- |
-| L0 | Nothing — a `reader_anon` cookie, set automatically on first comment or reaction | Post, react, edit/delete your own rows by cookie match |
-| L1 | Click the link in the lazy-verification email | The comment's `reader_id` attaches; past comments from the same address get claimed; a persistent avatar and display name |
+| L0 | Nothing — a `reader_anon` cookie, set automatically on first comment or reaction | Post and react; your own rows show as `mine` by cookie match, but cannot be edited or deleted |
+| L1 | Click the link in the lazy-verification email | The comment's `reader_id` attaches; past comments from the same address get claimed; a persistent avatar and display name; edit and delete on rows the `reader_id` owns |
 | L2 | Sign in with GitHub or Google (`/oauth/reader/...`) | Same as L1, `provider` reflects the OAuth provider instead of `email` |
 
 `GET /api/v2/reader/me` reports the calling browser's current grade (`null`
@@ -54,6 +54,7 @@ is a root comment id cursor; omit it for the first page. `limit` defaults to
       "editedAt": null,
       "mine": false,
       "editableUntil": null,
+      "deletable": false,
       "tombstone": false
     }
   ],
@@ -65,10 +66,13 @@ is a root comment id cursor; omit it for the first page. `limit` defaults to
 
 Pagination is by root comment: every visible reply under a returned root
 comes back alongside it, unpaginated (threading is one level deep, so a
-root's reply count stays bounded). `mine` and `editableUntil` are computed
-against the calling browser's session cookie / `reader_id` — a plain `GET`
-never mints a `reader_anon` cookie, so a first-time visitor with no cookie
-yet simply owns nothing. `held`/`rejected` rows are visible only to their
+root's reply count stays bounded). `mine` is computed against the calling
+browser's session cookie / `reader_id` — a plain `GET` never mints a
+`reader_anon` cookie, so a first-time visitor with no cookie yet simply owns
+nothing. `editableUntil` and `deletable` are stricter than `mine`: both
+require the verified `reader_id` match, so an anonymous writer sees their
+row flagged `mine` with no mutation rights, and clients must key edit/delete
+affordances off these two fields, never off `mine`. `held`/`rejected` rows are visible only to their
 own writer; a `deleted` row still appears as a tombstone (`body`/`author`
 blanked) when a published reply hangs underneath it, otherwise it's gone
 from the page entirely. `total` counts published comments only.
@@ -190,8 +194,14 @@ PATCH  /api/v2/comments/:id
 DELETE /api/v2/comments/:id
 ```
 
-Both require ownership: the calling browser's `reader_id` (if signed in) or
-`reader_anon` session must match the row's writer. `PATCH` body:
+Both require **verified ownership**: the calling browser's `reader_id` must
+match the row's writer. The `reader_anon` session cookie never grants
+mutation — it is a bearer key a shared or public machine hands to its next
+user, so it makes rows visible as `mine` but never editable or deletable.
+An anonymous row written *with* an email becomes mutable once that address
+verifies (claiming attaches the `reader_id`); a row posted with no email is
+never claimable, so it is permanently frozen as written — deletion requests
+go to the site owner. `PATCH` body:
 
 ```json
 { "body": "..." }

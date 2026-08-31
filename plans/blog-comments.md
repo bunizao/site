@@ -184,15 +184,19 @@ link-only.
 
 ### Sessions and ownership: edit and delete
 
-Ownership of a comment = the verified reader row matches, **or** the
-`reader_anon` cookie matches the comment's `session_id`. On owned comments the
-row grows quiet edit/delete affordances.
+Two grades of ownership. *Visibility* ownership (`mine`, seeing your own
+held rows) = the verified reader row matches, **or** the `reader_anon`
+cookie matches the comment's `session_id`. *Mutation* ownership requires the
+verified `reader_id` match alone — the anon cookie is a bearer key that a
+shared or public machine hands to its next user, so it reads, never writes.
+Rows a verified reader owns grow quiet edit/delete affordances, keyed off
+the wire fields `editableUntil`/`deletable`, never off `mine`.
 
-- **Edit**: within 15 minutes of posting (server-enforced). Edits re-run
-  moderation and the row shows an "edited" marker. After 15 minutes, edit is
-  delete-and-repost — a longer window plus replies underneath equals silently
-  rewriting a conversation.
-- **Delete**: any time you still hold the session. A deleted comment with
+- **Edit**: verified owner only, within 15 minutes of posting
+  (server-enforced). Edits re-run moderation and the row shows an "edited"
+  marker. After 15 minutes, edit is delete-and-repost — a longer window plus
+  replies underneath equals silently rewriting a conversation.
+- **Delete**: verified owner only, any time. A deleted comment with
   replies becomes a tombstone row ("此评论已删除") so the thread keeps its
   shape; without replies it disappears. Soft delete either way (status +
   `deleted_at`), consistent with mood.
@@ -507,8 +511,9 @@ vanilla controller (`src/features/comments/client/comments-controller.ts`).
 | `nudge` | posted with unverified email | Receipt gains verify line + optional subscribe checkbox; dismissable |
 | `error` | 4xx/5xx | Inline error under the box, draft preserved, retry |
 
-**Comment row**: `normal`, `own` (edit/delete affordances, 15-min edit
-window live-counted down), `editing` (inline textarea swap), `held` (writer
+**Comment row**: `normal`, `own` (highlight; edit/delete affordances only
+when `editableUntil`/`deletable` say so — anonymous own rows get neither,
+15-min edit window live-counted down), `editing` (inline textarea swap), `held` (writer
 view only), `tombstone`, `by-author` badge, `reply-open` (travelling reply
 box, exists), like `pressed/unpressed` with count.
 
@@ -561,7 +566,9 @@ Each phase ships alone; nothing in 1 waits on 2.
    `held`. (Replaced the v1/v2 general-model call.)
 9. **ops-bot notifies only**; actions live in the portal. (Carried.)
 10. **The heart is pink** via the `xia` token, reaction-only scope. (Carried.)
-11. **Edit window 15 minutes, delete any time**, tombstone when replied-to.
+11. **Edit and delete are verified-reader-only** (the anon session cookie
+    grants visibility, never mutation); edit window 15 minutes, delete any
+    time, tombstone when replied-to.
 12. **Avatar chain**: OAuth → QQ → Cravatar/Gravatar → generated identicon,
     always via our proxy; email hashes never in public HTML. (Carried, QQ
     added.)
