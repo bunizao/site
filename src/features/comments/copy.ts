@@ -59,9 +59,16 @@ export interface CommentsCopy {
 
   /** Verified reader: shown with their avatar under the box. */
   postingAs: (name: string) => string;
-  /** Remembered-but-unverified reader, with an escape hatch beside it. */
+  /** Remembered-but-unverified reader. Names the scope on purpose: the old
+      wording ("以 X 评论" / "Commenting as X") read as a claim about an
+      account, and this grade is only a record in one browser -- which is
+      exactly the thing sign-out undoes. */
   claimedAs: (name: string) => string;
-  switchIdentity: string;
+  /** The identity strip's one action, offered in both phases: forget me on
+      this browser. `signOutConfirm` is the same button after the first press,
+      asking rather than telling. */
+  signOut: string;
+  signOutConfirm: string;
 
   /* --- A comment row ----------------------------------------------------- */
   authorBadge: string;
@@ -183,8 +190,9 @@ const zh: CommentsCopy = {
   replyPostAria: '发表回复',
 
   postingAs: (name) => `以 ${name} 的身份发表`,
-  claimedAs: (name) => `以 ${name} 评论`,
-  switchIdentity: '换一个',
+  claimedAs: (name) => `这台设备记住了 ${name}`,
+  signOut: '退出',
+  signOutConfirm: '确定退出？',
 
   authorBadge: '作者',
   edited: '已编辑',
@@ -264,8 +272,9 @@ const en: CommentsCopy = {
   replyPostAria: 'Post reply',
 
   postingAs: (name) => `Posting as ${name}`,
-  claimedAs: (name) => `Commenting as ${name}`,
-  switchIdentity: 'Use another',
+  claimedAs: (name) => `Remembered here as ${name}`,
+  signOut: 'Sign out',
+  signOutConfirm: 'Sign out?',
 
   authorBadge: 'Author',
   edited: 'edited',

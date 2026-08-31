@@ -40,6 +40,18 @@ export function readReaderEmail(): ReaderEmail | null {
   }
 }
 
+/** Drop the address. Called when a reader signs out of the comment box: the
+    prefill is part of what this browser thinks it knows about them, and an
+    address that survives a sign-out refills the field on the very next comment
+    they meant to write as nobody. The subscribe panel simply asks again. */
+export function forgetReaderEmail(): void {
+  try {
+    window.localStorage.removeItem(KEY);
+  } catch {
+    // The same storage that refused the write. Nothing to undo.
+  }
+}
+
 export function rememberReaderEmail(email: string, source: ReaderEmailSource): void {
   const value = email.trim();
   if (!value) return;

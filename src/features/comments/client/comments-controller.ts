@@ -44,7 +44,8 @@ import {
   warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
 import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
-import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
+import { forgetReaderEmail, readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
+import { wireSignOut } from '@/features/comments/client/sign-out';
 import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
@@ -231,6 +232,7 @@ export function initCommentsController(): void {
   let moreButton: HTMLButtonElement | null = null;
 
   applyPhase(compose, phase, claimed, viewer);
+  wireSignOut(compose, () => void signOut());
   void mintDwellToken();
 
   // A Turnstile solve costs ~2.3s. Asked for at submit time it landed entirely
@@ -315,6 +317,7 @@ export function initCommentsController(): void {
 
     replyField = replyBox.querySelector<HTMLTextAreaElement>('.blog-compose__field')!;
     applyPhase(replyBox, phase, claimed, viewer);
+    wireSignOut(replyBox, () => void signOut());
     wireReplyBoxMechanics();
     // Both boxes exist by now, so one call covers them.
     prefillKnownEmail();
@@ -815,6 +818,7 @@ export function initCommentsController(): void {
         el('p', { class: 'blog-compose__signed' }, [
           el('span', { class: 'blog-compose__who' }),
           el('span', { class: 'blog-compose__claim' }),
+          el('button', { type: 'button', class: 'blog-compose__signout', 'data-compose-signout': '' }, [t.signOut]),
         ]),
         el('label', { class: 'sr-only', for: 'blog-reply-text' }, [t.replyBodyLabel]),
         el('textarea', { id: 'blog-reply-text', class: 'blog-compose__field blog-reply__field', rows: '2' }),
@@ -822,10 +826,6 @@ export function initCommentsController(): void {
           el('span', { class: 'blog-compose__count', 'data-compose-count': '', 'aria-hidden': 'true', hidden: '' }),
           el('button', { type: 'button', class: 'blog-compose__go', 'data-compose-submit': '', 'aria-label': t.replyPostAria, title: t.replyPost }, [parseStaticSvg(SEND_ICON_SVG)]),
         ]),
-      ]),
-      el('div', { class: 'blog-compose__foot' }, [
-        el('span', { class: 'blog-compose__who' }),
-        el('span', { class: 'blog-compose__claim' }),
       ]),
     ]);
     return box;
@@ -1389,19 +1389,43 @@ export function initCommentsController(): void {
       }
     }
 
+    // States, and no longer acts: the strip's one action is the sign-out
+    // button beside it, which is wired once per box and outlives this rebuild.
     if (claim) {
       claim.replaceChildren();
       if (currentPhase === 'claimed' && claimedIdentity) {
-        const switchBtn = el('button', { type: 'button', class: 'blog-compose__claim-switch', 'data-compose-switch': '' }, [t.switchIdentity]);
-        switchBtn.addEventListener('click', () => {
-          phase = 'anonymous';
-          applyPhase(compose, phase, claimed, viewer);
-          applyPhase(replyBox, phase, claimed, viewer);
-          box.querySelector<HTMLInputElement>('[data-compose-identity] input')?.focus();
-        });
-        claim.append(t.claimedAs(claimedIdentity.name), switchBtn);
+        claim.append(t.claimedAs(claimedIdentity.name));
       }
     }
+  }
+
+  /** Forget this reader on this browser, in both grades.
+
+      The `DELETE` is idempotent by contract (see docs/api/comments.md), so it
+      goes out for a claimed reader too rather than being guarded on `viewer`:
+      a session cookie can outlive the `/me` call that would have revealed it,
+      and a sign-out that leaves the cookie standing is the failure worth
+      avoiding. A refusal is swallowed for the same reason -- the local record
+      still goes, because leaving the name on screen after the reader asked
+      for it gone is worse than a stale cookie the next `/me` recovers from. */
+  async function signOut(): Promise<void> {
+    try {
+      await fetch('/api/v2/reader/me', { method: 'DELETE' });
+    } catch {
+      // Offline, or the request was blocked. Fall through to the local clear.
+    }
+    try {
+      window.localStorage.removeItem(CLAIMED_STORAGE_KEY);
+    } catch {
+      // The same storage that refused the write. Nothing to undo.
+    }
+    forgetReaderEmail();
+    claimed = null;
+    viewer = null;
+    phase = 'anonymous';
+    applyPhase(compose, phase, claimed, viewer);
+    applyPhase(replyBox, phase, claimed, viewer);
+    compose.querySelector<HTMLInputElement>('[data-compose-identity] input')?.focus();
   }
 
   function readClaimedIdentity(): ClaimedIdentity | null {

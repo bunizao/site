@@ -142,13 +142,15 @@ const showNudge = receipt === 'nudge';
       </span>
 
       <span class="blog-compose__claim">
-        {claimed && (
-          <>
-            {t.claimedAs(claimed.name)}
-            <button type="button" class="blog-compose__claim-switch" data-compose-switch>{t.switchIdentity}</button>
-          </>
-        )}
+        {claimed && t.claimedAs(claimed.name)}
       </span>
+
+      {/* Outside both spans, because it is the same offer in both phases and
+          the strip's only action. It replaced "换一个", which flipped the row
+          back to the fields without touching what was stored -- so the name
+          the reader had just dismissed came back on the next reload, and
+          there was no way at all to sign a verified session out. */}
+      <button type="button" class="blog-compose__signout" data-compose-signout>{t.signOut}</button>
     </p>
 
     <label class="sr-only" for="blog-compose-text">{t.bodyLabel}</label>
@@ -240,26 +242,33 @@ const showNudge = receipt === 'nudge';
 <script>
   // The press-Post-and-be-told behaviour is shared with the reply box — see
   // compose-validate.ts. Everything left here is specific to this box: the
-  // claimed footer's "换一个", and dismissing the subscribe nudge.
+  // lab page's sign-out, and dismissing the subscribe nudge.
   import { wireComposeValidation } from '@/features/comments/compose-validate';
   import { wireDrafts } from '@/features/comments/client/drafts';
+  import { wireSignOut } from '@/features/comments/client/sign-out';
 
   wireComposeValidation();
   // Both boxes on the page, this one and the reply box -- see drafts.ts for
   // why only one of them is written to storage.
   wireDrafts();
 
+  // Sign-out belongs to the thread controller wherever there is a thread: it
+  // is the only caller that can end the reader session and clear what was
+  // stored. This box also renders on the lab page, which has no `data-post-id`
+  // and so never hydrates (comments-controller.ts bails on exactly this test).
+  // There, the button does the one thing that means anything without a
+  // backend: put the fields back.
+  const hydrates = document.querySelector('.blog-comments[data-post-id]') !== null;
+
   document.querySelectorAll<HTMLElement>('.blog-compose').forEach((compose) => {
-    const switchBtn = compose.querySelector<HTMLButtonElement>('[data-compose-switch]');
     const nudge = compose.querySelector<HTMLElement>('[data-compose-nudge]');
 
-    // "换一个": drop the claimed identity and ask again, same as a
-    // first-time anonymous reader. Only the phase attribute needs to change —
-    // comments.css keys both the footer and the identity row on it.
-    switchBtn?.addEventListener('click', () => {
-      compose.dataset.phase = 'anonymous';
-      compose.querySelector<HTMLInputElement>('[data-compose-identity] input')?.focus();
-    });
+    if (!hydrates) {
+      wireSignOut(compose, () => {
+        compose.dataset.phase = 'anonymous';
+        compose.querySelector<HTMLInputElement>('[data-compose-identity] input')?.focus();
+      });
+    }
 
     nudge?.querySelector('[data-compose-dismiss]')?.addEventListener('click', () => {
       nudge.hidden = true;

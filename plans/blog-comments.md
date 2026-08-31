@@ -156,7 +156,12 @@ open relay, and it is not negotiable.
 5. The response sets the `reader_anon` cookie. Name and email mirror into
    `localStorage` (`buxx:reader`), so the identity row never has to be typed
    twice on this browser; on later visits the box's top row states the claimed
-   identity ("以 {name} 评论 · 换一个") in place of the input row.
+   identity ("这台设备记住了 {name}") in place of the input row, with 退出
+   at the far end. That button is the only way out of either identity grade:
+   it ends the reader session (`DELETE /v2/reader/me`, idempotent so it is
+   safe for a claimed reader who never had one), drops `buxx:reader` and
+   `buxx:email`, and asks a second time before it does — the arm-then-confirm
+   pattern Cancel uses on a dirty edit, not a `window.confirm()`.
 6. If a supplied email is not yet a verified reader, the receipt area under the box
    shows one non-blocking line: verification nudge and, when applicable, the
    subscribe offer (see below). Dismissable; never modal; never gates anything.
@@ -601,8 +606,8 @@ vanilla controller (`src/features/comments/client/comments-controller.ts`).
 | --- | --- | --- |
 | `idle` | default | Field + "Markdown supported." + Post — and since `comment-markdown.ts`, that line is true |
 | `identity` | Post pressed, no stored identity | Name + email row unfolds; hint swaps to what the email is for |
-| `claimed` | localStorage has name+email | Box's top row states "以 {name} 评论 · 换一个" in the input row's own slot |
-| `ready` | verified session (`/v2/reader/me`) | Same slot: "Posting as {name}" with avatar |
+| `claimed` | localStorage has name+email | Box's top row states "这台设备记住了 {name}" in the input row's own slot, 退出 at the far end |
+| `ready` | verified session (`/v2/reader/me`) | Same slot: "Posting as {name}" with avatar, and the same 退出 |
 | `submitting` | in flight | Field readonly; the send arrow leaves and a ring spins in its place. **Lab-only** — a live thread posts optimistically and never enters this state |
 | `posted` | Post pressed | Set synchronously, not on the response. Field clears and stays writable; the row is already in the thread. **No receipt line** — the row is the receipt |
 | `held` | 201 held | Same, and the row carries the pending mark until the verdict polls settle it. The stand-in row wears the same mark from the press onward, which is what the mark was already for |
