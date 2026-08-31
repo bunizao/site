@@ -327,8 +327,9 @@ cost zero tokens.
 4. **Dwell time**: the form embeds a signed server timestamp at first
    interaction; submits younger than ~3s → drop. Bots type fast.
 5. **Heuristics** (pure functions, KV-configurable):
-   - link count > 3 → hold (verified readers: > 6); any link on a
-     first-time session → hold (skipped for verified readers)
+   - link count > 3 → hold (verified readers: > 6). No first-session-link
+     hold — owner decision: a first comment carrying a link is normal
+     reader behavior, Akismet judges it like anything else
    - keyword blocklist (KV, portal-editable)
    - disposable-email domain list (vendored from the public
      disposable-email-domains dataset; skipped for verified readers — they

@@ -123,14 +123,14 @@ Every submission runs the full risk stack, in order:
    check is per-post over 24 hours and only applies to bodies of 20+
    characters, so two readers independently posting the same short praise
    are both heard; only copy-pasted paragraphs trip it.
-3. **Heuristics** (disposable email domain, keyword blocklist, link count,
-   first link from a first-time session) — a hit **holds** the comment (it
-   is created, but only its writer can see it) rather than dropping it.
-   A verified (L1/L2) writer skips the two holds that exist to price out
-   throwaway identities — the disposable-domain check and the
-   first-session-link hold — and gets a higher link ceiling (6 instead
-   of 3). The duplicate-body tripwire and the keyword blocklist apply to
-   everyone.
+3. **Heuristics** (disposable email domain, keyword blocklist, link count) —
+   a hit **holds** the comment (it is created, but only its writer can see
+   it) rather than dropping it. A first comment carrying a link is fine —
+   there is deliberately no first-session-link hold; Akismet judges it like
+   anything else. A verified (L1/L2) writer skips the disposable-domain
+   check — verification already priced out the throwaway identity — and
+   gets a higher link ceiling (6 instead of 3). The duplicate-body tripwire
+   and the keyword blocklist apply to everyone.
 4. **Rate limits**, durably enforced across three dimensions (anonymous
    session, IP, server-derived fingerprint) and two windows each: 5/minute
    and 20/hour for anonymous writers; 10/minute and 60/hour for verified
