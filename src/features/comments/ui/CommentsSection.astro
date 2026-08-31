@@ -311,6 +311,12 @@ const t = commentsCopy[locale];
                     {/* Turns into its own confirmation on the first press when
                         the field has been touched -- see the script below. */}
                     <button type="button" class="blog-comment__act" data-comment-edit-cancel>{t.cancel}</button>
+                    {/* The same counter the compose box carries, on the other
+                        surface a body can be written on. It reads `1842/2000`
+                        rather than "还剩 158 字" partly to stay out of the way
+                        and partly because the countdown standing beside it
+                        already says "还剩" about a clock. */}
+                    <span class="blog-compose__count" data-comment-count aria-hidden="true" hidden></span>
                     <span class="blog-comment__act-time blog-comment__act-time--left" data-edit-countdown hidden></span>
                   </span>
                 )}
@@ -380,6 +386,7 @@ const t = commentsCopy[locale];
             class="blog-compose__field blog-reply__field"
             rows="2"></textarea>
           <div class="blog-compose__bar">
+            <span class="blog-compose__count" data-compose-count aria-hidden="true" hidden></span>
             <button type="button" class="blog-compose__go" data-compose-submit aria-label={t.replyPostAria} title={t.replyPost}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 19V5M5 12l7-7 7 7"></path>
@@ -414,7 +421,7 @@ const t = commentsCopy[locale];
   // Wires the reply box's own submit button — see compose-validate.ts.
   // Idempotent and namespaced by a data attribute, so it does not matter that
   // the compose box's script calls the same function against the same document.
-  import { wireComposeValidation } from '@/features/comments/compose-validate';
+  import { wireBodyCounter, wireComposeValidation } from '@/features/comments/compose-validate';
   import { copyFor } from '@/features/comments/copy';
   import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
 
@@ -509,6 +516,8 @@ const t = commentsCopy[locale];
     const text = row.querySelector<HTMLElement>('[data-comment-text]');
     const field = row.querySelector<HTMLTextAreaElement>('[data-comment-edit-field]');
     if (!openBtn || !text || !field) return;
+
+    wireBodyCounter(field, row.querySelector<HTMLElement>('[data-comment-count]'));
 
     // Both slots are written: the one inside the Edit button and the one
     // beside Post. Only ever one is on screen, and writing both means the

@@ -663,6 +663,12 @@
 .blog-compose__bar {
   display: flex;
   align-items: center;
+  /* Everything in the bar belongs to the right end except the hint, which
+     pushes off it. Stated this way rather than as an auto margin on the send
+     button, because the bar holds a third thing now (the character count) and
+     two competing auto margins would have split the gap between them and left
+     the number floating in the middle of the row. */
+  justify-content: flex-end;
   gap: 10px;
   min-height: 30px;
   padding: 8px 12px 12px 14px;
@@ -674,6 +680,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  margin-right: auto;
   font-size: var(--comment-meta);
   line-height: 1;
   color: var(--blog-faint);
@@ -682,6 +689,30 @@
 .blog-compose__hint svg {
   width: 15px;
   height: 15px;
+}
+
+/* The character count, in the compose bar beside the send button and in the
+   editing strip beside Save. Absent until the reader is within 200 of the cap
+   (compose-validate.ts) -- a permanent meter under a box whose ordinary
+   comment is two lines long is a demand for attention nothing has earned.
+
+   Tabular figures because the number changes under the reader's eye and a
+   proportional `1` would make the whole bar twitch on every keystroke.
+
+   The over-cap state is the only red in the bar: the number turns, and Post
+   answers with the same sentence site-api would have sent. It is a warning,
+   not a wall -- the field keeps taking text, so a reader who is 40 characters
+   long can see how far over they are and cut exactly that much. */
+.blog-compose__count {
+  font-size: var(--comment-meta);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--blog-faint);
+  transition: color 0.2s ease;
+}
+
+.blog-compose__count[data-over] {
+  color: var(--blog-danger);
 }
 
 /* Whose name is going on the comment, in the identity row's own slot at the
@@ -789,8 +820,6 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  /* Whether or not the hint is there, the button is the bar's right edge. */
-  margin-left: auto;
   width: 30px;
   height: 30px;
   padding: 0;
@@ -1500,6 +1529,12 @@
    it needs the gap the paragraph's own leading used to provide. */
 .blog-comment__acts--editing {
   padding-top: 6px;
+}
+
+/* The count stands among buttons here rather than in a padded bar, so it takes
+   the same 6px the countdown beside it takes to clear the last one. */
+.blog-comment__acts--editing .blog-compose__count {
+  padding-left: 6px;
 }
 
 .blog-comment__act {

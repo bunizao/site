@@ -113,7 +113,18 @@ export interface CommentsCopy {
      validation complaints use (compose-validate.ts) rather than a second one
      below the box. */
   /** Keyed by what the reader can do next -- see comment-error.ts for how a
-      status and a server slug pick one. Rendered beside its code. */
+      status and a server slug pick one. Rendered beside its code.
+
+      Register: say what happened, say the next move, and put the
+      reassurance in a clause of its own where there is one to give. The
+      earlier set was correct and clipped -- "网络断了，草稿还在。连上再试一
+      次。" is three imperatives in eleven characters, which reads like a
+      terminal, not like the rest of this page. Softer is not vaguer: every
+      line still names the same next move it named before.
+
+      `LONG` is also the client-side complaint when the box is over the cap
+      (compose-validate.ts), so the reader meets the same sentence whether the
+      browser or the server counted. One cap, one wording. */
   submitError: Record<CommentErrorCode, string>;
   /** Names the address, so a typo is catchable at the one moment it still
       matters -- a reader who mistyped their own email otherwise finds out by
@@ -190,29 +201,29 @@ const zh: CommentsCopy = {
   reactDone: '已喜欢',
 
   submitError: {
-    NET: '网络断了，草稿还在。连上再试一次。',
-    RATE: '发得有点快，歇一分钟再来。草稿还在。',
-    BOT: '人机验证过期了，刷新页面再试一次。',
-    GONE: '这篇的评论区暂时用不了。',
-    THREAD: '要回复的那条评论不在了，刷新一下看看。',
-    CLOSED: '这条已经不能改了。',
-    NAME: '这个名字不能用，换一个再试试。',
-    EMAIL: '这个邮箱地址用不了，换一个再试试。',
-    LONG: '评论最多 2000 字，这条超了。删掉一些再发。',
-    STALE: '这个页面放太久了，刷新一下再发一次。草稿还在。',
-    INPUT: '这条没能发出去，刷新页面再试一次。草稿还在。',
-    SERVER: '服务器出了点问题，草稿还在。等会儿再试。',
+    NET: '好像断网了，等网络回来再发一次吧。草稿都还在。',
+    RATE: '发得有点太快啦，歇一分钟再来。草稿还在。',
+    BOT: '人机验证过期了，刷新一下页面就好。',
+    GONE: '这篇文章的评论区暂时用不了。',
+    THREAD: '要回复的那条评论已经不在了，刷新一下看看？',
+    CLOSED: '过了可以修改的时间，这条改不了啦。',
+    NAME: '这个名字用不了，换一个试试？',
+    EMAIL: '这个邮箱地址用不了，换一个试试？',
+    LONG: '字数有点超啦（上限 2000 字），精简一下再发吧。',
+    STALE: '页面停留太久失效了，刷新一下再发吧。别担心，草稿已保存。',
+    INPUT: '这条没能发出去，刷新页面再试一次吧。草稿已经保存了。',
+    SERVER: '服务器打了个盹，等会儿再试试。草稿已保存，别担心。',
   },
   nudgeText: (email) => (email
-    ? `去 ${email} 收确认信，之后就能管理评论、接收回复提醒。`
+    ? `确认信已经发到 ${email} 了，点一下就能管理评论、接收回复提醒。`
     : '确认邮箱后，就能管理评论、接收回复提醒。'),
   nudgeSubscribe: '订阅新文章',
   dismiss: '关闭',
 
-  needBody: '评论一定要有文字。',
+  needBody: '还空着呢，写点什么再发吧。',
   needName: '参与讨论的人，值得一个好名字。',
-  needEmail: '需要邮箱来显示头像、接收回复通知。',
-  badEmail: '这个邮箱看起来不太对。',
+  needEmail: '留个邮箱吧，用来显示头像、接收回复提醒。',
+  badEmail: '这个邮箱看起来不太对，检查一下？',
 };
 
 const en: CommentsCopy = {
@@ -270,29 +281,29 @@ const en: CommentsCopy = {
   reactDone: 'Liked',
 
   submitError: {
-    NET: "You're offline — your draft is safe. Try again once you're back.",
-    RATE: "That's a lot at once. Wait a minute — your draft is safe.",
-    BOT: 'The bot check expired. Refresh the page and try again.',
+    NET: "Looks like you're offline. Post again once you're back — your draft's safe.",
+    RATE: "Whoa, that's a lot at once. Give it a minute — your draft's safe.",
+    BOT: 'The bot check timed out. Refresh the page and it should be fine.',
     GONE: "Comments on this post aren't available right now.",
-    THREAD: "The comment you're replying to is gone. Refresh to see the thread.",
-    CLOSED: "That can't be changed any more.",
-    NAME: "That name can't be used here. Try another one.",
-    EMAIL: "That email address won't work. Try another one.",
-    LONG: 'Comments cap at 2000 characters and this one is over. Trim it and post again.',
-    STALE: "This page has been open a while. Refresh and post again — your draft is safe.",
-    INPUT: "That didn't go through — your draft is safe. Refresh the page and try again.",
-    SERVER: 'Something broke on our end — your draft is safe. Try again shortly.',
+    THREAD: "The comment you're replying to is gone. Refresh to see the thread?",
+    CLOSED: "The edit window has closed — this one can't be changed now.",
+    NAME: "That name won't work here. Try another?",
+    EMAIL: "That email address won't work. Try another?",
+    LONG: "That's a bit long (2000 characters max). Trim it and post again.",
+    STALE: 'This page sat open long enough to go stale. Refresh and post again — your draft is saved.',
+    INPUT: "That didn't go through. Refresh the page and try again — your draft is saved.",
+    SERVER: 'Something dozed off on our end. Try again shortly — your draft is saved.',
   },
   nudgeText: (email) => (email
-    ? `Check ${email} to confirm — then you can manage your comments and get reply notices.`
+    ? `A confirmation is on its way to ${email} — one click and you can manage your comments and get reply notices.`
     : 'Confirm your email to manage your comments and get reply notices.'),
   nudgeSubscribe: 'Subscribe to new posts',
   dismiss: 'Dismiss',
 
-  needBody: 'A comment needs words.',
+  needBody: 'Nothing there yet — write something first.',
   needName: 'Everyone in a conversation deserves a name.',
-  needEmail: 'An email is needed for your avatar and reply notices.',
-  badEmail: "That email doesn't look right.",
+  needEmail: "Leave an email — it's what powers your avatar and reply notices.",
+  badEmail: "That email doesn't look right. Mind checking it?",
 };
 
 export const commentsCopy = { zh, en } satisfies Record<BlogLocale, CommentsCopy>;

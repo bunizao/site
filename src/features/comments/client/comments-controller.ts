@@ -22,7 +22,12 @@ import type {
   ReaderMe,
   ReaderMeResult,
 } from '@bunizao/contracts/comments';
-import { sayComposeAlert, validateCompose } from '@/features/comments/compose-validate';
+import {
+  MAX_BODY_LENGTH,
+  sayComposeAlert,
+  validateCompose,
+  wireBodyCounter,
+} from '@/features/comments/compose-validate';
 import {
   describeCommentFailure,
   failureTag,
@@ -752,6 +757,7 @@ export function initCommentsController(): void {
         el('label', { class: 'sr-only', for: 'blog-reply-text' }, [t.replyBodyLabel]),
         el('textarea', { id: 'blog-reply-text', class: 'blog-compose__field blog-reply__field', rows: '2' }),
         el('div', { class: 'blog-compose__bar' }, [
+          el('span', { class: 'blog-compose__count', 'data-compose-count': '', 'aria-hidden': 'true', hidden: '' }),
           el('button', { type: 'button', class: 'blog-compose__go', 'data-compose-submit': '', 'aria-label': t.replyPostAria, title: t.replyPost }, [parseStaticSvg(SEND_ICON_SVG)]),
         ]),
       ]),
@@ -777,6 +783,12 @@ export function initCommentsController(): void {
   }
 
   function wireReplyBoxMechanics(): void {
+    // This box is built here rather than rendered by CommentsSection.astro,
+    // so `wireComposeValidation` never sees it -- its Post is checked by
+    // handleSubmit calling validateCompose directly. The counter has no such
+    // second path, and needs saying out loud.
+    wireBodyCounter(replyField, replyBox.querySelector<HTMLElement>('[data-compose-count]'));
+
     replyBox.addEventListener('keydown', (event) => {
       if ((event as KeyboardEvent).key === 'Escape') closeReplyBox();
     });
@@ -882,6 +894,7 @@ export function initCommentsController(): void {
           el('span', { class: 'blog-comment__acts blog-comment__acts--editing', 'data-comment-edit-actions': '', hidden: '' }, [
             el('button', { type: 'button', class: 'blog-comment__act blog-comment__act--go', 'data-comment-edit-save': '' }, [t.save]),
             el('button', { type: 'button', class: 'blog-comment__act', 'data-comment-edit-cancel': '' }, [t.cancel]),
+            el('span', { class: 'blog-compose__count', 'data-comment-count': '', 'aria-hidden': 'true', hidden: '' }),
             el('span', { class: 'blog-comment__act-time blog-comment__act-time--left', 'data-edit-countdown': '', hidden: '' }),
           ]),
         );
@@ -1007,6 +1020,7 @@ export function initCommentsController(): void {
     const editActs = article.querySelector<HTMLElement>('[data-comment-edit-actions]');
     const text = article.querySelector<HTMLElement>('[data-comment-text]');
     const field = article.querySelector<HTMLTextAreaElement>('[data-comment-edit-field]');
+    const count = article.querySelector<HTMLElement>('[data-comment-count]');
 
     // The window stops while the field is open -- see the same wiring in
     // CommentsSection.astro, and the note there about the server's own clock.
@@ -1042,8 +1056,14 @@ export function initCommentsController(): void {
 
     if (openBtn && text && field) {
       openBtn.addEventListener('click', () => setEditing(true));
-      // Typing again withdraws the question.
-      field.addEventListener('input', () => armCancel(false));
+      wireBodyCounter(field, count);
+      field.addEventListener('input', () => {
+        // Typing again withdraws the question.
+        armCancel(false);
+        // ...and withdraws whatever the last press was told, which may well
+        // be the thing they are now fixing.
+        article.querySelector('.blog-comment__edit-error')?.remove();
+      });
       cancelBtn?.addEventListener('click', () => {
         // Against the source, not the rendering: the paragraph holds a parsed
         // tree now (comment-markdown.ts), so `**bold**` reads back out of
@@ -1058,7 +1078,15 @@ export function initCommentsController(): void {
         field.value = readCommentText(text);
         setEditing(false);
       });
-      saveBtn?.addEventListener('click', () => void saveEdit(comment.id, article, text, field, setEditing));
+      saveBtn?.addEventListener('click', () => {
+        // Refused here rather than three seconds later by site-api, with the
+        // sentence site-api would have sent (compose-validate.ts).
+        if (field.value.trim().length > MAX_BODY_LENGTH) {
+          sayEditAlert(field, t.submitError.LONG);
+          return;
+        }
+        void saveEdit(comment.id, article, text, field, setEditing);
+      });
     }
 
     deleteBtn?.addEventListener('click', () => void deleteComment(comment.id, article, parentId));
@@ -1123,11 +1151,7 @@ export function initCommentsController(): void {
         readErrorSlug(await response.json().catch(() => null)),
         t.submitError,
       );
-      field.after(el('p', { class: 'blog-comment__edit-error blog-compose__alert', role: 'alert' }, [
-        parseStaticSvg(ALERT_ICON_SVG),
-        el('span', {}, [failure.message]),
-        el('code', { class: 'blog-compose__code' }, [failureTag(failure)]),
-      ]));
+      sayEditAlert(field, failure.message, failureTag(failure));
       return;
     }
 
@@ -1143,6 +1167,20 @@ export function initCommentsController(): void {
     // The reverse case is milder but just as wrong -- an edit that cleared a
     // hold kept claiming nobody else could see it.
     applyHeldState(article, data.comment.status !== 'published');
+  }
+
+  /** The row's own copy of the compose alert -- the same filled, red, glyphed
+      object, in the one place a comment body can be written outside a compose
+      box. `tag` is the server's reference code where there is one; a refusal
+      the browser made by itself has no response to report, so it prints
+      without a badge rather than inventing a status. */
+  function sayEditAlert(field: HTMLTextAreaElement, message: string, tag = ''): void {
+    field.parentElement?.querySelector('.blog-comment__edit-error')?.remove();
+    field.after(el('p', { class: 'blog-comment__edit-error blog-compose__alert', role: 'alert' }, [
+      parseStaticSvg(ALERT_ICON_SVG),
+      el('span', {}, [message]),
+      ...(tag ? [el('code', { class: 'blog-compose__code' }, [tag])] : []),
+    ]));
   }
 
   async function deleteComment(commentId: string, article: HTMLElement, parentId: string | null): Promise<void> {

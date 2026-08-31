@@ -20,6 +20,53 @@ import type { CommentsCopy } from '@/features/comments/copy';
 
 type ComposeField = HTMLInputElement | HTMLTextAreaElement;
 
+/** The cap site-api enforces (`comments-data.ts`), mirrored here so the box
+    can say no before the network does. Deliberately not a `maxlength` on the
+    textarea: a hard attribute silently swallows the tail of a paste, and a
+    reader who pasted 2400 characters would find 2000 of them with no idea
+    which 400 went missing. Counting and refusing says the same thing out
+    loud. */
+export const MAX_BODY_LENGTH = 2000;
+
+/** Where the counter starts existing. A number that sits under the box from
+    the first keystroke is a meter nobody asked for on a form whose ordinary
+    comment is two lines long; a number that appears at 90% is a warning. */
+const COUNT_FROM = 1800;
+
+/** Both surfaces count what the server counts -- `isBodyLengthValid` measures
+    the trimmed body -- so the reader is never refused by a number the box had
+    told them was fine. */
+function bodyLength(field: ComposeField): number {
+  return field.value.trim().length;
+}
+
+/** Draw the count into `slot`, or take it away. Silent above nothing and
+    below `COUNT_FROM`.
+
+    `aria-hidden`: this is a glance affordance, and a live region that
+    re-announces a four-digit number on every keystroke is worse than no
+    announcement at all. The accessible path is the refusal -- over the cap,
+    Post writes into the alert, which is `role="alert"` and says the same
+    sentence the server would have. */
+export function sayBodyCount(slot: HTMLElement | null, length: number): void {
+  if (!slot) return;
+  const show = length >= COUNT_FROM;
+  slot.hidden = !show;
+  if (!show) return;
+  slot.textContent = `${length}/${MAX_BODY_LENGTH}`;
+  slot.toggleAttribute('data-over', length > MAX_BODY_LENGTH);
+}
+
+/** Keep `slot` in step with `field`. Used by the compose box and the reply box
+    (below) and by the row's inline edit field (comments-controller.ts), which
+    is the same rule on a surface that is not a `.blog-compose`. */
+export function wireBodyCounter(field: ComposeField, slot: HTMLElement | null): void {
+  if (!slot) return;
+  const update = () => sayBodyCount(slot, bodyLength(field));
+  field.addEventListener('input', update);
+  update();
+}
+
 /** Every field a submission needs, in the order a reader reads them. Claimed
     and ready readers have an identity on file, so only the body is theirs to
     fill — `data-phase` on the wrapper is the single source for that. */
@@ -36,6 +83,13 @@ function messageFor(field: ComposeField, t: CommentsCopy): string | null {
   if (!value) {
     if (field instanceof HTMLTextAreaElement) return t.needBody;
     return field.type === 'email' ? t.needEmail : t.needName;
+  }
+  // The same sentence the server sends back for the same reason (see
+  // comment-error.ts -> LONG). Reusing the string rather than writing a
+  // second one keeps the browser and site-api from disagreeing about the cap
+  // in front of the reader.
+  if (field instanceof HTMLTextAreaElement && value.length > MAX_BODY_LENGTH) {
+    return t.submitError.LONG;
   }
   if (field instanceof HTMLInputElement && field.type === 'email' && !field.checkValidity()) {
     return t.badEmail;
@@ -111,6 +165,9 @@ export function wireComposeValidation(root: ParentNode = document): void {
     submit.addEventListener('click', () => {
       validateCompose(compose);
     });
+
+    const body = compose.querySelector<HTMLTextAreaElement>('.blog-compose__field');
+    if (body) wireBodyCounter(body, compose.querySelector<HTMLElement>('[data-compose-count]'));
 
     // Cleared on input rather than on blur: the complaint is about this field,
     // and it should go the moment the reader acts on it.

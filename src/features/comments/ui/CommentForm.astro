@@ -176,6 +176,10 @@ const showNudge = receipt === 'nudge';
         </svg>
         {t.hint}
       </span>
+      {/* Nothing until the reader is within 200 characters of the cap -- see
+          compose-validate.ts, which owns both the threshold and the refusal
+          that follows it. */}
+      <span class="blog-compose__count" data-compose-count aria-hidden="true" hidden></span>
       <button
         type="button"
         class="blog-compose__go"
