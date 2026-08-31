@@ -1099,7 +1099,22 @@
   overflow-wrap: anywhere;
 }
 
-/* Held for moderation: visible to its author only, and it has to say why. */
+/* Held for moderation: visible to its author only, and it has to say why.
+   Set apart with a quiet accent border and a touch of dimming -- pending,
+   never alarming, so this deliberately borrows the zone's own "in progress"
+   ink (--blog-accent, already worn by focus rings and the active tag) rather
+   than --blog-danger. The row otherwise keeps its shape: no icon, no fill,
+   and it already drops its like/reply footer above, which is signal enough
+   that this one is not open for engagement yet. */
+.blog-comment--held {
+  padding-left: 12px;
+  border-left: 2px solid color-mix(in oklab, var(--blog-accent) 45%, transparent);
+}
+
+.blog-comment--held .blog-comment__author {
+  color: var(--blog-muted);
+}
+
 .blog-comment--held .blog-comment__text {
   color: var(--blog-faint);
 }
@@ -1109,6 +1124,41 @@
   font-size: var(--comment-note);
   line-height: 1.55;
   color: var(--blog-faint);
+}
+
+/* --- New row entrance -----------------------------------------------------
+   A comment or reply that just landed: a brief slide-fade in, plus a
+   highlight on the body that decays over ~1.5s -- see insertNewRow() in
+   client/comments-controller.ts, which adds `.blog-comment--new` on insert
+   and removes it once the highlight animation ends. The entrance is real
+   motion and skipped under prefers-reduced-motion; the highlight is only a
+   colour fade, not motion, so it plays either way -- a fresh row still gets
+   *some* acknowledgement, just never a jarring one. */
+@media (prefers-reduced-motion: no-preference) {
+  .blog-comment--new {
+    animation: blog-comment-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@keyframes blog-comment-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.blog-comment--new .blog-comment__body {
+  border-radius: var(--blog-r-inner);
+  animation: blog-comment-highlight 1.5s ease-out;
+}
+
+@keyframes blog-comment-highlight {
+  from {
+    background: color-mix(in oklab, var(--blog-accent) 12%, transparent);
+  }
+  to {
+    background: transparent;
+  }
 }
 
 /* A `mine` row with neither `editableUntil` nor `deletable` -- posted without

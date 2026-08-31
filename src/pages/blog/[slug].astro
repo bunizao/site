@@ -244,7 +244,13 @@ const translated = isTranslation(post);
           client/comments-controller.ts, which fetches the thread and owns
           every submit, edit, delete, and like. */}
       <Colophon credits={authorshipCredits} locale={postLocale}>
-        <ReactionBar client:idle count={0} locale={postLocale} postId={post.id} siteKey={turnstileSiteKey} />
+        {/* The reaction bar's own copy (like/unlike labels) has to agree with
+            CommentsSection right below it, so both read from the site's own
+            blog UI locale (blog.locale.blog) rather than this post's content
+            locale -- a translated post's English edition still runs a
+            Chinese-language reader interface, and the two widgets used to
+            disagree about which one that was. */}
+        <ReactionBar client:idle count={0} locale={blog.locale.blog} postId={post.id} siteKey={turnstileSiteKey} />
         <div class="blog-article-sub">
           <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
           <ShareRow title={post.title} />

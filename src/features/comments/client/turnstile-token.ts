@@ -1,6 +1,9 @@
-// Turnstile -- invisible-mode widget lifecycle, one per expectedAction.
-// Structurally the same load/render/reset shape as subscribe-panel.ts's
-// visible widget; this surface just never shows a challenge box for it.
+// Turnstile -- one non-intrusive widget per expectedAction. Structurally the
+// same load/render/reset shape as subscribe-panel.ts's visible widget, but
+// rendered with `appearance: 'interaction-only'`: the widget stays invisible
+// unless Turnstile actually needs the reader to interact with it, rather than
+// the invalid `size: 'invisible'` this used to pass (Turnstile only accepts
+// compact/flexible/normal -- the bad value threw on every render).
 //
 // Extracted from comments-controller.ts so the post-level ReactionBar
 // island can mint its own 'blog_reaction' tokens through the same widgets.
@@ -68,7 +71,7 @@ export async function getTurnstileToken(siteKey: string, action: TurnstileAction
       captured.widgetId = turnstile.render(captured.container, {
         sitekey: siteKey,
         action,
-        size: 'invisible',
+        appearance: 'interaction-only',
         callback: settle,
         'error-callback': () => settle(''),
         'expired-callback': () => settle(''),

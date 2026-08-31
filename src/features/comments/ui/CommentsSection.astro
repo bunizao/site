@@ -350,11 +350,13 @@ const t = commentsCopy[locale];
           <span data-compose-error-text></span>
         </p>
 
-        {/* No footer: the "Replying to X" line said what the field's own
-            placeholder already says, and Cancel duplicated the Reply button
-            sitting one line above — which closes this, holds a pressed state
-            while it is open, and is where the reader's hand already is.
-            Escape closes it too. */}
+        {/* No "Replying to X" line and no Cancel: the field's own placeholder
+            already says who this answers, and the Reply button sitting one
+            line above both opened this box and closes it. Escape closes it
+            too. The footer below is a different thing -- who THIS box will
+            post as, same as the compose box at the top (CommentForm.astro),
+            so a claimed or ready reader sees their own name here too instead
+            of an identity row that quietly went nowhere. */}
         <div class="blog-compose__box">
           <IdentityRow id="blog-reply-id" />
 
@@ -370,6 +372,33 @@ const t = commentsCopy[locale];
               </svg>
             </button>
           </div>
+        </div>
+
+        <div class="blog-compose__foot">
+          <span class="blog-compose__who">
+            {viewer && (
+              <>
+                {viewer.avatar ? (
+                  <img class="blog-compose__whoface" src={viewer.avatar} alt="" width="20" height="20" />
+                ) : (
+                  <span
+                    class="blog-compose__whoface blog-avatar-seed blog-avatar-initials"
+                    style={`--seed-hue:${seedHue(viewer.name)}`}
+                    aria-hidden="true">{initials(viewer.name)}</span>
+                )}
+                {t.postingAs(viewer.name)}
+              </>
+            )}
+          </span>
+
+          <span class="blog-compose__claim">
+            {claimed && (
+              <>
+                {t.claimedAs(claimed.name)}
+                <button type="button" class="blog-compose__claim-switch" data-compose-switch>{t.switchIdentity}</button>
+              </>
+            )}
+          </span>
         </div>
       </div>
 

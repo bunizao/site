@@ -7,9 +7,9 @@
 // /blog/[slug] is fully prerendered, so `<CommentsSection>` always ships
 // with `state="loading"` and no comments: nothing below `.blog-compose`
 // exists in the static HTML until this module builds it. Turnstile's widget
-// lifecycle is adapted from subscribe-panel.ts (load/render/reset), run in
-// invisible mode since nothing on this surface renders a visible challenge
-// box.
+// lifecycle is adapted from subscribe-panel.ts (load/render/reset), rendered
+// with `appearance: 'interaction-only'` so nothing on this surface shows a
+// challenge box unless Turnstile actually needs one.
 
 import type {
   Comment,
@@ -198,6 +198,7 @@ export function initCommentsController(): void {
   let phase: ReaderPhase = claimed ? 'claimed' : 'anonymous';
   let viewer: ReaderMe | null = null;
   let dwellToken = '';
+  let dwellTokenMintedAt = 0;
   let nextBefore: string | null = null;
   let total = 0;
   let list: HTMLElement;
@@ -500,15 +501,32 @@ export function initCommentsController(): void {
   function insertNewRow(article: HTMLElement, parentId: string | null): void {
     if (!parentId) {
       list.prepend(article);
-      return;
+    } else {
+      const parentRow = list.querySelector(`#comment-${cssEscape(parentId)}`);
+      let anchor: Element | null = parentRow;
+      while (anchor?.nextElementSibling && (anchor.nextElementSibling as HTMLElement).dataset.parentId === parentId) {
+        anchor = anchor.nextElementSibling;
+      }
+      if (anchor) anchor.after(article);
+      else list.prepend(article);
     }
-    const parentRow = list.querySelector(`#comment-${cssEscape(parentId)}`);
-    let anchor: Element | null = parentRow;
-    while (anchor?.nextElementSibling && (anchor.nextElementSibling as HTMLElement).dataset.parentId === parentId) {
-      anchor = anchor.nextElementSibling;
-    }
-    if (anchor) anchor.after(article);
-    else list.prepend(article);
+    announceNewRow(article);
+  }
+
+  // A bare prepend/insert used to land the row with no acknowledgement at
+  // all -- silent, and possibly off-screen for a reply going into a long
+  // thread. `block: 'nearest'` only moves the page if the row isn't already
+  // visible. The entrance itself is skipped under prefers-reduced-motion;
+  // the highlight is just a colour fade, not motion, so it still plays --
+  // the row still needs *some* acknowledgement it landed. Cleaned up via
+  // `animationend` rather than a matching timeout, so the class never
+  // outlives the animation it names.
+  function announceNewRow(article: HTMLElement): void {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    article.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+    article.classList.add('blog-comment--new');
+    const body = article.querySelector<HTMLElement>('.blog-comment__body');
+    body?.addEventListener('animationend', () => article.classList.remove('blog-comment--new'), { once: true });
   }
 
   function readIdentity(box: HTMLElement): { displayName: string; email: string } | null {
@@ -569,10 +587,17 @@ export function initCommentsController(): void {
 
   // --- Reply box --------------------------------------------------------
 
-  // Mirrors the reply box in CommentsSection.astro: alert, identity, and one
-  // surface holding the field and its send button. No footer -- "Replying to
-  // X" repeated the placeholder, and Cancel repeated the Reply button one line
-  // above, which closes this and holds a pressed state while it is open.
+  // Mirrors the reply box in CommentsSection.astro: alert, identity, one
+  // surface holding the field and its send button, and an identity footer.
+  // No "Replying to X" line and no Cancel -- the placeholder already says
+  // who this answers, and the Reply button one line above both opened this
+  // and closes it. The identity footer is a different thing: it says who
+  // THIS box will post as, same as the compose box at the top, and it was
+  // missing here entirely -- a claimed or ready reader opening a reply box
+  // used to see nothing where "以 X 评论" / "Posting as X" should have been,
+  // because `.blog-compose__who`/`.blog-compose__claim` only existed in
+  // CommentForm.astro. `applyPhase()` already looks for those two elements on
+  // whichever box it is given, so building them here is the whole fix.
   function buildReplyBox(): HTMLElement {
     const box = el('div', { class: 'blog-compose blog-reply', id: 'blog-reply', 'data-phase': phase, hidden: '' }, [
       el('p', { class: 'blog-compose__alert', 'data-compose-error': '', role: 'alert', hidden: '' }, [
@@ -586,6 +611,10 @@ export function initCommentsController(): void {
         el('div', { class: 'blog-compose__bar' }, [
           el('button', { type: 'button', class: 'blog-compose__go', 'data-compose-submit': '', 'aria-label': t.replyPostAria, title: t.replyPost }, [parseStaticSvg(SEND_ICON_SVG)]),
         ]),
+      ]),
+      el('div', { class: 'blog-compose__foot' }, [
+        el('span', { class: 'blog-compose__who' }),
+        el('span', { class: 'blog-compose__claim' }),
       ]),
     ]);
     return box;
@@ -751,7 +780,7 @@ export function initCommentsController(): void {
 
     const article = el('article', {
       id: `comment-${comment.id}`,
-      class: `blog-comment${comment.isReply ? ' blog-comment--reply' : ''}`,
+      class: `blog-comment${comment.isReply ? ' blog-comment--reply' : ''}${comment.held ? ' blog-comment--held' : ''}`,
     }, [
       el('span', { class: 'blog-comment__avatar blog-avatar-seed blog-avatar-initials', style: `--seed-hue:${seedHue(avatarSeed(comment.id, comment.author, comment.avatarUrl))}`, 'aria-hidden': 'true' }, [initials(comment.author)]),
       body,
@@ -1057,9 +1086,23 @@ export function initCommentsController(): void {
     }
   }
 
+  // Server-side lifetime is 24h; a comment's dwell check reads this token's
+  // age as proof the reader has actually been on the page, not just landed
+  // on it. Re-minting after every post used to reset that clock to zero, so
+  // a genuine fast follow-up comment (<3s later) looked exactly like a bot
+  // filling the box the instant it loaded and got silently swallowed by the
+  // server's fake-success tripwire. Keeping the original page-load token
+  // across submits is what fixes that; only a token old enough to be near
+  // expiry -- a tab left open for most of a day -- is worth refreshing.
+  const DWELL_TOKEN_REFRESH_AGE_MS = 20 * 60 * 60 * 1000;
+
   async function mintDwellToken(): Promise<void> {
+    if (dwellToken && Date.now() - dwellTokenMintedAt < DWELL_TOKEN_REFRESH_AGE_MS) return;
     const result = await fetchJson<{ token: string }>('/api/v2/comments/dwell-token');
-    if (result) dwellToken = result.token;
+    if (result) {
+      dwellToken = result.token;
+      dwellTokenMintedAt = Date.now();
+    }
   }
 }
 
