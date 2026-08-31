@@ -62,14 +62,24 @@ export interface BlogComment {
       a row nobody reads. */
   likes?: number;
   liked?: boolean;
-  /** True when this browser owns the row — a verified reader match, or the
-      `reader_anon` cookie matching the comment's session. Grows quiet
-      edit/delete text-buttons in the actions row. */
+  /** True when this browser wrote the row — a verified reader match, or the
+      `reader_anon` cookie matching the comment's session. Highlights the row
+      as yours only. Mutation rights are `editDeadline`/`deletable`, never
+      this: a verified reader can be looking at their own never-claimed
+      anonymous comment, where `own` is true but both of those are absent. */
   own?: boolean;
   /** Server clock deadline for the 15-minute edit window, ms since epoch.
-      Only read when `own` is true; past it the row can still be deleted, just
-      not edited in place. */
+      Present only when the viewer is the verified reader who owns the row
+      and the window hasn't closed. Undefined otherwise, including for every
+      session-owned (anonymous) row — those can never be edited, no matter
+      how recent. Mirrors `Comment.editableUntil` in the wire contract
+      (packages/contracts/src/comments.ts), just non-null there instead of
+      undefined. */
   editDeadline?: number;
+  /** True when the viewer may delete this row: a verified reader owns it and
+      it isn't already a tombstone. Undefined/false for every session-owned
+      (anonymous) row, even when `own` is true. Mirrors `Comment.deletable`. */
+  deletable?: boolean;
   /** Edited at least once — a marker beside the date, not a diff. */
   edited?: boolean;
   /** Soft-deleted but kept as a shape-preserving placeholder, because replies

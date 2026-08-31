@@ -125,8 +125,21 @@ function toBlogComment(
     liked: reaction?.reacted ?? false,
     own: comment.mine,
     editDeadline: comment.editableUntil ?? undefined,
+    deletable: comment.deletable,
     edited: Boolean(comment.editedAt),
     tombstone: comment.tombstone,
+  };
+}
+
+/** Mutation rights, derived only from the fields the server actually sends.
+    Never read `comment.own` for this -- since verified-only mutation
+    shipped it means "mine", highlight only. A verified reader can be
+    looking at their own never-claimed anonymous comment: `own` true,
+    both of these false. See packages/contracts/src/comments.ts. */
+function commentRights(comment: BlogComment): { canEdit: boolean; canDelete: boolean } {
+  return {
+    canEdit: !comment.held && comment.editDeadline != null,
+    canDelete: comment.deletable === true,
   };
 }
 
@@ -421,6 +434,11 @@ export function initCommentsController(): void {
       applyPhase(replyBox, phase, claimed, viewer);
     }
 
+    // `mine` is forced here rather than trusted from the response: the
+    // session cookie this row belongs to may be the one this very response
+    // just minted, so the server's own `mine` check can lag by one request.
+    // Edit/delete rights are never touched by this -- they stay whatever
+    // `comment.editableUntil`/`comment.deletable` actually said.
     const row = toBlogComment(comment, {}, t);
     row.own = true;
     const article = renderCommentRow(row, parentId);
@@ -670,7 +688,9 @@ export function initCommentsController(): void {
       el('p', { class: 'blog-comment__text', 'data-comment-text': '' }, [comment.text]),
     ]);
 
-    if (comment.own && !comment.held) {
+    const { canEdit, canDelete } = commentRights(comment);
+
+    if (canEdit) {
       body.append(
         el('label', { class: 'sr-only', for: `comment-edit-${comment.id}` }, [t.editLabel]),
         el('textarea', { id: `comment-edit-${comment.id}`, class: 'blog-comment__edit-field', 'data-comment-edit-field': '', rows: '2', hidden: '' }, [comment.text]),
@@ -680,6 +700,17 @@ export function initCommentsController(): void {
     if (comment.held) {
       body.append(el('p', { class: 'blog-comment__note' }, [t.held]));
     } else {
+      // `mine`, but nothing here is theirs to change yet -- verifying the
+      // address would bind it (see plans/blog-comments.md "Sessions and
+      // ownership"). Only true when there is an address to verify:
+      // `avatarUrl` is non-empty exactly when the row carries an email hash
+      // (comment-service.ts's `toComment` emits `''` otherwise), so a row
+      // posted with no email at all is permanently unclaimable and gets no
+      // hint -- "verify your email" would be false on it, not a nudge.
+      if (comment.own && !canEdit && !canDelete && comment.avatarUrl) {
+        body.append(el('p', { class: 'blog-comment__note blog-comment__note--verify' }, [t.verifyHint]));
+      }
+
       // Two sets of controls in one strip, exactly one on screen -- mirrors
       // CommentsSection.astro, which renders the same row server-side.
       const acts = el('span', { class: 'blog-comment__acts' }, [
@@ -690,15 +721,23 @@ export function initCommentsController(): void {
         el('button', { type: 'button', class: 'blog-comment__act', 'data-reply-to': comment.id, 'data-reply-name': comment.author }, [parseStaticSvg(REPLY_ICON_SVG), t.reply]),
       ]);
       const actions = el('div', { class: 'blog-comment__actions' }, [acts]);
-      if (comment.own) {
+      // Edit and delete are gated independently -- a verified owner past the
+      // 15-minute window keeps delete without edit.
+      if (canEdit) {
         acts.append(
           el('button', { type: 'button', class: 'blog-comment__act', 'data-comment-edit-open': '' }, [
             parseStaticSvg(EDIT_ICON_SVG),
             t.edit,
             el('span', { class: 'blog-comment__act-time', 'data-edit-countdown': '', hidden: '' }),
           ]),
+        );
+      }
+      if (canDelete) {
+        acts.append(
           el('button', { type: 'button', class: 'blog-comment__act blog-comment__act--danger', 'data-comment-delete': '' }, [parseStaticSvg(TRASH_ICON_SVG), t.remove]),
         );
+      }
+      if (canEdit) {
         actions.append(
           el('span', { class: 'blog-comment__acts blog-comment__acts--editing', 'data-comment-edit-actions': '', hidden: '' }, [
             el('button', { type: 'button', class: 'blog-comment__act blog-comment__act--go', 'data-comment-edit-save': '' }, [t.save]),
@@ -717,8 +756,10 @@ export function initCommentsController(): void {
       el('span', { class: 'blog-comment__avatar blog-avatar-seed blog-avatar-initials', style: `--seed-hue:${seedHue(avatarSeed(comment.id, comment.author, comment.avatarUrl))}`, 'aria-hidden': 'true' }, [initials(comment.author)]),
       body,
     ]);
+    // `data-own` is "mine" only -- kept for the row highlight, never read to
+    // decide whether an edit/delete button exists.
     if (comment.own) article.dataset.own = 'true';
-    if (comment.own && !comment.held && comment.editDeadline) article.dataset.editDeadline = String(comment.editDeadline);
+    if (canEdit && comment.editDeadline) article.dataset.editDeadline = String(comment.editDeadline);
     if (parentId) article.dataset.parentId = parentId;
     return article;
   }
@@ -735,7 +776,8 @@ export function initCommentsController(): void {
       if (body) openReplyBox(comment.id, comment.author, body);
     });
 
-    if (comment.own) {
+    const { canEdit, canDelete } = commentRights(comment);
+    if (canEdit || canDelete) {
       wireOwnRow(article, comment, parentId);
     }
   }

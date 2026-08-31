@@ -142,27 +142,55 @@ const comments: BlogComment[] = [
     isReply: true,
     likes: 1,
   },
-  // Own, still inside the 15-minute edit window — Edit is live and counting
-  // down; Delete always is.
+  // Own, no email on file — permanently unclaimable, since claiming keys on
+  // an email hash this row never had one to carry. No Edit, no Delete, and
+  // no hint either: "verify your email" would be false on a row with no
+  // address behind it, not a nudge.
   {
     id: '7',
+    author: 'You',
+    date: t.relativeDate.minutes(2),
+    text: "Didn't leave an email on this one, so there's nothing to edit or delete here — ever.",
+    own: true,
+    likes: 0,
+  },
+  // Own, has an email but it's never been verified — `avatarUrl` set (an
+  // email hash exists) but `editDeadline`/`deletable` both absent, so this
+  // one *can* still be claimed. Shows the quiet verify hint.
+  {
+    id: '7a',
+    author: 'You',
+    date: t.relativeDate.minutes(6),
+    text: 'Left an email on this one but never clicked the verification link.',
+    own: true,
+    avatarUrl: '/static/avatar/lab-fixture-unverified?s=96',
+    likes: 0,
+  },
+  // Own and verified — still inside the 15-minute edit window — Edit is live
+  // and counting down; Delete always is once `deletable` is true.
+  {
+    id: '8',
     author: 'Tutu Xiao',
     date: t.relativeDate.now,
     text: 'One more thing: the retry policy move is the part I keep pointing people to when this comes up internally.',
     own: true,
+    avatarUrl: '/static/avatar/lab-fixture-tutu?s=96',
     editDeadline: editWindowSoon,
+    deletable: true,
     likes: 3,
   },
-  // Own, already mid-edit — the inline textarea swap, on screen without a
-  // click.
+  // Own and verified, already mid-edit — the inline textarea swap, on screen
+  // without a click.
   {
-    id: '8',
+    id: '9',
     author: 'Tutu Xiao',
     date: t.relativeDate.hours(1),
     text: 'Typo in my last one — meant the retry policy, not the retry budget.',
     own: true,
+    avatarUrl: '/static/avatar/lab-fixture-tutu?s=96',
     editing: true,
     editDeadline: Date.now() + 3 * 60 * 1000,
+    deletable: true,
     likes: 0,
   },
 ];

@@ -8,11 +8,13 @@
    anything has loaded.
 
    Row states, from plans/blog-comments.md → "Frontend states" → "Comment
-   row": normal, own (quiet edit/delete, 15-min edit window live-counted
-   down), editing (inline textarea swap), held (writer-only visibility note,
+   row": normal, own (highlight only; edit/delete affordances gate on the
+   wire fields `editableUntil`/`deletable`, never on `own` -- a verified
+   reader's own never-claimed anonymous comment is `own` with neither),
+   editing (inline textarea swap), held (writer-only visibility note,
    renamed from `pending` to match the status enum), tombstone (kept for
    thread shape), edited marker, by-author badge, reply-open, like. Four
-   actions hang under an ordinary row — like, reply, and on owned rows edit
+   actions can hang under a row — like, reply, and independently-gated edit
    and delete — all vanilla: opening a box, swapping a paragraph for a
    textarea, and flipping a pressed state need no island. */
 
@@ -163,28 +165,40 @@ const t = commentsCopy[locale];
 
   {(state === 'loaded' || (state === 'closed' && comments.length > 0)) && (
     <div class="blog-comments__list">
-      {comments.map((comment) => comment.tombstone ? (
-        /* Kept for shape, not content: a reply hanging under a deleted root
-           has nowhere else to go, since threading is one level only. No
-           actions — there is nothing left here to like or reply to. */
-        <article
-          id={`comment-${comment.id}`}
-          class:list={['blog-comment', 'blog-comment--tombstone', { 'blog-comment--reply': comment.isReply }]}
-        >
-          <span class="blog-comment__avatar blog-comment__avatar--ghost" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="9"></circle>
-              <path d="M6 6l12 12"></path>
-            </svg>
-          </span>
-          <div class="blog-comment__body">
-            <div class="blog-comment__meta">
-              <span class="blog-comment__date">{comment.date}</span>
-            </div>
-            <p class="blog-comment__text blog-comment__text--tombstone">{t.tombstone}</p>
-          </div>
-        </article>
-      ) : (
+      {comments.map((comment) => {
+        if (comment.tombstone) {
+          /* Kept for shape, not content: a reply hanging under a deleted root
+             has nowhere else to go, since threading is one level only. No
+             actions — there is nothing left here to like or reply to. */
+          return (
+            <article
+              id={`comment-${comment.id}`}
+              class:list={['blog-comment', 'blog-comment--tombstone', { 'blog-comment--reply': comment.isReply }]}
+            >
+              <span class="blog-comment__avatar blog-comment__avatar--ghost" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <path d="M6 6l12 12"></path>
+                </svg>
+              </span>
+              <div class="blog-comment__body">
+                <div class="blog-comment__meta">
+                  <span class="blog-comment__date">{comment.date}</span>
+                </div>
+                <p class="blog-comment__text blog-comment__text--tombstone">{t.tombstone}</p>
+              </div>
+            </article>
+          );
+        }
+
+        /* Mutation rights, never read off `comment.own` -- that means "mine",
+           highlight only, since verified-only mutation shipped. A verified
+           reader can be looking at their own never-claimed anonymous
+           comment: `own` true, both of these false. */
+        const canEdit = !comment.held && comment.editDeadline != null;
+        const canDelete = comment.deletable === true;
+
+        return (
         <article
           id={`comment-${comment.id}`}
           class:list={[
@@ -194,7 +208,7 @@ const t = commentsCopy[locale];
           ]}
           data-own={comment.own ? 'true' : undefined}
           data-editing={comment.editing ? 'true' : undefined}
-          data-edit-deadline={comment.own && !comment.held ? comment.editDeadline : undefined}
+          data-edit-deadline={canEdit ? comment.editDeadline : undefined}
         >
           {/* Same generated identity the reaction stack uses — plain markup
               rather than the React Avatar, because a thread of static rows has
@@ -219,7 +233,7 @@ const t = commentsCopy[locale];
                 and the reader's eye keeps its place. A bordered composer here
                 would be a box inside a row inside the thread, and the words
                 would move down to make room for it. */}
-            {comment.own && !comment.held && (
+            {canEdit && (
               <>
                 <label class="sr-only" for={`comment-edit-${comment.id}`}>{t.editLabel}</label>
                 <textarea
@@ -234,6 +248,18 @@ const t = commentsCopy[locale];
 
             {comment.held && (
               <p class="blog-comment__note">{t.held}</p>
+            )}
+
+            {/* `mine`, but nothing here is theirs to change yet -- verifying
+                the address would bind it (see plans/blog-comments.md
+                "Sessions and ownership"). Only true when there is an address
+                to verify: `avatarUrl` is non-empty exactly when the row
+                carries an email hash (comment-service.ts's `toComment` emits
+                `''` otherwise), so a row posted with no email at all is
+                permanently unclaimable and gets no hint -- "verify your
+                email" would be false on it, not a nudge. */}
+            {comment.own && !comment.held && !canEdit && !canDelete && comment.avatarUrl && (
+              <p class="blog-comment__note blog-comment__note--verify">{t.verifyHint}</p>
             )}
 
             {/* Held back on a held row: nothing can be replied to, liked, or
@@ -270,27 +296,29 @@ const t = commentsCopy[locale];
                     ><path d={REPLY_PATH}></path></svg>
                     {t.reply}
                   </button>
-                  {comment.own && (
-                    <>
-                      {/* The remaining window lives inside the button it
-                          belongs to. As a separate "8:24 to edit" label beside
-                          an "Edit" button it said the word twice and left the
-                          reader to work out that the two were one thing. */}
-                      <button type="button" class="blog-comment__act" data-comment-edit-open>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-                        ><path d={EDIT_PATH}></path></svg>
-                        {t.edit}<span class="blog-comment__act-time" data-edit-countdown hidden></span>
-                      </button>
-                      <button type="button" class="blog-comment__act blog-comment__act--danger" data-comment-delete>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-                        ><path d={TRASH_PATH}></path></svg>
-                        {t.remove}
-                      </button>
-                    </>
+                  {/* The remaining window lives inside the button it belongs
+                      to. As a separate "8:24 to edit" label beside an "Edit"
+                      button it said the word twice and left the reader to
+                      work out that the two were one thing. Edit and delete
+                      are gated separately -- a verified owner past the
+                      15-minute window keeps delete without edit. */}
+                  {canEdit && (
+                    <button type="button" class="blog-comment__act" data-comment-edit-open>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                      ><path d={EDIT_PATH}></path></svg>
+                      {t.edit}<span class="blog-comment__act-time" data-edit-countdown hidden></span>
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button type="button" class="blog-comment__act blog-comment__act--danger" data-comment-delete>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                      ><path d={TRASH_PATH}></path></svg>
+                      {t.remove}
+                    </button>
                   )}
                 </span>
 
-                {comment.own && !comment.held && (
+                {canEdit && (
                   <span class="blog-comment__acts blog-comment__acts--editing" data-comment-edit-actions hidden={!comment.editing}>
                     <button type="button" class="blog-comment__act blog-comment__act--go" data-comment-edit-save>{t.save}</button>
                     {/* Turns into its own confirmation on the first press when
@@ -303,7 +331,8 @@ const t = commentsCopy[locale];
             )}
           </div>
         </article>
-      ))}
+        );
+      })}
 
       {/* One box, moved to whichever row is being answered. A hidden copy per
           comment would multiply a textarea across the whole thread to show at
@@ -451,7 +480,11 @@ const t = commentsCopy[locale];
   //
   // Note that the server's 15 minutes runs from the comment's creation and
   // does not pause with this — a long enough edit still comes back rejected.
-  document.querySelectorAll<HTMLElement>('.blog-comment[data-own="true"]').forEach((row) => {
+  //
+  // Selects on `data-edit-deadline`, not `data-own` -- that attribute means
+  // "mine", and plenty of `own` rows (anonymous, held, past the window) carry
+  // no edit button for this to find.
+  document.querySelectorAll<HTMLElement>('.blog-comment[data-edit-deadline]').forEach((row) => {
     const openBtn = row.querySelector<HTMLButtonElement>('[data-comment-edit-open]');
     const cancelBtn = row.querySelector<HTMLButtonElement>('[data-comment-edit-cancel]');
     const saveBtn = row.querySelector<HTMLButtonElement>('[data-comment-edit-save]');

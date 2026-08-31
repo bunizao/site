@@ -1111,6 +1111,16 @@
   color: var(--blog-faint);
 }
 
+/* A `mine` row with neither `editableUntil` nor `deletable` -- posted without
+   an email, or before that address was verified. Same quiet note as `.held`,
+   just tinted with the compose box's own suggestion colour instead of the
+   faint grey: this is an upside on offer, not a status to report. No box or
+   background -- that reads as a suggestion once at the top of the thread, but
+   as nagging repeated under every row of someone's own history. */
+.blog-comment__note--verify {
+  color: var(--blog-good);
+}
+
 /* --- Own row: inline edit -------------------------------------------------
    Same size, leading and colour as the paragraph it replaces, and no border. A
    bordered composer here pushed the row open and put a box inside a box inside
