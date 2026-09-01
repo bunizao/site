@@ -146,12 +146,23 @@ describe('agent markdown registry', () => {
     );
 
     expect(response.headers.get('Cache-Control')).toBe(
-      'public, max-age=0, s-maxage=300, stale-while-revalidate=1800'
+      'public, max-age=0, s-maxage=300, stale-while-revalidate=1800, no-transform'
     );
     expect(response.headers.get('Cloudflare-CDN-Cache-Control')).toBe(
       'public, max-age=300, stale-while-revalidate=1800'
     );
     expect(response.headers.get('Vary')).toBe('Accept');
+  });
+
+  test('keeps Cloudflare script suppression scoped to the mood feed', () => {
+    const detail = withContentPolicy(
+      new Request('https://buxx.me/mood/3792'),
+      new Response('<!doctype html>', {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      }),
+    );
+
+    expect(detail.headers.get('Cache-Control')).not.toContain('no-transform');
   });
 
   test('keeps mood HTML error responses out of the edge cache', () => {
@@ -165,7 +176,7 @@ describe('agent markdown registry', () => {
       }),
     );
 
-    expect(response.headers.get('Cache-Control')).toBe('no-store, max-age=0');
+    expect(response.headers.get('Cache-Control')).toBe('no-store, max-age=0, no-transform');
     expect(response.headers.has('Cloudflare-CDN-Cache-Control')).toBe(false);
   });
 
