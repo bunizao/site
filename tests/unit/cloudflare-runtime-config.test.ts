@@ -309,7 +309,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(middleware).toContain('https://www.youtube.com');
     expect(middleware).toContain('https://static.cloudflareinsights.com');
     expect(middleware).toContain('https://challenges.cloudflare.com');
-    expect(middleware).not.toContain('no-transform');
+    expect(middleware).toContain("pathname === '/mood'");
+    expect(middleware).toContain("'no-transform'");
     expect(middleware).not.toContain('${cleanOrigin}/gmetrics/');
     expect(middleware).toContain('https://www.googletagmanager.com');
   });

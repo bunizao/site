@@ -20,6 +20,13 @@ const DEV_PORTAL_PREFIX = '/dev';
 const DEV_BLOG_PREVIEW_PREFIX = '/dev/blog/';
 const MOOD_EMBED_PATH = '/mood/embed';
 
+function appendCacheControlDirective(value: string | null, directive: string): string {
+  const current = value?.trim();
+  if (!current) return directive;
+  if (new RegExp(`(?:^|,)\\s*${directive}\\b`, 'i').test(current)) return current;
+  return `${current}, ${directive}`;
+}
+
 function isDevPortalPath(pathname: string): boolean {
   return pathname === DEV_PORTAL_PREFIX || pathname.startsWith(`${DEV_PORTAL_PREFIX}/`);
 }
@@ -57,6 +64,12 @@ export function withHtmlSecurityHeaders(request: Request, response: Response): R
   const isHtml = contentType.toLowerCase().includes('text/html');
   if (isHtml) {
     const pathname = new URL(request.url).pathname;
+    if (pathname === '/mood') {
+      headers.set(
+        'Cache-Control',
+        appendCacheControlDirective(headers.get('Cache-Control'), 'no-transform'),
+      );
+    }
     if (isMoodEmbedPath(pathname)) {
       // The embed surface is deliberately framable: it sets its own CSP with
       // frame-ancestors * (src/lib/embed-response.ts). Keep that CSP; only
