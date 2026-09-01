@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import {
   MOOD_ARCHIVE_IMAGE_WIDTHS,
   buildArchiveSrcSet,
+  getMoodFeedThumbSizes,
   getMoodImagePlaceholderSrc,
   getMoodImageRatio,
   isArchiveImageUrl,
@@ -58,6 +59,14 @@ describe('mood image presentation', () => {
       value: 3 / 4,
       exact: false,
     });
+  });
+
+  test('matches contained feed sizes to the actual image ratio', () => {
+    const sizes = getMoodFeedThumbSizes('portrait', 'image', 589, 1280);
+
+    expect(sizes).toBe(
+      '(max-width: 639px) 128.844px, (max-width: 1023px) 147.25px, 165.656px',
+    );
   });
 });
 

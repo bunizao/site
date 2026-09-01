@@ -127,8 +127,25 @@ export const MOOD_FEED_IMAGE_SIZES = '(max-width: 720px) 100vw, 680px';
 export function getMoodFeedThumbSizes(
   layout?: MoodImageLayout | null,
   mediaKind?: string | null,
+  imageWidth?: number | null,
+  imageHeight?: number | null,
 ): string {
   if (mediaKind === 'sticker') return '256px';
+  if (
+    (layout === 'portrait' || layout === 'ultra-tall')
+    && isPositiveDimension(imageWidth)
+    && isPositiveDimension(imageHeight)
+  ) {
+    const ratio = imageWidth / imageHeight;
+    const boxes = layout === 'portrait'
+      ? [[220, 280], [240, 320], [260, 360]]
+      : [[180, 320], [200, 360], [220, 400]];
+    const widths = boxes.map(([maxWidth, maxHeight]) => {
+      const value = Math.min(maxWidth, maxHeight * ratio);
+      return `${value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')}px`;
+    });
+    return `(max-width: 639px) ${widths[0]}, (max-width: 1023px) ${widths[1]}, ${widths[2]}`;
+  }
   if (layout === 'portrait') return '260px';
   if (layout === 'ultra-tall') return '220px';
   return MOOD_FEED_IMAGE_SIZES;

@@ -359,7 +359,12 @@ function shouldHideQuoteAuthor(value?: string): boolean {
               );
               const thumbResponsive = thumbImage
                 ? buildArchiveSrcSet(thumbImage, {
-                    sizes: getMoodFeedThumbSizes(thumbLayout, post.imageKind),
+                    sizes: getMoodFeedThumbSizes(
+                      thumbLayout,
+                      post.imageKind,
+                      thumbWidth,
+                      thumbHeight,
+                    ),
                   })
                 : null;
               const hasThumbFrame = Boolean(thumbImage && !isTooBigVideoPreview && post.imageKind !== 'sticker');
