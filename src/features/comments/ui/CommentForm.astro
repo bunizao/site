@@ -252,12 +252,14 @@ const showNudge = receipt === 'nudge';
   // lab page's sign-out, and dismissing the subscribe nudge.
   import { wireComposeValidation } from '@/features/comments/compose-validate';
   import { wireDrafts } from '@/features/comments/client/drafts';
+  import { initCommentMarkdownPreview } from '@/features/comments/client/markdown-preview';
   import { wireSignOut } from '@/features/comments/client/sign-out';
 
   wireComposeValidation();
   // Both boxes on the page, this one and the reply box -- see drafts.ts for
   // why only one of them is written to storage.
   wireDrafts();
+  initCommentMarkdownPreview();
 
   // Sign-out belongs to the thread controller wherever there is a thread: it
   // is the only caller that can end the reader session and clear what was

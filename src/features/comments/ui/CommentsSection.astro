@@ -459,6 +459,7 @@ const t = commentsCopy[locale];
   import { resetAnonymousConfirm, wireBodyCounter, wireComposeValidation } from '@/features/comments/compose-validate';
   import { copyFor } from '@/features/comments/copy';
   import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
+  import { clearCommentMarkdownPreview } from '@/features/comments/client/markdown-preview';
 
   wireComposeValidation();
 
@@ -496,6 +497,8 @@ const t = commentsCopy[locale];
     }
     // Landing on a different row starts a fresh reply attempt.
     resetAnonymousConfirm(box);
+    clearCommentMarkdownPreview(field);
+    if (field) field.value = '';
   }
 
   if (box && field && home) {

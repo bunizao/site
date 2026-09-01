@@ -23,6 +23,8 @@
 // every challenged submission into a dead end whose only exit was a page
 // reload. setTurnstileHost puts the container in the page instead, and the
 // interactive callbacks flag the host so it can open for the challenge and
+import { loadTurnstileScript } from '@/lib/turnstile-script';
+
 // close again after.
 
 export type TurnstileAction = 'blog_comment_create' | 'blog_reaction';
@@ -57,7 +59,6 @@ const TOKEN_MAX_AGE_MS = 240_000;
 
 const turnstileWidgets = new Map<TurnstileAction, TurnstileWidgetState>();
 const turnstileHosts = new Map<TurnstileAction, HTMLElement>();
-let turnstileScriptPromise: Promise<void> | null = null;
 
 /** Marks the host while Cloudflare is showing a challenge in it. The host is
     collapsed the rest of the time, so nothing is reserved in the layout until
@@ -77,26 +78,6 @@ export function setTurnstileHost(action: TurnstileAction, host: HTMLElement): vo
 function hostFor(action: TurnstileAction): { parent: HTMLElement; hidden: boolean } {
   const host = turnstileHosts.get(action);
   return host ? { parent: host, hidden: false } : { parent: document.body, hidden: true };
-}
-
-function loadTurnstileScript(): Promise<void> {
-  if (turnstileScriptPromise) return turnstileScriptPromise;
-  turnstileScriptPromise = new Promise((resolve) => {
-    if ((window as unknown as { turnstile?: unknown }).turnstile) {
-      resolve();
-      return;
-    }
-    if (document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')) {
-      resolve();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onCommentsTurnstileLoad';
-    script.async = true;
-    (window as unknown as { onCommentsTurnstileLoad?: () => void }).onCommentsTurnstileLoad = () => resolve();
-    document.head.appendChild(script);
-  });
-  return turnstileScriptPromise;
 }
 
 function widgetFor(action: TurnstileAction): TurnstileWidgetState {
@@ -189,7 +170,7 @@ function mintToken(state: TurnstileWidgetState, siteKey: string, action: Turnsti
     will never load. */
 export async function getTurnstileToken(siteKey: string, action: TurnstileAction): Promise<string> {
   if (!siteKey) return '';
-  await loadTurnstileScript();
+  if (!(await loadTurnstileScript())) return '';
   const state = widgetFor(action);
   // Costs a fresh ~2.3s solve, but only on the submission that would otherwise
   // have been refused outright -- and by here the reader has pressed Post, so

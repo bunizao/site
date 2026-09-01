@@ -241,8 +241,8 @@ const translated = isTranslation(post);
       <Colophon credits={authorshipCredits} locale={postLocale}>
         <ReactionBar client:idle count={0} locale={postLocale} postId={liveCommentsPostId} siteKey={turnstileSiteKey} />
         <div class="blog-article-sub">
-          <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
-          <ShareRow title={post.title} />
+          <SubscribePanel variant="blog" locale={postLocale} anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
+          <ShareRow title={post.title} locale={postLocale} />
         </div>
       </Colophon>
 

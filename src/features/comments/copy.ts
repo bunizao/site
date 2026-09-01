@@ -52,6 +52,7 @@ export interface CommentsCopy {
   /** The travelling reply box points at whoever it landed under. */
   replyTo: (author: string) => string;
   hint: string;
+  preview: string;
   post: string;
   postAria: string;
   replyPost: string;
@@ -125,6 +126,7 @@ export interface CommentsCopy {
       spent, not an invitation to press it again. */
   reactAdd: string;
   reactDone: string;
+  reactError: string;
 
   /* --- Receipt -----------------------------------------------------------
      Success says nothing: the comment itself arrives in the list under the box
@@ -178,12 +180,13 @@ const zh: CommentsCopy = {
   namePlaceholder: '昵称',
   emailLabel: '邮箱',
   emailPlaceholder: '邮箱（选填）',
-  emailRecommend: '留个邮箱，回复时能通知你，还能有自己的头像。不留也可以发。',
+  emailRecommend: '留个邮箱，确认后就能跨设备管理评论，还能有自己的头像。不留也可以发。',
   bodyLabel: '写评论',
   bodyPlaceholder: '说点什么…',
   replyBodyLabel: '写回复',
   replyTo: (author) => `回复 ${author}…`,
   hint: '支持 Markdown',
+  preview: '预览',
   post: '发表',
   postAria: '发表评论',
   replyPost: '回复',
@@ -221,10 +224,11 @@ const zh: CommentsCopy = {
 
   reactAdd: '喜欢这篇',
   reactDone: '已喜欢',
+  reactError: '没能点上，稍后再试。',
 
   submitError: {
     NET: '好像断网了，等网络回来再发一次吧。草稿都还在。',
-    RATE: '发得有点太快啦，歇一分钟再来。草稿还在。',
+    RATE: '发得有点太快啦，等一会儿再来。草稿还在。',
     BOT: '人机验证过期了，刷新一下页面就好。',
     GONE: '这篇文章的评论区暂时用不了。',
     THREAD: '要回复的那条评论已经不在了，刷新一下看看？',
@@ -237,8 +241,8 @@ const zh: CommentsCopy = {
     SERVER: '服务器打了个盹，等会儿再试试。草稿已保存，别担心。',
   },
   nudgeText: (email) => (email
-    ? `确认信已经发到 ${email} 了，点一下就能管理评论、接收回复提醒。`
-    : '确认邮箱后，就能管理评论、接收回复提醒。'),
+    ? `确认信已经发到 ${email} 了，点一下就能跨设备管理评论。`
+    : '确认邮箱后，就能跨设备管理评论。'),
   nudgeSubscribe: '订阅新文章',
   dismiss: '关闭',
 
@@ -260,12 +264,13 @@ const en: CommentsCopy = {
   namePlaceholder: 'Name',
   emailLabel: 'Email',
   emailPlaceholder: 'Email (optional)',
-  emailRecommend: 'Add an email to get notified on replies and have your own avatar. Or post without one.',
+  emailRecommend: 'Add an email to manage comments across devices and have your own avatar once confirmed. Or post without one.',
   bodyLabel: 'Write a comment',
   bodyPlaceholder: 'Say something…',
   replyBodyLabel: 'Write a reply',
   replyTo: (author) => `Reply to ${author}…`,
   hint: 'Markdown supported',
+  preview: 'Preview',
   post: 'Post',
   postAria: 'Post comment',
   replyPost: 'Reply',
@@ -303,10 +308,11 @@ const en: CommentsCopy = {
 
   reactAdd: 'Like this post',
   reactDone: 'Liked',
+  reactError: 'That like did not stick. Try again shortly.',
 
   submitError: {
     NET: "Looks like you're offline. Post again once you're back — your draft's safe.",
-    RATE: "Whoa, that's a lot at once. Give it a minute — your draft's safe.",
+    RATE: "Whoa, that's a lot at once. Wait before trying again — your draft's safe.",
     BOT: 'The bot check timed out. Refresh the page and it should be fine.',
     GONE: "Comments on this post aren't available right now.",
     THREAD: "The comment you're replying to is gone. Refresh to see the thread?",
@@ -319,8 +325,8 @@ const en: CommentsCopy = {
     SERVER: 'Something dozed off on our end. Try again shortly — your draft is saved.',
   },
   nudgeText: (email) => (email
-    ? `A confirmation is on its way to ${email} — one click and you can manage your comments and get reply notices.`
-    : 'Confirm your email to manage your comments and get reply notices.'),
+    ? `A confirmation is on its way to ${email} — one click and you can manage your comments across devices.`
+    : 'Confirm your email to manage your comments across devices.'),
   nudgeSubscribe: 'Subscribe to new posts',
   dismiss: 'Dismiss',
 

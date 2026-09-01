@@ -7,7 +7,7 @@ order: 5.5
 
 Comments on `/blog/[slug]` are anonymous-first: reading is open to everyone,
 and posting a comment or reacting needs only a name — the email is optional.
-An address buys reply notifications, a persistent avatar, and the claiming
+An address buys a persistent avatar and the claiming
 path; leaving it empty just means the comment belongs to its anonymous
 session alone. Email verification and OAuth sign-in are upgrade paths
 (grades L1/L2 below), never a door charge, and the address itself never
@@ -103,14 +103,15 @@ POST /api/v2/comments
 `body` is 1-2000 characters. `displayName` is 1-32 characters, no control
 characters, and can't collide with a small reserved list (the blog owner's
 own names). `email` is optional — omitted or empty means an anonymous
-comment (session-owned, identicon avatar, no reply notifications, never
+comment (session-owned, identicon avatar, never
 claimable); a non-empty value must be a valid address (`400` otherwise).
 `turnstileToken` uses `expectedAction: 'blog_comment_create'`.
 `locale` is the post page language (`zh` or `en`) and keeps the verification
 mail aligned with the page where the comment was written.
 `dwellToken` is minted by `GET /api/v2/comments/dwell-token` (see below) —
 required. `website` is a visually-hidden honeypot field; a human never fills
-it in. `notifyReplies` only takes effect once the address is verified.
+it in. `notifyReplies` is reserved for a future reply-email preference; the
+current release does not send reply notification emails.
 
 A comment written without an email serializes with `avatarUrl: ""`; the
 client renders a deterministic identicon for it.

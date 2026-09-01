@@ -11,6 +11,7 @@
 //   ?more=1  ?moreState=loading                (load-more cursor button)
 //   ?reacted=1                                 (filled heart, xia accent)
 //   ?credits=0                                 (colophon with no model credit)
+//   ?moderation=idle | busy | success | conflict | error | empty
 //
 // Own/editing/tombstone/edited comment rows are fixture data below, not query
 // params — they are thread content, not a state of the box or the list.
@@ -32,6 +33,7 @@ import { resolveAuthorshipModel } from '@/data/authorship';
 import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import type { CommentErrorCode } from '@/features/comments/comment-error';
+import { readerConfirmCopy } from '@/features/comments/reader-confirm-copy';
 import '@/features/comments/styles/comments.css';
 
 export const prerender = false;
@@ -45,6 +47,14 @@ const verifyRaw = params.get('verify');
 const verifyState = verifyRaw === 'confirmed' || verifyRaw === 'already' || verifyRaw === 'invalid' || verifyRaw === 'resent'
   ? verifyRaw
   : 'pending';
+const verifyCopy = readerConfirmCopy[locale];
+const verifyGlyphs = {
+  pending: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/>',
+  confirmed: '<path d="m4.5 12.5 5 5 10-11"/>',
+  already: '<path d="m4.5 12.5 5 5 10-11"/>',
+  invalid: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/><path d="M2 21 22 3"/>',
+  resent: '<path d="M21.5 2.5 10.8 13.2"/><path d="M21.5 2.5 14.7 21.5l-3.9-8.3-8.3-3.9z"/>',
+} as const;
 
 const rawState = params.get('state');
 const state =
@@ -68,6 +78,11 @@ const errorCode = requestedError && errorCodes.includes(requestedError) ? reques
 const hasMore = params.get('more') === '1';
 const loadMoreState = params.get('moreState') === 'loading' ? 'loading' : 'idle';
 const reacted = params.get('reacted') === '1';
+const rawModeration = params.get('moderation');
+const moderationState = rawModeration === 'busy' || rawModeration === 'success' || rawModeration === 'conflict'
+  || rawModeration === 'error' || rawModeration === 'empty'
+  ? rawModeration
+  : 'idle';
 
 const viewer: Viewer = { name: 'Tutu Xiao' };
 const claimed: ClaimedIdentity = { name: 'Murray', email: 'murray@example.com' };
@@ -110,6 +125,12 @@ const behaviorRows = [
   { behavior: 'Comments are closed', state: 'closed', zh: commentsCopy.zh.closed, en: commentsCopy.en.closed, next: 'Read existing rows; no compose or actions' },
   { behavior: 'Load another page', state: 'load-more', zh: `${commentsCopy.zh.loadMore} → ${commentsCopy.zh.loading}`, en: `${commentsCopy.en.loadMore} → ${commentsCopy.en.loading}`, next: 'Wait for rows; on failure press Retry' },
   { behavior: 'Anonymous compose', state: 'phase=anonymous', zh: `${commentsCopy.zh.namePlaceholder} · ${commentsCopy.zh.emailPlaceholder} · ${commentsCopy.zh.hint}`, en: `${commentsCopy.en.namePlaceholder} · ${commentsCopy.en.emailPlaceholder} · ${commentsCopy.en.hint}`, next: 'Fill identity and body' },
+  { behavior: 'Post with no name', state: 'validation name', zh: commentsCopy.zh.needName, en: commentsCopy.en.needName, next: 'Enter a display name' },
+  { behavior: 'Post with no body', state: 'validation body', zh: commentsCopy.zh.needBody, en: commentsCopy.en.needBody, next: 'Write a comment' },
+  { behavior: 'Post with malformed email', state: 'validation email', zh: commentsCopy.zh.badEmail, en: commentsCopy.en.badEmail, next: 'Correct or clear the optional email' },
+  { behavior: 'Draft reaches 1800 characters', state: 'counter warning', zh: '显示 1800/2000 字数提示', en: 'Show the 1800/2000 counter', next: 'Keep writing or shorten the draft' },
+  { behavior: 'Draft exceeds 2000 characters', state: 'counter refusal', zh: commentsCopy.zh.submitError.LONG, en: commentsCopy.en.submitError.LONG, next: 'Shorten the draft before posting' },
+  { behavior: 'Type supported Markdown', state: 'preview', zh: '输入支持的 Markdown 后显示“预览”，内容与发布结果一致', en: 'Supported Markdown opens “Preview”; its rendering matches the published row', next: 'Continue editing or post' },
   { behavior: 'Remembered identity', state: 'phase=claimed', zh: commentsCopy.zh.claimedAs('Murray'), en: commentsCopy.en.claimedAs('Murray'), next: commentsCopy.zh.signOut },
   { behavior: 'Verified identity', state: 'phase=ready', zh: commentsCopy.zh.postingAs('Tutu Xiao'), en: commentsCopy.en.postingAs('Tutu Xiao'), next: 'Post as the verified reader' },
   { behavior: 'First post with no email', state: 'first press', zh: commentsCopy.zh.emailRecommend, en: commentsCopy.en.emailRecommend, next: 'Fill email or press Post again' },
@@ -117,12 +138,29 @@ const behaviorRows = [
   { behavior: 'Published result', state: 'posted', zh: '新评论本身就是确认（不重复显示状态条）', en: 'The new comment is the receipt (no duplicate status bar)', next: 'Continue writing' },
   { behavior: 'Held result', state: 'held', zh: commentsCopy.zh.held, en: commentsCopy.en.held, next: 'Wait for moderation; the row may upgrade to published' },
   { behavior: 'Unverified email result', state: 'nudge', zh: `${commentsCopy.zh.nudgeText('reader@example.com')} · ${commentsCopy.zh.nudgeSubscribe} · ${commentsCopy.zh.dismiss}`, en: `${commentsCopy.en.nudgeText('reader@example.com')} · ${commentsCopy.en.nudgeSubscribe} · ${commentsCopy.en.dismiss}`, next: 'Confirm email, subscribe, or dismiss' },
+  { behavior: 'Open or close subscribe panel', state: 'subscribe open', zh: '订阅 · 关闭', en: 'Subscribe · Close', next: 'Enter an email or dismiss' },
+  { behavior: 'Submit malformed subscription email', state: 'subscribe invalid', zh: '这个邮箱看起来不太对。', en: "That email doesn't look right.", next: 'Correct the email' },
+  { behavior: 'Submit with no channels', state: 'subscribe channels', zh: '至少选一样。', en: 'Pick at least one.', next: 'Select Posts or Moods' },
+  { behavior: 'Subscription starts the security check', state: 'subscribe Turnstile', zh: '提交按钮进入处理中；通常没有额外文案', en: 'The submit button becomes busy; normally no extra copy appears', next: 'Wait, or complete an interactive challenge if shown' },
+  { behavior: 'Subscription security check fails', state: 'subscribe BOT', zh: '校验失败，重试一下。', en: 'That check failed. Try again.', next: 'Retry the check' },
+  { behavior: 'Subscription is rate-limited', state: 'subscribe 429', zh: '操作太频繁，等一会儿再试。', en: 'Too many tries. Wait before trying again.', next: 'Wait before retrying' },
+  { behavior: 'Subscription server fails', state: 'subscribe server', zh: '出错了，稍后重试。', en: 'Something broke. Try again in a moment.', next: 'Press Retry' },
+  { behavior: 'Subscription network fails', state: 'subscribe network', zh: '网络不太好，检查下连接。', en: 'Network trouble — check your connection.', next: 'Reconnect and retry' },
+  { behavior: 'Subscription confirmation sent', state: 'subscribe sent', zh: '确认邮件已发，去收件箱点一下。', en: 'Confirmation sent — tap the link in your inbox.', next: 'Open the confirmation mail or press Done' },
+  { behavior: 'Address is already subscribed', state: 'subscribe already', zh: '已经订阅过了。', en: "You're already subscribed.", next: 'Press Done' },
   { behavior: 'Reply opens', state: 'reply-open', zh: commentsCopy.zh.replyTo('Nina Kato'), en: commentsCopy.en.replyTo('Nina Kato'), next: 'Write; Escape or Reply closes it' },
   { behavior: 'Edit opens', state: 'editing', zh: `${commentsCopy.zh.edit} · ${commentsCopy.zh.timeLeft('8:24')}`, en: `${commentsCopy.en.edit} · ${commentsCopy.en.timeLeft('8:24')}`, next: 'Save or Cancel' },
   { behavior: 'Cancel dirty edit', state: 'confirm', zh: commentsCopy.zh.discard, en: commentsCopy.en.discard, next: 'Press again to discard' },
   { behavior: 'Delete press', state: 'confirm', zh: commentsCopy.zh.removeConfirm, en: commentsCopy.en.removeConfirm, next: 'Confirm or cancel' },
   { behavior: 'Like a post or comment', state: 'idle → liked', zh: `${commentsCopy.zh.reactAdd} → ${commentsCopy.zh.reactDone}`, en: `${commentsCopy.en.reactAdd} → ${commentsCopy.en.reactDone}`, next: 'One-way action; repeated presses only animate' },
+  { behavior: 'Post reaction request fails', state: 'reaction rollback', zh: commentsCopy.zh.reactError, en: commentsCopy.en.reactError, next: 'Retry the reaction later' },
   { behavior: 'Sign out press', state: 'armed', zh: `${commentsCopy.zh.signOut} → ${commentsCopy.zh.signOutConfirm}`, en: `${commentsCopy.en.signOut} → ${commentsCopy.en.signOutConfirm}`, next: 'Press again or blur to cancel' },
+  { behavior: 'Owner approves a held comment', state: 'moderation approve', zh: 'Approve → Working… → published receipt', en: 'Approve → Working… → published receipt', next: 'Row leaves the queue' },
+  { behavior: 'Owner hides a published comment', state: 'moderation hide', zh: 'Hide → Working… → hidden receipt', en: 'Hide → Working… → hidden receipt', next: 'Row leaves the queue' },
+  { behavior: 'Owner deletes a comment', state: 'moderation delete', zh: 'Delete → deleted receipt', en: 'Delete → deleted receipt', next: 'Row leaves the queue' },
+  { behavior: 'Moderation moved elsewhere', state: 'moderation 409', zh: 'Already handled somewhere else. Reload to see where it went.', en: 'Already handled somewhere else. Reload to see where it went.', next: 'Reload the queue' },
+  { behavior: 'Moderation request fails', state: 'moderation error', zh: '错误提示保留当前行', en: 'Error notice keeps the current row', next: 'Retry the action' },
+  { behavior: 'Moderation queue is empty', state: 'moderation empty', zh: 'Nothing is waiting for review', en: 'Nothing is waiting for review', next: 'No action needed' },
   { behavior: 'Draft survives reload', state: 'draft', zh: '草稿恢复；离开页面时浏览器会询问', en: 'Draft restores; leaving the page can prompt', next: 'Edit or submit the restored text' },
   ...Object.entries(commentsCopy.zh.submitError).map(([code, zh]) => ({
     behavior: `Submit/edit failure (${code})`,
@@ -354,10 +392,10 @@ await billing.invoice(payload)</code></pre>
           the comments head, and the only way to judge that seam is to render
           both sides of it for real. */}
       <Colophon credits={authorshipCredits}>
-        <ReactionBar client:idle count={24} reacted={reacted} reactors={reactors} locale={locale} />
+        <ReactionBar client:idle count={24} reacted={reacted} reactors={reactors} locale={locale} postId={interactive ? 'lab-post' : undefined} />
         <div class="blog-article-sub">
-          <SubscribePanel variant="blog" anchor="right" feed={blog.feed} />
-          <ShareRow title="少一层，而不是多一层" />
+          <SubscribePanel variant="blog" locale={locale} anchor="right" feed={blog.feed} />
+          <ShareRow title="少一层，而不是多一层" locale={locale} />
         </div>
       </Colophon>
 
@@ -393,12 +431,62 @@ await billing.invoice(payload)</code></pre>
           <h2 id="comments-lab-verify-title">Reader confirmation states</h2>
           <p>Set <code>?verify=pending|confirmed|already|invalid|resent</code> to inspect each real <code>/reader/confirm</code> outcome in this one lab.</p>
         </div>
-        <div class="reader-confirm__card" data-state={verifyState}>
-          {verifyState === 'pending' && <><h3 class="reader-confirm__title">Confirm it's you</h3><ul class="reader-confirm__perks"><li>Manage your comments from any device</li><li>Get notified when someone replies</li><li>One-tap subscribe to new posts</li></ul><button type="button" class="blog-compose__go reader-confirm__go" data-verify-confirm>Confirm</button></>}
-          {verifyState === 'confirmed' && <><h3 class="reader-confirm__title">You're confirmed</h3><p class="reader-confirm__body">You now manage comments from any device, and reply notifications are armed.</p></>}
-          {verifyState === 'already' && <><h3 class="reader-confirm__title">Already confirmed</h3><p class="reader-confirm__body">This address was confirmed earlier. Nothing else to do here.</p></>}
-          {verifyState === 'invalid' && <><h3 class="reader-confirm__title">This link doesn't work</h3><p class="reader-confirm__body">It may have expired or already been used. Enter the email you commented with and we'll send a fresh one.</p><input class="blog-compose__input" type="email" placeholder="Email" aria-label="Email" /><button type="button" class="blog-compose__go reader-confirm__go" data-verify-resend>Resend link</button></>}
-          {verifyState === 'resent' && <><h3 class="reader-confirm__title">Check your inbox</h3><p class="reader-confirm__body">If that address has a comment on file, a fresh confirmation link is on its way.</p></>}
+        <div
+          class="reader-confirm__card"
+          data-state={verifyState}
+          data-confirmed-title={verifyCopy.confirmedTitle}
+          data-confirmed-body={verifyCopy.confirmedBodyAnonymous}
+          data-resent-title={verifyCopy.resentTitle}
+          data-resent-body={verifyCopy.resentBody}
+        >
+          <span class="reader-confirm__glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" set:html={verifyGlyphs[verifyState]} /></span>
+          {verifyState === 'pending' && <><h3 class="reader-confirm__title">{verifyCopy.pendingTitle}</h3><p class="reader-confirm__body">{verifyCopy.pendingBody}</p><button type="button" class="reader-confirm__go" data-verify-confirm>{verifyCopy.confirm}</button></>}
+          {verifyState === 'confirmed' && <><h3 class="reader-confirm__title">{verifyCopy.confirmedTitle}</h3><p class="reader-confirm__body">{verifyCopy.confirmedBodyAnonymous}</p></>}
+          {verifyState === 'already' && <><h3 class="reader-confirm__title">{verifyCopy.alreadyTitle}</h3><p class="reader-confirm__body">{verifyCopy.alreadyBody}</p></>}
+          {verifyState === 'invalid' && <><h3 class="reader-confirm__title">{verifyCopy.invalidTitle}</h3><p class="reader-confirm__body">{verifyCopy.invalidBody}</p><div class="reader-confirm__form"><input class="reader-confirm__input" type="email" placeholder={verifyCopy.emailPlaceholder} aria-label={verifyCopy.emailLabel} /><button type="button" class="reader-confirm__go" data-verify-resend>{verifyCopy.resend}</button></div></>}
+          {verifyState === 'resent' && <><h3 class="reader-confirm__title">{verifyCopy.resentTitle}</h3><p class="reader-confirm__body">{verifyCopy.resentBody}</p></>}
+        </div>
+      </section>
+
+      <section class="comments-lab-preview" aria-labelledby="comments-lab-preview-title">
+        <div class="comments-lab-catalog__head">
+          <p class="comments-lab-catalog__eyebrow">Markdown</p>
+          <h2 id="comments-lab-preview-title">Live compose preview</h2>
+          <p>The pane below is the real compose preview, rendered by the same parser as a published comment.</p>
+        </div>
+        <div class="blog-compose comments-lab-preview__compose" data-locale={locale}>
+          <div class="blog-compose__box">
+            <label class="sr-only" for="lab-markdown-preview">{t.bodyLabel}</label>
+            <textarea id="lab-markdown-preview" class="blog-compose__field" rows="5">The **preview** uses the same `comment-markdown.ts` renderer.
+
+> Edit this text to inspect every supported form.</textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="comments-lab-moderation" aria-labelledby="comments-lab-moderation-title" data-state={moderationState}>
+        <div class="comments-lab-catalog__head">
+          <p class="comments-lab-catalog__eyebrow">Owner moderation</p>
+          <h2 id="comments-lab-moderation-title">Queue action states</h2>
+          <p>Set <code>?moderation=idle|busy|success|conflict|error|empty</code> to inspect the owner side of the comment lifecycle.</p>
+        </div>
+        <div class="comments-lab-moderation__surface">
+          {moderationState === 'success' && <p class="comments-lab-moderation__receipt">Nina Kato's comment published.</p>}
+          {moderationState === 'conflict' && <p class="comments-lab-moderation__error" role="alert">Already handled somewhere else. Reload to see where it went.</p>}
+          {moderationState === 'error' && <p class="comments-lab-moderation__error" role="alert">The moderation request failed. Try again.</p>}
+          {moderationState === 'empty' ? (
+            <div class="comments-lab-moderation__empty"><strong>Nothing is waiting for review</strong><span>Held comments appear here when the automatic pass is unsure.</span></div>
+          ) : (
+            <article class="comments-lab-moderation__row">
+              <div><strong>Nina Kato</strong><span>held · verified</span></div>
+              <p>The rollback paragraph is useful, but the link at the end needs a human look.</p>
+              <small>promotional · Akismet marked this for review</small>
+              <div class="comments-lab-moderation__actions">
+                <button type="button" disabled={moderationState === 'busy'}>{moderationState === 'busy' ? 'Working…' : 'Approve'}</button>
+                <button type="button" disabled={moderationState === 'busy'}>Delete</button>
+              </div>
+            </article>
+          )}
         </div>
       </section>
 
@@ -444,19 +532,31 @@ await billing.invoice(payload)</code></pre>
   initCommentsController();
 
   const verifyCard = document.querySelector<HTMLElement>('.comments-lab-verify .reader-confirm__card');
+  const showVerifyResult = (title: string, body: string) => {
+    if (!verifyCard) return;
+    const heading = document.createElement('h3');
+    heading.className = 'reader-confirm__title';
+    heading.textContent = title;
+    const message = document.createElement('p');
+    message.className = 'reader-confirm__body';
+    message.textContent = body;
+    verifyCard.replaceChildren(heading, message);
+  };
   verifyCard?.querySelector('[data-verify-confirm]')?.addEventListener('click', () => {
     verifyCard.dataset.state = 'confirmed';
-    verifyCard.innerHTML = `<h3 class="reader-confirm__title">You're confirmed</h3><p class="reader-confirm__body">You now manage comments from any device, and reply notifications are armed.</p>`;
+    showVerifyResult(verifyCard.dataset.confirmedTitle ?? '', verifyCard.dataset.confirmedBody ?? '');
   });
   verifyCard?.querySelector('[data-verify-resend]')?.addEventListener('click', () => {
     verifyCard.dataset.state = 'resent';
-    verifyCard.innerHTML = `<h3 class="reader-confirm__title">Check your inbox</h3><p class="reader-confirm__body">If that address has a comment on file, a fresh confirmation link is on its way.</p>`;
+    showVerifyResult(verifyCard.dataset.resentTitle ?? '', verifyCard.dataset.resentBody ?? '');
   });
 </script>
 
 <style>
   .comments-lab-catalog,
-  .comments-lab-verify {
+  .comments-lab-verify,
+  .comments-lab-preview,
+  .comments-lab-moderation {
     margin-top: 48px;
     padding-top: 28px;
     border-top: 1px solid var(--blog-line);
@@ -538,6 +638,38 @@ await billing.invoice(payload)</code></pre>
   .comments-lab-verify .reader-confirm__card {
     margin-top: 18px;
   }
+
+  .comments-lab-preview__compose {
+    margin-top: 18px;
+  }
+
+  .comments-lab-moderation__surface {
+    margin-top: 18px;
+    padding: 18px;
+    border: 1px solid var(--blog-line);
+    border-radius: 12px;
+  }
+
+  .comments-lab-moderation__receipt,
+  .comments-lab-moderation__error {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--blog-fill);
+    color: var(--blog-muted);
+    font-size: 13px;
+  }
+
+  .comments-lab-moderation__error { color: var(--blog-danger); }
+  .comments-lab-moderation__row { display: grid; gap: 10px; }
+  .comments-lab-moderation__row > div:first-child { display: flex; justify-content: space-between; gap: 12px; color: var(--blog-ink); }
+  .comments-lab-moderation__row p { margin: 0; color: var(--blog-body); line-height: 1.6; }
+  .comments-lab-moderation__row small { color: var(--blog-faint); }
+  .comments-lab-moderation__actions { display: flex; gap: 8px; }
+  .comments-lab-moderation__actions button { padding: 7px 12px; border: 1px solid var(--blog-line); border-radius: 999px; background: none; color: var(--blog-ink); }
+  .comments-lab-moderation__actions button:disabled { opacity: 0.6; }
+  .comments-lab-moderation__empty { display: grid; gap: 5px; color: var(--blog-muted); text-align: center; }
+  .comments-lab-moderation__empty strong { color: var(--blog-ink); }
 
   .comments-lab-verify .reader-confirm__card > .blog-compose__go {
     margin-top: 16px;

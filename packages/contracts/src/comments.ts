@@ -215,7 +215,7 @@ export interface CommentCreateInput {
   parentId?: string | null;
   displayName: string;
   /** Optional. Supplied: must be valid; triggers lazy verification and
-      enables reply notifications, claiming, and a Gravatar-backed avatar.
+      enables claiming and a Gravatar-backed avatar.
       Omitted or empty: the comment is owned by its anon session only and
       the client renders an identicon. */
   email?: string;

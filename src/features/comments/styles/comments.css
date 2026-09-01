@@ -326,6 +326,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.blog-react__error {
+  margin: 0;
+  color: var(--blog-danger);
+  font-size: 12px;
+}
+
 @keyframes blog-react-enter {
   from {
     opacity: 0;
@@ -1420,6 +1426,31 @@
   margin-top: 0.2em;
 }
 
+/* The live preview stays inside the compose surface and uses the exact
+   published-row renderer above. It only exists once supported Markdown has
+   been typed, so ordinary prose keeps the compact compose height. */
+.blog-compose__preview {
+  margin: 8px 14px 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--blog-field-line);
+}
+
+.blog-compose__preview-tag {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--blog-faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.blog-compose__preview-body {
+  color: var(--blog-body);
+  font-size: var(--comment-body);
+  line-height: var(--comment-lead);
+}
+
 /* --- An edit still in the air ---------------------------------------------
    Save writes the new text straight into the row and sends the PATCH after
    -- see saveEdit. The row is telling the truth about what the reader typed
@@ -2058,12 +2089,7 @@
   }
 }
 
-/* --- Reader confirm card ---------------------------------------------------
-   /reader/confirm, the lazy-verification landing page — plans/blog-comments.md
-   → "Lazy verification": GET renders this, only the button's POST consumes
-   the token. The reader sees it once, from a mail link, so it borrows the
-   compose box's chrome (`.blog-r-box`, `.blog-compose__go`) instead of a
-   second visual language for one screen. */
+/* --- Reader confirm card ------------------------------------------------ */
 .reader-confirm {
   display: flex;
   justify-content: center;
@@ -2071,71 +2097,104 @@
 }
 
 .reader-confirm__card {
-  width: min(100%, 380px);
-  padding: 28px 26px;
+  width: min(100%, 396px);
+  padding: 34px 30px 30px;
   border: 1px solid var(--blog-line);
   border-radius: var(--blog-r-box);
   background: hsl(var(--foreground) / 0.02);
   text-align: center;
+  animation: reader-confirm-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes reader-confirm-in {
+  from { opacity: 0; translate: 0 8px; }
+}
+
+.reader-confirm__glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin: 0 0 16px;
+  border-radius: var(--blog-r-pill);
+  background: var(--blog-fill);
+  color: var(--blog-faint);
+}
+
+.reader-confirm__glyph svg {
+  width: 21px;
+  height: 21px;
+}
+
+.reader-confirm__card[data-state='confirmed'] .reader-confirm__glyph,
+.reader-confirm__card[data-state='already'] .reader-confirm__glyph {
+  background: color-mix(in oklab, var(--blog-accent) 13%, transparent);
+  color: var(--blog-accent);
 }
 
 .reader-confirm__title {
   margin: 0 0 8px;
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--blog-ink);
 }
 
-.reader-confirm__email {
-  display: inline-block;
-  margin: 0 0 18px;
-  padding: 5px 12px;
-  border-radius: var(--blog-r-pill);
-  background: var(--blog-fill);
-  font-size: 13.5px;
-  color: var(--blog-body);
-}
-
 .reader-confirm__body {
-  margin: 0 0 18px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--blog-muted);
-}
-
-.reader-confirm__perks {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   margin: 0 0 22px;
-  padding: 0;
-  list-style: none;
-  text-align: left;
-  font-size: 13.5px;
-  line-height: 1.5;
+  font-size: 14.5px;
+  line-height: 1.65;
   color: var(--blog-muted);
-}
-
-.reader-confirm__perks li {
-  position: relative;
-  padding-left: 18px;
-}
-
-.reader-confirm__perks li::before {
-  content: '';
-  position: absolute;
-  left: 2px;
-  top: 0.6em;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--blog-faint);
+  text-wrap: pretty;
 }
 
 .reader-confirm__go {
+  display: block;
   width: 100%;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: var(--blog-r-pill);
+  background: var(--blog-ink);
+  color: hsl(var(--background));
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: opacity 0.15s ease, scale 0.15s ease;
 }
+
+.reader-confirm__go:hover { opacity: 0.86; }
+.reader-confirm__go:active { scale: 0.985; }
+.reader-confirm__go:focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 3px; }
+
+.reader-confirm__form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reader-confirm__input {
+  width: 100%;
+  padding: 11px 16px;
+  border: 1px solid var(--blog-line);
+  border-radius: var(--blog-r-pill);
+  background: var(--blog-fill);
+  font: inherit;
+  font-size: 16px;
+  color: var(--blog-ink);
+  text-align: center;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+@media (min-width: 640px) {
+  .reader-confirm__input { font-size: 14.5px; }
+}
+
+.reader-confirm__input::placeholder { color: var(--blog-faint); }
+.reader-confirm__input:focus { outline: none; border-color: hsl(var(--foreground) / 0.28); background: transparent; }
+.reader-confirm__input:focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 2px; }
 
 .reader-confirm__back {
   display: inline-block;
@@ -2146,4 +2205,10 @@
 
 .reader-confirm__back:hover {
   color: var(--blog-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-confirm__card { animation: none; }
+  .reader-confirm__go,
+  .reader-confirm__input { transition: none; }
 }

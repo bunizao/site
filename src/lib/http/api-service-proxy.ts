@@ -98,15 +98,6 @@ export function createApiServiceRequest(request: Request, originUrl: string = AP
   headers.set('X-Forwarded-Origin', source.origin);
   headers.set('X-Buxx-Forwarded-Url', source.toString());
 
-  // The URL above is rewritten to the binding origin, but the browser's
-  // Origin header still names the public origin, so site-api's CSRF check
-  // would reject every body-less non-GET request as cross-site. Translate a
-  // same-origin Origin to the target origin; a genuinely foreign Origin is
-  // forwarded untouched so the check still fires downstream.
-  if (headers.get('Origin') === source.origin) {
-    headers.set('Origin', target.origin);
-  }
-
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     init.body = request.body;
     init.duplex = 'half';
@@ -161,6 +152,10 @@ export async function proxyApiRequest(request: Request, locals: RuntimeEnvLocals
 
 async function proxyApiHttpRequest(request: Request, origin: string): Promise<Response> {
   const upstreamRequest = createApiServiceRequest(request, origin);
+  // The dev fallback is a real HTTP hop, so its Origin must match the
+  // upstream URL. Service bindings keep the public Origin and the explicit
+  // X-Forwarded-Origin pair expected by site-api's internal-host middleware.
+  upstreamRequest.headers.set('origin', new URL(origin).origin);
   // Let fetch negotiate encodings it can decompress. Forwarding a browser's
   // zstd preference can leave Node streaming compressed bytes to the client.
   upstreamRequest.headers.delete('accept-encoding');

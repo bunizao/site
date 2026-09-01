@@ -16,12 +16,14 @@ import BlogLayout from '@/layouts/BlogLayout.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import '@/features/comments/styles/comments.css';
 import { proxyApiRequest } from '@/lib/http/api-service-proxy';
+import { readerConfirmCopy, resolveReaderConfirmLocale } from '@/features/comments/reader-confirm-copy';
 import type { ReaderResendResult, ReaderVerifyResult } from '@bunizao/contracts/comments';
 
 type ViewState = 'pending' | 'confirmed' | 'already' | 'invalid' | 'resent';
 
 const token = Astro.url.searchParams.get('token') ?? '';
-const locale = Astro.url.searchParams.get('lang') === 'en' ? 'en' : 'zh';
+const locale = resolveReaderConfirmLocale(Astro.url.searchParams.get('lang'));
+const t = readerConfirmCopy[locale];
 let state: ViewState = token ? 'pending' : 'invalid';
 let displayName = '';
 
@@ -72,74 +74,76 @@ function readStaleSubscribeIntent(staleToken: string): boolean {
     return false;
   }
 }
+
+const GLYPHS: Record<ViewState, string> = {
+  pending: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/>',
+  confirmed: '<path d="m4.5 12.5 5 5 10-11"/>',
+  already: '<path d="m4.5 12.5 5 5 10-11"/>',
+  invalid: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/><path d="M2 21 22 3"/>',
+  resent: '<path d="M21.5 2.5 10.8 13.2"/><path d="M21.5 2.5 14.7 21.5l-3.9-8.3-8.3-3.9z"/>',
+};
 ---
 
-<BlogLayout title="Confirm it's you" path="/reader/confirm" description="Confirm a comment on buxx.me" robots="noindex, nofollow">
-  <a class="blog-back" href="/blog">← All posts</a>
+<BlogLayout title={t.pageTitle} locale={locale} path="/reader/confirm" description={t.pageDescription} robots="noindex, nofollow">
+  <a class="blog-back" href="/blog">{t.back}</a>
 
   <div class="reader-confirm">
     <div class="reader-confirm__card" data-state={state}>
+      <span class="reader-confirm__glyph" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" set:html={GLYPHS[state]} />
+      </span>
       {state === 'pending' && (
         <>
-          <h1 class="reader-confirm__title">Confirm it's you</h1>
-          <ul class="reader-confirm__perks">
-            <li>Manage your comments from any device</li>
-            <li>Get notified when someone replies</li>
-            <li>One-tap subscribe to new posts</li>
-          </ul>
+          <h1 class="reader-confirm__title">{t.pendingTitle}</h1>
+          <p class="reader-confirm__body">{t.pendingBody}</p>
           <form method="post">
             <input type="hidden" name="token" value={token} />
-            <button type="submit" class="blog-compose__go reader-confirm__go">Confirm</button>
+            <button type="submit" class="reader-confirm__go" aria-label={t.confirmAria}>{t.confirm}</button>
           </form>
         </>
       )}
 
       {state === 'confirmed' && (
         <>
-          <h1 class="reader-confirm__title">You're confirmed</h1>
-          <p class="reader-confirm__body">
-            {displayName ? `${displayName} now manages` : 'You now manage'} comments from any device, and reply notifications are armed.
-          </p>
-          <a class="reader-confirm__back" href="/blog">← Back to the post</a>
+          <h1 class="reader-confirm__title">{t.confirmedTitle}</h1>
+          <p class="reader-confirm__body">{displayName ? t.confirmedBody(displayName) : t.confirmedBodyAnonymous}</p>
+          <a class="reader-confirm__back" href="/blog">{t.back}</a>
         </>
       )}
 
       {state === 'already' && (
         <>
-          <h1 class="reader-confirm__title">Already confirmed</h1>
-          <p class="reader-confirm__body">This address was confirmed earlier. Nothing else to do here.</p>
-          <a class="reader-confirm__back" href="/blog">← Back to the post</a>
+          <h1 class="reader-confirm__title">{t.alreadyTitle}</h1>
+          <p class="reader-confirm__body">{t.alreadyBody}</p>
+          <a class="reader-confirm__back" href="/blog">{t.back}</a>
         </>
       )}
 
       {state === 'invalid' && (
         <>
-          <h1 class="reader-confirm__title">This link doesn't work</h1>
-          <p class="reader-confirm__body">
-            It may have expired or already been used. Enter the email you commented with and we'll send a fresh one.
-          </p>
-          <form method="post">
-            <label class="sr-only" for="reader-confirm-email">Email</label>
+          <h1 class="reader-confirm__title">{t.invalidTitle}</h1>
+          <p class="reader-confirm__body">{t.invalidBody}</p>
+          <form method="post" class="reader-confirm__form">
+            <label class="sr-only" for="reader-confirm-email">{t.emailLabel}</label>
             <input
               id="reader-confirm-email"
-              class="blog-compose__input"
+              class="reader-confirm__input"
               type="email"
               name="email"
               autocomplete="email"
-              placeholder="Email"
+              placeholder={t.emailPlaceholder}
               required
-              style="width:100%;margin-bottom:14px;text-align:center;"
             />
-            <button type="submit" class="blog-compose__go reader-confirm__go">Resend link</button>
+            <button type="submit" class="reader-confirm__go">{t.resend}</button>
           </form>
         </>
       )}
 
       {state === 'resent' && (
         <>
-          <h1 class="reader-confirm__title">Check your inbox</h1>
-          <p class="reader-confirm__body">If that address has a comment on file, a fresh confirmation link is on its way.</p>
-          <a class="reader-confirm__back" href="/blog">← Back to the post</a>
+          <h1 class="reader-confirm__title">{t.resentTitle}</h1>
+          <p class="reader-confirm__body">{t.resentBody}</p>
+          <a class="reader-confirm__back" href="/blog">{t.back}</a>
         </>
       )}
     </div>

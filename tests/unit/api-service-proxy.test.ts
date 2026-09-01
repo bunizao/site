@@ -61,14 +61,14 @@ describe('api service proxy', () => {
     expect(await proxied.json()).toEqual({ postId: '123' });
   });
 
-  test('translates same-origin mutations to the binding origin', () => {
+  test('keeps the public Origin beside the forwarded public origin', () => {
     const request = new Request('https://buxx.me/api/v2/comments/abc', {
       method: 'DELETE',
       headers: { Origin: 'https://buxx.me' },
     });
     const proxied = createApiServiceRequest(request);
 
-    expect(proxied.headers.get('origin')).toBe('https://site-api.internal');
+    expect(proxied.headers.get('origin')).toBe('https://buxx.me');
     expect(proxied.headers.get('x-forwarded-origin')).toBe('https://buxx.me');
   });
 

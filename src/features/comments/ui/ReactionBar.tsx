@@ -17,6 +17,7 @@ import {
 import { initials, seedHue } from '@/features/comments/identity';
 import { resolveCommentsCopy } from '@/features/comments/copy';
 import type { Reactor } from '@/features/comments/types';
+import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 
 interface Props {
   count: number;
@@ -81,6 +82,7 @@ export default function ReactionBar({
   const [summary, setSummary] = React.useState({ count, reacted, reactors });
   const [liked, setLiked] = React.useState(reacted);
   const [sparks, setSparks] = React.useState<Spark[]>([]);
+  const [error, setError] = React.useState('');
   const sparkId = React.useRef(0);
   const inflight = React.useRef(false);
   const challenge = React.useRef<HTMLDivElement>(null);
@@ -102,7 +104,7 @@ export default function ReactionBar({
           reactors: (live.reactors ?? []).map(
             (chip: { name: string; avatarUrl: string | null }): Reactor => ({
               name: chip.name,
-              avatar: chip.avatarUrl ?? undefined,
+              avatar: safeReaderAvatarUrl(chip.avatarUrl),
             }),
           ),
         });
@@ -167,6 +169,7 @@ export default function ReactionBar({
   async function like() {
     spawnSparks();
     if (liked || inflight.current) return;
+    setError('');
     setLiked(true);
     if (!postId) return;
 
@@ -188,6 +191,7 @@ export default function ReactionBar({
       }
     } catch {
       setLiked(false);
+      setError(t.reactError);
     } finally {
       inflight.current = false;
     }
@@ -230,7 +234,7 @@ export default function ReactionBar({
           type="button"
           onClick={like}
           aria-pressed={liked}
-          aria-label={liked ? t.reactDone : t.reactAdd}
+          aria-label={`${liked ? t.reactDone : t.reactAdd}: ${total}`}
           className={cn('blog-react__card', liked && 'is-flipped')}
         >
           {/* Both faces are always mounted and stacked in one grid cell, which
@@ -297,6 +301,7 @@ export default function ReactionBar({
           )}
         </AvatarGroup>
       )}
+      {error && <p className="blog-react__error" role="status">{error}</p>}
     </div>
   );
 }

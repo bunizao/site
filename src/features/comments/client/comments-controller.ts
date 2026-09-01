@@ -43,11 +43,13 @@ import {
   setTurnstileHost,
   warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
+import { clearCommentMarkdownPreview } from '@/features/comments/client/markdown-preview';
 import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
 import { forgetReaderEmail, readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { wireSignOut } from '@/features/comments/client/sign-out';
 import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
+import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
 
 const CLAIMED_STORAGE_KEY = 'buxx:reader';
@@ -142,7 +144,7 @@ function toBlogComment(
     author: comment.tombstone ? '' : comment.author.name,
     date: formatRelativeDate(comment.createdAt, t),
     text: comment.tombstone ? '' : comment.body,
-    avatarUrl: comment.tombstone ? undefined : comment.author.avatarUrl || undefined,
+    avatarUrl: comment.tombstone ? undefined : safeReaderAvatarUrl(comment.author.avatarUrl),
     byAuthor: comment.author.byAuthor,
     held: comment.status === 'held',
     isReply: comment.parentId !== null,
@@ -919,6 +921,7 @@ export function initCommentsController(): void {
     // Landing on a different row starts a fresh reply attempt -- the arm from
     // whatever was typed for the last one has nothing to do with this one.
     resetAnonymousConfirm(replyBox);
+    clearCommentMarkdownPreview(replyField);
     replyField.value = '';
   }
 
@@ -1451,8 +1454,9 @@ export function initCommentsController(): void {
     if (who) {
       who.replaceChildren();
       if (currentPhase === 'ready' && currentViewer) {
-        const face = currentViewer.avatarUrl
-          ? el('img', { class: 'blog-compose__whoface', src: currentViewer.avatarUrl, alt: '', width: '20', height: '20' })
+        const avatarUrl = safeReaderAvatarUrl(currentViewer.avatarUrl);
+        const face = avatarUrl
+          ? el('img', { class: 'blog-compose__whoface', src: avatarUrl, alt: '', width: '20', height: '20' })
           : el('span', { class: 'blog-compose__whoface blog-avatar-seed blog-avatar-initials', style: `--seed-hue:${seedHue(currentViewer.displayName)}`, 'aria-hidden': 'true' }, [initials(currentViewer.displayName)]);
         who.append(face, t.postingAs(currentViewer.displayName));
       }
