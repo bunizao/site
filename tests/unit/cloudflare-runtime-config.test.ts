@@ -109,7 +109,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(lighthouseWorkflow).toContain('skipped duplicate notification');
     expect(lighthouseWorkflow).toContain("if (issue.state === 'closed')");
     expect(lighthouseWorkflow).toContain('skipped duplicate recovery notification');
-    expect(lighthouseConfig).toContain("'/,/mood,/blog/'");
+    expect(lighthouseConfig).toContain("'/,/mood,/blog'");
+    expect(lighthouseConfig).toContain("throttlingMethod: 'devtools'");
     expect(lighthouseConfig).toContain('--disable-background-timer-throttling');
     expect(lighthouseConfig).toContain('--disable-backgrounding-occluded-windows');
     expect(lighthouseConfig).toContain('--disable-renderer-backgrounding');
