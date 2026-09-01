@@ -400,6 +400,18 @@ describe('Cloudflare runtime configuration', () => {
     expect(updateWatcher).toContain("import('gsap')");
   });
 
+  test('loads the SSR mood feed controller after the critical path', () => {
+    const moodRoute = readText('src/pages/mood.astro');
+
+    expect(moodRoute).not.toContain(
+      "import { initMoodFeedController } from '@/features/mood/client/feed-controller'",
+    );
+    expect(moodRoute).toContain("import('@/features/mood/client/feed-controller')");
+    expect(moodRoute).toContain("window.addEventListener('load', initFeed, { once: true })");
+    expect(moodRoute).toContain("feed?.classList.contains('is-hidden')");
+    expect(moodRoute).toContain('feed?.dataset.moodAnchorId');
+  });
+
   test('keeps the mood feed accessible under Lighthouse', () => {
     const moodRoute = readText('src/pages/mood.astro');
     const feedShell = readText('src/features/mood/ui/FeedShell.astro');

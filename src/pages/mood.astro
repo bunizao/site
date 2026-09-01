@@ -1992,7 +1992,17 @@ const skeletonGroups = [
 </script>
 
 <script>
-  import { initMoodFeedController } from '@/features/mood/client/feed-controller';
-
-  initMoodFeedController();
+  const initFeed = () => {
+    void import('@/features/mood/client/feed-controller').then(({ initMoodFeedController }) => {
+      initMoodFeedController();
+    });
+  };
+  const feed = document.querySelector<HTMLElement>('[data-mood-feed]');
+  if (feed?.dataset.moodAnchorId || feed?.classList.contains('is-hidden')) {
+    initFeed();
+  } else if (document.readyState === 'complete') {
+    initFeed();
+  } else {
+    window.addEventListener('load', initFeed, { once: true });
+  }
 </script>
