@@ -59,7 +59,12 @@ export function getMoodFeedPreloadImage(
     priorityPost.imageHeight,
   );
   const responsive = buildArchiveSrcSet(priorityPost.image, {
-    sizes: getMoodFeedThumbSizes(thumbLayout, priorityPost.imageKind),
+    sizes: getMoodFeedThumbSizes(
+      thumbLayout,
+      priorityPost.imageKind,
+      priorityPost.imageWidth,
+      priorityPost.imageHeight,
+    ),
   });
   return { href: priorityPost.image, imageSrcSet: responsive.srcset, imageSizes: responsive.sizes };
 }

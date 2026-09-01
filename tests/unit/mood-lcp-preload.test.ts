@@ -59,7 +59,7 @@ describe('mood lcp preload selection', () => {
     // Must match the sizes FeedShell renders on the thumb <img>, or the
     // preload and the element fetch different responsive candidates.
     const preload = getMoodFeedPreloadImage(posts);
-    expect(preload?.imageSizes).toBe(getMoodFeedThumbSizes('portrait'));
+    expect(preload?.imageSizes).toBe(getMoodFeedThumbSizes('portrait', 'image', 600, 900));
     expect(preload?.imageSizes).not.toBe(MOOD_FEED_IMAGE_SIZES);
   });
 

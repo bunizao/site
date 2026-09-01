@@ -58,6 +58,15 @@ describe('authorship model registry', () => {
       providerName: 'Google',
     });
   });
+
+  test('normalizes the published Gemini 3.1 Pro alias', async () => {
+    const result = await transformPostDirectives(
+      '<p>[!authors ai=google/gemini-3.1-pro]</p>',
+      context,
+    );
+
+    expect(result.meta.authors).toEqual([{ ai: 'google/gemini-3.1-pro-preview' }]);
+  });
 });
 
 describe('authors meta directive', () => {
