@@ -166,7 +166,10 @@ export function createFeedMediaHydrator(
       if (!(node instanceof HTMLImageElement)) return;
       setImageHints(node, { priority });
       attachImageFallback(node);
-
+      if (node.dataset.deferredSrc && node.dataset.deferredHydrated !== '1') {
+        const target = node.closest('.mood-item-thumb, [data-mood-image-frame]') ?? node;
+        registerDeferredImage(target, () => hydrateDeferredImage(node));
+      }
     });
 
     root.querySelectorAll('iframe').forEach((node) => {
@@ -215,14 +218,16 @@ export function createFeedMediaHydrator(
   const getThumbSizes = (img: HTMLImageElement): string => {
     const thumb = img.closest('.mood-item-thumb');
     if (!thumb) return getMoodFeedThumbSizes(null);
+    const imageWidth = Number(img.getAttribute('width')) || null;
+    const imageHeight = Number(img.getAttribute('height')) || null;
     if (thumb.classList.contains('mood-item-thumb--sticker')) {
       return getMoodFeedThumbSizes(null, 'sticker');
     }
     if (thumb.classList.contains('mood-item-thumb--ultra-tall')) {
-      return getMoodFeedThumbSizes('ultra-tall');
+      return getMoodFeedThumbSizes('ultra-tall', 'image', imageWidth, imageHeight);
     }
     if (thumb.classList.contains('mood-item-thumb--portrait')) {
-      return getMoodFeedThumbSizes('portrait');
+      return getMoodFeedThumbSizes('portrait', 'image', imageWidth, imageHeight);
     }
     return getMoodFeedThumbSizes(null);
   };

@@ -373,11 +373,13 @@ describe('Cloudflare runtime configuration', () => {
     const mediaHydration = readText('src/features/mood/client/feed-media-hydration.ts');
     const feedThumbnail = readText('src/features/mood/shared/feed-thumbnail.ts');
 
-    expect(feedShell).toContain('src={thumbImage}');
+    expect(feedShell).toContain('src={isPriorityMedia ? thumbImage : undefined}');
+    expect(feedShell).toContain('data-deferred-src={!isPriorityMedia ? thumbImage : undefined}');
     expect(feedShell).not.toContain('withWidthParam(thumbImage');
     expect(feedShell).not.toContain('srcset={buildSrcSet(thumbImage');
     expect(mediaHydration).toContain("img.removeAttribute('srcset')");
     expect(mediaHydration).toContain("img.removeAttribute('sizes')");
+    expect(mediaHydration).toContain('registerDeferredImage(target, () => hydrateDeferredImage(node))');
     expect(feedThumbnail).toContain('getMoodImageRatio');
     expect(renderer).toContain('img.dataset.deferredSrc = imageSrc');
     expect(renderer).toContain('mediaHydrator.registerDeferredImage(thumbWrap');

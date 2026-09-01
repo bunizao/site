@@ -189,4 +189,35 @@ describe('applyResponsiveImage DOM behavior', () => {
       await page.close();
     }
   });
+
+  test('hydrates server-rendered deferred images near the viewport', async () => {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    try {
+      await page.setContent([
+        '<div style="height:2400px"></div>',
+        '<div class="mood-item-thumb mood-item-thumb--ultra-tall">',
+        '  <img width="589" height="1280" data-deferred-src="/api/v2/images/mood/3641/0">',
+        '</div>',
+      ].join(''));
+      await page.evaluate(async ({ source }) => {
+        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+        const { createFeedMediaHydrator } = await import(moduleUrl);
+        const hydrator = createFeedMediaHydrator({ hydrate: async () => {} });
+        hydrator.applyMediaHints(document.body);
+      }, { source: mediaHydrationSource });
+
+      const image = page.locator('img');
+      expect(await image.getAttribute('src')).toBeNull();
+      await image.scrollIntoViewIfNeeded();
+      await page.waitForFunction(() => (
+        document.querySelector('img')?.getAttribute('src') === '/api/v2/images/mood/3641/0'
+      ));
+      expect(await image.getAttribute('src')).toBe('/api/v2/images/mood/3641/0');
+      expect(await image.getAttribute('sizes')).toBe(
+        '(max-width: 639px) 147.25px, (max-width: 1023px) 165.656px, 184.063px',
+      );
+    } finally {
+      await page.close();
+    }
+  });
 });
