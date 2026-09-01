@@ -220,22 +220,7 @@
       "name": "abliteration.ai",
       "models": {
         "abliterated-model": "Abliterated Model",
-        "abliterated-model-large": "Abliterated Model Large",
-        "abliterated-model-large-v2": "Abliterated Model Large V2"
-      }
-    },
-    "above": {
-      "name": "above.dev",
-      "models": {
-        "deepseek-v4-flash": "DeepSeek V4 Flash",
-        "deepseek-v4-flash-vision-exp": "DeepSeek V4 Flash Vision (Exp)",
-        "deepseek-v4-pro": "DeepSeek V4 Pro",
-        "glm-5.2": "GLM 5.2",
-        "glm-5.2-fast": "GLM 5.2 Fast",
-        "glm-5.3-flash": "GLM 5.3 Flash",
-        "mimo-v2.5-pro": "MiMo V2.5 Pro",
-        "mimo-v2.5-pro-ultraspeed": "MiMo V2.5 Pro UltraSpeed",
-        "qwen3.8-max": "Qwen 3.8 Max"
+        "abliterated-model-large": "Abliterated Model Large"
       }
     },
     "agentrouter": {
@@ -275,9 +260,7 @@
         "motif-technologies/motif-3": "Motif 3",
         "openai/gpt-oss-120b": "GPT OSS 120B",
         "qwen/qwen3.6-27b": "Qwen3.6 27B",
-        "qwen/qwen3.8-27b": "Qwen3.8 27B",
-        "zai-org/glm-5.2": "GLM-5.2",
-        "zai-org/glm-5.3": "GLM-5.3"
+        "zai-org/glm-5.2": "GLM-5.2"
       }
     },
     "aihubmix": {
@@ -306,8 +289,6 @@
         "coding-xiaomi-mimo-v2.5-pro": "Coding Xiaomi MiMo-V2.5-Pro",
         "deep-deepseek-v4-flash": "DeepSeek V4 Flash (DeepSeek)",
         "deep-deepseek-v4-pro": "DeepSeek V4 Pro (DeepSeek)",
-        "deepseek-v4-flash-0731": "DeepSeek V4 Flash 0731",
-        "deepseek-v4-pro-0813": "DeepSeek V4 Pro 0813",
         "doubao-seed-2-0-code-preview": "Doubao Seed 2.0 Code Preview",
         "doubao-seed-2-0-lite-260428": "Doubao Seed 2.0 Lite 260428",
         "doubao-seed-2-0-mini-260428": "Doubao Seed 2.0 Mini 260428",
@@ -321,8 +302,6 @@
         "gemini-3.5-flash": "Gemini 3.5 Flash",
         "gemini-3.7-flash": "Gemini 3.7 Flash",
         "glm-5.2": "GLM-5.2",
-        "glm-5.3": "GLM-5.3",
-        "glm-5.3-flash": "GLM-5.3-Flash",
         "glm-5v-turbo": "GLM 5 Vision Turbo",
         "gpt-5.1": "GPT-5.1",
         "gpt-5.1-codex": "GPT-5.1 Codex",
@@ -338,7 +317,6 @@
         "gpt-5.6-terra": "GPT-5.6 Terra",
         "grok-4.3": "Grok 4.3",
         "grok-4.5": "Grok 4.5",
-        "grok-4.6": "Grok 4.6",
         "grok-build-0.1": "Grok Build 0.1",
         "hy3-preview": "Hy3 Preview",
         "kimi-k2.5": "Kimi K2.5",
@@ -350,10 +328,8 @@
         "qwen3.6-flash": "Qwen3.6 Flash",
         "qwen3.6-max-preview": "Qwen3.6 Max Preview",
         "qwen3.6-plus": "Qwen3.6 Plus",
-        "qwen3.7-flash": "Qwen3.7 Flash",
         "qwen3.7-max": "Qwen3.7 Max",
         "qwen3.7-plus": "Qwen3.7 Plus",
-        "qwen3.8-2.4t-a95b": "Qwen3.8 2.4T A95B",
         "qwen3.8-max": "Qwen3.8 Max",
         "xiaomi-mimo-v2.5": "Xiaomi MiMo-V2.5",
         "xiaomi-mimo-v2.5-free": "Xiaomi MiMo-V2.5 (free)",
@@ -435,7 +411,6 @@
         "qwen3.6-plus": "Qwen3.6 Plus",
         "qwen3.7-max": "Qwen3.7 Max",
         "qwen3.7-plus": "Qwen3.7 Plus",
-        "qwen3.8-flash": "Qwen3.8 Flash",
         "qwen3.8-max": "Qwen3.8 Max",
         "qwq-plus": "QwQ Plus"
       }
@@ -521,7 +496,6 @@
         "qwen3.7-flash": "Qwen3.7 Flash",
         "qwen3.7-max": "Qwen3.7 Max",
         "qwen3.7-plus": "Qwen3.7 Plus",
-        "qwen3.8-flash": "Qwen3.8 Flash",
         "qwen3.8-max": "Qwen3.8 Max",
         "qwq-32b": "QwQ 32B",
         "qwq-plus": "QwQ Plus",
@@ -771,8 +745,7 @@
     "amd": {
       "name": "AMD",
       "models": {
-        "DeepSeek-V4-Flash": "DeepSeek V4 Flash 0731",
-        "Qwen3.8-Flash-Next": "Qwen3.8 Flash Next"
+        "DeepSeek-V4-Flash": "DeepSeek V4 Flash 0731"
       }
     },
     "anthropic": {
@@ -1066,7 +1039,6 @@
         "zai-org/GLM-5.1": "GLM 5.1",
         "zai-org/GLM-5.2": "GLM 5.2",
         "zai-org/GLM-5.2-Fast": "GLM 5.2 Fast",
-        "zai-org/GLM-5.3": "GLM 5.3",
         "zai-org/GLM-5.3-Flash": "GLM 5.3 Flash"
       }
     },
@@ -1081,9 +1053,7 @@
         "moonshotai/Kimi-K3": "Kimi K3",
         "openai/gpt-oss-120b": "GPT-OSS-120B",
         "zai-org/GLM-4.7": "GLM 4.7",
-        "zai-org/GLM-5.2": "GLM-5.2",
-        "zai-org/GLM-5.3": "GLM-5.3",
-        "zai-org/GLM-5.3-Flash": "GLM-5.3-Flash"
+        "zai-org/GLM-5.2": "GLM-5.2"
       }
     },
     "blueclaw": {
@@ -1091,13 +1061,6 @@
       "models": {
         "Qwen/Qwen3.6-35B-A3B-FP8": "Qwen3.6 35B A3B FP8",
         "Qwen3.6-27B": "Qwen3.6 27B"
-      }
-    },
-    "bothub": {
-      "name": "Bothub",
-      "models": {
-        "gemma-4-31b-it:free": "Gemma 4 31B IT (free)",
-        "nemotron-3-ultra-550b-a55b:free": "Nemotron 3 Ultra (free)"
       }
     },
     "cerebras": {
@@ -1254,7 +1217,6 @@
         "@cf/qwen/qwq-32b": "Qwq 32B",
         "@cf/zai-org/glm-4.7-flash": "GLM-4.7-Flash",
         "@cf/zai-org/glm-5.2": "Glm 5.2",
-        "@cf/zai-org/glm-5.3": "Glm 5.3",
         "@cf/zai-org/glm-5.3-flash": "Glm 5.3 Flash"
       }
     },
@@ -1280,7 +1242,7 @@
     "coralbricks": {
       "name": "CoralBricks",
       "models": {
-        "glm-5.3-fp4": "GLM 5.3 FP4",
+        "glm-5.2-fp4": "GLM 5.2 FP4",
         "gpt-oss-120b": "GPT OSS 120B",
         "kimi-k3": "Kimi K3"
       }
@@ -1305,7 +1267,6 @@
         "deepseek-v3.2": "DeepSeek V3.2",
         "deepseek-v4-flash-0731": "DeepSeek V4 Flash 0731",
         "deepseek-v4-pro": "DeepSeek V4 Pro",
-        "deepseek-v4-pro-0813": "DeepSeek V4 Pro 0813",
         "devstral-2512": "Devstral 2",
         "gemini-2.5-flash": "Gemini 2.5 Flash",
         "gemini-2.5-pro": "Gemini 2.5 Pro",
@@ -1323,8 +1284,6 @@
         "glm-5-turbo": "GLM-5-Turbo",
         "glm-5.1": "GLM-5.1",
         "glm-5.2": "GLM-5.2",
-        "glm-5.3": "GLM-5.3",
-        "glm-5.3-flash": "GLM-5.3-Flash",
         "glm-5v-turbo": "GLM-5V-Turbo",
         "gpt-4.1": "GPT-4.1",
         "gpt-4.1-mini": "GPT-4.1 mini",
@@ -1365,6 +1324,7 @@
         "mistral-7b-instruct-v0.3": "mistral-7b-instruct-v0.3",
         "mistral-large-2402": "mistral-large-2402",
         "mistral-large-2512": "Mistral Large 3",
+        "mistral-medium-2508": "mistral-medium-2508",
         "mistral-medium-3.5": "mistral-medium-3.5",
         "mistral-nemo-instruct-2407": "mistral-nemo-instruct-2407",
         "mistral-small-2503": "mistral-small-2503",
@@ -1395,7 +1355,6 @@
         "qwen3.6-35b-a3b": "Qwen3.6 35B-A3B",
         "qwen3.8-2.4t-a95b": "Qwen3.8 2.4T A95B",
         "qwen3.8-27b": "Qwen3.8 27B",
-        "qwen3.8-flash-next": "Qwen3.8 Flash Next",
         "qwen3guard-gen-0.6b": "qwen3guard-gen-0.6b",
         "qwen3guard-gen-8b": "qwen3guard-gen-8b",
         "voxtral-small-2507": "voxtral-small-2507"
@@ -1408,12 +1367,10 @@
         "deepseek-v4-flash": "DeepSeek V4 Flash",
         "deepseek-v4-flash-0731": "DeepSeek V4 Flash (New)",
         "deepseek-v4-pro": "DeepSeek V4 Pro",
-        "deepseek-v4-pro-0813": "DeepSeek V4 Pro (0813)",
+        "deepseek-v4-pro-lightning": "DeepSeek V4 Pro Lightning",
         "gemma-4-31b-it": "Gemma 4 31B IT",
         "glm-5.1": "GLM-5.1",
         "glm-5.2": "GLM-5.2",
-        "glm-5.3": "GLM-5.3",
-        "glm-5.3-flash": "GLM 5.3-Flash",
         "greg-1-mini": "Greg 1 Mini",
         "greg-2-super": "Greg 2 Super",
         "greg-2-ultra": "Greg 2 Ultra",
@@ -1474,7 +1431,6 @@
         "qwen/qwen3.8-flash": "Qwen3.8 Flash",
         "qwen/qwen3.8-max": "Qwen3.8 Max",
         "tencent/hy3": "Hy3",
-        "tencent/hy4-preview": "Hy4 preview",
         "x-ai/grok-4.3": "Grok 4.3",
         "x-ai/grok-4.5": "Grok 4.5",
         "x-ai/grok-4.6": "Grok 4.6",
@@ -1615,7 +1571,6 @@
         "zai-org/GLM-5": "GLM-5",
         "zai-org/GLM-5.1": "GLM-5.1",
         "zai-org/GLM-5.2": "GLM-5.2",
-        "zai-org/GLM-5.3": "GLM-5.3",
         "zai-org/GLM-5.3-Flash": "GLM-5.3-Flash"
       }
     },
@@ -1669,7 +1624,6 @@
         "glm-5": "GLM 5",
         "glm-5.1": "GLM-5.1",
         "glm-5.2": "GLM-5.2",
-        "glm-5.3": "GLM5.3",
         "glm-5.3-flash": "GLM5.3 Flash",
         "gte-large-en-v1.5": "GTE Large (v1.5)",
         "kimi-k2.5": "Kimi K2.5",
@@ -1819,7 +1773,6 @@
         "deepinfra/openai/gpt-oss-20b": "GPT OSS 20B",
         "deepinfra/stepfun-ai/Step-3.5-Flash": "Step 3.5 Flash",
         "deepinfra/stepfun-ai/Step-3.7-Flash": "Step 3.7 Flash",
-        "deepinfra/tencent/Hy3": "Hy3",
         "deepinfra/thinkingmachines/Inkling": "Inkling",
         "deepinfra/thinkingmachines/Inkling-Small": "Inkling Small",
         "deepinfra/zai-org/GLM-4.7-Flash": "GLM-4.7-Flash",
@@ -1830,6 +1783,7 @@
         "fireworks_ai/accounts/fireworks/models/deepseek-v4-flash-0731": "DeepSeek V4 Flash 0731",
         "fireworks_ai/accounts/fireworks/models/deepseek-v4-pro-0813": "DeepSeek V4 Pro 0813",
         "fireworks_ai/accounts/fireworks/models/gpt-oss-120b": "GPT OSS 120B",
+        "fireworks_ai/accounts/fireworks/models/gpt-oss-20b": "GPT OSS 20B",
         "fireworks_ai/accounts/fireworks/models/muse-glimmer-30b": "Muse Glimmer 30B",
         "fireworks_ai/gpt-oss-120b": "GPT OSS 120B",
         "flexai/deepseek-v4-flash-0731": "DeepSeek V4 Flash 0731",
@@ -1837,7 +1791,6 @@
         "flexai/gpt-oss-20b": "GPT OSS 20B",
         "flexai/Muse-Glimmer-30B": "Muse Glimmer 30B",
         "flexai/Nemotron-3-Super-120B-A12B": "Nemotron 3 Super 120B A12B",
-        "flexai/Step-3.7-Flash": "Step 3.7 Flash",
         "google/gemini-2.5-flash-image": "Nano Banana",
         "google/gemini-3-flash-preview": "Gemini 3 Flash Preview",
         "google/gemini-3-pro-image": "Nano Banana Pro",
@@ -1855,6 +1808,7 @@
         "google/gemini-3.7-flash": "Gemini 3.7 Flash",
         "google/gemini-flash-latest": "Gemini 3.7 Flash",
         "google/gemini-pro-latest": "Gemini 3.1 Pro Preview",
+        "google/lyria-3-clip-preview": "Lyria 3 Clip Preview",
         "groq/openai/gpt-oss-120b": "GPT OSS 120B",
         "groq/openai/gpt-oss-20b": "GPT OSS 20B",
         "ionos/meta-llama/Llama-3.3-70B-Instruct": "Llama-3.3-70B-Instruct",
@@ -1878,7 +1832,6 @@
         "mistral/voxtral-small-latest": "Voxtral Small (latest)",
         "moonshot/kimi-k2.6": "Kimi K2.6",
         "moonshot/kimi-k2.7-code": "Kimi K2.7 Code",
-        "moonshot/kimi-k2.7-code-highspeed": "Kimi K2.7 Code Highspeed",
         "moonshot/kimi-k3": "Kimi K3",
         "nebius/deepseek-ai/DeepSeek-V4-Flash-0731": "DeepSeek V4 Flash 0731",
         "nebius/meta-llama/Llama-3.3-70B-Instruct": "Llama-3.3-70B-Instruct",
@@ -1947,18 +1900,17 @@
         "qwen/qwen3-vl-235b-a22b-thinking": "Qwen3 VL 235B A22B Thinking",
         "qwen/qwen3.8-2.4t-a95b": "Qwen3.8 2.4T A95B",
         "qwen/qwen3.8-27b": "Qwen3.8 27B",
-        "qwen/qwen3.8-flash": "Qwen3.8 Flash",
         "qwen/qwen3.8-max": "Qwen3.8 Max",
         "qwen/qwq-plus": "QwQ Plus",
         "scaleway/deepseek-v4-flash-0731": "DeepSeek V4 Flash 0731",
         "scaleway/gpt-oss-120b": "GPT OSS 120B",
         "scaleway/llama-3.3-70b-instruct": "Llama-3.3-70B-Instruct",
         "tensorx/deepseek/deepseek-v4-flash-0731": "DeepSeek V4 Flash 0731",
-        "tensorx/deepseek/deepseek-v4-pro-0813": "DeepSeek V4 Pro 0813",
         "tensorx/moonshotai/kimi-k2.5": "Kimi K2.5",
         "together_ai/deepseek-ai/DeepSeek-V4-Flash-0731": "DeepSeek V4 Flash 0731",
         "together_ai/deepseek-ai/DeepSeek-V4-Pro-0813": "DeepSeek V4 Pro 0813",
         "together_ai/meta-models/Muse-Glimmer-30B": "Muse Glimmer 30B",
+        "together_ai/nvidia/nemotron-3-ultra-550b-a55b": "Nemotron 3 Ultra 550B A55B",
         "together_ai/openai/gpt-oss-120b": "GPT OSS 120B",
         "together_ai/openai/gpt-oss-20b": "GPT OSS 20B",
         "together_ai/thinkingmachines/Inkling": "Inkling",
@@ -2032,6 +1984,7 @@
         "minimax-m2-7": "MiniMax M2.7",
         "minimax-m2-7-highspeed": "MiniMax M2.7 Highspeed",
         "minimax-m3": "MiniMax M3",
+        "mistral-medium-3": "Mistral Medium 3",
         "mistral-small-4": "Mistral Small 4",
         "muse-glimmer-30b": "Muse Glimmer 30B",
         "muse-spark-1-1": "Muse Spark 1.1",
@@ -2142,11 +2095,10 @@
     "fireworks-ai": {
       "name": "Fireworks AI",
       "models": {
+        "accounts/fireworks/models/deepseek-v4-flash": "DeepSeek V4 Flash",
         "accounts/fireworks/models/deepseek-v4-flash-0731": "DeepSeek V4 Flash 0731",
         "accounts/fireworks/models/deepseek-v4-pro-0813": "DeepSeek V4 Pro 0813",
         "accounts/fireworks/models/glm-5p2": "GLM 5.2",
-        "accounts/fireworks/models/glm-5p3": "GLM 5.3",
-        "accounts/fireworks/models/glm-5p3-flash": "GLM 5.3 Flash",
         "accounts/fireworks/models/gpt-oss-120b": "GPT OSS 120B",
         "accounts/fireworks/models/inkling": "Inkling",
         "accounts/fireworks/models/kimi-k2p6": "Kimi K2.6",
@@ -2184,8 +2136,7 @@
         "google/gemma-4-31B-it": "Gemma 4 31B IT",
         "MiniMaxAI/MiniMax-M2.5": "MiniMax-M2.5",
         "zai-org/GLM-5.1": "GLM-5.1",
-        "zai-org/GLM-5.2": "GLM-5.2",
-        "zai-org/GLM-5.3": "GLM-5.3"
+        "zai-org/GLM-5.2": "GLM-5.2"
       }
     },
     "frogbot": {
@@ -2339,6 +2290,7 @@
         "gemini-flash-latest": "Gemini Flash Latest",
         "gemini-flash-lite-latest": "Gemini Flash-Lite Latest",
         "gemini-omni-flash-preview": "Gemini Omni Flash Preview",
+        "gemini-robotics-er-1.6-preview": "Gemini Robotics-ER 1.6 Preview",
         "gemma-4-26b-a4b-it": "Gemma 4 26B A4B IT",
         "gemma-4-31b-it": "Gemma 4 31B IT",
         "lyria-3-clip-preview": "Lyria 3 Clip Preview",
@@ -2472,7 +2424,6 @@
         "openai/gpt-oss-20b": "GPT OSS 20B",
         "openai/gpt-oss-safeguard-20b": "Safety GPT OSS 20B",
         "qwen/qwen3.6-27b": "Qwen3.6 27B",
-        "qwen/qwen3.8-27b": "Qwen3.8 27B",
         "whisper-large-v3": "Whisper",
         "whisper-large-v3-turbo": "Whisper Large V3 Turbo"
       }
@@ -2666,7 +2617,6 @@
         "zai-org/GLM-5": "GLM-5",
         "zai-org/GLM-5.1": "GLM-5.1",
         "zai-org/GLM-5.2": "GLM-5.2",
-        "zai-org/GLM-5.3": "GLM-5.3",
         "zai-org/GLM-5.3-Flash": "GLM-5.3-Flash"
       }
     },
@@ -2681,8 +2631,6 @@
         "glm-5": "GLM-5",
         "glm-5.1": "GLM-5.1",
         "glm-5.2": "GLM-5.2",
-        "glm-5.3": "GLM-5.3",
-        "glm-5.3-flash": "GLM-5.3-Flash",
         "gpt-oss-120b": "GPT OSS 120B",
         "kimi-k2.5": "Kimi K2.5",
         "kimi-k2.6": "Kimi K2.6",
@@ -2893,7 +2841,6 @@
     "iteracompute": {
       "name": "IteraCompute",
       "models": {
-        "iteracompute/ornith-1.5-35b-a3b": "Ornith 1.5 35B A3B",
         "iteracompute/qwen3.8-27b": "Qwen3.8 27B"
       }
     },
@@ -3068,6 +3015,7 @@
         "aion-labs/aion-3.0": "AionLabs: Aion-3.0",
         "aion-labs/aion-3.0-mini": "AionLabs: Aion-3.0-Mini",
         "aion-labs/aion-rp-llama-3.1-8b": "AionLabs: Aion-RP 1.0 (8B)",
+        "allenai/olmo-3-32b-think": "AllenAI: Olmo 3 32B Think",
         "amazon/nova-2-lite-v1": "Amazon: Nova 2 Lite",
         "amazon/nova-lite-v1": "Amazon: Nova Lite 1.0",
         "amazon/nova-micro-v1": "Amazon: Nova Micro 1.0",
@@ -3082,6 +3030,7 @@
         "anthropic/claude-opus-4.5": "Claude Opus 4.5 (latest)",
         "anthropic/claude-opus-4.6": "Claude Opus 4.6",
         "anthropic/claude-opus-4.7": "Claude Opus 4.7",
+        "anthropic/claude-opus-4.7-fast": "Claude Opus 4.7",
         "anthropic/claude-opus-4.8": "Claude Opus 4.8",
         "anthropic/claude-opus-4.8-fast": "Claude Opus 4.8",
         "anthropic/claude-opus-5": "Claude Opus 5",
@@ -3091,6 +3040,7 @@
         "anthropic/claude-sonnet-4.6": "Claude Sonnet 4.6",
         "anthropic/claude-sonnet-5": "Claude Sonnet 5",
         "arcee-ai/trinity-large-thinking": "Trinity Large Thinking",
+        "arcee-ai/virtuoso-large": "Arcee AI: Virtuoso Large",
         "baidu/ernie-4.5-vl-424b-a47b": "Baidu: ERNIE 4.5 VL 424B A47B ",
         "bytedance-seed/seed-1.6": "ByteDance Seed: Seed 1.6",
         "bytedance-seed/seed-1.6-flash": "ByteDance Seed: Seed 1.6 Flash",
@@ -3151,7 +3101,6 @@
         "gryphe/mythomax-l2-13b": "MythoMax 13B",
         "ibm-granite/granite-4.0-h-micro": "IBM: Granite 4.0 Micro",
         "ibm-granite/granite-4.1-8b": "IBM: Granite 4.1 8B",
-        "ibm-granite/granite-4.2-8b": "IBM: Granite 4.2 8B",
         "inception/mercury-2": "Inception: Mercury 2",
         "inclusionai/ling-3.0-flash": "Ling-3.0-flash",
         "inclusionai/ling-3.0-flash-fin:free": "Ling 3.0 Flash Fin (free)",
@@ -3160,6 +3109,7 @@
         "kilo-auto/free": "Auto Free",
         "kilo-auto/frontier": "Auto Frontier",
         "kilo-auto/small": "Auto Small",
+        "kwaipilot/kat-coder-air-v2.5": "Kwaipilot: KAT-Coder-Air V2.5",
         "kwaipilot/kat-coder-pro-v2": "Kwaipilot: KAT-Coder-Pro V2",
         "kwaipilot/kat-coder-pro-v2.5": "Kwaipilot: KAT-Coder-Pro V2.5",
         "liquid/lfm-2.5-2.6b:free": "LiquidAI: LFM2.5-2.6B (free)",
@@ -3218,8 +3168,8 @@
         "moonshotai/kimi-k3": "Kimi K3",
         "morph/morph-v3-fast": "Morph: Morph V3 Fast",
         "morph/morph-v3-large": "Morph: Morph V3 Large",
-        "nex-agi/nex-n2-mini": "Nex AGI: Nex-N2-Mini (retires Sep 8)",
-        "nex-agi/nex-n2-pro": "Nex AGI: Nex-N2-Pro (retires Sep 8)",
+        "nex-agi/nex-n2-mini": "Nex AGI: Nex-N2-Mini",
+        "nex-agi/nex-n2-pro": "Nex AGI: Nex-N2-Pro",
         "nousresearch/hermes-3-llama-3.1-405b": "Nous: Hermes 3 405B Instruct",
         "nousresearch/hermes-3-llama-3.1-70b": "Nous: Hermes 3 70B Instruct",
         "nousresearch/hermes-4-405b": "Nous: Hermes 4 405B",
@@ -3380,6 +3330,7 @@
         "tencent/hy-mt2-7b": "Tencent: Hy-MT2-7B",
         "tencent/hy3": "Hy3",
         "tencent/hy3-preview": "Hy3 preview",
+        "tencent/hy3:free": "Tencent: Hy3 (free)",
         "tencent/hy4-preview": "Hy4 preview",
         "thedrummer/cydonia-24b-v4.1": "TheDrummer: Cydonia 24B V4.1",
         "thedrummer/skyfall-36b-v2": "TheDrummer: Skyfall 36B V2",
@@ -3423,14 +3374,6 @@
         "k3-256k": "Kimi K3-256K",
         "kimi-for-coding": "Kimi K2.7 Code",
         "kimi-for-coding-highspeed": "Kimi For Coding HighSpeed"
-      }
-    },
-    "klokintegration": {
-      "name": "klokintegration.se",
-      "models": {
-        "Kloker": "Kloker",
-        "Kloker-Integration-Architect": "Kloker Integration Architect",
-        "Kloker-Integration-Developer": "Kloker Integration Developer"
       }
     },
     "kosmik": {
@@ -3484,6 +3427,7 @@
         "claude-sonnet-4-6": "Claude Sonnet 4.6",
         "claude-sonnet-5": "Claude Sonnet 5",
         "codestral-2508": "Codestral",
+        "cosmos3-super-reasoner": "Cosmos 3 Super Reasoner",
         "custom": "Custom Model",
         "deepseek-v3.2": "DeepSeek V3.2",
         "deepseek-v4-flash": "DeepSeek V4 Flash",
@@ -3503,6 +3447,7 @@
         "gemini-3.6-flash": "Gemini 3.6 Flash",
         "gemini-3.7-flash": "Gemini 3.7 Flash",
         "gemini-pro-latest": "Gemini Pro Latest",
+        "gemma-3-27b": "Gemma 3 27B",
         "gemma-4-26b-a4b-it": "Gemma 4 26B A4B IT",
         "gemma-4-31b-it": "Gemma 4 31B IT",
         "glm-4-32b-0414-128k": "GLM-4 32B (0414-128k)",
@@ -3566,6 +3511,8 @@
         "grok-4-5": "Grok 4.5",
         "grok-4-6": "Grok 4.6",
         "grok-build-0-1": "Grok Build 0.1",
+        "hermes-4-405b": "Hermes 4 405B",
+        "hermes-4-70b": "Hermes 4 70B",
         "hy3": "Hy3",
         "kimi-k2": "Kimi K2",
         "kimi-k2-thinking": "Kimi K2 Thinking",
@@ -3578,6 +3525,7 @@
         "ling-3.0-flash": "InclusionAI Ling 3.0 Flash",
         "llama-3-70b-instruct": "Llama 3 70B Instruct",
         "llama-3.1-70b-instruct": "Llama 3.1 70B Instruct",
+        "llama-3.1-nemotron-ultra-253b": "Llama 3.1 Nemotron Ultra 253B",
         "llama-3.2-11b-instruct": "Llama 3.2 11B Instruct",
         "llama-3.2-3b-instruct": "Llama 3.2 3B Instruct",
         "llama-3.3-70b-instruct": "Llama-3.3-70B-Instruct",
@@ -3585,6 +3533,7 @@
         "llama-4-scout-17b-instruct": "Llama 4 Scout 17B Instruct",
         "mimo-v2.5": "MiMo-V2.5",
         "mimo-v2.5-pro": "MiMo-V2.5-Pro",
+        "minicpm-v-4.5": "MiniCPM-V 4.5",
         "minimax-m2": "MiniMax-M2",
         "minimax-m2.1": "MiniMax-M2.1",
         "minimax-m2.1-lightning": "MiniMax M2.1 Lightning",
@@ -3602,6 +3551,9 @@
         "mistral-small-2506": "Mistral Small 3.2",
         "muse-spark-1.1": "Muse Spark 1.1",
         "muse-spark-1.2": "Muse Spark 1.2",
+        "nemotron-3-nano-30b": "Nemotron 3 Nano 30B",
+        "nemotron-3-nano-omni": "Nemotron 3 Nano Omni",
+        "nemotron-3-super-120b": "Nemotron 3 Super 120B",
         "nemotron-3-ultra-550b": "Nemotron 3 Ultra 550B A55B",
         "o1": "o1",
         "o3": "o3",
@@ -3613,9 +3565,11 @@
         "qwen-omni-turbo": "Qwen-Omni Turbo",
         "qwen-plus": "Qwen Plus",
         "qwen-plus-latest": "Qwen Plus Latest",
+        "qwen2-5-vl-72b-instruct": "Qwen2.5-VL 72B Instruct",
         "qwen3-235b-a22b-fp8": "Qwen3 235B A22B FP8",
         "qwen3-235b-a22b-instruct-2507": "Qwen3 235B A22B Instruct (2507)",
         "qwen3-235b-a22b-thinking-2507": "Qwen3 235B A22B Thinking (2507)",
+        "qwen3-30b-a3b-instruct-2507": "Qwen3 30B A3B Instruct (2507)",
         "qwen3-32b": "Qwen3 32B",
         "qwen3-coder-30b-a3b-instruct": "Qwen3-Coder 30B-A3B Instruct",
         "qwen3-coder-480b-a35b-instruct": "Qwen3-Coder 480B-A35B Instruct",
@@ -3638,7 +3592,6 @@
         "qwen3.7-flash": "Qwen3.7 Flash",
         "qwen3.7-max": "Qwen3.7 Max",
         "qwen3.7-plus": "Qwen3.7 Plus",
-        "qwen3.8-27b": "Qwen3.8 27B",
         "qwen3.8-flash": "Qwen3.8 Flash",
         "qwen3.8-max": "Qwen3.8 Max Preview",
         "qwen35-397b-a17b": "Qwen3.5 397B-A17B",
@@ -3862,6 +3815,31 @@
         "moonshot/kimi-k2.7-code": "Kimi K2.7 Code (Moonshot AI)",
         "moonshot/kimi-k2.7-code-highspeed": "Kimi K2.7 Code Highspeed (Moonshot AI)",
         "moonshot/kimi-k3": "Kimi K3 (Moonshot AI)",
+        "nebius/cosmos3-super-reasoner": "Cosmos 3 Super Reasoner (Nebius AI)",
+        "nebius/deepseek-v4-pro": "DeepSeek V4 Pro (Nebius AI)",
+        "nebius/gemma-3-27b": "Gemma 3 27B (Nebius AI)",
+        "nebius/glm-5.1": "GLM-5.1 (Nebius AI)",
+        "nebius/glm-5.2": "GLM-5.2 (Nebius AI)",
+        "nebius/gpt-oss-120b": "GPT OSS 120B (Nebius AI)",
+        "nebius/hermes-4-405b": "Hermes 4 405B (Nebius AI)",
+        "nebius/hermes-4-70b": "Hermes 4 70B (Nebius AI)",
+        "nebius/kimi-k2.6": "Kimi K2.6 (Nebius AI)",
+        "nebius/kimi-k2.7-code": "Kimi K2.7 Code (Nebius AI)",
+        "nebius/kimi-k3": "Kimi K3 (Nebius AI)",
+        "nebius/llama-3.1-nemotron-ultra-253b": "Llama 3.1 Nemotron Ultra 253B (Nebius AI)",
+        "nebius/llama-3.3-70b-instruct": "Llama 3.3 70B Instruct (Nebius AI)",
+        "nebius/minicpm-v-4.5": "MiniCPM-V 4.5 (Nebius AI)",
+        "nebius/minimax-m2.5": "MiniMax M2.5 (Nebius AI)",
+        "nebius/minimax-m3": "MiniMax M3 (Nebius AI)",
+        "nebius/nemotron-3-nano-30b": "Nemotron 3 Nano 30B (Nebius AI)",
+        "nebius/nemotron-3-nano-omni": "Nemotron 3 Nano Omni (Nebius AI)",
+        "nebius/nemotron-3-super-120b": "Nemotron 3 Super 120B (Nebius AI)",
+        "nebius/nemotron-3-ultra-550b": "Nemotron 3 Ultra 550B (Nebius AI)",
+        "nebius/qwen2-5-vl-72b-instruct": "Qwen2.5 VL 72B Instruct (Nebius AI)",
+        "nebius/qwen3-235b-a22b-instruct-2507": "Qwen3 235B A22B Instruct 2507 (Nebius AI)",
+        "nebius/qwen3-30b-a3b-instruct-2507": "Qwen3 30B A3B Instruct 2507 (Nebius AI)",
+        "nebius/qwen3-32b": "Qwen3 32B (Nebius AI)",
+        "nebius/qwen3-next-80b-a3b-thinking": "Qwen3 Next 80B A3B Thinking (Nebius AI)",
         "novita/deepseek-v3.2": "DeepSeek V3.2 (NovitaAI)",
         "novita/deepseek-v4-flash": "DeepSeek V4 Flash (NovitaAI)",
         "novita/ernie-4.5-vl-424b-a47b": "ERNIE 4.5 VL 424B A47B (NovitaAI)",
@@ -3874,7 +3852,6 @@
         "novita/glm-5": "GLM-5 (NovitaAI)",
         "novita/glm-5.1": "GLM-5.1 (NovitaAI)",
         "novita/glm-5.2": "GLM-5.2 (NovitaAI)",
-        "novita/glm-5.3": "GLM-5.3 (NovitaAI)",
         "novita/hy3": "Hy3 (NovitaAI)",
         "novita/kimi-k2": "Kimi K2 (NovitaAI)",
         "novita/kimi-k2.6": "Kimi K2.6 (NovitaAI)",
@@ -3903,8 +3880,6 @@
         "novita/qwen3-vl-30b-a3b-instruct": "Qwen3 VL 30B A3B Instruct (NovitaAI)",
         "novita/qwen3.6-35b-a3b": "Qwen3.6 35B A3B (NovitaAI)",
         "novita/qwen3.7-max": "Qwen3.7 Max (NovitaAI)",
-        "novita/qwen3.8-27b": "Qwen3.8 27B (NovitaAI)",
-        "novita/qwen3.8-flash": "Qwen3.8 Flash (NovitaAI)",
         "novita/qwen3.8-max": "Qwen3.8 Max (NovitaAI)",
         "novita/qwen35-397b-a17b": "Qwen3.5 397B A17B (NovitaAI)",
         "openai/gpt-3.5-turbo": "GPT-3.5 Turbo (OpenAI)",
@@ -3938,6 +3913,7 @@
         "openai/o3": "o3 (OpenAI)",
         "openai/o3-mini": "o3 Mini (OpenAI)",
         "openai/o4-mini": "o4 Mini (OpenAI)",
+        "permafrost/kimi-k3": "Kimi K3 (Permafrost)",
         "perplexity/sonar": "Sonar (Perplexity)",
         "perplexity/sonar-pro": "Sonar Pro (Perplexity)",
         "perplexity/sonar-reasoning-pro": "Sonar Reasoning Pro (Perplexity)",
@@ -3947,14 +3923,11 @@
         "runware/deepseek-v4-pro": "DeepSeek V4 Pro (Runware)",
         "runware/gemma-4-31b-it": "Gemma 4 31B IT (Runware)",
         "runware/glm-5.2": "GLM-5.2 (Runware)",
-        "runware/glm-5.3-flash": "GLM-5.3 Flash (Runware)",
         "runware/gpt-oss-120b": "GPT OSS 120B (Runware)",
         "runware/kimi-k2.6": "Kimi K2.6 (Runware)",
         "sakana/fugu-ultra": "Fugu Ultra (Sakana AI)",
         "scx-ai-gp/glm-5.2": "GLM-5.2 (SCX.ai)",
         "scx-ai-gp/glm-5.2-fast": "GLM-5.2 Turbo (SCX.ai)",
-        "scx-ai-gp/glm-5.3": "GLM-5.3 (SCX.ai)",
-        "scx-ai-gp/glm-5.3-flash": "GLM-5.3 Flash (SCX.ai)",
         "scx-ai-gp/kimi-k2.7-code": "Kimi K2.7 Code (SCX.ai)",
         "scx-ai-gp/kimi-k3": "Kimi K3 (SCX.ai)",
         "scx-ai-gp/qwen3.8-max": "Qwen3.8 Max (SCX.ai)",
@@ -3971,6 +3944,7 @@
         "together-ai/gpt-oss-20b": "GPT OSS 20B (Together AI)",
         "together-ai/kimi-k3": "Kimi K3 (Together AI)",
         "together-ai/minimax-m3": "MiniMax M3 (Together AI)",
+        "tundra/kimi-k2.6": "Kimi K2.6 (Tundra)",
         "vertex-anthropic/claude-haiku-4-5": "Claude Haiku 4.5 (Vertex AI (Anthropic))",
         "vertex-anthropic/claude-opus-4-5-20251101": "Claude Opus 4.5 (Vertex AI (Anthropic))",
         "vertex-anthropic/claude-opus-4-6": "Claude Opus 4.6 (Vertex AI (Anthropic))",
@@ -4144,7 +4118,6 @@
         "deepseek/deepseek-v3.2": "DeepSeek V3.2",
         "deepseek/deepseek-v4-flash": "DeepSeek V4 Flash",
         "deepseek/deepseek-v4-flash-0731": "DeepSeek V4 Flash 0731",
-        "deepseek/deepseek-v4-flash-0731-fast": "DeepSeek V4 Flash 0731",
         "deepseek/deepseek-v4-pro": "DeepSeek V4 Pro",
         "deepseek/deepseek-v4-pro-0423": "DeepSeek V4 Pro 0423",
         "deepseek/deepseek-v4-pro-0813": "DeepSeek V4 Pro 0813",
@@ -4503,9 +4476,6 @@
       "name": "NanoGPT",
       "models": {
         "abacusai/Dracarys-72B-Instruct": "Llama 3.1 70B Dracarys 2",
-        "abliteration-ai/abliterated-model": "Abliterated Model",
-        "abliteration-ai/abliterated-model-large": "Abliterated Model Large",
-        "abliteration-ai/abliterated-model-large-v2": "Abliterated Model Large V2",
         "aion-labs/aion-2.0": "AionLabs: Aion-2.0",
         "aion-labs/aion-3.0": "AionLabs: Aion 3.0",
         "aion-labs/aion-3.0-mini": "AionLabs: Aion 3.0 Mini",
@@ -4568,6 +4538,7 @@
         "claude-opus-4-1-20250805": "Claude 4.1 Opus",
         "claude-opus-4-1-thinking": "Claude 4.1 Opus Thinking",
         "claude-opus-4-1-thinking:1024": "Claude 4.1 Opus Thinking (1K)",
+        "claude-opus-4-1-thinking:32000": "Claude 4.1 Opus Thinking (32K)",
         "claude-opus-4-1-thinking:32768": "Claude 4.1 Opus Thinking (32K)",
         "claude-opus-4-1-thinking:8192": "Claude 4.1 Opus Thinking (8K)",
         "claude-opus-4-20250514": "Claude 4 Opus",
@@ -4575,6 +4546,7 @@
         "claude-opus-4-5-20251101:thinking": "Claude 4.5 Opus Thinking",
         "claude-opus-4-thinking": "Claude 4 Opus Thinking",
         "claude-opus-4-thinking:1024": "Claude 4 Opus Thinking (1K)",
+        "claude-opus-4-thinking:32000": "Claude 4 Opus Thinking (32K)",
         "claude-opus-4-thinking:32768": "Claude 4 Opus Thinking (32K)",
         "claude-opus-4-thinking:8192": "Claude 4 Opus Thinking (8K)",
         "claude-sonnet-4-20250514": "Claude 4 Sonnet",
@@ -4624,6 +4596,7 @@
         "deepseek/deepseek-v4-pro-0813": "DeepSeek V4 Pro 0813",
         "deepseek/deepseek-v4-pro-0813:thinking": "DeepSeek V4 Pro 0813 Thinking",
         "deepseek/deepseek-v4-pro:thinking": "DeepSeek V4 Pro (Thinking)",
+        "dmind/dmind-1-mini": "DMind-1-Mini",
         "Doctor-Shotgun/MS3.2-24B-Magnum-Diamond": "MS3.2 24B Magnum Diamond",
         "dots-studio/dots-3-note-preview": "Dots3-Note Preview",
         "doubao-1.5-pro-256k": "Doubao 1.5 Pro 256k",
@@ -4672,41 +4645,31 @@
         "gemini-3-pro-image-preview": "Gemini 3 Pro Image",
         "gemini-exp-1206": "Gemini 2.0 Pro 1206",
         "gemma-4-12b-it": "Gemma 4 12B Instruct",
-        "gemma-4-26b-a4b-it-chimerax": "Chimera X",
-        "gemma-4-26b-a4b-it-darksoul": "Dark Soul",
-        "gemma-4-26b-a4b-it-luminous": "Luminous Mirror",
-        "gemma-4-26b-a4b-it-moonlight": "Moonlight Dusk",
-        "gemma-4-26b-a4b-it-musica": "Musica",
-        "gemma-4-26b-a4b-it-opusdistill": "Opus Distill",
-        "gemma-4-26b-a4b-it-shadowsiren": "Shadow Siren",
         "Gemma-4-26B-A4B-MeroMero": "Gemma 4 26B A4B MeroMero",
         "Gemma-4-26B-A4B-MeroMero:thinking": "Gemma 4 26B A4B MeroMero Thinking",
-        "gemma-4-26b-a4b-uncensored": "Gemma 4 26B A4B Uncensored",
-        "gemma-4-26b-a4b-uncensored:thinking": "Gemma 4 26B A4B Uncensored Thinking",
         "Gemma-4-31B-Claude-4.6-Opus-Reasoning-Distilled": "Gemma 4 31B Claude 4.6 Opus Reasoning Distilled",
         "Gemma-4-31B-Cognitive-Unshackled": "Gemma 4 31B Cognitive Unshackled",
         "Gemma-4-31B-DarkIdol": "Gemma 4 31B DarkIdol",
         "Gemma-4-31B-GarnetV2": "Gemma 4 31B Garnet V2",
-        "gemma-4-31b-it-darkidol": "DarkIdol",
-        "gemma-4-31b-it-fabled": "Fabled",
-        "gemma-4-31b-it-garnet": "Garnet",
-        "gemma-4-31b-it-gembrain": "Gembrain",
-        "gemma-4-31b-it-gemsicle": "Gemsicle",
-        "gemma-4-31b-it-isometry": "Isometry",
-        "gemma-4-31b-it-novelist": "Novelist",
         "Gemma-4-31B-MeroMero-v2": "Gemma 4 31B MeroMero v2",
         "Gemma-4-31B-MeroMero-v2:thinking": "Gemma 4 31B MeroMero v2 Thinking",
         "Gemma-4-31B-Queen": "Gemma 4 31B Queen",
         "gemma-4-e2b-it": "Gemma 4 E2B Instruct",
         "gemma-4-e4b-it": "Gemma 4 E4B Instruct",
+        "glm-4": "GLM-4",
+        "glm-4-air": "GLM-4 Air",
         "glm-4-air-0111": "GLM 4 Air 0111",
+        "glm-4-airx": "GLM-4 AirX",
+        "glm-4-flash": "GLM-4 Flash",
         "glm-4-long": "GLM-4 Long",
+        "glm-4-plus": "GLM-4 Plus",
         "glm-4-plus-0111": "GLM 4 Plus 0111",
         "glm-4.1v-thinking-flash": "GLM 4.1V Thinking Flash",
         "glm-4.1v-thinking-flashx": "GLM 4.1V Thinking FlashX",
         "GLM-4.6-Derestricted-v5": "GLM 4.6 Derestricted v5",
         "glm-z1-air": "GLM Z1 Air",
         "glm-z1-airx": "GLM Z1 AirX",
+        "glm-zero-preview": "GLM Zero Preview",
         "google/gemini-3-flash-preview": "Gemini 3 Flash (Preview)",
         "google/gemini-3-flash-preview-thinking": "Gemini 3 Flash Thinking",
         "google/gemini-3.1-flash-lite": "Gemini 3.1 Flash Lite",
@@ -4724,6 +4687,8 @@
         "google/gemini-pro-latest": "Gemini Pro Latest",
         "google/gemma-4-26b-a4b-it": "Gemma 4 26B A4B",
         "google/gemma-4-26b-a4b-it:thinking": "Gemma 4 26B A4B Thinking",
+        "google/gemma-4-26b-a4b-uncensored": "Gemma 4 26B A4B Uncensored",
+        "google/gemma-4-26b-a4b-uncensored:thinking": "Gemma 4 26B A4B Uncensored Thinking",
         "google/gemma-4-31b-it": "Gemma 4 31B",
         "google/gemma-4-31b-it:thinking": "Gemma 4 31B Thinking",
         "Gryphe/MythoMax-L2-13b": "MythoMax 13B",
@@ -4736,16 +4701,25 @@
         "huihui-ai/DeepSeek-R1-Distill-Qwen-32B-abliterated": "DeepSeek R1 Qwen Abliterated",
         "huihui-ai/Llama-3.3-70B-Instruct-abliterated": "Llama 3.3 70B Instruct abliterated",
         "huihui-ai/Qwen2.5-32B-Instruct-abliterated": "Qwen 2.5 32B Abliterated",
+        "hunyuan-turbos-20250226": "Hunyuan Turbo S",
         "ibm-granite/granite-4.1-8b": "Granite 4.1 8B",
-        "ibm-granite/granite-4.2-8b": "Granite 4.2 8B",
         "inclusionai/ling-3.0-flash": "Ling 3.0 Flash",
         "inclusionai/ling-3.0-flash:thinking": "Ling 3.0 Flash Thinking",
         "inflatebot/MN-12B-Mag-Mell-R1": "Mag Mell R1",
+        "inflection/inflection-3-pi": "Inflection 3 Pi",
+        "inflection/inflection-3-productivity": "Inflection 3 Productivity",
+        "jamba-large": "Jamba Large",
+        "jamba-large-1.6": "Jamba Large 1.6",
+        "jamba-large-1.7": "Jamba Large 1.7",
+        "jamba-mini": "Jamba Mini",
+        "jamba-mini-1.6": "Jamba Mini 1.6",
+        "jamba-mini-1.7": "Jamba Mini 1.7",
         "kimi-k2-instruct-fast": "Kimi K2 0711 Fast",
         "kwaipilot/kat-coder-air-v2.5": "KAT Coder Air V2.5",
         "kwaipilot/kat-coder-pro-v2": "KAT Coder Pro V2",
         "kwaipilot/kat-coder-pro-v2.5": "KAT Coder Pro V2.5",
         "LatitudeGames/Wayfarer-Large-70B-Llama-3.3": "Llama 3.3 70B Wayfarer",
+        "learnlm-1.5-pro-experimental": "Gemini LearnLM Experimental",
         "liquid/lfm-2.5-2.6b": "LFM2.5 2.6B",
         "LLM360/K2-Think": "K2-Think",
         "longcat-2.0": "LongCat 2.0",
@@ -4892,6 +4866,8 @@
         "openai/o4-mini-high": "OpenAI o4-mini high",
         "ornith-ai/ornith-1.5-35b-a3b": "Ornith 1.5 35B",
         "ornith-ai/ornith-1.5-35b-a3b:thinking": "Ornith 1.5 35B Thinking",
+        "ornith-ai/ornith-1.5-397b": "Ornith 1.5 397B",
+        "ornith-ai/ornith-1.5-397b:thinking": "Ornith 1.5 397B Thinking",
         "ornith-ai/ornith-1.5-9b": "Ornith 1.5 9B",
         "ornith-ai/ornith-1.5-9b:thinking": "Ornith 1.5 9B Thinking",
         "pamanseau/OpenReasoning-Nemotron-32B": "OpenReasoning Nemotron 32B",
@@ -4935,7 +4911,6 @@
         "qwen/qwen3.6-35b-a3b-uncensored:thinking": "Qwen 3.6 35B A3B Uncensored Thinking",
         "qwen/Qwen3.6-35B-A3B:thinking": "Qwen3.6 35B A3B Thinking",
         "qwen/qwen3.8-2.4t-a95b": "Qwen3.8 2.4T A95B (Max)",
-        "qwen/qwen3.8-27b-fable": "Qwen 3.8 27B Fable",
         "qwen/qwen3.8-27b-obliterated": "Qwen 3.8 27B Obliterated",
         "qwen/qwen3.8-27b-obliterated:thinking": "Qwen 3.8 27B Obliterated Thinking",
         "qwen/qwen3.8-27b-uncensored": "Qwen 3.8 27B Uncensored",
@@ -4996,11 +4971,13 @@
         "Steelskull/L3.3-MS-Evayale-70B": "Evayale 70b ",
         "Steelskull/L3.3-MS-Nevoria-70b": "Steelskull Nevoria 70b",
         "Steelskull/L3.3-Nevoria-R1-70b": "Steelskull Nevoria R1 70b",
+        "step-r1-v-mini": "Step R1 V Mini",
         "stepfun-ai/step-3.5-flash": "Step 3.5 Flash",
         "stepfun-ai/step-3.5-flash-2603": "Step 3.5 Flash 2603",
         "stepfun/step-3.7-flash:thinking": "Step 3.7 Flash Thinking",
         "TEE/deepseek-v3.2": "DeepSeek V3.2 TEE",
         "TEE/deepseek-v4-flash": "DeepSeek V4 Flash TEE",
+        "TEE/gemma-3-27b-it": "Gemma 3 27B TEE",
         "TEE/gemma-4-26b-a4b-uncensored": "Gemma 4 26B A4B Uncensored TEE",
         "TEE/gemma-4-31b-it": "Gemma 4 31B IT TEE",
         "TEE/gemma4-31b": "Gemma 4 31B",
@@ -5010,8 +4987,6 @@
         "TEE/glm-5.1-thinking": "GLM 5.1 Thinking TEE",
         "TEE/glm-5.2": "GLM 5.2 TEE",
         "TEE/glm-5.2:thinking": "GLM 5.2 Thinking TEE",
-        "TEE/glm-5.3": "GLM 5.3 TEE",
-        "TEE/glm-5.3-flash": "GLM 5.3 Flash TEE",
         "TEE/gpt-oss-120b": "GPT-OSS 120B TEE",
         "TEE/gpt-oss-20b": "GPT-OSS 20B TEE",
         "TEE/kimi-k2.6": "Kimi K2.6 TEE",
@@ -5020,6 +4995,7 @@
         "TEE/llama3-3-70b": "Llama 3.3 70B",
         "TEE/muse-glimmer-30b": "Muse Glimmer 30B TEE",
         "TEE/qwen2.5-vl-72b-instruct": "Qwen2.5 VL 72B TEE",
+        "TEE/qwen3.5-122b-a10b": "Qwen3.5 122B A10B TEE",
         "TEE/qwen3.5-27b": "Qwen3.5 27B TEE",
         "TEE/qwen3.5-397b-a17b": "Qwen3.5 397B A17B TEE",
         "TEE/qwen3.6-27b": "Qwen3.6 27B TEE",
@@ -5028,7 +5004,6 @@
         "TEE/qwen3.8-27b": "Qwen3.8 27B TEE",
         "tencent/Hunyuan-MT-7B": "Hunyuan MT 7B",
         "tencent/hy3": "Tencent Hy3",
-        "tencent/hy4-preview": "Tencent Hy4 Preview",
         "TheDrummer/Anubis-70B-v1": "Anubis 70B v1",
         "TheDrummer/Anubis-70B-v1.1": "Anubis 70B v1.1",
         "TheDrummer/Cydonia-24B-v2": "The Drummer Cydonia 24B v2",
@@ -5071,45 +5046,46 @@
         "xiaomi/mimo-v2.5-pro:thinking": "MiMo V2.5 Pro Thinking",
         "xiaomi/mimo-v2.5:thinking": "MiMo V2.5 Thinking",
         "yi-large": "Yi Large",
+        "yi-lightning": "Yi Lightning",
         "yi-medium-200k": "Yi Medium 200k",
-        "z-ai/glm-4.5": "GLM 4.5",
-        "z-ai/GLM-4.5-Air": "GLM 4.5 Air",
-        "z-ai/GLM-4.5-Air:thinking": "GLM 4.5 Air (Thinking)",
-        "z-ai/GLM-4.5:thinking": "GLM 4.5 (Thinking)",
         "z-ai/glm-4.5v": "GLM 4.5V",
         "z-ai/glm-4.5v:thinking": "GLM 4.5V Thinking",
         "z-ai/glm-4.6": "GLM 4.6",
-        "z-ai/glm-4.6-original": "GLM 4.6 Original",
-        "z-ai/GLM-4.6-turbo": "GLM 4.6 Turbo",
-        "z-ai/GLM-4.6-turbo:thinking": "GLM 4.6 Turbo (Thinking)",
         "z-ai/glm-4.6:thinking": "GLM 4.6 Thinking",
-        "z-ai/glm-4.6v": "GLM 4.6V",
-        "z-ai/glm-4.6v-flash-original": "GLM 4.6V Flash",
-        "z-ai/glm-4.6v-original": "GLM 4.6V Original",
-        "z-ai/glm-4.7": "GLM 4.7",
-        "z-ai/glm-4.7-flash": "GLM 4.7 Flash",
-        "z-ai/glm-4.7-flash-original": "GLM 4.7 Flash Original",
-        "z-ai/glm-4.7-flash-original:thinking": "GLM 4.7 Flash Original Thinking",
-        "z-ai/glm-4.7-flash:thinking": "GLM 4.7 Flash Thinking",
-        "z-ai/glm-4.7-original": "GLM 4.7 Original",
-        "z-ai/glm-4.7-original:thinking": "GLM 4.7 Original Thinking",
-        "z-ai/glm-4.7:thinking": "GLM 4.7 Thinking",
-        "z-ai/glm-5": "GLM 5",
-        "z-ai/glm-5-original": "GLM 5 Original",
-        "z-ai/glm-5-original:thinking": "GLM 5 Original Thinking",
         "z-ai/glm-5-turbo": "GLM 5 Turbo",
-        "z-ai/glm-5:thinking": "GLM 5 Thinking",
-        "z-ai/glm-5.1": "GLM 5.1",
-        "z-ai/glm-5.1:thinking": "GLM 5.1 Thinking",
-        "z-ai/glm-5.2": "GLM 5.2",
-        "z-ai/glm-5.2:thinking": "GLM 5.2 Thinking",
-        "z-ai/glm-5.3": "GLM 5.3",
         "z-ai/glm-5.3-flash": "GLM 5.3 Flash",
         "z-ai/glm-5.3-flash-uncensored": "GLM 5.3 Flash Uncensored",
-        "z-ai/glm-5.3:thinking": "GLM 5.3 Thinking",
         "z-ai/glm-5v-turbo": "GLM 5V Turbo",
         "z-ai/glm-5v-turbo:thinking": "GLM 5V Turbo Thinking",
-        "z-ai/glm-latest": "GLM Latest"
+        "zai-org/glm-4.5": "GLM 4.5",
+        "zai-org/GLM-4.5-Air": "GLM 4.5 Air",
+        "zai-org/GLM-4.5-Air:thinking": "GLM 4.5 Air (Thinking)",
+        "zai-org/GLM-4.5:thinking": "GLM 4.5 (Thinking)",
+        "zai-org/glm-4.6-original": "GLM 4.6 Original",
+        "zai-org/GLM-4.6-turbo": "GLM 4.6 Turbo",
+        "zai-org/GLM-4.6-turbo:thinking": "GLM 4.6 Turbo (Thinking)",
+        "zai-org/glm-4.6v": "GLM 4.6V",
+        "zai-org/glm-4.6v-flash-original": "GLM 4.6V Flash",
+        "zai-org/glm-4.6v-original": "GLM 4.6V Original",
+        "zai-org/glm-4.7": "GLM 4.7",
+        "zai-org/glm-4.7-flash": "GLM 4.7 Flash",
+        "zai-org/glm-4.7-flash-original": "GLM 4.7 Flash Original",
+        "zai-org/glm-4.7-flash-original:thinking": "GLM 4.7 Flash Original Thinking",
+        "zai-org/glm-4.7-flash:thinking": "GLM 4.7 Flash Thinking",
+        "zai-org/glm-4.7-original": "GLM 4.7 Original",
+        "zai-org/glm-4.7-original:thinking": "GLM 4.7 Original Thinking",
+        "zai-org/glm-4.7:thinking": "GLM 4.7 Thinking",
+        "zai-org/glm-5": "GLM 5",
+        "zai-org/glm-5-original": "GLM 5 Original",
+        "zai-org/glm-5-original:thinking": "GLM 5 Original Thinking",
+        "zai-org/glm-5:thinking": "GLM 5 Thinking",
+        "zai-org/glm-5.1": "GLM 5.1",
+        "zai-org/glm-5.1:thinking": "GLM 5.1 Thinking",
+        "zai-org/glm-5.2": "GLM 5.2",
+        "zai-org/glm-5.2:thinking": "GLM 5.2 Thinking",
+        "zai-org/glm-5.3": "GLM 5.3 Preview",
+        "zai-org/glm-5.3:thinking": "GLM 5.3 Preview Thinking",
+        "zai-org/glm-latest": "GLM Latest"
       }
     },
     "nearai": {
@@ -5263,7 +5239,6 @@
         "glm-5.2-short-fast": "GLM 5.2 Short Fast",
         "glm-5.2-short-fast-flex": "GLM 5.2 Short Fast Flex",
         "glm-5.2-short-flex": "GLM 5.2 Short Flex",
-        "glm-5.3": "GLM 5.3",
         "kimi-k2.7-code": "Kimi K2.7 Code",
         "kimi-k2.7-code-fast": "Kimi K2.7 Code Fast",
         "kimi-k2.7-code-flex": "Kimi K2.7 Code Flex",
@@ -5628,7 +5603,6 @@
         "gemma4:31b": "gemma4:31b",
         "glm-5.1": "glm-5.1",
         "glm-5.2": "GLM-5.2",
-        "glm-5.3": "GLM-5.3",
         "glm-5.3-flash": "GLM-5.3-Flash",
         "gpt-oss:120b": "gpt-oss:120b",
         "gpt-oss:20b": "gpt-oss:20b",
@@ -5767,7 +5741,6 @@
         "kimi-k3": "Kimi K3",
         "laguna-s-2.1-free": "Laguna S 2.1 Free",
         "ling-2.6-flash-free": "Ling 2.6 Flash Free",
-        "ling-3.0-flash-fin-free": "Ling 3.0 Flash Fin Free",
         "ling-3.0-flash-free": "Ling-3.0-flash Free",
         "ling-3.0-tiny-free": "Ling-3.0-tiny Free",
         "longcat-2.0-free": "LongCat-2.0 Free",
@@ -5811,8 +5784,7 @@
         "gpt-5.6-luna": "GPT-5.6 Luna",
         "grok-4.5": "Grok 4.5",
         "grok-4.6": "Grok 4.6",
-        "hy3": "Hy3",
-        "hy4-preview": "Hy4 preview",
+        "hy3": "Hy3 (8x usage)",
         "kimi-k2.5": "Kimi K2.5",
         "kimi-k2.6": "Kimi K2.6",
         "kimi-k2.7-code": "Kimi K2.7 Code",
@@ -5835,14 +5807,6 @@
         "qwen3.8-max": "Qwen3.8 Max"
       }
     },
-    "openreason": {
-      "name": "OpenReason",
-      "models": {
-        "deepseek-ai/deepseek-v4-flash-0731": "DeepSeek V4 Flash 0731",
-        "moonshotai/kimi-k2.7-code": "Kimi K2.7 Code",
-        "openai/gpt-oss-120b": "GPT OSS 120B"
-      }
-    },
     "openrouter": {
       "name": "OpenRouter",
       "models": {
@@ -5862,6 +5826,7 @@
         "aion-labs/aion-3.0": "Aion-3.0",
         "aion-labs/aion-3.0-mini": "Aion-3.0-Mini",
         "aion-labs/aion-rp-llama-3.1-8b": "Aion-RP 1.0 (8B)",
+        "allenai/olmo-3-32b-think": "Olmo 3 32B Think",
         "amazon/nova-2-lite-v1": "Nova 2 Lite",
         "amazon/nova-lite-v1": "Nova Lite 1.0",
         "amazon/nova-micro-v1": "Nova Micro 1.0",
@@ -5876,6 +5841,7 @@
         "anthropic/claude-opus-4.5": "Claude Opus 4.5 (latest)",
         "anthropic/claude-opus-4.6": "Claude Opus 4.6",
         "anthropic/claude-opus-4.7": "Claude Opus 4.7",
+        "anthropic/claude-opus-4.7-fast": "Claude Opus 4.7 (Fast)",
         "anthropic/claude-opus-4.8": "Claude Opus 4.8",
         "anthropic/claude-opus-4.8-fast": "Claude Opus 4.8 (Fast)",
         "anthropic/claude-opus-5": "Claude Opus 5",
@@ -5885,6 +5851,7 @@
         "anthropic/claude-sonnet-4.6": "Claude Sonnet 4.6",
         "anthropic/claude-sonnet-5": "Claude Sonnet 5",
         "arcee-ai/trinity-large-thinking": "Trinity Large Thinking",
+        "arcee-ai/virtuoso-large": "Virtuoso Large",
         "baidu/ernie-4.5-vl-424b-a47b": "ERNIE 4.5 VL 424B A47B ",
         "bytedance-seed/seed-1.6": "Seed 1.6",
         "bytedance-seed/seed-1.6-flash": "Seed 1.6 Flash",
@@ -5947,10 +5914,10 @@
         "gryphe/mythomax-l2-13b": "MythoMax 13B",
         "ibm-granite/granite-4.0-h-micro": "Granite 4.0 Micro",
         "ibm-granite/granite-4.1-8b": "Granite 4.1 8B",
-        "ibm-granite/granite-4.2-8b": "Granite 4.2 8B",
         "inception/mercury-2": "Mercury 2",
         "inclusionai/ling-3.0-flash": "Ling-3.0-flash",
         "inclusionai/ling-3.0-flash-fin:free": "Ling 3.0 Flash Fin (free)",
+        "kwaipilot/kat-coder-air-v2.5": "KAT-Coder-Air V2.5",
         "kwaipilot/kat-coder-pro-v2": "KAT-Coder-Pro V2",
         "kwaipilot/kat-coder-pro-v2.5": "KAT-Coder-Pro V2.5",
         "liquid/lfm-2.5-2.6b:free": "LFM2.5-2.6B (free)",
@@ -6364,8 +6331,7 @@
         "z-ai/glm-5": "GLM-5",
         "z-ai/glm-5.1": "GLM-5.1",
         "z-ai/glm-5.2": "GLM-5.2",
-        "z-ai/glm-5.3": "GLM-5.3",
-        "z-ai/glm-5.3-flash": "GLM-5.3-Flash"
+        "z-ai/glm-5.3": "GLM-5.3"
       }
     },
     "ovhcloud": {
@@ -6848,7 +6814,7 @@
         "qwen3-reranker-4b": "Qwen3-Reranker-4B",
         "qwen3.5-122b": "Qwen3.5-122B",
         "qwen3.5-9b": "Qwen3.5-9B",
-        "qwen3.8-27b": "Qwen3.8 27B"
+        "qwen3.6-27b": "Qwen3.6 27B"
       }
     },
     "requesty": {
@@ -6907,7 +6873,7 @@
         "glm-5.2@eu": "GLM-5.2 (EU)",
         "glm-5.3": "GLM-5.3",
         "glm-5.3-flash": "GLM-5.3-Flash",
-        "glm-5.3@eu": "GLM-5.3 (EU)",
+        "glm-5.3-flash@eu": "GLM-5.3-Flash (EU)",
         "gpt-4.1-mini@eu": "GPT-4.1 mini (EU)",
         "gpt-4.1-nano@eu": "GPT-4.1 nano (EU)",
         "gpt-4.1@eu": "GPT-4.1 (EU)",
@@ -6915,6 +6881,7 @@
         "gpt-5-mini@eu": "GPT-5 Mini (EU)",
         "gpt-5-nano@eu": "GPT-5 Nano (EU)",
         "gpt-5.1@eu": "GPT-5.1 (EU)",
+        "gpt-5.3-chat": "gpt-5.3-chat",
         "gpt-5.3-codex": "GPT-5.3 Codex",
         "gpt-5.4": "GPT-5.4",
         "gpt-5.4-mini": "GPT-5.4 mini",
@@ -7154,14 +7121,6 @@
         "Qwen3.8-Max": "Qwen3.8 Max"
       }
     },
-    "sensenova": {
-      "name": "SenseNova (China)",
-      "models": {
-        "deepseek-v4-flash": "DeepSeek V4 Flash",
-        "glm-5.2": "GLM-5.2",
-        "sensenova-6.8-flash-lite": "SenseNova 6.8 Flash Lite"
-      }
-    },
     "siliconflow": {
       "name": "SiliconFlow",
       "models": {
@@ -7391,8 +7350,7 @@
         "hf:openai/gpt-oss-120b": "GPT OSS 120B",
         "hf:Qwen/Qwen3.6-27B": "Qwen3.6 27B",
         "hf:zai-org/GLM-4.7-Flash": "GLM-4.7-Flash",
-        "hf:zai-org/GLM-5.2": "GLM-5.2",
-        "hf:zai-org/GLM-5.3-Flash": "GLM-5.3-Flash"
+        "hf:zai-org/GLM-5.2": "GLM-5.2"
       }
     },
     "tencent-coding-plan": {
@@ -7526,7 +7484,6 @@
         "zai-org/GLM-5": "GLM-5",
         "zai-org/GLM-5.1": "GLM-5.1",
         "zai-org/GLM-5.2": "GLM-5.2",
-        "zai-org/GLM-5.3": "GLM-5.3",
         "zai-org/GLM-5.3-Flash": "GLM-5.3-Flash"
       }
     },
@@ -7548,22 +7505,16 @@
         "z-ai/glm-5.3-flash": "GLM-5.3-Flash"
       }
     },
-    "tokenrouter": {
-      "name": "TokenRouter",
-      "models": {
-        "z-ai/glm-5.3-free": "GLM-5.3 (free)"
-      }
-    },
     "trustedrouter": {
       "name": "TrustedRouter",
       "models": {
-        "trustedrouter/auto": "Auto",
-        "trustedrouter/cheap": "Cheap",
-        "trustedrouter/e2e": "End-to-End Encrypted",
-        "trustedrouter/fast": "Fast",
-        "trustedrouter/synth": "Synth",
-        "trustedrouter/synth-code": "Synth Code",
-        "trustedrouter/zdr": "Zero Data Retention"
+        "auto": "Auto",
+        "cheap": "Cheap",
+        "e2e": "End-to-End Encrypted",
+        "fast": "Fast",
+        "synth": "Synth",
+        "synth-code": "Synth Code",
+        "zdr": "Zero Data Retention"
       }
     },
     "umans-ai": {
@@ -7634,21 +7585,6 @@
         "v0-1.0-md": "v0-1.0-md",
         "v0-1.5-lg": "v0-1.5-lg",
         "v0-1.5-md": "v0-1.5-md"
-      }
-    },
-    "vancine": {
-      "name": "Vancine",
-      "models": {
-        "deepseek-v4-flash": "DeepSeek V4 Flash",
-        "deepseek-v4-flash-vision-exp": "DeepSeek V4 Flash Vision Exp",
-        "deepseek-v4-pro": "DeepSeek V4 Pro",
-        "glm-5.3": "GLM-5.3",
-        "glm-5.3-flash": "GLM-5.3-Flash",
-        "hy4-preview": "Hy4 preview",
-        "kimi-k3": "Kimi K3",
-        "MiniMax-M3": "MiniMax-M3",
-        "qwen3.8-flash": "Qwen3.8 Flash",
-        "qwen3.8-max": "Qwen3.8 Max"
       }
     },
     "venice": {
@@ -7790,7 +7726,6 @@
         "alibaba/qwen3.8-2.4t-a95b": "Qwen3.8 2.4T A95B",
         "alibaba/qwen3.8-27b": "Qwen3.8 27B",
         "alibaba/qwen3.8-flash": "Qwen 3.8 Flash",
-        "alibaba/qwen3.8-flash-next": "Qwen 3.8 Flash Next",
         "alibaba/qwen3.8-max": "Qwen 3.8 Max",
         "alibaba/wan-v2.5-t2v-preview": "Wan v2.5 Text-to-Video Preview",
         "alibaba/wan-v2.6-i2v": "Wan v2.6 Image-to-Video",
@@ -7801,7 +7736,6 @@
         "alibaba/wan-v2.7-r2v": "Wan v2.7 Reference-to-Video",
         "alibaba/wan-v2.7-t2v": "Wan v2.7 Text-to-Video",
         "alibaba/wan-v3.0-video": "Wan v3.0 Video",
-        "alibaba/wan-v3.0-video-prime": "Wan v3.0 Video Prime",
         "amazon/nova-2-lite": "Nova 2 Lite",
         "amazon/nova-lite": "Nova Lite",
         "amazon/nova-micro": "Nova Micro",
@@ -7929,7 +7863,6 @@
         "meta/muse-spark-1.2": "Muse Spark 1.2",
         "meta/muse-spark-1.2-contributor": "Muse Spark 1.2 Contributor",
         "minimax/minimax-h3": "MiniMax H3",
-        "minimax/minimax-h3-max": "MiniMax H3 Max",
         "minimax/minimax-m2": "MiniMax M2",
         "minimax/minimax-m2.1": "MiniMax M2.1",
         "minimax/minimax-m2.1-lightning": "MiniMax M2.1 Lightning",
@@ -8089,7 +8022,6 @@
         "tencent/hy-mt2-plus": "Tencent Hy-MT2-Plus",
         "tencent/hy-mt2-pro": "Tencent Hy-MT2-Pro",
         "tencent/hy3": "Hy3",
-        "tencent/hy4-preview": "Tencent Hy4 Preview",
         "thinkingmachines/inkling": "Inkling",
         "thinkingmachines/inkling-small": "Inkling Small",
         "voyage/rerank-2.5": "Voyage Rerank 2.5",
@@ -8106,7 +8038,6 @@
         "voyage/voyage-law-2": "voyage-law-2",
         "xiaomi/mimo-v2.5": "MiMo M2.5",
         "xiaomi/mimo-v2.5-pro": "MiMo V2.5 Pro",
-        "xiaomi/mimo-v2.5-pro-ultraspeed": "MiMo V2.5 Pro UltraSpeed",
         "zai/glm-4.5": "GLM 4.5",
         "zai/glm-4.5-air": "GLM 4.5 Air",
         "zai/glm-4.5v": "GLM 4.5V",
@@ -8171,19 +8102,6 @@
         "glm-5-2-260617": "GLM-5.2"
       }
     },
-    "volcengine-coding-plan": {
-      "name": "Volcengine Ark Coding Plan",
-      "models": {
-        "deepseek-v4-flash": "DeepSeek V4 Flash",
-        "deepseek-v4-pro": "DeepSeek V4 Pro",
-        "doubao-seed-2.0-lite": "Seed 2.0 Lite",
-        "doubao-seed-2.1-turbo": "Seed 2.1 Turbo",
-        "doubao-seed-evolving": "Seed Evolving",
-        "glm-5.3": "GLM-5.3",
-        "kimi-k2.7-code": "Kimi K2.7 Code",
-        "minimax-m3": "MiniMax-M3"
-      }
-    },
     "vultr": {
       "name": "Vultr",
       "models": {
@@ -8216,7 +8134,6 @@
         "deepseek-ai/DeepSeek-V4-Flash": "DeepSeek V4 Flash",
         "deepseek-ai/DeepSeek-V4-Flash-0731": "DeepSeek V4 Flash 0731",
         "deepseek-ai/DeepSeek-V4-Pro": "DeepSeek V4 Pro",
-        "deepseek-ai/DeepSeek-V4-Pro-0813": "DeepSeek V4 Pro 0813",
         "google/gemma-4-31B-it": "Gemma 4 31B",
         "ibm-granite/granite-4.1-8b": "Granite 4.1 8B",
         "ibm-granite/granite-4.2-8b": "Granite 4.2 8B",
@@ -8227,6 +8144,7 @@
         "MiniMaxAI/MiniMax-M3": "MiniMax M3",
         "moonshotai/Kimi-K2.6": "Kimi K2.6",
         "moonshotai/Kimi-K2.7-Code": "Kimi K2.7 Code",
+        "moonshotai/Kimi-K3": "Kimi K3",
         "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B": "Nemotron 3 Ultra",
         "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B": "Nemotron 3.5 Lightning",
         "openai/gpt-oss-120b": "gpt-oss-120b",
@@ -8237,7 +8155,8 @@
         "Qwen/Qwen3.6-27B": "Qwen3.6 27B",
         "Qwen/Qwen3.6-35B-A3B": "Qwen3.6 35B A3B",
         "Qwen/Qwen3.8-27B": "Qwen3.8 27B",
-        "zai-org/GLM-5.2": "GLM 5.2"
+        "zai-org/GLM-5.2": "GLM 5.2",
+        "zai-org/GLM-5.3-Flash": "GLM 5.3 Flash"
       }
     },
     "watsonx": {
