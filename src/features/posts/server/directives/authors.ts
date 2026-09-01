@@ -48,9 +48,12 @@ export interface PostAuthorshipValidationInput {
 }
 
 function normalizeAuthorshipModelReference(reference: string): string {
-  return reference.startsWith('gemini/')
+  const providerReference = reference.startsWith('gemini/')
     ? `google/${reference.slice('gemini/'.length)}`
     : reference;
+  return providerReference === 'google/gemini-3.1-pro'
+    ? 'google/gemini-3.1-pro-preview'
+    : providerReference;
 }
 
 function readCredit(attributes: DirectiveAttributes, slug: string): AuthorshipCredit {
