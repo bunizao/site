@@ -504,11 +504,12 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                             width={thumbWidth ?? undefined}
                             height={thumbHeight ?? undefined}
                             data-fallback-src={post.imageFallback ?? undefined}
+                            data-deferred-src={!isPriorityMedia ? thumbImage : undefined}
                             decoding={isPriorityMedia ? 'sync' : 'async'}
                             loading={isPriorityMedia ? 'eager' : 'lazy'}
                             fetchpriority={isPriorityMedia ? 'high' : undefined}
-                            src={thumbImage}
-                            srcset={thumbResponsive?.srcset}
+                            src={isPriorityMedia ? thumbImage : undefined}
+                            srcset={isPriorityMedia ? thumbResponsive?.srcset : undefined}
                             sizes={thumbResponsive?.sizes}
                           />
                         ) : null}
