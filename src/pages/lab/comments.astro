@@ -1,0 +1,561 @@
+---
+// Dev-only harness for the reaction bar and comment thread. The point is the
+// CONTEXT: the components render inside a real BlogLayout, a real
+// .blog-article-wrap, and a real .blog-prose column, so the measure, greys,
+// dark mode, and the hairline they share with .blog-end are all honest.
+//
+// Query params flip the states worth reviewing side by side:
+//   ?state=loaded | loading | empty | error | closed   (thread)
+//   ?phase=anonymous | claimed | ready         (reader standing, compose box)
+//   ?receipt=submitting | posted | held | nudge | error   (compose receipt)
+//   ?more=1  ?moreState=loading                (load-more cursor button)
+//   ?reacted=1                                 (filled heart, xia accent)
+//   ?credits=0                                 (colophon with no model credit)
+//
+// Own/editing/tombstone/edited comment rows are fixture data below, not query
+// params — they are thread content, not a state of the box or the list.
+//
+// Delete once /blog/[slug] carries the real thing.
+import BlogLayout from '@/layouts/BlogLayout.astro';
+import TableOfContents from '@/features/posts/ui/TableOfContents.astro';
+import ReadingTopbar from '@/features/posts/ui/ReadingTopbar.astro';
+import BackToTop from '@/features/posts/ui/BackToTop.astro';
+import Footer from '@/features/home/ui/Footer.astro';
+import ReactionBar from '@/features/comments/ui/ReactionBar';
+import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
+import SubscribePanel from '@/features/notify/SubscribePanel.astro';
+import Colophon from '@/features/posts/ui/Colophon.astro';
+import ShareRow from '@/features/posts/ui/ShareRow.astro';
+import { blog } from '@/data/site';
+import { commentsCopy } from '@/features/comments/copy';
+import { resolveAuthorshipModel } from '@/data/authorship';
+import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
+import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
+import type { CommentErrorCode } from '@/features/comments/comment-error';
+import '@/features/comments/styles/comments.css';
+
+export const prerender = false;
+if (!import.meta.env.DEV) return new Response(null, { status: 404 });
+
+const params = Astro.url.searchParams;
+const locale = params.get('locale') === 'en' ? 'en' : blog.locale.blog;
+
+const interactive = params.get('interactive') === '1';
+const verifyRaw = params.get('verify');
+const verifyState = verifyRaw === 'confirmed' || verifyRaw === 'already' || verifyRaw === 'invalid' || verifyRaw === 'resent'
+  ? verifyRaw
+  : 'pending';
+
+const rawState = params.get('state');
+const state =
+  rawState === 'loading' || rawState === 'empty' || rawState === 'error' || rawState === 'closed'
+    ? rawState
+    : 'loaded';
+
+const rawPhase = params.get('phase');
+const phase: ReaderPhase = rawPhase === 'claimed' || rawPhase === 'ready' ? rawPhase : 'anonymous';
+
+const rawReceipt = params.get('receipt');
+const receipt: ComposeReceipt =
+  rawReceipt === 'submitting' || rawReceipt === 'posted' || rawReceipt === 'held'
+  || rawReceipt === 'nudge' || rawReceipt === 'error'
+    ? rawReceipt
+    : 'idle';
+const errorCodes: CommentErrorCode[] = ['NET', 'RATE', 'BOT', 'GONE', 'THREAD', 'CLOSED', 'NAME', 'EMAIL', 'LONG', 'STALE', 'INPUT', 'SERVER'];
+const requestedError = params.get('error')?.toUpperCase() as CommentErrorCode | undefined;
+const errorCode = requestedError && errorCodes.includes(requestedError) ? requestedError : undefined;
+
+const hasMore = params.get('more') === '1';
+const loadMoreState = params.get('moreState') === 'loading' ? 'loading' : 'idle';
+const reacted = params.get('reacted') === '1';
+
+const viewer: Viewer = { name: 'Tutu Xiao' };
+const claimed: ClaimedIdentity = { name: 'Murray', email: 'murray@example.com' };
+const draftText = "Might be worth mentioning the rollback plan too — did you keep one on standby, or was cutting it part of the point?";
+
+// Real faces on purpose: a stack of five identical initial-circles reads as one
+// grey mass, which is a property of the fixture, not of the design. The shipped
+// bar serves reader avatars through the signed static proxy.
+const reactors = [
+  { name: 'Nina Kato', avatar: 'https://avatars.githubusercontent.com/u/1?s=96' },
+  { name: 'Wei Zhang', avatar: 'https://avatars.githubusercontent.com/u/810438?s=96' },
+  { name: 'Oskar Lind', avatar: 'https://avatars.githubusercontent.com/u/124599?s=96' },
+  { name: 'Priya R', avatar: 'https://avatars.githubusercontent.com/u/1024025?s=96' },
+  { name: 'Tom Beck' },
+];
+
+// Nearly every post credits a model, so the harness renders one: the colophon
+// has to be judged with its provenance line present, not in the rare state.
+// `?credits=0` shows the creditless post.
+const showCredits = params.get('credits') !== '0';
+const creditModel = resolveAuthorshipModel('anthropic/claude-opus-4-6');
+const authorshipCredits: AuthorshipCredit[] =
+  showCredits && creditModel
+    ? [{ model: creditModel, note: '读了三版草稿，指出第二节在重复第一节' }]
+    : [];
+
+const editWindowSoon = Date.now() + 8 * 60 * 1000 + 24 * 1000; // ~8:24 left, for the countdown
+
+// Fixture timestamps come off the same table the thread does, so the page is
+// readable in one language at a time. Hardcoded strings left the rows dated in
+// Chinese while every label around them was English, which is exactly the kind
+// of drift this page exists to catch.
+const t = commentsCopy[locale];
+
+const behaviorRows = [
+  { behavior: 'Open the thread', state: 'loading', zh: '骨架行（无文案）', en: 'Skeleton rows (no copy)', next: 'Wait for comments or retry' },
+  { behavior: 'Thread loads with comments', state: 'loaded', zh: '评论 + 数量', en: 'Comments + count', next: 'Read, like, reply, edit, or delete' },
+  { behavior: 'Thread is empty', state: 'empty', zh: commentsCopy.zh.empty, en: commentsCopy.en.empty, next: 'Write the first comment' },
+  { behavior: 'Thread request fails', state: 'error', zh: `${commentsCopy.zh.loadError} · ${commentsCopy.zh.retry}`, en: `${commentsCopy.en.loadError} · ${commentsCopy.en.retry}`, next: 'Press Retry' },
+  { behavior: 'Comments are closed', state: 'closed', zh: commentsCopy.zh.closed, en: commentsCopy.en.closed, next: 'Read existing rows; no compose or actions' },
+  { behavior: 'Load another page', state: 'load-more', zh: `${commentsCopy.zh.loadMore} → ${commentsCopy.zh.loading}`, en: `${commentsCopy.en.loadMore} → ${commentsCopy.en.loading}`, next: 'Wait for rows; on failure press Retry' },
+  { behavior: 'Anonymous compose', state: 'phase=anonymous', zh: `${commentsCopy.zh.namePlaceholder} · ${commentsCopy.zh.emailPlaceholder} · ${commentsCopy.zh.hint}`, en: `${commentsCopy.en.namePlaceholder} · ${commentsCopy.en.emailPlaceholder} · ${commentsCopy.en.hint}`, next: 'Fill identity and body' },
+  { behavior: 'Remembered identity', state: 'phase=claimed', zh: commentsCopy.zh.claimedAs('Murray'), en: commentsCopy.en.claimedAs('Murray'), next: commentsCopy.zh.signOut },
+  { behavior: 'Verified identity', state: 'phase=ready', zh: commentsCopy.zh.postingAs('Tutu Xiao'), en: commentsCopy.en.postingAs('Tutu Xiao'), next: 'Post as the verified reader' },
+  { behavior: 'First post with no email', state: 'first press', zh: commentsCopy.zh.emailRecommend, en: commentsCopy.en.emailRecommend, next: 'Fill email or press Post again' },
+  { behavior: 'Comment appears before API returns', state: 'optimistic post', zh: '新行先出现；审核中短暂显示“发布中”', en: 'New row appears first; a held row briefly says “Publishing”', next: 'Keep typing; a failed request restores the draft' },
+  { behavior: 'Published result', state: 'posted', zh: '新评论本身就是确认（不重复显示状态条）', en: 'The new comment is the receipt (no duplicate status bar)', next: 'Continue writing' },
+  { behavior: 'Held result', state: 'held', zh: commentsCopy.zh.held, en: commentsCopy.en.held, next: 'Wait for moderation; the row may upgrade to published' },
+  { behavior: 'Unverified email result', state: 'nudge', zh: `${commentsCopy.zh.nudgeText('reader@example.com')} · ${commentsCopy.zh.nudgeSubscribe} · ${commentsCopy.zh.dismiss}`, en: `${commentsCopy.en.nudgeText('reader@example.com')} · ${commentsCopy.en.nudgeSubscribe} · ${commentsCopy.en.dismiss}`, next: 'Confirm email, subscribe, or dismiss' },
+  { behavior: 'Reply opens', state: 'reply-open', zh: commentsCopy.zh.replyTo('Nina Kato'), en: commentsCopy.en.replyTo('Nina Kato'), next: 'Write; Escape or Reply closes it' },
+  { behavior: 'Edit opens', state: 'editing', zh: `${commentsCopy.zh.edit} · ${commentsCopy.zh.timeLeft('8:24')}`, en: `${commentsCopy.en.edit} · ${commentsCopy.en.timeLeft('8:24')}`, next: 'Save or Cancel' },
+  { behavior: 'Cancel dirty edit', state: 'confirm', zh: commentsCopy.zh.discard, en: commentsCopy.en.discard, next: 'Press again to discard' },
+  { behavior: 'Delete press', state: 'confirm', zh: commentsCopy.zh.removeConfirm, en: commentsCopy.en.removeConfirm, next: 'Confirm or cancel' },
+  { behavior: 'Like a post or comment', state: 'idle → liked', zh: `${commentsCopy.zh.reactAdd} → ${commentsCopy.zh.reactDone}`, en: `${commentsCopy.en.reactAdd} → ${commentsCopy.en.reactDone}`, next: 'One-way action; repeated presses only animate' },
+  { behavior: 'Sign out press', state: 'armed', zh: `${commentsCopy.zh.signOut} → ${commentsCopy.zh.signOutConfirm}`, en: `${commentsCopy.en.signOut} → ${commentsCopy.en.signOutConfirm}`, next: 'Press again or blur to cancel' },
+  { behavior: 'Draft survives reload', state: 'draft', zh: '草稿恢复；离开页面时浏览器会询问', en: 'Draft restores; leaving the page can prompt', next: 'Edit or submit the restored text' },
+  ...Object.entries(commentsCopy.zh.submitError).map(([code, zh]) => ({
+    behavior: `Submit/edit failure (${code})`,
+    state: code,
+    zh,
+    en: commentsCopy.en.submitError[code as keyof typeof commentsCopy.en.submitError],
+    next: code === 'RATE' ? 'Wait' : code === 'BOT' || code === 'STALE' ? 'Refresh' : code === 'LONG' ? 'Shorten the body' : 'Follow the message',
+  })),
+];
+
+const comments: BlogComment[] = [
+  {
+    id: '1',
+    author: 'Nina Kato',
+    date: t.relativeDate.days(2),
+    text: '这段关于"删掉一层抽象比加一层更难"的说法很准。我们上个季度做的事情几乎一模一样，最后省下来的不是代码行数，是每次改动前要读的东西。',
+    likes: 7,
+  },
+  {
+    id: '2',
+    author: 'Murray',
+    date: t.relativeDate.days(2),
+    text: 'Exactly that. The line count barely moved — what changed is how much you have to hold in your head before you can touch it.',
+    byAuthor: true,
+    isReply: true,
+    likes: 12,
+    liked: true,
+  },
+  {
+    id: '3',
+    author: 'Oskar Lind',
+    date: t.relativeDate.days(5),
+    text: 'Curious whether you kept the adapter around for the migration window or cut it in one go. The one-go version always sounds cleaner than it turns out to be.',
+    likes: 2,
+    edited: true,
+  },
+  {
+    id: '4',
+    author: 'You',
+    date: t.relativeDate.now,
+    text: 'Second this — a migration window with two live paths is where most of the cost hides.',
+    held: true,
+    own: true,
+  },
+  // Tombstone: the root is gone but the reply under it stays put — one-level
+  // threading has nowhere else to hang it.
+  {
+    id: '5',
+    author: 'Deleted',
+    date: t.relativeDate.days(4),
+    text: '',
+    tombstone: true,
+  },
+  {
+    id: '6',
+    author: 'Priya R',
+    date: t.relativeDate.days(4),
+    text: "Following up on that anyway — the rollback plan is the part I'd want written down before I tried this on our stack.",
+    isReply: true,
+    likes: 1,
+  },
+  // Own, no email on file — permanently unclaimable, since claiming keys on
+  // an email hash this row never had one to carry. No Edit, no Delete, and
+  // no hint either: "verify your email" would be false on a row with no
+  // address behind it, not a nudge.
+  {
+    id: '7',
+    author: 'You',
+    date: t.relativeDate.minutes(2),
+    text: "Didn't leave an email on this one, so there's nothing to edit or delete here — ever.",
+    own: true,
+    likes: 0,
+  },
+  // Own, has an email but it's never been verified — `avatarUrl` set (an
+  // email hash exists) but `editDeadline`/`deletable` both absent, so this
+  // one *can* still be claimed. Shows the quiet verify hint.
+  {
+    id: '7a',
+    author: 'You',
+    date: t.relativeDate.minutes(6),
+    text: 'Left an email on this one but never clicked the verification link.',
+    own: true,
+    avatarUrl: '/static/avatar/lab-fixture-unverified?s=96',
+    likes: 0,
+  },
+  // Own and verified — still inside the 15-minute edit window — Edit is live
+  // and counting down; Delete always is once `deletable` is true.
+  {
+    id: '8',
+    author: 'Tutu Xiao',
+    date: t.relativeDate.now,
+    text: 'One more thing: the retry policy move is the part I keep pointing people to when this comes up internally.',
+    own: true,
+    avatarUrl: '/static/avatar/lab-fixture-tutu?s=96',
+    editDeadline: editWindowSoon,
+    deletable: true,
+    likes: 3,
+  },
+  // Own and verified, already mid-edit — the inline textarea swap, on screen
+  // without a click.
+  {
+    id: '9-markdown',
+    author: 'Tutu Xiao',
+    date: t.relativeDate.hours(1),
+    text: 'Typo in my last one — meant the retry policy, not the retry budget.',
+    own: true,
+    avatarUrl: '/static/avatar/lab-fixture-tutu?s=96',
+    editing: true,
+    editDeadline: Date.now() + 3 * 60 * 1000,
+    deletable: true,
+    likes: 0,
+  },
+  // The whole of the Markdown a comment supports, in one row -- see
+  // comment-markdown.ts for why the list stops where it does. This page is
+  // the only place the six constructs can be seen next to each other, and
+  // the only place the server renderer is exercised at all.
+  {
+    id: '9',
+    author: 'Wren',
+    date: t.relativeDate.days(6),
+    text: [
+      'The **retry budget** and the *retry policy* are different things, and `maxAttempts` is',
+      'only the first one. Worth splitting in the post:',
+      '',
+      '- budget: how much total delay a request may spend',
+      '- policy: which failures are worth another try',
+      '',
+      '> a retry that was never going to succeed is a slower failure',
+      '',
+      '```',
+      'if (!retryable(err)) throw err;',
+      '```',
+      '',
+      'Context in [the AWS write-up](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/).',
+    ].join('\n'),
+    likes: 4,
+  },
+];
+---
+
+<BlogLayout title="Lab — reactions & comments" path="/lab/comments" description="Dev harness" locale={locale}>
+  <ReadingTopbar slot="readingbar" />
+  <a class="blog-back" href="/blog">{locale === 'en' ? '← All posts' : '← 全部文章'}</a>
+
+  <div class="blog-article-wrap">
+    <aside class="blog-aside">
+      <div class="blog-aside__sticky">
+        <a class="blog-back-rail" href="/blog">{locale === 'en' ? '← Blog' : '← 博客'}</a>
+        <TableOfContents />
+      </div>
+    </aside>
+
+    <article>
+      <header class="blog-article__header">
+        <h1 class="blog-article__title">少一层，而不是多一层</h1>
+        <div class="blog-article__meta">
+          <span>Murray</span>
+          <span>2026年8月20日</span>
+          <span>6分钟</span>
+        </div>
+      </header>
+
+      <div class="blog-prose">
+        <p>
+          去年冬天我们决定把一整层抽象删掉。那层东西存在了两年半，谁也说不清它当初解决了什么问题——
+          只知道每次改动都要先穿过它，再从另一头出来。
+        </p>
+
+        <h2>先说结论</h2>
+        <p>
+          删掉之后代码行数只少了 <code>1,800</code> 行，占整个仓库不到百分之三。
+          真正变化的不是体积，是每次动手之前需要装进脑子里的东西。
+          这件事没有任何一张图表能表现出来，但每个人都感觉到了。
+        </p>
+        <p>
+          我一直觉得，判断一个抽象好不好，不看它省了多少代码，而看它
+          <a href="#">让你不需要知道多少东西</a>。省代码的抽象很多，
+          真正减少认知负担的很少。
+        </p>
+
+        <blockquote>
+          <p>
+            一层抽象如果没有让调用它的人少知道一些事，那它只是把复杂度换了个地方放。
+          </p>
+        </blockquote>
+
+        <h3>那两年半它做了什么</h3>
+        <p>
+          它包了三个 API，统一了错误格式，还顺手做了重试。听起来都对。
+          问题是这三件事根本不需要在同一层里做，而且它们各自的生命周期完全不同：
+        </p>
+        <ul>
+          <li>错误格式一年动一次；</li>
+          <li>重试策略每次事故之后都要改；</li>
+          <li>三个 API 里有两个在第二年就下线了。</li>
+        </ul>
+        <p>
+          于是每次调重试参数，都要碰一个还在给两个死掉的 API 做兼容的文件。
+          这就是那种最难察觉的成本——它不表现为 bug，只表现为犹豫。
+        </p>
+
+        <h2>拆的过程</h2>
+        <p>
+          最开始想的是留一个适配层过渡，两条路并行跑一个月。写到一半发现，
+          维护两条活着的路径本身比一次切干净贵得多，而且贵在人身上不是机器上。
+        </p>
+        <pre><code>// before: one door, three unrelated jobs behind it
+await gateway.call('billing.invoice', payload)
+
+// after: the retry policy is where the failure is
+await billing.invoice(payload)</code></pre>
+        <p>
+          最后是在一个周三下午一次性切的。回滚方案准备了，没用上。
+          事后复盘时有人说，如果当初那层从来没建过，我们大概会更早发现三个 API 里有两个没人用。
+        </p>
+
+        <h3>留下来的判断</h3>
+        <p>
+          现在再有人提议加一层，我会先问一个问题：加完之后，用它的人可以
+          <strong>不知道</strong>什么？如果答案是"没有，只是写起来短一点"，
+          那它不是抽象，是缩写。
+        </p>
+        <p>
+          缩写也有价值，但它不该用抽象的价格买。
+        </p>
+      </div>
+
+      {/* The real components, not stand-ins: the colophon sits directly above
+          the comments head, and the only way to judge that seam is to render
+          both sides of it for real. */}
+      <Colophon credits={authorshipCredits}>
+        <ReactionBar client:idle count={24} reacted={reacted} reactors={reactors} locale={locale} />
+        <div class="blog-article-sub">
+          <SubscribePanel variant="blog" anchor="right" feed={blog.feed} />
+          <ShareRow title="少一层，而不是多一层" />
+        </div>
+      </Colophon>
+
+      <section class="comments-lab-catalog" aria-labelledby="comments-lab-catalog-title">
+        <div class="comments-lab-catalog__head">
+          <p class="comments-lab-catalog__eyebrow">Interaction inventory</p>
+          <h2 id="comments-lab-catalog-title">Every action and its feedback</h2>
+          <p>Use this table as the acceptance map for the live thread. Copy is shown in both supported blog locales; “next” records the user’s available recovery or follow-up.</p>
+        </div>
+        <div class="comments-lab-catalog__table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">User behavior</th><th scope="col">UI state</th><th scope="col">中文</th><th scope="col">English</th><th scope="col">Next move</th></tr>
+            </thead>
+            <tbody>
+              {behaviorRows.map((row) => (
+                <tr>
+                  <th scope="row">{row.behavior}</th>
+                  <td><code>{row.state}</code></td>
+                  <td>{row.zh}</td>
+                  <td>{row.en}</td>
+                  <td>{row.next}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="comments-lab-verify" aria-labelledby="comments-lab-verify-title">
+        <div class="comments-lab-catalog__head">
+          <p class="comments-lab-catalog__eyebrow">Email verification</p>
+          <h2 id="comments-lab-verify-title">Reader confirmation states</h2>
+          <p>Set <code>?verify=pending|confirmed|already|invalid|resent</code> to inspect each real <code>/reader/confirm</code> outcome in this one lab.</p>
+        </div>
+        <div class="reader-confirm__card" data-state={verifyState}>
+          {verifyState === 'pending' && <><h3 class="reader-confirm__title">Confirm it's you</h3><ul class="reader-confirm__perks"><li>Manage your comments from any device</li><li>Get notified when someone replies</li><li>One-tap subscribe to new posts</li></ul><button type="button" class="blog-compose__go reader-confirm__go" data-verify-confirm>Confirm</button></>}
+          {verifyState === 'confirmed' && <><h3 class="reader-confirm__title">You're confirmed</h3><p class="reader-confirm__body">You now manage comments from any device, and reply notifications are armed.</p></>}
+          {verifyState === 'already' && <><h3 class="reader-confirm__title">Already confirmed</h3><p class="reader-confirm__body">This address was confirmed earlier. Nothing else to do here.</p></>}
+          {verifyState === 'invalid' && <><h3 class="reader-confirm__title">This link doesn't work</h3><p class="reader-confirm__body">It may have expired or already been used. Enter the email you commented with and we'll send a fresh one.</p><input class="blog-compose__input" type="email" placeholder="Email" aria-label="Email" /><button type="button" class="blog-compose__go reader-confirm__go" data-verify-resend>Resend link</button></>}
+          {verifyState === 'resent' && <><h3 class="reader-confirm__title">Check your inbox</h3><p class="reader-confirm__body">If that address has a comment on file, a fresh confirmation link is on its way.</p></>}
+        </div>
+      </section>
+
+      <CommentsSection
+        comments={comments}
+        state={interactive ? 'loading' : state}
+        locale={locale}
+        phase={phase}
+        viewer={viewer}
+        claimed={claimed}
+        receipt={receipt}
+        draftText={draftText}
+        hasMore={hasMore}
+        loadMoreState={loadMoreState}
+        postId={interactive ? 'lab-post' : undefined}
+        errorCode={errorCode}
+      />
+
+      {(receipt === 'submitting' || receipt === 'posted' || receipt === 'held' || receipt === 'nudge' || receipt === 'error') && (
+        <aside class="comments-lab-receipt" aria-live="polite">
+          <strong>Receipt probe: <code>{receipt}</code></strong>
+          {receipt === 'submitting' && <span>The send control is busy while the request is in flight; the draft stays in the field.</span>}
+          {receipt === 'posted' && <span>The new comment row is the success confirmation; no duplicate banner is shown.</span>}
+          {receipt === 'held' && <span>The row remains visible only to its writer until moderation settles.</span>}
+          {receipt === 'nudge' && <span>The verification offer is actionable below the compose box.</span>}
+          {receipt === 'error' && <span>The alert above the compose box carries the selected failure copy and code.</span>}
+        </aside>
+      )}
+    </article>
+  </div>
+
+  <footer class="blog-end">
+    <span class="blog-comment__date">Prev / next sits here</span>
+  </footer>
+
+
+  <Footer />
+  <BackToTop />
+</BlogLayout>
+
+<script>
+  import { initCommentsController } from '@/features/comments/client/comments-controller';
+  initCommentsController();
+
+  const verifyCard = document.querySelector<HTMLElement>('.comments-lab-verify .reader-confirm__card');
+  verifyCard?.querySelector('[data-verify-confirm]')?.addEventListener('click', () => {
+    verifyCard.dataset.state = 'confirmed';
+    verifyCard.innerHTML = `<h3 class="reader-confirm__title">You're confirmed</h3><p class="reader-confirm__body">You now manage comments from any device, and reply notifications are armed.</p>`;
+  });
+  verifyCard?.querySelector('[data-verify-resend]')?.addEventListener('click', () => {
+    verifyCard.dataset.state = 'resent';
+    verifyCard.innerHTML = `<h3 class="reader-confirm__title">Check your inbox</h3><p class="reader-confirm__body">If that address has a comment on file, a fresh confirmation link is on its way.</p>`;
+  });
+</script>
+
+<style>
+  .comments-lab-catalog,
+  .comments-lab-verify {
+    margin-top: 48px;
+    padding-top: 28px;
+    border-top: 1px solid var(--blog-line);
+  }
+
+  .comments-lab-catalog__head {
+    max-width: 68ch;
+  }
+
+  .comments-lab-catalog__eyebrow {
+    margin: 0 0 6px;
+    color: var(--blog-accent);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .comments-lab-catalog h2 {
+    margin: 0;
+    color: var(--blog-ink);
+    font-size: 21px;
+  }
+
+  .comments-lab-catalog__head > p:last-child {
+    margin: 10px 0 0;
+    color: var(--blog-muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .comments-lab-catalog__table-wrap {
+    margin-top: 18px;
+    overflow-x: auto;
+    border: 1px solid var(--blog-line);
+    border-radius: 10px;
+  }
+
+  .comments-lab-catalog table {
+    width: 100%;
+    min-width: 860px;
+    border-collapse: collapse;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .comments-lab-catalog th,
+  .comments-lab-catalog td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--blog-line);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .comments-lab-catalog thead th {
+    color: var(--blog-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .comments-lab-catalog tbody tr:last-child th,
+  .comments-lab-catalog tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .comments-lab-catalog tbody th {
+    min-width: 170px;
+    color: var(--blog-ink);
+    font-weight: 600;
+  }
+
+  .comments-lab-catalog code {
+    color: var(--blog-muted);
+    font-size: 11px;
+  }
+
+  .comments-lab-verify .reader-confirm__card {
+    margin-top: 18px;
+  }
+
+  .comments-lab-verify .reader-confirm__card > .blog-compose__go {
+    margin-top: 16px;
+  }
+
+  .comments-lab-receipt {
+    display: grid;
+    gap: 5px;
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-left: 2px solid var(--blog-accent);
+    background: var(--blog-fill);
+    color: var(--blog-muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .comments-lab-receipt strong {
+    color: var(--blog-ink);
+  }
+</style>
