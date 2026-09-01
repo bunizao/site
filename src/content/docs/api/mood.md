@@ -28,7 +28,7 @@ GET /api/v1/mood
 | `after` | string (post id) | — | Cursor: posts newer than this id. Same validation as `before`. |
 | `tag` | string | — | Filters to one mood tag; normalized through `normalizeMoodTag`. |
 | `fresh` | boolean flag | `false` | Any value other than `0`/`false`/`no`/`off` counts as true. Forces `no-store` and skips the edge cache read (see rate limit note below). |
-| `fallback` | boolean flag | `true` | `fallback=0` disables the live Telegram fallback, so an empty or unavailable archive returns as-is. Still edge-cached, under its own cache entry. The site SSR sends `fallback=0` on every archive read. |
+| `fallback` | boolean flag | `true` | `fallback=0` turns off t.me completion: an empty archive page returns as-is instead of being topped up from the live channel. It does not affect availability — when the archive itself fails, the read still degrades to the live reader (see [Degradation](#degradation)). Edge-cached under its own cache entry. The site SSR sends `fallback=0` on every archive read. |
 | `probe` | boolean flag | `false` | Returns `{"latestId": "..."}` instead of a page — a cheap way to check for new posts without paying for the full payload. |
 | `probe=image` | — | — | Returns `{"latestImage": {...} | null}` — the latest post carrying an image, for the OG/preview pipeline. |
 
@@ -64,9 +64,29 @@ caches for 300s, since history doesn't change once written.
 **Errors:** `400 {"error": "Invalid cursor parameter"}` for a malformed
 `before`/`after`. `503 {"error":{"code":"mood_repository_unavailable", ...}}`
 if the D1/live binding isn't configured. `500
-{"error":{"code":"mood_feed_failed", ...}}` on an unhandled repository
-error. Note the shape difference — see
+{"error":{"code":"mood_feed_failed", ...}}` only after the archive, the live
+reader, and the last-known-good copy have all failed. Note the shape
+difference — see
 [Error shapes](/docs/api/overview#error-shapes-there-are-two).
+
+## Degradation
+
+Every `/v2/mood*` response carries an `X-Mood-Source` header naming what
+served it:
+
+| Value | Meaning |
+| --- | --- |
+| `archive` | The D1 archive answered, topped up from t.me unless `fallback=0`. |
+| `live` | The archive threw or is locked out, so the Telegram live reader served the page. Cached for 30s whatever the cursor. |
+| `stale` | Every reader failed. The body is the last successful default page, kept in KV for seven days, sent `no-store` with `X-Mood-Stale-Since` set to when it was captured. Only the cursorless, untagged feed page has a stale copy. |
+
+A D1 daily-quota error (code 7500) locks the archive in that Worker isolate
+until 00:00 UTC instead of retrying on every request; other errors retry on
+the next read. Tag-filtered reads never degrade — tags only exist in the
+archive, so they return 500 rather than an unfiltered page dressed up as a
+filter. The site SSR and the browser feed apply the same policy on their own
+side, falling through to `/api/v1/mood` and `/api/moods` (see
+[Mood surface](/docs/surfaces/mood)).
 
 ## Detail
 
