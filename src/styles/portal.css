@@ -1649,3 +1649,37 @@ a.portal-feed-row:focus-visible,
 .portal-geo-rate[data-tone='success'] { color: hsl(var(--portal-chip-success)); }
 .portal-geo-rate[data-tone='neutral'] { color: hsl(var(--portal-chip-accent)); }
 .portal-geo-rate[data-tone='muted'] { color: hsl(var(--muted-foreground) / 0.75); }
+/* ---- Comment moderation queue ------------------------------------------ */
+.portal-comment {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-areas: 'face head' 'face sub' '. body' '. verdict' '. acts';
+  gap: 6px 12px;
+  padding: 18px 0;
+  border-top: 1px solid hsl(var(--border) / 0.55);
+  transition: opacity var(--portal-dur-fast) var(--portal-ease-out), translate var(--portal-dur-fast) var(--portal-ease-out);
+}
+.portal-comment:first-child { padding-top: 2px; border-top: 0; }
+.portal-comment:last-child { padding-bottom: 2px; }
+.portal-comment[data-leaving] { opacity: 0; translate: 0 -8px; pointer-events: none; }
+.portal-comment__face { grid-area: face; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 999px; background: oklch(0.93 0.035 var(--seed-hue, 0)); color: oklch(0.46 0.085 var(--seed-hue, 0)); font-size: 12px; font-weight: 600; line-height: 1; text-transform: uppercase; text-box: trim-both cap alphabetic; }
+.theme-portal.dark .portal-comment__face { background: oklch(0.32 0.035 var(--seed-hue, 0)); color: oklch(0.84 0.06 var(--seed-hue, 0)); }
+.portal-comment__head { grid-area: head; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-height: 20px; }
+.portal-comment__name { font-size: var(--portal-text-base); font-weight: 550; line-height: var(--portal-leading-snug); }
+.portal-comment__when { margin-left: auto; color: hsl(var(--muted-foreground)); font-size: var(--portal-text-xs); font-variant-numeric: tabular-nums; text-decoration: none; transition: color var(--portal-dur-fast) var(--portal-ease); }
+.portal-comment__when:hover { color: hsl(var(--foreground) / 0.85); }
+.portal-comment__sub { grid-area: sub; min-width: 0; overflow: hidden; color: hsl(var(--muted-foreground) / 0.85); font-size: var(--portal-text-xs); text-overflow: ellipsis; white-space: nowrap; }
+.portal-comment__sub a { color: inherit; text-decoration: underline; text-decoration-color: hsl(var(--muted-foreground) / 0.35); text-underline-offset: 2px; }
+.portal-comment__sub a:hover { color: hsl(var(--foreground) / 0.9); text-decoration-color: hsl(var(--foreground) / 0.5); }
+.portal-comment__body { grid-area: body; margin: 2px 0 0; max-width: 68ch; color: hsl(var(--foreground) / 0.92); font-size: var(--portal-text-base); line-height: var(--portal-leading-normal); white-space: pre-wrap; overflow-wrap: anywhere; }
+.portal-comment__verdict { grid-area: verdict; display: flex; align-items: flex-start; gap: 8px; margin-top: 2px; padding: 8px 10px; border-radius: 8px; border-left: 2px solid hsl(var(--portal-chip-warning) / 0.55); background: hsl(var(--portal-chip-warning) / 0.07); color: hsl(var(--muted-foreground)); font-size: var(--portal-text-xs); line-height: var(--portal-leading-snug); }
+.portal-comment__verdict[data-tone='danger'] { border-left-color: hsl(var(--portal-chip-danger) / 0.55); background: hsl(var(--portal-chip-danger) / 0.07); }
+.portal-comment__verdict[data-tone='neutral'] { border-left-color: hsl(var(--muted-foreground) / 0.35); background: hsl(var(--foreground) / 0.04); }
+.portal-comment__verdict svg { flex: 0 0 auto; margin-top: 1px; }
+.portal-comment__model { color: hsl(var(--muted-foreground) / 0.7); }
+.portal-comment__acts { grid-area: acts; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.portal-comment__acts [data-act='delete']:not(:disabled) { color: hsl(var(--portal-chip-danger)); }
+.portal-comment__acts [data-act='delete']:not(:disabled):hover { border-color: hsl(var(--portal-chip-danger) / 0.45); }
+.portal-comment-receipt { display: flex; align-items: center; gap: 6px; padding-bottom: 12px; color: hsl(var(--muted-foreground)); font-size: var(--portal-text-xs); }
+.portal-comment-receipt svg { color: hsl(var(--portal-chip-success)); }
+@media (prefers-reduced-motion: reduce) { .portal-comment { transition: none; } .portal-comment[data-leaving] { translate: none; } }

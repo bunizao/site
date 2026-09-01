@@ -1,0 +1,149 @@
+---
+// Lazy-verification landing page -- plans/blog-comments.md "Lazy
+// verification": the mail carries one link here, GET renders, and only the
+// button's POST consumes the token. A GET that consumed it would let a mail
+// scanner's prefetch (Apple MPP, corporate link checkers) silently burn it
+// before the reader ever clicks -- see src/pages/v2/reader/verify.ts on
+// site-api, which enforces the same rule from its side.
+//
+// email never reaches this page or its HTML: `/v2/reader/verify` decodes the
+// token entirely server-side (COMMENTS_EMAIL_SECRET lives only in site-api)
+// and its result never carries an address back, matching every other
+// response on this surface.
+export const prerender = false;
+
+import BlogLayout from '@/layouts/BlogLayout.astro';
+import Footer from '@/features/home/ui/Footer.astro';
+import '@/features/comments/styles/comments.css';
+import { proxyApiRequest } from '@/lib/http/api-service-proxy';
+import type { ReaderResendResult, ReaderVerifyResult } from '@bunizao/contracts/comments';
+
+type ViewState = 'pending' | 'confirmed' | 'already' | 'invalid' | 'resent';
+
+const token = Astro.url.searchParams.get('token') ?? '';
+const locale = Astro.url.searchParams.get('lang') === 'en' ? 'en' : 'zh';
+let state: ViewState = token ? 'pending' : 'invalid';
+let displayName = '';
+
+async function callApi<T>(path: string, body: unknown): Promise<T | null> {
+  const request = new Request(`${Astro.url.origin}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const response = await proxyApiRequest(request, Astro.locals);
+  return (await response.json().catch(() => null)) as T | null;
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const postedToken = form.get('token');
+  const postedEmail = form.get('email');
+
+  if (typeof postedToken === 'string' && postedToken) {
+    const result = await callApi<ReaderVerifyResult>('/api/v2/reader/verify', { token: postedToken });
+    if (result?.outcome === 'confirmed') {
+      state = 'confirmed';
+      displayName = result.reader?.displayName ?? '';
+    } else if (result?.outcome === 'already_confirmed') {
+      state = 'already';
+    } else {
+      state = 'invalid';
+    }
+  } else if (typeof postedEmail === 'string' && postedEmail) {
+    await callApi<ReaderResendResult>('/api/v2/reader/resend', {
+      email: postedEmail,
+      notifyReplies: readStaleSubscribeIntent(token),
+      locale,
+    });
+    state = 'resent';
+  }
+}
+
+// The stale token's signature can't be checked here (COMMENTS_EMAIL_SECRET
+// lives only in site-api) and doesn't need to be: this only recovers the
+// reader's original notify-replies intent for the fresh link, which they
+// still have to confirm from their own inbox.
+function readStaleSubscribeIntent(staleToken: string): boolean {
+  try {
+    const payload = JSON.parse(Buffer.from(staleToken.split('.')[0] ?? '', 'base64url').toString('utf8'));
+    return payload?.subscribe === true;
+  } catch {
+    return false;
+  }
+}
+---
+
+<BlogLayout title="Confirm it's you" path="/reader/confirm" description="Confirm a comment on buxx.me" robots="noindex, nofollow">
+  <a class="blog-back" href="/blog">← All posts</a>
+
+  <div class="reader-confirm">
+    <div class="reader-confirm__card" data-state={state}>
+      {state === 'pending' && (
+        <>
+          <h1 class="reader-confirm__title">Confirm it's you</h1>
+          <ul class="reader-confirm__perks">
+            <li>Manage your comments from any device</li>
+            <li>Get notified when someone replies</li>
+            <li>One-tap subscribe to new posts</li>
+          </ul>
+          <form method="post">
+            <input type="hidden" name="token" value={token} />
+            <button type="submit" class="blog-compose__go reader-confirm__go">Confirm</button>
+          </form>
+        </>
+      )}
+
+      {state === 'confirmed' && (
+        <>
+          <h1 class="reader-confirm__title">You're confirmed</h1>
+          <p class="reader-confirm__body">
+            {displayName ? `${displayName} now manages` : 'You now manage'} comments from any device, and reply notifications are armed.
+          </p>
+          <a class="reader-confirm__back" href="/blog">← Back to the post</a>
+        </>
+      )}
+
+      {state === 'already' && (
+        <>
+          <h1 class="reader-confirm__title">Already confirmed</h1>
+          <p class="reader-confirm__body">This address was confirmed earlier. Nothing else to do here.</p>
+          <a class="reader-confirm__back" href="/blog">← Back to the post</a>
+        </>
+      )}
+
+      {state === 'invalid' && (
+        <>
+          <h1 class="reader-confirm__title">This link doesn't work</h1>
+          <p class="reader-confirm__body">
+            It may have expired or already been used. Enter the email you commented with and we'll send a fresh one.
+          </p>
+          <form method="post">
+            <label class="sr-only" for="reader-confirm-email">Email</label>
+            <input
+              id="reader-confirm-email"
+              class="blog-compose__input"
+              type="email"
+              name="email"
+              autocomplete="email"
+              placeholder="Email"
+              required
+              style="width:100%;margin-bottom:14px;text-align:center;"
+            />
+            <button type="submit" class="blog-compose__go reader-confirm__go">Resend link</button>
+          </form>
+        </>
+      )}
+
+      {state === 'resent' && (
+        <>
+          <h1 class="reader-confirm__title">Check your inbox</h1>
+          <p class="reader-confirm__body">If that address has a comment on file, a fresh confirmation link is on its way.</p>
+          <a class="reader-confirm__back" href="/blog">← Back to the post</a>
+        </>
+      )}
+    </div>
+  </div>
+
+  <Footer />
+</BlogLayout>

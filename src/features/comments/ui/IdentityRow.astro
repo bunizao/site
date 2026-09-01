@@ -1,0 +1,97 @@
+---
+/* Name + email — the one identity row shared by every place a reader can
+   write anonymously: the compose box at the top of a thread and the
+   travelling reply box (see compose-validate.ts, which guards both from this
+   one partial rather than two copies that could drift).
+
+   On screen from first paint, above the textarea. The older design hid this
+   row and grew it out of the first Post press, which made one button mean
+   "expand" and then "submit" — two different answers to the same click, and
+   two unlabelled fields appearing under the reader's hands. Asking first
+   costs the impulse comment; it buys a form that never moves while it is
+   being filled in.
+
+   Real fields, not ghosts: each input carries its own fill and radius, so the
+   row reads as controls to complete rather than as underlines that appeared.
+
+   Two fields, no label above them and no note below. "Why do you want my
+   email" is the question that stops people here, and the answer costs three
+   words inside the placeholder -- a labelled group with a sentence under it
+   put three lines of prose between the heading and the first thing a reader
+   can type.
+
+   Email is optional -- name is the only field Post actually needs. Leaving
+   it empty and pressing Post once does not send anything either, though: it
+   shows the green recommendation below, and only the second press posts
+   (with an email if one got typed in the meantime, anonymously otherwise).
+   See confirmAnonymousSubmit() in compose-validate.ts, which owns that. */
+
+import { blog, type BlogLocale } from '@/data/site';
+import { commentsCopy } from '@/features/comments/copy';
+
+interface Props {
+  locale?: BlogLocale;
+  /** Base id for this mount's two inputs (`${id}-name` / `${id}-email`) and
+      for the row itself, so the compose box and the reply box — both on
+      screen from the same render — never collide on an id. */
+  id: string;
+}
+
+const { id, locale = blog.locale.blog } = Astro.props;
+const t = commentsCopy[locale];
+---
+
+<div class="blog-compose__identity" id={id} data-compose-identity>
+  <div class="blog-compose__fields">
+    <label class="sr-only" for={`${id}-name`}>{t.nameLabel}</label>
+    <input
+      id={`${id}-name`}
+      class="blog-compose__input blog-compose__input--name"
+      type="text"
+      maxlength="32"
+      autocomplete="nickname"
+      placeholder={t.namePlaceholder}
+      required
+    />
+    <label class="sr-only" for={`${id}-email`}>{t.emailLabel}</label>
+    <input
+      id={`${id}-email`}
+      class="blog-compose__input"
+      type="email"
+      autocomplete="email"
+      placeholder={t.emailPlaceholder}
+    />
+  </div>
+
+  {/* Green because it's a suggestion, not a complaint -- the field it is
+      about is still right there to fill. Shown once per compose attempt by
+      the two-click anonymous-post confirm in compose-validate.ts
+      (confirmAnonymousSubmit): a first press of Post with this field empty
+      stops here instead of sending anything; the next press posts either
+      way. Hidden by default and toggled purely by that script -- nothing
+      here decides when it shows. */}
+  <p class="blog-compose__recommend" data-compose-recommend aria-live="polite" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2.5"></rect>
+      <path d="M4 7l8 6 8-6"></path>
+    </svg>
+    {t.emailRecommend}
+  </p>
+
+  {/* Honeypot -- risk stack step 3 (plans/blog-comments.md "The risk
+      stack"). A human never reaches this: it is off-screen, unreachable by
+      Tab, and hidden from assistive tech, not merely visually hidden --
+      real bots that fill every field regardless of visibility are the only
+      thing that ever populates it. Any value here silently drops the
+      submission, comment-service.ts's honeypot check. Nothing visible is
+      named `website`, so a real reader has no field to lose a comment to. */}
+  <input
+    type="text"
+    name="website"
+    data-honeypot
+    tabindex="-1"
+    autocomplete="off"
+    aria-hidden="true"
+    style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;"
+  />
+</div>

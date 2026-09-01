@@ -36,6 +36,8 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/broadcasts/:id` | Manages one broadcast. | Admin session |
 | `/admin/broadcasts/:id/progress` | Reads broadcast delivery progress. | Admin session |
 | `/admin/broadcasts/preview` | Renders a broadcast preview. | Admin session |
+| `/admin/comments` | Reads the comment moderation queue and its counts. | Admin session |
+| `/admin/comments/:id` | Approves, hides, or deletes one comment. | Admin session |
 | `/admin/subscribers` | Manages subscribers. | Admin session |
 | `/admin/subscribers/:hash` | Manages one subscriber. | Admin session |
 | `/admin/subscribers/:hash/blog-welcome` | Sends one blog welcome message. | Admin session |
@@ -67,6 +69,7 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | Path | Purpose | Auth tier |
 | --- | --- | --- |
 | `/webhooks/ghost` | Receives Ghost publication events. | Signed Ghost webhook |
+| `/webhooks/resend` | Receives Resend delivery events and updates the email suppression ledger. | Svix signature |
 | `/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
 | `/v2/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
 | `/webhooks/telegram` | Receives Telegram mood events. | Telegram secret token |

@@ -11,11 +11,13 @@ import TableOfContents from '@/features/posts/ui/TableOfContents.astro';
 import ReadingTopbar from '@/features/posts/ui/ReadingTopbar.astro';
 import AdjacentNav from '@/features/posts/ui/AdjacentNav.astro';
 import BackToTop from '@/features/posts/ui/BackToTop.astro';
-import NotByAI from '@/features/posts/ui/NotByAI.astro';
-import AiCredit from '@/features/posts/ui/AiCredit.astro';
+import Colophon from '@/features/posts/ui/Colophon.astro';
 import ShareRow from '@/features/posts/ui/ShareRow.astro';
 import BlogArticleBeacon from '@/features/posts/ui/BlogArticleBeacon.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
+import ReactionBar from '@/features/comments/ui/ReactionBar';
+import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
+import '@/features/comments/styles/comments.css';
 import { blog } from '@/data/site';
 import Footer from '@/features/home/ui/Footer.astro';
 import {
@@ -117,6 +119,7 @@ const featureImageSrcSet = post.featureImage && isBlogImageProxyUrl(post.feature
   : undefined;
 const featureImageSizes = '(min-width: 960px) 920px, calc(100vw - 40px)';
 const hasNoTocTag = post.tags.some((tag) => tag.slug === 'hash-no-toc' || tag.name === '#no-toc');
+const noComments = post.tags.some((tag) => tag.slug === 'hash-no-comments' || tag.name === '#no-comments');
 // Authorship footer. A post that credits no model asserts the human pledge, so
 // the pledge is the default rather than a #not-by-ai opt-in — the tag no longer
 // gates anything here.
@@ -141,6 +144,10 @@ const publicTagNames = post.tags
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
   : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
+// The site E2E fixture has no site-api service. Leave the presentational
+// loading shell in those tests and let the dedicated comments lab opt into a
+// mocked live controller explicitly with `interactive=1`.
+const liveCommentsPostId = isE2ESiteFixtureEnabled(Astro.locals) || noComments ? undefined : post.id;
 const unlisted = isUnlistedPost(post);
 // A translation renders as if it lives at the canonical URL, because its bytes
 // are served from there. Everything derived from `path` — canonical, og:url,
@@ -230,20 +237,25 @@ const translated = isTranslation(post);
       )}
 
       <Prose html={post.html} />
+
+      <Colophon credits={authorshipCredits} locale={postLocale}>
+        <ReactionBar client:idle count={0} locale={postLocale} postId={liveCommentsPostId} siteKey={turnstileSiteKey} />
+        <div class="blog-article-sub">
+          <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
+          <ShareRow title={post.title} />
+        </div>
+      </Colophon>
+
+      <CommentsSection
+        locale={postLocale}
+        state={noComments ? 'closed' : 'loading'}
+        postId={liveCommentsPostId}
+        turnstileSiteKey={turnstileSiteKey}
+      />
     </article>
   </div>
 
   <footer class="blog-end">
-    <div class="blog-end__bar">
-      {authorshipCredits.length > 0
-        ? <AiCredit credits={authorshipCredits} locale={postLocale} />
-        : <NotByAI locale={postLocale} />}
-      <div class="blog-article-sub">
-        <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
-        <ShareRow title={post.title} />
-      </div>
-    </div>
-
     <AdjacentNav prev={prev} next={next} />
   </footer>
 
@@ -251,4 +263,8 @@ const translated = isTranslation(post);
 
   <BackToTop />
   <BlogArticleBeacon slug={post.slug} />
+  <script>
+    import { initCommentsController } from '@/features/comments/client/comments-controller';
+    initCommentsController();
+  </script>
 </BlogLayout>

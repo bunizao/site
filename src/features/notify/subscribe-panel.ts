@@ -6,6 +6,8 @@
 // Pages never render more than one panel, but the controller loops so a panel
 // + trigger pair are matched by id, keeping it placement-agnostic.
 
+import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const SUCCESS_TEXT = '确认邮件已发，去收件箱点一下。';
@@ -238,6 +240,10 @@ function setupPanel(panel: HTMLElement): void {
 
   const openPanel = ({ focusEmail = true } = {}) => {
     isOpen = true;
+    if (!email.value) {
+      const known = readReaderEmail();
+      if (known) email.value = known.email;
+    }
     clearHoverTimer();
     positionPanel();
     panel.classList.add('is-open');
@@ -372,6 +378,7 @@ function setupPanel(panel: HTMLElement): void {
       const data = (await response.json().catch(() => ({}))) as { status?: string; code?: string; error?: string };
 
       if (response.ok) {
+        rememberReaderEmail(value, 'subscribe');
         successText.textContent = data.status === 'already_subscribed' ? ALREADY_TEXT : SUCCESS_TEXT;
         showView('success');
       } else if (response.status === 429) {

@@ -1,0 +1,2149 @@
+/* Reader reactions + comments for the /blog zone.
+   Scoped under .blog-zone so it inherits the publication's greys and cannot
+   leak into the mood or docs surfaces. Read together with blog.css, which owns
+   the tokens this layers on top of.
+
+   Type note: the blog zone is a reading surface (body.blog-zone.reading sets
+   --font-sans), and everything here inherits that. No mono anywhere — the mono
+   face is the site's identity voice, and wearing it here made the thread read
+   as a terminal readout bolted under an essay. Changing values still get
+   tabular figures, which is the part mono was actually buying. */
+
+.blog-zone {
+  /* xia (evening glow): the reserved reaction-only accent from
+     docs/plans/blog-comments.md. Kept local while the bar is being designed;
+     it moves into blogPalette in src/data/site.ts when the design lands, at
+     which point docs/surfaces/blog.md gains the stated exception. */
+  --blog-xia: #b84a6e;
+
+  /* The only destructive colour in the feature, worn by Delete on hover and
+     focus and nowhere else — a permanently red button under every one of your
+     own comments reads as a warning about the comment, not about the button. */
+  --blog-danger: #b4232b;
+
+  /* The only encouraging colour in the feature, worn solely by the
+     email recommendation beside an anonymous writer's empty field
+     (confirmAnonymousSubmit() in compose-validate.ts) — a suggestion, not a
+     complaint, so it does not borrow --blog-danger's alarm register. */
+  --blog-good: #2f8f4e;
+
+  /* Form chrome, a step firmer than the hairlines this zone uses elsewhere.
+     --blog-line is the right weight for a rule between two paragraphs and the
+     wrong one for the edge of something a reader is meant to type into: at 10%
+     of the foreground the compose box had no visible edge on a near-black
+     page, and its two identity fields read as the header row of a table
+     rather than as controls waiting to be filled in. */
+  --blog-field-edge: hsl(var(--foreground) / 0.18);
+  --blog-field-line: hsl(var(--foreground) / 0.12);
+  --blog-field-fill: hsl(var(--foreground) / 0.04);
+  /* In this form the placeholders ARE the labels -- IdentityRow.astro keeps
+     the real ones sr-only -- so they have to clear text contrast instead of
+     sitting at the --blog-faint that dates and meta take. At 42% on #0a0a0a
+     the name and private-email placeholders measured 3.4:1, which is a hint, not a label. */
+  --blog-field-hint: hsl(var(--foreground) / 0.56);
+
+  /* One radius scale for the whole feature. Anything the height of a control
+     is a pill; anything that holds content is a box; anything nested inside a
+     box takes the inner step, which is the box minus its own padding. */
+  --blog-r-box: 14px;
+  --blog-r-inner: 8px;
+  --blog-r-pill: 999px;
+
+  /* Avatar comb (transitions.dev #11), read by client/use-avatar-comb.ts. */
+  --avatar-lift: -4px;
+  --avatar-dur: 320ms;
+  --avatar-scale: 1.05;
+  --avatar-falloff: 0.45;
+  --avatar-ease-in: cubic-bezier(0.22, 1, 0.36, 1);
+  --avatar-ease-out: cubic-bezier(0.34, 3.85, 0.64, 1);
+}
+
+.dark .blog-zone {
+  --blog-xia: #ee7fa8;
+  --blog-danger: #f1707a;
+  --blog-good: #6cc98a;
+}
+
+/* --- Generated identity -------------------------------------------------- */
+/* Readers with no avatar get a colour derived from their name (see
+   identity.ts). Only the hue travels in the markup; lightness and chroma are
+   pinned here per theme, so every generated face lands on the same contrast
+   step no matter which hue a name happens to draw. */
+.blog-avatar-seed {
+  background: oklch(0.93 0.035 var(--seed-hue, 0));
+  color: oklch(0.46 0.085 var(--seed-hue, 0));
+}
+
+.dark .blog-avatar-seed {
+  background: oklch(0.32 0.035 var(--seed-hue, 0));
+  color: oklch(0.84 0.06 var(--seed-hue, 0));
+}
+
+.blog-avatar-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  /* Centre the CAPS, not the em box. Uppercase-only text sits high in a
+     centred line box because the box reserves descender room the letters never
+     use; trimming to cap-height and the baseline makes the centring optically
+     true. Engines without text-box fall back to the ordinary line box. */
+  text-box: trim-both cap alphabetic;
+}
+
+/* --- Reaction bar -------------------------------------------------------- */
+/* Lives on the colophon's action row, sharing it with subscribe and share
+   (see Colophon.astro). No rule and no margin of its own: the row supplies
+   both, and this carried a 40px top margin from when it was a standalone block
+   after the prose -- inside a centred flex row that margin is part of the
+   item's box, so it made this 76px tall and dropped the hearts 20px below the
+   buttons they are level with. */
+.blog-react {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  /* Reserve the row before the counts arrive. /blog/[slug] is prerendered, so
+     the numbers land after hydration; without this the page jumps. */
+  min-height: 36px;
+}
+
+/* --- The card ------------------------------------------------------------ */
+/* The magnetic pull's target, and the stage the flip turns on. The pull writes
+   only duration, timing and transform inline, so the property it animates has
+   to be declared here; the duration is a placeholder the script overrides per
+   direction, a short glide out and a spring back. Shrink-wrapped, so the card
+   is as wide as its own contents. */
+.blog-react__pull {
+  position: relative;
+  display: flex;
+  justify-content: flex-start;
+  perspective: 900px;
+  transition: transform 140ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* The button is the hinge and nothing else -- no box of its own, both faces
+   inside it. One control rather than two, so aria-pressed and focus have a
+   single home and the turn cannot leave the reader holding a different element
+   than the one they pressed. */
+.blog-react__card {
+  display: grid;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--blog-r-pill);
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.6, 0.04, 0.2, 1);
+}
+
+.blog-react__card.is-flipped {
+  transform: rotateY(180deg);
+}
+
+/* Independent of the rotation above, which is why it is `scale` and not a
+   second transform -- the two would otherwise overwrite each other. */
+.blog-react__card:active {
+  scale: 0.96;
+}
+
+.blog-react__card:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 3px;
+}
+
+/* Both faces share the one grid cell. That stack is also what keeps the card
+   from changing width as it turns: the cell is as wide as the wider face, so
+   99 on the front and 100 on the back still describe one rectangle. */
+.blog-react__pill {
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  /* Asymmetric on purpose. A leading icon carries its own optical whitespace
+     inside the viewBox, so matching the numeral's padding on that side leaves
+     the glyph looking marooned; 2px off the start squares the two edges up. */
+  padding: 0 15px 0 13px;
+  border-radius: var(--blog-r-pill);
+  white-space: nowrap;
+  /* Glass rather than a flat fill: the bar sits under a column of body text and
+     a solid chip there reads as a button bolted on. The zone's 10% hairline is
+     too quiet to hold a 104px pill on white, so this edge runs a step darker
+     than the dividers around it. */
+  border: 1px solid hsl(var(--foreground) / 0.16);
+  background: hsl(var(--foreground) / 0.03);
+  backdrop-filter: blur(6px);
+  color: var(--blog-muted);
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease;
+}
+
+/* The far side of the card, already wearing the liked colour before it comes
+   into view -- the turn is the transition, so nothing here needs to fade.
+
+   The whole face goes xia, fill included, but as a wash rather than a slab.
+   Two versions were wrong before this one: a tinted border over the neutral
+   grey fill was the same pale card with a different edge, so the turn landed
+   somewhere that looked like where it started; xia at full strength was a
+   saturated block sitting under a column of body text, louder than anything
+   else on the page for the smallest gesture on it. 14% is enough to read as a
+   different object across half a second and still belong to the page. The
+   border stays at full strength, which is what makes the shape look drawn
+   rather than smudged, and the glass stays on -- the fill is translucent, so
+   there is still something behind it. */
+.blog-react__pill--liked {
+  transform: rotateY(180deg);
+  border-color: var(--blog-xia);
+  background: color-mix(in oklab, var(--blog-xia) 14%, transparent);
+  color: var(--blog-xia);
+}
+
+/* Front face only. The same rule across both would have run the hover wash
+   over a face that is already washed. */
+.blog-react__card:hover .blog-react__pill:not(.blog-react__pill--liked) {
+  border-color: color-mix(in oklab, var(--blog-xia) 45%, transparent);
+  background: color-mix(in oklab, var(--blog-xia) 6%, transparent);
+  color: var(--blog-xia);
+}
+
+.blog-react__card:hover .blog-react__pill--liked {
+  background: color-mix(in oklab, var(--blog-xia) 22%, transparent);
+}
+
+.blog-react__glyph {
+  width: 17px;
+  height: 17px;
+  transition: transform 0.2s var(--ease-bounce, cubic-bezier(0.34, 1.36, 0.64, 1));
+}
+
+.blog-react__card:hover .blog-react__glyph {
+  transform: scale(1.12);
+}
+
+/* Tabular figures with a 2ch floor rather than a fixed 3ch: a two-digit count
+   centred in three characters leaves half a character of dead space each side,
+   which reads as the pill having crooked padding. */
+.blog-react__count {
+  min-width: 2ch;
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* --- Heart burst --------------------------------------------------------- */
+.blog-react__sparks {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.blog-react__spark {
+  position: absolute;
+  left: 18px;
+  top: 10px;
+  width: 13px;
+  height: 13px;
+  color: var(--blog-xia);
+  opacity: 0;
+  animation: blog-react-float 0.95s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes blog-react-float {
+  0% {
+    transform: translate(0, 0) scale(0.6) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(var(--spark-x), -74px) scale(1.35) rotate(var(--spark-rot));
+    opacity: 0;
+  }
+}
+
+/* --- Reactor stack ------------------------------------------------------- */
+/* Paint order runs left to right off an inline z-index, so each face clips the
+   one before it. That single rule is what makes the row read as a stack: the
+   heart badges are clipped by the next circle instead of floating over it.
+
+   32px, down from 40. Beside a 36px pill and a 15.5px reading column, 40px
+   faces were the loudest thing on the page and the bar sat taller than the
+   paragraph rhythm above it. */
+.blog-react__stack {
+  display: flex;
+  align-items: center;
+}
+
+.blog-react__avatar {
+  /* Opaque ring, not the zone's usual translucent hairline: the faces overlap,
+     and a translucent edge shows the face underneath it as smudge. Written here
+     rather than through Tailwind's ring utilities, which the `*:data-[…]`
+     variant on AvatarGroup does not colour reliably in this build. */
+  box-shadow:
+    0 0 0 2px hsl(var(--background)),
+    0 1px 3px hsl(var(--foreground) / 0.12);
+  /* Comb hover: the hovered face lifts and drags its neighbours with it by a
+     power falloff, so the row responds as one object. client/use-avatar-comb.ts
+     writes the two variables and swaps the timing function between the two
+     directions. The entry animation owns `transform` while it runs and hands it
+     back on its own, so the two never fight. */
+  transform-origin: center;
+  transform: translateY(var(--shift, 0px)) scale(var(--scale-active, 1));
+  transition: transform var(--avatar-dur) var(--avatar-ease-in);
+  will-change: transform;
+  animation: blog-react-enter 0.5s var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
+  animation-delay: var(--entry-delay, 0ms);
+}
+
+.blog-react__avatar .blog-avatar-initials {
+  font-size: 12px;
+}
+
+/* Opaque, and painted from the page's own two colours. A translucent fill here
+   let the face underneath show through the +N, which read as a rendering fault
+   rather than as a chip — the whole point of the stack is that each circle
+   hides the one behind it. */
+.blog-react__more {
+  width: 32px;
+  height: 32px;
+  background: color-mix(in oklab, hsl(var(--foreground)) 7%, hsl(var(--background)));
+  color: var(--blog-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes blog-react-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --- Face name ----------------------------------------------------------- */
+/* Hover names the face instead of lifting it out of the stack. It hangs BELOW
+   the circles, clear of every sibling's box, so it is never clipped by the next
+   face's stacking context — which is the price of a fixed paint order. */
+.blog-react__name {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  z-index: 1;
+  padding: 4px 10px;
+  border-radius: var(--blog-r-pill);
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -3px) scale(0.98);
+  /* Delayed in, instant out: crossing the row must not leave a trail of pills
+     fading behind the cursor. */
+  transition-property: opacity, transform;
+  transition-duration: 0s;
+}
+
+.blog-react__avatar:hover .blog-react__name {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+  transition-delay: 80ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-react__pull,
+  .blog-react__card,
+  .blog-react__glyph,
+  .blog-react__avatar,
+  .blog-react__name {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .blog-react__spark {
+    display: none;
+  }
+}
+
+/* --- Comments ------------------------------------------------------------ */
+/* Same measure as the prose, and the same voice: this is more of the page's
+   reading, not a control panel appended to it. */
+/* Four sizes, and everything in the thread takes one of them.
+
+   There were ten: 16 and 15.5, 14.5 and 14 and 13.5 and 13, 12.5 and 12. In
+   Latin that is invisible sloppiness; in Chinese it is not. A CJK glyph fills
+   its em box, so a half-pixel nobody notices between two English words shows
+   up as two visibly different sizes between two Chinese ones. The worst pair
+   was the compose box at 16px posting comments that rendered at 15.5px -- you
+   typed at one size and it came back at another.
+
+   `body` is anything holding a sentence the reader wrote or is writing. It is
+   16px because that is also the size below which iOS Safari zooms the page on
+   focusing an input: one number instead of a mobile-only media query.
+   `note` is secondary UI prose, `meta` is labels and counters.
+
+   `lead` is roomier than a Latin UI would ask for, for the reason .blog-prose
+   runs at 1.85: CJK has no ascender/descender rhythm to open the lines up, so
+   it has to be given the leading outright. */
+.blog-comments {
+  --comment-body: 16px;
+  --comment-note: 14px;
+  /* 13, not 12.5: two Chinese characters are the shortest a button label gets,
+     and 12.5px of a CJK save label is a smaller target than 12.5px of Save because there is
+     no lowercase x-height doing the work -- the glyph is the box. */
+  --comment-meta: 13px;
+  --comment-lead: 1.75;
+
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--blog-line);
+}
+
+/* 6px here used to be the gap to a line of invite text, which then carried its
+   own 16px down to the box. The heading now sits directly above the box and
+   owns the whole distance. */
+.blog-comments__head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 18px;
+}
+
+.blog-comments__title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--blog-ink);
+}
+
+.blog-comments__tally {
+  padding: 1px 8px;
+  border-radius: var(--blog-r-pill);
+  background: var(--blog-fill);
+  font-size: var(--comment-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--blog-faint);
+}
+
+/* --- Compose ------------------------------------------------------------ */
+/* ONE surface. The form used to be three bordered boxes in a column -- name,
+   email, body -- plus a fourth for the send button's footer, and the top of
+   the thread was the most boxed-in region on the page. They are one act, so
+   they are one object: the parts are separated by two hairlines inside it, and
+   :focus-within lights the whole thing up rather than one third of it.
+
+   What earns a border in this zone: something you can put a value into, or
+   something holding a state. The form does. The send button does not, and
+   neither do the article's own actions above it (see .blog-article-sub in
+   blog.css) -- those speak the thread's own quiet action language instead.
+
+   PROPORTIONS. Padding lives on the parts, not the box, so each one can be
+   sized to what it holds:
+
+     identity strip   11px/14px, ~41px tall
+     typing area      14px, ~66px tall
+     send bar         30px tall, 12px below
+
+   41 x 1.618 = 66: the area a reader writes into is a golden step above the
+   row they identify themselves in. The name/email split is the same ratio
+   turned sideways, 38.2 / 61.8, because a handle is short and an address is
+   not. */
+.blog-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+/* Claimed and ready readers have an identity on file -- the footer says whose
+   it is, and "Switch" flips the phase back to anonymous to get this row
+   returned. Kept in the DOM in every phase so that flip is one attribute
+   write, not a re-render. */
+.blog-compose:not([data-phase='anonymous']) .blog-compose__identity {
+  display: none;
+}
+
+.blog-compose__box {
+  display: flex;
+  flex-direction: column;
+  /* The identity strip runs edge to edge and its hairline has to stop cleanly
+     inside the corner radius. */
+  overflow: hidden;
+  border: 1px solid var(--blog-field-edge);
+  border-radius: var(--blog-r-box);
+  background: var(--blog-field-fill);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+/* Focus firms the edge and keeps the fill. It used to drop the fill to
+   transparent, which made the box *less* distinct from the page at the one
+   moment it is being used. */
+.blog-compose__box:focus-within {
+  border-color: hsl(var(--foreground) / 0.34);
+}
+
+/* Two fields, one hairline between them and one under the pair. Borderless:
+   they are rooms in the form, not separate forms. */
+.blog-compose__identity {
+  border-bottom: 1px solid var(--blog-field-line);
+}
+
+.blog-compose__fields {
+  display: flex;
+}
+
+/* The email recommendation -- see confirmAnonymousSubmit() in
+   compose-validate.ts. Sits directly under the two fields, inside the same
+   identity strip, so it reads as being about the field above it rather than
+   about the box as a whole. Green rather than the alert's red: a suggestion,
+   not a thing standing between the reader and Post. */
+.blog-compose__recommend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 14px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--blog-good) 13%, transparent);
+  color: var(--blog-good);
+  font-size: var(--comment-note);
+  font-weight: 500;
+  line-height: 1.4;
+  animation: blog-alert-in 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.blog-compose__recommend svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+.blog-compose__input {
+  min-width: 0;
+  /* A handle is short and an address is not: 38.2 / 61.8 of the row. */
+  flex: 0 1 61.8%;
+  padding: 11px 14px;
+  border: 0;
+  background: none;
+  color: var(--blog-body);
+  font: inherit;
+  /* 16px is the floor that stops iOS Safari zooming the page on focus. */
+  font-size: var(--comment-body);
+}
+
+/* Past the phones, the floor stops applying and these go back to being what
+   they are: two chrome fields asking who you are, not the sentence you came to
+   write. At 16px they matched the comment body underneath them and the form
+   read as three lines of equal importance -- in Chinese especially, where the
+   glyphs fill their em box and a 16px name placeholder is a wide, heavy thing. */
+@media (min-width: 640px) {
+  .blog-compose__input {
+    font-size: var(--comment-note);
+  }
+}
+
+.blog-compose__input--name {
+  flex: 0 1 38.2%;
+  border-right: 1px solid var(--blog-field-line);
+}
+
+.blog-compose__input::placeholder {
+  color: var(--blog-field-hint);
+}
+
+/* Two borderless fields sharing one hairline gave the cursor nowhere to show
+   itself: which of the pair you were in was readable only from the caret.
+   A tint under the active one answers that at a glance, and it is the same
+   channel the invalid state uses one step louder. */
+.blog-compose__input:focus {
+  outline: none;
+  background: hsl(var(--foreground) / 0.05);
+}
+
+/* An unfinished field is the one thing in this monochrome zone that gets to
+   borrow the danger colour. A firmer grey edge was the polite version and it
+   was invisible: a reader who has just pressed a button and had nothing happen
+   is not scanning for a slightly darker hairline. The field has no border of
+   its own to redden any more, so it takes a tint; the box it sits in reddens
+   around it. Ring, tint, the alert above, and the cursor landing here -- four
+   channels, because this is the one moment the form refuses to do what was
+   asked of it. */
+.blog-compose__input[aria-invalid='true'] {
+  background: color-mix(in oklab, var(--blog-danger) 11%, transparent);
+}
+
+.blog-compose__box:has([aria-invalid='true']) {
+  border-color: var(--blog-danger);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--blog-danger) 16%, transparent);
+  /* One pass, on the element that was just marked -- enough to catch an eye
+     travelling back up the form, not a wobble that has to be waited out. */
+  animation: blog-compose-nudge 0.4s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes blog-compose-nudge {
+  0%, 100% { translate: 0; }
+  22% { translate: -4px; }
+  55% { translate: 3px; }
+  80% { translate: -1px; }
+}
+
+/* The complaint itself, above the form rather than as a grey line inside it.
+   It was one 13px sentence the same colour as everything else, in a footer
+   slot, below the fold of the reader's attention -- which is why nobody read
+   it. Filled, coloured, and carrying the alert glyph, it is the only thing in
+   the compose stack that is allowed to shout. */
+.blog-compose__alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--blog-danger) 13%, transparent);
+  color: var(--blog-danger);
+  font-size: var(--comment-note);
+  font-weight: 500;
+  line-height: 1.4;
+  animation: blog-alert-in 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.blog-compose__alert svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+/* The reference code, in both places a failure prints: the alert above a
+   compose box and the inline error under an edit field. Pushed to the far
+   end so it is out of the sentence a reader is actually acting on -- it is
+   for the reader who has stopped acting and wants to report the thing. Mono
+   because it is meant to be copied or read aloud character by character. */
+.blog-compose__code {
+  flex: 0 0 auto;
+  margin-left: auto;
+  align-self: center;
+  padding: 1px 6px;
+  /* Outlined, not filled. A tinted chip inside an already-tinted alert put
+     the code on a more saturated wash of its own colour and dropped it to
+     3.55:1 -- under the bar for 11px text. The border draws the same chip
+     and costs the text nothing. */
+  border: 1px solid color-mix(in oklab, currentColor 28%, transparent);
+  border-radius: 5px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+@keyframes blog-alert-in {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+
+.blog-compose__field {
+  display: block;
+  width: 100%;
+  padding: 14px 14px 0;
+  border: 0;
+  background: none;
+  resize: none;
+  color: var(--blog-body);
+  font: inherit;
+  font-size: var(--comment-body);
+  line-height: var(--comment-lead);
+  /* Grow with the text rather than sitting at a fixed height. Engines without
+     field-sizing keep the rows="4" box. 4.1em is ~66px: the area a reader
+     writes into, one golden step above the 41px row above it. */
+  field-sizing: content;
+  min-height: 4.1em;
+}
+
+.blog-compose__field::placeholder {
+  color: var(--blog-field-hint);
+}
+
+.blog-compose__field:focus {
+  outline: none;
+}
+
+.blog-compose__bar {
+  display: flex;
+  align-items: center;
+  /* Everything in the bar belongs to the right end except the hint, which
+     pushes off it. Stated this way rather than as an auto margin on the send
+     button, because the bar holds a third thing now (the character count) and
+     two competing auto margins would have split the gap between them and left
+     the number floating in the middle of the row. */
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 30px;
+  padding: 8px 12px 12px 14px;
+}
+
+/* Left end of the bar, out of the way until the reader wonders whether
+   asterisks will work. */
+.blog-compose__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: auto;
+  font-size: var(--comment-meta);
+  line-height: 1;
+  color: var(--blog-faint);
+}
+
+.blog-compose__hint svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* The character count, in the compose bar beside the send button and in the
+   editing strip beside Save. Absent until the reader is within 200 of the cap
+   (compose-validate.ts) -- a permanent meter under a box whose ordinary
+   comment is two lines long is a demand for attention nothing has earned.
+
+   Tabular figures because the number changes under the reader's eye and a
+   proportional `1` would make the whole bar twitch on every keystroke.
+
+   The over-cap state is the only red in the bar: the number turns, and Post
+   answers with the same sentence site-api would have sent. It is a warning,
+   not a wall -- the field keeps taking text, so a reader who is 40 characters
+   long can see how far over they are and cut exactly that much. */
+.blog-compose__count {
+  font-size: var(--comment-meta);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--blog-faint);
+  transition: color 0.2s ease;
+}
+
+.blog-compose__count[data-over] {
+  color: var(--blog-danger);
+}
+
+/* The crossing, and the Save press the row editor refuses for length. The box
+   already has a nudge of its own (blog-compose-nudge, above), but that one is
+   a 4px travel on a 700px surface -- read as the whole form flinching, and it
+   only fires on a press. This is the four characters that just went red
+   saying it was them, at the moment they went red. Smaller amplitude on
+   purpose: 4px across a 40px number is a lurch, not a nudge.
+
+   `translate` rather than `transform`, so a shake never fights the transform
+   an ancestor is mid-animation on. Colour is the state; this is only the
+   announcement, which is why it runs once and leaves nothing behind. */
+.blog-compose__count[data-nudge] {
+  animation: blog-count-nudge 0.32s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes blog-count-nudge {
+  0%, 100% { translate: 0; }
+  22% { translate: -3px; }
+  55% { translate: 2px; }
+  80% { translate: -1px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-compose__count[data-nudge] {
+    animation: none;
+  }
+}
+
+/* Whose name is going on the comment, in the identity row's own slot at the
+   top of the box: the fields when nobody is on file, the answer when somebody
+   is. One question, one place, whichever way it is being answered.
+
+   It used to sit BELOW the box, in a strip it shared with the submission
+   receipt -- so "Posting as X" printed at the same size, in the same spot, as
+   "Submitted for review" and "Failed to post; your draft is safe". A standing fact about the
+   reader and the outcome of one press are not the same kind of thing, and a
+   slot that takes turns holding both can be read as neither. Same hairline and
+   near enough the same height as the row it stands in for, so the box does not
+   change size when a reader is remembered. */
+.blog-compose__signed {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--blog-field-line);
+}
+
+.blog-compose[data-phase='ready'] .blog-compose__signed,
+.blog-compose[data-phase='claimed'] .blog-compose__signed {
+  display: flex;
+}
+
+.blog-compose[data-phase='anonymous'] .blog-compose__signout {
+  display: none;
+}
+
+/* One slot, two tenants. Both render every time (see CommentForm.astro) and
+   only `data-phase` on the wrapper decides which one is visible, so switching
+   phase client-side — "Switch" — is a single attribute write instead of
+   swapping DOM. */
+.blog-compose__who,
+.blog-compose__claim {
+  display: none;
+}
+
+.blog-compose[data-phase='ready'] .blog-compose__who {
+  display: inline-flex;
+}
+
+.blog-compose[data-phase='claimed'] .blog-compose__claim {
+  display: inline-flex;
+}
+
+.blog-compose__who {
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: var(--comment-meta);
+  color: var(--blog-muted);
+}
+
+.blog-compose__whoface {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 9.5px;
+  object-fit: cover;
+}
+
+/* The claimed identity: an unverified name+email pair mirrored into
+   localStorage, never a proof — so it reads as plain text next to a quiet
+   text-button, not as a signed-in chip with a face. */
+.blog-compose__claim {
+  align-items: center;
+  gap: 6px;
+  font-size: var(--comment-meta);
+  color: var(--blog-muted);
+}
+
+/* Sign out: the strip's only action, and the same one in both phases -- a
+   verified session had no way out at all, and the claimed row's "Switch" only
+   flipped the phase attribute, so the name it had just dismissed came back on
+   the next reload.
+
+   Pushed to the far end of the row rather than sitting against the name: it
+   ends the state the rest of the row is describing, and a destructive verb
+   directly abutting the reader's own name reads as a label for it. */
+.blog-compose__signout {
+  flex: 0 0 auto;
+  margin-left: auto;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--blog-faint);
+  font: inherit;
+  font-size: var(--comment-meta);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.blog-compose__signout:hover {
+  color: var(--blog-ink);
+}
+
+/* Armed. Red is reserved for this one state -- not hover, not focus -- so in
+   this strip the colour never means anything except "one more press and the
+   name is gone". The underline goes with it: the button has stopped offering
+   and started asking, and the weight carries it without a fill, which on an
+   unpadded text button would read as a stray highlight. */
+.blog-compose__signout--confirm,
+.blog-compose__signout--confirm:hover {
+  color: var(--blog-danger);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.blog-compose__signout:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 2px;
+}
+
+/* Post is a round icon button on the bar inside the box. The word said what
+   the placeholder and the heading had already said; a 40px filled disc in its
+   own footer then made the least informative corner of the form the loudest
+   object on the page.
+
+   Quiet at rest, solid the moment the box is being written in. A send button
+   only matters while there is something to send, and `:focus-within` is that
+   condition without a keystroke listener to maintain. */
+.blog-compose__go {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--blog-r-pill);
+  /* Legible at rest, not only once the box has focus: at 8%/58% on a
+     near-black page this was a smudge in the corner of a form, and the one
+     control that sends the comment should not have to be hunted for. */
+  background: hsl(var(--foreground) / 0.12);
+  color: hsl(var(--foreground) / 0.72);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease,
+    scale 0.15s ease;
+}
+
+.blog-compose__go svg {
+  width: 16px;
+  height: 16px;
+  transition:
+    translate 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.18s ease;
+}
+
+.blog-compose__box:focus-within .blog-compose__go,
+.blog-compose__go:hover {
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+}
+
+.blog-compose__go:active {
+  scale: 0.96;
+}
+
+.blog-compose__go:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 2px;
+}
+
+.blog-compose__field[readonly] {
+  opacity: 0.6;
+}
+
+.blog-compose__go[disabled] {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* --- Sending --------------------------------------------------------------
+   The press used to produce nothing but two elements at 60% opacity, which is
+   what a form looks like when it has stopped working rather than when it is
+   working. The arrow leaves the way it points -- up and out of the circle --
+   and a ring takes its place for as long as the request is open.
+
+   Everything hangs off `data-receipt` on the wrapper, which the controller
+   already sets (setBusy / showComposeReceipt in comments-controller.ts), so
+   the reply box gets the same behaviour without a second implementation. */
+.blog-compose[data-receipt='submitting'] .blog-compose__go {
+  /* Solid through the wait even after focus leaves the box, and not dimmed by
+     the disabled rule above -- the button is busy, not unavailable. */
+  opacity: 1;
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+}
+
+.blog-compose[data-receipt='submitting'] .blog-compose__go svg {
+  translate: 0 -20px;
+  opacity: 0;
+}
+
+.blog-compose__go::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0;
+  transition: opacity 0.18s ease 0.1s;
+  pointer-events: none;
+}
+
+.blog-compose[data-receipt='submitting'] .blog-compose__go::after {
+  opacity: 1;
+  animation: blog-compose-spin 0.7s linear infinite;
+}
+
+@keyframes blog-compose-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* --- The send gesture -----------------------------------------------------
+   The arrow leaves the way it points and a fresh one arrives from below --
+   which is the same thing the emptied field underneath says.
+
+   It used to be two halves driven by `data-receipt`: the launch on
+   `submitting`, the return on `posted`. The optimistic path never enters
+   `submitting` (comments-controller.ts), so the launch stopped firing and the
+   press produced an arrow appearing from nowhere -- a return with nothing to
+   return from. Both halves are one keyframe now on an attribute the press
+   sets directly, so the gesture belongs to the press rather than to the state
+   of a request that is no longer being waited on.
+
+   The `submitting` rules above still stand for /lab/comments, which draws
+   every receipt on purpose. */
+.blog-compose__go[data-sent] svg {
+  animation: blog-compose-send 0.5s var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+@keyframes blog-compose-send {
+  0% {
+    translate: 0 0;
+    opacity: 1;
+  }
+  38% {
+    translate: 0 -18px;
+    opacity: 0;
+  }
+  /* Held empty for a beat. Without it the two halves read as one bounce, and
+     the point is that a different arrow came back. */
+  46% {
+    translate: 0 14px;
+    opacity: 0;
+  }
+  100% {
+    translate: 0 0;
+    opacity: 1;
+  }
+}
+
+@keyframes blog-compose-reload {
+  from {
+    translate: 0 14px;
+    opacity: 0;
+  }
+}
+
+/* --- Nudge ----------------------------------------------------------------
+   The only thing left under the box, and it is an offer rather than a status.
+   "Posted" and "Submitted for review" used to print here: both said, in weaker
+   words, what the comment that had just appeared two lines below was already
+   saying for itself, and their slot was shared with the identity line and the
+   failure notice. Success is silent now; failure speaks in the alert above the
+   form (compose-validate.ts). */
+.blog-compose__receipt {
+  margin-top: 10px;
+  padding: 0 2px;
+}
+
+/* The inline edit failure, which now wears `.blog-compose__alert` -- the same
+   filled, red, glyphed object the compose box's own failures use. It used to
+   have a style of its own here: `--blog-ink` on no background, which is the
+   colour of ordinary text. So "This can no longer be edited" -- a refusal that ends the
+   reader's options on that row -- printed at the weight of a caption, in a
+   thread where the pending note and the byline are already grey text at that
+   size. One failure, one look, wherever it lands. */
+.blog-comment__edit-error {
+  margin-top: 8px;
+}
+
+/* The one non-blocking upsell in the whole feature: text-weight and
+   dismissable, the same register as the row actions below the thread — never
+   a banner, never a modal. plans/blog-comments.md → "Subscribe prompt". */
+/* Where an interactive Turnstile challenge opens, in both places a reader can
+   be challenged: under the compose box and inside the reaction bar. Invisible
+   mode draws nothing until Cloudflare wants a human, so this reserves no space
+   until it has something to hold -- a permanent gap under a box that is
+   challenged maybe once in a hundred submissions is the wrong trade, and the
+   compose area is already the densest thing on the page.
+
+   Collapsed with a 0fr/1fr grid row rather than height, so the challenge can
+   be whatever size Cloudflare renders and the open still animates. */
+.blog-compose__turnstile {
+  display: grid;
+  /* minmax(0, ...), not a bare 0fr: an `fr` track keeps an automatic
+     min-content floor, and Cloudflare's challenge iframe carries a definite
+     height, so a bare `0fr` track sits at the iframe's own height and never
+     closes again. */
+  grid-template-rows: minmax(0, 0fr);
+  transition: grid-template-rows 0.28s cubic-bezier(0.2, 0, 0, 1), margin-top 0.28s;
+}
+
+.blog-compose__turnstile > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.blog-compose__turnstile[data-turnstile-interactive] {
+  /* Plain 1fr, not minmax(0, 1fr): in an auto-height container an `fr` track
+     resolves against zero free space, so the open state needs the very
+     min-content floor the closed state has to suppress. */
+  grid-template-rows: 1fr;
+  margin-top: 10px;
+}
+
+/* One message with one optional extra, in that order and next to each other.
+   The text used to take `flex: 1 1 auto`, which pinned the sentence to the
+   left edge and the checkbox to the right with a hand's width of nothing in
+   between -- three things spaced like a toolbar rather than a line anyone
+   would read. Only the dismiss travels to the far end now. */
+.blog-compose__nudge {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 8px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--blog-line);
+}
+
+.blog-compose__nudge-mark {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  color: var(--blog-faint);
+}
+
+.blog-compose__nudge-text {
+  margin: 0;
+  flex: 0 1 auto;
+  font-size: var(--comment-meta);
+  color: var(--blog-muted);
+}
+
+/* The offer is a button now, not a checkbox. A tick box with no submit
+   control beside it asked the reader to set a preference and then gave them
+   nowhere to commit it -- and nothing in the codebase ever read the box. This
+   opens the subscribe panel the page already has, which arrives with the
+   address already filled in. Underlined rather than boxed: the row is one
+   sentence and a dismiss, and a filled button in it would outweigh the
+   comment that was just posted. */
+.blog-compose__nudge-sub {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--comment-meta);
+  color: var(--blog-ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.blog-compose__nudge-sub:hover {
+  text-decoration-color: currentColor;
+}
+
+.blog-compose__nudge-sub:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.blog-compose__nudge-dismiss {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--blog-faint);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.blog-compose__nudge-dismiss:hover {
+  background: var(--blog-fill);
+  color: var(--blog-ink);
+}
+
+.blog-compose__nudge-dismiss:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 2px;
+}
+
+.blog-compose__nudge-dismiss svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Under the measure the two fields stack rather than squeezing an address
+   into an unreadable stub. */
+@media (max-width: 560px) {
+  .blog-compose__fields {
+    flex-direction: column;
+  }
+}
+
+/* --- Thread -------------------------------------------------------------- */
+/* Metrics, measured rather than guessed. The author line is 14.5px at 1.45,
+   so its line box is 21px; a 28px face centred on that line needs
+   (21 − 28) / 2 = −3.5px of lift, rounded to −3 so the number stays whole and
+   the rows stay on a shared grid. The gutter is 12px and the reply indent is
+   28 + 12 = 40px, which is the same column, so a reply's face lands exactly
+   under its parent's text rather than somewhere near it. */
+/* 20px is the gap inside one exchange -- a reply sits this close under the
+   comment it answers, and the 40px indent already says which is which. */
+.blog-comments__list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* A new voice gets more. One flat 20px made every boundary in the thread the
+   same size, so the only thing saying "this answers the comment above" rather
+   than "this is someone else entirely" was the 40px indent -- one signal doing
+   two jobs. Now the gap agrees with the indent instead of ignoring it. */
+.blog-comment + .blog-comment:not(.blog-comment--reply) {
+  margin-top: 12px;
+}
+
+.blog-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.blog-comment--reply {
+  margin-left: 40px;
+}
+
+.blog-comment__avatar {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  /* Centred on the name's line box, not aligned to it: a circle taller than
+     the line sits visibly low when the two boxes are flush at the top. The
+     editing state re-centres it on the field's first line instead -- see the
+     [data-editing] rule below. */
+  margin-top: -4px;
+  border-radius: 50%;
+  font-size: 11.5px;
+  transition: translate 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.blog-comment__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.blog-comment__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  /* The page's 1.625 body leading is for paragraphs; a name and a date sit in
+     one short line and only need enough room for the badge. */
+  line-height: 1.45;
+  margin-bottom: 3px;
+}
+
+.blog-comment__author {
+  font-size: var(--comment-note);
+  font-weight: 600;
+  color: var(--blog-ink);
+}
+
+.blog-comment__date {
+  font-size: var(--comment-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--blog-faint);
+}
+
+/* Author's own replies get a mark, not a colour — the zone is monochrome and
+   xia is spent on the heart. */
+.blog-comment__badge {
+  padding: 1px 7px;
+  border: 1px solid var(--blog-line);
+  border-radius: var(--blog-r-pill);
+  font-size: var(--comment-meta);
+  font-weight: 500;
+  color: var(--blog-faint);
+}
+
+/* A second edit never overwrites the marker with a diff — it just says the
+   words on screen are not the words first posted.
+
+   Bound to the date with a middot rather than left to float on the row's 8px
+   gap. Both are the same size and the same faint grey, so a plain space
+   between them read as one run-on token -- "5d edited" -- with no way to see
+   where the timestamp ended. The dot says they are two facts in one clause,
+   and holds them on the same line when the row is narrow. */
+.blog-comment__edited {
+  display: inline-flex;
+  align-items: baseline;
+  font-size: var(--comment-meta);
+  color: var(--blog-faint);
+  white-space: nowrap;
+}
+
+.blog-comment__edited::before {
+  content: '·';
+  margin-inline-end: 7px;
+  opacity: 0.6;
+}
+
+.blog-comment__text {
+  font-size: var(--comment-body);
+  line-height: var(--comment-lead);
+  color: var(--blog-body);
+  overflow-wrap: anywhere;
+}
+
+/* --- Markdown in a comment ------------------------------------------------
+   The compose box has claimed "Markdown supported" under a hand-drawn icon since
+   the first pass; comment-markdown.ts is what finally makes that true, and
+   this is what the six things it renders look like.
+
+   Everything below is deliberately quieter than the same element would be in
+   the post above. A comment is a reply, not a second article: its blockquote
+   is a rule and an indent rather than a pull quote, its lists sit at the
+   paragraph's own size, and nothing here is allowed to introduce a typeface,
+   a weight, or a margin the thread does not already use. The one exception is
+   mono on code -- the type note at the top of this file rules mono out for
+   the thread's chrome, and code is not chrome. */
+
+.blog-comment__text > :first-child {
+  margin-top: 0;
+}
+
+.blog-comment__text > :last-child {
+  margin-bottom: 0;
+}
+
+.blog-comment__text p {
+  margin: 0.65em 0 0;
+}
+
+.blog-comment__text strong {
+  font-weight: 600;
+  color: var(--blog-ink);
+}
+
+.blog-comment__text em {
+  font-style: italic;
+}
+
+.blog-comment__text a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.blog-comment__text a:hover {
+  text-decoration-color: currentColor;
+}
+
+.blog-comment__text code {
+  padding: 0.1em 0.36em;
+  border-radius: 4px;
+  background: var(--blog-field-fill);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  /* Mono runs large next to the sans it sits inside; 0.9em is where the two
+     x-heights meet on Geist. */
+  font-size: 0.9em;
+}
+
+.blog-comment__text pre {
+  margin: 0.7em 0 0;
+  padding: 10px 12px;
+  border-radius: var(--blog-r-inner);
+  background: var(--blog-field-fill);
+  /* The one thing in a comment that cannot be reflowed to fit. It scrolls
+     inside its own box rather than widening the row and taking the whole
+     thread's layout with it. */
+  overflow-x: auto;
+}
+
+.blog-comment__text pre code {
+  padding: 0;
+  background: none;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.blog-comment__text blockquote {
+  margin: 0.7em 0 0;
+  padding-inline-start: 12px;
+  border-inline-start: 2px solid var(--blog-line);
+  color: var(--blog-faint);
+}
+
+.blog-comment__text ul,
+.blog-comment__text ol {
+  margin: 0.65em 0 0;
+  padding-inline-start: 1.35em;
+}
+
+.blog-comment__text ul {
+  list-style: disc;
+}
+
+.blog-comment__text ol {
+  list-style: decimal;
+}
+
+.blog-comment__text li {
+  margin-top: 0.2em;
+}
+
+/* --- An edit still in the air ---------------------------------------------
+   Save writes the new text straight into the row and sends the PATCH after
+   -- see saveEdit. The row is telling the truth about what the reader typed
+   and is one round trip from telling it about what was stored, and the half
+   step of colour is the whole difference: enough to read as not-yet-settled,
+   not enough to read as a problem. It clears either way, on the response or
+   on the revert. */
+.blog-comment[data-sending] .blog-comment__text {
+  color: color-mix(in oklab, var(--blog-body) 62%, transparent);
+  transition: color 0.2s ease;
+}
+
+/* Held for moderation: visible to its author only, and it has to say why.
+   Set apart with a quiet accent border and a touch of dimming -- pending,
+   never alarming, so this deliberately borrows the zone's own "in progress"
+   ink (--blog-accent, already worn by focus rings and the active tag) rather
+   than --blog-danger. The row otherwise keeps its shape: no icon, no fill,
+   and it already drops its like/reply footer above, which is signal enough
+   that this one is not open for engagement yet. */
+.blog-comment--held {
+  padding-left: 12px;
+  border-left: 2px solid color-mix(in oklab, var(--blog-accent) 45%, transparent);
+}
+
+.blog-comment--held .blog-comment__author {
+  color: var(--blog-muted);
+}
+
+.blog-comment--held .blog-comment__text {
+  color: var(--blog-faint);
+}
+
+.blog-comment__note {
+  margin-top: 5px;
+  font-size: var(--comment-note);
+  line-height: 1.55;
+  color: var(--blog-faint);
+}
+
+/* --- New row entrance -----------------------------------------------------
+   A comment or reply that just landed: a brief slide-fade in, plus a
+   highlight on the body that decays over ~1.5s -- see insertNewRow() in
+   client/comments-controller.ts, which adds `.blog-comment--new` on insert
+   and removes it once the highlight animation ends. The entrance is real
+   motion and skipped under prefers-reduced-motion; the highlight is only a
+   colour fade, not motion, so it plays either way -- a fresh row still gets
+   *some* acknowledgement, just never a jarring one. */
+@media (prefers-reduced-motion: no-preference) {
+  .blog-comment--new {
+    animation: blog-comment-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@keyframes blog-comment-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.blog-comment--new .blog-comment__body {
+  border-radius: var(--blog-r-inner);
+  animation: blog-comment-highlight 1.5s ease-out;
+}
+
+@keyframes blog-comment-highlight {
+  from {
+    background: color-mix(in oklab, var(--blog-accent) 12%, transparent);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+/* A `mine` row with neither `editableUntil` nor `deletable` -- posted without
+   an email, or before that address was verified. Same quiet note as `.held`,
+   just tinted with the compose box's own suggestion colour instead of the
+   faint grey: this is an upside on offer, not a status to report. No box or
+   background -- that reads as a suggestion once at the top of the thread, but
+   as nagging repeated under every row of someone's own history. */
+.blog-comment__note--verify {
+  color: var(--blog-good);
+}
+
+/* --- Waiting on a verdict -------------------------------------------------
+   A row this browser has just written, held only because the moderation call
+   has not landed yet. Nearly all of them clear within seconds, so the row is
+   rendered as posted -- full text at full weight -- and the note carries the
+   lighter word ("Checking") behind a slow pulse instead of announcing a review.
+   comments-controller.ts swaps the word for the real one and drops
+   `data-pending` if the polls run out, at which point this styling stops
+   applying and the row states the hold plainly.
+
+   Telling a reader their comment is under review and then quietly taking it
+   back four seconds later is how a thread that is working reads as one that is
+   stuck -- the exact impression the fast path was built to avoid. */
+.blog-comment[data-pending] .blog-comment__text {
+  color: var(--blog-body);
+}
+
+.blog-comment[data-pending] .blog-comment__note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  animation: blog-pending-breathe 1.8s ease-in-out infinite;
+}
+
+.blog-comment[data-pending] .blog-comment__note::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+@keyframes blog-pending-breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* --- Own row: inline edit -------------------------------------------------
+   Same size, leading and colour as the paragraph it replaces, and no border. A
+   bordered composer here pushed the row open and put a box inside a box inside
+   the thread; the only thing that should change on Edit is that the words
+   became typable.
+
+   The tint is the static cue that they did. */
+.blog-comment__edit-field {
+  display: block;
+  width: 100%;
+  /* The tint fills the body column exactly, and the text takes the padding.
+
+     It used to pull itself 10px left and up with negative margins so the first
+     line landed precisely where the paragraph's line had been -- continuity
+     bought at three prices: the filled rectangle came to within 2px of the
+     avatar, where every other row has a 12px gutter; `width: 100%` meant the
+     negative right margin shifted the box instead of widening it, so it also
+     stopped 10px short of the measure; and the -4px bottom left Save sitting
+     1px under it. An indent while typing is the cheaper trade, and 14px of it
+     is what the compose box at the top of the thread already indents its own
+     text by -- the two typing surfaces sit in different columns, so the shared
+     number is the inset, not the edge. Vertically it stays at 10px: a row is
+     denser than the composer. */
+  margin: 0 0 6px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: var(--blog-r-inner);
+  background: hsl(var(--foreground) / 0.045);
+  resize: none;
+  color: var(--blog-body);
+  font: inherit;
+  font-size: var(--comment-body);
+  line-height: var(--comment-lead);
+  field-sizing: content;
+  min-height: 1.75em;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.blog-comment__edit-field:focus {
+  outline: none;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.18);
+}
+
+/* The byline steps out of the way while the row is being edited. Nobody needs
+   to be told whose comment this is at the one moment it is certainly theirs,
+   and the field's negative top margin -- there so the first line lands where
+   the paragraph's first line was -- pulled the tint up flush against the name.
+   With the name gone the field is the row's first line, so that margin goes
+   too and the tint sits square with the avatar. */
+.blog-comment[data-editing] .blog-comment__meta {
+  display: none;
+}
+
+/* ...which leaves the avatar with nothing to be centred on. It kept its -3px
+   and so sat level with the top CORNER of the field's tint, 12px above the
+   first word -- a face pointing at a box edge instead of at the sentence it
+   belongs to. 10px of field padding, less the half-pixel the taller line box
+   gives back, puts the circle back on the first line. Moved with `translate`
+   rather than margin so the shift is compositable and interruptible when the
+   reader opens and closes the editor. */
+.blog-comment[data-editing] .blog-comment__avatar {
+  translate: 0 13.5px;
+}
+
+/* --- Tombstone --------------------------------------------------------- */
+/* Kept only so a reply underneath still has a parent to sit under — one-level
+   threading has nowhere else to put it. No name, no actions: there is nothing
+   left here to attribute or respond to. */
+.blog-comment__avatar--ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: hsl(var(--foreground) / 0.05);
+  color: var(--blog-faint);
+}
+
+.blog-comment__avatar--ghost svg {
+  width: 13px;
+  height: 13px;
+}
+
+.blog-comment__text--tombstone {
+  font-style: italic;
+  color: var(--blog-faint);
+}
+
+/* --- Row actions --------------------------------------------------------- */
+/* Quiet until wanted. These sit under every comment in a thread of hundreds,
+   so they are text-weight by default and only take a fill on hover — a row of
+   outlined buttons under each paragraph would out-shout the writing. Pulled
+   4px left so the glyph's own whitespace lines the label up with the text
+   above it instead of the button's box. */
+.blog-comment__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 5px 0 0 -8px;
+}
+
+/* Two sets of controls in one strip -- ordinary and mid-edit -- with exactly
+   one of them on screen. The strip itself never empties, so starting an edit
+   does not collapse the row's last line and shift everything under it. */
+.blog-comment__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Mid-edit the strip follows a padded surface rather than a line of text, so
+   it needs the gap the paragraph's own leading used to provide. */
+.blog-comment__acts--editing {
+  padding-top: 6px;
+}
+
+/* The count stands among buttons here rather than in a padded bar, so it takes
+   the same 6px the countdown beside it takes to clear the last one. */
+.blog-comment__acts--editing .blog-compose__count {
+  padding-left: 6px;
+}
+
+.blog-comment__act {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--blog-r-pill);
+  background: none;
+  color: var(--blog-faint);
+  font: inherit;
+  font-size: var(--comment-meta);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.blog-comment__act:hover {
+  background: var(--blog-fill);
+  color: var(--blog-ink);
+}
+
+.blog-comment__act:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 1px;
+}
+
+/* 1.6 stroke against 500-weight text: an icon beside a label carries the
+   label's optical weight, and a hairline next to medium reads as broken.
+
+   15, not 14, and the reason is the script. A lucide glyph carries about a
+   pixel of its own padding inside the viewBox, so a 14px icon draws at ~12px
+   of ink -- next to Latin that is fine, because lowercase sits well below the
+   em box and the two look level. A CJK label at 13px fills its 13px box
+   completely, so the same icon read as visibly the smaller of the pair. */
+.blog-comment__act svg {
+  width: 15px;
+  height: 15px;
+}
+
+.blog-comment__act-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The remaining edit window, written into both slots by the row's ticker: the
+   one inside the Edit button, where a dot ties it to the label, and the one
+   beside Post while the edit is open, where it needs the word. Tabular so a
+   digit rolling over does not shuffle the strip. */
+.blog-comment__act-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--blog-faint);
+}
+
+.blog-comment__act-time::before {
+  content: ' · ';
+}
+
+.blog-comment__act-time--left {
+  padding-left: 6px;
+  font-size: var(--comment-meta);
+}
+
+.blog-comment__act-time--left::before {
+  content: none;
+}
+
+/* Delete keeps the row's text weight until it is aimed at. Colour on hover and
+   focus only, and never as the only cue -- the trash glyph is the one that is
+   always there. */
+.blog-comment__act--danger:hover,
+.blog-comment__act--danger:focus-visible {
+  color: var(--blog-danger);
+  background: color-mix(in oklab, var(--blog-danger) 8%, transparent);
+}
+
+/* Cancel, once it has been pressed on an edit with unsaved changes, becomes
+   the confirmation it is asking for: same button, new word, coloured, and
+   sitting still until it is pressed again. A window.confirm() for a sentence a
+   reader has just typed is heavier than the thing being thrown away, and a
+   second button appearing beside the first would move Post out from under the
+   cursor. Cancel on an untouched field still closes on the first press --
+   there is nothing to confirm losing. */
+.blog-comment__act--confirm,
+.blog-comment__act--confirm:hover {
+  color: var(--blog-danger);
+  background: color-mix(in oklab, var(--blog-danger) 12%, transparent);
+}
+
+/* Saving an edit is the committing action in the strip, so it is the darkest
+   and heaviest thing in it -- but it does not get a fill. Filled black, a
+   26px pill for a typo fix was the strongest object on the whole page, louder
+   than the compose box's own send button and louder than the article. Ink and
+   600 put it first in its own strip and nowhere else. */
+.blog-comment__act--go {
+  padding: 0 10px;
+  color: var(--blog-ink);
+  font-weight: 600;
+}
+
+.blog-comment__act--go:hover {
+  background: var(--blog-fill);
+  color: var(--blog-ink);
+}
+
+.blog-comment__act--go:active {
+  scale: 0.96;
+}
+
+/* Liking is the one place in the thread xia is spent, same as the post's own
+   heart. The count moving is the static cue; the fill is the flourish. */
+.blog-comment__act--like[aria-pressed='true'] {
+  color: var(--blog-xia);
+}
+
+.blog-comment__act--like[aria-pressed='true'] svg {
+  fill: currentColor;
+  animation: blog-like-pop 0.32s var(--ease-bounce, cubic-bezier(0.34, 1.36, 0.64, 1));
+}
+
+.blog-comment__act--like:hover {
+  color: var(--blog-xia);
+}
+
+@keyframes blog-like-pop {
+  0% {
+    transform: scale(0.7);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Every press spends hearts, including the ones after the count has stopped
+   moving. A like cannot be taken back here (comments-controller.ts,
+   likeComment), so a reader pressing again is not asking for a state change --
+   they are saying it louder, and this is the only thing that can answer them.
+   Three per burst against the post bar's five: this is a 26px pill in a line
+   of text, not a 36px card with a page's width to play in. */
+.blog-comment__act--like {
+  position: relative;
+}
+
+.blog-comment__heart {
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 11px;
+  height: 11px;
+  /* Half its own width, so `left: 50%` centres it and --heart-x is a spread
+     around the middle of the pill rather than an offset from its left edge. */
+  margin-left: -5.5px;
+  color: var(--blog-xia);
+  opacity: 0;
+  pointer-events: none;
+  animation: blog-comment-heart 0.9s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes blog-comment-heart {
+  0% {
+    transform: translate(0, 0) scale(0.5) rotate(0deg);
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--heart-x, 0), -40px) scale(1.15) rotate(var(--heart-rot, 0deg));
+    opacity: 0;
+  }
+}
+
+/* --- Inline reply -------------------------------------------------------- */
+/* The same box as the composer at the top, because it is the same act — it
+   also carries the `.blog-compose` class now, for the identity row and its
+   submit-reveal behaviour (see CommentsSection.astro). This `margin`
+   shorthand still wins over `.blog-compose`'s own `margin-bottom: 30px`:
+   equal specificity, later in the cascade. It moves into whichever row is
+   being answered rather than being cloned per comment. */
+.blog-reply {
+  margin: 12px 0 2px;
+  padding-left: 13px;
+  border-left: 2px solid var(--blog-line);
+}
+
+/* No "Replying to X" line and no Cancel button. The placeholder in the field
+   already carries the name, and the row's own Reply button is both what opened
+   this and what closes it -- it sits directly above, and it holds a pressed
+   state while the box is open, so the way out is the way in. Escape closes it
+   too. */
+.blog-comment__act[aria-expanded='true'] {
+  background: var(--blog-fill);
+  color: var(--blog-ink);
+}
+
+.blog-reply__field {
+  min-height: 2.6em;
+  padding-top: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-comment__act,
+  .blog-comment__act--like[aria-pressed='true'] svg,
+  .blog-comment__heart,
+  .blog-comment[data-pending] .blog-comment__note,
+  .blog-comment[data-enter],
+  .blog-comment[data-sending] .blog-comment__text,
+  .blog-comment__avatar,
+  .blog-compose__go[data-sent] svg,
+  .blog-compose__alert,
+  .blog-compose__recommend,
+  .blog-compose__turnstile,
+  .blog-compose__input[aria-invalid='true'],
+  .blog-compose__box:has([aria-invalid='true']) {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* --- Load more + thread error --------------------------------------------
+   One shape for both: a centred pill under the list, the same register as the
+   row actions above it rather than a full-width bar that out-shouts them. */
+.blog-comments__more {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.blog-comments__more-error,
+.blog-comment__action-error {
+  margin: 8px 0 0;
+  color: var(--blog-danger);
+  font-size: var(--comment-note);
+}
+
+/* The shape both "there is no thread here" states share: a mark, a line, and
+   for the error, the way back. Centred, because neither one is a comment and
+   sitting them at the thread's left margin made them read as the first row. */
+.blog-comments__notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 26px 0 30px;
+  font-size: var(--comment-note);
+  color: var(--blog-faint);
+  text-align: center;
+}
+
+.blog-comments__notice p {
+  margin: 0;
+}
+
+/* Behind the words, not beside them: the sentence is the message and the
+   drawing only sets the tone. */
+.blog-comments__mark {
+  width: 30px;
+  height: 30px;
+  opacity: 0.45;
+}
+
+.blog-comments__more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 16px;
+  border: 1px solid var(--blog-line);
+  border-radius: var(--blog-r-pill);
+  background: none;
+  color: var(--blog-muted);
+  font: inherit;
+  font-size: var(--comment-note);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.blog-comments__more-btn:hover {
+  border-color: hsl(var(--foreground) / 0.24);
+  color: var(--blog-ink);
+  background: var(--blog-fill);
+}
+
+.blog-comments__more-btn:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 2px;
+}
+
+.blog-comments__more-btn[disabled] {
+  cursor: default;
+  opacity: 0.7;
+}
+
+/* Three dots, not a spinner — nothing else in the zone spins, and a thread of
+   text does not need a loader borrowed from somewhere else. */
+.blog-comments__more-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.blog-comments__more-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: blog-dot-pulse 1.1s ease-in-out infinite;
+}
+
+.blog-comments__more-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.blog-comments__more-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes blog-dot-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-comments__more-dots span {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* A closed thread is read-only, full stop. Rather than pick which of like,
+   reply, edit and delete survive -- and defend that list later -- the whole
+   action row and the reply box go. `display: none` also takes them out of the
+   tab order, which hiding them any other way would not. */
+.blog-comments[data-state='closed'] .blog-comment__actions,
+.blog-comments[data-state='closed'] .blog-reply {
+  display: none;
+}
+
+/* --- Empty and loading --------------------------------------------------- */
+.blog-comments__empty {
+  font-size: var(--comment-note);
+  color: var(--blog-faint);
+}
+
+.blog-comments__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.blog-skel {
+  border-radius: var(--blog-r-pill);
+  background: hsl(var(--foreground) / 0.07);
+  animation: blog-skel-pulse 1.4s var(--ease-linear, linear) infinite;
+  animation-delay: var(--skel-delay, 0s);
+}
+
+.blog-skel--avatar {
+  border-radius: 50%;
+}
+
+.blog-skel--line {
+  height: 9px;
+  width: var(--skel-width, 100px);
+}
+
+@keyframes blog-skel-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-skel {
+    animation: none;
+  }
+}
+
+/* --- Reader confirm card ---------------------------------------------------
+   /reader/confirm, the lazy-verification landing page — plans/blog-comments.md
+   → "Lazy verification": GET renders this, only the button's POST consumes
+   the token. The reader sees it once, from a mail link, so it borrows the
+   compose box's chrome (`.blog-r-box`, `.blog-compose__go`) instead of a
+   second visual language for one screen. */
+.reader-confirm {
+  display: flex;
+  justify-content: center;
+  padding: 64px 0 40px;
+}
+
+.reader-confirm__card {
+  width: min(100%, 380px);
+  padding: 28px 26px;
+  border: 1px solid var(--blog-line);
+  border-radius: var(--blog-r-box);
+  background: hsl(var(--foreground) / 0.02);
+  text-align: center;
+}
+
+.reader-confirm__title {
+  margin: 0 0 8px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--blog-ink);
+}
+
+.reader-confirm__email {
+  display: inline-block;
+  margin: 0 0 18px;
+  padding: 5px 12px;
+  border-radius: var(--blog-r-pill);
+  background: var(--blog-fill);
+  font-size: 13.5px;
+  color: var(--blog-body);
+}
+
+.reader-confirm__body {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--blog-muted);
+}
+
+.reader-confirm__perks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--blog-muted);
+}
+
+.reader-confirm__perks li {
+  position: relative;
+  padding-left: 18px;
+}
+
+.reader-confirm__perks li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.6em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--blog-faint);
+}
+
+.reader-confirm__go {
+  width: 100%;
+}
+
+.reader-confirm__back {
+  display: inline-block;
+  font-size: 13.5px;
+  color: var(--blog-faint);
+  transition: color 0.15s ease;
+}
+
+.reader-confirm__back:hover {
+  color: var(--blog-ink);
+}

@@ -1,6 +1,6 @@
 {
   "name": "@bunizao/contracts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shared TypeScript contracts for buxx.me services and clients.",
   "type": "module",
   "sideEffects": false,
@@ -37,6 +37,11 @@
       "types": "./dist/admin.d.ts",
       "import": "./dist/admin.js",
       "default": "./dist/admin.js"
+    },
+    "./comments": {
+      "types": "./dist/comments.d.ts",
+      "import": "./dist/comments.js",
+      "default": "./dist/comments.js"
     },
     "./content": {
       "types": "./dist/content.d.ts",

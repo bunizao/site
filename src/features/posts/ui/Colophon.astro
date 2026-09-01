@@ -1,0 +1,46 @@
+---
+/* Everything that closes a post, under one hairline. The provenance line and
+   reader actions share one compact band so comments can follow directly. */
+import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
+import type { BlogLocale } from '@/data/site';
+import AiCredit from './AiCredit.astro';
+import NotByAI from './NotByAI.astro';
+
+interface Props {
+  credits?: readonly AuthorshipCredit[];
+  locale?: BlogLocale;
+}
+
+const { credits = [], locale } = Astro.props;
+const hasActions = Astro.slots.has('default');
+---
+
+<footer class="blog-colophon">
+  {credits.length > 0
+    ? <AiCredit credits={credits} locale={locale} />
+    : <NotByAI locale={locale} />}
+  {hasActions && (
+    <div class="blog-colophon__actions"><slot /></div>
+  )}
+</footer>
+
+<style>
+  .blog-colophon {
+    margin-top: 44px;
+    padding-top: 28px;
+    border-top: 1px solid var(--blog-line);
+  }
+
+  .blog-colophon__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+  }
+
+  :global(.ai-credit) + .blog-colophon__actions,
+  :global(.not-by-ai) + .blog-colophon__actions {
+    margin-top: 24px;
+  }
+</style>

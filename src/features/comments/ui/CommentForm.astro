@@ -1,0 +1,284 @@
+---
+/* Compose box — the top of the thread, and the primary place a reader is
+   asked who they are. (The reply box asks the same question the same way;
+   see the note below.)
+
+   It sits at the TOP of the thread on purpose: the reader has just finished
+   the post, and the thing they might want to do is write, not scroll past
+   other people's writing to find the field.
+
+   Order is identity, then words. The earlier design kept the fields hidden
+   and grew them out of the first Post press — writable before anyone had
+   said who they were — but that made one button mean "expand" on the first
+   press and "submit" on the second, and dropped two unlabelled fields under
+   the reader's hands at the moment they were trying to finish. The fields
+   are on screen from first paint instead, saying what the address is for in
+   their own placeholder, and Post checks them (compose-validate.ts). It costs
+   the impulse comment; it buys a form that holds still.
+
+   Three grades the wrapper's `data-phase` can hold (Design → "Identity: three
+   grades, one table"), all answered in the box's own top row:
+     anonymous — nothing on file; the identity row is asked for
+     claimed   — `buxx:reader` in localStorage; the row states
+                 "Posting as {name}" with "Switch" to ask again
+     ready     — a verified `reader_session`; "Posting as {name}" with avatar
+
+   ...crossed with what the current submission attempt is doing, on
+   `data-receipt`: idle, submitting, posted, held, nudge, error. The nine rows
+   in the PRD's compose-state table are these two axes, not nine flags.
+
+   Only three of those six receipts draw anything. `submitting` is the send
+   button's own spinner; `error` writes into the alert above the box, the same
+   slot a missing field writes into; `nudge` opens the subscribe offer below
+   it. `posted` and `held` draw nothing, because the comment itself has just
+   appeared in the list directly under this box with the reader's name on it --
+   a "Posted" label under a visible comment is a second, weaker copy of news the
+   reader already has.
+
+   Presentational only. Submission, the risk stack, and the lazy-verification
+   round trip land with client/comments-controller.ts — this component never
+   fetches. The reply box in CommentsSection.astro asks the same question the
+   same way, sharing IdentityRow.astro and compose-validate.ts rather than
+   duplicating either. */
+
+import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
+import { initials, seedHue } from '@/features/comments/identity';
+import type { CommentErrorCode } from '@/features/comments/comment-error';
+import type { ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
+import { blog, type BlogLocale } from '@/data/site';
+import { commentsCopy } from '@/features/comments/copy';
+
+interface Props {
+  /** Language of the surrounding post and thread. */
+  locale?: BlogLocale;
+  /** Lab-only selector for the server refusal copy to preview. */
+  errorCode?: CommentErrorCode;
+  /** Reader's current standing. Defaults to signed out, nothing claimed. */
+  phase?: ReaderPhase;
+  /** Required when phase is 'ready' — carries the resolved avatar. */
+  viewer?: Viewer;
+  /** Required when phase is 'claimed' — the localStorage mirror, never a
+      proof, so it never carries an avatar. */
+  claimed?: ClaimedIdentity;
+  /** Where the current submission attempt stands. */
+  receipt?: ComposeReceipt;
+  /** The body text to preserve across `submitting` and `error` — the two
+      states where the draft is still the reader's, not gone yet. */
+  draftText?: string;
+}
+
+const {
+  phase = 'anonymous',
+  viewer,
+  claimed,
+  receipt = 'idle',
+  draftText = '',
+  locale = blog.locale.blog,
+  errorCode,
+} = Astro.props;
+
+const t = commentsCopy[locale];
+const busy = receipt === 'submitting';
+const fieldValue = busy || receipt === 'error' ? draftText : '';
+/* A failed submission speaks in the alert above the box -- the same slot the
+   field-level complaints use -- so `error` is not a thing that renders below
+   the form any more. `posted` and `held` render nothing at all: the comment
+   arrives in the list under the box with the reader's name on it, which is the
+   receipt. What is left below is the one thing that is not a status at all. */
+const alertText = receipt === 'error' ? t.submitError[errorCode ?? 'SERVER'] : '';
+const showNudge = receipt === 'nudge';
+---
+
+<div class="blog-compose" data-pagefind-ignore data-phase={phase} data-receipt={receipt}>
+  {/* Everything that can go wrong with this box says so here, and only here:
+      a field left empty (compose-validate.ts, which also rings the field and
+      puts the cursor in it) and a submission the server refused
+      (comments-controller.ts). They used to print in two different places --
+      this one above the box, a receipt line below it -- which asked the reader
+      to learn which kind of trouble appeared where before they could act on
+      either. At the top of the stack, filled and coloured, because as a 13px
+      grey line in the footer it was the same weight as the hint next to it and
+      readers walked straight past it. */}
+  <p class="blog-compose__alert" data-compose-error role="alert" hidden={!alertText}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"></circle>
+      <path d="M12 7v6M12 16.5h.01"></path>
+    </svg>
+    <span data-compose-error-text>{alertText}</span>
+    {/* Reference code, right-aligned and out of the reading path. Only a
+        server refusal earns one — see comment-error.ts. */}
+    <code class="blog-compose__code" data-compose-error-code hidden></code>
+  </p>
+
+  {/* One surface for the whole form. Three bordered boxes stacked -- name,
+      email, body -- were three objects for one act, and the compose area
+      out-boxed everything around it. Inside, the parts are told apart by two
+      hairlines instead of three borders, and focus lights the form up as the
+      single thing it is.
+
+      The top row of the box is always the same question -- who is this going
+      out as. Anonymous readers answer it in two fields; claimed and ready ones
+      have already answered it, so the same row states the answer instead. Both
+      are always in the DOM and only `data-phase` decides which is on screen,
+      so "Switch" is a one-attribute flip rather than DOM surgery.
+
+      That strip used to sit *below* the box, in a footer it shared with the
+      submission receipt -- so "Posting as X" appeared in the same place, at the
+      same size, as "Submitted for review" and "Failed to post". A standing fact about
+      the reader and a transient outcome of one press are not the same kind of
+      thing, and stacking them in one slot made both read as noise. The fact
+      lives in the form now; the outcome does not live below it at all. */}
+  <div class="blog-compose__box">
+    <IdentityRow id="blog-compose-id" locale={locale} />
+
+    <p class="blog-compose__signed">
+      <span class="blog-compose__who">
+        {viewer && (
+          <>
+            {viewer.avatar ? (
+              <img class="blog-compose__whoface" src={viewer.avatar} alt="" width="20" height="20" />
+            ) : (
+              <span
+                class="blog-compose__whoface blog-avatar-seed blog-avatar-initials"
+                style={`--seed-hue:${seedHue(viewer.name)}`}
+                aria-hidden="true">{initials(viewer.name)}</span>
+            )}
+            {t.postingAs(viewer.name)}
+          </>
+        )}
+      </span>
+
+      <span class="blog-compose__claim">
+        {claimed && t.claimedAs(claimed.name)}
+      </span>
+
+      {/* Outside both spans, because it is the same offer in both phases and
+          the strip's only action. It replaced "Switch", which flipped the row
+          back to the fields without touching what was stored -- so the name
+          the reader had just dismissed came back on the next reload, and
+          there was no way at all to sign a verified session out. */}
+      <button type="button" class="blog-compose__signout" data-compose-signout>{t.signOut}</button>
+    </p>
+
+    <label class="sr-only" for="blog-compose-text">{t.bodyLabel}</label>
+    <textarea
+      id="blog-compose-text"
+      class="blog-compose__field"
+      name="comment"
+      rows="4"
+      readonly={busy}
+      placeholder={t.bodyPlaceholder}
+      set:text={fieldValue}></textarea>
+    {/* The bar along the bottom of the box: the note about what can be typed
+        into it, and the button that sends it. Both belong to this surface, and
+        a 40px disc in a footer of its own made the send button the loudest
+        object on the page for the one action nobody needs help finding. */}
+    <div class="blog-compose__bar">
+      {/* The Markdown mark, drawn to the row's own stroke language rather than
+          dropped in as a vendor asset: a rounded frame with the M and the
+          descending arrow, which is the shape people recognise. */}
+      <span class="blog-compose__hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2" y="5" width="20" height="14" rx="2.5"></rect>
+          <path d="M6 15V9l2.6 3L11.2 9v6"></path>
+          <path d="M17.4 9v5M17.4 14l-1.9-2M17.4 14l1.9-2"></path>
+        </svg>
+        {t.hint}
+      </span>
+      {/* Nothing until the reader is within 200 characters of the cap -- see
+          compose-validate.ts, which owns both the threshold and the refusal
+          that follows it. */}
+      <span class="blog-compose__count" data-compose-count aria-hidden="true" hidden></span>
+      <button
+        type="button"
+        class="blog-compose__go"
+        data-compose-submit
+        aria-label={t.postAria}
+        title={t.post}
+        disabled={busy}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 19V5M5 12l7-7 7 7"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  {/* Where an interactive Turnstile challenge opens. Collapsed to nothing
+      until Cloudflare asks for one (see turnstile-token.ts), so it costs no
+      space in the ordinary case and the box above keeps its current spacing.
+      The widget itself is invisible mode: it lives here from the first solve
+      onward and draws nothing until it has something to ask. */}
+  <div class="blog-compose__turnstile" data-turnstile-host></div>
+
+  {showNudge && (
+    /* The only thing left under the box, and it is an offer rather than a
+       status: confirm the address and the comments become manageable.
+       Non-blocking by construction -- nothing else on the page reads whether
+       this is open, so dismissing it changes nothing but itself.
+       plans/blog-comments.md → "Subscribe prompt": at most once per session,
+       never again after a dismissal — the real controller owns that memory;
+       this only owns the reveal. */
+    <div class="blog-compose__receipt" data-compose-receipt aria-live="polite">
+      <div class="blog-compose__nudge" data-compose-nudge>
+        <svg class="blog-compose__nudge-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="14" rx="3"></rect>
+          <path d="M3.5 7.5l7.3 5.1a2 2 0 0 0 2.4 0l7.3-5.1"></path>
+        </svg>
+        {/* No address server-side: this component renders the demo state, and
+            the real one is filled by the controller from the identity that was
+            just submitted. */}
+        <p class="blog-compose__nudge-text">{t.nudgeText('')}</p>
+        {/* Opens the page's own subscribe panel, which fills its email field
+            from the same store this nudge reads the address out of. Wired by
+            the controller (wireSubscribeOffer), which also removes it on a
+            page that has no panel to open. */}
+        <button type="button" class="blog-compose__nudge-sub" data-compose-subscribe>
+          {t.nudgeSubscribe}
+        </button>
+        <button type="button" class="blog-compose__nudge-dismiss" data-compose-dismiss aria-label={t.dismiss}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M5 5l14 14M19 5L5 19"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  )}
+</div>
+
+<script>
+  // The press-Post-and-be-told behaviour is shared with the reply box — see
+  // compose-validate.ts. Everything left here is specific to this box: the
+  // lab page's sign-out, and dismissing the subscribe nudge.
+  import { wireComposeValidation } from '@/features/comments/compose-validate';
+  import { wireDrafts } from '@/features/comments/client/drafts';
+  import { wireSignOut } from '@/features/comments/client/sign-out';
+
+  wireComposeValidation();
+  // Both boxes on the page, this one and the reply box -- see drafts.ts for
+  // why only one of them is written to storage.
+  wireDrafts();
+
+  // Sign-out belongs to the thread controller wherever there is a thread: it
+  // is the only caller that can end the reader session and clear what was
+  // stored. This box also renders on the lab page, which has no `data-post-id`
+  // and so never hydrates (comments-controller.ts bails on exactly this test).
+  // There, the button does the one thing that means anything without a
+  // backend: put the fields back.
+  const hydrates = document.querySelector('.blog-comments[data-post-id]') !== null;
+
+  document.querySelectorAll<HTMLElement>('.blog-compose').forEach((compose) => {
+    const nudge = compose.querySelector<HTMLElement>('[data-compose-nudge]');
+
+    if (!hydrates) {
+      wireSignOut(compose, () => {
+        compose.dataset.phase = 'anonymous';
+        compose.querySelector<HTMLInputElement>('[data-compose-identity] input')?.focus();
+      });
+    }
+
+    nudge?.querySelector('[data-compose-dismiss]')?.addEventListener('click', () => {
+      nudge.hidden = true;
+    });
+  });
+</script>

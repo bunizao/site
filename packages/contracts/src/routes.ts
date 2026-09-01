@@ -16,6 +16,21 @@ export const MOOD_MEDIA_PROXY_BASE_PATH = '/v2/media' as const;
 
 export const LISTENING_PATH = '/v2/listening' as const;
 
+// Blog comments, reactions, and reader identity. Reader-scoped, not
+// blog-scoped — plans/blog-comments.md "API surface (v2 namespace)": nothing
+// in the reader session or the reader table is blog-specific, so a future
+// surface reuses these as-is.
+export const COMMENTS_PATH = '/v2/comments' as const;
+export const COMMENT_PATH_PREFIX = '/v2/comments/' as const;
+export const REACTIONS_PATH = '/v2/reactions' as const;
+export const REACTIONS_TOGGLE_PATH = '/v2/reactions/toggle' as const;
+export const READER_ME_PATH = '/v2/reader/me' as const;
+export const READER_VERIFY_PATH = '/v2/reader/verify' as const;
+export const READER_RESEND_PATH = '/v2/reader/resend' as const;
+export const READER_AVATAR_PATH_PREFIX = '/v2/reader/avatar/' as const;
+export const READER_OAUTH_PATH_PREFIX = '/oauth/reader/' as const;
+export const READER_CONFIRM_PATH = '/reader/confirm' as const;
+
 export const ADMIN_BASE_PATH = '/admin' as const;
 export const NOTIFY_BASE_PATH = '/notify' as const;
 export const GHOST_WEBHOOK_PATH = '/webhooks/ghost' as const;
