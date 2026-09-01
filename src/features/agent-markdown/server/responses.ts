@@ -281,6 +281,13 @@ export function withContentPolicy(request: Request, response: Response): Respons
     headers.delete(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER);
   }
 
+  if (isHtml && url.pathname === '/mood') {
+    headers.set(
+      'Cache-Control',
+      appendCacheControlDirective(headers.get('Cache-Control'), 'no-transform'),
+    );
+  }
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

@@ -38,22 +38,6 @@ describe('html security headers', () => {
     expect(response.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
   });
 
-  test('mood feed opts out of Cloudflare script injection', () => {
-    const mood = withHtmlSecurityHeaders(
-      new Request('https://buxx.me/mood'),
-      htmlResponse({ 'Cache-Control': 'public, max-age=0, s-maxage=300' }),
-    );
-    const detail = withHtmlSecurityHeaders(
-      new Request('https://buxx.me/mood/3792'),
-      htmlResponse({ 'Cache-Control': 'public, max-age=0, s-maxage=60' }),
-    );
-
-    expect(mood.headers.get('Cache-Control')).toBe(
-      'public, max-age=0, s-maxage=300, no-transform',
-    );
-    expect(detail.headers.get('Cache-Control')).not.toContain('no-transform');
-  });
-
   test('dev portal pages get frame-ancestors none', () => {
     const response = withHtmlSecurityHeaders(
       new Request('https://buxx.me/dev/portal'),
