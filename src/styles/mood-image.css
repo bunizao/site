@@ -35,8 +35,30 @@
   object-fit: contain;
 }
 
+/* Blur-up reveal.
+
+   The placeholder sits BELOW the photo by default, so the photo paints over it
+   the moment it decodes and nothing can ever hide it. Lifting the placeholder
+   above is a JS-only step (`is-blur-armed`), taken only while the photo is
+   still in flight — with JS off, or for a photo already decoded before the
+   module runs, the layering never changes and the image shows immediately.
+   That ordering is the whole trick: a photo held at opacity 0 until a class
+   arrives flashes its blur first when it came from cache. */
+.mood-image-frame.is-blur-armed > img.mood-image-blur {
+  z-index: 2;
+  transition: opacity var(--mood-image-reveal, 260ms) ease-out;
+}
+
+.mood-image-frame.is-blur-revealed > img.mood-image-blur {
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mood-image-frame > img.mood-image-blur {
     transform: none;
+  }
+
+  .mood-image-frame.is-blur-armed > img.mood-image-blur {
+    transition: none;
   }
 }
