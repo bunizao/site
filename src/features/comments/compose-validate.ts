@@ -164,6 +164,57 @@ function messageFor(field: ComposeField, t: CommentsCopy, requireEmail: boolean)
   return null;
 }
 
+/** Where a refusal can be read about, and what to call that link.
+
+    The code chip is the natural place to hang it: it is already the part of
+    the alert that means "this has a name somebody could look up", it already
+    sits out of the reading path, and a reader who is done acting on the
+    sentence is exactly the reader who wants the page. The alternative -- a
+    "learn more" tail on the sentence itself -- pulls at every reader
+    including the one who already knows what to do. */
+export interface ComposeAlertHelp {
+  href: string;
+  /** Accessible name; the code alone announces as five stray characters. */
+  label: string;
+}
+
+/** Fill the reference chip, as a link where there is somewhere to send the
+    reader and as plain text everywhere else.
+
+    Opens in a new tab, which is not the usual default here and is deliberate:
+    the reader is standing in front of a box holding words they have not
+    managed to post yet, and navigating that away to read about why is a
+    worse outcome than the error was. */
+function fillErrorCode(badge: HTMLElement, tag: string, help: ComposeAlertHelp | null): void {
+  badge.hidden = !tag;
+  if (!tag) {
+    badge.replaceChildren();
+    return;
+  }
+  if (!help) {
+    badge.textContent = tag;
+    return;
+  }
+  const link = document.createElement('a');
+  link.href = help.href;
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.textContent = tag;
+  link.title = help.label;
+  link.setAttribute('aria-label', `${tag}: ${help.label}`);
+  badge.replaceChildren(link);
+}
+
+/** The same chip, built rather than filled -- the reply box, the edit error
+    and the row-action error are all assembled in script and have no markup to
+    write into. */
+export function buildErrorCode(tag: string, help: ComposeAlertHelp | null): HTMLElement {
+  const badge = document.createElement('code');
+  badge.className = 'blog-compose__code';
+  fillErrorCode(badge, tag, help);
+  return badge;
+}
+
 /** The one slot in a compose box that says something went wrong -- above the
     form, filled and coloured, exported because the controller's submit failure
     belongs in exactly the same place as this module's "you left a field
@@ -178,16 +229,21 @@ function messageFor(field: ComposeField, t: CommentsCopy, requireEmail: boolean)
     `tag` is the short reference code the server's refusal earned (see
     comment-error.ts). Only submissions have one -- an empty field is not a
     fault anybody needs to report -- so it is optional and clears with the
-    message. */
-export function sayComposeAlert(compose: HTMLElement, message: string | null, tag = ''): void {
+    message. `help` turns that code into a link when there is a page worth
+    reading underneath it. */
+export function sayComposeAlert(
+  compose: HTMLElement,
+  message: string | null,
+  tag = '',
+  help: ComposeAlertHelp | null = null,
+): void {
   const note = compose.querySelector<HTMLElement>('[data-compose-error]');
   if (!note) return;
   const slot = note.querySelector<HTMLElement>('[data-compose-error-text]') ?? note;
   slot.textContent = message ?? '';
   const badge = note.querySelector<HTMLElement>('[data-compose-error-code]');
   if (badge) {
-    badge.textContent = tag;
-    badge.hidden = !tag;
+    fillErrorCode(badge, tag, help);
   }
   note.hidden = !message;
 }

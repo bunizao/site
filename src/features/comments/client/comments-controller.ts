@@ -29,13 +29,17 @@ import {
   nudgeBodyCount,
   resetAnonymousConfirm,
   sayComposeAlert,
+  buildErrorCode,
+  type ComposeAlertHelp,
   validateCompose,
   wireBodyCounter,
 } from '@/features/comments/compose-validate';
 import {
+  commentErrorDocsHref,
   describeCommentFailure,
   failureTag,
   readErrorSlug,
+  type CommentFailure,
 } from '@/features/comments/comment-error';
 import {
   challengeTurnstile,
@@ -578,7 +582,7 @@ export function initCommentsController(): void {
       toggleEmptyState(!list.querySelector('.blog-comment'));
       const failure = describeCommentFailure(response.status, response.slug, t.submitError);
       box.dataset.receipt = 'error';
-      sayComposeAlert(box, failure.message, failureTag(failure));
+      sayComposeAlert(box, failure.message, failureTag(failure), helpFor(failure));
       // Cloudflare wanted a human and the invisible widget could not settle it
       // alone. Open the challenge under this box and resend once it is
       // answered, rather than telling the reader to reload -- the reload was
@@ -912,6 +916,13 @@ export function initCommentsController(): void {
   // used to see nothing where "Posting as X" should have been,
   // because `.blog-compose__who`/`.blog-compose__claim` only existed in
   // CommentForm.astro. `applyPhase()` already looks for those two elements on
+  /** Some refusals have a page under them and some are already fully
+      explained by their own sentence; comment-error.ts decides which. */
+  function helpFor(failure: CommentFailure): ComposeAlertHelp | null {
+    const href = commentErrorDocsHref(failure.code);
+    return href ? { href, label: t.errorHelp } : null;
+  }
+
   // whichever box it is given, so building them here is the whole fix.
   function buildReplyBox(): HTMLElement {
     const box = el('div', {
@@ -1214,7 +1225,12 @@ export function initCommentsController(): void {
       button.setAttribute('aria-pressed', 'false');
       if (countEl) countEl.textContent = String(Math.max(0, Number(countEl.textContent ?? 0) - 1));
       const failure = describeCommentFailure(response.status, response.slug, t.submitError);
-      showRowActionError(button.closest<HTMLElement>('.blog-comment'), failure.message, failureTag(failure));
+      showRowActionError(
+        button.closest<HTMLElement>('.blog-comment'),
+        failure.message,
+        failureTag(failure),
+        helpFor(failure),
+      );
       return;
     }
     button.setAttribute('aria-pressed', String(response.data.reaction.reacted));
@@ -1389,7 +1405,7 @@ export function initCommentsController(): void {
         readErrorSlug(await response.json().catch(() => null)),
         t.submitError,
       );
-      sayEditAlert(field, failure.message, failureTag(failure));
+      sayEditAlert(field, failure.message, failureTag(failure), helpFor(failure));
       return;
     }
 
@@ -1422,12 +1438,17 @@ export function initCommentsController(): void {
       box. `tag` is the server's reference code where there is one; a refusal
       the browser made by itself has no response to report, so it prints
       without a badge rather than inventing a status. */
-  function sayEditAlert(field: HTMLTextAreaElement, message: string, tag = ''): void {
+  function sayEditAlert(
+    field: HTMLTextAreaElement,
+    message: string,
+    tag = '',
+    help: ComposeAlertHelp | null = null,
+  ): void {
     field.parentElement?.querySelector('.blog-comment__edit-error')?.remove();
     field.after(el('p', { class: 'blog-comment__edit-error blog-compose__alert', role: 'alert' }, [
       parseStaticSvg(ALERT_ICON_SVG),
       el('span', {}, [message]),
-      ...(tag ? [el('code', { class: 'blog-compose__code' }, [tag])] : []),
+      ...(tag ? [buildErrorCode(tag, help)] : []),
     ]));
   }
 
@@ -1446,7 +1467,7 @@ export function initCommentsController(): void {
         readErrorSlug(await response.json().catch(() => null)),
         t.submitError,
       );
-      showRowActionError(article, failure.message, failureTag(failure));
+      showRowActionError(article, failure.message, failureTag(failure), helpFor(failure));
       return;
     }
 
@@ -1472,7 +1493,12 @@ export function initCommentsController(): void {
     setTally(Math.max(0, total - 1));
   }
 
-  function showRowActionError(article: HTMLElement | null, message: string, tag = ''): void {
+  function showRowActionError(
+    article: HTMLElement | null,
+    message: string,
+    tag = '',
+    help: ComposeAlertHelp | null = null,
+  ): void {
     if (!article) return;
     article.querySelector('.blog-comment__action-error')?.remove();
     const actions = article.querySelector('.blog-comment__actions');
@@ -1483,7 +1509,7 @@ export function initCommentsController(): void {
     }, [
       parseStaticSvg(ALERT_ICON_SVG),
       el('span', {}, [message]),
-      ...(tag ? [el('code', { class: 'blog-compose__code' }, [tag])] : []),
+      ...(tag ? [buildErrorCode(tag, help)] : []),
     ]));
   }
 

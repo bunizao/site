@@ -159,6 +159,12 @@ export interface CommentsCopy {
       (compose-validate.ts), so the reader meets the same sentence whether the
       browser or the server counted. One cap, one wording. */
   submitError: Record<CommentErrorCode, string>;
+  /** Accessible name on the reference code when it links somewhere. The code
+      alone reads as five characters of noise to a screen reader, and as a
+      dead-looking chip to everyone else -- this is what turns it into an
+      offer. Only some refusals have a page underneath them; see
+      comment-error.ts for which and why. */
+  errorHelp: string;
   /** Names the address, so a typo is catchable at the one moment it still
       matters -- a reader who mistyped their own email otherwise finds out by
       never hearing anything again. Takes the empty string where no address is
@@ -257,6 +263,7 @@ const zh: CommentsCopy = {
     INPUT: '这条没能发出去，刷新页面再试一次吧。草稿已经保存了。',
     SERVER: '服务器打了个盹，等会儿再试试。草稿已保存，别担心。',
   },
+  errorHelp: '这条提示是什么意思',
   nudgeText: (email) => (email
     ? `我们向 ${email} 发了一封信，确认一下就能管理评论和接收回复通知。`
     : '确认邮箱后，就能管理评论和接收回复通知。'),
@@ -345,6 +352,7 @@ const en: CommentsCopy = {
     INPUT: "That didn't go through. Refresh the page and try again — your draft is saved.",
     SERVER: 'Something dozed off on our end. Try again shortly — your draft is saved.',
   },
+  errorHelp: 'What this means',
   nudgeText: (email) => (email
     ? `We've sent a message to ${email} — confirm it to manage your comments and receive reply notifications.`
     : 'Confirm your email to manage your comments and receive reply notifications.'),

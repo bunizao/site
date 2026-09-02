@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  commentErrorDocsHref,
   describeCommentFailure,
   failureTag,
   readErrorSlug,
+  type CommentErrorCode,
 } from '../../src/features/comments/comment-error';
 import { commentsCopy } from '../../src/features/comments/copy';
 
@@ -174,5 +176,33 @@ describe('the 400s, told apart', () => {
     const codes = ['body must be 1-2000 characters', 'dwellToken is required', 'A valid email is required']
       .map((error) => failureTag(describeCommentFailure(400, readErrorSlug({ error }), zh)));
     expect(codes).toEqual(['LONG 400', 'STALE 400', 'EMAIL 400']);
+  });
+});
+
+// A link is a promise that there is more to say. On half these codes the
+// sentence already carries the whole problem and the whole fix, and pointing
+// at a page under it would be an offer of nothing.
+describe('commentErrorDocsHref', () => {
+  const EXPLAINED: CommentErrorCode[] = ['NAME', 'EMAIL', 'VERIFY', 'CLOSED', 'GONE'];
+
+  test('the refusals whose reason is invisible from the message get a link', () => {
+    for (const code of EXPLAINED) {
+      expect(commentErrorDocsHref(code)).toBe(`/docs/surfaces/comments#comment-error-${code.toLowerCase()}`);
+    }
+  });
+
+  test('the self-explaining ones get none', () => {
+    // NET is the sharpest case: you are offline, so you could not follow it.
+    for (const code of ['NET', 'RATE', 'BOT', 'LONG', 'STALE', 'SERVER'] as CommentErrorCode[]) {
+      expect(commentErrorDocsHref(code)).toBeNull();
+    }
+  });
+
+  test('every code is either linked or deliberately not, never undefined', () => {
+    const all = Object.keys(commentsCopy.en.submitError) as CommentErrorCode[];
+    for (const code of all) {
+      const href = commentErrorDocsHref(code);
+      expect(href === null || href.startsWith('/docs/')).toBe(true);
+    }
   });
 });

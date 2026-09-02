@@ -144,3 +144,36 @@ export function describeCommentFailure(
 export function failureTag(failure: CommentFailure): string {
   return failure.status ? `${failure.code} ${failure.status}` : failure.code;
 }
+
+/* Which refusals are worth explaining at length, and where.
+
+   Not all fourteen. A link is a promise that there is more to say, and on
+   "you're offline" or "that's a bit long (2000 characters max)" there is not
+   -- the message already names the whole problem and the whole fix, and
+   pointing at a page underneath it just tells the reader we did not trust
+   them to read two words. What earns a link is a refusal whose *reason* is
+   invisible from the message: a name or an address rejected for a rule the
+   reader cannot see, a post demanding something they have not been asked for
+   yet, a deadline whose length nobody stated, and a thread that is "not
+   available right now" without saying whether their draft died with it.
+
+   The docs are English and the box speaks both, so each of these sections
+   carries a one-line Chinese gloss. That is the honest version of the
+   trade-off: a zh reader clicking through to a wall of English would be worse
+   than no link at all. */
+const DOCS_ERROR_PAGE = '/docs/surfaces/comments';
+
+const EXPLAINED: Partial<Record<CommentErrorCode, string>> = {
+  NAME: 'name',
+  EMAIL: 'email',
+  VERIFY: 'verify',
+  CLOSED: 'closed',
+  GONE: 'gone',
+};
+
+/** Where the reader can read more about this refusal, or null when the
+    message already said everything there is to say. */
+export function commentErrorDocsHref(code: CommentErrorCode): string | null {
+  const anchor = EXPLAINED[code];
+  return anchor ? `${DOCS_ERROR_PAGE}#comment-error-${anchor}` : null;
+}

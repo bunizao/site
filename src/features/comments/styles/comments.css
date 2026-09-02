@@ -676,6 +676,32 @@
   white-space: nowrap;
 }
 
+/* Some codes have a page under them (comment-error.ts picks which), and the
+   chip becomes the way in. Underlined on hover only: a permanently underlined
+   chip inside a red alert reads as a second warning, and the pointer plus the
+   border already say it is a target. The colour stays inherited -- a link
+   colour here would be the third hue in a 12px row. */
+.blog-compose__code:has(a) {
+  border-color: color-mix(in oklab, currentColor 42%, transparent);
+}
+
+.blog-compose__code a {
+  color: inherit;
+  /* Underlined the whole time and merely colourless until hover, so the line
+     fades in rather than snapping the chip's width around. */
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+  transition-property: text-decoration-color;
+  transition-duration: 0.15s;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.blog-compose__code a:hover,
+.blog-compose__code a:focus-visible {
+  text-decoration-color: currentColor;
+}
+
 @keyframes blog-alert-in {
   from {
     opacity: 0;
