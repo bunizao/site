@@ -106,7 +106,7 @@ test('lab lists every interaction outcome and transitions reader verification', 
 
   await expect(page.locator('.blog-compose__alert:visible')).toContainText('bot check');
   await expect(page.locator('.blog-comments > .blog-compose [data-compose-identity] input[type="text"]').first()).toHaveAttribute('placeholder', 'Name');
-  await expect(page.locator('.comments-lab-catalog tbody tr')).toHaveCount(57);
+  await expect(page.locator('.comments-lab-catalog tbody tr')).toHaveCount(58);
   await expect(page.locator('.comments-lab-catalog')).toContainText('Submit/edit failure (BOT)');
   await expect(page.locator('.blog-comment--held .blog-comment__note')).toContainText('Posted');
   await expect(page.locator('.comments-lab-preview .blog-compose__preview')).toBeVisible();
@@ -129,6 +129,21 @@ test('lab lists every interaction outcome and transitions reader verification', 
   await page.locator('[data-verify-resend]').click();
   await expect(page.locator('.comments-lab-verify .reader-confirm__card')).toHaveAttribute('data-state', 'resent');
   await expect(page.locator('.comments-lab-verify')).toContainText('Check your inbox');
+});
+
+test('lab previews the localized reader verification email from site-api', async ({ page }) => {
+  await page.goto('/lab/comments?locale=zh', { waitUntil: 'networkidle' });
+  const preview = page.locator('.comments-lab-newsletter');
+  await expect(preview).toContainText('site-api · buildReaderVerifyEmail');
+  await expect(preview.locator('[data-reader-verify-subject]')).toHaveText('确认一下是你 · buxx.me');
+  await expect(preview.locator('[data-reader-verify-email]')).toHaveAttribute('lang', 'zh');
+  await expect(preview).toContainText('认领你的评论。');
+  await expect(preview.getByRole('link', { name: '是我' })).toBeVisible();
+
+  await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
+  await expect(page.locator('[data-reader-verify-subject]')).toHaveText("Confirm it's you on buxx.me");
+  await expect(page.locator('[data-reader-verify-email]')).toHaveAttribute('lang', 'en');
+  await expect(page.getByRole('link', { name: "Confirm it's me" })).toBeVisible();
 });
 
 test('compose preview opens only for supported Markdown and closes when emptied', async ({ page }) => {

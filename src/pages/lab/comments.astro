@@ -24,6 +24,7 @@ import BackToTop from '@/features/posts/ui/BackToTop.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import ReactionBar from '@/features/comments/ui/ReactionBar';
 import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
+import ReaderVerifyEmailPreview from '@/features/comments/ui/ReaderVerifyEmailPreview.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import Colophon from '@/features/posts/ui/Colophon.astro';
 import ShareRow from '@/features/posts/ui/ShareRow.astro';
@@ -139,6 +140,7 @@ const behaviorRows = [
   { behavior: 'Published result', state: 'posted', zh: '新评论本身就是确认（不重复显示状态条）', en: 'The new comment is the receipt (no duplicate status bar)', next: 'Continue writing' },
   { behavior: 'Held result', state: 'held', zh: commentsCopy.zh.held, en: commentsCopy.en.held, next: 'Wait for moderation; the row may upgrade to published' },
   { behavior: 'Unverified email result', state: 'nudge', zh: `${commentsCopy.zh.nudgeText('reader@example.com')} · ${commentsCopy.zh.nudgeSubscribe} · ${commentsCopy.zh.dismiss}`, en: `${commentsCopy.en.nudgeText('reader@example.com')} · ${commentsCopy.en.nudgeSubscribe} · ${commentsCopy.en.dismiss}`, next: 'Confirm email, subscribe, or dismiss' },
+  { behavior: 'Verification email reaches the reader', state: 'reader email', zh: '主题“确认一下是你 · buxx.me” · 认领你的评论。 · 是我', en: "Subject “Confirm it's you on buxx.me” · Claim your comment. · Confirm it's me", next: 'Open the confirmation page or ignore the expiring link' },
   { behavior: 'Open or close subscribe panel', state: 'subscribe open', zh: '订阅 · 关闭', en: 'Subscribe · Close', next: 'Enter an email or dismiss' },
   { behavior: 'Submit malformed subscription email', state: 'subscribe invalid', zh: '这个邮箱看起来不太对。', en: "That email doesn't look right.", next: 'Correct the email' },
   { behavior: 'Submit with no channels', state: 'subscribe channels', zh: '至少选一样。', en: 'Pick at least one.', next: 'Select Posts or Moods' },
@@ -449,6 +451,15 @@ await billing.invoice(payload)</code></pre>
         </div>
       </section>
 
+      <section class="comments-lab-newsletter" aria-labelledby="comments-lab-newsletter-title">
+        <div class="comments-lab-catalog__head">
+          <p class="comments-lab-catalog__eyebrow">Comment email</p>
+          <h2 id="comments-lab-newsletter-title">Reader verification email</h2>
+          <p>The real transactional template shape from <code>site-api · buildReaderVerifyEmail</code>. It follows <code>?locale=zh|en</code> and switches with the system email color scheme.</p>
+        </div>
+        <ReaderVerifyEmailPreview locale={locale} />
+      </section>
+
       <section class="comments-lab-preview" aria-labelledby="comments-lab-preview-title">
         <div class="comments-lab-catalog__head">
           <p class="comments-lab-catalog__eyebrow">Markdown</p>
@@ -556,6 +567,7 @@ await billing.invoice(payload)</code></pre>
 <style>
   .comments-lab-catalog,
   .comments-lab-verify,
+  .comments-lab-newsletter,
   .comments-lab-preview,
   .comments-lab-moderation {
     margin-top: 48px;
@@ -637,6 +649,10 @@ await billing.invoice(payload)</code></pre>
   }
 
   .comments-lab-verify .reader-confirm__card {
+    margin-top: 18px;
+  }
+
+  .comments-lab-newsletter > .reader-mail-preview {
     margin-top: 18px;
   }
 

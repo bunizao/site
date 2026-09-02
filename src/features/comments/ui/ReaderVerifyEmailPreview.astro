@@ -1,0 +1,187 @@
+---
+// Dev-lab rendering of site-api's buildReaderVerifyEmail template. Keep this
+// copy and structure aligned with the canonical builder in
+// site-api/src/features/notify/server/templates.ts.
+import type { BlogLocale } from '@/data/site';
+
+interface Props {
+  locale: BlogLocale;
+}
+
+const { locale } = Astro.props;
+const copy = {
+  zh: {
+    subject: '确认一下是你 · buxx.me',
+    title: '认领你的评论。',
+    body: '有人用这个邮箱在 buxx.me 留了评论。确认之后，你在任何浏览器、任何设备上都能编辑或删除它。',
+    button: '是我',
+    ignore: '不是你留的？不用管这封信，链接会自己过期，什么都不会发生。',
+  },
+  en: {
+    subject: "Confirm it's you on buxx.me",
+    title: 'Claim your comment.',
+    body: 'A comment went up on buxx.me under this address. Confirm it is yours and you can edit or delete it from any browser, on any device.',
+    button: "Confirm it's me",
+    ignore: "Didn't comment? Ignore this — the link expires on its own and nothing happens.",
+  },
+} as const;
+const t = copy[locale];
+---
+
+<div class="reader-mail-preview">
+  <div class="reader-mail-preview__chrome">
+    <div>
+      <span>Subject</span>
+      <strong data-reader-verify-subject>{t.subject}</strong>
+    </div>
+    <div>
+      <span>From</span>
+      <strong>無人之境 &lt;hello@buxx.me&gt;</strong>
+    </div>
+    <div>
+      <span>To</span>
+      <strong>reader@example.com</strong>
+    </div>
+  </div>
+
+  <article class="reader-mail" data-reader-verify-email lang={locale}>
+    <div class="reader-mail__card">
+      <a class="reader-mail__brand" href="/" aria-label="buxx.me">
+        <img src="/logo/peek.svg" alt="" width="20" height="14" />
+        <span>buxx<i>.me</i></span>
+      </a>
+      <h3>{t.title}</h3>
+      <p class="reader-mail__body">{t.body}</p>
+      <a class="reader-mail__button" href={`/reader/confirm?token=preview&lang=${locale}`}>{t.button}<span aria-hidden="true"> →</span></a>
+      <p class="reader-mail__ignore">{t.ignore}</p>
+    </div>
+    <p class="reader-mail__footer">© 2023–2026 bunizao · <a href="/privacy">Privacy</a></p>
+  </article>
+</div>
+
+<style>
+  .reader-mail-preview {
+    overflow: hidden;
+    border: 1px solid var(--blog-line);
+    border-radius: 14px;
+    background: #f4f4f5;
+  }
+
+  .reader-mail-preview__chrome {
+    display: grid;
+    gap: 7px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--blog-line);
+    background: var(--blog-field-fill);
+    font-size: 12px;
+  }
+
+  .reader-mail-preview__chrome > div {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .reader-mail-preview__chrome span { color: var(--blog-faint); }
+  .reader-mail-preview__chrome strong {
+    overflow: hidden;
+    color: var(--blog-ink);
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .reader-mail {
+    padding: 36px 10px 28px;
+    color-scheme: light dark;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .reader-mail__card {
+    width: min(100%, 540px);
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #fff;
+    color: #0a0a0a;
+  }
+
+  .reader-mail__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin: 28px 32px 0;
+    color: #0a0a0a;
+    text-decoration: none;
+  }
+
+  .reader-mail__brand img { display: block; }
+  .reader-mail__brand span { font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
+  .reader-mail__brand i { color: #94949b; font-style: normal; font-weight: 500; }
+
+  .reader-mail h3 {
+    margin: 26px 32px 0;
+    color: #0a0a0a;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.18;
+  }
+
+  .reader-mail__body {
+    max-width: 36ch;
+    margin: 14px 32px 0;
+    color: #6b6b6b;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .reader-mail__button {
+    display: inline-block;
+    margin: 24px 32px 0;
+    padding: 12px 22px;
+    border: 1px solid #0a0a0a;
+    border-radius: 10px;
+    background: #0a0a0a;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    text-decoration: none;
+  }
+
+  .reader-mail__ignore {
+    margin: 26px 32px 0;
+    padding: 14px 0 28px;
+    border-top: 1px solid rgba(10, 10, 10, 0.08);
+    color: #94949b;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .reader-mail__footer {
+    margin: 16px auto 0;
+    color: #94949b;
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .reader-mail__footer a { color: inherit; text-decoration: none; }
+
+  @media (prefers-color-scheme: dark) {
+    .reader-mail-preview { background: #0a0a0a; }
+    .reader-mail__card { background: #161618; }
+    .reader-mail__brand, .reader-mail h3 { color: #fafafa; }
+    .reader-mail__body { color: #a1a1aa; }
+    .reader-mail__ignore, .reader-mail__footer, .reader-mail__brand i { color: #6e6e76; }
+    .reader-mail__ignore { border-color: rgba(255, 255, 255, 0.08); }
+    .reader-mail__button { border-color: #fafafa; background: #fafafa; color: #0a0a0a; }
+  }
+
+  @media (max-width: 520px) {
+    .reader-mail { padding: 18px 8px; }
+    .reader-mail__brand { margin-inline: 22px; }
+    .reader-mail h3, .reader-mail__body, .reader-mail__button, .reader-mail__ignore { margin-inline: 22px; }
+  }
+</style>
