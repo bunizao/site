@@ -23,9 +23,9 @@
 // every challenged submission into a dead end whose only exit was a page
 // reload. setTurnstileHost puts the container in the page instead, and the
 // interactive callbacks flag the host so it can open for the challenge and
-import { loadTurnstileScript } from '@/lib/turnstile-script';
-
 // close again after.
+
+import { loadTurnstileScript } from '@/lib/turnstile-script';
 
 export type TurnstileAction = 'blog_comment_create' | 'blog_reaction';
 
@@ -42,6 +42,9 @@ interface TurnstileWidgetState {
   settled: boolean;
   /** When the current token was solved. Only meaningful while `settled`. */
   solvedAt: number;
+  /** The next render should draw a visible checkbox the reader can press,
+      rather than the invisible widget. Set only by challengeTurnstile. */
+  forced: boolean;
 }
 
 /** Cloudflare expires a solved token at about five minutes. Stop trusting one
@@ -87,7 +90,7 @@ function widgetFor(action: TurnstileAction): TurnstileWidgetState {
     const container = document.createElement('div');
     if (hidden) container.style.display = 'none';
     parent.appendChild(container);
-    state = { container, widgetId: null, tokenPromise: null, resolveCurrent: null, settled: false, solvedAt: 0 };
+    state = { container, widgetId: null, tokenPromise: null, resolveCurrent: null, settled: false, solvedAt: 0, forced: false };
     turnstileWidgets.set(action, state);
   }
   return state;
@@ -145,7 +148,9 @@ function mintToken(state: TurnstileWidgetState, siteKey: string, action: Turnsti
       state.widgetId = turnstile.render(state.container, {
         sitekey: siteKey,
         action,
-        appearance: 'interaction-only',
+        // Fixed for the life of the widget, which is why the forced challenge
+        // below renders a new one rather than resetting this one.
+        appearance: state.forced ? 'always' : 'interaction-only',
         callback: (token: string) => settleWidget(state, token),
         'error-callback': () => settleWidget(state, ''),
         'timeout-callback': () => settleWidget(state, ''),
@@ -177,6 +182,47 @@ export async function getTurnstileToken(siteKey: string, action: TurnstileAction
   // the receipt line is already saying something.
   if (isTokenStale(state, Date.now())) state.tokenPromise = null;
   return state.tokenPromise ?? mintToken(state, siteKey, action);
+}
+
+/** Put a visible Turnstile in front of the reader and wait for them to solve
+    it. For the one case the invisible widget cannot answer on its own: the
+    submission came back `turnstile_failed`, so the silent solve either never
+    produced a token or produced one Cloudflare refused.
+
+    The old answer to that was a sentence telling the reader to reload the
+    page, which threw away their draft's place in the thread and did nothing
+    the reader could not have done by pressing Post again. This asks the one
+    question that actually unblocks them, in the box they are already looking
+    at.
+
+    `appearance` is fixed when a widget is rendered, so the invisible one is
+    torn down and replaced -- and torn down again afterwards, so the next
+    ordinary submission is back to solving silently. Resolves to '' if the
+    reader walks away from the challenge or it fails again; the caller's
+    existing message is still on screen for that. */
+export async function challengeTurnstile(siteKey: string, action: TurnstileAction): Promise<string> {
+  if (!siteKey) return '';
+  const api = await loadTurnstileScript();
+  if (!api) return '';
+
+  const state = widgetFor(action);
+  if (state.widgetId !== null) api.remove?.(state.widgetId);
+  state.widgetId = null;
+  state.tokenPromise = null;
+  state.forced = true;
+  setInteractive(state, true);
+
+  try {
+    const token = await mintToken(state, siteKey, action);
+    return token;
+  } finally {
+    state.forced = false;
+    setInteractive(state, false);
+    // Keep the token (it is in `tokenPromise`, and the retry is about to
+    // spend it) but not the visible widget it came from.
+    if (state.widgetId !== null) api.remove?.(state.widgetId);
+    state.widgetId = null;
+  }
 }
 
 /** Start solving now, for a submission that has not happened yet. Idempotent:

@@ -38,6 +38,7 @@ import {
   readErrorSlug,
 } from '@/features/comments/comment-error';
 import {
+  challengeTurnstile,
   getTurnstileToken,
   releaseTurnstileToken,
   setTurnstileHost,
@@ -490,6 +491,11 @@ export function initCommentsController(): void {
 
     // Warm by now in every ordinary case -- the reader focused this box before
     // they could type into it, which is what started the solve.
+    //
+    // The host follows the box that is submitting: a reply is written far down
+    // the thread, and a challenge that opened under the compose box at the top
+    // would be off screen at the moment it needs answering.
+    hostTurnstileIn(box);
     const turnstileToken = await getTurnstileToken(turnstileSiteKey, 'blog_comment_create');
 
     const input: CommentCreateInput = {
@@ -531,10 +537,21 @@ export function initCommentsController(): void {
       const failure = describeCommentFailure(response.status, response.slug, t.submitError);
       box.dataset.receipt = 'error';
       sayComposeAlert(box, failure.message, failureTag(failure));
+      // Cloudflare wanted a human and the invisible widget could not settle it
+      // alone. Open the challenge under this box and resend once it is
+      // answered, rather than telling the reader to reload -- the reload was
+      // never the fix, it just spent the draft on a second try of the same
+      // silent solve. Once per submission: a challenge that fails again leaves
+      // the message standing rather than looping.
+      if (failure.code === 'BOT' && box.dataset.botRetry !== 'spent') {
+        box.dataset.botRetry = 'spent';
+        void solveChallengeAndResend(box);
+      }
       return;
     }
 
     const { outcome, comment, unverifiedEmail } = response.data;
+    delete box.dataset.botRetry;
     // Success only -- a failed submit restores the draft, and the retry press
     // should send it, not re-arm the add-an-email recommendation. The next
     // comment in this box starts a fresh attempt and earns its own first press.
@@ -577,6 +594,26 @@ export function initCommentsController(): void {
     if (!isReply && unverifiedEmail) showComposeReceipt(box, 'nudge');
 
     if (outcome === 'held') void upgradeWhenVerdictLands(comment.id, parentId, article);
+  }
+
+  /** Move the shared widget into whichever compose box is about to send, so a
+      challenge opens where the reader is looking. The reply box carries its
+      own host and travels between rows; the top box's is static. */
+  function hostTurnstileIn(box: HTMLElement): void {
+    const host = box.querySelector<HTMLElement>('[data-turnstile-host]');
+    if (host) setTurnstileHost('blog_comment_create', host);
+  }
+
+  /** Draw a real, pressable Turnstile under `box` and send the comment again
+      the moment it is solved. An unsolved challenge (the reader ignored it, or
+      it failed again) simply returns: the refusal message is still on screen
+      and the draft is still in the field. */
+  async function solveChallengeAndResend(box: HTMLElement): Promise<void> {
+    hostTurnstileIn(box);
+    box.querySelector('[data-turnstile-host]')?.scrollIntoView({ block: 'nearest' });
+    const token = await challengeTurnstile(turnstileSiteKey, 'blog_comment_create');
+    if (!token) return;
+    await handleSubmit(box);
   }
 
   // The API answers within ~1.5s even while the AI verdict is still in
@@ -840,6 +877,10 @@ export function initCommentsController(): void {
           el('button', { type: 'button', class: 'blog-compose__go', 'data-compose-submit': '', 'aria-label': t.replyPostAria, title: t.replyPost }, [parseStaticSvg(SEND_ICON_SVG)]),
         ]),
       ]),
+      // Same collapsed slot CommentForm.astro renders under the top box. A
+      // reply is written wherever the row is, so the challenge has to be able
+      // to open there too.
+      el('div', { class: 'blog-compose__turnstile', 'data-turnstile-host': '' }),
     ]);
     return box;
   }

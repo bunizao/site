@@ -2,6 +2,9 @@ interface TurnstileApi {
   render: (...args: any[]) => string;
   reset: (...args: any[]) => void;
   getResponse?: (...args: any[]) => string;
+  /** Tears a widget down completely. The only way to change a widget's
+      `appearance`, which is fixed at render time -- see challengeTurnstile. */
+  remove?: (...args: any[]) => void;
 }
 
 let readiness: Promise<TurnstileApi | null> | null = null;
