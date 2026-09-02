@@ -417,8 +417,11 @@ const t = commentsCopy[locale];
               data-compose-signout
               aria-label={t.signOut}
               title={t.signOut}>
-              <span class="blog-compose__signout-icon" data-icon="idle" set:html={SIGNOUT_ICONS.idle} />
-              <span class="blog-compose__signout-icon" data-icon="armed" set:html={SIGNOUT_ICONS.armed} />
+              <span class="blog-compose__signout-icons">
+                <span class="blog-compose__signout-icon" data-icon="idle" set:html={SIGNOUT_ICONS.idle} />
+                <span class="blog-compose__signout-icon" data-icon="armed" set:html={SIGNOUT_ICONS.armed} />
+              </span>
+              <span class="blog-compose__signout-label" data-compose-signout-label aria-hidden="true"></span>
             </button>
           </p>
 

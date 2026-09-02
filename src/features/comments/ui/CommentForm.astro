@@ -173,18 +173,27 @@ const showNudge = receipt === 'nudge';
       </span>
 
       {/* Outside both spans, because it is the same offer in both phases and
-          the strip's only action. Symbols, not words: at the end of a strip
-          whose whole job is to state a name quietly, "Sign out" was the
-          loudest thing in it. The armed state swaps the door for a tick and
-          turns red -- colour alone would leave the second press unexplained. */}
+          the strip's only action. A symbol at rest: at the end of a strip whose
+          whole job is to state a name quietly, "Sign out" was the loudest thing
+          in it. Arming it opens the word beside the icon -- the second press is
+          the one that destroys something, so that is the press that gets asked
+          about in writing rather than in a colour and a tick. The label span is
+          empty here and filled by sign-out.ts, which owns the copy for both
+          this box and the ones the controller builds. */}
       <button
         type="button"
         class="blog-compose__signout"
         data-compose-signout
         aria-label={t.signOut}
         title={t.signOut}>
-        <span class="blog-compose__signout-icon" data-icon="idle" set:html={SIGNOUT_ICONS.idle} />
-        <span class="blog-compose__signout-icon" data-icon="armed" set:html={SIGNOUT_ICONS.armed} />
+        <span class="blog-compose__signout-icons">
+          <span class="blog-compose__signout-icon" data-icon="idle" set:html={SIGNOUT_ICONS.idle} />
+          <span class="blog-compose__signout-icon" data-icon="armed" set:html={SIGNOUT_ICONS.armed} />
+        </span>
+        {/* Hidden from assistive tech: `aria-label` above already becomes the
+            question, and a reader hearing it twice learns nothing the second
+            time. */}
+        <span class="blog-compose__signout-label" data-compose-signout-label aria-hidden="true"></span>
       </button>
     </p>
 

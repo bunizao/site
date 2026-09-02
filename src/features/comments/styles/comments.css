@@ -837,20 +837,36 @@
   display: inline-flex;
 }
 
+/* Sized off a comment row, not off the strip it sits in. This states the same
+   fact a row's byline does -- a face and the name beside it -- and the reader
+   is about to see their own comment rendered exactly that way one screen
+   below. It used to run at `--comment-meta`, which the scale reserves for
+   labels and counters: a person's name is neither, and 13px beside a 20px
+   face read as a caption about the box rather than as the answer to whose
+   name is going on the comment.
+
+   So: the row's 28px face, the row's 14px/600 name. The strip's height does
+   not move -- the 28px sign-out button was already setting it, and the face
+   was the shorter of the two. */
 .blog-compose__who {
   align-items: center;
-  gap: 7px;
+  /* 8px, the gap the strip itself runs on, rather than the row's 12px: that
+     one is a column gutter between a face and a block of text, and inline
+     beside a single name it reads as a space someone forgot to close. */
+  gap: 8px;
   min-width: 0;
-  font-size: var(--comment-meta);
+  font-size: var(--comment-note);
   color: var(--blog-muted);
 }
 
 .blog-compose__whoface {
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  font-size: 9.5px;
+  /* Same ratio as .blog-comment__avatar, so two initials fill the circle the
+     same amount in both places. */
+  font-size: 11.5px;
   object-fit: cover;
 }
 
@@ -861,9 +877,9 @@
    always the generated one; a verified reader's is usually a photo. */
 .blog-compose__claim {
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
-  font-size: var(--comment-meta);
+  font-size: var(--comment-note);
   color: var(--blog-muted);
 }
 
@@ -873,7 +889,10 @@
 .blog-compose__whoname {
   overflow: hidden;
   color: var(--blog-ink);
-  font-weight: 500;
+  /* 600, the weight a row's author carries. The name is the one piece of ink
+     in this strip and it is naming a person; 500 left it sitting between the
+     muted furniture around it and the byline it is a preview of. */
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -891,12 +910,14 @@
    Two icons live in the button at once and the armed class cross-fades them,
    so the swap is interruptible and nothing is inserted or removed mid-press. */
 .blog-compose__signout {
-  position: relative;
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  justify-content: center;
-  width: 28px;
+  /* The icon owns a fixed 28px cell of its own (below), so the button starts
+     from the left and grows to the right when the label opens rather than
+     re-centring the glyph mid-press. */
+  justify-content: flex-start;
+  min-width: 28px;
   height: 28px;
   margin-left: auto;
   margin-right: -4px;
@@ -906,7 +927,7 @@
   padding: 0;
   color: var(--blog-faint);
   cursor: pointer;
-  transition-property: color, background-color;
+  transition-property: color, background-color, padding-right;
   transition-duration: 0.15s;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -916,12 +937,58 @@
   color: var(--blog-ink);
 }
 
+/* The two faces share one cell, ShareRow's arrangement: a fixed square the
+   absolute icons centre in, so neither the cross-fade nor the label opening
+   beside it can move the glyph. */
+.blog-compose__signout-icons {
+  position: relative;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+}
+
 .blog-compose__signout-icon {
   position: absolute;
   display: inline-flex;
   transition-property: opacity, scale, filter;
   transition-duration: 0.22s;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* The question, in the button, while it is armed. The armed state used to be
+   a red tick and an `aria-label` -- which is to say the second press was
+   explained to a screen reader and to nobody else, and a tick is the one
+   glyph that can be read as "done" by a reader who has just pressed
+   something. It says the words now.
+
+   `max-width` rather than a width the markup would have to guess: the label
+   is set from copy.ts and both locales have to fit. Clipped to nothing at
+   rest, so the button is a plain 28px square until the first press -- the
+   whole reason this was a symbol and not a verb. The breathing room on the
+   right is the button's own padding, not the label's: `max-width: 0` floors
+   the content box at zero but still leaves padding standing, so a padded
+   label would hold 9px of nothing open in the resting state. */
+.blog-compose__signout-label {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: var(--comment-meta);
+  font-weight: 500;
+  opacity: 0;
+  transition-property: max-width, opacity;
+  transition-duration: 0.22s;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.blog-compose__signout--confirm {
+  padding-right: 9px;
+}
+
+.blog-compose__signout--confirm .blog-compose__signout-label {
+  max-width: 12rem;
+  opacity: 1;
 }
 
 .blog-compose__signout-icon svg {
@@ -944,16 +1011,18 @@
 
 /* Armed. Red is reserved for this one state -- not hover, not focus -- so in
    this strip the colour never means anything except "one more press and the
-   name is gone". It is never the only cue: the icon has become a tick and the
-   button's label has become the question. */
+   name is gone". It is never the only cue: the icon has become a tick, the
+   button has grown a wash behind it, and it is now saying the question out
+   loud. */
 .blog-compose__signout--confirm,
 .blog-compose__signout--confirm:hover {
-  background: none;
+  background: color-mix(in oklab, var(--blog-danger) 12%, transparent);
   color: var(--blog-danger);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .blog-compose__signout-icon { transition-duration: 1ms; }
+  .blog-compose__signout-icon,
+  .blog-compose__signout-label { transition-duration: 1ms; }
 }
 
 .blog-compose__signout:focus-visible {

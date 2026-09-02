@@ -19,8 +19,11 @@ import { copyFor } from '@/features/comments/copy';
     is heavier than the thing being forgotten, and a second button appearing
     beside the first would move Post out from under the cursor.
 
-    Colour is the armed state and nothing else: quiet until it has been pressed
-    once, so red in this strip only ever means "one more press and the name is
+    Armed, the button says so in words. It used to arm with a red tick and an
+    `aria-label`, which explained the second press to a screen reader and to
+    nobody else — and a tick is the one glyph a reader who has just pressed
+    something can read as "done". Colour still marks the state and nothing
+    else, so red in this strip only ever means "one more press and the name is
     gone". Blur withdraws the question — clicking anywhere else puts the button
     back rather than leaving a red word standing over a reader who moved on.
 
@@ -44,6 +47,13 @@ export function wireSignOut(box: HTMLElement, onConfirm: () => void): void {
     button.setAttribute('aria-label', text);
     button.title = text;
   };
+
+  // The visible question is written once and left there, clipped to nothing by
+  // the CSS until the button is armed. Writing it on arm instead would mean
+  // clearing it on disarm, which would blank the word before the button had
+  // finished closing over it.
+  const spoken = button.querySelector<HTMLElement>('[data-compose-signout-label]');
+  if (spoken) spoken.textContent = t.signOutConfirm;
 
   const disarm = (): void => {
     button.classList.remove('blog-compose__signout--confirm');

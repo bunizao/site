@@ -1608,11 +1608,18 @@ export function initCommentsController(): void {
       'aria-label': t.signOut,
       title: t.signOut,
     });
+    const icons = el('span', { class: 'blog-compose__signout-icons' });
     for (const [face, svg] of [['idle', SIGNOUT_ICONS.idle], ['armed', SIGNOUT_ICONS.armed]] as const) {
       const slot = el('span', { class: 'blog-compose__signout-icon', 'data-icon': face });
       slot.append(parseStaticSvg(svg));
-      button.append(slot);
+      icons.append(slot);
     }
+    button.append(icons);
+    button.append(el('span', {
+      class: 'blog-compose__signout-label',
+      'data-compose-signout-label': '',
+      'aria-hidden': 'true',
+    }));
     return button;
   }
 

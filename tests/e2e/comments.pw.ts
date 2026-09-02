@@ -456,12 +456,20 @@ test('claimed identity sign-out is armed, cancellable, and clears the form', asy
   await page.goto('/lab/comments?phase=claimed&locale=en', { waitUntil: 'networkidle' });
   const compose = page.locator('.blog-comments > .blog-compose');
   const signOut = compose.locator('[data-compose-signout]');
-  // The button is a symbol now, so what says which press this is -- to a
-  // screen reader and to this test -- is the label, not the text.
+  // A symbol at rest, so the state lives in the label -- and the question the
+  // second press answers has to be legible without a screen reader, which is
+  // the width assertion: the button is a 28px square until it is armed.
   await expect(signOut).toHaveAttribute('aria-label', 'Sign out');
+  expect((await signOut.boundingBox())?.width).toBe(28);
   await expect(compose.locator('.blog-compose__claim .blog-compose__whoname')).toHaveText('Murray');
   await signOut.click();
   await expect(signOut).toHaveAttribute('aria-label', 'Sign out?');
+  await expect(compose.locator('.blog-compose__signout-label')).toHaveText('Sign out?');
+  // Polled, not read once: the label opens over 220ms, so a single measure
+  // races the transition it is there to prove.
+  await expect
+    .poll(async () => (await signOut.boundingBox())?.width ?? 0)
+    .toBeGreaterThan(40);
   await signOut.click();
   await expect(compose).toHaveAttribute('data-phase', 'anonymous');
   await expect(signOut).toBeHidden();
