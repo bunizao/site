@@ -159,10 +159,29 @@ const GLYPHS: Record<ViewState, string> = {
         </>
       )}
 
+      {/* The resend form is here for the same reason it is on the invalid
+          card: a confirmation link signs in once, so a reader opening an
+          already-used link on a second device lands here holding nothing.
+          Without a way to ask for a fresh link this card would be a dead
+          end that reads like success. */}
       {state === 'already' && (
         <>
           <h1 class="reader-confirm__title">{t.alreadyTitle}</h1>
           <p class="reader-confirm__body">{t.alreadyBody}</p>
+          <p class="reader-confirm__body">{t.alreadySignIn}</p>
+          <form method="post" class="reader-confirm__form">
+            <label class="sr-only" for="reader-already-email">{t.emailLabel}</label>
+            <input
+              id="reader-already-email"
+              class="reader-confirm__input"
+              type="email"
+              name="email"
+              autocomplete="email"
+              placeholder={t.emailPlaceholder}
+              required
+            />
+            <button type="submit" class="reader-confirm__go">{t.resend}</button>
+          </form>
           <a class="reader-confirm__back" href="/blog">{t.back}</a>
         </>
       )}
