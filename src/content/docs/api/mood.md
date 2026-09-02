@@ -32,6 +32,13 @@ GET /api/v1/mood
 | `probe` | boolean flag | `false` | Returns `{"latestId": "..."}` instead of a page — a cheap way to check for new posts without paying for the full payload. |
 | `probe=image` | — | — | Returns `{"latestImage": {...} | null}` — the latest post carrying an image, for the OG/preview pipeline. |
 
+A Telegram album is one post. The archive stores a `group_id` on every row
+(the lowest visible message id of the media group, or the post's own id),
+a page is the newest `limit` distinct group ids, and `before`/`after` compare
+against that id — the `id` the feed returns. Deleting an album's first photo
+re-elects the next one as the post id. Each page costs one index seek plus one
+row read per member, which is what keeps the Free-tier D1 read budget flat.
+
 Response body:
 
 ```json
