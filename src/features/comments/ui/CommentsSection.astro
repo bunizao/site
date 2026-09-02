@@ -218,13 +218,26 @@ const t = commentsCopy[locale];
           data-editing={comment.editing ? 'true' : undefined}
           data-edit-deadline={canEdit ? comment.editDeadline : undefined}
         >
-          {/* Same generated identity the reaction stack uses — plain markup
+          {/* A real picture when the writer has one on file, otherwise the
+              same generated identity the reaction stack uses — plain markup
               rather than the React Avatar, because a thread of static rows has
               nothing to hydrate and one island per row would be absurd. */}
-          <span
-            class="blog-comment__avatar blog-avatar-seed blog-avatar-initials"
-            style={`--seed-hue:${seedHue(avatarSeed(comment.id, comment.author, comment.avatarUrl))}`}
-            aria-hidden="true">{initials(comment.author)}</span>
+          {comment.avatarUrl ? (
+            <img
+              class="blog-comment__avatar blog-comment__avatar--photo"
+              src={comment.avatarUrl}
+              alt=""
+              width="28"
+              height="28"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <span
+              class="blog-comment__avatar blog-avatar-seed blog-avatar-initials"
+              style={`--seed-hue:${seedHue(avatarSeed(comment.id, comment.author, comment.avatarUrl))}`}
+              aria-hidden="true">{initials(comment.author)}</span>
+          )}
           <div class="blog-comment__body">
             <div class="blog-comment__meta">
               <span class="blog-comment__author">{comment.author}</span>
@@ -274,13 +287,12 @@ const t = commentsCopy[locale];
 
             {/* `mine`, but nothing here is theirs to change yet -- verifying
                 the address would bind it (see plans/blog-comments.md
-                "Sessions and ownership"). Only true when there is an address
-                to verify: `avatarUrl` is non-empty exactly when the row
-                carries an email hash (comment-service.ts's `toComment` emits
-                `''` otherwise), so a row posted with no email at all is
-                permanently unclaimable and gets no hint -- "verify your
-                email" would be false on it, not a nudge. */}
-            {comment.own && !comment.held && !canEdit && !canDelete && comment.avatarUrl && (
+                "Sessions and ownership"). `claimable` is the server's answer
+                to "is there an unclaimed address on this row": a row posted
+                with no email at all is permanently unclaimable and gets no
+                hint, because "verify your email" would be false on it, not a
+                nudge. */}
+            {comment.own && !comment.held && !canEdit && !canDelete && comment.claimable && (
               <p class="blog-comment__note blog-comment__note--verify">{t.verifyHint}</p>
             )}
 

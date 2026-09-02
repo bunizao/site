@@ -35,7 +35,7 @@ import { resolveAuthorshipModel } from '@/data/authorship';
 import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import type { CommentErrorCode } from '@/features/comments/comment-error';
-import { readerConfirmCopy } from '@/features/comments/reader-confirm-copy';
+import { readerConfirmCopy, readerMuteCopy } from '@/features/comments/reader-confirm-copy';
 import '@/features/comments/styles/comments.css';
 
 export const prerender = false;
@@ -52,6 +52,17 @@ const verifyState = verifyRaw === 'confirmed' || verifyRaw === 'settings' || ver
   ? verifyRaw
   : 'pending';
 const verifyCopy = readerConfirmCopy[locale];
+const muteRaw = params.get('mute');
+const muteState = muteRaw === 'unmuted' || muteRaw === 'invalid' ? muteRaw : 'muted';
+const muteCopy = readerMuteCopy[locale];
+// A fixed date, so the card renders the same thing on every visit.
+const muteUntil = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'zh-CN', { month: 'long', day: 'numeric' })
+  .format(new Date('2026-09-09T12:00:00.000Z'));
+const muteGlyphs = {
+  muted: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M2 21 22 3"/>',
+  unmuted: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M19 6.5a8 8 0 0 1 0 11"/>',
+  invalid: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/><path d="M2 21 22 3"/>',
+} as const;
 const verifyGlyphs = {
   pending: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/>',
   confirmed: '<path d="m4.5 12.5 5 5 10-11"/>',
@@ -241,16 +252,17 @@ const comments: BlogComment[] = [
     own: true,
     likes: 0,
   },
-  // Own, has an email but it's never been verified — `avatarUrl` set (an
-  // email hash exists) but `editDeadline`/`deletable` both absent, so this
-  // one *can* still be claimed. Shows the quiet verify hint.
+  // Own, has an email but it's never been verified — `claimable` with
+  // `editDeadline`/`deletable` both absent, so this one *can* still be
+  // claimed. Shows the quiet verify hint, and the generated avatar, because
+  // an unverified address has never had a picture resolved for it.
   {
     id: '7a',
     author: 'You',
     date: t.relativeDate.minutes(6),
     text: 'Left an email on this one but never clicked the verification link.',
     own: true,
-    avatarUrl: '/static/avatar/lab-fixture-unverified?s=96',
+    claimable: true,
     likes: 0,
   },
   // Own and verified — still inside the 15-minute edit window — Edit is live
@@ -261,7 +273,7 @@ const comments: BlogComment[] = [
     date: t.relativeDate.now,
     text: 'One more thing: the retry policy move is the part I keep pointing people to when this comes up internally.',
     own: true,
-    avatarUrl: '/static/avatar/lab-fixture-tutu?s=96',
+    avatarUrl: '/avatar.webp',
     editDeadline: editWindowSoon,
     deletable: true,
     likes: 3,
@@ -274,7 +286,7 @@ const comments: BlogComment[] = [
     date: t.relativeDate.hours(1),
     text: 'Typo in my last one — meant the retry policy, not the retry budget.',
     own: true,
-    avatarUrl: '/static/avatar/lab-fixture-tutu?s=96',
+    avatarUrl: '/avatar.webp',
     editing: true,
     editDeadline: Date.now() + 3 * 60 * 1000,
     deletable: true,
@@ -432,6 +444,20 @@ await billing.invoice(payload)</code></pre>
         </div>
       </section>
 
+      <section class="comments-lab-mute" aria-labelledby="comments-lab-mute-title">
+        <div class="comments-lab-catalog__head">
+          <p class="comments-lab-catalog__eyebrow">Reply alerts</p>
+          <h2 id="comments-lab-mute-title">Thread mute states</h2>
+          <p>Set <code>?mute=muted|unmuted|invalid</code> for each <code>/reader/mute</code> outcome — the card the reply mail's own mute link opens. It writes on a POST only, so a mail scanner's prefetch can never silence a thread.</p>
+        </div>
+        <div class="reader-confirm__card" data-state={muteState}>
+          <span class="reader-confirm__glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" set:html={muteGlyphs[muteState]} /></span>
+          {muteState === 'muted' && <><h3 class="reader-confirm__title">{muteCopy.mutedTitle}</h3><p class="reader-confirm__body">{muteCopy.mutedBody(muteUntil)}</p><div class="reader-confirm__form"><button type="button" class="reader-confirm__go reader-confirm__go--quiet">{muteCopy.undo}</button></div><a class="reader-confirm__back" href="/reader/confirm">{muteCopy.settings}</a></>}
+          {muteState === 'unmuted' && <><h3 class="reader-confirm__title">{muteCopy.unmutedTitle}</h3><p class="reader-confirm__body">{muteCopy.unmutedBody}</p><a class="reader-confirm__back" href="/reader/confirm">{muteCopy.settings}</a></>}
+          {muteState === 'invalid' && <><h3 class="reader-confirm__title">{muteCopy.invalidTitle}</h3><p class="reader-confirm__body">{muteCopy.invalidBody}</p><a class="reader-confirm__back" href="/reader/confirm">{muteCopy.settings}</a></>}
+        </div>
+      </section>
+
       <section class="comments-lab-verify" aria-labelledby="comments-lab-verify-title">
         <div class="comments-lab-catalog__head">
           <p class="comments-lab-catalog__eyebrow">Email verification</p>
@@ -580,6 +606,7 @@ await billing.invoice(payload)</code></pre>
 <style>
   .comments-lab-catalog,
   .comments-lab-verify,
+  .comments-lab-mute,
   .comments-lab-newsletter,
   .comments-lab-preview,
   .comments-lab-moderation {
@@ -661,7 +688,8 @@ await billing.invoice(payload)</code></pre>
     font-size: 11px;
   }
 
-  .comments-lab-verify .reader-confirm__card {
+  .comments-lab-verify .reader-confirm__card,
+  .comments-lab-mute .reader-confirm__card {
     margin-top: 18px;
   }
 

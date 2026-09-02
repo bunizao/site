@@ -421,9 +421,10 @@ that moved, and a body carrying none of them is a `400`. `notifyReplies`
 writes the reader's own column; `subscribed` activates or unsubscribes the
 newsletter subscription without touching reply notifications, and vice
 versa — leaving the newsletter and muting your own replies are separate
-decisions. `mutePost` is the narrow one: it adds or removes a row in
-`blog_comment_reply_mutes` for that reader and post, so a single loud thread
-can go quiet while every other thread keeps mailing. Both `postId` and
+decisions. `mutePost` is the narrower one: it adds or removes a `post`-scoped row in
+`blog_comment_mutes` for that reader, so one article can go quiet while every
+other article keeps mailing. It has no expiry — a post mute is a decision, not
+a cooldown. Both `postId` and
 `muted` are required together, and a response to a `mutePost` write carries
 `postMuted` alongside the reader. Rate-limited at 20/minute per reader,
 durably enforced. The response carries the reader row as it now stands, in
@@ -441,12 +442,52 @@ the card — without it the page shows only the global one.
 A published reply to a comment mails that comment's author, once, with the
 comment and the reply quoted. It goes out only when the author is a verified
 reader (an anonymous comment carries no address anyone may reuse), still has
-`notify_replies` set, has not muted this particular post, is not banned, and
-is not the person who just replied.
+`notify_replies` set, has muted neither this thread nor this post, is not
+banned, and is not the person who just replied.
 Held and rejected replies send nothing — mailing about one would leak the
 moderation queue. Capped at 12 per reader per hour and keyed on the reply id,
 so a retried write cannot mail the same reply twice; suppressed addresses are
 skipped like every other outbound.
+
+## Muting one conversation
+
+```
+POST /api/v2/reader/mute
+```
+
+```json
+{ "token": "<signed>", "muted": true }
+```
+
+```json
+{ "outcome": "muted", "mutedUntil": "2026-09-09T12:00:00.000Z", "postId": "..." }
+```
+
+The reply mail's own mute button. Three scopes now exist and they answer
+different questions: this **conversation** is on fire, this **post** is one
+I'm done with, and I want **no** reply alerts at all. Muting a thread must not
+cost the reader the other two — a single argument in one thread is the usual
+reason someone reaches for an off switch, and if the only switch in reach is
+the global one, that is the one they pull.
+
+A thread mute lasts seven days and then lapses on its own, which is what makes
+it safe to press: nobody has to remember to undo it. Pressing it again
+restarts the window rather than doing nothing. `outcome` is `muted`,
+`unmuted` (the landing page's undo, sent as `muted: false`), or `invalid` for
+an expired, tampered, or unknown token — one flat answer, so the endpoint
+cannot be used to probe which tokens are real. Rate-limited at 20/minute per
+reader.
+
+Authenticated by the token alone, never a session: the mail is usually open on
+a device that has never signed in here, and an off switch that starts with a
+sign-in is one people replace with the spam button. The token is a bearer
+capability naming a reader, a thread, and a post, valid 90 days, and it can do
+nothing but mute or unmute that one thread. `GET` answers `405`; the page that
+carries the button lives in the public Worker.
+
+`GET /reader/mute?token=…` is that page. Like `/reader/confirm`, the GET only
+renders and the POST does the writing, so a mail scanner prefetching every URL
+in the message cannot silence a conversation on the reader's behalf.
 
 ### Unverified addresses expire
 
@@ -464,6 +505,15 @@ and does not adopt the old comment.
 ```
 GET /api/v2/reader/avatar/:key
 ```
+
+A comment row, reactor chip, or `ReaderMe` carries this path only when an
+avatar has actually resolved for that address; otherwise the field is empty
+and the client draws its own generated one. The endpoint answers an identicon
+for any key it does not recognise, so handing out the path for every address
+made every face an identicon. Avatars resolve on both sign-in paths — the
+OAuth callback and email verification, each being a moment the plaintext
+address exists — through the chain in `avatar.ts`: the OAuth picture, then QQ,
+then the Gravatar-protocol mirrors.
 
 `:key` is `sha256(normalized email)` — the same hash notify uses, never the
 plaintext address. Serves the reader's cached avatar from R2 when one

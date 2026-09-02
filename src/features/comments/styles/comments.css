@@ -1258,6 +1258,13 @@
   transition: translate 0.18s cubic-bezier(0.2, 0, 0, 1);
 }
 
+/* A photo fills the circle the generated avatar draws; without the cover
+   crop a non-square provider picture would letterbox inside it. */
+.blog-comment__avatar--photo {
+  object-fit: cover;
+  background: var(--blog-field-fill);
+}
+
 .blog-comment__body {
   min-width: 0;
   flex: 1;
@@ -2187,6 +2194,18 @@
 .reader-confirm__go:hover { opacity: 0.86; }
 .reader-confirm__go:active { scale: 0.985; }
 .reader-confirm__go:focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 3px; }
+
+/* The undo on the mute page. It is the one action on that card, so it stays
+   a button rather than a link, but it is not the thing the reader came to do
+   — the mute already happened before the card rendered. */
+.reader-confirm__go--quiet {
+  border: 1px solid var(--blog-line);
+  background: transparent;
+  color: var(--blog-ink);
+  font-size: 14px;
+}
+
+.reader-confirm__go--quiet:hover { opacity: 1; background: var(--blog-field-fill); }
 
 .reader-confirm__form {
   display: flex;

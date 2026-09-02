@@ -153,6 +153,7 @@ function toBlogComment(
     date: formatRelativeDate(comment.createdAt, t),
     text: comment.tombstone ? '' : comment.body,
     avatarUrl: comment.tombstone ? undefined : safeReaderAvatarUrl(comment.author.avatarUrl),
+    claimable: comment.claimable,
     byAuthor: comment.author.byAuthor,
     held: comment.status === 'held',
     isReply: comment.parentId !== null,
@@ -164,6 +165,28 @@ function toBlogComment(
     edited: Boolean(comment.editedAt),
     tombstone: comment.tombstone,
   };
+}
+
+/** A real picture when the writer has one on file, and the generated circle
+    otherwise. `avatarUrl` is only ever set when an avatar actually resolved,
+    so this never trades a tinted set of initials for a random identicon. */
+function commentFace(comment: BlogComment): HTMLElement {
+  if (comment.avatarUrl) {
+    return el('img', {
+      class: 'blog-comment__avatar blog-comment__avatar--photo',
+      src: comment.avatarUrl,
+      alt: '',
+      width: '28',
+      height: '28',
+      loading: 'lazy',
+      decoding: 'async',
+    });
+  }
+  return el('span', {
+    class: 'blog-comment__avatar blog-avatar-seed blog-avatar-initials',
+    style: `--seed-hue:${seedHue(avatarSeed(comment.id, comment.author, comment.avatarUrl))}`,
+    'aria-hidden': 'true',
+  }, [initials(comment.author)]);
 }
 
 /** Mutation rights, derived only from the fields the server actually sends.
@@ -1046,12 +1069,11 @@ export function initCommentsController(): void {
     } else {
       // `mine`, but nothing here is theirs to change yet -- verifying the
       // address would bind it (see plans/blog-comments.md "Sessions and
-      // ownership"). Only true when there is an address to verify:
-      // `avatarUrl` is non-empty exactly when the row carries an email hash
-      // (comment-service.ts's `toComment` emits `''` otherwise), so a row
-      // posted with no email at all is permanently unclaimable and gets no
-      // hint -- "verify your email" would be false on it, not a nudge.
-      if (comment.own && !canEdit && !canDelete && comment.avatarUrl) {
+      // ownership"). `claimable` is the server's answer to "is there an
+      // unclaimed address on this row": a row posted with no email at all is
+      // permanently unclaimable and gets no hint, because "verify your email"
+      // would be false on it, not a nudge.
+      if (comment.own && !canEdit && !canDelete && comment.claimable) {
         body.append(el('p', { class: 'blog-comment__note blog-comment__note--verify' }, [t.verifyHint]));
       }
 
@@ -1098,7 +1120,7 @@ export function initCommentsController(): void {
       id: `comment-${comment.id}`,
       class: `blog-comment${comment.isReply ? ' blog-comment--reply' : ''}${comment.held ? ' blog-comment--held' : ''}`,
     }, [
-      el('span', { class: 'blog-comment__avatar blog-avatar-seed blog-avatar-initials', style: `--seed-hue:${seedHue(avatarSeed(comment.id, comment.author, comment.avatarUrl))}`, 'aria-hidden': 'true' }, [initials(comment.author)]),
+      commentFace(comment),
       body,
     ]);
     // `data-own` is "mine" only -- kept for the row highlight, never read to

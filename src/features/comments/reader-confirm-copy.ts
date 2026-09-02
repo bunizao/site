@@ -115,3 +115,59 @@ export const readerConfirmCopy = { zh, en } satisfies Record<BlogLocale, ReaderC
 export function resolveReaderConfirmLocale(value: string | null | undefined): BlogLocale {
   return value === 'en' ? 'en' : 'zh';
 }
+
+/* The reply mail's mute button, landing side. Its own table rather than more
+   fields on the confirm copy: this page answers one question ("is this
+   conversation quiet now?") and shares nothing with verification but the
+   card it is drawn in. */
+export interface ReaderMuteCopy {
+  pageTitle: string;
+  pageDescription: string;
+  working: string;
+  mutedTitle: string;
+  /** Says the date it lapses, because a mute nobody can see the end of is one
+      people never dare press. */
+  mutedBody: (until: string) => string;
+  undo: string;
+  unmutedTitle: string;
+  unmutedBody: string;
+  invalidTitle: string;
+  invalidBody: string;
+  settings: string;
+  back: string;
+  error: string;
+}
+
+const muteZh: ReaderMuteCopy = {
+  pageTitle: '静音这个对话',
+  pageDescription: '关闭这个对话接下来的回复提醒。',
+  working: '正在设置…',
+  mutedTitle: '这个对话已静音',
+  mutedBody: (until) => `${until} 之前，这个对话的新回复不再发邮件给你。其他文章和其他对话照常提醒。`,
+  undo: '立即恢复这个对话的提醒',
+  unmutedTitle: '提醒已恢复',
+  unmutedBody: '这个对话再有新回复时，会照常发邮件给你。',
+  invalidTitle: '链接已失效',
+  invalidBody: '这个静音链接已经过期。到评论设置里，也能关掉整篇文章或全部提醒。',
+  settings: '打开评论提醒设置',
+  back: '← 返回首页',
+  error: '没保存上，再点一次试试。',
+};
+
+const muteEn: ReaderMuteCopy = {
+  pageTitle: 'Mute this conversation',
+  pageDescription: 'Turn off reply alerts for this one conversation.',
+  working: 'Setting that up…',
+  mutedTitle: 'This conversation is muted',
+  mutedBody: (until) => `New replies here won't email you until ${until}. Other posts and other conversations carry on as usual.`,
+  undo: 'Turn alerts back on for this conversation',
+  unmutedTitle: 'Alerts are back on',
+  unmutedBody: "You'll get an email the next time someone replies in this conversation.",
+  invalidTitle: 'This link has expired',
+  invalidBody: 'Your comment settings can still mute the whole post, or turn every alert off.',
+  settings: 'Open comment alert settings',
+  back: '← Back to the homepage',
+  error: "That didn't save. Try once more.",
+};
+
+export const readerMuteCopy = { zh: muteZh, en: muteEn } satisfies Record<BlogLocale, ReaderMuteCopy>;

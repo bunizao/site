@@ -55,13 +55,16 @@ export interface BlogComment {
       from `pending` to match the status enum in plans/blog-comments.md
       (`published | held | rejected | deleted`). */
   held?: boolean;
-  /** The resolved proxy URL from `CommentAuthor.avatarUrl` -- empty or absent
-      when the writer left no email, since there is then no address to
-      resolve an avatar from. Not yet rendered as an image (see
-      identity.ts); today its only job is picking the generated fallback's
-      seed, so a name that many anonymous writers reuse does not draw the
-      same coloured circle for all of them. */
+  /** The resolved proxy URL from `CommentAuthor.avatarUrl`, set only when an
+      avatar actually resolved for the writer's address. Rendered as the row's
+      image when present; when absent the generated avatar in identity.ts
+      draws instead, seeded so a name many anonymous writers reuse does not
+      give them all the same coloured circle. */
   avatarUrl?: string;
+  /** An unclaimed address is on file, so verifying it would hand this row's
+      controls to its writer. Drives the claim hint, which `avatarUrl` used to
+      stand in for back when it meant "has an email". */
+  claimable?: boolean;
   isReply?: boolean;
   /** Reactions on the comment itself. A thread is a conversation, and most of
       what people want to say back is "agreed" — a like says it without adding

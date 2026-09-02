@@ -152,6 +152,34 @@ test('confirm card scopes reply alerts to one post or all of them', async ({ pag
   expect(width).toBeGreaterThan(30);
 });
 
+test('a resolved avatar draws a photo, everyone else draws initials', async ({ page }) => {
+  await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
+  const withPhoto = page.locator('#comment-8 .blog-comment__avatar');
+  await expect(withPhoto).toHaveJSProperty('tagName', 'IMG');
+  await expect(withPhoto).toHaveAttribute('src', '/avatar.webp');
+  // A row whose writer never resolved one falls back to initials rather than
+  // a broken image -- the avatar URL is empty precisely when there is nothing
+  // to fetch.
+  const withoutPhoto = page.locator('#comment-7a .blog-comment__avatar');
+  await expect(withoutPhoto).toHaveClass(/blog-avatar-initials/);
+});
+
+test('mute card names the thread it silenced and when it comes back', async ({ page }) => {
+  await page.goto('/lab/comments?locale=zh&mute=muted', { waitUntil: 'networkidle' });
+  const card = page.locator('.comments-lab-mute .reader-confirm__card');
+  await expect(card).toHaveAttribute('data-state', 'muted');
+  // A mute with no visible end is one nobody dares press, so the card has to
+  // say the date -- and say that it stops at this one conversation.
+  await expect(card).toContainText('这个对话已静音');
+  await expect(card).toContainText('其他文章和其他对话照常提醒');
+  await expect(card.getByRole('button', { name: '立即恢复这个对话的提醒' })).toBeVisible();
+
+  await page.goto('/lab/comments?locale=zh&mute=invalid', { waitUntil: 'networkidle' });
+  // An expired mute link is a dead end unless it hands over the settings card.
+  await expect(card).toContainText('链接已失效');
+  await expect(card.getByRole('link', { name: '打开评论提醒设置' })).toHaveAttribute('href', '/reader/confirm');
+});
+
 test('lab previews the localized reader verification email from site-api', async ({ page }) => {
   await page.goto('/lab/comments?locale=zh', { waitUntil: 'networkidle' });
   const preview = page.locator('section[aria-labelledby="comments-lab-newsletter-title"]');
@@ -181,9 +209,12 @@ test('lab previews the reply notification email', async ({ page }) => {
   await expect(preview).toContainText('你的评论');
   await expect(preview).toContainText('Nina Kato 的回复');
   await expect(preview.getByRole('link', { name: '查看完整对话' })).toBeVisible();
-  // The off switch has to be in the mail itself, and it has to carry the post
-  // -- that parameter is what puts "just this one" on the settings card.
-  await expect(preview.getByRole('link', { name: '关闭这篇，或全部关闭。' }))
+  // Two off switches, and they are not the same switch. The first silences
+  // this one thread and lapses on its own; the second is the settings card,
+  // and it carries the post so "just this one" is on offer there.
+  await expect(preview.getByRole('link', { name: '静音 7 天。' }))
+    .toHaveAttribute('href', '/reader/mute?lang=zh&token=preview');
+  await expect(preview.getByRole('link', { name: '只关掉这篇文章，或者全部关闭。' }))
     .toHaveAttribute('href', '/reader/confirm?lang=zh&post=sample-post');
 
   await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });

@@ -91,6 +91,29 @@ export interface ReaderVerifyResult {
   reader: ReaderMe | null;
 }
 
+/** One conversation, quieted from the reply mail itself. The token is the
+    whole authentication: the reader is usually holding that mail on a device
+    that has never signed in here, and an off switch gated behind a sign-in is
+    one people reach by marking the sender spam instead. */
+export interface ReaderMuteInput {
+  token: string;
+  /** Omitted or true mutes; false is the undo the landing page offers. */
+  muted?: boolean;
+}
+
+export const READER_MUTE_OUTCOMES = ['muted', 'unmuted', 'invalid'] as const;
+
+export type ReaderMuteOutcome = (typeof READER_MUTE_OUTCOMES)[number];
+
+export interface ReaderMuteResult {
+  outcome: ReaderMuteOutcome;
+  /** ISO instant this thread starts mailing again. Only on `muted` — a thread
+      mute lapses on its own, which is what makes it safe to press. */
+  mutedUntil?: string;
+  /** Carried so the page can offer the wider switches without another call. */
+  postId?: string;
+}
+
 /** Re-send the verification mail. Rate-limited per address; always answers
     the same shape regardless of whether the address has a comment on file,
     so this can never be used to probe which addresses have commented. */
@@ -178,6 +201,11 @@ export interface ReactionToggleResult {
 /** Public author view on a comment row. Never includes email or email_hash. */
 export interface CommentAuthor {
   name: string;
+  /** Same-origin proxy path to the writer's cached avatar, or empty when no
+      avatar has resolved for their address (or they left none). Empty means
+      "draw your own": the endpoint behind this path answers an identicon for
+      any key it does not know, so a path emitted for every address would make
+      every face an identicon. */
   avatarUrl: string;
   /** True when this row's writer is the blog owner. */
   byAuthor: boolean;
@@ -207,6 +235,10 @@ export interface Comment {
   /** True when the viewer may delete this row: verified reader owns it and
       it is not already a tombstone. Always false for session-owned rows. */
   deletable: boolean;
+  /** An address is on file that no reader has claimed yet, so verifying it
+      would hand this row's controls to whoever wrote it. False for a row
+      posted with no email at all -- that one is unclaimable forever. */
+  claimable: boolean;
   /** Soft-deleted but kept as a shape-preserving placeholder because a reply
       hangs underneath it. `body`/`author` are empty on a tombstone. */
   tombstone: boolean;
