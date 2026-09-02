@@ -1426,13 +1426,14 @@
   margin-top: 0.2em;
 }
 
-/* The live preview stays inside the compose surface and uses the exact
-   published-row renderer above. It only exists once supported Markdown has
-   been typed, so ordinary prose keeps the compact compose height. */
+/* The live preview is another room in the same compose surface, not a second
+   bordered card. It uses the exact published-row renderer above and only
+   exists once supported Markdown has been typed, so ordinary prose keeps the
+   compact compose height. */
 .blog-compose__preview {
-  margin: 8px 14px 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--blog-field-line);
+  margin: 4px 14px 12px;
+  padding: 10px 0 0;
+  box-shadow: inset 0 1px var(--blog-field-line);
 }
 
 .blog-compose__preview-tag {

@@ -106,7 +106,7 @@ test('lab lists every interaction outcome and transitions reader verification', 
 
   await expect(page.locator('.blog-compose__alert:visible')).toContainText('bot check');
   await expect(page.locator('.blog-comments > .blog-compose [data-compose-identity] input[type="text"]').first()).toHaveAttribute('placeholder', 'Name');
-  await expect(page.locator('.comments-lab-catalog tbody tr')).toHaveCount(56);
+  await expect(page.locator('.comments-lab-catalog tbody tr')).toHaveCount(57);
   await expect(page.locator('.comments-lab-catalog')).toContainText('Submit/edit failure (BOT)');
   await expect(page.locator('.blog-comment--held .blog-comment__note')).toContainText('Posted');
   await expect(page.locator('.comments-lab-preview .blog-compose__preview')).toBeVisible();
@@ -139,10 +139,25 @@ test('compose preview opens only for supported Markdown and closes when emptied'
   await expect(compose.locator('.blog-compose__preview')).toHaveCount(0);
   await field.fill('This is **rendered** with `code`.');
   await expect(compose.locator('.blog-compose__preview')).toBeVisible();
+  await expect(compose.locator('.blog-compose__box > .blog-compose__preview')).toHaveCount(1);
   await expect(compose.locator('.blog-compose__preview strong')).toHaveText('rendered');
   await expect(compose.locator('.blog-compose__preview code')).toHaveText('code');
   await field.fill('');
   await expect(compose.locator('.blog-compose__preview')).toBeHidden();
+});
+
+test('compose Markdown shortcuts wrap the active selection', async ({ page }) => {
+  await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
+  const compose = page.locator('.blog-comments > .blog-compose');
+  const field = compose.locator('.blog-compose__field');
+  await field.fill('make this bold');
+  await field.evaluate((element) => {
+    const textarea = element as HTMLTextAreaElement;
+    textarea.setSelectionRange(10, 14);
+  });
+  await field.press(process.platform === 'darwin' ? 'Meta+b' : 'Control+b');
+  await expect(field).toHaveValue('make this **bold**');
+  await expect(compose.locator('.blog-compose__preview strong')).toHaveText('bold');
 });
 
 test('compose validation and body counter expose every refusal', async ({ page }) => {

@@ -131,6 +131,7 @@ const behaviorRows = [
   { behavior: 'Draft reaches 1800 characters', state: 'counter warning', zh: '显示 1800/2000 字数提示', en: 'Show the 1800/2000 counter', next: 'Keep writing or shorten the draft' },
   { behavior: 'Draft exceeds 2000 characters', state: 'counter refusal', zh: commentsCopy.zh.submitError.LONG, en: commentsCopy.en.submitError.LONG, next: 'Shorten the draft before posting' },
   { behavior: 'Type supported Markdown', state: 'preview', zh: '输入支持的 Markdown 后显示“预览”，内容与发布结果一致', en: 'Supported Markdown opens “Preview”; its rendering matches the published row', next: 'Continue editing or post' },
+  { behavior: 'Format the active selection', state: 'Markdown shortcut', zh: '⌘/Ctrl+B 粗体 · I 斜体 · E 行内代码 · K 链接', en: '⌘/Ctrl+B bold · I italic · E inline code · K link', next: 'Keep typing; the preview updates immediately' },
   { behavior: 'Remembered identity', state: 'phase=claimed', zh: commentsCopy.zh.claimedAs('Murray'), en: commentsCopy.en.claimedAs('Murray'), next: commentsCopy.zh.signOut },
   { behavior: 'Verified identity', state: 'phase=ready', zh: commentsCopy.zh.postingAs('Tutu Xiao'), en: commentsCopy.en.postingAs('Tutu Xiao'), next: 'Post as the verified reader' },
   { behavior: 'First post with no email', state: 'first press', zh: commentsCopy.zh.emailRecommend, en: commentsCopy.en.emailRecommend, next: 'Fill email or press Post again' },
@@ -452,7 +453,7 @@ await billing.invoice(payload)</code></pre>
         <div class="comments-lab-catalog__head">
           <p class="comments-lab-catalog__eyebrow">Markdown</p>
           <h2 id="comments-lab-preview-title">Live compose preview</h2>
-          <p>The pane below is the real compose preview, rendered by the same parser as a published comment.</p>
+          <p>The same compose surface renders with the published-comment parser and supports ⌘/Ctrl+B, I, E, and K.</p>
         </div>
         <div class="blog-compose comments-lab-preview__compose" data-locale={locale}>
           <div class="blog-compose__box">
