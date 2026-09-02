@@ -201,108 +201,116 @@ export default function ReactionBar({
 
   return (
     <div ref={scope} className="blog-react" data-pagefind-ignore>
-      <div ref={challenge} className="blog-compose__turnstile" />
-      {/* Liking a post asks for no account. It is a count, not a signature: the
-          card used to turn over to a Sign in door on the first press, which
-          charged a reader an identity for one bit of feedback. It still turns
-          over -- that was the good part -- but the far side is now the liked
-          state itself, so the flip IS the feedback rather than a toll gate.
-          Anonymous presses are counted; they just put no face in the stack,
-          because the site has no name to put there.
+      <div className="blog-react__row">
+        {/* Liking a post asks for no account. It is a count, not a signature: the
+            card used to turn over to a Sign in door on the first press, which
+            charged a reader an identity for one bit of feedback. It still turns
+            over -- that was the good part -- but the far side is now the liked
+            state itself, so the flip IS the feedback rather than a toll gate.
+            Anonymous presses are counted; they just put no face in the stack,
+            because the site has no name to put there.
 
-          The turn happens once. Nothing here turns back: see like(). */}
-      <div className="blog-react__pull" data-magnetic>
-        {/* Outside the card, so the burst happens in flat screen space over a
-            face that is mid-rotation. */}
-        <span className="blog-react__sparks" aria-hidden="true">
-          {sparks.map((spark) => (
-            <svg
-              key={spark.id}
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              className="blog-react__spark"
-              style={{
-                ['--spark-x' as string]: `${spark.x}px`,
-                ['--spark-rot' as string]: `${spark.rot}deg`,
-                animationDelay: `${spark.delay}ms`,
-              }}
-              dangerouslySetInnerHTML={{ __html: ICONS.heart }}
-            />
-          ))}
-        </span>
+            The turn happens once. Nothing here turns back: see like(). */}
+        <div className="blog-react__pull" data-magnetic>
+          {/* Outside the card, so the burst happens in flat screen space over a
+              face that is mid-rotation. */}
+          <span className="blog-react__sparks" aria-hidden="true">
+            {sparks.map((spark) => (
+              <svg
+                key={spark.id}
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="blog-react__spark"
+                style={{
+                  ['--spark-x' as string]: `${spark.x}px`,
+                  ['--spark-rot' as string]: `${spark.rot}deg`,
+                  animationDelay: `${spark.delay}ms`,
+                }}
+                dangerouslySetInnerHTML={{ __html: ICONS.heart }}
+              />
+            ))}
+          </span>
 
-        <button
-          type="button"
-          onClick={like}
-          aria-pressed={liked}
-          aria-label={`${liked ? t.reactDone : t.reactAdd}: ${total}`}
-          className={cn('blog-react__card', liked && 'is-flipped')}
-        >
-          {/* Both faces are always mounted and stacked in one grid cell, which
-              is also what keeps them the same width when the two counts have a
-              different number of digits. */}
-          <span className="blog-react__pill" aria-hidden={liked}>
-            <Heart />
-            <span className="blog-react__count">{base}</span>
-          </span>
-          <span className="blog-react__pill blog-react__pill--liked" aria-hidden={!liked}>
-            <Heart filled />
-            <span className="blog-react__count">{mine}</span>
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={like}
+            aria-pressed={liked}
+            aria-label={`${liked ? t.reactDone : t.reactAdd}: ${total}`}
+            className={cn('blog-react__card', liked && 'is-flipped')}
+          >
+            {/* Both faces are always mounted and stacked in one grid cell, which
+                is also what keeps them the same width when the two counts have a
+                different number of digits. */}
+            <span className="blog-react__pill" aria-hidden={liked}>
+              <Heart />
+              <span className="blog-react__count">{base}</span>
+            </span>
+            <span className="blog-react__pill blog-react__pill--liked" aria-hidden={!liked}>
+              <Heart filled />
+              <span className="blog-react__count">{mine}</span>
+            </span>
+          </button>
+        </div>
+
+        {faces.length > 0 && (
+          /* Tighter than the component default: the faces have to read as one
+             overlapping stack, not a row that happens to touch. Paint order runs
+             left to right via an explicit z-index, so each face clips the one
+             before it.
+
+             No heart badge on each face. Every face in this stack reacted — that
+             is what the stack IS — so a heart on all five says nothing the row
+             does not already say, and the overlap clips each one to a crescent
+             with its glyph hidden underneath the next circle. It read as a
+             rendering fault, which is an expensive way to repeat yourself. */
+          <AvatarGroup ref={stack} className="blog-react__stack -space-x-[9px]">
+            {faces.map((reactor, i) => (
+              <Avatar
+                key={reactor.name}
+                size="default"
+                data-comb-item
+                className="blog-react__avatar"
+                style={{
+                  zIndex: i,
+                  ['--entry-delay' as string]: `${i * 60}ms`,
+                  ['--seed-hue' as string]: seedHue(reactor.name),
+                }}
+              >
+                {reactor.avatar && <AvatarImage src={reactor.avatar} alt={reactor.name} />}
+                <AvatarFallback className="blog-avatar-seed blog-avatar-initials">
+                  {initials(reactor.name)}
+                </AvatarFallback>
+                {/* Hover names the face instead of pulling it clear of the stack:
+                    the overlap is the point, and a face that jumps to the front
+                    reshuffles the row every time the pointer crosses it. Hidden
+                    from assistive tech — the image alt already carries the name.
+                    Sits below the circles, so it is never clipped by the next
+                    face's stacking context. */}
+                <span className="blog-react__name" aria-hidden="true">
+                  {reactor.name}
+                </span>
+              </Avatar>
+            ))}
+            {overflow > 0 && (
+              <AvatarGroupCount
+                data-comb-item
+                className="blog-react__avatar blog-react__more"
+                style={{ zIndex: faces.length, ['--entry-delay' as string]: `${faces.length * 60}ms` }}
+              >
+                +{overflow}
+              </AvatarGroupCount>
+            )}
+          </AvatarGroup>
+        )}
+        {error && <p className="blog-react__error" role="status">{error}</p>}
       </div>
 
-      {faces.length > 0 && (
-        /* Tighter than the component default: the faces have to read as one
-           overlapping stack, not a row that happens to touch. Paint order runs
-           left to right via an explicit z-index, so each face clips the one
-           before it.
-
-           No heart badge on each face. Every face in this stack reacted — that
-           is what the stack IS — so a heart on all five says nothing the row
-           does not already say, and the overlap clips each one to a crescent
-           with its glyph hidden underneath the next circle. It read as a
-           rendering fault, which is an expensive way to repeat yourself. */
-        <AvatarGroup ref={stack} className="blog-react__stack -space-x-[9px]">
-          {faces.map((reactor, i) => (
-            <Avatar
-              key={reactor.name}
-              size="default"
-              data-comb-item
-              className="blog-react__avatar"
-              style={{
-                zIndex: i,
-                ['--entry-delay' as string]: `${i * 60}ms`,
-                ['--seed-hue' as string]: seedHue(reactor.name),
-              }}
-            >
-              {reactor.avatar && <AvatarImage src={reactor.avatar} alt={reactor.name} />}
-              <AvatarFallback className="blog-avatar-seed blog-avatar-initials">
-                {initials(reactor.name)}
-              </AvatarFallback>
-              {/* Hover names the face instead of pulling it clear of the stack:
-                  the overlap is the point, and a face that jumps to the front
-                  reshuffles the row every time the pointer crosses it. Hidden
-                  from assistive tech — the image alt already carries the name.
-                  Sits below the circles, so it is never clipped by the next
-                  face's stacking context. */}
-              <span className="blog-react__name" aria-hidden="true">
-                {reactor.name}
-              </span>
-            </Avatar>
-          ))}
-          {overflow > 0 && (
-            <AvatarGroupCount
-              data-comb-item
-              className="blog-react__avatar blog-react__more"
-              style={{ zIndex: faces.length, ['--entry-delay' as string]: `${faces.length * 60}ms` }}
-            >
-              +{overflow}
-            </AvatarGroupCount>
-          )}
-        </AvatarGroup>
-      )}
-      {error && <p className="blog-react__error" role="status">{error}</p>}
+      {/* Out of the row above, not in it. An invisible Turnstile draws
+          nothing until Cloudflare asks a question, but a zero-width flex
+          item still takes the row's 18px gap -- which pushed the heart
+          18px right of the prose, the colophon rule and the Comments
+          heading it is supposed to line up with. */}
+      <div ref={challenge} className="blog-compose__turnstile" />
     </div>
   );
 }

@@ -102,6 +102,16 @@
    buttons they are level with. */
 .blog-react {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* The row proper. It is a level down from .blog-react because the Turnstile
+   host has to live outside it: an invisible challenge is a zero-width box, and
+   a zero-width flex item still claims the gap below, so it used to shift the
+   heart 18px off the column every other element on the page lines up on. */
+.blog-react__row {
+  display: flex;
   align-items: center;
   gap: 18px;
   flex-wrap: wrap;
