@@ -38,8 +38,11 @@ results.
 | `api.buxx.me` | Machine ingress | Not the canonical public surface — that stays `buxx.me` pages plus the compatibility JSON routes |
 
 `MOOD_READ_SOURCE=archive` is the default. A failed archive call falls back to
-the bounded live reader; `MOOD_READ_SOURCE=live` is the rollback switch, and
-`?source=live|archive` overrides one uncached request. Shaping lives in
+the bounded live reader on the server, and the browser degrades `/api/v2/mood`
+pagination to `/api/moods` once its retries are exhausted. Tag filters stay
+archive-only because the live reader cannot filter by tag.
+`MOOD_READ_SOURCE=live` is the rollback switch, and `?source=live|archive`
+overrides one uncached request. Shaping lives in
 [`server/api-client.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/server/api-client.ts) and [`shared/utils.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/shared/utils.ts).
 
 **Dev serves `live` and production serves `archive`**, so a profiling run on
