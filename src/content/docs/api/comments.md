@@ -138,11 +138,18 @@ claimable); a non-empty value must be a valid address (`400` otherwise).
 mail aligned with the page where the comment was written.
 `dwellToken` is minted by `GET /api/v2/comments/dwell-token` (see below) —
 required. `website` is a visually-hidden honeypot field; a human never fills
-it in. `notifyReplies` is reserved for a future reply-email preference; the
-current release does not send reply notification emails.
+it in. `notifyReplies` sets the writer's reply-mail preference — see
+[What `notifyReplies` actually sends](#what-notifyreplies-actually-sends).
 
 A comment written without an email serializes with `avatarUrl: ""`; the
 client renders a deterministic identicon for it.
+
+An `email` that belongs to a verified reader does **not** by itself attach
+that reader's `reader_id` to the row. The identity comes from the session
+cookie, and the address only has to agree with it. Typing somebody else's
+verified address writes an ordinary unbound comment, exactly as any other
+address would — the avatar, the author badge, and the ability to edit all
+follow the session, never the typed field.
 
 Every submission runs the full risk stack, in order:
 
@@ -178,7 +185,16 @@ Every submission runs the full risk stack, in order:
    referrer, and post permalink. Ham publishes; spam holds (the owner can
    rescue a false positive); Akismet's "blatant spam" signal rejects so a
    spam wave never floods the moderation queue. Fails closed to `hold` on
-   any error, timeout, or non-verdict response.
+   any error, timeout, or non-verdict response; the HTTP call itself is
+   abandoned after 10 seconds.
+
+   The request does not wait the full ten. Akismet normally answers in
+   100-400ms, and after **1500ms** the create returns with the row stored as
+   `held` and finishes the check in the background — a late verdict then
+   upgrades the row and notifies the owner with the real outcome. The
+   upgrade is guarded on `updated_at`, so a writer who edits in the meantime
+   keeps their row held rather than having it clobbered by a stale verdict.
+   A `held` response is therefore not always final.
 6. **Shadow-ban.** A shadow-banned writer's otherwise-`publish` verdict is
    quietly downgraded to `hold` — they see their own comment as normal;
    nobody else ever does.
@@ -220,7 +236,9 @@ Mints the risk stack's dwell-time stamp: a short-lived signed timestamp the
 client controller fetches once, at first interaction with the compose box,
 and holds until submit. `POST /api/v2/comments` rejects (silently — see
 above) a body whose `dwellToken` is missing, unsigned, or younger than 3
-seconds old. Not rate-limited — it signs nothing but the current time, so
+seconds old. The stamp also carries a 24-hour expiry, which is the ceiling
+on how long a tab can sit open before its token has to be re-minted; the
+client refreshes at 20 hours rather than discovering the wall. Not rate-limited — it signs nothing but the current time, so
 there's no per-call cost worth gating; `POST /api/v2/comments`'s own limits
 apply regardless of how many tokens get minted.
 
@@ -287,7 +305,14 @@ ever show up in `reactors`.
 ```
 
 `reacted` is specific to the calling browser, so this is always
-`private, no-store`. Not rate-limited (read-only).
+`private, no-store` — a shared cache entry here would show one reader's
+filled heart to another, which is why the batch read is uncacheable and
+rate-limited instead: 120/minute per reader, or per hashed IP when there is
+no session, durably enforced.
+
+`reactors` is capped at 12 names per emoji; the `count` is the true total.
+A banned reader is filtered out of both — their name leaves the list and
+their heart leaves the number.
 
 ```
 POST /api/v2/reactions/toggle
@@ -355,6 +380,19 @@ cookie and returns `204`. Idempotent — calling it with no session already
 set still succeeds, so the client never needs to check sign-in state first.
 Neither is rate-limited.
 
+Two cookies, both `__Host-` prefixed, `Secure`, `HttpOnly`, `SameSite=Lax`,
+path `/`:
+
+| Cookie | Lifetime | Carries |
+| --- | --- | --- |
+| `__Host-reader_session` | 180 days | The signed L1/L2 session: `reader_id`, provider, and the reader row's creation stamp, which acts as a generation counter |
+| `__Host-reader_anon` | 365 days | An opaque keyed session id, minted on the first write. Marks rows as `mine`; never grants mutation |
+
+An unprefixed legacy `reader_session` cookie is cleared wherever one is
+still presented. A session whose reader row is missing, banned, or has lost
+its `reader_id` is refused on sight, so a ban takes effect on the next
+request rather than at the next expiry.
+
 ## Lazy email verification
 
 ```
@@ -384,11 +422,20 @@ also binds every past anonymous comment from the same browser matching the
 verified email hash to the new `reader_id`, turns reply notifications on
 (the mail that carried the link promises them, and a first confirmation is
 the only place they're switched on unasked — see the endpoint below for
-moving them afterwards), and — if `subscribe: true` (or
-the token itself was minted with a prior subscribe intent) — activates the
-newsletter subscription in the same request, without a second confirmation
-round trip. Sets the reader session cookie on success. Rate-limited at
-10/minute per email hash, durably enforced.
+moving them afterwards), and — when the token itself was minted with a
+subscribe intent — activates the newsletter subscription in the same
+request, without a second confirmation round trip. The request body's own
+`subscribe` field is not honoured on its own: it would let whoever holds a
+token add that address to the newsletter, which the address's owner never
+asked for. Rate-limited at 10/minute per email hash, durably enforced.
+
+**The session is minted once.** Only a `confirmed` outcome sets the reader
+cookie; replaying the same token afterwards answers `already_confirmed` and
+signs in nobody. So a link forwarded, quoted in a reply, or sitting in a
+mailbox somebody else can read is not a way into the account — it signs in
+the one device that redeemed it first, and a device left out gets a fresh
+link rather than a second use of the old one. The token still expires 24
+hours after it is minted.
 
 The confirm page submits this on load rather than waiting for a press: a
 browser runs the page's script, a mail scanner does not, so the token still
@@ -407,9 +454,11 @@ POST /api/v2/reader/resend
 { "ok": true }
 ```
 
-Always answers the same shape and status regardless of whether the address
-has ever commented, or is currently suppressed by the per-address send
-limit below — this can never be used to probe which addresses have
+Mail goes out only to an address that has actually commented; there is
+nothing to confirm for one that has not, and sending anyway would let this
+route mail a stranger on request. Always answers the same shape and status
+either way, and regardless of whether the address is currently suppressed
+by the per-address send limit below — this can never be used to probe which addresses have
 commented. Two independent rate limits apply, both durably enforced: a
 per-IP route limit (5/minute, answers `429` — this one carries no address
 information, so it's safe to surface) and a per-address send suppression (1

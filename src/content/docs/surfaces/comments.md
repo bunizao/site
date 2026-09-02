@@ -79,10 +79,10 @@ Two kinds, both switchable.
   carried the link says so, and turned off from the preferences link in any of
   them. A single conversation can also be muted on its own.
 
-The confirmation link is single-use and lasts 24 hours. Using it signs in the
-device that opened it, and only that one — a link opened on a phone does not
-sign in the laptop. If a device is left out, send it a fresh link; that is the
-whole repair.
+The confirmation link signs in exactly one device — whichever opens it first —
+and expires after 24 hours. Opening it again later confirms nothing and signs
+in nobody, which is what keeps a forwarded or quoted link from being a way into
+the account. A device left out gets a fresh link; that is the whole repair.
 
 <a id="comment-errors"></a>
 
@@ -152,9 +152,10 @@ This is a refusal, not a moderation hold — nothing was stored, and the draft i
 still in the box.
 
 Confirm the link already sitting in the inbox, or send a fresh one from
-[`/reader/confirm`](/reader/confirm), then post again in the same tab. The link
-is single-use and expires after 24 hours, so the one from three weeks ago will
-not work; asking for another is free.
+[`/reader/confirm`](/reader/confirm), then post again in the same tab. A link
+signs in one device and expires after 24 hours, so the one from three weeks ago
+will not work and neither will one already used elsewhere; asking for another
+is free.
 
 <a id="comment-error-closed"></a>
 
