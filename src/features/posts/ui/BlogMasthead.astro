@@ -10,12 +10,12 @@ import SiteWordmark from '@/components/SiteWordmark.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import ContactPanel from '@/features/posts/ui/ContactPanel.astro';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { readPublicEnv } from '@/lib/runtime/env';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 
 const blogCopy = blog.copy[blog.locale.blog];
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
-  : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
+  : readTurnstileSiteKey(Astro.locals);
 ---
 
 <header class="blog-masthead">

@@ -44,7 +44,7 @@ import { buildBlogOgImageUrl } from '@/features/posts/server/og-image';
 import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { readPublicEnv } from '@/lib/runtime/env';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 
 export const getStaticPaths = (async () => {
   const [posts, listedPosts] = await Promise.all([
@@ -143,7 +143,7 @@ const publicTagNames = post.tags
   .map((tag) => tag.name);
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
-  : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
+  : readTurnstileSiteKey(Astro.locals);
 // The site E2E fixture has no site-api service. Leave the presentational
 // loading shell in those tests and let the dedicated comments lab opt into a
 // mocked live controller explicitly with `interactive=1`.

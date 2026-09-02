@@ -48,6 +48,7 @@
     "PUBLIC_HD_IMAGE_URL": "https://site-staging-9669e7.bunizao.workers.dev/api/v2/images",
     "MOOD_READ_SOURCE": "archive",
     "PUBLIC_TURNSTILE_SITE_KEY": "1x00000000000000000000BB",
+    "PUBLIC_STAGING_TURNSTILE_SITE_KEY": "1x00000000000000000000BB",
     "PUBLIC_STAGING_LABS": "1",
     "CHANNEL": "tutumood",
     "TELEGRAM_HOST": "t.me"
