@@ -1536,6 +1536,24 @@
   color: var(--blog-good);
 }
 
+/* The posted receipt, which removes itself. A transition rather than a
+   keyframe so a reader who scrolls away and back does not restart it, and a
+   2px lift rather than a collapse so the row below never jumps. */
+.blog-comment__note[data-transient] {
+  transition-property: opacity, translate;
+  transition-duration: 320ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.blog-comment__note[data-transient='out'] {
+  opacity: 0;
+  translate: 0 -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-comment__note[data-transient] { transition-duration: 1ms; }
+}
+
 /* --- Waiting on a verdict -------------------------------------------------
    A row this browser has just written, held only because the moderation call
    has not landed yet. Nearly all of them clear within seconds, so the row is

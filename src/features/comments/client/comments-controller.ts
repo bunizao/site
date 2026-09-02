@@ -98,6 +98,13 @@ const MAIL_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 // Gives the nudge an identity of its own. Without it the row read as a strip
 // of controls that happened to sit under the box, which is how a message ends
 // up ignored by the people it is for.
+/** Long enough to read a two-word sentence without hunting for it, short
+    enough that it is gone before the reader starts writing the next comment.
+    The fade has to outlive the CSS transition or the node is torn out
+    mid-animation. */
+const POSTED_NOTE_MS = 5000;
+const POSTED_NOTE_FADE_MS = 400;
+
 const NUDGE_MAIL_SVG = `<svg class="blog-compose__nudge-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="M3.5 7.5l7.3 5.1a2 2 0 0 0 2.4 0l7.3-5.1"></path></svg>`;
 const THREAD_ERROR_MARK_SVG = `<svg class="blog-comments__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3.5" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="3"></rect><path d="M8.4 16v3.9a.45.45 0 0 0 .75.33L13.6 16"></path></svg>`;
 
@@ -579,6 +586,9 @@ export function initCommentsController(): void {
     row.own = true;
     const article = renderCommentRow(row, parentId);
     wireCommentRow(article, row, parentId);
+    // Not on a held row: it carries its own note, and "Posted." is a claim
+    // about a comment nobody else can see yet.
+    if (outcome !== 'held') announcePosted(article);
     // A hold this browser just caused is nearly always the moderation verdict
     // still in flight rather than a decision -- render it as posted until the
     // polls below say otherwise. See markPending.
@@ -594,6 +604,31 @@ export function initCommentsController(): void {
     if (!isReply && unverifiedEmail) showComposeReceipt(box, 'nudge');
 
     if (outcome === 'held') void upgradeWhenVerdictLands(comment.id, parentId, article);
+  }
+
+  /** The verify hint is true on a row nobody can edit yet, and wrong as the
+      first thing a reader sees after pressing send: it appears where an error
+      would appear, in the same instant, and answers a question they had not
+      asked yet instead of the one they had. On this row it becomes the
+      receipt, and then it leaves -- the comment itself is the lasting proof,
+      and a permanent "posted" badge on one row in the thread is clutter. A
+      row posted with no email never had the hint and gets no receipt either;
+      for it the row really is the only receipt there is. */
+  function announcePosted(article: HTMLElement): void {
+    // Reuse the verify hint's slot when the row has one -- that is the row the
+    // hint was misread on, and replacing it in place is what stops it being
+    // the first thing read after send. A row that never had one (the reader
+    // can already edit it) gets the receipt in the same position, so the
+    // answer lands where the reader is looking either way.
+    const note = article.querySelector<HTMLElement>('.blog-comment__note--verify')
+      ?? article.querySelector<HTMLElement>('.blog-comment__body')?.appendChild(
+        el('p', { class: 'blog-comment__note blog-comment__note--verify' }),
+      ) as HTMLElement | undefined;
+    if (!note) return;
+    note.textContent = t.postedNote;
+    note.dataset.transient = 'in';
+    window.setTimeout(() => { note.dataset.transient = 'out'; }, POSTED_NOTE_MS);
+    window.setTimeout(() => { note.remove(); }, POSTED_NOTE_MS + POSTED_NOTE_FADE_MS);
   }
 
   /** Move the shared widget into whichever compose box is about to send, so a

@@ -99,6 +99,13 @@ export interface CommentsCopy {
       to the reader row, per plans/blog-comments.md "Sessions and ownership")
       and never implies the row is broken or wrong. */
   verifyHint: string;
+  /** Replaces verifyHint on the row this browser just posted. That row is the
+      one place the hint was read as a failure: it lands the instant the reader
+      presses send, in the spot an error would occupy, and says nothing about
+      whether the comment went up. It also said the same thing the nudge under
+      the box was already saying. This says the thing they pressed the button
+      to find out, and clears itself once it has been read. */
+  postedNote: string;
   save: string;
   cancel: string;
   /** Second press of Cancel on a touched edit field. */
@@ -180,7 +187,7 @@ const zh: CommentsCopy = {
   namePlaceholder: '昵称',
   emailLabel: '邮箱',
   emailPlaceholder: '邮箱（选填）',
-  emailRecommend: '验证后可跨设备改删评论，还有专属头像。不留也能发。',
+  emailRecommend: '验证邮箱可跨设备改删与显示头像；不想留可直接再点一次发送。',
   bodyLabel: '写评论',
   bodyPlaceholder: '说点什么…',
   replyBodyLabel: '写回复',
@@ -206,6 +213,7 @@ const zh: CommentsCopy = {
   edit: '编辑',
   editLabel: '编辑你的评论',
   verifyHint: '验证邮箱后可编辑或删除这条评论。',
+  postedNote: '发布成功。',
   save: '保存',
   cancel: '取消',
   discard: '不保存？',
@@ -241,8 +249,8 @@ const zh: CommentsCopy = {
     SERVER: '服务器打了个盹，等会儿再试试。草稿已保存，别担心。',
   },
   nudgeText: (email) => (email
-    ? `确认信已经发到 ${email} 了，点一下就能跨设备管理评论。`
-    : '确认邮箱后，就能跨设备管理评论。'),
+    ? `我们向 ${email} 发了一封信，确认一下就能管理评论和接收回复通知。`
+    : '确认邮箱后，就能管理评论和接收回复通知。'),
   nudgeSubscribe: '订阅新文章',
   dismiss: '关闭',
 
@@ -264,7 +272,7 @@ const en: CommentsCopy = {
   namePlaceholder: 'Name',
   emailLabel: 'Email',
   emailPlaceholder: 'Email (optional)',
-  emailRecommend: 'Confirm an email for cross-device edits and an avatar. Or press again to post without.',
+  emailRecommend: 'A verified email means cross-device edits and an avatar; to skip it, just press send again.',
   bodyLabel: 'Write a comment',
   bodyPlaceholder: 'Say something…',
   replyBodyLabel: 'Write a reply',
@@ -290,6 +298,7 @@ const en: CommentsCopy = {
   edit: 'Edit',
   editLabel: 'Edit your comment',
   verifyHint: 'Verify your email to edit or delete this comment.',
+  postedNote: 'Posted.',
   save: 'Save',
   cancel: 'Cancel',
   discard: 'Discard?',
@@ -325,8 +334,8 @@ const en: CommentsCopy = {
     SERVER: 'Something dozed off on our end. Try again shortly — your draft is saved.',
   },
   nudgeText: (email) => (email
-    ? `A confirmation is on its way to ${email} — one click and you can manage your comments across devices.`
-    : 'Confirm your email to manage your comments across devices.'),
+    ? `We've sent a message to ${email} — confirm it to manage your comments and receive reply notifications.`
+    : 'Confirm your email to manage your comments and receive reply notifications.'),
   nudgeSubscribe: 'Subscribe to new posts',
   dismiss: 'Dismiss',
 
