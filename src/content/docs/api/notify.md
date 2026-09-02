@@ -15,7 +15,7 @@ token-in-URL tiers fit into the site-wide auth picture.
 
 Dispatch, scheduling, retry, and preview are cron- and secret-gated rather
 than public; they are listed in
-[Internal Endpoints](/docs/api/internal#cron-and-dispatch).
+[Internal Endpoints](/docs/api/internal#scheduled-notification-routes).
 
 Every destructive change here is **two steps across two requests**: a JSON
 route that mails a confirmation link, and an HTML route the recipient opens

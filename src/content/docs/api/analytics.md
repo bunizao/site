@@ -121,7 +121,7 @@ because it is the one place on the surface where the two admin gates diverge:
 **the admin session cookie that opens `/api/admin/*` does not open these.**
 They need a Cloudflare Access JWT (`cf-access-jwt-assertion`). If a request
 works against `/api/admin/subscribers` and `401`s here, that is why — see
-[Internal Endpoints](/docs/api/internal#admin-auth).
+[Internal Endpoints](/docs/api/internal#admin-authentication).
 
 `limit` and `days` are read with `Number()` and fall back to `50` / `30` when
 the result is not finite, then clamped inside the query layer — `limit` to

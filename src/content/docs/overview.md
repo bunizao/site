@@ -48,4 +48,4 @@ boundary, not a performance one — everything a visitor or an embedder touches
 lives in the public half.
 
 Writing follows its own path, from Ghost through a deploy hook — see
-[Publishing](/docs/blog/publishing).
+[Publishing](/docs/writing/publishing).
