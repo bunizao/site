@@ -38,7 +38,9 @@ import { readerConfirmCopy } from '@/features/comments/reader-confirm-copy';
 import '@/features/comments/styles/comments.css';
 
 export const prerender = false;
-if (!import.meta.env.DEV) return new Response(null, { status: 404 });
+if (!import.meta.env.DEV && import.meta.env.PUBLIC_STAGING_LABS !== '1') {
+  return new Response(null, { status: 404 });
+}
 
 const params = Astro.url.searchParams;
 const locale = params.get('locale') === 'en' ? 'en' : blog.locale.blog;
