@@ -43,7 +43,7 @@
 
 import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
 import { initials, seedHue } from '@/features/comments/identity';
-import { SIGNOUT_ICONS } from '@/features/comments/icons';
+import { ICONS, SIGNOUT_ICONS } from '@/features/comments/icons';
 import type { CommentErrorCode } from '@/features/comments/comment-error';
 import type { ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import { blog, type BlogLocale } from '@/data/site';
@@ -101,10 +101,7 @@ const showNudge = receipt === 'nudge';
       grey line in the footer it was the same weight as the hint next to it and
       readers walked straight past it. */}
   <p class="blog-compose__alert" data-compose-error role="alert" hidden={!alertText}>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="9"></circle>
-      <path d="M12 7v6M12 16.5h.01"></path>
-    </svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.circleAlert} />
     <span data-compose-error-text>{alertText}</span>
     {/* Reference code, right-aligned and out of the reading path. Only a
         server refusal earns one — see comment-error.ts. */}
@@ -193,9 +190,10 @@ const showNudge = receipt === 'nudge';
         a 40px disc in a footer of its own made the send button the loudest
         object on the page for the one action nobody needs help finding. */}
     <div class="blog-compose__bar">
-      {/* The Markdown mark, drawn to the row's own stroke language rather than
-          dropped in as a vendor asset: a rounded frame with the M and the
-          descending arrow, which is the shape people recognise. */}
+      {/* The one glyph here that is not from features/comments/icons.ts, and
+          it stays that way: this is the Markdown wordmark -- a rounded frame
+          with the M and the descending arrow -- which no icon set carries and
+          which is recognised by its shape, not by its stroke language. */}
       <span class="blog-compose__hint">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="2" y="5" width="20" height="14" rx="2.5"></rect>
@@ -216,9 +214,7 @@ const showNudge = receipt === 'nudge';
         title={t.post}
         disabled={busy}
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 19V5M5 12l7-7 7 7"></path>
-        </svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.arrowUp} />
       </button>
     </div>
   </div>
@@ -240,10 +236,7 @@ const showNudge = receipt === 'nudge';
        this only owns the reveal. */
     <div class="blog-compose__receipt" data-compose-receipt aria-live="polite">
       <div class="blog-compose__nudge" data-compose-nudge>
-        <svg class="blog-compose__nudge-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="5" width="18" height="14" rx="3"></rect>
-          <path d="M3.5 7.5l7.3 5.1a2 2 0 0 0 2.4 0l7.3-5.1"></path>
-        </svg>
+        <svg class="blog-compose__nudge-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.mail} />
         {/* No address server-side: this component renders the demo state, and
             the real one is filled by the controller from the identity that was
             just submitted. */}
@@ -256,9 +249,7 @@ const showNudge = receipt === 'nudge';
           {t.nudgeSubscribe}
         </button>
         <button type="button" class="blog-compose__nudge-dismiss" data-compose-dismiss aria-label={t.dismiss}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <path d="M5 5l14 14M19 5L5 19"></path>
-          </svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.x} />
         </button>
       </div>
     </div>

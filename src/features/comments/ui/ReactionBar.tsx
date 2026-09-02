@@ -15,6 +15,7 @@ import {
   setTurnstileHost,
 } from '@/features/comments/client/turnstile-token';
 import { initials, seedHue } from '@/features/comments/identity';
+import { ICONS } from '@/features/comments/icons';
 import { resolveCommentsCopy } from '@/features/comments/copy';
 import type { Reactor } from '@/features/comments/types';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
@@ -34,13 +35,13 @@ interface Props {
   siteKey?: string;
 }
 
-const HEART_PATH =
-  'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
-
 /** Live hearts on screen at once. Six bursts' worth -- past that they overlap
     into a smear anyway, and the DOM stops growing. */
 const SPARK_LIMIT = 30;
 
+/* Path data rather than lucide-react's own component: this heart is drawn
+   twice more outside React (the comment like button, and the controller's
+   client pass), and one table keeps the three in step. */
 function Heart({ filled = false }: { filled?: boolean }) {
   return (
     <svg
@@ -48,11 +49,12 @@ function Heart({ filled = false }: { filled?: boolean }) {
       fill={filled ? 'currentColor' : 'none'}
       stroke="currentColor"
       strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       className="blog-react__glyph"
       aria-hidden="true"
-    >
-      <path d={HEART_PATH} />
-    </svg>
+      dangerouslySetInnerHTML={{ __html: ICONS.heart }}
+    />
   );
 }
 
@@ -224,9 +226,8 @@ export default function ReactionBar({
                 ['--spark-rot' as string]: `${spark.rot}deg`,
                 animationDelay: `${spark.delay}ms`,
               }}
-            >
-              <path d={HEART_PATH} />
-            </svg>
+              dangerouslySetInnerHTML={{ __html: ICONS.heart }}
+            />
           ))}
         </span>
 

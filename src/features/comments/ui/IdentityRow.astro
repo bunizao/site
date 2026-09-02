@@ -28,6 +28,7 @@
 
 import { blog, type BlogLocale } from '@/data/site';
 import { commentsCopy } from '@/features/comments/copy';
+import { ICONS } from '@/features/comments/icons';
 
 interface Props {
   locale?: BlogLocale;
@@ -71,10 +72,7 @@ const t = commentsCopy[locale];
       way. Hidden by default and toggled purely by that script -- nothing
       here decides when it shows. */}
   <p class="blog-compose__recommend" data-compose-recommend aria-live="polite" hidden>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="14" rx="2.5"></rect>
-      <path d="M4 7l8 6 8-6"></path>
-    </svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.mail} />
     {t.emailRecommend}
   </p>
 

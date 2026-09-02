@@ -21,7 +21,7 @@
 import CommentForm from '@/features/comments/ui/CommentForm.astro';
 import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
 import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
-import { SIGNOUT_ICONS } from '@/features/comments/icons';
+import { ICONS, SIGNOUT_ICONS } from '@/features/comments/icons';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import { blog, type BlogLocale } from '@/data/site';
 import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
@@ -78,12 +78,6 @@ const {
 } = Astro.props;
 
 const tally = comments.filter((comment) => !comment.held && !comment.tombstone).length;
-
-const HEART_PATH =
-  'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
-const REPLY_PATH = 'M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11';
-const EDIT_PATH = 'M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z';
-const TRASH_PATH = 'M4 7h16M10 7V5h4v2M6 7l1 12h10l1-12M10 11v5M14 11v5';
 
 const skeletonRows = [
   { delay: '0s', author: '104px', body: '92%' },
@@ -152,10 +146,7 @@ const t = commentsCopy[locale];
       controller finds and removes it by that class. */}
   {state === 'error' && (
     <div class="blog-comments__notice blog-comments__error">
-      <svg class="blog-comments__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3.5" aria-hidden="true">
-        <rect x="3" y="4" width="18" height="12" rx="3"></rect>
-        <path d="M8.4 16v3.9a.45.45 0 0 0 .75.33L13.6 16"></path>
-      </svg>
+      <svg class="blog-comments__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.messageSquareWarning} />
       <p>{t.loadError}</p>
       <button type="button" class="blog-comments__more-btn" data-retry-load>{t.retry}</button>
     </div>
@@ -163,11 +154,7 @@ const t = commentsCopy[locale];
 
   {state === 'closed' && (
     <div class="blog-comments__notice">
-      <svg class="blog-comments__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="3" y="4" width="18" height="12" rx="3"></rect>
-        <path d="M8.4 16v3.9a.45.45 0 0 0 .75.33L13.6 16"></path>
-        <path d="M9 10h6"></path>
-      </svg>
+      <svg class="blog-comments__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.messageSquareOff} />
       <p>{t.closed}</p>
     </div>
   )}
@@ -185,10 +172,7 @@ const t = commentsCopy[locale];
               class:list={['blog-comment', 'blog-comment--tombstone', { 'blog-comment--reply': comment.isReply }]}
             >
               <span class="blog-comment__avatar blog-comment__avatar--ghost" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9"></circle>
-                  <path d="M6 6l12 12"></path>
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.circleSlash} />
               </span>
               <div class="blog-comment__body">
                 <div class="blog-comment__meta">
@@ -306,8 +290,7 @@ const t = commentsCopy[locale];
                     aria-pressed={comment.liked ? 'true' : 'false'}
                     aria-label={t.likeLabel(comment.author)}
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"
-                    ><path d={HEART_PATH}></path></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.heart} />
                     <span class="blog-comment__act-count" data-like-count>{comment.likes ?? 0}</span>
                   </button>
                   <button
@@ -316,8 +299,7 @@ const t = commentsCopy[locale];
                     data-reply-to={comment.id}
                     data-reply-name={comment.author}
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-                    ><path d={REPLY_PATH}></path></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.reply} />
                     {t.reply}
                   </button>
                   {/* The remaining window lives inside the button it belongs
@@ -328,15 +310,13 @@ const t = commentsCopy[locale];
                       15-minute window keeps delete without edit. */}
                   {canEdit && (
                     <button type="button" class="blog-comment__act" data-comment-edit-open>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-                      ><path d={EDIT_PATH}></path></svg>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.pencil} />
                       {t.edit}<span class="blog-comment__act-time" data-edit-countdown hidden></span>
                     </button>
                   )}
                   {canDelete && (
                     <button type="button" class="blog-comment__act blog-comment__act--danger" data-comment-delete>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-                      ><path d={TRASH_PATH}></path></svg>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.trash} />
                       {t.remove}
                     </button>
                   )}
@@ -373,10 +353,7 @@ const t = commentsCopy[locale];
           readers skip that row the same way. */}
       <div class="blog-compose blog-reply" id="blog-reply" data-phase={phase} hidden>
         <p class="blog-compose__alert" data-compose-error role="alert" hidden>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="9"></circle>
-            <path d="M12 7v6M12 16.5h.01"></path>
-          </svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.circleAlert} />
           <span data-compose-error-text></span>
           <code class="blog-compose__code" data-compose-error-code hidden></code>
         </p>
@@ -443,9 +420,7 @@ const t = commentsCopy[locale];
           <div class="blog-compose__bar">
             <span class="blog-compose__count" data-compose-count aria-hidden="true" hidden></span>
             <button type="button" class="blog-compose__go" data-compose-submit aria-label={t.replyPostAria} title={t.replyPost}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 19V5M5 12l7-7 7 7"></path>
-              </svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.arrowUp} />
             </button>
           </div>
         </div>

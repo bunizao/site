@@ -49,16 +49,13 @@ import { readCommentText, setCommentText } from '@/features/comments/comment-mar
 import { forgetReaderEmail, readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { wireSignOut } from '@/features/comments/client/sign-out';
 import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
-import { SIGNOUT_ICONS } from '@/features/comments/icons';
+import { ICONS, SIGNOUT_ICONS, iconSvg } from '@/features/comments/icons';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
 
 const CLAIMED_STORAGE_KEY = 'buxx:reader';
 const PAGE_SIZE = 20;
-
-const HEART_PATH =
-  'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
 
 // ---------------------------------------------------------------------------
 // Small DOM builder -- attrs + children, everything through .append() /
@@ -85,17 +82,16 @@ function parseStaticSvg(svg: string): SVGElement {
   return template.content.firstElementChild as SVGElement;
 }
 
-const REPLY_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>`;
-const SEND_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>`;
-const EDIT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z"></path></svg>`;
-const TRASH_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 7V5h4v2M6 7l1 12h10l1-12M10 11v5M14 11v5"></path></svg>`;
-const GHOST_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M6 6l12 12"></path></svg>`;
-const ALERT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5h.01"></path></svg>`;
-// Byte-for-byte the icon beside the email recommendation in IdentityRow.astro
-// -- the two renderers have to agree.
-const MAIL_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M4 7l8 6 8-6"></path></svg>`;
-// Byte-for-byte the bubble in CommentsSection.astro's error notice -- the two
-// renderers have to agree, and a dashed stroke is easy to let drift.
+// Same paths the Astro pass draws, from the same table -- the two renderers
+// have to agree, and a hand-copied path is exactly the kind of thing that
+// drifts between them.
+const REPLY_ICON_SVG = iconSvg(ICONS.reply);
+const SEND_ICON_SVG = iconSvg(ICONS.arrowUp, 'stroke-width="2"');
+const EDIT_ICON_SVG = iconSvg(ICONS.pencil);
+const TRASH_ICON_SVG = iconSvg(ICONS.trash);
+const GHOST_ICON_SVG = iconSvg(ICONS.circleSlash);
+const ALERT_ICON_SVG = iconSvg(ICONS.circleAlert, 'stroke-width="2"');
+const MAIL_ICON_SVG = iconSvg(ICONS.mail, 'stroke-width="1.7"');
 // Gives the nudge an identity of its own. Without it the row read as a strip
 // of controls that happened to sit under the box, which is how a message ends
 // up ignored by the people it is for.
@@ -106,19 +102,17 @@ const MAIL_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 const POSTED_NOTE_MS = 5000;
 const POSTED_NOTE_FADE_MS = 400;
 
-const NUDGE_MAIL_SVG = `<svg class="blog-compose__nudge-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="M3.5 7.5l7.3 5.1a2 2 0 0 0 2.4 0l7.3-5.1"></path></svg>`;
-const THREAD_ERROR_MARK_SVG = `<svg class="blog-comments__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3.5" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="3"></rect><path d="M8.4 16v3.9a.45.45 0 0 0 .75.33L13.6 16"></path></svg>`;
+const NUDGE_MAIL_SVG = iconSvg(ICONS.mail, 'class="blog-compose__nudge-mark" stroke-width="1.6"');
+const THREAD_ERROR_MARK_SVG = iconSvg(ICONS.messageSquareWarning, 'class="blog-comments__mark" stroke-width="1.5"');
 
 function heartIcon(): SVGElement {
-  return parseStaticSvg(
-    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="${HEART_PATH}"></path></svg>`,
-  );
+  return parseStaticSvg(iconSvg(ICONS.heart));
 }
 
+// Filled rather than stroked: liked is the state, and the same outline in a
+// different colour is not a state change anyone reads at a glance.
 function filledHeartIcon(): SVGElement {
-  return parseStaticSvg(
-    `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${HEART_PATH}"></path></svg>`,
-  );
+  return parseStaticSvg(`<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${ICONS.heart}</svg>`);
 }
 
 // ---------------------------------------------------------------------------
@@ -879,7 +873,7 @@ export function initCommentsController(): void {
         t.nudgeSubscribe,
       ]),
       el('button', { type: 'button', class: 'blog-compose__nudge-dismiss', 'data-compose-dismiss': '', 'aria-label': t.dismiss }, [
-        parseStaticSvg(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"></path></svg>`),
+        parseStaticSvg(iconSvg(ICONS.x, 'stroke-width="2"')),
       ]),
     ]);
     nudge.querySelector('[data-compose-dismiss]')?.addEventListener('click', () => { nudge.hidden = true; });
