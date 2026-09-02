@@ -9,20 +9,33 @@ interface Props {
 }
 
 const { locale } = Astro.props;
+// The lab has no comment behind it, so it previews the mail with a stand-in
+// post title -- the real one names whichever post the comment landed under.
+const SAMPLE_POST_TITLE = { zh: '重试是个决定，不是本能', en: 'Retries are a decision, not a reflex' } as const;
 const copy = {
   zh: {
-    subject: '确认一下是你 · buxx.me',
-    title: '认领你的评论。',
-    body: '有人用这个邮箱在 buxx.me 留了评论。确认之后，你在任何浏览器、任何设备上都能编辑或删除它。',
-    button: '是我',
-    ignore: '不是你留的？不用管这封信，链接会自己过期，什么都不会发生。',
+    subject: '评论已发布 · 验证一下邮箱',
+    title: '评论已发布。',
+    body: (postTitle: string) => `你在《${postTitle}》下的评论已经公开。验证邮箱后，这条评论就归你管：`,
+    benefits: [
+      { label: '回复提醒', text: '有人回复你时，邮件通知你' },
+      { label: '评论管理', text: '在任何浏览器上修改、删除自己的评论' },
+      { label: '新文订阅', text: '默认不订阅；想要的话一键打开，随时退订' },
+    ],
+    button: '验证邮箱',
+    ignore: '不是你留的？忽略这封信就好，链接 24 小时后自动失效。',
   },
   en: {
-    subject: "Confirm it's you on buxx.me",
-    title: 'Claim your comment.',
-    body: 'A comment went up on buxx.me under this address. Confirm it is yours and you can edit or delete it from any browser, on any device.',
-    button: "Confirm it's me",
-    ignore: "Didn't comment? Ignore this — the link expires on its own and nothing happens.",
+    subject: 'Your comment is live — confirm your email',
+    title: 'Your comment is live.',
+    body: (postTitle: string) => `Your comment on “${postTitle}” is public now. Confirm this address and the comment stays yours to manage:`,
+    benefits: [
+      { label: 'Reply alerts', text: 'An email when someone answers you' },
+      { label: 'Full control', text: 'Edit or delete your own comments from any browser' },
+      { label: 'New posts', text: 'Off by default; one tap to turn on, leave any time' },
+    ],
+    button: 'Confirm email',
+    ignore: "Didn't comment? Ignore this — the link expires in 24 hours and nothing happens.",
   },
 } as const;
 const t = copy[locale];
@@ -51,7 +64,12 @@ const t = copy[locale];
         <span>buxx<i>.me</i></span>
       </a>
       <h3>{t.title}</h3>
-      <p class="reader-mail__body">{t.body}</p>
+      <p class="reader-mail__body">{t.body(SAMPLE_POST_TITLE[locale])}</p>
+      <ul class="reader-mail__benefits">
+        {t.benefits.map((item) => (
+          <li><b>{item.label}</b> · {item.text}</li>
+        ))}
+      </ul>
       <a class="reader-mail__button" href={`/reader/confirm?token=preview&lang=${locale}`}>{t.button}<span aria-hidden="true"> →</span></a>
       <p class="reader-mail__ignore">{t.ignore}</p>
     </div>
@@ -136,9 +154,21 @@ const t = copy[locale];
     line-height: 1.65;
   }
 
+  .reader-mail__benefits {
+    margin: 16px 32px 0;
+    padding: 0;
+    list-style: none;
+    color: #6b6b6b;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .reader-mail__benefits li { margin: 0 0 8px; }
+  .reader-mail__benefits b { color: #18181b; font-weight: 600; }
+
   .reader-mail__button {
     display: inline-block;
-    margin: 24px 32px 0;
+    margin: 20px 32px 0;
     padding: 12px 22px;
     border: 1px solid #0a0a0a;
     border-radius: 10px;
@@ -173,7 +203,8 @@ const t = copy[locale];
     .reader-mail-preview { background: #0a0a0a; }
     .reader-mail__card { background: #161618; }
     .reader-mail__brand, .reader-mail h3 { color: #fafafa; }
-    .reader-mail__body { color: #a1a1aa; }
+    .reader-mail__body, .reader-mail__benefits { color: #a1a1aa; }
+    .reader-mail__benefits b { color: #fafafa; }
     .reader-mail__ignore, .reader-mail__footer, .reader-mail__brand i { color: #6e6e76; }
     .reader-mail__ignore { border-color: rgba(255, 255, 255, 0.08); }
     .reader-mail__button { border-color: #fafafa; background: #fafafa; color: #0a0a0a; }
@@ -182,6 +213,6 @@ const t = copy[locale];
   @media (max-width: 520px) {
     .reader-mail { padding: 18px 8px; }
     .reader-mail__brand { margin-inline: 22px; }
-    .reader-mail h3, .reader-mail__body, .reader-mail__button, .reader-mail__ignore { margin-inline: 22px; }
+    .reader-mail h3, .reader-mail__body, .reader-mail__benefits, .reader-mail__button, .reader-mail__ignore { margin-inline: 22px; }
   }
 </style>

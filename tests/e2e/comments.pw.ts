@@ -104,7 +104,7 @@ async function installCommentApi(page: import('@playwright/test').Page, options:
 test('lab lists every interaction outcome and transitions reader verification', async ({ page }) => {
   await page.goto('/lab/comments?locale=en&receipt=error&error=BOT&verify=pending', { waitUntil: 'networkidle' });
 
-  await expect(page.locator('.blog-compose__alert:visible')).toContainText('bot check');
+  await expect(page.locator('.blog-compose__alert:visible')).toContainText('human check');
   await expect(page.locator('.blog-comments > .blog-compose [data-compose-identity] input[type="text"]').first()).toHaveAttribute('placeholder', 'Name');
   await expect(page.locator('.comments-lab-catalog tbody tr')).toHaveCount(58);
   await expect(page.locator('.comments-lab-catalog')).toContainText('Submit/edit failure (BOT)');
@@ -135,15 +135,17 @@ test('lab previews the localized reader verification email from site-api', async
   await page.goto('/lab/comments?locale=zh', { waitUntil: 'networkidle' });
   const preview = page.locator('.comments-lab-newsletter');
   await expect(preview).toContainText('site-api · buildReaderVerifyEmail');
-  await expect(preview.locator('[data-reader-verify-subject]')).toHaveText('确认一下是你 · buxx.me');
+  await expect(preview.locator('[data-reader-verify-subject]')).toHaveText('评论已发布 · 验证一下邮箱');
   await expect(preview.locator('[data-reader-verify-email]')).toHaveAttribute('lang', 'zh');
-  await expect(preview).toContainText('认领你的评论。');
-  await expect(preview.getByRole('link', { name: '是我' })).toBeVisible();
+  await expect(preview).toContainText('评论已发布。');
+  await expect(preview).toContainText('回复提醒');
+  await expect(preview.getByRole('link', { name: '验证邮箱' })).toBeVisible();
 
   await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
-  await expect(page.locator('[data-reader-verify-subject]')).toHaveText("Confirm it's you on buxx.me");
+  await expect(page.locator('[data-reader-verify-subject]')).toHaveText('Your comment is live — confirm your email');
   await expect(page.locator('[data-reader-verify-email]')).toHaveAttribute('lang', 'en');
-  await expect(page.getByRole('link', { name: "Confirm it's me" })).toBeVisible();
+  await expect(page.locator('.comments-lab-newsletter')).toContainText('Reply alerts');
+  await expect(page.getByRole('link', { name: 'Confirm email' })).toBeVisible();
 });
 
 test('compose preview opens only for supported Markdown and closes when emptied', async ({ page }) => {
@@ -201,16 +203,29 @@ test('compose validation and body counter expose every refusal', async ({ page }
   await expect(compose.locator('.blog-compose__alert')).toContainText('2000 characters max');
 });
 
-test('reader confirmation follows the mail locale', async ({ page }) => {
-  await page.goto('/reader/confirm?token=fixture&lang=zh', { waitUntil: 'networkidle' });
-  await expect(page.locator('html')).toHaveAttribute('lang', 'zh');
-  await expect(page.locator('.reader-confirm__title')).toHaveText('确认一下是你');
-  await expect(page.locator('.reader-confirm__go')).toHaveText('是我');
+// The served HTML, not the rendered page: a browser confirms the link on
+// arrival and never rests on `pending`, so this asserts what a scanner and a
+// no-JS reader actually get -- the button, in the language the mail was
+// written in.
+test('reader confirmation serves the pending card in the mail locale', async ({ request }) => {
+  const zh = await (await request.get('/reader/confirm?token=fixture&lang=zh')).text();
+  expect(zh).toContain('lang="zh"');
+  expect(zh).toContain('确认一下是你');
+  expect(zh).toContain('是我');
 
+  // Astro escapes apostrophes in text nodes, so compare against the decoded
+  // form rather than writing &#39; into every English assertion.
+  const en = (await (await request.get('/reader/confirm?token=fixture&lang=en')).text()).replaceAll('&#39;', "'");
+  expect(en).toContain('lang="en"');
+  expect(en).toContain("Confirm it's you");
+  expect(en).toContain("Yes, it's me");
+});
+
+test('reader confirmation confirms the link on arrival', async ({ page }) => {
   await page.goto('/reader/confirm?token=fixture&lang=en', { waitUntil: 'networkidle' });
-  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await expect(page.locator('.reader-confirm__title')).toHaveText("Confirm it's you");
-  await expect(page.locator('.reader-confirm__go')).toHaveText("Yes, it's me");
+  // A fixture token is not a real one, so the outcome is the refusal -- what
+  // matters here is that the page reached an outcome without a press.
+  await expect(page.locator('.reader-confirm__card')).not.toHaveAttribute('data-state', 'pending');
 });
 
 test('lab exposes moderation busy, conflict, and empty states', async ({ page }) => {

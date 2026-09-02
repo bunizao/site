@@ -1,10 +1,17 @@
 ---
 // Lazy-verification landing page -- plans/blog-comments.md "Lazy
-// verification": the mail carries one link here, GET renders, and only the
-// button's POST consumes the token. A GET that consumed it would let a mail
+// verification": the mail carries one link here, GET renders, and only a
+// POST consumes the token. A GET that consumed it would let a mail
 // scanner's prefetch (Apple MPP, corporate link checkers) silently burn it
 // before the reader ever clicks -- see src/pages/v2/reader/verify.ts on
 // site-api, which enforces the same rule from its side.
+//
+// The reader no longer presses that button themselves: the pending card
+// auto-submits its own form as soon as the page parses (see the inline
+// script below), so a real visit confirms on arrival and lands straight on
+// the confirmed card. That keeps both halves -- scanners fetch HTML, they do
+// not run scripts, so the token still cannot be burned by a prefetch, and
+// the button stays in the markup as the no-JS path.
 //
 // email never reaches this page or its HTML: `/v2/reader/verify` decodes the
 // token entirely server-side (COMMENTS_EMAIL_SECRET lives only in site-api)
@@ -26,6 +33,11 @@ const locale = resolveReaderConfirmLocale(Astro.url.searchParams.get('lang'));
 const t = readerConfirmCopy[locale];
 let state: ViewState = token ? 'pending' : 'invalid';
 let displayName = '';
+// Seeds the two switches on the confirmed card. Reply alerts come on with the
+// verification itself -- the mail said they would -- and the newsletter only
+// if the reader ticked the offer that sent this link.
+let notifyReplies = true;
+let subscribed = false;
 
 async function callApi<T>(path: string, body: unknown): Promise<T | null> {
   const request = new Request(`${Astro.url.origin}${path}`, {
@@ -47,6 +59,8 @@ if (Astro.request.method === 'POST') {
     if (result?.outcome === 'confirmed') {
       state = 'confirmed';
       displayName = result.reader?.displayName ?? '';
+      notifyReplies = result.reader?.notifyReplies ?? true;
+      subscribed = result.reader?.subscribed ?? false;
     } else if (result?.outcome === 'already_confirmed') {
       state = 'already';
     } else {
@@ -96,10 +110,11 @@ const GLYPHS: Record<ViewState, string> = {
         <>
           <h1 class="reader-confirm__title">{t.pendingTitle}</h1>
           <p class="reader-confirm__body">{t.pendingBody}</p>
-          <form method="post">
+          <form method="post" data-auto-verify>
             <input type="hidden" name="token" value={token} />
             <button type="submit" class="reader-confirm__go" aria-label={t.confirmAria}>{t.confirm}</button>
           </form>
+          <p class="reader-confirm__working" aria-live="polite">{t.verifying}</p>
         </>
       )}
 
@@ -107,6 +122,20 @@ const GLYPHS: Record<ViewState, string> = {
         <>
           <h1 class="reader-confirm__title">{t.confirmedTitle}</h1>
           <p class="reader-confirm__body">{displayName ? t.confirmedBody(displayName) : t.confirmedBodyAnonymous}</p>
+          {/* Both switches are already true or false on the server -- this is
+              where they stand, not a form to fill in. Each one saves itself
+              the moment it moves; see the script below. */}
+          <div class="reader-confirm__prefs" data-reader-prefs>
+            <label class="reader-confirm__switch">
+              <input type="checkbox" data-pref="notifyReplies" checked={notifyReplies} />
+              <span>{t.prefsNotifyReplies}</span>
+            </label>
+            <label class="reader-confirm__switch">
+              <input type="checkbox" data-pref="subscribed" checked={subscribed} />
+              <span>{t.prefsSubscribe}</span>
+            </label>
+            <p class="reader-confirm__prefs-note" data-prefs-note aria-live="polite" hidden></p>
+          </div>
           <a class="reader-confirm__back" href="/blog">{t.back}</a>
         </>
       )}
@@ -136,6 +165,7 @@ const GLYPHS: Record<ViewState, string> = {
             />
             <button type="submit" class="reader-confirm__go">{t.resend}</button>
           </form>
+          <a class="reader-confirm__back" href="/">{t.home}</a>
         </>
       )}
 
@@ -149,5 +179,70 @@ const GLYPHS: Record<ViewState, string> = {
     </div>
   </div>
 
+  {/* Inline and parse-blocking on purpose: it runs the moment the card is in
+      the DOM, so a reader with JS sees "Confirming…" rather than a button that
+      vanishes under their cursor. A mail scanner fetches this HTML and runs
+      none of it, which is what keeps the token safe from a prefetch. The timer
+      is the only way back: if the submit never navigates (offline, a blocked
+      POST), the button returns rather than leaving the card stuck
+      mid-sentence. */}
+  <script is:inline>
+    (function () {
+      var form = document.querySelector('[data-auto-verify]');
+      if (!form) return;
+      var card = form.closest('.reader-confirm__card');
+      card.dataset.auto = 'working';
+      setTimeout(function () { card.dataset.auto = 'manual'; }, 10000);
+      if (form.requestSubmit) form.requestSubmit();
+      else form.submit();
+    })();
+  </script>
+
   <Footer />
 </BlogLayout>
+
+<script>
+  // The two switches on the confirmed card. Each saves on change, alone --
+  // there is no Save button, because there are two booleans and a reader who
+  // came here from an inbox is done as soon as they are done. A refused save
+  // puts the box back where it was and says so, rather than leaving the page
+  // claiming a preference the server never took.
+  import { readerConfirmCopy, resolveReaderConfirmLocale } from '@/features/comments/reader-confirm-copy';
+  import { READER_PREFERENCES_PATH } from '@bunizao/contracts/routes';
+
+  const prefs = document.querySelector<HTMLElement>('[data-reader-prefs]');
+  if (prefs) {
+    const t = readerConfirmCopy[resolveReaderConfirmLocale(new URL(location.href).searchParams.get('lang'))];
+    const note = prefs.querySelector<HTMLElement>('[data-prefs-note]');
+
+    const say = (text: string, bad: boolean) => {
+      if (!note) return;
+      note.textContent = text;
+      note.hidden = false;
+      note.dataset.bad = bad ? 'true' : 'false';
+    };
+
+    prefs.querySelectorAll<HTMLInputElement>('input[data-pref]').forEach((box) => {
+      box.addEventListener('change', async () => {
+        const key = box.dataset.pref!;
+        const wanted = box.checked;
+        box.disabled = true;
+        try {
+          const response = await fetch(`/api${READER_PREFERENCES_PATH}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ [key]: wanted }),
+          });
+          if (!response.ok) throw new Error(String(response.status));
+          say(t.prefsSaved, false);
+        } catch {
+          box.checked = !wanted;
+          say(t.prefsError, true);
+        } finally {
+          box.disabled = false;
+        }
+      });
+    });
+  }
+</script>

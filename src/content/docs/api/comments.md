@@ -349,11 +349,19 @@ malformed and an expired token both currently report `invalid`; the
 contract also defines an `expired` outcome, but nothing produces it yet. On
 `confirmed`, this
 also binds every past anonymous comment from the same browser matching the
-verified email hash to the new `reader_id`, and — if `subscribe: true` (or
+verified email hash to the new `reader_id`, turns reply notifications on
+(the mail that carried the link promises them, and a first confirmation is
+the only place they're switched on unasked — see the endpoint below for
+moving them afterwards), and — if `subscribe: true` (or
 the token itself was minted with a prior subscribe intent) — activates the
 newsletter subscription in the same request, without a second confirmation
 round trip. Sets the reader session cookie on success. Rate-limited at
 10/minute per email hash, durably enforced.
+
+The confirm page submits this on load rather than waiting for a press: a
+browser runs the page's script, a mail scanner does not, so the token still
+cannot be burned by a prefetch and a real reader never has to click twice.
+The button stays in the served HTML as the no-JS path.
 
 ```
 POST /api/v2/reader/resend
@@ -385,6 +393,32 @@ record, checked over DNS-over-HTTPS with a per-domain cache; DNS trouble
 fails open). Both guards protect the sending domain's bounce and complaint
 rates — the numbers mail providers score reputation on — from the fake
 addresses a no-account comment box inevitably collects.
+
+## Reader preferences
+
+```
+POST /api/v2/reader/preferences
+```
+
+```json
+{ "notifyReplies": true, "subscribed": false }
+```
+
+```json
+{ "reader": { "...": "..." } }
+```
+
+The two switches on the confirm page. Authenticated by the reader session
+cookie alone — it takes no address, so it can never move a stranger's
+preferences by naming them, and answers `401 not_signed_in` without one.
+Both fields are optional and independent; the client sends only the switch
+that moved, and a body carrying neither is a `400`. `notifyReplies` writes
+the reader's own column; `subscribed` activates or unsubscribes the
+newsletter subscription without touching reply notifications, and vice
+versa — leaving the newsletter and muting your own replies are separate
+decisions. Rate-limited at 20/minute per reader, durably enforced. The
+response carries the reader row as it now stands, in the same shape
+`/api/v2/reader/me` returns.
 
 ## Reader avatar
 

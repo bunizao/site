@@ -2197,12 +2197,70 @@
 .reader-confirm__input:focus { outline: none; border-color: hsl(var(--foreground) / 0.28); background: transparent; }
 .reader-confirm__input:focus-visible { outline: 2px solid var(--blog-accent); outline-offset: 2px; }
 
+/* The pending card confirms itself. The button stays in the markup for the
+   browser that never runs the script -- so the two are swapped by an attribute
+   the inline script sets, not by rendering one of them, and a no-JS reader
+   still lands on a working button rather than a sentence that never resolves.
+   `manual` is the 10s give-up: the submit never navigated, so hand the press
+   back. */
+.reader-confirm__working {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--blog-faint);
+}
+
+.reader-confirm__card:not([data-auto='working']) .reader-confirm__working { display: none; }
+.reader-confirm__card[data-auto='working'] [data-auto-verify] { display: none; }
+
+/* The two switches on the confirmed card. Left-aligned inside a centred card
+   on purpose: they are read line by line, and centred checkbox rows put the
+   box in a different place on every line. */
+.reader-confirm__prefs {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--blog-line);
+  text-align: start;
+}
+
+.reader-confirm__switch {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--blog-muted);
+  cursor: pointer;
+}
+
+.reader-confirm__switch input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  accent-color: var(--blog-accent);
+  cursor: pointer;
+}
+
+.reader-confirm__switch input:disabled { cursor: progress; opacity: 0.6; }
+
+.reader-confirm__prefs-note {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--blog-faint);
+}
+
+.reader-confirm__prefs-note[data-bad='true'] { color: var(--blog-danger); }
+
 .reader-confirm__back {
   display: inline-block;
   font-size: 13.5px;
   color: var(--blog-faint);
   transition: color 0.15s ease;
 }
+
+.reader-confirm__form + .reader-confirm__back { margin-top: 16px; }
 
 .reader-confirm__back:hover {
   color: var(--blog-ink);

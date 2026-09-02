@@ -107,6 +107,19 @@ export interface ReaderResendResult {
   ok: boolean;
 }
 
+/** The two switches on the confirm page, and the only place a reader can move
+    them without an account. Session-authenticated (the cookie the verify POST
+    just set), so nothing here names an address. Both fields are optional: the
+    page sends only the one that was just toggled. */
+export interface ReaderPreferencesInput {
+  notifyReplies?: boolean;
+  subscribed?: boolean;
+}
+
+export interface ReaderPreferencesResult {
+  reader: ReaderMe | null;
+}
+
 // ---------------------------------------------------------------------------
 // Reactions
 // ---------------------------------------------------------------------------

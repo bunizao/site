@@ -142,7 +142,7 @@ const behaviorRows = [
   { behavior: 'Published result', state: 'posted', zh: '新评论本身就是确认（不重复显示状态条）', en: 'The new comment is the receipt (no duplicate status bar)', next: 'Continue writing' },
   { behavior: 'Held result', state: 'held', zh: commentsCopy.zh.held, en: commentsCopy.en.held, next: 'Wait for moderation; the row may upgrade to published' },
   { behavior: 'Unverified email result', state: 'nudge', zh: `${commentsCopy.zh.nudgeText('reader@example.com')} · ${commentsCopy.zh.nudgeSubscribe} · ${commentsCopy.zh.dismiss}`, en: `${commentsCopy.en.nudgeText('reader@example.com')} · ${commentsCopy.en.nudgeSubscribe} · ${commentsCopy.en.dismiss}`, next: 'Confirm email, subscribe, or dismiss' },
-  { behavior: 'Verification email reaches the reader', state: 'reader email', zh: '主题“确认一下是你 · buxx.me” · 认领你的评论。 · 是我', en: "Subject “Confirm it's you on buxx.me” · Claim your comment. · Confirm it's me", next: 'Open the confirmation page or ignore the expiring link' },
+  { behavior: 'Verification email reaches the reader', state: 'reader email', zh: '主题“评论已发布 · 验证一下邮箱” · 评论已发布。 · 验证邮箱', en: 'Subject “Your comment is live — confirm your email” · Your comment is live. · Confirm email', next: 'Open the confirmation page or ignore the expiring link' },
   { behavior: 'Open or close subscribe panel', state: 'subscribe open', zh: '订阅 · 关闭', en: 'Subscribe · Close', next: 'Enter an email or dismiss' },
   { behavior: 'Submit malformed subscription email', state: 'subscribe invalid', zh: '这个邮箱看起来不太对。', en: "That email doesn't look right.", next: 'Correct the email' },
   { behavior: 'Submit with no channels', state: 'subscribe channels', zh: '至少选一样。', en: 'Pick at least one.', next: 'Select Posts or Moods' },
@@ -434,7 +434,7 @@ await billing.invoice(payload)</code></pre>
         <div class="comments-lab-catalog__head">
           <p class="comments-lab-catalog__eyebrow">Email verification</p>
           <h2 id="comments-lab-verify-title">Reader confirmation states</h2>
-          <p>Set <code>?verify=pending|confirmed|already|invalid|resent</code> to inspect each real <code>/reader/confirm</code> outcome in this one lab.</p>
+          <p>Set <code>?verify=pending|confirmed|already|invalid|resent</code> to inspect each real <code>/reader/confirm</code> outcome in this one lab. The live page never rests on <code>pending</code>: it confirms the link on arrival and the button below is the no-JS path.</p>
         </div>
         <div
           class="reader-confirm__card"
@@ -446,9 +446,9 @@ await billing.invoice(payload)</code></pre>
         >
           <span class="reader-confirm__glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" set:html={verifyGlyphs[verifyState]} /></span>
           {verifyState === 'pending' && <><h3 class="reader-confirm__title">{verifyCopy.pendingTitle}</h3><p class="reader-confirm__body">{verifyCopy.pendingBody}</p><button type="button" class="reader-confirm__go" data-verify-confirm>{verifyCopy.confirm}</button></>}
-          {verifyState === 'confirmed' && <><h3 class="reader-confirm__title">{verifyCopy.confirmedTitle}</h3><p class="reader-confirm__body">{verifyCopy.confirmedBodyAnonymous}</p></>}
+          {verifyState === 'confirmed' && <><h3 class="reader-confirm__title">{verifyCopy.confirmedTitle}</h3><p class="reader-confirm__body">{verifyCopy.confirmedBodyAnonymous}</p><div class="reader-confirm__prefs"><label class="reader-confirm__switch"><input type="checkbox" checked /><span>{verifyCopy.prefsNotifyReplies}</span></label><label class="reader-confirm__switch"><input type="checkbox" /><span>{verifyCopy.prefsSubscribe}</span></label></div></>}
           {verifyState === 'already' && <><h3 class="reader-confirm__title">{verifyCopy.alreadyTitle}</h3><p class="reader-confirm__body">{verifyCopy.alreadyBody}</p></>}
-          {verifyState === 'invalid' && <><h3 class="reader-confirm__title">{verifyCopy.invalidTitle}</h3><p class="reader-confirm__body">{verifyCopy.invalidBody}</p><div class="reader-confirm__form"><input class="reader-confirm__input" type="email" placeholder={verifyCopy.emailPlaceholder} aria-label={verifyCopy.emailLabel} /><button type="button" class="reader-confirm__go" data-verify-resend>{verifyCopy.resend}</button></div></>}
+          {verifyState === 'invalid' && <><h3 class="reader-confirm__title">{verifyCopy.invalidTitle}</h3><p class="reader-confirm__body">{verifyCopy.invalidBody}</p><div class="reader-confirm__form"><input class="reader-confirm__input" type="email" placeholder={verifyCopy.emailPlaceholder} aria-label={verifyCopy.emailLabel} /><button type="button" class="reader-confirm__go" data-verify-resend>{verifyCopy.resend}</button></div><a class="reader-confirm__back" href="/">{verifyCopy.home}</a></>}
           {verifyState === 'resent' && <><h3 class="reader-confirm__title">{verifyCopy.resentTitle}</h3><p class="reader-confirm__body">{verifyCopy.resentBody}</p></>}
         </div>
       </section>
