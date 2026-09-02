@@ -227,16 +227,25 @@ function orderForRender(comments: Comment[]): { comment: Comment; parentId: stri
 export function initCommentsController(): void {
   const sectionEl = document.querySelector<HTMLElement>('.blog-comments[data-post-id]');
   const postIdValue = sectionEl?.dataset.postId;
-  const composeEl = sectionEl?.querySelector<HTMLElement>('.blog-compose:not(.blog-reply)');
-  if (!sectionEl || !postIdValue || !composeEl) return; // lab/preview pages never hydrate this
+  if (!sectionEl || !postIdValue) return; // lab/preview pages never hydrate this
 
   // Narrowed, stable bindings -- nested function declarations below close
   // over these, and TS does not carry a guard's narrowing across a closure
-  // boundary, so the plain `sectionEl`/`postIdValue`/`composeEl` names stay
-  // typed as non-null everywhere they are used past this point.
+  // boundary, so the plain `sectionEl`/`postIdValue` names stay typed as
+  // non-null everywhere they are used past this point.
   const section: HTMLElement = sectionEl;
   const postId: string = postIdValue;
-  const compose: HTMLElement = composeEl;
+  // Null on a read-only post (`#comments-readonly`), where CommentsSection
+  // renders the closed notice instead of a box. The thread still loads: a
+  // closed thread is one nobody can add to, not one nobody can read. Every
+  // use below is guarded rather than the whole controller bailing out, which
+  // is what it used to do -- and which is why a closed post used to show a
+  // notice with its existing comments hidden underneath it.
+  const compose = section.querySelector<HTMLElement>('.blog-compose:not(.blog-reply)');
+  /** Stamped by CommentsSection.astro from the post's policy. The reply box is
+      built here, so it has to be told the same thing the server-rendered box
+      was told. */
+  const requireEmail = section.dataset.requireEmail === 'true';
 
   // Same table CommentsSection.astro rendered from -- found through
   // `data-locale` on the section rather than imported, so this controller
@@ -259,8 +268,10 @@ export function initCommentsController(): void {
   let replyField: HTMLTextAreaElement;
   let moreButton: HTMLButtonElement | null = null;
 
-  applyPhase(compose, phase, claimed, viewer);
-  wireSignOut(compose, () => void signOut());
+  if (compose) {
+    applyPhase(compose, phase, claimed, viewer);
+    wireSignOut(compose, () => void signOut());
+  }
   void mintDwellToken();
 
   // A Turnstile solve costs ~2.3s. Asked for at submit time it landed entirely
@@ -276,7 +287,7 @@ export function initCommentsController(): void {
   // tabs straight in. Neither fires on page load -- that would fetch
   // Cloudflare's script for every reader of every post, and most of them
   // never write anything.
-  const turnstileHost = compose.querySelector<HTMLElement>('[data-turnstile-host]');
+  const turnstileHost = compose?.querySelector<HTMLElement>('[data-turnstile-host]');
   if (turnstileHost) setTurnstileHost('blog_comment_create', turnstileHost);
 
   const warmCreate = () => warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
@@ -313,7 +324,7 @@ export function initCommentsController(): void {
       if (viewer) {
         phase = 'ready';
       }
-      applyPhase(compose, phase, claimed, viewer);
+      if (compose) applyPhase(compose, phase, claimed, viewer);
       applyPhase(replyBox, phase, claimed, viewer);
     }
 
@@ -370,6 +381,13 @@ export function initCommentsController(): void {
 
   function toggleEmptyState(empty: boolean): void {
     let node = section.querySelector('.blog-comments__empty');
+    // "Be the first to say something" is an invitation, and a read-only thread
+    // has nothing to invite anyone to. It already says why it is empty, one
+    // line above, next to the crossed-out bubble.
+    if (empty && !compose) {
+      node?.remove();
+      return;
+    }
     if (empty && !node) {
       node = el('p', { class: 'blog-comments__empty' }, [t.empty]);
       list.before(node);
@@ -585,7 +603,7 @@ export function initCommentsController(): void {
       claimed = { name: identity.displayName, email: identity.email };
       writeClaimedIdentity(claimed);
       phase = 'claimed';
-      applyPhase(compose, phase, claimed, viewer);
+      if (compose) applyPhase(compose, phase, claimed, viewer);
       applyPhase(replyBox, phase, claimed, viewer);
     }
 
@@ -896,7 +914,13 @@ export function initCommentsController(): void {
   // CommentForm.astro. `applyPhase()` already looks for those two elements on
   // whichever box it is given, so building them here is the whole fix.
   function buildReplyBox(): HTMLElement {
-    const box = el('div', { class: 'blog-compose blog-reply', id: 'blog-reply', 'data-phase': phase, hidden: '' }, [
+    const box = el('div', {
+      class: 'blog-compose blog-reply',
+      id: 'blog-reply',
+      'data-phase': phase,
+      ...(requireEmail ? { 'data-require-email': 'true' } : {}),
+      hidden: '',
+    }, [
       el('p', { class: 'blog-compose__alert', 'data-compose-error': '', role: 'alert', hidden: '' }, [
         parseStaticSvg(ALERT_ICON_SVG),
         el('span', { 'data-compose-error-text': '' }),
@@ -935,7 +959,14 @@ export function initCommentsController(): void {
         el('label', { class: 'sr-only', for: `${id}-name` }, [t.nameLabel]),
         el('input', { id: `${id}-name`, class: 'blog-compose__input blog-compose__input--name', type: 'text', maxlength: '32', autocomplete: 'nickname', placeholder: t.namePlaceholder, required: '' }),
         el('label', { class: 'sr-only', for: `${id}-email` }, [t.emailLabel]),
-        el('input', { id: `${id}-email`, class: 'blog-compose__input', type: 'email', autocomplete: 'email', placeholder: t.emailPlaceholder }),
+        el('input', {
+          id: `${id}-email`,
+          class: 'blog-compose__input',
+          type: 'email',
+          autocomplete: 'email',
+          placeholder: requireEmail ? t.emailRequired : t.emailPlaceholder,
+          ...(requireEmail ? { required: '' } : {}),
+        }),
       ]),
       // The two-click anonymous-post confirm's recommendation -- see
       // confirmAnonymousSubmit() in compose-validate.ts. Green, and beside
@@ -1609,9 +1640,9 @@ export function initCommentsController(): void {
     claimed = null;
     viewer = null;
     phase = 'anonymous';
-    applyPhase(compose, phase, claimed, viewer);
+    if (compose) applyPhase(compose, phase, claimed, viewer);
     applyPhase(replyBox, phase, claimed, viewer);
-    compose.querySelector<HTMLInputElement>('[data-compose-identity] input')?.focus();
+    compose?.querySelector<HTMLInputElement>('[data-compose-identity] input')?.focus();
   }
 
   function readClaimedIdentity(): ClaimedIdentity | null {

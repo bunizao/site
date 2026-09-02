@@ -17,6 +17,34 @@ Not `mood`'s per-post comment count (see
 [Mood API](/docs/api/mood#comments)) — this is a separate feature, a
 different table, and a different identity model.
 
+## Per-post policy
+
+Every write route below asks the post one question first, and the answer comes
+from the post's own internal tags in Ghost — `#comments-off`,
+`#comments-readonly` (or the older `#no-comments`), `#reactions-off`,
+`#comments-verified` — folded onto a site-wide default. The full table is in
+[Internal tags](/docs/writing/tags#comment-policy).
+
+Both halves of the system derive it with one function,
+`commentPolicyFromTags` in `@bunizao/contracts/comments`: `/blog/[slug]`
+at build time from the Admin API, site-api per request from the Content API,
+which returns internal tags for `include=tags` and is cached with the post for
+60 seconds. So the page and the API cannot disagree, and a closed thread is
+closed to `curl` too.
+
+Three refusals come out of it, all `403`:
+
+| Slug | Cause |
+| --- | --- |
+| `comments_closed` | The post takes no new comments (`readonly` or `off`). Applies to create and to edit; delete is always allowed, since removing your own words is not adding to a thread. |
+| `email_verification_required` | The post takes verified addresses only, and this writer has none. An honest refusal, not a moderation hold. |
+| `reactions_disabled` | The post's hearts are off — on the post and on its comments. |
+
+Reads are never gated: a read-only thread has to stay readable, and a post
+with no section rendered is simply not linked to. The `off` and `readonly`
+difference is drawn by the page, not enforced by the API — to a write, both
+mean no.
+
 ## Identity: three grades, one table
 
 | Grade | How it's reached | What it unlocks |
@@ -171,8 +199,10 @@ send. A create without an email never sends mail at all.
 messages), `400 invalid_parent` for a `parentId` that doesn't exist, isn't a
 root comment, or belongs to a different post, `404 not_found` for an unknown
 `postId`, `503 comment_target_unavailable` when the Ghost registry can't be
-reached, `400 turnstile_failed` / `503 turnstile_unavailable` (with a `code`
-extra) for Turnstile, `429 Too Many Requests` for a rate limit.
+reached, `403 comments_closed` and `403 email_verification_required` from the
+[per-post policy](#per-post-policy), `400 turnstile_failed` /
+`503 turnstile_unavailable` (with a `code` extra) for Turnstile,
+`429 Too Many Requests` for a rate limit.
 
 Same-origin only — no CORS header.
 
@@ -230,7 +260,8 @@ stays as a shape-preserving placeholder (`body`/`author` blanked at read
 time) instead of disappearing.
 
 **Errors (both methods):** `404 not_found` (missing, or already deleted),
-`403 not_owner`. `PATCH` additionally: `409 edit_window_closed`, `400` for a
+`403 not_owner`. `PATCH` additionally: `409 edit_window_closed`,
+`403 comments_closed` on a post that has stopped taking comments, `400` for a
 malformed body. `PATCH` is rate-limited at 10/minute per reader/session,
 durably enforced.
 
@@ -286,7 +317,8 @@ A verified reader — whose identity cannot churn — is exempt from the
 per-minute IP cap and bound only by their own identity budget and the
 hourly network ceiling. **Errors:** `400` for a malformed
 body, `400 turnstile_failed` / `503 turnstile_unavailable`, `404 not_found`
-for an unknown target, `503 reaction_target_unavailable`.
+for an unknown target, `503 reaction_target_unavailable`,
+`403 reactions_disabled` on a post whose hearts are off.
 
 ## Reader session
 

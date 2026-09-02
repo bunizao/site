@@ -297,3 +297,91 @@ export interface CommentDeleteResult {
       a reply hangs underneath it. */
   tombstone: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Per-post policy
+// ---------------------------------------------------------------------------
+
+/** What the comment section does on a post.
+ *
+ *    open     — the ordinary thread: read, write, reply.
+ *    readonly — everything already written stays readable; nothing new is
+ *               accepted. The section says so instead of offering a box.
+ *    off      — no comment section at all.
+ *
+ * `off` and `readonly` differ only in what the page draws; to the API both
+ * mean "this post takes no writes" (see `acceptsComments`). */
+export const COMMENTS_MODES = ['open', 'readonly', 'off'] as const;
+
+export type CommentsMode = (typeof COMMENTS_MODES)[number];
+
+export interface CommentPolicy {
+  mode: CommentsMode;
+  /** Whether the heart can be pressed — on the post and on its comments.
+      Independent of `mode`: a post can take reactions with comments off, and
+      an open thread can refuse them. */
+  reactions: boolean;
+  /** Accept a comment only from an address that has been verified. Anonymous
+      and unverified-email writers are refused rather than held. */
+  requireVerifiedEmail: boolean;
+}
+
+export const DEFAULT_COMMENT_POLICY: CommentPolicy = {
+  mode: 'open',
+  reactions: true,
+  requireVerifiedEmail: false,
+};
+
+/** Ghost internal tags that override the site-wide default, one knob each.
+ *
+ * Internal tags are the switch because they are the only per-post field the
+ * author already edits in Ghost, and both halves of the system can read them:
+ * the site sees them through the Admin API at build time, site-api through the
+ * Content API at request time (`include=tags` returns internal tags). One
+ * source of truth, no settings table, no admin screen to keep in sync.
+ *
+ * `#no-comments` predates the others and is kept: it always meant "this post
+ * takes no more comments", which is `readonly`. */
+export const COMMENT_POLICY_TAGS = {
+  'comments-off': (policy: CommentPolicy) => ({ ...policy, mode: 'off' as CommentsMode }),
+  'comments-readonly': (policy: CommentPolicy) => ({ ...policy, mode: 'readonly' as CommentsMode }),
+  'no-comments': (policy: CommentPolicy) => ({ ...policy, mode: 'readonly' as CommentsMode }),
+  'reactions-off': (policy: CommentPolicy) => ({ ...policy, reactions: false }),
+  'comments-verified': (policy: CommentPolicy) => ({ ...policy, requireVerifiedEmail: true }),
+} as const satisfies Record<string, (policy: CommentPolicy) => CommentPolicy>;
+
+/** A tag as either half of Ghost's pair: `#no-comments` is the name a person
+    types, `hash-no-comments` the slug the API returns beside it. */
+export interface CommentPolicyTagLike {
+  name?: string | null;
+  slug?: string | null;
+}
+
+const policyKeyOf = (tag: CommentPolicyTagLike): string | null => {
+  const name = tag.name?.trim();
+  if (name?.startsWith('#')) return name.slice(1).toLowerCase();
+  const slug = tag.slug?.trim().toLowerCase();
+  if (slug?.startsWith('hash-')) return slug.slice(5);
+  return null;
+};
+
+/** Fold a post's tags onto the site-wide default. Order does not matter:
+    every tag sets one field, and a tag the map does not know is ignored. */
+export function commentPolicyFromTags(
+  tags: readonly CommentPolicyTagLike[] | null | undefined,
+  base: CommentPolicy = DEFAULT_COMMENT_POLICY,
+): CommentPolicy {
+  let policy: CommentPolicy = { ...base };
+  for (const tag of tags ?? []) {
+    const key = policyKeyOf(tag);
+    if (!key) continue;
+    const apply = (COMMENT_POLICY_TAGS as Record<string, ((p: CommentPolicy) => CommentPolicy) | undefined>)[key];
+    if (apply) policy = apply(policy);
+  }
+  return policy;
+}
+
+/** Whether the post takes new comments — the one question the API asks. Both
+    `readonly` and `off` answer no; the difference between them is drawn, not
+    enforced. */
+export const acceptsComments = (policy: CommentPolicy): boolean => policy.mode === 'open';

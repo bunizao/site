@@ -55,6 +55,33 @@ is technically long enough but reads worse chopped into sections.
 The reading topbar itself still shows; it just carries the post title with no
 section menu behind it.
 
+### Comment policy
+
+Five tags, one knob each, folded onto the site-wide default in
+`blog.comments` (`src/data/site.ts`). They are the only per-post switch the
+comment section has: there is no settings table and no admin screen, because a
+tag is a field the author already edits in the same place they write the post.
+
+| Tag | Effect |
+| --- | --- |
+| `#comments-off` | No comment section on the page at all. |
+| `#comments-readonly` | Everything already written stays readable; nothing new is accepted. The section says so where the box used to be. |
+| `#no-comments` | The older name for `#comments-readonly`, and the same thing. Kept because it is already on posts. |
+| `#reactions-off` | The heart disappears — on the post and on its comments. Independent of the three above: a post can take reactions with comments off, or refuse them with an open thread. |
+| `#comments-verified` | Only a verified email address may comment. The email field stops being optional and the API refuses anonymous and unverified writers rather than holding them for moderation. |
+
+Both halves of the system read these tags through one function,
+`commentPolicyFromTags` in `@bunizao/contracts/comments`: the page derives the
+policy at build time from the Admin API, and site-api derives it per request
+from the Content API, which returns internal tags when asked for
+`include=tags`. So the page and the API cannot disagree about a post — and a
+read-only thread is read-only to `curl` as well as to a reader.
+
+What the tags do *not* override is the site-wide default itself. `blog.comments`
+in this repo and `COMMENTS_MODE` / `COMMENTS_REACTIONS` /
+`COMMENTS_REQUIRE_VERIFIED_EMAIL` in site-api's `wrangler.jsonc` are two copies
+of the same three answers, and they have to be changed together.
+
 ### `#not-by-ai`
 
 Historical. The human-authorship pledge is now the **default** at the foot of

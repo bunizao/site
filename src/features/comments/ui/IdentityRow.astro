@@ -20,7 +20,11 @@
    put three lines of prose between the heading and the first thing a reader
    can type.
 
-   Email is optional -- name is the only field Post actually needs. Leaving
+   Email is optional on most posts -- name is the only field Post actually
+   needs. A post tagged `#comments-verified` is the exception: `requireEmail`
+   flips this field to required, because site-api will refuse the comment
+   without a verified address and a form should not collect a comment it knows
+   is going to bounce. Leaving
    it empty and pressing Post once does not send anything either, though: it
    shows the green recommendation below, and only the second press posts
    (with an email if one got typed in the meantime, anonymously otherwise).
@@ -32,13 +36,18 @@ import { ICONS } from '@/features/comments/icons';
 
 interface Props {
   locale?: BlogLocale;
+  /** The post takes verified addresses only (`#comments-verified`). Flips the
+      email field from optional to required: its placeholder says so, and
+      compose-validate.ts refuses an empty one instead of offering the
+      anonymous two-press confirm. */
+  requireEmail?: boolean;
   /** Base id for this mount's two inputs (`${id}-name` / `${id}-email`) and
       for the row itself, so the compose box and the reply box — both on
       screen from the same render — never collide on an id. */
   id: string;
 }
 
-const { id, locale = blog.locale.blog } = Astro.props;
+const { id, locale = blog.locale.blog, requireEmail = false } = Astro.props;
 const t = commentsCopy[locale];
 ---
 
@@ -60,7 +69,8 @@ const t = commentsCopy[locale];
       class="blog-compose__input"
       type="email"
       autocomplete="email"
-      placeholder={t.emailPlaceholder}
+      placeholder={requireEmail ? t.emailRequired : t.emailPlaceholder}
+      required={requireEmail}
     />
   </div>
 

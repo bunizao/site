@@ -924,6 +924,11 @@ const intro =
     display: flex;
     align-items: center;
     gap: 6px;
+    /* Holds the right edge on its own. The colophon row spaces its children
+       apart, which puts this cluster on the right only while the reaction bar
+       is there to be the left one -- and a post tagged `#reactions-off` does
+       not render it. */
+    margin-left: auto;
   }
 
   /* Subscribe trigger as a pill, matching ShareRow's .share-btn. Scoped to the

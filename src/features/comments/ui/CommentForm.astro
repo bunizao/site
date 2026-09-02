@@ -66,6 +66,11 @@ interface Props {
   /** The body text to preserve across `submitting` and `error` — the two
       states where the draft is still the reader's, not gone yet. */
   draftText?: string;
+  /** The post takes verified addresses only (`#comments-verified`). Passed
+      down to the identity row, and stamped on the box so compose-validate.ts
+      and the controller's reply box read one attribute rather than a prop
+      each. */
+  requireEmail?: boolean;
 }
 
 const {
@@ -76,6 +81,7 @@ const {
   draftText = '',
   locale = blog.locale.blog,
   errorCode,
+  requireEmail = false,
 } = Astro.props;
 
 const t = commentsCopy[locale];
@@ -90,7 +96,13 @@ const alertText = receipt === 'error' ? t.submitError[errorCode ?? 'SERVER'] : '
 const showNudge = receipt === 'nudge';
 ---
 
-<div class="blog-compose" data-pagefind-ignore data-phase={phase} data-receipt={receipt}>
+<div
+  class="blog-compose"
+  data-pagefind-ignore
+  data-phase={phase}
+  data-receipt={receipt}
+  data-require-email={requireEmail ? 'true' : undefined}
+>
   {/* Everything that can go wrong with this box says so here, and only here:
       a field left empty (compose-validate.ts, which also rings the field and
       puts the cursor in it) and a submission the server refused
@@ -127,7 +139,7 @@ const showNudge = receipt === 'nudge';
       thing, and stacking them in one slot made both read as noise. The fact
       lives in the form now; the outcome does not live below it at all. */}
   <div class="blog-compose__box">
-    <IdentityRow id="blog-compose-id" locale={locale} />
+    <IdentityRow id="blog-compose-id" locale={locale} requireEmail={requireEmail} />
 
     <p class="blog-compose__signed">
       <span class="blog-compose__who">

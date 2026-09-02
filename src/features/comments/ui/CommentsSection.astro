@@ -36,7 +36,10 @@ interface Props {
   comments?: BlogComment[];
   /** `closed` is the author's call, not a failure: no compose box, no privacy
       footnote, and whatever was already written still renders below the
-      notice. See copy.ts `closed`. */
+      notice -- server-rendered rows and, since the thread keeps its `postId`,
+      whatever the controller fetches. It is the `readonly` half of the post's
+      comment policy; `off` is drawn by not rendering this component at all.
+      See copy.ts `closed`. */
   state?: 'loaded' | 'loading' | 'empty' | 'error' | 'closed';
   /** Reader standing and the current submission receipt, passed straight
       through to the compose box. */
@@ -54,6 +57,11 @@ interface Props {
       to. Omitted entirely in the lab/preview pages, which never hydrate a
       controller. */
   postId?: string;
+  /** The post takes verified addresses only (`#comments-verified`). Reaches
+      the compose box as a prop and the client-built reply box through
+      `data-require-email` on the section, so both halves of one policy come
+      from the same place. */
+  requireEmail?: boolean;
   /** Cloudflare Turnstile site key, read by the controller the same way --
       empty when Turnstile is unconfigured (e2e fixtures, local dev without
       a key), in which case the controller skips minting a widget and lets
@@ -75,6 +83,7 @@ const {
   postId,
   turnstileSiteKey = '',
   errorCode,
+  requireEmail = false,
 } = Astro.props;
 
 const tally = comments.filter((comment) => !comment.held && !comment.tombstone).length;
@@ -97,6 +106,7 @@ const t = commentsCopy[locale];
   data-turnstile-site-key={turnstileSiteKey}
   data-locale={locale}
   data-state={state}
+  data-require-email={requireEmail ? 'true' : undefined}
 >
   <div class="blog-comments__head">
     <h2 class="blog-comments__title">{t.title}</h2>
@@ -106,7 +116,7 @@ const t = commentsCopy[locale];
   </div>
 
   {state !== 'closed' && (
-    <CommentForm locale={locale} phase={phase} viewer={viewer} claimed={claimed} receipt={receipt} errorCode={errorCode} draftText={draftText} />
+    <CommentForm locale={locale} phase={phase} viewer={viewer} claimed={claimed} receipt={receipt} errorCode={errorCode} draftText={draftText} requireEmail={requireEmail} />
   )}
 
   {state === 'loading' && (

@@ -2,6 +2,7 @@
 // derives its identity strings from `profile` so the same fact is never typed
 // twice. Plain typed module on purpose — Content Collections are for MD/MDX
 // documents, not UI labels.
+import type { CommentPolicy } from '@bunizao/contracts/comments';
 import type { ComponentType } from 'react';
 import { FileText, Mail, Send, GraduationCap } from 'lucide-react';
 import { OpenAIIcon, AnthropicIcon, GitHubIcon, InstagramIcon } from '@/components/icons';
@@ -158,6 +159,24 @@ export const blog = {
   mark: '/blog-mark.webp',
   /** RSS feed for reader-app subscribers. Self-hosted so it does not bounce through the legacy Ghost subdomain. */
   feed: '/blog/rss.xml',
+  /**
+   * What the comment section does on a post that carries none of the
+   * per-post tags. Every field is overridable in Ghost with an internal tag
+   * -- `#comments-off`, `#comments-readonly` (or the older `#no-comments`),
+   * `#reactions-off`, `#comments-verified` -- which is where a single post
+   * gets its own answer. This is the answer for all the others.
+   *
+   * site-api enforces the same policy from the same tags and keeps its own
+   * copy of these defaults in `COMMENTS_MODE` / `COMMENTS_REACTIONS` /
+   * `COMMENTS_REQUIRE_VERIFIED_EMAIL`. The per-post half cannot drift -- both
+   * halves read the tags through the one function in @bunizao/contracts --
+   * but these three lines and those three vars have to be changed together.
+   */
+  comments: {
+    mode: 'open',
+    reactions: true,
+    requireVerifiedEmail: false,
+  } satisfies CommentPolicy,
   /** Byline: the author behind the publication, linking home to the main site. */
   author: {
     name: profile.name,

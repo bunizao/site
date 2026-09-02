@@ -22,11 +22,19 @@ export interface CommentsCopy {
   empty: string;
   loadError: string;
   retry: string;
-  /** The author closed the thread on this post -- an internal `#no-comments`
-      tag in Ghost, read in blog/[slug].astro. Covers both cases with one
-      string: a post that never opened comments, and one locked after the
-      fact, which still renders whatever was already written below this. */
+  /** The author closed the thread on this post -- `#comments-readonly` or the
+      older `#no-comments` in Ghost, folded into a policy in blog/[slug].astro.
+      Covers both cases with one string: a post that never opened comments, and
+      one locked after the fact, which still renders whatever was already
+      written below this. A post tagged `#comments-off` renders no section at
+      all and so never reaches this line. */
   closed: string;
+  /** Replaces `emailPlaceholder` when the post takes verified addresses only
+      (`#comments-verified`). Same shape as the placeholder it stands in for,
+      with the parenthetical flipped: it is the one time this form asks for
+      something it cannot do without, and the field itself is where that
+      belongs -- not a sentence above the box, and not a refused press. */
+  emailRequired: string;
   loadMore: string;
   loading: string;
 
@@ -168,6 +176,9 @@ export interface CommentsCopy {
       field is never a validation failure. A malformed one still is: see
       badEmail. */
   badEmail: string;
+  /** Only reachable under `#comments-verified`, where the address stops being
+      optional. Everywhere else an empty email is not a failure at all. */
+  needEmail: string;
 }
 
 const zh: CommentsCopy = {
@@ -176,6 +187,7 @@ const zh: CommentsCopy = {
   loadError: '评论好像迷路了。',
   retry: '重试',
   closed: '这篇的评论区打烊了。',
+  emailRequired: '邮箱（必填）',
   loadMore: '更多评论',
   loading: '加载中',
 
@@ -236,6 +248,8 @@ const zh: CommentsCopy = {
     GONE: '这篇文章的评论区暂时用不了。',
     THREAD: '要回复的那条评论已经不在了，刷新一下看看？',
     CLOSED: '过了可以修改的时间，这条改不了啦。',
+    LOCKED: '这篇的评论区已经打烊了，不收新评论啦。',
+    VERIFY: '这篇只收验证过的邮箱。去收件箱点一下确认链接，再回来发。',
     NAME: '这个名字用不了，换一个试试？',
     EMAIL: '这个邮箱地址用不了，换一个试试？',
     LONG: '字数有点超啦（上限 2000 字），精简一下再发吧。',
@@ -252,6 +266,7 @@ const zh: CommentsCopy = {
   needBody: '还空着呢，写点什么再发吧。',
   needName: '参与讨论的人，值得一个好名字。',
   badEmail: '这个邮箱看起来不太对，检查一下？',
+  needEmail: '这篇只收验证过的邮箱，留一个吧。',
 };
 
 const en: CommentsCopy = {
@@ -260,6 +275,7 @@ const en: CommentsCopy = {
   loadError: "The comments didn't make it.",
   retry: 'Retry',
   closed: 'Comments are closed on this post.',
+  emailRequired: 'Email (required)',
   loadMore: 'Load more',
   loading: 'Loading',
 
@@ -320,6 +336,8 @@ const en: CommentsCopy = {
     GONE: "Comments on this post aren't available right now.",
     THREAD: "The comment you're replying to is gone. Refresh to see the thread?",
     CLOSED: "The edit window has closed — this one can't be changed now.",
+    LOCKED: 'This post has stopped taking new comments.',
+    VERIFY: 'This post takes verified addresses only. Confirm the link in your inbox, then post.',
     NAME: "That name won't work here. Try another?",
     EMAIL: "That email address won't work. Try another?",
     LONG: "That's a bit long (2000 characters max). Trim it and post again.",
@@ -336,6 +354,7 @@ const en: CommentsCopy = {
   needBody: 'Nothing there yet — write something first.',
   needName: 'Everyone in a conversation deserves a name.',
   badEmail: "That email doesn't look right. Mind checking it?",
+  needEmail: 'This post takes verified addresses only. Leave one here.',
 };
 
 export const commentsCopy = { zh, en } satisfies Record<BlogLocale, CommentsCopy>;

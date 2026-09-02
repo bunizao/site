@@ -127,14 +127,28 @@ function requiredFields(compose: HTMLElement): ComposeField[] {
   return [...identity, ...(body ? [body] : [])];
 }
 
-function messageFor(field: ComposeField, t: CommentsCopy): string | null {
+/** True on a post tagged `#comments-verified`, where site-api refuses a
+    comment that does not come from a verified address. Stamped on the box by
+    whoever built it -- CommentForm.astro for the compose box, the controller
+    for the travelling reply box -- so this module reads one attribute instead
+    of being told twice. */
+function requiresEmail(compose: HTMLElement): boolean {
+  return compose.dataset.requireEmail === 'true';
+}
+
+function messageFor(field: ComposeField, t: CommentsCopy, requireEmail: boolean): string | null {
   const value = field.value.trim();
   if (!value) {
     if (field instanceof HTMLTextAreaElement) return t.needBody;
     // Email is optional -- an empty address is never a validation failure.
     // The two-click anonymous-post confirm (confirmAnonymousSubmit below)
-    // is what an empty field actually triggers on Post.
-    if (field instanceof HTMLInputElement && field.type === 'email') return null;
+    // is what an empty field actually triggers on Post. Unless the post takes
+    // verified addresses only, in which case there is nothing to confirm: the
+    // server would refuse this, so the box does, here, before the press costs
+    // a round trip.
+    if (field instanceof HTMLInputElement && field.type === 'email') {
+      return requireEmail ? t.needEmail : null;
+    }
     return t.needName;
   }
   // The same sentence the server sends back for the same reason (see
@@ -188,10 +202,11 @@ export function validateCompose(compose: HTMLElement): boolean {
   // matches the table the calling component rendered its own text from.
   const t = copyFor(compose);
   const fields = requiredFields(compose);
+  const requireEmail = requiresEmail(compose);
   for (const field of fields) field.removeAttribute('aria-invalid');
 
   for (const field of fields) {
-    const message = messageFor(field, t);
+    const message = messageFor(field, t, requireEmail);
     if (!message) continue;
     field.setAttribute('aria-invalid', 'true');
     sayComposeAlert(compose, message);
@@ -226,6 +241,10 @@ function isAnonymousConfirmed(compose: HTMLElement): boolean {
     true for them straight away. */
 export function confirmAnonymousSubmit(compose: HTMLElement): boolean {
   if (compose.dataset.phase !== 'anonymous' || isAnonymousConfirmed(compose)) return true;
+  // Nothing to recommend where the address is mandatory: validateCompose has
+  // already refused an empty field by the time this runs, so a green "consider
+  // leaving an email" beside a full one would be advice already taken.
+  if (requiresEmail(compose)) return true;
 
   const email = compose.querySelector<HTMLInputElement>('[data-compose-identity] input[type="email"]');
   if (!email || email.value.trim()) return true;

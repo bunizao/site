@@ -13,6 +13,7 @@ import AdjacentNav from '@/features/posts/ui/AdjacentNav.astro';
 import BackToTop from '@/features/posts/ui/BackToTop.astro';
 import Colophon from '@/features/posts/ui/Colophon.astro';
 import ShareRow from '@/features/posts/ui/ShareRow.astro';
+import { commentPolicyFromTags } from '@bunizao/contracts/comments';
 import BlogArticleBeacon from '@/features/posts/ui/BlogArticleBeacon.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import ReactionBar from '@/features/comments/ui/ReactionBar';
@@ -119,7 +120,12 @@ const featureImageSrcSet = post.featureImage && isBlogImageProxyUrl(post.feature
   : undefined;
 const featureImageSizes = '(min-width: 960px) 920px, calc(100vw - 40px)';
 const hasNoTocTag = post.tags.some((tag) => tag.slug === 'hash-no-toc' || tag.name === '#no-toc');
-const noComments = post.tags.some((tag) => tag.slug === 'hash-no-comments' || tag.name === '#no-comments');
+// What this post's comment section does, and whether its heart works. The
+// site-wide answer lives in `blog.comments`; the internal tags on the post
+// override it one field at a time. site-api folds the same tags through the
+// same function on every write, so the page and the API cannot disagree about
+// a post -- see @bunizao/contracts/comments.
+const commentPolicy = commentPolicyFromTags(post.tags, blog.comments);
 // Authorship footer. A post that credits no model asserts the human pledge, so
 // the pledge is the default rather than a #not-by-ai opt-in — the tag no longer
 // gates anything here.
@@ -147,7 +153,10 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
 // The site E2E fixture has no site-api service. Leave the presentational
 // loading shell in those tests and let the dedicated comments lab opt into a
 // mocked live controller explicitly with `interactive=1`.
-const liveCommentsPostId = isE2ESiteFixtureEnabled(Astro.locals) || noComments ? undefined : post.id;
+// A read-only thread keeps its id: it still loads and still renders what was
+// already written, it just has no box under the heading. Only `off` and the
+// fixture withhold it, and both mean "do not hydrate at all".
+const liveCommentsPostId = isE2ESiteFixtureEnabled(Astro.locals) ? undefined : post.id;
 const unlisted = isUnlistedPost(post);
 // A translation renders as if it lives at the canonical URL, because its bytes
 // are served from there. Everything derived from `path` — canonical, og:url,
@@ -239,19 +248,24 @@ const translated = isTranslation(post);
       <Prose html={post.html} />
 
       <Colophon credits={authorshipCredits} locale={postLocale}>
-        <ReactionBar client:idle count={0} locale={postLocale} postId={liveCommentsPostId} siteKey={turnstileSiteKey} />
+        {commentPolicy.reactions && (
+          <ReactionBar client:idle count={0} locale={postLocale} postId={liveCommentsPostId} siteKey={turnstileSiteKey} />
+        )}
         <div class="blog-article-sub">
           <SubscribePanel variant="blog" locale={postLocale} anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
           <ShareRow title={post.title} locale={postLocale} />
         </div>
       </Colophon>
 
-      <CommentsSection
-        locale={postLocale}
-        state={noComments ? 'closed' : 'loading'}
-        postId={liveCommentsPostId}
-        turnstileSiteKey={turnstileSiteKey}
-      />
+      {commentPolicy.mode !== 'off' && (
+        <CommentsSection
+          locale={postLocale}
+          state={commentPolicy.mode === 'readonly' ? 'closed' : 'loading'}
+          postId={liveCommentsPostId}
+          turnstileSiteKey={turnstileSiteKey}
+          requireEmail={commentPolicy.requireVerifiedEmail}
+        />
+      )}
     </article>
   </div>
 

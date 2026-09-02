@@ -25,6 +25,8 @@ export type CommentErrorCode =
   | 'GONE'
   | 'THREAD'
   | 'CLOSED'
+  | 'LOCKED'
+  | 'VERIFY'
   | 'NAME'
   | 'EMAIL'
   | 'LONG'
@@ -101,6 +103,12 @@ function classify(status: number, slug: string): CommentErrorCode {
     || slug.includes('postid is required')
     || slug.includes('parentid must be')
     || slug.includes('invalid json')) return 'STALE';
+  // Both are the post's policy answering, not the comment: the thread takes no
+  // more writes, or it takes them only from a verified address. They are read
+  // ahead of the 403 below because that one means "your claim on this row ran
+  // out", which is a different next move -- and both of these arrive as 403.
+  if (slug.includes('comments_closed')) return 'LOCKED';
+  if (slug.includes('email_verification_required')) return 'VERIFY';
   // 403 not_owner and 409 edit_window_closed both mean the reader's claim on
   // this comment has run out. Retrying either is a guaranteed second refusal.
   if (status === 403 || status === 409) return 'CLOSED';

@@ -106,7 +106,7 @@ test('lab lists every interaction outcome and transitions reader verification', 
 
   await expect(page.locator('.blog-compose__alert:visible')).toContainText('human check');
   await expect(page.locator('.blog-comments > .blog-compose [data-compose-identity] input[type="text"]').first()).toHaveAttribute('placeholder', 'Name');
-  await expect(page.locator('.comments-lab-catalog tbody tr')).toHaveCount(58);
+  await expect(page.locator('.comments-lab-catalog tbody tr')).toHaveCount(64);
   await expect(page.locator('.comments-lab-catalog')).toContainText('Submit/edit failure (BOT)');
   await expect(page.locator('.blog-comment--held .blog-comment__note')).toContainText('Posted');
   await expect(page.locator('.comments-lab-preview .blog-compose__preview')).toBeVisible();
@@ -272,6 +272,39 @@ test('compose validation and body counter expose every refusal', async ({ page }
   await expect(compose.locator('[data-compose-count]')).toHaveAttribute('data-over', '');
   await submit.click();
   await expect(compose.locator('.blog-compose__alert')).toContainText('2000 characters max');
+});
+
+// The three per-post comment states a page can be in, from the tags in
+// src/content/docs/writing/tags.md. `off` is not here because it renders
+// nothing at all -- /blog/[slug] skips the component -- and a missing section
+// is asserted where the tag is read, not on this harness.
+test('a read-only post keeps its thread and drops its box', async ({ page }) => {
+  await page.goto('/lab/comments?locale=en&state=closed', { waitUntil: 'networkidle' });
+  const section = page.locator('.blog-comments');
+  await expect(section).toHaveAttribute('data-state', 'closed');
+  await expect(section).toContainText('Comments are closed on this post.');
+  // The point of read-only rather than off: what was written is still there.
+  await expect(section.locator('.blog-comment').first()).toBeVisible();
+  await expect(section.locator('> .blog-compose')).toHaveCount(0);
+  // No way in through a row either -- reply, edit and delete all go with it.
+  await expect(section.locator('.blog-comment__actions:visible')).toHaveCount(0);
+});
+
+test('a verified-only post makes the email field required', async ({ page }) => {
+  await page.goto('/lab/comments?locale=en&requireEmail=1', { waitUntil: 'networkidle' });
+  const compose = page.locator('.blog-comments > .blog-compose');
+  const email = compose.locator('input[type="email"]');
+  await expect(compose).toHaveAttribute('data-require-email', 'true');
+  await expect(email).toHaveAttribute('placeholder', 'Email (required)');
+  await expect(email).toHaveAttribute('required', '');
+
+  // Anonymous posting is not offered here: an empty address is a refusal, not
+  // the green "consider leaving one" the two-press confirm shows elsewhere.
+  await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
+  await compose.locator('.blog-compose__field').fill('A complete comment.');
+  await compose.locator('[data-compose-submit]').click();
+  await expect(compose.locator('.blog-compose__alert')).toContainText('verified addresses only');
+  await expect(compose.locator('[data-compose-recommend]')).toBeHidden();
 });
 
 // The served HTML, not the rendered page: a browser confirms the link on

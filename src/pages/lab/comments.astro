@@ -10,6 +10,7 @@
 //   ?receipt=submitting | posted | held | nudge | error   (compose receipt)
 //   ?more=1  ?moreState=loading                (load-more cursor button)
 //   ?reacted=1                                 (filled heart, xia accent)
+//   ?requireEmail=1                            (#comments-verified: email required)
 //   ?credits=0                                 (colophon with no model credit)
 //   ?moderation=idle | busy | success | conflict | error | empty
 //
@@ -85,13 +86,17 @@ const receipt: ComposeReceipt =
   || rawReceipt === 'nudge' || rawReceipt === 'error'
     ? rawReceipt
     : 'idle';
-const errorCodes: CommentErrorCode[] = ['NET', 'RATE', 'BOT', 'GONE', 'THREAD', 'CLOSED', 'NAME', 'EMAIL', 'LONG', 'STALE', 'INPUT', 'SERVER'];
+const errorCodes: CommentErrorCode[] = ['NET', 'RATE', 'BOT', 'GONE', 'THREAD', 'CLOSED', 'LOCKED', 'VERIFY', 'NAME', 'EMAIL', 'LONG', 'STALE', 'INPUT', 'SERVER'];
 const requestedError = params.get('error')?.toUpperCase() as CommentErrorCode | undefined;
 const errorCode = requestedError && errorCodes.includes(requestedError) ? requestedError : undefined;
 
 const hasMore = params.get('more') === '1';
 const loadMoreState = params.get('moreState') === 'loading' ? 'loading' : 'idle';
 const reacted = params.get('reacted') === '1';
+// The `#comments-verified` half of the post's comment policy. The other two
+// halves are not query params here: `readonly` is `?state=closed`, and `off`
+// renders no section at all, which is nothing to review.
+const requireEmail = params.get('requireEmail') === '1';
 const rawModeration = params.get('moderation');
 const moderationState = rawModeration === 'busy' || rawModeration === 'success' || rawModeration === 'conflict'
   || rawModeration === 'error' || rawModeration === 'empty'
@@ -137,6 +142,10 @@ const behaviorRows = [
   { behavior: 'Thread is empty', state: 'empty', zh: commentsCopy.zh.empty, en: commentsCopy.en.empty, next: 'Write the first comment' },
   { behavior: 'Thread request fails', state: 'error', zh: `${commentsCopy.zh.loadError} · ${commentsCopy.zh.retry}`, en: `${commentsCopy.en.loadError} · ${commentsCopy.en.retry}`, next: 'Press Retry' },
   { behavior: 'Comments are closed', state: 'closed', zh: commentsCopy.zh.closed, en: commentsCopy.en.closed, next: 'Read existing rows; no compose or actions' },
+  { behavior: 'Post refuses new comments', state: 'API comments_closed', zh: commentsCopy.zh.submitError.LOCKED, en: commentsCopy.en.submitError.LOCKED, next: 'Nothing to retry; the thread is read-only' },
+  { behavior: 'Post takes verified email only', state: 'requireEmail=1', zh: commentsCopy.zh.emailRequired, en: commentsCopy.en.emailRequired, next: 'Enter an address; anonymous posting is not offered' },
+  { behavior: 'Post with no email, verified-only post', state: 'validation email required', zh: commentsCopy.zh.needEmail, en: commentsCopy.en.needEmail, next: 'Enter an address' },
+  { behavior: 'Unverified email on a verified-only post', state: 'API email_verification_required', zh: commentsCopy.zh.submitError.VERIFY, en: commentsCopy.en.submitError.VERIFY, next: 'Confirm the link in the inbox, then post' },
   { behavior: 'Load another page', state: 'load-more', zh: `${commentsCopy.zh.loadMore} → ${commentsCopy.zh.loading}`, en: `${commentsCopy.en.loadMore} → ${commentsCopy.en.loading}`, next: 'Wait for rows; on failure press Retry' },
   { behavior: 'Anonymous compose', state: 'phase=anonymous', zh: `${commentsCopy.zh.namePlaceholder} · ${commentsCopy.zh.emailPlaceholder} · ${commentsCopy.zh.hint}`, en: `${commentsCopy.en.namePlaceholder} · ${commentsCopy.en.emailPlaceholder} · ${commentsCopy.en.hint}`, next: 'Fill identity and body' },
   { behavior: 'Post with no name', state: 'validation name', zh: commentsCopy.zh.needName, en: commentsCopy.en.needName, next: 'Enter a display name' },
@@ -548,6 +557,7 @@ await billing.invoice(payload)</code></pre>
         loadMoreState={loadMoreState}
         postId={interactive ? 'lab-post' : undefined}
         errorCode={errorCode}
+        requireEmail={requireEmail}
       />
 
       {(receipt === 'submitting' || receipt === 'posted' || receipt === 'held' || receipt === 'nudge' || receipt === 'error') && (
