@@ -73,6 +73,15 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
 | `/v2/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
 | `/webhooks/telegram` | Receives Telegram mood events. | Telegram secret token |
+| `/webhooks/telegram-ops` | Receives the ops bot's updates: the flood-gate decision keyboard, the bot command surface, comment moderation actions, and pending-action confirmations. | Its own Telegram secret token, plus a Telegram user id allowlist |
+
+`/webhooks/telegram-ops` is deliberately separate from `/webhooks/telegram`:
+a different path, a different secret header value, and an operator allowlist
+on top, so the bot that can act on the site is not the bot that ingests public
+channel content. It is dispatched from `worker.ts` rather than a file under
+`src/pages/`, which is why
+[`check:docs-coverage`](/docs/development#checks)
+cannot see it — a manually wired route has to be added to this table by hand.
 
 ## Scheduled notification routes
 
