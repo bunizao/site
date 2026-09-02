@@ -709,7 +709,8 @@ const previewPending = readSource === 'archive'
   }
 
   @media (min-width: 640px) {
-    .mood-post-content :global(.image-preview-wrap) {
+    .mood-post-content :global(.image-preview-wrap),
+    .mood-post-content :global(.rich-content-media--image.mood-image-frame) {
       border-radius: 16px;
     }
   }
@@ -730,6 +731,7 @@ const previewPending = readSource === 'archive'
   }
 
   .mood-post-content :global(.image-preview-wrap > img:not(.sticker):not(.mood-image-blur)) {
+    border-radius: inherit;
     box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
   }
 
@@ -805,6 +807,13 @@ const previewPending = readSource === 'archive'
   .mood-post-content :global(.rich-content-media:not(.rich-content-media--sticker) img) {
     border-radius: 12px;
     box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
+  }
+
+  /* Inside a frame the radius belongs to the frame, which is 12px below 640px
+     and 16px above it. A fixed 12px on the image left the hairline a size out
+     of step with the clip on wide screens. */
+  .mood-post-content :global(.rich-content-media--image.mood-image-frame img) {
+    border-radius: inherit;
   }
 
   .mood-post-content :global(.rich-content-media--sticker) {

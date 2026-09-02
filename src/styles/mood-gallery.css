@@ -48,6 +48,7 @@
   width: auto;
   max-width: min(84vw, 760px);
   height: auto;
+  border-radius: inherit;
   box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
 }
 
