@@ -122,6 +122,15 @@ describe('identity refusals', () => {
     expect(describeCommentFailure(400, slug, zh).code).toBe('EMAIL');
   });
 
+  test('the create route phrases it differently and still reads as EMAIL', () => {
+    // The resend route's wording above is the one this file was written
+    // against; the compose box hits create, which says this instead. Matching
+    // only the first left every rejected address in the comment form landing
+    // on INPUT's "refresh and try again".
+    const slug = readErrorSlug({ error: 'email must be a valid address when provided' });
+    expect(describeCommentFailure(400, slug, zh).code).toBe('EMAIL');
+  });
+
   test('an unrecognised 400 is still the INPUT catch-all', () => {
     const slug = readErrorSlug({ error: 'something nobody has named yet' });
     expect(describeCommentFailure(400, slug, zh).code).toBe('INPUT');

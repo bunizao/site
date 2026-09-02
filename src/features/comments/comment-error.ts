@@ -81,7 +81,15 @@ function classify(status: number, slug: string): CommentErrorCode {
   // domain is not a real one. Both used to land in INPUT and be answered with
   // "try rewording it", which is advice for a field they had not touched.
   if (slug.includes('displayname')) return 'NAME';
-  if (slug.includes('valid email')) return 'EMAIL';
+  // Two servers, two sentences for one refusal. Resend answers `A valid email
+  // is required`, which this matched; create answers `email must be a valid
+  // address when provided`, which it did not -- so the box a reader actually
+  // types into was the one place a rejected address fell through to INPUT and
+  // came back as "refresh the page and try again", advice for the single
+  // failure a refresh cannot touch. Reachable in ordinary use: the server
+  // rejects reserved domains like example.com that the browser's own
+  // type="email" check is perfectly happy with.
+  if (slug.includes('valid email') || slug.includes('valid address')) return 'EMAIL';
   // 400 is not one refusal. site-api spends it on seven distinct things, and
   // answering all seven with "adjust your wording" was wrong for six of them
   // -- the reader's words are the problem in exactly one case.
