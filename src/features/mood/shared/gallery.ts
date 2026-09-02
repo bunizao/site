@@ -319,7 +319,10 @@ function enhanceStandaloneMoodImages(content: string): string {
     $wrapper.attr('data-mood-image-frame', '');
     $wrapper.attr(
       'style',
-      appendStyle($wrapper.attr('style') ?? '', `--mood-image-ratio:${ratio.css};`),
+      appendStyle(
+        $wrapper.attr('style') ?? '',
+        `--mood-image-ratio:${ratio.css};--mood-image-ratio-value:${ratio.value};`,
+      ),
     );
     image.attr('data-mood-image-main', '');
 

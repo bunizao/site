@@ -94,7 +94,10 @@ function renderStructuredImageDetailMedia(document: MoodContentDocument): string
     frame.attr('data-mood-image-frame', '');
     frame.attr(
       'style',
-      appendStyle(frame.attr('style') ?? '', `--mood-image-ratio:${ratio.css};`),
+      appendStyle(
+        frame.attr('style') ?? '',
+        `--mood-image-ratio:${ratio.css};--mood-image-ratio-value:${ratio.value};`,
+      ),
     );
     image.attr('data-mood-image-main', '');
 

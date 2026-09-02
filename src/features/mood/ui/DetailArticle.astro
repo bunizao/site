@@ -735,7 +735,14 @@ const previewPending = readSource === 'archive'
     box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
   }
 
+  /* A height cap on a box that also states an aspect-ratio does not negotiate:
+     the cap wins and the ratio is violated, leaving the contained photo in a
+     box the wrong shape and side bands where the frame used to end. Deriving
+     the width from the cap keeps the ratio true, the way the feed already does
+     it server-side in shared/feed-thumbnail.ts. max-height stays as a guard for
+     frames that ship no ratio value. */
   .mood-post-content :global(.image-preview-wrap--portrait) {
+    width: min(100%, 400px, 60vh * var(--mood-image-ratio-value, 0.75));
     max-width: 400px;
     max-height: 60vh;
     margin: 0 auto;
@@ -749,6 +756,7 @@ const previewPending = readSource === 'archive'
   }
 
   .mood-post-content :global(.image-preview-wrap--ultra-tall) {
+    width: min(100%, 300px, 70vh * var(--mood-image-ratio-value, 0.5625));
     max-width: 300px;
     max-height: 70vh;
     margin: 0 auto;
@@ -776,6 +784,7 @@ const previewPending = readSource === 'archive'
   }
 
   .mood-post-content :global(.rich-content-media--image.mood-image-frame.rich-content-media--portrait) {
+    width: min(100%, 400px, 60vh * var(--mood-image-ratio-value, 0.75));
     max-width: 400px;
     max-height: 60vh;
     margin-left: auto;
@@ -783,6 +792,7 @@ const previewPending = readSource === 'archive'
   }
 
   .mood-post-content :global(.rich-content-media--image.mood-image-frame.rich-content-media--ultra-tall) {
+    width: min(100%, 300px, 70vh * var(--mood-image-ratio-value, 0.5625));
     max-width: 300px;
     max-height: 70vh;
     margin-left: auto;
@@ -879,10 +889,12 @@ const previewPending = readSource === 'archive'
     }
 
     .mood-post-content :global(.image-preview-wrap--portrait) {
+      width: min(100%, 450px, 60vh * var(--mood-image-ratio-value, 0.75));
       max-width: 450px;
     }
 
     .mood-post-content :global(.image-preview-wrap--ultra-tall) {
+      width: min(100%, 350px, 70vh * var(--mood-image-ratio-value, 0.5625));
       max-width: 350px;
     }
   }
