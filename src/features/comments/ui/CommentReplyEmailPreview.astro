@@ -33,7 +33,7 @@ const copy = {
     reply: (replier: string) => `${replier} 的回复`,
     button: '查看完整对话',
     manage: '不想再收到回复提醒？',
-    manageLink: '在评论设置里随时关闭。',
+    manageLink: '关闭这篇，或全部关闭。',
   },
   en: {
     subject: (replier: string) => `${replier} replied to your comment`,
@@ -43,7 +43,7 @@ const copy = {
     reply: (replier: string) => `${replier} replied`,
     button: 'View the thread',
     manage: 'Done with reply alerts?',
-    manageLink: 'Turn them off in your comment settings.',
+    manageLink: 'Mute this post, or turn them all off.',
   },
 } as const;
 const t = copy[locale];
@@ -83,8 +83,8 @@ const s = SAMPLE[locale];
           </div>
         </dl>
       </div>
-      <a class="reader-mail__button" href="/blog">{t.button}<span aria-hidden="true"> →</span></a>
-      <p class="reader-mail__ignore">{t.manage} <a href={`/reader/confirm?lang=${locale}`}>{t.manageLink}</a></p>
+      <a class="reader-mail__button" href="/blog">{t.button}</a>
+      <p class="reader-mail__ignore">{t.manage} <a href={`/reader/confirm?lang=${locale}&post=sample-post`}>{t.manageLink}</a></p>
     </div>
     <p class="reader-mail__footer">© 2023–2026 bunizao · <a href="/privacy">Privacy</a></p>
   </article>

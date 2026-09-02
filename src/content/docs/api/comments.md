@@ -318,6 +318,10 @@ or, when signed in:
 }
 ```
 
+`?post=<postId>` adds `"postMuted": true|false` next to `reader`, answering
+whether this reader has muted reply alerts for that one post. Omitted when
+the parameter is absent or nobody is signed in.
+
 Never includes email or its hash. `DELETE` signs out: clears the session
 cookie and returns `204`. Idempotent — calling it with no session already
 set still succeeds, so the client never needs to check sign-in state first.
@@ -402,39 +406,58 @@ POST /api/v2/reader/preferences
 
 ```json
 { "notifyReplies": true, "subscribed": false }
+{ "mutePost": { "postId": "...", "muted": true } }
 ```
 
 ```json
 { "reader": { "...": "..." } }
 ```
 
-The two switches on the confirm page. Authenticated by the reader session
+The switches on the confirm page. Authenticated by the reader session
 cookie alone — it takes no address, so it can never move a stranger's
 preferences by naming them, and answers `401 not_signed_in` without one.
-Both fields are optional and independent; the client sends only the switch
-that moved, and a body carrying neither is a `400`. `notifyReplies` writes
-the reader's own column; `subscribed` activates or unsubscribes the
+Every field is optional and independent; the client sends only the switch
+that moved, and a body carrying none of them is a `400`. `notifyReplies`
+writes the reader's own column; `subscribed` activates or unsubscribes the
 newsletter subscription without touching reply notifications, and vice
 versa — leaving the newsletter and muting your own replies are separate
-decisions. Rate-limited at 20/minute per reader, durably enforced. The
-response carries the reader row as it now stands, in the same shape
-`/api/v2/reader/me` returns.
+decisions. `mutePost` is the narrow one: it adds or removes a row in
+`blog_comment_reply_mutes` for that reader and post, so a single loud thread
+can go quiet while every other thread keeps mailing. Both `postId` and
+`muted` are required together, and a response to a `mutePost` write carries
+`postMuted` alongside the reader. Rate-limited at 20/minute per reader,
+durably enforced. The response carries the reader row as it now stands, in
+the same shape `/api/v2/reader/me` returns.
 
 `GET /reader/confirm` with no token is the page these switches live on: a
 signed-in reader gets the preference card, and everyone else gets the
 expired-link card. That is where the reply mail's "turn these off" link
 points, so the switch is always one click from the mail that prompted it.
+The link carries `&post=<postId>`, which is what puts the per-post switch on
+the card — without it the page shows only the global one.
 
 ### What `notifyReplies` actually sends
 
 A published reply to a comment mails that comment's author, once, with the
 comment and the reply quoted. It goes out only when the author is a verified
 reader (an anonymous comment carries no address anyone may reuse), still has
-`notify_replies` set, is not banned, and is not the person who just replied.
+`notify_replies` set, has not muted this particular post, is not banned, and
+is not the person who just replied.
 Held and rejected replies send nothing — mailing about one would leak the
 moderation queue. Capped at 12 per reader per hour and keyed on the reply id,
 so a retried write cannot mail the same reply twice; suppressed addresses are
 skipped like every other outbound.
+
+### Unverified addresses expire
+
+The verification mail promises that unconfirmed records are cleared within
+seven days, and the notify sweep keeps that promise: it nulls `email_hash` on
+any `blog_comments` row older than that which still has no `reader_id`. No new
+cron — it rides the schedule that already runs the other notify maintenance.
+The comment itself stays published; it simply degrades to the shape a comment
+posted without an address has always had, meaning anon-session ownership, an
+identicon, and no claim-on-verify. Confirming afterwards mints a fresh reader
+and does not adopt the old comment.
 
 ## Reader avatar
 

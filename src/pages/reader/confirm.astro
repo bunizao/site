@@ -30,6 +30,11 @@ import type { ReaderMeResult, ReaderResendResult, ReaderVerifyResult } from '@bu
 type ViewState = 'pending' | 'confirmed' | 'settings' | 'already' | 'invalid' | 'resent';
 
 const token = Astro.url.searchParams.get('token') ?? '';
+// Reply mails link here with the post they were about, which is what lets the
+// card offer "just this one" next to "all of them". Without it there is only
+// the global switch, and the reader who wants out of one noisy thread has to
+// silence every thread.
+const postId = Astro.url.searchParams.get('post')?.trim() ?? '';
 const locale = resolveReaderConfirmLocale(Astro.url.searchParams.get('lang'));
 const t = readerConfirmCopy[locale];
 let state: ViewState = token ? 'pending' : 'invalid';
@@ -38,6 +43,7 @@ let state: ViewState = token ? 'pending' : 'invalid';
 // if the reader ticked the offer that sent this link.
 let notifyReplies = true;
 let subscribed = false;
+let postMuted = false;
 
 async function callApi<T>(path: string, body: unknown): Promise<T | null> {
   const request = new Request(`${Astro.url.origin}${path}`, {
@@ -93,15 +99,16 @@ function readStaleSubscribeIntent(staleToken: string): boolean {
 // deciding which -- the session cookie has to be forwarded by hand, because
 // callApi above mints its request from scratch.
 if (Astro.request.method === 'GET' && !token) {
-  const probe = new Request(`${Astro.url.origin}/api${READER_ME_PATH}`, {
+  const probe = new Request(`${Astro.url.origin}/api${READER_ME_PATH}${postId ? `?post=${encodeURIComponent(postId)}` : ''}`, {
     headers: { cookie: Astro.request.headers.get('cookie') ?? '' },
   });
   const response = await proxyApiRequest(probe, Astro.locals);
-  const me = (await response.json().catch(() => null)) as ReaderMeResult | null;
+  const me = (await response.json().catch(() => null)) as (ReaderMeResult & { postMuted?: boolean }) | null;
   if (me?.reader) {
     state = 'settings';
     notifyReplies = me.reader.notifyReplies;
     subscribed = me.reader.subscribed;
+    postMuted = me.postMuted === true;
   }
 }
 
@@ -139,17 +146,32 @@ const GLYPHS: Record<ViewState, string> = {
         <>
           <h1 class="reader-confirm__title">{state === 'settings' ? t.settingsTitle : t.confirmedTitle}</h1>
           <p class="reader-confirm__body">{state === 'settings' ? t.settingsBody : t.confirmedBody}</p>
-          {/* Both switches are already true or false on the server -- this is
+          {/* Every switch is already true or false on the server -- this is
               where they stand, not a form to fill in. Each one saves itself
-              the moment it moves; see the script below. */}
-          <div class="reader-confirm__prefs" data-reader-prefs>
+              the moment it moves; see the script below. All three read
+              positively, so "on" always means the thing they name happens. */}
+          <div class="reader-confirm__prefs" data-reader-prefs data-post-id={postId || undefined}>
             <label class="reader-confirm__switch">
-              <input type="checkbox" data-pref="notifyReplies" checked={notifyReplies} />
               <span>{t.prefsNotifyReplies}</span>
+              <input type="checkbox" role="switch" data-pref="notifyReplies" checked={notifyReplies} />
             </label>
+            {postId && (
+              <label class="reader-confirm__switch">
+                <span>{t.prefsMutePost}</span>
+                {/* Muting is per post, so the switch is the mute inverted.
+                    It is dead weight while replies are off globally. */}
+                <input
+                  type="checkbox"
+                  role="switch"
+                  data-pref="mutePost"
+                  checked={!postMuted}
+                  disabled={!notifyReplies}
+                />
+              </label>
+            )}
             <label class="reader-confirm__switch">
-              <input type="checkbox" data-pref="subscribed" checked={subscribed} />
               <span>{t.prefsSubscribe}</span>
+              <input type="checkbox" role="switch" data-pref="subscribed" checked={subscribed} />
             </label>
             <p class="reader-confirm__prefs-note" data-prefs-note aria-live="polite" hidden></p>
           </div>
@@ -219,10 +241,10 @@ const GLYPHS: Record<ViewState, string> = {
 </BlogLayout>
 
 <script>
-  // The two switches on the confirmed card. Each saves on change, alone --
-  // there is no Save button, because there are two booleans and a reader who
-  // came here from an inbox is done as soon as they are done. A refused save
-  // puts the box back where it was and says so, rather than leaving the page
+  // The switches on the confirmed card. Each saves on change, alone -- there
+  // is no Save button, because these are booleans and a reader who came here
+  // from an inbox is done as soon as they are done. A refused save puts the
+  // switch back where it was and says so, rather than leaving the page
   // claiming a preference the server never took.
   import { readerConfirmCopy, resolveReaderConfirmLocale } from '@/features/comments/reader-confirm-copy';
   import { READER_PREFERENCES_PATH } from '@bunizao/contracts/routes';
@@ -239,20 +261,30 @@ const GLYPHS: Record<ViewState, string> = {
       note.dataset.bad = bad ? 'true' : 'false';
     };
 
+    const postId = prefs.dataset.postId ?? '';
+    const postBox = prefs.querySelector<HTMLInputElement>('input[data-pref="mutePost"]');
+
     prefs.querySelectorAll<HTMLInputElement>('input[data-pref]').forEach((box) => {
       box.addEventListener('change', async () => {
         const key = box.dataset.pref!;
         const wanted = box.checked;
+        // The post switch is worded the other way round: on means alerts, and
+        // what the server stores is the mute.
+        const payload = key === 'mutePost'
+          ? { mutePost: { postId, muted: !wanted } }
+          : { [key]: wanted };
         box.disabled = true;
         try {
           const response = await fetch(`/api${READER_PREFERENCES_PATH}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ [key]: wanted }),
+            body: JSON.stringify(payload),
           });
           if (!response.ok) throw new Error(String(response.status));
           say(t.prefsSaved, false);
+          // Nothing per-post is left to decide once every thread is silent.
+          if (key === 'notifyReplies' && postBox) postBox.disabled = !wanted;
         } catch {
           box.checked = !wanted;
           say(t.prefsError, true);

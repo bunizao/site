@@ -31,6 +31,11 @@ export interface ReaderConfirmCopy {
   /** The two things a verified reader can decide. Reply alerts come on with
       the verification (the mail promised them); the newsletter does not. */
   prefsNotifyReplies: string;
+  /** Scoped to the post the reply mail came from, and only rendered when the
+      link carried one. Phrased positively like its neighbours: every switch
+      on this card is on when the thing it names is happening, so "off" never
+      has to be read as a double negative. */
+  prefsMutePost: string;
   prefsSubscribe: string;
   prefsSaved: string;
   prefsError: string;
@@ -58,15 +63,16 @@ const zh: ReaderConfirmCopy = {
   confirmedTitle: '验证成功！',
   confirmedBody: '您的完整权限现已开启！后续有新回复时会收到邮件提醒。',
   settingsTitle: '评论提醒设置',
-  settingsBody: '这两项随时可以改，改动立即生效。',
+  settingsBody: '这几项随时可以改，改动立即生效。',
   prefsNotifyReplies: '有人回复我的评论时发送邮件提醒',
+  prefsMutePost: '接收这篇文章的回复提醒',
   prefsSubscribe: '订阅 buxx.me 的最新文章',
   prefsSaved: '已保存',
   prefsError: '没保存上，再点一次试试。',
   alreadyTitle: '已经验证过了',
   alreadyBody: '该邮箱已完成确认。',
   invalidTitle: '链接已失效',
-  invalidBody: '链接可能已过期或已被使用。如需管理评论，请在文章下方重新获取。',
+  invalidBody: '链接可能已过期或已被使用。填写当时的邮箱，即可重新获取验证链接。',
   emailLabel: '邮箱',
   emailPlaceholder: '邮箱',
   resend: '重新发一封',
@@ -87,15 +93,16 @@ const en: ReaderConfirmCopy = {
   confirmedTitle: "You're verified!",
   confirmedBody: "Full control is on. We'll email you whenever there's a new reply.",
   settingsTitle: 'Comment alert settings',
-  settingsBody: 'Change either of these any time — it takes effect immediately.',
+  settingsBody: 'Change any of these any time — it takes effect immediately.',
   prefsNotifyReplies: 'Email me when someone replies to my comment',
+  prefsMutePost: 'Reply alerts for this post',
   prefsSubscribe: 'Subscribe to the latest posts on buxx.me',
   prefsSaved: 'Saved',
   prefsError: "That didn't save. Try once more.",
   alreadyTitle: 'Already verified',
   alreadyBody: 'This address has already been confirmed.',
   invalidTitle: 'This link has expired',
-  invalidBody: 'It may have expired or already been used. To manage your comments, request a new link under the post.',
+  invalidBody: "It may have expired or already been used. Enter the email you commented with and we'll send a fresh link.",
   emailLabel: 'Email',
   emailPlaceholder: 'Email',
   resend: 'Send a new link',
