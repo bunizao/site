@@ -70,14 +70,14 @@ Two things worth being precise about, because the short version reads wrong:
   every submission is shown to Akismet. What the feature does not do is
   require or verify an identity before publishing.
 
-> **The published policy does not cover blog comments yet.** Its "comment
-> views" and "comment threads" clauses describe the Telegram-derived mood
-> threads, which predate this feature. Akismet, the avatar upstreams, and the
-> comment risk signals are all undisclosed.
-> That is a release blocker, not a documentation nicety: `COMMENTS_ENABLED`
-> must not be flipped on in production before
-> [`src/content/pages/privacy.md`](https://github.com/bunizao/site/blob/main/src/content/pages/privacy.md)
-> names them.
+> **The published policy covers blog comments as of 3 September 2026.** Its
+> `## Blog comments` section names Akismet, the Gravatar and QQ avatar
+> lookups, the Resend confirmation and reply mail, the two cookies and their
+> lifetimes, and the 90-day risk-signal erasure; the disclosure, retention,
+> and rights sections carry the matching clauses. Reader OAuth is
+> deliberately absent, because no data reaches GitHub or Google while the
+> feature has no entry point — that clause lands with the sign-in button, not
+> before it.
 
 ## When to update the policy
 

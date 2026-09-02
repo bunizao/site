@@ -1,18 +1,18 @@
 ---
 title: Privacy Policy
-description: How this website collects, uses, discloses, and retains personal data, including Cloudflare hosting, reading and playback analytics, YouTube embeds, edge diagnostics, listening cards, mood subscriptions, and third-party services.
-updatedAt: August 8, 2026
+description: How this website collects, uses, discloses, and retains personal data, including Cloudflare hosting, reading and playback analytics, YouTube embeds, edge diagnostics, listening cards, mood subscriptions, blog comments, and third-party services.
+updatedAt: September 3, 2026
 ---
 
 # Privacy Policy
 
 This Privacy Policy describes how this website collects, uses, discloses, and retains personal data. It applies to the site as a whole — pages, blog articles, API routes, the homepage listening card, and the optional mood subscription available at [/mood](/mood) — together with the infrastructure and service providers used to operate it.
 
-> **Summary.** We do not sell personal data, share it with data brokers, or use it to build advertising profiles. No third-party analytics or advertising trackers are loaded as part of a normal page view. First-party reading and audio-playback analytics are sent only to this site's own API. Choosing to play an embedded YouTube video loads YouTube's third-party player. The only information you provide directly is an email address, and only if you choose to subscribe to mood notifications; you may withdraw it at any time.
+> **Summary.** We do not sell personal data, share it with data brokers, or use it to build advertising profiles. No third-party analytics or advertising trackers are loaded as part of a normal page view. First-party reading and audio-playback analytics are sent only to this site's own API. Choosing to play an embedded YouTube video loads YouTube's third-party player. You provide information directly in two places only: the optional mood subscription, and the comment box under a blog post. Commenting requires a display name and the comment itself; an email address is optional there and buys a persistent identity rather than access. Comment submissions are checked for spam by Akismet.
 
 ## Scope
 
-This policy covers personal data processed in connection with this website: the homepage, blog pages, mood pages and comment views, this page, all API routes, and the optional email subscription feature.
+This policy covers personal data processed in connection with this website: the homepage, blog pages and their comment threads, mood pages and comment views, this page, all API routes, and the optional email subscription feature.
 
 It does not govern third-party websites or services you reach through links published here. Once you leave this site, the privacy practices of the destination apply.
 
@@ -20,7 +20,8 @@ It does not govern third-party websites or services you reach through links publ
 
 Depending on how you use the site, we may collect or process the following categories of data.
 
-- **Information you provide directly.** If you use the mood subscription form: your email address, delivery preferences, timezone, and related subscription settings. No other feature on the site requests information from you.
+- **Information you provide directly.** If you use the mood subscription form: your email address, delivery preferences, timezone, and related subscription settings. If you post a comment on a blog article: the display name you choose, the text of the comment, and, optionally, your email address. No other feature on the site requests information from you.
+- **Blog comment data.** A published comment is stored with its text, display name, timestamps, and — where you supplied one — your email address and a hash of it. Each comment additionally carries anti-abuse signals derived from the request: a keyed hash of your IP address rather than the address itself, a keyed device fingerprint hash, the user agent, and the country and network provider Cloudflare reports. Reactions are stored with a keyed identity value rather than an identifying one.
 - **Technical and request data.** Serving a page or an API route requires standard request metadata. It is processed to deliver the response, enforce rate limits, and prevent abuse.
 - **Operational and performance data.** Cloudflare processes request metadata, logs, and performance signals necessary to serve the site, maintain availability, and diagnose failures.
 - **Blog reading analytics.** Blog article pages send first-party reading events to this site's own API; no third-party analytics vendor is loaded. These events may include the post slug, event, visitor and session identifiers, dwell time, scroll depth, completion state, referrer, IP address, approximate location and network metadata derived by Cloudflare, language, browser, operating system, device type, and user agent.
@@ -46,6 +47,8 @@ We use the data described above to operate, secure, and maintain the site, speci
 - retrieve and refresh listening data from Last.fm and Apple services;
 - load a YouTube player only after you choose to play an embedded video;
 - load public content from Ghost, GitHub, and Telegram-related sources;
+- publish, display, edit, and remove blog comments, and check submissions for spam;
+- send comment verification links and, where you have opted in, reply notifications;
 - send confirmation emails and mood notifications where you have opted in;
 - honor unsubscribe requests and maintain subscription state; and
 - detect abuse, spam, scripted signups, and operational failures.
@@ -63,6 +66,18 @@ The footer includes an optional edge indicator. When hovered or focused, it call
 Blog article pages use first-party analytics served by this site's own API. No third-party analytics script is loaded. A visitor identifier is stored in local storage and a session identifier in session storage so that repeated events can be grouped without requiring an account.
 
 The server derives network and browser signals from the request, including IP address, approximate Cloudflare location metadata, ASN or network provider metadata, user agent, language, browser, operating system, and device type. Events may be retained while the analytics feature remains in operation and under review. They are not sold and are not used for unrelated advertising profiles. You may clear the browser-stored visitor and session identifiers through your browser's storage controls at any time.
+
+## Blog comments
+
+Blog articles may carry a comment thread. Reading one requires nothing from you. Posting requires a display name and the comment text; an email address is optional, and supplying one is what allows you to edit or delete your own comment afterwards, receive replies, and keep a consistent avatar. A comment posted without an address is published normally but cannot later be claimed, edited, or deleted by you.
+
+Where you supply an address, a one-time confirmation link is emailed to it through Resend. Confirming it signs in the browser that opened it and enables reply notifications, which you can turn off from any such email. An address that is never confirmed is removed.
+
+Every submission is sent to [Akismet](https://akismet.com/), operated by Automattic, to be checked for spam. That check transmits the comment text, the display name, the email address where one was supplied, your IP address, user agent, referrer, and the address of the post being commented on. A comment identified as spam is withheld from the thread rather than published.
+
+Avatars are resolved by this site's server, not by your browser. For an address at `qq.com`, the numeric part of that address is sent to QQ's avatar endpoint; for any other address, a hash of it is sent to Gravatar's mirror hosts. The resulting image is cached on this site's own storage, so your browser never contacts either service and no further lookup is made once an avatar is held.
+
+Comment submissions and reactions are protected by Cloudflare Turnstile in the same manner as the subscription form. Two cookies support the feature: one recording a confirmed identity, retained for 180 days, and one anonymous identifier minted the first time you comment or react, retained for 365 days. Both are restricted to this site and are not readable by scripts.
 
 ## Homepage listening card
 
@@ -106,7 +121,9 @@ Depending on the page and feature in use, the associated requests may be made se
 We disclose personal data only where reasonably necessary to operate the site and its features:
 
 - **Cloudflare** — hosting, anti-abuse verification, operational observability, and mood notification infrastructure.
-- **Resend** — email delivery for mood subscriptions.
+- **Resend** — email delivery for mood subscriptions, comment confirmation links, and comment reply notifications.
+- **Akismet (Automattic)** — spam checking of blog comment submissions.
+- **Gravatar and QQ** — avatar images, looked up server-side by email hash.
 - **Last.fm and Apple services** — listening data and music metadata.
 - **Ghost, GitHub, Telegram-related services, and YouTube** — public content, metadata, and optional video playback.
 
@@ -116,7 +133,7 @@ We do not sell personal data collected through this site, and we do not share su
 
 We retain data for as long as reasonably necessary to operate the site, maintain security, assess performance, and provide optional features such as mood subscriptions.
 
-Certain data is short-lived, including temporary rate-limit state, local theme settings, the session-only YouTube reachability result, and session identifiers stored in your browser. Blog reading and listening playback analytics may be retained while the features remain useful for understanding readership, audio engagement, and site operation. Subscription records may be retained longer in order to maintain opt-in status, unsubscribe status, and delivery history. When you delete your record from [/subscribe/manage](/subscribe/manage), the current subscription generation and every safely attributable delivery, tracking, and audit row are removed; an older row whose ownership is ambiguous after an address is reused is retained rather than risking another subscriber's data. A single receipt recording that a deletion happened also survives, keyed so that it cannot be traced back to an address. Data held by Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, YouTube, or other providers is additionally subject to those providers' own retention practices.
+Certain data is short-lived, including temporary rate-limit state, local theme settings, the session-only YouTube reachability result, and session identifiers stored in your browser. Blog reading and listening playback analytics may be retained while the features remain useful for understanding readership, audio engagement, and site operation. Published comments are retained until you or we remove them. The anti-abuse signals attached to a comment — the hashed IP address, the fingerprint hash, the user agent, the country, and the network provider — are erased from it 90 days after it was posted, leaving the comment itself intact. An email address supplied with a comment but never confirmed is removed after 7 days. Subscription records may be retained longer in order to maintain opt-in status, unsubscribe status, and delivery history. When you delete your record from [/subscribe/manage](/subscribe/manage), the current subscription generation and every safely attributable delivery, tracking, and audit row are removed; an older row whose ownership is ambiguous after an address is reused is retained rather than risking another subscriber's data. A single receipt recording that a deletion happened also survives, keyed so that it cannot be traced back to an address. Data held by Cloudflare, Resend, Ghost, GitHub, Telegram-related sources, YouTube, or other providers is additionally subject to those providers' own retention practices.
 
 ## Your rights and choices
 
@@ -126,6 +143,8 @@ You may:
 - select your preferred notification delivery frequency;
 - unsubscribe at any time using the link included in every subscription email;
 - change the address on your subscription, or delete your record outright, from [/subscribe/manage](/subscribe/manage). Deleting removes your email address, subscription settings, delivery history, newsletter open/click data, and safely attributable audit entries from the database; an older row whose ownership is ambiguous after an address is reused is retained rather than risking another subscriber's data. Opening the emailed link only shows a preview, and the deletion takes effect after you confirm it in your browser. It cannot be undone;
+- comment without providing an email address, and read any thread without providing anything;
+- edit your own comment within 15 minutes of posting, and delete it at any time thereafter, provided you confirmed the address you posted with. A comment posted without an address cannot be verified as yours, so removal requests for one go to the address below;
 - request access to or correction of your subscription record by contacting [me@buxx.me](mailto:me@buxx.me); and
 - clear locally stored theme preferences and analytics identifiers through your browser's storage controls.
 
@@ -137,7 +156,7 @@ This site and its service providers may process data in countries other than the
 
 ## Changes to this policy
 
-We may update this policy from time to time to reflect changes in the subscription feature, our service providers, or applicable legal requirements. Where we do, the date shown at the top of this page will be updated accordingly.
+We may update this policy from time to time to reflect changes in the subscription and comment features, our service providers, or applicable legal requirements. Where we do, the date shown at the top of this page will be updated accordingly.
 
 ## Contact
 
