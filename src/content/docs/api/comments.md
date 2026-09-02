@@ -318,10 +318,6 @@ or, when signed in:
 }
 ```
 
-`?post=<postId>` adds `"postMuted": true|false` next to `reader`, answering
-whether this reader has muted reply alerts for that one post. Omitted when
-the parameter is absent or nobody is signed in.
-
 Never includes email or its hash. `DELETE` signs out: clears the session
 cookie and returns `204`. Idempotent — calling it with no session already
 set still succeeds, so the client never needs to check sign-in state first.
@@ -406,7 +402,6 @@ POST /api/v2/reader/preferences
 
 ```json
 { "notifyReplies": true, "subscribed": false }
-{ "mutePost": { "postId": "...", "muted": true } }
 ```
 
 ```json
@@ -421,29 +416,21 @@ that moved, and a body carrying none of them is a `400`. `notifyReplies`
 writes the reader's own column; `subscribed` activates or unsubscribes the
 newsletter subscription without touching reply notifications, and vice
 versa — leaving the newsletter and muting your own replies are separate
-decisions. `mutePost` is the narrower one: it adds or removes a `post`-scoped row in
-`blog_comment_mutes` for that reader, so one article can go quiet while every
-other article keeps mailing. It has no expiry — a post mute is a decision, not
-a cooldown. Both `postId` and
-`muted` are required together, and a response to a `mutePost` write carries
-`postMuted` alongside the reader. Rate-limited at 20/minute per reader,
-durably enforced. The response carries the reader row as it now stands, in
-the same shape `/api/v2/reader/me` returns.
+decisions. Rate-limited at 20/minute per reader, durably enforced. The
+response carries the reader row as it now stands, in the same shape
+`/api/v2/reader/me` returns.
 
 `GET /reader/confirm` with no token is the page these switches live on: a
 signed-in reader gets the preference card, and everyone else gets the
-expired-link card. That is where the reply mail's "turn these off" link
-points, so the switch is always one click from the mail that prompted it.
-The link carries `&post=<postId>`, which is what puts the per-post switch on
-the card — without it the page shows only the global one.
+expired-link card. That is where the reply mail's settings link points, so the
+switch is always one click from the mail that prompted it.
 
 ### What `notifyReplies` actually sends
 
 A published reply to a comment mails that comment's author, once, with the
 comment and the reply quoted. It goes out only when the author is a verified
 reader (an anonymous comment carries no address anyone may reuse), still has
-`notify_replies` set, has muted neither this thread nor this post, is not
-banned, and is not the person who just replied.
+`notify_replies` set, has not muted this thread, is not banned, and is not the person who just replied.
 Held and rejected replies send nothing — mailing about one would leak the
 moderation queue. Capped at 12 per reader per hour and keyed on the reply id,
 so a retried write cannot mail the same reply twice; suppressed addresses are
@@ -463,17 +450,17 @@ POST /api/v2/reader/mute
 { "outcome": "muted", "postId": "..." }
 ```
 
-The reply mail's own mute button. Three scopes now exist and they answer
-different questions: this **conversation** is on fire, this **post** is one
-I'm done with, and I want **no** reply alerts at all. Muting a thread must not
-cost the reader the other two — a single argument in one thread is the usual
-reason someone reaches for an off switch, and if the only switch in reach is
-the global one, that is the one they pull.
+The reply mail's own mute button, and the only mute there is: this
+**conversation** goes quiet, or the global switch turns **every** reply alert
+off. A single argument in one thread is the usual reason someone reaches for
+an off switch, and if the only switch in reach is the global one, that is the
+one they pull. (A third, per-article scope shipped briefly on the settings
+card and was removed — a reader done with an article stops reading it, so the
+switch answered a question nobody was asking.)
 
-A thread mute stays until it is undone, like the post one — a reader who has
-left a conversation has left it, and an alert that quietly turns itself back
-on is worse than one that was never offered. The landing page carries the
-undo. `outcome` is `muted`, `unmuted` (that undo, sent as `muted: false`), or
+A mute stays until it is undone — a reader who has left a conversation has
+left it, and an alert that quietly turns itself back on is worse than one that
+was never offered. The landing page carries the undo. `outcome` is `muted`, `unmuted` (that undo, sent as `muted: false`), or
 `invalid` for an expired, tampered, or unknown token — one flat answer, so the
 endpoint cannot be used to probe which tokens are real. Rate-limited at
 20/minute per reader.

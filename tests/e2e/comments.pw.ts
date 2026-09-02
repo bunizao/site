@@ -131,21 +131,19 @@ test('lab lists every interaction outcome and transitions reader verification', 
   await expect(page.locator('.comments-lab-verify')).toContainText('Check your inbox');
 });
 
-// The confirmed card is where reply alerts get turned down. Three switches,
-// each phrased so that "on" means the thing happens, and the post-scoped one
-// only exists when the mail that sent you here named a post.
-test('confirm card scopes reply alerts to one post or all of them', async ({ page }) => {
-  await page.goto('/lab/comments?locale=zh&verify=confirmed', { waitUntil: 'networkidle' });
-  const prefs = page.locator('.comments-lab-verify .reader-confirm__prefs');
-  await expect(prefs.locator('input[type="checkbox"]')).toHaveCount(2);
-  await expect(prefs).not.toContainText('接收这篇文章的回复提醒');
-
+// The confirmed card is where reply alerts get turned down. Two switches,
+// both phrased so that "on" means the thing happens.
+test('confirm card carries the reply switch and the newsletter switch', async ({ page }) => {
   await page.goto('/lab/comments?locale=zh&verify=settings', { waitUntil: 'networkidle' });
+  const prefs = page.locator('.comments-lab-verify .reader-confirm__prefs');
   const switches = prefs.locator('.reader-confirm__switch');
-  await expect(switches).toHaveCount(3);
+  await expect(switches).toHaveCount(2);
   await expect(switches.nth(0)).toContainText('有人回复我的评论时发送邮件提醒');
-  await expect(switches.nth(1)).toContainText('接收这篇文章的回复提醒');
-  await expect(switches.nth(2)).toContainText('订阅 buxx.me 的最新文章');
+  await expect(switches.nth(1)).toContainText('订阅 buxx.me 的最新文章');
+  // A per-post switch used to sit between them. Nobody wants alerts scoped to
+  // an article -- the reader who reaches for an off switch wants out of one
+  // conversation, and that button lives in the mail itself.
+  await expect(prefs).not.toContainText('这篇文章');
   // Drawn as a track, not a native box: a 16px checkbox would mean the CSS
   // never landed.
   const width = await switches.nth(0).locator('input').evaluate((el) => el.getBoundingClientRect().width);
@@ -209,13 +207,12 @@ test('lab previews the reply notification email', async ({ page }) => {
   await expect(preview).toContainText('你的评论');
   await expect(preview).toContainText('Nina Kato 的回复');
   await expect(preview.getByRole('link', { name: '查看完整对话' })).toBeVisible();
-  // Two off switches, and they are not the same switch. The first silences
-  // this one conversation; the second is the settings card, and it carries
-  // the post so "just this one" is on offer there.
-  await expect(preview.getByRole('link', { name: '不再接收这个对话的提醒。' }))
+  // The footer is two labels: this conversation goes quiet, or open the page
+  // that holds the global switch. No sentences, so no sentence-long underline.
+  await expect(preview.getByRole('link', { name: '静音这个对话' }))
     .toHaveAttribute('href', '/reader/mute?lang=zh&token=preview');
-  await expect(preview.getByRole('link', { name: '只关掉这篇文章，或者全部关闭。' }))
-    .toHaveAttribute('href', '/reader/confirm?lang=zh&post=sample-post');
+  await expect(preview.getByRole('link', { name: '提醒设置' }))
+    .toHaveAttribute('href', '/reader/confirm?lang=zh');
 
   await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
   await expect(page.locator('[data-reader-reply-subject]')).toHaveText('Nina Kato replied to your comment');

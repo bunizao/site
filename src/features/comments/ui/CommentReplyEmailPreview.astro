@@ -32,10 +32,8 @@ const copy = {
     yourComment: '你的评论',
     reply: (replier: string) => `${replier} 的回复`,
     button: '查看完整对话',
-    muteLead: '被这个对话刷屏了？',
-    muteLink: '不再接收这个对话的提醒。',
-    manage: '也可以',
-    manageLink: '只关掉这篇文章，或者全部关闭。',
+    muteLink: '静音这个对话',
+    settingsLink: '提醒设置',
   },
   en: {
     subject: (replier: string) => `${replier} replied to your comment`,
@@ -44,10 +42,8 @@ const copy = {
     yourComment: 'Your comment',
     reply: (replier: string) => `${replier} replied`,
     button: 'View the thread',
-    muteLead: 'Too many replies here?',
-    muteLink: 'Mute this conversation.',
-    manage: 'Or',
-    manageLink: 'mute just this post, or turn them all off.',
+    muteLink: 'Mute this conversation',
+    settingsLink: 'Notification settings',
   },
 } as const;
 const t = copy[locale];
@@ -84,9 +80,13 @@ const s = SAMPLE[locale];
         <p>{s.reply}</p>
       </div>
       <a class="reader-mail__button" href="/blog">{t.button}</a>
+      {/* Two labels, no sentences: the narrow off switch and the page with
+          the global one. Long enough to underline a whole sentence is long
+          enough to look like the mail is apologising for itself. */}
       <p class="reader-mail__ignore">
-        {t.muteLead} <a href={`/reader/mute?lang=${locale}&token=preview`}>{t.muteLink}</a><br />
-        {t.manage} <a href={`/reader/confirm?lang=${locale}&post=sample-post`}>{t.manageLink}</a>
+        <a href={`/reader/mute?lang=${locale}&token=preview`}>{t.muteLink}</a
+        ><span class="reader-mail__dot" aria-hidden="true">·</span
+        ><a href={`/reader/confirm?lang=${locale}`}>{t.settingsLink}</a>
       </p>
     </div>
     <p class="reader-mail__footer">© 2023–2026 bunizao · <a href="/privacy">Privacy</a></p>
@@ -273,6 +273,7 @@ const s = SAMPLE[locale];
   }
 
   .reader-mail__ignore a { color: inherit; text-decoration: underline; }
+  .reader-mail__dot { padding: 0 8px; }
 
   .reader-mail__footer {
     margin: 16px auto 0;

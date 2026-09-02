@@ -31,11 +31,6 @@ export interface ReaderConfirmCopy {
   /** The two things a verified reader can decide. Reply alerts come on with
       the verification (the mail promised them); the newsletter does not. */
   prefsNotifyReplies: string;
-  /** Scoped to the post the reply mail came from, and only rendered when the
-      link carried one. Phrased positively like its neighbours: every switch
-      on this card is on when the thing it names is happening, so "off" never
-      has to be read as a double negative. */
-  prefsMutePost: string;
   prefsSubscribe: string;
   prefsSaved: string;
   prefsError: string;
@@ -65,7 +60,6 @@ const zh: ReaderConfirmCopy = {
   settingsTitle: '评论提醒设置',
   settingsBody: '这几项随时可以改，改动立即生效。',
   prefsNotifyReplies: '有人回复我的评论时发送邮件提醒',
-  prefsMutePost: '接收这篇文章的回复提醒',
   prefsSubscribe: '订阅 buxx.me 的最新文章',
   prefsSaved: '已保存',
   prefsError: '没保存上，再点一次试试。',
@@ -95,7 +89,6 @@ const en: ReaderConfirmCopy = {
   settingsTitle: 'Comment alert settings',
   settingsBody: 'Change any of these any time — it takes effect immediately.',
   prefsNotifyReplies: 'Email me when someone replies to my comment',
-  prefsMutePost: 'Reply alerts for this post',
   prefsSubscribe: 'Subscribe to the latest posts on buxx.me',
   prefsSaved: 'Saved',
   prefsError: "That didn't save. Try once more.",
@@ -148,7 +141,7 @@ const muteZh: ReaderMuteCopy = {
   unmutedTitle: '提醒已恢复',
   unmutedBody: '这个对话再有新回复时，会照常发邮件给你。',
   invalidTitle: '链接已失效',
-  invalidBody: '这个静音链接已经过期。到评论设置里，也能关掉整篇文章或全部提醒。',
+  invalidBody: '这个静音链接已经过期。到评论设置里，可以关掉全部回复提醒。',
   settings: '打开评论提醒设置',
   back: '← 返回首页',
   error: '没保存上，再点一次试试。',
@@ -164,7 +157,7 @@ const muteEn: ReaderMuteCopy = {
   unmutedTitle: 'Alerts are back on',
   unmutedBody: "You'll get an email the next time someone replies in this conversation.",
   invalidTitle: 'This link has expired',
-  invalidBody: 'Your comment settings can still mute the whole post, or turn every alert off.',
+  invalidBody: 'Your comment settings can still turn every reply alert off.',
   settings: 'Open comment alert settings',
   back: '← Back to the homepage',
   error: "That didn't save. Try once more.",
