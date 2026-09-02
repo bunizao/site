@@ -43,6 +43,7 @@
 
 import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
 import { initials, seedHue } from '@/features/comments/identity';
+import { SIGNOUT_ICONS } from '@/features/comments/icons';
 import type { CommentErrorCode } from '@/features/comments/comment-error';
 import type { ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import { blog, type BlogLocale } from '@/data/site';
@@ -143,21 +144,39 @@ const showNudge = receipt === 'nudge';
                 style={`--seed-hue:${seedHue(viewer.name)}`}
                 aria-hidden="true">{initials(viewer.name)}</span>
             )}
-            {t.postingAs(viewer.name)}
+            <span class="sr-only">{t.postingAs(viewer.name)}</span>
+            <span class="blog-compose__whoname" aria-hidden="true">{viewer.name}</span>
           </>
         )}
       </span>
 
       <span class="blog-compose__claim">
-        {claimed && t.claimedAs(claimed.name)}
+        {claimed && (
+          <>
+            <span
+              class="blog-compose__whoface blog-avatar-seed blog-avatar-initials"
+              style={`--seed-hue:${seedHue(claimed.name)}`}
+              aria-hidden="true">{initials(claimed.name)}</span>
+            <span class="sr-only">{t.claimedAs(claimed.name)}</span>
+            <span class="blog-compose__whoname" aria-hidden="true">{claimed.name}</span>
+          </>
+        )}
       </span>
 
       {/* Outside both spans, because it is the same offer in both phases and
-          the strip's only action. It replaced "Switch", which flipped the row
-          back to the fields without touching what was stored -- so the name
-          the reader had just dismissed came back on the next reload, and
-          there was no way at all to sign a verified session out. */}
-      <button type="button" class="blog-compose__signout" data-compose-signout>{t.signOut}</button>
+          the strip's only action. Symbols, not words: at the end of a strip
+          whose whole job is to state a name quietly, "Sign out" was the
+          loudest thing in it. The armed state swaps the door for a tick and
+          turns red -- colour alone would leave the second press unexplained. */}
+      <button
+        type="button"
+        class="blog-compose__signout"
+        data-compose-signout
+        aria-label={t.signOut}
+        title={t.signOut}>
+        <span class="blog-compose__signout-icon" data-icon="idle" set:html={SIGNOUT_ICONS.idle} />
+        <span class="blog-compose__signout-icon" data-icon="armed" set:html={SIGNOUT_ICONS.armed} />
+      </button>
     </p>
 
     <label class="sr-only" for="blog-compose-text">{t.bodyLabel}</label>

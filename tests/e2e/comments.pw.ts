@@ -164,15 +164,15 @@ test('a resolved avatar draws a photo, everyone else draws initials', async ({ p
   await expect(withoutPhoto).toHaveClass(/blog-avatar-initials/);
 });
 
-test('mute card names the thread it silenced and when it comes back', async ({ page }) => {
+test('mute card says what went quiet and what did not', async ({ page }) => {
   await page.goto('/lab/comments?locale=zh&mute=muted', { waitUntil: 'networkidle' });
   const card = page.locator('.comments-lab-mute .reader-confirm__card');
   await expect(card).toHaveAttribute('data-state', 'muted');
-  // A mute with no visible end is one nobody dares press, so the card has to
-  // say the date -- and say that it stops at this one conversation.
+  // The one thing a reader needs back from a button they pressed in a mail:
+  // how far the quiet reaches.
   await expect(card).toContainText('这个对话已静音');
   await expect(card).toContainText('其他文章和其他对话照常提醒');
-  await expect(card.getByRole('button', { name: '立即恢复这个对话的提醒' })).toBeVisible();
+  await expect(card.getByRole('button', { name: '恢复这个对话的提醒' })).toBeVisible();
 
   await page.goto('/lab/comments?locale=zh&mute=invalid', { waitUntil: 'networkidle' });
   // An expired mute link is a dead end unless it hands over the settings card.
@@ -210,9 +210,9 @@ test('lab previews the reply notification email', async ({ page }) => {
   await expect(preview).toContainText('Nina Kato 的回复');
   await expect(preview.getByRole('link', { name: '查看完整对话' })).toBeVisible();
   // Two off switches, and they are not the same switch. The first silences
-  // this one thread and lapses on its own; the second is the settings card,
-  // and it carries the post so "just this one" is on offer there.
-  await expect(preview.getByRole('link', { name: '静音 7 天。' }))
+  // this one conversation; the second is the settings card, and it carries
+  // the post so "just this one" is on offer there.
+  await expect(preview.getByRole('link', { name: '不再接收这个对话的提醒。' }))
     .toHaveAttribute('href', '/reader/mute?lang=zh&token=preview');
   await expect(preview.getByRole('link', { name: '只关掉这篇文章，或者全部关闭。' }))
     .toHaveAttribute('href', '/reader/confirm?lang=zh&post=sample-post');
@@ -333,9 +333,9 @@ test('optimistic comment submit paints before the API response', async ({ page }
   await expect(posted).toBeVisible();
 
   // The row says the comment went up -- not "verify your email to edit this",
-  // which used to land here and read as a refusal -- and then takes itself
-  // away rather than leaving one row in the thread wearing a badge.
-  const note = posted.locator('.blog-comment__note--verify');
+  // which used to land here, read as a refusal, and then stay for good -- and
+  // then takes itself away rather than leaving one row wearing a badge.
+  const note = posted.locator('.blog-comment__note--posted');
   await expect(note).toHaveText('Posted.');
   await expect(note).toHaveCount(0, { timeout: 15_000 });
 });
@@ -426,9 +426,12 @@ test('claimed identity sign-out is armed, cancellable, and clears the form', asy
   await page.goto('/lab/comments?phase=claimed&locale=en', { waitUntil: 'networkidle' });
   const compose = page.locator('.blog-comments > .blog-compose');
   const signOut = compose.locator('[data-compose-signout]');
-  await expect(signOut).toHaveText('Sign out');
+  // The button is a symbol now, so what says which press this is -- to a
+  // screen reader and to this test -- is the label, not the text.
+  await expect(signOut).toHaveAttribute('aria-label', 'Sign out');
+  await expect(compose.locator('.blog-compose__claim .blog-compose__whoname')).toHaveText('Murray');
   await signOut.click();
-  await expect(signOut).toHaveText('Sign out?');
+  await expect(signOut).toHaveAttribute('aria-label', 'Sign out?');
   await signOut.click();
   await expect(compose).toHaveAttribute('data-phase', 'anonymous');
   await expect(signOut).toBeHidden();

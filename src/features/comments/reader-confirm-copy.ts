@@ -125,9 +125,9 @@ export interface ReaderMuteCopy {
   pageDescription: string;
   working: string;
   mutedTitle: string;
-  /** Says the date it lapses, because a mute nobody can see the end of is one
-      people never dare press. */
-  mutedBody: (until: string) => string;
+  /** Says how far the quiet reaches, because the reader pressed one button in
+      one mail and the thing they are owed is the scope, not a receipt. */
+  mutedBody: string;
   undo: string;
   unmutedTitle: string;
   unmutedBody: string;
@@ -143,8 +143,8 @@ const muteZh: ReaderMuteCopy = {
   pageDescription: '关闭这个对话接下来的回复提醒。',
   working: '正在设置…',
   mutedTitle: '这个对话已静音',
-  mutedBody: (until) => `${until} 之前，这个对话的新回复不再发邮件给你。其他文章和其他对话照常提醒。`,
-  undo: '立即恢复这个对话的提醒',
+  mutedBody: '这个对话的新回复不再发邮件给你。其他文章和其他对话照常提醒。',
+  undo: '恢复这个对话的提醒',
   unmutedTitle: '提醒已恢复',
   unmutedBody: '这个对话再有新回复时，会照常发邮件给你。',
   invalidTitle: '链接已失效',
@@ -159,7 +159,7 @@ const muteEn: ReaderMuteCopy = {
   pageDescription: 'Turn off reply alerts for this one conversation.',
   working: 'Setting that up…',
   mutedTitle: 'This conversation is muted',
-  mutedBody: (until) => `New replies here won't email you until ${until}. Other posts and other conversations carry on as usual.`,
+  mutedBody: "New replies here won't email you. Other posts and other conversations carry on as usual.",
   undo: 'Turn alerts back on for this conversation',
   unmutedTitle: 'Alerts are back on',
   unmutedBody: "You'll get an email the next time someone replies in this conversation.",

@@ -107,9 +107,6 @@ export type ReaderMuteOutcome = (typeof READER_MUTE_OUTCOMES)[number];
 
 export interface ReaderMuteResult {
   outcome: ReaderMuteOutcome;
-  /** ISO instant this thread starts mailing again. Only on `muted` — a thread
-      mute lapses on its own, which is what makes it safe to press. */
-  mutedUntil?: string;
   /** Carried so the page can offer the wider switches without another call. */
   postId?: string;
 }
@@ -235,10 +232,6 @@ export interface Comment {
   /** True when the viewer may delete this row: verified reader owns it and
       it is not already a tombstone. Always false for session-owned rows. */
   deletable: boolean;
-  /** An address is on file that no reader has claimed yet, so verifying it
-      would hand this row's controls to whoever wrote it. False for a row
-      posted with no email at all -- that one is unclaimable forever. */
-  claimable: boolean;
   /** Soft-deleted but kept as a shape-preserving placeholder because a reply
       hangs underneath it. `body`/`author` are empty on a tombstone. */
   tombstone: boolean;

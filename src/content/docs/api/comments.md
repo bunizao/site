@@ -460,7 +460,7 @@ POST /api/v2/reader/mute
 ```
 
 ```json
-{ "outcome": "muted", "mutedUntil": "2026-09-09T12:00:00.000Z", "postId": "..." }
+{ "outcome": "muted", "postId": "..." }
 ```
 
 The reply mail's own mute button. Three scopes now exist and they answer
@@ -470,13 +470,13 @@ cost the reader the other two — a single argument in one thread is the usual
 reason someone reaches for an off switch, and if the only switch in reach is
 the global one, that is the one they pull.
 
-A thread mute lasts seven days and then lapses on its own, which is what makes
-it safe to press: nobody has to remember to undo it. Pressing it again
-restarts the window rather than doing nothing. `outcome` is `muted`,
-`unmuted` (the landing page's undo, sent as `muted: false`), or `invalid` for
-an expired, tampered, or unknown token — one flat answer, so the endpoint
-cannot be used to probe which tokens are real. Rate-limited at 20/minute per
-reader.
+A thread mute stays until it is undone, like the post one — a reader who has
+left a conversation has left it, and an alert that quietly turns itself back
+on is worse than one that was never offered. The landing page carries the
+undo. `outcome` is `muted`, `unmuted` (that undo, sent as `muted: false`), or
+`invalid` for an expired, tampered, or unknown token — one flat answer, so the
+endpoint cannot be used to probe which tokens are real. Rate-limited at
+20/minute per reader.
 
 Authenticated by the token alone, never a session: the mail is usually open on
 a device that has never signed in here, and an off switch that starts with a

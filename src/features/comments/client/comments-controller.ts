@@ -49,6 +49,7 @@ import { readCommentText, setCommentText } from '@/features/comments/comment-mar
 import { forgetReaderEmail, readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { wireSignOut } from '@/features/comments/client/sign-out';
 import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
+import { SIGNOUT_ICONS } from '@/features/comments/icons';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
@@ -153,7 +154,6 @@ function toBlogComment(
     date: formatRelativeDate(comment.createdAt, t),
     text: comment.tombstone ? '' : comment.body,
     avatarUrl: comment.tombstone ? undefined : safeReaderAvatarUrl(comment.author.avatarUrl),
-    claimable: comment.claimable,
     byAuthor: comment.author.byAuthor,
     held: comment.status === 'held',
     isReply: comment.parentId !== null,
@@ -629,24 +629,14 @@ export function initCommentsController(): void {
     if (outcome === 'held') void upgradeWhenVerdictLands(comment.id, parentId, article);
   }
 
-  /** The verify hint is true on a row nobody can edit yet, and wrong as the
-      first thing a reader sees after pressing send: it appears where an error
-      would appear, in the same instant, and answers a question they had not
-      asked yet instead of the one they had. On this row it becomes the
-      receipt, and then it leaves -- the comment itself is the lasting proof,
-      and a permanent "posted" badge on one row in the thread is clutter. A
-      row posted with no email never had the hint and gets no receipt either;
-      for it the row really is the only receipt there is. */
+  /** The receipt for the row this browser just posted: the one thing the
+      reader pressed the button to find out, in the spot they are already
+      looking, and gone once it has been read. The comment itself is the
+      lasting proof, so a badge that stays is clutter. */
   function announcePosted(article: HTMLElement): void {
-    // Reuse the verify hint's slot when the row has one -- that is the row the
-    // hint was misread on, and replacing it in place is what stops it being
-    // the first thing read after send. A row that never had one (the reader
-    // can already edit it) gets the receipt in the same position, so the
-    // answer lands where the reader is looking either way.
-    const note = article.querySelector<HTMLElement>('.blog-comment__note--verify')
-      ?? article.querySelector<HTMLElement>('.blog-comment__body')?.appendChild(
-        el('p', { class: 'blog-comment__note blog-comment__note--verify' }),
-      ) as HTMLElement | undefined;
+    const note = article.querySelector<HTMLElement>('.blog-comment__body')?.appendChild(
+      el('p', { class: 'blog-comment__note blog-comment__note--posted' }),
+    );
     if (!note) return;
     note.textContent = t.postedNote;
     note.dataset.transient = 'in';
@@ -926,7 +916,7 @@ export function initCommentsController(): void {
         el('p', { class: 'blog-compose__signed' }, [
           el('span', { class: 'blog-compose__who' }),
           el('span', { class: 'blog-compose__claim' }),
-          el('button', { type: 'button', class: 'blog-compose__signout', 'data-compose-signout': '' }, [t.signOut]),
+          signOutButton(),
         ]),
         el('label', { class: 'sr-only', for: 'blog-reply-text' }, [t.replyBodyLabel]),
         el('textarea', { id: 'blog-reply-text', class: 'blog-compose__field blog-reply__field', rows: '2' }),
@@ -1067,16 +1057,6 @@ export function initCommentsController(): void {
     if (comment.held) {
       body.append(el('p', { class: 'blog-comment__note' }, [t.held]));
     } else {
-      // `mine`, but nothing here is theirs to change yet -- verifying the
-      // address would bind it (see plans/blog-comments.md "Sessions and
-      // ownership"). `claimable` is the server's answer to "is there an
-      // unclaimed address on this row": a row posted with no email at all is
-      // permanently unclaimable and gets no hint, because "verify your email"
-      // would be false on it, not a nudge.
-      if (comment.own && !canEdit && !canDelete && comment.claimable) {
-        body.append(el('p', { class: 'blog-comment__note blog-comment__note--verify' }, [t.verifyHint]));
-      }
-
       // Two sets of controls in one strip, exactly one on screen -- mirrors
       // CommentsSection.astro, which renders the same row server-side.
       const acts = el('span', { class: 'blog-comment__acts' }, [
@@ -1555,8 +1535,8 @@ export function initCommentsController(): void {
         const avatarUrl = safeReaderAvatarUrl(currentViewer.avatarUrl);
         const face = avatarUrl
           ? el('img', { class: 'blog-compose__whoface', src: avatarUrl, alt: '', width: '20', height: '20' })
-          : el('span', { class: 'blog-compose__whoface blog-avatar-seed blog-avatar-initials', style: `--seed-hue:${seedHue(currentViewer.displayName)}`, 'aria-hidden': 'true' }, [initials(currentViewer.displayName)]);
-        who.append(face, t.postingAs(currentViewer.displayName));
+          : identityFace(currentViewer.displayName);
+        who.append(face, ...identityName(currentViewer.displayName, t.postingAs(currentViewer.displayName)));
       }
     }
 
@@ -1565,9 +1545,50 @@ export function initCommentsController(): void {
     if (claim) {
       claim.replaceChildren();
       if (currentPhase === 'claimed' && claimedIdentity) {
-        claim.append(t.claimedAs(claimedIdentity.name));
+        claim.append(
+          identityFace(claimedIdentity.name),
+          ...identityName(claimedIdentity.name, t.claimedAs(claimedIdentity.name)),
+        );
       }
     }
+  }
+
+  /** The generated face both grades fall back to -- a claimed identity never
+      has a picture, and a verified reader only has one once it resolved. */
+  function identityFace(name: string): HTMLElement {
+    return el('span', {
+      class: 'blog-compose__whoface blog-avatar-seed blog-avatar-initials',
+      style: `--seed-hue:${seedHue(name)}`,
+      'aria-hidden': 'true',
+    }, [initials(name)]);
+  }
+
+  /** The name as the strip shows it, plus the sentence a screen reader hears
+      instead -- which grade this is matters to someone who cannot see that the
+      face is a generated one. */
+  function identityName(name: string, spoken: string): HTMLElement[] {
+    return [
+      el('span', { class: 'sr-only' }, [spoken]),
+      el('span', { class: 'blog-compose__whoname', 'aria-hidden': 'true' }, [name]),
+    ];
+  }
+
+  /** Mirrors the two-icon button CommentForm.astro renders; sign-out.ts swaps
+      which face is lit. */
+  function signOutButton(): HTMLElement {
+    const button = el('button', {
+      type: 'button',
+      class: 'blog-compose__signout',
+      'data-compose-signout': '',
+      'aria-label': t.signOut,
+      title: t.signOut,
+    });
+    for (const [face, svg] of [['idle', SIGNOUT_ICONS.idle], ['armed', SIGNOUT_ICONS.armed]] as const) {
+      const slot = el('span', { class: 'blog-compose__signout-icon', 'data-icon': face });
+      slot.append(parseStaticSvg(svg));
+      button.append(slot);
+    }
+    return button;
   }
 
   /** Forget this reader on this browser, in both grades.

@@ -21,6 +21,7 @@
 import CommentForm from '@/features/comments/ui/CommentForm.astro';
 import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
 import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
+import { SIGNOUT_ICONS } from '@/features/comments/icons';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import { blog, type BlogLocale } from '@/data/site';
 import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
@@ -285,17 +286,6 @@ const t = commentsCopy[locale];
               <p class="blog-comment__note">{t.held}</p>
             )}
 
-            {/* `mine`, but nothing here is theirs to change yet -- verifying
-                the address would bind it (see plans/blog-comments.md
-                "Sessions and ownership"). `claimable` is the server's answer
-                to "is there an unclaimed address on this row": a row posted
-                with no email at all is permanently unclaimable and gets no
-                hint, because "verify your email" would be false on it, not a
-                nudge. */}
-            {comment.own && !comment.held && !canEdit && !canDelete && comment.claimable && (
-              <p class="blog-comment__note blog-comment__note--verify">{t.verifyHint}</p>
-            )}
-
             {/* Held back on a held row: nothing can be replied to, liked, or
                 edited until it is public, and offering the buttons would imply
                 it is. */}
@@ -417,14 +407,32 @@ const t = commentsCopy[locale];
                       style={`--seed-hue:${seedHue(viewer.name)}`}
                       aria-hidden="true">{initials(viewer.name)}</span>
                   )}
-                  {t.postingAs(viewer.name)}
+                  <span class="sr-only">{t.postingAs(viewer.name)}</span>
+                  <span class="blog-compose__whoname" aria-hidden="true">{viewer.name}</span>
                 </>
               )}
             </span>
             <span class="blog-compose__claim">
-              {claimed && t.claimedAs(claimed.name)}
+              {claimed && (
+                <>
+                  <span
+                    class="blog-compose__whoface blog-avatar-seed blog-avatar-initials"
+                    style={`--seed-hue:${seedHue(claimed.name)}`}
+                    aria-hidden="true">{initials(claimed.name)}</span>
+                  <span class="sr-only">{t.claimedAs(claimed.name)}</span>
+                  <span class="blog-compose__whoname" aria-hidden="true">{claimed.name}</span>
+                </>
+              )}
             </span>
-            <button type="button" class="blog-compose__signout" data-compose-signout>{t.signOut}</button>
+            <button
+              type="button"
+              class="blog-compose__signout"
+              data-compose-signout
+              aria-label={t.signOut}
+              title={t.signOut}>
+              <span class="blog-compose__signout-icon" data-icon="idle" set:html={SIGNOUT_ICONS.idle} />
+              <span class="blog-compose__signout-icon" data-icon="armed" set:html={SIGNOUT_ICONS.armed} />
+            </button>
           </p>
 
           <label class="sr-only" for="blog-reply-text">{t.replyBodyLabel}</label>

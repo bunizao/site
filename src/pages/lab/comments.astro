@@ -24,6 +24,7 @@ import BackToTop from '@/features/posts/ui/BackToTop.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import ReactionBar from '@/features/comments/ui/ReactionBar';
 import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
+import { ICONS } from '@/features/comments/icons';
 import ReaderVerifyEmailPreview from '@/features/comments/ui/ReaderVerifyEmailPreview.astro';
 import CommentReplyEmailPreview from '@/features/comments/ui/CommentReplyEmailPreview.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
@@ -55,21 +56,18 @@ const verifyCopy = readerConfirmCopy[locale];
 const muteRaw = params.get('mute');
 const muteState = muteRaw === 'unmuted' || muteRaw === 'invalid' ? muteRaw : 'muted';
 const muteCopy = readerMuteCopy[locale];
-// A fixed date, so the card renders the same thing on every visit.
-const muteUntil = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'zh-CN', { month: 'long', day: 'numeric' })
-  .format(new Date('2026-09-09T12:00:00.000Z'));
 const muteGlyphs = {
-  muted: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M2 21 22 3"/>',
-  unmuted: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M19 6.5a8 8 0 0 1 0 11"/>',
-  invalid: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/><path d="M2 21 22 3"/>',
+  muted: ICONS.bellOff,
+  unmuted: ICONS.bell,
+  invalid: ICONS.linkOff,
 } as const;
 const verifyGlyphs = {
-  pending: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/>',
-  confirmed: '<path d="m4.5 12.5 5 5 10-11"/>',
-  settings: '<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-  already: '<path d="m4.5 12.5 5 5 10-11"/>',
-  invalid: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/><path d="M2 21 22 3"/>',
-  resent: '<path d="M21.5 2.5 10.8 13.2"/><path d="M21.5 2.5 14.7 21.5l-3.9-8.3-8.3-3.9z"/>',
+  pending: ICONS.mail,
+  confirmed: ICONS.check,
+  settings: ICONS.settings,
+  already: ICONS.check,
+  invalid: ICONS.linkOff,
+  resent: ICONS.send,
 } as const;
 
 const rawState = params.get('state');
@@ -240,10 +238,8 @@ const comments: BlogComment[] = [
     isReply: true,
     likes: 1,
   },
-  // Own, no email on file — permanently unclaimable, since claiming keys on
-  // an email hash this row never had one to carry. No Edit, no Delete, and
-  // no hint either: "verify your email" would be false on a row with no
-  // address behind it, not a nudge.
+  // Own, no email on file — nothing to claim, since claiming keys on an
+  // email hash this row never had one to carry. No Edit, no Delete.
   {
     id: '7',
     author: 'You',
@@ -252,17 +248,15 @@ const comments: BlogComment[] = [
     own: true,
     likes: 0,
   },
-  // Own, has an email but it's never been verified — `claimable` with
-  // `editDeadline`/`deletable` both absent, so this one *can* still be
-  // claimed. Shows the quiet verify hint, and the generated avatar, because
-  // an unverified address has never had a picture resolved for it.
+  // Own, has an email but it's never been verified — no `editDeadline` and
+  // no `deletable`, so the row carries no controls, and the generated avatar,
+  // because an unverified address has never had a picture resolved for it.
   {
     id: '7a',
     author: 'You',
     date: t.relativeDate.minutes(6),
     text: 'Left an email on this one but never clicked the verification link.',
     own: true,
-    claimable: true,
     likes: 0,
   },
   // Own and verified — still inside the 15-minute edit window — Edit is live
@@ -452,7 +446,7 @@ await billing.invoice(payload)</code></pre>
         </div>
         <div class="reader-confirm__card" data-state={muteState}>
           <span class="reader-confirm__glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" set:html={muteGlyphs[muteState]} /></span>
-          {muteState === 'muted' && <><h3 class="reader-confirm__title">{muteCopy.mutedTitle}</h3><p class="reader-confirm__body">{muteCopy.mutedBody(muteUntil)}</p><div class="reader-confirm__form"><button type="button" class="reader-confirm__go reader-confirm__go--quiet">{muteCopy.undo}</button></div><a class="reader-confirm__back" href="/reader/confirm">{muteCopy.settings}</a></>}
+          {muteState === 'muted' && <><h3 class="reader-confirm__title">{muteCopy.mutedTitle}</h3><p class="reader-confirm__body">{muteCopy.mutedBody}</p><div class="reader-confirm__form"><button type="button" class="reader-confirm__go reader-confirm__go--quiet">{muteCopy.undo}</button></div><a class="reader-confirm__back" href="/reader/confirm">{muteCopy.settings}</a></>}
           {muteState === 'unmuted' && <><h3 class="reader-confirm__title">{muteCopy.unmutedTitle}</h3><p class="reader-confirm__body">{muteCopy.unmutedBody}</p><a class="reader-confirm__back" href="/reader/confirm">{muteCopy.settings}</a></>}
           {muteState === 'invalid' && <><h3 class="reader-confirm__title">{muteCopy.invalidTitle}</h3><p class="reader-confirm__body">{muteCopy.invalidBody}</p><a class="reader-confirm__back" href="/reader/confirm">{muteCopy.settings}</a></>}
         </div>

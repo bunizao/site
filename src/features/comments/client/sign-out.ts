@@ -37,15 +37,23 @@ export function wireSignOut(box: HTMLElement, onConfirm: () => void): void {
   // rendered from.
   const t = copyFor(box);
 
+  // The button is two stacked icons and the class cross-fades them, so arming
+  // is a class and a label -- no icon is swapped in or out, and a press
+  // landing mid-fade catches the transition rather than restarting it.
+  const label = (text: string): void => {
+    button.setAttribute('aria-label', text);
+    button.title = text;
+  };
+
   const disarm = (): void => {
     button.classList.remove('blog-compose__signout--confirm');
-    button.textContent = t.signOut;
+    label(t.signOut);
   };
 
   button.addEventListener('click', () => {
     if (!button.classList.contains('blog-compose__signout--confirm')) {
       button.classList.add('blog-compose__signout--confirm');
-      button.textContent = t.signOutConfirm;
+      label(t.signOutConfirm);
       return;
     }
     disarm();

@@ -844,14 +844,28 @@
   object-fit: cover;
 }
 
-/* The claimed identity: an unverified name+email pair mirrored into
-   localStorage, never a proof — so it reads as plain text next to a quiet
-   text-button, not as a signed-in chip with a face. */
+/* The claimed identity draws the same face-and-name as the verified one. It
+   is still not a proof -- but the sentence that used to say so ("this browser
+   remembers X") was a line of furniture standing over every compose box, and
+   the difference it named is one sign-out away either way. The face here is
+   always the generated one; a verified reader's is usually a photo. */
 .blog-compose__claim {
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  min-width: 0;
   font-size: var(--comment-meta);
   color: var(--blog-muted);
+}
+
+/* The name itself, which is now the only text in the strip. Ink rather than
+   muted: it is the answer to "who is this going out as", and the row has
+   nothing else in it to outrank. */
+.blog-compose__whoname {
+  overflow: hidden;
+  color: var(--blog-ink);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Sign out: the strip's only action, and the same one in both phases -- a
@@ -859,38 +873,77 @@
    flipped the phase attribute, so the name it had just dismissed came back on
    the next reload.
 
-   Pushed to the far end of the row rather than sitting against the name: it
-   ends the state the rest of the row is describing, and a destructive verb
-   directly abutting the reader's own name reads as a label for it. */
+   A symbol, not a verb. In a strip whose whole job is to state a name
+   quietly, an underlined "Sign out" was the loudest thing in it, and it sat
+   one word away from the reader's own name -- close enough to read as a label
+   for it. Pushed to the far end for the same reason.
+
+   Two icons live in the button at once and the armed class cross-fades them,
+   so the swap is interruptible and nothing is inserted or removed mid-press. */
 .blog-compose__signout {
+  position: relative;
+  display: inline-flex;
   flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   margin-left: auto;
+  margin-right: -4px;
   border: 0;
+  border-radius: 8px;
   background: none;
   padding: 0;
   color: var(--blog-faint);
-  font: inherit;
-  font-size: var(--comment-meta);
-  text-decoration: underline;
-  text-underline-offset: 2px;
   cursor: pointer;
-  transition: color 0.15s ease;
+  transition-property: color, background-color;
+  transition-duration: 0.15s;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
 .blog-compose__signout:hover {
+  background: var(--blog-field-fill);
   color: var(--blog-ink);
+}
+
+.blog-compose__signout-icon {
+  position: absolute;
+  display: inline-flex;
+  transition-property: opacity, scale, filter;
+  transition-duration: 0.22s;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.blog-compose__signout-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.blog-compose__signout-icon[data-icon='armed'],
+.blog-compose__signout--confirm .blog-compose__signout-icon[data-icon='idle'] {
+  opacity: 0;
+  scale: 0.25;
+  filter: blur(4px);
+}
+
+.blog-compose__signout--confirm .blog-compose__signout-icon[data-icon='armed'] {
+  opacity: 1;
+  scale: 1;
+  filter: blur(0);
 }
 
 /* Armed. Red is reserved for this one state -- not hover, not focus -- so in
    this strip the colour never means anything except "one more press and the
-   name is gone". The underline goes with it: the button has stopped offering
-   and started asking, and the weight carries it without a fill, which on an
-   unpadded text button would read as a stray highlight. */
+   name is gone". It is never the only cue: the icon has become a tick and the
+   button's label has become the question. */
 .blog-compose__signout--confirm,
 .blog-compose__signout--confirm:hover {
+  background: none;
   color: var(--blog-danger);
-  font-weight: 600;
-  text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-compose__signout-icon { transition-duration: 1ms; }
 }
 
 .blog-compose__signout:focus-visible {
@@ -1533,13 +1586,11 @@
   }
 }
 
-/* A `mine` row with neither `editableUntil` nor `deletable` -- posted without
-   an email, or before that address was verified. Same quiet note as `.held`,
-   just tinted with the compose box's own suggestion colour instead of the
-   faint grey: this is an upside on offer, not a status to report. No box or
-   background -- that reads as a suggestion once at the top of the thread, but
-   as nagging repeated under every row of someone's own history. */
-.blog-comment__note--verify {
+/* The receipt on the row this browser just posted. Tinted, because it reports
+   a success, and gone within seconds -- the standing version of this note,
+   under every unclaimed row of one's own, was a permanent green line saying
+   what the nudge under the box had already said once. */
+.blog-comment__note--posted {
   color: var(--blog-good);
 }
 

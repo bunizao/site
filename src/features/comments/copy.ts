@@ -58,16 +58,19 @@ export interface CommentsCopy {
   replyPost: string;
   replyPostAria: string;
 
-  /** Verified reader: shown with their avatar under the box. */
+  /** Both grades of "who is this going out as", and both of them accessible
+      names rather than visible text: the strip draws a face and the name, the
+      way the rows below it do, and a sentence saying so on every screen was
+      furniture. A screen reader still gets the whole sentence, including
+      which grade this is -- `claimedAs` names the scope on purpose, because
+      this grade is only a record in one browser, which is exactly the thing
+      sign-out undoes. */
   postingAs: (name: string) => string;
-  /** Remembered-but-unverified reader. Names the scope on purpose: the old
-      wording ("Posting as X" / "Commenting as X") read as a claim about an
-      account, and this grade is only a record in one browser -- which is
-      exactly the thing sign-out undoes. */
   claimedAs: (name: string) => string;
   /** The identity strip's one action, offered in both phases: forget me on
-      this browser. `signOutConfirm` is the same button after the first press,
-      asking rather than telling. */
+      this browser. It is an icon button, so this is its label rather than its
+      text; `signOutConfirm` is the same button after the first press, asking
+      rather than telling. */
   signOut: string;
   signOutConfirm: string;
 
@@ -92,19 +95,12 @@ export interface CommentsCopy {
   reply: string;
   edit: string;
   editLabel: string;
-  /** Shown on a `mine` row that carries neither `editableUntil` nor
-      `deletable` -- a comment posted without an email, or one written before
-      the address behind it was verified. Quiet, not an error: it names the
-      one thing that would change the row (verifying the email later binds it
-      to the reader row, per plans/blog-comments.md "Sessions and ownership")
-      and never implies the row is broken or wrong. */
-  verifyHint: string;
-  /** Replaces verifyHint on the row this browser just posted. That row is the
-      one place the hint was read as a failure: it lands the instant the reader
-      presses send, in the spot an error would occupy, and says nothing about
-      whether the comment went up. It also said the same thing the nudge under
-      the box was already saying. This says the thing they pressed the button
-      to find out, and clears itself once it has been read. */
+  /** The one line a row gets after this browser posts it, and then only for a
+      few seconds. There used to be a standing "verify your email to edit or
+      delete this" note on every unclaimed row of one's own: green, permanent,
+      in the spot an error would occupy, and saying what the nudge under the
+      box had already said. This says the thing the reader pressed the button
+      to find out, and then it leaves. */
   postedNote: string;
   save: string;
   cancel: string;
@@ -212,7 +208,6 @@ const zh: CommentsCopy = {
   reply: '回复',
   edit: '编辑',
   editLabel: '编辑你的评论',
-  verifyHint: '验证邮箱后可编辑或删除这条评论。',
   postedNote: '发布成功。',
   save: '保存',
   cancel: '取消',
@@ -297,7 +292,6 @@ const en: CommentsCopy = {
   reply: 'Reply',
   edit: 'Edit',
   editLabel: 'Edit your comment',
-  verifyHint: 'Verify your email to edit or delete this comment.',
   postedNote: 'Posted.',
   save: 'Save',
   cancel: 'Cancel',

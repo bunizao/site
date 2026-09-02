@@ -18,6 +18,7 @@ import Footer from '@/features/home/ui/Footer.astro';
 import '@/features/comments/styles/comments.css';
 import { proxyApiRequest } from '@/lib/http/api-service-proxy';
 import { readerMuteCopy, resolveReaderConfirmLocale } from '@/features/comments/reader-confirm-copy';
+import { ICONS } from '@/features/comments/icons';
 import { READER_MUTE_PATH } from '@bunizao/contracts/routes';
 import type { ReaderMuteResult } from '@bunizao/contracts/comments';
 
@@ -28,7 +29,6 @@ const locale = resolveReaderConfirmLocale(Astro.url.searchParams.get('lang'));
 const t = readerMuteCopy[locale];
 
 let state: ViewState = token ? 'pending' : 'invalid';
-let mutedUntil = '';
 let postId = '';
 
 if (Astro.request.method === 'POST') {
@@ -45,27 +45,19 @@ if (Astro.request.method === 'POST') {
     const response = await proxyApiRequest(request, Astro.locals);
     const result = (await response.json().catch(() => null)) as ReaderMuteResult | null;
     state = result?.outcome === 'muted' ? 'muted' : result?.outcome === 'unmuted' ? 'unmuted' : 'invalid';
-    mutedUntil = result?.mutedUntil ?? '';
     postId = result?.postId ?? '';
   } else {
     state = 'invalid';
   }
 }
 
-// Date only: the hour a mute lapses is noise, and stating one invites the
-// reader to check whether it was accurate to the minute.
-const untilLabel = mutedUntil
-  ? new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'zh-CN', { month: 'long', day: 'numeric' })
-      .format(new Date(mutedUntil))
-  : '';
-
 const settingsHref = `/reader/confirm?lang=${locale}${postId ? `&post=${encodeURIComponent(postId)}` : ''}`;
 
 const GLYPHS: Record<ViewState, string> = {
-  pending: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M2 21 22 3"/>',
-  muted: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M2 21 22 3"/>',
-  unmuted: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M19 6.5a8 8 0 0 1 0 11"/>',
-  invalid: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/><path d="M2 21 22 3"/>',
+  pending: ICONS.bellOff,
+  muted: ICONS.bellOff,
+  unmuted: ICONS.bell,
+  invalid: ICONS.linkOff,
 };
 ---
 
@@ -90,7 +82,7 @@ const GLYPHS: Record<ViewState, string> = {
       {state === 'muted' && (
         <>
           <h1 class="reader-confirm__title">{t.mutedTitle}</h1>
-          <p class="reader-confirm__body">{t.mutedBody(untilLabel)}</p>
+          <p class="reader-confirm__body">{t.mutedBody}</p>
           {/* The undo is a form, not a link, for the same reason the mute is:
               nothing here changes on a GET. */}
           <form method="post" class="reader-confirm__form">

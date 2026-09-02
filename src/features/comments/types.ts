@@ -61,10 +61,6 @@ export interface BlogComment {
       draws instead, seeded so a name many anonymous writers reuse does not
       give them all the same coloured circle. */
   avatarUrl?: string;
-  /** An unclaimed address is on file, so verifying it would hand this row's
-      controls to its writer. Drives the claim hint, which `avatarUrl` used to
-      stand in for back when it meant "has an email". */
-  claimable?: boolean;
   isReply?: boolean;
   /** Reactions on the comment itself. A thread is a conversation, and most of
       what people want to say back is "agreed" — a like says it without adding
