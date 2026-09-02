@@ -420,6 +420,22 @@ decisions. Rate-limited at 20/minute per reader, durably enforced. The
 response carries the reader row as it now stands, in the same shape
 `/api/v2/reader/me` returns.
 
+`GET /reader/confirm` with no token is the page these switches live on: a
+signed-in reader gets the preference card, and everyone else gets the
+expired-link card. That is where the reply mail's "turn these off" link
+points, so the switch is always one click from the mail that prompted it.
+
+### What `notifyReplies` actually sends
+
+A published reply to a comment mails that comment's author, once, with the
+comment and the reply quoted. It goes out only when the author is a verified
+reader (an anonymous comment carries no address anyone may reuse), still has
+`notify_replies` set, is not banned, and is not the person who just replied.
+Held and rejected replies send nothing — mailing about one would leak the
+moderation queue. Capped at 12 per reader per hour and keyed on the reply id,
+so a retried write cannot mail the same reply twice; suppressed addresses are
+skipped like every other outbound.
+
 ## Reader avatar
 
 ```

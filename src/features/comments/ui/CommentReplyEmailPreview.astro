@@ -1,6 +1,7 @@
 ---
-// Dev-lab rendering of site-api's buildReaderVerifyEmail template. Keep this
-// copy and structure aligned with the canonical builder in
+// Dev-lab rendering of site-api's buildCommentReplyEmail template -- the mail
+// the "email me when someone replies" switch actually sends. Keep this copy
+// and structure aligned with the canonical builder in
 // site-api/src/features/notify/server/templates.ts.
 import type { BlogLocale } from '@/data/site';
 
@@ -9,43 +10,51 @@ interface Props {
 }
 
 const { locale } = Astro.props;
-// The lab has no comment behind it, so it previews the mail with a stand-in
-// post title -- the real one names whichever post the comment landed under.
-const SAMPLE_POST_TITLE = { zh: '少一层，而不是多一层', en: 'One layer fewer, not one more' } as const;
-const copy = {
+const SAMPLE = {
   zh: {
-    subject: '你的评论已成功发布！请验证邮箱',
-    title: '你的评论已成功发布！请验证邮箱。',
-    body: (postTitle: string) => `您在《${postTitle}》下发布的评论现已公开展示。点击下方按钮验证邮箱，即可为你解锁该评论的管理权限：`,
-    benefits: [
-      { label: '互动提醒', text: '评论被回复时，收到邮件通知' },
-      { label: '评论控制', text: '在任意浏览器随时修改、删除你的评论' },
-      { label: '新文推送', text: '默认关闭。可一键订阅最新文章，且支持随心退订' },
-    ],
-    button: '验证邮箱',
-    ignore: '若非你本人操作，请忽略此邮件。未验证的记录将在 7 天内自动清理。',
+    postTitle: '少一层，而不是多一层',
+    replier: 'Nina Kato',
+    parent: '所以判断标准是“调用它的人可以不知道什么”，而不是省了多少行？',
+    reply: '对，而且这条标准还有个副作用：它逼你把生命周期不同的东西拆开。你那三件事之所以能塞进一层，正是因为没人问过这个问题。',
   },
   en: {
-    subject: 'Your comment is live — please confirm your email',
-    title: 'Your comment is live! Please confirm your email.',
-    body: (postTitle: string) => `Your comment on “${postTitle}” is now public. Confirm your email with the button below to unlock management rights for it:`,
-    benefits: [
-      { label: 'Reply alerts', text: 'Get an email when someone replies to your comment' },
-      { label: 'Comment control', text: 'Edit or delete your comments from any browser' },
-      { label: 'New posts', text: 'Off by default. Subscribe in one tap, unsubscribe any time' },
-    ],
-    button: 'Confirm email',
-    ignore: "Wasn't you? Ignore this email. Unverified records are cleared within 7 days.",
+    postTitle: 'One layer fewer, not one more',
+    replier: 'Nina Kato',
+    parent: 'So the test is what the caller gets to not know, rather than how many lines it saved?',
+    reply: 'Right — and it has a side effect: it forces you to split things whose lifecycles differ. Your three jobs only fit in one layer because nobody asked the question.',
+  },
+} as const;
+const copy = {
+  zh: {
+    subject: (replier: string) => `${replier} 回复了你的评论`,
+    title: '你的评论收到了新回复。',
+    body: (postTitle: string) => `您在《${postTitle}》下发布的评论有了新的回复：`,
+    yourComment: '你的评论',
+    reply: (replier: string) => `${replier} 的回复`,
+    button: '查看完整对话',
+    manage: '不想再收到回复提醒？',
+    manageLink: '在评论设置里随时关闭。',
+  },
+  en: {
+    subject: (replier: string) => `${replier} replied to your comment`,
+    title: 'Someone replied to your comment.',
+    body: (postTitle: string) => `Your comment on “${postTitle}” has a new reply:`,
+    yourComment: 'Your comment',
+    reply: (replier: string) => `${replier} replied`,
+    button: 'View the thread',
+    manage: 'Done with reply alerts?',
+    manageLink: 'Turn them off in your comment settings.',
   },
 } as const;
 const t = copy[locale];
+const s = SAMPLE[locale];
 ---
 
 <div class="reader-mail-preview">
   <div class="reader-mail-preview__chrome">
     <div>
       <span>Subject</span>
-      <strong data-reader-verify-subject>{t.subject}</strong>
+      <strong data-reader-reply-subject>{t.subject(s.replier)}</strong>
     </div>
     <div>
       <span>From</span>
@@ -57,26 +66,25 @@ const t = copy[locale];
     </div>
   </div>
 
-  <article class="reader-mail" data-reader-verify-email lang={locale}>
+  <article class="reader-mail" data-reader-reply-email lang={locale}>
     <div class="reader-mail__card">
       <a class="reader-mail__brand" href="/" aria-label="buxx.me">
         <img src="/logo/peek.svg" alt="" width="20" height="14" />
         <span>buxx<i>.me</i></span>
       </a>
       <h3>{t.title}</h3>
-      <p class="reader-mail__body">{t.body(SAMPLE_POST_TITLE[locale])}</p>
-      <div class="reader-mail__panel">
+      <p class="reader-mail__body">{t.body(s.postTitle)}</p>
+      <p class="reader-mail__quote"><b>{t.yourComment}</b>{s.parent}</p>
+      <div class="reader-mail__panel reader-mail__reply">
         <dl>
-          {t.benefits.map((item) => (
-            <div>
-              <dt>{item.label}</dt>
-              <dd>{item.text}</dd>
-            </div>
-          ))}
+          <div>
+            <dt>{t.reply(s.replier)}</dt>
+            <dd>{s.reply}</dd>
+          </div>
         </dl>
       </div>
-      <a class="reader-mail__button" href={`/reader/confirm?token=preview&lang=${locale}`}>{t.button}<span aria-hidden="true"> →</span></a>
-      <p class="reader-mail__ignore">{t.ignore}</p>
+      <a class="reader-mail__button" href="/blog">{t.button}<span aria-hidden="true"> →</span></a>
+      <p class="reader-mail__ignore">{t.manage} <a href={`/reader/confirm?lang=${locale}`}>{t.manageLink}</a></p>
     </div>
     <p class="reader-mail__footer">© 2023–2026 bunizao · <a href="/privacy">Privacy</a></p>
   </article>

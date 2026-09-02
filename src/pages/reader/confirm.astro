@@ -24,15 +24,15 @@ import Footer from '@/features/home/ui/Footer.astro';
 import '@/features/comments/styles/comments.css';
 import { proxyApiRequest } from '@/lib/http/api-service-proxy';
 import { readerConfirmCopy, resolveReaderConfirmLocale } from '@/features/comments/reader-confirm-copy';
-import type { ReaderResendResult, ReaderVerifyResult } from '@bunizao/contracts/comments';
+import { READER_ME_PATH } from '@bunizao/contracts/routes';
+import type { ReaderMeResult, ReaderResendResult, ReaderVerifyResult } from '@bunizao/contracts/comments';
 
-type ViewState = 'pending' | 'confirmed' | 'already' | 'invalid' | 'resent';
+type ViewState = 'pending' | 'confirmed' | 'settings' | 'already' | 'invalid' | 'resent';
 
 const token = Astro.url.searchParams.get('token') ?? '';
 const locale = resolveReaderConfirmLocale(Astro.url.searchParams.get('lang'));
 const t = readerConfirmCopy[locale];
 let state: ViewState = token ? 'pending' : 'invalid';
-let displayName = '';
 // Seeds the two switches on the confirmed card. Reply alerts come on with the
 // verification itself -- the mail said they would -- and the newsletter only
 // if the reader ticked the offer that sent this link.
@@ -58,7 +58,6 @@ if (Astro.request.method === 'POST') {
     const result = await callApi<ReaderVerifyResult>('/api/v2/reader/verify', { token: postedToken });
     if (result?.outcome === 'confirmed') {
       state = 'confirmed';
-      displayName = result.reader?.displayName ?? '';
       notifyReplies = result.reader?.notifyReplies ?? true;
       subscribed = result.reader?.subscribed ?? false;
     } else if (result?.outcome === 'already_confirmed') {
@@ -89,9 +88,27 @@ function readStaleSubscribeIntent(staleToken: string): boolean {
   }
 }
 
+// A tokenless GET is either a broken link or a reader who followed the
+// "manage these alerts" line in a reply mail. Ask who is asking before
+// deciding which -- the session cookie has to be forwarded by hand, because
+// callApi above mints its request from scratch.
+if (Astro.request.method === 'GET' && !token) {
+  const probe = new Request(`${Astro.url.origin}/api${READER_ME_PATH}`, {
+    headers: { cookie: Astro.request.headers.get('cookie') ?? '' },
+  });
+  const response = await proxyApiRequest(probe, Astro.locals);
+  const me = (await response.json().catch(() => null)) as ReaderMeResult | null;
+  if (me?.reader) {
+    state = 'settings';
+    notifyReplies = me.reader.notifyReplies;
+    subscribed = me.reader.subscribed;
+  }
+}
+
 const GLYPHS: Record<ViewState, string> = {
   pending: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/>',
   confirmed: '<path d="m4.5 12.5 5 5 10-11"/>',
+  settings: '<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   already: '<path d="m4.5 12.5 5 5 10-11"/>',
   invalid: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/><path d="M2 21 22 3"/>',
   resent: '<path d="M21.5 2.5 10.8 13.2"/><path d="M21.5 2.5 14.7 21.5l-3.9-8.3-8.3-3.9z"/>',
@@ -118,10 +135,10 @@ const GLYPHS: Record<ViewState, string> = {
         </>
       )}
 
-      {state === 'confirmed' && (
+      {(state === 'confirmed' || state === 'settings') && (
         <>
-          <h1 class="reader-confirm__title">{t.confirmedTitle}</h1>
-          <p class="reader-confirm__body">{displayName ? t.confirmedBody(displayName) : t.confirmedBodyAnonymous}</p>
+          <h1 class="reader-confirm__title">{state === 'settings' ? t.settingsTitle : t.confirmedTitle}</h1>
+          <p class="reader-confirm__body">{state === 'settings' ? t.settingsBody : t.confirmedBody}</p>
           {/* Both switches are already true or false on the server -- this is
               where they stand, not a form to fill in. Each one saves itself
               the moment it moves; see the script below. */}

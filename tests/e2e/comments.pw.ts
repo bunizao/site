@@ -123,7 +123,7 @@ test('lab lists every interaction outcome and transitions reader verification', 
 
   await page.locator('[data-verify-confirm]').click();
   await expect(page.locator('.comments-lab-verify .reader-confirm__card')).toHaveAttribute('data-state', 'confirmed');
-  await expect(page.locator('.comments-lab-verify')).toContainText("You're confirmed");
+  await expect(page.locator('.comments-lab-verify')).toContainText("You're verified!");
 
   await page.goto('/lab/comments?locale=en&verify=invalid', { waitUntil: 'networkidle' });
   await page.locator('[data-verify-resend]').click();
@@ -133,19 +133,39 @@ test('lab lists every interaction outcome and transitions reader verification', 
 
 test('lab previews the localized reader verification email from site-api', async ({ page }) => {
   await page.goto('/lab/comments?locale=zh', { waitUntil: 'networkidle' });
-  const preview = page.locator('.comments-lab-newsletter');
+  const preview = page.locator('section[aria-labelledby="comments-lab-newsletter-title"]');
   await expect(preview).toContainText('site-api · buildReaderVerifyEmail');
-  await expect(preview.locator('[data-reader-verify-subject]')).toHaveText('评论已发布 · 验证一下邮箱');
+  await expect(preview.locator('[data-reader-verify-subject]')).toHaveText('你的评论已成功发布！请验证邮箱');
   await expect(preview.locator('[data-reader-verify-email]')).toHaveAttribute('lang', 'zh');
-  await expect(preview).toContainText('评论已发布。');
-  await expect(preview).toContainText('回复提醒');
+  await expect(preview).toContainText('你的评论已成功发布！请验证邮箱。');
+  await expect(preview).toContainText('互动提醒');
+  await expect(preview).toContainText('默认关闭');
   await expect(preview.getByRole('link', { name: '验证邮箱' })).toBeVisible();
 
   await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
-  await expect(page.locator('[data-reader-verify-subject]')).toHaveText('Your comment is live — confirm your email');
+  await expect(page.locator('[data-reader-verify-subject]')).toHaveText('Your comment is live — please confirm your email');
   await expect(page.locator('[data-reader-verify-email]')).toHaveAttribute('lang', 'en');
-  await expect(page.locator('.comments-lab-newsletter')).toContainText('Reply alerts');
+  await expect(preview).toContainText('Reply alerts');
   await expect(page.getByRole('link', { name: 'Confirm email' })).toBeVisible();
+});
+
+test('lab previews the reply notification email', async ({ page }) => {
+  await page.goto('/lab/comments?locale=zh', { waitUntil: 'networkidle' });
+  const preview = page.locator('section[aria-labelledby="comments-lab-reply-mail-title"]');
+  await expect(preview).toContainText('site-api · buildCommentReplyEmail');
+  await expect(preview.locator('[data-reader-reply-subject]')).toHaveText('Nina Kato 回复了你的评论');
+  await expect(preview.locator('[data-reader-reply-email]')).toHaveAttribute('lang', 'zh');
+  // Both halves of the thread: the reader cannot place a reply without the
+  // comment it answers.
+  await expect(preview).toContainText('你的评论');
+  await expect(preview).toContainText('Nina Kato 的回复');
+  await expect(preview.getByRole('link', { name: '查看完整对话' })).toBeVisible();
+  // The off switch has to be in the mail itself.
+  await expect(preview.getByRole('link', { name: '在评论设置里随时关闭。' })).toHaveAttribute('href', '/reader/confirm?lang=zh');
+
+  await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
+  await expect(page.locator('[data-reader-reply-subject]')).toHaveText('Nina Kato replied to your comment');
+  await expect(page.locator('[data-reader-reply-email]')).toHaveAttribute('lang', 'en');
 });
 
 test('compose preview opens only for supported Markdown and closes when emptied', async ({ page }) => {
@@ -255,7 +275,15 @@ test('optimistic comment submit paints before the API response', async ({ page }
   await expect(page.locator('.blog-comment__text').filter({ hasText: 'Optimistic comment.' }).first()).toBeVisible();
   expect(release).toBeDefined();
   release?.();
-  await expect(page.locator('#comment-comment-posted')).toBeVisible();
+  const posted = page.locator('#comment-comment-posted');
+  await expect(posted).toBeVisible();
+
+  // The row says the comment went up -- not "verify your email to edit this",
+  // which used to land here and read as a refusal -- and then takes itself
+  // away rather than leaving one row in the thread wearing a badge.
+  const note = posted.locator('.blog-comment__note--verify');
+  await expect(note).toHaveText('Posted.');
+  await expect(note).toHaveCount(0, { timeout: 15_000 });
 });
 
 test('optimistic edit paints before the API response', async ({ page }) => {

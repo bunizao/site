@@ -25,6 +25,7 @@ import Footer from '@/features/home/ui/Footer.astro';
 import ReactionBar from '@/features/comments/ui/ReactionBar';
 import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
 import ReaderVerifyEmailPreview from '@/features/comments/ui/ReaderVerifyEmailPreview.astro';
+import CommentReplyEmailPreview from '@/features/comments/ui/CommentReplyEmailPreview.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import Colophon from '@/features/posts/ui/Colophon.astro';
 import ShareRow from '@/features/posts/ui/ShareRow.astro';
@@ -47,13 +48,14 @@ const locale = params.get('locale') === 'en' ? 'en' : blog.locale.blog;
 
 const interactive = params.get('interactive') === '1';
 const verifyRaw = params.get('verify');
-const verifyState = verifyRaw === 'confirmed' || verifyRaw === 'already' || verifyRaw === 'invalid' || verifyRaw === 'resent'
+const verifyState = verifyRaw === 'confirmed' || verifyRaw === 'settings' || verifyRaw === 'already' || verifyRaw === 'invalid' || verifyRaw === 'resent'
   ? verifyRaw
   : 'pending';
 const verifyCopy = readerConfirmCopy[locale];
 const verifyGlyphs = {
   pending: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/>',
   confirmed: '<path d="m4.5 12.5 5 5 10-11"/>',
+  settings: '<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   already: '<path d="m4.5 12.5 5 5 10-11"/>',
   invalid: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="m3.6 6.6 7.3 5.2a2 2 0 0 0 2.2 0l7.3-5.2"/><path d="M2 21 22 3"/>',
   resent: '<path d="M21.5 2.5 10.8 13.2"/><path d="M21.5 2.5 14.7 21.5l-3.9-8.3-8.3-3.9z"/>',
@@ -440,14 +442,14 @@ await billing.invoice(payload)</code></pre>
           class="reader-confirm__card"
           data-state={verifyState}
           data-confirmed-title={verifyCopy.confirmedTitle}
-          data-confirmed-body={verifyCopy.confirmedBodyAnonymous}
+          data-confirmed-body={verifyCopy.confirmedBody}
           data-resent-title={verifyCopy.resentTitle}
           data-resent-body={verifyCopy.resentBody}
         >
           <span class="reader-confirm__glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" set:html={verifyGlyphs[verifyState]} /></span>
           {verifyState === 'pending' && <><h3 class="reader-confirm__title">{verifyCopy.pendingTitle}</h3><p class="reader-confirm__body">{verifyCopy.pendingBody}</p><button type="button" class="reader-confirm__go" data-verify-confirm>{verifyCopy.confirm}</button></>}
-          {verifyState === 'confirmed' && <><h3 class="reader-confirm__title">{verifyCopy.confirmedTitle}</h3><p class="reader-confirm__body">{verifyCopy.confirmedBodyAnonymous}</p><div class="reader-confirm__prefs"><label class="reader-confirm__switch"><input type="checkbox" checked /><span>{verifyCopy.prefsNotifyReplies}</span></label><label class="reader-confirm__switch"><input type="checkbox" /><span>{verifyCopy.prefsSubscribe}</span></label></div></>}
-          {verifyState === 'already' && <><h3 class="reader-confirm__title">{verifyCopy.alreadyTitle}</h3><p class="reader-confirm__body">{verifyCopy.alreadyBody}</p></>}
+          {(verifyState === 'confirmed' || verifyState === 'settings') && <><h3 class="reader-confirm__title">{verifyState === 'settings' ? verifyCopy.settingsTitle : verifyCopy.confirmedTitle}</h3><p class="reader-confirm__body">{verifyState === 'settings' ? verifyCopy.settingsBody : verifyCopy.confirmedBody}</p><div class="reader-confirm__prefs"><label class="reader-confirm__switch"><input type="checkbox" checked /><span>{verifyCopy.prefsNotifyReplies}</span></label><label class="reader-confirm__switch"><input type="checkbox" /><span>{verifyCopy.prefsSubscribe}</span></label></div></>}
+          {verifyState === 'already' && <><h3 class="reader-confirm__title">{verifyCopy.alreadyTitle}</h3><p class="reader-confirm__body">{verifyCopy.alreadyBody}</p><a class="reader-confirm__back" href="/blog">{verifyCopy.back}</a></>}
           {verifyState === 'invalid' && <><h3 class="reader-confirm__title">{verifyCopy.invalidTitle}</h3><p class="reader-confirm__body">{verifyCopy.invalidBody}</p><div class="reader-confirm__form"><input class="reader-confirm__input" type="email" placeholder={verifyCopy.emailPlaceholder} aria-label={verifyCopy.emailLabel} /><button type="button" class="reader-confirm__go" data-verify-resend>{verifyCopy.resend}</button></div><a class="reader-confirm__back" href="/">{verifyCopy.home}</a></>}
           {verifyState === 'resent' && <><h3 class="reader-confirm__title">{verifyCopy.resentTitle}</h3><p class="reader-confirm__body">{verifyCopy.resentBody}</p></>}
         </div>
@@ -460,6 +462,15 @@ await billing.invoice(payload)</code></pre>
           <p>The real transactional template shape from <code>site-api · buildReaderVerifyEmail</code>. It follows <code>?locale=zh|en</code> and switches with the system email color scheme.</p>
         </div>
         <ReaderVerifyEmailPreview locale={locale} />
+      </section>
+
+      <section class="comments-lab-newsletter" aria-labelledby="comments-lab-reply-mail-title">
+        <div class="comments-lab-catalog__head">
+          <p class="comments-lab-catalog__eyebrow">Comment email</p>
+          <h2 id="comments-lab-reply-mail-title">Reply notification email</h2>
+          <p>What the <em>&ldquo;email me when someone replies&rdquo;</em> switch sends, from <code>site-api · buildCommentReplyEmail</code>. Only a verified reader who still has the switch on ever receives one, and never for their own reply.</p>
+        </div>
+        <CommentReplyEmailPreview locale={locale} />
       </section>
 
       <section class="comments-lab-preview" aria-labelledby="comments-lab-preview-title">
