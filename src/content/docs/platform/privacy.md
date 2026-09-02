@@ -40,8 +40,7 @@ being true, the policy text is wrong, not merely stale.
 | Blog comments | Display name, comment body, and — when supplied — an email address, stored plaintext alongside its hash. Every row also carries hashed IP, a server-derived fingerprint hash, user agent, country, and ASN | `NOTIFY_DB` in `site-api` (`blog_comments`, `notify_subscribers`) | Akismet (moderation), Resend (verification and reply mail) |
 | Comment risk signals | The `ip_hash`, `fp_hash`, `ua`, `country` and `asn` on a comment row | Same rows, nulled in place by the daily cron 90 days after the comment was written | First-party |
 | Comment moderation | Body, author name and email, IP, user agent, referrer, and the post permalink, on every submission | Sent to Akismet for one `comment-check` per comment | Akismet (Automattic) |
-| Reader avatars | The email hash, sent upstream to look a picture up. Fetched by the Worker, never by the reader's browser, and cached in R2 thereafter | R2, keyed by email hash | Gravatar mirrors, QQ, and the GitHub/Google avatar CDNs |
-| Reader sign-in | An OAuth round trip and the profile it returns: provider account id, email, display name, avatar URL | `notify_subscribers` in `site-api`; the session is a signed `__Host-` cookie | GitHub, Google |
+| Reader avatars | The email hash, sent upstream to look a picture up. Fetched by the Worker, never by the reader's browser, and cached in R2 thereafter | R2, keyed by email hash | Gravatar mirrors, QQ |
 | Anti-abuse | A Turnstile token on subscribe, manage-request, comment create, and reaction toggle | Verified inside `site-api` before the handler runs | Cloudflare Turnstile |
 | Writing and contributions | Nothing from the visitor | Ghost at build time; `site-api /api/github/contributions` at runtime | Ghost, GitHub |
 
@@ -57,6 +56,14 @@ Two things worth being precise about, because the short version reads wrong:
 - **Mood content reads the archive first.** `MOOD_READ_SOURCE=archive` is the
   default; the live Telegram mirror is the fallback and the source for comments
   and freshness. Both are public channel content either way.
+- **Reader sign-in is built but dormant, so it is not a disclosure yet.**
+  `/oauth/reader/:provider` in `site-api` would hand GitHub or Google a round
+  trip and store the profile it returns. Nothing links to it, the credentials
+  are unset, and the route answers `404` — so no reader data reaches either
+  provider, and the policy should not claim it does. The day a sign-in button
+  ships, this becomes a row in the table above and a clause in the policy,
+  and the avatar row gains the GitHub and Google avatar CDNs alongside
+  Gravatar and QQ.
 - **A comment is not anonymous to the server.** "Anonymous" in the comments
   feature means *no account required* — the row still carries a hashed IP, a
   fingerprint hash, and a user agent for as long as the risk window lasts, and
@@ -65,8 +72,8 @@ Two things worth being precise about, because the short version reads wrong:
 
 > **The published policy does not cover blog comments yet.** Its "comment
 > views" and "comment threads" clauses describe the Telegram-derived mood
-> threads, which predate this feature. Akismet, the reader OAuth providers,
-> the avatar upstreams, and the comment risk signals are all undisclosed.
+> threads, which predate this feature. Akismet, the avatar upstreams, and the
+> comment risk signals are all undisclosed.
 > That is a release blocker, not a documentation nicety: `COMMENTS_ENABLED`
 > must not be flipped on in production before
 > [`src/content/pages/privacy.md`](https://github.com/bunizao/site/blob/main/src/content/pages/privacy.md)

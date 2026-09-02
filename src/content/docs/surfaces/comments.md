@@ -42,7 +42,12 @@ make an account.
 | --- | --- | --- |
 | **Anonymous** | Nothing. A cookie appears when you first post or react | Posting, reacting, and seeing your own rows marked as yours |
 | **Verified** | Click the link in the confirmation mail | A persistent avatar, your name remembered, editing and deleting, reply mail |
-| **Signed in** | GitHub or Google | The same as verified, with that account's avatar |
+| **Signed in** | GitHub or Google — built, but not offered yet | The same as verified, with that account's avatar |
+
+The third row is not on offer today: there is no sign-in button anywhere in
+the comment box, so every reader who has an identity here got it from the
+mail. It is in the table because the data model and the routes already
+accommodate it.
 
 The confirmation mail goes out by itself on the first comment carrying a new
 address — no separate signup step. Until it is confirmed, the comment is

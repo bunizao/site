@@ -53,6 +53,13 @@ mean no.
 | L1 | Click the link in the lazy-verification email | The comment's `reader_id` attaches; past comments from the same address get claimed; a persistent avatar and display name; edit and delete on rows the `reader_id` owns |
 | L2 | Sign in with GitHub or Google (`/oauth/reader/...`) | Same as L1, `provider` reflects the OAuth provider instead of `email` |
 
+**L2 is not reachable today.** The routes are built and work, but nothing on
+the site links to them — there is no sign-in button in the comment box and no
+client calls the route — and the provider credentials are not configured, so
+`/oauth/reader/:provider` answers `404`. Every reader who verifies today is
+L1. Treat L2 as a shape the data model already accommodates, not a path
+anybody is walking.
+
 `GET /api/v2/reader/me` reports the calling browser's current grade (`null`
 when it's L0). There is no L0 sign-in call — the cookie is minted as a side
 effect of the first `POST /api/v2/comments` or

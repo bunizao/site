@@ -50,6 +50,17 @@ Every one of these is read from `site-api`'s env.
 | `AKISMET_API_KEY` | Moderation. Absent means every comment falls through to the fail-closed path |
 | `AKISMET_TEST_MODE` | `"1"` marks every check as a test, so staging and the e2e matrix never train the real classifier |
 
+Reader OAuth needs four more — `GITHUB_READER_OAUTH_CLIENT_ID`/`_SECRET` and
+`GOOGLE_READER_OAUTH_CLIENT_ID`/`_SECRET` — and none of them is required,
+because nothing on the site links to `/oauth/reader/:provider`. Unset, the
+route answers a clean `404` and every reader stays L1. They live in
+`DORMANT_SECRETS` in `site-api`'s readiness script rather than
+`REQUIRED_SECRETS`, so shipping comments does not mean registering two OAuth
+apps nobody can reach; move them back the day a sign-in button ships. The
+reader pair must never share credentials with the admin `GITHUB_OAUTH_*`
+pair — that app is allow-listed to one human, this one would be open to
+anyone.
+
 The three policy defaults have a twin in `site`'s `src/data/site.ts` —
 `mode`, `reactions`, `requireVerifiedEmail`. The per-post half cannot drift
 (both halves read the Ghost tags through one function in
