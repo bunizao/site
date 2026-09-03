@@ -1,13 +1,28 @@
 ---
-/* Everything that closes a post, under one hairline. The provenance line and
-   reader actions share one compact band so comments can follow directly. */
+/* Everything that closes a post, under one hairline.
+
+   The end of an article used to be three bands: a short dash with the
+   authorship mark, then a rule with the reaction/subscribe/share row, then
+   another rule with the comments head. Three horizontal lines inside 150px,
+   for one idea -- "the text stops here".
+
+   One rule now, and inside it two layers in the order they belong to the
+   text: who wrote it with what, then the things a reader can do about it.
+
+   Provenance is stated on every post, either way round: AiCredit names the
+   models a post credits, and NotByAI stands in its place when it credits
+   none. A post that says nothing there would be the one case a reader cannot
+   read an answer out of, so there is always exactly one of the two. */
 import type { AuthorshipCredit } from '@/features/posts/server/directives/authors';
 import type { BlogLocale } from '@/data/site';
+
 import AiCredit from './AiCredit.astro';
 import NotByAI from './NotByAI.astro';
 
 interface Props {
+  /** Model co-authors, from the post's [!authors] directives. */
   credits?: readonly AuthorshipCredit[];
+  /** The post's own language, so the credit line follows the article. */
   locale?: BlogLocale;
 }
 
@@ -31,6 +46,10 @@ const hasActions = Astro.slots.has('default');
     border-top: 1px solid var(--blog-line);
   }
 
+  /* Everything you can do about this post without writing anything: the
+     hearts on the left, subscribe and share on the right. Far enough below
+     the provenance line to read as a different layer, with no rule needed to
+     say so. */
   .blog-colophon__actions {
     display: flex;
     align-items: center;
@@ -39,6 +58,8 @@ const hasActions = Astro.slots.has('default');
     gap: 16px 24px;
   }
 
+  /* One of the two always renders above, so this margin always applies --
+     but naming both keeps it true if that ever stops being the case. */
   :global(.ai-credit) + .blog-colophon__actions,
   :global(.not-by-ai) + .blog-colophon__actions {
     margin-top: 24px;

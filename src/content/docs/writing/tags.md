@@ -84,10 +84,12 @@ of the same three answers, and they have to be changed together.
 
 ### `#not-by-ai`
 
-Historical. The human-authorship pledge is now the **default** at the foot of
-every post, and is replaced only when a post carries an
-[`[!authors]`](/docs/writing/authors) directive. The tag no longer gates
-anything, and does not need to be applied to new posts.
+Historical, and now inert in both directions. The human-authorship pledge it
+once gated has been removed altogether: a post's colophon declares the models
+it credits via [`[!authors]`](/docs/writing/authors) and says nothing when
+there are none, rather than printing a claim on every post that a reader has no
+way to check. The tag gates nothing and does not need to be applied to new
+posts.
 
 ## Adding an internal tag
 

@@ -59,6 +59,7 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/mood-embed` | Opens mood embed tools. | Admin session |
 | `/admin/oauth` | Opens OAuth management. | Admin session |
 | `/admin/svg` | Opens SVG tools. | Admin session |
+| `/admin/portal/comments` | Opens the comment moderation queue. | Admin session |
 | `/admin/portal/broadcasts` | Opens broadcast operations. | Admin session |
 | `/admin/portal/broadcasts/:id` | Opens one broadcast. | Admin session |
 | `/admin/portal/subscribers` | Opens subscriber operations. | Admin session |
@@ -69,7 +70,7 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | Path | Purpose | Auth tier |
 | --- | --- | --- |
 | `/webhooks/ghost` | Receives Ghost publication events. | Signed Ghost webhook |
-| `/webhooks/resend` | Receives Resend delivery events and updates the email suppression ledger. | Svix signature |
+| `/webhooks/resend` | Receives Resend delivery events (bounces, complaints) and feeds the outbound-email suppression ledger. | Svix signature |
 | `/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
 | `/v2/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
 | `/webhooks/telegram` | Receives Telegram mood events. | Telegram secret token |

@@ -51,7 +51,7 @@ future ingress change.
 | Prefix | What it is | Status |
 | --- | --- | --- |
 | `/api/v1/mood*` | The live Telegram-mirror reader. Talks to `t.me` on every miss, cached at the edge in seconds. | Stable, used as the freshness fallback |
-| `/api/v2/*` | The current generation: D1-backed archive reads, KV-backed stats, admin, notify, OAuth. | Stable for `mood`, `moods`, `notify`; **`/v2/posts*` is a disabled placeholder** — it 404s with `{"error":{"code":"not_found"}}` until the `ENABLE_POSTS_API` flag ships |
+| `/api/v2/*` | The current generation: D1-backed archive reads, KV-backed stats, admin, notify, OAuth. | Stable for `mood`, `moods`, `notify`, `comments`, `reactions`, `reader`; **`/v2/posts*` is a disabled placeholder** — it 404s with `{"error":{"code":"not_found"}}` until the `ENABLE_POSTS_API` flag ships |
 | `/api/moods`, `/api/comments`, unversioned `/musickit/token`, `/ghost/webhook` | Pre-`/v2` routes kept alive as aliases (`LEGACY_*_PATH` in `@bunizao/contracts/routes`) | Stable, but new integrations should use the `/v2` path where one exists |
 
 There is no `Accept`-based or header-based version negotiation — the version
@@ -64,18 +64,29 @@ Telegram mirror's freshness.
 Four tiers, and most of the public JSON surface is the first one:
 
 1. **None.** `mood`, `moods`, `comments`, `oembed.json`, the SVG badges, RSS,
-   `health`, `ping`. Anyone can call these; they're rate-limited, not gated.
-2. **Turnstile token.** `notify/subscribe` and `notify/manage/request` require
-   a Cloudflare Turnstile token in the body (`turnstileToken`,
-   `cfTurnstileResponse`, or `captchaToken` — any one field, or the
-   `cf-turnstile-response` header) before the handler runs at all. A missing
-   or failing token returns `400`; Turnstile itself being unreachable returns
-   `503`, not `400` — a client should treat those differently.
-3. **Bearer token in the URL.** `notify/confirm`, `notify/unsubscribe`, and
-   `notify/manage` (`GET`/`PATCH`) take a single-purpose `?token=` issued by
-   email. It authorizes one subscriber's own record, nothing else, and most
-   of these routes render an HTML result page rather than JSON — see
-   [Notify API](/docs/api/notify).
+   `health`, `ping`, and reading the [Blog Comments API](/docs/api/comments)
+   (`v2/comments` `GET`, `v2/reactions`, `v2/reader/me`,
+   `v2/reader/avatar/*`). Anyone can call these; they're rate-limited, not
+   gated. A `reader_anon` cookie is minted automatically on a blog comment's
+   first write — it scopes *ownership* of anonymous rows, not access; it is
+   not an auth tier of its own.
+2. **Turnstile token.** `notify/subscribe`, `notify/manage/request`,
+   `v2/comments` `POST` (`expectedAction: 'blog_comment_create'`), and
+   `v2/reactions/toggle` (`expectedAction: 'blog_reaction'`) require a
+   Cloudflare Turnstile token before the handler runs at all — the comments
+   pair take it as a `turnstileToken` body field only, notify also accepts
+   `cfTurnstileResponse`, `captchaToken`, or the `cf-turnstile-response`
+   header. A missing or failing token returns `400`; Turnstile itself being
+   unreachable returns `503`, not `400` — a client should treat those
+   differently.
+3. **Bearer token in the URL or body.** `notify/confirm`, `notify/unsubscribe`,
+   `notify/manage` (`GET`/`PATCH`), and `v2/reader/verify` take a
+   single-purpose token issued by email. It authorizes one record (a
+   subscriber, or a comment writer's address), nothing else. The notify
+   routes take it as `?token=` and mostly render an HTML result page — see
+   [Notify API](/docs/api/notify). `v2/reader/verify` takes it as a JSON
+   body field and always answers JSON — see
+   [Blog Comments API](/docs/api/comments#lazy-email-verification).
 4. **Admin session / Cloudflare Access.** Everything under `/admin/*` and the
    OAuth hub. Out of scope for this reference — see
    [Auth and OAuth hub](/docs/platform/auth).
@@ -105,18 +116,22 @@ limiter answered, and only one of the two actually enforces anything:
 | `durable` | A single strongly-consistent counter backed by a Durable Object. Really counts, really rejects. |
 | `observability` | Counts nothing and rejects nothing. The headers are computed from the route's configured limit and emitted for measurement; `X-RateLimit-Remaining` always equals `X-RateLimit-Limit`, and every request is admitted. |
 
-Today `durable` is used by exactly three endpoints — `notify/manage`'s `PATCH`,
-`notify/manage/email`, and `notify/manage/delete` — the three places where
-double-admitting would let a caller race their own state or put mail in an
-inbox. Everything else on the surface runs in `observability` mode.
+`durable` is used by `notify/manage`'s `PATCH`, `notify/manage/email`, and
+`notify/manage/delete` — the three places where double-admitting would let
+a caller race their own state or put mail in an inbox — and by the whole
+[Blog Comments API](/docs/api/comments) surface, whose entire risk stack
+(spam, abuse, and bot resistance on a route with no login gate) depends on
+limits that actually reject. Everything else on the surface runs in
+`observability` mode.
 
 So the per-route limits below describe the *intended* budget and the numbers
-you will see in the headers, not a wall you will hit. A `429` from any route
-outside those three is currently unreachable, and client code that only handles
-`429` for backpressure is, in practice, unprotected. Do not read the absence of
-`429`s as licence to poll hard — the mode can be switched per route without
-notice, and the underlying resources (Ghost, GitHub, Telegram, D1) have their
-own limits that this surface does not shield you from.
+you will see in the headers, not necessarily a wall you will hit. A `429`
+from a route outside the `durable` rows above is currently unreachable, and
+client code that only handles `429` for backpressure is, in practice,
+unprotected there. Do not read the absence of `429`s as licence to poll hard
+— the mode can be switched per route without notice, and the underlying
+resources (Ghost, GitHub, Telegram, D1) have their own limits that this
+surface does not shield you from.
 
 A request that does exceed a `durable` limit gets `429` plus
 `Retry-After: <seconds>`; the body is either `{"error":"Too Many Requests"}` or
@@ -144,6 +159,11 @@ Limits are per-route, not a single account-wide budget:
 | **`notify/manage` `PATCH`** | 10 min | 60 | **Yes** |
 | **`notify/manage/email`** | 60 min | 5 | **Yes** |
 | **`notify/manage/delete`** | 60 min | 5 | **Yes** |
+| **`v2/comments` `POST`** | 1 min / 60 min | 3 / 10 | **Yes** (3 dimensions: session, IP, fingerprint) |
+| **`v2/comments/:id` `PATCH`** | 1 min | 10 | **Yes** |
+| **`v2/reactions/toggle`** | 1 min | 30 | **Yes** |
+| **`v2/reader/verify`** | 1 min | 10 | **Yes** |
+| **`v2/reader/resend`** | 1 min | 5 | **Yes** (per IP; a separate per-address send suppression is enforced silently, never as a `429`) |
 
 ## Error shapes — there are two
 

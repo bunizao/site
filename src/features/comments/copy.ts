@@ -110,6 +110,13 @@ export interface CommentsCopy {
       box had already said. This says the thing the reader pressed the button
       to find out, and then it leaves. */
   postedNote: string;
+  /** Shown on a `mine` row that carries neither `editableUntil` nor
+      `deletable` -- a comment posted without an email, or one written before
+      the address behind it was verified. Quiet, not an error: it names the
+      one thing that would change the row (verifying the email later binds it
+      to the reader row, per plans/blog-comments.md "Sessions and ownership")
+      and never implies the row is broken or wrong. */
+  verifyHint: string;
   save: string;
   cancel: string;
   /** Second press of Cancel on a touched edit field. */
@@ -227,6 +234,7 @@ const zh: CommentsCopy = {
   edit: '编辑',
   editLabel: '编辑你的评论',
   postedNote: '发布成功。',
+  verifyHint: '验证邮箱后可编辑或删除这条评论。',
   save: '保存',
   cancel: '取消',
   discard: '不保存？',
@@ -316,6 +324,7 @@ const en: CommentsCopy = {
   edit: 'Edit',
   editLabel: 'Edit your comment',
   postedNote: 'Posted.',
+  verifyHint: 'Verify your email to edit or delete this comment.',
   save: 'Save',
   cancel: 'Cancel',
   discard: 'Discard?',

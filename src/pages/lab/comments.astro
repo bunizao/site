@@ -161,6 +161,7 @@ const behaviorRows = [
   { behavior: 'Comment appears before API returns', state: 'optimistic post', zh: '新行先出现；审核中短暂显示“发布中”', en: 'New row appears first; a held row briefly says “Publishing”', next: 'Keep typing; a failed request restores the draft' },
   { behavior: 'Published result', state: 'posted', zh: '新评论本身就是确认（不重复显示状态条）', en: 'The new comment is the receipt (no duplicate status bar)', next: 'Continue writing' },
   { behavior: 'Held result', state: 'held', zh: commentsCopy.zh.held, en: commentsCopy.en.held, next: 'Wait for moderation; the row may upgrade to published' },
+  { behavior: 'Own row, email never verified', state: 'verify hint', zh: commentsCopy.zh.verifyHint, en: commentsCopy.en.verifyHint, next: 'Confirm the address to unlock Edit and Delete' },
   { behavior: 'Unverified email result', state: 'nudge', zh: `${commentsCopy.zh.nudgeText('reader@example.com')} · ${commentsCopy.zh.nudgeSubscribe} · ${commentsCopy.zh.dismiss}`, en: `${commentsCopy.en.nudgeText('reader@example.com')} · ${commentsCopy.en.nudgeSubscribe} · ${commentsCopy.en.dismiss}`, next: 'Confirm email, subscribe, or dismiss' },
   { behavior: 'Verification email reaches the reader', state: 'reader email', zh: '主题“评论已发布 · 验证一下邮箱” · 评论已发布。 · 验证邮箱', en: 'Subject “Your comment is live — confirm your email” · Your comment is live. · Confirm email', next: 'Open the confirmation page or ignore the expiring link' },
   { behavior: 'Open or close subscribe panel', state: 'subscribe open', zh: '订阅 · 关闭', en: 'Subscribe · Close', next: 'Enter an email or dismiss' },
@@ -257,15 +258,16 @@ const comments: BlogComment[] = [
     own: true,
     likes: 0,
   },
-  // Own, has an email but it's never been verified — no `editDeadline` and
-  // no `deletable`, so the row carries no controls, and the generated avatar,
-  // because an unverified address has never had a picture resolved for it.
+  // Own, has an email but it's never been verified — `avatarUrl` set (an
+  // email hash exists) but `editDeadline`/`deletable` both absent, so this
+  // one *can* still be claimed. Shows the quiet verify hint.
   {
     id: '7a',
     author: 'You',
     date: t.relativeDate.minutes(6),
     text: 'Left an email on this one but never clicked the verification link.',
     own: true,
+    avatarUrl: '/avatar.webp',
     likes: 0,
   },
   // Own and verified — still inside the 15-minute edit window — Edit is live

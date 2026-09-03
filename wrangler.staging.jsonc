@@ -1,7 +1,8 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  // Isolated public staging surface. It talks only to site-api-staging and
-  // owns no production routes or stateful bindings.
+  // Staging clone for the comments behavior tests (plans/comments-staging-test.md
+  // and plans/comments-staging-pipeline-runbook.md). Public origin of the
+  // staging pair; talks to site-api-staging via the service binding only.
   "name": "site-staging-9669e7",
   "main": "src/worker.ts",
   "compatibility_date": "2026-04-15",

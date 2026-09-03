@@ -15,6 +15,8 @@ import { blog, type BlogLocale } from '@/data/site';
 
 interface Props {
   variant: 'mood' | 'blog';
+  /** UI language override. Post pages pass the post's own locale so an
+      English post runs an English interface end to end. */
   locale?: BlogLocale;
   /** Pairs the trigger to its panel; unique per page is enough. */
   id?: string;
@@ -32,7 +34,7 @@ interface Props {
 
 const {
   variant,
-  locale = variant === 'blog' ? blog.locale.blog : blog.locale.default,
+  locale: localeOverride,
   id = variant,
   turnstileSiteKey = '',
   feed,
@@ -42,27 +44,11 @@ const {
   triggerLabel,
 } = Astro.props;
 
-const t = locale === 'en' ? {
-  trigger: 'Subscribe', title: 'Subscribe', close: 'Close', email: 'Your email',
-  introLead: 'Subscribe to', blogTail: ' — thanks for reading this far.', moodName: 'Moods', moodTail: ' — updates as they land.',
-  streams: 'What to send', posts: 'Posts', postsMeta: 'Sent on publish', moods: 'Moods', moodsMeta: 'Sent at the rate below',
-  frequency: 'Mood delivery rate', instant: 'Instant', fiveHours: 'Every 5h', daily: 'Daily',
-  privacyLead: 'Handled under the ', privacyLink: 'privacy policy', privacyTail: '.', rss: 'Subscribe by RSS', telegram: 'Follow on Telegram',
-  submit: 'Subscribe', success: 'Confirmation sent — tap the link in your inbox.', already: "You're already subscribed.",
-  done: 'Done', error: 'Something broke. Try again in a moment.', retry: 'Retry', invalidEmail: "That email doesn't look right.",
-  needChannel: 'Pick at least one.', rateLimited: 'Too many tries. Wait before trying again.', network: 'Network trouble — check your connection.',
-  verifyFailed: 'That check failed. Try again.',
-} : {
-  trigger: '订阅', title: '订阅', close: '关闭', email: '留个邮箱',
-  introLead: '欢迎订阅', blogTail: '，感谢您读到这里。', moodName: '闲谈手记', moodTail: '，第一时间收到更新。',
-  streams: '订阅内容', posts: '文章', postsMeta: '更新即推送', moods: '闲谈', moodsMeta: '按下方频率推送',
-  frequency: '闲谈推送频率', instant: '即时', fiveHours: '每 5 时', daily: '每日',
-  privacyLead: '订阅信息受 ', privacyLink: '隐私政策', privacyTail: ' 保护。', rss: '通过 RSS 订阅', telegram: '订阅 Telegram 频道',
-  submit: '订阅', success: '确认邮件已发，去收件箱点一下。', already: '已经订阅过了。',
-  done: '好', error: '出错了，稍后重试。', retry: '重试', invalidEmail: '这个邮箱看起来不太对。',
-  needChannel: '至少选一样。', rateLimited: '操作太频繁，等一会儿再试。', network: '网络不太好，检查下连接。',
-  verifyFailed: '校验失败，重试一下。',
-};
+// The blog surface follows the blog's locale unless the page says otherwise
+// (a post page passes its own); the mood feed is not a localized surface, so
+// it takes the site default.
+const locale = localeOverride ?? (variant === 'blog' ? blog.locale.blog : blog.locale.default);
+const t = blog.copy[locale].subscribe;
 const label = triggerLabel ?? t.trigger;
 
 // Welcome copy per surface. The stream name is wrapped in <em> and set apart by
@@ -71,7 +57,6 @@ const intro =
   variant === 'blog'
     ? { name: blog.copy[locale].name, tail: t.blogTail }
     : { name: t.moodName, tail: t.moodTail };
-
 ---
 
 {withTrigger && (
@@ -79,13 +64,17 @@ const intro =
     type="button"
     class="sub-trigger"
     data-subscribe-toggle={id}
-    aria-label={label}
+    data-tip={label}
     aria-haspopup="dialog"
     aria-expanded="false"
+    aria-label={label}
   >
+    <!-- Envelope: this trigger opens an email subscription panel, so the glyph
+         should say "email" unambiguously at 16px — the old newspaper/document
+         icon read as an unidentifiable rectangle at that size. -->
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M4 22a2 2 0 0 1-2-2V8h4V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2Z"></path>
-      <path d="M10 7h7M10 11h7M10 15h4"></path>
+      <rect width="20" height="16" x="2" y="4" rx="2"></rect>
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
     </svg>
     <span>{label}</span>
     <svg class="sub-trigger__caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -99,6 +88,9 @@ const intro =
      panel scales on open, and a scrim inside it would scale with it. -->
 <div class="subscribe-scrim" data-subscribe-scrim data-subscribe-id={id} aria-hidden="true"></div>
 
+<!-- The data-copy-* attributes carry the outcome strings the controller writes
+     after a submit. Reading them off the panel keeps src/data/site.ts out of
+     the client bundle — the same trick ShareRow uses for its copied labels. -->
 <div
   class="subscribe-panel"
   data-subscribe-panel
@@ -107,7 +99,7 @@ const intro =
   data-turnstile-site-key={turnstileSiteKey}
   data-copy-success={t.success}
   data-copy-already={t.already}
-  data-copy-error={t.error}
+  data-copy-error={t.errorGeneric}
   data-copy-invalid-email={t.invalidEmail}
   data-copy-need-channel={t.needChannel}
   data-copy-rate-limited={t.rateLimited}
@@ -137,13 +129,13 @@ const intro =
         <input
           type="email"
           class="sub-input"
-          placeholder={t.email}
+          placeholder={t.emailPlaceholder}
           required
           autocomplete="email"
           data-sub-email
         />
 
-        <div class="sub-streams" role="group" aria-label={t.streams}>
+        <div class="sub-streams" role="group" aria-label={t.streamsLabel}>
           <div class="sub-channel">
             <label class="sub-channel__head">
               <input type="checkbox" name="channels" value="blog" checked data-sub-channel />
@@ -153,8 +145,8 @@ const intro =
                 <path d="M8 13h8M8 17h5"></path>
               </svg>
               <span class="sub-channel__text">
-                <span class="sub-channel__title">{t.posts}</span>
-                <span class="sub-channel__meta">{t.postsMeta}</span>
+                <span class="sub-channel__title">{t.posts.title}</span>
+                <span class="sub-channel__meta">{t.posts.meta}</span>
               </span>
               <span class="sub-switch" aria-hidden="true"></span>
             </label>
@@ -168,31 +160,37 @@ const intro =
                 <path d="M9 9h6M9 12h4"></path>
               </svg>
               <span class="sub-channel__text">
-                <span class="sub-channel__title">{t.moods}</span>
-                <span class="sub-channel__meta">{t.moodsMeta}</span>
+                <span class="sub-channel__title">{t.moods.title}</span>
+                <span class="sub-channel__meta">{t.moods.meta}</span>
               </span>
               <span class="sub-switch" aria-hidden="true"></span>
             </label>
 
             <div class="sub-channel__freq" data-sub-freq>
-              <div class="sub-seg" role="radiogroup" aria-label={t.frequency}>
+              <div class="sub-seg" role="radiogroup" aria-label={t.freqLabel}>
                 <span class="sub-seg__pill" aria-hidden="true"></span>
                 <input type="radio" id={`${id}-mode-instant`} name="deliveryMode" value="instant" class="sub-seg__input" data-sub-mode checked />
-                <label for={`${id}-mode-instant`} class="sub-seg__label">{t.instant}</label>
+                <label for={`${id}-mode-instant`} class="sub-seg__label">{t.freq.instant}</label>
                 <input type="radio" id={`${id}-mode-5h`} name="deliveryMode" value="every_5h" class="sub-seg__input" data-sub-mode />
-                <label for={`${id}-mode-5h`} class="sub-seg__label">{t.fiveHours}</label>
+                <label for={`${id}-mode-5h`} class="sub-seg__label">{t.freq.every5h}</label>
                 <input type="radio" id={`${id}-mode-daily`} name="deliveryMode" value="daily" class="sub-seg__input" data-sub-mode />
-                <label for={`${id}-mode-daily`} class="sub-seg__label">{t.daily}</label>
+                <label for={`${id}-mode-daily`} class="sub-seg__label">{t.freq.daily}</label>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Mount point for the Turnstile widget. It renders invisibly and is
+            executed at submit time; the widget itself only takes visible
+            space when Cloudflare falls back to an interactive challenge --
+            see subscribe-panel.ts and its interaction-only render mode. */}
         <div data-sub-turnstile class="sub-turnstile"></div>
 
-        <p class="sub-privacy">
-          {t.privacyLead}<a href="/privacy" class="sub-privacy__link" target="_blank" rel="noopener noreferrer">{t.privacyLink}</a>{t.privacyTail}
-        </p>
+        {/* One line, no incidental whitespace: broken across three the markup
+            collapsed each newline into a space, which put one before the full
+            stop in English and around the link in Chinese. Whatever spacing a
+            language needs is in its own strings. */}
+        <p class="sub-privacy">{t.privacy.prefix}<a href="/privacy" class="sub-privacy__link" target="_blank" rel="noopener noreferrer">{t.privacy.link}</a>{t.privacy.suffix}</p>
 
         <div class="sub-actions">
           <div class="sub-elsewhere">
@@ -240,7 +238,7 @@ const intro =
 
     <div data-sub-error-view class="is-hidden">
       <div class="sub-result">
-        <p class="sub-result__text sub-result__text--error" data-sub-error-text>{t.error}</p>
+        <p class="sub-result__text sub-result__text--error" data-sub-error-text>{t.errorGeneric}</p>
         <button type="button" class="sub-submit sub-submit--block" data-sub-retry>{t.retry}</button>
       </div>
     </div>
@@ -571,16 +569,24 @@ const intro =
     left: 0;
     width: calc(100% / var(--sub-seg-count));
     border-radius: 7px;
-    /* The selected pill has to sit ABOVE its trough. Painted with --background
-       it went the other way in dark mode — a 4% pill inside a trough already
-       lightened by the panel surface, so the selection read as a hole. */
-    background: var(--sub-raised);
-    box-shadow: 0 1px 3px hsl(0 0% 0% / 0.25), 0 0 0 1px hsl(var(--foreground) / 0.06);
+    /* Light mode gets a flat tint, not a raised card. The panel surface is
+       already white, so a white pill on it could only be seen through its
+       shadow — and a 25%-black shadow under a hairline-thin white rectangle
+       reads as a smudge on the page rather than as a selection. A 6% swatch
+       says the same thing with one colour and no elevation. */
+    background: hsl(var(--foreground) / 0.06);
     transform: translate3d(var(--sub-seg-offset), 0, 0);
     -webkit-transform: translate3d(var(--sub-seg-offset), 0, 0);
     transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
     z-index: 0;
     pointer-events: none;
+  }
+
+  /* Dark mode keeps the raised card: on an 11% surface a 17% pill is legible
+     as a lift, and a tint that faint would disappear. */
+  .dark .sub-seg__pill {
+    background: var(--sub-raised);
+    box-shadow: 0 1px 3px hsl(0 0% 0% / 0.25), 0 0 0 1px hsl(var(--foreground) / 0.06);
   }
 
   .sub-seg__input {
@@ -616,6 +622,9 @@ const intro =
     outline-offset: 1px;
   }
 
+  /* Reserves room only once Turnstile actually falls back to an interactive
+     widget (subscribe-panel.ts toggles `.has-widget`) -- the invisible case,
+     which is nearly all of them, takes zero layout space. */
   .sub-turnstile {
     --sub-turnstile-scale: 0.92;
     margin-top: 12px;
@@ -634,17 +643,6 @@ const intro =
     transform: scale(var(--sub-turnstile-scale));
     transform-origin: center top;
     display: block;
-  }
-
-  .sub-hint {
-    margin: 8px 0 0;
-    font-size: 10.5px;
-    line-height: 1.4;
-    color: hsl(var(--muted-foreground) / 0.78);
-  }
-
-  .sub-hint:empty {
-    display: none;
   }
 
   .sub-privacy {
@@ -771,31 +769,6 @@ const intro =
     height: 15px;
   }
 
-  .sub-submit.is-locked,
-  .sub-submit.is-locked:disabled {
-    opacity: 1;
-    color: hsl(var(--muted-foreground));
-    background: transparent;
-    border-color: hsl(var(--foreground) / 0.14);
-    cursor: not-allowed;
-  }
-
-  .sub-submit.is-locked .sub-submit__arrow {
-    display: none;
-  }
-
-  .sub-submit__lock {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.6;
-  }
-
-  .sub-submit.is-locked .sub-submit__lock {
-    display: inline-flex;
-  }
-
-  .sub-submit[aria-busy='true'] .sub-submit__lock,
   .sub-submit[aria-busy='true'] .sub-submit__arrow {
     display: none;
   }
@@ -923,41 +896,71 @@ const intro =
   .blog-article-sub {
     display: flex;
     align-items: center;
+    /* Pulled right so the cluster's last glyph (inside its 34px round hit
+       area) lines up with the column edge rather than the box edge — measured
+       against the text column in the browser, not guessed. */
+    margin-right: -9px;
+    /* Same gap as .share's inner gap (ShareRow) so all three round buttons —
+       subscribe, copy-link, native-share — read as one evenly spaced group
+       instead of two different rhythms stitched together. */
     gap: 6px;
-    /* Holds the right edge on its own. The colophon row spaces its children
-       apart, which puts this cluster on the right only while the reaction bar
-       is there to be the left one -- and a post tagged `#reactions-off` does
-       not render it. */
-    margin-left: auto;
   }
 
-  /* Subscribe trigger as a pill, matching ShareRow's .share-btn. Scoped to the
-     foot so the masthead trigger stays the quiet text button it was. */
+  /* Named, where copy-link and share are not. Three identical bare icons put
+     the one thing worth asking for at the foot of a post -- come back for the
+     next one -- at exactly the weight of "copy this URL", and an envelope on
+     its own is a guess the reader has to take. It keeps the row's round pill
+     shape and its 34px height, so the group still reads as one cluster; it
+     just carries a resting fill and its own word, which is the whole
+     difference between the action and the two conveniences beside it.
+
+     Still no border: a border in this zone means "put a value in me", and the
+     field this opens is inside the panel. */
   .blog-article-sub .sub-trigger {
-    height: 36px;
-    /* Tighter on the right: the caret is light and hugs the label (negative
-       margin below), so it needs less breathing room than the leading icon. */
-    padding: 0 11px 0 13px;
-    gap: 8px;
-    color: var(--blog-muted, hsl(var(--muted-foreground)));
-    background: hsl(var(--foreground) / 0.035);
-    border: 1px solid hsl(var(--foreground) / 0.09);
-    border-radius: 11px;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, scale 0.12s ease;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    /* 2px off the icon side: a leading glyph carries its own whitespace. */
+    padding: 0 12px 0 10px;
+    color: var(--blog-ink, hsl(var(--foreground)));
+    background: hsl(var(--foreground) / 0.05);
+    border: 0;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: color 0.15s ease, background 0.15s ease, scale 0.12s ease;
   }
 
-  /* The caret belongs to the label, not the icon — pull it in so it reads as a
-     subordinate affordance rather than a third equal-weight element. */
+  /* The caret belongs to the masthead's flatter text trigger, where the row of
+     nav words needs something saying which one opens. Here the pill says it. */
   .blog-article-sub .sub-trigger__caret {
-    margin-left: -4px;
+    display: none;
+  }
+
+  /* Let the icon track the button's own color like .share-btn's icons do,
+     instead of the masthead trigger's separate accent-on-hover treatment. */
+  .blog-article-sub .sub-trigger > svg:first-child,
+  .blog-article-sub .sub-trigger:hover > svg:first-child,
+  .blog-article-sub .sub-trigger[aria-expanded='true'] > svg:first-child {
+    color: inherit;
   }
 
   .blog-article-sub .sub-trigger:hover,
   .blog-article-sub .sub-trigger[aria-expanded='true'] {
     color: var(--blog-ink, hsl(var(--foreground)));
-    background: hsl(var(--foreground) / 0.07);
-    border-color: hsl(var(--foreground) / 0.14);
+    background: hsl(var(--foreground) / 0.1);
   }
+
+  .blog-article-sub .sub-trigger:focus-visible {
+    outline: 2px solid var(--blog-accent, hsl(var(--foreground)));
+    outline-offset: 2px;
+  }
+
+  /* No tooltip: this trigger wears its label, and a hover bubble repeating the
+     word it already shows is noise. Copy-link and share keep theirs (ShareRow)
+     because they have nothing else to say what they do. */
 
   @media (max-width: 639px) {
     .subscribe-panel {
@@ -985,6 +988,10 @@ const intro =
     .sub-trigger__caret,
     .sub-seg__pill {
       transition: none;
+    }
+
+    .blog-article-sub .sub-trigger::after {
+      transition: opacity 0.12s ease;
     }
 
     .sub-submit:active:not(:disabled),

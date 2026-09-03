@@ -280,6 +280,18 @@ const t = commentsCopy[locale];
               <p class="blog-comment__note">{t.held}</p>
             )}
 
+            {/* `mine`, but nothing here is theirs to change yet -- verifying
+                the address would bind it (see plans/blog-comments.md
+                "Sessions and ownership"). Only true when there is an address
+                to verify: `avatarUrl` is non-empty exactly when the row
+                carries an email hash (comment-service.ts's `toComment` emits
+                `''` otherwise), so a row posted with no email at all is
+                permanently unclaimable and gets no hint -- "verify your
+                email" would be false on it, not a nudge. */}
+            {comment.own && !comment.held && !canEdit && !canDelete && comment.avatarUrl && (
+              <p class="blog-comment__note blog-comment__note--verify">{t.verifyHint}</p>
+            )}
+
             {/* Held back on a held row: nothing can be replied to, liked, or
                 edited until it is public, and offering the buttons would imply
                 it is. */}

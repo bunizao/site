@@ -1093,6 +1093,17 @@ export function initCommentsController(): void {
     if (comment.held) {
       body.append(el('p', { class: 'blog-comment__note' }, [t.held]));
     } else {
+      // `mine`, but nothing here is theirs to change yet -- verifying the
+      // address would bind it (see plans/blog-comments.md "Sessions and
+      // ownership"). Only true when there is an address to verify:
+      // `avatarUrl` is non-empty exactly when the row carries an email hash
+      // (comment-service.ts's `toComment` emits `''` otherwise), so a row
+      // posted with no email at all is permanently unclaimable and gets no
+      // hint -- "verify your email" would be false on it, not a nudge.
+      if (comment.own && !canEdit && !canDelete && comment.avatarUrl) {
+        body.append(el('p', { class: 'blog-comment__note blog-comment__note--verify' }, [t.verifyHint]));
+      }
+
       // Two sets of controls in one strip, exactly one on screen -- mirrors
       // CommentsSection.astro, which renders the same row server-side.
       const acts = el('span', { class: 'blog-comment__acts' }, [

@@ -197,12 +197,12 @@ const translated = isTranslation(post);
   } : undefined}
 >
   <ReadingTopbar slot="readingbar" noToc={hasNoTocTag} />
-  <a class="blog-back" href="/blog">← All posts</a>
+  <a class="blog-back" href="/blog">{blog.copy[postLocale].back.index}</a>
 
   <div class="blog-article-wrap">
     <aside class="blog-aside">
       <div class="blog-aside__sticky">
-        <a class="blog-back-rail" href="/blog">← Blog</a>
+        <a class="blog-back-rail" href="/blog">{blog.copy[postLocale].back.rail}</a>
         <TableOfContents />
       </div>
     </aside>
@@ -247,7 +247,16 @@ const translated = isTranslation(post);
 
       <Prose html={post.html} />
 
+      {/* One band closes the post: provenance and reuse terms, then the things
+          a reader can do about it. The reaction bar loads its live tally and
+          persists presses through /api/v2/reactions; comments hydrate via
+          client/comments-controller.ts, which fetches the thread and owns
+          every submit, edit, delete, and like. */}
       <Colophon credits={authorshipCredits} locale={postLocale}>
+        {/* An English post runs an English interface end to end (owner
+            decision): every widget on this page takes the post's own locale,
+            so the reaction bar, subscribe panel, share row, and the comment
+            thread below all agree with the article they sit under. */}
         {commentPolicy.reactions && (
           <ReactionBar client:idle count={0} locale={postLocale} postId={liveCommentsPostId} siteKey={turnstileSiteKey} />
         )}
@@ -257,6 +266,8 @@ const translated = isTranslation(post);
         </div>
       </Colophon>
 
+      {/* Last on the page, and open-ended: a thread has no fixed height, so
+          anything under it is at an address that moves. */}
       {commentPolicy.mode !== 'off' && (
         <CommentsSection
           locale={postLocale}
@@ -269,6 +280,8 @@ const translated = isTranslation(post);
     </article>
   </div>
 
+  {/* Leaving the post is the one thing that stays under the thread: it is
+      navigation away, not part of the article. */}
   <footer class="blog-end">
     <AdjacentNav prev={prev} next={next} />
   </footer>
