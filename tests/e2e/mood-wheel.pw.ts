@@ -1,7 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const PREVIEW = '/components/preview/mood-wheel';
-const DRAG_X = 30;
 
 interface WheelState {
   anchors: number[];
@@ -61,18 +60,21 @@ async function grabAndDrag(
   const box = await surface.boundingBox();
   if (!box) throw new Error('wheel drag surface has no box');
 
+  // The dial is a circle, so the gesture runs down its vertical centre line;
+  // a drag started at the bounding box's edge would land outside the face.
+  const x = box.x + box.width * 0.5;
   const startY = box.y + box.height * 0.5 - distance * 0.5;
-  await page.mouse.move(DRAG_X, startY);
+  await page.mouse.move(x, startY);
   await page.mouse.down();
   const steps = 12;
   for (let step = 1; step <= steps; step += 1) {
-    await page.mouse.move(DRAG_X, startY + (distance * step) / steps);
+    await page.mouse.move(x, startY + (distance * step) / steps);
     await page.waitForTimeout(16);
   }
 
   if (!hold) return;
   for (let step = 0; step < 4; step += 1) {
-    await page.mouse.move(DRAG_X, startY + distance);
+    await page.mouse.move(x, startY + distance);
     await page.waitForTimeout(40);
   }
 }
@@ -182,9 +184,13 @@ test.describe('mood timeline wheel', () => {
   test('still treats a press that never moved as back to top', async ({ page }) => {
     await openWheel(page);
 
-    await page.mouse.move(DRAG_X, 400);
+    // Off the hub: the middle of the face is the shuffle glyph, which has its
+    // own meaning. Anywhere else on the dial is back to top.
+    const box = (await page.locator('[data-timeline-top]').boundingBox())!;
+    const spot = { x: box.x + box.width * 0.5, y: box.y + box.height * 0.78 };
+    await page.mouse.move(spot.x, spot.y);
     await page.mouse.down();
-    for (let step = 0; step < 6; step += 1) await page.mouse.move(DRAG_X, 400);
+    for (let step = 0; step < 6; step += 1) await page.mouse.move(spot.x, spot.y);
     await page.mouse.up();
     await settle(page);
 
@@ -222,7 +228,6 @@ test.describe('mood timeline wheel', () => {
     await openWheel(page);
 
     const shuffle = page.locator('[data-timeline-shuffle]');
-    await page.locator('[data-timeline-wheel]').hover();
     await expect(shuffle).toBeVisible();
 
     const before = await readWheelState(page);
@@ -239,6 +244,75 @@ test.describe('mood timeline wheel', () => {
       expected[0],
     );
     expect(Math.abs(after.scrollY - nearest)).toBeLessThan(2);
+  });
+
+  test('keeps the live graduation on the index, and lit while driven', async ({ page }) => {
+    await openWheel(page);
+
+    const readActive = () => page.evaluate(() => {
+      const wheel = document.querySelector<HTMLElement>('[data-timeline-wheel]')!;
+      const active = document.querySelector<HTMLElement>('.timeline-notch.is-major.is-active')!;
+      const wheelBox = wheel.getBoundingClientRect();
+      const box = active.getBoundingClientRect();
+      const dx = box.x + box.width / 2 - (wheelBox.x + wheelBox.width / 2);
+      const dy = box.y + box.height / 2 - (wheelBox.y + wheelBox.height / 2);
+
+      return {
+        angle: (Math.atan2(dy, dx) * 180) / Math.PI,
+        radius: Math.hypot(dx, dy) / (wheelBox.width / 2),
+        ink: getComputedStyle(active).backgroundColor,
+      };
+    });
+
+    // Step to a whole date first: the dial reads continuously, so between two
+    // detents the live graduation is legitimately off the index.
+    await page.locator('[data-timeline-top]').focus();
+    await page.keyboard.press('ArrowDown');
+    await settle(page);
+
+    // The dial is concentric with the rim: the live date's graduation lands on
+    // the index at three o'clock, out near the edge rather than adrift.
+    const resting = await readActive();
+    expect(Math.abs(resting.angle)).toBeLessThan(3);
+    expect(resting.radius).toBeGreaterThan(0.6);
+    expect(resting.radius).toBeLessThan(1);
+
+    await grabAndDrag(page, 26 * 3);
+    const driven = await readActive();
+    await page.mouse.up();
+
+    // Driving the dial must not wash out the one graduation you steer by.
+    expect(driven.ink).toBe(resting.ink);
+  });
+
+  test('scrubs rather than shuffles when the drag starts on the glyph', async ({ page }) => {
+    await openWheel(page);
+
+    // The shuffle sits dead centre, where a thumb lands to spin the dial, so a
+    // drag from there has to travel the feed and leave the shuffle unfired.
+    const box = (await page.locator('[data-timeline-shuffle]').boundingBox())!;
+    const x = box.x + box.width * 0.5;
+    const startY = box.y + box.height * 0.5;
+    const before = await readWheelState(page);
+
+    await page.mouse.move(x, startY);
+    await page.mouse.down();
+    for (let step = 1; step <= 12; step += 1) {
+      await page.mouse.move(x, startY + (26 * 3 * step) / 12);
+      await page.waitForTimeout(16);
+    }
+    for (let step = 0; step < 4; step += 1) {
+      await page.mouse.move(x, startY + 26 * 3);
+      await page.waitForTimeout(40);
+    }
+    await page.mouse.up();
+    await settle(page);
+
+    const after = await readWheelState(page);
+    const travelled = after.progress - before.progress;
+    // A shuffle would have thrown it to a random day; a drag moves it by hand.
+    expect(travelled).toBeGreaterThan(1.5);
+    expect(travelled).toBeLessThan(4.5);
   });
 
   test('coasts on a flick, and stops well short of the far end', async ({ page }) => {

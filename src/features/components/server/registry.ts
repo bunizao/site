@@ -141,10 +141,8 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
     type: 'registry:ui',
     dependencies: ['gsap', 'slot-text'],
     files,
-    cssVars: {
-      light: { 'wheel-size': '600px' },
-      dark: { 'wheel-size': '600px' },
-    },
+    // No cssVars: the dial declares --wheel-size and its notch insets on
+    // .timeline-wheel itself, so a :root entry would never win the cascade.
   };
 }
 

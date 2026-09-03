@@ -154,14 +154,17 @@ const groups = COUNTS.map((count, i) => {
     min-height: 100vh;
   }
 
-  /* Make the DIAL the subject: tight wheel-size reads as an obvious arc, wide
-     visible-width exposes the full graduated notch column at the edge. */
+  /* Make the DIAL the subject: a larger diameter and a generous left margin so
+     the complete instrument reads as one object, hub and all. */
   :global(.timeline-wheel[data-timeline-wheel-compact]) {
     display: block;
-    --wheel-size: 520px;
-    --visible-width: 132px;
-    height: 88vh;
-    transform: translateY(-50%) translateX(6px);
+    --wheel-size: 264px;
+    --notch-band: 48px;
+    left: 9vw;
+  }
+
+  :global(.timeline-wheel[data-timeline-wheel-compact] .timeline-wheel-label) {
+    font-size: 13px;
   }
 
   /* Invisible, finite scroll driver. The browser scrollbar stays hidden: the
