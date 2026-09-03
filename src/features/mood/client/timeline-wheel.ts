@@ -566,15 +566,19 @@ export function mountTimelineWheel(
 
   const PX_PER_DATE = 26; // drag distance that turns the dial by one date
   const DRAG_THRESHOLD = 4; // px of travel before a press stops being a click
-  const MOMENTUM_FRICTION = 0.955; // per-frame decay of a flick
-  const MOMENTUM_CUTOFF = 0.015; // dates/frame at which coasting gives up
-  // dates/frame. With the friction above this caps a hard throw at roughly
-  // eleven days of travel — far enough to feel like fast travel, near enough
-  // that you can still see where you landed.
-  const MAX_FLICK_SPEED = 0.5;
-  const SNAP_MS = 260;
   const VELOCITY_WINDOW_MS = 90;
-  const FRAME_MS = 16.7;
+
+  // ── Release: one continuous deceleration onto a date ──────────────────
+  // The scroll view model. A throw loses speed exponentially; where it would
+  // come to rest is projected at the moment the finger lifts, rounded to the
+  // nearest date, and the same curve is aimed to land exactly there. One
+  // motion from lift to detent. Coasting to a stop and then easing to the
+  // nearest date is two motions with a dead moment between them, and that is
+  // what reads as stiff. Everything is in wall time: a 120Hz screen gets more
+  // frames of the same movement, not a faster one.
+  const DECAY = 0.0045; // per ms; a throw keeps 1/e of its speed every ~220ms
+  const MAX_THROW = 12; // dates one release may travel, so a flick never loses you
+  const SETTLE_EPSILON = 0.002; // dates
 
   const feedback = createWheelFeedback();
 
@@ -583,9 +587,8 @@ export function mountTimelineWheel(
   let dragStartProgress = 0;
   let dragProgress = 0;
   let dragMoved = false;
-  let dragVelocity = 0; // dates per frame
   let dragSamples: { at: number; progress: number }[] = [];
-  let momentumRaf = 0;
+  let releaseRaf = 0;
   let progressTweenRaf = 0;
   let lastTickedDate = 0;
   let suppressClick = false;
@@ -653,16 +656,16 @@ export function mountTimelineWheel(
     }
   };
 
-  // Drag speed in dates per frame, measured across a time window rather than
-  // between two adjacent events. A 120Hz trackpad delivers moves less than a
-  // millisecond apart, and dividing by that gap turns an ordinary drag into a
-  // flick across the whole year.
+  // Drag speed in dates per millisecond, measured across a time window rather
+  // than between two adjacent events. A 120Hz trackpad delivers moves less
+  // than a millisecond apart, and dividing by that gap turns an ordinary drag
+  // into a flick across the whole year.
   //
   // A still finger sends no events at all (touch reports nothing while it is
   // not moving), so the newest sample can be from the fast part of a drag that
   // then stopped dead. Measure staleness against now: a pointer that has not
   // moved for STILL_MS has stopped, whatever its last sample says.
-  const STILL_MS = 50;
+  const STILL_MS = 64;
   const dragSpeed = (): number => {
     if (dragSamples.length < 2) return 0;
     const first = dragSamples[0];
@@ -670,7 +673,7 @@ export function mountTimelineWheel(
     if (performance.now() - last.at > STILL_MS) return 0;
     const elapsed = last.at - first.at;
     if (elapsed < 8) return 0;
-    return ((last.progress - first.progress) / elapsed) * FRAME_MS;
+    return (last.progress - first.progress) / elapsed;
   };
 
   const setEngaged = (active: boolean): void => {
@@ -681,9 +684,9 @@ export function mountTimelineWheel(
     renderReadout();
   };
 
-  const stopMomentum = (): void => {
-    if (momentumRaf !== 0) cancelAnimationFrame(momentumRaf);
-    momentumRaf = 0;
+  const stopRelease = (): void => {
+    if (releaseRaf !== 0) cancelAnimationFrame(releaseRaf);
+    releaseRaf = 0;
   };
 
   const stopProgressTween = (): void => {
@@ -692,7 +695,7 @@ export function mountTimelineWheel(
   };
 
   const abortWheelControl = (): void => {
-    stopMomentum();
+    stopRelease();
     stopProgressTween();
     setEngaged(false);
   };
@@ -730,43 +733,64 @@ export function mountTimelineWheel(
     progressTweenRaf = requestAnimationFrame(step);
   };
 
-  // Detents: the dial always comes to rest on a date, with that date's header
-  // level with the readout at the viewport's midline.
-  const snapToNearestDate = (): void => {
-    stopMomentum();
-    const target = clampProgress(Math.round(dragProgress));
-    if (Math.abs(target - dragProgress) < 0.01) {
+  // Let go at `velocity` (dates/ms; zero for a hand that simply lifted). The
+  // dial always comes to rest on a date, with that date's header level with
+  // the readout at the viewport's midline.
+  const release = (velocity: number): void => {
+    stopRelease();
+    stopProgressTween();
+
+    const from = dragProgress;
+    const projected = clamp(velocity / DECAY, -MAX_THROW, MAX_THROW);
+    const target = clampProgress(Math.round(from + projected));
+    const distance = target - from;
+
+    const finish = (): void => {
+      releaseRaf = 0;
+      dragProgress = target;
+      scrollToProgress(target);
       feedback.settle();
       setEngaged(false);
-      return;
-    }
-    animateProgressTo(target, prefersReducedMotion ? 0 : SNAP_MS, easeOutCubic);
-  };
+    };
 
-  const stepMomentum = (): void => {
-    momentumRaf = 0;
-    dragVelocity *= MOMENTUM_FRICTION;
-
-    if (Math.abs(dragVelocity) < MOMENTUM_CUTOFF) {
-      snapToNearestDate();
+    if (Math.abs(distance) < SETTLE_EPSILON || prefersReducedMotion) {
+      finish();
       return;
     }
 
-    const next = clampProgress(dragProgress + dragVelocity);
-    const moved = scrollToProgress(next);
-    dragProgress = next;
-    tickAcross(next, clamp(Math.abs(dragVelocity) * 2, 0, 1));
+    const startedAt = performance.now();
+    // Frames that fail to move the scroller: it is pinned at an end, or the
+    // curve is into its sub-pixel tail. Either way there is nothing to show.
+    let stalled = 0;
 
-    if (!moved) {
-      snapToNearestDate();
-      return;
-    }
+    const step = (): void => {
+      const elapsed = performance.now() - startedAt;
+      const remaining = distance * Math.exp(-DECAY * elapsed);
+      if (Math.abs(remaining) < SETTLE_EPSILON) {
+        finish();
+        return;
+      }
 
-    momentumRaf = requestAnimationFrame(stepMomentum);
+      const progress = target - remaining;
+      dragProgress = progress;
+      const moved = scrollToProgress(progress);
+      // Instantaneous speed, against a brisk throw, sets the click volume.
+      tickAcross(progress, clamp((Math.abs(remaining) * DECAY) / 0.03, 0.2, 1));
+
+      stalled = moved ? 0 : stalled + 1;
+      if (stalled >= 4) {
+        finish();
+        return;
+      }
+
+      releaseRaf = requestAnimationFrame(step);
+    };
+
+    releaseRaf = requestAnimationFrame(step);
   };
 
   const beginWheelControl = (): void => {
-    stopMomentum();
+    stopRelease();
     stopProgressTween();
     dragProgress = readProgress();
     lastTickedDate = Math.floor(dragProgress);
@@ -786,7 +810,6 @@ export function mountTimelineWheel(
     dragStartY = event.clientY;
     dragStartProgress = dragProgress;
     dragMoved = false;
-    dragVelocity = 0;
     recordDragSample(dragProgress);
     topButton?.setPointerCapture(event.pointerId);
   };
@@ -821,20 +844,13 @@ export function mountTimelineWheel(
     if (!dragMoved) return;
     suppressClick = true;
 
-    const velocity = clamp(dragSpeed(), -MAX_FLICK_SPEED, MAX_FLICK_SPEED);
-    if (!prefersReducedMotion && Math.abs(velocity) > MOMENTUM_CUTOFF) {
-      dragVelocity = velocity;
-      momentumRaf = requestAnimationFrame(stepMomentum);
-      return;
-    }
-
-    snapToNearestDate();
+    release(dragSpeed());
   };
 
   const handlePointerCancel = (event: PointerEvent): void => {
     if (dragPointerId !== event.pointerId) return;
     dragPointerId = null;
-    if (dragMoved) snapToNearestDate();
+    if (dragMoved) release(0);
   };
 
   // Arrow keys step whole dates, so the wheel is usable without a pointer.
@@ -920,11 +936,15 @@ export function mountTimelineWheel(
       setTopRevealed(scrollDir === 'up' && y > REVEAL_AT());
     }
 
-    wheel.classList.add('is-scrolling');
-    clearTimeout(scrollTimer);
-    scrollTimer = window.setTimeout(() => {
-      wheel.classList.remove('is-scrolling');
-    }, 150);
+    // Engaged already lights the wheel, and every class flip here restyles a
+    // few hundred transitioning notches. Not on the drag path.
+    if (!controlActive) {
+      wheel.classList.add('is-scrolling');
+      clearTimeout(scrollTimer);
+      scrollTimer = window.setTimeout(() => {
+        wheel.classList.remove('is-scrolling');
+      }, 150);
+    }
     scheduleScrollPositionSync(true);
   };
 

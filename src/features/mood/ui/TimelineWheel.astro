@@ -55,6 +55,11 @@ const { compact = false } = Astro.props;
     display: none;
     opacity: 0;
     pointer-events: none;
+    /* An instrument, not text: a long press on it must not select the readout
+       or raise the iOS callout. */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
     transition:
       opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
       transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -386,31 +391,17 @@ const { compact = false } = Astro.props;
   }
 
   /* ── Engaged: the wheel is being driven, not just read ──────────────────
-     The graduations lengthen and darken — the instrument coming under the
-     hand. Widths only, and every notch is anchored at its inner end, so the
-     growth runs rightward into the page.
+     The halo comes up and the live graduation takes the weight hover gives it.
+     Nothing else changes. Lengthening every graduation on engage looked like
+     the instrument coming under the hand, but it also started a transition on
+     a few hundred notches at once: a repaint burst at the first frame of every
+     drag, which on a tablet is a hitch exactly where the finger lands.
 
-     Nothing here may move the wheel itself. It used to lean out from the edge
-     on a translateX, which peeled the arc off the left of the screen and left
-     a blank wedge down the side for as long as the gesture lasted. The arc
-     bleeds off the viewport edge; that silhouette has to hold through every
-     interaction, which is why the only thing that changes is ink and length.
-
-     :not(.is-active) matters: these rules tie with the active ones on
-     specificity and come later, so without it the live graduation would wash
-     out at the exact moment you are steering by it. */
+     Nothing here may move the wheel itself either. It used to lean out from
+     the edge on a translateX, which peeled the arc off the left of the screen
+     and left a blank wedge down the side for as long as the gesture lasted. */
   .timeline-wheel.is-engaged .timeline-wheel-glow {
     opacity: 1;
-  }
-
-  .timeline-wheel.is-engaged :global(.timeline-notch:not(.is-active)) {
-    width: calc(15px + var(--notch-weight, 0.35) * 12px);
-    background: hsl(var(--foreground) / calc(0.1 + var(--notch-weight, 0.35) * 0.12));
-  }
-
-  .timeline-wheel.is-engaged :global(.timeline-notch.is-major:not(.is-active)) {
-    width: calc(24px + var(--notch-weight, 0.35) * 16px);
-    background: hsl(var(--foreground) / calc(0.24 + var(--notch-weight, 0.35) * 0.2));
   }
 
   /* Driving the dial gives the live graduation the same weight hover does. */
