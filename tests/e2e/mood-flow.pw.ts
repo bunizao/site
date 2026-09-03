@@ -2184,34 +2184,49 @@ test.describe('Mood routes', () => {
     await expect(topButton).toBeVisible();
     await expect.poll(() => label.evaluate((element) => element.textContent?.trim() ?? '')).not.toBe('');
 
-    const readDial = () => page.evaluate(() => {
+    const beforeHover = await page.evaluate(() => {
       const notches = Array.from(document.querySelectorAll<HTMLElement>('.timeline-notch.is-major'));
-      const ring = document.querySelector<HTMLElement>('.timeline-wheel-ring');
+      const active = document.querySelector<HTMLElement>('.timeline-notch.is-major.is-active');
       const top = document.querySelector<HTMLElement>('[data-timeline-top]');
-      const wheel = document.querySelector<HTMLElement>('[data-timeline-wheel]');
-      if (!ring || !top || !wheel) throw new Error('Timeline wheel is missing its controls');
+      if (!active || !top) throw new Error('Timeline wheel is missing active controls');
 
       return {
-        border: getComputedStyle(ring).borderTopColor,
+        activeTransform: getComputedStyle(active).transform,
+        activeWidth: active.getBoundingClientRect().width,
         cursor: getComputedStyle(top).cursor,
         transforms: notches.map((notch) => getComputedStyle(notch).transform),
-        wheelTransform: getComputedStyle(wheel).transform,
+        wheelTransform: getComputedStyle(document.querySelector<HTMLElement>('[data-timeline-wheel]')!).transform,
       };
     });
 
-    const beforeHover = await readDial();
-
-    // Hover on the rim, clear of the shuffle glyph at the hub. The dial is a
-    // complete instrument now: hovering illuminates it and moves nothing.
-    const topBox = (await topButton.boundingBox())!;
-    await topButton.hover({ position: { x: topBox.width * 0.5, y: topBox.height * 0.86 } });
+    await topButton.hover();
+    await expect
+      .poll(() => label.evaluate((element) => (
+        element.textContent?.replace(/(.)\1+/g, '$1').replace(/\s+/g, ' ').trim() ?? ''
+      )))
+      .toContain('TOP');
     await page.waitForTimeout(350);
 
-    const afterHover = await readDial();
+    const afterHover = await page.evaluate(() => {
+      const notches = Array.from(document.querySelectorAll<HTMLElement>('.timeline-notch.is-major'));
+      const active = document.querySelector<HTMLElement>('.timeline-notch.is-major.is-active');
+      const top = document.querySelector<HTMLElement>('[data-timeline-top]');
+      if (!active || !top) throw new Error('Timeline wheel is missing active controls');
+
+      return {
+        activeTransform: getComputedStyle(active).transform,
+        activeWidth: active.getBoundingClientRect().width,
+        cursor: getComputedStyle(top).cursor,
+        transforms: notches.map((notch) => getComputedStyle(notch).transform),
+        wheelTransform: getComputedStyle(document.querySelector<HTMLElement>('[data-timeline-wheel]')!).transform,
+      };
+    });
 
     expect(afterHover.transforms).toEqual(beforeHover.transforms);
+    expect(afterHover.activeTransform).toBe(beforeHover.activeTransform);
+    expect(afterHover.activeWidth).toBeGreaterThan(beforeHover.activeWidth);
     expect(afterHover.wheelTransform).toBe(beforeHover.wheelTransform);
-    expect(afterHover.border).not.toBe(beforeHover.border);
+    // The wheel is an input as well as a readout: it offers a grab, not a tap.
     expect(afterHover.cursor).toBe('grab');
     expect(beforeHover.cursor).toBe('grab');
 
@@ -2219,16 +2234,6 @@ test.describe('Mood routes', () => {
       scroller.scrollTo({ top: scroller.scrollHeight * 0.7, behavior: 'instant' });
     });
     await expect.poll(() => readPageScrollTop(page)).toBeGreaterThan(720);
-
-    // Turning back up the feed is what surfaces the back-to-top cue.
-    await page.locator('[data-page-scroller]').evaluate((scroller) => {
-      scroller.scrollBy({ top: -240, behavior: 'instant' });
-    });
-    await expect
-      .poll(() => label.evaluate((element) => (
-        element.textContent?.replace(/(.)\1+/g, '$1').replace(/\s+/g, ' ').trim() ?? ''
-      )))
-      .toContain('TOP');
 
     const labelBox = await label.boundingBox();
     expect(labelBox).not.toBeNull();

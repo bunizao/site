@@ -51,13 +51,9 @@ export function mountTimelineWheel(
   topButton?.addEventListener('click', handleTopClick);
 
   // The readout is a slot-text display: the active date rolls in as you scroll
-  // down, and rolls to "↑ TOP" to expose the back-to-top role whenever the
-  // reader scrolls back up past the first screen — the moment they are likely
-  // heading for the top — then rolls back to the date on the way down.
-  //
-  // Hover used to trigger it too. It no longer does: hovering the dial is now
-  // the prelude to grabbing it, and covering the date the reader is aiming at
-  // is a poor trade for a cue the grab cursor and the hub already carry.
+  // down, and rolls to "↑ TOP" to expose the back-to-top role — on hover, and
+  // whenever the reader scrolls back up past the first screen (the moment they
+  // are likely heading for the top), then rolls back to the date on the way down.
   const TOP_TEXT = '↑ TOP';
   const REVEAL_AT = (): number => scroll.el.clientHeight || window.innerHeight;
   const DIR_DELTA = 6; // px of travel before a direction flip counts (anti-jitter)
@@ -75,6 +71,7 @@ export function mountTimelineWheel(
   let roll: SlotTextController | null = null;
   let currentDateText = '';
   let shownText = '';
+  let isHoveringWheel = false;
   let topRevealed = false;
   // True while the wheel itself is driving the scroll (drag, coast, snap,
   // keyboard step or shuffle) rather than merely reporting it.
@@ -83,7 +80,7 @@ export function mountTimelineWheel(
   let dirAnchorY = 0;
   let scrollDir: 'up' | 'down' = 'down';
 
-  const wantsTop = (): boolean => !controlActive && topRevealed;
+  const wantsTop = (): boolean => !controlActive && (topRevealed || isHoveringWheel);
 
   // Render whatever the readout should currently show, picking the right roll
   // for the transition and skipping no-op re-rolls.
@@ -114,8 +111,19 @@ export function mountTimelineWheel(
     if (next === topRevealed) return;
     topRevealed = next;
     renderReadout();
-    if (next) pulseWheelHint();
+    if (next && !isHoveringWheel) pulseWheelHint();
   };
+
+  const handleMouseEnter = (): void => {
+    isHoveringWheel = true;
+    renderReadout();
+  };
+  const handleMouseLeave = (): void => {
+    isHoveringWheel = false;
+    renderReadout();
+  };
+  wheel.addEventListener('mouseenter', handleMouseEnter);
+  wheel.addEventListener('mouseleave', handleMouseLeave);
 
   let dateGroups: HTMLElement[] = [];
   let notches: HTMLElement[] = [];
@@ -179,7 +187,7 @@ export function mountTimelineWheel(
       const majorNotch = document.createElement('div');
       majorNotch.className = 'timeline-notch is-major is-skeleton';
       majorNotch.style.setProperty('--notch-idx', String(i));
-      majorNotch.style.transform = `rotate(${majorAngle}deg) translateX(calc(var(--wheel-size) / 2 - var(--rim-gap) - var(--notch-len)))`;
+      majorNotch.style.transform = `rotate(${majorAngle}deg) translateX(calc(var(--wheel-size) / 2 - 36px))`;
       dial.appendChild(majorNotch);
 
       for (let j = 1; j < NOTCHES_PER_DATE; j++) {
@@ -187,16 +195,14 @@ export function mountTimelineWheel(
         const minorNotch = document.createElement('div');
         minorNotch.className = 'timeline-notch is-skeleton';
         minorNotch.style.setProperty('--notch-idx', String(i * NOTCHES_PER_DATE + j));
-        minorNotch.style.transform = `rotate(${minorAngle}deg) translateX(calc(var(--wheel-size) / 2 - var(--rim-gap) - var(--notch-len)))`;
+        minorNotch.style.transform = `rotate(${minorAngle}deg) translateX(calc(var(--wheel-size) / 2 - 20px))`;
         dial.appendChild(minorNotch);
       }
     }
   };
 
   const applyDialTransform = (): void => {
-    // The dial is a full-face disc concentric with the rim, so it only turns.
-    // translate3d(0,0,0) is there to keep it on its own compositor layer.
-    dial.style.transform = `translate3d(0, 0, 0) rotate(${-currentRotation}deg)`;
+    dial.style.transform = `translate3d(0, -50%, 0) rotate(${-currentRotation}deg)`;
   };
 
   const loadGsap = async (): Promise<GsapModule> => {
@@ -398,7 +404,7 @@ export function mountTimelineWheel(
       majorNotch.className = 'timeline-notch is-major';
       majorNotch.dataset.dateIndex = String(dateIdx);
       majorNotch.style.setProperty('--notch-weight', weight);
-      majorNotch.style.transform = `rotate(${majorAngle}deg) translateX(calc(var(--wheel-size) / 2 - var(--rim-gap) - var(--notch-len)))`;
+      majorNotch.style.transform = `rotate(${majorAngle}deg) translateX(calc(var(--wheel-size) / 2 - 36px))`;
       const pip = document.createElement('div');
       pip.className = 'timeline-notch-pip';
       majorNotch.appendChild(pip);
@@ -411,7 +417,7 @@ export function mountTimelineWheel(
         minorNotch.className = 'timeline-notch';
         minorNotch.dataset.dateIndex = String(dateIdx);
         minorNotch.style.setProperty('--notch-weight', weight);
-        minorNotch.style.transform = `rotate(${minorAngle}deg) translateX(calc(var(--wheel-size) / 2 - var(--rim-gap) - var(--notch-len)))`;
+        minorNotch.style.transform = `rotate(${minorAngle}deg) translateX(calc(var(--wheel-size) / 2 - 20px))`;
         dial.appendChild(minorNotch);
       }
     }
@@ -568,7 +574,6 @@ export function mountTimelineWheel(
   let progressTweenRaf = 0;
   let lastTickedDate = 0;
   let suppressClick = false;
-  let dragCapture: HTMLElement | null = null;
 
   const clamp = (value: number, min: number, max: number): number =>
     Math.min(Math.max(value, min), max);
@@ -740,11 +745,6 @@ export function mountTimelineWheel(
     dragSamples = [];
   };
 
-  const releaseDragCapture = (pointerId: number): void => {
-    if (dragCapture?.hasPointerCapture(pointerId)) dragCapture.releasePointerCapture(pointerId);
-    dragCapture = null;
-  };
-
   const handlePointerDown = (event: PointerEvent): void => {
     if (!isDesktop() || dateGroups.length === 0) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -760,11 +760,7 @@ export function mountTimelineWheel(
     dragMoved = false;
     dragVelocity = 0;
     recordDragSample(dragProgress);
-    // Capture on the surface that was actually pressed. The shuffle button sits
-    // over the middle of the face — dead centre, where a thumb naturally lands —
-    // so it shares the drag handlers rather than punching a hole in the dial.
-    dragCapture = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
-    dragCapture?.setPointerCapture(event.pointerId);
+    topButton?.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event: PointerEvent): void => {
@@ -789,7 +785,9 @@ export function mountTimelineWheel(
   const handlePointerUp = (event: PointerEvent): void => {
     if (dragPointerId !== event.pointerId) return;
     dragPointerId = null;
-    releaseDragCapture(event.pointerId);
+    if (topButton?.hasPointerCapture(event.pointerId)) {
+      topButton.releasePointerCapture(event.pointerId);
+    }
 
     // A press that never moved is a click, and click still means back to top.
     if (!dragMoved) return;
@@ -808,7 +806,6 @@ export function mountTimelineWheel(
   const handlePointerCancel = (event: PointerEvent): void => {
     if (dragPointerId !== event.pointerId) return;
     dragPointerId = null;
-    releaseDragCapture(event.pointerId);
     if (dragMoved) snapToNearestDate();
   };
 
@@ -843,12 +840,6 @@ export function mountTimelineWheel(
   };
 
   const handleShuffle = (): void => {
-    // A drag that started on the glyph spun the dial; do not also shuffle.
-    if (suppressClick) {
-      suppressClick = false;
-      return;
-    }
-
     const total = dateGroups.length;
     if (total < 2) return;
 
@@ -871,10 +862,6 @@ export function mountTimelineWheel(
   topButton?.addEventListener('pointercancel', handlePointerCancel);
   topButton?.addEventListener('keydown', handleKeyDown);
   shuffleButton?.addEventListener('click', handleShuffle);
-  shuffleButton?.addEventListener('pointerdown', handlePointerDown);
-  shuffleButton?.addEventListener('pointermove', handlePointerMove);
-  shuffleButton?.addEventListener('pointerup', handlePointerUp);
-  shuffleButton?.addEventListener('pointercancel', handlePointerCancel);
 
   const setLoadingSpin = (active: boolean): void => {
     if (!isDesktop()) {
@@ -1098,12 +1085,10 @@ export function mountTimelineWheel(
     topButton?.removeEventListener('pointercancel', handlePointerCancel);
     topButton?.removeEventListener('keydown', handleKeyDown);
     shuffleButton?.removeEventListener('click', handleShuffle);
-    shuffleButton?.removeEventListener('pointerdown', handlePointerDown);
-    shuffleButton?.removeEventListener('pointermove', handlePointerMove);
-    shuffleButton?.removeEventListener('pointerup', handlePointerUp);
-    shuffleButton?.removeEventListener('pointercancel', handlePointerCancel);
     abortWheelControl();
     feedback.destroy();
+    wheel.removeEventListener('mouseenter', handleMouseEnter);
+    wheel.removeEventListener('mouseleave', handleMouseLeave);
     window.removeEventListener('resize', handleWindowResize);
     clearTimeout(resizeTimer);
     destroyScrollSync();

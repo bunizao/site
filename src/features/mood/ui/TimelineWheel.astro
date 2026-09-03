@@ -1,14 +1,6 @@
 ---
-// Timeline wheel - a complete instrument dial, not a sliver of one.
-//
-// The whole circle sits on screen: graduations around the rim, the date readout
-// and the shuffle control inside the hub, an index mark at three o'clock where
-// the live date passes. Nothing floats out of it on hover, because there is
-// nothing left outside to float.
-//
-// Only a sector around the index is lit (a conic mask). That is what keeps the
-// dial honest: at 24 degrees per date the graduations wrap every fifteen days,
-// and a wrapped notch lands in the dark half rather than on top of its twin.
+// Timeline wheel - precision instrument aesthetic
+// Only the right arc visible at screen edge with refined visual feedback
 interface Props {
   compact?: boolean;
 }
@@ -22,57 +14,23 @@ const { compact = false } = Astro.props;
   data-timeline-wheel
   data-timeline-wheel-compact={compact ? '' : undefined}
 >
-  <div class="timeline-wheel-face">
-    <!-- Rim -->
-    <div class="timeline-wheel-ring"></div>
-    <!-- Graduations, lit only in a sector around the index -->
-    <div class="timeline-wheel-graduations">
-      <div class="timeline-wheel-dial" data-timeline-dial></div>
-    </div>
-    <!-- Ambient glow behind the live graduation -->
-    <div class="timeline-wheel-glow"></div>
-    <!-- Fixed index at three o'clock: the date passing here is the live one -->
-    <div class="timeline-wheel-index"></div>
+  <!-- Vertical track rail -->
+  <div class="timeline-wheel-track"></div>
+  <!-- Masked arc + notches -->
+  <div class="timeline-wheel-arc">
+    <div class="timeline-wheel-dial" data-timeline-dial></div>
     <div class="timeline-wheel-sweep" data-timeline-sweep></div>
-    <!-- Hub. The label is a slot-text readout: the active date rolls as you
-         scroll, and rolls to "TOP" when you turn back up the feed. -->
-    <div class="timeline-wheel-hub">
-      <div class="timeline-wheel-label" data-timeline-label></div>
-      <button
-        type="button"
-        class="timeline-wheel-shuffle"
-        data-timeline-shuffle
-        aria-label="Jump to a random day"
-      >
-        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-          <path
-            d="M1.5 4.5h2.2c1 0 1.6.5 2.2 1.4l3.4 4.7c.5.8 1.1 1.3 2.2 1.3h2"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.3"
-            stroke-linecap="round"
-          />
-          <path
-            d="M1.5 11.9h2.2c1 0 1.6-.5 2.2-1.4l3.4-4.7c.5-.8 1.1-1.3 2.2-1.3h2"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.3"
-            stroke-linecap="round"
-          />
-          <path
-            d="M11.9 2.6 13.9 4.5l-2 1.9M11.9 10.1l2 1.8-2 1.9"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.3"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
-    </div>
   </div>
-  <!-- The dial is both readout and input. Click winds back to the top of the
-       feed; drag turns it to scrub by date; arrow keys step one day. -->
+  <!-- Ambient glow at active center -->
+  <div class="timeline-wheel-glow"></div>
+  <!-- Label with connector. The label is a slot-text readout: the active date
+       rolls as you scroll, and rolls to "↑ TOP" when you pause deep in the feed. -->
+  <div class="timeline-wheel-label-wrap">
+    <div class="timeline-wheel-connector"></div>
+    <div class="timeline-wheel-label" data-timeline-label></div>
+  </div>
+  <!-- The wheel is both readout and input. Click winds back to the top of the
+       feed; drag scrubs the timeline by date; arrow keys step one date. -->
   <button
     type="button"
     class="timeline-wheel-top"
@@ -80,25 +38,46 @@ const { compact = false } = Astro.props;
     aria-label="Back to top. Drag or use arrow keys to scrub the timeline"
     aria-keyshortcuts="ArrowUp ArrowDown"
   ></button>
+  <!-- Spin to a random day already loaded in the feed -->
+  <button
+    type="button"
+    class="timeline-wheel-shuffle"
+    data-timeline-shuffle
+    aria-label="Jump to a random day"
+  >
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M1.5 4.5h2.2c1 0 1.6.5 2.2 1.4l3.4 4.7c.5.8 1.1 1.3 2.2 1.3h2"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.3"
+        stroke-linecap="round"
+      />
+      <path
+        d="M1.5 11.9h2.2c1 0 1.6-.5 2.2-1.4l3.4-4.7c.5-.8 1.1-1.3 2.2-1.3h2"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.3"
+        stroke-linecap="round"
+      />
+      <path d="M11.9 2.6 13.9 4.5l-2 1.9M11.9 10.1l2 1.8-2 1.9"
+        fill="none" stroke="currentColor" stroke-width="1.3"
+        stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </button>
 </nav>
 
 <style>
   /* ── Container ── */
   .timeline-wheel {
     position: fixed;
-    left: 22px;
+    left: 0;
     top: 50%;
-    /* The dial's full diameter. Every radius below is derived from it, so one
-       value resizes the instrument. */
-    --wheel-size: 168px;
-    /* The band the graduations occupy, measured inward from the rim. Every
-       notch length is a fraction of it, so the whole scale rescales with the
-       dial. --rim-gap is the hair of clearance between a tip and the rim. */
-    --notch-band: 30px;
-    --rim-gap: 5px;
-    width: var(--wheel-size);
-    height: var(--wheel-size);
-    transform: translateY(-50%) translateX(-8px);
+    transform: translateY(-50%) translateX(-10px);
+    --wheel-size: 600px;
+    --visible-width: 44px;
+    width: var(--visible-width);
+    height: 360px;
     z-index: 50;
     display: none;
     opacity: 0;
@@ -106,6 +85,7 @@ const { compact = false } = Astro.props;
     transition:
       opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
       transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: visible;
   }
 
   .timeline-wheel.is-visible {
@@ -122,107 +102,84 @@ const { compact = false } = Astro.props;
 
   @media (min-width: 1280px) {
     .timeline-wheel {
-      left: 28px;
-      --wheel-size: 188px;
-      --notch-band: 34px;
+      --wheel-size: 700px;
+      --visible-width: 52px;
+      height: 400px;
     }
   }
 
   @media (min-width: 1440px) {
     .timeline-wheel {
-      left: 34px;
-      --wheel-size: 208px;
-      --notch-band: 38px;
+      --wheel-size: 800px;
+      --visible-width: 60px;
+      height: 440px;
     }
   }
 
-  .timeline-wheel-face {
+  /* ── Vertical track rail ── */
+  .timeline-wheel-track {
     position: absolute;
-    inset: 0;
-    border-radius: 50%;
-  }
-
-  /* ── Rim ── */
-  .timeline-wheel-ring {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    border: 1px solid hsl(var(--foreground) / 0.09);
-    background: radial-gradient(
-      circle at 50% 50%,
-      hsl(var(--background) / 0.72) 0%,
-      hsl(var(--background) / 0.5) 62%,
+    left: 2px;
+    top: 5%;
+    bottom: 5%;
+    width: 1px;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      hsl(var(--foreground) / 0.06) 15%,
+      hsl(var(--foreground) / 0.1) 50%,
+      hsl(var(--foreground) / 0.06) 85%,
       transparent 100%
     );
-    -webkit-backdrop-filter: blur(14px) saturate(1.15);
-    backdrop-filter: blur(14px) saturate(1.15);
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.03),
-      0 10px 30px -14px rgba(0, 0, 0, 0.16),
-      inset 0 0.5px 0 hsl(var(--foreground) / 0.05);
-    transition:
-      border-color 0.3s ease,
-      box-shadow 0.3s ease;
+    border-radius: 1px;
   }
 
-  /* Inner gauge ring, the way a real instrument has a bezel and a face. */
-  .timeline-wheel-ring::after {
-    content: '';
-    position: absolute;
-    inset: calc(var(--notch-band) + 10px);
-    border-radius: 50%;
-    border: 1px solid hsl(var(--foreground) / 0.05);
-  }
-
-  /* ── Graduations ──
-     Lit in a wide sector centred on the index and dissolving into the dark
-     behind. The conic gradient starts at 90deg so its 0deg sits on the index.
-     Any window narrower than a full turn is enough: twins are exactly 360deg
-     apart, so a wrapped graduation can never share the lit arc with its own. */
-  .timeline-wheel-graduations {
+  /* ── Arc mask ── */
+  .timeline-wheel-arc {
     position: absolute;
     inset: 0;
-    border-radius: 50%;
-    -webkit-mask-image: conic-gradient(
-      from 90deg at 50% 50%,
-      #000 0deg,
-      #000 96deg,
-      transparent 138deg,
-      transparent 222deg,
-      #000 264deg,
-      #000 360deg
+    overflow: visible;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      black 12%,
+      black 88%,
+      transparent 100%
     );
-    mask-image: conic-gradient(
-      from 90deg at 50% 50%,
-      #000 0deg,
-      #000 96deg,
-      transparent 138deg,
-      transparent 222deg,
-      #000 264deg,
-      #000 360deg
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      black 12%,
+      black 88%,
+      transparent 100%
     );
   }
 
   /* ── Rotating dial ── */
   .timeline-wheel-dial {
     position: absolute;
-    inset: 0;
+    width: var(--wheel-size);
+    height: var(--wheel-size);
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
     border-radius: 50%;
+    border: 1px solid hsl(var(--foreground) / 0.04);
     will-change: transform;
   }
 
-  /* ── Ambient glow behind the live graduation ── */
+  /* ── Ambient glow ── */
   .timeline-wheel-glow {
     position: absolute;
-    right: -4px;
+    left: -6px;
     top: 50%;
-    width: 54px;
-    height: 54px;
+    width: 48px;
+    height: 48px;
     transform: translateY(-50%);
     border-radius: 50%;
     background: radial-gradient(
       circle,
-      hsl(var(--foreground) / 0.05) 0%,
+      hsl(var(--foreground) / 0.03) 0%,
       transparent 70%
     );
     opacity: 0.5;
@@ -234,90 +191,71 @@ const { compact = false } = Astro.props;
     opacity: 1;
   }
 
-  /* ── Index ──
-     A wedge outside the rim at three o'clock, pointing in at whichever
-     graduation is live. The dial turns; this never does. */
-  .timeline-wheel-index {
-    position: absolute;
-    right: -13px;
-    top: 50%;
-    width: 0;
-    height: 0;
-    transform: translateY(-50%);
-    border-top: 4.5px solid transparent;
-    border-bottom: 4.5px solid transparent;
-    border-right: 7px solid hsl(var(--foreground) / 0.55);
-    pointer-events: none;
-    transition: border-right-color 0.3s ease;
-  }
-
   /* ── Notches ── */
 
   /* Base minor notch. --notch-weight (0-1, set by the controller) is that day's
      post count: the graduations are longer and heavier over a busy day, so the
      dial reads as the terrain of the archive rather than as even decoration.
-     The 0.35 fallback keeps skeleton and unmeasured notches at a plain look.
-     Every notch is placed by --notch-len, which also sets its width, so the
-     outer tips all land on the rim and the scale reads as one clean circle. */
+     The 0.35 fallback keeps skeleton and unmeasured notches at the old look. */
   :global(.timeline-notch) {
-    --notch-len: calc(var(--notch-band) * (0.26 + var(--notch-weight, 0.35) * 0.16));
     position: absolute;
     left: 50%;
     top: 50%;
-    width: var(--notch-len);
+    width: calc(11px + var(--notch-weight, 0.35) * 9px);
     height: 1.5px;
     margin-top: -0.75px;
-    background: hsl(var(--foreground) / calc(0.06 + var(--notch-weight, 0.35) * 0.1));
+    background: hsl(var(--foreground) / calc(0.05 + var(--notch-weight, 0.35) * 0.09));
     border-radius: 0 1px 1px 0;
     transform-origin: left center;
     transition:
       background 0.3s cubic-bezier(0.16, 1, 0.3, 1),
       width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
       height 0.2s ease,
       box-shadow 0.3s ease;
   }
 
   /* Major notch (date marker) */
   :global(.timeline-notch.is-major) {
-    --notch-len: calc(var(--notch-band) * (0.54 + var(--notch-weight, 0.35) * 0.46));
+    width: calc(18px + var(--notch-weight, 0.35) * 13px);
     height: 2px;
     margin-top: -1px;
-    background: hsl(var(--muted-foreground) / calc(0.18 + var(--notch-weight, 0.35) * 0.2));
+    background: hsl(var(--muted-foreground) / calc(0.14 + var(--notch-weight, 0.35) * 0.18));
     border-radius: 0 1.5px 1.5px 0;
   }
 
   /* Near notches (±2 from active) */
   :global(.timeline-notch.is-near) {
-    background: hsl(var(--foreground) / 0.2);
+    background: hsl(var(--foreground) / 0.18);
   }
   :global(.timeline-notch.is-major.is-near) {
-    background: hsl(var(--foreground) / 0.32);
+    width: 26px;
+    background: hsl(var(--foreground) / 0.28);
   }
 
   /* Neighbor notches (±1 from active) */
   :global(.timeline-notch.is-neighbor) {
-    background: hsl(var(--foreground) / 0.34);
+    background: hsl(var(--foreground) / 0.3);
   }
   :global(.timeline-notch.is-major.is-neighbor) {
-    background: hsl(var(--foreground) / 0.5);
+    width: 30px;
+    background: hsl(var(--foreground) / 0.45);
   }
 
-  /* Active notch. The major one is the single graduation allowed to break the
-     circle: a negative rim gap pushes its tip out past the rim, at the index. */
+  /* Active notch */
   :global(.timeline-notch.is-active) {
     background: hsl(var(--foreground) / 0.8);
-    --notch-len: calc(var(--notch-band) * 0.6);
+    width: 18px;
+    height: 2px;
+    margin-top: -1px;
   }
   :global(.timeline-notch.is-major.is-active) {
-    --rim-gap: -3px;
-    --notch-len: calc(var(--notch-band) + 3px);
+    width: 36px;
     height: 2.5px;
     margin-top: -1.25px;
     background: hsl(var(--foreground));
     box-shadow:
-      0 0 8px hsl(var(--foreground) / 0.12),
-      0 0 20px hsl(var(--foreground) / 0.06);
+      0 0 8px hsl(var(--foreground) / 0.1),
+      0 0 20px hsl(var(--foreground) / 0.05);
   }
 
   /* Pip dot on major notch tip */
@@ -351,101 +289,79 @@ const { compact = false } = Astro.props;
     50% { box-shadow: 0 0 12px hsl(var(--foreground) / 0.35); }
   }
 
-  /* ── Hub ──
-     Readout and shuffle live at the centre of the face. Both were floating
-     satellites before; inside the dial they need no pill, no connector, and
-     nothing has to fly out on hover to be found. */
-  .timeline-wheel-hub {
+  /* ── Label group ── */
+  .timeline-wheel-label-wrap {
     position: absolute;
-    left: 50%;
+    left: calc(var(--visible-width) + 4px);
     top: 50%;
-    transform: translate(-50%, -50%);
-    display: grid;
-    justify-items: center;
-    gap: 5px;
-    z-index: 4;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    z-index: 2;
     pointer-events: none;
+    opacity: 0;
+    will-change: opacity;
+    transition: opacity 0.4s ease;
   }
 
-  /* Date label - a slot-text readout. The active date rolls in as you scroll;
-     the controller rolls it to the back-to-top cue when you turn back up. */
+  .timeline-wheel.is-visible .timeline-wheel-label-wrap {
+    opacity: 1;
+  }
+
+  /* Connector line from arc to label */
+  .timeline-wheel-connector {
+    width: 14px;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      hsl(var(--foreground) / 0.18),
+      hsl(var(--foreground) / 0.06)
+    );
+    flex-shrink: 0;
+  }
+
+  /* Date label — a slot-text readout. The active date rolls in as you scroll;
+     the controller rolls it to "↑ TOP" on hover and on a pause deep in the feed. */
   .timeline-wheel-label {
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: hsl(var(--foreground) / 0.85);
+    color: hsl(var(--foreground) / 0.8);
     white-space: nowrap;
+
+    padding: 5px 10px;
+    background: hsl(var(--background) / 0.75);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    backdrop-filter: blur(16px) saturate(1.2);
+    border: 1px solid hsl(var(--foreground) / 0.06);
+    border-radius: 6px;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.03),
+      0 4px 12px -2px rgba(0, 0, 0, 0.06),
+      inset 0 0.5px 0 hsl(var(--foreground) / 0.04);
+
     font-variant-numeric: tabular-nums;
-    transition: color 0.3s ease;
+    transition:
+      border-color 0.3s ease,
+      box-shadow 0.3s ease;
   }
 
-  @media (min-width: 1280px) {
-    .timeline-wheel-label {
-      font-size: 11px;
-    }
-  }
-
-  /* ── Shuffle: spin to a random loaded day ──
-     Always present, just quiet. It brightens under the cursor; it does not
-     appear, slide, or spring. */
-  .timeline-wheel-shuffle {
-    display: grid;
-    place-items: center;
-    width: 22px;
-    height: 22px;
-    margin: 0;
-    padding: 0;
-    color: hsl(var(--foreground) / 0.4);
-    background: transparent;
-    border: 0;
-    border-radius: 50%;
-    cursor: pointer;
-    pointer-events: auto;
-    /* It shares the dial's drag handlers, so a touch that starts on the glyph
-       must not be stolen by the page scroller either. */
-    touch-action: none;
-    -webkit-appearance: none;
-    appearance: none;
-    transition: color 0.24s ease, background 0.24s ease;
-  }
-
-  .timeline-wheel-shuffle svg {
-    width: 13px;
-    height: 13px;
-  }
-
-  .timeline-wheel:hover .timeline-wheel-shuffle {
-    color: hsl(var(--foreground) / 0.62);
-  }
-
-  .timeline-wheel-shuffle:hover {
-    color: hsl(var(--foreground));
-    background: hsl(var(--foreground) / 0.07);
-  }
-
-  .timeline-wheel-shuffle:focus-visible {
-    outline: 2px solid hsl(var(--foreground) / 0.5);
-    outline-offset: 2px;
-  }
-
-  /* The shuffle control is an affordance for the dial, not for a loading
-     skeleton or an empty feed. */
-  .timeline-wheel.is-loading .timeline-wheel-shuffle {
-    visibility: hidden;
-  }
-
-  /* ── The drag surface ── */
+  /* The wheel telegraphs its back-to-top role on hover: the readout brightens
+     and the cursor turns actionable. The hit target includes the visible
+     readout, not just the narrow arc at the viewport edge. */
   .timeline-wheel-top {
     position: absolute;
-    inset: 0;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: calc(var(--visible-width) + 120px);
     z-index: 3;
     margin: 0;
     padding: 0;
     border: 0;
-    border-radius: 50%;
     background: transparent;
-    /* The dial reads as a thing you can take hold of; a plain click still
+    /* The wheel reads as a thing you can take hold of; a plain click still
        means back to top. touch-action keeps a touch drag on the dial from
        being stolen by the page scroller. */
     cursor: grab;
@@ -461,50 +377,145 @@ const { compact = false } = Astro.props;
   .timeline-wheel-top:focus-visible {
     outline: 2px solid hsl(var(--foreground) / 0.5);
     outline-offset: 4px;
+    border-radius: 10px;
   }
 
-  /* ── Hover: the instrument quietly illuminates under the cursor ──
-     Brightness only. Nothing moves, nothing emerges, no layout shift. */
-  .timeline-wheel:hover .timeline-wheel-ring {
-    border-color: hsl(var(--foreground) / 0.16);
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.04),
-      0 12px 34px -14px rgba(0, 0, 0, 0.2),
-      inset 0 0.5px 0 hsl(var(--foreground) / 0.07);
+  /* ── Hover: the instrument quietly illuminates under the cursor ── */
+  /* The readout brightens, a soft halo blooms at the active centre, and the
+     live mark extends a touch — minimal, no layout shift, no extra chrome. */
+  .timeline-wheel:hover .timeline-wheel-label {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.14);
   }
 
   .timeline-wheel:hover .timeline-wheel-glow {
     opacity: 1;
   }
 
-  .timeline-wheel:hover .timeline-wheel-index {
-    border-right-color: hsl(var(--foreground) / 0.8);
+  .timeline-wheel:hover .timeline-wheel-connector {
+    background: linear-gradient(
+      to right,
+      hsl(var(--foreground) / 0.32),
+      hsl(var(--foreground) / 0.1)
+    );
   }
 
-  .timeline-wheel:hover .timeline-wheel-label {
-    color: hsl(var(--foreground));
+  .timeline-wheel:hover :global(.timeline-notch.is-major.is-active) {
+    width: 42px;
+    background: hsl(var(--foreground));
+    box-shadow:
+      0 0 10px hsl(var(--foreground) / 0.16),
+      0 0 26px hsl(var(--foreground) / 0.08);
   }
 
-  /* ── Engaged: the dial is being driven, not just read ──
-     Same restraint as hover. The graduations gain weight so the sector under
-     the hand reads as live; the dial does not lift off the page. */
-  /* :not(.is-active) matters: these rules and the active ones carry the same
-     specificity, and coming later they would otherwise wash the live
-     graduation out at the exact moment you are steering by it. */
+  /* ── Engaged: the wheel is being driven, not just read ──────────────────
+     The graduations lengthen and darken — the instrument coming under the
+     hand. Widths only, and every notch is anchored at its inner end, so the
+     growth runs rightward into the page.
+
+     Nothing here may move the wheel itself. It used to lean out from the edge
+     on a translateX, which peeled the arc off the left of the screen and left
+     a blank wedge down the side for as long as the gesture lasted. The arc
+     bleeds off the viewport edge; that silhouette has to hold through every
+     interaction, which is why the only thing that changes is ink and length.
+
+     :not(.is-active) matters: these rules tie with the active ones on
+     specificity and come later, so without it the live graduation would wash
+     out at the exact moment you are steering by it. */
+  .timeline-wheel.is-engaged .timeline-wheel-glow {
+    opacity: 1;
+  }
+
   .timeline-wheel.is-engaged :global(.timeline-notch:not(.is-active)) {
-    background: hsl(var(--foreground) / calc(0.12 + var(--notch-weight, 0.35) * 0.12));
+    width: calc(15px + var(--notch-weight, 0.35) * 12px);
+    background: hsl(var(--foreground) / calc(0.1 + var(--notch-weight, 0.35) * 0.12));
   }
 
   .timeline-wheel.is-engaged :global(.timeline-notch.is-major:not(.is-active)) {
-    background: hsl(var(--foreground) / calc(0.28 + var(--notch-weight, 0.35) * 0.2));
+    width: calc(24px + var(--notch-weight, 0.35) * 16px);
+    background: hsl(var(--foreground) / calc(0.24 + var(--notch-weight, 0.35) * 0.2));
   }
 
-  .timeline-wheel.is-engaged .timeline-wheel-index {
-    border-right-color: hsl(var(--foreground));
+  /* Driving the dial gives the live graduation the same weight hover does. */
+  .timeline-wheel.is-engaged :global(.timeline-notch.is-major.is-active) {
+    width: 42px;
+    background: hsl(var(--foreground));
+    box-shadow:
+      0 0 10px hsl(var(--foreground) / 0.16),
+      0 0 26px hsl(var(--foreground) / 0.08);
   }
 
   .timeline-wheel.is-engaged .timeline-wheel-label {
     color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.2);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      0 6px 18px -4px rgba(0, 0, 0, 0.1),
+      inset 0 0.5px 0 hsl(var(--foreground) / 0.06);
+  }
+
+  /* ── Shuffle: spin to a random loaded day ───────────────────────────────
+     Kept out of sight until the wheel is under the cursor (or focused), so the
+     resting state stays a single quiet arc. */
+  .timeline-wheel-shuffle {
+    position: absolute;
+    left: calc(var(--visible-width) + 18px);
+    top: calc(50% + 24px);
+    z-index: 4;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    color: hsl(var(--foreground) / 0.7);
+    background: hsl(var(--background) / 0.75);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    backdrop-filter: blur(16px) saturate(1.2);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    border-radius: 50%;
+    box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.12);
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(-4px) scale(0.9);
+    pointer-events: none;
+    transition:
+      opacity 0.24s ease,
+      transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+      color 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .timeline-wheel-shuffle svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .timeline-wheel:hover .timeline-wheel-shuffle,
+  .timeline-wheel:focus-within .timeline-wheel-shuffle {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .timeline-wheel-shuffle:hover {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.2);
+  }
+
+  .timeline-wheel-shuffle:active {
+    transform: translateY(0) scale(0.92);
+  }
+
+  .timeline-wheel-shuffle:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.5);
+    outline-offset: 3px;
+  }
+
+  /* The shuffle control is an affordance for the wheel, not for a loading
+     skeleton or an empty feed. */
+  .timeline-wheel.is-loading .timeline-wheel-shuffle,
+  .timeline-wheel:not(.is-visible) .timeline-wheel-shuffle {
+    display: none;
   }
 
   /* ── Hint pulse: the rare auto cue gets a single glow bloom for weight ── */
@@ -526,10 +537,11 @@ const { compact = false } = Astro.props;
 
   :global(.timeline-notch.is-major.is-skeleton) {
     background: hsl(var(--foreground) / 0.15);
+    width: 24px;
   }
 
-  /* Hide the readout during loading */
-  .timeline-wheel.is-loading .timeline-wheel-label {
+  /* Hide label during loading */
+  .timeline-wheel.is-loading .timeline-wheel-label-wrap {
     opacity: 0 !important;
   }
 
@@ -538,22 +550,33 @@ const { compact = false } = Astro.props;
     opacity: 0.1;
   }
 
-  .timeline-wheel.is-loading .timeline-wheel-index {
-    border-right-color: hsl(var(--foreground) / 0.2);
+  /* Subtle dial border accent during loading */
+  .timeline-wheel.is-loading .timeline-wheel-dial {
+    border-color: hsl(var(--foreground) / 0.06);
   }
 
-  /* ── Centre sweep indicator (loading focal point) ── */
+  /* Inner gauge ring during loading */
+  .timeline-wheel.is-loading .timeline-wheel-dial::after {
+    content: '';
+    position: absolute;
+    inset: 18px;
+    border-radius: 50%;
+    border: 1px solid hsl(var(--foreground) / 0.03);
+    pointer-events: none;
+  }
+
+  /* ── Center sweep indicator (loading focal point) ── */
   .timeline-wheel-sweep {
     position: absolute;
-    right: calc(var(--notch-band) - 6px);
+    left: 0;
     top: 50%;
     transform: translateY(-50%);
-    width: 26px;
+    width: 30px;
     height: 1.5px;
     background: linear-gradient(
       to right,
-      hsl(var(--foreground) / 0.06),
-      hsl(var(--foreground) / 0.3)
+      hsl(var(--foreground) / 0.3),
+      hsl(var(--foreground) / 0.06)
     );
     border-radius: 1px;
     opacity: 0;
