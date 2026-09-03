@@ -25,10 +25,10 @@ resolves to the same handlers. On the public site,
 | `/notify/manage/request` | `POST` | Turnstile | [Notify API](/docs/api/notify#request-a-manage-link) |
 | `/notify/manage/email` | `POST` | Manage token | [Notify API](/docs/api/notify#change-the-subscribed-address) |
 | `/notify/change-email` | `GET`, `POST` | Change token | [Notify API](/docs/api/notify#change-the-subscribed-address) |
-| `/notify/dispatch` | `POST` | Shared secret | [Internal](/docs/api/internal#cron-and-dispatch) |
-| `/notify/schedule` | `GET`, `POST` | Shared secret | [Internal](/docs/api/internal#cron-and-dispatch) |
-| `/notify/retry` | `GET`, `POST` | Shared secret | [Internal](/docs/api/internal#cron-and-dispatch) |
-| `/webhooks/telegram` | `POST` | Telegram secret header | [Internal](/docs/api/internal#telegram) |
+| `/notify/dispatch` | `POST` | Shared secret | [Internal](/docs/api/internal#scheduled-notification-routes) |
+| `/notify/schedule` | `GET`, `POST` | Shared secret | [Internal](/docs/api/internal#scheduled-notification-routes) |
+| `/notify/retry` | `GET`, `POST` | Shared secret | [Internal](/docs/api/internal#scheduled-notification-routes) |
+| `/webhooks/telegram` | `POST` | Telegram secret header | [Internal](/docs/api/internal#webhooks) |
 
 Request and response contracts live on those pages and are not repeated here.
 This page is the runtime: what sends the mail, on what schedule, with which
@@ -100,7 +100,7 @@ Cloudflare Worker secrets and vars on `site-api`:
 | `CRON_SECRET` | Yes | Bearer credential for the scheduled runs. |
 | `PUBLIC_SITE_URL` | Yes | Base URL every link in an email is built from. |
 | `PUBLIC_TURNSTILE_SITE_KEY` | No | Client-side widget key. |
-| `TURNSTILE_SECRET_KEY` or `CLOUDFLARE_TURNSTILE_SECRET_KEY` | No | Server-side verification key. Absent means the Turnstile gate cannot verify — see the `503` branch in [Notify API](/docs/api/notify#turnstile). |
+| `TURNSTILE_SECRET_KEY` or `CLOUDFLARE_TURNSTILE_SECRET_KEY` | No | Server-side verification key. Absent means the Turnstile gate cannot verify — see the `503` branch in [Notify API](/docs/api/notify#subscribe). |
 | `NOTIFY_ADMIN_TELEGRAM_CHAT_ID` | No | Where operational alerts go. |
 | `TELEGRAM_WEBHOOK_SECRET` | Yes | Verifies Telegram's own secret-token header. |
 | `TELEGRAM_BOT_TOKEN` | Yes | Bot API credential for media fetches. |

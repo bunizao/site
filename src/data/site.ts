@@ -2,6 +2,7 @@
 // derives its identity strings from `profile` so the same fact is never typed
 // twice. Plain typed module on purpose — Content Collections are for MD/MDX
 // documents, not UI labels.
+import type { CommentPolicy } from '@bunizao/contracts/comments';
 import type { ComponentType } from 'react';
 import { FileText, Mail, Send, GraduationCap } from 'lucide-react';
 import { OpenAIIcon, AnthropicIcon, GitHubIcon, InstagramIcon } from '@/components/icons';
@@ -106,6 +107,66 @@ export interface BlogLocaleCopy {
      */
     alsoIn: string;
   };
+  subscribe: SubscribeCopy;
+  share: ShareCopy;
+  /** The two ways off a post: the inline link above the title on narrow
+      screens, and the rail in the gutter that replaces it on wide ones. Both
+      say the same thing at different lengths. */
+  back: { index: string; rail: string };
+}
+
+/**
+ * Every word the subscribe panel says. It serves two surfaces from one
+ * component, so the stream names and the two intro tails both live here rather
+ * than as ternaries in the template.
+ *
+ * The panel renders all of this server-side; the outcome strings its client
+ * controller writes after a submit ride to the browser as `data-*` attributes
+ * on the panel root. Nothing under `blog.copy` is ever imported
+ * into a client bundle — site.ts would drag the whole site config with it.
+ */
+export interface SubscribeCopy {
+  trigger: string;
+  title: string;
+  close: string;
+  emailPlaceholder: string;
+  /** "欢迎订阅 <name>，…" — the name is the stream, set apart by colour. */
+  introLead: string;
+  blogTail: string;
+  moodName: string;
+  moodTail: string;
+  streamsLabel: string;
+  posts: { title: string; meta: string };
+  moods: { title: string; meta: string };
+  freqLabel: string;
+  freq: { instant: string; every5h: string; daily: string };
+  /** Split around the link to /privacy. The parts are concatenated with no
+      separator, so any space a language needs belongs inside its own string.
+      Chinese wants one on each side: the link renders bold and underlined, and
+      a Latin-styled rule set flush against CJK glyphs reads as a mistake. */
+  privacy: { prefix: string; link: string; suffix: string };
+  rss: string;
+  telegram: string;
+  submit: string;
+  done: string;
+  retry: string;
+  /* Outcomes the controller writes. */
+  success: string;
+  already: string;
+  errorGeneric: string;
+  invalidEmail: string;
+  needChannel: string;
+  rateLimited: string;
+  network: string;
+  verifyFailed: string;
+}
+
+export interface ShareCopy {
+  copyLink: string;
+  copied: string;
+  /** Screen-reader form of `copied` — a label has to say what was copied. */
+  linkCopied: string;
+  share: string;
 }
 
 export const blog = {
@@ -127,6 +188,42 @@ export const blog = {
       aiCredit: {
         fallback: '本文在 {models} 的协助下完成。',
       },
+      subscribe: {
+        trigger: '订阅',
+        title: '订阅',
+        close: '关闭',
+        emailPlaceholder: '留个邮箱',
+        introLead: '欢迎订阅',
+        blogTail: '，感谢您读到这里。',
+        moodName: '闲谈手记',
+        moodTail: '，第一时间收到更新。',
+        streamsLabel: '订阅内容',
+        posts: { title: '文章', meta: '更新即推送' },
+        moods: { title: '闲谈', meta: '按下方频率推送' },
+        freqLabel: '闲谈推送频率',
+        freq: { instant: '即时', every5h: '每 5 时', daily: '每日' },
+        privacy: { prefix: '订阅信息受 ', link: '隐私政策', suffix: ' 保护。' },
+        rss: '通过 RSS 订阅',
+        telegram: '订阅 Telegram 频道',
+        submit: '订阅',
+        done: '好',
+        retry: '重试',
+        success: '确认邮件已发，去收件箱点一下。',
+        already: '已经订阅过了。',
+        errorGeneric: '出错了，稍后重试。',
+        invalidEmail: '这个邮箱看起来不太对。',
+        needChannel: '至少选一样。',
+        rateLimited: '太频繁了，稍后再试。',
+        network: '网络不太好，检查下连接。',
+        verifyFailed: '校验失败，重试一下。',
+      },
+      share: {
+        copyLink: '复制链接',
+        copied: '已复制',
+        linkCopied: '链接已复制',
+        share: '分享',
+      },
+      back: { index: '← 全部文章', rail: '← 博客' },
       languageSwitcher: {
         language: '中文',
         open: '切换语言',
@@ -145,6 +242,42 @@ export const blog = {
       aiCredit: {
         fallback: 'Written with {models}.',
       },
+      subscribe: {
+        trigger: 'Subscribe',
+        title: 'Subscribe',
+        close: 'Close',
+        emailPlaceholder: 'Your email',
+        introLead: 'Subscribe to',
+        blogTail: ' — thanks for reading this far.',
+        moodName: 'Moods',
+        moodTail: ' — updates as they land.',
+        streamsLabel: 'What to send',
+        posts: { title: 'Posts', meta: 'Sent on publish' },
+        moods: { title: 'Moods', meta: 'Sent at the rate below' },
+        freqLabel: 'Mood delivery rate',
+        freq: { instant: 'Instant', every5h: 'Every 5h', daily: 'Daily' },
+        privacy: { prefix: 'Handled under the ', link: 'privacy policy', suffix: '.' },
+        rss: 'Subscribe by RSS',
+        telegram: 'Follow on Telegram',
+        submit: 'Subscribe',
+        done: 'Done',
+        retry: 'Retry',
+        success: 'Confirmation sent — tap the link in your inbox.',
+        already: "You're already subscribed.",
+        errorGeneric: 'Something broke. Try again in a moment.',
+        invalidEmail: "That email doesn't look right.",
+        needChannel: 'Pick at least one.',
+        rateLimited: 'Too many tries. Give it a minute.',
+        network: 'Network trouble — check your connection.',
+        verifyFailed: 'That check failed. Try again.',
+      },
+      share: {
+        copyLink: 'Copy link',
+        copied: 'Copied',
+        linkCopied: 'Link copied',
+        share: 'Share',
+      },
+      back: { index: '← All posts', rail: '← Blog' },
       languageSwitcher: {
         language: 'English',
         open: 'Change language',
@@ -158,6 +291,24 @@ export const blog = {
   mark: '/blog-mark.webp',
   /** RSS feed for reader-app subscribers. Self-hosted so it does not bounce through the legacy Ghost subdomain. */
   feed: '/blog/rss.xml',
+  /**
+   * What the comment section does on a post that carries none of the
+   * per-post tags. Every field is overridable in Ghost with an internal tag
+   * -- `#comments-off`, `#comments-readonly` (or the older `#no-comments`),
+   * `#reactions-off`, `#comments-verified` -- which is where a single post
+   * gets its own answer. This is the answer for all the others.
+   *
+   * site-api enforces the same policy from the same tags and keeps its own
+   * copy of these defaults in `COMMENTS_MODE` / `COMMENTS_REACTIONS` /
+   * `COMMENTS_REQUIRE_VERIFIED_EMAIL`. The per-post half cannot drift -- both
+   * halves read the tags through the one function in @bunizao/contracts --
+   * but these three lines and those three vars have to be changed together.
+   */
+  comments: {
+    mode: 'open',
+    reactions: true,
+    requireVerifiedEmail: false,
+  } satisfies CommentPolicy,
   /** Byline: the author behind the publication, linking home to the main site. */
   author: {
     name: profile.name,
@@ -201,7 +352,7 @@ export const blog = {
 // 21:1, which haloes in long-form reading):
 //
 //   dai 黛 — primary.   Links, TOC progress, focus.   text-safe (6.8:1 / 8.0:1)
-//   dian 靛 — the mark.  NotByAI pledge, byline.       text-safe (10.3:1 / 8.2:1)
+//   dian 靛 — the mark.  AiCredit line, byline.        text-safe (10.3:1 / 8.2:1)
 //   ji 霁 — highlight.   <mark>, selection. FILL ONLY  (3.6:1 fails AA as text)
 //
 // dai (远山黛) is the greyed slate-blue shanshui painters dilute to push a ridge
@@ -222,14 +373,17 @@ export interface BlogInk {
 
 export const blogPalette = {
   dai: { light: '#3C5D80', dark: '#7FA8D6', role: 'primary' },
+  /* The ink of the "Not by AI" pledge and the author byline, and of nothing
+     else -- it stands for the human behind the work. */
   dian: { light: '#27406E', dark: '#6FA8FF', role: 'mark' },
   ji: { light: '#3E8BD8', dark: '#6FB2F2', role: 'highlight' },
 } as const satisfies Record<string, BlogInk>;
 
 // --- Authors ----------------------------------------------------------------
-// Bylines for the "Not by AI" pledge (and any future multi-author posts). The
-// avatar reuses the site avatar; `manifesto` is the note revealed on hover at
-// the foot of an article tagged #not-by-ai.
+// Bylines for the publication (and any future multi-author posts). The avatar
+// reuses the site avatar; `manifesto` is the author's own note on how they
+// write, which wants a page of its own -- it used to be a hover card at the
+// foot of every article, hiding one sentence behind a popover.
 
 export interface Author {
   name: string;

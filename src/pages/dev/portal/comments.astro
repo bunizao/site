@@ -1,0 +1,297 @@
+---
+/* The comment moderation queue.
+
+   This page is also the destination of a link that has been dead since the
+   day it was written: site-api's notify-owner.ts puts a "🔎 Review" button on
+   every held-comment Telegram card pointing at
+   /admin/portal/comments#<commentId>. Every row below carries `id={comment.id}`
+   so that fragment finally lands on the comment it names. Do not rename the
+   row ids without changing `adminCommentUrl()` over there.
+
+   Counts come from src/pages/admin/comments in site-api, derived from the
+   `blog_comments` table rather than an event stream — see the header of
+   features/comments/server/comments-admin.ts for why, and for what that
+   choice cannot see. */
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/coss';
+import StatCard from '@/components/portal/StatCard.astro';
+import PortalSection from '@/components/portal/PortalSection.astro';
+import RankedBreakdown from '@/components/portal/RankedBreakdown.astro';
+import SegmentedNav from '@/components/portal/SegmentedNav.astro';
+import CommentsQueue from '@/features/admin/ui/CommentsQueue';
+import { Activity, CheckCheck, Clock, MessagesSquare, ShieldAlert } from 'lucide-react';
+import {
+  loadPortalComments,
+  type PortalCommentStatus,
+  type PortalComments,
+} from '@/features/admin/server/portal-client';
+import { DEMO_COMMENTS } from '@/features/admin/server/portal-demo';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+const FILTERS = ['held', 'published', 'rejected', 'deleted', 'all'] as const;
+type Filter = (typeof FILTERS)[number];
+
+const requested = Astro.url.searchParams.get('status');
+const status: Filter = (FILTERS as readonly string[]).includes(requested ?? '')
+  ? (requested as Filter)
+  : 'held';
+
+let data: PortalComments = {
+  summary: {
+    byStatus: { held: 0, published: 0, rejected: 0, deleted: 0 },
+    today: 0,
+    oldestHeldAt: null,
+    reasons: [],
+    topPosts: [],
+    daily: [],
+  },
+  comments: [],
+  total: 0,
+  nextOffset: null,
+};
+let loadError: string | null = null;
+let demoMode = false;
+
+try {
+  data = await loadPortalComments(Astro.request, Astro.locals, { status, limit: 50 });
+} catch (error) {
+  loadError = error instanceof Error ? error.message : 'unknown';
+  if (import.meta.env.DEV && loadError === 'api_binding_unavailable') {
+    data = DEMO_COMMENTS;
+    demoMode = true;
+    loadError = null;
+  }
+}
+
+const { summary, comments, total, nextOffset } = data;
+
+/* The queue's real health number. "3 waiting" says nothing on its own — three
+   arrived in the last hour is fine, three that have been waiting two days
+   means someone stopped reading their notifications. */
+function waitedFor(iso: string | null): string {
+  if (!iso) return 'nothing waiting';
+  const hours = Math.round((Date.now() - new Date(iso).getTime()) / 3_600_000);
+  if (hours < 1) return 'oldest under an hour';
+  if (hours < 48) return `oldest waiting ${hours}h`;
+  return `oldest waiting ${Math.round(hours / 24)}d`;
+}
+
+const heldTone = summary.byStatus.held === 0
+  ? 'success'
+  : summary.oldestHeldAt && Date.now() - new Date(summary.oldestHeldAt).getTime() > 86_400_000
+    ? 'danger'
+    : 'warning';
+
+const FILTER_LABELS: Record<Filter, string> = {
+  held: 'Waiting',
+  published: 'Published',
+  rejected: 'Rejected',
+  deleted: 'Deleted',
+  all: 'All',
+};
+const filterItems = FILTERS.map((key) => ({
+  label: key === 'all' ? 'All' : `${FILTER_LABELS[key]} (${summary.byStatus[key as PortalCommentStatus]})`,
+  href: `/dev/portal/comments?status=${key}`,
+  active: key === status,
+}));
+
+/* Both breakdowns carry a share so the chip column says something instead of
+   an em-dash: what fraction of all flags this reason is, and what fraction of
+   published comments landed on this post. */
+const flaggedTotal = summary.reasons.reduce((sum, row) => sum + row.count, 0);
+const reasonRows = summary.reasons.map((row) => ({
+  key: row.reason,
+  label: row.reason,
+  value: row.count,
+  rate: flaggedTotal > 0 ? row.count / flaggedTotal : null,
+}));
+/* Not a RankedBreakdown: its label column capitalizes every word and clips to
+   one short line, which is right for `spam` and wrong for a post title. */
+const postRows = summary.topPosts.map((row) => ({
+  ...row,
+  share: summary.byStatus.published > 0
+    ? `${Math.round((row.count / summary.byStatus.published) * 100)}% of published`
+    : null,
+}));
+
+const dailyPeak = Math.max(1, ...summary.daily.map((day) => day.count));
+const dailyTotal = summary.daily.reduce((sum, day) => sum + day.count, 0);
+---
+
+<PortalLayout
+  title="Comments"
+  description="The moderation queue, and what the automatic pass has been holding."
+  active="comments"
+  user={{ login: session?.login || 'admin' }}
+>
+  {loadError && (
+    <div class="portal-notice" data-variant="error">
+      <Activity size={14} />
+      <span>Failed to load comments: <code>{loadError}</code></span>
+    </div>
+  )}
+  {demoMode && (
+    <div class="portal-notice">
+      <Activity size={14} />
+      <span>Showing demo data — the site-api binding is unavailable in local dev.</span>
+    </div>
+  )}
+
+  <section class="portal-grid portal-stagger" data-columns="stats">
+    <StatCard
+      label="Waiting for review"
+      value={summary.byStatus.held.toLocaleString()}
+      Icon={Clock}
+      tone={heldTone}
+      foot={waitedFor(summary.oldestHeldAt)}
+    />
+    <StatCard
+      label="Published"
+      value={summary.byStatus.published.toLocaleString()}
+      Icon={CheckCheck}
+      tone="success"
+      foot="live on the blog"
+    />
+    <StatCard
+      label="Rejected"
+      value={summary.byStatus.rejected.toLocaleString()}
+      Icon={ShieldAlert}
+      tone="neutral"
+      foot={`${summary.byStatus.deleted.toLocaleString()} deleted`}
+    />
+    <StatCard
+      label="Last 24 hours"
+      value={summary.today.toLocaleString()}
+      Icon={MessagesSquare}
+      tone="accent"
+      foot="comments received, any status"
+    />
+  </section>
+
+  <PortalSection
+    title="Queue"
+    eyebrow="Review"
+    meta={total > comments.length ? `showing ${comments.length} of ${total}` : `${total} comment${total === 1 ? '' : 's'}`}
+    class="portal-mt-lg"
+  >
+    <SegmentedNav slot="action" items={filterItems} ariaLabel="Filter comments by status" />
+    <CommentsQueue initialComments={comments} status={status} demo={demoMode} client:load />
+    {nextOffset !== null && (
+      <div class="portal-list-meta" data-spacing="top">
+        {total - comments.length} older comment{total - comments.length === 1 ? '' : 's'} not shown. Narrow the
+        filter, or act on these first.
+      </div>
+    )}
+  </PortalSection>
+
+  <PortalSection title="Where they come from" eyebrow="Shape" class="portal-mt-lg">
+    <div class="portal-grid" data-columns="wide">
+      <Card className="portal-span-full">
+        <CardHeader>
+          <CardTitle className="portal-card-title"><Activity size={14} /> Last 14 days</CardTitle>
+          <CardDescription>
+            {dailyTotal} comment{dailyTotal === 1 ? '' : 's'} received, all statuses, UTC days.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {/* 14 bars and a peak in the single digits. A charting library here
+              would ship recharts to draw fourteen rectangles. */}
+          <div class="comment-days">
+            {summary.daily.map((day) => (
+              <div class="comment-day" title={`${day.date} · ${day.count}`}>
+                <div class="comment-day-bar" data-empty={day.count === 0 ? '' : undefined}
+                  style={`height: ${Math.max(2, Math.round((day.count / dailyPeak) * 100))}%`}></div>
+                <span class="comment-day-label">{day.date.slice(8)}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="portal-card-title"><ShieldAlert size={14} /> Held or rejected for</CardTitle>
+          <CardDescription>What the automatic pass flagged, all time. Clean verdicts are not counted.</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {reasonRows.length === 0
+            ? <div class="portal-list-meta">Nothing has been flagged yet.</div>
+            : <RankedBreakdown rows={reasonRows} rateKind="plain" />}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="portal-card-title"><MessagesSquare size={14} /> Most discussed</CardTitle>
+          <CardDescription>Published comments per post.</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {postRows.length === 0 ? (
+            <div class="portal-list-meta">No published comments yet.</div>
+          ) : (
+            <ul class="portal-feed">
+              {postRows.map((row) => (
+                <li>
+                  <a
+                    class="portal-feed-row"
+                    data-layout="split"
+                    href={row.slug ? `/blog/${row.slug}/` : `/dev/portal/comments?status=all`}
+                    target={row.slug ? '_blank' : undefined}
+                    rel={row.slug ? 'noreferrer' : undefined}
+                    data-astro-prefetch="false"
+                  >
+                    <span class="min-w-0">
+                      <span class="portal-feed-primary">{row.title ?? row.postId}</span>
+                      {row.share && <span class="portal-feed-sub">{row.share}</span>}
+                    </span>
+                    <span class="portal-feed-time tabular-nums">{row.count}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  </PortalSection>
+</PortalLayout>
+
+<style>
+  .comment-days {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    align-items: end;
+    gap: 6px;
+    height: 120px;
+  }
+
+  .comment-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    height: 100%;
+  }
+
+  .comment-day-bar {
+    width: 100%;
+    min-height: 2px;
+    border-radius: 3px 3px 0 0;
+    background: hsl(var(--primary) / 0.55);
+  }
+
+  .comment-day-bar[data-empty] {
+    background: hsl(var(--border));
+  }
+
+  .comment-day-label {
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    color: hsl(var(--muted-foreground));
+  }
+</style>

@@ -27,6 +27,7 @@
     "contracts:test": "bun run --cwd packages/contracts test",
     "contracts:pack": "bun run --cwd packages/contracts pack:check",
     "build:cloudflare": "node scripts/build-cloudflare.mjs",
+    "build:staging": "bun scripts/build-staging-cloudflare.ts",
     "guard:cloudflare-deploy": "node scripts/cloudflare-deploy-guard.mjs check",
     "check": "bun run contracts:build && astro sync && node scripts/astro-check-legacy-typescript.mjs",
     "check:route-contracts": "bun scripts/check-route-contracts.ts",

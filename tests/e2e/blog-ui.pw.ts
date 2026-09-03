@@ -879,25 +879,25 @@ test.describe('Blog reading UI', () => {
     const panel = page.locator('[data-subscribe-panel][data-subscribe-id="blog"]');
     await expect(panel).toHaveClass(/is-open/);
     await expect(panel).toHaveAttribute('aria-hidden', 'false');
-    await expect(panel.getByPlaceholder('请留邮箱')).toBeVisible();
+    await expect(panel.getByPlaceholder('留个邮箱')).toBeVisible();
 
     const blogChannel = panel.locator('[data-sub-channel][value="blog"]');
     const moodChannel = panel.locator('[data-sub-channel][value="mood"]');
     await expect(blogChannel).toBeChecked();
-    await expect(moodChannel).toBeChecked();
-    await expect(panel.getByText('Posts')).toBeVisible();
-    await expect(panel.getByText('Moods')).toBeVisible();
+    await expect(moodChannel).not.toBeChecked();
+    await expect(panel.getByText('文章')).toBeVisible();
+    await expect(panel.getByText('闲谈')).toBeVisible();
     await expect(panel.getByRole('link', { name: /RSS/ })).toHaveAttribute('href', '/blog/rss.xml');
     await expect(panel.locator('[data-sub-submit]')).toBeVisible();
 
-    await panel.getByPlaceholder('请留邮箱').fill('reader@example.com');
+    await panel.getByPlaceholder('留个邮箱').fill('reader@example.com');
     await panel.locator('[data-sub-submit]').click();
 
     await expect(panel.locator('[data-sub-success-text]')).toBeVisible();
     const submittedPayload = payload as unknown as Record<string, unknown>;
     expect(submittedPayload).toMatchObject({
       email: 'reader@example.com',
-      channels: ['blog', 'mood'],
+      channels: ['blog'],
       deliveryMode: 'instant',
       turnstileToken: '',
     });

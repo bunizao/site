@@ -95,24 +95,15 @@ const plainParts = plain.length
     min-width: 0;
   }
 
-  /* The 320px is a *width* intent: hold a readable measure beside the action
-     pills, wrap below them when the bar can no longer afford it. It has to be
-     gated on the breakpoint where .blog-end__bar is still a row (blog.css) —
-     flex-basis follows the flex axis, so under `flex-direction: column` the
-     same declaration reserved 320px of height and opened a void under these
-     lines. */
-  @media (min-width: 640px) {
-    .ai-credit {
-      flex: 1 1 320px;
-    }
-  }
-
   .ai-credit__line {
     margin: 0;
     max-width: 56ch;
+    /* Matches .blog-article__meta (the opening byline) instead of inventing a
+       new metadata voice: 14px / 20px leading / faint / tabular numerals. */
     font-size: 14px;
-    line-height: 1.6;
-    color: var(--blog-muted);
+    line-height: 20px;
+    color: var(--blog-faint);
+    font-variant-numeric: tabular-nums;
     text-wrap: pretty;
   }
 
@@ -121,8 +112,13 @@ const plainParts = plain.length
     display: inline-flex;
     align-items: baseline;
     gap: 5px;
+    /* One step up from the line's faint grey, and no accent. The name used to
+       take --blog-dian, which put a link-blue word in a line that is not a
+       link and set it against the vendor mark's own brand colour immediately
+       to its left -- two colours inside 14px of metadata. The mark is the only
+       thing here that gets to be coloured; the name is told apart by weight. */
+    color: var(--blog-body);
     font-weight: 600;
-    color: var(--blog-ink);
     white-space: nowrap;
   }
 </style>

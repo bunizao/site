@@ -251,6 +251,7 @@ describe('Cloudflare runtime configuration', () => {
       '/mood*',
       '/privacy*',
       '/projects*',
+      '/reader*',
       '/sitemap.xml',
       '/dev',
       '/dev/*',
@@ -477,10 +478,14 @@ describe('Cloudflare runtime configuration', () => {
     expect(homePage).not.toMatch(/content-visibility[\s\S]{0,200}> section/);
   });
 
+  // Every Turnstile surface goes through readTurnstileSiteKey (which still
+  // ends at readPublicEnv, plus the staging override) rather than reading the
+  // build-time variable inline -- an inlined PUBLIC_TURNSTILE_SITE_KEY is
+  // frozen at build and cannot follow an environment.
   test('reads Turnstile site key from runtime public env on the mood route', () => {
     const moodRoute = readText('src/pages/mood.astro');
 
-    expect(moodRoute).toContain("readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY')");
+    expect(moodRoute).toContain('readTurnstileSiteKey(Astro.locals)');
     expect(moodRoute).not.toContain('import.meta.env.PUBLIC_TURNSTILE_SITE_KEY');
   });
 
@@ -488,8 +493,8 @@ describe('Cloudflare runtime configuration', () => {
     const blogMasthead = readText('src/features/posts/ui/BlogMasthead.astro');
     const blogArticle = readText('src/pages/blog/[slug].astro');
 
-    expect(blogMasthead).toContain("readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY')");
-    expect(blogArticle).toContain("readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY')");
+    expect(blogMasthead).toContain('readTurnstileSiteKey(Astro.locals)');
+    expect(blogArticle).toContain('readTurnstileSiteKey(Astro.locals)');
     expect(blogMasthead).not.toContain('import.meta.env.PUBLIC_TURNSTILE_SITE_KEY');
     expect(blogArticle).not.toContain('import.meta.env.PUBLIC_TURNSTILE_SITE_KEY');
   });

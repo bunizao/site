@@ -37,7 +37,11 @@ being true, the policy text is wrong, not merely stale.
 | YouTube embeds | A session-scoped `yes`/`no` reachability verdict. No country data | Poster and avatar bytes come through `/static/youtube/<id>/…`, so the browser contacts nothing until play | YouTube, and only after the reader presses play |
 | Mood pages | Nothing from the visitor | Public Telegram-derived content through `site-api` | Telegram |
 | Mood subscription | Email address, channel and delivery preferences, delivery records | `NOTIFY_DB` in `site-api`; tokens are minted and verified there | Resend (delivery) |
-| Anti-abuse | A Turnstile token on subscribe and manage-request | Verified inside `site-api` before the handler runs | Cloudflare Turnstile |
+| Blog comments | Display name, comment body, and — when supplied — an email address, stored plaintext alongside its hash. Every row also carries hashed IP, a server-derived fingerprint hash, user agent, country, and ASN | `NOTIFY_DB` in `site-api` (`blog_comments`, `notify_subscribers`) | Akismet (moderation), Resend (verification and reply mail) |
+| Comment risk signals | The `ip_hash`, `fp_hash`, `ua`, `country` and `asn` on a comment row | Same rows, nulled in place by the daily cron 90 days after the comment was written | First-party |
+| Comment moderation | Body, author name and email, IP, user agent, referrer, and the post permalink, on every submission | Sent to Akismet for one `comment-check` per comment | Akismet (Automattic) |
+| Reader avatars | The email hash, sent upstream to look a picture up. Fetched by the Worker, never by the reader's browser, and cached in R2 thereafter | R2, keyed by email hash | Gravatar mirrors, QQ |
+| Anti-abuse | A Turnstile token on subscribe, manage-request, comment create, and reaction toggle | Verified inside `site-api` before the handler runs | Cloudflare Turnstile |
 | Writing and contributions | Nothing from the visitor | Ghost at build time; `site-api /api/github/contributions` at runtime | Ghost, GitHub |
 
 No third-party analytics script is mounted anywhere — [`Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro) loads none, and
@@ -52,6 +56,28 @@ Two things worth being precise about, because the short version reads wrong:
 - **Mood content reads the archive first.** `MOOD_READ_SOURCE=archive` is the
   default; the live Telegram mirror is the fallback and the source for comments
   and freshness. Both are public channel content either way.
+- **Reader sign-in is built but dormant, so it is not a disclosure yet.**
+  `/oauth/reader/:provider` in `site-api` would hand GitHub or Google a round
+  trip and store the profile it returns. Nothing links to it, the credentials
+  are unset, and the route answers `404` — so no reader data reaches either
+  provider, and the policy should not claim it does. The day a sign-in button
+  ships, this becomes a row in the table above and a clause in the policy,
+  and the avatar row gains the GitHub and Google avatar CDNs alongside
+  Gravatar and QQ.
+- **A comment is not anonymous to the server.** "Anonymous" in the comments
+  feature means *no account required* — the row still carries a hashed IP, a
+  fingerprint hash, and a user agent for as long as the risk window lasts, and
+  every submission is shown to Akismet. What the feature does not do is
+  require or verify an identity before publishing.
+
+> **The published policy covers blog comments as of 3 September 2026.** Its
+> `## Blog comments` section names Akismet, the Gravatar and QQ avatar
+> lookups, the Resend confirmation and reply mail, the two cookies and their
+> lifetimes, and the 90-day risk-signal erasure; the disclosure, retention,
+> and rights sections carry the matching clauses. Reader OAuth is
+> deliberately absent, because no data reaches GitHub or Google while the
+> feature has no entry point — that clause lands with the sign-in button, not
+> before it.
 
 ## When to update the policy
 
@@ -61,6 +87,8 @@ page:
 - Adding or removing an analytics vendor, or changing what an existing one stores.
 - Changing the listening-data providers.
 - Changing subscription storage or the email delivery provider.
-- Changing anti-abuse controls.
+- Changing anti-abuse controls, including which routes carry a Turnstile check.
+- Changing what a comment stores, how long its risk signals are kept, or which
+  moderation, avatar, or sign-in provider it talks to.
 - Changing public content sources or media-proxy behavior.
 - Changing what `/api/edge` exposes.

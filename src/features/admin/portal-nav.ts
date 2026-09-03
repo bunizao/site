@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Mail,
   MessageSquare,
+  MessagesSquare,
   NotebookPen,
   Send,
   Sparkles,
@@ -27,6 +28,7 @@ export type PortalNavKey =
   | 'overview'
   | 'analytics'
   | 'subscribers'
+  | 'comments'
   | 'broadcasts'
   | 'blog'
   | 'mascot'
@@ -40,6 +42,7 @@ export const PORTAL_NAV_GROUPS: readonly PortalNavGroup[] = [
     items: [
       { key: 'overview', label: 'Overview', href: '/dev/portal', Icon: LayoutDashboard },
       { key: 'subscribers', label: 'Subscribers', href: '/dev/portal/subscribers', Icon: Users },
+      { key: 'comments', label: 'Comments', href: '/dev/portal/comments', Icon: MessagesSquare },
       { key: 'broadcasts', label: 'Broadcasts', href: '/dev/portal/broadcasts', Icon: Send },
       { key: 'analytics', label: 'Analytics', href: '/dev/portal/analytics', Icon: ChartColumn },
     ],

@@ -2772,6 +2772,11 @@ test.describe('Mood routes', () => {
 
     await disableNotifyNativeValidation(page);
     await page.locator('[data-sub-email]').fill('reader@example.com');
+    await page
+      .locator('.sub-channel')
+      .filter({ has: page.locator('[data-sub-channel][value="mood"]') })
+      .locator('.sub-channel__head')
+      .click();
     await page.locator('label[for="mood-mode-daily"]').click();
     await page.locator('[data-sub-submit]').click();
 
@@ -2832,7 +2837,7 @@ test.describe('Mood routes', () => {
     await disableNotifyNativeValidation(page);
     await page.locator('[data-sub-email]').fill('not-an-email');
     await page.locator('[data-sub-submit]').click();
-    await expect(page.locator('[data-sub-error]')).toHaveText('请输入有效的邮箱地址。');
+    await expect(page.locator('[data-sub-error]')).toHaveText('这个邮箱看起来不太对。');
 
     await page.locator('[data-sub-email]').fill('reader@example.com');
     await page.locator('[data-sub-submit]').click();

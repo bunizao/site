@@ -22,7 +22,8 @@ import { loadInitialMoodFeed as loadInitialMoodFeedWindow } from '@/features/moo
 import { getMoodFeedPreloadImage } from '@/features/mood/shared/lcp-preload';
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { readEnv, readPublicEnv } from '@/lib/runtime/env';
+import { readEnv } from '@/lib/runtime/env';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 import { profile } from '@/data/site';
 import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/mood-gallery.css';
@@ -41,7 +42,7 @@ const rss = { href: rssHref, title: 'Moods RSS' };
 const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(moodAlternateUrl.href)}`, title: 'Mood Embed' };
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
-  : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
+  : readTurnstileSiteKey(Astro.locals);
 const moodTagFilter = normalizeMoodTagSlug(Astro.url.searchParams.get('tag'));
 // Tag mode is a plain filtered feed: no anchor deep links, archive reads only.
 const moodFeedAnchorId = moodTagFilter ? '' : readMoodFeedAnchorId(Astro.url);

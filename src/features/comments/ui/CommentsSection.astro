@@ -1,0 +1,688 @@
+---
+/* The public comment thread on a post. Presentational only — fetching,
+   pagination, and submission land with client/comments-controller.ts.
+
+   /blog/[slug] is prerendered, so the list always starts as a skeleton and the
+   real rows arrive after hydration. The compose box is not part of that: it
+   renders immediately in every phase, so the way in is on screen before
+   anything has loaded.
+
+   Row states, from plans/blog-comments.md → "Frontend states" → "Comment
+   row": normal, own (highlight only; edit/delete affordances gate on the
+   wire fields `editableUntil`/`deletable`, never on `own` -- a verified
+   reader's own never-claimed anonymous comment is `own` with neither),
+   editing (inline textarea swap), held (writer-only visibility note,
+   renamed from `pending` to match the status enum), tombstone (kept for
+   thread shape), edited marker, by-author badge, reply-open, like. Four
+   actions can hang under a row — like, reply, and independently-gated edit
+   and delete — all vanilla: opening a box, swapping a paragraph for a
+   textarea, and flipping a pressed state need no island. */
+
+import CommentForm from '@/features/comments/ui/CommentForm.astro';
+import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
+import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
+import { ICONS, SIGNOUT_ICONS } from '@/features/comments/icons';
+import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
+import { blog, type BlogLocale } from '@/data/site';
+import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
+import { commentsCopy } from '@/features/comments/copy';
+import type { CommentErrorCode } from '@/features/comments/comment-error';
+
+interface Props {
+  /** Language of the whole thread UI. An English post runs an English
+      interface end to end (owner decision), so /blog/[slug] passes the
+      post's own locale; surfaces without one fall back to the blog zone's. */
+  locale?: BlogLocale;
+  comments?: BlogComment[];
+  /** `closed` is the author's call, not a failure: no compose box, no privacy
+      footnote, and whatever was already written still renders below the
+      notice -- server-rendered rows and, since the thread keeps its `postId`,
+      whatever the controller fetches. It is the `readonly` half of the post's
+      comment policy; `off` is drawn by not rendering this component at all.
+      See copy.ts `closed`. */
+  state?: 'loaded' | 'loading' | 'empty' | 'error' | 'closed';
+  /** Reader standing and the current submission receipt, passed straight
+      through to the compose box. */
+  phase?: ReaderPhase;
+  viewer?: Viewer;
+  claimed?: ClaimedIdentity;
+  receipt?: ComposeReceipt;
+  errorCode?: CommentErrorCode;
+  draftText?: string;
+  /** A cursor page remains beyond what's rendered. */
+  hasMore?: boolean;
+  loadMoreState?: 'idle' | 'loading';
+  /** Ghost's post.id -- read by client/comments-controller.ts off the
+      section's own `data-post-id` to know which thread to fetch and post
+      to. Omitted entirely in the lab/preview pages, which never hydrate a
+      controller. */
+  postId?: string;
+  /** The post takes verified addresses only (`#comments-verified`). Reaches
+      the compose box as a prop and the client-built reply box through
+      `data-require-email` on the section, so both halves of one policy come
+      from the same place. */
+  requireEmail?: boolean;
+  /** Cloudflare Turnstile site key, read by the controller the same way --
+      empty when Turnstile is unconfigured (e2e fixtures, local dev without
+      a key), in which case the controller skips minting a widget and lets
+      site-api's own `not_configured` response decide what happens. */
+  turnstileSiteKey?: string;
+}
+
+const {
+  locale = blog.locale.blog,
+  comments = [],
+  state = 'loaded',
+  phase = 'anonymous',
+  viewer,
+  claimed,
+  receipt = 'idle',
+  draftText = '',
+  hasMore = false,
+  loadMoreState = 'idle',
+  postId,
+  turnstileSiteKey = '',
+  errorCode,
+  requireEmail = false,
+} = Astro.props;
+
+const tally = comments.filter((comment) => !comment.held && !comment.tombstone).length;
+
+const skeletonRows = [
+  { delay: '0s', author: '104px', body: '92%' },
+  { delay: '0.15s', author: '78px', body: '64%' },
+  { delay: '0.3s', author: '120px', body: '80%' },
+];
+
+// One language for the whole thread -- see copy.ts. `data-locale` on the
+// section is how the client controller finds the same table.
+const t = commentsCopy[locale];
+---
+
+<section
+  class="blog-comments"
+  data-pagefind-ignore
+  data-post-id={postId}
+  data-turnstile-site-key={turnstileSiteKey}
+  data-locale={locale}
+  data-state={state}
+  data-require-email={requireEmail ? 'true' : undefined}
+>
+  <div class="blog-comments__head">
+    <h2 class="blog-comments__title">{t.title}</h2>
+    {state === 'loaded' && tally > 0 && (
+      <span class="blog-comments__tally">{tally}</span>
+    )}
+  </div>
+
+  {state !== 'closed' && (
+    <CommentForm locale={locale} phase={phase} viewer={viewer} claimed={claimed} receipt={receipt} errorCode={errorCode} draftText={draftText} requireEmail={requireEmail} />
+  )}
+
+  {state === 'loading' && (
+    <div class="blog-comments__skeleton" aria-hidden="true">
+      {skeletonRows.map((row) => (
+        <div class="blog-comment">
+          <span
+            class="blog-skel blog-skel--avatar blog-comment__avatar"
+            style={`--skel-delay:${row.delay}`}
+          ></span>
+          <div class="blog-comment__body" style="flex:1">
+            <div class="blog-comment__meta">
+              <span
+                class="blog-skel blog-skel--line"
+                style={`--skel-width:${row.author};--skel-delay:${row.delay}`}
+              ></span>
+            </div>
+            <span
+              class="blog-skel blog-skel--line"
+              style={`--skel-width:${row.body};--skel-delay:${row.delay}`}
+            ></span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+
+  {state === 'empty' && (
+    <p class="blog-comments__empty">{t.empty}</p>
+  )}
+
+  {/* Both notices are the same speech bubble at the same size, and the stroke
+      is the whole difference: dashed for a thread that did not arrive, solid
+      with a line through it for one that was never opened. Two states that
+      look like siblings read as two states; two unrelated drawings read as two
+      bugs. `blog-comments__error` stays on the error node because the client
+      controller finds and removes it by that class. */}
+  {state === 'error' && (
+    <div class="blog-comments__notice blog-comments__error">
+      <svg class="blog-comments__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.messageSquareWarning} />
+      <p>{t.loadError}</p>
+      <button type="button" class="blog-comments__more-btn" data-retry-load>{t.retry}</button>
+    </div>
+  )}
+
+  {state === 'closed' && (
+    <div class="blog-comments__notice">
+      <svg class="blog-comments__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.messageSquareOff} />
+      <p>{t.closed}</p>
+    </div>
+  )}
+
+  {(state === 'loaded' || (state === 'closed' && comments.length > 0)) && (
+    <div class="blog-comments__list">
+      {comments.map((comment) => {
+        if (comment.tombstone) {
+          /* Kept for shape, not content: a reply hanging under a deleted root
+             has nowhere else to go, since threading is one level only. No
+             actions — there is nothing left here to like or reply to. */
+          return (
+            <article
+              id={`comment-${comment.id}`}
+              class:list={['blog-comment', 'blog-comment--tombstone', { 'blog-comment--reply': comment.isReply }]}
+            >
+              <span class="blog-comment__avatar blog-comment__avatar--ghost" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.circleSlash} />
+              </span>
+              <div class="blog-comment__body">
+                <div class="blog-comment__meta">
+                  <span class="blog-comment__date">{comment.date}</span>
+                </div>
+                <p class="blog-comment__text blog-comment__text--tombstone">{t.tombstone}</p>
+              </div>
+            </article>
+          );
+        }
+
+        /* Mutation rights, never read off `comment.own` -- that means "mine",
+           highlight only, since verified-only mutation shipped. A verified
+           reader can be looking at their own never-claimed anonymous
+           comment: `own` true, both of these false. */
+        const canEdit = !comment.held && comment.editDeadline != null;
+        const canDelete = comment.deletable === true;
+
+        return (
+        <article
+          id={`comment-${comment.id}`}
+          class:list={[
+            'blog-comment',
+            { 'blog-comment--reply': comment.isReply },
+            { 'blog-comment--held': comment.held },
+          ]}
+          data-own={comment.own ? 'true' : undefined}
+          data-editing={comment.editing ? 'true' : undefined}
+          data-edit-deadline={canEdit ? comment.editDeadline : undefined}
+        >
+          {/* A real picture when the writer has one on file, otherwise the
+              same generated identity the reaction stack uses — plain markup
+              rather than the React Avatar, because a thread of static rows has
+              nothing to hydrate and one island per row would be absurd. */}
+          {comment.avatarUrl ? (
+            <img
+              class="blog-comment__avatar blog-comment__avatar--photo"
+              src={comment.avatarUrl}
+              alt=""
+              width="28"
+              height="28"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <span
+              class="blog-comment__avatar blog-avatar-seed blog-avatar-initials"
+              style={`--seed-hue:${seedHue(avatarSeed(comment.id, comment.author, comment.avatarUrl))}`}
+              aria-hidden="true">{initials(comment.author)}</span>
+          )}
+          <div class="blog-comment__body">
+            <div class="blog-comment__meta">
+              <span class="blog-comment__author">{comment.author}</span>
+              {comment.byAuthor && <span class="blog-comment__badge">{t.authorBadge}</span>}
+              <span class="blog-comment__date">{comment.date}</span>
+              {comment.edited && <span class="blog-comment__edited">{t.edited}</span>}
+            </div>
+
+            {/* A div rather than a paragraph: the body is a rendered
+                document (comment-markdown.ts), and a <p> cannot legally hold
+                the blockquote or list a comment may have asked for. The raw
+                source rides along on `data-md` -- it is what the edit field
+                opens with and what Cancel compares against, and it can no
+                longer be read back out of the rendered tree. `set:html` is
+                safe here and only here: the string is built by our own
+                renderer, which escapes every reader-supplied character and
+                emits a closed tag set. */}
+            <div
+              class="blog-comment__text"
+              data-comment-text
+              data-md={comment.text}
+              hidden={comment.editing}
+              set:html={commentMarkdownToHtml(comment.text)}></div>
+
+            {/* Editing happens where the paragraph is, not in a box that opens
+                under it: the field inherits the paragraph's size, leading and
+                colour and sits on its exact lines, so the row keeps its shape
+                and the reader's eye keeps its place. A bordered composer here
+                would be a box inside a row inside the thread, and the words
+                would move down to make room for it. */}
+            {canEdit && (
+              <>
+                <label class="sr-only" for={`comment-edit-${comment.id}`}>{t.editLabel}</label>
+                <textarea
+                  id={`comment-edit-${comment.id}`}
+                  class="blog-comment__edit-field"
+                  data-comment-edit-field
+                  rows="2"
+                  hidden={!comment.editing}
+                  set:text={comment.text}></textarea>
+              </>
+            )}
+
+            {comment.held && (
+              <p class="blog-comment__note">{t.held}</p>
+            )}
+
+            {/* `mine`, but nothing here is theirs to change yet -- verifying
+                the address would bind it (see plans/blog-comments.md
+                "Sessions and ownership"). Only true when there is an address
+                to verify: `avatarUrl` is non-empty exactly when the row
+                carries an email hash (comment-service.ts's `toComment` emits
+                `''` otherwise), so a row posted with no email at all is
+                permanently unclaimable and gets no hint -- "verify your
+                email" would be false on it, not a nudge. */}
+            {comment.own && !comment.held && !canEdit && !canDelete && comment.avatarUrl && (
+              <p class="blog-comment__note blog-comment__note--verify">{t.verifyHint}</p>
+            )}
+
+            {/* Held back on a held row: nothing can be replied to, liked, or
+                edited until it is public, and offering the buttons would imply
+                it is. */}
+            {/* One strip, two sets of controls. It never empties, so the row
+                does not jump when editing starts, and the edit window keeps
+                counting down in view -- the old layout hid the whole strip on
+                Edit, taking the countdown with it at exactly the moment it
+                mattered. Every action carries an icon: three labelled glyphs
+                and two bare words in the same row read as two different kinds
+                of button when they are all the same kind. */}
+            {!comment.held && (
+              <div class="blog-comment__actions">
+                <span class="blog-comment__acts" hidden={comment.editing}>
+                  <button
+                    type="button"
+                    class="blog-comment__act blog-comment__act--like"
+                    data-comment-like
+                    aria-pressed={comment.liked ? 'true' : 'false'}
+                    aria-label={t.likeLabel(comment.author)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.heart} />
+                    <span class="blog-comment__act-count" data-like-count>{comment.likes ?? 0}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="blog-comment__act"
+                    data-reply-to={comment.id}
+                    data-reply-name={comment.author}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.reply} />
+                    {t.reply}
+                  </button>
+                  {/* The remaining window lives inside the button it belongs
+                      to. As a separate "8:24 to edit" label beside an "Edit"
+                      button it said the word twice and left the reader to
+                      work out that the two were one thing. Edit and delete
+                      are gated separately -- a verified owner past the
+                      15-minute window keeps delete without edit. */}
+                  {canEdit && (
+                    <button type="button" class="blog-comment__act" data-comment-edit-open>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.pencil} />
+                      {t.edit}<span class="blog-comment__act-time" data-edit-countdown hidden></span>
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button type="button" class="blog-comment__act blog-comment__act--danger" data-comment-delete>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.trash} />
+                      {t.remove}
+                    </button>
+                  )}
+                </span>
+
+                {canEdit && (
+                  <span class="blog-comment__acts blog-comment__acts--editing" data-comment-edit-actions hidden={!comment.editing}>
+                    <button type="button" class="blog-comment__act blog-comment__act--go" data-comment-edit-save>{t.save}</button>
+                    {/* Turns into its own confirmation on the first press when
+                        the field has been touched -- see the script below. */}
+                    <button type="button" class="blog-comment__act" data-comment-edit-cancel>{t.cancel}</button>
+                    {/* The same counter the compose box carries, on the other
+                        surface a body can be written on. It reads `1842/2000`
+                        rather than "158 characters left" partly to stay out of the way
+                        and partly because the countdown standing beside it
+                        already says "left" about a clock. */}
+                    <span class="blog-compose__count" data-comment-count aria-hidden="true" hidden></span>
+                    <span class="blog-comment__act-time blog-comment__act-time--left" data-edit-countdown hidden></span>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </article>
+        );
+      })}
+
+      {/* One box, moved to whichever row is being answered. A hidden copy per
+          comment would multiply a textarea across the whole thread to show at
+          most one of them. Carries `.blog-compose` and `data-phase` too, on
+          top of its own `.blog-reply` — an anonymous reader is asked for a
+          name and an address here exactly as in the box at the top (see
+          IdentityRow.astro and compose-validate.ts), and claimed or ready
+          readers skip that row the same way. */}
+      <div class="blog-compose blog-reply" id="blog-reply" data-phase={phase} hidden>
+        <p class="blog-compose__alert" data-compose-error role="alert" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.circleAlert} />
+          <span data-compose-error-text></span>
+          <code class="blog-compose__code" data-compose-error-code hidden></code>
+        </p>
+
+        {/* No "Replying to X" line and no Cancel: the field's own placeholder
+            already says who this answers, and the Reply button sitting one
+            line above both opened this box and closes it. Escape closes it
+            too. The identity strip inside the box is a different thing -- who
+            THIS box will post as, same as the compose box at the top
+            (CommentForm.astro), so a claimed or ready reader sees their own
+            name here too instead of an identity row that quietly went
+            nowhere. */}
+        <div class="blog-compose__box">
+          {/* Same top row as the box at the top of the thread: the fields when
+              nobody is on file, the answer when somebody is. Both boxes are
+              the same act and have to ask it the same way. */}
+          <IdentityRow id="blog-reply-id" locale={locale} />
+
+          <p class="blog-compose__signed">
+            <span class="blog-compose__who">
+              {viewer && (
+                <>
+                  {viewer.avatar ? (
+                    <img class="blog-compose__whoface" src={viewer.avatar} alt="" width="20" height="20" />
+                  ) : (
+                    <span
+                      class="blog-compose__whoface blog-avatar-seed blog-avatar-initials"
+                      style={`--seed-hue:${seedHue(viewer.name)}`}
+                      aria-hidden="true">{initials(viewer.name)}</span>
+                  )}
+                  <span class="sr-only">{t.postingAs(viewer.name)}</span>
+                  <span class="blog-compose__whoname" aria-hidden="true">{viewer.name}</span>
+                </>
+              )}
+            </span>
+            <span class="blog-compose__claim">
+              {claimed && (
+                <>
+                  <span
+                    class="blog-compose__whoface blog-avatar-seed blog-avatar-initials"
+                    style={`--seed-hue:${seedHue(claimed.name)}`}
+                    aria-hidden="true">{initials(claimed.name)}</span>
+                  <span class="sr-only">{t.claimedAs(claimed.name)}</span>
+                  <span class="blog-compose__whoname" aria-hidden="true">{claimed.name}</span>
+                </>
+              )}
+            </span>
+            <button
+              type="button"
+              class="blog-compose__signout"
+              data-compose-signout
+              aria-label={t.signOut}
+              title={t.signOut}>
+              <span class="blog-compose__signout-icons">
+                <span class="blog-compose__signout-icon" data-icon="idle" set:html={SIGNOUT_ICONS.idle} />
+                <span class="blog-compose__signout-icon" data-icon="armed" set:html={SIGNOUT_ICONS.armed} />
+              </span>
+              <span class="blog-compose__signout-label" data-compose-signout-label aria-hidden="true"></span>
+            </button>
+          </p>
+
+          <label class="sr-only" for="blog-reply-text">{t.replyBodyLabel}</label>
+          <textarea
+            id="blog-reply-text"
+            class="blog-compose__field blog-reply__field"
+            rows="2"></textarea>
+          <div class="blog-compose__bar">
+            <span class="blog-compose__count" data-compose-count aria-hidden="true" hidden></span>
+            <button type="button" class="blog-compose__go" data-compose-submit aria-label={t.replyPostAria} title={t.replyPost}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.arrowUp} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {hasMore && (
+        <div class="blog-comments__more">
+          <button
+            type="button"
+            class="blog-comments__more-btn"
+            data-load-more
+            aria-busy={loadMoreState === 'loading' ? 'true' : 'false'}
+            disabled={loadMoreState === 'loading'}
+          >
+            <span>{loadMoreState === 'loading' ? t.loading : t.loadMore}</span>
+            {loadMoreState === 'loading' && (
+              <span class="blog-comments__more-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  )}
+
+</section>
+
+<script>
+  // Wires the reply box's own submit button — see compose-validate.ts.
+  // Idempotent and namespaced by a data attribute, so it does not matter that
+  // the compose box's script calls the same function against the same document.
+  import { resetAnonymousConfirm, wireBodyCounter, wireComposeValidation } from '@/features/comments/compose-validate';
+  import { copyFor } from '@/features/comments/copy';
+  import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
+  import { clearCommentMarkdownPreview } from '@/features/comments/client/markdown-preview';
+
+  wireComposeValidation();
+
+  // Same table the markup above rendered from, found through `data-locale` on
+  // the section rather than imported, so this script never has to know which
+  // locale the page was built in.
+  const t = copyFor(document.querySelector('.blog-comments'));
+
+  // Reply: the box is a single node that travels to the row being answered,
+  // so the thread never holds more than one open composer and Escape always
+  // means the same thing.
+  const box = document.getElementById('blog-reply');
+  const field = document.getElementById('blog-reply-text') as HTMLTextAreaElement | null;
+  const home = box?.parentElement ?? null;
+
+  function closeReply() {
+    if (!box || !home) return;
+    box.hidden = true;
+    home.append(box);
+    document.querySelector('[data-reply-to][aria-expanded="true"]')
+      ?.setAttribute('aria-expanded', 'false');
+
+    // Clear whatever the box was last told off for — it travels between rows,
+    // and a complaint about the previous one has nothing to do with the next.
+    const note = box.querySelector<HTMLElement>('[data-compose-error]');
+    box.querySelectorAll('[aria-invalid]').forEach((field) => field.removeAttribute('aria-invalid'));
+    if (note) {
+      note.querySelector('[data-compose-error-text]')?.replaceChildren();
+      const badge = note.querySelector<HTMLElement>('[data-compose-error-code]');
+      if (badge) {
+        badge.replaceChildren();
+        badge.hidden = true;
+      }
+      note.hidden = true;
+    }
+    // Landing on a different row starts a fresh reply attempt.
+    resetAnonymousConfirm(box);
+    clearCommentMarkdownPreview(field);
+    if (field) field.value = '';
+  }
+
+  if (box && field && home) {
+    document.querySelectorAll<HTMLElement>('[data-reply-to]').forEach((button) => {
+      button.setAttribute('aria-expanded', 'false');
+      button.setAttribute('aria-controls', 'blog-reply');
+      button.addEventListener('click', () => {
+        const open = button.getAttribute('aria-expanded') === 'true';
+        closeReply();
+        if (open) return;
+        const name = button.dataset.replyName ?? '';
+        button.setAttribute('aria-expanded', 'true');
+        // The placeholder is the only place the name needs to appear.
+        field.placeholder = t.replyTo(name);
+        button.closest('.blog-comment')?.querySelector('.blog-comment__body')?.append(box);
+        box.hidden = false;
+        field.focus();
+      });
+    });
+
+    box.addEventListener('keydown', (event) => {
+      if ((event as KeyboardEvent).key === 'Escape') closeReply();
+    });
+  }
+
+  // Like: optimistic locally so the press has an answer before the round trip.
+  // The count and the pressed state both move, because motion is never the
+  // only channel a state change travels on.
+  document.querySelectorAll<HTMLElement>('[data-comment-like]').forEach((button) => {
+    const count = button.querySelector<HTMLElement>('[data-like-count]');
+    button.addEventListener('click', () => {
+      const liked = button.getAttribute('aria-pressed') === 'true';
+      button.setAttribute('aria-pressed', String(!liked));
+      if (!count) return;
+      const next = Number(count.textContent ?? 0) + (liked ? -1 : 1);
+      count.textContent = String(Math.max(0, next));
+    });
+  });
+
+  // Inline edit and the edit window, wired together per row because they are
+  // one thing: the window is what the Edit button is limited by, and pressing
+  // Edit stops the clock. A reader who has opened the field is mid-sentence,
+  // and a number counting down under their hands is a threat, not
+  // information. The deadline is pushed out by however long the field stayed
+  // open when it closes again.
+  //
+  // Note that the server's 15 minutes runs from the comment's creation and
+  // does not pause with this — a long enough edit still comes back rejected.
+  //
+  // Selects on `data-edit-deadline`, not `data-own` -- that attribute means
+  // "mine", and plenty of `own` rows (anonymous, held, past the window) carry
+  // no edit button for this to find.
+  document.querySelectorAll<HTMLElement>('.blog-comment[data-edit-deadline]').forEach((row) => {
+    const openBtn = row.querySelector<HTMLButtonElement>('[data-comment-edit-open]');
+    const cancelBtn = row.querySelector<HTMLButtonElement>('[data-comment-edit-cancel]');
+    const saveBtn = row.querySelector<HTMLButtonElement>('[data-comment-edit-save]');
+    const acts = row.querySelector<HTMLElement>('.blog-comment__acts');
+    const editActs = row.querySelector<HTMLElement>('[data-comment-edit-actions]');
+    const text = row.querySelector<HTMLElement>('[data-comment-text]');
+    const field = row.querySelector<HTMLTextAreaElement>('[data-comment-edit-field]');
+    if (!openBtn || !text || !field) return;
+
+    wireBodyCounter(field, row.querySelector<HTMLElement>('[data-comment-count]'));
+
+    // Both slots are written: the one inside the Edit button and the one
+    // beside Post. Only ever one is on screen, and writing both means the
+    // clock survives the moment the reader acts on it.
+    const slots = [...row.querySelectorAll<HTMLElement>('[data-edit-countdown]')];
+    let deadline = Number(row.dataset.editDeadline);
+    let pausedAt = 0;
+    let timer = 0;
+
+    function paint(remaining: number): void {
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      const clock = `${mins}:${String(secs).padStart(2, '0')}`;
+      for (const slot of slots) {
+        slot.hidden = false;
+        // The clock inside the Edit button is already labelled by the button;
+        // the one standing alone beside Save needs the word, and the word does
+        // not sit on the same side of the number in every language.
+        slot.textContent = slot.classList.contains('blog-comment__act-time--left')
+          ? t.timeLeft(clock)
+          : clock;
+      }
+    }
+
+    function tick(): boolean {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        openBtn!.hidden = true;
+        for (const slot of slots) slot.hidden = true;
+        return false;
+      }
+      paint(remaining);
+      return true;
+    }
+
+    function run(): void {
+      if (!deadline || !slots.length || !tick()) return;
+      timer = window.setInterval(() => {
+        if (!tick()) window.clearInterval(timer);
+      }, 1000);
+    }
+
+    // Cancel asks a second time before throwing away typing, by becoming the
+    // question itself rather than opening a dialog over it.
+    function armCancel(armed: boolean) {
+      if (!cancelBtn) return;
+      cancelBtn.classList.toggle('blog-comment__act--confirm', armed);
+      cancelBtn.textContent = armed ? t.discard : t.cancel;
+    }
+
+    function setEditing(editing: boolean) {
+      text!.hidden = editing;
+      field!.hidden = !editing;
+      if (acts) acts.hidden = editing;
+      if (editActs) editActs.hidden = !editing;
+      // The byline hides while the field is open (comments.css) -- one
+      // attribute, so the row's shape is described in one place.
+      if (editing) row.dataset.editing = 'true';
+      else delete row.dataset.editing;
+      armCancel(false);
+
+      if (editing) {
+        window.clearInterval(timer);
+        pausedAt = Date.now();
+        field!.focus();
+      } else if (pausedAt) {
+        deadline += Date.now() - pausedAt;
+        pausedAt = 0;
+        run();
+      }
+    }
+
+    openBtn.addEventListener('click', () => setEditing(true));
+
+    // Typing again withdraws the question -- a reader who went back to the
+    // field has answered it.
+    field.addEventListener('input', () => armCancel(false));
+
+    cancelBtn?.addEventListener('click', () => {
+      // Against the source on `data-md`, not the rendered tree: `**bold**`
+      // reads back out of `textContent` as `bold`, which would make every
+      // formatted comment look dirty the instant its field opened.
+      const dirty = field.value !== readCommentText(text);
+      const armed = cancelBtn.classList.contains('blog-comment__act--confirm');
+      // Nothing typed, nothing to lose: close on the first press.
+      if (dirty && !armed) {
+        armCancel(true);
+        return;
+      }
+      field.value = readCommentText(text);
+      setEditing(false);
+    });
+    // Local only, and only ever reached on /lab/comments -- a real thread's
+    // rows are built and wired by comments-controller.ts, which sends the
+    // PATCH. Rendering through the same function keeps the lab honest about
+    // what Markdown a comment actually supports.
+    saveBtn?.addEventListener('click', () => {
+      setCommentText(text, field.value);
+      setEditing(false);
+    });
+
+    run();
+  });
+</script>

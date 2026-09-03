@@ -12,16 +12,33 @@
 // The URL is read at runtime from location.href — correct on every host,
 // including preview deploys — so the only prop is the post title for the share
 // sheet. Colours ride the blog-zone tokens, matching the subscribe/contact set.
+import { blog, type BlogLocale } from '@/data/site';
+
 interface Props {
   /** Post title, used as the native share sheet's title. */
   title: string;
+  /** UI language. Post pages pass the post's own locale so an English post
+      runs an English interface end to end; defaults to the blog zone's. */
+  locale?: BlogLocale;
 }
 
-const { title } = Astro.props;
+const { title, locale = blog.locale.blog } = Astro.props;
+const t = blog.copy[locale].share;
 ---
 
 <div class="share" data-share data-share-title={title}>
-    <button type="button" class="share-btn" data-share-copy data-tip="复制链接" aria-label="复制链接">
+    <!-- The copied-state strings ride along as data attributes rather than
+         being imported into the client script below, which stays free of
+         any site-config import. -->
+    <button
+      type="button"
+      class="share-btn"
+      data-share-copy
+      data-tip={t.copyLink}
+      data-tip-copied={t.copied}
+      aria-label={t.copyLink}
+      data-label-copied={t.linkCopied}
+    >
       <span class="share-btn__icons" aria-hidden="true">
         <svg class="share-btn__ico share-btn__ico--link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
@@ -33,7 +50,7 @@ const { title } = Astro.props;
       </span>
     </button>
 
-    <button type="button" class="share-btn" data-share-native data-tip="分享" aria-label="分享" hidden>
+    <button type="button" class="share-btn" data-share-native data-tip={t.share} aria-label={t.share} hidden>
       <svg class="share-btn__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"></path>
         <path d="M16 6l-4-4-4 4"></path>
@@ -53,19 +70,24 @@ const { title } = Astro.props;
      sits beside (see SubscribePanel's .blog-article-sub override). Monochrome
      and restrained at rest; lifts its surface on hover. The accent only ever
      appears for the copy-success check, so it stays a single point of colour. */
+  /* No box. These sit beside the subscribe trigger in the article foot, and
+     an outlined square each made three bordered rectangles for three actions
+     that hold no state -- a border in the blog zone means "put a value in me".
+     They keep the round hit area and take a fill only when aimed at, the same
+     way the comment thread's own actions do. */
   .share-btn {
     position: relative;
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     padding: 0;
     color: var(--blog-muted, hsl(var(--muted-foreground)));
-    background: hsl(var(--foreground) / 0.035);
-    border: 1px solid hsl(var(--foreground) / 0.09);
-    border-radius: 11px;
+    background: none;
+    border: 0;
+    border-radius: 999px;
     cursor: pointer;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, scale 0.12s ease;
+    transition: color 0.15s ease, background 0.15s ease, scale 0.12s ease;
   }
 
   /* Keep the 36px visual pill but extend the tap target to 40×40 (36 + 2 + 2).
@@ -83,7 +105,6 @@ const { title } = Astro.props;
   .share-btn:hover {
     color: var(--blog-ink, hsl(var(--foreground)));
     background: hsl(var(--foreground) / 0.07);
-    border-color: hsl(var(--foreground) / 0.14);
   }
 
   .share-btn:active {
@@ -215,6 +236,15 @@ const { title } = Astro.props;
 
     if (!copyBtn) return;
 
+    // Captured once, before any click mutates them, so the strings restore
+    // to their real originals even across repeated clicks inside one
+    // feedback window. Locale-aware without importing site config here — the
+    // Astro template already resolved these into data attributes.
+    const copyTip = copyBtn.dataset.tip ?? '';
+    const copyLabel = copyBtn.getAttribute('aria-label') ?? '';
+    const copiedTip = copyBtn.dataset.tipCopied ?? copyTip;
+    const copiedLabel = copyBtn.dataset.labelCopied ?? copyLabel;
+
     let resetTimer = 0;
     const copy = async (text: string) => {
       try {
@@ -231,13 +261,13 @@ const { title } = Astro.props;
 
       window.clearTimeout(resetTimer);
       copyBtn.classList.add('is-copied');
-      copyBtn.dataset.tip = '已复制';
-      copyBtn.setAttribute('aria-label', '链接已复制');
+      copyBtn.dataset.tip = copiedTip;
+      copyBtn.setAttribute('aria-label', copiedLabel);
 
       resetTimer = window.setTimeout(() => {
         copyBtn.classList.remove('is-copied');
-        copyBtn.dataset.tip = '复制链接';
-        copyBtn.setAttribute('aria-label', '复制链接');
+        copyBtn.dataset.tip = copyTip;
+        copyBtn.setAttribute('aria-label', copyLabel);
       }, 1600);
     });
   });

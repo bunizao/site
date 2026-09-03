@@ -109,10 +109,20 @@ bun run test:unit
 bun run test:e2e:site    # Playwright; needs test:e2e:install once
 bun run test:registry    # installs every published component with the real CLI
 bun run test:ops         # scheduled health checks
+bun run check:docs-coverage   # every HTTP route is named somewhere under /docs
 ```
 
 No linter is configured. That is on purpose — the type checker and the tests are
 the gate, and a third opinion about formatting was not earning its keep.
+
+`check:docs-coverage` walks `src/pages/**` in this repo and in the sibling
+`site-api` checkout, derives each public path, and fails when no page under
+`src/content/docs/` mentions it. Pass a different sibling as
+`bun scripts/check-docs-coverage.ts <path>` or `SITE_API_REPO=<path>`; from a
+worktree that is not beside `../site-api`, passing it is the difference between
+checking both halves and silently checking one. It sees only routes that exist
+as files: anything dispatched by hand in `worker.ts` — the Telegram webhooks,
+for instance — has to be documented by hand too.
 
 ## Environment variables
 

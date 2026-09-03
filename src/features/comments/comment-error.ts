@@ -1,0 +1,179 @@
+/* What to tell a reader when the API refuses a comment.
+
+   There used to be one line for every failure -- "The post failed; your draft
+   is safe." -- which is exactly right for a dropped connection and wrong for most
+   of the rest of the list. It sent a rate-limited reader straight back into
+   the limit, told a reader whose Turnstile token had gone stale to retry the
+   same dead token, and promised a retry on a post whose comments had been
+   pulled. A message worth printing names the next move, and there are only a
+   few distinct next moves: reconnect, wait, refresh, shorten, fix a field, or
+   give up.
+
+   Each one also carries a short code. The sentence is for the reader; the code
+   is for the reader who gives up and tells somebody -- it survives translation,
+   paraphrase, and a phone photo of a screen, and it lands on a grep-able
+   constant in this file.
+
+   This repo does not own the contract: /api/v2/comments is served by site-api.
+   The shapes read here are the ones documented in
+   src/content/docs/api/comments.md, and everything reads defensively. */
+
+export type CommentErrorCode =
+  | 'NET'
+  | 'RATE'
+  | 'BOT'
+  | 'GONE'
+  | 'THREAD'
+  | 'CLOSED'
+  | 'LOCKED'
+  | 'VERIFY'
+  | 'NAME'
+  | 'EMAIL'
+  | 'LONG'
+  | 'STALE'
+  | 'INPUT'
+  | 'SERVER';
+
+export interface CommentFailure {
+  code: CommentErrorCode;
+  /** HTTP status, or 0 when the request never reached a server at all. */
+  status: number;
+  message: string;
+}
+
+/** site-api answers with two unrelated error envelopes -- `{error: {code,
+    message}}` for the mood family, `{error: "...", code?: "..."}` for
+    everything built on jsonError() -- and a slug like `invalid_parent` can
+    arrive as the `code` extra or as the error text itself. Look in all three
+    places and hand back every string that turns up; classify() matches on a
+    substring so it does not matter which one it was.
+
+    Every one of them, not the first: a refused Turnstile answers with BOTH
+    (`{error: "turnstile_failed", code: "invalid_token"}`), where `error` is the
+    category and `code` is the sub-reason. Returning the first hit picked
+    `invalid_token`, which matches nothing here, so the single most common real
+    failure on this route fell through to INPUT and told the reader to reword a
+    comment that was never the problem. */
+export function readErrorSlug(body: unknown): string {
+  if (!body || typeof body !== 'object') return '';
+  const { error, code } = body as { error?: unknown; code?: unknown };
+  const found: string[] = [];
+  if (typeof error === 'string') found.push(error);
+  if (error && typeof error === 'object') {
+    const nested = (error as { code?: unknown }).code;
+    if (typeof nested === 'string') found.push(nested);
+  }
+  if (typeof code === 'string') found.push(code);
+  return found.join(' ');
+}
+
+/** Ordered by how specific the signal is. A slug the server volunteered beats
+    the status it arrived with, because 400 and 503 each carry more than one
+    meaning on this route family. */
+function classify(status: number, slug: string): CommentErrorCode {
+  if (status === 0) return 'NET';
+  if (status === 429) return 'RATE';
+  if (slug.includes('turnstile')) return 'BOT';
+  if (slug.includes('invalid_parent')) return 'THREAD';
+  if (slug.includes('comment_target_unavailable')) return 'GONE';
+  // Two refusals a reader can actually act on, and neither is about the words
+  // they wrote: a name that is reserved or malformed, and an email whose
+  // domain is not a real one. Both used to land in INPUT and be answered with
+  // "try rewording it", which is advice for a field they had not touched.
+  if (slug.includes('displayname')) return 'NAME';
+  // Two servers, two sentences for one refusal. Resend answers `A valid email
+  // is required`, which this matched; create answers `email must be a valid
+  // address when provided`, which it did not -- so the box a reader actually
+  // types into was the one place a rejected address fell through to INPUT and
+  // came back as "refresh the page and try again", advice for the single
+  // failure a refresh cannot touch. Reachable in ordinary use: the server
+  // rejects reserved domains like example.com that the browser's own
+  // type="email" check is perfectly happy with.
+  if (slug.includes('valid email') || slug.includes('valid address')) return 'EMAIL';
+  // 400 is not one refusal. site-api spends it on seven distinct things, and
+  // answering all seven with "adjust your wording" was wrong for six of them
+  // -- the reader's words are the problem in exactly one case.
+  //
+  // That one, and they can act on it precisely: over the 2000-character cap.
+  // The two routes phrase it differently (`body must be 1-2000 characters` on
+  // create, `body is required (1-2000 characters)` on edit), so both openings
+  // are matched rather than the number they share, which would go quiet the
+  // day the cap moves.
+  if (slug.includes('body must be') || slug.includes('body is required')) return 'LONG';
+  // The rest are a page that has gone stale under the reader: a dwell token
+  // that expired, a post id the form never had, an envelope that did not
+  // parse. Nothing about the comment is wrong and nothing about it can be
+  // fixed by editing it -- the fix is a fresh page, and saying so beats
+  // sending someone back to reword a sentence that was never refused. This is
+  // the one the reader photographed: `dwellToken is required`, answered with
+  // "Try rewording it".
+  if (slug.includes('dwelltoken')
+    || slug.includes('postid is required')
+    || slug.includes('parentid must be')
+    || slug.includes('invalid json')) return 'STALE';
+  // Both are the post's policy answering, not the comment: the thread takes no
+  // more writes, or it takes them only from a verified address. They are read
+  // ahead of the 403 below because that one means "your claim on this row ran
+  // out", which is a different next move -- and both of these arrive as 403.
+  if (slug.includes('comments_closed')) return 'LOCKED';
+  if (slug.includes('email_verification_required')) return 'VERIFY';
+  // 403 not_owner and 409 edit_window_closed both mean the reader's claim on
+  // this comment has run out. Retrying either is a guaranteed second refusal.
+  if (status === 403 || status === 409) return 'CLOSED';
+  if (status === 404) return 'GONE';
+  if (status >= 500) return 'SERVER';
+  // Whatever is left: a 400 this file has no name for. It says so instead of
+  // guessing, because a confidently wrong explanation costs more than an
+  // honest vague one -- which is what INPUT used to be for every 400 above.
+  if (status >= 400) return 'INPUT';
+  return 'SERVER';
+}
+
+export function describeCommentFailure(
+  status: number,
+  slug: string,
+  messages: Record<CommentErrorCode, string>,
+): CommentFailure {
+  const code = classify(status, slug.toLowerCase());
+  return { code, status, message: messages[code] };
+}
+
+/** The badge printed beside the message. The status is worth carrying because
+    it is the one fact that narrows a report to a route, but a request that
+    never landed has none -- printing "NET 0" would invent a server response. */
+export function failureTag(failure: CommentFailure): string {
+  return failure.status ? `${failure.code} ${failure.status}` : failure.code;
+}
+
+/* Which refusals are worth explaining at length, and where.
+
+   Not all fourteen. A link is a promise that there is more to say, and on
+   "you're offline" or "that's a bit long (2000 characters max)" there is not
+   -- the message already names the whole problem and the whole fix, and
+   pointing at a page underneath it just tells the reader we did not trust
+   them to read two words. What earns a link is a refusal whose *reason* is
+   invisible from the message: a name or an address rejected for a rule the
+   reader cannot see, a post demanding something they have not been asked for
+   yet, a deadline whose length nobody stated, and a thread that is "not
+   available right now" without saying whether their draft died with it.
+
+   The docs are English and the box speaks both, so each of these sections
+   carries a one-line Chinese gloss. That is the honest version of the
+   trade-off: a zh reader clicking through to a wall of English would be worse
+   than no link at all. */
+const DOCS_ERROR_PAGE = '/docs/surfaces/comments';
+
+const EXPLAINED: Partial<Record<CommentErrorCode, string>> = {
+  NAME: 'name',
+  EMAIL: 'email',
+  VERIFY: 'verify',
+  CLOSED: 'closed',
+  GONE: 'gone',
+};
+
+/** Where the reader can read more about this refusal, or null when the
+    message already said everything there is to say. */
+export function commentErrorDocsHref(code: CommentErrorCode): string | null {
+  const anchor = EXPLAINED[code];
+  return anchor ? `${DOCS_ERROR_PAGE}#comment-error-${anchor}` : null;
+}

@@ -244,7 +244,10 @@ async function buildProjectsDeckItem(): Promise<RegistryItem> {
     $schema: REGISTRY_ITEM_SCHEMA,
     name: 'projects-deck',
     type: 'registry:ui',
-    dependencies: ['framer-motion', 'lucide-react'],
+    // data/site.ts carries the per-post comment policy, so a consumer of this
+    // item needs the contract that types it. Undeclared, it resolved through
+    // this repo's own workspace and failed only in a fresh consumer.
+    dependencies: ['@bunizao/contracts', 'framer-motion', 'lucide-react'],
     registryDependencies: ['utils'],
     files: await Promise.all(paths.map(async (filePath) => {
       const file = await readRegistryFile(filePath, 'registry:ui');

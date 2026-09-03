@@ -32,9 +32,7 @@
   --portal-tracking-wide: 0.06em;
 
   --portal-space: 4px;
-  /* Sidebar rail sits one step below the page ground so the shell reads as two
-     planes without needing a heavier divider. */
-  --portal-surface-0: hsl(240 6% 5%);
+  --portal-surface-0: hsl(0 0% 96%);
   --portal-surface-1: hsl(var(--card));
   --portal-surface-2: hsl(var(--accent));
 
@@ -49,15 +47,15 @@
   --portal-dur-base: var(--dur-base);
   --portal-dur-enter: var(--dur-enter);
 
-  /* Depth. A card is *lighter* than the ground here, so separation comes from
-     the value step and the hairline — not from a blur. At rest that leaves one
-     1px contact shadow; the diffuse layer is spent only on hover, where the
-     card actually leaves the surface. Wider blurs read as grey haze on a
-     near-black ground and blunt the card's edge. */
-  --portal-shadow-card: 0 1px 1px hsl(240 14% 2% / 0.4);
+  /* Depth: layered transparent shadows tuned for the near-black surface. The
+     coss card already paints a hairline top highlight; these add grounded
+     elevation without fighting the palette's restraint. */
+  --portal-shadow-card:
+    0 1px 2px -1px hsl(240 12% 2% / 0.5),
+    0 2px 6px -2px hsl(240 12% 2% / 0.35);
   --portal-shadow-lift:
-    0 1px 1px hsl(240 14% 2% / 0.4),
-    0 8px 20px -10px hsl(240 14% 2% / 0.7);
+    0 2px 4px -2px hsl(240 12% 2% / 0.55),
+    0 10px 28px -8px hsl(240 12% 2% / 0.5);
 
   /* Semantic accents for tinted chips / deltas. Never decorative — each hue
      carries meaning (blue = live, green = up, amber = waiting, red = down). */
@@ -66,6 +64,10 @@
   --portal-chip-success: 152 46% 50%;
   --portal-chip-warning: 38 88% 58%;
   --portal-chip-danger: 0 72% 60%;
+}
+
+.theme-portal.dark {
+  --portal-surface-0: hsl(240 6% 5%);
 }
 
 html.theme-portal,
@@ -115,25 +117,13 @@ html.theme-portal section {
   grid-template-columns: 1fr;
 }
 
-/* The page scrolls on <body>, so the rail has to pin itself. `align-self:
-   start` stops the grid stretching it to the row height (a stretched item can
-   never stick), and its own overflow keeps a long nav reachable on short
-   viewports. */
 .portal-sidebar {
-  position: sticky;
-  top: 0;
-  align-self: start;
-  height: 100vh;
-  height: 100dvh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: var(--portal-space);
   padding: 20px 12px;
   border-right: 1px solid hsl(var(--border));
   background: var(--portal-surface-0);
-  scrollbar-width: thin;
 }
 
 .portal-sidebar-brand {
@@ -371,6 +361,36 @@ html.theme-portal section {
 
 .portal-topbar-spacer {
   flex: 1;
+}
+
+.portal-theme-toggle {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--card));
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+}
+
+.portal-theme-toggle:hover {
+  color: hsl(var(--foreground));
+  background: var(--portal-surface-2);
+}
+
+.portal-theme-icon {
+  grid-area: 1 / 1;
+}
+
+.portal-theme-icon--dark,
+.dark .portal-theme-icon--light {
+  display: none;
+}
+
+.dark .portal-theme-icon--dark {
+  display: block;
 }
 
 .portal-page {
@@ -982,7 +1002,7 @@ a.portal-feed-row:hover,
     transform var(--portal-dur-press) var(--portal-ease-out);
 }
 .theme-portal [data-slot='button']:active:not(:disabled):not([aria-disabled='true']) {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
 /* buttonVariants() rendered on a plain <a> (CTAs, back-links) carries no
@@ -1043,26 +1063,6 @@ a.portal-feed-row:focus-visible,
 }
 .theme-portal [data-slot='table'] a:hover {
   color: hsl(var(--portal-chip-accent));
-}
-
-/* Two containers that set a size once for everything inside them. Tailwind's
-   ramp (12/14px) does not line up with the portal scale (12/13px), so islands
-   that reached for `text-xs`/`text-sm` per element drifted a pixel off the
-   tables beside them. Size the container, let the children inherit. */
-.portal-controls {
-  font-size: var(--portal-text-xs);
-}
-
-.portal-detail {
-  font-size: var(--portal-text-sm);
-  line-height: var(--portal-leading-snug);
-}
-
-/* Secondary line under a primary value — counts, hashes, timestamps. The one
-   size below the reading floor that is not a small-caps label. */
-.portal-meta {
-  font-size: var(--portal-text-2xs);
-  color: hsl(var(--muted-foreground));
 }
 
 /* Segmented control — anchor links with a single active pill. The pill carries
@@ -1431,13 +1431,10 @@ a.portal-feed-row:focus-visible,
     position: sticky;
     top: 0;
     z-index: 30;
-    /* Undo the desktop full-height rail: here it is a horizontal bar. */
-    height: auto;
     flex-direction: row;
     align-items: center;
     gap: 4px;
     overflow-x: auto;
-    overflow-y: hidden;
     padding: 10px 12px;
     border-right: 0;
     border-bottom: 1px solid hsl(var(--border));
@@ -1649,3 +1646,227 @@ a.portal-feed-row:focus-visible,
 .portal-geo-rate[data-tone='success'] { color: hsl(var(--portal-chip-success)); }
 .portal-geo-rate[data-tone='neutral'] { color: hsl(var(--portal-chip-accent)); }
 .portal-geo-rate[data-tone='muted'] { color: hsl(var(--muted-foreground) / 0.75); }
+
+/* ---- Comment moderation queue ------------------------------------------ */
+
+/* A queue is one surface worked down, not a stack of independent objects.
+   The first pass gave every comment its own card, which put three borders and
+   three shadows around three sentences and made a list of five look like a
+   dashboard. Rows share a card and a hairline instead. */
+.portal-comment {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-areas:
+    'face head'
+    'face sub'
+    '.    body'
+    '.    verdict'
+    '.    acts';
+  gap: 6px 12px;
+  padding: 18px 0;
+  border-top: 1px solid hsl(var(--border) / 0.55);
+  transition:
+    opacity var(--portal-dur-fast) var(--portal-ease-out),
+    translate var(--portal-dur-fast) var(--portal-ease-out);
+}
+
+.portal-comment:first-child {
+  padding-top: 2px;
+  border-top: 0;
+}
+
+.portal-comment:last-child {
+  padding-bottom: 2px;
+}
+
+/* Acted on. Out in 160ms and upward, so the press reads as a decision taken
+   rather than as the row blinking out of existence. A fixed 8px travel, not
+   the row's height: the rows below close the gap in a frame, and the eye is
+   on the row that left, not on the seam. */
+.portal-comment[data-leaving] {
+  opacity: 0;
+  translate: 0 -8px;
+  pointer-events: none;
+}
+
+/* Drawn from the same two pure functions as the public thread's faces
+   (features/comments/identity.ts), so a writer is the same letters and the
+   same hue in the queue and on the page their comment is headed for. Only the
+   hue varies -- lightness and chroma are fixed per theme, so no unlucky name
+   draws an unreadable pair. */
+.portal-comment__face {
+  grid-area: face;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: oklch(0.93 0.035 var(--seed-hue, 0));
+  color: oklch(0.46 0.085 var(--seed-hue, 0));
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  /* Centre the caps, not the em box, which reserves descender room these
+     letters never use. Engines without text-box fall back to the line box. */
+  text-box: trim-both cap alphabetic;
+}
+
+.theme-portal.dark .portal-comment__face {
+  background: oklch(0.32 0.035 var(--seed-hue, 0));
+  color: oklch(0.84 0.06 var(--seed-hue, 0));
+}
+
+.portal-comment__head {
+  grid-area: head;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-height: 20px;
+}
+
+.portal-comment__name {
+  font-size: var(--portal-text-base);
+  font-weight: 550;
+  line-height: var(--portal-leading-snug);
+}
+
+/* Timestamp doubles as the row's permalink -- it is the anchor the ops bot's
+   Review button lands on. That is also why no comment id is printed: a column
+   of ULIDs down the queue is noise the owner reads past, and the one time the
+   id is wanted it is in the address bar. */
+.portal-comment__when {
+  margin-left: auto;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--portal-text-xs);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: color var(--portal-dur-fast) var(--portal-ease);
+}
+
+.portal-comment__when:hover {
+  color: hsl(var(--foreground) / 0.85);
+}
+
+.portal-comment__sub {
+  grid-area: sub;
+  min-width: 0;
+  overflow: hidden;
+  color: hsl(var(--muted-foreground) / 0.85);
+  font-size: var(--portal-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-comment__sub a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: hsl(var(--muted-foreground) / 0.35);
+  text-underline-offset: 2px;
+  transition:
+    color var(--portal-dur-fast) var(--portal-ease),
+    text-decoration-color var(--portal-dur-fast) var(--portal-ease);
+}
+
+.portal-comment__sub a:hover {
+  color: hsl(var(--foreground) / 0.9);
+  text-decoration-color: hsl(var(--foreground) / 0.5);
+}
+
+/* The words being judged, at reading size and in the writer's own breaks.
+   `anywhere` because half of what lands here is a spam URL long enough to
+   push the whole card sideways otherwise. */
+.portal-comment__body {
+  grid-area: body;
+  margin: 2px 0 0;
+  max-width: 68ch;
+  color: hsl(var(--foreground) / 0.92);
+  font-size: var(--portal-text-base);
+  line-height: var(--portal-leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* What the machine thought, visibly not what the human wrote. It used to be a
+   grey line in the same style as the timestamp, which put the model's opinion
+   and the comment's metadata at the same rank. */
+.portal-comment__verdict {
+  grid-area: verdict;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-left: 2px solid hsl(var(--portal-chip-warning) / 0.55);
+  background: hsl(var(--portal-chip-warning) / 0.07);
+  color: hsl(var(--muted-foreground));
+  font-size: var(--portal-text-xs);
+  line-height: var(--portal-leading-snug);
+}
+
+.portal-comment__verdict[data-tone='danger'] {
+  border-left-color: hsl(var(--portal-chip-danger) / 0.55);
+  background: hsl(var(--portal-chip-danger) / 0.07);
+}
+
+.portal-comment__verdict[data-tone='neutral'] {
+  border-left-color: hsl(var(--muted-foreground) / 0.35);
+  background: hsl(var(--foreground) / 0.04);
+}
+
+.portal-comment__verdict svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.portal-comment__model {
+  color: hsl(var(--muted-foreground) / 0.7);
+}
+
+.portal-comment__acts {
+  grid-area: acts;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* coss's `destructive-outline` resolves `--destructive-foreground` to
+   near-white in this theme, which leaves Delete looking exactly like Hide.
+   The button stays quiet on purpose -- a filled red button next to Approve is
+   the loudest thing in the row and invites the very misclick it is warning
+   about -- so the colour goes on the label instead. */
+.portal-comment__acts [data-act='delete']:not(:disabled) {
+  color: hsl(var(--portal-chip-danger));
+}
+
+.portal-comment__acts [data-act='delete']:not(:disabled):hover {
+  border-color: hsl(var(--portal-chip-danger) / 0.45);
+}
+
+/* The receipt for the last decision, above the list. Named so a mis-press is
+   visible immediately -- "hidden" and "deleted" are one button apart. */
+.portal-comment-receipt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 12px;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--portal-text-xs);
+}
+
+.portal-comment-receipt svg {
+  color: hsl(var(--portal-chip-success));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-comment {
+    transition: none;
+  }
+  .portal-comment[data-leaving] {
+    translate: none;
+  }
+}

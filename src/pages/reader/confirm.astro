@@ -1,0 +1,287 @@
+---
+// Lazy-verification landing page -- plans/blog-comments.md "Lazy
+// verification": the mail carries one link here, GET renders, and only a
+// POST consumes the token. A GET that consumed it would let a mail
+// scanner's prefetch (Apple MPP, corporate link checkers) silently burn it
+// before the reader ever clicks -- see src/pages/v2/reader/verify.ts on
+// site-api, which enforces the same rule from its side.
+//
+// The reader no longer presses that button themselves: the pending card
+// auto-submits its own form as soon as the page parses (see the inline
+// script below), so a real visit confirms on arrival and lands straight on
+// the confirmed card. That keeps both halves -- scanners fetch HTML, they do
+// not run scripts, so the token still cannot be burned by a prefetch, and
+// the button stays in the markup as the no-JS path.
+//
+// email never reaches this page or its HTML: `/v2/reader/verify` decodes the
+// token entirely server-side (COMMENTS_EMAIL_SECRET lives only in site-api)
+// and its result never carries an address back, matching every other
+// response on this surface.
+export const prerender = false;
+
+import BlogLayout from '@/layouts/BlogLayout.astro';
+import Footer from '@/features/home/ui/Footer.astro';
+import '@/features/comments/styles/comments.css';
+import { proxyApiRequest } from '@/lib/http/api-service-proxy';
+import { readerConfirmCopy, resolveReaderConfirmLocale } from '@/features/comments/reader-confirm-copy';
+import { ICONS } from '@/features/comments/icons';
+import { READER_ME_PATH } from '@bunizao/contracts/routes';
+import type { ReaderMeResult, ReaderResendResult, ReaderVerifyResult } from '@bunizao/contracts/comments';
+
+type ViewState = 'pending' | 'confirmed' | 'settings' | 'already' | 'invalid' | 'resent';
+
+const token = Astro.url.searchParams.get('token') ?? '';
+const locale = resolveReaderConfirmLocale(Astro.url.searchParams.get('lang'));
+const t = readerConfirmCopy[locale];
+let state: ViewState = token ? 'pending' : 'invalid';
+// Seeds the two switches on the confirmed card. Reply alerts come on with the
+// verification itself -- the mail said they would -- and the newsletter only
+// if the reader ticked the offer that sent this link.
+let notifyReplies = true;
+let subscribed = false;
+
+async function callApi<T>(path: string, body: unknown): Promise<T | null> {
+  const request = new Request(`${Astro.url.origin}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const response = await proxyApiRequest(request, Astro.locals);
+  return (await response.json().catch(() => null)) as T | null;
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const postedToken = form.get('token');
+  const postedEmail = form.get('email');
+
+  if (typeof postedToken === 'string' && postedToken) {
+    const result = await callApi<ReaderVerifyResult>('/api/v2/reader/verify', { token: postedToken });
+    if (result?.outcome === 'confirmed') {
+      state = 'confirmed';
+      notifyReplies = result.reader?.notifyReplies ?? true;
+      subscribed = result.reader?.subscribed ?? false;
+    } else if (result?.outcome === 'already_confirmed') {
+      state = 'already';
+    } else {
+      state = 'invalid';
+    }
+  } else if (typeof postedEmail === 'string' && postedEmail) {
+    await callApi<ReaderResendResult>('/api/v2/reader/resend', {
+      email: postedEmail,
+      notifyReplies: readStaleSubscribeIntent(token),
+      locale,
+    });
+    state = 'resent';
+  }
+}
+
+// The stale token's signature can't be checked here (COMMENTS_EMAIL_SECRET
+// lives only in site-api) and doesn't need to be: this only recovers the
+// reader's original notify-replies intent for the fresh link, which they
+// still have to confirm from their own inbox.
+function readStaleSubscribeIntent(staleToken: string): boolean {
+  try {
+    const payload = JSON.parse(Buffer.from(staleToken.split('.')[0] ?? '', 'base64url').toString('utf8'));
+    return payload?.subscribe === true;
+  } catch {
+    return false;
+  }
+}
+
+// A tokenless GET is either a broken link or a reader who followed the
+// "manage these alerts" line in a reply mail. Ask who is asking before
+// deciding which -- the session cookie has to be forwarded by hand, because
+// callApi above mints its request from scratch.
+if (Astro.request.method === 'GET' && !token) {
+  const probe = new Request(`${Astro.url.origin}/api${READER_ME_PATH}`, {
+    headers: { cookie: Astro.request.headers.get('cookie') ?? '' },
+  });
+  const response = await proxyApiRequest(probe, Astro.locals);
+  const me = (await response.json().catch(() => null)) as ReaderMeResult | null;
+  if (me?.reader) {
+    state = 'settings';
+    notifyReplies = me.reader.notifyReplies;
+    subscribed = me.reader.subscribed;
+  }
+}
+
+const GLYPHS: Record<ViewState, string> = {
+  pending: ICONS.mail,
+  confirmed: ICONS.check,
+  settings: ICONS.settings,
+  already: ICONS.check,
+  invalid: ICONS.linkOff,
+  resent: ICONS.send,
+};
+---
+
+<BlogLayout title={t.pageTitle} locale={locale} path="/reader/confirm" description={t.pageDescription} robots="noindex, nofollow">
+  <a class="blog-back" href="/blog">{t.back}</a>
+
+  <div class="reader-confirm">
+    <div class="reader-confirm__card" data-state={state}>
+      <span class="reader-confirm__glyph" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" set:html={GLYPHS[state]} />
+      </span>
+      {state === 'pending' && (
+        <>
+          <h1 class="reader-confirm__title">{t.pendingTitle}</h1>
+          <p class="reader-confirm__body">{t.pendingBody}</p>
+          <form method="post" data-auto-verify>
+            <input type="hidden" name="token" value={token} />
+            <button type="submit" class="reader-confirm__go" aria-label={t.confirmAria}>{t.confirm}</button>
+          </form>
+          <p class="reader-confirm__working" aria-live="polite">{t.verifying}</p>
+        </>
+      )}
+
+      {(state === 'confirmed' || state === 'settings') && (
+        <>
+          <h1 class="reader-confirm__title">{state === 'settings' ? t.settingsTitle : t.confirmedTitle}</h1>
+          <p class="reader-confirm__body">{state === 'settings' ? t.settingsBody : t.confirmedBody}</p>
+          {/* Both switches are already true or false on the server -- this
+              is where they stand, not a form to fill in. Each one saves
+              itself the moment it moves; see the script below. Both read
+              positively, so "on" always means the thing they name happens. */}
+          <div class="reader-confirm__prefs" data-reader-prefs>
+            <label class="reader-confirm__switch">
+              <span>{t.prefsNotifyReplies}</span>
+              <input type="checkbox" role="switch" data-pref="notifyReplies" checked={notifyReplies} />
+            </label>
+            <label class="reader-confirm__switch">
+              <span>{t.prefsSubscribe}</span>
+              <input type="checkbox" role="switch" data-pref="subscribed" checked={subscribed} />
+            </label>
+            <p class="reader-confirm__prefs-note" data-prefs-note aria-live="polite" hidden></p>
+          </div>
+          <a class="reader-confirm__back" href="/blog">{t.back}</a>
+        </>
+      )}
+
+      {/* The resend form is here for the same reason it is on the invalid
+          card: a confirmation link signs in once, so a reader opening an
+          already-used link on a second device lands here holding nothing.
+          Without a way to ask for a fresh link this card would be a dead
+          end that reads like success. */}
+      {state === 'already' && (
+        <>
+          <h1 class="reader-confirm__title">{t.alreadyTitle}</h1>
+          <p class="reader-confirm__body">{t.alreadyBody}</p>
+          <p class="reader-confirm__body">{t.alreadySignIn}</p>
+          <form method="post" class="reader-confirm__form">
+            <label class="sr-only" for="reader-already-email">{t.emailLabel}</label>
+            <input
+              id="reader-already-email"
+              class="reader-confirm__input"
+              type="email"
+              name="email"
+              autocomplete="email"
+              placeholder={t.emailPlaceholder}
+              required
+            />
+            <button type="submit" class="reader-confirm__go">{t.resend}</button>
+          </form>
+          <a class="reader-confirm__back" href="/blog">{t.back}</a>
+        </>
+      )}
+
+      {state === 'invalid' && (
+        <>
+          <h1 class="reader-confirm__title">{t.invalidTitle}</h1>
+          <p class="reader-confirm__body">{t.invalidBody}</p>
+          <form method="post" class="reader-confirm__form">
+            <label class="sr-only" for="reader-confirm-email">{t.emailLabel}</label>
+            <input
+              id="reader-confirm-email"
+              class="reader-confirm__input"
+              type="email"
+              name="email"
+              autocomplete="email"
+              placeholder={t.emailPlaceholder}
+              required
+            />
+            <button type="submit" class="reader-confirm__go">{t.resend}</button>
+          </form>
+          <a class="reader-confirm__back" href="/">{t.home}</a>
+        </>
+      )}
+
+      {state === 'resent' && (
+        <>
+          <h1 class="reader-confirm__title">{t.resentTitle}</h1>
+          <p class="reader-confirm__body">{t.resentBody}</p>
+          <a class="reader-confirm__back" href="/blog">{t.back}</a>
+        </>
+      )}
+    </div>
+  </div>
+
+  {/* Inline and parse-blocking on purpose: it runs the moment the card is in
+      the DOM, so a reader with JS sees "Confirming…" rather than a button that
+      vanishes under their cursor. A mail scanner fetches this HTML and runs
+      none of it, which is what keeps the token safe from a prefetch. The timer
+      is the only way back: if the submit never navigates (offline, a blocked
+      POST), the button returns rather than leaving the card stuck
+      mid-sentence. */}
+  <script is:inline>
+    (function () {
+      var form = document.querySelector('[data-auto-verify]');
+      if (!form) return;
+      var card = form.closest('.reader-confirm__card');
+      card.dataset.auto = 'working';
+      setTimeout(function () { card.dataset.auto = 'manual'; }, 10000);
+      if (form.requestSubmit) form.requestSubmit();
+      else form.submit();
+    })();
+  </script>
+
+  <Footer />
+</BlogLayout>
+
+<script>
+  // The switches on the confirmed card. Each saves on change, alone -- there
+  // is no Save button, because these are booleans and a reader who came here
+  // from an inbox is done as soon as they are done. A refused save puts the
+  // switch back where it was and says so, rather than leaving the page
+  // claiming a preference the server never took.
+  import { readerConfirmCopy, resolveReaderConfirmLocale } from '@/features/comments/reader-confirm-copy';
+  import { READER_PREFERENCES_PATH } from '@bunizao/contracts/routes';
+
+  const prefs = document.querySelector<HTMLElement>('[data-reader-prefs]');
+  if (prefs) {
+    const t = readerConfirmCopy[resolveReaderConfirmLocale(new URL(location.href).searchParams.get('lang'))];
+    const note = prefs.querySelector<HTMLElement>('[data-prefs-note]');
+
+    const say = (text: string, bad: boolean) => {
+      if (!note) return;
+      note.textContent = text;
+      note.hidden = false;
+      note.dataset.bad = bad ? 'true' : 'false';
+    };
+
+    prefs.querySelectorAll<HTMLInputElement>('input[data-pref]').forEach((box) => {
+      box.addEventListener('change', async () => {
+        const key = box.dataset.pref!;
+        const wanted = box.checked;
+        const payload = { [key]: wanted };
+        box.disabled = true;
+        try {
+          const response = await fetch(`/api${READER_PREFERENCES_PATH}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) throw new Error(String(response.status));
+          say(t.prefsSaved, false);
+        } catch {
+          box.checked = !wanted;
+          say(t.prefsError, true);
+        } finally {
+          box.disabled = false;
+        }
+      });
+    });
+  }
+</script>

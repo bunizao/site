@@ -52,10 +52,21 @@ secret from build or runtime env, posts to Cloudflare Turnstile, forwards
 request host, optionally validates `action`, and returns structured result
 codes rather than throwing.
 
-Current usage is `notify/subscribe` (expected action `notify_subscribe`) and
-`notify/manage/request`. The four accepted token carriers and the `400`
-versus `503` failure split are in
-[Notify API](/docs/api/notify#turnstile).
+Four routes carry a check today:
+
+| Route | Expected action |
+| --- | --- |
+| `notify/subscribe` | `notify_subscribe` |
+| `notify/manage/request` | — |
+| `POST /api/v2/comments` | `blog_comment_create` |
+| `POST /api/v2/reactions/toggle` | `blog_reaction` |
+
+The two comment routes solve invisibly in managed mode, so in practice a
+reader never sees a widget; a failure there is the one step of the comment
+risk stack that answers plainly rather than silently (see
+[Post a comment](/docs/api/comments#post-a-comment)). The four accepted token
+carriers and the `400` versus `503` failure split are in
+[Notify API](/docs/api/notify#subscribe).
 
 ## Signed URLs
 

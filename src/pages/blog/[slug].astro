@@ -11,11 +11,14 @@ import TableOfContents from '@/features/posts/ui/TableOfContents.astro';
 import ReadingTopbar from '@/features/posts/ui/ReadingTopbar.astro';
 import AdjacentNav from '@/features/posts/ui/AdjacentNav.astro';
 import BackToTop from '@/features/posts/ui/BackToTop.astro';
-import NotByAI from '@/features/posts/ui/NotByAI.astro';
-import AiCredit from '@/features/posts/ui/AiCredit.astro';
+import Colophon from '@/features/posts/ui/Colophon.astro';
 import ShareRow from '@/features/posts/ui/ShareRow.astro';
+import { commentPolicyFromTags } from '@bunizao/contracts/comments';
 import BlogArticleBeacon from '@/features/posts/ui/BlogArticleBeacon.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
+import ReactionBar from '@/features/comments/ui/ReactionBar';
+import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
+import '@/features/comments/styles/comments.css';
 import { blog } from '@/data/site';
 import Footer from '@/features/home/ui/Footer.astro';
 import {
@@ -42,7 +45,7 @@ import { buildBlogOgImageUrl } from '@/features/posts/server/og-image';
 import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { readPublicEnv } from '@/lib/runtime/env';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 
 export const getStaticPaths = (async () => {
   const [posts, listedPosts] = await Promise.all([
@@ -117,6 +120,12 @@ const featureImageSrcSet = post.featureImage && isBlogImageProxyUrl(post.feature
   : undefined;
 const featureImageSizes = '(min-width: 960px) 920px, calc(100vw - 40px)';
 const hasNoTocTag = post.tags.some((tag) => tag.slug === 'hash-no-toc' || tag.name === '#no-toc');
+// What this post's comment section does, and whether its heart works. The
+// site-wide answer lives in `blog.comments`; the internal tags on the post
+// override it one field at a time. site-api folds the same tags through the
+// same function on every write, so the page and the API cannot disagree about
+// a post -- see @bunizao/contracts/comments.
+const commentPolicy = commentPolicyFromTags(post.tags, blog.comments);
 // Authorship footer. A post that credits no model asserts the human pledge, so
 // the pledge is the default rather than a #not-by-ai opt-in — the tag no longer
 // gates anything here.
@@ -140,7 +149,14 @@ const publicTagNames = post.tags
   .map((tag) => tag.name);
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
-  : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
+  : readTurnstileSiteKey(Astro.locals);
+// The site E2E fixture has no site-api service. Leave the presentational
+// loading shell in those tests and let the dedicated comments lab opt into a
+// mocked live controller explicitly with `interactive=1`.
+// A read-only thread keeps its id: it still loads and still renders what was
+// already written, it just has no box under the heading. Only `off` and the
+// fixture withhold it, and both mean "do not hydrate at all".
+const liveCommentsPostId = isE2ESiteFixtureEnabled(Astro.locals) ? undefined : post.id;
 const unlisted = isUnlistedPost(post);
 // A translation renders as if it lives at the canonical URL, because its bytes
 // are served from there. Everything derived from `path` — canonical, og:url,
@@ -181,12 +197,12 @@ const translated = isTranslation(post);
   } : undefined}
 >
   <ReadingTopbar slot="readingbar" noToc={hasNoTocTag} />
-  <a class="blog-back" href="/blog">← All posts</a>
+  <a class="blog-back" href="/blog">{blog.copy[postLocale].back.index}</a>
 
   <div class="blog-article-wrap">
     <aside class="blog-aside">
       <div class="blog-aside__sticky">
-        <a class="blog-back-rail" href="/blog">← Blog</a>
+        <a class="blog-back-rail" href="/blog">{blog.copy[postLocale].back.rail}</a>
         <TableOfContents />
       </div>
     </aside>
@@ -230,20 +246,43 @@ const translated = isTranslation(post);
       )}
 
       <Prose html={post.html} />
+
+      {/* One band closes the post: provenance and reuse terms, then the things
+          a reader can do about it. The reaction bar loads its live tally and
+          persists presses through /api/v2/reactions; comments hydrate via
+          client/comments-controller.ts, which fetches the thread and owns
+          every submit, edit, delete, and like. */}
+      <Colophon credits={authorshipCredits} locale={postLocale}>
+        {/* An English post runs an English interface end to end (owner
+            decision): every widget on this page takes the post's own locale,
+            so the reaction bar, subscribe panel, share row, and the comment
+            thread below all agree with the article they sit under. */}
+        {commentPolicy.reactions && (
+          <ReactionBar client:idle count={0} locale={postLocale} postId={liveCommentsPostId} siteKey={turnstileSiteKey} />
+        )}
+        <div class="blog-article-sub">
+          <SubscribePanel variant="blog" locale={postLocale} anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
+          <ShareRow title={post.title} locale={postLocale} />
+        </div>
+      </Colophon>
+
+      {/* Last on the page, and open-ended: a thread has no fixed height, so
+          anything under it is at an address that moves. */}
+      {commentPolicy.mode !== 'off' && (
+        <CommentsSection
+          locale={postLocale}
+          state={commentPolicy.mode === 'readonly' ? 'closed' : 'loading'}
+          postId={liveCommentsPostId}
+          turnstileSiteKey={turnstileSiteKey}
+          requireEmail={commentPolicy.requireVerifiedEmail}
+        />
+      )}
     </article>
   </div>
 
+  {/* Leaving the post is the one thing that stays under the thread: it is
+      navigation away, not part of the article. */}
   <footer class="blog-end">
-    <div class="blog-end__bar">
-      {authorshipCredits.length > 0
-        ? <AiCredit credits={authorshipCredits} locale={postLocale} />
-        : <NotByAI locale={postLocale} />}
-      <div class="blog-article-sub">
-        <SubscribePanel variant="blog" anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
-        <ShareRow title={post.title} />
-      </div>
-    </div>
-
     <AdjacentNav prev={prev} next={next} />
   </footer>
 
@@ -251,4 +290,8 @@ const translated = isTranslation(post);
 
   <BackToTop />
   <BlogArticleBeacon slug={post.slug} />
+  <script>
+    import { initCommentsController } from '@/features/comments/client/comments-controller';
+    initCommentsController();
+  </script>
 </BlogLayout>

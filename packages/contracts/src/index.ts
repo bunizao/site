@@ -1,5 +1,6 @@
 export * from './analytics';
 export * from './admin';
+export * from './comments';
 export * from './content';
 export * from './listening';
 export * from './mood';

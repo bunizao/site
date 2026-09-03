@@ -6,12 +6,24 @@
 // Pages never render more than one panel, but the controller loops so a panel
 // + trigger pair are matched by id, keeping it placement-agnostic.
 
+import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
+import { loadTurnstileScript } from '@/lib/turnstile-script';
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const SUCCESS_TEXT = '确认邮件已发，去收件箱点一下。';
-const ALREADY_TEXT = '已经订阅过了。';
-const LOCKED_HINT = '请先完成安全校验。';
-const LOCKED_HINT_FAILED = '校验失败，重试一下。';
+function panelCopy(panel: HTMLElement) {
+  const read = (key: string, fallback: string) => panel.dataset[key] || fallback;
+  return {
+    success: read('copySuccess', 'Confirmation sent.'),
+    already: read('copyAlready', "You're already subscribed."),
+    error: read('copyError', 'Something broke. Try again in a moment.'),
+    invalidEmail: read('copyInvalidEmail', "That email doesn't look right."),
+    needChannel: read('copyNeedChannel', 'Pick at least one.'),
+    rateLimited: read('copyRateLimited', 'Too many tries. Wait before trying again.'),
+    network: read('copyNetwork', 'Network trouble — check your connection.'),
+    verifyFailed: read('copyVerifyFailed', 'That check failed. Try again.'),
+  };
+}
 
 const MOBILE_BREAKPOINT = 640;
 const MOBILE_PANEL_PADDING = 10;
@@ -19,6 +31,9 @@ const MOBILE_PANEL_MIN_TOP = 72;
 const HOVER_CLOSE_DELAY_MS = 140;
 
 function setupPanel(panel: HTMLElement): void {
+  if (panel.dataset.subscribeWired) return;
+  panel.dataset.subscribeWired = 'true';
+  const t = panelCopy(panel);
   const id = panel.dataset.subscribeId || '';
   const toggle = document.querySelector<HTMLElement>(`[data-subscribe-toggle="${id}"]`);
   if (!toggle) return;
@@ -43,9 +58,7 @@ function setupPanel(panel: HTMLElement): void {
   const modeInputs = Array.from(panel.querySelectorAll<HTMLInputElement>('[data-sub-mode]'));
   const segGroup = panel.querySelector<HTMLElement>('.sub-seg');
   const submit = panel.querySelector<HTMLButtonElement>('[data-sub-submit]')!;
-  const submitLock = panel.querySelector<HTMLElement>('[data-sub-submit-lock]')!;
   const submitSpinner = panel.querySelector<HTMLElement>('[data-sub-submit-spinner]')!;
-  const hint = panel.querySelector<HTMLElement>('[data-sub-hint]')!;
   const errorMsg = panel.querySelector<HTMLElement>('[data-sub-error]')!;
   const successText = panel.querySelector<HTMLElement>('[data-sub-success-text]')!;
   const errorText = panel.querySelector<HTMLElement>('[data-sub-error-text]')!;
@@ -55,14 +68,12 @@ function setupPanel(panel: HTMLElement): void {
 
   const anchor = panel.dataset.anchor === 'left' ? 'left' : 'right';
   const siteKey = panel.dataset.turnstileSiteKey || '';
-  const requiresTurnstile = Boolean(siteKey);
   const supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
   let turnstileWidgetId: string | null = null;
-  let turnstileReady = false;
-  let turnstileToken = '';
+  let tokenPromise: Promise<string> | null = null;
+  let settleToken: ((token: string) => void) | null = null;
   let isSubmitting = false;
-  let lockedHint = LOCKED_HINT;
   let isOpen = false;
   let hoverCloseTimer: number | null = null;
 
@@ -133,10 +144,6 @@ function setupPanel(panel: HTMLElement): void {
     }
   };
 
-  const setHint = (message: string) => {
-    hint.textContent = message;
-  };
-
   const syncSegment = () => {
     if (!segGroup || modeInputs.length === 0) return;
     const index = Math.max(0, modeInputs.findIndex((input) => input.checked));
@@ -149,88 +156,52 @@ function setupPanel(panel: HTMLElement): void {
   const getDeliveryMode = () => modeInputs.find((input) => input.checked)?.value || 'instant';
 
   const syncGate = () => {
-    const verified = !requiresTurnstile || Boolean(turnstileToken);
-    submit.disabled = !verified || isSubmitting;
-    submit.classList.toggle('is-locked', !verified);
-    submitLock.classList.toggle('is-hidden', verified || isSubmitting);
-    setHint(!requiresTurnstile || verified ? '' : lockedHint);
+    submit.disabled = isSubmitting;
   };
 
-  const renderTurnstile = () => {
-    const turnstile = (window as unknown as { turnstile?: any }).turnstile;
-    if (!siteKey || !turnstileReady || !turnstile || turnstileWidgetId !== null) return;
-    turnstileContainer.classList.add('has-widget');
-    turnstileWidgetId = turnstile.render(turnstileContainer, {
-      sitekey: siteKey,
-      action: 'notify_subscribe',
-      theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
-      size: 'normal',
-      callback: (token: string) => {
-        turnstileToken = token || '';
-        errorMsg.textContent = '';
-        lockedHint = LOCKED_HINT;
-        syncGate();
-      },
-      'expired-callback': () => {
-        turnstileToken = '';
-        lockedHint = LOCKED_HINT_FAILED;
-        syncGate();
-      },
-      'error-callback': () => {
-        turnstileToken = '';
-        lockedHint = LOCKED_HINT_FAILED;
-        syncGate();
-      },
-      'timeout-callback': () => {
-        turnstileToken = '';
-        lockedHint = LOCKED_HINT_FAILED;
-        syncGate();
-      },
+  const requestToken = (): Promise<string> => {
+    if (!siteKey) return Promise.resolve('');
+    if (tokenPromise) return tokenPromise;
+    tokenPromise = new Promise<string>((resolve) => {
+      settleToken = resolve;
+      const settle = (token: string) => settleToken?.(token || '');
+      void loadTurnstileScript().then((turnstile) => {
+        if (!turnstile) {
+          settle('');
+          return;
+        }
+        if (turnstileWidgetId === null) {
+          turnstileWidgetId = turnstile.render(turnstileContainer, {
+            sitekey: siteKey,
+            action: 'notify_subscribe',
+            appearance: 'interaction-only',
+            callback: settle,
+            'expired-callback': () => settle(''),
+            'error-callback': () => settle(''),
+            'timeout-callback': () => settle(''),
+            'before-interactive-callback': () => turnstileContainer.classList.add('has-widget'),
+            'after-interactive-callback': () => turnstileContainer.classList.remove('has-widget'),
+          });
+        } else {
+          turnstile.reset(turnstileWidgetId);
+        }
+      });
     });
+    return tokenPromise;
   };
 
-  const loadTurnstile = () => {
-    if (!siteKey || turnstileReady) return;
-    if (document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')) {
-      turnstileReady = true;
-      renderTurnstile();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onSubscribeTurnstileLoad';
-    script.async = true;
-    (window as unknown as { onSubscribeTurnstileLoad?: () => void }).onSubscribeTurnstileLoad = () => {
-      turnstileReady = true;
-      renderTurnstile();
-    };
-    document.head.appendChild(script);
-  };
-
-  const resetTurnstile = (nextHint: string = LOCKED_HINT) => {
-    const turnstile = (window as unknown as { turnstile?: any }).turnstile;
-    if (turnstileWidgetId !== null && turnstile) {
-      turnstile.reset(turnstileWidgetId);
-    }
-    turnstileToken = '';
-    lockedHint = nextHint;
-    syncGate();
-  };
-
-  const getToken = (): string => {
-    if (turnstileToken) return turnstileToken;
-    const turnstile = (window as unknown as { turnstile?: any }).turnstile;
-    if (turnstileWidgetId !== null && turnstile) {
-      turnstileToken = turnstile.getResponse(turnstileWidgetId) || '';
-    }
-    return turnstileToken;
+  const releaseToken = () => {
+    tokenPromise = null;
+    settleToken = null;
+    turnstileContainer.classList.remove('has-widget');
   };
 
   const resetForm = () => {
     showView('form');
     errorMsg.textContent = '';
-    successText.textContent = SUCCESS_TEXT;
+    successText.textContent = t.success;
     isSubmitting = false;
-    lockedHint = LOCKED_HINT;
+    releaseToken();
     submitSpinner.classList.add('is-hidden');
     submit.removeAttribute('aria-busy');
     syncGate();
@@ -238,6 +209,10 @@ function setupPanel(panel: HTMLElement): void {
 
   const openPanel = ({ focusEmail = true } = {}) => {
     isOpen = true;
+    if (!email.value) {
+      const known = readReaderEmail();
+      if (known) email.value = known.email;
+    }
     clearHoverTimer();
     positionPanel();
     panel.classList.add('is-open');
@@ -246,7 +221,7 @@ function setupPanel(panel: HTMLElement): void {
     toggle.setAttribute('aria-expanded', 'true');
     toggle.classList.add('is-active');
     if (focusEmail) email.focus();
-    loadTurnstile();
+    void loadTurnstileScript();
   };
 
   const closePanel = () => {
@@ -289,10 +264,7 @@ function setupPanel(panel: HTMLElement): void {
 
   closeBtn.addEventListener('click', closePanel);
   doneBtn.addEventListener('click', closePanel);
-  retryBtn.addEventListener('click', () => {
-    resetForm();
-    resetTurnstile();
-  });
+  retryBtn.addEventListener('click', resetForm);
 
   document.addEventListener('click', (event) => {
     if (isOpen && !panel.contains(event.target as Node) && !toggle.contains(event.target as Node)) {
@@ -333,21 +305,14 @@ function setupPanel(panel: HTMLElement): void {
     event.preventDefault();
     const value = email.value.trim();
     if (!EMAIL_RE.test(value)) {
-      errorMsg.textContent = '请输入有效的邮箱地址。';
+      errorMsg.textContent = t.invalidEmail;
       email.focus();
       return;
     }
 
     const channels = channelInputs.filter((input) => input.checked).map((input) => input.value);
     if (channels.length === 0) {
-      errorMsg.textContent = '请至少选择一个订阅内容。';
-      return;
-    }
-
-    const token = getToken();
-    if (requiresTurnstile && !token) {
-      lockedHint = LOCKED_HINT;
-      syncGate();
+      errorMsg.textContent = t.needChannel;
       return;
     }
 
@@ -356,6 +321,7 @@ function setupPanel(panel: HTMLElement): void {
     syncGate();
     submit.setAttribute('aria-busy', 'true');
     submitSpinner.classList.remove('is-hidden');
+    const token = await requestToken();
 
     try {
       const response = await fetch('/api/notify/subscribe', {
@@ -372,21 +338,22 @@ function setupPanel(panel: HTMLElement): void {
       const data = (await response.json().catch(() => ({}))) as { status?: string; code?: string; error?: string };
 
       if (response.ok) {
-        successText.textContent = data.status === 'already_subscribed' ? ALREADY_TEXT : SUCCESS_TEXT;
+        rememberReaderEmail(value, 'subscribe');
+        successText.textContent = data.status === 'already_subscribed' ? t.already : t.success;
         showView('success');
       } else if (response.status === 429) {
-        resetTurnstile();
-        errorMsg.textContent = '太频繁了，稍后再试。';
+        errorMsg.textContent = t.rateLimited;
       } else if (data.code?.startsWith('turnstile')) {
-        resetTurnstile(LOCKED_HINT_FAILED);
+        errorMsg.textContent = t.verifyFailed;
       } else {
-        errorText.textContent = data.error || '出错了，稍后重试。';
+        errorText.textContent = data.error || t.error;
         showView('error');
       }
     } catch {
-      errorText.textContent = '网络错误，检查下连接。';
+      errorText.textContent = t.network;
       showView('error');
     } finally {
+      releaseToken();
       isSubmitting = false;
       submit.removeAttribute('aria-busy');
       submitSpinner.classList.add('is-hidden');

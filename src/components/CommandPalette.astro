@@ -721,7 +721,10 @@ const searchHighlight = blogPalette.ji;
         if (toggle) {
           event?.preventDefault();
           close();
-          requestAnimationFrame(() => toggle.click());
+          void import('@/features/notify/subscribe-panel').then(({ initSubscribePanels }) => {
+            initSubscribePanels();
+            requestAnimationFrame(() => toggle.click());
+          });
           return;
         }
       }

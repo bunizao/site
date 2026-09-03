@@ -1,0 +1,299 @@
+---
+// Dev-lab rendering of site-api's buildReaderVerifyEmail template. Keep this
+// copy and structure aligned with the canonical builder in
+// site-api/src/features/notify/server/templates.ts.
+import type { BlogLocale } from '@/data/site';
+
+interface Props {
+  locale: BlogLocale;
+}
+
+const { locale } = Astro.props;
+// The lab has no comment behind it, so it previews the mail with a stand-in
+// post title -- the real one names whichever post the comment landed under.
+const SAMPLE_POST_TITLE = { zh: '少一层，而不是多一层', en: 'One layer fewer, not one more' } as const;
+const copy = {
+  zh: {
+    subject: '你的评论已成功发布！请验证邮箱',
+    title: '你的评论已成功发布！请验证邮箱。',
+    body: (postTitle: string) => `您在《${postTitle}》下发布的评论现已公开展示。点击下方按钮验证邮箱，即可为你解锁该评论的管理权限：`,
+    benefits: [
+      { label: '互动提醒', text: '评论被回复时，收到邮件通知' },
+      { label: '评论控制', text: '在任意浏览器随时修改、删除你的评论' },
+      { label: '新文推送', text: '默认关闭。可一键订阅最新文章，且支持随心退订' },
+    ],
+    button: '验证邮箱',
+    ignore: '若非你本人操作，请忽略此邮件。未验证的记录将在 7 天内自动清理。',
+  },
+  en: {
+    subject: 'Your comment is live — please confirm your email',
+    title: 'Your comment is live! Please confirm your email.',
+    body: (postTitle: string) => `Your comment on “${postTitle}” is now public. Confirm your email with the button below to unlock management rights for it:`,
+    benefits: [
+      { label: 'Reply alerts', text: 'Get an email when someone replies to your comment' },
+      { label: 'Comment control', text: 'Edit or delete your comments from any browser' },
+      { label: 'New posts', text: 'Off by default. Subscribe in one tap, unsubscribe any time' },
+    ],
+    button: 'Confirm email',
+    ignore: "Wasn't you? Ignore this email. Unverified records are cleared within 7 days.",
+  },
+} as const;
+const t = copy[locale];
+---
+
+<div class="reader-mail-preview">
+  <div class="reader-mail-preview__chrome">
+    <div>
+      <span>Subject</span>
+      <strong data-reader-verify-subject>{t.subject}</strong>
+    </div>
+    <div>
+      <span>From</span>
+      <strong>無人之境 &lt;hello@buxx.me&gt;</strong>
+    </div>
+    <div>
+      <span>To</span>
+      <strong>reader@example.com</strong>
+    </div>
+  </div>
+
+  <article class="reader-mail" data-reader-verify-email lang={locale}>
+    <div class="reader-mail__card">
+      <a class="reader-mail__brand" href="/" aria-label="buxx.me">
+        <img src="/logo/peek.svg" alt="" width="20" height="14" />
+        <span>buxx<i>.me</i></span>
+      </a>
+      <h3>{t.title}</h3>
+      <p class="reader-mail__body">{t.body(SAMPLE_POST_TITLE[locale])}</p>
+      <div class="reader-mail__panel">
+        <dl>
+          {t.benefits.map((item) => (
+            <div>
+              <dt>{item.label}</dt>
+              <dd>{item.text}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      <a class="reader-mail__button" href={`/reader/confirm?token=preview&lang=${locale}`}>{t.button}</a>
+      <p class="reader-mail__ignore">{t.ignore}</p>
+    </div>
+    <p class="reader-mail__footer">© 2023–2026 bunizao · <a href="/privacy">Privacy</a></p>
+  </article>
+</div>
+
+<style>
+  .reader-mail-preview {
+    overflow: hidden;
+    border: 1px solid var(--blog-line);
+    border-radius: 14px;
+    background: #f4f4f5;
+  }
+
+  .reader-mail-preview__chrome {
+    display: grid;
+    gap: 7px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--blog-line);
+    background: var(--blog-field-fill);
+    font-size: 12px;
+  }
+
+  .reader-mail-preview__chrome > div {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .reader-mail-preview__chrome span { color: var(--blog-faint); }
+  .reader-mail-preview__chrome strong {
+    overflow: hidden;
+    color: var(--blog-ink);
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .reader-mail {
+    padding: 36px 10px 28px;
+    color-scheme: light dark;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .reader-mail__card {
+    width: min(100%, 540px);
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #fff;
+    color: #0a0a0a;
+  }
+
+  .reader-mail__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin: 28px 32px 0;
+    color: #0a0a0a;
+    text-decoration: none;
+  }
+
+  .reader-mail__brand img { display: block; }
+  .reader-mail__brand span { font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
+  .reader-mail__brand i { color: #94949b; font-style: normal; font-weight: 500; }
+
+  /* Mirrors readerTitleRow: CJK takes no negative tracking and wants the
+     looser leading, because these headlines wrap. */
+  .reader-mail h3 {
+    margin: 26px 32px 0;
+    color: #0a0a0a;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.22;
+  }
+
+  .reader-mail[lang='zh'] h3 {
+    font-size: 23px;
+    letter-spacing: 0;
+    line-height: 1.42;
+  }
+
+  .reader-mail__body {
+    margin: 14px 32px 0;
+    color: #6f6f76;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .reader-mail[lang='zh'] .reader-mail__body { line-height: 1.78; }
+
+  .reader-mail__panel {
+    margin: 20px 32px 0;
+    padding: 4px 18px;
+    border-radius: 12px;
+    background: #f4f4f5;
+  }
+
+  .reader-mail__panel dl { margin: 0; }
+  .reader-mail__panel > dl > div {
+    padding: 13px 0;
+    border-top: 1px solid rgba(10, 10, 10, 0.06);
+  }
+
+  .reader-mail__panel > dl > div:first-child { border-top: none; }
+
+  .reader-mail__panel dt {
+    color: #18181b;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .reader-mail__panel dd {
+    margin: 2px 0 0;
+    color: #6f6f76;
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+
+  .reader-mail[lang='zh'] .reader-mail__panel dd { line-height: 1.7; }
+
+  /* The parent and the reply are one thread, not a quote and then a box.
+     Two hairlines of different weight say which is which, and drop a
+     container -- the grey panel was a second frame around content the
+     hairline was already framing. */
+  .reader-mail__quote {
+    margin: 18px 32px 0;
+    padding: 0 0 0 14px;
+    border-left: 2px solid rgba(10, 10, 10, 0.1);
+    color: #a4a4ab;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .reader-mail__quote b { display: block; font-weight: 600; padding-bottom: 2px; }
+
+  .reader-mail__answer {
+    margin: 16px 32px 0;
+    padding: 0 0 0 14px;
+    border-left: 2px solid rgba(10, 10, 10, 0.32);
+  }
+
+  .reader-mail__answer b {
+    display: block;
+    padding-bottom: 4px;
+    color: #18181b;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .reader-mail__answer p {
+    margin: 0;
+    color: #6f6f76;
+    font-size: 14.5px;
+    line-height: 1.6;
+  }
+
+  .reader-mail[lang='zh'] .reader-mail__answer p { line-height: 1.7; }
+
+  .reader-mail__button {
+    display: inline-block;
+    margin: 24px 32px 0;
+    padding: 12px 22px;
+    border: 1px solid #0a0a0a;
+    border-radius: 10px;
+    background: #0a0a0a;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    text-decoration: none;
+  }
+
+  .reader-mail__ignore {
+    margin: 26px 32px 0;
+    padding: 14px 0 28px;
+    border-top: 1px solid rgba(10, 10, 10, 0.08);
+    color: #a4a4ab;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  .reader-mail__ignore a { color: inherit; text-decoration: underline; }
+
+  .reader-mail__footer {
+    margin: 16px auto 0;
+    color: #94949b;
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .reader-mail__footer a { color: inherit; text-decoration: none; }
+
+  @media (prefers-color-scheme: dark) {
+    .reader-mail-preview { background: #0a0a0a; }
+    .reader-mail__card { background: #161618; }
+    .reader-mail__brand, .reader-mail h3 { color: #fafafa; }
+    .reader-mail__body, .reader-mail__panel dd { color: #a1a1aa; }
+    .reader-mail__panel { background: rgba(255, 255, 255, 0.045); }
+    .reader-mail__panel > dl > div { border-color: rgba(255, 255, 255, 0.07); }
+    .reader-mail__panel dt { color: #fafafa; }
+    .reader-mail__quote { color: #6e6e76; border-color: #444; }
+    .reader-mail__answer { border-color: rgba(255, 255, 255, 0.34); }
+    .reader-mail__answer b { color: #fafafa; }
+    .reader-mail__answer p { color: #a1a1aa; }
+    .reader-mail__ignore, .reader-mail__footer, .reader-mail__brand i { color: #6e6e76; }
+    .reader-mail__ignore { border-color: rgba(255, 255, 255, 0.08); }
+    .reader-mail__button { border-color: #fafafa; background: #fafafa; color: #0a0a0a; }
+  }
+
+  @media (max-width: 520px) {
+    .reader-mail { padding: 18px 8px; }
+    .reader-mail__brand { margin-inline: 22px; }
+    .reader-mail h3, .reader-mail__body, .reader-mail__panel, .reader-mail__quote,
+    .reader-mail__answer, .reader-mail__button, .reader-mail__ignore { margin-inline: 22px; }
+  }
+</style>
