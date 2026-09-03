@@ -41,8 +41,8 @@ Every one of these is read from `site-api`'s env.
 | `COMMENTS_MODE` | Site-wide default policy mode; a post's tags fold on top |
 | `COMMENTS_REACTIONS` | `"false"` turns hearts off everywhere |
 | `COMMENTS_REQUIRE_VERIFIED_EMAIL` | `"true"` makes verification the site-wide floor |
-| `COMMENTS_OWNER_EMAIL_HASH` | `sha256(normalizeEmail(ownerEmail))`. Drives the author badge by equality against a row's `email_hash`. Unset means no badge, never a false one |
-| `COMMENTS_OWNER_DISPLAY_NAME` | The name the owner's replies post under |
+| `COMMENTS_OWNER_EMAIL_HASH` | `sha256(normalizeEmail(ownerEmail))`. Authorizes the first owner sign-in link and drives the author badge on verified rows. Unset means neither capability is available |
+| `COMMENTS_OWNER_DISPLAY_NAME` | Trusted owner name used by website and Telegram replies. It may match the otherwise reserved owner-name list |
 | `COMMENTS_TELEGRAM_DIRECT_REPLY` | `"true"` lets the ops bot post a reply straight from Telegram |
 | `COMMENTS_SESSION_SECRET` | HMAC key behind reader sessions, the anonymous session id, `ip_hash` and `fp_hash`. Missing logs one warning and disables sessions rather than throwing |
 | `COMMENTS_EMAIL_SECRET` | Signs verification, mute, and delete tokens |

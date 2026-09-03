@@ -36,6 +36,9 @@ export interface ReaderConfirmCopy {
   prefsError: string;
   alreadyTitle: string;
   alreadyBody: string;
+  signInTitle: string;
+  signInBody: string;
+  signInSubmit: string;
   invalidTitle: string;
   invalidBody: string;
   emailLabel: string;
@@ -67,6 +70,9 @@ const zh: ReaderConfirmCopy = {
   alreadyTitle: '已经验证过了',
   alreadyBody: '该邮箱已完成确认。',
   alreadySignIn: '如果这台设备还没登录，重新发一封链接就好。',
+  signInTitle: '站长登录',
+  signInBody: '输入站长邮箱，我们会发送一次性登录链接。',
+  signInSubmit: '发送登录链接',
   invalidTitle: '链接已失效',
   invalidBody: '链接可能已过期或已被使用。填写当时的邮箱，即可重新获取验证链接。',
   emailLabel: '邮箱',
@@ -97,6 +103,9 @@ const en: ReaderConfirmCopy = {
   alreadyTitle: 'Already verified',
   alreadyBody: 'This address has already been confirmed.',
   alreadySignIn: "If this device isn't signed in yet, send yourself a fresh link.",
+  signInTitle: 'Author sign in',
+  signInBody: 'Enter the author email and we will send a one-time sign-in link.',
+  signInSubmit: 'Send sign-in link',
   invalidTitle: 'This link has expired',
   invalidBody: "It may have expired or already been used. Enter the email you commented with and we'll send a fresh link.",
   emailLabel: 'Email',

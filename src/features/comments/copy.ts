@@ -75,6 +75,8 @@ export interface CommentsCopy {
       sign-out undoes. */
   postingAs: (name: string) => string;
   claimedAs: (name: string) => string;
+  /** Opens the email-link sign-in used by the site author. */
+  ownerSignIn: string;
   /** The identity strip's one action, offered in both phases: forget me on
       this browser. It is an icon button, so this is its label rather than its
       text; `signOutConfirm` is the same button after the first press, asking
@@ -222,6 +224,7 @@ const zh: CommentsCopy = {
 
   postingAs: (name) => `以 ${name} 的身份发表`,
   claimedAs: (name) => `这台设备记住了 ${name}`,
+  ownerSignIn: '站长登录',
   signOut: '退出',
   signOutConfirm: '确定退出？',
 
@@ -312,6 +315,7 @@ const en: CommentsCopy = {
 
   postingAs: (name) => `Posting as ${name}`,
   claimedAs: (name) => `Remembered here as ${name}`,
+  ownerSignIn: 'Author sign in',
   signOut: 'Sign out',
   signOutConfirm: 'Sign out?',
 

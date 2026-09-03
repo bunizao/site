@@ -27,11 +27,20 @@ async function installCommentApi(page: import('@playwright/test').Page, options:
   patchStatus?: number;
   postOutcome?: 'published' | 'held';
   unverifiedEmail?: boolean;
+  reader?: {
+    readerId: string;
+    grade: 'l1' | 'l2';
+    provider: 'email' | 'github' | 'google';
+    displayName: string;
+    avatarUrl: string;
+    notifyReplies: boolean;
+    subscribed: boolean;
+  };
 } = {}) {
   await page.route('**/api/v2/reader/me', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({ reader: null }),
+    body: JSON.stringify({ reader: options.reader ?? null }),
   }));
 
   let postRelease: (() => void) | undefined;
@@ -100,6 +109,34 @@ async function installCommentApi(page: import('@playwright/test').Page, options:
     releasePatch: () => patchRelease?.(),
   };
 }
+
+test('anonymous readers can open the author sign-in page from the comment header', async ({ page }) => {
+  await installCommentApi(page);
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+
+  const signIn = page.locator('[data-owner-sign-in]');
+  await expect(signIn).toBeVisible();
+  await expect(signIn).toHaveText('Author sign in');
+  await expect(signIn).toHaveAttribute('href', '/reader/confirm?lang=en');
+});
+
+test('the author sign-in link stays hidden for an active reader session', async ({ page }) => {
+  await installCommentApi(page, {
+    reader: {
+      readerId: 'reader-owner',
+      grade: 'l1',
+      provider: 'email',
+      displayName: 'Lucian Bu',
+      avatarUrl: '',
+      notifyReplies: true,
+      subscribed: false,
+    },
+  });
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+
+  await expect(page.locator('[data-owner-sign-in]')).toBeHidden();
+  await expect(page.locator('.blog-comments > .blog-compose')).toHaveAttribute('data-phase', 'ready');
+});
 
 test('lab lists every interaction outcome and transitions reader verification', async ({ page }) => {
   await page.goto('/lab/comments?locale=en&receipt=error&error=BOT&verify=pending', { waitUntil: 'networkidle' });
@@ -323,6 +360,14 @@ test('reader confirmation serves the pending card in the mail locale', async ({ 
   expect(en).toContain('lang="en"');
   expect(en).toContain("Confirm it's you");
   expect(en).toContain("Yes, it's me");
+});
+
+test('reader confirmation offers a neutral sign-in card without a token', async ({ request }) => {
+  const html = await (await request.get('/reader/confirm?lang=en')).text();
+
+  expect(html).toContain('Author sign in');
+  expect(html).toContain('Send sign-in link');
+  expect(html).not.toContain('This link has expired');
 });
 
 test('reader confirmation confirms the link on arrival', async ({ page }) => {

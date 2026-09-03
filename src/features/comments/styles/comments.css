@@ -465,6 +465,24 @@
   color: var(--blog-faint);
 }
 
+.blog-comments__owner-sign-in {
+  margin-inline-start: auto;
+  border-radius: 2px;
+  color: var(--blog-faint);
+  font-size: var(--comment-meta);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.blog-comments__owner-sign-in:hover {
+  color: var(--blog-ink);
+}
+
+.blog-comments__owner-sign-in:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 4px;
+}
+
 /* --- Compose ------------------------------------------------------------ */
 /* ONE surface. The form used to be three bordered boxes in a column -- name,
    email, body -- plus a fourth for the send button's footer, and the top of

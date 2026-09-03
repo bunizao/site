@@ -461,12 +461,14 @@ POST /api/v2/reader/resend
 { "ok": true }
 ```
 
-Mail goes out only to an address that has actually commented; there is
-nothing to confirm for one that has not, and sending anyway would let this
-route mail a stranger on request. Always answers the same shape and status
-either way, and regardless of whether the address is currently suppressed
-by the per-address send limit below — this can never be used to probe which addresses have
-commented. Two independent rate limits apply, both durably enforced: a
+Mail normally goes out only to an address that has actually commented; there
+is nothing to confirm for one that has not, and sending anyway would let this
+route mail a stranger on request. The configured site-owner hash is the sole
+exception: `/reader/confirm` uses this endpoint to send the owner's first
+one-time sign-in link before a reader row exists. The response has the same
+shape and status whether mail was sent, the address has history, or the send
+was suppressed, so it cannot reveal either comment history or the owner
+address. Two independent rate limits apply, both durably enforced: a
 per-IP route limit (5/minute, answers `429` — this one carries no address
 information, so it's safe to surface) and a per-address send suppression (1
 mail per 10 minutes, 5 per day, 8 per 30 days — enforced silently inside

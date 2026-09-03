@@ -259,6 +259,7 @@ export function initCommentsController(): void {
   const turnstileSiteKey = section.dataset.turnstileSiteKey ?? '';
   const locale = section.dataset.locale === 'en' ? 'en' : 'zh';
   const head = section.querySelector<HTMLElement>('.blog-comments__head');
+  const ownerSignIn = section.querySelector<HTMLAnchorElement>('[data-owner-sign-in]');
 
   let claimed: ClaimedIdentity | null = readClaimedIdentity();
   let phase: ReaderPhase = claimed ? 'claimed' : 'anonymous';
@@ -331,6 +332,7 @@ export function initCommentsController(): void {
       if (compose) applyPhase(compose, phase, claimed, viewer);
       applyPhase(replyBox, phase, claimed, viewer);
     }
+    if (ownerSignIn) ownerSignIn.hidden = Boolean(viewer);
 
     if (!pageResult) {
       showError();
@@ -1686,6 +1688,7 @@ export function initCommentsController(): void {
     phase = 'anonymous';
     if (compose) applyPhase(compose, phase, claimed, viewer);
     applyPhase(replyBox, phase, claimed, viewer);
+    if (ownerSignIn) ownerSignIn.hidden = false;
     compose?.querySelector<HTMLInputElement>('[data-compose-identity] input')?.focus();
   }
 

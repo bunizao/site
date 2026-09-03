@@ -41,13 +41,21 @@ make an account.
 | | How you get there | What it buys |
 | --- | --- | --- |
 | **Anonymous** | Nothing. A cookie appears when you first post or react | Posting, reacting, and seeing your own rows marked as yours |
-| **Verified** | Click the link in the confirmation mail | A persistent avatar, your name remembered, editing and deleting, reply mail |
+| **Verified** | Click the link in the confirmation or sign-in mail | A persistent avatar, your name remembered, editing and deleting, reply mail |
 | **Signed in** | GitHub or Google — built, but not offered yet | The same as verified, with that account's avatar |
 
-The third row is not on offer today: there is no sign-in button anywhere in
-the comment box, so every reader who has an identity here got it from the
-mail. It is in the table because the data model and the routes already
-accommodate it.
+The third row is not on offer today: there is no GitHub or Google sign-in
+button in the comment box, so every active reader identity comes from email.
+It is in the table because the data model and routes already accommodate it.
+
+The small **站长登录 / Author sign in** link is an email-only owner path, not
+the third-party sign-in described in that row. It accepts the address whose
+hash is configured on the Worker, sends a one-time link, and establishes the
+same verified-reader session used everywhere else. Other addresses without
+comment history are silently ignored, so the form is neither an email relay
+nor an owner-address oracle. A verified matching session uses the configured
+owner name and receives the author badge; the reserved-name rule remains in
+force for everyone else.
 
 The confirmation mail goes out by itself on the first comment carrying a new
 address — no separate signup step. Until it is confirmed, the comment is
@@ -130,7 +138,9 @@ A display name is 1–32 characters with no control characters, and it cannot be
 one of a small reserved list: the names the site owner writes under. That list
 is matched after folding lookalike letters, so a Cyrillic **а** or a Greek
 **ο** standing in for the Latin one is refused as the same name. Nothing else
-about a name is filtered — it is a name, not a comment.
+about a name is filtered — it is a name, not a comment. The only exception is
+the configured owner name on a verified session whose email hash matches the
+configured owner hash.
 
 <a id="comment-error-email"></a>
 
