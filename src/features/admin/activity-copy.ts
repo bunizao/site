@@ -90,3 +90,15 @@ export function activitySourceLabel(entry: PortalActivityEntry): string | null {
   if (entry.actor !== 'owner') return null;
   return entry.source === 'telegram' ? 'from Telegram' : 'from the portal';
 }
+
+/** The note worth printing under the sentence, if any.
+
+    An owner verdict's note is generated from the same template the sentence
+    above it is built from -- "Approved by the owner from Telegram." sitting
+    under "You approved a comment from Telegram" is the row saying itself
+    twice. The model's note is the only one that carries something the
+    sentence does not: what it thought. */
+export function activityNote(entry: PortalActivityEntry): string | null {
+  if (entry.actor === 'owner') return null;
+  return entry.note || null;
+}

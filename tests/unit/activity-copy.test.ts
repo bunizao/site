@@ -4,6 +4,7 @@ import {
   activityActorName,
   activityContext,
   activityHref,
+  activityNote,
   activityPredicate,
   activitySourceLabel,
   activityTone,
@@ -143,5 +144,25 @@ describe('activitySourceLabel', () => {
     expect(activitySourceLabel(entry({ actor: 'owner', source: 'telegram' }))).toBe('from Telegram');
     expect(activitySourceLabel(entry({ actor: 'owner', source: 'portal' }))).toBe('from the portal');
     expect(activitySourceLabel(entry())).toBeNull();
+  });
+});
+
+describe('activityNote', () => {
+  // The bug this exists for: "Approved by the owner from Telegram." printed
+  // directly under "You approved a comment from Telegram".
+  test('an owner note is the sentence again, so it is not printed twice', () => {
+    expect(activityNote(entry({
+      actor: 'owner', event: 'comment.approve', note: 'Approved by the owner from Telegram.',
+    }))).toBeNull();
+  });
+
+  test('the model note says something the sentence does not', () => {
+    expect(activityNote(entry({
+      actor: 'model', event: 'comment.moderate', status: 'held', note: 'Held: low confidence.',
+    }))).toBe('Held: low confidence.');
+  });
+
+  test('an empty note is nothing, not an empty line', () => {
+    expect(activityNote(entry({ actor: 'model', note: '' }))).toBeNull();
   });
 });

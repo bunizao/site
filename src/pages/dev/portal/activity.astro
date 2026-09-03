@@ -27,6 +27,7 @@ import {
   activityActorName,
   activityContext,
   activityHref,
+  activityNote,
   activityPredicate,
   activitySourceLabel,
   activityTone,
@@ -196,6 +197,7 @@ const dailyPeak = Math.max(1, ...summary.daily.map((day) => day.comments + day.r
           const href = activityHref(entry);
           const context = activityContext(entry);
           const source = activitySourceLabel(entry);
+          const note = activityNote(entry);
           return (
             <li class="activity-row" data-tone={activityTone(entry)}>
               <span class="activity-dot" aria-hidden="true"></span>
@@ -214,7 +216,7 @@ const dailyPeak = Math.max(1, ...summary.daily.map((day) => day.comments + day.r
                     {entry.reason && entry.reason !== 'ok' ? ` · ${entry.reason}` : ''}
                   </span>
                 )}
-                {entry.note && <span class="activity-note">{entry.note}</span>}
+                {note && <span class="activity-note">{note}</span>}
               </span>
               <span class="activity-time">
                 <span class="portal-feed-time tabular-nums" title={entry.createdAt}>{timeAgo(entry.createdAt)}</span>
