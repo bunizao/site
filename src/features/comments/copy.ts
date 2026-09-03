@@ -49,6 +49,11 @@ export interface CommentsCopy {
       notices, an avatar of your own) and says outright that skipping it is
       fine, because the second press of the same button posts either way. */
   emailRecommend: string;
+  ownerAccessLabel: string;
+  ownerCodeLabel: string;
+  ownerCodePlaceholder: string;
+  ownerCodeSubmit: string;
+  ownerCodeInvalid: string;
   bodyLabel: string;
   /** The prompt, and the only place it appears. It used to be a line of its own
       between the heading and the box, which said the same thing one line early
@@ -75,8 +80,6 @@ export interface CommentsCopy {
       sign-out undoes. */
   postingAs: (name: string) => string;
   claimedAs: (name: string) => string;
-  /** Opens the email-link sign-in used by the site author. */
-  ownerSignIn: string;
   /** The identity strip's one action, offered in both phases: forget me on
       this browser. It is an icon button, so this is its label rather than its
       text; `signOutConfirm` is the same button after the first press, asking
@@ -211,6 +214,11 @@ const zh: CommentsCopy = {
   emailLabel: '邮箱',
   emailPlaceholder: '邮箱（选填）',
   emailRecommend: '验证邮箱可跨设备改删与显示头像；不想留可直接再点一次发送。',
+  ownerAccessLabel: '使用访问码',
+  ownerCodeLabel: '一次性访问码',
+  ownerCodePlaceholder: '一次性访问码',
+  ownerCodeSubmit: '验证',
+  ownerCodeInvalid: '访问码无效或已失效。',
   bodyLabel: '写评论',
   bodyPlaceholder: '说点什么…',
   replyBodyLabel: '写回复',
@@ -224,7 +232,6 @@ const zh: CommentsCopy = {
 
   postingAs: (name) => `以 ${name} 的身份发表`,
   claimedAs: (name) => `这台设备记住了 ${name}`,
-  ownerSignIn: '站长登录',
   signOut: '退出',
   signOutConfirm: '确定退出？',
 
@@ -302,6 +309,11 @@ const en: CommentsCopy = {
   emailLabel: 'Email',
   emailPlaceholder: 'Email (optional)',
   emailRecommend: 'A verified email means cross-device edits and an avatar; to skip it, just press send again.',
+  ownerAccessLabel: 'Use access code',
+  ownerCodeLabel: 'One-time access code',
+  ownerCodePlaceholder: 'One-time access code',
+  ownerCodeSubmit: 'Verify',
+  ownerCodeInvalid: 'That code is invalid or has expired.',
   bodyLabel: 'Write a comment',
   bodyPlaceholder: 'Say something…',
   replyBodyLabel: 'Write a reply',
@@ -315,7 +327,6 @@ const en: CommentsCopy = {
 
   postingAs: (name) => `Posting as ${name}`,
   claimedAs: (name) => `Remembered here as ${name}`,
-  ownerSignIn: 'Author sign in',
   signOut: 'Sign out',
   signOutConfirm: 'Sign out?',
 

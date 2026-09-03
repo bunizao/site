@@ -17,7 +17,7 @@ it blank posts a real comment that a real person can read and reply to.
 
 | Field | Limit | Notes |
 | --- | --- | --- |
-| Name | 1–32 characters | No control characters, and not one of the owner's own names |
+| Name | 1–32 characters | No control characters, and not one of the owner's own names. The small key opens the one-time owner-code field |
 | Email | optional | Buys an avatar, editing, and reply mail — see [Who you are](#who-you-are) |
 | Comment | 1–2000 characters | A small Markdown grammar, below |
 
@@ -41,21 +41,20 @@ make an account.
 | | How you get there | What it buys |
 | --- | --- | --- |
 | **Anonymous** | Nothing. A cookie appears when you first post or react | Posting, reacting, and seeing your own rows marked as yours |
-| **Verified** | Click the link in the confirmation or sign-in mail | A persistent avatar, your name remembered, editing and deleting, reply mail |
+| **Verified** | Click the link in the confirmation mail | A persistent avatar, your name remembered, editing and deleting, reply mail |
 | **Signed in** | GitHub or Google — built, but not offered yet | The same as verified, with that account's avatar |
 
 The third row is not on offer today: there is no GitHub or Google sign-in
 button in the comment box, so every active reader identity comes from email.
 It is in the table because the data model and routes already accommodate it.
 
-The small **站长登录 / Author sign in** link is an email-only owner path, not
-the third-party sign-in described in that row. It accepts the address whose
-hash is configured on the Worker, sends a one-time link, and establishes the
-same verified-reader session used everywhere else. Other addresses without
-comment history are silently ignored, so the form is neither an email relay
-nor an owner-address oracle. A verified matching session uses the configured
-owner name and receives the author badge; the reserved-name rule remains in
-force for everyone else.
+The site owner uses the tiny key inside the name field, not a public sign-in
+label. The authenticated dev portal creates a random one-time code; exchanging
+it establishes the same verified-reader session used everywhere else. The
+code lasts ten minutes, is stored only as a hash, and is consumed atomically.
+The matching session uses the configured owner name and `/avatar.webp`, and
+receives the Author badge. The reserved-name rule remains in force for
+everyone else.
 
 The confirmation mail goes out by itself on the first comment carrying a new
 address — no separate signup step. Until it is confirmed, the comment is

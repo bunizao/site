@@ -465,24 +465,6 @@
   color: var(--blog-faint);
 }
 
-.blog-comments__owner-sign-in {
-  margin-inline-start: auto;
-  border-radius: 2px;
-  color: var(--blog-faint);
-  font-size: var(--comment-meta);
-  text-decoration: none;
-  transition: color 0.15s ease;
-}
-
-.blog-comments__owner-sign-in:hover {
-  color: var(--blog-ink);
-}
-
-.blog-comments__owner-sign-in:focus-visible {
-  outline: 2px solid var(--blog-accent);
-  outline-offset: 4px;
-}
-
 /* --- Compose ------------------------------------------------------------ */
 /* ONE surface. The form used to be three bordered boxes in a column -- name,
    email, body -- plus a fourth for the send button's footer, and the top of
@@ -548,6 +530,7 @@
 
 .blog-compose__fields {
   display: flex;
+  position: relative;
 }
 
 /* The email recommendation -- see confirmAnonymousSubmit() in
@@ -602,7 +585,94 @@
 
 .blog-compose__input--name {
   flex: 0 1 38.2%;
+  padding-inline-end: 38px;
   border-right: 1px solid var(--blog-field-line);
+}
+
+.blog-compose__owner-toggle {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: 50%;
+  inset-inline-start: calc(38.2% - 30px);
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--blog-field-hint);
+  cursor: pointer;
+  opacity: 0.35;
+  translate: 0 -50%;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.blog-compose__owner-toggle:hover,
+.blog-compose__owner-toggle[aria-expanded='true'] {
+  background: var(--blog-fill);
+  color: var(--blog-ink);
+  opacity: 1;
+}
+
+.blog-compose__owner-toggle:focus-visible {
+  outline: 2px solid var(--blog-accent);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+.blog-compose__owner-toggle svg {
+  width: 12px;
+  height: 12px;
+}
+
+.blog-compose__owner-access {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--blog-field-line);
+  background: color-mix(in oklab, var(--blog-fill) 52%, transparent);
+}
+
+.blog-compose__owner-access[hidden] {
+  display: none;
+}
+
+.blog-compose__owner-code {
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--blog-field-line);
+  border-radius: var(--blog-r-pill);
+  background: var(--blog-field-fill);
+  color: var(--blog-body);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+
+.blog-compose__owner-submit {
+  padding: 7px 13px;
+  border: 0;
+  border-radius: var(--blog-r-pill);
+  background: var(--blog-ink);
+  color: hsl(var(--background));
+  font: inherit;
+  font-size: var(--comment-meta);
+  cursor: pointer;
+}
+
+.blog-compose__owner-submit:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.blog-compose__owner-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--blog-danger);
+  font-size: var(--comment-meta);
 }
 
 .blog-compose__input::placeholder {
@@ -1384,6 +1454,12 @@
 @media (max-width: 560px) {
   .blog-compose__fields {
     flex-direction: column;
+  }
+
+  .blog-compose__owner-toggle {
+    inset-block-start: 20px;
+    inset-inline-start: auto;
+    inset-inline-end: 9px;
   }
 }
 

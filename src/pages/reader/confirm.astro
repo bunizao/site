@@ -28,12 +28,12 @@ import { ICONS } from '@/features/comments/icons';
 import { READER_ME_PATH } from '@bunizao/contracts/routes';
 import type { ReaderMeResult, ReaderResendResult, ReaderVerifyResult } from '@bunizao/contracts/comments';
 
-type ViewState = 'signin' | 'pending' | 'confirmed' | 'settings' | 'already' | 'invalid' | 'resent';
+type ViewState = 'pending' | 'confirmed' | 'settings' | 'already' | 'invalid' | 'resent';
 
 const token = Astro.url.searchParams.get('token') ?? '';
 const locale = resolveReaderConfirmLocale(Astro.url.searchParams.get('lang'));
 const t = readerConfirmCopy[locale];
-let state: ViewState = token ? 'pending' : 'signin';
+let state: ViewState = token ? 'pending' : 'invalid';
 // Seeds the two switches on the confirmed card. Reply alerts come on with the
 // verification itself -- the mail said they would -- and the newsletter only
 // if the reader ticked the offer that sent this link.
@@ -107,7 +107,6 @@ if (Astro.request.method === 'GET' && !token) {
 }
 
 const GLYPHS: Record<ViewState, string> = {
-  signin: ICONS.mail,
   pending: ICONS.mail,
   confirmed: ICONS.check,
   settings: ICONS.settings,
@@ -182,27 +181,6 @@ const GLYPHS: Record<ViewState, string> = {
               required
             />
             <button type="submit" class="reader-confirm__go">{t.resend}</button>
-          </form>
-          <a class="reader-confirm__back" href="/blog">{t.back}</a>
-        </>
-      )}
-
-      {state === 'signin' && (
-        <>
-          <h1 class="reader-confirm__title">{t.signInTitle}</h1>
-          <p class="reader-confirm__body">{t.signInBody}</p>
-          <form method="post" class="reader-confirm__form">
-            <label class="sr-only" for="reader-sign-in-email">{t.emailLabel}</label>
-            <input
-              id="reader-sign-in-email"
-              class="reader-confirm__input"
-              type="email"
-              name="email"
-              autocomplete="email"
-              placeholder={t.emailPlaceholder}
-              required
-            />
-            <button type="submit" class="reader-confirm__go">{t.signInSubmit}</button>
           </form>
           <a class="reader-confirm__back" href="/blog">{t.back}</a>
         </>

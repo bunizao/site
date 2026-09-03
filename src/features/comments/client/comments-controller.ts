@@ -21,7 +21,9 @@ import type {
   ReactionBatchResult,
   ReaderMe,
   ReaderMeResult,
+  ReaderOwnerSignInResult,
 } from '@bunizao/contracts/comments';
+import { READER_OWNER_SIGN_IN_PATH } from '@bunizao/contracts/routes';
 import {
   confirmAnonymousSubmit,
   dismissRecommendOnFill,
@@ -96,6 +98,7 @@ const TRASH_ICON_SVG = iconSvg(ICONS.trash);
 const GHOST_ICON_SVG = iconSvg(ICONS.circleSlash);
 const ALERT_ICON_SVG = iconSvg(ICONS.circleAlert, 'stroke-width="2"');
 const MAIL_ICON_SVG = iconSvg(ICONS.mail, 'stroke-width="1.7"');
+const KEY_ICON_SVG = iconSvg(ICONS.keyRound);
 // Gives the nudge an identity of its own. Without it the row read as a strip
 // of controls that happened to sit under the box, which is how a message ends
 // up ignored by the people it is for.
@@ -259,7 +262,6 @@ export function initCommentsController(): void {
   const turnstileSiteKey = section.dataset.turnstileSiteKey ?? '';
   const locale = section.dataset.locale === 'en' ? 'en' : 'zh';
   const head = section.querySelector<HTMLElement>('.blog-comments__head');
-  const ownerSignIn = section.querySelector<HTMLAnchorElement>('[data-owner-sign-in]');
 
   let claimed: ClaimedIdentity | null = readClaimedIdentity();
   let phase: ReaderPhase = claimed ? 'claimed' : 'anonymous';
@@ -276,6 +278,7 @@ export function initCommentsController(): void {
   if (compose) {
     applyPhase(compose, phase, claimed, viewer);
     wireSignOut(compose, () => void signOut());
+    wireOwnerAccess(compose);
   }
   void mintDwellToken();
 
@@ -332,7 +335,6 @@ export function initCommentsController(): void {
       if (compose) applyPhase(compose, phase, claimed, viewer);
       applyPhase(replyBox, phase, claimed, viewer);
     }
-    if (ownerSignIn) ownerSignIn.hidden = Boolean(viewer);
 
     if (!pageResult) {
       showError();
@@ -363,6 +365,7 @@ export function initCommentsController(): void {
     replyField = replyBox.querySelector<HTMLTextAreaElement>('.blog-compose__field')!;
     applyPhase(replyBox, phase, claimed, viewer);
     wireSignOut(replyBox, () => void signOut());
+    wireOwnerAccess(replyBox);
     wireReplyBoxMechanics();
     // Both boxes exist by now, so one call covers them.
     prefillKnownEmail();
@@ -971,6 +974,11 @@ export function initCommentsController(): void {
       el('div', { class: 'blog-compose__fields' }, [
         el('label', { class: 'sr-only', for: `${id}-name` }, [t.nameLabel]),
         el('input', { id: `${id}-name`, class: 'blog-compose__input blog-compose__input--name', type: 'text', maxlength: '32', autocomplete: 'nickname', placeholder: t.namePlaceholder, required: '' }),
+        el('button', {
+          type: 'button', class: 'blog-compose__owner-toggle', 'data-owner-access-toggle': '',
+          'aria-label': t.ownerAccessLabel, title: t.ownerAccessLabel,
+          'aria-expanded': 'false', 'aria-controls': `${id}-owner-access`,
+        }, [parseStaticSvg(KEY_ICON_SVG)]),
         el('label', { class: 'sr-only', for: `${id}-email` }, [t.emailLabel]),
         el('input', {
           id: `${id}-email`,
@@ -980,6 +988,16 @@ export function initCommentsController(): void {
           placeholder: requireEmail ? t.emailRequired : t.emailPlaceholder,
           ...(requireEmail ? { required: '' } : {}),
         }),
+      ]),
+      el('div', { class: 'blog-compose__owner-access', id: `${id}-owner-access`, 'data-owner-access': '', hidden: '' }, [
+        el('label', { class: 'sr-only', for: `${id}-owner-code` }, [t.ownerCodeLabel]),
+        el('input', {
+          id: `${id}-owner-code`, class: 'blog-compose__owner-code', type: 'password',
+          autocomplete: 'one-time-code', autocapitalize: 'none', spellcheck: 'false',
+          placeholder: t.ownerCodePlaceholder, 'data-owner-code': '',
+        }),
+        el('button', { type: 'button', class: 'blog-compose__owner-submit', 'data-owner-code-submit': '' }, [t.ownerCodeSubmit]),
+        el('p', { class: 'blog-compose__owner-error', 'data-owner-code-error': '', role: 'alert', hidden: '' }, [t.ownerCodeInvalid]),
       ]),
       // The two-click anonymous-post confirm's recommendation -- see
       // confirmAnonymousSubmit() in compose-validate.ts. Green, and beside
@@ -1588,6 +1606,83 @@ export function initCommentsController(): void {
 
   // --- Phase / identity ---------------------------------------------------
 
+  function wireOwnerAccess(box: HTMLElement): void {
+    const toggle = box.querySelector<HTMLButtonElement>('[data-owner-access-toggle]');
+    const panel = box.querySelector<HTMLElement>('[data-owner-access]');
+    const code = box.querySelector<HTMLInputElement>('[data-owner-code]');
+    const submit = box.querySelector<HTMLButtonElement>('[data-owner-code-submit]');
+    const error = box.querySelector<HTMLElement>('[data-owner-code-error]');
+    if (!toggle || !panel || !code || !submit || !error) return;
+
+    toggle.addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+      toggle.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');
+      error.hidden = true;
+      if (panel.hidden) code.value = '';
+      else code.focus();
+    });
+
+    code.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submit.click();
+      }
+      if (event.key === 'Escape') {
+        panel.hidden = true;
+        code.value = '';
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.focus();
+      }
+    });
+
+    submit.addEventListener('click', async () => {
+      const accessCode = code.value.trim();
+      if (!accessCode) {
+        error.hidden = false;
+        code.focus();
+        return;
+      }
+
+      submit.disabled = true;
+      error.hidden = true;
+      try {
+        const response = await fetch(`/api${READER_OWNER_SIGN_IN_PATH}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: accessCode }),
+        });
+        const result = response.ok
+          ? await response.json() as ReaderOwnerSignInResult
+          : null;
+        if (!result?.reader) throw new Error('invalid_owner_code');
+
+        viewer = result.reader;
+        claimed = null;
+        phase = 'ready';
+        try {
+          window.localStorage.removeItem(CLAIMED_STORAGE_KEY);
+        } catch {
+          // The owner session is server-backed; inaccessible local storage is irrelevant.
+        }
+        if (compose) applyPhase(compose, phase, claimed, viewer);
+        applyPhase(replyBox, phase, claimed, viewer);
+        for (const identity of [compose, replyBox]) {
+          const ownerPanel = identity?.querySelector<HTMLElement>('[data-owner-access]');
+          const ownerCode = identity?.querySelector<HTMLInputElement>('[data-owner-code]');
+          const ownerToggle = identity?.querySelector<HTMLButtonElement>('[data-owner-access-toggle]');
+          if (ownerPanel) ownerPanel.hidden = true;
+          if (ownerCode) ownerCode.value = '';
+          if (ownerToggle) ownerToggle.setAttribute('aria-expanded', 'false');
+        }
+      } catch {
+        error.hidden = false;
+        code.select();
+      } finally {
+        submit.disabled = false;
+      }
+    });
+  }
+
   function applyPhase(box: HTMLElement, currentPhase: ReaderPhase, claimedIdentity: ClaimedIdentity | null, currentViewer: ReaderMe | null): void {
     box.dataset.phase = currentPhase;
     const who = box.querySelector<HTMLElement>('.blog-compose__who');
@@ -1688,7 +1783,6 @@ export function initCommentsController(): void {
     phase = 'anonymous';
     if (compose) applyPhase(compose, phase, claimed, viewer);
     applyPhase(replyBox, phase, claimed, viewer);
-    if (ownerSignIn) ownerSignIn.hidden = false;
     compose?.querySelector<HTMLInputElement>('[data-compose-identity] input')?.focus();
   }
 

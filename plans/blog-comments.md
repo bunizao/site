@@ -590,6 +590,7 @@ guard; `@bunizao/contracts` types land in this repo first and sync over.
 | `GET /v2/reader/me` | Session standing: grade, name, avatar key, subscription state |
 | `POST /v2/reader/verify` | The confirm button's POST: consumes link token, upserts reader, sets session, optional subscribe activation |
 | `POST /v2/reader/resend` | Re-send the verification mail (rate-limited) |
+| `POST /v2/reader/owner-sign-in` | Atomically exchange a portal-issued one-time code for the owner's normal reader session |
 | `GET/POST /oauth/reader/<provider>`, `/oauth/reader/<provider>/callback` | Site-wide reader OAuth (phase 3) |
 
 `/subscribe/manage` extends its existing token-authed surface with the "my

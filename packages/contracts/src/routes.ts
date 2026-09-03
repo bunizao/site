@@ -27,6 +27,7 @@ export const REACTIONS_TOGGLE_PATH = '/v2/reactions/toggle' as const;
 export const READER_ME_PATH = '/v2/reader/me' as const;
 export const READER_VERIFY_PATH = '/v2/reader/verify' as const;
 export const READER_RESEND_PATH = '/v2/reader/resend' as const;
+export const READER_OWNER_SIGN_IN_PATH = '/v2/reader/owner-sign-in' as const;
 export const READER_PREFERENCES_PATH = '/v2/reader/preferences' as const;
 export const READER_MUTE_PATH = '/v2/reader/mute' as const;
 export const READER_AVATAR_PATH_PREFIX = '/v2/reader/avatar/' as const;

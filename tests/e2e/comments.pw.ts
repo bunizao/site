@@ -27,20 +27,11 @@ async function installCommentApi(page: import('@playwright/test').Page, options:
   patchStatus?: number;
   postOutcome?: 'published' | 'held';
   unverifiedEmail?: boolean;
-  reader?: {
-    readerId: string;
-    grade: 'l1' | 'l2';
-    provider: 'email' | 'github' | 'google';
-    displayName: string;
-    avatarUrl: string;
-    notifyReplies: boolean;
-    subscribed: boolean;
-  };
 } = {}) {
   await page.route('**/api/v2/reader/me', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({ reader: options.reader ?? null }),
+    body: JSON.stringify({ reader: null }),
   }));
 
   let postRelease: (() => void) | undefined;
@@ -110,32 +101,55 @@ async function installCommentApi(page: import('@playwright/test').Page, options:
   };
 }
 
-test('anonymous readers can open the author sign-in page from the comment header', async ({ page }) => {
+test('the key inside the name field exchanges a one-time owner code', async ({ page }) => {
   await installCommentApi(page);
-  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
-
-  const signIn = page.locator('[data-owner-sign-in]');
-  await expect(signIn).toBeVisible();
-  await expect(signIn).toHaveText('Author sign in');
-  await expect(signIn).toHaveAttribute('href', '/reader/confirm?lang=en');
-});
-
-test('the author sign-in link stays hidden for an active reader session', async ({ page }) => {
-  await installCommentApi(page, {
-    reader: {
-      readerId: 'reader-owner',
-      grade: 'l1',
-      provider: 'email',
-      displayName: 'Lucian Bu',
-      avatarUrl: '',
-      notifyReplies: true,
-      subscribed: false,
-    },
+  let submittedCode = '';
+  await page.route('**/api/v2/reader/owner-sign-in', async (route) => {
+    submittedCode = (await route.request().postDataJSON() as { code: string }).code;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        reader: {
+          readerId: 'reader-owner',
+          grade: 'l1',
+          provider: 'email',
+          displayName: 'Lucian Bu',
+          avatarUrl: `/v2/reader/avatar/${'a'.repeat(64)}`,
+          notifyReplies: false,
+          subscribed: false,
+        },
+      }),
+    });
   });
   await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
 
-  await expect(page.locator('[data-owner-sign-in]')).toBeHidden();
-  await expect(page.locator('.blog-comments > .blog-compose')).toHaveAttribute('data-phase', 'ready');
+  await expect(page.locator('[data-owner-sign-in]')).toHaveCount(0);
+  const compose = page.locator('.blog-comments > .blog-compose');
+  const name = compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])');
+  const toggle = compose.locator('[data-owner-access-toggle]');
+  const [nameBox, toggleBox] = await Promise.all([name.boundingBox(), toggle.boundingBox()]);
+  expect(nameBox).not.toBeNull();
+  expect(toggleBox).not.toBeNull();
+  expect(toggleBox!.x).toBeGreaterThan(nameBox!.x);
+  expect(toggleBox!.x + toggleBox!.width).toBeLessThanOrEqual(nameBox!.x + nameBox!.width);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const [mobileNameBox, mobileToggleBox] = await Promise.all([name.boundingBox(), toggle.boundingBox()]);
+  expect(mobileNameBox).not.toBeNull();
+  expect(mobileToggleBox).not.toBeNull();
+  expect(mobileToggleBox!.x).toBeGreaterThan(mobileNameBox!.x);
+  expect(mobileToggleBox!.x + mobileToggleBox!.width).toBeLessThanOrEqual(mobileNameBox!.x + mobileNameBox!.width);
+
+  await toggle.click();
+  await compose.locator('[data-owner-code]').fill('A'.repeat(43));
+  await compose.locator('[data-owner-code-submit]').click();
+
+  expect(submittedCode).toBe('A'.repeat(43));
+  await expect(compose).toHaveAttribute('data-phase', 'ready');
+  await expect(compose.locator('.blog-compose__whoname')).toHaveText('Lucian Bu');
+  await expect(compose.locator('.blog-compose__whoface')).toHaveAttribute('src', `/api/v2/reader/avatar/${'a'.repeat(64)}`);
+  await expect(compose.locator('[data-owner-access]')).toBeHidden();
 });
 
 test('lab lists every interaction outcome and transitions reader verification', async ({ page }) => {
@@ -360,14 +374,6 @@ test('reader confirmation serves the pending card in the mail locale', async ({ 
   expect(en).toContain('lang="en"');
   expect(en).toContain("Confirm it's you");
   expect(en).toContain("Yes, it's me");
-});
-
-test('reader confirmation offers a neutral sign-in card without a token', async ({ request }) => {
-  const html = await (await request.get('/reader/confirm?lang=en')).text();
-
-  expect(html).toContain('Author sign in');
-  expect(html).toContain('Send sign-in link');
-  expect(html).not.toContain('This link has expired');
 });
 
 test('reader confirmation confirms the link on arrival', async ({ page }) => {

@@ -113,14 +113,6 @@ const t = commentsCopy[locale];
     {state === 'loaded' && tally > 0 && (
       <span class="blog-comments__tally">{tally}</span>
     )}
-    {postId && state !== 'closed' && (
-      <a
-        class="blog-comments__owner-sign-in"
-        data-owner-sign-in
-        href={`/reader/confirm?lang=${locale}`}
-        hidden
-      >{t.ownerSignIn}</a>
-    )}
   </div>
 
   {state !== 'closed' && (

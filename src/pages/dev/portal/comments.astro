@@ -19,6 +19,7 @@ import PortalSection from '@/components/portal/PortalSection.astro';
 import RankedBreakdown from '@/components/portal/RankedBreakdown.astro';
 import SegmentedNav from '@/components/portal/SegmentedNav.astro';
 import CommentsQueue from '@/features/admin/ui/CommentsQueue';
+import OwnerAccessPanel from '@/features/admin/ui/OwnerAccessPanel';
 import { Activity, CheckCheck, Clock, MessagesSquare, ShieldAlert } from 'lucide-react';
 import {
   loadPortalComments,
@@ -170,6 +171,15 @@ const dailyTotal = summary.daily.reduce((sum, day) => sum + day.count, 0);
       foot="comments received, any status"
     />
   </section>
+
+  <PortalSection
+    title="Author access"
+    eyebrow="Identity"
+    meta="10-minute single-use handoff"
+    class="portal-mt-lg"
+  >
+    <OwnerAccessPanel client:load />
+  </PortalSection>
 
   <PortalSection
     title="Queue"

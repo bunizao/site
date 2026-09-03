@@ -63,6 +63,17 @@ const t = commentsCopy[locale];
       placeholder={t.namePlaceholder}
       required
     />
+    <button
+      type="button"
+      class="blog-compose__owner-toggle"
+      data-owner-access-toggle
+      aria-label={t.ownerAccessLabel}
+      title={t.ownerAccessLabel}
+      aria-expanded="false"
+      aria-controls={`${id}-owner-access`}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.keyRound} />
+    </button>
     <label class="sr-only" for={`${id}-email`}>{t.emailLabel}</label>
     <input
       id={`${id}-email`}
@@ -72,6 +83,22 @@ const t = commentsCopy[locale];
       placeholder={requireEmail ? t.emailRequired : t.emailPlaceholder}
       required={requireEmail}
     />
+  </div>
+
+  <div class="blog-compose__owner-access" id={`${id}-owner-access`} data-owner-access hidden>
+    <label class="sr-only" for={`${id}-owner-code`}>{t.ownerCodeLabel}</label>
+    <input
+      id={`${id}-owner-code`}
+      class="blog-compose__owner-code"
+      type="password"
+      autocomplete="one-time-code"
+      autocapitalize="none"
+      spellcheck="false"
+      placeholder={t.ownerCodePlaceholder}
+      data-owner-code
+    />
+    <button type="button" class="blog-compose__owner-submit" data-owner-code-submit>{t.ownerCodeSubmit}</button>
+    <p class="blog-compose__owner-error" data-owner-code-error role="alert" hidden>{t.ownerCodeInvalid}</p>
   </div>
 
   {/* Green because it's a suggestion, not a complaint -- the field it is

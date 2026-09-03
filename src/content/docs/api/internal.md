@@ -36,6 +36,7 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/broadcasts/:id` | Manages one broadcast. | Admin session |
 | `/admin/broadcasts/:id/progress` | Reads broadcast delivery progress. | Admin session |
 | `/admin/broadcasts/preview` | Renders a broadcast preview. | Admin session |
+| `/admin/comments/owner-code` | Mints a ten-minute single-use owner handoff code. | Admin session |
 | `/admin/comments` | Reads the comment moderation queue and its counts. | Admin session |
 | `/admin/comments/:id` | Approves, hides, or deletes one comment. | Admin session |
 | `/admin/subscribers` | Manages subscribers. | Admin session |

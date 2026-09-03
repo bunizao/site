@@ -38,6 +38,38 @@ test.describe('Admin portal newsletters', () => {
     await expect(page.getByRole('heading', { name: 'Raw event log' })).toBeVisible();
   });
 
+  test('mints the one-time author code from the comments portal', async ({ page }) => {
+    let calls = 0;
+    await page.route('**/dev/portal/api/admin/comments/owner-code', async (route) => {
+      calls += 1;
+      if (calls === 1) {
+        await route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'owner_email_required' }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 'A'.repeat(43),
+          expiresAt: '2026-09-03T12:10:00.000Z',
+        }),
+      });
+    });
+    await page.goto('/dev/portal/comments', { waitUntil: 'networkidle' });
+
+    await page.getByRole('button', { name: 'Generate one-time code' }).click();
+    await expect(page.getByLabel('Owner email')).toBeVisible();
+    await page.getByLabel('Owner email').fill('owner@recipient.testmail');
+    await page.getByRole('button', { name: 'Generate one-time code' }).click();
+
+    await expect(page.getByLabel('One-time author code')).toHaveValue('A'.repeat(43));
+    await expect(page.getByText('becomes invalid immediately after use')).toBeVisible();
+  });
+
   test('uses coss chrome across every preview surface', async ({ page }) => {
     await page.route('**/api/notify/preview?**', async (route) => {
       await route.fulfill({

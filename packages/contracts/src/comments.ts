@@ -74,6 +74,16 @@ export interface ReaderMeResult {
   reader: ReaderMe | null;
 }
 
+/** A short-lived code minted inside the authenticated admin portal. The
+    public form never accepts a reusable owner password. */
+export interface ReaderOwnerSignInInput {
+  code: string;
+}
+
+export interface ReaderOwnerSignInResult {
+  reader: ReaderMe;
+}
+
 /** The confirm button's POST — plans/blog-comments.md "Lazy verification". */
 export interface ReaderVerifyInput {
   token: string;
