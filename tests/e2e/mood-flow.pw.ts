@@ -1592,7 +1592,7 @@ test.describe('Mood routes', () => {
     expect(attempts).toBe(2);
   });
 
-  test('keeps archive failures off the live feed after retries fail', async ({ page }) => {
+  test('falls back to the live feed after archive retries fail', async ({ page }) => {
     const anchorId = '1000';
     const channel = {
       slug: 'e2e',
@@ -1633,10 +1633,10 @@ test.describe('Mood routes', () => {
     await page.goto(`/mood?${anchorId}&source=archive`, { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('[data-mood-feed]')).toHaveAttribute('data-mood-read-source', 'archive');
-    await expect(page.locator('[data-mood-error]')).toBeVisible();
-    await expect(page.locator('[data-mood-initial-retry]')).toBeVisible();
+    await expect(page.locator(`[data-mood-id="${anchorId}"]`)).toBeVisible();
+    await expect(page.locator('[data-mood-error]')).toBeHidden();
     expect(archiveAttempts).toBe(2);
-    expect(liveAttempts).toBe(0);
+    expect(liveAttempts).toBe(1);
   });
 
   test('renders a too-big video placeholder on anchored feed posts without a poster image', async ({ page }) => {

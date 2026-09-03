@@ -275,13 +275,19 @@ export function initMoodFeedController(): void {
           query.set('fallback', '0');
         }
         const queryString = query.toString();
+        // Archive reads degrade to the live mirror once /api/v2/mood exhausts
+        // its retries. Tag filters only exist on the archive route, so they
+        // stay strict.
         const endpoints = archiveRead
-          ? ['/api/v2/mood']
+          ? (feedTagFilter ? ['/api/v2/mood'] : ['/api/v2/mood', '/api/moods'])
           : ['/api/moods'];
         let lastError: unknown = new Error('Failed to load moods.');
 
         for (const endpoint of endpoints) {
           const url = queryString ? `${endpoint}?${queryString}` : endpoint;
+          if (endpoint !== endpoints[0]) {
+            console.warn(`Mood feed degraded to ${endpoint}.`, lastError);
+          }
           for (let attempt = 0; attempt < MOOD_FETCH_ATTEMPTS; attempt += 1) {
             let response: Response;
             try {
@@ -295,7 +301,9 @@ export function initMoodFeedController(): void {
 
             if (response.ok) {
               try {
-                return await response.json() as { posts: MoodData[]; channel?: ChannelInfo };
+                const payload = await response.json() as { posts: MoodData[]; channel?: ChannelInfo };
+                feedEl.dataset.moodFeedSource = endpoint === '/api/moods' ? 'live' : 'archive';
+                return payload;
               } catch (error) {
                 lastError = error;
                 if (attempt + 1 >= MOOD_FETCH_ATTEMPTS) break;

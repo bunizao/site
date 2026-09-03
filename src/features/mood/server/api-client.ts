@@ -219,11 +219,16 @@ export async function loadMoodFeed(
   }
 
   if (source === 'archive') {
-    const fallback = query.fallback === true && !query.tag;
+    // Live fallback is the availability net: any unfiltered archive failure
+    // (D1 quota, binding outage, 5xx) degrades to the bounded Telegram reader.
+    // Tag filters only exist on the archive, so they stay strict. The
+    // `fallback=0` sent to site-api is a separate policy: it keeps t.me
+    // content completion off the archive read path.
+    const fallback = query.fallback !== false && !query.tag;
     const loadArchive = () => fetchMoodArchiveApiJson<MoodFeedResponse>(
       context,
       MOOD_ARCHIVE_FEED_PATH,
-      moodFeedParams({ ...query, fallback }),
+      moodFeedParams({ ...query, fallback: false }),
     );
     if (!fallback) {
       return loadArchive();
@@ -315,9 +320,8 @@ export async function loadMoodDocument(
   }
 
   if (source === 'archive') {
-    const fallback = query.fallback === true;
-    const params = new URLSearchParams();
-    if (!fallback) params.set('fallback', '0');
+    const fallback = query.fallback !== false;
+    const params = new URLSearchParams({ fallback: '0' });
     const loadArchive = () => fetchMoodArchiveApiJson<MoodContentDocument | null>(
       context,
       `${MOOD_ARCHIVE_FEED_PATH}/${encodeURIComponent(id)}`,
