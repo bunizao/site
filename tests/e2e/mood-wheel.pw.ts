@@ -225,6 +225,28 @@ test.describe('mood timeline wheel', () => {
     expect(deep.progress - back.progress).toBeLessThan(2.5);
   });
 
+  test('keeps tracking the scroll while the feed is busy paginating', async ({ page }) => {
+    await openWheel(page);
+    const rotation = () => page.evaluate(() =>
+      document.querySelector<HTMLElement>('[data-timeline-dial]')!.style.transform);
+    const before = await rotation();
+
+    // Infinite scroll marks the list busy for the whole of a fetch. The dial is
+    // a readout of the scroll position and must go on being one; only an empty
+    // dial waiting on its first page gets the loading pendulum.
+    await page.evaluate(() => document.querySelector('[data-mood-list]')!.setAttribute('aria-busy', 'true'));
+    await page.mouse.move(720, 600);
+    await page.mouse.wheel(0, 900);
+    await expect.poll(rotation).not.toBe(before);
+    await page.waitForTimeout(400);
+    const tracked = await rotation();
+    expect(await page.locator('[data-timeline-wheel]').getAttribute('class')).not.toContain('is-loading');
+
+    // And it is not being swung about by anything else.
+    await page.waitForTimeout(400);
+    expect(await rotation()).toBe(tracked);
+  });
+
   test('steps one date per arrow key', async ({ page }) => {
     await openWheel(page);
 

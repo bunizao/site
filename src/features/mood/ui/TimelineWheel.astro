@@ -143,7 +143,11 @@ const { compact = false } = Astro.props;
     transform: translateY(-50%);
     border-radius: 50%;
     border: 1px solid hsl(var(--foreground) / 0.04);
+    /* Its own layer, rasterised once: Safari then rotates a cached texture
+       instead of repainting a few hundred notches on every frame. */
     will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
 
   /* ── Ambient glow ── */
@@ -259,12 +263,28 @@ const { compact = false } = Astro.props;
     opacity: 1;
     transform: translateY(-50%) scale(1);
     box-shadow: 0 0 6px hsl(var(--foreground) / 0.2);
+  }
+
+  /* The pulse is a halo on its own layer, animated in opacity and scale only.
+     Animating the pip's box-shadow instead repainted the dial texture on every
+     frame for as long as a date was active, which is always. */
+  :global(.timeline-notch-pip::after) {
+    content: '';
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    background: radial-gradient(circle, hsl(var(--foreground) / 0.28), transparent 70%);
+    opacity: 0;
+    will-change: transform, opacity;
+  }
+
+  :global(.timeline-notch.is-major.is-active .timeline-notch-pip::after) {
     animation: pip-pulse 2.5s ease-in-out infinite;
   }
 
   @keyframes pip-pulse {
-    0%, 100% { box-shadow: 0 0 6px hsl(var(--foreground) / 0.2); }
-    50% { box-shadow: 0 0 12px hsl(var(--foreground) / 0.35); }
+    0%, 100% { opacity: 0.35; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.25); }
   }
 
   /* ── Label group ── */
@@ -361,19 +381,21 @@ const { compact = false } = Astro.props;
   /* ── Hover: the instrument quietly illuminates under the cursor ── */
   /* The readout brightens, a soft halo blooms at the active centre, and the
      live mark extends a touch — minimal, no layout shift, no extra chrome.
-     Only for inputs that can hover: on touch, Safari pins :hover to whatever
-     was last tapped, and the wheel would stay lit after every scrub. */
-  @media (hover: hover) {
-  .timeline-wheel:hover .timeline-wheel-label {
+     Driven by a class the controller sets from a mouse pointer, never by the
+     hover pseudo-class. iOS Safari treats the first touch on anything whose
+     hover rules reveal content as a hover rather than a press, so the wheel
+     needed a tap to wake before it would take a drag; and it pins the hover
+     state to whatever was last tapped, so it stayed lit after every scrub. */
+  .timeline-wheel.is-hovering .timeline-wheel-label {
     color: hsl(var(--foreground));
     border-color: hsl(var(--foreground) / 0.14);
   }
 
-  .timeline-wheel:hover .timeline-wheel-glow {
+  .timeline-wheel.is-hovering .timeline-wheel-glow {
     opacity: 1;
   }
 
-  .timeline-wheel:hover .timeline-wheel-connector {
+  .timeline-wheel.is-hovering .timeline-wheel-connector {
     background: linear-gradient(
       to right,
       hsl(var(--foreground) / 0.32),
@@ -381,13 +403,12 @@ const { compact = false } = Astro.props;
     );
   }
 
-  .timeline-wheel:hover :global(.timeline-notch.is-major.is-active) {
+  .timeline-wheel.is-hovering :global(.timeline-notch.is-major.is-active) {
     width: 42px;
     background: hsl(var(--foreground));
     box-shadow:
       0 0 10px hsl(var(--foreground) / 0.16),
       0 0 26px hsl(var(--foreground) / 0.08);
-  }
   }
 
   /* ── Engaged: the wheel is being driven, not just read ──────────────────

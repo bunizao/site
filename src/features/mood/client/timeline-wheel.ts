@@ -79,6 +79,7 @@ export function mountTimelineWheel(
   let hintPulseTimer = 0;
   let dirAnchorY = 0;
   let scrollDir: 'up' | 'down' = 'down';
+  let lastScrollAt = 0;
 
   const wantsTop = (): boolean => !controlActive && (topRevealed || isHoveringWheel);
 
@@ -117,14 +118,19 @@ export function mountTimelineWheel(
   // Only a mouse hovers. A touch also raises enter/leave (and on iOS the leave
   // does not come until the next tap elsewhere), which would roll the readout
   // to "↑ TOP" the moment a scrub ends and hide the date just landed on.
+  // The class carries the hover styling too: no hover pseudo-class in the
+  // stylesheet, so iOS never mistakes a first touch for a hover and waits for
+  // a second one before it will take a drag.
   const handlePointerEnter = (event: PointerEvent): void => {
     if (event.pointerType !== 'mouse') return;
     isHoveringWheel = true;
+    wheel.classList.add('is-hovering');
     renderReadout();
   };
   const handlePointerLeave = (event: PointerEvent): void => {
     if (event.pointerType !== 'mouse') return;
     isHoveringWheel = false;
+    wheel.classList.remove('is-hovering');
     renderReadout();
   };
   wheel.addEventListener('pointerenter', handlePointerEnter);
@@ -534,10 +540,12 @@ export function mountTimelineWheel(
     scrollSyncRaf = requestAnimationFrame(() => {
       scrollSyncRaf = 0;
       if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
-      // The spring smooths scrolling the wheel merely reports. While the wheel
-      // is the one driving, the dial has to sit exactly where the hand put it;
-      // a spring under a finger reads as lag, not weight.
-      applyScrollPosition(scroll.el.scrollTop, animate && !controlActive);
+      // While the wheel is driving, the hand owns the dial and the scroll
+      // events are echoes of its own writes. Reading them back would only let
+      // a late or dropped one (iOS during momentum) yank the dial off the
+      // finger. The dial is reconciled once when control ends.
+      if (controlActive) return;
+      applyScrollPosition(scroll.el.scrollTop, animate);
     });
   };
 
@@ -588,6 +596,10 @@ export function mountTimelineWheel(
   let dragProgress = 0;
   let dragMoved = false;
   let dragSamples: { at: number; progress: number }[] = [];
+  // Pointer events arrive faster than frames (120Hz touch, 60Hz rendering on
+  // Safari); the latest travel is kept and written once per frame.
+  let pendingTravel: number | null = null;
+  let dragWriteRaf = 0;
   let releaseRaf = 0;
   let progressTweenRaf = 0;
   let lastTickedDate = 0;
@@ -637,6 +649,7 @@ export function mountTimelineWheel(
     currentRotation = targetRotation;
     velocity = 0;
     applyDialTransform();
+    updateActiveNotch(Math.min(Math.floor(progress), dateGroups.length - 1));
     return moved;
   };
 
@@ -676,12 +689,31 @@ export function mountTimelineWheel(
     return (last.progress - first.progress) / elapsed;
   };
 
+  // Apply the newest pointer position. Called from the frame, and directly on
+  // release so the last movement is never lost to a cancelled frame.
+  const flushDrag = (): void => {
+    if (dragWriteRaf !== 0) cancelAnimationFrame(dragWriteRaf);
+    dragWriteRaf = 0;
+    if (pendingTravel === null) return;
+    const travel = pendingTravel;
+    pendingTravel = null;
+
+    const next = clampProgress(dragStartProgress - travel / PX_PER_DATE);
+    dragProgress = next;
+    recordDragSample(next);
+    scrollToProgress(next);
+    // Against a brisk drag of 0.03 dates/ms.
+    tickAcross(next, clamp(Math.abs(dragSpeed()) / 0.03, 0, 1));
+  };
+
   const setEngaged = (active: boolean): void => {
     if (controlActive === active) return;
     controlActive = active;
     wheel.classList.toggle('is-engaged', active);
     // The readout must show the date while scrubbing, never the back-to-top cue.
     renderReadout();
+    // Back to reporting: land the dial on wherever the scroller actually is.
+    if (!active && dateGroups.length > 0) applyScrollPosition(scroll.el.scrollTop, false);
   };
 
   const stopRelease = (): void => {
@@ -695,6 +727,9 @@ export function mountTimelineWheel(
   };
 
   const abortWheelControl = (): void => {
+    pendingTravel = null;
+    if (dragWriteRaf !== 0) cancelAnimationFrame(dragWriteRaf);
+    dragWriteRaf = 0;
     stopRelease();
     stopProgressTween();
     setEngaged(false);
@@ -792,6 +827,16 @@ export function mountTimelineWheel(
   const beginWheelControl = (): void => {
     stopRelease();
     stopProgressTween();
+    // iOS drops programmatic scrollTop while the scroller is still coasting
+    // under its own momentum, so a wheel grabbed mid-coast would write into
+    // the void. Toggling overflow is the one way to halt that coast.
+    if (performance.now() - lastScrollAt < 160) {
+      const el = scroll.el;
+      const previous = el.style.overflow;
+      el.style.overflow = 'hidden';
+      void el.offsetHeight;
+      el.style.overflow = previous;
+    }
     dragProgress = readProgress();
     lastTickedDate = Math.floor(dragProgress);
     dragSamples = [];
@@ -826,16 +871,14 @@ export function mountTimelineWheel(
 
     event.preventDefault();
 
-    const next = clampProgress(dragStartProgress - travel / PX_PER_DATE);
-    dragProgress = next;
-    recordDragSample(next);
-    scrollToProgress(next);
-    tickAcross(next, clamp(Math.abs(dragSpeed()) * 4, 0, 1));
+    pendingTravel = travel;
+    if (dragWriteRaf === 0) dragWriteRaf = requestAnimationFrame(flushDrag);
   };
 
   const handlePointerUp = (event: PointerEvent): void => {
     if (dragPointerId !== event.pointerId) return;
     dragPointerId = null;
+    flushDrag();
     if (topButton?.hasPointerCapture(event.pointerId)) {
       topButton.releasePointerCapture(event.pointerId);
     }
@@ -850,6 +893,7 @@ export function mountTimelineWheel(
   const handlePointerCancel = (event: PointerEvent): void => {
     if (dragPointerId !== event.pointerId) return;
     dragPointerId = null;
+    flushDrag();
     if (dragMoved) release(0);
   };
 
@@ -905,15 +949,20 @@ export function mountTimelineWheel(
     }
 
     destroyLoadingAnimation();
-    if (dateGroups.length > 0) {
+    if (dateGroups.length > 0 && !controlActive) {
       applyScrollPosition(scroll.el.scrollTop, true);
     }
   };
 
   const syncLoadingSpinState = (): void => {
+    // The pendulum is for an empty dial waiting on its first page. Pagination
+    // marks the list busy as well, and taking the dial for that meant it
+    // stopped following the scroll, swung, and jumped when the page landed —
+    // every time the reader reached the end of what was loaded, and for the
+    // whole of a slow fetch.
     const shouldSpin = wheel.classList.contains('is-loading')
       || feedEl.classList.contains('is-hidden')
-      || list.getAttribute('aria-busy') === 'true';
+      || (list.getAttribute('aria-busy') === 'true' && dateGroups.length === 0);
     setLoadingSpin(shouldSpin);
   };
 
@@ -922,6 +971,7 @@ export function mountTimelineWheel(
     // Track direction with a small dead zone, then reveal "↑ TOP" only while the
     // reader is scrolling back up past the first screen — the moment a jump to
     // the top is most likely wanted. Scrolling down (or nearing the top) hides it.
+    lastScrollAt = performance.now();
     const y = scroll.el.scrollTop;
     const dy = y - dirAnchorY;
     if (Math.abs(dy) >= DIR_DELTA) {
@@ -1032,7 +1082,7 @@ export function mountTimelineWheel(
       if (!scrollSyncActive) {
         setupScrollSync();
       }
-      applyScrollPosition(scroll.el.scrollTop, false);
+      if (!controlActive) applyScrollPosition(scroll.el.scrollTop, false);
     });
   };
 
