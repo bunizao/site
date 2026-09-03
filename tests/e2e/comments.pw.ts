@@ -106,7 +106,7 @@ test('lab lists every interaction outcome and transitions reader verification', 
 
   await expect(page.locator('.blog-compose__alert:visible')).toContainText('human check');
   await expect(page.locator('.blog-comments > .blog-compose [data-compose-identity] input[type="text"]').first()).toHaveAttribute('placeholder', 'Name');
-  await expect(page.locator('.comments-lab-catalog tbody tr')).toHaveCount(64);
+  await expect(page.locator('.comments-lab-catalog tbody tr')).toHaveCount(65);
   await expect(page.locator('.comments-lab-catalog')).toContainText('Submit/edit failure (BOT)');
   await expect(page.locator('.blog-comment--held .blog-comment__note')).toContainText('Posted');
   await expect(page.locator('.comments-lab-preview .blog-compose__preview')).toBeVisible();
@@ -158,7 +158,7 @@ test('a resolved avatar draws a photo, everyone else draws initials', async ({ p
   // A row whose writer never resolved one falls back to initials rather than
   // a broken image -- the avatar URL is empty precisely when there is nothing
   // to fetch.
-  const withoutPhoto = page.locator('#comment-7a .blog-comment__avatar');
+  const withoutPhoto = page.locator('#comment-1 .blog-comment__avatar');
   await expect(withoutPhoto).toHaveClass(/blog-avatar-initials/);
 });
 

@@ -169,7 +169,7 @@ const behaviorRows = [
   { behavior: 'Submit with no channels', state: 'subscribe channels', zh: '至少选一样。', en: 'Pick at least one.', next: 'Select Posts or Moods' },
   { behavior: 'Subscription starts the security check', state: 'subscribe Turnstile', zh: '提交按钮进入处理中；通常没有额外文案', en: 'The submit button becomes busy; normally no extra copy appears', next: 'Wait, or complete an interactive challenge if shown' },
   { behavior: 'Subscription security check fails', state: 'subscribe BOT', zh: '校验失败，重试一下。', en: 'That check failed. Try again.', next: 'Retry the check' },
-  { behavior: 'Subscription is rate-limited', state: 'subscribe 429', zh: '操作太频繁，等一会儿再试。', en: 'Too many tries. Wait before trying again.', next: 'Wait before retrying' },
+  { behavior: 'Subscription is rate-limited', state: 'subscribe 429', zh: '太频繁了，稍后再试。', en: 'Too many tries. Give it a minute.', next: 'Wait before retrying' },
   { behavior: 'Subscription server fails', state: 'subscribe server', zh: '出错了，稍后重试。', en: 'Something broke. Try again in a moment.', next: 'Press Retry' },
   { behavior: 'Subscription network fails', state: 'subscribe network', zh: '网络不太好，检查下连接。', en: 'Network trouble — check your connection.', next: 'Reconnect and retry' },
   { behavior: 'Subscription confirmation sent', state: 'subscribe sent', zh: '确认邮件已发，去收件箱点一下。', en: 'Confirmation sent — tap the link in your inbox.', next: 'Open the confirmation mail or press Done' },
