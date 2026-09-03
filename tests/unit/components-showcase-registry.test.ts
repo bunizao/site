@@ -183,6 +183,11 @@ describe('components showcase registry', () => {
         type: 'registry:lib',
       },
       {
+        path: 'features/mood/client/wheel-feedback.ts',
+        target: '@lib/wheel-feedback.ts',
+        type: 'registry:lib',
+      },
+      {
         path: 'features/mood/shared/feed-anchor.ts',
         target: '@lib/feed-anchor.ts',
         type: 'registry:lib',
@@ -198,10 +203,14 @@ describe('components showcase registry', () => {
         type: 'registry:ui',
       },
     ]);
-    expect(item.files[0]?.content).toContain("from '@/lib/timeline-date-tracker'");
-    expect(item.files[0]?.content).toContain("from '@/lib/feed-anchor'");
-    expect(item.files[4]?.content).toContain("import('@/lib/timeline-wheel')");
-    expect(item.files[4]?.content).toContain('data-timeline-wheel');
+    const byTarget = (target: string) =>
+      item.files.find((file) => file.target === target)?.content ?? '';
+
+    expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/timeline-date-tracker'");
+    expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/wheel-feedback'");
+    expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/feed-anchor'");
+    expect(byTarget('@ui/timeline-wheel.astro')).toContain("import('@/lib/timeline-wheel')");
+    expect(byTarget('@ui/timeline-wheel.astro')).toContain('data-timeline-wheel');
     expect(item.files.some(({ content }) => content.includes('@/features/'))).toBe(false);
   });
 

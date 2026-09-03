@@ -11,11 +11,16 @@ export const prerender = true;
 // backdrop so the emptiness stays alive without introducing off-palette colour.
 const DAY = 86_400_000;
 const BASE = Date.UTC(2026, 6, 12); // 2026-07-12, fixed (no Date.now in build)
-const groups = Array.from({ length: 10 }, (_, i) => {
+// Fixed, uneven post counts per day. Two things ride on them: the notches are
+// graduated by how busy a day was, and the sections are as tall as their counts
+// — which is the whole point of the jog wheel measuring travel in dates rather
+// than pixels. Dragging past a 9-post day must cost the same as a 1-post day.
+const COUNTS = [3, 1, 9, 2, 6, 1, 12, 4, 1, 7];
+const groups = COUNTS.map((count, i) => {
   const d = new Date(BASE - i * DAY);
   const iso = d.toISOString().slice(0, 10);
   const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  return { date: iso, label };
+  return { date: iso, label, count };
 });
 ---
 
@@ -57,9 +62,14 @@ const groups = Array.from({ length: 10 }, (_, i) => {
       <div class="fixture-feed" data-mood-feed>
         <div class="fixture-list" data-mood-list role="region" aria-label="Mood wheel fixture" aria-busy="false">
           {groups.map((group) => (
-            <section class="mood-date-group" data-date={group.date} aria-hidden="true">
+            <section
+              class="mood-date-group"
+              data-date={group.date}
+              style={`--group-count: ${group.count}`}
+              aria-hidden="true"
+            >
               <div class="mood-date-header"><span>{group.label}</span></div>
-              <article class="mood-item"></article>
+              {Array.from({ length: group.count }, () => <article class="mood-item"></article>)}
             </section>
           ))}
         </div>
@@ -167,8 +177,9 @@ const groups = Array.from({ length: 10 }, (_, i) => {
     display: block;
   }
 
+  /* Height tracks the day's post count, the way a real feed's does. */
   .mood-date-group {
-    height: 28vh;
+    height: calc(12vh + var(--group-count, 1) * 9vh);
   }
 
   /* Persistent scroll cue, bottom-right, riding above the sheen. */
