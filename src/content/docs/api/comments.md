@@ -136,8 +136,13 @@ POST /api/v2/comments
 ```
 
 `body` is 1-2000 characters. `displayName` is 1-32 characters, no control
-characters, and can't collide with a small reserved list (the blog owner's
-own names). `email` is optional — omitted or empty means an anonymous
+characters, can't collide with a small reserved list (the blog owner's own
+names), and can't carry a blocked term — profanity, and the role names an
+impersonator reaches for. Both checks fold lookalike letters from other
+alphabets, so a term spelled in a second script is refused too; the term list
+itself is not published. A name already stored on a signed-in reader is
+checked for shape only, so a later edit to the term list never locks an
+existing account out — the owner renames those from the moderation queue. `email` is optional — omitted or empty means an anonymous
 comment (session-owned, identicon avatar, never
 claimable); a non-empty value must be a valid address (`400` otherwise).
 `turnstileToken` uses `expectedAction: 'blog_comment_create'`.
