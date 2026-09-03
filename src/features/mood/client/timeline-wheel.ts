@@ -1,7 +1,11 @@
 import type gsap from 'gsap';
 import { slotText, type SlotOptions, type SlotTextController } from 'slot-text';
 import 'slot-text/style.css';
-import { getTimelineDateState } from '@/features/mood/client/timeline-date-tracker';
+import {
+  getScrollYForDateProgress,
+  getTimelineDateState,
+} from '@/features/mood/client/timeline-date-tracker';
+import { createWheelFeedback } from '@/features/mood/client/wheel-feedback';
 import { getMoodFeedTopHref } from '@/features/mood/shared/feed-anchor';
 import { pageScroll } from '@/lib/page-scroll';
 
@@ -30,6 +34,12 @@ export function mountTimelineWheel(
   // feed top, and the existing scroll sync winds the dial back as you go.
   const topButton = wheel.querySelector('[data-timeline-top]') as HTMLButtonElement | null;
   const handleTopClick = (): void => {
+    // A drag releases with a click event; only a press that never moved counts.
+    if (suppressClick) {
+      suppressClick = false;
+      return;
+    }
+
     const topHref = getMoodFeedTopHref(new URL(window.location.href));
     if (topHref) {
       window.location.assign(topHref);
@@ -63,11 +73,14 @@ export function mountTimelineWheel(
   let shownText = '';
   let isHoveringWheel = false;
   let topRevealed = false;
+  // True while the wheel itself is driving the scroll (drag, coast, snap,
+  // keyboard step or shuffle) rather than merely reporting it.
+  let controlActive = false;
   let hintPulseTimer = 0;
   let dirAnchorY = 0;
   let scrollDir: 'up' | 'down' = 'down';
 
-  const wantsTop = (): boolean => topRevealed || isHoveringWheel;
+  const wantsTop = (): boolean => !controlActive && (topRevealed || isHoveringWheel);
 
   // Render whatever the readout should currently show, picking the right roll
   // for the transition and skipping no-op re-rolls.
@@ -355,6 +368,25 @@ export function mountTimelineWheel(
     }
   };
 
+  // How busy a day was, as 0-1. Log-scaled because the tail is long: a day with
+  // 30 posts should not flatten every ordinary day to nothing. The scale is
+  // fixed rather than normalised against the loaded maximum, so notches keep the
+  // weight they were drawn with when more pages arrive.
+  const DENSITY_SATURATION = 12;
+
+  const groupWeight = (group: HTMLElement | undefined): number => {
+    const count = group?.querySelectorAll('.mood-item').length ?? 0;
+    if (count === 0) return 0;
+    return Math.min(Math.log2(1 + count) / Math.log2(1 + DENSITY_SATURATION), 1);
+  };
+
+  const applyGroupWeight = (dateIdx: number): void => {
+    const weight = groupWeight(dateGroups[dateIdx]);
+    dial
+      .querySelectorAll<HTMLElement>(`[data-date-index="${dateIdx}"]`)
+      .forEach((notch) => notch.style.setProperty('--notch-weight', weight.toFixed(3)));
+  };
+
   const createNotches = (startFrom = 0): void => {
     if (startFrom === 0) {
       dial.innerHTML = '';
@@ -367,9 +399,11 @@ export function mountTimelineWheel(
 
     for (let dateIdx = startFrom; dateIdx < totalDates; dateIdx++) {
       const majorAngle = dateIdx * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
+      const weight = groupWeight(dateGroups[dateIdx]).toFixed(3);
       const majorNotch = document.createElement('div');
       majorNotch.className = 'timeline-notch is-major';
       majorNotch.dataset.dateIndex = String(dateIdx);
+      majorNotch.style.setProperty('--notch-weight', weight);
       majorNotch.style.transform = `rotate(${majorAngle}deg) translateX(calc(var(--wheel-size) / 2 - 36px))`;
       const pip = document.createElement('div');
       pip.className = 'timeline-notch-pip';
@@ -381,6 +415,8 @@ export function mountTimelineWheel(
         const minorAngle = majorAngle + i * ANGLE_PER_NOTCH;
         const minorNotch = document.createElement('div');
         minorNotch.className = 'timeline-notch';
+        minorNotch.dataset.dateIndex = String(dateIdx);
+        minorNotch.style.setProperty('--notch-weight', weight);
         minorNotch.style.transform = `rotate(${minorAngle}deg) translateX(calc(var(--wheel-size) / 2 - 20px))`;
         dial.appendChild(minorNotch);
       }
@@ -504,6 +540,329 @@ export function mountTimelineWheel(
     });
   };
 
+  // ── Jog wheel: the dial as an input ──────────────────────────────────────
+  // Dragging the wheel drives the scroll position, and the ordinary scroll sync
+  // above winds the dial to match. scrollTop stays the single source of truth,
+  // so there is never a second animation competing for the same dial.
+  //
+  // Travel is measured in DATES, not pixels: one drag step covers the same
+  // ground whether a day holds one line of text or twenty photos. Pixel-based
+  // scrubbing on a mood feed is unusable for exactly that reason.
+
+  const PX_PER_DATE = 26; // drag distance that advances the dial by one date
+  const DRAG_THRESHOLD = 4; // px of travel before a press stops being a click
+  const MOMENTUM_FRICTION = 0.955; // per-frame decay of a flick
+  const MOMENTUM_CUTOFF = 0.015; // dates/frame at which coasting gives up
+  // dates/frame. With the friction above this caps a hard throw at roughly
+  // eleven days of travel — far enough to feel like fast travel, near enough
+  // that you can still see where you landed.
+  const MAX_FLICK_SPEED = 0.5;
+  const SNAP_MS = 260;
+  const VELOCITY_WINDOW_MS = 90;
+  const FRAME_MS = 16.7;
+
+  const feedback = createWheelFeedback();
+
+  let dragPointerId: number | null = null;
+  let dragStartY = 0;
+  let dragStartProgress = 0;
+  let dragProgress = 0;
+  let dragMoved = false;
+  let dragVelocity = 0; // dates per frame
+  let dragSamples: { at: number; progress: number }[] = [];
+  let momentumRaf = 0;
+  let progressTweenRaf = 0;
+  let lastTickedDate = 0;
+  let suppressClick = false;
+
+  const clamp = (value: number, min: number, max: number): number =>
+    Math.min(Math.max(value, min), max);
+
+  const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;
+  const easeOutQuart = (t: number): number => 1 - (1 - t) ** 4;
+
+  const viewportHeight = (): number => scroll.el.clientHeight || window.innerHeight;
+
+  const clampProgress = (value: number): number =>
+    clamp(value, 0, Math.max(dateGroups.length - 1, 0) + 1);
+
+  const readProgress = (): number => {
+    if (dateAnchors.length !== dateGroups.length) return 0;
+    return Math.max(
+      getTimelineDateState({
+        anchors: dateAnchors,
+        feedBottomY: cachedFeedBottomY,
+        scrollY: scroll.el.scrollTop,
+        viewportHeight: viewportHeight(),
+      }).progressIndex,
+      0
+    );
+  };
+
+  // Move the feed to a fractional date index. Returns false once the scroller is
+  // pinned at either end, which is what stops momentum grinding against a wall.
+  const scrollToProgress = (progress: number): boolean => {
+    if (dateAnchors.length !== dateGroups.length) return false;
+    const desired = getScrollYForDateProgress({
+      anchors: dateAnchors,
+      feedBottomY: cachedFeedBottomY,
+      progressIndex: progress,
+      viewportHeight: viewportHeight(),
+    });
+    const limit = Math.max(scroll.el.scrollHeight - scroll.el.clientHeight, 0);
+    const next = clamp(desired, 0, limit);
+    const moved = Math.abs(next - scroll.el.scrollTop) > 0.5;
+    scroll.el.scrollTop = next;
+    return moved;
+  };
+
+  // One click per date boundary crossed, at a volume that tracks dial speed.
+  const tickAcross = (progress: number, strength: number): void => {
+    const index = Math.floor(progress);
+    if (index === lastTickedDate) return;
+    lastTickedDate = index;
+    feedback.tick(strength);
+  };
+
+  const recordDragSample = (progress: number): void => {
+    const at = performance.now();
+    dragSamples.push({ at, progress });
+    while (dragSamples.length > 2 && at - dragSamples[0].at > VELOCITY_WINDOW_MS) {
+      dragSamples.shift();
+    }
+  };
+
+  // Drag speed in dates per frame, measured across a time window rather than
+  // between two adjacent events. A 120Hz trackpad delivers moves less than a
+  // millisecond apart, and dividing by that gap turns an ordinary drag into a
+  // flick across the whole year.
+  const dragSpeed = (): number => {
+    if (dragSamples.length < 2) return 0;
+    const first = dragSamples[0];
+    const last = dragSamples[dragSamples.length - 1];
+    const elapsed = last.at - first.at;
+    if (elapsed < 8) return 0;
+    return ((last.progress - first.progress) / elapsed) * FRAME_MS;
+  };
+
+  const setEngaged = (active: boolean): void => {
+    if (controlActive === active) return;
+    controlActive = active;
+    wheel.classList.toggle('is-engaged', active);
+    // The readout must show the date while scrubbing, never the back-to-top cue.
+    renderReadout();
+  };
+
+  const stopMomentum = (): void => {
+    if (momentumRaf !== 0) cancelAnimationFrame(momentumRaf);
+    momentumRaf = 0;
+  };
+
+  const stopProgressTween = (): void => {
+    if (progressTweenRaf !== 0) cancelAnimationFrame(progressTweenRaf);
+    progressTweenRaf = 0;
+  };
+
+  const abortWheelControl = (): void => {
+    stopMomentum();
+    stopProgressTween();
+    setEngaged(false);
+  };
+
+  const animateProgressTo = (
+    target: number,
+    duration: number,
+    ease: (t: number) => number,
+    onDone?: () => void
+  ): void => {
+    stopProgressTween();
+    const from = dragProgress;
+    const distance = Math.abs(target - from);
+    const startedAt = performance.now();
+
+    const step = (): void => {
+      const elapsed = performance.now() - startedAt;
+      const t = duration > 0 ? Math.min(elapsed / duration, 1) : 1;
+      const progress = from + (target - from) * ease(t);
+      dragProgress = progress;
+      scrollToProgress(progress);
+      tickAcross(progress, clamp(distance / 10, 0.2, 1));
+
+      if (t < 1) {
+        progressTweenRaf = requestAnimationFrame(step);
+        return;
+      }
+
+      progressTweenRaf = 0;
+      feedback.settle();
+      setEngaged(false);
+      onDone?.();
+    };
+
+    progressTweenRaf = requestAnimationFrame(step);
+  };
+
+  // Detents: the dial always comes to rest on a date, with that date's header
+  // level with the readout at the viewport's midline.
+  const snapToNearestDate = (): void => {
+    stopMomentum();
+    const target = clampProgress(Math.round(dragProgress));
+    if (Math.abs(target - dragProgress) < 0.01) {
+      feedback.settle();
+      setEngaged(false);
+      return;
+    }
+    animateProgressTo(target, prefersReducedMotion ? 0 : SNAP_MS, easeOutCubic);
+  };
+
+  const stepMomentum = (): void => {
+    momentumRaf = 0;
+    dragVelocity *= MOMENTUM_FRICTION;
+
+    if (Math.abs(dragVelocity) < MOMENTUM_CUTOFF) {
+      snapToNearestDate();
+      return;
+    }
+
+    const next = clampProgress(dragProgress + dragVelocity);
+    const moved = scrollToProgress(next);
+    dragProgress = next;
+    tickAcross(next, clamp(Math.abs(dragVelocity) * 2, 0, 1));
+
+    if (!moved) {
+      snapToNearestDate();
+      return;
+    }
+
+    momentumRaf = requestAnimationFrame(stepMomentum);
+  };
+
+  const beginWheelControl = (): void => {
+    stopMomentum();
+    stopProgressTween();
+    dragProgress = readProgress();
+    lastTickedDate = Math.floor(dragProgress);
+    dragSamples = [];
+  };
+
+  const handlePointerDown = (event: PointerEvent): void => {
+    if (!isDesktop() || dateGroups.length === 0) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+
+    beginWheelControl();
+    // Cleared here, not only when a click arrives: a drag that ends without one
+    // (released off-window, cancelled by the browser) must not swallow the next
+    // real click on the wheel.
+    suppressClick = false;
+    dragPointerId = event.pointerId;
+    dragStartY = event.clientY;
+    dragStartProgress = dragProgress;
+    dragMoved = false;
+    dragVelocity = 0;
+    recordDragSample(dragProgress);
+    topButton?.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: PointerEvent): void => {
+    if (dragPointerId !== event.pointerId) return;
+
+    const travel = event.clientY - dragStartY;
+    if (!dragMoved) {
+      if (Math.abs(travel) < DRAG_THRESHOLD) return;
+      dragMoved = true;
+      setEngaged(true);
+    }
+
+    event.preventDefault();
+
+    const next = clampProgress(dragStartProgress + travel / PX_PER_DATE);
+    dragProgress = next;
+    recordDragSample(next);
+    scrollToProgress(next);
+    tickAcross(next, clamp(Math.abs(dragSpeed()) * 4, 0, 1));
+  };
+
+  const handlePointerUp = (event: PointerEvent): void => {
+    if (dragPointerId !== event.pointerId) return;
+    dragPointerId = null;
+    if (topButton?.hasPointerCapture(event.pointerId)) {
+      topButton.releasePointerCapture(event.pointerId);
+    }
+
+    // A press that never moved is a click, and click still means back to top.
+    if (!dragMoved) return;
+    suppressClick = true;
+
+    const velocity = clamp(dragSpeed(), -MAX_FLICK_SPEED, MAX_FLICK_SPEED);
+    if (!prefersReducedMotion && Math.abs(velocity) > MOMENTUM_CUTOFF) {
+      dragVelocity = velocity;
+      momentumRaf = requestAnimationFrame(stepMomentum);
+      return;
+    }
+
+    snapToNearestDate();
+  };
+
+  const handlePointerCancel = (event: PointerEvent): void => {
+    if (dragPointerId !== event.pointerId) return;
+    dragPointerId = null;
+    if (dragMoved) snapToNearestDate();
+  };
+
+  // Arrow keys step whole dates, so the wheel is usable without a pointer.
+  const handleKeyDown = (event: KeyboardEvent): void => {
+    if (dateGroups.length === 0) return;
+    const step = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
+    if (step === 0) return;
+
+    event.preventDefault();
+    beginWheelControl();
+    const target = clampProgress(
+      step > 0 ? Math.floor(dragProgress) + 1 : Math.ceil(dragProgress) - 1
+    );
+    setEngaged(true);
+    animateProgressTo(target, prefersReducedMotion ? 0 : 220, easeOutCubic);
+  };
+
+  // Spin to a random loaded date — the feed's own gacha. Only the pages already
+  // in the DOM are in the draw; the wheel deliberately does not fetch to widen
+  // it, because a random jump that stalls on the network is not a fun surprise.
+  const shuffleButton = wheel.querySelector('[data-timeline-shuffle]') as HTMLButtonElement | null;
+
+  const highlightLanding = (dateIndex: number): void => {
+    const item = dateGroups[dateIndex]?.querySelector('.mood-item');
+    if (!(item instanceof HTMLElement)) return;
+    item.classList.remove('mood-item--anchored');
+    requestAnimationFrame(() => {
+      item.classList.add('mood-item--anchored');
+      window.setTimeout(() => item.classList.remove('mood-item--anchored'), 1800);
+    });
+  };
+
+  const handleShuffle = (): void => {
+    const total = dateGroups.length;
+    if (total < 2) return;
+
+    beginWheelControl();
+    const current = Math.round(dragProgress);
+    let target = current;
+    while (target === current) target = Math.floor(Math.random() * total);
+
+    setEngaged(true);
+    const distance = Math.abs(target - dragProgress);
+    // Long throws take longer, but not proportionally — a spin across a year
+    // should still land inside a couple of seconds.
+    const duration = prefersReducedMotion ? 0 : clamp(600 + distance * 70, 600, 1900);
+    animateProgressTo(target, duration, easeOutQuart, () => highlightLanding(target));
+  };
+
+  topButton?.addEventListener('pointerdown', handlePointerDown);
+  topButton?.addEventListener('pointermove', handlePointerMove);
+  topButton?.addEventListener('pointerup', handlePointerUp);
+  topButton?.addEventListener('pointercancel', handlePointerCancel);
+  topButton?.addEventListener('keydown', handleKeyDown);
+  shuffleButton?.addEventListener('click', handleShuffle);
+
   const setLoadingSpin = (active: boolean): void => {
     if (!isDesktop()) {
       isLoadingSpin = false;
@@ -547,7 +906,13 @@ export function mountTimelineWheel(
       scrollDir = dy < 0 ? 'up' : 'down';
       dirAnchorY = y;
     }
-    setTopRevealed(scrollDir === 'up' && y > REVEAL_AT());
+    // Scrubbing upward is not "heading for the top" — it is aiming at a date.
+    if (controlActive) {
+      dirAnchorY = y;
+      setTopRevealed(false);
+    } else {
+      setTopRevealed(scrollDir === 'up' && y > REVEAL_AT());
+    }
 
     wheel.classList.add('is-scrolling');
     clearTimeout(scrollTimer);
@@ -631,6 +996,12 @@ export function mountTimelineWheel(
         createNotches(prevCount);
       }
 
+      if (itemsChanged && prevCount > 0) {
+        // Infinite scroll appends into the trailing group as well as adding new
+        // ones, so the last existing date's weight can still be moving.
+        applyGroupWeight(Math.min(prevCount - 1, dateGroups.length - 1));
+      }
+
       rebuildDateAnchors();
       if (!scrollSyncActive) {
         setupScrollSync();
@@ -651,6 +1022,7 @@ export function mountTimelineWheel(
     } else {
       isLoadingSpin = false;
       destroyLoadingAnimation();
+      abortWheelControl();
       if (animationId !== 0) {
         cancelAnimationFrame(animationId);
         animationId = 0;
@@ -707,6 +1079,14 @@ export function mountTimelineWheel(
 
   return () => {
     topButton?.removeEventListener('click', handleTopClick);
+    topButton?.removeEventListener('pointerdown', handlePointerDown);
+    topButton?.removeEventListener('pointermove', handlePointerMove);
+    topButton?.removeEventListener('pointerup', handlePointerUp);
+    topButton?.removeEventListener('pointercancel', handlePointerCancel);
+    topButton?.removeEventListener('keydown', handleKeyDown);
+    shuffleButton?.removeEventListener('click', handleShuffle);
+    abortWheelControl();
+    feedback.destroy();
     wheel.removeEventListener('mouseenter', handleMouseEnter);
     wheel.removeEventListener('mouseleave', handleMouseLeave);
     window.removeEventListener('resize', handleWindowResize);
