@@ -1,4 +1,4 @@
-import type { PortalComments, PortalOverview } from './portal-client';
+import type { PortalActivity, PortalComments, PortalOverview } from './portal-client';
 
 // Local-dev fixture. When the site-api service binding is unavailable (running
 // `bun dev` without `bun dev:api`), the overview would otherwise render all
@@ -114,5 +114,80 @@ export const DEMO_COMMENTS: PortalComments = {
     },
   ],
   total: 3,
+  nextOffset: null,
+};
+
+/* The activity feed's fixture. Written as one plausible afternoon rather than
+   a tidy sample: a comment that was held, then approved, and a reader who
+   added a reaction and took it back twenty minutes later. Those two sequences
+   are the whole reason this page exists, and a fixture that never shows them
+   makes the design look pointless. */
+export const DEMO_ACTIVITY: PortalActivity = {
+  summary: {
+    byEvent: {
+      'comment.create': 166,
+      'comment.edit': 12,
+      'comment.remove': 5,
+      'comment.moderate': 41,
+      'comment.approve': 27,
+      'comment.hide': 6,
+      'comment.delete': 4,
+      'reaction.add': 512,
+      'reaction.remove': 63,
+    },
+    today: 19,
+    reactionsNet: 449,
+    daily: Array.from({ length: 14 }, (_, index) => ({
+      date: daysAgo(13 - index).slice(0, 10),
+      comments: [0, 2, 1, 0, 4, 3, 1, 0, 0, 5, 2, 7, 3, 6][index],
+      reactions: [3, 9, 4, 2, 14, 11, 6, 1, 2, 22, 8, 31, 12, 19][index],
+    })),
+  },
+  entries: [
+    {
+      id: 'ac_01', createdAt: minsAgo(3), event: 'reaction.add', actor: 'reader', source: 'web',
+      targetType: 'post', targetId: '665f0a11', postId: '665f0a11',
+      postTitle: 'The retry budget nobody wrote down', postSlug: 'retry-budget',
+      displayName: null, readerId: null, anonymous: true,
+      emoji: '❤️', status: null, reason: null, note: null,
+    },
+    {
+      id: 'ac_02', createdAt: minsAgo(9), event: 'comment.approve', actor: 'owner', source: 'telegram',
+      targetType: 'comment', targetId: '01J8QK3M7X', postId: '665f0a11',
+      postTitle: 'The retry budget nobody wrote down', postSlug: 'retry-budget',
+      displayName: 'Ines', readerId: 'rd_9f21', anonymous: false,
+      emoji: null, status: 'published', reason: 'ok', note: 'Approved by the owner from Telegram.',
+    },
+    {
+      id: 'ac_03', createdAt: minsAgo(24), event: 'reaction.remove', actor: 'reader', source: 'web',
+      targetType: 'comment', targetId: '01J8QK3M7X', postId: '665f0a11',
+      postTitle: 'The retry budget nobody wrote down', postSlug: 'retry-budget',
+      displayName: 'Ines', readerId: 'rd_9f21', anonymous: false,
+      emoji: '❤️', status: null, reason: null, note: null,
+    },
+    {
+      id: 'ac_04', createdAt: minsAgo(44), event: 'reaction.add', actor: 'reader', source: 'web',
+      targetType: 'comment', targetId: '01J8QK3M7X', postId: '665f0a11',
+      postTitle: 'The retry budget nobody wrote down', postSlug: 'retry-budget',
+      displayName: 'Ines', readerId: 'rd_9f21', anonymous: false,
+      emoji: '❤️', status: null, reason: null, note: null,
+    },
+    {
+      id: 'ac_05', createdAt: hoursAgo(2), event: 'comment.moderate', actor: 'model', source: 'web',
+      targetType: 'comment', targetId: '01J8QK3M7X', postId: '665f0a11',
+      postTitle: 'The retry budget nobody wrote down', postSlug: 'retry-budget',
+      displayName: 'Ines', readerId: 'rd_9f21', anonymous: false,
+      emoji: null, status: 'held', reason: 'off_topic',
+      note: 'Held for review: the model was not confident either way.',
+    },
+    {
+      id: 'ac_06', createdAt: hoursAgo(2), event: 'comment.create', actor: 'reader', source: 'web',
+      targetType: 'comment', targetId: '01J8QK3M7X', postId: '665f0a11',
+      postTitle: 'The retry budget nobody wrote down', postSlug: 'retry-budget',
+      displayName: 'Ines', readerId: 'rd_9f21', anonymous: false,
+      emoji: null, status: 'held', reason: null, note: null,
+    },
+  ],
+  total: 6,
   nextOffset: null,
 };

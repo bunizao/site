@@ -1,0 +1,394 @@
+---
+/* The blog activity log.
+
+   The page the comment queue next door could never be. That one shows what a
+   comment *is* right now, because `blog_comments` keeps one verdict per row
+   and overwrites it on every decision. This one shows what happened, in
+   order, including the acts that left nothing behind: an un-react deletes its
+   own row, and a comment approved after being hidden looks, in the table,
+   exactly like one that was never hidden at all.
+
+   Reads site-api's /api/admin/activity, which reads `blog_activity_log` --
+   see that table's migration (0022) for why it exists and what it
+   deliberately forgets after ninety days. */
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/coss';
+import StatCard from '@/components/portal/StatCard.astro';
+import PortalSection from '@/components/portal/PortalSection.astro';
+import SegmentedNav from '@/components/portal/SegmentedNav.astro';
+import { Activity, Heart, History, MessagesSquare, ShieldCheck } from 'lucide-react';
+import {
+  loadPortalActivity,
+  type PortalActivity,
+  type PortalActivityFamily,
+} from '@/features/admin/server/portal-client';
+import { DEMO_ACTIVITY } from '@/features/admin/server/portal-demo';
+import {
+  activityActorName,
+  activityContext,
+  activityHref,
+  activityPredicate,
+  activitySourceLabel,
+  activityTone,
+} from '@/features/admin/activity-copy';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+const FAMILIES = ['all', 'comments', 'reactions'] as const;
+type FamilyFilter = (typeof FAMILIES)[number];
+
+const requested = Astro.url.searchParams.get('family');
+const family: FamilyFilter = (FAMILIES as readonly string[]).includes(requested ?? '')
+  ? (requested as FamilyFilter)
+  : 'all';
+
+/* A target id in the query string is how the comment queue links here: one
+   comment's whole history, in one place, which is the question the queue
+   itself cannot answer. */
+const targetId = Astro.url.searchParams.get('targetId')?.trim() || undefined;
+
+let data: PortalActivity = {
+  summary: {
+    byEvent: {
+      'comment.create': 0, 'comment.edit': 0, 'comment.remove': 0, 'comment.moderate': 0,
+      'comment.approve': 0, 'comment.hide': 0, 'comment.delete': 0,
+      'reaction.add': 0, 'reaction.remove': 0,
+    },
+    today: 0,
+    reactionsNet: 0,
+    daily: [],
+  },
+  entries: [],
+  total: 0,
+  nextOffset: null,
+};
+let loadError: string | null = null;
+let demoMode = false;
+
+try {
+  data = await loadPortalActivity(Astro.request, Astro.locals, {
+    family: family === 'all' ? 'all' : (family as PortalActivityFamily),
+    targetId,
+    limit: 100,
+  });
+} catch (error) {
+  loadError = error instanceof Error ? error.message : 'unknown';
+  if (import.meta.env.DEV && loadError === 'api_binding_unavailable') {
+    data = DEMO_ACTIVITY;
+    demoMode = true;
+    loadError = null;
+  }
+}
+
+const { summary, entries, total } = data;
+
+const commentEvents = (['comment.create', 'comment.edit', 'comment.remove', 'comment.moderate',
+  'comment.approve', 'comment.hide', 'comment.delete'] as const);
+const commentTotal = commentEvents.reduce((sum, event) => sum + summary.byEvent[event], 0);
+const ownerActions = summary.byEvent['comment.approve']
+  + summary.byEvent['comment.hide']
+  + summary.byEvent['comment.delete'];
+
+/* Gross likes are already on the button under every post. What this page can
+   say that the button cannot is how many were taken back -- so the headline
+   number is the net, and the withdrawal rate rides underneath it. */
+const reactionsCast = summary.byEvent['reaction.add'];
+const reactionsTaken = summary.byEvent['reaction.remove'];
+const takebackRate = reactionsCast > 0 ? Math.round((reactionsTaken / reactionsCast) * 100) : 0;
+
+const familyItems = FAMILIES.map((key) => ({
+  label: key === 'all' ? 'Everything' : key === 'comments' ? 'Comments' : 'Reactions',
+  href: `/dev/portal/activity?family=${key}${targetId ? `&targetId=${encodeURIComponent(targetId)}` : ''}`,
+  active: key === family,
+}));
+
+function timeAgo(iso: string): string {
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+const dailyPeak = Math.max(1, ...summary.daily.map((day) => day.comments + day.reactions));
+---
+
+<PortalLayout
+  title="Activity"
+  description="Every comment and reaction, in the order it happened."
+  active="activity"
+  user={{ login: session?.login || 'admin' }}
+>
+  {loadError && (
+    <div class="portal-notice" data-variant="error">
+      <Activity size={14} />
+      <span>Failed to load activity: <code>{loadError}</code></span>
+    </div>
+  )}
+  {demoMode && (
+    <div class="portal-notice">
+      <Activity size={14} />
+      <span>Showing demo data — the site-api binding is unavailable in local dev.</span>
+    </div>
+  )}
+  {targetId && (
+    <div class="portal-notice">
+      <History size={14} />
+      <span>
+        Filtered to one target: <code>{targetId}</code>.
+        <a href={`/dev/portal/activity?family=${family}`}>Show everything</a>
+      </span>
+    </div>
+  )}
+
+  <section class="portal-grid portal-stagger" data-columns="stats">
+    <StatCard
+      label="Today"
+      value={summary.today.toLocaleString()}
+      Icon={Activity}
+      tone="accent"
+      foot="events since midnight UTC"
+    />
+    <StatCard
+      label="Likes kept"
+      value={summary.reactionsNet.toLocaleString()}
+      Icon={Heart}
+      tone="success"
+      foot={reactionsCast === 0
+        ? 'nothing yet'
+        : `${reactionsCast.toLocaleString()} cast, ${reactionsTaken.toLocaleString()} taken back (${takebackRate}%)`}
+    />
+    <StatCard
+      label="Comment events"
+      value={commentTotal.toLocaleString()}
+      Icon={MessagesSquare}
+      tone="neutral"
+      foot={`${summary.byEvent['comment.create'].toLocaleString()} written, ${summary.byEvent['comment.edit'].toLocaleString()} edited`}
+    />
+    <StatCard
+      label="Your decisions"
+      value={ownerActions.toLocaleString()}
+      Icon={ShieldCheck}
+      tone={ownerActions > 0 ? 'warning' : 'neutral'}
+      foot={`${summary.byEvent['comment.approve'].toLocaleString()} approved, ${(summary.byEvent['comment.hide'] + summary.byEvent['comment.delete']).toLocaleString()} taken down`}
+    />
+  </section>
+
+  <PortalSection
+    title="Feed"
+    eyebrow="History"
+    meta={total > entries.length ? `showing ${entries.length} of ${total}` : `${total} event${total === 1 ? '' : 's'}`}
+    class="portal-mt-lg"
+  >
+    <SegmentedNav slot="action" items={familyItems} ariaLabel="Filter activity by kind" />
+
+    {entries.length === 0 ? (
+      <div class="portal-list-meta">
+        Nothing logged yet. This table only records what happens after migration 0022 was applied —
+        comments and reactions from before it are not backfilled, because the events that made them
+        were never written down.
+      </div>
+    ) : (
+      <ul class="portal-feed activity-feed">
+        {entries.map((entry) => {
+          const href = activityHref(entry);
+          const context = activityContext(entry);
+          const source = activitySourceLabel(entry);
+          return (
+            <li class="activity-row" data-tone={activityTone(entry)}>
+              <span class="activity-dot" aria-hidden="true"></span>
+              <span class="activity-body">
+                <span class="portal-feed-primary">
+                  <strong>{activityActorName(entry)}</strong>
+                  {' '}{activityPredicate(entry)}
+                  {entry.emoji ? <span class="activity-emoji"> {entry.emoji}</span> : null}
+                  {source ? <span class="activity-source"> {source}</span> : null}
+                </span>
+                {context && (
+                  <span class="portal-feed-sub">
+                    {href
+                      ? <a href={href} target="_blank" rel="noreferrer" data-astro-prefetch="false">{context}</a>
+                      : context}
+                    {entry.reason && entry.reason !== 'ok' ? ` · ${entry.reason}` : ''}
+                  </span>
+                )}
+                {entry.note && <span class="activity-note">{entry.note}</span>}
+              </span>
+              <span class="activity-time">
+                <span class="portal-feed-time tabular-nums" title={entry.createdAt}>{timeAgo(entry.createdAt)}</span>
+                {entry.targetType === 'comment' && !targetId && (
+                  <a class="activity-thread" href={`/dev/portal/activity?family=all&targetId=${encodeURIComponent(entry.targetId)}`}>
+                    history
+                  </a>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    )}
+  </PortalSection>
+
+  <PortalSection title="Last 14 days" eyebrow="Shape" class="portal-mt-lg">
+    <Card>
+      <CardHeader>
+        <CardTitle className="portal-card-title"><Activity size={14} /> Comments and reactions</CardTitle>
+        <CardDescription>
+          Stacked, UTC days. Reactions outnumber comments by an order of magnitude on a normal week —
+          the bar is mostly telling you whether anyone was reading.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {summary.daily.length === 0 ? (
+          <div class="portal-list-meta">No activity recorded yet.</div>
+        ) : (
+          <div class="activity-days">
+            {summary.daily.map((day) => (
+              <div class="activity-day" title={`${day.date} · ${day.comments} comment${day.comments === 1 ? '' : 's'}, ${day.reactions} reaction${day.reactions === 1 ? '' : 's'}`}>
+                {/* Each segment is rendered only when it has something to
+                    show: min-height keeps a 1-event day visible, and would
+                    otherwise draw a 2px bar for a day with none. */}
+                <div class="activity-day-stack">
+                  {day.reactions > 0 && (
+                    <div class="activity-day-bar" data-kind="reactions"
+                      style={`height: ${Math.round((day.reactions / dailyPeak) * 100)}%`}></div>
+                  )}
+                  {day.comments > 0 && (
+                    <div class="activity-day-bar" data-kind="comments"
+                      style={`height: ${Math.round((day.comments / dailyPeak) * 100)}%`}></div>
+                  )}
+                  {day.comments + day.reactions === 0 && <div class="activity-day-bar" data-empty></div>}
+                </div>
+                <span class="activity-day-label">{day.date.slice(8)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  </PortalSection>
+</PortalLayout>
+
+<style>
+  .activity-feed {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .activity-row {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid hsl(var(--border) / 0.6);
+  }
+
+  .activity-row:last-child {
+    border-bottom: 0;
+  }
+
+  /* The one static cue that separates a takedown from an approval without
+     reading the sentence. Colour alone would fail anyone who cannot see it,
+     so the verb still says which it is -- this only makes the feed scannable. */
+  .activity-dot {
+    width: 6px;
+    height: 6px;
+    margin-top: 6px;
+    border-radius: 50%;
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  .activity-row[data-tone='owner'] .activity-dot { background: hsl(var(--primary)); }
+  .activity-row[data-tone='reader'] .activity-dot { background: hsl(var(--primary) / 0.45); }
+  .activity-row[data-tone='model'] .activity-dot { background: hsl(var(--muted-foreground) / 0.55); }
+  .activity-row[data-tone='negative'] .activity-dot { background: hsl(var(--destructive) / 0.7); }
+
+  .activity-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .activity-emoji { font-size: 12px; }
+
+  .activity-source,
+  .activity-note {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .activity-note {
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .activity-time {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .activity-thread {
+    font-size: 11px;
+    color: hsl(var(--muted-foreground));
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .activity-thread:hover { color: hsl(var(--foreground)); }
+
+  .activity-days {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    align-items: end;
+    gap: 6px;
+    height: 120px;
+  }
+
+  .activity-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    height: 100%;
+  }
+
+  .activity-day-stack {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    width: 100%;
+    height: 100%;
+  }
+
+  .activity-day-bar {
+    width: 100%;
+    min-height: 2px;
+  }
+
+  .activity-day-bar[data-kind='reactions'] {
+    background: hsl(var(--primary) / 0.3);
+    border-radius: 3px 3px 0 0;
+  }
+
+  .activity-day-bar[data-kind='comments'] {
+    background: hsl(var(--primary) / 0.75);
+  }
+
+  .activity-day-bar[data-empty] {
+    background: hsl(var(--border));
+    border-radius: 3px 3px 0 0;
+  }
+
+  .activity-day-label {
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    color: hsl(var(--muted-foreground));
+  }
+</style>

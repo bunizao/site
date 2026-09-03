@@ -190,6 +190,80 @@ export async function loadPortalComments(
   return adminGet<PortalComments>(`/api/admin/comments?${query}`, request, locals);
 }
 
+/* The blog activity log: the same private read model as the comment queue
+   above, and declared here for the same reason. site-api's mirror is
+   `src/features/comments/server/activity-log.ts`. */
+
+export const ACTIVITY_EVENTS = [
+  'comment.create',
+  'comment.edit',
+  'comment.remove',
+  'comment.moderate',
+  'comment.approve',
+  'comment.hide',
+  'comment.delete',
+  'reaction.add',
+  'reaction.remove',
+] as const;
+export type PortalActivityEvent = (typeof ACTIVITY_EVENTS)[number];
+
+export type PortalActivityFamily = 'comments' | 'reactions';
+
+export interface PortalActivityEntry {
+  id: string;
+  createdAt: string;
+  event: PortalActivityEvent;
+  actor: 'reader' | 'model' | 'owner';
+  source: 'web' | 'portal' | 'telegram' | 'cron';
+  targetType: 'comment' | 'post';
+  targetId: string;
+  postId: string | null;
+  postTitle: string | null;
+  postSlug: string | null;
+  displayName: string | null;
+  readerId: string | null;
+  anonymous: boolean;
+  emoji: string | null;
+  status: string | null;
+  reason: string | null;
+  note: string | null;
+}
+
+export interface PortalActivitySummary {
+  byEvent: Record<PortalActivityEvent, number>;
+  today: number;
+  reactionsNet: number;
+  daily: Array<{ date: string; comments: number; reactions: number }>;
+}
+
+export interface PortalActivity {
+  summary: PortalActivitySummary;
+  entries: PortalActivityEntry[];
+  total: number;
+  nextOffset: number | null;
+}
+
+export async function loadPortalActivity(
+  request: Request,
+  locals: RuntimeEnvLocals | undefined,
+  options: {
+    family?: PortalActivityFamily | 'all';
+    targetType?: 'comment' | 'post';
+    targetId?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<PortalActivity> {
+  const query = new URLSearchParams({
+    family: options.family ?? 'all',
+    limit: String(options.limit ?? 50),
+    offset: String(options.offset ?? 0),
+  });
+  if (options.targetType) query.set('targetType', options.targetType);
+  if (options.targetId) query.set('targetId', options.targetId);
+  return adminGet<PortalActivity>(`/api/admin/activity?${query}`, request, locals);
+}
+
 export async function loadNotifyGateStatus(
   request: Request,
   locals: RuntimeEnvLocals | undefined,

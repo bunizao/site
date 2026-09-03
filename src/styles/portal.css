@@ -1834,6 +1834,24 @@ a.portal-feed-row:focus-visible,
   margin-top: 6px;
 }
 
+/* Not a Button: the three above are decisions, this one is a way out of the
+   row. Giving it the same weight would put a fourth thing that looks
+   pressable next to Delete, in a place where a misclick is expensive. */
+.portal-comment__history {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  align-self: center;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  transition: color var(--portal-dur-fast) var(--portal-ease);
+}
+
+.portal-comment__history:hover {
+  color: hsl(var(--foreground));
+}
+
 /* coss's `destructive-outline` resolves `--destructive-foreground` to
    near-white in this theme, which leaves Delete looking exactly like Hide.
    The button stays quiet on purpose -- a filled red button next to Approve is

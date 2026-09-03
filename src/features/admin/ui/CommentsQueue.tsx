@@ -32,7 +32,7 @@
 
 import * as React from 'react';
 import { Badge, Button, Card, CardContent } from '@/components/coss';
-import { Check, EyeOff, Inbox, ShieldAlert, Trash2, UserCheck } from 'lucide-react';
+import { Check, EyeOff, History, Inbox, ShieldAlert, Trash2, UserCheck } from 'lucide-react';
 import { initials, seedHue } from '@/features/comments/identity';
 import type { PortalComment, PortalCommentStatus } from '@/features/admin/server/portal-client';
 import { adminApiEndpoint } from './api';
@@ -173,6 +173,12 @@ function CommentRow({
             <Trash2 size={14} /> Delete
           </Button>
         )}
+        {/* The verdict printed above is only ever the latest one -- the row
+            keeps a single set of moderation columns and overwrites them on
+            every decision. This is the way to the rest of it. */}
+        <a className="portal-comment__history" href={`/dev/portal/activity?family=all&targetId=${encodeURIComponent(comment.id)}`}>
+          <History size={13} strokeWidth={1.5} /> History
+        </a>
       </div>
     </article>
   );

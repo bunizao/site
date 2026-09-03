@@ -1,5 +1,6 @@
 import {
   ChartColumn,
+  History,
   Image as ImageIcon,
   LayoutDashboard,
   Mail,
@@ -29,6 +30,7 @@ export type PortalNavKey =
   | 'analytics'
   | 'subscribers'
   | 'comments'
+  | 'activity'
   | 'broadcasts'
   | 'blog'
   | 'mascot'
@@ -43,6 +45,7 @@ export const PORTAL_NAV_GROUPS: readonly PortalNavGroup[] = [
       { key: 'overview', label: 'Overview', href: '/dev/portal', Icon: LayoutDashboard },
       { key: 'subscribers', label: 'Subscribers', href: '/dev/portal/subscribers', Icon: Users },
       { key: 'comments', label: 'Comments', href: '/dev/portal/comments', Icon: MessagesSquare },
+      { key: 'activity', label: 'Activity', href: '/dev/portal/activity', Icon: History },
       { key: 'broadcasts', label: 'Broadcasts', href: '/dev/portal/broadcasts', Icon: Send },
       { key: 'analytics', label: 'Analytics', href: '/dev/portal/analytics', Icon: ChartColumn },
     ],
