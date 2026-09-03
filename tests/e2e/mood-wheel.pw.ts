@@ -45,7 +45,10 @@ async function openWheel(page: Page): Promise<void> {
 }
 
 /**
- * Press on the dial and drag `distance` px without releasing.
+ * Press on the dial and drag `distance` px deeper into the feed without
+ * releasing. The graduations follow the hand, so deeper means the pointer
+ * travels UP: pushing the notches up winds the feed down, the way dragging the
+ * feed itself would.
  *
  * `hold` decides what the release will mean. A deliberate drag ends with the
  * pointer at rest, so there is no throw to coast on and the wheel simply snaps —
@@ -61,18 +64,18 @@ async function grabAndDrag(
   const box = await surface.boundingBox();
   if (!box) throw new Error('wheel drag surface has no box');
 
-  const startY = box.y + box.height * 0.5 - distance * 0.5;
+  const startY = box.y + box.height * 0.5 + distance * 0.5;
   await page.mouse.move(DRAG_X, startY);
   await page.mouse.down();
   const steps = 12;
   for (let step = 1; step <= steps; step += 1) {
-    await page.mouse.move(DRAG_X, startY + (distance * step) / steps);
+    await page.mouse.move(DRAG_X, startY - (distance * step) / steps);
     await page.waitForTimeout(16);
   }
 
   if (!hold) return;
   for (let step = 0; step < 4; step += 1) {
-    await page.mouse.move(DRAG_X, startY + distance);
+    await page.mouse.move(DRAG_X, startY - distance);
     await page.waitForTimeout(40);
   }
 }
@@ -82,8 +85,8 @@ async function settle(page: Page): Promise<void> {
     .poll(async () => {
       const first = await page.evaluate(() => window.scrollY);
       await page.waitForTimeout(140);
-      // is-engaged outlives the scroll: a long shuffle throw can hold the same
-      // pixel across two samples while it is still easing towards its day.
+      // is-engaged outlives the scroll: a long coast can hold the same pixel
+      // across two samples while it is still easing towards its day.
       const [second, engaged] = await page.evaluate(() => [
         window.scrollY,
         document.querySelector('[data-timeline-wheel]')?.classList.contains('is-engaged') ?? false,
@@ -203,6 +206,25 @@ test.describe('mood timeline wheel', () => {
     expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
   });
 
+  test('follows the hand: pulling the dial down winds back towards today', async ({ page }) => {
+    await openWheel(page);
+
+    await grabAndDrag(page, 26 * 4);
+    await page.mouse.up();
+    await settle(page);
+    const deep = await readWheelState(page);
+    expect(deep.progress).toBeGreaterThan(3);
+
+    // A negative distance drags the pointer down the screen.
+    await grabAndDrag(page, -26 * 2);
+    await page.mouse.up();
+    await settle(page);
+    const back = await readWheelState(page);
+
+    expect(deep.progress - back.progress).toBeGreaterThan(1.5);
+    expect(deep.progress - back.progress).toBeLessThan(2.5);
+  });
+
   test('steps one date per arrow key', async ({ page }) => {
     await openWheel(page);
 
@@ -221,29 +243,6 @@ test.describe('mood timeline wheel', () => {
     await page.keyboard.press('ArrowUp');
     await settle(page);
     expect(Math.round((await readWheelState(page)).progress)).toBe(base + 1);
-  });
-
-  test('spins to a different day on shuffle', async ({ page }) => {
-    await openWheel(page);
-
-    const shuffle = page.locator('[data-timeline-shuffle]');
-    await page.locator('[data-timeline-wheel]').hover();
-    await expect(shuffle).toBeVisible();
-
-    const before = await readWheelState(page);
-    await shuffle.click();
-    await settle(page);
-    const after = await readWheelState(page);
-
-    expect(Math.round(after.progress)).not.toBe(Math.round(before.progress));
-    // A spin lands on a date, like every other way the dial comes to rest.
-    const expected = after.anchors.map((anchor) => anchor - after.viewportHeight * 0.5);
-    const nearest = expected.reduce(
-      (best, candidate) =>
-        Math.abs(candidate - after.scrollY) < Math.abs(best - after.scrollY) ? candidate : best,
-      expected[0],
-    );
-    expect(Math.abs(after.scrollY - nearest)).toBeLessThan(2);
   });
 
   test('keeps the arc bleeding off the viewport edge while it is driven', async ({ page }) => {

@@ -73,8 +73,8 @@ export function mountTimelineWheel(
   let shownText = '';
   let isHoveringWheel = false;
   let topRevealed = false;
-  // True while the wheel itself is driving the scroll (drag, coast, snap,
-  // keyboard step or shuffle) rather than merely reporting it.
+  // True while the wheel itself is driving the scroll (drag, coast, snap or
+  // keyboard step) rather than merely reporting it.
   let controlActive = false;
   let hintPulseTimer = 0;
   let dirAnchorY = 0;
@@ -114,16 +114,21 @@ export function mountTimelineWheel(
     if (next && !isHoveringWheel) pulseWheelHint();
   };
 
-  const handleMouseEnter = (): void => {
+  // Only a mouse hovers. A touch also raises enter/leave (and on iOS the leave
+  // does not come until the next tap elsewhere), which would roll the readout
+  // to "↑ TOP" the moment a scrub ends and hide the date just landed on.
+  const handlePointerEnter = (event: PointerEvent): void => {
+    if (event.pointerType !== 'mouse') return;
     isHoveringWheel = true;
     renderReadout();
   };
-  const handleMouseLeave = (): void => {
+  const handlePointerLeave = (event: PointerEvent): void => {
+    if (event.pointerType !== 'mouse') return;
     isHoveringWheel = false;
     renderReadout();
   };
-  wheel.addEventListener('mouseenter', handleMouseEnter);
-  wheel.addEventListener('mouseleave', handleMouseLeave);
+  wheel.addEventListener('pointerenter', handlePointerEnter);
+  wheel.addEventListener('pointerleave', handlePointerLeave);
 
   let dateGroups: HTMLElement[] = [];
   let notches: HTMLElement[] = [];
@@ -517,7 +522,10 @@ export function mountTimelineWheel(
       return;
     }
 
+    // Land it and kill any spring still running, or the stale velocity would
+    // carry the dial past the position it was just set to.
     currentRotation = targetRotation;
+    velocity = 0;
     applyDialTransform();
   };
 
@@ -526,7 +534,10 @@ export function mountTimelineWheel(
     scrollSyncRaf = requestAnimationFrame(() => {
       scrollSyncRaf = 0;
       if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
-      applyScrollPosition(scroll.el.scrollTop, animate);
+      // The spring smooths scrolling the wheel merely reports. While the wheel
+      // is the one driving, the dial has to sit exactly where the hand put it;
+      // a spring under a finger reads as lag, not weight.
+      applyScrollPosition(scroll.el.scrollTop, animate && !controlActive);
     });
   };
 
@@ -548,8 +559,12 @@ export function mountTimelineWheel(
   // Travel is measured in DATES, not pixels: one drag step covers the same
   // ground whether a day holds one line of text or twenty photos. Pixel-based
   // scrubbing on a mood feed is unusable for exactly that reason.
+  //
+  // The graduations follow the hand. Pull the dial down and the notches under
+  // the pointer come down with it, which winds the feed back towards today;
+  // push it up to go deeper. Same as dragging the feed itself.
 
-  const PX_PER_DATE = 26; // drag distance that advances the dial by one date
+  const PX_PER_DATE = 26; // drag distance that turns the dial by one date
   const DRAG_THRESHOLD = 4; // px of travel before a press stops being a click
   const MOMENTUM_FRICTION = 0.955; // per-frame decay of a flick
   const MOMENTUM_CUTOFF = 0.015; // dates/frame at which coasting gives up
@@ -579,7 +594,6 @@ export function mountTimelineWheel(
     Math.min(Math.max(value, min), max);
 
   const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;
-  const easeOutQuart = (t: number): number => 1 - (1 - t) ** 4;
 
   const viewportHeight = (): number => scroll.el.clientHeight || window.innerHeight;
 
@@ -613,6 +627,13 @@ export function mountTimelineWheel(
     const next = clamp(desired, 0, limit);
     const moved = Math.abs(next - scroll.el.scrollTop) > 0.5;
     scroll.el.scrollTop = next;
+
+    // Turn the dial now, in the same frame as the hand moved. The scroll event
+    // that follows lands a frame later and only confirms this position.
+    targetRotation = progress * NOTCHES_PER_DATE * ANGLE_PER_NOTCH;
+    currentRotation = targetRotation;
+    velocity = 0;
+    applyDialTransform();
     return moved;
   };
 
@@ -636,10 +657,17 @@ export function mountTimelineWheel(
   // between two adjacent events. A 120Hz trackpad delivers moves less than a
   // millisecond apart, and dividing by that gap turns an ordinary drag into a
   // flick across the whole year.
+  //
+  // A still finger sends no events at all (touch reports nothing while it is
+  // not moving), so the newest sample can be from the fast part of a drag that
+  // then stopped dead. Measure staleness against now: a pointer that has not
+  // moved for STILL_MS has stopped, whatever its last sample says.
+  const STILL_MS = 50;
   const dragSpeed = (): number => {
     if (dragSamples.length < 2) return 0;
     const first = dragSamples[0];
     const last = dragSamples[dragSamples.length - 1];
+    if (performance.now() - last.at > STILL_MS) return 0;
     const elapsed = last.at - first.at;
     if (elapsed < 8) return 0;
     return ((last.progress - first.progress) / elapsed) * FRAME_MS;
@@ -775,7 +803,7 @@ export function mountTimelineWheel(
 
     event.preventDefault();
 
-    const next = clampProgress(dragStartProgress + travel / PX_PER_DATE);
+    const next = clampProgress(dragStartProgress - travel / PX_PER_DATE);
     dragProgress = next;
     recordDragSample(next);
     scrollToProgress(next);
@@ -824,36 +852,13 @@ export function mountTimelineWheel(
     animateProgressTo(target, prefersReducedMotion ? 0 : 220, easeOutCubic);
   };
 
-  // Spin to a random loaded date — the feed's own gacha. Only the pages already
-  // in the DOM are in the draw; the wheel deliberately does not fetch to widen
-  // it, because a random jump that stalls on the network is not a fun surprise.
-  const shuffleButton = wheel.querySelector('[data-timeline-shuffle]') as HTMLButtonElement | null;
-
-  const highlightLanding = (dateIndex: number): void => {
-    const item = dateGroups[dateIndex]?.querySelector('.mood-item');
-    if (!(item instanceof HTMLElement)) return;
-    item.classList.remove('mood-item--anchored');
-    requestAnimationFrame(() => {
-      item.classList.add('mood-item--anchored');
-      window.setTimeout(() => item.classList.remove('mood-item--anchored'), 1800);
-    });
-  };
-
-  const handleShuffle = (): void => {
-    const total = dateGroups.length;
-    if (total < 2) return;
-
-    beginWheelControl();
-    const current = Math.round(dragProgress);
-    let target = current;
-    while (target === current) target = Math.floor(Math.random() * total);
-
-    setEngaged(true);
-    const distance = Math.abs(target - dragProgress);
-    // Long throws take longer, but not proportionally — a spin across a year
-    // should still land inside a couple of seconds.
-    const duration = prefersReducedMotion ? 0 : clamp(600 + distance * 70, 600, 1900);
-    animateProgressTo(target, duration, easeOutQuart, () => highlightLanding(target));
+  // Taking hold of the feed itself ends whatever the wheel was still doing.
+  // A coast or snap keeps writing scrollTop for a while after release, and on
+  // touch that fights the finger that has just landed on the list.
+  const handleFeedGrab = (event: Event): void => {
+    if (!controlActive || dragPointerId !== null) return;
+    if (wheel.contains(event.target as Node)) return;
+    abortWheelControl();
   };
 
   topButton?.addEventListener('pointerdown', handlePointerDown);
@@ -861,7 +866,8 @@ export function mountTimelineWheel(
   topButton?.addEventListener('pointerup', handlePointerUp);
   topButton?.addEventListener('pointercancel', handlePointerCancel);
   topButton?.addEventListener('keydown', handleKeyDown);
-  shuffleButton?.addEventListener('click', handleShuffle);
+  scroll.el.addEventListener('pointerdown', handleFeedGrab, { passive: true });
+  scroll.el.addEventListener('wheel', handleFeedGrab, { passive: true });
 
   const setLoadingSpin = (active: boolean): void => {
     if (!isDesktop()) {
@@ -1084,11 +1090,12 @@ export function mountTimelineWheel(
     topButton?.removeEventListener('pointerup', handlePointerUp);
     topButton?.removeEventListener('pointercancel', handlePointerCancel);
     topButton?.removeEventListener('keydown', handleKeyDown);
-    shuffleButton?.removeEventListener('click', handleShuffle);
+    scroll.el.removeEventListener('pointerdown', handleFeedGrab);
+    scroll.el.removeEventListener('wheel', handleFeedGrab);
     abortWheelControl();
     feedback.destroy();
-    wheel.removeEventListener('mouseenter', handleMouseEnter);
-    wheel.removeEventListener('mouseleave', handleMouseLeave);
+    wheel.removeEventListener('pointerenter', handlePointerEnter);
+    wheel.removeEventListener('pointerleave', handlePointerLeave);
     window.removeEventListener('resize', handleWindowResize);
     clearTimeout(resizeTimer);
     destroyScrollSync();

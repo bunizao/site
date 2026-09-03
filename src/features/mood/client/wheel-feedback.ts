@@ -2,7 +2,7 @@
 // a date, plus a haptic tap where the device supports one. Sound is the cheapest
 // way to make a virtual dial feel detented, but it is also the rudest thing a
 // page can do uninvited — so it only ever fires inside a deliberate gesture
-// (drag or shuffle), never on ordinary scrolling.
+// (drag, flick or arrow key), never on ordinary scrolling.
 
 const STORAGE_KEY = 'mood-wheel-ticks';
 
