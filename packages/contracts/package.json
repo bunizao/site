@@ -53,6 +53,11 @@
       "import": "./dist/listening.js",
       "default": "./dist/listening.js"
     },
+    "./messages": {
+      "types": "./dist/messages.d.ts",
+      "import": "./dist/messages.js",
+      "default": "./dist/messages.js"
+    },
     "./mood": {
       "types": "./dist/mood.d.ts",
       "import": "./dist/mood.js",

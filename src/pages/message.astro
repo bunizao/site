@@ -1,0 +1,338 @@
+---
+// /message — the standalone form for writing to the owner privately.
+//
+// A page of its own rather than a popover in the contact panel. The contact
+// panel is a list of places to find me and reads in two seconds; this asks
+// someone to compose something, and a compose box inside a hover popover is a
+// box you lose by moving the mouse. It also means the URL is shareable on its
+// own, which is most of the point of having it.
+//
+// Site zone, not the blog zone, even though the blog masthead is what links
+// here: the address is root-level and the page is not blog content. The blog
+// masthead trigger is an entry point, not an owner.
+//
+// Nothing on this page reads existing messages. There is no such endpoint --
+// see site-api's src/pages/v2/messages.ts.
+import Layout from '@/layouts/Layout.astro';
+import Footer from '@/features/home/ui/Footer.astro';
+import { messagesCopy } from '@/features/messages/copy';
+import { blog } from '@/data/site';
+import { formatSiteTitle } from '@/lib/seo';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
+
+export const prerender = false;
+
+const locale: 'zh' | 'en' = blog.locale.blog;
+const t = messagesCopy[locale];
+
+const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
+  ? ''
+  : readTurnstileSiteKey(Astro.locals);
+---
+
+<Layout
+  title={formatSiteTitle(t.title)}
+  description={t.lede}
+  url="/message"
+  navVariant="page"
+  showSiteNav
+  brandVariant="home"
+  robots="noindex, follow"
+>
+  <main
+    class="message"
+    data-message-root
+    data-locale={locale}
+    data-turnstile-site-key={turnstileSiteKey}
+    lang={locale}
+  >
+    <div data-message-form-view>
+      <header class="message__head">
+        <h1 class="message__title">{t.title}</h1>
+        <p class="message__lede">{t.lede}</p>
+      </header>
+
+      <form class="message__form" data-message-form novalidate>
+        <div class="message__row">
+          <label class="message__label" for="message-name">{t.nameLabel}</label>
+          <input
+            class="message__input"
+            id="message-name"
+            name="displayName"
+            type="text"
+            maxlength="32"
+            autocomplete="nickname"
+            placeholder={t.namePlaceholder}
+            required
+          />
+        </div>
+
+        <div class="message__row">
+          <label class="message__label" for="message-email">
+            {t.emailLabel}
+            <span class="message__optional">{t.emailOptional}</span>
+          </label>
+          <input
+            class="message__input"
+            id="message-email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            inputmode="email"
+            placeholder={t.emailPlaceholder}
+          />
+          <p class="message__hint">{t.emailHint}</p>
+        </div>
+
+        <div class="message__row">
+          <label class="message__label" for="message-body">{t.bodyLabel}</label>
+          <textarea
+            class="message__textarea"
+            id="message-body"
+            name="body"
+            rows="8"
+            maxlength="4000"
+            placeholder={t.bodyPlaceholder}
+            required
+          ></textarea>
+        </div>
+
+        {/* Honeypot. Hidden from sight and from assistive tech, and never
+            focusable by tab -- anything that fills it is not a person. */}
+        <div class="message__trap" aria-hidden="true">
+          <label for="message-website">Website</label>
+          <input id="message-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+        </div>
+
+        {/* Turnstile renders here rather than off-screen: invisible mode is
+            only invisible until Cloudflare wants a human, and a challenge in a
+            hidden container is a dead end. */}
+        <div class="message__turnstile" data-message-turnstile></div>
+
+        <p class="message__error" data-message-error hidden role="alert"></p>
+
+        <div class="message__actions">
+          <button class="message__submit" type="submit" data-message-submit>
+            <span data-message-submit-label>{t.submit}</span>
+          </button>
+          <p class="message__privacy">{t.privacy}</p>
+        </div>
+      </form>
+    </div>
+
+    <div class="message__sent" data-message-sent-view hidden tabindex="-1">
+      <h1 class="message__title">{t.sentTitle}</h1>
+      <p class="message__lede" data-message-sent-body></p>
+      <button class="message__again" type="button" data-message-again>{t.sendAnother}</button>
+    </div>
+  </main>
+
+  <Footer />
+</Layout>
+
+<style>
+  .message {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 72px 20px 96px;
+  }
+
+  .message__head {
+    margin-bottom: 36px;
+  }
+
+  .message__title {
+    margin: 0 0 10px;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: hsl(var(--foreground));
+  }
+
+  .message__lede {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.75;
+    color: hsl(var(--muted-foreground));
+    text-wrap: pretty;
+  }
+
+  .message__form {
+    display: grid;
+    gap: 24px;
+  }
+
+  .message__row {
+    display: grid;
+    gap: 8px;
+  }
+
+  .message__label {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 550;
+    color: hsl(var(--foreground));
+  }
+
+  .message__optional {
+    font-size: 11.5px;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  .message__input,
+  .message__textarea {
+    width: 100%;
+    padding: 11px 13px;
+    /* 16px keeps iOS Safari from zooming the viewport on focus. */
+    font: inherit;
+    font-size: 16px;
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--foreground) / 0.14);
+    border-radius: 10px;
+    transition: border-color 0.14s ease, box-shadow 0.14s ease;
+  }
+
+  .message__textarea {
+    min-height: 180px;
+    line-height: 1.7;
+    resize: vertical;
+  }
+
+  .message__input::placeholder,
+  .message__textarea::placeholder {
+    color: hsl(var(--muted-foreground) / 0.6);
+  }
+
+  .message__input:focus-visible,
+  .message__textarea:focus-visible {
+    outline: none;
+    border-color: hsl(var(--foreground) / 0.4);
+    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.07);
+  }
+
+  .message__hint {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: hsl(var(--muted-foreground) / 0.9);
+    text-wrap: pretty;
+  }
+
+  /* Off-screen rather than display:none -- a bot reading the DOM should find
+     a field that looks fillable. */
+  .message__trap {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .message__turnstile:empty {
+    display: none;
+  }
+
+  .message__error {
+    margin: 0;
+    padding: 10px 13px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: hsl(var(--destructive, 0 72% 45%));
+    background: hsl(var(--destructive, 0 72% 45%) / 0.07);
+    border-radius: 9px;
+  }
+
+  .message__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .message__submit {
+    padding: 10px 22px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 550;
+    color: hsl(var(--background));
+    background: hsl(var(--foreground));
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: opacity 0.14s ease, scale 0.12s ease;
+  }
+
+  .message__submit:hover:not(:disabled) {
+    opacity: 0.86;
+  }
+
+  .message__submit:active:not(:disabled) {
+    scale: 0.97;
+  }
+
+  .message__submit:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .message__privacy {
+    margin: 0;
+    font-size: 12px;
+    color: hsl(var(--muted-foreground) / 0.85);
+  }
+
+  .message__sent {
+    padding: 24px 0;
+  }
+
+  .message__sent:focus-visible {
+    outline: none;
+  }
+
+  .message__again {
+    margin-top: 24px;
+    padding: 0;
+    font: inherit;
+    font-size: 13.5px;
+    color: hsl(var(--muted-foreground));
+    background: none;
+    border: none;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.2);
+    cursor: pointer;
+    transition: color 0.14s ease, border-color 0.14s ease;
+  }
+
+  .message__again:hover {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.5);
+  }
+
+  @media (max-width: 639px) {
+    .message {
+      padding: 48px 18px 72px;
+    }
+
+    .message__title {
+      font-size: 24px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .message__submit:active:not(:disabled) {
+      scale: 1;
+    }
+  }
+</style>
+
+<script>
+  import { initMessageForm } from '@/features/messages/client/message-form';
+
+  const root = document.querySelector<HTMLElement>('[data-message-root]');
+  if (root) initMessageForm(root);
+</script>

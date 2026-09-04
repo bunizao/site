@@ -71,10 +71,11 @@ Four tiers, and most of the public JSON surface is the first one:
    first write — it scopes *ownership* of anonymous rows, not access; it is
    not an auth tier of its own.
 2. **Turnstile token.** `notify/subscribe`, `notify/manage/request`,
-   `v2/comments` `POST` (`expectedAction: 'blog_comment_create'`), and
-   `v2/reactions/toggle` (`expectedAction: 'blog_reaction'`) require a
+   `v2/comments` `POST` (`expectedAction: 'blog_comment_create'`),
+   `v2/reactions/toggle` (`expectedAction: 'blog_reaction'`), and
+   `v2/messages` (`expectedAction: 'owner_message_create'`) require a
    Cloudflare Turnstile token before the handler runs at all — the comments
-   pair take it as a `turnstileToken` body field only, notify also accepts
+   trio take it as a `turnstileToken` body field only, notify also accepts
    `cfTurnstileResponse`, `captchaToken`, or the `cf-turnstile-response`
    header. A missing or failing token returns `400`; Turnstile itself being
    unreachable returns `503`, not `400` — a client should treat those
@@ -164,6 +165,7 @@ Limits are per-route, not a single account-wide budget:
 | **`v2/reactions/toggle`** | 1 min | 30 | **Yes** |
 | **`v2/reader/verify`** | 1 min | 10 | **Yes** |
 | **`v2/reader/resend`** | 1 min | 5 | **Yes** (per IP; a separate per-address send suppression is enforced silently, never as a `429`) |
+| **`v2/messages` `POST`** | 10 min / 24 h | 3 / 8 | **Yes** (3 dimensions: session, IP, fingerprint) |
 
 ## Error shapes — there are two
 

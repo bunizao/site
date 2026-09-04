@@ -22,6 +22,7 @@ export const LISTENING_PATH = '/v2/listening' as const;
 // surface reuses these as-is.
 export const COMMENTS_PATH = '/v2/comments' as const;
 export const COMMENT_PATH_PREFIX = '/v2/comments/' as const;
+export const OWNER_MESSAGES_PATH = '/v2/messages' as const;
 export const REACTIONS_PATH = '/v2/reactions' as const;
 export const REACTIONS_TOGGLE_PATH = '/v2/reactions/toggle' as const;
 export const READER_ME_PATH = '/v2/reader/me' as const;

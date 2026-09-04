@@ -5,7 +5,14 @@
 // wordmark and tagline; the author byline lived here once but read as redundant
 // against the mark, so the masthead stays a pure title block. The subscribe
 // trigger sits below — quiet until opened.
+//
+// Three triggers now: 订阅 / 联系 / 留言. The first two open popovers in place;
+// the third is a plain link out to /message, because writing something is a
+// task and a compose box inside a hover popover is a box you lose by moving the
+// mouse. It reads as one of the set and behaves like a link — hence an arrow
+// that nudges rather than a caret that would promise an expansion.
 import { blog } from '@/data/site';
+import { messagesCopy } from '@/features/messages/copy';
 import SiteWordmark from '@/components/SiteWordmark.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import ContactPanel from '@/features/posts/ui/ContactPanel.astro';
@@ -13,6 +20,7 @@ import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 
 const blogCopy = blog.copy[blog.locale.blog];
+const messageCopy = messagesCopy[blog.locale.blog];
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
   : readTurnstileSiteKey(Astro.locals);
@@ -26,6 +34,18 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   <div class="blog-masthead__actions">
     <SubscribePanel variant="blog" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
     <ContactPanel />
+    <a class="blog-masthead__message" href="/message">
+      <!-- Lucide message-square at stroke 1.5, matching the two triggers to
+           its left. Same reason as theirs: Lucide's default 2 is drawn for a
+           24px box and fills the counter at 16px. -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>{messageCopy.trigger}</span>
+      <svg class="blog-masthead__message-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 12h14M13 6l6 6-6 6"></path>
+      </svg>
+    </a>
   </div>
 </header>
 
@@ -42,5 +62,63 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
 
   .blog-masthead .blog-masthead__actions .sub-trigger {
     margin-top: 0;
+  }
+</style>
+
+<style>
+  /* Matches .contact-trigger and .sub-trigger exactly — the three read as one
+     set, so any drift here shows immediately. */
+  .blog-masthead__message {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--blog-muted, hsl(var(--muted-foreground)));
+    text-decoration: none;
+    transition: color 0.15s ease, scale 0.12s ease;
+  }
+
+  .blog-masthead__message:hover {
+    color: var(--blog-ink, hsl(var(--foreground)));
+  }
+
+  .blog-masthead__message:active {
+    scale: 0.96;
+  }
+
+  .blog-masthead__message > svg:first-child {
+    width: 16px;
+    height: 16px;
+    color: var(--blog-faint, hsl(var(--muted-foreground) / 0.7));
+    transition: color 0.15s ease;
+  }
+
+  .blog-masthead__message:hover > svg:first-child {
+    color: var(--blog-accent, hsl(var(--foreground)));
+  }
+
+  /* The arrow sits where the others put a caret, so the row keeps its rhythm.
+     It travels 2px on hover: enough to say "this leaves the page", not enough
+     to reflow the row. */
+  .blog-masthead__message-arrow {
+    width: 12px;
+    height: 12px;
+    color: var(--blog-faint, hsl(var(--muted-foreground) / 0.7));
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .blog-masthead__message:hover .blog-masthead__message-arrow {
+    transform: translateX(2px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .blog-masthead__message:active {
+      scale: 1;
+    }
+
+    .blog-masthead__message-arrow {
+      transition: none;
+    }
   }
 </style>
