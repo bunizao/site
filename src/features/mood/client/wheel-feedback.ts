@@ -7,6 +7,12 @@
 const STORAGE_KEY = 'mood-wheel-ticks';
 
 export interface WheelFeedback {
+  /**
+   * Start the audio engine from inside a pointer or key event. iOS only lets an
+   * AudioContext start or resume during a user gesture, and the ticks
+   * themselves run from animation frames.
+   */
+  prime(): void;
   /** Click once. `strength` (0-1) scales volume and pitch with dial speed. */
   tick(strength?: number): void;
   /** A softer, lower click for the moment the dial settles onto a date. */
@@ -38,8 +44,8 @@ export function createWheelFeedback(): WheelFeedback {
   let context: AudioContext | null = null;
   let lastTickAt = 0;
 
-  // Autoplay policy: an AudioContext created before a user gesture starts
-  // suspended, so build it on the first tick (which is always inside one).
+  // Autoplay policy: an AudioContext created outside a user gesture starts
+  // suspended and stays that way, so it is built and resumed by prime().
   const ensureContext = (): AudioContext | null => {
     if (context) return context;
     const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -78,6 +84,11 @@ export function createWheelFeedback(): WheelFeedback {
   };
 
   return {
+    prime() {
+      if (muted) return;
+      const ctx = ensureContext();
+      if (ctx && ctx.state !== 'running') void ctx.resume();
+    },
     tick(strength = 0.5) {
       if (muted) return;
       // A fast spin can cross dates faster than the ear resolves; throttling

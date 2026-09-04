@@ -878,6 +878,10 @@ export function mountTimelineWheel(
     if (!isDesktop() || dateGroups.length === 0) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
 
+    // Sound must be unlocked inside the gesture; the ticks come from frames.
+    // iOS grants activation on touch end rather than start, so both ends of
+    // the press prime it and the first drag of a session can still click.
+    feedback.prime();
     beginWheelControl();
     // Cleared here, not only when a click arrives: a drag that ends without one
     // (released off-window, cancelled by the browser) must not swallow the next
@@ -910,6 +914,7 @@ export function mountTimelineWheel(
   const handlePointerUp = (event: PointerEvent): void => {
     if (dragPointerId !== event.pointerId) return;
     dragPointerId = null;
+    feedback.prime();
     flushDrag();
     if (topButton?.hasPointerCapture(event.pointerId)) {
       topButton.releasePointerCapture(event.pointerId);
@@ -936,6 +941,7 @@ export function mountTimelineWheel(
     if (step === 0) return;
 
     event.preventDefault();
+    feedback.prime();
     beginWheelControl();
     const target = clampProgress(
       step > 0 ? Math.floor(dragProgress) + 1 : Math.ceil(dragProgress) - 1
