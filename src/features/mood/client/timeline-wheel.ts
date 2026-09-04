@@ -28,7 +28,9 @@ export function mountTimelineWheel(
 
   if (!dial || !label) return () => {};
 
-  const isDesktop = (): boolean => root.hasAttribute('data-timeline-wheel-compact') || window.innerWidth >= 1024;
+  // Below 1024px the wheel waits off the right edge and a swipe from that edge
+  // brings it in. The preview fixture forces the desktop layout at any width.
+  const isPhoneLayout = (): boolean => !root.hasAttribute('data-timeline-wheel-compact') && window.innerWidth < 1024;
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // The wheel doubles as a back-to-top control: clicking it returns to the
@@ -49,6 +51,7 @@ export function mountTimelineWheel(
 
     scroll.el.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
     followScrollToTop();
+    armClose();
   };
   topButton?.addEventListener('click', handleTopClick);
 
@@ -518,7 +521,7 @@ export function mountTimelineWheel(
     if (scrollSyncRaf !== 0) return;
     scrollSyncRaf = requestAnimationFrame(() => {
       scrollSyncRaf = 0;
-      if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
+      if (!scrollSyncActive || dateGroups.length === 0) return;
       // While the wheel is driving, the hand owns the dial and the scroll
       // events are echoes of its own writes. Reading them back would only let
       // a late or dropped one (iOS during momentum) yank the dial off the
@@ -570,6 +573,7 @@ export function mountTimelineWheel(
   const feedback = createWheelFeedback();
 
   let dragPointerId: number | null = null;
+  let dragStartX = 0;
   let dragStartY = 0;
   let dragStartProgress = 0;
   let dragProgress = 0;
@@ -723,6 +727,7 @@ export function mountTimelineWheel(
     renderReadout();
     // Back to reporting: land the dial on wherever the scroller actually is.
     if (!active && dateGroups.length > 0) applyScrollPosition(scroll.el.scrollTop, false);
+    if (!active) armClose();
   };
 
   const stopRelease = (): void => {
@@ -853,7 +858,7 @@ export function mountTimelineWheel(
   };
 
   const handlePointerDown = (event: PointerEvent): void => {
-    if (!isDesktop() || dateGroups.length === 0) return;
+    if (dateGroups.length === 0) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
 
     // Mouse and pen presses count as activation; a touch start does not, and
@@ -865,17 +870,29 @@ export function mountTimelineWheel(
     // real click on the wheel.
     suppressClick = false;
     dragPointerId = event.pointerId;
+    dragStartX = event.clientX;
     dragStartY = event.clientY;
     dragStartProgress = dragProgress;
     dragMoved = false;
     recordDragSample(dragProgress);
     topButton?.setPointerCapture(event.pointerId);
+    armClose();
   };
 
   const handlePointerMove = (event: PointerEvent): void => {
     if (dragPointerId !== event.pointerId) return;
 
     const travel = event.clientY - dragStartY;
+    if (!dragMoved && phoneOpen) {
+      // A swipe back towards the edge puts the wheel away.
+      const across = event.clientX - dragStartX;
+      if (across > 24 && Math.abs(travel) < 12) {
+        dragPointerId = null;
+        abortWheelControl();
+        setPhoneOpen(false);
+        return;
+      }
+    }
     if (!dragMoved) {
       if (Math.abs(travel) < DRAG_THRESHOLD) return;
       dragMoved = true;
@@ -893,6 +910,7 @@ export function mountTimelineWheel(
     dragPointerId = null;
     feedback.prime();
     flushDrag();
+    armClose();
     if (topButton?.hasPointerCapture(event.pointerId)) {
       topButton.releasePointerCapture(event.pointerId);
     }
@@ -930,12 +948,94 @@ export function mountTimelineWheel(
   // Taking hold of the feed itself ends whatever the wheel was still doing.
   // A coast or snap keeps writing scrollTop for a while after release, and on
   // touch that fights the finger that has just landed on the list.
+  // ── Phone: the wheel waits off the right edge ─────────────────────────
+  // A swipe in from the edge follows the finger until the arc is fully on
+  // screen, then that same finger scrubs the dial. It slides back out after a
+  // pause, on a swipe back towards the edge, or on a touch to the feed.
+  const edge = document.querySelector<HTMLElement>('[data-timeline-edge]');
+  // Matches the closed --reveal in TimelineWheel.astro: the arc plus the readout.
+  const CLOSED_EXTRA_PX = 160;
+  const IDLE_CLOSE_MS = 2500;
+  let phoneOpen = false;
+  let closeTimer = 0;
+  let edgePointerId: number | null = null;
+  let edgeStartX = 0;
+
+  function armClose(): void {
+    clearTimeout(closeTimer);
+    if (!phoneOpen) return;
+    closeTimer = window.setTimeout(() => {
+      if (dragPointerId !== null || controlActive) {
+        armClose();
+        return;
+      }
+      setPhoneOpen(false);
+    }, IDLE_CLOSE_MS);
+  }
+
+  function setPhoneOpen(open: boolean): void {
+    phoneOpen = open;
+    wheel.classList.toggle('is-open', open);
+    clearTimeout(closeTimer);
+    if (open) armClose();
+  }
+
+  const handleEdgeDown = (event: PointerEvent): void => {
+    if (!isPhoneLayout() || dateGroups.length === 0) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    feedback.prime();
+    edgePointerId = event.pointerId;
+    edgeStartX = event.clientX;
+    wheel.classList.add('is-sliding');
+    edge?.setPointerCapture(event.pointerId);
+  };
+
+  const handleEdgeMove = (event: PointerEvent): void => {
+    if (event.pointerId !== edgePointerId) return;
+    event.preventDefault();
+    const closed = wheel.offsetWidth + CLOSED_EXTRA_PX;
+    const reveal = clamp(closed + (event.clientX - edgeStartX), 0, closed);
+    wheel.style.setProperty('--reveal', `${reveal.toFixed(1)}px`);
+    if (reveal > 0) return;
+
+    // Fully in: hand the finger to the dial without lifting.
+    edgePointerId = null;
+    wheel.classList.remove('is-sliding');
+    wheel.style.removeProperty('--reveal');
+    setPhoneOpen(true);
+    beginWheelControl();
+    suppressClick = false;
+    dragPointerId = event.pointerId;
+    dragStartX = event.clientX;
+    dragStartY = event.clientY;
+    dragStartProgress = dragProgress;
+    dragMoved = false;
+    recordDragSample(dragProgress);
+  };
+
+  const handleEdgeEnd = (event: PointerEvent): void => {
+    if (event.pointerId !== edgePointerId) return;
+    edgePointerId = null;
+    wheel.classList.remove('is-sliding');
+    // Not fully in: the transition carries it back out.
+    wheel.style.removeProperty('--reveal');
+  };
+
   const handleFeedGrab = (event: Event): void => {
+    const target = event.target as Node;
+    if (wheel.contains(target) || edge?.contains(target)) return;
+    if (phoneOpen) setPhoneOpen(false);
     if (!controlActive || dragPointerId !== null) return;
-    if (wheel.contains(event.target as Node)) return;
     abortWheelControl();
   };
 
+  edge?.addEventListener('pointerdown', handleEdgeDown);
+  edge?.addEventListener('pointermove', handleEdgeMove);
+  edge?.addEventListener('pointermove', handlePointerMove);
+  edge?.addEventListener('pointerup', handleEdgeEnd);
+  edge?.addEventListener('pointerup', handlePointerUp);
+  edge?.addEventListener('pointercancel', handleEdgeEnd);
+  edge?.addEventListener('pointercancel', handlePointerCancel);
   topButton?.addEventListener('pointerdown', handlePointerDown);
   topButton?.addEventListener('pointermove', handlePointerMove);
   topButton?.addEventListener('pointerup', handlePointerUp);
@@ -953,16 +1053,6 @@ export function mountTimelineWheel(
   scroll.el.addEventListener('wheel', handleFeedGrab, { passive: true });
 
   const setLoadingSpin = (active: boolean): void => {
-    if (!isDesktop()) {
-      isLoadingSpin = false;
-      destroyLoadingAnimation();
-      if (animationId !== 0) {
-        cancelAnimationFrame(animationId);
-        animationId = 0;
-      }
-      return;
-    }
-
     if (isLoadingSpin === active) return;
     isLoadingSpin = active;
 
@@ -990,7 +1080,7 @@ export function mountTimelineWheel(
   };
 
   const handlePageScroll = (): void => {
-    if (!scrollSyncActive || dateGroups.length === 0 || !isDesktop()) return;
+    if (!scrollSyncActive || dateGroups.length === 0) return;
     // Track direction with a small dead zone, then reveal "↑ TOP" only while the
     // reader is scrolling back up past the first screen — the moment a jump to
     // the top is most likely wanted. Scrolling down (or nearing the top) hides it.
@@ -1068,11 +1158,7 @@ export function mountTimelineWheel(
     setupScrollSync();
     applyScrollPosition(scroll.el.scrollTop, false);
 
-    if (isDesktop()) {
-      wheel.classList.add('is-visible');
-    } else {
-      wheel.classList.remove('is-visible');
-    }
+    wheel.classList.add('is-visible');
   };
 
   const scheduleWheelSync = (): void => {
@@ -1110,8 +1196,9 @@ export function mountTimelineWheel(
   };
 
   const handleResize = (): void => {
+    if (!isPhoneLayout()) setPhoneOpen(false);
     const isLoading = wheel.classList.contains('is-loading');
-    if (isDesktop() && (dateGroups.length > 0 || isLoading)) {
+    if (dateGroups.length > 0 || isLoading) {
       wheel.classList.add('is-visible');
       if (dateGroups.length > 0) {
         rebuildDateAnchors();
@@ -1144,7 +1231,7 @@ export function mountTimelineWheel(
 
   const feedStartsHidden = feedEl.classList.contains('is-hidden');
 
-  if (isDesktop() && feedStartsHidden) {
+  if (feedStartsHidden) {
     createSkeletonNotches();
     wheel.classList.add('is-visible', 'is-loading');
     syncLoadingSpinState();
@@ -1193,6 +1280,14 @@ export function mountTimelineWheel(
     wheel.removeEventListener('pointerenter', handlePointerEnter);
     wheel.removeEventListener('pointerleave', handlePointerLeave);
     window.removeEventListener('resize', handleWindowResize);
+    edge?.removeEventListener('pointerdown', handleEdgeDown);
+    edge?.removeEventListener('pointermove', handleEdgeMove);
+    edge?.removeEventListener('pointermove', handlePointerMove);
+    edge?.removeEventListener('pointerup', handleEdgeEnd);
+    edge?.removeEventListener('pointerup', handlePointerUp);
+    edge?.removeEventListener('pointercancel', handleEdgeEnd);
+    edge?.removeEventListener('pointercancel', handlePointerCancel);
+    clearTimeout(closeTimer);
     clearTimeout(resizeTimer);
     destroyScrollSync();
     destroyLoadingAnimation();

@@ -39,6 +39,7 @@ const { compact = false } = Astro.props;
     aria-keyshortcuts="ArrowUp ArrowDown"
   ></button>
 </nav>
+{!compact && <div class="timeline-wheel-edge" data-timeline-edge aria-hidden="true"></div>}
 
 <style>
   /* ── Container ── */
@@ -52,7 +53,6 @@ const { compact = false } = Astro.props;
     width: var(--visible-width);
     height: 360px;
     z-index: 50;
-    display: none;
     opacity: 0;
     pointer-events: none;
     /* An instrument, not text: a long press on it must not select the readout
@@ -72,12 +72,6 @@ const { compact = false } = Astro.props;
     transform: translateY(-50%) translateX(0);
   }
 
-  @media (min-width: 1024px) {
-    .timeline-wheel {
-      display: block;
-    }
-  }
-
   @media (min-width: 1280px) {
     .timeline-wheel {
       --wheel-size: 700px;
@@ -91,6 +85,57 @@ const { compact = false } = Astro.props;
       --wheel-size: 800px;
       --visible-width: 60px;
       height: 440px;
+    }
+  }
+
+  /* ── Phone ──
+     The wheel waits off the right edge, mirrored so its arc faces the screen.
+     --reveal is how far out it sits: the finger drives it while sliding in
+     and the transition carries the rest. Closed has to clear the readout,
+     which hangs inboard of the arc; CLOSED_EXTRA_PX in the controller
+     matches the 160px here. */
+  @media (max-width: 1023px) {
+    .timeline-wheel:not([data-timeline-wheel-compact]),
+    .timeline-wheel:not([data-timeline-wheel-compact]).is-visible {
+      left: auto;
+      right: 0;
+      --reveal: calc(var(--visible-width) + 160px);
+      transform: translateY(-50%) translateX(var(--reveal)) scaleX(-1);
+    }
+
+    .timeline-wheel:not([data-timeline-wheel-compact]).is-open {
+      --reveal: 0px;
+    }
+
+    .timeline-wheel.is-sliding {
+      transition: none;
+    }
+
+    /* The readout is a child of the mirrored wheel; flip it back to read. */
+    .timeline-wheel:not([data-timeline-wheel-compact]) .timeline-wheel-label {
+      transform: scaleX(-1);
+    }
+  }
+
+  /* The strip a swipe starts from. Vertical pans there still scroll the feed. */
+  .timeline-wheel-edge {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    width: 44px;
+    height: 360px;
+    transform: translateY(-50%);
+    z-index: 49;
+    display: none;
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  @media (max-width: 1023px) {
+    .timeline-wheel-edge {
+      display: block;
     }
   }
 
@@ -541,9 +586,8 @@ const { compact = false } = Astro.props;
 </style>
 
 <script>
-  // The wheel is display:none below 1024px (rule above), so narrow viewports
-  // skip its module and scroll wiring entirely. It mounts lazily the first
-  // time the viewport crosses the breakpoint.
+  // Every viewport mounts it: wide ones show the arc at the left edge, narrow
+  // ones keep it off the right edge until a swipe brings it in.
   const mountAll = async () => {
     const { mountTimelineWheel } = await import('@/features/mood/client/timeline-wheel');
     document.querySelectorAll('[data-timeline-wheel]').forEach((root) => {
@@ -557,15 +601,5 @@ const { compact = false } = Astro.props;
     });
   };
 
-  const wide = window.matchMedia('(min-width: 1024px)');
-  if (wide.matches) {
-    void mountAll();
-  } else {
-    const onWiden = (event: MediaQueryListEvent) => {
-      if (!event.matches) return;
-      wide.removeEventListener('change', onWiden);
-      void mountAll();
-    };
-    wide.addEventListener('change', onWiden);
-  }
+  void mountAll();
 </script>

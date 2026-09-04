@@ -1,5 +1,4 @@
 ---
-import TimelineScrubber from '@/features/mood/ui/TimelineScrubber.astro';
 import TimelineWheel from '@/features/mood/ui/TimelineWheel.astro';
 import '@/styles/globals.css';
 
@@ -56,7 +55,6 @@ const groups = COUNTS.map((count, i) => {
 
     <main class="fixture">
       <TimelineWheel compact />
-      <TimelineScrubber />
 
       <!-- The scroll driver: invisible dated anchors that still take up height,
            nothing to read. The wheel reads their positions to build notches and
