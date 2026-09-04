@@ -47,6 +47,7 @@ export function mountTimelineWheel(
     }
 
     scroll.el.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+    followScrollToTop();
   };
   topButton?.addEventListener('click', handleTopClick);
 
@@ -601,6 +602,7 @@ export function mountTimelineWheel(
   let pendingTravel: number | null = null;
   let dragWriteRaf = 0;
   let releaseRaf = 0;
+  let topFollowRaf = 0;
   let progressTweenRaf = 0;
   let lastTickedDate = 0;
   let suppressClick = false;
@@ -704,6 +706,35 @@ export function mountTimelineWheel(
     scrollToProgress(next);
     // Against a brisk drag of 0.03 dates/ms.
     tickAcross(next, clamp(Math.abs(dragSpeed()) / 0.03, 0, 1));
+  };
+
+  const stopTopFollow = (): void => {
+    if (topFollowRaf !== 0) cancelAnimationFrame(topFollowRaf);
+    topFollowRaf = 0;
+  };
+
+  // iOS reports a programmatic smooth scroll sparsely, sometimes only once it
+  // has landed and sometimes not at all, which left the dial and readout deep
+  // in the feed after a tap had taken the scroller to the top. Read the
+  // scroller each frame until it reaches the top or stops moving instead.
+  const followScrollToTop = (): void => {
+    stopTopFollow();
+    let last = -1;
+    let still = 0;
+    const step = (): void => {
+      topFollowRaf = 0;
+      if (controlActive || dateGroups.length === 0) return;
+      const y = scroll.el.scrollTop;
+      still = y === last ? still + 1 : 0;
+      last = y;
+      applyScrollPosition(y, true);
+      if (y <= 0 || still >= 8) {
+        setTopRevealed(false);
+        return;
+      }
+      topFollowRaf = requestAnimationFrame(step);
+    };
+    topFollowRaf = requestAnimationFrame(step);
   };
 
   const setEngaged = (active: boolean): void => {
@@ -827,6 +858,7 @@ export function mountTimelineWheel(
   const beginWheelControl = (): void => {
     stopRelease();
     stopProgressTween();
+    stopTopFollow();
     // iOS drops programmatic scrollTop while the scroller is still coasting
     // under its own momentum, so a wheel grabbed mid-coast would write into
     // the void. Toggling overflow is the one way to halt that coast.
@@ -1177,6 +1209,7 @@ export function mountTimelineWheel(
 
     if (animationId !== 0) cancelAnimationFrame(animationId);
     if (anchorRefreshRaf !== 0) cancelAnimationFrame(anchorRefreshRaf);
+    stopTopFollow();
     if (wheelSyncRaf !== 0) cancelAnimationFrame(wheelSyncRaf);
   };
 }

@@ -213,26 +213,36 @@ export function createMoodMetaPatcher({
   const attemptedIds = new Set<string>();
   const observed = new WeakSet<Element>();
   let pending: Promise<void> | null = null;
+  let rerunWhenIdle = false;
   let observer: IntersectionObserver | null = null;
 
   const patch = async (requestedIds: readonly string[]): Promise<void> => {
     if (!enabled) return;
     if (pending) await pending;
 
+    // Ids in flight count as attempted from the moment the request starts.
+    // Marking them only on success let every caller queued behind a slow
+    // request wake up, see the same unpatched ids, and fire its own copy.
     const ids = [...new Set(requestedIds.map((id) => id.trim()).filter(Boolean))]
       .filter((id) => !attemptedIds.has(id))
       .slice(0, MAX_VISIBLE_IDS);
     if (!ids.length) return;
+    ids.forEach((id) => attemptedIds.add(id));
 
     pending = fetchCounts(ids)
       .then((counts) => {
-        // Mark ids attempted only on success so a failed fetch stays retryable.
-        ids.forEach((id) => attemptedIds.add(id));
         Object.entries(counts).forEach(([id, count]) => patchMoodTarget(root, id, count));
       })
-      .catch(() => undefined)
+      .catch(() => {
+        // A failed batch stays retryable.
+        ids.forEach((id) => attemptedIds.delete(id));
+      })
       .finally(() => {
         pending = null;
+        if (rerunWhenIdle) {
+          rerunWhenIdle = false;
+          void patchVisible();
+        }
       });
 
     await pending;
@@ -254,6 +264,12 @@ export function createMoodMetaPatcher({
 
   const patchVisible = async (): Promise<void> => {
     if (!enabled) return;
+    // Scroll and intersection callbacks arrive every frame. While a request is
+    // out, skip the viewport scan and run once more when it lands.
+    if (pending) {
+      rerunWhenIdle = true;
+      return;
+    }
 
     observePosts();
     const ids = collectVisibleMoodIds(root, attemptedIds);
