@@ -1,0 +1,252 @@
+---
+/**
+ * The sea at the end of /blog — a hand-drawn sailboat on a hand-drawn ocean,
+ * filling the lower screen when the reader reaches the bottom of the index.
+ *
+ * The artwork is NOT in this file. Every layer is an image slot pointed at a
+ * file in public/sillage/, currently holding flat placeholders. Replacing the
+ * art is four URL edits in the `--sillage-art-*` block below and nothing else —
+ * see public/sillage/README.md for the drawing spec.
+ *
+ * Two mechanisms carry the whole thing; both live in the stylesheet below and
+ * are commented where they are defined:
+ *
+ *   1. Seamless drift. Each sea layer is 200% wide with its tile at
+ *      `background-size: 50% 100%`, so exactly two tiles span it and a
+ *      -50% translate lands on a repeat boundary. Seamless without the
+ *      stylesheet ever knowing the tile's pixel width.
+ *
+ *   2. Sea meets sky by mask, not by color. The page background is pure white
+ *      (0 0% 100%) in light and near-black (0 0% 4%) in dark, so no painted sky
+ *      can match it in both themes. Masking the art's own alpha instead lets
+ *      the page background itself be the sky, in either theme, from one set of
+ *      assets.
+ */
+---
+
+<div class="sillage-sea" aria-hidden="true">
+  <div class="sillage-sea__haze"></div>
+  <div class="sillage-sea__clouds"></div>
+  <div class="sillage-sea__far"></div>
+  <div class="sillage-sea__boat"></div>
+  <div class="sillage-sea__near"></div>
+</div>
+
+<style>
+  .sillage-sea {
+    /* --- Art slots: replace these four URLs with the finished drawings. --- */
+    --sillage-art-near: url('/sillage/sea-near.svg');
+    --sillage-art-far: url('/sillage/sea-far.svg');
+    --sillage-art-boat: url('/sillage/boat.svg');
+    --sillage-art-cloud: url('/sillage/cloud.svg');
+
+    /* --- Light: one set of assets, re-lit per theme rather than redrawn. ---
+       Same trick chloeyan.me uses for its six times of day — the night sea is
+       the day sea through a filter, so there is never a second set of files to
+       keep in sync. */
+    --sillage-brightness: 1;
+    --sillage-saturate: 1;
+    --sillage-hue: 0deg;
+    --sillage-haze: 0.07;
+    --sillage-cloud-opacity: 0.8;
+
+    /* Hue of the haze that stands in for air above the water. Sampled from the
+       sea itself so the two never disagree. */
+    --sillage-water: 140 167 198;
+
+    /* Vertical composition. The boat's waterline is derived from the near
+       layer, not guessed: it sits --sillage-draught below the crest, so the
+       overlap survives any change to the band's height. */
+    --sillage-far-h: 54%;
+    --sillage-near-h: 34%;
+    --sillage-draught: 26px;
+
+    position: relative;
+    /* Full-bleed out of .blog-shell (the repo's established escape), then pull
+       past the shell's 48px bottom gutter so the water is flush with the page
+       edge. */
+    width: 100vw;
+    margin-inline: calc(50% - 50vw);
+    margin-bottom: -48px;
+    margin-top: 96px;
+    height: clamp(320px, 52svh, 560px);
+    overflow: hidden;
+    /* The band paints nothing itself. Every pixel of "sky" is the page
+       background showing through. */
+    pointer-events: none;
+  }
+
+  /* Re-lighting applies to the drawn layers only. Putting it on the wrapper also
+     dimmed the haze, which is not artwork — it is the air between the reader and
+     the water, and it carries its own per-theme alpha. */
+  .sillage-sea__clouds,
+  .sillage-sea__far,
+  .sillage-sea__boat,
+  .sillage-sea__near {
+    filter: brightness(var(--sillage-brightness)) saturate(var(--sillage-saturate))
+      hue-rotate(var(--sillage-hue));
+  }
+
+  :global(.dark) .sillage-sea {
+    --sillage-brightness: 0.3;
+    --sillage-saturate: 1.25;
+    --sillage-hue: -6deg;
+    /* A dark sea on a near-black page needs more air than a pale sea on white,
+       or the water reads as a hole cut in the page. */
+    --sillage-haze: 0.13;
+    /* Clouds are lit by a sky that is no longer there. Anything more than a
+       suggestion reads as smudges on the black. */
+    --sillage-cloud-opacity: 0.14;
+  }
+
+  /* --- The horizon haze -------------------------------------------------
+     The one thing bridging sky and sea. Without it the topmost crest is a
+     drawn edge sitting on a flat page and the eye reads "sticker"; with it the
+     water has air above it and the two dissolve into each other. Wide and very
+     low alpha — if you can see where it stops, it is too strong. */
+  .sillage-sea__haze {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      120% 66% at 50% 92%,
+      rgb(var(--sillage-water) / var(--sillage-haze)) 0%,
+      rgb(var(--sillage-water) / calc(var(--sillage-haze) * 0.45)) 38%,
+      transparent 72%
+    );
+  }
+
+  /* --- Sea layers -------------------------------------------------------- */
+  .sillage-sea__far,
+  .sillage-sea__near {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    /* Two tiles across; translating one tile width is translating -50%. */
+    width: 200%;
+    background-repeat: repeat-x;
+    background-size: 50% 100%;
+    background-position: 0 100%;
+    animation: sillage-drift linear infinite;
+    will-change: transform;
+  }
+
+  .sillage-sea__far {
+    height: var(--sillage-far-h);
+    background-image: var(--sillage-art-far);
+    animation-duration: 96s;
+    /* Distance is an alpha ramp, and it has to be a curve. A linear mask reads
+       as a gradient laid over the art; extinction through air is closer to
+       exponential, and these stops approximate that — the crests thin out fast
+       near the horizon and hold near the bottom. */
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgb(0 0 0 / 0.05) 18%,
+      rgb(0 0 0 / 0.2) 34%,
+      rgb(0 0 0 / 0.5) 52%,
+      rgb(0 0 0 / 0.8) 70%,
+      #000 86%
+    );
+  }
+
+  .sillage-sea__near {
+    height: var(--sillage-near-h);
+    background-image: var(--sillage-art-near);
+    animation-duration: 44s;
+    /* Only enough to take the hard edge off the crest. This layer's job is to
+       OCCLUDE the hull; masking it the way the far layer is masked would make
+       it translucent exactly where it has to be opaque, and the boat would
+       float on top of the water again. */
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 9%);
+  }
+
+  @keyframes sillage-drift {
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+
+  /* --- Clouds ------------------------------------------------------------
+     Same seamless mechanism as the water, deliberately. Sprites placed at fixed
+     percentages would pop back into place every time the -50% translate wraps;
+     a repeating strip cannot. One idiom, three layers. */
+  .sillage-sea__clouds {
+    position: absolute;
+    left: 0;
+    top: 6%;
+    width: 200%;
+    height: 26%;
+    background-image: var(--sillage-art-cloud);
+    background-repeat: repeat-x;
+    background-size: 50% 100%;
+    background-position: 0 0;
+    opacity: var(--sillage-cloud-opacity);
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 34%, #000 72%, transparent 100%);
+    animation: sillage-drift 240s linear infinite;
+    will-change: transform;
+  }
+
+  /* --- The boat ----------------------------------------------------------
+     Sits between the two sea layers, so the near crests pass in FRONT of the
+     hull. That single stacking fact is what separates "a boat in the water"
+     from "a boat pasted on the water" — everything else here is polish. */
+  .sillage-sea__boat {
+    position: absolute;
+    left: 33%;
+    bottom: calc(var(--sillage-near-h) - var(--sillage-draught));
+    width: clamp(52px, 7vw, 96px);
+    aspect-ratio: 220 / 260;
+    background-image: var(--sillage-art-boat);
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: bottom center;
+    transform-origin: 50% 88%;
+    animation:
+      sillage-bob 7.4s ease-in-out infinite,
+      sillage-rock 11.3s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  /* Bob and rock run on deliberately unrelated periods (7.4s / 11.3s). Matched
+     periods make the boat pendulum on a visible loop; mismatched ones never
+     quite repeat inside the time anyone watches. */
+  @keyframes sillage-bob {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    50% {
+      translate: 0 -7px;
+    }
+  }
+
+  @keyframes sillage-rock {
+    0%,
+    100% {
+      rotate: -2.1deg;
+    }
+    50% {
+      rotate: 2.4deg;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sillage-sea__far,
+    .sillage-sea__near,
+    .sillage-sea__clouds,
+    .sillage-sea__boat {
+      animation: none;
+    }
+  }
+
+  @media (max-width: 639px) {
+    .sillage-sea {
+      height: clamp(240px, 42svh, 380px);
+      margin-top: 72px;
+    }
+
+    .sillage-sea__boat {
+      left: 26%;
+    }
+  }
+</style>

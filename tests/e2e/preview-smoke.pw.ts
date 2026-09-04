@@ -80,7 +80,7 @@ test.describe('Preview smoke', () => {
     await expect(page.locator('.blog-shell')).toBeVisible();
     await expect(page.locator('.blog-masthead__wordmark')).toBeVisible();
     await expect(page.locator('[data-site-wordmark-variant="blog"]')).toBeVisible();
-    await expect(page.locator('.blog-colophon')).toBeVisible();
+    await expect(page.locator('.sillage-sea')).toBeVisible();
     await expect(page.locator('.blog-row__link').first()).toBeVisible();
 
     const rss = await request.get('/blog/rss.xml');
