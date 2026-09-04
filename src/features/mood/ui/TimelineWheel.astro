@@ -39,7 +39,6 @@ const { compact = false } = Astro.props;
     aria-keyshortcuts="ArrowUp ArrowDown"
   ></button>
 </nav>
-{!compact && <div class="timeline-wheel-edge" data-timeline-edge aria-hidden="true"></div>}
 
 <style>
   /* ── Container ── */
@@ -91,51 +90,53 @@ const { compact = false } = Astro.props;
   /* ── Phone ──
      The wheel waits off the right edge, mirrored so its arc faces the screen.
      --reveal is how far out it sits: the finger drives it while sliding in
-     and the transition carries the rest. Closed has to clear the readout,
-     which hangs inboard of the arc; CLOSED_EXTRA_PX in the controller
-     matches the 160px here. */
+     and the transition carries the rest. Closed is the arc plus a margin;
+     CLOSED_MARGIN_PX in the controller matches the 8px here. The readout
+     hangs inboard of the arc and fades in only once the wheel is open, so
+     the travel to open is the width of the arc and nothing more. */
   @media (max-width: 1023px) {
     .timeline-wheel:not([data-timeline-wheel-compact]),
     .timeline-wheel:not([data-timeline-wheel-compact]).is-visible {
       left: auto;
       right: 0;
-      --reveal: calc(var(--visible-width) + 160px);
+      --reveal: calc(var(--visible-width) + 8px);
       transform: translateY(-50%) translateX(var(--reveal)) scaleX(-1);
+      transition:
+        opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.3s cubic-bezier(0.2, 0.9, 0.25, 1);
+    }
+
+    /* A sliver of the arc shows while the feed moves: the handle for the
+       swipe, gone again when the feed rests. */
+    .timeline-wheel:not([data-timeline-wheel-compact]).is-scrolling:not(.is-open) {
+      --reveal: calc(var(--visible-width) - 10px);
     }
 
     .timeline-wheel:not([data-timeline-wheel-compact]).is-open {
       --reveal: 0px;
     }
 
+    /* The inboard hit area reaches past the arc; closed, it would sit over
+       the swipe zone and eat the gesture. */
+    .timeline-wheel:not([data-timeline-wheel-compact]):not(.is-open) .timeline-wheel-top {
+      pointer-events: none;
+    }
+
     .timeline-wheel.is-sliding {
       transition: none;
+    }
+
+    .timeline-wheel:not([data-timeline-wheel-compact]).is-visible .timeline-wheel-label-wrap {
+      opacity: 0;
+    }
+
+    .timeline-wheel:not([data-timeline-wheel-compact]).is-open .timeline-wheel-label-wrap {
+      opacity: 1;
     }
 
     /* The readout is a child of the mirrored wheel; flip it back to read. */
     .timeline-wheel:not([data-timeline-wheel-compact]) .timeline-wheel-label {
       transform: scaleX(-1);
-    }
-  }
-
-  /* The strip a swipe starts from. Vertical pans there still scroll the feed. */
-  .timeline-wheel-edge {
-    position: fixed;
-    right: 0;
-    top: 50%;
-    width: 44px;
-    height: 360px;
-    transform: translateY(-50%);
-    z-index: 49;
-    display: none;
-    touch-action: pan-y;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-  }
-
-  @media (max-width: 1023px) {
-    .timeline-wheel-edge {
-      display: block;
     }
   }
 

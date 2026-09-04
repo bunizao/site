@@ -857,76 +857,88 @@ export function mountTimelineWheel(
     dragSamples = [];
   };
 
-  const handlePointerDown = (event: PointerEvent): void => {
-    if (dateGroups.length === 0) return;
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
+  // The drag core, shared by the pointer handlers on the dial and the touch
+  // handover from the phone's edge swipe.
+  let dragThreshold = DRAG_THRESHOLD;
 
-    // Mouse and pen presses count as activation; a touch start does not, and
-    // is covered by the page-wide gesture-end listeners.
-    feedback.prime();
+  const dragBegin = (clientX: number, clientY: number, threshold = DRAG_THRESHOLD): void => {
     beginWheelControl();
     // Cleared here, not only when a click arrives: a drag that ends without one
     // (released off-window, cancelled by the browser) must not swallow the next
     // real click on the wheel.
     suppressClick = false;
-    dragPointerId = event.pointerId;
-    dragStartX = event.clientX;
-    dragStartY = event.clientY;
+    dragStartX = clientX;
+    dragStartY = clientY;
     dragStartProgress = dragProgress;
     dragMoved = false;
+    dragThreshold = threshold;
     recordDragSample(dragProgress);
-    topButton?.setPointerCapture(event.pointerId);
     armClose();
+  };
+
+  // True when the movement was taken by the dial.
+  const dragMove = (clientX: number, clientY: number): boolean => {
+    const travel = clientY - dragStartY;
+    if (!dragMoved && phoneOpen) {
+      // A swipe back towards the edge puts the wheel away.
+      const across = clientX - dragStartX;
+      if (across > 24 && Math.abs(travel) < 12) {
+        dragPointerId = null;
+        resetEdge();
+        abortWheelControl();
+        setPhoneOpen(false);
+        return false;
+      }
+    }
+    if (!dragMoved) {
+      if (Math.abs(travel) < dragThreshold) return false;
+      dragMoved = true;
+      setEngaged(true);
+    }
+    pendingTravel = travel;
+    if (dragWriteRaf === 0) dragWriteRaf = requestAnimationFrame(flushDrag);
+    return true;
+  };
+
+  const dragEnd = (cancelled: boolean): void => {
+    feedback.prime();
+    flushDrag();
+    armClose();
+    // A press that never moved is a click, and click still means back to top.
+    if (!dragMoved) return;
+    suppressClick = true;
+    release(cancelled ? 0 : dragSpeed());
+  };
+
+  const handlePointerDown = (event: PointerEvent): void => {
+    if (dateGroups.length === 0) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    // Mouse and pen presses count as activation; a touch start does not, and
+    // is covered by the page-wide gesture-end listeners.
+    feedback.prime();
+    dragPointerId = event.pointerId;
+    dragBegin(event.clientX, event.clientY);
+    topButton?.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event: PointerEvent): void => {
     if (dragPointerId !== event.pointerId) return;
-
-    const travel = event.clientY - dragStartY;
-    if (!dragMoved && phoneOpen) {
-      // A swipe back towards the edge puts the wheel away.
-      const across = event.clientX - dragStartX;
-      if (across > 24 && Math.abs(travel) < 12) {
-        dragPointerId = null;
-        abortWheelControl();
-        setPhoneOpen(false);
-        return;
-      }
-    }
-    if (!dragMoved) {
-      if (Math.abs(travel) < DRAG_THRESHOLD) return;
-      dragMoved = true;
-      setEngaged(true);
-    }
-
-    event.preventDefault();
-
-    pendingTravel = travel;
-    if (dragWriteRaf === 0) dragWriteRaf = requestAnimationFrame(flushDrag);
+    if (dragMove(event.clientX, event.clientY)) event.preventDefault();
   };
 
   const handlePointerUp = (event: PointerEvent): void => {
     if (dragPointerId !== event.pointerId) return;
     dragPointerId = null;
-    feedback.prime();
-    flushDrag();
-    armClose();
     if (topButton?.hasPointerCapture(event.pointerId)) {
       topButton.releasePointerCapture(event.pointerId);
     }
-
-    // A press that never moved is a click, and click still means back to top.
-    if (!dragMoved) return;
-    suppressClick = true;
-
-    release(dragSpeed());
+    dragEnd(false);
   };
 
   const handlePointerCancel = (event: PointerEvent): void => {
     if (dragPointerId !== event.pointerId) return;
     dragPointerId = null;
-    flushDrag();
-    if (dragMoved) release(0);
+    dragEnd(true);
   };
 
   // Arrow keys step whole dates, so the wheel is usable without a pointer.
@@ -949,23 +961,40 @@ export function mountTimelineWheel(
   // A coast or snap keeps writing scrollTop for a while after release, and on
   // touch that fights the finger that has just landed on the list.
   // ── Phone: the wheel waits off the right edge ─────────────────────────
-  // A swipe in from the edge follows the finger until the arc is fully on
-  // screen, then that same finger scrubs the dial. It slides back out after a
-  // pause, on a swipe back towards the edge, or on a touch to the feed.
-  const edge = document.querySelector<HTMLElement>('[data-timeline-edge]');
-  // Matches the closed --reveal in TimelineWheel.astro: the arc plus the readout.
-  const CLOSED_EXTRA_PX = 160;
+  // A swipe in from the edge follows the finger over the width of the arc,
+  // then that same finger scrubs the dial without lifting. Letting go early
+  // commits by velocity first and position second, the way a sheet does. It
+  // slides back out after a pause, on a swipe back towards the edge, or on a
+  // touch to the feed.
+  //
+  // Raw touch events on the feed's scroller, not pointer events on a strip:
+  // iOS decides scroll-or-not on the first touchmove, and only a preventDefault
+  // there claims the axis. Listening on the scroller means a vertical start in
+  // the zone is simply left alone and scrolls the feed as it always did.
+  const EDGE_ZONE_PX = 22;
+  // Matches the closed --reveal in TimelineWheel.astro: the arc plus a margin.
+  const CLOSED_MARGIN_PX = 8;
   const IDLE_CLOSE_MS = 2500;
+  const AXIS_SLOP_PX = 6;
+  // px/ms towards open or closed that decides a release on its own.
+  const COMMIT_VELOCITY = 0.35;
+  // Vertical px before the handed-over finger starts scrubbing, so the tail
+  // of the swipe itself does not move the feed.
+  const HANDOVER_THRESHOLD = 14;
   let phoneOpen = false;
   let closeTimer = 0;
-  let edgePointerId: number | null = null;
+  let edgeTouchId: number | null = null;
   let edgeStartX = 0;
+  let edgeStartY = 0;
+  let edgeClaimed = false;
+  let edgeHandedOver = false;
+  let edgeSamples: { x: number; at: number }[] = [];
 
   function armClose(): void {
     clearTimeout(closeTimer);
     if (!phoneOpen) return;
     closeTimer = window.setTimeout(() => {
-      if (dragPointerId !== null || controlActive) {
+      if (dragPointerId !== null || edgeTouchId !== null || controlActive) {
         armClose();
         return;
       }
@@ -980,62 +1009,131 @@ export function mountTimelineWheel(
     if (open) armClose();
   }
 
-  const handleEdgeDown = (event: PointerEvent): void => {
-    if (!isPhoneLayout() || dateGroups.length === 0) return;
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    feedback.prime();
-    edgePointerId = event.pointerId;
-    edgeStartX = event.clientX;
-    wheel.classList.add('is-sliding');
-    edge?.setPointerCapture(event.pointerId);
+  function resetEdge(): void {
+    edgeTouchId = null;
+    edgeClaimed = false;
+    edgeHandedOver = false;
+    edgeSamples = [];
+    wheel.classList.remove('is-sliding');
+    wheel.style.removeProperty('--reveal');
+  }
+
+  const closedReveal = (): number => wheel.offsetWidth + CLOSED_MARGIN_PX;
+
+  const findTouch = (touches: TouchList, id: number): Touch | null => {
+    for (let i = 0; i < touches.length; i += 1) {
+      if (touches[i].identifier === id) return touches[i];
+    }
+    return null;
   };
 
-  const handleEdgeMove = (event: PointerEvent): void => {
-    if (event.pointerId !== edgePointerId) return;
+  // Over the last 100ms; zero when the finger was still before it lifted.
+  const edgeVelocity = (): number => {
+    const now = performance.now();
+    const recent = edgeSamples.filter((sample) => now - sample.at <= 100);
+    if (recent.length < 2) return 0;
+    const first = recent[0];
+    const last = recent[recent.length - 1];
+    return last.at > first.at ? (last.x - first.x) / (last.at - first.at) : 0;
+  };
+
+  const handleEdgeTouchStart = (event: TouchEvent): void => {
+    if (!isPhoneLayout() || dateGroups.length === 0 || edgeTouchId !== null || phoneOpen) return;
+    const touch = event.changedTouches[0];
+    if (window.innerWidth - touch.clientX > EDGE_ZONE_PX) return;
+    if (wheel.contains(event.target as Node)) return;
+    edgeTouchId = touch.identifier;
+    edgeStartX = touch.clientX;
+    edgeStartY = touch.clientY;
+    edgeClaimed = false;
+    edgeHandedOver = false;
+    edgeSamples = [{ x: touch.clientX, at: performance.now() }];
+  };
+
+  const handleEdgeTouchMove = (event: TouchEvent): void => {
+    if (edgeTouchId === null) return;
+    const touch = findTouch(event.changedTouches, edgeTouchId);
+    if (!touch) return;
+
+    if (edgeHandedOver) {
+      if (dragMove(touch.clientX, touch.clientY)) event.preventDefault();
+      return;
+    }
+
+    const dx = touch.clientX - edgeStartX;
+    const dy = touch.clientY - edgeStartY;
+    if (!edgeClaimed) {
+      if (Math.abs(dx) < AXIS_SLOP_PX && Math.abs(dy) < AXIS_SLOP_PX) return;
+      if (Math.abs(dy) > Math.abs(dx)) {
+        // Vertical: the feed scrolls, this touch is no longer ours.
+        edgeTouchId = null;
+        return;
+      }
+      edgeClaimed = true;
+      stopRelease();
+      wheel.classList.add('is-sliding');
+    }
     event.preventDefault();
-    const closed = wheel.offsetWidth + CLOSED_EXTRA_PX;
-    const reveal = clamp(closed + (event.clientX - edgeStartX), 0, closed);
+
+    edgeSamples.push({ x: touch.clientX, at: performance.now() });
+    if (edgeSamples.length > 8) edgeSamples.shift();
+
+    const closed = closedReveal();
+    const reveal = clamp(closed + dx, 0, closed);
     wheel.style.setProperty('--reveal', `${reveal.toFixed(1)}px`);
     if (reveal > 0) return;
 
     // Fully in: hand the finger to the dial without lifting.
-    edgePointerId = null;
+    edgeHandedOver = true;
     wheel.classList.remove('is-sliding');
     wheel.style.removeProperty('--reveal');
     setPhoneOpen(true);
-    beginWheelControl();
-    suppressClick = false;
-    dragPointerId = event.pointerId;
-    dragStartX = event.clientX;
-    dragStartY = event.clientY;
-    dragStartProgress = dragProgress;
-    dragMoved = false;
-    recordDragSample(dragProgress);
+    dragBegin(touch.clientX, touch.clientY, HANDOVER_THRESHOLD);
   };
 
-  const handleEdgeEnd = (event: PointerEvent): void => {
-    if (event.pointerId !== edgePointerId) return;
-    edgePointerId = null;
-    wheel.classList.remove('is-sliding');
-    // Not fully in: the transition carries it back out.
-    wheel.style.removeProperty('--reveal');
+  const handleEdgeTouchEnd = (event: TouchEvent): void => {
+    if (edgeTouchId === null) return;
+    const touch = findTouch(event.changedTouches, edgeTouchId);
+    if (!touch) return;
+    const cancelled = event.type === 'touchcancel';
+
+    if (edgeHandedOver) {
+      resetEdge();
+      dragEnd(cancelled);
+      return;
+    }
+    if (!edgeClaimed) {
+      resetEdge();
+      return;
+    }
+
+    const velocity = edgeVelocity();
+    const closed = closedReveal();
+    const reveal = clamp(closed + (touch.clientX - edgeStartX), 0, closed);
+    resetEdge();
+    if (cancelled) return;
+    // A flick decides by its direction, a slow release by how far in it got.
+    const open = velocity < -COMMIT_VELOCITY
+      ? true
+      : velocity > COMMIT_VELOCITY
+        ? false
+        : reveal < closed * 0.6;
+    setPhoneOpen(open);
+    if (open) feedback.settle();
   };
 
   const handleFeedGrab = (event: Event): void => {
     const target = event.target as Node;
-    if (wheel.contains(target) || edge?.contains(target)) return;
+    if (wheel.contains(target)) return;
     if (phoneOpen) setPhoneOpen(false);
     if (!controlActive || dragPointerId !== null) return;
     abortWheelControl();
   };
 
-  edge?.addEventListener('pointerdown', handleEdgeDown);
-  edge?.addEventListener('pointermove', handleEdgeMove);
-  edge?.addEventListener('pointermove', handlePointerMove);
-  edge?.addEventListener('pointerup', handleEdgeEnd);
-  edge?.addEventListener('pointerup', handlePointerUp);
-  edge?.addEventListener('pointercancel', handleEdgeEnd);
-  edge?.addEventListener('pointercancel', handlePointerCancel);
+  scroll.el.addEventListener('touchstart', handleEdgeTouchStart, { passive: true, capture: true });
+  scroll.el.addEventListener('touchmove', handleEdgeTouchMove, { passive: false, capture: true });
+  scroll.el.addEventListener('touchend', handleEdgeTouchEnd, { capture: true });
+  scroll.el.addEventListener('touchcancel', handleEdgeTouchEnd, { capture: true });
   topButton?.addEventListener('pointerdown', handlePointerDown);
   topButton?.addEventListener('pointermove', handlePointerMove);
   topButton?.addEventListener('pointerup', handlePointerUp);
@@ -1280,13 +1378,10 @@ export function mountTimelineWheel(
     wheel.removeEventListener('pointerenter', handlePointerEnter);
     wheel.removeEventListener('pointerleave', handlePointerLeave);
     window.removeEventListener('resize', handleWindowResize);
-    edge?.removeEventListener('pointerdown', handleEdgeDown);
-    edge?.removeEventListener('pointermove', handleEdgeMove);
-    edge?.removeEventListener('pointermove', handlePointerMove);
-    edge?.removeEventListener('pointerup', handleEdgeEnd);
-    edge?.removeEventListener('pointerup', handlePointerUp);
-    edge?.removeEventListener('pointercancel', handleEdgeEnd);
-    edge?.removeEventListener('pointercancel', handlePointerCancel);
+    scroll.el.removeEventListener('touchstart', handleEdgeTouchStart, { capture: true });
+    scroll.el.removeEventListener('touchmove', handleEdgeTouchMove, { capture: true });
+    scroll.el.removeEventListener('touchend', handleEdgeTouchEnd, { capture: true });
+    scroll.el.removeEventListener('touchcancel', handleEdgeTouchEnd, { capture: true });
     clearTimeout(closeTimer);
     clearTimeout(resizeTimer);
     destroyScrollSync();
