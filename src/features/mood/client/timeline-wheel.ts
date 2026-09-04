@@ -878,9 +878,8 @@ export function mountTimelineWheel(
     if (!isDesktop() || dateGroups.length === 0) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
 
-    // Sound must be unlocked inside the gesture; the ticks come from frames.
-    // iOS grants activation on touch end rather than start, so both ends of
-    // the press prime it and the first drag of a session can still click.
+    // Mouse and pen presses count as activation; a touch start does not, and
+    // is covered by the page-wide gesture-end listeners.
     feedback.prime();
     beginWheelControl();
     // Cleared here, not only when a click arrives: a drag that ends without one
@@ -965,6 +964,14 @@ export function mountTimelineWheel(
   topButton?.addEventListener('pointercancel', handlePointerCancel);
   topButton?.addEventListener('keydown', handleKeyDown);
   scroll.el.addEventListener('pointerdown', handleFeedGrab, { passive: true });
+  // iOS grants audio activation on touch end, click and keys, never on touch
+  // start, so a drag that begins on a fresh page cannot unlock its own sound.
+  // Any gesture that ends anywhere on the page primes the engine instead, so
+  // the wheel is ready by the time a finger reaches it after any tap or key.
+  const primeFeedback = (): void => feedback.prime();
+  window.addEventListener('pointerup', primeFeedback, { passive: true, capture: true });
+  window.addEventListener('touchend', primeFeedback, { passive: true, capture: true });
+  window.addEventListener('keydown', primeFeedback, { passive: true, capture: true });
   scroll.el.addEventListener('wheel', handleFeedGrab, { passive: true });
 
   const setLoadingSpin = (active: boolean): void => {
@@ -1201,6 +1208,9 @@ export function mountTimelineWheel(
     scroll.el.removeEventListener('pointerdown', handleFeedGrab);
     scroll.el.removeEventListener('wheel', handleFeedGrab);
     abortWheelControl();
+    window.removeEventListener('pointerup', primeFeedback, { capture: true });
+    window.removeEventListener('touchend', primeFeedback, { capture: true });
+    window.removeEventListener('keydown', primeFeedback, { capture: true });
     feedback.destroy();
     wheel.removeEventListener('pointerenter', handlePointerEnter);
     wheel.removeEventListener('pointerleave', handlePointerLeave);
