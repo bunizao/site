@@ -5,6 +5,7 @@ import {
   getScrollYForDateProgress,
   getTimelineDateState,
 } from '@/features/mood/client/timeline-date-tracker';
+import { formatMoodDateLabel } from '@/features/mood/client/date-label';
 import { createWheelFeedback } from '@/features/mood/client/wheel-feedback';
 import { getMoodFeedTopHref } from '@/features/mood/shared/feed-anchor';
 import { pageScroll } from '@/lib/page-scroll';
@@ -167,29 +168,6 @@ export function mountTimelineWheel(
   const NOTCHES_PER_DATE = 6;
   const ANGLE_PER_NOTCH = 4;
   const SKELETON_GROUPS = 5;
-
-  const parseDateKey = (dateKey: string): Date | null => {
-    const [year, month, day] = dateKey.split('-').map(Number);
-    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
-    const date = new Date(year, month - 1, day);
-    return Number.isNaN(date.getTime()) ? null : date;
-  };
-
-  const formatDate = (dateKey: string): string => {
-    const date = parseDateKey(dateKey);
-    if (!date) return '';
-    const now = new Date();
-
-    if (date.toDateString() === now.toDateString()) return 'Today';
-
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${months[date.getMonth()]} ${date.getDate()}`;
-  };
 
   const createSkeletonNotches = (): void => {
     dial.innerHTML = '';
@@ -457,7 +435,7 @@ export function mountTimelineWheel(
     if (notches[index + 2]) notches[index + 2].classList.add('is-near');
 
     const dateKey = dateGroups[index]?.dataset.date || '';
-    showDate(formatDate(dateKey));
+    showDate(formatMoodDateLabel(dateKey));
 
     activeIndex = index;
   };

@@ -454,3 +454,64 @@ test.describe('mood timeline wheel on the feed', () => {
     expect(label).not.toContain('TOP');
   });
 });
+
+// Below 1024px the wheel gives way to a date scrubber on the right edge. These
+// run as touch, since that is the only way it is ever used.
+test.describe('mood timeline scrubber', () => {
+  async function openScrubber(page: Page): Promise<{ touch: (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) => Promise<void>; rail: { x: number; y: number; width: number; height: number } }> {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'hover', value: 'none' }, { name: 'pointer', value: 'coarse' }] });
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(PREVIEW);
+    await expect(page.locator('[data-timeline-scrubber]')).toHaveClass(/is-visible/);
+    await expect(page.locator('[data-timeline-wheel]')).not.toHaveClass(/is-visible/);
+    const rail = (await page.locator('[data-timeline-scrubber-rail]').boundingBox())!;
+    const touch = async (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) => {
+      await cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+    };
+    return { touch, rail };
+  }
+
+  test('sliding a finger down the rail scrubs deeper, names the date and settles on one', async ({ page }) => {
+    const { touch, rail } = await openScrubber(page);
+    const x = rail.x + rail.width / 2;
+    const from = rail.y + rail.height * 0.1;
+    const to = rail.y + rail.height * 0.6;
+
+    await touch('touchStart', x, from);
+    for (let step = 1; step <= 12; step += 1) {
+      await touch('touchMove', x, from + ((to - from) * step) / 12);
+      await page.waitForTimeout(16);
+    }
+    await page.waitForTimeout(50);
+
+    const held = await readWheelState(page);
+    expect(held.scrollY).toBeGreaterThan(200);
+    await expect(page.locator('[data-timeline-scrubber]')).toHaveClass(/is-engaged/);
+    await expect(page.locator('[data-timeline-scrubber-bubble]')).not.toHaveText('');
+    // Thumb under the finger: its centre tracks the touch point.
+    const thumb = (await page.locator('[data-timeline-scrubber-thumb]').boundingBox())!;
+    expect(Math.abs(thumb.y + thumb.height / 2 - to)).toBeLessThan(thumb.height);
+
+    await touch('touchEnd', x, to);
+    await expect(page.locator('[data-timeline-scrubber]')).not.toHaveClass(/is-engaged/);
+    await page.waitForTimeout(400);
+    const settled = await readWheelState(page);
+    expect(Math.abs(settled.progress - Math.round(settled.progress))).toBeLessThan(0.05);
+    expect(settled.scrollY).toBeGreaterThan(200);
+  });
+
+  test('a tap on the rail jumps to that point of the feed', async ({ page }) => {
+    const { touch, rail } = await openScrubber(page);
+    const x = rail.x + rail.width / 2;
+    const y = rail.y + rail.height * 0.8;
+    await touch('touchStart', x, y);
+    await page.waitForTimeout(40);
+    await touch('touchEnd', x, y);
+    await page.waitForTimeout(200);
+    const state = await readWheelState(page);
+    expect(state.progress).toBeGreaterThan(5);
+    expect(Math.abs(state.progress - Math.round(state.progress))).toBeLessThan(0.05);
+  });
+});

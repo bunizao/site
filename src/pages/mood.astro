@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import TimelineScrubber from '@/features/mood/ui/TimelineScrubber.astro';
 import TimelineWheel from '@/features/mood/ui/TimelineWheel.astro';
 import FeedShell from '@/features/mood/ui/FeedShell.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
@@ -161,6 +162,7 @@ const skeletonGroups = [
     {listeningCssHref && <link rel="stylesheet" href={listeningCssHref} />}
     {embedYouTubeCssHref && <link rel="stylesheet" href={embedYouTubeCssHref} />}
     <TimelineWheel />
+    <TimelineScrubber />
     <FeedShell
       skeletonGroups={skeletonGroups}
       initialPosts={initialFeed?.posts ?? []}
