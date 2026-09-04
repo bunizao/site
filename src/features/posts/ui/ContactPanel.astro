@@ -35,12 +35,15 @@ const brandVars = (name: string) => {
     aria-haspopup="true"
     aria-expanded="false"
   >
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <!-- Lucide at-sign at stroke 1.5. Three concentric curves in a 16px box
+         need the thinner stroke; at Lucide's default 2 the counters fill in
+         and the glyph reads as a blob. Matches the subscribe trigger beside it. -->
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="4"></circle>
       <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"></path>
     </svg>
     <span>联系</span>
-    <svg class="contact-trigger__caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <svg class="contact-trigger__caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="m6 9 6 6 6-6"></path>
     </svg>
   </button>
