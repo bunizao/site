@@ -386,7 +386,9 @@ const accentInk = textOnAccent(accentFill);
     display: block;
     width: 100%;
     padding: 12px 14px;
-    /* 16px keeps iOS Safari from zooming the viewport on focus. */
+    /* 16px, because anything smaller makes iOS Safari zoom the viewport when
+       the field takes focus. The rule below buys the smaller size back on
+       hardware that never does that -- see .field's fine-pointer override. */
     font: inherit;
     font-size: 16px;
     color: hsl(var(--foreground));
@@ -413,6 +415,16 @@ const accentInk = textOnAccent(accentFill);
 
   .field::placeholder {
     color: hsl(var(--muted-foreground) / 0.55);
+  }
+
+  /* 16px next to 14px bubbles reads as a form dropped into a thread. A mouse
+     or trackpad means no focus zoom to defend against, so the fields can match
+     what they will become. Touch keeps the 16px -- a tablet is exactly where
+     the zoom would fire. */
+  @media (hover: hover) and (pointer: fine) {
+    .field {
+      font-size: 14px;
+    }
   }
 
   /* Off-screen rather than display:none -- a bot reading the DOM should find
