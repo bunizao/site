@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Hero from '@/features/home/ui/Hero.astro';
+import GlyphField from '@/features/home/ui/GlyphField.astro';
 import ParallaxWrapper from '@/features/home/ui/ParallaxWrapper.astro';
 import Experience from '@/features/home/ui/Experience.astro';
 import Projects from '@/features/home/ui/Projects.astro';
@@ -24,6 +25,7 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
   structuredData={[websiteJsonLd, profileJsonLd]}
 >
   <ParallaxWrapper>
+    <GlyphField />
     <main class="page-container">
       {sections.hero && <Hero />}
       {sections.projects && <Projects />}
@@ -36,9 +38,19 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
 </Layout>
 
 <style>
+  /* The glyph field is the homepage's texture, so the site-wide dot lattice
+     and its pointer spotlight stand down here. Page-scoped on purpose: every
+     other page keeps both. */
+  :global(body::before),
+  :global(.spotlight-overlay) {
+    display: none;
+  }
+
   .page-container {
     /* Homepage code labels are below the fold; reuse the already-preloaded mono face here. */
     --font-code: var(--font-mono);
+    position: relative;
+    z-index: 1;
   }
 
   /* No `content-visibility` on the sections. They measure 284-629px against a

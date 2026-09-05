@@ -1,0 +1,77 @@
+---
+// The monospace rain band behind the hero. Decorative: hidden from assistive
+// tech, no pointer events, painted entirely by src/lib/glyph-field.ts.
+//
+// The band is a fixed 1200x560 canvas centred on the page and clipped by the
+// host, so the mask edges stay off-screen on narrow viewports instead of
+// squeezing the glyphs. The mask is the reference's: the field dissolves
+// before the first section label and never reaches the viewport edges.
+---
+
+<div class="glyph-field" data-glyph-field aria-hidden="true">
+  <canvas width="1200" height="560"></canvas>
+</div>
+
+<style>
+  :global(#parallax-container) {
+    position: relative;
+  }
+
+  .glyph-field {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 560px;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 400ms ease-out;
+  }
+
+  .glyph-field.is-ready {
+    opacity: 1;
+  }
+
+  .glyph-field canvas {
+    display: block;
+    flex: 0 0 auto;
+    width: 1200px;
+    height: 560px;
+    -webkit-mask-image:
+      linear-gradient(to bottom, #000 50%, transparent 96%),
+      linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+    mask-image:
+      linear-gradient(to bottom, #000 50%, transparent 96%),
+      linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .glyph-field {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import { mountGlyphField, type GlyphFieldHandle } from '@/lib/glyph-field';
+
+  let handle: GlyphFieldHandle | null = null;
+
+  const mount = () => {
+    handle?.destroy();
+    const host = document.querySelector<HTMLElement>('[data-glyph-field]');
+    handle = host ? mountGlyphField(host) : null;
+  };
+
+  mount();
+  // View transitions swap the DOM without re-running module scripts.
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', () => {
+    handle?.destroy();
+    handle = null;
+  });
+</script>
