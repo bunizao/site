@@ -236,9 +236,11 @@ const accentInk = textOnAccent(accentFill);
 
     /* Opaque on purpose, and the reason this is a hex and not an
        hsl(var(--foreground) / a) overlay: the page ground is a dot grid, and an
-       alpha surface lets the dots show through the text. #EFEFEF against the
-       white ground is the same separation iMessage gives an incoming bubble. */
-    --surface: #efefef;
+       alpha surface lets the dots show through the text. It reads as a surface
+       because the dots stop at its edge, not because it is dark, so it can sit
+       this close to the white ground -- iMessage needs its heavier #E9E9EB
+       only because it has no texture to interrupt. */
+    --surface: #f4f4f4;
 
     --line: hsl(var(--foreground) / 0.16);
     /* Rules drawn on --surface rather than on the page, so they need a touch
