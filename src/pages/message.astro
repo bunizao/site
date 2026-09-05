@@ -19,10 +19,10 @@
 // fake timestamps and no read receipts. The one animated element, the typing
 // indicator, is on screen only while a request is genuinely in flight.
 //
-// The palette is the site's own. iMessage blue would be a borrowed accent on a
-// site whose --accent is literally black in light and white in dark, so the
-// sender's bubble wears the ink and the owner's a barely-raised surface -- the
-// same pair the submit pill already used.
+// The sender's bubble carries the accent as a fill and the owner's as a tint,
+// which is the division of roles conversation.css already makes for a thread:
+// own side filled, receiving side tinted. The form bubble is the exception and
+// says why on itself. See ACCENT below for the colour.
 //
 // Nothing on this page reads existing messages. There is no such endpoint --
 // see site-api's src/pages/v2/messages.ts.
@@ -33,6 +33,7 @@ import { blog } from '@/data/site';
 import { formatSiteTitle } from '@/lib/seo';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
+import { nameOnBackground, textOnAccent, tintedBubble } from '@/features/content/conversation';
 
 export const prerender = false;
 
@@ -42,6 +43,24 @@ const t = messagesCopy[locale];
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
   : readTurnstileSiteKey(Astro.locals);
+
+// The accent, and the only line to edit to change it. iMessage blue, because
+// that is the bubble everyone already knows and the site's own --accent token
+// is achromatic (black in light, white in dark) and has no hue to lend.
+//
+// #007AFF is not used raw. White on it measures 4.02:1, which clears AA only
+// for large text, and these bubbles are 15px body -- textOnAccent answers
+// near-black on it, which is not the look anyone means by "iMessage blue".
+// nameOnBackground solves the same inequality from the other side (contrast is
+// symmetric, so "this blue readable on white" and "white readable on this
+// blue" are one condition), walking lightness down and leaving the hue where
+// Apple put it. The result is #0070EB at 4.65:1, a shade nobody can pick out
+// of a line-up next to the original.
+const ACCENT = '#007AFF';
+const accentFill = nameOnBackground(ACCENT, '#FFFFFF');
+const accentInk = textOnAccent(accentFill);
+const tintLight = tintedBubble(accentFill, '#ECECEC');
+const tintDark = tintedBubble(accentFill, '#232323');
 ---
 
 <Layout
@@ -59,6 +78,7 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
     data-locale={locale}
     data-turnstile-site-key={turnstileSiteKey}
     lang={locale}
+    style={`--accent-fill:${accentFill};--accent-ink:${accentInk};--tint-light:${tintLight};--tint-dark:${tintDark};`}
   >
     <ol class="thread__list">
       {/* The opening run. Three bubbles from one speaker, so the corners they
@@ -191,7 +211,7 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
     margin: 0 auto;
     padding: 76px 20px 96px;
 
-    --bubble-them: hsl(var(--foreground) / 0.055);
+    --bubble-them: var(--tint-light);
     --bubble-them-ink: hsl(var(--foreground) / 0.9);
     --bubble-radius: 20px;
     /* The joint radius. Small enough to read as a seam, large enough not to
@@ -207,7 +227,7 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   }
 
   :global(.dark) .thread {
-    --bubble-them: hsl(var(--foreground) / 0.1);
+    --bubble-them: var(--tint-dark);
     --message-danger: #f1707a;
   }
 
@@ -273,17 +293,26 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   /* The sender's bubble and the send button share one fill on purpose: the
      button looks like the thing it is about to produce. */
   .bubble--me {
-    color: hsl(var(--background));
-    background: hsl(var(--foreground));
+    color: var(--accent-ink);
+    background: var(--accent-fill);
     border-bottom-right-radius: var(--bubble-joint);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
+  /* The one bubble that keeps the neutral surface. It is the largest object on
+     the page, and at that size the tint stops reading as a hue on speech and
+     starts reading as a coloured panel -- which is also why conversation.css
+     makes tinting opt-in rather than the default. */
   .bubble--form {
     max-width: 100%;
     flex: 1;
     padding: 14px;
+    background: hsl(var(--foreground) / 0.055);
+  }
+
+  :global(.dark) .bubble--form {
+    background: hsl(var(--foreground) / 0.1);
   }
 
   .form__note {
@@ -337,8 +366,8 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
 
   .field:focus-visible {
     outline: none;
-    border-color: hsl(var(--foreground) / 0.35);
-    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.06);
+    border-color: var(--accent-fill);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-fill) 18%, transparent);
   }
 
   /* Off-screen rather than display:none -- a bot reading the DOM should find
@@ -401,8 +430,8 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
     font: inherit;
     font-size: 13.5px;
     font-weight: 550;
-    color: hsl(var(--background));
-    background: hsl(var(--foreground));
+    color: var(--accent-ink);
+    background: var(--accent-fill);
     border: none;
     border-radius: 999px;
     cursor: pointer;
