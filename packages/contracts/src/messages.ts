@@ -40,12 +40,13 @@ export interface OwnerMessageCreateInput {
   body: string;
   displayName: string;
   /**
-   * Optional, and optional on purpose — the same "channeling beats blocking"
-   * call the comment box makes. Supplied, it must be valid: it triggers the
-   * shared lazy-verification mail, and only a verified address can ever
-   * receive the owner's reply.
+   * Required. The comment box channels rather than blocks, because a comment
+   * that nobody can answer is still worth publishing; a private message that
+   * nobody can answer is a dead letter. Supplying one triggers the shared
+   * lazy-verification mail, and only a verified address can ever receive the
+   * owner's reply — so this is necessary for a reply, not sufficient.
    */
-  email?: string;
+  email: string;
   turnstileToken: string;
   /** Minted by the form on load; proves the submit was not instant. */
   dwellToken: string;

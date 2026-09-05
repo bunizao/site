@@ -41,7 +41,7 @@ silent drops described under [Tripwires](#tripwires).
 | --- | --- | --- |
 | `body` | yes | 2–4000 characters after trimming, and at most 32 KB of UTF-8 |
 | `displayName` | yes | 1–32 characters. Overridden by the session's own name when the sender is a signed-in reader |
-| `email` | no | Optional by design. Buys a reply and nothing else |
+| `email` | yes | Must be a valid address. Buys a reply and nothing else — see [Why an address is required](#why-an-address-is-required) |
 | `turnstileToken` | yes | Action `owner_message_create` |
 | `dwellToken` | yes | Minted by `GET /api/v2/comments/dwell-token` — the same endpoint, because it signs the same timestamp with the same secret |
 | `website` | no | Honeypot. Must be empty |
@@ -64,7 +64,7 @@ promise:
 | --- | --- | --- |
 | `true` | `false` | The address is already a confirmed reader. An answer can reach it |
 | `false` | `true` | An address was given but has never been confirmed. A verification mail went out; clicking the link makes a reply possible |
-| `false` | `false` | No address, or a tripwire fired. Nothing can be answered |
+| `false` | `false` | A tripwire fired, or the verification mail did not go out. Nothing can be answered |
 
 ### Refusals
 
@@ -72,7 +72,7 @@ promise:
 | --- | --- | --- |
 | `400` | `body must be 2-4000 characters` | Length, after trimming |
 | `400` | `displayName must be 1-32 characters…` | Empty, over-long, control characters, or a reserved name |
-| `400` | `email must be a valid address when provided` | A malformed address. Omitting it is always fine |
+| `400` | `email is required and must be a valid address` | Missing or malformed |
 | `400` | `turnstileToken is required` / `dwellToken is required` | Missing |
 | `400` | `turnstile_failed` | The token did not verify, or carried the wrong action |
 | `413` | `body is too large` | Over 32 KB, whatever the character count says |
@@ -85,13 +85,19 @@ carrying a second switch: the two share the reader identity, the risk stack
 and the ops bot, so leaving this open while comments are off would keep
 running exactly the machinery the switch exists to stop.
 
-## Why an address is optional but verification still matters
+## Why an address is required
 
-Anyone can type anyone's address into a public form. If a reply were mailed to
-whatever arrived in `email`, this endpoint would be a way to aim the site's
-outbound mail at a stranger. So an unverified address gets the ordinary lazy
-verification mail — the same one the comment box sends — and a reply becomes
-possible only once someone has clicked the link in it.
+The comment box channels rather than blocks: it takes an address when one is
+offered, because a comment nobody can answer is still worth publishing. This
+endpoint blocks, because the opposite is true here — a private message nobody
+can answer is a dead letter, seen once and then stuck.
+
+An address is necessary for a reply, not sufficient. Anyone can type anyone's
+address into a public form, and if a reply were mailed to whatever arrived in
+`email`, this endpoint would be a way to aim the site's outbound mail at a
+stranger. So an unverified address gets the ordinary lazy verification mail —
+the same one the comment box sends — and a reply becomes possible only once
+someone has clicked the link in it.
 
 Nothing is lost by ignoring that mail. The message is already stored and the
 owner already has it; the only thing on the other side of the link is the

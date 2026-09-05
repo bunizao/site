@@ -55,7 +55,7 @@ export function initMessageForm(root: HTMLElement): void {
   const emailField = form.elements.namedItem('email') as HTMLInputElement | null;
   const bodyField = form.elements.namedItem('body') as HTMLTextAreaElement | null;
   const website = form.elements.namedItem('website') as HTMLInputElement | null;
-  if (!nameField || !bodyField) return;
+  if (!nameField || !emailField || !bodyField) return;
 
   const locale = (root.dataset.locale === 'en' ? 'en' : 'zh') as 'zh' | 'en';
   const t: MessageCopy = messagesCopy[locale];
@@ -155,7 +155,7 @@ export function initMessageForm(root: HTMLElement): void {
 
     const displayName = nameField.value.trim();
     const body = bodyField.value.trim();
-    const email = emailField?.value.trim() ?? '';
+    const email = emailField.value.trim();
 
     // Client-side checks exist to save a round trip on the three mistakes
     // people actually make, not to be the validation. The service re-checks
@@ -170,9 +170,16 @@ export function initMessageForm(root: HTMLElement): void {
       bodyField.focus();
       return;
     }
-    if (email && !EMAIL_RE.test(email)) {
+    // An address is required now: a message nobody can answer is a message
+    // with nowhere to go, and the service refuses one too.
+    if (!email) {
+      showError(t.errorEmailMissing);
+      emailField.focus();
+      return;
+    }
+    if (!EMAIL_RE.test(email)) {
       showError(t.errorEmail);
-      emailField?.focus();
+      emailField.focus();
       return;
     }
 
@@ -203,7 +210,7 @@ export function initMessageForm(root: HTMLElement): void {
         body: JSON.stringify({
           body,
           displayName,
-          email: email || undefined,
+          email,
           turnstileToken,
           dwellToken,
           website: website?.value ?? '',

@@ -111,26 +111,37 @@ test.describe('/message', () => {
     expect(posted).toBe(false);
   });
 
-  test('sends without an address and says no reply is possible', async ({ page }) => {
+  test('will not send without an address', async ({ page }) => {
+    let posted = 0;
+    await installMessageApi(page, { onPost: () => { posted += 1; } });
+    await page.goto('/message');
+
+    await fillMessage(page, { name: 'someone', email: '', body: 'Nothing to answer.' });
+    await page.locator('[data-message-submit]').click();
+
+    await expect(page.locator(errorBox)).toContainText('留个邮箱');
+    await expect(page.locator(sentView)).toBeHidden();
+    expect(posted).toBe(0);
+  });
+
+  test('carries the address, the dwell token and an empty honeypot', async ({ page }) => {
     let sent: Record<string, unknown> | null = null;
     await installMessageApi(page, {
-      answer: { replyable: false, verificationSent: false },
+      answer: { replyable: false, verificationSent: true },
       onPost: (body) => { sent = body; },
     });
     await page.goto('/message');
 
-    await fillMessage(page, { name: 'someone', body: 'Nothing to answer.' });
+    await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Please read this.' });
     await page.locator('[data-message-submit]').click();
 
     await expect(page.locator(sentView)).toBeVisible();
     await expect(page.locator(formView)).toBeHidden();
-    await expect(page.locator('[data-message-sent-body]')).toContainText('没有留邮箱');
 
     expect(sent).not.toBeNull();
-    // The dwell token is minted and carried; the honeypot goes out empty.
+    expect(sent!.email).toBe('you@example.com');
     expect(sent!.dwellToken).toBe('dwell-token-fixture');
     expect(sent!.website).toBe('');
-    expect(sent!.email).toBeUndefined();
   });
 
   test('an unverified address gets the verification receipt, a known one gets the reply receipt', async ({ page }) => {
@@ -155,7 +166,7 @@ test.describe('/message', () => {
     await installMessageApi(page, { status: 429 });
     await page.goto('/message');
 
-    await fillMessage(page, { name: 'someone', body: 'Written twice too fast.' });
+    await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Written twice too fast.' });
     await page.locator('[data-message-submit]').click();
 
     await expect(page.locator(errorBox)).toContainText('歇一会儿');
@@ -173,7 +184,7 @@ test.describe('/message', () => {
 
     const draft = page.locator('[data-message-draft]');
     // Nothing stands in the thread while it is still only a draft.
-    await fillMessage(page, { name: 'someone', body: 'Lifted out of the box.' });
+    await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Lifted out of the box.' });
     await expect(draft).toBeHidden();
 
     await page.locator('[data-message-submit]').click();
@@ -188,7 +199,7 @@ test.describe('/message', () => {
 
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     await installMessageApi(page, { status: 429 });
-    await fillMessage(page, { name: 'someone', body: 'Too fast.' });
+    await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Too fast.' });
     await page.locator('[data-message-submit]').click();
     await expect(page.locator(errorBox)).toBeVisible();
     await expect(draft).toBeHidden();
