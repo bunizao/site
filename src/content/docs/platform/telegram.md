@@ -31,6 +31,34 @@ flowchart TD
   I --> J["Resend sends immediate notify emails"]
 ```
 
+## The comment bridge
+
+A second, independent flow shares the same ops bot: a web reader's mood
+comment, bridged into the post's Telegram discussion group, and the read
+path that overlays the group's own scrape with the site's copy of what it
+sent. Gated by `MOOD_COMMENTS_ENABLED` — see
+[Comments platform](/docs/platform/comments) for the kill switch and the
+Phase 0 setup — and detailed end to end in
+[Comments API § Mood surface](/docs/api/comments#mood-surface-the-telegram-bridge).
+
+```mermaid
+flowchart TD
+  A["Reader posts on /mood/[id]"] --> B["POST /v2/comments surface: mood"]
+  B --> C["Risk stack: Turnstile, honeypot, dwell, Akismet, rate limits"]
+  C -->|published| D["Row stored, comment visible on the site immediately"]
+  D --> E["ops bot sendMessage into the discussion group, reply_parameters -> discussion_message_id"]
+  E -->|success| F["telegram_message_id stored on the row"]
+  E -->|failure| G["Hourly cron retries for 24h"]
+  C -->|held| H["Row stored, visible only to its writer"]
+  H -->|owner approves| E
+
+  I["Group member replies or reacts in Telegram"] --> J["t.me embed scrape (existing)"]
+  F -.-> K["listComments: scrape + overlay"]
+  J --> K
+  K --> L["#c-token match -> re-attribute to the web author, origin: web"]
+  K --> M["No match yet -> append the pending row instead"]
+```
+
 ## Who does what
 
 | `site-api` (private) | Public `site` |
@@ -40,6 +68,7 @@ flowchart TD
 | Ingest mood images into R2 | Use `PUBLIC_HD_IMAGE_URL` for primary image URLs |
 | Enqueue durable immediate notify dispatch jobs | Preserve the `/static/…` Telegram CDN fallback |
 | Dispatch notification email through `/v2/notify/dispatch` | — |
+| Run the risk stack, bridge `published`/`held` mood comments into the discussion group, overlay the scrape on read | Render the mood compose box only when `discussionLinked`, POST `/v2/comments` with `surface: 'mood'` |
 
 ## Key URLs
 
