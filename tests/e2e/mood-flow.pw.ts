@@ -159,13 +159,8 @@ function createGalleryFeedPayload(moodId: string) {
 
 function createRichCommentsPayload(moodId: string) {
   const replyHref = `/mood/${moodId}#comments`;
-  const richContent = [
-    `<a class="tgme_widget_message_reply" href="${replyHref}">`,
-    '<span class="tgme_widget_message_reply_author">Reply Author</span>',
-    '<span class="tgme_widget_message_reply_text">Reply Author: First line<br>Second line</span>',
-    '</a>',
-    `<p><strong>Bold</strong> <a href="${replyHref}">linked context</a> <span class="emoji"><b>🙂</b></span></p>`,
-  ].join('');
+  const richContent =
+    `<p><strong>Bold</strong> <a href="${replyHref}">linked context</a> <span class="emoji"><b>🙂</b></span></p>`;
 
   return {
     comments: [
@@ -176,6 +171,7 @@ function createRichCommentsPayload(moodId: string) {
         datetime: '2026-02-10T13:10:00+00:00',
         content: richContent,
         reactions: [],
+        replyTo: { id: '9000', author: 'Reply Author', text: 'First line Second line' },
       },
     ],
     hasMore: false,
@@ -188,6 +184,7 @@ function createComment(comment: {
   author?: string;
   datetime?: string;
   content?: string;
+  replyTo?: { id: string; author: string; text: string };
 }) {
   return {
     id: comment.id,
@@ -196,6 +193,7 @@ function createComment(comment: {
     datetime: comment.datetime ?? '2026-02-10T13:10:00+00:00',
     content: comment.content ?? `<p>Comment ${comment.id}</p>`,
     reactions: [],
+    ...(comment.replyTo ? { replyTo: comment.replyTo } : {}),
   };
 }
 
@@ -2314,9 +2312,11 @@ test.describe('Mood routes', () => {
       .toBe(1);
 
     const popoverContent = popover.locator('.mood-popover-comment-content').first();
-    await expect(popoverContent.locator('.mood-comment-quote')).toBeVisible();
-    await expect(popoverContent.locator('.mood-item-quote-author')).toHaveText('Reply Author');
-    await expect(popoverContent.locator('.mood-item-quote-text')).toContainText(/First line\s+Second line/);
+    const quote = popoverContent.locator('a.mood-comment-quote');
+    await expect(quote).toBeVisible();
+    await expect(quote).toHaveAttribute('href', `/mood/${moodId}#comment-9000`);
+    await expect(quote.locator('.mood-item-quote-author')).toHaveText('Reply Author');
+    await expect(quote.locator('.mood-item-quote-text')).toHaveText('First line Second line');
     await expect(popoverContent.locator('strong')).toHaveText('Bold');
     await expect(popoverContent.locator('p a')).toHaveAttribute('href', `/mood/${moodId}#comments`);
     await expect(popoverContent).toContainText('🙂');
@@ -2923,6 +2923,7 @@ test.describe('Mood routes', () => {
     test.skip(!latestMoodId, 'No mood id available from /api/moods');
 
     let requestCount = 0;
+    const replyToOlder = { id: '9000', author: 'E2E', text: 'Older comment' };
     await page.route('**/api/comments?postId=*', async (route) => {
       requestCount += 1;
 
@@ -2931,7 +2932,7 @@ test.describe('Mood routes', () => {
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({
-            comments: [createComment({ id: '9001' })],
+            comments: [createComment({ id: '9001', replyTo: replyToOlder })],
             hasMore: true,
             nextBefore: '9001',
           }),
@@ -2944,7 +2945,7 @@ test.describe('Mood routes', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           comments: [
-            createComment({ id: '9001' }),
+            createComment({ id: '9001', replyTo: replyToOlder }),
             createComment({
               id: '9000',
               datetime: '2026-02-10T13:05:00+00:00',
@@ -2961,6 +2962,12 @@ test.describe('Mood routes', () => {
 
     await expect(page.locator('[data-comments-list] .mood-comment')).toHaveCount(1, { timeout: 30_000 });
 
+    // The parent is not loaded yet, so the reply card is a static quote.
+    const replyQuote = page.locator('[data-comments-list] #comment-9001 .mood-comment-quote');
+    await expect(replyQuote.locator('.mood-item-quote-author')).toHaveText('E2E');
+    await expect(replyQuote.locator('.mood-item-quote-text')).toHaveText('Older comment');
+    await expect(page.locator('[data-comments-list] a.mood-comment-quote')).toHaveCount(0);
+
     const loadMoreButton = page.getByRole('button', { name: 'Load more comments' });
     await expect(loadMoreButton).toBeVisible();
     await loadMoreButton.click();
@@ -2969,6 +2976,9 @@ test.describe('Mood routes', () => {
     await expect(page.locator('[data-comments-list] .mood-comment[data-comment-id="9001"]')).toHaveCount(1);
     await expect(page.locator('[data-comments-list] .mood-comment[data-comment-id="9000"]')).toHaveCount(1);
     await expect(loadMoreButton).toBeHidden();
+
+    // Once the parent arrives the quote links to it.
+    await expect(page.locator('[data-comments-list] #comment-9001 a.mood-comment-quote')).toHaveAttribute('href', '#comment-9000');
   });
 
   test('renders a feed gallery and lazy-loads later slides on horizontal scroll', async ({ page }) => {

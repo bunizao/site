@@ -1,8 +1,11 @@
 import {
   asText,
   buildCommentContentFragment,
+  createCommentReplyQuote,
   formatRelativeCommentDate,
+  readCommentReplyTarget,
   sanitizeImageUrl,
+  type CommentReplyTarget,
 } from '@/features/mood/shared/comments';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 
@@ -21,6 +24,11 @@ interface CommentData {
   datetime?: string;
   content?: string;
   reactions?: CommentReactionData[];
+  replyTo?: {
+    id?: string;
+    author?: string;
+    text?: string;
+  };
 }
 
 interface DetailCommentsOptions {
@@ -49,6 +57,11 @@ export async function initMoodDetailComments(
 
   let nextBefore = '';
   const loadedCommentIds = new Set<string>();
+  // Reply cards whose parent was not on the page when they rendered. They are
+  // upgraded to anchors once a later batch brings the parent in.
+  let unlinkedReplyQuotes: Array<{ quote: HTMLElement; replyTo: CommentReplyTarget }> = [];
+
+  const getCommentAnchor = (commentId: string): string => `#comment-${commentId}`;
 
   const getOldestCommentId = (comments: CommentData[]): string => {
     let oldest: CommentData | null = null;
@@ -77,6 +90,7 @@ export async function initMoodDetailComments(
     const commentId = asText(comment?.id).trim();
     if (commentId) {
       root.dataset.commentId = commentId;
+      root.id = getCommentAnchor(commentId).slice(1);
     }
 
     const avatar = document.createElement('div');
@@ -118,6 +132,15 @@ export async function initMoodDetailComments(
 
     const contentEl = document.createElement('div');
     contentEl.className = 'mood-comment-content';
+    const replyTo = readCommentReplyTarget(comment?.replyTo);
+    if (replyTo) {
+      const linked = loadedCommentIds.has(replyTo.id);
+      const quote = createCommentReplyQuote(replyTo, linked ? getCommentAnchor(replyTo.id) : '');
+      if (!linked) {
+        unlinkedReplyQuotes.push({ quote, replyTo });
+      }
+      contentEl.appendChild(quote);
+    }
     contentEl.appendChild(buildCommentContentFragment(comment?.content));
     body.appendChild(contentEl);
 
@@ -173,9 +196,18 @@ export async function initMoodDetailComments(
     return root;
   };
 
+  const linkReplyQuotes = (): void => {
+    unlinkedReplyQuotes = unlinkedReplyQuotes.filter(({ quote, replyTo }) => {
+      if (!loadedCommentIds.has(replyTo.id)) return true;
+      quote.replaceWith(createCommentReplyQuote(replyTo, getCommentAnchor(replyTo.id)));
+      return false;
+    });
+  };
+
   const addComments = (comments: CommentData[], append: boolean): number => {
     if (!append) {
       loadedCommentIds.clear();
+      unlinkedReplyQuotes = [];
     }
 
     const uniqueComments = comments.filter((comment) => {
@@ -195,6 +227,7 @@ export async function initMoodDetailComments(
     } else {
       commentsList.replaceChildren(fragment);
     }
+    linkReplyQuotes();
 
     return uniqueComments.length;
   };

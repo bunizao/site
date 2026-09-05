@@ -1,7 +1,9 @@
 import {
   asText,
   buildCommentContentFragment,
+  createCommentReplyQuote,
   formatRelativeCommentDate,
+  readCommentReplyTarget,
   sanitizeImageUrl,
 } from '@/features/mood/shared/comments';
 import { getMoodDetailHref } from '@/features/mood/shared/feed-anchor';
@@ -16,6 +18,11 @@ interface CommentPreviewData {
   authorAvatar?: string;
   datetime?: string;
   content?: string;
+  replyTo?: {
+    id?: string;
+    author?: string;
+    text?: string;
+  };
 }
 
 interface CommentsIndicatorOptions {
@@ -82,7 +89,7 @@ function createLoadingPopover({ postId, label, count }: CommentsIndicatorOptions
   return popover;
 }
 
-function renderComment(comment: CommentPreviewData): HTMLElement {
+function renderComment(comment: CommentPreviewData, postId: string): HTMLElement {
   const root = document.createElement('div');
   root.className = 'mood-popover-comment';
 
@@ -126,6 +133,11 @@ function renderComment(comment: CommentPreviewData): HTMLElement {
 
   const content = document.createElement('div');
   content.className = 'mood-popover-comment-content';
+  const replyTo = readCommentReplyTarget(comment.replyTo);
+  if (replyTo) {
+    // The parent lives on the detail page, not in the feed preview.
+    content.appendChild(createCommentReplyQuote(replyTo, getMoodDetailHref(postId, `#comment-${replyTo.id}`)));
+  }
   content.appendChild(buildCommentContentFragment(comment.content));
   body.appendChild(content);
 
@@ -227,7 +239,7 @@ export function createFeedCommentsPopoverController(
     const list = document.createElement('div');
     list.className = 'mood-comments-popover-list';
     displayComments.forEach((comment) => {
-      list.appendChild(renderComment(comment));
+      list.appendChild(renderComment(comment, postId));
     });
     fragment.appendChild(list);
 

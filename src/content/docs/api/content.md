@@ -59,6 +59,11 @@ data as `/api/mood/:id/comments` through the **live** Telegram mirror, not the
 D1 archive — see [Mood API](/docs/api/mood) for the response shape and the
 freshness trade-off.
 
+Each comment carries the same fields as the mood route, including the
+optional `replyTo: { id, author, text }` block that names the parent comment
+when the comment is a reply. `text` is a plain-text preview (≤ 200 chars);
+`content` is the reply body only.
+
 `postId` is required and trimmed; omitting it (or sending only whitespace)
 returns `400 {"error":"Missing postId parameter"}`. Note the flat error string
 here, while the mood comment payload it wraps uses the nested
