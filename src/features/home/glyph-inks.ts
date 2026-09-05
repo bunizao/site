@@ -7,7 +7,9 @@
  * mood of the field without changing how much of it shows through.
  *
  * The ground stays the site's own (`#0a0a0a` / white); only the glyphs carry
- * colour. `?ink=<name>` on the homepage previews any entry.
+ * colour. Each visit draws one ink at random and keeps it for the session, so
+ * the colour holds while the visitor moves around and changes on their next
+ * visit. `?ink=<name>` pins one for review.
  */
 
 export interface GlyphInk {
@@ -27,6 +29,28 @@ export const GLYPH_INKS = {
 
 export type GlyphInkName = keyof typeof GLYPH_INKS;
 
-export const DEFAULT_INK: GlyphInkName = 'blue';
-
 export const isGlyphInkName = (value: string): value is GlyphInkName => value in GLYPH_INKS;
+
+const INK_NAMES = Object.keys(GLYPH_INKS) as GlyphInkName[];
+const SESSION_KEY = 'glyph-ink';
+
+export const resolveGlyphInk = (search: string): GlyphInkName => {
+  const pinned = new URLSearchParams(search).get('ink') ?? '';
+  if (isGlyphInkName(pinned)) return pinned;
+
+  let stored: string | null = null;
+  try {
+    stored = sessionStorage.getItem(SESSION_KEY);
+  } catch {
+    // Storage can be blocked; a fresh draw per load is fine then.
+  }
+  if (stored && isGlyphInkName(stored)) return stored;
+
+  const drawn = INK_NAMES[(Math.random() * INK_NAMES.length) | 0];
+  try {
+    sessionStorage.setItem(SESSION_KEY, drawn);
+  } catch {
+    // Same as above.
+  }
+  return drawn;
+};

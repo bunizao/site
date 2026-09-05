@@ -24,8 +24,8 @@ What shipped, and what was decided along the way:
 
 - One ink per theme, from the matched-lightness set in
   `src/features/home/glyph-inks.ts` (blue, steel, indigo, violet, amber, rose,
-  teal; `?ink=` previews any of them). Default is `blue` until the owner
-  picks. A time-of-day palette was prototyped and rejected as too strange; an
+  teal). Each visit draws one at random and keeps it for the session; `?ink=`
+  pins one. The owner's favourite is indigo; the draw was their call too. A time-of-day palette was prototyped and rejected as too strange; an
   achromatic field was tried and read as grime. The band runs at roughly half the lab's column density with
   near-zero resting alpha, so the ground stays clean between streaks.
 - The clock moves the weather, not the colour. Day is the lab's `rain`
@@ -52,9 +52,8 @@ What shipped, and what was decided along the way:
 
 ## Remaining
 
-- [ ] Pick the ink. The owner liked blue, indigo, and amber on 2026-09-06;
-      once chosen, `DEFAULT_INK` moves and the rest can stay as review options
-      or go.
+- [ ] Prune the draw if any hue misfires in the wild; amber on the light
+      theme is the one to watch.
 - [ ] Budget it. The band is a 1200x560 canvas repainting at ~11fps on the
       site's LCP page. Measure paint cost and LCP on prod before calling it
       done; the lab never did.

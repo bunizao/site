@@ -6,8 +6,8 @@
  * the band is mostly static haze with movement running through it. The pointer
  * paints a second channel that lights whatever it passes over.
  *
- * Colour is one ink per theme from src/features/home/glyph-inks.ts, with
- * `?ink=` selecting an alternative for review. What the clock changes is the
+ * Colour is one ink per theme from src/features/home/glyph-inks.ts, drawn at
+ * random per session, with `?ink=` pinning one for review. What the clock changes is the
  * WEATHER, not the colour: by day the field runs closer to the lab's `rain`
  * preset, by night it settles into `drift` (slower fall, longer trails, fewer
  * columns). The two are blended on a daylight curve, so there is no step.
@@ -17,7 +17,7 @@
  * gets one static frame and nothing else).
  */
 
-import { DEFAULT_INK, GLYPH_INKS, isGlyphInkName, type GlyphInk, type GlyphInkName } from '@/features/home/glyph-inks';
+import { GLYPH_INKS, resolveGlyphInk, type GlyphInk } from '@/features/home/glyph-inks';
 
 const GLYPHS = 'CLPSAR01<>=+*-#$';
 const TICK_MS = 90;
@@ -89,11 +89,6 @@ const weatherAt = (hour: number): Weather => {
   };
 };
 
-const inkName = (): GlyphInkName => {
-  const asked = new URLSearchParams(location.search).get('ink') ?? '';
-  return isGlyphInkName(asked) ? asked : DEFAULT_INK;
-};
-
 const pick = (): string => GLYPHS[(Math.random() * GLYPHS.length) | 0];
 
 export interface GlyphFieldHandle {
@@ -114,7 +109,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   let rowCount = 0;
   let colW = 0;
   let rowH = 0;
-  const inks: GlyphInk = GLYPH_INKS[inkName()];
+  const inks: GlyphInk = GLYPH_INKS[resolveGlyphInk(location.search)];
   let ink = inks.light;
   let gain = 0.72;
   let weather = weatherAt(localHour());
