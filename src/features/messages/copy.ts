@@ -15,13 +15,19 @@ export interface MessageCopy {
   /** Masthead trigger label. Sits beside 订阅 / 联系, so it matches their
       weight -- a noun, not a sentence. */
   trigger: string;
-  /** First bubble, and the page's <h1>. */
+  /** Document title, masthead trigger's destination name, and the page's
+      visually hidden <h1>. Nothing draws it: the thread opens with speech. */
   title: string;
+  /** The reader's line, and the first bubble. Written in their voice, not the
+      owner's -- it is the reason someone opened this page, said out loud, and
+      the two bubbles under it are the answer to it. */
+  opener: string;
   /** Meta description only -- the thread says this across two bubbles. */
   lede: string;
-  /** Bubble two: what happens to what you write. */
+  /** The owner's answer, first line: what happens to what you write. */
   intro: string;
-  /** Bubble three: what the form needs, and permission to take your time. */
+  /** The owner's answer, second line: what the form needs, and permission to
+      take your time. */
   invite: string;
   /** Labels are visually hidden -- the placeholder carries them on screen, and
       these keep the fields named for anyone not looking at it. */
@@ -52,6 +58,7 @@ export const messagesCopy: Record<'zh' | 'en', MessageCopy> = {
   zh: {
     trigger: '留言',
     title: '给我留言',
+    opener: '有点事想跟你说。',
     lede: '这里写的东西不会公开，只有我看得到。想说什么都行。',
     intro: '这里写的东西不会公开，只有我看得到。',
     invite: '留个邮箱，不然我没办法回你。想说什么都行，慢慢写。',
@@ -79,6 +86,7 @@ export const messagesCopy: Record<'zh' | 'en', MessageCopy> = {
   en: {
     trigger: 'Message',
     title: 'Write to me',
+    opener: 'There is something I want to tell you.',
     lede: 'Nothing here goes public. I am the only one who reads it.',
     intro: 'Nothing here goes public. I am the only one who reads it.',
     invite: 'Leave an address, or I have no way to answer. Say anything. Take your time.',

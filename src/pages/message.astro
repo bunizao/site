@@ -20,10 +20,12 @@
 // Every surface here is opaque. The site's ground carries a dot grid, and an
 // outlined or alpha-tinted bubble lets that grid run straight through the
 // words -- which read as unfinished rather than as quiet. So the bubbles and
-// the composer are filled with a neutral grey that stops the ground dead, and
-// the accent stays rationed to exactly one live object: the send button before
-// the send, the sender's own bubble after it (the composer is gone by then),
-// never both at once. Neutral surfaces, one coloured one.
+// the composer are filled with a neutral grey that stops the ground dead.
+//
+// The accent means one thing and only one: the visitor's own voice. Their
+// opening line, the message they send, and the button that produces it. The
+// owner speaks in grey. Nothing else on the page is coloured, so the colour
+// stays legible as a speaker rather than as decoration.
 //
 // Nothing on this page reads existing messages. There is no such endpoint --
 // see site-api's src/pages/v2/messages.ts.
@@ -89,20 +91,27 @@ const accentInk = textOnAccent(accentFill);
     lang={locale}
     style={`--accent-light:${accentFill};--accent-dark:${accentFillDark};--accent-ink:${accentInk};`}
   >
-    {/* The title heads the thread the way a name heads a conversation, rather
-        than sitting in the first bubble. It was a bubble until it wasn't: a
-        bolded slab at the top of a run reads as a heading wearing a costume,
-        and nobody opens a message by stating its subject. */}
-    <h1 class="thread__title">{t.title}</h1>
+    {/* Undrawn. The document title, the tab and the masthead trigger all say
+        it already, and drawing it a fourth time cost the thread its opening
+        line -- a page that starts by announcing its own subject is a form with
+        a headline, not a conversation. */}
+    <h1 class="sr-only">{t.title}</h1>
 
     {/* A plain stack rather than a list: the composer sits inside the run, and
-        a form is not a list item. Read in order these are two sentences and a
-        form, which is what a screen reader should get. */}
+        a form is not a list item. Read in order this is a question, its answer
+        and a form, which is what a screen reader should get. */}
     <div class="thread__stack">
+      {/* The reader speaks first, and the page answers. Putting the visitor's
+          line at the top costs nothing and changes what the two grey bubbles
+          are: not a notice at the door, a reply. */}
+      <div class="msg msg--me">
+        <p class="bubble bubble--me">{t.opener}</p>
+      </div>
+
       {/* One speaker, two lines. The corners they share tighten to 5px -- that
           seam is what makes two bubbles read as one person talking rather than
           as two unrelated chips. */}
-      <div class="msg msg--them">
+      <div class="msg msg--them msg--turn">
         <p class="bubble bubble--them bubble--joined-below">{t.intro}</p>
       </div>
       <div class="msg msg--them">
@@ -268,20 +277,6 @@ const accentInk = textOnAccent(accentFill);
     --line: hsl(var(--foreground) / 0.2);
     --line-soft: hsl(var(--foreground) / 0.16);
     --message-danger: #f1707a;
-  }
-
-  /* Centred, though the site is otherwise left-aligned: this is the top of a
-     conversation, and every thread anyone has read puts the name in the middle
-     with air under it. Small and quiet -- the two bubbles below carry the
-     actual invitation, so the heading only has to say where you are. */
-  .thread__title {
-    margin: 0 0 28px;
-    font-size: 12.5px;
-    font-weight: 500;
-    line-height: 1.4;
-    color: hsl(var(--muted-foreground));
-    text-align: center;
-    letter-spacing: 0.02em;
   }
 
   .thread__stack {
