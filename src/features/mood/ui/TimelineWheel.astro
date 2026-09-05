@@ -126,6 +126,13 @@ const { compact = false } = Astro.props;
       transition: none;
     }
 
+    /* Over the feed the dial is a solid sheet edge, not notches over text. */
+    .timeline-wheel:not([data-timeline-wheel-compact]) .timeline-wheel-dial {
+      background: hsl(var(--background));
+      border-color: hsl(var(--foreground) / 0.12);
+      box-shadow: 0 0 28px hsl(var(--foreground) / 0.1);
+    }
+
     .timeline-wheel:not([data-timeline-wheel-compact]).is-visible .timeline-wheel-label-wrap {
       opacity: 0;
     }

@@ -976,6 +976,9 @@ export function mountTimelineWheel(
   const CLOSED_MARGIN_PX = 8;
   const IDLE_CLOSE_MS = 2500;
   const AXIS_SLOP_PX = 6;
+  // Vertical px a start may wander before a not-yet-horizontal touch is left
+  // to the feed. A thumb coming in from the edge pivots, so this is generous.
+  const VERTICAL_GIVE_PX = 12;
   // px/ms towards open or closed that decides a release on its own.
   const COMMIT_VELOCITY = 0.35;
   // Vertical px before the handed-over finger starts scrubbing, so the tail
@@ -986,6 +989,7 @@ export function mountTimelineWheel(
   let edgeTouchId: number | null = null;
   let edgeStartX = 0;
   let edgeStartY = 0;
+  let edgeStartScrollTop = 0;
   let edgeClaimed = false;
   let edgeHandedOver = false;
   let edgeSamples: { x: number; at: number }[] = [];
@@ -1045,6 +1049,7 @@ export function mountTimelineWheel(
     edgeTouchId = touch.identifier;
     edgeStartX = touch.clientX;
     edgeStartY = touch.clientY;
+    edgeStartScrollTop = scroll.el.scrollTop;
     edgeClaimed = false;
     edgeHandedOver = false;
     edgeSamples = [{ x: touch.clientX, at: performance.now() }];
@@ -1063,12 +1068,17 @@ export function mountTimelineWheel(
     const dx = touch.clientX - edgeStartX;
     const dy = touch.clientY - edgeStartY;
     if (!edgeClaimed) {
-      if (Math.abs(dx) < AXIS_SLOP_PX && Math.abs(dy) < AXIS_SLOP_PX) return;
-      if (Math.abs(dy) > Math.abs(dx)) {
-        // Vertical: the feed scrolls, this touch is no longer ours.
+      // Biased towards the swipe, the way a screen-edge pan is: anything
+      // within about 60 degrees of horizontal and moving in claims it. Only a
+      // clearly vertical start, or a scroll the browser already began, is
+      // left to the feed.
+      const inward = dx <= -AXIS_SLOP_PX && Math.abs(dx) >= Math.abs(dy) * 0.5;
+      const vertical = Math.abs(dy) >= VERTICAL_GIVE_PX && !inward;
+      if (vertical || scroll.el.scrollTop !== edgeStartScrollTop) {
         edgeTouchId = null;
         return;
       }
+      if (!inward) return;
       edgeClaimed = true;
       stopRelease();
       wheel.classList.add('is-sliding');
