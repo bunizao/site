@@ -93,7 +93,9 @@ const { compact = false } = Astro.props;
      and the transition carries the rest. Closed is the arc plus a margin;
      CLOSED_MARGIN_PX in the controller matches the 8px here. The readout
      hangs inboard of the arc and fades in only once the wheel is open, so
-     the travel to open is the width of the arc and nothing more. */
+     the travel to open is the width of the arc and nothing more. Closed, it
+     shows nothing at all: the edge belongs to the scroll indicator, and the
+     swipe needs no handle any more than the system back swipe does. */
   @media (max-width: 1023px) {
     .timeline-wheel:not([data-timeline-wheel-compact]),
     .timeline-wheel:not([data-timeline-wheel-compact]).is-visible {
@@ -104,12 +106,6 @@ const { compact = false } = Astro.props;
       transition:
         opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
         transform 0.3s cubic-bezier(0.2, 0.9, 0.25, 1);
-    }
-
-    /* A sliver of the arc shows while the feed moves: the handle for the
-       swipe, gone again when the feed rests. */
-    .timeline-wheel:not([data-timeline-wheel-compact]).is-scrolling:not(.is-open) {
-      --reveal: calc(var(--visible-width) - 10px);
     }
 
     .timeline-wheel:not([data-timeline-wheel-compact]).is-open {
