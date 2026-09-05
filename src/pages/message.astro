@@ -455,16 +455,18 @@ const accentInk = textOnAccent(accentFill);
     flex: none;
     align-items: center;
     gap: 6px;
-    padding: 8px 12px 8px 14px;
+    padding: 8px 14px 8px 16px;
     font: inherit;
     font-size: 13px;
     font-weight: 550;
     color: var(--accent-ink);
     background: var(--accent-fill);
     border: none;
-    /* Square-ish, to sit with the composer's 14px frame. A pill here reads as
-       a button borrowed from somewhere else. */
-    border-radius: 9px;
+    /* Fully round. A 9px corner on a 34px-tall button inside a 16px panel is
+       neither square nor round -- it lands in the gap between the two and
+       reads as an unfinished radius. Everything else on this page is a bubble;
+       the button is small enough that the same instinct ends in a pill. */
+    border-radius: 999px;
     cursor: pointer;
     transition: opacity 0.14s ease, scale 0.12s ease;
   }
