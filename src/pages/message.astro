@@ -89,18 +89,21 @@ const accentInk = textOnAccent(accentFill);
     lang={locale}
     style={`--accent-light:${accentFill};--accent-dark:${accentFillDark};--accent-ink:${accentInk};`}
   >
+    {/* The title heads the thread the way a name heads a conversation, rather
+        than sitting in the first bubble. It was a bubble until it wasn't: a
+        bolded slab at the top of a run reads as a heading wearing a costume,
+        and nobody opens a message by stating its subject. */}
+    <h1 class="thread__title">{t.title}</h1>
+
     {/* A plain stack rather than a list: the composer sits inside the run, and
-        a form is not a list item. Read in order these are three sentences and
-        a form, which is what a screen reader should get. */}
+        a form is not a list item. Read in order these are two sentences and a
+        form, which is what a screen reader should get. */}
     <div class="thread__stack">
-      {/* One speaker, three lines. The corners they share tighten to 5px --
-          that seam is what makes three outlines read as one person talking
-          rather than as three unrelated chips. */}
+      {/* One speaker, two lines. The corners they share tighten to 5px -- that
+          seam is what makes two bubbles read as one person talking rather than
+          as two unrelated chips. */}
       <div class="msg msg--them">
-        <h1 class="bubble bubble--them bubble--lead bubble--joined-below">{t.title}</h1>
-      </div>
-      <div class="msg msg--them">
-        <p class="bubble bubble--them bubble--joined-above bubble--joined-below">{t.intro}</p>
+        <p class="bubble bubble--them bubble--joined-below">{t.intro}</p>
       </div>
       <div class="msg msg--them">
         <p class="bubble bubble--them bubble--joined-above">{t.invite}</p>
@@ -267,6 +270,20 @@ const accentInk = textOnAccent(accentFill);
     --message-danger: #f1707a;
   }
 
+  /* Centred, though the site is otherwise left-aligned: this is the top of a
+     conversation, and every thread anyone has read puts the name in the middle
+     with air under it. Small and quiet -- the two bubbles below carry the
+     actual invitation, so the heading only has to say where you are. */
+  .thread__title {
+    margin: 0 0 28px;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: hsl(var(--muted-foreground));
+    text-align: center;
+    letter-spacing: 0.02em;
+  }
+
   .thread__stack {
     display: flex;
     flex-direction: column;
@@ -314,12 +331,6 @@ const accentInk = textOnAccent(accentFill);
   .bubble--them {
     color: var(--ink);
     background: var(--surface);
-  }
-
-  .bubble--lead {
-    font-size: 14px;
-    font-weight: 600;
-    color: hsl(var(--foreground));
   }
 
   .bubble--joined-above {
