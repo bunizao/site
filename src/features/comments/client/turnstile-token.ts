@@ -27,7 +27,7 @@
 
 import { loadTurnstileScript } from '@/lib/turnstile-script';
 
-export type TurnstileAction = 'blog_comment_create' | 'blog_reaction';
+export type TurnstileAction = 'blog_comment_create' | 'blog_reaction' | 'mood_comment_create';
 
 interface TurnstileWidgetState {
   container: HTMLElement;
