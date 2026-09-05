@@ -122,15 +122,46 @@ const { compact = false } = Astro.props;
       pointer-events: none;
     }
 
+    /* While the finger drives --reveal there is nothing to ease. Written at the
+       specificity of the is-visible rule above, which otherwise keeps its
+       0.3s transform transition and trails the finger by a beat. */
+    .timeline-wheel:not([data-timeline-wheel-compact]).is-visible.is-sliding,
     .timeline-wheel.is-sliding {
       transition: none;
     }
 
-    /* Over the feed the dial is a solid sheet edge, not notches over text. */
+    /* Over the feed the dial is a solid sheet edge. Desktop's faint notches
+       sit in an empty margin; here the dial lies on cards the same colour as
+       the page, so it gets its own tinted surface and darker graduations, or
+       it reads as see-through. */
     .timeline-wheel:not([data-timeline-wheel-compact]) .timeline-wheel-dial {
+      background: color-mix(in srgb, hsl(var(--background)) 90%, hsl(var(--foreground)));
+      border-color: hsl(var(--foreground) / 0.18);
+      box-shadow: 0 0 32px hsl(var(--foreground) / 0.18);
+    }
+
+    .timeline-wheel:not([data-timeline-wheel-compact]) :global(.timeline-notch) {
+      background: hsl(var(--foreground) / calc(0.22 + var(--notch-weight, 0.35) * 0.18));
+    }
+
+    .timeline-wheel:not([data-timeline-wheel-compact]) :global(.timeline-notch.is-major) {
+      background: hsl(var(--foreground) / calc(0.4 + var(--notch-weight, 0.35) * 0.25));
+    }
+
+    .timeline-wheel:not([data-timeline-wheel-compact]) :global(.timeline-notch.is-near),
+    .timeline-wheel:not([data-timeline-wheel-compact]) :global(.timeline-notch.is-neighbor) {
+      background: hsl(var(--foreground) / 0.55);
+    }
+
+    .timeline-wheel:not([data-timeline-wheel-compact]) :global(.timeline-notch.is-active),
+    .timeline-wheel:not([data-timeline-wheel-compact]) :global(.timeline-notch.is-major.is-active) {
+      background: hsl(var(--foreground));
+    }
+
+    .timeline-wheel:not([data-timeline-wheel-compact]) .timeline-wheel-label {
       background: hsl(var(--background));
-      border-color: hsl(var(--foreground) / 0.12);
-      box-shadow: 0 0 28px hsl(var(--foreground) / 0.1);
+      border-color: hsl(var(--foreground) / 0.14);
+      color: hsl(var(--foreground));
     }
 
     .timeline-wheel:not([data-timeline-wheel-compact]).is-visible .timeline-wheel-label-wrap {
