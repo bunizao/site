@@ -6,8 +6,8 @@
  * the band is mostly static haze with movement running through it. The pointer
  * paints a second channel that lights whatever it passes over.
  *
- * Colour is one ink per theme, read from `--glyph-ink` on the host so the
- * component owns it (see GlyphField.astro). What the clock changes is the
+ * Colour is one ink per theme from src/features/home/glyph-inks.ts, with
+ * `?ink=` selecting an alternative for review. What the clock changes is the
  * WEATHER, not the colour: by day the field runs closer to the lab's `rain`
  * preset, by night it settles into `drift` (slower fall, longer trails, fewer
  * columns). The two are blended on a daylight curve, so there is no step.
@@ -16,6 +16,8 @@
  * visibility, on being in the viewport, and on prefers-reduced-motion (which
  * gets one static frame and nothing else).
  */
+
+import { DEFAULT_INK, GLYPH_INKS, isGlyphInkName, type GlyphInk, type GlyphInkName } from '@/features/home/glyph-inks';
 
 const GLYPHS = 'CLPSAR01<>=+*-#$';
 const TICK_MS = 90;
@@ -87,6 +89,11 @@ const weatherAt = (hour: number): Weather => {
   };
 };
 
+const inkName = (): GlyphInkName => {
+  const asked = new URLSearchParams(location.search).get('ink') ?? '';
+  return isGlyphInkName(asked) ? asked : DEFAULT_INK;
+};
+
 const pick = (): string => GLYPHS[(Math.random() * GLYPHS.length) | 0];
 
 export interface GlyphFieldHandle {
@@ -107,7 +114,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   let rowCount = 0;
   let colW = 0;
   let rowH = 0;
-  let ink = '#000';
+  const inks: GlyphInk = GLYPH_INKS[inkName()];
+  let ink = inks.light;
   let gain = 0.72;
   let weather = weatherAt(localHour());
 
@@ -121,7 +129,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
 
   const readTheme = () => {
     const dark = root.classList.contains('dark');
-    ink = getComputedStyle(host).getPropertyValue('--glyph-ink').trim() || (dark ? '#ffffff' : '#000000');
+    ink = dark ? inks.dark : inks.light;
     // Light ink on a dark ground carries further than dark ink on white, so the
     // same nominal alpha reads hotter. The ink is a mid blue rather than pure
     // black or white, so both run above the reference's 0.6 / 0.5.

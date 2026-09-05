@@ -22,10 +22,11 @@ top of the thing it is meant to replace.
 `src/features/home/ui/GlyphField.astro`, painted by `src/lib/glyph-field.ts`.
 What shipped, and what was decided along the way:
 
-- One ink per theme, both from the blog palette's highlight blue (`ji`), so
-  the homepage shares its accent with the writing. A time-of-day palette was
-  prototyped and rejected as too strange; an achromatic field was tried and
-  read as grime. The band runs at roughly half the lab's column density with
+- One ink per theme, from the matched-lightness set in
+  `src/features/home/glyph-inks.ts` (blue, steel, indigo, violet, amber, rose,
+  teal; `?ink=` previews any of them). Default is `blue` until the owner
+  picks. A time-of-day palette was prototyped and rejected as too strange; an
+  achromatic field was tried and read as grime. The band runs at roughly half the lab's column density with
   near-zero resting alpha, so the ground stays clean between streaks.
 - The clock moves the weather, not the colour. Day is the lab's `rain`
   preset, night is `drift`; the two blend on a cosine of local hour (calm at
@@ -51,6 +52,9 @@ What shipped, and what was decided along the way:
 
 ## Remaining
 
+- [ ] Pick the ink. The owner liked blue, indigo, and amber on 2026-09-06;
+      once chosen, `DEFAULT_INK` moves and the rest can stay as review options
+      or go.
 - [ ] Budget it. The band is a 1200x560 canvas repainting at ~11fps on the
       site's LCP page. Measure paint cost and LCP on prod before calling it
       done; the lab never did.
