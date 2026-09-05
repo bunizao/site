@@ -425,9 +425,12 @@ test.describe('mood timeline wheel on the feed', () => {
     const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) =>
       cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
 
+    // 10px in from the edge: inside the 22px swipe zone, but clear of the
+    // last 8px, which headless Chromium hands to the scroller's scrollbar
+    // instead of the content. A phone has no scrollbar to hit.
     const y = 422;
-    await touch('touchStart', 384, y);
-    for (let x = 384; x >= 120; x -= 24) {
+    await touch('touchStart', 380, y);
+    for (let x = 380; x >= 120; x -= 24) {
       await touch('touchMove', x, y);
       await page.waitForTimeout(16);
     }
