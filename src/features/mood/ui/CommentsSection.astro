@@ -1,16 +1,32 @@
 ---
+import CommentCompose from '@/features/mood/ui/CommentCompose.astro';
+
 interface Props {
   postId: string;
   telegramCommentUrl?: string;
+  /** MoodContentDocument.discussionLinked -- the post's copy in the Telegram
+      discussion group is known and mood comments are enabled, so the box
+      below can post into the thread. False or absent keeps the existing
+      "Leave a comment on Telegram" CTA. */
+  discussionLinked?: boolean;
+  discussionRepliesEnabled?: boolean;
+  turnstileSiteKey?: string;
 }
 
 const {
   postId,
   telegramCommentUrl = '',
+  discussionLinked = false,
+  discussionRepliesEnabled = false,
+  turnstileSiteKey = '',
 } = Astro.props;
 ---
 
-<section class="mood-comments" data-post-id={postId}>
+<section
+  class="mood-comments"
+  data-post-id={postId}
+  data-discussion-replies-enabled={discussionRepliesEnabled ? 'true' : 'false'}
+>
   <div class="mood-comments-header">
     <span class="mood-comments-title">Comments</span>
     <span class="mood-comments-count" data-comments-count></span>
@@ -67,7 +83,13 @@ const {
   <button type="button" class="mood-comments-load-more" data-load-more hidden>
     Load more comments
   </button>
-  {telegramCommentUrl && (
+  {discussionLinked ? (
+    <CommentCompose
+      postId={postId}
+      discussionRepliesEnabled={discussionRepliesEnabled}
+      turnstileSiteKey={turnstileSiteKey}
+    />
+  ) : telegramCommentUrl && (
     <a
       href={telegramCommentUrl}
       target="_blank"

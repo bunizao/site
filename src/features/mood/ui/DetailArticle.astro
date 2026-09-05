@@ -13,6 +13,14 @@ interface Props {
   telegramCommentUrl?: string;
   backHref?: string;
   readSource?: 'live' | 'archive';
+  /** MoodContentDocument.discussionLinked -- renders CommentCompose in place
+      of the "Leave a comment on Telegram" CTA row when true. */
+  discussionLinked?: boolean;
+  /** MoodContentDocument.discussionRepliesEnabled -- passed through to the
+      compose box, which stamps it as a data attribute for the reply
+      affordance's own gating. */
+  discussionRepliesEnabled?: boolean;
+  turnstileSiteKey?: string;
 }
 
 const {
@@ -24,6 +32,9 @@ const {
   telegramCommentUrl = '',
   backHref = '/mood',
   readSource = 'live',
+  discussionLinked = false,
+  discussionRepliesEnabled = false,
+  turnstileSiteKey = '',
 } = Astro.props;
 
 const postTags = post ? post.tags ?? (post.tag ? [post.tag] : []) : [];
@@ -111,7 +122,13 @@ const previewPending = readSource === 'archive'
         ))}
     </div>
     {postId && (
-      <CommentsSection postId={postId} telegramCommentUrl={telegramCommentUrl} />
+      <CommentsSection
+        postId={postId}
+        telegramCommentUrl={telegramCommentUrl}
+        discussionLinked={discussionLinked}
+        discussionRepliesEnabled={discussionRepliesEnabled}
+        turnstileSiteKey={turnstileSiteKey}
+      />
     )}
   </article>
 ) : (
