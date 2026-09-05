@@ -6,6 +6,7 @@ import {
   getTimelineDateState,
 } from '@/features/mood/client/timeline-date-tracker';
 import { formatMoodDateLabel } from '@/features/mood/client/date-label';
+import { createFrameMeter } from '@/features/mood/client/wheel-frame-meter';
 import { createWheelFeedback } from '@/features/mood/client/wheel-feedback';
 import { getMoodFeedTopHref } from '@/features/mood/shared/feed-anchor';
 import { pageScroll } from '@/lib/page-scroll';
@@ -28,9 +29,32 @@ export function mountTimelineWheel(
 
   if (!dial || !label) return () => {};
 
-  // Below 1024px the wheel waits off the right edge and a swipe from that edge
-  // brings it in. The preview fixture forces the desktop layout at any width.
-  const isPhoneLayout = (): boolean => !root.hasAttribute('data-timeline-wheel-compact') && window.innerWidth < 1024;
+  // Where the feed leaves room at the left for the arc and its readout, the
+  // wheel stays there. Where it would sit on top of the feed, it waits off the
+  // right edge and a swipe brings it in. Measured against the feed column, not
+  // a breakpoint: what matters is covering the feed, not the device. The
+  // preview fixture keeps the persistent layout at any width.
+  const WHEEL_INBOARD_PX = 168;
+  const compact = root.hasAttribute('data-timeline-wheel-compact');
+  const feedLeft = (): number => {
+    const rect = list.getBoundingClientRect();
+    if (rect.width > 0) return rect.left;
+    // The list has no layout while the feed is hidden: assume the centred
+    // column it becomes.
+    return Math.max(0, (window.innerWidth - Math.min(window.innerWidth, 720)) / 2);
+  };
+  const applyLayout = (): void => {
+    if (compact) return;
+    wheel.classList.toggle('is-edge', feedLeft() < WHEEL_INBOARD_PX);
+  };
+  const isPhoneLayout = (): boolean => wheel.classList.contains('is-edge');
+  applyLayout();
+
+  // ?debug=wheel shows frame gaps for each scrub; ?wheel=solid swaps the frosted
+  // dial for a flat fill so the two can be compared on a device.
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('wheel') === 'solid') wheel.classList.add('is-solid');
+  const frameMeter = params.get('debug') === 'wheel' ? createFrameMeter() : null;
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // The wheel doubles as a back-to-top control: clicking it returns to the
@@ -723,6 +747,8 @@ export function mountTimelineWheel(
     if (controlActive === active) return;
     controlActive = active;
     wheel.classList.toggle('is-engaged', active);
+    if (active) frameMeter?.start();
+    else frameMeter?.stop();
     // The readout must show the date while scrubbing, never the back-to-top cue.
     renderReadout();
     // Back to reporting: land the dial on wherever the scroller actually is.
@@ -974,7 +1000,7 @@ export function mountTimelineWheel(
   const EDGE_ZONE_PX = 22;
   // Matches the closed --reveal in TimelineWheel.astro: the arc plus a margin.
   const CLOSED_MARGIN_PX = 8;
-  const IDLE_CLOSE_MS = 2500;
+  const IDLE_CLOSE_MS = 4000;
   const AXIS_SLOP_PX = 6;
   // Vertical px a start may wander before a not-yet-horizontal touch is left
   // to the feed. A thumb coming in from the edge pivots, so this is generous.
@@ -1006,8 +1032,13 @@ export function mountTimelineWheel(
     }, IDLE_CLOSE_MS);
   }
 
-  function setPhoneOpen(open: boolean): void {
+  // slideMs, when given, is how long the remaining travel should take so the
+  // wheel keeps the speed the finger left it at; otherwise the stylesheet's
+  // default applies.
+  function setPhoneOpen(open: boolean, slideMs?: number): void {
     phoneOpen = open;
+    if (slideMs === undefined) wheel.style.removeProperty('--slide-ms');
+    else wheel.style.setProperty('--slide-ms', `${Math.round(slideMs)}ms`);
     wheel.classList.toggle('is-open', open);
     clearTimeout(closeTimer);
     if (open) armClose();
@@ -1128,7 +1159,10 @@ export function mountTimelineWheel(
       : velocity > COMMIT_VELOCITY
         ? false
         : reveal < closed * 0.6;
-    setPhoneOpen(open);
+    // Carry on at the finger's speed; a still finger gets a brisk default.
+    const distance = open ? reveal : closed - reveal;
+    const speed = Math.max(Math.abs(velocity), 0.6);
+    setPhoneOpen(open, clamp(distance / speed, 120, 320));
     if (open) feedback.settle();
   };
 
@@ -1305,6 +1339,7 @@ export function mountTimelineWheel(
   };
 
   const handleResize = (): void => {
+    applyLayout();
     if (!isPhoneLayout()) setPhoneOpen(false);
     const isLoading = wheel.classList.contains('is-loading');
     if (dateGroups.length > 0 || isLoading) {
@@ -1387,6 +1422,7 @@ export function mountTimelineWheel(
     window.removeEventListener('touchend', primeFeedback, { capture: true });
     window.removeEventListener('keydown', primeFeedback, { capture: true });
     feedback.destroy();
+    frameMeter?.destroy();
     wheel.removeEventListener('pointerenter', handlePointerEnter);
     wheel.removeEventListener('pointerleave', handlePointerLeave);
     window.removeEventListener('resize', handleWindowResize);

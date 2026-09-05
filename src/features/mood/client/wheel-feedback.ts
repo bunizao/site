@@ -79,9 +79,34 @@ export function createWheelFeedback(): WheelFeedback {
     osc.stop(now + duration + 0.01);
   };
 
+  // iOS has no navigator.vibrate, but since 17.4 toggling a switch-style
+  // checkbox plays the system's light haptic, and a label click toggles it
+  // from script. That is the one haptic a web page gets there, so it is the
+  // tick. Kept off screen rather than display:none, which would silence it.
+  let haptic: HTMLLabelElement | null = null;
+  const ensureHaptic = (): HTMLLabelElement | null => {
+    if (haptic) return haptic;
+    if (!('switch' in HTMLInputElement.prototype)) return null;
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.setAttribute('switch', '');
+    input.tabIndex = -1;
+    label.setAttribute('aria-hidden', 'true');
+    label.style.cssText = 'position:fixed;left:-100px;top:0;width:1px;height:1px;overflow:hidden;pointer-events:none;';
+    label.appendChild(input);
+    document.body.appendChild(label);
+    haptic = label;
+    return label;
+  };
+
   const buzz = (ms: number): void => {
     if (muted) return;
-    navigator.vibrate?.(ms);
+    if (navigator.vibrate) {
+      navigator.vibrate(ms);
+      return;
+    }
+    ensureHaptic()?.click();
   };
 
   return {
@@ -125,6 +150,8 @@ export function createWheelFeedback(): WheelFeedback {
     destroy() {
       void context?.close();
       context = null;
+      haptic?.remove();
+      haptic = null;
     },
   };
 }
