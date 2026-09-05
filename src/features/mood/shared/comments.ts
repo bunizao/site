@@ -29,116 +29,52 @@ export const formatRelativeCommentDate = (
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const sanitizeHref = (value: unknown): string => {
-  const raw = asText(value).trim();
-  if (!raw) return '';
+export interface CommentReplyTarget {
+  id: string;
+  author: string;
+  text: string;
+}
 
-  try {
-    const parsed = new URL(raw, window.location.origin);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return '';
-    }
-    return parsed.origin === window.location.origin
-      ? `${parsed.pathname}${parsed.search}${parsed.hash}`
-      : parsed.toString();
-  } catch {
-    if (/^(\/|#|\?)/.test(raw)) {
-      return raw;
-    }
-    return '';
-  }
+export const readCommentReplyTarget = (value: unknown): CommentReplyTarget | null => {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  const id = asText(raw.id).trim();
+  const author = asText(raw.author).replace(/\s+/g, ' ').trim();
+  const text = asText(raw.text).replace(/\s+/g, ' ').trim();
+  if (!id || (!author && !text)) return null;
+  return { id, author, text };
 };
 
-const normalizeMultilineText = (value: string): string => {
-  return value
-    .replace(/\r/g, '')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n[ \t]+/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-};
-
-const escapeForRegExp = (value: string): string => {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-};
-
-const stripLeadingAuthor = (value: string, author: string): string => {
-  if (!author) return value.trim();
-  return value.replace(new RegExp(`^${escapeForRegExp(author)}[\\s\\-–—:：]+`, 'i'), '').trim();
-};
-
-const extractMultilineText = (element: Element | null): string => {
-  if (!element) return '';
-  const clone = element.cloneNode(true) as Element;
-  clone.querySelectorAll('br').forEach((lineBreak) => {
-    lineBreak.replaceWith('\n');
-  });
-  clone.querySelectorAll('p, div, li').forEach((block) => {
-    if (!block.textContent?.trim()) return;
-    block.prepend(document.createTextNode('\n'));
-    block.append(document.createTextNode('\n'));
-  });
-  return normalizeMultilineText(clone.textContent ?? '');
-};
-
-const createCommentQuote = (replyEl: Element): HTMLElement | null => {
-  const authorSelectors = [
-    '.tgme_widget_message_reply_author',
-    '.tgme_widget_message_reply_title',
-    '.tgme_widget_message_reply_name',
-    '.tgme_widget_message_author_name',
-  ];
-  const author = authorSelectors
-    .map((selector) => replyEl.querySelector(selector)?.textContent ?? '')
-    .map((value) => value.replace(/\s+/g, ' ').trim())
-    .find(Boolean) ?? '';
-
-  const replyTextEl = replyEl.querySelector('.js-message_reply_text, .tgme_widget_message_reply_text');
-  const rawText = extractMultilineText(replyTextEl ?? replyEl);
-  const text = stripLeadingAuthor(rawText, author);
-  if (!text) return null;
-
-  const href = sanitizeHref(replyEl.getAttribute('href') ?? '');
+// Renders the parent preview of a reply. Pass `href` when the parent can be
+// reached from the current page; without it the card is static.
+export const createCommentReplyQuote = (replyTo: CommentReplyTarget, href = ''): HTMLElement => {
   const quoteWrap = document.createElement(href ? 'a' : 'div');
   quoteWrap.className = 'mood-item-quote mood-comment-quote';
-
-  if (quoteWrap instanceof HTMLAnchorElement && href) {
+  quoteWrap.dataset.replyToId = replyTo.id;
+  if (quoteWrap instanceof HTMLAnchorElement) {
     quoteWrap.href = href;
-    if (/^https?:\/\//i.test(href)) {
-      quoteWrap.target = '_blank';
-      quoteWrap.rel = 'noopener noreferrer';
-    }
   }
 
-  if (author) {
+  if (replyTo.author) {
     const quoteMeta = document.createElement('div');
     quoteMeta.className = 'mood-item-quote-meta';
 
     const quoteAuthor = document.createElement('span');
     quoteAuthor.className = 'mood-item-quote-author';
-    quoteAuthor.textContent = author;
+    quoteAuthor.textContent = replyTo.author;
 
     quoteMeta.appendChild(quoteAuthor);
     quoteWrap.appendChild(quoteMeta);
   }
 
-  const quoteText = document.createElement('p');
-  quoteText.className = 'mood-item-quote-text';
-  quoteText.textContent = text;
-  quoteWrap.appendChild(quoteText);
+  if (replyTo.text) {
+    const quoteText = document.createElement('p');
+    quoteText.className = 'mood-item-quote-text';
+    quoteText.textContent = replyTo.text;
+    quoteWrap.appendChild(quoteText);
+  }
 
   return quoteWrap;
-};
-
-export const replaceReplyNodesWithCommentQuotes = (root: ParentNode): void => {
-  root.querySelectorAll('.tgme_widget_message_reply').forEach((replyNode) => {
-    const quoteCard = createCommentQuote(replyNode as Element);
-    if (quoteCard) {
-      replyNode.replaceWith(quoteCard);
-      return;
-    }
-    replyNode.remove();
-  });
 };
 
 export const buildCommentContentFragment = (value: unknown): DocumentFragment => {
@@ -146,8 +82,6 @@ export const buildCommentContentFragment = (value: unknown): DocumentFragment =>
   // `/api/comments` returns Telegram-scraped comment HTML; sanitization is
   // enforced upstream in `site-api` (see its plan 016).
   template.innerHTML = asText(value).trim();
-
-  replaceReplyNodesWithCommentQuotes(template.content);
 
   const normalized = document.createDocumentFragment();
   let paragraph: HTMLParagraphElement | null = null;

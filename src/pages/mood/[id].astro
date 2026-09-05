@@ -116,9 +116,6 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
 </Layout>
 
 <script>
-  import {
-    replaceReplyNodesWithCommentQuotes,
-  } from '@/features/mood/shared/comments';
   import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
   import { initMoodDetailComments } from '@/features/mood/client/detail-comments-controller';
   import { initMoodGalleries } from '@/features/mood/client/gallery';
@@ -169,7 +166,6 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
 
   const moodPostContent = document.querySelector('.mood-post-content');
   if (moodPostContent instanceof HTMLElement) {
-    replaceReplyNodesWithCommentQuotes(moodPostContent);
     initMoodGalleries(moodPostContent);
     initMoodImageFrames(moodPostContent);
     hydrateMoodRichText(moodPostContent);
