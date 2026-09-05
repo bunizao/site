@@ -17,13 +17,13 @@
 // The one animated element, the typing indicator, is on screen only while a
 // request is genuinely in flight.
 //
-// Everything is drawn in hairlines except one object. The owner's bubbles are
-// outlines, the composer is a single ruled frame, and the only filled shape on
-// the page is whichever accent element is currently live: the send button
-// before the send, the sender's own bubble after it (the composer is gone by
-// then), never both at once. A page that spends its ink once is the whole
-// idea -- an earlier pass filled every bubble and the accent stopped being an
-// accent.
+// Every surface here is opaque. The site's ground carries a dot grid, and an
+// outlined or alpha-tinted bubble lets that grid run straight through the
+// words -- which read as unfinished rather than as quiet. So the bubbles and
+// the composer are filled with a neutral grey that stops the ground dead, and
+// the accent stays rationed to exactly one live object: the send button before
+// the send, the sender's own bubble after it (the composer is gone by then),
+// never both at once. Neutral surfaces, one coloured one.
 //
 // Nothing on this page reads existing messages. There is no such endpoint --
 // see site-api's src/pages/v2/messages.ts.
@@ -229,11 +229,16 @@ const accentInk = textOnAccent(accentFill);
        outranks any stylesheet rule and the dark override would never land. */
     --accent-fill: var(--accent-light);
 
+    /* Opaque on purpose, and the reason this is a hex and not an
+       hsl(var(--foreground) / a) overlay: the page ground is a dot grid, and an
+       alpha surface lets the dots show through the text. #EFEFEF against the
+       white ground is the same separation iMessage gives an incoming bubble. */
+    --surface: #efefef;
+
     --line: hsl(var(--foreground) / 0.16);
-    /* Interior rules sit inside a frame that is already drawn, so they read at
-       full strength at a lower alpha. Matching --line makes a composer look
-       like a table. */
-    --line-soft: hsl(var(--foreground) / 0.1);
+    /* Rules drawn on --surface rather than on the page, so they need a touch
+       more alpha than they would on the ground to read at all. */
+    --line-soft: hsl(var(--foreground) / 0.13);
     --ink: hsl(var(--foreground) / 0.86);
 
     /* The blog zone's danger pair (--blog-danger in comments.css), repeated
@@ -246,8 +251,12 @@ const accentInk = textOnAccent(accentFill);
 
   :global(.dark) .thread {
     --accent-fill: var(--accent-dark);
+    /* The dark ground is 4% grey, so this needs a wider gap than light's 4
+       points to separate by the same amount -- lightness differences compress
+       as they approach black. */
+    --surface: #1c1c1e;
     --line: hsl(var(--foreground) / 0.2);
-    --line-soft: hsl(var(--foreground) / 0.13);
+    --line-soft: hsl(var(--foreground) / 0.16);
     --message-danger: #f1707a;
   }
 
@@ -291,14 +300,13 @@ const accentInk = textOnAccent(accentFill);
     padding: 10px 14px;
     font-size: 14px;
     line-height: 1.72;
-    border: 1px solid transparent;
-    border-radius: 13px;
+    border-radius: 15px;
     text-wrap: pretty;
   }
 
   .bubble--them {
     color: var(--ink);
-    border-color: var(--line);
+    background: var(--surface);
   }
 
   .bubble--lead {
@@ -321,19 +329,21 @@ const accentInk = textOnAccent(accentFill);
   .bubble--me {
     color: var(--accent-ink);
     background: var(--accent-fill);
-    border-color: var(--accent-fill);
     border-bottom-right-radius: 5px;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
   /* --- composer -----------------------------------------------------------
-     One frame with rules through it, rather than three rounded boxes stacked
-     inside a fourth. Same number of fields, a quarter of the drawn shapes. */
+     One panel with rules through it, rather than three rounded boxes stacked
+     inside a fourth. Same number of fields, a quarter of the drawn shapes. It
+     takes the bubbles' surface because it is the same material: the thing you
+     write in becomes the bubble you sent. No outline -- the fill already ends
+     where the panel ends, and a border on top of it is a second edge. */
   .composer {
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    /* Clips the focus ring's square corners against the frame's round ones. */
+    background: var(--surface);
+    border-radius: 16px;
+    /* Clips the focus ring's square corners against the panel's round ones. */
     overflow: hidden;
   }
 
@@ -350,9 +360,12 @@ const accentInk = textOnAccent(accentFill);
     border-top: 1px solid var(--line-soft);
   }
 
-  /* Inset, so gaining focus moves nothing. The accent is the page's only
-     colour, which makes it legible as "you are here" without a glow. */
-  .composer__cell:focus-within {
+  /* The ring goes round the whole panel, not the focused cell. Per-cell, the
+     body field's ring is a square rectangle inside a rounded one, which reads
+     as a stray box; per-panel it follows the radius already there and says the
+     composer is live, which is the true statement anyway -- the three fields
+     are one act. Inset, so gaining focus moves nothing. */
+  .composer:focus-within {
     box-shadow: inset 0 0 0 1px var(--accent-fill);
   }
 
@@ -378,7 +391,7 @@ const accentInk = textOnAccent(accentFill);
      cap is where it stops growing and starts scrolling -- past that the send
      button would be pushed off screen on a laptop. */
   .field--body {
-    min-height: 92px;
+    min-height: 78px;
     max-height: 264px;
     line-height: 1.68;
     resize: none;
