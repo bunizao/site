@@ -10,6 +10,12 @@
 // short, one thought each, in the order someone would actually say them. That
 // is also why they are separate fields rather than one paragraph: each one is
 // a bubble, and a bubble holding two thoughts reads as a wall.
+//
+// Speech, not prose. An earlier pass was correct and complete and read like a
+// notice taped to a door, because it punctuated every line and finished every
+// clause. Chat does neither: no trailing full stop, particles doing the work
+// commas would do in writing, and fragments where a fragment is what someone
+// would actually type. Question marks stay -- those are still questions.
 
 export interface MessageCopy {
   /** Masthead trigger label. Sits beside 订阅 / 联系, so it matches their
@@ -62,8 +68,8 @@ export const messagesCopy: Record<'zh' | 'en', MessageCopy> = {
     title: '给我留言',
     opener: '诶，想跟你说个事',
     lede: '这里写的东西不会公开，只有我看得到。想说什么都行。',
-    intro: '这里写的东西不会公开，只有我看得到。',
-    invite: '留个邮箱，不然我没办法回你。想说什么都行，慢慢写。',
+    intro: '你说吧，这儿不公开，就我一个人看得到',
+    invite: '留个邮箱哈，不然我回不了你。剩下的随便写，不着急',
     nameLabel: '怎么称呼你',
     namePlaceholder: '怎么称呼你',
     emailLabel: '邮箱',
@@ -73,25 +79,25 @@ export const messagesCopy: Record<'zh' | 'en', MessageCopy> = {
     submit: '发送',
     submitting: '发送中',
     privacy: '不会出现在网站的任何地方',
-    sentReplyable: '收到了。要是需要回复，会发到你留的邮箱。',
-    sentVerify: '收到了。我往你留的邮箱发了一封确认信，点一下里面的链接我才能回你。不点也没关系。',
-    sentAnonymous: '收到了。确认信这次没发出去，所以我大概回不了你——但这条我看到了。',
+    sentReplyable: '收到啦。要是得回你，我就发到你留的邮箱',
+    sentVerify: '收到啦。给你邮箱发了封确认信，点一下我才回得了你。不想点也没事',
+    sentAnonymous: '收到啦。确认信没发出去，估计回不了你了，不过这条我看到了',
     sendAnother: '再写一条',
-    errorGeneric: '没发出去。过一会儿再试试？',
-    errorRateLimited: '发得有点快，歇一会儿再来。',
-    errorTurnstile: '人机验证没过，刷新页面重试一下。',
-    errorBody: '写点东西吧，至少两个字。',
-    errorName: '留个称呼，怎么写都行。',
-    errorEmailMissing: '留个邮箱吧，不然我回不了你。',
-    errorEmail: '这个邮箱地址看起来不太对。',
+    errorGeneric: '没发出去，过会儿再试试？',
+    errorRateLimited: '发太快了，歇一会儿再来',
+    errorTurnstile: '人机验证没过，刷新一下再试',
+    errorBody: '写点东西吧，至少两个字',
+    errorName: '留个称呼吧，随便写',
+    errorEmailMissing: '留个邮箱吧，不然我回不了你',
+    errorEmail: '这邮箱看着不太对',
   },
   en: {
     trigger: 'Message',
     title: 'Write to me',
     opener: 'hey, got something to tell you',
     lede: 'Nothing here goes public. I am the only one who reads it.',
-    intro: 'Nothing here goes public. I am the only one who reads it.',
-    invite: 'Leave an address, or I have no way to answer. Say anything. Take your time.',
+    intro: 'Say whatever you want, nothing here goes public. Only I see it',
+    invite: 'Leave an email though, or I cannot write back. Rest of it is up to you, take your time',
     nameLabel: 'What to call you',
     namePlaceholder: 'What to call you',
     emailLabel: 'Email',
@@ -101,16 +107,16 @@ export const messagesCopy: Record<'zh' | 'en', MessageCopy> = {
     submit: 'Send',
     submitting: 'Sending',
     privacy: 'Appears nowhere on the site',
-    sentReplyable: 'Got it. If it needs an answer, it goes to the address you left.',
-    sentVerify: 'Got it. I sent a confirmation to your address — click the link in it and I can write back. Skip it if you like.',
-    sentAnonymous: 'Got it. The confirmation did not go out this time, so I probably cannot write back — but I have this.',
+    sentReplyable: 'Got it. If it needs an answer I will mail the address you left',
+    sentVerify: 'Got it. Sent a confirmation to your inbox, click the link and I can write back. Or skip it, no harm',
+    sentAnonymous: 'Got it. The confirmation did not go out, so I probably cannot reply. Read this though',
     sendAnother: 'Write another',
-    errorGeneric: 'That did not send. Try again in a moment?',
-    errorRateLimited: 'That is a lot at once. Give it a few minutes.',
-    errorTurnstile: 'The human check did not pass. Reload the page and try again.',
-    errorBody: 'Write something — a couple of characters at least.',
-    errorName: 'Leave a name. Any name.',
-    errorEmailMissing: 'Leave an address, or I cannot answer.',
-    errorEmail: 'That address does not look right.',
+    errorGeneric: 'That did not send, try again in a bit?',
+    errorRateLimited: 'That is a lot at once, give it a few minutes',
+    errorTurnstile: 'The human check did not pass, reload and try again',
+    errorBody: 'Write something, a couple of characters at least',
+    errorName: 'Leave a name, any name',
+    errorEmailMissing: 'Leave an email, or I cannot answer',
+    errorEmail: 'That address does not look right',
   },
 };

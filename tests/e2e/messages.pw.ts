@@ -159,7 +159,7 @@ test.describe('/message', () => {
 
     await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Second message.' });
     await page.locator('[data-message-submit]').click();
-    await expect(page.locator('[data-message-sent-body]')).toContainText('会发到你留的邮箱');
+    await expect(page.locator('[data-message-sent-body]')).toContainText('要是得回你');
   });
 
   test('a 429 keeps the draft on screen', async ({ page }) => {
