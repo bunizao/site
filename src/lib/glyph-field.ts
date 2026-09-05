@@ -4,7 +4,7 @@
  * Ported from the `02 Rain` / `03 Drift` concepts in src/pages/lab/glyph.astro.
  * Per-column falling heads leave trails that decay toward a per-cell floor, so
  * the band is mostly static haze with movement running through it. The pointer
- * paints a second channel that lights whatever it passes over.
+ * paints a second channel that gently lifts whatever it passes over.
  *
  * Colour is one ink per theme from src/features/home/glyph-inks.ts, drawn at
  * random per session, with `?ink=` pinning one for review. What the clock changes is the
@@ -21,13 +21,13 @@ import { GLYPH_INKS, resolveGlyphInk, type GlyphInk } from '@/features/home/glyp
 
 const GLYPHS = 'CLPSAR01<>=+*-#$';
 const TICK_MS = 90;
-const GLOW_DECAY = 0.82;
-const GLOW_WEIGHT = 600;
+const GLOW_DECAY = 0.78;
 const FONT_PX = 12;
 const BAND_WIDTH = 1200;
 const BAND_HEIGHT = 560;
-const GLOW_RADIUS = 88;
-const GLOW_PEAK = 1;
+/** Pointer light: a soft lift of the cells under the cursor, not a torch. */
+const GLOW_RADIUS = 64;
+const GLOW_PEAK = 0.5;
 /** Columns wake from the centre outward: spread across the band, then ease. */
 const WAKE_SPREAD_MS = 700;
 const WAKE_MS = 600;
@@ -188,8 +188,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
       for (let r = 0; r < rowCount; r++) {
         const rain = col.alphas[r] * col.brightness * wake;
         const glow = col.glows[r];
-        // Defer the glow-dominant cells so the weight switch happens once per
-        // frame instead of once per glyph.
+        // Glow-dominant cells are painted after the rain so they sit on top.
         if (glow > rain) {
           lit.push(x, r * rowH, col.chars[r], glow * gain);
           continue;
@@ -202,7 +201,6 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     if (allAwake) awake = true;
 
     if (lit.length) {
-      ctx.font = `${GLOW_WEIGHT} ${font}`;
       for (let i = 0; i < lit.length; i += 4) {
         ctx.globalAlpha = lit[i + 3] as number;
         ctx.fillText(lit[i + 2] as string, lit[i] as number, lit[i + 1] as number);
@@ -297,7 +295,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   // A tap has no hover, so it plants a larger light that then decays.
   const onPointerDown = (event: PointerEvent) => {
     if (event.pointerType !== 'touch') return;
-    glowAt(event.clientX, event.clientY, GLOW_RADIUS * 1.6);
+    glowAt(event.clientX, event.clientY, GLOW_RADIUS * 1.4);
   };
 
   /* ── Frame loop — visibility gated ────────────────────────────────────── */

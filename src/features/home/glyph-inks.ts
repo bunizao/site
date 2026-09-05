@@ -22,7 +22,6 @@ export const GLYPH_INKS = {
   steel: { light: '#007096', dark: '#57c0e6' }, // hue 225, colder, toward cyan
   indigo: { light: '#5d57a4', dark: '#aaa7f4' }, // hue 285, night, not neon
   violet: { light: '#784d96', dark: '#c79de6' }, // hue 310, warmer purple
-  amber: { light: '#865900', dark: '#d6a95b' }, // hue 80, gold on a dark ground
   rose: { light: '#9b424d', dark: '#ee939b' }, // hue 15, the warm outlier
   teal: { light: '#007872', dark: '#49c7c0' }, // hue 190, green-blue terminal
 } as const satisfies Record<string, GlyphInk>;

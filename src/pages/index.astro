@@ -46,6 +46,18 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
     display: none;
   }
 
+  /* The homepage ground carries a trace of cool grey instead of pure white and
+     near-black: the field's inks sit on it without the ground fighting them,
+     and the step to every other page is under 1% lightness, so navigation
+     shows no seam. */
+  :global(body) {
+    --background: 220 20% 98.4%;
+  }
+
+  :global(html.dark body) {
+    --background: 225 12% 4.6%;
+  }
+
   .page-container {
     /* Homepage code labels are below the fold; reuse the already-preloaded mono face here. */
     --font-code: var(--font-mono);
