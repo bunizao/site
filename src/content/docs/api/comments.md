@@ -308,8 +308,9 @@ treated as deleted, never resurrected.
 Disabled entirely by `MOOD_COMMENTS_ENABLED` (site-api, default off) — while
 off, `surface: "mood"` on this route answers exactly like an unlinked post
 (`discussion_message_id` unset): `resolveCommentablePost` finds nothing to
-write into. See [Comments platform](/docs/platform/comments) for the
-kill switch and the Phase 0 setup it gates.
+write into, and no bridge call (send, edit, delete, sweep) reaches Telegram.
+See [Comments platform](/docs/platform/comments) for the kill switch and the
+Phase 0 setup it gates.
 
 ## Dwell-time token
 

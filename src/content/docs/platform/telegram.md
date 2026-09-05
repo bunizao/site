@@ -68,7 +68,7 @@ flowchart TD
 | Ingest mood images into R2 | Use `PUBLIC_HD_IMAGE_URL` for primary image URLs |
 | Enqueue durable immediate notify dispatch jobs | Preserve the `/static/…` Telegram CDN fallback |
 | Dispatch notification email through `/v2/notify/dispatch` | — |
-| Run the risk stack, bridge `published`/`held` mood comments into the discussion group, overlay the scrape on read | Render the mood compose box only when `discussionLinked`, POST `/v2/comments` with `surface: 'mood'` |
+| Run the risk stack, bridge `published` mood comments (and `held` ones once approved) into the discussion group, overlay the scrape on read | Render the mood compose box only when `discussionLinked`, POST `/v2/comments` with `surface: 'mood'` |
 
 ## Key URLs
 

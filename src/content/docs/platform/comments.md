@@ -149,9 +149,13 @@ and [Telegram pipeline § The comment bridge](/docs/platform/telegram#the-commen
 `COMMENTS_ENABLED` above: `"false"` (the default) forces every mood
 document's `discussionLinked` to `false` — the compose box never renders,
 `/mood/[id]` keeps the "Leave a comment on Telegram" link — and a
-`surface: 'mood'` create answers `404`, same as an unlinked post. Reads are
-unaffected either way: the plain Telegram scrape keeps working whether or
-not the bridge is on.
+`surface: 'mood'` create answers `404`, same as an unlinked post. It also
+stops every Telegram call the bridge makes — sends, edits, deletes, both
+hourly sweeps, and the reply notification for group replies — so flipping
+it off mid-incident silences the bot at once. Reads are unaffected either
+way: the plain Telegram scrape keeps working, rows already bridged still
+overlay, and the discussion-thread mapping keeps filling in from automatic
+forwards, so turning it back on needs no backfill.
 
 | Variable | Purpose |
 | --- | --- |
