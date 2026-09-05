@@ -130,14 +130,15 @@ const { compact = false } = Astro.props;
       transition: none;
     }
 
-    /* Over the feed the dial is a solid sheet edge. Desktop's faint notches
-       sit in an empty margin; here the dial lies on cards the same colour as
-       the page, so it gets its own tinted surface and darker graduations, or
-       it reads as see-through. */
+    /* Over the feed the dial is a frosted sheet edge, the same material as
+       the readout pill: the content under it turns to haze, not to text you
+       can read through the graduations. Desktop's faint notches sit in an
+       empty margin; here they are heavier so the dial reads as a surface. */
     .timeline-wheel:not([data-timeline-wheel-compact]) .timeline-wheel-dial {
-      background: color-mix(in srgb, hsl(var(--background)) 90%, hsl(var(--foreground)));
-      border-color: hsl(var(--foreground) / 0.18);
-      box-shadow: 0 0 32px hsl(var(--foreground) / 0.18);
+      background: hsl(var(--background) / 0.82);
+      -webkit-backdrop-filter: blur(24px) saturate(1.4);
+      backdrop-filter: blur(24px) saturate(1.4);
+      border-color: hsl(var(--foreground) / 0.1);
     }
 
     .timeline-wheel:not([data-timeline-wheel-compact]) :global(.timeline-notch) {
@@ -156,12 +157,6 @@ const { compact = false } = Astro.props;
     .timeline-wheel:not([data-timeline-wheel-compact]) :global(.timeline-notch.is-active),
     .timeline-wheel:not([data-timeline-wheel-compact]) :global(.timeline-notch.is-major.is-active) {
       background: hsl(var(--foreground));
-    }
-
-    .timeline-wheel:not([data-timeline-wheel-compact]) .timeline-wheel-label {
-      background: hsl(var(--background));
-      border-color: hsl(var(--foreground) / 0.14);
-      color: hsl(var(--foreground));
     }
 
     .timeline-wheel:not([data-timeline-wheel-compact]).is-visible .timeline-wheel-label-wrap {

@@ -1156,6 +1156,7 @@ export function mountTimelineWheel(
   // the wheel is ready by the time a finger reaches it after any tap or key.
   const primeFeedback = (): void => feedback.prime();
   window.addEventListener('pointerup', primeFeedback, { passive: true, capture: true });
+  window.addEventListener('touchstart', primeFeedback, { passive: true, capture: true });
   window.addEventListener('touchend', primeFeedback, { passive: true, capture: true });
   window.addEventListener('keydown', primeFeedback, { passive: true, capture: true });
   scroll.el.addEventListener('wheel', handleFeedGrab, { passive: true });
@@ -1382,6 +1383,7 @@ export function mountTimelineWheel(
     scroll.el.removeEventListener('wheel', handleFeedGrab);
     abortWheelControl();
     window.removeEventListener('pointerup', primeFeedback, { capture: true });
+    window.removeEventListener('touchstart', primeFeedback, { capture: true });
     window.removeEventListener('touchend', primeFeedback, { capture: true });
     window.removeEventListener('keydown', primeFeedback, { capture: true });
     feedback.destroy();

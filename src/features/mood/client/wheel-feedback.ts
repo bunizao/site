@@ -42,6 +42,7 @@ export function createWheelFeedback(): WheelFeedback {
   const silent = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let muted = silent || readMuted();
   let context: AudioContext | null = null;
+  let unlocked = false;
   let lastTickAt = 0;
 
   // Autoplay policy: an AudioContext created outside a user gesture starts
@@ -87,7 +88,17 @@ export function createWheelFeedback(): WheelFeedback {
     prime() {
       if (muted) return;
       const ctx = ensureContext();
-      if (ctx && ctx.state !== 'running') void ctx.resume();
+      if (!ctx) return;
+      if (ctx.state !== 'running') void ctx.resume();
+      if (unlocked) return;
+      // iOS does not treat resume() alone as the unlock: a node has to start
+      // inside the gesture, once, or ticks scheduled later from animation
+      // frames stay silent. A one-sample silent buffer is that node.
+      const source = ctx.createBufferSource();
+      source.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+      source.connect(ctx.destination);
+      source.start(0);
+      unlocked = true;
     },
     tick(strength = 0.5) {
       if (muted) return;
