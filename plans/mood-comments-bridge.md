@@ -229,6 +229,22 @@ status='published'`, one indexed query) and applies an overlay:
    get the same author substitution so the quote reads "Alice" not
    "buxx.me bot".
 
+Worked example. Alice posts "nice shot" from the site; the bot sends it
+into the group and Telegram answers `message_id: 4812`. Bob, in Telegram,
+replies to the bot's message with "agreed".
+
+| Scraped item | Local row | Result |
+| --- | --- | --- |
+| `4812`, author "buxx.me bot", body "**Alice** via buxx.me\n\nnice shot" | `telegram_message_id = 4812` | Rule 1: rendered as Alice, her avatar, body "nice shot", `origin: 'web'`, `commentId` set so her browser marks it `mine` |
+| `4813`, author "Bob", body "agreed", quoting `4812` as "buxx.me bot: **Alice**…" | none | Passed through; rule 4 rewrites the quote's author to Alice |
+| (not yet scraped: edge TTL) | `telegram_message_id = 4812`, newer than the page's newest item | Rule 2: appended as a synthesized comment until the scrape catches up, then it becomes the rule-1 replacement above. Never both |
+| `4812` absent, page covers its `created_at` | `telegram_message_id = 4812` | Rule 2: the owner deleted it in Telegram; skipped |
+
+Each local row is either substituted in place or appended, never both, so
+a bridged comment cannot render twice. Both origins draw with the same
+component; the only visible difference is that `origin: 'web'` rows carry
+`commentId` (anchor, `mine`, edit/delete affordances).
+
 This assumes scraped comment ids are the group message ids (they are the
 `?comment=<id>` deep-link ids). Phase 0 verifies it against one real
 bridged message before anything else is built; if it is false the overlay
