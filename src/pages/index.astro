@@ -38,12 +38,24 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
 </Layout>
 
 <style>
-  /* The glyph field is the homepage's texture, so the site-wide dot lattice
-     and its pointer spotlight stand down here. Page-scoped on purpose: every
-     other page keeps both. */
+  /* The glyph field is the hero's texture, so the site-wide dot lattice and
+     its pointer spotlight fade in only below it. Both layers are fixed, so the
+     fade edge is a viewport coordinate: the field script keeps `--field-edge`
+     at the band's bottom minus the scroll offset, and it reaches 0 once the
+     band has scrolled away. Page-scoped on purpose: every other page keeps
+     both layers unmasked. */
   :global(body::before),
   :global(.spotlight-overlay) {
-    display: none;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent calc(var(--field-edge, 0px) - 220px),
+      #000 var(--field-edge, 0px)
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent calc(var(--field-edge, 0px) - 220px),
+      #000 var(--field-edge, 0px)
+    );
   }
 
   /* The homepage ground carries a trace of cool grey instead of pure white and

@@ -28,6 +28,12 @@ const BAND_HEIGHT = 560;
 /** Pointer light: a soft lift of the cells under the cursor, not a torch. */
 const GLOW_RADIUS = 64;
 const GLOW_PEAK = 0.5;
+/**
+ * Where the site's own texture (dot lattice, pointer spotlight) takes over
+ * below the band, in document pixels. Published to the page as `--field-edge`
+ * in viewport space; see the homepage stylesheet.
+ */
+const FIELD_EDGE = 620;
 /** Columns wake from the centre outward: spread across the band, then ease. */
 const WAKE_SPREAD_MS = 700;
 const WAKE_MS = 600;
@@ -323,6 +329,9 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   };
 
   const onVisibility = () => sync();
+  const onScroll = () => {
+    root.style.setProperty('--field-edge', `${Math.max(0, FIELD_EDGE - window.scrollY)}px`);
+  };
   const onReducedChange = () => {
     if (reduced.matches) awake = true;
     sync();
@@ -367,7 +376,9 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   const fontReady = document.fonts?.load(font).then(() => undefined, () => undefined) ?? Promise.resolve();
   Promise.race([fontReady, new Promise<void>((r) => setTimeout(r, 800))]).then(start);
 
+  onScroll();
   document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('scroll', onScroll, { passive: true });
   reduced.addEventListener('change', onReducedChange);
   window.addEventListener('pointermove', onPointerMove, { passive: true });
   window.addEventListener('pointerdown', onPointerDown, { passive: true });
@@ -380,6 +391,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
       sync();
       clearInterval(weatherTimer);
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('scroll', onScroll);
+      root.style.removeProperty('--field-edge');
       reduced.removeEventListener('change', onReducedChange);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerdown', onPointerDown);
