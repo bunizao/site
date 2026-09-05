@@ -18,8 +18,24 @@ Both are standalone documents rather than pages in the site layout, on purpose:
 inheriting the site's own background layers would mean judging each candidate on
 top of the thing it is meant to replace.
 
-**Decision: outstanding.** Nothing is wired into the real homepage, and that is
-the whole of the remaining work.
+**Decision: `02 Rain`, wired in 2026-09-06.** The homepage now mounts
+`src/features/home/ui/GlyphField.astro`, painted by `src/lib/glyph-field.ts`.
+What shipped, and what was decided along the way:
+
+- Two neutral themes only. The ink is the foreground colour (`#000` on light,
+  `#fff` on dark), alpha-scaled; a time-of-day palette was prototyped and
+  rejected as too strange against the site's monochrome tokens.
+- The clock moves the weather, not the colour. Day is the lab's `rain`
+  preset, night is `drift`; the two blend on a cosine of local hour (calm at
+  03:00, full rain at 15:00) and re-read every minute. `?hour=<0-24>` pins
+  it for review. Tunables are the `DAY`/`NIGHT` constants in the engine.
+- The field wakes from the centre outward on first paint instead of
+  appearing fully formed.
+- Pointer glow survives from the lab; touch gets a wider tap glow instead.
+- The homepage hides the site-wide dot lattice and the pointer spotlight,
+  page-scoped in `src/pages/index.astro`. Every other page keeps both.
+- `prefers-reduced-motion` paints one static frame and never animates.
+- The loop stops when the tab is hidden or the band leaves the viewport.
 
 ## The five concepts
 
@@ -33,21 +49,18 @@ the whole of the remaining work.
 
 ## Remaining
 
-- [ ] Pick one. `02 Rain` is the default the lab boots into, but `05 Ember` is
-      the only one that costs nothing on an idle page — worth weighing against
-      how much the motion is actually adding.
-- [ ] Wire the winner into the real homepage. The lab is a standalone document;
-      the shipped version has to survive the site's existing background layers,
-      view transitions, and the mood/blog zones that opt out of the dot grid.
-- [ ] Budget it. The field is a full-viewport-width canvas repainting every
-      frame on the site's LCP page. Measure before it ships, not after.
-- [ ] Honour `prefers-reduced-motion`. The lab does not.
+- [ ] Budget it. The band is a 1200x560 canvas repainting at ~11fps on the
+      site's LCP page. Measure paint cost and LCP on prod before calling it
+      done; the lab never did.
+- [ ] Decide whether the hero's own motion (typewriter, decode, status
+      rotation, marquee) stays now that the background moves. Untouched so far.
+- [ ] The lab pages can go once the shipped tunables settle.
 
 ## Not in scope here
 
-The same local branch also carried a removal of the pointer spotlight overlay
-and a stray `sky-02-lumen.jpeg` at the repo root. Neither was cherry-picked —
-the overlay removal is a separate concern that deserves its own review, and the
-site still has the overlay in `src/layouts/Layout.astro`.
+The same local branch also carried a site-wide removal of the pointer spotlight
+overlay and a stray `sky-02-lumen.jpeg` at the repo root. Neither was
+cherry-picked. The overlay is now hidden on the homepage only; removing it
+everywhere is still a separate call, and `src/layouts/Layout.astro` keeps it.
 
 Ships to `notes/archive/` when a concept lands on the homepage.
