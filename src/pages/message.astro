@@ -136,6 +136,17 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
     max-width: 640px;
     margin: 0 auto;
     padding: 72px 20px 96px;
+
+    /* The blog zone's danger pair (--blog-danger in comments.css), repeated
+       because this page is site zone and that token is not defined here.
+       Not the --destructive token: that one is a fill designed to carry white
+       text on top of it, so worn as text on this page's own background it
+       lands at 1.9:1 in dark. These two are ~6.6:1 and ~7:1. */
+    --message-danger: #b4232b;
+  }
+
+  :global(.dark) .message {
+    --message-danger: #f1707a;
   }
 
   .message__head {
@@ -243,8 +254,8 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
     padding: 10px 13px;
     font-size: 13.5px;
     line-height: 1.6;
-    color: hsl(var(--destructive, 0 72% 45%));
-    background: hsl(var(--destructive, 0 72% 45%) / 0.07);
+    color: var(--message-danger);
+    background: color-mix(in oklab, var(--message-danger) 13%, transparent);
     border-radius: 9px;
   }
 
