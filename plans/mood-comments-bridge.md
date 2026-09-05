@@ -35,6 +35,43 @@ together.
 
 So the work is a bridge, not a comment system.
 
+### Existing defect: reply relationships never reach the page
+
+The mood thread renders flat even when Telegram users reply to each other.
+This is a regression, not a design choice, and the bridge depends on the
+fix.
+
+- `site-api` `parseComment` (`telegram-fallback-repository.ts`) builds
+  `content` from `.tgme_widget_message_text` plus photo and sticker
+  markup. In t.me's embed markup the reply block
+  (`a.tgme_widget_message_reply`, with `_reply_author` and `_reply_text`)
+  is a **sibling** of the text element, so it is never selected and never
+  serialized.
+- The client still expects it: `shared/comments.ts`
+  `replaceReplyNodesWithCommentQuotes` turns `.tgme_widget_message_reply`
+  nodes into `.mood-comment-quote` cards, and `globals.css` styles them.
+  Both are dead code on the current wire. They worked when this repo
+  scraped t.me itself (`telegram-source.ts` handles `_reply_author` and
+  `_reply_thumb`); the relationship was dropped when reads moved to
+  `site-api`.
+- `MoodComment` has no field for it, so even a correct scrape has nowhere
+  to put the parent.
+
+Fix (phase 1, independent of the bridge, worth shipping alone):
+
+- `MoodComment.replyTo?: { id: string; author: string; text: string }`.
+  `id` comes from the reply block's href (`…/<post>?comment=<id>`),
+  `text` from `_reply_text`, `author` from `_reply_author`.
+- `parseComment` fills it; `content` stays as it is.
+- The client renders the quote card from `replyTo` instead of scraping
+  class names out of sanitized HTML; `replaceReplyNodesWithCommentQuotes`
+  goes away.
+- The feed popover shows a one-line "↩ Author" hint, nothing more.
+
+The bridge needs `replyTo.id` for two things: overlay rule 4 (re-attribute
+a quote of a bridged message to its web author) and web reply-to on
+Telegram-origin comments (the parent's group message id).
+
 ## The one decision that shapes everything: thin bridge, not a mirror
 
 Edgechat mirrors both directions into its own database and serves the thread
@@ -235,9 +272,9 @@ status='published'`, one indexed query) and applies an overlay:
 3. A row with `telegram_message_id` NULL (bridge pending or failed) is
    appended the same way: the site is not held hostage to a Telegram
    hiccup.
-4. Scraped replies that quote the bot's message (`mood-comment-quote`)
-   get the same author substitution so the quote reads "Alice" not
-   "buxx.me bot".
+4. A scraped reply whose `replyTo.id` equals a bridged row's
+   `telegram_message_id` gets the same author substitution on its quote,
+   so it reads "Alice" not "buxx.me bot".
 
 Worked example. Alice posts "nice shot" from the site; the bot sends it
 into the group and Telegram answers `message_id: 4812`. Bob, in Telegram,
@@ -432,7 +469,8 @@ No other schema changes. No new tables.
   `Comment.telegramMessageId: number | null` (owner/admin views only, never
   the public list); `commentAnchorToken(id)` helper (sha256 prefix) shared
   by the bridge, the overlay, the cards, and the client anchors.
-- `mood.ts`: `MoodComment.origin?: 'telegram' | 'web'`;
+- `mood.ts`: `MoodComment.replyTo?: { id; author; text }` (the defect fix);
+  `MoodComment.origin?: 'telegram' | 'web'`;
   `MoodComment.commentId?: string` (the site row id when `origin === 'web'`,
   so the client can mark `mine` and anchor `#comment-<id>`);
   `MoodContentDocument.discussionLinked?: boolean`,
@@ -475,9 +513,11 @@ No other schema changes. No new tables.
    (b) whether the embed exposes the thread root's group id for backfill.
    (a) is the only hard requirement; (b) decides whether old posts get the
    compose box.
-1. **Mapping + Reply fix.** Migration `0012`, the webhook branch,
-   readiness check; the four-point owner reply fix, which is independent
-   of everything else and unbreaks the blog cards today.
+1. **Mapping + two standalone fixes.** Migration `0012`, the webhook
+   branch, readiness check; the four-point owner reply fix (unbreaks the
+   blog cards today); `MoodComment.replyTo` and the quote card rendered
+   from it (restores reply relationships on the mood thread today). Both
+   fixes ship on their own value even if the bridge never does.
    Deploy, post one channel message, watch the column fill.
 2. **Write path + bridge.** Migration `0022`, `surface` on
    `/v2/comments`, mood arm of `resolveCommentablePost`, `sendMessage`
