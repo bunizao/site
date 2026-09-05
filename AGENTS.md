@@ -60,7 +60,7 @@ worktrees are the main offenders. Rules for agent sessions:
 
 This is the public Worker. The private Worker `site-api` lives in the sibling repo `../site-api` (separate git repo, same `Dropbox/Dev/` parent). It owns D1, KV, R2, queues, crons, admin/OAuth, notify, the Telegram webhook, the image proxy, and concrete public API implementations. Production `buxx.me/api/*` is directly routed to `site-api`; this repo keeps only a thin `/api/*` service-binding fallback for deploy/preview environments. Keep them split — it is the public/private security boundary.
 
-- `@bunizao/contracts` is duplicated in both repos as byte-identical copies; **this repo (`site`) is canonical**. After editing contracts, sync the copy in `../site-api` via `bun run sync:contracts` there.
+- `@bunizao/contracts` is published from `packages/contracts` here; **this repo (`site`) is canonical**. `../site-api` pins an exact published version. After editing contracts, bump the package version, publish, then raise the pin in `../site-api` (`package.json`, `scripts/check-contract-package.ts`, `tests/unit/ci-workflow.test.ts`).
 - To develop against a local site-api: run `bun run dev` in `../site-api` (boots wrangler on `127.0.0.1:8787`), then use `bun dev:api` here. The `API` service binding only resolves at deploy/`wrangler dev` time; `bun dev` is not broken without it — it just proxies to prod.
 
 ## Architecture

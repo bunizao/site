@@ -132,12 +132,25 @@ Same archive/live split as detail above, same response shape on both.
 ```json
 {
   "comments": [
-    { "id": "1", "author": "...", "datetime": "...", "content": "...", "reactions": [] }
+    { "id": "1", "author": "...", "datetime": "...", "content": "...", "reactions": [] },
+    {
+      "id": "2",
+      "author": "...",
+      "datetime": "...",
+      "content": "...",
+      "reactions": [],
+      "replyTo": { "id": "1", "author": "...", "text": "..." }
+    }
   ],
   "hasMore": true,
   "nextBefore": "1"
 }
 ```
+
+`replyTo` is present only on comments that answer another comment. `id` is
+the parent comment id — it may belong to a page you have not fetched yet.
+`text` is a plain-text preview of the parent capped at 200 characters, not
+HTML; `content` never contains the parent.
 
 60s edge cache when not bypassed. Same `mood_id_required` (400) /
 `mood_not_found` (404) / `mood_comments_failed` (500) error family as detail.
