@@ -20,7 +20,9 @@ export interface MessageCopy {
   title: string;
   /** The reader's line, and the first bubble. Written in their voice, not the
       owner's -- it is the reason someone opened this page, said out loud, and
-      the two bubbles under it are the answer to it. */
+      the two bubbles under it are the answer to it. No full stop, unlike every
+      other line here: nobody punctuates the first thing they type into a chat,
+      and a period on a four-word opener reads as bad news coming. */
   opener: string;
   /** Meta description only -- the thread says this across two bubbles. */
   lede: string;
@@ -58,7 +60,7 @@ export const messagesCopy: Record<'zh' | 'en', MessageCopy> = {
   zh: {
     trigger: '留言',
     title: '给我留言',
-    opener: '有点事想跟你说。',
+    opener: '诶，想跟你说个事',
     lede: '这里写的东西不会公开，只有我看得到。想说什么都行。',
     intro: '这里写的东西不会公开，只有我看得到。',
     invite: '留个邮箱，不然我没办法回你。想说什么都行，慢慢写。',
@@ -86,7 +88,7 @@ export const messagesCopy: Record<'zh' | 'en', MessageCopy> = {
   en: {
     trigger: 'Message',
     title: 'Write to me',
-    opener: 'There is something I want to tell you.',
+    opener: 'hey, got something to tell you',
     lede: 'Nothing here goes public. I am the only one who reads it.',
     intro: 'Nothing here goes public. I am the only one who reads it.',
     invite: 'Leave an address, or I have no way to answer. Say anything. Take your time.',
