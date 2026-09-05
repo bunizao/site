@@ -167,6 +167,33 @@ test.describe('/message', () => {
     await expect(page.locator('[data-message-submit]')).toBeEnabled();
   });
 
+  test('what was written becomes a bubble on send, and a refusal takes it back', async ({ page }) => {
+    await installMessageApi(page);
+    await page.goto('/message');
+
+    const draft = page.locator('[data-message-draft]');
+    // Nothing stands in the thread while it is still only a draft.
+    await fillMessage(page, { name: 'someone', body: 'Lifted out of the box.' });
+    await expect(draft).toBeHidden();
+
+    await page.locator('[data-message-submit]').click();
+    await expect(page.locator(sentView)).toBeVisible();
+    // The receipt reads as a reply only because what it answers is still there.
+    await expect(draft).toBeVisible();
+    await expect(page.locator('[data-message-draft-text]')).toHaveText('Lifted out of the box.');
+    await expect(page.locator('[data-message-typing]')).toBeHidden();
+
+    await page.locator('[data-message-again]').click();
+    await expect(draft).toBeHidden();
+
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await installMessageApi(page, { status: 429 });
+    await fillMessage(page, { name: 'someone', body: 'Too fast.' });
+    await page.locator('[data-message-submit]').click();
+    await expect(page.locator(errorBox)).toBeVisible();
+    await expect(draft).toBeHidden();
+  });
+
   test('the honeypot is out of reach of a keyboard and a screen reader', async ({ page }) => {
     await page.goto('/message');
 

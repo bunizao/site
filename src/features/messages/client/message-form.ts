@@ -44,6 +44,11 @@ export function initMessageForm(root: HTMLElement): void {
   const submitLabel = root.querySelector<HTMLElement>('[data-message-submit-label]');
   const turnstileHost = root.querySelector<HTMLElement>('[data-message-turnstile]');
   const again = root.querySelector<HTMLButtonElement>('[data-message-again]');
+  // The two bubbles the thread grows on its own. Both are optional: the form
+  // works without either, they are the presentation.
+  const draft = root.querySelector<HTMLElement>('[data-message-draft]');
+  const draftText = root.querySelector<HTMLElement>('[data-message-draft-text]');
+  const typing = root.querySelector<HTMLElement>('[data-message-typing]');
   if (!form || !formView || !sentView || !sentBody || !errorBox || !submit || !submitLabel) return;
 
   const nameField = form.elements.namedItem('displayName') as HTMLInputElement | null;
@@ -110,6 +115,39 @@ export function initMessageForm(root: HTMLElement): void {
     submitLabel.textContent = busy ? t.submitting : t.submit;
   };
 
+  // What was written, moved into the bubble on the right. textContent, so what
+  // lands in the thread is exactly the characters typed.
+  const syncDraft = (): void => {
+    if (!draft || !draftText) return;
+    const text = bodyField.value.trim();
+    draftText.textContent = text;
+    draft.hidden = text.length === 0;
+  };
+
+  // The composer grows with the message instead of opening as an empty well.
+  // scrollHeight excludes the border under border-box sizing, hence the 2.
+  const autoGrow = (): void => {
+    bodyField.style.height = 'auto';
+    bodyField.style.height = `${bodyField.scrollHeight + 2}px`;
+  };
+
+  // The markup ships it disabled; this is the handoff.
+  setBusy(false);
+
+  bodyField.addEventListener('input', autoGrow);
+  // A restored form (bfcache, or the browser refilling on reload) already has
+  // text in it before any input event fires.
+  autoGrow();
+
+  const reveal = (element: HTMLElement | null): void => {
+    if (!element) return;
+    element.hidden = false;
+    element.scrollIntoView({
+      block: 'nearest',
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    });
+  };
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (submitting) return;
@@ -139,6 +177,10 @@ export function initMessageForm(root: HTMLElement): void {
     }
 
     setBusy(true);
+    syncDraft();
+    // The typing bubble is on screen for exactly as long as the request is in
+    // flight. It represents a real wait, not a staged one.
+    if (typing) typing.hidden = false;
     try {
       await ensureDwellToken();
 
@@ -197,18 +239,27 @@ export function initMessageForm(root: HTMLElement): void {
         : result.replyable
           ? t.sentReplyable
           : t.sentAnonymous;
+      if (typing) typing.hidden = true;
       formView.hidden = true;
-      sentView.hidden = false;
-      sentView.focus();
+      reveal(sentView);
+      sentView.focus({ preventScroll: true });
     } catch {
       showError(t.errorGeneric);
     } finally {
+      if (typing) typing.hidden = true;
+      // A refusal puts the page back exactly where it was: the words go back to
+      // being a draft rather than a message that stands in the thread.
+      if (sentView.hidden && draft) draft.hidden = true;
       setBusy(false);
     }
   });
 
   again?.addEventListener('click', () => {
     form.reset();
+    // The thread rewinds to the composer: the sent bubble and the receipt both
+    // go, so the next message is not written under the last one's answer.
+    syncDraft();
+    autoGrow();
     sentView.hidden = true;
     formView.hidden = false;
     clearError();

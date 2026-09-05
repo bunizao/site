@@ -11,6 +11,19 @@
 // here: the address is root-level and the page is not blog content. The blog
 // masthead trigger is an entry point, not an owner.
 //
+// It is laid out as a chat thread because that is what it structurally is --
+// one person writing to one person, who can write back. The owner's lines are
+// bubbles on the left, the form is the last of them, and what the sender wrote
+// lifts out of the composer into a bubble on the right when they send it.
+// Nothing in the thread is invented: there are no scripted visitor replies, no
+// fake timestamps and no read receipts. The one animated element, the typing
+// indicator, is on screen only while a request is genuinely in flight.
+//
+// The palette is the site's own. iMessage blue would be a borrowed accent on a
+// site whose --accent is literally black in light and white in dark, so the
+// sender's bubble wears the ink and the owner's a barely-raised surface -- the
+// same pair the submit pill already used.
+//
 // Nothing on this page reads existing messages. There is no such endpoint --
 // see site-api's src/pages/v2/messages.ts.
 import Layout from '@/layouts/Layout.astro';
@@ -41,101 +54,149 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   robots="noindex, follow"
 >
   <main
-    class="message"
+    class="thread"
     data-message-root
     data-locale={locale}
     data-turnstile-site-key={turnstileSiteKey}
     lang={locale}
   >
-    <div data-message-form-view>
-      <header class="message__head">
-        <h1 class="message__title">{t.title}</h1>
-        <p class="message__lede">{t.lede}</p>
-      </header>
+    <ol class="thread__list">
+      {/* The opening run. Three bubbles from one speaker, so the corners they
+          share are tightened -- that joint is what makes a stack read as one
+          person talking rather than three unrelated cards. */}
+      <li class="msg msg--them">
+        <h1 class="bubble bubble--them bubble--lead bubble--joined-below">{t.title}</h1>
+      </li>
+      <li class="msg msg--them">
+        <p class="bubble bubble--them bubble--joined-above bubble--joined-below">{t.intro}</p>
+      </li>
+      <li class="msg msg--them">
+        <p class="bubble bubble--them bubble--joined-above">{t.invite}</p>
+      </li>
 
-      <form class="message__form" data-message-form novalidate>
-        <div class="message__row">
-          <label class="message__label" for="message-name">{t.nameLabel}</label>
-          <input
-            class="message__input"
-            id="message-name"
-            name="displayName"
-            type="text"
-            maxlength="32"
-            autocomplete="nickname"
-            placeholder={t.namePlaceholder}
-            required
-          />
+      <li class="msg msg--them msg--turn" data-message-form-view>
+        <div class="bubble bubble--them bubble--form">
+          <p class="form__note">{t.emailNote}</p>
+
+          <form class="form" data-message-form novalidate>
+            <div class="form__pair">
+              <div class="form__cell">
+                <label class="sr-only" for="message-name">{t.nameLabel}</label>
+                <input
+                  class="field"
+                  id="message-name"
+                  name="displayName"
+                  type="text"
+                  maxlength="32"
+                  autocomplete="nickname"
+                  placeholder={t.namePlaceholder}
+                  required
+                />
+              </div>
+
+              <div class="form__cell">
+                <label class="sr-only" for="message-email">{t.emailLabel}</label>
+                <input
+                  class="field"
+                  id="message-email"
+                  name="email"
+                  type="email"
+                  autocomplete="email"
+                  inputmode="email"
+                  placeholder={t.emailPlaceholder}
+                />
+              </div>
+            </div>
+
+            <label class="sr-only" for="message-body">{t.bodyLabel}</label>
+            <textarea
+              class="field field--body"
+              id="message-body"
+              name="body"
+              rows="3"
+              maxlength="4000"
+              placeholder={t.bodyPlaceholder}
+              required></textarea>
+
+            {/* Honeypot. Hidden from sight and from assistive tech, and never
+                focusable by tab -- anything that fills it is not a person. */}
+            <div class="message__trap" aria-hidden="true">
+              <label for="message-website">Website</label>
+              <input id="message-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+            </div>
+
+            {/* Turnstile renders here rather than off-screen: invisible mode is
+                only invisible until Cloudflare wants a human, and a challenge in
+                a hidden container is a dead end. */}
+            <div class="form__turnstile" data-message-turnstile></div>
+
+            <p class="form__error" data-message-error hidden role="alert"></p>
+
+            <div class="form__actions">
+              <p class="form__privacy">{t.privacy}</p>
+              {/* Disabled until the client attaches. Nothing here works
+                  without it -- Turnstile, the dwell token and the POST are all
+                  script -- and a native submit before then would reload the
+                  page and take the draft with it. */}
+              <button class="send" type="submit" data-message-submit disabled>
+                <span data-message-submit-label>{t.submit}</span>
+                {/* 1.75 rather than the site's usual 1.5: this glyph is drawn at
+                    14px on a solid fill, where 1.5 thins out against the ink. */}
+                <svg
+                  class="send__icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 19V5M5 12l7-7 7 7"></path>
+                </svg>
+              </button>
+            </div>
+          </form>
         </div>
+      </li>
 
-        <div class="message__row">
-          <label class="message__label" for="message-email">
-            {t.emailLabel}
-            <span class="message__optional">{t.emailOptional}</span>
-          </label>
-          <input
-            class="message__input"
-            id="message-email"
-            name="email"
-            type="email"
-            autocomplete="email"
-            inputmode="email"
-            placeholder={t.emailPlaceholder}
-          />
-          <p class="message__hint">{t.emailHint}</p>
+      {/* The sender's own words, lifted out of the composer at the moment they
+          send and left standing after -- which is why the receipt below reads
+          as a reply to something rather than as a banner. Deliberately not a
+          live mirror of the textarea: the same sentence twice, 40px apart,
+          reads as a rendering fault rather than as a preview. */}
+      <li class="msg msg--me msg--turn" data-message-draft hidden>
+        <p class="bubble bubble--me" data-message-draft-text></p>
+      </li>
+
+      <li class="msg msg--them msg--turn" data-message-typing hidden>
+        <div class="bubble bubble--them bubble--typing" aria-hidden="true">
+          <span></span><span></span><span></span>
         </div>
+      </li>
 
-        <div class="message__row">
-          <label class="message__label" for="message-body">{t.bodyLabel}</label>
-          <textarea
-            class="message__textarea"
-            id="message-body"
-            name="body"
-            rows="8"
-            maxlength="4000"
-            placeholder={t.bodyPlaceholder}
-            required
-          ></textarea>
-        </div>
-
-        {/* Honeypot. Hidden from sight and from assistive tech, and never
-            focusable by tab -- anything that fills it is not a person. */}
-        <div class="message__trap" aria-hidden="true">
-          <label for="message-website">Website</label>
-          <input id="message-website" name="website" type="text" tabindex="-1" autocomplete="off" />
-        </div>
-
-        {/* Turnstile renders here rather than off-screen: invisible mode is
-            only invisible until Cloudflare wants a human, and a challenge in a
-            hidden container is a dead end. */}
-        <div class="message__turnstile" data-message-turnstile></div>
-
-        <p class="message__error" data-message-error hidden role="alert"></p>
-
-        <div class="message__actions">
-          <button class="message__submit" type="submit" data-message-submit>
-            <span data-message-submit-label>{t.submit}</span>
-          </button>
-          <p class="message__privacy">{t.privacy}</p>
-        </div>
-      </form>
-    </div>
-
-    <div class="message__sent" data-message-sent-view hidden tabindex="-1">
-      <h1 class="message__title">{t.sentTitle}</h1>
-      <p class="message__lede" data-message-sent-body></p>
-      <button class="message__again" type="button" data-message-again>{t.sendAnother}</button>
-    </div>
+      <li class="msg msg--them msg--turn" data-message-sent-view hidden tabindex="-1">
+        <p class="bubble bubble--them" data-message-sent-body></p>
+        <button class="again" type="button" data-message-again>{t.sendAnother}</button>
+      </li>
+    </ol>
   </main>
 
   <Footer />
 </Layout>
 
 <style>
-  .message {
-    max-width: 640px;
+  .thread {
+    max-width: 560px;
     margin: 0 auto;
-    padding: 72px 20px 96px;
+    padding: 76px 20px 96px;
+
+    --bubble-them: hsl(var(--foreground) / 0.055);
+    --bubble-them-ink: hsl(var(--foreground) / 0.9);
+    --bubble-radius: 20px;
+    /* The joint radius. Small enough to read as a seam, large enough not to
+       look like a rendering error next to a 20px corner. */
+    --bubble-joint: 7px;
 
     /* The blog zone's danger pair (--blog-danger in comments.css), repeated
        because this page is site zone and that token is not defined here.
@@ -145,93 +206,139 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
     --message-danger: #b4232b;
   }
 
-  :global(.dark) .message {
+  :global(.dark) .thread {
+    --bubble-them: hsl(var(--foreground) / 0.1);
     --message-danger: #f1707a;
   }
 
-  .message__head {
-    margin-bottom: 36px;
+  .thread__list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
-  .message__title {
-    margin: 0 0 10px;
-    font-size: 28px;
+  .msg {
+    display: flex;
+  }
+
+  /* `display: flex` above outguns the UA's `[hidden] { display: none }`, and
+     every collapsed bubble on this page is hidden by that attribute. */
+  .msg[hidden] {
+    display: none;
+  }
+
+  .msg--me {
+    justify-content: flex-end;
+  }
+
+  /* A change of speaker, or a new beat from the same one. Anything without it
+     is part of the run above and keeps the tight 3px gap. */
+  .msg--turn {
+    margin-top: 16px;
+  }
+
+  .bubble {
+    max-width: 78%;
+    margin: 0;
+    padding: 11px 16px;
+    font-size: 15px;
+    line-height: 1.62;
+    border-radius: var(--bubble-radius);
+    text-wrap: pretty;
+  }
+
+  .bubble--them {
+    color: var(--bubble-them-ink);
+    background: var(--bubble-them);
+  }
+
+  .bubble--lead {
+    font-size: 16px;
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
     color: hsl(var(--foreground));
   }
 
-  .message__lede {
-    margin: 0;
-    font-size: 15px;
-    line-height: 1.75;
+  .bubble--joined-above {
+    border-top-left-radius: var(--bubble-joint);
+  }
+
+  .bubble--joined-below {
+    border-bottom-left-radius: var(--bubble-joint);
+  }
+
+  /* The sender's bubble and the send button share one fill on purpose: the
+     button looks like the thing it is about to produce. */
+  .bubble--me {
+    color: hsl(var(--background));
+    background: hsl(var(--foreground));
+    border-bottom-right-radius: var(--bubble-joint);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .bubble--form {
+    max-width: 100%;
+    flex: 1;
+    padding: 14px;
+  }
+
+  .form__note {
+    margin: 0 0 12px;
+    padding: 0 3px;
+    font-size: 12.5px;
+    line-height: 1.6;
     color: hsl(var(--muted-foreground));
     text-wrap: pretty;
   }
 
-  .message__form {
-    display: grid;
-    gap: 24px;
-  }
-
-  .message__row {
+  .form {
     display: grid;
     gap: 8px;
   }
 
-  .message__label {
-    display: flex;
-    align-items: baseline;
+  .form__pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
-    font-size: 13px;
-    font-weight: 550;
-    color: hsl(var(--foreground));
   }
 
-  .message__optional {
-    font-size: 11.5px;
-    font-weight: 400;
-    color: hsl(var(--muted-foreground) / 0.8);
-  }
-
-  .message__input,
-  .message__textarea {
+  .field {
     width: 100%;
-    padding: 11px 13px;
+    padding: 10px 13px;
     /* 16px keeps iOS Safari from zooming the viewport on focus. */
     font: inherit;
     font-size: 16px;
     color: hsl(var(--foreground));
     background: hsl(var(--background));
-    border: 1px solid hsl(var(--foreground) / 0.14);
-    border-radius: 10px;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 13px;
     transition: border-color 0.14s ease, box-shadow 0.14s ease;
   }
 
-  .message__textarea {
-    min-height: 180px;
-    line-height: 1.7;
-    resize: vertical;
-  }
-
-  .message__input::placeholder,
-  .message__textarea::placeholder {
-    color: hsl(var(--muted-foreground) / 0.6);
-  }
-
-  .message__input:focus-visible,
-  .message__textarea:focus-visible {
-    outline: none;
-    border-color: hsl(var(--foreground) / 0.4);
-    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.07);
-  }
-
-  .message__hint {
-    margin: 0;
-    font-size: 12.5px;
+  /* A composer, not a form field: it opens at three lines and grows with what
+     is typed (see message-form.ts), which is why the drag handle is gone. The
+     cap is where it stops growing and starts scrolling -- past that the send
+     button would be pushed off screen on a laptop. */
+  .field--body {
+    min-height: 84px;
+    max-height: 260px;
     line-height: 1.65;
-    color: hsl(var(--muted-foreground) / 0.9);
-    text-wrap: pretty;
+    resize: none;
+    overflow-y: auto;
+  }
+
+  .field::placeholder {
+    color: hsl(var(--muted-foreground) / 0.65);
+  }
+
+  .field:focus-visible {
+    outline: none;
+    border-color: hsl(var(--foreground) / 0.35);
+    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.06);
   }
 
   /* Off-screen rather than display:none -- a bot reading the DOM should find
@@ -245,31 +352,54 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
     white-space: nowrap;
   }
 
-  .message__turnstile:empty {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .form__turnstile:empty {
     display: none;
   }
 
-  .message__error {
-    margin: 0;
-    padding: 10px 13px;
-    font-size: 13.5px;
-    line-height: 1.6;
+  .form__error {
+    margin: 2px 0 0;
+    padding: 9px 13px;
+    font-size: 13px;
+    line-height: 1.55;
     color: var(--message-danger);
     background: color-mix(in oklab, var(--message-danger) 13%, transparent);
-    border-radius: 9px;
+    border-radius: 11px;
   }
 
-  .message__actions {
+  .form__actions {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 14px;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 2px;
+    padding-left: 3px;
   }
 
-  .message__submit {
-    padding: 10px 22px;
+  .form__privacy {
+    margin: 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground) / 0.8);
+    text-wrap: pretty;
+  }
+
+  .send {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 14px 9px 16px;
     font: inherit;
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 550;
     color: hsl(var(--background));
     background: hsl(var(--foreground));
@@ -279,38 +409,76 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
     transition: opacity 0.14s ease, scale 0.12s ease;
   }
 
-  .message__submit:hover:not(:disabled) {
+  .send__icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .send:hover:not(:disabled) {
     opacity: 0.86;
   }
 
-  .message__submit:active:not(:disabled) {
+  .send:active:not(:disabled) {
     scale: 0.97;
   }
 
-  .message__submit:disabled {
+  .send:disabled {
     opacity: 0.5;
     cursor: default;
   }
 
-  .message__privacy {
-    margin: 0;
-    font-size: 12px;
-    color: hsl(var(--muted-foreground) / 0.85);
+  .bubble--typing {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 15px 16px;
   }
 
-  .message__sent {
-    padding: 24px 0;
+  .bubble--typing span {
+    width: 6px;
+    height: 6px;
+    background: currentColor;
+    border-radius: 50%;
+    opacity: 0.35;
+    animation: typing 1.25s ease-in-out infinite;
   }
 
-  .message__sent:focus-visible {
+  .bubble--typing span:nth-child(2) {
+    animation-delay: 0.16s;
+  }
+
+  .bubble--typing span:nth-child(3) {
+    animation-delay: 0.32s;
+  }
+
+  @keyframes typing {
+    0%,
+    60%,
+    100% {
+      opacity: 0.28;
+      transform: translateY(0);
+    }
+    30% {
+      opacity: 0.75;
+      transform: translateY(-3px);
+    }
+  }
+
+  [data-message-sent-view] {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  [data-message-sent-view]:focus-visible {
     outline: none;
   }
 
-  .message__again {
-    margin-top: 24px;
+  .again {
+    margin-left: 4px;
     padding: 0;
     font: inherit;
-    font-size: 13.5px;
+    font-size: 13px;
     color: hsl(var(--muted-foreground));
     background: none;
     border: none;
@@ -319,24 +487,54 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
     transition: color 0.14s ease, border-color 0.14s ease;
   }
 
-  .message__again:hover {
+  .again:hover {
     color: hsl(var(--foreground));
     border-color: hsl(var(--foreground) / 0.5);
   }
 
-  @media (max-width: 639px) {
-    .message {
-      padding: 48px 18px 72px;
+  /* Bubbles arrive rather than appear. Only the ones revealed by script carry
+     this -- the opening run is server-rendered and should already be there. */
+  [data-message-draft]:not([hidden]),
+  [data-message-typing]:not([hidden]),
+  [data-message-sent-view]:not([hidden]) {
+    animation: bubble-in 0.24s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  }
+
+  @keyframes bubble-in {
+    from {
+      opacity: 0;
+      transform: translateY(7px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .thread {
+      padding: 52px 16px 72px;
     }
 
-    .message__title {
-      font-size: 24px;
+    .bubble {
+      max-width: 86%;
+    }
+
+    .form__pair {
+      grid-template-columns: 1fr;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .message__submit:active:not(:disabled) {
+    .send:active:not(:disabled) {
       scale: 1;
+    }
+
+    .bubble--typing span,
+    [data-message-draft]:not([hidden]),
+    [data-message-typing]:not([hidden]),
+    [data-message-sent-view]:not([hidden]) {
+      animation: none;
     }
   }
 </style>
