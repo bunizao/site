@@ -222,6 +222,16 @@ export interface MoodLiveCountsResponse {
   counts: Record<string, MoodLiveCount>;
 }
 
+/**
+ * The parent a comment replies to, read from the t.me reply block.
+ * `id` is the parent comment id; `text` is a plain-text preview, not HTML.
+ */
+export interface MoodCommentReplyTo {
+  id: string;
+  author: string;
+  text: string;
+}
+
 export interface MoodComment {
   id: string;
   author: string;
@@ -229,6 +239,7 @@ export interface MoodComment {
   datetime: string;
   content: string;
   reactions: MoodReaction[];
+  replyTo?: MoodCommentReplyTo;
 }
 
 export interface MoodCommentsPage {
