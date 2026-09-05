@@ -123,6 +123,28 @@ export const buildCommentContentFragment = (value: unknown): DocumentFragment =>
   return normalized;
 };
 
+/** What a periodic thread refresh keeps and what it drops, without touching
+    the DOM. `loadedIds` is keyed by `comment.id` (a Telegram message id, or a
+    temporary id for an optimistic own-comment row not yet bridged);
+    `loadedSiteCommentIds` is keyed by `comment.commentId` (the site's own
+    `Comment.id`, stable across the id a `web`-origin comment carries before
+    and after the bridge assigns it a Telegram message id). A comment already
+    on the page under either key is dropped, so a poll never renders the same
+    comment twice under two different ids -- see
+    plans/mood-comments-bridge.md "Read path: scrape plus overlay". */
+export const dedupeNewComments = <T extends { id?: unknown; commentId?: unknown }>(
+  comments: T[],
+  loadedIds: ReadonlySet<string>,
+  loadedSiteCommentIds: ReadonlySet<string>,
+): T[] =>
+  comments.filter((comment) => {
+    const id = asText(comment?.id).trim();
+    if (!id || loadedIds.has(id)) return false;
+    const commentId = asText(comment?.commentId).trim();
+    if (commentId && loadedSiteCommentIds.has(commentId)) return false;
+    return true;
+  });
+
 export const sanitizeImageUrl = (value: unknown): string => {
   const raw = asText(value).trim();
   if (!raw) return '';
