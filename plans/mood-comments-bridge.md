@@ -160,9 +160,17 @@ card:
 
   ```
   <b>{displayName}</b> <a href="{commentUrl}">via buxx.me</a>
-  
+
   {body as Telegram HTML}
   ```
+
+  `commentUrl` is `https://buxx.me/mood/<postId>#c-<token>` where `token`
+  is the first 12 hex chars of `sha256(commentId)`. The token is the
+  overlay's match key (next section). It rides in the link, not as visible
+  text, so Telegram readers see a name and a link and nothing else. The
+  bridged message carries **no inline keyboard**: in a group, people reply
+  by replying, and a button on every comment is noise that also drags the
+  pending-action expiry problem (see Owner reply flow) into the group.
 
   On success, write `telegram_chat_id`, `telegram_message_id`,
   `telegram_synced_at` on the row. On failure, log and leave
@@ -211,12 +219,14 @@ read path.
 site-originated rows for the post (`surface='mood' AND post_id=? AND
 status='published'`, one indexed query) and applies an overlay:
 
-1. A scraped comment whose id equals a row's `telegram_message_id` is the
-   bot's copy. Replace `author` with the row's `display_name`,
+1. A scraped comment whose text contains a `#c-<token>` link matching
+   a row's token is the bot's copy (the scrape sanitizer keeps `http(s)`
+   hrefs, and the token is derived from the row id, so the match is a
+   string equality on the row, no assumption about Telegram's ids). Replace `author` with the row's `display_name`,
    `authorAvatar` with the reader's proxied avatar, `content` with the row's
    rendered body, and mark `origin: 'web'`. Reactions stay from the scrape
    (Telegram users reacted to it there).
-2. A row with `telegram_message_id` set that is *not* on the page: if its
+2. A row with `telegram_message_id` set whose token is *not* on the page: if its
    `created_at` falls inside the page's time range, it was removed in
    Telegram — skip (see Edit and delete). If it is newer than the newest
    scraped comment, the scrape is stale — append it as a synthesized
@@ -235,7 +245,7 @@ replies to the bot's message with "agreed".
 
 | Scraped item | Local row | Result |
 | --- | --- | --- |
-| `4812`, author "buxx.me bot", body "**Alice** via buxx.me\n\nnice shot" | `telegram_message_id = 4812` | Rule 1: rendered as Alice, her avatar, body "nice shot", `origin: 'web'`, `commentId` set so her browser marks it `mine` |
+| `4812`, author "buxx.me bot", body "**Alice** [via buxx.me](…/mood/9931#c-3f9a1c0b7e2d)\n\nnice shot" | token `3f9a1c0b7e2d`, `telegram_message_id = 4812` | Rule 1: rendered as Alice, her avatar, body "nice shot", `origin: 'web'`, `commentId` set so her browser marks it `mine` |
 | `4813`, author "Bob", body "agreed", quoting `4812` as "buxx.me bot: **Alice**…" | none | Passed through; rule 4 rewrites the quote's author to Alice |
 | (not yet scraped: edge TTL) | `telegram_message_id = 4812`, newer than the page's newest item | Rule 2: appended as a synthesized comment until the scrape catches up, then it becomes the rule-1 replacement above. Never both |
 | `4812` absent, page covers its `created_at` | `telegram_message_id = 4812` | Rule 2: the owner deleted it in Telegram; skipped |
@@ -245,11 +255,14 @@ a bridged comment cannot render twice. Both origins draw with the same
 component; the only visible difference is that `origin: 'web'` rows carry
 `commentId` (anchor, `mine`, edit/delete affordances).
 
-This assumes scraped comment ids are the group message ids (they are the
-`?comment=<id>` deep-link ids). Phase 0 verifies it against one real
-bridged message before anything else is built; if it is false the overlay
-keys on `(bot author name, exact body)` instead, which is uglier but
-sufficient because the bot's text is deterministic.
+Matching on the token instead of on Telegram's ids means the overlay
+needs no assumption about what the scrape's comment id *is*. It still
+learns something from it: every rule-1 match pairs a scraped id with the
+`telegram_message_id` that `sendMessage` returned. When they agree, the
+scrape's ids are group message ids and reply-to against a Telegram-origin
+comment (below) is safe; when they disagree the read path logs it once and
+`discussionRepliesEnabled` stays false. The assumption is verified by
+traffic rather than by a spike.
 
 Held rows are never in this response: the read path is public and
 edge-cached. The writer learns "held for review" from the POST response and
@@ -277,7 +290,9 @@ scrape; nothing new there.
 `/mood/[id]` (`DetailArticle.astro` → `CommentsSection.astro`):
 
 - The mood document gains `discussionLinked: boolean` (server-derived from
-  `discussion_message_id IS NOT NULL`). When true, the CTA row is replaced
+  `discussion_message_id IS NOT NULL`) and `discussionRepliesEnabled`
+  (true once the runtime id verification has passed; gates reply-to on
+  Telegram-origin comments only). When true, the CTA row is replaced
   by a compose box; when false, the CTA stays as today.
 - The compose box is a new compact component in the mood zone
   (`src/features/mood/ui/CommentCompose.astro`) reusing the blog's
@@ -288,6 +303,8 @@ scrape; nothing new there.
   flat and chronological like Telegram's, and replies render as the
   existing quote card. Reply-to is a small "Reply" affordance on each
   comment that sets `parentId` and shows a quote chip above the textarea.
+- Every rendered comment gets `id="c-<token>"` when it has one, so the
+  bridged link and the card's *View* button land on it.
 - On success the controller inserts the returned comment into
   `[data-comments-list]` optimistically, tagged `origin: 'web'` and
   `mine`, and bumps `[data-comments-count]`. On `held` it shows the
@@ -301,16 +318,72 @@ scrape; nothing new there.
 Copy lives in `src/features/comments/copy.ts` beside the blog strings so
 tone stays one voice.
 
-### Ops bot surface
+### Owner reply flow: fix the one-shot Reply first
 
-No new commands. The existing `/comments` queue and the four card actions
-cover mood rows because they are the same table. Two touches:
+The current DM card's *Reply* button works exactly once, and this plan
+inherits that unless it is fixed. Why, from `ops-bot/webhook.ts`:
 
-- Cards say which surface: "💬 New comment published · mood".
-- The *View* button deep-links to `/mood/<id>#comment-<id>`.
+- Tapping *Reply* creates a `comment_reply` pending action (15-minute TTL)
+  and sends a force-reply prompt carrying the token, then **wipes the
+  card's inline keyboard** (`editOpsKeyboard(…, [])`).
+- The native path (`handleNativeCommentReply`, replying to the card
+  directly) recovers the comment id from the card's `comment:reply:<id>`
+  button. With the keyboard gone it finds nothing.
+- After 15 minutes the token expires and the prompt answers "Tap Reply
+  again" — to a card that no longer has the button.
 
-The group-message branch in the webhook is the only new update handling,
-and it writes one column.
+Fix, applies to blog and mood alike and lands in phase 2:
+
+1. **Never wipe the keyboard.** The card keeps its buttons after any
+   action; a working-state label replaces them only for the duration of
+   the call, then the original keyboard is restored.
+2. **The comment id lives in the card, not in a token.** Every card and
+   every reply prompt embeds `#c-<token>` in its *View* URL button and as
+   a `text_link` entity in the text. `commentIdFromRepliedAlert` reads the
+   token from `reply_markup` URLs and from `entities`, so a reply to the
+   card or to any prompt resolves the comment forever, regardless of
+   buttons.
+3. **Reply has no expiry and no single use.** The *Reply* button only
+   sends a fresh force-reply prompt (a convenience for the keyboard);
+   replying to the card itself is the same path. Idempotency is
+   `replyId = telegram-<update_id>`, which the native path already does.
+   `comment_reply` leaves the pending-action table; pending actions stay
+   for the things that must be single-use (broadcast send, gate release).
+4. **Replying to a mood card publishes and bridges.** The owner's reply
+   becomes a site comment (`byAuthor`) and the bridge posts it into the
+   group as a reply to the bridged message, so the thread is threaded on
+   both sides. Replying *in the group* needs none of this and is the
+   better habit; the card path exists for the phone-in-pocket case.
+
+Cards say which surface ("💬 New comment published · mood") and the *View*
+button deep-links to `/mood/<id>#c-<token>`. No new commands: `/comments`
+already lists the same table.
+
+The group-message branch in the webhook is the only new update handling
+besides the mapping, and it is tiny: a group message that replies to one
+of the bot's own messages (Telegram delivers these to bots regardless of
+privacy mode) resolves the bridged comment from the replied-to message's
+`#c-<token>` entity and fires the existing reply notification (verified,
+opted-in readers only). That is the one interaction the bridge adds that
+neither side had: a Telegram reply reaching a web reader's inbox.
+
+### Interaction matrix
+
+| Actor | Action | Mechanism | Other side sees |
+| --- | --- | --- | --- |
+| Web reader | Post | `/v2/comments` → bridge | Bot message in the thread, name in bold, link back |
+| Web reader | Reply to a bridged web comment | `reply_parameters` → bot's message | Threaded reply under it |
+| Web reader | Reply to a Telegram-origin comment | `reply_parameters` → scraped id, only once runtime verification passes | Bob gets a native Telegram notification; his client shows the quote |
+| Web reader | Edit (15 min, verified) | `editMessageText` | "edited" mark |
+| Web reader | Delete own | `deleteMessage` | Gone |
+| Web reader | React | **Not offered.** A bot can only react as itself, one reaction per message; web reactions cannot be mirrored honestly | — |
+| Web reader | Get told about replies | Group reply to the bot's message → token → existing reply-notify email | — |
+| Telegram user | Reply / react / edit / delete | Native | Web follows on next read via scrape; quotes re-attributed |
+| Telegram user | Click "via buxx.me" | Link | Lands on the exact comment (`#c-<token>` anchor) |
+| Owner | Reply in the group | Native | Web shows it as a Telegram-origin comment, `byAuthor` when the scraped author link matches `COMMENTS_OWNER_TELEGRAM_USERNAME` |
+| Owner | Reply to the DM card | Native reply or *Reply* prompt (no expiry) | Site comment + bridged reply in the group |
+| Owner | Approve held | Card or portal | Bridge runs then |
+| Owner | Hide / delete | Card, portal, or delete the bot's message in Telegram | All three converge: gone on both sides |
 
 ## Data model
 
@@ -357,11 +430,13 @@ No other schema changes. No new tables.
 - `comments.ts`: `COMMENT_SURFACES = ['blog', 'mood']`, `CommentSurface`;
   `CommentCreateInput.surface?: CommentSurface`; `Comment.surface`;
   `Comment.telegramMessageId: number | null` (owner/admin views only, never
-  the public list).
+  the public list); `commentAnchorToken(id)` helper (sha256 prefix) shared
+  by the bridge, the overlay, the cards, and the client anchors.
 - `mood.ts`: `MoodComment.origin?: 'telegram' | 'web'`;
   `MoodComment.commentId?: string` (the site row id when `origin === 'web'`,
   so the client can mark `mine` and anchor `#comment-<id>`);
-  `MoodContentDocument.discussionLinked?: boolean`.
+  `MoodContentDocument.discussionLinked?: boolean`,
+  `discussionRepliesEnabled?: boolean`.
 - `telegram-ops.ts`: `TELEGRAM_OPS_ALLOWED_UPDATES` unchanged in kind
   (`message` is already there); document that group messages are now
   expected.
@@ -373,6 +448,7 @@ No other schema changes. No new tables.
 | `TELEGRAM_DISCUSSION_CHAT_ID` | site-api var | From `getChat(@tutumood).linked_chat_id`; a `scripts/print-discussion-chat.ts` one-liner prints it |
 | Bot membership | Telegram | Add the ops bot to the discussion group as admin with *Delete messages* only |
 | Bot display name | BotFather | See open decision 1 |
+| `COMMENTS_OWNER_TELEGRAM_USERNAME` | site-api var | Marks the owner's own group comments `byAuthor` on the web |
 | `MOOD_COMMENTS_ENABLED` | site-api var | Kill switch: `false` hides the compose box (`discussionLinked` forced false) and rejects `surface: 'mood'` creates with 404; reads keep working |
 | Turnstile action | Cloudflare dashboard | `mood_comment_create` allowed on the widget |
 | `check-production-readiness.ts` | site-api | Adds `TELEGRAM_DISCUSSION_CHAT_ID` to the required set when `MOOD_COMMENTS_ENABLED=true` |
@@ -391,14 +467,17 @@ No other schema changes. No new tables.
 
 ## Phases
 
-0. **Spike (half a day, no code merged).** Add the ops bot to the group,
-   set `TELEGRAM_DISCUSSION_CHAT_ID`, `curl` a `sendMessage` reply into one
-   thread by hand, then fetch `t.me/tutumood/<id>?embed=1&discussion=1` and
-   confirm (a) the bot's message appears, (b) its `data-post` comment id
-   equals the Bot API `message_id`, (c) whether the embed exposes the thread
-   root's group id for backfill. Everything below assumes (a) and (b); (c)
-   only decides whether old posts get the compose box.
-1. **Mapping.** Migration `0012`, the webhook branch, readiness check.
+0. **Spike (an hour, no code merged).** Add the ops bot to the group,
+   set `TELEGRAM_DISCUSSION_CHAT_ID`, `curl` a `sendMessage` reply with a
+   `#c-…` link into one thread by hand, fetch
+   `t.me/tutumood/<id>?embed=1&discussion=1` and confirm (a) the bot's
+   message appears with its href intact after `sanitizeCommentHtml`, and
+   (b) whether the embed exposes the thread root's group id for backfill.
+   (a) is the only hard requirement; (b) decides whether old posts get the
+   compose box.
+1. **Mapping + Reply fix.** Migration `0012`, the webhook branch,
+   readiness check; the four-point owner reply fix, which is independent
+   of everything else and unbreaks the blog cards today.
    Deploy, post one channel message, watch the column fill.
 2. **Write path + bridge.** Migration `0022`, `surface` on
    `/v2/comments`, mood arm of `resolveCommentablePost`, `sendMessage`
@@ -440,6 +519,14 @@ one a reader can notice.
 10. **Bridge message format is fixed**: bold name, "via buxx.me" link,
     blank line, body. Readers in Telegram can tell at a glance which
     comments came from the site and can click through.
+11. **Match on a token in the message, not on Telegram's ids.** The link
+    carries `sha256(commentId)[:12]`; the overlay is a string match on
+    something the site wrote. Telegram's id semantics are observed, not
+    assumed.
+12. **No inline keyboard on bridged messages; no expiring tokens on
+    replies.** Reply means reply, on both sides.
+13. **Reply notifications cross the bridge.** A Telegram reply to a web
+    comment reaches the writer's inbox through the existing opt-in path.
 
 ## Open decisions (owner)
 
@@ -454,13 +541,13 @@ one a reader can notice.
    group? Recommendation: keep parity; the display name is what gets
    republished either way, and a required email manufactures fakes
    (`notes/comments-akismet-optional-email.md`).
-3. **Reply-to in the compose box** (phase 4 scope). Replying to a specific
-   comment threads correctly in Telegram (`reply_parameters` to the bot's
-   copy) only when the target is a bridged web comment; replying to a
-   Telegram-origin comment needs its group message id, which the scrape
-   gives (same id assumption as the overlay). Ship reply-to in phase 4, or
-   root-only first? Recommendation: ship it; it is the same id and the
-   quote card already exists.
+3. **Reply-to on Telegram-origin comments** (phase 4 scope). Replying to
+   a bridged web comment always threads correctly. Replying to a
+   Telegram-origin comment needs the scrape's id to be the group message
+   id, which the overlay verifies from traffic and exposes as
+   `discussionRepliesEnabled`. Ship reply-to gated on that flag, or
+   bridged-only first? Recommendation: gate on the flag; it costs nothing
+   and turns itself on.
 4. **Telegram-origin reactions on bridged comments** stay from the scrape
    (rule 1). Should the site's heart (`blog_reactions`) also exist on mood
    comments? Recommendation: no; two reaction systems on one row is a
