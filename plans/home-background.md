@@ -22,9 +22,11 @@ top of the thing it is meant to replace.
 `src/features/home/ui/GlyphField.astro`, painted by `src/lib/glyph-field.ts`.
 What shipped, and what was decided along the way:
 
-- Two neutral themes only. The ink is the foreground colour (`#000` on light,
-  `#fff` on dark), alpha-scaled; a time-of-day palette was prototyped and
-  rejected as too strange against the site's monochrome tokens.
+- One ink per theme, both from the blog palette's highlight blue (`ji`), so
+  the homepage shares its accent with the writing. A time-of-day palette was
+  prototyped and rejected as too strange; an achromatic field was tried and
+  read as grime. The band runs at roughly half the lab's column density with
+  near-zero resting alpha, so the ground stays clean between streaks.
 - The clock moves the weather, not the colour. Day is the lab's `rain`
   preset, night is `drift`; the two blend on a cosine of local hour (calm at
   03:00, full rain at 15:00) and re-read every minute. `?hour=<0-24>` pins

@@ -6,9 +6,9 @@
  * the band is mostly static haze with movement running through it. The pointer
  * paints a second channel that lights whatever it passes over.
  *
- * Colour is the site's own foreground — the field is achromatic in both
- * themes, by decision (see plans/home-background.md). What the clock changes is
- * the WEATHER, not the colour: by day the field runs at the lab's `rain`
+ * Colour is one ink per theme, read from `--glyph-ink` on the host so the
+ * component owns it (see GlyphField.astro). What the clock changes is the
+ * WEATHER, not the colour: by day the field runs closer to the lab's `rain`
  * preset, by night it settles into `drift` (slower fall, longer trails, fewer
  * columns). The two are blended on a daylight curve, so there is no step.
  *
@@ -30,9 +30,16 @@ const GLOW_PEAK = 1;
 const WAKE_SPREAD_MS = 700;
 const WAKE_MS = 600;
 
-/** Day (`rain`) and night (`drift`) presets from the lab, blended by daylight. */
-const DAY = { speed: 1.0, head: 0.62, trail: 0.94, columns: 1.0 };
-const NIGHT = { speed: 0.35, head: 0.52, trail: 0.972, columns: 0.7 };
+/**
+ * Day (`rain`) and night (`drift`), blended by daylight. Both run thinner than
+ * the lab presets: the field sits behind body copy, and a full-density band
+ * read as grime rather than weather.
+ */
+const DAY = { speed: 1.0, head: 0.58, trail: 0.93, columns: 0.55 };
+const NIGHT = { speed: 0.35, head: 0.48, trail: 0.965, columns: 0.45 };
+/** Per-cell resting alpha. Near zero: the ground stays clean between streaks. */
+const FLOOR_MIN = 0.01;
+const FLOOR_RANGE = 0.03;
 
 interface Column {
   chars: string[];
@@ -100,8 +107,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   let rowCount = 0;
   let colW = 0;
   let rowH = 0;
-  let ink = '#fff';
-  let gain = 0.5;
+  let ink = '#000';
+  let gain = 0.72;
   let weather = weatherAt(localHour());
 
   let raf = 0;
@@ -114,11 +121,11 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
 
   const readTheme = () => {
     const dark = root.classList.contains('dark');
-    ink = dark ? '#ffffff' : '#000000';
+    ink = getComputedStyle(host).getPropertyValue('--glyph-ink').trim() || (dark ? '#ffffff' : '#000000');
     // Light ink on a dark ground carries further than dark ink on white, so the
-    // same nominal alpha reads hotter. Same ratio as the reference's
-    // `opacity-60 dark:opacity-50`, applied per glyph.
-    gain = dark ? 0.5 : 0.6;
+    // same nominal alpha reads hotter. The ink is a mid blue rather than pure
+    // black or white, so both run above the reference's 0.6 / 0.5.
+    gain = dark ? 0.62 : 0.72;
   };
 
   const respawn = (col: Column, initial: boolean) => {
@@ -230,7 +237,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
         delay: (Math.abs(c - mid) / mid) * WAKE_SPREAD_MS,
       };
       for (let r = 0; r < rowCount; r++) {
-        col.floors[r] = 0.04 + 0.08 * Math.random();
+        col.floors[r] = FLOOR_MIN + FLOOR_RANGE * Math.random();
         col.alphas[r] = col.floors[r];
       }
       respawn(col, true);

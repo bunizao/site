@@ -6,18 +6,26 @@
 // host, so the mask edges stay off-screen on narrow viewports instead of
 // squeezing the glyphs. The mask is the reference's: the field dissolves
 // before the first section label and never reaches the viewport edges.
+//
+// The ink is the blog's highlight blue, one value per theme, so the homepage
+// shares its accent with the writing instead of inventing a second one.
+import { blogPalette } from '@/data/site';
+
+const inkLight = blogPalette.ji.light;
+const inkDark = blogPalette.ji.dark;
 ---
 
 <div class="glyph-field" data-glyph-field aria-hidden="true">
   <canvas width="1200" height="560"></canvas>
 </div>
 
-<style>
+<style define:vars={{ inkLight, inkDark }}>
   :global(#parallax-container) {
     position: relative;
   }
 
   .glyph-field {
+    --glyph-ink: var(--inkLight);
     position: absolute;
     inset: 0 0 auto 0;
     height: 560px;
@@ -32,6 +40,10 @@
 
   .glyph-field.is-ready {
     opacity: 1;
+  }
+
+  :global(html.dark) .glyph-field {
+    --glyph-ink: var(--inkDark);
   }
 
   .glyph-field canvas {
