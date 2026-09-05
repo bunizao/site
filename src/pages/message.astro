@@ -171,9 +171,14 @@ const accentInk = textOnAccent(accentFill);
                 and a native submit before then would reload the page and take
                 the draft with it. */}
             <button class="send" type="submit" data-message-submit disabled>
-              <span data-message-submit-label>{t.submit}</span>
-              {/* 1.75 rather than the site's usual 1.5: this glyph is drawn at
-                  13px on a solid fill, where 1.5 thins out against the ink. */}
+              {/* The label is the button's accessible name and nothing else.
+                  It still carries the busy state -- message-form.ts swaps its
+                  text -- so a screen reader hears "sending" while sight reads
+                  the same thing from the button going dim. */}
+              <span class="sr-only" data-message-submit-label>{t.submit}</span>
+              {/* lucide arrow-up. 1.75 rather than the site's usual 1.5: this
+                  glyph is drawn small on a solid fill, where 1.5 thins out
+                  against the ink. */}
               <svg
                 class="send__icon"
                 viewBox="0 0 24 24"
@@ -450,30 +455,29 @@ const accentInk = textOnAccent(accentFill);
     text-wrap: pretty;
   }
 
+  /* An arrow in a circle, no word. Every composer a visitor has ever used ends
+     in this button, so the label was spending the widest object in the footer
+     on something nobody reads -- it lives on as the accessible name. */
   .send {
     display: inline-flex;
     flex: none;
     align-items: center;
-    gap: 6px;
-    padding: 8px 14px 8px 16px;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
     font: inherit;
-    font-size: 13px;
-    font-weight: 550;
     color: var(--accent-ink);
     background: var(--accent-fill);
     border: none;
-    /* Fully round. A 9px corner on a 34px-tall button inside a 16px panel is
-       neither square nor round -- it lands in the gap between the two and
-       reads as an unfinished radius. Everything else on this page is a bubble;
-       the button is small enough that the same instinct ends in a pill. */
-    border-radius: 999px;
+    border-radius: 50%;
     cursor: pointer;
     transition: opacity 0.14s ease, scale 0.12s ease;
   }
 
   .send__icon {
-    width: 13px;
-    height: 13px;
+    width: 16px;
+    height: 16px;
   }
 
   .send:hover:not(:disabled) {
