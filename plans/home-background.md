@@ -104,10 +104,29 @@ ones). Then the clock made it worse: the day/night blend drops speed to
 - Entrance 1100ms → 700ms, wake 500 → 400ms, so the field lands with the
   hero copy (600ms) instead of after it.
 - Second round, owner's call: "a bit slower, and nobody cares about
-  day/night". The blend is gone — one preset at speed 0.8 of the above, so
-  the average head runs ~15 cells/s (slowest ~8), about double the original
-  and 0.8x the first fix, the same at every hour. `?hour=` is gone with it;
-  `?speed=<multiplier>` remains the review pin.
+  day/night". The blend went — one preset, the same at every hour, `?hour=`
+  gone with it — and speed dropped to 0.8x. Still "really fast, anxious".
+- Third round, the actual diagnosis. Gust timing and glyph churn were
+  written in ticks, so the 90 → 60ms tick had silently sped both up 1.5x:
+  a gust every 3–7s instead of 5–10, crossing in 0.8s at 2.6x speed, so
+  heads burst to ~600px/s a few times a minute, and 6.7 glyph flips per
+  column per second instead of 4.4. Trails also decayed 3x faster in
+  wall-clock time (half-life 0.33s vs 1.16s). That is the nervousness, more
+  than the average speed. Now, per second and per wall-clock ms in the
+  engine, derived from the tick:
+
+  | | original, 21:00 | tempo v2 | now |
+  |---|---|---|---|
+  | head, avg (min–max) px/s | 75 (30–120) | 235 (128–341) | 147 (93–200) |
+  | trail half-life | 1.16s | 0.33s | 0.57s |
+  | streak at alpha 0.15 | 9.9 cells | 9.3 | 10.2 |
+  | glyph flips / column / s | 4.4 | 6.7 | 3.5 |
+  | gust | 2.6x, 1.3s, every 5–10s | 2.6x, 0.8s, every 3–7s | 1.8x, 1.6s, every 8–14s |
+  | first gust | 2.0s | 1.3s | 3.5s (after the hero settles) |
+
+  The average head is twice the original's and the slowest column three
+  times it, which is what "too slow" was about; the streak length the owner
+  liked is unchanged. `?speed=<multiplier>` remains the review pin.
 
 **Resting cost, 2026-09-06.** Measured on the dev build, unthrottled, page
 idle 5s after load, via CDP `Performance.getMetrics` over 6s windows. The

@@ -46,10 +46,12 @@ only simulates cells that can be seen:
   grid on resize, pointer-glow repaints are capped near 30fps, and the band
   is sticky in a track that lets it condense and fade over the first 320px
   of scroll.
-- The simulation ticks every 60ms with heads falling about 0.5–1.3 cells per
-  tick (~15 cells/s on average), one fixed preset with no time-of-day
-  variation, ahead of the typewriter's 90ms beat so the rain never reads as
-  slower than the copy. Review pins: `?speed=<multiplier>` scales the fall,
+- The simulation ticks every 60ms; heads fall 6–12 cells/s (about 150px/s
+  on average), the pace of the typewriter's 11 keystrokes a second. One
+  fixed preset, no time-of-day variation. Trails linger about half a second,
+  and a gust crosses the band every 8–14s at under twice the resting speed.
+  Gust timing and glyph churn are written in wall-clock terms, so the tick
+  only sets smoothness. Review pins: `?speed=<multiplier>` scales the fall,
   `?ink=<name>` picks the hue.
 
 ## Hero / intro
