@@ -15,6 +15,9 @@ interface Props {
   navVariant?: 'home' | 'page' | 'docs';
   brandVariant?: 'home';
   headerActionsVariant?: 'default' | 'home';
+  /** Drop the floating search/theme cluster below 900px. For reading surfaces
+      where it lands on the text instead of beside it. */
+  hideHeaderActionsOnMobile?: boolean;
   containedScroll?: boolean;
   scrollRestorationKey?: string;
   structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
@@ -72,6 +75,7 @@ const {
   navVariant,
   brandVariant,
   headerActionsVariant = 'default',
+  hideHeaderActionsOnMobile = false,
   containedScroll = false,
   scrollRestorationKey,
   structuredData,
@@ -371,6 +375,7 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
         'global-header-actions',
         {
           'global-header-actions--home': useHomeHeaderActions,
+          'global-header-actions--desktop-only': hideHeaderActionsOnMobile,
           'has-menu-sheet': showMenu,
           'has-brand-home-bar': brandHome,
         },

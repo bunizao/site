@@ -37,6 +37,13 @@ Two more props sit alongside it: `hideSiteNav` removes the bar and the site
 menu entirely (embedded specimens, chrome-free pages), and `showSiteNav`
 controls only whether the bar is visible on mobile. Docs force that on.
 
+`hideHeaderActionsOnMobile` drops the floating search/theme cluster below
+900px, where it has nowhere to sit but on the text — at the end of a mood
+thread it comes to rest on a comment and the reader cannot scroll it off.
+The cluster stays in the DOM (the theme script writes its state there), and
+the desktop layout, where it sits out in the margin, is untouched.
+`/mood/[id]` is the only page that asks for it.
+
 Behavior on the home variants:
 
 - Nav labels are rewritten into per-character spans so the mascot can react to
