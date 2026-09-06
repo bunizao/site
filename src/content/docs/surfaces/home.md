@@ -36,11 +36,12 @@ only simulates cells that can be seen:
 
 - Wide screens (≥ 640px): a 560px band, at most 1200px wide, masked on both
   sides so the field dissolves before the viewport edges.
-- Phones: a 320px band that dissolves fully at its own bottom edge, with no
-  side mask. The hero pads its copy down 216px so only the status label and
-  the display name sit in the fade; the chips, role and bio start below the
-  band. The rain is the same mono face at nearly the bio's size, so it may
-  sit behind display type but never behind body text.
+- Phones: the same composition as wide screens (copy at the top, rain
+  behind it), on a 320px band with no side mask. The mask is full behind
+  the status line and the display name and dissolves through the chips and
+  the role, so it is gone where the bio starts. The rain is the same mono
+  face at nearly the bio's size, so it may sit behind display type but never
+  behind body text.
 - The band width snaps to the 24px lattice, a `ResizeObserver` rebuilds the
   grid on resize, pointer-glow repaints are capped near 30fps, and the band
   is sticky in a track that lets it condense and fade over the first 320px
@@ -55,7 +56,7 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
 - The displayed name uses `Typewriter.astro`, which renders a hidden longest-string placeholder to avoid layout shift during typing.
 - Social links are local config in the component, not CMS-driven.
 - GitHub activity is client-fetched from `/api/github/contributions?days=30` after DOM ready; the API keeps the last-year total but returns only the visible waveform window.
-- Tech rows are local arrays duplicated into CSS marquee tracks; the marquee is hidden below 640px.
+- Tech rows are local arrays duplicated into CSS marquee tracks.
 
 Client behavior:
 

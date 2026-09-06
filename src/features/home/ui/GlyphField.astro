@@ -12,12 +12,12 @@
 //
 // Phones: the copy fills the column edge to edge, and the rain is set in the
 // same mono face at nearly the same size as the bio, so any row painted behind
-// body text reads as stray characters inside it. Here the band is 320px and
-// dissolves fully at its own bottom edge, and the hero pads its copy down so
-// only the display name sits in the fade while the bio starts below the band
-// (see Hero.astro). The field owns the top of the screen instead of sharing it
-// with the text. No side mask on phones: its edges would fall inside the
-// column and squeeze the glyphs.
+// body text reads as stray characters inside it. The composition stays as on
+// wide screens (copy at the top, rain behind it); the band is 320px and its
+// mask is full behind the status line and the display name, then dissolves
+// through the chips and the role so it is gone where the bio starts. No side
+// mask on phones: its edges would fall inside the column and squeeze the
+// glyphs.
 //
 // The band is sticky inside a track: it stays in the viewport while the rows
 // condense and fade over the first stretch of scroll, then the empty band
@@ -78,8 +78,10 @@
     /* The engine snaps the width to the 24px lattice and sets it inline. */
     width: min(100%, 1200px);
     height: var(--band-h);
-    -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 100%);
-    mask-image: linear-gradient(to bottom, #000 40%, transparent 100%);
+    /* Phones: full behind the nav, the status line and the name, dissolving
+       through the chips and the role, gone where the bio starts (~244px). */
+    -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 76%);
+    mask-image: linear-gradient(to bottom, #000 45%, transparent 76%);
   }
 
   @media (min-width: 640px) {

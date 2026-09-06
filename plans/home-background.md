@@ -73,20 +73,19 @@ because the 672px column sits inside the 1200px band with rain on either
 side — the band's territory is beside the copy, and on a phone it had none.
 
 - Rule: rain may sit behind display type, never behind body type.
-- Phones (below 640px) get a 320px band that dissolves fully at its own
-  bottom edge, no side mask (its edges would fall inside the column). The
-  hero pads its copy down 216px (nine lattice cells): the status label sits
-  at ~54% rain alpha, the 28px name spans the fade (34% down to 10%, the way
-  the reference sets its title in the rain), the chips clear at 308px, the
-  bio starts at 384px on clean ground. The nav and any notch fit inside the
-  216px, so the safe-area term went.
+- First attempt, rejected by the owner the same day: pad the phone copy down
+  216px so the band owned the top of the screen and only the name sat in
+  its fade. Balanced on paper, top-heavy on a phone: 216px of near-empty
+  ground (32 columns of sparse rain cannot hold that space), and the bio
+  cut at the fold. The owner preferred the original composition.
+- What shipped: the composition does not move. Phones (below 640px) get a
+  320px band, no side mask (its edges would fall inside the column), whose
+  mask is full to 45% (144px: nav, status line, the 28px name) and gone at
+  76% (243px), which is where the bio starts. The chips and the role sit in
+  the fade; the bio is on clean ground.
 - The canvas is sized to its host instead of a fixed 1200x560, so a phone
   simulates ~500 cells rather than 3500 and its bitmap is 768x640, not
   2400x1120. Width snaps to the 24px lattice; a ResizeObserver rebuilds.
-- The tech marquee is hidden on phones: two rows of 11px text sliding under
-  the thumb was the one hero element that still read as noise at 390px, and
-  it animates for as long as the page is open. One `display: none` in
-  Hero.astro to revert.
 - Hero entrance moved from a GSAP timeline to CSS transitions with the same
   choreography and the same hand-off events (`home:hero-name-ready`,
   `home:hero-bio-ready`, `home:hero-github-ready`). The nav's hover wave
@@ -116,8 +115,7 @@ side — the band's territory is beside the copy, and on a phone it had none.
       near 30fps. Still to do on real hardware: a field trace on a mid-range
       Android; the lab numbers are a floor.
 - [ ] Decide whether the hero's own motion (typewriter, decode, status
-      rotation) stays now that the background moves. The marquee is already
-      gone on phones (see the phone pass); the rest is untouched.
+      rotation, marquee) stays now that the background moves. Untouched so far.
 - [ ] The lab pages can go once the shipped tunables settle.
 
 ## Not in scope here

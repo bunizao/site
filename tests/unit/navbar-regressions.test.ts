@@ -27,16 +27,15 @@ describe('navbar regression guards', () => {
     expect(source).toContain('<meta property="og:logo" content={ogLogoUrl} />');
   });
 
-  test('home hero spacing clears the phone glyph band and tracks small viewport height', () => {
+  test('home hero spacing stays tied to safe-area and small viewport height', () => {
     const source = read('src/features/home/ui/Hero.astro');
     const field = read('src/features/home/ui/GlyphField.astro');
 
     expect(source).toContain('min-height: calc(100svh - 120px);');
-    // Phones pad the copy down a fixed 216px: the band above is measured
-    // from the same viewport top, so the notch and the fixed nav both fit
-    // inside that room without a safe-area term.
-    expect(source).toContain('padding-top: 216px;');
+    expect(source).toContain('padding-top: calc(env(safe-area-inset-top, 0px) + 4.75rem);');
+    // The phone band is gone where the bio starts; the copy does not move.
     expect(field).toContain('--band-h: 320px;');
+    expect(field).toContain('linear-gradient(to bottom, #000 45%, transparent 76%)');
   });
 
   test('mobile navbar keeps Safari safe-area offset and exposes the menu sheet', () => {

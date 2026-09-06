@@ -121,29 +121,13 @@ const bioLines = bio.map((line) => line.split('**'));
     flex-direction: column;
     justify-content: center;
     position: relative;
-    /* Phones: the glyph band above is 320px tall and dissolves at its bottom
-       edge (GlyphField.astro). The copy starts low enough that only the
-       status label and the display name sit in the band's fade; the chips,
-       the role and the bio begin below it, so the rain — the same mono face
-       at nearly the bio's size — never runs behind body text. 216px is nine
-       lattice cells. The nav bar and any notch fit inside that room, so there
-       is no safe-area term. */
-    padding-top: 216px;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 4.75rem);
   }
 
   @media (min-width: 640px) {
     .hero-section {
       min-height: calc(100vh - 140px);
       padding-top: 5rem;
-    }
-  }
-
-  /* Two rows of 11px text sliding under a phone's thumb is the one hero
-     element that reads as noise at 390px, and it animates for as long as the
-     page is open. Wide screens keep it. */
-  @media (max-width: 639px) {
-    [data-hero-tech] {
-      display: none;
     }
   }
 
