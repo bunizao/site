@@ -43,7 +43,7 @@ const bioLines = bio.map((line) => line.split('**'));
     </div>
 
     <!-- Personal Info -->
-    <div class="hero-animate mb-3" data-hero-info>
+    <div class="hero-animate mb-4" data-hero-info>
       <p class="text-xs text-muted-foreground/70 tracking-wider font-mono">
         <span class="inline-flex items-center gap-2">
           {infoChips.map((chip, i) => (
@@ -98,7 +98,7 @@ const bioLines = bio.map((line) => line.split('**'));
       ))}
     </div>
 
-    <div class="hero-animate mt-6 sm:mt-7" data-hero-motion data-hero-listening>
+    <div class="hero-animate mt-6" data-hero-motion data-hero-listening>
       <Listening track={listeningTrack} />
     </div>
 
@@ -219,11 +219,18 @@ const bioLines = bio.map((line) => line.split('**'));
   const statusDot = document.querySelector<HTMLElement>('.status-dot');
   const HOME_HERO_GITHUB_READY_EVENT = 'home:hero-github-ready';
   const HOME_HERO_NAME_TYPED_EVENT = 'home:hero-name-typed';
+  // The name line lands at this point of the identity stagger; typing starts
+  // here, so nothing types on an element that is still moving.
+  const NAME_READY_S = 0.6;
+  // The bio is the slowest element (its decode runs for seconds), so it starts
+  // just after the name does, and the widgets below follow a few keystrokes
+  // in. Nothing waits for the name to finish: the hero fills top to bottom in
+  // one pass instead of leaving a hole where the bio will be.
+  const BIO_S = NAME_READY_S;
+  const PHASE_TWO_S = NAME_READY_S + 0.35;
   // Runs the next stage even if the typewriter never reports -- no canvas, a
   // thrown error, an empty name list.
   const PHASE_TWO_FALLBACK_S = 3;
-  // The bio leads, the widgets follow just behind it.
-  const WIDGET_LAG_S = 0.25;
 
   // Status verbs are curated in src/data/site.ts and passed through a data
   // attribute so the client bundle never imports the data module (which would
@@ -257,13 +264,15 @@ const bioLines = bio.map((line) => line.split('**'));
       ease: 'back.out(1.25)'
     }, 0);
 
-    // Type only once the name's own line has landed (it rises 0.08 -> 0.68), so
-    // characters never appear on an element that is still moving.
     heroTl.call(() => {
       window.dispatchEvent(new CustomEvent('home:hero-name-ready'));
-    }, [], 0.6);
+    }, [], NAME_READY_S);
+    heroTl.call(() => {
+      window.dispatchEvent(new CustomEvent('home:hero-bio-ready'));
+    }, [], BIO_S);
 
-    // Phase 2 hangs off the name actually finishing, not a fixed offset.
+    // Phase 2 overlaps the typing; the typed event only matters if the beat
+    // ever runs faster than the timeline.
     const githubWidget = widgets.find((el) => el.hasAttribute('data-hero-github'));
     const githubWidgetIndex = githubWidget ? Math.max(0, widgets.indexOf(githubWidget)) : 0;
     let phaseTwoStarted = false;
@@ -272,23 +281,21 @@ const bioLines = bio.map((line) => line.split('**'));
       if (phaseTwoStarted) return;
       phaseTwoStarted = true;
 
-      window.dispatchEvent(new CustomEvent('home:hero-bio-ready'));
-
       gsap.to(widgets, {
         opacity: 1,
         y: 0,
         duration: 0.6,
-        stagger: 0.08,
-        ease: 'back.out(1.25)',
-        delay: WIDGET_LAG_S
+        stagger: 0.07,
+        ease: 'back.out(1.25)'
       });
 
-      gsap.delayedCall(WIDGET_LAG_S + githubWidgetIndex * 0.08, () => {
+      gsap.delayedCall(githubWidgetIndex * 0.07, () => {
         (window as Window & { __homeHeroGithubReady?: boolean }).__homeHeroGithubReady = true;
         window.dispatchEvent(new CustomEvent(HOME_HERO_GITHUB_READY_EVENT));
       });
     };
 
+    heroTl.call(startPhaseTwo, [], PHASE_TWO_S);
     window.addEventListener(HOME_HERO_NAME_TYPED_EVENT, startPhaseTwo, { once: true });
     gsap.delayedCall(PHASE_TWO_FALLBACK_S, startPhaseTwo);
 

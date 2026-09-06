@@ -268,6 +268,11 @@
     pointer-events: none;
     background-image: radial-gradient(circle, hsl(var(--grid)) 1px, transparent 1px);
     background-size: 24px 24px;
+    /* A dot sits on the page axis: body is centred on the full window width
+       (see the scrollbar gutter above), so 50vw is the content centre and the
+       24px module runs outward from it. The homepage sets its column to a
+       whole number of cells so its edges land on dots. */
+    background-position: calc(50vw - 12px) 0;
     z-index: -2;
   }
 
@@ -375,7 +380,8 @@
   .spotlight-overlay__grid {
     background-image: radial-gradient(circle, hsl(var(--foreground) / 0.78) 1.15px, transparent 1.15px);
     background-size: 24px 24px;
-    background-position: 0 0;
+    /* Same origin as the base lattice on body::before. */
+    background-position: calc(50vw - 12px) 0;
   }
 
   .spotlight-overlay__grid--soft {

@@ -78,7 +78,7 @@ and font-style that differ from the host are baked onto each character, so
 | `order` | `shuffle` | Queue order: `shuffle` (original — resolution interleaves across the line) or `ltr` (smooth right-edge growth, resolution follows it) |
 | `showPower` | `0.5` | Show front exponent — cells turn visible as `p^showPower` sweeps the queue |
 | `mashPower` | `2` | Mash front exponent — cursor graduates to scramble |
-| `boil` | `0.35` | Share of the line's window each character spends boiling before it resolves; larger keeps more of the line unsettled at once |
+| `boil` | `0.12` | Share of the line's window each character spends boiling before it resolves; larger keeps more of the line unsettled at once |
 | `scrambleFromText` | `true` | Mix the text's own ASCII glyphs into the scramble pool |
 | `durationPerChar` | `0.008` | Seconds per character of the whole text, clamped to `[minDuration, maxDuration]` |
 | `minDuration` / `maxDuration` | `0.9` / `3.2` | Clamp on the total reveal (seconds) |
