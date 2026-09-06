@@ -124,10 +124,20 @@ insertion, and duplicate comment ids are filtered client-side.
 
 Every row carries where it was written. The thread mixes two origins — messages
 from the Telegram discussion group and comments typed on this page — and they
-render identically otherwise, so each header holds a chip reading *Telegram* or
-*Web*, and the row root carries the same value as `data-origin`. The chip is
-monochrome by design: the mood surface has no accent colour, so the glyph
-carries the distinction.
+render identically otherwise, so each header holds one glyph, a paper plane or a
+globe, and the row root carries the same value as `data-origin`. The glyph is
+the whole marker: it has no text label beside it, and names itself to assistive
+tech through `role="img"` plus an `aria-label` and `title` of *Written on
+Telegram* / *Written on Web*. Monochrome by design — the mood surface has no
+accent colour, so the shape carries the distinction, not a brand blue.
+
+The bubble runs on two type sizes and nothing else: `--comment-body` (15px) for
+the author name and the message, `--comment-meta` (13px) for the timestamp,
+Reply, and a quoted parent. Hierarchy comes from weight and colour, the way
+GitHub, Telegram Web, and Discourse all do it, and the way `.blog-comments`
+already does it here. Quote styling lives in
+[`feed-rich-text.css`](https://github.com/bunizao/site/blob/main/src/features/mood/styles/feed-rich-text.css) rather than `globals.css`, because that file is unlayered and an
+`@layer` rule loses to it whatever its specificity.
 
 ## What machine ingress owns
 
