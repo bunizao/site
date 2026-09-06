@@ -863,21 +863,18 @@ const {
       border-width: 1px;
     }
 
-    /* The base sizes are already the small ones; only the row gap tightens,
-       and the bullet these used to space is gone. */
+    /* Only layout tightens. The type scale does not shrink on a phone --
+       every messaging app runs its body a step *larger* there, not smaller,
+       and dropping the body to the meta size made the author name bigger
+       than the message it introduces. */
     .mood-comment-header {
       gap: 8px;
-    }
-
-    .mood-comment-content {
-      font-size: 13px;
-      line-height: 1.55;
     }
 
     .mood-comment-content blockquote {
       margin: 0.5em 0 0.6em;
       padding: 4px 8px;
-      font-size: 11px;
+      font-size: var(--comment-meta);
       line-height: 1.45;
     }
 
@@ -909,8 +906,7 @@ const {
 
   @media (max-width: 380px) {
     .mood-comments {
-      --comment-body-padding: 14px 15px;
-      --comment-body-radius: 16px 18px 18px 5px;
+      --comment-body-padding: 9px 12px;
       --comment-stack-gap: 10px;
       margin-top: 28px;
       padding-top: 20px;
@@ -926,17 +922,9 @@ const {
       font-size: 10px;
     }
 
-    .mood-comment-author {
-      font-size: 11px;
-    }
-
-    .mood-comment-content {
-      font-size: 12px;
-    }
-
     .mood-comments-load-more {
       padding: 10px 16px;
-      font-size: 12px;
+      font-size: 13px;
     }
   }
 </style>
