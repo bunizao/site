@@ -403,6 +403,12 @@ export interface MoodCommentsCopy {
   replyingTo: (author: string) => string;
   cancelReply: string;
   cancelReplyAria: string;
+  /** Where a comment was written. The thread mixes two origins and used to
+      render them identically, so a reader could not tell a group message from
+      one typed on this page. The chip beside the date says which. */
+  sourceTelegram: string;
+  sourceWeb: string;
+  sourceAria: (source: string) => string;
 }
 
 export const moodCommentsCopy: MoodCommentsCopy = {
@@ -414,4 +420,7 @@ export const moodCommentsCopy: MoodCommentsCopy = {
   replyingTo: (author) => `Replying to ${author}`,
   cancelReply: 'Cancel',
   cancelReplyAria: 'Cancel reply',
+  sourceTelegram: 'Telegram',
+  sourceWeb: 'Web',
+  sourceAria: (source) => `Written on ${source}`,
 };

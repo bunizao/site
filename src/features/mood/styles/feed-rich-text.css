@@ -14,6 +14,17 @@
   width: fit-content;
 }
 
+/* Inside a comment bubble a quoted parent is a citation, not a second bubble:
+   carried by a left rule instead of a full slab. Lives here rather than with
+   the thread's other styles because this file is unlayered and globals.css is
+   not -- an @layer rule loses to this one whatever its specificity. */
+.mood-comment-content .mood-comment-quote {
+  padding: 5px 10px;
+  border-left: 2px solid hsl(var(--foreground) / 0.22);
+  border-radius: 3px var(--radius-sm) var(--radius-sm) 3px;
+  background: hsl(var(--foreground) / 0.05);
+}
+
 .mood-item-quote[href],
 .mood-quote-card[href] {
   cursor: pointer;

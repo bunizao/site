@@ -399,25 +399,30 @@ const t = moodCommentsCopy;
     color: hsl(var(--muted-foreground) / 0.55);
   }
 
+  /* Sits in .mood-comment-footer beside the reactions, so no top margin of
+     its own. Never hover-gated: on a touch screen a hidden reply button is
+     no button at all. */
   .mood-comment-reply-btn {
-    margin-top: 6px;
     padding: 0;
     font-size: 12px;
     font-weight: 500;
-    color: hsl(var(--muted-foreground) / 0.75);
+    color: hsl(var(--muted-foreground) / 0.7);
     background: transparent;
     border: none;
     cursor: pointer;
+    transition: color var(--dur-fast) var(--ease);
   }
 
-  .mood-comment-reply-btn:hover {
+  .mood-comment-reply-btn:hover,
+  .mood-comment-reply-btn:focus-visible {
     color: hsl(var(--foreground));
-    text-decoration: underline;
   }
 
+  /* Your own rows, in the surface's own monochrome -- a heavier bubble, not a
+     blue one. Nothing else in the mood thread carries an accent colour. */
   .mood-comment--mine .mood-comment-body {
-    border-color: hsl(210 60% 55% / 0.3);
-    background: hsl(210 60% 55% / 0.05);
+    background: color-mix(in oklab, hsl(var(--foreground)) 13%, hsl(var(--background)));
+    border-color: color-mix(in oklab, hsl(var(--foreground)) 20%, transparent);
   }
 
   @media (max-width: 540px) {

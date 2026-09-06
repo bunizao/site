@@ -77,6 +77,45 @@ export const createCommentReplyQuote = (replyTo: CommentReplyTarget, href = ''):
   return quoteWrap;
 };
 
+export type CommentOrigin = 'telegram' | 'web';
+
+/* Lucide `send` and a stripped-down `globe`, in the stroke idiom the rest of
+   the mood surface uses. Two shapes, no colour: the thread is monochrome, so
+   the glyph has to carry the meaning on its own. */
+const SOURCE_ICONS: Record<CommentOrigin, string> = {
+  telegram: '<path d="M22 2 11 13" /><path d="M22 2 15 22l-4-9-9-4Z" />',
+  web: '<circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z" />',
+};
+
+/** The "written on Telegram" / "written here" marker in a comment header. */
+export const createCommentSourceChip = (
+  origin: CommentOrigin,
+  label: string,
+  title: string,
+): HTMLElement => {
+  const chip = document.createElement('span');
+  chip.className = 'mood-comment-source';
+  chip.dataset.origin = origin;
+  chip.title = title;
+
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('fill', 'none');
+  icon.setAttribute('stroke', 'currentColor');
+  icon.setAttribute('stroke-width', '2');
+  icon.setAttribute('stroke-linecap', 'round');
+  icon.setAttribute('stroke-linejoin', 'round');
+  icon.setAttribute('aria-hidden', 'true');
+  icon.innerHTML = SOURCE_ICONS[origin];
+
+  const text = document.createElement('span');
+  text.textContent = label;
+
+  chip.appendChild(icon);
+  chip.appendChild(text);
+  return chip;
+};
+
 export const buildCommentContentFragment = (value: unknown): DocumentFragment => {
   const template = document.createElement('template');
   // `/api/comments` returns Telegram-scraped comment HTML; sanitization is

@@ -2,6 +2,7 @@ import {
   asText,
   buildCommentContentFragment,
   createCommentReplyQuote,
+  createCommentSourceChip,
   dedupeNewComments,
   formatRelativeCommentDate,
   readCommentReplyTarget,
@@ -113,6 +114,9 @@ function renderComment(comment: CommentData): HTMLElement {
   const commentId = asText(comment?.id).trim();
   const siteCommentId = asText(comment?.commentId).trim();
   const anchorToken = asText(comment?.anchorToken).trim();
+  // Omitted origin means `telegram` -- see MoodComment in packages/contracts.
+  const origin = comment?.origin === 'web' ? 'web' : 'telegram';
+  root.dataset.origin = origin;
 
   if (commentId) {
     root.dataset.commentId = commentId;
@@ -161,8 +165,14 @@ function renderComment(comment: CommentData): HTMLElement {
   }
   dateEl.textContent = formatRelativeCommentDate(datetimeRaw);
 
+  const sourceLabel =
+    origin === 'web' ? moodCommentsCopy.sourceWeb : moodCommentsCopy.sourceTelegram;
+
   header.appendChild(authorEl);
   header.appendChild(dateEl);
+  header.appendChild(
+    createCommentSourceChip(origin, sourceLabel, moodCommentsCopy.sourceAria(sourceLabel)),
+  );
   body.appendChild(header);
 
   const contentEl = document.createElement('div');
@@ -179,6 +189,11 @@ function renderComment(comment: CommentData): HTMLElement {
   const contentHtml = asText(comment?.content);
   contentEl.appendChild(buildCommentContentFragment(contentHtml));
   body.appendChild(contentEl);
+
+  // Reactions and the reply button share one row. Stacked, they cost the
+  // bubble two lines of height for two small controls.
+  const footer = document.createElement('div');
+  footer.className = 'mood-comment-footer';
 
   const reactions = Array.isArray(comment?.reactions) ? comment.reactions : [];
   if (reactions.length > 0) {
@@ -225,7 +240,7 @@ function renderComment(comment: CommentData): HTMLElement {
       reactionsWrap.appendChild(pill);
     });
 
-    body.appendChild(reactionsWrap);
+    footer.appendChild(reactionsWrap);
   }
 
   // Reply affordance. A `web` item always has a site comment row behind it,
@@ -234,7 +249,6 @@ function renderComment(comment: CommentData): HTMLElement {
   // only accepts a reply once the read path has verified the scrape's ids
   // really are the group's message ids -- discussionRepliesEnabled, read off
   // MoodContentDocument by the page and passed down as a data attribute.
-  const origin = comment?.origin === 'web' ? 'web' : 'telegram';
   const canReply = origin === 'web' ? Boolean(siteCommentId) : discussionRepliesEnabled;
   if (canReply && commentId) {
     const replyBtn = document.createElement('button');
@@ -244,8 +258,10 @@ function renderComment(comment: CommentData): HTMLElement {
     replyBtn.dataset.commentReplyParentId = origin === 'web' ? siteCommentId : commentId;
     replyBtn.dataset.commentReplyAuthor = author;
     replyBtn.dataset.commentReplyText = plainTextPreview(contentHtml);
-    body.appendChild(replyBtn);
+    footer.appendChild(replyBtn);
   }
+
+  if (footer.childElementCount > 0) body.appendChild(footer);
 
   root.appendChild(body);
   return root;

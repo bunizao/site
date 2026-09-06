@@ -122,6 +122,13 @@ Normalization in [`shared/comments.ts`](https://github.com/bunizao/site/blob/mai
 nodes are wrapped into paragraphs, avatar and image URLs are sanitized before
 insertion, and duplicate comment ids are filtered client-side.
 
+Every row carries where it was written. The thread mixes two origins — messages
+from the Telegram discussion group and comments typed on this page — and they
+render identically otherwise, so each header holds a chip reading *Telegram* or
+*Web*, and the row root carries the same value as `data-origin`. The chip is
+monochrome by design: the mood surface has no accent colour, so the glyph
+carries the distinction.
+
 ## What machine ingress owns
 
 - `/api/v1/mood*` as the live Telegram mirror, `/api/v2/mood*` as the D1 archive.
