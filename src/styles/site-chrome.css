@@ -386,10 +386,16 @@
     transform: translate(var(--peek-shift-x), var(--peek-shift-y));
     transition: opacity 0.16s ease;
     z-index: 2;
+    /* Idle bob: ±2.2px, one cycle per 8.7s, on `translate` so it composes
+       with the pointer spring's `transform` and runs on the compositor. It
+       freezes in place while hovered, so the spring takes over without a
+       jump. */
+    animation: peek-idle-bob 8.7s ease-in-out infinite;
   }
 
   .site-nav--home.is-vertical .site-brand:hover {
     opacity: 1;
+    animation-play-state: paused;
   }
 
   .site-nav--home.is-vertical .site-brand-logo {
@@ -580,6 +586,12 @@
     30% { transform: translateY(-0.18rem); }
     58% { transform: translateY(0.08rem); }
     100% { transform: translateY(0); }
+  }
+
+  @keyframes peek-idle-bob {
+    0%, 50%, 100% { translate: 0 0; }
+    25% { translate: 0 2.2px; }
+    75% { translate: 0 -2.2px; }
   }
 
   @keyframes peek-sidebar-watch {
