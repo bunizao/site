@@ -308,7 +308,7 @@ export const blog = {
    * under "Get tracking link" here, and redeploy.
    */
   instantView: {
-    rhash: '',
+    rhash: '4610b224893326',
   },
   /**
    * What the comment section does on a post that carries none of the

@@ -449,6 +449,17 @@ test.describe('Blog routes', () => {
     const shared = new URL(share.searchParams.get('url') as string);
     expect(shared.origin).toBe('https://buxx.me');
     expect(shared.pathname).toBe('/blog/demo-effects');
+
+    // The whole point of the button: while a template hash is configured, this
+    // is the one link that carries it, and Telegram opens the post as Instant
+    // View. Read the expected hash off the page rather than importing site
+    // config, so the assertion follows whatever is deployed.
+    const rhash = await telegram.getAttribute('data-share-rhash');
+    if (rhash) {
+      expect(shared.searchParams.get('rhash')).toBe(rhash);
+    } else {
+      expect(shared.searchParams.has('rhash')).toBe(false);
+    }
   });
 
   test('serves negotiated markdown for blog posts without crossing html cache entries', async ({ page, request }) => {
