@@ -40,6 +40,29 @@ What shipped, and what was decided along the way:
 - `prefers-reduced-motion` paints one static frame and never animates.
 - The loop stops when the tab is hidden or the band leaves the viewport.
 
+**Whole-page pass, 2026-09-06.** Four of the six concepts pitched after the
+band shipped were taken; the "one ink through the page" accent and the live
+"now" line in the hero were not (yet).
+
+- Grid: the content column is 672px = 28 cells of the 24px lattice, with the
+  lattice and spotlight dots centred on the page axis and the rain cells
+  snapped to 12x16, so column edges, canvas edge and dots share one module.
+- One pointer: the field publishes `--glyph-ink`; the homepage spotlight
+  paints its dots in it, and the canvas glow matches the spotlight's core
+  ellipse. One light crossing two textures.
+- Collapse: the band is sticky inside a runtime-sized track. Over 320px of
+  scroll the rows converge on one hairline; the track ends so that line
+  unpins one cell above the Projects label and scrolls away as its rule.
+  The lattice mask edge rises with the collapse, so the dots are what is
+  left where the rain was.
+- Strip: `src/components/GlyphStrip.astro` draws one row under the nav on
+  `navVariant="page"` pages (docs draw their own bar; the blog is its own
+  zone). Band and strip share `view-transition-name: glyph-field`, so leaving
+  the homepage squashes the band into the row.
+- The decode reveal now settles a third of a second after the line reaches
+  full width, not a full second: show front to 94% of the mash window, boil
+  0.12 (package defaults, README and demo updated).
+
 ## The five concepts
 
 | # | Name | Thesis |
