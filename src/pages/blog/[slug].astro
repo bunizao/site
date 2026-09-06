@@ -19,7 +19,7 @@ import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import ReactionBar from '@/features/comments/ui/ReactionBar';
 import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
 import '@/features/comments/styles/comments.css';
-import { blog } from '@/data/site';
+import { blog, meta } from '@/data/site';
 import Footer from '@/features/home/ui/Footer.astro';
 import {
   getAccessiblePosts,
@@ -170,6 +170,10 @@ const canonicalPath =
 // Out of Pagefind, still in Google: English prose segmented by the CJK
 // tokenizer surfaces as a duplicate hit for what its sibling already covers.
 const translated = isTranslation(post);
+// The Telegram share hand-off leaves the tab behind, so it shares the post's
+// canonical production URL rather than whatever host rendered this page. That
+// is also the URL an Instant View template is matched against.
+const canonicalUrl = new URL(canonicalPath, meta.siteUrl).href;
 ---
 
 <BlogLayout
@@ -262,7 +266,7 @@ const translated = isTranslation(post);
         )}
         <div class="blog-article-sub">
           <SubscribePanel variant="blog" locale={postLocale} anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
-          <ShareRow title={post.title} locale={postLocale} />
+          <ShareRow title={post.title} locale={postLocale} url={canonicalUrl} />
         </div>
       </Colophon>
 

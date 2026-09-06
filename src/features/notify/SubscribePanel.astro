@@ -71,13 +71,16 @@ const intro =
   >
     <!-- Envelope: this trigger opens an email subscription panel, so the glyph
          should say "email" unambiguously at 16px — the old newspaper/document
-         icon read as an unidentifiable rectangle at that size. -->
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+         icon read as an unidentifiable rectangle at that size.
+         Stroke 1.5, not Lucide's default 2: that default is drawn for a 24px
+         box, and at 16px it closes up the counters. The caret below thins to
+         match, or it becomes the heaviest mark in the trigger. -->
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <rect width="20" height="16" x="2" y="4" rx="2"></rect>
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
     </svg>
     <span>{label}</span>
-    <svg class="sub-trigger__caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <svg class="sub-trigger__caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="m6 9 6 6 6-6"></path>
     </svg>
   </button>

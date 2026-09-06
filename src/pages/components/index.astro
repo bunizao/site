@@ -49,10 +49,11 @@ const description =
         </a>
       </section>
 
-      <!-- Mood wheel — a scroll-position instrument. Portrait tile so the
-           vertical dial is the focus; an invisible feed of dated anchors drives
-           it and the backdrop shimmers with the scroll. Genuinely needs
-           isolation (fixed positioning + scroll takeover), so it's iframed. -->
+      <!-- Mood wheel — a scroll-position instrument that is also an input:
+           drag it to scrub the feed by date, flick it to travel. Portrait tile so the vertical dial is the focus; a feed of
+           dated anchors drives it and the backdrop shimmers with the scroll.
+           Genuinely needs isolation (fixed positioning + scroll takeover), so
+           it's iframed. -->
       <section class="cgrid-tile cgrid-tile--mood cgrid-tile--iframe cgrid-tile--link" data-cgrid-tile style="--i:1">
         <iframe src="/components/preview/mood-wheel" title="Mood wheel" loading="lazy"></iframe>
         <a class="cgrid-cap cgrid-cap--link" href="/components/mood-wheel">

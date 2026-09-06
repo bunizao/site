@@ -29,8 +29,15 @@ const { compact = false } = Astro.props;
     <div class="timeline-wheel-connector"></div>
     <div class="timeline-wheel-label" data-timeline-label></div>
   </div>
-  <!-- Click anywhere on the wheel to wind back to the top of the feed -->
-  <button type="button" class="timeline-wheel-top" data-timeline-top aria-label="Back to top"></button>
+  <!-- The wheel is both readout and input. Click winds back to the top of the
+       feed; drag scrubs the timeline by date; arrow keys step one date. -->
+  <button
+    type="button"
+    class="timeline-wheel-top"
+    data-timeline-top
+    aria-label="Back to top. Drag or use arrow keys to scrub the timeline"
+    aria-keyshortcuts="ArrowUp ArrowDown"
+  ></button>
 </nav>
 
 <style>
@@ -45,9 +52,13 @@ const { compact = false } = Astro.props;
     width: var(--visible-width);
     height: 360px;
     z-index: 50;
-    display: none;
     opacity: 0;
     pointer-events: none;
+    /* An instrument, not text: a long press on it must not select the readout
+       or raise the iOS callout. */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
     transition:
       opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
       transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -58,12 +69,6 @@ const { compact = false } = Astro.props;
     opacity: 1;
     pointer-events: auto;
     transform: translateY(-50%) translateX(0);
-  }
-
-  @media (min-width: 1024px) {
-    .timeline-wheel {
-      display: block;
-    }
   }
 
   @media (min-width: 1280px) {
@@ -80,6 +85,97 @@ const { compact = false } = Astro.props;
       --visible-width: 60px;
       height: 440px;
     }
+  }
+
+  /* ── Edge layout ──
+     The controller adds is-edge when the feed column leaves no room at the
+     left for the arc and its readout. The wheel then waits off the right
+     edge, mirrored so its arc faces the screen. --reveal is how far out it
+     sits: the finger drives it while sliding in and the transition carries
+     the rest, over --slide-ms when the controller has a release speed to
+     match. Closed is the arc plus a margin; CLOSED_MARGIN_PX in the
+     controller matches the 8px here. The readout hangs inboard of the arc and
+     fades in only once the wheel is open, so the travel to open is the width
+     of the arc and nothing more. Closed, it shows nothing at all: the edge
+     belongs to the scroll indicator, and the swipe needs no handle any more
+     than the system back swipe does. */
+  .timeline-wheel.is-edge,
+  .timeline-wheel.is-edge.is-visible {
+    left: auto;
+    right: 0;
+    --reveal: calc(var(--visible-width) + 8px);
+    transform: translateY(-50%) translateX(var(--reveal)) scaleX(-1);
+    transition:
+      opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+      transform var(--slide-ms, 0.3s) cubic-bezier(0.2, 0.9, 0.25, 1);
+  }
+
+  .timeline-wheel.is-edge.is-open {
+    --reveal: 0px;
+  }
+
+  /* The inboard hit area reaches past the arc; closed, it would sit over
+     the swipe zone and eat the gesture. */
+  .timeline-wheel.is-edge:not(.is-open) .timeline-wheel-top {
+    pointer-events: none;
+  }
+
+  /* While the finger drives --reveal there is nothing to ease. Written at the
+     specificity of the is-visible rule above, which otherwise keeps its
+     transform transition and trails the finger by a beat. */
+  .timeline-wheel.is-edge.is-visible.is-sliding,
+  .timeline-wheel.is-edge.is-sliding {
+    transition: none;
+  }
+
+  /* Over the feed the dial is a frosted sheet edge, the same material as
+     the readout pill: the content under it turns to haze, not to text you
+     can read through the graduations. The persistent layout's faint notches
+     sit in an empty margin; here they are heavier so the dial reads as a
+     surface. */
+  .timeline-wheel.is-edge .timeline-wheel-dial {
+    background: hsl(var(--background) / 0.82);
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    backdrop-filter: blur(24px) saturate(1.4);
+    border-color: hsl(var(--foreground) / 0.1);
+  }
+
+  /* ?wheel=solid: the flat fill to measure the frosted one against. */
+  .timeline-wheel.is-edge.is-solid .timeline-wheel-dial {
+    background: hsl(var(--background));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .timeline-wheel.is-edge :global(.timeline-notch) {
+    background: hsl(var(--foreground) / calc(0.22 + var(--notch-weight, 0.35) * 0.18));
+  }
+
+  .timeline-wheel.is-edge :global(.timeline-notch.is-major) {
+    background: hsl(var(--foreground) / calc(0.4 + var(--notch-weight, 0.35) * 0.25));
+  }
+
+  .timeline-wheel.is-edge :global(.timeline-notch.is-near),
+  .timeline-wheel.is-edge :global(.timeline-notch.is-neighbor) {
+    background: hsl(var(--foreground) / 0.55);
+  }
+
+  .timeline-wheel.is-edge :global(.timeline-notch.is-active),
+  .timeline-wheel.is-edge :global(.timeline-notch.is-major.is-active) {
+    background: hsl(var(--foreground));
+  }
+
+  .timeline-wheel.is-edge.is-visible .timeline-wheel-label-wrap {
+    opacity: 0;
+  }
+
+  .timeline-wheel.is-edge.is-open .timeline-wheel-label-wrap {
+    opacity: 1;
+  }
+
+  /* The readout is a child of the mirrored wheel; flip it back to read. */
+  .timeline-wheel.is-edge .timeline-wheel-label {
+    transform: scaleX(-1);
   }
 
   /* ── Vertical track rail ── */
@@ -101,24 +197,23 @@ const { compact = false } = Astro.props;
   }
 
   /* ── Arc mask ── */
+  /* Fades the dial out towards the top and bottom, and in from the screen
+     edge: the rim curves away from the screen a few degrees off centre, and
+     a long graduation there would otherwise end in a hard cut at x=0. The
+     box reaches past the arc on the right so the pips on the notch tips are
+     not clipped by the mask. */
   .timeline-wheel-arc {
     position: absolute;
-    inset: 0;
+    inset: 0 -8px 0 0;
     overflow: visible;
-    -webkit-mask-image: linear-gradient(
-      to bottom,
-      transparent 0%,
-      black 12%,
-      black 88%,
-      transparent 100%
-    );
-    mask-image: linear-gradient(
-      to bottom,
-      transparent 0%,
-      black 12%,
-      black 88%,
-      transparent 100%
-    );
+    -webkit-mask-image:
+      linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%),
+      linear-gradient(to right, transparent, black 16px);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%),
+      linear-gradient(to right, transparent, black 16px);
+    mask-composite: intersect;
   }
 
   /* ── Rotating dial ── */
@@ -131,7 +226,11 @@ const { compact = false } = Astro.props;
     transform: translateY(-50%);
     border-radius: 50%;
     border: 1px solid hsl(var(--foreground) / 0.04);
+    /* Its own layer, rasterised once: Safari then rotates a cached texture
+       instead of repainting a few hundred notches on every frame. */
     will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
 
   /* ── Ambient glow ── */
@@ -159,15 +258,18 @@ const { compact = false } = Astro.props;
 
   /* ── Notches ── */
 
-  /* Base minor notch */
+  /* Base minor notch. --notch-weight (0-1, set by the controller) is that day's
+     post count: the graduations are longer and heavier over a busy day, so the
+     dial reads as the terrain of the archive rather than as even decoration.
+     The 0.35 fallback keeps skeleton and unmeasured notches at the old look. */
   :global(.timeline-notch) {
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 14px;
+    width: calc(11px + var(--notch-weight, 0.35) * 9px);
     height: 1.5px;
     margin-top: -0.75px;
-    background: hsl(var(--foreground) / 0.08);
+    background: hsl(var(--foreground) / calc(0.05 + var(--notch-weight, 0.35) * 0.09));
     border-radius: 0 1px 1px 0;
     transform-origin: left center;
     transition:
@@ -179,10 +281,10 @@ const { compact = false } = Astro.props;
 
   /* Major notch (date marker) */
   :global(.timeline-notch.is-major) {
-    width: 22px;
+    width: calc(18px + var(--notch-weight, 0.35) * 13px);
     height: 2px;
     margin-top: -1px;
-    background: hsl(var(--muted-foreground) / 0.2);
+    background: hsl(var(--muted-foreground) / calc(0.14 + var(--notch-weight, 0.35) * 0.18));
     border-radius: 0 1.5px 1.5px 0;
   }
 
@@ -244,12 +346,28 @@ const { compact = false } = Astro.props;
     opacity: 1;
     transform: translateY(-50%) scale(1);
     box-shadow: 0 0 6px hsl(var(--foreground) / 0.2);
+  }
+
+  /* The pulse is a halo on its own layer, animated in opacity and scale only.
+     Animating the pip's box-shadow instead repainted the dial texture on every
+     frame for as long as a date was active, which is always. */
+  :global(.timeline-notch-pip::after) {
+    content: '';
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    background: radial-gradient(circle, hsl(var(--foreground) / 0.28), transparent 70%);
+    opacity: 0;
+    will-change: transform, opacity;
+  }
+
+  :global(.timeline-notch.is-major.is-active .timeline-notch-pip::after) {
     animation: pip-pulse 2.5s ease-in-out infinite;
   }
 
   @keyframes pip-pulse {
-    0%, 100% { box-shadow: 0 0 6px hsl(var(--foreground) / 0.2); }
-    50% { box-shadow: 0 0 12px hsl(var(--foreground) / 0.35); }
+    0%, 100% { opacity: 0.35; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.25); }
   }
 
   /* ── Label group ── */
@@ -324,9 +442,17 @@ const { compact = false } = Astro.props;
     padding: 0;
     border: 0;
     background: transparent;
-    cursor: pointer;
+    /* The wheel reads as a thing you can take hold of; a plain click still
+       means back to top. touch-action keeps a touch drag on the dial from
+       being stolen by the page scroller. */
+    cursor: grab;
+    touch-action: none;
     -webkit-appearance: none;
     appearance: none;
+  }
+
+  .timeline-wheel.is-engaged .timeline-wheel-top {
+    cursor: grabbing;
   }
 
   .timeline-wheel-top:focus-visible {
@@ -337,17 +463,22 @@ const { compact = false } = Astro.props;
 
   /* ── Hover: the instrument quietly illuminates under the cursor ── */
   /* The readout brightens, a soft halo blooms at the active centre, and the
-     live mark extends a touch — minimal, no layout shift, no extra chrome. */
-  .timeline-wheel:hover .timeline-wheel-label {
+     live mark extends a touch — minimal, no layout shift, no extra chrome.
+     Driven by a class the controller sets from a mouse pointer, never by the
+     hover pseudo-class. iOS Safari treats the first touch on anything whose
+     hover rules reveal content as a hover rather than a press, so the wheel
+     needed a tap to wake before it would take a drag; and it pins the hover
+     state to whatever was last tapped, so it stayed lit after every scrub. */
+  .timeline-wheel.is-hovering .timeline-wheel-label {
     color: hsl(var(--foreground));
     border-color: hsl(var(--foreground) / 0.14);
   }
 
-  .timeline-wheel:hover .timeline-wheel-glow {
+  .timeline-wheel.is-hovering .timeline-wheel-glow {
     opacity: 1;
   }
 
-  .timeline-wheel:hover .timeline-wheel-connector {
+  .timeline-wheel.is-hovering .timeline-wheel-connector {
     background: linear-gradient(
       to right,
       hsl(var(--foreground) / 0.32),
@@ -355,12 +486,44 @@ const { compact = false } = Astro.props;
     );
   }
 
-  .timeline-wheel:hover :global(.timeline-notch.is-major.is-active) {
+  .timeline-wheel.is-hovering :global(.timeline-notch.is-major.is-active) {
     width: 42px;
     background: hsl(var(--foreground));
     box-shadow:
       0 0 10px hsl(var(--foreground) / 0.16),
       0 0 26px hsl(var(--foreground) / 0.08);
+  }
+
+  /* ── Engaged: the wheel is being driven, not just read ──────────────────
+     The halo comes up and the live graduation takes the weight hover gives it.
+     Nothing else changes. Lengthening every graduation on engage looked like
+     the instrument coming under the hand, but it also started a transition on
+     a few hundred notches at once: a repaint burst at the first frame of every
+     drag, which on a tablet is a hitch exactly where the finger lands.
+
+     Nothing here may move the wheel itself either. It used to lean out from
+     the edge on a translateX, which peeled the arc off the left of the screen
+     and left a blank wedge down the side for as long as the gesture lasted. */
+  .timeline-wheel.is-engaged .timeline-wheel-glow {
+    opacity: 1;
+  }
+
+  /* Driving the dial gives the live graduation the same weight hover does. */
+  .timeline-wheel.is-engaged :global(.timeline-notch.is-major.is-active) {
+    width: 42px;
+    background: hsl(var(--foreground));
+    box-shadow:
+      0 0 10px hsl(var(--foreground) / 0.16),
+      0 0 26px hsl(var(--foreground) / 0.08);
+  }
+
+  .timeline-wheel.is-engaged .timeline-wheel-label {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.2);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      0 6px 18px -4px rgba(0, 0, 0, 0.1),
+      inset 0 0.5px 0 hsl(var(--foreground) / 0.06);
   }
 
   /* ── Hint pulse: the rare auto cue gets a single glow bloom for weight ── */
@@ -461,9 +624,9 @@ const { compact = false } = Astro.props;
 </style>
 
 <script>
-  // The wheel is display:none below 1024px (rule above), so narrow viewports
-  // skip its module and scroll wiring entirely. It mounts lazily the first
-  // time the viewport crosses the breakpoint.
+  // Every viewport mounts it: the controller measures whether the feed leaves
+  // room at the left and otherwise keeps it off the right edge until a swipe
+  // brings it in.
   const mountAll = async () => {
     const { mountTimelineWheel } = await import('@/features/mood/client/timeline-wheel');
     document.querySelectorAll('[data-timeline-wheel]').forEach((root) => {
@@ -477,15 +640,5 @@ const { compact = false } = Astro.props;
     });
   };
 
-  const wide = window.matchMedia('(min-width: 1024px)');
-  if (wide.matches) {
-    void mountAll();
-  } else {
-    const onWiden = (event: MediaQueryListEvent) => {
-      if (!event.matches) return;
-      wide.removeEventListener('change', onWiden);
-      void mountAll();
-    };
-    wide.addEventListener('change', onWiden);
-  }
+  void mountAll();
 </script>

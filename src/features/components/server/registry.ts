@@ -96,6 +96,21 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
       type: 'registry:lib' as const,
     },
     {
+      path: 'features/mood/client/date-label.ts',
+      target: '@lib/date-label.ts',
+      type: 'registry:lib' as const,
+    },
+    {
+      path: 'features/mood/client/wheel-feedback.ts',
+      target: '@lib/wheel-feedback.ts',
+      type: 'registry:lib' as const,
+    },
+    {
+      path: 'features/mood/client/wheel-frame-meter.ts',
+      target: '@lib/wheel-frame-meter.ts',
+      type: 'registry:lib' as const,
+    },
+    {
       path: 'features/mood/shared/feed-anchor.ts',
       target: '@lib/feed-anchor.ts',
       type: 'registry:lib' as const,
@@ -115,13 +130,22 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
     ...await readRegistryFile(filePath, type),
     target,
   })));
-  files[0].content = files[0].content
-    .replace("@/features/mood/client/timeline-date-tracker", '@/lib/timeline-date-tracker')
-    .replace("@/features/mood/shared/feed-anchor", '@/lib/feed-anchor');
-  files[4].content = files[4].content.replace(
-    "@/features/mood/client/timeline-wheel",
-    '@/lib/timeline-wheel'
-  );
+  // Addressed by target, not by index: the source list grows, and a shifted
+  // index would silently publish an unrewritten @/features import.
+  const rewrite = (target: string, apply: (content: string) => string): void => {
+    const file = files.find((candidate) => candidate.target === target);
+    if (!file) throw new Error(`mood-wheel registry is missing ${target}`);
+    file.content = apply(file.content);
+  };
+
+  rewrite('@lib/timeline-wheel.ts', (content) => content
+    .replace('@/features/mood/client/timeline-date-tracker', '@/lib/timeline-date-tracker')
+    .replace('@/features/mood/client/date-label', '@/lib/date-label')
+    .replace('@/features/mood/client/wheel-feedback', '@/lib/wheel-feedback')
+    .replace('@/features/mood/client/wheel-frame-meter', '@/lib/wheel-frame-meter')
+    .replace('@/features/mood/shared/feed-anchor', '@/lib/feed-anchor'));
+  rewrite('@ui/timeline-wheel.astro', (content) => content
+    .replace('@/features/mood/client/timeline-wheel', '@/lib/timeline-wheel'));
 
   return {
     $schema: REGISTRY_ITEM_SCHEMA,

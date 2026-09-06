@@ -27,7 +27,15 @@
 
 import { loadTurnstileScript } from '@/lib/turnstile-script';
 
-export type TurnstileAction = 'blog_comment_create' | 'blog_reaction' | 'mood_comment_create';
+// 'owner_message_create' is the /message form and 'mood_comment_create' the
+// mood thread. They share this module rather than growing their own because
+// the widget lifecycle -- warm early, read at submit, re-mint on expiry -- is
+// identical; only the action string differs.
+export type TurnstileAction =
+  | 'blog_comment_create'
+  | 'blog_reaction'
+  | 'mood_comment_create'
+  | 'owner_message_create';
 
 interface TurnstileWidgetState {
   container: HTMLElement;

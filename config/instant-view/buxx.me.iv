@@ -1,0 +1,168 @@
+~version: "2.1"
+
+# Telegram Instant View — 無人之境 (https://buxx.me/blog/<slug>)
+#
+# This file is the source of truth for the template; it is NOT deployed by any
+# build here. Publishing is manual, at https://instantview.telegram.org/my — see
+# config/instant-view/README.md for the paste-check-publish loop and for where
+# the resulting rhash goes (`blog.instantView.rhash` in src/data/site.ts).
+#
+# Deliberately conservative: every construct below is one the Instant View
+# editor is known to accept. Rules that reshape nodes rather than drop them --
+# lifting a <pre> out of its wrapper, rebuilding a card as a blockquote -- are
+# parked in the README under "Refinements to try", to be added one at a time
+# with the editor open. A template that renders plainly beats one that fails to
+# process.
+#
+# Everything here is written against the markup src/pages/blog/[slug].astro
+# renders. When that page's structure changes, this template changes with it:
+# tests/e2e/blog.pw.ts asserts the selectors named here still exist, so a rename
+# fails CI rather than silently degrading Instant View for every shared link.
+
+# Article pages only. /blog, /blog/tags and /blog/tag/<slug> all match the path;
+# the published-time meta tag is what an article has and an index does not.
+?path: /blog/.+
+?exists: /html/head/meta[@property="article:published_time"]
+
+# --- Identity ----------------------------------------------------------------
+# BlogLayout already emits all of these for Open Graph. A meta tag is a far more
+# stable anchor than the visible byline, which is a formatted date with no
+# machine-readable form of its own.
+site_name: /html/head/meta[@property="og:site_name"]/@content
+title: //h1[has-class("blog-article__title")]
+author: /html/head/meta[@property="article:author"]/@content
+# Makes the byline a link home. Instant View strips the page's own chrome, so
+# without this the article arrives in Telegram with no way back to whoever
+# wrote it.
+author_url: "https://buxx.me"
+published_date: /html/head/meta[@property="article:published_time"]/@content
+
+cover: //figure[has-class("blog-feature")]//img
+image_url: /html/head/meta[@property="og:image"]/@content
+
+# --- Body --------------------------------------------------------------------
+# The prose only. The header, colophon, reaction bar, subscribe panel, share row
+# and comment thread are siblings of this node, so none of them need removing —
+# they are simply not in the body to begin with.
+body: //div[has-class("blog-prose")]
+
+# --- Code blocks -------------------------------------------------------------
+# CodeBox wraps its <pre> in a figure carrying a language chip and a copy
+# button, and parks the raw source in a hidden <textarea> for that button. Both
+# are browser furniture; the <pre> underneath is what Instant View keeps.
+@remove: $body//figure[has-class("code-box")]//figcaption
+@remove: $body//figure[has-class("code-box")]//textarea
+
+# --- Mermaid -----------------------------------------------------------------
+# The canvas is painted by client script that never runs inside Instant View.
+# The diagram source is already in the markup as a <pre>, which is the honest
+# fallback: readable text instead of an empty box.
+@remove: $body//div[has-class("mermaid-diagram__canvas")]
+
+# --- Bookmark cards ----------------------------------------------------------
+# Ghost renders a bookmark as
+#
+#   figure.kg-bookmark-card > a.kg-bookmark-container
+#     > div.kg-bookmark-content ( title, description, metadata > img.kg-bookmark-icon )
+#     + div.kg-bookmark-thumbnail > img
+#
+# The favicon is a 16px SVG served from static.ghost.org. Instant View tries to
+# fetch it as media and fails with NO_MEDIA_FOUND; it is decoration in any case.
+@remove: $body//img[has-class("kg-bookmark-icon")]
+
+# The preview image is nested inside the card's anchor, and Instant View drops
+# an image that sits in a link — the same trap chess.com.xpath annotates as
+# "Take Image out, or it will be unsupported". Lift it a level at a time out of
+# the thumbnail div, the anchor and the card, then give it a figure of its own.
+$bookmark_image: $body//div[has-class("kg-bookmark-thumbnail")]/img
+@before_el("./.."): $bookmark_image
+@before_el("./.."): $bookmark_image
+@before_el("./.."): $bookmark_image
+@wrap(<figure>): $bookmark_image
+@remove: $body//div[has-class("kg-bookmark-thumbnail")]
+
+# What is left of the card is a title, a description and a link: a quotation of
+# somewhere else, which is what a blockquote is for.
+<blockquote>: $body//figure[has-class("kg-bookmark-card")]
+
+# --- Galleries ---------------------------------------------------------------
+# Ghost nests a gallery three deep:
+#
+#   figure.kg-gallery-card > div.kg-gallery-container > div.kg-gallery-row
+#     > div.kg-gallery-image > span.blog-media > img   (xN)   + figcaption
+#
+# An Instant View <figure> carries one media block, so left alone the whole
+# gallery collapses to its first image. A <slideshow> holds the set instead —
+# but the editor rejects one inside a <figure> ("Element <slideshow> is not
+# supported in <figure>"), so the container has to leave the gallery card
+# behind, and the card's caption follows it out as a paragraph. Lifting a node
+# out of a wrapper is `@before_el("./..")`, one level per application.
+<figure>: $body//div[has-class("kg-gallery-image")]
+@before_el("./.."): $body//div[has-class("kg-gallery-row")]/figure
+@remove: $body//div[has-class("kg-gallery-row")]
+
+# Out of the card: the container lands before it, the caption after it, and the
+# emptied card goes. Order survives because the two rules insert on either side.
+@before_el("./.."): $body//figure[has-class("kg-gallery-card")]/div[has-class("kg-gallery-container")]
+<p>: $body//figure[has-class("kg-gallery-card")]/figcaption
+@after_el("./.."): $body//figure[has-class("kg-gallery-card")]/p
+@remove: $body//figure[has-class("kg-gallery-card")]
+
+<slideshow>: $body//div[has-class("kg-gallery-container")]
+
+# --- Mood embeds -------------------------------------------------------------
+# A same-site <iframe> pointing at /mood/embed. Instant View only hosts iframes
+# from providers it recognises, so this one is dropped rather than left to
+# render as "Embed not supported yet". The card carries no human-readable link
+# to fall back to — see the README for the site-side change that would give it
+# one.
+@remove: $body//figure[has-class("blog-mood-embed")]
+
+# --- YouTube -----------------------------------------------------------------
+# The lazy player is a poster, a button, and an <iframe> whose src is only ever
+# set by script — inert here. What survives is the poster and the caption, which
+# already carries the title and an outbound link to the video.
+@remove: $body//figure[has-class("yt")]//iframe
+@remove: $body//div[has-class("yt__down")]
+
+# --- Apple Music -------------------------------------------------------------
+# A turntable assembled from spans around a preview player. The button drives
+# audio that cannot play here; the track, the artist and the link remain.
+@remove: $body//figure[has-class("blog-music")]//button
+
+# --- Footnotes ---------------------------------------------------------------
+# The section is real content and stays. Only the ↩ backlinks go: Instant View
+# has no in-page anchors for them to return to.
+@remove: $body//a[has-class("blog-fn-back")]
+
+# --- Credit ------------------------------------------------------------------
+# A "Join channel" button. Its looks belong to Telegram, not to this template:
+# the editor's preview flattens it to plain text, and only the app draws the
+# avatar and the button — check it there, on a tracking link, before judging
+# it. `tutumood` is the public channel the mood feed mirrors (CHANNEL in
+# wrangler.jsonc), so it also has to resolve as public for the button to draw
+# at all. One line, easy to drop.
+channel: "@tutumood"
+
+# The provenance line the article closes with — the human pledge, or the model
+# credits on a post that has them — is authorship, not chrome, so it follows
+# the prose into the body rather than being left outside it. <aside> is a tag
+# Instant View keeps, so neither needs re-tagging.
+@append_to($body): //aside[has-class("ai-credit")]
+@append_to($body): //aside[has-class("not-by-ai")]
+
+# The copyright line closes the page, the way it closes the article. It is one
+# quiet sentence rather than a <related> block: Instant View's related list is
+# built for articles with thumbnails, and the only thing this page could feed
+# it is the prev/next nav — two titles, no images, which renders as a pair of
+# bare links. Nothing beats nothing there.
+@append_to($body): //p[has-class("footer-mark")]
+
+# --- Sweep -------------------------------------------------------------------
+# Whatever is left that exists for the browser alone. aria-hidden is the honest
+# test for decoration: anything a screen reader is told to skip has nothing to
+# say here either.
+@remove: $body//script
+@remove: $body//style
+@remove: $body//noscript
+@remove: $body//*[@aria-hidden="true"]

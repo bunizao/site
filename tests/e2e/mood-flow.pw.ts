@@ -2224,8 +2224,9 @@ test.describe('Mood routes', () => {
     expect(afterHover.activeTransform).toBe(beforeHover.activeTransform);
     expect(afterHover.activeWidth).toBeGreaterThan(beforeHover.activeWidth);
     expect(afterHover.wheelTransform).toBe(beforeHover.wheelTransform);
-    expect(afterHover.cursor).toBe('pointer');
-    expect(beforeHover.cursor).toBe('pointer');
+    // The wheel is an input as well as a readout: it offers a grab, not a tap.
+    expect(afterHover.cursor).toBe('grab');
+    expect(beforeHover.cursor).toBe('grab');
 
     await page.locator('[data-page-scroller]').evaluate((scroller) => {
       scroller.scrollTo({ top: scroller.scrollHeight * 0.7, behavior: 'instant' });

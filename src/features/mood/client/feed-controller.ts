@@ -60,7 +60,9 @@ function hydrateFeedEmbeds(root: HTMLElement): void {
 const MOOD_FETCH_ATTEMPTS = 2;
 const MOOD_FETCH_RETRY_DELAY_MS = 200;
 const RETRYABLE_MOOD_FETCH_STATUSES = new Set([408, 425, 500, 502, 503, 504]);
-const FEED_PREFETCH_MARGIN_PX = 1200;
+// A flick on iPad covers several thousand pixels while a page is still on the
+// wire, so the next page has to start well before the last one is in view.
+const FEED_PREFETCH_MARGIN_PX = 2400;
 
 export function initMoodFeedController(): void {
     const scroll = pageScroll();
@@ -91,6 +93,7 @@ export function initMoodFeedController(): void {
         list.setAttribute('aria-busy', 'true');
       } else {
         let isLoading = false;
+        let loadMoreQueued = false;
         let isLoadingNewer = false;
         let hasMore = true;
         let hasNewer = false;
@@ -854,19 +857,17 @@ export function initMoodFeedController(): void {
         anchorOlderTouchStartY = null;
       }
 
+      const isSentinelNear = (): boolean => {
+        const rect = sentinel.getBoundingClientRect();
+        return rect.top <= window.innerHeight + FEED_PREFETCH_MARGIN_PX
+          && rect.bottom >= -FEED_PREFETCH_MARGIN_PX;
+      };
+
       function openAnchorOlderObserverGate(): void {
         if (!anchorOlderScrollListenerActive) return;
         clearAnchorOlderObserverGate();
         startObserver();
-        if (!sentinel) return;
-
-        const sentinelRect = sentinel.getBoundingClientRect();
-        if (
-          sentinelRect.top <= window.innerHeight + FEED_PREFETCH_MARGIN_PX
-          && sentinelRect.bottom >= -FEED_PREFETCH_MARGIN_PX
-        ) {
-          void loadMore();
-        }
+        if (isSentinelNear()) void loadMore();
       }
 
       function applyAnchorPaginationIntent(
@@ -1183,7 +1184,13 @@ export function initMoodFeedController(): void {
       };
 
       const loadMore = async (): Promise<void> => {
-        if (isLoading || !hasMore) {
+        if (!hasMore) return;
+        if (isLoading) {
+          // The sentinel observer only fires on a transition. A request that
+          // arrives while a page is in flight would otherwise be lost, and a
+          // fast flick would sit at the end of the feed with nothing loading
+          // until the reader scrolled away and back.
+          loadMoreQueued = true;
           return;
         }
 
@@ -1227,6 +1234,10 @@ export function initMoodFeedController(): void {
           isLoading = false;
           setLoadingState(false);
           hideInlineLoading();
+          if (loadMoreQueued) {
+            loadMoreQueued = false;
+            if (hasMore && isSentinelNear()) void loadMore();
+          }
         }
       };
 

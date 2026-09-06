@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Hero from '@/features/home/ui/Hero.astro';
+import GlyphField from '@/features/home/ui/GlyphField.astro';
 import ParallaxWrapper from '@/features/home/ui/ParallaxWrapper.astro';
 import Experience from '@/features/home/ui/Experience.astro';
 import Projects from '@/features/home/ui/Projects.astro';
@@ -24,6 +25,7 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
   structuredData={[websiteJsonLd, profileJsonLd]}
 >
   <ParallaxWrapper>
+    <GlyphField />
     <main class="page-container">
       {sections.hero && <Hero />}
       {sections.projects && <Projects />}
@@ -36,9 +38,56 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
 </Layout>
 
 <style>
+  /* The glyph field is the hero's texture, so the site-wide dot lattice and
+     its pointer spotlight fade in only below it. Both layers are fixed, so the
+     fade edge is a viewport coordinate: the field script keeps `--field-edge`
+     at the band's bottom minus the scroll offset, and it reaches 0 once the
+     band has scrolled away. Page-scoped on purpose: every other page keeps
+     both layers unmasked. */
+  :global(body::before),
+  :global(.spotlight-overlay) {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent calc(var(--field-edge, 0px) - 220px),
+      #000 var(--field-edge, 0px)
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent calc(var(--field-edge, 0px) - 220px),
+      #000 var(--field-edge, 0px)
+    );
+  }
+
+  /* The spotlight below the band lights the lattice in the session's ink, so
+     the pointer carries one colour from the rain onto the dots. */
+  :global(.spotlight-overlay__grid) {
+    background-image: radial-gradient(
+      circle,
+      color-mix(in oklab, var(--glyph-ink, hsl(var(--foreground))) 85%, transparent) 1.15px,
+      transparent 1.15px
+    );
+  }
+
+  /* The homepage ground carries a trace of cool grey instead of pure white and
+     near-black: the field's inks sit on it without the ground fighting them,
+     and the step to every other page is under 1% lightness, so navigation
+     shows no seam. */
+  :global(body) {
+    --background: 220 20% 98.4%;
+  }
+
+  :global(html.dark body) {
+    --background: 225 12% 4.6%;
+  }
+
   .page-container {
     /* Homepage code labels are below the fold; reuse the already-preloaded mono face here. */
     --font-code: var(--font-mono);
+    /* 720 - 2 x 24 = 672 = 28 cells of the 24px lattice, so both edges of the
+       column sit on a dot and the text shares the field's module. */
+    padding-inline: 24px;
+    position: relative;
+    z-index: 1;
   }
 
   /* No `content-visibility` on the sections. They measure 284-629px against a

@@ -48,7 +48,7 @@ const DEFAULTS: Settings = {
   charset: DEFAULT_CHARSET,
   speed: 8,
   mutate: 18,
-  boil: 0.35,
+  boil: 0.12,
   lineSpread: 0.3,
 };
 

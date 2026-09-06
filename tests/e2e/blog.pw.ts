@@ -179,10 +179,7 @@ test.describe('Blog routes', () => {
     await expect(firstYear.locator('.blog-year__heading')).toHaveText(/^(?:\d{4}|Unknown)$/);
     await expect(firstYear.locator('.blog-list .blog-row').first()).toBeVisible();
 
-    const colophon = page.locator('.blog-colophon');
-    await expect(colophon).toBeVisible();
-    await expect(colophon.getByRole('heading', { name: 'sillage' })).toBeVisible();
-    await expect(colophon.locator('.blog-colophon__body > p')).toHaveCount(3);
+    await expect(page.locator('.blog-colophon')).toHaveCount(0);
 
     const firstPostHref = pathFromHref(
       await page.locator('.blog-row__link').first().getAttribute('href'),
@@ -404,6 +401,65 @@ test.describe('Blog routes', () => {
     await expect(codeBox).toBeVisible();
     await expect(codeBox.locator('pre.astro-code')).toBeVisible();
     await expect(codeBox.getByRole('button', { name: 'Copy code' })).toBeVisible();
+  });
+
+  // The Instant View template in config/instant-view/buxx.me.iv addresses these
+  // selectors by name, and Telegram parses the published page rather than
+  // anything this repo can assert against. Renaming one of them would degrade
+  // every link already shared into a chat, silently, so the contract is pinned
+  // here instead: fix the template alongside the rename, not this list.
+  test('keeps the structure the Telegram Instant View template addresses', async ({ page }) => {
+    const response = await page.goto('/blog/demo-effects');
+
+    expect(response?.ok()).toBeTruthy();
+
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'article');
+    await expect(page.locator('meta[property="article:published_time"]')).toHaveCount(1);
+    await expect(page.locator('meta[property="article:author"]')).toHaveCount(1);
+
+    await expect(page.locator('h1.blog-article__title')).toBeVisible();
+    await expect(page.locator('.blog-prose')).toBeVisible();
+
+    // Article body only: the template takes .blog-prose as the Instant View
+    // body precisely because the colophon and the comment thread sit outside
+    // it, and nothing it cannot render has to be removed rule by rule.
+    await expect(page.locator('.blog-prose .blog-colophon')).toHaveCount(0);
+    await expect(page.locator('.blog-prose .blog-comments')).toHaveCount(0);
+
+    const codeBox = page.locator('.blog-prose > .code-box').first();
+    await expect(codeBox.locator('.code-box-body > pre')).toHaveCount(1);
+  });
+
+  test('hands Telegram the canonical post URL from the share row', async ({ page }) => {
+    const response = await page.goto('/blog/demo-effects');
+
+    expect(response?.ok()).toBeTruthy();
+
+    const telegram = page.locator('.share [data-share-telegram]');
+    await expect(telegram).toHaveCount(1);
+
+    const href = await telegram.getAttribute('href');
+    expect(href).toBeTruthy();
+
+    const share = new URL(href as string);
+    expect(share.origin + share.pathname).toBe('https://t.me/share/url');
+
+    // The shared link outlives the tab, so it is the canonical production URL
+    // and never the host that happened to render this run.
+    const shared = new URL(share.searchParams.get('url') as string);
+    expect(shared.origin).toBe('https://buxx.me');
+    expect(shared.pathname).toBe('/blog/demo-effects');
+
+    // The whole point of the button: while a template hash is configured, this
+    // is the one link that carries it, and Telegram opens the post as Instant
+    // View. Read the expected hash off the page rather than importing site
+    // config, so the assertion follows whatever is deployed.
+    const rhash = await telegram.getAttribute('data-share-rhash');
+    if (rhash) {
+      expect(shared.searchParams.get('rhash')).toBe(rhash);
+    } else {
+      expect(shared.searchParams.has('rhash')).toBe(false);
+    }
   });
 
   test('serves negotiated markdown for blog posts without crossing html cache entries', async ({ page, request }) => {

@@ -274,6 +274,12 @@ const placeholderText = `${longestText}_`;
       return;
     }
 
+    // Take over the line now, before the hero fades it in: otherwise the
+    // server-rendered name rises fully formed, vanishes, and is typed again.
+    // From here the line carries an empty canvas and a blinking caret until
+    // the first keystroke lands.
+    visual.classList.add('is-enhanced');
+
     const abort = new AbortController();
     let index = 0;
     root._typewriterAbort = abort;
