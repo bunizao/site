@@ -18,7 +18,7 @@ import {
   setTurnstileHost,
   warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
-import { messagesCopy, type MessageCopy } from '@/features/messages/copy';
+import { messageCopy as t } from '@/features/messages/copy';
 
 const ACTION = 'owner_message_create' as const;
 const DWELL_TOKEN_REFRESH_AGE_MS = 20 * 60_000;
@@ -57,8 +57,6 @@ export function initMessageForm(root: HTMLElement): void {
   const website = form.elements.namedItem('website') as HTMLInputElement | null;
   if (!nameField || !emailField || !bodyField) return;
 
-  const locale = (root.dataset.locale === 'en' ? 'en' : 'zh') as 'zh' | 'en';
-  const t: MessageCopy = messagesCopy[locale];
   const siteKey = root.dataset.turnstileSiteKey ?? '';
 
   if (turnstileHost) setTurnstileHost(ACTION, turnstileHost);
@@ -214,7 +212,10 @@ export function initMessageForm(root: HTMLElement): void {
           turnstileToken,
           dwellToken,
           website: website?.value ?? '',
-          locale,
+          // The page is English only; this decides the language of the
+          // verification mail and of the owner's reply mail, both of which
+          // answer something written under an English form.
+          locale: 'en',
         }),
       });
 

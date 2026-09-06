@@ -9,18 +9,26 @@
 //
 // Site zone, not the blog zone, even though the blog masthead is what links
 // here: the address is root-level and the page is not blog content. The blog
-// masthead trigger is an entry point, not an owner.
+// masthead trigger is an entry point, not an owner. English only, for the
+// same reason -- see features/messages/copy.ts.
 //
 // It reads as a thread because that is what it structurally is -- one person
 // writing to one person, who can write back. Nothing in it is invented: there
 // are no scripted visitor replies, no fake timestamps and no read receipts.
-// The one animated element, the typing indicator, is on screen only while a
-// request is genuinely in flight.
+// The opening run plays once, as if typed -- the visitor's line, then the two
+// answers arriving behind a typing indicator -- because that is how a thread
+// greets you, and a page that paints all three at once is a form with a
+// preamble. It is pure CSS, so it runs without script and goes away under
+// reduced motion. After that the only staged thing is gone: the typing
+// indicator that follows a send is on screen only while a request is
+// genuinely in flight.
 //
-// Every surface here is opaque. The site's ground carries a dot grid, and an
-// outlined or alpha-tinted bubble lets that grid run straight through the
-// words -- which read as unfinished rather than as quiet. So the bubbles and
-// the composer are filled with a neutral grey that stops the ground dead.
+// The site's ground is a dot grid, and this page switches it off, the way the
+// blog and the docs do. A chat thread on graph paper reads as stickers on a
+// worksheet: the dots run up to every bubble's edge and stop dead, and the
+// eye reads the joins instead of the words. On a flat ground the surfaces
+// have to carry a touch more contrast, because nothing else marks their edge
+// -- that is what --surface below is tuned for.
 //
 // The accent means one thing and only one: the visitor's own voice. Their
 // opening line, the message they send, and the button that produces it. The
@@ -31,17 +39,13 @@
 // see site-api's src/pages/v2/messages.ts.
 import Layout from '@/layouts/Layout.astro';
 import Footer from '@/features/home/ui/Footer.astro';
-import { messagesCopy } from '@/features/messages/copy';
-import { blog } from '@/data/site';
+import { messageCopy as t } from '@/features/messages/copy';
 import { formatSiteTitle } from '@/lib/seo';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 import { nameOnBackground, textOnAccent } from '@/features/content/conversation';
 
 export const prerender = false;
-
-const locale: 'zh' | 'en' = blog.locale.blog;
-const t = messagesCopy[locale];
 
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
@@ -86,9 +90,8 @@ const accentInk = textOnAccent(accentFill);
   <main
     class="thread"
     data-message-root
-    data-locale={locale}
     data-turnstile-site-key={turnstileSiteKey}
-    lang={locale}
+    lang="en"
     style={`--accent-light:${accentFill};--accent-dark:${accentFillDark};--accent-ink:${accentInk};`}
   >
     {/* Undrawn. The document title, the tab and the masthead trigger all say
@@ -99,26 +102,38 @@ const accentInk = textOnAccent(accentFill);
 
     {/* A plain stack rather than a list: the composer sits inside the run, and
         a form is not a list item. Read in order this is a question, its answer
-        and a form, which is what a screen reader should get. */}
+        and a form, which is what a screen reader should get.
+
+        data-beat is the opening choreography: each carries the moment it
+        arrives, and the two owner lines hold a typing slot that fills the
+        gap before them. See the "opening run" block in the styles. */}
     <div class="thread__stack">
       {/* The reader speaks first, and the page answers. Putting the visitor's
           line at the top costs nothing and changes what the two grey bubbles
           are: not a notice at the door, a reply. */}
-      <div class="msg msg--me">
+      <div class="msg msg--me" data-beat="opener">
         <p class="bubble bubble--me">{t.opener}</p>
       </div>
 
       {/* One speaker, two lines. The corners they share tighten to 5px -- that
           seam is what makes two bubbles read as one person talking rather than
-          as two unrelated chips. */}
-      <div class="msg msg--them msg--turn">
-        <p class="bubble bubble--them bubble--joined-below">{t.intro}</p>
+          as two unrelated chips. Each line is stacked on a typing slot that
+          shows while the line is "being written" and hands over to it; the
+          slot never takes space of its own, so nothing moves when it goes. */}
+      <div class="msg msg--them msg--turn msg--slot">
+        <div class="bubble bubble--them bubble--typing bubble--typing-slot" data-slot="line-1" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+        <p class="bubble bubble--them bubble--joined-below" data-beat="line-1">{t.intro}</p>
       </div>
-      <div class="msg msg--them">
-        <p class="bubble bubble--them bubble--joined-above">{t.invite}</p>
+      <div class="msg msg--them msg--slot">
+        <div class="bubble bubble--them bubble--typing bubble--typing-slot" data-slot="line-2" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+        <p class="bubble bubble--them bubble--joined-above" data-beat="line-2">{t.invite}</p>
       </div>
 
-      <div class="msg msg--block msg--turn" data-message-form-view>
+      <div class="msg msg--block msg--turn" data-message-form-view data-beat="composer">
         <form class="composer" data-message-form novalidate>
           <div class="composer__pair">
             <div class="composer__cell">
@@ -171,7 +186,9 @@ const accentInk = textOnAccent(accentFill);
 
           {/* Turnstile renders here rather than off-screen: invisible mode is
               only invisible until Cloudflare wants a human, and a challenge in
-              a hidden container is a dead end. */}
+              a hidden container is a dead end. The row stays collapsed until
+              that happens -- turnstile-token.ts flags it with
+              data-turnstile-interactive while a challenge is showing. */}
           <div class="composer__turnstile" data-message-turnstile></div>
 
           <p class="composer__error" data-message-error hidden role="alert"></p>
@@ -233,6 +250,16 @@ const accentInk = textOnAccent(accentFill);
   <Footer />
 </Layout>
 
+<style is:global>
+  /* The ambient dot grid and the pointer-following one, off for this route --
+     the same switch docs.css and components.css throw, for the reason in the
+     header comment. */
+  body:has(.thread)::before,
+  body:has(.thread) .spotlight-overlay {
+    display: none;
+  }
+</style>
+
 <style>
   .thread {
     /* 520 rather than the 640 a form would take. At 14px this lands near 34
@@ -246,13 +273,13 @@ const accentInk = textOnAccent(accentFill);
        outranks any stylesheet rule and the dark override would never land. */
     --accent-fill: var(--accent-light);
 
-    /* Opaque on purpose, and the reason this is a hex and not an
-       hsl(var(--foreground) / a) overlay: the page ground is a dot grid, and an
-       alpha surface lets the dots show through the text. It reads as a surface
-       because the dots stop at its edge, not because it is dark, so it can sit
-       this close to the white ground -- iMessage needs its heavier #E9E9EB
-       only because it has no texture to interrupt. */
-    --surface: #f4f4f4;
+    /* Opaque on purpose, and a hex rather than an hsl(var(--foreground) / a)
+       overlay: an alpha surface takes on whatever is under it, and a solid one
+       is the same grey wherever it sits. With the dot grid off there is no
+       texture to mark where a bubble ends, so this carries the whole edge
+       itself: iMessage's #E9E9EB, lifted a step so it stays quiet under 14px
+       text on a page that is mostly white. */
+    --surface: #ececee;
 
     --line: hsl(var(--foreground) / 0.16);
     /* Rules drawn on --surface rather than on the page, so they need a touch
@@ -270,10 +297,10 @@ const accentInk = textOnAccent(accentFill);
 
   :global(.dark) .thread {
     --accent-fill: var(--accent-dark);
-    /* The dark ground is 4% grey, so this needs a wider gap than light's 4
-       points to separate by the same amount -- lightness differences compress
-       as they approach black. */
-    --surface: #1c1c1e;
+    /* The dark ground is 4% grey, so this needs a wider gap than light's to
+       separate by the same amount -- lightness differences compress as they
+       approach black. iMessage's own dark grey is #26262A. */
+    --surface: #252528;
     --line: hsl(var(--foreground) / 0.2);
     --line-soft: hsl(var(--foreground) / 0.16);
     --message-danger: #f1707a;
@@ -439,13 +466,28 @@ const accentInk = textOnAccent(accentFill);
     white-space: nowrap;
   }
 
+  /* Collapsed until Cloudflare actually wants a human. The widget mounts a
+     container here the moment the token is warmed, and an `:empty` test --
+     what this used to be -- stops matching right then, leaving the row's
+     padding and rule painted round nothing: a blank band above the footer on
+     every production visit. Same 0fr/1fr grid as .blog-compose__turnstile,
+     for the same reason: the challenge can be whatever size Cloudflare
+     renders, and the open still animates. */
   .composer__turnstile {
-    padding: 12px 14px;
-    border-top: 1px solid var(--line-soft);
+    display: grid;
+    grid-template-rows: minmax(0, 0fr);
+    transition: grid-template-rows 0.28s cubic-bezier(0.2, 0, 0, 1), padding 0.28s;
   }
 
-  .composer__turnstile:empty {
-    display: none;
+  .composer__turnstile > * {
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .composer__turnstile[data-turnstile-interactive] {
+    grid-template-rows: 1fr;
+    padding: 12px 14px;
+    border-top: 1px solid var(--line-soft);
   }
 
   .composer__error {
@@ -576,8 +618,99 @@ const accentInk = textOnAccent(accentFill);
     border-color: hsl(var(--foreground) / 0.5);
   }
 
-  /* Bubbles arrive rather than appear. Only the ones revealed by script carry
-     this -- the opening run is server-rendered and should already be there. */
+  /* --- opening run ----------------------------------------------------------
+     The thread arrives the way a thread does: the visitor's line, a pause
+     with dots, the first answer, dots again, the second, then the composer.
+     Every element is in the markup from the first byte and animates from
+     `both`, so it is already there for a crawler and for anyone with scripts
+     off, and only the paint is staged.
+
+     One clock, read here. Each beat is when its element lands; each slot is
+     when its dots appear, and they hand over at the moment the line they
+     stand in for lands. Tune the numbers in this block and nowhere else. */
+  .thread {
+    --beat-opener: 0.2s;
+    --slot-1: 0.75s;
+    --beat-line-1: 1.6s;
+    --slot-2: 1.85s;
+    --beat-line-2: 2.5s;
+    --beat-composer: 2.85s;
+  }
+
+  [data-beat] {
+    animation: bubble-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  }
+
+  [data-beat='opener'] {
+    animation-delay: var(--beat-opener);
+  }
+
+  [data-beat='line-1'] {
+    animation-delay: var(--beat-line-1);
+  }
+
+  [data-beat='line-2'] {
+    animation-delay: var(--beat-line-2);
+  }
+
+  [data-beat='composer'] {
+    animation-delay: var(--beat-composer);
+  }
+
+  /* The slot and its line share one grid cell, so the line's size is the
+     row's size from the first frame and the hand-over moves nothing. Both
+     start at the left edge, where the owner's bubbles sit anyway. */
+  .msg--slot {
+    display: grid;
+    justify-items: start;
+  }
+
+  .msg--slot > * {
+    grid-area: 1 / 1;
+  }
+
+  /* In with the same arrival as a line, out with a plain fade at the moment
+     the line lands. Two animations on one property: the later one in the list
+     wins once it starts, and holds (`forwards`) after, so the dots never come
+     back. The dots themselves bounce a finite number of times rather than
+     forever -- the bubble is invisible after the hand-over, and an infinite
+     animation on an invisible box is a compositor that never sleeps. */
+  .bubble--typing-slot {
+    animation:
+      bubble-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) var(--slot-in) both,
+      bubble-out 0.16s ease var(--slot-out) forwards;
+  }
+
+  .bubble--typing-slot span {
+    animation-iteration-count: 2;
+  }
+
+  [data-slot='line-1'] {
+    --slot-in: var(--slot-1);
+    --slot-out: var(--beat-line-1);
+  }
+
+  [data-slot='line-2'] {
+    --slot-in: var(--slot-2);
+    --slot-out: var(--beat-line-2);
+  }
+
+  [data-slot='line-1'] span {
+    animation-delay: var(--slot-1);
+  }
+
+  [data-slot='line-2'] span {
+    animation-delay: var(--slot-2);
+  }
+
+  @keyframes bubble-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  /* Bubbles arrive rather than appear. The ones revealed by script share the
+     opening run's arrival, without its delay. */
   [data-message-draft]:not([hidden]),
   [data-message-typing]:not([hidden]),
   [data-message-sent-view]:not([hidden]) {
@@ -619,7 +752,18 @@ const accentInk = textOnAccent(accentFill);
       scale: 1;
     }
 
+    .composer__turnstile {
+      transition: none;
+    }
+
+    /* The opening run paints at once, and the slots go with it: dots that do
+       not move are not a typing indicator, they are three grey specks. */
+    .bubble--typing-slot {
+      display: none;
+    }
+
     .bubble--typing span,
+    [data-beat],
     [data-message-draft]:not([hidden]),
     [data-message-typing]:not([hidden]),
     [data-message-sent-view]:not([hidden]) {

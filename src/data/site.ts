@@ -79,6 +79,11 @@ export type BlogLocale = 'zh' | 'en';
 export interface BlogLocaleCopy {
   name: string;
   tagline: string;
+  /** Masthead trigger for /message. Sits beside the subscribe and contact
+      triggers, so it matches their weight -- a noun, not a sentence -- and
+      their language: the page it opens is English only, but this word is
+      part of the blog's own row. */
+  messageTrigger: string;
   /**
    * Open Graph wants `language_TERRITORY`, not a bare BCP 47 tag. It is the one
    * place a locale needs a territory it does not otherwise have an opinion on.
@@ -181,6 +186,7 @@ export const blog = {
     zh: {
       name: '無人之境',
       tagline: '生长于共鸣、独白、文学、与沉默之间。',
+      messageTrigger: '留言',
       ogLocale: 'zh_CN',
       notByAI: {
         prefix: '本文由真人撰写，',
@@ -236,6 +242,7 @@ export const blog = {
     en: {
       name: 'Sillage',
       tagline: 'Grown between resonance, monologue, literature, and silence.',
+      messageTrigger: 'Message',
       ogLocale: 'en_US',
       notByAI: {
         prefix: 'This post is written by human(s), ',

@@ -119,7 +119,7 @@ test.describe('/message', () => {
     await fillMessage(page, { name: 'someone', email: '', body: 'Nothing to answer.' });
     await page.locator('[data-message-submit]').click();
 
-    await expect(page.locator(errorBox)).toContainText('留个邮箱');
+    await expect(page.locator(errorBox)).toContainText('Leave an email');
     await expect(page.locator(sentView)).toBeHidden();
     expect(posted).toBe(0);
   });
@@ -150,7 +150,7 @@ test.describe('/message', () => {
 
     await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Please write back.' });
     await page.locator('[data-message-submit]').click();
-    await expect(page.locator('[data-message-sent-body]')).toContainText('确认信');
+    await expect(page.locator('[data-message-sent-body]')).toContainText('Sent a confirmation');
 
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     await installMessageApi(page, { answer: { replyable: true, verificationSent: false } });
@@ -159,7 +159,7 @@ test.describe('/message', () => {
 
     await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Second message.' });
     await page.locator('[data-message-submit]').click();
-    await expect(page.locator('[data-message-sent-body]')).toContainText('要是得回你');
+    await expect(page.locator('[data-message-sent-body]')).toContainText('mail the address you left');
   });
 
   test('a 429 keeps the draft on screen', async ({ page }) => {
@@ -169,7 +169,7 @@ test.describe('/message', () => {
     await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Written twice too fast.' });
     await page.locator('[data-message-submit]').click();
 
-    await expect(page.locator(errorBox)).toContainText('歇一会儿');
+    await expect(page.locator(errorBox)).toContainText('give it a few minutes');
     await expect(page.locator(sentView)).toBeHidden();
     await expect(page.locator(formView)).toBeVisible();
     // The whole point: the words are still there to send again.
