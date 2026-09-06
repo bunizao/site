@@ -38,30 +38,54 @@ Telegram caches an Instant View page per URL. Add `?rhash=…` to a fresh URL, o
 use the editor's preview, when checking a change — an old cached render is not
 evidence the template is wrong.
 
-## Why the template is this plain
+## Working from real templates, not guesses
+
+The manual at instantview.telegram.org is the reference, but published contest
+templates are what settle syntax arguments, because they demonstrably passed the
+editor. Two in [Sea-n/Telegram-IV-Templates](https://github.com/Sea-n/Telegram-IV-Templates)
+answered most of what this template needed:
+
+- [`chess.com.xpath`](https://github.com/Sea-n/Telegram-IV-Templates/blob/master/chess.com.xpath)
+  — `@before_el("./..")`, **quoted**. An unquoted relative path is a syntax
+  error, which is what broke the first draft of this template outright. It also
+  shows the idiom for pulling a node out of nested wrappers: repeat the same
+  rule, once per level ("Take Image out, or it will be unsupported").
+- [`taiwannews.com.tw.xpath`](https://github.com/Sea-n/Telegram-IV-Templates/blob/master/taiwannews.com.tw.xpath)
+  — a slideshow is built as `figure > slideshow > figure > img`, never
+  `slideshow > img`: each image's parent becomes a `<figure>` first
+  (`<figure>: $imgs/parent::*`), then the container element is replaced with
+  `<slideshow>`. It also gates the whole thing behind `@if` on a second image.
+
+Both declare `~version: "2.0"`. If the editor refuses a function this file uses,
+dropping the version line to `"2.0"` is the cheap thing to try before rewriting
+the rule.
+
+## Why the rest of the template is plain
 
 The editor is the only place a rule can be verified, and a template that fails
-to process renders nothing at all. So `buxx.me.iv` sticks to constructs the
-editor is known to accept — property assignments, `$variables`, and `@remove` —
-and settles for a plain rendering of anything it cannot safely reshape.
+to process renders nothing at all. So `buxx.me.iv` keeps to constructs a
+published template demonstrates, and settles for a plain rendering of anything
+that would need a guess.
 
-Node surgery goes below instead, one rule at a time, editor open. Anything that
-survives moves up into the template with a comment saying what it buys.
+Node surgery below, one rule at a time, editor open. Anything that survives
+moves up into the template with a comment saying what it buys.
 
 ### Refinements to try
 
 **Lift code out of its wrapper.** Without this a code block renders as whatever
-Instant View makes of `figure > div > pre`. With it, a bare `<pre>`:
+Instant View makes of `figure > div > pre`. With it, a bare `<pre>`. Two hops,
+so the rule runs twice — the chess.com idiom:
 
 ```
-@before_el(./../..): $body//figure[has-class("code-box")]/div[has-class("code-box-body")]/pre
+@before_el("./.."): $body//figure[has-class("code-box")]//pre
+@before_el("./.."): $body//figure[has-class("code-box")]//pre
 @remove: $body//figure[has-class("code-box")]
 ```
 
-**Same, for the Mermaid source `<pre>`:**
+**Same, for the Mermaid source `<pre>`** — one hop:
 
 ```
-@before_el(./..): $body//figure[has-class("mermaid-diagram")]/pre
+@before_el("./.."): $body//figure[has-class("mermaid-diagram")]/pre
 @remove: $body//figure[has-class("mermaid-diagram")]
 ```
 
@@ -69,7 +93,7 @@ Instant View makes of `figure > div > pre`. With it, a bare `<pre>`:
 rather than the `<span class="blog-media">` that carries its LQIP background:
 
 ```
-@before_el(./..): //figure[has-class("blog-feature")]/span[has-class("blog-media")]/img
+@before_el("./.."): //figure[has-class("blog-feature")]/span[has-class("blog-media")]/img
 @remove: //figure[has-class("blog-feature")]/span[has-class("blog-media")]
 cover: //figure[has-class("blog-feature")]
 ```
@@ -84,44 +108,22 @@ shaped once their chrome is gone:
 <blockquote>: $body//figure[has-class("blog-music")]
 ```
 
-**Galleries.** A Ghost gallery is
-
-```
-figure.kg-gallery-card > div.kg-gallery-container > div.kg-gallery-row
-  > div.kg-gallery-image > img   (xN)
-+ figcaption
-```
-
-and an Instant View `<figure>` carries exactly one media block, so without a
-rule the whole gallery collapses to its first image. The shape to reach is
-`<figure><slideshow><img/>...</slideshow><figcaption/></figure>` — a slideshow
-must have a figure ancestor, and the caption has to survive, which the outer
-figure already handles. `@split_parent` strips one level of wrapper per
-application, and each line only matches once the line above it has run:
-
-```
-@split_parent: $body//div[has-class("kg-gallery-image")]/img
-@split_parent: $body//div[has-class("kg-gallery-row")]/img
-<slideshow>: $body//div[has-class("kg-gallery-container")]
-```
-
-If `<slideshow>` is refused, flatten the images out of the figure entirely and
-let each stand as its own block — worse than a gallery, still better than
-losing every image but the first:
-
-```
-@split_parent: $body//div[has-class("kg-gallery-image")]/img
-@split_parent: $body//div[has-class("kg-gallery-row")]/img
-@split_parent: $body//div[has-class("kg-gallery-container")]/img
-@split_parent: $body//figure[has-class("kg-gallery-card")]/img
-```
-
 **Host real third-party embeds** (CodePen, Vimeo, …) natively. Only providers
 Telegram recognises work — a same-site iframe reports "Embed not supported
 yet":
 
 ```
 @inline: $body//figure[has-class("kg-embed-card")]//iframe
+```
+
+**Build the gallery slideshow only when there is more than one image**, the way
+taiwannews.com.tw does, so a one-image gallery stays a plain figure:
+
+```
+$gallery_multi: $body//div[has-class("kg-gallery-image")][2]
+@if ($gallery_multi) {
+<slideshow>: $body//div[has-class("kg-gallery-container")]
+}
 ```
 
 **Section kicker from the first public tag.** Parenthesised XPath may not be
