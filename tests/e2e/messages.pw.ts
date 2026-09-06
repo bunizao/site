@@ -223,6 +223,34 @@ test.describe('/message', () => {
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
   });
 
+  // maxlength makes the field stop taking characters without a word, so the
+  // count is the whole of the feedback. It stays out of the way until the end.
+  test('the count keeps quiet until the field is nearly full', async ({ page }) => {
+    await page.goto('/message');
+
+    const body = page.locator('#message-body');
+    const count = page.locator('[data-message-count]');
+    await expect(body).toHaveAttribute('maxlength', '4000');
+    await expect(count).toBeHidden();
+
+    await body.fill('x'.repeat(3599));
+    await expect(count).toBeHidden();
+
+    await body.fill('x'.repeat(3650));
+    await expect(count).toHaveText('3650/4000');
+    await expect(count).not.toHaveAttribute('data-full', '');
+
+    await body.fill('x'.repeat(4000));
+    await expect(count).toHaveText('4000/4000');
+    await expect(count).toHaveAttribute('data-full', '');
+
+    // Back under the line the count goes away, and it must not come back
+    // still wearing the state it left in.
+    await body.fill('x'.repeat(10));
+    await expect(count).toBeHidden();
+    await expect(count).not.toHaveAttribute('data-full', '');
+  });
+
   // The dots carry two delays at once: when their bubble starts, and where
   // each dot sits in the wave. Expressed as two animation-delay rules the
   // more specific one silently wins and the wave flattens into a pulse --
