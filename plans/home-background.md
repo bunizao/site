@@ -31,7 +31,8 @@ What shipped, and what was decided along the way:
 - The clock moves the weather, not the colour. Day is the lab's `rain`
   preset, night is `drift`; the two blend on a cosine of local hour (calm at
   03:00, full rain at 15:00) and re-read every minute. `?hour=<0-24>` pins
-  it for review. Tunables are the `DAY`/`NIGHT` constants in the engine.
+  it for review, `?speed=<multiplier>` scales the fall. Tunables are the
+  `DAY`/`NIGHT` constants in the engine.
 - The field wakes from the centre outward on first paint instead of
   appearing fully formed.
 - Pointer glow survives from the lab; touch gets a wider tap glow instead.
@@ -86,6 +87,26 @@ side — the band's territory is beside the copy, and on a phone it had none.
 - The canvas is sized to its host instead of a fixed 1200x560, so a phone
   simulates ~500 cells rather than 3500 and its bitmap is 768x640, not
   2400x1120. Width snaps to the 24px lattice; a ResizeObserver rebuilds.
+
+**Tempo, 2026-09-06.** The owner's own diagnosis of what still irritated:
+the rain ran slower than everything else on the page. The numbers agreed.
+The page's beat is the typewriter's 90ms keystroke; the rain ticked at 90ms
+too, but a head moved 0.25–1.0 cells per tick at day speed, so most columns
+did not move on a given beat (about 7 cells/s on average, 3 for the slow
+ones). Then the clock made it worse: the day/night blend drops speed to
+0.35 by 03:00, and at 21:00 — when the owner looks — it was already at half.
+
+- Tick 90ms → 60ms, column speed 0.6–1.6 cells per tick (was 0.25–1.0),
+  night speed 0.35 → 0.6. Day average is now ~18 cells/s (2.6× before), the
+  slowest column ~10; at 21:00 ~14/s (3× before). A head crosses the phone
+  band in about a second.
+- Trails shortened to match (day 0.93 → 0.88, night 0.965 → 0.90) so the
+  streak length in cells stays where it was; only the tempo changed.
+- Entrance 1100ms → 700ms, wake 500 → 400ms, so the field lands with the
+  hero copy (600ms) instead of after it.
+- `?speed=<multiplier>` scales the fall for review; the weather blend still
+  applies on top. Resting cost at 17fps, CPU x4, dev build: see the tempo
+  probe numbers in the same commit.
 - Hero entrance moved from a GSAP timeline to CSS transitions with the same
   choreography and the same hand-off events (`home:hero-name-ready`,
   `home:hero-bio-ready`, `home:hero-github-ready`). The nav's hover wave

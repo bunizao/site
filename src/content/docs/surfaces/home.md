@@ -46,6 +46,10 @@ only simulates cells that can be seen:
   grid on resize, pointer-glow repaints are capped near 30fps, and the band
   is sticky in a track that lets it condense and fade over the first 320px
   of scroll.
+- The simulation ticks every 60ms with heads falling 0.6–1.6 cells per tick,
+  faster than the typewriter's 90ms beat so the rain never reads as slower
+  than the copy. Review pins: `?hour=<0-24>` fixes the day/night weather,
+  `?speed=<multiplier>` scales the fall, `?ink=<name>` picks the hue.
 
 ## Hero / intro
 

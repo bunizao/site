@@ -12,7 +12,7 @@
  * preset, by night it settles into `drift` (slower fall, longer trails, fewer
  * columns). The two are blended on a daylight curve, so there is no step.
  *
- * Budget: an ~11fps tick on a canvas the size of the host — the viewport
+ * Budget: a ~17fps tick on a canvas the size of the host — the viewport
  * width (capped at MAX_BAND_WIDTH) by the band height the stylesheet sets —
  * gated on visibility, on being in the viewport, and on prefers-reduced-motion
  * (which gets one static frame and nothing else). Nothing off-screen is
@@ -22,7 +22,13 @@
 import { GLYPH_INKS, resolveGlyphInk, type GlyphInk } from '@/features/home/glyph-inks';
 
 const GLYPHS = 'CLPSAR01<>=+*-#$';
-const TICK_MS = 90;
+/**
+ * Simulation beat. The page's own metronome is the typewriter's 90ms
+ * keystroke; at 90ms the rain looked like a slow-motion cut against it
+ * because most heads moved less than a cell per beat. 60ms, with heads at a
+ * cell or more per tick (see `respawn`), puts the rain ahead of the beat.
+ */
+const TICK_MS = 60;
 const GLOW_DECAY = 0.78;
 const FONT_PX = 12;
 /** The band never runs wider than this, however wide the viewport is. */
@@ -82,19 +88,27 @@ const GUST_LIFT = 0.5;
  * gates on an already-running simulation, so the field is mid-flow the moment
  * it is fully visible.
  */
-const ENTRANCE_MS = 1100;
+const ENTRANCE_MS = 700;
 /** Soft edge of the sweeping front, in rows. */
 const ENTRANCE_EDGE_ROWS = 7;
-const WAKE_SPREAD_MS = 500;
-const WAKE_MS = 500;
+const WAKE_SPREAD_MS = 400;
+const WAKE_MS = 400;
 
 /**
  * Day (`rain`) and night (`drift`), blended by daylight. Both run thinner than
  * the lab presets: the field sits behind body copy, and a full-density band
  * read as grime rather than weather.
  */
-const DAY = { speed: 1.0, head: 0.58, trail: 0.93, columns: 0.55 };
-const NIGHT = { speed: 0.35, head: 0.48, trail: 0.965, columns: 0.45 };
+const DAY = { speed: 1.0, head: 0.58, trail: 0.88, columns: 0.55 };
+const NIGHT = { speed: 0.6, head: 0.48, trail: 0.9, columns: 0.45 };
+/**
+ * `?speed=<multiplier>` scales the fall for review (1 is the shipped tempo).
+ * Read once at mount; the weather blend keeps applying on top of it.
+ */
+const tempoPin = (): number => {
+  const pinned = Number(new URLSearchParams(location.search).get('speed'));
+  return pinned > 0 ? pinned : 1;
+};
 /** Per-cell resting alpha. Near zero: the ground stays clean between streaks. */
 const FLOOR_MIN = 0.01;
 const FLOOR_RANGE = 0.03;
@@ -138,11 +152,11 @@ const localHour = (): number => {
   return d.getHours() + d.getMinutes() / 60;
 };
 
-const weatherAt = (hour: number): Weather => {
+const weatherAt = (hour: number, tempo = 1): Weather => {
   const t = daylight(hour);
   const mix = (a: number, b: number) => b + (a - b) * t;
   return {
-    speed: mix(DAY.speed, NIGHT.speed),
+    speed: mix(DAY.speed, NIGHT.speed) * tempo,
     head: mix(DAY.head, NIGHT.head),
     trail: mix(DAY.trail, NIGHT.trail),
     columns: mix(DAY.columns, NIGHT.columns),
@@ -177,7 +191,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   const inks: GlyphInk = GLYPH_INKS[resolveGlyphInk(location.search)];
   let ink = inks.light;
   let gain = 0.72;
-  let weather = weatherAt(localHour());
+  const tempo = tempoPin();
+  let weather = weatherAt(localHour(), tempo);
 
   let raf = 0;
   let last = 0;
@@ -203,7 +218,9 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
 
   const respawn = (col: Column, initial: boolean) => {
     col.head = initial ? Math.random() * rowCount * 2 : -Math.random() * rowCount * 1.5;
-    col.speed = 0.25 + 0.75 * Math.random();
+    // Cells per tick at weather speed 1. The slowest column still clears a
+    // cell most ticks, so nothing on the band moves below the page's beat.
+    col.speed = 0.6 + 1.0 * Math.random();
     if (initial || Math.random() < 0.2) {
       col.maxRow = Math.floor(rowCount * (0.35 + 0.65 * Math.random()));
       col.brightness = 0.5 + 0.5 * Math.random();
@@ -510,7 +527,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
 
   // Weather follows the clock while the page stays open.
   const weatherTimer = window.setInterval(() => {
-    weather = weatherAt(localHour());
+    weather = weatherAt(localHour(), tempo);
   }, 60_000);
 
   // The band follows the host: a rotation or a breakpoint crossing changes
