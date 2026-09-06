@@ -59,6 +59,32 @@ body: //div[has-class("blog-prose")]
 # fallback: readable text instead of an empty box.
 @remove: $body//div[has-class("mermaid-diagram__canvas")]
 
+# --- Bookmark cards ----------------------------------------------------------
+# Ghost renders a bookmark as
+#
+#   figure.kg-bookmark-card > a.kg-bookmark-container
+#     > div.kg-bookmark-content ( title, description, metadata > img.kg-bookmark-icon )
+#     + div.kg-bookmark-thumbnail > img
+#
+# The favicon is a 16px SVG served from static.ghost.org. Instant View tries to
+# fetch it as media and fails with NO_MEDIA_FOUND; it is decoration in any case.
+@remove: $body//img[has-class("kg-bookmark-icon")]
+
+# The preview image is nested inside the card's anchor, and Instant View drops
+# an image that sits in a link — the same trap chess.com.xpath annotates as
+# "Take Image out, or it will be unsupported". Lift it a level at a time out of
+# the thumbnail div, the anchor and the card, then give it a figure of its own.
+$bookmark_image: $body//div[has-class("kg-bookmark-thumbnail")]/img
+@before_el("./.."): $bookmark_image
+@before_el("./.."): $bookmark_image
+@before_el("./.."): $bookmark_image
+@wrap(<figure>): $bookmark_image
+@remove: $body//div[has-class("kg-bookmark-thumbnail")]
+
+# What is left of the card is a title, a description and a link: a quotation of
+# somewhere else, which is what a blockquote is for.
+<blockquote>: $body//figure[has-class("kg-bookmark-card")]
+
 # --- Galleries ---------------------------------------------------------------
 # Ghost nests a gallery three deep:
 #

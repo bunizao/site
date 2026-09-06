@@ -104,13 +104,9 @@ rather than the `<span class="blog-media">` that carries its LQIP background:
 cover: //figure[has-class("blog-feature")]
 ```
 
-**Cards as blockquotes.** Ghost bookmarks and the Apple Music card are link-
-shaped once their chrome is gone:
+**The Apple Music card as a blockquote** — link-shaped once its chrome is gone:
 
 ```
-@remove: $body//*[has-class("kg-bookmark-thumbnail")]
-@remove: $body//*[has-class("kg-bookmark-icon")]
-<blockquote>: $body//figure[has-class("kg-bookmark-card")]
 <blockquote>: $body//figure[has-class("blog-music")]
 ```
 
@@ -191,6 +187,17 @@ into the titles:
 <related>: //nav[has-class("blog-adjacent")]
 @append_to($body)
 ```
+
+## Images inside links
+
+Instant View drops an `<img>` that sits inside an `<a>`. That is what emptied
+the bookmark cards: Ghost nests the preview image three deep inside the card's
+anchor. `chess.com.xpath` annotates the same trap — *"Take Image out, or it will
+be unsupported"* — and the fix is its idiom: bind the images to a variable,
+`@before_el("./..")` once per level of wrapper, then `@wrap(<figure>)`.
+
+Worth checking first whenever an image is missing from the rendered page but
+present in the source.
 
 ## Known gaps
 
