@@ -60,6 +60,12 @@ Both declare `~version: "2.0"`. If the editor refuses a function this file uses,
 dropping the version line to `"2.0"` is the cheap thing to try before rewriting
 the rule.
 
+The editor's own errors are the third source, and the sharpest one — it names
+the tag and the context it refused. `Element <slideshow> is not supported in
+<figure>` is what settled where the gallery slideshow has to live; no amount of
+reading templates would have. Paste an error verbatim into this file's history
+rather than paraphrasing it.
+
 ## Why the rest of the template is plain
 
 The editor is the only place a rule can be verified, and a template that fails
@@ -124,6 +130,16 @@ $gallery_multi: $body//div[has-class("kg-gallery-image")][2]
 @if ($gallery_multi) {
 <slideshow>: $body//div[has-class("kg-gallery-container")]
 }
+```
+
+**Unwrap the gallery cells' LQIP spans.** Each gallery image sits in a
+`<span class="blog-media">` that carries its blur placeholder, so a converted
+cell is `figure > span > img`. Instant View appears to simplify the span away on
+its own; if gallery images come out blank, take it out explicitly:
+
+```
+@before_el("./.."): $body//div[has-class("kg-gallery-image")]/span[has-class("blog-media")]/img
+@remove: $body//div[has-class("kg-gallery-image")]/span[has-class("blog-media")]
 ```
 
 **Section kicker from the first public tag.** Parenthesised XPath may not be

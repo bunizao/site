@@ -59,21 +59,25 @@ body: //div[has-class("blog-prose")]
 # Ghost nests a gallery three deep:
 #
 #   figure.kg-gallery-card > div.kg-gallery-container > div.kg-gallery-row
-#     > div.kg-gallery-image > img   (xN)   + figcaption
+#     > div.kg-gallery-image > span.blog-media > img   (xN)   + figcaption
 #
 # An Instant View <figure> carries one media block, so left alone the whole
-# gallery collapses to its first image. The shape Telegram's own contest
-# templates build is figure > slideshow > figure > img (taiwannews.com.tw:
-# `<figure>: $imgs/parent::*` for each cell, then the container becomes the
-# slideshow), and lifting a node out of a wrapper is a repeated
-# `@before_el("./..")` — one level per application (chess.com runs the same
-# rule twice for exactly this).
-#
-# The outer figure.kg-gallery-card stays as the figure, so the slideshow has a
-# figure ancestor and the gallery's figcaption survives beside it.
+# gallery collapses to its first image. A <slideshow> holds the set instead —
+# but the editor rejects one inside a <figure> ("Element <slideshow> is not
+# supported in <figure>"), so the container has to leave the gallery card
+# behind, and the card's caption follows it out as a paragraph. Lifting a node
+# out of a wrapper is `@before_el("./..")`, one level per application.
 <figure>: $body//div[has-class("kg-gallery-image")]
 @before_el("./.."): $body//div[has-class("kg-gallery-row")]/figure
 @remove: $body//div[has-class("kg-gallery-row")]
+
+# Out of the card: the container lands before it, the caption after it, and the
+# emptied card goes. Order survives because the two rules insert on either side.
+@before_el("./.."): $body//figure[has-class("kg-gallery-card")]/div[has-class("kg-gallery-container")]
+<p>: $body//figure[has-class("kg-gallery-card")]/figcaption
+@after_el("./.."): $body//figure[has-class("kg-gallery-card")]/p
+@remove: $body//figure[has-class("kg-gallery-card")]
+
 <slideshow>: $body//div[has-class("kg-gallery-container")]
 
 # --- Mood embeds -------------------------------------------------------------
