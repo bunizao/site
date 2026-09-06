@@ -63,6 +63,36 @@ band shipped were tried, three survived; the "one ink through the page" accent a
   full width, not a full second: show front to 94% of the mash window, boil
   0.12 (package defaults, README and demo updated).
 
+**Phone pass, 2026-09-06.** The owner found the phone view "messy, the
+characters pile on top of each other". Measured on a 390x664 viewport: the
+560px band was solid to 280px and the copy started at 76px, so the whole
+hero sat inside the rain; the bio (238px of 14px Geist Mono) ran from 244px
+to 482px through the field, which is 12px Geist Mono. Two texts in one face
+at one size, one on top of the other. Wide screens never had the problem
+because the 672px column sits inside the 1200px band with rain on either
+side — the band's territory is beside the copy, and on a phone it had none.
+
+- Rule: rain may sit behind display type, never behind body type.
+- Phones (below 640px) get a 320px band that dissolves fully at its own
+  bottom edge, no side mask (its edges would fall inside the column). The
+  hero pads its copy down 216px (nine lattice cells): the status label sits
+  at ~54% rain alpha, the 28px name spans the fade (34% down to 10%, the way
+  the reference sets its title in the rain), the chips clear at 308px, the
+  bio starts at 384px on clean ground. The nav and any notch fit inside the
+  216px, so the safe-area term went.
+- The canvas is sized to its host instead of a fixed 1200x560, so a phone
+  simulates ~500 cells rather than 3500 and its bitmap is 768x640, not
+  2400x1120. Width snaps to the 24px lattice; a ResizeObserver rebuilds.
+- The tech marquee is hidden on phones: two rows of 11px text sliding under
+  the thumb was the one hero element that still read as noise at 390px, and
+  it animates for as long as the page is open. One `display: none` in
+  Hero.astro to revert.
+- Hero entrance moved from a GSAP timeline to CSS transitions with the same
+  choreography and the same hand-off events (`home:hero-name-ready`,
+  `home:hero-bio-ready`, `home:hero-github-ready`). The nav's hover wave
+  now loads GSAP on first mouse hover instead of at init, so no page loads
+  the 70KB chunk up front.
+
 ## The five concepts
 
 | # | Name | Thesis |
@@ -77,11 +107,17 @@ band shipped were tried, three survived; the "one ink through the page" accent a
 
 - [ ] Prune the draw if any hue misfires in the wild; amber on the light
       theme is the one to watch.
-- [ ] Budget it. The band is a 1200x560 canvas repainting at ~11fps on the
-      site's LCP page. Measure paint cost and LCP on prod before calling it
-      done; the lab never did.
+- [x] Budget it. Measured 2026-09-06 on the production build over
+      localhost, iPhone 14 viewport, CPU throttled 4x (Playwright + CDP):
+      hero visible 1520ms → 1005ms, field ready 1044ms → 648ms, load
+      1337ms → 821ms, long tasks 5 (814ms) → 4 (441ms), canvas bitmap
+      2400x1120 → 768x640, inline JS in the HTML 25.6KB → 23.7KB, and the
+      70KB GSAP chunk off the critical path. Pointer-glow repaints capped
+      near 30fps. Still to do on real hardware: a field trace on a mid-range
+      Android; the lab numbers are a floor.
 - [ ] Decide whether the hero's own motion (typewriter, decode, status
-      rotation, marquee) stays now that the background moves. Untouched so far.
+      rotation) stays now that the background moves. The marquee is already
+      gone on phones (see the phone pass); the rest is untouched.
 - [ ] The lab pages can go once the shipped tunables settle.
 
 ## Not in scope here

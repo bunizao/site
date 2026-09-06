@@ -27,6 +27,25 @@ Everything under `src/features/home/` is home-private — `ui/` for components,
 The navbar owns three section anchors — `#projects-section`,
 `#writing-section`, `#moods-section`. The hero has none.
 
+## Glyph field
+
+`home/ui/GlyphField.astro` mounts a monospace rain band behind the hero,
+painted on a canvas by `src/lib/glyph-field.ts` (decisions and tunables in
+`plans/home-background.md`). The canvas is sized to its host, so the engine
+only simulates cells that can be seen:
+
+- Wide screens (≥ 640px): a 560px band, at most 1200px wide, masked on both
+  sides so the field dissolves before the viewport edges.
+- Phones: a 320px band that dissolves fully at its own bottom edge, with no
+  side mask. The hero pads its copy down 216px so only the status label and
+  the display name sit in the fade; the chips, role and bio start below the
+  band. The rain is the same mono face at nearly the bio's size, so it may
+  sit behind display type but never behind body text.
+- The band width snaps to the 24px lattice, a `ResizeObserver` rebuilds the
+  grid on resize, pointer-glow repaints are capped near 30fps, and the band
+  is sticky in a track that lets it condense and fade over the first 320px
+  of scroll.
+
 ## Hero / intro
 
 Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
@@ -36,14 +55,23 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
 - The displayed name uses `Typewriter.astro`, which renders a hidden longest-string placeholder to avoid layout shift during typing.
 - Social links are local config in the component, not CMS-driven.
 - GitHub activity is client-fetched from `/api/github/contributions?days=30` after DOM ready; the API keeps the last-year total but returns only the visible waveform window.
-- Tech rows are local arrays duplicated into CSS marquee tracks.
+- Tech rows are local arrays duplicated into CSS marquee tracks; the marquee is hidden below 640px.
 
 Client behavior:
 
-- GSAP reveals `.hero-animate` elements with staggered fade-up.
-- Status text rotates through a fixed word list.
-- Social buttons use a magnetic hover effect.
-- Reduced-motion users skip the initial hidden state.
+- The entrance is CSS transitions, no GSAP: the script adds `is-live` to the
+  section and each `.hero-animate` element rises on its `--hero-i` stagger
+  (identity lines 80ms apart, widgets from 950ms in 70ms steps).
+- The script fires `home:hero-name-ready` and `home:hero-bio-ready` at 600ms
+  and `home:hero-github-ready` (plus `window.__homeHeroGithubReady`) when the
+  contributions widget lands. `Typewriter.astro` and `DecodeText.astro` start
+  on the first two; `GitHubContributions.astro` renders its bars on the third.
+- Status text rotates through a fixed word list; the dot pulses once the
+  identity lines have landed.
+- Social buttons use a magnetic hover effect (pointer events plus a CSS
+  transition, mouse only).
+- Reduced-motion users skip the script entirely; the elements are visible
+  from the first paint.
 
 ## Projects
 
