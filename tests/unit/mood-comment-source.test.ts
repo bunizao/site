@@ -83,7 +83,10 @@ describe('mood comment type scale', () => {
     const root = ruleBody(styles, '.mood-comments');
     expect(root).toContain('--comment-body: 15px');
     expect(root).toContain('--comment-meta: 13px');
-    expect(root).toContain('--comment-lead: 1.65');
+    expect(root).toContain('--comment-lead: 1.618');
+    // One golden ladder, 6 -> 10 -> 16, each rung 1.618x the last.
+    expect(root).toContain('--comment-body-padding: 10px 16px');
+    expect(root).toContain('--comment-gap-inner: 6px');
     expect(ruleBody(styles, '.mood-comment-body')).toContain('font-family: var(--font-sans)');
   });
 

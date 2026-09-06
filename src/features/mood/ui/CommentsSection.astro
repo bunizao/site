@@ -147,10 +147,21 @@ const {
        label this thread gets, and the glyph is the box. */
     --comment-body: 15px;
     --comment-meta: 13px;
-    --comment-lead: 1.65;
+    /* 1.618 exactly. At 15px that is a 24.3px line, which is also where the
+       comfortable range for this measure lands -- the ratio and the reading
+       agree, so there is no reason to round away from it. */
+    --comment-lead: 1.618;
     /* One bubble shape at every width. The tight top-left corner points the
        bubble at its avatar, which sits at the top of the row. */
-    --comment-body-padding: 10px 14px;
+    /* One golden ladder for every gap inside the bubble: 6 -> 10 -> 16, each
+       rung 1.618x the last. 6 separates parts of one thought (name from
+       message, message from its footer), 10 is the bubble's vertical breath,
+       16 its horizontal. Parts of a thought therefore always sit closer to
+       each other than to the bubble's edge, which is the whole job of the
+       spacing. It holds at every width -- four different paddings across
+       four breakpoints is what made this feel arbitrary. */
+    --comment-body-padding: 10px 16px;
+    --comment-gap-inner: 6px;
     --comment-body-radius: var(--radius-sm) var(--radius-xl) var(--radius-xl)
       var(--radius-xl);
     --comment-stack-gap: 16px;
@@ -189,7 +200,6 @@ const {
     .mood-comments {
       margin-top: 56px;
       padding-top: 56px;
-      --comment-body-padding: 11px 15px;
       --comment-stack-gap: 18px;
     }
   }
@@ -358,7 +368,7 @@ const {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: var(--comment-gap-inner);
     flex-wrap: wrap;
   }
 
@@ -610,7 +620,7 @@ const {
     align-items: center;
     flex-wrap: wrap;
     gap: 4px 12px;
-    margin-top: 8px;
+    margin-top: var(--comment-gap-inner);
   }
 
   .mood-comment-reactions {
@@ -833,7 +843,6 @@ const {
 
   @media (max-width: 540px) {
     .mood-comments {
-      --comment-body-padding: 10px 14px;
       --comment-stack-gap: 12px;
       margin-top: 32px;
       padding-top: 32px;
@@ -906,7 +915,6 @@ const {
 
   @media (max-width: 380px) {
     .mood-comments {
-      --comment-body-padding: 9px 12px;
       --comment-stack-gap: 10px;
       margin-top: 28px;
       padding-top: 20px;
