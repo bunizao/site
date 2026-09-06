@@ -312,3 +312,73 @@ test.describe('Admin portal newsletters', () => {
     await expect(startedBroadcast).toContainText('0/3');
   });
 });
+
+/* The owner sign-in card on the comments page. Both hops are mocked: the
+   admin code mint through the portal proxy, and the public redeem on
+   site-api. What is under test is the card's own choreography -- the
+   first-time address prompt, and that the second hop spends exactly the code
+   the first one minted. */
+test.describe('Admin portal owner sign-in', () => {
+  const me = { readerId: 'r-owner', grade: 'L1', provider: 'email', displayName: 'bunizao', avatarUrl: '', notifyReplies: true, subscribed: false };
+
+  test('hands the browser an owner session, asking for the address once', async ({ page }) => {
+    let signedIn = false;
+    let minted = 0;
+    let redeemedWith: string | null = null;
+    const mintedWith: unknown[] = [];
+
+    await page.route('**/api/v2/reader/me', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ reader: signedIn ? me : null }),
+    }));
+    await page.route('**/dev/portal/api/admin/comments/owner-code', async (route) => {
+      const body = route.request().postDataJSON() as { email?: string };
+      mintedWith.push(body);
+      if (!body.email) {
+        await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'owner_email_required' }) });
+        return;
+      }
+      minted += 1;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: `code-${minted}`, expiresAt: new Date().toISOString() }) });
+    });
+    await page.route('**/api/v2/reader/owner-sign-in', async (route) => {
+      redeemedWith = (route.request().postDataJSON() as { code: string }).code;
+      signedIn = true;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ reader: me }) });
+    });
+
+    await page.goto('/dev/portal/comments');
+    await expect(page.getByRole('heading', { name: 'Write as the owner' })).toBeVisible();
+    await expect(page.locator('.owner-signin__state')).toContainText('not signed in');
+
+    await page.getByRole('button', { name: 'Sign in on the blog as owner' }).click();
+    // No reader row yet: the API asks for the address, and the card asks once.
+    const address = page.getByPlaceholder('owner@example.com');
+    await expect(address).toBeVisible();
+    await address.fill('owner@example.com');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+
+    await expect(page.locator('.owner-signin__state')).toContainText('Signed in as bunizao');
+    expect(mintedWith).toEqual([{}, { email: 'owner@example.com' }]);
+    expect(redeemedWith).toBe('code-1');
+    await expect(page.getByRole('button', { name: 'Sign out of the blog' })).toBeVisible();
+  });
+
+  test('says why a handoff was refused', async ({ page }) => {
+    await page.route('**/api/v2/reader/me', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ reader: null }),
+    }));
+    await page.route('**/dev/portal/api/admin/comments/owner-code', (route) => route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'owner_identity_unavailable' }),
+    }));
+
+    await page.goto('/dev/portal/comments');
+    await page.getByRole('button', { name: 'Sign in on the blog as owner' }).click();
+    await expect(page.getByRole('alert')).toContainText('not configured');
+  });
+});

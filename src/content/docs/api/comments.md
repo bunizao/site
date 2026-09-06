@@ -67,6 +67,26 @@ when it's L0). There is no L0 sign-in call — the cookie is minted as a side
 effect of the first `POST /api/v2/comments` or
 `POST /api/v2/reactions/toggle`, never on a bare `GET`.
 
+### The owner
+
+The blog owner is an L1 reader whose address matches the configured owner
+hash; rows they write carry `author.byAuthor: true` and the owner badge. There
+is no admin login in the comment box. Instead the admin portal hands the
+owner's own browser a reader session:
+
+```
+POST /api/admin/comments/owner-code      → { "code", "expiresAt" }   (admin session)
+POST /api/v2/reader/owner-sign-in { code } → { "reader" } + Set-Cookie   (public)
+```
+
+The code is single-use, expires in ten minutes, and is stored only as a
+digest; redeeming it is atomic, so exactly one session comes out of each
+handoff. The first sign-in ever supplies the owner's address (checked against
+the hash — a different address is refused) so a reader row can be created;
+every later one reads it from that row. The "Write as the owner" card on the
+portal's Comments page runs both hops. Signing out is the ordinary
+`DELETE /api/v2/reader/me`.
+
 ## List comments
 
 ```
