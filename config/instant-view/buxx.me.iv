@@ -31,6 +31,10 @@
 site_name: /html/head/meta[@property="og:site_name"]/@content
 title: //h1[has-class("blog-article__title")]
 author: /html/head/meta[@property="article:author"]/@content
+# Makes the byline a link home. Instant View strips the page's own chrome, so
+# without this the article arrives in Telegram with no way back to whoever
+# wrote it.
+author_url: "https://buxx.me"
 published_date: /html/head/meta[@property="article:published_time"]/@content
 
 cover: //figure[has-class("blog-feature")]//img
@@ -104,6 +108,26 @@ body: //div[has-class("blog-prose")]
 # The section is real content and stays. Only the ↩ backlinks go: Instant View
 # has no in-page anchors for them to return to.
 @remove: $body//a[has-class("blog-fn-back")]
+
+# --- Credit ------------------------------------------------------------------
+# Puts a "Join channel" button on the Instant View page. `tutumood` is the
+# public channel the mood feed already mirrors (CHANNEL in wrangler.jsonc);
+# drop this line if blog articles should not advertise it.
+channel: "@tutumood"
+
+# The provenance line the article closes with — the human pledge, or the model
+# credits on a post that has them — is authorship, not chrome, so it follows
+# the prose into the body rather than being left outside it. <aside> is a tag
+# Instant View keeps, so neither needs re-tagging.
+@append_to($body): //aside[has-class("ai-credit")]
+@append_to($body): //aside[has-class("not-by-ai")]
+
+# The publication's own footer: where to go next, still inside 無人之境.
+# Instant View renders <related> as its trailing link block. The direction
+# labels are visual furniture that would otherwise run into the titles.
+@remove: //nav[has-class("blog-adjacent")]//span[has-class("blog-adjacent__dir")]
+<related>: //nav[has-class("blog-adjacent")]
+@append_to($body)
 
 # --- Sweep -------------------------------------------------------------------
 # Whatever is left that exists for the browser alone. aria-hidden is the honest

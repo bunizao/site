@@ -149,6 +149,30 @@ supported; the fallback is to drop the property:
 kicker: (//ul[has-class("blog-tags")]//a[has-class("blog-tag")])[1]
 ```
 
+## Where the credit lives
+
+Instant View strips the page's chrome, so anything that says who wrote this and
+where it came from has to be claimed explicitly. Four places carry it:
+
+| Slot | What the reader sees |
+| --- | --- |
+| `author` + `author_url` | The byline, linking to `buxx.me` |
+| `site_name` | `無人之境`, read from `og:site_name` |
+| `channel` | A **Join channel** button for `@tutumood` |
+| `aside.ai-credit` / `aside.not-by-ai` | The provenance line, appended into the body |
+
+The provenance line is the article's own: the human pledge by default, or the
+model credits on a post that declares them. It sits outside `.blog-prose` on the
+page, so it has to be moved into the body deliberately.
+
+The `<related>` block at the end is the publication's footer — the adjacent
+posts, minus their "← Older" direction labels, which would otherwise run into
+the titles.
+
+`channel` is the only judgement call in there: `tutumood` is the public Telegram
+channel the mood feed mirrors (`CHANNEL` in `wrangler.jsonc`), not a blog
+channel. Delete that one line if blog articles should not advertise it.
+
 ## Known gaps
 
 **Mood embeds vanish.** `[mood:123]` renders as an `<iframe>` pointing at
