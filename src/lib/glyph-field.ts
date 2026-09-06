@@ -7,10 +7,9 @@
  * paints a second channel that gently lifts whatever it passes over.
  *
  * Colour is one ink per theme from src/features/home/glyph-inks.ts, drawn at
- * random per session, with `?ink=` pinning one for review. What the clock changes is the
- * WEATHER, not the colour: by day the field runs closer to the lab's `rain`
- * preset, by night it settles into `drift` (slower fall, longer trails, fewer
- * columns). The two are blended on a daylight curve, so there is no step.
+ * random per session, with `?ink=` pinning one for review. The weather is one
+ * fixed preset (`RAIN`); a day/night blend shipped briefly and was cut because
+ * nobody could tell, and it kept dragging the tempo below the page's beat.
  *
  * Budget: a ~17fps tick on a canvas the size of the host — the viewport
  * width (capped at MAX_BAND_WIDTH) by the band height the stylesheet sets —
@@ -94,16 +93,23 @@ const ENTRANCE_EDGE_ROWS = 7;
 const WAKE_SPREAD_MS = 400;
 const WAKE_MS = 400;
 
+interface Weather {
+  speed: number;
+  head: number;
+  trail: number;
+  columns: number;
+}
+
 /**
- * Day (`rain`) and night (`drift`), blended by daylight. Both run thinner than
- * the lab presets: the field sits behind body copy, and a full-density band
- * read as grime rather than weather.
+ * The one preset. Thinner than the lab's `rain`: the field sits behind body
+ * copy, and a full-density band read as grime rather than weather. `speed`
+ * scales the per-column fall (see `respawn`); 0.8 lands the average head at
+ * ~15 cells/s, ahead of the typewriter's beat without racing it.
  */
-const DAY = { speed: 1.0, head: 0.58, trail: 0.88, columns: 0.55 };
-const NIGHT = { speed: 0.6, head: 0.48, trail: 0.9, columns: 0.45 };
+const RAIN: Weather = { speed: 0.8, head: 0.58, trail: 0.88, columns: 0.55 };
 /**
  * `?speed=<multiplier>` scales the fall for review (1 is the shipped tempo).
- * Read once at mount; the weather blend keeps applying on top of it.
+ * Read once at mount.
  */
 const tempoPin = (): number => {
   const pinned = Number(new URLSearchParams(location.search).get('speed'));
@@ -131,37 +137,6 @@ interface Column {
   /** Wake delay from boot, by distance from the centre column. */
   delay: number;
 }
-
-interface Weather {
-  speed: number;
-  head: number;
-  trail: number;
-  columns: number;
-}
-
-/**
- * 0 at 03:00, 1 at 15:00, cosine between. Local time, so the field is the
- * visitor's weather rather than the server's. `?hour=` pins it for review.
- */
-const daylight = (hour: number): number => 0.5 - 0.5 * Math.cos(((hour - 3) / 24) * Math.PI * 2);
-
-const localHour = (): number => {
-  const pinned = new URLSearchParams(location.search).get('hour');
-  if (pinned !== null && pinned !== '' && !Number.isNaN(Number(pinned))) return Number(pinned);
-  const d = new Date();
-  return d.getHours() + d.getMinutes() / 60;
-};
-
-const weatherAt = (hour: number, tempo = 1): Weather => {
-  const t = daylight(hour);
-  const mix = (a: number, b: number) => b + (a - b) * t;
-  return {
-    speed: mix(DAY.speed, NIGHT.speed) * tempo,
-    head: mix(DAY.head, NIGHT.head),
-    trail: mix(DAY.trail, NIGHT.trail),
-    columns: mix(DAY.columns, NIGHT.columns),
-  };
-};
 
 const pick = (): string => GLYPHS[(Math.random() * GLYPHS.length) | 0];
 
@@ -191,8 +166,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   const inks: GlyphInk = GLYPH_INKS[resolveGlyphInk(location.search)];
   let ink = inks.light;
   let gain = 0.72;
-  const tempo = tempoPin();
-  let weather = weatherAt(localHour(), tempo);
+  const weather: Weather = { ...RAIN, speed: RAIN.speed * tempoPin() };
 
   let raf = 0;
   let last = 0;
@@ -218,8 +192,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
 
   const respawn = (col: Column, initial: boolean) => {
     col.head = initial ? Math.random() * rowCount * 2 : -Math.random() * rowCount * 1.5;
-    // Cells per tick at weather speed 1. The slowest column still clears a
-    // cell most ticks, so nothing on the band moves below the page's beat.
+    // Cells per tick at `RAIN.speed` 1. Scaled by 0.8 the slowest column
+    // still clears a cell every other tick, so nothing reads as stalled.
     col.speed = 0.6 + 1.0 * Math.random();
     if (initial || Math.random() < 0.2) {
       col.maxRow = Math.floor(rowCount * (0.35 + 0.65 * Math.random()));
@@ -525,11 +499,6 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     { rootMargin: '64px' },
   );
 
-  // Weather follows the clock while the page stays open.
-  const weatherTimer = window.setInterval(() => {
-    weather = weatherAt(localHour(), tempo);
-  }, 60_000);
-
   // The band follows the host: a rotation or a breakpoint crossing changes
   // its size, and a hidden pane can hand over a zero box the first time.
   // Rebuilding reseeds the columns, which is invisible once the field is
@@ -578,7 +547,6 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     destroy() {
       destroyed = true;
       sync();
-      clearInterval(weatherTimer);
       resizer.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('scroll', onScroll);

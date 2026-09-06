@@ -28,11 +28,10 @@ What shipped, and what was decided along the way:
   pins one. The owner's favourite is indigo; the draw was their call too. A time-of-day palette was prototyped and rejected as too strange; an
   achromatic field was tried and read as grime. The band runs at roughly half the lab's column density with
   near-zero resting alpha, so the ground stays clean between streaks.
-- The clock moves the weather, not the colour. Day is the lab's `rain`
-  preset, night is `drift`; the two blend on a cosine of local hour (calm at
-  03:00, full rain at 15:00) and re-read every minute. `?hour=<0-24>` pins
-  it for review, `?speed=<multiplier>` scales the fall. Tunables are the
-  `DAY`/`NIGHT` constants in the engine.
+- The clock moved the weather, not the colour: day was the lab's `rain`
+  preset, night `drift`, blended on a cosine of local hour. Cut the same
+  day (see "Tempo" below); the engine now has one `RAIN` constant and
+  `?speed=<multiplier>` is the only tempo pin.
 - The field wakes from the centre outward on first paint instead of
   appearing fully formed.
 - Pointer glow survives from the lab; touch gets a wider tap glow instead.
@@ -104,8 +103,11 @@ ones). Then the clock made it worse: the day/night blend drops speed to
   streak length in cells stays where it was; only the tempo changed.
 - Entrance 1100ms → 700ms, wake 500 → 400ms, so the field lands with the
   hero copy (600ms) instead of after it.
-- `?speed=<multiplier>` scales the fall for review; the weather blend still
-  applies on top.
+- Second round, owner's call: "a bit slower, and nobody cares about
+  day/night". The blend is gone — one preset at speed 0.8 of the above, so
+  the average head runs ~15 cells/s (slowest ~8), about double the original
+  and 0.8x the first fix, the same at every hour. `?hour=` is gone with it;
+  `?speed=<multiplier>` remains the review pin.
 
 **Resting cost, 2026-09-06.** Measured on the dev build, unthrottled, page
 idle 5s after load, via CDP `Performance.getMetrics` over 6s windows. The
