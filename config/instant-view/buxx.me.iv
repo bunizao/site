@@ -1,0 +1,124 @@
+~version: "2.1"
+
+# Telegram Instant View — 無人之境 (https://buxx.me/blog/<slug>)
+#
+# This file is the source of truth for the template; it is NOT deployed by any
+# build here. Publishing is manual, at https://instantview.telegram.org/my — see
+# config/instant-view/README.md for the paste-check-publish loop and for where
+# the resulting rhash goes (`blog.instantView.rhash` in src/data/site.ts).
+#
+# Everything below is written against the markup src/pages/blog/[slug].astro
+# renders. When that page's structure changes, this template changes with it:
+# tests/e2e/blog.pw.ts asserts the selectors named here still exist, so a rename
+# fails CI rather than silently degrading Instant View for every shared link.
+
+# Article pages only. /blog, /blog/tags and /blog/tag/<slug> all match the path,
+# so og:type is what actually separates an article from an index.
+?path: /blog/.+
+?exists: /html/head/meta[@property="og:type"][@content="article"]
+
+# --- Identity ----------------------------------------------------------------
+# The publication, not the site: an Instant View page is the article's own
+# surface, and 無人之境 is what the byline says everywhere else.
+site_name: "無人之境"
+
+title: //h1[has-class("blog-article__title")]
+
+# BlogLayout already emits these for Open Graph, and a meta tag is a far more
+# stable anchor than the visible byline, which is a formatted date with no
+# machine-readable form of its own.
+author: /html/head/meta[@property="article:author"]/@content
+author_url: "https://buxx.me"
+published_date: /html/head/meta[@property="article:published_time"]/@content
+
+# The first public tag reads as the section a post belongs to.
+kicker: (//ul[has-class("blog-tags")]//a[has-class("blog-tag")])[1]
+
+# --- Cover -------------------------------------------------------------------
+# The feature image sits in a <span class="blog-media"> that exists to hold the
+# LQIP background. Lift the <img> so the figure is a figure.
+@before_el(./..): //figure[has-class("blog-feature")]/span[has-class("blog-media")]/img
+@remove: //figure[has-class("blog-feature")]/span[has-class("blog-media")]
+
+cover: //figure[has-class("blog-feature")]
+image_url: $cover//img/@src
+image_url: /html/head/meta[@property="og:image"]/@content
+
+# --- Body --------------------------------------------------------------------
+# The prose only. The header, colophon, reaction bar, subscribe panel, share row
+# and comment thread are siblings of this node, so none of them need removing —
+# they are simply not in the body to begin with.
+body: //div[has-class("blog-prose")]
+
+# --- Code blocks -------------------------------------------------------------
+# CodeBox renders figure.code-box > figcaption (language chip + copy button)
+# and div.code-box-body > pre, plus a hidden <textarea> carrying the raw source
+# for the copy button. Instant View has no room for the chrome and keeps <pre>,
+# so lift the <pre> out of the wrapper and drop the rest.
+@remove: $body//figure[has-class("code-box")]//figcaption
+@remove: $body//figure[has-class("code-box")]//textarea
+@before_el(./../..): $body//figure[has-class("code-box")]/div[has-class("code-box-body")]/pre
+@remove: $body//figure[has-class("code-box")]
+
+# --- Mermaid -----------------------------------------------------------------
+# The canvas is painted by client script that never runs inside Instant View.
+# The diagram source is already in the markup as a <pre>, which is the honest
+# fallback: readable text instead of an empty box.
+@remove: $body//figure[has-class("mermaid-diagram")]//div[has-class("mermaid-diagram__canvas")]
+@before_el(./..): $body//figure[has-class("mermaid-diagram")]/pre
+@remove: $body//figure[has-class("mermaid-diagram")]
+
+# --- YouTube -----------------------------------------------------------------
+# The lazy player is a poster, a button, and an <iframe> whose src is only ever
+# set by script — inert here. What survives is the poster and the caption, which
+# already carries the title and an outbound link to the video.
+$yt: $body//figure[has-class("yt")]
+@remove: $yt//iframe
+@remove: $yt//svg
+@remove: $yt//div[has-class("yt__down")]
+@remove: $yt//span[has-class("yt__veil")]
+@remove: $yt//span[has-class("yt__disc")]
+@remove: $yt//span[has-class("yt__scrim")]
+@remove: $yt//span[has-class("yt__avatar")]
+@before_el(./../..): $yt//img[has-class("yt__poster")]
+@remove: $yt//div[has-class("yt__stage")]
+
+# --- Apple Music -------------------------------------------------------------
+# A turntable assembled from spans around a preview player. Stripped of the
+# parts only CSS and script give meaning to, the card is what it always was: a
+# track, an artist, and a link.
+$music: $body//figure[has-class("blog-music")]
+@remove: $music//svg
+@remove: $music//button
+@remove: $music//img
+@remove: $music//span[has-class("blog-music__record")]
+@remove: $music//span[has-class("blog-music__title-dupe")]
+<blockquote>: $music
+
+# --- Ghost cards -------------------------------------------------------------
+# Bookmarks keep their link and description; the thumbnail and favicon are
+# decoration that reads as clutter at Instant View's width.
+@remove: $body//*[has-class("kg-bookmark-thumbnail")]
+@remove: $body//*[has-class("kg-bookmark-icon")]
+<blockquote>: $body//figure[has-class("kg-bookmark-card")]
+
+# Galleries flatten to the images they hold.
+@before_el(./../../..): $body//div[has-class("kg-gallery-image")]/img
+@remove: $body//div[has-class("kg-gallery-container")]
+
+# Genuine third-party embeds are iframes Instant View can host itself.
+@inline: $body//figure[has-class("kg-embed-card")]//iframe
+
+# --- Footnotes ---------------------------------------------------------------
+# The section is real content and stays. Only the ↩ backlinks go: Instant View
+# has no in-page anchors for them to return to.
+@remove: $body//a[has-class("blog-fn-back")]
+
+# --- Sweep -------------------------------------------------------------------
+# Whatever is left that exists for the browser alone. aria-hidden is the honest
+# test for decoration: anything a screen reader is told to skip has nothing to
+# say here either.
+@remove: $body//script
+@remove: $body//style
+@remove: $body//noscript
+@remove: $body//*[@aria-hidden="true"]
