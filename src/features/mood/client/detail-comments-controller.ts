@@ -170,9 +170,7 @@ function renderComment(comment: CommentData): HTMLElement {
 
   header.appendChild(authorEl);
   header.appendChild(dateEl);
-  header.appendChild(
-    createCommentSourceChip(origin, sourceLabel, moodCommentsCopy.sourceAria(sourceLabel)),
-  );
+  header.appendChild(createCommentSourceChip(origin, moodCommentsCopy.sourceAria(sourceLabel)));
   body.appendChild(header);
 
   const contentEl = document.createElement('div');

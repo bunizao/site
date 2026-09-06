@@ -87,16 +87,21 @@ const SOURCE_ICONS: Record<CommentOrigin, string> = {
   web: '<circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z" />',
 };
 
-/** The "written on Telegram" / "written here" marker in a comment header. */
+/** The "written on Telegram" / "written here" marker in a comment header.
+    Glyph only: the label it used to carry made the header a third size in a
+    row that already holds a name and a time, and widened every bubble to fit
+    a word the shape already says. The name stays reachable as the accessible
+    name and the hover title. */
 export const createCommentSourceChip = (
   origin: CommentOrigin,
-  label: string,
   title: string,
 ): HTMLElement => {
   const chip = document.createElement('span');
   chip.className = 'mood-comment-source';
   chip.dataset.origin = origin;
   chip.title = title;
+  chip.setAttribute('role', 'img');
+  chip.setAttribute('aria-label', title);
 
   const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   icon.setAttribute('viewBox', '0 0 24 24');
@@ -108,11 +113,7 @@ export const createCommentSourceChip = (
   icon.setAttribute('aria-hidden', 'true');
   icon.innerHTML = SOURCE_ICONS[origin];
 
-  const text = document.createElement('span');
-  text.textContent = label;
-
   chip.appendChild(icon);
-  chip.appendChild(text);
   return chip;
 };
 
