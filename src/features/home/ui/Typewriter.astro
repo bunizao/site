@@ -134,9 +134,9 @@ const placeholderText = `${longestText}_`;
   }
 
   const HERO_NAME_READY_EVENT = 'home:hero-name-ready';
-  // Announced once the first name is fully struck. The hero sequence keys its
-  // next stage off this rather than a guessed offset, so retuning the beat
-  // cannot desynchronise the page.
+  // Announced once the first name is fully struck. Nothing in the hero waits
+  // on it any more (its widgets rise on a fixed clock), but it stays as the
+  // one honest signal for anything that wants to follow the typing.
   const HERO_NAME_TYPED_EVENT = 'home:hero-name-typed';
   const FALLBACK_START_MS = 1100;
   const DEFAULT_KEYSTROKE_MS = 90;

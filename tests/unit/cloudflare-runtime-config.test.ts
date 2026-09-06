@@ -439,7 +439,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(hero).toContain("import DecodeText from '@/features/home/ui/DecodeText.astro';");
     expect(hero).toContain('<DecodeText>');
     expect(hero).toContain('<h1 class="hero-animate');
-    expect(hero).toContain("const { default: gsap } = await import('gsap');");
+    // The hero entrance is CSS; nothing in the hero waits on a GSAP chunk.
+    expect(hero).not.toContain("import('gsap')");
     expect(hero).toContain('const lcpAnchorName = typewriterNames.reduce');
     expect(hero).toContain('<span class="hero-lcp-anchor" aria-hidden="true">{lcpAnchorName}</span>');
     expect(decodeEngine).toContain('document.fonts?.ready');
@@ -452,12 +453,13 @@ describe('Cloudflare runtime configuration', () => {
     // own accelerate/settle cycle and the bio reveals as a top-to-bottom queue.
     expect(decodeEngine).toContain('opts.ease(clock / duration)');
     expect(decodeEngine).toContain('requestAnimationFrame(tick)');
-    expect(hero).toContain('const identity = heroElements.filter((el) => !el.hasAttribute');
-    expect(hero).toContain('gsap.set(heroElements, { opacity: 0, y: 20 });');
-    expect(hero).toContain('heroTl.to(identity, {');
-    expect(hero).toContain('gsap.to(widgets, {');
-    expect(hero).toContain('window.addEventListener(HOME_HERO_NAME_TYPED_EVENT, startPhaseTwo');
-    expect(hero).toContain("window.dispatchEvent(new CustomEvent('home:hero-bio-ready'))");
+    expect(hero).toContain(':global(html.js) .hero-section.is-live .hero-animate {');
+    expect(hero).toContain('transition-delay: calc(var(--hero-i, 0) * 80ms);');
+    expect(hero).toContain('transition-delay: calc(950ms + var(--hero-i, 0) * 70ms);');
+    expect(hero).toContain("heroSection.classList.add('is-live');");
+    expect(hero).toContain("window.setTimeout(() => announce('home:hero-name-ready'), NAME_READY_MS);");
+    expect(hero).toContain("window.setTimeout(() => announce('home:hero-bio-ready'), BIO_MS);");
+    expect(hero).toContain('announce(HOME_HERO_GITHUB_READY_EVENT);');
     const listeningMarkup = readText('src/lib/listening/markup.ts');
     const listeningStyles = readText('src/styles/listening.css');
     const listeningController = readText('src/lib/listening/controller.ts');

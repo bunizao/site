@@ -863,9 +863,10 @@
     opacity: 0;
   }
 
-  /* Hero still runs its own intro timeline. Every other homepage section's
-     pre-reveal state now lives in src/styles/home-reveal.css under
-     [data-reveal] — one owner, no per-section copies to keep in sync. */
+  /* Hero still runs its own intro (CSS transitions in Hero.astro; this is
+     the pre-paint state). Every other homepage section's pre-reveal state
+     lives in src/styles/home-reveal.css under [data-reveal] — one owner, no
+     per-section copies to keep in sync. */
   .js .hero-animate {
     opacity: 0;
     transform: translateY(20px);
