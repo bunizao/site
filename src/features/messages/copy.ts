@@ -19,11 +19,11 @@
 // is also why they are separate fields rather than one paragraph: each one is
 // a bubble, and a bubble holding two thoughts reads as a wall.
 //
-// Speech, not prose. An earlier pass was correct and complete and read like a
-// notice taped to a door, because it punctuated every line and finished every
-// clause. Chat does neither: no trailing full stop, and fragments where a
-// fragment is what someone would actually type. Question marks stay -- those
-// are still questions.
+// Speech, not prose: contractions everywhere, fragments where a fragment is
+// what someone would actually type, and the occasional lowercase opener. The
+// emoji are punctuation, not decoration -- one per line at most, only where a
+// person would reach for one, and never carrying meaning of their own, since a
+// screen reader announces the whole name of every one of them.
 
 export interface MessageCopy {
   /** Document title and the page's visually hidden <h1>. Nothing draws it:
@@ -31,9 +31,7 @@ export interface MessageCopy {
   title: string;
   /** The reader's line, and the first bubble. Written in their voice, not the
       owner's -- it is the reason someone opened this page, said out loud, and
-      the two bubbles under it are the answer to it. No full stop, unlike every
-      other line here: nobody punctuates the first thing they type into a chat,
-      and a period on a four-word opener reads as bad news coming. */
+      the two bubbles under it are the answer to it. */
   opener: string;
   /** Meta description only -- the thread says this across two bubbles. */
   lede: string;
@@ -69,28 +67,28 @@ export interface MessageCopy {
 
 export const messageCopy: MessageCopy = {
   title: 'Write to me',
-  opener: 'hey, got something to tell you',
-  lede: 'Nothing here goes public. I am the only one who reads it.',
-  intro: 'Go ahead. This one is private, it comes straight to me.',
-  invite: 'Leave an email so I can write back.',
+  opener: 'Hey 👋 wanted to reach out!',
+  lede: "Nothing here goes public. I'm the only one who reads it.",
+  intro: "Go for it! It's totally private and comes straight to me.",
+  invite: 'plz drop an email so I can get back to you 📮',
   nameLabel: 'Name',
   namePlaceholder: 'Name',
   emailLabel: 'Email',
   emailPlaceholder: 'Email',
-  bodyLabel: 'What is on your mind',
-  bodyPlaceholder: 'What is on your mind...',
+  bodyLabel: "What's up?",
+  bodyPlaceholder: "What's up?",
   submit: 'Send',
   submitting: 'Sending',
-  privacy: 'This note is never shown publicly.',
-  sentReplyable: 'Got it. If it needs an answer I will mail the address you left',
-  sentVerify: 'Got it. Sent a confirmation to your inbox, click the link and I can write back. Or skip it, no harm',
-  sentAnonymous: 'Got it. The confirmation did not go out, so I probably cannot reply. Read this though',
+  privacy: 'Just between you and me.',
+  sentReplyable: "Got it ✅ if it needs an answer I'll mail the address you left",
+  sentVerify: 'Got it ✅ Sent a confirmation to your inbox, click the link and I can write back. Or skip it, no harm',
+  sentAnonymous: "Got it, though the confirmation didn't go out, so I probably can't reply. Reading it anyway",
   sendAnother: 'Write another',
-  errorGeneric: 'That did not send, try again in a bit?',
-  errorRateLimited: 'That is a lot at once, give it a few minutes',
-  errorTurnstile: 'The human check did not pass, reload and try again',
+  errorGeneric: "That didn't send, try again in a bit?",
+  errorRateLimited: "That's a lot at once, give it a few minutes",
+  errorTurnstile: "The human check didn't pass, reload and try again",
   errorBody: 'Write something, a couple of characters at least',
   errorName: 'Leave a name, any name',
-  errorEmailMissing: 'Leave an email, or I cannot answer',
-  errorEmail: 'That address does not look right',
+  errorEmailMissing: "Leave an email, or I can't answer",
+  errorEmail: "That address doesn't look right",
 };
