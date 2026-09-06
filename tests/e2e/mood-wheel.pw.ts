@@ -238,8 +238,20 @@ test.describe('mood timeline wheel', () => {
     await page.mouse.move(720, 600);
     await page.mouse.wheel(0, 900);
     await expect.poll(rotation).not.toBe(before);
-    await page.waitForTimeout(400);
-    const tracked = await rotation();
+
+    // The dial eases onto the new position, and on a slow machine that tail
+    // outlasts any fixed wait: settle on a value before holding it to it.
+    let last = await rotation();
+    await expect
+      .poll(async () => {
+        await page.waitForTimeout(150);
+        const next = await rotation();
+        const still = next === last;
+        last = next;
+        return still;
+      }, { timeout: 8_000 })
+      .toBe(true);
+    const tracked = last;
     expect(await page.locator('[data-timeline-wheel]').getAttribute('class')).not.toContain('is-loading');
 
     // And it is not being swung about by anything else.
