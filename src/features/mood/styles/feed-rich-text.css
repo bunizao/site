@@ -20,9 +20,9 @@
    not -- an @layer rule loses to this one whatever its specificity. */
 .mood-comment-content .mood-comment-quote {
   padding: 5px 10px;
-  border-left: 2px solid hsl(var(--foreground) / 0.22);
+  border-left: 2px solid var(--comment-inset-rule, hsl(var(--foreground) / 0.22));
   border-radius: 3px var(--radius-sm) var(--radius-sm) 3px;
-  background: hsl(var(--foreground) / 0.05);
+  background: var(--comment-inset-bg, hsl(var(--foreground) / 0.05));
 }
 
 /* Discourse renders a quoted post at the thread's own body size and Telegram

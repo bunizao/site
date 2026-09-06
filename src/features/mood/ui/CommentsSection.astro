@@ -154,8 +154,34 @@ const {
     --comment-body-radius: var(--radius-sm) var(--radius-xl) var(--radius-xl)
       var(--radius-xl);
     --comment-stack-gap: 16px;
-    --comment-bubble-bg: color-mix(in oklab, hsl(var(--foreground)) 6%, hsl(var(--background)));
-    --comment-bubble-border: color-mix(in oklab, hsl(var(--foreground)) 8%, transparent);
+
+    /* A whisper of chroma instead of a true grey. The site palette is
+       achromatic (`0 0% x%`), so mixing the foreground into the background
+       produced a dead neutral, and a dead neutral on white reads as dirt
+       rather than as a surface. Every light UI worth copying tints its greys
+       a few points off neutral for exactly this reason: Apple's system greys
+       run faintly cool, Material 3 derives surfaces from a neutral-*variant*
+       palette that keeps chroma on purpose, and Radix ships Slate/Sage/Sand
+       rather than one true grey. 0.005-0.008 chroma still reads as grey --
+       swap `--comment-tint` to 85 for a warm surface if the cool one ever
+       fights the page. */
+    --comment-tint: 250;
+    --comment-bubble-bg: oklch(0.972 0.005 var(--comment-tint));
+    --comment-bubble-border: oklch(0.918 0.008 var(--comment-tint));
+    /* The quote card sits on the bubble, so it stays an alpha wash on the
+       same hue -- a neutral wash would read as a dirty patch on a tinted
+       surface, which is the bug one level down. */
+    --comment-inset-bg: oklch(0.45 0.03 var(--comment-tint) / 0.09);
+    --comment-inset-rule: oklch(0.45 0.04 var(--comment-tint) / 0.3);
+  }
+
+  /* Dark keeps the same hue: a bubble that is cool in one theme and neutral
+     in the other reads as two different materials. */
+  .dark .mood-comments {
+    --comment-bubble-bg: oklch(0.196 0.008 var(--comment-tint));
+    --comment-bubble-border: oklch(0.3 0.01 var(--comment-tint));
+    --comment-inset-bg: oklch(0.95 0.02 var(--comment-tint) / 0.07);
+    --comment-inset-rule: oklch(0.95 0.02 var(--comment-tint) / 0.28);
   }
 
   .mood-comments::before {
