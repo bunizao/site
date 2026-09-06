@@ -12,9 +12,11 @@
  * preset, by night it settles into `drift` (slower fall, longer trails, fewer
  * columns). The two are blended on a daylight curve, so there is no step.
  *
- * Budget: an ~11fps tick on a canvas the width of the band, gated on
- * visibility, on being in the viewport, and on prefers-reduced-motion (which
- * gets one static frame and nothing else).
+ * Budget: an ~11fps tick on a canvas the size of the host — the viewport
+ * width (capped at MAX_BAND_WIDTH) by the band height the stylesheet sets —
+ * gated on visibility, on being in the viewport, and on prefers-reduced-motion
+ * (which gets one static frame and nothing else). Nothing off-screen is
+ * simulated: a phone runs a few hundred cells, not the desktop's 3500.
  */
 
 import { GLYPH_INKS, resolveGlyphInk, type GlyphInk } from '@/features/home/glyph-inks';
@@ -23,8 +25,10 @@ const GLYPHS = 'CLPSAR01<>=+*-#$';
 const TICK_MS = 90;
 const GLOW_DECAY = 0.78;
 const FONT_PX = 12;
-const BAND_WIDTH = 1200;
-const BAND_HEIGHT = 560;
+/** The band never runs wider than this, however wide the viewport is. */
+const MAX_BAND_WIDTH = 1200;
+/** The site's dot lattice module; the band width snaps to it. */
+const LATTICE_PX = 24;
 const CELL_W = 12;
 const CELL_H = 16;
 /** Pointer light: a soft lift of the cells under the cursor, not a torch. */
@@ -35,14 +39,20 @@ const GLOW_RADIUS = 88;
 const GLOW_ASPECT = 0.72;
 const GLOW_PEAK = 0.5;
 /**
+ * A moving pointer repaints the whole band; capping that at ~30fps keeps a
+ * fast mouse from costing a full repaint on every display frame while the
+ * glow still reads as continuous.
+ */
+const GLOW_PAINT_MS = 33;
+/**
  * Collapse. The band is sticky, so scrolling does not carry it away: over the
- * first COLLAPSE_PX of scroll every row converges on FOCUS_ROW while the
- * glyphs fade, so the rain condenses and is gone before the rows pile up.
- * Nothing is left behind but the lattice, which rises to meet it. The track
- * only needs to hold the band through the collapse; empty, it scrolls away.
+ * first COLLAPSE_PX of scroll every row converges on the band's middle row
+ * while the glyphs fade, so the rain condenses and is gone before the rows
+ * pile up. Nothing is left behind but the lattice, which rises to meet it.
+ * The track only needs to hold the band through the collapse; empty, it
+ * scrolls away.
  */
 const COLLAPSE_PX = 320;
-const FOCUS_ROW = 17;
 /**
  * Where the site's own texture (dot lattice, pointer spotlight) takes over:
  * published to the page as `--field-edge` in viewport space, see the homepage
@@ -159,6 +169,11 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   let rowCount = 0;
   let colW = 0;
   let rowH = 0;
+  /** Band size in CSS px, read from the host; 0 until measured. */
+  let bandW = 0;
+  let bandH = 0;
+  let started = false;
+  let lastGlowPaint = 0;
   const inks: GlyphInk = GLYPH_INKS[resolveGlyphInk(location.search)];
   let ink = inks.light;
   let gain = 0.72;
@@ -253,7 +268,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   const lit: Array<number | string> = [];
 
   const paint = (now = performance.now()) => {
-    ctx.clearRect(0, 0, BAND_WIDTH, BAND_HEIGHT);
+    ctx.clearRect(0, 0, bandW, bandH);
     ctx.textBaseline = 'top';
     ctx.fillStyle = ink;
     ctx.font = font;
@@ -262,7 +277,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     const age = now - bornAt;
     // Squared so the field is faint well before the rows overlap.
     const fade = (1 - collapse) * (1 - collapse);
-    const focusY = FOCUS_ROW * rowH;
+    const focusY = (rowCount >> 1) * rowH;
     let allAwake = awake || age >= ENTRANCE_MS;
     // Rows above the front are shown; rows within ENTRANCE_EDGE_ROWS of it fade.
     const front = awake ? Infinity : (age / ENTRANCE_MS) * (rowCount + ENTRANCE_EDGE_ROWS);
@@ -308,22 +323,33 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     ctx.globalAlpha = 1;
   };
 
+  /**
+   * Reads the band's size off the host. The width snaps down to the lattice
+   * module: the canvas is centred on the page axis, like the dots, so a
+   * whole number of cells puts its edges and columns on the lattice.
+   */
+  const measure = () => {
+    const width = Math.min(MAX_BAND_WIDTH, host.clientWidth);
+    bandW = Math.floor(width / LATTICE_PX) * LATTICE_PX;
+    bandH = Math.round(host.clientHeight);
+  };
+
   const build = () => {
+    measure();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(BAND_WIDTH * dpr);
-    canvas.height = Math.round(BAND_HEIGHT * dpr);
+    canvas.width = Math.round(bandW * dpr);
+    canvas.height = Math.round(bandH * dpr);
+    canvas.style.width = `${bandW}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.font = font;
 
     // Cells are 12 x 16: two columns and one and a half rows per 24px cell of
-    // the site's dot lattice, and the 1200px band is 50 cells wide, so with the
-    // canvas centred on the page axis its column edges fall on the lattice.
-    // 12px is also ~1.7 glyph widths, which keeps the rain reading as discrete
-    // streaks rather than solid text.
+    // the site's dot lattice. 12px is also ~1.7 glyph widths, which keeps the
+    // rain reading as discrete streaks rather than solid text.
     colW = CELL_W;
     rowH = CELL_H;
-    colCount = Math.ceil(BAND_WIDTH / colW);
-    rowCount = Math.ceil(BAND_HEIGHT / rowH);
+    colCount = Math.ceil(bandW / colW);
+    rowCount = Math.ceil(bandH / rowH);
     const mid = (colCount - 1) / 2;
 
     columns = Array.from({ length: colCount }, (_, c) => {
@@ -361,11 +387,11 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   const glowAt = (clientX: number, clientY: number, radius: number) => {
     if (!columns.length) return;
     const box = canvas.getBoundingClientRect();
-    const scale = BAND_WIDTH / box.width;
+    const scale = bandW / box.width;
     const x = (clientX - box.left) * scale;
     const y = (clientY - box.top) * scale;
-    if (x < -radius || x > BAND_WIDTH + radius) return;
-    if (y < -radius || y > BAND_HEIGHT + radius) return;
+    if (x < -radius || x > bandW + radius) return;
+    if (y < -radius || y > bandH + radius) return;
 
     const c0 = Math.max(0, Math.floor((x - radius) / colW));
     const c1 = Math.min(colCount - 1, Math.ceil((x + radius) / colW));
@@ -383,14 +409,22 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
       }
     }
 
-    // Repaint on the next frame rather than per event — a fast pointer fires
-    // far more often than the display can show it.
+    // Repaint on a frame rather than per event, and no more often than
+    // GLOW_PAINT_MS: a fast pointer fires far more often than a full repaint
+    // is worth.
     if (glowQueued) return;
     glowQueued = true;
-    requestAnimationFrame(() => {
-      glowQueued = false;
-      paint();
-    });
+    requestAnimationFrame(glowFrame);
+  };
+
+  const glowFrame = (now: number) => {
+    if (now - lastGlowPaint < GLOW_PAINT_MS) {
+      requestAnimationFrame(glowFrame);
+      return;
+    }
+    glowQueued = false;
+    lastGlowPaint = now;
+    paint(now);
   };
 
   const onPointerMove = (event: PointerEvent) => {
@@ -444,7 +478,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     const u = Math.min(1, Math.max(0, window.scrollY / COLLAPSE_PX));
     const next = u * u * (3 - 2 * u);
     const top = host.getBoundingClientRect().top;
-    const edge = top + (BAND_HEIGHT + FIELD_EDGE_PAD) * (1 - next);
+    const edge = top + (bandH + FIELD_EDGE_PAD) * (1 - next);
     root.style.setProperty('--field-edge', `${Math.max(0, edge)}px`);
     if (next === collapse) return;
     collapse = next;
@@ -479,8 +513,24 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     weather = weatherAt(localHour());
   }, 60_000);
 
+  // The band follows the host: a rotation or a breakpoint crossing changes
+  // its size, and a hidden pane can hand over a zero box the first time.
+  // Rebuilding reseeds the columns, which is invisible once the field is
+  // awake; the entrance is never replayed.
+  const resizer = new ResizeObserver(() => {
+    if (!started || destroyed) return;
+    const prevW = bandW;
+    const prevH = bandH;
+    measure();
+    if (bandW === prevW && bandH === prevH) return;
+    build();
+    onScroll();
+    paint();
+  });
+
   const start = () => {
     if (destroyed) return;
+    started = true;
     readTheme();
     build();
     bornAt = performance.now();
@@ -505,12 +555,14 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   window.addEventListener('pointerdown', onPointerDown, { passive: true });
   themeObserver.observe(root, { attributes: true, attributeFilter: ['class'] });
   io.observe(host);
+  resizer.observe(host);
 
   return {
     destroy() {
       destroyed = true;
       sync();
       clearInterval(weatherTimer);
+      resizer.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('scroll', onScroll);
       root.style.removeProperty('--field-edge');
