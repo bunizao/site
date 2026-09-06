@@ -12,7 +12,6 @@
 // mouse. It reads as one of the set and behaves like a link — hence an arrow
 // that nudges rather than a caret that would promise an expansion.
 import { blog } from '@/data/site';
-import { messagesCopy } from '@/features/messages/copy';
 import SiteWordmark from '@/components/SiteWordmark.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import ContactPanel from '@/features/posts/ui/ContactPanel.astro';
@@ -20,7 +19,6 @@ import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 
 const blogCopy = blog.copy[blog.locale.blog];
-const messageCopy = messagesCopy[blog.locale.blog];
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
   : readTurnstileSiteKey(Astro.locals);
@@ -41,7 +39,7 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
       </svg>
-      <span>{messageCopy.trigger}</span>
+      <span>{blogCopy.messageTrigger}</span>
       <svg class="blog-masthead__message-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
       </svg>

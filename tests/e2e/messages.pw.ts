@@ -119,7 +119,7 @@ test.describe('/message', () => {
     await fillMessage(page, { name: 'someone', email: '', body: 'Nothing to answer.' });
     await page.locator('[data-message-submit]').click();
 
-    await expect(page.locator(errorBox)).toContainText('留个邮箱');
+    await expect(page.locator(errorBox)).toContainText('Leave an email');
     await expect(page.locator(sentView)).toBeHidden();
     expect(posted).toBe(0);
   });
@@ -150,7 +150,7 @@ test.describe('/message', () => {
 
     await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Please write back.' });
     await page.locator('[data-message-submit]').click();
-    await expect(page.locator('[data-message-sent-body]')).toContainText('确认信');
+    await expect(page.locator('[data-message-sent-body]')).toContainText('Sent a confirmation');
 
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     await installMessageApi(page, { answer: { replyable: true, verificationSent: false } });
@@ -159,7 +159,7 @@ test.describe('/message', () => {
 
     await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Second message.' });
     await page.locator('[data-message-submit]').click();
-    await expect(page.locator('[data-message-sent-body]')).toContainText('要是得回你');
+    await expect(page.locator('[data-message-sent-body]')).toContainText('mail the address you left');
   });
 
   test('a 429 keeps the draft on screen', async ({ page }) => {
@@ -169,7 +169,7 @@ test.describe('/message', () => {
     await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Written twice too fast.' });
     await page.locator('[data-message-submit]').click();
 
-    await expect(page.locator(errorBox)).toContainText('歇一会儿');
+    await expect(page.locator(errorBox)).toContainText('give it a few minutes');
     await expect(page.locator(sentView)).toBeHidden();
     await expect(page.locator(formView)).toBeVisible();
     // The whole point: the words are still there to send again.
@@ -221,5 +221,54 @@ test.describe('/message', () => {
   test('is kept out of search results', async ({ page }) => {
     await page.goto('/message');
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+  });
+
+  // maxlength makes the field stop taking characters without a word, so the
+  // count is the whole of the feedback. It stays out of the way until the end.
+  test('the count keeps quiet until the field is nearly full', async ({ page }) => {
+    await page.goto('/message');
+
+    const body = page.locator('#message-body');
+    const count = page.locator('[data-message-count]');
+    await expect(body).toHaveAttribute('maxlength', '4000');
+    await expect(count).toBeHidden();
+
+    await body.fill('x'.repeat(3599));
+    await expect(count).toBeHidden();
+
+    await body.fill('x'.repeat(3650));
+    await expect(count).toHaveText('3650/4000');
+    await expect(count).not.toHaveAttribute('data-full', '');
+
+    await body.fill('x'.repeat(4000));
+    await expect(count).toHaveText('4000/4000');
+    await expect(count).toHaveAttribute('data-full', '');
+
+    // Back under the line the count goes away, and it must not come back
+    // still wearing the state it left in.
+    await body.fill('x'.repeat(10));
+    await expect(count).toBeHidden();
+    await expect(count).not.toHaveAttribute('data-full', '');
+  });
+
+  // The dots carry two delays at once: when their bubble starts, and where
+  // each dot sits in the wave. Expressed as two animation-delay rules the
+  // more specific one silently wins and the wave flattens into a pulse --
+  // a defect nothing else here would catch, since the markup is unchanged.
+  test('the typing dots travel rather than blink in unison', async ({ page }) => {
+    // networkidle, because a cold dev server reloads once while optimizing
+    // and a plain evaluate loses its execution context to that navigation.
+    await page.goto('/message', { waitUntil: 'networkidle' });
+
+    const delays = (selector: string) =>
+      page.locator(selector).evaluateAll((dots) => dots.map((dot) => getComputedStyle(dot).animationDelay));
+
+    const opening = await delays('[data-slot="line-1"] span');
+    expect(opening).toHaveLength(3);
+    expect(new Set(opening).size).toBe(3);
+
+    // The bubble that follows a real send has no slot to wait for.
+    const live = await delays('[data-message-typing] span');
+    expect(live).toEqual(['0s', '0.14s', '0.28s']);
   });
 });

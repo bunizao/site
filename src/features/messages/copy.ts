@@ -1,4 +1,12 @@
-// Copy for the /message thread, in both site locales.
+// Copy for the /message thread. English only.
+//
+// The page used to carry both site locales and pick one from the blog's
+// setting, which meant a Chinese blog served a Chinese form to every visitor
+// regardless of what they had been reading. This is not blog content: the
+// address is root-level, the masthead only links here, and the person who
+// reads what gets written is one bilingual owner. One language, chosen once,
+// costs nothing that matters -- the label on the masthead trigger stays with
+// the blog's own copy, because that word sits in the blog's sentence.
 //
 // The voice is the point here. This form asks a stranger to write something
 // only one person will ever read, which is a different act from leaving a
@@ -11,24 +19,19 @@
 // is also why they are separate fields rather than one paragraph: each one is
 // a bubble, and a bubble holding two thoughts reads as a wall.
 //
-// Speech, not prose. An earlier pass was correct and complete and read like a
-// notice taped to a door, because it punctuated every line and finished every
-// clause. Chat does neither: no trailing full stop, particles doing the work
-// commas would do in writing, and fragments where a fragment is what someone
-// would actually type. Question marks stay -- those are still questions.
+// Speech, not prose: contractions everywhere, fragments where a fragment is
+// what someone would actually type, and the occasional lowercase opener. The
+// emoji are punctuation, not decoration -- one per line at most, only where a
+// person would reach for one, and never carrying meaning of their own, since a
+// screen reader announces the whole name of every one of them.
 
 export interface MessageCopy {
-  /** Masthead trigger label. Sits beside 订阅 / 联系, so it matches their
-      weight -- a noun, not a sentence. */
-  trigger: string;
-  /** Document title, masthead trigger's destination name, and the page's
-      visually hidden <h1>. Nothing draws it: the thread opens with speech. */
+  /** Document title and the page's visually hidden <h1>. Nothing draws it:
+      the thread opens with speech. */
   title: string;
   /** The reader's line, and the first bubble. Written in their voice, not the
       owner's -- it is the reason someone opened this page, said out loud, and
-      the two bubbles under it are the answer to it. No full stop, unlike every
-      other line here: nobody punctuates the first thing they type into a chat,
-      and a period on a four-word opener reads as bad news coming. */
+      the two bubbles under it are the answer to it. */
   opener: string;
   /** Meta description only -- the thread says this across two bubbles. */
   lede: string;
@@ -62,61 +65,30 @@ export interface MessageCopy {
   errorEmail: string;
 }
 
-export const messagesCopy: Record<'zh' | 'en', MessageCopy> = {
-  zh: {
-    trigger: '留言',
-    title: '给我留言',
-    opener: '嗨，想跟你说个事',
-    lede: '尽管说吧~这儿就可以给我私密留言。记得留个邮箱，方便我回复你。',
-    intro: '尽管说吧~这儿就可以给我私密留言。',
-    invite: '记得留个邮箱，方便我回复你。',
-    nameLabel: '称呼',
-    namePlaceholder: '称呼',
-    emailLabel: '邮箱',
-    emailPlaceholder: '邮箱',
-    bodyLabel: '想聊点什么',
-    bodyPlaceholder: '想聊点什么...',
-    submit: '发送',
-    submitting: '发送中',
-    privacy: '此留言不会公开展示。',
-    sentReplyable: '收到啦。要是得回你，我就发到你留的邮箱',
-    sentVerify: '收到啦。给你邮箱发了封确认信，点一下我才回得了你。不想点也没事',
-    sentAnonymous: '收到啦。确认信没发出去，估计回不了你了，不过这条我看到了',
-    sendAnother: '再写一条',
-    errorGeneric: '没发出去，过会儿再试试？',
-    errorRateLimited: '发太快了，歇一会儿再来',
-    errorTurnstile: '人机验证没过，刷新一下再试',
-    errorBody: '写点东西吧，至少两个字',
-    errorName: '留个称呼吧，随便写',
-    errorEmailMissing: '留个邮箱吧，不然我回不了你',
-    errorEmail: '这邮箱看着不太对',
-  },
-  en: {
-    trigger: 'Message',
-    title: 'Write to me',
-    opener: 'hey, got something to tell you',
-    lede: 'Nothing here goes public. I am the only one who reads it.',
-    intro: 'Go ahead. This one is private, it comes straight to me.',
-    invite: 'Leave an email so I can write back.',
-    nameLabel: 'Name',
-    namePlaceholder: 'Name',
-    emailLabel: 'Email',
-    emailPlaceholder: 'Email',
-    bodyLabel: 'What is on your mind',
-    bodyPlaceholder: 'What is on your mind...',
-    submit: 'Send',
-    submitting: 'Sending',
-    privacy: 'This note is never shown publicly.',
-    sentReplyable: 'Got it. If it needs an answer I will mail the address you left',
-    sentVerify: 'Got it. Sent a confirmation to your inbox, click the link and I can write back. Or skip it, no harm',
-    sentAnonymous: 'Got it. The confirmation did not go out, so I probably cannot reply. Read this though',
-    sendAnother: 'Write another',
-    errorGeneric: 'That did not send, try again in a bit?',
-    errorRateLimited: 'That is a lot at once, give it a few minutes',
-    errorTurnstile: 'The human check did not pass, reload and try again',
-    errorBody: 'Write something, a couple of characters at least',
-    errorName: 'Leave a name, any name',
-    errorEmailMissing: 'Leave an email, or I cannot answer',
-    errorEmail: 'That address does not look right',
-  },
+export const messageCopy: MessageCopy = {
+  title: 'Write to me',
+  opener: 'Hey 👋 wanted to reach out!',
+  lede: "Nothing here goes public. I'm the only one who reads it.",
+  intro: "Go for it! It's totally private and comes straight to me.",
+  invite: 'plz drop an email so I can get back to you 📮',
+  nameLabel: 'Name',
+  namePlaceholder: 'Name',
+  emailLabel: 'Email',
+  emailPlaceholder: 'Email',
+  bodyLabel: "What's up?",
+  bodyPlaceholder: "What's up?",
+  submit: 'Send',
+  submitting: 'Sending',
+  privacy: 'Just between you and me.',
+  sentReplyable: "Got it ✅ if it needs an answer I'll mail the address you left",
+  sentVerify: 'Got it ✅ Sent a confirmation to your inbox, click the link and I can write back. Or skip it, no harm',
+  sentAnonymous: "Got it, though the confirmation didn't go out, so I probably can't reply. Reading it anyway",
+  sendAnother: 'Write another',
+  errorGeneric: "That didn't send, try again in a bit?",
+  errorRateLimited: "That's a lot at once, give it a few minutes",
+  errorTurnstile: "The human check didn't pass, reload and try again",
+  errorBody: 'Write something, a couple of characters at least',
+  errorName: 'Leave a name, any name',
+  errorEmailMissing: "Leave an email, or I can't answer",
+  errorEmail: "That address doesn't look right",
 };

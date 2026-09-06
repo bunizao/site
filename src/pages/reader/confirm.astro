@@ -28,7 +28,7 @@ import { ICONS } from '@/features/comments/icons';
 import { READER_ME_PATH } from '@bunizao/contracts/routes';
 import type { ReaderMeResult, ReaderResendResult, ReaderVerifyResult } from '@bunizao/contracts/comments';
 
-type ViewState = 'pending' | 'confirmed' | 'settings' | 'already' | 'invalid' | 'resent';
+type ViewState = 'pending' | 'confirmed' | 'settings' | 'signin' | 'already' | 'invalid' | 'resent';
 
 const token = Astro.url.searchParams.get('token') ?? '';
 const locale = resolveReaderConfirmLocale(Astro.url.searchParams.get('lang'));
@@ -89,10 +89,13 @@ function readStaleSubscribeIntent(staleToken: string): boolean {
   }
 }
 
-// A tokenless GET is either a broken link or a reader who followed the
-// "manage these alerts" line in a reply mail. Ask who is asking before
-// deciding which -- the session cookie has to be forwarded by hand, because
-// callApi above mints its request from scratch.
+// A tokenless GET is a reader who followed the "manage these alerts" line in
+// a reply mail -- the mail carries no token on purpose, see reply-notify.ts
+// on site-api. Ask who is asking: a browser holding the reader cookie gets
+// the switches, one without it gets asked to confirm the address first,
+// which signs this device in and lands back here. Neither is a broken link,
+// so neither says "expired". The session cookie has to be forwarded by hand,
+// because callApi above mints its request from scratch.
 if (Astro.request.method === 'GET' && !token) {
   const probe = new Request(`${Astro.url.origin}/api${READER_ME_PATH}`, {
     headers: { cookie: Astro.request.headers.get('cookie') ?? '' },
@@ -103,6 +106,8 @@ if (Astro.request.method === 'GET' && !token) {
     state = 'settings';
     notifyReplies = me.reader.notifyReplies;
     subscribed = me.reader.subscribed;
+  } else {
+    state = 'signin';
   }
 }
 
@@ -110,6 +115,7 @@ const GLYPHS: Record<ViewState, string> = {
   pending: ICONS.mail,
   confirmed: ICONS.check,
   settings: ICONS.settings,
+  signin: ICONS.mail,
   already: ICONS.check,
   invalid: ICONS.linkOff,
   resent: ICONS.send,
@@ -186,10 +192,10 @@ const GLYPHS: Record<ViewState, string> = {
         </>
       )}
 
-      {state === 'invalid' && (
+      {(state === 'invalid' || state === 'signin') && (
         <>
-          <h1 class="reader-confirm__title">{t.invalidTitle}</h1>
-          <p class="reader-confirm__body">{t.invalidBody}</p>
+          <h1 class="reader-confirm__title">{state === 'signin' ? t.signinTitle : t.invalidTitle}</h1>
+          <p class="reader-confirm__body">{state === 'signin' ? t.signinBody : t.invalidBody}</p>
           <form method="post" class="reader-confirm__form">
             <label class="sr-only" for="reader-confirm-email">{t.emailLabel}</label>
             <input

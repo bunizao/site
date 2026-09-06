@@ -19,6 +19,7 @@ import PortalSection from '@/components/portal/PortalSection.astro';
 import RankedBreakdown from '@/components/portal/RankedBreakdown.astro';
 import SegmentedNav from '@/components/portal/SegmentedNav.astro';
 import CommentsQueue from '@/features/admin/ui/CommentsQueue';
+import OwnerSignIn from '@/features/admin/ui/OwnerSignIn';
 import { Activity, CheckCheck, Clock, MessagesSquare, ShieldAlert } from 'lucide-react';
 import {
   loadPortalComments,
@@ -171,6 +172,13 @@ const dailyTotal = summary.daily.reduce((sum, day) => sum + day.count, 0);
     />
   </section>
 
+  {/* The owner's way into the comment box itself. Lives on this page rather
+      than a settings page because the moment anyone wants it is the moment
+      they are reading a comment here and want to answer it on the blog. */}
+  <PortalSection title="Write as the owner" eyebrow="Identity" class="portal-mt-lg">
+    <OwnerSignIn demo={demoMode} client:load />
+  </PortalSection>
+
   <PortalSection
     title="Queue"
     eyebrow="Review"
@@ -260,6 +268,53 @@ const dailyTotal = summary.daily.reduce((sum, day) => sum + day.count, 0);
 </PortalLayout>
 
 <style>
+  /* The owner sign-in card. Scoped with :global because the island renders
+     these class names from React, outside this file's scope hash. */
+  :global(.owner-signin) {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  :global(.owner-signin__state) {
+    margin: 0;
+    font-size: var(--portal-text-sm);
+    color: hsl(var(--foreground) / 0.9);
+  }
+
+  :global(.owner-signin__meta) {
+    color: hsl(var(--muted-foreground));
+  }
+
+  :global(.owner-signin__actions) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+
+  :global(.owner-signin__actions input) {
+    flex: 1 1 220px;
+    max-width: 360px;
+  }
+
+  :global(.owner-signin__link) {
+    font-size: var(--portal-text-sm);
+    color: hsl(var(--muted-foreground));
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  :global(.owner-signin__link:hover) {
+    color: hsl(var(--foreground));
+  }
+
+  :global(.owner-signin__form) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
   .comment-days {
     display: grid;
     grid-auto-flow: column;

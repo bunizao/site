@@ -13,17 +13,22 @@
 // same secret would be a second name for one thing.
 
 import {
+  MESSAGE_MAX_BODY_LENGTH,
+  MESSAGE_MIN_BODY_LENGTH,
+} from '@bunizao/contracts/messages';
+import {
   getTurnstileToken,
   releaseTurnstileToken,
   setTurnstileHost,
   warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
-import { messagesCopy, type MessageCopy } from '@/features/messages/copy';
+import { messageCopy as t } from '@/features/messages/copy';
 
 const ACTION = 'owner_message_create' as const;
 const DWELL_TOKEN_REFRESH_AGE_MS = 20 * 60_000;
-const MIN_BODY_LENGTH = 2;
-const MAX_BODY_LENGTH = 4000;
+// The last stretch of the field, where the count is worth showing. Anywhere
+// before it the number is noise.
+const COUNT_FROM = MESSAGE_MAX_BODY_LENGTH - 400;
 
 interface CreateResult {
   id: string;
@@ -49,6 +54,7 @@ export function initMessageForm(root: HTMLElement): void {
   const draft = root.querySelector<HTMLElement>('[data-message-draft]');
   const draftText = root.querySelector<HTMLElement>('[data-message-draft-text]');
   const typing = root.querySelector<HTMLElement>('[data-message-typing]');
+  const count = root.querySelector<HTMLElement>('[data-message-count]');
   if (!form || !formView || !sentView || !sentBody || !errorBox || !submit || !submitLabel) return;
 
   const nameField = form.elements.namedItem('displayName') as HTMLInputElement | null;
@@ -57,8 +63,6 @@ export function initMessageForm(root: HTMLElement): void {
   const website = form.elements.namedItem('website') as HTMLInputElement | null;
   if (!nameField || !emailField || !bodyField) return;
 
-  const locale = (root.dataset.locale === 'en' ? 'en' : 'zh') as 'zh' | 'en';
-  const t: MessageCopy = messagesCopy[locale];
   const siteKey = root.dataset.turnstileSiteKey ?? '';
 
   if (turnstileHost) setTurnstileHost(ACTION, turnstileHost);
@@ -126,18 +130,37 @@ export function initMessageForm(root: HTMLElement): void {
 
   // The composer grows with the message instead of opening as an empty well.
   // scrollHeight excludes the border under border-box sizing, hence the 2.
+  // Nothing clamps this to the CSS cap on purpose: max-height already stops
+  // the box, and a second cap in script is one more number to keep in step.
   const autoGrow = (): void => {
     bodyField.style.height = 'auto';
     bodyField.style.height = `${bodyField.scrollHeight + 2}px`;
   };
 
+  // maxlength stops the field without saying anything, so near the end the
+  // count is the only thing that explains why typing stopped working.
+  const sayCount = (): void => {
+    if (!count) return;
+    const length = bodyField.value.length;
+    const show = length >= COUNT_FROM;
+    count.hidden = !show;
+    // Cleared on the way down too, so a hidden slot never holds a stale full
+    // state that comes back red the moment the count reappears.
+    count.toggleAttribute('data-full', show && length >= MESSAGE_MAX_BODY_LENGTH);
+    if (show) count.textContent = `${length}/${MESSAGE_MAX_BODY_LENGTH}`;
+  };
+
   // The markup ships it disabled; this is the handoff.
   setBusy(false);
 
-  bodyField.addEventListener('input', autoGrow);
+  bodyField.addEventListener('input', () => {
+    autoGrow();
+    sayCount();
+  });
   // A restored form (bfcache, or the browser refilling on reload) already has
   // text in it before any input event fires.
   autoGrow();
+  sayCount();
 
   const reveal = (element: HTMLElement | null): void => {
     if (!element) return;
@@ -165,7 +188,7 @@ export function initMessageForm(root: HTMLElement): void {
       nameField.focus();
       return;
     }
-    if (body.length < MIN_BODY_LENGTH || body.length > MAX_BODY_LENGTH) {
+    if (body.length < MESSAGE_MIN_BODY_LENGTH || body.length > MESSAGE_MAX_BODY_LENGTH) {
       showError(t.errorBody);
       bodyField.focus();
       return;
@@ -214,7 +237,10 @@ export function initMessageForm(root: HTMLElement): void {
           turnstileToken,
           dwellToken,
           website: website?.value ?? '',
-          locale,
+          // The page is English only; this decides the language of the
+          // verification mail and of the owner's reply mail, both of which
+          // answer something written under an English form.
+          locale: 'en',
         }),
       });
 
@@ -267,6 +293,7 @@ export function initMessageForm(root: HTMLElement): void {
     // go, so the next message is not written under the last one's answer.
     syncDraft();
     autoGrow();
+    sayCount();
     sentView.hidden = true;
     formView.hidden = false;
     clearError();
