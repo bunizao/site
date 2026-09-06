@@ -83,13 +83,18 @@ const {
   <button type="button" class="mood-comments-load-more" data-load-more hidden>
     Load more comments
   </button>
-  {discussionLinked ? (
+  {discussionLinked && (
     <CommentCompose
       postId={postId}
       discussionRepliesEnabled={discussionRepliesEnabled}
       turnstileSiteKey={turnstileSiteKey}
     />
-  ) : telegramCommentUrl && (
+  )}
+  {/* The route out to the group. It is the only way to comment while the
+      bridge is off, and stays on beside the compose box once it is on --
+      writing in the group has always been an option and the box does not
+      take it away. */}
+  {telegramCommentUrl && (
     <a
       href={telegramCommentUrl}
       target="_blank"
@@ -133,6 +138,15 @@ const {
     padding-top: 48px;
     border-top: 1px solid hsl(var(--foreground) / 0.08);
     position: relative;
+    /* Two sizes, not five. Every comment UI worth copying -- GitHub, Telegram
+       Web, Discourse -- gives the name the body's own size and lets weight and
+       colour carry the hierarchy, and none of them drops the timestamp more
+       than one step. 13px is the floor .blog-comments already settled on for
+       the same reason it applies here: two Chinese characters are the shortest
+       label this thread gets, and the glyph is the box. */
+    --comment-body: 15px;
+    --comment-meta: 13px;
+    --comment-lead: 1.65;
     /* One bubble shape at every width. The tight top-left corner points the
        bubble at its avatar, which sits at the top of the row. */
     --comment-body-padding: 10px 14px;
@@ -316,6 +330,10 @@ const {
     width: fit-content;
     max-width: 100%;
     min-width: 0;
+    /* One family for the whole bubble. A comment is a self-contained reading
+       unit, so it reads in the prose face throughout rather than switching to
+       the page's mono chrome voice halfway down. */
+    font-family: var(--font-sans);
     background: var(--comment-bubble-bg);
     border: 1px solid var(--comment-bubble-border);
     border-radius: var(--comment-body-radius);
@@ -325,9 +343,9 @@ const {
 
   .mood-comment-header {
     display: flex;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 8px;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
     flex-wrap: wrap;
   }
 
@@ -337,81 +355,35 @@ const {
   .mood-comment-source {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 2px 8px 2px 6px;
-    border-radius: 999px;
-    background: hsl(var(--foreground) / 0.04);
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    font-size: 9px;
-    font-weight: 500;
-    line-height: 1.5;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground) / 0.8);
-    white-space: nowrap;
-    transform: translateY(1px);
+    color: hsl(var(--muted-foreground) / 0.7);
   }
 
   .mood-comment-source svg {
-    width: 10px;
-    height: 10px;
-    opacity: 0.75;
+    width: 13px;
+    height: 13px;
   }
 
-  @media (min-width: 640px) {
-    .mood-comment-source {
-      font-size: 10px;
-    }
-
-    .mood-comment-source svg {
-      width: 11px;
-      height: 11px;
-    }
-  }
-
-  /* A name, so not uppercased -- but the same size and voice as the row it
-     sits in. At 14px it matched the message underneath and the two competed. */
+  /* The body's own size, GitHub's rule: weight and colour separate the name
+     from the message, not a size step. */
   .mood-comment-author {
-    font-size: 12px;
+    font-size: var(--comment-body);
     font-weight: 600;
     color: hsl(var(--foreground) / 0.92);
-    letter-spacing: 0.01em;
   }
 
-  @media (min-width: 640px) {
-    .mood-comment-author {
-      font-size: 13px;
-    }
-  }
-
-  /* Scaled down from .mood-post-date in DetailArticle -- same voice as every
-     other timestamp on the page. No bullet: the change of voice separates it
-     from the name, the way .mood-post-meta separates its own items. Not
-     uppercased, unlike that one: it carries a relative time, and "42M AGO"
-     reads as a quantity rather than a duration. Labels shout here, values
-     do not. */
+  /* One step under the body, which is as far as Telegram Web drops its own
+     timestamp. No bullet ahead of it: colour is the separator. */
   .mood-comment-date {
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    color: hsl(var(--muted-foreground) / 0.7);
+    font-size: var(--comment-meta);
+    font-weight: 400;
+    color: hsl(var(--muted-foreground) / 0.75);
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1, 'zero' 1;
   }
 
-  @media (min-width: 640px) {
-    .mood-comment-date {
-      font-size: 11px;
-    }
-  }
-
   .mood-comment-content {
-    /* The message is human prose -- read in sans. Everything around it is
-       chrome and stays in the site's mono identity, like every other meta
-       row on this page. */
-    font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 1.6;
+    font-size: var(--comment-body);
+    line-height: var(--comment-lead);
     color: hsl(var(--foreground) / 0.95);
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -420,13 +392,6 @@ const {
   .mood-comment-body:has(.image-list-container) {
     width: min(100%, 270px);
     max-width: min(100%, 270px);
-  }
-
-  @media (min-width: 640px) {
-    .mood-comment-content {
-      font-size: 14px;
-      line-height: 1.65;
-    }
   }
 
   .mood-comment-content p {
@@ -713,8 +678,8 @@ const {
 
   .mood-comments-empty p {
     margin: 0;
-    font-size: 14px;
-    font-style: italic;
+    font-family: var(--font-sans);
+    font-size: var(--comment-meta);
   }
 
   .mood-comments-load-more {
@@ -843,8 +808,8 @@ const {
   .mood-comment-cta-arrow {
     opacity: 0.4;
     transition:
-      opacity 0.2s ease,
-      transform 0.2s ease;
+      opacity var(--dur-base) var(--ease),
+      transform var(--dur-base) var(--ease);
     flex-shrink: 0;
   }
 

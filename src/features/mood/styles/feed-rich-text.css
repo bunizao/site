@@ -25,6 +25,22 @@
   background: hsl(var(--foreground) / 0.05);
 }
 
+/* Discourse renders a quoted post at the thread's own body size and Telegram
+   keeps its reply preview one step under; neither shrinks it to a third size.
+   One step under the comment it sits in, and no smaller. */
+.mood-comment-content .mood-comment-quote .mood-item-quote-author {
+  font-size: var(--comment-meta);
+  font-weight: 600;
+  letter-spacing: normal;
+  color: hsl(var(--foreground) / 0.8);
+}
+
+.mood-comment-content .mood-comment-quote .mood-item-quote-text {
+  font-size: var(--comment-meta);
+  line-height: 1.45;
+  color: hsl(var(--foreground) / 0.62);
+}
+
 .mood-item-quote[href],
 .mood-quote-card[href] {
   cursor: pointer;
