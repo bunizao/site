@@ -160,18 +160,37 @@ where it came from has to be claimed explicitly. Four places carry it:
 | `site_name` | `無人之境`, read from `og:site_name` |
 | `channel` | A **Join channel** button for `@tutumood` |
 | `aside.ai-credit` / `aside.not-by-ai` | The provenance line, appended into the body |
+| `p.footer-mark` | The copyright line, closing the page |
 
-The provenance line is the article's own: the human pledge by default, or the
-model credits on a post that declares them. It sits outside `.blog-prose` on the
-page, so it has to be moved into the body deliberately.
+The provenance line and the copyright line both sit outside `.blog-prose` on the
+page, so each has to be moved into the body deliberately. They are the article's
+own words either way: the human pledge (or the model credits on a post that
+declares them), and the sealed copyright mark from `copyrightMark()`.
 
-The `<related>` block at the end is the publication's footer — the adjacent
-posts, minus their "← Older" direction labels, which would otherwise run into
-the titles.
+`channel`'s appearance belongs to Telegram. The editor's preview draws it as
+plain text; the avatar and the button only exist in the app, and only when the
+handle resolves as a public channel. Judge it on a tracking link in Telegram,
+not in the editor. It is also the one judgement call here — `tutumood` is the
+channel the mood feed mirrors, not a blog channel — so delete the line if blog
+articles should not advertise it.
 
-`channel` is the only judgement call in there: `tutumood` is the public Telegram
-channel the mood feed mirrors (`CHANNEL` in `wrangler.jsonc`), not a blog
-channel. Delete that one line if blog articles should not advertise it.
+### Why there is no related block
+
+Instant View's `<related>` is built for a list of articles with thumbnails. The
+only thing an article page could feed it is the prev/next nav, which carries two
+titles and no images, and renders as a pair of bare links under a heading. That
+looks worse than ending on the copyright line, so the template ends on the
+copyright line.
+
+If posts ever grow a richer "more from here" section — covers, excerpts — this
+is the rule to bring back, minus the direction labels that would otherwise run
+into the titles:
+
+```
+@remove: //nav[has-class("blog-adjacent")]//span[has-class("blog-adjacent__dir")]
+<related>: //nav[has-class("blog-adjacent")]
+@append_to($body)
+```
 
 ## Known gaps
 

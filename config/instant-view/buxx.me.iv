@@ -110,9 +110,12 @@ body: //div[has-class("blog-prose")]
 @remove: $body//a[has-class("blog-fn-back")]
 
 # --- Credit ------------------------------------------------------------------
-# Puts a "Join channel" button on the Instant View page. `tutumood` is the
-# public channel the mood feed already mirrors (CHANNEL in wrangler.jsonc);
-# drop this line if blog articles should not advertise it.
+# A "Join channel" button. Its looks belong to Telegram, not to this template:
+# the editor's preview flattens it to plain text, and only the app draws the
+# avatar and the button — check it there, on a tracking link, before judging
+# it. `tutumood` is the public channel the mood feed mirrors (CHANNEL in
+# wrangler.jsonc), so it also has to resolve as public for the button to draw
+# at all. One line, easy to drop.
 channel: "@tutumood"
 
 # The provenance line the article closes with — the human pledge, or the model
@@ -122,12 +125,12 @@ channel: "@tutumood"
 @append_to($body): //aside[has-class("ai-credit")]
 @append_to($body): //aside[has-class("not-by-ai")]
 
-# The publication's own footer: where to go next, still inside 無人之境.
-# Instant View renders <related> as its trailing link block. The direction
-# labels are visual furniture that would otherwise run into the titles.
-@remove: //nav[has-class("blog-adjacent")]//span[has-class("blog-adjacent__dir")]
-<related>: //nav[has-class("blog-adjacent")]
-@append_to($body)
+# The copyright line closes the page, the way it closes the article. It is one
+# quiet sentence rather than a <related> block: Instant View's related list is
+# built for articles with thumbnails, and the only thing this page could feed
+# it is the prev/next nav — two titles, no images, which renders as a pair of
+# bare links. Nothing beats nothing there.
+@append_to($body): //p[has-class("footer-mark")]
 
 # --- Sweep -------------------------------------------------------------------
 # Whatever is left that exists for the browser alone. aria-hidden is the honest
