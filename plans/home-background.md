@@ -41,7 +41,7 @@ What shipped, and what was decided along the way:
 - The loop stops when the tab is hidden or the band leaves the viewport.
 
 **Whole-page pass, 2026-09-06.** Four of the six concepts pitched after the
-band shipped were tried, two survived; the "one ink through the page" accent and the live
+band shipped were tried, three survived; the "one ink through the page" accent and the live
 "now" line in the hero were not (yet).
 
 - Grid: the content column is 672px = 28 cells of the 24px lattice, with the
@@ -50,11 +50,15 @@ band shipped were tried, two survived; the "one ink through the page" accent and
 - One pointer: the field publishes `--glyph-ink`; the homepage spotlight
   paints its dots in it, and the canvas glow matches the spotlight's core
   ellipse. One light crossing two textures.
-- Tried and cut the same day, owner's call: collapsing the band into a
-  hairline that becomes the Projects rule (the line read as ugly), and a
-  one-row glyph strip under the nav on inner pages with a view-transition
-  squash from the band (not liked). Both reverted; the band scrolls with the
-  page again and inner pages are untouched.
+- Collapse: the band is sticky inside an 880px track. Over the first 320px
+  of scroll every row converges on one focus row while the glyphs fade
+  (squared, so the field is faint before the rows overlap) and the lattice
+  mask edge rises to meet it. First version condensed into a hairline that
+  became the Projects rule; the owner found the line ugly, so now the rain
+  just condenses and is gone, leaving the dots.
+- Tried and cut the same day, owner's call: a one-row glyph strip under the
+  nav on inner pages with a view-transition squash from the band. Reverted;
+  inner pages are untouched.
 - The decode reveal now settles a third of a second after the line reaches
   full width, not a full second: show front to 94% of the mash window, boil
   0.12 (package defaults, README and demo updated).

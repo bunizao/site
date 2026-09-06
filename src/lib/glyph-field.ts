@@ -36,15 +36,13 @@ const GLOW_ASPECT = 0.72;
 const GLOW_PEAK = 0.5;
 /**
  * Collapse. The band is sticky, so scrolling does not carry it away: over the
- * first COLLAPSE_PX of scroll every row converges on RULE_ROW and the glyphs
- * fade, leaving one hairline in the ink. The host's track is sized so the band
- * unpins the moment that line sits RULE_GAP above the first section label, and
- * from then on the line scrolls with the page as that section's rule.
+ * first COLLAPSE_PX of scroll every row converges on FOCUS_ROW while the
+ * glyphs fade, so the rain condenses and is gone before the rows pile up.
+ * Nothing is left behind but the lattice, which rises to meet it. The track
+ * only needs to hold the band through the collapse; empty, it scrolls away.
  */
 const COLLAPSE_PX = 320;
-const RULE_ROW = 17;
-const RULE_GAP = 24;
-const RULE_ALPHA = 0.55;
+const FOCUS_ROW = 17;
 /**
  * Where the site's own texture (dot lattice, pointer spotlight) takes over:
  * published to the page as `--field-edge` in viewport space, see the homepage
@@ -168,7 +166,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
 
   let raf = 0;
   let last = 0;
-  /** 0 = full rain, 1 = one rule. Scroll-driven, see COLLAPSE_PX. */
+  /** 0 = full rain, 1 = gone. Scroll-driven, see COLLAPSE_PX. */
   let collapse = 0;
   let paintQueued = false;
   let onScreen = true;
@@ -262,8 +260,9 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     lit.length = 0;
 
     const age = now - bornAt;
-    const fade = 1 - collapse;
-    const ruleY = RULE_ROW * rowH;
+    // Squared so the field is faint well before the rows overlap.
+    const fade = (1 - collapse) * (1 - collapse);
+    const focusY = FOCUS_ROW * rowH;
     let allAwake = awake || age >= ENTRANCE_MS;
     // Rows above the front are shown; rows within ENTRANCE_EDGE_ROWS of it fade.
     const front = awake ? Infinity : (age / ENTRANCE_MS) * (rowCount + ENTRANCE_EDGE_ROWS);
@@ -286,8 +285,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
         const lift = 1 + GUST_LIFT * col.gust;
         const rain = (r === col.spark ? HEAD_SPARK : col.alphas[r] * col.brightness * lift) * wake * gate * fade;
         const glow = col.glows[r] * fade;
-        // Every row slides toward the rule as the band collapses.
-        const y = r * rowH + (ruleY - r * rowH) * collapse;
+        // Every row slides toward the focus row as the band collapses.
+        const y = r * rowH + (focusY - r * rowH) * collapse;
         // Glow-dominant cells are painted after the rain so they sit on top.
         if (glow > rain) {
           lit.push(x, y, col.chars[r], glow * gain);
@@ -299,11 +298,6 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
       }
     }
     if (allAwake) awake = true;
-
-    if (collapse > 0) {
-      ctx.globalAlpha = RULE_ALPHA * collapse;
-      ctx.fillRect(0, ruleY + rowH / 2, BAND_WIDTH, 1);
-    }
 
     if (lit.length) {
       for (let i = 0; i < lit.length; i += 4) {
@@ -412,8 +406,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
 
   /* ── Frame loop — visibility gated ────────────────────────────────────── */
 
-  // Fully collapsed there is nothing moving: one static rule until the reader
-  // scrolls back up.
+  // Fully collapsed there is nothing to draw until the reader scrolls back up.
   const shouldRun = () =>
     !destroyed && onScreen && collapse < 1 && document.visibilityState === 'visible' && !reduced.matches;
 
@@ -459,32 +452,6 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     if (columns.length) queuePaint();
   };
 
-  // The track is the sticky band's containing block: the band pins at the top
-  // of the viewport until the track runs out, and the track runs out exactly
-  // when the rule sits RULE_GAP above the target section.
-  const track = host.parentElement;
-  const target = host.dataset.ruleTarget ? document.querySelector<HTMLElement>(host.dataset.ruleTarget) : null;
-  // Layout positions, not rects: the reveal and parallax transforms on the
-  // sections would otherwise leak into the measurement mid-flight.
-  const docTop = (el: HTMLElement): number => {
-    let y = 0;
-    for (let node: HTMLElement | null = el; node; node = node.offsetParent as HTMLElement | null) y += node.offsetTop;
-    return y;
-  };
-  const sizeTrack = () => {
-    if (!track || !target) return;
-    const labelTop = docTop(target);
-    const trackTop = docTop(track);
-    // The band unpins at scrollY = trackTop + height - BAND_HEIGHT; solve for
-    // the scroll that puts the label RULE_GAP below the rule.
-    const unpinAt = labelTop - RULE_GAP - (RULE_ROW + 0.5) * CELL_H;
-    const height = unpinAt - trackTop + BAND_HEIGHT;
-    track.style.height = `${Math.max(BAND_HEIGHT, Math.round(height))}px`;
-  };
-  const resizeObserver = new ResizeObserver(() => {
-    sizeTrack();
-    onScroll();
-  });
   const onReducedChange = () => {
     if (reduced.matches) awake = true;
     sync();
@@ -519,7 +486,6 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     bornAt = performance.now();
     // Reduced motion gets one honest frame: the band at rest, no entrance.
     awake = reduced.matches;
-    sizeTrack();
     onScroll();
     paint(bornAt);
     host.classList.add('is-ready');
@@ -539,7 +505,6 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   window.addEventListener('pointerdown', onPointerDown, { passive: true });
   themeObserver.observe(root, { attributes: true, attributeFilter: ['class'] });
   io.observe(host);
-  resizeObserver.observe(document.body);
 
   return {
     destroy() {
@@ -555,8 +520,6 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
       window.removeEventListener('pointerdown', onPointerDown);
       themeObserver.disconnect();
       io.disconnect();
-      resizeObserver.disconnect();
-      if (track) track.style.removeProperty('height');
     },
   };
 }
