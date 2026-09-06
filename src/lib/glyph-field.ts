@@ -34,6 +34,21 @@ const GLOW_PEAK = 0.5;
  * in viewport space; see the homepage stylesheet.
  */
 const FIELD_EDGE = 620;
+/** The falling head is drawn at this alpha over its own trail, so the motion reads. */
+const HEAD_SPARK = 0.9;
+/**
+ * Gusts. Every few seconds a front crosses the band: columns near it fall
+ * faster, mutate more, and lift a little, then settle. It is the one event
+ * that makes the field read as weather rather than as a screensaver. Times
+ * are in simulation ticks (TICK_MS each).
+ */
+const GUST_TICKS = 14;
+const GUST_EVERY_TICKS: [number, number] = [55, 110];
+const FIRST_GUST_TICK = 22;
+/** Half-width of the front, in columns. */
+const GUST_WIDTH = 7;
+const GUST_SPEED = 1.6;
+const GUST_LIFT = 0.5;
 /**
  * Entrance. The band arrives as weather does: a front sweeps down from the top
  * edge over ENTRANCE_MS while columns wake from the centre outward. Both are
@@ -66,6 +81,10 @@ interface Column {
   speed: number;
   maxRow: number;
   brightness: number;
+  /** Row of the falling head this tick, or -1 when the head is off the band. */
+  spark: number;
+  /** How much of the current gust this column feels, 0..1. */
+  gust: number;
   /** Fixed per column; a column runs when `seed < weather.columns`. */
   seed: number;
   /** Wake delay from boot, by distance from the centre column. */
@@ -154,23 +173,57 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     }
   };
 
+  let tick = 0;
+  let gustStart = FIRST_GUST_TICK;
+  let gustDir = 1;
+
+  const scheduleGust = () => {
+    const [min, max] = GUST_EVERY_TICKS;
+    gustStart = tick + min + Math.random() * (max - min);
+    gustDir = Math.random() < 0.5 ? -1 : 1;
+  };
+
+  /** Front position in columns for this tick, or null between gusts. */
+  const gustFront = (): number | null => {
+    const u = (tick - gustStart) / GUST_TICKS;
+    if (u < 0) return null;
+    if (u > 1) {
+      scheduleGust();
+      return null;
+    }
+    const span = colCount + 2 * GUST_WIDTH;
+    const x = u * span - GUST_WIDTH;
+    return gustDir > 0 ? x : colCount - x;
+  };
+
   const step = () => {
+    tick++;
     const { speed, head, trail, columns: density } = weather;
-    for (const col of columns) {
+    const front = gustFront();
+    for (let c = 0; c < colCount; c++) {
+      const col = columns[c];
       const active = col.seed < density;
-      if (active) col.head += col.speed * speed;
+      let g = 0;
+      if (front !== null) {
+        const d = (c - front) / GUST_WIDTH;
+        g = Math.exp(-d * d);
+      }
+      col.gust = g;
+      if (active) col.head += col.speed * speed * (1 + GUST_SPEED * g);
       const at = Math.floor(col.head);
 
       for (let r = 0; r <= col.maxRow; r++) {
         if (col.alphas[r] > 0) col.alphas[r] = Math.max(col.alphas[r] * trail, col.floors[r]);
       }
-      if (active && at >= 0 && at <= col.maxRow && at < rowCount) col.alphas[at] = head;
+      const onBand = active && at >= 0 && at <= col.maxRow && at < rowCount;
+      if (onBand) col.alphas[at] = head;
+      col.spark = onBand ? at : -1;
 
       for (let r = 0; r < rowCount; r++) {
         if (col.glows[r] > 0) col.glows[r] = col.glows[r] < 0.03 ? 0 : col.glows[r] * GLOW_DECAY;
       }
 
-      if (Math.random() < 0.4) col.chars[(Math.random() * rowCount) | 0] = pick();
+      if (Math.random() < 0.4 + 0.5 * g) col.chars[(Math.random() * rowCount) | 0] = pick();
       if (active && at > col.maxRow + 4) respawn(col, false);
     }
   };
@@ -204,7 +257,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
       for (let r = 0; r < rowCount; r++) {
         const gate = awake ? 1 : Math.min(1, Math.max(0, (front - r) / ENTRANCE_EDGE_ROWS));
         if (gate === 0) break;
-        const rain = col.alphas[r] * col.brightness * wake * gate;
+        const lift = 1 + GUST_LIFT * col.gust;
+        const rain = (r === col.spark ? HEAD_SPARK : col.alphas[r] * col.brightness * lift) * wake * gate;
         const glow = col.glows[r];
         // Glow-dominant cells are painted after the rain so they sit on top.
         if (glow > rain) {
@@ -252,6 +306,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
         speed: 0,
         maxRow: 0,
         brightness: 1,
+        spark: -1,
+        gust: 0,
         seed: Math.random(),
         delay: (Math.abs(c - mid) / mid) * WAKE_SPREAD_MS,
       };
@@ -266,6 +322,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     // Run the simulation forward before the first paint so the band opens
     // mid-flow instead of visibly filling in.
     for (let i = 0; i < rowCount * 4; i++) step();
+    tick = 0;
+    gustStart = FIRST_GUST_TICK;
   };
 
   /* ── Pointer glow ─────────────────────────────────────────────────────── */
