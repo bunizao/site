@@ -84,11 +84,36 @@ shaped once their chrome is gone:
 <blockquote>: $body//figure[has-class("blog-music")]
 ```
 
-**Flatten galleries to their images:**
+**Galleries.** A Ghost gallery is
 
 ```
-@before_el(./../../..): $body//div[has-class("kg-gallery-image")]/img
-@remove: $body//div[has-class("kg-gallery-container")]
+figure.kg-gallery-card > div.kg-gallery-container > div.kg-gallery-row
+  > div.kg-gallery-image > img   (xN)
++ figcaption
+```
+
+and an Instant View `<figure>` carries exactly one media block, so without a
+rule the whole gallery collapses to its first image. The shape to reach is
+`<figure><slideshow><img/>...</slideshow><figcaption/></figure>` — a slideshow
+must have a figure ancestor, and the caption has to survive, which the outer
+figure already handles. `@split_parent` strips one level of wrapper per
+application, and each line only matches once the line above it has run:
+
+```
+@split_parent: $body//div[has-class("kg-gallery-image")]/img
+@split_parent: $body//div[has-class("kg-gallery-row")]/img
+<slideshow>: $body//div[has-class("kg-gallery-container")]
+```
+
+If `<slideshow>` is refused, flatten the images out of the figure entirely and
+let each stand as its own block — worse than a gallery, still better than
+losing every image but the first:
+
+```
+@split_parent: $body//div[has-class("kg-gallery-image")]/img
+@split_parent: $body//div[has-class("kg-gallery-row")]/img
+@split_parent: $body//div[has-class("kg-gallery-container")]/img
+@split_parent: $body//figure[has-class("kg-gallery-card")]/img
 ```
 
 **Host real third-party embeds** (CodePen, Vimeo, …) natively. Only providers
