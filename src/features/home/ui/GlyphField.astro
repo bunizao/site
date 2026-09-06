@@ -2,10 +2,22 @@
 // The monospace rain band behind the hero. Decorative: hidden from assistive
 // tech, no pointer events, painted entirely by src/lib/glyph-field.ts.
 //
-// The band is a fixed 1200x560 canvas centred on the page and clipped by the
-// host, so the mask edges stay off-screen on narrow viewports instead of
-// squeezing the glyphs. The mask is the reference's: the field dissolves
+// The canvas is sized to the band it sits in — the viewport width (capped at
+// 1200) by `--band-h` — so the engine only simulates and paints cells that can
+// be seen. The host's box is the one source of that size; the engine reads it
+// and follows it through a ResizeObserver.
+//
+// Wide screens: a 560px band, masked on both sides so the field dissolves
 // before the first section label and never reaches the viewport edges.
+//
+// Phones: the copy fills the column edge to edge, and the rain is set in the
+// same mono face at nearly the same size as the bio, so any row painted behind
+// body text reads as stray characters inside it. The composition stays as on
+// wide screens (copy at the top, rain behind it); the band is 320px and its
+// mask is full behind the status line and the display name, then dissolves
+// through the chips and the role so it is gone where the bio starts. No side
+// mask on phones: its edges would fall inside the column and squeeze the
+// glyphs.
 //
 // The band is sticky inside a track: it stays in the viewport while the rows
 // condense and fade over the first stretch of scroll, then the empty band
@@ -16,7 +28,7 @@
 
 <div class="glyph-field-track" aria-hidden="true">
   <div class="glyph-field" data-glyph-field>
-    <canvas width="1200" height="560"></canvas>
+    <canvas></canvas>
   </div>
 </div>
 
@@ -26,20 +38,27 @@
   }
 
   .glyph-field-track {
+    --band-h: 560px;
     position: absolute;
     inset: 0 0 auto 0;
     /* Band height plus the scroll the collapse takes (COLLAPSE_PX in the
        engine): the band is pinned for exactly as long as it has anything to
        show. */
-    height: 880px;
+    height: calc(var(--band-h) + 320px);
     pointer-events: none;
     z-index: 0;
+  }
+
+  @media (max-width: 639px) {
+    .glyph-field-track {
+      --band-h: 320px;
+    }
   }
 
   .glyph-field {
     position: sticky;
     top: 0;
-    height: 560px;
+    height: var(--band-h);
     display: flex;
     justify-content: center;
     overflow: hidden;
@@ -56,16 +75,26 @@
   .glyph-field canvas {
     display: block;
     flex: 0 0 auto;
-    width: 1200px;
-    height: 560px;
-    -webkit-mask-image:
-      linear-gradient(to bottom, #000 50%, transparent 96%),
-      linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
-    mask-image:
-      linear-gradient(to bottom, #000 50%, transparent 96%),
-      linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
-    -webkit-mask-composite: source-in;
-    mask-composite: intersect;
+    /* The engine snaps the width to the 24px lattice and sets it inline. */
+    width: min(100%, 1200px);
+    height: var(--band-h);
+    /* Phones: full behind the nav, the status line and the name, dissolving
+       through the chips and the role, gone where the bio starts (~244px). */
+    -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 76%);
+    mask-image: linear-gradient(to bottom, #000 45%, transparent 76%);
+  }
+
+  @media (min-width: 640px) {
+    .glyph-field canvas {
+      -webkit-mask-image:
+        linear-gradient(to bottom, #000 50%, transparent 96%),
+        linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+      mask-image:
+        linear-gradient(to bottom, #000 50%, transparent 96%),
+        linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+      -webkit-mask-composite: source-in;
+      mask-composite: intersect;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

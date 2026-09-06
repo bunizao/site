@@ -23,9 +23,9 @@ const lcpAnchorName = typewriterNames.reduce(
 const bioLines = bio.map((line) => line.split('**'));
 ---
 
-<header class="hero-section pb-8 sm:pb-12">
+<header class="hero-section pb-8 sm:pb-12" data-hero>
     <!-- Status indicator -->
-    <div class="hero-animate" data-hero-status data-status-words={JSON.stringify(hero.statusWords)}>
+    <div class="hero-animate" style="--hero-i: 0" data-hero-status data-status-words={JSON.stringify(hero.statusWords)}>
       <div class="status mb-4">
         <span class="status-dot"></span>
         <span class="status-text-wrapper">
@@ -37,13 +37,13 @@ const bioLines = bio.map((line) => line.split('**'));
     <!-- Name -->
     <div class="hero-name-shell mb-2 text-[28px] font-semibold sm:text-[36px]">
       <span class="hero-lcp-anchor" aria-hidden="true">{lcpAnchorName}</span>
-      <h1 class="hero-animate m-0" data-hero-name>
+      <h1 class="hero-animate m-0" style="--hero-i: 1" data-hero-name>
         <Typewriter texts={typewriterNames} keystrokeMs={90} />
       </h1>
     </div>
 
     <!-- Personal Info -->
-    <div class="hero-animate mb-4" data-hero-info>
+    <div class="hero-animate mb-4" style="--hero-i: 2" data-hero-info>
       <p class="text-xs text-muted-foreground/70 tracking-wider font-mono">
         <span class="inline-flex items-center gap-2">
           {infoChips.map((chip, i) => (
@@ -57,12 +57,12 @@ const bioLines = bio.map((line) => line.split('**'));
     </div>
 
     <!-- Role -->
-    <p class="hero-animate mb-6 text-sm text-muted-foreground" data-hero-role>
+    <p class="hero-animate mb-6 text-sm text-muted-foreground" style="--hero-i: 3" data-hero-role>
       {profile.jobTitle}
     </p>
 
     <!-- Bio -->
-    <div class="hero-animate" data-hero-bio>
+    <div class="hero-animate" style="--hero-i: 4" data-hero-bio>
       <DecodeText>
         <p class="text-[14px] leading-[1.7] text-muted-foreground sm:text-[15px]">
           {bioLines.map((segments, line) => (
@@ -78,7 +78,7 @@ const bioLines = bio.map((line) => line.split('**'));
     </div>
 
     <!-- Social Links -->
-    <div class="mt-6 flex flex-wrap items-center gap-4 hero-animate sm:mt-8" data-hero-motion data-hero-socials>
+    <div class="mt-6 flex flex-wrap items-center gap-4 hero-animate sm:mt-8" style="--hero-i: 0" data-hero-motion data-hero-socials>
       <span class="flex-none whitespace-nowrap text-[14px] text-muted-foreground sm:text-[15px]">Find me at</span>
       {socials.map((social) => (
         <div class="social-link-wrapper">
@@ -98,17 +98,17 @@ const bioLines = bio.map((line) => line.split('**'));
       ))}
     </div>
 
-    <div class="hero-animate mt-6" data-hero-motion data-hero-listening>
+    <div class="hero-animate mt-6" style="--hero-i: 1" data-hero-motion data-hero-listening>
       <Listening track={listeningTrack} />
     </div>
 
     <!-- GitHub Activity -->
-    <div class="hero-animate" data-hero-motion data-hero-github>
+    <div class="hero-animate" style="--hero-i: 2" data-hero-motion data-hero-github>
       <GitHubContributions />
     </div>
 
     <!-- Tech Stack Marquee -->
-    <div class="mt-6 hero-animate" data-hero-motion data-hero-tech>
+    <div class="mt-6 hero-animate" style="--hero-i: 3" data-hero-motion data-hero-tech>
       <TechMarquee row1={tech.row1} row2={tech.row2} />
     </div>
 </header>
@@ -131,10 +131,41 @@ const bioLines = bio.map((line) => line.split('**'));
     }
   }
 
+  /* Entrance. Once a GSAP timeline, now the same choreography as CSS
+     transitions: nothing waits on a 70KB chunk before the name can paint, and
+     the motion runs on the compositor. The identity lines rise 80ms apart
+     from the moment `is-live` lands; the widgets follow from 950ms, 70ms
+     apart. The script only flips the class and fires the hand-off events on
+     the same clock. `back.out(1.25)`, expressed as a bezier. */
+  .hero-section {
+    --hero-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
+  }
+
   :global(html.js) .hero-animate {
     opacity: 0;
     transform: translateY(20px);
     will-change: opacity, transform;
+  }
+
+  :global(html.js) .hero-section.is-live .hero-animate {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 600ms var(--hero-ease),
+      transform 600ms var(--hero-ease);
+    transition-delay: calc(var(--hero-i, 0) * 80ms);
+  }
+
+  :global(html.js) .hero-section.is-live .hero-animate[data-hero-motion] {
+    transition-delay: calc(950ms + var(--hero-i, 0) * 70ms);
+  }
+
+  /* The stagger belongs to the entrance only; left in place it would delay
+     every later transition on these elements. Once settled, the layer hints
+     go too. */
+  :global(html.js) .hero-section.is-settled .hero-animate {
+    transition-delay: 0s;
+    will-change: auto;
   }
 
   .hero-name-shell {
@@ -161,6 +192,7 @@ const bioLines = bio.map((line) => line.split('**'));
     :global(html.js) .hero-animate {
       opacity: 1;
       transform: none;
+      transition: none;
     }
   }
 
@@ -173,30 +205,69 @@ const bioLines = bio.map((line) => line.split('**'));
     position: relative;
   }
 
+  /* Status words leave upward and the next arrives from below: a quick
+     ease-in out, a springy ease-out in. The script steps the classes. */
   .status-text {
     display: inline-block;
     line-height: 1.2em;
-    will-change: transform, opacity;
+    transition:
+      transform 240ms cubic-bezier(0.4, 0, 1, 1),
+      opacity 240ms cubic-bezier(0.4, 0, 1, 1);
   }
 
+  .status-text.is-leaving {
+    transform: translateY(-115%);
+    opacity: 0;
+  }
+
+  .status-text.is-below {
+    transition: none;
+    transform: translateY(115%);
+    opacity: 0;
+  }
+
+  .status-text.is-entering {
+    transition:
+      transform 360ms cubic-bezier(0.34, 1.5, 0.64, 1),
+      opacity 360ms ease-out;
+  }
+
+  /* The dot breathes once the identity lines have landed. Overrides the
+     site-wide opacity-only pulse from site-chrome.css. */
   .status-dot {
     animation: none;
     transform-origin: center;
-    will-change: transform, opacity;
+  }
+
+  .hero-section.is-live .status-dot {
+    animation: hero-dot 820ms ease-in-out 1s infinite alternate;
+  }
+
+  @keyframes hero-dot {
+    from {
+      transform: scale(1);
+      opacity: 1;
+    }
+    to {
+      transform: scale(1.5);
+      opacity: 0.42;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-section.is-live .status-dot {
+      animation: none;
+    }
+
+    .status-text,
+    .status-text.is-entering {
+      transition: none;
+    }
   }
 
   /* Personal info styling */
   .separator {
     opacity: 0.5;
-  }
-
-  /* Hidden SVG filter container */
-  .liquid-glass-filters {
-    position: absolute;
-    width: 0;
-    height: 0;
-    overflow: hidden;
-    pointer-events: none;
   }
 
   /* Social Links with Dropdown Details */
@@ -205,32 +276,41 @@ const bioLines = bio.map((line) => line.split('**'));
     display: inline-block;
   }
 
+  /* Magnetic chips: the chip follows the mouse on a short ease-out and springs
+     back on leave. The transform is set by the script; the timing lives here. */
   .magnetic-button {
     display: inline-flex;
     align-items: center;
+    transition: transform 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
+  .magnetic-button.is-magnetic {
+    transition: transform 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
 </style>
 
 <script>
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const heroSection = document.querySelector<HTMLElement>('[data-hero]');
   const heroElements = Array.from(document.querySelectorAll<HTMLElement>('.hero-animate'));
   const statusText = document.getElementById('status-text');
-  const statusDot = document.querySelector<HTMLElement>('.status-dot');
   const HOME_HERO_GITHUB_READY_EVENT = 'home:hero-github-ready';
-  const HOME_HERO_NAME_TYPED_EVENT = 'home:hero-name-typed';
   // The name line lands at this point of the identity stagger; typing starts
   // here, so nothing types on an element that is still moving.
-  const NAME_READY_S = 0.6;
+  const NAME_READY_MS = 600;
   // The bio is the slowest element (its decode runs for seconds), so it starts
   // just after the name does, and the widgets below follow a few keystrokes
   // in. Nothing waits for the name to finish: the hero fills top to bottom in
   // one pass instead of leaving a hole where the bio will be.
-  const BIO_S = NAME_READY_S;
-  const PHASE_TWO_S = NAME_READY_S + 0.35;
-  // Runs the next stage even if the typewriter never reports -- no canvas, a
-  // thrown error, an empty name list.
-  const PHASE_TWO_FALLBACK_S = 3;
+  const BIO_MS = NAME_READY_MS;
+  // Must match the widget delay in the stylesheet above.
+  const PHASE_TWO_MS = 950;
+  const WIDGET_STAGGER_MS = 70;
+  // Longest entrance: phase two plus the last widget's stagger and duration.
+  const SETTLE_MS = PHASE_TWO_MS + 3 * WIDGET_STAGGER_MS + 600 + 200;
+  const STATUS_HOLD_MS = 2400;
+  const STATUS_OUT_MS = 240;
+  const STATUS_IN_MS = 360;
 
   // Status verbs are curated in src/data/site.ts and passed through a data
   // attribute so the client bundle never imports the data module (which would
@@ -238,177 +318,83 @@ const bioLines = bio.map((line) => line.split('**'));
   const statusHost = document.querySelector<HTMLElement>('[data-status-words]');
   const statusWords: string[] = JSON.parse(statusHost?.dataset.statusWords || '[]');
 
-  const initHero = async () => {
-    if (!heroElements.length) return;
+  const announce = (name: string) => window.dispatchEvent(new CustomEvent(name));
 
-    // Lazy-load GSAP so the home page does not eagerly fetch the chunk on load.
-    const { default: gsap } = await import('gsap');
+  const initEntrance = () => {
+    if (!heroSection) return;
 
-    // Split the hero into two phases so the chain reads top-to-bottom:
-    // identity text resolves first, then the supporting widgets rise in.
-    const identity = heroElements.filter((el) => !el.hasAttribute('data-hero-motion'));
+    // Commit the hidden state before the class lands, so the change is a
+    // transition rather than a first paint in the final state.
+    void heroSection.getBoundingClientRect();
+    heroSection.classList.add('is-live');
+
+    window.setTimeout(() => announce('home:hero-name-ready'), NAME_READY_MS);
+    window.setTimeout(() => announce('home:hero-bio-ready'), BIO_MS);
+
     const widgets = heroElements.filter((el) => el.hasAttribute('data-hero-motion'));
+    const githubIndex = Math.max(0, widgets.findIndex((el) => el.hasAttribute('data-hero-github')));
+    window.setTimeout(() => {
+      (window as Window & { __homeHeroGithubReady?: boolean }).__homeHeroGithubReady = true;
+      announce(HOME_HERO_GITHUB_READY_EVENT);
+    }, PHASE_TWO_MS + githubIndex * WIDGET_STAGGER_MS);
 
-    gsap.set(heroElements, { opacity: 0, y: 20 });
-
-    const heroTl = gsap.timeline({
-      defaults: { ease: 'power3.out' }
-    });
-
-    // Phase 1: status -> name -> info -> role -> bio.
-    heroTl.to(identity, {
-      opacity: 1,
-      y: 0,
-      duration: 0.6,
-      stagger: 0.08,
-      ease: 'back.out(1.25)'
-    }, 0);
-
-    heroTl.call(() => {
-      window.dispatchEvent(new CustomEvent('home:hero-name-ready'));
-    }, [], NAME_READY_S);
-    heroTl.call(() => {
-      window.dispatchEvent(new CustomEvent('home:hero-bio-ready'));
-    }, [], BIO_S);
-
-    // Phase 2 overlaps the typing; the typed event only matters if the beat
-    // ever runs faster than the timeline.
-    const githubWidget = widgets.find((el) => el.hasAttribute('data-hero-github'));
-    const githubWidgetIndex = githubWidget ? Math.max(0, widgets.indexOf(githubWidget)) : 0;
-    let phaseTwoStarted = false;
-
-    const startPhaseTwo = () => {
-      if (phaseTwoStarted) return;
-      phaseTwoStarted = true;
-
-      gsap.to(widgets, {
-        opacity: 1,
-        y: 0,
-        duration: 0.6,
-        stagger: 0.07,
-        ease: 'back.out(1.25)'
-      });
-
-      gsap.delayedCall(githubWidgetIndex * 0.07, () => {
-        (window as Window & { __homeHeroGithubReady?: boolean }).__homeHeroGithubReady = true;
-        window.dispatchEvent(new CustomEvent(HOME_HERO_GITHUB_READY_EVENT));
-      });
-    };
-
-    heroTl.call(startPhaseTwo, [], PHASE_TWO_S);
-    window.addEventListener(HOME_HERO_NAME_TYPED_EVENT, startPhaseTwo, { once: true });
-    gsap.delayedCall(PHASE_TWO_FALLBACK_S, startPhaseTwo);
-
-    const magneticButtons = document.querySelectorAll('[data-magnetic]');
-    magneticButtons.forEach((button) => {
-      const element = button as HTMLElement;
-      const strength = Number.parseFloat(element.getAttribute('data-strength') || '0.3');
-      const quickX = gsap.quickTo(element, 'x', {
-        duration: 0.3,
-        ease: 'power2.out'
-      });
-      const quickY = gsap.quickTo(element, 'y', {
-        duration: 0.3,
-        ease: 'power2.out'
-      });
-      let bounds: DOMRect | null = null;
-
-      const updateBounds = () => {
-        bounds = element.getBoundingClientRect();
-      };
-
-      const handlePointerEnter = (event: PointerEvent) => {
-        if (event.pointerType && event.pointerType !== 'mouse') return;
-        updateBounds();
-      };
-
-      const handlePointerMove = (event: PointerEvent) => {
-        if (event.pointerType && event.pointerType !== 'mouse') return;
-        if (!bounds) {
-          updateBounds();
-        }
-        if (!bounds) return;
-
-        const { left, top, width, height } = bounds;
-        const centerX = left + width / 2;
-        const centerY = top + height / 2;
-
-        const deltaX = (event.clientX - centerX) * strength;
-        const deltaY = (event.clientY - centerY) * strength;
-
-        quickX(deltaX);
-        quickY(deltaY);
-      };
-
-      const handlePointerLeave = (event: PointerEvent) => {
-        if (event.pointerType && event.pointerType !== 'mouse') return;
-        bounds = null;
-        gsap.to(element, {
-          x: 0,
-          y: 0,
-          duration: 0.5,
-          ease: 'elastic.out(1, 0.3)'
-        });
-      };
-
-      element.style.willChange = 'transform';
-      element.addEventListener('pointerenter', handlePointerEnter, { passive: true });
-      element.addEventListener('pointermove', handlePointerMove, { passive: true });
-      element.addEventListener('pointerleave', handlePointerLeave, { passive: true });
-    });
-
-    heroTl.call(() => {
-      if (statusDot) {
-        gsap.to(statusDot, {
-          scale: 1.5,
-          opacity: 0.42,
-          duration: 0.82,
-          ease: 'sine.inOut',
-          repeat: -1,
-          yoyo: true
-        });
-      }
-    });
-
-    if (statusText) {
-      let currentIndex = 0;
-      let statusRotationCall: ReturnType<typeof gsap.delayedCall> | null = null;
-
-      const rotateStatus = () => {
-        currentIndex = (currentIndex + 1) % statusWords.length;
-
-        gsap.timeline()
-          .to(statusText, {
-            yPercent: -115,
-            autoAlpha: 0,
-            duration: 0.24,
-            ease: 'power2.in'
-          })
-          .call(() => {
-            statusText.textContent = statusWords[currentIndex];
-            gsap.set(statusText, { yPercent: 115 });
-          })
-          .to(statusText, {
-            yPercent: 0,
-            autoAlpha: 1,
-            duration: 0.36,
-            ease: 'back.out(1.5)'
-          })
-          .call(scheduleStatusRotation);
-      };
-
-      function scheduleStatusRotation() {
-        statusRotationCall?.kill();
-        statusRotationCall = gsap.delayedCall(2.4, rotateStatus);
-      }
-
-      heroTl.call(() => {
-        scheduleStatusRotation();
-      });
-    }
+    window.setTimeout(() => heroSection.classList.add('is-settled'), SETTLE_MS);
   };
 
-  if (!prefersReducedMotion) {
-    void initHero();
+  const initStatusRotation = () => {
+    if (!statusText || statusWords.length < 2) return;
+    let index = 0;
+
+    const rotate = () => {
+      statusText.classList.add('is-leaving');
+      window.setTimeout(() => {
+        index = (index + 1) % statusWords.length;
+        statusText.textContent = statusWords[index];
+        statusText.classList.replace('is-leaving', 'is-below');
+        // Commit the below position, then transition up from it.
+        void statusText.offsetWidth;
+        statusText.classList.replace('is-below', 'is-entering');
+        window.setTimeout(() => {
+          statusText.classList.remove('is-entering');
+          window.setTimeout(rotate, STATUS_HOLD_MS);
+        }, STATUS_IN_MS);
+      }, STATUS_OUT_MS);
+    };
+
+    // The first swap waits for the identity lines to land, as the dot does.
+    window.setTimeout(rotate, NAME_READY_MS + STATUS_HOLD_MS);
+  };
+
+  const initMagnetic = () => {
+    document.querySelectorAll<HTMLElement>('[data-magnetic]').forEach((element) => {
+      const strength = Number.parseFloat(element.dataset.strength || '0.3');
+      let bounds: DOMRect | null = null;
+
+      element.addEventListener('pointerenter', (event) => {
+        if (event.pointerType !== 'mouse') return;
+        bounds = element.getBoundingClientRect();
+        element.classList.add('is-magnetic');
+      }, { passive: true });
+
+      element.addEventListener('pointermove', (event) => {
+        if (event.pointerType !== 'mouse' || !bounds) return;
+        const dx = (event.clientX - (bounds.left + bounds.width / 2)) * strength;
+        const dy = (event.clientY - (bounds.top + bounds.height / 2)) * strength;
+        element.style.transform = `translate(${dx}px, ${dy}px)`;
+      }, { passive: true });
+
+      element.addEventListener('pointerleave', (event) => {
+        if (event.pointerType !== 'mouse') return;
+        bounds = null;
+        element.classList.remove('is-magnetic');
+        element.style.transform = '';
+      }, { passive: true });
+    });
+  };
+
+  if (!prefersReducedMotion && heroElements.length) {
+    initEntrance();
+    initStatusRotation();
+    initMagnetic();
   }
 </script>

@@ -28,10 +28,10 @@ What shipped, and what was decided along the way:
   pins one. The owner's favourite is indigo; the draw was their call too. A time-of-day palette was prototyped and rejected as too strange; an
   achromatic field was tried and read as grime. The band runs at roughly half the lab's column density with
   near-zero resting alpha, so the ground stays clean between streaks.
-- The clock moves the weather, not the colour. Day is the lab's `rain`
-  preset, night is `drift`; the two blend on a cosine of local hour (calm at
-  03:00, full rain at 15:00) and re-read every minute. `?hour=<0-24>` pins
-  it for review. Tunables are the `DAY`/`NIGHT` constants in the engine.
+- The clock moved the weather, not the colour: day was the lab's `rain`
+  preset, night `drift`, blended on a cosine of local hour. Cut the same
+  day (see "Tempo" below); the engine now has one `RAIN` constant and
+  `?speed=<multiplier>` is the only tempo pin.
 - The field wakes from the centre outward on first paint instead of
   appearing fully formed.
 - Pointer glow survives from the lab; touch gets a wider tap glow instead.
@@ -63,6 +63,100 @@ band shipped were tried, three survived; the "one ink through the page" accent a
   full width, not a full second: show front to 94% of the mash window, boil
   0.12 (package defaults, README and demo updated).
 
+**Phone pass, 2026-09-06.** The owner found the phone view "messy, the
+characters pile on top of each other". Measured on a 390x664 viewport: the
+560px band was solid to 280px and the copy started at 76px, so the whole
+hero sat inside the rain; the bio (238px of 14px Geist Mono) ran from 244px
+to 482px through the field, which is 12px Geist Mono. Two texts in one face
+at one size, one on top of the other. Wide screens never had the problem
+because the 672px column sits inside the 1200px band with rain on either
+side — the band's territory is beside the copy, and on a phone it had none.
+
+- Rule: rain may sit behind display type, never behind body type.
+- First attempt, rejected by the owner the same day: pad the phone copy down
+  216px so the band owned the top of the screen and only the name sat in
+  its fade. Balanced on paper, top-heavy on a phone: 216px of near-empty
+  ground (32 columns of sparse rain cannot hold that space), and the bio
+  cut at the fold. The owner preferred the original composition.
+- What shipped: the composition does not move. Phones (below 640px) get a
+  320px band, no side mask (its edges would fall inside the column), whose
+  mask is full to 45% (144px: nav, status line, the 28px name) and gone at
+  76% (243px), which is where the bio starts. The chips and the role sit in
+  the fade; the bio is on clean ground.
+- The canvas is sized to its host instead of a fixed 1200x560, so a phone
+  simulates ~500 cells rather than 3500 and its bitmap is 768x640, not
+  2400x1120. Width snaps to the 24px lattice; a ResizeObserver rebuilds.
+
+**Tempo, 2026-09-06.** The owner's own diagnosis of what still irritated:
+the rain ran slower than everything else on the page. The numbers agreed.
+The page's beat is the typewriter's 90ms keystroke; the rain ticked at 90ms
+too, but a head moved 0.25–1.0 cells per tick at day speed, so most columns
+did not move on a given beat (about 7 cells/s on average, 3 for the slow
+ones). Then the clock made it worse: the day/night blend drops speed to
+0.35 by 03:00, and at 21:00 — when the owner looks — it was already at half.
+
+- Tick 90ms → 60ms, column speed 0.6–1.6 cells per tick (was 0.25–1.0),
+  night speed 0.35 → 0.6. Day average is now ~18 cells/s (2.6× before), the
+  slowest column ~10; at 21:00 ~14/s (3× before). A head crosses the phone
+  band in about a second.
+- Trails shortened to match (day 0.93 → 0.88, night 0.965 → 0.90) so the
+  streak length in cells stays where it was; only the tempo changed.
+- Entrance 1100ms → 700ms, wake 500 → 400ms, so the field lands with the
+  hero copy (600ms) instead of after it.
+- Second round, owner's call: "a bit slower, and nobody cares about
+  day/night". The blend went — one preset, the same at every hour, `?hour=`
+  gone with it — and speed dropped to 0.8x. Still "really fast, anxious".
+- Third round, the actual diagnosis. Gust timing and glyph churn were
+  written in ticks, so the 90 → 60ms tick had silently sped both up 1.5x:
+  a gust every 3–7s instead of 5–10, crossing in 0.8s at 2.6x speed, so
+  heads burst to ~600px/s a few times a minute, and 6.7 glyph flips per
+  column per second instead of 4.4. Trails also decayed 3x faster in
+  wall-clock time (half-life 0.33s vs 1.16s). That is the nervousness, more
+  than the average speed. Now, per second and per wall-clock ms in the
+  engine, derived from the tick:
+
+  | | original, 21:00 | tempo v2 | now |
+  |---|---|---|---|
+  | head, avg (min–max) px/s | 75 (30–120) | 235 (128–341) | 147 (93–200) |
+  | trail half-life | 1.16s | 0.33s | 0.57s |
+  | streak at alpha 0.15 | 9.9 cells | 9.3 | 10.2 |
+  | glyph flips / column / s | 4.4 | 6.7 | 3.5 |
+  | gust | 2.6x, 1.3s, every 5–10s | 2.6x, 0.8s, every 3–7s | 1.8x, 1.6s, every 8–14s |
+  | first gust | 2.0s | 1.3s | 3.5s (after the hero settles) |
+
+  The average head is twice the original's and the slowest column three
+  times it, which is what "too slow" was about; the streak length the owner
+  liked is unchanged. `?speed=<multiplier>` remains the review pin.
+
+**Resting cost, 2026-09-06.** Measured on the dev build, unthrottled, page
+idle 5s after load, via CDP `Performance.getMetrics` over 6s windows. The
+faster tick itself was cheap: desktop script 18 → 23 ms per second, phone
+9.1 → 9.5. What the measurement turned up instead:
+
+- The home nav's mascot "idle bob" was a JS spring on `requestAnimationFrame`
+  that never stopped while the mascot was not hovered, writing
+  `--peek-shift-*` on the nav every frame; each write re-resolved the nav's
+  whole subtree, ~120 style recalcs and ~100ms of main thread per second on
+  every desktop homepage visit. Now a CSS `translate` animation on the brand
+  (compositor), paused on hover; the spring runs only until it settles and
+  writes on the brand. Desktop resting style time 128 → 52 ms/s, task
+  306 → 218 ms/s.
+- What remains at rest on a phone (~90ms/s of task time, dev build): the
+  field ~25, the contributions wave ~15 (30 bars each running a CSS
+  animation; Chrome still ticks their style every frame, `will-change`
+  already applied, animating one property instead of two changes nothing),
+  the typewriter loop, and the mascot's per-frame beat loop. None of them
+  is a bug; the wave is the one worth a redesign if the phone budget ever
+  needs it.
+- The field on desktop costs ~95ms/s at rest (3500 cells on a 2400x1120
+  bitmap, 17 ticks/s). A glyph sprite atlas instead of `fillText`, or a
+  1.5x DPR cap for the band, are the two levers if that ever matters.
+- Hero entrance moved from a GSAP timeline to CSS transitions with the same
+  choreography and the same hand-off events (`home:hero-name-ready`,
+  `home:hero-bio-ready`, `home:hero-github-ready`). The nav's hover wave
+  now loads GSAP on first mouse hover instead of at init, so no page loads
+  the 70KB chunk up front.
+
 ## The five concepts
 
 | # | Name | Thesis |
@@ -77,9 +171,14 @@ band shipped were tried, three survived; the "one ink through the page" accent a
 
 - [ ] Prune the draw if any hue misfires in the wild; amber on the light
       theme is the one to watch.
-- [ ] Budget it. The band is a 1200x560 canvas repainting at ~11fps on the
-      site's LCP page. Measure paint cost and LCP on prod before calling it
-      done; the lab never did.
+- [x] Budget it. Measured 2026-09-06 on the production build over
+      localhost, iPhone 14 viewport, CPU throttled 4x (Playwright + CDP):
+      hero visible 1520ms → 1005ms, field ready 1044ms → 648ms, load
+      1337ms → 821ms, long tasks 5 (814ms) → 4 (441ms), canvas bitmap
+      2400x1120 → 768x640, inline JS in the HTML 25.6KB → 23.7KB, and the
+      70KB GSAP chunk off the critical path. Pointer-glow repaints capped
+      near 30fps. Still to do on real hardware: a field trace on a mid-range
+      Android; the lab numbers are a floor.
 - [ ] Decide whether the hero's own motion (typewriter, decode, status
       rotation, marquee) stays now that the background moves. Untouched so far.
 - [ ] The lab pages can go once the shipped tunables settle.

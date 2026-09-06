@@ -7,24 +7,38 @@
  * paints a second channel that gently lifts whatever it passes over.
  *
  * Colour is one ink per theme from src/features/home/glyph-inks.ts, drawn at
- * random per session, with `?ink=` pinning one for review. What the clock changes is the
- * WEATHER, not the colour: by day the field runs closer to the lab's `rain`
- * preset, by night it settles into `drift` (slower fall, longer trails, fewer
- * columns). The two are blended on a daylight curve, so there is no step.
+ * random per session, with `?ink=` pinning one for review. The weather is one
+ * fixed preset (`RAIN`); a day/night blend shipped briefly and was cut because
+ * nobody could tell, and it kept dragging the tempo below the page's beat.
  *
- * Budget: an ~11fps tick on a canvas the width of the band, gated on
- * visibility, on being in the viewport, and on prefers-reduced-motion (which
- * gets one static frame and nothing else).
+ * Budget: a ~17fps tick on a canvas the size of the host — the viewport
+ * width (capped at MAX_BAND_WIDTH) by the band height the stylesheet sets —
+ * gated on visibility, on being in the viewport, and on prefers-reduced-motion
+ * (which gets one static frame and nothing else). Nothing off-screen is
+ * simulated: a phone runs a few hundred cells, not the desktop's 3500.
  */
 
 import { GLYPH_INKS, resolveGlyphInk, type GlyphInk } from '@/features/home/glyph-inks';
 
 const GLYPHS = 'CLPSAR01<>=+*-#$';
-const TICK_MS = 90;
+/**
+ * Simulation beat. 60ms is about four display frames: fine enough that a
+ * head stepping a cell every tick or two reads as continuous motion, coarse
+ * enough to stay cheap. The tick sets smoothness only; every tempo below is
+ * written in wall-clock or per-second terms and derived from it, so changing
+ * the tick does not silently retune the weather (it did once).
+ */
+const TICK_MS = 60;
+/** Simulation ticks in a wall-clock span. */
+const ticks = (ms: number): number => Math.round(ms / TICK_MS);
+/** Per-tick probability for an events-per-second rate. */
+const perTick = (perSecond: number): number => (perSecond * TICK_MS) / 1000;
 const GLOW_DECAY = 0.78;
 const FONT_PX = 12;
-const BAND_WIDTH = 1200;
-const BAND_HEIGHT = 560;
+/** The band never runs wider than this, however wide the viewport is. */
+const MAX_BAND_WIDTH = 1200;
+/** The site's dot lattice module; the band width snaps to it. */
+const LATTICE_PX = 24;
 const CELL_W = 12;
 const CELL_H = 16;
 /** Pointer light: a soft lift of the cells under the cursor, not a torch. */
@@ -35,14 +49,20 @@ const GLOW_RADIUS = 88;
 const GLOW_ASPECT = 0.72;
 const GLOW_PEAK = 0.5;
 /**
+ * A moving pointer repaints the whole band; capping that at ~30fps keeps a
+ * fast mouse from costing a full repaint on every display frame while the
+ * glow still reads as continuous.
+ */
+const GLOW_PAINT_MS = 33;
+/**
  * Collapse. The band is sticky, so scrolling does not carry it away: over the
- * first COLLAPSE_PX of scroll every row converges on FOCUS_ROW while the
- * glyphs fade, so the rain condenses and is gone before the rows pile up.
- * Nothing is left behind but the lattice, which rises to meet it. The track
- * only needs to hold the band through the collapse; empty, it scrolls away.
+ * first COLLAPSE_PX of scroll every row converges on the band's middle row
+ * while the glyphs fade, so the rain condenses and is gone before the rows
+ * pile up. Nothing is left behind but the lattice, which rises to meet it.
+ * The track only needs to hold the band through the collapse; empty, it
+ * scrolls away.
  */
 const COLLAPSE_PX = 320;
-const FOCUS_ROW = 17;
 /**
  * Where the site's own texture (dot lattice, pointer spotlight) takes over:
  * published to the page as `--field-edge` in viewport space, see the homepage
@@ -54,37 +74,66 @@ const FIELD_EDGE_PAD = 60;
 /** The falling head is drawn at this alpha over its own trail, so the motion reads. */
 const HEAD_SPARK = 0.9;
 /**
- * Gusts. Every few seconds a front crosses the band: columns near it fall
- * faster, mutate more, and lift a little, then settle. It is the one event
- * that makes the field read as weather rather than as a screensaver. Times
- * are in simulation ticks (TICK_MS each).
+ * Gusts. Now and then a front crosses the band: columns near it fall faster,
+ * mutate more, and lift a little, then settle. It is the one event that makes
+ * the field read as weather rather than as a screensaver, and also the one
+ * thing that can make it read as nervous: at 2.6x speed every four seconds
+ * it was a squall. A breath, not a squall: under 2x, once every ten seconds
+ * or so, and not before the hero copy has settled.
  */
-const GUST_TICKS = 14;
-const GUST_EVERY_TICKS: [number, number] = [55, 110];
-const FIRST_GUST_TICK = 22;
+const GUST_MS = 1600;
+const GUST_EVERY_MS: [number, number] = [8000, 14000];
+const FIRST_GUST_MS = 3500;
 /** Half-width of the front, in columns. */
 const GUST_WIDTH = 7;
-const GUST_SPEED = 1.6;
-const GUST_LIFT = 0.5;
+const GUST_SPEED = 0.8;
+const GUST_LIFT = 0.35;
+/**
+ * Glyph mutation, per column per second, at rest and at the peak of a gust.
+ * Most flips land on cells too faint to see; the ones inside a trail are the
+ * rain's "decoding" texture. Too many and the field fizzes.
+ */
+const CHURN_PER_S = 3.5;
+const GUST_CHURN_PER_S = 8;
 /**
  * Entrance. The band arrives as weather does: a front sweeps down from the top
  * edge over ENTRANCE_MS while columns wake from the centre outward. Both are
  * gates on an already-running simulation, so the field is mid-flow the moment
  * it is fully visible.
  */
-const ENTRANCE_MS = 1100;
+const ENTRANCE_MS = 700;
 /** Soft edge of the sweeping front, in rows. */
 const ENTRANCE_EDGE_ROWS = 7;
-const WAKE_SPREAD_MS = 500;
-const WAKE_MS = 500;
+const WAKE_SPREAD_MS = 400;
+const WAKE_MS = 400;
+
+interface Weather {
+  speed: number;
+  head: number;
+  trail: number;
+  columns: number;
+}
 
 /**
- * Day (`rain`) and night (`drift`), blended by daylight. Both run thinner than
- * the lab presets: the field sits behind body copy, and a full-density band
- * read as grime rather than weather.
+ * The one preset. Thinner than the lab's `rain`: the field sits behind body
+ * copy, and a full-density band read as grime rather than weather.
+ *
+ * Tempo: `speed` scales the per-column fall set in `respawn`, which at 1 puts
+ * the average head at ~9 cells/s (150px/s), the pace of the typewriter's
+ * 11 keystrokes a second rather than ahead of it. `trail` is the per-tick
+ * alpha decay; 0.93 keeps a streak ~10 cells long at that fall and lets it
+ * linger about half a second, so the field is a veil of slow streaks rather
+ * than a shower of short ones.
  */
-const DAY = { speed: 1.0, head: 0.58, trail: 0.93, columns: 0.55 };
-const NIGHT = { speed: 0.35, head: 0.48, trail: 0.965, columns: 0.45 };
+const RAIN: Weather = { speed: 1, head: 0.58, trail: 0.93, columns: 0.55 };
+/**
+ * `?speed=<multiplier>` scales the fall for review (1 is the shipped tempo).
+ * Read once at mount.
+ */
+const tempoPin = (): number => {
+  const pinned = Number(new URLSearchParams(location.search).get('speed'));
+  return pinned > 0 ? pinned : 1;
+};
 /** Per-cell resting alpha. Near zero: the ground stays clean between streaks. */
 const FLOOR_MIN = 0.01;
 const FLOOR_RANGE = 0.03;
@@ -108,37 +157,6 @@ interface Column {
   delay: number;
 }
 
-interface Weather {
-  speed: number;
-  head: number;
-  trail: number;
-  columns: number;
-}
-
-/**
- * 0 at 03:00, 1 at 15:00, cosine between. Local time, so the field is the
- * visitor's weather rather than the server's. `?hour=` pins it for review.
- */
-const daylight = (hour: number): number => 0.5 - 0.5 * Math.cos(((hour - 3) / 24) * Math.PI * 2);
-
-const localHour = (): number => {
-  const pinned = new URLSearchParams(location.search).get('hour');
-  if (pinned !== null && pinned !== '' && !Number.isNaN(Number(pinned))) return Number(pinned);
-  const d = new Date();
-  return d.getHours() + d.getMinutes() / 60;
-};
-
-const weatherAt = (hour: number): Weather => {
-  const t = daylight(hour);
-  const mix = (a: number, b: number) => b + (a - b) * t;
-  return {
-    speed: mix(DAY.speed, NIGHT.speed),
-    head: mix(DAY.head, NIGHT.head),
-    trail: mix(DAY.trail, NIGHT.trail),
-    columns: mix(DAY.columns, NIGHT.columns),
-  };
-};
-
 const pick = (): string => GLYPHS[(Math.random() * GLYPHS.length) | 0];
 
 export interface GlyphFieldHandle {
@@ -159,10 +177,15 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   let rowCount = 0;
   let colW = 0;
   let rowH = 0;
+  /** Band size in CSS px, read from the host; 0 until measured. */
+  let bandW = 0;
+  let bandH = 0;
+  let started = false;
+  let lastGlowPaint = 0;
   const inks: GlyphInk = GLYPH_INKS[resolveGlyphInk(location.search)];
   let ink = inks.light;
   let gain = 0.72;
-  let weather = weatherAt(localHour());
+  const weather: Weather = { ...RAIN, speed: RAIN.speed * tempoPin() };
 
   let raf = 0;
   let last = 0;
@@ -188,7 +211,11 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
 
   const respawn = (col: Column, initial: boolean) => {
     col.head = initial ? Math.random() * rowCount * 2 : -Math.random() * rowCount * 1.5;
-    col.speed = 0.25 + 0.75 * Math.random();
+    // Cells per tick at `RAIN.speed` 1: 0.35–0.75, so 6–12 cells/s. The
+    // slowest column still moves every third tick (never reads as stalled),
+    // the fastest is a touch over the typewriter, and the two-to-one spread
+    // gives the eye slow columns to rest on.
+    col.speed = 0.35 + 0.4 * Math.random();
     if (initial || Math.random() < 0.2) {
       col.maxRow = Math.floor(rowCount * (0.35 + 0.65 * Math.random()));
       col.brightness = 0.5 + 0.5 * Math.random();
@@ -196,18 +223,18 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   };
 
   let tick = 0;
-  let gustStart = FIRST_GUST_TICK;
+  let gustStart = ticks(FIRST_GUST_MS);
   let gustDir = 1;
 
   const scheduleGust = () => {
-    const [min, max] = GUST_EVERY_TICKS;
-    gustStart = tick + min + Math.random() * (max - min);
+    const [min, max] = GUST_EVERY_MS;
+    gustStart = tick + ticks(min + Math.random() * (max - min));
     gustDir = Math.random() < 0.5 ? -1 : 1;
   };
 
   /** Front position in columns for this tick, or null between gusts. */
   const gustFront = (): number | null => {
-    const u = (tick - gustStart) / GUST_TICKS;
+    const u = (tick - gustStart) / ticks(GUST_MS);
     if (u < 0) return null;
     if (u > 1) {
       scheduleGust();
@@ -217,6 +244,9 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     const x = u * span - GUST_WIDTH;
     return gustDir > 0 ? x : colCount - x;
   };
+
+  const churn = perTick(CHURN_PER_S);
+  const gustChurn = perTick(GUST_CHURN_PER_S) - churn;
 
   const step = () => {
     tick++;
@@ -245,7 +275,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
         if (col.glows[r] > 0) col.glows[r] = col.glows[r] < 0.03 ? 0 : col.glows[r] * GLOW_DECAY;
       }
 
-      if (Math.random() < 0.4 + 0.5 * g) col.chars[(Math.random() * rowCount) | 0] = pick();
+      if (Math.random() < churn + gustChurn * g) col.chars[(Math.random() * rowCount) | 0] = pick();
       if (active && at > col.maxRow + 4) respawn(col, false);
     }
   };
@@ -253,7 +283,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   const lit: Array<number | string> = [];
 
   const paint = (now = performance.now()) => {
-    ctx.clearRect(0, 0, BAND_WIDTH, BAND_HEIGHT);
+    ctx.clearRect(0, 0, bandW, bandH);
     ctx.textBaseline = 'top';
     ctx.fillStyle = ink;
     ctx.font = font;
@@ -262,7 +292,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     const age = now - bornAt;
     // Squared so the field is faint well before the rows overlap.
     const fade = (1 - collapse) * (1 - collapse);
-    const focusY = FOCUS_ROW * rowH;
+    const focusY = (rowCount >> 1) * rowH;
     let allAwake = awake || age >= ENTRANCE_MS;
     // Rows above the front are shown; rows within ENTRANCE_EDGE_ROWS of it fade.
     const front = awake ? Infinity : (age / ENTRANCE_MS) * (rowCount + ENTRANCE_EDGE_ROWS);
@@ -308,22 +338,33 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     ctx.globalAlpha = 1;
   };
 
+  /**
+   * Reads the band's size off the host. The width snaps down to the lattice
+   * module: the canvas is centred on the page axis, like the dots, so a
+   * whole number of cells puts its edges and columns on the lattice.
+   */
+  const measure = () => {
+    const width = Math.min(MAX_BAND_WIDTH, host.clientWidth);
+    bandW = Math.floor(width / LATTICE_PX) * LATTICE_PX;
+    bandH = Math.round(host.clientHeight);
+  };
+
   const build = () => {
+    measure();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(BAND_WIDTH * dpr);
-    canvas.height = Math.round(BAND_HEIGHT * dpr);
+    canvas.width = Math.round(bandW * dpr);
+    canvas.height = Math.round(bandH * dpr);
+    canvas.style.width = `${bandW}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.font = font;
 
     // Cells are 12 x 16: two columns and one and a half rows per 24px cell of
-    // the site's dot lattice, and the 1200px band is 50 cells wide, so with the
-    // canvas centred on the page axis its column edges fall on the lattice.
-    // 12px is also ~1.7 glyph widths, which keeps the rain reading as discrete
-    // streaks rather than solid text.
+    // the site's dot lattice. 12px is also ~1.7 glyph widths, which keeps the
+    // rain reading as discrete streaks rather than solid text.
     colW = CELL_W;
     rowH = CELL_H;
-    colCount = Math.ceil(BAND_WIDTH / colW);
-    rowCount = Math.ceil(BAND_HEIGHT / rowH);
+    colCount = Math.ceil(bandW / colW);
+    rowCount = Math.ceil(bandH / rowH);
     const mid = (colCount - 1) / 2;
 
     columns = Array.from({ length: colCount }, (_, c) => {
@@ -353,7 +394,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     // mid-flow instead of visibly filling in.
     for (let i = 0; i < rowCount * 4; i++) step();
     tick = 0;
-    gustStart = FIRST_GUST_TICK;
+    gustStart = ticks(FIRST_GUST_MS);
   };
 
   /* ── Pointer glow ─────────────────────────────────────────────────────── */
@@ -361,11 +402,11 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   const glowAt = (clientX: number, clientY: number, radius: number) => {
     if (!columns.length) return;
     const box = canvas.getBoundingClientRect();
-    const scale = BAND_WIDTH / box.width;
+    const scale = bandW / box.width;
     const x = (clientX - box.left) * scale;
     const y = (clientY - box.top) * scale;
-    if (x < -radius || x > BAND_WIDTH + radius) return;
-    if (y < -radius || y > BAND_HEIGHT + radius) return;
+    if (x < -radius || x > bandW + radius) return;
+    if (y < -radius || y > bandH + radius) return;
 
     const c0 = Math.max(0, Math.floor((x - radius) / colW));
     const c1 = Math.min(colCount - 1, Math.ceil((x + radius) / colW));
@@ -383,14 +424,22 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
       }
     }
 
-    // Repaint on the next frame rather than per event — a fast pointer fires
-    // far more often than the display can show it.
+    // Repaint on a frame rather than per event, and no more often than
+    // GLOW_PAINT_MS: a fast pointer fires far more often than a full repaint
+    // is worth.
     if (glowQueued) return;
     glowQueued = true;
-    requestAnimationFrame(() => {
-      glowQueued = false;
-      paint();
-    });
+    requestAnimationFrame(glowFrame);
+  };
+
+  const glowFrame = (now: number) => {
+    if (now - lastGlowPaint < GLOW_PAINT_MS) {
+      requestAnimationFrame(glowFrame);
+      return;
+    }
+    glowQueued = false;
+    lastGlowPaint = now;
+    paint(now);
   };
 
   const onPointerMove = (event: PointerEvent) => {
@@ -444,7 +493,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     const u = Math.min(1, Math.max(0, window.scrollY / COLLAPSE_PX));
     const next = u * u * (3 - 2 * u);
     const top = host.getBoundingClientRect().top;
-    const edge = top + (BAND_HEIGHT + FIELD_EDGE_PAD) * (1 - next);
+    const edge = top + (bandH + FIELD_EDGE_PAD) * (1 - next);
     root.style.setProperty('--field-edge', `${Math.max(0, edge)}px`);
     if (next === collapse) return;
     collapse = next;
@@ -474,13 +523,24 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     { rootMargin: '64px' },
   );
 
-  // Weather follows the clock while the page stays open.
-  const weatherTimer = window.setInterval(() => {
-    weather = weatherAt(localHour());
-  }, 60_000);
+  // The band follows the host: a rotation or a breakpoint crossing changes
+  // its size, and a hidden pane can hand over a zero box the first time.
+  // Rebuilding reseeds the columns, which is invisible once the field is
+  // awake; the entrance is never replayed.
+  const resizer = new ResizeObserver(() => {
+    if (!started || destroyed) return;
+    const prevW = bandW;
+    const prevH = bandH;
+    measure();
+    if (bandW === prevW && bandH === prevH) return;
+    build();
+    onScroll();
+    paint();
+  });
 
   const start = () => {
     if (destroyed) return;
+    started = true;
     readTheme();
     build();
     bornAt = performance.now();
@@ -505,12 +565,13 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   window.addEventListener('pointerdown', onPointerDown, { passive: true });
   themeObserver.observe(root, { attributes: true, attributeFilter: ['class'] });
   io.observe(host);
+  resizer.observe(host);
 
   return {
     destroy() {
       destroyed = true;
       sync();
-      clearInterval(weatherTimer);
+      resizer.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('scroll', onScroll);
       root.style.removeProperty('--field-edge');
