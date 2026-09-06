@@ -135,3 +135,55 @@ standing — removing those is a moderation action of its own.
   holds. The create request waits 1500ms for the verdict and finishes the
   check in the background if it runs over, so a `held` outcome can quietly
   become `published` a second later.
+
+## Mood surface
+
+`surface: 'mood'` shares every switch, table, and moderation lever above with
+the blog — same `COMMENTS_ENABLED`, same `blog_comments` table, same risk
+stack, same Telegram ops bot. What it adds is the bridge into the post's
+Telegram discussion group, gated by its own kill switch, and detailed end to
+end in [Comments API § Mood surface](/docs/api/comments#mood-surface-the-telegram-bridge)
+and [Telegram pipeline § The comment bridge](/docs/platform/telegram#the-comment-bridge).
+
+`MOOD_COMMENTS_ENABLED` is the mood-specific kill switch, independent of
+`COMMENTS_ENABLED` above: `"false"` (the default) forces every mood
+document's `discussionLinked` to `false` — the compose box never renders,
+`/mood/[id]` keeps the "Leave a comment on Telegram" link — and a
+`surface: 'mood'` create answers `404`, same as an unlinked post. It also
+stops every Telegram call the bridge makes — sends, edits, deletes, both
+hourly sweeps, and the reply notification for group replies — so flipping
+it off mid-incident silences the bot at once. Reads are unaffected either
+way: the plain Telegram scrape keeps working, rows already bridged still
+overlay, and the discussion-thread mapping keeps filling in from automatic
+forwards, so turning it back on needs no backfill.
+
+| Variable | Purpose |
+| --- | --- |
+| `MOOD_COMMENTS_ENABLED` | The mood kill switch above |
+| `TELEGRAM_DISCUSSION_CHAT_ID` | The discussion group's chat id — from `getChat(@tutumood).linked_chat_id`, printed by `scripts/print-discussion-chat.ts` in `site-api` |
+| `COMMENTS_OWNER_TELEGRAM_USERNAME` | Marks the owner's own group replies `byAuthor` on the web, the mood equivalent of `COMMENTS_OWNER_EMAIL_HASH` |
+
+The ops bot must be a **member of the discussion group as an admin**, with
+only **Delete messages** granted — nothing else. Admin is required for
+Telegram to deliver it group messages at all (bot privacy mode otherwise
+hides them); *Delete messages* is the one permission the bridge actually
+uses, to retract a comment the owner hides or deletes on the site side.
+
+### Phase 0 checklist
+
+One-time setup before flipping the switch, in order:
+
+1. Add the ops bot to the discussion group as admin, **Delete messages**
+   only — see above.
+2. Set `TELEGRAM_DISCUSSION_CHAT_ID` from `getChat(@tutumood).linked_chat_id`.
+3. Set `COMMENTS_OWNER_TELEGRAM_USERNAME` to the owner's Telegram `@handle`.
+4. Allow the `mood_comment_create` Turnstile action on the widget
+   (Cloudflare dashboard) — separate from `blog_comment_create`, so the two
+   surfaces can be tuned apart.
+5. Ship with `MOOD_COMMENTS_ENABLED=false` first, verify the bot receives
+   group messages and the mapping backfills for existing posts, then flip
+   it to `true`.
+
+`check-production-readiness.ts` (site-api) adds `TELEGRAM_DISCUSSION_CHAT_ID`
+to the required-secrets set once `MOOD_COMMENTS_ENABLED=true` — the readiness
+check fails loudly rather than the bridge silently never sending.

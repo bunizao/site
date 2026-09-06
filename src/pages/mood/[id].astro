@@ -19,6 +19,8 @@ import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
 import BackToTop from '@/features/mood/ui/BackToTop.astro';
 import { buildMoodDetailMetadata } from '@/features/mood/server/detail-metadata';
 import { readEnv } from '@/lib/runtime/env';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 
 export const prerender = false;
 
@@ -70,6 +72,9 @@ const moodFeedBackHref = getMoodFeedAnchorHref(id ?? '');
 const canonicalPostId = post?.id ?? id ?? '';
 const channel = readEnv(Astro.locals, 'CHANNEL');
 const telegramCommentUrl = channel && canonicalPostId ? `https://t.me/${channel}/${canonicalPostId}?comment=1` : '';
+const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
+  ? ''
+  : readTurnstileSiteKey(Astro.locals);
 const renderedContent = post
   ? moodReadSource === 'archive'
     ? renderStructuredMoodDetailContent(post)
@@ -97,6 +102,7 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
   oembed={oembed}
   robots="noindex, follow"
   hideSiteNav
+  hideHeaderActionsOnMobile
 >
   <main class="page-container">
     {listeningCssHref && <link rel="stylesheet" href={listeningCssHref} />}
@@ -110,17 +116,18 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
       telegramCommentUrl={telegramCommentUrl}
       backHref={moodFeedBackHref}
       readSource={moodReadSource}
+      discussionLinked={post?.discussionLinked}
+      discussionRepliesEnabled={post?.discussionRepliesEnabled}
+      turnstileSiteKey={turnstileSiteKey}
     />
   </main>
   <BackToTop />
 </Layout>
 
 <script>
-  import {
-    replaceReplyNodesWithCommentQuotes,
-  } from '@/features/mood/shared/comments';
   import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
   import { initMoodDetailComments } from '@/features/mood/client/detail-comments-controller';
+  import { initMoodCommentCompose } from '@/features/mood/client/detail-compose';
   import { initMoodGalleries } from '@/features/mood/client/gallery';
   import { initMoodImageFrames } from '@/features/mood/client/image-frame';
   import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
@@ -169,7 +176,6 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
 
   const moodPostContent = document.querySelector('.mood-post-content');
   if (moodPostContent instanceof HTMLElement) {
-    replaceReplyNodesWithCommentQuotes(moodPostContent);
     initMoodGalleries(moodPostContent);
     initMoodImageFrames(moodPostContent);
     hydrateMoodRichText(moodPostContent);
@@ -205,6 +211,7 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
         alwaysLoading: ALWAYS_LOADING,
         hydrateAnimatedEmoji: animatedEmoji.hydrate,
       });
+      initMoodCommentCompose();
     });
   });
 </script>

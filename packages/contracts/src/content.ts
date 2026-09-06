@@ -118,6 +118,17 @@ export interface MoodContentDocument extends ContentDocument {
   source: 'mood';
   groupIds?: string[];
   channel?: ContentChannelSummary;
+  /** True when the post's copy in the Telegram discussion group is known
+      (`mood_posts.discussion_message_id`) and mood comments are enabled, so
+      the compose box can post into the thread. False or absent: the page
+      keeps the "Leave a comment on Telegram" link instead. */
+  discussionLinked?: boolean;
+  /** True once the read path has verified, from live traffic, that the
+      embed's comment ids are the group's message ids, which is what a
+      web reply to a Telegram-origin comment needs to thread correctly.
+      Gates reply-to on `telegram` items only; replies to `web` items are
+      always allowed. */
+  discussionRepliesEnabled?: boolean;
 }
 
 export interface PostContentDocument extends ContentDocument {

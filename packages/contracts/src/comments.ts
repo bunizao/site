@@ -29,6 +29,36 @@ export const COMMENT_STATUSES = ['published', 'held', 'rejected', 'deleted'] as 
 
 export type CommentStatus = (typeof COMMENT_STATUSES)[number];
 
+/** Where a comment was written. `blog` rows key on Ghost post ids; `mood`
+    rows key on the Telegram channel message id and are bridged into the
+    channel's discussion group by the ops bot — plans/mood-comments-bridge.md. */
+export const COMMENT_SURFACES = ['blog', 'mood'] as const;
+
+export type CommentSurface = (typeof COMMENT_SURFACES)[number];
+
+/** Length of the anchor token derived from a comment id. */
+export const COMMENT_ANCHOR_TOKEN_LENGTH = 12;
+
+/**
+ * Stable, unguessable-enough anchor for a comment: the first 12 hex chars of
+ * sha256(commentId). It rides in the bridged Telegram message's link
+ * (`/mood/<postId>#c-<token>`), in the owner card's View URL, and as the
+ * `id="c-<token>"` of the rendered row. The read path matches bridged
+ * messages back to their rows by this string, so it must be computed the
+ * same way everywhere — hence one helper here. Async because it uses Web
+ * Crypto, which is what Workers, Node >= 20, and browsers share.
+ */
+export async function commentAnchorToken(commentId: string): Promise<string> {
+  const bytes = new TextEncoder().encode(commentId);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, COMMENT_ANCHOR_TOKEN_LENGTH);
+}
+
+/** Matches `#c-<token>` anywhere in a URL or text; group 1 is the token. */
+export const COMMENT_ANCHOR_PATTERN = /#c-([0-9a-f]{12})\b/;
+
 export const MODERATION_ACTIONS = ['publish', 'hold', 'reject', 'unsure'] as const;
 
 export type ModerationAction = (typeof MODERATION_ACTIONS)[number];
@@ -210,8 +240,12 @@ export interface CommentAuthor {
 
 export interface Comment {
   id: string;
-  /** Ghost's post.id, stable across slug renames. */
+  surface: CommentSurface;
+  /** `blog`: Ghost's post.id, stable across slug renames. `mood`: the
+      Telegram channel message id, the same value `/mood/[id]` routes on. */
   postId: string;
+  /** `commentAnchorToken(id)`, precomputed so clients never hash. */
+  anchorToken: string;
   /** Always a root comment id, or null. Threading is one level deep. */
   parentId: string | null;
   author: CommentAuthor;
@@ -247,6 +281,9 @@ export interface CommentListResult {
 }
 
 export interface CommentCreateInput {
+  /** Defaults to `blog`. `mood` requires the post to have a linked
+      discussion thread (`MoodContentDocument.discussionLinked`). */
+  surface?: CommentSurface;
   postId: string;
   body: string;
   /** Root comment id this replies to. Omitted or null for a root comment. */

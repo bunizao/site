@@ -77,6 +77,7 @@ TODO; if you are about to act on a row here, confirm it in the code first.
 | [ops-portal.md](ops-portal.md) | The approved roadmap for the portal rework, notify gate, Telegram ops bot, and analytics workstream. |
 | [blog-comments.md](blog-comments.md) | Reader comments and reactions on `/blog/[slug]`: GitHub/Google/magic-link identity, proxied avatars, model moderation, writer-chosen visibility. Supersedes the anonymous design in `.agents/tasks/prd-blog-comments-likes.md`. |
 | [apple-music-v2.md](apple-music-v2.md) | MusicKit full-track playback (draft PRD). |
+| [mood-comments-bridge.md](mood-comments-bridge.md) | A compose box on `/mood/[id]` whose comments the ops bot posts into the Telegram discussion group; thin bridge over the existing scrape and the blog comments risk stack. |
 
 ## Dependency notes
 

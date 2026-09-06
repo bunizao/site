@@ -14,6 +14,22 @@ import type {
 
 export const TELEGRAM_OPS_WEBHOOK_PATH = '/webhooks/telegram-ops' as const;
 
+/**
+ * Callback data and message tokens the ops bot uses for comment cards. The
+ * comment id no longer lives in an expiring pending-action token: every
+ * card and every reply prompt carries `#c-<anchorToken>` in its View URL
+ * and as a text link, so replying to the card resolves the comment for as
+ * long as the card exists — plans/mood-comments-bridge.md "Owner reply
+ * flow". Group messages (the discussion group's automatic forwards and
+ * replies to the bot's bridged comments) are expected on this webhook too.
+ */
+export const TELEGRAM_OPS_COMMENT_CALLBACK_PREFIXES = {
+  reply: 'comment:reply:',
+  approve: 'comment:approve:',
+  hide: 'comment:hide:',
+  delete: 'comment:delete:',
+} as const;
+
 export const NOTIFY_GATE_PATH = '/admin/notify-gate' as const;
 export const NOTIFY_GATE_RELEASE_PATH = `${NOTIFY_GATE_PATH}/release` as const;
 

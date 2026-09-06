@@ -386,3 +386,41 @@ export function resolveCommentsCopy(locale: string | null | undefined): Comments
 export function copyFor(node: Element | null): CommentsCopy {
   return resolveCommentsCopy(node?.closest('[data-locale]')?.getAttribute('data-locale'));
 }
+
+/* --- Mood compose -------------------------------------------------------
+   The mood detail page (/mood/[id]) has its own compose box
+   (CommentCompose.astro / detail-compose.ts). It reuses the validation,
+   error, and drafts copy above via `data-locale="en"` on its root -- the
+   mood zone is English-only, so there is no zh variant to keep in sync --
+   and only needs the handful of strings that are specific to the bridge:
+   the disclosure line, the held note, and the reply chip. */
+export interface MoodCommentsCopy {
+  disclosure: string;
+  post: string;
+  postAria: string;
+  held: string;
+  reply: string;
+  replyingTo: (author: string) => string;
+  cancelReply: string;
+  cancelReplyAria: string;
+  /** Where a comment was written. The thread mixes two origins and used to
+      render them identically, so a reader could not tell a group message from
+      one typed on this page. The chip beside the date says which. */
+  sourceTelegram: string;
+  sourceWeb: string;
+  sourceAria: (source: string) => string;
+}
+
+export const moodCommentsCopy: MoodCommentsCopy = {
+  disclosure: 'Posted here and in the Telegram discussion group.',
+  post: 'Post',
+  postAria: 'Post comment',
+  held: 'Posted — for now, only you can see it.',
+  reply: 'Reply',
+  replyingTo: (author) => `Replying to ${author}`,
+  cancelReply: 'Cancel',
+  cancelReplyAria: 'Cancel reply',
+  sourceTelegram: 'Telegram',
+  sourceWeb: 'Web',
+  sourceAria: (source) => `Written on ${source}`,
+};

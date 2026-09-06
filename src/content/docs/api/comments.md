@@ -13,9 +13,11 @@ session alone. Email verification and OAuth sign-in are upgrade paths
 (grades L1/L2 below), never a door charge, and the address itself never
 appears in a response body or public HTML.
 
-Not `mood`'s per-post comment count (see
-[Mood API](/docs/api/mood#comments)) — this is a separate feature, a
-different table, and a different identity model.
+This route family also carries `mood`'s comments, on the `surface` parameter
+below — see [Mood surface: the Telegram bridge](#mood-surface-the-telegram-bridge).
+It is not `mood`'s read-only per-post comment count (see
+[Mood API](/docs/api/mood#comments)), which stays the plain Telegram scrape
+this route bridges into.
 
 ## Per-post policy
 
@@ -122,6 +124,7 @@ POST /api/v2/comments
 
 ```json
 {
+  "surface": "blog",
   "postId": "...",
   "body": "...",
   "parentId": null,
@@ -134,6 +137,23 @@ POST /api/v2/comments
   "locale": "zh"
 }
 ```
+
+`surface` is `"blog"` (default) or `"mood"` — one table, one route, two
+callers. Sending `mood` requires the post to exist in the mood archive,
+not be soft-deleted, and have a linked Telegram discussion thread
+(`discussion_message_id` set — surfaced to the reader as
+`MoodContentDocument.discussionLinked`, see
+[Mood API](/docs/api/mood#detail)); anything else is the same
+`404 not_found` / `503 comment_target_unavailable` a bad blog `postId`
+gets. `parentId` on `mood` is either another `mood` comment's own row id, or
+— once [`discussionRepliesEnabled`](/docs/api/mood#detail) — the Telegram
+message id of a `telegram`-origin comment; see
+[Mood surface: the Telegram bridge](#mood-surface-the-telegram-bridge) for
+what happens to a `mood` write next. `turnstileToken` uses a distinct
+`expectedAction` per surface (`blog_comment_create` / `mood_comment_create`),
+everything below Turnstile in the risk stack runs unchanged and shares its
+counters across both surfaces (one person, one budget). `locale` on `mood`
+is always `"en"` — the mood zone has no other language.
 
 `body` is 1-2000 characters. `displayName` is 1-32 characters, no control
 characters, can't collide with a small reserved list (the blog owner's own
@@ -233,6 +253,64 @@ reached, `403 comments_closed` and `403 email_verification_required` from the
 `429 Too Many Requests` for a rate limit.
 
 Same-origin only — no CORS header.
+
+## Mood surface: the Telegram bridge
+
+A `mood` write runs the full risk stack above unchanged, then — as a side
+effect, never blocking the response — bridges into the post's Telegram
+discussion group:
+
+- **`published`** sends an HTML message into the group, replying to the
+  post's own copy there (or to the parent comment's Telegram message when
+  `parentId` names a `telegram`-origin comment):
+
+  ```
+  <b>{displayName}</b> <a href="{commentUrl}">via buxx.me</a>
+
+  {body, rendered to the same small Markdown subset the blog accepts}
+  ```
+
+  `commentUrl` is `https://buxx.me/mood/<postId>#c-<token>`, where `token`
+  is `commentAnchorToken(commentId)` — the first 12 hex characters of
+  `sha256(commentId)` (`@bunizao/contracts/comments`). The link, not visible
+  text, is what a Telegram reader sees; it is also the read path's match key
+  (below), so the two sides never depend on Telegram's own message ids
+  agreeing with anything the site chose. On success the row remembers the
+  group's `message_id`; on failure it is retried hourly for the next 24h.
+  The bridge send failing never fails the create — the comment is already
+  published on the site (`outcome` in the response is unaffected either
+  way).
+- **`held`** never reaches Telegram. Approving a held comment (card or
+  portal) runs the same bridge step then, at that point — not before. A
+  rejected comment is never bridged, ever.
+- **Edit** (the same 15-minute, verified-reader-only window as the blog)
+  edits the bridged message in place; Telegram shows "edited". **Delete** —
+  by the reader, or by the owner — deletes the bridged message. Both are
+  logged and retried on failure rather than blocking; the site is the
+  source of truth for whether a row is gone, not the group.
+
+Reading a `mood` thread (`GET /api/comments?postId=` /
+`GET /api/v2/mood/{id}/comments`, see
+[Mood API](/docs/api/mood#comments) and
+[`/api/comments`](/docs/api/content#comments-by-post-id)) still scrapes the
+group's public embed — the bridge does not change how mood comments are
+read, only what a web reader can add to them. The scrape is overlaid with
+the site's own `mood`-surface rows before it reaches a client: a scraped
+message whose text carries a `#c-<token>` link matching a published row is
+replaced with that row's author, avatar, and body and marked `origin: "web"`
+with `commentId` set (so the writer's own browser can mark it `mine` and
+offer edit/delete); a `mood` row not yet visible in the scrape (bridge
+pending, or the scrape's edge cache hasn't caught up) is appended instead,
+so a writer sees their own comment immediately rather than after the cache
+TTL. A row whose bridged message was removed directly in Telegram is
+treated as deleted, never resurrected.
+
+Disabled entirely by `MOOD_COMMENTS_ENABLED` (site-api, default off) — while
+off, `surface: "mood"` on this route answers exactly like an unlinked post
+(`discussion_message_id` unset): `resolveCommentablePost` finds nothing to
+write into, and no bridge call (send, edit, delete, sweep) reaches Telegram.
+See [Comments platform](/docs/platform/comments) for the kill switch and the
+Phase 0 setup it gates.
 
 ## Dwell-time token
 

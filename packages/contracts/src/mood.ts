@@ -222,13 +222,41 @@ export interface MoodLiveCountsResponse {
   counts: Record<string, MoodLiveCount>;
 }
 
+/**
+ * The parent a comment replies to, read from the t.me reply block.
+ * `id` is the parent comment id; `text` is a plain-text preview, not HTML.
+ */
+export interface MoodCommentReplyTo {
+  id: string;
+  author: string;
+  text: string;
+}
+
+/** Where a thread item came from. `telegram`: a group member wrote it in
+    the discussion thread. `web`: written on /mood/[id]; the group holds the
+    ops bot's bridged copy, and the read path re-attributes that copy to the
+    reader — plans/mood-comments-bridge.md "Read path: scrape plus overlay". */
+export const MOOD_COMMENT_ORIGINS = ['telegram', 'web'] as const;
+
+export type MoodCommentOrigin = (typeof MOOD_COMMENT_ORIGINS)[number];
+
 export interface MoodComment {
+  /** Discussion-group message id as the t.me embed reports it. */
   id: string;
   author: string;
   authorAvatar?: string;
   datetime: string;
   content: string;
   reactions: MoodReaction[];
+  replyTo?: MoodCommentReplyTo;
+  /** Omitted means `telegram`. */
+  origin?: MoodCommentOrigin;
+  /** The site comment row behind a `web` item (`Comment.id`). Lets the
+      browser mark rows it wrote and offer edit/delete through /v2/comments. */
+  commentId?: string;
+  /** `commentAnchorToken(commentId)`; the row renders as `id="c-<token>"`
+      so the bridged Telegram link and the owner card land on it. */
+  anchorToken?: string;
 }
 
 export interface MoodCommentsPage {

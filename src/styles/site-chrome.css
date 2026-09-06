@@ -617,7 +617,20 @@
     gap: 6px;
   }
 
+  /* Fixed chrome over a narrow reading column has nowhere to sit but on the
+     text: at the end of a thread the buttons come to rest on a comment and
+     the reader cannot scroll them off. Pages that opt in drop them below the
+     width where they move out to the margin. They stay in the DOM, so the
+     theme script still has its element to write to. */
+  .global-header-actions--desktop-only {
+    display: none;
+  }
+
   @media (min-width: 900px) {
+    .global-header-actions--desktop-only {
+      display: flex;
+    }
+
     .global-header-actions {
       top: 24px;
       right: 24px;

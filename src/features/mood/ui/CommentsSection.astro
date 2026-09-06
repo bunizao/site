@@ -1,16 +1,32 @@
 ---
+import CommentCompose from '@/features/mood/ui/CommentCompose.astro';
+
 interface Props {
   postId: string;
   telegramCommentUrl?: string;
+  /** MoodContentDocument.discussionLinked -- the post's copy in the Telegram
+      discussion group is known and mood comments are enabled, so the box
+      below can post into the thread. False or absent keeps the existing
+      "Leave a comment on Telegram" CTA. */
+  discussionLinked?: boolean;
+  discussionRepliesEnabled?: boolean;
+  turnstileSiteKey?: string;
 }
 
 const {
   postId,
   telegramCommentUrl = '',
+  discussionLinked = false,
+  discussionRepliesEnabled = false,
+  turnstileSiteKey = '',
 } = Astro.props;
 ---
 
-<section class="mood-comments" data-post-id={postId}>
+<section
+  class="mood-comments"
+  data-post-id={postId}
+  data-discussion-replies-enabled={discussionRepliesEnabled ? 'true' : 'false'}
+>
   <div class="mood-comments-header">
     <span class="mood-comments-title">Comments</span>
     <span class="mood-comments-count" data-comments-count></span>
@@ -67,6 +83,11 @@ const {
   <button type="button" class="mood-comments-load-more" data-load-more hidden>
     Load more comments
   </button>
+  {/* The route out to the group, last row of the thread. It is the only way
+      to comment while the bridge is off, and stays on above the compose box
+      once it is on -- writing in the group has always been an option and the
+      box does not take it away. It reads as a comment, so it belongs in the
+      stream rather than under the form that ends it. */}
   {telegramCommentUrl && (
     <a
       href={telegramCommentUrl}
@@ -101,6 +122,13 @@ const {
       </div>
     </a>
   )}
+  {discussionLinked && (
+    <CommentCompose
+      postId={postId}
+      discussionRepliesEnabled={discussionRepliesEnabled}
+      turnstileSiteKey={turnstileSiteKey}
+    />
+  )}
 </section>
 
 <style is:global>
@@ -111,9 +139,46 @@ const {
     padding-top: 48px;
     border-top: 1px solid hsl(var(--foreground) / 0.08);
     position: relative;
-    --comment-body-padding: 9px 12px;
-    --comment-body-radius: 12px;
+    /* Two sizes, not five. Every comment UI worth copying -- GitHub, Telegram
+       Web, Discourse -- gives the name the body's own size and lets weight and
+       colour carry the hierarchy, and none of them drops the timestamp more
+       than one step. 13px is the floor .blog-comments already settled on for
+       the same reason it applies here: two Chinese characters are the shortest
+       label this thread gets, and the glyph is the box. */
+    --comment-body: 15px;
+    --comment-meta: 13px;
+    /* 1.618 exactly. At 15px that is a 24.3px line, which is also where the
+       comfortable range for this measure lands -- the ratio and the reading
+       agree, so there is no reason to round away from it. */
+    --comment-lead: 1.618;
+    /* One bubble shape at every width. The tight top-left corner points the
+       bubble at its avatar, which sits at the top of the row. */
+    /* One golden ladder for every gap inside the bubble: 6 -> 10 -> 16, each
+       rung 1.618x the last. 6 separates parts of one thought (name from
+       message, message from its footer), 10 is the bubble's vertical breath,
+       16 its horizontal. Parts of a thought therefore always sit closer to
+       each other than to the bubble's edge, which is the whole job of the
+       spacing. It holds at every width -- four different paddings across
+       four breakpoints is what made this feel arbitrary. */
+    --comment-body-padding: 10px 16px;
+    --comment-gap-inner: 6px;
+    --comment-body-radius: var(--radius-sm) var(--radius-xl) var(--radius-xl)
+      var(--radius-xl);
     --comment-stack-gap: 16px;
+
+    /* Strictly achromatic, like the rest of the surface. The dirt the old
+       values read as was not a missing hue -- it was a flat mid-light slab:
+       6% of black on white is #F0F0F0 over the whole bubble. Dropping the
+       fill and letting the border draw the shape keeps the surface neutral
+       and stops it reading as a grey block. Dark needs the opposite balance,
+       since a 3.5% fill there is invisible against the ground. */
+    --comment-bubble-bg: color-mix(in oklab, hsl(var(--foreground)) 3.5%, hsl(var(--background)));
+    --comment-bubble-border: color-mix(in oklab, hsl(var(--foreground)) 13%, transparent);
+  }
+
+  .dark .mood-comments {
+    --comment-bubble-bg: color-mix(in oklab, hsl(var(--foreground)) 6%, hsl(var(--background)));
+    --comment-bubble-border: color-mix(in oklab, hsl(var(--foreground)) 9%, transparent);
   }
 
   .mood-comments::before {
@@ -202,7 +267,7 @@ const {
     gap: 10px;
     padding: 0;
     position: relative;
-    animation: comment-fade-in 0.3s ease-out backwards;
+    animation: comment-fade-in var(--dur-enter) var(--ease-out) backwards;
   }
 
   @media (min-width: 640px) {
@@ -288,13 +353,14 @@ const {
     width: fit-content;
     max-width: 100%;
     min-width: 0;
-    /* Comments are human prose — read in sans, not the site's mono identity
-       that body inherits by default. */
+    /* One family for the whole bubble. A comment is a self-contained reading
+       unit, so it reads in the prose face throughout rather than switching to
+       the page's mono chrome voice halfway down. */
     font-family: var(--font-sans);
-    background: hsl(var(--foreground) / 0.035);
-    border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: var(--comment-body-radius, 12px);
-    padding: var(--comment-body-padding, 9px 12px);
+    background: var(--comment-bubble-bg);
+    border: 1px solid var(--comment-bubble-border);
+    border-radius: var(--comment-body-radius);
+    padding: var(--comment-body-padding);
     position: relative;
   }
 
@@ -302,44 +368,45 @@ const {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: var(--comment-gap-inner);
     flex-wrap: wrap;
   }
 
+  /* Where the comment was written. Monochrome on purpose -- the mood surface
+     has no accent colour, so the glyph carries the distinction, not a brand
+     blue. */
+  .mood-comment-source {
+    display: inline-flex;
+    align-items: center;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
+  .mood-comment-source svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* The body's own size, GitHub's rule: weight and colour separate the name
+     from the message, not a size step. */
   .mood-comment-author {
-    font-size: 13px;
+    font-size: var(--comment-body);
     font-weight: 600;
-    color: hsl(var(--foreground));
-    letter-spacing: -0.01em;
+    color: hsl(var(--foreground) / 0.92);
   }
 
-  @media (min-width: 640px) {
-    .mood-comment-author {
-      font-size: 14px;
-    }
-  }
-
+  /* One step under the body, which is as far as Telegram Web drops its own
+     timestamp. No bullet ahead of it: colour is the separator. */
   .mood-comment-date {
-    font-size: 11px;
-    color: hsl(var(--muted-foreground) / 0.6);
+    font-size: var(--comment-meta);
+    font-weight: 400;
+    color: hsl(var(--muted-foreground) / 0.75);
     font-variant-numeric: tabular-nums;
-  }
-
-  @media (min-width: 640px) {
-    .mood-comment-date {
-      font-size: 12px;
-    }
-  }
-
-  .mood-comment-date::before {
-    content: '•';
-    margin-right: 8px;
-    color: hsl(var(--muted-foreground) / 0.3);
+    font-feature-settings: 'tnum' 1, 'zero' 1;
   }
 
   .mood-comment-content {
-    font-size: 13px;
-    line-height: 1.6;
+    font-size: var(--comment-body);
+    line-height: var(--comment-lead);
     color: hsl(var(--foreground) / 0.95);
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -348,13 +415,6 @@ const {
   .mood-comment-body:has(.image-list-container) {
     width: min(100%, 270px);
     max-width: min(100%, 270px);
-  }
-
-  @media (min-width: 640px) {
-    .mood-comment-content {
-      font-size: 14px;
-      line-height: 1.65;
-    }
   }
 
   .mood-comment-content p {
@@ -555,11 +615,18 @@ const {
     white-space: pre-line;
   }
 
+  .mood-comment-footer {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-top: var(--comment-gap-inner);
+  }
+
   .mood-comment-reactions {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-top: 10px;
   }
 
   .mood-comment-skeleton-line {
@@ -634,8 +701,8 @@ const {
 
   .mood-comments-empty p {
     margin: 0;
-    font-size: 14px;
-    font-style: italic;
+    font-family: var(--font-sans);
+    font-size: var(--comment-meta);
   }
 
   .mood-comments-load-more {
@@ -764,8 +831,8 @@ const {
   .mood-comment-cta-arrow {
     opacity: 0.4;
     transition:
-      opacity 0.2s ease,
-      transform 0.2s ease;
+      opacity var(--dur-base) var(--ease),
+      transform var(--dur-base) var(--ease);
     flex-shrink: 0;
   }
 
@@ -776,8 +843,6 @@ const {
 
   @media (max-width: 540px) {
     .mood-comments {
-      --comment-body-padding: 14px 15px;
-      --comment-body-radius: 16px 18px 18px 5px;
       --comment-stack-gap: 12px;
       margin-top: 32px;
       padding-top: 32px;
@@ -807,32 +872,18 @@ const {
       border-width: 1px;
     }
 
+    /* Only layout tightens. The type scale does not shrink on a phone --
+       every messaging app runs its body a step *larger* there, not smaller,
+       and dropping the body to the meta size made the author name bigger
+       than the message it introduces. */
     .mood-comment-header {
-      gap: 6px;
-      margin-bottom: 4px;
-    }
-
-    .mood-comment-author {
-      font-size: 12px;
-    }
-
-    .mood-comment-date {
-      font-size: 10px;
-    }
-
-    .mood-comment-date::before {
-      margin-right: 6px;
-    }
-
-    .mood-comment-content {
-      font-size: 13px;
-      line-height: 1.55;
+      gap: 8px;
     }
 
     .mood-comment-content blockquote {
       margin: 0.5em 0 0.6em;
       padding: 4px 8px;
-      font-size: 11px;
+      font-size: var(--comment-meta);
       line-height: 1.45;
     }
 
@@ -864,8 +915,6 @@ const {
 
   @media (max-width: 380px) {
     .mood-comments {
-      --comment-body-padding: 14px 15px;
-      --comment-body-radius: 16px 18px 18px 5px;
       --comment-stack-gap: 10px;
       margin-top: 28px;
       padding-top: 20px;
@@ -881,17 +930,9 @@ const {
       font-size: 10px;
     }
 
-    .mood-comment-author {
-      font-size: 11px;
-    }
-
-    .mood-comment-content {
-      font-size: 12px;
-    }
-
     .mood-comments-load-more {
       padding: 10px 16px;
-      font-size: 12px;
+      font-size: 13px;
     }
   }
 </style>

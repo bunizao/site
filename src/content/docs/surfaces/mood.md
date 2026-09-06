@@ -74,7 +74,9 @@ Rendering rules that are not obvious from the markup:
 - Visible archive posts hydrate live comment and reaction counts through
   `GET /api/v2/moods/live-counts`.
 - Hovering a comments badge fetches `GET /api/comments?postId=…` and shows up to
-  three comments, linking through to `/mood/{id}#comments`.
+  three comments, linking through to `/mood/{id}#comments`. The card reuses the
+  detail bubble's token names one rung down the same ladder — see
+  [Comments](#comments) below.
 - The feed can run against E2E fixtures instead of the live source.
 
 Freshness: the page polls `GET /api/moods?probe=1&fresh=1` every 75 seconds,
@@ -121,6 +123,35 @@ state rather than crashing. It composes [`DetailArticle.astro`](https://github.c
 Normalization in [`shared/comments.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/shared/comments.ts): reply blocks become quote cards, loose text
 nodes are wrapped into paragraphs, avatar and image URLs are sanitized before
 insertion, and duplicate comment ids are filtered client-side.
+
+Every row carries where it was written. The thread mixes two origins — messages
+from the Telegram discussion group and comments typed on this page — and they
+render identically otherwise, so each header holds one glyph, a paper plane or a
+globe, and the row root carries the same value as `data-origin`. The glyph is
+the whole marker: it has no text label beside it, and names itself to assistive
+tech through `role="img"` plus an `aria-label` and `title` of *Written on
+Telegram* / *Written on Web*. Monochrome by design — the mood surface has no
+accent colour, so the shape carries the distinction, not a brand blue.
+
+The bubble runs on two type sizes and nothing else: `--comment-body` (15px) for
+the author name and the message, `--comment-meta` (13px) for the timestamp,
+Reply, and a quoted parent. Hierarchy comes from weight and colour, the way
+GitHub, Telegram Web, and Discourse all do it, and the way `.blog-comments`
+already does it here. Quote styling lives in
+[`feed-rich-text.css`](https://github.com/bunizao/site/blob/main/src/features/mood/styles/feed-rich-text.css) rather than `globals.css`, because that file is unlayered and an
+`@layer` rule loses to it whatever its specificity.
+
+Spacing inside the bubble runs on one ratio: `--comment-lead: 1.618`, and a
+6 → 10 → 16px ladder where each rung is 1.618× the last. 6 separates parts of
+one thought (name from message, message from its footer), 10 is the bubble's
+vertical breath, 16 its horizontal — so parts of a thought always sit closer to
+each other than to the bubble's edge. The same values hold at every width; the
+compose form is one more row in the thread and sits on the same rungs.
+
+The `L1` hover preview declares the same token names one rung down — 13/11 type,
+`6px 10px` padding, a 4px inner gap — so the two surfaces move together. It also
+caps media at 96px: a comment can be nothing but a sticker, and at its natural
+256px one of them filled the card and pushed every other comment out of view.
 
 ## What machine ingress owns
 

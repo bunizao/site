@@ -1,0 +1,448 @@
+---
+/* The mood detail page's compose box -- vanilla .astro + client TS, no
+   React. Renders in place of the "Leave a comment on Telegram" CTA row once
+   the loaded post's `discussionLinked` is true (CommentsSection.astro
+   decides which one to render).
+
+   Behavioural markup is borrowed verbatim from the blog's compose box:
+   `.blog-compose`, `[data-compose-identity]`, `.blog-compose__input`,
+   `.blog-compose__field`, `[data-compose-count]`, `[data-compose-error*]`,
+   `[data-compose-recommend]`, `[data-compose-submit]`, the `website`
+   honeypot -- so compose-validate.ts, drafts.ts, and the risk-stack modules
+   under src/features/comments/client/ work unmodified. `data-locale="en"`
+   is what makes their shared copy table (copy.ts) resolve to English here;
+   the mood zone has no zh variant to keep in sync with it.
+
+   What is NOT reused from the blog: the three-phase reader identity
+   (anonymous/claimed/ready), reader sessions, and the subscribe nudge. Mood
+   comments are always anonymous -- `data-phase` never changes off
+   "anonymous" -- and email stays optional, matching the blog's own default
+   (plans/mood-comments-bridge.md, open decision #2). The submit itself,
+   Turnstile wiring, and the reply chip are client/detail-compose.ts, which
+   also owns the actual POST -- this component only renders. */
+
+import { ICONS } from '@/features/comments/icons';
+import { moodCommentsCopy } from '@/features/comments/copy';
+
+interface Props {
+  postId: string;
+  /** MoodContentDocument.discussionRepliesEnabled -- gates whether a Reply
+      button on a `telegram`-origin comment is allowed to send a parentId.
+      Read by detail-comments-controller.ts off this box's data attribute
+      rather than threaded through as a second prop everywhere. */
+  discussionRepliesEnabled?: boolean;
+  /** Same key the blog page passes to CommentsSection -- see
+      src/lib/turnstile-site-key.ts. Empty on the e2e fixture path, which
+      skips Turnstile entirely (see turnstile-token.ts). */
+  turnstileSiteKey?: string;
+}
+
+const {
+  postId,
+  discussionRepliesEnabled = false,
+  turnstileSiteKey = '',
+} = Astro.props;
+
+const t = moodCommentsCopy;
+---
+
+<div
+  class="mood-compose blog-compose"
+  data-mood-compose
+  data-phase="anonymous"
+  data-receipt="idle"
+  data-locale="en"
+  data-post-id={postId}
+  data-discussion-replies-enabled={discussionRepliesEnabled ? 'true' : 'false'}
+  data-turnstile-site-key={turnstileSiteKey}
+>
+  <p class="mood-compose__alert" data-compose-error role="alert" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.circleAlert} />
+    <span data-compose-error-text></span>
+    <code class="mood-compose__code" data-compose-error-code hidden></code>
+  </p>
+
+  {/* Quote of the comment a reply is aimed at, with a way out of it. Empty
+      and hidden until detail-compose.ts's Reply-button delegation fills it
+      in -- see readCommentReplyTarget / createCommentReplyQuote, the same
+      helpers the rendered thread itself uses for reply-to quotes. */}
+  <div class="mood-compose__reply" data-reply-chip hidden>
+    <div class="mood-compose__reply-quote" data-reply-quote></div>
+    <button
+      type="button"
+      class="mood-compose__reply-dismiss"
+      data-reply-dismiss
+      aria-label={t.cancelReplyAria}
+      title={t.cancelReply}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.x} />
+    </button>
+  </div>
+
+  <div class="mood-compose__box">
+    <div class="mood-compose__identity" id="mood-compose-id" data-compose-identity>
+      <label class="sr-only" for="mood-compose-name">Name</label>
+      <input
+        id="mood-compose-name"
+        class="blog-compose__input mood-compose__input"
+        type="text"
+        maxlength="32"
+        autocomplete="nickname"
+        placeholder="Name"
+        required
+      />
+      <label class="sr-only" for="mood-compose-email">Email</label>
+      <input
+        id="mood-compose-email"
+        class="blog-compose__input mood-compose__input"
+        type="email"
+        autocomplete="email"
+        placeholder="Email (optional)"
+      />
+
+      {/* Honeypot -- risk stack step 3, same shape as IdentityRow.astro's.
+          Off-screen, unreachable by Tab, hidden from assistive tech. Any
+          value here silently drops the submission. */}
+      <input
+        type="text"
+        name="website"
+        data-honeypot
+        tabindex="-1"
+        autocomplete="off"
+        aria-hidden="true"
+        style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;"
+      />
+    </div>
+
+    <p class="mood-compose__recommend" data-compose-recommend aria-live="polite" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.mail} />
+      A verified email means cross-device edits; to skip it, just press send again.
+    </p>
+
+    <label class="sr-only" for="mood-compose-text">Write a comment</label>
+    <textarea
+      id="mood-compose-text"
+      class="blog-compose__field mood-compose__field"
+      name="comment"
+      rows="3"
+      placeholder="Say something…"
+    ></textarea>
+
+    <div class="mood-compose__bar">
+      <span class="mood-compose__count" data-compose-count aria-hidden="true" hidden></span>
+      <button
+        type="button"
+        class="mood-compose__submit"
+        data-compose-submit
+        aria-label={t.postAria}
+        title={t.post}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.arrowUp} />
+      </button>
+    </div>
+  </div>
+
+  {/* Collapsed to nothing until Cloudflare actually asks for an interactive
+      challenge -- see turnstile-token.ts. */}
+  <div class="mood-compose__turnstile" data-turnstile-host></div>
+
+  {/* Posted, but held for review -- not inserted into the thread. Cleared
+      the moment the reader starts a new comment (detail-compose.ts). */}
+  <p class="mood-compose__held" data-compose-held role="status" hidden>{t.held}</p>
+
+  <p class="mood-compose__disclosure">{t.disclosure}</p>
+</div>
+
+<style is:global>
+  .mood-compose {
+    margin-top: var(--comment-stack-gap, 16px);
+    font-family: var(--font-sans);
+  }
+
+  .mood-compose__alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0 0 10px;
+    padding: 9px 12px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: hsl(0 70% 45%);
+    background: hsl(0 70% 50% / 0.08);
+    border: 1px solid hsl(0 70% 50% / 0.18);
+    border-radius: 10px;
+  }
+
+  .mood-compose__alert svg {
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    margin-top: 1px;
+  }
+
+  .mood-compose__code {
+    margin-left: auto;
+    font-size: 11px;
+    opacity: 0.7;
+    white-space: nowrap;
+  }
+
+  .mood-compose__reply {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: var(--comment-gap-inner, 6px) 10px;
+    background: var(--comment-bubble-bg, hsl(var(--background)));
+    border: 1px solid var(--comment-bubble-border, hsl(var(--foreground) / 0.1));
+    border-radius: var(--radius-md, 10px);
+  }
+
+  .mood-compose__reply-quote {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mood-compose__reply-dismiss {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    color: hsl(var(--muted-foreground) / 0.7);
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  /* 22px of circle is the visual; the target around it is what a thumb
+     needs. An overlay grows the hit area without moving the row. */
+  .mood-compose__reply-dismiss::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+
+  .mood-compose__reply-dismiss:hover {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.08);
+  }
+
+  .mood-compose__reply-dismiss svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* Opaque, like the bubbles above it. An alpha fill let the page's dot grid
+     read straight through the form, which made it look unfinished next to
+     rows that sit on a solid surface. */
+  .mood-compose__box {
+    background: var(--comment-bubble-bg, hsl(var(--background)));
+    border: 1px solid var(--comment-bubble-border, hsl(var(--foreground) / 0.08));
+    border-radius: var(--comment-body-radius, 12px);
+    /* The bubble's own rungs: the form is one more row in the thread. */
+    padding: var(--comment-body-padding, 10px 16px);
+    transition:
+      border-color var(--dur-fast) var(--ease),
+      box-shadow var(--dur-fast) var(--ease);
+  }
+
+  .mood-compose__box:has(:focus-visible) {
+    border-color: hsl(var(--foreground) / 0.25);
+    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.06);
+  }
+
+  .mood-compose__identity {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .mood-compose__input {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    font-size: var(--comment-meta, 13px);
+    font-family: inherit;
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    border-radius: 8px;
+  }
+
+  .mood-compose__input::placeholder {
+    color: hsl(var(--muted-foreground) / 0.6);
+  }
+
+  .mood-compose__input:focus {
+    outline: none;
+    border-color: hsl(var(--foreground) / 0.3);
+  }
+
+  .mood-compose__input[aria-invalid='true'] {
+    border-color: hsl(0 70% 50% / 0.5);
+  }
+
+  .mood-compose__recommend {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 0 0 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: hsl(140 45% 38%);
+  }
+
+  .mood-compose__recommend svg {
+    flex-shrink: 0;
+    width: 13px;
+    height: 13px;
+    margin-top: 1px;
+  }
+
+  .mood-compose__field {
+    display: block;
+    width: 100%;
+    padding: 4px 2px;
+    font-size: var(--comment-body, 15px);
+    line-height: var(--comment-lead, 1.65);
+    font-family: inherit;
+    color: hsl(var(--foreground));
+    background: transparent;
+    border: none;
+    resize: vertical;
+    min-height: 3.6em;
+  }
+
+  .mood-compose__field:focus {
+    outline: none;
+  }
+
+  .mood-compose__field[aria-invalid='true'] {
+    outline: none;
+  }
+
+  .mood-compose__bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .mood-compose__count {
+    font-size: 11px;
+    color: hsl(var(--muted-foreground) / 0.7);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mood-compose__count[data-over] {
+    color: hsl(0 70% 45%);
+  }
+
+  .mood-compose__count[data-nudge] {
+    animation: mood-compose-count-nudge 0.3s ease;
+  }
+
+  @keyframes mood-compose-count-nudge {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+  }
+
+  .mood-compose__submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    color: hsl(var(--background));
+    background: hsl(var(--foreground));
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  .mood-compose__submit:hover {
+    opacity: 0.85;
+  }
+
+  .mood-compose__submit:active {
+    transform: scale(0.94);
+  }
+
+  .mood-compose__submit:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .mood-compose__submit svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .mood-compose__turnstile:not(:empty) {
+    margin-top: 10px;
+  }
+
+  .mood-compose__held {
+    margin: 10px 0 0;
+    padding: 8px 12px;
+    font-size: 12.5px;
+    color: hsl(38 80% 40%);
+    background: hsl(38 80% 50% / 0.1);
+    border: 1px solid hsl(38 80% 50% / 0.2);
+    border-radius: 8px;
+  }
+
+  .mood-compose__disclosure {
+    margin: 8px 0 0;
+    font-size: 11px;
+    line-height: 1.4;
+    color: hsl(var(--muted-foreground) / 0.55);
+  }
+
+  /* Sits in .mood-comment-footer beside the reactions, so no top margin of
+     its own. Never hover-gated: on a touch screen a hidden reply button is
+     no button at all. */
+  .mood-comment-reply-btn {
+    /* The label is 13px of text; HIG asks for a target near 44pt. Padding
+       grows the hit area and the negative margin keeps the footer row
+       exactly where it was. */
+    margin: -10px -8px;
+    padding: 10px 8px;
+    font-family: inherit;
+    font-size: var(--comment-meta);
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.75);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: color var(--dur-fast) var(--ease);
+  }
+
+  .mood-comment-reply-btn:hover,
+  .mood-comment-reply-btn:focus-visible {
+    color: hsl(var(--foreground));
+  }
+
+  /* Your own rows, in the surface's own monochrome -- nothing in the mood
+     thread carries an accent colour. Carried by the outline rather than the
+     fill: a fill step large enough to notice in dark reads as a grey slab in
+     light, where the same mix runs the other way. */
+  .mood-comment--mine .mood-comment-body {
+    border-color: color-mix(in oklab, hsl(var(--foreground)) 30%, transparent);
+  }
+
+  @media (max-width: 540px) {
+    .mood-compose__identity {
+      flex-direction: column;
+    }
+  }
+</style>

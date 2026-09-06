@@ -1300,6 +1300,17 @@ const skeletonGroups = [
   }
 
   :global(.mood-comments-popover) {
+    /* The preview is the detail bubble one rung down the same golden ladder:
+       type one step smaller, spacing one rung tighter (16 -> 10, 10 -> 6,
+       6 -> 4). Same names as `.mood-comments` on /mood/[id], so the two
+       surfaces stay in step when either moves. */
+    --comment-body: 13px;
+    --comment-meta: 11px;
+    --comment-lead: 1.618;
+    --comment-body-padding: 6px 10px;
+    --comment-gap-inner: 4px;
+    --comment-bubble-bg: color-mix(in oklab, hsl(var(--foreground)) 3.5%, hsl(var(--background)));
+    --comment-bubble-border: color-mix(in oklab, hsl(var(--foreground)) 13%, transparent);
     position: absolute;
     bottom: calc(100% + 8px);
     left: 50%;
@@ -1313,20 +1324,28 @@ const skeletonGroups = [
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
     backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 16px;
+    border-radius: var(--radius-xl);
     box-shadow:
       0 14px 42px hsl(var(--foreground) / 0.14),
       0 2px 8px hsl(var(--foreground) / 0.04),
       inset 0 1px 0 hsl(var(--foreground) / 0.04);
-    padding: 12px;
+    padding: 10px;
     opacity: 0;
     visibility: hidden;
     transform: translateX(-50%) translateY(4px);
-    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    transition:
+      opacity var(--dur-base) var(--ease),
+      transform var(--dur-base) var(--ease),
+      visibility var(--dur-base);
     z-index: 100;
     pointer-events: none;
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--foreground) / 0.22) transparent;
+  }
+
+  :global(.dark .mood-comments-popover) {
+    --comment-bubble-bg: color-mix(in oklab, hsl(var(--foreground)) 6%, hsl(var(--background)));
+    --comment-bubble-border: color-mix(in oklab, hsl(var(--foreground)) 9%, transparent);
   }
 
   :global(.mood-comments-popover[data-positioned="true"]) {
@@ -1411,9 +1430,9 @@ const skeletonGroups = [
 
   :global(.mood-comments-popover-empty) {
     text-align: center;
-    padding: 16px 8px;
+    padding: 16px 10px;
     color: hsl(var(--muted-foreground) / 0.6);
-    font-size: 13px;
+    font-size: var(--comment-meta);
     font-style: italic;
   }
 
@@ -1426,7 +1445,7 @@ const skeletonGroups = [
   :global(.mood-popover-comment) {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 6px;
   }
 
   :global(.mood-popover-comment-avatar) {
@@ -1455,46 +1474,43 @@ const skeletonGroups = [
   }
 
   :global(.mood-popover-comment-body) {
-    flex: 1;
+    /* Shrink-wrap like the detail bubble: a two-word reply should not be a
+       full-width slab with a sticker floating in the corner of it. */
+    width: fit-content;
+    max-width: 100%;
     min-width: 0;
     /* Read comments in sans, not the inherited site mono. */
     font-family: var(--font-sans);
-    background: hsl(var(--foreground) / 0.04);
-    border: 1px solid hsl(var(--foreground) / 0.05);
-    border-radius: 14px;
-    padding: 10px 12px;
+    background: var(--comment-bubble-bg);
+    border: 1px solid var(--comment-bubble-border);
+    border-radius: 4px var(--radius-md) var(--radius-md) var(--radius-md);
+    padding: var(--comment-body-padding);
   }
 
   :global(.mood-popover-comment-header) {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 4px;
+    margin-bottom: var(--comment-gap-inner);
     flex-wrap: wrap;
   }
 
   :global(.mood-popover-comment-author) {
-    font-size: 12px;
+    font-size: var(--comment-body);
     font-weight: 600;
     color: hsl(var(--foreground));
     letter-spacing: -0.01em;
   }
 
   :global(.mood-popover-comment-date) {
-    font-size: 10px;
+    font-size: var(--comment-meta);
     color: hsl(var(--muted-foreground) / 0.5);
     font-variant-numeric: tabular-nums;
   }
 
-  :global(.mood-popover-comment-date::before) {
-    content: '•';
-    margin-right: 6px;
-    color: hsl(var(--muted-foreground) / 0.3);
-  }
-
   :global(.mood-popover-comment-content) {
-    font-size: 12px;
-    line-height: 1.5;
+    font-size: var(--comment-body);
+    line-height: var(--comment-lead);
     color: hsl(var(--foreground) / 0.9);
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -1518,13 +1534,43 @@ const skeletonGroups = [
 
   :global(.mood-popover-comment-content blockquote) {
     margin: 0.4em 0;
-    padding: 3px 8px;
+    padding: var(--comment-gap-inner) 6px;
     border-left: 2px solid hsl(var(--foreground) / 0.12);
     background: hsl(var(--foreground) / 0.02);
     border-radius: 0 4px 4px 0;
-    font-size: 11px;
+    font-size: var(--comment-meta);
     line-height: 1.4;
     color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  /* A comment can be nothing but a sticker or a photo, and the preview had no
+     size rule at all: one 256px sticker opened the card to its full height and
+     pushed every other comment out of view. This is a scan surface, so media
+     drops two rungs off the detail page's 256px and the neighbours stay on
+     screen. */
+  :global(.mood-popover-comment-content p:has(> .sticker:only-child)) {
+    width: 96px;
+    max-width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius-sm);
+    background: color-mix(in oklab, hsl(var(--foreground)) 6%, transparent);
+    overflow: hidden;
+  }
+
+  :global(.mood-popover-comment-content .sticker) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: inherit;
+  }
+
+  :global(.mood-popover-comment-content img) {
+    max-width: 100%;
+    max-height: 96px;
+    height: auto;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
   }
 
   :global(.mood-popover-comment-content .tg-emoji) {
@@ -1545,14 +1591,14 @@ const skeletonGroups = [
   :global(.mood-popover-view-all) {
     display: block;
     text-align: center;
-    padding: 8px;
+    padding: 6px;
     margin-top: 6px;
-    font-size: 11px;
+    font-size: var(--comment-meta);
     font-weight: 500;
     color: hsl(var(--muted-foreground) / 0.7);
     text-decoration: none;
     border-top: 1px solid hsl(var(--foreground) / 0.06);
-    transition: color 0.15s ease;
+    transition: color var(--dur-fast) var(--ease);
   }
 
   :global(.mood-popover-view-all:hover) {

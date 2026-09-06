@@ -151,7 +151,7 @@ The site relies on the following third-party services to load public content and
 - **Apple services** — track metadata, artwork, preview audio, and Apple Music links.
 - **Ghost** — writing links and post metadata.
 - **GitHub** — repository data, project metadata, and the homepage contributions graph, retrieved through this site's internal API route. A fallback contributions API is used only where the GitHub GraphQL lookup is unavailable.
-- **Telegram-related sources** — mood content and mood comment threads.
+- **Telegram-related sources** — mood content and mood comment threads. Where a mood post's comment thread is bridged (see below), a comment you post on the site is also sent to Telegram, and Telegram sources are read back to show replies posted there.
 - **GitHub and Google (OAuth)** — optional reader sign-in for blog comments. Contacted only when you choose to sign in with one of them.
 - **A language-model provider** — automated moderation of a submitted blog comment. The provider is configured server-side and is currently an OpenAI-compatible endpoint.
 - **YouTube** — video playback after you choose to activate an embedded player; poster images and channel avatars are fetched server-side through this site's static proxy.
@@ -167,7 +167,7 @@ We disclose personal data only where reasonably necessary to operate the site an
 - **Akismet (Automattic)** — spam checking of blog comment submissions.
 - **Gravatar and QQ** — avatar images, looked up server-side by email hash.
 - **Last.fm and Apple services** — listening data and music metadata.
-- **Ghost, GitHub, Telegram-related services, and YouTube** — public content, metadata, and optional video playback.
+- **Ghost, GitHub, Telegram-related services, and YouTube** — public content, metadata, and optional video playback. Where a mood post's comment thread is bridged, this also means your display name and the comment text you post are sent to that post's Telegram discussion group.
 - **GitHub and Google** — optional reader sign-in, where you choose it.
 - **A language-model provider** — the text of a submitted comment, together with the title and excerpt of the post it was written under, for a moderation verdict. The address behind the comment is never sent.
 

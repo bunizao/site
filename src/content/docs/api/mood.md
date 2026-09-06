@@ -114,6 +114,17 @@ for a missing or not-yet-archived id — that's the case where falling back to
 responses cache at the edge for 60s; `?fresh=1` bypasses both the cache read
 and the cache write.
 
+The `v2` document carries two booleans a `v1` (live-mirror) document never
+sets: `discussionLinked` (the post's copy in the Telegram discussion group is
+known and `MOOD_COMMENTS_ENABLED` is on, so the site can post into it — see
+[Comments API](/docs/api/comments#mood-surface-the-telegram-bridge)) and
+`discussionRepliesEnabled` (the read path has verified the group's message
+ids really are what the scrape's comment ids claim, so a reply to a
+`telegram`-origin comment is safe to send). Both are `false`/absent on any
+post the bridge hasn't reached yet, which is also every `v1` response —
+clients render the "Leave a comment on Telegram" link there instead of the
+compose box.
+
 ## Comments
 
 ```
@@ -132,12 +143,39 @@ Same archive/live split as detail above, same response shape on both.
 ```json
 {
   "comments": [
-    { "id": "1", "author": "...", "datetime": "...", "content": "...", "reactions": [] }
+    { "id": "1", "author": "...", "datetime": "...", "content": "...", "reactions": [] },
+    {
+      "id": "4812",
+      "author": "Alice",
+      "datetime": "...",
+      "content": "nice shot",
+      "reactions": [],
+      "origin": "web",
+      "commentId": "01H...",
+      "anchorToken": "3f9a1c0b7e2d",
+      "replyTo": { "id": "1", "author": "...", "text": "..." }
+    }
   ],
   "hasMore": true,
   "nextBefore": "1"
 }
 ```
+
+`replyTo` is present only on comments that answer another comment. `id` is
+the parent comment id — it may belong to a page you have not fetched yet.
+`text` is a plain-text preview of the parent capped at 200 characters, not
+HTML; `content` never contains the parent.
+
+`origin`, `commentId`, and `anchorToken` are the Telegram bridge's overlay on
+top of the plain scrape — omitted `origin` means an ordinary Telegram
+comment, `"web"` means it was written on the site and re-attributed to its
+author here. `commentId` (the site's own comment row id) and `anchorToken`
+(`id="c-<anchorToken>"` on the rendered row) are present only on `web` items,
+letting the writer's own browser mark the row `mine` and offer edit/delete.
+See [Comments API § Mood surface](/docs/api/comments#mood-surface-the-telegram-bridge)
+for the full bridge and overlay rules, and
+[`/api/comments`](/docs/api/content#comments-by-post-id) for the legacy alias
+this route sits behind.
 
 60s edge cache when not bypassed. Same `mood_id_required` (400) /
 `mood_not_found` (404) / `mood_comments_failed` (500) error family as detail.
