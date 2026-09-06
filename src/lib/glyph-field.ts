@@ -35,11 +35,24 @@ const GLOW_RADIUS = 88;
 const GLOW_ASPECT = 0.72;
 const GLOW_PEAK = 0.5;
 /**
- * Where the site's own texture (dot lattice, pointer spotlight) takes over
- * below the band, in document pixels. Published to the page as `--field-edge`
- * in viewport space; see the homepage stylesheet.
+ * Collapse. The band is sticky, so scrolling does not carry it away: over the
+ * first COLLAPSE_PX of scroll every row converges on RULE_ROW and the glyphs
+ * fade, leaving one hairline in the ink. The host's track is sized so the band
+ * unpins the moment that line sits RULE_GAP above the first section label, and
+ * from then on the line scrolls with the page as that section's rule.
  */
-const FIELD_EDGE = 620;
+const COLLAPSE_PX = 320;
+const RULE_ROW = 17;
+const RULE_GAP = 24;
+const RULE_ALPHA = 0.55;
+/**
+ * Where the site's own texture (dot lattice, pointer spotlight) takes over:
+ * published to the page as `--field-edge` in viewport space, see the homepage
+ * stylesheet. It starts this far below the band's bottom, so the fade above
+ * it covers the band's own mask, and rises to the band's top as the rows
+ * collapse: the lattice is what remains once the rain has condensed.
+ */
+const FIELD_EDGE_PAD = 60;
 /** The falling head is drawn at this alpha over its own trail, so the motion reads. */
 const HEAD_SPARK = 0.9;
 /**
@@ -155,6 +168,9 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
 
   let raf = 0;
   let last = 0;
+  /** 0 = full rain, 1 = one rule. Scroll-driven, see COLLAPSE_PX. */
+  let collapse = 0;
+  let paintQueued = false;
   let onScreen = true;
   let bornAt = 0;
   let awake = false;
@@ -246,6 +262,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     lit.length = 0;
 
     const age = now - bornAt;
+    const fade = 1 - collapse;
+    const ruleY = RULE_ROW * rowH;
     let allAwake = awake || age >= ENTRANCE_MS;
     // Rows above the front are shown; rows within ENTRANCE_EDGE_ROWS of it fade.
     const front = awake ? Infinity : (age / ENTRANCE_MS) * (rowCount + ENTRANCE_EDGE_ROWS);
@@ -266,19 +284,26 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
         const gate = awake ? 1 : Math.min(1, Math.max(0, (front - r) / ENTRANCE_EDGE_ROWS));
         if (gate === 0) break;
         const lift = 1 + GUST_LIFT * col.gust;
-        const rain = (r === col.spark ? HEAD_SPARK : col.alphas[r] * col.brightness * lift) * wake * gate;
-        const glow = col.glows[r];
+        const rain = (r === col.spark ? HEAD_SPARK : col.alphas[r] * col.brightness * lift) * wake * gate * fade;
+        const glow = col.glows[r] * fade;
+        // Every row slides toward the rule as the band collapses.
+        const y = r * rowH + (ruleY - r * rowH) * collapse;
         // Glow-dominant cells are painted after the rain so they sit on top.
         if (glow > rain) {
-          lit.push(x, r * rowH, col.chars[r], glow * gain);
+          lit.push(x, y, col.chars[r], glow * gain);
           continue;
         }
         if (rain * gain < 0.012) continue;
         ctx.globalAlpha = rain * gain;
-        ctx.fillText(col.chars[r], x, r * rowH);
+        ctx.fillText(col.chars[r], x, y);
       }
     }
     if (allAwake) awake = true;
+
+    if (collapse > 0) {
+      ctx.globalAlpha = RULE_ALPHA * collapse;
+      ctx.fillRect(0, ruleY + rowH / 2, BAND_WIDTH, 1);
+    }
 
     if (lit.length) {
       for (let i = 0; i < lit.length; i += 4) {
@@ -387,8 +412,10 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
 
   /* ── Frame loop — visibility gated ────────────────────────────────────── */
 
+  // Fully collapsed there is nothing moving: one static rule until the reader
+  // scrolls back up.
   const shouldRun = () =>
-    !destroyed && onScreen && document.visibilityState === 'visible' && !reduced.matches;
+    !destroyed && onScreen && collapse < 1 && document.visibilityState === 'visible' && !reduced.matches;
 
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
@@ -410,9 +437,54 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   };
 
   const onVisibility = () => sync();
-  const onScroll = () => {
-    root.style.setProperty('--field-edge', `${Math.max(0, FIELD_EDGE - window.scrollY)}px`);
+
+  const queuePaint = () => {
+    if (paintQueued) return;
+    paintQueued = true;
+    requestAnimationFrame(() => {
+      paintQueued = false;
+      paint();
+    });
   };
+
+  const onScroll = () => {
+    const u = Math.min(1, Math.max(0, window.scrollY / COLLAPSE_PX));
+    const next = u * u * (3 - 2 * u);
+    const top = host.getBoundingClientRect().top;
+    const edge = top + (BAND_HEIGHT + FIELD_EDGE_PAD) * (1 - next);
+    root.style.setProperty('--field-edge', `${Math.max(0, edge)}px`);
+    if (next === collapse) return;
+    collapse = next;
+    sync();
+    if (columns.length) queuePaint();
+  };
+
+  // The track is the sticky band's containing block: the band pins at the top
+  // of the viewport until the track runs out, and the track runs out exactly
+  // when the rule sits RULE_GAP above the target section.
+  const track = host.parentElement;
+  const target = host.dataset.ruleTarget ? document.querySelector<HTMLElement>(host.dataset.ruleTarget) : null;
+  // Layout positions, not rects: the reveal and parallax transforms on the
+  // sections would otherwise leak into the measurement mid-flight.
+  const docTop = (el: HTMLElement): number => {
+    let y = 0;
+    for (let node: HTMLElement | null = el; node; node = node.offsetParent as HTMLElement | null) y += node.offsetTop;
+    return y;
+  };
+  const sizeTrack = () => {
+    if (!track || !target) return;
+    const labelTop = docTop(target);
+    const trackTop = docTop(track);
+    // The band unpins at scrollY = trackTop + height - BAND_HEIGHT; solve for
+    // the scroll that puts the label RULE_GAP below the rule.
+    const unpinAt = labelTop - RULE_GAP - (RULE_ROW + 0.5) * CELL_H;
+    const height = unpinAt - trackTop + BAND_HEIGHT;
+    track.style.height = `${Math.max(BAND_HEIGHT, Math.round(height))}px`;
+  };
+  const resizeObserver = new ResizeObserver(() => {
+    sizeTrack();
+    onScroll();
+  });
   const onReducedChange = () => {
     if (reduced.matches) awake = true;
     sync();
@@ -447,6 +519,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     bornAt = performance.now();
     // Reduced motion gets one honest frame: the band at rest, no entrance.
     awake = reduced.matches;
+    sizeTrack();
+    onScroll();
     paint(bornAt);
     host.classList.add('is-ready');
     sync();
@@ -465,6 +539,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   window.addEventListener('pointerdown', onPointerDown, { passive: true });
   themeObserver.observe(root, { attributes: true, attributeFilter: ['class'] });
   io.observe(host);
+  resizeObserver.observe(document.body);
 
   return {
     destroy() {
@@ -480,6 +555,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
       window.removeEventListener('pointerdown', onPointerDown);
       themeObserver.disconnect();
       io.disconnect();
+      resizeObserver.disconnect();
+      if (track) track.style.removeProperty('height');
     },
   };
 }
