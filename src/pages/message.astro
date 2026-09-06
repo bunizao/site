@@ -562,21 +562,28 @@ const accentInk = textOnAccent(accentFill);
     padding: 14px;
   }
 
+  /* One delay, composed from two parts: when this bubble's dots start, plus
+     where this dot sits in the wave. The opening run's slots set --slot-in;
+     the live typing bubble sets nothing and starts at once. Written as two
+     separate animation-delay rules instead, the more specific slot rule wins
+     outright and flattens the stagger -- which is what made all three dots
+     pulse in unison rather than travel. */
   .bubble--typing span {
     width: 5px;
     height: 5px;
     background: currentColor;
     border-radius: 50%;
     opacity: 0.3;
-    animation: typing 1.25s ease-in-out infinite;
+    animation: typing 0.9s ease-in-out infinite;
+    animation-delay: calc(var(--slot-in, 0s) + var(--dot, 0s));
   }
 
   .bubble--typing span:nth-child(2) {
-    animation-delay: 0.16s;
+    --dot: 0.14s;
   }
 
   .bubble--typing span:nth-child(3) {
-    animation-delay: 0.32s;
+    --dot: 0.28s;
   }
 
   @keyframes typing {
@@ -587,7 +594,7 @@ const accentInk = textOnAccent(accentFill);
       transform: translateY(0);
     }
     30% {
-      opacity: 0.7;
+      opacity: 0.72;
       transform: translateY(-3px);
     }
   }
@@ -629,16 +636,51 @@ const accentInk = textOnAccent(accentFill);
      when its dots appear, and they hand over at the moment the line they
      stand in for lands. Tune the numbers in this block and nowhere else. */
   .thread {
-    --beat-opener: 0.2s;
-    --slot-1: 0.75s;
-    --beat-line-1: 1.6s;
-    --slot-2: 1.85s;
-    --beat-line-2: 2.5s;
-    --beat-composer: 2.85s;
+    --beat-opener: 0.12s;
+    --slot-1: 0.5s;
+    --beat-line-1: 1.32s;
+    --slot-2: 1.48s;
+    --beat-line-2: 2.08s;
+    --beat-composer: 2.26s;
+    /* The dots clear the cell just before the line lands. Overlapping the two
+       fades draws both at once and the seam shows as a ghost. */
+    --slot-handover: 0.12s;
   }
 
-  [data-beat] {
-    animation: bubble-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  /* One arrival, shaped per element by two custom properties: --rise is how
+     far it travels, --pop how small it starts. Keeping it to one keyframe is
+     what makes the run tunable from the block above rather than from six
+     places. */
+  [data-beat],
+  [data-message-draft]:not([hidden]),
+  [data-message-typing]:not([hidden]),
+  [data-message-sent-view]:not([hidden]) {
+    animation: bubble-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* A bubble grows out of its own corner, the way a chat bubble does, so the
+     origin follows the speaker. The composer only rises: scaling a panel of
+     form fields softens their text on the way in, and it is the one element
+     here that has to look sharp the instant it can be typed into. */
+  [data-beat='opener'],
+  [data-message-draft]:not([hidden]) {
+    --pop: 0.94;
+    transform-origin: 100% 100%;
+  }
+
+  [data-beat='line-1'],
+  [data-beat='line-2'],
+  [data-message-typing]:not([hidden]),
+  [data-message-sent-view]:not([hidden]) {
+    --pop: 0.94;
+    transform-origin: 0 100%;
+  }
+
+  /* The two answered lines take over a spot the dots already held, so they
+     grow in place. Travelling again would read as a second arrival. */
+  [data-beat='line-1'],
+  [data-beat='line-2'] {
+    --rise: 0px;
   }
 
   [data-beat='opener'] {
@@ -655,6 +697,7 @@ const accentInk = textOnAccent(accentFill);
 
   [data-beat='composer'] {
     animation-delay: var(--beat-composer);
+    --rise: 10px;
   }
 
   /* The slot and its line share one grid cell, so the line's size is the
@@ -663,6 +706,9 @@ const accentInk = textOnAccent(accentFill);
   .msg--slot {
     display: grid;
     justify-items: start;
+    /* Without this the dots stretch to the height of the line they stand in
+       for, and a wrapped line turns the pill into a slab. */
+    align-items: start;
   }
 
   .msg--slot > * {
@@ -676,51 +722,40 @@ const accentInk = textOnAccent(accentFill);
      forever -- the bubble is invisible after the hand-over, and an infinite
      animation on an invisible box is a compositor that never sleeps. */
   .bubble--typing-slot {
+    --pop: 0.94;
+    transform-origin: 0 100%;
     animation:
-      bubble-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) var(--slot-in) both,
-      bubble-out 0.16s ease var(--slot-out) forwards;
+      bubble-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) var(--slot-in) both,
+      bubble-out 0.14s ease-in var(--slot-out) forwards;
   }
 
   .bubble--typing-slot span {
     animation-iteration-count: 2;
   }
 
+  /* --slot-in is read twice: by the slot, for when its bubble arrives, and by
+     the dots inside it, which inherit it as the first half of their delay. */
   [data-slot='line-1'] {
     --slot-in: var(--slot-1);
-    --slot-out: var(--beat-line-1);
+    --slot-out: calc(var(--beat-line-1) - var(--slot-handover));
   }
 
   [data-slot='line-2'] {
     --slot-in: var(--slot-2);
-    --slot-out: var(--beat-line-2);
-  }
-
-  [data-slot='line-1'] span {
-    animation-delay: var(--slot-1);
-  }
-
-  [data-slot='line-2'] span {
-    animation-delay: var(--slot-2);
+    --slot-out: calc(var(--beat-line-2) - var(--slot-handover));
   }
 
   @keyframes bubble-out {
     to {
       opacity: 0;
+      transform: scale(0.92);
     }
-  }
-
-  /* Bubbles arrive rather than appear. The ones revealed by script share the
-     opening run's arrival, without its delay. */
-  [data-message-draft]:not([hidden]),
-  [data-message-typing]:not([hidden]),
-  [data-message-sent-view]:not([hidden]) {
-    animation: bubble-in 0.24s cubic-bezier(0.2, 0.9, 0.3, 1) both;
   }
 
   @keyframes bubble-in {
     from {
       opacity: 0;
-      transform: translateY(6px);
+      transform: translateY(var(--rise, 6px)) scale(var(--pop, 1));
     }
     to {
       opacity: 1;

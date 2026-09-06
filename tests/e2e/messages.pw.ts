@@ -222,4 +222,25 @@ test.describe('/message', () => {
     await page.goto('/message');
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
   });
+
+  // The dots carry two delays at once: when their bubble starts, and where
+  // each dot sits in the wave. Expressed as two animation-delay rules the
+  // more specific one silently wins and the wave flattens into a pulse --
+  // a defect nothing else here would catch, since the markup is unchanged.
+  test('the typing dots travel rather than blink in unison', async ({ page }) => {
+    // networkidle, because a cold dev server reloads once while optimizing
+    // and a plain evaluate loses its execution context to that navigation.
+    await page.goto('/message', { waitUntil: 'networkidle' });
+
+    const delays = (selector: string) =>
+      page.locator(selector).evaluateAll((dots) => dots.map((dot) => getComputedStyle(dot).animationDelay));
+
+    const opening = await delays('[data-slot="line-1"] span');
+    expect(opening).toHaveLength(3);
+    expect(new Set(opening).size).toBe(3);
+
+    // The bubble that follows a real send has no slot to wait for.
+    const live = await delays('[data-message-typing] span');
+    expect(live).toEqual(['0s', '0.14s', '0.28s']);
+  });
 });
