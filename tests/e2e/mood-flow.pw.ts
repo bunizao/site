@@ -2668,8 +2668,12 @@ test.describe('Mood routes', () => {
       };
     });
 
-    expect(styles.bodyTopLeftRadius).toBe('16px');
-    expect(styles.bodyBottomLeftRadius).toBe('5px');
+    // The bubble points its tight corner at the avatar, and the avatar sits at
+    // the top of the row -- so the small radius is top-left and the wide one
+    // covers the other three. It used to be mirrored, back when the shape also
+    // changed at narrow widths.
+    expect(styles.bodyTopLeftRadius).toBe('8px');
+    expect(styles.bodyBottomLeftRadius).toBe('16px');
     expect(styles.stickerRadius).toBe('8px');
     expect(styles.matteBackground).not.toBe('rgba(0, 0, 0, 0)');
     expect(styles.matteOverflow).toBe('hidden');
