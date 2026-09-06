@@ -96,8 +96,18 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
       type: 'registry:lib' as const,
     },
     {
+      path: 'features/mood/client/date-label.ts',
+      target: '@lib/date-label.ts',
+      type: 'registry:lib' as const,
+    },
+    {
       path: 'features/mood/client/wheel-feedback.ts',
       target: '@lib/wheel-feedback.ts',
+      type: 'registry:lib' as const,
+    },
+    {
+      path: 'features/mood/client/wheel-frame-meter.ts',
+      target: '@lib/wheel-frame-meter.ts',
       type: 'registry:lib' as const,
     },
     {
@@ -130,7 +140,9 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
 
   rewrite('@lib/timeline-wheel.ts', (content) => content
     .replace('@/features/mood/client/timeline-date-tracker', '@/lib/timeline-date-tracker')
+    .replace('@/features/mood/client/date-label', '@/lib/date-label')
     .replace('@/features/mood/client/wheel-feedback', '@/lib/wheel-feedback')
+    .replace('@/features/mood/client/wheel-frame-meter', '@/lib/wheel-frame-meter')
     .replace('@/features/mood/shared/feed-anchor', '@/lib/feed-anchor'));
   rewrite('@ui/timeline-wheel.astro', (content) => content
     .replace('@/features/mood/client/timeline-wheel', '@/lib/timeline-wheel'));

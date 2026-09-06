@@ -183,8 +183,18 @@ describe('components showcase registry', () => {
         type: 'registry:lib',
       },
       {
+        path: 'features/mood/client/date-label.ts',
+        target: '@lib/date-label.ts',
+        type: 'registry:lib',
+      },
+      {
         path: 'features/mood/client/wheel-feedback.ts',
         target: '@lib/wheel-feedback.ts',
+        type: 'registry:lib',
+      },
+      {
+        path: 'features/mood/client/wheel-frame-meter.ts',
+        target: '@lib/wheel-frame-meter.ts',
         type: 'registry:lib',
       },
       {
@@ -207,7 +217,9 @@ describe('components showcase registry', () => {
       item.files.find((file) => file.target === target)?.content ?? '';
 
     expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/timeline-date-tracker'");
+    expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/date-label'");
     expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/wheel-feedback'");
+    expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/wheel-frame-meter'");
     expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/feed-anchor'");
     expect(byTarget('@ui/timeline-wheel.astro')).toContain("import('@/lib/timeline-wheel')");
     expect(byTarget('@ui/timeline-wheel.astro')).toContain('data-timeline-wheel');
