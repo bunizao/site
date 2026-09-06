@@ -16,6 +16,7 @@ const controller = read('features/mood/client/detail-comments-controller.ts');
 const styles = read('features/mood/ui/CommentsSection.astro');
 const compose = read('features/mood/ui/CommentCompose.astro');
 const richText = read('features/mood/styles/feed-rich-text.css');
+const feed = read('pages/mood.astro');
 
 // The rule whose selector list *starts* with this selector -- anchored, so
 // `.mood-comment-body` does not match `.mood-comment--skeleton .mood-comment-body`.
@@ -128,5 +129,42 @@ describe('mood comment type scale', () => {
 
   test('the header carries no bullet separator', () => {
     expect(styles).not.toContain('.mood-comment-date::before');
+  });
+});
+
+// The `/mood` hover preview and the `/mood/[id]` thread render the same
+// comments, and used to disagree about everything: four type sizes against
+// two, seven ad-hoc gaps, and a bullet the detail page had already dropped.
+// The preview now reuses the same token names one rung down the ladder.
+describe('mood feed comments popover', () => {
+  test('declares the bubble tokens one step under the detail page', () => {
+    const root = ruleBody(feed, ':global(.mood-comments-popover)');
+    expect(root).toContain('--comment-body: 13px');
+    expect(root).toContain('--comment-meta: 11px');
+    expect(root).toContain('--comment-lead: 1.618');
+    expect(root).toContain('--comment-body-padding: 6px 10px');
+    expect(root).toContain('--comment-gap-inner: 4px');
+    expect(root).toContain('--comment-bubble-bg:');
+    expect(root).toContain('--comment-bubble-border:');
+  });
+
+  test('the preview bubble reads from those tokens', () => {
+    const body = ruleBody(feed, ':global(.mood-popover-comment-body)');
+    expect(body).toContain('background: var(--comment-bubble-bg)');
+    expect(body).toContain('border: 1px solid var(--comment-bubble-border)');
+    expect(body).toContain('padding: var(--comment-body-padding)');
+    // Shrink-wraps like the detail bubble rather than always filling the card.
+    expect(body).toContain('width: fit-content');
+  });
+
+  // A sticker at its natural 256px opened the card to full height and pushed
+  // every other comment out of view.
+  test('media is capped so one sticker cannot fill the card', () => {
+    expect(feed).toContain('.mood-popover-comment-content p:has(> .sticker:only-child)');
+    expect(ruleBody(feed, ':global(.mood-popover-comment-content img)')).toContain('max-height: 96px');
+  });
+
+  test('the preview header carries no bullet separator either', () => {
+    expect(feed).not.toContain('.mood-popover-comment-date::before');
   });
 });
