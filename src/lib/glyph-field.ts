@@ -25,6 +25,8 @@ const GLOW_DECAY = 0.78;
 const FONT_PX = 12;
 const BAND_WIDTH = 1200;
 const BAND_HEIGHT = 560;
+const CELL_W = 12;
+const CELL_H = 16;
 /** Pointer light: a soft lift of the cells under the cursor, not a torch. */
 const GLOW_RADIUS = 64;
 const GLOW_PEAK = 0.5;
@@ -288,10 +290,13 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.font = font;
 
-    // Columns sit 70% wider than a glyph, so the rain reads as discrete
-    // streaks rather than as solid text.
-    colW = 1.7 * ctx.measureText('0').width;
-    rowH = Math.round(FONT_PX * 1.333);
+    // Cells are 12 x 16: two columns and one and a half rows per 24px cell of
+    // the site's dot lattice, and the 1200px band is 50 cells wide, so with the
+    // canvas centred on the page axis its column edges fall on the lattice.
+    // 12px is also ~1.7 glyph widths, which keeps the rain reading as discrete
+    // streaks rather than solid text.
+    colW = CELL_W;
+    rowH = CELL_H;
     colCount = Math.ceil(BAND_WIDTH / colW);
     rowCount = Math.ceil(BAND_HEIGHT / rowH);
     const mid = (colCount - 1) / 2;

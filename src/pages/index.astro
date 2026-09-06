@@ -73,6 +73,9 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
   .page-container {
     /* Homepage code labels are below the fold; reuse the already-preloaded mono face here. */
     --font-code: var(--font-mono);
+    /* 720 - 2 x 24 = 672 = 28 cells of the 24px lattice, so both edges of the
+       column sit on a dot and the text shares the field's module. */
+    padding-inline: 24px;
     position: relative;
     z-index: 1;
   }
