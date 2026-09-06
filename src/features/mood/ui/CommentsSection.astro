@@ -155,33 +155,19 @@ const {
       var(--radius-xl);
     --comment-stack-gap: 16px;
 
-    /* A whisper of chroma instead of a true grey. The site palette is
-       achromatic (`0 0% x%`), so mixing the foreground into the background
-       produced a dead neutral, and a dead neutral on white reads as dirt
-       rather than as a surface. Every light UI worth copying tints its greys
-       a few points off neutral for exactly this reason: Apple's system greys
-       run faintly cool, Material 3 derives surfaces from a neutral-*variant*
-       palette that keeps chroma on purpose, and Radix ships Slate/Sage/Sand
-       rather than one true grey. 0.005-0.008 chroma still reads as grey --
-       swap `--comment-tint` to 85 for a warm surface if the cool one ever
-       fights the page. */
-    --comment-tint: 250;
-    --comment-bubble-bg: oklch(0.972 0.005 var(--comment-tint));
-    --comment-bubble-border: oklch(0.918 0.008 var(--comment-tint));
-    /* The quote card sits on the bubble, so it stays an alpha wash on the
-       same hue -- a neutral wash would read as a dirty patch on a tinted
-       surface, which is the bug one level down. */
-    --comment-inset-bg: oklch(0.45 0.03 var(--comment-tint) / 0.09);
-    --comment-inset-rule: oklch(0.45 0.04 var(--comment-tint) / 0.3);
+    /* Strictly achromatic, like the rest of the surface. The dirt the old
+       values read as was not a missing hue -- it was a flat mid-light slab:
+       6% of black on white is #F0F0F0 over the whole bubble. Dropping the
+       fill and letting the border draw the shape keeps the surface neutral
+       and stops it reading as a grey block. Dark needs the opposite balance,
+       since a 3.5% fill there is invisible against the ground. */
+    --comment-bubble-bg: color-mix(in oklab, hsl(var(--foreground)) 3.5%, hsl(var(--background)));
+    --comment-bubble-border: color-mix(in oklab, hsl(var(--foreground)) 13%, transparent);
   }
 
-  /* Dark keeps the same hue: a bubble that is cool in one theme and neutral
-     in the other reads as two different materials. */
   .dark .mood-comments {
-    --comment-bubble-bg: oklch(0.196 0.008 var(--comment-tint));
-    --comment-bubble-border: oklch(0.3 0.01 var(--comment-tint));
-    --comment-inset-bg: oklch(0.95 0.02 var(--comment-tint) / 0.07);
-    --comment-inset-rule: oklch(0.95 0.02 var(--comment-tint) / 0.28);
+    --comment-bubble-bg: color-mix(in oklab, hsl(var(--foreground)) 6%, hsl(var(--background)));
+    --comment-bubble-border: color-mix(in oklab, hsl(var(--foreground)) 9%, transparent);
   }
 
   .mood-comments::before {

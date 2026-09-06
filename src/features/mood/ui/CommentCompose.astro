@@ -423,13 +423,7 @@ const t = moodCommentsCopy;
      fill: a fill step large enough to notice in dark reads as a grey slab in
      light, where the same mix runs the other way. */
   .mood-comment--mine .mood-comment-body {
-    background: oklch(0.951 0.008 var(--comment-tint, 250));
-    border-color: oklch(0.84 0.016 var(--comment-tint, 250));
-  }
-
-  .dark .mood-comment--mine .mood-comment-body {
-    background: oklch(0.225 0.01 var(--comment-tint, 250));
-    border-color: oklch(0.44 0.016 var(--comment-tint, 250));
+    border-color: color-mix(in oklab, hsl(var(--foreground)) 30%, transparent);
   }
 
   @media (max-width: 540px) {
