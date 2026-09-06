@@ -105,8 +105,31 @@ ones). Then the clock made it worse: the day/night blend drops speed to
 - Entrance 1100ms → 700ms, wake 500 → 400ms, so the field lands with the
   hero copy (600ms) instead of after it.
 - `?speed=<multiplier>` scales the fall for review; the weather blend still
-  applies on top. Resting cost at 17fps, CPU x4, dev build: see the tempo
-  probe numbers in the same commit.
+  applies on top.
+
+**Resting cost, 2026-09-06.** Measured on the dev build, unthrottled, page
+idle 5s after load, via CDP `Performance.getMetrics` over 6s windows. The
+faster tick itself was cheap: desktop script 18 → 23 ms per second, phone
+9.1 → 9.5. What the measurement turned up instead:
+
+- The home nav's mascot "idle bob" was a JS spring on `requestAnimationFrame`
+  that never stopped while the mascot was not hovered, writing
+  `--peek-shift-*` on the nav every frame; each write re-resolved the nav's
+  whole subtree, ~120 style recalcs and ~100ms of main thread per second on
+  every desktop homepage visit. Now a CSS `translate` animation on the brand
+  (compositor), paused on hover; the spring runs only until it settles and
+  writes on the brand. Desktop resting style time 128 → 52 ms/s, task
+  306 → 218 ms/s.
+- What remains at rest on a phone (~90ms/s of task time, dev build): the
+  field ~25, the contributions wave ~15 (30 bars each running a CSS
+  animation; Chrome still ticks their style every frame, `will-change`
+  already applied, animating one property instead of two changes nothing),
+  the typewriter loop, and the mascot's per-frame beat loop. None of them
+  is a bug; the wave is the one worth a redesign if the phone budget ever
+  needs it.
+- The field on desktop costs ~95ms/s at rest (3500 cells on a 2400x1120
+  bitmap, 17 ticks/s). A glyph sprite atlas instead of `fillText`, or a
+  1.5x DPR cap for the band, are the two levers if that ever matters.
 - Hero entrance moved from a GSAP timeline to CSS transitions with the same
   choreography and the same hand-off events (`home:hero-name-ready`,
   `home:hero-bio-ready`, `home:hero-github-ready`). The nav's hover wave
