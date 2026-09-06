@@ -38,6 +38,12 @@ export interface ReaderConfirmCopy {
   alreadyBody: string;
   invalidTitle: string;
   invalidBody: string;
+  /** The settings link from a reply mail, opened in a browser that holds no
+      reader cookie -- a phone, or a laptop that has since cleared it. Not a
+      broken link: the reader is who they say, this device just does not know
+      it yet, and a fresh confirmation signs it in. */
+  signinTitle: string;
+  signinBody: string;
   emailLabel: string;
   emailPlaceholder: string;
   resend: string;
@@ -69,6 +75,8 @@ const zh: ReaderConfirmCopy = {
   alreadySignIn: '如果这台设备还没登录，重新发一封链接就好。',
   invalidTitle: '链接已失效',
   invalidBody: '链接可能已过期或已被使用。填写当时的邮箱，即可重新获取验证链接。',
+  signinTitle: '先确认一下是你',
+  signinBody: '这台设备还没登录。填写评论时用的邮箱，点邮件里的链接，就能在这里改提醒设置。',
   emailLabel: '邮箱',
   emailPlaceholder: '邮箱',
   resend: '重新发一封',
@@ -99,6 +107,8 @@ const en: ReaderConfirmCopy = {
   alreadySignIn: "If this device isn't signed in yet, send yourself a fresh link.",
   invalidTitle: 'This link has expired',
   invalidBody: "It may have expired or already been used. Enter the email you commented with and we'll send a fresh link.",
+  signinTitle: "Confirm it's you first",
+  signinBody: "This device isn't signed in yet. Enter the email you commented with, open the link we send, and your alert settings will be right here.",
   emailLabel: 'Email',
   emailPlaceholder: 'Email',
   resend: 'Send a new link',
