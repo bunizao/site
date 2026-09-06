@@ -1239,13 +1239,17 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
         // ─── 3e. Active indicator ─────────────────────────────────────
         // ─── 3f. Magnetic hover (desktop, vertical mode only) ─────────
         // Disabled — no hover box or physics effects
-        const initMagneticHover = async () => {
-          // Per-link char wave on hover (kept as subtle interaction)
-          const { default: gsap } = await import('gsap');
+        const initMagneticHover = () => {
+          // Per-link char wave on hover (kept as subtle interaction). GSAP is
+          // 70KB and only a mouse ever triggers this, so it loads on the first
+          // hover rather than with every page.
+          let gsapLoad: Promise<typeof import('gsap')['default']> | null = null;
+          const loadGsap = () => (gsapLoad ??= import('gsap').then((m) => m.default));
 
           linkDataList.forEach(({ el, chars }) => {
-            el.addEventListener('pointerenter', (e: PointerEvent) => {
+            el.addEventListener('pointerenter', async (e: PointerEvent) => {
               if (e.pointerType !== 'mouse' || !isVertical) return;
+              const gsap = await loadGsap();
               chars.forEach((c, i) => {
                 gsap.to(c, {
                   y: -1.5,
@@ -1256,8 +1260,11 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
               });
             });
 
-            el.addEventListener('pointerleave', (e: PointerEvent) => {
-              if (e.pointerType !== 'mouse') return;
+            el.addEventListener('pointerleave', async (e: PointerEvent) => {
+              // Nothing has waved until GSAP has loaded, so there is nothing
+              // to settle back.
+              if (e.pointerType !== 'mouse' || !gsapLoad) return;
+              const gsap = await gsapLoad;
               chars.forEach(c => {
                 gsap.to(c, {
                   y: 0,
