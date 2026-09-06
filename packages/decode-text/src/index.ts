@@ -56,7 +56,7 @@ export interface DecodeOptions {
    * of its line's window. Every character boils for the same length of time, so
    * this is the single knob for how noisy the reveal is: resolution is the mash
    * front shifted by exactly this much, which is what keeps settled and boiling
-   * characters interleaved instead of split by a sweeping edge. Default: 0.35
+   * characters interleaved instead of split by a sweeping edge. Default: 0.12
    */
   boil?: number;
   /** Mix the text's own (ASCII) characters into the scramble pool. Default: true */
@@ -158,7 +158,7 @@ const DEFAULTS = {
   order: 'shuffle' as DecodeOrder,
   showPower: 0.5,
   mashPower: 2,
-  boil: 0.35,
+  boil: 0.12,
   scrambleFromText: true,
   durationPerChar: 0.008,
   minDuration: 0.9,
@@ -175,8 +175,17 @@ type Resolved = typeof DEFAULTS & DecodeOptions;
 /** Largest per-frame clock step, ms. Keeps a backgrounded tab from snapping to done. */
 const MAX_FRAME_MS = 64;
 
-/** Share of the pre-settle window the show front owns; the mash front takes the rest. */
-const SHOW_WINDOW = 0.65;
+/**
+ * Share of the pre-settle window the show front owns; the mash front takes the
+ * rest. In `grow` the line reaches its full width the moment the last cell
+ * appears, and the eye reads that as "loaded" — everything after it is a
+ * finished block still boiling. At 0.65 with a 0.35 boil the homepage bio sat
+ * complete for a full second before it settled. The show front now runs almost
+ * to the mash front, and the boil is short, so the last characters to appear
+ * are also the last to resolve and the settle follows the width by a third of
+ * that: cursors are brief, but the reveal ends when the text does.
+ */
+const SHOW_WINDOW = 0.94;
 
 /**
  * How far each line's weight is pulled toward the average when laying out the
