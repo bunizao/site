@@ -204,6 +204,7 @@ const t = moodCommentsCopy;
   }
 
   .mood-compose__reply-dismiss {
+    position: relative;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -216,6 +217,14 @@ const t = moodCommentsCopy;
     border: none;
     border-radius: 50%;
     cursor: pointer;
+  }
+
+  /* 22px of circle is the visual; the target around it is what a thumb
+     needs. An overlay grows the hit area without moving the row. */
+  .mood-compose__reply-dismiss::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
   }
 
   .mood-compose__reply-dismiss:hover {
@@ -402,7 +411,11 @@ const t = moodCommentsCopy;
      its own. Never hover-gated: on a touch screen a hidden reply button is
      no button at all. */
   .mood-comment-reply-btn {
-    padding: 0;
+    /* The label is 13px of text; HIG asks for a target near 44pt. Padding
+       grows the hit area and the negative margin keeps the footer row
+       exactly where it was. */
+    margin: -10px -8px;
+    padding: 10px 8px;
     font-family: inherit;
     font-size: var(--comment-meta);
     font-weight: 500;
