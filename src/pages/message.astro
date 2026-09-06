@@ -39,6 +39,7 @@
 // see site-api's src/pages/v2/messages.ts.
 import Layout from '@/layouts/Layout.astro';
 import Footer from '@/features/home/ui/Footer.astro';
+import { MESSAGE_MAX_BODY_LENGTH, MESSAGE_MAX_NAME_LENGTH } from '@bunizao/contracts/messages';
 import { messageCopy as t } from '@/features/messages/copy';
 import { formatSiteTitle } from '@/lib/seo';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
@@ -143,7 +144,7 @@ const accentInk = textOnAccent(accentFill);
                 id="message-name"
                 name="displayName"
                 type="text"
-                maxlength="32"
+                maxlength={MESSAGE_MAX_NAME_LENGTH}
                 autocomplete="nickname"
                 placeholder={t.namePlaceholder}
                 required
@@ -172,7 +173,7 @@ const accentInk = textOnAccent(accentFill);
               id="message-body"
               name="body"
               rows="3"
-              maxlength="4000"
+              maxlength={MESSAGE_MAX_BODY_LENGTH}
               placeholder={t.bodyPlaceholder}
               required></textarea>
           </div>
@@ -195,6 +196,13 @@ const accentInk = textOnAccent(accentFill);
 
           <div class="composer__foot">
             <p class="composer__privacy">{t.privacy}</p>
+            {/* Silent until the field is nearly full. A standing 0/4000 on a
+                page asking for a private note reads as a quota to fill, and
+                the number is only ever useful at the end -- maxlength stops
+                the field without a word, and this is the word. aria-hidden
+                because a number rewritten on every keystroke is announcement
+                spam; a screen reader already gets the cap from maxlength. */}
+            <span class="composer__count" data-message-count aria-hidden="true" hidden></span>
             {/* Disabled until the client attaches. Nothing here works without
                 it -- Turnstile, the dwell token and the POST are all script --
                 and a native submit before then would reload the page and take
@@ -440,6 +448,36 @@ const accentInk = textOnAccent(accentFill);
     overflow-y: auto;
   }
 
+  /* The field runs to the panel's right edge, so a default scrollbar lays its
+     track over the border and cuts a hard-edged column out of the surface --
+     on the dark ground it reads as a progress bar sitting in the composer.
+     Transparent track, and a thumb held off the edge by a transparent border
+     it paints inside, so all that shows is one soft rounded bar. */
+  .field--body {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.22) transparent;
+  }
+
+  .field--body::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  .field--body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .field--body::-webkit-scrollbar-thumb {
+    background: hsl(var(--foreground) / 0.22);
+    background-clip: content-box;
+    border: 4px solid transparent;
+    border-radius: 12px;
+  }
+
+  .field--body::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--foreground) / 0.34);
+    background-clip: content-box;
+  }
+
   .field::placeholder {
     color: hsl(var(--muted-foreground) / 0.55);
   }
@@ -503,14 +541,29 @@ const accentInk = textOnAccent(accentFill);
   .composer__foot {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     padding: 9px 9px 9px 14px;
     border-top: 1px solid var(--line-soft);
   }
 
+  .composer__count {
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground) / 0.75);
+    font-variant-numeric: tabular-nums;
+    transition: color 0.2s ease;
+  }
+
+  /* Not a warning about something that might happen: at this number the next
+     keystroke is already being dropped. */
+  .composer__count[data-full] {
+    color: var(--message-danger);
+  }
+
   .composer__privacy {
     margin: 0;
+    /* Pushes the count and the send button to the far edge together. */
+    margin-right: auto;
     font-size: 11.5px;
     line-height: 1.5;
     color: hsl(var(--muted-foreground) / 0.8);
