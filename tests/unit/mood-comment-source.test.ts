@@ -53,4 +53,19 @@ describe('mood comment source marker', () => {
     expect(styles).toContain('--comment-body-radius: var(--radius-sm)');
     expect(styles).toContain('animation: comment-fade-in var(--dur-enter) var(--ease-out)');
   });
+
+  // The bubble used to set Inter on itself, which put the date, the source
+  // chip and Reply in a different voice from every other meta row on the page
+  // -- including the reaction pill in the same footer, which sets mono back.
+  test('Inter is scoped to the message, not the whole bubble', () => {
+    const body = styles.slice(styles.indexOf('.mood-comment-body {'));
+    expect(body.slice(0, body.indexOf('}'))).not.toContain('font-family');
+
+    const content = styles.slice(styles.indexOf('.mood-comment-content {'));
+    expect(content.slice(0, content.indexOf('}'))).toContain('font-family: var(--font-sans)');
+  });
+
+  test('the header carries no bullet separator', () => {
+    expect(styles).not.toContain('.mood-comment-date::before');
+  });
 });

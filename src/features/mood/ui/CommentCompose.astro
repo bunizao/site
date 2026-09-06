@@ -404,8 +404,11 @@ const t = moodCommentsCopy;
      no button at all. */
   .mood-comment-reply-btn {
     padding: 0;
-    font-size: 12px;
+    font-family: inherit;
+    font-size: 10px;
     font-weight: 500;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
     color: hsl(var(--muted-foreground) / 0.7);
     background: transparent;
     border: none;
@@ -418,11 +421,13 @@ const t = moodCommentsCopy;
     color: hsl(var(--foreground));
   }
 
-  /* Your own rows, in the surface's own monochrome -- a heavier bubble, not a
-     blue one. Nothing else in the mood thread carries an accent colour. */
+  /* Your own rows, in the surface's own monochrome -- nothing in the mood
+     thread carries an accent colour. Carried by the outline rather than the
+     fill: a fill step large enough to notice in dark reads as a grey slab in
+     light, where the same mix runs the other way. */
   .mood-comment--mine .mood-comment-body {
-    background: color-mix(in oklab, hsl(var(--foreground)) 13%, hsl(var(--background)));
-    border-color: color-mix(in oklab, hsl(var(--foreground)) 20%, transparent);
+    background: color-mix(in oklab, hsl(var(--foreground)) 8%, hsl(var(--background)));
+    border-color: color-mix(in oklab, hsl(var(--foreground)) 26%, transparent);
   }
 
   @media (max-width: 540px) {

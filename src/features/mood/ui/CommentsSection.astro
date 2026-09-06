@@ -135,7 +135,7 @@ const {
     position: relative;
     /* One bubble shape at every width. The tight top-left corner points the
        bubble at its avatar, which sits at the top of the row. */
-    --comment-body-padding: 10px 13px;
+    --comment-body-padding: 10px 14px;
     --comment-body-radius: var(--radius-sm) var(--radius-xl) var(--radius-xl)
       var(--radius-xl);
     --comment-stack-gap: 16px;
@@ -162,7 +162,7 @@ const {
     .mood-comments {
       margin-top: 56px;
       padding-top: 56px;
-      --comment-body-padding: 11px 14px;
+      --comment-body-padding: 11px 15px;
       --comment-stack-gap: 18px;
     }
   }
@@ -316,9 +316,6 @@ const {
     width: fit-content;
     max-width: 100%;
     min-width: 0;
-    /* Comments are human prose — read in sans, not the site's mono identity
-       that body inherits by default. */
-    font-family: var(--font-sans);
     background: var(--comment-bubble-bg);
     border: 1px solid var(--comment-bubble-border);
     border-radius: var(--comment-body-radius);
@@ -328,9 +325,9 @@ const {
 
   .mood-comment-header {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 5px;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
     flex-wrap: wrap;
   }
 
@@ -340,15 +337,19 @@ const {
   .mood-comment-source {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 1px 6px 1px 5px;
+    gap: 5px;
+    padding: 2px 8px 2px 6px;
     border-radius: 999px;
-    background: color-mix(in oklab, hsl(var(--foreground)) 7%, transparent);
-    font-size: 10px;
+    background: hsl(var(--foreground) / 0.04);
+    border: 1px solid hsl(var(--foreground) / 0.08);
+    font-size: 9px;
+    font-weight: 500;
     line-height: 1.5;
-    letter-spacing: 0.02em;
-    color: hsl(var(--muted-foreground) / 0.85);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.8);
     white-space: nowrap;
+    transform: translateY(1px);
   }
 
   .mood-comment-source svg {
@@ -359,7 +360,7 @@ const {
 
   @media (min-width: 640px) {
     .mood-comment-source {
-      font-size: 11px;
+      font-size: 10px;
     }
 
     .mood-comment-source svg {
@@ -368,38 +369,47 @@ const {
     }
   }
 
+  /* A name, so not uppercased -- but the same size and voice as the row it
+     sits in. At 14px it matched the message underneath and the two competed. */
   .mood-comment-author {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
-    color: hsl(var(--foreground));
-    letter-spacing: -0.01em;
+    color: hsl(var(--foreground) / 0.92);
+    letter-spacing: 0.01em;
   }
 
   @media (min-width: 640px) {
     .mood-comment-author {
-      font-size: 14px;
+      font-size: 13px;
     }
   }
 
+  /* Scaled down from .mood-post-date in DetailArticle -- same voice as every
+     other timestamp on the page. No bullet: the change of voice separates it
+     from the name, the way .mood-post-meta separates its own items. Not
+     uppercased, unlike that one: it carries a relative time, and "42M AGO"
+     reads as a quantity rather than a duration. Labels shout here, values
+     do not. */
   .mood-comment-date {
-    font-size: 11px;
-    color: hsl(var(--muted-foreground) / 0.6);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: hsl(var(--muted-foreground) / 0.7);
     font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
   }
 
   @media (min-width: 640px) {
     .mood-comment-date {
-      font-size: 12px;
+      font-size: 11px;
     }
   }
 
-  .mood-comment-date::before {
-    content: '•';
-    margin-right: 8px;
-    color: hsl(var(--muted-foreground) / 0.3);
-  }
-
   .mood-comment-content {
+    /* The message is human prose -- read in sans. Everything around it is
+       chrome and stays in the site's mono identity, like every other meta
+       row on this page. */
+    font-family: var(--font-sans);
     font-size: 13px;
     line-height: 1.6;
     color: hsl(var(--foreground) / 0.95);
@@ -845,7 +855,7 @@ const {
 
   @media (max-width: 540px) {
     .mood-comments {
-      --comment-body-padding: 11px 14px;
+      --comment-body-padding: 10px 14px;
       --comment-stack-gap: 12px;
       margin-top: 32px;
       padding-top: 32px;
@@ -875,21 +885,10 @@ const {
       border-width: 1px;
     }
 
+    /* The base sizes are already the small ones; only the row gap tightens,
+       and the bullet these used to space is gone. */
     .mood-comment-header {
-      gap: 6px;
-      margin-bottom: 4px;
-    }
-
-    .mood-comment-author {
-      font-size: 12px;
-    }
-
-    .mood-comment-date {
-      font-size: 10px;
-    }
-
-    .mood-comment-date::before {
-      margin-right: 6px;
+      gap: 8px;
     }
 
     .mood-comment-content {
