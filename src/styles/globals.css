@@ -2294,6 +2294,23 @@ html.no-transition * {
   }
 }
 
+/* Homepage band ↔ inner-page strip: both carry `glyph-field`, so the 560px
+   rain is squashed into the 16px row under the nav on the way out, and pulled
+   back open on the way home. The images fill the group box instead of keeping
+   their aspect, which is what makes it a compression rather than a slide. */
+::view-transition-group(glyph-field) {
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: clip;
+}
+
+::view-transition-old(glyph-field),
+::view-transition-new(glyph-field) {
+  height: 100%;
+  object-fit: fill;
+  animation-duration: 380ms;
+}
+
 /* Blog list ↔ post: the clicked row title and the article headline share a
    per-slug `view-transition-name`, so the box morphs (position + size) while
    the text cross-fades. The shared `post-title` class lets one rule own the

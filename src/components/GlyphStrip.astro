@@ -1,0 +1,75 @@
+---
+// One row of the homepage glyph field under the nav on inner pages: the same
+// cells and session ink, so the thread from the homepage carries through the
+// site. Decorative and inert; painted by src/lib/glyph-strip.ts. Absolute
+// against the initial containing block, so it sits in the page's top gap and
+// scrolls away with it.
+---
+
+<div class="glyph-strip" data-glyph-strip aria-hidden="true">
+  <canvas width="1200" height="16"></canvas>
+</div>
+
+<style>
+  .glyph-strip {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
+    left: 0;
+    right: 0;
+    height: 16px;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 160ms ease-out;
+    /* Shared with the homepage band: leaving the homepage squashes the band
+       into this row. See the view-transition rules in globals.css. */
+    view-transition-name: glyph-field;
+  }
+
+  @media (min-width: 900px) {
+    .glyph-strip {
+      top: 4rem;
+    }
+  }
+
+  .glyph-strip.is-ready {
+    opacity: 1;
+  }
+
+  .glyph-strip canvas {
+    display: block;
+    flex: 0 0 auto;
+    width: 1200px;
+    height: 16px;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .glyph-strip {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import { mountGlyphStrip, type GlyphStripHandle } from '@/lib/glyph-strip';
+
+  let handle: GlyphStripHandle | null = null;
+
+  const mount = () => {
+    handle?.destroy();
+    const host = document.querySelector<HTMLElement>('[data-glyph-strip]');
+    handle = host ? mountGlyphStrip(host) : null;
+  };
+
+  mount();
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', () => {
+    handle?.destroy();
+    handle = null;
+  });
+</script>

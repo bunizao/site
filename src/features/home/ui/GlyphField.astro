@@ -46,6 +46,9 @@ const { ruleTarget = '#projects-section .section-label' } = Astro.props;
     position: sticky;
     top: 0;
     height: 560px;
+    /* Shared with the inner-page strip (src/components/GlyphStrip.astro), so
+       leaving the homepage squashes the band into that row. */
+    view-transition-name: glyph-field;
     display: flex;
     justify-content: center;
     overflow: hidden;
