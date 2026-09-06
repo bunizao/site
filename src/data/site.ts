@@ -167,6 +167,8 @@ export interface ShareCopy {
   /** Screen-reader form of `copied` — a label has to say what was copied. */
   linkCopied: string;
   share: string;
+  /** The Telegram hand-off, which is also the only link that carries `rhash`. */
+  telegram: string;
 }
 
 export const blog = {
@@ -222,6 +224,7 @@ export const blog = {
         copied: '已复制',
         linkCopied: '链接已复制',
         share: '分享',
+        telegram: '分享到 Telegram',
       },
       back: { index: '← 全部文章', rail: '← 博客' },
       languageSwitcher: {
@@ -276,6 +279,7 @@ export const blog = {
         copied: 'Copied',
         linkCopied: 'Link copied',
         share: 'Share',
+        telegram: 'Share on Telegram',
       },
       back: { index: '← All posts', rail: '← Blog' },
       languageSwitcher: {
@@ -291,6 +295,21 @@ export const blog = {
   mark: '/blog-mark.webp',
   /** RSS feed for reader-app subscribers. Self-hosted so it does not bounce through the legacy Ghost subdomain. */
   feed: '/blog/rss.xml',
+  /**
+   * Telegram Instant View. The parsing rules are not deployed from here --
+   * they live in `config/instant-view/buxx.me.iv` and are published by hand at
+   * instantview.telegram.org, which is where `rhash` comes from.
+   *
+   * Until Telegram adopts a template for the whole domain, only a link that
+   * carries `?rhash=<hash>` renders as Instant View, so the blog's Telegram
+   * share link appends it. An empty string means "no template published yet"
+   * and every link stays exactly as it is -- the share button still works, it
+   * just hands Telegram an ordinary page. Paste the hash the IV editor shows
+   * under "Get tracking link" here, and redeploy.
+   */
+  instantView: {
+    rhash: '4610b224893326',
+  },
   /**
    * What the comment section does on a post that carries none of the
    * per-post tags. Every field is overridable in Ghost with an internal tag

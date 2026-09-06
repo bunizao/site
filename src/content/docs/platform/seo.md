@@ -66,6 +66,28 @@ For direct-link-only articles, see [Unlisted posts](/docs/writing/publishing#unl
 That page documents the exact Ghost marker and the corresponding sitemap, feed,
 search, Markdown, and crawler behavior.
 
+## Telegram Instant View
+
+Blog articles carry a Telegram Instant View template. Telegram hosts the
+template itself, so nothing in this repo deploys it: the source lives in
+`config/instant-view/buxx.me.iv`, and publishing is a manual step at
+[instantview.telegram.org](https://instantview.telegram.org/my).
+
+Publishing returns an **rhash**. Until Telegram adopts a template for the whole
+domain — their decision, on their timetable — only a link carrying
+`?rhash=<hash>` renders as Instant View, so the hash is the feature rather than
+an optimisation. It is set in `blog.instantView.rhash` (`src/data/site.ts`) and
+applied in exactly one place: the Telegram button in the article share row.
+Canonical tags, `og:url`, feeds, the copy-link button and the native share sheet
+all stay clean, because `rhash` means nothing outside Telegram. An empty hash —
+the state before a template is published — leaves every link untouched and the
+share button still works, just without Instant View.
+
+The template addresses the article page's own class names and the `article:*`
+meta tags above. `tests/e2e/blog.pw.ts` pins that structure so a rename fails
+CI rather than quietly degrading links already shared into chats;
+`config/instant-view/README.md` has the publishing loop.
+
 ## Search Favicons
 
 The Blog keeps its thinking-woman favicon in browser chrome. Search engines
