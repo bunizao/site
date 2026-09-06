@@ -179,10 +179,7 @@ test.describe('Blog routes', () => {
     await expect(firstYear.locator('.blog-year__heading')).toHaveText(/^(?:\d{4}|Unknown)$/);
     await expect(firstYear.locator('.blog-list .blog-row').first()).toBeVisible();
 
-    const colophon = page.locator('.blog-colophon');
-    await expect(colophon).toBeVisible();
-    await expect(colophon.getByRole('heading', { name: 'sillage' })).toBeVisible();
-    await expect(colophon.locator('.blog-colophon__body > p')).toHaveCount(3);
+    await expect(page.locator('.blog-colophon')).toHaveCount(0);
 
     const firstPostHref = pathFromHref(
       await page.locator('.blog-row__link').first().getAttribute('href'),

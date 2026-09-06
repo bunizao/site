@@ -1,7 +1,6 @@
 ---
 import BlogLayout from '@/layouts/BlogLayout.astro';
 import BlogMasthead from '@/features/posts/ui/BlogMasthead.astro';
-import BlogColophon from '@/features/posts/ui/BlogColophon.astro';
 import PostRow from '@/features/posts/ui/PostRow.astro';
 import PostHover from '@/features/posts/ui/PostHover.astro';
 import {
@@ -52,7 +51,8 @@ const otherLanguages = mapOtherLanguages(accessiblePosts);
     </section>
   ))}
 
-  <BlogColophon />
+  {/* The sillage colophon is parked, not retired: BlogColophon.astro stays
+     in place and this line is the whole switch. */}
 
   <Footer />
 

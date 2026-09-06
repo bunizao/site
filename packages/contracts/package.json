@@ -1,6 +1,6 @@
 {
   "name": "@bunizao/contracts",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "Shared TypeScript contracts for buxx.me services and clients.",
   "type": "module",
   "sideEffects": false,
@@ -52,6 +52,11 @@
       "types": "./dist/listening.d.ts",
       "import": "./dist/listening.js",
       "default": "./dist/listening.js"
+    },
+    "./messages": {
+      "types": "./dist/messages.d.ts",
+      "import": "./dist/messages.js",
+      "default": "./dist/messages.js"
     },
     "./mood": {
       "types": "./dist/mood.d.ts",

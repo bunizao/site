@@ -1,0 +1,636 @@
+---
+// /message — the standalone form for writing to the owner privately.
+//
+// A page of its own rather than a popover in the contact panel. The contact
+// panel is a list of places to find me and reads in two seconds; this asks
+// someone to compose something, and a compose box inside a hover popover is a
+// box you lose by moving the mouse. It also means the URL is shareable on its
+// own, which is most of the point of having it.
+//
+// Site zone, not the blog zone, even though the blog masthead is what links
+// here: the address is root-level and the page is not blog content. The blog
+// masthead trigger is an entry point, not an owner.
+//
+// It reads as a thread because that is what it structurally is -- one person
+// writing to one person, who can write back. Nothing in it is invented: there
+// are no scripted visitor replies, no fake timestamps and no read receipts.
+// The one animated element, the typing indicator, is on screen only while a
+// request is genuinely in flight.
+//
+// Every surface here is opaque. The site's ground carries a dot grid, and an
+// outlined or alpha-tinted bubble lets that grid run straight through the
+// words -- which read as unfinished rather than as quiet. So the bubbles and
+// the composer are filled with a neutral grey that stops the ground dead.
+//
+// The accent means one thing and only one: the visitor's own voice. Their
+// opening line, the message they send, and the button that produces it. The
+// owner speaks in grey. Nothing else on the page is coloured, so the colour
+// stays legible as a speaker rather than as decoration.
+//
+// Nothing on this page reads existing messages. There is no such endpoint --
+// see site-api's src/pages/v2/messages.ts.
+import Layout from '@/layouts/Layout.astro';
+import Footer from '@/features/home/ui/Footer.astro';
+import { messagesCopy } from '@/features/messages/copy';
+import { blog } from '@/data/site';
+import { formatSiteTitle } from '@/lib/seo';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
+import { nameOnBackground, textOnAccent } from '@/features/content/conversation';
+
+export const prerender = false;
+
+const locale: 'zh' | 'en' = blog.locale.blog;
+const t = messagesCopy[locale];
+
+const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
+  ? ''
+  : readTurnstileSiteKey(Astro.locals);
+
+// The accent, and the only line to edit to change it. iMessage blue, because
+// that is the fill everyone already reads as "a message", and the site's own
+// --accent token is achromatic (black in light, white in dark) with no hue to
+// lend one.
+//
+// #007AFF is not used raw. White on it measures 4.02:1, which clears AA only
+// for large text, and this page sets 14px body -- textOnAccent answers
+// near-black on it, which is not what anyone means by iMessage blue.
+// nameOnBackground solves the same inequality from the other side (contrast is
+// symmetric, so "this blue readable on white" and "white readable on this
+// blue" are one condition), walking lightness down and leaving the hue where
+// Apple put it: #0070EB at 4.65:1. There is no tint pair any more -- with
+// every other surface a hairline, the accent has nothing left to tint.
+//
+// Dark needs its own, and a deeper one rather than Apple's lighter #0A84FF.
+// On a page whose every other shape is a hairline, this fill is the only lit
+// area on screen, and #0070EB measures 4.26:1 against the dark ground -- it
+// glares. #0A5FC9 drops that to 3.29:1, still unmistakably the one marked
+// thing, while raising white on it from 4.65:1 to 6.01:1. Both directions
+// improve at once because "dark enough to carry white text" and "dark enough
+// not to burn a hole in the page" are the same requirement.
+const ACCENT = '#007AFF';
+const accentFill = nameOnBackground(ACCENT, '#FFFFFF');
+const accentFillDark = '#0A5FC9';
+const accentInk = textOnAccent(accentFill);
+---
+
+<Layout
+  title={formatSiteTitle(t.title)}
+  description={t.lede}
+  url="/message"
+  navVariant="page"
+  showSiteNav
+  brandVariant="home"
+  robots="noindex, follow"
+>
+  <main
+    class="thread"
+    data-message-root
+    data-locale={locale}
+    data-turnstile-site-key={turnstileSiteKey}
+    lang={locale}
+    style={`--accent-light:${accentFill};--accent-dark:${accentFillDark};--accent-ink:${accentInk};`}
+  >
+    {/* Undrawn. The document title, the tab and the masthead trigger all say
+        it already, and drawing it a fourth time cost the thread its opening
+        line -- a page that starts by announcing its own subject is a form with
+        a headline, not a conversation. */}
+    <h1 class="sr-only">{t.title}</h1>
+
+    {/* A plain stack rather than a list: the composer sits inside the run, and
+        a form is not a list item. Read in order this is a question, its answer
+        and a form, which is what a screen reader should get. */}
+    <div class="thread__stack">
+      {/* The reader speaks first, and the page answers. Putting the visitor's
+          line at the top costs nothing and changes what the two grey bubbles
+          are: not a notice at the door, a reply. */}
+      <div class="msg msg--me">
+        <p class="bubble bubble--me">{t.opener}</p>
+      </div>
+
+      {/* One speaker, two lines. The corners they share tighten to 5px -- that
+          seam is what makes two bubbles read as one person talking rather than
+          as two unrelated chips. */}
+      <div class="msg msg--them msg--turn">
+        <p class="bubble bubble--them bubble--joined-below">{t.intro}</p>
+      </div>
+      <div class="msg msg--them">
+        <p class="bubble bubble--them bubble--joined-above">{t.invite}</p>
+      </div>
+
+      <div class="msg msg--block msg--turn" data-message-form-view>
+        <form class="composer" data-message-form novalidate>
+          <div class="composer__pair">
+            <div class="composer__cell">
+              <label class="sr-only" for="message-name">{t.nameLabel}</label>
+              <input
+                class="field"
+                id="message-name"
+                name="displayName"
+                type="text"
+                maxlength="32"
+                autocomplete="nickname"
+                placeholder={t.namePlaceholder}
+                required
+              />
+            </div>
+
+            <div class="composer__cell">
+              <label class="sr-only" for="message-email">{t.emailLabel}</label>
+              <input
+                class="field"
+                id="message-email"
+                name="email"
+                type="email"
+                autocomplete="email"
+                inputmode="email"
+                placeholder={t.emailPlaceholder}
+                required
+              />
+            </div>
+          </div>
+
+          <div class="composer__cell composer__cell--body">
+            <label class="sr-only" for="message-body">{t.bodyLabel}</label>
+            <textarea
+              class="field field--body"
+              id="message-body"
+              name="body"
+              rows="3"
+              maxlength="4000"
+              placeholder={t.bodyPlaceholder}
+              required></textarea>
+          </div>
+
+          {/* Honeypot. Hidden from sight and from assistive tech, and never
+              focusable by tab -- anything that fills it is not a person. */}
+          <div class="message__trap" aria-hidden="true">
+            <label for="message-website">Website</label>
+            <input id="message-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+          </div>
+
+          {/* Turnstile renders here rather than off-screen: invisible mode is
+              only invisible until Cloudflare wants a human, and a challenge in
+              a hidden container is a dead end. */}
+          <div class="composer__turnstile" data-message-turnstile></div>
+
+          <p class="composer__error" data-message-error hidden role="alert"></p>
+
+          <div class="composer__foot">
+            <p class="composer__privacy">{t.privacy}</p>
+            {/* Disabled until the client attaches. Nothing here works without
+                it -- Turnstile, the dwell token and the POST are all script --
+                and a native submit before then would reload the page and take
+                the draft with it. */}
+            <button class="send" type="submit" data-message-submit disabled>
+              {/* The label is the button's accessible name and nothing else.
+                  It still carries the busy state -- message-form.ts swaps its
+                  text -- so a screen reader hears "sending" while sight reads
+                  the same thing from the button going dim. */}
+              <span class="sr-only" data-message-submit-label>{t.submit}</span>
+              {/* lucide arrow-up. 1.75 rather than the site's usual 1.5: this
+                  glyph is drawn small on a solid fill, where 1.5 thins out
+                  against the ink. */}
+              <svg
+                class="send__icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 19V5M5 12l7-7 7 7"></path>
+              </svg>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* The sender's own words, lifted out of the composer at the moment they
+          send and left standing after -- which is why the receipt below reads
+          as a reply to something rather than as a banner. Deliberately not a
+          live mirror of the textarea: the same sentence twice, 40px apart,
+          reads as a rendering fault rather than as a preview. */}
+      <div class="msg msg--me msg--turn" data-message-draft hidden>
+        <p class="bubble bubble--me" data-message-draft-text></p>
+      </div>
+
+      <div class="msg msg--them msg--turn" data-message-typing hidden>
+        <div class="bubble bubble--them bubble--typing" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <div class="msg msg--block msg--turn" data-message-sent-view hidden tabindex="-1">
+        <p class="bubble bubble--them" data-message-sent-body></p>
+        <button class="again" type="button" data-message-again>{t.sendAnother}</button>
+      </div>
+    </div>
+  </main>
+
+  <Footer />
+</Layout>
+
+<style>
+  .thread {
+    /* 520 rather than the 640 a form would take. At 14px this lands near 34
+       CJK characters a line, which is a letter's measure, not a page's. */
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 88px 20px 104px;
+
+    /* Both fills arrive inline; the theme picks between them here. Setting
+       --accent-fill itself inline would pin it, because an inline declaration
+       outranks any stylesheet rule and the dark override would never land. */
+    --accent-fill: var(--accent-light);
+
+    /* Opaque on purpose, and the reason this is a hex and not an
+       hsl(var(--foreground) / a) overlay: the page ground is a dot grid, and an
+       alpha surface lets the dots show through the text. It reads as a surface
+       because the dots stop at its edge, not because it is dark, so it can sit
+       this close to the white ground -- iMessage needs its heavier #E9E9EB
+       only because it has no texture to interrupt. */
+    --surface: #f4f4f4;
+
+    --line: hsl(var(--foreground) / 0.16);
+    /* Rules drawn on --surface rather than on the page, so they need a touch
+       more alpha than they would on the ground to read at all. */
+    --line-soft: hsl(var(--foreground) / 0.13);
+    --ink: hsl(var(--foreground) / 0.86);
+
+    /* The blog zone's danger pair (--blog-danger in comments.css), repeated
+       because this page is site zone and that token is not defined here.
+       Not the --destructive token: that one is a fill designed to carry white
+       text on top of it, so worn as text on this page's own background it
+       lands at 1.9:1 in dark. These two are ~6.6:1 and ~7:1. */
+    --message-danger: #b4232b;
+  }
+
+  :global(.dark) .thread {
+    --accent-fill: var(--accent-dark);
+    /* The dark ground is 4% grey, so this needs a wider gap than light's 4
+       points to separate by the same amount -- lightness differences compress
+       as they approach black. */
+    --surface: #1c1c1e;
+    --line: hsl(var(--foreground) / 0.2);
+    --line-soft: hsl(var(--foreground) / 0.16);
+    --message-danger: #f1707a;
+  }
+
+  .thread__stack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .msg {
+    display: flex;
+  }
+
+  /* `display: flex` above outguns the UA's `[hidden] { display: none }`, and
+     every collapsed element on this page is hidden by that attribute. */
+  .msg[hidden] {
+    display: none;
+  }
+
+  .msg--me {
+    justify-content: flex-end;
+  }
+
+  /* The composer and the receipt are full-width objects with something stacked
+     under them, not bubbles sitting in a row. */
+  .msg--block {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  /* A change of speaker, or a new beat from the same one. Anything without it
+     belongs to the run above and keeps the tight 4px gap. */
+  .msg--turn {
+    margin-top: 20px;
+  }
+
+  .bubble {
+    max-width: 82%;
+    margin: 0;
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.72;
+    border-radius: 15px;
+    text-wrap: pretty;
+  }
+
+  .bubble--them {
+    color: var(--ink);
+    background: var(--surface);
+  }
+
+  .bubble--joined-above {
+    border-top-left-radius: 5px;
+  }
+
+  .bubble--joined-below {
+    border-bottom-left-radius: 5px;
+  }
+
+  /* The one filled shape in the thread. It borrows the send button's fill on
+     purpose: the button looks like the thing it is about to produce, and only
+     one of the two is ever on screen, because sending hides the composer. */
+  .bubble--me {
+    color: var(--accent-ink);
+    background: var(--accent-fill);
+    border-bottom-right-radius: 5px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  /* --- composer -----------------------------------------------------------
+     One panel with rules through it, rather than three rounded boxes stacked
+     inside a fourth. Same number of fields, a quarter of the drawn shapes. It
+     takes the bubbles' surface because it is the same material: the thing you
+     write in becomes the bubble you sent. No outline -- the fill already ends
+     where the panel ends, and a border on top of it is a second edge. */
+  .composer {
+    background: var(--surface);
+    border-radius: 16px;
+    /* Clips the focus ring's square corners against the panel's round ones. */
+    overflow: hidden;
+  }
+
+  .composer__pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .composer__pair .composer__cell + .composer__cell {
+    border-left: 1px solid var(--line-soft);
+  }
+
+  .composer__cell--body {
+    border-top: 1px solid var(--line-soft);
+  }
+
+  /* The ring goes round the whole panel, not the focused cell. Per-cell, the
+     body field's ring is a square rectangle inside a rounded one, which reads
+     as a stray box; per-panel it follows the radius already there and says the
+     composer is live, which is the true statement anyway -- the three fields
+     are one act. Inset, so gaining focus moves nothing. */
+  .composer:focus-within {
+    box-shadow: inset 0 0 0 1px var(--accent-fill);
+  }
+
+  .field {
+    display: block;
+    width: 100%;
+    padding: 12px 14px;
+    /* 16px, because anything smaller makes iOS Safari zoom the viewport when
+       the field takes focus. The rule below buys the smaller size back on
+       hardware that never does that -- see .field's fine-pointer override. */
+    font: inherit;
+    font-size: 16px;
+    color: hsl(var(--foreground));
+    background: transparent;
+    border: none;
+    caret-color: var(--accent-fill);
+  }
+
+  .field:focus {
+    outline: none;
+  }
+
+  /* A composer, not a form field: it opens at three lines and grows with what
+     is typed (see message-form.ts), which is why the drag handle is gone. The
+     cap is where it stops growing and starts scrolling -- past that the send
+     button would be pushed off screen on a laptop. */
+  .field--body {
+    min-height: 78px;
+    max-height: 264px;
+    line-height: 1.68;
+    resize: none;
+    overflow-y: auto;
+  }
+
+  .field::placeholder {
+    color: hsl(var(--muted-foreground) / 0.55);
+  }
+
+  /* 16px next to 14px bubbles reads as a form dropped into a thread. A mouse
+     or trackpad means no focus zoom to defend against, so the fields can match
+     what they will become. Touch keeps the 16px -- a tablet is exactly where
+     the zoom would fire. */
+  @media (hover: hover) and (pointer: fine) {
+    .field {
+      font-size: 14px;
+    }
+  }
+
+  /* Off-screen rather than display:none -- a bot reading the DOM should find
+     a field that looks fillable. */
+  .message__trap,
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .composer__turnstile {
+    padding: 12px 14px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .composer__turnstile:empty {
+    display: none;
+  }
+
+  .composer__error {
+    margin: 0;
+    padding: 11px 14px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--message-danger);
+    background: color-mix(in oklab, var(--message-danger) 11%, transparent);
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .composer__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 9px 9px 14px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .composer__privacy {
+    margin: 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground) / 0.8);
+    text-wrap: pretty;
+  }
+
+  /* An arrow in a circle, no word. Every composer a visitor has ever used ends
+     in this button, so the label was spending the widest object in the footer
+     on something nobody reads -- it lives on as the accessible name. */
+  .send {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font: inherit;
+    color: var(--accent-ink);
+    background: var(--accent-fill);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: opacity 0.14s ease, scale 0.12s ease;
+  }
+
+  .send__icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .send:hover:not(:disabled) {
+    opacity: 0.88;
+  }
+
+  .send:active:not(:disabled) {
+    scale: 0.97;
+  }
+
+  .send:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .bubble--typing {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 14px;
+  }
+
+  .bubble--typing span {
+    width: 5px;
+    height: 5px;
+    background: currentColor;
+    border-radius: 50%;
+    opacity: 0.3;
+    animation: typing 1.25s ease-in-out infinite;
+  }
+
+  .bubble--typing span:nth-child(2) {
+    animation-delay: 0.16s;
+  }
+
+  .bubble--typing span:nth-child(3) {
+    animation-delay: 0.32s;
+  }
+
+  @keyframes typing {
+    0%,
+    60%,
+    100% {
+      opacity: 0.24;
+      transform: translateY(0);
+    }
+    30% {
+      opacity: 0.7;
+      transform: translateY(-3px);
+    }
+  }
+
+  [data-message-sent-view] {
+    align-items: flex-start;
+  }
+
+  [data-message-sent-view]:focus-visible {
+    outline: none;
+  }
+
+  .again {
+    margin-left: 3px;
+    padding: 0;
+    font: inherit;
+    font-size: 12.5px;
+    color: hsl(var(--muted-foreground));
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    transition: color 0.14s ease, border-color 0.14s ease;
+  }
+
+  .again:hover {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--foreground) / 0.5);
+  }
+
+  /* Bubbles arrive rather than appear. Only the ones revealed by script carry
+     this -- the opening run is server-rendered and should already be there. */
+  [data-message-draft]:not([hidden]),
+  [data-message-typing]:not([hidden]),
+  [data-message-sent-view]:not([hidden]) {
+    animation: bubble-in 0.24s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  }
+
+  @keyframes bubble-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .thread {
+      padding: 56px 16px 80px;
+    }
+
+    .bubble {
+      max-width: 88%;
+    }
+
+    .composer__pair {
+      grid-template-columns: 1fr;
+    }
+
+    .composer__pair .composer__cell + .composer__cell {
+      border-left: none;
+      border-top: 1px solid var(--line-soft);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .send:active:not(:disabled) {
+      scale: 1;
+    }
+
+    .bubble--typing span,
+    [data-message-draft]:not([hidden]),
+    [data-message-typing]:not([hidden]),
+    [data-message-sent-view]:not([hidden]) {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  import { initMessageForm } from '@/features/messages/client/message-form';
+
+  const root = document.querySelector<HTMLElement>('[data-message-root]');
+  if (root) initMessageForm(root);
+</script>
