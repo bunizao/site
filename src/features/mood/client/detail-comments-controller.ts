@@ -320,6 +320,9 @@ async function refreshLiveComments(postId: string): Promise<void> {
 
     const added = addComments(comments, true);
     if (added > 0 && commentsListEl) {
+      // A thread that first rendered empty still has the empty note on
+      // screen; the first comment to arrive on a tick has to clear it.
+      if (emptyEl) emptyEl.hidden = true;
       hydrateAnimatedEmoji?.(commentsListEl);
       hydrateMoodRichText(commentsListEl);
       syncCommentsCount();
