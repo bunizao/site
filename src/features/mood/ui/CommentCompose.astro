@@ -193,9 +193,9 @@ const t = moodCommentsCopy;
     gap: 8px;
     margin-bottom: 10px;
     padding: 8px 10px;
-    background: hsl(var(--foreground) / 0.035);
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 10px;
+    background: var(--comment-bubble-bg, hsl(var(--background)));
+    border: 1px solid var(--comment-bubble-border, hsl(var(--foreground) / 0.1));
+    border-radius: var(--radius-md, 10px);
   }
 
   .mood-compose__reply-quote {
@@ -228,12 +228,17 @@ const t = moodCommentsCopy;
     height: 13px;
   }
 
+  /* Opaque, like the bubbles above it. An alpha fill let the page's dot grid
+     read straight through the form, which made it look unfinished next to
+     rows that sit on a solid surface. */
   .mood-compose__box {
-    background: hsl(var(--foreground) / 0.035);
-    border: 1px solid hsl(var(--foreground) / 0.08);
+    background: var(--comment-bubble-bg, hsl(var(--background)));
+    border: 1px solid var(--comment-bubble-border, hsl(var(--foreground) / 0.08));
     border-radius: var(--comment-body-radius, 12px);
     padding: 10px 12px 8px;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition:
+      border-color var(--dur-fast) var(--ease),
+      box-shadow var(--dur-fast) var(--ease);
   }
 
   .mood-compose__box:has(:focus-visible) {
@@ -251,7 +256,7 @@ const t = moodCommentsCopy;
     flex: 1;
     min-width: 0;
     padding: 7px 10px;
-    font-size: 13px;
+    font-size: var(--comment-meta, 13px);
     font-family: inherit;
     color: hsl(var(--foreground));
     background: hsl(var(--background));
@@ -293,8 +298,8 @@ const t = moodCommentsCopy;
     display: block;
     width: 100%;
     padding: 4px 2px;
-    font-size: 13px;
-    line-height: 1.5;
+    font-size: var(--comment-body, 15px);
+    line-height: var(--comment-lead, 1.65);
     font-family: inherit;
     color: hsl(var(--foreground));
     background: transparent;
@@ -309,12 +314,6 @@ const t = moodCommentsCopy;
 
   .mood-compose__field[aria-invalid='true'] {
     outline: none;
-  }
-
-  @media (min-width: 640px) {
-    .mood-compose__field {
-      font-size: 14px;
-    }
   }
 
   .mood-compose__bar {
