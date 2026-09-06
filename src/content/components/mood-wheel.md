@@ -1,6 +1,6 @@
 ---
 title: Mood Wheel
-tagline: A precision-instrument timeline dial that winds to the scroll position.
+tagline: A precision-instrument timeline dial you can read, drag and flick.
 tier: composition
 order: 60
 install:

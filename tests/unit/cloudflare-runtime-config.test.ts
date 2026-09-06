@@ -397,7 +397,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(timelineWheel).not.toContain("import gsap from 'gsap'");
     expect(timelineWheel).toContain("import('gsap')");
     expect(timelineWheel).toContain("const feedStartsHidden = feedEl.classList.contains('is-hidden')");
-    expect(timelineWheel).toContain('if (isDesktop() && feedStartsHidden)');
+    expect(timelineWheel).toContain('if (feedStartsHidden)');
     expect(updateWatcher).not.toContain("import gsap from 'gsap'");
     expect(updateWatcher).toContain("import('gsap')");
   });
