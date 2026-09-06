@@ -34,9 +34,17 @@ const GLOW_PEAK = 0.5;
  * in viewport space; see the homepage stylesheet.
  */
 const FIELD_EDGE = 620;
-/** Columns wake from the centre outward: spread across the band, then ease. */
-const WAKE_SPREAD_MS = 700;
-const WAKE_MS = 600;
+/**
+ * Entrance. The band arrives as weather does: a front sweeps down from the top
+ * edge over ENTRANCE_MS while columns wake from the centre outward. Both are
+ * gates on an already-running simulation, so the field is mid-flow the moment
+ * it is fully visible.
+ */
+const ENTRANCE_MS = 1100;
+/** Soft edge of the sweeping front, in rows. */
+const ENTRANCE_EDGE_ROWS = 7;
+const WAKE_SPREAD_MS = 500;
+const WAKE_MS = 500;
 
 /**
  * Day (`rain`) and night (`drift`), blended by daylight. Both run thinner than
@@ -177,7 +185,9 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     lit.length = 0;
 
     const age = now - bornAt;
-    let allAwake = true;
+    let allAwake = awake || age >= ENTRANCE_MS;
+    // Rows above the front are shown; rows within ENTRANCE_EDGE_ROWS of it fade.
+    const front = awake ? Infinity : (age / ENTRANCE_MS) * (rowCount + ENTRANCE_EDGE_ROWS);
 
     for (let c = 0; c < colCount; c++) {
       const col = columns[c];
@@ -192,7 +202,9 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
       }
       const x = c * colW;
       for (let r = 0; r < rowCount; r++) {
-        const rain = col.alphas[r] * col.brightness * wake;
+        const gate = awake ? 1 : Math.min(1, Math.max(0, (front - r) / ENTRANCE_EDGE_ROWS));
+        if (gate === 0) break;
+        const rain = col.alphas[r] * col.brightness * wake * gate;
         const glow = col.glows[r];
         // Glow-dominant cells are painted after the rain so they sit on top.
         if (glow > rain) {
