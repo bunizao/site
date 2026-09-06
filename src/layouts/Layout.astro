@@ -47,7 +47,6 @@ import PerformanceDebugPanel from '@/components/PerformanceDebugPanel.astro';
 import SearchButton from '@/components/SearchButton.astro';
 import SiteBrand from '@/components/SiteBrand.astro';
 import Topbar from '@/components/Topbar.astro';
-import GlyphStrip from '@/components/GlyphStrip.astro';
 import {
   PEEK_NAVBAR_LOGO,
   getPeekRuntimeSlot,
@@ -430,8 +429,6 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
       )}
     </div>
     <slot name="topbar" />
-    {/* Docs draw their own bar over the top gap, so only the page variant gets the strip. */}
-    {isPageNav && <GlyphStrip />}
     {containedScroll ? (
       <PageScroller restorationKey={scrollRestorationKey}>
         <div class="site-shell">
