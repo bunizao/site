@@ -58,6 +58,16 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
     );
   }
 
+  /* The spotlight below the band lights the lattice in the session's ink, so
+     the pointer carries one colour from the rain onto the dots. */
+  :global(.spotlight-overlay__grid) {
+    background-image: radial-gradient(
+      circle,
+      color-mix(in oklab, var(--glyph-ink, hsl(var(--foreground))) 85%, transparent) 1.15px,
+      transparent 1.15px
+    );
+  }
+
   /* The homepage ground carries a trace of cool grey instead of pure white and
      near-black: the field's inks sit on it without the ground fighting them,
      and the step to every other page is under 1% lightness, so navigation

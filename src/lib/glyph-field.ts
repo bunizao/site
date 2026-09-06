@@ -28,7 +28,11 @@ const BAND_HEIGHT = 560;
 const CELL_W = 12;
 const CELL_H = 16;
 /** Pointer light: a soft lift of the cells under the cursor, not a torch. */
-const GLOW_RADIUS = 64;
+// The pointer is one light across the page: these match the core ellipse of
+// the site spotlight (Layout.astro), which takes over below the band in the
+// same ink, so the crossing reads as one glow moving over two textures.
+const GLOW_RADIUS = 88;
+const GLOW_ASPECT = 0.72;
 const GLOW_PEAK = 0.5;
 /**
  * Where the site's own texture (dot lattice, pointer spotlight) takes over
@@ -164,6 +168,8 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     // same nominal alpha reads hotter. The ink is a mid blue rather than pure
     // black or white, so both run above the reference's 0.6 / 0.5.
     gain = dark ? 0.62 : 0.72;
+    // Published so the page can paint the pointer spotlight in the same ink.
+    root.style.setProperty('--glyph-ink', ink);
   };
 
   const respawn = (col: Column, initial: boolean) => {
@@ -351,7 +357,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
       const col = columns[c];
       const dx = c * colW + colW / 2 - x;
       for (let r = r0; r <= r1; r++) {
-        const d = Math.hypot(dx, r * rowH + rowH / 2 - y);
+        const d = Math.hypot(dx, (r * rowH + rowH / 2 - y) / GLOW_ASPECT);
         if (d > radius) continue;
         const g = GLOW_PEAK * Math.pow(1 - d / radius, 1.5);
         if (g > col.glows[r]) col.glows[r] = g;
@@ -468,6 +474,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('scroll', onScroll);
       root.style.removeProperty('--field-edge');
+      root.style.removeProperty('--glyph-ink');
       reduced.removeEventListener('change', onReducedChange);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerdown', onPointerDown);
