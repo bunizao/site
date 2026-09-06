@@ -33,7 +33,7 @@ silent drops described under [Tripwires](#tripwires).
   "turnstileToken": "0.abc…",
   "dwellToken": "1738…:9f2…",
   "website": "",
-  "locale": "zh"
+  "locale": "en"
 }
 ```
 
@@ -45,7 +45,7 @@ silent drops described under [Tripwires](#tripwires).
 | `turnstileToken` | yes | Action `owner_message_create` |
 | `dwellToken` | yes | Minted by `GET /api/v2/comments/dwell-token` — the same endpoint, because it signs the same timestamp with the same secret |
 | `website` | no | Honeypot. Must be empty |
-| `locale` | no | `zh` or `en`; anything else falls back to `zh`. Chooses the language of the verification mail and of the owner's reply |
+| `locale` | no | `zh` or `en`; anything else falls back to `zh`. Chooses the language of the verification mail and of the owner's reply. `/message` is English only and always sends `en` |
 
 ```json
 {
@@ -153,6 +153,10 @@ unsolicited alerts about other people's activity, and swallowing a
 hand-written personal answer because of it would be the wrong reading of a
 switch nobody set with this in mind. Suppression is still honoured — a hard
 bounce or a spam complaint means the address is not mailed at all.
+
+For the same reason the reply mail carries no settings link. There is nothing
+to configure: it is one hand-written answer, not an alert, and the only thing
+the footer offers is "reply to this email to keep going".
 
 The bot says why a reply could not be sent rather than failing quietly:
 the message is gone, there is no address on it, the address was never
