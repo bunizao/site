@@ -7,24 +7,11 @@
 // squeezing the glyphs. The mask is the reference's: the field dissolves
 // before the first section label and never reaches the viewport edges.
 //
-// The band is sticky inside a track the script sizes at runtime: it stays in
-// the viewport while the rows collapse into one rule, then unpins with that
-// rule one cell above `ruleTarget`, the first section's label, and scrolls
-// away as its divider. See the collapse notes in src/lib/glyph-field.ts.
-//
 // Colour lives in src/features/home/glyph-inks.ts, one pair per hue.
-
-interface Props {
-  ruleTarget?: string;
-}
-
-const { ruleTarget = '#projects-section .section-label' } = Astro.props;
 ---
 
-<div class="glyph-field-track" aria-hidden="true">
-  <div class="glyph-field" data-glyph-field data-rule-target={ruleTarget}>
-    <canvas width="1200" height="560"></canvas>
-  </div>
+<div class="glyph-field" data-glyph-field aria-hidden="true">
+  <canvas width="1200" height="560"></canvas>
 </div>
 
 <style>
@@ -32,19 +19,9 @@ const { ruleTarget = '#projects-section .section-label' } = Astro.props;
     position: relative;
   }
 
-  .glyph-field-track {
+  .glyph-field {
     position: absolute;
     inset: 0 0 auto 0;
-    /* Until the script measures the first section; keeps the band pinned
-       through roughly one viewport of hero. */
-    height: calc(100vh + 200px);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .glyph-field {
-    position: sticky;
-    top: 0;
     height: 560px;
     display: flex;
     justify-content: center;
