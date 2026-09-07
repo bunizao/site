@@ -62,7 +62,7 @@ leverage without a user selection step.
 | 035  | Mood reconcile: channel difference measurements | P1 | S | — | DONE (measurement record; design lives in 037) |
 | 037  | Mood converge: event stream, not probe | P1 | L | 035, ../site-api | IN PROGRESS — replaces 034 and 036; the 2026-09-03 site-api deploy carrying it was overwritten by a later `main` deploy, landing tracked by 039 |
 | 038  | Converge experiment: strategy and verification record | P1 | M | 037 | IN PROGRESS — G1/G2 were met in the 2026-09-03 run before the deploy regressed; landing tracked by 039 |
-| 039  | Land the serverless mood convergence stack | P1 | M | 037, 038, ../site-api | IN PROGRESS — baseline audit complete 2026-09-08; lane A (merge site-api `feat/mood-converge-ship`) not yet done |
+| 039  | Land the serverless mood convergence stack | P1 | M | 037, 038, ../site-api | READY TO SHIP — lanes A–D implemented 2026-09-08 on site-api `feat/mood-converge-landing`; awaiting PR, migration 0013 and deploy |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
