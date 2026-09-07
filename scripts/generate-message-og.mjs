@@ -43,6 +43,12 @@ const ACCENT = '#0070EB';
 // paper's hue -- an absolute grey lifted onto a warm ground disappears.
 const SURFACE = '#e9e6de';
 
+// The title bar's own ground, a step off the paper and a long way short of the
+// bubbles. Every chat window puts its header on a different material from the
+// thread; here that band is what the card has instead of a drawn box, and it
+// gives the space above the messages a reason to be empty.
+const BAR = '#f2f0ea';
+
 // Written for the card, not lifted from the page. A link preview is read cold,
 // in a feed, by someone who has not opened anything -- so the three bubbles
 // carry the three facts that decide whether it is worth a tap: you have
@@ -73,25 +79,25 @@ body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};col
    thread on graph paper reads as stickers on a worksheet. docs-og keeps the
    grid for the same reason: its page has one. */
 .card{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};
-  display:flex;flex-direction:column;padding:62px 84px 72px}
-/* The header a thread has: peek, the name, the address. The rule under it is
-   the one drawn line on the card and it is doing a job -- it is what makes the
-   row a title bar rather than a caption that drifted to the top. */
-.head{display:flex;align-items:center;gap:22px;padding-bottom:28px;
-  border-bottom:1px solid rgba(27,25,23,.09)}
+  display:flex;flex-direction:column}
+/* The header a thread has: peek, the name, the address. Full bleed and on its
+   own material, because a title bar that stops where the text stops is a
+   caption. The hairline under it fades out to the right, following the thread
+   below it -- a rule ruled edge to edge is a table. */
+.bar{background:${BAR};padding:36px 84px 30px;position:relative;
+  display:flex;align-items:center;gap:22px}
+.bar::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+  background:linear-gradient(90deg,rgba(27,25,23,.13),rgba(27,25,23,.02))}
+.body{flex:1;display:flex;flex-direction:column;padding:0 84px 72px}
 .who{display:flex;flex-direction:column;gap:7px}
 .name{font-size:30px;font-weight:500;letter-spacing:-.01em;line-height:1}
 /* Smooth-filtered, not image-rendering: pixelated. The sticker's pixel grid
    is not on an integer scale, so at this size pixelated snaps every edge to
    the wrong pixel and shreds the linework; letting the browser resample it
    leaves a small drawing instead of a broken big one. */
-.peek{height:72px;width:auto;display:block}
+.peek{height:64px;width:auto;display:block}
 .slug{font-family:'Geist Mono',monospace;font-size:21px;letter-spacing:.06em;
   color:${MUTE};line-height:1}
-/* The route in the accent, and the only other place on the card it appears.
-   A flat mute URL under a name is a caption; picking out the path says which
-   door this is, and it rhymes with the one filled bubble across the card. */
-.route{color:${ACCENT}}
 /* Pushed down, because messages sit at the bottom of a thread and the space
    above them is the part you have not scrolled back through. */
 .thread{margin-top:auto;display:flex;flex-direction:column;gap:8px}
@@ -109,17 +115,19 @@ body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};col
 .emoji{margin-right:.1em}
 </style>
 <div class="card">
-  <div class="head">
+  <div class="bar">
     <img class="peek" src="data:image/svg+xml;base64,${stickerB64}" alt="">
     <span class="who">
       <span class="name">${NAME}</span>
-      <span class="slug">buxx.me<span class="route">/message</span></span>
+      <span class="slug">${SLUG}</span>
     </span>
   </div>
+  <div class="body">
   <div class="thread">
     <div class="msg msg--me"><p class="bubble bubble--me">Can I tell you something?</p></div>
     <div class="msg msg--turn"><p class="bubble bubble--them bubble--joined-below">Go for it, nobody else sees this.</p></div>
     <div class="msg"><p class="bubble bubble--them bubble--joined-above">Drop an email and I'll write back <span class="emoji">📮</span></p></div>
+  </div>
   </div>
 </div>`;
 
