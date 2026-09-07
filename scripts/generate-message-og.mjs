@@ -106,7 +106,16 @@ body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};col
 .msg--turn{margin-top:40px}
 .bubble{width:fit-content;max-width:62%;padding:22px 30px;font-size:32px;line-height:1.5;border-radius:34px;text-wrap:pretty}
 .bubble--them{background:${SURFACE}}
-.bubble--me{background:${ACCENT};color:#fff;border-bottom-right-radius:11px}
+.bubble--me{background:${ACCENT};color:#fff;border-bottom-right-radius:11px;position:relative}
+/* A reaction, hung off the bubble it is about the way every messenger hangs
+   one: half on the message, half off it, so it reads as stuck on afterwards
+   rather than sent as part of it. Grey rather than paper because grey is the
+   owner's colour on this card -- the reaction is him answering the opener
+   before he has typed anything. The hairline is only doing work on the half
+   that overlaps the paper, where two warm greys meet. */
+.react{position:absolute;left:22px;bottom:-27px;width:54px;height:54px;
+  border-radius:27px;background:${SURFACE};border:1px solid rgba(27,25,23,.06);
+  display:grid;place-items:center;font-size:27px;line-height:1}
 .bubble--joined-below{border-bottom-left-radius:11px}
 .bubble--joined-above{border-top-left-radius:11px}
 /* Apple Color Emoji is drawn wider than the advance it reports, so the space
@@ -124,7 +133,7 @@ body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};col
   </div>
   <div class="body">
   <div class="thread">
-    <div class="msg msg--me"><p class="bubble bubble--me">Can I tell you something?</p></div>
+    <div class="msg msg--me"><p class="bubble bubble--me">Can I tell you something?<span class="react">🩷</span></p></div>
     <div class="msg msg--turn"><p class="bubble bubble--them bubble--joined-below">Go for it, nobody else sees this.</p></div>
     <div class="msg"><p class="bubble bubble--them bubble--joined-above">Drop an email and I'll write back <span class="emoji">📮</span></p></div>
   </div>
