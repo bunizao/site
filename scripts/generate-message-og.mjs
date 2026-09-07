@@ -28,6 +28,10 @@ const HEIGHT = 630;
 const PAPER = '#faf9f6';
 const INK = '#1b1917';
 const MUTE = '#a8a195';
+// Who you are writing to, and where. A URL alone names an address; a thread
+// header names a person, and on a card that travels without the page around it
+// that is the fact worth carrying. Both come from src/data/site.ts.
+const NAME = 'Lucian Bu';
 const SLUG = 'buxx.me/message';
 
 // The page's accent, already resolved: nameOnBackground('#007AFF', '#FFFFFF')
@@ -70,14 +74,24 @@ body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};col
    grid for the same reason: its page has one. */
 .card{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};
   display:flex;flex-direction:column;padding:62px 84px 72px}
-/* The header a thread has: who you are writing to, mark first. */
-.head{display:flex;align-items:center;gap:18px}
+/* The header a thread has: peek, the name, the address. The rule under it is
+   the one drawn line on the card and it is doing a job -- it is what makes the
+   row a title bar rather than a caption that drifted to the top. */
+.head{display:flex;align-items:center;gap:22px;padding-bottom:28px;
+  border-bottom:1px solid rgba(27,25,23,.09)}
+.who{display:flex;flex-direction:column;gap:7px}
+.name{font-size:30px;font-weight:500;letter-spacing:-.01em;line-height:1}
 /* Smooth-filtered, not image-rendering: pixelated. The sticker's pixel grid
    is not on an integer scale, so at this size pixelated snaps every edge to
    the wrong pixel and shreds the linework; letting the browser resample it
    leaves a small drawing instead of a broken big one. */
 .peek{height:72px;width:auto;display:block}
-.slug{font-family:'Geist Mono',monospace;font-size:25px;letter-spacing:.06em;color:${MUTE}}
+.slug{font-family:'Geist Mono',monospace;font-size:21px;letter-spacing:.06em;
+  color:${MUTE};line-height:1}
+/* The route in the accent, and the only other place on the card it appears.
+   A flat mute URL under a name is a caption; picking out the path says which
+   door this is, and it rhymes with the one filled bubble across the card. */
+.route{color:${ACCENT}}
 /* Pushed down, because messages sit at the bottom of a thread and the space
    above them is the part you have not scrolled back through. */
 .thread{margin-top:auto;display:flex;flex-direction:column;gap:8px}
@@ -97,7 +111,10 @@ body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};col
 <div class="card">
   <div class="head">
     <img class="peek" src="data:image/svg+xml;base64,${stickerB64}" alt="">
-    <span class="slug">${SLUG}</span>
+    <span class="who">
+      <span class="name">${NAME}</span>
+      <span class="slug">buxx.me<span class="route">/message</span></span>
+    </span>
   </div>
   <div class="thread">
     <div class="msg msg--me"><p class="bubble bubble--me">Can I tell you something?</p></div>
