@@ -12,7 +12,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { PEEK_BASE } from '../src/features/mascot/peek/base';
-import { paletteGridToSvg } from '../src/features/logos/lib/render';
+import { gridToSvg } from '../src/features/logos/lib/render';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(resolve(root, p)).toString('base64');
@@ -39,41 +39,18 @@ const ACCENT = '#0070EB';
 // paper's hue -- an absolute grey lifted onto a warm ground disappears.
 const SURFACE = '#e9e6de';
 
-// Peek, drawn from the favicon's own 10x7 grid rather than from a sticker: a
-// sticker is a bitmap and mushes at the size a favicon is drawn at, and this
-// is vector rects that stay crisp anywhere.
+// The contact a chat header names, drawn as the avatar a chat header draws:
+// peek knocked out of an ink disc. His grid is only 10x7 -- it is a favicon, a
+// shape meant to survive 16px -- so any attempt to letter him with an outline
+// at 60px turns him into masonry. Reversed out of a solid disc he keeps the
+// silhouette that reads at a glance and gets his white face anyway, and the
+// disc is what a thread puts beside a name.
 //
-// The grid alone is a silhouette -- ink everywhere the character is white --
-// which is the right call at 16px in a tab and a black blob at 60px on a card.
-// So he is drawn the way the stickers draw him: grow the grid a cell on every
-// side, ink each empty cell that touches him, and fill the body white. The
-// eyes are holes in the silhouette and become ink for the same reason the
-// outline does. Cell 5 is white in the project's own look palette
-// (features/mascot/peek/palette.ts), so the value carries its meaning here too.
-const WHITE = 5;
-const MARK_W = PEEK_BASE.width + 2;
-const MARK_H = PEEK_BASE.height + 2;
-const cellAt = (x, y) => (
-  y >= 0 && y < PEEK_BASE.height && x >= 0 && x < PEEK_BASE.width ? PEEK_BASE.base[y][x] : 0
-);
-const OUTLINED = Array.from({ length: MARK_H }, (_, y) => (
-  Array.from({ length: MARK_W }, (_, x) => {
-    const v = cellAt(x - 1, y - 1);
-    if (v === 3) return 3;
-    if (v === 2) return 1;
-    if (v) return WHITE;
-    // Four-neighbour, not eight: a diagonal pass closes the notch between the
-    // ears and costs him the one part of the silhouette that says which
-    // animal this is.
-    const touches = [[1, 0], [-1, 0], [0, 1], [0, -1]]
-      .some(([dx, dy]) => cellAt(x - 1 + dx, y - 1 + dy) !== 0);
-    return touches ? 1 : 0;
-  })
-));
-const MARK = paletteGridToSvg(OUTLINED, MARK_W, MARK_H, {
-  fg: INK,
+// gridToSvg already draws exactly this: body cells take fg, the nose takes the
+// accent, and the eyes are holes that let the disc through.
+const MARK = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
+  fg: '#ffffff',
   accent: PEEK_BASE.accent,
-  extraPalette: { [WHITE]: '#ffffff' },
 });
 
 // Written for the card, not lifted from the page. A link preview is read cold,
@@ -109,10 +86,13 @@ body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};col
   display:flex;flex-direction:column;padding:62px 84px 72px}
 /* The header a thread has: who you are writing to, mark first. */
 .head{display:flex;align-items:center;gap:18px}
-/* 60x45 is the outlined 12x9 grid at exactly 5px a cell. An integer cell keeps
-   every edge on a whole pixel, which is the whole point of a mark drawn out of
-   rectangles. */
-.mark{width:60px;height:45px;display:block}
+/* 40x28 is the 10x7 grid at exactly 4px a cell -- an integer cell keeps every
+   edge on a whole pixel, which is the whole point of a mark made of rectangles.
+   Sat 1px high in the disc: the ears carry the shape's weight upward, so
+   centring it by the box centres it visually low. */
+.avatar{width:62px;height:62px;border-radius:50%;background:${INK};
+  display:grid;place-items:center}
+.avatar svg{width:40px;height:28px;display:block;transform:translateY(-1px)}
 .slug{font-family:'Geist Mono',monospace;font-size:25px;letter-spacing:.06em;color:${MUTE}}
 /* Pushed down, because messages sit at the bottom of a thread and the space
    above them is the part you have not scrolled back through. */
@@ -120,7 +100,7 @@ body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};col
 .msg{display:flex}
 .msg--me{justify-content:flex-end}
 .msg--turn{margin-top:40px}
-.bubble{max-width:62%;padding:22px 30px;font-size:32px;line-height:1.5;border-radius:34px;text-wrap:pretty}
+.bubble{width:fit-content;max-width:62%;padding:22px 30px;font-size:32px;line-height:1.5;border-radius:34px;text-wrap:pretty}
 .bubble--them{background:${SURFACE}}
 .bubble--me{background:${ACCENT};color:#fff;border-bottom-right-radius:11px}
 .bubble--joined-below{border-bottom-left-radius:11px}
@@ -132,13 +112,13 @@ body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};col
 </style>
 <div class="card">
   <div class="head">
-    <span class="mark">${MARK}</span>
+    <span class="avatar">${MARK}</span>
     <span class="slug">${SLUG}</span>
   </div>
   <div class="thread">
-    <div class="msg msg--me"><p class="bubble bubble--me">Can I tell you something private?</p></div>
-    <div class="msg msg--turn"><p class="bubble bubble--them bubble--joined-below">Go ahead, it reaches me and nobody else.</p></div>
-    <div class="msg"><p class="bubble bubble--them bubble--joined-above">Leave an email and I'll write back <span class="emoji">📮</span></p></div>
+    <div class="msg msg--me"><p class="bubble bubble--me">Can I tell you something?</p></div>
+    <div class="msg msg--turn"><p class="bubble bubble--them bubble--joined-below">Go for it, nobody else sees this.</p></div>
+    <div class="msg"><p class="bubble bubble--them bubble--joined-above">Drop an email and I'll write back <span class="emoji">📮</span></p></div>
   </div>
 </div>`;
 
