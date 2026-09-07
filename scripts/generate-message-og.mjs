@@ -107,15 +107,26 @@ body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};col
 .bubble{width:fit-content;max-width:62%;padding:22px 30px;font-size:32px;line-height:1.5;border-radius:34px;text-wrap:pretty}
 .bubble--them{background:${SURFACE}}
 .bubble--me{background:${ACCENT};color:#fff;border-bottom-right-radius:11px;position:relative}
-/* A reaction, hung off the bubble it is about the way every messenger hangs
-   one: half on the message, half off it, so it reads as stuck on afterwards
-   rather than sent as part of it. Grey rather than paper because grey is the
-   owner's colour on this card -- the reaction is him answering the opener
-   before he has typed anything. The hairline is only doing work on the half
-   that overlaps the paper, where two warm greys meet. */
-.react{position:absolute;left:22px;bottom:-27px;width:54px;height:54px;
-  border-radius:27px;background:${SURFACE};border:1px solid rgba(27,25,23,.06);
-  display:grid;place-items:center;font-size:27px;line-height:1}
+/* An iMessage Tapback, copied off the real thing rather than invented. Numbers
+   measured from a screenshot: the disc is 0.96x the bubble's height -- far
+   bigger than it feels like it should be -- and it nests into the top-left
+   corner of a sent bubble, overlapping about a third of its own width and
+   height so most of it floats outside. Flat fill, no border, no shadow. The
+   hairline was the mistake the first attempt made: an outlined disc reads as a
+   hole punched in the message, and a filled one reads as a badge sitting on it.
+   SURFACE is already the received-bubble grey, which is the colour Messages
+   uses here, so the reaction stays the owner's voice answering the opener. */
+.react{position:absolute;left:-57px;top:-57px;width:87px;height:87px;
+  border-radius:50%;background:${SURFACE};
+  display:grid;place-items:center;font-size:48px;line-height:1}
+/* The tail: two dots on the diagonal away from the corner, 0.18x and 0.10x the
+   disc, at 1.6 and 2.1 radii from its centre. They are the whole tell -- a bare
+   disc is a sticker someone dropped next to the message, and the dots are what
+   make it a thought about that message. */
+.react::before,.react::after{content:"";position:absolute;border-radius:50%;
+  background:${SURFACE}}
+.react::before{width:15px;height:15px;left:-13px;top:84px}
+.react::after{width:8px;height:8px;left:-26px;top:103px}
 .bubble--joined-below{border-bottom-left-radius:11px}
 .bubble--joined-above{border-top-left-radius:11px}
 /* Apple Color Emoji is drawn wider than the advance it reports, so the space
