@@ -1,24 +1,24 @@
-// Regenerate public/message-og.png from source. Run: bun scripts/generate-message-og.mjs
+// Regenerate public/message-og.png from source. Run: node scripts/generate-message-og.mjs
 //
-// The card is a chat window, because the page is one: the address and the mark
+// The card is a chat window, because the page is one: peek and the address
 // across the top the way a thread names who you are writing to, and the
 // messages settling against the bottom the way messages do.
-//
-// bun rather than node, unlike its siblings in this folder: it imports the
-// favicon's own pixel grid straight from src, so the mark on the card is the
-// mark in the tab by construction and cannot drift from it.
 import { chromium } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { PEEK_BASE } from '../src/features/mascot/peek/base';
-import { gridToSvg } from '../src/features/logos/lib/render';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(resolve(root, p)).toString('base64');
 
 const sansB64 = read('public/fonts/geist-sans-variable.woff2');
 const monoB64 = read('public/fonts/geist-mono-variable.woff2');
+// peek reading his notes -- the pose for a page whose whole promise is that
+// one person reads what you send. The favicon grid is the other candidate and
+// the wrong one at this size: 10x7 is a shape built to survive 16px, so it is
+// a silhouette, and a silhouette blown up to 70px is a blob or, outlined,
+// masonry. The sticker is drawn art and just needs to be drawn small.
+const stickerB64 = read('public/mascot/peek/stickers/notes.svg');
 
 const WIDTH = 1200;
 const HEIGHT = 630;
@@ -38,20 +38,6 @@ const ACCENT = '#0070EB';
 // step (1.18); this is that same step measured against this paper, in the
 // paper's hue -- an absolute grey lifted onto a warm ground disappears.
 const SURFACE = '#e9e6de';
-
-// The contact a chat header names, drawn as the avatar a chat header draws:
-// peek knocked out of an ink disc. His grid is only 10x7 -- it is a favicon, a
-// shape meant to survive 16px -- so any attempt to letter him with an outline
-// at 60px turns him into masonry. Reversed out of a solid disc he keeps the
-// silhouette that reads at a glance and gets his white face anyway, and the
-// disc is what a thread puts beside a name.
-//
-// gridToSvg already draws exactly this: body cells take fg, the nose takes the
-// accent, and the eyes are holes that let the disc through.
-const MARK = gridToSvg(PEEK_BASE.base, PEEK_BASE.width, PEEK_BASE.height, {
-  fg: '#ffffff',
-  accent: PEEK_BASE.accent,
-});
 
 // Written for the card, not lifted from the page. A link preview is read cold,
 // in a feed, by someone who has not opened anything -- so the three bubbles
@@ -86,13 +72,11 @@ body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};col
   display:flex;flex-direction:column;padding:62px 84px 72px}
 /* The header a thread has: who you are writing to, mark first. */
 .head{display:flex;align-items:center;gap:18px}
-/* 40x28 is the 10x7 grid at exactly 4px a cell -- an integer cell keeps every
-   edge on a whole pixel, which is the whole point of a mark made of rectangles.
-   Sat 1px high in the disc: the ears carry the shape's weight upward, so
-   centring it by the box centres it visually low. */
-.avatar{width:62px;height:62px;border-radius:50%;background:${INK};
-  display:grid;place-items:center}
-.avatar svg{width:40px;height:28px;display:block;transform:translateY(-1px)}
+/* Smooth-filtered, not image-rendering: pixelated. The sticker's pixel grid
+   is not on an integer scale, so at this size pixelated snaps every edge to
+   the wrong pixel and shreds the linework; letting the browser resample it
+   leaves a small drawing instead of a broken big one. */
+.peek{height:72px;width:auto;display:block}
 .slug{font-family:'Geist Mono',monospace;font-size:25px;letter-spacing:.06em;color:${MUTE}}
 /* Pushed down, because messages sit at the bottom of a thread and the space
    above them is the part you have not scrolled back through. */
@@ -112,7 +96,7 @@ body{width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${PAPER};col
 </style>
 <div class="card">
   <div class="head">
-    <span class="avatar">${MARK}</span>
+    <img class="peek" src="data:image/svg+xml;base64,${stickerB64}" alt="">
     <span class="slug">${SLUG}</span>
   </div>
   <div class="thread">
