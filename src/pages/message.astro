@@ -83,6 +83,8 @@ const accentInk = textOnAccent(accentFill);
   title={formatSiteTitle(t.title)}
   description={t.lede}
   url="/message"
+  image="/message-og.png"
+  imageAlt="A chat window headed Lucian Bu, buxx.me/message: a blue bubble asking 'Can I tell you something?' with a pink heart Tapback on its corner, answered in grey by 'Go for it, nobody else sees this.' and 'Drop an email and I'll write back'."
   navVariant="page"
   showSiteNav
   brandVariant="home"
@@ -270,6 +272,14 @@ const accentInk = textOnAccent(accentFill);
 
 <style>
   .thread {
+    /* The site body is Geist Mono, and a monospaced chat reads as a terminal
+       transcript -- fixed advance widths turn speech into a log. Every
+       messenger anyone has written in is set in a UI sans, so this is
+       --font-display rather than --font-sans: a thread is interface, not
+       long-form prose, and it is the face the shared card is set in too. Site
+       chrome around the page keeps the site's voice. */
+    font-family: var(--font-display);
+
     /* 520 rather than the 640 a form would take. At 14px this lands near 34
        CJK characters a line, which is a letter's measure, not a page's. */
     max-width: 520px;
