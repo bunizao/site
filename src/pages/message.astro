@@ -174,7 +174,7 @@ const accentInk = textOnAccent(accentFill);
               class="field field--body"
               id="message-body"
               name="body"
-              rows="3"
+              rows="2"
               maxlength={MESSAGE_MAX_BODY_LENGTH}
               placeholder={t.bodyPlaceholder}
               required></textarea>
@@ -445,6 +445,10 @@ const accentInk = textOnAccent(accentFill);
        hardware that never does that -- see .field's fine-pointer override. */
     font: inherit;
     font-size: 16px;
+    /* The bubbles' leading, not the site's 1.625 body ratio. Inherited, a
+       field row came out 2px taller than the same text in a bubble, which is
+       the kind of gap you cannot name but can see. */
+    line-height: 1.5;
     color: hsl(var(--foreground));
     background: transparent;
     border: none;
@@ -455,12 +459,17 @@ const accentInk = textOnAccent(accentFill);
     outline: none;
   }
 
-  /* A composer, not a form field: it opens at three lines and grows with what
-     is typed (see message-form.ts), which is why the drag handle is gone. The
-     cap is where it stops growing and starts scrolling -- past that the send
-     button would be pushed off screen on a laptop. */
+  /* A composer, not a form field: it opens small and grows with what is typed
+     (see message-form.ts), which is why the drag handle is gone. Two lines
+     rather than three -- the growing is the promise that there is room, and a
+     third empty line does not make it more true, it just parks 23px of blank
+     grey in a thread whose bubbles are 38px tall. The cap is where it stops
+     growing and starts scrolling -- past that the send button would be pushed
+     off screen on a laptop. */
   .field--body {
-    min-height: 78px;
+    /* Two lines and the row's own padding: the same box rows="2" gives, so
+       the field is the same size before and after script. */
+    min-height: 67px;
     max-height: 264px;
     /* The bubble's leading. What is typed here becomes a bubble, so the line
        spacing should not change on the way. */
@@ -499,8 +508,11 @@ const accentInk = textOnAccent(accentFill);
     background-clip: content-box;
   }
 
+  /* Every real label on this panel is sr-only, so these three words are the
+     only ones a sighted visitor gets. At 0.55 they were decoration on top of
+     an already-muted token; this clears AA against the surface. */
   .field::placeholder {
-    color: hsl(var(--muted-foreground) / 0.55);
+    color: hsl(var(--muted-foreground) / 0.8);
   }
 
   /* 16px next to 15px bubbles reads as a form dropped into a thread. A mouse
@@ -563,7 +575,10 @@ const accentInk = textOnAccent(accentFill);
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 8px 8px 13px;
+    /* Tight on the button's side, the panel's gutter on the text's: the
+       circle is a round shape near a rounded corner and needs less room than
+       a line of type does. */
+    padding: 6px 6px 6px 13px;
     border-top: 1px solid var(--line-soft);
   }
 
@@ -593,14 +608,21 @@ const accentInk = textOnAccent(accentFill);
 
   /* An arrow in a circle, no word. Every composer a visitor has ever used ends
      in this button, so the label was spending the widest object in the footer
-     on something nobody reads -- it lives on as the accessible name. */
+     on something nobody reads -- it lives on as the accessible name.
+
+     38px, which is a one-line bubble's height. The comment above says the
+     button looks like the thing it is about to produce; at 32px it only
+     borrowed the colour, and read as a dot parked in a wide grey bar. At the
+     bubble's own size it is the panel's anchor, and the two saturated shapes
+     on the page are the same shape. */
   .send {
+    position: relative;
     display: inline-flex;
     flex: none;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 38px;
+    height: 38px;
     padding: 0;
     font: inherit;
     color: var(--accent-ink);
@@ -612,8 +634,17 @@ const accentInk = textOnAccent(accentFill);
   }
 
   .send__icon {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
+  }
+
+  /* 38px is the size the layout wants; 46px is the size a thumb wants. The
+     button keeps the first and claims the second, rather than growing the
+     drawn circle past what the foot can hold. */
+  .send::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
   }
 
   .send:hover:not(:disabled) {
