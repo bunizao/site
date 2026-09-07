@@ -1,6 +1,8 @@
 # 039 — Land the serverless mood convergence stack
 
-Status: proposed 2026-09-07, revised 2026-09-08 after a full baseline audit.
+Status: implemented 2026-09-08 on site-api `feat/mood-converge-landing`
+(lanes A–D) and site `claude/message-bookmark-view-missing-5c75d7`; awaiting
+PR, migration 0013 and the production deploy (see Ship checklist).
 Completes plan 037 (track A and track B) and plan 038 G2; supersedes the
 in-Worker embed probe of plan 032 (its monitor survives).
 
@@ -221,10 +223,36 @@ none; signal 2 reads backlog rows. Neither moves the plan 038 G1 target of
   plan — per plans 033 and 037 and the owner's standing constraints.
 - The owner's in-flight comments and messages branches.
 
-## Decisions for the owner
+## Decisions (taken 2026-09-08)
 
-1. Lane A merge shape: merge commit (recommended) or a rebase of the 15
-   commits.
-2. Open Graph first with the t.me embed as fallback (recommended), or t.me
-   first with Open Graph as fallback. OG-first is deterministic and repairs
-   the 42 historic rows; t.me-first matches what you see in Telegram.
+1. Lane A merge shape: merge commit.
+2. Open Graph first, t.me embed as fallback.
+
+## Ship checklist
+
+What is on `feat/mood-converge-landing` (site-api, worktree
+`.claude/worktrees/converge-landing`): merge of `feat/mood-converge-ship`,
+migration `0011_mood_dead_candidate.sql`, the re-applied `78d95ec` perf
+change, and the three lane branches `feat/mood-og-unfurl`,
+`feat/mood-preview-image-proxy`, `feat/mood-pipeline-monitor`. The CI set
+(`check:contracts`, `check`, `test:unit`, `test:e2e`, `doctor`, `build`,
+`wrangler deploy --dry-run`) passes on the branch head.
+
+Order matters: the `*/15` backfill query names the partial index with
+`INDEXED BY`, so a deploy before the migration logs a failed tick every
+15 min until the index exists (the cron handler catches it; nothing else
+breaks).
+
+1. Push the branch, open the PR against `main`, merge (merge commit).
+2. From the merged `main` checkout:
+   `wrangler d1 migrations apply site-mood --remote` — applies `0013` only;
+   `0011` is already on prod.
+3. `bun run build && ./node_modules/.bin/wrangler deploy --config
+   dist/server/wrangler.json` from `main`, never from a branch.
+4. Nothing to do on the DO: the alarm loop never stopped, its next tick
+   reports into the restored route.
+5. Site side: merge `claude/message-bookmark-view-missing-5c75d7` (docs,
+   plans 035/037/038/039, the ops route test). The ops test
+   `tests/ops/mood-converge-route-health.test.ts` fails with 404 until step 3.
+
+Then run the Verification list above.
