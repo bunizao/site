@@ -610,19 +610,20 @@ const accentInk = textOnAccent(accentFill);
      in this button, so the label was spending the widest object in the footer
      on something nobody reads -- it lives on as the accessible name.
 
-     38px, which is a one-line bubble's height. The comment above says the
-     button looks like the thing it is about to produce; at 32px it only
-     borrowed the colour, and read as a dot parked in a wide grey bar. At the
-     bubble's own size it is the panel's anchor, and the two saturated shapes
-     on the page are the same shape. */
+     34px. At 32 it read as a dot parked in a wide grey bar; at a bubble's
+     own 38 it outweighed everything around it -- the panel's rows are 46px,
+     and a 38px circle in a 51px bar is the loudest thing on a page whose
+     every other shape is a hairline. 34 puts the foot at 47px, the field rows
+     again, and leaves the button the second-heaviest shape in the thread
+     rather than the first. */
   .send {
     position: relative;
     display: inline-flex;
     flex: none;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
+    width: 34px;
+    height: 34px;
     padding: 0;
     font: inherit;
     color: var(--accent-ink);
@@ -634,17 +635,17 @@ const accentInk = textOnAccent(accentFill);
   }
 
   .send__icon {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 
-  /* 38px is the size the layout wants; 46px is the size a thumb wants. The
+  /* 34px is the size the layout wants; 46px is the size a thumb wants. The
      button keeps the first and claims the second, rather than growing the
      drawn circle past what the foot can hold. */
   .send::after {
     content: '';
     position: absolute;
-    inset: -4px;
+    inset: -6px;
   }
 
   .send:hover:not(:disabled) {
@@ -917,7 +918,11 @@ const accentInk = textOnAccent(accentFill);
 
 <script>
   import { initMessageForm } from '@/features/messages/client/message-form';
+  import { initBubbleFit } from '@/features/messages/client/fit-bubbles';
 
   const root = document.querySelector<HTMLElement>('[data-message-root]');
-  if (root) initMessageForm(root);
+  if (root) {
+    initBubbleFit(root);
+    initMessageForm(root);
+  }
 </script>

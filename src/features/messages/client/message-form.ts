@@ -22,6 +22,7 @@ import {
   setTurnstileHost,
   warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
+import { fitBubble } from '@/features/messages/client/fit-bubbles';
 import { messageCopy as t } from '@/features/messages/copy';
 
 const ACTION = 'owner_message_create' as const;
@@ -126,6 +127,7 @@ export function initMessageForm(root: HTMLElement): void {
     const text = bodyField.value.trim();
     draftText.textContent = text;
     draft.hidden = text.length === 0;
+    fitBubble(draftText);
   };
 
   // The composer grows with the message instead of opening as an empty well.
@@ -272,6 +274,7 @@ export function initMessageForm(root: HTMLElement): void {
         : result.replyable
           ? t.sentReplyable
           : t.sentAnonymous;
+      fitBubble(sentBody);
       if (typing) typing.hidden = true;
       formView.hidden = true;
       reveal(sentView);
