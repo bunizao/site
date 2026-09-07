@@ -58,7 +58,7 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
 // lend one.
 //
 // #007AFF is not used raw. White on it measures 4.02:1, which clears AA only
-// for large text, and this page sets 14px body -- textOnAccent answers
+// for large text, and this page sets 15px body -- textOnAccent answers
 // near-black on it, which is not what anyone means by iMessage blue.
 // nameOnBackground solves the same inequality from the other side (contrast is
 // symmetric, so "this blue readable on white" and "white readable on this
@@ -174,7 +174,7 @@ const accentInk = textOnAccent(accentFill);
               class="field field--body"
               id="message-body"
               name="body"
-              rows="3"
+              rows="2"
               maxlength={MESSAGE_MAX_BODY_LENGTH}
               placeholder={t.bodyPlaceholder}
               required></textarea>
@@ -280,8 +280,9 @@ const accentInk = textOnAccent(accentFill);
        chrome around the page keeps the site's voice. */
     font-family: var(--font-display);
 
-    /* 520 rather than the 640 a form would take. At 14px this lands near 34
-       CJK characters a line, which is a letter's measure, not a page's. */
+    /* 520 rather than the 640 a form would take. A bubble's widest line is
+       ~45 Latin or ~24 CJK characters, which is a letter's measure, not a
+       page's. */
     max-width: 520px;
     margin: 0 auto;
     padding: 88px 20px 104px;
@@ -295,8 +296,8 @@ const accentInk = textOnAccent(accentFill);
        overlay: an alpha surface takes on whatever is under it, and a solid one
        is the same grey wherever it sits. With the dot grid off there is no
        texture to mark where a bubble ends, so this carries the whole edge
-       itself: iMessage's #E9E9EB, lifted a step so it stays quiet under 14px
-       text on a page that is mostly white. */
+       itself: iMessage's #E9E9EB, lifted a step so it stays quiet under the
+       body text on a page that is mostly white. */
     --surface: #ececee;
 
     --line: hsl(var(--foreground) / 0.16);
@@ -358,13 +359,21 @@ const accentInk = textOnAccent(accentFill);
     margin-top: 20px;
   }
 
+  /* 15px, and the padding sized off it rather than picked. Every messenger
+     lands a one-line bubble at roughly two and a half times its type size --
+     iMessage is 17px in a 38px bubble -- and 14px inside 10px of padding at
+     1.72 leading was 3.1x: small text rattling around in a tall pill, which
+     reads as a caption in a box rather than as speech. 1.5 is the leading a
+     two-line bubble wants; 1.72 is prose leading, and speech is not prose.
+     Larger type in less padding is not a contradiction here -- the bubble
+     shrinks and the words grow, which is the whole correction. */
   .bubble {
     max-width: 82%;
     margin: 0;
-    padding: 10px 14px;
-    font-size: 14px;
-    line-height: 1.72;
-    border-radius: 15px;
+    padding: 8px 13px;
+    font-size: 15px;
+    line-height: 1.5;
+    border-radius: 16px;
     text-wrap: pretty;
   }
 
@@ -430,12 +439,16 @@ const accentInk = textOnAccent(accentFill);
   .field {
     display: block;
     width: 100%;
-    padding: 12px 14px;
+    padding: 11px 13px;
     /* 16px, because anything smaller makes iOS Safari zoom the viewport when
        the field takes focus. The rule below buys the smaller size back on
        hardware that never does that -- see .field's fine-pointer override. */
     font: inherit;
     font-size: 16px;
+    /* The bubbles' leading, not the site's 1.625 body ratio. Inherited, a
+       field row came out 2px taller than the same text in a bubble, which is
+       the kind of gap you cannot name but can see. */
+    line-height: 1.5;
     color: hsl(var(--foreground));
     background: transparent;
     border: none;
@@ -446,14 +459,21 @@ const accentInk = textOnAccent(accentFill);
     outline: none;
   }
 
-  /* A composer, not a form field: it opens at three lines and grows with what
-     is typed (see message-form.ts), which is why the drag handle is gone. The
-     cap is where it stops growing and starts scrolling -- past that the send
-     button would be pushed off screen on a laptop. */
+  /* A composer, not a form field: it opens small and grows with what is typed
+     (see message-form.ts), which is why the drag handle is gone. Two lines
+     rather than three -- the growing is the promise that there is room, and a
+     third empty line does not make it more true, it just parks 23px of blank
+     grey in a thread whose bubbles are 38px tall. The cap is where it stops
+     growing and starts scrolling -- past that the send button would be pushed
+     off screen on a laptop. */
   .field--body {
-    min-height: 78px;
+    /* Two lines and the row's own padding: the same box rows="2" gives, so
+       the field is the same size before and after script. */
+    min-height: 67px;
     max-height: 264px;
-    line-height: 1.68;
+    /* The bubble's leading. What is typed here becomes a bubble, so the line
+       spacing should not change on the way. */
+    line-height: 1.5;
     resize: none;
     overflow-y: auto;
   }
@@ -488,17 +508,20 @@ const accentInk = textOnAccent(accentFill);
     background-clip: content-box;
   }
 
+  /* Every real label on this panel is sr-only, so these three words are the
+     only ones a sighted visitor gets. At 0.55 they were decoration on top of
+     an already-muted token; this clears AA against the surface. */
   .field::placeholder {
-    color: hsl(var(--muted-foreground) / 0.55);
+    color: hsl(var(--muted-foreground) / 0.8);
   }
 
-  /* 16px next to 14px bubbles reads as a form dropped into a thread. A mouse
+  /* 16px next to 15px bubbles reads as a form dropped into a thread. A mouse
      or trackpad means no focus zoom to defend against, so the fields can match
      what they will become. Touch keeps the 16px -- a tablet is exactly where
      the zoom would fire. */
   @media (hover: hover) and (pointer: fine) {
     .field {
-      font-size: 14px;
+      font-size: 15px;
     }
   }
 
@@ -534,15 +557,15 @@ const accentInk = textOnAccent(accentFill);
 
   .composer__turnstile[data-turnstile-interactive] {
     grid-template-rows: 1fr;
-    padding: 12px 14px;
+    padding: 12px 13px;
     border-top: 1px solid var(--line-soft);
   }
 
   .composer__error {
     margin: 0;
-    padding: 11px 14px;
-    font-size: 12.5px;
-    line-height: 1.6;
+    padding: 10px 13px;
+    font-size: 13px;
+    line-height: 1.5;
     color: var(--message-danger);
     background: color-mix(in oklab, var(--message-danger) 11%, transparent);
     border-top: 1px solid var(--line-soft);
@@ -552,12 +575,15 @@ const accentInk = textOnAccent(accentFill);
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 9px 9px 9px 14px;
+    /* Tight on the button's side, the panel's gutter on the text's: the
+       circle is a round shape near a rounded corner and needs less room than
+       a line of type does. */
+    padding: 6px 6px 6px 13px;
     border-top: 1px solid var(--line-soft);
   }
 
   .composer__count {
-    font-size: 11.5px;
+    font-size: 12px;
     line-height: 1.5;
     color: hsl(var(--muted-foreground) / 0.75);
     font-variant-numeric: tabular-nums;
@@ -574,7 +600,7 @@ const accentInk = textOnAccent(accentFill);
     margin: 0;
     /* Pushes the count and the send button to the far edge together. */
     margin-right: auto;
-    font-size: 11.5px;
+    font-size: 12px;
     line-height: 1.5;
     color: hsl(var(--muted-foreground) / 0.8);
     text-wrap: pretty;
@@ -582,14 +608,22 @@ const accentInk = textOnAccent(accentFill);
 
   /* An arrow in a circle, no word. Every composer a visitor has ever used ends
      in this button, so the label was spending the widest object in the footer
-     on something nobody reads -- it lives on as the accessible name. */
+     on something nobody reads -- it lives on as the accessible name.
+
+     34px. At 32 it read as a dot parked in a wide grey bar; at a bubble's
+     own 38 it outweighed everything around it -- the panel's rows are 46px,
+     and a 38px circle in a 51px bar is the loudest thing on a page whose
+     every other shape is a hairline. 34 puts the foot at 47px, the field rows
+     again, and leaves the button the second-heaviest shape in the thread
+     rather than the first. */
   .send {
+    position: relative;
     display: inline-flex;
     flex: none;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     padding: 0;
     font: inherit;
     color: var(--accent-ink);
@@ -605,6 +639,15 @@ const accentInk = textOnAccent(accentFill);
     height: 16px;
   }
 
+  /* 34px is the size the layout wants; 46px is the size a thumb wants. The
+     button keeps the first and claims the second, rather than growing the
+     drawn circle past what the foot can hold. */
+  .send::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+  }
+
   .send:hover:not(:disabled) {
     opacity: 0.88;
   }
@@ -618,11 +661,14 @@ const accentInk = textOnAccent(accentFill);
     cursor: default;
   }
 
+  /* Sized to a one-line bubble, not to its dots: 17px round a 5px dot is
+     38.5px, the height of the line it stands in for, so the hand-over is a
+     crossfade and nothing under it moves. */
   .bubble--typing {
     display: flex;
     align-items: center;
     gap: 5px;
-    padding: 14px;
+    padding: 17px 16px;
   }
 
   /* One delay, composed from two parts: when this bubble's dots start, plus
@@ -674,7 +720,7 @@ const accentInk = textOnAccent(accentFill);
     margin-left: 3px;
     padding: 0;
     font: inherit;
-    font-size: 12.5px;
+    font-size: 13px;
     color: hsl(var(--muted-foreground));
     background: none;
     border: none;
@@ -872,7 +918,11 @@ const accentInk = textOnAccent(accentFill);
 
 <script>
   import { initMessageForm } from '@/features/messages/client/message-form';
+  import { initBubbleFit } from '@/features/messages/client/fit-bubbles';
 
   const root = document.querySelector<HTMLElement>('[data-message-root]');
-  if (root) initMessageForm(root);
+  if (root) {
+    initBubbleFit(root);
+    initMessageForm(root);
+  }
 </script>
