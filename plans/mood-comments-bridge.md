@@ -44,7 +44,7 @@ fix.
 - `site-api` `parseComment` (`telegram-fallback-repository.ts`) builds
   `content` from `.tgme_widget_message_text` plus photo and sticker
   markup. In t.me's embed markup the reply block
-  (`a.tgme_widget_message_reply`, with `_reply_author` and `_reply_text`)
+  (`.tgme_widget_message_reply`, with `_reply_author` and `_reply_text`)
   is a **sibling** of the text element, so it is never selected and never
   serialized.
 - The client still expects it: `shared/comments.ts`
@@ -60,8 +60,12 @@ fix.
 Fix (phase 1, independent of the bridge, worth shipping alone):
 
 - `MoodComment.replyTo?: { id: string; author: string; text: string }`.
-  `id` comes from the reply block's href (`…/<post>?comment=<id>`),
-  `text` from `_reply_text`, `author` from `_reply_author`.
+  `id` comes from the reply block's `data-reply-to`, falling back to its
+  href (`…/<post>?comment=<id>`) — t.me writes the attribute on a `div`
+  for a reply aimed at another comment and the href on an `a` only for
+  one aimed at the channel post, so reading the href alone loses every
+  in-thread reply. `text` from `_reply_text`, `author` from
+  `_reply_author`.
 - `parseComment` fills it; `content` stays as it is.
 - The client renders the quote card from `replyTo` instead of scraping
   class names out of sanitized HTML; `replaceReplyNodesWithCommentQuotes`
@@ -196,9 +200,9 @@ card:
   parse mode:
 
   ```
-  <b>{displayName}</b> <a href="{commentUrl}">via buxx.me</a>
+  <b>{displayName}</b> · <a href="{commentUrl}">buxx.me</a>
 
-  {body as Telegram HTML}
+  {body as Telegram HTML: bold, italic, code, links, `>` quotes}
   ```
 
   `commentUrl` is `https://buxx.me/mood/<postId>#c-<token>` where `token`
@@ -273,8 +277,9 @@ status='published'`, one indexed query) and applies an overlay:
    appended the same way: the site is not held hostage to a Telegram
    hiccup.
 4. A scraped reply whose `replyTo.id` equals a bridged row's
-   `telegram_message_id` gets the same author substitution on its quote,
-   so it reads "Alice" not "buxx.me bot".
+   `telegram_message_id` gets its whole quote substituted, not just the
+   author: it reads "Alice" not "buxx.me bot", and quotes what Alice
+   wrote rather than the bot's card — byline, link and all.
 
 Worked example. Alice posts "nice shot" from the site; the bot sends it
 into the group and Telegram answers `message_id: 4812`. Bob, in Telegram,
@@ -282,8 +287,8 @@ replies to the bot's message with "agreed".
 
 | Scraped item | Local row | Result |
 | --- | --- | --- |
-| `4812`, author "buxx.me bot", body "**Alice** [via buxx.me](…/mood/9931#c-3f9a1c0b7e2d)\n\nnice shot" | token `3f9a1c0b7e2d`, `telegram_message_id = 4812` | Rule 1: rendered as Alice, her avatar, body "nice shot", `origin: 'web'`, `commentId` set so her browser marks it `mine` |
-| `4813`, author "Bob", body "agreed", quoting `4812` as "buxx.me bot: **Alice**…" | none | Passed through; rule 4 rewrites the quote's author to Alice |
+| `4812`, author "buxx.me bot", body "**Alice** · [buxx.me](…/mood/9931#c-3f9a1c0b7e2d)\n\nnice shot" | token `3f9a1c0b7e2d`, `telegram_message_id = 4812` | Rule 1: rendered as Alice, her avatar, body "nice shot", `origin: 'web'`, `commentId` set so her browser marks it `mine` |
+| `4813`, author "Bob", body "agreed", quoting `4812` as "buxx.me bot: **Alice** · buxx.me  nice shot" | none | Passed through; rule 4 rewrites both halves of the quote — author to Alice, text to her stored body |
 | (not yet scraped: edge TTL) | `telegram_message_id = 4812`, newer than the page's newest item | Rule 2: appended as a synthesized comment until the scrape catches up, then it becomes the rule-1 replacement above. Never both |
 | `4812` absent, page covers its `created_at` | `telegram_message_id = 4812` | Rule 2: the owner deleted it in Telegram; skipped |
 
@@ -416,7 +421,7 @@ neither side had: a Telegram reply reaching a web reader's inbox.
 | Web reader | React | **Not offered.** A bot can only react as itself, one reaction per message; web reactions cannot be mirrored honestly | — |
 | Web reader | Get told about replies | Group reply to the bot's message → token → existing reply-notify email | — |
 | Telegram user | Reply / react / edit / delete | Native | Web follows on next read via scrape; quotes re-attributed |
-| Telegram user | Click "via buxx.me" | Link | Lands on the exact comment (`#c-<token>` anchor) |
+| Telegram user | Click the card's "buxx.me" link | Link | Lands on the exact comment (`#c-<token>` anchor) |
 | Owner | Reply in the group | Native | Web shows it as a Telegram-origin comment, `byAuthor` when the scraped author link matches `COMMENTS_OWNER_TELEGRAM_USERNAME` |
 | Owner | Reply to the DM card | Native reply or *Reply* prompt (no expiry) | Site comment + bridged reply in the group |
 | Owner | Approve held | Card or portal | Bridge runs then |
@@ -556,9 +561,11 @@ one a reader can notice.
    rendering and the existing mood UI; the blog's nested layout does not
    move over.
 9. **Shared rate-limit counters across surfaces.** One person, one budget.
-10. **Bridge message format is fixed**: bold name, "via buxx.me" link,
-    blank line, body. Readers in Telegram can tell at a glance which
-    comments came from the site and can click through.
+10. **Bridge message format is fixed**: bold name, a middot, a "buxx.me"
+    link, blank line, body. Readers in Telegram can tell at a glance which
+    comments came from the site and can click through. The link resolves
+    against `PUBLIC_SITE_URL`, never `NOTIFY_BASE_URL` — that one names
+    the API, where `/mood/<id>` answers with JSON.
 11. **Match on a token in the message, not on Telegram's ids.** The link
     carries `sha256(commentId)[:12]`; the overlay is a string match on
     something the site wrote. Telegram's id semantics are observed, not
