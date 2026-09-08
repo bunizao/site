@@ -327,8 +327,11 @@
 }
 
 /* Telegram Bot API spoiler — blurred by default on every mood surface, revealed
-   on activation by hydrateMoodRichText. */
-.tg-spoiler {
+   on activation by hydrateMoodRichText. t.me's widget writes the class form;
+   the bare element is the Bot API's own tag, which the comment sanitizer
+   allows, so it must blur too rather than render the secret in the clear. */
+.tg-spoiler,
+tg-spoiler {
   border-radius: 4px;
   background-color: hsl(var(--foreground) / 0.12);
   filter: blur(0.32em);
@@ -338,7 +341,8 @@
   transition: filter 0.2s ease, background-color 0.2s ease;
 }
 
-.tg-spoiler.is-revealed {
+.tg-spoiler.is-revealed,
+tg-spoiler.is-revealed {
   filter: none;
   background-color: transparent;
   cursor: text;
