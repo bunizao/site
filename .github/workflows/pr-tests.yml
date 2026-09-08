@@ -71,10 +71,11 @@ jobs:
     timeout-minutes: 10
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 2
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2]
     env:
+      E2E_WORKERS: 2
       PLAYWRIGHT_BROWSER_CHANNEL: chrome
 
     steps:
