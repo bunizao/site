@@ -50,17 +50,46 @@ canonical `https://buxx.me/#person` entity, with `Lucian Bu` as its name and
 `Murray` as its `alternateName`. Structured data supplements visible title,
 canonical, Open Graph, and favicon metadata rather than replacing them.
 
+Pages that sit under a section — `/docs/*` and `/components/*` — emit a
+`BreadcrumbList` that mirrors their visible breadcrumb (`buxx.me › Docs ›
+Title`). `breadcrumbJsonLd` in `src/lib/seo.ts` builds it from canonical
+paths; pass the result through the `structuredData` prop of `Layout.astro`.
+
 ## Indexing
 
 - Public page URLs are extensionless and have no trailing slash. `/` is the only
   natural exception. Alternate slash forms receive a permanent `308`, while
   canonical tags, sitemaps, feeds, and internal links emit the slashless form.
+- Every page declares `https://buxx.me` as its canonical origin regardless of
+  the host it was rendered on, so `www.buxx.me` and Worker preview hosts
+  consolidate onto the apex rather than competing with it.
 - `/mood` is indexable.
 - `/mood/[id]` emits `noindex, follow` so crawlers can discover the directive
   without the detail archive crowding out editorial results.
 - Blog indexes, tags, and articles remain indexable and canonical under
   `https://buxx.me/blog`.
-- Sitemap priority is not used as a result-balancing mechanism.
+- Dev harnesses (`/lab/*`), component preview frames (`/components/preview/*`),
+  the safe-area probe, the mood embed, the reader and subscription flows, and
+  the portal all carry `noindex`. `tests/unit/seo-policy.test.ts` pins the
+  list, so a new harness that forgets the tag fails CI.
+
+### Sitemap and robots.txt
+
+`/sitemap.xml` ([`src/pages/sitemap.xml.ts`](https://github.com/bunizao/site/blob/main/src/pages/sitemap.xml.ts))
+is the only sitemap. It is built at deploy time from the same sources the
+pages render from: the fixed public sections (`/`, `/projects`, `/mood`,
+`/privacy`, `/blog`, `/blog/tags`, `/docs`, `/components`), every non-draft
+docs and components entry, every listed blog article in each indexed language
+form, and every public tag. It omits `priority` and `changefreq` — Google
+ignores both — and carries `lastmod` only where a real edit date exists, which
+today means blog articles. The retired `@astrojs/sitemap` output
+(`/sitemap-index.xml`, `/sitemap-0.xml`) permanently redirects here.
+
+`public/robots.txt` disallows only surfaces that have no indexable HTML or sit
+behind Cloudflare Access: `/api/`, `/v2/`, `/oauth`, and `/dev`. Everything
+that must stay out of results uses a `noindex` tag instead, and stays
+crawlable so the directive is actually seen. AI crawlers are not singled out;
+the site's content is meant to be citable.
 
 For direct-link-only articles, see [Unlisted posts](/docs/writing/publishing#unlisted-posts).
 That page documents the exact Ghost marker and the corresponding sitemap, feed,

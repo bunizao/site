@@ -9,7 +9,7 @@ import OnThisPage from '@/features/components/ui/OnThisPage.astro';
 import { InstallTabs, type InstallSpec } from '@/features/components/ui/InstallTabs';
 import CodeBox from '@/features/components/ui/CodeBox.astro';
 import '@/styles/components.css';
-import { formatSiteTitle } from '@/lib/seo';
+import { breadcrumbJsonLd, formatSiteTitle } from '@/lib/seo';
 
 export const prerender = true;
 
@@ -39,6 +39,11 @@ const usage = usageMatch
   : null;
 
 const registryUrl = new URL(`/r/${slug}`, Astro.site ?? 'https://buxx.me').href;
+const breadcrumbs = breadcrumbJsonLd([
+  { name: 'buxx.me', path: '/' },
+  { name: 'Components', path: '/components' },
+  { name: title, path: `/components/${slug}` },
+]);
 const spec: InstallSpec =
   install.type === 'npm' ? { type: 'npm', pkg: install.pkg } : { type: 'registry', url: registryUrl };
 
@@ -70,6 +75,7 @@ const creditsHtml = (raw: string) =>
   title={formatSiteTitle(title)}
   description={tagline}
   url={`/components/${slug}`}
+  structuredData={breadcrumbs}
   hideSiteNav
 >
   <main class="components components--index components--detail">

@@ -10,7 +10,7 @@ import DocsDemo from '@/features/docs/ui/DocsDemo.astro';
 import { docPath, getDocsNav, getDocsSiblings, type DocsGroup } from '@/features/docs/server/nav';
 import { splitDocsFragments } from '@/features/docs/server/demo';
 import { markdownAlternatePath } from '@/features/agent-markdown/server/registry';
-import { formatSiteTitle } from '@/lib/seo';
+import { breadcrumbJsonLd, formatSiteTitle } from '@/lib/seo';
 import '@/styles/blog-prose.css';
 import '@/styles/embed-youtube.css';
 import '@/styles/docs.css';
@@ -55,6 +55,11 @@ const toc: DocsTocItem[] = headings
   }));
 
 const { prev, next } = getDocsSiblings(groups, entry.id);
+const breadcrumbs = breadcrumbJsonLd([
+  { name: 'buxx.me', path: '/' },
+  { name: 'Docs', path: '/docs' },
+  { name: title, path: docPath(entry.id) },
+]);
 ---
 
 <Layout
@@ -64,6 +69,7 @@ const { prev, next } = getDocsSiblings(groups, entry.id);
   image="/docs-og.png"
   imageAlt="Docs — buxx.me/docs"
   navVariant="docs"
+  structuredData={breadcrumbs}
 >
   <main class="docs docs--article">
     <div class="docs-shell docs-shell--article">
