@@ -59,6 +59,10 @@ leverage without a user selection step.
 | 031  | Mood feed entrance/exit/skeleton retune | P2 | S | owner decision | DONE (`2ca74e42`, A2+B1+C1) |
 | 032  | Serverless mood reconcile: move the VPS timer onto Workers cron | P1 | L | ../site-api | IN PROGRESS — built in ../site-api (`ce48512..b034ebf`); awaits prod deploy + migration 0011, then one control week |
 | 033  | Mood external-server dependency audit | P1 | M | 032 | IN PROGRESS — findings recorded; `mood-media-sync` retirement and the monitor gap stay open |
+| 035  | Mood reconcile: channel difference measurements | P1 | S | — | DONE (measurement record; design lives in 037) |
+| 037  | Mood converge: event stream, not probe | P1 | L | 035, ../site-api | IN PROGRESS — replaces 034 and 036; the 2026-09-03 site-api deploy carrying it was overwritten by a later `main` deploy, landing tracked by 039 |
+| 038  | Converge experiment: strategy and verification record | P1 | M | 037 | IN PROGRESS — G1/G2 were met in the 2026-09-03 run before the deploy regressed; landing tracked by 039 |
+| 039  | Land the serverless mood convergence stack | P1 | M | 037, 038, ../site-api | READY TO SHIP — lanes A–D implemented 2026-09-08 on site-api `feat/mood-converge-landing`; awaiting PR, migration 0013 and deploy |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
