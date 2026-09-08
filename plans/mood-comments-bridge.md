@@ -202,7 +202,7 @@ card:
   ```
   <b>{displayName}</b> · <a href="{commentUrl}">buxx.me</a>
 
-  {body as Telegram HTML}
+  {body as Telegram HTML: bold, italic, code, links, `>` quotes}
   ```
 
   `commentUrl` is `https://buxx.me/mood/<postId>#c-<token>` where `token`

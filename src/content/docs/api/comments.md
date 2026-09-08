@@ -287,7 +287,7 @@ discussion group:
   ```
   <b>{displayName}</b> · <a href="{commentUrl}">buxx.me</a>
 
-  {body, rendered to the same small Markdown subset the blog accepts}
+  {body, rendered as bold, italic, code, links and `>` quotes}
   ```
 
   `commentUrl` is `https://buxx.me/mood/<postId>#c-<token>`, where `token`
