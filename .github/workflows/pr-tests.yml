@@ -66,9 +66,14 @@ jobs:
           grep -F "Cloudflare deploy blocked mock Ghost posts" "$RUNNER_TEMP/wrangler-guard.log"
 
   site-e2e:
-    name: Site E2E
+    name: Site E2E (${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [1, 2, 3, 4]
     env:
       PLAYWRIGHT_BROWSER_CHANNEL: chrome
 
@@ -95,13 +100,13 @@ jobs:
         run: bunx playwright install ffmpeg
 
       - name: Run site e2e tests
-        run: bun run test:e2e:site
+        run: bun run test:e2e:site -- --fully-parallel --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             playwright-report
             test-results
