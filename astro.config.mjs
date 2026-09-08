@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 import react from '@astrojs/react';
 import cloudflare from '@astrojs/cloudflare';
 import { satteri } from '@astrojs/markdown-satteri';
-import sitemap from '@astrojs/sitemap';
 
 import { contentCodePlugin } from './src/features/docs/server/markdown-plugin.ts';
 
@@ -35,7 +34,6 @@ const isE2EStrictPort = process.env.ASTRO_E2E_STRICT_PORT === '1';
 // runs on Astro's native Node SSR and proxies /api/* to the cloud site-api.
 const isDevServer = process.argv.includes('dev');
 const coveragePlugins = [];
-const publicSitemapPaths = new Set(['/', '/mood/', '/privacy/']);
 const negotiatedContentPageEntrypoints = new Set([
   'src/pages/index.astro',
   'src/pages/privacy.astro',
@@ -109,15 +107,6 @@ export default defineConfig({
       },
     },
     react(),
-    sitemap({
-      // Explicit allowlist plus the whole /docs tree — the reference is static,
-      // public, and worth indexing as a unit, so listing each page by hand would
-      // just rot the moment a doc is added.
-      filter: (page) => {
-        const { pathname } = new URL(page);
-        return publicSitemapPaths.has(pathname) || pathname.startsWith('/docs/');
-      },
-    }),
   ],
   devToolbar: {
     enabled: false,

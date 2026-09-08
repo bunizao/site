@@ -99,5 +99,9 @@ or fetch the canonical URL with `Accept: text/markdown`.
 GET /sitemap.xml
 ```
 
-Standard sitemap index. Deliberately narrow — it lists the canonical public pages
-and skips preview routes, embeds, and API endpoints.
+The only sitemap. It lists every indexable public page — the fixed sections,
+each docs and components entry, every listed blog article in each indexed
+language form, and every public tag — and skips anything `noindex`: mood
+detail pages, previews, embeds, dev harnesses, and API endpoints. The retired
+`/sitemap-index.xml` and `/sitemap-0.xml` redirect here. Policy and
+composition are documented in [SEO and metadata](/docs/platform/seo#sitemap-and-robotstxt).

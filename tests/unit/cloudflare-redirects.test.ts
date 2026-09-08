@@ -77,6 +77,18 @@ describe('Cloudflare blog redirects', () => {
     });
   });
 
+  test('folds the retired @astrojs/sitemap output into the single sitemap', () => {
+    expect(findRedirect('/sitemap-index.xml')).toEqual({
+      source: '/sitemap-index.xml',
+      target: '/sitemap.xml',
+      status: 301,
+    });
+    expect(findRedirect('/sitemap-0.xml')).toMatchObject({
+      target: '/sitemap.xml',
+      status: 301,
+    });
+  });
+
   test('redirects the Ghost subdomain into canonical blog URLs', () => {
     const redirectModule = readFileSync(join(import.meta.dir, '../../src/lib/http/legacy-ghost-redirect.ts'), 'utf8');
 
@@ -150,7 +162,7 @@ describe('Cloudflare blog redirects', () => {
   });
 
   test('keeps redirects in Cloudflare static asset format', () => {
-    expect(rules).toHaveLength(59);
+    expect(rules).toHaveLength(61);
     expect(rules.every((rule) => rule.source.startsWith('/'))).toBe(true);
     expect(rules.every((rule) => (
       rule.target.startsWith('/blog')
