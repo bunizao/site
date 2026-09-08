@@ -238,21 +238,27 @@ change, and the three lane branches `feat/mood-og-unfurl`,
 (`check:contracts`, `check`, `test:unit`, `test:e2e`, `doctor`, `build`,
 `wrangler deploy --dry-run`) passes on the branch head.
 
-Order matters: the `*/15` backfill query names the partial index with
-`INDEXED BY`, so a deploy before the migration logs a failed tick every
-15 min until the index exists (the cron handler catches it; nothing else
-breaks).
+**Merging is deploying.** Cloudflare Workers Builds ships every push to
+`main` to production within about a minute, so there is no window between
+merge and release in which to apply a migration. This was learned the hard
+way on 2026-09-08: PR #55 merged at 03:39:45Z and a new site-api deployment
+went live at 03:40:25Z, ahead of migration `0013`.
 
-1. Push the branch, open the PR against `main`, merge (merge commit).
-2. From the merged `main` checkout:
-   `wrangler d1 migrations apply site-mood --remote` — applies `0013` only;
-   `0011` is already on prod.
-3. `bun run build && ./node_modules/.bin/wrangler deploy --config
-   dist/server/wrangler.json` from `main`, never from a branch.
-4. Nothing to do on the DO: the alarm loop never stopped, its next tick
+The `*/15` backfill query names the partial index with `INDEXED BY`, so while
+the index is missing the backfill throws once per tick. The cron handler
+catches it and no other task is affected, and newly posted links still get
+their card at ingest, but the historic backlog stays broken until the index
+exists.
+
+1. Apply `wrangler d1 migrations apply site-mood --remote` FIRST — before the
+   merge. It applies `0013` only; `0011` and `0012` are already on prod.
+   Adding an index is backward compatible, so the old code is unaffected.
+2. Merge the PR (merge commit). Production picks it up on its own; no manual
+   `wrangler deploy`.
+3. Nothing to do on the DO: the alarm loop never stopped, its next tick
    reports into the restored route.
-5. Site side: merge `claude/message-bookmark-view-missing-5c75d7` (docs,
-   plans 035/037/038/039, the ops route test). The ops test
-   `tests/ops/mood-converge-route-health.test.ts` fails with 404 until step 3.
+4. Site side: merge the docs branch. The ops test
+   `tests/ops/mood-converge-route-health.test.ts` fails with 404 until the
+   site-api release lands.
 
 Then run the Verification list above.
