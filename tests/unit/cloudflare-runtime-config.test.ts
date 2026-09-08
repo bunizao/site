@@ -78,6 +78,11 @@ describe('Cloudflare runtime configuration', () => {
     expect(prWorkflow).toContain('Install Playwright FFmpeg');
     expect(prWorkflow).toContain('PLAYWRIGHT_BROWSER_CHANNEL: chrome');
     expect(prWorkflow).toContain('node-version-file: .node-version');
+    expect(prWorkflow).toContain('max-parallel: 2');
+    expect(prWorkflow).toContain('shard: [1, 2]');
+    expect(prWorkflow).toContain('E2E_WORKERS: 2');
+    expect(prWorkflow).toContain('--fully-parallel --shard=${{ matrix.shard }}/${{ strategy.job-total }}');
+    expect(prWorkflow).toContain('name: playwright-report-${{ matrix.shard }}');
   });
 
   test('keeps dependency updates compatible with Bun and bounded CI load', () => {
