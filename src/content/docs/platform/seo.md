@@ -7,19 +7,24 @@ order: 5
 
 ## Public Identity
 
-Search and sharing metadata use four distinct names:
+There is exactly one site name, `buxx.me`, and it is the only string that
+ends a `<title>` or fills `og:site_name` anywhere on the domain. Google keeps
+one site name per domain; a second name in the title suffix does not become a
+second site name, it becomes `Title — Other — buxx.me` in results.
 
 | Role | Canonical name | Usage |
 | --- | --- | --- |
+| Website | `buxx.me` | `WebSite.name`, `og:site_name`, every title suffix, oEmbed provider |
 | Person | `Lucian Bu` | Profile page, `Person` structured data, personal authorship |
 | Personal alias | `Bunizao` | `alternateName`, account handles, historical credits |
 | Pen name | `Murray` | Blog byline and the canonical Person's `alternateName` |
-| Website | `buxx.me` | `WebSite.name`, `og:site_name`, non-blog title suffixes, oEmbed provider |
-| Blog publication | `無人之境` | Blog title suffixes, `og:site_name`, `BlogPosting.publisher` |
+| Blog publication | `無人之境` | Masthead, `/blog` page title subject, `BlogPosting.publisher` |
 
 `Bunizao` is not the website name. `Bunizao's Website` and `Lucian's Website`
 are intentionally not used because possessive template names blur the person,
-site, and publication entities.
+site, and publication entities. `無人之境` names the publication, never the
+site: it appears in the blog masthead and as the article publisher, not as a
+title suffix.
 
 The shared identity source is [`src/data/site.ts`](https://github.com/bunizao/site/blob/main/src/data/site.ts).
 [`src/lib/seo.ts`](https://github.com/bunizao/site/blob/main/src/lib/seo.ts) derives structured data and the standard
@@ -28,9 +33,8 @@ non-blog title suffix from it.
 ## Titles
 
 - The home page leads with the person: `Lucian Bu — Student, Developer & Blogger`.
-- Non-blog sections use `<topic> — buxx.me`.
-- The Blog index is `無人之境`.
-- Blog articles use `<article title> — 無人之境`.
+- Every other page uses `<subject> — buxx.me`, built by `formatSiteTitle`.
+- The Blog index is `無人之境 — buxx.me`; blog articles are `<article title> — buxx.me`.
 - Google may still rewrite a title when it believes another form better matches
   a query. Source titles must remain stable and should not imitate a rewritten
   search result.
@@ -62,8 +66,13 @@ paths; pass the result through the `structuredData` prop of `Layout.astro`.
   canonical tags, sitemaps, feeds, and internal links emit the slashless form.
 - Every page declares `https://buxx.me` as its canonical origin regardless of
   the host it was rendered on, so `www.buxx.me` and Worker preview hosts
-  consolidate onto the apex rather than competing with it.
-- `/mood` is indexable.
+  consolidate onto the apex rather than competing with it. Any response served
+  from a hostname other than `buxx.me` — the phone tunnel, a Worker preview
+  URL — also carries `X-Robots-Tag: noindex, nofollow`
+  (`isNonCanonicalHost` in `src/middleware.ts`); local hosts are exempt.
+- `/mood` is indexable only in its bare form. A query string — a post anchor,
+  `?tag=`, `?source=`, `?subscribe=1` — is the same feed and renders with
+  `noindex, follow`.
 - `/mood/[id]` emits `noindex, follow` so crawlers can discover the directive
   without the detail archive crowding out editorial results.
 - Blog indexes, tags, and articles remain indexable and canonical under

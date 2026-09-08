@@ -268,7 +268,7 @@ test.describe('Blog routes', () => {
   test('emits generated Open Graph image metadata for index and posts', async ({ page }) => {
     const { firstPostHref, firstPostTitle } = await collectBlogIndexTargets(page);
 
-    await expect(page).toHaveTitle('無人之境');
+    await expect(page).toHaveTitle('無人之境 — buxx.me');
     const indexOgImage = new URL(await readMetaContent(page, 'meta[property="og:image"]'));
     expect(indexOgImage.toString()).toBe('https://buxx.me/blog-og.jpg');
     expect(await readMetaContent(page, 'meta[property="og:image:width"]')).toBe('1200');
@@ -283,8 +283,8 @@ test.describe('Blog routes', () => {
     expect(await readMetaContent(page, 'meta[property="og:type"]')).toBe('article');
     expect(await readMetaContent(page, 'meta[property="article:published_time"]')).toBeTruthy();
     expect(await readMetaContent(page, 'meta[property="article:author"]')).toBeTruthy();
-    await expect(page).toHaveTitle(`${firstPostTitle} — 無人之境`);
-    expect(await readMetaContent(page, 'meta[property="og:title"]')).toBe(`${firstPostTitle} — 無人之境`);
+    await expect(page).toHaveTitle(`${firstPostTitle} — buxx.me`);
+    expect(await readMetaContent(page, 'meta[property="og:title"]')).toBe(`${firstPostTitle} — buxx.me`);
     expect(postOgImage.origin + postOgImage.pathname).toBe('https://og.tuuhub.com/api/og');
     expect(postOgImage.searchParams.get('title')).toBe(firstPostTitle);
     expect(postOgImage.searchParams.get('site')).toBe('無人之境');

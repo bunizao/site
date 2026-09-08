@@ -45,7 +45,9 @@ describe('search indexing policy', () => {
     const feed = readSource('src/pages/mood.astro');
     const detail = readSource('src/pages/mood/[id].astro');
 
-    expect(feed).not.toContain('robots="noindex');
+    // Bare /mood is the one indexable form; any query string (anchor, tag,
+    // source, subscribe) is the same feed and must not become its own result.
+    expect(feed).toContain("robots={Astro.url.search ? 'noindex, follow' : undefined}");
     expect(detail).toContain('robots="noindex, follow"');
   });
 
@@ -111,8 +113,10 @@ describe('search indexing policy', () => {
   test('keeps blog article title signals branded and structured', () => {
     const layout = readSource('src/layouts/BlogLayout.astro');
 
-    expect(layout).toContain('`${pageTitle} — ${blog.name}`');
+    expect(layout).toContain('const fullTitle = formatSiteTitle(pageTitle);');
     expect(layout).toContain('<title>{fullTitle}</title>');
+    expect(layout).toContain('<meta property="og:site_name" content={meta.siteName} />');
+    expect(layout).not.toContain('og:site_name" content={blog.name}');
     expect(layout).toContain("'@type': 'BlogPosting'");
     expect(layout).toContain("'@id': `${meta.siteUrl}/#person`");
     expect(layout).toContain('{ alternateName: resolvedAuthorName }');

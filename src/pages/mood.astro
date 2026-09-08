@@ -148,6 +148,7 @@ const skeletonGroups = [
   rss={rss}
   oembed={oembed}
   preloadImages={preloadImages}
+  robots={Astro.url.search ? 'noindex, follow' : undefined}
   hideSiteNav
   containedScroll
   scrollRestorationKey="mood-scroll"
