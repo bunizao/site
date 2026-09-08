@@ -62,24 +62,26 @@ const t = moodCommentsCopy;
     <code class="mood-compose__code" data-compose-error-code hidden></code>
   </p>
 
-  {/* Quote of the comment a reply is aimed at, with a way out of it. Empty
-      and hidden until detail-compose.ts's Reply-button delegation fills it
-      in -- see readCommentReplyTarget / createCommentReplyQuote, the same
-      helpers the rendered thread itself uses for reply-to quotes. */}
-  <div class="mood-compose__reply" data-reply-chip hidden>
-    <div class="mood-compose__reply-quote" data-reply-quote></div>
-    <button
-      type="button"
-      class="mood-compose__reply-dismiss"
-      data-reply-dismiss
-      aria-label={t.cancelReplyAria}
-      title={t.cancelReply}
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.x} />
-    </button>
-  </div>
-
   <div class="mood-compose__box">
+    {/* Quote of the comment a reply is aimed at, with a way out of it. Empty
+        and hidden until detail-compose.ts's Reply-button delegation fills it
+        in -- see readCommentReplyTarget / createCommentReplyQuote, the same
+        helpers the rendered thread itself uses for reply-to quotes. Inside
+        the box, not stacked above it: what you are answering is part of what
+        you are writing, and two bordered rectangles said that once each. */}
+    <div class="mood-compose__reply" data-reply-chip hidden>
+      <div class="mood-compose__reply-quote" data-reply-quote></div>
+      <button
+        type="button"
+        class="mood-compose__reply-dismiss"
+        data-reply-dismiss
+        aria-label={t.cancelReplyAria}
+        title={t.cancelReply}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.x} />
+      </button>
+    </div>
+
     <div class="mood-compose__identity" id="mood-compose-id" data-compose-identity>
       <label class="sr-only" for="mood-compose-name">Name</label>
       <input
@@ -88,6 +90,10 @@ const t = moodCommentsCopy;
         type="text"
         maxlength="32"
         autocomplete="nickname"
+        autocapitalize="words"
+        autocorrect="off"
+        spellcheck="false"
+        enterkeyhint="next"
         placeholder="Name"
         required
       />
@@ -97,6 +103,10 @@ const t = moodCommentsCopy;
         class="blog-compose__input mood-compose__input"
         type="email"
         autocomplete="email"
+        autocapitalize="none"
+        autocorrect="off"
+        spellcheck="false"
+        enterkeyhint="next"
         placeholder="Email (optional)"
       />
 
@@ -157,6 +167,12 @@ const t = moodCommentsCopy;
   .mood-compose {
     margin-top: var(--comment-stack-gap, 16px);
     font-family: var(--font-sans);
+
+    /* Every control in this box reads its size from these two, and nothing
+       else does. See the coarse-pointer block at the bottom of this file for
+       why they exist at all. */
+    --compose-body: var(--comment-body, 15px);
+    --compose-meta: var(--comment-meta, 13px);
   }
 
   .mood-compose__alert {
@@ -187,20 +203,50 @@ const t = moodCommentsCopy;
     white-space: nowrap;
   }
 
+  /* A quoted parent is a citation, not a second bubble -- the same call
+     feed-rich-text.css already makes for a quote inside a comment. This was a
+     bordered chip wrapping a filled quote card, sitting on the bordered form:
+     three nested rounded rectangles to say "you are answering this". */
   .mood-compose__reply {
     display: flex;
     align-items: flex-start;
     gap: 8px;
     margin-bottom: 10px;
-    padding: var(--comment-gap-inner, 6px) 10px;
-    background: var(--comment-bubble-bg, hsl(var(--background)));
-    border: 1px solid var(--comment-bubble-border, hsl(var(--foreground) / 0.1));
-    border-radius: var(--radius-md, 10px);
   }
 
   .mood-compose__reply-quote {
     flex: 1;
     min-width: 0;
+    padding-left: 10px;
+    border-left: 2px solid hsl(var(--foreground) / 0.22);
+  }
+
+  /* createCommentReplyQuote hands back the feed's slab card. In here it gives
+     up its fill, padding and corners; the rule on the left says all of it. */
+  .mood-compose__reply .mood-item-quote {
+    width: 100%;
+    max-width: 100%;
+    gap: 2px;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+  }
+
+  /* One step under the sentence being written, and no smaller -- the size the
+     thread's own quote cards take. Two lines of it: this is the context for
+     what you are typing, not a copy of it. */
+  .mood-compose__reply .mood-item-quote-author {
+    font-size: var(--comment-meta);
+    font-weight: 600;
+    letter-spacing: normal;
+    color: hsl(var(--foreground) / 0.8);
+  }
+
+  .mood-compose__reply .mood-item-quote-text {
+    font-size: var(--comment-meta);
+    line-height: 1.45;
+    color: hsl(var(--foreground) / 0.62);
+    -webkit-line-clamp: 2;
   }
 
   .mood-compose__reply-dismiss {
@@ -217,6 +263,7 @@ const t = moodCommentsCopy;
     border: none;
     border-radius: 50%;
     cursor: pointer;
+    touch-action: manipulation;
   }
 
   /* 22px of circle is the visual; the target around it is what a thumb
@@ -258,33 +305,49 @@ const t = moodCommentsCopy;
 
   .mood-compose__identity {
     display: flex;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 14px;
+    margin-bottom: 10px;
   }
 
+  /* Two rules, not two boxes. A rounded, bordered field inside a rounded,
+     bordered box is the same nesting the reply quote was guilty of, and the
+     box's own outline is already saying "this is the form". .blog-compose
+     drops the borders for the same reason; here the underline stays because
+     these two fields sit in a row and something has to divide them.
+
+     A handle is short and an address is not: 38.2 / 61.8 of the row, the
+     split the blog settled on. */
   .mood-compose__input {
-    flex: 1;
+    flex: 0 1 38.2%;
     min-width: 0;
-    padding: 7px 10px;
-    font-size: var(--comment-meta, 13px);
+    padding: 8px 0;
+    font-size: var(--compose-meta);
     font-family: inherit;
     color: hsl(var(--foreground));
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    border-radius: 8px;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.14);
+    border-radius: 0;
+  }
+
+  .mood-compose__input[type='email'] {
+    flex: 0 1 61.8%;
   }
 
   .mood-compose__input::placeholder {
     color: hsl(var(--muted-foreground) / 0.6);
   }
 
+  /* Which of the pair you are in has to be readable from more than the
+     caret. The rule under the active field is the same channel the invalid
+     state uses, one step quieter. */
   .mood-compose__input:focus {
     outline: none;
-    border-color: hsl(var(--foreground) / 0.3);
+    border-bottom-color: hsl(var(--foreground) / 0.45);
   }
 
   .mood-compose__input[aria-invalid='true'] {
-    border-color: hsl(0 70% 50% / 0.5);
+    border-bottom-color: hsl(0 70% 50% / 0.6);
   }
 
   .mood-compose__recommend {
@@ -307,8 +370,9 @@ const t = moodCommentsCopy;
   .mood-compose__field {
     display: block;
     width: 100%;
-    padding: 4px 2px;
-    font-size: var(--comment-body, 15px);
+    /* Flush with the two fields above it: one left edge down the box. */
+    padding: 8px 0 4px;
+    font-size: var(--compose-body);
     line-height: var(--comment-lead, 1.65);
     font-family: inherit;
     color: hsl(var(--foreground));
@@ -355,6 +419,7 @@ const t = moodCommentsCopy;
   }
 
   .mood-compose__submit {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -366,6 +431,7 @@ const t = moodCommentsCopy;
     border: none;
     border-radius: 50%;
     cursor: pointer;
+    touch-action: manipulation;
     transition: opacity 0.15s ease, transform 0.15s ease;
   }
 
@@ -443,6 +509,46 @@ const t = moodCommentsCopy;
   @media (max-width: 540px) {
     .mood-compose__identity {
       flex-direction: column;
+      gap: 0;
+    }
+
+    .mood-compose__input,
+    .mood-compose__input[type='email'] {
+      flex: 0 0 auto;
+    }
+  }
+
+  /* --- Touch screens -------------------------------------------------- */
+
+  /* iOS Safari zooms the whole page the moment a focused form control is
+     under 16px, and with the keyboard up there is no gesture that zooms back
+     out: you finish the comment on a page 30% too big, scrolled somewhere you
+     did not choose. So the controls take a 16px floor.
+
+     Gated on the device, not the viewport. An iPad in a wide split view is a
+     touch screen at 900px, and the owner reads this surface on one. A
+     mouse-only pointer keeps the thread's own sizes -- the same trade
+     .blog-compose makes, which gates on width because it only ever had
+     phones in mind.
+
+     The same query carries the ~44pt targets HIG asks for: 16px of text in
+     7px of padding is a 30px row, and a thumb is not 30px wide. */
+  @media (any-pointer: coarse) {
+    .mood-compose {
+      --compose-body: 16px;
+      --compose-meta: 16px;
+    }
+
+    .mood-compose__input {
+      min-height: 44px;
+    }
+
+    /* The send button keeps its 30px circle and grows the target around it,
+       the way the reply dismiss does. */
+    .mood-compose__submit::after {
+      content: '';
+      position: absolute;
+      inset: -7px;
     }
   }
 </style>
