@@ -412,7 +412,10 @@ export interface MoodCommentsCopy {
 }
 
 export const moodCommentsCopy: MoodCommentsCopy = {
-  disclosure: 'Posted here and in the Telegram discussion group.',
+  /* Says where the content ends up, and that the reader owns the choice.
+     "Posted here and in the group" described the plumbing without naming the
+     consequence -- the group is a third party this site does not control. */
+  disclosure: 'Bridged to a Telegram group — mind what you share.',
   post: 'Post',
   postAria: 'Post comment',
   held: 'Posted — for now, only you can see it.',
