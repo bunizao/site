@@ -56,6 +56,15 @@ const t = moodCommentsCopy;
   data-discussion-replies-enabled={discussionRepliesEnabled ? 'true' : 'false'}
   data-turnstile-site-key={turnstileSiteKey}
 >
+  {/* Collapsed, the box is a dashed capsule the width of the thread: the
+      shape says "nothing here yet, put something in". Opening it turns the
+      dashes solid and squares the corners, because it is an input now, not an
+      invitation. The seed button and the textarea share one text origin, so
+      the placeholder appears to stay put while the frame grows around it. */}
+  <div class="mood-compose-shell" data-compose-shell>
+    <button type="button" class="mood-compose-seed" data-compose-seed>Say something&hellip;</button>
+    <div class="mood-compose-reveal">
+      <div class="mood-compose-reveal__in">
   <p class="mood-compose__alert" data-compose-error role="alert" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.circleAlert} />
     <span data-compose-error-text></span>
@@ -145,25 +154,144 @@ const t = moodCommentsCopy;
   {/* Collapsed to nothing until Cloudflare actually asks for an interactive
       challenge -- see turnstile-token.ts. */}
   <div class="mood-compose__turnstile" data-turnstile-host></div>
+      </div>
+    </div>
+  </div>
 
   {/* Posted, but held for review -- not inserted into the thread. Cleared
       the moment the reader starts a new comment (detail-compose.ts). */}
   <p class="mood-compose__held" data-compose-held role="status" hidden>{t.held}</p>
 
-  <p class="mood-compose__disclosure">{t.disclosure}</p>
+  <p class="mood-compose__disclosure" data-compose-disclosure>{t.disclosure}</p>
 </div>
 
 <style is:global>
   .mood-compose {
-    margin-top: var(--comment-stack-gap, 16px);
     font-family: var(--font-sans);
+    --compose-ease: cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  /* ---- the capsule ----------------------------------------------------
+     Concentric radius: the open frame's 18px outer, minus the 10px the
+     inputs sit above the bottom edge, leaves 8px of visual inner radius.
+     Enter and exit are not the same gesture -- opening is a reveal, closing
+     is a dismissal -- so the close runs at ~0.7x and the seed waits for the
+     field to clear before fading back in, or both placeholders read at
+     once. */
+  .mood-compose-shell {
+    position: relative;
+    min-height: 46px;
+    background: none;
+    border: 1px dashed hsl(var(--foreground) / 0.18);
+    border-radius: 999px;
+    transition:
+      border-radius 0.22s var(--compose-ease),
+      border-color 0.18s var(--compose-ease),
+      box-shadow 0.18s var(--compose-ease);
+  }
+
+  .mood-compose-shell:hover {
+    border-color: hsl(var(--foreground) / 0.32);
+  }
+
+  .mood-compose-shell[data-open] {
+    border-style: solid;
+    border-color: hsl(var(--foreground) / 0.14);
+    border-radius: 18px;
+    transition-duration: 0.32s, 0.18s, 0.18s;
+  }
+
+  /* The two cells are one control, so the frame rings, not the cell. */
+  .mood-compose-shell[data-open]:focus-within {
+    border-color: hsl(var(--foreground) / 0.3);
+    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.06);
+  }
+
+  .mood-compose-seed {
+    all: unset;
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    border-radius: inherit;
+    font-family: var(--font-sans);
+    font-size: var(--comment-body, 15px);
+    color: hsl(var(--muted-foreground) / 0.72);
+    cursor: text;
+    transition: opacity 0.16s var(--compose-ease) 0.12s;
+  }
+
+  .mood-compose-seed:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.4);
+    outline-offset: 2px;
+  }
+
+  .mood-compose-shell[data-open] .mood-compose-seed {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s var(--compose-ease);
+  }
+
+  /* 0fr -> 1fr, so the height animation stays interruptible. */
+  .mood-compose-reveal {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.22s var(--compose-ease);
+  }
+
+  .mood-compose-shell[data-open] .mood-compose-reveal {
+    grid-template-rows: 1fr;
+    transition-duration: 0.32s;
+  }
+
+  .mood-compose-reveal__in {
+    overflow: hidden;
+    min-height: 0;
+    visibility: hidden;
+    transition: visibility 0s 0.22s;
+  }
+
+  .mood-compose-shell[data-open] .mood-compose-reveal__in {
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  /* Staged entrance: the field arrives first, the identity row about 80ms
+     behind it. The exit runs unstaggered and quicker. */
+  .mood-compose__field,
+  .mood-compose__identity,
+  .mood-compose__bar {
+    opacity: 0;
+    translate: 0 -4px;
+    transition:
+      opacity 0.12s var(--compose-ease),
+      translate 0.12s var(--compose-ease);
+  }
+
+  .mood-compose-shell[data-open] .mood-compose__field {
+    opacity: 1;
+    translate: none;
+    transition:
+      opacity 0.2s var(--compose-ease) 0.06s,
+      translate 0.2s var(--compose-ease) 0.06s;
+  }
+
+  .mood-compose-shell[data-open] .mood-compose__identity,
+  .mood-compose-shell[data-open] .mood-compose__bar {
+    opacity: 1;
+    translate: none;
+    transition:
+      opacity 0.2s var(--compose-ease) 0.14s,
+      translate 0.2s var(--compose-ease) 0.14s;
   }
 
   .mood-compose__alert {
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    margin: 0 0 10px;
+    margin: 12px 18px 0;
     padding: 9px 12px;
     font-size: 13px;
     line-height: 1.4;
@@ -191,7 +319,7 @@ const t = moodCommentsCopy;
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    margin-bottom: 10px;
+    margin: 12px 18px 0;
     padding: var(--comment-gap-inner, 6px) 10px;
     background: var(--comment-bubble-bg, hsl(var(--background)));
     border: 1px solid var(--comment-bubble-border, hsl(var(--foreground) / 0.1));
@@ -240,38 +368,63 @@ const t = moodCommentsCopy;
   /* Opaque, like the bubbles above it. An alpha fill let the page's dot grid
      read straight through the form, which made it look unfinished next to
      rows that sit on a solid surface. */
+  /* The shell owns the frame, so the box draws none of its own. Bordered
+     inputs inside a bordered box read as a box in a box; one frame with
+     internal rules is the same information with one less edge. The grid puts
+     the message above the identity row whatever order the markup needs. */
   .mood-compose__box {
-    background: var(--comment-bubble-bg, hsl(var(--background)));
-    border: 1px solid var(--comment-bubble-border, hsl(var(--foreground) / 0.08));
-    border-radius: var(--comment-body-radius, 12px);
-    /* The bubble's own rungs: the form is one more row in the thread. */
-    padding: var(--comment-body-padding, 10px 16px);
-    transition:
-      border-color var(--dur-fast) var(--ease),
-      box-shadow var(--dur-fast) var(--ease);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'text text'
+      'note note'
+      'ident bar';
+    align-items: stretch;
+    column-gap: 0;
+    padding: 0;
+    overflow: hidden;
+    background: none;
+    border: 0;
+    border-radius: 18px;
+    --compose-rule: 1px solid hsl(var(--foreground) / 0.09);
   }
 
-  .mood-compose__box:has(:focus-visible) {
-    border-color: hsl(var(--foreground) / 0.25);
-    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.06);
+  .mood-compose__field {
+    grid-area: text;
+  }
+
+  .mood-compose__recommend {
+    grid-area: note;
   }
 
   .mood-compose__identity {
+    grid-area: ident;
     display: flex;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 0;
+    margin: 0;
+    border-top: var(--compose-rule);
   }
 
   .mood-compose__input {
-    flex: 1;
     min-width: 0;
-    padding: 7px 10px;
-    font-size: var(--comment-meta, 13px);
+    height: 46px;
+    padding: 0 14px;
+    font-size: 13.5px;
     font-family: inherit;
     color: hsl(var(--foreground));
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    border-radius: 8px;
+    background: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  #mood-compose-name {
+    flex: 0 0 38%;
+    padding-left: 18px;
+  }
+
+  #mood-compose-email {
+    flex: 1;
+    border-left: 1px solid hsl(var(--foreground) / 0.07);
   }
 
   .mood-compose__input::placeholder {
@@ -280,7 +433,6 @@ const t = moodCommentsCopy;
 
   .mood-compose__input:focus {
     outline: none;
-    border-color: hsl(var(--foreground) / 0.3);
   }
 
   .mood-compose__input[aria-invalid='true'] {
@@ -291,7 +443,7 @@ const t = moodCommentsCopy;
     display: flex;
     align-items: flex-start;
     gap: 6px;
-    margin: 0 0 8px;
+    margin: 0 18px 10px;
     font-size: 12px;
     line-height: 1.4;
     color: hsl(140 45% 38%);
@@ -304,17 +456,19 @@ const t = moodCommentsCopy;
     margin-top: 1px;
   }
 
+  /* The 18px inset matches the seed's, so the placeholder does not move
+     when the capsule opens. */
   .mood-compose__field {
     display: block;
     width: 100%;
-    padding: 4px 2px;
+    padding: 12px 18px 14px;
     font-size: var(--comment-body, 15px);
     line-height: var(--comment-lead, 1.65);
     font-family: inherit;
     color: hsl(var(--foreground));
     background: transparent;
     border: none;
-    resize: vertical;
+    resize: none;
     min-height: 3.6em;
   }
 
@@ -327,11 +481,14 @@ const t = moodCommentsCopy;
   }
 
   .mood-compose__bar {
+    grid-area: bar;
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
-    margin-top: 4px;
+    margin: 0;
+    padding: 0 9px 0 12px;
+    border-top: var(--compose-rule);
   }
 
   .mood-compose__count {
@@ -358,15 +515,15 @@ const t = moodCommentsCopy;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     padding: 0;
     color: hsl(var(--background));
     background: hsl(var(--foreground));
     border: none;
     border-radius: 50%;
     cursor: pointer;
-    transition: opacity 0.15s ease, transform 0.15s ease;
+    transition: opacity 0.15s ease, scale 0.15s ease;
   }
 
   .mood-compose__submit:hover {
@@ -374,7 +531,7 @@ const t = moodCommentsCopy;
   }
 
   .mood-compose__submit:active {
-    transform: scale(0.94);
+    scale: 0.96;
   }
 
   .mood-compose__submit:disabled {
@@ -388,11 +545,22 @@ const t = moodCommentsCopy;
   }
 
   .mood-compose__turnstile:not(:empty) {
-    margin-top: 10px;
+    margin: 0 18px 12px;
+  }
+
+  .mood-compose__held:not([hidden]) {
+    animation: mood-compose-receipt-in 0.24s var(--compose-ease) both;
+  }
+
+  @keyframes mood-compose-receipt-in {
+    from {
+      opacity: 0;
+      translate: 0 -6px;
+    }
   }
 
   .mood-compose__held {
-    margin: 10px 0 0;
+    margin: 8px 2px 0;
     padding: 8px 12px;
     font-size: 12.5px;
     color: hsl(38 80% 40%);
@@ -401,11 +569,32 @@ const t = moodCommentsCopy;
     border-radius: 8px;
   }
 
+  /* Content leaving for a third party is not fine print, but it is a caption
+     about the send rather than a field, so it waits until the box is open. */
   .mood-compose__disclosure {
-    margin: 8px 0 0;
-    font-size: 11px;
-    line-height: 1.4;
-    color: hsl(var(--muted-foreground) / 0.55);
+    margin: 10px 2px 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  .mood-compose-shell:not([data-open]) ~ .mood-compose__disclosure {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mood-compose-shell,
+    .mood-compose-seed,
+    .mood-compose-reveal,
+    .mood-compose__field,
+    .mood-compose__identity,
+    .mood-compose__bar {
+      transition: none !important;
+    }
+
+    .mood-compose__held:not([hidden]) {
+      animation: none !important;
+    }
   }
 
   /* Sits in .mood-comment-footer beside the reactions, so no top margin of

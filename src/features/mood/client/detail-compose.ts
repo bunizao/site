@@ -73,8 +73,53 @@ function hostTurnstileIn(box: HTMLElement): void {
 // into the controller so the two modules stay decoupled either direction.
 // ---------------------------------------------------------------------------
 
+function expandCompose(box: HTMLElement): void {
+  box.querySelector<HTMLElement>('[data-compose-shell]')?.setAttribute('data-open', '');
+}
+
+function collapseCompose(box: HTMLElement): void {
+  box.querySelector<HTMLElement>('[data-compose-shell]')?.removeAttribute('data-open');
+}
+
+/* The capsule opens on intent and closes again when the reader leaves it
+   empty. It never closes over typed text, and never over an error nobody has
+   read yet -- the held receipt sits outside it either way, so a post stays
+   acknowledged after the frame is gone. */
+function wireComposeShell(box: HTMLElement): void {
+  const shell = box.querySelector<HTMLElement>('[data-compose-shell]');
+  const seed = box.querySelector<HTMLButtonElement>('[data-compose-seed]');
+  const field = box.querySelector<HTMLTextAreaElement>('.blog-compose__field');
+  if (!shell || !seed || !field) return;
+
+  seed.addEventListener('click', () => {
+    expandCompose(box);
+    field.focus();
+  });
+
+  /* Arriving from the feed's comment button. The box opens, but focus stays
+     put -- pulling up a keyboard on a page the reader has not seen yet is
+     not what the tap asked for. */
+  if (window.location.hash === '#comments') expandCompose(box);
+
+  field.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || field.value.trim()) return;
+    collapseCompose(box);
+    seed.focus();
+  });
+
+  shell.addEventListener('focusout', (event) => {
+    const next = event.relatedTarget as Node | null;
+    if (next && shell.contains(next)) return;
+    if (field.value.trim()) return;
+    const alert = box.querySelector<HTMLElement>('[data-compose-error]');
+    if (alert && !alert.hidden) return;
+    collapseCompose(box);
+  });
+}
+
 function armReply(box: HTMLElement, parentId: string, author: string, text: string): void {
   box.dataset.replyTarget = parentId;
+  expandCompose(box);
   const chip = box.querySelector<HTMLElement>('[data-reply-chip]');
   const quoteHost = chip?.querySelector<HTMLElement>('[data-reply-quote]');
   if (!chip || !quoteHost) return;
@@ -245,6 +290,7 @@ export function initMoodCommentCompose(): void {
   const box = document.querySelector<HTMLElement>('[data-mood-compose]');
   if (!box) return;
 
+  wireComposeShell(box);
   wireComposeValidation();
   wireDrafts();
   void mintDwellToken();
