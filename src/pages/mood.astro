@@ -22,7 +22,7 @@ import { loadInitialMoodFeed as loadInitialMoodFeedWindow } from '@/features/moo
 import { getMoodFeedPreloadImage } from '@/features/mood/shared/lcp-preload';
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { readEnv } from '@/lib/runtime/env';
+import { getMoodChannelSlug } from '@/features/mood/server/channel-service';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 import { profile } from '@/data/site';
 import { formatSiteTitle } from '@/lib/seo';
@@ -104,7 +104,7 @@ const embedYouTubeCssHref = hasYouTubeEmbed ? embedYouTubeCssUrl : null;
 // The feed mirrors a Telegram channel, so subscribing there is a real
 // alternative to email. The slug is the channel username; without it the
 // subscribe panel just drops the tile.
-const channelSlug = initialFeed?.channel?.slug?.trim() || readEnv(Astro.locals, 'CHANNEL');
+const channelSlug = initialFeed?.channel?.slug?.trim() || getMoodChannelSlug(Astro.locals);
 const telegramHref = channelSlug ? `https://t.me/${channelSlug}` : undefined;
 // Preload the exact media the priority feed element will render (see
 // getMoodFeedPreloadImage): aligns the high-priority fetch with the real LCP.

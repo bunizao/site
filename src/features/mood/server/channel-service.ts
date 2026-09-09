@@ -6,7 +6,7 @@ import {
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { getNumericId } from '@/features/mood/shared/utils';
 import { readEnv, readPublicEnv } from '@/lib/runtime/env';
-import { getChannelInfo } from '@/features/mood/server/telegram-source';
+import { getChannelInfo, readChannelSlug } from '@/features/mood/server/telegram-source';
 import type { ChannelInfo, Post } from '@/features/mood/server/legacy-types';
 import type { MoodCommentsPage } from './contracts';
 import { normalizeMoodImageBase, normalizeMoodImageUrl } from './image-base';
@@ -90,7 +90,7 @@ export async function loadMoodPostSnapshot(
 }
 
 export function getMoodChannelSlug(locals?: any): string {
-  return readEnv(locals, 'CHANNEL');
+  return readChannelSlug(locals);
 }
 
 export function getMoodChannelEmojiId(locals?: any): string {
