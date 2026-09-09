@@ -12,6 +12,7 @@ import '@/styles/mood-image.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import {
   prioritizeMoodDetailMedia,
+  splitMoodDetailParagraphs,
   renderStructuredMoodDetailContent,
 } from '@/features/mood/shared/detail-content';
 import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
@@ -80,7 +81,7 @@ const renderedContent = post
     ? renderStructuredMoodDetailContent(post)
     : renderMoodContentWithGalleries(post.bodyHtml)
   : '';
-const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
+const renderedPostContent = splitMoodDetailParagraphs(prioritizeMoodDetailMedia(renderedContent));
 // Embed styles ship only when the rendered post actually contains one. The
 // css?url modules load via dynamic import so Astro does not hoist them into
 // <head> as unconditional page styles.

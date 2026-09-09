@@ -597,12 +597,10 @@ const previewPending = readSource === 'archive'
   .mood-post-content {
     max-width: var(--measure);
     font-size: 17px;
-    /* Telegram separates paragraphs with a pair of <br>, so the gap between
-       them is exactly one line-height -- the leading and the paragraph rhythm
-       are the same number here. 1.68 spent that number on air: short CJK lines
-       drifted apart and the post read as a list. 1.6 still opens the mixed
-       Latin/CJK lines and closes the gap by a whole line over five paragraphs. */
-    line-height: 1.6;
+    /* Leading and paragraph rhythm are two decisions now that
+       splitMoodDetailParagraphs gives the body real <p> elements. 1.62 opens
+       the mixed Latin/CJK line; the gap below is set on the paragraph. */
+    line-height: 1.62;
     letter-spacing: 0.003em;
     color: hsl(var(--foreground));
     margin-top: 8px;
@@ -618,8 +616,11 @@ const previewPending = readSource === 'archive'
     }
   }
 
+  /* A blank line between paragraphs was a whole line-height of air, and these
+     paragraphs are one or two short lines each -- the post read as a list. Two
+     thirds of a line still separates them. */
   .mood-post-content :global(p) {
-    margin-bottom: 1em;
+    margin-bottom: 0.66em;
   }
 
   .mood-post-content :global(p:last-child) {
