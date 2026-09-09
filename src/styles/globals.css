@@ -2,29 +2,61 @@
 @import "./copy-button.css";
 @config "../../tailwind.config.mjs";
 
+/* Both mono faces are split on unicode-range into a Latin cut and everything
+   else, built by scripts/subset-fonts.py. Most pages reach a mono family for a
+   few characters of Latin -- the channel name on /mood, the Cmd-K badge and
+   theme label in the header -- and were paying a whole ~70KB file for it. The
+   two halves are disjoint and together cover exactly what the single file did,
+   so a code sample with box-drawing or arrows still gets every glyph it always
+   had; it just fetches the half it uses. Nothing about the rendering changes:
+   same faces, same weight axes, same features (the subsetter keeps the ones
+   the stylesheets name -- zero, ss01, sups, cv11 -- which its own default list
+   would have dropped). The ranges stop short of the emoji planes on purpose:
+   a range the file does not actually cover still triggers the download, and a
+   single emoji in a mono element was pulling 36KB to look for a glyph that was
+   never in there.
+
+   Geist Mono — --font-mono, the site's UI mono (header chrome, readouts). */
 @font-face {
   font-family: 'Geist Mono';
-  src:
-    url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
-    url('/fonts/geist-mono-variable.woff2') format('woff2');
+  src: url('/fonts/geist-mono-latin.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
   font-display: optional;
+  unicode-range: U+0000-024F, U+2000-206F, U+2190-21FF, U+2300-23FF;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/geist-mono-rest.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: optional;
+  unicode-range: U+0250-1FFF, U+2070-218F, U+2200-22FF, U+2400-2FFF, U+A700-A7FF,
+    U+F8FF, U+FB00-FB4F, U+FEFF, U+FFFD;
 }
 
 /* JetBrains Mono is the code/terminal voice — reached via --font-code, never
    named directly anymore (mood code, .theme-portal-mono, docs, SVG readouts).
-   Shipped as a subset (see public/fonts/jetbrains-license.txt): the weight axis
-   and coding ligatures are kept, but glyph coverage is trimmed to Latin, common
-   symbols, arrows, box-drawing and block characters that code samples use. */
+   The source file is already glyph-trimmed (see public/fonts/jetbrains-license.txt)
+   to Latin, common symbols, arrows, box-drawing and block characters. */
 @font-face {
   font-family: 'JetBrains Mono';
-  src:
-    url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-    url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
+  src: url('/fonts/jetbrains-mono-latin.woff2') format('woff2');
   font-weight: 100 800;
   font-style: normal;
   font-display: swap;
+  unicode-range: U+0000-024F, U+2000-206F;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-rest.woff2') format('woff2');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0250-1FFF, U+2070-2FFF, U+A700-A7FF, U+F8FF, U+FB00-FB4F,
+    U+FEFF, U+FFFD;
 }
 
 /* Geist Sans — display/UI voice for the portal and docs subsystem (--font-display). */
