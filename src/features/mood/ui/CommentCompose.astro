@@ -481,10 +481,12 @@ const t = moodCommentsCopy;
     border: none;
     resize: none;
     overflow: hidden;
-    /* One line at rest. A box that opens three lines tall reserves room for a
-       comment nobody has written yet; detail-compose.ts grows it as one
-       arrives. */
-    min-height: 2.6em;
+    /* One line at rest, on the same 46px row as the name and email fields
+       below it -- two rows of one capsule, not a text panel stacked on a bar.
+       A box that opens three lines tall reserves room for a comment nobody has
+       written yet; detail-compose.ts grows it as one arrives. */
+    padding-block: 11px;
+    min-height: 46px;
   }
 
   .mood-compose__field:focus {
