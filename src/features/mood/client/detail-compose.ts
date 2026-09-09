@@ -95,6 +95,22 @@ function fitComposeField(field: HTMLTextAreaElement): void {
    empty. It never closes over typed text, and never over an error nobody has
    read yet -- the held receipt sits outside it either way, so a post stays
    acknowledged after the frame is gone. */
+/* Plain focus() scrolls the nearest clipped ancestor, and mid-open the reveal
+   is exactly that: its content is taller than its box, so the browser scrolls
+   it ~20px to bring the caret into view. The placeholder then rides that
+   offset until the box grows past it and the scroll clamps back to zero --
+   the jump on every open. The capsule is brought into view here instead,
+   where the page can scroll rather than the clipped box. */
+function focusComposeField(field: HTMLTextAreaElement): void {
+  field.focus({ preventScroll: true });
+  const shell = field.closest<HTMLElement>('[data-compose-shell]');
+  if (!shell) return;
+  const rect = shell.getBoundingClientRect();
+  if (rect.top < 0 || rect.bottom > window.innerHeight) {
+    shell.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+
 function wireComposeShell(box: HTMLElement): void {
   const shell = box.querySelector<HTMLElement>('[data-compose-shell]');
   const seed = box.querySelector<HTMLButtonElement>('[data-compose-seed]');
@@ -104,7 +120,7 @@ function wireComposeShell(box: HTMLElement): void {
   seed.addEventListener('click', () => {
     expandCompose(box);
     fitComposeField(field);
-    field.focus();
+    focusComposeField(field);
   });
 
   field.addEventListener('input', () => fitComposeField(field));
@@ -139,7 +155,8 @@ function armReply(box: HTMLElement, parentId: string, author: string, text: stri
   const target = readCommentReplyTarget({ id: parentId, author, text });
   quoteHost.replaceChildren(target ? createCommentReplyQuote(target) : document.createTextNode(author));
   chip.hidden = false;
-  box.querySelector<HTMLTextAreaElement>('.blog-compose__field')?.focus();
+  const field = box.querySelector<HTMLTextAreaElement>('.blog-compose__field');
+  if (field) focusComposeField(field);
 }
 
 function disarmReply(box: HTMLElement): void {

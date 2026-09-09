@@ -62,9 +62,7 @@ const t = moodCommentsCopy;
       invitation. The seed button and the textarea share one text origin, so
       the placeholder appears to stay put while the frame grows around it. */}
   <div class="mood-compose-shell" data-compose-shell>
-    <div class="mood-compose-seed-slot">
-      <button type="button" class="mood-compose-seed" data-compose-seed>Say something&hellip;</button>
-    </div>
+    <button type="button" class="mood-compose-seed" data-compose-seed>Say something&hellip;</button>
     <div class="mood-compose-reveal">
       <div class="mood-compose-reveal__in">
   <p class="mood-compose__alert" data-compose-error role="alert" hidden>
@@ -182,6 +180,13 @@ const t = moodCommentsCopy;
      once. */
   .mood-compose-shell {
     position: relative;
+    /* The closed height lives here, under the reveal, not in a collapsing row
+       above it. A row above pushed the whole capsule down by its own height,
+       so the field's placeholder slid 44px up through the open while the
+       seed's identical placeholder sat still -- the label appeared to jump.
+       As padding it comes off the bottom, the reveal keeps the top edge, and
+       the two placeholders occupy the same 25px the whole way. */
+    padding-bottom: 44px;
     background: none;
     border: 1px dashed hsl(var(--foreground) / 0.18);
     /* 23px, not 999px, and the seed slot's fixed 44px is what makes that a
@@ -191,6 +196,7 @@ const t = moodCommentsCopy;
        radii that are both smaller than half the box interpolate the whole way. */
     border-radius: 23px;
     transition:
+      padding-bottom 0.22s var(--compose-ease),
       border-radius 0.22s var(--compose-ease),
       border-color 0.18s var(--compose-ease),
       box-shadow 0.18s var(--compose-ease);
@@ -214,8 +220,9 @@ const t = moodCommentsCopy;
   .mood-compose-shell[data-open] {
     border-style: solid;
     border-color: hsl(var(--foreground) / 0.14);
+    padding-bottom: 0;
     border-radius: 18px;
-    transition-duration: 0.28s, 0.18s, 0.18s;
+    transition-duration: 0.28s, 0.28s, 0.18s, 0.18s;
   }
 
   /* The two cells are one control, so the frame rings, not the cell. */
@@ -224,43 +231,25 @@ const t = moodCommentsCopy;
     box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.06);
   }
 
-  /* The seed collapses in flow while the reveal grows, so the capsule's height
-     is seed(t) + reveal(t) and moves from the first frame. Absolutely
-     positioned over a shell with a 46px floor, it left the box parked at 46
-     for the first quarter of the open -- a dead beat, then a lurch -- and its
-     centred label slid down the growing box while the field's identical
-     placeholder sat still underneath. */
-  .mood-compose-seed-slot {
-    /* A definite height, not the reveal's 0fr/1fr trick: an `fr` track in an
-       auto-height grid resolves against zero free space, so it would sit at
-       the seed's own height in both states and never collapse. */
-    height: 44px;
-    overflow: hidden;
-    /* Same pair of durations as the reveal, so the two halves of the capsule's
-       height always sum monotonically. Mismatched, the close undershot by a
-       pixel and settled back up -- a wobble on the last frame. */
-    transition: height 0.22s var(--compose-ease);
-  }
-
-  .mood-compose-shell[data-open] .mood-compose-seed-slot {
-    height: 0;
-    transition-duration: 0.28s;
-  }
-
+  /* Out of flow and pinned to the top edge, so it never moves while the box
+     grows underneath it. Its type and its first line sit exactly where the
+     field's do -- same size, same 18px inset, same 12px above the line -- so
+     the two placeholders cross-fade in place instead of handing off across a
+     gap. */
   .mood-compose-seed {
     all: unset;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    min-height: 0;
+    display: block;
     height: 44px;
-    padding: 0 18px;
+    padding: 12px 18px 0;
     border-radius: inherit;
     font-family: var(--font-sans);
-    /* The field's size, not the form's: the two placeholders are the same
-       words in the same place, so a size change reads as a stutter. */
     font-size: 16px;
+    line-height: 24px;
     color: hsl(var(--muted-foreground) / 0.72);
     cursor: text;
     transition: opacity 0.16s var(--compose-ease) 0.12s;
@@ -303,7 +292,6 @@ const t = moodCommentsCopy;
 
   /* Staged entrance: the field arrives first, the identity row about 80ms
      behind it. The exit runs unstaggered and quicker. */
-  .mood-compose__field,
   .mood-compose__identity,
   .mood-compose__bar {
     opacity: 0;
@@ -315,13 +303,18 @@ const t = moodCommentsCopy;
 
   /* The seed's label and the field's placeholder are the same words at the
      same inset, so they cross-fade rather than hand off: with the field
-     waiting on a delay the capsule went blank in the middle of the open. */
+     waiting on a delay the capsule went blank in the middle of the open. It
+     gets no slide either, unlike the rows below it -- an offset on text that
+     is already on screen under the seed reads as the words nudging
+     themselves, not as an entrance. */
+  .mood-compose__field {
+    opacity: 0;
+    transition: opacity 0.12s var(--compose-ease);
+  }
+
   .mood-compose-shell[data-open] .mood-compose__field {
     opacity: 1;
-    translate: none;
-    transition:
-      opacity 0.16s var(--compose-ease),
-      translate 0.2s var(--compose-ease) 0.06s;
+    transition-duration: 0.16s;
   }
 
   .mood-compose-shell[data-open] .mood-compose__identity,
@@ -643,7 +636,6 @@ const t = moodCommentsCopy;
   @media (prefers-reduced-motion: reduce) {
     .mood-compose-shell,
     .mood-compose-seed,
-    .mood-compose-seed-slot,
     .mood-compose-reveal,
     .mood-compose__field,
     .mood-compose__identity,
