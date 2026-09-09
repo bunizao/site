@@ -250,7 +250,7 @@ const previewPending = readSource === 'archive'
 
     .mood-post-content {
       font-size: 17px;
-      line-height: 1.62;
+      line-height: 1.56;
       margin-top: 0;
     }
 
@@ -382,7 +382,7 @@ const previewPending = readSource === 'archive'
 
     .mood-post-content {
       font-size: 16px;
-      line-height: 1.62;
+      line-height: 1.56;
     }
 
     .mood-post-reactions {
@@ -597,10 +597,12 @@ const previewPending = readSource === 'archive'
   .mood-post-content {
     max-width: var(--measure);
     font-size: 17px;
-    /* 1.68 and a hair of tracking. The column is 34rem of mixed Latin and CJK;
-       at 1.58 the lines packed tight enough that the paragraph gap stopped
-       reading as a gap. */
-    line-height: 1.68;
+    /* Telegram separates paragraphs with a pair of <br>, so the gap between
+       them is exactly one line-height -- the leading and the paragraph rhythm
+       are the same number here. 1.68 spent that number on air: short CJK lines
+       drifted apart and the post read as a list. 1.6 still opens the mixed
+       Latin/CJK lines and closes the gap by a whole line over five paragraphs. */
+    line-height: 1.6;
     letter-spacing: 0.003em;
     color: hsl(var(--foreground));
     margin-top: 8px;
