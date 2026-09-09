@@ -457,15 +457,16 @@ const previewPending = readSource === 'archive'
     margin-top: -1px;
   }
 
-  /* The channel name is the site's identity on this page, and identity is what
-     --font-mono carries here. Mono runs wide and prints heavy, so it drops a
-     step in size and weight against the sans it replaces. */
+  /* The channel name is the site's identity on this page, so it takes the
+     weight and tracking the feed's docked title carries -- 600 at -0.01em --
+     and reads as the same name in both places. Mono runs wide, so it keeps a
+     half-step off the sans size it replaced. */
   .post-head__name {
     font-family: var(--font-mono);
     font-size: 15px;
-    font-weight: 500;
+    font-weight: 600;
     line-height: 20px;
-    letter-spacing: -0.005em;
+    letter-spacing: -0.01em;
     color: hsl(var(--foreground));
   }
 
