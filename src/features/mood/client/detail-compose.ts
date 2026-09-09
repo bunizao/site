@@ -81,6 +81,16 @@ function collapseCompose(box: HTMLElement): void {
   box.querySelector<HTMLElement>('[data-compose-shell]')?.removeAttribute('data-open');
 }
 
+/* The capsule grows with the message instead of reserving space for it. The
+   cap keeps a pasted essay from pushing the thread off screen; past it the
+   textarea scrolls like any other. */
+const COMPOSE_FIELD_MAX = 260;
+
+function fitComposeField(field: HTMLTextAreaElement): void {
+  field.style.height = 'auto';
+  field.style.height = `${Math.min(field.scrollHeight, COMPOSE_FIELD_MAX)}px`;
+}
+
 /* The capsule opens on intent and closes again when the reader leaves it
    empty. It never closes over typed text, and never over an error nobody has
    read yet -- the held receipt sits outside it either way, so a post stays
@@ -93,8 +103,11 @@ function wireComposeShell(box: HTMLElement): void {
 
   seed.addEventListener('click', () => {
     expandCompose(box);
+    fitComposeField(field);
     field.focus();
   });
+
+  field.addEventListener('input', () => fitComposeField(field));
 
   /* Arriving from the feed's comment button. The box opens, but focus stays
      put -- pulling up a keyboard on a page the reader has not seen yet is

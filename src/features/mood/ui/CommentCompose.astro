@@ -133,7 +133,7 @@ const t = moodCommentsCopy;
       id="mood-compose-text"
       class="blog-compose__field mood-compose__field"
       name="comment"
-      rows="3"
+      rows="1"
       placeholder="Say something…"
     ></textarea>
 
@@ -192,6 +192,17 @@ const t = moodCommentsCopy;
 
   .mood-compose-shell:hover {
     border-color: hsl(var(--foreground) / 0.32);
+  }
+
+  /* A dashed line is only half a line: at the same alpha it reads weaker than
+     the solid bubbles beside it, and a dark ground eats what is left. The one
+     invitation on the page should not be its faintest mark. */
+  .dark .mood-compose-shell {
+    border-color: hsl(var(--foreground) / 0.26);
+  }
+
+  .dark .mood-compose-shell:hover {
+    border-color: hsl(var(--foreground) / 0.42);
   }
 
   .mood-compose-shell[data-open] {
@@ -469,7 +480,11 @@ const t = moodCommentsCopy;
     background: transparent;
     border: none;
     resize: none;
-    min-height: 3.6em;
+    overflow: hidden;
+    /* One line at rest. A box that opens three lines tall reserves room for a
+       comment nobody has written yet; detail-compose.ts grows it as one
+       arrives. */
+    min-height: 2.6em;
   }
 
   .mood-compose__field:focus {
