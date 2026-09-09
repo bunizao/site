@@ -563,7 +563,11 @@ const t = moodCommentsCopy;
     height: 15px;
   }
 
-  .mood-compose__turnstile:not(:empty) {
+  /* The host is never :empty -- turnstile-token.ts drops a wrapper div in on
+     load -- so that guard reserved 12px under a zero-height box and the
+     capsule opened with a gap along its bottom edge. The challenge only takes
+     room once it is interactive, and so does the space under it. */
+  .mood-compose__turnstile[data-turnstile-interactive] {
     margin: 0 18px 12px;
   }
 
