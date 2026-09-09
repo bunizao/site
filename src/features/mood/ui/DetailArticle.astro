@@ -607,15 +607,24 @@ const previewPending = readSource === 'archive'
   .mood-post-content {
     max-width: var(--measure);
     font-size: 17px;
-    /* CJK wants more leading than Latin -- 1.7-1.8 against 1.5-1.6 -- because
-       the glyphs fill their em box edge to edge and a tight line turns into a
-       grey block. 1.62 was the price of the old <br><br> paragraphs, where
-       leading and the paragraph gap were the same number; now that the gap is
-       a margin, the air goes back where the reading happens and comes off the
-       gap instead. Left, never justified: mixed CJK/Latin at 34rem has no
-       hyphenation to fall back on, so justifying opens rivers. */
-    line-height: 1.72;
-    letter-spacing: 0.01em;
+    /* This column is mixed, so the numbers are a compromise, not a CJK setting.
+       Latin body wants ~1.5-1.6 leading and CJK ~1.7 (the glyphs fill their em
+       box, and a tight line turns into a grey block), so 1.65 sits between and
+       neither script is set wrong. Tracking stays at the font's own metrics:
+       adding it opens CJK a little and damages Latin, and the boundary it was
+       meant to fix has its own property below.
+
+       That boundary is text-autospace's job, and its initial value already
+       inserts the quarter-em where a browser supports it (Safari 18.4 ships
+       it, Chrome is partway in), so there is nothing to declare -- only a
+       reason not to fake it with tracking.
+
+       Left, not justified. Continuous CJK justifies well and would want
+       text-justify: inter-character, but this column is mixed and has no
+       hyphenation, so the same setting stretches the Latin word spaces into
+       rivers. */
+    line-height: 1.65;
+    letter-spacing: normal;
     text-align: left;
     text-wrap: pretty;
     color: hsl(var(--foreground));
