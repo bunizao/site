@@ -220,7 +220,7 @@ const previewPending = readSource === 'archive'
     }
 
     .post-head__name {
-      font-size: 15px;
+      font-size: 14.5px;
     }
 
     .post-head__meta.mood-post-date {
@@ -457,11 +457,15 @@ const previewPending = readSource === 'archive'
     margin-top: -1px;
   }
 
+  /* The channel name is the site's identity on this page, and identity is what
+     --font-mono carries here. Mono runs wide and prints heavy, so it drops a
+     step in size and weight against the sans it replaces. */
   .post-head__name {
-    font-size: 15.5px;
-    font-weight: 600;
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 500;
     line-height: 20px;
-    letter-spacing: -0.011em;
+    letter-spacing: -0.005em;
     color: hsl(var(--foreground));
   }
 
@@ -579,7 +583,7 @@ const previewPending = readSource === 'archive'
     flex-wrap: wrap;
     gap: 6px;
     max-width: var(--measure);
-    margin: 24px auto 0;
+    margin: 18px auto 0;
     padding-top: 0;
     border-top: none;
   }
@@ -588,20 +592,32 @@ const previewPending = readSource === 'archive'
     display: none;
   }
 
-  /* A reaction is a count, not a control. The filled pill read as a button you
-     could press; the page has no such button. */
+  /* A reaction is a count, not a control -- the filled pill read as a button
+     and the page has no such button. Stripped bare it read as nothing at all:
+     an emoji and a digit adrift under the text. An outline makes it an object
+     without making it pressable. */
   .mood-post-reactions .mood-reaction {
     background: none;
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    border-radius: 999px;
+    padding: 2px 9px;
+    color: hsl(var(--muted-foreground));
   }
 
   .mood-post-content {
     max-width: var(--measure);
     font-size: 17px;
-    /* Leading and paragraph rhythm are two decisions now that
-       splitMoodDetailParagraphs gives the body real <p> elements. 1.62 opens
-       the mixed Latin/CJK line; the gap below is set on the paragraph. */
-    line-height: 1.62;
-    letter-spacing: 0.003em;
+    /* CJK wants more leading than Latin -- 1.7-1.8 against 1.5-1.6 -- because
+       the glyphs fill their em box edge to edge and a tight line turns into a
+       grey block. 1.62 was the price of the old <br><br> paragraphs, where
+       leading and the paragraph gap were the same number; now that the gap is
+       a margin, the air goes back where the reading happens and comes off the
+       gap instead. Left, never justified: mixed CJK/Latin at 34rem has no
+       hyphenation to fall back on, so justifying opens rivers. */
+    line-height: 1.72;
+    letter-spacing: 0.01em;
+    text-align: left;
+    text-wrap: pretty;
     color: hsl(var(--foreground));
     margin-top: 8px;
     margin-inline: auto;
@@ -611,7 +627,6 @@ const previewPending = readSource === 'archive'
 
   @media (min-width: 640px) {
     .mood-post-content {
-      font-size: 18px;
       margin-top: 12px;
     }
   }
@@ -620,7 +635,7 @@ const previewPending = readSource === 'archive'
      paragraphs are one or two short lines each -- the post read as a list. Two
      thirds of a line still separates them. */
   .mood-post-content :global(p) {
-    margin-bottom: 0.66em;
+    margin-bottom: 0.6em;
   }
 
   .mood-post-content :global(p:last-child) {
