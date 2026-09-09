@@ -450,11 +450,15 @@ const previewPending = readSource === 'archive'
     box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
   }
 
+  /* Both lines are set tight (15/20 and 13/18), so with no gap the date sat
+     inside the name's descenders and the pair read as one smudged block. 3px
+     is the smallest step that separates them without turning two lines of one
+     byline into two things. */
   .post-head__who {
     display: flex;
     flex-direction: column;
+    gap: 3px;
     min-width: 0;
-    margin-top: -1px;
   }
 
   /* The channel name is the site's identity on this page, so it is set the way
