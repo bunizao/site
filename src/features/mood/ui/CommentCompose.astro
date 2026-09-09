@@ -204,8 +204,7 @@ const t = moodCommentsCopy;
     transition:
       padding-bottom 0.22s var(--compose-ease),
       border-radius 0.22s var(--compose-ease),
-      border-color 0.18s var(--compose-ease),
-      box-shadow 0.18s var(--compose-ease);
+      border-color 0.18s var(--compose-ease);
   }
 
   .mood-compose-shell:hover {
@@ -228,13 +227,20 @@ const t = moodCommentsCopy;
     border-color: hsl(var(--foreground) / 0.14);
     padding-bottom: 0;
     border-radius: 18px;
-    transition-duration: 0.28s, 0.28s, 0.18s, 0.18s;
+    transition-duration: 0.28s, 0.28s, 0.18s;
   }
 
-  /* The two cells are one control, so the frame rings, not the cell. */
+  /* The two cells are one control, so focus firms the whole frame rather than
+     one cell -- the same move .blog-compose__box makes. No halo behind it: a
+     3px ring at 6% is too faint to read as a ring and too wide to read as an
+     edge, so on a box that is focused the entire time it is open it just
+     looked like the border had been printed twice. */
   .mood-compose-shell[data-open]:focus-within {
-    border-color: hsl(var(--foreground) / 0.3);
-    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.06);
+    border-color: hsl(var(--foreground) / 0.34);
+  }
+
+  .dark .mood-compose-shell[data-open]:focus-within {
+    border-color: hsl(var(--foreground) / 0.46);
   }
 
   /* Out of flow and pinned to the top edge, so it never moves while the box
