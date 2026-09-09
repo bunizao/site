@@ -38,6 +38,10 @@ const {
 } = Astro.props;
 
 const postTags = post ? post.tags ?? (post.tag ? [post.tag] : []) : [];
+// The header used to be a mono date over a rule. It says who wrote this now:
+// the channel's avatar and name, with the date as its second line.
+const channelName = post?.channel?.title?.trim() || post?.channel?.slug?.trim() || '';
+const channelAvatar = post?.channel?.avatar?.trim() || '';
 const postReactions = post?.reactions ?? [];
 const hasLinkPreview = post
   ? post.hero?.type === 'link-preview' || post.media.some((item) => item.type === 'link-preview')
@@ -54,11 +58,28 @@ const previewPending = readSource === 'archive'
     data-mood-preview-pending={previewPending ? 'true' : undefined}
   >
     <div class="mood-post-header">
-      <a href={backHref} class="back-link" data-back-button>← Back to Moods</a>
+      <a href={backHref} class="back-link" data-back-button>
+        <span class="back-link__arrow" aria-hidden="true">&#8592;</span>Moods
+      </a>
+      <div class="post-head">
+        {channelAvatar && (
+          <img
+            class="post-head__avatar"
+            src={channelAvatar}
+            alt=""
+            width="40"
+            height="40"
+            decoding="async"
+          />
+        )}
+        <div class="post-head__who">
+          {channelName && <span class="post-head__name">{channelName}</span>}
+          <time datetime={post.datetime} class="post-head__meta mood-post-date">
+            {formattedDate}
+          </time>
+        </div>
+      </div>
       <div class="mood-post-meta">
-        <time datetime={post.datetime} class="mood-post-date">
-          {formattedDate}
-        </time>
         {postTags.length > 0 && (
           <div class="mood-post-tags">
             {postTags.map((tag) => (
@@ -155,6 +176,11 @@ const previewPending = readSource === 'archive'
     max-width: 680px;
     margin: 0 auto;
     font-family: var(--font-sans);
+    /* One column for the whole page. The body already read at 34rem while the
+       header rule and the reaction row ran the full 680px, so three blocks of
+       one post had three different left edges. */
+    --measure: 34rem;
+    --detail-ease: cubic-bezier(0.2, 0, 0, 1);
   }
 
   @media (min-width: 640px) {
@@ -177,27 +203,28 @@ const previewPending = readSource === 'archive'
 
     .mood-post-header {
       margin-bottom: 24px;
-      padding-bottom: 16px;
     }
 
     .back-link {
       margin-bottom: 14px;
-      font-size: 12px;
-      letter-spacing: 0.01em;
-      opacity: 0.7;
-    }
-
-    .back-link:hover {
-      opacity: 1;
+      font-size: 13px;
     }
 
     .mood-post-meta {
       gap: 8px;
     }
 
-    .mood-post-date {
-      font-size: 12px;
-      letter-spacing: 0.01em;
+    .post-head__avatar {
+      width: 36px;
+      height: 36px;
+    }
+
+    .post-head__name {
+      font-size: 15px;
+    }
+
+    .post-head__meta.mood-post-date {
+      font-size: 12.5px;
     }
 
     .mood-post-tags {
@@ -223,18 +250,13 @@ const previewPending = readSource === 'archive'
 
     .mood-post-content {
       font-size: 17px;
-      line-height: 1.55;
+      line-height: 1.62;
       margin-top: 0;
     }
 
-    .mood-post-content :global(p) {
-      margin-bottom: 1.1em;
-    }
-
     .mood-post-reactions {
-      margin-top: 32px;
-      padding-top: 12px;
-      gap: 6px;
+      margin-top: 20px;
+      padding-top: 0;
     }
 
     .mood-post-content :global(.image-list-container) {
@@ -360,44 +382,37 @@ const previewPending = readSource === 'archive'
 
     .mood-post-content {
       font-size: 16px;
-      line-height: 1.55;
+      line-height: 1.62;
     }
 
     .mood-post-reactions {
-      margin-top: 28px;
+      margin-top: 20px;
     }
   }
 
+  /* The rule under the header was the page's loudest line and it separated
+     nothing -- the author block and the body are one post. Space does the job
+     the border was doing. */
   .mood-post-header {
-    margin-bottom: 24px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid hsl(var(--foreground) / 0.06);
+    max-width: var(--measure);
+    margin: 0 auto 24px;
   }
 
-  @media (min-width: 640px) {
-    .mood-post-header {
-      margin-bottom: 28px;
-      padding-bottom: 24px;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .mood-post-header {
-      margin-bottom: 28px;
-      padding-bottom: 28px;
-    }
-  }
-
+  /* A way back, not a headline. Mono caps at 0.14em tracking made the quietest
+     control on the page the first thing read; sans at the meta size puts it
+     back in its place, and the arrow leads on hover. */
   .back-link {
-    display: inline-block;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground) / 0.75);
-    margin-bottom: 28px;
-    transition: color 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: hsl(var(--muted-foreground) / 0.8);
+    margin-bottom: 20px;
+    transition: color 0.15s var(--detail-ease);
     background: none;
     border: none;
     padding: 0;
@@ -405,14 +420,61 @@ const previewPending = readSource === 'archive'
     text-decoration: none;
   }
 
-  @media (min-width: 640px) {
-    .back-link {
-      margin-bottom: 32px;
-    }
-  }
-
   .back-link:hover {
     color: hsl(var(--foreground));
+  }
+
+  .back-link__arrow {
+    display: inline-block;
+    transition: translate 0.15s var(--detail-ease);
+  }
+
+  .back-link:hover .back-link__arrow {
+    translate: -2px 0;
+  }
+
+  /* 40px avatar against a 38px two-line text block; the text column is nudged
+     1px up because cap-height sits low in its line box. */
+  .post-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .post-head__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: none;
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
+  }
+
+  .post-head__who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin-top: -1px;
+  }
+
+  .post-head__name {
+    font-size: 15.5px;
+    font-weight: 600;
+    line-height: 20px;
+    letter-spacing: -0.011em;
+    color: hsl(var(--foreground));
+  }
+
+  /* Second line of the author block, so it drops the standalone date's mono
+     caps and takes the meta treatment the comment timestamps already use. */
+  .post-head__meta.mood-post-date {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: hsl(var(--muted-foreground) / 0.75);
   }
 
   .mood-post-meta {
@@ -513,10 +575,11 @@ const previewPending = readSource === 'archive'
   }
 
   .mood-post-reactions {
-    display: inline-flex;
+    display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 28px;
+    gap: 6px;
+    max-width: var(--measure);
+    margin: 24px auto 0;
     padding-top: 0;
     border-top: none;
   }
@@ -525,17 +588,20 @@ const previewPending = readSource === 'archive'
     display: none;
   }
 
-  @media (min-width: 640px) {
-    .mood-post-reactions {
-      margin-top: 32px;
-      padding-top: 0;
-    }
+  /* A reaction is a count, not a control. The filled pill read as a button you
+     could press; the page has no such button. */
+  .mood-post-reactions .mood-reaction {
+    background: none;
   }
 
   .mood-post-content {
-    max-width: 34rem;
+    max-width: var(--measure);
     font-size: 17px;
-    line-height: 1.58;
+    /* 1.68 and a hair of tracking. The column is 34rem of mixed Latin and CJK;
+       at 1.58 the lines packed tight enough that the paragraph gap stopped
+       reading as a gap. */
+    line-height: 1.68;
+    letter-spacing: 0.003em;
     color: hsl(var(--foreground));
     margin-top: 8px;
     margin-inline: auto;
@@ -546,20 +612,12 @@ const previewPending = readSource === 'archive'
   @media (min-width: 640px) {
     .mood-post-content {
       font-size: 18px;
-      line-height: 1.6;
       margin-top: 12px;
     }
   }
 
-  @media (min-width: 1024px) {
-    .mood-post-content {
-      font-size: 18px;
-      line-height: 1.6;
-    }
-  }
-
   .mood-post-content :global(p) {
-    margin-bottom: 1.15em;
+    margin-bottom: 1em;
   }
 
   .mood-post-content :global(p:last-child) {
