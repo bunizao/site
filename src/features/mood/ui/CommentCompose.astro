@@ -184,7 +184,12 @@ const t = moodCommentsCopy;
     position: relative;
     background: none;
     border: 1px dashed hsl(var(--foreground) / 0.18);
-    border-radius: 999px;
+    /* 23px, not 999px, and the seed slot's fixed 44px is what makes that a
+       true pill. A 999px radius is clamped to half the box, so through most of
+       the open it stays pinned at fully-round and only becomes a real number
+       in the last few frames -- the corner sits still, then snaps square. Two
+       radii that are both smaller than half the box interpolate the whole way. */
+    border-radius: 23px;
     transition:
       border-radius 0.22s var(--compose-ease),
       border-color 0.18s var(--compose-ease),
