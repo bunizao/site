@@ -62,7 +62,9 @@ const t = moodCommentsCopy;
       invitation. The seed button and the textarea share one text origin, so
       the placeholder appears to stay put while the frame grows around it. */}
   <div class="mood-compose-shell" data-compose-shell>
-    <button type="button" class="mood-compose-seed" data-compose-seed>Say something&hellip;</button>
+    <div class="mood-compose-seed-slot">
+      <button type="button" class="mood-compose-seed" data-compose-seed>Say something&hellip;</button>
+    </div>
     <div class="mood-compose-reveal">
       <div class="mood-compose-reveal__in">
   <p class="mood-compose__alert" data-compose-error role="alert" hidden>
@@ -180,7 +182,6 @@ const t = moodCommentsCopy;
      once. */
   .mood-compose-shell {
     position: relative;
-    min-height: 46px;
     background: none;
     border: 1px dashed hsl(var(--foreground) / 0.18);
     border-radius: 999px;
@@ -209,7 +210,7 @@ const t = moodCommentsCopy;
     border-style: solid;
     border-color: hsl(var(--foreground) / 0.14);
     border-radius: 18px;
-    transition-duration: 0.32s, 0.18s, 0.18s;
+    transition-duration: 0.28s, 0.18s, 0.18s;
   }
 
   /* The two cells are one control, so the frame rings, not the cell. */
@@ -218,17 +219,43 @@ const t = moodCommentsCopy;
     box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.06);
   }
 
+  /* The seed collapses in flow while the reveal grows, so the capsule's height
+     is seed(t) + reveal(t) and moves from the first frame. Absolutely
+     positioned over a shell with a 46px floor, it left the box parked at 46
+     for the first quarter of the open -- a dead beat, then a lurch -- and its
+     centred label slid down the growing box while the field's identical
+     placeholder sat still underneath. */
+  .mood-compose-seed-slot {
+    /* A definite height, not the reveal's 0fr/1fr trick: an `fr` track in an
+       auto-height grid resolves against zero free space, so it would sit at
+       the seed's own height in both states and never collapse. */
+    height: 44px;
+    overflow: hidden;
+    /* Same pair of durations as the reveal, so the two halves of the capsule's
+       height always sum monotonically. Mismatched, the close undershot by a
+       pixel and settled back up -- a wobble on the last frame. */
+    transition: height 0.22s var(--compose-ease);
+  }
+
+  .mood-compose-shell[data-open] .mood-compose-seed-slot {
+    height: 0;
+    transition-duration: 0.28s;
+  }
+
   .mood-compose-seed {
     all: unset;
-    position: absolute;
-    inset: 0;
     box-sizing: border-box;
     display: flex;
     align-items: center;
+    overflow: hidden;
+    min-height: 0;
+    height: 44px;
     padding: 0 18px;
     border-radius: inherit;
     font-family: var(--font-sans);
-    font-size: var(--comment-body, 15px);
+    /* The field's size, not the form's: the two placeholders are the same
+       words in the same place, so a size change reads as a stutter. */
+    font-size: 16px;
     color: hsl(var(--muted-foreground) / 0.72);
     cursor: text;
     transition: opacity 0.16s var(--compose-ease) 0.12s;
@@ -254,7 +281,7 @@ const t = moodCommentsCopy;
 
   .mood-compose-shell[data-open] .mood-compose-reveal {
     grid-template-rows: 1fr;
-    transition-duration: 0.32s;
+    transition-duration: 0.28s;
   }
 
   .mood-compose-reveal__in {
@@ -281,11 +308,14 @@ const t = moodCommentsCopy;
       translate 0.12s var(--compose-ease);
   }
 
+  /* The seed's label and the field's placeholder are the same words at the
+     same inset, so they cross-fade rather than hand off: with the field
+     waiting on a delay the capsule went blank in the middle of the open. */
   .mood-compose-shell[data-open] .mood-compose__field {
     opacity: 1;
     translate: none;
     transition:
-      opacity 0.2s var(--compose-ease) 0.06s,
+      opacity 0.16s var(--compose-ease),
       translate 0.2s var(--compose-ease) 0.06s;
   }
 
@@ -608,6 +638,7 @@ const t = moodCommentsCopy;
   @media (prefers-reduced-motion: reduce) {
     .mood-compose-shell,
     .mood-compose-seed,
+    .mood-compose-seed-slot,
     .mood-compose-reveal,
     .mood-compose__field,
     .mood-compose__identity,
