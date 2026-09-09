@@ -124,6 +124,16 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
   <BackToTop />
 </Layout>
 
+<style is:global>
+  /* The 24px dot grid is site chrome, tuned for pages with structure to sit on.
+     This one is a single 34rem column of somebody's writing, and the dots ran
+     straight through the text, the reaction chip and the compose capsule's
+     hairline. Nothing here needs a ground to be measured against. */
+  body::before {
+    display: none;
+  }
+</style>
+
 <script>
   import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
   import { initMoodDetailComments } from '@/features/mood/client/detail-comments-controller';
