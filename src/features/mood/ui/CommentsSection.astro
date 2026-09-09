@@ -104,19 +104,7 @@ const {
       rel="noopener noreferrer"
       class="mood-comment mood-comment-cta-wrap"
     >
-      <div class="mood-comment-avatar mood-comment-avatar--telegram" aria-hidden="true">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M22 2 11 13"></path>
-          <path d="M22 2 15 22l-4-9-9-4Z"></path>
-        </svg>
-      </div>
+      <div class="mood-comment-avatar mood-comment-avatar--telegram"></div>
       <div class="mood-comment-body">
         <div class="mood-comment-content mood-comment-cta-content">
           <span>Comment on Telegram</span>
@@ -848,26 +836,9 @@ const {
     box-shadow: none;
   }
 
-  /* The full-colour brand disc was the loudest thing on the page -- a saturated
-     circle shouting next to the hairline button it belongs to. One voice: the
-     glyph takes the same blue as the label, on a tint of it. */
   .mood-comment-avatar--telegram {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: hsl(var(--comment-cta) / 0.1);
-    color: hsl(var(--comment-cta));
-  }
-
-  .mood-comment-avatar--telegram svg {
-    width: 16px;
-    height: 16px;
-    /* The plane's mass sits right of its bounding box centre. */
-    translate: -1px 0;
-  }
-
-  .dark .mood-comment-avatar--telegram {
-    background: hsl(var(--comment-cta) / 0.18);
+    background: url('/telegram-logo.svg') no-repeat center !important;
+    background-size: 91% !important;
   }
 
   .mood-comment-cta-content {
