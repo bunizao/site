@@ -478,17 +478,17 @@ const t = moodCommentsCopy;
     border: none;
     resize: none;
     overflow: hidden;
-    /* One line at rest, on the same 46px row as the name and email fields
-       below it -- two rows of one capsule, not a text panel stacked on a bar.
-       A box that opens three lines tall reserves room for a comment nobody has
-       written yet; detail-compose.ts grows it as one arrives.
-       The identity inputs are 13.5px form labels; this is where somebody
-       writes, and it reads next to 17px body copy, so it takes the body's
-       size. 16px on a 24px line inside 11px padding is exactly 46. */
+    /* Writing the comment is the only reason this box exists; the name and
+       email are furniture you fill once. Matching their 46px row said the
+       three were equal and turned the capsule into a two-cell table, so the
+       proportion carries the hierarchy instead: two lines of writing room
+       against their one, and 16px type against their 13.5px. Two lines, not
+       three -- three reserved space for a comment nobody has written, and
+       detail-compose.ts grows the box as one arrives. */
     font-size: 16px;
     line-height: 24px;
-    padding: 11px 18px;
-    min-height: 46px;
+    padding: 12px 18px;
+    min-height: 72px;
   }
 
   .mood-compose__field:focus {
