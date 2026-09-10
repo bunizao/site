@@ -89,8 +89,10 @@ const xDefaultHref = xDefault ? new URL(xDefault.href, meta.siteUrl).href : null
 const excludesIndexing = robots
   ?.split(',')
   .some((directive) => directive.trim().toLowerCase() === 'noindex') ?? false;
+// A translation is addressed by its `?lang=` query, so the Markdown twin has
+// to carry it too or an agent following the link lands on the default locale.
 const markdownAlternateUrl = !excludesIndexing && hasMarkdownRenderer(new URL(canonical).pathname)
-  ? new URL(markdownAlternatePath(new URL(canonical).pathname), meta.siteUrl).href
+  ? new URL(markdownAlternatePath(new URL(canonical).pathname), meta.siteUrl).href + new URL(canonical).search
   : null;
 const pageTitle = normalizeBlogMetaText(title) || blog.name;
 const fullTitle = formatSiteTitle(pageTitle);
