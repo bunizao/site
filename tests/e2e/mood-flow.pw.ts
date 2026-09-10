@@ -2902,8 +2902,12 @@ test.describe('Mood routes', () => {
     await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('[data-comments-loading]')).toHaveCount(0, { timeout: 30_000 });
-    await expect(page.locator('[data-comments-empty]')).toBeVisible();
-    await expect(page.locator('[data-comments-empty]')).toContainText('No comments here yet...');
+    // An empty thread says nothing: the heading and a line under it reading
+    // "no comments yet" say the same thing twice, so the box and the route out
+    // of the page are the whole message. The element stays in the DOM because
+    // its hidden state is what tells the section which layout to use.
+    await expect(page.locator('[data-comments-empty]')).toBeHidden();
+    await expect(page.locator('.mood-comments-header')).toBeHidden();
     await expect(page.locator('[data-comments-list] .mood-comment')).toHaveCount(0);
   });
 

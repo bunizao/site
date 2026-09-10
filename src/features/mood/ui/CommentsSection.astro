@@ -99,45 +99,41 @@ const t = resolveMoodCommentsCopy(locale);
   <div class="mood-comments-empty" data-comments-empty hidden>
     <p>{t.empty}</p>
   </div>
-  <button type="button" class="mood-comments-load-more" data-load-more hidden>
-    {t.loadMore}
-  </button>
-  {/* The route out to the group, last row of the thread. It is the only way
-      to comment while the bridge is off, and stays on below the thread once
-      it is on -- writing in the group has always been an option and the box
-      does not take it away. It keeps the avatar column so it lines up with
-      the comments above it, but it carries no author and no timestamp: a
-      button wearing those reads as a comment in costume. */}
-  {telegramCommentUrl && (
-    <a
-      href={telegramCommentUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      class="mood-comment mood-comment-cta-wrap"
-    >
-      <div class="mood-comment-avatar mood-comment-avatar--telegram"></div>
-      <div class="mood-comment-body">
-        <div class="mood-comment-content mood-comment-cta-content">
-          <span>{t.telegramCta}</span>
-          <svg
-            class="mood-comment-cta-arrow"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <line x1="7" y1="17" x2="17" y2="7"></line>
-            <polyline points="7 7 17 7 17 17"></polyline>
-          </svg>
-        </div>
-      </div>
-    </a>
-  )}
+  {/* The thread's foot: the control that continues it, and the route out of
+      it. One tier apart -- the link out of the page is not a peer of the
+      button that loads the rest of this one -- and both on the bubbles' own
+      text axis, so the thread keeps a single left edge to its last line. */}
+  <div class="mood-comments-foot">
+    <button type="button" class="mood-comments-load-more" data-load-more hidden>
+      {t.loadMore}
+    </button>
+    {telegramCommentUrl && (
+      <a
+        href={telegramCommentUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="mood-comment-cta-wrap"
+      >
+        <span class="mood-comment-cta-mark" aria-hidden="true"></span>
+        <span>{t.telegramCta}</span>
+        <svg
+          class="mood-comment-cta-arrow"
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <line x1="7" y1="17" x2="17" y2="7"></line>
+          <polyline points="7 7 17 7 17 17"></polyline>
+        </svg>
+      </a>
+    )}
+  </div>
 </section>
 
 <style is:global>
@@ -709,173 +705,131 @@ const t = resolveMoodCommentsCopy(locale);
     font-size: var(--comment-meta);
   }
 
+  /* Both controls sit past the avatar column, on the same axis the bubbles
+     start at. */
+  .mood-comments-foot {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+    /* Wider than the stack gap above it. Sitting one rung out of the ladder
+       is what says these are not two more comments. */
+    margin-top: 26px;
+    padding-left: 42px;
+  }
+
+  /* Nothing left to load and no group to link to: the gap above would be the
+     only thing left at the bottom of the thread. */
+  .mood-comments-foot:not(:has(> *:not([hidden]))) {
+    display: none;
+  }
+
+  @media (min-width: 640px) {
+    .mood-comments-foot {
+      padding-left: 48px;
+    }
+  }
+
+  /* Sized to its label, hairline over the page's own ground -- the two rules
+     every bubble above it follows. The full-width gradient slab it replaces
+     was the heaviest object in a thread made of air, and at 14px it was off
+     the section's two-size scale as well. */
   .mood-comments-load-more {
-    display: block;
-    width: 100%;
-    margin-top: 28px;
-    padding: 16px 28px;
-    font-size: 14px;
-    font-weight: 500;
-    color: hsl(var(--foreground) / 0.75);
-    background: linear-gradient(
-      180deg,
-      hsl(var(--foreground) / 0.04) 0%,
-      hsl(var(--foreground) / 0.06) 100%
-    );
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    border-radius: 12px;
-    cursor: pointer;
-    /* opacity is for :disabled, transform for :hover/:active. */
-    transition:
-      color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-      border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-      box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-      transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-      opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 16px;
     font-family: inherit;
-    position: relative;
-    overflow: hidden;
-    box-shadow:
-      0 2px 8px hsl(var(--foreground) / 0.04),
-      0 0 0 1px hsl(var(--foreground) / 0.02);
+    font-size: var(--comment-meta);
+    font-weight: 500;
+    line-height: 1.4;
+    color: hsl(var(--foreground) / 0.62);
+    background: transparent;
+    border: 1px solid var(--comment-bubble-border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition:
+      color var(--dur-base) var(--ease),
+      border-color var(--dur-base) var(--ease);
   }
 
   .mood-comments-load-more[hidden] {
     display: none;
   }
 
-  .mood-comments-load-more::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      135deg,
-      hsl(var(--foreground) / 0.08) 0%,
-      transparent 100%
-    );
-    opacity: 0;
-    transition: opacity 0.25s ease;
-  }
-
   .mood-comments-load-more:hover {
     color: hsl(var(--foreground));
-    border-color: hsl(var(--foreground) / 0.18);
-    box-shadow:
-      0 4px 16px hsl(var(--foreground) / 0.08),
-      0 0 0 1px hsl(var(--foreground) / 0.04);
-    transform: translateY(-1px);
+    border-color: hsl(var(--foreground) / 0.24);
   }
 
-  .mood-comments-load-more:hover::before {
-    opacity: 1;
-  }
-
-  .mood-comments-load-more:active {
-    transform: translateY(0);
+  .mood-comments-load-more:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.4);
+    outline-offset: 2px;
   }
 
   .mood-comments-load-more:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    transform: none;
   }
 
   .mood-comments-load-more:disabled:hover {
-    border-color: hsl(var(--foreground) / 0.12);
-    box-shadow:
-      0 2px 8px hsl(var(--foreground) / 0.04),
-      0 0 0 1px hsl(var(--foreground) / 0.02);
+    color: hsl(var(--foreground) / 0.62);
+    border-color: var(--comment-bubble-border);
   }
 
-  /* Telegram's own blue. With the comments outlined in neutral hairlines the
-     CTA had nothing left to distinguish it, and a row that looks exactly like
-     a comment gives no reason to click it. One colour, spent here. */
-  .mood-comments {
-    --comment-cta: 200 72% 49%;
-  }
-
+  /* The blue pill in a comment's costume is gone. A row shaped like a comment
+     but carrying no author and no message was the wrong object, and the one
+     saturated hue on an achromatic surface made it the loudest thing on the
+     page. What is left is a metadata-tier link -- the tier a route out of the
+     page belongs to -- with the brand mark in its own colours, which is the
+     only place that blue earns its keep. */
   a.mood-comment-cta-wrap {
-    text-decoration: none;
-    color: inherit;
-    cursor: pointer;
-    animation: none;
-    margin-top: var(--comment-stack-gap, 16px);
-  }
-
-  /* A button, so it is sized like one: one line, no room for a message. */
-  a.mood-comment-cta-wrap .mood-comment-body {
-    display: flex;
-    align-items: center;
-    height: 34px;
-    padding: 0 14px;
-    border-color: hsl(var(--comment-cta) / 0.4);
-    box-shadow: 0 1px 2px hsl(var(--comment-cta) / 0.12);
-    transition:
-      background 0.2s var(--ease, ease),
-      border-color 0.2s var(--ease, ease),
-      box-shadow 0.2s var(--ease, ease),
-      translate 0.2s var(--ease, ease);
-  }
-
-  a.mood-comment-cta-wrap:hover .mood-comment-body {
-    background: hsl(var(--comment-cta) / 0.07);
-    border-color: hsl(var(--comment-cta) / 0.62);
-    box-shadow: 0 2px 6px hsl(var(--comment-cta) / 0.16);
-    translate: 0 -1px;
-  }
-
-  a.mood-comment-cta-wrap:active .mood-comment-body {
-    translate: 0 0;
-    scale: 0.99;
-  }
-
-  a.mood-comment-cta-wrap:focus-visible .mood-comment-body {
-    outline: 2px solid hsl(var(--comment-cta) / 0.7);
-    outline-offset: 2px;
-  }
-
-  /* A dark ground swallows shadows, so the fill carries the elevation. */
-  .dark a.mood-comment-cta-wrap .mood-comment-body {
-    background: hsl(var(--comment-cta) / 0.07);
-    border-color: hsl(var(--comment-cta) / 0.5);
-    box-shadow: none;
-  }
-
-  .dark a.mood-comment-cta-wrap:hover .mood-comment-body {
-    background: hsl(var(--comment-cta) / 0.14);
-    border-color: hsl(var(--comment-cta) / 0.78);
-    box-shadow: none;
-  }
-
-  .mood-comment-avatar--telegram {
-    background: url('/telegram-logo.svg') no-repeat center !important;
-    background-size: 91% !important;
-  }
-
-  .mood-comment-cta-content {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 7px;
+    font-family: var(--font-sans);
+    font-size: var(--comment-meta);
+    font-weight: 500;
+    line-height: 1.4;
+    color: hsl(var(--muted-foreground));
+    text-decoration: none;
+    transition: color var(--dur-base) var(--ease);
   }
 
-  .mood-comment-cta-content span {
-    font-size: 13.5px;
-    font-weight: 500;
-    color: hsl(var(--comment-cta));
+  a.mood-comment-cta-wrap:hover {
+    color: hsl(var(--foreground));
+  }
+
+  a.mood-comment-cta-wrap:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.4);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  .mood-comment-cta-mark {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    background: url('/telegram-logo.svg') no-repeat center;
+    background-size: contain;
   }
 
   .mood-comment-cta-arrow {
-    color: hsl(var(--comment-cta));
-    opacity: 0.7;
+    flex-shrink: 0;
+    opacity: 0.55;
     transition:
       opacity var(--dur-base) var(--ease),
       transform var(--dur-base) var(--ease);
-    flex-shrink: 0;
   }
 
   a.mood-comment-cta-wrap:hover .mood-comment-cta-arrow {
     opacity: 1;
     transform: translate(2px, -2px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    a.mood-comment-cta-wrap:hover .mood-comment-cta-arrow {
+      transform: none;
+    }
   }
 
   @media (max-width: 540px) {
@@ -931,16 +885,9 @@ const t = resolveMoodCommentsCopy(locale);
       font-size: 13px;
     }
 
-    .mood-comments-load-more {
-      margin-top: 16px;
-      padding: 12px 20px;
-      font-size: 13px;
-      border-radius: 10px;
-    }
-
-    .mood-comment-cta-arrow {
-      width: 12px;
-      height: 12px;
+    .mood-comments-foot {
+      gap: 16px;
+      margin-top: 22px;
     }
   }
 
@@ -960,9 +907,10 @@ const t = resolveMoodCommentsCopy(locale);
       font-size: 10px;
     }
 
-    .mood-comments-load-more {
-      padding: 10px 16px;
-      font-size: 13px;
+    /* The avatar drops to 28px and the row gap to 8px here, so the text
+       axis the foot aligns to moves with them. */
+    .mood-comments-foot {
+      padding-left: 36px;
     }
   }
 </style>
