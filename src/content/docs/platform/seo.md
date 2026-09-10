@@ -36,7 +36,9 @@ The shared identity source is [`src/data/site.ts`](https://github.com/bunizao/si
   `<doc title>`. No site-name suffix — search engines display `buxx.me` from
   the structured data and social cards read `og:site_name`, so a suffix only
   duplicates what the result already shows.
-- The Blog index is `無人之境`; blog articles are the article title.
+- The Blog index is `無人之境 — Lucian's Blog`: the publication name plus an
+  English descriptor so a reader who cannot parse the name still knows what
+  the result is. Blog articles are the article title alone.
 - Google may still rewrite a title when it believes another form better matches
   a query. Source titles must remain stable and should not imitate a rewritten
   search result.

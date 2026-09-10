@@ -34,7 +34,7 @@ const accent = tag.accentColor ?? 'var(--blog-accent)';
 
 <BlogLayout
   title={`#${tag.name}`}
-  description={tag.description ?? `Writing tagged ${tag.name} on 無人之境.`}
+  description={tag.description ?? `無人之境里标为「${tag.name}」的文字。`}
   path={`/blog/tag/${tag.slug}`}
 >
   <header class="tag-archive__head" style={`--tag-accent:${accent}`}>
