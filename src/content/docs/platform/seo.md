@@ -149,18 +149,15 @@ template itself, so nothing in this repo deploys it: the source lives in
 
 Publishing returns an **rhash**. Until Telegram adopts a template for the whole
 domain — their decision, on their timetable — only a link carrying
-`?rhash=<hash>` renders as Instant View, so the hash is the feature rather than
-an optimisation. It is set in `blog.instantView.rhash` (`src/data/site.ts`) and
-applied in exactly one place: the Telegram button in the article share row.
-Canonical tags, `og:url`, feeds, the copy-link button and the native share sheet
-all stay clean, because `rhash` means nothing outside Telegram. An empty hash —
-the state before a template is published — leaves every link untouched and the
-share button still works, just without Instant View.
+`?rhash=<hash>` renders as Instant View. The site no longer emits such a link:
+the article share row is copy-link and the native share sheet, and every URL the
+site produces is clean. The template therefore applies only once Telegram adopts
+it domain-wide, or to a link a reader assembles by hand.
 
 The template addresses the article page's own class names and the `article:*`
 meta tags above. `tests/e2e/blog.pw.ts` pins that structure so a rename fails
 CI rather than quietly degrading links already shared into chats;
-`config/instant-view/README.md` has the publishing loop.
+`config/instant-view/README.md` has the publishing loop and the last rhash.
 
 ## Search Favicons
 
