@@ -1,4 +1,5 @@
-/* The full-size viewer behind the mosaic. It is deliberately almost nothing:
+/* The full-size viewer behind the detail gallery. It is deliberately almost
+   nothing:
    a dark field, the picture, and the two controls you need to leave or move
    on. Anything else here would be competing with the image. */
 .mood-lightbox {

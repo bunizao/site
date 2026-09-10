@@ -1,5 +1,5 @@
-/* The viewer the mosaic depends on. Tiles crop, so every image has to be one
-   click away from its whole self; without this the gallery would be lossy.
+/* Full size, on click. The gallery shows each image whole but at reading
+   width, which is enough to recognise a screenshot and not enough to read one.
 
    It is a native <dialog>: the top layer, the backdrop, the Escape key and the
    focus trap all come from the platform, and what is left is the part that is
@@ -149,8 +149,9 @@ export function initMoodLightbox(root: ParentNode = document): void {
     if (track.dataset.moodLightboxBound === '1') return;
     track.dataset.moodLightboxBound = '1';
 
-    // The tiles are divs in the markup because without this script they are not
-    // interactive; once it runs they are buttons in everything but tag name.
+    // The slides are divs in the markup because without this script they are
+    // not interactive; once it runs they are buttons in everything but tag
+    // name.
     track.querySelectorAll<HTMLElement>('[data-mood-gallery-slide]').forEach((slide) => {
       slide.tabIndex = 0;
       slide.setAttribute('role', 'button');
@@ -168,7 +169,17 @@ export function initMoodLightbox(root: ParentNode = document): void {
       lightbox.open(slides, Number(slide.dataset.galleryIndex) || 0, slide);
     };
 
-    track.addEventListener('click', (event) => activate(event.target));
+    // The track is swiped as well as clicked, and a swipe ends in a click. If
+    // the track moved under the finger, that was the gesture, not a tap.
+    let pressScrollLeft = 0;
+    track.addEventListener('pointerdown', () => {
+      pressScrollLeft = track.scrollLeft;
+    }, { passive: true });
+
+    track.addEventListener('click', (event) => {
+      if (Math.abs(track.scrollLeft - pressScrollLeft) > 4) return;
+      activate(event.target);
+    });
     track.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();

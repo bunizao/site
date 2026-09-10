@@ -272,13 +272,16 @@ function initMoodGallery(gallery: HTMLElement): void {
 
   if (variant === 'detail' || priority) {
     if (variant === 'detail') {
+      // The article's own pictures, already in view and few: load them all
+      // rather than making the reader scroll one into existence. The track
+      // still gets the feed's watcher, which is what carries wheel-to-sideways.
       slides.forEach((_slide, index) => {
         hydrateSlideAtIndex(slides, index);
       });
-      galleryControllers.set(gallery, {
-        containerObserver: null,
-        cleanupTrack: null,
-      });
+      startTrackWatcher();
+      if (slides.length > 1) {
+        nudgeTrack();
+      }
       return;
     }
 

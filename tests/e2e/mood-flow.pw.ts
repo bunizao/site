@@ -3082,7 +3082,8 @@ test.describe('Mood routes', () => {
     await expect(images.nth(0)).toHaveAttribute('src', /\/0$/);
     await expect(images.nth(1)).toHaveAttribute('src', /\/1$/);
     await expect(images.nth(2)).toHaveAttribute('src', /\/2$/);
-    expect(await track.evaluate((element) => getComputedStyle(element).display)).toBe('grid');
+    expect(await track.evaluate((element) => getComputedStyle(element).overflowX)).toBe('auto');
+    expect(await track.evaluate((element) => getComputedStyle(element).display)).toBe('flex');
   });
 
   test('reserves a detail gallery without client JavaScript', async ({ page }) => {
@@ -3095,27 +3096,25 @@ test.describe('Mood routes', () => {
     const track = page.locator('.mood-gallery--detail [data-mood-gallery-track]');
     const box = await track.boundingBox();
     expect(box).not.toBeNull();
-    // The mosaic is a square laid out from the count alone, so it stands at its
-    // final size with scripting off and never moves once the images arrive.
-    expect(Math.abs(box!.height - box!.width)).toBeLessThan(2);
 
     const slides = track.locator('[data-mood-gallery-slide]');
     await expect(slides).toHaveCount(3);
     const geometry = await slides.evaluateAll((nodes) => nodes.map((node) => {
       const rect = node.getBoundingClientRect();
-      return { top: rect.top, left: rect.left, right: rect.right, height: rect.height };
+      return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
     }));
 
-    // Three images: a full-height pane on the left, a stacked pair on the
-    // right, every edge flush with the block.
-    const [first, second, third] = geometry;
-    expect(Math.abs(first!.left - box!.x)).toBeLessThan(2);
-    expect(Math.abs(first!.height - box!.height)).toBeLessThan(2);
-    expect(Math.abs(second!.top - first!.top)).toBeLessThan(2);
-    expect(second!.left).toBeGreaterThan(first!.right);
-    expect(Math.abs(second!.right - (box!.x + box!.width))).toBeLessThan(2);
-    expect(third!.top).toBeGreaterThanOrEqual(second!.top + second!.height);
-    expect(Math.abs(third!.left - second!.left)).toBeLessThan(2);
+    // One row, swiped sideways: every slide sits on the same line, sized from
+    // its declared ratio before a byte arrives, and the row runs past the band
+    // it is read in.
+    const [first] = geometry;
+    geometry.forEach((slide) => {
+      expect(Math.abs(slide.top - first!.top)).toBeLessThan(2);
+      expect(slide.width).toBeGreaterThan(0);
+      expect(Math.abs(slide.height - box!.height)).toBeLessThanOrEqual(box!.height);
+    });
+    const rowWidth = geometry.reduce((total, slide) => total + slide.width, 0);
+    expect(rowWidth).toBeGreaterThan(box!.width);
   });
 
   test('reserves a single detail image and paints its blur placeholder before load', async ({ page }) => {
