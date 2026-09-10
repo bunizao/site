@@ -1,7 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
 import { meta } from '@/data/site';
 import { readCloudflareAccessIdentity } from '@/features/admin/server/access';
-import { redirectLegacyGhostHost } from '@/lib/http/legacy-ghost-redirect';
 import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 import {
   fetchBlogAsset,
@@ -131,9 +130,6 @@ async function readAdminSession(context: {
 export const onRequest = defineMiddleware(async (context, next) => {
   const url = new URL(context.request.url);
   const pathname = url.pathname;
-  const legacyGhostRedirect = redirectLegacyGhostHost(url);
-  if (legacyGhostRedirect) return legacyGhostRedirect;
-
   const canonicalRedirect = redirectCanonicalUrl(context.request);
   if (canonicalRedirect) return canonicalRedirect;
 
