@@ -529,3 +529,111 @@ test('load-more, like, and delete failures remain actionable', async ({ page }) 
   await row.locator('[data-comment-delete]').click();
   await expect(row.locator('.blog-comment__action-error')).toContainText("edit window has closed");
 });
+
+/* The refusal a reader hits from one IP after a handful of likes: Cloudflare
+   decides it wants a human, the interaction-only widget cannot settle it on
+   its own, and site-api answers 400 `turnstile_failed`. The message that lands
+   says "tick the box below", so a box has to be there -- these two lock down
+   that it is, in the surface that was refused, and that solving it sends the
+   like rather than leaving the reader to reload.
+
+   Cloudflare is stubbed rather than reached: the real widget cannot be solved
+   by a test, and `window.turnstile` being present is also what stops
+   loadTurnstileScript from fetching challenges.cloudflare.com at all. */
+async function stubTurnstile(page: import('@playwright/test').Page) {
+  await page.addInitScript(() => {
+    (window as unknown as { turnstile: unknown }).turnstile = {
+      render(container: HTMLElement, opts: Record<string, any>) {
+        // The escalated case: the silent widget fails, exactly as it does for
+        // an IP Cloudflare has decided to look at twice.
+        if (opts.appearance !== 'always') {
+          container.replaceChildren();
+          setTimeout(() => opts['error-callback']?.(), 10);
+          return 'silent';
+        }
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.fakeChallenge = '';
+        button.textContent = 'I am human';
+        button.addEventListener('click', () => opts.callback('good-token'));
+        container.replaceChildren(button);
+        opts['before-interactive-callback']?.();
+        return 'forced';
+      },
+      reset() {},
+      remove() {},
+    };
+  });
+}
+
+/** Refuses every like until one arrives carrying a solved challenge. */
+async function installRefusedReactions(page: import('@playwright/test').Page) {
+  const tokens: string[] = [];
+  await page.route('**/api/v2/reactions**', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ reactions: {} }) });
+      return;
+    }
+    const token = (route.request().postDataJSON() as { turnstileToken: string }).turnstileToken;
+    tokens.push(token);
+    if (token !== 'good-token') {
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'turnstile_failed', code: 'invalid_token' }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ reaction: { emoji: '❤️', count: 42, reacted: true, reactors: [] } }),
+    });
+  });
+  return tokens;
+}
+
+test('a refused like on a comment opens a challenge under that row and resends once it is solved', async ({ page }) => {
+  await stubTurnstile(page);
+  await installCommentApi(page);
+  const tokens = await installRefusedReactions(page);
+
+  await page.goto('/lab/comments?interactive=1&turnstile=1&locale=en', { waitUntil: 'networkidle' });
+
+  const row = page.locator('#comment-comment-existing');
+  await row.locator('[data-comment-like]').click();
+
+  const alert = row.locator('.blog-comment__action-error');
+  await expect(alert).toContainText('human check');
+  const host = row.locator('[data-reaction-turnstile]');
+  await expect(host).toHaveAttribute('data-turnstile-interactive', '');
+  const challenge = host.locator('[data-fake-challenge]');
+  await expect(challenge).toBeVisible();
+
+  await challenge.click();
+  await expect(alert).toHaveCount(0);
+  await expect(row.locator('[data-like-count]')).toHaveText('42');
+  await expect(row.locator('[data-comment-like]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(host).not.toHaveAttribute('data-turnstile-interactive', '');
+  expect(tokens).toEqual(['', 'good-token']);
+});
+
+test('a refused like on the post bar opens a challenge in the bar and resends once it is solved', async ({ page }) => {
+  await stubTurnstile(page);
+  await installCommentApi(page);
+  const tokens = await installRefusedReactions(page);
+
+  await page.goto('/lab/comments?interactive=1&turnstile=1&locale=en', { waitUntil: 'networkidle' });
+
+  const bar = page.locator('.blog-react');
+  await bar.locator('.blog-react__card').click();
+
+  await expect(page.locator('.blog-react__error')).toContainText('human check');
+  const host = bar.locator('.blog-compose__turnstile');
+  await expect(host).toHaveAttribute('data-turnstile-interactive', '');
+  await host.locator('[data-fake-challenge]').click();
+
+  await expect(page.locator('.blog-react__error')).toHaveCount(0);
+  await expect(bar.locator('.blog-react__pill--liked .blog-react__count')).toHaveText('42');
+  expect(tokens).toEqual(['', 'good-token']);
+});
