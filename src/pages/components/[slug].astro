@@ -9,7 +9,7 @@ import OnThisPage from '@/features/components/ui/OnThisPage.astro';
 import { InstallTabs, type InstallSpec } from '@/features/components/ui/InstallTabs';
 import CodeBox from '@/features/components/ui/CodeBox.astro';
 import '@/styles/components.css';
-import { breadcrumbJsonLd, formatSiteTitle } from '@/lib/seo';
+import { breadcrumbJsonLd } from '@/lib/seo';
 
 export const prerender = true;
 
@@ -72,7 +72,7 @@ const creditsHtml = (raw: string) =>
 ---
 
 <Layout
-  title={formatSiteTitle(title)}
+  title={title}
   description={tagline}
   url={`/components/${slug}`}
   structuredData={breadcrumbs}

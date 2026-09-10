@@ -41,7 +41,6 @@ import Layout from '@/layouts/Layout.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import { MESSAGE_MAX_BODY_LENGTH, MESSAGE_MAX_NAME_LENGTH } from '@bunizao/contracts/messages';
 import { messageCopy as t } from '@/features/messages/copy';
-import { formatSiteTitle } from '@/lib/seo';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 import { nameOnBackground, textOnAccent } from '@/features/content/conversation';
@@ -80,7 +79,7 @@ const accentInk = textOnAccent(accentFill);
 ---
 
 <Layout
-  title={formatSiteTitle(t.title)}
+  title={t.title}
   description={t.lede}
   url="/message"
   image="/message-og.png"

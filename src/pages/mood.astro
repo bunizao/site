@@ -25,7 +25,6 @@ import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readEnv } from '@/lib/runtime/env';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 import { profile } from '@/data/site';
-import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
 import '@/features/mood/styles/bookmark-card.css';
@@ -33,7 +32,7 @@ import { parseYouTubeVideoUrl } from '@/lib/embed/youtube';
 
 export const prerender = false;
 
-const title = formatSiteTitle('Moods');
+const title = 'Moods';
 const description = `Short posts, photos, links, and moments from ${profile.name}'s Telegram channel.`;
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 const moodAlternateUrl = new URL(canonicalUrl);

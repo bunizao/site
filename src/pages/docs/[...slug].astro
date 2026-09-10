@@ -10,7 +10,7 @@ import DocsDemo from '@/features/docs/ui/DocsDemo.astro';
 import { docPath, getDocsNav, getDocsSiblings, type DocsGroup } from '@/features/docs/server/nav';
 import { splitDocsFragments } from '@/features/docs/server/demo';
 import { markdownAlternatePath } from '@/features/agent-markdown/server/registry';
-import { breadcrumbJsonLd, formatSiteTitle } from '@/lib/seo';
+import { breadcrumbJsonLd } from '@/lib/seo';
 import '@/styles/blog-prose.css';
 import '@/styles/embed-youtube.css';
 import '@/styles/docs.css';
@@ -63,7 +63,7 @@ const breadcrumbs = breadcrumbJsonLd([
 ---
 
 <Layout
-  title={formatSiteTitle(title)}
+  title={title}
   description={description}
   url={docPath(entry.id)}
   image="/docs-og.png"

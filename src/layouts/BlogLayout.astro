@@ -24,7 +24,7 @@ import {
 } from '@/features/agent-markdown/server/registry';
 import { BLOG_FAVICON } from '@/lib/favicon';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
-import { formatSiteTitle, profileAlternateNames, profileName } from '@/lib/seo';
+import { profileAlternateNames, profileName } from '@/lib/seo';
 import ViewTransitionReveal from './client/ViewTransitionReveal.astro';
 
 interface Props {
@@ -95,7 +95,9 @@ const markdownAlternateUrl = !excludesIndexing && hasMarkdownRenderer(new URL(ca
   ? new URL(markdownAlternatePath(new URL(canonical).pathname), meta.siteUrl).href + new URL(canonical).search
   : null;
 const pageTitle = normalizeBlogMetaText(title) || blog.name;
-const fullTitle = formatSiteTitle(pageTitle);
+// The site name is not a title suffix: search engines show it on their own
+// line from WebSite.name and og:site_name, so the page owns the whole title.
+const fullTitle = pageTitle;
 const metaDescription = normalizeBlogMetaText(description) || meta.description;
 const ogImage = customOgImage
   ? new URL(customOgImage, meta.siteUrl).href

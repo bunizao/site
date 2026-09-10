@@ -8,13 +8,13 @@ order: 5
 ## Public Identity
 
 There is exactly one site name, `buxx.me`, and it is the only string that
-ends a `<title>` or fills `og:site_name` anywhere on the domain. Google keeps
-one site name per domain; a second name in the title suffix does not become a
-second site name, it becomes `Title — Other — buxx.me` in results.
+fills `WebSite.name` and `og:site_name` anywhere on the domain. Google keeps
+one site name per domain and prints it on its own line above the result, so
+titles do not repeat it.
 
 | Role | Canonical name | Usage |
 | --- | --- | --- |
-| Website | `buxx.me` | `WebSite.name`, `og:site_name`, every title suffix, oEmbed provider |
+| Website | `buxx.me` | `WebSite.name`, `og:site_name`, oEmbed provider |
 | Person | `Lucian Bu` | Profile page, `Person` structured data, personal authorship |
 | Personal alias | `Bunizao` | `alternateName`, account handles, historical credits |
 | Pen name | `Murray` | Blog byline and the canonical Person's `alternateName` |
@@ -23,18 +23,20 @@ second site name, it becomes `Title — Other — buxx.me` in results.
 `Bunizao` is not the website name. `Bunizao's Website` and `Lucian's Website`
 are intentionally not used because possessive template names blur the person,
 site, and publication entities. `無人之境` names the publication, never the
-site: it appears in the blog masthead and as the article publisher, not as a
-title suffix.
+site: it appears in the blog masthead and as the article publisher, never in
+`og:site_name`.
 
 The shared identity source is [`src/data/site.ts`](https://github.com/bunizao/site/blob/main/src/data/site.ts).
-[`src/lib/seo.ts`](https://github.com/bunizao/site/blob/main/src/lib/seo.ts) derives structured data and the standard
-non-blog title suffix from it.
+[`src/lib/seo.ts`](https://github.com/bunizao/site/blob/main/src/lib/seo.ts) derives structured data from it.
 
 ## Titles
 
 - The home page leads with the person: `Lucian Bu — Student, Developer & Blogger`.
-- Every other page uses `<subject> — buxx.me`, built by `formatSiteTitle`.
-- The Blog index is `無人之境 — buxx.me`; blog articles are `<article title> — buxx.me`.
+- Every other page's `<title>` is the subject alone: `Projects`, `Docs`,
+  `<doc title>`. No site-name suffix — search engines display `buxx.me` from
+  the structured data and social cards read `og:site_name`, so a suffix only
+  duplicates what the result already shows.
+- The Blog index is `無人之境`; blog articles are the article title.
 - Google may still rewrite a title when it believes another form better matches
   a query. Source titles must remain stable and should not imitate a rewritten
   search result.

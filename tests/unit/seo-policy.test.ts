@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'bun:test';
 import { blog, meta, profile } from '@/data/site';
-import { breadcrumbJsonLd, formatSiteTitle, profileJsonLd, websiteJsonLd } from '@/lib/seo';
+import { breadcrumbJsonLd, profileJsonLd, websiteJsonLd } from '@/lib/seo';
 
 function readSource(path: string): string {
   return readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
@@ -19,7 +19,6 @@ describe('search indexing policy', () => {
       penNames: ['Murray'],
     });
     expect(blog.name).toBe('無人之境');
-    expect(formatSiteTitle('Projects')).toBe('Projects — buxx.me');
   });
 
   test('links the website and profile without treating the alias as the site name', () => {
@@ -113,7 +112,8 @@ describe('search indexing policy', () => {
   test('keeps blog article title signals branded and structured', () => {
     const layout = readSource('src/layouts/BlogLayout.astro');
 
-    expect(layout).toContain('const fullTitle = formatSiteTitle(pageTitle);');
+    expect(layout).toContain('const fullTitle = pageTitle;');
+    expect(layout).not.toContain('— ${meta.siteName}');
     expect(layout).toContain('<title>{fullTitle}</title>');
     expect(layout).toContain('<meta property="og:site_name" content={meta.siteName} />');
     expect(layout).not.toContain('og:site_name" content={blog.name}');
