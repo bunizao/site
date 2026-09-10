@@ -60,21 +60,21 @@
 }
 
 /* The detail gallery is one justified block: every row filled edge to edge,
-   every image in a row at the same height, nothing cropped. Two numbers steer
-   it and both live here.
+   every image in a row at the same height, nothing cropped. Cropping is off
+   the table because these are mostly screenshots and there is no viewer to
+   open the whole one in -- a cut-off screenshot is just lost content.
 
-   --gallery-row is the height a row starts at, and it decides how many images
-   share one. --gallery-row-max is the ceiling a row is allowed to grow to,
-   which is what stops a single leftover image from becoming a poster; a row
-   that hits it stops short of the band and centres instead.
-
-   The band itself used to break out to 1280px while the article ran at 688,
-   so the gallery lined up with nothing on the page and no row was ever wide
-   enough to fill it. It now breaks out only as far as rows can fill. */
+   Two tokens steer it, and both are read off the band rather than the
+   viewport, so the packing behaves the same at every width instead of
+   flipping at a breakpoint. --gallery-row is the height a row starts at and
+   decides how many images share one; --gallery-row-max is the height a row
+   may grow to, which stops a lone trailing image from becoming a poster. A
+   row that hits the ceiling stops short of the band and centres. */
 .mood-gallery--detail {
-  --gallery-row: 150px;
-  --gallery-row-max: 380px;
-  margin: 1.5em 0;
+  container-type: inline-size;
+  --gallery-row: 26cqw;
+  --gallery-row-max: 52cqw;
+  margin: 2em 0;
 }
 
 .mood-gallery--detail .mood-gallery-track {
@@ -82,7 +82,7 @@
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: center;
-  gap: 8px;
+  gap: 12px;
   overflow: visible;
   scroll-snap-type: none;
   scrollbar-width: auto;
@@ -98,7 +98,7 @@
     calc(var(--mood-gallery-grow, 1) * var(--gallery-row));
   width: auto;
   max-width: min(100%, calc(var(--mood-gallery-grow, 1) * var(--gallery-row-max)));
-  border-radius: 14px;
+  border-radius: 18px;
   scroll-snap-align: unset;
   /* No drop shadow. Every image already carries a hairline inset, and a pair
      of soft shadows turned each one into a card floating over the article
@@ -106,12 +106,14 @@
   box-shadow: none;
 }
 
-.mood-gallery--detail .mood-gallery-image {
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  object-fit: cover;
+/* A phone gets one image per row, full width, uncapped. Pairing on a 343px
+   band means two 165px frames, and a screenshot at 165px is decoration --
+   the row height that packs nicely is the row height nobody can read. */
+@media (max-width: 639px) {
+  .mood-gallery--detail .mood-gallery-slide {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
 }
 
 @media (min-width: 640px) {
@@ -122,37 +124,25 @@
   .mood-gallery--feed .mood-gallery-slide {
     width: min(480px, 320px * (var(--mood-gallery-ratio, 4 / 3)));
   }
-
-  .mood-gallery--detail {
-    --gallery-row: 180px;
-    --gallery-row-max: 420px;
-  }
-
-  .mood-gallery--detail .mood-gallery-track {
-    gap: 10px;
-  }
-
-  .mood-gallery--detail .mood-gallery-slide {
-    border-radius: 16px;
-  }
 }
 
 @media (min-width: 1024px) {
   .mood-gallery--feed .mood-gallery-slide {
     width: min(560px, 360px * (var(--mood-gallery-ratio, 4 / 3)));
   }
+}
 
-  /* The one place the gallery leaves the reading measure. 880px is what two
-     wide frames fill at this row height, and it stays centred on the same
-     axis as the text above it. */
+/* The gallery leaves the reading measure as soon as there is room worth
+   leaving it for. It used to wait until 1024px, so every width from 640 to
+   1023 rendered a screenshot album at text width -- one image per row, each
+   of them small. It stays centred on the text's own axis either way. */
+@media (min-width: 700px) {
   .mood-gallery--detail {
-    --gallery-row: 200px;
-    --gallery-row-max: 460px;
     position: relative;
     left: 50%;
-    width: min(calc(100vw - 64px), 880px);
+    width: min(calc(100vw - 80px), 920px);
     max-width: none;
-    margin: 1.75em 0 2em;
+    margin: 2.5em 0;
     transform: translateX(-50%);
   }
 }

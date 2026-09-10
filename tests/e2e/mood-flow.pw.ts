@@ -3096,22 +3096,26 @@ test.describe('Mood routes', () => {
     const track = page.locator('.mood-gallery--detail [data-mood-gallery-track]');
     const box = await track.boundingBox();
     expect(box).not.toBeNull();
-    // Two frames share the first row and the third takes the column on its
-    // own, so the block is roughly two rows of the phone's own measure.
-    expect(box!.height).toBeGreaterThan(300);
-    expect(box!.height).toBeLessThan(700);
+    // Every frame is reserved from its declared ratio before a byte arrives,
+    // so with scripting off the block already stands at its full height.
+    expect(box!.height).toBeGreaterThan(1000);
+
     const slides = track.locator('[data-mood-gallery-slide]');
     await expect(slides).toHaveCount(3);
     const geometry = await slides.evaluateAll((nodes) => nodes.map((node) => {
       const rect = node.getBoundingClientRect();
-      return { top: rect.top, right: rect.right, height: rect.height };
+      return { top: rect.top, left: rect.left, right: rect.right, height: rect.height };
     }));
-    expect(Math.abs(geometry[1].right - (box!.x + box!.width))).toBeLessThan(2);
-    expect(Math.abs(geometry[0].top - geometry[1].top)).toBeLessThan(1);
-    expect(geometry[2].top).toBeGreaterThan(geometry[0].top + geometry[0].height);
-    // --gallery-row-max: a row is allowed to grow to this and no further,
-    // which is what stops a lone trailing frame from becoming a poster.
-    expect(geometry[2].height).toBeLessThanOrEqual(380);
+
+    // A phone stacks: one frame per row, each spanning the band, each below
+    // the last. Pairing here would put two unreadable thumbnails on a line.
+    geometry.forEach((frame, index) => {
+      expect(Math.abs(frame.left - box!.x)).toBeLessThan(2);
+      expect(Math.abs(frame.right - (box!.x + box!.width))).toBeLessThan(2);
+      if (index === 0) return;
+      const previous = geometry[index - 1];
+      expect(frame.top).toBeGreaterThanOrEqual(previous.top + previous.height);
+    });
   });
 
   test('reserves a single detail image and paints its blur placeholder before load', async ({ page }) => {
