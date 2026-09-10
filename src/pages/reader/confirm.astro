@@ -47,7 +47,25 @@ async function callApi<T>(path: string, body: unknown): Promise<T | null> {
     body: JSON.stringify(body),
   });
   const response = await proxyApiRequest(request, Astro.locals);
+  forwardSetCookie(response);
   return (await response.json().catch(() => null)) as T | null;
+}
+
+// `/v2/reader/verify` answers a successful confirmation with the reader's
+// session cookie, and this page is the only thing standing between that
+// response and the browser. Without this the reader is told they are
+// confirmed while holding no session at all -- the switches on that very card
+// then POST to /v2/reader/preferences, get 401, and flip back. Everything this
+// helper is given comes from the reader surface behind the API binding, so any
+// cookie on it is meant for this browser; the calls that set none (resend) get
+// a no-op rather than a rule to remember.
+function forwardSetCookie(response: Response) {
+  const cookies = typeof response.headers.getSetCookie === 'function'
+    ? response.headers.getSetCookie()
+    : ([response.headers.get('set-cookie')].filter(Boolean) as string[]);
+  for (const cookie of cookies) {
+    Astro.response.headers.append('Set-Cookie', cookie);
+  }
 }
 
 if (Astro.request.method === 'POST') {
