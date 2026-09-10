@@ -285,9 +285,9 @@ discussion group:
   `parentId` names a `telegram`-origin comment):
 
   ```
-  <b>{displayName}</b> <a href="{commentUrl}">via buxx.me</a>
+  <b>{displayName}</b> · <a href="{commentUrl}">buxx.me</a>
 
-  {body, rendered to the same small Markdown subset the blog accepts}
+  {body, rendered as bold, italic, code, links and `>` quotes}
   ```
 
   `commentUrl` is `https://buxx.me/mood/<postId>#c-<token>`, where `token`

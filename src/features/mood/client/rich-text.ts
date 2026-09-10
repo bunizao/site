@@ -8,8 +8,12 @@
  * safe to call on the same root repeatedly as content streams in.
  */
 
+// t.me's widget writes `span.tg-spoiler`; `<tg-spoiler>` is the Bot API's own
+// tag, which the comment sanitizer also allows through. Both blur, both reveal.
+const SPOILER_SELECTOR = '.tg-spoiler:not([data-spoiler-ready]), tg-spoiler:not([data-spoiler-ready])';
+
 function hydrateSpoilers(root: ParentNode): void {
-  root.querySelectorAll<HTMLElement>('.tg-spoiler:not([data-spoiler-ready])').forEach((spoiler) => {
+  root.querySelectorAll<HTMLElement>(SPOILER_SELECTOR).forEach((spoiler) => {
     spoiler.dataset.spoilerReady = 'true';
     spoiler.setAttribute('role', 'button');
     spoiler.setAttribute('tabindex', '0');
