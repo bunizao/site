@@ -35,12 +35,14 @@ import {
   type PostPageProps,
 } from '@/features/posts/server/page-props';
 import {
-  getCanonicalSlug,
+  findPostForRoute,
   getPostLocale,
   isTranslation,
-  selectRequestedVersion,
+  parsePostRoute,
+  postRouteSegment,
+  postVersionPath,
 } from '@/features/posts/i18n';
-import { formatPostDate, postPath, postTitleTransitionName } from '@/features/posts/format';
+import { formatPostDate, postTitleTransitionName } from '@/features/posts/format';
 import { buildBlogOgImageUrl } from '@/features/posts/server/og-image';
 import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
 import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
@@ -53,52 +55,47 @@ export const getStaticPaths = (async () => {
     getListedPosts(),
   ]);
 
+  // A translation is built under its locale, `/blog/en/<canonical>`, never at
+  // its own Ghost slug: one version, one URL, no language to negotiate.
   return Promise.all(
     posts.map(async (post) => ({
-      params: { slug: post.slug },
+      params: { slug: postRouteSegment(post) },
       props: await buildPostPageProps(post, listedPosts, posts),
     })),
   );
 }) satisfies GetStaticPaths;
 
 // `prev` is older, `next` is newer (posts come back newest-first). In dev this
-// path is server-rendered so middleware negotiation can be tested under
-// `astro dev`; production keeps the static article files for Pagefind.
-const slug = Astro.params.slug ?? '';
-// Which version of the article this request wants. Only the server-rendered
-// path can honour it: a prerendered file is one language by construction, and
-// in production the swap happens at the edge (plans/blog-i18n.md, step 5).
-// `astro dev` runs this route as SSR precisely so the switcher is testable.
-const requestedLocale = (Astro.locals as unknown as { blogLocale?: string }).blogLocale
-  ?? Astro.url.searchParams.get('lang');
+// path is server-rendered so a draft can be opened without a rebuild;
+// production keeps the static article files for Pagefind.
 let { post, featureBlur, prev, next, versions } = Astro.props as Partial<PostPageProps>;
 
 if (!post) {
-  const [rawPost, listedPosts, accessiblePosts] = await Promise.all([
-    getPostBySlug(slug, { outputTarget: 'web' }),
+  const route = parsePostRoute(Astro.params.slug ?? '');
+  if (!route) {
+    return new Response(null, { status: 404 });
+  }
+
+  const [listedPosts, accessiblePosts] = await Promise.all([
     getListedPosts(),
     getAccessiblePosts({ outputTarget: 'web' }),
   ]);
+  // The original may be a draft the accessible list does not carry yet; a
+  // translation only exists once its sibling is published, so the list is
+  // enough for it.
+  const rawPost = route.locale === null
+    ? await getPostBySlug(route.canonicalSlug, { outputTarget: 'web' })
+    : findPostForRoute(route, accessiblePosts);
 
   if (!rawPost) {
     return new Response(null, { status: 404 });
   }
 
   ({ post, featureBlur, prev, next, versions } = await buildPostPageProps(
-    selectRequestedVersion(rawPost, accessiblePosts, requestedLocale),
+    rawPost,
     listedPosts,
     accessiblePosts,
   ));
-} else if (requestedLocale) {
-  const accessiblePosts = await getAccessiblePosts({ outputTarget: 'web' });
-  const rawPost = await getPostBySlug(slug, { outputTarget: 'web' });
-  if (rawPost) {
-    ({ post, featureBlur, prev, next, versions } = await buildPostPageProps(
-      selectRequestedVersion(rawPost, accessiblePosts, requestedLocale),
-      await getListedPosts(),
-      accessiblePosts,
-    ));
-  }
 }
 
 versions ??= [];
@@ -158,15 +155,12 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
 // fixture withhold it, and both mean "do not hydrate at all".
 const liveCommentsPostId = isE2ESiteFixtureEnabled(Astro.locals) ? undefined : post.id;
 const unlisted = isUnlistedPost(post);
-// A translation renders as if it lives at the canonical URL, because its bytes
-// are served from there. Everything derived from `path` — canonical, og:url,
-// JSON-LD @id, the markdown alternate — follows that, not the build path.
 const postLocale = getPostLocale(post);
-// The default locale owns the bare URL; a translation owns its `?lang=` URL, so
-// that every hreflang target is self-canonical and the cluster survives.
-const canonicalPath =
-  versions.find((version) => version.current)?.indexedHref
-  ?? postPath(getCanonicalSlug(post));
+// Every version is self-canonical at the URL it is built under, so every
+// hreflang target declares itself and the cluster survives. Everything derived
+// from `path` — canonical, og:url, JSON-LD @id, the markdown alternate —
+// follows this, and a translation never mentions its Ghost slug.
+const canonicalPath = postVersionPath(post);
 // Out of Pagefind, still in Google: English prose segmented by the CJK
 // tokenizer surfaces as a duplicate hit for what its sibling already covers.
 const translated = isTranslation(post);
@@ -184,7 +178,7 @@ const canonicalUrl = new URL(canonicalPath, meta.siteUrl).href;
   excludeFromSearch={translated}
   languageAlternates={versions.map((version) => ({
     locale: version.locale,
-    href: version.indexedHref,
+    href: version.href,
   }))}
   ogType="article"
   ogImage={postOgImage}

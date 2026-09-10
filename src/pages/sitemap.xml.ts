@@ -45,13 +45,13 @@ export async function collectSitemapPaths(): Promise<Array<{ path: string; lastm
   ]);
 
   // The listing carries one row per article; the sitemap deliberately does not.
-  // A `?lang=` variant is a form Google indexes, and a translation that is not
-  // in here is a translation nobody finds — its own build path is not a public
-  // URL and 301s away.
+  // Every language version has a URL of its own, and a translation that is not
+  // in here is a translation nobody finds — its Ghost slug is not a public URL
+  // and 301s away.
   const postEntries = posts.flatMap((post) => {
     const versions = getPostVersions(post, accessiblePosts);
     const paths = versions.length > 0
-      ? versions.map((version) => version.indexedHref)
+      ? versions.map((version) => version.href)
       : [postPath(post.slug)];
     const lastmod = post.updatedAt || post.publishedAt;
     return paths.map((path) => ({ path, lastmod }));

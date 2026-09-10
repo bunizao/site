@@ -1,14 +1,16 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  findPostForRoute,
   getCanonicalSlug,
   getPostLocale,
   getPostVersions,
-  getTranslations,
   isTranslation,
   mapOtherLanguages,
+  parsePostRoute,
+  postRouteSegment,
+  postVersionPath,
   selectListedPosts,
-  selectRequestedVersion,
   type PostVersion,
 } from '@/features/posts/i18n';
 import type { Post } from '@/features/posts/types';
@@ -102,25 +104,51 @@ describe('isTranslation', () => {
   });
 });
 
-describe('getTranslations', () => {
+describe('postVersionPath', () => {
+  test('keeps the original at its own slug whatever language it is in', () => {
+    expect(postVersionPath(createPost('lun-chenmo', '论沉默'))).toBe('/blog/lun-chenmo');
+    expect(postVersionPath(createPost('notes', 'Notes', ['#en']))).toBe('/blog/notes');
+  });
+
+  test('files a translation under its locale and the sibling slug, never its own', () => {
+    expect(postVersionPath(createPost('on-silence', 'On Silence', ['#en:lun-chenmo'])))
+      .toBe('/blog/en/lun-chenmo');
+    expect(postRouteSegment(createPost('on-silence', 'On Silence', ['#en:lun-chenmo'])))
+      .toBe('en/lun-chenmo');
+  });
+});
+
+describe('parsePostRoute', () => {
+  test('reads a bare slug as the original', () => {
+    expect(parsePostRoute('lun-chenmo')).toEqual({ canonicalSlug: 'lun-chenmo', locale: null });
+  });
+
+  test('reads a published locale prefix as that translation', () => {
+    expect(parsePostRoute('en/lun-chenmo')).toEqual({ canonicalSlug: 'lun-chenmo', locale: 'en' });
+  });
+
+  // The default locale owns the bare URL, so a prefixed form of it is not an
+  // address; neither is a language we do not publish or a deeper path.
+  test('rejects the default locale, unknown languages, and longer paths', () => {
+    expect(parsePostRoute('zh/lun-chenmo')).toBeNull();
+    expect(parsePostRoute('fr/lun-chenmo')).toBeNull();
+    expect(parsePostRoute('en/lun-chenmo/extra')).toBeNull();
+    expect(parsePostRoute('')).toBeNull();
+  });
+});
+
+describe('findPostForRoute', () => {
   const zh = createPost('lun-chenmo', '论沉默');
   const en = createPost('on-silence', 'On Silence', ['#en:lun-chenmo']);
-  const unrelated = createPost('night-boat', '夜航船');
 
-  test('finds the translation from the canonical post', () => {
-    expect(getTranslations(zh, [zh, en, unrelated])).toEqual([
-      { locale: 'en', slug: 'on-silence', title: 'On Silence' },
-    ]);
+  test('finds the original by slug and the translation by sibling and locale', () => {
+    expect(findPostForRoute({ canonicalSlug: 'lun-chenmo', locale: null }, [zh, en])).toBe(zh);
+    expect(findPostForRoute({ canonicalSlug: 'lun-chenmo', locale: 'en' }, [zh, en])).toBe(en);
   });
 
-  test('finds the canonical post from the translation', () => {
-    expect(getTranslations(en, [zh, en, unrelated])).toEqual([
-      { locale: 'zh', slug: 'lun-chenmo', title: '论沉默' },
-    ]);
-  });
-
-  test('is empty for a post outside any group', () => {
-    expect(getTranslations(unrelated, [zh, en, unrelated])).toEqual([]);
+  test('does not answer a translation at its own Ghost slug', () => {
+    expect(findPostForRoute({ canonicalSlug: 'on-silence', locale: 'en' }, [zh, en])).toBeNull();
+    expect(findPostForRoute({ canonicalSlug: 'lun-chenmo', locale: 'en' }, [zh])).toBeNull();
   });
 });
 
@@ -131,36 +159,25 @@ describe('getPostVersions', () => {
   const zhVersion: PostVersion = {
     locale: 'zh',
     label: '中文',
-    href: '/blog/lun-chenmo?lang=zh',
-    indexedHref: '/blog/lun-chenmo',
+    href: '/blog/lun-chenmo',
     current: true,
   };
   const enVersion: PostVersion = {
     locale: 'en',
     label: 'English',
-    href: '/blog/lun-chenmo?lang=en',
-    indexedHref: '/blog/lun-chenmo?lang=en',
+    href: '/blog/en/lun-chenmo',
     current: false,
   };
 
-  test('lists every version at the one canonical URL', () => {
+  test('lists every version at its own URL, in a fixed locale order', () => {
     expect(getPostVersions(zh, [zh, en])).toEqual([zhVersion, enVersion]);
   });
 
-  test('points the translation at the canonical URL too, and marks it current', () => {
+  test('is the same list from the translation, with the current flag moved', () => {
     expect(getPostVersions(en, [zh, en])).toEqual([
       { ...zhVersion, current: false },
       { ...enVersion, current: true },
     ]);
-  });
-
-  test('gives the default locale the bare URL and every other one its own', () => {
-    const [zhOut, enOut] = getPostVersions(zh, [zh, en]);
-
-    // The switcher always says which language it means; the index must not.
-    expect(zhOut?.href).toBe('/blog/lun-chenmo?lang=zh');
-    expect(zhOut?.indexedHref).toBe('/blog/lun-chenmo');
-    expect(enOut?.indexedHref).toBe('/blog/lun-chenmo?lang=en');
   });
 
   test('is empty when there is nothing to switch to', () => {
@@ -212,37 +229,5 @@ describe('mapOtherLanguages', () => {
 
   test('leaves untranslated posts out entirely', () => {
     expect(mapOtherLanguages([zh, en, unrelated]).has('night-boat')).toBe(false);
-  });
-});
-
-describe('selectRequestedVersion', () => {
-  const zh = createPost('lun-chenmo', '论沉默');
-  const en = createPost('on-silence', 'On Silence', ['#en:lun-chenmo']);
-  const posts = [zh, en];
-
-  test('serves the requested language at the canonical URL', () => {
-    expect(selectRequestedVersion(zh, posts, 'en')).toBe(en);
-  });
-
-  test('serves the canonical post back from the translation', () => {
-    expect(selectRequestedVersion(en, posts, 'zh')).toBe(zh);
-  });
-
-  test('keeps the post when it already is the language asked for', () => {
-    expect(selectRequestedVersion(zh, posts, 'zh')).toBe(zh);
-  });
-
-  test('keeps the post when nothing was asked for', () => {
-    expect(selectRequestedVersion(zh, posts, null)).toBe(zh);
-  });
-
-  test('keeps the post when the language is not one we publish', () => {
-    expect(selectRequestedVersion(zh, posts, 'fr')).toBe(zh);
-  });
-
-  // A language we do not have is still a language the reader should be able to
-  // read the article in, so the group falls back rather than 404ing.
-  test('keeps the post when the group has no such version', () => {
-    expect(selectRequestedVersion(zh, [zh], 'en')).toBe(zh);
   });
 });

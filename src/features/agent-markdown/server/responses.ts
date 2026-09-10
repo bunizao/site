@@ -4,15 +4,13 @@ import {
   type EdgeCacheHit,
   type EdgeCacheWaitContext,
 } from '@/lib/http/edge-cache';
-import { readRuntimeEnvSource, type RuntimeEnvLocals } from '@/lib/runtime/env';
 import {
   isBlogPostPath,
-  localeForTranslation,
-  localeVersions,
   manifestEntryForPath,
   readI18nManifest,
 } from '@/features/posts/server/i18n-manifest';
-import { resolveRequestLocale } from '@/features/posts/i18n';
+import { translationPath } from '@/features/posts/i18n';
+import type { BlogLocale } from '@/data/site';
 import { meta } from '@/data/site';
 import { estimateMarkdownTokens, prefersMarkdown } from './negotiation';
 import {
@@ -49,101 +47,41 @@ const CLOUDFLARE_CDN_CACHE_CONTROL_HEADER = 'Cloudflare-CDN-Cache-Control';
 const CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 300;
 const NO_STORE_CACHE_CONTROL = 'no-store, max-age=0';
 
-export interface BlogRequestResolution {
-  grouped: boolean;
-  locale: string | null;
-  assetSlug: string;
-  redirect?: Response;
+function permanentRedirect(location: string): Response {
+  return new Response(null, {
+    status: 301,
+    headers: { Location: location, 'Cache-Control': 'public, max-age=3600' },
+  });
 }
 
-function assetsFromLocals(locals: unknown): { fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> } | null {
-  const env = readRuntimeEnvSource(locals as RuntimeEnvLocals | undefined);
-  const assets = env?.ASSETS;
-  return assets && typeof assets === 'object' && typeof (assets as { fetch?: unknown }).fetch === 'function'
-    ? assets as { fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> }
-    : null;
-}
-
-function cookieHeader(request: Request): string | null {
-  return request.headers.get('cookie');
-}
-
-/** Resolve a blog URL to its canonical variant and, in production, its static asset slug. */
-export async function resolveBlogRequest(request: Request, locals: unknown): Promise<BlogRequestResolution | null> {
+/**
+ * Send the two URL shapes an article version is not served at to the one it
+ * is. A translation's own Ghost slug is a build-time identity, not an address;
+ * `?lang=` is the form the first i18n round indexed. Both answer a single 301,
+ * so no version ever has a second URL competing with it in search.
+ */
+export async function redirectLegacyBlogUrl(request: Request, locals: unknown): Promise<Response | null> {
   const url = new URL(request.url);
   if (!isBlogPostPath(url.pathname)) return null;
   const manifest = await readI18nManifest(locals, url.origin);
   if (!manifest) return null;
   const match = manifestEntryForPath(manifest, url.pathname);
-  if (!match) return null;
-  const { slug, entry } = match;
-  const translationLocale = localeForTranslation(entry);
-  if (entry.canonical && translationLocale) {
-    const target = new URL(`/blog/${entry.canonical}`, url.origin);
-    target.searchParams.set('lang', translationLocale);
-    return {
-      grouped: true,
-      locale: translationLocale,
-      assetSlug: entry.canonical,
-      redirect: new Response(null, {
-        status: 301,
-        headers: {
-          Location: `${target.pathname}${target.search}`,
-          'Cache-Control': 'public, max-age=3600',
-        },
-      }),
-    };
+  if (match?.entry.canonical && match.entry.locale) {
+    return permanentRedirect(
+      `${translationPath(match.entry.locale as BlogLocale, match.entry.canonical)}${url.search}`,
+    );
   }
-  if (!entry.translations || Object.keys(entry.translations).length === 0) return null;
-  const locale = resolveRequestLocale({
-    query: url.searchParams.get('lang'),
-    cookie: cookieHeader(request),
-    acceptLanguage: request.headers.get('accept-language'),
-    availableLocales: localeVersions(entry),
-  });
-  return {
-    grouped: true,
-    locale,
-    assetSlug: entry.translations[locale] ?? slug,
-  };
+  const lang = url.searchParams.get('lang');
+  if (lang === null || !match) return null;
+  url.searchParams.delete('lang');
+  const translation = match.entry.translations?.[lang.trim().toLowerCase()];
+  const pathname = translation
+    ? translationPath(lang.trim().toLowerCase() as BlogLocale, match.slug)
+    : `/blog/${match.slug}`;
+  return permanentRedirect(`${pathname}${url.search}`);
 }
 
-export function withBlogVariantHeaders(request: Request, response: Response, resolution: BlogRequestResolution): Response {
-  if (!resolution.grouped || !resolution.locale) return response;
-  const headers = new Headers(response.headers);
-  headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Cookie'));
-  headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Accept-Language'));
-  headers.set('Content-Language', resolution.locale);
-  if (new URL(request.url).searchParams.has('lang')) {
-    headers.append('Set-Cookie', `blog_lang=${encodeURIComponent(resolution.locale)}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`);
-  }
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
-}
-
-/** Fetch the negotiated static blog asset or return a translation-path redirect. */
-export async function fetchBlogAsset(request: Request, locals: unknown): Promise<Response | null> {
-  const resolution = await resolveBlogRequest(request, locals);
-  if (!resolution) return null;
-  if (resolution.redirect) return resolution.redirect;
-  const assets = assetsFromLocals(locals);
-  if (!assets) return null;
-  const assetUrl = new URL(request.url);
-  assetUrl.pathname = `/blog/${resolution.assetSlug}`;
-  assetUrl.search = '';
-  const response = await assets.fetch(new Request(assetUrl, {
-    method: 'GET',
-    headers: request.headers,
-  }));
-  if (response.status === 404) {
-    return new Response('Blog translation asset is missing.\n', {
-      status: 500,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': NO_STORE_CACHE_CONTROL },
-    });
-  }
-  return withBlogVariantHeaders(request, response, resolution);
-}
-
-export function appendHeaderToken(value: string | null, token: string): string {
+function appendHeaderToken(value: string | null, token: string): string {
   const current = value?.trim();
   if (!current) return token;
   const tokens = current.split(',').map((item) => item.trim().toLowerCase());
@@ -342,30 +280,23 @@ export async function renderMarkdownIfRequested(context: {
   const sourcePath = explicitSourcePath ?? url.pathname;
   const resolutionUrl = new URL(sourcePath, url.origin);
   resolutionUrl.search = url.search;
-  const blogResolution = await resolveBlogRequest(
+  const legacyRedirect = await redirectLegacyBlogUrl(
     new Request(resolutionUrl, context.request),
     context.locals,
   );
-  if (blogResolution?.redirect) return blogResolution.redirect;
-  const effectiveSourcePath = blogResolution?.grouped
-    ? `/blog/${blogResolution.assetSlug}`
-    : sourcePath;
-  const match = getMarkdownRenderer(effectiveSourcePath);
+  if (legacyRedirect) return legacyRedirect;
+  const match = getMarkdownRenderer(sourcePath);
   if (!match) return null;
-  const cacheVersion = contentEdgeCacheVersion(effectiveSourcePath);
+  const cacheVersion = contentEdgeCacheVersion(sourcePath);
 
   const cached = await readEdgeCache(context.request, {
     namespace: 'content',
-    variant: blogResolution?.grouped && blogResolution.locale
-      ? `markdown:${blogResolution.locale}`
-      : 'markdown',
+    variant: 'markdown',
     version: cacheVersion,
     ttlSeconds: match.renderer.cacheTtlSeconds,
     headerName: EDGE_CACHE_HEADER,
     cacheControl: publicCacheControl(match.renderer.cacheTtlSeconds),
-    cloudflareCacheControl: blogResolution?.grouped
-      ? 'no-store'
-      : cloudflareCdnCacheControl(match.renderer.cacheTtlSeconds),
+    cloudflareCacheControl: cloudflareCdnCacheControl(match.renderer.cacheTtlSeconds),
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown'),
   });
@@ -375,16 +306,16 @@ export async function renderMarkdownIfRequested(context: {
   const result = await match.renderer.render({
     request: context.request,
     locals: context.locals as App.Locals,
-    url: new URL(`${effectiveSourcePath}${url.search}`, url.origin),
+    url: new URL(`${sourcePath}${url.search}`, url.origin),
     site: siteUrlForContext(context),
     params: match.params,
   });
-  const response = withBlogVariantHeaders(context.request, createMarkdownResponse(
+  const response = createMarkdownResponse(
     result.body,
     result.status ?? 200,
     result.headers,
     match.renderer.cacheTtlSeconds,
-  ), blogResolution ?? { grouped: false, locale: null, assetSlug: '' });
+  );
   // Search engines index text/markdown as a document of its own; the HTTP
   // canonical folds it into the HTML page the same way a PDF's would.
   if (response.status === 200) {
@@ -394,31 +325,23 @@ export async function renderMarkdownIfRequested(context: {
 
   return cacheEdgeResponse(context.request, response, {
     namespace: 'content',
-    variant: blogResolution?.grouped && blogResolution.locale
-      ? `markdown:${blogResolution.locale}`
-      : 'markdown',
+    variant: 'markdown',
     version: cacheVersion,
     ttlSeconds: match.renderer.cacheTtlSeconds,
     headerName: EDGE_CACHE_HEADER,
     cacheControl: publicCacheControl(match.renderer.cacheTtlSeconds),
-    cloudflareCacheControl: blogResolution?.grouped
-      ? 'no-store'
-      : cloudflareCdnCacheControl(match.renderer.cacheTtlSeconds),
+    cloudflareCacheControl: cloudflareCdnCacheControl(match.renderer.cacheTtlSeconds),
     isResponseCacheable: (candidate) =>
       (candidate.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown'),
   });
 }
 
-async function createHtmlCacheOptions(request: Request, locals?: unknown): Promise<Parameters<typeof readEdgeCache>[1] | null> {
+function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCache>[1] | null {
   const url = new URL(request.url);
   const policy = getContentRoutePolicy(url.pathname);
   if (!policy?.edgeCacheHtml) return null;
 
-  const blogResolution = locals ? await resolveBlogRequest(request, locals) : null;
-  const grouped = Boolean(blogResolution?.grouped && blogResolution.locale);
-  const cacheSearch = grouped
-    ? ''
-    : policy.normalizeHtmlCacheSearch
+  const cacheSearch = policy.normalizeHtmlCacheSearch
     ? policy.normalizeHtmlCacheSearch(url)
     : url.search
       ? null
@@ -427,7 +350,7 @@ async function createHtmlCacheOptions(request: Request, locals?: unknown): Promi
 
   return {
     namespace: 'content',
-    variant: grouped ? `html:${blogResolution?.locale}` : 'html',
+    variant: 'html',
     version: contentEdgeCacheVersion(url.pathname),
     ttlSeconds: policy.cacheTtlSeconds,
     staleWhileRevalidateSeconds: policy.cacheStaleWhileRevalidateSeconds,
@@ -436,13 +359,13 @@ async function createHtmlCacheOptions(request: Request, locals?: unknown): Promi
       policy.cacheTtlSeconds,
       policy.cacheStaleWhileRevalidateSeconds,
     ),
-    cloudflareCacheControl: grouped || policy.normalizeHtmlCacheSearch
+    cloudflareCacheControl: policy.normalizeHtmlCacheSearch
       ? 'no-store'
       : cloudflareCdnCacheControl(
           policy.cacheTtlSeconds,
           policy.cacheStaleWhileRevalidateSeconds,
         ),
-    cacheSearch: grouped ? '' : cacheSearch,
+    cacheSearch,
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html')
       && !hasExplicitBypassDirective(response.headers.get('Cache-Control')),
@@ -450,8 +373,8 @@ async function createHtmlCacheOptions(request: Request, locals?: unknown): Promi
   };
 }
 
-export async function readCachedHtmlPage(request: Request, locals?: unknown): Promise<EdgeCacheHit | null> {
-  const options = await createHtmlCacheOptions(request, locals);
+export async function readCachedHtmlPage(request: Request): Promise<EdgeCacheHit | null> {
+  const options = createHtmlCacheOptions(request);
   if (!options) return null;
 
   return readEdgeCache(request, options);
@@ -460,10 +383,9 @@ export async function readCachedHtmlPage(request: Request, locals?: unknown): Pr
 export async function cacheHtmlPageResponse(
   request: Request,
   response: Response,
-  locals?: unknown,
   context?: EdgeCacheWaitContext,
 ): Promise<Response> {
-  const options = await createHtmlCacheOptions(request, locals);
+  const options = createHtmlCacheOptions(request);
   if (!options) return response;
 
   return cacheEdgeResponse(request, response, options, context);

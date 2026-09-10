@@ -3,11 +3,9 @@ import { meta } from '@/data/site';
 import { readCloudflareAccessIdentity } from '@/features/admin/server/access';
 import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 import {
-  fetchBlogAsset,
-  resolveBlogRequest,
-  withBlogVariantHeaders,
   isNeverCachePath,
   redirectCanonicalUrl,
+  redirectLegacyBlogUrl,
   renderMarkdownIfRequested,
   withContentPolicy,
 } from '@/features/agent-markdown/server/responses';
@@ -136,20 +134,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const markdownResponse = await renderMarkdownIfRequested(context);
   if (markdownResponse) return markdownResponse;
 
-  const blogResolution = await resolveBlogRequest(context.request, context.locals);
-  if (blogResolution?.redirect) return blogResolution.redirect;
-  if (blogResolution?.grouped && blogResolution.locale) {
-    (context.locals as unknown as Record<string, unknown>).blogLocale = blogResolution.locale;
-  }
-
-  // Blog assets still resolve here: dev runs the middleware without src/worker.ts.
-  const blogAsset = await fetchBlogAsset(context.request, context.locals);
-  if (blogAsset) {
-    return withContentPolicy(
-      context.request,
-      withHtmlSecurityHeaders(context.request, blogAsset),
-    );
-  }
+  // Dev runs without src/worker.ts, so the legacy article redirect lives here too.
+  const legacyBlogRedirect = await redirectLegacyBlogUrl(context.request, context.locals);
+  if (legacyBlogRedirect) return legacyBlogRedirect;
 
   // Admin portal: served by this worker, gated by Cloudflare Access in production.
   if (isDevPortalPath(pathname)) {
@@ -168,12 +155,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // The edge HTML cache lives in src/worker.ts, the production entrypoint;
   // this middleware only decorates the rendered response. Dev therefore always
   // renders fresh, which is what dev wants.
-  return withBlogVariantHeaders(
+  return withContentPolicy(
     context.request,
-    withContentPolicy(
-      context.request,
-      withHtmlSecurityHeaders(context.request, await next()),
-    ),
-    blogResolution ?? { grouped: false, locale: null, assetSlug: '' },
+    withHtmlSecurityHeaders(context.request, await next()),
   );
 });

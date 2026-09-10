@@ -11,11 +11,11 @@ test.describe('blog i18n without JavaScript', () => {
     await expect(links).toHaveCount(2);
     await expect(links.filter({ hasText: '中文' })).toHaveAttribute(
       'href',
-      '/blog/quiet-architecture?lang=zh',
+      '/blog/quiet-architecture',
     );
     await expect(links.filter({ hasText: 'English' })).toHaveAttribute(
       'href',
-      '/blog/quiet-architecture?lang=en',
+      '/blog/en/quiet-architecture',
     );
   });
 });

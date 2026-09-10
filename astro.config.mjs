@@ -40,7 +40,7 @@ const negotiatedContentPageEntrypoints = new Set([
   'src/pages/blog/index.astro',
   'src/pages/blog/tags.astro',
   'src/pages/blog/tag/[slug].astro',
-  'src/pages/blog/[slug].astro',
+  'src/pages/blog/[...slug].astro',
 ]);
 const devOptimizerExcludes = [
   'cheerio',
