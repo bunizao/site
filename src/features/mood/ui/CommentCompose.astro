@@ -9,9 +9,10 @@
    `.blog-compose__field`, `[data-compose-count]`, `[data-compose-error*]`,
    `[data-compose-recommend]`, `[data-compose-submit]`, the `website`
    honeypot -- so compose-validate.ts, drafts.ts, and the risk-stack modules
-   under src/features/comments/client/ work unmodified. `data-locale="en"`
-   is what makes their shared copy table (copy.ts) resolve to English here;
-   the mood zone has no zh variant to keep in sync with it.
+   under src/features/comments/client/ work unmodified. `data-locale` is what
+   makes their shared copy table (copy.ts) resolve here; the page negotiates
+   it and passes it down, so the box speaks the same language as the rest of
+   the page.
 
    What is NOT reused from the blog: the three-phase reader identity
    (anonymous/claimed/ready), reader sessions, and the subscribe nudge. Mood
@@ -22,7 +23,8 @@
    also owns the actual POST -- this component only renders. */
 
 import { ICONS } from '@/features/comments/icons';
-import { moodCommentsCopy } from '@/features/comments/copy';
+import { resolveCommentsCopy, resolveMoodCommentsCopy } from '@/features/comments/copy';
+import type { BlogLocale } from '@/data/site';
 
 interface Props {
   postId: string;
@@ -35,15 +37,22 @@ interface Props {
       src/lib/turnstile-site-key.ts. Empty on the e2e fixture path, which
       skips Turnstile entirely (see turnstile-token.ts). */
   turnstileSiteKey?: string;
+  /** The page's negotiated language -- see `resolveRequestLocale`. */
+  locale: BlogLocale;
 }
 
 const {
   postId,
   discussionRepliesEnabled = false,
   turnstileSiteKey = '',
+  locale,
 } = Astro.props;
 
-const t = moodCommentsCopy;
+const t = resolveMoodCommentsCopy(locale);
+// The field labels, placeholders and the email nudge are the blog's, not this
+// surface's -- the box borrows its markup from there, so it borrows the words
+// with it rather than keeping a second near-identical copy of them.
+const shared = resolveCommentsCopy(locale);
 ---
 
 <div
@@ -51,7 +60,7 @@ const t = moodCommentsCopy;
   data-mood-compose
   data-phase="anonymous"
   data-receipt="idle"
-  data-locale="en"
+  data-locale={locale}
   data-post-id={postId}
   data-discussion-replies-enabled={discussionRepliesEnabled ? 'true' : 'false'}
   data-turnstile-site-key={turnstileSiteKey}
@@ -62,7 +71,7 @@ const t = moodCommentsCopy;
       invitation. The seed button and the textarea share one text origin, so
       the placeholder appears to stay put while the frame grows around it. */}
   <div class="mood-compose-shell" data-compose-shell>
-    <button type="button" class="mood-compose-seed" data-compose-seed>Say something&hellip;</button>
+    <button type="button" class="mood-compose-seed" data-compose-seed>{shared.bodyPlaceholder}</button>
     <div class="mood-compose-reveal">
       <div class="mood-compose-reveal__in">
   <p class="mood-compose__alert" data-compose-error role="alert" hidden>
@@ -90,23 +99,23 @@ const t = moodCommentsCopy;
 
   <div class="mood-compose__box">
     <div class="mood-compose__identity" id="mood-compose-id" data-compose-identity>
-      <label class="sr-only" for="mood-compose-name">Name</label>
+      <label class="sr-only" for="mood-compose-name">{shared.nameLabel}</label>
       <input
         id="mood-compose-name"
         class="blog-compose__input mood-compose__input"
         type="text"
         maxlength="32"
         autocomplete="nickname"
-        placeholder="Name"
+        placeholder={shared.namePlaceholder}
         required
       />
-      <label class="sr-only" for="mood-compose-email">Email</label>
+      <label class="sr-only" for="mood-compose-email">{shared.emailLabel}</label>
       <input
         id="mood-compose-email"
         class="blog-compose__input mood-compose__input"
         type="email"
         autocomplete="email"
-        placeholder="Email (optional)"
+        placeholder={shared.emailPlaceholder}
       />
 
       {/* Honeypot -- risk stack step 3, same shape as IdentityRow.astro's.
@@ -125,16 +134,16 @@ const t = moodCommentsCopy;
 
     <p class="mood-compose__recommend" data-compose-recommend aria-live="polite" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.mail} />
-      A verified email means cross-device edits; to skip it, just press send again.
+      {shared.emailRecommend}
     </p>
 
-    <label class="sr-only" for="mood-compose-text">Write a comment</label>
+    <label class="sr-only" for="mood-compose-text">{shared.bodyLabel}</label>
     <textarea
       id="mood-compose-text"
       class="blog-compose__field mood-compose__field"
       name="comment"
       rows="1"
-      placeholder="Say something…"
+      placeholder={shared.bodyPlaceholder}
     ></textarea>
 
     <div class="mood-compose__bar">

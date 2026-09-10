@@ -22,8 +22,23 @@ import { buildMoodDetailMetadata } from '@/features/mood/server/detail-metadata'
 import { getMoodChannelSlug } from '@/features/mood/server/channel-service';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
+import { resolveRequestLocale } from '@/features/posts/i18n';
+import type { BlogLocale } from '@/data/site';
 
 export const prerender = false;
+
+// The mood zone used to be English-only markup on a site whose default locale
+// is zh, so a Chinese reader got an English thread beside a Chinese subscribe
+// panel. Both now follow the reader: ?lang, then the blog_lang cookie, then
+// Accept-Language. The page is rendered per request (prerender = false) and
+// says so in Vary, so a shared cache cannot serve one reader's language to
+// another.
+const locale = resolveRequestLocale({
+  query: Astro.url.searchParams.get('lang'),
+  cookie: Astro.request.headers.get('cookie'),
+  acceptLanguage: Astro.request.headers.get('accept-language'),
+}) as BlogLocale;
+Astro.response.headers.append('Vary', 'Accept-Language');
 
 const { id } = Astro.params;
 
@@ -94,6 +109,7 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
 ---
 
 <Layout
+  lang={locale}
   title={metadata.title}
   description={metadata.description}
   image={metadata.image}
@@ -120,6 +136,7 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
       discussionLinked={post?.discussionLinked}
       discussionRepliesEnabled={post?.discussionRepliesEnabled}
       turnstileSiteKey={turnstileSiteKey}
+      locale={locale}
     />
   </main>
   <BackToTop />

@@ -3,6 +3,10 @@ import ViewTransitionReveal from './client/ViewTransitionReveal.astro';
 
 interface Props {
   title: string;
+  /** `<html lang>`. Most surfaces are English; the localized ones pass the
+      language the page negotiated, so assistive tech and the client modules
+      that read `documentElement.lang` both get the truth. */
+  lang?: string;
   description: string;
   image?: string;
   imageAlt?: string;
@@ -63,6 +67,7 @@ import { SITE_FAVICON } from '@/lib/favicon';
 
 const {
   title,
+  lang = 'en',
   description,
   image = '/og.png',
   imageAlt = meta.siteName,
@@ -133,7 +138,7 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
 ---
 
 <!DOCTYPE html>
-<html lang="en" class:list={{ 'page-scroll-root': containedScroll }}>
+<html lang={lang} class:list={{ 'page-scroll-root': containedScroll }}>
   <head>
     <meta charset="UTF-8" />
     <!-- iOS 26 extends the layout viewport up behind Safari's translucent

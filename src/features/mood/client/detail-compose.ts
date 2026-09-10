@@ -35,15 +35,19 @@ import {
 } from '@/features/comments/client/turnstile-token';
 import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
-import { commentsCopy } from '@/features/comments/copy';
+import { copyFor } from '@/features/comments/copy';
 import { createCommentReplyQuote, readCommentReplyTarget } from '@/features/mood/shared/comments';
 import { insertOwnComment, type CommentData } from '@/features/mood/client/detail-comments-controller';
 
 const TURNSTILE_ACTION = 'mood_comment_create' as const;
-// Same English table the blog's error/validation copy comes from --
-// data-locale="en" on the compose box is what makes copyFor() resolve to it
-// too, so the two never say the refusal two different ways.
-const t = commentsCopy.en;
+// Same table the blog's error/validation copy comes from -- `data-locale` on
+// the compose box is what makes copyFor() resolve it here too, so the two
+// never say the refusal two different ways. Read per submit rather than at
+// module load: the language belongs to the page, not to the bundle.
+// Narrowed to the contract's own union: anything else is the site's locale,
+// the same rule resolveCommentsCopy applies.
+const readLocale = (box: HTMLElement): 'zh' | 'en' =>
+  box.dataset.locale === 'en' ? 'en' : 'zh';
 
 function readWebsite(box: HTMLElement): string {
   return box.querySelector<HTMLInputElement>('[data-honeypot]')?.value ?? '';
@@ -202,7 +206,7 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
     website: readWebsite(box),
     dwellToken: await mintDwellToken(),
     notifyReplies: false,
-    locale: 'en',
+    locale: readLocale(box),
   };
 
   const response = await postJson<CommentCreateResult>('/api/v2/comments', input);
@@ -212,6 +216,7 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
   setSubmitEnabled(box, true);
 
   if (!response.ok) {
+    const t = copyFor(box);
     const failure = describeCommentFailure(response.status, response.slug, t.submitError);
     box.dataset.receipt = 'error';
     const docsHref = commentErrorDocsHref(failure.code);

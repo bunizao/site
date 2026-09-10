@@ -6,6 +6,9 @@ export const asText = (value: unknown): string => {
 
 interface FormatRelativeCommentDateOptions {
   compact?: boolean;
+  /** The page's language, same values as `data-locale`. Format patterns rather
+      than prose, which is why they live here and not in comments/copy.ts. */
+  locale?: string;
 }
 
 export const formatRelativeCommentDate = (
@@ -21,12 +24,22 @@ export const formatRelativeCommentDate = (
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
+  const zh = options.locale !== 'en';
 
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return options.compact ? `${diffMins}m` : `${diffMins}m ago`;
-  if (diffHours < 24) return options.compact ? `${diffHours}h` : `${diffHours}h ago`;
-  if (diffDays < 7) return options.compact ? `${diffDays}d` : `${diffDays}d ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // Chinese has no short unit the way "3m" is short for "3 minutes", so the
+  // compact form only drops the trailing 前 -- the unit itself has to stay.
+  if (diffMins < 1) return zh ? '刚刚' : 'just now';
+  const value = diffMins < 60 ? diffMins : diffHours < 24 ? diffHours : diffDays;
+  if (diffDays < 7) {
+    const unit = diffMins < 60
+      ? (zh ? '分钟' : 'm')
+      : diffHours < 24 ? (zh ? '小时' : 'h') : (zh ? '天' : 'd');
+    if (options.compact) return `${value}${unit}`;
+    return zh ? `${value}${unit}前` : `${value}${unit} ago`;
+  }
+  return zh
+    ? date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 export interface CommentReplyTarget {

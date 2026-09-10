@@ -30,8 +30,19 @@ import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
 import '@/features/mood/styles/bookmark-card.css';
 import { parseYouTubeVideoUrl } from '@/lib/embed/youtube';
+import { resolveRequestLocale } from '@/features/posts/i18n';
+import type { BlogLocale } from '@/data/site';
 
 export const prerender = false;
+
+// Same negotiation as /mood/[id]: the feed's subscribe panel and its comments
+// popover follow the reader rather than the site default. See the note there.
+const locale = resolveRequestLocale({
+  query: Astro.url.searchParams.get('lang'),
+  cookie: Astro.request.headers.get('cookie'),
+  acceptLanguage: Astro.request.headers.get('accept-language'),
+}) as BlogLocale;
+Astro.response.headers.append('Vary', 'Accept-Language');
 
 const title = formatSiteTitle('Moods');
 const description = `Short posts, photos, links, and moments from ${profile.name}'s Telegram channel.`;
@@ -141,6 +152,7 @@ const skeletonGroups = [
 ---
 
 <Layout
+  lang={locale}
   title={title}
   description={description}
   image="/mood-og.png"
@@ -172,7 +184,7 @@ const skeletonGroups = [
       embedYouTubeCssHref={embedYouTubeCssUrl}
     />
   </main>
-  <SubscribePanel variant="mood" id="mood" anchor="right" withTrigger={false} feed={rssHref} telegram={telegramHref} turnstileSiteKey={turnstileSiteKey} />
+  <SubscribePanel variant="mood" id="mood" locale={locale} anchor="right" withTrigger={false} feed={rssHref} telegram={telegramHref} turnstileSiteKey={turnstileSiteKey} />
   {/* Back-to-top is now the MoodNavbar avatar (click it to return to the top),
       so the floating button is retired on the feed. The component itself is kept
       — /mood/[id] still renders it — just no longer referenced here. */}

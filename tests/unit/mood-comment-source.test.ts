@@ -28,10 +28,14 @@ const ruleBody = (source: string, selector: string): string => {
 };
 
 describe('mood comment source marker', () => {
-  test('names both origins', () => {
-    expect(moodCommentsCopy.sourceTelegram).toBe('Telegram');
-    expect(moodCommentsCopy.sourceWeb).toBe('Web');
-    expect(moodCommentsCopy.sourceAria('Telegram')).toBe('Written on Telegram');
+  test('names both origins, in both locales', () => {
+    expect(moodCommentsCopy.en.sourceTelegram).toBe('Telegram');
+    expect(moodCommentsCopy.en.sourceWeb).toBe('Web');
+    expect(moodCommentsCopy.en.sourceAria('Telegram')).toBe('Written on Telegram');
+    // Telegram is a proper noun in both; only the web label translates.
+    expect(moodCommentsCopy.zh.sourceTelegram).toBe('Telegram');
+    expect(moodCommentsCopy.zh.sourceWeb).toBe('网页');
+    expect(moodCommentsCopy.zh.sourceAria('Telegram')).toBe('写于Telegram');
   });
 
   test('ships a glyph for each origin', () => {
@@ -56,7 +60,7 @@ describe('mood comment source marker', () => {
   test('the renderer stamps the origin and appends the chip', () => {
     expect(controller).toContain('root.dataset.origin = origin');
     expect(controller).toContain(
-      'createCommentSourceChip(origin, moodCommentsCopy.sourceAria(sourceLabel))',
+      'createCommentSourceChip(origin, t.sourceAria(sourceLabel))',
     );
   });
 

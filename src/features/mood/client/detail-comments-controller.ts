@@ -11,7 +11,7 @@ import {
 } from '@/features/mood/shared/comments';
 import { readOwnCommentIds, rememberOwnCommentId } from '@/features/mood/shared/own-comments';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
-import { moodCommentsCopy } from '@/features/comments/copy';
+import { resolveMoodCommentsCopy, type MoodCommentsCopy } from '@/features/comments/copy';
 import { initials } from '@/features/comments/identity';
 
 interface CommentReactionData {
@@ -64,6 +64,10 @@ let countEl: HTMLElement | null = null;
 let emptyEl: HTMLElement | null = null;
 let hydrateAnimatedEmoji: ((root?: ParentNode) => void) | undefined;
 let discussionRepliesEnabled = false;
+// The page decides the language and stamps it on the thread root; init reads
+// it once, the same way it reads discussionRepliesEnabled.
+let locale = 'en';
+let t: MoodCommentsCopy = resolveMoodCommentsCopy(locale);
 
 const loadedCommentIds = new Set<string>();
 const loadedSiteCommentIds = new Set<string>();
@@ -134,7 +138,7 @@ function renderComment(comment: CommentData): HTMLElement {
 
   const avatar = document.createElement('div');
   avatar.className = 'mood-comment-avatar';
-  const author = asText(comment?.author).trim() || 'Anonymous';
+  const author = asText(comment?.author).trim() || t.anonymous;
   const avatarUrl = sanitizeImageUrl(comment?.authorAvatar);
   if (avatarUrl) {
     const img = document.createElement('img');
@@ -163,14 +167,14 @@ function renderComment(comment: CommentData): HTMLElement {
   if (datetimeRaw) {
     dateEl.dateTime = datetimeRaw;
   }
-  dateEl.textContent = formatRelativeCommentDate(datetimeRaw);
+  dateEl.textContent = formatRelativeCommentDate(datetimeRaw, { locale });
 
   const sourceLabel =
-    origin === 'web' ? moodCommentsCopy.sourceWeb : moodCommentsCopy.sourceTelegram;
+    origin === 'web' ? t.sourceWeb : t.sourceTelegram;
 
   header.appendChild(authorEl);
   header.appendChild(dateEl);
-  header.appendChild(createCommentSourceChip(origin, moodCommentsCopy.sourceAria(sourceLabel)));
+  header.appendChild(createCommentSourceChip(origin, t.sourceAria(sourceLabel)));
   body.appendChild(header);
 
   const contentEl = document.createElement('div');
@@ -252,7 +256,7 @@ function renderComment(comment: CommentData): HTMLElement {
     const replyBtn = document.createElement('button');
     replyBtn.type = 'button';
     replyBtn.className = 'mood-comment-reply-btn';
-    replyBtn.textContent = moodCommentsCopy.reply;
+    replyBtn.textContent = t.reply;
     replyBtn.dataset.commentReplyParentId = origin === 'web' ? siteCommentId : commentId;
     replyBtn.dataset.commentReplyAuthor = author;
     replyBtn.dataset.commentReplyText = plainTextPreview(contentHtml);
@@ -404,6 +408,8 @@ export async function initMoodDetailComments(
   countEl = document.querySelector('[data-comments-count]');
   hydrateAnimatedEmoji = options.hydrateAnimatedEmoji;
   discussionRepliesEnabled = commentsSection.dataset.discussionRepliesEnabled === 'true';
+  locale = commentsSection.dataset.locale || 'en';
+  t = resolveMoodCommentsCopy(locale);
 
   if (!commentsListEl) return;
 
@@ -460,7 +466,7 @@ export async function initMoodDetailComments(
         commentsListEl!.replaceChildren();
         const emptyText = emptyEl.querySelector('p');
         if (emptyText) {
-          emptyText.textContent = 'Failed to load comments';
+          emptyText.textContent = t.loadError;
         }
         emptyEl.hidden = false;
       }
@@ -474,10 +480,10 @@ export async function initMoodDetailComments(
         return;
       }
       loadMoreBtn.disabled = true;
-      loadMoreBtn.textContent = 'Loading...';
+      loadMoreBtn.textContent = t.loading;
       await loadComments(nextBefore);
       loadMoreBtn.disabled = false;
-      loadMoreBtn.textContent = 'Load more comments';
+      loadMoreBtn.textContent = t.loadMore;
     });
   }
 

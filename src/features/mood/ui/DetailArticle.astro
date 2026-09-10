@@ -1,6 +1,7 @@
 ---
 import type { MoodContentDocument } from '@bunizao/contracts';
 import CommentsSection from '@/features/mood/ui/CommentsSection.astro';
+import type { BlogLocale } from '@/data/site';
 import { getMoodTagHref } from '@/features/mood/shared/tag-filter';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 
@@ -21,6 +22,8 @@ interface Props {
       affordance's own gating. */
   discussionRepliesEnabled?: boolean;
   turnstileSiteKey?: string;
+  /** The page's negotiated language -- see `resolveRequestLocale`. */
+  locale: BlogLocale;
 }
 
 const {
@@ -35,6 +38,7 @@ const {
   discussionLinked = false,
   discussionRepliesEnabled = false,
   turnstileSiteKey = '',
+  locale,
 } = Astro.props;
 
 const postTags = post ? post.tags ?? (post.tag ? [post.tag] : []) : [];
@@ -149,6 +153,7 @@ const previewPending = readSource === 'archive'
         discussionLinked={discussionLinked}
         discussionRepliesEnabled={discussionRepliesEnabled}
         turnstileSiteKey={turnstileSiteKey}
+        locale={locale}
       />
     )}
   </article>

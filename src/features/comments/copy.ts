@@ -387,14 +387,32 @@ export function copyFor(node: Element | null): CommentsCopy {
   return resolveCommentsCopy(node?.closest('[data-locale]')?.getAttribute('data-locale'));
 }
 
-/* --- Mood compose -------------------------------------------------------
-   The mood detail page (/mood/[id]) has its own compose box
-   (CommentCompose.astro / detail-compose.ts). It reuses the validation,
-   error, and drafts copy above via `data-locale="en"` on its root -- the
-   mood zone is English-only, so there is no zh variant to keep in sync --
-   and only needs the handful of strings that are specific to the bridge:
-   the disclosure line, the held note, and the reply chip. */
+/* --- Mood comments ------------------------------------------------------
+   The mood zone (/mood and /mood/[id]) has its own thread and compose box
+   (CommentsSection.astro, CommentCompose.astro, client/detail-*.ts,
+   client/feed-comments-popover.ts). It reuses the validation, error, and
+   drafts copy above -- the compose root carries `data-locale`, so `copyFor()`
+   resolves it the same way the blog's box does -- and adds the strings that
+   are specific to this surface: the Telegram bridge, the origin chip, and the
+   feed popover.
+
+   Both locales live here for the same reason the blog's do: the page decides
+   the language, the bundle does not. Relative dates are the one exception --
+   they are format patterns rather than prose, so they stay in
+   `mood/shared/comments.ts` with the same locale argument. */
 export interface MoodCommentsCopy {
+  /* --- Thread chrome ----------------------------------------------------- */
+  title: string;
+  empty: string;
+  loadError: string;
+  loadMore: string;
+  loading: string;
+  /** Fallback name for a comment that arrived without an author. */
+  anonymous: string;
+  /** The route out to the discussion group, last row of the thread. */
+  telegramCta: string;
+
+  /* --- Compose ----------------------------------------------------------- */
   disclosure: string;
   post: string;
   postAria: string;
@@ -403,18 +421,64 @@ export interface MoodCommentsCopy {
   replyingTo: (author: string) => string;
   cancelReply: string;
   cancelReplyAria: string;
+
+  /* --- Origin chip ------------------------------------------------------- */
   /** Where a comment was written. The thread mixes two origins and used to
       render them identically, so a reader could not tell a group message from
       one typed on this page. The chip beside the date says which. */
   sourceTelegram: string;
   sourceWeb: string;
   sourceAria: (source: string) => string;
+
+  /* --- Feed popover (L1) ------------------------------------------------- */
+  popoverEmpty: string;
+  popoverError: string;
+  popoverOpen: string;
+  /** `count` is the raw number; `label` is the same number already formatted
+      for display, which is what the popover shows. */
+  popoverViewAll: (label: string, count: number) => string;
 }
 
-export const moodCommentsCopy: MoodCommentsCopy = {
+const moodZh: MoodCommentsCopy = {
+  title: '评论',
+  empty: '还没有人来过…',
+  loadError: '评论好像迷路了。',
+  loadMore: '更多评论',
+  loading: '加载中…',
+  anonymous: '匿名',
+  telegramCta: '去 Telegram 留言',
+
   /* Says where the content ends up, and that the reader owns the choice.
      "Posted here and in the group" described the plumbing without naming the
      consequence -- the group is a third party this site does not control. */
+  disclosure: '会同步到一个 Telegram 群组，注意别写不该写的。',
+  post: '发表',
+  postAria: '发表评论',
+  held: '已发出，暂时只有你能看到。',
+  reply: '回复',
+  replyingTo: (author) => `回复 ${author}`,
+  cancelReply: '取消',
+  cancelReplyAria: '取消回复',
+
+  sourceTelegram: 'Telegram',
+  sourceWeb: '网页',
+  sourceAria: (source) => `写于${source}`,
+
+  popoverEmpty: '还没有评论',
+  popoverError: '评论没能加载出来',
+  popoverOpen: '打开评论',
+  popoverViewAll: (label) => `查看全部 ${label} 条评论`,
+};
+
+const moodEn: MoodCommentsCopy = {
+  title: 'Comments',
+  empty: 'No comments here yet...',
+  loadError: 'Failed to load comments',
+  loadMore: 'Load more comments',
+  loading: 'Loading...',
+  anonymous: 'Anonymous',
+  telegramCta: 'Comment on Telegram',
+
   disclosure: 'Bridged to a Telegram group — mind what you share.',
   post: 'Post',
   postAria: 'Post comment',
@@ -423,7 +487,30 @@ export const moodCommentsCopy: MoodCommentsCopy = {
   replyingTo: (author) => `Replying to ${author}`,
   cancelReply: 'Cancel',
   cancelReplyAria: 'Cancel reply',
+
   sourceTelegram: 'Telegram',
   sourceWeb: 'Web',
   sourceAria: (source) => `Written on ${source}`,
+
+  popoverEmpty: 'No comments yet',
+  popoverError: "Couldn't load comments",
+  popoverOpen: 'Open comments',
+  popoverViewAll: (label, count) => `View all ${label} comment${count === 1 ? '' : 's'}`,
 };
+
+export const moodCommentsCopy = { zh: moodZh, en: moodEn } satisfies Record<
+  BlogLocale,
+  MoodCommentsCopy
+>;
+
+/** Mirrors `resolveCommentsCopy`: anything that is not `en` is the site's own
+    locale. */
+export function resolveMoodCommentsCopy(locale: string | null | undefined): MoodCommentsCopy {
+  return locale === 'en' ? moodEn : moodZh;
+}
+
+/** The mood counterpart of `copyFor`: the thread root and the compose box both
+    carry `data-locale`, so any descendant can find its own language. */
+export function moodCopyFor(node: Element | null): MoodCommentsCopy {
+  return resolveMoodCommentsCopy(node?.closest('[data-locale]')?.getAttribute('data-locale'));
+}
