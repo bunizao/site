@@ -16,6 +16,7 @@ import {
   getTagArchive,
 } from '@/features/posts/server/content';
 import { getCanonicalSlug, getPostLocale, isTranslation } from '@/features/posts/i18n';
+import { isUnlistedVersion } from '@/features/posts/unlisted';
 
 const distRoot = join(process.cwd(), 'dist/client');
 const blogRoot = join(distRoot, '_agent-markdown/blog');
@@ -36,8 +37,12 @@ const [posts, accessiblePosts, tags] = await Promise.all([
   getAccessiblePosts({ outputTarget: 'agent-markdown' }),
   getPublicTagDirectory(),
 ]);
-// Translations are off every listing but have a page, so they get its Markdown.
-const translations = accessiblePosts.filter(isTranslation);
+// Translations are off every listing but have a page, so they get its Markdown
+// — unless the article is unlisted, in which case they render at request time
+// with the same robots directives the original does.
+const translations = accessiblePosts.filter(
+  (post) => isTranslation(post) && !isUnlistedVersion(post, accessiblePosts),
+);
 
 await rm(blogRoot, { recursive: true, force: true });
 

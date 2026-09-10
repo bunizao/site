@@ -26,10 +26,7 @@ import {
   getListedPosts,
   getPostBySlug,
 } from '@/features/posts/server/content';
-import {
-  isUnlistedPost,
-  UNLISTED_ROBOTS_DIRECTIVES,
-} from '@/features/posts/unlisted';
+import { UNLISTED_ROBOTS_DIRECTIVES } from '@/features/posts/unlisted';
 import {
   buildPostPageProps,
   type PostPageProps,
@@ -68,7 +65,7 @@ export const getStaticPaths = (async () => {
 // `prev` is older, `next` is newer (posts come back newest-first). In dev this
 // path is server-rendered so a draft can be opened without a rebuild;
 // production keeps the static article files for Pagefind.
-let { post, featureBlur, prev, next, versions } = Astro.props as Partial<PostPageProps>;
+let { post, featureBlur, prev, next, versions, unlisted } = Astro.props as Partial<PostPageProps>;
 
 if (!post) {
   const route = parsePostRoute(Astro.params.slug ?? '');
@@ -91,7 +88,7 @@ if (!post) {
     return new Response(null, { status: 404 });
   }
 
-  ({ post, featureBlur, prev, next, versions } = await buildPostPageProps(
+  ({ post, featureBlur, prev, next, versions, unlisted } = await buildPostPageProps(
     rawPost,
     listedPosts,
     accessiblePosts,
@@ -99,6 +96,7 @@ if (!post) {
 }
 
 versions ??= [];
+unlisted ??= false;
 
 prev ??= null;
 next ??= null;
@@ -154,7 +152,6 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
 // already written, it just has no box under the heading. Only `off` and the
 // fixture withhold it, and both mean "do not hydrate at all".
 const liveCommentsPostId = isE2ESiteFixtureEnabled(Astro.locals) ? undefined : post.id;
-const unlisted = isUnlistedPost(post);
 const postLocale = getPostLocale(post);
 // Every version is self-canonical at the URL it is built under, so every
 // hreflang target declares itself and the cluster survives. Everything derived

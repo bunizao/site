@@ -1,5 +1,5 @@
 import type { Post } from '@/features/posts/types';
-import { isUnlistedPost } from '@/features/posts/unlisted';
+import { isUnlistedPost, isUnlistedVersion } from '@/features/posts/unlisted';
 import { enrichBlurUp, getBlurUp } from '@/features/posts/server/blur-up';
 import { getPostVersions, type PostVersion } from '@/features/posts/i18n';
 
@@ -10,6 +10,8 @@ export interface PostPageProps extends Record<string, unknown> {
   next: Post | null;
   /** Every language this article exists in; empty when it has no translation. */
   versions: PostVersion[];
+  /** Direct-link only: the post's own `#unlisted`, or its original's. */
+  unlisted: boolean;
 }
 
 // `accessiblePosts` carries the translations: a post's own tags say which
@@ -34,5 +36,6 @@ export async function buildPostPageProps(
     prev: listedIndex >= 0 ? listedPosts[listedIndex + 1] ?? null : null,
     next: listedIndex >= 0 ? listedPosts[listedIndex - 1] ?? null : null,
     versions: getPostVersions(post, accessiblePosts),
+    unlisted: isUnlistedVersion(post, accessiblePosts),
   };
 }

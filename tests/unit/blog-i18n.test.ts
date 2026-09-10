@@ -13,6 +13,7 @@ import {
   selectListedPosts,
   type PostVersion,
 } from '@/features/posts/i18n';
+import { isUnlistedVersion } from '@/features/posts/unlisted';
 import type { Post } from '@/features/posts/types';
 
 // Tags arrive the way Ghost returns them: the author's string verbatim in
@@ -229,5 +230,22 @@ describe('mapOtherLanguages', () => {
 
   test('leaves untranslated posts out entirely', () => {
     expect(mapOtherLanguages([zh, en, unrelated]).has('night-boat')).toBe(false);
+  });
+});
+
+describe('isUnlistedVersion', () => {
+  const zh = createPost('lun-chenmo', '论沉默', ['#unlisted']);
+  const en = createPost('on-silence', 'On Silence', ['#en:lun-chenmo']);
+
+  test('hides a translation whose original is unlisted', () => {
+    expect(isUnlistedVersion(en, [zh, en])).toBe(true);
+    expect(isUnlistedVersion(zh, [zh, en])).toBe(true);
+  });
+
+  test('is the post\'s own tag otherwise', () => {
+    const open = createPost('lun-chenmo', '论沉默');
+    expect(isUnlistedVersion(en, [open, en])).toBe(false);
+    expect(isUnlistedVersion(en, [])).toBe(false);
+    expect(isUnlistedVersion(createPost('notes', 'Notes', ['#unlisted']), [])).toBe(true);
   });
 });

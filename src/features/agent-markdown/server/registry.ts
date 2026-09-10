@@ -32,7 +32,7 @@ import {
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { readBuiltBlogMarkdown } from './built-blog';
 import {
-  isUnlistedPost,
+  isUnlistedVersion,
   UNLISTED_ROBOTS_DIRECTIVES,
 } from '@/features/posts/unlisted';
 import privacyMarkdownRaw from '@/content/pages/privacy.md?raw';
@@ -308,11 +308,14 @@ async function renderBlogPost(context: MarkdownRendererContext) {
   const ghostSlug = locale ? await translationGhostSlug(context, slug, locale) : slug;
   const post = ghostSlug ? await getPostBySlug(ghostSlug, { outputTarget: 'agent-markdown' }) : null;
   if (!post) return markdownResult('Blog post not found.\n', 404);
+  // An unlisted original hides its translations too; the original is fetched
+  // only for a translation, and only to read its tags.
+  const original = locale ? await getPostBySlug(slug, { outputTarget: 'agent-markdown' }) : null;
 
   return markdownResult(
     buildPostAgentMarkdown(post, context.site),
     200,
-    isUnlistedPost(post)
+    isUnlistedVersion(post, original ? [original] : [])
       ? { 'X-Robots-Tag': UNLISTED_ROBOTS_DIRECTIVES }
       : undefined,
   );
