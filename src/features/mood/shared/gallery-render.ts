@@ -51,6 +51,47 @@ export function getMoodGalleryAspectRatioValue(item: MoodGalleryItem): number {
   return getMoodImageRatio(item.width, item.height, item.layout).value;
 }
 
+export interface MoodMosaicSpan {
+  /* Columns out of six. Two is a third of the band and square; three is half. */
+  span: number;
+  rows: number;
+}
+
+/* The detail gallery is one square, six columns wide, cut up by how many
+   images there are and nothing else. Ratios never enter into it: the block is
+   the same shape on every post, which is the whole point -- a gallery that
+   redraws itself around whatever the archive happens to hold is what made the
+   article look assembled by accident.
+
+   Tiles crop. That is what the fixed shape costs, and the viewer pays it back:
+   every tile opens full size on click.
+
+   Past six a square would flatten each tile into a strip, so the block gives
+   up its shape and keeps the tiles square instead -- rows of three, and a row
+   that would come up short splits its width rather than leaving a hole. */
+export function getMoodMosaicSpans(count: number): MoodMosaicSpan[] {
+  const third: MoodMosaicSpan = { span: 2, rows: 1 };
+  const half: MoodMosaicSpan = { span: 3, rows: 1 };
+
+  if (count <= 1) return [{ span: 6, rows: 1 }];
+  if (count === 2) return [half, half];
+  if (count === 3) return [{ span: 3, rows: 2 }, half, half];
+  if (count === 4) return [half, half, half, half];
+  if (count === 5) return [half, half, third, third, third];
+  if (count === 6) return [third, third, third, third, third, third];
+
+  const spans = Array.from({ length: count }, () => ({ ...third }));
+  const remainder = count % 3;
+  if (remainder === 1) {
+    spans[count - 1] = { span: 6, rows: 1 };
+  } else if (remainder === 2) {
+    spans[count - 2] = { ...half };
+    spans[count - 1] = { ...half };
+  }
+
+  return spans;
+}
+
 function formatCssNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
 }
@@ -60,6 +101,7 @@ export function renderMoodGalleryMarkup(
   options: RenderMoodGalleryOptions,
 ): string {
   const { variant, priority = false } = options;
+  const mosaic = variant === 'detail' ? getMoodMosaicSpans(gallery.items.length) : null;
   const slides = gallery.items
     .map((item, index) => {
       const layoutClass = item.layout ? ` mood-gallery-slide--${item.layout}` : '';
@@ -87,7 +129,7 @@ export function renderMoodGalleryMarkup(
         .join(' ');
 
       return [
-        `<div class="mood-gallery-slide mood-image-frame${frameClass}${layoutClass}" data-mood-gallery-slide data-mood-image-frame data-gallery-index="${index}" data-aspect-ratio="${escapeHtml(String(aspectRatio))}" style="--mood-gallery-ratio:${escapeHtml(ratio.css)};--mood-image-ratio:${escapeHtml(ratio.css)};--mood-gallery-grow:${formatCssNumber(ratio.value)};">`,
+        `<div class="mood-gallery-slide mood-image-frame${frameClass}${layoutClass}" data-mood-gallery-slide data-mood-image-frame data-gallery-index="${index}" data-aspect-ratio="${escapeHtml(String(aspectRatio))}" style="--mood-gallery-ratio:${escapeHtml(ratio.css)};--mood-image-ratio:${escapeHtml(ratio.css)};--mood-gallery-grow:${formatCssNumber(ratio.value)};${mosaic ? `--mood-mosaic-span:${mosaic[index]?.span ?? 2};--mood-mosaic-rows:${mosaic[index]?.rows ?? 1};` : ''}">`,
         placeholderSrc
           ? `<img class="mood-image-blur" src="${escapeHtml(placeholderSrc)}" alt="" aria-hidden="true" loading="${priority && index === 0 ? 'eager' : 'lazy'}" decoding="async" />`
           : '',

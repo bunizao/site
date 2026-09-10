@@ -9,6 +9,7 @@ import {
 } from '@/features/mood/server/api-client';
 import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
+import '@/styles/mood-lightbox.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import {
   prioritizeMoodDetailMedia,
@@ -158,6 +159,7 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
   import { initMoodCommentCompose } from '@/features/mood/client/detail-compose';
   import { initMoodGalleries } from '@/features/mood/client/gallery';
   import { initMoodImageFrames } from '@/features/mood/client/image-frame';
+  import { initMoodLightbox } from '@/features/mood/client/lightbox';
   import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
   import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 
@@ -206,6 +208,7 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
   if (moodPostContent instanceof HTMLElement) {
     initMoodGalleries(moodPostContent);
     initMoodImageFrames(moodPostContent);
+    initMoodLightbox(moodPostContent);
     hydrateMoodRichText(moodPostContent);
     // Load the embed controllers only when the post actually contains one.
     if (moodPostContent.querySelector('[data-listening]')) {

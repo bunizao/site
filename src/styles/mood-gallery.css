@@ -59,61 +59,93 @@
   object-fit: contain;
 }
 
-/* The detail gallery is one justified block: every row filled edge to edge,
-   every image in a row at the same height, nothing cropped. Cropping is off
-   the table because these are mostly screenshots and there is no viewer to
-   open the whole one in -- a cut-off screenshot is just lost content.
+/* The detail gallery is one square block, six columns wide, filled edge to
+   edge. Which cell an image lands in comes from how many images there are and
+   nothing else (see getMoodMosaicSpans), so the block reads the same on every
+   post instead of being redrawn by whatever ratios the archive happens to
+   hold.
 
-   Two tokens steer it, and both are read off the band rather than the
-   viewport, so the packing behaves the same at every width instead of
-   flipping at a breakpoint. --gallery-row is the height a row starts at and
-   decides how many images share one; --gallery-row-max is the height a row
-   may grow to, which stops a lone trailing image from becoming a poster. A
-   row that hits the ceiling stops short of the band and centres. */
+   Tiles crop. That is the trade a fixed shape costs, and the viewer pays it
+   back -- every tile opens full size on click. */
 .mood-gallery--detail {
   container-type: inline-size;
-  --gallery-row: 26cqw;
-  --gallery-row-max: 52cqw;
+  --mosaic-gap: 3px;
   margin: 2em 0;
 }
 
 .mood-gallery--detail .mood-gallery-track {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 12px;
-  overflow: visible;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  /* Rows split the square evenly, so however many the count needs, the block
+     keeps its shape. */
+  grid-auto-rows: 1fr;
+  aspect-ratio: 1;
+  /* The base track aligns to flex-start; a grid tile has to stretch or it
+     shrinks back to the image's own height and the cell shows through. */
+  align-items: stretch;
+  gap: var(--mosaic-gap);
+  /* The block is rounded once, on the outside. Rounding every tile turns the
+     mosaic into a scatter of cards and reopens the gaps it exists to close. */
+  border-radius: 18px;
+  overflow: hidden;
   scroll-snap-type: none;
   scrollbar-width: auto;
   padding: 0;
 }
 
-/* Grow and basis both scale with the image's own ratio, so a row's free space
-   lands on each image in proportion to its width -- which is the width that
-   holds a common height. The ceiling is expressed the same way, so it caps
-   the row's height rather than any one image's width. */
 .mood-gallery--detail .mood-gallery-slide {
-  flex: var(--mood-gallery-grow, 1) 1
-    calc(var(--mood-gallery-grow, 1) * var(--gallery-row));
+  grid-column: span var(--mood-mosaic-span, 2);
+  grid-row: span var(--mood-mosaic-rows, 1);
   width: auto;
-  max-width: min(100%, calc(var(--mood-gallery-grow, 1) * var(--gallery-row-max)));
-  border-radius: 18px;
-  scroll-snap-align: unset;
-  /* No drop shadow. Every image already carries a hairline inset, and a pair
-     of soft shadows turned each one into a card floating over the article
-     rather than a pane set into it. */
+  max-width: none;
+  /* The grid owns the size now; the image's own ratio only survives in the
+     viewer. */
+  aspect-ratio: auto;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: zoom-in;
+}
+
+.mood-gallery--detail .mood-gallery-slide > .mood-gallery-image {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  /* Filling the cell is the point of a fixed mosaic. mood-image.css sets
+     contain at the same weight and later in the cascade, so the slide has to
+     be named here to win it. */
+  object-fit: cover;
   box-shadow: none;
 }
 
-/* A phone gets one image per row, full width, uncapped. Pairing on a 343px
-   band means two 165px frames, and a screenshot at 165px is decoration --
-   the row height that packs nicely is the row height nobody can read. */
-@media (max-width: 639px) {
-  .mood-gallery--detail .mood-gallery-slide {
-    flex-basis: 100%;
-    max-width: 100%;
-  }
+.mood-gallery--detail .mood-gallery-slide:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.6);
+  outline-offset: -3px;
+}
+
+/* Past six images a square would press every tile into a strip. The block
+   gives up its own shape there and keeps the tiles square instead: rows a
+   third of the band tall, as many as the count needs. */
+.mood-gallery--detail:not(
+    [data-mood-gallery-count='2'],
+    [data-mood-gallery-count='3'],
+    [data-mood-gallery-count='4'],
+    [data-mood-gallery-count='5'],
+    [data-mood-gallery-count='6']
+  ) .mood-gallery-track {
+  aspect-ratio: auto;
+  grid-auto-rows: calc((100cqw - 2 * var(--mosaic-gap)) / 3);
+}
+
+/* A lone image has no mosaic to fit into, so it keeps its own shape -- capped,
+   because a tall screenshot at full width is a scroll, not a picture. */
+.mood-gallery--detail[data-mood-gallery-count='1'] .mood-gallery-track {
+  grid-auto-rows: auto;
+}
+
+.mood-gallery--detail[data-mood-gallery-count='1'] .mood-gallery-slide {
+  aspect-ratio: var(--mood-gallery-ratio, 4 / 3);
+  max-height: 78cqw;
 }
 
 @media (min-width: 640px) {
@@ -132,10 +164,8 @@
   }
 }
 
-/* The gallery leaves the reading measure as soon as there is room worth
-   leaving it for. It used to wait until 1024px, so every width from 640 to
-   1023 rendered a screenshot album at text width -- one image per row, each
-   of them small. It stays centred on the text's own axis either way. */
+/* The mosaic leaves the reading measure as soon as there is room worth leaving
+   it for. It stays centred on the text's own axis either way. */
 @media (min-width: 700px) {
   .mood-gallery--detail {
     position: relative;
