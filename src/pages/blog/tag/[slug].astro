@@ -10,6 +10,7 @@ import {
   groupPostsByYear,
 } from '@/features/posts/server/content';
 import { mapOtherLanguages } from '@/features/posts/i18n';
+import { blog } from '@/data/site';
 
 export const getStaticPaths = (async () => {
   const tags = await getPublicTagDirectory();
@@ -34,7 +35,7 @@ const accent = tag.accentColor ?? 'var(--blog-accent)';
 
 <BlogLayout
   title={`#${tag.name}`}
-  description={tag.description ?? `Writing tagged ${tag.name} on 無人之境.`}
+  description={tag.description ?? blog.copy.zh.tagline}
   path={`/blog/tag/${tag.slug}`}
 >
   <header class="tag-archive__head" style={`--tag-accent:${accent}`}>

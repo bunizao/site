@@ -25,12 +25,11 @@ import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { getMoodChannelSlug } from '@/features/mood/server/channel-service';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 import { profile } from '@/data/site';
-import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
 import '@/features/mood/styles/bookmark-card.css';
 import { parseYouTubeVideoUrl } from '@/lib/embed/youtube';
-import { resolveRequestLocale } from '@/features/posts/i18n';
+import { resolveRequestLocale } from '@/features/mood/server/locale';
 import type { BlogLocale } from '@/data/site';
 
 export const prerender = false;
@@ -44,7 +43,7 @@ const locale = resolveRequestLocale({
 }) as BlogLocale;
 Astro.response.headers.append('Vary', 'Accept-Language');
 
-const title = formatSiteTitle('Moods');
+const title = 'Moods';
 const description = `Short posts, photos, links, and moments from ${profile.name}'s Telegram channel.`;
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 const moodAlternateUrl = new URL(canonicalUrl);
@@ -160,6 +159,7 @@ const skeletonGroups = [
   rss={rss}
   oembed={oembed}
   preloadImages={preloadImages}
+  robots={Astro.url.search ? 'noindex, follow' : undefined}
   hideSiteNav
   containedScroll
   scrollRestorationKey="mood-scroll"

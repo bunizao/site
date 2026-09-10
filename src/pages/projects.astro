@@ -4,11 +4,10 @@ import Layout from '@/layouts/Layout.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import HeroPanel from '@/components/project-cards/HeroPanel';
 import { profile, projects } from '@/data/site';
-import { formatSiteTitle } from '@/lib/seo';
 
 export const prerender = true;
 
-const title = formatSiteTitle('Projects');
+const title = 'Projects';
 const description =
   `Selected projects by ${profile.name} — a proxy-rules compiler, an edge image service, a Ghost theme, and student-focused CLIs that speak MCP.`;
 

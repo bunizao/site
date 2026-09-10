@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { redirectLegacyGhostHost } from '../../src/lib/http/legacy-ghost-redirect';
 
 type RedirectRule = {
   source: string;
@@ -21,11 +20,6 @@ const rules = redirectsFile
 
 function findRedirect(pathname: string): RedirectRule | null {
   return rules.find((rule) => rule.source === pathname) ?? null;
-}
-
-function expectPermanentRedirect(response: Response | null, location: string) {
-  expect(response?.status).toBe(301);
-  expect(response?.headers.get('Location')).toBe(location);
 }
 
 describe('Cloudflare blog redirects', () => {
@@ -77,57 +71,16 @@ describe('Cloudflare blog redirects', () => {
     });
   });
 
-  test('redirects the Ghost subdomain into canonical blog URLs', () => {
-    const redirectModule = readFileSync(join(import.meta.dir, '../../src/lib/http/legacy-ghost-redirect.ts'), 'utf8');
-
-    expect(redirectModule).toContain("url.hostname !== 'blog.buxx.me'");
-    expect(redirectModule).toContain("Response.redirect('https://buxx.me/blog', 301)");
-    expect(redirectModule).toContain('https://buxx.me/blog/tag/');
-    expect(redirectModule).toContain('https://buxx.me/blog/tags');
-    expect(redirectModule).toContain('https://buxx.me/blog/rss.xml');
-    expect(redirectModule).toContain('https://buxx.me/sitemap.xml');
-    expect(redirectModule).toContain('/content/images/');
-    expect(redirectModule).toContain('LEGACY_GHOST_SINGLE_SEGMENT_SLUGS');
-  });
-
-  test('maps legacy Ghost reserved host paths before slug redirects', async () => {
-    expectPermanentRedirect(
-      redirectLegacyGhostHost(new URL('https://blog.buxx.me/links/')),
-      'https://buxx.me/blog',
-    );
-    expectPermanentRedirect(
-      redirectLegacyGhostHost(new URL('https://blog.buxx.me/rss/')),
-      'https://buxx.me/blog/rss.xml',
-    );
-    expectPermanentRedirect(
-      redirectLegacyGhostHost(new URL('https://blog.buxx.me/feed/')),
-      'https://buxx.me/blog/rss.xml',
-    );
-    expectPermanentRedirect(
-      redirectLegacyGhostHost(new URL('https://blog.buxx.me/sitemap.xml')),
-      'https://buxx.me/sitemap.xml',
-    );
-    expectPermanentRedirect(
-      redirectLegacyGhostHost(new URL('https://blog.buxx.me/sitemap-posts.xml')),
-      'https://buxx.me/sitemap.xml',
-    );
-    expectPermanentRedirect(
-      redirectLegacyGhostHost(new URL('https://blog.buxx.me/content/images/2026/06/post.jpg')),
-      'https://buxx.me/api/v2/images/blog/content/images/2026/06/post.jpg',
-    );
-    expectPermanentRedirect(
-      redirectLegacyGhostHost(new URL('https://blog.buxx.me/content/images/size/w600/2026/06/post.jpg?quality=80')),
-      'https://buxx.me/api/v2/images/blog/content/images/2026/06/post.jpg?quality=80&w=600',
-    );
-    expect(redirectLegacyGhostHost(new URL('https://blog.buxx.me/robots.txt'))).toBeNull();
-    expectPermanentRedirect(
-      redirectLegacyGhostHost(new URL('https://blog.buxx.me/existence/')),
-      'https://buxx.me/blog/existence',
-    );
-    expect(redirectLegacyGhostHost(new URL('https://blog.buxx.me/some-post/'))).toBeNull();
-    expect(redirectLegacyGhostHost(new URL('https://blog.buxx.me/ghost/'))).toBeNull();
-    expect(redirectLegacyGhostHost(new URL('https://blog.buxx.me/ghost/api/content/posts/'))).toBeNull();
-    expect(redirectLegacyGhostHost(new URL('https://blog.buxx.me/assets/built/screen.css'))).toBeNull();
+  test('folds the retired @astrojs/sitemap output into the single sitemap', () => {
+    expect(findRedirect('/sitemap-index.xml')).toEqual({
+      source: '/sitemap-index.xml',
+      target: '/sitemap.xml',
+      status: 301,
+    });
+    expect(findRedirect('/sitemap-0.xml')).toMatchObject({
+      target: '/sitemap.xml',
+      status: 301,
+    });
   });
 
   test('does not keep a global fallback redirect', () => {
@@ -150,7 +103,7 @@ describe('Cloudflare blog redirects', () => {
   });
 
   test('keeps redirects in Cloudflare static asset format', () => {
-    expect(rules).toHaveLength(59);
+    expect(rules).toHaveLength(61);
     expect(rules.every((rule) => rule.source.startsWith('/'))).toBe(true);
     expect(rules.every((rule) => (
       rule.target.startsWith('/blog')

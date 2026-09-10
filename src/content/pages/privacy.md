@@ -1,6 +1,6 @@
 ---
 title: Privacy Policy
-description: How this website collects, uses, discloses, and retains personal data, including Cloudflare hosting, reading and playback analytics, YouTube embeds, edge diagnostics, listening cards, mood subscriptions, blog comments, and third-party services.
+description: How this site collects, uses, and retains personal data, and which third parties are involved.
 updatedAt: September 3, 2026
 ---
 

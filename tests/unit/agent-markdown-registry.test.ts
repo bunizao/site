@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   explicitMarkdownSourcePath,
   getContentRoutePolicy,
+  getMarkdownRenderer,
   hasMarkdownRenderer,
   markdownAlternatePath,
 } from '@/features/agent-markdown/server/registry';
@@ -32,7 +33,15 @@ describe('agent markdown registry', () => {
 
     expect(response?.status).toBe(200);
     expect(response?.headers.get('Content-Type')).toContain('text/markdown');
+    expect(response?.headers.get('Link')).toBe('<https://buxx.me/privacy>; rel="canonical"');
     expect(await response?.text()).toContain('# Privacy Policy');
+  });
+
+  test('redirects the www host to the apex in one hop', () => {
+    const www = redirectCanonicalUrl(new Request('https://www.buxx.me/blog/sacrifice/?ref=tg'));
+    expect(www?.status).toBe(301);
+    expect(www?.headers.get('Location')).toBe('https://buxx.me/blog/sacrifice?ref=tg');
+    expect(redirectCanonicalUrl(new Request('https://buxx.me/blog/sacrifice'))).toBeNull();
   });
 
   test('redirects alternate URL forms to slashless canonical paths', () => {
@@ -62,6 +71,17 @@ describe('agent markdown registry', () => {
     expect(hasMarkdownRenderer('/mood/subscribe')).toBe(false);
     expect(getContentRoutePolicy('/mood/embed')?.edgeCacheHtml).toBe(true);
     expect(getContentRoutePolicy('/mood/subscribe')).toBeNull();
+  });
+
+  test('matches a translation under its locale, not under a tag or an unknown language', () => {
+    expect(getMarkdownRenderer('/blog/quiet-architecture')?.params).toEqual({ slug: 'quiet-architecture' });
+    expect(getMarkdownRenderer('/blog/en/quiet-architecture')?.params)
+      .toEqual({ slug: 'quiet-architecture', locale: 'en' });
+    expect(getMarkdownRenderer('/blog/en/quiet-architecture')?.renderer.id).toBe('blog-post');
+    expect(getMarkdownRenderer('/blog/tag/systems')?.renderer.id).toBe('blog-tag');
+    expect(hasMarkdownRenderer('/blog/fr/quiet-architecture')).toBe(false);
+    expect(hasMarkdownRenderer('/blog/zh/quiet-architecture')).toBe(false);
+    expect(getContentRoutePolicy('/blog/en/quiet-architecture')?.cacheTtlSeconds).toBe(300);
   });
 
   test('declares cache policy for static discovery and content routes', () => {

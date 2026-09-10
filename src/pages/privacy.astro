@@ -3,7 +3,6 @@ import Layout from '@/layouts/Layout.astro';
 import Footer from '@/features/home/ui/Footer.astro';
 import { Content, frontmatter } from '@/content/pages/privacy.md';
 import { getContentRevision } from '@/lib/content-revision';
-import { formatSiteTitle } from '@/lib/seo';
 
 const CONTENT_PATH = 'src/content/pages/privacy.md';
 
@@ -24,7 +23,7 @@ const updatedLabel = revision?.displayDate ?? updatedAt;
 ---
 
 <Layout
-  title={formatSiteTitle(title)}
+  title={title}
   description={description}
   url="/privacy"
   navVariant="page"

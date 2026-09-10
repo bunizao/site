@@ -19,14 +19,7 @@ import type { Post } from './types';
 // the same string. The parser is shared with site-api through
 // @bunizao/contracts so both repos agree on what a translation is.
 
-export interface PostTranslation {
-  locale: BlogLocale;
-  slug: string;
-  title: string;
-}
-
 const KNOWN_LOCALES = Object.keys(blog.copy) as BlogLocale[];
-export { resolveRequestLocale, type RequestLocaleOptions } from '@/features/agent-markdown/server/negotiation';
 
 function isKnownLocale(locale: string): locale is BlogLocale {
   return (KNOWN_LOCALES as string[]).includes(locale);
@@ -69,51 +62,64 @@ export function isTranslation(post: Pick<Post, 'tags'>): boolean {
   return readLocaleTag(post)?.canonicalSlug !== undefined;
 }
 
-// Linear scan per post. At a personal blog's scale that is cheaper than the
-// index it would replace, and it stays obvious at 2am. Pass the *accessible*
-// posts, not the listed ones — a translation is deliberately absent from the
-// listing but must still be linkable from its sibling.
-export function getTranslations(post: Post, posts: Post[]): PostTranslation[] {
-  const canonical = getCanonicalSlug(post);
-
-  return posts
-    .filter(
-      (candidate) =>
-        candidate.slug !== post.slug && getCanonicalSlug(candidate) === canonical,
-    )
-    .map((candidate) => ({
-      locale: getPostLocale(candidate),
-      slug: candidate.slug,
-      title: candidate.title,
-    }));
+/** Public URL of the `locale` version of the article at `canonicalSlug`. */
+export function translationPath(locale: BlogLocale, canonicalSlug: string): string {
+  return `/blog/${locale}/${canonicalSlug}`;
 }
 
 /**
- * The version of this article the request asked for, or the post itself when it
- * asked for nothing we publish.
- *
- * `?lang=` names a language, not a slug: the article is the group, and every
- * member of it answers at the canonical URL. Falling back to `post` rather than
- * 404ing is deliberate — a language we do not have is a language the reader
- * should still be able to read the article in.
+ * The one URL this post is served and indexed at. The original owns the bare
+ * slug whatever language it is written in; a translation lives under its
+ * locale, so every version is a URL of its own and a crawler never has to ask
+ * for a language.
  */
-export function selectRequestedVersion(
-  post: Post,
-  posts: Post[],
-  requested: string | null,
-): Post {
-  const normalizedRequested = requested?.trim().toLowerCase() ?? '';
-  if (!normalizedRequested || !isKnownLocale(normalizedRequested)) return post;
-  if (getPostLocale(post) === normalizedRequested) return post;
+export function postVersionPath(post: Pick<Post, 'slug' | 'tags'>): string {
+  const tag = readLocaleTag(post);
 
-  const canonical = getCanonicalSlug(post);
+  return tag?.canonicalSlug
+    ? translationPath(tag.locale as BlogLocale, tag.canonicalSlug)
+    : postPath(post.slug);
+}
 
-  return (
-    posts.find(
-      (candidate) =>
-        getCanonicalSlug(candidate) === canonical && getPostLocale(candidate) === normalizedRequested,
-    ) ?? post
-  );
+/** The `[...slug]` route segment `postVersionPath` answers at. */
+export function postRouteSegment(post: Pick<Post, 'slug' | 'tags'>): string {
+  return postVersionPath(post).slice('/blog/'.length);
+}
+
+export interface PostRoute {
+  canonicalSlug: string;
+  /** Null when the route addresses the original rather than a translation. */
+  locale: BlogLocale | null;
+}
+
+/**
+ * Read a `/blog/...` rest segment back into the version it addresses:
+ * `lun-chenmo` is the original, `en/lun-chenmo` its English translation.
+ * Anything else is not an article URL.
+ */
+export function parsePostRoute(segment: string): PostRoute | null {
+  const parts = segment.split('/').filter(Boolean);
+
+  if (parts.length === 1) return { canonicalSlug: parts[0], locale: null };
+  if (parts.length === 2 && isKnownLocale(parts[0]) && parts[0] !== blog.locale.default) {
+    return { canonicalSlug: parts[1], locale: parts[0] };
+  }
+
+  return null;
+}
+
+/** The post a route addresses, or null when no such version is published. */
+export function findPostForRoute(route: PostRoute, posts: Post[]): Post | null {
+  if (route.locale === null) {
+    return posts.find((post) => post.slug === route.canonicalSlug) ?? null;
+  }
+
+  return posts.find(
+    (post) =>
+      isTranslation(post)
+      && getCanonicalSlug(post) === route.canonicalSlug
+      && getPostLocale(post) === route.locale,
+  ) ?? null;
 }
 
 /**
@@ -134,18 +140,12 @@ export interface PostVersion {
   /** Endonym — the name the language calls itself. Never a flag, never a code. */
   label: string;
   /**
-   * Where the switcher sends the reader. Always explicit, including for the
-   * default locale: picking 中文 has to be recorded as a choice, or a reader
-   * whose browser asks for English lands back in English on the next post.
+   * Where this version lives. It is at once the switcher target, the hreflang
+   * target and the version's own canonical, because an hreflang target that
+   * declares a different canonical is a target Google drops — and with it the
+   * whole cluster.
    */
   href: string;
-  /**
-   * The URL this version is indexed under. The default locale owns the bare
-   * canonical; every other language owns its `?lang=` URL. They have to differ
-   * from `href` — an hreflang target that declares a different canonical is a
-   * target Google drops, which is the whole cluster gone.
-   */
-  indexedHref: string;
   current: boolean;
 }
 
@@ -153,29 +153,30 @@ export interface PostVersion {
 // makes the reader re-read it every time. Empty when there is nothing to switch
 // to, so a control that appears is always a control that works.
 export function getPostVersions(post: Post, posts: Post[]): PostVersion[] {
-  const translations = getTranslations(post, posts);
+  const canonical = getCanonicalSlug(post);
+  const group = [
+    post,
+    ...posts.filter(
+      (candidate) => candidate.slug !== post.slug && getCanonicalSlug(candidate) === canonical,
+    ),
+  ];
 
-  if (translations.length === 0) {
+  if (group.length < 2) {
     return [];
   }
 
-  const here = getPostLocale(post);
-  const canonical = postPath(getCanonicalSlug(post));
-  const present = new Set<BlogLocale>([
-    here,
-    ...translations.map((translation) => translation.locale),
-  ]);
+  const byLocale = new Map(group.map((member) => [getPostLocale(member), member]));
 
-  return KNOWN_LOCALES.filter((locale) => present.has(locale)).map((locale) => ({
-    locale,
-    label: blog.copy[locale].languageSwitcher.language,
-    // Absolute rather than a bare `?lang=`: a translation's own build path is
-    // reachable until the edge redirect runs, and a relative query there would
-    // ask for a language at a URL that does not serve languages.
-    href: `${canonical}?lang=${locale}`,
-    indexedHref: locale === blog.locale.default ? canonical : `${canonical}?lang=${locale}`,
-    current: locale === here,
-  }));
+  return KNOWN_LOCALES.filter((locale) => byLocale.has(locale)).map((locale) => {
+    const version = byLocale.get(locale)!;
+
+    return {
+      locale,
+      label: blog.copy[locale].languageSwitcher.language,
+      href: postVersionPath(version),
+      current: version.slug === post.slug,
+    };
+  });
 }
 
 // Endonyms of the *other* languages each post exists in, keyed by slug. Built

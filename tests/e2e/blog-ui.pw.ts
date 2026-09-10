@@ -952,7 +952,7 @@ test.describe('Article language switcher motion', () => {
     await page.goto(ARTICLE, { waitUntil: 'load' });
     await page.locator('.blog-lang__pill').click();
     await page.locator('.blog-lang__item[hreflang="en"]').click();
-    await page.waitForURL(/\?lang=en$/);
+    await page.waitForURL(/\/blog\/en\/quiet-architecture$/);
 
     expect(await page.evaluate(() => sessionStorage.getItem('menu-at-swap'))).toBe('none');
   });
@@ -979,7 +979,7 @@ test.describe('Article language switcher motion', () => {
     await page.goto(ARTICLE, { waitUntil: 'load' });
     await page.locator('.blog-lang__pill').click();
     await page.locator('.blog-lang__item[hreflang="en"]').click();
-    await page.waitForURL(/\?lang=en$/);
+    await page.waitForURL(/\/blog\/en\/quiet-architecture$/);
 
     const swap = await page.waitForFunction(() => (window as unknown as { __vt: unknown }).__vt)
       .then((handle) => handle.jsonValue() as Promise<{ kind: string | null; root: number[] }>);

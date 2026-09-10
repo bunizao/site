@@ -1,13 +1,11 @@
 import { defineMiddleware } from 'astro:middleware';
+import { meta } from '@/data/site';
 import { readCloudflareAccessIdentity } from '@/features/admin/server/access';
-import { redirectLegacyGhostHost } from '@/lib/http/legacy-ghost-redirect';
 import type { RuntimeEnvLocals } from '@/lib/runtime/env';
 import {
-  fetchBlogAsset,
-  resolveBlogRequest,
-  withBlogVariantHeaders,
   isNeverCachePath,
   redirectCanonicalUrl,
+  redirectLegacyBlogUrl,
   renderMarkdownIfRequested,
   withContentPolicy,
 } from '@/features/agent-markdown/server/responses';
@@ -17,6 +15,17 @@ import {
 } from '@/features/admin/server/dev-bypass';
 
 const DEV_PORTAL_PREFIX = '/dev';
+const CANONICAL_HOSTNAME = new URL(meta.siteUrl).hostname;
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+// Anything answering on another hostname — the phone tunnel, a Worker preview
+// URL, www — is a copy of buxx.me and must not compete with it in search.
+// Canonical tags already point home; this is the belt for hosts a crawler
+// reached before it read them. Local hosts are exempt so e2e assertions on
+// the exact robots header stay meaningful.
+export function isNonCanonicalHost(hostname: string): boolean {
+  return hostname !== CANONICAL_HOSTNAME && !LOCAL_HOSTNAMES.has(hostname);
+}
 const DEV_BLOG_PREVIEW_PREFIX = '/dev/blog/';
 const MOOD_EMBED_PATH = '/mood/embed';
 
@@ -52,6 +61,9 @@ export function withHtmlSecurityHeaders(request: Request, response: Response): R
   // HTML check below.
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (isNonCanonicalHost(new URL(request.url).hostname) && !headers.has('X-Robots-Tag')) {
+    headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
 
   const contentType = response.headers.get('content-type') ?? '';
   const isHtml = contentType.toLowerCase().includes('text/html');
@@ -116,29 +128,15 @@ async function readAdminSession(context: {
 export const onRequest = defineMiddleware(async (context, next) => {
   const url = new URL(context.request.url);
   const pathname = url.pathname;
-  const legacyGhostRedirect = redirectLegacyGhostHost(url);
-  if (legacyGhostRedirect) return legacyGhostRedirect;
-
   const canonicalRedirect = redirectCanonicalUrl(context.request);
   if (canonicalRedirect) return canonicalRedirect;
 
   const markdownResponse = await renderMarkdownIfRequested(context);
   if (markdownResponse) return markdownResponse;
 
-  const blogResolution = await resolveBlogRequest(context.request, context.locals);
-  if (blogResolution?.redirect) return blogResolution.redirect;
-  if (blogResolution?.grouped && blogResolution.locale) {
-    (context.locals as unknown as Record<string, unknown>).blogLocale = blogResolution.locale;
-  }
-
-  // Blog assets still resolve here: dev runs the middleware without src/worker.ts.
-  const blogAsset = await fetchBlogAsset(context.request, context.locals);
-  if (blogAsset) {
-    return withContentPolicy(
-      context.request,
-      withHtmlSecurityHeaders(context.request, blogAsset),
-    );
-  }
+  // Dev runs without src/worker.ts, so the legacy article redirect lives here too.
+  const legacyBlogRedirect = await redirectLegacyBlogUrl(context.request, context.locals);
+  if (legacyBlogRedirect) return legacyBlogRedirect;
 
   // Admin portal: served by this worker, gated by Cloudflare Access in production.
   if (isDevPortalPath(pathname)) {
@@ -157,12 +155,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // The edge HTML cache lives in src/worker.ts, the production entrypoint;
   // this middleware only decorates the rendered response. Dev therefore always
   // renders fresh, which is what dev wants.
-  return withBlogVariantHeaders(
+  return withContentPolicy(
     context.request,
-    withContentPolicy(
-      context.request,
-      withHtmlSecurityHeaders(context.request, await next()),
-    ),
-    blogResolution ?? { grouped: false, locale: null, assetSlug: '' },
+    withHtmlSecurityHeaders(context.request, await next()),
   );
 });

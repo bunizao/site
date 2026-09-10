@@ -268,7 +268,7 @@ test.describe('Blog routes', () => {
   test('emits generated Open Graph image metadata for index and posts', async ({ page }) => {
     const { firstPostHref, firstPostTitle } = await collectBlogIndexTargets(page);
 
-    await expect(page).toHaveTitle('無人之境');
+    await expect(page).toHaveTitle("無人之境 — Lucian's Blog");
     const indexOgImage = new URL(await readMetaContent(page, 'meta[property="og:image"]'));
     expect(indexOgImage.toString()).toBe('https://buxx.me/blog-og.jpg');
     expect(await readMetaContent(page, 'meta[property="og:image:width"]')).toBe('1200');
@@ -283,8 +283,8 @@ test.describe('Blog routes', () => {
     expect(await readMetaContent(page, 'meta[property="og:type"]')).toBe('article');
     expect(await readMetaContent(page, 'meta[property="article:published_time"]')).toBeTruthy();
     expect(await readMetaContent(page, 'meta[property="article:author"]')).toBeTruthy();
-    await expect(page).toHaveTitle(`${firstPostTitle} — 無人之境`);
-    expect(await readMetaContent(page, 'meta[property="og:title"]')).toBe(`${firstPostTitle} — 無人之境`);
+    await expect(page).toHaveTitle(firstPostTitle);
+    expect(await readMetaContent(page, 'meta[property="og:title"]')).toBe(firstPostTitle);
     expect(postOgImage.origin + postOgImage.pathname).toBe('https://og.tuuhub.com/api/og');
     expect(postOgImage.searchParams.get('title')).toBe(firstPostTitle);
     expect(postOgImage.searchParams.get('site')).toBe('無人之境');
@@ -386,7 +386,7 @@ test.describe('Blog routes', () => {
     expect(creditBounds!.x).toBeGreaterThanOrEqual(0);
     expect(creditBounds!.x + creditBounds!.width).toBeLessThanOrEqual(321);
 
-    await page.goto('/blog/quiet-architecture?lang=zh');
+    await page.goto('/blog/quiet-architecture');
     await expect(page.locator('.not-by-ai')).toHaveText('本文由真人撰写，未使用 AI 创作。');
     await expect(page.locator('.ai-credit')).toHaveCount(0);
     await expect(page.locator('.not-by-ai__trigger, .not-by-ai__card')).toHaveCount(0);

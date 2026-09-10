@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 import { blog, profile } from '@/data/site';
 import { buildGhostDataset } from '@/features/posts/adapter/ghost/dataset';
@@ -19,7 +19,27 @@ import { buildBlogRssXml } from '@/features/posts/server/rss';
 import { renderMarkdownIfRequested } from '@/features/agent-markdown/server/responses';
 import { GET as getLlms } from '@/pages/llms.txt';
 import { GET as getPalette } from '@/pages/palette.json';
-import { GET as getSitemap } from '@/pages/sitemap.xml';
+
+// The sitemap reads the docs and components collections. `astro:content` only
+// exists inside Vite, so stand in a fixture of each and import the route after.
+type CollectionFixture = { id: string; data: Record<string, unknown> };
+const collectionFixtures: Record<string, CollectionFixture[]> = {
+  docs: [
+    { id: 'overview', data: { title: 'Overview', group: 'Start', order: 0, draft: false } },
+    { id: 'api/feeds', data: { title: 'Feeds', group: 'API', order: 0, draft: false } },
+    { id: 'wip', data: { title: 'WIP', group: 'Start', order: 1, draft: true } },
+  ],
+  components: [
+    { id: 'mood-wheel', data: { draft: false } },
+    { id: 'unreleased', data: { draft: true } },
+  ],
+};
+mock.module('astro:content', () => ({
+  getCollection: async (name: string, filter?: (entry: CollectionFixture) => boolean) =>
+    (collectionFixtures[name] ?? []).filter((entry) => (filter ? filter(entry) : true)),
+  getEntry: async () => null,
+}));
+const { GET: getSitemap } = await import('@/pages/sitemap.xml');
 
 const originalGhostUrl = process.env.PUBLIC_GHOST_URL;
 const originalGhostKey = process.env.GHOST_CONTENT_API_KEY;
@@ -398,6 +418,34 @@ describe('blog subscription feed', () => {
     expect(response.status).toBe(200);
     expect(xml).toContain('<loc>https://buxx.me/blog</loc>');
     expect(xml).toContain('<loc>https://buxx.me/blog/demo-effects</loc>');
+    expect(xml).toContain('<loc>https://buxx.me/blog/tags</loc>');
+  });
+
+  test('lists every public section in the sitemap and nothing noindex', async () => {
+    useMockGhostContent();
+
+    const response = await getSitemap({
+      request: new Request('https://buxx.me/sitemap.xml'),
+      locals: {},
+      params: {},
+    } as any);
+    const xml = await response.text();
+    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+
+    for (const path of ['/', '/projects', '/mood', '/privacy', '/docs', '/components']) {
+      expect(locs).toContain(`https://buxx.me${path}`);
+    }
+    expect(locs).toContain('https://buxx.me/docs/overview');
+    expect(locs).toContain('https://buxx.me/docs/api/feeds');
+    expect(locs).toContain('https://buxx.me/components/mood-wheel');
+    expect(locs).not.toContain('https://buxx.me/docs/wip');
+    expect(locs).not.toContain('https://buxx.me/components/unreleased');
+    expect(locs.some((loc) => /\/mood\/\d/.test(loc))).toBe(false);
+    expect(locs.some((loc) => loc.includes('/dev') || loc.includes('/lab/'))).toBe(false);
+    expect(new Set(locs).size).toBe(locs.length);
+    expect(locs.every((loc) => loc === 'https://buxx.me' || loc === 'https://buxx.me/' || !loc.endsWith('/'))).toBe(true);
+    expect(xml).not.toContain('<priority>');
+    expect(xml).not.toContain('<changefreq>');
     expect(xml).toContain('<loc>https://buxx.me/blog/tag/systems</loc>');
     expect(xml).not.toContain('members-only-notes');
     expect(xml).not.toContain('private-link-demo');

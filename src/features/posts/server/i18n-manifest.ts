@@ -1,4 +1,3 @@
-import { blog } from '@/data/site';
 import { readRuntimeEnvSource, type RuntimeEnvLocals } from '@/lib/runtime/env';
 import { getAccessiblePosts } from './content';
 import { getCanonicalSlug, getPostLocale, isTranslation } from '../i18n';
@@ -99,12 +98,4 @@ export function manifestEntryForPath(manifest: I18nManifest, pathname: string): 
   }
   const entry = manifest[decoded];
   return entry ? { slug: decoded, entry } : null;
-}
-
-export function localeVersions(entry: I18nManifestEntry): string[] {
-  return [blog.locale.default, ...Object.keys(entry.translations ?? {})];
-}
-
-export function localeForTranslation(entry: I18nManifestEntry): string | null {
-  return entry.locale ?? null;
 }

@@ -321,6 +321,13 @@ async function postJson<T>(url: string, body: unknown): Promise<PostResult<T>> {
 
 // ---------------------------------------------------------------------------
 
+/** Where Return goes from each identity field. The textarea is deliberately
+    absent: there, Return is a newline. */
+const IDENTITY_NEXT_FIELD: Record<string, string> = {
+  'mood-compose-name': 'mood-compose-email',
+  'mood-compose-email': 'mood-compose-text',
+};
+
 export function initMoodCommentCompose(): void {
   const box = document.querySelector<HTMLElement>('[data-mood-compose]');
   if (!box) return;
@@ -344,6 +351,18 @@ export function initMoodCommentCompose(): void {
     observer.observe(box);
   }
   box.addEventListener('focusin', warm, { once: true });
+
+  // `enterkeyhint="next"` promises the iOS keyboard moves on to the next
+  // field. There is no <form> here, so nothing would honour that promise --
+  // Return would just close the keyboard and leave the reader to aim a thumb
+  // at the box they were already heading for.
+  box.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    const nextId = IDENTITY_NEXT_FIELD[(event.target as HTMLElement | null)?.id ?? ''];
+    if (!nextId) return;
+    event.preventDefault();
+    document.getElementById(nextId)?.focus();
+  });
 
   document.addEventListener('click', (event) => {
     const submitBtn = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-compose-submit]');

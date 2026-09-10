@@ -7,30 +7,38 @@ order: 5
 
 ## Public Identity
 
-Search and sharing metadata use four distinct names:
+There is exactly one site name, `buxx.me`, and it is the only string that
+fills `WebSite.name` and `og:site_name` anywhere on the domain. Google keeps
+one site name per domain and prints it on its own line above the result, so
+titles do not repeat it.
 
 | Role | Canonical name | Usage |
 | --- | --- | --- |
+| Website | `buxx.me` | `WebSite.name`, `og:site_name`, oEmbed provider |
 | Person | `Lucian Bu` | Profile page, `Person` structured data, personal authorship |
 | Personal alias | `Bunizao` | `alternateName`, account handles, historical credits |
 | Pen name | `Murray` | Blog byline and the canonical Person's `alternateName` |
-| Website | `buxx.me` | `WebSite.name`, `og:site_name`, non-blog title suffixes, oEmbed provider |
-| Blog publication | `無人之境` | Blog title suffixes, `og:site_name`, `BlogPosting.publisher` |
+| Blog publication | `無人之境` | Masthead, `/blog` page title subject, `BlogPosting.publisher` |
 
 `Bunizao` is not the website name. `Bunizao's Website` and `Lucian's Website`
 are intentionally not used because possessive template names blur the person,
-site, and publication entities.
+site, and publication entities. `無人之境` names the publication, never the
+site: it appears in the blog masthead and as the article publisher, never in
+`og:site_name`.
 
 The shared identity source is [`src/data/site.ts`](https://github.com/bunizao/site/blob/main/src/data/site.ts).
-[`src/lib/seo.ts`](https://github.com/bunizao/site/blob/main/src/lib/seo.ts) derives structured data and the standard
-non-blog title suffix from it.
+[`src/lib/seo.ts`](https://github.com/bunizao/site/blob/main/src/lib/seo.ts) derives structured data from it.
 
 ## Titles
 
 - The home page leads with the person: `Lucian Bu — Student, Developer & Blogger`.
-- Non-blog sections use `<topic> — buxx.me`.
-- The Blog index is `無人之境`.
-- Blog articles use `<article title> — 無人之境`.
+- Every other page's `<title>` is the subject alone: `Projects`, `Docs`,
+  `<doc title>`. No site-name suffix — search engines display `buxx.me` from
+  the structured data and social cards read `og:site_name`, so a suffix only
+  duplicates what the result already shows.
+- The Blog index is `無人之境 — Lucian's Blog`: the publication name plus an
+  English descriptor so a reader who cannot parse the name still knows what
+  the result is. Blog articles are the article title alone.
 - Google may still rewrite a title when it believes another form better matches
   a query. Source titles must remain stable and should not imitate a rewritten
   search result.
@@ -50,17 +58,83 @@ canonical `https://buxx.me/#person` entity, with `Lucian Bu` as its name and
 `Murray` as its `alternateName`. Structured data supplements visible title,
 canonical, Open Graph, and favicon metadata rather than replacing them.
 
+Pages that sit under a section — `/docs/*` and `/components/*` — emit a
+`BreadcrumbList` that mirrors their visible breadcrumb (`buxx.me › Docs ›
+Title`). `breadcrumbJsonLd` in `src/lib/seo.ts` builds it from canonical
+paths; pass the result through the `structuredData` prop of `Layout.astro`.
+
 ## Indexing
 
 - Public page URLs are extensionless and have no trailing slash. `/` is the only
   natural exception. Alternate slash forms receive a permanent `308`, while
   canonical tags, sitemaps, feeds, and internal links emit the slashless form.
-- `/mood` is indexable.
+- `www.buxx.me` answers a single `301` to the same path on the apex
+  (`redirectCanonicalUrl`), so it never renders a copy. Every page also
+  declares `https://buxx.me` as its canonical origin regardless of the host it
+  was rendered on, and any response served from another hostname — the phone
+  tunnel, a Worker preview URL — carries `X-Robots-Tag: noindex, nofollow`
+  (`isNonCanonicalHost` in `src/middleware.ts`); local hosts are exempt.
+- Markdown alternates (`/index.md`, `Accept: text/markdown`) carry an HTTP
+  `Link: <html url>; rel="canonical"` header, so a crawler that indexes
+  `text/markdown` as a document folds it into the HTML page instead of
+  ranking a second copy of every article.
+- `/mood` is indexable only in its bare form. A query string — a post anchor,
+  `?tag=`, `?source=`, `?subscribe=1` — is the same feed and renders with
+  `noindex, follow`.
 - `/mood/[id]` emits `noindex, follow` so crawlers can discover the directive
   without the detail archive crowding out editorial results.
 - Blog indexes, tags, and articles remain indexable and canonical under
   `https://buxx.me/blog`.
-- Sitemap priority is not used as a result-balancing mechanism.
+- A translated article is a page of its own at `/blog/<locale>/<slug>`
+  (`/blog/en/lun-chenmo`), self-canonical, with `hreflang` links between every
+  version and `x-default` on the original. Nothing about the response depends
+  on `Accept-Language` or a cookie: a URL is one document to every crawler,
+  which is the form Google asks for. The translation's Ghost slug and the
+  retired `?lang=` form each answer a single `301` (`redirectLegacyBlogUrl`).
+  How to publish one is in [Translations](/docs/writing/publishing#translations).
+- Dev harnesses (`/lab/*`), component preview frames (`/components/preview/*`),
+  the safe-area probe, the mood embed, the reader and subscription flows, and
+  the portal all carry `noindex`. `tests/unit/seo-policy.test.ts` pins the
+  list, so a new harness that forgets the tag fails CI.
+
+### Legacy host
+
+`blog.buxx.me` is still the Ghost origin: the editor lives at `/ghost` and
+the site reads the Content API from it. Only its public URLs moved. Google
+keeps ranking whichever host answers `200` with a self-canonical, so every
+public Ghost URL has to answer a single `301` to its `buxx.me/blog` twin, and
+the surfaces Ghost needs (`/ghost/*`, `/members/*`, `/p/*`, previews, assets)
+must not.
+
+The redirects are Cloudflare Single Redirect rules on the zone, not code in
+this Worker: the Worker is routed on `buxx.me` and `www.buxx.me` only, and a
+`blog.buxx.me/*` route would put a program in front of the editor. The rules
+match URL shapes — any one-segment root path that is not a Ghost namespace is
+an article — so a new post redirects the day it is published, without a
+per-slug entry. `scripts/legacy-blog-redirects.ts` holds the five rules,
+prints the merged ruleset as a dry run, and writes it with `--apply` using a
+token that carries `Zone > Single Redirect > Edit`.
+`tests/ops/legacy-blog-redirect-health.test.ts` reads every published post
+and page from the Content API and fails when one no longer redirects, when a
+permalink stops being root-level, or when a Ghost surface starts redirecting.
+
+### Sitemap and robots.txt
+
+`/sitemap.xml` ([`src/pages/sitemap.xml.ts`](https://github.com/bunizao/site/blob/main/src/pages/sitemap.xml.ts))
+is the only sitemap. It is built at deploy time from the same sources the
+pages render from: the fixed public sections (`/`, `/projects`, `/mood`,
+`/privacy`, `/blog`, `/blog/tags`, `/docs`, `/components`), every non-draft
+docs and components entry, every listed blog article in each indexed language
+form, and every public tag. It omits `priority` and `changefreq` — Google
+ignores both — and carries `lastmod` only where a real edit date exists, which
+today means blog articles. The retired `@astrojs/sitemap` output
+(`/sitemap-index.xml`, `/sitemap-0.xml`) permanently redirects here.
+
+`public/robots.txt` disallows only surfaces that have no indexable HTML or sit
+behind Cloudflare Access: `/api/`, `/v2/`, `/oauth`, and `/dev`. Everything
+that must stay out of results uses a `noindex` tag instead, and stays
+crawlable so the directive is actually seen. AI crawlers are not singled out;
+the site's content is meant to be citable.
 
 For direct-link-only articles, see [Unlisted posts](/docs/writing/publishing#unlisted-posts).
 That page documents the exact Ghost marker and the corresponding sitemap, feed,

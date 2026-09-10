@@ -5,7 +5,6 @@ import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
 import DocsCopyPage from '@/features/docs/ui/DocsCopyPage.astro';
 import { docPath, getDocsNav } from '@/features/docs/server/nav';
 import { markdownAlternatePath } from '@/features/agent-markdown/server/registry';
-import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/docs.css';
 
 export const prerender = true;
@@ -53,7 +52,7 @@ const ELSEWHERE = [
 ---
 
 <Layout
-  title={formatSiteTitle('Docs')}
+  title="Docs"
   description="Reference for buxx.me — architecture, the post composing syntax, public API endpoints, and how every surface is built."
   url="/docs"
   image="/docs-og.png"

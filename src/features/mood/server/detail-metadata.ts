@@ -1,7 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { MediaItem, MoodContentDocument } from '@bunizao/contracts';
 import { profile } from '@/data/site';
-import { formatSiteTitle } from '@/lib/seo';
 
 const DESCRIPTION_MAX_LENGTH = 220;
 
@@ -80,7 +79,7 @@ export function buildMoodDetailMetadata(
 ): MoodDetailMetadata {
   if (!post) {
     return {
-      title: formatSiteTitle('Mood not found'),
+      title: 'Mood not found',
       description: 'Mood not found.',
     };
   }
@@ -103,7 +102,7 @@ export function buildMoodDetailMetadata(
   // Per-post photo wins when the mood has one; otherwise the static identity card.
   if (!postImage) {
     return {
-      title: formatSiteTitle(moodLabel),
+      title: moodLabel,
       description,
       image: FALLBACK_OG_IMAGE,
       imageAlt: FALLBACK_OG_ALT,
@@ -115,7 +114,7 @@ export function buildMoodDetailMetadata(
   const hasImageDimensions = Boolean(imageMeta?.width && imageMeta?.height);
 
   return {
-    title: formatSiteTitle(moodLabel),
+    title: moodLabel,
     description,
     image: postImage,
     imageAlt: description,

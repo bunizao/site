@@ -23,7 +23,7 @@ import { buildMoodDetailMetadata } from '@/features/mood/server/detail-metadata'
 import { getMoodChannelSlug } from '@/features/mood/server/channel-service';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
-import { resolveRequestLocale } from '@/features/posts/i18n';
+import { resolveRequestLocale } from '@/features/mood/server/locale';
 import type { BlogLocale } from '@/data/site';
 
 export const prerender = false;
@@ -118,6 +118,7 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
   imageWidth={metadata.imageWidth}
   imageHeight={metadata.imageHeight}
   oembed={oembed}
+  ogType="article"
   robots="noindex, follow"
   hideSiteNav
   hideHeaderActionsOnMobile
