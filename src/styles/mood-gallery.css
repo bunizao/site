@@ -59,7 +59,21 @@
   object-fit: contain;
 }
 
+/* The detail gallery is one justified block: every row filled edge to edge,
+   every image in a row at the same height, nothing cropped. Two numbers steer
+   it and both live here.
+
+   --gallery-row is the height a row starts at, and it decides how many images
+   share one. --gallery-row-max is the ceiling a row is allowed to grow to,
+   which is what stops a single leftover image from becoming a poster; a row
+   that hits it stops short of the band and centres instead.
+
+   The band itself used to break out to 1280px while the article ran at 688,
+   so the gallery lined up with nothing on the page and no row was ever wide
+   enough to fill it. It now breaks out only as far as rows can fill. */
 .mood-gallery--detail {
+  --gallery-row: 150px;
+  --gallery-row-max: 380px;
   margin: 1.5em 0;
 }
 
@@ -67,31 +81,29 @@
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
   overflow: visible;
   scroll-snap-type: none;
   scrollbar-width: auto;
   padding: 0;
 }
 
-.mood-gallery--detail .mood-gallery-track::after {
-  content: '';
-  flex: 999999 1 0;
-  min-width: 0;
-}
-
-.mood-gallery--detail .mood-gallery-track::-webkit-scrollbar {
-  display: none;
-}
-
+/* Grow and basis both scale with the image's own ratio, so a row's free space
+   lands on each image in proportion to its width -- which is the width that
+   holds a common height. The ceiling is expressed the same way, so it caps
+   the row's height rather than any one image's width. */
 .mood-gallery--detail .mood-gallery-slide {
-  flex: var(--mood-gallery-grow, 1) 1 var(--mood-gallery-basis, 210px);
+  flex: var(--mood-gallery-grow, 1) 1
+    calc(var(--mood-gallery-grow, 1) * var(--gallery-row));
   width: auto;
-  max-width: min(100%, var(--mood-gallery-max-width, 760px));
-  border-radius: 18px;
+  max-width: min(100%, calc(var(--mood-gallery-grow, 1) * var(--gallery-row-max)));
+  border-radius: 14px;
   scroll-snap-align: unset;
-  box-shadow:
-    0 16px 40px hsl(var(--foreground) / 0.12),
-    0 6px 18px hsl(var(--foreground) / 0.08);
+  /* No drop shadow. Every image already carries a hairline inset, and a pair
+     of soft shadows turned each one into a card floating over the article
+     rather than a pane set into it. */
+  box-shadow: none;
 }
 
 .mood-gallery--detail .mood-gallery-image {
@@ -111,10 +123,17 @@
     width: min(480px, 320px * (var(--mood-gallery-ratio, 4 / 3)));
   }
 
+  .mood-gallery--detail {
+    --gallery-row: 180px;
+    --gallery-row-max: 420px;
+  }
+
+  .mood-gallery--detail .mood-gallery-track {
+    gap: 10px;
+  }
+
   .mood-gallery--detail .mood-gallery-slide {
-    flex-basis: var(--mood-gallery-basis-sm, 260px);
-    max-width: min(100%, var(--mood-gallery-max-width-sm, 760px));
-    border-radius: 20px;
+    border-radius: 16px;
   }
 }
 
@@ -123,21 +142,17 @@
     width: min(560px, 360px * (var(--mood-gallery-ratio, 4 / 3)));
   }
 
+  /* The one place the gallery leaves the reading measure. 880px is what two
+     wide frames fill at this row height, and it stays centred on the same
+     axis as the text above it. */
   .mood-gallery--detail {
+    --gallery-row: 200px;
+    --gallery-row-max: 460px;
     position: relative;
     left: 50%;
-    width: min(calc(100vw - 120px), 1280px);
+    width: min(calc(100vw - 64px), 880px);
     max-width: none;
     margin: 1.75em 0 2em;
     transform: translateX(-50%);
-  }
-
-  .mood-gallery--detail .mood-gallery-track {
-    width: 100%;
-  }
-
-  .mood-gallery--detail .mood-gallery-slide {
-    flex-basis: var(--mood-gallery-basis-lg, 320px);
-    max-width: min(100%, var(--mood-gallery-max-width-lg, 760px));
   }
 }
