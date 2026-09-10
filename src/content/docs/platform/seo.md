@@ -82,6 +82,27 @@ paths; pass the result through the `structuredData` prop of `Layout.astro`.
   the portal all carry `noindex`. `tests/unit/seo-policy.test.ts` pins the
   list, so a new harness that forgets the tag fails CI.
 
+### Legacy host
+
+`blog.buxx.me` is still the Ghost origin: the editor lives at `/ghost` and
+the site reads the Content API from it. Only its public URLs moved. Google
+keeps ranking whichever host answers `200` with a self-canonical, so every
+public Ghost URL has to answer a single `301` to its `buxx.me/blog` twin, and
+the surfaces Ghost needs (`/ghost/*`, `/members/*`, `/p/*`, previews, assets)
+must not.
+
+The redirects are Cloudflare Single Redirect rules on the zone, not code in
+this Worker: the Worker is routed on `buxx.me` and `www.buxx.me` only, and a
+`blog.buxx.me/*` route would put a program in front of the editor. The rules
+match URL shapes — any one-segment root path that is not a Ghost namespace is
+an article — so a new post redirects the day it is published, without a
+per-slug entry. `scripts/legacy-blog-redirects.ts` holds the five rules,
+prints the merged ruleset as a dry run, and writes it with `--apply` using a
+token that carries `Zone > Single Redirect > Edit`.
+`tests/ops/legacy-blog-redirect-health.test.ts` reads every published post
+and page from the Content API and fails when one no longer redirects, when a
+permalink stops being root-level, or when a Ghost surface starts redirecting.
+
 ### Sitemap and robots.txt
 
 `/sitemap.xml` ([`src/pages/sitemap.xml.ts`](https://github.com/bunizao/site/blob/main/src/pages/sitemap.xml.ts))
