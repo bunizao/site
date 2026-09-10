@@ -150,6 +150,7 @@ const articleStructuredData = ogType === 'article'
           height: 128,
         },
       },
+      inLanguage: blog.copy[locale].ogLocale.replace('_', '-'),
       datePublished: publishedTime,
       dateModified: modifiedTime ?? publishedTime,
       ...(articleTags.length > 0 ? { keywords: articleTags } : {}),
