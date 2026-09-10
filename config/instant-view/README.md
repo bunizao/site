@@ -17,6 +17,13 @@ publishing is a manual step in their editor.
 
 So the hash is not optional plumbing: until adoption, it is the entire feature.
 
+**The site no longer emits a link that carries one.** The article share row was
+cut back to copy-link and the native share sheet, so nothing here appends
+`?rhash=`. The template stays version-controlled and stays valid — it applies
+the moment Telegram adopts it domain-wide, and to any link assembled by hand —
+but it is dormant until then. The last hash Telegram issued was
+`4610b224893326`.
+
 ## Publishing loop
 
 1. Open <https://instantview.telegram.org/my> and create (or open) the template
@@ -30,9 +37,8 @@ So the hash is not optional plumbing: until adoption, it is the entire feature.
    A rule that only ever exists in the editor is a rule that gets lost.
 5. Publish, then hit **Get tracking link** and copy the `rhash` out of the URL
    it hands you.
-6. Put that hash in `blog.instantView.rhash` (`src/data/site.ts`) and deploy.
-   The article's Telegram share button is the one link on the site that appends
-   it (`src/features/posts/instant-view.ts`).
+6. Record that hash in the note above. Nothing in the site reads it any more —
+   restoring an rhash-carrying link means restoring a share button too.
 
 Telegram caches an Instant View page per URL. Add `?rhash=…` to a fresh URL, or
 use the editor's preview, when checking a change — an old cached render is not
