@@ -330,14 +330,24 @@ const paletteCss = [
           try {
             const left = new URL(from);
             const right = new URL(location.href);
-            // Parsed, not string-compared: `/blog/x` and `/blog/x/` are one
-            // article, and the *absence* of the parameter — the default locale,
-            // which owns the bare URL — has to compare equal to itself rather
-            // than to every other value.
+            // A version is `/blog/<slug>` or `/blog/<locale>/<slug>`: split the
+            // path into the article and the language in front of it, so a
+            // switch is the same article under a different language. Parsed,
+            // not string-compared: `/blog/x` and `/blog/x/` are one article.
+            const version = (url) => {
+              const match = url.pathname
+                .replace(/\/$/, '')
+                .match(/^\/blog\/(?:([a-z]{2}(?:-[a-z]+)?)\/)?([^/]+)$/i);
+              return match ? { locale: match[1] || '', article: match[2] } : null;
+            };
+            const before = version(left);
+            const after = version(right);
             isSwitch =
               left.origin === right.origin &&
-              left.pathname.replace(/\/$/, '') === right.pathname.replace(/\/$/, '') &&
-              left.searchParams.get('lang') !== right.searchParams.get('lang');
+              before !== null &&
+              after !== null &&
+              before.article === after.article &&
+              before.locale !== after.locale;
           } catch (e) {}
           if (!isSwitch) return;
 
