@@ -28,13 +28,22 @@ if (!archive) {
 
 const { tag, archive: { posts } } = archive;
 const groups = groupPostsByYear(posts);
+// Without a Ghost description, describe the archive by what is actually in
+// it: the count and the two titles that bracket it. Titles are the keywords
+// a search snippet should carry; a templated sentence carries none.
+const byDate = [...posts].sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
+const oldest = byDate[0];
+const latest = byDate[byDate.length - 1];
+const archiveDescription = posts.length === 1
+  ? `「${tag.name}」下目前只有一篇：《${latest.title}》。`
+  : `「${tag.name}」下的 ${posts.length} 篇文字，从《${oldest.title}》到《${latest.title}》。`;
 const otherLanguages = mapOtherLanguages(await getAccessiblePosts({ outputTarget: 'web' }));
 const accent = tag.accentColor ?? 'var(--blog-accent)';
 ---
 
 <BlogLayout
   title={`#${tag.name}`}
-  description={tag.description ?? `無人之境里标为「${tag.name}」的文字。`}
+  description={tag.description ?? archiveDescription}
   path={`/blog/tag/${tag.slug}`}
 >
   <header class="tag-archive__head" style={`--tag-accent:${accent}`}>
