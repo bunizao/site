@@ -90,3 +90,14 @@ INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
 DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
+
+MODIFICATION NOTICE
+
+geist-mono-latin.woff2 and geist-mono-rest.woff2 are subsets of
+geist-mono-variable.woff2 produced with fontTools (pyftsubset) by
+scripts/subset-fonts.py. The weight axis (wght 100-900) is preserved; each file
+carries one half of the original glyph coverage, split on unicode-range so a
+page loads only the half its text falls into (see src/styles/globals.css).
+Together the two cover exactly what the source file covers. The SIL OFL permits
+this modification; the subsets remain under the SIL OFL 1.1 and must not be sold
+on their own.

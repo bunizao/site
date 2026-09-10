@@ -9,20 +9,37 @@ import {
 } from '@/features/mood/server/api-client';
 import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
+import '@/styles/mood-lightbox.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import {
   prioritizeMoodDetailMedia,
+  splitMoodDetailParagraphs,
   renderStructuredMoodDetailContent,
 } from '@/features/mood/shared/detail-content';
 import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
 import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
 import BackToTop from '@/features/mood/ui/BackToTop.astro';
 import { buildMoodDetailMetadata } from '@/features/mood/server/detail-metadata';
-import { readEnv } from '@/lib/runtime/env';
+import { getMoodChannelSlug } from '@/features/mood/server/channel-service';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
+import { resolveRequestLocale } from '@/features/mood/server/locale';
+import type { BlogLocale } from '@/data/site';
 
 export const prerender = false;
+
+// The mood zone used to be English-only markup on a site whose default locale
+// is zh, so a Chinese reader got an English thread beside a Chinese subscribe
+// panel. Both now follow the reader: ?lang, then the blog_lang cookie, then
+// Accept-Language. The page is rendered per request (prerender = false) and
+// says so in Vary, so a shared cache cannot serve one reader's language to
+// another.
+const locale = resolveRequestLocale({
+  query: Astro.url.searchParams.get('lang'),
+  cookie: Astro.request.headers.get('cookie'),
+  acceptLanguage: Astro.request.headers.get('accept-language'),
+}) as BlogLocale;
+Astro.response.headers.append('Vary', 'Accept-Language');
 
 const { id } = Astro.params;
 
@@ -70,7 +87,7 @@ const metadata = buildMoodDetailMetadata(post, id);
 const formattedDate = post ? dayjs(post.datetime).format('MMMM D, YYYY · HH:mm') : '';
 const moodFeedBackHref = getMoodFeedAnchorHref(id ?? '');
 const canonicalPostId = post?.id ?? id ?? '';
-const channel = readEnv(Astro.locals, 'CHANNEL');
+const channel = getMoodChannelSlug(Astro.locals);
 const telegramCommentUrl = channel && canonicalPostId ? `https://t.me/${channel}/${canonicalPostId}?comment=1` : '';
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
@@ -80,7 +97,7 @@ const renderedContent = post
     ? renderStructuredMoodDetailContent(post)
     : renderMoodContentWithGalleries(post.bodyHtml)
   : '';
-const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
+const renderedPostContent = splitMoodDetailParagraphs(prioritizeMoodDetailMedia(renderedContent));
 // Embed styles ship only when the rendered post actually contains one. The
 // css?url modules load via dynamic import so Astro does not hoist them into
 // <head> as unconditional page styles.
@@ -93,6 +110,7 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
 ---
 
 <Layout
+  lang={locale}
   title={metadata.title}
   description={metadata.description}
   image={metadata.image}
@@ -120,10 +138,21 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
       discussionLinked={post?.discussionLinked}
       discussionRepliesEnabled={post?.discussionRepliesEnabled}
       turnstileSiteKey={turnstileSiteKey}
+      locale={locale}
     />
   </main>
   <BackToTop />
 </Layout>
+
+<style is:global>
+  /* The 24px dot grid is site chrome, tuned for pages with structure to sit on.
+     This one is a single 34rem column of somebody's writing, and the dots ran
+     straight through the text, the reaction chip and the compose capsule's
+     hairline. Nothing here needs a ground to be measured against. */
+  body::before {
+    display: none;
+  }
+</style>
 
 <script>
   import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
@@ -131,6 +160,7 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
   import { initMoodCommentCompose } from '@/features/mood/client/detail-compose';
   import { initMoodGalleries } from '@/features/mood/client/gallery';
   import { initMoodImageFrames } from '@/features/mood/client/image-frame';
+  import { initMoodLightbox } from '@/features/mood/client/lightbox';
   import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
   import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 
@@ -179,6 +209,7 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
   if (moodPostContent instanceof HTMLElement) {
     initMoodGalleries(moodPostContent);
     initMoodImageFrames(moodPostContent);
+    initMoodLightbox(moodPostContent);
     hydrateMoodRichText(moodPostContent);
     // Load the embed controllers only when the post actually contains one.
     if (moodPostContent.querySelector('[data-listening]')) {

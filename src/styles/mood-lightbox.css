@@ -1,0 +1,133 @@
+/* The full-size viewer behind the detail gallery. It is deliberately almost
+   nothing:
+   a dark field, the picture, and the two controls you need to leave or move
+   on. Anything else here would be competing with the image. */
+.mood-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  place-items: center;
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  padding: 0;
+  overflow: hidden;
+  color: hsl(0 0% 100%);
+  /* The field is painted on the dialog, not only on ::backdrop: the dialog
+     already fills the viewport, and browsers composite ::backdrop unevenly
+     enough that the page showed through the bottom of the picture. */
+  background: hsl(0 0% 5% / 0.97);
+  border: 0;
+}
+
+.mood-lightbox[open] {
+  display: grid;
+}
+
+.mood-lightbox::backdrop {
+  background: hsl(0 0% 5% / 0.9);
+}
+
+.mood-lightbox-image {
+  display: block;
+  max-width: calc(100vw - 32px);
+  /* Room for the counter without letting it sit on the picture. */
+  max-height: calc(100dvh - 96px);
+  object-fit: contain;
+  border-radius: 6px;
+  animation: mood-lightbox-in 200ms var(--ease, ease-out);
+}
+
+@keyframes mood-lightbox-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+.mood-lightbox-close,
+.mood-lightbox-step {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  background: hsl(0 0% 100% / 0.1);
+  border: 0;
+  border-radius: 999px;
+  transition: background var(--dur-base, 160ms) var(--ease, ease);
+}
+
+.mood-lightbox-close:hover,
+.mood-lightbox-step:hover {
+  background: hsl(0 0% 100% / 0.2);
+}
+
+.mood-lightbox-close:focus-visible,
+.mood-lightbox-step:focus-visible {
+  outline: 2px solid hsl(0 0% 100% / 0.7);
+  outline-offset: 2px;
+}
+
+.mood-lightbox-close {
+  top: 16px;
+  right: 16px;
+  width: 38px;
+  height: 38px;
+}
+
+.mood-lightbox-step {
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translateY(-50%);
+}
+
+.mood-lightbox-step--prev {
+  left: 16px;
+}
+
+.mood-lightbox-step--next {
+  right: 16px;
+}
+
+/* One image has nowhere to step to. */
+.mood-lightbox.is-single .mood-lightbox-step {
+  display: none;
+}
+
+.mood-lightbox-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  margin: 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: hsl(0 0% 100% / 0.6);
+  transform: translateX(-50%);
+}
+
+/* A phone has no room for side controls beside a full-bleed picture, and a
+   swipe is the gesture people already reach for there. */
+@media (max-width: 639px) {
+  .mood-lightbox-step {
+    display: none;
+  }
+
+  .mood-lightbox-image {
+    max-width: 100vw;
+    max-height: calc(100dvh - 72px);
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mood-lightbox-image {
+    animation: none;
+  }
+}

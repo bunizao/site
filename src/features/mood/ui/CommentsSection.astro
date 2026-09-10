@@ -1,5 +1,7 @@
 ---
 import CommentCompose from '@/features/mood/ui/CommentCompose.astro';
+import { resolveMoodCommentsCopy } from '@/features/comments/copy';
+import type { BlogLocale } from '@/data/site';
 
 interface Props {
   postId: string;
@@ -11,6 +13,10 @@ interface Props {
   discussionLinked?: boolean;
   discussionRepliesEnabled?: boolean;
   turnstileSiteKey?: string;
+  /** The page's negotiated language -- see `resolveRequestLocale`. Stamped on
+      the section as `data-locale` so the client controller, which builds the
+      comment rows, reads the same language this markup was rendered in. */
+  locale: BlogLocale;
 }
 
 const {
@@ -19,16 +25,29 @@ const {
   discussionLinked = false,
   discussionRepliesEnabled = false,
   turnstileSiteKey = '',
+  locale,
 } = Astro.props;
+
+const t = resolveMoodCommentsCopy(locale);
 ---
 
 <section
   class="mood-comments"
+  id="comments"
   data-post-id={postId}
+  data-locale={locale}
   data-discussion-replies-enabled={discussionRepliesEnabled ? 'true' : 'false'}
 >
+  {discussionLinked && (
+    <CommentCompose
+      postId={postId}
+      discussionRepliesEnabled={discussionRepliesEnabled}
+      turnstileSiteKey={turnstileSiteKey}
+      locale={locale}
+    />
+  )}
   <div class="mood-comments-header">
-    <span class="mood-comments-title">Comments</span>
+    <span class="mood-comments-title">{t.title}</span>
     <span class="mood-comments-count" data-comments-count></span>
   </div>
   <div class="mood-comments-list" data-comments-list>
@@ -78,67 +97,59 @@ const {
     </div>
   </div>
   <div class="mood-comments-empty" data-comments-empty hidden>
-    <p>No comments here yet...</p>
+    <p>{t.empty}</p>
   </div>
-  <button type="button" class="mood-comments-load-more" data-load-more hidden>
-    Load more comments
-  </button>
-  {/* The route out to the group, last row of the thread. It is the only way
-      to comment while the bridge is off, and stays on above the compose box
-      once it is on -- writing in the group has always been an option and the
-      box does not take it away. It reads as a comment, so it belongs in the
-      stream rather than under the form that ends it. */}
-  {telegramCommentUrl && (
-    <a
-      href={telegramCommentUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      class="mood-comment mood-comment-cta-wrap"
-    >
-      <div class="mood-comment-avatar mood-comment-avatar--telegram"></div>
-      <div class="mood-comment-body">
-        <div class="mood-comment-header">
-          <span class="mood-comment-author">Telegram</span>
-          <span class="mood-comment-date">now</span>
-        </div>
-        <div class="mood-comment-content mood-comment-cta-content">
-          <span>Leave a comment</span>
-          <svg
-            class="mood-comment-cta-arrow"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <line x1="7" y1="17" x2="17" y2="7"></line>
-            <polyline points="7 7 17 7 17 17"></polyline>
-          </svg>
-        </div>
-      </div>
-    </a>
-  )}
-  {discussionLinked && (
-    <CommentCompose
-      postId={postId}
-      discussionRepliesEnabled={discussionRepliesEnabled}
-      turnstileSiteKey={turnstileSiteKey}
-    />
-  )}
+  {/* The thread's foot: the control that continues it, and the route out of
+      it. One tier apart -- the link out of the page is not a peer of the
+      button that loads the rest of this one -- and both on the bubbles' own
+      text axis, so the thread keeps a single left edge to its last line. */}
+  <div class="mood-comments-foot">
+    <button type="button" class="mood-comments-load-more" data-load-more hidden>
+      {t.loadMore}
+    </button>
+    {telegramCommentUrl && (
+      <a
+        href={telegramCommentUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="mood-comment-cta-wrap"
+      >
+        <span class="mood-comment-cta-mark" aria-hidden="true"></span>
+        <span>{t.telegramCta}</span>
+        <svg
+          class="mood-comment-cta-arrow"
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <line x1="7" y1="17" x2="17" y2="7"></line>
+          <polyline points="7 7 17 7 17 17"></polyline>
+        </svg>
+      </a>
+    )}
+  </div>
 </section>
 
 <style is:global>
   .mood-comments {
-    margin-top: 48px;
+    /* No rule above the section. It ran parallel to the compose capsule's own
+       edge a few pixels away, so the two read as one doubled border; space
+       separates the section and the capsule keeps its shape. */
+    margin-top: 40px;
     margin-inline: auto;
     max-width: 34rem;
-    padding-top: 48px;
-    border-top: 1px solid hsl(var(--foreground) / 0.08);
+    /* globals.css pads every `section` from the top; here that padding sat
+       between the heading and nothing, so the section opened with a hole. */
+    padding-top: 0;
     position: relative;
+    /* #comments is how the feed and the popover link into this section. */
+    scroll-margin-top: 72px;
     /* Two sizes, not five. Every comment UI worth copying -- GitHub, Telegram
        Web, Discourse -- gives the name the body's own size and lets weight and
        colour carry the hierarchy, and none of them drops the timestamp more
@@ -166,76 +177,61 @@ const {
       var(--radius-xl);
     --comment-stack-gap: 16px;
 
-    /* Strictly achromatic, like the rest of the surface. The dirt the old
-       values read as was not a missing hue -- it was a flat mid-light slab:
-       6% of black on white is #F0F0F0 over the whole bubble. Dropping the
-       fill and letting the border draw the shape keeps the surface neutral
-       and stops it reading as a grey block. Dark needs the opposite balance,
-       since a 3.5% fill there is invisible against the ground. */
-    --comment-bubble-bg: color-mix(in oklab, hsl(var(--foreground)) 3.5%, hsl(var(--background)));
-    --comment-bubble-border: color-mix(in oklab, hsl(var(--foreground)) 13%, transparent);
+    /* The dirt the old values read as was not a missing hue -- it was a flat
+       mid-light slab: 6% of black on white is #F0F0F0 across the whole
+       bubble, at any tuning. A hairline draws the same shape and leaves the
+       page's own ground behind the text, which is what Card and Input do in
+       every system worth copying. Dark carries a touch more border, since the
+       same alpha reads weaker against a dark ground. */
+    --comment-bubble-bg: transparent;
+    --comment-bubble-border: hsl(var(--foreground) / 0.11);
   }
 
   .dark .mood-comments {
-    --comment-bubble-bg: color-mix(in oklab, hsl(var(--foreground)) 6%, hsl(var(--background)));
-    --comment-bubble-border: color-mix(in oklab, hsl(var(--foreground)) 9%, transparent);
-  }
-
-  .mood-comments::before {
-    content: '';
-    position: absolute;
-    top: -1px;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      hsl(var(--foreground) / 0.15) 50%,
-      transparent 100%
-    );
+    --comment-bubble-border: hsl(var(--foreground) / 0.16);
   }
 
   @media (min-width: 640px) {
     .mood-comments {
-      margin-top: 56px;
-      padding-top: 56px;
+      margin-top: 48px;
       --comment-stack-gap: 18px;
     }
   }
 
   @media (min-width: 1024px) {
     .mood-comments {
-      margin-top: 64px;
-      padding-top: 64px;
+      margin-top: 56px;
     }
   }
 
   .mood-comments-header {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 8px;
-    margin-bottom: 24px;
+    margin: 28px 0 16px;
   }
 
   @media (min-width: 640px) {
     .mood-comments-header {
-      margin-bottom: 28px;
+      margin-bottom: 20px;
     }
   }
 
+  /* A heading in the page's own voice. The uppercase micro-label was chrome
+     for a section that no longer opens with a rule; at the top of a thread
+     the word is content, and it sets the size the count answers to. */
   .mood-comments-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: hsl(var(--muted-foreground) / 0.6);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.008em;
+    line-height: 1.3;
+    color: hsl(var(--foreground));
   }
 
   .mood-comments-count {
-    font-size: 12px;
-    font-weight: 500;
-    color: hsl(var(--muted-foreground) / 0.5);
+    font-size: 15px;
+    color: hsl(var(--muted-foreground) / 0.6);
     font-variant-numeric: tabular-nums;
   }
 
@@ -243,10 +239,10 @@ const {
     display: none;
   }
 
+  /* The gap already separates them; a middot between a word and its own
+     count is punctuation for nothing. */
   .mood-comments-count::before {
-    content: '·';
-    margin-right: 8px;
-    color: hsl(var(--muted-foreground) / 0.3);
+    content: none;
   }
 
   .mood-comments-list {
@@ -299,21 +295,18 @@ const {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: linear-gradient(
-      135deg,
-      hsl(var(--foreground) / 0.12) 0%,
-      hsl(var(--foreground) / 0.06) 100%
-    );
+    /* The ring and the drop shadow existed to lift the avatar off a filled
+       bubble. With the bubble outlined there is nothing to lift off, and a
+       single flat disc sits in the same register as the hairline beside it. */
+    background: hsl(var(--foreground) / 0.06);
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 12px;
     font-weight: 600;
-    color: hsl(var(--foreground) / 0.6);
+    color: hsl(var(--foreground) / 0.55);
     overflow: hidden;
-    border: 1.5px solid hsl(var(--background));
-    box-shadow: 0 1px 4px hsl(var(--foreground) / 0.06);
   }
 
   @media (min-width: 640px) {
@@ -694,9 +687,27 @@ const {
     }
   }
 
+  /* A heading announcing the section and a line under it saying the section
+     is empty say the same thing twice. With no comments the box and the route
+     out are the whole message, so both go. The element stays in the DOM
+     because its hidden state is what tells the section which layout to use. */
   .mood-comments-empty {
-    padding: 24px 0;
-    color: hsl(var(--muted-foreground) / 0.5);
+    display: none;
+  }
+
+  /* An error is not an empty thread. Something was supposed to load and did
+     not, and staying silent about it reads as "nobody has written yet" --
+     the one thing it does not mean. */
+  .mood-comments-empty[data-comments-state='error'] {
+    display: block;
+    padding: 14px 0;
+  }
+
+  .mood-comments:has(
+      [data-comments-empty]:not([hidden]):not([data-comments-state='error'])
+    )
+    .mood-comments-header {
+    display: none;
   }
 
   .mood-comments-empty p {
@@ -705,160 +716,141 @@ const {
     font-size: var(--comment-meta);
   }
 
+  /* The section's own left edge -- the axis the compose box and the heading
+     already sit on. Only the thread is inset, by its avatar column; these two
+     are the section's chrome, and an empty thread leaves the link indented
+     against nothing at all. */
+  .mood-comments-foot {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+    /* Wider than the stack gap above it. Sitting one rung out of the ladder
+       is what says these are not two more comments. */
+    margin-top: 26px;
+  }
+
+  /* Nothing left to load and no group to link to: the gap above would be the
+     only thing left at the bottom of the thread. */
+  .mood-comments-foot:not(:has(> *:not([hidden]))) {
+    display: none;
+  }
+
+  /* Sized to its label, hairline over the page's own ground -- the two rules
+     every bubble above it follows. The full-width gradient slab it replaces
+     was the heaviest object in a thread made of air, and at 14px it was off
+     the section's two-size scale as well. */
   .mood-comments-load-more {
-    display: block;
-    width: 100%;
-    margin-top: 28px;
-    padding: 16px 28px;
-    font-size: 14px;
-    font-weight: 500;
-    color: hsl(var(--foreground) / 0.75);
-    background: linear-gradient(
-      180deg,
-      hsl(var(--foreground) / 0.04) 0%,
-      hsl(var(--foreground) / 0.06) 100%
-    );
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    border-radius: 12px;
-    cursor: pointer;
-    /* opacity is for :disabled, transform for :hover/:active. */
-    transition:
-      color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-      border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-      box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-      transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-      opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 16px;
     font-family: inherit;
-    position: relative;
-    overflow: hidden;
-    box-shadow:
-      0 2px 8px hsl(var(--foreground) / 0.04),
-      0 0 0 1px hsl(var(--foreground) / 0.02);
+    font-size: var(--comment-meta);
+    font-weight: 500;
+    line-height: 1.4;
+    color: hsl(var(--foreground) / 0.62);
+    background: transparent;
+    border: 1px solid var(--comment-bubble-border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition:
+      color var(--dur-base) var(--ease),
+      border-color var(--dur-base) var(--ease);
   }
 
   .mood-comments-load-more[hidden] {
     display: none;
   }
 
-  .mood-comments-load-more::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      135deg,
-      hsl(var(--foreground) / 0.08) 0%,
-      transparent 100%
-    );
-    opacity: 0;
-    transition: opacity 0.25s ease;
-  }
-
   .mood-comments-load-more:hover {
     color: hsl(var(--foreground));
-    border-color: hsl(var(--foreground) / 0.18);
-    box-shadow:
-      0 4px 16px hsl(var(--foreground) / 0.08),
-      0 0 0 1px hsl(var(--foreground) / 0.04);
-    transform: translateY(-1px);
+    border-color: hsl(var(--foreground) / 0.24);
   }
 
-  .mood-comments-load-more:hover::before {
-    opacity: 1;
-  }
-
-  .mood-comments-load-more:active {
-    transform: translateY(0);
+  .mood-comments-load-more:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.4);
+    outline-offset: 2px;
   }
 
   .mood-comments-load-more:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    transform: none;
   }
 
   .mood-comments-load-more:disabled:hover {
-    border-color: hsl(var(--foreground) / 0.12);
-    box-shadow:
-      0 2px 8px hsl(var(--foreground) / 0.04),
-      0 0 0 1px hsl(var(--foreground) / 0.02);
+    color: hsl(var(--foreground) / 0.62);
+    border-color: var(--comment-bubble-border);
   }
 
+  /* The blue pill in a comment's costume is gone. A row shaped like a comment
+     but carrying no author and no message was the wrong object, and the one
+     saturated hue on an achromatic surface made it the loudest thing on the
+     page. What is left is a metadata-tier link -- the tier a route out of the
+     page belongs to -- with the brand mark in its own colours, which is the
+     only place that blue earns its keep. */
   a.mood-comment-cta-wrap {
-    text-decoration: none;
-    color: inherit;
-    cursor: pointer;
-    animation: none;
-    margin-top: var(--comment-stack-gap, 16px);
-  }
-
-  a.mood-comment-cta-wrap .mood-comment-body {
-    transition:
-      background 0.2s ease,
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
-  }
-
-  a.mood-comment-cta-wrap:hover .mood-comment-body {
-    background: linear-gradient(
-      145deg,
-      hsl(var(--foreground) / 0.035) 0%,
-      hsl(200 50% 60% / 0.06) 50%,
-      hsl(var(--foreground) / 0.05) 100%
-    );
-    border-color: hsl(200 40% 50% / 0.15);
-    box-shadow:
-      0 1px 2px hsl(var(--foreground) / 0.04),
-      0 4px 12px hsl(200 60% 50% / 0.08),
-      inset 0 1px 0 hsl(var(--background) / 0.8),
-      inset 0 -1px 0 hsl(var(--foreground) / 0.03);
-  }
-
-  .mood-comment-avatar--telegram {
-    background: url('/telegram-logo.svg') no-repeat center !important;
-    background-size: 91% !important;
-  }
-
-  .mood-comment-cta-content {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
+    font-family: var(--font-sans);
+    font-size: var(--comment-meta);
+    font-weight: 500;
+    line-height: 1.4;
+    color: hsl(var(--muted-foreground));
+    text-decoration: none;
+    transition: color var(--dur-base) var(--ease);
   }
 
-  .mood-comment-cta-content span {
-    color: hsl(var(--foreground) / 0.95);
+  a.mood-comment-cta-wrap:hover {
+    color: hsl(var(--foreground));
+  }
+
+  a.mood-comment-cta-wrap:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.4);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  .mood-comment-cta-mark {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    background: url('/telegram-logo.svg') no-repeat center;
+    background-size: contain;
   }
 
   .mood-comment-cta-arrow {
-    opacity: 0.4;
+    flex-shrink: 0;
+    opacity: 0.55;
     transition:
       opacity var(--dur-base) var(--ease),
       transform var(--dur-base) var(--ease);
-    flex-shrink: 0;
   }
 
   a.mood-comment-cta-wrap:hover .mood-comment-cta-arrow {
-    opacity: 0.7;
+    opacity: 1;
     transform: translate(2px, -2px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    a.mood-comment-cta-wrap:hover .mood-comment-cta-arrow {
+      transform: none;
+    }
   }
 
   @media (max-width: 540px) {
     .mood-comments {
       --comment-stack-gap: 12px;
       margin-top: 32px;
-      padding-top: 32px;
     }
 
     .mood-comments-header {
-      margin-bottom: 16px;
+      margin: 24px 0 14px;
     }
 
-    .mood-comments-title {
-      font-size: 12px;
-      letter-spacing: 0.06em;
-    }
-
+    .mood-comments-title,
     .mood-comments-count {
-      font-size: 11px;
+      font-size: 14px;
     }
 
     .mood-comment {
@@ -869,7 +861,6 @@ const {
       width: 32px;
       height: 32px;
       font-size: 11px;
-      border-width: 1px;
     }
 
     /* Only layout tightens. The type scale does not shrink on a phone --
@@ -900,16 +891,9 @@ const {
       font-size: 13px;
     }
 
-    .mood-comments-load-more {
-      margin-top: 16px;
-      padding: 12px 20px;
-      font-size: 13px;
-      border-radius: 10px;
-    }
-
-    .mood-comment-cta-arrow {
-      width: 12px;
-      height: 12px;
+    .mood-comments-foot {
+      gap: 16px;
+      margin-top: 22px;
     }
   }
 
@@ -917,7 +901,6 @@ const {
     .mood-comments {
       --comment-stack-gap: 10px;
       margin-top: 28px;
-      padding-top: 20px;
     }
 
     .mood-comment {
@@ -928,11 +911,6 @@ const {
       width: 28px;
       height: 28px;
       font-size: 10px;
-    }
-
-    .mood-comments-load-more {
-      padding: 10px 16px;
-      font-size: 13px;
     }
   }
 </style>

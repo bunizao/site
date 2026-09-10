@@ -35,15 +35,19 @@ import {
 } from '@/features/comments/client/turnstile-token';
 import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
-import { commentsCopy } from '@/features/comments/copy';
+import { copyFor } from '@/features/comments/copy';
 import { createCommentReplyQuote, readCommentReplyTarget } from '@/features/mood/shared/comments';
 import { insertOwnComment, type CommentData } from '@/features/mood/client/detail-comments-controller';
 
 const TURNSTILE_ACTION = 'mood_comment_create' as const;
-// Same English table the blog's error/validation copy comes from --
-// data-locale="en" on the compose box is what makes copyFor() resolve to it
-// too, so the two never say the refusal two different ways.
-const t = commentsCopy.en;
+// Same table the blog's error/validation copy comes from -- `data-locale` on
+// the compose box is what makes copyFor() resolve it here too, so the two
+// never say the refusal two different ways. Read per submit rather than at
+// module load: the language belongs to the page, not to the bundle.
+// Narrowed to the contract's own union: anything else is the site's locale,
+// the same rule resolveCommentsCopy applies.
+const readLocale = (box: HTMLElement): 'zh' | 'en' =>
+  box.dataset.locale === 'en' ? 'en' : 'zh';
 
 function readWebsite(box: HTMLElement): string {
   return box.querySelector<HTMLInputElement>('[data-honeypot]')?.value ?? '';
@@ -73,15 +77,90 @@ function hostTurnstileIn(box: HTMLElement): void {
 // into the controller so the two modules stay decoupled either direction.
 // ---------------------------------------------------------------------------
 
+function expandCompose(box: HTMLElement): void {
+  box.querySelector<HTMLElement>('[data-compose-shell]')?.setAttribute('data-open', '');
+}
+
+function collapseCompose(box: HTMLElement): void {
+  box.querySelector<HTMLElement>('[data-compose-shell]')?.removeAttribute('data-open');
+}
+
+/* The capsule grows with the message instead of reserving space for it. The
+   cap keeps a pasted essay from pushing the thread off screen; past it the
+   textarea scrolls like any other. */
+const COMPOSE_FIELD_MAX = 260;
+
+function fitComposeField(field: HTMLTextAreaElement): void {
+  field.style.height = 'auto';
+  field.style.height = `${Math.min(field.scrollHeight, COMPOSE_FIELD_MAX)}px`;
+}
+
+/* The capsule opens on intent and closes again when the reader leaves it
+   empty. It never closes over typed text, and never over an error nobody has
+   read yet -- the held receipt sits outside it either way, so a post stays
+   acknowledged after the frame is gone. */
+/* Plain focus() scrolls the nearest clipped ancestor, and mid-open the reveal
+   is exactly that: its content is taller than its box, so the browser scrolls
+   it ~20px to bring the caret into view. The placeholder then rides that
+   offset until the box grows past it and the scroll clamps back to zero --
+   the jump on every open. The capsule is brought into view here instead,
+   where the page can scroll rather than the clipped box. */
+function focusComposeField(field: HTMLTextAreaElement): void {
+  field.focus({ preventScroll: true });
+  const shell = field.closest<HTMLElement>('[data-compose-shell]');
+  if (!shell) return;
+  const rect = shell.getBoundingClientRect();
+  if (rect.top < 0 || rect.bottom > window.innerHeight) {
+    shell.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+
+function wireComposeShell(box: HTMLElement): void {
+  const shell = box.querySelector<HTMLElement>('[data-compose-shell]');
+  const seed = box.querySelector<HTMLButtonElement>('[data-compose-seed]');
+  const field = box.querySelector<HTMLTextAreaElement>('.blog-compose__field');
+  if (!shell || !seed || !field) return;
+
+  seed.addEventListener('click', () => {
+    expandCompose(box);
+    fitComposeField(field);
+    focusComposeField(field);
+  });
+
+  field.addEventListener('input', () => fitComposeField(field));
+
+  /* Arriving from the feed's comment button. The box opens, but focus stays
+     put -- pulling up a keyboard on a page the reader has not seen yet is
+     not what the tap asked for. */
+  if (window.location.hash === '#comments') expandCompose(box);
+
+  field.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || field.value.trim()) return;
+    collapseCompose(box);
+    seed.focus();
+  });
+
+  shell.addEventListener('focusout', (event) => {
+    const next = event.relatedTarget as Node | null;
+    if (next && shell.contains(next)) return;
+    if (field.value.trim()) return;
+    const alert = box.querySelector<HTMLElement>('[data-compose-error]');
+    if (alert && !alert.hidden) return;
+    collapseCompose(box);
+  });
+}
+
 function armReply(box: HTMLElement, parentId: string, author: string, text: string): void {
   box.dataset.replyTarget = parentId;
+  expandCompose(box);
   const chip = box.querySelector<HTMLElement>('[data-reply-chip]');
   const quoteHost = chip?.querySelector<HTMLElement>('[data-reply-quote]');
   if (!chip || !quoteHost) return;
   const target = readCommentReplyTarget({ id: parentId, author, text });
   quoteHost.replaceChildren(target ? createCommentReplyQuote(target) : document.createTextNode(author));
   chip.hidden = false;
-  box.querySelector<HTMLTextAreaElement>('.blog-compose__field')?.focus();
+  const field = box.querySelector<HTMLTextAreaElement>('.blog-compose__field');
+  if (field) focusComposeField(field);
 }
 
 function disarmReply(box: HTMLElement): void {
@@ -127,7 +206,7 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
     website: readWebsite(box),
     dwellToken: await mintDwellToken(),
     notifyReplies: false,
-    locale: 'en',
+    locale: readLocale(box),
   };
 
   const response = await postJson<CommentCreateResult>('/api/v2/comments', input);
@@ -137,6 +216,7 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
   setSubmitEnabled(box, true);
 
   if (!response.ok) {
+    const t = copyFor(box);
     const failure = describeCommentFailure(response.status, response.slug, t.submitError);
     box.dataset.receipt = 'error';
     const docsHref = commentErrorDocsHref(failure.code);
@@ -252,6 +332,7 @@ export function initMoodCommentCompose(): void {
   const box = document.querySelector<HTMLElement>('[data-mood-compose]');
   if (!box) return;
 
+  wireComposeShell(box);
   wireComposeValidation();
   wireDrafts();
   void mintDwellToken();

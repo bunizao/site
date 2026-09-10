@@ -173,7 +173,8 @@ what happens to a `mood` write next. `turnstileToken` uses a distinct
 `expectedAction` per surface (`blog_comment_create` / `mood_comment_create`),
 everything below Turnstile in the risk stack runs unchanged and shares its
 counters across both surfaces (one person, one budget). `locale` on `mood`
-is always `"en"` — the mood zone has no other language.
+is the language the page negotiated for the reader (`?lang`, then the
+`blog_lang` cookie, then `Accept-Language`), the same as on `blog`.
 
 `body` is 1-2000 characters. `displayName` is 1-32 characters, no control
 characters, can't collide with a small reserved list (the blog owner's own

@@ -9,9 +9,10 @@
    `.blog-compose__field`, `[data-compose-count]`, `[data-compose-error*]`,
    `[data-compose-recommend]`, `[data-compose-submit]`, the `website`
    honeypot -- so compose-validate.ts, drafts.ts, and the risk-stack modules
-   under src/features/comments/client/ work unmodified. `data-locale="en"`
-   is what makes their shared copy table (copy.ts) resolve to English here;
-   the mood zone has no zh variant to keep in sync with it.
+   under src/features/comments/client/ work unmodified. `data-locale` is what
+   makes their shared copy table (copy.ts) resolve here; the page negotiates
+   it and passes it down, so the box speaks the same language as the rest of
+   the page.
 
    What is NOT reused from the blog: the three-phase reader identity
    (anonymous/claimed/ready), reader sessions, and the subscribe nudge. Mood
@@ -22,7 +23,8 @@
    also owns the actual POST -- this component only renders. */
 
 import { ICONS } from '@/features/comments/icons';
-import { moodCommentsCopy } from '@/features/comments/copy';
+import { resolveCommentsCopy, resolveMoodCommentsCopy } from '@/features/comments/copy';
+import type { BlogLocale } from '@/data/site';
 
 interface Props {
   postId: string;
@@ -35,15 +37,22 @@ interface Props {
       src/lib/turnstile-site-key.ts. Empty on the e2e fixture path, which
       skips Turnstile entirely (see turnstile-token.ts). */
   turnstileSiteKey?: string;
+  /** The page's negotiated language -- see `resolveRequestLocale`. */
+  locale: BlogLocale;
 }
 
 const {
   postId,
   discussionRepliesEnabled = false,
   turnstileSiteKey = '',
+  locale,
 } = Astro.props;
 
-const t = moodCommentsCopy;
+const t = resolveMoodCommentsCopy(locale);
+// The field labels, placeholders and the email nudge are the blog's, not this
+// surface's -- the box borrows its markup from there, so it borrows the words
+// with it rather than keeping a second near-identical copy of them.
+const shared = resolveCommentsCopy(locale);
 ---
 
 <div
@@ -51,39 +60,49 @@ const t = moodCommentsCopy;
   data-mood-compose
   data-phase="anonymous"
   data-receipt="idle"
-  data-locale="en"
+  data-locale={locale}
   data-post-id={postId}
   data-discussion-replies-enabled={discussionRepliesEnabled ? 'true' : 'false'}
   data-turnstile-site-key={turnstileSiteKey}
 >
+  {/* Collapsed, the box is a dashed capsule the width of the thread: the
+      shape says "nothing here yet, put something in". Opening it turns the
+      dashes solid and squares the corners, because it is an input now, not an
+      invitation. The seed button and the textarea share one text origin, so
+      the placeholder appears to stay put while the frame grows around it. */}
+  <div class="mood-compose-shell" data-compose-shell>
+    <button type="button" class="mood-compose-seed" data-compose-seed>{shared.bodyPlaceholder}</button>
+    <div class="mood-compose-reveal">
+      <div class="mood-compose-reveal__in">
   <p class="mood-compose__alert" data-compose-error role="alert" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.circleAlert} />
     <span data-compose-error-text></span>
     <code class="mood-compose__code" data-compose-error-code hidden></code>
   </p>
 
-  <div class="mood-compose__box">
-    {/* Quote of the comment a reply is aimed at, with a way out of it. Empty
-        and hidden until detail-compose.ts's Reply-button delegation fills it
-        in -- see readCommentReplyTarget / createCommentReplyQuote, the same
-        helpers the rendered thread itself uses for reply-to quotes. Inside
-        the box, not stacked above it: what you are answering is part of what
-        you are writing, and two bordered rectangles said that once each. */}
-    <div class="mood-compose__reply" data-reply-chip hidden>
-      <div class="mood-compose__reply-quote" data-reply-quote></div>
-      <button
-        type="button"
-        class="mood-compose__reply-dismiss"
-        data-reply-dismiss
-        aria-label={t.cancelReplyAria}
-        title={t.cancelReply}
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.x} />
-      </button>
-    </div>
+  {/* Quote of the comment a reply is aimed at, with a way out of it. Empty
+      and hidden until detail-compose.ts's Reply-button delegation fills it
+      in -- see readCommentReplyTarget / createCommentReplyQuote, the same
+      helpers the rendered thread itself uses for reply-to quotes. It sits
+      above the box rather than inside it: the box lays its rows out by named
+      grid area, and this has none. Losing its own border is what stops it
+      reading as a second card. */}
+  <div class="mood-compose__reply" data-reply-chip hidden>
+    <div class="mood-compose__reply-quote" data-reply-quote></div>
+    <button
+      type="button"
+      class="mood-compose__reply-dismiss"
+      data-reply-dismiss
+      aria-label={t.cancelReplyAria}
+      title={t.cancelReply}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.x} />
+    </button>
+  </div>
 
+  <div class="mood-compose__box">
     <div class="mood-compose__identity" id="mood-compose-id" data-compose-identity>
-      <label class="sr-only" for="mood-compose-name">Name</label>
+      <label class="sr-only" for="mood-compose-name">{shared.nameLabel}</label>
       <input
         id="mood-compose-name"
         class="blog-compose__input mood-compose__input"
@@ -94,10 +113,10 @@ const t = moodCommentsCopy;
         autocorrect="off"
         spellcheck="false"
         enterkeyhint="next"
-        placeholder="Name"
+        placeholder={shared.namePlaceholder}
         required
       />
-      <label class="sr-only" for="mood-compose-email">Email</label>
+      <label class="sr-only" for="mood-compose-email">{shared.emailLabel}</label>
       <input
         id="mood-compose-email"
         class="blog-compose__input mood-compose__input"
@@ -107,7 +126,7 @@ const t = moodCommentsCopy;
         autocorrect="off"
         spellcheck="false"
         enterkeyhint="next"
-        placeholder="Email (optional)"
+        placeholder={shared.emailPlaceholder}
       />
 
       {/* Honeypot -- risk stack step 3, same shape as IdentityRow.astro's.
@@ -126,16 +145,16 @@ const t = moodCommentsCopy;
 
     <p class="mood-compose__recommend" data-compose-recommend aria-live="polite" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.mail} />
-      A verified email means cross-device edits; to skip it, just press send again.
+      {shared.emailRecommend}
     </p>
 
-    <label class="sr-only" for="mood-compose-text">Write a comment</label>
+    <label class="sr-only" for="mood-compose-text">{shared.bodyLabel}</label>
     <textarea
       id="mood-compose-text"
       class="blog-compose__field mood-compose__field"
       name="comment"
-      rows="3"
-      placeholder="Say something…"
+      rows="1"
+      placeholder={shared.bodyPlaceholder}
     ></textarea>
 
     <div class="mood-compose__bar">
@@ -155,31 +174,204 @@ const t = moodCommentsCopy;
   {/* Collapsed to nothing until Cloudflare actually asks for an interactive
       challenge -- see turnstile-token.ts. */}
   <div class="mood-compose__turnstile" data-turnstile-host></div>
+      </div>
+    </div>
+  </div>
 
   {/* Posted, but held for review -- not inserted into the thread. Cleared
       the moment the reader starts a new comment (detail-compose.ts). */}
   <p class="mood-compose__held" data-compose-held role="status" hidden>{t.held}</p>
 
-  <p class="mood-compose__disclosure">{t.disclosure}</p>
+  <p class="mood-compose__disclosure" data-compose-disclosure>{t.disclosure}</p>
 </div>
 
 <style is:global>
   .mood-compose {
-    margin-top: var(--comment-stack-gap, 16px);
     font-family: var(--font-sans);
+    --compose-ease: cubic-bezier(0.2, 0, 0, 1);
 
     /* Every control in this box reads its size from these two, and nothing
        else does. See the coarse-pointer block at the bottom of this file for
        why they exist at all. */
-    --compose-body: var(--comment-body, 15px);
-    --compose-meta: var(--comment-meta, 13px);
+    --compose-body: 16px;
+    --compose-meta: 13.5px;
+  }
+
+  /* ---- the capsule ----------------------------------------------------
+     Concentric radius: the open frame's 18px outer, minus the 10px the
+     inputs sit above the bottom edge, leaves 8px of visual inner radius.
+     Enter and exit are not the same gesture -- opening is a reveal, closing
+     is a dismissal -- so the close runs at ~0.7x and the seed waits for the
+     field to clear before fading back in, or both placeholders read at
+     once. */
+  .mood-compose-shell {
+    position: relative;
+    /* The closed height lives here, under the reveal, not in a collapsing row
+       above it. A row above pushed the whole capsule down by its own height,
+       so the field's placeholder slid 44px up through the open while the
+       seed's identical placeholder sat still -- the label appeared to jump.
+       As padding it comes off the bottom, the reveal keeps the top edge, and
+       the two placeholders occupy the same 25px the whole way.
+
+       48, not 44: the field's 12px top padding is fixed by the open box, and
+       the seed has to sit on that exact line or the two placeholders trade
+       places two pixels apart. 12 above a 24px line leaves 12 below only if
+       the closed box is 48 tall, so the capsule is sized to the centring
+       rather than the label nudged off the field's origin. */
+    padding-bottom: 48px;
+    background: none;
+    border: 1px dashed hsl(var(--foreground) / 0.18);
+    /* 25px, not 999px: half the closed box, so it reads as a true pill. A 999px
+       radius is clamped to half the box, so through most of the open it stays
+       pinned at fully-round and only becomes a real number in the last few
+       frames -- the corner sits still, then snaps square. Two radii that are
+       both smaller than half the box interpolate the whole way. */
+    border-radius: 25px;
+    transition:
+      padding-bottom 0.22s var(--compose-ease),
+      border-radius 0.22s var(--compose-ease),
+      border-color 0.18s var(--compose-ease);
+  }
+
+  .mood-compose-shell:hover {
+    border-color: hsl(var(--foreground) / 0.32);
+  }
+
+  /* A dashed line is only half a line: at the same alpha it reads weaker than
+     the solid bubbles beside it, and a dark ground eats what is left. The one
+     invitation on the page should not be its faintest mark. */
+  .dark .mood-compose-shell {
+    border-color: hsl(var(--foreground) / 0.26);
+  }
+
+  .dark .mood-compose-shell:hover {
+    border-color: hsl(var(--foreground) / 0.42);
+  }
+
+  .mood-compose-shell[data-open] {
+    border-style: solid;
+    border-color: hsl(var(--foreground) / 0.14);
+    padding-bottom: 0;
+    border-radius: 18px;
+    transition-duration: 0.28s, 0.28s, 0.18s;
+  }
+
+  /* The two cells are one control, so focus firms the whole frame rather than
+     one cell -- the same move .blog-compose__box makes. No halo behind it: a
+     3px ring at 6% is too faint to read as a ring and too wide to read as an
+     edge, so on a box that is focused the entire time it is open it just
+     looked like the border had been printed twice. */
+  .mood-compose-shell[data-open]:focus-within {
+    border-color: hsl(var(--foreground) / 0.34);
+  }
+
+  .dark .mood-compose-shell[data-open]:focus-within {
+    border-color: hsl(var(--foreground) / 0.46);
+  }
+
+  /* Out of flow and pinned to the top edge, so it never moves while the box
+     grows underneath it. Its type and its first line sit exactly where the
+     field's do -- same size, same 18px inset, same 12px above the line -- so
+     the two placeholders cross-fade in place instead of handing off across a
+     gap. */
+  .mood-compose-seed {
+    all: unset;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    box-sizing: border-box;
+    display: block;
+    /* No height: a button centres its content in whatever height it is given,
+       which pulled the label off the field's line by half the slack. Let the
+       padding and the line box add up to the closed 48 instead, and the two
+       origins are the same declaration. */
+    padding: 12px 18px;
+    border-radius: inherit;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 24px;
+    color: hsl(var(--muted-foreground) / 0.72);
+    cursor: text;
+    transition: opacity 0.16s var(--compose-ease) 0.12s;
+  }
+
+  .mood-compose-seed:focus-visible {
+    outline: 2px solid hsl(var(--foreground) / 0.4);
+    outline-offset: 2px;
+  }
+
+  .mood-compose-shell[data-open] .mood-compose-seed {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s var(--compose-ease);
+  }
+
+  /* 0fr -> 1fr, so the height animation stays interruptible. */
+  .mood-compose-reveal {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.22s var(--compose-ease);
+  }
+
+  .mood-compose-shell[data-open] .mood-compose-reveal {
+    grid-template-rows: 1fr;
+    transition-duration: 0.28s;
+  }
+
+  .mood-compose-reveal__in {
+    overflow: hidden;
+    min-height: 0;
+    visibility: hidden;
+    transition: visibility 0s 0.22s;
+  }
+
+  .mood-compose-shell[data-open] .mood-compose-reveal__in {
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  /* Staged entrance: the field arrives first, the identity row about 80ms
+     behind it. The exit runs unstaggered and quicker. */
+  .mood-compose__identity,
+  .mood-compose__bar {
+    opacity: 0;
+    translate: 0 -4px;
+    transition:
+      opacity 0.12s var(--compose-ease),
+      translate 0.12s var(--compose-ease);
+  }
+
+  /* The seed's label and the field's placeholder are the same words at the
+     same inset, so they cross-fade rather than hand off: with the field
+     waiting on a delay the capsule went blank in the middle of the open. It
+     gets no slide either, unlike the rows below it -- an offset on text that
+     is already on screen under the seed reads as the words nudging
+     themselves, not as an entrance. */
+  .mood-compose__field {
+    opacity: 0;
+    transition: opacity 0.12s var(--compose-ease);
+  }
+
+  .mood-compose-shell[data-open] .mood-compose__field {
+    opacity: 1;
+    transition-duration: 0.16s;
+  }
+
+  .mood-compose-shell[data-open] .mood-compose__identity,
+  .mood-compose-shell[data-open] .mood-compose__bar {
+    opacity: 1;
+    translate: none;
+    transition:
+      opacity 0.2s var(--compose-ease) 0.14s,
+      translate 0.2s var(--compose-ease) 0.14s;
   }
 
   .mood-compose__alert {
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    margin: 0 0 10px;
+    margin: 12px 18px 0;
     padding: 9px 12px;
     font-size: 13px;
     line-height: 1.4;
@@ -211,7 +403,7 @@ const t = moodCommentsCopy;
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    margin-bottom: 10px;
+    margin: 12px 18px 0;
   }
 
   .mood-compose__reply-quote {
@@ -287,26 +479,41 @@ const t = moodCommentsCopy;
   /* Opaque, like the bubbles above it. An alpha fill let the page's dot grid
      read straight through the form, which made it look unfinished next to
      rows that sit on a solid surface. */
+  /* The shell owns the frame, so the box draws none of its own. Bordered
+     inputs inside a bordered box read as a box in a box; one frame with
+     internal rules is the same information with one less edge. The grid puts
+     the message above the identity row whatever order the markup needs. */
   .mood-compose__box {
-    background: var(--comment-bubble-bg, hsl(var(--background)));
-    border: 1px solid var(--comment-bubble-border, hsl(var(--foreground) / 0.08));
-    border-radius: var(--comment-body-radius, 12px);
-    /* The bubble's own rungs: the form is one more row in the thread. */
-    padding: var(--comment-body-padding, 10px 16px);
-    transition:
-      border-color var(--dur-fast) var(--ease),
-      box-shadow var(--dur-fast) var(--ease);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'text text'
+      'note note'
+      'ident bar';
+    align-items: stretch;
+    column-gap: 0;
+    padding: 0;
+    overflow: hidden;
+    background: none;
+    border: 0;
+    border-radius: 18px;
+    --compose-rule: 1px solid hsl(var(--foreground) / 0.09);
   }
 
-  .mood-compose__box:has(:focus-visible) {
-    border-color: hsl(var(--foreground) / 0.25);
-    box-shadow: 0 0 0 3px hsl(var(--foreground) / 0.06);
+  .mood-compose__field {
+    grid-area: text;
+  }
+
+  .mood-compose__recommend {
+    grid-area: note;
   }
 
   .mood-compose__identity {
+    grid-area: ident;
     display: flex;
-    gap: 14px;
-    margin-bottom: 10px;
+    gap: 0;
+    margin: 0;
+    border-top: var(--compose-rule);
   }
 
   /* Two rules, not two boxes. A rounded, bordered field inside a rounded,
@@ -318,20 +525,18 @@ const t = moodCommentsCopy;
      A handle is short and an address is not: 38.2 / 61.8 of the row, the
      split the blog settled on. */
   .mood-compose__input {
-    flex: 0 1 38.2%;
     min-width: 0;
-    padding: 8px 0;
+    height: 46px;
+    padding: 0 14px;
     font-size: var(--compose-meta);
     font-family: inherit;
     color: hsl(var(--foreground));
     background: none;
     border: 0;
-    border-bottom: 1px solid hsl(var(--foreground) / 0.14);
     border-radius: 0;
   }
 
-  .mood-compose__input[type='email'] {
-    flex: 0 1 61.8%;
+  #mood-compose-name {
   }
 
   .mood-compose__input::placeholder {
@@ -343,7 +548,6 @@ const t = moodCommentsCopy;
      state uses, one step quieter. */
   .mood-compose__input:focus {
     outline: none;
-    border-bottom-color: hsl(var(--foreground) / 0.45);
   }
 
   .mood-compose__input[aria-invalid='true'] {
@@ -354,7 +558,7 @@ const t = moodCommentsCopy;
     display: flex;
     align-items: flex-start;
     gap: 6px;
-    margin: 0 0 8px;
+    margin: 0 18px 10px;
     font-size: 12px;
     line-height: 1.4;
     color: hsl(140 45% 38%);
@@ -367,19 +571,29 @@ const t = moodCommentsCopy;
     margin-top: 1px;
   }
 
+  /* The 18px inset matches the seed's, so the placeholder does not move
+     when the capsule opens. */
   .mood-compose__field {
     display: block;
     width: 100%;
-    /* Flush with the two fields above it: one left edge down the box. */
-    padding: 8px 0 4px;
-    font-size: var(--compose-body);
-    line-height: var(--comment-lead, 1.65);
+
     font-family: inherit;
     color: hsl(var(--foreground));
     background: transparent;
     border: none;
-    resize: vertical;
-    min-height: 3.6em;
+    resize: none;
+    overflow: hidden;
+    /* Writing the comment is the only reason this box exists; the name and
+       email are furniture you fill once. Matching their 46px row said the
+       three were equal and turned the capsule into a two-cell table, so the
+       proportion carries the hierarchy instead: two lines of writing room
+       against their one, and 16px type against their 13.5px. Two lines, not
+       three -- three reserved space for a comment nobody has written, and
+       detail-compose.ts grows the box as one arrives. */
+    font-size: var(--compose-body);
+    line-height: 24px;
+    padding: 12px 18px;
+    min-height: 72px;
   }
 
   .mood-compose__field:focus {
@@ -391,11 +605,14 @@ const t = moodCommentsCopy;
   }
 
   .mood-compose__bar {
+    grid-area: bar;
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
-    margin-top: 4px;
+    margin: 0;
+    padding: 0 9px 0 12px;
+    border-top: var(--compose-rule);
   }
 
   .mood-compose__count {
@@ -423,8 +640,8 @@ const t = moodCommentsCopy;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     padding: 0;
     color: hsl(var(--background));
     background: hsl(var(--foreground));
@@ -432,7 +649,7 @@ const t = moodCommentsCopy;
     border-radius: 50%;
     cursor: pointer;
     touch-action: manipulation;
-    transition: opacity 0.15s ease, transform 0.15s ease;
+    transition: opacity 0.15s ease, scale 0.15s ease;
   }
 
   .mood-compose__submit:hover {
@@ -440,7 +657,7 @@ const t = moodCommentsCopy;
   }
 
   .mood-compose__submit:active {
-    transform: scale(0.94);
+    scale: 0.96;
   }
 
   .mood-compose__submit:disabled {
@@ -453,12 +670,27 @@ const t = moodCommentsCopy;
     height: 15px;
   }
 
-  .mood-compose__turnstile:not(:empty) {
-    margin-top: 10px;
+  /* The host is never :empty -- turnstile-token.ts drops a wrapper div in on
+     load -- so that guard reserved 12px under a zero-height box and the
+     capsule opened with a gap along its bottom edge. The challenge only takes
+     room once it is interactive, and so does the space under it. */
+  .mood-compose__turnstile[data-turnstile-interactive] {
+    margin: 0 18px 12px;
+  }
+
+  .mood-compose__held:not([hidden]) {
+    animation: mood-compose-receipt-in 0.24s var(--compose-ease) both;
+  }
+
+  @keyframes mood-compose-receipt-in {
+    from {
+      opacity: 0;
+      translate: 0 -6px;
+    }
   }
 
   .mood-compose__held {
-    margin: 10px 0 0;
+    margin: 8px 2px 0;
     padding: 8px 12px;
     font-size: 12.5px;
     color: hsl(38 80% 40%);
@@ -467,11 +699,59 @@ const t = moodCommentsCopy;
     border-radius: 8px;
   }
 
+  /* Content leaving for a third party is not fine print, but it is a caption
+     about the send rather than a field, so it waits until the box is open. */
   .mood-compose__disclosure {
-    margin: 8px 0 0;
-    font-size: 11px;
-    line-height: 1.4;
-    color: hsl(var(--muted-foreground) / 0.55);
+    margin: 10px 2px 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  .mood-compose-shell:not([data-open]) ~ .mood-compose__disclosure {
+    display: none;
+  }
+
+  /* --- Touch screens -------------------------------------------------- */
+
+  /* iOS Safari zooms the whole page the moment a focused form control is
+     under 16px, and with the keyboard up there is no gesture that zooms back
+     out: you finish the comment on a page 30% too big, scrolled somewhere you
+     did not choose. So the controls take a 16px floor, and the identity row
+     gives up being one step under the message it belongs to.
+
+     Gated on the device, not the viewport. An iPad in a wide split view is a
+     touch screen at 900px, and the owner reads this surface on one.
+
+     The capsule's rows are already 46px and its field 72px, so the ~44pt
+     targets HIG asks for only leave the send button to fix. */
+  @media (any-pointer: coarse) {
+    .mood-compose {
+      --compose-meta: 16px;
+    }
+
+    /* The button keeps its 32px circle and grows the target around it, the
+       way the reply dismiss does. */
+    .mood-compose__submit::after {
+      content: '';
+      position: absolute;
+      inset: -7px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mood-compose-shell,
+    .mood-compose-seed,
+    .mood-compose-reveal,
+    .mood-compose__field,
+    .mood-compose__identity,
+    .mood-compose__bar {
+      transition: none !important;
+    }
+
+    .mood-compose__held:not([hidden]) {
+      animation: none !important;
+    }
   }
 
   /* Sits in .mood-comment-footer beside the reactions, so no top margin of

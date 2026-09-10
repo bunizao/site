@@ -133,6 +133,30 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
     const scroll = pageScroll();
     button.hidden = false;
 
+    /* The detail page's comment thread is a full-bleed column on a phone: at
+       390px it spans x 16-374, and this control sits at x 330-374 -- exactly
+       over the thread's own right-edge controls. The compose box's 32px send
+       button lands entirely underneath it, so the reader cannot post.
+       There is no horizontal room to dodge into, so the control steps aside
+       while the thread is on screen instead. It only has to do that while the
+       column is full-bleed: the column is 34rem plus 16px gutters, and this
+       control needs 44px plus a 16px gap on either side of it, so the two stop
+       overlapping once the viewport passes 2 x (272 + 16 + 44 + 16) = 696px.
+       Above that the control sits in the page margin and stays put. */
+    const comments = document.querySelector('.mood-comments');
+    const narrow = window.matchMedia('(max-width: 700px)');
+
+    /* True while thread content sits in the band this control occupies. The
+       band is measured off the control itself, so the clamp() and the safe
+       area stay the single source of truth for where it lives. */
+    const blockedByComments = (): boolean => {
+      if (!comments || !narrow.matches) return false;
+      const inset = parseFloat(getComputedStyle(button).bottom) || 0;
+      const bandTop = window.innerHeight - inset - button.offsetHeight - 12;
+      const rect = comments.getBoundingClientRect();
+      return rect.top < window.innerHeight && rect.bottom > bandTop;
+    };
+
     // Fold the control away while reading forward (scrolling down) and unfold it
     // when the reader scrolls back up past the first screen — the moment a jump
     // to the top is most likely wanted.
@@ -146,7 +170,10 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
         dir = dy < 0 ? 'up' : 'down';
         anchorY = y;
       }
-      button.classList.toggle('is-visible', dir === 'up' && y > threshold);
+      button.classList.toggle(
+        'is-visible',
+        dir === 'up' && y > threshold && !blockedByComments(),
+      );
       ticking = false;
     };
 
@@ -166,6 +193,8 @@ const { threshold = 600, hideOnDesktop = false } = Astro.props;
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       scroll.el.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     });
+
+    narrow.addEventListener('change', sync);
 
     scroll.events.addEventListener('scroll', onScroll, { passive: true });
     sync();

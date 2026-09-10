@@ -275,6 +275,19 @@ function getEnv(env: ImportMetaEnv, Astro: any, name: string): string {
   return readRuntimeEnv(Astro.locals, name, env);
 }
 
+/* The v1 read path talks to t.me directly, and the slug is the whole address.
+   `astro dev` has no Worker env, and a fresh worktree carries no .env.local, so
+   CHANNEL comes back empty and every read asks for `https://t.me/s/` -- a 3s
+   round-trip that ends in a 404 page. The slug is public (it is already the
+   fallback in api-client), so dev fills it in and the live source works out of
+   the box. A build never sees it. */
+const DEV_CHANNEL_FALLBACK = 'tutumood';
+
+export function readChannelSlug(locals?: any): string {
+  return readRuntimeEnv(locals, 'CHANNEL', import.meta.env)
+    || (import.meta.env.DEV ? DEV_CHANNEL_FALLBACK : '');
+}
+
 const telegramHeaderAllowList = [
   'accept',
   'accept-language',
@@ -391,7 +404,7 @@ export async function getTelegramPostFallbackInfo(
   hasVisibleText: boolean;
 }> {
   const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') || 't.me';
-  const channel = getEnv(import.meta.env, Astro, 'CHANNEL');
+  const channel = readChannelSlug(Astro.locals);
   const headers = buildTelegramRequestHeaders(Astro.request);
 
   if (!channel || !postId) {
@@ -1768,7 +1781,7 @@ export async function getPostComments(
   { postId, before = '' }: { postId: string; before?: string }
 ): Promise<{ comments: Comment[]; hasMore: boolean; nextBefore?: string }> {
   const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') || 't.me';
-  const channel = getEnv(import.meta.env, Astro, 'CHANNEL');
+  const channel = readChannelSlug(Astro.locals);
   const staticProxy = '/static/';
 
   // Telegram exposes comments via the discussion embed endpoint
@@ -1846,7 +1859,7 @@ export async function getChannelInfo(
   }
 
   const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') || 't.me';
-  const channel = getEnv(import.meta.env, Astro, 'CHANNEL');
+  const channel = readChannelSlug(Astro.locals);
   const hdImageBase = normalizeMoodImageBase(getEnv(import.meta.env, Astro, 'PUBLIC_HD_IMAGE_URL'));
   // Always use local static proxy for Telegram media
   const staticProxy = '/static/';

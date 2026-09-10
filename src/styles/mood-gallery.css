@@ -32,7 +32,7 @@
   overflow: hidden;
 }
 
-.mood-gallery--feed .mood-gallery-slide {
+:is(.mood-gallery--feed, .mood-gallery--detail) .mood-gallery-slide {
   border-radius: 20px;
   /* The slide sizes to fit-content, which measures 0px until the deferred image
      decodes, so every feed gallery collapsed and then popped open as it scrolled
@@ -51,7 +51,7 @@
   box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
 }
 
-.mood-gallery--feed .mood-gallery-image {
+:is(.mood-gallery--feed, .mood-gallery--detail) .mood-gallery-image {
   width: 100%;
   height: 100%;
   max-width: none;
@@ -59,47 +59,24 @@
   object-fit: contain;
 }
 
+/* The detail gallery is the feed's gallery: one row, swiped sideways, each
+   image whole. It had been a block of its own -- justified, then a square
+   mosaic -- and both made the article stop and stare at its own pictures. The
+   feed already had the answer, so the two variants share every rule about size
+   and shape; the only thing detail adds is that its images open full size. */
 .mood-gallery--detail {
-  margin: 1.5em 0;
-}
-
-.mood-gallery--detail .mood-gallery-track {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  overflow: visible;
-  scroll-snap-type: none;
-  scrollbar-width: auto;
-  padding: 0;
-}
-
-.mood-gallery--detail .mood-gallery-track::after {
-  content: '';
-  flex: 999999 1 0;
-  min-width: 0;
-}
-
-.mood-gallery--detail .mood-gallery-track::-webkit-scrollbar {
-  display: none;
+  margin: 2em 0;
 }
 
 .mood-gallery--detail .mood-gallery-slide {
-  flex: var(--mood-gallery-grow, 1) 1 var(--mood-gallery-basis, 210px);
-  width: auto;
-  max-width: min(100%, var(--mood-gallery-max-width, 760px));
-  border-radius: 18px;
-  scroll-snap-align: unset;
-  box-shadow:
-    0 16px 40px hsl(var(--foreground) / 0.12),
-    0 6px 18px hsl(var(--foreground) / 0.08);
+  /* Never wider than the column it is read in. */
+  max-width: min(100%, 84vw, 760px);
+  cursor: zoom-in;
 }
 
-.mood-gallery--detail .mood-gallery-image {
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  object-fit: cover;
+.mood-gallery--detail .mood-gallery-slide:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.6);
+  outline-offset: 2px;
 }
 
 @media (min-width: 640px) {
@@ -107,37 +84,17 @@
     gap: 12px;
   }
 
-  .mood-gallery--feed .mood-gallery-slide {
+  :is(.mood-gallery--feed, .mood-gallery--detail) .mood-gallery-slide {
     width: min(480px, 320px * (var(--mood-gallery-ratio, 4 / 3)));
-  }
-
-  .mood-gallery--detail .mood-gallery-slide {
-    flex-basis: var(--mood-gallery-basis-sm, 260px);
-    max-width: min(100%, var(--mood-gallery-max-width-sm, 760px));
-    border-radius: 20px;
   }
 }
 
+/* The feed's widest tier is feed-only: the article's column is 34rem, and a
+   560px slide in it is a slide with its right edge cut off. Detail stays at
+   the tier below, which leaves the next image showing at the margin -- the
+   only thing that says the row moves. */
 @media (min-width: 1024px) {
   .mood-gallery--feed .mood-gallery-slide {
     width: min(560px, 360px * (var(--mood-gallery-ratio, 4 / 3)));
-  }
-
-  .mood-gallery--detail {
-    position: relative;
-    left: 50%;
-    width: min(calc(100vw - 120px), 1280px);
-    max-width: none;
-    margin: 1.75em 0 2em;
-    transform: translateX(-50%);
-  }
-
-  .mood-gallery--detail .mood-gallery-track {
-    width: 100%;
-  }
-
-  .mood-gallery--detail .mood-gallery-slide {
-    flex-basis: var(--mood-gallery-basis-lg, 320px);
-    max-width: min(100%, var(--mood-gallery-max-width-lg, 760px));
   }
 }

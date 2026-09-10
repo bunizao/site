@@ -87,7 +87,7 @@ export function renderMoodGalleryMarkup(
         .join(' ');
 
       return [
-        `<div class="mood-gallery-slide mood-image-frame${frameClass}${layoutClass}" data-mood-gallery-slide data-mood-image-frame data-gallery-index="${index}" data-aspect-ratio="${escapeHtml(String(aspectRatio))}" style="--mood-gallery-ratio:${escapeHtml(ratio.css)};--mood-image-ratio:${escapeHtml(ratio.css)};--mood-gallery-grow:${formatCssNumber(ratio.value)};--mood-gallery-basis:${formatCssNumber(ratio.value * 160)}px;--mood-gallery-basis-sm:${formatCssNumber(ratio.value * 260)}px;--mood-gallery-basis-lg:${formatCssNumber(ratio.value * 320)}px;--mood-gallery-max-width:${formatCssNumber(Math.min(760, ratio.value * 210))}px;--mood-gallery-max-width-sm:${formatCssNumber(Math.min(760, ratio.value * 420))}px;--mood-gallery-max-width-lg:${formatCssNumber(Math.min(760, ratio.value * 420))}px;">`,
+        `<div class="mood-gallery-slide mood-image-frame${frameClass}${layoutClass}" data-mood-gallery-slide data-mood-image-frame data-gallery-index="${index}" data-aspect-ratio="${escapeHtml(String(aspectRatio))}" style="--mood-gallery-ratio:${escapeHtml(ratio.css)};--mood-image-ratio:${escapeHtml(ratio.css)};--mood-gallery-grow:${formatCssNumber(ratio.value)};">`,
         placeholderSrc
           ? `<img class="mood-image-blur" src="${escapeHtml(placeholderSrc)}" alt="" aria-hidden="true" loading="${priority && index === 0 ? 'eager' : 'lazy'}" decoding="async" />`
           : '',

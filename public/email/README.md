@@ -1,6 +1,6 @@
-# Blog email masthead assets
+# Email raster assets
 
-Raster masthead pieces for the 無人之境 blog emails (newsletter + welcome).
+Raster art for the mail templates in `../../../site-api`.
 Email clients (Gmail, Outlook, Android) strip `@font-face` and inline SVG, so the
 WenKai brush wordmark and the thinking-woman mark ship as static PNGs instead of
 live text or SVG.
@@ -11,11 +11,14 @@ Files (transparent, 2x):
 - `wordmark-dark.png` — same glyphs in `#fafafa` (dark card)
 - `mark-light.png` — thinking-woman mark, black art (white card)
 - `mark-dark.png` — same mark inverted white (dark card)
+- `comment-light.png` / `comment-dark.png` — lucide `message-square` at stroke 1.5,
+  the mood notification's comment CTA icon, 3x the 16px it renders at
 
 ## Regenerate
 
 ```bash
-node scripts/generate-email-wordmark.mjs   # needs Node 22
+node scripts/generate-email-wordmark.mjs   # masthead; needs Node 22
+node scripts/generate-email-icons.mjs      # icons
 ```
 
 The script inlines `public/fonts/wenkai-wordmark.woff2` and `public/blog-mark.webp`

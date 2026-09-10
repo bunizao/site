@@ -22,15 +22,26 @@ import { loadInitialMoodFeed as loadInitialMoodFeedWindow } from '@/features/moo
 import { getMoodFeedPreloadImage } from '@/features/mood/shared/lcp-preload';
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { readEnv } from '@/lib/runtime/env';
+import { getMoodChannelSlug } from '@/features/mood/server/channel-service';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 import { profile } from '@/data/site';
 import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
 import '@/features/mood/styles/bookmark-card.css';
 import { parseYouTubeVideoUrl } from '@/lib/embed/youtube';
+import { resolveRequestLocale } from '@/features/mood/server/locale';
+import type { BlogLocale } from '@/data/site';
 
 export const prerender = false;
+
+// Same negotiation as /mood/[id]: the feed's subscribe panel and its comments
+// popover follow the reader rather than the site default. See the note there.
+const locale = resolveRequestLocale({
+  query: Astro.url.searchParams.get('lang'),
+  cookie: Astro.request.headers.get('cookie'),
+  acceptLanguage: Astro.request.headers.get('accept-language'),
+}) as BlogLocale;
+Astro.response.headers.append('Vary', 'Accept-Language');
 
 const title = 'Moods';
 const description = `Short posts, photos, links, and moments from ${profile.name}'s Telegram channel.`;
@@ -103,7 +114,7 @@ const embedYouTubeCssHref = hasYouTubeEmbed ? embedYouTubeCssUrl : null;
 // The feed mirrors a Telegram channel, so subscribing there is a real
 // alternative to email. The slug is the channel username; without it the
 // subscribe panel just drops the tile.
-const channelSlug = initialFeed?.channel?.slug?.trim() || readEnv(Astro.locals, 'CHANNEL');
+const channelSlug = initialFeed?.channel?.slug?.trim() || getMoodChannelSlug(Astro.locals);
 const telegramHref = channelSlug ? `https://t.me/${channelSlug}` : undefined;
 // Preload the exact media the priority feed element will render (see
 // getMoodFeedPreloadImage): aligns the high-priority fetch with the real LCP.
@@ -140,6 +151,7 @@ const skeletonGroups = [
 ---
 
 <Layout
+  lang={locale}
   title={title}
   description={description}
   image="/mood-og.png"
@@ -172,7 +184,7 @@ const skeletonGroups = [
       embedYouTubeCssHref={embedYouTubeCssUrl}
     />
   </main>
-  <SubscribePanel variant="mood" id="mood" anchor="right" withTrigger={false} feed={rssHref} telegram={telegramHref} turnstileSiteKey={turnstileSiteKey} />
+  <SubscribePanel variant="mood" id="mood" locale={locale} anchor="right" withTrigger={false} feed={rssHref} telegram={telegramHref} turnstileSiteKey={turnstileSiteKey} />
   {/* Back-to-top is now the MoodNavbar avatar (click it to return to the top),
       so the floating button is retired on the feed. The component itself is kept
       — /mood/[id] still renders it — just no longer referenced here. */}
@@ -1215,8 +1227,11 @@ const skeletonGroups = [
     font-variant-numeric: tabular-nums;
   }
 
-  /* Floating expand button - appears on hover */
-  :global(.mood-item-expand-float) {
+  /* Floating card actions - appear on hover. The comment entry reuses the
+     expand float's affordance rather than inventing one: a feed of posts with
+     no comments would otherwise carry a row of permanent empty buttons. */
+  :global(.mood-item-expand-float),
+  :global(.mood-item-comment-float) {
     position: absolute;
     top: 12px;
     right: 12px;
@@ -1242,21 +1257,31 @@ const skeletonGroups = [
   }
 
   :global(.mood-item:hover .mood-item-expand-float),
-  :global(.mood-item-expand-float:focus-visible) {
+  :global(.mood-item:hover .mood-item-comment-float),
+  :global(.mood-item-expand-float:focus-visible),
+  :global(.mood-item-comment-float:focus-visible) {
     opacity: 1;
   }
 
-  :global(.mood-item-expand-float:hover) {
+  :global(.mood-item-expand-float:hover),
+  :global(.mood-item-comment-float:hover) {
     color: hsl(var(--foreground) / 0.7);
     background: hsl(var(--foreground) / 0.05);
   }
 
-  :global(.mood-item-expand-float:active) {
+  :global(.mood-item-expand-float:active),
+  :global(.mood-item-comment-float:active) {
     transform: scale(0.92);
   }
 
-  :global(.mood-item-expand-float svg) {
+  :global(.mood-item-expand-float svg),
+  :global(.mood-item-comment-float svg) {
     flex-shrink: 0;
+  }
+
+  /* One float's width to the left of the expand float, at every size. */
+  :global(.mood-item-comment-float) {
+    right: 40px;
   }
 
   /* Ensure mood-item has relative positioning for the float button */
@@ -1268,18 +1293,31 @@ const skeletonGroups = [
     :global(.mood-item-expand-float) {
       right: 16px;
     }
+
+    :global(.mood-item-comment-float) {
+      right: 44px;
+    }
   }
 
   @media (max-width: 640px) {
-    :global(.mood-item-expand-float) {
+    :global(.mood-item-expand-float),
+    :global(.mood-item-comment-float) {
       width: 24px;
       height: 24px;
       top: 8px;
-      right: 6px;
       opacity: 0.6;
     }
 
-    :global(.mood-item-expand-float svg) {
+    :global(.mood-item-expand-float) {
+      right: 6px;
+    }
+
+    :global(.mood-item-comment-float) {
+      right: 30px;
+    }
+
+    :global(.mood-item-expand-float svg),
+    :global(.mood-item-comment-float svg) {
       width: 12px;
       height: 12px;
     }

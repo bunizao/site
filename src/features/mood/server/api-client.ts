@@ -383,6 +383,12 @@ export async function loadMoodDocument(
     quote: feedItem?.quote ?? null,
     reactions: feedItem?.reactions ?? post.reactions,
     commentsCount: post.commentsCount ?? 0,
+    /* discussionLinked is bridge metadata: site-api sets it when it mirrors a
+       post into the discussion group, so only the archive document carries it.
+       Production reads the archive and live is a bounded fallback, where
+       hiding the compose is the safe answer. Dev reads live for everything, so
+       without this the compose box never renders at all. */
+    ...(import.meta.env.DEV ? { discussionLinked: true } : {}),
     channel: {
       slug: getMoodChannelSlug(context.locals) || undefined,
       title: channelInfo?.title,
