@@ -61,7 +61,6 @@
     "@astrojs/cloudflare": "14.2.3",
     "@astrojs/markdown-satteri": "0.3.7",
     "@astrojs/react": "^6.0.4",
-    "@astrojs/sitemap": "^3.7.3",
     "@cloudflare/workers-types": "^5.20260820.1",
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",

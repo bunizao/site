@@ -4,6 +4,7 @@ import type { AnyNode } from 'domhandler';
 import { blog } from '@/data/site';
 import { getTagLabel } from '@/features/posts/display';
 import { formatPostDate, postPath, tagPath } from '@/features/posts/format';
+import { postVersionPath } from '@/features/posts/i18n';
 import type { Post, Tag, TagDirectoryEntry } from '@/features/posts/types';
 
 type LoadedCheerio = ReturnType<typeof cheerio.load>;
@@ -226,8 +227,10 @@ function absolutizeMarkdownLinks(markdown: string, baseUrl: URL): string {
   });
 }
 
-function postCanonicalUrl(post: Pick<Post, 'slug' | 'canonicalUrl'>, baseUrl: URL): string {
-  return toAbsolutePageUrl(post.canonicalUrl?.trim() || postPath(post.slug), baseUrl);
+// A translation's canonical is its locale URL, never the Ghost slug it was
+// authored under — the same rule the HTML page follows.
+function postCanonicalUrl(post: Pick<Post, 'slug' | 'tags' | 'canonicalUrl'>, baseUrl: URL): string {
+  return toAbsolutePageUrl(post.canonicalUrl?.trim() || postVersionPath(post), baseUrl);
 }
 
 export function buildPostAgentMarkdown(post: Post, baseUrl: URL): string {

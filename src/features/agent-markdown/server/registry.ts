@@ -3,7 +3,7 @@ import {
   readCursorQuery,
 } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
-import { meta, profile } from '@/data/site';
+import { blog, meta, profile } from '@/data/site';
 import {
   buildMoodAgentMarkdown,
   buildMoodAgentPostPageMarkdown,
@@ -32,7 +32,7 @@ import {
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { readBuiltBlogMarkdown } from './built-blog';
 import {
-  isUnlistedPost,
+  isUnlistedVersion,
   UNLISTED_ROBOTS_DIRECTIVES,
 } from '@/features/posts/unlisted';
 import privacyMarkdownRaw from '@/content/pages/privacy.md?raw';
@@ -80,15 +80,37 @@ function safeDecode(value: string): string {
   }
 }
 
+// `/blog/<slug>` is an original, `/blog/<locale>/<slug>` one of its
+// translations; the params carry the locale so the renderer can tell them apart.
 function matchBlogPost(pathname: string): Record<string, string> | null {
   const normalized = normalizePathname(pathname);
-  const match = normalized.match(/^\/blog\/([^/]+)$/);
+  const match = normalized.match(/^\/blog\/(?:([^/]+)\/)?([^/]+)$/);
   if (!match) return null;
 
-  const slug = safeDecode(match[1]);
-  if (slug === 'tags' || slug === 'rss.xml' || slug === 'search.json') return null;
+  const slug = safeDecode(match[2]);
+  if (match[1] === undefined) {
+    if (slug === 'tags' || slug === 'rss.xml' || slug === 'search.json') return null;
+    return { slug };
+  }
 
-  return { slug };
+  const locale = safeDecode(match[1]);
+  if (!isTranslationLocale(locale)) return null;
+
+  return { slug, locale };
+}
+
+function isTranslationLocale(value: string): boolean {
+  return value !== blog.locale.default && Object.hasOwn(blog.copy, value);
+}
+
+async function translationGhostSlug(
+  context: MarkdownRendererContext,
+  canonicalSlug: string,
+  locale: string,
+): Promise<string | null> {
+  const { readI18nManifest } = await import('@/features/posts/server/i18n-manifest');
+  const manifest = await readI18nManifest(context.locals, context.url.origin);
+  return manifest?.[canonicalSlug]?.translations?.[locale] ?? null;
 }
 
 function matchBlogTag(pathname: string): Record<string, string> | null {
@@ -276,17 +298,24 @@ async function renderBlogTag(context: MarkdownRendererContext) {
 
 async function renderBlogPost(context: MarkdownRendererContext) {
   const slug = context.params.slug ?? '';
-  const built = await readBuiltBlogMarkdown(context, { kind: 'post', slug });
+  const locale = context.params.locale;
+  const built = await readBuiltBlogMarkdown(context, { kind: 'post', slug, locale });
   if (built && built.status !== 404) return markdownResult(built.body, built.status);
 
   const { getPostBySlug } = await import('@/features/posts/server/content');
-  const post = await getPostBySlug(slug, { outputTarget: 'agent-markdown' });
+  // A translation is addressed by its sibling's slug; the manifest turns that
+  // back into the Ghost slug the Content API knows.
+  const ghostSlug = locale ? await translationGhostSlug(context, slug, locale) : slug;
+  const post = ghostSlug ? await getPostBySlug(ghostSlug, { outputTarget: 'agent-markdown' }) : null;
   if (!post) return markdownResult('Blog post not found.\n', 404);
+  // An unlisted original hides its translations too; the original is fetched
+  // only for a translation, and only to read its tags.
+  const original = locale ? await getPostBySlug(slug, { outputTarget: 'agent-markdown' }) : null;
 
   return markdownResult(
     buildPostAgentMarkdown(post, context.site),
     200,
-    isUnlistedPost(post)
+    isUnlistedVersion(post, original ? [original] : [])
       ? { 'X-Robots-Tag': UNLISTED_ROBOTS_DIRECTIVES }
       : undefined,
   );

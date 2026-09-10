@@ -1,12 +1,10 @@
 import astroWorker from '@astrojs/cloudflare/entrypoints/server';
 import {
   cacheHtmlPageResponse,
-  fetchBlogAsset,
-  resolveBlogRequest,
-  withBlogVariantHeaders,
   isNeverCachePath,
   readCachedHtmlPage,
   redirectCanonicalUrl,
+  redirectLegacyBlogUrl,
   renderMarkdownIfRequested,
   withContentPolicy,
 } from '@/features/agent-markdown/server/responses';
@@ -56,11 +54,7 @@ async function renderHtmlPage(
   request: Request,
   env: WorkerEnv,
   context: WorkerExecutionContext,
-  locals: App.Locals,
 ): Promise<Response> {
-  const blogAsset = await fetchBlogAsset(request, locals);
-  if (blogAsset) return withContentPolicy(request, blogAsset);
-
   const assetResponse = await fetchStaticAsset(request, env);
   const response = assetResponse ?? (await siteWorker.fetch(request, env, context));
   return withContentPolicy(request, response);
@@ -70,13 +64,10 @@ async function revalidateHtmlPage(
   request: Request,
   env: WorkerEnv,
   context: WorkerExecutionContext,
-  locals: App.Locals,
 ): Promise<void> {
   try {
-    const response = await renderHtmlPage(request, env, context, locals);
-    // Locals pick the locale variant, so the refresh lands in the same slot the
-    // stale hit was read from.
-    await cacheHtmlPageResponse(request, response, locals);
+    const response = await renderHtmlPage(request, env, context);
+    await cacheHtmlPageResponse(request, response);
   } catch {
     // The stale copy keeps serving; the next stale hit retries.
   }
@@ -111,24 +102,22 @@ export default {
 
     if (markdownResponse) return markdownResponse;
 
-    const blogResolution = await resolveBlogRequest(request, locals);
-    if (blogResolution?.redirect) return blogResolution.redirect;
+    const legacyBlogRedirect = await redirectLegacyBlogUrl(request, locals);
+    if (legacyBlogRedirect) return legacyBlogRedirect;
 
     if (isNeverCachePath(url.pathname)) {
       return siteWorker.fetch(request, env, context);
     }
 
-    const cachedHtmlPage = await readCachedHtmlPage(request, locals);
+    const cachedHtmlPage = await readCachedHtmlPage(request);
     if (cachedHtmlPage) {
       if (cachedHtmlPage.isStale) {
-        context.waitUntil(revalidateHtmlPage(request, env, context, locals));
+        context.waitUntil(revalidateHtmlPage(request, env, context));
       }
-      return blogResolution
-        ? withBlogVariantHeaders(request, cachedHtmlPage.response, blogResolution)
-        : cachedHtmlPage.response;
+      return cachedHtmlPage.response;
     }
 
-    const response = await renderHtmlPage(request, env, context, locals);
-    return cacheHtmlPageResponse(request, response, locals, context);
+    const response = await renderHtmlPage(request, env, context);
+    return cacheHtmlPageResponse(request, response, context);
   },
 };

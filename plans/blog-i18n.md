@@ -1,5 +1,15 @@
 # Plan: Blog Post Translations
 
+> **Revised 2026-09-10.** The first round shipped as written; the URL scheme
+> was then replaced. A translation now lives at `/blog/<locale>/<canonical>`
+> as a static page of its own, self-canonical, and the edge no longer
+> negotiates a language on the bare URL — a URL is one document to every
+> crawler, which is what Google asks for. "Language resolution" and the edge
+> asset swap (Site side, steps 1–5) below describe the superseded design; the
+> Ghost-side grammar, the switcher, listing and search rules stand. The
+> reference is [Translations](/docs/writing/publishing#translations) and
+> [SEO and metadata](/docs/platform/seo).
+
 Give *specific* posts an alternate-language version. Both versions live behind
 **one public URL**. The reader gets the language their browser asks for, can
 switch by hand, and that choice is remembered.
@@ -392,9 +402,11 @@ variant's URL looks like. Resolution answers "which locale does this reader
 want"; a separate, single place turns that into a URL. Moving from `?lang=en` to
 a `/en/` prefix then costs one URL builder and one 301 rule.
 
-**Not now, though.** A path prefix fits a site whose interface is already
-translated. Here almost no post has an English version, so `/en/` would
-manufacture 404s for everything that does not.
+**Not now, though.** A site-wide path prefix fits a site whose interface is
+already translated. Here almost no post has an English version, so `/en/` on
+everything would manufacture 404s for everything that does not. (2026-09-10:
+the per-translation form `/blog/en/<canonical>` landed instead — only a
+published translation has a locale URL.)
 
 **The discipline that matters more:** every reader-facing string added by this
 work goes into `blog.copy[locale]`. Not one hardcoded Chinese string in a
@@ -461,7 +473,7 @@ Everything below depends on this and nothing below can start without it.
 
 ## Non-goals
 
-- No `/en/` route prefix — see [Where this is going](#where-this-is-going).
+- No site-wide `/en/` route prefix — see [Where this is going](#where-this-is-going).
 - No UI-string translation infrastructure beyond `blog.copy`.
 - No language filter or toggle on `/blog`. Revisit past ~10 English posts.
 - No per-language RSS feed.

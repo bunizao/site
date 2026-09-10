@@ -10,10 +10,13 @@ import {
   buildTagDirectoryAgentMarkdown,
 } from '@/features/posts/server/agent-markdown';
 import {
+  getAccessiblePosts,
   getListedPosts,
   getPublicTagDirectory,
   getTagArchive,
 } from '@/features/posts/server/content';
+import { getCanonicalSlug, getPostLocale, isTranslation } from '@/features/posts/i18n';
+import { isUnlistedVersion } from '@/features/posts/unlisted';
 
 const distRoot = join(process.cwd(), 'dist/client');
 const blogRoot = join(distRoot, '_agent-markdown/blog');
@@ -29,10 +32,17 @@ async function writeMarkdown(assetPath: string, body: string): Promise<void> {
   await writeFile(path, body, 'utf8');
 }
 
-const [posts, tags] = await Promise.all([
+const [posts, accessiblePosts, tags] = await Promise.all([
   getListedPosts({ outputTarget: 'agent-markdown' }),
+  getAccessiblePosts({ outputTarget: 'agent-markdown' }),
   getPublicTagDirectory(),
 ]);
+// Translations are off every listing but have a page, so they get its Markdown
+// — unless the article is unlisted, in which case they render at request time
+// with the same robots directives the original does.
+const translations = accessiblePosts.filter(
+  (post) => isTranslation(post) && !isUnlistedVersion(post, accessiblePosts),
+);
 
 await rm(blogRoot, { recursive: true, force: true });
 
@@ -45,12 +55,24 @@ await writeMarkdown(
   buildTagDirectoryAgentMarkdown(tags, siteUrl),
 );
 
-await Promise.all(posts.map((post) =>
-  writeMarkdown(
-    builtBlogMarkdownAssetPath({ kind: 'post', slug: post.slug }),
-    buildPostAgentMarkdown(post, siteUrl),
+await Promise.all([
+  ...posts.map((post) =>
+    writeMarkdown(
+      builtBlogMarkdownAssetPath({ kind: 'post', slug: post.slug }),
+      buildPostAgentMarkdown(post, siteUrl),
+    ),
   ),
-));
+  ...translations.map((post) =>
+    writeMarkdown(
+      builtBlogMarkdownAssetPath({
+        kind: 'post',
+        slug: getCanonicalSlug(post),
+        locale: getPostLocale(post),
+      }),
+      buildPostAgentMarkdown(post, siteUrl),
+    ),
+  ),
+]);
 
 await Promise.all(tags.map(async (tag) => {
   const archive = await getTagArchive(tag.slug);
@@ -62,4 +84,4 @@ await Promise.all(tags.map(async (tag) => {
   );
 }));
 
-console.log(`Generated agent Markdown for ${posts.length} blog posts and ${tags.length} tags.`);
+console.log(`Generated agent Markdown for ${posts.length} blog posts, ${translations.length} translations and ${tags.length} tags.`);

@@ -342,10 +342,12 @@ describe('Cloudflare runtime configuration', () => {
     expect(responses).toContain('stale-while-revalidate=');
     expect(responses).toContain('NO_STORE_CACHE_CONTROL');
     expect(registry).toContain('readBuiltBlogMarkdown');
-    expect(responses).toContain("variant: grouped ? `html:${blogResolution?.locale}` : 'html'");
-    expect(responses).toContain('`markdown:${blogResolution.locale}`');
-    expect(responses).toContain(": 'markdown'");
-    expect(edgeCache).toContain('`html:${string}`');
+    // One URL is one document: a translation lives at its own path, so the
+    // cache key never carries a language.
+    expect(responses).toContain("variant: 'html'");
+    expect(responses).toContain("variant: 'markdown'");
+    expect(edgeCache).toContain("EdgeCacheVariant = 'html' | 'markdown'");
+    expect(responses).not.toContain('Accept-Language');
     expect(responses).toContain('url.search');
     // The worker entrypoint owns the edge HTML cache — one read, one write
     // deferred via waitUntil, stale entries revalidated in the background. The
@@ -498,7 +500,7 @@ describe('Cloudflare runtime configuration', () => {
 
   test('reads Turnstile site key from runtime public env on blog subscribe surfaces', () => {
     const blogMasthead = readText('src/features/posts/ui/BlogMasthead.astro');
-    const blogArticle = readText('src/pages/blog/[slug].astro');
+    const blogArticle = readText('src/pages/blog/[...slug].astro');
 
     expect(blogMasthead).toContain('readTurnstileSiteKey(Astro.locals)');
     expect(blogArticle).toContain('readTurnstileSiteKey(Astro.locals)');
