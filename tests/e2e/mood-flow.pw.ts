@@ -2772,8 +2772,8 @@ test.describe('Mood routes', () => {
     await expect(scrim).toBeVisible();
     expect(await panel.evaluate((element) => element.parentElement === document.body)).toBe(true);
     expect(await scrim.evaluate((element) => element.parentElement === document.body)).toBe(true);
-    await expect(panel.getByRole('link', { name: '通过 RSS 订阅' })).toHaveAttribute('href', '/mood/rss.xml');
-    await expect(panel.getByRole('link', { name: '订阅 Telegram 频道' })).toHaveAttribute('href', 'https://t.me/e2e');
+    await expect(panel.getByRole('link', { name: 'Subscribe by RSS' })).toHaveAttribute('href', '/mood/rss.xml');
+    await expect(panel.getByRole('link', { name: 'Follow on Telegram' })).toHaveAttribute('href', 'https://t.me/e2e');
 
     await disableNotifyNativeValidation(page);
     await page.locator('[data-sub-email]').fill('reader@example.com');
@@ -2786,7 +2786,7 @@ test.describe('Mood routes', () => {
     await page.locator('[data-sub-submit]').click();
 
     await expect(page.locator('[data-sub-success-view]')).not.toHaveClass(/is-hidden/);
-    await expect(page.locator('[data-sub-success-text]')).toHaveText('确认邮件已发，去收件箱点一下。');
+    await expect(page.locator('[data-sub-success-text]')).toHaveText('Confirmation sent — tap the link in your inbox.');
     await expect.poll(() => requests.length).toBe(1);
     expect(requests[0]?.email).toBe('reader@example.com');
     expect(requests[0]?.channels).toEqual(['blog', 'mood']);
@@ -2813,7 +2813,7 @@ test.describe('Mood routes', () => {
     await page.locator('[data-sub-submit]').click();
 
     await expect(page.locator('[data-sub-success-view]')).not.toHaveClass(/is-hidden/);
-    await expect(page.locator('[data-sub-success-text]')).toHaveText('已经订阅过了。');
+    await expect(page.locator('[data-sub-success-text]')).toHaveText("You're already subscribed.");
   });
 
   test('handles notify validation, rate limits, and retryable server errors', async ({ page }) => {
@@ -2842,11 +2842,11 @@ test.describe('Mood routes', () => {
     await disableNotifyNativeValidation(page);
     await page.locator('[data-sub-email]').fill('not-an-email');
     await page.locator('[data-sub-submit]').click();
-    await expect(page.locator('[data-sub-error]')).toHaveText('这个邮箱看起来不太对。');
+    await expect(page.locator('[data-sub-error]')).toHaveText("That email doesn't look right.");
 
     await page.locator('[data-sub-email]').fill('reader@example.com');
     await page.locator('[data-sub-submit]').click();
-    await expect(page.locator('[data-sub-error]')).toHaveText('太频繁了，稍后再试。');
+    await expect(page.locator('[data-sub-error]')).toHaveText('Too many tries. Give it a minute.');
     await expect(page.locator('[data-sub-form-view]')).not.toHaveClass(/is-hidden/);
 
     await page.locator('[data-sub-submit]').click();
@@ -3096,8 +3096,10 @@ test.describe('Mood routes', () => {
     const track = page.locator('.mood-gallery--detail [data-mood-gallery-track]');
     const box = await track.boundingBox();
     expect(box).not.toBeNull();
+    // Two frames share the first row and the third takes the column on its
+    // own, so the block is roughly two rows of the phone's own measure.
     expect(box!.height).toBeGreaterThan(300);
-    expect(box!.height).toBeLessThan(450);
+    expect(box!.height).toBeLessThan(700);
     const slides = track.locator('[data-mood-gallery-slide]');
     await expect(slides).toHaveCount(3);
     const geometry = await slides.evaluateAll((nodes) => nodes.map((node) => {
@@ -3107,7 +3109,9 @@ test.describe('Mood routes', () => {
     expect(Math.abs(geometry[1].right - (box!.x + box!.width))).toBeLessThan(2);
     expect(Math.abs(geometry[0].top - geometry[1].top)).toBeLessThan(1);
     expect(geometry[2].top).toBeGreaterThan(geometry[0].top + geometry[0].height);
-    expect(geometry[2].height).toBeLessThanOrEqual(210);
+    // --gallery-row-max: a row is allowed to grow to this and no further,
+    // which is what stops a lone trailing frame from becoming a poster.
+    expect(geometry[2].height).toBeLessThanOrEqual(380);
   });
 
   test('reserves a single detail image and paints its blur placeholder before load', async ({ page }) => {

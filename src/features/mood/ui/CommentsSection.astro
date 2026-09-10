@@ -695,7 +695,18 @@ const t = resolveMoodCommentsCopy(locale);
     display: none;
   }
 
-  .mood-comments:has([data-comments-empty]:not([hidden])) .mood-comments-header {
+  /* An error is not an empty thread. Something was supposed to load and did
+     not, and staying silent about it reads as "nobody has written yet" --
+     the one thing it does not mean. */
+  .mood-comments-empty[data-comments-state='error'] {
+    display: block;
+    padding: 14px 0;
+  }
+
+  .mood-comments:has(
+      [data-comments-empty]:not([hidden]):not([data-comments-state='error'])
+    )
+    .mood-comments-header {
     display: none;
   }
 
@@ -705,8 +716,10 @@ const t = resolveMoodCommentsCopy(locale);
     font-size: var(--comment-meta);
   }
 
-  /* Both controls sit past the avatar column, on the same axis the bubbles
-     start at. */
+  /* The section's own left edge -- the axis the compose box and the heading
+     already sit on. Only the thread is inset, by its avatar column; these two
+     are the section's chrome, and an empty thread leaves the link indented
+     against nothing at all. */
   .mood-comments-foot {
     display: flex;
     flex-direction: column;
@@ -715,19 +728,12 @@ const t = resolveMoodCommentsCopy(locale);
     /* Wider than the stack gap above it. Sitting one rung out of the ladder
        is what says these are not two more comments. */
     margin-top: 26px;
-    padding-left: 42px;
   }
 
   /* Nothing left to load and no group to link to: the gap above would be the
      only thing left at the bottom of the thread. */
   .mood-comments-foot:not(:has(> *:not([hidden]))) {
     display: none;
-  }
-
-  @media (min-width: 640px) {
-    .mood-comments-foot {
-      padding-left: 48px;
-    }
   }
 
   /* Sized to its label, hairline over the page's own ground -- the two rules
@@ -905,12 +911,6 @@ const t = resolveMoodCommentsCopy(locale);
       width: 28px;
       height: 28px;
       font-size: 10px;
-    }
-
-    /* The avatar drops to 28px and the row gap to 8px here, so the text
-       axis the foot aligns to moves with them. */
-    .mood-comments-foot {
-      padding-left: 36px;
     }
   }
 </style>

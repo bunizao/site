@@ -453,7 +453,12 @@ export async function initMoodDetailComments(
         hydrateMoodRichText(commentsListEl!);
       } else if (!before) {
         commentsListEl!.replaceChildren();
-        if (emptyEl) emptyEl.hidden = false;
+        if (emptyEl) {
+          const emptyText = emptyEl.querySelector('p');
+          if (emptyText) emptyText.textContent = t.empty;
+          delete emptyEl.dataset.commentsState;
+          emptyEl.hidden = false;
+        }
         if (loadMoreBtn) loadMoreBtn.hidden = true;
       } else {
         nextBefore = '';
@@ -468,6 +473,9 @@ export async function initMoodDetailComments(
         if (emptyText) {
           emptyText.textContent = t.loadError;
         }
+        // An empty thread stays silent, but a failed load has to say so --
+        // see `.mood-comments-empty[data-comments-state='error']`.
+        emptyEl.dataset.commentsState = 'error';
         emptyEl.hidden = false;
       }
     }
