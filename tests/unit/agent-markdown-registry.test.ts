@@ -32,7 +32,15 @@ describe('agent markdown registry', () => {
 
     expect(response?.status).toBe(200);
     expect(response?.headers.get('Content-Type')).toContain('text/markdown');
+    expect(response?.headers.get('Link')).toBe('<https://buxx.me/privacy>; rel="canonical"');
     expect(await response?.text()).toContain('# Privacy Policy');
+  });
+
+  test('redirects the www host to the apex in one hop', () => {
+    const www = redirectCanonicalUrl(new Request('https://www.buxx.me/blog/sacrifice/?ref=tg'));
+    expect(www?.status).toBe(301);
+    expect(www?.headers.get('Location')).toBe('https://buxx.me/blog/sacrifice?ref=tg');
+    expect(redirectCanonicalUrl(new Request('https://buxx.me/blog/sacrifice'))).toBeNull();
   });
 
   test('redirects alternate URL forms to slashless canonical paths', () => {

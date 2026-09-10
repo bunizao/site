@@ -64,12 +64,16 @@ paths; pass the result through the `structuredData` prop of `Layout.astro`.
 - Public page URLs are extensionless and have no trailing slash. `/` is the only
   natural exception. Alternate slash forms receive a permanent `308`, while
   canonical tags, sitemaps, feeds, and internal links emit the slashless form.
-- Every page declares `https://buxx.me` as its canonical origin regardless of
-  the host it was rendered on, so `www.buxx.me` and Worker preview hosts
-  consolidate onto the apex rather than competing with it. Any response served
-  from a hostname other than `buxx.me` — the phone tunnel, a Worker preview
-  URL — also carries `X-Robots-Tag: noindex, nofollow`
+- `www.buxx.me` answers a single `301` to the same path on the apex
+  (`redirectCanonicalUrl`), so it never renders a copy. Every page also
+  declares `https://buxx.me` as its canonical origin regardless of the host it
+  was rendered on, and any response served from another hostname — the phone
+  tunnel, a Worker preview URL — carries `X-Robots-Tag: noindex, nofollow`
   (`isNonCanonicalHost` in `src/middleware.ts`); local hosts are exempt.
+- Markdown alternates (`/index.md`, `Accept: text/markdown`) carry an HTTP
+  `Link: <html url>; rel="canonical"` header, so a crawler that indexes
+  `text/markdown` as a document folds it into the HTML page instead of
+  ranking a second copy of every article.
 - `/mood` is indexable only in its bare form. A query string — a post anchor,
   `?tag=`, `?source=`, `?subscribe=1` — is the same feed and renders with
   `noindex, follow`.

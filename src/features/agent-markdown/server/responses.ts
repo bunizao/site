@@ -13,6 +13,7 @@ import {
   readI18nManifest,
 } from '@/features/posts/server/i18n-manifest';
 import { resolveRequestLocale } from '@/features/posts/i18n';
+import { meta } from '@/data/site';
 import { estimateMarkdownTokens, prefersMarkdown } from './negotiation';
 import {
   EDGE_CACHE_HEADER,
@@ -189,6 +190,8 @@ export function publicCacheControl(ttlSeconds: number, staleWhileRevalidateSecon
   ].filter(Boolean).join(', ');
 }
 
+const CANONICAL_HOSTNAME = new URL(meta.siteUrl).hostname;
+
 export function redirectCanonicalUrl(request: Request): Response | null {
   const url = new URL(request.url);
   let pathname = url.pathname;
@@ -202,6 +205,19 @@ export function redirectCanonicalUrl(request: Request): Response | null {
     if (hasMarkdownRenderer(sourcePath)) {
       pathname = markdownAlternatePath(sourcePath);
     }
+  }
+
+  // www is a copy of the apex. The Worker is routed on both, so the redirect
+  // lives here rather than in a zone rule, and it lands on the normalized
+  // path in one hop.
+  if (url.hostname === `www.${CANONICAL_HOSTNAME}`) {
+    return new Response(null, {
+      status: 301,
+      headers: {
+        'Cache-Control': 'public, max-age=3600',
+        Location: `${meta.siteUrl}${pathname}${url.search}`,
+      },
+    });
   }
 
   if (pathname === url.pathname) return null;
@@ -369,6 +385,12 @@ export async function renderMarkdownIfRequested(context: {
     result.headers,
     match.renderer.cacheTtlSeconds,
   ), blogResolution ?? { grouped: false, locale: null, assetSlug: '' });
+  // Search engines index text/markdown as a document of its own; the HTTP
+  // canonical folds it into the HTML page the same way a PDF's would.
+  if (response.status === 200) {
+    const canonicalHtml = new URL(`${sourcePath}${url.search}`, meta.siteUrl).href;
+    response.headers.set('Link', `<${canonicalHtml}>; rel="canonical"`);
+  }
 
   return cacheEdgeResponse(context.request, response, {
     namespace: 'content',
