@@ -85,6 +85,13 @@ paths; pass the result through the `structuredData` prop of `Layout.astro`.
   without the detail archive crowding out editorial results.
 - Blog indexes, tags, and articles remain indexable and canonical under
   `https://buxx.me/blog`.
+- A translated article is a page of its own at `/blog/<locale>/<slug>`
+  (`/blog/en/lun-chenmo`), self-canonical, with `hreflang` links between every
+  version and `x-default` on the original. Nothing about the response depends
+  on `Accept-Language` or a cookie: a URL is one document to every crawler,
+  which is the form Google asks for. The translation's Ghost slug and the
+  retired `?lang=` form each answer a single `301` (`redirectLegacyBlogUrl`).
+  How to publish one is in [Translations](/docs/writing/publishing#translations).
 - Dev harnesses (`/lab/*`), component preview frames (`/components/preview/*`),
   the safe-area probe, the mood embed, the reader and subscription flows, and
   the portal all carry `noindex`. `tests/unit/seo-policy.test.ts` pins the

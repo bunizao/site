@@ -86,3 +86,48 @@ surfaces only after that build deploys. The source of truth for this rule is
 [`src/features/posts/unlisted.ts`](https://github.com/bunizao/site/blob/main/src/features/posts/unlisted.ts);
 the collection split lives in
 [`src/features/posts/adapter/provider.ts`](https://github.com/bunizao/site/blob/main/src/features/posts/adapter/provider.ts).
+
+## Translations
+
+A translation is a second Ghost post that carries one internal tag naming the
+post it translates:
+
+```
+#<locale>              this post is written in <locale>
+#<locale>:<canonical>  this post is the <locale> version of <canonical>
+```
+
+To publish an English version of `/blog/lun-chenmo`:
+
+1. Write it as its own post. Its slug does not matter — it never becomes a
+   public URL — but the title and the excerpt do, because they are the search
+   result.
+2. Add the internal tag `#en:lun-chenmo`. The **name** must carry the colon;
+   Ghost drops it from the tag's slug, and the site reads the name.
+3. Leave the original alone. Publishing a translation touches one post, so
+   "tagged the translation, forgot the original" is not a state that exists.
+4. Leave Ghost's *Canonical URL* field empty on both posts. The site derives
+   every canonical from the URL scheme below, and a value here would override it.
+
+The build fails, rather than publishing something half-right, when the tag
+names a slug that does not exist, when two posts claim the same language for
+one article, or when the locale is not one the site has copy for
+(`blog.copy` in `src/data/site.ts`, today `zh` and `en`).
+
+What the reader and the crawler get:
+
+| Version | URL | In listings, feeds, search | Indexable |
+| --- | --- | --- | --- |
+| Original | `/blog/lun-chenmo` | Yes | Yes, `x-default` |
+| Translation | `/blog/en/lun-chenmo` | No | Yes, self-canonical, `hreflang="en"` |
+| Translation's Ghost slug | `/blog/on-silence` | — | `301` to the version URL |
+
+Every version links every other through `hreflang`, the article's language
+switcher, and its own `text/markdown` alternate. A post written in English
+with no Chinese original carries the bare `#en` tag instead and lives at its own
+slug like any other post. A translation of an `#unlisted` article is unlisted
+with it.
+
+The tag grammar and URL builder live in
+[`src/features/posts/i18n.ts`](https://github.com/bunizao/site/blob/main/src/features/posts/i18n.ts);
+the parser is shared with `site-api` through `@bunizao/contracts`.
