@@ -1,8 +1,16 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 
-import { POST, resolveDraftRender } from '../../src/pages/dev/blog/render';
+import { POST, resetDraftRenderCachesForTests, resolveDraftRender } from '../../src/pages/dev/blog/render';
 import { DEFAULT_GHOST_ADMIN_MAX_RESPONSE_BYTES } from '../../src/features/posts/server/ghost-admin';
-import type { GhostAdminClient, GhostAdminPost } from '../../src/features/posts/server/ghost-admin';
+import type {
+  GhostAdminClient,
+  GhostAdminPost,
+  GhostAdminPostSummary,
+} from '../../src/features/posts/server/ghost-admin';
+
+afterEach(() => {
+  resetDraftRenderCachesForTests();
+});
 
 function postFixture(id: string, overrides: Partial<GhostAdminPost> = {}): GhostAdminPost {
   return {
@@ -13,15 +21,32 @@ function postFixture(id: string, overrides: Partial<GhostAdminPost> = {}): Ghost
     html: '<p>ignored — the render endpoint renders the posted html, not this</p>',
     status: 'draft',
     updatedAt: '2026-07-31T11:59:00.000Z',
+    tags: [],
     ...overrides,
   };
 }
 
-function clientWith(readPostById: GhostAdminClient['readPostById']): GhostAdminClient {
+function clientWith(
+  readPostById: GhostAdminClient['readPostById'],
+  listPosts: GhostAdminClient['listPosts'] = async () => [],
+): GhostAdminClient {
   return {
     readPostById,
     readPostRevisionById: async (id) => (await readPostById(id)).updatedAt,
-    listPosts: async () => [],
+    listPosts,
+  };
+}
+
+function postSummaryFixture(overrides: Partial<GhostAdminPostSummary> = {}): GhostAdminPostSummary {
+  return {
+    id: '999999999999999999999999',
+    uuid: 'a5aa9bd8-ea31-415c-b452-3040dae1e730',
+    slug: 'some-post',
+    title: 'Some post',
+    status: 'published',
+    updatedAt: '2026-07-31T11:59:00.000Z',
+    publishedAt: '2026-07-31T11:59:00.000Z',
+    ...overrides,
   };
 }
 
@@ -115,6 +140,79 @@ describe('POST /dev/blog/render', () => {
     expect(calls).toBe(1);
   });
 
+  test('reports readiness for a plain post with no internal tags', async () => {
+    const id = '555555555555555555555555';
+    const result = await resolveDraftRender({
+      id,
+      html: '<p>hi</p>',
+      createClient: () => clientWith(async () => postFixture(id, { slug: 'plain-post', tags: [] })),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected the render to resolve');
+    expect(result.readiness).toEqual({
+      translation: null,
+      unlisted: false,
+      noToc: false,
+      notByAi: false,
+      tags: [],
+    });
+  });
+
+  test('reports translation readiness and resolves canonicalExists through listPosts, cached for the session', async () => {
+    const id = '777777777777777777777777';
+    let listPostsCalls = 0;
+    const createClient = () => clientWith(
+      async () => postFixture(id, {
+        slug: 'lun-chenmo-en',
+        tags: [{ name: '#en:lun-chenmo', slug: 'en-lun-chenmo', visibility: 'internal' }],
+      }),
+      async () => {
+        listPostsCalls += 1;
+        return [postSummaryFixture({ slug: 'lun-chenmo' })];
+      },
+    );
+
+    const first = await resolveDraftRender({ id, html: '<p>one</p>', createClient });
+    const second = await resolveDraftRender({ id, html: '<p>two</p>', createClient });
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!first.ok || !second.ok) throw new Error('Expected both renders to resolve');
+    expect(first.readiness.translation).toEqual({
+      locale: 'en',
+      canonical: 'lun-chenmo',
+      canonicalExists: true,
+    });
+    expect(second.readiness.translation).toEqual(first.readiness.translation);
+    // The known-slugs listing is fetched once per Worker instance, not once
+    // per render — resolveDraftRender is called on every keystroke.
+    expect(listPostsCalls).toBe(1);
+  });
+
+  test('reports a missing canonical for a translation whose original is not found', async () => {
+    const id = '888888888888888888888888';
+    const result = await resolveDraftRender({
+      id,
+      html: '<p>hi</p>',
+      createClient: () => clientWith(
+        async () => postFixture(id, {
+          slug: 'lost-en',
+          tags: [{ name: '#en:missing-canonical', slug: 'en-missing-canonical', visibility: 'internal' }],
+        }),
+        async () => [postSummaryFixture({ slug: 'unrelated-post' })],
+      ),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected the render to resolve');
+    expect(result.readiness.translation).toEqual({
+      locale: 'en',
+      canonical: 'missing-canonical',
+      canonicalExists: false,
+    });
+  });
+
   test('maps Admin client failures to the same statuses as the preview page', async () => {
     const id = '444444444444444444444444';
     const { GhostAdminClientError } = await import('../../src/features/posts/server/ghost-admin');
@@ -141,6 +239,14 @@ describe('POST /dev/blog/render', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     expect(response.headers.get('X-Robots-Tag')).toBe('noindex, nofollow');
+    const body = await response.json() as { readiness: unknown };
+    expect(body.readiness).toEqual({
+      translation: null,
+      unlisted: false,
+      noToc: false,
+      notByAi: false,
+      tags: [],
+    });
   });
 
   test('POST handler rejects a malformed body with 400', async () => {

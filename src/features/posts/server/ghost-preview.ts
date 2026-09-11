@@ -77,6 +77,7 @@ function e2eGhostAdminClient(): GhostAdminClient {
         ].join(''),
         status: 'draft',
         updatedAt: '2026-07-31T11:59:00.000Z',
+        tags: [],
       };
     },
     async readPostRevisionById(id) {

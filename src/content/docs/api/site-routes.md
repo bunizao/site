@@ -150,9 +150,14 @@ preview pane can frame the same page from inside Ghost admin; every other
 
 `POST /dev/blog/render` backs that live preview pane: same owner auth as
 `/dev/blog/<id>`, body `{id, html}`, response `{html, warnings,
-authorshipCredits}`. It resolves the post's slug once per id (cached in
-memory) and renders the posted `html` — not a saved draft — through the same
-`renderPostContent` pipeline, `no-store`. See "Live preview inside Ghost" in
+authorshipCredits, readiness}`. It resolves the post's slug and tags once per
+id (cached in memory) and renders the posted `html` — not a saved draft —
+through the same `renderPostContent` pipeline, `no-store`. `readiness` is
+`{translation: {locale, canonical, canonicalExists} | null, unlisted, noToc,
+notByAi, tags}`, read from the post's tags the same way the published site
+reads them (translation grammar, `#unlisted`, `#no-toc`, `#not-by-ai`);
+`canonicalExists` is resolved through the Admin client's post list, cached
+for the session. See "Live preview inside Ghost" in
 [Local development](/docs/development).
 
 ## Static JSON

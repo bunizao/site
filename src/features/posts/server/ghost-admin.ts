@@ -35,6 +35,12 @@ export class GhostAdminClientError extends Error {
   }
 }
 
+export interface GhostAdminPostTag {
+  name: string;
+  slug: string;
+  visibility: 'public' | 'internal';
+}
+
 export interface GhostAdminPost {
   id: string;
   uuid: string;
@@ -43,6 +49,7 @@ export interface GhostAdminPost {
   html: string;
   status: string;
   updatedAt: string | null;
+  tags: GhostAdminPostTag[];
 }
 
 export interface GhostAdminPostSummary {
@@ -201,6 +208,35 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function parsePostTag(value: unknown): GhostAdminPostTag | null {
+  if (!isRecord(value)) return null;
+
+  const { name, slug, visibility } = value;
+  if (
+    typeof name !== 'string'
+    || typeof slug !== 'string'
+    || (visibility !== 'public' && visibility !== 'internal')
+  ) {
+    return null;
+  }
+
+  return { name, slug, visibility };
+}
+
+function parsePostTags(value: unknown): GhostAdminPostTag[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+
+  const tags: GhostAdminPostTag[] = [];
+  for (const rawTag of value) {
+    const tag = parsePostTag(rawTag);
+    if (!tag) return null;
+    tags.push(tag);
+  }
+
+  return tags;
+}
+
 function parsePostResponse(payload: unknown, requestedId: string): GhostAdminPost | null {
   if (!isRecord(payload) || !Array.isArray(payload.posts) || payload.posts.length !== 1) {
     return null;
@@ -209,7 +245,7 @@ function parsePostResponse(payload: unknown, requestedId: string): GhostAdminPos
   const post = payload.posts[0];
   if (!isRecord(post)) return null;
 
-  const { id, uuid, slug, title, html, status, updated_at: updatedAt } = post;
+  const { id, uuid, slug, title, html, status, updated_at: updatedAt, tags: rawTags } = post;
   const hasValidRequiredFields =
     typeof id === 'string'
     && GHOST_POST_ID_PATTERN.test(id)
@@ -225,8 +261,9 @@ function parsePostResponse(payload: unknown, requestedId: string): GhostAdminPos
   const hasValidUpdatedAt = updatedAt === undefined
     || updatedAt === null
     || typeof updatedAt === 'string';
+  const tags = parsePostTags(rawTags);
 
-  if (!hasValidRequiredFields || !hasValidUpdatedAt) return null;
+  if (!hasValidRequiredFields || !hasValidUpdatedAt || !tags) return null;
 
   return {
     id,
@@ -236,6 +273,7 @@ function parsePostResponse(payload: unknown, requestedId: string): GhostAdminPos
     html,
     status,
     updatedAt: updatedAt ?? null,
+    tags,
   };
 }
 
@@ -419,8 +457,14 @@ export function createGhostAdminClient(options: GhostAdminClientOptions): GhostA
     }
 
     const url = new URL(`posts/${id}/`, apiBase);
-    if (fields) url.searchParams.set('fields', fields);
-    else url.searchParams.set('formats', 'html');
+    if (fields) {
+      url.searchParams.set('fields', fields);
+    } else {
+      url.searchParams.set('formats', 'html');
+      // Publish readiness (unlisted/no-toc/not-by-ai/translation) is read
+      // from tags, and Ghost only embeds the relation when asked.
+      url.searchParams.set('include', 'tags');
+    }
     return fetchAdminJson(url);
   };
 
