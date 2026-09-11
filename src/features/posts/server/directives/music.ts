@@ -41,10 +41,13 @@ function renderAppleMusicLink(
   return `<p><a href="${href}">${label}</a></p>`;
 }
 
+export const MUSIC_ATTRIBUTES = ['id'] as const;
+export const MUSIC_ID_RE = /^[1-9]\d*$/u;
+
 function parseMusicAttributes(rawAttributes: string): DirectiveAttributes {
   const attributes = parseKeyValueAttributes(rawAttributes);
-  rejectUnsupportedAttributes(attributes, ['id']);
-  if (!/^[1-9]\d*$/u.test(attributes.id ?? '')) {
+  rejectUnsupportedAttributes(attributes, MUSIC_ATTRIBUTES);
+  if (!MUSIC_ID_RE.test(attributes.id ?? '')) {
     throw new DirectiveAttributeError('attribute "id" must be a positive integer.');
   }
   return attributes;

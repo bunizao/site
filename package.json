@@ -25,6 +25,7 @@
     "dev:phone:tunnel": "echo 'Preview: https://dev-preview.buxx.me' && cloudflared tunnel --protocol http2 run --url http://127.0.0.1:${PHONE_PORT:-4321} --http-host-header localhost:${PHONE_PORT:-4321} site-dev-preview",
     "build": "bun run contracts:build && astro build && bun scripts/generate-i18n-manifest.ts && bun scripts/generate-agent-markdown.ts && pagefind --site dist/client --force-language zh && node scripts/cloudflare-deploy-guard.mjs install",
     "sync:models": "node scripts/sync-model-registry.mjs",
+    "export:directive-grammar": "bun scripts/export-directive-grammar.ts",
     "contracts:build": "bun run --cwd packages/contracts build",
     "contracts:check": "bun run --cwd packages/contracts check",
     "contracts:test": "bun run --cwd packages/contracts test",

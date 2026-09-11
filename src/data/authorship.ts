@@ -55,3 +55,19 @@ export function resolveAuthorshipModel(reference: string): ResolvedModel | null 
 
   return { id: reference, name, providerId, providerName: provider.name };
 }
+
+/**
+ * Every `provider/model` id the registry currently resolves. Used to publish
+ * the directive grammar snapshot (`contracts/directive-grammar.json`) so a
+ * consumer that cannot import this module — the Koenig editor fork — still
+ * gets a picker that can only ever produce a known id.
+ */
+export function listKnownAuthorshipModelIds(): string[] {
+  const ids: string[] = [];
+  for (const [providerId, provider] of Object.entries(providers)) {
+    for (const modelId of Object.keys(provider.models)) {
+      ids.push(`${providerId}/${modelId}`);
+    }
+  }
+  return ids;
+}
