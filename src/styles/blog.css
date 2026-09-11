@@ -702,13 +702,13 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 }
 
 /* --- Prev / next -------------------------------------------------------- */
+/* The band -- rule, air, spacing -- belongs to .blog-end, the footer this nav
+   is always the content of. Repeating it here drew the hairline twice, 72px
+   apart, with nothing in between. */
 .blog-adjacent {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  margin-top: 44px;
-  padding-top: 28px;
-  border-top: 1px solid var(--blog-line);
 }
 
 .blog-adjacent__item {
