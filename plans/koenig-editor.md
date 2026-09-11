@@ -96,12 +96,18 @@ through the iframe channel below. The Ghost install directory is not modified.
 Every card is a `DecoratorNode` in the editor and a plain Ghost node in the
 document. The trick is two-sided:
 
-- **Export.** The card's `exportJSON()` returns a `codeblock` node:
-  `{type: 'codeblock', language: 'directive', code: '[!mood id=482 theme=dark]'}`.
-  Lexical does not check that the `type` a node exports is its own. Ghost
-  stores that JSON, renders `<pre><code class="language-directive">`, and this
-  site's `normalizeDirectiveCodeBlocks` turns it into the marker paragraph the
-  directive registry has always matched.
+- **Export.** Two layers, because Lexical's `EditorState.toJSON()` throws
+  when a node's `exportJSON().type` is not its own `getType()` (the first
+  draft of this plan claimed otherwise; a real browser proved it wrong on
+  2026-09-12). Inside the editor a card exports its own type
+  (`buxx-directive`, `buxx-fence`, `buxx-footnote-ref`), which keeps undo,
+  copy and paste honest. At the one place the JSON leaves the editor — the
+  `onChange` handler in `KoenigComposableEditor.jsx` — `toGhostEditorState()`
+  (`src/buxx/serialize.js`) rewrites every buxx node into the plain Ghost
+  shape: `{type: 'codeblock', language: 'directive', code: '[!mood id=482 theme=dark]', caption: ''}`.
+  Ghost stores that JSON, renders `<pre><code class="language-directive">`,
+  and this site's `normalizeDirectiveCodeBlocks` turns it into the marker
+  paragraph the directive registry has always matched.
 - **Import.** On load the JSON says `codeblock`, so Lexical builds Koenig's
   `CodeBlockNode`. A node transform registered on `CodeBlockNode` replaces any
   instance whose language is `directive`, `conversation` or `mermaid`, or whose
@@ -119,8 +125,10 @@ same input, so a hand-written post re-saved through the fork renders
 identically; a round-trip test in Phase 1 proves that.
 
 Footnotes are the exception: `[^1]` is inline text and the definitions are
-paragraphs. They stay text in the document and get a `TextNode` replacement
-in the editor (Phase 3). No serialisation change.
+paragraphs. They stay text in the document; the editor splits `[^1]` into a
+`FootnoteRefNode` (a text-node subclass, Phase 3) that the same boundary
+rewrite erases back into the `extended-text` node Ghost stored. No
+serialisation change on the wire.
 
 ## The product
 
@@ -327,5 +335,48 @@ the owner decides whether phases 2 and 3 go ahead.
 | --- | --- |
 | 0 | DONE 2026-09-12 (`34185554`, `f04d1521`, `d60139e7`, `4726c596`); the preview theme still has to be uploaded and activated in Ghost Admin by the owner |
 | 1 | DONE 2026-09-12 in `~/Dev/Koenig` (`86e2080..609c167`): grammar, `DirectiveCardNode`, load transforms, mood + youtube cards, live preview pane, version banner, round-trip tests, `BUXX.md`, `scripts/build-buxx.sh`. Not yet deployed to the VPS |
-| 2 | Site half DONE 2026-09-12 (`696393b0` poem card body form, `137b8f84` grammar snapshot at `contracts/directive-grammar.json`, `47639511` channel e2e plus a cross-origin `event.source` fix). Fork half IN PROGRESS |
-| 3 | Site half DONE 2026-09-12 (`4e4fa0ae` `readiness` on `/dev/blog/render`). Fork half TODO |
+| 2 | DONE 2026-09-12. Site: `696393b0` poem card body form, `137b8f84` grammar snapshot at `contracts/directive-grammar.json`, `47639511` channel e2e plus a cross-origin `event.source` fix. Fork: `99ae4ae..7568d39` music, authors, poem, conversation, mermaid and unknown-directive cards, warnings mapped to cards, `scripts/sync-site-grammar.mjs` |
+| 3 | DONE 2026-09-12. Site: `4e4fa0ae` `readiness` on `/dev/blog/render`, `03f91fa5` relayed as `buxx:readiness`. Fork: `926d415..6598c75` footnotes (`FootnoteRefNode`, ⌘⇧F, status strip), readiness header in the pane, pane width persistence |
+| — | Browser verification 2026-09-12 against the fork's Vite demo found three bugs the unit tests could not: an infinite update loop from the footnote entity hook (`2bee539`), the `toJSON()` type invariant above (`51f09bc`, `d337781`), and typed markers never reaching the paragraph transform (`f690312`). All fixed; the Playwright smoke run then inserted a card from `/mood`, folded a typed `[!youtube …]` paragraph into a card with its thumbnail, inserted a footnote with ⌘⇧F and opened the pane with ⌘⇧P, with zero page errors |
+
+Current UMD: `~/Dev/Koenig/packages/koenig-lexical/dist/koenig-lexical.umd.js`,
+3,201,772 bytes, sha256
+`6df868f77c497535530393709355263052a1b08d75b1b28df0763a3991d584ff`, built
+from `f690312`. Fork unit tests: 221 in `test/unit/buxx`, 328 overall.
+
+Every commit listed here that landed on 2026-09-12 after `4726c596` is
+unsigned (`commit.gpgsign=false`): the signing key lives in 1Password, which
+was locked for the unattended run. Re-sign with `git rebase --exec 'git
+commit --amend --no-edit -S'` before merging if signed history matters.
+
+Simplifications made in Phase 3 that the product section does not spell
+out: the editor computes only dangling-reference and orphan-definition
+warnings itself (the site's `split-definition` warning arrives through the
+pane once a post is saved); footnotes are never renumbered by the editor;
+the readiness header shows one credit line per `[!authors]` credit.
+
+## Handoff
+
+Nothing below has run yet; none of it needs the fork repo to be pushed.
+
+1. **Site.** Branch `claude/ghost-koenig-editor-adapt-7154f7` holds every
+   site commit. Open a PR to `main`; merging deploys within a minute, which
+   is fine because nothing here changes a published page. The build of
+   `dist/ghost-preview-theme/buxx-preview.zip` (`bun run ghost:preview-theme`)
+   is not committed; build it locally.
+2. **Preview theme.** Ghost Admin → Settings → Design & branding → Change
+   theme → Upload theme → `buxx-preview.zip`, then activate it. Ghost's own
+   Preview button now opens `buxx.me/dev/blog/<id>` inside the admin. The
+   owner cookie must already be set on `buxx.me` in that browser.
+3. **Editor.** Copy the UMD above to the VPS as
+   `/srv/koenig/koenig-lexical.umd.js` and add the nginx `location` block
+   from the deployment section to the Ghost server block; `nginx -t` then
+   reload. Hard-reload the admin. The version banner in the editor confirms
+   the fork loaded; a mismatch banner means the VPS Ghost minor moved past
+   `6.39` and the fork needs a rebase before use.
+4. **First real post.** Open an existing post that uses directives, make one
+   edit, save, and diff `post.html` from the Content API against the copy
+   from before. Only the directive form (paragraph → code block) may change.
+   That diff is the acceptance test for the one rule.
+5. **Rollback** is deleting the nginx `location` block and reloading;
+   Ghost's own copy of the editor is untouched underneath.
