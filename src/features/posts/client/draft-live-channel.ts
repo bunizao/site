@@ -77,6 +77,9 @@ export function createCoalescedRunner<T>(run: (value: T) => Promise<void>): (val
 interface DraftRenderResponse {
   html: string;
   warnings: readonly DirectiveWarning[];
+  /** Publish readiness and credits, relayed to the editor as-is. */
+  readiness?: unknown;
+  authorshipCredits?: unknown;
 }
 
 function isDraftRenderResponse(value: unknown): value is DraftRenderResponse {
@@ -188,6 +191,13 @@ export function initDraftLiveChannel(options: DraftLiveChannelOptions): void {
     initProse(prose);
     renderWarnings(prose, payload.warnings);
     reply({ type: 'buxx:warnings', warnings: payload.warnings });
+    if (payload.readiness !== undefined) {
+      reply({
+        type: 'buxx:readiness',
+        readiness: payload.readiness,
+        authorshipCredits: payload.authorshipCredits ?? [],
+      });
+    }
     reply({ type: 'buxx:rendered', ok: true });
   });
 

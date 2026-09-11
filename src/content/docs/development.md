@@ -68,9 +68,11 @@ the koenig-editor live preview. A `message` listener
 `POST /dev/blog/render`, and swaps `.blog-prose` with the returned fragment —
 re-running the same prose initialization (`initProse`, now idempotent and
 scope-aware) rather than reloading the page. Warnings render into
-`.blog-preview-warnings`. The page replies with `{type:'buxx:warnings', ...}`
-and `{type:'buxx:rendered', ok, ...}`, and posts `{type:'buxx:ready'}` on
-load. The revision poll pauses while messages arrive and resumes after 10
+`.blog-preview-warnings`. The page replies with `{type:'buxx:warnings', ...}`,
+`{type:'buxx:readiness', readiness, authorshipCredits}` (the publish
+readiness block the render endpoint computes from the post's tags, relayed
+verbatim so the editor can show it) and `{type:'buxx:rendered', ok, ...}`,
+and posts `{type:'buxx:ready'}` on load. The revision poll pauses while messages arrive and resumes after 10
 seconds of silence, or immediately if no parent ever speaks — so this page
 behaves exactly as before when opened directly.
 
