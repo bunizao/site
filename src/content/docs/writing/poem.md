@@ -106,3 +106,27 @@ A blockquote already carrying `blog-poem` is skipped, so the transform is safe t
 run twice over the same document.
 
 Styles live in `src/styles/blog-prose.css` under *Poem card*.
+
+## Card form
+
+A poem may also be written as a code card labelled `directive`: the marker on
+the first line, the stanzas as plain lines below it, one blank line between
+stanzas, and an optional attribution line starting with `—`, `–`, or `--`.
+
+```
+[!poem] 雨巷 [center]
+撑着油纸伞，独自
+彷徨在悠长、悠长
+又寂寥的雨巷
+
+我希望逢着
+一个丁香一样地
+结着愁怨的姑娘
+
+— 戴望舒
+```
+
+This is rebuilt into the exact blockquote shape above before the directive
+runs, so both forms produce byte-identical HTML. The editor's `/poem` card
+writes this form; the blockquote form above still works for posts written by
+hand.

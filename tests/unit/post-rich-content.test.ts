@@ -56,4 +56,30 @@ describe('rich post content', () => {
     expect(credit?.model.id).toBe('google/gemini-3.7-flash');
     expect(credit?.note).toBe(`${firstNote.trim()}, ${secondNote}`);
   });
+
+  test('renders the same poem from the blockquote marker and the directive code card', async () => {
+    const blockquoteForm = [
+      '<blockquote>[!poem] Ferry Lights<br>',
+      'The lanterns swing,<br>slow gold against the dark.<br><br>',
+      'We wait for morning,<br>for bread and quiet talk.<br><br>',
+      '— Wendell</blockquote>',
+    ].join('');
+    const codeCardForm = [
+      '<pre><code class="language-directive">[!poem] Ferry Lights\n',
+      'The lanterns swing,\nslow gold against the dark.\n\n',
+      'We wait for morning,\nfor bread and quiet talk.\n\n',
+      '— Wendell</code></pre>',
+    ].join('');
+
+    const [fromBlockquote, fromCodeCard] = await Promise.all([
+      renderPostContent(blockquoteForm, context),
+      renderPostContent(codeCardForm, context),
+    ]);
+
+    expect(fromCodeCard.html).toBe(fromBlockquote.html);
+    expect(fromCodeCard.warnings).toEqual([]);
+    expect(fromBlockquote.warnings).toEqual([]);
+    expect(fromBlockquote.html).toContain('class="blog-poem__title"');
+    expect(fromBlockquote.html).toContain('class="blog-poem__attribution"');
+  });
 });
