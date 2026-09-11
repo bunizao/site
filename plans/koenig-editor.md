@@ -326,6 +326,6 @@ the owner decides whether phases 2 and 3 go ahead.
 | Phase | Status |
 | --- | --- |
 | 0 | DONE 2026-09-12 (`34185554`, `f04d1521`, `d60139e7`, `4726c596`); the preview theme still has to be uploaded and activated in Ghost Admin by the owner |
-| 1 | TODO |
-| 2 | TODO |
-| 3 | TODO |
+| 1 | DONE 2026-09-12 in `~/Dev/Koenig` (`86e2080..609c167`): grammar, `DirectiveCardNode`, load transforms, mood + youtube cards, live preview pane, version banner, round-trip tests, `BUXX.md`, `scripts/build-buxx.sh`. Not yet deployed to the VPS |
+| 2 | Site half DONE 2026-09-12 (`696393b0` poem card body form, `137b8f84` grammar snapshot at `contracts/directive-grammar.json`, `47639511` channel e2e plus a cross-origin `event.source` fix). Fork half IN PROGRESS |
+| 3 | Site half DONE 2026-09-12 (`4e4fa0ae` `readiness` on `/dev/blog/render`). Fork half TODO |
