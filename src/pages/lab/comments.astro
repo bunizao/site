@@ -49,6 +49,11 @@ const params = Astro.url.searchParams;
 const locale = params.get('locale') === 'en' ? 'en' : blog.locale.blog;
 
 const interactive = params.get('interactive') === '1';
+// Turnstile is off in the lab by default: an empty key short-circuits the
+// widget, which is what keeps this page from talking to Cloudflare on every
+// load. `?turnstile=1` hands the surfaces a key so the challenge path can be
+// exercised -- Cloudflare's own always-passes test key, never a real one.
+const turnstileSiteKey = params.get('turnstile') === '1' ? '1x00000000000000000000AA' : '';
 const verifyRaw = params.get('verify');
 const verifyState = verifyRaw === 'confirmed' || verifyRaw === 'settings' || verifyRaw === 'already' || verifyRaw === 'invalid' || verifyRaw === 'resent'
   ? verifyRaw
@@ -416,7 +421,7 @@ await billing.invoice(payload)</code></pre>
           the comments head, and the only way to judge that seam is to render
           both sides of it for real. */}
       <Colophon credits={authorshipCredits}>
-        <ReactionBar client:idle count={24} reacted={reacted} reactors={reactors} locale={locale} postId={interactive ? 'lab-post' : undefined} />
+        <ReactionBar client:idle count={24} reacted={reacted} reactors={reactors} locale={locale} postId={interactive ? 'lab-post' : undefined} siteKey={turnstileSiteKey} />
         <div class="blog-article-sub">
           <SubscribePanel variant="blog" locale={locale} anchor="right" feed={blog.feed} />
           <ShareRow title="少一层，而不是多一层" locale={locale} />
@@ -558,6 +563,7 @@ await billing.invoice(payload)</code></pre>
         hasMore={hasMore}
         loadMoreState={loadMoreState}
         postId={interactive ? 'lab-post' : undefined}
+        turnstileSiteKey={turnstileSiteKey}
         errorCode={errorCode}
         requireEmail={requireEmail}
       />

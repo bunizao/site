@@ -79,7 +79,9 @@ Four tiers, and most of the public JSON surface is the first one:
    `cfTurnstileResponse`, `captchaToken`, or the `cf-turnstile-response`
    header. A missing or failing token returns `400`; Turnstile itself being
    unreachable returns `503`, not `400` — a client should treat those
-   differently.
+   differently. `v2/reactions/toggle` alone also accepts a one-hour
+   `__Host-reader_pass` cookie it issued after an earlier verified token in
+   place of a fresh one (see [Reactions](/docs/api/comments#reactions)).
 3. **Bearer token in the URL or body.** `notify/confirm`, `notify/unsubscribe`,
    `notify/manage` (`GET`/`PATCH`), and `v2/reader/verify` take a
    single-purpose token issued by email. It authorizes one record (a

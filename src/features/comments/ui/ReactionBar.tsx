@@ -10,10 +10,17 @@ import { cn } from '@/lib/utils';
 import { mountAvatarComb } from '@/features/comments/client/use-avatar-comb';
 import { mountMagnetic } from '@/features/comments/client/use-magnetic';
 import {
+  challengeTurnstile,
   getTurnstileToken,
   releaseTurnstileToken,
   setTurnstileHost,
 } from '@/features/comments/client/turnstile-token';
+import { describeCommentFailure, readErrorSlug } from '@/features/comments/comment-error';
+import {
+  forgetReactionPass,
+  hasReactionPass,
+  rememberReactionPass,
+} from '@/features/comments/client/reaction-pass';
 import { initials, seedHue } from '@/features/comments/identity';
 import { ICONS } from '@/features/comments/icons';
 import { resolveCommentsCopy } from '@/features/comments/copy';
@@ -177,15 +184,68 @@ export default function ReactionBar({
 
     inflight.current = true;
     try {
-      const turnstileToken = await getTurnstileToken(siteKey, 'blog_reaction');
+      await send(false);
+    } finally {
+      inflight.current = false;
+    }
+  }
+
+  /** One press, one write. `retried` marks the resend that follows a solved
+      challenge, so a second refusal ends here instead of looping. */
+  async function send(retried: boolean): Promise<void> {
+    try {
+      // Before every send, not once on mount: the comment rows share this
+      // widget, and the last one to send took the container down into the
+      // thread with it. An interaction-only widget opens its challenge
+      // wherever the container is sitting, so a stale host means the reader is
+      // asked for a checkbox somewhere they are not looking -- the solve times
+      // out, the token comes back empty, and the like is refused for a
+      // question nobody was shown.
+      if (challenge.current) setTurnstileHost('blog_reaction', challenge.current);
+      // A pass earned by an earlier like stands in for the token: no solve,
+      // no widget, nothing for Cloudflare to escalate on.
+      const viaPass = hasReactionPass();
+      const turnstileToken = viaPass ? '' : await getTurnstileToken(siteKey, 'blog_reaction');
       const response = await fetch('/api/v2/reactions/toggle', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ targetType: 'post', targetId: postId, reacted: true, turnstileToken }),
       });
-      releaseTurnstileToken('blog_reaction');
-      if (!response.ok) throw new Error(String(response.status));
+      if (!viaPass) releaseTurnstileToken('blog_reaction');
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const failure = describeCommentFailure(response.status, readErrorSlug(body), t.submitError);
+        // The pass this browser remembered is not one the server still holds
+        // (cookies cleared, or it lapsed on a clock we cannot see). Not a
+        // reason to put a checkbox in front of anyone yet: forget it and go
+        // once more the ordinary way, with a silent token.
+        if (failure.code === 'BOT' && viaPass) {
+          forgetReactionPass();
+          await send(retried);
+          return;
+        }
+        // Cloudflare wants a human and the silent widget could not settle it.
+        // Say so, draw a real checkbox in the slot under the bar, and send the
+        // like again the moment it is answered. The heart stays filled while
+        // the reader answers -- they pressed it, and nothing has refused them
+        // yet that they can still act on.
+        if (failure.code === 'BOT' && !retried) {
+          setError(failure.message);
+          const token = await challengeTurnstile(siteKey, 'blog_reaction');
+          if (token) {
+            setError('');
+            await send(true);
+            return;
+          }
+        }
+        setLiked(false);
+        setError(failure.code === 'BOT' ? failure.message : t.reactError);
+        return;
+      }
+
       const json = await response.json();
+      rememberReactionPass(json?.passUntil);
       const live = json?.reaction;
       if (live && typeof live.count === 'number') {
         setSummary((current) => ({ ...current, count: live.count, reacted: live.reacted }));
@@ -194,8 +254,6 @@ export default function ReactionBar({
     } catch {
       setLiked(false);
       setError(t.reactError);
-    } finally {
-      inflight.current = false;
     }
   }
 

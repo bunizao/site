@@ -1,6 +1,6 @@
 {
   "name": "@bunizao/contracts",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Shared TypeScript contracts for buxx.me services and clients.",
   "type": "module",
   "sideEffects": false,

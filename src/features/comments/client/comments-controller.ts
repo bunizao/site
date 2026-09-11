@@ -48,6 +48,11 @@ import {
   setTurnstileHost,
   warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
+import {
+  forgetReactionPass,
+  hasReactionPass,
+  rememberReactionPass,
+} from '@/features/comments/client/reaction-pass';
 import { clearCommentMarkdownPreview } from '@/features/comments/client/markdown-preview';
 import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
 import { forgetReaderEmail, readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
@@ -1227,34 +1232,103 @@ export function initCommentsController(): void {
     // Set before the first await, so presses arriving mid-flight stop here
     // rather than racing a second write.
     if (button.getAttribute('aria-pressed') === 'true') return;
+    await sendCommentLike(commentId, button);
+  }
+
+  /** The write itself, without the burst or the double-press guard, so the
+      Turnstile retry below can resend without throwing a second handful of
+      hearts for a press the reader only made once. */
+  async function sendCommentLike(commentId: string, button: HTMLButtonElement, options: { viaPass?: boolean } = {}): Promise<void> {
+    const article = button.closest<HTMLElement>('.blog-comment');
     button.setAttribute('aria-pressed', 'true');
 
     const countEl = button.querySelector<HTMLElement>('[data-like-count]');
     if (countEl) countEl.textContent = String(Number(countEl.textContent ?? 0) + 1);
 
-    const turnstileToken = await getTurnstileToken(turnstileSiteKey, 'blog_reaction');
-    const response = await postJson<{ reaction: { count: number; reacted: boolean } }>('/api/v2/reactions/toggle', {
+    // Whichever row is about to send owns the shared 'blog_reaction' widget:
+    // an interaction-only widget can decide it wants a human at any press, and
+    // it opens the challenge wherever its container happens to be sitting. Left
+    // in the post-level bar, that is somewhere off the top of the screen from
+    // down here in the thread -- the reader is asked a question they never see,
+    // the solve times out into an empty token, and the like comes back
+    // `turnstile_failed`. Which is the BOT 400 with no checkbox under it.
+    const host = article ? reactionChallengeHost(article) : null;
+    if (host) setTurnstileHost('blog_reaction', host);
+
+    // A pass earned by an earlier like stands in for the token: no solve, no
+    // widget, nothing for Cloudflare to escalate on. `options.viaPass` is
+    // the retry after a pass the server no longer honoured -- that one mints
+    // a token regardless, so a stale pass costs one silent solve, not a loop.
+    const viaPass = !options.viaPass && hasReactionPass();
+    const turnstileToken = viaPass ? '' : await getTurnstileToken(turnstileSiteKey, 'blog_reaction');
+    const response = await postJson<{ reaction: { count: number; reacted: boolean }; passUntil?: number }>('/api/v2/reactions/toggle', {
       targetType: 'comment',
       targetId: commentId,
       reacted: true,
       turnstileToken,
     });
-    releaseTurnstileToken('blog_reaction');
+    if (!viaPass) releaseTurnstileToken('blog_reaction');
 
     if (!response.ok) {
+      const failure = describeCommentFailure(response.status, response.slug, t.submitError);
+      // The pass this browser remembered is not one the server still holds
+      // (cookies cleared, or it lapsed on a clock we cannot see). Not a
+      // reason to put a checkbox in front of anyone yet: forget it and go
+      // once more the ordinary way.
+      if (failure.code === 'BOT' && viaPass) {
+        forgetReactionPass();
+        await sendCommentLike(commentId, button, { viaPass: true });
+        return;
+      }
       button.setAttribute('aria-pressed', 'false');
       if (countEl) countEl.textContent = String(Math.max(0, Number(countEl.textContent ?? 0) - 1));
-      const failure = describeCommentFailure(response.status, response.slug, t.submitError);
-      showRowActionError(
-        button.closest<HTMLElement>('.blog-comment'),
-        failure.message,
-        failureTag(failure),
-        helpFor(failure),
-      );
+      showRowActionError(article, failure.message, failureTag(failure), helpFor(failure));
+      // Same bargain the compose box strikes: draw a real checkbox under the
+      // refusal that asked for one and resend the moment it is answered,
+      // rather than printing "one more step" beside nothing to press. Once per
+      // row, so a challenge that fails again leaves the message standing.
+      if (failure.code === 'BOT' && article && article.dataset.botRetry !== 'spent') {
+        article.dataset.botRetry = 'spent';
+        void solveReactionChallengeAndResend(article, commentId, button);
+      }
       return;
     }
+    article?.querySelector('.blog-comment__action-error')?.remove();
+    delete article?.dataset.botRetry;
+    rememberReactionPass(response.data.passUntil);
     button.setAttribute('aria-pressed', String(response.data.reaction.reacted));
     if (countEl) countEl.textContent = String(response.data.reaction.count);
+  }
+
+  /** Where a challenge opens for a like on this row: under the refusal it is
+      answering and above the actions the reader pressed, which is the "box
+      below" the message names. Built on demand -- a row that is never
+      challenged never grows one -- and moved back into place on every send, so
+      a later refusal's message stays above it. */
+  function reactionChallengeHost(article: HTMLElement): HTMLElement | null {
+    const actions = article.querySelector('.blog-comment__actions');
+    if (!actions) return null;
+    const host = article.querySelector<HTMLElement>('[data-reaction-turnstile]')
+      ?? el('div', { class: 'blog-compose__turnstile', 'data-reaction-turnstile': '' });
+    actions.before(host);
+    return host;
+  }
+
+  /** Draw a pressable Turnstile under this comment and send the like again the
+      moment it is solved. An unanswered challenge simply returns: the refusal
+      is still on screen and the heart is still unpressed. */
+  async function solveReactionChallengeAndResend(
+    article: HTMLElement,
+    commentId: string,
+    button: HTMLButtonElement,
+  ): Promise<void> {
+    const host = reactionChallengeHost(article);
+    if (!host) return;
+    setTurnstileHost('blog_reaction', host);
+    host.scrollIntoView({ block: 'nearest' });
+    const token = await challengeTurnstile(turnstileSiteKey, 'blog_reaction');
+    if (!token) return;
+    await sendCommentLike(commentId, button);
   }
 
   /** Three hearts up and out of the button, per press. Sized and timed to the
@@ -1523,7 +1597,10 @@ export function initCommentsController(): void {
     article.querySelector('.blog-comment__action-error')?.remove();
     const actions = article.querySelector('.blog-comment__actions');
     if (!actions) return;
-    actions.before(el('p', {
+    // Above the challenge box when there is one, so "press the box below"
+    // describes the page rather than contradicting it.
+    const anchor = article.querySelector('[data-reaction-turnstile]') ?? actions;
+    anchor.before(el('p', {
       class: 'blog-comment__action-error blog-compose__alert',
       role: 'alert',
     }, [

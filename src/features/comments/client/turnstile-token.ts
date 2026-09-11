@@ -83,23 +83,35 @@ const INTERACTIVE_ATTR = 'data-turnstile-interactive';
 export function setTurnstileHost(action: TurnstileAction, host: HTMLElement): void {
   turnstileHosts.set(action, host);
   const existing = turnstileWidgets.get(action);
-  if (existing && existing.container.parentElement !== host) host.appendChild(existing.container);
+  if (existing) homeContainer(existing, action);
 }
 
+/** A registered host can leave the page under us -- a reply box closes, a
+    comment row is replaced by its server copy. A detached host is no host: it
+    can neither show a challenge nor render a widget, so fall back to the
+    hidden one on <body>, which at least still mints tokens. */
 function hostFor(action: TurnstileAction): { parent: HTMLElement; hidden: boolean } {
   const host = turnstileHosts.get(action);
-  return host ? { parent: host, hidden: false } : { parent: document.body, hidden: true };
+  return host?.isConnected ? { parent: host, hidden: false } : { parent: document.body, hidden: true };
+}
+
+/** Park the widget's container in its action's current host. Called before
+    every solve, because the container the last solve used may since have been
+    detached along with the row it lived in -- and `turnstile.render` into a
+    detached node mints nothing and reports nothing. */
+function homeContainer(state: TurnstileWidgetState, action: TurnstileAction): void {
+  const { parent, hidden } = hostFor(action);
+  state.container.style.display = hidden ? 'none' : '';
+  if (state.container.parentElement !== parent) parent.appendChild(state.container);
 }
 
 function widgetFor(action: TurnstileAction): TurnstileWidgetState {
   let state = turnstileWidgets.get(action);
   if (!state) {
-    const { parent, hidden } = hostFor(action);
     const container = document.createElement('div');
-    if (hidden) container.style.display = 'none';
-    parent.appendChild(container);
     state = { container, widgetId: null, tokenPromise: null, resolveCurrent: null, settled: false, solvedAt: 0, forced: false };
     turnstileWidgets.set(action, state);
+    homeContainer(state, action);
   }
   return state;
 }
@@ -150,6 +162,7 @@ function mintToken(state: TurnstileWidgetState, siteKey: string, action: Turnsti
   if (!turnstile) return Promise.resolve('');
 
   state.settled = false;
+  homeContainer(state, action);
   state.tokenPromise = new Promise<string>((resolve) => {
     state.resolveCurrent = resolve;
     if (state.widgetId === null) {
@@ -218,6 +231,10 @@ export async function challengeTurnstile(siteKey: string, action: TurnstileActio
   state.widgetId = null;
   state.tokenPromise = null;
   state.forced = true;
+  // Move first, open second. The flag lives on whichever host the container
+  // is in, so opening before the move marks the host the reader has just been
+  // moved away from -- and leaves the one they are looking at collapsed.
+  homeContainer(state, action);
   setInteractive(state, true);
 
   try {
