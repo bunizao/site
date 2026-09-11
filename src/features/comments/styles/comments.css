@@ -2250,6 +2250,9 @@
 }
 
 .blog-skel {
+  /* Spans, so every placeholder needs blockifying before width and height mean
+     anything -- only the ones inside a flex parent get it for free. */
+  display: block;
   border-radius: var(--blog-r-pill);
   background: hsl(var(--foreground) / 0.07);
   animation: blog-skel-pulse 1.4s var(--ease-linear, linear) infinite;

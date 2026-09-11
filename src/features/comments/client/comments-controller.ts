@@ -310,9 +310,10 @@ export function initCommentsController(): void {
     if ((event.target as HTMLElement).closest('.blog-compose')) warmCreate();
   });
 
-  // Build the "loaded" shell up front -- state="loading"'s skeleton never
-  // carries the reply box or list container, so nothing below exists until
-  // this runs, real data or not.
+  // Build the "loaded" shell up front -- state="loading" carries neither the
+  // reply box nor the list container, so nothing below exists until this runs,
+  // real data or not. It lands under the skeleton, which stays until there are
+  // rows to show.
   buildLoadedShell();
 
   void bootstrap();
@@ -333,12 +334,14 @@ export function initCommentsController(): void {
     }
 
     if (!pageResult) {
+      clearSkeleton();
       showError();
       return;
     }
 
     nextBefore = pageResult.nextBefore;
     await renderPage(pageResult.comments);
+    clearSkeleton();
     setTally(pageResult.total);
     // `total` counts published comments only, but the page also renders the
     // viewer's own held ones -- keying the empty state off the rendered rows
@@ -347,9 +350,15 @@ export function initCommentsController(): void {
     setMoreVisible(pageResult.hasMore);
   }
 
+  // The SSR skeleton is the only thing under the compose box while bootstrap()
+  // waits on the list and its reactions. It is dropped once that round trip has
+  // something to put in its place -- never at build time, or the thread is a
+  // blank gap for the length of two fetches.
+  function clearSkeleton(): void {
+    section.querySelector('.blog-comments__skeleton')?.remove();
+  }
+
   function buildLoadedShell(): void {
-    const skeleton = section.querySelector('.blog-comments__skeleton');
-    skeleton?.remove();
     section.querySelector('.blog-comments__empty')?.remove();
     section.querySelector('.blog-comments__error')?.remove();
 
