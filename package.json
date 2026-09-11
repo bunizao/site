@@ -54,6 +54,7 @@
     "test:e2e:report": "playwright show-report",
     "mascot:show": "bun scripts/mascot.ts show",
     "mascot:diff": "bun scripts/mascot.ts diff",
+    "ghost:preview-theme": "bun scripts/zip-ghost-preview-theme.ts",
     "doctor": "npx react-doctor@latest"
   },
   "devDependencies": {
