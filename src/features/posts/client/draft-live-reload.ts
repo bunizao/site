@@ -51,9 +51,24 @@ function hasActiveMedia(root: HTMLElement): boolean {
     .some((media) => !media.paused && !media.ended);
 }
 
-export function startGhostDraftLiveReload(root: HTMLElement): () => void {
+export interface GhostDraftLiveReloadController {
+  /** Suspend polling — the parent frame (koenig-editor) is driving instead. */
+  pause(): void;
+  /** Resume polling — called after the parent has gone quiet for a while, or never spoke. */
+  resume(): void;
+  /** Tear down entirely. Also runs automatically on `pagehide`. */
+  stop(): void;
+}
+
+const NOOP_CONTROLLER: GhostDraftLiveReloadController = {
+  pause() {},
+  resume() {},
+  stop() {},
+};
+
+export function startGhostDraftLiveReload(root: HTMLElement): GhostDraftLiveReloadController {
   const revision = root.dataset.previewRevision;
-  if (!revision) return () => {};
+  if (!revision) return NOOP_CONTROLLER;
 
   restoreScroll();
   const configuredPollMs = Number(root.dataset.previewPollMs);
@@ -62,18 +77,19 @@ export function startGhostDraftLiveReload(root: HTMLElement): () => void {
     : DEFAULT_POLL_MS;
   const currentEtag = previewEtag(revision);
   let stopped = false;
+  let paused = false;
   let failures = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let controller: AbortController | undefined;
 
   const schedule = (delay: number) => {
-    if (stopped) return;
+    if (stopped || paused) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => void probe(), delay);
   };
 
   const probe = async () => {
-    if (stopped) return;
+    if (stopped || paused) return;
     if (document.visibilityState !== 'visible') {
       schedule(pollMs);
       return;
@@ -131,8 +147,28 @@ export function startGhostDraftLiveReload(root: HTMLElement): () => void {
     document.removeEventListener('visibilitychange', onVisibilityChange);
   };
 
+  // Called while the parent frame (koenig-editor) is driving the preview
+  // directly — see draft-live-channel.ts. Aborts an in-flight probe so a
+  // stale HEAD response cannot race the swap the channel just applied.
+  const pause = () => {
+    if (paused || stopped) return;
+    paused = true;
+    if (timer) clearTimeout(timer);
+    controller?.abort();
+    setStatus(root, 'Live preview — editor connected', 'parent-driven');
+  };
+
+  // Called once the parent has gone quiet for a while (or never spoke at
+  // all, the normal case). A no-op if polling was never paused.
+  const resume = () => {
+    if (!paused || stopped) return;
+    paused = false;
+    setStatus(root, 'Live preview', 'live');
+    schedule(0);
+  };
+
   document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('pagehide', stop, { once: true });
   schedule(pollMs);
-  return stop;
+  return { pause, resume, stop };
 }

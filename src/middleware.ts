@@ -1,7 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { meta } from '@/data/site';
 import { readCloudflareAccessIdentity } from '@/features/admin/server/access';
-import type { RuntimeEnvLocals } from '@/lib/runtime/env';
+import { readOptionalEnv, type RuntimeEnvLocals } from '@/lib/runtime/env';
 import {
   isNeverCachePath,
   redirectCanonicalUrl,
@@ -41,19 +41,46 @@ function isMoodEmbedPath(pathname: string): boolean {
   return pathname === MOOD_EMBED_PATH || pathname.startsWith(`${MOOD_EMBED_PATH}/`);
 }
 
-export function createHtmlScriptCsp(options: { frameAncestors?: 'none' | 'self' } = {}): string {
+// The Ghost admin origin /dev/blog/* is allowed to frame it from (the
+// koenig-editor live preview pane), derived from PUBLIC_GHOST_URL at request
+// time. Origin only — no path — so a Ghost install at a subpath still matches.
+// Exported so /dev/blog/[id].astro can render the same origin into the page
+// as data-preview-parent-origin, for the message-channel trust check.
+export function readGhostAdminOrigin(locals: RuntimeEnvLocals | undefined): string | null {
+  const raw = readOptionalEnv(locals, 'PUBLIC_GHOST_URL');
+  if (!raw) return null;
+
+  try {
+    const url = new URL(raw.trim());
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
+
+export function createHtmlScriptCsp(
+  options: { frameAncestors?: string | readonly string[] } = {},
+): string {
   const directives = [
     "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.youtube.com https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*",
     "base-uri 'self'",
     "object-src 'none'",
   ];
   if (options.frameAncestors) {
-    directives.push(`frame-ancestors '${options.frameAncestors}'`);
+    const values = Array.isArray(options.frameAncestors)
+      ? options.frameAncestors
+      : [options.frameAncestors as string];
+    const tokens = values.map((value) => (value === 'self' || value === 'none' ? `'${value}'` : value));
+    directives.push(`frame-ancestors ${tokens.join(' ')}`);
   }
   return directives.join('; ');
 }
 
-export function withHtmlSecurityHeaders(request: Request, response: Response): Response {
+export function withHtmlSecurityHeaders(
+  request: Request,
+  response: Response,
+  locals?: RuntimeEnvLocals,
+): Response {
   const headers = new Headers(response.headers);
 
   // nosniff and referrer policy apply to every response: sniffing matters most
@@ -77,13 +104,16 @@ export function withHtmlSecurityHeaders(request: Request, response: Response): R
         headers.set('Content-Security-Policy', createHtmlScriptCsp());
       }
     } else {
-      headers.set('Content-Security-Policy', createHtmlScriptCsp({
-        // /dev/blog/[id] is iframed by the portal blog preview page (same
-        // origin), so it needs 'self' while every other /dev path stays 'none'.
-        frameAncestors: isDevBlogPreviewPath(pathname)
-          ? 'self'
-          : isDevPortalPath(pathname) ? 'none' : 'self',
-      }));
+      // /dev/blog/[id] is iframed by the portal blog preview page (same
+      // origin) and, when configured, by the Ghost admin origin (the
+      // koenig-editor live preview pane); every other /dev path stays 'none'.
+      const frameAncestors = isDevBlogPreviewPath(pathname)
+        ? (() => {
+          const ghostOrigin = readGhostAdminOrigin(locals);
+          return ghostOrigin ? ['self', ghostOrigin] : ['self'];
+        })()
+        : isDevPortalPath(pathname) ? 'none' : 'self';
+      headers.set('Content-Security-Policy', createHtmlScriptCsp({ frameAncestors }));
     }
   }
 
@@ -145,11 +175,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
       return accessRequired();
     }
     (context.locals as unknown as Record<string, unknown>).adminSession = session;
-    return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next()));
+    return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next(), context.locals as RuntimeEnvLocals | undefined));
   }
 
   if (isNeverCachePath(pathname)) {
-    return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next()));
+    return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next(), context.locals as RuntimeEnvLocals | undefined));
   }
 
   // The edge HTML cache lives in src/worker.ts, the production entrypoint;
@@ -157,6 +187,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // renders fresh, which is what dev wants.
   return withContentPolicy(
     context.request,
-    withHtmlSecurityHeaders(context.request, await next()),
+    withHtmlSecurityHeaders(context.request, await next(), context.locals as RuntimeEnvLocals | undefined),
   );
 });
