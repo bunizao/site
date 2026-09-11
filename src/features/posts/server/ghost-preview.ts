@@ -103,13 +103,18 @@ function e2eGhostAdminClient(): GhostAdminClient {
   };
 }
 
-function createConfiguredClient(locals: RuntimeEnvLocals | undefined): GhostAdminClient {
+// Shared by every /dev/blog/* route that needs an Admin client: the render
+// endpoint (src/pages/dev/blog/render.ts) resolves slug/title through this
+// same factory, so the e2e fixture path only has to be wired once.
+export function createConfiguredGhostAdminClient(
+  locals: RuntimeEnvLocals | undefined,
+): GhostAdminClient {
   return isE2ESiteFixtureEnabled(locals)
     ? e2eGhostAdminClient()
     : createGhostAdminClient({ locals });
 }
 
-function mapGhostPreviewError(error: unknown): GhostDraftPreviewFailure {
+export function mapGhostPreviewError(error: unknown): GhostDraftPreviewFailure {
   if (!(error instanceof GhostAdminClientError)) {
     console.error('Ghost draft preview failed.', {
       errorType: error instanceof Error ? error.name : typeof error,
@@ -144,7 +149,7 @@ export async function resolveGhostDraftPreview(
   }
 
   try {
-    const client = options.createClient?.() ?? createConfiguredClient(options.locals);
+    const client = options.createClient?.() ?? createConfiguredGhostAdminClient(options.locals);
     const post = await client.readPostById(options.id);
     const transformed = await renderPostContent(post.html, {
       slug: post.slug,
@@ -173,7 +178,7 @@ export async function resolveGhostDraftRevision(
   }
 
   try {
-    const client = options.createClient?.() ?? createConfiguredClient(options.locals);
+    const client = options.createClient?.() ?? createConfiguredGhostAdminClient(options.locals);
     const updatedAt = await client.readPostRevisionById(options.id);
     return { ok: true, revision: updatedAt ?? options.id };
   } catch (error) {

@@ -6,7 +6,10 @@ const GHOST_ADMIN_API_VERSION = 'v6.0';
 const GHOST_ADMIN_TOKEN_TTL_SECONDS = 5 * 60;
 const DEFAULT_GHOST_ADMIN_TIMEOUT_MS = 8_000;
 const MAX_GHOST_ADMIN_TIMEOUT_MS = 30_000;
-const DEFAULT_GHOST_ADMIN_MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
+// Exported so callers that accept draft HTML from elsewhere (the live
+// preview render endpoint) can cap the request body to the same size the
+// Admin client itself enforces on responses, without duplicating the number.
+export const DEFAULT_GHOST_ADMIN_MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const MAX_GHOST_ADMIN_MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const GHOST_POST_ID_PATTERN = /^[a-f0-9]{24}$/iu;
 const GHOST_POST_UUID_PATTERN = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu;
