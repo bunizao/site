@@ -194,13 +194,21 @@ export function initDraftLiveChannel(options: DraftLiveChannelOptions): void {
   window.addEventListener('message', (event: MessageEvent) => {
     if (!isTrustedParentOrigin(event.origin, parentOrigin)) return;
     const message = parseDraftMessage(event.data);
-    // A trusted origin only ever reaches this listener from another window
-    // (the Ghost admin frame), never a MessagePort or ServiceWorker.
-    if (!message || !(event.source instanceof Window)) return;
+    // Not `event.source instanceof Window`: for a genuinely cross-origin
+    // sender (the real case — Ghost admin is a different origin from the
+    // site) the platform nulls out the WindowProxy's prototype on
+    // cross-origin access, so that check is false even for a legitimate
+    // frame and would silently drop every message. A `window`-level message
+    // listener (as opposed to a MessageChannel port or a ServiceWorker's)
+    // only ever gets a Window/WindowProxy source, so a null check is the
+    // right narrowing here — the trusted-origin check above is what actually
+    // gates who gets to speak on this channel.
+    if (!message || !event.source) return;
+    const replySource = event.source as Window;
 
     liveReload.pause();
     scheduleResume();
-    applyDraft({ html: message.html, replySource: event.source, replyOrigin: event.origin });
+    applyDraft({ html: message.html, replySource, replyOrigin: event.origin });
   });
 
   if (window.parent !== window) {

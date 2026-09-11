@@ -8,6 +8,21 @@ const browserChannel = process.env.PLAYWRIGHT_BROWSER_CHANNEL?.trim() || undefin
 const shouldUseWebServer = !remoteBaseURL;
 const shouldReuseWebServer = process.env.E2E_REUSE_SERVER === '1';
 
+// A fake Ghost admin origin, never actually requested — tests/e2e/blog-preview-channel.pw.ts
+// mocks it via page.route(). Configuring it here is what makes
+// src/middleware.ts's readGhostAdminOrigin() return a non-null value, which is
+// what turns on the postMessage channel (draft-live-channel.ts) on /dev/blog/*
+// at all; without it, `data-preview-parent-origin` is empty and the channel is
+// a no-op, same as when the site runs without a configured Ghost admin.
+//
+// Same host as the dev server, different port: Chrome's Local Network Access
+// checks block a "public" origin from framing/fetching a loopback one, and a
+// made-up public-looking hostname (e.g. ghost-admin.e2e.test) trips that even
+// though nothing ever really leaves the browser (page.route intercepts it).
+// Staying on the dev server's own loopback address keeps this a same-network,
+// cross-origin (host+port still differ) test instead of a cross-network one.
+export const E2E_GHOST_ADMIN_ORIGIN = `http://${host}:${port + 1000}`;
+
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.pw.ts',
@@ -43,6 +58,7 @@ export default defineConfig({
           ASTRO_E2E_STRICT_PORT: '1',
           CHANNEL: 'e2e',
           E2E_SITE_FIXTURE: '1',
+          PUBLIC_GHOST_URL: E2E_GHOST_ADMIN_ORIGIN,
         },
         url: baseURL,
         reuseExistingServer: shouldReuseWebServer,
