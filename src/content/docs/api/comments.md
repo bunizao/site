@@ -542,7 +542,9 @@ asked for. Rate-limited at 10/minute per email hash, durably enforced.
 
 **The session is minted once.** Only a `confirmed` outcome sets the reader
 cookie; replaying the same token afterwards answers `already_confirmed` and
-signs in nobody. So a link forwarded, quoted in a reply, or sitting in a
+signs in nobody. Consumption and subscription intent are applied atomically;
+a replay changes neither preferences nor the timestamp used by a newer link.
+So a link forwarded, quoted in a reply, or sitting in a
 mailbox somebody else can read is not a way into the account — it signs in
 the one device that redeemed it first, and a device left out gets a fresh
 link rather than a second use of the old one. The token still expires 24
@@ -565,9 +567,10 @@ POST /api/v2/reader/resend
 { "ok": true }
 ```
 
-Mail goes out only to an address that has actually commented; there is
-nothing to confirm for one that has not, and sending anyway would let this
-route mail a stranger on request. Always answers the same shape and status
+Mail goes out only to an address with comment history or an existing verified
+reader identity. This also lets a verified reader sign in after changing their
+email address. The monthly unconfirmed-address limit does not apply to a
+verified reader; the short, daily, and global limits still apply. Always answers the same shape and status
 either way, and regardless of whether the address is currently suppressed
 by the per-address send limit below — this can never be used to probe which addresses have
 commented. Two independent rate limits apply, both durably enforced: a
@@ -605,7 +608,8 @@ cookie alone — it takes no address, so it can never move a stranger's
 preferences by naming them, and answers `401 not_signed_in` without one.
 Every field is optional and independent; the client sends only the switch
 that moved, and a body carrying none of them is a `400`. `notifyReplies`
-writes the reader's own column; `subscribed` activates or unsubscribes the
+writes the reader's own column; switching `subscribed` off invalidates pending
+newsletter confirmations. `subscribed` activates or unsubscribes the
 newsletter subscription without touching reply notifications, and vice
 versa — leaving the newsletter and muting your own replies are separate
 decisions. Rate-limited at 20/minute per reader, durably enforced. The

@@ -54,10 +54,10 @@ already subscribed:
 { "status": "confirmation_sent", "email": "you@example.com", "deliveryMode": "immediate" }
 ```
 
-`status` is `"confirmation_sent"` for a new signup or `"already_subscribed"`
-for an address already active — a client should show the same "check your
-inbox" message either way, since distinguishing them would let a caller
-enumerate subscribed addresses.
+The public route always returns `confirmation_sent`. Existing subscriptions
+and addresses suppressed after a permanent bounce or complaint receive the
+same response; it is not evidence that a new message was sent. Blog newsletters
+reach all active Blog subscribers regardless of the Mood delivery mode.
 
 **Errors:** `400 {"error":"Invalid JSON body"}` for a malformed body;
 `400 {"error":"Turnstile verification failed","code":"..."}` for a rejected
@@ -69,13 +69,14 @@ unknown channel, etc.) surface as `{error.status} {"error":"<message>","code":"<
 ## Confirm
 
 ```
-GET /api/notify/confirm?token=...
+GET  /api/notify/confirm?token=...
+POST /api/notify/confirm
 ```
 
 **Not a JSON endpoint.** This is the link from the confirmation email —
-opening it in a browser confirms the subscription and renders a full HTML
-result page (`renderNotifyPage`), success or failure, styled like the rest
-of the site. A missing `token` renders the same error page rather than a
+GET displays a confirmation form without changing the subscription. Its POST
+confirms the current request and opens the preferences page. Link scanners
+therefore cannot activate a subscription by fetching the email URL. A missing `token` renders the same error page rather than a
 400 status, since a human reading it in a browser is the only realistic
 caller. Rate limit: 30 requests / 10 min; a rate-limited hit gets a plain
 `429 Too Many Requests` text response instead of the templated page.
@@ -99,8 +100,8 @@ Two different behaviors sharing one path, both **HTML, not JSON**:
 - **`POST`** is the actual one-click unsubscribe — this is what a mail
   client's `List-Unsubscribe-Post` support calls automatically, no page
   view required. It unsubscribes immediately and returns the HTML result
-  page directly (still HTML — this is not meant for programmatic callers
-  either).
+  page with HTTP 200 on success. A persistence failure returns HTTP 503 so
+  the mail client can retry; token errors retain their service error status.
 
 `token` for `POST` is read via `readNotifyTokenFromRequest`, which accepts
 either a `token` form field/query param or a JSON body — whatever the
