@@ -273,9 +273,11 @@ const translated = isTranslation(post);
 
   {/* Leaving the post is the one thing that stays under the thread: it is
       navigation away, not part of the article. */}
-  <footer class="blog-end">
-    <AdjacentNav prev={prev} next={next} />
-  </footer>
+  {(prev || next) && (
+    <footer class="blog-end">
+      <AdjacentNav prev={prev} next={next} />
+    </footer>
+  )}
 
   <Footer />
 
