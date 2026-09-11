@@ -57,6 +57,28 @@ video, image, and embed behavior once and prevents partial replacement from
 duplicating event listeners. Failed probes keep the current preview visible and
 retry with bounded backoff.
 
+### Live preview inside Ghost
+
+When `/dev/blog/<id>` is framed by the configured Ghost admin origin
+(`PUBLIC_GHOST_URL`), it stops polling and lets that parent frame drive it
+instead — this is Phase 0 of `plans/koenig-editor.md`, the fork-free half of
+the koenig-editor live preview. A `message` listener
+(`src/features/posts/client/draft-live-channel.ts`) accepts only
+`{type:'buxx:draft', html}` from that exact origin, `POST`s it to
+`POST /dev/blog/render`, and swaps `.blog-prose` with the returned fragment —
+re-running the same prose initialization (`initProse`, now idempotent and
+scope-aware) rather than reloading the page. Warnings render into
+`.blog-preview-warnings`. The page replies with `{type:'buxx:warnings', ...}`
+and `{type:'buxx:rendered', ok, ...}`, and posts `{type:'buxx:ready'}` on
+load. The revision poll pauses while messages arrive and resumes after 10
+seconds of silence, or immediately if no parent ever speaks — so this page
+behaves exactly as before when opened directly.
+
+`scripts/ghost-preview-theme/` is a minimal Ghost theme that makes Ghost's own
+Preview button open this page instead of theme-rendered HTML: its `post.hbs`
+and `page.hbs` are a full-viewport iframe of `/dev/blog/<id>`. Build it with
+`bun run ghost:preview-theme`; see that folder's README for install steps.
+
 ## The dev/production runtime gap
 
 This trips people up, so it is worth stating plainly: **`astro dev` runs on Astro's

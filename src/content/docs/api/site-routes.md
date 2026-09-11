@@ -143,8 +143,17 @@ GET-only (`405` otherwise):
 (drafts, scheduled, published) that re-polls `/dev/portal/api/ghost-posts`
 every 5 seconds while visible, beside an iframe of the selected post's
 `/dev/blog/<id>` live preview. `/dev/blog/*` pages carry
-`frame-ancestors 'self'` for exactly that iframe; every other `/dev` path
-keeps `frame-ancestors 'none'`.
+`frame-ancestors 'self'` for exactly that iframe, plus the Ghost admin origin
+(from `PUBLIC_GHOST_URL`) when one is configured, so the koenig-editor live
+preview pane can frame the same page from inside Ghost admin; every other
+`/dev` path keeps `frame-ancestors 'none'`.
+
+`POST /dev/blog/render` backs that live preview pane: same owner auth as
+`/dev/blog/<id>`, body `{id, html}`, response `{html, warnings,
+authorshipCredits}`. It resolves the post's slug once per id (cached in
+memory) and renders the posted `html` — not a saved draft — through the same
+`renderPostContent` pipeline, `no-store`. See "Live preview inside Ghost" in
+[Local development](/docs/development).
 
 ## Static JSON
 
