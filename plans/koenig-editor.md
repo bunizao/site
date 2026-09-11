@@ -1,8 +1,20 @@
 # Koenig fork: the buxx.me editor
 
 Workstream plan, written 2026-09-12 from a read of the Ghost monorepo at
-`main` (koenig-lexical 1.10.0) and of this repo's post pipeline. Nothing here
-has shipped. When a phase lands, update the status table at the end.
+`main` (koenig-lexical 1.10.0) and of this repo's post pipeline, then corrected
+the same day against the version the VPS runs. When a phase lands, update the
+status table at the end.
+
+**Correction, 2026-09-12.** The VPS runs Ghost 6.39.0 with the Ember admin.
+At that tag Koenig is not yet inside the Ghost monorepo: Ghost consumes
+`@tryghost/koenig-lexical@1.8.1` from npm, and `ghost/core` pins
+`@tryghost/kg-default-nodes` 2.1.1 and `@tryghost/kg-lexical-html-renderer`
+1.4.1. The fork is therefore of the TryGhost/Koenig repository at tag
+`@tryghost/koenig-lexical@1.8.1`, cloned to `~/Dev/Koenig` on branch
+`buxx/koenig`; source there is JS/JSX. Paths below that say
+`koenig/koenig-lexical/...` read as `packages/koenig-lexical/...` in that
+repo. Everything else in "Facts" was re-checked at the tag and holds; the
+React-admin risk is a future one, not a present one.
 
 Owner goal, in the owner's words: the editor Ghost ships no longer fits how
 posts on this site are written. The site grew a directive grammar (`[!mood]`,
@@ -53,15 +65,15 @@ Ghost admin is mid-migration and two of these will move.
 Three places, three responsibilities. Nothing crosses.
 
 ```
-bunizao/Ghost  (fork, branch buxx/koenig, rebased onto the tag the VPS runs)
-  koenig/koenig-lexical/src/buxx/            everything this plan adds
+~/Dev/Koenig  (fork of TryGhost/Koenig, branch buxx/koenig, at the tag Ghost pins)
+  packages/koenig-lexical/src/buxx/          everything this plan adds
     nodes/DirectiveCardNode.tsx              one node, many cards
     nodes/FenceCardNode.tsx                  conversation + mermaid
     nodes/FootnoteRefNode.tsx                Phase 3
     plugins/BuxxCardsPlugin.tsx              registers nodes, transforms, menu
     plugins/LivePreviewPlugin.tsx            the pane + the postMessage channel
     cards/                                   one folder per card: form, preview, validate
-  koenig/koenig-lexical/src/plugins/AllDefaultPlugins.tsx   +2 lines
+  packages/koenig-lexical/src/plugins/AllDefaultPlugins.jsx   +2 lines
 
 bunizao/site  (this repo)
   src/pages/dev/blog/render.ts               POST, owner auth: html in, rendered fragment + warnings out
@@ -226,8 +238,9 @@ This is read-only. Tags are still edited in Ghost's sidebar.
 The fork branch tracks the tag the VPS runs. The build is one package:
 
 ```bash
-pnpm install
-pnpm --filter @tryghost/koenig-lexical build
+yarn install --frozen-lockfile
+yarn workspace @tryghost/kg-default-nodes build
+yarn workspace @tryghost/koenig-lexical build
 ```
 
 The UMD carries its stylesheet, so one file ships:
@@ -312,7 +325,7 @@ the owner decides whether phases 2 and 3 go ahead.
 
 | Phase | Status |
 | --- | --- |
-| 0 | TODO |
+| 0 | DONE 2026-09-12 (`34185554`, `f04d1521`, `d60139e7`, `4726c596`); the preview theme still has to be uploaded and activated in Ghost Admin by the owner |
 | 1 | TODO |
 | 2 | TODO |
 | 3 | TODO |
