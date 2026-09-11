@@ -740,6 +740,29 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   color: var(--blog-ink);
 }
 
+/* Takes the slot a missing neighbour leaves. Borrows the voice of .blog-back at
+   the head of the post, not the weight of a post title, and drops to the
+   title's line so the row reads as one, not as a label above nothing. */
+.blog-adjacent__index {
+  align-self: end;
+  /* One line of 14px is a thin thing to hit with a thumb. The padding grows the
+     target to ~36px and the negative margin gives the space back, so the text
+     stays on the title's line. */
+  margin-block: -8px;
+  padding-block: 8px;
+  font-size: 14px;
+  color: var(--blog-faint);
+  transition: color 0.15s ease;
+}
+
+.blog-adjacent__index--next {
+  text-align: right;
+}
+
+.blog-adjacent__index:hover {
+  color: var(--blog-ink);
+}
+
 /* --- Tags --------------------------------------------------------------- */
 .blog-tags {
   display: flex;
