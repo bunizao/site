@@ -542,8 +542,10 @@ test('load-more, like, and delete failures remain actionable', async ({ page }) 
    loadTurnstileScript from fetching challenges.cloudflare.com at all. */
 async function stubTurnstile(page: import('@playwright/test').Page) {
   await page.addInitScript(() => {
+    (window as unknown as { __turnstileRenders: number }).__turnstileRenders = 0;
     (window as unknown as { turnstile: unknown }).turnstile = {
       render(container: HTMLElement, opts: Record<string, any>) {
+        (window as unknown as { __turnstileRenders: number }).__turnstileRenders += 1;
         // The escalated case: the silent widget fails, exactly as it does for
         // an IP Cloudflare has decided to look at twice.
         if (opts.appearance !== 'always') {
@@ -566,9 +568,13 @@ async function stubTurnstile(page: import('@playwright/test').Page) {
   });
 }
 
-/** Refuses every like until one arrives carrying a solved challenge. */
+/** Refuses every like until one arrives carrying a solved challenge, then
+    -- like site-api -- hands out a reader pass and honours a bare request
+    for as long as it lasts. The pass is a cookie the browser cannot read, so
+    the stand-in only tracks whether one was issued. */
 async function installRefusedReactions(page: import('@playwright/test').Page) {
   const tokens: string[] = [];
+  let passIssued = false;
   await page.route('**/api/v2/reactions**', async (route) => {
     if (route.request().method() !== 'POST') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ reactions: {} }) });
@@ -576,7 +582,7 @@ async function installRefusedReactions(page: import('@playwright/test').Page) {
     }
     const token = (route.request().postDataJSON() as { turnstileToken: string }).turnstileToken;
     tokens.push(token);
-    if (token !== 'good-token') {
+    if (token !== 'good-token' && !(token === '' && passIssued)) {
       await route.fulfill({
         status: 400,
         contentType: 'application/json',
@@ -584,14 +590,24 @@ async function installRefusedReactions(page: import('@playwright/test').Page) {
       });
       return;
     }
+    passIssued = true;
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ reaction: { emoji: '❤️', count: 42, reacted: true, reactors: [] } }),
+      body: JSON.stringify({
+        reaction: { emoji: '❤️', count: 42, reacted: true, reactors: [] },
+        passUntil: Date.now() + 60 * 60_000,
+      }),
     });
   });
   return tokens;
 }
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try { window.localStorage.removeItem('blog:reaction-pass-until'); } catch {}
+  });
+});
 
 test('a refused like on a comment opens a challenge under that row and resends once it is solved', async ({ page }) => {
   await stubTurnstile(page);
@@ -636,4 +652,26 @@ test('a refused like on the post bar opens a challenge in the bar and resends on
   await expect(page.locator('.blog-react__error')).toHaveCount(0);
   await expect(bar.locator('.blog-react__pill--liked .blog-react__count')).toHaveText('42');
   expect(tokens).toEqual(['', 'good-token']);
+});
+
+test('a solved challenge earns a pass that the next like spends without a widget', async ({ page }) => {
+  await stubTurnstile(page);
+  await installCommentApi(page);
+  const tokens = await installRefusedReactions(page);
+
+  await page.goto('/lab/comments?interactive=1&turnstile=1&locale=en', { waitUntil: 'networkidle' });
+
+  const row = page.locator('#comment-comment-existing');
+  await row.locator('[data-comment-like]').click();
+  await row.locator('[data-reaction-turnstile] [data-fake-challenge]').click();
+  await expect(row.locator('[data-like-count]')).toHaveText('42');
+  const rendersAfterChallenge = await page.evaluate(() => (window as unknown as { __turnstileRenders: number }).__turnstileRenders);
+
+  // The pass came back on that success. The post bar's like now goes out
+  // bare: no token, no render, no challenge, and it lands.
+  await page.locator('.blog-react__card').click();
+  await expect(page.locator('.blog-react__pill--liked .blog-react__count')).toHaveText('42');
+  await expect(page.locator('.blog-react__error')).toHaveCount(0);
+  expect(tokens).toEqual(['', 'good-token', '']);
+  expect(await page.evaluate(() => (window as unknown as { __turnstileRenders: number }).__turnstileRenders)).toBe(rendersAfterChallenge);
 });

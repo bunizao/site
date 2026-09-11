@@ -443,8 +443,19 @@ same request is safe (idempotent). `targetType: 'comment'` targets a live
 against the same Ghost post registry `POST /api/v2/comments` uses.
 
 ```json
-{ "reaction": { "emoji": "❤️", "count": 4, "reacted": true, "reactors": [] } }
+{ "reaction": { "emoji": "❤️", "count": 4, "reacted": true, "reactors": [] }, "passUntil": 1789120800000 }
 ```
+
+**Reader pass.** An accepted reaction also sets an HttpOnly
+`__Host-reader_pass` cookie, signed against the `reader_anon` session and
+good for one hour (renewed on every accepted reaction). While a browser holds
+one, `turnstileToken` may be the empty string: the route verifies the pass
+locally instead of calling Turnstile, so a reader who likes several comments
+solves once rather than once per heart — a run of solves from one IP is what
+made Cloudflare escalate to an interactive challenge. `passUntil` (epoch ms)
+tells the client when to start minting tokens again; a `400 turnstile_failed`
+on a pass-backed request means the pass is gone. The pass grants nothing the
+token did not: identity and IP budgets below apply unchanged.
 
 Rate-limited at 30/minute per identity (reader, or a keyed hash of the
 anonymous session), durably enforced, plus hashed-IP network budgets that

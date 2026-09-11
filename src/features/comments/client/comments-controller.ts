@@ -48,6 +48,11 @@ import {
   setTurnstileHost,
   warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
+import {
+  forgetReactionPass,
+  hasReactionPass,
+  rememberReactionPass,
+} from '@/features/comments/client/reaction-pass';
 import { clearCommentMarkdownPreview } from '@/features/comments/client/markdown-preview';
 import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
 import { forgetReaderEmail, readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
@@ -1224,7 +1229,7 @@ export function initCommentsController(): void {
   /** The write itself, without the burst or the double-press guard, so the
       Turnstile retry below can resend without throwing a second handful of
       hearts for a press the reader only made once. */
-  async function sendCommentLike(commentId: string, button: HTMLButtonElement): Promise<void> {
+  async function sendCommentLike(commentId: string, button: HTMLButtonElement, options: { viaPass?: boolean } = {}): Promise<void> {
     const article = button.closest<HTMLElement>('.blog-comment');
     button.setAttribute('aria-pressed', 'true');
 
@@ -1241,19 +1246,33 @@ export function initCommentsController(): void {
     const host = article ? reactionChallengeHost(article) : null;
     if (host) setTurnstileHost('blog_reaction', host);
 
-    const turnstileToken = await getTurnstileToken(turnstileSiteKey, 'blog_reaction');
-    const response = await postJson<{ reaction: { count: number; reacted: boolean } }>('/api/v2/reactions/toggle', {
+    // A pass earned by an earlier like stands in for the token: no solve, no
+    // widget, nothing for Cloudflare to escalate on. `options.viaPass` is
+    // the retry after a pass the server no longer honoured -- that one mints
+    // a token regardless, so a stale pass costs one silent solve, not a loop.
+    const viaPass = !options.viaPass && hasReactionPass();
+    const turnstileToken = viaPass ? '' : await getTurnstileToken(turnstileSiteKey, 'blog_reaction');
+    const response = await postJson<{ reaction: { count: number; reacted: boolean }; passUntil?: number }>('/api/v2/reactions/toggle', {
       targetType: 'comment',
       targetId: commentId,
       reacted: true,
       turnstileToken,
     });
-    releaseTurnstileToken('blog_reaction');
+    if (!viaPass) releaseTurnstileToken('blog_reaction');
 
     if (!response.ok) {
+      const failure = describeCommentFailure(response.status, response.slug, t.submitError);
+      // The pass this browser remembered is not one the server still holds
+      // (cookies cleared, or it lapsed on a clock we cannot see). Not a
+      // reason to put a checkbox in front of anyone yet: forget it and go
+      // once more the ordinary way.
+      if (failure.code === 'BOT' && viaPass) {
+        forgetReactionPass();
+        await sendCommentLike(commentId, button, { viaPass: true });
+        return;
+      }
       button.setAttribute('aria-pressed', 'false');
       if (countEl) countEl.textContent = String(Math.max(0, Number(countEl.textContent ?? 0) - 1));
-      const failure = describeCommentFailure(response.status, response.slug, t.submitError);
       showRowActionError(article, failure.message, failureTag(failure), helpFor(failure));
       // Same bargain the compose box strikes: draw a real checkbox under the
       // refusal that asked for one and resend the moment it is answered,
@@ -1267,6 +1286,7 @@ export function initCommentsController(): void {
     }
     article?.querySelector('.blog-comment__action-error')?.remove();
     delete article?.dataset.botRetry;
+    rememberReactionPass(response.data.passUntil);
     button.setAttribute('aria-pressed', String(response.data.reaction.reacted));
     if (countEl) countEl.textContent = String(response.data.reaction.count);
   }

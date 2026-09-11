@@ -219,6 +219,13 @@ export interface ReactionToggleInput {
 
 export interface ReactionToggleResult {
   reaction: ReactionSummary;
+  /** Epoch ms until which this browser holds a reader pass: the server has
+      set a session-bound cookie that stands in for `turnstileToken` on
+      later reactions. A client that sees this can stop minting tokens until
+      then and send `turnstileToken: ''`; a `400 turnstile_failed` on such a
+      request means the pass is gone and a token is needed again. Absent
+      only when the server has no session secret to sign one. */
+  passUntil?: number;
 }
 
 // ---------------------------------------------------------------------------
