@@ -243,7 +243,30 @@ This is read-only. Tags are still edited in Ghost's sidebar.
 
 ## Deployment on the VPS
 
-The fork branch tracks the tag the VPS runs. The build is one package:
+### The seam
+
+Ghost 6.39's Ember admin loads the editor at runtime, as one dynamic `import()`
+of one file. `ghost/admin/app/utils/fetch-koenig-lexical.js` builds the URL as
+`(config.editorUrl || prefixAssetUrl('assets/koenig-lexical/')) + config.editorFilename + '?v=' + config.editorHash`,
+and `core/server/web/admin/app.js` mounts `/assets` as
+`express.static(<adminAssets>/assets, {immutable: true, fallthrough: false})`
+under `/ghost`, with `adminAssets` = `core/built/admin`. So on this install the
+editor is exactly:
+
+```
+GET /ghost/assets/koenig-lexical/koenig-lexical.umd.js?v=<editorHash>
+ -> <ghost-root>/core/built/admin/assets/koenig-lexical/koenig-lexical.umd.js
+```
+
+Read off the live admin on 2026-09-12: `editorUrl` is `''`, `editorFilename` is
+`koenig-lexical.umd.js`, `editorHash` is `4bef7cc61a`, admin version 6.39, and
+the asset answers 200 with `cache-control: public, max-age=31536000, immutable`.
+
+One file is the whole integration surface. Deploying the fork is replacing it.
+Rolling back is putting the original back. That is why this needs no Ghost
+patch, no plugin API, and no entry in Ghost's dependency tree.
+
+The build produces that file:
 
 ```bash
 yarn install --frozen-lockfile
@@ -251,7 +274,34 @@ yarn workspace @tryghost/kg-default-nodes build
 yarn workspace @tryghost/koenig-lexical build
 ```
 
-The UMD carries its stylesheet, so one file ships:
+The UMD carries its own stylesheet, so nothing else ships with it.
+
+### Replacing it, on Docker
+
+Mount the built file over the one in the image. It is one line, it lives with
+the rest of the stack, and it survives `docker compose pull` because the image
+is never modified:
+
+```yaml
+services:
+  ghost:
+    volumes:
+      - /srv/koenig/koenig-lexical.umd.js:/var/lib/ghost/current/core/built/admin/assets/koenig-lexical/koenig-lexical.umd.js:ro
+```
+
+`/var/lib/ghost/current` is the official image's app root; confirm it once
+against the running container before trusting it:
+
+```bash
+docker compose exec ghost ls -l /var/lib/ghost/current/core/built/admin/assets/koenig-lexical/
+```
+
+Then `docker compose up -d ghost`. Use a host path or a bind mount, never a
+named volume, which a prune can take.
+
+### Replacing it, at the proxy
+
+When touching the container is unwelcome, intercept the URL before it arrives:
 
 ```
 location = /ghost/assets/koenig-lexical/koenig-lexical.umd.js {
@@ -260,49 +310,64 @@ location = /ghost/assets/koenig-lexical/koenig-lexical.umd.js {
 }
 ```
 
-The admin appends `?v=<hash>` for cache busting; `no-cache` makes a new build
-visible on reload without touching Ghost.
+This has one advantage over the mount: it can override the cache header, which
+the mount inherits from Ghost. It also has one requirement: the block must sit
+in whatever actually terminates the request. If nginx is itself a container,
+`/srv/koenig` has to be mounted into it; if the front door is Caddy or Traefik,
+it is a `handle`/`file_server` or a middleware, not an `alias`.
 
-The Ghost install is not modified. `ghost update` keeps working; after one,
-rebase the fork onto the new tag, rebuild, copy.
+### Two routes that look right and are not
 
-**Docker.** Nothing this fork ships lives inside the Ghost image or any of its
-volumes: nginx answers the asset request before it ever reaches the container.
-`docker compose pull && docker compose up -d`, or a Watchtower-style auto
-update, therefore does not remove the fork — the new container starts and the
-alias keeps serving `/srv/koenig/koenig-lexical.umd.js`. Two conditions on
-that. The `location` block has to sit in whatever actually terminates the
-request: if nginx is itself a container, bind-mount `/srv/koenig` into it and
-put the block in that container's config; if the front door is Caddy or
-Traefik rather than nginx, it is a `handle`/`file_server` or a middleware, not
-an `alias`. And the fork must be a bind mount or a host path, never a named
-volume Docker could prune.
+**An npm package.** Publishing the fork changes nothing on its own, because
+nothing installs it at runtime. The image ships a prebuilt admin whose copy of
+the editor was baked in when the image was built. A published package only pays
+off if the image itself is rebuilt, and at that point a `COPY` line does the
+same job. Worth doing later as a version ledger, not as a deployment mechanism.
 
-Surviving the update is not the same as following it. The fork is pinned to
-`@tryghost/koenig-lexical` 1.8.1, the version Ghost 6.39 ships; after an image
-update the alias keeps serving that same stale editor, which is the more
-dangerous failure, because it is silent. The version banner is the tripwire:
-it compares the Ghost version the admin hands the editor against the fork's
-own build, and says so when the minor moved. So after every image update, hard
-reload the admin and look at the banner. If it warns, rebase onto the
-`@tryghost/koenig-lexical@<x>` tag the new `ghost/admin/package.json` pins,
-rebuild, copy, and re-run the `post.html` diff from the handoff. If the banner
-is gone entirely rather than warning, the alias stopped intercepting — that is
-the React admin risk below, not a cosmetic bug. A version check runs at
-editor load: the plugin reads the Ghost version from the admin config it is
-handed and the fork's own `package.json` version, and shows a one-line banner
-when the fork was built against a different minor. That banner is the only
-thing standing between an owner and a lexical schema mismatch, so it is in
-Phase 1, not later.
+**`EDITOR_URL`.** It exists: `ghost/admin/config/environment.js` reads
+`process.env.EDITOR_URL` into `editorUrl`, which the fetch above prefers over
+the asset path. But that file runs during the Ember build, and Ghost serves the
+built `index.html` verbatim (`res.sendFile`, no templating), so the value is
+frozen inside the image. The live admin carries `editorUrl: ''`. Setting it in
+compose does nothing unless the admin is rebuilt. Reading it at runtime instead
+is a small, well-shaped upstream PR, and it would turn this whole workstream
+into a supported configuration.
 
-**The known risk.** Upstream is replacing the Ember admin with a Vite React
-admin that bundles the editor into its own chunk. When the VPS Ghost switches
-to it, the nginx alias no longer intercepts anything. The fallback is a
-post-update script on the VPS that patches the built admin bundle to `import()`
-the fork from the alias path, which is uglier but bounded; the cleaner answer
-is an upstream `editor.url` config, which does not exist today and is worth a
-PR when the React admin stabilises. Check which admin the VPS serves at the
-start of every phase.
+### Caching
+
+`editorHash` changes only when Ghost's version changes, and the asset is served
+`immutable` for a year with Cloudflare in front. A swapped file therefore keeps
+losing to the cached copy under the same URL. After every editor deploy, purge
+that one URL at Cloudflare and hard reload the admin. The proxy route can force
+`no-cache` and skip half of this; the mount cannot.
+
+### Ghost updates
+
+Surviving an update is not the same as following it. Nothing here lives in the
+image or a Ghost volume, so `docker compose pull && up -d`, or a
+Watchtower-style auto update, leaves the fork in place. That is the more
+dangerous failure, not the safer one: the fork is pinned to
+`@tryghost/koenig-lexical` 1.8.1, the version Ghost 6.39 ships, and a newer
+Ghost will happily keep being handed a stale editor with no error.
+
+The version banner is the tripwire. At editor load the plugin compares the
+Ghost version the admin hands it against the fork's own build and shows a
+one-line warning when the minor moved, which is why it is in Phase 1 and not
+later. After every image update: hard reload the admin and read the banner. If
+it warns, rebase onto the `@tryghost/koenig-lexical@<x>` tag the new
+`ghost/admin/package.json` pins, rebuild, redeploy, and re-run the `post.html`
+diff from the handoff. If the banner is gone entirely rather than warning, the
+replacement stopped taking effect, which is the risk below.
+
+### The known risk
+
+Upstream is replacing the Ember admin with a Vite React admin that bundles the
+editor into its own chunk. When the VPS Ghost switches to it, both the mount and
+the proxy route stop pointing at anything the admin loads, and the symptom is a
+silent fall back to the stock editor. The bounded fallback is a post-update
+script that patches the built admin chunk to `import()` the fork; the clean
+answer is the runtime `editorUrl` PR above. Check which admin the VPS serves at
+the start of every phase.
 
 ## Phases
 
