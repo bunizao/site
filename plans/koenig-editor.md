@@ -445,10 +445,12 @@ the owner decides whether phases 2 and 3 go ahead.
 | — | Browser verification 2026-09-12 against the fork's Vite demo found three bugs the unit tests could not: an infinite update loop from the footnote entity hook (`2bee539`), the `toJSON()` type invariant above (`51f09bc`, `d337781`), and typed markers never reaching the paragraph transform (`f690312`). All fixed; the Playwright smoke run then inserted a card from `/mood`, folded a typed `[!youtube …]` paragraph into a card with its thumbnail, inserted a footnote with ⌘⇧F and opened the pane with ⌘⇧P, with zero page errors |
 | — | A second browser pass 2026-09-12 found that no buxx card could be selected or edited at all: Koenig gates selection, edit mode, arrow and backspace handling and snippets on `$isKoenigCard`, an `instanceof KoenigDecoratorNode` check, and both card nodes extended Lexical's `DecoratorNode` instead. Their duck-typed `isKoenigCard()` passed the other half of the check and hid the cause. Fixed in `06907ee2` with a contract test that fails on the old base class. The same pass fixed card rendering under `.kg-prose` (`b88ac61c`). Both bugs were invisible to 328 passing unit tests — which is how the third finding surfaced: Lexical swallows anything thrown inside `editor.update`, so 15 assertions across the buxx test files could never fail, and 2 were wrong once lifted out (`45edab25`) |
 
+| — | A third pass 2026-09-13 measured every card type in one document instead of reading it: the youtube thumbnail resolved a percentage height against an `aspect-ratio` wrapper, fell back to hqdefault.jpg's 4:3 and was clipped from the bottom; the centred poem hugged its longest line because an auto cross-axis margin cancels `align-self: stretch` on a flex item; the mermaid card held a disabled textarea open at rest and themed its diagram from `prefers-color-scheme` rather than Koenig's dark class (`3e3756ff`, `decfbac8`). The dim incoming chat bubbles were checked against the vendored `conversation.css` and left alone — they are the site's own design |
+
 Current UMD: `~/Dev/Koenig/packages/koenig-lexical/dist/koenig-lexical.umd.js`,
-3,202,063 bytes, sha256
-`c0b5a9eb3fb055ed6432b3a74a08b45c8628e4381487d4ff48e642aef2d8cd5f`, built
-from `45edab25`. Fork unit tests: 225 in `test/unit/buxx`, 332 overall.
+3,202,134 bytes, sha256
+`693ed70d7d06b3c75a26bc9af22ae6fb30662ac81e1302a5749337c7e89b506e`, built
+from `decfbac8`. Fork unit tests: 230 in `test/unit/buxx`, 337 overall.
 
 Every commit listed here that landed on 2026-09-12 after `4726c596` is
 unsigned (`commit.gpgsign=false`): the signing key lives in 1Password, which
