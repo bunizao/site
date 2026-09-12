@@ -447,10 +447,17 @@ the owner decides whether phases 2 and 3 go ahead.
 
 | — | A third pass 2026-09-13 measured every card type in one document instead of reading it: the youtube thumbnail resolved a percentage height against an `aspect-ratio` wrapper, fell back to hqdefault.jpg's 4:3 and was clipped from the bottom; the centred poem hugged its longest line because an auto cross-axis margin cancels `align-self: stretch` on a flex item; the mermaid card held a disabled textarea open at rest and themed its diagram from `prefers-color-scheme` rather than Koenig's dark class (`3e3756ff`, `decfbac8`). The dim incoming chat bubbles were checked against the vendored `conversation.css` and left alone — they are the site's own design |
 
+| — | The offline half of step 4 below was run 2026-09-13 against the real corpus (Content API, 21 published posts): every directive, fence and footnote extracted from `post.html` and pushed through the fork's grammar and node path. 3 of the 5 real directive markers came back rewritten — `serializeDirective` quotes only on whitespace or `]`, so a CJK `note="…"` lost its quotes, and merely opening and saving a post would have rewritten markers the author never touched. Fixed in `658ad813`; the markers are now pinned as fixtures in `test/unit/buxx/storedMarkerFidelity.test.js`. Two non-bugs were also settled: `interviews-assumptions-prejudice-and-the-players` credits `google/gemini-3.1-pro`, which the **site's own** contract no longer lists, so the card's error there is correct and is an owner decision; and the corpus holds `[!authors]` markers in code blocks with no language, which the editor will normalise to `language: "directive"` on save |
+
 Current UMD: `~/Dev/Koenig/packages/koenig-lexical/dist/koenig-lexical.umd.js`,
-3,202,134 bytes, sha256
-`693ed70d7d06b3c75a26bc9af22ae6fb30662ac81e1302a5749337c7e89b506e`, built
-from `decfbac8`. Fork unit tests: 230 in `test/unit/buxx`, 337 overall.
+3,202,321 bytes, sha256
+`12ddb0924f0bbc3ed4233d4e33268908697dda7f7fbed8eef968c4a027e730b8`, built
+from `658ad813`. Fork unit tests: 238 in `test/unit/buxx`, 345 overall.
+
+The corpus check narrows step 4 but does not replace it: the Content API
+exposes `html`, not `lexical`, and only published posts, so drafts and the
+exact stored node shapes were never seen. Ghost's own paragraph-to-codeblock
+rewrite is still only provable on the real instance.
 
 Every commit listed here that landed on 2026-09-12 after `4726c596` is
 unsigned (`commit.gpgsign=false`): the signing key lives in 1Password, which
