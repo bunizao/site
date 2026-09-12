@@ -243,6 +243,22 @@ This is read-only. Tags are still edited in Ghost's sidebar.
 
 ## Deployment on the VPS
 
+### The host
+
+The Ghost origin is `orange-sin` (`node.orange-sin.tuuhub.com`, `103.195.191.179`,
+ssh port 22379, user `tutu`). Confirmed 2026-09-12 by asking that IP directly
+for `blog.buxx.me`, bypassing Cloudflare: port 80 redirects to https, port 443
+answers `/ghost/` with 200 and `x-powered-by: Express` behind `server: nginx`.
+The other VPS in `~/.ssh/config`, `xtom-tyo`, answers on neither port and is not
+it.
+
+The same origin request returns the admin's Ember config with `editorUrl: ''`,
+`editorFilename: 'koenig-lexical.umd.js'`, `editorHash: '4bef7cc61a'`, version
+`6.39`, and serves the editor asset at 2,900,939 bytes, `last-modified`
+2026-05-15 — stock koenig-lexical 1.8.1, untouched. `x-powered-by: Express` on
+the asset means nginx is proxying it through to Ghost today, so no alias is in
+place yet and either deployment route below is still open.
+
 ### The seam
 
 Ghost 6.39's Ember admin loads the editor at runtime, as one dynamic `import()`
@@ -446,26 +462,39 @@ the readiness header shows one credit line per `[!authors]` credit.
 
 ## Handoff
 
-Nothing below has run yet; none of it needs the fork repo to be pushed.
+The fork now has a home: `bunizao/koenig`, private, default branch
+`buxx/koenig`, with `upstream` pointing at TryGhost/Koenig and the
+`@tryghost/koenig-lexical@1.8.1` base tag pushed alongside it. The clone was
+unshallowed first, so rebasing onto a future `@tryghost/koenig-lexical@<x>`
+tag works without re-cloning. Until 2026-09-12 it existed only on one laptop.
+
+Everything below still needs the owner, because every step needs either a
+browser session, an ssh key that 1Password will only sign with a fingerprint,
+or a deliberate decision to release.
 
 1. **Site.** Branch `claude/ghost-koenig-editor-adapt-7154f7` holds every
-   site commit. Open a PR to `main`; merging deploys within a minute, which
-   is fine because nothing here changes a published page. The build of
+   site commit and is open as draft PR #204. Mark it ready and merge;
+   merging deploys within a minute, which is fine because nothing here
+   changes a published page. The build of
    `dist/ghost-preview-theme/buxx-preview.zip` (`bun run ghost:preview-theme`)
    is not committed; build it locally.
 2. **Preview theme.** Ghost Admin → Settings → Design & branding → Change
    theme → Upload theme → `buxx-preview.zip`, then activate it. Ghost's own
    Preview button now opens `buxx.me/dev/blog/<id>` inside the admin. The
    owner cookie must already be set on `buxx.me` in that browser.
-3. **Editor.** Copy the UMD above to the VPS as
-   `/srv/koenig/koenig-lexical.umd.js` and add the nginx `location` block
-   from the deployment section to the Ghost server block; `nginx -t` then
-   reload. Hard-reload the admin. The version banner in the editor confirms
-   the fork loaded; a mismatch banner means the VPS Ghost minor moved past
-   `6.39` and the fork needs a rebase before use.
+3. **Editor.** Copy the UMD above to `orange-sin` as
+   `/srv/koenig/koenig-lexical.umd.js`, then take one of the two routes in
+   the deployment section: the compose bind-mount, which survives image
+   updates, or the nginx `location` block, which is the only one that can
+   beat the year-long immutable cache header. Hard-reload the admin
+   afterwards, and purge the Cloudflare cache for the editor URL. The
+   version banner in the editor confirms the fork loaded; a mismatch banner
+   means the VPS Ghost minor moved past `6.39` and the fork needs a rebase
+   before use.
 4. **First real post.** Open an existing post that uses directives, make one
    edit, save, and diff `post.html` from the Content API against the copy
    from before. Only the directive form (paragraph → code block) may change.
    That diff is the acceptance test for the one rule.
-5. **Rollback** is deleting the nginx `location` block and reloading;
-   Ghost's own copy of the editor is untouched underneath.
+5. **Rollback** is removing the bind-mount line or the nginx `location`
+   block and restarting; Ghost's own copy of the editor is untouched
+   underneath.
