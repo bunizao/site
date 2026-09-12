@@ -11,7 +11,8 @@ the insights endpoints and the source profile below come from that pass. A
 third ask the same day reversed the original design's exclusion of
 client-side fingerprinting (decision D), and a fourth — "can we get more?"
 — added interaction telemetry, content keys and the TLS stack under "More
-clues".
+clues". A fifth, the next day, asked what the industry does; the buildable
+parts are under "What the industry does", the rest is decision E.
 
 This is a plan, not an implementation. Code lands in `site-api` (migration,
 write paths, ban check, admin routes, Telegram card) and here (contracts,
@@ -169,8 +170,9 @@ client blob. Each is a contradiction, not a threshold:
 | `touch_mismatch` | mobile UA with `maxTouchPoints === 0`, or desktop UA with `hover: none` and touch |
 | `hints_mismatch` | `sec-ch-ua` brands ≠ `userAgentData.brands` |
 
-The interaction and header-set hints under "More clues" below join this
-list and the same counter.
+The interaction and header-set hints under "More clues" below, and
+`disposable_email` under "What the industry does", join this list and the
+same counter; `tor` joins the vpn hints.
 
 Two contradictions are shown on the profile and **not** counted: client
 timezone ≠ `cf.timezone`, and client `languages[0]` ≠ `accept-language`
@@ -305,6 +307,83 @@ rate-limited dependency on the write path, and the cluster data answers the
 same question from this site's own history; if ever wanted, a KV-cached
 lookup on **held** rows only, never on every write).
 
+### What the industry does, and which parts apply
+
+Added 2026-09-13 on a fifth ask: can visitors be pinned down the way the
+industry does it? Commercial visitor identification — Fingerprint Pro,
+Cloudflare Bot Management, reCAPTCHA Enterprise, Stripe Radar, Sift,
+DataDome — is not a better hash. It is four things: a first-party cookie
+that survives the browser's tracking protections; fuzzy device matching
+over stored components instead of one exact hash; a graph that links keys
+by co-occurrence; and outside intelligence, which for Google means knowing
+the person. Three of the four are buildable here at single-site scale, and
+the fourth is the one thing money buys.
+
+**1. The cookie — already better than most.** `__Host-reader_anon` is
+HTTP-set, first-party, one year. Safari's ITP caps *script-written* cookies
+and storage at seven days; an HTTP-set first-party cookie is exempt, which is
+exactly what Fingerprint sells a CNAME integration to obtain. Nothing to add.
+
+**2. Fuzzy device matching — a second, stable hash.** One exact hash breaks
+on every browser update (canvas and audio move with GPU drivers, the brand
+list moves with the version). The industry keeps the components and matches
+on the ones that do not move. Here: `client_fp_stable` = HMAC over GPU
+vendor and renderer, screen and DPR, platform, timezone, languages,
+`hardwareConcurrency`, `deviceMemory`, touch points, fonts and the media
+queries — no canvas, no audio, no brands, no plugins. Column and partial
+index on both tables. The `client_fp` ban key matches **either** hash (two
+pairs in the `IN` query); the dialog bans the stable one. The exact hash
+stays the tighter cluster key; the profile shows both, and "same stable
+device, three exact hashes over six weeks" reads as one browser being
+updated, not three machines.
+
+**3. Storage mirror — the cookie-churn detector.** A random 32-hex
+`storageId` written once to IndexedDB by the same lazy module and sent with
+the body. Stored as `storage_id_hash` (HMAC), indexed, cluster key. It is
+**never** used to set, restore or extend the cookie: respawning a cleared
+cookie from storage is the evercookie pattern regulators have fined, and it
+would make the privacy page's fingerprinting sentence a lie. As a signal it
+reads cleanly: cookie new + storage old = cookies cleared on a persisting
+install; both new + same stable device + same subnet = fresh automation
+contexts. Safari purges script storage after seven days without interaction,
+so for real readers it fades; it is aimed at the bot that rotates cookies
+within a day, which it catches.
+
+**4. Linked sources — two hops on strong keys only.** The graph the fraud
+vendors sell is co-occurrence: this email was seen with that device, that
+device with those sessions. The profile page gains a `linked` block: sessions
+sharing this source's `client_fp_stable`, `storage_id_hash` or `email_hash`,
+and the other subnets, devices and emails *those* sessions carried. Two
+joins on indexed columns; trivial at this volume. Strong keys only — never
+`ip24`, `asn` or `ua` as a hop, because CGNAT would link half the readership
+to itself in one step. "Ban linked" lists every key it would write before it
+writes any.
+
+**5. Outside intelligence — the free parts.**
+
+| Signal | Source | Cost | Kind |
+| --- | --- | --- | --- |
+| `tor` | `cf.country === 'T1'` (Cloudflare's code for Tor exits) | free | vpn hint |
+| `email_gravatar` | the avatar chain already fetches Gravatar; record the hit as 0/1 | free | shown; a hit is an old, real address |
+| `disposable_email` | the public disposable-email-domains list (~4 k), bundled as a `Set`, checked at write | one file | bot hint, beside `no_mx` |
+| Apple Private Access Tokens | Turnstile consumes them on iOS 16+ / macOS 13+ Safari: Apple attests the device is real hardware behind a real account | free, on by default; confirm in the Turnstile dashboard | the strongest "real device" proof the industry has, and why an iPhone needs no canvas hash to be trusted |
+| Turnstile `cData` = anon session id | set on the widget, compared against siteverify's echo | two lines | a token harvested on another session fails |
+
+Not taken: HIBP breach presence (ships every typed address to a third party
+for a signal the MX, Gravatar and domain table mostly give); IP reputation
+feeds (above); reCAPTCHA v3 beside Turnstile (Google's score comes from
+Google knowing the person — a second vendor doing the same job, with every
+reader sent to Google for it).
+
+**Not obtainable, whatever the vendor deck says.** An HTTP/2 frame
+fingerprint (Akamai's SETTINGS-order trick; Workers expose no frames). A
+person's identity — the industry does not have it either, it has a device
+seen across many sites, see decision E. Location past the city: the literal
+reading of "pin down" ends at `cf.city`; `cf.latitude`/`longitude` is the
+city centroid, and the Geolocation API is a prompt no reader grants a
+comment box. Cross-site history: Google's moat, and unlawful for a site to
+rebuild.
+
 ## Design
 
 ### One resolver, both write paths
@@ -317,7 +396,7 @@ interface Actor {
   /** Ban-list and rate-limit keys. Every value is a hash or an id, never raw.
       clientFpHash is a ban and pivot key only -- never fed to a budget. */
   keys: { readerId, emailHash, sessionId, ipHash, ip24Hash, fpHash, asn, clientFpHash,
-          emailDomain, linkDomains /* comments only, ≤ 10 */ };
+          clientFpStable, storageIdHash, emailDomain, linkDomains /* comments only, ≤ 10 */ };
   /** The column signals. */
   signals: { ip, ua, browser, os, country, city, asn, asOrg, sessionNew, botHints,
              email, emailDomain, emailMx, linkDomains, bodyHash /* comments only */ };
@@ -365,7 +444,8 @@ CREATE TABLE blog_bans (
 ```
 
 One indexed query per write, one pair per key the row carries — up to
-nine kinds plus one pair per link domain, so at most ~19 pairs:
+nine kinds (`client_fp` contributes two pairs, exact and stable) plus one
+pair per link domain, so at most ~20 pairs:
 
 ```sql
 SELECT key_type FROM blog_bans
@@ -427,12 +507,14 @@ actor: {
   /** Short handles (first 8 hex) so two rows can be eyeballed as the same
       source, and the full value the pivot links carry. Domains are raw. */
   keys: { session: string; ip: string | null; ip24: string | null; fp: string | null;
-          email: string | null; clientFp: string | null; emailDomain: string | null;
+          email: string | null; clientFp: string | null; clientFpStable: string | null;
+          storageId: string | null; emailDomain: string | null;
           bodyHash: string | null; linkDomains: string[] };
   /** Which of this row's keys are on the ban list right now. */
   banned: Array<'email' | 'session' | 'ip' | 'ip24' | 'fp' | 'asn' | 'client_fp' | 'domain' | 'email_domain'>;
   /** Other rows sharing each key in the last 90 days, excluding this one. */
-  cluster: Record<'session' | 'ip' | 'ip24' | 'fp' | 'email' | 'clientFp' | 'emailDomain' | 'bodyHash',
+  cluster: Record<'session' | 'ip' | 'ip24' | 'fp' | 'email' | 'clientFp' | 'clientFpStable'
+                  | 'storageId' | 'emailDomain' | 'bodyHash',
                   { comments: number; held: number; reactions: number }>;
   /** Same, per link domain on this row. */
   domainCluster: Array<{ domain: string; comments: number; held: number; banned: boolean }>;
@@ -469,9 +551,18 @@ interface AdminSourceProfile {
   /** How many distinct values of every *other* key this source has used. The
       spread is the churn: one fingerprint over 40 sessions and 12 IPs is a
       bot; one session over 3 IPs is a phone that changed networks. */
-  spread: Record<'session' | 'ip' | 'ip24' | 'fp' | 'clientFp' | 'email' | 'asn' | 'ua', number>;
+  spread: Record<'session' | 'ip' | 'ip24' | 'fp' | 'clientFp' | 'clientFpStable' | 'storageId'
+                 | 'email' | 'asn' | 'ua', number>;
   /** Every bot and vpn hint this source has ever tripped, with how often. */
   hints: Array<{ hint: string; kind: 'bot' | 'vpn'; count: number }>;
+  /** Two hops over strong keys only (session, email, clientFpStable, storageId):
+      the sessions this source links to, and what those sessions carried. */
+  linked: {
+    sessions: number;
+    via: Record<'email' | 'clientFpStable' | 'storageId', number>;
+    carried: Record<'ip24' | 'clientFpStable' | 'email' | 'storageId', number>;
+    comments: number; held: number; reactions: number;
+  };
   /** Writes per hour over the source's last 7 days, comments and reactions
       separately — bursts are the shape of a script. */
   hourly: Array<{ hour: string; comments: number; reactions: number }>;
@@ -572,7 +663,7 @@ turn "🟠 held" into a decision.
 | Column | Table | Retention |
 | --- | --- | --- |
 | `email`, `email_domain`, `email_mx` | comments | Unverified: nulled at 7 days alongside `email_hash` (existing sweep, extended). Verified: lives with the row — the address is already in `notify_subscribers`. |
-| `ip`, `ua`, `city`, `as_org`, `country`, `asn`, `ip_hash`, `ip24_hash`, `fp_hash`, `client_fp_hash`, `signals`, `client` | both | Nulled at 90 days by `cleanupCommentRiskSignals` in `maintenance.ts`, extended to the new columns and to `blog_reactions`. |
+| `ip`, `ua`, `city`, `as_org`, `country`, `asn`, `ip_hash`, `ip24_hash`, `fp_hash`, `client_fp_hash`, `client_fp_stable`, `storage_id_hash`, `signals`, `client` | both | Nulled at 90 days by `cleanupCommentRiskSignals` in `maintenance.ts`, extended to the new columns and to `blog_reactions`. |
 | `browser`, `os` | both | Kept. Two coarse family names, not a person; what the 90-day-plus browser table groups by. |
 | `session_new`, `dwell_ms`, `turnstile_age_ms`, `auth`, `link_count`, `bot_hints` | both | Kept. Integers about the request, not the requester. |
 | `link_domains`, `body_hash` | comments | Kept. Derived from the body, which is on the row for as long as the row is. |
@@ -598,12 +689,15 @@ ALTER TABLE blog_comments ADD COLUMN city TEXT;
 ALTER TABLE blog_comments ADD COLUMN as_org TEXT;
 ALTER TABLE blog_comments ADD COLUMN signals TEXT;              -- JSON, see ActorDetail
 ALTER TABLE blog_comments ADD COLUMN client_fp_hash TEXT;
+ALTER TABLE blog_comments ADD COLUMN client_fp_stable TEXT;     -- the update-proof subset
+ALTER TABLE blog_comments ADD COLUMN storage_id_hash TEXT;
 ALTER TABLE blog_comments ADD COLUMN client TEXT;               -- JSON: components + interaction + hint lists
 -- Content keys
 ALTER TABLE blog_comments ADD COLUMN link_domains TEXT;         -- JSON array, ≤ 10, lowercase registrable domains
 ALTER TABLE blog_comments ADD COLUMN body_hash TEXT;            -- sha256 of the normalised body
 ALTER TABLE blog_comments ADD COLUMN email_domain TEXT;
 ALTER TABLE blog_comments ADD COLUMN email_mx INTEGER CHECK (email_mx IN (0, 1));
+ALTER TABLE blog_comments ADD COLUMN email_gravatar INTEGER CHECK (email_gravatar IN (0, 1));
 -- Behaviour
 ALTER TABLE blog_comments ADD COLUMN session_new INTEGER NOT NULL DEFAULT 0 CHECK (session_new IN (0, 1));
 ALTER TABLE blog_comments ADD COLUMN bot_hints INTEGER NOT NULL DEFAULT 0;
@@ -625,6 +719,8 @@ ALTER TABLE blog_reactions ADD COLUMN asn INTEGER;
 ALTER TABLE blog_reactions ADD COLUMN as_org TEXT;
 ALTER TABLE blog_reactions ADD COLUMN signals TEXT;
 ALTER TABLE blog_reactions ADD COLUMN client_fp_hash TEXT;
+ALTER TABLE blog_reactions ADD COLUMN client_fp_stable TEXT;
+ALTER TABLE blog_reactions ADD COLUMN storage_id_hash TEXT;
 ALTER TABLE blog_reactions ADD COLUMN client TEXT;
 ALTER TABLE blog_reactions ADD COLUMN session_new INTEGER NOT NULL DEFAULT 0 CHECK (session_new IN (0, 1));
 ALTER TABLE blog_reactions ADD COLUMN bot_hints INTEGER NOT NULL DEFAULT 0;
@@ -638,6 +734,8 @@ CREATE INDEX idx_blog_comments_fp_hash   ON blog_comments(fp_hash, created_at)  
 CREATE INDEX idx_blog_comments_session   ON blog_comments(session_id, created_at);
 CREATE INDEX idx_blog_comments_asn       ON blog_comments(asn, created_at)       WHERE asn IS NOT NULL;
 CREATE INDEX idx_blog_comments_client_fp ON blog_comments(client_fp_hash, created_at) WHERE client_fp_hash IS NOT NULL;
+CREATE INDEX idx_blog_comments_client_fp_stable ON blog_comments(client_fp_stable, created_at) WHERE client_fp_stable IS NOT NULL;
+CREATE INDEX idx_blog_comments_storage_id ON blog_comments(storage_id_hash, created_at) WHERE storage_id_hash IS NOT NULL;
 CREATE INDEX idx_blog_comments_body_hash ON blog_comments(body_hash, created_at) WHERE body_hash IS NOT NULL;
 CREATE INDEX idx_blog_comments_email_domain ON blog_comments(email_domain, created_at) WHERE email_domain IS NOT NULL;
 CREATE INDEX idx_blog_reactions_ip_hash   ON blog_reactions(ip_hash, created_at)   WHERE ip_hash IS NOT NULL;
@@ -646,6 +744,8 @@ CREATE INDEX idx_blog_reactions_fp_hash   ON blog_reactions(fp_hash, created_at)
 CREATE INDEX idx_blog_reactions_session   ON blog_reactions(session_id, created_at) WHERE session_id IS NOT NULL;
 CREATE INDEX idx_blog_reactions_asn       ON blog_reactions(asn, created_at)       WHERE asn IS NOT NULL;
 CREATE INDEX idx_blog_reactions_client_fp ON blog_reactions(client_fp_hash, created_at) WHERE client_fp_hash IS NOT NULL;
+CREATE INDEX idx_blog_reactions_client_fp_stable ON blog_reactions(client_fp_stable, created_at) WHERE client_fp_stable IS NOT NULL;
+CREATE INDEX idx_blog_reactions_storage_id ON blog_reactions(storage_id_hash, created_at) WHERE storage_id_hash IS NOT NULL;
 CREATE INDEX idx_blog_reactions_created   ON blog_reactions(created_at);           -- the hourly series
 
 CREATE TABLE blog_bans ( ... as above ... );
@@ -685,6 +785,19 @@ of the same model apart, survive Brave, or stop a spammer who spoofs twenty
 APIs consistently — the tells catch the ones who do not bother, which is
 most of them. The privacy page gains a fingerprinting clause in phase 4.
 
+**E. Build or buy (recommended: build, revisit if a wave beats it).**
+Fingerprint Pro's free tier is 20 k identifications a month, above this
+blog's volume, and returns a visitor id with a claimed 99.5% accuracy plus
+"smart signals" (incognito, VPN, tampering, virtual machine, bot). What it
+has that this plan cannot build is the same device seen across every
+customer's site; what it costs is a third-party script, every reader's
+device data sent to a region in the US, EU or India (none in China), and a
+vendor in the write path. This plan is the same technique at single-site
+scale — cookie, stable-subset match, linked keys, the free intelligence —
+and for a personal blog's spam that is the right first size. If it is ever
+beaten, their custom-subdomain integration runs through this site's own
+Worker, so adding it later is a bounded change, not a rewrite.
+
 ## Phases
 
 1. **Contracts** (this repo): `ClientFingerprint`, `Interaction` and the
@@ -698,7 +811,10 @@ most of them. The privacy page gains a fingerprinting clause in phase 4.
 2. **site-api**: migration 0025; `actor.ts` (including the bot- and
    vpn-hint derivation, pure and unit-tested on a headless-Chrome fixture and
    an iPhone fixture; `extractLinkDomains`, `normalizeBody`, the hosting-ASN
-   list, and `lookupMx` with its KV cache); export `parseUa`; `verifyDwellToken`
+   list, the disposable-domain set, and `lookupMx` with its KV cache; the
+   stable-subset hash; the two-hop `linked` query); the avatar chain records
+   the Gravatar hit; Turnstile `cData` checked against the session; export
+   `parseUa`; `verifyDwellToken`
    returns the age, `verifyTurnstileToken` surfaces `challengeTs`; both write
    paths capture (columns, blobs, behaviour) and ban-check; `blog_bans`
    replaces KV (`shadow-ban.ts` rewritten, one-off KV → D1 copy script);
@@ -708,9 +824,11 @@ most of them. The privacy page gains a fingerprinting clause in phase 4.
    card lines and `comment:ban:<id>` callback. Apply 0025 to prod D1
    **before** the merge — main deploys within a minute of merging.
 3. **Client and portal** (this repo): `src/features/comments/client/fingerprint.ts`
-   and `interaction.ts` (one module, two exports; the listeners attach at
-   first compose focus or first pointer-down on the bar, the fingerprint
-   computes then), dynamically imported, cached per page, attached to both
+   and `interaction.ts` (one module, three exports — fingerprint,
+   interaction, the IndexedDB `storageId` that is read or created and never
+   written back to a cookie; the listeners attach at first compose focus or
+   first pointer-down on the bar, the fingerprint computes then), dynamically
+   imported, cached per page, attached to both
    POST bodies by the compose controller and `ReactionBar.tsx`; the actor
    strip under each queue row (country ·
    city · ASN org · IP · email · browser/os · dwell · new-session · `⚠` bot
@@ -739,7 +857,10 @@ a headless-Chrome fixture (expects `webdriver`, `software_gl`,
 on bare hosts, ports, IDNs and `www.`, `normalizeBody` collapsing the same
 text with different punctuation to one hash, `lookupMx` on a cache hit, a
 miss, a timeout and a domain with no MX (all `NULL`-or-`0`, never a throw
-into the write path), the dwell age and
+into the write path), the stable hash unchanged across a fixture whose
+canvas, audio and brand version differ, the `linked` query never hopping on
+`ip24` (a fixture where two sessions share only a subnet must link nothing),
+the dwell age and
 Turnstile `challengeTs` plumbing, the ban query, the reaction shadow path
 (row not written, envelope identical, no pass cookie), the cluster batching
 (twelve queries for fifty rows), the profile's spread counts, each insights
