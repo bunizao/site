@@ -110,9 +110,9 @@ state everywhere is `held`, so a false positive is still in the queue.
 **Identity quarantine** — 24 hours, in KV under `comments:quarantine:`, keyed
 on IP hash and fingerprint hash, written by the system on a hard signal: a
 filled honeypot, a body already posted elsewhere on the site within a day,
-a spam verdict from Akismet or Claude, or the owner hiding or deleting the
+a spam verdict from Akismet or the AI gateway, or the owner hiding or deleting the
 writer's comment. A quarantined identity's comments are held on sight and
-spend no Akismet or Claude call, and no Telegram card is sent for them — one
+spend no Akismet or AI call, and no Telegram card is sent for them — one
 identity produces one card, not twenty. Approving a flagged comment lifts
 the quarantine on its writer.
 
@@ -159,11 +159,12 @@ standing — removing those is a moderation action of its own.
   hiding or deleting an anonymous comment submits it as spam, approving a
   flagged one submits it as ham. Rows keep the raw IP and referrer for 90
   days so that feedback repeats exactly what the check saw.
-- **Claude** — a second opinion on anonymous submissions only, from
-  `claude-opus-5` with `ANTHROPIC_API_KEY`. It reads the text the way the
-  owner would (VPN pitches, referral links, "contact me on Telegram") and
-  can turn Akismet's ham into a hold, never the reverse. Unset key, timeout,
-  or refusal means the Akismet verdict stands alone. The create request
+- **AI gateway** — a second opinion on anonymous submissions only, from
+  the `gpt-5.5` alias behind `AI_BASE_URL` / `AI_API_KEY`, the same gateway
+  mood sentiment runs on. It reads the text the way the owner would (VPN
+  pitches, referral links, "contact me on Telegram") and can turn Akismet's
+  ham into a hold, never the reverse. Unset key, timeout, or refusal means
+  the Akismet verdict stands alone. The create request
   waits 2500ms for both and finishes the check in the background if it runs
   over, so a `held` outcome can quietly become `published` a second later.
 

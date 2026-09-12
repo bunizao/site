@@ -37,11 +37,11 @@ being true, the policy text is wrong, not merely stale.
 | YouTube embeds | A session-scoped `yes`/`no` reachability verdict. No country data | Poster and avatar bytes come through `/static/youtube/<id>/…`, so the browser contacts nothing until play | YouTube, and only after the reader presses play |
 | Mood pages | Nothing from the visitor | Public Telegram-derived content through `site-api` | Telegram |
 | Mood subscription | Email address, channel and delivery preferences, delivery records | `NOTIFY_DB` in `site-api`; tokens are minted and verified there | Resend (delivery) |
-| Blog comments | Display name, comment body, and — when supplied — an email address, stored plaintext alongside its hash. Every row also carries the raw IP and referrer, hashed IP, a server-derived fingerprint hash, user agent, country, and ASN | `NOTIFY_DB` in `site-api` (`blog_comments`, `notify_subscribers`) | Akismet (moderation), Anthropic (moderation, anonymous comments only), Resend (verification and reply mail) |
+| Blog comments | Display name, comment body, and — when supplied — an email address, stored plaintext alongside its hash. Every row also carries the raw IP and referrer, hashed IP, a server-derived fingerprint hash, user agent, country, and ASN | `NOTIFY_DB` in `site-api` (`blog_comments`, `notify_subscribers`) | Akismet (moderation), the owner's AI gateway (moderation, anonymous comments only), Resend (verification and reply mail) |
 | Comment risk signals | The `ip`, `referrer`, `ip_hash`, `fp_hash`, `ua`, `country` and `asn` on a comment row | Same rows, nulled in place by the daily cron 90 days after the comment was written | First-party |
 | Comment quarantine and lockdown | Hashed IP and fingerprint of a writer that tripped a spam signal (24h); a site-wide lockdown flag (1h) | `CACHE` KV in `site-api`, expiring keys | First-party |
 | Comment moderation | Body, author name and email, IP, user agent, referrer, and the post permalink, on every submission; the same values again when the owner overrules a verdict | Sent to Akismet for one `comment-check` per comment, and one `submit-spam` / `submit-ham` per owner verdict on an anonymous comment | Akismet (Automattic) |
-| Comment moderation, second opinion | Body, display name, and post title of an anonymous submission | Sent to the Claude API for one classification per anonymous comment | Anthropic |
+| Comment moderation, second opinion | Body, display name, and post title of an anonymous submission | Sent through the owner's AI gateway (`AI_BASE_URL`) for one classification per anonymous comment | The gateway's model provider |
 | Reader avatars | The email hash, sent upstream to look a picture up. Fetched by the Worker, never by the reader's browser, and cached in R2 thereafter | R2, keyed by email hash | Gravatar mirrors, QQ |
 | Anti-abuse | A Turnstile token on subscribe, manage-request, comment create, and reaction toggle | Verified inside `site-api` before the handler runs | Cloudflare Turnstile |
 | Writing and contributions | Nothing from the visitor | Ghost at build time; `site-api /api/github/contributions` at runtime | Ghost, GitHub |
@@ -70,7 +70,7 @@ Two things worth being precise about, because the short version reads wrong:
   feature means *no account required* — the row still carries the IP, a
   fingerprint hash, and a user agent for as long as the risk window lasts,
   every submission is shown to Akismet, and an anonymous submission's text is
-  also shown to Claude. What the feature does not do is require or verify an
+  also shown to a language model through the AI gateway. What the feature does not do is require or verify an
   identity before publishing.
 
 > **The published policy covers blog comments as of 3 September 2026.** Its

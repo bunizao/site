@@ -256,8 +256,9 @@ Every submission runs the full risk stack, in order:
    non-verdict response; the HTTP call itself is abandoned after 10
    seconds.
 
-   For an **anonymous** writer, Claude reads the text at the same time
-   (`claude-opus-5`, `ANTHROPIC_API_KEY`). It can turn Akismet's ham into a
+   For an **anonymous** writer, a language model behind the owner's AI
+   gateway (`gpt-5.5` via `AI_BASE_URL` / `AI_API_KEY`) reads the text at
+   the same time. It can turn Akismet's ham into a
    hold with reason `spam`, `promotional`, `abuse` or `personal_info`,
    never a hold into a publish; when it is unavailable the Akismet verdict
    stands alone. A spam verdict from either quarantines the writer's
