@@ -77,7 +77,7 @@ a readable thread; the second makes the whole feature disappear.
 | --- | --- |
 | `NOTIFY_DB` (D1) | `blog_comments`, `blog_reactions`, `notify_subscribers`, mutes |
 | `RATE_LIMITER` (Durable Object) | Every comment and reaction budget. Durable, not observability mode — this is the only route family on the site that is |
-| `CACHE` / `SESSION` (KV) | Shadow-ban keys. Absent fails open, meaning nobody is shadow-banned |
+| `CACHE` / `SESSION` (KV) | Shadow-ban keys, the 24h identity quarantine (`comments:quarantine:`), and the one-hour anonymous lockdown (`comments:lockdown`). Absent fails open: nobody is banned, quarantined, or locked down |
 | `BLOG_IMAGES` (R2) | Cached reader avatars, keyed by email hash |
 
 ## Scheduled work
@@ -102,8 +102,29 @@ somebody was sitting.
 
 ## Stopping somebody
 
-Two mechanisms, deliberately independent, because they answer different
-questions.
+Two automatic mechanisms and two manual ones. The automatic pair exists so a
+flood at 3am is handled by the time the owner wakes up; the manual pair is
+the owner's own lever afterwards. None of them rejects anything: the safe
+state everywhere is `held`, so a false positive is still in the queue.
+
+**Identity quarantine** — 24 hours, in KV under `comments:quarantine:`, keyed
+on IP hash and fingerprint hash, written by the system on a hard signal: a
+filled honeypot, a body already posted elsewhere on the site within a day,
+a spam verdict from Akismet or Claude, or the owner hiding or deleting the
+writer's comment. A quarantined identity's comments are held on sight and
+spend no Akismet or Claude call, and no Telegram card is sent for them — one
+identity produces one card, not twenty. Approving a flagged comment lifts
+the quarantine on its writer.
+
+**Lockdown** — one hour, site-wide, in KV under `comments:lockdown`. Engages
+on its own when anonymous traffic as a whole looks like a flood: more than
+8 anonymous comments in 10 minutes, or 3 of the last 5 anonymous comments
+judged spam. For its duration every anonymous comment is held with reason
+`ok` (so it never counts toward the ratio that engaged it), external checks
+are skipped, no per-comment cards are sent, and the owner gets exactly one
+card saying when it lifts. `/comments` in the ops bot shows the status.
+Verified readers are never affected. A flood that outlasts the hour
+re-engages it on the next comment.
 
 **Shadow ban** — a KV key under `comments:shadowban:`, matched on email hash,
 IP hash, or fingerprint hash. A listed writer's comment is created and held,
@@ -132,9 +153,19 @@ standing — removing those is a moderation action of its own.
   place.
 - **Akismet** — every submission is checked; ham publishes, spam holds, and
   the "blatant" signal rejects. Any error, timeout, or unparseable answer
-  holds. The create request waits 1500ms for the verdict and finishes the
-  check in the background if it runs over, so a `held` outcome can quietly
-  become `published` a second later.
+  holds. The check carries everything Akismet documents (site language and
+  charset, honeypot field, the owner's `administrator` role, timestamp, and
+  `recheck_reason=edit` on edits), and the owner's verdicts are fed back:
+  hiding or deleting an anonymous comment submits it as spam, approving a
+  flagged one submits it as ham. Rows keep the raw IP and referrer for 90
+  days so that feedback repeats exactly what the check saw.
+- **Claude** — a second opinion on anonymous submissions only, from
+  `claude-opus-5` with `ANTHROPIC_API_KEY`. It reads the text the way the
+  owner would (VPN pitches, referral links, "contact me on Telegram") and
+  can turn Akismet's ham into a hold, never the reverse. Unset key, timeout,
+  or refusal means the Akismet verdict stands alone. The create request
+  waits 2500ms for both and finishes the check in the background if it runs
+  over, so a `held` outcome can quietly become `published` a second later.
 
 ## Mood surface
 

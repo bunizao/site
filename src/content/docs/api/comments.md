@@ -212,9 +212,12 @@ Every submission runs the full risk stack, in order:
 2. **Honeypot, dwell time, duplicate body.** Tripping any of these returns
    a fabricated `201 { "outcome": "held", ... }` envelope that is **never
    persisted** — a bot gets no signal to iterate against. The duplicate
-   check is per-post over 24 hours and only applies to bodies of 20+
+   check is site-wide over 24 hours and only applies to bodies of 20+
    characters, so two readers independently posting the same short praise
-   are both heard; only copy-pasted paragraphs trip it.
+   are both heard; only copy-pasted paragraphs trip it. A filled honeypot
+   or a duplicate body also quarantines the writer's IP and fingerprint for
+   24 hours (see step 5); an expired dwell token does not, since a tab left
+   open overnight trips it too.
 3. **Heuristics** (disposable email domain, keyword blocklist, link count) —
    a hit **holds** the comment (it is created, but only its writer can see
    it) rather than dropping it. A first comment carrying a link is fine —
@@ -233,22 +236,41 @@ Every submission runs the full risk stack, in order:
    [Rate limits](/docs/api/overview#rate-limits)) — the only rate-limited
    route family on this whole site running in durable, not observability,
    mode.
-5. **Akismet moderation** (skipped when heuristics already held) — one
-   `comment-check` call carrying the body, author fields, IP, user agent,
-   referrer, and post permalink. Ham publishes; spam holds (the owner can
-   rescue a false positive); Akismet's "blatant spam" signal rejects so a
-   spam wave never floods the moderation queue. Fails closed to `hold` on
-   any error, timeout, or non-verdict response; the HTTP call itself is
-   abandoned after 10 seconds.
+5. **Quarantine and lockdown** (anonymous writers only; three KV reads).
+   A writer whose IP or fingerprint is quarantined — 24 hours after a
+   filled honeypot, a duplicate body, a spam verdict, or the owner hiding
+   or deleting one of their comments — is held on sight, and so is every
+   anonymous writer while the site-wide one-hour lockdown is engaged. Both
+   holds carry reason `ok`, skip the external checks below, and send the
+   owner no per-comment card. The lockdown engages on its own after more
+   than 8 anonymous comments in 10 minutes or 3 of the last 5 anonymous
+   comments judged spam, and lifts on its own; see
+   [Stopping somebody](/docs/platform/comments#stopping-somebody).
+6. **Content moderation** (skipped when a step above already held) — one
+   Akismet `comment-check` carrying the body, author fields, IP, user
+   agent, referrer, post permalink, site language, honeypot field, and the
+   owner's `administrator` role when it is the owner writing. Ham
+   publishes; spam holds (the owner can rescue a false positive); Akismet's
+   "blatant spam" signal rejects so a spam wave never floods the
+   moderation queue. Fails closed to `hold` on any error, timeout, or
+   non-verdict response; the HTTP call itself is abandoned after 10
+   seconds.
 
-   The request does not wait the full ten. Akismet normally answers in
-   100-400ms, and after **1500ms** the create returns with the row stored as
-   `held` and finishes the check in the background — a late verdict then
-   upgrades the row and notifies the owner with the real outcome. The
-   upgrade is guarded on `updated_at`, so a writer who edits in the meantime
-   keeps their row held rather than having it clobbered by a stale verdict.
-   A `held` response is therefore not always final.
-6. **Shadow-ban.** A shadow-banned writer's otherwise-`publish` verdict is
+   For an **anonymous** writer, Claude reads the text at the same time
+   (`claude-opus-5`, `ANTHROPIC_API_KEY`). It can turn Akismet's ham into a
+   hold with reason `spam`, `promotional`, `abuse` or `personal_info`,
+   never a hold into a publish; when it is unavailable the Akismet verdict
+   stands alone. A spam verdict from either quarantines the writer's
+   identity for 24 hours. Verified readers get Akismet only.
+
+   The request does not wait the full ten seconds. After **2500ms** the
+   create returns with the row stored as `held` and finishes the check in
+   the background — a late verdict then upgrades the row, notifies the
+   owner with the real outcome, and sends the reply alert if it published.
+   The upgrade is guarded on `updated_at`, so a writer who edits in the
+   meantime keeps their row held rather than having it clobbered by a
+   stale verdict. A `held` response is therefore not always final.
+7. **Shadow-ban.** A shadow-banned writer's otherwise-`publish` verdict is
    quietly downgraded to `hold` — they see their own comment as normal;
    nobody else ever does.
 
@@ -634,14 +656,19 @@ switch is always one click from the mail that prompted it.
 
 ### What `notifyReplies` actually sends
 
-A published reply to a comment mails that comment's author, once, with the
-comment and the reply quoted. It goes out only when the author is a verified
-reader (an anonymous comment carries no address anyone may reuse), still has
-`notify_replies` set, has not muted this thread, is not banned, and is not the person who just replied.
-Held and rejected replies send nothing — mailing about one would leak the
-moderation queue. Capped at 12 per reader per hour and keyed on the reply id,
-so a retried write cannot mail the same reply twice; suppressed addresses are
-skipped like every other outbound.
+A published reply to a comment mails that comment's author, once, saying
+that there is a reply and where — with the author's own comment quoted, and
+**never** the reply's text or the replier's name. The mail is unattended
+outbound to an address a stranger chose to write under; quoting the stranger
+would turn the site's sender reputation into a relay. It goes out only when
+the author is a verified reader (an anonymous comment carries no address
+anyone may reuse), still has `notify_replies` set, has not muted this
+thread, is not banned, and is not the person who just replied. Held and
+rejected replies send nothing — mailing about one would leak the moderation
+queue. Capped at 12 per reader per hour, and at 3 per reader per hour when
+the replier is anonymous; keyed on the reply id, so a retried write cannot
+mail the same reply twice; suppressed addresses are skipped like every other
+outbound.
 
 ## Muting one conversation
 
