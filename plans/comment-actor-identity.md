@@ -9,7 +9,9 @@ after a second ask — finer grain, collect more — which also settled decision
 A (raw IP and typed email: yes): the behavioural signals, the forensic blob,
 the insights endpoints and the source profile below come from that pass. A
 third ask the same day reversed the original design's exclusion of
-client-side fingerprinting (decision D).
+client-side fingerprinting (decision D), and a fourth — "can we get more?"
+— added interaction telemetry, content keys and the TLS stack under "More
+clues".
 
 This is a plan, not an implementation. Code lands in `site-api` (migration,
 write paths, ban check, admin routes, Telegram card) and here (contracts,
@@ -167,6 +169,9 @@ client blob. Each is a contradiction, not a threshold:
 | `touch_mismatch` | mobile UA with `maxTouchPoints === 0`, or desktop UA with `hover: none` and touch |
 | `hints_mismatch` | `sec-ch-ua` brands ≠ `userAgentData.brands` |
 
+The interaction and header-set hints under "More clues" below join this
+list and the same counter.
+
 Two contradictions are shown on the profile and **not** counted: client
 timezone ≠ `cf.timezone`, and client `languages[0]` ≠ `accept-language`
 first tag. A large share of this readership is on a VPN, and those two are
@@ -194,6 +199,112 @@ Rate limits are unchanged: comments on session/ip/fp/reader, reactions on
 identity/ip. The ban list is the lever; none of the above becomes a budget
 key, because a counter on `dwell_ms` is a rule a bot satisfies by waiting.
 
+### More clues, ranked by what they catch
+
+Added 2026-09-12 on a fourth ask ("can we get more?"). Ranked honestly: the
+device fingerprint above says *which machine*; the clues here say *whether a
+person was at it* and *what the spam is for*, and those two questions are
+the ones a ban decision actually turns on.
+
+**1. Interaction telemetry — how the form was filled.** The strongest
+human-versus-script signal available anywhere, and the plan had none of it.
+A script sets `textarea.value` and fires one event; Playwright's `fill()`
+fires one `input` event for the whole string; `pressSequentially` types with
+a variance of zero; a person produces hundreds of key events with a spread.
+Collected by the same lazily loaded module as the fingerprint, from listeners
+on the compose box and the reaction bar, and sent as `interaction` beside
+`clientFp`. Aggregates only — counts and one spread figure — never the key
+sequence, never the intervals themselves; that is the line between "how many
+keys" and behavioural biometrics, and the plan stays on the near side of it.
+
+| Field | Comments | Reactions | What |
+| --- | --- | --- | --- |
+| `loadToFocusMs` / `loadToTapMs` | ✓ | ✓ | `performance.now()` at first compose focus or first heart tap. The box and the bar sit below the article; reaching them in 300 ms without scrolling means the page was never read |
+| `composeMs` | ✓ | — | first focus → submit |
+| `keyEvents`, `inputEvents`, `pasteEvents` | ✓ | — | counts on the body field |
+| `keyIntervalCv` | ✓ | — | coefficient of variation of inter-key intervals, per mille, computed client-side from a rolling sum; the intervals are never sent |
+| `pointerType`, `pointerMoves` | ✓ | ✓ | the submit or tap's `pointerType`, and `pointermove` count on the page before it |
+| `clickOffset` | ✓ | ✓ | distance from the button's centre, in CSS px, of the submit click or heart tap |
+| `scrollEvents`, `scrollDepth` | ✓ | ✓ | count, and max `scrollY / (docHeight - innerHeight)` as a percentage |
+| `hiddenCount`, `hasFocus` | ✓ | ✓ | `visibilitychange` to hidden before submit; `document.hasFocus()` at submit |
+| `historyLength` | ✓ | ✓ | `history.length`; a fresh automation context reads 1 or 2 |
+| `validationErrors` | ✓ | — | client-side rejections before the successful submit; a person mistypes an email now and then, a script never does |
+| `turnstileSolveMs`, `turnstileInteractive` | ✓ | ✓ | widget render → token callback, and whether `before-interactive-callback` fired; a solver service takes 10–30 s where the managed widget takes one |
+| `tapsThisPage` | — | ✓ | reaction taps on this page so far, client counter |
+
+**2. Content keys — what the spam is for.** Every actor key above can be
+rotated. The link is the payload and the payload does not rotate: a wave
+that burns fifty sessions and ten subnets still points at one domain. Three
+columns on `blog_comments`, all derived at write time from things already in
+hand:
+
+- `link_domains` — JSON array of registrable domains in the body, lowercase,
+  at most 10, from the same scan `countLinks` does. A **ban key**
+  (`key_type = 'domain'`, value stored raw — a domain is not personal data,
+  the one exception to "never raw" in `blog_bans`), a cluster key, and an
+  insights table. Banning `cheap-seo.example` holds every future comment
+  carrying it, whoever sends it.
+- `body_hash` — SHA-256 of the body lowercased with whitespace, punctuation
+  and URLs stripped. Exact-duplicate detection after normalisation; the
+  cluster line reads "same text: 12 comments, 11 sessions". Not a ban key
+  (banning a text is a filter rule, and the Akismet call is that rule).
+- `email_domain` and `email_mx` — the typed address's domain, and whether it
+  has an MX record (0/1/NULL). MX comes from DNS-over-HTTPS at
+  `cloudflare-dns.com`, 1.5 s time-box, cached in KV per domain for 7 days,
+  looked up only for unverified addresses (a verified one has received
+  mail). `email_domain` is a **ban key** (`key_type = 'email_domain'`) and
+  the disposable-provider list the insights row wanted: the owner sees
+  `tempmail.example — 9 comments, 100% held, no MX` and bans the domain
+  instead of nine addresses.
+
+**3. The TLS stack — free JA3, nearly.** `request.cf` carries
+`tlsClientCiphersSha1`, `tlsClientExtensionsSha1`, `tlsClientHelloLength`
+and `tlsCipher` on the same object as `colo` and `asn`. Together they are
+most of what JA3 hashes, and a Python `requests` ClientHello does not look
+like Chrome's however the UA header is set. Stored in the `signals` blob;
+grouped in a "TLS stacks by browser" insights table (browser family ×
+ciphers hash, count, held rate). No hint at write time yet — a hint needs a
+baseline of what each browser family's hash is, and a week of rows gives
+one; then `tls_unknown_for_browser` is a one-line addition. The Workers
+types declare these fields; **confirm on one real request before wiring
+anything**, since the docs are silent on which plans populate them.
+
+**4. Header-set contradictions — cheap and exact.** Header *order* is not
+observable (the `Headers` object iterates sorted; the wire order is gone
+before the Worker runs), but header *presence* is:
+
+| Hint | Condition |
+| --- | --- |
+| `no_client` | UA parses as a browser family and the body carried neither `clientFp` nor `interaction`. The single strongest tell of a direct API caller with a spoofed UA. The client awaits the module import for up to 2 s and then submits without it, so a slow network can trip this once; a hint, not a gate |
+| `no_client_hints` | Chromium ≥ 89 UA over HTTPS, no `sec-ch-ua` header |
+| `no_priority` | Chrome ≥ 124 UA, no `priority` header on the fetch (RFC 9218; verify on one real request) |
+| `via_worker` | `cf-worker` header present — the request came out of another Cloudflare Worker, which no reader's browser does |
+| `no_input_events` | body non-empty, `keyEvents === 0 && pasteEvents === 0` |
+| `uniform_typing` | `keyEvents ≥ 20 && keyIntervalCv < 100` (a person's spread is several times that) |
+| `no_pointer` | `pointerType === 'mouse'`, `pointerMoves === 0` |
+| `center_click` | `pointerType === 'mouse'`, `clickOffset < 1` (automation clicks the exact centre) |
+| `instant_compose` | `composeMs < 1000` with a body over 40 characters |
+| `unread` | `loadToFocusMs < 300` (or `loadToTapMs`), `scrollEvents === 0`, and no `#comment` fragment in the referer path |
+
+All count into `bot_hints`. `historyLength`, `hiddenCount`, `hasFocus`,
+`turnstileSolveMs` are shown on the profile and not counted: each has an
+innocent reading (a new tab, a phone call mid-comment, a slow network).
+
+**5. Hosting networks.** A static list of ~40 hosting ASNs (AWS, GCP, Azure,
+DigitalOcean, Hetzner, OVH, Linode, Vultr, Alibaba, Tencent, Huawei, Oracle,
+Contabo, M247, Datacamp, …) yields `asnKind: 'hosting' | 'other'` in the
+blob and a "Hosting networks" insights row. A `vpn hint`, not a bot hint:
+this readership's VPN exits live on exactly those ASNs. It makes the number
+sortable; `as_org` already made it visible.
+
+Not obtainable, so nobody goes looking: header order (above); JA3/JA4, bot
+score and Turnstile `ephemeral_id` (Enterprise); the real IP behind a VPN;
+raw pointer traces and key timings (over-collection for no extra
+discrimination); reputation feeds (AbuseIPDB, IPQS, Spamhaus — a paid or
+rate-limited dependency on the write path, and the cluster data answers the
+same question from this site's own history; if ever wanted, a KV-cached
+lookup on **held** rows only, never on every write).
+
 ## Design
 
 ### One resolver, both write paths
@@ -205,23 +316,32 @@ key, because a counter on `dwell_ms` is a rule a bot satisfies by waiting.
 interface Actor {
   /** Ban-list and rate-limit keys. Every value is a hash or an id, never raw.
       clientFpHash is a ban and pivot key only -- never fed to a budget. */
-  keys: { readerId, emailHash, sessionId, ipHash, ip24Hash, fpHash, asn, clientFpHash };
+  keys: { readerId, emailHash, sessionId, ipHash, ip24Hash, fpHash, asn, clientFpHash,
+          emailDomain, linkDomains /* comments only, ≤ 10 */ };
   /** The column signals. */
-  signals: { ip, ua, browser, os, country, city, asn, asOrg, sessionNew, botHints };
+  signals: { ip, ua, browser, os, country, city, asn, asOrg, sessionNew, botHints,
+             email, emailDomain, emailMx, linkDomains, bodyHash /* comments only */ };
   /** The `signals` blob, serialised once at insert. */
-  detail: { colo, region, timezone, httpProtocol, tlsVersion, rttMs, acceptLanguage,
-            acceptEncoding, chUa, chPlatform, chMobile, secFetch, referer, origin };
-  /** The `client` blob: the components as sent, bounded, plus the derived
-      hint lists. Null when the body carried no clientFp. */
-  client: { components: ClientFingerprint; botHints: string[]; vpnHints: string[] } | null;
+  detail: { colo, region, timezone, httpProtocol, tlsVersion, tlsCipher, tlsCiphersSha1,
+            tlsExtensionsSha1, tlsHelloLength, rttMs, asnKind, acceptLanguage,
+            acceptEncoding, chUa, chPlatform, chMobile, secFetch, priority, referer,
+            origin, viaWorker };
+  /** The `client` blob: the components and interaction aggregates as sent,
+      bounded, plus the derived hint lists. Null when the body carried neither. */
+  client: { components: ClientFingerprint | null; interaction: Interaction | null;
+            botHints: string[]; vpnHints: string[] } | null;
 }
 ```
 
-`ClientFingerprint` is a public contract (`packages/contracts/src/comments.ts`),
-because the browser sends it: every field optional, strings capped at 128
-characters, the fonts list capped at 32 entries, the whole object rejected
-above 4 KiB. A body with a malformed `clientFp` is treated as one with none,
-never refused — the fingerprint is evidence, not a door.
+`ClientFingerprint` and `Interaction` are public contracts
+(`packages/contracts/src/comments.ts`), because the browser sends them:
+every field optional, strings capped at 128 characters, the fonts list
+capped at 32 entries, every number a bounded non-negative integer, each
+object rejected above 4 KiB. A body with a malformed `clientFp` or
+`interaction` is treated as one with none, never refused — they are
+evidence, not a door. The hint derivation is one pure function over
+`(headers, cf, components, interaction, ua)`, which is what makes it
+testable on fixtures.
 
 `comment-service.ts` and `toggle.ts` both call it once, ahead of their rate
 limit step, and stop computing `ipHash`/`fpHash` inline. `risk-heuristics.ts`
@@ -234,8 +354,8 @@ results are.
 
 ```sql
 CREATE TABLE blog_bans (
-  key_type   TEXT NOT NULL CHECK (key_type IN ('email', 'session', 'ip', 'ip24', 'fp', 'asn', 'client_fp')),
-  key_value  TEXT NOT NULL,           -- the hash (or the ASN number as text); never raw
+  key_type   TEXT NOT NULL CHECK (key_type IN ('email', 'session', 'ip', 'ip24', 'fp', 'asn', 'client_fp', 'domain', 'email_domain')),
+  key_value  TEXT NOT NULL,           -- the hash (or the ASN number as text); raw only for the two domain kinds
   note       TEXT,                    -- one human line, from the owner
   source     TEXT NOT NULL CHECK (source IN ('portal', 'telegram', 'script')),
   created_at TEXT NOT NULL,
@@ -244,7 +364,8 @@ CREATE TABLE blog_bans (
 );
 ```
 
-One indexed query per write:
+One indexed query per write, one pair per key the row carries — up to
+nine kinds plus one pair per link domain, so at most ~19 pairs:
 
 ```sql
 SELECT key_type FROM blog_bans
@@ -295,18 +416,26 @@ actor: {
   botHints: number;
   /** The blob, parsed. Null once the sweep has run. */
   detail: ActorDetail | null;
-  /** The client fingerprint as sent, with the derived hint lists. Null when
-      the write carried none, or once the sweep has run. */
-  client: { components: ClientFingerprint; botHints: string[]; vpnHints: string[] } | null;
-  /** Comments: dwellMs, turnstileAgeMs, linkCount. Reactions: turnstileAgeMs, auth. */
-  behaviour: { dwellMs?: number; turnstileAgeMs?: number; linkCount?: number; auth?: 'turnstile' | 'pass' | 'verified' };
+  /** The client fingerprint and interaction aggregates as sent, with the
+      derived hint lists. Null when the write carried neither, or once the
+      sweep has run. */
+  client: { components: ClientFingerprint | null; interaction: Interaction | null;
+            botHints: string[]; vpnHints: string[] } | null;
+  /** Comments: dwellMs, turnstileAgeMs, linkCount, emailMx. Reactions: turnstileAgeMs, auth. */
+  behaviour: { dwellMs?: number; turnstileAgeMs?: number; linkCount?: number;
+               emailMx?: boolean | null; auth?: 'turnstile' | 'pass' | 'verified' };
   /** Short handles (first 8 hex) so two rows can be eyeballed as the same
-      source, and the full value the pivot links carry. */
-  keys: { session: string; ip: string | null; ip24: string | null; fp: string | null; email: string | null; clientFp: string | null };
+      source, and the full value the pivot links carry. Domains are raw. */
+  keys: { session: string; ip: string | null; ip24: string | null; fp: string | null;
+          email: string | null; clientFp: string | null; emailDomain: string | null;
+          bodyHash: string | null; linkDomains: string[] };
   /** Which of this row's keys are on the ban list right now. */
-  banned: Array<'email' | 'session' | 'ip' | 'ip24' | 'fp' | 'asn' | 'client_fp'>;
+  banned: Array<'email' | 'session' | 'ip' | 'ip24' | 'fp' | 'asn' | 'client_fp' | 'domain' | 'email_domain'>;
   /** Other rows sharing each key in the last 90 days, excluding this one. */
-  cluster: Record<'session' | 'ip' | 'ip24' | 'fp' | 'email' | 'clientFp', { comments: number; held: number; reactions: number }>;
+  cluster: Record<'session' | 'ip' | 'ip24' | 'fp' | 'email' | 'clientFp' | 'emailDomain' | 'bodyHash',
+                  { comments: number; held: number; reactions: number }>;
+  /** Same, per link domain on this row. */
+  domainCluster: Array<{ domain: string; comments: number; held: number; banned: boolean }>;
 }
 ```
 
@@ -314,8 +443,9 @@ actor: {
 8 held, 140 reactions in two hours" is the whole tell, and it is one line.
 Computed per page, not per row: for the 50 rows on the page, collect each
 dimension's distinct values and run one `GROUP BY` per dimension per table
-(`WHERE fp_hash IN (...) GROUP BY fp_hash`), so a page costs at most twelve
-indexed queries regardless of row count. Needs the indexes below.
+(`WHERE fp_hash IN (...) GROUP BY fp_hash`), so a page costs at most
+sixteen indexed queries regardless of row count (the link-domain one uses
+`json_each` over the window's rows, which are few). Needs the indexes below.
 
 Pivot: `GET /admin/comments?key=fp&value=<hash>` filters the queue by one
 key, and `GET /admin/reactions?key=…&value=…` lists that key's reactions
@@ -374,7 +504,12 @@ Comments:
 | Browsers | `browser` × `os`, top 15 | same | `HeadlessChrome` anywhere |
 | Devices | `client_fp_hash`, top 15, shown with renderer + screen + platform from the blob | comments, held, held rate, distinct sessions, distinct `ip24` | one device behind many sessions and subnets |
 | Bot hints | each hint name, from the client blob | writes that tripped it, held rate | `webdriver` with a low held rate means the automatic pass is missing bots |
-| VPN hints | timezone / language contradictions | count, held rate | for reading, not acting — this readership is on VPNs |
+| VPN hints | timezone / language contradictions, hosting networks | count, held rate | for reading, not acting — this readership is on VPNs |
+| Link domains | each domain in `link_domains`, top 20 | comments, held, held rate, distinct sessions, banned | the payload; one row here is the whole wave |
+| Duplicates | `body_hash` with ≥ 2 rows, top 15, shown with the first 80 chars | comments, distinct sessions, held rate | the same text from eleven sessions |
+| Email domains | `email_domain`, top 20 | comments, held rate, share with MX | `tempmail.example — 9, 100% held, no MX` |
+| TLS stacks | `browser` × `tlsCiphersSha1` from the blob | count, held rate | a Chrome row whose hash no other Chrome row has |
+| Typing | `keyIntervalCv` buckets: `0`, `< 100`, `100–300`, `300–600`, `> 600` | count, held rate | a person is rarely under 300 |
 | Daily by status | day | published, held, rejected, deleted | the current chart is one total bar per day; split it |
 | Dwell buckets | `< 5 s`, `5–15 s`, `15–60 s`, `1–5 min`, `5–30 min`, `> 30 min` | count, held rate per bucket | bots pile into the first bucket |
 | Session age | `session_new` | share of writes from brand-new sessions, by day | a spam day reads near 100% |
@@ -389,8 +524,9 @@ Reactions:
 | Hourly | hour | reactions, distinct sessions, distinct `ip24` | sessions ≫ subnets in one hour is churn |
 | Auth mix | `auth` | count, share, by day | a pass-only surge is one solve replayed |
 | Targets | `target_type` + `target_id`, top 15 in window | reactions, distinct `ip24`, distinct `fp` | 500 hearts from 3 subnets is pumped |
-| Networks, Countries, Subnets, Browsers, Devices, Bot hints | as for comments | reactions, distinct sessions | a device with 300 hearts across 40 sessions |
+| Networks, Countries, Subnets, Browsers, Devices, Bot hints, TLS stacks | as for comments | reactions, distinct sessions | a device with 300 hearts across 40 sessions |
 | Session age | `session_new` | share of brand-new sessions by day | — |
+| Time to tap | `loadToTapMs` buckets: `< 0.5 s`, `0.5–3 s`, `3–15 s`, `15–60 s`, `> 1 min` | count, distinct sessions | hearts under half a second are not from readers |
 
 Cost: admin-only page loads, each a handful of `GROUP BY`s over at most 90
 days of rows on indexed columns — hundreds of comments, thousands of
@@ -409,8 +545,11 @@ with a hit count (rows in the last 90 days matching each key), so a ban that
 never matched anything is visible as dead weight.
 
 The portal's ban dialog on a comment row pre-ticks `email` (if any), `ip`,
-`fp` and `client_fp` (if any), leaves `ip24`, `session`, `asn` unticked (each
-one is a wider net), and offers purge. The Telegram held/rejected card gains a `🚫 Ban source`
+`fp`, `client_fp` (if any) and every link `domain` on the row, leaves
+`ip24`, `session`, `asn`, `email_domain` unticked (each one is a wider net;
+`email_domain` on a `gmail.com` row would be a site-wide outage), and offers
+purge. The dialog greys out `email_domain` when the domain has more than
+ten published comments in the window, with the count shown. The Telegram held/rejected card gains a `🚫 Ban source`
 button (`comment:ban:<id>`) that applies exactly the pre-ticked set with
 no purge — one tap at the bus stop, the wider decisions on the laptop.
 
@@ -419,7 +558,7 @@ no purge — one tap at the bus stop, the wider decisions on the laptop.
 ```
 🌐 CN · Guangzhou · AS4134 CHINANET · 113.xx.xx.xx · colo HKG
 🧭 Chrome 128 / Windows · dwell 4s · new session · HTTP/1.1 · no referer · ⚠ webdriver, software_gl
-🔁 same source: 6 comments (5 held) · 140 reactions · 2h
+🔁 same source: 6 comments (5 held) · 140 reactions · 2h · cheap-seo.example ×4
 ```
 
 The second line lists only what is there (`no referer` appears when the
@@ -432,10 +571,11 @@ turn "🟠 held" into a decision.
 
 | Column | Table | Retention |
 | --- | --- | --- |
-| `email` | comments | Unverified: nulled at 7 days alongside `email_hash` (existing sweep, extended). Verified: lives with the row — the address is already in `notify_subscribers`. |
+| `email`, `email_domain`, `email_mx` | comments | Unverified: nulled at 7 days alongside `email_hash` (existing sweep, extended). Verified: lives with the row — the address is already in `notify_subscribers`. |
 | `ip`, `ua`, `city`, `as_org`, `country`, `asn`, `ip_hash`, `ip24_hash`, `fp_hash`, `client_fp_hash`, `signals`, `client` | both | Nulled at 90 days by `cleanupCommentRiskSignals` in `maintenance.ts`, extended to the new columns and to `blog_reactions`. |
 | `browser`, `os` | both | Kept. Two coarse family names, not a person; what the 90-day-plus browser table groups by. |
 | `session_new`, `dwell_ms`, `turnstile_age_ms`, `auth`, `link_count`, `bot_hints` | both | Kept. Integers about the request, not the requester. |
+| `link_domains`, `body_hash` | comments | Kept. Derived from the body, which is on the row for as long as the row is. |
 | `session_id` | both | Lives with the row (it is ownership, and already does on comments). |
 | `blog_bans` | — | Hashes only. Rows live until lifted or `expires_at`. |
 
@@ -458,7 +598,12 @@ ALTER TABLE blog_comments ADD COLUMN city TEXT;
 ALTER TABLE blog_comments ADD COLUMN as_org TEXT;
 ALTER TABLE blog_comments ADD COLUMN signals TEXT;              -- JSON, see ActorDetail
 ALTER TABLE blog_comments ADD COLUMN client_fp_hash TEXT;
-ALTER TABLE blog_comments ADD COLUMN client TEXT;               -- JSON: components + hint lists
+ALTER TABLE blog_comments ADD COLUMN client TEXT;               -- JSON: components + interaction + hint lists
+-- Content keys
+ALTER TABLE blog_comments ADD COLUMN link_domains TEXT;         -- JSON array, ≤ 10, lowercase registrable domains
+ALTER TABLE blog_comments ADD COLUMN body_hash TEXT;            -- sha256 of the normalised body
+ALTER TABLE blog_comments ADD COLUMN email_domain TEXT;
+ALTER TABLE blog_comments ADD COLUMN email_mx INTEGER CHECK (email_mx IN (0, 1));
 -- Behaviour
 ALTER TABLE blog_comments ADD COLUMN session_new INTEGER NOT NULL DEFAULT 0 CHECK (session_new IN (0, 1));
 ALTER TABLE blog_comments ADD COLUMN bot_hints INTEGER NOT NULL DEFAULT 0;
@@ -493,6 +638,8 @@ CREATE INDEX idx_blog_comments_fp_hash   ON blog_comments(fp_hash, created_at)  
 CREATE INDEX idx_blog_comments_session   ON blog_comments(session_id, created_at);
 CREATE INDEX idx_blog_comments_asn       ON blog_comments(asn, created_at)       WHERE asn IS NOT NULL;
 CREATE INDEX idx_blog_comments_client_fp ON blog_comments(client_fp_hash, created_at) WHERE client_fp_hash IS NOT NULL;
+CREATE INDEX idx_blog_comments_body_hash ON blog_comments(body_hash, created_at) WHERE body_hash IS NOT NULL;
+CREATE INDEX idx_blog_comments_email_domain ON blog_comments(email_domain, created_at) WHERE email_domain IS NOT NULL;
 CREATE INDEX idx_blog_reactions_ip_hash   ON blog_reactions(ip_hash, created_at)   WHERE ip_hash IS NOT NULL;
 CREATE INDEX idx_blog_reactions_ip24_hash ON blog_reactions(ip24_hash, created_at) WHERE ip24_hash IS NOT NULL;
 CREATE INDEX idx_blog_reactions_fp_hash   ON blog_reactions(fp_hash, created_at)   WHERE fp_hash IS NOT NULL;
@@ -540,16 +687,18 @@ most of them. The privacy page gains a fingerprinting clause in phase 4.
 
 ## Phases
 
-1. **Contracts** (this repo): `ClientFingerprint` and the optional
-   `clientFp` on `CommentCreateInput` and `ReactionToggleInput` in
-   `packages/contracts/src/comments.ts`; `AdminCommentActor`, `ActorDetail`,
+1. **Contracts** (this repo): `ClientFingerprint`, `Interaction` and the
+   optional `clientFp` and `interaction` on `CommentCreateInput` and
+   `ReactionToggleInput` in `packages/contracts/src/comments.ts`;
+   `AdminCommentActor`, `ActorDetail`,
    `AdminReactionRecord`, `AdminSourceProfile`, `AdminCommentInsights`,
    `AdminReactionInsights`, `AdminBan`, `AdminBanInput`, in
    `packages/contracts/src/admin.ts`. Bump, publish, raise the pin in
    `../site-api`.
 2. **site-api**: migration 0025; `actor.ts` (including the bot- and
    vpn-hint derivation, pure and unit-tested on a headless-Chrome fixture and
-   an iPhone fixture); export `parseUa`; `verifyDwellToken`
+   an iPhone fixture; `extractLinkDomains`, `normalizeBody`, the hosting-ASN
+   list, and `lookupMx` with its KV cache); export `parseUa`; `verifyDwellToken`
    returns the age, `verifyTurnstileToken` surfaces `challengeTs`; both write
    paths capture (columns, blobs, behaviour) and ban-check; `blog_bans`
    replaces KV (`shadow-ban.ts` rewritten, one-off KV → D1 copy script);
@@ -558,10 +707,12 @@ most of them. The privacy page gains a fingerprinting clause in phase 4.
    `comments/insights`, `reactions/insights`, `bans` CRUD + purge); Telegram
    card lines and `comment:ban:<id>` callback. Apply 0025 to prod D1
    **before** the merge — main deploys within a minute of merging.
-3. **Client and portal** (this repo): `src/features/comments/client/fingerprint.ts`,
-   dynamically imported on first compose interaction or first heart press,
-   cached per page, attached to both POST bodies by the compose controller
-   and `ReactionBar.tsx`; the actor strip under each queue row (country ·
+3. **Client and portal** (this repo): `src/features/comments/client/fingerprint.ts`
+   and `interaction.ts` (one module, two exports; the listeners attach at
+   first compose focus or first pointer-down on the bar, the fingerprint
+   computes then), dynamically imported, cached per page, attached to both
+   POST bodies by the compose controller and `ReactionBar.tsx`; the actor
+   strip under each queue row (country ·
    city · ASN org · IP · email · browser/os · dwell · new-session · `⚠` bot
    hints, with the cluster line and a red `banned` chip per key that is
    listed; the two blobs behind a disclosure); every key handle links to the
@@ -582,7 +733,13 @@ most of them. The privacy page gains a fingerprinting clause in phase 4.
 `resolveActor` (every header and `cf` field present and absent), the client
 fingerprint canonicalisation (key order and bounds), the hint derivation on
 a headless-Chrome fixture (expects `webdriver`, `software_gl`,
-`headless_screen`) and an iPhone fixture (expects none), the dwell age and
+`headless_screen`, `no_input_events`), a `pressSequentially` fixture
+(expects `uniform_typing`), a curl fixture (expects `no_client`,
+`no_client_hints`) and an iPhone fixture (expects none), `extractLinkDomains`
+on bare hosts, ports, IDNs and `www.`, `normalizeBody` collapsing the same
+text with different punctuation to one hash, `lookupMx` on a cache hit, a
+miss, a timeout and a domain with no MX (all `NULL`-or-`0`, never a throw
+into the write path), the dwell age and
 Turnstile `challengeTs` plumbing, the ban query, the reaction shadow path
 (row not written, envelope identical, no pass cookie), the cluster batching
 (twelve queries for fifty rows), the profile's spread counts, each insights
@@ -595,6 +752,11 @@ after a second comment from the same session; the profile page for that
 session shows two comments and a spread of one fingerprint and one device;
 banning it holds a third; a reaction from the banned session returns
 `reacted: true` and moves no count; the insights page shows the dwell bucket,
-the device row and the network row those writes landed in. Playwright with a
-headless context should light `webdriver` on its own comment, which is the
-cheapest end-to-end test of the whole hint path there is.
+the device row and the network row those writes landed in; a comment with
+two links to one domain shows that domain in the cluster line, and banning
+it there holds the next comment carrying it from a fresh session. Playwright
+with a headless context should light `webdriver` and `no_input_events` (via
+`fill()`) on its own comment, which is the cheapest end-to-end test of the
+whole hint path there is. And once, on a real deployment: log `request.cf`
+for one comment and check the four TLS fields and `priority` are populated
+before either hint is wired.
