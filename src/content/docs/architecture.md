@@ -103,6 +103,7 @@ Everything else on the URL surface:
 | Admin, OAuth, webhook, and image routes | `site-api` | Listed, not specified — see [Internal Endpoints](/docs/api/internal). |
 | `GET /oauth` | `site` | Short public entry that redirects to the protected OAuth hub. The boundary itself is `src/middleware.ts` + `src/features/admin/server/access.ts`; see [Auth](/docs/platform/auth). |
 | `GET /dev/blog/<24-char post id>` | `site` | Ghost draft rendered through the production pipeline, behind owner auth. Private and uncached. |
+| `POST /dev/blog/render` | `site` | Renders posted draft HTML through the same pipeline for the live preview channel, behind owner auth. Private and uncached. |
 | `GET`, `HEAD /static/*` | `site` | Allowlisted media proxy, including the fixed YouTube poster, avatar, and metadata routes. |
 | SVG badges, `/logo/{id}.svg` | `site` | `?theme=light\|dark` on all of them; `project.svg` also needs `?project=`. See [SVG](/docs/api/svg). |
 | `GET /mood/rss.xml`, `/blog/rss.xml`, `/llms.txt`, `/sitemap.xml` | `site` | See [Feeds](/docs/api/feeds). |

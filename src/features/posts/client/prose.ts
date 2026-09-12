@@ -5,30 +5,44 @@
     inferListeningSurface,
   } from '@/lib/listening/analytics';
 
-  // --- Blur-up reveal: crossfade each image in once it decodes ---
-  // Covers both the article body and the feature hero (outside .blog-prose).
-  // An already-cached image fires no `load`, so reveal it immediately; a broken
-  // one reveals too, so it never shimmers forever.
-  document.querySelectorAll<HTMLElement>('.blog-media').forEach((media) => {
-    const img = media.querySelector('img');
-    if (!img) return;
-    // After the crossfade (0.6s + 0.1s delay) the LQIP ::before is invisible
-    // but still a live blur(14px) layer; dropping the class releases it —
-    // otherwise a media-heavy article keeps every one composited (WebKit pays
-    // this in memory and scroll work).
-    const reveal = () => {
-      media.classList.add('is-loaded');
-      setTimeout(() => media.classList.remove('is-blur'), 900);
-    };
-    if (img.complete && img.naturalWidth > 0) reveal();
-    else {
-      img.addEventListener('load', reveal, { once: true });
-      img.addEventListener('error', reveal, { once: true });
-    }
-  });
+  /**
+   * Wires every client-side prose behavior (blur-up media, gallery ratios,
+   * video chrome, poem promotion, music cards, tap-to-zoom) within `scope`.
+   *
+   * Idempotent and scope-aware on purpose: the page calls it once on load
+   * (scope = document, so the hero image outside .blog-prose is covered too)
+   * and again after the live-preview channel swaps the .blog-prose subtree
+   * (scope = that element). A swap replaces the subtree's markup outright, so
+   * every element re-queried here is a fresh node — nothing outside `scope`
+   * is touched and no listener is ever attached twice to the same node.
+   */
+  export function initProse(scope: ParentNode = document): void {
+    // --- Blur-up reveal: crossfade each image in once it decodes ---
+    // Covers both the article body and the feature hero (outside .blog-prose).
+    // An already-cached image fires no `load`, so reveal it immediately; a broken
+    // one reveals too, so it never shimmers forever.
+    scope.querySelectorAll<HTMLElement>('.blog-media').forEach((media) => {
+      const img = media.querySelector('img');
+      if (!img) return;
+      // After the crossfade (0.6s + 0.1s delay) the LQIP ::before is invisible
+      // but still a live blur(14px) layer; dropping the class releases it —
+      // otherwise a media-heavy article keeps every one composited (WebKit pays
+      // this in memory and scroll work).
+      const reveal = () => {
+        media.classList.add('is-loaded');
+        setTimeout(() => media.classList.remove('is-blur'), 900);
+      };
+      if (img.complete && img.naturalWidth > 0) reveal();
+      else {
+        img.addEventListener('load', reveal, { once: true });
+        img.addEventListener('error', reveal, { once: true });
+      }
+    });
 
-  const root = document.querySelector('.blog-prose');
-  if (root) {
+    const root = scope instanceof HTMLElement && scope.matches('.blog-prose')
+      ? scope
+      : scope.querySelector<HTMLElement>('.blog-prose');
+    if (root) {
     // --- Gallery: restore Ghost's flex-ratio layout ---
     // Ghost normally inlines flex-grow ∝ aspect ratio so a row tiles to a single
     // height. The live feed omits it, so derive it from each image's dimensions.
@@ -620,4 +634,5 @@
         img.addEventListener('click', () => open(img));
       });
     }
+  }
   }

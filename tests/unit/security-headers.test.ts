@@ -87,8 +87,46 @@ describe('html security headers', () => {
       htmlResponse(),
     );
 
-    expect(response.headers.get('Content-Security-Policy')).toContain("frame-ancestors 'self'");
+    const csp = response.headers.get('Content-Security-Policy') ?? '';
+    expect(csp).toContain("frame-ancestors 'self'");
+    expect(csp).not.toMatch(/frame-ancestors '[^']*' https?:/);
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
+  test('dev blog preview pages also allow the configured Ghost admin origin to frame them', () => {
+    const response = withHtmlSecurityHeaders(
+      new Request('https://buxx.me/dev/blog/5ddc9141c35e7700383b2937'),
+      htmlResponse(),
+      { env: { PUBLIC_GHOST_URL: 'https://blog.buxx.me' } },
+    );
+
+    expect(response.headers.get('Content-Security-Policy')).toContain(
+      "frame-ancestors 'self' https://blog.buxx.me",
+    );
+  });
+
+  test('the Ghost origin is reduced to its origin — no path, query, or trailing slash', () => {
+    const response = withHtmlSecurityHeaders(
+      new Request('https://buxx.me/dev/blog/5ddc9141c35e7700383b2937'),
+      htmlResponse(),
+      { env: { PUBLIC_GHOST_URL: 'https://blog.buxx.me/some/path?x=1' } },
+    );
+
+    expect(response.headers.get('Content-Security-Policy')).toContain(
+      "frame-ancestors 'self' https://blog.buxx.me",
+    );
+    expect(response.headers.get('Content-Security-Policy')).not.toContain('/some/path');
+  });
+
+  test('every other /dev path ignores the Ghost origin and stays frame-ancestors none', () => {
+    const response = withHtmlSecurityHeaders(
+      new Request('https://buxx.me/dev/portal'),
+      htmlResponse(),
+      { env: { PUBLIC_GHOST_URL: 'https://blog.buxx.me' } },
+    );
+
+    expect(response.headers.get('Content-Security-Policy')).toContain("frame-ancestors 'none'");
+    expect(response.headers.get('Content-Security-Policy')).not.toContain('blog.buxx.me');
   });
 
   test('mood embed keeps its own frame-ancestors * CSP', () => {
@@ -131,5 +169,8 @@ describe('html security headers', () => {
     expect(createHtmlScriptCsp()).not.toContain('frame-ancestors');
     expect(createHtmlScriptCsp({ frameAncestors: 'self' })).toContain("frame-ancestors 'self'");
     expect(createHtmlScriptCsp({ frameAncestors: 'none' })).toContain("frame-ancestors 'none'");
+    expect(createHtmlScriptCsp({ frameAncestors: ['self', 'https://blog.buxx.me'] })).toContain(
+      "frame-ancestors 'self' https://blog.buxx.me",
+    );
   });
 });

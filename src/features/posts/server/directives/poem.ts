@@ -7,6 +7,8 @@ import type {
   InlineDirective,
 } from './types';
 
+/** The bracketed modifiers recognised anywhere in the poem's title line. */
+export const POEM_FLAGS = ['center', 'plain'] as const;
 const MARKER_RE = /^\s*(?:<(?:em|strong|b|i|p)>\s*)?\[!poem\]\s*([^<\n]*)/iu;
 const MARKER_DETECTION_RE = /^\s*(?:<\w+>\s*)?\[!poem\]/iu;
 const ATTRIBUTION_RE = /[—–]\s*[^—–\n]{1,40}\s*$/u;

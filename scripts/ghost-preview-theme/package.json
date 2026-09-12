@@ -1,0 +1,13 @@
+{
+  "name": "buxx-preview",
+  "description": "Frames the buxx.me draft preview inside Ghost admin's Preview button. Not a real theme — see README.md.",
+  "version": "1.0.0",
+  "engines": {
+    "ghost": ">=6.0.0",
+    "ghost-api": "v6.0"
+  },
+  "config": {
+    "posts_per_page": 1,
+    "image_sizes": {}
+  }
+}
