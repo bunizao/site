@@ -7,7 +7,9 @@ reaction, so a spam wave can be recognised across the keys it burns and
 stopped from the portal, not from `wrangler kv key put`. Revised the same day
 after a second ask — finer grain, collect more — which also settled decision
 A (raw IP and typed email: yes): the behavioural signals, the forensic blob,
-the insights endpoints and the source profile below come from that pass.
+the insights endpoints and the source profile below come from that pass. A
+third ask the same day reversed the original design's exclusion of
+client-side fingerprinting (decision D).
 
 This is a plan, not an implementation. Code lands in `site-api` (migration,
 write paths, ban check, admin routes, Telegram card) and here (contracts,
@@ -76,6 +78,7 @@ carries the lines that make phone triage possible.
 | `ip24_hash` | `ip/24` (v4) or `/64` (v6), keyed | a different provider block | — (folded into fp) | — |
 | `fp_hash` | `H(ip/24 + UA)` | subnet **and** UA | ✓ | — |
 | `asn` | `request.cf.asn` | a different ISP | ✓ | — |
+| `client_fp_hash` | `H(canonical client components)`, see below | a real browser change, or the effort to spoof twenty APIs consistently | — | — |
 
 ### Network and client signals — what a human reads on the row
 
@@ -99,14 +102,80 @@ question; it just has no index, and nothing groups by these).
 | `sec_fetch` | `sec-fetch-site/mode/dest` joined, e.g. `same-origin/cors/empty` | blob | A browser `fetch()` from the page carries exactly this; `curl` and `requests` carry nothing. |
 | `referer`, `origin` | headers | blob | Already handed to Akismet, never kept. A write with no referer, or one from another origin, did not come from the page. |
 
-Deliberately **not** collected: client-side fingerprinting (canvas, WebGL,
-fonts — the original decision stands: breaks on this readership's browsers,
-Turnstile is the better bot signal), `cf.latitude`/`longitude`/`postalCode`
+Deliberately **not** collected: `cf.latitude`/`longitude`/`postalCode`
 (creepy and useless past the city), JA3/JA4 and bot scores
 (`cf.botManagement` is Enterprise-only), Turnstile `ephemeral_id`
 (Enterprise), and a second `H(asn + UA + language)` fingerprint (every China
 Mobile iPhone collapses to one key; the profile page pivots on `asn` + `ua`
 by hand instead).
+
+### Client fingerprint — what the browser says about itself
+
+The original design excluded this (blog-comments.md, "The risk stack"); the
+owner reversed that on 2026-09-12. Two things are true at once and the
+implementation is shaped by both. On desktop Chromium — which is what spam
+tooling runs — canvas, WebGL, audio and fonts discriminate well and a lazy
+operation does not rotate them. On iOS Safari, which is most of this
+readership, they discriminate barely at all: Apple masks the GPU as
+`Apple GPU`, caps `hardwareConcurrency`, ships one font set, and so every
+iPhone of one model on one iOS version hashes the same. That is not a reason
+not to collect it; it is the reason the hash is a **ban and pivot key, never
+a budget key** (a spoofable key is a churnable key), and the reason the
+components are stored, not just the hash — the bot tells inside them are
+worth more than the hash is.
+
+Hand-rolled, ~200 lines, no dependency: FingerprintJS v4 is BSL-licensed and
+20 KB for the same signals, and is no more accurate on Safari than the
+browser lets it be. `src/features/comments/client/fingerprint.ts` in this
+repo, loaded by dynamic import on the first interaction with a compose box or
+a heart (never on page load), computed once per page and cached, sent as
+`clientFp` in both POST bodies. The server re-hashes the canonical component
+JSON itself (HMAC, session secret, like the other keys), so the client never
+gets to name its own hash.
+
+Components, each cheap and permission-free:
+
+| Group | What | Notes |
+| --- | --- | --- |
+| Navigator | `platform`, `languages`, `hardwareConcurrency`, `deviceMemory`, `maxTouchPoints`, `webdriver`, `pdfViewerEnabled`, `plugins.length`, `cookieEnabled`, `userAgentData` (brands, platform, mobile; `getHighEntropyValues` for `platformVersion`, `architecture`, `model`) | `webdriver` is the single strongest tell there is |
+| Screen | `width`, `height`, `availWidth`, `availHeight`, `colorDepth`, `devicePixelRatio`, `outerWidth`, `outerHeight` | headless defaults to 800×600 with outer size 0 |
+| Locale | `Intl…resolvedOptions().timeZone`, `getTimezoneOffset()` | compared against `cf.timezone` and `accept-language` server-side |
+| Canvas | text + shapes drawn to an offscreen canvas, SHA-256 of `toDataURL()` | Brave randomises per session; noted, accepted |
+| WebGL | `UNMASKED_VENDOR_WEBGL`, `UNMASKED_RENDERER_WEBGL`, max texture size, max viewport | `SwiftShader` / `llvmpipe` / `Mesa OffScreen` is software rendering: a server, not a laptop |
+| Audio | `OfflineAudioContext` oscillator through a compressor, sum of samples | ~50 ms, off the main interaction |
+| Fonts | width-probe of ~20 families against three fallbacks | the list leads with CJK: PingFang SC, Microsoft YaHei, SimSun, Noto Sans CJK, Source Han Sans, Hiragino Sans GB, STHeiti, WenQuanYi; then Segoe UI, Roboto, Ubuntu, Helvetica Neue, Fira Sans |
+| Media | `prefers-color-scheme`, `prefers-reduced-motion`, `pointer`, `hover`, `color-gamut`, `dynamic-range` | stable per device, and `hover: none` on a desktop UA is a tell |
+| Presence | `window.chrome`, `Notification.permission`, `performance.memory`, `indexedDB`, `localStorage` | `window.chrome` missing under a Chrome UA is a spoof or a non-Chromium headless |
+
+Not collected: battery (deprecated), geolocation and media devices
+(permission prompts), WebRTC local addresses (a leak, and Safari prompts).
+
+**Bot hints**, derived on the server from components and headers together,
+stored as the count `bot_hints` (a sortable column) and as the list in the
+client blob. Each is a contradiction, not a threshold:
+
+| Hint | Condition |
+| --- | --- |
+| `webdriver` | `navigator.webdriver === true` |
+| `no_chrome_object` | UA says Chrome, `window.chrome` absent |
+| `software_gl` | WebGL renderer matches SwiftShader / llvmpipe / Mesa OffScreen |
+| `zero_outer` | `outerWidth === 0` or `outerHeight === 0` |
+| `headless_screen` | 800×600 with a desktop Chrome UA |
+| `no_plugins_desktop_chrome` | desktop Chrome UA, `plugins.length === 0` (Chrome ≥ 90 always reports its PDF plugins) |
+| `no_languages` | `languages` empty |
+| `platform_mismatch` | UA platform ≠ `navigator.platform` family, or ≠ `sec-ch-ua-platform` |
+| `touch_mismatch` | mobile UA with `maxTouchPoints === 0`, or desktop UA with `hover: none` and touch |
+| `hints_mismatch` | `sec-ch-ua` brands ≠ `userAgentData.brands` |
+
+Two contradictions are shown on the profile and **not** counted: client
+timezone ≠ `cf.timezone`, and client `languages[0]` ≠ `accept-language`
+first tag. A large share of this readership is on a VPN, and those two are
+what a VPN looks like. They are labelled `vpn hint`, not `bot hint`.
+
+Consent: device fingerprinting is consent-gated under the EU ePrivacy rules
+and is a "device identifier" under PIPL. The privacy page names it (phase
+4); whether that is enough for this readership's jurisdictions is the
+owner's call, stated once here and not again.
 
 ### Behavioural signals — what the request did
 
@@ -134,15 +203,25 @@ key, because a counter on `dwell_ms` is a rule a bot satisfies by waiting.
 
 ```ts
 interface Actor {
-  /** Ban-list and rate-limit keys. Every value is a hash or an id, never raw. */
-  keys: { readerId, emailHash, sessionId, ipHash, ip24Hash, fpHash, asn };
+  /** Ban-list and rate-limit keys. Every value is a hash or an id, never raw.
+      clientFpHash is a ban and pivot key only -- never fed to a budget. */
+  keys: { readerId, emailHash, sessionId, ipHash, ip24Hash, fpHash, asn, clientFpHash };
   /** The column signals. */
-  signals: { ip, ua, browser, os, country, city, asn, asOrg, sessionNew };
-  /** The blob, serialised once at insert. */
+  signals: { ip, ua, browser, os, country, city, asn, asOrg, sessionNew, botHints };
+  /** The `signals` blob, serialised once at insert. */
   detail: { colo, region, timezone, httpProtocol, tlsVersion, rttMs, acceptLanguage,
             acceptEncoding, chUa, chPlatform, chMobile, secFetch, referer, origin };
+  /** The `client` blob: the components as sent, bounded, plus the derived
+      hint lists. Null when the body carried no clientFp. */
+  client: { components: ClientFingerprint; botHints: string[]; vpnHints: string[] } | null;
 }
 ```
+
+`ClientFingerprint` is a public contract (`packages/contracts/src/comments.ts`),
+because the browser sends it: every field optional, strings capped at 128
+characters, the fonts list capped at 32 entries, the whole object rejected
+above 4 KiB. A body with a malformed `clientFp` is treated as one with none,
+never refused — the fingerprint is evidence, not a door.
 
 `comment-service.ts` and `toggle.ts` both call it once, ahead of their rate
 limit step, and stop computing `ipHash`/`fpHash` inline. `risk-heuristics.ts`
@@ -155,7 +234,7 @@ results are.
 
 ```sql
 CREATE TABLE blog_bans (
-  key_type   TEXT NOT NULL CHECK (key_type IN ('email', 'session', 'ip', 'ip24', 'fp', 'asn')),
+  key_type   TEXT NOT NULL CHECK (key_type IN ('email', 'session', 'ip', 'ip24', 'fp', 'asn', 'client_fp')),
   key_value  TEXT NOT NULL,           -- the hash (or the ASN number as text); never raw
   note       TEXT,                    -- one human line, from the owner
   source     TEXT NOT NULL CHECK (source IN ('portal', 'telegram', 'script')),
@@ -212,17 +291,22 @@ actor: {
   asn: number | null;
   asOrg: string | null;
   sessionNew: boolean;
+  /** Count of tripped bot hints; the names are in `client.botHints`. */
+  botHints: number;
   /** The blob, parsed. Null once the sweep has run. */
   detail: ActorDetail | null;
+  /** The client fingerprint as sent, with the derived hint lists. Null when
+      the write carried none, or once the sweep has run. */
+  client: { components: ClientFingerprint; botHints: string[]; vpnHints: string[] } | null;
   /** Comments: dwellMs, turnstileAgeMs, linkCount. Reactions: turnstileAgeMs, auth. */
   behaviour: { dwellMs?: number; turnstileAgeMs?: number; linkCount?: number; auth?: 'turnstile' | 'pass' | 'verified' };
   /** Short handles (first 8 hex) so two rows can be eyeballed as the same
       source, and the full value the pivot links carry. */
-  keys: { session: string; ip: string | null; ip24: string | null; fp: string | null; email: string | null };
+  keys: { session: string; ip: string | null; ip24: string | null; fp: string | null; email: string | null; clientFp: string | null };
   /** Which of this row's keys are on the ban list right now. */
-  banned: Array<'email' | 'session' | 'ip' | 'ip24' | 'fp' | 'asn'>;
+  banned: Array<'email' | 'session' | 'ip' | 'ip24' | 'fp' | 'asn' | 'client_fp'>;
   /** Other rows sharing each key in the last 90 days, excluding this one. */
-  cluster: Record<'session' | 'ip' | 'ip24' | 'fp' | 'email', { comments: number; held: number; reactions: number }>;
+  cluster: Record<'session' | 'ip' | 'ip24' | 'fp' | 'email' | 'clientFp', { comments: number; held: number; reactions: number }>;
 }
 ```
 
@@ -230,7 +314,7 @@ actor: {
 8 held, 140 reactions in two hours" is the whole tell, and it is one line.
 Computed per page, not per row: for the 50 rows on the page, collect each
 dimension's distinct values and run one `GROUP BY` per dimension per table
-(`WHERE fp_hash IN (...) GROUP BY fp_hash`), so a page costs at most ten
+(`WHERE fp_hash IN (...) GROUP BY fp_hash`), so a page costs at most twelve
 indexed queries regardless of row count. Needs the indexes below.
 
 Pivot: `GET /admin/comments?key=fp&value=<hash>` filters the queue by one
@@ -255,7 +339,9 @@ interface AdminSourceProfile {
   /** How many distinct values of every *other* key this source has used. The
       spread is the churn: one fingerprint over 40 sessions and 12 IPs is a
       bot; one session over 3 IPs is a phone that changed networks. */
-  spread: Record<'session' | 'ip' | 'ip24' | 'fp' | 'email' | 'asn' | 'ua', number>;
+  spread: Record<'session' | 'ip' | 'ip24' | 'fp' | 'clientFp' | 'email' | 'asn' | 'ua', number>;
+  /** Every bot and vpn hint this source has ever tripped, with how often. */
+  hints: Array<{ hint: string; kind: 'bot' | 'vpn'; count: number }>;
   /** Writes per hour over the source's last 7 days, comments and reactions
       separately — bursts are the shape of a script. */
   hourly: Array<{ hour: string; comments: number; reactions: number }>;
@@ -286,6 +372,9 @@ Comments:
 | Countries | `country`, top 15 | same | — |
 | Subnets | `ip24_hash`, top 15, shown with one sample `ip` | same | one `/24` behind twenty names |
 | Browsers | `browser` × `os`, top 15 | same | `HeadlessChrome` anywhere |
+| Devices | `client_fp_hash`, top 15, shown with renderer + screen + platform from the blob | comments, held, held rate, distinct sessions, distinct `ip24` | one device behind many sessions and subnets |
+| Bot hints | each hint name, from the client blob | writes that tripped it, held rate | `webdriver` with a low held rate means the automatic pass is missing bots |
+| VPN hints | timezone / language contradictions | count, held rate | for reading, not acting — this readership is on VPNs |
 | Daily by status | day | published, held, rejected, deleted | the current chart is one total bar per day; split it |
 | Dwell buckets | `< 5 s`, `5–15 s`, `15–60 s`, `1–5 min`, `5–30 min`, `> 30 min` | count, held rate per bucket | bots pile into the first bucket |
 | Session age | `session_new` | share of writes from brand-new sessions, by day | a spam day reads near 100% |
@@ -300,7 +389,7 @@ Reactions:
 | Hourly | hour | reactions, distinct sessions, distinct `ip24` | sessions ≫ subnets in one hour is churn |
 | Auth mix | `auth` | count, share, by day | a pass-only surge is one solve replayed |
 | Targets | `target_type` + `target_id`, top 15 in window | reactions, distinct `ip24`, distinct `fp` | 500 hearts from 3 subnets is pumped |
-| Networks, Countries, Subnets, Browsers | as for comments | reactions, distinct sessions | — |
+| Networks, Countries, Subnets, Browsers, Devices, Bot hints | as for comments | reactions, distinct sessions | a device with 300 hearts across 40 sessions |
 | Session age | `session_new` | share of brand-new sessions by day | — |
 
 Cost: admin-only page loads, each a handful of `GROUP BY`s over at most 90
@@ -319,9 +408,9 @@ rows from the last 90 days, each logged to `blog_activity_log` as
 with a hit count (rows in the last 90 days matching each key), so a ban that
 never matched anything is visible as dead weight.
 
-The portal's ban dialog on a comment row pre-ticks `email` (if any), `ip`
-and `fp`, leaves `ip24`, `session`, `asn` unticked (each one is a wider net),
-and offers purge. The Telegram held/rejected card gains a `🚫 Ban source`
+The portal's ban dialog on a comment row pre-ticks `email` (if any), `ip`,
+`fp` and `client_fp` (if any), leaves `ip24`, `session`, `asn` unticked (each
+one is a wider net), and offers purge. The Telegram held/rejected card gains a `🚫 Ban source`
 button (`comment:ban:<id>`) that applies exactly the pre-ticked set with
 no purge — one tap at the bus stop, the wider decisions on the laptop.
 
@@ -329,13 +418,14 @@ no purge — one tap at the bus stop, the wider decisions on the laptop.
 
 ```
 🌐 CN · Guangzhou · AS4134 CHINANET · 113.xx.xx.xx · colo HKG
-🧭 Chrome 128 / Windows · dwell 4s · new session · HTTP/1.1 · no referer
+🧭 Chrome 128 / Windows · dwell 4s · new session · HTTP/1.1 · no referer · ⚠ webdriver, software_gl
 🔁 same source: 6 comments (5 held) · 140 reactions · 2h
 ```
 
 The second line lists only what is there (`no referer` appears when the
-header was absent; `new session` when the write minted the cookie); the third
-appears only when any cluster count is non-zero. These are the lines that
+header was absent; `new session` when the write minted the cookie; the `⚠`
+tail names the bot hints, if any); the third appears only when any cluster
+count is non-zero. These are the lines that
 turn "🟠 held" into a decision.
 
 ### Retention
@@ -343,9 +433,9 @@ turn "🟠 held" into a decision.
 | Column | Table | Retention |
 | --- | --- | --- |
 | `email` | comments | Unverified: nulled at 7 days alongside `email_hash` (existing sweep, extended). Verified: lives with the row — the address is already in `notify_subscribers`. |
-| `ip`, `ua`, `city`, `as_org`, `country`, `asn`, `ip_hash`, `ip24_hash`, `fp_hash`, `signals` | both | Nulled at 90 days by `cleanupCommentRiskSignals` in `maintenance.ts`, extended to the new columns and to `blog_reactions`. |
+| `ip`, `ua`, `city`, `as_org`, `country`, `asn`, `ip_hash`, `ip24_hash`, `fp_hash`, `client_fp_hash`, `signals`, `client` | both | Nulled at 90 days by `cleanupCommentRiskSignals` in `maintenance.ts`, extended to the new columns and to `blog_reactions`. |
 | `browser`, `os` | both | Kept. Two coarse family names, not a person; what the 90-day-plus browser table groups by. |
-| `session_new`, `dwell_ms`, `turnstile_age_ms`, `auth`, `link_count` | both | Kept. Integers about the request, not the requester. |
+| `session_new`, `dwell_ms`, `turnstile_age_ms`, `auth`, `link_count`, `bot_hints` | both | Kept. Integers about the request, not the requester. |
 | `session_id` | both | Lives with the row (it is ownership, and already does on comments). |
 | `blog_bans` | — | Hashes only. Rows live until lifted or `expires_at`. |
 
@@ -367,8 +457,11 @@ ALTER TABLE blog_comments ADD COLUMN os TEXT;
 ALTER TABLE blog_comments ADD COLUMN city TEXT;
 ALTER TABLE blog_comments ADD COLUMN as_org TEXT;
 ALTER TABLE blog_comments ADD COLUMN signals TEXT;              -- JSON, see ActorDetail
+ALTER TABLE blog_comments ADD COLUMN client_fp_hash TEXT;
+ALTER TABLE blog_comments ADD COLUMN client TEXT;               -- JSON: components + hint lists
 -- Behaviour
 ALTER TABLE blog_comments ADD COLUMN session_new INTEGER NOT NULL DEFAULT 0 CHECK (session_new IN (0, 1));
+ALTER TABLE blog_comments ADD COLUMN bot_hints INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE blog_comments ADD COLUMN dwell_ms INTEGER;
 ALTER TABLE blog_comments ADD COLUMN turnstile_age_ms INTEGER;
 ALTER TABLE blog_comments ADD COLUMN link_count INTEGER;
@@ -386,7 +479,10 @@ ALTER TABLE blog_reactions ADD COLUMN city TEXT;
 ALTER TABLE blog_reactions ADD COLUMN asn INTEGER;
 ALTER TABLE blog_reactions ADD COLUMN as_org TEXT;
 ALTER TABLE blog_reactions ADD COLUMN signals TEXT;
+ALTER TABLE blog_reactions ADD COLUMN client_fp_hash TEXT;
+ALTER TABLE blog_reactions ADD COLUMN client TEXT;
 ALTER TABLE blog_reactions ADD COLUMN session_new INTEGER NOT NULL DEFAULT 0 CHECK (session_new IN (0, 1));
+ALTER TABLE blog_reactions ADD COLUMN bot_hints INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE blog_reactions ADD COLUMN turnstile_age_ms INTEGER;
 ALTER TABLE blog_reactions ADD COLUMN auth TEXT CHECK (auth IS NULL OR auth IN ('turnstile', 'pass', 'verified'));
 
@@ -396,11 +492,13 @@ CREATE INDEX idx_blog_comments_ip24_hash ON blog_comments(ip24_hash, created_at)
 CREATE INDEX idx_blog_comments_fp_hash   ON blog_comments(fp_hash, created_at)   WHERE fp_hash IS NOT NULL;  -- lost in 0018
 CREATE INDEX idx_blog_comments_session   ON blog_comments(session_id, created_at);
 CREATE INDEX idx_blog_comments_asn       ON blog_comments(asn, created_at)       WHERE asn IS NOT NULL;
+CREATE INDEX idx_blog_comments_client_fp ON blog_comments(client_fp_hash, created_at) WHERE client_fp_hash IS NOT NULL;
 CREATE INDEX idx_blog_reactions_ip_hash   ON blog_reactions(ip_hash, created_at)   WHERE ip_hash IS NOT NULL;
 CREATE INDEX idx_blog_reactions_ip24_hash ON blog_reactions(ip24_hash, created_at) WHERE ip24_hash IS NOT NULL;
 CREATE INDEX idx_blog_reactions_fp_hash   ON blog_reactions(fp_hash, created_at)   WHERE fp_hash IS NOT NULL;
 CREATE INDEX idx_blog_reactions_session   ON blog_reactions(session_id, created_at) WHERE session_id IS NOT NULL;
 CREATE INDEX idx_blog_reactions_asn       ON blog_reactions(asn, created_at)       WHERE asn IS NOT NULL;
+CREATE INDEX idx_blog_reactions_client_fp ON blog_reactions(client_fp_hash, created_at) WHERE client_fp_hash IS NOT NULL;
 CREATE INDEX idx_blog_reactions_created   ON blog_reactions(created_at);           -- the hourly series
 
 CREATE TABLE blog_bans ( ... as above ... );
@@ -432,26 +530,42 @@ rotates.
 window the signals exist for; a source older than that cannot be matched
 anyway.
 
+**D. Client-side fingerprinting — resolved: yes** (owner, 2026-09-12,
+reversing blog-comments.md's exclusion). Scope as specified under "Client
+fingerprint": hand-rolled, lazy, components stored, hash is a ban and pivot
+key only. What it does not do, stated so nobody expects it: tell two iPhones
+of the same model apart, survive Brave, or stop a spammer who spoofs twenty
+APIs consistently — the tells catch the ones who do not bother, which is
+most of them. The privacy page gains a fingerprinting clause in phase 4.
+
 ## Phases
 
-1. **Contracts** (this repo): `AdminCommentActor`, `ActorDetail`,
+1. **Contracts** (this repo): `ClientFingerprint` and the optional
+   `clientFp` on `CommentCreateInput` and `ReactionToggleInput` in
+   `packages/contracts/src/comments.ts`; `AdminCommentActor`, `ActorDetail`,
    `AdminReactionRecord`, `AdminSourceProfile`, `AdminCommentInsights`,
    `AdminReactionInsights`, `AdminBan`, `AdminBanInput`, in
    `packages/contracts/src/admin.ts`. Bump, publish, raise the pin in
    `../site-api`.
-2. **site-api**: migration 0025; `actor.ts`; export `parseUa`; `verifyDwellToken`
+2. **site-api**: migration 0025; `actor.ts` (including the bot- and
+   vpn-hint derivation, pure and unit-tested on a headless-Chrome fixture and
+   an iPhone fixture); export `parseUa`; `verifyDwellToken`
    returns the age, `verifyTurnstileToken` surfaces `challengeTs`; both write
-   paths capture (columns, blob, behaviour) and ban-check; `blog_bans`
+   paths capture (columns, blobs, behaviour) and ban-check; `blog_bans`
    replaces KV (`shadow-ban.ts` rewritten, one-off KV → D1 copy script);
    sweep extended to the new columns and to reactions; admin routes
    (`comments` actor block + pivot filter, `reactions` list, `sources/:type/:value`,
    `comments/insights`, `reactions/insights`, `bans` CRUD + purge); Telegram
    card lines and `comment:ban:<id>` callback. Apply 0025 to prod D1
    **before** the merge — main deploys within a minute of merging.
-3. **Portal** (this repo): actor strip under each queue row (country · city ·
-   ASN org · IP · email · browser/os · dwell · new-session, with the cluster
-   line and a red `banned` chip per key that is listed; the blob behind a
-   disclosure); every key handle links to the source profile; ban dialog;
+3. **Client and portal** (this repo): `src/features/comments/client/fingerprint.ts`,
+   dynamically imported on first compose interaction or first heart press,
+   cached per page, attached to both POST bodies by the compose controller
+   and `ReactionBar.tsx`; the actor strip under each queue row (country ·
+   city · ASN org · IP · email · browser/os · dwell · new-session · `⚠` bot
+   hints, with the cluster line and a red `banned` chip per key that is
+   listed; the two blobs behind a disclosure); every key handle links to the
+   source profile; ban dialog;
    `/dev/portal/comments/insights`, `/dev/portal/comments/source/:type/:value`
    and `/dev/portal/comments/bans` pages; the reactions list reached from a
    profile.
@@ -465,15 +579,22 @@ anyway.
 ## Verification
 
 `bun run check` and unit suites in both repos; new unit coverage for
-`resolveActor` (every header and `cf` field present and absent), the dwell
-age and Turnstile `challengeTs` plumbing, the ban query, the reaction shadow
-path (row not written, envelope identical, no pass cookie), the cluster
-batching (ten queries for fifty rows), the profile's spread counts, each
-insights table against a seeded fixture, the sweep on both tables and the
-blob. `bun run check:docs-coverage` with `SITE_API_REPO` pointed at the
-site-api checkout. In the browser: a held comment's row shows its actor strip
-and a non-zero cluster after a second comment from the same session; the
-profile page for that session shows two comments and a spread of one
-fingerprint; banning it holds a third; a reaction from the banned session
-returns `reacted: true` and moves no count; the insights page shows the
-dwell bucket and the network row those writes landed in.
+`resolveActor` (every header and `cf` field present and absent), the client
+fingerprint canonicalisation (key order and bounds), the hint derivation on
+a headless-Chrome fixture (expects `webdriver`, `software_gl`,
+`headless_screen`) and an iPhone fixture (expects none), the dwell age and
+Turnstile `challengeTs` plumbing, the ban query, the reaction shadow path
+(row not written, envelope identical, no pass cookie), the cluster batching
+(twelve queries for fifty rows), the profile's spread counts, each insights
+table against a seeded fixture, the sweep on both tables and both blobs.
+`bun run check:docs-coverage` with `SITE_API_REPO` pointed at the site-api
+checkout. In the browser: no fingerprint module loads on a page view (network
+tab); it loads on the first compose focus and the POST body carries
+`clientFp`; a held comment's row shows its actor strip and a non-zero cluster
+after a second comment from the same session; the profile page for that
+session shows two comments and a spread of one fingerprint and one device;
+banning it holds a third; a reaction from the banned session returns
+`reacted: true` and moves no count; the insights page shows the dwell bucket,
+the device row and the network row those writes landed in. Playwright with a
+headless context should light `webdriver` on its own comment, which is the
+cheapest end-to-end test of the whole hint path there is.
