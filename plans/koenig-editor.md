@@ -443,11 +443,12 @@ the owner decides whether phases 2 and 3 go ahead.
 | 2 | DONE 2026-09-12. Site: `696393b0` poem card body form, `137b8f84` grammar snapshot at `contracts/directive-grammar.json`, `47639511` channel e2e plus a cross-origin `event.source` fix. Fork: `99ae4ae..7568d39` music, authors, poem, conversation, mermaid and unknown-directive cards, warnings mapped to cards, `scripts/sync-site-grammar.mjs` |
 | 3 | DONE 2026-09-12. Site: `4e4fa0ae` `readiness` on `/dev/blog/render`, `03f91fa5` relayed as `buxx:readiness`. Fork: `926d415..6598c75` footnotes (`FootnoteRefNode`, ⌘⇧F, status strip), readiness header in the pane, pane width persistence |
 | — | Browser verification 2026-09-12 against the fork's Vite demo found three bugs the unit tests could not: an infinite update loop from the footnote entity hook (`2bee539`), the `toJSON()` type invariant above (`51f09bc`, `d337781`), and typed markers never reaching the paragraph transform (`f690312`). All fixed; the Playwright smoke run then inserted a card from `/mood`, folded a typed `[!youtube …]` paragraph into a card with its thumbnail, inserted a footnote with ⌘⇧F and opened the pane with ⌘⇧P, with zero page errors |
+| — | A second browser pass 2026-09-12 found that no buxx card could be selected or edited at all: Koenig gates selection, edit mode, arrow and backspace handling and snippets on `$isKoenigCard`, an `instanceof KoenigDecoratorNode` check, and both card nodes extended Lexical's `DecoratorNode` instead. Their duck-typed `isKoenigCard()` passed the other half of the check and hid the cause. Fixed in `06907ee2` with a contract test that fails on the old base class. The same pass fixed card rendering under `.kg-prose` (`b88ac61c`). Both bugs were invisible to 328 passing unit tests — which is how the third finding surfaced: Lexical swallows anything thrown inside `editor.update`, so 15 assertions across the buxx test files could never fail, and 2 were wrong once lifted out (`45edab25`) |
 
 Current UMD: `~/Dev/Koenig/packages/koenig-lexical/dist/koenig-lexical.umd.js`,
-3,201,772 bytes, sha256
-`6df868f77c497535530393709355263052a1b08d75b1b28df0763a3991d584ff`, built
-from `f690312`. Fork unit tests: 221 in `test/unit/buxx`, 328 overall.
+3,202,063 bytes, sha256
+`c0b5a9eb3fb055ed6432b3a74a08b45c8628e4381487d4ff48e642aef2d8cd5f`, built
+from `45edab25`. Fork unit tests: 225 in `test/unit/buxx`, 332 overall.
 
 Every commit listed here that landed on 2026-09-12 after `4726c596` is
 unsigned (`commit.gpgsign=false`): the signing key lives in 1Password, which
