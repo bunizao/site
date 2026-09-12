@@ -160,7 +160,7 @@ standing — removing those is a moderation action of its own.
   flagged one submits it as ham. Rows keep the raw IP and referrer for 90
   days so that feedback repeats exactly what the check saw.
 - **AI gateway** — a second opinion on anonymous submissions only, from
-  the `gpt-5.5` alias behind `AI_BASE_URL` / `AI_API_KEY`, the same gateway
+  the `task-guard` alias behind `AI_BASE_URL` / `AI_API_KEY`, the same gateway
   mood sentiment runs on. It reads the text the way the owner would (VPN
   pitches, referral links, "contact me on Telegram") and can turn Akismet's
   ham into a hold, never the reverse. Unset key, timeout, or refusal means

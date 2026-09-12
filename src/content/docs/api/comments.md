@@ -257,7 +257,7 @@ Every submission runs the full risk stack, in order:
    seconds.
 
    For an **anonymous** writer, a language model behind the owner's AI
-   gateway (`gpt-5.5` via `AI_BASE_URL` / `AI_API_KEY`) reads the text at
+   gateway (`task-guard` via `AI_BASE_URL` / `AI_API_KEY`) reads the text at
    the same time. It can turn Akismet's ham into a
    hold with reason `spam`, `promotional`, `abuse` or `personal_info`,
    never a hold into a publish; when it is unavailable the Akismet verdict
