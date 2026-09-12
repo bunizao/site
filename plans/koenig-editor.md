@@ -264,7 +264,31 @@ The admin appends `?v=<hash>` for cache busting; `no-cache` makes a new build
 visible on reload without touching Ghost.
 
 The Ghost install is not modified. `ghost update` keeps working; after one,
-rebase the fork onto the new tag, rebuild, copy. A version check runs at
+rebase the fork onto the new tag, rebuild, copy.
+
+**Docker.** Nothing this fork ships lives inside the Ghost image or any of its
+volumes: nginx answers the asset request before it ever reaches the container.
+`docker compose pull && docker compose up -d`, or a Watchtower-style auto
+update, therefore does not remove the fork — the new container starts and the
+alias keeps serving `/srv/koenig/koenig-lexical.umd.js`. Two conditions on
+that. The `location` block has to sit in whatever actually terminates the
+request: if nginx is itself a container, bind-mount `/srv/koenig` into it and
+put the block in that container's config; if the front door is Caddy or
+Traefik rather than nginx, it is a `handle`/`file_server` or a middleware, not
+an `alias`. And the fork must be a bind mount or a host path, never a named
+volume Docker could prune.
+
+Surviving the update is not the same as following it. The fork is pinned to
+`@tryghost/koenig-lexical` 1.8.1, the version Ghost 6.39 ships; after an image
+update the alias keeps serving that same stale editor, which is the more
+dangerous failure, because it is silent. The version banner is the tripwire:
+it compares the Ghost version the admin hands the editor against the fork's
+own build, and says so when the minor moved. So after every image update, hard
+reload the admin and look at the banner. If it warns, rebase onto the
+`@tryghost/koenig-lexical@<x>` tag the new `ghost/admin/package.json` pins,
+rebuild, copy, and re-run the `post.html` diff from the handoff. If the banner
+is gone entirely rather than warning, the alias stopped intercepting — that is
+the React admin risk below, not a cosmetic bug. A version check runs at
 editor load: the plugin reads the Ghost version from the admin config it is
 handed and the fork's own `package.json` version, and shows a one-line banner
 when the fork was built against a different minor. That banner is the only
