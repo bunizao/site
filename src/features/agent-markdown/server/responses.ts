@@ -44,7 +44,7 @@ export function contentEdgeCacheVersion(
     : EDGE_CACHE_VERSION;
 }
 const CLOUDFLARE_CDN_CACHE_CONTROL_HEADER = 'Cloudflare-CDN-Cache-Control';
-const CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 300;
+const CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 86400;
 const NO_STORE_CACHE_CONTROL = 'no-store, max-age=0';
 
 function permanentRedirect(location: string): Response {
@@ -218,7 +218,7 @@ export function withContentPolicy(request: Request, response: Response): Respons
 
   if (
     policy
-    && response.status === 200
+    && (response.status === 200 || response.status === 304)
     && !hasExplicitBypassDirective(headers.get('Cache-Control'))
     && shouldApplyRouteCacheHeaders(url, policy)
   ) {

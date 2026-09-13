@@ -298,7 +298,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(headers).toContain('https://www.youtube.com');
     expect(headers).toContain('https://static.cloudflareinsights.com');
     expect(headers).toContain('https://challenges.cloudflare.com');
-    expect(headers).toContain('Cache-Control: public, max-age=0, must-revalidate');
+    expect(headers).not.toContain('must-revalidate');
     expect(headers).not.toContain('no-transform');
     expect(headers).toContain('https://buxx.me/blog*');
     expect(headers).not.toContain('https://buxx.me/gmetrics/');
@@ -337,7 +337,7 @@ describe('Cloudflare runtime configuration', () => {
 
     expect(registry).toContain('MOOD_FEED_PAGE_CACHE_TTL_SECONDS = 300');
     expect(registry).toContain('MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800');
-    expect(responses).toContain('CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 300');
+    expect(responses).toContain('CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 86400');
     expect(responses).toContain('Cloudflare-CDN-Cache-Control');
     expect(responses).toContain('stale-while-revalidate=');
     expect(responses).toContain('NO_STORE_CACHE_CONTROL');

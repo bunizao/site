@@ -148,7 +148,7 @@ describe('agent markdown registry', () => {
       'public, max-age=0, s-maxage=300, stale-while-revalidate=1800'
     );
     expect(cloudflareCdnCacheControl(60)).toBe(
-      'public, max-age=60, stale-while-revalidate=300'
+      'public, max-age=60, stale-while-revalidate=86400'
     );
     expect(cloudflareCdnCacheControl(300, 1800)).toBe(
       'public, max-age=300, stale-while-revalidate=1800'
@@ -172,6 +172,25 @@ describe('agent markdown registry', () => {
       'public, max-age=300, stale-while-revalidate=1800'
     );
     expect(response.headers.get('Vary')).toBe('Accept');
+  });
+
+  test('refreshes platform policy on static asset 304 responses', () => {
+    for (const [pathname, ttl] of [['/', 300], ['/blog', 120], ['/blog/example', 300]] as const) {
+      const response = withContentPolicy(
+        new Request(`https://buxx.me${pathname}`),
+        new Response(null, {
+          status: 304,
+          headers: { 'Cache-Control': 'public, max-age=0, must-revalidate', ETag: '"asset-v1"' },
+        }),
+      );
+
+      expect(response.status).toBe(304);
+      expect(response.body).toBeNull();
+      expect(response.headers.get('ETag')).toBe('"asset-v1"');
+      expect(response.headers.get('Cache-Control')).toBe(`public, max-age=0, s-maxage=${ttl}`);
+      expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
+        .toBe(`public, max-age=${ttl}, stale-while-revalidate=86400`);
+    }
   });
 
   test('keeps mood HTML error responses out of the edge cache', () => {
