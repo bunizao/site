@@ -24,6 +24,7 @@ import {
 import { initials, seedHue } from '@/features/comments/identity';
 import { ICONS } from '@/features/comments/icons';
 import { resolveCommentsCopy } from '@/features/comments/copy';
+import type { ClientEvidence, ReactionToggleInput } from '@bunizao/contracts/comments';
 import type { Reactor } from '@/features/comments/types';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 
@@ -171,11 +172,50 @@ export default function ReactionBar({
     );
   }
 
+  /* The client evidence module, armed by the first press and never by a page
+     view: importing it attaches the page listeners and starts the
+     fingerprint. `armedAt` is stamped here because the import resolves a
+     fetch after the press that triggered it. Nothing waits on the module --
+     if the chunk never arrives the toggle below sends no evidence, the
+     server stores NULL, and the like lands exactly as before. */
+  const evidence = React.useRef<Promise<typeof import('@/features/comments/client/fingerprint')> | null>(null);
+  const armedAt = React.useRef(0);
+  const taps = React.useRef(0);
+
+  function armEvidence(): void {
+    if (evidence.current) return;
+    armedAt.current = Math.round(performance.now());
+    evidence.current = import('@/features/comments/client/fingerprint').catch(() => null as never);
+  }
+
+  async function clientEvidence(): Promise<ClientEvidence> {
+    if (!evidence.current) return {};
+    try {
+      const module = await evidence.current;
+      if (!module) return {};
+      const [clientFp, storageId] = await Promise.all([module.clientFingerprint(), module.storageId()]);
+      return {
+        clientFp,
+        interaction: module.interactionFor({
+          kind: 'reaction',
+          armedAt: armedAt.current,
+          tapsThisPage: taps.current,
+          turnstileAction: 'blog_reaction',
+        }),
+        storageId,
+      };
+    } catch {
+      return {};
+    }
+  }
+
   /** One way. A like is applause, not a vote, and the toggle it used to be
       punished the reader who pressed again to mean it: the second press took
       the first one back. Every press now spends hearts; only the first one
       spends a request. */
   async function like() {
+    armEvidence();
+    taps.current += 1;
     spawnSparks();
     if (liked || inflight.current) return;
     setError('');
@@ -193,6 +233,7 @@ export default function ReactionBar({
   /** One press, one write. `retried` marks the resend that follows a solved
       challenge, so a second refusal ends here instead of looping. */
   async function send(retried: boolean): Promise<void> {
+    if (!postId) return;
     try {
       // Before every send, not once on mount: the comment rows share this
       // widget, and the last one to send took the container down into the
@@ -209,7 +250,13 @@ export default function ReactionBar({
       const response = await fetch('/api/v2/reactions/toggle', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ targetType: 'post', targetId: postId, reacted: true, turnstileToken }),
+        body: JSON.stringify({
+          targetType: 'post',
+          targetId: postId,
+          reacted: true,
+          turnstileToken,
+          ...(await clientEvidence()),
+        } satisfies ReactionToggleInput),
       });
       if (!viaPass) releaseTurnstileToken('blog_reaction');
 

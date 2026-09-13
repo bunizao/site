@@ -18,6 +18,7 @@ import type {
   CommentEditInput,
   CommentEditResult,
   CommentListResult,
+  ClientEvidence,
   ReactionBatchResult,
   ReaderMe,
   ReaderMeResult,
@@ -300,6 +301,45 @@ export function initCommentsController(): void {
   if (turnstileHost) setTurnstileHost('blog_comment_create', turnstileHost);
 
   const warmCreate = () => warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
+
+  /* The client evidence module, armed by the same signal that warms the
+     token and never earlier: importing it attaches the page listeners and
+     starts the fingerprint, and a reader who only reads should pay for
+     neither. `armedAt` is stamped here rather than inside the module
+     because the import resolves a fetch after the focus that triggered it.
+
+     Nothing waits on this. If the chunk never arrives, or the module throws,
+     the submission below sends no evidence and the server stores NULL --
+     see plans/comment-actor-identity.md: no new signal is ever a gate. */
+  let evidence: Promise<typeof import('./fingerprint')> | null = null;
+  let armedAt = 0;
+  let validationErrors = 0;
+  function armEvidence(): void {
+    if (evidence) return;
+    armedAt = Math.round(performance.now());
+    evidence = import('./fingerprint').catch(() => null as never);
+  }
+
+  async function clientEvidence(kind: 'comment' | 'reaction'): Promise<ClientEvidence> {
+    if (!evidence) return {};
+    try {
+      const module = await evidence;
+      if (!module) return {};
+      const [clientFp, storage] = await Promise.all([module.clientFingerprint(), module.storageId()]);
+      return {
+        clientFp,
+        interaction: module.interactionFor({
+          kind,
+          armedAt,
+          validationErrors,
+          turnstileAction: 'blog_comment_create',
+        }),
+        storageId: storage,
+      };
+    } catch {
+      return {};
+    }
+  }
   if (typeof IntersectionObserver === 'function') {
     // rootMargin buys the solve a head start on the scroll that reveals the
     // box, so it is usually finished by the time anyone reads far enough to
@@ -312,7 +352,9 @@ export function initCommentsController(): void {
     watcher.observe(section);
   }
   section.addEventListener('focusin', (event) => {
-    if ((event.target as HTMLElement).closest('.blog-compose')) warmCreate();
+    if (!(event.target as HTMLElement).closest('.blog-compose')) return;
+    warmCreate();
+    armEvidence();
   });
 
   // Build the "loaded" shell up front -- state="loading" carries neither the
@@ -507,7 +549,10 @@ export function initCommentsController(): void {
   async function handleSubmit(box: HTMLElement): Promise<void> {
     // The guard marks the first unfinished field and says why -- see
     // compose-validate.ts. Nothing below runs until the box is complete.
-    if (!validateCompose(box)) return;
+    if (!validateCompose(box)) {
+      validationErrors += 1;
+      return;
+    }
 
     // An anonymous writer with an empty email field gets one more press: the
     // first one arms the box and shows the recommendation instead of
@@ -569,6 +614,7 @@ export function initCommentsController(): void {
       dwellToken,
       notifyReplies: false,
       locale,
+      ...(await clientEvidence('comment')),
     };
 
     const response = await postJson<CommentCreateResult>('/api/v2/comments', input);

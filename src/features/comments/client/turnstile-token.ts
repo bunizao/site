@@ -53,6 +53,13 @@ interface TurnstileWidgetState {
   /** The next render should draw a visible checkbox the reader can press,
       rather than the invisible widget. Set only by challengeTurnstile. */
   forced: boolean;
+  /** `performance.now()` when the current solve started, and whether
+      Cloudflare opened an interactive challenge during it. Read once at
+      submit as two `interaction` fields; nothing here gates anything. */
+  startedAt: number;
+  interactive: boolean;
+  /** Render to token, milliseconds. Null until a solve has landed. */
+  solveMs: number | null;
 }
 
 /** Cloudflare expires a solved token at about five minutes. Stop trusting one
@@ -109,7 +116,10 @@ function widgetFor(action: TurnstileAction): TurnstileWidgetState {
   let state = turnstileWidgets.get(action);
   if (!state) {
     const container = document.createElement('div');
-    state = { container, widgetId: null, tokenPromise: null, resolveCurrent: null, settled: false, solvedAt: 0, forced: false };
+    state = {
+      container, widgetId: null, tokenPromise: null, resolveCurrent: null,
+      settled: false, solvedAt: 0, forced: false, startedAt: 0, interactive: false, solveMs: null,
+    };
     turnstileWidgets.set(action, state);
     homeContainer(state, action);
   }
@@ -117,6 +127,7 @@ function widgetFor(action: TurnstileAction): TurnstileWidgetState {
 }
 
 function setInteractive(state: TurnstileWidgetState, open: boolean): void {
+  if (open) state.interactive = true;
   const host = state.container.parentElement;
   if (!host || host === document.body) return;
   if (open) host.setAttribute(INTERACTIVE_ATTR, '');
@@ -126,6 +137,7 @@ function setInteractive(state: TurnstileWidgetState, open: boolean): void {
 function settleWidget(state: TurnstileWidgetState, token: string): void {
   state.settled = true;
   state.solvedAt = Date.now();
+  state.solveMs = state.startedAt ? Math.round(performance.now() - state.startedAt) : null;
   setInteractive(state, false);
   state.resolveCurrent?.(token);
 }
@@ -162,6 +174,8 @@ function mintToken(state: TurnstileWidgetState, siteKey: string, action: Turnsti
   if (!turnstile) return Promise.resolve('');
 
   state.settled = false;
+  state.startedAt = performance.now();
+  state.interactive = false;
   homeContainer(state, action);
   state.tokenPromise = new Promise<string>((resolve) => {
     state.resolveCurrent = resolve;
@@ -266,4 +280,15 @@ export function releaseTurnstileToken(action: TurnstileAction): void {
     state.tokenPromise = null;
     state.settled = false;
   }
+}
+
+/** How long the last solve for one action took and whether it opened a
+    challenge. Two `interaction` fields and nothing else: a widget that never
+    ran answers nulls, and no caller may refuse a write over what it says. */
+export function readTurnstileTiming(action: TurnstileAction): {
+  solveMs: number | null;
+  interactive: boolean;
+} {
+  const state = turnstileWidgets.get(action);
+  return { solveMs: state?.solveMs ?? null, interactive: state?.interactive ?? false };
 }
