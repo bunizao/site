@@ -180,6 +180,11 @@ reaction counts and reactor lists; and reply mail stops. It is the lever for an
 identity that should lose its account, where a shadow ban is the lever for a
 source that should stop being productive without learning why.
 
+The Bans page lists revoked accounts separately from source keys and provides
+an account-specific **Lift** button. It clears only that reader's `banned`
+flag; source-key bans, preferences, and other accounts are unchanged. Account
+bans have no automatic expiry and remain active until manually lifted.
+
 Neither retroactively deletes anything. Both leave existing published rows
 standing — removing those is a moderation action of its own.
 
@@ -325,3 +330,17 @@ separately as incomplete and unverified. Missing measurements are unavailable;
 zero denominators produce no percentage. The underlying hourly counters
 contain no addresses, identifiers, fingerprints or text and expire after
 90 days. None of these counters grants identity or triggers a ban.
+
+
+## Reader lifecycle edge cases
+
+A failed submission restores its text only into an empty compose field.
+When the reader has already written a new draft, that draft stays intact and
+the failed comment is offered separately with copy and dismiss controls.
+The form remains writable and the existing challenge/resubmit interaction
+continues to use the draft currently shown.
+
+Dwell tokens refresh after 20 hours, with a wake-up check for long-lived
+mobile tabs. Expired tokens receive a real moderation hold and do not count
+as spam. A valid token younger than three seconds keeps the existing bot
+tripwire; a missing session secret is a server configuration error.

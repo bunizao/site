@@ -895,3 +895,20 @@ atomic recovery snapshots, restore only untouched content, and expire after
 show owner decisions and request failures with their denominators; browser
 reports remain separate, incomplete observations. Migrations 0027–0029 add
 these features after the actor migration 0026.
+
+
+## Operating scope, 2026-09-14
+
+This is one person's blog, with one moderator and comment volume in the
+hundreds. iPhone readers, VPN exits and shared carrier NATs are normal.
+The accepted policy retains anonymous-cookie continuity, same-browser/email
+claiming, current shared network budgets and the global anonymous hold
+threshold. A session ban follows the browser by definition. The compose box
+stays writable and challenge retries use the draft currently shown.
+
+The bounded follow-up fixes account-owned private-read visibility, preserves
+a newer draft when an older submission fails, stores expired-dwell comments
+for review, reports missing session configuration as a server error, and
+provides manual account-ban lifting. A 20-hour refresh timer complements the
+server's expired-token hold. It adds no database migration or account
+recovery framework.
