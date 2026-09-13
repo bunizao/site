@@ -23,6 +23,18 @@ explicit decision. The source action acts only on its displayed key. No
 stable fingerprint alone expands the linked-session graph. D1 queries must
 stay below 100 bound parameters, including full moderation pages.
 
+The next implementation step preserves immutable `auth_at_write` separately
+from `claimed_at` and `claim_method` (migration 0027). Automatic ownership
+claims require the same session and mailbox; cross-device claims require
+explicit selection. Quarantine is scoped to an account/session, never a
+network. Source summaries describe shared environments without merging
+accounts. Ban previews count the union of affected rows, and recoverable
+purges (migration 0028) snapshot at most 500 rows atomically for 30 days,
+without extending the original 90-day signal retention. Quality counters
+(migration 0029) separate authenticated server requests from unverified browser
+reports and show real denominators. Apply migrations 0026 through 0029 before
+activating these PRs. Shared contracts are published as version 0.7.0.
+
 This is a plan, not an implementation. Code lands in `site-api` (migration,
 write paths, ban check, admin routes, Telegram card) and here (contracts,
 portal, docs, privacy text). It revises decision 7 of

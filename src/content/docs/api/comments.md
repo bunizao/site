@@ -49,10 +49,17 @@ mean no.
 
 ## Identity: three grades, one table
 
+Authentication at submission is recorded independently from current ownership.
+`auth_at_write` is `verified`, `anonymous`, or `unknown` for records without
+historical evidence. It never changes after a claim. A later claim records
+`claimed_at` and `claim_method` (`session` or `confirmed`) instead. An author
+badge requires verified-at-write evidence; an old or claimed row is not
+silently upgraded into an authenticated statement.
+
 | Grade | How it's reached | What it unlocks |
 | --- | --- | --- |
 | L0 | Nothing — a `reader_anon` cookie, set automatically on first comment or reaction | Post and react; your own rows show as `mine` by cookie match, but cannot be edited or deleted |
-| L1 | Click the link in the lazy-verification email | The comment's `reader_id` attaches; past comments from the same address get claimed; a persistent avatar and display name; edit and delete on rows the `reader_id` owns |
+| L1 | Click the link in the lazy-verification email | The comment's `reader_id` attaches; past comments matching both the verified address and this browser session get claimed; a persistent avatar and display name; edit and delete on rows the `reader_id` owns |
 | L2 | Sign in with GitHub or Google (`/oauth/reader/...`) | Same as L1, `provider` reflects the OAuth provider instead of `email` |
 
 **L2 is not reachable today.** The routes are built and work, but nothing on
@@ -237,7 +244,7 @@ Every submission runs the full risk stack, in order:
    outright or fails silently.
 2. **Honeypot and dwell time.** Tripping either returns a fabricated
    `201 { "outcome": "held", ... }` envelope that is **never persisted**.
-   A filled honeypot also quarantines the writer's IP and fingerprint for
+   A filled honeypot also quarantines the current session or account for
    24 hours (see step 5); an expired dwell token does not, since a tab left
    open overnight trips it too. Exact repeated bodies of 20+ characters
    within 24 hours are instead saved as held comments, without quarantining
@@ -262,10 +269,11 @@ Every submission runs the full risk stack, in order:
    [Rate limits](/docs/api/overview#rate-limits)) — the only rate-limited
    route family on this whole site running in durable, not observability,
    mode.
-5. **Quarantine and lockdown** (anonymous writers only; three KV reads).
-   A writer whose IP or fingerprint is quarantined — 24 hours after a
-   filled honeypot, a spam verdict, or the owner hiding
-   or deleting one of their comments — is held on sight, and so is every
+5. **Quarantine and lockdown** (anonymous writers only).
+   A session quarantined after a filled honeypot or spam verdict is held for
+   24 hours. Account-backed keys, when present, refer to that account only;
+   IP and fingerprint matches do not share a quarantine. Ordinary owner
+   hide/delete actions do not create a quarantine. The system also holds every
    anonymous writer while the site-wide one-hour lockdown is engaged. Both
    holds carry reason `ok`, skip the external checks below, and send the
    owner no per-comment card. The lockdown engages on its own after more
@@ -299,7 +307,7 @@ Every submission runs the full risk stack, in order:
    stale verdict. A `held` response is therefore not always final.
 7. **Shadow-ban.** A banned writer's otherwise-`publish` verdict is quietly
    downgraded to `hold` — they see their own comment as normal; nobody else
-   ever does. The ban list holds twelve kinds of key, not one: the address,
+   ever does. The ban list holds nine kinds of key: the address,
    the session, the IP, its /24, the server-side and client-side
    fingerprints, the network, a link domain and a mail domain. A write
    matching any one of them is held. Nothing in the response says so.
@@ -799,3 +807,45 @@ callback failure (bad state, a provider error, an unverified email upstream,
 missing config) redirects to `/?signin=failed` with no detail in the URL or
 body; the real reason is only ever logged server-side. Neither is
 rate-limited.
+
+
+## Review and claim earlier comments
+
+`GET /api/v2/reader/claims?offset=0` accepts a non-negative offset up to 10000, requires a valid reader session, and returns
+`{ "comments": [...], "hasMore": false }`. It lists up to 50 unclaimed,
+non-deleted comments matching the authenticated mailbox. Each item carries
+`id`, `surface`, `postId`, `body`, `createdAt`, and `authorName` so the reader
+can recognize their own words. The `/reader/comments` page makes that
+selection explicit; opening it or paging through it claims nothing.
+
+`POST /api/v2/reader/claims` accepts `{ "commentIds": ["..."] }` with 1–50
+IDs and returns `{ "claimedIds": ["..."] }`. The update repeats the mailbox,
+unclaimed, and non-deleted conditions atomically. It changes ownership and
+claim metadata only; it never changes the original session or authentication
+evidence. Both methods return `401 reader_sign_in_required` without a valid
+reader session and use `Cache-Control: private, no-store`.
+
+Automatic claiming after email verification, OAuth, or owner sign-in requires
+both the matching mailbox and an existing valid anonymous session cookie.
+Comments from another browser remain unclaimed until selected explicitly.
+
+## Operational measurements
+
+`POST /api/v2/comments/telemetry` accepts a small optional browser report:
+
+```json
+{ "kind": "comment", "outcome": "network_error", "challenges": 2 }
+```
+
+`kind` is `comment` or `reaction`; `outcome` is `accepted`, `http_error`,
+`network_error`, or `challenge_failed`; `challenges` is an integer from 0 to
+10. Reports contain no comment text, email, account/session identifier or
+fingerprint. The endpoint answers `204` and never controls a comment's
+outcome. Invalid or rate-limited reports are ignored. Its independent
+report budget is 60 per minute per hashed IP, separate from write budgets.
+
+Reports are unverified and incomplete when a browser cannot deliver them.
+Server request counters separately measure accepted HTTP responses, invalid
+requests, rate limits, challenge failures and unavailable services, including
+retries. An accepted HTTP response is not proof of publication or of benign
+traffic. Hourly aggregate counters expire after 90 days.

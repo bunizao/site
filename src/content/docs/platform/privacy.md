@@ -41,7 +41,7 @@ being true, the policy text is wrong, not merely stale.
 | Comment client evidence | What the browser says about itself (platform, screen, time zone, a canvas and audio hash, font families, media queries) and how the form was filled, as aggregates only — counts, timings, and one spread figure for the gaps between keystrokes. Never the key sequence and never what was typed. Plus a random id the page keeps in IndexedDB, stored only as its HMAC and never written back to a cookie | Two JSON columns on the same row in `NOTIFY_DB`. Collected by a module the page loads on the first focus in the compose box, never on a page view. Optional throughout: a missing or malformed object stores NULL and never refuses the write | First-party |
 | Comment risk signals | Every actor column on a comment or reaction row — the raw IP and referrer, the IP and /24 hashes, the server-side and client-side fingerprint hashes, the stable device and storage-id hashes, user agent, city, country, ASN and its name — and both JSON blobs | Same rows, nulled in place by the cron 90 days after the row was written, across `blog_comments`, `blog_reactions` and `owner_messages`. The body, the link domains, the session id, the browser and OS family names, and the behavioural integers survive | First-party |
 | Comment ban list | One row per banned key: an address hash, a session, an IP or /24 hash, a fingerprint, a device hash, an ASN, a link domain, or a mail domain, with an optional note and expiry | `blog_bans` in `NOTIFY_DB`. Checked on both write paths; the effect is silent — a held comment, or a heart that answers normally and moves no count | First-party |
-| Comment quarantine and lockdown | Hashed IP and fingerprint of a writer that tripped a spam signal (24h); a site-wide lockdown flag (1h) | `CACHE` KV in `site-api`, expiring keys | First-party |
+| Comment quarantine and lockdown | Account or anonymous session identifier for a writer that tripped a spam signal (24h); a site-wide lockdown flag (1h) | `CACHE` KV in `site-api`, expiring keys | First-party |
 | Comment moderation | Body, author name and email, IP, user agent, referrer, and the post permalink, on every submission; the same values again when the owner overrules a verdict | Sent to Akismet for one `comment-check` per comment, and one `submit-spam` / `submit-ham` per owner verdict on an anonymous comment | Akismet (Automattic) |
 | Comment moderation, second opinion | Body, display name, and post title of an anonymous submission | Sent through the owner's AI gateway (`AI_BASE_URL`) for one classification per anonymous comment | The gateway's model provider |
 | Reader avatars | The email hash, sent upstream to look a picture up. Fetched by the Worker, never by the reader's browser, and cached in R2 thereafter | R2, keyed by email hash | Gravatar mirrors, QQ |
@@ -102,3 +102,16 @@ page:
   disclosure even though it never leaves this site.
 - Changing public content sources or media-proxy behavior.
 - Changing what `/api/edge` exposes.
+
+
+Comment ownership claims retain their method and time separately from the
+immutable authentication evidence at submission. A shared email value does
+not automatically attach another browser's comments to the account.
+
+Ban-removal backups expire after 30 days. Reaction backups preserve enough
+state to restore a mistaken removal, but retain network and device signals
+only within the original event's 90-day window. Both cleanup and restoration
+honor that limit. Aggregate operational counters are retained for 90 days;
+they contain only the hour, request kind, outcome, authentication category,
+challenge count and total. Optional browser reports send no identity or text
+and are not treated as verified observations.

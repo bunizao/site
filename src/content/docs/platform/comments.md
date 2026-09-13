@@ -77,7 +77,7 @@ a readable thread; the second makes the whole feature disappear.
 | --- | --- |
 | `NOTIFY_DB` (D1) | `blog_comments`, `blog_reactions`, `notify_subscribers`, mutes |
 | `RATE_LIMITER` (Durable Object) | Every comment and reaction budget. Durable, not observability mode — this is the only route family on the site that is |
-| `CACHE` / `SESSION` (KV) | The 24h network quarantine (`comments:quarantine:`) and one-hour anonymous lockdown (`comments:lockdown`). Absent fails open for these controls; bans are stored separately in D1 |
+| `CACHE` / `SESSION` (KV) | The 24h session/account quarantine (`comments:quarantine:`) and one-hour anonymous lockdown (`comments:lockdown`). Absent fails open for these controls; bans are stored separately in D1 |
 | `BLOG_IMAGES` (R2) | Cached reader avatars, keyed by email hash |
 
 ## Scheduled work
@@ -116,13 +116,12 @@ flood at 3am is handled by the time the owner wakes up; the manual pair is
 the owner's own lever afterwards. None of them rejects anything: the safe
 state everywhere is `held`, so a false positive is still in the queue.
 
-**Identity quarantine** — 24 hours, in KV under `comments:quarantine:`, keyed
-on IP hash and fingerprint hash, written by the system on a hard signal: a
-filled honeypot, a spam verdict from Akismet or the AI gateway, or the owner hiding or deleting the
-writer's comment. A quarantined identity's comments are held on sight and
-spend no Akismet or AI call, and no Telegram card is sent for them — one
-identity produces one card, not twenty. Approving a flagged comment lifts
-the quarantine on its writer.
+**Identity quarantine** — 24 hours, in KV under `comments:quarantine:`,
+scoped to the current account or anonymous session. Honeypot and moderation
+signals may quarantine that subject; shared IP, subnet and fingerprint values
+never spread the hold to other readers. Ordinary owner hide/delete actions
+do not add a quarantine. Approving a flagged comment lifts its scoped hold.
+Independent network rate limits and the site-wide lockdown remain in place.
 
 **Lockdown** — one hour, site-wide, in KV under `comments:lockdown`. Engages
 on its own when anonymous traffic as a whole looks like a flood: more than
@@ -158,8 +157,9 @@ comments from the last 90 days are soft-deleted with the note
 to the activity log first. Purge is off by default and is the only part of
 this that touches rows that already exist.
 
-A comment-row dialog selects only its session and, for an authenticated
-reader, its verified email. Portal and Telegram defaults expire after seven
+A comment-row dialog selects only its session and, for a comment verified
+at write time, its verified email. A later ownership claim does not qualify
+as authentication at submission. Portal and Telegram defaults expire after seven
 days. IPs, subnets, server and device fingerprints, typed email addresses,
 ASNs and link or mail domains require explicit selection with a warning:
 sharing one of these signals does not establish that two writers are the
@@ -265,3 +265,47 @@ One-time setup before flipping the switch, in order:
 `check-production-readiness.ts` (site-api) adds `TELEGRAM_DISCUSSION_CHAT_ID`
 to the required-secrets set once `MOOD_COMMENTS_ENABLED=true` — the readiness
 check fails loudly rather than the bridge silently never sending.
+
+
+## Claims and evidence
+
+A comment's ownership and its original authentication evidence are separate.
+Historical rows without evidence remain `unknown`; new writes record
+`anonymous` or `verified`. Same-browser claiming requires both the original
+session cookie and the verified mailbox. Cross-browser history is reviewed
+at `/reader/comments`, and only selected rows are claimed. Neither path
+rewrites the authentication evidence. Source profiles identify shared storage
+and fingerprint values across distinct verified accounts without merging
+those accounts or inventing a confidence percentage.
+
+## Preview and recovery
+
+Before applying a ban, the portal previews distinct affected accounts,
+sessions, comments by status, and reactions over the last 90 days. Multiple
+selected keys are combined as a union, so overlapping rows are counted once.
+Broad bans remain possible after explicit selection, but a purge is refused
+when more than 500 comments and reactions would need backups. The preview
+still reports the full count when removal is over that limit.
+
+Purge snapshots and the mutations are captured atomically. The ban history
+can restore eligible content for 30 days without lifting the ban. Later
+content, moderation, ownership or reaction changes make the affected item
+ineligible; restoring never overwrites those changes. Privacy-only sweeps
+do not disable recovery, and restoring never resurrects risk signals older
+than their original 90-day retention window. Expired snapshots are removed
+by scheduled maintenance.
+
+## Quality measurements
+
+Insights show the first owner decision on automatically held comments, with
+the number reviewed beside the share later approved. This is a moderation
+outcome, not a ground-truth false-positive rate. Temporary AI-pending holds
+that automatically publish are excluded. Legacy approval/hide counts remain
+labeled as owner actions.
+
+Server-observed request failures have separate total and authenticated-request
+denominators. Browser-reported failures and repeated challenges are displayed
+separately as incomplete and unverified. Missing measurements are unavailable;
+zero denominators produce no percentage. The underlying hourly counters
+contain no addresses, identifiers, fingerprints or text and expire after
+90 days. None of these counters grants identity or triggers a ban.

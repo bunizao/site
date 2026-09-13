@@ -879,3 +879,19 @@ Each phase ships alone; nothing in 1 waits on 2.
 - Docs: `/docs/api/*` pages for every route above (coverage guard),
   `/docs/surfaces/blog` amendment for `xia`, privacy policy update in the
   phase-1 PR.
+
+
+## Identity and recovery follow-up, 2026-09-13
+
+Authentication at write time is immutable evidence, distinct from ownership
+claimed later. Automatic claims require the original anonymous session and
+verified mailbox; other history is explicitly selected at `/reader/comments`.
+Unknown legacy writes stay unknown. Quarantine targets only an account or
+session, and ordinary owner hide/delete actions never quarantine a network.
+
+Portal bans preview their distinct impact. Optional purges capture bounded
+atomic recovery snapshots, restore only untouched content, and expire after
+30 days without extending the original signal retention. Quality metrics
+show owner decisions and request failures with their denominators; browser
+reports remain separate, incomplete observations. Migrations 0027–0029 add
+these features after the actor migration 0026.

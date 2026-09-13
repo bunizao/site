@@ -77,7 +77,7 @@ Reaction counts are public. Names and avatars are shown only for readers who hav
 
 ### What the address is used for
 
-Three things, and nothing else: deriving the avatar described above, sending the one-time confirmation email that lets you claim and manage comments posted from that address, and — only if you asked for it and only after the address is confirmed — notifying you when someone replies. It is not added to any mailing list. Subscribing to posts or mood updates is a separate, explicit choice.
+Three things, and nothing else: deriving the avatar described above, sending the one-time confirmation email that lets you manage matching comments from your browser and explicitly review earlier comments from another browser, and — only if you asked for it and only after the address is confirmed — notifying you when someone replies. It is not added to any mailing list. Subscribing to posts or mood updates is a separate, explicit choice.
 
 ### Cookies and browser storage
 
@@ -115,7 +115,7 @@ Where you supply an address, a one-time confirmation link is emailed to it throu
 
 Posting a comment records more than the words. The server keeps, alongside the comment, your IP address itself and not only a hash of it, the address you typed where you supplied one, stored as you typed it as well as hashed, the page you arrived from, your user agent, and the country, city, and network provider Cloudflare derives from the connection. These sit on the comment row and are what makes it possible to recognise a returning writer, answer a deletion request, and stop somebody who is abusing the thread.
 
-The comment box also asks your browser about itself once you begin writing in it, and not before: the page loads nothing for this on a reader who only reads. What it collects is what the browser will tell any site — platform, language, screen and window size, time zone, graphics renderer, installed font families, a hash drawn from a canvas and an audio node — and a summary of how the form was filled, as counts and timings only. That summary never includes which keys you pressed or anything you typed. A random identifier is also kept in your browser's local database so the same device is recognisable across visits; only a hash of it reaches the server, and it is never written into a cookie. All of it is optional: a browser that refuses any part of it posts a comment exactly as normal.
+The comment box also asks your browser about itself once you begin writing in it, and not before: the page loads nothing for this on a reader who only reads. What it collects is what the browser will tell any site — platform, language, screen and window size, time zone, graphics renderer, installed font families, a hash drawn from a canvas and an audio node — and a summary of how the form was filled, as counts and timings only. That summary never includes which keys you pressed or anything you typed. A random identifier is also kept in your browser's local database so shared browser storage can be recognized across visits; the server stores a keyed hash of this value, and it is never written into a cookie. All of it is optional: a browser that refuses any part of it posts a comment exactly as normal.
 
 Every submission is sent to [Akismet](https://akismet.com/), operated by Automattic, to be checked for spam. That check transmits the comment text, the display name, the email address where one was supplied, your IP address, user agent, referrer, and the address of the post being commented on. A comment identified as spam is withheld from the thread rather than published.
 
@@ -212,3 +212,20 @@ We may update this policy from time to time to reflect changes in the subscripti
 ## Contact
 
 For questions regarding this Privacy Policy or this site's data practices, contact [me@buxx.me](mailto:me@buxx.me).
+
+
+We keep a comment's authentication state at submission separate from any
+later ownership claim. Verifying an email does not automatically claim all
+comments that contain that address; comments from another browser require
+an explicit selection after sign-in.
+
+To detect broken submissions and excessive challenges, the browser may send
+an optional report containing only whether the action was a comment or a
+reaction, its outcome, and the number of visible verification challenges.
+Reports contain no comment text or identity. We retain hourly operational
+counts for up to 90 days. These measurements do not identify you or decide
+whether you may post.
+
+When the owner removes content with a source ban, recovery records may be
+kept for up to 30 days. Restoring content does not restore network or device
+information past its original 90-day retention period.
