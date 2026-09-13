@@ -86,6 +86,7 @@ export default function SourceRows({ source, comments, reactions, demo }: {
 
       {banning && (
         <BanDialog
+          key={`${source.type}:${source.value}`}
           source={source}
           demo={demo}
           onClose={() => setBanning(false)}

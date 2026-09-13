@@ -165,10 +165,10 @@ describe('optional comment evidence', () => {
           if (delay === 2_000) timers.add(timer);
           return timer;
         }) as typeof window.setTimeout;
-        window.clearTimeout = (timer?: number) => {
+        window.clearTimeout = ((timer?: number) => {
           if (timer !== undefined) timers.delete(timer);
           originalClearTimeout(timer);
-        };
+        }) as typeof window.clearTimeout;
         try {
           await review.collect({ kind: 'reaction' });
           return timers.size;
