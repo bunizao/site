@@ -690,7 +690,7 @@ erased signals, and a 90-day window is plenty for a personal blog.
 
 ### Data model
 
-Migration `0025_comment_actor_signals.sql` in `site-api`:
+Migration `0026_comment_actor_signals.sql` in `site-api`:
 
 ```sql
 -- Keys and column signals
@@ -822,7 +822,7 @@ Worker, so adding it later is a bounded change, not a rewrite.
    `AdminReactionInsights`, `AdminBan`, `AdminBanInput`, in
    `packages/contracts/src/admin.ts`. Bump, publish, raise the pin in
    `../site-api`.
-2. **site-api**: migration 0025; `actor.ts` (including the bot- and
+2. **site-api**: migration 0026; `actor.ts` (including the bot- and
    vpn-hint derivation, pure and unit-tested on a headless-Chrome fixture and
    an iPhone fixture; `extractLinkDomains`, `normalizeBody`, the hosting-ASN
    list, the disposable-domain set, and `lookupMx` with its KV cache; the
@@ -835,7 +835,7 @@ Worker, so adding it later is a bounded change, not a rewrite.
    sweep extended to the new columns and to reactions; admin routes
    (`comments` actor block + pivot filter, `reactions` list, `sources/:type/:value`,
    `comments/insights`, `reactions/insights`, `bans` CRUD + purge); Telegram
-   card lines and `comment:ban:<id>` callback. Apply 0025 to prod D1
+   card lines and `comment:ban:<id>` callback. Apply 0026 to prod D1
    **before** the merge — main deploys within a minute of merging.
 3. **Client and portal** (this repo): `src/features/comments/client/fingerprint.ts`
    and `interaction.ts` (one module, three exports — fingerprint,
