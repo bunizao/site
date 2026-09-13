@@ -234,8 +234,10 @@ export interface AdminActorBehaviour {
   auth?: 'turnstile' | 'pass' | 'verified' | null;
 }
 
-/** The row's keys: short handles (first 8 hex) for the eye, and the full
-    value for the pivot links. Domains are raw. */
+/** The row's keys, at full length: the portal shortens a hash to its first
+    eight characters for the eye and keeps the whole value for the pivot
+    link. Domains are raw, and `session` is '' when the row predates
+    sessions. */
 export interface AdminActorKeys {
   session: string;
   ip: string | null;

@@ -1,3 +1,4 @@
+import type { AdminBanKeyType, AdminClusterCount, AdminClusterKey, AdminCommentActor } from '@bunizao/contracts';
 import type { PortalActivity, PortalComments, PortalOverview } from './portal-client';
 
 // Local-dev fixture. When the site-api service binding is unavailable (running
@@ -37,6 +38,59 @@ export const DEMO_OVERVIEW: PortalOverview = {
    verdicts hides the thing the queue is for. */
 const daysAgo = (d: number): string => new Date(now - d * 86_400_000).toISOString();
 
+const NO_CLUSTER: AdminClusterCount = { comments: 0, held: 0, reactions: 0 };
+const CLUSTER_KEYS: AdminClusterKey[] = [
+  'session', 'ip', 'ip24', 'fp', 'email', 'clientFp', 'clientFpStable', 'storageId', 'emailDomain', 'bodyHash',
+];
+
+/* A demo actor. Only the fields the strip actually prints are filled: the
+   fixture exists so the layout can be designed against something, not so it
+   can pretend to be a capture. `detail` and `client` stay null on two of the
+   three rows, which is also what a swept row looks like. */
+function demoActor(overrides: Partial<Omit<AdminCommentActor, 'cluster' | 'keys'>> & {
+  cluster?: Partial<Record<AdminClusterKey, AdminClusterCount>>;
+  keys?: Partial<AdminCommentActor['keys']>;
+} = {}): AdminCommentActor {
+  const cluster = Object.fromEntries(
+    CLUSTER_KEYS.map((key) => [key, overrides.cluster?.[key] ?? NO_CLUSTER]),
+  ) as Record<AdminClusterKey, AdminClusterCount>;
+  return {
+    readerId: null,
+    email: null,
+    ip: '203.0.113.7',
+    ua: null,
+    browser: 'Chrome 128',
+    os: 'Windows',
+    country: 'AU',
+    city: 'Melbourne',
+    asn: 4764,
+    asOrg: 'Aussie Broadband',
+    sessionNew: false,
+    botHints: 0,
+    detail: null,
+    client: null,
+    behaviour: { dwellMs: 42_000, turnstileAgeMs: 900, linkCount: 0, emailMx: null, emailGravatar: null },
+    ...overrides,
+    keys: {
+      session: 'se55i0n0',
+      ip: 'a1b2c3d4',
+      ip24: 'e5f60718',
+      fp: '29a3bb01',
+      email: null,
+      clientFp: null,
+      clientFpStable: null,
+      storageId: null,
+      emailDomain: null,
+      bodyHash: '7f10aa92',
+      linkDomains: [],
+      ...overrides.keys,
+    },
+    banned: overrides.banned ?? ([] as AdminBanKeyType[]),
+    cluster,
+    domainCluster: overrides.domainCluster ?? [],
+  };
+}
+
 export const DEMO_COMMENTS: PortalComments = {
   summary: {
     byStatus: { held: 3, published: 148, rejected: 11, deleted: 4 },
@@ -75,6 +129,27 @@ export const DEMO_COMMENTS: PortalComments = {
       country: 'SG',
       createdAt: hoursAgo(31),
       editedAt: null,
+      actor: demoActor({
+        ip: '198.51.100.24',
+        country: 'SG',
+        city: 'Singapore',
+        asn: 14061,
+        asOrg: 'DigitalOcean',
+        sessionNew: true,
+        botHints: 3,
+        behaviour: { dwellMs: 1_400, turnstileAgeMs: 400, linkCount: 2, emailMx: false, emailGravatar: false },
+        keys: {
+          session: 'aa01bb02', ip: 'c0ffee01', ip24: 'c0ffee02', fp: 'deadbeef',
+          email: 'e1e1e1e1', clientFp: 'f00dcafe', clientFpStable: 'f00dcaf0', storageId: null,
+          emailDomain: 'growth-hub.example', bodyHash: 'b0b0b0b0',
+          linkDomains: ['growth-hub.example'],
+        },
+        cluster: {
+          ip24: { comments: 6, held: 6, reactions: 2 },
+          clientFpStable: { comments: 4, held: 4, reactions: 0 },
+        },
+        domainCluster: [{ domain: 'growth-hub.example', comments: 6, held: 6, banned: false }],
+      }),
     },
     {
       id: '01J8QM0P4A',
@@ -93,6 +168,20 @@ export const DEMO_COMMENTS: PortalComments = {
       country: 'CN',
       createdAt: hoursAgo(6),
       editedAt: null,
+      actor: demoActor({
+        ip: '203.0.113.91',
+        country: 'CN',
+        city: 'Shanghai',
+        asn: 4134,
+        asOrg: 'China Telecom',
+        email: 'chen@example.com',
+        behaviour: { dwellMs: 186_000, turnstileAgeMs: 2_100, linkCount: 0, emailMx: true, emailGravatar: true },
+        keys: {
+          session: '11aa22bb', ip: '33cc44dd', ip24: '55ee66ff', fp: '77aa88bb',
+          email: '99cc00dd', clientFp: null, clientFpStable: null, storageId: null,
+          emailDomain: 'example.com', bodyHash: 'a1a2a3a4', linkDomains: [],
+        },
+      }),
     },
     {
       id: '01J8QN9R2C',
@@ -111,6 +200,9 @@ export const DEMO_COMMENTS: PortalComments = {
       country: 'AU',
       createdAt: minsAgo(38),
       editedAt: null,
+      actor: demoActor({
+        cluster: { session: { comments: 2, held: 0, reactions: 5 } },
+      }),
     },
   ],
   total: 3,

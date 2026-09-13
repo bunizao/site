@@ -34,7 +34,10 @@ import * as React from 'react';
 import { Badge, Button, Card, CardContent } from '@/components/coss';
 import { Check, EyeOff, History, Inbox, ShieldAlert, Trash2, UserCheck } from 'lucide-react';
 import { initials, seedHue } from '@/features/comments/identity';
+import type { AdminBanResult, AdminCommentActor } from '@bunizao/contracts';
 import type { PortalComment, PortalCommentStatus } from '@/features/admin/server/portal-client';
+import ActorStrip from './ActorStrip';
+import BanDialog from './BanDialog';
 import { adminApiEndpoint } from './api';
 
 type Action = 'approve' | 'hide' | 'delete';
@@ -80,12 +83,14 @@ function CommentRow({
   demo,
   leaving,
   onAct,
+  onBan,
 }: {
   comment: PortalComment;
   busy: string | null;
   demo: boolean;
   leaving: boolean;
   onAct: (comment: PortalComment, action: Action) => void;
+  onBan: (actor: AdminCommentActor) => void;
 }) {
   const flagged = comment.moderationReason && comment.moderationReason !== 'ok'
     ? comment.moderationReason
@@ -145,6 +150,11 @@ function CommentRow({
 
       <p className="portal-comment__body">{comment.body}</p>
 
+      {/* Where it came from, under the words it is judged on rather than
+          above them: the body decides most rows on its own, and the strip is
+          for the ones it does not. */}
+      <ActorStrip actor={comment.actor} onBan={onBan} />
+
       {comment.moderationNote && (
         <div className="portal-comment__verdict" data-tone={verdictTone}>
           <ShieldAlert size={13} strokeWidth={1.5} />
@@ -190,6 +200,7 @@ export default function CommentsQueue({ initialComments, status, demo = false }:
   const [leaving, setLeaving] = React.useState<string | null>(null);
   const [receipt, setReceipt] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [banning, setBanning] = React.useState<AdminCommentActor | null>(null);
 
   const act = React.useCallback(async (comment: PortalComment, action: Action) => {
     // The page already says it is showing a fixture; the buttons are disabled
@@ -246,6 +257,7 @@ export default function CommentsQueue({ initialComments, status, demo = false }:
         demo={demo}
         leaving={leaving === comment.id}
         onAct={(target, action) => void act(target, action)}
+        onBan={setBanning}
       />
     ))
   );
@@ -267,6 +279,24 @@ export default function CommentsQueue({ initialComments, status, demo = false }:
         )}
         {rows}
       </CardContent>
+      {/* A ban does not change this page: the rows it will hold have not been
+          written yet, and the ones it purged are gone on the next load. The
+          receipt is the whole feedback, and it says what actually happened. */}
+      {banning && (
+        <BanDialog
+          actor={banning}
+          demo={demo}
+          onClose={() => setBanning(null)}
+          onDone={(result: AdminBanResult) => {
+            setBanning(null);
+            const purged = result.purged.comments + result.purged.reactions;
+            setReceipt(
+              `${result.bans.length} key${result.bans.length === 1 ? '' : 's'} banned`
+              + (purged > 0 ? `, ${result.purged.comments} comments and ${result.purged.reactions} hearts purged.` : '.'),
+            );
+          }}
+        />
+      )}
     </Card>
   );
 }

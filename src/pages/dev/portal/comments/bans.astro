@@ -1,0 +1,52 @@
+---
+/* Everyone currently held, and what each key has caught.
+
+   The ban list is the one piece of comment state with no other surface: a
+   ban leaves no trace on the public page by design, and the writer is never
+   told. This page is therefore the only way to find out that something is
+   still switched on. */
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import PortalSection from '@/components/portal/PortalSection.astro';
+import CommentsSubNav from '@/components/portal/CommentsSubNav.astro';
+import BansTable from '@/features/admin/ui/BansTable';
+import { Activity } from 'lucide-react';
+import { loadBans } from '@/features/admin/server/portal-client';
+import type { AdminBan } from '@bunizao/contracts';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+let bans: AdminBan[] = [];
+let loadError: string | null = null;
+try {
+  bans = (await loadBans(Astro.request, Astro.locals)).bans;
+} catch (error) {
+  loadError = error instanceof Error ? error.message : 'unknown';
+}
+---
+
+<PortalLayout
+  title="Bans"
+  description="Held quietly. Nobody on this list was told."
+  active="comments"
+  user={{ login: session?.login || 'admin' }}
+>
+  <CommentsSubNav active="bans" />
+
+  {loadError && (
+    <div class="portal-notice" data-variant="error">
+      <Activity size={14} />
+      <span>Failed to load bans: <code>{loadError}</code></span>
+    </div>
+  )}
+
+  <PortalSection
+    title="Ban list"
+    eyebrow="Shadow"
+    meta={`${bans.length} key${bans.length === 1 ? '' : 's'}`}
+    class="portal-mt-lg"
+  >
+    <BansTable initialBans={bans} client:load />
+  </PortalSection>
+</PortalLayout>
