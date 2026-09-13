@@ -32,9 +32,13 @@
 
 import * as React from 'react';
 import { Badge, Button, Card, CardContent } from '@/components/coss';
-import { Check, EyeOff, History, Inbox, ShieldAlert, Trash2, UserCheck } from 'lucide-react';
+import { Check, EyeOff, History, Inbox, ShieldAlert, Trash2 } from 'lucide-react';
 import { initials, seedHue } from '@/features/comments/identity';
+import type { AdminBanResult, AdminCommentActor } from '@bunizao/contracts';
 import type { PortalComment, PortalCommentStatus } from '@/features/admin/server/portal-client';
+import ActorStrip from './ActorStrip';
+import IdentityBadge, { IDENTITY_LABELS, identityStatus, type IdentityStatus } from './IdentityBadge';
+import BanDialog from './BanDialog';
 import { adminApiEndpoint } from './api';
 
 type Action = 'approve' | 'hide' | 'delete';
@@ -80,12 +84,14 @@ function CommentRow({
   demo,
   leaving,
   onAct,
+  onBan,
 }: {
   comment: PortalComment;
   busy: string | null;
   demo: boolean;
   leaving: boolean;
   onAct: (comment: PortalComment, action: Action) => void;
+  onBan: (actor: AdminCommentActor) => void;
 }) {
   const flagged = comment.moderationReason && comment.moderationReason !== 'ok'
     ? comment.moderationReason
@@ -115,11 +121,7 @@ function CommentRow({
 
       <div className="portal-comment__head">
         <strong className="portal-comment__name">{comment.author}</strong>
-        {comment.verified && (
-          <Badge variant="secondary" size="sm" title="Confirmed email at the time of writing">
-            <UserCheck size={12} strokeWidth={1.75} /> verified
-          </Badge>
-        )}
+        <IdentityBadge actor={comment.actor} />
         <Badge variant={STATUS_VARIANT[comment.status]} size="sm">{comment.status}</Badge>
         {flagged && <Badge variant="destructive" size="sm">{flagged}</Badge>}
         <a className="portal-comment__when" href={`#${comment.id}`} title={comment.id}>
@@ -144,6 +146,11 @@ function CommentRow({
       </div>
 
       <p className="portal-comment__body">{comment.body}</p>
+
+      {/* Where it came from, under the words it is judged on rather than
+          above them: the body decides most rows on its own, and the strip is
+          for the ones it does not. */}
+      <ActorStrip actor={comment.actor} onBan={onBan} showIdentityBadge={false} />
 
       {comment.moderationNote && (
         <div className="portal-comment__verdict" data-tone={verdictTone}>
@@ -190,6 +197,9 @@ export default function CommentsQueue({ initialComments, status, demo = false }:
   const [leaving, setLeaving] = React.useState<string | null>(null);
   const [receipt, setReceipt] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [banning, setBanning] = React.useState<AdminCommentActor | null>(null);
+  const [identity, setIdentity] = React.useState<IdentityStatus | 'all'>('all');
+  const visible = identity === 'all' ? comments : comments.filter((comment) => identityStatus(comment.actor) === identity);
 
   const act = React.useCallback(async (comment: PortalComment, action: Action) => {
     // The page already says it is showing a fixture; the buttons are disabled
@@ -225,20 +235,20 @@ export default function CommentsQueue({ initialComments, status, demo = false }:
     }
   }, [demo]);
 
-  const rows = comments.length === 0 ? (
+  const rows = visible.length === 0 ? (
     <div className="portal-empty">
       <span className="portal-empty-icon"><Inbox size={18} strokeWidth={1.5} /></span>
       <p className="portal-empty-title">
-        {status === 'held' ? 'Nothing is waiting for review' : 'No comments match this filter'}
+        {identity !== 'all' ? 'No comments match this identity on this page' : status === 'held' ? 'Nothing is waiting for review' : 'No comments match this filter'}
       </p>
       <p className="portal-empty-hint">
-        {status === 'held'
+        {identity !== 'all' ? 'Choose another identity filter or change the status above.' : status === 'held'
           ? 'Held comments land here, and in Telegram, the moment the automatic pass is unsure.'
           : 'Try another status above.'}
       </p>
     </div>
   ) : (
-    comments.map((comment) => (
+    visible.map((comment) => (
       <CommentRow
         key={comment.id}
         comment={comment}
@@ -246,6 +256,7 @@ export default function CommentsQueue({ initialComments, status, demo = false }:
         demo={demo}
         leaving={leaving === comment.id}
         onAct={(target, action) => void act(target, action)}
+        onBan={setBanning}
       />
     ))
   );
@@ -253,6 +264,17 @@ export default function CommentsQueue({ initialComments, status, demo = false }:
   return (
     <Card>
       <CardContent className="portal-card-content" style={{ paddingTop: 18 }}>
+        <div className="portal-identity-filter">
+          <label htmlFor="comment-identity">Identity on this page</label>
+          <select id="comment-identity" value={identity} onChange={(event) => setIdentity(event.target.value as IdentityStatus | 'all')}>
+            <option value="all">All identities ({comments.length})</option>
+            {Object.entries(IDENTITY_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>{label} ({comments.filter((comment) => identityStatus(comment.actor) === key).length})</option>
+            ))}
+          </select>
+          <span role="status">Showing {visible.length} of {comments.length} loaded comments</span>
+        </div>
+        <p className="portal-list-meta">Verification describes the session at writing, not trustworthiness or current account access. Claims link ownership later.</p>
         {receipt && (
           <p className="portal-comment-receipt">
             <Check size={13} strokeWidth={1.5} />
@@ -267,6 +289,24 @@ export default function CommentsQueue({ initialComments, status, demo = false }:
         )}
         {rows}
       </CardContent>
+      {/* A ban does not change this page: the rows it will hold have not been
+          written yet, and the ones it purged are gone on the next load. The
+          receipt is the whole feedback, and it says what actually happened. */}
+      {banning && (
+        <BanDialog
+          actor={banning}
+          demo={demo}
+          onClose={() => setBanning(null)}
+          onDone={(result: AdminBanResult) => {
+            setBanning(null);
+            const purged = result.purged.comments + result.purged.reactions;
+            setReceipt(
+              `${result.bans.length} key${result.bans.length === 1 ? '' : 's'} banned`
+              + (purged > 0 ? `, ${result.purged.comments} comments and ${result.purged.reactions} hearts purged.` : '.'),
+            );
+          }}
+        />
+      )}
     </Card>
   );
 }

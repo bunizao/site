@@ -1,0 +1,312 @@
+---
+/* One key, and everything it has done in ninety days.
+
+   Reached from a chip on any actor strip, from an insights row, and from the
+   ban list. Four questions in order:
+
+   Spread records other values carried by this key. Shared browser
+   fingerprints and network addresses can describe unrelated readers.
+
+   The link graph follows confirmed addresses and storage ids. Other
+   dimensions remain descriptive and do not propagate identity links.
+
+   The hourly shape -- writes per hour over the last seven days. A person
+   has a diurnal shape. A cron does not.
+
+   And then the rows themselves, each with its own strip, because the
+   summary above is only ever a reason to go and read them. */
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/coss';
+import StatCard from '@/components/portal/StatCard.astro';
+import PortalSection from '@/components/portal/PortalSection.astro';
+import CommentsSubNav from '@/components/portal/CommentsSubNav.astro';
+import SourceRows from '@/features/admin/ui/SourceRows';
+import { Activity, Fingerprint, Heart, Link2, MessagesSquare, ShieldAlert } from 'lucide-react';
+import { loadSourceProfile } from '@/features/admin/server/portal-client';
+import type { AdminSourceKeyType, AdminSourceProfile } from '@bunizao/contracts';
+
+import { DEMO_SOURCE_PROFILE } from '@/features/admin/server/portal-demo';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+const KEY_TYPES: AdminSourceKeyType[] = [
+  'email', 'session', 'ip', 'ip24', 'fp', 'asn', 'client_fp', 'domain', 'email_domain',
+  'client_fp_stable', 'storage_id', 'body_hash',
+];
+
+const type = Astro.params.type ?? '';
+const value = Astro.params.value ?? '';
+const known = (KEY_TYPES as string[]).includes(type);
+
+let profile: AdminSourceProfile | null = null;
+let loadError: string | null = known ? null : `Unknown key type: ${type}`;
+let demoMode = false;
+if (known) {
+  try {
+    profile = await loadSourceProfile(type as AdminSourceKeyType, value, Astro.request, Astro.locals);
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : 'unknown';
+
+/* Local dev has no site-api binding, so the load above throws before any of
+   these tables has data. Same fixture swap the queue page does, and for the
+   same reason: four red banners are not a page anyone can design against. */
+    if (import.meta.env.DEV && loadError === 'api_binding_unavailable') {
+      profile = { ...DEMO_SOURCE_PROFILE, key: { type: type as AdminSourceKeyType, value } };
+      demoMode = true;
+      loadError = null;
+    }
+  }
+}
+
+const SPREAD_LABELS: Record<string, string> = {
+  session: 'sessions',
+  ip: 'addresses',
+  ip24: 'subnets',
+  fp: 'server fingerprints',
+  clientFp: 'browser fingerprints',
+  clientFpStable: 'browser fingerprints (stable)',
+  storageId: 'storage ids',
+  email: 'addresses on file',
+  asn: 'networks',
+  ua: 'user agents',
+};
+
+const spread = profile
+  ? Object.entries(profile.spread)
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1])
+  : [];
+
+const hourlyPeak = Math.max(1, ...(profile?.hourly ?? []).map((row) => row.comments + row.reactions));
+const shortValue = /^[0-9a-f]{16,}$/i.test(value) ? `${value.slice(0, 12)}…` : value;
+---
+
+<PortalLayout
+  title={`${type} · ${shortValue}`}
+  description="One key, and everything it did in ninety days."
+  active="comments"
+  user={{ login: session?.login || 'admin' }}
+>
+  <CommentsSubNav />
+
+  {loadError && (
+    <div class="portal-notice" data-variant="error">
+      <Activity size={14} />
+      <span>Failed to load this source: <code>{loadError}</code></span>
+    </div>
+  )}
+  {demoMode && (
+    <div class="portal-notice">
+      <Activity size={14} />
+      <span>Showing demo data — the site-api binding is unavailable in local dev.</span>
+    </div>
+  )}
+
+  {profile && (
+    <>
+      <div class="portal-notice">
+        <Fingerprint size={14} />
+        <span>
+          <span class="portal-actor__key-label">{type}</span>
+          <code>{value}</code>
+          {profile.firstSeenAt && ` · first seen ${profile.firstSeenAt.slice(0, 10)}`}
+          {profile.lastSeenAt && `, last ${profile.lastSeenAt.slice(0, 10)}`}
+        </span>
+      </div>
+
+      {profile.bans.length > 0 && (
+        <div class="portal-notice" data-variant="error">
+          <ShieldAlert size={14} />
+          <span>
+            On the ban list: {profile.bans.map((ban) => `${ban.keyType} (${ban.hits} hits)`).join(', ')}.
+            Their comments are held and their hearts move no count.
+          </span>
+        </div>
+      )}
+
+      <section class="portal-grid portal-stagger" data-columns="stats">
+        <StatCard
+          label="Comments"
+          value={profile.comments.total.toLocaleString()}
+          Icon={MessagesSquare}
+          tone={profile.comments.byStatus.held > 0 ? 'warning' : 'neutral'}
+          foot={`${profile.comments.byStatus.held} held · ${profile.comments.byStatus.published} published`}
+        />
+        <StatCard
+          label="Reactions"
+          value={profile.reactions.total.toLocaleString()}
+          Icon={Heart}
+          tone="accent"
+          foot={`across ${profile.reactions.byTarget.length} target${profile.reactions.byTarget.length === 1 ? '' : 's'}`}
+        />
+        <StatCard
+          label="Linked sessions"
+          value={profile.linked.sessions.toLocaleString()}
+          Icon={Link2}
+          tone={profile.linked.held > 0 ? 'danger' : 'neutral'}
+          foot={`${profile.linked.comments} comments, ${profile.linked.held} of them held`}
+        />
+        <StatCard
+          label="New sessions"
+          value={`${Math.round(profile.behaviour.newSessionShare * 100)}%`}
+          Icon={Activity}
+          tone={profile.behaviour.newSessionShare > 0.8 ? 'danger' : 'neutral'}
+          foot="of writes minted the cookie they used"
+        />
+      </section>
+
+      <PortalSection title="Spread" eyebrow="Churn" class="portal-mt-lg">
+        <div class="portal-grid" data-columns="wide">
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Fingerprint size={14} /> Other keys used</CardTitle>
+              <CardDescription>
+                Distinct values recorded for this source. Shared networks and matching browser
+                fingerprints can belong to different readers; these counts are clues for review.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {spread.length === 0 ? (
+                <div class="portal-list-meta">Nothing recorded.</div>
+              ) : (
+                <ul class="portal-spread">
+                  {spread.map(([key, count]) => (
+                    <li><span>{SPREAD_LABELS[key] ?? key}</span><strong class="tabular-nums">{count}</strong></li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Link2 size={14} /> Why records are linked</CardTitle>
+              <CardDescription>
+                Account links and shared browser storage are different evidence. Matching storage
+                may describe a shared device. Fingerprints and network matches do not create identity links.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {profile.identitySummary && <>
+                <ul class="portal-spread">
+                  <li><span>Verified-at-write accounts</span><strong>{profile.identitySummary.verifiedAccounts}</strong></li>
+                  <li><span>Anonymous sessions</span><strong>{profile.identitySummary.anonymousSessions}</strong></li>
+                  <li><span>Comments claimed later</span><strong>{profile.identitySummary.claimedComments}</strong></li>
+                </ul>
+                {profile.identitySummary.sharedStorage && <p class="portal-notice">Multiple accounts share browser storage. Treat this as a shared environment, not one person.</p>}
+                {profile.identitySummary.sharedFingerprint && <p class="portal-notice">Multiple accounts have similar fingerprints. The fingerprint is not used to merge their identities.</p>}
+              </>}
+              {profile.linked.sessions === 0 ? (
+                <div class="portal-list-meta">This key links to nothing else.</div>
+              ) : (
+                <ul class="portal-spread">
+                  <li><span>sessions reached</span><strong class="tabular-nums">{profile.linked.sessions}</strong></li>
+                  <li><span>via confirmed account address</span><strong class="tabular-nums">{profile.linked.via.email}</strong></li>
+                  <li><span>via shared browser storage</span><strong class="tabular-nums">{profile.linked.via.storageId}</strong></li>
+                  <li><span>their comments</span><strong class="tabular-nums">{profile.linked.comments}</strong></li>
+                  <li data-tone="danger"><span>of those, held</span><strong class="tabular-nums">{profile.linked.held}</strong></li>
+                  <li><span>their hearts</span><strong class="tabular-nums">{profile.linked.reactions}</strong></li>
+                  <li><span>subnets they carried</span><strong class="tabular-nums">{profile.linked.carried.ip24}</strong></li>
+                </ul>
+              )}
+              <p class="portal-list-meta">A linked record is not proof of the same person. Review the identity at writing and any later claim on each row.</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Activity size={14} /> Behaviour</CardTitle>
+              <CardDescription>Medians across this source's writes, and which door they came through.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <ul class="portal-spread">
+                <li>
+                  <span>dwell, median</span>
+                  <strong class="tabular-nums">
+                    {profile.behaviour.dwellMsMedian === null ? '—' : `${Math.round(profile.behaviour.dwellMsMedian / 1000)}s`}
+                  </strong>
+                </li>
+                <li>
+                  <span>turnstile age, median</span>
+                  <strong class="tabular-nums">
+                    {profile.behaviour.turnstileAgeMsMedian === null ? '—' : `${Math.round(profile.behaviour.turnstileAgeMsMedian / 100) / 10}s`}
+                  </strong>
+                </li>
+                <li><span>hearts via turnstile</span><strong class="tabular-nums">{profile.behaviour.authMix.turnstile}</strong></li>
+                <li><span>hearts via pass</span><strong class="tabular-nums">{profile.behaviour.authMix.pass}</strong></li>
+                <li><span>hearts while verified</span><strong class="tabular-nums">{profile.behaviour.authMix.verified}</strong></li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><ShieldAlert size={14} /> Hints tripped</CardTitle>
+              <CardDescription>Bot hints count; VPN hints are shown and never counted.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {profile.hints.length === 0 ? (
+                <div class="portal-list-meta">Nothing tripped.</div>
+              ) : (
+                <ul class="portal-spread">
+                  {profile.hints.map((hint) => (
+                    <li data-tone={hint.kind === 'bot' ? 'danger' : undefined}>
+                      <span>{hint.hint} <em>{hint.kind}</em></span>
+                      <strong class="tabular-nums">{hint.count}</strong>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </PortalSection>
+
+      <PortalSection title="When" eyebrow="Rhythm" class="portal-mt-lg">
+        <Card>
+          <CardHeader>
+            <CardTitle className="portal-card-title"><Activity size={14} /> Writes per hour, last 7 days</CardTitle>
+            <CardDescription>Recorded activity by hour. Shared devices and different time zones can overlap.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {profile.hourly.length === 0 ? (
+              <div class="portal-list-meta">Nothing in the last seven days.</div>
+            ) : (
+              <div class="comment-days">
+                {profile.hourly.map((row) => (
+                  <div class="comment-day" title={`${row.hour} · ${row.comments} comments, ${row.reactions} hearts`}>
+                    <div
+                      class="comment-day-bar"
+                      data-empty={row.comments + row.reactions === 0 ? '' : undefined}
+                      style={`height: ${Math.max(2, Math.round(((row.comments + row.reactions) / hourlyPeak) * 100))}%`}
+                    ></div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </PortalSection>
+
+      <PortalSection
+        title="Rows"
+        eyebrow="Evidence"
+        meta={`newest ${profile.comments.rows.length} comments, ${profile.reactions.rows.length} hearts`}
+        class="portal-mt-lg"
+      >
+        <a slot="action" class="portal-actor__key" href={`/dev/portal/comments?key=${encodeURIComponent(type)}&value=${encodeURIComponent(value)}`}>
+          Open in the queue
+        </a>
+        <SourceRows
+          source={{ ...profile.key, emailDomainPublishedComments: profile.key.type === 'email_domain' ? profile.comments.byStatus.published : undefined }}
+          comments={profile.comments.rows}
+          reactions={profile.reactions.rows}
+          demo={demoMode}
+          client:load
+        />
+      </PortalSection>
+    </>
+  )}
+</PortalLayout>

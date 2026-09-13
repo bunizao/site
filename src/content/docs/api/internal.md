@@ -39,6 +39,15 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/comments` | Reads the comment moderation queue and its counts. | Admin session |
 | `/admin/comments/:id` | Approves, hides, or deletes one comment. | Admin session |
 | `/admin/comments/owner-code` | Mints the single-use code that signs the portal's browser in to the comment box as the owner. | Admin session |
+| `/admin/comments/insights` | Reads the grouped comment tables: networks, subnets, devices, hints, link and mail domains. | Admin session |
+| `/admin/reactions` | Reads the reaction list with the actor block on each row. | Admin session |
+| `/admin/reactions/insights` | Reads the grouped reaction tables. | Admin session |
+| `/admin/sources/*/*` | Reads one key's profile (key type, then value): its rows, its spread, its link graph. | Admin session |
+| `/admin/bans` | Lists the ban list, and applies bans with an optional purge. | Admin session |
+| `/admin/bans/preview` | Previews distinct affected accounts, sessions and content before a ban. | Admin session |
+| `/admin/bans/operations` | Lists recent purge operations and their recovery state. | Admin session |
+| `/admin/bans/operations/:id/restore` | Restores eligible content from one purge while leaving bans unchanged. | Admin session |
+| `/admin/bans/*/*` | Lifts one ban (key type, then value). | Admin session |
 | `/admin/activity` | Reads the append-only comment and reaction activity log. | Admin session |
 | `/admin/subscribers` | Manages subscribers. | Admin session |
 | `/admin/subscribers/:hash` | Manages one subscriber. | Admin session |

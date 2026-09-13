@@ -28,6 +28,9 @@ export const TELEGRAM_OPS_COMMENT_CALLBACK_PREFIXES = {
   approve: 'comment:approve:',
   hide: 'comment:hide:',
   delete: 'comment:delete:',
+  /** Bans the comment's pre-ticked source keys, no purge -- see
+      plans/comment-actor-identity.md "Actions by source". */
+  ban: 'comment:ban:',
 } as const;
 
 export const NOTIFY_GATE_PATH = '/admin/notify-gate' as const;

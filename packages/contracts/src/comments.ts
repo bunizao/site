@@ -205,6 +205,138 @@ export interface ReactionBatchResult {
   reactions: Record<ReactionTargetKey, ReactionSummary[]>;
 }
 
+// ---------------------------------------------------------------------------
+// Client evidence: fingerprint, interaction, storage id
+// ---------------------------------------------------------------------------
+
+/** What the browser says about itself, collected by the lazily loaded
+    `fingerprint.ts` module on the first interaction with a compose box or a
+    reaction bar and sent as `clientFp` on both write bodies. Every field is
+    optional; the server treats a missing or malformed object as no object
+    and never refuses the write for it -- these are evidence, not a door.
+    Bounds the server enforces: strings at most 128 characters, `fonts` at
+    most 32 entries, every number a bounded integer (`timezoneOffset` is the
+    one that may be negative), the whole object under 4 KiB. The server
+    hashes the canonical component JSON itself; the client never names its
+    own hash. See plans/comment-actor-identity.md "Client fingerprint". */
+export interface ClientFingerprint {
+  navigator?: {
+    platform?: string;
+    languages?: string[];
+    hardwareConcurrency?: number;
+    deviceMemory?: number;
+    maxTouchPoints?: number;
+    webdriver?: boolean;
+    pdfViewerEnabled?: boolean;
+    /** `navigator.plugins.length`. */
+    plugins?: number;
+    cookieEnabled?: boolean;
+    /** `userAgentData.brands` as `"Chromium 128"` strings. */
+    uaBrands?: string[];
+    uaPlatform?: string;
+    uaMobile?: boolean;
+    uaPlatformVersion?: string;
+    uaArchitecture?: string;
+    uaModel?: string;
+  };
+  screen?: {
+    width?: number;
+    height?: number;
+    availWidth?: number;
+    availHeight?: number;
+    colorDepth?: number;
+    /** `devicePixelRatio` in percent (200 = 2x), so it stays an integer. */
+    dprPct?: number;
+    outerWidth?: number;
+    outerHeight?: number;
+  };
+  /** `Intl.DateTimeFormat().resolvedOptions().timeZone`. */
+  timezone?: string;
+  /** `Date#getTimezoneOffset()`, minutes, negative east of UTC. */
+  timezoneOffset?: number;
+  /** SHA-256 hex of an offscreen canvas `toDataURL()`. */
+  canvas?: string;
+  webgl?: {
+    vendor?: string;
+    renderer?: string;
+    maxTextureSize?: number;
+    maxViewport?: number;
+  };
+  /** Sum of `OfflineAudioContext` samples, formatted to a fixed precision. */
+  audio?: string;
+  /** Families detected by a width probe, in the probe list's order. */
+  fonts?: string[];
+  media?: {
+    colorScheme?: string;
+    reducedMotion?: string;
+    pointer?: string;
+    hover?: string;
+    colorGamut?: string;
+    dynamicRange?: string;
+  };
+  presence?: {
+    chrome?: boolean;
+    /** `Notification.permission`, or absent when the API is missing. */
+    notification?: string;
+    performanceMemory?: boolean;
+    indexedDb?: boolean;
+    localStorage?: boolean;
+  };
+}
+
+/** How the form was filled, as aggregates only: counts and one spread
+    figure, never the key sequence or the intervals themselves. Collected by
+    the same lazy module from listeners on the compose box and the reaction
+    bar, sent as `interaction` beside `clientFp`. Same bounds and the same
+    never-a-gate rule as `ClientFingerprint`. Comment-only and reaction-only
+    fields are marked; the rest apply to both. */
+export interface Interaction {
+  /** `performance.now()` at first compose focus (comments). */
+  loadToFocusMs?: number;
+  /** `performance.now()` at first heart tap (reactions). */
+  loadToTapMs?: number;
+  /** First focus to submit (comments). */
+  composeMs?: number;
+  /** Counts on the body field (comments). */
+  keyEvents?: number;
+  inputEvents?: number;
+  pasteEvents?: number;
+  /** Coefficient of variation of inter-key intervals, per mille (comments). */
+  keyIntervalCv?: number;
+  /** The submit or tap's `pointerType`. */
+  pointerType?: string;
+  /** `pointermove` count on the page before the submit or tap. */
+  pointerMoves?: number;
+  /** Distance from the button's centre, CSS px, of the submit click or tap. */
+  clickOffset?: number;
+  scrollEvents?: number;
+  /** Max `scrollY / (docHeight - innerHeight)` as a percentage. */
+  scrollDepth?: number;
+  /** `visibilitychange` to hidden before the submit or tap. */
+  hiddenCount?: number;
+  /** `document.hasFocus()` at submit. */
+  hasFocus?: boolean;
+  historyLength?: number;
+  /** Client-side rejections before the successful submit (comments). */
+  validationErrors?: number;
+  /** Widget render to token callback. */
+  turnstileSolveMs?: number;
+  /** Whether `before-interactive-callback` fired. */
+  turnstileInteractive?: boolean;
+  /** Reaction taps on this page so far (reactions). */
+  tapsThisPage?: number;
+}
+
+/** The optional client evidence both write bodies may carry. `storageId` is
+    a random 32-hex value the lazy module reads or creates in IndexedDB; the
+    server stores only its HMAC and never uses it to set, restore or extend
+    a cookie. */
+export interface ClientEvidence {
+  clientFp?: ClientFingerprint;
+  interaction?: Interaction;
+  storageId?: string;
+}
+
 export interface ReactionToggleInput {
   targetType: ReactionTargetType;
   targetId: string;
@@ -215,6 +347,10 @@ export interface ReactionToggleInput {
       stack" step 2. The widget solves invisibly (managed mode), so this
       never costs the reader a prompt or a round trip of their own. */
   turnstileToken: string;
+  /** Client evidence, optional and never a gate -- see `ClientEvidence`. */
+  clientFp?: ClientFingerprint;
+  interaction?: Interaction;
+  storageId?: string;
 }
 
 export interface ReactionToggleResult {
@@ -311,6 +447,10 @@ export interface CommentCreateInput {
       once the address is verified. */
   notifyReplies?: boolean;
   locale?: CommentLocale;
+  /** Client evidence, optional and never a gate -- see `ClientEvidence`. */
+  clientFp?: ClientFingerprint;
+  interaction?: Interaction;
+  storageId?: string;
 }
 
 export const COMMENT_CREATE_OUTCOMES = ['published', 'held'] as const;
@@ -429,3 +569,35 @@ export function commentPolicyFromTags(
     `readonly` and `off` answer no; the difference between them is drawn, not
     enforced. */
 export const acceptsComments = (policy: CommentPolicy): boolean => policy.mode === 'open';
+/** Evidence recorded when the comment was written, never upgraded by claiming. */
+export type CommentAuthAtWrite = 'unknown' | 'anonymous' | 'verified';
+export type CommentClaimMethod = 'session' | 'confirmed';
+
+export interface ReaderClaimCandidate {
+  id: string;
+  surface: CommentSurface;
+  postId: string;
+  body: string;
+  createdAt: string;
+  authorName: string;
+}
+
+export interface ReaderClaimsResult {
+  comments: ReaderClaimCandidate[];
+  hasMore: boolean;
+}
+
+export interface ReaderClaimsInput {
+  commentIds: string[];
+}
+
+export interface ReaderClaimResult {
+  claimedIds: string[];
+}
+
+/** Optional client reports are operational observations, never identity evidence. */
+export interface CommentTelemetryInput {
+  kind: 'comment' | 'reaction';
+  outcome: 'accepted' | 'http_error' | 'network_error' | 'challenge_failed';
+  challenges: number;
+}

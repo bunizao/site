@@ -22,6 +22,8 @@ import type {
   ReaderMe,
   ReaderMeResult,
 } from '@bunizao/contracts/comments';
+import { collectClientEvidence, warmClientEvidence } from './client-evidence';
+import { beginWriteTelemetry, type WriteTelemetry } from './telemetry';
 import {
   confirmAnonymousSubmit,
   dismissRecommendOnFill,
@@ -300,6 +302,15 @@ export function initCommentsController(): void {
   if (turnstileHost) setTurnstileHost('blog_comment_create', turnstileHost);
 
   const warmCreate = () => warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
+
+  // Stamp focus before the lazy import so its network time is not reading time.
+  let armedAt: number | undefined;
+  let validationErrors = 0;
+  function armEvidence(): void {
+    if (armedAt !== undefined) return;
+    armedAt = Math.round(performance.now());
+    warmClientEvidence();
+  }
   if (typeof IntersectionObserver === 'function') {
     // rootMargin buys the solve a head start on the scroll that reveals the
     // box, so it is usually finished by the time anyone reads far enough to
@@ -312,7 +323,9 @@ export function initCommentsController(): void {
     watcher.observe(section);
   }
   section.addEventListener('focusin', (event) => {
-    if ((event.target as HTMLElement).closest('.blog-compose')) warmCreate();
+    if (!(event.target as HTMLElement).closest('.blog-compose')) return;
+    warmCreate();
+    armEvidence();
   });
 
   // Build the "loaded" shell up front -- state="loading" carries neither the
@@ -504,10 +517,14 @@ export function initCommentsController(): void {
     void handleSubmit(box);
   });
 
-  async function handleSubmit(box: HTMLElement): Promise<void> {
+  async function handleSubmit(box: HTMLElement, previousAttempt?: WriteTelemetry): Promise<void> {
     // The guard marks the first unfinished field and says why -- see
     // compose-validate.ts. Nothing below runs until the box is complete.
-    if (!validateCompose(box)) return;
+    if (!validateCompose(box)) {
+      validationErrors += 1;
+      previousAttempt?.finish('http_error');
+      return;
+    }
 
     // An anonymous writer with an empty email field gets one more press: the
     // first one arms the box and shows the recommendation instead of
@@ -520,6 +537,13 @@ export function initCommentsController(): void {
     const parentId = isReply ? box.dataset.replyTarget ?? null : null;
     const identity = readIdentity(box);
     if (!identity) return; // guard passed but the fields are gone -- nothing to send
+    const telemetry = previousAttempt ?? beginWriteTelemetry('comment', 'blog_comment_create');
+    const submittedEvidence = collectClientEvidence({
+      kind: 'comment',
+      armedAt,
+      validationErrors,
+      turnstileAction: 'blog_comment_create',
+    });
 
     // Everything the reader can see happens here, before a single byte leaves
     // the browser. The press used to buy a spinner and a locked field for as
@@ -557,6 +581,7 @@ export function initCommentsController(): void {
     // would be off screen at the moment it needs answering.
     hostTurnstileIn(box);
     const turnstileToken = await getTurnstileToken(turnstileSiteKey, 'blog_comment_create');
+    telemetry.captureChallenges();
 
     const input: CommentCreateInput = {
       postId,
@@ -569,6 +594,7 @@ export function initCommentsController(): void {
       dwellToken,
       notifyReplies: false,
       locale,
+      ...(await submittedEvidence),
     };
 
     const response = await postJson<CommentCreateResult>('/api/v2/comments', input);
@@ -605,12 +631,15 @@ export function initCommentsController(): void {
       // the message standing rather than looping.
       if (failure.code === 'BOT' && box.dataset.botRetry !== 'spent') {
         box.dataset.botRetry = 'spent';
-        void solveChallengeAndResend(box);
+        void solveChallengeAndResend(box, telemetry);
+      } else {
+        telemetry.finish(response.status === 0 ? 'network_error' : failure.code === 'BOT' ? 'challenge_failed' : 'http_error');
       }
       return;
     }
 
     const { outcome, comment, unverifiedEmail } = response.data;
+    telemetry.finish('accepted');
     delete box.dataset.botRetry;
     // Success only -- a failed submit restores the draft, and the retry press
     // should send it, not re-arm the add-an-email recommendation. The next
@@ -686,12 +715,16 @@ export function initCommentsController(): void {
       the moment it is solved. An unsolved challenge (the reader ignored it, or
       it failed again) simply returns: the refusal message is still on screen
       and the draft is still in the field. */
-  async function solveChallengeAndResend(box: HTMLElement): Promise<void> {
+  async function solveChallengeAndResend(box: HTMLElement, telemetry: WriteTelemetry): Promise<void> {
     hostTurnstileIn(box);
     box.querySelector('[data-turnstile-host]')?.scrollIntoView({ block: 'nearest' });
     const token = await challengeTurnstile(turnstileSiteKey, 'blog_comment_create');
-    if (!token) return;
-    await handleSubmit(box);
+    telemetry.captureChallenges();
+    if (!token) {
+      telemetry.finish('challenge_failed');
+      return;
+    }
+    await handleSubmit(box, telemetry);
   }
 
   // The API answers within ~1.5s even while the AI verdict is still in
@@ -1232,13 +1265,13 @@ export function initCommentsController(): void {
     // Set before the first await, so presses arriving mid-flight stop here
     // rather than racing a second write.
     if (button.getAttribute('aria-pressed') === 'true') return;
-    await sendCommentLike(commentId, button);
+    await sendCommentLike(commentId, button, beginWriteTelemetry('reaction', 'blog_reaction'));
   }
 
   /** The write itself, without the burst or the double-press guard, so the
       Turnstile retry below can resend without throwing a second handful of
       hearts for a press the reader only made once. */
-  async function sendCommentLike(commentId: string, button: HTMLButtonElement, options: { viaPass?: boolean } = {}): Promise<void> {
+  async function sendCommentLike(commentId: string, button: HTMLButtonElement, telemetry: WriteTelemetry, options: { viaPass?: boolean } = {}): Promise<void> {
     const article = button.closest<HTMLElement>('.blog-comment');
     button.setAttribute('aria-pressed', 'true');
 
@@ -1261,6 +1294,7 @@ export function initCommentsController(): void {
     // a token regardless, so a stale pass costs one silent solve, not a loop.
     const viaPass = !options.viaPass && hasReactionPass();
     const turnstileToken = viaPass ? '' : await getTurnstileToken(turnstileSiteKey, 'blog_reaction');
+    if (!viaPass) telemetry.captureChallenges();
     const response = await postJson<{ reaction: { count: number; reacted: boolean }; passUntil?: number }>('/api/v2/reactions/toggle', {
       targetType: 'comment',
       targetId: commentId,
@@ -1277,7 +1311,7 @@ export function initCommentsController(): void {
       // once more the ordinary way.
       if (failure.code === 'BOT' && viaPass) {
         forgetReactionPass();
-        await sendCommentLike(commentId, button, { viaPass: true });
+        await sendCommentLike(commentId, button, telemetry, { viaPass: true });
         return;
       }
       button.setAttribute('aria-pressed', 'false');
@@ -1289,11 +1323,14 @@ export function initCommentsController(): void {
       // row, so a challenge that fails again leaves the message standing.
       if (failure.code === 'BOT' && article && article.dataset.botRetry !== 'spent') {
         article.dataset.botRetry = 'spent';
-        void solveReactionChallengeAndResend(article, commentId, button);
+        void solveReactionChallengeAndResend(article, commentId, button, telemetry);
+      } else {
+        telemetry.finish(response.status === 0 ? 'network_error' : failure.code === 'BOT' ? 'challenge_failed' : 'http_error');
       }
       return;
     }
     article?.querySelector('.blog-comment__action-error')?.remove();
+    telemetry.finish('accepted');
     delete article?.dataset.botRetry;
     rememberReactionPass(response.data.passUntil);
     button.setAttribute('aria-pressed', String(response.data.reaction.reacted));
@@ -1321,14 +1358,22 @@ export function initCommentsController(): void {
     article: HTMLElement,
     commentId: string,
     button: HTMLButtonElement,
+    telemetry: WriteTelemetry,
   ): Promise<void> {
     const host = reactionChallengeHost(article);
-    if (!host) return;
+    if (!host) {
+      telemetry.finish('challenge_failed');
+      return;
+    }
     setTurnstileHost('blog_reaction', host);
     host.scrollIntoView({ block: 'nearest' });
     const token = await challengeTurnstile(turnstileSiteKey, 'blog_reaction');
-    if (!token) return;
-    await sendCommentLike(commentId, button);
+    telemetry.captureChallenges();
+    if (!token) {
+      telemetry.finish('challenge_failed');
+      return;
+    }
+    await sendCommentLike(commentId, button, telemetry);
   }
 
   /** Three hearts up and out of the button, per press. Sized and timed to the

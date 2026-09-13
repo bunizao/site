@@ -49,10 +49,17 @@ mean no.
 
 ## Identity: three grades, one table
 
+Authentication at submission is recorded independently from current ownership.
+`auth_at_write` is `verified`, `anonymous`, or `unknown` for records without
+historical evidence. It never changes after a claim. A later claim records
+`claimed_at` and `claim_method` (`session` or `confirmed`) instead. An author
+badge requires verified-at-write evidence; an old or claimed row is not
+silently upgraded into an authenticated statement.
+
 | Grade | How it's reached | What it unlocks |
 | --- | --- | --- |
 | L0 | Nothing — a `reader_anon` cookie, set automatically on first comment or reaction | Post and react; your own rows show as `mine` by cookie match, but cannot be edited or deleted |
-| L1 | Click the link in the lazy-verification email | The comment's `reader_id` attaches; past comments from the same address get claimed; a persistent avatar and display name; edit and delete on rows the `reader_id` owns |
+| L1 | Click the link in the lazy-verification email | The comment's `reader_id` attaches; past comments matching both the verified address and this browser session get claimed; a persistent avatar and display name; edit and delete on rows the `reader_id` owns |
 | L2 | Sign in with GitHub or Google (`/oauth/reader/...`) | Same as L1, `provider` reflects the OAuth provider instead of `email` |
 
 **L2 is not reachable today.** The routes are built and work, but nothing on
@@ -154,7 +161,10 @@ POST /api/v2/comments
   "dwellToken": "...",
   "website": "",
   "notifyReplies": false,
-  "locale": "zh"
+  "locale": "zh",
+  "clientFp": { "navigator": {}, "screen": {}, "canvas": "..." },
+  "interaction": { "composeMs": 42000, "keyEvents": 180, "keyIntervalCv": 220 },
+  "storageId": "0123456789abcdef0123456789abcdef"
 }
 ```
 
@@ -191,7 +201,30 @@ claimable); a non-empty value must be a valid address (`400` otherwise).
 mail aligned with the page where the comment was written.
 `dwellToken` is minted by `GET /api/v2/comments/dwell-token` (see below) —
 required. `website` is a visually-hidden honeypot field; a human never fills
-it in. `notifyReplies` sets the writer's reply-mail preference — see
+it in.
+
+`clientFp`, `interaction` and `storageId` are the optional client evidence,
+collected by a module the page loads on the first focus inside the compose
+box and never on a page view. **None of the three is ever a gate.** A body
+that omits them, sends the wrong type, or sends 40 KiB of nonsense is written
+exactly like one that sends them well: the server stores what survives its
+bounds and NULL for the rest, and none of it feeds a rate-limit budget. Send
+them or do not.
+
+`clientFp` is what the browser says about itself — platform, screen, time
+zone, a canvas and audio hash, the font families a width probe found, media
+queries. `interaction` is how the form was filled, as aggregates only:
+counts, one spread figure for the gaps between keystrokes (per mille), and a
+few timings. Never the key sequence, never the intervals themselves, never
+what was typed. `storageId` is a random 32-hex value the module keeps in
+IndexedDB; the server stores only its HMAC and never uses it to set,
+restore, or extend a cookie.
+
+Bounds the server enforces before storing: strings at most 128 characters,
+`fonts` at most 32 entries, every number a bounded integer, the whole object
+under 4 KiB. The client never sends a hash of its own fingerprint — the
+server hashes the canonical component JSON itself, so a browser cannot claim
+to be a different device. `notifyReplies` sets the writer's reply-mail preference — see
 [What `notifyReplies` actually sends](#what-notifyreplies-actually-sends).
 
 A comment written without an email serializes with `avatarUrl: ""`; the
@@ -209,22 +242,22 @@ Every submission runs the full risk stack, in order:
 1. **Turnstile.** A failed or missing token is the only step that answers
    plainly with `400`/`503` — everything below this line either succeeds
    outright or fails silently.
-2. **Honeypot, dwell time, duplicate body.** Tripping any of these returns
-   a fabricated `201 { "outcome": "held", ... }` envelope that is **never
-   persisted** — a bot gets no signal to iterate against. The duplicate
-   check is site-wide over 24 hours and only applies to bodies of 20+
-   characters, so two readers independently posting the same short praise
-   are both heard; only copy-pasted paragraphs trip it. A filled honeypot
-   or a duplicate body also quarantines the writer's IP and fingerprint for
+2. **Honeypot and dwell time.** Tripping either returns a fabricated
+   `201 { "outcome": "held", ... }` envelope that is **never persisted**.
+   A filled honeypot also quarantines the current session or account for
    24 hours (see step 5); an expired dwell token does not, since a tab left
-   open overnight trips it too.
+   open overnight trips it too. Exact repeated bodies of 20+ characters
+   within 24 hours are instead saved as held comments, without quarantining
+   the writer or other readers on their network. The normalized body hash
+   is a clustering signal only: differences in links or punctuation do not
+   trigger the duplicate hold.
 3. **Heuristics** (disposable email domain, keyword blocklist, link count) —
    a hit **holds** the comment (it is created, but only its writer can see
    it) rather than dropping it. A first comment carrying a link is fine —
    there is deliberately no first-session-link hold; Akismet judges it like
    anything else. A verified (L1/L2) writer skips the disposable-domain
    check — verification already priced out the throwaway identity — and
-   gets a higher link ceiling (6 instead of 3). The duplicate-body tripwire
+   gets a higher link ceiling (6 instead of 3). The exact-duplicate hold
    and the keyword blocklist apply to everyone.
 4. **Rate limits**, durably enforced across three dimensions (anonymous
    session, IP, server-derived fingerprint) and two windows each: 5/minute
@@ -236,10 +269,11 @@ Every submission runs the full risk stack, in order:
    [Rate limits](/docs/api/overview#rate-limits)) — the only rate-limited
    route family on this whole site running in durable, not observability,
    mode.
-5. **Quarantine and lockdown** (anonymous writers only; three KV reads).
-   A writer whose IP or fingerprint is quarantined — 24 hours after a
-   filled honeypot, a duplicate body, a spam verdict, or the owner hiding
-   or deleting one of their comments — is held on sight, and so is every
+5. **Quarantine and lockdown** (anonymous writers only).
+   A session quarantined after a filled honeypot or spam verdict is held for
+   24 hours. Account-backed keys, when present, refer to that account only;
+   IP and fingerprint matches do not share a quarantine. Ordinary owner
+   hide/delete actions do not create a quarantine. The system also holds every
    anonymous writer while the site-wide one-hour lockdown is engaged. Both
    holds carry reason `ok`, skip the external checks below, and send the
    owner no per-comment card. The lockdown engages on its own after more
@@ -271,9 +305,12 @@ Every submission runs the full risk stack, in order:
    The upgrade is guarded on `updated_at`, so a writer who edits in the
    meantime keeps their row held rather than having it clobbered by a
    stale verdict. A `held` response is therefore not always final.
-7. **Shadow-ban.** A shadow-banned writer's otherwise-`publish` verdict is
-   quietly downgraded to `hold` — they see their own comment as normal;
-   nobody else ever does.
+7. **Shadow-ban.** A banned writer's otherwise-`publish` verdict is quietly
+   downgraded to `hold` — they see their own comment as normal; nobody else
+   ever does. The ban list holds nine kinds of key: the address,
+   the session, the IP, its /24, the server-side and client-side
+   fingerprints, the network, a link domain and a mail domain. A write
+   matching any one of them is held. Nothing in the response says so.
 
 ```json
 { "outcome": "published", "comment": { "...": "..." }, "unverifiedEmail": true }
@@ -453,7 +490,7 @@ POST /api/v2/reactions/toggle
 ```
 
 ```json
-{ "targetType": "post", "targetId": "abc123", "emoji": "❤️", "reacted": true, "turnstileToken": "..." }
+{ "targetType": "post", "targetId": "abc123", "emoji": "❤️", "reacted": true, "turnstileToken": "...", "clientFp": {}, "interaction": {}, "storageId": "..." }
 ```
 
 No sign-in required — anyone can react, no prompt, no round trip of their
@@ -468,6 +505,12 @@ against the same Ghost post registry `POST /api/v2/comments` uses.
 ```json
 { "reaction": { "emoji": "❤️", "count": 4, "reacted": true, "reactors": [] }, "passUntil": 1789120800000 }
 ```
+
+**A banned source's heart.** A reaction from a source on the ban list gets
+this same envelope, with the `reacted` state it asked for and a `count` that
+did not move. No row is written and no reader pass is issued. There is no
+error and no hint: a ban that announced itself would be a ban somebody could
+test around.
 
 **Reader pass.** An accepted reaction also sets an HttpOnly
 `__Host-reader_pass` cookie, signed against the `reader_anon` session and
@@ -764,3 +807,45 @@ callback failure (bad state, a provider error, an unverified email upstream,
 missing config) redirects to `/?signin=failed` with no detail in the URL or
 body; the real reason is only ever logged server-side. Neither is
 rate-limited.
+
+
+## Review and claim earlier comments
+
+`GET /api/v2/reader/claims?offset=0` accepts a non-negative offset up to 10000, requires a valid reader session, and returns
+`{ "comments": [...], "hasMore": false }`. It lists up to 50 unclaimed,
+non-deleted comments matching the authenticated mailbox. Each item carries
+`id`, `surface`, `postId`, `body`, `createdAt`, and `authorName` so the reader
+can recognize their own words. The `/reader/comments` page makes that
+selection explicit; opening it or paging through it claims nothing.
+
+`POST /api/v2/reader/claims` accepts `{ "commentIds": ["..."] }` with 1–50
+IDs and returns `{ "claimedIds": ["..."] }`. The update repeats the mailbox,
+unclaimed, and non-deleted conditions atomically. It changes ownership and
+claim metadata only; it never changes the original session or authentication
+evidence. Both methods return `401 reader_sign_in_required` without a valid
+reader session and use `Cache-Control: private, no-store`.
+
+Automatic claiming after email verification, OAuth, or owner sign-in requires
+both the matching mailbox and an existing valid anonymous session cookie.
+Comments from another browser remain unclaimed until selected explicitly.
+
+## Operational measurements
+
+`POST /api/v2/comments/telemetry` accepts a small optional browser report:
+
+```json
+{ "kind": "comment", "outcome": "network_error", "challenges": 2 }
+```
+
+`kind` is `comment` or `reaction`; `outcome` is `accepted`, `http_error`,
+`network_error`, or `challenge_failed`; `challenges` is an integer from 0 to
+10. Reports contain no comment text, email, account/session identifier or
+fingerprint. The endpoint answers `204` and never controls a comment's
+outcome. Invalid or rate-limited reports are ignored. Its independent
+report budget is 60 per minute per hashed IP, separate from write budgets.
+
+Reports are unverified and incomplete when a browser cannot deliver them.
+Server request counters separately measure accepted HTTP responses, invalid
+requests, rate limits, challenge failures and unavailable services, including
+retries. An accepted HTTP response is not proof of publication or of benign
+traffic. Hourly aggregate counters expire after 90 days.

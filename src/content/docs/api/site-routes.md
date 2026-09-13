@@ -163,3 +163,11 @@ archive), not prerendered, because the mood feed changes between deploys. It
 returns a plain-text `500 Failed to generate RSS feed.` if the archive read
 throws. The blog feed, `llms.txt`, and the sitemap are all build-time static —
 see [Feeds & Machine Output](/docs/api/feeds).
+
+
+## Earlier comment review
+
+`/reader/comments` presents the authenticated reader's matching unclaimed
+comments for explicit selection. Loading the page does not claim history;
+reads and selected claims use `/api/v2/reader/claims` with a verified reader
+session. Unauthenticated readers receive a sign-in instruction.

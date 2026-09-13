@@ -1,0 +1,26 @@
+---
+/* The four comment surfaces. Kept in one component because every one of them
+   is a way of asking the same question -- who wrote this, and who else did --
+   and a reader who lands on one of them nearly always wants another. */
+import SegmentedNav from '@/components/portal/SegmentedNav.astro';
+
+interface Props {
+  /** Omitted on a source profile, which is reached FROM these four and is
+      not one of them -- lighting a tab there would claim it is. */
+  active?: 'queue' | 'insights' | 'reactions' | 'bans';
+}
+
+const { active } = Astro.props;
+
+const ITEMS = [
+  { key: 'queue', label: 'Queue', href: '/dev/portal/comments' },
+  { key: 'insights', label: 'Insights', href: '/dev/portal/comments/insights' },
+  { key: 'reactions', label: 'Reactions', href: '/dev/portal/comments/reactions' },
+  { key: 'bans', label: 'Bans', href: '/dev/portal/comments/bans' },
+] as const;
+---
+
+<SegmentedNav
+  items={ITEMS.map((item) => ({ label: item.label, href: item.href, active: item.key === active }))}
+  ariaLabel="Comment surfaces"
+/>

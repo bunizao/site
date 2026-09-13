@@ -77,7 +77,7 @@ a readable thread; the second makes the whole feature disappear.
 | --- | --- |
 | `NOTIFY_DB` (D1) | `blog_comments`, `blog_reactions`, `notify_subscribers`, mutes |
 | `RATE_LIMITER` (Durable Object) | Every comment and reaction budget. Durable, not observability mode — this is the only route family on the site that is |
-| `CACHE` / `SESSION` (KV) | Shadow-ban keys, the 24h identity quarantine (`comments:quarantine:`), and the one-hour anonymous lockdown (`comments:lockdown`). Absent fails open: nobody is banned, quarantined, or locked down |
+| `CACHE` / `SESSION` (KV) | The 24h session/account quarantine (`comments:quarantine:`) and one-hour anonymous lockdown (`comments:lockdown`). Absent fails open for these controls; bans are stored separately in D1 |
 | `BLOG_IMAGES` (R2) | Cached reader avatars, keyed by email hash |
 
 ## Scheduled work
@@ -90,7 +90,7 @@ costs nothing beyond the four statements it issues.
 | Job | What it removes |
 | --- | --- |
 | Unverified address sweep | An address that never confirmed, 7 days on |
-| Comment risk signals | `ip_hash`, `fp_hash`, `ua`, `country`, `asn`, nulled in place 90 days after the comment was written. The comment itself stays |
+| Comment risk signals | Every actor column and both JSON blobs, nulled in place 90 days after the row was written, on `blog_comments`, `blog_reactions` and `owner_messages`. The comment itself stays |
 | Expired email-change requests | Tokens nobody used |
 | Expired delete requests | Same |
 
@@ -100,6 +100,15 @@ risk signals exist to catch a wave of abuse as it happens; three months later
 they are not evidence of anything, they are just a per-comment record of where
 somebody was sitting.
 
+What the sweep clears: the raw address and its hash, the /24 hash, the
+server-side and client-side fingerprint hashes, the stable device hash, the
+storage-id hash, the user agent, city, country, the ASN and its name, the
+referrer, and the two JSON blobs (the request's network and header set, and
+what the browser said about itself). What survives it: the body and its
+hash, the link domains, the session id, the browser and OS family names, and
+the behavioural integers — dwell, Turnstile age, link count, whether the
+session was new. Those describe a request, not a requester.
+
 ## Stopping somebody
 
 Two automatic mechanisms and two manual ones. The automatic pair exists so a
@@ -107,14 +116,12 @@ flood at 3am is handled by the time the owner wakes up; the manual pair is
 the owner's own lever afterwards. None of them rejects anything: the safe
 state everywhere is `held`, so a false positive is still in the queue.
 
-**Identity quarantine** — 24 hours, in KV under `comments:quarantine:`, keyed
-on IP hash and fingerprint hash, written by the system on a hard signal: a
-filled honeypot, a body already posted elsewhere on the site within a day,
-a spam verdict from Akismet or the AI gateway, or the owner hiding or deleting the
-writer's comment. A quarantined identity's comments are held on sight and
-spend no Akismet or AI call, and no Telegram card is sent for them — one
-identity produces one card, not twenty. Approving a flagged comment lifts
-the quarantine on its writer.
+**Identity quarantine** — 24 hours, in KV under `comments:quarantine:`,
+scoped to the current account or anonymous session. Honeypot and moderation
+signals may quarantine that subject; shared IP, subnet and fingerprint values
+never spread the hold to other readers. Ordinary owner hide/delete actions
+do not add a quarantine. Approving a flagged comment lifts its scoped hold.
+Independent network rate limits and the site-wide lockdown remain in place.
 
 **Lockdown** — one hour, site-wide, in KV under `comments:lockdown`. Engages
 on its own when anonymous traffic as a whole looks like a flood: more than
@@ -126,12 +133,45 @@ card saying when it lifts. `/comments` in the ops bot shows the status.
 Verified readers are never affected. A flood that outlasts the hour
 re-engages it on the next comment.
 
-**Shadow ban** — a KV key under `comments:shadowban:`, matched on email hash,
-IP hash, or fingerprint hash. A listed writer's comment is created and held,
-and they are never told: their own browser shows the normal "sent for review"
-state, and nobody else ever sees the row. There is no admin-portal write path;
-the list is managed with `wrangler kv key put`, keyed individually so a lookup
-never fetches a growing blob. Missing KV fails open.
+**Ban list** — the `blog_bans` table, one row per key, with an optional note
+and expiry. A key is one of: the address hash, the session, the IP hash, its
+/24 hash, the server-side fingerprint, the client fingerprint (matching
+either the exact or the stable device hash), the ASN, a link domain, or a
+mail domain. Both write paths check every key a request carries in one
+query.
+
+The effect is shadow-only, and the same for the two paths in different
+shapes. A listed writer's comment is created and held with the note
+`Shadow-banned writer.`; their own browser shows the normal "sent for
+review" state and nobody else ever sees the row. A listed source's heart
+gets the ordinary envelope carrying the `reacted` state it asked for and a
+count that did not move: no row, no reader pass, no error. Neither says a
+ban happened, which is the point — a ban that announced itself is one
+somebody can test around.
+
+Bans are applied from the comment queue's actor strip, from the source
+profile, or from the Ban button on a held comment's Telegram card, and lifted
+from the ban list page. Applying one can also **purge**: the source's
+comments from the last 90 days are soft-deleted with the note
+`Purged with ban.` and its reaction rows removed, each affected row written
+to the activity log first. Purge is off by default and is the only part of
+this that touches rows that already exist.
+
+A comment-row dialog selects only its session and, for a comment verified
+at write time, its verified email. A later ownership claim does not qualify
+as authentication at submission. Portal and Telegram defaults expire after seven
+days. IPs, subnets, server and device fingerprints, typed email addresses,
+ASNs and link or mail domains require explicit selection with a warning:
+sharing one of these signals does not establish that two writers are the
+same person. Link domains follow the Public Suffix List, including private
+hosting suffixes, so independent GitHub Pages and Cloudflare Pages tenants
+remain separate. A mail domain with more than ten published comments in the
+last 90 days cannot be banned; the API enforces the same rule as the dialog.
+
+A source-profile action selects the source key being viewed, not the first
+commenter's other keys. Fingerprints remain comparison signals. The linked
+source graph follows storage identifiers and verified email observations;
+a stable device hash alone never links separate sessions.
 
 **Reader ban** — `notify_subscribers.banned` on the reader row. This one is not
 quiet. A banned reader's session is refused on sight, so it takes effect on the
@@ -145,12 +185,34 @@ standing — removing those is a moderation action of its own.
 
 ## Moderation surfaces
 
+Identity labels distinguish **verified when written**, **anonymous when
+written**, **claimed later**, and **verification unknown**. A claim records
+ownership after submission; it does not rewrite the original authentication
+evidence. Verification describes the session at writing, not trustworthiness
+or the account's current access. Passed browser challenges and reader IDs
+alone do not establish historical verification.
+
+The portal queue can filter these identities within the loaded page and
+shows page-local counts. Actor strips on comments, reactions, and source
+profiles show the linked reader, claim time and method, and active ban-key
+matches. Ban-key matches describe the record's keys, not a complete account
+status check. Every owner notification, including published comments, shows
+identity evidence and a portal details link. Bot cards are snapshots at
+notification time; open the portal for refreshed records. Network, storage,
+and fingerprint matches name their basis and may include different readers.
+
 - **Telegram ops bot** at `/webhooks/telegram-ops` — the notification for a new
   or held comment, with the decision keyboard attached, plus direct reply when
   `COMMENTS_TELEGRAM_DIRECT_REPLY` is on. Separate path, separate secret, and
   an operator-id allowlist; see [Internal routes](/docs/api/internal#webhooks).
 - **Admin portal** — the comment routes under `/admin`, listed in the same
-  place.
+  place. Four surfaces: the queue, where every row carries an actor strip
+  (where the write came from, what it did, which keys it shares with other
+  rows, and the two blobs behind a disclosure); the insights tables, grouped
+  by network, subnet, device, hint, link domain and mail domain, each with
+  the share the automatic pass held; one key's source profile, with its
+  spread across other keys and a two-hop link graph over strong keys only;
+  and the ban list.
 - **Akismet** — every submission is checked; ham publishes, spam holds, and
   the "blatant" signal rejects. Any error, timeout, or unparseable answer
   holds. The check carries everything Akismet documents (site language and
@@ -219,3 +281,47 @@ One-time setup before flipping the switch, in order:
 `check-production-readiness.ts` (site-api) adds `TELEGRAM_DISCUSSION_CHAT_ID`
 to the required-secrets set once `MOOD_COMMENTS_ENABLED=true` — the readiness
 check fails loudly rather than the bridge silently never sending.
+
+
+## Claims and evidence
+
+A comment's ownership and its original authentication evidence are separate.
+Historical rows without evidence remain `unknown`; new writes record
+`anonymous` or `verified`. Same-browser claiming requires both the original
+session cookie and the verified mailbox. Cross-browser history is reviewed
+at `/reader/comments`, and only selected rows are claimed. Neither path
+rewrites the authentication evidence. Source profiles identify shared storage
+and fingerprint values across distinct verified accounts without merging
+those accounts or inventing a confidence percentage.
+
+## Preview and recovery
+
+Before applying a ban, the portal previews distinct affected accounts,
+sessions, comments by status, and reactions over the last 90 days. Multiple
+selected keys are combined as a union, so overlapping rows are counted once.
+Broad bans remain possible after explicit selection, but a purge is refused
+when more than 500 comments and reactions would need backups. The preview
+still reports the full count when removal is over that limit.
+
+Purge snapshots and the mutations are captured atomically. The ban history
+can restore eligible content for 30 days without lifting the ban. Later
+content, moderation, ownership or reaction changes make the affected item
+ineligible; restoring never overwrites those changes. Privacy-only sweeps
+do not disable recovery, and restoring never resurrects risk signals older
+than their original 90-day retention window. Expired snapshots are removed
+by scheduled maintenance.
+
+## Quality measurements
+
+Insights show the first owner decision on automatically held comments, with
+the number reviewed beside the share later approved. This is a moderation
+outcome, not a ground-truth false-positive rate. Temporary AI-pending holds
+that automatically publish are excluded. Legacy approval/hide counts remain
+labeled as owner actions.
+
+Server-observed request failures have separate total and authenticated-request
+denominators. Browser-reported failures and repeated challenges are displayed
+separately as incomplete and unverified. Missing measurements are unavailable;
+zero denominators produce no percentage. The underlying hourly counters
+contain no addresses, identifiers, fingerprints or text and expire after
+90 days. None of these counters grants identity or triggers a ban.

@@ -415,8 +415,9 @@ cost zero tokens.
    - disposable-email domain list (vendored from the public
      disposable-email-domains dataset; skipped for verified readers — they
      already proved the mailbox)
-   - duplicate body hash across recent comments (same post, 24h, bodies of
-     20+ chars only — short praise collides between honest readers) → drop
+   - exact repeated body across recent comments (site-wide, 24h, bodies of
+     20+ chars only) → persist as held without network quarantine;
+     normalized body hashes remain clustering signals only
    - body length bounds (1–2000 chars, request body ≤ 16 KiB)
 6. **Durable rate limits** (`withDurableRateLimit`): per IP, per anon session,
    per fingerprint — 20 comments/hour, 5/minute for anonymous writers
@@ -431,20 +432,59 @@ cost zero tokens.
    complained, fed by the Resend webhook at `/webhooks/resend`) or on a
    domain DNS says cannot receive mail (DoH MX/A check, cached, fails open).
 7. **Akismet moderation** (above).
-8. **Shadow-ban list**: KV set keyed by email_hash / ip_hash / fingerprint;
-   listed writers get `held` unconditionally and never know. Portal-managed.
+8. **Ban list** (`blog_bans` in D1, superseding the KV set this line used to
+   describe): one row per banned key, across nine kinds — email hash, mail
+   domain, anonymous session, IP, subnet, server fingerprint, client
+   fingerprint (exact or stable), ASN and link domain. Storage id and body
+   hash are comparison keys, not ban kinds. Optional note and expiry, a hit
+   counter, portal-managed.
+   Checked on both write paths and shadow-only in both: a comment is `held`
+   with `Shadow-banned writer.`, and a heart answers the ordinary envelope
+   with the `reacted` the caller asked for, an unchanged count, no row, and
+   no reader-pass cookie. Banning may purge the last 90 days of comments and
+   reactions from every matching key. Defaults select only the session and
+   verified email, expire after seven days, and do not purge. Shared network,
+   device and content keys require explicit selection; mail domains with
+   more than ten published comments in 90 days cannot be banned.
 9. ~~**Optional second opinion**: Akismet as a post-model check~~ — retired:
    Akismet was promoted to the primary moderation layer (step 7) and the
    LLM path it was meant to double-check is gone.
 
 **Fingerprint**, defined precisely: `fp_hash = hash(ip /24 + UA + salt)` plus
-retained raw signals `ip_hash`, `ua`, `country`, `asn` on each comment row.
-Server-derived only — no canvas/WebGL/font client fingerprinting: it breaks on
-the browsers this readership actually uses, decays as browsers close the
-surfaces, and Turnstile is a better bot signal. The fingerprint is a **risk
-and forensics** signal (rate limits, shadow-ban matching, spam-wave analysis),
-never an identity input: it must not resurrect a deleted session or attribute
-a comment.
+retained raw signals `ip`, `ip_hash`, `ip24_hash`, `referrer`, `ua`, `city`,
+`country`, `asn` and `as_org` on each comment and reaction row.
+
+**Reversal, owner decision, 2026-09-13: client-side fingerprinting is in.**
+The v2 line above said server-derived only, on the grounds that canvas and
+font surfaces decay and Turnstile is the better bot signal. Both halves are
+still true and neither was the point: a spam wave rotating IPs through a
+hosting ASN is invisible to a /24 hash, and the client surfaces are what make
+compare submissions an hour apart without proving they share a machine.
+So the compose box now also
+sends, all of it optional:
+
+- `clientFp` — platform, language, screen and window geometry, time zone,
+  hardware concurrency and device memory, graphics renderer, font families,
+  media-query answers, and a canvas and audio hash. Hashed twice: once whole
+  (`client_fp_hash`) and once over the slow-moving subset
+  (`client_fp_stable`). The stable hash requires sufficient core components;
+  it is not a unique device identifier and never independently links sessions.
+- `interaction` — how the form was filled, as aggregates only: focus and
+  submit timings, key and paste counts, pointer and scroll counts, a
+  `keyIntervalCv` spread figure in per mille, and bot flags such as
+  `webdriver` and `no_input_events`. Never the key sequence, never the text.
+- `storageId` — a random id in IndexedDB, stored as an HMAC, never mirrored
+  into a cookie.
+
+The standing rules do not move. **No new signal is ever a gate**: a missing or
+malformed object stores NULL and never refuses a write, and none of them feeds
+a rate-limit budget. Bot hints are counted; VPN hints are shown to the owner
+and never counted. The fingerprint, server or client, stays a **risk and
+forensics** signal (rate limits, ban matching, spam-wave analysis), never an
+identity input: it must not resurrect a deleted session or attribute a
+comment. Collection is armed by the first focus in the compose box, so a
+reader who only reads never has their canvas read. Submission waits at most
+2 seconds for all optional evidence together, then continues without it.
 
 ### Analytics
 
@@ -474,8 +514,19 @@ page-view visitor id, which stays in its own namespace. It goes in beside the
 derived counts, not instead of them, when a funnel question is actually
 asked.
 
-Retention for risk signals on comment rows: 90 days, then nulled by the
-existing cron sweep pattern; the aggregate analytics events keep only hashes.
+Retention for risk signals: 90 days, then nulled in place by the daily cron
+sweep across `blog_comments`, `blog_reactions` and `owner_messages` — every
+actor column and both JSON blobs, leaving the body, the link domains, the
+session id, the browser and OS family names and the behavioural integers. The
+aggregate analytics events keep only hashes.
+
+**Shipped alongside the signals: four admin surfaces.** The queue carries an
+actor strip per row (origin, behaviour, key chips, per-page cluster counts)
+and a ban dialog; `/dev/portal/comments/insights` ranks every dimension over a
+7/30/90-day window; `/dev/portal/comments/reactions` is the same reading for
+hearts, which have no body to judge; `/dev/portal/comments/source/:type/:value`
+is everything one key ever did. Cluster counts are per page — one indexed
+GROUP BY per dimension per table — not per row.
 
 ### Notifications
 
@@ -774,9 +825,15 @@ Each phase ships alone; nothing in 1 waits on 2.
    attribution. No OAuth gate anywhere on the read-or-react path.
 6. **OAuth is site-wide reader auth** under `/oauth/reader/*`, phase 3, an
    accelerator not a door.
-7. **Server-side risk signals are retained** (ip_hash, ua, country, asn,
-   fp_hash; 90-day retention on rows), declared in the privacy policy. No
-   client-side fingerprinting. Signals are never identity.
+7. **Revised: risk signals are retained on both sides, and the ban list moved
+   to D1.** The v2 rule kept server-derived signals only (ip_hash, ua,
+   country, asn, fp_hash) and ruled client fingerprinting out. Rotating-IP
+   waves are what reversed it: the row now also carries the raw IP, the typed
+   address, the /24 and client fingerprint hashes, an IndexedDB storage-id
+   hash, and two JSON blobs holding what the browser said about itself and
+   how the form was filled. All of it optional, none of it a gate, none of it
+   in a rate-limit budget, 90-day retention on rows, declared in the privacy
+   policy. Signals are never identity.
 8. **Moderation**: Akismet comment-check, inline on submit, fail closed to
    `held`. (Replaced the v1/v2 general-model call.)
 9. **Revised: the ops bot acts, and the portal is the wider surface.** The
@@ -822,3 +879,19 @@ Each phase ships alone; nothing in 1 waits on 2.
 - Docs: `/docs/api/*` pages for every route above (coverage guard),
   `/docs/surfaces/blog` amendment for `xia`, privacy policy update in the
   phase-1 PR.
+
+
+## Identity and recovery follow-up, 2026-09-13
+
+Authentication at write time is immutable evidence, distinct from ownership
+claimed later. Automatic claims require the original anonymous session and
+verified mailbox; other history is explicitly selected at `/reader/comments`.
+Unknown legacy writes stay unknown. Quarantine targets only an account or
+session, and ordinary owner hide/delete actions never quarantine a network.
+
+Portal bans preview their distinct impact. Optional purges capture bounded
+atomic recovery snapshots, restore only untouched content, and expire after
+30 days without extending the original signal retention. Quality metrics
+show owner decisions and request failures with their denominators; browser
+reports remain separate, incomplete observations. Migrations 0027–0029 add
+these features after the actor migration 0026.

@@ -53,6 +53,16 @@ interface TurnstileWidgetState {
   /** The next render should draw a visible checkbox the reader can press,
       rather than the invisible widget. Set only by challengeTurnstile. */
   forced: boolean;
+  /** `performance.now()` when the current solve started, and whether
+      Cloudflare opened an interactive challenge during it. Read once at
+      submit as two `interaction` fields; nothing here gates anything. */
+  startedAt: number;
+  interactive: boolean;
+  /** Render to token, milliseconds. Null until a solve has landed. */
+  solveMs: number | null;
+  promptCount: number;
+  solvePrompts: number;
+  interactiveOpen: boolean;
 }
 
 /** Cloudflare expires a solved token at about five minutes. Stop trusting one
@@ -109,7 +119,11 @@ function widgetFor(action: TurnstileAction): TurnstileWidgetState {
   let state = turnstileWidgets.get(action);
   if (!state) {
     const container = document.createElement('div');
-    state = { container, widgetId: null, tokenPromise: null, resolveCurrent: null, settled: false, solvedAt: 0, forced: false };
+    state = {
+      container, widgetId: null, tokenPromise: null, resolveCurrent: null,
+      settled: false, solvedAt: 0, forced: false, startedAt: 0, interactive: false, solveMs: null,
+      promptCount: 0, solvePrompts: 0, interactiveOpen: false,
+    };
     turnstileWidgets.set(action, state);
     homeContainer(state, action);
   }
@@ -117,8 +131,17 @@ function widgetFor(action: TurnstileAction): TurnstileWidgetState {
 }
 
 function setInteractive(state: TurnstileWidgetState, open: boolean): void {
+  if (open) state.interactive = true;
   const host = state.container.parentElement;
-  if (!host || host === document.body) return;
+  if (!host || host === document.body) {
+    state.interactiveOpen = false;
+    return;
+  }
+  if (open && !state.interactiveOpen) {
+    state.promptCount += 1;
+    state.solvePrompts += 1;
+  }
+  state.interactiveOpen = open;
   if (open) host.setAttribute(INTERACTIVE_ATTR, '');
   else host.removeAttribute(INTERACTIVE_ATTR);
 }
@@ -126,6 +149,7 @@ function setInteractive(state: TurnstileWidgetState, open: boolean): void {
 function settleWidget(state: TurnstileWidgetState, token: string): void {
   state.settled = true;
   state.solvedAt = Date.now();
+  state.solveMs = state.startedAt ? Math.round(performance.now() - state.startedAt) : null;
   setInteractive(state, false);
   state.resolveCurrent?.(token);
 }
@@ -162,7 +186,12 @@ function mintToken(state: TurnstileWidgetState, siteKey: string, action: Turnsti
   if (!turnstile) return Promise.resolve('');
 
   state.settled = false;
+  state.startedAt = performance.now();
+  state.interactive = false;
+  state.solvePrompts = 0;
+  state.interactiveOpen = false;
   homeContainer(state, action);
+  if (state.forced) setInteractive(state, true);
   state.tokenPromise = new Promise<string>((resolve) => {
     state.resolveCurrent = resolve;
     if (state.widgetId === null) {
@@ -235,7 +264,6 @@ export async function challengeTurnstile(siteKey: string, action: TurnstileActio
   // is in, so opening before the move marks the host the reader has just been
   // moved away from -- and leaves the one they are looking at collapsed.
   homeContainer(state, action);
-  setInteractive(state, true);
 
   try {
     const token = await mintToken(state, siteKey, action);
@@ -266,4 +294,21 @@ export function releaseTurnstileToken(action: TurnstileAction): void {
     state.tokenPromise = null;
     state.settled = false;
   }
+}
+
+/** How long the last solve for one action took and whether it opened a
+    challenge. Two `interaction` fields and nothing else: a widget that never
+    ran answers nulls, and no caller may refuse a write over what it says. */
+export function readTurnstileTiming(action: TurnstileAction): {
+  solveMs: number | null;
+  interactive: boolean;
+} {
+  const state = turnstileWidgets.get(action);
+  return { solveMs: state?.solveMs ?? null, interactive: state?.interactive ?? false };
+}
+
+/** Counts visible prompts, including a challenge on a token warmed before submit. */
+export function readTurnstilePrompts(action: TurnstileAction): { total: number; current: number } {
+  const state = turnstileWidgets.get(action);
+  return { total: state?.promptCount ?? 0, current: state?.tokenPromise ? state.solvePrompts : 0 };
 }

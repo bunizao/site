@@ -18,6 +18,7 @@ import StatCard from '@/components/portal/StatCard.astro';
 import PortalSection from '@/components/portal/PortalSection.astro';
 import RankedBreakdown from '@/components/portal/RankedBreakdown.astro';
 import SegmentedNav from '@/components/portal/SegmentedNav.astro';
+import CommentsSubNav from '@/components/portal/CommentsSubNav.astro';
 import CommentsQueue from '@/features/admin/ui/CommentsQueue';
 import OwnerSignIn from '@/features/admin/ui/OwnerSignIn';
 import { Activity, CheckCheck, Clock, MessagesSquare, ShieldAlert } from 'lucide-react';
@@ -26,6 +27,7 @@ import {
   type PortalCommentStatus,
   type PortalComments,
 } from '@/features/admin/server/portal-client';
+import type { AdminSourceKeyType } from '@bunizao/contracts';
 import { DEMO_COMMENTS } from '@/features/admin/server/portal-demo';
 
 export const prerender = false;
@@ -56,8 +58,20 @@ let data: PortalComments = {
 let loadError: string | null = null;
 let demoMode = false;
 
+/* The pivot. Every key chip on an actor strip links to a source profile, and
+   the profile links back here with the same pair -- so "show me only this
+   subnet's queue" is one press from anywhere the key appears. A key with no
+   column on blog_comments matches nothing rather than everything, which
+   site-api enforces; this page only has to pass it through. */
+const pivotKey = Astro.url.searchParams.get('key') as AdminSourceKeyType | null;
+const pivotValue = Astro.url.searchParams.get('value');
+
 try {
-  data = await loadPortalComments(Astro.request, Astro.locals, { status, limit: 50 });
+  data = await loadPortalComments(Astro.request, Astro.locals, {
+    status,
+    limit: 50,
+    ...(pivotKey && pivotValue ? { key: pivotKey, value: pivotValue } : {}),
+  });
 } catch (error) {
   loadError = error instanceof Error ? error.message : 'unknown';
   if (import.meta.env.DEV && loadError === 'api_binding_unavailable') {
@@ -95,7 +109,9 @@ const FILTER_LABELS: Record<Filter, string> = {
 };
 const filterItems = FILTERS.map((key) => ({
   label: key === 'all' ? 'All' : `${FILTER_LABELS[key]} (${summary.byStatus[key as PortalCommentStatus]})`,
-  href: `/dev/portal/comments?status=${key}`,
+  href: pivotKey && pivotValue
+    ? `/dev/portal/comments?status=${key}&key=${encodeURIComponent(pivotKey)}&value=${encodeURIComponent(pivotValue)}`
+    : `/dev/portal/comments?status=${key}`,
   active: key === status,
 }));
 
@@ -128,6 +144,19 @@ const dailyTotal = summary.daily.reduce((sum, day) => sum + day.count, 0);
   active="comments"
   user={{ login: session?.login || 'admin' }}
 >
+  <CommentsSubNav active="queue" />
+
+  {pivotKey && pivotValue && (
+    <div class="portal-notice">
+      <Activity size={14} />
+      <span>
+        Filtered to <code>{pivotKey}</code> <code>{pivotValue}</code>.
+        <a href={`/dev/portal/comments?status=${status}`}> Show all</a> ·
+        <a href={`/dev/portal/comments/source/${encodeURIComponent(pivotKey)}/${encodeURIComponent(pivotValue)}`}> Source profile</a>
+      </span>
+    </div>
+  )}
+
   {loadError && (
     <div class="portal-notice" data-variant="error">
       <Activity size={14} />

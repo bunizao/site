@@ -24,6 +24,9 @@ import {
 import { initials, seedHue } from '@/features/comments/identity';
 import { ICONS } from '@/features/comments/icons';
 import { resolveCommentsCopy } from '@/features/comments/copy';
+import type { ClientEvidence, ReactionToggleInput } from '@bunizao/contracts/comments';
+import { collectClientEvidence, warmClientEvidence } from '@/features/comments/client/client-evidence';
+import { beginWriteTelemetry, type WriteTelemetry } from '@/features/comments/client/telemetry';
 import type { Reactor } from '@/features/comments/types';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 
@@ -171,11 +174,22 @@ export default function ReactionBar({
     );
   }
 
+  const armedAt = React.useRef<number | undefined>(undefined);
+  const taps = React.useRef(0);
+
+  function armEvidence(): void {
+    if (armedAt.current !== undefined) return;
+    armedAt.current = Math.round(performance.now());
+    warmClientEvidence();
+  }
+
   /** One way. A like is applause, not a vote, and the toggle it used to be
       punished the reader who pressed again to mean it: the second press took
       the first one back. Every press now spends hearts; only the first one
       spends a request. */
   async function like() {
+    armEvidence();
+    taps.current += 1;
     spawnSparks();
     if (liked || inflight.current) return;
     setError('');
@@ -183,8 +197,15 @@ export default function ReactionBar({
     if (!postId) return;
 
     inflight.current = true;
+    const telemetry = beginWriteTelemetry('reaction', 'blog_reaction');
+    const submittedEvidence = collectClientEvidence({
+      kind: 'reaction',
+      armedAt: armedAt.current,
+      tapsThisPage: taps.current,
+      turnstileAction: 'blog_reaction',
+    });
     try {
-      await send(false);
+      await send(false, submittedEvidence, telemetry);
     } finally {
       inflight.current = false;
     }
@@ -192,7 +213,8 @@ export default function ReactionBar({
 
   /** One press, one write. `retried` marks the resend that follows a solved
       challenge, so a second refusal ends here instead of looping. */
-  async function send(retried: boolean): Promise<void> {
+  async function send(retried: boolean, submittedEvidence: Promise<ClientEvidence>, telemetry: WriteTelemetry): Promise<void> {
+    if (!postId) return;
     try {
       // Before every send, not once on mount: the comment rows share this
       // widget, and the last one to send took the container down into the
@@ -206,10 +228,17 @@ export default function ReactionBar({
       // no widget, nothing for Cloudflare to escalate on.
       const viaPass = hasReactionPass();
       const turnstileToken = viaPass ? '' : await getTurnstileToken(siteKey, 'blog_reaction');
+      if (!viaPass) telemetry.captureChallenges();
       const response = await fetch('/api/v2/reactions/toggle', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ targetType: 'post', targetId: postId, reacted: true, turnstileToken }),
+        body: JSON.stringify({
+          targetType: 'post',
+          targetId: postId,
+          reacted: true,
+          turnstileToken,
+          ...(await submittedEvidence),
+        } satisfies ReactionToggleInput),
       });
       if (!viaPass) releaseTurnstileToken('blog_reaction');
 
@@ -222,7 +251,7 @@ export default function ReactionBar({
         // once more the ordinary way, with a silent token.
         if (failure.code === 'BOT' && viaPass) {
           forgetReactionPass();
-          await send(retried);
+          await send(retried, submittedEvidence, telemetry);
           return;
         }
         // Cloudflare wants a human and the silent widget could not settle it.
@@ -233,18 +262,22 @@ export default function ReactionBar({
         if (failure.code === 'BOT' && !retried) {
           setError(failure.message);
           const token = await challengeTurnstile(siteKey, 'blog_reaction');
+          telemetry.captureChallenges();
           if (token) {
             setError('');
-            await send(true);
+            await send(true, submittedEvidence, telemetry);
             return;
           }
+          telemetry.finish('challenge_failed');
         }
         setLiked(false);
         setError(failure.code === 'BOT' ? failure.message : t.reactError);
+        telemetry.finish(failure.code === 'BOT' ? 'challenge_failed' : 'http_error');
         return;
       }
 
       const json = await response.json();
+      telemetry.finish('accepted');
       rememberReactionPass(json?.passUntil);
       const live = json?.reaction;
       if (live && typeof live.count === 'number') {
@@ -252,6 +285,7 @@ export default function ReactionBar({
         setLiked(Boolean(live.reacted));
       }
     } catch {
+      telemetry.finish('network_error');
       setLiked(false);
       setError(t.reactError);
     }
