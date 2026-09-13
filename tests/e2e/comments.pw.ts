@@ -21,8 +21,6 @@ function comment(overrides: Record<string, unknown> = {}) {
 }
 
 async function installCommentApi(page: import('@playwright/test').Page, options: {
-  onPost?: (release: () => void) => Promise<void>;
-  onPatch?: (release: () => void) => Promise<void>;
   postStatus?: number;
   patchStatus?: number;
   postOutcome?: 'published' | 'held';
@@ -34,16 +32,20 @@ async function installCommentApi(page: import('@playwright/test').Page, options:
     body: JSON.stringify({ reader: null }),
   }));
 
-  let postRelease: (() => void) | undefined;
-  let patchRelease: (() => void) | undefined;
+  let postRelease!: () => void;
+  let patchRelease!: () => void;
+  let markPostReceived!: () => void;
+  let markPatchReceived!: () => void;
   let postCompleted = false;
   const postGate = new Promise<void>((resolve) => { postRelease = resolve; });
   const patchGate = new Promise<void>((resolve) => { patchRelease = resolve; });
+  const postReceived = new Promise<void>((resolve) => { markPostReceived = resolve; });
+  const patchReceived = new Promise<void>((resolve) => { markPatchReceived = resolve; });
 
   await page.route('**/api/v2/comments**', async (route) => {
     const request = route.request();
     if (request.method() === 'POST') {
-      if (options.onPost) await options.onPost(() => postRelease?.());
+      markPostReceived();
       await postGate;
       if (options.postStatus && options.postStatus !== 200) {
         await route.fulfill({ status: options.postStatus, contentType: 'application/json', body: JSON.stringify({ error: 'rate limited' }) });
@@ -58,7 +60,7 @@ async function installCommentApi(page: import('@playwright/test').Page, options:
       return;
     }
     if (request.method() === 'PATCH') {
-      if (options.onPatch) await options.onPatch(() => patchRelease?.());
+      markPatchReceived();
       await patchGate;
       if (options.patchStatus && options.patchStatus !== 200) {
         await route.fulfill({ status: options.patchStatus, contentType: 'application/json', body: JSON.stringify({ error: 'edit_window_closed' }) });
@@ -96,8 +98,16 @@ async function installCommentApi(page: import('@playwright/test').Page, options:
   }));
 
   return {
-    releasePost: () => postRelease?.(),
-    releasePatch: () => patchRelease?.(),
+    // Optimistic UI can paint before evidence collection starts the request.
+    // Wait for the intercepted request instead of losing an early release.
+    releasePost: async () => {
+      await postReceived;
+      postRelease();
+    },
+    releasePatch: async () => {
+      await patchReceived;
+      patchRelease();
+    },
   };
 }
 
@@ -345,8 +355,7 @@ test('lab exposes moderation busy, conflict, and empty states', async ({ page })
 });
 
 test('optimistic comment submit paints before the API response', async ({ page }) => {
-  let release: (() => void) | undefined;
-  await installCommentApi(page, { onPost: async (next) => { release = next; } });
+  const api = await installCommentApi(page);
   await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
 
   await expect(page.locator('#comment-comment-existing')).toBeVisible();
@@ -357,8 +366,7 @@ test('optimistic comment submit paints before the API response', async ({ page }
   await compose.locator('[data-compose-submit]').click();
 
   await expect(page.locator('.blog-comment__text').filter({ hasText: 'Optimistic comment.' }).first()).toBeVisible();
-  expect(release).toBeDefined();
-  release?.();
+  await api.releasePost();
   const posted = page.locator('#comment-comment-posted');
   await expect(posted).toBeVisible();
 
@@ -371,8 +379,7 @@ test('optimistic comment submit paints before the API response', async ({ page }
 });
 
 test('optimistic edit paints before the API response', async ({ page }) => {
-  let release: (() => void) | undefined;
-  await installCommentApi(page, { onPatch: async (next) => { release = next; } });
+  const api = await installCommentApi(page);
   await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
 
   const row = page.locator('#comment-comment-existing');
@@ -381,21 +388,19 @@ test('optimistic edit paints before the API response', async ({ page }) => {
   await row.locator('[data-comment-edit-save]').click();
 
   await expect(row.locator('[data-comment-text]')).toContainText('Edited comment.');
-  expect(release).toBeDefined();
-  release?.();
+  await api.releasePatch();
   await expect(row.locator('[data-comment-text]')).toContainText('Edited comment.');
 });
 
 test('a late moderation verdict upgrades a held optimistic row', async ({ page }) => {
-  let release: (() => void) | undefined;
-  await installCommentApi(page, { postOutcome: 'held', onPost: async (next) => { release = next; } });
+  const api = await installCommentApi(page, { postOutcome: 'held' });
   await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
   const compose = page.locator('.blog-comments > .blog-compose');
   await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
   await compose.locator('input[type="email"]').fill('reader@example.com');
   await compose.locator('textarea').fill('Optimistic comment.');
   await compose.locator('[data-compose-submit]').click();
-  release?.();
+  await api.releasePost();
   const posted = page.locator('#comment-comment-posted');
   await expect(posted.locator('.blog-comment__note')).toContainText('Publishing');
   await expect(posted.locator('.blog-comment__note')).toHaveCount(0, { timeout: 5000 });
@@ -403,15 +408,14 @@ test('a late moderation verdict upgrades a held optimistic row', async ({ page }
 });
 
 test('verification nudge opens the localized subscribe panel with the known email', async ({ page }) => {
-  let release: (() => void) | undefined;
-  await installCommentApi(page, { unverifiedEmail: true, onPost: async (next) => { release = next; } });
+  const api = await installCommentApi(page, { unverifiedEmail: true });
   await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
   const compose = page.locator('.blog-comments > .blog-compose');
   await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
   await compose.locator('input[type="email"]').fill('reader@example.com');
   await compose.locator('textarea').fill('Please remember my email.');
   await compose.locator('[data-compose-submit]').click();
-  release?.();
+  await api.releasePost();
   const nudge = compose.locator('[data-compose-nudge]');
   await expect(nudge).toBeVisible();
   await nudge.locator('[data-compose-subscribe]').click();
@@ -423,8 +427,7 @@ test('verification nudge opens the localized subscribe panel with the known emai
 });
 
 test('optimistic submit and edit failures restore the reader draft', async ({ page }) => {
-  let releasePost: (() => void) | undefined;
-  await installCommentApi(page, { postStatus: 429, onPost: async (next) => { releasePost = next; } });
+  const postApi = await installCommentApi(page, { postStatus: 429 });
   await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
   const compose = page.locator('.blog-comments > .blog-compose');
   await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
@@ -432,21 +435,20 @@ test('optimistic submit and edit failures restore the reader draft', async ({ pa
   await compose.locator('textarea').fill('Restore this draft.');
   await compose.locator('[data-compose-submit]').click();
   await expect(page.locator('.blog-comment__text').filter({ hasText: 'Restore this draft.' }).first()).toBeVisible();
-  releasePost?.();
+  await postApi.releasePost();
   await expect(compose.locator('textarea')).toHaveValue('Restore this draft.');
   await expect(compose.locator('.blog-compose__alert')).toContainText('Wait before trying again');
 
-  let releasePatch: (() => void) | undefined;
   await page.reload({ waitUntil: 'networkidle' });
   // Replace the route with a failed PATCH while keeping the same fixture GETs.
   await page.unroute('**/api/v2/comments**');
-  await installCommentApi(page, { patchStatus: 409, onPatch: async (next) => { releasePatch = next; } });
+  const patchApi = await installCommentApi(page, { patchStatus: 409 });
   await page.reload({ waitUntil: 'networkidle' });
   const row = page.locator('#comment-comment-existing');
   await row.locator('[data-comment-edit-open]').click();
   await row.locator('[data-comment-edit-field]').fill('Keep this attempted edit.');
   await row.locator('[data-comment-edit-save]').click();
-  releasePatch?.();
+  await patchApi.releasePatch();
   await expect(row.locator('[data-comment-edit-field]')).toBeVisible();
   await expect(row.locator('[data-comment-edit-field]')).toHaveValue('Keep this attempted edit.');
   await expect(row.locator('.blog-comment__edit-error')).toContainText("edit window has closed");
