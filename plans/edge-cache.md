@@ -1,6 +1,6 @@
 # Executive Plan: Edge Cache Consolidation
 
-Workstream from the September 2026 Cloudflare infrastructure audit (2026-09-13). Covers `site` (public Worker) and `site-api` (private Worker). Nothing has been changed yet; this document is the agreed shape of the work and the reasons behind each step.
+Workstream from the September 2026 Cloudflare infrastructure audit (2026-09-13). Covers `site` (public Worker) and `site-api` (private Worker). The original audit and proposed rollout are retained below. The implementation record at the end supersedes assumptions that current source and live measurements disproved. This plan is not fully shipped.
 
 ## Objective
 
@@ -41,7 +41,7 @@ Two platform facts shape the plan:
 
 ### Phase 1: longer edge SWR and a consistent 304 path (`site`, S)
 
-1. Raise `CONTENT_STALE_WHILE_REVALIDATE_SECONDS` from 300 to 86400. It only feeds `cloudflareCdnCacheControl`; the browser-facing `publicCacheControl` keeps `max-age=0`. After TTL the platform serves the stored page and re-renders once per key per data center in the background, instead of making the client wait. Staleness is bounded to one request past TTL, and a deploy still invalidates everything through the version key.
+1. Raise `CONTENT_STALE_WHILE_REVALIDATE_SECONDS` from 300 to 86400. It only feeds `cloudflareCdnCacheControl`; the browser-facing `publicCacheControl` keeps `max-age=0`. After TTL the platform can serve the stored page while refreshing it in the background. Failed refreshes can keep the old entry visible throughout the stale window; one successful refresh, not one request, ends that staleness. A deploy still invalidates everything through the version key.
 2. In `withContentPolicy`, apply `setContentCacheHeaders` to `304` responses as well as `200` on policy routes. The platform's conditional revalidation currently receives a 304 from Static Assets with `public, max-age=0, must-revalidate`, merges it into the stored entry, and revalidates every request afterwards.
 3. Delete the `/` and `/blog*` rules from `public/_headers`. They restate the Static Assets default, and the worker owns those paths through `run_worker_first`. Fonts, `/r/*` and `llms.txt` stay.
 
@@ -98,7 +98,7 @@ The platform bypasses only on a response `Set-Cookie` or a request `Authorizatio
 
 ## Risks
 
-- Long SWR serves one stale response per key per data center after TTL. Acceptable for home, blog and docs; `no-store` routes are unaffected; a removed blog post is replaced by its 404 on the request after TTL, and by the next deploy at the latest.
+- Long SWR can serve stale responses throughout its configured window while refreshes are pending or failing. Do not promise a deleted post disappears on the next request. `no-store` routes are unaffected; deployments invalidate the platform's versioned entries.
 - A readiness header set after the first byte is silently lost. Keep the computation in page frontmatter and test with a forced pending render.
 - Phase 2 can raise the kill rate per render while cutting the render count (step 0 explains why). Stale-on-error covers warm keys; cold keys right after a deploy have no such cover.
 - Phase 3 step 1 changes the implicit zone caching of `*.svg` badges; step 2 exists so this is explicit rather than accidental.
@@ -115,3 +115,115 @@ The platform bypasses only on a response `Set-Cookie` or a request `Authorizatio
 
 - Phase 3 step 3 changes headers that `site` receives over the service binding; `site` does not parse them, so there is no contract change.
 - The docs coverage guard (`bun run check:docs-coverage`) is unaffected; no routes are added or removed.
+
+## Implementation record — 2026-09-13
+
+Implementation was split across three agents: public Worker caching, private
+Worker response policy, and independent production/benchmark evidence. The
+initial checkout was based on `b8bd44c1`; completed changes were rebased onto
+`site` main `f97b3da9` before final validation. The private Worker changes use
+`fdecf2a` as their base. Existing unrelated dependency edits were preserved.
+
+### Delivered code and corrected decisions
+
+- Phase 1 is implemented: default platform SWR is 86400 seconds, 304s receive
+  the route's freshness policy, and redundant Static Assets cache directives
+  are removed. The `/` and `/blog*` rules themselves remain because they also
+  provide CSP on responses that bypass Astro middleware.
+- Phase 2 readiness is implemented in page frontmatter. Incomplete responses
+  become `no-store` before streaming. Both DOM-marker scans and native
+  cache-write `Response.text()` buffering are gone. The native cache consumes
+  the cloned stream; only the development memory fallback materializes bytes.
+- Phase 2's language-invariance assumption was false on current main.
+  `3de279a9` introduced language negotiation, and the later URL-based blog
+  translation change moved its resolver to `mood/server/locale.ts`. Mood
+  feed/detail depend on `blog_lang` as well as `Accept-Language`. Their
+  in-worker keys now include the resolved locale, and responses declare
+  `Vary: Cookie, Accept-Language`.
+- **Mood feed/detail platform caching is deferred.** A response-only cookie
+  check cannot prevent a platform HIT from serving an anonymous cached page
+  before the Worker runs. All negotiated Mood HTML therefore sends platform
+  `no-store`; supported language-independent embeds can use the platform.
+  Query overrides and refresh requests still bypass both layers. Restoring
+  platform caching requires an incoming-request cookie bypass/key policy or
+  a deliberate change in language addressing, with separate validation.
+- D2 uses the documented alternative while the platform gate remains closed:
+  Mood in-worker keys include the build ID. Old HTML cannot cross deployment
+  asset versions. The second layer is not removed prematurely.
+- Current blog translations use `/blog/<locale>/<slug>`, not cookie-selected
+  variants. That main-branch behavior is preserved; the old grouped-blog
+  exception in the original plan no longer applies.
+- Phase 3 steps 1–4 are implemented. The no-store default wraps the outer
+  Worker fetch entrypoint as well as Astro middleware because eight direct
+  handler families bypass middleware. Explicit responses keep their body
+  stream, status, ETag, and existing cache policy.
+- D3 preserves existing badge TTLs instead of flattening them to 300 seconds:
+  status 10, site-badge 86400, project 3600, tech-stack 3600 seconds, each with
+  CDN SWR 3600. The original audit incorrectly described these as missing
+  cache headers. oEmbed uses 300/3600; Mood JSON uses 60/600 on successful
+  responses. Fresh, probe, errors, and stale fallback remain uncacheable.
+- D1 and D4 remain unchanged. No platform flag, production deployment,
+  account-plan change, or cross-version cache setting was activated.
+
+### Measured resource improvement
+
+The cache-write benchmark uses a real 151,560-byte production Mood HTML body,
+9 alternated before/after process pairs, 20 warm-up writes per process, and
+2,000 measured writes per process on Bun 1.4.2. Both paths drain and hash the
+client and cache streams. All 36,000 measured writes preserve the same bytes.
+The baseline helper from `1c4e507f` is runtime-identical to `f97b3da9` (only
+the TypeScript variant union changed between those refs).
+
+| Cache-write metric | Before | After |
+| --- | ---: | ---: |
+| CPU median per 2,000 writes | 865.584 ms | 283.042 ms |
+| CPU interquartile range | 17.492 ms | 4.880 ms |
+| Wall-time median per 2,000 writes | 706.330 ms | 270.213 ms |
+| Full-body string materializations per write | 1 | 0 |
+| Input bytes consumed before calling native `put` | 151,560 | 0 |
+
+The measured CPU reduction is **67.3% for this isolated local cache-write
+workload**, not for a whole page render. It uses a streaming cache sink to
+isolate application overhead. It does not establish production TTFB, total
+Worker CPU, RSS, invocation counts, or billing savings.
+
+A separate Miniflare/workerd run uses the actual native Cache API. Both
+implementations complete `MISS → HIT → HIT`, preserve all six 151,560-byte
+bodies and their SHA-256, and retain equivalent client/cache header behavior.
+
+The private Worker regression matrix was also run against its unmodified
+baseline: 14 of 46 updated assertions failed before and all pass after. The
+complete private suite passes 1,395 tests; its check and production build pass.
+
+The final public Worker suite passes **842 tests** across 114 files. Astro
+check reports zero errors and warnings, and all 120 cross-repository routes
+pass documentation coverage. The Cloudflare production build uses real Ghost
+content and passes the deployment-artifact guard without uploading anything.
+Actual Astro SSR verifies ten cache/readiness scenarios plus six language and
+cookie cases; Chromium verifies feed and detail rendering with zero page
+errors. The fixture API and development server are stopped after validation.
+
+The production CPU collector ran from 07:56:10.844755 to 08:04:30.592402 UTC
+on 2026-09-13: **499.742 seconds, not one hour**. It captured 24 SSR
+invocations (15 organic and 9 probes), all successful. Five separately
+confirmed no-store render probes, including the preceding feasibility probe,
+used 16, 18, 19, 26, and 27 ms CPU (median 19 ms). These sparse samples are not
+an hourly render distribution and do not prove that Free-plan CPU kills are
+resolved. The collector was stopped and its sanitized evidence retained.
+
+### Release gates still open
+
+1. Finish the requested one-hour production CPU baseline with render requests
+   distinguished from in-worker hits. A mixed `/mood*` median is not a render
+   median, and a short-window sample must not be labeled a one-hour result.
+2. Deploy Phase 1 separately and collect the specified three-day status data.
+3. Resolve cookie-dependent Mood platform keys before enabling that layer or
+   applying D2's removal decision. Preserve current language behavior.
+4. Deploy the private response guard, sweep real documented routes including
+   direct Worker handlers, then consider its platform-cache flag separately.
+   Local tests cannot prove service-binding platform hits or an 80% HIT ratio.
+
+Reproducible local benchmark inputs, runners, raw measurements, and SSR/browser
+artifacts are kept under `notes/debug/edge-cache-evidence/` and
+`notes/debug/edge-cache-render-results.json`. They are intentionally excluded
+from the public repository; this record contains only aggregate results.

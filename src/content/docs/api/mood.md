@@ -66,7 +66,15 @@ Response body:
 `before`/`after`, `limit`, `tag`, and the `fallback` flag are hashed into the
 edge cache key, so identical requests share one cache entry. A request with no cursor (the "latest" page)
 caches for 30s; a request with `before`/`after` (paging through history)
-caches for 300s, since history doesn't change once written.
+caches for 300s, since historical pages change less frequently.
+
+These TTLs describe the in-worker Cache API. Successful feed responses also
+advertise `Cloudflare-CDN-Cache-Control: public, max-age=60,
+stale-while-revalidate=600`, while browsers keep `Cache-Control: public,
+max-age=0`. This prepares a separate platform cache; the private Worker's
+Workers Caching flag remains disabled until its rollout checks pass.
+Fresh and probe reads, stale fallback responses, and errors remain `no-store`
+and do not receive the public CDN policy.
 
 **Errors:** `400 {"error": "Invalid cursor parameter"}` for a malformed
 `before`/`after`. `503 {"error":{"code":"mood_repository_unavailable", ...}}`
@@ -112,7 +120,10 @@ Returns the single post document. `404
 for a missing or not-yet-archived id — that's the case where falling back to
 `/api/v1/mood` (or waiting for the archive backfill) makes sense. Successful
 responses cache at the edge for 60s; `?fresh=1` bypasses both the cache read
-and the cache write.
+and the cache write. Successful detail responses advertise the same separate
+60-second CDN TTL and 600-second stale window as the feed, including when the
+in-worker detail cache supplies the response. `fresh` and `probe` omit that
+CDN policy.
 
 The `v2` document carries two booleans a `v1` (live-mirror) document never
 sets: `discussionLinked` (the post's copy in the Telegram discussion group is

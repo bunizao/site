@@ -202,12 +202,17 @@ Access-Control-Allow-Methods: GET, OPTIONS
 Access-Control-Allow-Headers: Content-Type
 ```
 
-`OPTIONS` returns `204` with those headers and nothing else. This is one of
+`OPTIONS` returns `204` with those headers and `Cache-Control: no-store,
+max-age=0`. This is one of
 the few endpoints on the API that is genuinely cross-origin readable — the
 mood JSON routes are not, which is the main reason this endpoint exists.
 
-There is **no `Cache-Control` header** on any oEmbed response, success or
-error. The successful body carries `"cache_age": 3600`, which is an oEmbed
-protocol field advising the consumer to hold the result for an hour; it is a
-hint to the client, not an HTTP directive, and nothing on the Cloudflare edge
-acts on it. If you are polling this endpoint, honor `cache_age` yourself.
+Successful responses use `Cache-Control: public, max-age=0` and
+`Cloudflare-CDN-Cache-Control: public, max-age=300, stale-while-revalidate=3600`.
+Errors use the API Worker's default `no-store, max-age=0`. The private Worker's
+platform cache requires a separate activation; these headers alone do not
+enable it.
+
+The successful body also carries `"cache_age": 3600`, an oEmbed protocol field
+advising consumers to hold the result for an hour. Consumers should honor it
+independently of HTTP cache behavior.
