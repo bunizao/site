@@ -16,7 +16,6 @@ interface EdgeCacheOptions extends EdgeCacheKeyOptions {
   cloudflareCacheControl?: string;
   isRequestCacheable?: (request: Request) => boolean;
   isResponseCacheable?: (response: Response) => boolean;
-  isResponseReady?: (body: string, response: Response) => boolean;
 }
 
 export interface EdgeCacheHit {
@@ -74,7 +73,11 @@ async function writeCache(key: Request, response: Response, ttlSeconds: number):
 
   memoryCache.set(key.url, {
     expiresAt: Date.now() + ttlSeconds * 1000,
-    response: response.clone(),
+    response: new Response(await response.arrayBuffer(), {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    }),
   });
 }
 
@@ -148,18 +151,15 @@ export async function cacheEdgeResponse(
   context?: EdgeCacheWaitContext,
 ): Promise<Response> {
   if (request.method !== 'GET') return response;
-  if (shouldBypassEdgeCache(request)) return withCacheHeader(response, options, 'BYPASS');
   if (options.isRequestCacheable && !options.isRequestCacheable(request)) return response;
   if (response.status !== 200) return response;
   if (options.isResponseCacheable && !options.isResponseCacheable(response)) return response;
+  if (shouldBypassEdgeCache(request)) return withCacheHeader(response, options, 'BYPASS');
 
   const outgoing = withCacheHeader(response, options, 'MISS');
   const copy = outgoing.clone();
 
   const write = async (): Promise<void> => {
-    const body = await copy.text();
-    if (options.isResponseReady && !options.isResponseReady(body, copy)) return;
-
     const cacheHeaders = new Headers(copy.headers);
     cacheHeaders.set('Cache-Control', `public, max-age=${retentionSeconds(options)}`);
     cacheHeaders.set(CACHED_AT_HEADER, String(Date.now()));
@@ -168,7 +168,7 @@ export async function cacheEdgeResponse(
 
     await writeCache(
       buildVariantCacheKey(request, options),
-      new Response(body, {
+      new Response(copy.body, {
         status: copy.status,
         statusText: copy.statusText,
         headers: cacheHeaders,
@@ -178,7 +178,7 @@ export async function cacheEdgeResponse(
   };
 
   // With a waitUntil the response streams to the client immediately and the
-  // buffering + write happen after it; without one (dev, tests) the write is
+  // stream write happens after it; without one (dev, tests) the write is
   // awaited so a subsequent read observes it.
   if (context?.waitUntil) {
     context.waitUntil(write().catch(() => undefined));

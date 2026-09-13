@@ -37,14 +37,16 @@ export function contentEdgeCacheVersion(
     || normalizedPath === '/blog'
     || normalizedPath.startsWith('/blog/')
     || normalizedPath === '/docs'
-    || normalizedPath.startsWith('/docs/');
+    || normalizedPath.startsWith('/docs/')
+    || normalizedPath === '/mood'
+    || normalizedPath.startsWith('/mood/');
 
   return isBuildBackedContent
     ? `${EDGE_CACHE_VERSION}:${buildId?.trim() || 'dev'}`
     : EDGE_CACHE_VERSION;
 }
 const CLOUDFLARE_CDN_CACHE_CONTROL_HEADER = 'Cloudflare-CDN-Cache-Control';
-const CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 300;
+const CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 86400;
 const NO_STORE_CACHE_CONTROL = 'no-store, max-age=0';
 
 function permanentRedirect(location: string): Response {
@@ -87,6 +89,38 @@ function appendHeaderToken(value: string | null, token: string): string {
   const tokens = current.split(',').map((item) => item.trim().toLowerCase());
   if (tokens.includes(token.toLowerCase())) return current;
   return `${current}, ${token}`;
+}
+
+// Workers Cache omits Host from its base key and shares Vary metadata across
+// representations of a URL. Normalize at the outer boundary, including old
+// Markdown cache hits, so switching formats cannot discard HTML variants.
+export function withRequestVary(request: Request, response: Response): Response {
+  const current = response.headers.get('Vary');
+  const tokens = current?.split(',').map((token) => token.trim()).filter(Boolean) ?? [];
+  if (tokens.includes('*')) return response;
+
+  const pathname = new URL(request.url).pathname;
+  const sourcePath = explicitMarkdownSourcePath(pathname) ?? pathname;
+  const policy = getContentRoutePolicy(pathname);
+  const required = hasMarkdownRenderer(sourcePath) ? ['Accept'] : [];
+  if (policy?.varyByLocale) required.push('Accept-Language', 'Cookie');
+  required.push('Host');
+  const seen = new Set(required.map((token) => token.toLowerCase()));
+  for (const token of tokens) {
+    if (seen.has(token.toLowerCase())) continue;
+    required.push(token);
+    seen.add(token.toLowerCase());
+  }
+  const vary = required.join(', ');
+  if (vary === current) return response;
+
+  const headers = new Headers(response.headers);
+  headers.set('Vary', vary);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 function appendCacheControlDirective(value: string | null, directive: string): string {
@@ -178,6 +212,7 @@ export function cloudflareCdnCacheControl(
     'public',
     `max-age=${ttlSeconds}`,
     `stale-while-revalidate=${staleWhileRevalidateSeconds}`,
+    `stale-if-error=${staleWhileRevalidateSeconds}`,
   ].join(', ');
 }
 
@@ -211,17 +246,22 @@ export function withContentPolicy(request: Request, response: Response): Respons
   if (!isHtml && !policy) return response;
 
   const headers = new Headers(response.headers);
+  const cacheReady = headers.get('X-Buxx-Cache-Ready') !== '0';
+  headers.delete('X-Buxx-Cache-Ready');
 
-  if (isHtml && hasMarkdownRenderer(url.pathname)) {
+  if ((isHtml || response.status === 304) && hasMarkdownRenderer(url.pathname)) {
     headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Accept'));
   }
 
-  if (
-    policy
-    && response.status === 200
-    && !hasExplicitBypassDirective(headers.get('Cache-Control'))
-    && shouldApplyRouteCacheHeaders(url, policy)
-  ) {
+  // Persist readiness as no-store: middleware and the Worker both decorate
+  // this response before the in-worker cache decides whether to write it.
+  if (!cacheReady) {
+    setNoStoreHeaders(headers);
+  } else if (hasExplicitBypassDirective(headers.get('Cache-Control'))) {
+    headers.delete(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER);
+  } else if (policy && !shouldApplyRouteCacheHeaders(url, policy)) {
+    setNoStoreHeaders(headers);
+  } else if (policy && (response.status === 200 || response.status === 304)) {
     setContentCacheHeaders(
       headers,
       policy.cacheTtlSeconds,
@@ -233,6 +273,11 @@ export function withContentPolicy(request: Request, response: Response): Respons
       appendCacheControlDirective(headers.get('Cache-Control'), NO_STORE_CACHE_CONTROL),
     );
     headers.delete(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER);
+  }
+
+  if (policy?.varyByLocale && (isHtml || response.status === 304)) {
+    headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Accept-Language'));
+    headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Cookie'));
   }
 
   return new Response(response.body, {
@@ -359,17 +404,15 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
       policy.cacheTtlSeconds,
       policy.cacheStaleWhileRevalidateSeconds,
     ),
-    cloudflareCacheControl: policy.normalizeHtmlCacheSearch
-      ? 'no-store'
-      : cloudflareCdnCacheControl(
-          policy.cacheTtlSeconds,
-          policy.cacheStaleWhileRevalidateSeconds,
-        ),
+    cloudflareCacheControl: cloudflareCdnCacheControl(
+      policy.cacheTtlSeconds,
+      policy.cacheStaleWhileRevalidateSeconds,
+    ),
     cacheSearch,
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html')
+      && response.headers.get('X-Buxx-Cache-Ready') !== '0'
       && !hasExplicitBypassDirective(response.headers.get('Cache-Control')),
-    isResponseReady: policy.isHtmlReady,
   };
 }
 
@@ -385,8 +428,9 @@ export async function cacheHtmlPageResponse(
   response: Response,
   context?: EdgeCacheWaitContext,
 ): Promise<Response> {
+  const decorated = withContentPolicy(request, response);
   const options = createHtmlCacheOptions(request);
-  if (!options) return response;
+  if (!options) return decorated;
 
-  return cacheEdgeResponse(request, response, options, context);
+  return cacheEdgeResponse(request, decorated, options, context);
 }

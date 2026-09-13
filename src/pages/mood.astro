@@ -41,7 +41,7 @@ const locale = resolveRequestLocale({
   cookie: Astro.request.headers.get('cookie'),
   acceptLanguage: Astro.request.headers.get('accept-language'),
 }) as BlogLocale;
-Astro.response.headers.append('Vary', 'Accept-Language');
+Astro.response.headers.append('Vary', 'Accept-Language, Cookie');
 
 const title = 'Moods';
 const description = `Short posts, photos, links, and moments from ${profile.name}'s Telegram channel.`;
@@ -80,7 +80,7 @@ async function loadInitialMoodFeed() {
       }),
     });
     if (!result.cacheable) {
-      Astro.response.headers.set('Cache-Control', 'no-store');
+      Astro.response.headers.set('X-Buxx-Cache-Ready', '0');
     }
     return result.value;
   } catch (error) {
@@ -90,6 +90,9 @@ async function loadInitialMoodFeed() {
 }
 
 const initialFeed = await loadInitialMoodFeed();
+if (!initialFeed?.posts.length) {
+  Astro.response.headers.set('X-Buxx-Cache-Ready', '0');
+}
 // Listening/YouTube styles ship only when the SSR window actually renders such
 // an embed. Posts streamed in later load them through the feed controller's
 // dynamic imports, so the common feed pays nothing.

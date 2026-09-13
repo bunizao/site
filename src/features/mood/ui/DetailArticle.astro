@@ -14,6 +14,7 @@ interface Props {
   telegramCommentUrl?: string;
   backHref?: string;
   readSource?: 'live' | 'archive';
+  previewPending?: boolean;
   /** MoodContentDocument.discussionLinked -- renders CommentCompose in place
       of the "Leave a comment on Telegram" CTA row when true. */
   discussionLinked?: boolean;
@@ -35,6 +36,7 @@ const {
   telegramCommentUrl = '',
   backHref = '/mood',
   readSource = 'live',
+  previewPending = false,
   discussionLinked = false,
   discussionRepliesEnabled = false,
   turnstileSiteKey = '',
@@ -47,11 +49,6 @@ const postTags = post ? post.tags ?? (post.tag ? [post.tag] : []) : [];
 const channelName = post?.channel?.title?.trim() || post?.channel?.slug?.trim() || '';
 const channelAvatar = post?.channel?.avatar?.trim() || '';
 const postReactions = post?.reactions ?? [];
-const hasLinkPreview = post
-  ? post.hero?.type === 'link-preview' || post.media.some((item) => item.type === 'link-preview')
-  : false;
-const previewPending = readSource === 'archive'
-  && Boolean(post && /https?:\/\//i.test(post.bodyHtml) && !hasLinkPreview);
 ---
 
 {post ? (
