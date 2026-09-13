@@ -67,6 +67,7 @@ export function resolveCodexDisposition(result) {
 
   const ignored = result.disposition === 'ignore'
     && result.confidence === 'high'
+    && result.signalValidity === 'invalid'
     && IGNORABLE_CLASSIFICATIONS.has(result.classification);
 
   if (ignored) {

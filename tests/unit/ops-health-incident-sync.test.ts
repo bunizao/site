@@ -43,6 +43,8 @@ function createCodexResult(overrides: Record<string, unknown> = {}) {
     disposition: 'incident',
     classification: 'product_regression',
     confidence: 'high',
+    signalValidity: 'valid',
+    occurrencePattern: 'deterministic',
     summary: 'The health check found a real production regression.',
     repositoryScope: 'site',
     evidence: ['The assertion received zero image posts.'],
@@ -119,6 +121,8 @@ describe('Ops Health incident sync', () => {
     expect(report).toContain('tests/ops/hd-image-health.test.ts');
     expect(report).toContain('Received: 0');
     expect(report).toContain('failure log');
+    expect(report).toContain('**Signal validity:** valid');
+    expect(report).toContain('**Occurrence pattern:** deterministic');
   });
 
   test('caches a high-confidence ignored failure without creating an issue', async () => {
@@ -127,6 +131,8 @@ describe('Ops Health incident sync', () => {
     const ignored = createCodexResult({
       disposition: 'ignore',
       classification: 'workflow_infrastructure',
+      signalValidity: 'invalid',
+      occurrencePattern: 'intermittent',
       summary: 'The hosted runner failed before the checks started.',
     });
 

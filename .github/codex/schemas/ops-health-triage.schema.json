@@ -6,6 +6,8 @@
     "disposition",
     "classification",
     "confidence",
+    "signalValidity",
+    "occurrencePattern",
     "summary",
     "repositoryScope",
     "evidence",
@@ -32,6 +34,14 @@
     "confidence": {
       "type": "string",
       "enum": ["low", "medium", "high"]
+    },
+    "signalValidity": {
+      "type": "string",
+      "enum": ["valid", "invalid", "uncertain"]
+    },
+    "occurrencePattern": {
+      "type": "string",
+      "enum": ["deterministic", "intermittent", "unknown"]
     },
     "summary": {
       "type": "string",
