@@ -1,4 +1,4 @@
-import type { ClientFingerprint, CommentStatus, Interaction } from './comments';
+import type { ClientFingerprint, CommentAuthAtWrite, CommentClaimMethod, CommentStatus, Interaction } from './comments';
 import type {
   DeliveryMode,
   NotifyAuditEventType,
@@ -275,6 +275,10 @@ export interface AdminClusterCount {
     and no body hash. */
 export interface AdminCommentActor {
   readerId: string | null;
+  /** Missing on older responses means unknown, not authenticated. */
+  authAtWrite?: CommentAuthAtWrite;
+  claimedAt?: string | null;
+  claimMethod?: CommentClaimMethod | null;
   /** Plaintext while the row still holds it (verified: with the row;
       unverified: seven days). */
   email: string | null;
@@ -355,6 +359,39 @@ export interface AdminBanInput {
 export interface AdminBanResult {
   bans: AdminBan[];
   purged: { comments: number; reactions: number };
+  operation?: AdminBanOperation | null;
+}
+
+export interface AdminBanPreview {
+  accounts: number;
+  sessions: number;
+  comments: Record<AdminCommentStatus | 'total', number>;
+  reactions: number;
+  purge: { comments: number; reactions: number };
+  windowDays: 90;
+  purgeLimit: number;
+  purgeAllowed: boolean;
+}
+
+export interface AdminBanOperation {
+  id: string;
+  createdAt: string;
+  source: AdminBanSource;
+  keys: AdminBanInput['keys'];
+  note: string | null;
+  purged: { comments: number; reactions: number };
+  restoredAt: string | null;
+  restorableUntil: string;
+  restored: { comments: number; reactions: number };
+  skipped: { comments: number; reactions: number };
+}
+
+export interface AdminBanOperationListResult {
+  operations: AdminBanOperation[];
+}
+
+export interface AdminBanRestoreResult {
+  operation: AdminBanOperation;
 }
 
 export interface AdminBanListResult {
@@ -365,6 +402,13 @@ export interface AdminBanListResult {
     `GET /admin/sources/:type/:value`. */
 export interface AdminSourceProfile {
   key: { type: AdminSourceKeyType; value: string };
+  identitySummary?: {
+    verifiedAccounts: number;
+    anonymousSessions: number;
+    claimedComments: number;
+    sharedStorage: boolean;
+    sharedFingerprint: boolean;
+  };
   firstSeenAt: string | null;
   lastSeenAt: string | null;
   comments: {
@@ -379,18 +423,15 @@ export interface AdminSourceProfile {
     /** Newest 50. */
     rows: AdminReactionRecord[];
   };
-  /** Distinct values of every other key this source has used. The spread is
-      the churn: one fingerprint over 40 sessions and 12 IPs is a bot; one
-      session over 3 IPs is a phone that changed networks. */
+  /** Distinct observed values. Shared environments do not establish a person. */
   spread: Record<
     'session' | 'ip' | 'ip24' | 'fp' | 'clientFp' | 'clientFpStable' | 'storageId' | 'email' | 'asn' | 'ua',
     number
   >;
   /** Every bot and vpn hint this source has tripped, with how often. */
   hints: Array<{ hint: string; kind: 'bot' | 'vpn'; count: number }>;
-  /** Two hops over strong keys only (session, email, clientFpStable,
-      storageId): the sessions this source links to, and what those sessions
-      carried. Never `ip24`, `asn` or `ua` as a hop. */
+  /** Links describe verified-at-write account evidence or shared storage.
+      clientFpStable remains zero for compatibility; it never creates links. */
   linked: {
     sessions: number;
     via: Record<'email' | 'clientFpStable' | 'storageId', number>;
@@ -424,12 +465,40 @@ export interface AdminInsightRow {
 export type AdminCommentInsightsWindow = '7d' | '30d' | '90d';
 export type AdminReactionInsightsWindow = '48h' | '7d';
 
+export interface AdminCommentQuality {
+  since: string;
+  collectedSince: string | null;
+  available: { moderation: boolean; requests: boolean; clientReports: boolean };
+  /** A cohort of automatically held comments and the first later owner decision. */
+  moderation: { held: number; reviewed: number; released: number; releasedShare: number | null };
+  /** Request outcomes include retries. Authenticated does not mean known benign. */
+  requests: {
+    attempts: number;
+    failures: number;
+    failureShare: number | null;
+    authenticatedAttempts: number;
+    authenticatedFailures: number;
+    authenticatedFailureShare: number | null;
+    outcomes: Array<{ kind: 'comment' | 'reaction'; outcome: string; count: number }>;
+  };
+  /** Self-reported and incomplete when the browser cannot deliver telemetry. */
+  clientReports: {
+    reports: number;
+    failures: number;
+    networkFailures: number;
+    challengedAttempts: number;
+    repeatedChallenges: number;
+    untrusted: true;
+  };
+}
+
 /** `GET /admin/comments/insights?window=`. Every table carries a held rate,
     because a source is only interesting relative to how the automatic pass
     treats it. NULL groups show as their own row, never dropped. */
 export interface AdminCommentInsights {
   window: AdminCommentInsightsWindow;
   since: string;
+  quality?: AdminCommentQuality;
   networks: Array<AdminInsightRow & { asn: number | null; asOrg: string | null }>;
   countries: Array<AdminInsightRow & { country: string | null }>;
   subnets: Array<AdminInsightRow & { ip24: string | null; sampleIp: string | null }>;

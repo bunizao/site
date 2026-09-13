@@ -569,3 +569,35 @@ export function commentPolicyFromTags(
     `readonly` and `off` answer no; the difference between them is drawn, not
     enforced. */
 export const acceptsComments = (policy: CommentPolicy): boolean => policy.mode === 'open';
+/** Evidence recorded when the comment was written, never upgraded by claiming. */
+export type CommentAuthAtWrite = 'unknown' | 'anonymous' | 'verified';
+export type CommentClaimMethod = 'session' | 'confirmed';
+
+export interface ReaderClaimCandidate {
+  id: string;
+  surface: CommentSurface;
+  postId: string;
+  body: string;
+  createdAt: string;
+  authorName: string;
+}
+
+export interface ReaderClaimsResult {
+  comments: ReaderClaimCandidate[];
+  hasMore: boolean;
+}
+
+export interface ReaderClaimsInput {
+  commentIds: string[];
+}
+
+export interface ReaderClaimResult {
+  claimedIds: string[];
+}
+
+/** Optional client reports are operational observations, never identity evidence. */
+export interface CommentTelemetryInput {
+  kind: 'comment' | 'reaction';
+  outcome: 'accepted' | 'http_error' | 'network_error' | 'challenge_failed';
+  challenges: number;
+}
