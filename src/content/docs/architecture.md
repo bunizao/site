@@ -172,6 +172,11 @@ cookie-bearing requests. Different cookies can increase the number of cache
 entries even when they resolve to the same language; there is no additional
 gateway or language redirect.
 
+Every representation of a negotiated URL uses the same ordered variance,
+including Markdown cache hits, redirects, errors, and bodyless 304 responses.
+Different Vary lists can replace the platform's per-URL variant metadata and
+force HTML and Markdown to evict each other even before their TTL expires.
+
 Supported Mood embed queries are language-independent and eligible for
 platform caching. Unsupported query shapes, detail query overrides, and
 refresh requests remain uncacheable. Feed anchors use the raw URL as the
