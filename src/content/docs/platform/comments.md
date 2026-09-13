@@ -77,7 +77,7 @@ a readable thread; the second makes the whole feature disappear.
 | --- | --- |
 | `NOTIFY_DB` (D1) | `blog_comments`, `blog_reactions`, `notify_subscribers`, mutes |
 | `RATE_LIMITER` (Durable Object) | Every comment and reaction budget. Durable, not observability mode — this is the only route family on the site that is |
-| `CACHE` / `SESSION` (KV) | Shadow-ban keys, the 24h identity quarantine (`comments:quarantine:`), and the one-hour anonymous lockdown (`comments:lockdown`). Absent fails open: nobody is banned, quarantined, or locked down |
+| `CACHE` / `SESSION` (KV) | The 24h network quarantine (`comments:quarantine:`) and one-hour anonymous lockdown (`comments:lockdown`). Absent fails open for these controls; bans are stored separately in D1 |
 | `BLOG_IMAGES` (R2) | Cached reader avatars, keyed by email hash |
 
 ## Scheduled work
@@ -118,8 +118,7 @@ state everywhere is `held`, so a false positive is still in the queue.
 
 **Identity quarantine** — 24 hours, in KV under `comments:quarantine:`, keyed
 on IP hash and fingerprint hash, written by the system on a hard signal: a
-filled honeypot, a body already posted elsewhere on the site within a day,
-a spam verdict from Akismet or the AI gateway, or the owner hiding or deleting the
+filled honeypot, a spam verdict from Akismet or the AI gateway, or the owner hiding or deleting the
 writer's comment. A quarantined identity's comments are held on sight and
 spend no Akismet or AI call, and no Telegram card is sent for them — one
 identity produces one card, not twenty. Approving a flagged comment lifts
@@ -159,10 +158,20 @@ comments from the last 90 days are soft-deleted with the note
 to the activity log first. Purge is off by default and is the only part of
 this that touches rows that already exist.
 
-Wide keys — a /24, an ASN, a mail domain — are offered unticked and say who
-else they would catch. The narrow set (address, IP, fingerprint, device,
-every link domain on the row) is what opens ticked, and what the Telegram
-button applies on its own.
+A comment-row dialog selects only its session and, for an authenticated
+reader, its verified email. Portal and Telegram defaults expire after seven
+days. IPs, subnets, server and device fingerprints, typed email addresses,
+ASNs and link or mail domains require explicit selection with a warning:
+sharing one of these signals does not establish that two writers are the
+same person. Link domains follow the Public Suffix List, including private
+hosting suffixes, so independent GitHub Pages and Cloudflare Pages tenants
+remain separate. A mail domain with more than ten published comments in the
+last 90 days cannot be banned; the API enforces the same rule as the dialog.
+
+A source-profile action selects the source key being viewed, not the first
+commenter's other keys. Fingerprints remain comparison signals. The linked
+source graph follows storage identifiers and verified email observations;
+a stable device hash alone never links separate sessions.
 
 **Reader ban** — `notify_subscribers.banned` on the reader row. This one is not
 quiet. A banned reader's session is refused on sight, so it takes effect on the

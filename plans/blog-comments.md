@@ -415,8 +415,9 @@ cost zero tokens.
    - disposable-email domain list (vendored from the public
      disposable-email-domains dataset; skipped for verified readers — they
      already proved the mailbox)
-   - duplicate body hash across recent comments (same post, 24h, bodies of
-     20+ chars only — short praise collides between honest readers) → drop
+   - exact repeated body across recent comments (site-wide, 24h, bodies of
+     20+ chars only) → persist as held without network quarantine;
+     normalized body hashes remain clustering signals only
    - body length bounds (1–2000 chars, request body ≤ 16 KiB)
 6. **Durable rate limits** (`withDurableRateLimit`): per IP, per anon session,
    per fingerprint — 20 comments/hour, 5/minute for anonymous writers
@@ -432,16 +433,19 @@ cost zero tokens.
    domain DNS says cannot receive mail (DoH MX/A check, cached, fails open).
 7. **Akismet moderation** (above).
 8. **Ban list** (`blog_bans` in D1, superseding the KV set this line used to
-   describe): one row per banned key, across twelve kinds — email hash, mail
-   domain, reader session, IP, /24 hash, server fingerprint, client
-   fingerprint, stable client fingerprint, storage id, ASN, link domain,
-   body hash. Optional note and expiry, a hit counter, portal-managed.
+   describe): one row per banned key, across nine kinds — email hash, mail
+   domain, anonymous session, IP, subnet, server fingerprint, client
+   fingerprint (exact or stable), ASN and link domain. Storage id and body
+   hash are comparison keys, not ban kinds. Optional note and expiry, a hit
+   counter, portal-managed.
    Checked on both write paths and shadow-only in both: a comment is `held`
    with `Shadow-banned writer.`, and a heart answers the ordinary envelope
    with the `reacted` the caller asked for, an unchanged count, no row, and
    no reader-pass cookie. Banning may purge the last 90 days of comments and
-   reactions from every matching key. Wide keys (/24, ASN, mail domain,
-   session) are offered unticked.
+   reactions from every matching key. Defaults select only the session and
+   verified email, expire after seven days, and do not purge. Shared network,
+   device and content keys require explicit selection; mail domains with
+   more than ten published comments in 90 days cannot be banned.
 9. ~~**Optional second opinion**: Akismet as a post-model check~~ — retired:
    Akismet was promoted to the primary moderation layer (step 7) and the
    LLM path it was meant to double-check is gone.
@@ -455,14 +459,16 @@ The v2 line above said server-derived only, on the grounds that canvas and
 font surfaces decay and Turnstile is the better bot signal. Both halves are
 still true and neither was the point: a spam wave rotating IPs through a
 hosting ASN is invisible to a /24 hash, and the client surfaces are what make
-two submissions an hour apart the same machine. So the compose box now also
+compare submissions an hour apart without proving they share a machine.
+So the compose box now also
 sends, all of it optional:
 
 - `clientFp` — platform, language, screen and window geometry, time zone,
   hardware concurrency and device memory, graphics renderer, font families,
   media-query answers, and a canvas and audio hash. Hashed twice: once whole
   (`client_fp_hash`) and once over the slow-moving subset
-  (`client_fp_stable`), so a window resize does not mint a new device.
+  (`client_fp_stable`). The stable hash requires sufficient core components;
+  it is not a unique device identifier and never independently links sessions.
 - `interaction` — how the form was filled, as aggregates only: focus and
   submit timings, key and paste counts, pointer and scroll counts, a
   `keyIntervalCv` spread figure in per mille, and bot flags such as
@@ -477,7 +483,8 @@ and never counted. The fingerprint, server or client, stays a **risk and
 forensics** signal (rate limits, ban matching, spam-wave analysis), never an
 identity input: it must not resurrect a deleted session or attribute a
 comment. Collection is armed by the first focus in the compose box, so a
-reader who only reads never has their canvas read.
+reader who only reads never has their canvas read. Submission waits at most
+2 seconds for all optional evidence together, then continues without it.
 
 ### Analytics
 

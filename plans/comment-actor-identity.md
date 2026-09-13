@@ -14,6 +14,15 @@ client-side fingerprinting (decision D), and a fourth — "can we get more?"
 clues". A fifth, the next day, asked what the industry does; the buildable
 parts are under "What the industry does", the rest is decision E.
 
+The 2026-09-13 review tightened this plan: identity requires a verified
+session, while shared network/device/content keys remain fallible evidence.
+Exact duplicate comments are saved as held without network quarantine;
+normalized hashes only cluster. Portal and Telegram defaults select the
+session plus verified email for seven days, and all shared keys require an
+explicit decision. The source action acts only on its displayed key. No
+stable fingerprint alone expands the linked-session graph. D1 queries must
+stay below 100 bound parameters, including full moderation pages.
+
 This is a plan, not an implementation. Code lands in `site-api` (migration,
 write paths, ban check, admin routes, Telegram card) and here (contracts,
 portal, docs, privacy text). It revises decision 7 of
@@ -247,7 +256,8 @@ hand:
   insights table. Banning `cheap-seo.example` holds every future comment
   carrying it, whoever sends it.
 - `body_hash` — SHA-256 of the body lowercased with whitespace, punctuation
-  and URLs stripped. Exact-duplicate detection after normalisation; the
+  and URLs stripped. Similar-text clustering only, never an automatic drop
+  or quarantine; exact body comparisons separately hold repeated comments. The
   cluster line reads "same text: 12 comments, 11 sessions". Not a ban key
   (banning a text is a filter rule, and the Akismet call is that rule).
 - `email_domain` and `email_mx` — the typed address's domain, and whether it
@@ -281,7 +291,7 @@ before the Worker runs), but header *presence* is:
 | `no_client_hints` | Chromium ≥ 89 UA over HTTPS, no `sec-ch-ua` header |
 | `no_priority` | Chrome ≥ 124 UA, no `priority` header on the fetch (RFC 9218; verify on one real request) |
 | `via_worker` | `cf-worker` header present — the request came out of another Cloudflare Worker, which no reader's browser does |
-| `no_input_events` | body non-empty, `keyEvents === 0 && pasteEvents === 0` |
+| `no_input_events` | body non-empty, `keyEvents === 0 && inputEvents === 0 && pasteEvents === 0`; input-only methods such as dictation are valid |
 | `uniform_typing` | `keyEvents ≥ 20 && keyIntervalCv < 100` (a person's spread is several times that) |
 | `no_pointer` | `pointerType === 'mouse'`, `pointerMoves === 0` |
 | `center_click` | `pointerType === 'mouse'`, `clickOffset < 1` (automation clicks the exact centre) |
@@ -332,10 +342,11 @@ vendor and renderer, screen and DPR, platform, timezone, languages,
 `hardwareConcurrency`, `deviceMemory`, touch points, fonts and the media
 queries — no canvas, no audio, no brands, no plugins. Column and partial
 index on both tables. The `client_fp` ban key matches **either** hash (two
-pairs in the `IN` query); the dialog bans the stable one. The exact hash
-stays the tighter cluster key; the profile shows both, and "same stable
-device, three exact hashes over six weeks" reads as one browser being
-updated, not three machines.
+pairs in the `IN` query); neither hash is selected by default. The exact
+hash stays the tighter cluster key; the profile shows both as possible
+similarities. A stable match can represent different devices of the same
+model and cannot independently establish an identity or graph link. Missing
+core components produce no stable hash.
 
 **3. Storage mirror — the cookie-churn detector.** A random 32-hex
 `storageId` written once to IndexedDB by the same lazy module and sent with
@@ -352,11 +363,11 @@ within a day, which it catches.
 **4. Linked sources — two hops on strong keys only.** The graph the fraud
 vendors sell is co-occurrence: this email was seen with that device, that
 device with those sessions. The profile page gains a `linked` block: sessions
-sharing this source's `client_fp_stable`, `storage_id_hash` or `email_hash`,
-and the other subnets, devices and emails *those* sessions carried. Two
-joins on indexed columns; trivial at this volume. Strong keys only — never
-`ip24`, `asn` or `ua` as a hop, because CGNAT would link half the readership
-to itself in one step. "Ban linked" lists every key it would write before it
+sharing this source's `storage_id_hash` or verified `email_hash`, and the
+other subnets, devices and emails *those* sessions carried. Typed email and
+stable fingerprint matches do not expand the graph. Network keys such as
+`ip24`, `asn` or `ua` never form a hop, because CGNAT would link unrelated
+readers. A storage match describes a browser installation, not a person. "Ban linked" lists every key it would write before it
 writes any.
 
 **5. Outside intelligence — the free parts.**
@@ -555,7 +566,7 @@ interface AdminSourceProfile {
                  | 'email' | 'asn' | 'ua', number>;
   /** Every bot and vpn hint this source has ever tripped, with how often. */
   hints: Array<{ hint: string; kind: 'bot' | 'vpn'; count: number }>;
-  /** Two hops over strong keys only (session, email, clientFpStable, storageId):
+  /** Two hops through storage continuity and confirmed email observations:
       the sessions this source links to, and what those sessions carried. */
   linked: {
     sessions: number;
@@ -635,14 +646,17 @@ rows from the last 90 days, each logged to `blog_activity_log` as
 with a hit count (rows in the last 90 days matching each key), so a ban that
 never matched anything is visible as dead weight.
 
-The portal's ban dialog on a comment row pre-ticks `email` (if any), `ip`,
-`fp`, `client_fp` (if any) and every link `domain` on the row, leaves
-`ip24`, `session`, `asn`, `email_domain` unticked (each one is a wider net;
-`email_domain` on a `gmail.com` row would be a site-wide outage), and offers
-purge. The dialog greys out `email_domain` when the domain has more than
-ten published comments in the window, with the count shown. The Telegram held/rejected card gains a `🚫 Ban source`
-button (`comment:ban:<id>`) that applies exactly the pre-ticked set with
-no purge — one tap at the bus stop, the wider decisions on the laptop.
+The portal's ban dialog on a comment row pre-ticks only `session` and
+`email` when the row has a verified reader. The default expiry is seven days,
+matching Telegram. IP, subnet, server/client fingerprints, typed email,
+ASN, and link/mail domains start unticked and explain their shared scope.
+The dialog disables `email_domain` when more than ten published comments
+exist in the window, or its count is unavailable; the API checks the same
+threshold before any mutation. Purge remains a separate opt-in.
+The Telegram held/rejected card's `🚫 Ban source` button
+(`comment:ban:<id>`) applies the same safe defaults with no purge. On a
+source profile, the action explicitly selects only the displayed key;
+non-bannable comparison keys do not offer a ban action.
 
 ### Telegram card: three more lines, at most
 

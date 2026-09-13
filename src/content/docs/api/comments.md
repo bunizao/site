@@ -235,22 +235,22 @@ Every submission runs the full risk stack, in order:
 1. **Turnstile.** A failed or missing token is the only step that answers
    plainly with `400`/`503` — everything below this line either succeeds
    outright or fails silently.
-2. **Honeypot, dwell time, duplicate body.** Tripping any of these returns
-   a fabricated `201 { "outcome": "held", ... }` envelope that is **never
-   persisted** — a bot gets no signal to iterate against. The duplicate
-   check is site-wide over 24 hours and only applies to bodies of 20+
-   characters, so two readers independently posting the same short praise
-   are both heard; only copy-pasted paragraphs trip it. A filled honeypot
-   or a duplicate body also quarantines the writer's IP and fingerprint for
+2. **Honeypot and dwell time.** Tripping either returns a fabricated
+   `201 { "outcome": "held", ... }` envelope that is **never persisted**.
+   A filled honeypot also quarantines the writer's IP and fingerprint for
    24 hours (see step 5); an expired dwell token does not, since a tab left
-   open overnight trips it too.
+   open overnight trips it too. Exact repeated bodies of 20+ characters
+   within 24 hours are instead saved as held comments, without quarantining
+   the writer or other readers on their network. The normalized body hash
+   is a clustering signal only: differences in links or punctuation do not
+   trigger the duplicate hold.
 3. **Heuristics** (disposable email domain, keyword blocklist, link count) —
    a hit **holds** the comment (it is created, but only its writer can see
    it) rather than dropping it. A first comment carrying a link is fine —
    there is deliberately no first-session-link hold; Akismet judges it like
    anything else. A verified (L1/L2) writer skips the disposable-domain
    check — verification already priced out the throwaway identity — and
-   gets a higher link ceiling (6 instead of 3). The duplicate-body tripwire
+   gets a higher link ceiling (6 instead of 3). The exact-duplicate hold
    and the keyword blocklist apply to everyone.
 4. **Rate limits**, durably enforced across three dimensions (anonymous
    session, IP, server-derived fingerprint) and two windows each: 5/minute
@@ -264,7 +264,7 @@ Every submission runs the full risk stack, in order:
    mode.
 5. **Quarantine and lockdown** (anonymous writers only; three KV reads).
    A writer whose IP or fingerprint is quarantined — 24 hours after a
-   filled honeypot, a duplicate body, a spam verdict, or the owner hiding
+   filled honeypot, a spam verdict, or the owner hiding
    or deleting one of their comments — is held on sight, and so is every
    anonymous writer while the site-wide one-hour lockdown is engaged. Both
    holds carry reason `ok`, skip the external checks below, and send the
