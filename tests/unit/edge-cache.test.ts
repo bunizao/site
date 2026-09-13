@@ -124,56 +124,46 @@ describe('variant edge cache', () => {
     }
   });
 
-  test('shares mood anchor HTML cache entries within a ten-post bucket', async () => {
-    const firstRequest = new Request('https://buxx.me/mood?3631');
-    const secondRequest = new Request('https://buxx.me/mood?3640');
-    const body = '<!doctype html><main data-mood-initial-feed data-mood-id="3631"></main>';
-
-    const stored = await cacheHtmlPageResponse(
-      firstRequest,
-      new Response(body, {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      }),
-    );
-    const cached = await readCachedHtmlPage(secondRequest);
-
-    expect(stored.headers.get('X-Buxx-Mood-Page-Cache')).toBe('MISS');
-    expect(stored.headers.get('Cloudflare-CDN-Cache-Control'))
-      .toBe('public, max-age=300, stale-while-revalidate=1800');
-    expect(cached?.response.headers.get('X-Buxx-Mood-Page-Cache')).toBe('HIT');
-    expect(await cached?.response.text()).toBe(body);
-  });
-
   test.each(['/mood', '/mood?tag=abc', '/mood?3631', '/mood/989986'])(
-    'isolates resolved locales in the %s HTML cache',
+    'skips native cache reads, writes, and background tasks on %s',
     async (path) => {
-      const request = (headers: HeadersInit) => new Request(`https://locale-cache.example${path}`, { headers });
-      const english = request({ 'Accept-Language': 'en-US' });
-      const chinese = request({ 'Accept-Language': 'zh-CN' });
-      const stored = await cacheHtmlPageResponse(english, new Response('English', {
-        headers: { 'Content-Type': 'text/html' },
-      }));
-      expect(await readCachedHtmlPage(chinese)).toBeNull();
-      await cacheHtmlPageResponse(chinese, new Response('Chinese', {
-        headers: { 'Content-Type': 'text/html' },
-      }));
-      const englishCookie = await readCachedHtmlPage(request({
-        Cookie: 'blog_lang=en; session=irrelevant', 'Accept-Language': 'zh-CN',
-      }));
-      const sameEnglish = await readCachedHtmlPage(request({
-        Cookie: 'unrelated=value', 'Accept-Language': 'en-GB,en;q=0.9,zh;q=0.1',
-      }));
-      const chineseCookie = await readCachedHtmlPage(request({
-        Cookie: 'blog_lang=zh', 'Accept-Language': 'en-US',
-      }));
+      const originalCaches = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+      let reads = 0;
+      let writes = 0;
+      const tasks: Promise<unknown>[] = [];
+      Object.defineProperty(globalThis, 'caches', {
+        configurable: true,
+        value: { default: {
+          async match() { reads += 1; return undefined; },
+          async put() { writes += 1; },
+        } },
+      });
+      try {
+        for (const headers of [
+          { 'Accept-Language': 'en-US' },
+          { 'Accept-Language': 'zh-CN' },
+          { 'Accept-Language': 'zh-CN', Cookie: 'blog_lang=en' },
+        ]) {
+          const request = new Request(`https://platform-mood.example${path}`, { headers });
+          expect(await readCachedHtmlPage(request)).toBeNull();
+          const outgoing = await cacheHtmlPageResponse(request, new Response('Rendered Mood', {
+            headers: { 'Content-Type': 'text/html' },
+          }), { waitUntil: (task) => tasks.push(task) });
 
-      expect(await englishCookie?.response.text()).toBe('English');
-      expect(await sameEnglish?.response.text()).toBe('English');
-      expect(await chineseCookie?.response.text()).toBe('Chinese');
-      for (const response of [stored, englishCookie?.response, sameEnglish?.response, chineseCookie?.response]) {
-        expect(response?.headers.get('Cloudflare-CDN-Cache-Control'))
-          .toBe('public, max-age=300, stale-while-revalidate=1800');
-        expect(response?.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie');
+          expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control'))
+            .toBe('public, max-age=300, stale-while-revalidate=1800');
+          expect(outgoing.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie');
+          expect(outgoing.headers.has('X-Buxx-Edge-Cache')).toBe(false);
+          expect(outgoing.headers.has('X-Buxx-Mood-Page-Cache')).toBe(false);
+          expect(outgoing.bodyUsed).toBe(false);
+          expect(await outgoing.text()).toBe('Rendered Mood');
+        }
+        expect(reads).toBe(0);
+        expect(writes).toBe(0);
+        expect(tasks).toHaveLength(0);
+      } finally {
+        if (originalCaches) Object.defineProperty(globalThis, 'caches', originalCaches);
+        else Reflect.deleteProperty(globalThis, 'caches');
       }
     },
   );
@@ -186,7 +176,7 @@ describe('variant edge cache', () => {
       headers: { 'Content-Type': 'text/html' },
     }));
 
-    expect(outgoing.headers.get('X-Buxx-Edge-Cache')).toBe('BYPASS');
+    expect(outgoing.headers.has('X-Buxx-Edge-Cache')).toBe(false);
     expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control'))
       .toBe('public, max-age=300, stale-while-revalidate=1800');
     expect(outgoing.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie');
@@ -250,7 +240,7 @@ describe('variant edge cache', () => {
   });
 
   test('strips positive readiness before cache storage and client responses', async () => {
-    const request = new Request('https://ready.example/mood/989984');
+    const request = new Request('https://ready.example/');
     const outgoing = await cacheHtmlPageResponse(request, new Response('Ready', {
       headers: { 'Content-Type': 'text/html', 'X-Buxx-Cache-Ready': '1' },
     }));

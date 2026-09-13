@@ -455,7 +455,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
       cacheTtlSeconds: MOOD_FEED_PAGE_CACHE_TTL_SECONDS,
       varyByLocale: true,
       cacheStaleWhileRevalidateSeconds: MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
-      edgeCacheHtml: true,
+      edgeCacheHtml: false,
       cacheHeaderName: MOOD_PAGE_CACHE_HEADER,
       normalizeHtmlCacheSearch: normalizeMoodFeedCacheSearch,
     };
@@ -479,7 +479,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
       cacheTtlSeconds: MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS,
       varyByLocale: true,
       cacheStaleWhileRevalidateSeconds: MOOD_DETAIL_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
-      edgeCacheHtml: true,
+      edgeCacheHtml: false,
       cacheHeaderName: EDGE_CACHE_HEADER,
       normalizeHtmlCacheSearch: (url) => url.search ? null : '',
     };

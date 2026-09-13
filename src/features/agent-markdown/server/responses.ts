@@ -10,7 +10,6 @@ import {
   readI18nManifest,
 } from '@/features/posts/server/i18n-manifest';
 import { translationPath } from '@/features/posts/i18n';
-import { resolveRequestLocale } from '@/features/mood/server/locale';
 import type { BlogLocale } from '@/data/site';
 import { meta } from '@/data/site';
 import { estimateMarkdownTokens, prefersMarkdown } from './negotiation';
@@ -376,15 +375,11 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
       ? null
       : '';
   if (cacheSearch === null) return null;
-  const locale = policy.varyByLocale ? resolveRequestLocale({
-    query: url.searchParams.get('lang'),
-    cookie: request.headers.get('cookie'),
-    acceptLanguage: request.headers.get('accept-language'),
-  }) : null;
+
 
   return {
     namespace: 'content',
-    variant: locale ? `html:${locale}` : 'html',
+    variant: 'html',
     version: contentEdgeCacheVersion(url.pathname),
     ttlSeconds: policy.cacheTtlSeconds,
     staleWhileRevalidateSeconds: policy.cacheStaleWhileRevalidateSeconds,

@@ -92,19 +92,19 @@ describe('agent markdown registry', () => {
     expect(getContentRoutePolicy('/mood/rss.xml')?.cacheTtlSeconds).toBe(300);
   });
 
-  test('declares stale edge HTML cache policy for public mood detail pages', () => {
+  test('delegates public Mood detail HTML caching to the platform', () => {
     const policy = getContentRoutePolicy('/mood/990001');
 
-    expect(policy?.edgeCacheHtml).toBe(true);
+    expect(policy?.edgeCacheHtml).toBe(false);
     expect(policy?.cacheTtlSeconds).toBe(300);
     expect(policy?.cacheStaleWhileRevalidateSeconds).toBe(1800);
 
   });
 
-  test('declares longer edge HTML cache policy for the public mood feed', () => {
+  test('delegates public Mood feed HTML caching to the platform', () => {
     const policy = getContentRoutePolicy('/mood');
 
-    expect(policy?.edgeCacheHtml).toBe(true);
+    expect(policy?.edgeCacheHtml).toBe(false);
     expect(policy?.cacheTtlSeconds).toBe(300);
     expect(policy?.cacheStaleWhileRevalidateSeconds).toBe(1800);
   });

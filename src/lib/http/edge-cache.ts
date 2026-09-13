@@ -1,4 +1,4 @@
-export type EdgeCacheVariant = 'html' | 'markdown' | `html:${string}`;
+export type EdgeCacheVariant = 'html' | 'markdown';
 export type EdgeCacheStatus = 'HIT' | 'STALE' | 'MISS' | 'BYPASS';
 
 interface EdgeCacheKeyOptions {

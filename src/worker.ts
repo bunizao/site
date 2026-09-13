@@ -74,8 +74,8 @@ async function revalidateHtmlPage(
   }
 }
 
-// This worker owns the edge HTML cache: one read before rendering, one write
-// after, deferred past the response via waitUntil. The Astro middleware only
+// Routes retaining the in-worker HTML cache use one read before rendering
+// and one write after, deferred via waitUntil. The Astro middleware only
 // decorates responses (security headers, content policy) and never touches
 // the cache, so a miss costs a single read and a single background write.
 async function fetchSiteRequest(
