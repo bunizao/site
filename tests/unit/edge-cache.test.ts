@@ -84,11 +84,11 @@ describe('variant edge cache', () => {
 
     expect(stored.headers.get('X-Buxx-Edge-Cache')).toBe('MISS');
     expect(stored.headers.get('Cloudflare-CDN-Cache-Control'))
-      .toBe('public, max-age=300, stale-while-revalidate=86400');
+      .toBe('public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400');
     expect(cached?.isStale).toBe(false);
     expect(cached?.response.headers.get('X-Buxx-Edge-Cache')).toBe('HIT');
     expect(cached?.response.headers.get('Cloudflare-CDN-Cache-Control'))
-      .toBe('public, max-age=300, stale-while-revalidate=86400');
+      .toBe('public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400');
     expect(await cached?.response.text()).toBe('<!doctype html><p>cached embed</p>');
   });
 
@@ -151,7 +151,7 @@ describe('variant edge cache', () => {
           }), { waitUntil: (task) => tasks.push(task) });
 
           expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control'))
-            .toBe('public, max-age=300, stale-while-revalidate=1800');
+            .toBe('public, max-age=300, stale-while-revalidate=1800, stale-if-error=1800');
           expect(outgoing.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie');
           expect(outgoing.headers.has('X-Buxx-Edge-Cache')).toBe(false);
           expect(outgoing.headers.has('X-Buxx-Mood-Page-Cache')).toBe(false);
@@ -178,7 +178,7 @@ describe('variant edge cache', () => {
 
     expect(outgoing.headers.has('X-Buxx-Edge-Cache')).toBe(false);
     expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control'))
-      .toBe('public, max-age=300, stale-while-revalidate=1800');
+      .toBe('public, max-age=300, stale-while-revalidate=1800, stale-if-error=1800');
     expect(outgoing.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie');
     expect(await readCachedHtmlPage(new Request(request.url))).toBeNull();
   });

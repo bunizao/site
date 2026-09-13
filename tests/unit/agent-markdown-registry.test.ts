@@ -143,11 +143,13 @@ describe('agent markdown registry', () => {
       'public, max-age=0, s-maxage=300, stale-while-revalidate=1800'
     );
     expect(cloudflareCdnCacheControl(60)).toBe(
-      'public, max-age=60, stale-while-revalidate=86400'
+      'public, max-age=60, stale-while-revalidate=86400, stale-if-error=86400'
     );
     expect(cloudflareCdnCacheControl(300, 1800)).toBe(
-      'public, max-age=300, stale-while-revalidate=1800'
+      'public, max-age=300, stale-while-revalidate=1800, stale-if-error=1800'
     );
+    expect(cloudflareCdnCacheControl(60, 0))
+      .toBe('public, max-age=60, stale-while-revalidate=0, stale-if-error=0');
   });
 
   test('sets edge-only freshness for Worker-cached content routes', () => {
@@ -164,7 +166,7 @@ describe('agent markdown registry', () => {
       'public, max-age=0, s-maxage=300, stale-while-revalidate=1800'
     );
     expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
-      .toBe('public, max-age=300, stale-while-revalidate=1800');
+      .toBe('public, max-age=300, stale-while-revalidate=1800, stale-if-error=1800');
     expect(response.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie');
   });
 
@@ -181,9 +183,10 @@ describe('agent markdown registry', () => {
       expect(response.status).toBe(304);
       expect(response.body).toBeNull();
       expect(response.headers.get('ETag')).toBe('"asset-v1"');
+      expect(response.headers.get('Vary')).toBe('Accept');
       expect(response.headers.get('Cache-Control')).toBe(`public, max-age=0, s-maxage=${ttl}`);
       expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
-        .toBe(`public, max-age=${ttl}, stale-while-revalidate=86400`);
+        .toBe(`public, max-age=${ttl}, stale-while-revalidate=86400, stale-if-error=86400`);
     }
   });
 
@@ -206,7 +209,7 @@ describe('agent markdown registry', () => {
           const outgoing = withContentPolicy(request, withContentPolicy(request, response));
 
           expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control'))
-            .toBe('public, max-age=300, stale-while-revalidate=1800');
+            .toBe('public, max-age=300, stale-while-revalidate=1800, stale-if-error=1800');
           expect(outgoing.headers.get('Cache-Control'))
             .toBe('public, max-age=0, s-maxage=300, stale-while-revalidate=1800');
           expect(outgoing.headers.get('Vary')).toBe('Accept-Language, cOoKiE, Accept');
@@ -226,7 +229,7 @@ describe('agent markdown registry', () => {
       }));
 
       expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
-        .toBe('public, max-age=300, stale-while-revalidate=86400');
+        .toBe('public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400');
       expect(response.headers.get('Vary')).toBe('Accept');
     }
   });

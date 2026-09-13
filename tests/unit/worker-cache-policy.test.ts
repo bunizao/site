@@ -57,8 +57,14 @@ describe('Worker response cache boundary', () => {
     expect(renders).toBe(1);
   });
 
-  test('preserves 304 headers and partitions them by host', async () => {
-    const response = await worker.fetch(new Request('https://host-304.example/projects'), {
+  test.each([
+    ['/', ['accept', 'host']],
+    ['/privacy', ['accept', 'host']],
+    ['/projects', ['host']],
+    ['/mood', ['accept', 'accept-language', 'cookie', 'host']],
+    ['/mood/999001', ['accept', 'accept-language', 'cookie', 'host']],
+  ] as const)('retains complete variance on a bodyless %s 304', async (path, vary) => {
+    const response = await worker.fetch(new Request(`https://host-304.example${path}`), {
       ASSETS: { fetch: async () => new Response(null, {
         status: 304,
         headers: { ETag: '"asset-v1"' },
@@ -66,8 +72,12 @@ describe('Worker response cache boundary', () => {
     }, context);
     expect(response.status).toBe(304);
     expect(response.body).toBeNull();
+    expect(response.headers.has('Content-Type')).toBe(false);
     expect(response.headers.get('ETag')).toBe('"asset-v1"');
-    expect(varyTokens(response)).toContain('host');
+    expect(varyTokens(response)).toEqual([...vary]);
+    const staleWindow = path.startsWith('/mood') ? 1800 : 86400;
+    expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
+      .toContain(`stale-while-revalidate=${staleWindow}, stale-if-error=${staleWindow}`);
   });
 
   test.each(['GET', 'POST'])('covers the %s direct Astro response path', async (method) => {

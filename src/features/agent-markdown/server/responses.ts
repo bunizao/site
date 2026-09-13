@@ -196,6 +196,7 @@ export function cloudflareCdnCacheControl(
     'public',
     `max-age=${ttlSeconds}`,
     `stale-while-revalidate=${staleWhileRevalidateSeconds}`,
+    `stale-if-error=${staleWhileRevalidateSeconds}`,
   ].join(', ');
 }
 
@@ -232,7 +233,7 @@ export function withContentPolicy(request: Request, response: Response): Respons
   const cacheReady = headers.get('X-Buxx-Cache-Ready') !== '0';
   headers.delete('X-Buxx-Cache-Ready');
 
-  if (isHtml && hasMarkdownRenderer(url.pathname)) {
+  if ((isHtml || response.status === 304) && hasMarkdownRenderer(url.pathname)) {
     headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Accept'));
   }
 
@@ -375,7 +376,6 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
       ? null
       : '';
   if (cacheSearch === null) return null;
-
 
   return {
     namespace: 'content',
