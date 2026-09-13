@@ -16,7 +16,7 @@ import type {
   MetaDirective,
 } from './types';
 
-const AUTHORS_ATTRIBUTES = ['ai', 'note'] as const;
+export const AUTHORS_ATTRIBUTES = ['ai', 'note'] as const;
 
 export type AuthorshipValidationCode = 'unknown-model';
 

@@ -17,6 +17,7 @@ const POST: GhostAdminPost = {
   html: '<blockquote><p>The sea keeps its counsel — Ada</p></blockquote>',
   status: 'draft',
   updatedAt: '2026-07-31T11:59:00.000Z',
+  tags: [],
 };
 
 function clientWith(readPostById: GhostAdminClient['readPostById']): GhostAdminClient {

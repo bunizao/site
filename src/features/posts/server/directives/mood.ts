@@ -13,19 +13,25 @@ import type {
   DirectiveOutputTarget,
 } from './types';
 
-const MOOD_ATTRIBUTES = ['id', 'theme', 'density'] as const;
+export const MOOD_ATTRIBUTES = ['id', 'theme', 'density'] as const;
+export const MOOD_ID_RE = /^[1-9]\d*$/u;
+export const MOOD_THEMES = ['auto', 'light', 'dark'] as const;
+export const MOOD_DENSITIES = ['regular', 'compact'] as const;
 
 function parseMoodAttributes(rawAttributes: string): DirectiveAttributes {
   const attributes = parseKeyValueAttributes(rawAttributes);
   rejectUnsupportedAttributes(attributes, MOOD_ATTRIBUTES);
 
-  if (!/^[1-9]\d*$/u.test(attributes.id ?? '')) {
+  if (!MOOD_ID_RE.test(attributes.id ?? '')) {
     throw new DirectiveAttributeError('attribute "id" must be a positive integer.');
   }
-  if (attributes.theme && !/^(?:auto|light|dark)$/u.test(attributes.theme)) {
+  if (attributes.theme && !MOOD_THEMES.includes(attributes.theme as (typeof MOOD_THEMES)[number])) {
     throw new DirectiveAttributeError('attribute "theme" must be auto, light, or dark.');
   }
-  if (attributes.density && !/^(?:regular|compact)$/u.test(attributes.density)) {
+  if (
+    attributes.density
+    && !MOOD_DENSITIES.includes(attributes.density as (typeof MOOD_DENSITIES)[number])
+  ) {
     throw new DirectiveAttributeError('attribute "density" must be regular or compact.');
   }
 

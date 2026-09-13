@@ -1,6 +1,6 @@
 import { renderProgressiveBlurMarkup } from '@/lib/progressive-blur';
 
-const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/u;
+export const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/u;
 export const MAX_YOUTUBE_START_SECONDS = 7 * 24 * 60 * 60;
 
 export type YouTubePosterQuality = 'maxresdefault' | 'hqdefault';

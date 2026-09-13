@@ -1249,3 +1249,29 @@
   border: 0;
   border-top: 1px solid var(--blog-line);
 }
+
+/*
+ * Draft preview warnings. Global, not scoped to dev/blog/[id].astro: the
+ * live preview channel (draft-live-channel.ts) rebuilds this block with
+ * plain DOM calls after every swap, and those elements never get Astro's
+ * compile-time scope marker — a scoped <style> would silently stop applying
+ * to them the first time the channel re-renders it.
+ */
+.blog-preview-warnings {
+  margin: 0 0 28px;
+  padding: 14px 16px;
+  border: 1px solid hsl(var(--foreground) / 0.14);
+  border-radius: 10px;
+  color: var(--blog-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.blog-preview-warnings strong {
+  color: var(--blog-ink);
+}
+
+.blog-preview-warnings ul {
+  margin: 6px 0 0;
+  padding-inline-start: 18px;
+}

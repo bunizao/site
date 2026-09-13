@@ -65,4 +65,33 @@ describe('blog code blocks', () => {
       '<p>After</p>',
     ].join(''));
   });
+
+  test('rebuilds a poem code card into the blockquote shape poem.ts already parses', () => {
+    const html = [
+      '<p>Before</p>',
+      '<pre><code class="language-directive">',
+      '[!poem] Night Song [center]\n',
+      'First line\n',
+      'Second line\n',
+      '\n',
+      '— Ada',
+      '</code></pre>',
+      '<p>After</p>',
+    ].join('');
+
+    // "poem" is deliberately absent from directiveNames (it is registered as
+    // an inline directive, so the generic marker-only carrier never includes
+    // it) — the poem body shape is recognised on its own.
+    expect(normalizeDirectiveCodeBlocks(html, new Set(['authors', 'music']))).toBe([
+      '<p>Before</p>',
+      '<blockquote>[!poem] Night Song [center]<br>First line<br>Second line<br><br>— Ada</blockquote>',
+      '<p>After</p>',
+    ].join(''));
+  });
+
+  test('leaves a directive code card with no poem marker untouched', () => {
+    const html = '<pre><code class="language-directive">Just some text\nwith two lines</code></pre>';
+
+    expect(normalizeDirectiveCodeBlocks(html, new Set(['authors']))).toBe(html);
+  });
 });

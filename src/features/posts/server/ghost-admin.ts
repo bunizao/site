@@ -6,7 +6,10 @@ const GHOST_ADMIN_API_VERSION = 'v6.0';
 const GHOST_ADMIN_TOKEN_TTL_SECONDS = 5 * 60;
 const DEFAULT_GHOST_ADMIN_TIMEOUT_MS = 8_000;
 const MAX_GHOST_ADMIN_TIMEOUT_MS = 30_000;
-const DEFAULT_GHOST_ADMIN_MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
+// Exported so callers that accept draft HTML from elsewhere (the live
+// preview render endpoint) can cap the request body to the same size the
+// Admin client itself enforces on responses, without duplicating the number.
+export const DEFAULT_GHOST_ADMIN_MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const MAX_GHOST_ADMIN_MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const GHOST_POST_ID_PATTERN = /^[a-f0-9]{24}$/iu;
 const GHOST_POST_UUID_PATTERN = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu;
@@ -32,6 +35,12 @@ export class GhostAdminClientError extends Error {
   }
 }
 
+export interface GhostAdminPostTag {
+  name: string;
+  slug: string;
+  visibility: 'public' | 'internal';
+}
+
 export interface GhostAdminPost {
   id: string;
   uuid: string;
@@ -40,6 +49,7 @@ export interface GhostAdminPost {
   html: string;
   status: string;
   updatedAt: string | null;
+  tags: GhostAdminPostTag[];
 }
 
 export interface GhostAdminPostSummary {
@@ -198,6 +208,35 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function parsePostTag(value: unknown): GhostAdminPostTag | null {
+  if (!isRecord(value)) return null;
+
+  const { name, slug, visibility } = value;
+  if (
+    typeof name !== 'string'
+    || typeof slug !== 'string'
+    || (visibility !== 'public' && visibility !== 'internal')
+  ) {
+    return null;
+  }
+
+  return { name, slug, visibility };
+}
+
+function parsePostTags(value: unknown): GhostAdminPostTag[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+
+  const tags: GhostAdminPostTag[] = [];
+  for (const rawTag of value) {
+    const tag = parsePostTag(rawTag);
+    if (!tag) return null;
+    tags.push(tag);
+  }
+
+  return tags;
+}
+
 function parsePostResponse(payload: unknown, requestedId: string): GhostAdminPost | null {
   if (!isRecord(payload) || !Array.isArray(payload.posts) || payload.posts.length !== 1) {
     return null;
@@ -206,7 +245,7 @@ function parsePostResponse(payload: unknown, requestedId: string): GhostAdminPos
   const post = payload.posts[0];
   if (!isRecord(post)) return null;
 
-  const { id, uuid, slug, title, html, status, updated_at: updatedAt } = post;
+  const { id, uuid, slug, title, html, status, updated_at: updatedAt, tags: rawTags } = post;
   const hasValidRequiredFields =
     typeof id === 'string'
     && GHOST_POST_ID_PATTERN.test(id)
@@ -222,8 +261,9 @@ function parsePostResponse(payload: unknown, requestedId: string): GhostAdminPos
   const hasValidUpdatedAt = updatedAt === undefined
     || updatedAt === null
     || typeof updatedAt === 'string';
+  const tags = parsePostTags(rawTags);
 
-  if (!hasValidRequiredFields || !hasValidUpdatedAt) return null;
+  if (!hasValidRequiredFields || !hasValidUpdatedAt || !tags) return null;
 
   return {
     id,
@@ -233,6 +273,7 @@ function parsePostResponse(payload: unknown, requestedId: string): GhostAdminPos
     html,
     status,
     updatedAt: updatedAt ?? null,
+    tags,
   };
 }
 
@@ -416,8 +457,14 @@ export function createGhostAdminClient(options: GhostAdminClientOptions): GhostA
     }
 
     const url = new URL(`posts/${id}/`, apiBase);
-    if (fields) url.searchParams.set('fields', fields);
-    else url.searchParams.set('formats', 'html');
+    if (fields) {
+      url.searchParams.set('fields', fields);
+    } else {
+      url.searchParams.set('formats', 'html');
+      // Publish readiness (unlisted/no-toc/not-by-ai/translation) is read
+      // from tags, and Ghost only embeds the relation when asked.
+      url.searchParams.set('include', 'tags');
+    }
     return fetchAdminJson(url);
   };
 

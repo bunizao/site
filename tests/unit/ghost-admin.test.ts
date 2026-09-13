@@ -51,7 +51,7 @@ describe('Ghost Admin client', () => {
     });
 
     expect(requestUrl).toBe(
-      `https://blog.example.test/ghost/api/admin/posts/${POST_ID}/?formats=html`,
+      `https://blog.example.test/ghost/api/admin/posts/${POST_ID}/?formats=html&include=tags`,
     );
     expect(requestInit?.method).toBe('GET');
     expect(requestInit?.redirect).toBe('manual');
@@ -75,6 +75,7 @@ describe('Ghost Admin client', () => {
       html: '<p>Draft body</p>',
       status: 'draft',
       updatedAt: '2026-07-31T11:59:00.000Z',
+      tags: [],
     });
     expect(requestUrl).not.toContain(ADMIN_KEY_ID);
     expect(requestUrl).not.toContain(ADMIN_SECRET);
@@ -359,6 +360,62 @@ describe('Ghost Admin client', () => {
           message: 'Ghost Admin returned an invalid response.',
         });
       }
+    }
+  });
+
+  test('reads tags alongside the post, and treats a missing relation as no tags', async () => {
+    const client = createGhostAdminClient({
+      url: 'https://blog.example.test',
+      adminApiKey: ADMIN_KEY,
+      fetch: async () => Response.json({
+        posts: [{
+          id: POST_ID,
+          uuid: POST_UUID,
+          slug: 'tagged-draft',
+          title: 'Tagged draft',
+          html: '<p>Tagged</p>',
+          status: 'draft',
+          tags: [
+            { name: '#unlisted', slug: 'hash-unlisted', visibility: 'internal' },
+            { name: 'Craft', slug: 'craft', visibility: 'public' },
+          ],
+        }],
+      }),
+    });
+
+    const post = await client.readPostById(POST_ID);
+
+    expect(post.tags).toEqual([
+      { name: '#unlisted', slug: 'hash-unlisted', visibility: 'internal' },
+      { name: 'Craft', slug: 'craft', visibility: 'public' },
+    ]);
+  });
+
+  test('rejects a post whose tags relation does not match the expected shape', async () => {
+    const client = createGhostAdminClient({
+      url: 'https://blog.example.test',
+      adminApiKey: ADMIN_KEY,
+      fetch: async () => Response.json({
+        posts: [{
+          id: POST_ID,
+          uuid: POST_UUID,
+          slug: 'bad-tags',
+          title: 'Bad tags',
+          html: '<p>Bad</p>',
+          status: 'draft',
+          tags: [{ name: 'Craft', slug: 'craft', visibility: 'members' }],
+        }],
+      }),
+    });
+
+    try {
+      await client.readPostById(POST_ID);
+      throw new Error('Expected the malformed tags relation to fail');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'invalid_response',
+        message: 'Ghost Admin returned an invalid response.',
+      });
     }
   });
 

@@ -18,9 +18,12 @@ function escapeHtml(value: string): string {
   return value.replace(/&/gu, '&amp;').replace(/"/gu, '&quot;');
 }
 
+export const YOUTUBE_ATTRIBUTES = ['id', 'start'] as const;
+export const YOUTUBE_START_RE = /^\d+$/u;
+
 function parseYouTubeAttributes(rawAttributes: string): DirectiveAttributes {
   const attributes = parseKeyValueAttributes(rawAttributes);
-  rejectUnsupportedAttributes(attributes, ['id', 'start']);
+  rejectUnsupportedAttributes(attributes, YOUTUBE_ATTRIBUTES);
 
   if (!isYouTubeVideoId(attributes.id ?? '')) {
     throw new DirectiveAttributeError('attribute "id" must be an 11-character YouTube video ID.');
@@ -28,7 +31,7 @@ function parseYouTubeAttributes(rawAttributes: string): DirectiveAttributes {
   if (
     attributes.start !== undefined
     && (
-      !/^\d+$/u.test(attributes.start)
+      !YOUTUBE_START_RE.test(attributes.start)
       || Number(attributes.start) > MAX_YOUTUBE_START_SECONDS
     )
   ) {
