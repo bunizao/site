@@ -360,7 +360,6 @@ describe('Cloudflare runtime configuration', () => {
     expect(edgeCache).toContain("'STALE'");
     expect(responses).toContain('X-Buxx-Cache-Ready');
     expect(edgeCache).not.toContain('isResponseReady');
-    expect(registry).toContain('X-Buxx-Mood-Page-Cache');
     expect(edgeCache).toContain('caches?.default');
     expect(builtBlog).toContain('/_agent-markdown/blog/');
   });

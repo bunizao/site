@@ -143,7 +143,7 @@ describe('variant edge cache', () => {
           { 'Accept-Language': 'en-US' },
           { 'Accept-Language': 'zh-CN' },
           { 'Accept-Language': 'zh-CN', Cookie: 'blog_lang=en' },
-        ]) {
+        ] as HeadersInit[]) {
           const request = new Request(`https://platform-mood.example${path}`, { headers });
           expect(await readCachedHtmlPage(request)).toBeNull();
           const outgoing = await cacheHtmlPageResponse(request, new Response('Rendered Mood', {
