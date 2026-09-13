@@ -90,7 +90,7 @@ costs nothing beyond the four statements it issues.
 | Job | What it removes |
 | --- | --- |
 | Unverified address sweep | An address that never confirmed, 7 days on |
-| Comment risk signals | `ip_hash`, `fp_hash`, `ua`, `country`, `asn`, nulled in place 90 days after the comment was written. The comment itself stays |
+| Comment risk signals | Every actor column and both JSON blobs, nulled in place 90 days after the row was written, on `blog_comments`, `blog_reactions` and `owner_messages`. The comment itself stays |
 | Expired email-change requests | Tokens nobody used |
 | Expired delete requests | Same |
 
@@ -99,6 +99,15 @@ The 90-day sweep is the retention promise behind
 risk signals exist to catch a wave of abuse as it happens; three months later
 they are not evidence of anything, they are just a per-comment record of where
 somebody was sitting.
+
+What the sweep clears: the raw address and its hash, the /24 hash, the
+server-side and client-side fingerprint hashes, the stable device hash, the
+storage-id hash, the user agent, city, country, the ASN and its name, the
+referrer, and the two JSON blobs (the request's network and header set, and
+what the browser said about itself). What survives it: the body and its
+hash, the link domains, the session id, the browser and OS family names, and
+the behavioural integers — dwell, Turnstile age, link count, whether the
+session was new. Those describe a request, not a requester.
 
 ## Stopping somebody
 
@@ -126,12 +135,34 @@ card saying when it lifts. `/comments` in the ops bot shows the status.
 Verified readers are never affected. A flood that outlasts the hour
 re-engages it on the next comment.
 
-**Shadow ban** — a KV key under `comments:shadowban:`, matched on email hash,
-IP hash, or fingerprint hash. A listed writer's comment is created and held,
-and they are never told: their own browser shows the normal "sent for review"
-state, and nobody else ever sees the row. There is no admin-portal write path;
-the list is managed with `wrangler kv key put`, keyed individually so a lookup
-never fetches a growing blob. Missing KV fails open.
+**Ban list** — the `blog_bans` table, one row per key, with an optional note
+and expiry. A key is one of: the address hash, the session, the IP hash, its
+/24 hash, the server-side fingerprint, the client fingerprint (matching
+either the exact or the stable device hash), the ASN, a link domain, or a
+mail domain. Both write paths check every key a request carries in one
+query.
+
+The effect is shadow-only, and the same for the two paths in different
+shapes. A listed writer's comment is created and held with the note
+`Shadow-banned writer.`; their own browser shows the normal "sent for
+review" state and nobody else ever sees the row. A listed source's heart
+gets the ordinary envelope carrying the `reacted` state it asked for and a
+count that did not move: no row, no reader pass, no error. Neither says a
+ban happened, which is the point — a ban that announced itself is one
+somebody can test around.
+
+Bans are applied from the comment queue's actor strip, from the source
+profile, or from the Ban button on a held comment's Telegram card, and lifted
+from the ban list page. Applying one can also **purge**: the source's
+comments from the last 90 days are soft-deleted with the note
+`Purged with ban.` and its reaction rows removed, each affected row written
+to the activity log first. Purge is off by default and is the only part of
+this that touches rows that already exist.
+
+Wide keys — a /24, an ASN, a mail domain — are offered unticked and say who
+else they would catch. The narrow set (address, IP, fingerprint, device,
+every link domain on the row) is what opens ticked, and what the Telegram
+button applies on its own.
 
 **Reader ban** — `notify_subscribers.banned` on the reader row. This one is not
 quiet. A banned reader's session is refused on sight, so it takes effect on the
@@ -150,7 +181,13 @@ standing — removing those is a moderation action of its own.
   `COMMENTS_TELEGRAM_DIRECT_REPLY` is on. Separate path, separate secret, and
   an operator-id allowlist; see [Internal routes](/docs/api/internal#webhooks).
 - **Admin portal** — the comment routes under `/admin`, listed in the same
-  place.
+  place. Four surfaces: the queue, where every row carries an actor strip
+  (where the write came from, what it did, which keys it shares with other
+  rows, and the two blobs behind a disclosure); the insights tables, grouped
+  by network, subnet, device, hint, link domain and mail domain, each with
+  the share the automatic pass held; one key's source profile, with its
+  spread across other keys and a two-hop link graph over strong keys only;
+  and the ban list.
 - **Akismet** — every submission is checked; ham publishes, spam holds, and
   the "blatant" signal rejects. Any error, timeout, or unparseable answer
   holds. The check carries everything Akismet documents (site language and

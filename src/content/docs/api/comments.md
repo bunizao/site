@@ -154,7 +154,10 @@ POST /api/v2/comments
   "dwellToken": "...",
   "website": "",
   "notifyReplies": false,
-  "locale": "zh"
+  "locale": "zh",
+  "clientFp": { "navigator": {}, "screen": {}, "canvas": "..." },
+  "interaction": { "composeMs": 42000, "keyEvents": 180, "keyIntervalCv": 220 },
+  "storageId": "0123456789abcdef0123456789abcdef"
 }
 ```
 
@@ -191,7 +194,30 @@ claimable); a non-empty value must be a valid address (`400` otherwise).
 mail aligned with the page where the comment was written.
 `dwellToken` is minted by `GET /api/v2/comments/dwell-token` (see below) —
 required. `website` is a visually-hidden honeypot field; a human never fills
-it in. `notifyReplies` sets the writer's reply-mail preference — see
+it in.
+
+`clientFp`, `interaction` and `storageId` are the optional client evidence,
+collected by a module the page loads on the first focus inside the compose
+box and never on a page view. **None of the three is ever a gate.** A body
+that omits them, sends the wrong type, or sends 40 KiB of nonsense is written
+exactly like one that sends them well: the server stores what survives its
+bounds and NULL for the rest, and none of it feeds a rate-limit budget. Send
+them or do not.
+
+`clientFp` is what the browser says about itself — platform, screen, time
+zone, a canvas and audio hash, the font families a width probe found, media
+queries. `interaction` is how the form was filled, as aggregates only:
+counts, one spread figure for the gaps between keystrokes (per mille), and a
+few timings. Never the key sequence, never the intervals themselves, never
+what was typed. `storageId` is a random 32-hex value the module keeps in
+IndexedDB; the server stores only its HMAC and never uses it to set,
+restore, or extend a cookie.
+
+Bounds the server enforces before storing: strings at most 128 characters,
+`fonts` at most 32 entries, every number a bounded integer, the whole object
+under 4 KiB. The client never sends a hash of its own fingerprint — the
+server hashes the canonical component JSON itself, so a browser cannot claim
+to be a different device. `notifyReplies` sets the writer's reply-mail preference — see
 [What `notifyReplies` actually sends](#what-notifyreplies-actually-sends).
 
 A comment written without an email serializes with `avatarUrl: ""`; the
@@ -271,9 +297,12 @@ Every submission runs the full risk stack, in order:
    The upgrade is guarded on `updated_at`, so a writer who edits in the
    meantime keeps their row held rather than having it clobbered by a
    stale verdict. A `held` response is therefore not always final.
-7. **Shadow-ban.** A shadow-banned writer's otherwise-`publish` verdict is
-   quietly downgraded to `hold` — they see their own comment as normal;
-   nobody else ever does.
+7. **Shadow-ban.** A banned writer's otherwise-`publish` verdict is quietly
+   downgraded to `hold` — they see their own comment as normal; nobody else
+   ever does. The ban list holds twelve kinds of key, not one: the address,
+   the session, the IP, its /24, the server-side and client-side
+   fingerprints, the network, a link domain and a mail domain. A write
+   matching any one of them is held. Nothing in the response says so.
 
 ```json
 { "outcome": "published", "comment": { "...": "..." }, "unverifiedEmail": true }
@@ -453,7 +482,7 @@ POST /api/v2/reactions/toggle
 ```
 
 ```json
-{ "targetType": "post", "targetId": "abc123", "emoji": "❤️", "reacted": true, "turnstileToken": "..." }
+{ "targetType": "post", "targetId": "abc123", "emoji": "❤️", "reacted": true, "turnstileToken": "...", "clientFp": {}, "interaction": {}, "storageId": "..." }
 ```
 
 No sign-in required — anyone can react, no prompt, no round trip of their
@@ -468,6 +497,12 @@ against the same Ghost post registry `POST /api/v2/comments` uses.
 ```json
 { "reaction": { "emoji": "❤️", "count": 4, "reacted": true, "reactors": [] }, "passUntil": 1789120800000 }
 ```
+
+**A banned source's heart.** A reaction from a source on the ban list gets
+this same envelope, with the `reacted` state it asked for and a `count` that
+did not move. No row is written and no reader pass is issued. There is no
+error and no hint: a ban that announced itself would be a ban somebody could
+test around.
 
 **Reader pass.** An accepted reaction also sets an HttpOnly
 `__Host-reader_pass` cookie, signed against the `reader_anon` session and

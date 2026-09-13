@@ -38,7 +38,9 @@ being true, the policy text is wrong, not merely stale.
 | Mood pages | Nothing from the visitor | Public Telegram-derived content through `site-api` | Telegram |
 | Mood subscription | Email address, channel and delivery preferences, delivery records | `NOTIFY_DB` in `site-api`; tokens are minted and verified there | Resend (delivery) |
 | Blog comments | Display name, comment body, and — when supplied — an email address, stored plaintext alongside its hash. Every row also carries the raw IP and referrer, hashed IP, a server-derived fingerprint hash, user agent, country, and ASN | `NOTIFY_DB` in `site-api` (`blog_comments`, `notify_subscribers`) | Akismet (moderation), the owner's AI gateway (moderation, anonymous comments only), Resend (verification and reply mail) |
-| Comment risk signals | The `ip`, `referrer`, `ip_hash`, `fp_hash`, `ua`, `country` and `asn` on a comment row | Same rows, nulled in place by the daily cron 90 days after the comment was written | First-party |
+| Comment client evidence | What the browser says about itself (platform, screen, time zone, a canvas and audio hash, font families, media queries) and how the form was filled, as aggregates only — counts, timings, and one spread figure for the gaps between keystrokes. Never the key sequence and never what was typed. Plus a random id the page keeps in IndexedDB, stored only as its HMAC and never written back to a cookie | Two JSON columns on the same row in `NOTIFY_DB`. Collected by a module the page loads on the first focus in the compose box, never on a page view. Optional throughout: a missing or malformed object stores NULL and never refuses the write | First-party |
+| Comment risk signals | Every actor column on a comment or reaction row — the raw IP and referrer, the IP and /24 hashes, the server-side and client-side fingerprint hashes, the stable device and storage-id hashes, user agent, city, country, ASN and its name — and both JSON blobs | Same rows, nulled in place by the cron 90 days after the row was written, across `blog_comments`, `blog_reactions` and `owner_messages`. The body, the link domains, the session id, the browser and OS family names, and the behavioural integers survive | First-party |
+| Comment ban list | One row per banned key: an address hash, a session, an IP or /24 hash, a fingerprint, a device hash, an ASN, a link domain, or a mail domain, with an optional note and expiry | `blog_bans` in `NOTIFY_DB`. Checked on both write paths; the effect is silent — a held comment, or a heart that answers normally and moves no count | First-party |
 | Comment quarantine and lockdown | Hashed IP and fingerprint of a writer that tripped a spam signal (24h); a site-wide lockdown flag (1h) | `CACHE` KV in `site-api`, expiring keys | First-party |
 | Comment moderation | Body, author name and email, IP, user agent, referrer, and the post permalink, on every submission; the same values again when the owner overrules a verdict | Sent to Akismet for one `comment-check` per comment, and one `submit-spam` / `submit-ham` per owner verdict on an anonymous comment | Akismet (Automattic) |
 | Comment moderation, second opinion | Body, display name, and post title of an anonymous submission | Sent through the owner's AI gateway (`AI_BASE_URL`) for one classification per anonymous comment | The gateway's model provider |
@@ -68,19 +70,22 @@ Two things worth being precise about, because the short version reads wrong:
   Gravatar and QQ.
 - **A comment is not anonymous to the server.** "Anonymous" in the comments
   feature means *no account required* — the row still carries the IP, a
-  fingerprint hash, and a user agent for as long as the risk window lasts,
+  fingerprint hash, a user agent, and (when the browser sent them) a device
+  fingerprint and typing aggregates, for as long as the risk window lasts,
   every submission is shown to Akismet, and an anonymous submission's text is
   also shown to a language model through the AI gateway. What the feature does not do is require or verify an
   identity before publishing.
 
-> **The published policy covers blog comments as of 3 September 2026.** Its
+> **The published policy covers blog comments as of 13 September 2026.** Its
 > `## Blog comments` section names Akismet, the Gravatar and QQ avatar
 > lookups, the Resend confirmation and reply mail, the two cookies and their
-> lifetimes, and the 90-day risk-signal erasure; the disclosure, retention,
-> and rights sections carry the matching clauses. Reader OAuth is
-> deliberately absent, because no data reaches GitHub or Google while the
-> feature has no entry point — that clause lands with the sign-in button, not
-> before it.
+> lifetimes, the raw IP and the plaintext address the row keeps, what the
+> compose box asks the browser once writing starts, the identifier held in
+> the browser's own database, the silence of a refusal, and the 90-day
+> risk-signal erasure; the disclosure, retention, and rights sections carry
+> the matching clauses. Reader OAuth is deliberately absent, because no data
+> reaches GitHub or Google while the feature has no entry point — that clause
+> lands with the sign-in button, not before it.
 
 ## When to update the policy
 
@@ -92,6 +97,8 @@ page:
 - Changing subscription storage or the email delivery provider.
 - Changing anti-abuse controls, including which routes carry a Turnstile check.
 - Changing what a comment stores, how long its risk signals are kept, or which
-  moderation, avatar, or sign-in provider it talks to.
+  moderation, avatar, or sign-in provider it talks to. Adding a field to the
+  client evidence counts: it is collected in the reader's browser, so it is a
+  disclosure even though it never leaves this site.
 - Changing public content sources or media-proxy behavior.
 - Changing what `/api/edge` exposes.
