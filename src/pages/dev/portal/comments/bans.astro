@@ -9,6 +9,7 @@ import PortalLayout from '@/layouts/PortalLayout.astro';
 import PortalSection from '@/components/portal/PortalSection.astro';
 import CommentsSubNav from '@/components/portal/CommentsSubNav.astro';
 import BansTable from '@/features/admin/ui/BansTable';
+import RevokedAccounts from '@/features/admin/ui/RevokedAccounts';
 import BanOperations from '@/features/admin/ui/BanOperations';
 import { Activity } from 'lucide-react';
 import { loadBans } from '@/features/admin/server/portal-client';
@@ -67,6 +68,9 @@ try {
     class="portal-mt-lg"
   >
     <BansTable initialBans={bans} demo={demoMode} client:load />
+  </PortalSection>
+  <PortalSection title="Account bans" eyebrow="Sign-in" class="portal-mt-lg">
+    <RevokedAccounts demo={demoMode} client:load />
   </PortalSection>
   <PortalSection title="Operation history" eyebrow="Recovery" class="portal-mt-lg">
     <BanOperations demo={demoMode} client:load />

@@ -1,4 +1,4 @@
-/* The ban list, and the only place a ban is lifted.
+/* The source-key ban list, and where those bans are lifted.
 
    Sorted by what each key has actually caught, because that is the number
    that says whether a ban is still doing anything. A key with zero hits and
@@ -56,7 +56,7 @@ export default function BansTable({ initialBans, demo = false }: { initialBans: 
         <CardContent className="portal-card-content">
           <div className="portal-empty">
             <span className="portal-empty-icon"><Inbox size={18} strokeWidth={1.5} /></span>
-            <p className="portal-empty-title">Nobody is banned</p>
+            <p className="portal-empty-title">No source keys are banned</p>
             <p className="portal-empty-hint">Bans start from a comment's actor strip, or from its Telegram card.</p>
           </div>
         </CardContent>
@@ -67,7 +67,7 @@ export default function BansTable({ initialBans, demo = false }: { initialBans: 
   return (
     <Card>
       <CardContent className="portal-card-content" style={{ paddingTop: 18 }}>
-        <p>Lifting a ban allows future activity. Restore previously removed content separately in operation history.</p>
+        <p>Account bans are managed separately below. Restore previously removed content separately in operation history.</p>
         {error && <div className="portal-notice" data-variant="error"><span>{error}</span></div>}
         <table className="portal-insight">
           <thead>
