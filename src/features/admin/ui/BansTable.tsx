@@ -27,7 +27,7 @@ function expiry(ban: AdminBan): string {
   return days <= 0 ? 'expired' : `${days}d left`;
 }
 
-export default function BansTable({ initialBans }: { initialBans: AdminBan[] }) {
+export default function BansTable({ initialBans, demo = false }: { initialBans: AdminBan[]; demo?: boolean }) {
   const [bans, setBans] = React.useState(initialBans);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -67,6 +67,7 @@ export default function BansTable({ initialBans }: { initialBans: AdminBan[] }) 
   return (
     <Card>
       <CardContent className="portal-card-content" style={{ paddingTop: 18 }}>
+        <p>Lifting a ban allows future activity. Restore previously removed content separately in operation history.</p>
         {error && <div className="portal-notice" data-variant="error"><span>{error}</span></div>}
         <table className="portal-insight">
           <thead>
@@ -99,7 +100,7 @@ export default function BansTable({ initialBans }: { initialBans: AdminBan[] }) 
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={busy !== null}
+                    disabled={demo || busy !== null}
                     onClick={() => void lift(ban)}
                   >
                     <ShieldOff size={13} /> Lift

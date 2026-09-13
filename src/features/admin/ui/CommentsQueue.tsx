@@ -120,9 +120,9 @@ function CommentRow({
 
       <div className="portal-comment__head">
         <strong className="portal-comment__name">{comment.author}</strong>
-        {comment.verified && (
+        {comment.actor.authAtWrite === 'verified' && (
           <Badge variant="secondary" size="sm" title="Confirmed email at the time of writing">
-            <UserCheck size={12} strokeWidth={1.75} /> verified
+            <UserCheck size={12} strokeWidth={1.75} /> verified when written
           </Badge>
         )}
         <Badge variant={STATUS_VARIANT[comment.status]} size="sm">{comment.status}</Badge>

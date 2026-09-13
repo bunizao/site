@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { Button, Checkbox, Label, Textarea } from '@/components/coss';
-import type { AdminBanKeyType, AdminBanResult, AdminCommentActor, AdminSourceKeyType } from '@bunizao/contracts';
+import type { AdminBanInput, AdminBanKeyType, AdminBanPreview, AdminBanResult, AdminCommentActor, AdminSourceKeyType } from '@bunizao/contracts';
 import { actorKeyChips, shortHandle, sourceBanKey } from './ActorStrip';
 import { adminApiEndpoint } from './api';
 
@@ -49,7 +49,7 @@ export default function BanDialog({ actor, source, demo, onClose, onDone }: {
   const domainProtected = published === null || published === undefined || published > 10;
   const [ticked, setTicked] = React.useState<Set<string>>(() => new Set(
     chips.filter((chip) => chip.ban === 'session'
-      || (chip.ban === 'email' && !source && actor?.readerId))
+      || (chip.ban === 'email' && !source && actor?.authAtWrite === 'verified'))
       .map((chip) => `${chip.ban}:${chip.value}`),
   ));
   const [note, setNote] = React.useState('');
@@ -58,6 +58,7 @@ export default function BanDialog({ actor, source, demo, onClose, onDone }: {
   const [revoke, setRevoke] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [preview, setPreview] = React.useState<{ input: AdminBanInput; impact: AdminBanPreview } | null>(null);
 
   const toggle = (id: string) => setTicked((current) => {
     const next = new Set(current);
@@ -66,7 +67,7 @@ export default function BanDialog({ actor, source, demo, onClose, onDone }: {
     return next;
   });
 
-  async function apply(): Promise<void> {
+  async function reviewImpact(): Promise<void> {
     const keys = chips
       .filter((chip) => ticked.has(`${chip.ban}:${chip.value}`)
         && !(chip.ban === 'email_domain' && domainProtected))
@@ -82,27 +83,49 @@ export default function BanDialog({ actor, source, demo, onClose, onDone }: {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(adminApiEndpoint('/bans'), {
+      const input: AdminBanInput = {
+        keys,
+        note: note.trim() || undefined,
+        expiresAt: days ? new Date(Date.now() + Number(days) * 86_400_000).toISOString() : null,
+        purge,
+        revokeReaderId: revoke && !source ? actor?.readerId : null,
+      };
+      const response = await fetch(adminApiEndpoint('/bans/preview'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          keys,
-          note: note.trim() || undefined,
-          expiresAt: days
-            ? new Date(Date.now() + Number(days) * 86_400_000).toISOString()
-            : null,
-          purge,
-          revokeReaderId: revoke && !source ? actor?.readerId : null,
-        }),
+        body: JSON.stringify({ keys, revokeReaderId: input.revokeReaderId }),
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error((payload as { message?: string; error?: string }).message
           || (payload as { error?: string }).error || `HTTP ${response.status}`);
       }
-      onDone(await response.json() as AdminBanResult);
+      setPreview({ input, impact: await response.json() as AdminBanPreview });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'unknown');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function apply(): Promise<void> {
+    if (!preview) return;
+    if (preview.input.purge && !preview.impact.purgeAllowed) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(adminApiEndpoint('/bans'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(preview.input),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+      }
+      onDone(await response.json() as AdminBanResult);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to apply ban.');
     } finally {
       setBusy(false);
     }
@@ -116,16 +139,17 @@ export default function BanDialog({ actor, source, demo, onClose, onDone }: {
           Held comments and silent hearts, not a refusal. Nothing here tells them they were banned.
         </p>
 
+        {!preview && <>
         <ul className="portal-ban__keys">
           {chips.map((chip) => {
             const id = `${chip.ban}:${chip.value}`;
-            const warning = chip.ban === 'email' && actor?.readerId && !source
+            const warning = chip.ban === 'email' && actor?.authAtWrite === 'verified' && !source
               ? undefined : SHARED_WARNING[chip.ban!];
             const disabled = chip.ban === 'email_domain' && domainProtected;
             return (
               <li key={id} data-wide={warning ? '' : undefined}>
                 <label>
-                  <Checkbox checked={ticked.has(id)} disabled={disabled} onCheckedChange={() => toggle(id)} />
+                  <Checkbox checked={ticked.has(id)} disabled={disabled || busy} onCheckedChange={() => toggle(id)} />
                   <span className="portal-actor__key-label">{chip.label}</span>
                   <span className="portal-mono">{shortHandle(chip.value)}</span>
                   {chip.banned && <span className="portal-actor__banned">already banned</span>}
@@ -148,6 +172,7 @@ export default function BanDialog({ actor, source, demo, onClose, onDone }: {
           id="ban-note"
           rows={2}
           value={note}
+          disabled={busy}
           placeholder="What this was. Read later, by you."
           onChange={(event) => setNote(event.target.value)}
         />
@@ -157,6 +182,7 @@ export default function BanDialog({ actor, source, demo, onClose, onDone }: {
           id="ban-expiry"
           className="portal-ban__select"
           value={days}
+          disabled={busy}
           onChange={(event) => setDays(event.target.value)}
         >
           {EXPIRY_CHOICES.map((choice) => (
@@ -165,25 +191,51 @@ export default function BanDialog({ actor, source, demo, onClose, onDone }: {
         </select>
 
         <label className="portal-ban__switch">
-          <Checkbox checked={purge} onCheckedChange={(next) => setPurge(next === true)} />
+          <Checkbox checked={purge} disabled={busy} onCheckedChange={(next) => setPurge(next === true)} />
           <span>
             Also purge the last 90 days — comments are soft-deleted and hearts removed, each logged.
           </span>
         </label>
 
-        {actor?.readerId && !source && (
+        {actor?.readerId && actor.authAtWrite === 'verified' && !source && (
           <label className="portal-ban__switch">
-            <Checkbox checked={revoke} onCheckedChange={(next) => setRevoke(next === true)} />
+            <Checkbox checked={revoke} disabled={busy} onCheckedChange={(next) => setRevoke(next === true)} />
             <span>This writer has a confirmed account. Ban the account too.</span>
           </label>
         )}
+        </>}
+
+        {preview && <div className="portal-ban__preview" data-ban-preview>
+          <h4>Review the impact</h4>
+          <p>Matching records in the last {preview.impact.windowDays} days. Shared keys can include unrelated readers.</p>
+          <ul className="portal-spread">
+            <li><span>Accounts</span><strong>{preview.impact.accounts}</strong></li>
+            <li><span>Sessions</span><strong>{preview.impact.sessions}</strong></li>
+            <li><span>Comments</span><strong>{preview.impact.comments.total}</strong></li>
+            <li><span>Published comments</span><strong>{preview.impact.comments.published}</strong></li>
+            <li><span>Held comments</span><strong>{preview.impact.comments.held}</strong></li>
+            <li><span>Reactions</span><strong>{preview.impact.reactions}</strong></li>
+          </ul>
+          <p>Keys: {preview.input.keys.map((key) => `${key.type} ${shortHandle(key.value)}`).join(', ')}.</p>
+          <p>{preview.input.expiresAt ? `Expires ${new Date(preview.input.expiresAt).toLocaleString()}.` : 'No expiry.'}</p>
+          <p>{preview.input.purge
+            ? `Remove ${preview.impact.purge.comments} comments and ${preview.impact.purge.reactions} reactions. Restoration is a separate action in operation history.`
+            : 'Existing comments and reactions stay in place.'}</p>
+          {preview.input.purge && !preview.impact.purgeAllowed && <p role="alert">
+            This selection exceeds the {preview.impact.purgeLimit}-record removal limit. Narrow the selection or turn off removal before applying.
+          </p>}
+          {preview.input.revokeReaderId && <p>The confirmed account will also be banned.</p>}
+        </div>}
 
         {error && <div className="portal-notice" data-variant="error"><span>{error}</span></div>}
 
         <div className="portal-ban__acts">
           <Button size="sm" variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button size="sm" variant="destructive" onClick={() => void apply()} disabled={busy || ticked.size === 0}>
-            {busy ? 'Working…' : `Ban ${ticked.size} key${ticked.size === 1 ? '' : 's'}`}
+          {preview && <Button size="sm" variant="outline" onClick={() => { setPreview(null); setError(null); }} disabled={busy}>Change selection</Button>}
+          <Button size="sm" variant={preview ? 'destructive' : 'default'}
+            onClick={() => void (preview ? apply() : reviewImpact())}
+            disabled={busy || ticked.size === 0 || Boolean(preview?.input.purge && !preview.impact.purgeAllowed)}>
+            {busy ? 'Working…' : preview ? 'Apply ban' : 'Preview impact'}
           </Button>
         </div>
       </div>

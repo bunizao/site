@@ -4,6 +4,14 @@
    file owns typography scale, spacing discipline, and the semantic classes
    that replace per-page inline styles. */
 
+.portal-ban__preview p { margin: 12px 0; }
+.portal-ban__preview h4 { font-size: 16px; font-weight: 600; }
+.portal-ban-operation { border-top: 1px solid hsl(var(--border)); padding: 20px 0; }
+.portal-ban-operation h3 { font-weight: 600; }
+.portal-ban-operation p { margin: 10px 0; overflow-wrap: anywhere; }
+.portal-ban-operation__actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.portal-ban-operation__actions p { flex-basis: 100%; }
+
 .theme-portal {
   /* Type scale — a tool's ramp. A comfortable 14px reading floor (dashboards
      read close, but 13px strained), micro-labels never below 11px, a couple of

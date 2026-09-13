@@ -9,6 +9,7 @@ import PortalLayout from '@/layouts/PortalLayout.astro';
 import PortalSection from '@/components/portal/PortalSection.astro';
 import CommentsSubNav from '@/components/portal/CommentsSubNav.astro';
 import BansTable from '@/features/admin/ui/BansTable';
+import BanOperations from '@/features/admin/ui/BanOperations';
 import { Activity } from 'lucide-react';
 import { loadBans } from '@/features/admin/server/portal-client';
 import type { AdminBan } from '@bunizao/contracts';
@@ -65,6 +66,9 @@ try {
     meta={`${bans.length} key${bans.length === 1 ? '' : 's'}`}
     class="portal-mt-lg"
   >
-    <BansTable initialBans={bans} client:load />
+    <BansTable initialBans={bans} demo={demoMode} client:load />
+  </PortalSection>
+  <PortalSection title="Operation history" eyebrow="Recovery" class="portal-mt-lg">
+    <BanOperations demo={demoMode} client:load />
   </PortalSection>
 </PortalLayout>

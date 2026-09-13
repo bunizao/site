@@ -8,6 +8,7 @@ import { DEMO_COMMENTS } from '@/features/admin/server/portal-demo';
 function actor(verified: boolean) {
   const value = structuredClone(DEMO_COMMENTS.comments[0]!.actor);
   value.readerId = verified ? 'reader-confirmed' : null;
+  value.authAtWrite = verified ? 'verified' : 'anonymous';
   value.keys.email = 'email-claimed';
   value.keys.emailDomain = 'example.com';
   value.emailDomainPublishedComments = 11;
@@ -42,6 +43,16 @@ test('an unavailable email-domain count disables the broad ban', () => {
   expect($('.portal-ban__keys li').filter((_, element) => $(element).text().includes('mail domain'))
     .find('[role="checkbox"][aria-disabled="true"]').length).toBe(1);
   expect($('.portal-ban__warn').text()).toContain('count could not be loaded');
+});
+
+test('claiming a historical comment does not select its address or account ban', () => {
+  const value = actor(false);
+  value.readerId = 'reader-confirmed-later';
+  value.claimedAt = new Date().toISOString();
+  value.claimMethod = 'confirmed';
+  const markup = renderToStaticMarkup(<BanDialog actor={value} {...callbacks} />);
+  expect(selectedKeyLabels(markup)).toEqual(['session']);
+  expect(load(markup).text()).not.toContain('Ban the account too');
 });
 
 test('a pivot dialog offers exactly the viewed key without account controls', () => {

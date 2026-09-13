@@ -74,6 +74,28 @@ function duration(ms: number | null | undefined): string | null {
   return `${Math.round(ms / 60_000)}m`;
 }
 
+export function identityProvenance(actor: AdminCommentActor): string {
+  if (actor.authAtWrite === 'verified') return 'Verified when written';
+  const written = actor.authAtWrite === 'anonymous' ? 'Anonymous when written' : 'Identity at writing unknown';
+  if (!actor.claimedAt) return written;
+  const method = actor.claimMethod === 'confirmed' ? 'by reader confirmation'
+    : actor.claimMethod === 'session' ? 'from the same session' : '(claim method unknown)';
+  return `${written} · linked later ${method}`;
+}
+
+const KEY_EXPLANATIONS: Partial<Record<AdminClusterKey, string>> = {
+  session: 'Same browser session. A shared browser can be used by more than one person.',
+  email: 'Same address on the record. Check whether it was verified when written or claimed later.',
+  storageId: 'Shared browser storage. This can be a shared browser or device; it does not establish one person.',
+  clientFp: 'Similar browser environment. Fingerprint matches can occur on unrelated devices.',
+  clientFpStable: 'Similar browser environment. A stable fingerprint is not a verified identity.',
+  ip: 'Shared network address. Other readers may use the same connection.',
+  ip24: 'Shared subnet. Offices, campuses and carriers can include many unrelated readers.',
+  fp: 'Shared network and browser signature. This does not establish one person.',
+  emailDomain: 'Shared email provider or organization. This is not an account match.',
+  bodyHash: 'Matching content. This is not an identity match.',
+};
+
 /** Every key on the row, in a stable order, with the value the pivot needs
     and the value a person reads. Exported because the ban dialog ticks the
     same list. */
@@ -178,6 +200,10 @@ export default function ActorStrip({ actor, onBan }: {
   return (
     <div className="portal-actor">
       <div className="portal-actor__line">
+        <span className="portal-actor__fact" data-provenance={actor.authAtWrite ?? 'unknown'}
+          title={actor.claimedAt ? `Linked ${new Date(actor.claimedAt).toLocaleString()}` : undefined}>
+          {identityProvenance(actor)}
+        </span>
         {origin.map((part) => <span key={part} className="portal-actor__fact">{part}</span>)}
         {actor.botHints > 0 && (
           <span className="portal-actor__fact" data-tone="danger" title={actor.client?.botHints.join(', ')}>
@@ -204,7 +230,7 @@ export default function ActorStrip({ actor, onBan }: {
             className="portal-actor__key"
             data-banned={chip.banned ? '' : undefined}
             href={sourceHref(chip.source, chip.value)}
-            title={`${chip.label} ${chip.value}${chip.banned ? ' — on the ban list' : ''}`}
+            title={`${chip.label} ${chip.value}${chip.banned ? ' — on the ban list' : ''}. ${chip.clusterKey === 'domain' ? 'Shared link destination, not an identity match.' : KEY_EXPLANATIONS[chip.clusterKey] ?? ''}`}
           >
             <span className="portal-actor__key-label">{chip.label}</span>
             <span className="portal-mono">{shortHandle(chip.value)}</span>
@@ -221,7 +247,8 @@ export default function ActorStrip({ actor, onBan }: {
       {(clusters.length > 0 || actor.domainCluster.length > 0) && (
         <div className="portal-actor__cluster">
           {clusters.map(({ key, count }) => (
-            <a key={key} className="portal-actor__cluster-item" href={sourceHref(KEY_KINDS[key].source, actor.keys[key]!)}>
+            <a key={key} className="portal-actor__cluster-item" title={KEY_EXPLANATIONS[key]}
+              href={sourceHref(KEY_KINDS[key].source, actor.keys[key]!)}>
               <span className="portal-actor__key-label">{KEY_KINDS[key].label}</span>
               {count.comments > 0 && <span>{count.comments} more</span>}
               {count.held > 0 && <span data-tone="danger">{count.held} held</span>}
@@ -237,6 +264,9 @@ export default function ActorStrip({ actor, onBan }: {
             </a>
           ))}
         </div>
+      )}
+      {clusters.some(({ key }) => ['storageId', 'clientFp', 'clientFpStable', 'ip', 'ip24', 'fp'].includes(key)) && (
+        <p className="portal-list-meta">Shared storage, networks and similar fingerprints can belong to different readers.</p>
       )}
 
       <Blob title="Request" rows={blobRows(actor.detail as unknown as Record<string, unknown> | null)} />

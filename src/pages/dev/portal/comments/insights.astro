@@ -14,6 +14,7 @@
    that matters, and a table that silently drops it teaches the owner to
    trust a total that is wrong. */
 import PortalLayout from '@/layouts/PortalLayout.astro';
+import CommentQuality from '@/features/admin/ui/CommentQuality';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/coss';
 import PortalSection from '@/components/portal/PortalSection.astro';
 import SegmentedNav from '@/components/portal/SegmentedNav.astro';
@@ -218,6 +219,9 @@ const windowItems = WINDOWS.map((key) => ({
 
   {insights && (
     <>
+      <PortalSection title="Quality and friction" eyebrow="Measured outcomes" class="portal-mt-lg">
+        <CommentQuality quality={demoMode ? undefined : insights.quality} />
+      </PortalSection>
       <PortalSection
         title="Sources"
         eyebrow="Network"
@@ -260,13 +264,13 @@ const windowItems = WINDOWS.map((key) => ({
 
           <Card className="portal-span-full">
             <CardHeader>
-              <CardTitle className="portal-card-title"><Fingerprint size={14} /> Devices</CardTitle>
+              <CardTitle className="portal-card-title"><Fingerprint size={14} /> Browser fingerprints</CardTitle>
               <CardDescription>
-                The client fingerprint, with the renderer and screen behind it. One device across five
-                subnets is the shape a proxy pool makes.
+                Similar browser environments, with their renderer and screen. Matches across networks
+                can be unrelated devices and do not establish one person.
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-0"><InsightTable rows={devices} head="device" limit={15} /></CardContent>
+            <CardContent className="pt-0"><InsightTable rows={devices} head="fingerprint" limit={15} /></CardContent>
           </Card>
         </div>
       </PortalSection>
@@ -361,22 +365,22 @@ const windowItems = WINDOWS.map((key) => ({
         </div>
       </PortalSection>
 
-      <PortalSection title="Was the pass right" eyebrow="Calibration" class="portal-mt-lg">
+      <PortalSection title="Owner moderation actions" eyebrow="Review" class="portal-mt-lg">
         <Card>
           <CardHeader>
-            <CardTitle className="portal-card-title"><Activity size={14} /> Overturns by week</CardTitle>
+            <CardTitle className="portal-card-title"><Activity size={14} /> Actions by week</CardTitle>
             <CardDescription>
-              How often the owner disagreed. Approving a held comment is a false positive; hiding a
-              published one is a false negative. Both rising means the threshold is wrong, not the model.
+              Counts of owner approvals and hides. These actions are not labels of automated errors;
+              the reviewed held-comment cohort is shown separately above.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
             {insights.overturns.length === 0 ? (
-              <div class="portal-list-meta">No verdicts were overturned in this window.</div>
+              <div class="portal-list-meta">No owner moderation actions in this window.</div>
             ) : (
               <table class="portal-insight">
                 <thead>
-                  <tr><th>week</th><th class="portal-insight__num">held, then approved</th><th class="portal-insight__num">published, then hidden</th></tr>
+                  <tr><th>week</th><th class="portal-insight__num">approved</th><th class="portal-insight__num">hidden</th></tr>
                 </thead>
                 <tbody>
                   {insights.overturns.map((row) => (

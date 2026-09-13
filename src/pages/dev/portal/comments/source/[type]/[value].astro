@@ -182,26 +182,36 @@ const shortValue = /^[0-9a-f]{16,}$/i.test(value) ? `${value.slice(0, 12)}…` :
 
           <Card>
             <CardHeader>
-              <CardTitle className="portal-card-title"><Link2 size={14} /> Link graph</CardTitle>
+              <CardTitle className="portal-card-title"><Link2 size={14} /> Why records are linked</CardTitle>
               <CardDescription>
-                Sessions sharing a confirmed address or storage id. Fingerprints and network
-                matches do not create links between readers.
+                Account links and shared browser storage are different evidence. Matching storage
+                may describe a shared device. Fingerprints and network matches do not create identity links.
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
+              {profile.identitySummary && <>
+                <ul class="portal-spread">
+                  <li><span>Verified-at-write accounts</span><strong>{profile.identitySummary.verifiedAccounts}</strong></li>
+                  <li><span>Anonymous sessions</span><strong>{profile.identitySummary.anonymousSessions}</strong></li>
+                  <li><span>Comments claimed later</span><strong>{profile.identitySummary.claimedComments}</strong></li>
+                </ul>
+                {profile.identitySummary.sharedStorage && <p class="portal-notice">Multiple accounts share browser storage. Treat this as a shared environment, not one person.</p>}
+                {profile.identitySummary.sharedFingerprint && <p class="portal-notice">Multiple accounts have similar fingerprints. The fingerprint is not used to merge their identities.</p>}
+              </>}
               {profile.linked.sessions === 0 ? (
                 <div class="portal-list-meta">This key links to nothing else.</div>
               ) : (
                 <ul class="portal-spread">
                   <li><span>sessions reached</span><strong class="tabular-nums">{profile.linked.sessions}</strong></li>
-                  <li><span>via confirmed address</span><strong class="tabular-nums">{profile.linked.via.email}</strong></li>
-                  <li><span>via storage id</span><strong class="tabular-nums">{profile.linked.via.storageId}</strong></li>
+                  <li><span>via confirmed account address</span><strong class="tabular-nums">{profile.linked.via.email}</strong></li>
+                  <li><span>via shared browser storage</span><strong class="tabular-nums">{profile.linked.via.storageId}</strong></li>
                   <li><span>their comments</span><strong class="tabular-nums">{profile.linked.comments}</strong></li>
                   <li data-tone="danger"><span>of those, held</span><strong class="tabular-nums">{profile.linked.held}</strong></li>
                   <li><span>their hearts</span><strong class="tabular-nums">{profile.linked.reactions}</strong></li>
                   <li><span>subnets they carried</span><strong class="tabular-nums">{profile.linked.carried.ip24}</strong></li>
                 </ul>
               )}
+              <p class="portal-list-meta">A linked record is not proof of the same person. Review the identity at writing and any later claim on each row.</p>
             </CardContent>
           </Card>
 
@@ -258,7 +268,7 @@ const shortValue = /^[0-9a-f]{16,}$/i.test(value) ? `${value.slice(0, 12)}…` :
         <Card>
           <CardHeader>
             <CardTitle className="portal-card-title"><Activity size={14} /> Writes per hour, last 7 days</CardTitle>
-            <CardDescription>A person sleeps. A schedule does not.</CardDescription>
+            <CardDescription>Recorded activity by hour. Shared devices and different time zones can overlap.</CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
             {profile.hourly.length === 0 ? (
