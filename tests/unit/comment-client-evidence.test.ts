@@ -63,6 +63,10 @@ async function fixture(mode: Mode, run: (page: Page, posts: Record<string, unkno
   await page.route('**/*', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (path === '/api/v2/comments/telemetry') {
+      await route.fulfill({ status: 204 });
+      return;
+    }
     if (mode === 'module' && path === fingerprintPath) return;
     if (assets.has(path)) {
       await route.fulfill({ contentType: 'text/javascript', body: assets.get(path)! });

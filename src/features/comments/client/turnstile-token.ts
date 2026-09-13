@@ -60,6 +60,9 @@ interface TurnstileWidgetState {
   interactive: boolean;
   /** Render to token, milliseconds. Null until a solve has landed. */
   solveMs: number | null;
+  promptCount: number;
+  solvePrompts: number;
+  interactiveOpen: boolean;
 }
 
 /** Cloudflare expires a solved token at about five minutes. Stop trusting one
@@ -119,6 +122,7 @@ function widgetFor(action: TurnstileAction): TurnstileWidgetState {
     state = {
       container, widgetId: null, tokenPromise: null, resolveCurrent: null,
       settled: false, solvedAt: 0, forced: false, startedAt: 0, interactive: false, solveMs: null,
+      promptCount: 0, solvePrompts: 0, interactiveOpen: false,
     };
     turnstileWidgets.set(action, state);
     homeContainer(state, action);
@@ -129,7 +133,15 @@ function widgetFor(action: TurnstileAction): TurnstileWidgetState {
 function setInteractive(state: TurnstileWidgetState, open: boolean): void {
   if (open) state.interactive = true;
   const host = state.container.parentElement;
-  if (!host || host === document.body) return;
+  if (!host || host === document.body) {
+    state.interactiveOpen = false;
+    return;
+  }
+  if (open && !state.interactiveOpen) {
+    state.promptCount += 1;
+    state.solvePrompts += 1;
+  }
+  state.interactiveOpen = open;
   if (open) host.setAttribute(INTERACTIVE_ATTR, '');
   else host.removeAttribute(INTERACTIVE_ATTR);
 }
@@ -176,7 +188,10 @@ function mintToken(state: TurnstileWidgetState, siteKey: string, action: Turnsti
   state.settled = false;
   state.startedAt = performance.now();
   state.interactive = false;
+  state.solvePrompts = 0;
+  state.interactiveOpen = false;
   homeContainer(state, action);
+  if (state.forced) setInteractive(state, true);
   state.tokenPromise = new Promise<string>((resolve) => {
     state.resolveCurrent = resolve;
     if (state.widgetId === null) {
@@ -249,7 +264,6 @@ export async function challengeTurnstile(siteKey: string, action: TurnstileActio
   // is in, so opening before the move marks the host the reader has just been
   // moved away from -- and leaves the one they are looking at collapsed.
   homeContainer(state, action);
-  setInteractive(state, true);
 
   try {
     const token = await mintToken(state, siteKey, action);
@@ -291,4 +305,10 @@ export function readTurnstileTiming(action: TurnstileAction): {
 } {
   const state = turnstileWidgets.get(action);
   return { solveMs: state?.solveMs ?? null, interactive: state?.interactive ?? false };
+}
+
+/** Counts visible prompts, including a challenge on a token warmed before submit. */
+export function readTurnstilePrompts(action: TurnstileAction): { total: number; current: number } {
+  const state = turnstileWidgets.get(action);
+  return { total: state?.promptCount ?? 0, current: state?.tokenPromise ? state.solvePrompts : 0 };
 }

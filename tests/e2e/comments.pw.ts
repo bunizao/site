@@ -44,6 +44,7 @@ async function installCommentApi(page: import('@playwright/test').Page, options:
 
   await page.route('**/api/v2/comments**', async (route) => {
     const request = route.request();
+    if (new URL(request.url()).pathname.endsWith('/telemetry')) return route.fallback();
     if (request.method() === 'POST') {
       markPostReceived();
       await postGate;
@@ -485,6 +486,7 @@ test('load-more, like, and delete failures remain actionable', async ({ page }) 
     body: JSON.stringify({ reader: null }),
   }));
   await page.route('**/api/v2/comments**', async (route) => {
+    if (new URL(route.request().url()).pathname.endsWith('/telemetry')) return route.fallback();
     const request = route.request();
     const url = new URL(request.url());
     if (url.pathname.endsWith('/dwell-token')) {
@@ -606,15 +608,99 @@ async function installRefusedReactions(page: import('@playwright/test').Page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.route('**/api/v2/comments/telemetry', (route) => route.fulfill({ status: 204 }));
   await page.addInitScript(() => {
     try { window.localStorage.removeItem('blog:reaction-pass-until'); } catch {}
   });
 });
 
+async function captureTelemetry(page: import('@playwright/test').Page) {
+  const reports: unknown[] = [];
+  await page.route('**/api/v2/comments/telemetry', async (route) => {
+    reports.push(route.request().postDataJSON());
+    await route.fulfill({ status: 204 });
+  });
+  return reports;
+}
+
+test('comment submission reports a minimal final HTTP failure without its content', async ({ page }) => {
+  const api = await installCommentApi(page, { postStatus: 429 });
+  const reports = await captureTelemetry(page);
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  const compose = page.locator('.blog-comments > .blog-compose');
+  await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Private Name');
+  await compose.locator('input[type="email"]').fill('private@example.com');
+  await compose.locator('textarea').fill('Private comment body.');
+  await compose.locator('[data-compose-submit]').click();
+  await api.releasePost();
+  await expect.poll(() => reports.length).toBe(1);
+  expect(reports).toEqual([{ kind: 'comment', outcome: 'http_error', challenges: 0 }]);
+  await expect(compose.locator('textarea')).toHaveValue('Private comment body.');
+});
+
+test('a network failure on the post heart reports once without blocking recovery', async ({ page }) => {
+  await installCommentApi(page);
+  const reports = await captureTelemetry(page);
+  await page.route('**/api/v2/reactions/toggle', (route) => route.abort('failed'));
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  await page.locator('.blog-react__card').click();
+  await expect.poll(() => reports.length).toBe(1);
+  expect(reports).toEqual([{ kind: 'reaction', outcome: 'network_error', challenges: 0 }]);
+  await expect(page.locator('.blog-react__card')).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('a comment challenge retry reports one accepted user attempt', async ({ page }) => {
+  await stubTurnstile(page);
+  await installCommentApi(page);
+  let requests = 0;
+  await page.route('**/api/v2/comments**', async (route) => {
+    if (new URL(route.request().url()).pathname !== '/api/v2/comments' || route.request().method() !== 'POST') return route.fallback();
+    requests += 1;
+    if (route.request().postDataJSON().turnstileToken !== 'good-token') {
+      await route.fulfill({ status: 400, json: { error: 'turnstile_failed' } });
+      return;
+    }
+    await route.fulfill({ json: { outcome: 'published', comment: comment({ id: 'comment-posted' }) } });
+  });
+  const reports = await captureTelemetry(page);
+  await page.goto('/lab/comments?interactive=1&turnstile=1&locale=en', { waitUntil: 'networkidle' });
+  const compose = page.locator('.blog-comments > .blog-compose');
+  await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
+  await compose.locator('input[type="email"]').fill('reader@example.com');
+  await compose.locator('textarea').fill('A comment after a challenge.');
+  await compose.locator('[data-compose-submit]').click();
+  await compose.locator('[data-fake-challenge]').click();
+  await expect(page.locator('#comment-comment-posted')).toBeVisible();
+  await expect.poll(() => reports.length).toBe(1);
+  expect(requests).toBe(2);
+  expect(reports).toEqual([{ kind: 'comment', outcome: 'accepted', challenges: 1 }]);
+});
+
+for (const surface of ['comment', 'post'] as const) {
+  test(`a final challenge refusal reports one ${surface} heart attempt across retries`, async ({ page }) => {
+    await stubTurnstile(page);
+    await installCommentApi(page);
+    const reports = await captureTelemetry(page);
+    let requests = 0;
+    await page.route('**/api/v2/reactions/toggle', async (route) => {
+      requests += 1;
+      await route.fulfill({ status: 400, json: { error: 'turnstile_failed' } });
+    });
+    await page.goto('/lab/comments?interactive=1&turnstile=1&locale=en', { waitUntil: 'networkidle' });
+    const owner = surface === 'comment' ? page.locator('#comment-comment-existing') : page.locator('.blog-react');
+    await owner.locator(surface === 'comment' ? '[data-comment-like]' : '.blog-react__card').click();
+    await owner.locator('[data-fake-challenge]').click();
+    await expect.poll(() => reports.length).toBe(1);
+    expect(requests).toBe(2);
+    expect(reports).toEqual([{ kind: 'reaction', outcome: 'challenge_failed', challenges: 1 }]);
+  });
+}
+
 test('a refused like on a comment opens a challenge under that row and resends once it is solved', async ({ page }) => {
   await stubTurnstile(page);
   await installCommentApi(page);
   const tokens = await installRefusedReactions(page);
+  const reports = await captureTelemetry(page);
 
   await page.goto('/lab/comments?interactive=1&turnstile=1&locale=en', { waitUntil: 'networkidle' });
 
@@ -634,6 +720,8 @@ test('a refused like on a comment opens a challenge under that row and resends o
   await expect(row.locator('[data-comment-like]')).toHaveAttribute('aria-pressed', 'true');
   await expect(host).not.toHaveAttribute('data-turnstile-interactive', '');
   expect(tokens).toEqual(['', 'good-token']);
+  await expect.poll(() => reports.length).toBe(1);
+  expect(reports).toEqual([{ kind: 'reaction', outcome: 'accepted', challenges: 1 }]);
 });
 
 test('a refused like on the post bar opens a challenge in the bar and resends once it is solved', async ({ page }) => {
