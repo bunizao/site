@@ -78,6 +78,15 @@ if (!post) {
   Astro.response.status = 404;
 }
 
+const hasLinkPreview = post
+  ? post.hero?.type === 'link-preview' || post.media.some((item) => item.type === 'link-preview')
+  : false;
+const previewPending = moodReadSource === 'archive'
+  && Boolean(post && /https?:\/\//i.test(post.bodyHtml) && !hasLinkPreview);
+if (previewPending) {
+  Astro.response.headers.set('X-Buxx-Cache-Ready', '0');
+}
+
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 const moodAlternateUrl = new URL(canonicalUrl);
 const oembed = id
@@ -135,6 +144,7 @@ const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
       telegramCommentUrl={telegramCommentUrl}
       backHref={moodFeedBackHref}
       readSource={moodReadSource}
+      previewPending={previewPending}
       discussionLinked={post?.discussionLinked}
       discussionRepliesEnabled={post?.discussionRepliesEnabled}
       turnstileSiteKey={turnstileSiteKey}

@@ -358,8 +358,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(middleware).not.toContain('readCachedHtmlPage');
     expect(edgeCache).toContain('x-edge-cached-at');
     expect(edgeCache).toContain("'STALE'");
-    expect(registry).toContain('data-mood-initial-feed');
-    expect(registry).toContain('data-mood-id=');
+    expect(responses).toContain('X-Buxx-Cache-Ready');
+    expect(edgeCache).not.toContain('isResponseReady');
     expect(registry).toContain('X-Buxx-Mood-Page-Cache');
     expect(edgeCache).toContain('caches?.default');
     expect(builtBlog).toContain('/_agent-markdown/blog/');

@@ -37,7 +37,9 @@ export function contentEdgeCacheVersion(
     || normalizedPath === '/blog'
     || normalizedPath.startsWith('/blog/')
     || normalizedPath === '/docs'
-    || normalizedPath.startsWith('/docs/');
+    || normalizedPath.startsWith('/docs/')
+    || normalizedPath === '/mood'
+    || normalizedPath.startsWith('/mood/');
 
   return isBuildBackedContent
     ? `${EDGE_CACHE_VERSION}:${buildId?.trim() || 'dev'}`
@@ -211,17 +213,22 @@ export function withContentPolicy(request: Request, response: Response): Respons
   if (!isHtml && !policy) return response;
 
   const headers = new Headers(response.headers);
+  const cacheReady = headers.get('X-Buxx-Cache-Ready') !== '0';
+  headers.delete('X-Buxx-Cache-Ready');
 
   if (isHtml && hasMarkdownRenderer(url.pathname)) {
     headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Accept'));
   }
 
-  if (
-    policy
-    && (response.status === 200 || response.status === 304)
-    && !hasExplicitBypassDirective(headers.get('Cache-Control'))
-    && shouldApplyRouteCacheHeaders(url, policy)
-  ) {
+  // Persist readiness as no-store: middleware and the Worker both decorate
+  // this response before the in-worker cache decides whether to write it.
+  if (!cacheReady) {
+    setNoStoreHeaders(headers);
+  } else if (hasExplicitBypassDirective(headers.get('Cache-Control'))) {
+    headers.delete(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER);
+  } else if (policy && !shouldApplyRouteCacheHeaders(url, policy)) {
+    setNoStoreHeaders(headers);
+  } else if (policy && (response.status === 200 || response.status === 304)) {
     setContentCacheHeaders(
       headers,
       policy.cacheTtlSeconds,
@@ -233,6 +240,12 @@ export function withContentPolicy(request: Request, response: Response): Respons
       appendCacheControlDirective(headers.get('Cache-Control'), NO_STORE_CACHE_CONTROL),
     );
     headers.delete(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER);
+  }
+
+  // Cookie-negotiated blog variants have their own in-worker keys. The
+  // platform URL cache must also bypass conditional 304 responses.
+  if (headers.get('Vary')?.split(',').some((token) => token.trim().toLowerCase() === 'cookie')) {
+    headers.set(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER, 'no-store');
   }
 
   return new Response(response.body, {
@@ -359,17 +372,15 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
       policy.cacheTtlSeconds,
       policy.cacheStaleWhileRevalidateSeconds,
     ),
-    cloudflareCacheControl: policy.normalizeHtmlCacheSearch
-      ? 'no-store'
-      : cloudflareCdnCacheControl(
-          policy.cacheTtlSeconds,
-          policy.cacheStaleWhileRevalidateSeconds,
-        ),
+    cloudflareCacheControl: cloudflareCdnCacheControl(
+      policy.cacheTtlSeconds,
+      policy.cacheStaleWhileRevalidateSeconds,
+    ),
     cacheSearch,
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html')
+      && response.headers.get('X-Buxx-Cache-Ready') !== '0'
       && !hasExplicitBypassDirective(response.headers.get('Cache-Control')),
-    isResponseReady: policy.isHtmlReady,
   };
 }
 
@@ -385,8 +396,9 @@ export async function cacheHtmlPageResponse(
   response: Response,
   context?: EdgeCacheWaitContext,
 ): Promise<Response> {
+  const decorated = withContentPolicy(request, response);
   const options = createHtmlCacheOptions(request);
-  if (!options) return response;
+  if (!options) return decorated;
 
-  return cacheEdgeResponse(request, response, options, context);
+  return cacheEdgeResponse(request, decorated, options, context);
 }

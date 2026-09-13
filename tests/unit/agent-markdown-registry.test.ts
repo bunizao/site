@@ -98,12 +98,7 @@ describe('agent markdown registry', () => {
     expect(policy?.edgeCacheHtml).toBe(true);
     expect(policy?.cacheTtlSeconds).toBe(300);
     expect(policy?.cacheStaleWhileRevalidateSeconds).toBe(1800);
-    expect(policy?.isHtmlReady?.('<article data-mood-id="990001"></article>', new Response()))
-      .toBe(true);
-    expect(policy?.isHtmlReady?.(
-      '<article data-mood-id="990001" data-mood-preview-pending="true"></article>',
-      new Response(),
-    )).toBe(false);
+
   });
 
   test('declares longer edge HTML cache policy for the public mood feed', () => {
@@ -190,6 +185,29 @@ describe('agent markdown registry', () => {
       expect(response.headers.get('Cache-Control')).toBe(`public, max-age=0, s-maxage=${ttl}`);
       expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
         .toBe(`public, max-age=${ttl}, stale-while-revalidate=86400`);
+    }
+  });
+
+  test('keeps cookie-negotiated blog responses outside the platform cache', () => {
+    for (const status of [200, 304]) {
+      for (const search of ['', '?lang=en']) {
+        const request = new Request(`https://buxx.me/blog/grouped${search}`);
+        const response = new Response(status === 304 ? null : 'English', {
+          status,
+          headers: {
+            Vary: 'Accept-Language, cOoKiE',
+            'Cache-Control': 'public, max-age=0, must-revalidate',
+            'Cloudflare-CDN-Cache-Control': 'no-store',
+            ...(search ? { 'Set-Cookie': 'blog_lang=en; Path=/' } : {}),
+          },
+        });
+        const outgoing = withContentPolicy(request, withContentPolicy(request, response));
+
+        expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+        expect(outgoing.headers.get('Cache-Control')).toBe('public, max-age=0, s-maxage=300');
+        expect(outgoing.headers.get('Vary')).toBe('Accept-Language, cOoKiE');
+        expect(outgoing.headers.get('Set-Cookie')).toBe(search ? 'blog_lang=en; Path=/' : null);
+      }
     }
   });
 

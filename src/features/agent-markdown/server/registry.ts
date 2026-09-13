@@ -48,18 +48,12 @@ export const MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS = 300;
 export const MOOD_DETAIL_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800;
 export const MOOD_EMBED_CACHE_TTL_SECONDS = 300;
 
-export const MOOD_PAGE_CACHE_READY_MARKERS = [
-  'data-mood-initial-feed',
-  'data-mood-id=',
-];
-
 export interface ContentRoutePolicy {
   cacheTtlSeconds: number;
   cacheStaleWhileRevalidateSeconds?: number;
   edgeCacheHtml: boolean;
   cacheHeaderName: string;
   normalizeHtmlCacheSearch?: (url: URL) => string | null;
-  isHtmlReady?: (body: string, response: Response) => boolean;
 }
 
 function normalizePathname(pathname: string): string {
@@ -462,7 +456,6 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
       edgeCacheHtml: true,
       cacheHeaderName: MOOD_PAGE_CACHE_HEADER,
       normalizeHtmlCacheSearch: normalizeMoodFeedCacheSearch,
-      isHtmlReady: (body) => MOOD_PAGE_CACHE_READY_MARKERS.every((marker) => body.includes(marker)),
     };
   }
   if (normalized === '/mood/embed') {
@@ -485,7 +478,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
       cacheStaleWhileRevalidateSeconds: MOOD_DETAIL_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
       edgeCacheHtml: true,
       cacheHeaderName: EDGE_CACHE_HEADER,
-      isHtmlReady: (body) => !body.includes('data-mood-preview-pending="true"'),
+      normalizeHtmlCacheSearch: (url) => url.search ? null : '',
     };
   }
 

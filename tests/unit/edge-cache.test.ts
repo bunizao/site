@@ -25,8 +25,14 @@ describe('variant edge cache', () => {
     expect(contentEdgeCacheVersion('/docs/writing/poem', 'deploy-a')).not.toBe(
       contentEdgeCacheVersion('/docs/writing/poem', 'deploy-b'),
     );
-    expect(contentEdgeCacheVersion('/mood/123', 'deploy-a')).toBe(
+    expect(contentEdgeCacheVersion('/mood/123', 'deploy-a')).not.toBe(
       contentEdgeCacheVersion('/mood/123', 'deploy-b'),
+    );
+    expect(contentEdgeCacheVersion('/mood', 'deploy-a')).not.toBe(
+      contentEdgeCacheVersion('/mood', 'deploy-b'),
+    );
+    expect(contentEdgeCacheVersion('/mood/embed', 'deploy-a')).not.toBe(
+      contentEdgeCacheVersion('/mood/embed', 'deploy-b'),
     );
     expect(getContentRoutePolicy('/')?.edgeCacheHtml).toBe(true);
   });
@@ -77,10 +83,12 @@ describe('variant edge cache', () => {
     const cached = await readCachedHtmlPage(secondRequest);
 
     expect(stored.headers.get('X-Buxx-Edge-Cache')).toBe('MISS');
-    expect(stored.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+    expect(stored.headers.get('Cloudflare-CDN-Cache-Control'))
+      .toBe('public, max-age=300, stale-while-revalidate=86400');
     expect(cached?.isStale).toBe(false);
     expect(cached?.response.headers.get('X-Buxx-Edge-Cache')).toBe('HIT');
-    expect(cached?.response.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+    expect(cached?.response.headers.get('Cloudflare-CDN-Cache-Control'))
+      .toBe('public, max-age=300, stale-while-revalidate=86400');
     expect(await cached?.response.text()).toBe('<!doctype html><p>cached embed</p>');
   });
 
@@ -130,7 +138,8 @@ describe('variant edge cache', () => {
     const cached = await readCachedHtmlPage(secondRequest);
 
     expect(stored.headers.get('X-Buxx-Mood-Page-Cache')).toBe('MISS');
-    expect(stored.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+    expect(stored.headers.get('Cloudflare-CDN-Cache-Control'))
+      .toBe('public, max-age=300, stale-while-revalidate=1800');
     expect(cached?.response.headers.get('X-Buxx-Mood-Page-Cache')).toBe('HIT');
     expect(await cached?.response.text()).toBe(body);
   });
@@ -151,6 +160,135 @@ describe('variant edge cache', () => {
 
     expect(stored.headers.get('X-Buxx-Mood-Page-Cache')).toBeNull();
     expect(await readCachedHtmlPage(request)).toBeNull();
+  });
+
+  test('keeps incomplete renders private across middleware and Worker decoration', async () => {
+    for (const [index, path] of ['/mood', '/mood?post=989981', '/mood/989982'].entries()) {
+      const request = new Request(`https://pending-${index}.example${path}`);
+      const body = '<!doctype html><main>Content is still loading</main>';
+      const response = new Response(body, {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'public, max-age=300',
+          'Cloudflare-CDN-Cache-Control': 'public, max-age=300',
+          'X-Buxx-Cache-Ready': '0',
+        },
+      });
+      const middlewareResponse = withContentPolicy(request, response);
+      expect(middlewareResponse.headers.has('X-Buxx-Cache-Ready')).toBe(false);
+      const workerResponse = withContentPolicy(request, middlewareResponse);
+      const outgoing = await cacheHtmlPageResponse(request, workerResponse);
+
+      expect(outgoing.headers.get('Cache-Control')).toBe('no-store, max-age=0');
+      expect(outgoing.headers.has('Cloudflare-CDN-Cache-Control')).toBe(false);
+      expect(outgoing.headers.has('X-Buxx-Cache-Ready')).toBe(false);
+      expect(await outgoing.text()).toBe(body);
+      expect(await readCachedHtmlPage(request)).toBeNull();
+    }
+  });
+
+  test('keeps pending renders private with client bypass headers', async () => {
+    const request = new Request('https://pending-bypass.example/mood/989983', {
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    const outgoing = await cacheHtmlPageResponse(request, new Response('Pending', {
+      headers: { 'Content-Type': 'text/html', 'X-Buxx-Cache-Ready': '0' },
+    }));
+
+    expect(outgoing.headers.get('Cache-Control')).toBe('no-store, max-age=0');
+    expect(outgoing.headers.has('Cloudflare-CDN-Cache-Control')).toBe(false);
+    expect(outgoing.headers.has('X-Buxx-Cache-Ready')).toBe(false);
+  });
+
+  test('strips positive readiness before cache storage and client responses', async () => {
+    const request = new Request('https://ready.example/mood/989984');
+    const outgoing = await cacheHtmlPageResponse(request, new Response('Ready', {
+      headers: { 'Content-Type': 'text/html', 'X-Buxx-Cache-Ready': '1' },
+    }));
+    const cached = await readCachedHtmlPage(request);
+
+    expect(outgoing.headers.has('X-Buxx-Cache-Ready')).toBe(false);
+    expect(cached?.response.headers.has('X-Buxx-Cache-Ready')).toBe(false);
+    expect(cached?.response.headers.get('X-Buxx-Edge-Cache')).toBe('HIT');
+    expect(await cached?.response.text()).toBe('Ready');
+    expect(await (await readCachedHtmlPage(request))?.response.text()).toBe('Ready');
+  });
+
+  test('bypasses both caches on unknown, fresh, source, and probe query shapes', async () => {
+    const paths = [
+      '/mood?source=archive', '/mood?fresh=1', '/mood?refresh=1', '/mood?probe=1',
+      '/mood?tag=abc&source=archive', '/mood?tag=BAD', '/mood?post=invalid',
+      '/mood/989985?source=live', '/mood/989985?fresh=1', '/mood/989985?probe=1',
+      '/mood/embed?refresh=60', '/mood/embed?id=invalid',
+    ];
+    for (const path of paths) {
+      const request = new Request(`https://query-bypass.example${path}`);
+      const outgoing = await cacheHtmlPageResponse(request, new Response('Uncached', {
+        headers: { 'Content-Type': 'text/html', 'Cache-Control': 'public, max-age=300' },
+      }));
+
+      expect(outgoing.headers.get('Cache-Control')).toBe('no-store, max-age=0');
+      expect(outgoing.headers.has('Cloudflare-CDN-Cache-Control')).toBe(false);
+      expect(await readCachedHtmlPage(request)).toBeNull();
+    }
+  });
+
+  test('streams native cache writes before the rendered body completes', async () => {
+    const originalCaches = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+    const tasks: Promise<unknown>[] = [];
+    let writerCalled = false;
+    let storedBody: ArrayBuffer | undefined;
+    let storedHeaders: Headers | undefined;
+    let controller!: ReadableStreamDefaultController<Uint8Array>;
+    const body = new ReadableStream<Uint8Array>({
+      start(streamController) {
+        controller = streamController;
+        controller.enqueue(new TextEncoder().encode('first chunk'));
+      },
+    });
+    Object.defineProperty(globalThis, 'caches', {
+      configurable: true,
+      value: {
+        default: {
+          async put(_key: Request, response: Response) {
+            writerCalled = true;
+            storedHeaders = response.headers;
+            storedBody = await response.arrayBuffer();
+          },
+        },
+      },
+    });
+
+    try {
+      const outgoing = await cacheEdgeResponse(
+        new Request('https://streaming.example/page'),
+        new Response(body, {
+          headers: { 'Set-Cookie': 'preference=en', 'Content-Type': 'text/html' },
+        }),
+        {
+          namespace: 'content', variant: 'html', version: 'stream-test', ttlSeconds: 60,
+          headerName: 'X-Test-Cache', cacheControl: 'public, max-age=0',
+          cloudflareCacheControl: 'public, max-age=60',
+        },
+        { waitUntil: (promise) => tasks.push(promise) },
+      );
+
+      expect(writerCalled).toBe(true);
+      expect(storedBody).toBeUndefined();
+      expect(storedHeaders?.has('Set-Cookie')).toBe(false);
+      expect(storedHeaders?.has('Cloudflare-CDN-Cache-Control')).toBe(false);
+      expect(storedHeaders?.has('x-edge-cached-at')).toBe(true);
+      expect(outgoing.headers.has('x-edge-cached-at')).toBe(false);
+      expect(outgoing.headers.get('Set-Cookie')).toBe('preference=en');
+      controller.enqueue(new TextEncoder().encode(' final chunk'));
+      controller.close();
+      expect(await outgoing.text()).toBe('first chunk final chunk');
+      await Promise.all(tasks);
+      expect(new TextDecoder().decode(storedBody)).toBe('first chunk final chunk');
+    } finally {
+      if (originalCaches) Object.defineProperty(globalThis, 'caches', originalCaches);
+      else Reflect.deleteProperty(globalThis, 'caches');
+    }
   });
 
   test('marks entries past ttl but inside the swr window as stale', async () => {
