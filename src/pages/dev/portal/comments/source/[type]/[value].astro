@@ -4,15 +4,11 @@
    Reached from a chip on any actor strip, from an insights row, and from the
    ban list. Four questions in order:
 
-   Spread -- how many other keys has this one used. One fingerprint over
-   forty sessions and twelve addresses is a script; one session over three
-   addresses is a phone that changed networks between the train and the
-   office. The numbers are the same shape; the reading is not.
+   Spread records other values carried by this key. Shared browser
+   fingerprints and network addresses can describe unrelated readers.
 
-   The link graph -- which other sessions this key reaches over two hops.
-   The hops are strong keys only: an address, a stable device hash, a
-   storage id. Never a subnet, a network or a user agent, because those hop
-   to strangers and a graph that links strangers is worse than no graph.
+   The link graph follows confirmed addresses and storage ids. Other
+   dimensions remain descriptive and do not propagate identity links.
 
    The hourly shape -- writes per hour over the last seven days. A person
    has a diurnal shape. A cron does not.
@@ -69,8 +65,8 @@ const SPREAD_LABELS: Record<string, string> = {
   ip: 'addresses',
   ip24: 'subnets',
   fp: 'server fingerprints',
-  clientFp: 'devices',
-  clientFpStable: 'devices (stable)',
+  clientFp: 'browser fingerprints',
+  clientFpStable: 'browser fingerprints (stable)',
   storageId: 'storage ids',
   email: 'addresses on file',
   asn: 'networks',
@@ -167,9 +163,8 @@ const shortValue = /^[0-9a-f]{16,}$/i.test(value) ? `${value.slice(0, 12)}…` :
             <CardHeader>
               <CardTitle className="portal-card-title"><Fingerprint size={14} /> Other keys used</CardTitle>
               <CardDescription>
-                Distinct values this source has written under. High on the wrong axis is the whole
-                signal: one device over forty sessions is a script, one session over three addresses
-                is a phone that moved.
+                Distinct values recorded for this source. Shared networks and matching browser
+                fingerprints can belong to different readers; these counts are clues for review.
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
@@ -189,8 +184,8 @@ const shortValue = /^[0-9a-f]{16,}$/i.test(value) ? `${value.slice(0, 12)}…` :
             <CardHeader>
               <CardTitle className="portal-card-title"><Link2 size={14} /> Link graph</CardTitle>
               <CardDescription>
-                Two hops over strong keys only — an address, a stable device hash, a storage id.
-                Never a subnet or a network: those hop to strangers.
+                Sessions sharing a confirmed address or storage id. Fingerprints and network
+                matches do not create links between readers.
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
@@ -199,8 +194,7 @@ const shortValue = /^[0-9a-f]{16,}$/i.test(value) ? `${value.slice(0, 12)}…` :
               ) : (
                 <ul class="portal-spread">
                   <li><span>sessions reached</span><strong class="tabular-nums">{profile.linked.sessions}</strong></li>
-                  <li><span>via address</span><strong class="tabular-nums">{profile.linked.via.email}</strong></li>
-                  <li><span>via device</span><strong class="tabular-nums">{profile.linked.via.clientFpStable}</strong></li>
+                  <li><span>via confirmed address</span><strong class="tabular-nums">{profile.linked.via.email}</strong></li>
                   <li><span>via storage id</span><strong class="tabular-nums">{profile.linked.via.storageId}</strong></li>
                   <li><span>their comments</span><strong class="tabular-nums">{profile.linked.comments}</strong></li>
                   <li data-tone="danger"><span>of those, held</span><strong class="tabular-nums">{profile.linked.held}</strong></li>
@@ -295,7 +289,13 @@ const shortValue = /^[0-9a-f]{16,}$/i.test(value) ? `${value.slice(0, 12)}…` :
         <a slot="action" class="portal-actor__key" href={`/dev/portal/comments?key=${encodeURIComponent(type)}&value=${encodeURIComponent(value)}`}>
           Open in the queue
         </a>
-        <SourceRows comments={profile.comments.rows} reactions={profile.reactions.rows} client:load />
+        <SourceRows
+          source={{ ...profile.key, emailDomainPublishedComments: profile.key.type === 'email_domain' ? profile.comments.byStatus.published : undefined }}
+          comments={profile.comments.rows}
+          reactions={profile.reactions.rows}
+          demo={demoMode}
+          client:load
+        />
       </PortalSection>
     </>
   )}

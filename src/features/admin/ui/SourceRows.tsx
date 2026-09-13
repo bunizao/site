@@ -12,11 +12,11 @@ import { Button, Card, CardContent } from '@/components/coss';
 import { ShieldAlert } from 'lucide-react';
 import type {
   AdminBanResult,
-  AdminCommentActor,
+  AdminSourceKeyType,
   AdminCommentRecord,
   AdminReactionRecord,
 } from '@bunizao/contracts';
-import ActorStrip from './ActorStrip';
+import ActorStrip, { sourceBanKey } from './ActorStrip';
 import BanDialog from './BanDialog';
 
 function timeAgo(iso: string): string {
@@ -25,25 +25,24 @@ function timeAgo(iso: string): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-export default function SourceRows({ comments, reactions }: {
+export default function SourceRows({ source, comments, reactions, demo }: {
+  source: { type: AdminSourceKeyType; value: string; emailDomainPublishedComments?: number | null };
+  demo?: boolean;
   comments: AdminCommentRecord[];
   reactions: AdminReactionRecord[];
 }) {
-  const [banning, setBanning] = React.useState<AdminCommentActor | null>(null);
+  const [banning, setBanning] = React.useState(false);
   const [receipt, setReceipt] = React.useState<string | null>(null);
 
-  /* One button, the first row's actor. Every row on this page is the same
-     source by definition, so a Ban on each of fifty rows would be fifty
-     ways to do one thing. */
-  const first = comments[0]?.actor ?? reactions[0]?.actor ?? null;
+  const bannable = sourceBanKey(source.type) !== null;
 
   return (
     <Card>
       <CardContent className="portal-card-content" style={{ paddingTop: 18 }}>
         {receipt && <p className="portal-comment-receipt"><ShieldAlert size={13} strokeWidth={1.5} />{receipt}</p>}
-        {first && (
+        {bannable && (
           <div className="portal-source__act">
-            <Button size="sm" variant="destructive" onClick={() => setBanning(first)}>
+            <Button size="sm" variant="destructive" onClick={() => setBanning(true)}>
               <ShieldAlert size={14} /> Ban this source…
             </Button>
           </div>
@@ -87,10 +86,11 @@ export default function SourceRows({ comments, reactions }: {
 
       {banning && (
         <BanDialog
-          actor={banning}
-          onClose={() => setBanning(null)}
+          source={source}
+          demo={demo}
+          onClose={() => setBanning(false)}
           onDone={(result: AdminBanResult) => {
-            setBanning(null);
+            setBanning(false);
             const purged = result.purged.comments + result.purged.reactions;
             setReceipt(
               `${result.bans.length} key${result.bans.length === 1 ? '' : 's'} banned`

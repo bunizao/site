@@ -39,8 +39,8 @@ const KEY_KINDS: Record<AdminClusterKey, { source: AdminSourceKeyType; ban: Admi
   ip24: { source: 'ip24', ban: 'ip24', label: 'subnet' },
   fp: { source: 'fp', ban: 'fp', label: 'fp' },
   email: { source: 'email', ban: 'email', label: 'email' },
-  clientFp: { source: 'client_fp', ban: 'client_fp', label: 'device' },
-  clientFpStable: { source: 'client_fp_stable', ban: 'client_fp', label: 'device·stable' },
+  clientFp: { source: 'client_fp', ban: 'client_fp', label: 'fingerprint' },
+  clientFpStable: { source: 'client_fp_stable', ban: 'client_fp', label: 'fingerprint·stable' },
   storageId: { source: 'storage_id', ban: null, label: 'storage' },
   emailDomain: { source: 'email_domain', ban: 'email_domain', label: 'mail domain' },
   bodyHash: { source: 'body_hash', ban: null, label: 'body' },
@@ -49,6 +49,11 @@ const KEY_KINDS: Record<AdminClusterKey, { source: AdminSourceKeyType; ban: Admi
 const ORDER: AdminClusterKey[] = [
   'session', 'ip', 'ip24', 'fp', 'email', 'clientFp', 'clientFpStable', 'storageId', 'emailDomain', 'bodyHash',
 ];
+
+export function sourceBanKey(type: AdminSourceKeyType): AdminBanKeyType | null {
+  if (type === 'asn' || type === 'domain') return type;
+  return Object.values(KEY_KINDS).find((kind) => kind.source === type)?.ban ?? null;
+}
 
 export function sourceHref(type: AdminSourceKeyType, value: string): string {
   return `/dev/portal/comments/source/${encodeURIComponent(type)}/${encodeURIComponent(value)}`;

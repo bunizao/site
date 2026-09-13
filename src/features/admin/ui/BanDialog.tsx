@@ -1,36 +1,27 @@
-/* The only thing in the portal that stops somebody.
-
-   It opens with the narrow set already ticked -- the address, the IP, the
-   server-side fingerprint, the device hash and every link domain on the row
-   -- because those are the keys that identify this writer and not their
-   neighbours. The wide ones are offered and left unticked: a subnet holds
-   everyone behind one NAT, an ASN holds a carrier, and a mail domain holds
-   gmail.com if you are not paying attention. Ticking one is a decision, so
-   it is a decision the owner makes rather than one this dialog makes for
-   them.
-
-   The effect is shadow-only either way: a banned writer's comments are held
-   with a note and their hearts answer normally while moving no count. Purge
-   is the separate, louder act -- ninety days of this source's comments
-   soft-deleted and their reactions removed, every row logged -- and it is
-   off by default. */
+/* Session and confirmed-address bans are selected by default. Shared
+   network, fingerprint and domain keys need an explicit choice. */
 
 import * as React from 'react';
-import { Button, Checkbox, Input, Label, Textarea } from '@/components/coss';
-import type { AdminBanKeyType, AdminBanResult, AdminCommentActor } from '@bunizao/contracts';
-import { actorKeyChips, shortHandle } from './ActorStrip';
+import { Button, Checkbox, Label, Textarea } from '@/components/coss';
+import type { AdminBanKeyType, AdminBanResult, AdminCommentActor, AdminSourceKeyType } from '@bunizao/contracts';
+import { actorKeyChips, shortHandle, sourceBanKey } from './ActorStrip';
 import { adminApiEndpoint } from './api';
 
-/** What opens ticked: the keys that hold one writer. Mirrors site-api's
-    `preTickedBanKeys`, which the Telegram card's Ban button uses, so the two
-    doors into the ban list start from the same set. */
-const PRE_TICKED: AdminBanKeyType[] = ['email', 'ip', 'fp', 'client_fp', 'domain'];
+const SHARED_WARNING: Partial<Record<AdminBanKeyType, string>> = {
+  email: 'An unconfirmed address can be entered by anybody.',
+  ip: 'A shared address can belong to unrelated readers on the same network.',
+  fp: 'This network and browser signature can be shared by unrelated readers.',
+  client_fp: 'Browser fingerprints can collide across devices. A match does not identify one person.',
+  domain: 'Blocks every comment linking to this domain, including legitimate references.',
+  ip24: 'Blocks everyone on this subnet, including shared offices, carrier NATs and campuses.',
+  asn: 'Blocks an entire network operator.',
+  email_domain: 'Blocks every address at this domain.',
+};
 
-const WIDE_WARNING: Partial<Record<AdminBanKeyType, string>> = {
-  ip24: 'Holds everyone on this /24 — a shared office, a carrier NAT, a campus.',
-  asn: 'Holds an entire network operator. Read the insights page first.',
-  email_domain: 'Holds every address at this domain, including the big ones.',
-  session: 'One cookie. Cleared the moment they open a private window.',
+type SourceBanTarget = {
+  type: AdminSourceKeyType;
+  value: string;
+  emailDomainPublishedComments?: number | null;
 };
 
 const EXPIRY_CHOICES = [
@@ -40,21 +31,29 @@ const EXPIRY_CHOICES = [
   { label: '90 days', value: '90' },
 ];
 
-export default function BanDialog({ actor, demo, onClose, onDone }: {
-  actor: AdminCommentActor;
+export default function BanDialog({ actor, source, demo, onClose, onDone }: {
+  actor?: AdminCommentActor;
+  source?: SourceBanTarget;
   demo?: boolean;
   onClose: () => void;
   onDone: (result: AdminBanResult) => void;
 }) {
-  const chips = React.useMemo(
-    () => actorKeyChips(actor).filter((chip) => chip.ban !== null),
-    [actor],
-  );
+  const chips = React.useMemo(() => {
+    if (source) {
+      const ban = sourceBanKey(source.type);
+      return ban ? [{ ban, label: source.type, value: source.value, banned: false }] : [];
+    }
+    return actor ? actorKeyChips(actor).filter((chip) => chip.ban !== null) : [];
+  }, [actor, source]);
+  const published = source?.emailDomainPublishedComments ?? actor?.emailDomainPublishedComments;
+  const domainProtected = published === null || published === undefined || published > 10;
   const [ticked, setTicked] = React.useState<Set<string>>(() => new Set(
-    chips.filter((chip) => PRE_TICKED.includes(chip.ban!)).map((chip) => `${chip.ban}:${chip.value}`),
+    chips.filter((chip) => chip.ban === 'session'
+      || (chip.ban === 'email' && !source && actor?.readerId))
+      .map((chip) => `${chip.ban}:${chip.value}`),
   ));
   const [note, setNote] = React.useState('');
-  const [days, setDays] = React.useState('');
+  const [days, setDays] = React.useState('7');
   const [purge, setPurge] = React.useState(false);
   const [revoke, setRevoke] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -69,7 +68,8 @@ export default function BanDialog({ actor, demo, onClose, onDone }: {
 
   async function apply(): Promise<void> {
     const keys = chips
-      .filter((chip) => ticked.has(`${chip.ban}:${chip.value}`))
+      .filter((chip) => ticked.has(`${chip.ban}:${chip.value}`)
+        && !(chip.ban === 'email_domain' && domainProtected))
       .map((chip) => ({ type: chip.ban!, value: chip.value }));
     if (keys.length === 0) {
       setError('Tick at least one key.');
@@ -92,12 +92,13 @@ export default function BanDialog({ actor, demo, onClose, onDone }: {
             ? new Date(Date.now() + Number(days) * 86_400_000).toISOString()
             : null,
           purge,
-          revokeReaderId: revoke ? actor.readerId : null,
+          revokeReaderId: revoke && !source ? actor?.readerId : null,
         }),
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error((payload as { error?: string }).error || `HTTP ${response.status}`);
+        throw new Error((payload as { message?: string; error?: string }).message
+          || (payload as { error?: string }).error || `HTTP ${response.status}`);
       }
       onDone(await response.json() as AdminBanResult);
     } catch (err) {
@@ -118,16 +119,25 @@ export default function BanDialog({ actor, demo, onClose, onDone }: {
         <ul className="portal-ban__keys">
           {chips.map((chip) => {
             const id = `${chip.ban}:${chip.value}`;
-            const warning = WIDE_WARNING[chip.ban!];
+            const warning = chip.ban === 'email' && actor?.readerId && !source
+              ? undefined : SHARED_WARNING[chip.ban!];
+            const disabled = chip.ban === 'email_domain' && domainProtected;
             return (
               <li key={id} data-wide={warning ? '' : undefined}>
                 <label>
-                  <Checkbox checked={ticked.has(id)} onCheckedChange={() => toggle(id)} />
+                  <Checkbox checked={ticked.has(id)} disabled={disabled} onCheckedChange={() => toggle(id)} />
                   <span className="portal-actor__key-label">{chip.label}</span>
                   <span className="portal-mono">{shortHandle(chip.value)}</span>
                   {chip.banned && <span className="portal-actor__banned">already banned</span>}
                 </label>
                 {warning && <p className="portal-ban__warn">{warning}</p>}
+                {chip.ban === 'email_domain' && (
+                  <p className="portal-ban__warn">
+                    {published === null || published === undefined
+                      ? 'Unavailable: the published-comment count could not be loaded.'
+                      : `${published} published comments in the last 90 days.${disabled ? ' Domain bans are disabled above 10.' : ''}`}
+                  </p>
+                )}
               </li>
             );
           })}
@@ -161,7 +171,7 @@ export default function BanDialog({ actor, demo, onClose, onDone }: {
           </span>
         </label>
 
-        {actor.readerId && (
+        {actor?.readerId && !source && (
           <label className="portal-ban__switch">
             <Checkbox checked={revoke} onCheckedChange={(next) => setRevoke(next === true)} />
             <span>This writer has a confirmed account. Ban the account too.</span>
@@ -172,7 +182,7 @@ export default function BanDialog({ actor, demo, onClose, onDone }: {
 
         <div className="portal-ban__acts">
           <Button size="sm" variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button size="sm" variant="destructive" onClick={() => void apply()} disabled={busy}>
+          <Button size="sm" variant="destructive" onClick={() => void apply()} disabled={busy || ticked.size === 0}>
             {busy ? 'Working…' : `Ban ${ticked.size} key${ticked.size === 1 ? '' : 's'}`}
           </Button>
         </div>

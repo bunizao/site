@@ -70,6 +70,7 @@ function demoActor(overrides: Partial<Omit<AdminCommentActor, 'cluster' | 'keys'
   return {
     readerId: null,
     email: null,
+    emailDomainPublishedComments: 0,
     ip: '203.0.113.7',
     ua: null,
     browser: 'Chrome 128',
@@ -597,8 +598,8 @@ export const DEMO_SOURCE_PROFILE: AdminSourceProfile = {
     { hint: 'hosting_asn', kind: 'vpn', count: 61 },
   ],
   linked: {
-    sessions: 47,
-    via: { email: 6, clientFpStable: 39, storageId: 2 },
+    sessions: 8,
+    via: { email: 6, clientFpStable: 0, storageId: 2 },
     carried: { ip24: 3, clientFpStable: 1, email: 6, storageId: 2 },
     comments: 64,
     held: 61,
