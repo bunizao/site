@@ -99,18 +99,19 @@ export function withRequestVary(request: Request, response: Response): Response 
   const tokens = current?.split(',').map((token) => token.trim()).filter(Boolean) ?? [];
   if (tokens.includes('*')) return response;
 
-  const policy = getContentRoutePolicy(new URL(request.url).pathname);
-  let vary = appendHeaderToken(current, 'Host');
-  if (policy?.varyByLocale) {
-    const required = ['Accept', 'Accept-Language', 'Cookie', 'Host'];
-    const seen = new Set(required.map((token) => token.toLowerCase()));
-    for (const token of tokens) {
-      if (seen.has(token.toLowerCase())) continue;
-      required.push(token);
-      seen.add(token.toLowerCase());
-    }
-    vary = required.join(', ');
+  const pathname = new URL(request.url).pathname;
+  const sourcePath = explicitMarkdownSourcePath(pathname) ?? pathname;
+  const policy = getContentRoutePolicy(pathname);
+  const required = hasMarkdownRenderer(sourcePath) ? ['Accept'] : [];
+  if (policy?.varyByLocale) required.push('Accept-Language', 'Cookie');
+  required.push('Host');
+  const seen = new Set(required.map((token) => token.toLowerCase()));
+  for (const token of tokens) {
+    if (seen.has(token.toLowerCase())) continue;
+    required.push(token);
+    seen.add(token.toLowerCase());
   }
+  const vary = required.join(', ');
   if (vary === current) return response;
 
   const headers = new Headers(response.headers);

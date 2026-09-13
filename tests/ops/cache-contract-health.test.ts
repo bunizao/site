@@ -63,6 +63,18 @@ describe('production cache contracts', () => {
         continue;
       }
       expect(response.headers.get('Cache-Control'), `${path} ready HTML`).toMatch(/\bpublic\b/);
+      if (path === '/mood') {
+        const markdown = await request(path, 'text/markdown');
+        expect(markdown.response.headers.get('Content-Type')).toContain('text/markdown');
+        expect(markdown.response.headers.get('Vary'), 'Mood Markdown must preserve the HTML variant key')
+          .toBe(response.headers.get('Vary'));
+        if (new URL(SITE).hostname === 'buxx.me') {
+          const redirect = await request('https://www.buxx.me/mood', HTML_ACCEPT, false);
+          expect(redirect.response.status).toBe(301);
+          expect(redirect.response.headers.get('Vary'), 'The www redirect must preserve the HTML variant key')
+            .toBe(response.headers.get('Vary'));
+        }
+      }
       await expectWarm(path, HTML_ACCEPT, (warm, html) => {
         expectMoodVariance(warm, path);
         if (incompleteMoodHtml(path, html)) {

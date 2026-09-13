@@ -75,6 +75,69 @@ describe('Worker response cache boundary', () => {
     },
   );
 
+  test.each(['/', '/blog', '/blog/example', '/privacy'])(
+    'keeps Accept and Host consistent across %s representations and redirects',
+    async (path) => {
+      const originalCaches = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+      Object.defineProperty(globalThis, 'caches', {
+        configurable: true,
+        value: { default: {
+          async match(request: Request) {
+            if (new URL(request.url).searchParams.get('variant') !== 'markdown') return undefined;
+            return new Response('# Cached content', { headers: {
+              'Content-Type': 'text/markdown', Vary: 'Accept', 'x-edge-cached-at': String(Date.now()),
+            } });
+          },
+          async put() {},
+        } },
+      });
+      try {
+        const env = { ASSETS: { fetch: async (input: RequestInfo | URL) => {
+          const url = new URL(input instanceof Request ? input.url : String(input));
+          return url.pathname === '/_i18n/posts.json'
+            ? Response.json({})
+            : new Response('HTML', { headers: { 'Content-Type': 'text/html', Vary: 'Host' } });
+        } } };
+        const explicitPath = `${path === '/' ? '' : path}/index.md`;
+        const responses = [
+          await worker.fetch(new Request(`https://buxx.me${path}`, { headers: { Accept: 'text/html' } }), env, context),
+          await worker.fetch(new Request(`https://buxx.me${path}`, { headers: { Accept: 'text/markdown' } }), env, context),
+          await worker.fetch(new Request(`https://www.buxx.me${path}`), env, context),
+          await worker.fetch(new Request(`https://buxx.me${explicitPath}`), env, context),
+          await worker.fetch(new Request(`https://www.buxx.me${explicitPath}`), env, context),
+          await worker.fetch(new Request(`https://bodyless.example${path}`), {
+            ASSETS: { fetch: async () => new Response(null, { status: 304 }) },
+          }, context),
+        ];
+        if (path !== '/') {
+          const redirect = await worker.fetch(new Request(`https://buxx.me${path}/`), env, context);
+          expect(redirect.status).toBe(308);
+          responses.push(redirect);
+        }
+        expect(responses[2].status).toBe(301);
+        expect(responses[4].status).toBe(301);
+        expect(responses[5].status).toBe(304);
+        for (const response of responses) {
+          expect(response.headers.get('Vary')).toBe('Accept, Host');
+        }
+      } finally {
+        if (originalCaches) Object.defineProperty(globalThis, 'caches', originalCaches);
+        else Reflect.deleteProperty(globalThis, 'caches');
+      }
+    },
+  );
+
+  test('uses the same variance on explicit Mood Markdown and its host redirect', async () => {
+    const request = new Request('https://buxx.me/mood/index.md');
+    const markdown = withRequestVary(request, new Response('# Mood', {
+      headers: { 'Content-Type': 'text/markdown', Vary: 'Accept' },
+    }));
+    const redirect = await worker.fetch(new Request('https://www.buxx.me/mood/index.md'), {}, context);
+    expect(redirect.status).toBe(301);
+    expect(markdown.headers.get('Vary')).toBe('Accept, Host');
+    expect(redirect.headers.get('Vary')).toBe(markdown.headers.get('Vary'));
+  });
+
   test('partitions native cache MISS and HIT responses by host', async () => {
     let renders = 0;
     const tasks: Promise<unknown>[] = [];
@@ -143,9 +206,9 @@ describe('Worker response cache boundary', () => {
     expect(withRequestVary(request, wildcard)).toBe(wildcard);
     const response = new Response('Stream', { headers: { Vary: 'Cookie, hOsT' } });
     const decorated = withRequestVary(request, response);
-    expect(decorated).toBe(response);
+    expect(withRequestVary(request, decorated)).toBe(decorated);
     expect(decorated.bodyUsed).toBe(false);
-    expect(decorated.headers.get('Vary')).toBe('Cookie, hOsT');
+    expect(decorated.headers.get('Vary')).toBe('Host, Cookie');
     let pulls = 0;
     const streamed = withRequestVary(request, new Response(new ReadableStream<Uint8Array>({
       pull(controller) {
