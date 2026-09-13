@@ -52,6 +52,7 @@ export interface ContentRoutePolicy {
   cacheTtlSeconds: number;
   cacheStaleWhileRevalidateSeconds?: number;
   edgeCacheHtml: boolean;
+  varyByLocale?: boolean;
   cacheHeaderName: string;
   normalizeHtmlCacheSearch?: (url: URL) => string | null;
 }
@@ -452,6 +453,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
   if (normalized === '/mood') {
     return {
       cacheTtlSeconds: MOOD_FEED_PAGE_CACHE_TTL_SECONDS,
+      varyByLocale: true,
       cacheStaleWhileRevalidateSeconds: MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
       edgeCacheHtml: true,
       cacheHeaderName: MOOD_PAGE_CACHE_HEADER,
@@ -475,6 +477,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
   if (matchMoodPost(normalized)) {
     return {
       cacheTtlSeconds: MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS,
+      varyByLocale: true,
       cacheStaleWhileRevalidateSeconds: MOOD_DETAIL_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
       edgeCacheHtml: true,
       cacheHeaderName: EDGE_CACHE_HEADER,

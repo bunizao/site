@@ -10,6 +10,7 @@ import {
   readI18nManifest,
 } from '@/features/posts/server/i18n-manifest';
 import { translationPath } from '@/features/posts/i18n';
+import { resolveRequestLocale } from '@/features/mood/server/locale';
 import type { BlogLocale } from '@/data/site';
 import { meta } from '@/data/site';
 import { estimateMarkdownTokens, prefersMarkdown } from './negotiation';
@@ -242,9 +243,11 @@ export function withContentPolicy(request: Request, response: Response): Respons
     headers.delete(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER);
   }
 
-  // Cookie-negotiated blog variants have their own in-worker keys. The
-  // platform URL cache must also bypass conditional 304 responses.
-  if (headers.get('Vary')?.split(',').some((token) => token.trim().toLowerCase() === 'cookie')) {
+  if (policy?.varyByLocale && (isHtml || response.status === 304)) {
+    headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Accept-Language'));
+    headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Cookie'));
+    // A cookieless platform HIT could reach a reader with a locale cookie
+    // before this Worker runs. Keep every negotiated HTML variant off it.
     headers.set(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER, 'no-store');
   }
 
@@ -360,10 +363,15 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
       ? null
       : '';
   if (cacheSearch === null) return null;
+  const locale = policy.varyByLocale ? resolveRequestLocale({
+    query: url.searchParams.get('lang'),
+    cookie: request.headers.get('cookie'),
+    acceptLanguage: request.headers.get('accept-language'),
+  }) : null;
 
   return {
     namespace: 'content',
-    variant: 'html',
+    variant: locale ? `html:${locale}` : 'html',
     version: contentEdgeCacheVersion(url.pathname),
     ttlSeconds: policy.cacheTtlSeconds,
     staleWhileRevalidateSeconds: policy.cacheStaleWhileRevalidateSeconds,
@@ -372,10 +380,12 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
       policy.cacheTtlSeconds,
       policy.cacheStaleWhileRevalidateSeconds,
     ),
-    cloudflareCacheControl: cloudflareCdnCacheControl(
-      policy.cacheTtlSeconds,
-      policy.cacheStaleWhileRevalidateSeconds,
-    ),
+    cloudflareCacheControl: policy.varyByLocale
+      ? 'no-store'
+      : cloudflareCdnCacheControl(
+          policy.cacheTtlSeconds,
+          policy.cacheStaleWhileRevalidateSeconds,
+        ),
     cacheSearch,
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html')

@@ -32,14 +32,14 @@ export const prerender = false;
 // is zh, so a Chinese reader got an English thread beside a Chinese subscribe
 // panel. Both now follow the reader: ?lang, then the blog_lang cookie, then
 // Accept-Language. The page is rendered per request (prerender = false) and
-// says so in Vary, so a shared cache cannot serve one reader's language to
-// another.
+// declares both inputs in Vary. The in-worker cache keys the resolved
+// locale; the platform cache stays disabled on these negotiated pages.
 const locale = resolveRequestLocale({
   query: Astro.url.searchParams.get('lang'),
   cookie: Astro.request.headers.get('cookie'),
   acceptLanguage: Astro.request.headers.get('accept-language'),
 }) as BlogLocale;
-Astro.response.headers.append('Vary', 'Accept-Language');
+Astro.response.headers.append('Vary', 'Accept-Language, Cookie');
 
 const { id } = Astro.params;
 

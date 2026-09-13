@@ -344,10 +344,10 @@ describe('Cloudflare runtime configuration', () => {
     expect(registry).toContain('readBuiltBlogMarkdown');
     // One URL is one document: a translation lives at its own path, so the
     // cache key never carries a language.
-    expect(responses).toContain("variant: 'html'");
+    expect(responses).toContain("variant: locale ? `html:${locale}` : 'html'");
     expect(responses).toContain("variant: 'markdown'");
     expect(edgeCache).toContain("EdgeCacheVariant = 'html' | 'markdown'");
-    expect(responses).not.toContain('Accept-Language');
+    expect(responses).toContain('Accept-Language');
     expect(responses).toContain('url.search');
     // The worker entrypoint owns the edge HTML cache — one read, one write
     // deferred via waitUntil, stale entries revalidated in the background. The

@@ -41,7 +41,7 @@ const locale = resolveRequestLocale({
   cookie: Astro.request.headers.get('cookie'),
   acceptLanguage: Astro.request.headers.get('accept-language'),
 }) as BlogLocale;
-Astro.response.headers.append('Vary', 'Accept-Language');
+Astro.response.headers.append('Vary', 'Accept-Language, Cookie');
 
 const title = 'Moods';
 const description = `Short posts, photos, links, and moments from ${profile.name}'s Telegram channel.`;

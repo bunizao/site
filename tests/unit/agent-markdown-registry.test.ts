@@ -163,10 +163,8 @@ describe('agent markdown registry', () => {
     expect(response.headers.get('Cache-Control')).toBe(
       'public, max-age=0, s-maxage=300, stale-while-revalidate=1800'
     );
-    expect(response.headers.get('Cloudflare-CDN-Cache-Control')).toBe(
-      'public, max-age=300, stale-while-revalidate=1800'
-    );
-    expect(response.headers.get('Vary')).toBe('Accept');
+    expect(response.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie');
   });
 
   test('refreshes platform policy on static asset 304 responses', () => {
@@ -188,26 +186,46 @@ describe('agent markdown registry', () => {
     }
   });
 
-  test('keeps cookie-negotiated blog responses outside the platform cache', () => {
-    for (const status of [200, 304]) {
-      for (const search of ['', '?lang=en']) {
-        const request = new Request(`https://buxx.me/blog/grouped${search}`);
-        const response = new Response(status === 304 ? null : 'English', {
-          status,
-          headers: {
-            Vary: 'Accept-Language, cOoKiE',
-            'Cache-Control': 'public, max-age=0, must-revalidate',
-            'Cloudflare-CDN-Cache-Control': 'no-store',
-            ...(search ? { 'Set-Cookie': 'blog_lang=en; Path=/' } : {}),
-          },
-        });
-        const outgoing = withContentPolicy(request, withContentPolicy(request, response));
+  test('bypasses the platform for every negotiated Mood HTML response', () => {
+    for (const path of ['/mood', '/mood/990001']) {
+      for (const status of [200, 304]) {
+        for (const cookie of ['', 'blog_lang=en']) {
+          const request = new Request(`https://buxx.me${path}`, {
+            headers: { Cookie: cookie, 'Accept-Language': 'zh-CN' },
+          });
+          const response = new Response(status === 304 ? null : 'English', {
+            status,
+            headers: {
+              'Content-Type': 'text/html',
+              Vary: 'Accept-Language, cOoKiE',
+              'Cache-Control': 'public, max-age=0, must-revalidate',
+              ETag: '"mood-v1"',
+            },
+          });
+          const outgoing = withContentPolicy(request, withContentPolicy(request, response));
 
-        expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
-        expect(outgoing.headers.get('Cache-Control')).toBe('public, max-age=0, s-maxage=300');
-        expect(outgoing.headers.get('Vary')).toBe('Accept-Language, cOoKiE');
-        expect(outgoing.headers.get('Set-Cookie')).toBe(search ? 'blog_lang=en; Path=/' : null);
+          expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+          expect(outgoing.headers.get('Cache-Control'))
+            .toBe('public, max-age=0, s-maxage=300, stale-while-revalidate=1800');
+          expect(outgoing.headers.get('Vary')).toBe('Accept-Language, cOoKiE, Accept');
+          expect(outgoing.headers.get('ETag')).toBe('"mood-v1"');
+        }
       }
+    }
+  });
+
+  test('keeps URL-addressed blog translations platform eligible', () => {
+    for (const path of ['/blog/quiet-architecture', '/blog/en/quiet-architecture']) {
+      const request = new Request(`https://buxx.me${path}`, {
+        headers: { Cookie: 'blog_lang=zh', 'Accept-Language': 'en-US' },
+      });
+      const response = withContentPolicy(request, new Response('Article', {
+        headers: { 'Content-Type': 'text/html' },
+      }));
+
+      expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
+        .toBe('public, max-age=300, stale-while-revalidate=86400');
+      expect(response.headers.get('Vary')).toBe('Accept');
     }
   });
 
@@ -223,7 +241,7 @@ describe('agent markdown registry', () => {
     );
 
     expect(response.headers.get('Cache-Control')).toBe('no-store, max-age=0');
-    expect(response.headers.has('Cloudflare-CDN-Cache-Control')).toBe(false);
+    expect(response.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
   });
 
   test('does not replace explicit no-store on refreshing mood embeds', () => {
