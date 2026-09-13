@@ -20,6 +20,8 @@ import type {
   AdminSourceKeyType,
 } from '@bunizao/contracts';
 
+import { DEMO_REACTIONS, DEMO_REACTION_INSIGHTS } from '@/features/admin/server/portal-demo';
+
 export const prerender = false;
 
 const session = (Astro.locals as any).adminSession;
@@ -37,6 +39,7 @@ let reactions: AdminReactionRecord[] = [];
 let total = 0;
 let insights: AdminReactionInsights | null = null;
 let loadError: string | null = null;
+let demoMode = false;
 try {
   const [list, summary] = await Promise.all([
     loadPortalReactions(Astro.request, Astro.locals, {
@@ -50,6 +53,17 @@ try {
   insights = summary;
 } catch (error) {
   loadError = error instanceof Error ? error.message : 'unknown';
+
+/* Local dev has no site-api binding, so the load above throws before any of
+   these tables has data. Same fixture swap the queue page does, and for the
+   same reason: four red banners are not a page anyone can design against. */
+  if (import.meta.env.DEV && loadError === 'api_binding_unavailable') {
+    reactions = DEMO_REACTIONS.reactions;
+    total = DEMO_REACTIONS.total;
+    insights = DEMO_REACTION_INSIGHTS;
+    demoMode = true;
+    loadError = null;
+  }
 }
 
 const networks: InsightTableRow[] = (insights?.networks ?? []).map((row) => ({
@@ -115,6 +129,12 @@ const windowItems = WINDOWS.map((each) => ({
     <div class="portal-notice" data-variant="error">
       <Activity size={14} />
       <span>Failed to load reactions: <code>{loadError}</code></span>
+    </div>
+  )}
+  {demoMode && (
+    <div class="portal-notice">
+      <Activity size={14} />
+      <span>Showing demo data — the site-api binding is unavailable in local dev.</span>
     </div>
   )}
 

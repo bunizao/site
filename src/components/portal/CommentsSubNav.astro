@@ -5,7 +5,9 @@
 import SegmentedNav from '@/components/portal/SegmentedNav.astro';
 
 interface Props {
-  active: 'queue' | 'insights' | 'reactions' | 'bans';
+  /** Omitted on a source profile, which is reached FROM these four and is
+      not one of them -- lighting a tab there would claim it is. */
+  active?: 'queue' | 'insights' | 'reactions' | 'bans';
 }
 
 const { active } = Astro.props;

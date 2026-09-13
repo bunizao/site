@@ -29,6 +29,8 @@ import { Activity, Fingerprint, Heart, Link2, MessagesSquare, ShieldAlert } from
 import { loadSourceProfile } from '@/features/admin/server/portal-client';
 import type { AdminSourceKeyType, AdminSourceProfile } from '@bunizao/contracts';
 
+import { DEMO_SOURCE_PROFILE } from '@/features/admin/server/portal-demo';
+
 export const prerender = false;
 
 const session = (Astro.locals as any).adminSession;
@@ -44,11 +46,21 @@ const known = (KEY_TYPES as string[]).includes(type);
 
 let profile: AdminSourceProfile | null = null;
 let loadError: string | null = known ? null : `Unknown key type: ${type}`;
+let demoMode = false;
 if (known) {
   try {
     profile = await loadSourceProfile(type as AdminSourceKeyType, value, Astro.request, Astro.locals);
   } catch (error) {
     loadError = error instanceof Error ? error.message : 'unknown';
+
+/* Local dev has no site-api binding, so the load above throws before any of
+   these tables has data. Same fixture swap the queue page does, and for the
+   same reason: four red banners are not a page anyone can design against. */
+    if (import.meta.env.DEV && loadError === 'api_binding_unavailable') {
+      profile = { ...DEMO_SOURCE_PROFILE, key: { type: type as AdminSourceKeyType, value } };
+      demoMode = true;
+      loadError = null;
+    }
   }
 }
 
@@ -81,12 +93,18 @@ const shortValue = /^[0-9a-f]{16,}$/i.test(value) ? `${value.slice(0, 12)}…` :
   active="comments"
   user={{ login: session?.login || 'admin' }}
 >
-  <CommentsSubNav active="queue" />
+  <CommentsSubNav />
 
   {loadError && (
     <div class="portal-notice" data-variant="error">
       <Activity size={14} />
       <span>Failed to load this source: <code>{loadError}</code></span>
+    </div>
+  )}
+  {demoMode && (
+    <div class="portal-notice">
+      <Activity size={14} />
+      <span>Showing demo data — the site-api binding is unavailable in local dev.</span>
     </div>
   )}
 

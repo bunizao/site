@@ -13,16 +13,28 @@ import { Activity } from 'lucide-react';
 import { loadBans } from '@/features/admin/server/portal-client';
 import type { AdminBan } from '@bunizao/contracts';
 
+import { DEMO_BANS } from '@/features/admin/server/portal-demo';
+
 export const prerender = false;
 
 const session = (Astro.locals as any).adminSession;
 
 let bans: AdminBan[] = [];
 let loadError: string | null = null;
+let demoMode = false;
 try {
   bans = (await loadBans(Astro.request, Astro.locals)).bans;
 } catch (error) {
   loadError = error instanceof Error ? error.message : 'unknown';
+
+/* Local dev has no site-api binding, so the load above throws before any of
+   these tables has data. Same fixture swap the queue page does, and for the
+   same reason: four red banners are not a page anyone can design against. */
+  if (import.meta.env.DEV && loadError === 'api_binding_unavailable') {
+    bans = DEMO_BANS.bans;
+    demoMode = true;
+    loadError = null;
+  }
 }
 ---
 
@@ -38,6 +50,12 @@ try {
     <div class="portal-notice" data-variant="error">
       <Activity size={14} />
       <span>Failed to load bans: <code>{loadError}</code></span>
+    </div>
+  )}
+  {demoMode && (
+    <div class="portal-notice">
+      <Activity size={14} />
+      <span>Showing demo data — the site-api binding is unavailable in local dev.</span>
     </div>
   )}
 

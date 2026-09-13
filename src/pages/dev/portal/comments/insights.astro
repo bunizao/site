@@ -21,6 +21,7 @@ import CommentsSubNav from '@/components/portal/CommentsSubNav.astro';
 import InsightTable, { type InsightTableRow } from '@/components/portal/InsightTable.astro';
 import { Activity, Globe, Link2, Mail, Monitor, ShieldAlert, Network, Fingerprint } from 'lucide-react';
 import { loadCommentInsights } from '@/features/admin/server/portal-client';
+import { DEMO_COMMENT_INSIGHTS } from '@/features/admin/server/portal-demo';
 import type { AdminCommentInsights, AdminCommentInsightsWindow } from '@bunizao/contracts';
 
 export const prerender = false;
@@ -35,10 +36,20 @@ const window: AdminCommentInsightsWindow = (WINDOWS as string[]).includes(reques
 
 let insights: AdminCommentInsights | null = null;
 let loadError: string | null = null;
+let demoMode = false;
 try {
   insights = await loadCommentInsights(Astro.request, Astro.locals, window);
 } catch (error) {
   loadError = error instanceof Error ? error.message : 'unknown';
+
+/* Local dev has no site-api binding, so the load above throws before any of
+   these tables has data. Same fixture swap the queue page does, and for the
+   same reason: four red banners are not a page anyone can design against. */
+  if (import.meta.env.DEV && loadError === 'api_binding_unavailable') {
+    insights = DEMO_COMMENT_INSIGHTS;
+    demoMode = true;
+    loadError = null;
+  }
 }
 
 function source(type: string, value: string | null): string | null {
@@ -196,6 +207,12 @@ const windowItems = WINDOWS.map((key) => ({
     <div class="portal-notice" data-variant="error">
       <Activity size={14} />
       <span>Failed to load insights: <code>{loadError}</code></span>
+    </div>
+  )}
+  {demoMode && (
+    <div class="portal-notice">
+      <Activity size={14} />
+      <span>Showing demo data — the site-api binding is unavailable in local dev.</span>
     </div>
   )}
 
