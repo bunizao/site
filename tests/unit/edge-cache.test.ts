@@ -139,7 +139,7 @@ describe('variant edge cache', () => {
 
     expect(stored.headers.get('X-Buxx-Mood-Page-Cache')).toBe('MISS');
     expect(stored.headers.get('Cloudflare-CDN-Cache-Control'))
-      .toBe('no-store');
+      .toBe('public, max-age=300, stale-while-revalidate=1800');
     expect(cached?.response.headers.get('X-Buxx-Mood-Page-Cache')).toBe('HIT');
     expect(await cached?.response.text()).toBe(body);
   });
@@ -171,13 +171,14 @@ describe('variant edge cache', () => {
       expect(await sameEnglish?.response.text()).toBe('English');
       expect(await chineseCookie?.response.text()).toBe('Chinese');
       for (const response of [stored, englishCookie?.response, sameEnglish?.response, chineseCookie?.response]) {
-        expect(response?.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+        expect(response?.headers.get('Cloudflare-CDN-Cache-Control'))
+          .toBe('public, max-age=300, stale-while-revalidate=1800');
         expect(response?.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie');
       }
     },
   );
 
-  test('keeps negotiated HTML off the platform during client cache bypass', async () => {
+  test('preserves locale variance during client cache bypass', async () => {
     const request = new Request('https://locale-client-bypass.example/mood/989987', {
       headers: { Cookie: 'blog_lang=en', 'Cache-Control': 'no-cache' },
     });
@@ -186,7 +187,9 @@ describe('variant edge cache', () => {
     }));
 
     expect(outgoing.headers.get('X-Buxx-Edge-Cache')).toBe('BYPASS');
-    expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+    expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control'))
+      .toBe('public, max-age=300, stale-while-revalidate=1800');
+    expect(outgoing.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie');
     expect(await readCachedHtmlPage(new Request(request.url))).toBeNull();
   });
 
@@ -226,7 +229,7 @@ describe('variant edge cache', () => {
       const outgoing = await cacheHtmlPageResponse(request, workerResponse);
 
       expect(outgoing.headers.get('Cache-Control')).toBe('no-store, max-age=0');
-      expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+      expect(outgoing.headers.has('Cloudflare-CDN-Cache-Control')).toBe(false);
       expect(outgoing.headers.has('X-Buxx-Cache-Ready')).toBe(false);
       expect(await outgoing.text()).toBe(body);
       expect(await readCachedHtmlPage(request)).toBeNull();
@@ -242,7 +245,7 @@ describe('variant edge cache', () => {
     }));
 
     expect(outgoing.headers.get('Cache-Control')).toBe('no-store, max-age=0');
-    expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+    expect(outgoing.headers.has('Cloudflare-CDN-Cache-Control')).toBe(false);
     expect(outgoing.headers.has('X-Buxx-Cache-Ready')).toBe(false);
   });
 
@@ -275,8 +278,7 @@ describe('variant edge cache', () => {
       }));
 
       expect(outgoing.headers.get('Cache-Control')).toBe('no-store, max-age=0');
-      expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control'))
-        .toBe(path.startsWith('/mood/embed') ? null : 'no-store');
+      expect(outgoing.headers.has('Cloudflare-CDN-Cache-Control')).toBe(false);
       expect(await readCachedHtmlPage(request)).toBeNull();
     }
   });

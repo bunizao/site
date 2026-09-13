@@ -92,6 +92,22 @@ function appendHeaderToken(value: string | null, token: string): string {
   return `${current}, ${token}`;
 }
 
+// Workers Cache omits the hostname from its base key. Every response at the
+// entrypoint boundary varies by Host, including redirects and cache hits.
+export function withHostVary(response: Response): Response {
+  const current = response.headers.get('Vary');
+  if (current?.split(',').some((token) => ['*', 'host'].includes(token.trim().toLowerCase()))) {
+    return response;
+  }
+  const headers = new Headers(response.headers);
+  headers.set('Vary', appendHeaderToken(current, 'Host'));
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 function appendCacheControlDirective(value: string | null, directive: string): string {
   const current = value?.trim();
   if (!current) return directive;
@@ -246,9 +262,6 @@ export function withContentPolicy(request: Request, response: Response): Respons
   if (policy?.varyByLocale && (isHtml || response.status === 304)) {
     headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Accept-Language'));
     headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Cookie'));
-    // A cookieless platform HIT could reach a reader with a locale cookie
-    // before this Worker runs. Keep every negotiated HTML variant off it.
-    headers.set(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER, 'no-store');
   }
 
   return new Response(response.body, {
@@ -380,12 +393,10 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
       policy.cacheTtlSeconds,
       policy.cacheStaleWhileRevalidateSeconds,
     ),
-    cloudflareCacheControl: policy.varyByLocale
-      ? 'no-store'
-      : cloudflareCdnCacheControl(
-          policy.cacheTtlSeconds,
-          policy.cacheStaleWhileRevalidateSeconds,
-        ),
+    cloudflareCacheControl: cloudflareCdnCacheControl(
+      policy.cacheTtlSeconds,
+      policy.cacheStaleWhileRevalidateSeconds,
+    ),
     cacheSearch,
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html')

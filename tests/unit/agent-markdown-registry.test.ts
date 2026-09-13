@@ -163,7 +163,8 @@ describe('agent markdown registry', () => {
     expect(response.headers.get('Cache-Control')).toBe(
       'public, max-age=0, s-maxage=300, stale-while-revalidate=1800'
     );
-    expect(response.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
+      .toBe('public, max-age=300, stale-while-revalidate=1800');
     expect(response.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie');
   });
 
@@ -186,7 +187,7 @@ describe('agent markdown registry', () => {
     }
   });
 
-  test('bypasses the platform for every negotiated Mood HTML response', () => {
+  test('declares all locale inputs on every cacheable Mood HTML response', () => {
     for (const path of ['/mood', '/mood/990001']) {
       for (const status of [200, 304]) {
         for (const cookie of ['', 'blog_lang=en']) {
@@ -204,7 +205,8 @@ describe('agent markdown registry', () => {
           });
           const outgoing = withContentPolicy(request, withContentPolicy(request, response));
 
-          expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+          expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control'))
+            .toBe('public, max-age=300, stale-while-revalidate=1800');
           expect(outgoing.headers.get('Cache-Control'))
             .toBe('public, max-age=0, s-maxage=300, stale-while-revalidate=1800');
           expect(outgoing.headers.get('Vary')).toBe('Accept-Language, cOoKiE, Accept');
@@ -241,7 +243,7 @@ describe('agent markdown registry', () => {
     );
 
     expect(response.headers.get('Cache-Control')).toBe('no-store, max-age=0');
-    expect(response.headers.get('Cloudflare-CDN-Cache-Control')).toBe('no-store');
+    expect(response.headers.has('Cloudflare-CDN-Cache-Control')).toBe(false);
   });
 
   test('does not replace explicit no-store on refreshing mood embeds', () => {
