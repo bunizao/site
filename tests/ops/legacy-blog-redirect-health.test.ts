@@ -9,7 +9,10 @@ import { describe, expect, test } from 'bun:test';
 
 const LEGACY_ORIGIN = 'https://blog.buxx.me';
 const SITE = 'https://buxx.me';
-const TIMEOUT_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 10_000;
+const NETWORK_TEST_TIMEOUT_MS = 90_000;
+const MAX_CONCURRENCY = 4;
+const RETRY_DELAY_MS = 250;
 
 const PAGE_TARGETS: Record<string, string> = {
   '/links/': `${SITE}/blog`,
@@ -20,16 +23,40 @@ function contentApiKey(): string {
   return (process.env.GHOST_CONTENT_API_KEY ?? process.env.GHOST_CONTENT_APIKEY ?? '').trim();
 }
 
+async function request(url: string, init: RequestInit = {}): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) {
+        await Bun.sleep(RETRY_DELAY_MS);
+      }
+    }
+  }
+  throw lastError;
+}
+
+async function forEachBatch<T>(items: T[], action: (item: T) => Promise<void>): Promise<void> {
+  for (let index = 0; index < items.length; index += MAX_CONCURRENCY) {
+    await Promise.all(items.slice(index, index + MAX_CONCURRENCY).map(action));
+  }
+}
+
 async function listGhostUrls(resource: 'posts' | 'pages'): Promise<string[]> {
   const url = `${LEGACY_ORIGIN}/ghost/api/content/${resource}/?key=${contentApiKey()}&fields=url&limit=all`;
-  const response = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  const response = await request(url);
   expect(response.ok, `GET ${resource} -> ${response.status}`).toBe(true);
   const payload = await response.json() as Record<string, Array<{ url: string }>>;
   return (payload[resource] ?? []).map((entry) => entry.url);
 }
 
 async function head(url: string): Promise<Response> {
-  return fetch(url, { method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT_MS) });
+  return request(url, { method: 'GET', redirect: 'manual' });
 }
 
 async function expectPermanentRedirect(from: string, to: string): Promise<void> {
@@ -39,7 +66,7 @@ async function expectPermanentRedirect(from: string, to: string): Promise<void> 
 }
 
 async function expectLandsOnSite(url: string): Promise<void> {
-  const response = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(TIMEOUT_MS) });
+  const response = await request(url, { redirect: 'follow' });
   expect(response.status, `${url} -> ${response.status}`).toBe(200);
   expect(new URL(response.url).hostname).toBe('buxx.me');
   const canonical = (await response.text()).match(/<link rel="canonical" href="([^"]+)"/)?.[1] ?? '';
@@ -54,7 +81,7 @@ describe('legacy blog host redirects', () => {
   test('every published Ghost post redirects once to its buxx.me twin', async () => {
     const urls = await listGhostUrls('posts');
     expect(urls.length).toBeGreaterThan(0);
-    await Promise.all(urls.map(async (url) => {
+    await forEachBatch(urls, async (url) => {
       const pathname = new URL(url).pathname;
       // The shape rules cover one root segment; a permalink change breaks them.
       expect(pathname, `${url} is not a root-level permalink`).toMatch(/^\/[^/]+\/$/);
@@ -62,18 +89,18 @@ describe('legacy blog host redirects', () => {
       await expectPermanentRedirect(url, target);
       await expectPermanentRedirect(url.slice(0, -1), target);
       await expectLandsOnSite(target);
-    }));
-  });
+    });
+  }, NETWORK_TEST_TIMEOUT_MS);
 
   test('every published Ghost page has an intentional destination', async () => {
     const urls = await listGhostUrls('pages');
-    await Promise.all(urls.map(async (url) => {
+    await forEachBatch(urls, async (url) => {
       const target = PAGE_TARGETS[new URL(url).pathname];
       expect(target, `${url} has no mapping in PAGE_TARGETS; map it or unpublish it`).toBeDefined();
       await expectPermanentRedirect(url, target);
       await expectLandsOnSite(target);
-    }));
-  });
+    });
+  }, NETWORK_TEST_TIMEOUT_MS);
 
   test('the index, feeds and sitemaps land on their replacements', async () => {
     await expectPermanentRedirect(`${LEGACY_ORIGIN}/`, `${SITE}/blog`);
@@ -81,7 +108,7 @@ describe('legacy blog host redirects', () => {
     await expectPermanentRedirect(`${LEGACY_ORIGIN}/sitemap.xml`, `${SITE}/sitemap.xml`);
     await expectPermanentRedirect(`${LEGACY_ORIGIN}/sitemap-posts.xml`, `${SITE}/sitemap.xml`);
     await expectPermanentRedirect(`${LEGACY_ORIGIN}/tag/prose/`, `${SITE}/blog/tag/prose`);
-  });
+  }, NETWORK_TEST_TIMEOUT_MS);
 
   test('Ghost keeps its editor, APIs and member surfaces', async () => {
     const survivors = [
@@ -90,9 +117,9 @@ describe('legacy blog host redirects', () => {
       `${LEGACY_ORIGIN}/members/api/site/`,
       `${LEGACY_ORIGIN}/robots.txt`,
     ];
-    await Promise.all(survivors.map(async (url) => {
+    await forEachBatch(survivors, async (url) => {
       const response = await head(url);
       expect(response.status, `${url} -> ${response.status}`).toBe(200);
-    }));
-  });
+    });
+  }, NETWORK_TEST_TIMEOUT_MS);
 });
