@@ -398,6 +398,17 @@ export interface AdminBanListResult {
   bans: AdminBan[];
 }
 
+export interface AdminBannedReader {
+  readerId: string;
+  email: string;
+  displayName: string | null;
+  updatedAt: string;
+}
+
+export interface AdminBannedReaderListResult {
+  readers: AdminBannedReader[];
+}
+
 /** Everything about one key in one response --
     `GET /admin/sources/:type/:value`. */
 export interface AdminSourceProfile {

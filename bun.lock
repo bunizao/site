@@ -72,7 +72,7 @@
     },
     "packages/contracts": {
       "name": "@bunizao/contracts",
-      "version": "0.7.0",
+      "version": "0.7.1",
     },
     "packages/decode-text": {
       "name": "@bunizao/decode-text",
