@@ -18,12 +18,23 @@ beforeAll(async () => {
     import BanDialog from '${root}/src/features/admin/ui/BanDialog.tsx';
     import BanOperations from '${root}/src/features/admin/ui/BanOperations.tsx';
     import ActorStrip from '${root}/src/features/admin/ui/ActorStrip.tsx';
+    import CommentsQueue from '${root}/src/features/admin/ui/CommentsQueue.tsx';
     import CommentQuality from '${root}/src/features/admin/ui/CommentQuality.tsx';
     import { DEMO_COMMENTS } from '${root}/src/features/admin/server/portal-demo.ts';
     const root = createRoot(document.getElementById('root'));
     window.moderationReview = {
       ban: () => root.render(React.createElement(BanDialog, {source:{type:'ip24',value:'reviewed-subnet'},onClose:()=>{},onDone:()=>{}})),
       operations: () => root.render(React.createElement(BanOperations)),
+      queue: () => {
+        const comments = structuredClone(DEMO_COMMENTS.comments);
+        const legacy = structuredClone(comments[0]);
+        legacy.id = 'legacy-identity';
+        legacy.author = 'Legacy reader';
+        legacy.verified = true;
+        Object.assign(legacy.actor, {readerId:'legacy-reader',authAtWrite:undefined});
+        comments.push(legacy);
+        root.render(React.createElement(CommentsQueue,{initialComments:comments,status:'held',demo:true}));
+      },
       actor: () => {
         const actor = structuredClone(DEMO_COMMENTS.comments[0].actor);
         Object.assign(actor,{readerId:'claimed-reader',authAtWrite:'anonymous',claimedAt:'2026-09-13T00:00:00Z',claimMethod:'confirmed'});
@@ -86,6 +97,23 @@ async function fixture(run: (page: Page, calls: Array<{ path: string; method: st
 }
 
 describe('reviewed moderation actions', () => {
+  test('identity filters distinguish verified sessions, claims and missing historical evidence', async () => {
+    await fixture(async (page, calls) => {
+      await page.evaluate(() => (window as any).moderationReview.queue());
+      const filter = page.getByLabel('Identity on this page');
+      await filter.waitFor();
+      expect(await page.getByRole('status').innerText()).toBe('Showing 4 of 4 loaded comments');
+      for (const [status, author] of [['verified', '老陈'], ['claimed', 'Wren'], ['anonymous', 'seo-growth-hub'], ['unknown', 'Legacy reader']]) {
+        await filter.selectOption(status!);
+        await page.waitForFunction((name) => document.querySelector('.portal-comment__name')?.textContent === name, author);
+        expect(await page.locator('.portal-comment').count()).toBe(1);
+        expect(await page.getByRole('status').innerText()).toBe('Showing 1 of 4 loaded comments');
+      }
+      expect(await page.locator('[data-identity="unknown"]').count()).toBeGreaterThan(0);
+      expect(calls).toHaveLength(0);
+    });
+  });
+
   test('previews only the selected source before an explicit ban write', async () => {
     await fixture(async (page, calls) => {
       await page.evaluate(() => (window as any).moderationReview.ban());

@@ -144,6 +144,7 @@ export const DEMO_COMMENTS: PortalComments = {
       createdAt: hoursAgo(31),
       editedAt: null,
       actor: demoActor({
+        authAtWrite: 'anonymous',
         ip: '198.51.100.24',
         country: 'SG',
         city: 'Singapore',
@@ -183,6 +184,8 @@ export const DEMO_COMMENTS: PortalComments = {
       createdAt: hoursAgo(6),
       editedAt: null,
       actor: demoActor({
+        authAtWrite: 'verified',
+        readerId: 'reader-chen',
         ip: '203.0.113.91',
         country: 'CN',
         city: 'Shanghai',
@@ -215,6 +218,10 @@ export const DEMO_COMMENTS: PortalComments = {
       createdAt: minsAgo(38),
       editedAt: null,
       actor: demoActor({
+        authAtWrite: 'anonymous',
+        readerId: 'reader-wren',
+        claimedAt: minsAgo(20),
+        claimMethod: 'session',
         cluster: { session: { comments: 2, held: 0, reactions: 5 } },
       }),
     },

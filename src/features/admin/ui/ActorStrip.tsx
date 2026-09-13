@@ -23,6 +23,7 @@
    chips below. */
 
 import * as React from 'react';
+import IdentityBadge from './IdentityBadge';
 import type {
   AdminBanKeyType,
   AdminClusterKey,
@@ -167,8 +168,9 @@ function blobRows(source: Record<string, unknown> | null): Array<[string, string
     .filter(([, value]) => value !== '');
 }
 
-export default function ActorStrip({ actor, onBan }: {
+export default function ActorStrip({ actor, onBan, showIdentityBadge = true }: {
   actor: AdminCommentActor;
+  showIdentityBadge?: boolean;
   /** Omitted on read-only surfaces; the queue and the profile pass it. */
   onBan?: (actor: AdminCommentActor) => void;
 }) {
@@ -178,14 +180,15 @@ export default function ActorStrip({ actor, onBan }: {
     actor.asOrg ? `AS${actor.asn ?? '?'} ${actor.asOrg}` : actor.asn ? `AS${actor.asn}` : null,
     actor.ip,
     [actor.browser, actor.os].filter(Boolean).join(' / ') || null,
-    actor.email,
+    actor.email ? `Email on record: ${actor.email}` : null,
   ].filter(Boolean) as string[];
 
   const behaviour = [
     duration(actor.behaviour.dwellMs) ? `${duration(actor.behaviour.dwellMs)} in the box` : null,
     duration(actor.behaviour.turnstileAgeMs) ? `turnstile ${duration(actor.behaviour.turnstileAgeMs)}` : null,
     actor.behaviour.linkCount ? `${actor.behaviour.linkCount} link${actor.behaviour.linkCount === 1 ? '' : 's'}` : null,
-    actor.behaviour.auth ?? null,
+    actor.behaviour.auth === 'turnstile' ? 'Turnstile challenge passed'
+      : actor.behaviour.auth === 'pass' ? 'Returning browser pass' : null,
     actor.behaviour.emailMx === false ? 'no MX' : null,
     actor.behaviour.emailGravatar === true ? 'gravatar' : null,
     actor.sessionNew ? 'new session' : null,
@@ -199,11 +202,21 @@ export default function ActorStrip({ actor, onBan }: {
 
   return (
     <div className="portal-actor">
+      <div className="portal-actor__line" data-band="identity">
+        {showIdentityBadge && <IdentityBadge actor={actor} />}
+        <span className="portal-actor__fact" title={actor.readerId ?? undefined}>
+          {actor.readerId ? `Linked reader: ${actor.readerId}` : 'No linked reader'}
+        </span>
+        {actor.claimedAt && <span className="portal-actor__fact">Linked <time dateTime={actor.claimedAt}>{actor.claimedAt}</time></span>}
+        {actor.banned.length > 0 && <span className="portal-actor__fact" data-tone="danger">
+          Active ban matches: {actor.banned.join(', ')}
+        </span>}
+      </div>
       <div className="portal-actor__line">
-        <span className="portal-actor__fact" data-provenance={actor.authAtWrite ?? 'unknown'}
+        {actor.claimedAt && <span className="portal-actor__fact" data-provenance={actor.authAtWrite ?? 'unknown'}
           title={actor.claimedAt ? `Linked ${new Date(actor.claimedAt).toLocaleString()}` : undefined}>
           {identityProvenance(actor)}
-        </span>
+        </span>}
         {origin.map((part) => <span key={part} className="portal-actor__fact">{part}</span>)}
         {actor.botHints > 0 && (
           <span className="portal-actor__fact" data-tone="danger" title={actor.client?.botHints.join(', ')}>

@@ -1929,6 +1929,30 @@ a.portal-feed-row:focus-visible,
   opacity: 0.8;
 }
 
+.portal-actor__line[data-band='identity'] {
+  align-items: center;
+  overflow-wrap: anywhere;
+  margin-bottom: 6px;
+}
+
+.portal-identity-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.portal-identity-filter select {
+  max-width: 100%;
+  padding: 6px 10px;
+  color: inherit;
+  background: var(--portal-surface-1);
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+}
+
 .portal-actor__fact[data-tone='danger'] {
   color: hsl(var(--portal-chip-danger));
   font-weight: 500;

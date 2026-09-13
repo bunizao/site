@@ -185,6 +185,22 @@ standing — removing those is a moderation action of its own.
 
 ## Moderation surfaces
 
+Identity labels distinguish **verified when written**, **anonymous when
+written**, **claimed later**, and **verification unknown**. A claim records
+ownership after submission; it does not rewrite the original authentication
+evidence. Verification describes the session at writing, not trustworthiness
+or the account's current access. Passed browser challenges and reader IDs
+alone do not establish historical verification.
+
+The portal queue can filter these identities within the loaded page and
+shows page-local counts. Actor strips on comments, reactions, and source
+profiles show the linked reader, claim time and method, and active ban-key
+matches. Ban-key matches describe the record's keys, not a complete account
+status check. Every owner notification, including published comments, shows
+identity evidence and a portal details link. Bot cards are snapshots at
+notification time; open the portal for refreshed records. Network, storage,
+and fingerprint matches name their basis and may include different readers.
+
 - **Telegram ops bot** at `/webhooks/telegram-ops` — the notification for a new
   or held comment, with the decision keyboard attached, plus direct reply when
   `COMMENTS_TELEGRAM_DIRECT_REPLY` is on. Separate path, separate secret, and
