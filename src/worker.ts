@@ -7,7 +7,7 @@ import {
   redirectLegacyBlogUrl,
   renderMarkdownIfRequested,
   withContentPolicy,
-  withHostVary,
+  withRequestVary,
 } from '@/features/agent-markdown/server/responses';
 
 interface WorkerEnv extends Record<string, unknown> {
@@ -127,6 +127,6 @@ async function fetchSiteRequest(
 
 export default {
   async fetch(request: Request, env: WorkerEnv, context: WorkerExecutionContext): Promise<Response> {
-    return withHostVary(await fetchSiteRequest(request, env, context));
+    return withRequestVary(request, await fetchSiteRequest(request, env, context));
   },
 };

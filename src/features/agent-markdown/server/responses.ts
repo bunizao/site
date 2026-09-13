@@ -91,15 +91,30 @@ function appendHeaderToken(value: string | null, token: string): string {
   return `${current}, ${token}`;
 }
 
-// Workers Cache omits the hostname from its base key. Every response at the
-// entrypoint boundary varies by Host, including redirects and cache hits.
-export function withHostVary(response: Response): Response {
+// Workers Cache omits Host from its base key and shares Vary metadata across
+// representations of a URL. Normalize at the outer boundary, including old
+// Markdown cache hits, so switching formats cannot discard HTML variants.
+export function withRequestVary(request: Request, response: Response): Response {
   const current = response.headers.get('Vary');
-  if (current?.split(',').some((token) => ['*', 'host'].includes(token.trim().toLowerCase()))) {
-    return response;
+  const tokens = current?.split(',').map((token) => token.trim()).filter(Boolean) ?? [];
+  if (tokens.includes('*')) return response;
+
+  const policy = getContentRoutePolicy(new URL(request.url).pathname);
+  let vary = appendHeaderToken(current, 'Host');
+  if (policy?.varyByLocale) {
+    const required = ['Accept', 'Accept-Language', 'Cookie', 'Host'];
+    const seen = new Set(required.map((token) => token.toLowerCase()));
+    for (const token of tokens) {
+      if (seen.has(token.toLowerCase())) continue;
+      required.push(token);
+      seen.add(token.toLowerCase());
+    }
+    vary = required.join(', ');
   }
+  if (vary === current) return response;
+
   const headers = new Headers(response.headers);
-  headers.set('Vary', appendHeaderToken(current, 'Host'));
+  headers.set('Vary', vary);
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

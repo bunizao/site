@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test';
-import { withHostVary } from '@/features/agent-markdown/server/responses';
+import { withRequestVary } from '@/features/agent-markdown/server/responses';
 
 let astroResponse = () => new Response('Dynamic page', {
   headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' },
@@ -37,6 +37,43 @@ describe('Worker response cache boundary', () => {
     expect(response.headers.get('Content-Type')).toContain('text/markdown');
     expect(varyTokens(response)).toEqual(['accept', 'host']);
   });
+
+  test.each(['/mood', '/mood/3618'])(
+    'keeps identical variance while interleaving HTML and legacy Markdown cache hits on %s',
+    async (path) => {
+      const originalCaches = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+      Object.defineProperty(globalThis, 'caches', {
+        configurable: true,
+        value: { default: { async match(request: Request) {
+          if (new URL(request.url).searchParams.get('variant') !== 'markdown') return undefined;
+          return new Response('# Cached Mood', { headers: {
+            'Content-Type': 'text/markdown', Vary: 'Accept', 'x-edge-cached-at': String(Date.now()),
+          } });
+        } } },
+      });
+      try {
+        const env = { ASSETS: { fetch: async () => new Response('Mood HTML', { headers: {
+          'Content-Type': 'text/html', Vary: 'Accept-Language, Cookie',
+        } }) } };
+        for (const accept of ['text/html', 'text/markdown', 'text/html', 'text/markdown']) {
+          const response = await worker.fetch(new Request(`https://vary-contract.example${path}`, {
+            headers: { Accept: accept, Cookie: 'blog_lang=en', 'Accept-Language': 'zh-CN' },
+          }), env, context);
+          expect(response.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie, Host');
+          if (accept === 'text/markdown') {
+            expect(response.headers.get('X-Buxx-Edge-Cache')).toBe('HIT');
+            expect(await response.text()).toBe('# Cached Mood');
+          } else {
+            expect(response.headers.has('X-Buxx-Edge-Cache')).toBe(false);
+            expect(await response.text()).toBe('Mood HTML');
+          }
+        }
+      } finally {
+        if (originalCaches) Object.defineProperty(globalThis, 'caches', originalCaches);
+        else Reflect.deleteProperty(globalThis, 'caches');
+      }
+    },
+  );
 
   test('partitions native cache MISS and HIT responses by host', async () => {
     let renders = 0;
@@ -89,16 +126,28 @@ describe('Worker response cache boundary', () => {
     expect(await response.text()).toBe('Rejected');
   });
 
+  test.each([200, 400, 500, 304])('normalizes Mood variance on status %i and preserves extra inputs', (status) => {
+    const request = new Request('https://vary-errors.example/mood');
+    const response = withRequestVary(request, new Response(status === 304 ? null : 'Body', {
+      status,
+      headers: { Vary: 'X-Theme, cOoKiE, Accept, x-theme' },
+    }));
+    expect(response.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie, Host, X-Theme');
+    expect(response.status).toBe(status);
+    expect(withRequestVary(request, response)).toBe(response);
+  });
+
   test('preserves wildcard variance and response streaming', async () => {
+    const request = new Request('https://host-wrapper.example/projects');
     const wildcard = new Response('Dynamic', { headers: { Vary: '*' } });
-    expect(withHostVary(wildcard)).toBe(wildcard);
+    expect(withRequestVary(request, wildcard)).toBe(wildcard);
     const response = new Response('Stream', { headers: { Vary: 'Cookie, hOsT' } });
-    const decorated = withHostVary(response);
+    const decorated = withRequestVary(request, response);
     expect(decorated).toBe(response);
     expect(decorated.bodyUsed).toBe(false);
     expect(decorated.headers.get('Vary')).toBe('Cookie, hOsT');
     let pulls = 0;
-    const streamed = withHostVary(new Response(new ReadableStream<Uint8Array>({
+    const streamed = withRequestVary(request, new Response(new ReadableStream<Uint8Array>({
       pull(controller) {
         pulls += 1;
         controller.enqueue(new TextEncoder().encode('Streaming body'));
