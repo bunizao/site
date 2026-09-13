@@ -144,6 +144,15 @@ export interface AdminCommentRecord {
   actor: AdminCommentActor;
 }
 
+/** One page of the moderation queue. */
+export interface AdminCommentListResult {
+  comments: AdminCommentRecord[];
+  /** Rows matching the filter, ignoring the page window. */
+  total: number;
+  /** `offset + comments.length`, or null on the last page. */
+  nextOffset: number | null;
+}
+
 /** What a ban can hold onto. Values are hashes (or the ASN as text) for
     every kind but the two domain kinds, which are stored raw -- a domain is
     not personal data. `client_fp` matches either the exact or the stable
