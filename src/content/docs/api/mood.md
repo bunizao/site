@@ -70,9 +70,9 @@ caches for 300s, since historical pages change less frequently.
 
 These TTLs describe the in-worker Cache API. Successful feed responses also
 advertise `Cloudflare-CDN-Cache-Control: public, max-age=60,
-stale-while-revalidate=600`, while browsers keep `Cache-Control: public,
-max-age=0`. This prepares a separate platform cache; the private Worker's
-Workers Caching flag remains disabled until its rollout checks pass.
+stale-while-revalidate=600, stale-if-error=600`, while browsers keep
+`Cache-Control: public, max-age=0`. The private Worker's platform cache is
+enabled; a platform hit does not invoke its route handler or read D1.
 Fresh and probe reads, stale fallback responses, and errors remain `no-store`
 and do not receive the public CDN policy.
 

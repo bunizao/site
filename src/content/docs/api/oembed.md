@@ -208,10 +208,11 @@ the few endpoints on the API that is genuinely cross-origin readable — the
 mood JSON routes are not, which is the main reason this endpoint exists.
 
 Successful responses use `Cache-Control: public, max-age=0` and
-`Cloudflare-CDN-Cache-Control: public, max-age=300, stale-while-revalidate=3600`.
+`Cloudflare-CDN-Cache-Control: public, max-age=300, stale-while-revalidate=3600,
+stale-if-error=3600`. `Vary: Host` isolates host-dependent URL validation and
+the generated embed/provider URLs.
 Errors use the API Worker's default `no-store, max-age=0`. The private Worker's
-platform cache requires a separate activation; these headers alone do not
-enable it.
+platform cache is enabled after route and authorization checks.
 
 The successful body also carries `"cache_age": 3600`, an oEmbed protocol field
 advising consumers to hold the result for an hour. Consumers should honor it

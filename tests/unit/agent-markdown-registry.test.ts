@@ -109,13 +109,13 @@ describe('agent markdown registry', () => {
     expect(policy?.cacheStaleWhileRevalidateSeconds).toBe(1800);
   });
 
-  test('normalizes valid mood anchors but rejects unrelated query strings', () => {
+  test('accepts raw mood anchor keys but rejects unrelated query strings', () => {
     const policy = getContentRoutePolicy('/mood');
 
     expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3631')))
-      .toBe('?anchor-bucket=3640');
+      .toBe('?3631');
     expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3640')))
-      .toBe('?anchor-bucket=3640');
+      .toBe('?3640');
     expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?utm_source=x')))
       .toBeNull();
     expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3631&source=archive')))

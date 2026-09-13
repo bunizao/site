@@ -121,17 +121,19 @@ Blog Markdown is generated during `bun run build` under `dist/client/_agent-mark
 Workers Caching sits in front of the public Worker. A platform hit avoids a
 Worker invocation; the in-worker Cache API only avoids rendering after the
 Worker has already been invoked. The platform uses the raw URL and `Vary`
-headers. The in-worker key includes the negotiated variant (`html` or
+headers, including `Host`, `Cookie`, and `Accept-Language` where they affect
+the representation. The in-worker key includes the negotiated variant (`html` or
 `markdown`) plus path and normalized query, so HTML and Markdown cannot share
-an entry. Home, blog, docs, and Mood keys include the build ID so cached HTML
+an entry. Home, blog, docs, and Mood Markdown keys include the build ID so cached content
 cannot outlive the asset version it references. `/dev`, `/oauth*`, `/api*`, and
 `/v2*` are `no-store` on the public Worker and never negotiate Markdown.
 
 `Cloudflare-CDN-Cache-Control` provides platform freshness separately from
 the browser-facing headers below: platform-eligible routes use `max-age`
 matching the route TTL, with `stale-while-revalidate=86400` by default. Mood
-feed and detail retain their explicit 1800-second in-worker stale window but
-bypass the platform cache because they negotiate a cookie preference. A `304` receives the same freshness policy
+feed and detail use a 1800-second platform stale window. `stale-if-error` is
+explicitly set to the same window rather than leaving the platform's default
+unbounded stale-on-error behavior. A `304` receives the same freshness policy
 as a `200`, preventing Static Assets defaults from forcing every later request
 to revalidate. Browsers still receive `max-age=0`. Background refresh can
 continue serving an old entry throughout its stale window when refreshes fail;
@@ -139,8 +141,8 @@ the window does not guarantee a successful update after one request.
 
 | Route family | Cache-Control | In-worker cache |
 | --- | --- | --- |
-| `/mood` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800`; numeric anchor URLs share ten-post cache buckets | HTML and Markdown, variant-keyed |
-| `/mood/[id]` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML; Markdown uses `s-maxage=300` | HTML and Markdown, variant-keyed |
+| `/mood` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML | Markdown only; HTML is owned by the platform |
+| `/mood/[id]` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML; Markdown uses `s-maxage=300` | Markdown only; HTML is owned by the platform |
 | `/mood/embed` | `public, max-age=0, s-maxage=300` for supported embed parameters | HTML, query-keyed |
 | `/blog`, `/blog/tags`, `/blog/tag/[slug]` | `public, max-age=0, s-maxage=120` for HTML and Markdown | HTML and Markdown, variant-keyed |
 | `/blog/[slug]`, `/blog/[locale]/[slug]` | `public, max-age=0, s-maxage=300` for HTML and Markdown | HTML and Markdown, variant-keyed |
@@ -156,28 +158,42 @@ starts. Empty initial feeds, unavailable anchor windows, and details awaiting
 link previews become `no-store` in both layers. The internal readiness header
 is consumed before the response leaves the Worker. Cache writes pass the
 response stream to the native Cache API without converting the entire HTML
-body into a string or scanning DOM markers. The development memory fallback
-materializes bytes because it must support repeated reads.
+body into a string or scanning DOM markers. Mood feed/detail HTML bypass the
+in-worker cache entirely: no Cache API read, write, response clone, or
+background revalidation task. Other cache users retain the streaming writer.
+The development memory fallback materializes bytes because it must support
+repeated reads.
 
 Mood feed and detail negotiate the reader's language from the query, the
-`blog_lang` cookie, and `Accept-Language`. Their in-worker HTML entries include
-the resolved locale, and their responses retain `Vary: Cookie,
-Accept-Language`. They always send platform `no-store`: a platform hit can
-occur before the Worker examines the request cookie. Checking the cookie only
-inside the Worker cannot protect an already-cached anonymous entry.
+`blog_lang` cookie, and `Accept-Language`. Responses retain `Vary: Cookie,
+Accept-Language, Accept, Host`. Workers Cache honors every listed header and
+stores distinct variants for exact header values, including anonymous and
+cookie-bearing requests. Different cookies can increase the number of cache
+entries even when they resolve to the same language; there is no additional
+gateway or language redirect.
 
 Supported Mood embed queries are language-independent and eligible for
 platform caching. Unsupported query shapes, detail query overrides, and
-refresh requests remain uncacheable. The in-worker anchor key still uses
-ten-post cache buckets. Blog translations use distinct `/blog/<locale>/<slug>`
+refresh requests remain uncacheable. Feed anchors use the raw URL as the
+platform key; the former native ten-post buckets are gone. Blog translations use distinct `/blog/<locale>/<slug>`
 URLs and need no cookie negotiation. `Vary: Accept` stays required for
 Markdown negotiation.
 
 The private API Worker defaults responses without an explicit cache policy to
 `no-store, max-age=0`, including handlers outside Astro middleware. Public
-exceptions opt in explicitly. Its Workers Caching activation remains a
-separate rollout step after a live header sweep; adding TTL headers does not
-enable that platform cache by itself.
+exceptions opt in explicitly. Workers Caching is enabled after route sweeps
+on an isolated deployment and production. Public Mood JSON and badge/oEmbed
+responses declare explicit CDN freshness; private routes and worker-generated
+errors stay uncached. Service-binding calls consult the callee's cache, with
+distinct entries when their raw paths or variance headers differ.
+
+Workers Cache does not include the hostname in its base key. The public
+Worker adds `Vary: Host` at its outer response boundary, including redirects,
+Markdown, and conditional responses. The API's host-dependent oEmbed response
+also varies by Host. This prevents a cached apex response from bypassing a
+www redirect or a host-dependent URL check. Bodyless `304` responses retain
+the full original negotiation dimensions rather than replacing them with
+Host alone.
 
 ## Environment Variables
 

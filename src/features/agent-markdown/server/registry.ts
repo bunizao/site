@@ -25,10 +25,7 @@ import type {
   MatchedMarkdownRenderer,
 } from './types';
 import { normalizeMoodEmbedCacheSearch } from '@/features/mood/server/embed-query';
-import {
-  getMoodFeedAnchorBucketBase,
-  isMoodFeedAnchorId,
-} from '@/features/mood/shared/feed-anchor';
+import { isMoodFeedAnchorId } from '@/features/mood/shared/feed-anchor';
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { readBuiltBlogMarkdown } from './built-blog';
 import {
@@ -41,7 +38,6 @@ export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 export const MARKDOWN_TOKEN_HEADER = 'x-markdown-tokens';
 export const MARKDOWN_PATH_SUFFIX = '/index.md';
 export const EDGE_CACHE_HEADER = 'X-Buxx-Edge-Cache';
-export const MOOD_PAGE_CACHE_HEADER = 'X-Buxx-Mood-Page-Cache';
 export const MOOD_FEED_PAGE_CACHE_TTL_SECONDS = 300;
 export const MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800;
 export const MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS = 300;
@@ -165,8 +161,7 @@ function normalizeMoodFeedCacheSearch(url: URL): string | null {
       : '';
   if (!isMoodFeedAnchorId(anchorId)) return null;
 
-  const bucketBase = getMoodFeedAnchorBucketBase(anchorId);
-  return bucketBase ? `?anchor-bucket=${bucketBase}` : null;
+  return url.search;
 }
 
 function markdownResult(body: string, status = 200, headers?: HeadersInit) {
@@ -456,7 +451,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
       varyByLocale: true,
       cacheStaleWhileRevalidateSeconds: MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
       edgeCacheHtml: false,
-      cacheHeaderName: MOOD_PAGE_CACHE_HEADER,
+      cacheHeaderName: EDGE_CACHE_HEADER,
       normalizeHtmlCacheSearch: normalizeMoodFeedCacheSearch,
     };
   }
