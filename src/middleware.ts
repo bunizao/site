@@ -8,6 +8,7 @@ import {
   redirectLegacyBlogUrl,
   renderMarkdownIfRequested,
   withContentPolicy,
+  withRequestVary,
 } from '@/features/agent-markdown/server/responses';
 import {
   readAdminDevBypassSession,
@@ -129,34 +130,34 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const url = new URL(context.request.url);
   const pathname = url.pathname;
   const canonicalRedirect = redirectCanonicalUrl(context.request);
-  if (canonicalRedirect) return canonicalRedirect;
+  if (canonicalRedirect) return withRequestVary(context.request, canonicalRedirect);
 
   const markdownResponse = await renderMarkdownIfRequested(context);
-  if (markdownResponse) return markdownResponse;
+  if (markdownResponse) return withRequestVary(context.request, markdownResponse);
 
   // Dev runs without src/worker.ts, so the legacy article redirect lives here too.
   const legacyBlogRedirect = await redirectLegacyBlogUrl(context.request, context.locals);
-  if (legacyBlogRedirect) return legacyBlogRedirect;
+  if (legacyBlogRedirect) return withRequestVary(context.request, legacyBlogRedirect);
 
   // Admin portal: served by this worker, gated by Cloudflare Access in production.
   if (isDevPortalPath(pathname)) {
     const session = await readAdminSession({ ...context, allowDevBypass: true });
     if (!session) {
-      return accessRequired();
+      return withRequestVary(context.request, accessRequired());
     }
     (context.locals as unknown as Record<string, unknown>).adminSession = session;
-    return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next()));
+    return withRequestVary(context.request, withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next())));
   }
 
   if (isNeverCachePath(pathname)) {
-    return withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next()));
+    return withRequestVary(context.request, withNoStoreHeaders(withHtmlSecurityHeaders(context.request, await next())));
   }
 
   // The edge HTML cache lives in src/worker.ts, the production entrypoint;
   // this middleware only decorates the rendered response. Dev therefore always
   // renders fresh, which is what dev wants.
-  return withContentPolicy(
+  return withRequestVary(context.request, withContentPolicy(
     context.request,
     withHtmlSecurityHeaders(context.request, await next()),
-  );
+  ));
 });

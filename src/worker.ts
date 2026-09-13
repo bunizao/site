@@ -7,6 +7,7 @@ import {
   redirectLegacyBlogUrl,
   renderMarkdownIfRequested,
   withContentPolicy,
+  withRequestVary,
 } from '@/features/agent-markdown/server/responses';
 
 interface WorkerEnv extends Record<string, unknown> {
@@ -73,51 +74,59 @@ async function revalidateHtmlPage(
   }
 }
 
-// This worker owns the edge HTML cache: one read before rendering, one write
-// after, deferred past the response via waitUntil. The Astro middleware only
+// Routes retaining the in-worker HTML cache use one read before rendering
+// and one write after, deferred via waitUntil. The Astro middleware only
 // decorates responses (security headers, content policy) and never touches
 // the cache, so a miss costs a single read and a single background write.
+async function fetchSiteRequest(
+  request: Request,
+  env: WorkerEnv,
+  context: WorkerExecutionContext,
+): Promise<Response> {
+  const url = new URL(request.url);
+  const canonicalRedirect = redirectCanonicalUrl(request);
+  if (canonicalRedirect) return canonicalRedirect;
+
+  // Non-GET requests carry a body the page handler still has to read.
+  // The asset probe in renderHtmlPage passes the original request to
+  // ASSETS.fetch, which consumes that body even on a 404 miss, so a form
+  // POST (e.g. /reader/confirm) would reach Astro body-less and throw
+  // "Body has already been used". Assets and the HTML edge cache are
+  // GET-only surfaces anyway -- render directly.
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return siteWorker.fetch(request, env, context);
+  }
+
+  const locals = createLocals(env);
+  const markdownResponse = await renderMarkdownIfRequested({
+    request,
+    locals,
+    site: resolveSiteUrl(request, env),
+  });
+
+  if (markdownResponse) return markdownResponse;
+
+  const legacyBlogRedirect = await redirectLegacyBlogUrl(request, locals);
+  if (legacyBlogRedirect) return legacyBlogRedirect;
+
+  if (isNeverCachePath(url.pathname)) {
+    return siteWorker.fetch(request, env, context);
+  }
+
+  const cachedHtmlPage = await readCachedHtmlPage(request);
+  if (cachedHtmlPage) {
+    if (cachedHtmlPage.isStale) {
+      context.waitUntil(revalidateHtmlPage(request, env, context));
+    }
+    return cachedHtmlPage.response;
+  }
+
+  const response = await renderHtmlPage(request, env, context);
+  return cacheHtmlPageResponse(request, response, context);
+}
+
 export default {
   async fetch(request: Request, env: WorkerEnv, context: WorkerExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
-    const canonicalRedirect = redirectCanonicalUrl(request);
-    if (canonicalRedirect) return canonicalRedirect;
-
-    // Non-GET requests carry a body the page handler still has to read.
-    // The asset probe in renderHtmlPage passes the original request to
-    // ASSETS.fetch, which consumes that body even on a 404 miss, so a form
-    // POST (e.g. /reader/confirm) would reach Astro body-less and throw
-    // "Body has already been used". Assets and the HTML edge cache are
-    // GET-only surfaces anyway -- render directly.
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      return siteWorker.fetch(request, env, context);
-    }
-
-    const locals = createLocals(env);
-    const markdownResponse = await renderMarkdownIfRequested({
-      request,
-      locals,
-      site: resolveSiteUrl(request, env),
-    });
-
-    if (markdownResponse) return markdownResponse;
-
-    const legacyBlogRedirect = await redirectLegacyBlogUrl(request, locals);
-    if (legacyBlogRedirect) return legacyBlogRedirect;
-
-    if (isNeverCachePath(url.pathname)) {
-      return siteWorker.fetch(request, env, context);
-    }
-
-    const cachedHtmlPage = await readCachedHtmlPage(request);
-    if (cachedHtmlPage) {
-      if (cachedHtmlPage.isStale) {
-        context.waitUntil(revalidateHtmlPage(request, env, context));
-      }
-      return cachedHtmlPage.response;
-    }
-
-    const response = await renderHtmlPage(request, env, context);
-    return cacheHtmlPageResponse(request, response, context);
+    return withRequestVary(request, await fetchSiteRequest(request, env, context));
   },
 };

@@ -92,35 +92,30 @@ describe('agent markdown registry', () => {
     expect(getContentRoutePolicy('/mood/rss.xml')?.cacheTtlSeconds).toBe(300);
   });
 
-  test('declares stale edge HTML cache policy for public mood detail pages', () => {
+  test('delegates public Mood detail HTML caching to the platform', () => {
     const policy = getContentRoutePolicy('/mood/990001');
 
-    expect(policy?.edgeCacheHtml).toBe(true);
+    expect(policy?.edgeCacheHtml).toBe(false);
     expect(policy?.cacheTtlSeconds).toBe(300);
     expect(policy?.cacheStaleWhileRevalidateSeconds).toBe(1800);
-    expect(policy?.isHtmlReady?.('<article data-mood-id="990001"></article>', new Response()))
-      .toBe(true);
-    expect(policy?.isHtmlReady?.(
-      '<article data-mood-id="990001" data-mood-preview-pending="true"></article>',
-      new Response(),
-    )).toBe(false);
+
   });
 
-  test('declares longer edge HTML cache policy for the public mood feed', () => {
+  test('delegates public Mood feed HTML caching to the platform', () => {
     const policy = getContentRoutePolicy('/mood');
 
-    expect(policy?.edgeCacheHtml).toBe(true);
+    expect(policy?.edgeCacheHtml).toBe(false);
     expect(policy?.cacheTtlSeconds).toBe(300);
     expect(policy?.cacheStaleWhileRevalidateSeconds).toBe(1800);
   });
 
-  test('normalizes valid mood anchors but rejects unrelated query strings', () => {
+  test('accepts raw mood anchor keys but rejects unrelated query strings', () => {
     const policy = getContentRoutePolicy('/mood');
 
     expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3631')))
-      .toBe('?anchor-bucket=3640');
+      .toBe('?3631');
     expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3640')))
-      .toBe('?anchor-bucket=3640');
+      .toBe('?3640');
     expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?utm_source=x')))
       .toBeNull();
     expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3631&source=archive')))
@@ -148,11 +143,13 @@ describe('agent markdown registry', () => {
       'public, max-age=0, s-maxage=300, stale-while-revalidate=1800'
     );
     expect(cloudflareCdnCacheControl(60)).toBe(
-      'public, max-age=60, stale-while-revalidate=300'
+      'public, max-age=60, stale-while-revalidate=86400, stale-if-error=86400'
     );
     expect(cloudflareCdnCacheControl(300, 1800)).toBe(
-      'public, max-age=300, stale-while-revalidate=1800'
+      'public, max-age=300, stale-while-revalidate=1800, stale-if-error=1800'
     );
+    expect(cloudflareCdnCacheControl(60, 0))
+      .toBe('public, max-age=60, stale-while-revalidate=0, stale-if-error=0');
   });
 
   test('sets edge-only freshness for Worker-cached content routes', () => {
@@ -168,10 +165,73 @@ describe('agent markdown registry', () => {
     expect(response.headers.get('Cache-Control')).toBe(
       'public, max-age=0, s-maxage=300, stale-while-revalidate=1800'
     );
-    expect(response.headers.get('Cloudflare-CDN-Cache-Control')).toBe(
-      'public, max-age=300, stale-while-revalidate=1800'
-    );
-    expect(response.headers.get('Vary')).toBe('Accept');
+    expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
+      .toBe('public, max-age=300, stale-while-revalidate=1800, stale-if-error=1800');
+    expect(response.headers.get('Vary')).toBe('Accept, Accept-Language, Cookie');
+  });
+
+  test('refreshes platform policy on static asset 304 responses', () => {
+    for (const [pathname, ttl] of [['/', 300], ['/blog', 120], ['/blog/example', 300]] as const) {
+      const response = withContentPolicy(
+        new Request(`https://buxx.me${pathname}`),
+        new Response(null, {
+          status: 304,
+          headers: { 'Cache-Control': 'public, max-age=0, must-revalidate', ETag: '"asset-v1"' },
+        }),
+      );
+
+      expect(response.status).toBe(304);
+      expect(response.body).toBeNull();
+      expect(response.headers.get('ETag')).toBe('"asset-v1"');
+      expect(response.headers.get('Vary')).toBe('Accept');
+      expect(response.headers.get('Cache-Control')).toBe(`public, max-age=0, s-maxage=${ttl}`);
+      expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
+        .toBe(`public, max-age=${ttl}, stale-while-revalidate=86400, stale-if-error=86400`);
+    }
+  });
+
+  test('declares all locale inputs on every cacheable Mood HTML response', () => {
+    for (const path of ['/mood', '/mood/990001']) {
+      for (const status of [200, 304]) {
+        for (const cookie of ['', 'blog_lang=en']) {
+          const request = new Request(`https://buxx.me${path}`, {
+            headers: { Cookie: cookie, 'Accept-Language': 'zh-CN' },
+          });
+          const response = new Response(status === 304 ? null : 'English', {
+            status,
+            headers: {
+              'Content-Type': 'text/html',
+              Vary: 'Accept-Language, cOoKiE',
+              'Cache-Control': 'public, max-age=0, must-revalidate',
+              ETag: '"mood-v1"',
+            },
+          });
+          const outgoing = withContentPolicy(request, withContentPolicy(request, response));
+
+          expect(outgoing.headers.get('Cloudflare-CDN-Cache-Control'))
+            .toBe('public, max-age=300, stale-while-revalidate=1800, stale-if-error=1800');
+          expect(outgoing.headers.get('Cache-Control'))
+            .toBe('public, max-age=0, s-maxage=300, stale-while-revalidate=1800');
+          expect(outgoing.headers.get('Vary')).toBe('Accept-Language, cOoKiE, Accept');
+          expect(outgoing.headers.get('ETag')).toBe('"mood-v1"');
+        }
+      }
+    }
+  });
+
+  test('keeps URL-addressed blog translations platform eligible', () => {
+    for (const path of ['/blog/quiet-architecture', '/blog/en/quiet-architecture']) {
+      const request = new Request(`https://buxx.me${path}`, {
+        headers: { Cookie: 'blog_lang=zh', 'Accept-Language': 'en-US' },
+      });
+      const response = withContentPolicy(request, new Response('Article', {
+        headers: { 'Content-Type': 'text/html' },
+      }));
+
+      expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
+        .toBe('public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400');
+      expect(response.headers.get('Vary')).toBe('Accept');
+    }
   });
 
   test('keeps mood HTML error responses out of the edge cache', () => {

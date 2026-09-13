@@ -30,7 +30,7 @@ test.describe('Developer reference', () => {
     await page.keyboard.press('Control+K');
     await expect(dialog).toBeVisible();
 
-    await input.fill('ten-post cache buckets');
+    await input.fill('Workers Caching sits');
     const architecture = dialog.getByRole('option', { name: /Architecture/ });
     await expect(architecture).toBeVisible();
     await expect(architecture).toHaveAttribute('href', '/docs/architecture');
