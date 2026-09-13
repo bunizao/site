@@ -18,11 +18,11 @@ import type {
   CommentEditInput,
   CommentEditResult,
   CommentListResult,
-  ClientEvidence,
   ReactionBatchResult,
   ReaderMe,
   ReaderMeResult,
 } from '@bunizao/contracts/comments';
+import { collectClientEvidence, warmClientEvidence } from './client-evidence';
 import {
   confirmAnonymousSubmit,
   dismissRecommendOnFill,
@@ -302,43 +302,13 @@ export function initCommentsController(): void {
 
   const warmCreate = () => warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
 
-  /* The client evidence module, armed by the same signal that warms the
-     token and never earlier: importing it attaches the page listeners and
-     starts the fingerprint, and a reader who only reads should pay for
-     neither. `armedAt` is stamped here rather than inside the module
-     because the import resolves a fetch after the focus that triggered it.
-
-     Nothing waits on this. If the chunk never arrives, or the module throws,
-     the submission below sends no evidence and the server stores NULL --
-     see plans/comment-actor-identity.md: no new signal is ever a gate. */
-  let evidence: Promise<typeof import('./fingerprint')> | null = null;
-  let armedAt = 0;
+  // Stamp focus before the lazy import so its network time is not reading time.
+  let armedAt: number | undefined;
   let validationErrors = 0;
   function armEvidence(): void {
-    if (evidence) return;
+    if (armedAt !== undefined) return;
     armedAt = Math.round(performance.now());
-    evidence = import('./fingerprint').catch(() => null as never);
-  }
-
-  async function clientEvidence(kind: 'comment' | 'reaction'): Promise<ClientEvidence> {
-    if (!evidence) return {};
-    try {
-      const module = await evidence;
-      if (!module) return {};
-      const [clientFp, storage] = await Promise.all([module.clientFingerprint(), module.storageId()]);
-      return {
-        clientFp,
-        interaction: module.interactionFor({
-          kind,
-          armedAt,
-          validationErrors,
-          turnstileAction: 'blog_comment_create',
-        }),
-        storageId: storage,
-      };
-    } catch {
-      return {};
-    }
+    warmClientEvidence();
   }
   if (typeof IntersectionObserver === 'function') {
     // rootMargin buys the solve a head start on the scroll that reveals the
@@ -565,6 +535,12 @@ export function initCommentsController(): void {
     const parentId = isReply ? box.dataset.replyTarget ?? null : null;
     const identity = readIdentity(box);
     if (!identity) return; // guard passed but the fields are gone -- nothing to send
+    const submittedEvidence = collectClientEvidence({
+      kind: 'comment',
+      armedAt,
+      validationErrors,
+      turnstileAction: 'blog_comment_create',
+    });
 
     // Everything the reader can see happens here, before a single byte leaves
     // the browser. The press used to buy a spinner and a locked field for as
@@ -614,7 +590,7 @@ export function initCommentsController(): void {
       dwellToken,
       notifyReplies: false,
       locale,
-      ...(await clientEvidence('comment')),
+      ...(await submittedEvidence),
     };
 
     const response = await postJson<CommentCreateResult>('/api/v2/comments', input);
