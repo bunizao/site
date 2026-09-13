@@ -304,6 +304,9 @@ export interface AdminCommentActor {
   cluster: Record<AdminClusterKey, AdminClusterCount>;
   /** Same, per link domain on this row. */
   domainCluster: Array<{ domain: string; comments: number; held: number; banned: boolean }>;
+  /** Published comments at this email domain in the last 90 days.
+      Missing or null means the broad domain ban cannot be evaluated. */
+  emailDomainPublishedComments?: number | null;
 }
 
 /** One reaction row as the reactions list shows it. */
