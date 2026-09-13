@@ -75,6 +75,7 @@ describe('Ops Health incident policy', () => {
       disposition: 'ignore',
       classification: 'workflow_infrastructure',
       confidence: 'high',
+      signalValidity: 'invalid',
     })).toEqual({
       ignored: true,
       reason: 'Codex classified the failure as high-confidence workflow_infrastructure.',
@@ -86,11 +87,19 @@ describe('Ops Health incident policy', () => {
       disposition: 'ignore',
       classification: 'product_regression',
       confidence: 'high',
+      signalValidity: 'invalid',
     }).ignored).toBe(false);
     expect(resolveCodexDisposition({
       disposition: 'ignore',
       classification: 'workflow_infrastructure',
       confidence: 'medium',
+      signalValidity: 'invalid',
+    }).ignored).toBe(false);
+    expect(resolveCodexDisposition({
+      disposition: 'ignore',
+      classification: 'workflow_infrastructure',
+      confidence: 'high',
+      signalValidity: 'uncertain',
     }).ignored).toBe(false);
     expect(resolveCodexDisposition(null).ignored).toBe(false);
   });
@@ -104,6 +113,7 @@ describe('Ops Health incident policy', () => {
         disposition: 'ignore',
         classification: 'workflow_infrastructure',
         confidence: 'high',
+        signalValidity: 'invalid',
       },
       dryRun: false,
     })).toMatchObject({ action: 'ignore', gate: 'pass' });

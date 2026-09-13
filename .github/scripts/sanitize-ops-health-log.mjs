@@ -3,6 +3,8 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 
 const MAX_LOG_CHARACTERS = 10_000;
+const FAILURE_CONTEXT_LINES = 24;
+const MAX_FAILURE_OCCURRENCES = 8;
 
 function redactOpsHealthLog(input) {
   return input
@@ -41,26 +43,131 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function extractRuntime(lines) {
+  const bunVersion = lines
+    .map(normalizeEvidenceLine)
+    .map((line) => line.match(/\bbun test v([^\s(]+)/i)?.[1] ?? '')
+    .find(Boolean) ?? '';
+
+  return { bunVersion };
+}
+
+function extractOutcomes(lines) {
+  const outcomes = {};
+  for (const line of lines.map(normalizeEvidenceLine)) {
+    const match = line.match(/^(PRIMARY_OUTCOME|CONFIRM_OUTCOME):\s*(\S+)$/);
+    if (!match) continue;
+    outcomes[match[1] === 'PRIMARY_OUTCOME' ? 'primary' : 'confirmation'] = match[2];
+  }
+  return outcomes;
+}
+
+function findFailureMessage(lines) {
+  const candidates = [...lines].reverse();
+  return candidates.find((line) => /^(?:TypeError|Error):\s+/i.test(line))
+    ?? candidates.find((line) => /^error:\s+/i.test(line) && !/^error:\s+script\s+/i.test(line))
+    ?? '';
+}
+
+function findLastMatch(lines, pattern) {
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const match = lines[index].match(pattern);
+    if (match) return match[1];
+  }
+  return '';
+}
+
+function extractFailureOccurrences(lines) {
+  const occurrences = [];
+  let runNumber = 0;
+  let runStart = 0;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (/##\[group\]Run bun run test:ops\b/.test(lines[index])) {
+      runNumber += 1;
+      runStart = index;
+    }
+
+    const failure = normalizeEvidenceLine(lines[index]).match(/^\(fail\)\s+(.+)$/);
+    if (!failure || occurrences.length >= MAX_FAILURE_OCCURRENCES) continue;
+
+    const context = lines
+      .slice(Math.max(runStart, index - FAILURE_CONTEXT_LINES), index + 1)
+      .map(normalizeEvidenceLine)
+      .filter(Boolean);
+    const contextText = context.join('\n');
+    const code = findLastMatch(context, /\bcode:\s*["']?([^"'\s]+)/i);
+    const target = findLastMatch(context, /\bpath:\s*["']?(https:\/\/[^"'\s]+)/i);
+
+    occurrences.push({
+      phase: runNumber === 1 ? 'primary' : runNumber === 2 ? 'confirmation' : 'unknown',
+      test: failure[1],
+      message: findFailureMessage(context),
+      code,
+      target,
+      excerpt: contextText,
+    });
+  }
+
+  return occurrences;
+}
+
+function renderFocusedLog(redacted, runtime, outcomes, failureOccurrences) {
+  if (failureOccurrences.length === 0) {
+    return truncateOpsHealthLog(redacted);
+  }
+
+  const header = [
+    runtime.bunVersion ? `Bun runtime: ${runtime.bunVersion}` : '',
+    Object.keys(outcomes).length > 0
+      ? `Outcomes: primary=${outcomes.primary ?? 'unknown'}, confirmation=${outcomes.confirmation ?? 'unknown'}`
+      : '',
+  ].filter(Boolean);
+  const failures = failureOccurrences.map((occurrence) => [
+    `## ${occurrence.phase}: ${occurrence.test}`,
+    occurrence.excerpt,
+  ].join('\n'));
+
+  return [...header, ...failures].join('\n\n');
+}
+
 export function sanitizeOpsHealthLog(input) {
   return truncateOpsHealthLog(redactOpsHealthLog(input));
 }
 
 export function extractOpsHealthEvidence(input, healthState) {
   const redacted = redactOpsHealthLog(input);
-  const lines = redacted
-    .split('\n')
+  const rawLines = redacted.split('\n');
+  const lines = rawLines
     .map(normalizeEvidenceLine)
     .filter(Boolean);
+  const runtime = extractRuntime(rawLines);
+  const outcomes = extractOutcomes(rawLines);
+  const failureOccurrences = extractFailureOccurrences(rawLines);
   const failingTests = unique(lines.flatMap((line) => {
     const match = line.match(/^\(fail\)\s+(.+)$/);
     return match ? [match[1]] : [];
   }));
-  const errors = unique(lines.filter((line) => {
-    return /^(?:error:|fatal:|expected:|received:|process completed|the hosted runner|unable to resolve)/i.test(line);
-  })).slice(0, 12);
-  const fingerprintEvidence = errors.length > 0
-    ? errors
-    : lines.slice(-12);
+  const errors = unique([
+    ...failureOccurrences.flatMap(({ message, code, target }) => [
+      message,
+      code ? `code: ${code}` : '',
+      target ? `path: ${target}` : '',
+    ]),
+    ...lines.filter((line) => {
+      return /^(?:error:|fatal:|expected:|received:|process completed|the hosted runner|unable to resolve)/i.test(line);
+    }),
+  ]).slice(0, 12);
+  const failureSignatures = failureOccurrences.map(({ test, message, code }) => ({
+    test,
+    message,
+    code,
+  }));
+  const fingerprintEvidence = failureSignatures.length > 0
+    ? failureSignatures
+    : errors.length > 0
+      ? errors
+      : lines.slice(-12);
   const fingerprint = createHash('sha256')
     .update(JSON.stringify({
       state: healthState,
@@ -74,7 +181,10 @@ export function extractOpsHealthEvidence(input, healthState) {
     fingerprint,
     failingTests,
     errors,
-    log: truncateOpsHealthLog(redacted),
+    runtime,
+    outcomes,
+    failureOccurrences,
+    log: renderFocusedLog(redacted, runtime, outcomes, failureOccurrences),
   };
 }
 
