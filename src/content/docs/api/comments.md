@@ -251,7 +251,8 @@ Every submission runs the full risk stack, in order:
    `201 { "outcome": "held", ... }` envelope that is **never persisted**.
    A filled honeypot also quarantines the current session or account for
    24 hours (see step 5). An expired signed dwell token reaches moderation
-   and storage: a clean verdict stays held with reason `dwell_expired`.
+   and storage: an anonymous writer's clean verdict stays held with reason
+   `dwell_expired`, while a verified reader's stale tab publishes as usual.
    Akismet still runs; a real spam verdict retains its own reason. Expiry
    alone does not count as spam, quarantine the reader, or produce corrective
    Akismet feedback when approved. Invalid signatures return `400 invalid_dwell_token`. Exact repeated bodies of 20+ characters

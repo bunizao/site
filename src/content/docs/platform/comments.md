@@ -341,6 +341,9 @@ The form remains writable and the existing challenge/resubmit interaction
 continues to use the draft currently shown.
 
 Dwell tokens refresh after 20 hours, with a wake-up check for long-lived
-mobile tabs. Expired tokens receive a real moderation hold and do not count
-as spam. A valid token younger than three seconds keeps the existing bot
-tripwire; a missing session secret is a server configuration error.
+mobile tabs. An anonymous writer's expired token receives a real moderation
+hold and does not count as spam; a verified reader's publishes as usual. A
+valid token younger than three seconds keeps the existing bot tripwire; an
+invalid signature is refused; a missing session secret is a server
+configuration error. The `/message` form keeps one token for the life of the
+page, and its service files an expired token rather than dropping it.

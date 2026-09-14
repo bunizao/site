@@ -910,5 +910,8 @@ The bounded follow-up fixes account-owned private-read visibility, preserves
 a newer draft when an older submission fails, stores expired-dwell comments
 for review, reports missing session configuration as a server error, and
 provides manual account-ban lifting. A 20-hour refresh timer complements the
-server's expired-token hold. It adds no database migration or account
-recovery framework.
+server's expired-token hold, which applies to anonymous writers only: a
+verified reader's stale tab publishes. The `/message` form keeps one dwell
+token for the life of the page, and its service files an expired token,
+refuses an invalid one, and answers a missing secret with a server error.
+It adds no database migration or account recovery framework.
