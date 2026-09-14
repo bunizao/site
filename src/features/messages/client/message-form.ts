@@ -8,9 +8,14 @@
 //
 // The dwell token comes from /api/v2/comments/dwell-token. That is not a
 // borrowed endpoint -- it signs nothing but a timestamp with the shared
-// comments session secret, which is exactly what verifyDwellToken checks on
+// comments session secret, which is exactly what inspectDwellToken checks on
 // the message path too. A second endpoint minting the same token from the
 // same secret would be a second name for one thing.
+//
+// Minted once, on first contact, and kept for the life of the page. The
+// service drops a token younger than three seconds as a bot and files an
+// expired one as an ordinary message, so the only rule here is never to send
+// a token that was minted a moment ago.
 
 import {
   MESSAGE_MAX_BODY_LENGTH,
@@ -26,7 +31,8 @@ import { fitBubble } from '@/features/messages/client/fit-bubbles';
 import { messageCopy as t } from '@/features/messages/copy';
 
 const ACTION = 'owner_message_create' as const;
-const DWELL_TOKEN_REFRESH_AGE_MS = 20 * 60_000;
+// Just past the service's three-second floor, with room for clock skew.
+const DWELL_TOKEN_MIN_AGE_MS = 3_500;
 // The last stretch of the field, where the count is worth showing. Anywhere
 // before it the number is noise.
 const COUNT_FROM = MESSAGE_MAX_BODY_LENGTH - 400;
@@ -73,7 +79,7 @@ export function initMessageForm(root: HTMLElement): void {
   let submitting = false;
 
   async function ensureDwellToken(): Promise<void> {
-    if (dwellToken && Date.now() - dwellTokenMintedAt < DWELL_TOKEN_REFRESH_AGE_MS) return;
+    if (dwellToken) return;
     try {
       const response = await fetch('/api/v2/comments/dwell-token', {
         headers: { Accept: 'application/json' },
@@ -85,10 +91,21 @@ export function initMessageForm(root: HTMLElement): void {
         dwellTokenMintedAt = Date.now();
       }
     } catch {
-      // Leave the token empty. The service treats a missing or bad dwell
-      // token as a silent drop, so failing here must not look like success:
-      // showError below runs when the submit comes back without one.
+      // Leave the token empty. The service refuses a submit without one, so
+      // failing here must not look like success: showError below runs when
+      // the submit comes back without it.
     }
+  }
+
+  /** The token minted on first contact is long past the service's
+      three-second floor by the time anyone has typed. One minted here,
+      because that first mint failed, is not -- so it waits the floor out
+      rather than being sent to a silent drop. */
+  async function dwellTokenReady(): Promise<void> {
+    if (dwellToken) return;
+    await ensureDwellToken();
+    const wait = dwellTokenMintedAt + DWELL_TOKEN_MIN_AGE_MS - Date.now();
+    if (dwellToken && wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
   }
 
   // Both warm-ups fire on the reader's first contact with the form rather than
@@ -214,7 +231,7 @@ export function initMessageForm(root: HTMLElement): void {
     // flight. It represents a real wait, not a staged one.
     if (typing) typing.hidden = false;
     try {
-      await ensureDwellToken();
+      await dwellTokenReady();
 
       let turnstileToken = '';
       if (siteKey) {
@@ -253,6 +270,12 @@ export function initMessageForm(root: HTMLElement): void {
           showError(t.errorRateLimited);
         } else if (response.status === 400 || response.status === 503) {
           const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+          // A refused signature means the secret moved under an open page;
+          // the next attempt mints afresh instead of failing the same way.
+          if (detail?.error === 'invalid_dwell_token') {
+            dwellToken = '';
+            dwellTokenMintedAt = 0;
+          }
           showError(
             detail?.error?.startsWith('turnstile') ? t.errorTurnstile : t.errorGeneric,
           );
@@ -265,9 +288,8 @@ export function initMessageForm(root: HTMLElement): void {
 
       const result = (await response.json()) as CreateResult;
       releaseTurnstileToken(ACTION);
-      // A fresh dwell token per submission: the one just spent is burnt.
-      dwellToken = '';
-      dwellTokenMintedAt = 0;
+      // The dwell token is kept: a second message sent under a freshly
+      // minted one would be younger than the service's floor and vanish.
 
       sentBody.textContent = result.verificationSent
         ? t.sentVerify
