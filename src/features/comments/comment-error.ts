@@ -106,8 +106,10 @@ function classify(status: number, slug: string): CommentErrorCode {
   // fixed by editing it -- the fix is a fresh page, and saying so beats
   // sending someone back to reword a sentence that was never refused. This is
   // the one the reader photographed: `dwellToken is required`, answered with
-  // "Try rewording it".
+  // "Try rewording it". `invalid_dwell_token` is the same page gone stale
+  // under a rotated secret, spelled with an underscore.
   if (slug.includes('dwelltoken')
+    || slug.includes('dwell_token')
     || slug.includes('postid is required')
     || slug.includes('parentid must be')
     || slug.includes('invalid json')) return 'STALE';
