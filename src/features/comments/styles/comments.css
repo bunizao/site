@@ -665,6 +665,8 @@
 .blog-compose__recovery p { margin: 0 0 8px; }
 .blog-compose__recovery summary { cursor: pointer; }
 .blog-compose__recovery pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.blog-compose__recovery details + details { margin-top: 8px; }
+.blog-compose__recovery details > button { margin-top: 6px; }
 .blog-compose__recovery-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
 .blog-compose__recovery button { text-decoration: underline; text-underline-offset: 3px; }
 

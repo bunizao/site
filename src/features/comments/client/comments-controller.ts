@@ -704,21 +704,45 @@ export function initCommentsController(): void {
     if (outcome === 'held') void upgradeWhenVerdictLands(comment.id, parentId, article);
   }
 
+  /** One panel per box; a second failure adds an entry rather than a second
+      panel, and one Dismiss clears them all. */
   function keepFailedDraft(box: HTMLElement, text: string): void {
+    const panel = box.querySelector<HTMLElement>('[data-failed-draft]') ?? createRecoveryPanel(box);
     const copy = el('button', { type: 'button' }, [t.copyFailedDraft]);
-    const dismiss = el('button', { type: 'button' }, [t.dismissFailedDraft]);
-    const recovery = el('div', { class: 'blog-compose__recovery', 'data-failed-draft': '' }, [
-      el('p', {}, [t.failedDraftKept]),
-      el('details', {}, [el('summary', {}, [t.failedDraft]), el('pre', {}, [text])]),
-      el('div', { class: 'blog-compose__recovery-actions' }, [copy, dismiss]),
-    ]);
     copy.addEventListener('click', () => {
       void Promise.resolve().then(() => navigator.clipboard.writeText(text)).then(() => {
         copy.textContent = t.failedDraftCopied;
       }).catch(() => { copy.textContent = t.failedDraftCopyError; });
     });
-    dismiss.addEventListener('click', () => recovery.remove());
-    box.append(recovery);
+    panel.querySelector('[data-failed-draft-entries]')!.append(
+      el('details', { 'data-failed-draft-entry': '' }, [el('summary', {}, [t.failedDraft]), el('pre', {}, [text]), copy]),
+    );
+  }
+
+  function createRecoveryPanel(box: HTMLElement): HTMLElement {
+    const dismiss = el('button', { type: 'button' }, [t.dismissFailedDraft]);
+    const panel = el('div', { class: 'blog-compose__recovery', 'data-failed-draft': '' }, [
+      el('p', {}, [t.failedDraftKept]),
+      el('div', { 'data-failed-draft-entries': '' }),
+      el('div', { class: 'blog-compose__recovery-actions' }, [dismiss]),
+    ]);
+    dismiss.addEventListener('click', () => panel.remove());
+    box.append(panel);
+    return panel;
+  }
+
+  /** The reply box travels between rows and hides between replies; a failed
+      draft left inside it would travel and hide with it. The compose box
+      stays put, so that is where the copy goes. */
+  function moveFailedDraftsToCompose(): void {
+    const panel = replyBox.querySelector<HTMLElement>('[data-failed-draft]');
+    if (!panel) return;
+    if (compose) {
+      panel.querySelectorAll<HTMLElement>('[data-failed-draft-entry] pre').forEach((entry) => {
+        keepFailedDraft(compose, entry.textContent ?? '');
+      });
+    }
+    panel.remove();
   }
 
   /** The receipt for the row this browser just posted: the one thing the
@@ -1128,6 +1152,7 @@ export function initCommentsController(): void {
     resetAnonymousConfirm(replyBox);
     clearCommentMarkdownPreview(replyField);
     replyField.value = '';
+    moveFailedDraftsToCompose();
   }
 
   // --- Row rendering ------------------------------------------------------
