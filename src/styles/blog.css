@@ -788,6 +788,12 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
     height: auto;
     object-fit: cover;
     border-radius: 12px;
+    /* An <img> box is transparent wherever the image does not paint, and the
+       card floats over the thread above -- so a cover mid-load, or one with an
+       alpha channel, would show the page's own text straight through it. The
+       page ground makes the card an opaque plate first and a photo second; the
+       shadow and the hairline edge are what make it read as lifted. */
+    background: hsl(var(--background));
     box-shadow: 0 18px 50px hsl(var(--foreground) / 0.14), var(--blog-img-edge);
   }
 
