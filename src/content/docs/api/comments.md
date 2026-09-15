@@ -49,6 +49,10 @@ mean no.
 
 ## Identity: three grades, one table
 
+Private held/rejected comments already assigned to an account require that
+account's reader session. The anonymous cookie grants read access only to
+unassigned anonymous history; it is retained on logout.
+
 Authentication at submission is recorded independently from current ownership.
 `auth_at_write` is `verified`, `anonymous`, or `unknown` for records without
 historical evidence. It never changes after a claim. A later claim records
@@ -239,14 +243,19 @@ follow the session, never the typed field.
 
 Every submission runs the full risk stack, in order:
 
-1. **Turnstile.** A failed or missing token is the only step that answers
-   plainly with `400`/`503` — everything below this line either succeeds
-   outright or fails silently.
-2. **Honeypot and dwell time.** Tripping either returns a fabricated
+1. **Turnstile.** A failed or missing token answers with `400`/`503`.
+   Request validation also returns `400`; a missing comments session secret
+   returns `500 comments_not_configured` instead of acknowledging a write.
+2. **Honeypot and dwell time.** A filled honeypot or a valid signed token
+   younger than three seconds returns a fabricated
    `201 { "outcome": "held", ... }` envelope that is **never persisted**.
    A filled honeypot also quarantines the current session or account for
-   24 hours (see step 5); an expired dwell token does not, since a tab left
-   open overnight trips it too. Exact repeated bodies of 20+ characters
+   24 hours (see step 5). An expired signed dwell token reaches moderation
+   and storage: an anonymous writer's clean verdict stays held with reason
+   `dwell_expired`, while a verified reader's stale tab publishes as usual.
+   Akismet still runs; a real spam verdict retains its own reason. Expiry
+   alone does not count as spam, quarantine the reader, or produce corrective
+   Akismet feedback when approved. Invalid signatures return `400 invalid_dwell_token`. Exact repeated bodies of 20+ characters
    within 24 hours are instead saved as held comments, without quarantining
    the writer or other readers on their network. The normalized body hash
    is a clustering signal only: differences in links or punctuation do not
@@ -403,15 +412,18 @@ GET /api/v2/comments/dwell-token
 { "token": "..." }
 ```
 
-Mints the risk stack's dwell-time stamp: a short-lived signed timestamp the
-client controller fetches once, at first interaction with the compose box,
-and holds until submit. `POST /api/v2/comments` rejects (silently — see
-above) a body whose `dwellToken` is missing, unsigned, or younger than 3
-seconds old. The stamp also carries a 24-hour expiry, which is the ceiling
-on how long a tab can sit open before its token has to be re-minted; the
-client refreshes at 20 hours rather than discovering the wall. Not rate-limited — it signs nothing but the current time, so
-there's no per-call cost worth gating; `POST /api/v2/comments`'s own limits
-apply regardless of how many tokens get minted.
+Mints a signed timestamp with a 24-hour lifetime. The controller schedules
+refresh at 20 hours and rechecks when a sleeping page becomes visible again.
+Refresh requests are deduplicated, time out after ten seconds, and retry
+after a minute on failure. A new token matures for three seconds before
+replacing the old one, so background refresh does not trip a genuine quick
+follow-up comment. Page exit cleans up the timers.
+
+A token that still expires in a long-lived tab does not lose the comment:
+`POST /api/v2/comments` stores it as a moderation hold, including after a
+late clean moderation result. Missing or malformed tokens return `400`;
+only a valid token younger than three seconds uses the silent bot tripwire.
+The token endpoint is not rate-limited; the comment write limits still apply.
 
 ## Edit or delete a comment
 
