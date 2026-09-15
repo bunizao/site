@@ -713,6 +713,8 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 
 .blog-adjacent__item {
   display: block;
+  /* Anchor for the hover cover below. */
+  position: relative;
 }
 
 .blog-adjacent__item--next {
@@ -738,6 +740,74 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 
 .blog-adjacent__item:hover .blog-adjacent__title {
   color: var(--blog-ink);
+}
+
+/* The neighbour's cover, rising out of its own link on hover. Absolutely
+   positioned so the reveal never moves the row, and pointer-events:none so the
+   card may overlap the thread above without stealing the click.
+   Deliberately *not* named for view transitions: the article's own hero already
+   claims `blog-hero` on this page, and a second live claim on the same name
+   makes the browser skip the whole transition.
+   Pointer-gated rather than merely unhoverable: on touch the card can never be
+   revealed, so it should not be in the document pulling covers over the wire. */
+.blog-adjacent__cover {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .blog-adjacent__cover {
+    display: block;
+    position: absolute;
+    /* Above the whole item, dir line included -- the cover reads as the post
+       peeking out from behind its own title. */
+    bottom: calc(100% + 14px);
+    left: 0;
+    z-index: 5;
+    width: 200px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+    /* Grows out of the edge it is pinned to, so each side leans inward. */
+    transform-origin: bottom left;
+    transition:
+      opacity 0.22s ease-out,
+      transform 0.34s cubic-bezier(0.22, 1.2, 0.4, 1);
+  }
+
+  .blog-adjacent__item--next .blog-adjacent__cover {
+    left: auto;
+    right: 0;
+    transform-origin: bottom right;
+  }
+
+  .blog-adjacent__cover img {
+    display: block;
+    width: 100%;
+    /* The same landscape band as the list preview and the article hero. */
+    aspect-ratio: 16 / 10;
+    height: auto;
+    object-fit: cover;
+    border-radius: 12px;
+    box-shadow: 0 18px 50px hsl(var(--foreground) / 0.14), var(--blog-img-edge);
+  }
+
+  .blog-adjacent__item:hover .blog-adjacent__cover,
+  .blog-adjacent__item:focus-visible .blog-adjacent__cover {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  .blog-adjacent__cover,
+  .blog-adjacent__item:hover .blog-adjacent__cover,
+  .blog-adjacent__item:focus-visible .blog-adjacent__cover {
+    transform: none;
+  }
+
+  .blog-adjacent__cover {
+    transition: opacity 0.15s ease;
+  }
 }
 
 /* Takes the slot a missing neighbour leaves. Borrows the voice of .blog-back at
