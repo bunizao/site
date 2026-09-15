@@ -110,9 +110,11 @@ const brandVars = (name: string) => {
     scale: 0.96;
   }
 
+  /* 18px for the same reason as .sub-trigger: at 16px the at-sign's inner
+     circle sits tangent to the tail's vertical stroke and the two merge. */
   .contact-trigger > svg:first-child {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     color: var(--blog-faint, hsl(var(--muted-foreground) / 0.7));
     transition: color 0.15s ease;
   }

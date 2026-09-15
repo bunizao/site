@@ -856,9 +856,13 @@ const intro =
     scale: 0.96;
   }
 
+  /* 18px, not 16. These are Lucide glyphs drawn on a 24 grid: at 16px the
+     envelope's flap lands ~1px under the rect's top edge and merges with it,
+     and the at-sign's inner circle merges with the tail's vertical stroke.
+     Thinning the stroke does not open those gaps — only more box does. */
   .sub-trigger > svg:first-child {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     color: var(--blog-faint, hsl(var(--muted-foreground) / 0.7));
     transition: color 0.15s ease;
   }
@@ -948,6 +952,14 @@ const intro =
   .blog-article-sub .sub-trigger:hover > svg:first-child,
   .blog-article-sub .sub-trigger[aria-expanded='true'] > svg:first-child {
     color: inherit;
+  }
+
+  /* The pill keeps the 16px glyph its 34px height and 13px label were tuned
+     around. It draws the icon at full ink on a filled chip, so the strokes
+     stay apart at a size the masthead's 42% grey cannot survive. */
+  .blog-article-sub .sub-trigger > svg:first-child {
+    width: 16px;
+    height: 16px;
   }
 
   .blog-article-sub .sub-trigger:hover,

@@ -85,9 +85,10 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
     scale: 0.96;
   }
 
+  /* 18px, tracking the two triggers to its left. */
   .blog-masthead__message > svg:first-child {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     color: var(--blog-faint, hsl(var(--muted-foreground) / 0.7));
     transition: color 0.15s ease;
   }
