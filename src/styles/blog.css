@@ -482,6 +482,11 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   transform-origin: left center;
   transform: scale(0.92);
   opacity: 0;
+  /* Opaque before it is a photo: an <img> box shows the page through wherever
+     the image does not paint, and this card floats over the list. PostHover
+     already withholds it until a cover has decoded, so this only ever shows
+     under a cover with an alpha channel -- but then it shows the rows behind. */
+  background: hsl(var(--background));
   transition:
     transform 0.34s cubic-bezier(0.22, 1.2, 0.4, 1),
     opacity 0.22s ease-out;
