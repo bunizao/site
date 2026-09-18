@@ -1,5 +1,6 @@
 // Vendored coss design-system primitives (Base UI + Tailwind v4), scoped to the
-// dev portal. Public site keeps its shadcn/Radix components in @/components/ui.
+// dev portal. Public site keeps its shadcn-registry components in @/components/ui,
+// also on Base UI.
 // Source: github.com/cosscom/coss (MIT). Imports rewritten to this repo.
 
 export { Button } from "./button";
