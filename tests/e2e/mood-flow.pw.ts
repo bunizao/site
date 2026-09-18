@@ -2099,6 +2099,9 @@ test.describe('Mood routes', () => {
 
     const navbar = page.locator('[data-mood-navbar]');
     const updateNotice = navbar.locator('[data-mood-update-notice]');
+    // The watcher re-applies the resting styles on init; force the notice open
+    // only after that pass, or it stomps the inline styles set here.
+    await expect(updateNotice).toHaveAttribute('style', /translateX\(-10px\)/);
     await updateNotice.evaluate((element) => {
       element.style.display = 'inline-flex';
       element.style.opacity = '1';
