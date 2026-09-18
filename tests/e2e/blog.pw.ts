@@ -156,6 +156,21 @@ test.describe('Blog wordmark', () => {
     );
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
   });
+
+  test.describe('under increased contrast', () => {
+    test.use({ contrast: 'more' });
+
+    test('lifts the wake to the stronger foreground alpha', async ({ page }) => {
+      await openBlogIndex(page);
+
+      const token = await page
+        .locator('[data-site-wordmark-variant="blog"]')
+        .evaluate((element) => getComputedStyle(element).getPropertyValue('--wordmark-wake-rest').trim());
+
+      // Chromium serialises the alpha without its leading zero.
+      expect(token).toMatch(/\/\s*0?\.82\s*\)/);
+    });
+  });
 });
 
 test.describe('Blog routes', () => {
