@@ -59,7 +59,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@astrojs/cloudflare": "14.3.2",
-    "@astrojs/markdown-satteri": "0.3.7",
+    "@astrojs/markdown-satteri": "0.4.1",
     "@astrojs/react": "^6.0.6",
     "@cloudflare/workers-types": "^5.20260918.1",
     "@playwright/test": "^1.63.0",
@@ -84,10 +84,10 @@
     "wrangler": "^4.135.0"
   },
   "dependencies": {
-    "@base-ui/react": "1.7.0",
+    "@base-ui/react": "1.8.0",
     "@bunizao/contracts": "workspace:*",
     "@bunizao/decode-text": "workspace:*",
-    "@chenglou/pretext": "^0.0.8",
+    "@chenglou/pretext": "^0.0.9",
     "@tryghost/content-api": "^1.12.11",
     "astro": "^7.3.3",
     "cheerio": "1.2.0",
@@ -104,7 +104,7 @@
     "lucide-react": "^1.47.0",
     "mermaid": "^11.17.2",
     "ofetch": "^1.5.1",
-    "pako": "3.0.1",
+    "pako": "3.0.2",
     "prismjs": "^1.30.0",
     "prismjs-components-importer": "^0.2.0",
     "react": "^19.3.0",
