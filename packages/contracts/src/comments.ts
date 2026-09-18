@@ -70,6 +70,7 @@ export const MODERATION_REASONS = [
   'abuse',
   'off_topic',
   'personal_info',
+  'dwell_expired',
 ] as const;
 
 export type ModerationReason = (typeof MODERATION_REASONS)[number];

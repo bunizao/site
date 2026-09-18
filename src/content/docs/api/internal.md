@@ -44,6 +44,8 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/reactions/insights` | Reads the grouped reaction tables. | Admin session |
 | `/admin/sources/*/*` | Reads one key's profile (key type, then value): its rows, its spread, its link graph. | Admin session |
 | `/admin/bans` | Lists the ban list, and applies bans with an optional purge. | Admin session |
+| `/admin/bans/accounts` | Lists revoked reader accounts separately from source-key bans. | Admin session |
+| `/admin/bans/accounts/:readerId` | Lifts one reader account ban without changing source keys or preferences. | Admin session |
 | `/admin/bans/preview` | Previews distinct affected accounts, sessions and content before a ban. | Admin session |
 | `/admin/bans/operations` | Lists recent purge operations and their recovery state. | Admin session |
 | `/admin/bans/operations/:id/restore` | Restores eligible content from one purge while leaving bans unchanged. | Admin session |

@@ -75,9 +75,11 @@ promise:
 | `400` | `email is required and must be a valid address` | Missing or malformed |
 | `400` | `turnstileToken is required` / `dwellToken is required` | Missing |
 | `400` | `turnstile_failed` | The token did not verify, or carried the wrong action |
+| `400` | `invalid_dwell_token` | The dwell token's signature did not verify — a page left open across a secret rotation. Reload and send again |
 | `413` | `body is too large` | Over 32 KB, whatever the character count says |
 | `429` | `Too Many Requests` | See [Rate limits](#rate-limits) |
 | `503` | `turnstile_unavailable` | Turnstile is unconfigured or unreachable. A refusal, not a bypass |
+| `500` | `messages_not_configured` | The comments session secret is missing. Nothing is acknowledged |
 | `404` | `not_found` | Comments are switched off site-wide |
 
 That last one is not a typo. The route rides `COMMENTS_ENABLED` rather than
@@ -125,10 +127,14 @@ treated as an attack.
 
 ## Tripwires
 
-A tripped honeypot, an unsigned dwell token, or a `drop` heuristic verdict all
-return `201` with a well-formed body that stores nothing. The envelope has to
-be indistinguishable from a real success — a distinguishable one teaches a bot
-exactly which field to leave alone.
+A tripped honeypot, a signed dwell token younger than three seconds, or a
+`drop` heuristic verdict all return `201` with a well-formed body that stores
+nothing. The envelope has to be indistinguishable from a real success — a
+distinguishable one teaches a bot exactly which field to leave alone. An
+expired dwell token is a form left open past a day, not a bot: the message is
+filed like any other. An unsigned token is refused with `400 invalid_dwell_token`.
+The form mints one token on first contact and keeps it for the life of the
+page; a token minted per send would arrive seconds old and trip the drop.
 
 Akismet judges everything that survives, with `comment_type: contact-form`,
 which is what a private note to a site owner actually is; the classifier
