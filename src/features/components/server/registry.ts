@@ -33,7 +33,7 @@ const repoRoot = path.resolve(process.cwd());
 
 const primitiveConfig = {
   button: {
-    dependencies: ['@radix-ui/react-slot', 'class-variance-authority'],
+    dependencies: ['@base-ui/react', 'class-variance-authority'],
   },
   badge: {},
   card: {},

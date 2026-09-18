@@ -1,18 +1,24 @@
 ---
 title: Button
-tagline: The shadcn primitive, six variants and four sizes, on the site's tokens.
+tagline: The shadcn primitive on Base UI, six variants and four sizes, on the site's tokens.
 tier: primitive
 order: 10
 install:
   type: registry
 source: https://github.com/bunizao/site/blob/main/src/components/ui/button.tsx
-credits: Built on [shadcn/ui](https://ui.shadcn.com).
+credits: Built on [shadcn/ui](https://ui.shadcn.com), rendered with [Base UI](https://base-ui.com).
 ---
 
 ```tsx
 import { Button } from '@/components/ui/button';
 
 export function Example() {
-  return <Button variant="outline">Get started</Button>;
+  return (
+    <>
+      <Button variant="outline">Get started</Button>
+      {/* Base UI renders through `render`, not Radix's `asChild`. */}
+      <Button render={<a href="/docs" />}>Read the docs</Button>
+    </>
+  );
 }
 ```

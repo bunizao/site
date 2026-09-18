@@ -200,7 +200,7 @@ async function main(): Promise<void> {
       '--template',
       'astro',
       '--base',
-      'radix',
+      'base',
       '--preset',
       'nova',
       '--name',
