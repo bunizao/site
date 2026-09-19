@@ -1,0 +1,109 @@
+---
+// Demo C — hybrid. Prose opens the page the way A does, then exactly one feed
+// follows. One is the whole constraint: the moment a second list appears the
+// page is back to being an index of indexes.
+//
+// Dev-only surface. It is a design scratchpad, not a public page.
+import MinimalShell from '@/features/home/lab/MinimalShell.astro';
+import { contactLinks } from '@/data/site';
+import { postPath } from '@/features/posts/format';
+import { getListedPosts } from '@/features/posts/server/content';
+
+export const prerender = false;
+
+if (!import.meta.env.DEV && import.meta.env.PUBLIC_STAGING_LABS !== '1') {
+  return new Response(null, { status: 404 });
+}
+
+const posts = (await getListedPosts()).slice(0, 5);
+
+// Quiet YYYY.MM stamp, UTC-fixed so output stays deterministic.
+const stamp = (iso: string): string => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+};
+---
+
+<MinimalShell title="Demo C — hybrid" variant="hybrid">
+  <img class="avatar" src="/avatar.webp" alt="" width="44" height="44" />
+
+  <p>
+    i'm lucian — eighteen, reading computer science at monash in melbourne. i
+    care about frontend design, proxy systems and open source, and most of what
+    i build starts as "why is this slow". finished things live in
+    <a href="/projects">projects</a>; shorter, less finished thoughts are
+    <a href="/mood">moods</a>.
+  </p>
+
+  <p>
+    there's a <a href="/components">components registry</a> and
+    <a href="/docs">docs</a> for how this site works. reach out about anything
+    at all.
+  </p>
+
+  <section class="feed" aria-labelledby="feed-label">
+    <h2 class="feed-label" id="feed-label">Recently, in chinese</h2>
+    <ol class="feed-list">
+      {posts.map((post) => (
+        <li>
+          <a class="feed-item" href={postPath(post.slug)}>
+            <span class="feed-title">{post.title}</span>
+            <span class="feed-date">{stamp(post.publishedAt)}</span>
+          </a>
+        </li>
+      ))}
+    </ol>
+    <a class="feed-all" href="/blog">All posts &rarr;</a>
+  </section>
+
+  <div class="channels">
+    {contactLinks.map((link) => (
+      <a href={link.url} rel="me noopener">{link.name.toLowerCase()}</a>
+    ))}
+  </div>
+</MinimalShell>
+
+<style>
+  .feed { margin-top: 56px; }
+
+  .feed-label {
+    margin: 0 0 8px;
+    font-family: var(--font-mono);
+    font-size: var(--text-meta);
+    font-weight: 400;
+    color: hsl(var(--fg-faint));
+  }
+
+  .feed-list { list-style: none; margin: 0; padding: 0; }
+
+  .feed-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 10px 0;
+    border-bottom: 1px solid hsl(var(--rule));
+    text-decoration: none;
+  }
+
+  .feed-title { color: hsl(var(--fg-muted)); transition: color var(--dur) var(--ease); }
+  .feed-item:hover .feed-title { color: hsl(var(--fg)); }
+
+  .feed-date {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: var(--text-meta);
+    color: hsl(var(--fg-faint));
+  }
+
+  .feed-all {
+    display: inline-block;
+    margin-top: 20px;
+    font-family: var(--font-mono);
+    font-size: var(--text-meta);
+    color: hsl(var(--fg-muted));
+    text-decoration: none;
+  }
+  .feed-all:hover { color: hsl(var(--fg)); }
+</style>
