@@ -30,12 +30,13 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   class="moods-section"
   data-reveal
   data-mood-runtime-disabled={runtimeDisabled ? 'true' : undefined}
+  aria-labelledby="moods-heading"
 >
-  <span
-    class="section-label"
+  <h2
+    class="section-label" id="moods-heading"
     data-reveal-item
     style="--reveal-delay: 300ms; --reveal-duration: 400ms"
-  >Moods</span>
+  >Moods</h2>
 
   <div class="mood-timeline" data-mood-list role="region" aria-busy={runtimeDisabled ? 'false' : 'true'} aria-label="Recent moods">
     <script

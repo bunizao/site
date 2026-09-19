@@ -55,12 +55,16 @@
    margin still come from the shared .section-label in globals.css; tracking is
    restated here so every step on the homepage reads its value from one ramp,
    even though this one deliberately matches what globals.css already set. */
+/* The label is an `h2`, so the page has a real outline: one `h1` in the hero
+   and one heading per section. It keeps the label's quiet mono voice — the
+   size and weight below override the global heading rule on specificity. */
 .page-container .section-label {
   font-family: var(--font-mono);
   font-size: var(--home-text-label);
   font-weight: var(--home-weight-label);
   letter-spacing: var(--home-track-label);
   color: var(--home-fg-secondary);
+  margin-top: 0;
   /* One lattice cell below the label, not the shared 20px. */
   margin-bottom: 24px;
 }
