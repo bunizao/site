@@ -425,7 +425,10 @@ export const hero = {
     'Crafting', 'Tinkering', 'Pondering', 'Researching', 'Prototyping',
     'Deploying', 'Solving',
   ],
-  socials: profile.links,
+  // `contactLinks`, not `profile.links` — the Blog chip is dropped here.
+  // The nav, the Writing masthead and that section's own door already lead
+  // to the blog; a fourth doorway in the hero says nothing new.
+  socials: contactLinks,
 
   // One line per visual line; `**...**` marks the single highlight effect
   // (rendered as <span class="text-foreground"> for the hero decode reveal).
