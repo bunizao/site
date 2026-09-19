@@ -17,7 +17,7 @@ function RowBody({ item }: { item: ExperienceItem }) {
   return (
     <>
       <span
-        className="relative z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-[hsl(var(--foreground)/0.14)] bg-[hsl(var(--card))] text-[hsl(var(--foreground)/0.82)] shadow-[0_0_0_3px_hsl(var(--background)),0_1px_2px_hsl(var(--foreground)/0.06)]"
+        className="relative z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[hsl(var(--foreground)/0.14)] bg-[hsl(var(--card))] text-[hsl(var(--foreground)/0.82)] shadow-[0_0_0_3px_hsl(var(--background)),0_1px_2px_hsl(var(--foreground)/0.06)]"
         aria-hidden="true"
       >
         <item.icon className={GLYPH} strokeWidth={item.strokeWidth} />

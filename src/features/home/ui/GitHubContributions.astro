@@ -343,7 +343,7 @@ const placeholderBars = Array.from({ length: contributionDays });
     height: var(--height);
     background: hsl(var(--foreground) / 0.35);
     transform-origin: bottom;
-    transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease;
+    transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1), background var(--dur-base) var(--ease);
   }
 
   /* Ambient breathing wave — handed off after the right-to-left grow-in. */
@@ -382,7 +382,7 @@ const placeholderBars = Array.from({ length: contributionDays });
     transform: translateX(-50%);
     background: hsl(var(--background));
     border: 1px solid hsl(var(--foreground) / 0.15);
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     padding: 6px 10px;
     display: flex;
     flex-direction: column;
@@ -391,7 +391,7 @@ const placeholderBars = Array.from({ length: contributionDays });
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: opacity 0.15s ease, visibility 0.15s ease;
+    transition: opacity var(--dur-fast) var(--ease), visibility var(--dur-fast) var(--ease);
     white-space: nowrap;
     box-shadow: 0 2px 8px hsl(var(--foreground) / 0.08);
     z-index: 10;
@@ -467,7 +467,7 @@ const placeholderBars = Array.from({ length: contributionDays });
     font-weight: 500;
     color: hsl(var(--foreground));
     text-decoration: none;
-    transition: opacity 0.15s ease;
+    transition: opacity var(--dur-fast) var(--ease);
   }
 
   @media (min-width: 640px) {

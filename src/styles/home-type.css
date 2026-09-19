@@ -68,3 +68,28 @@
   /* One lattice cell below the label, not the shared 20px. */
   margin-bottom: 24px;
 }
+
+/* The link that closes a section. Projects, Writing and Moods each carried
+   their own copy of these rules -- byte for byte the same, then drifting on
+   duration. One class now, guarded the same way the reveal guards everything
+   else: no transition until the section has settled, or the hover state
+   animates while the entrance is still running. */
+.page-container .section-enter {
+  margin-top: 28px;
+  font-family: var(--font-sans);
+  font-size: var(--home-text-body);
+  font-weight: var(--home-weight-body);
+  letter-spacing: var(--home-track-body);
+  color: var(--home-fg-secondary);
+}
+
+html:not(.reveal-ready) .page-container .section-enter,
+.reveal-ready .page-container [data-reveal].is-settled .section-enter {
+  transition: color var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
+}
+
+html:not(.reveal-ready) .page-container .section-enter:hover,
+.reveal-ready .page-container [data-reveal].is-settled .section-enter:hover {
+  color: var(--home-fg-primary);
+  transform: translateX(2px);
+}

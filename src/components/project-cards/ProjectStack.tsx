@@ -1292,7 +1292,7 @@ export default function ProjectStack({ className }: { className?: string }) {
   return (
     <div
       data-project-stack={mounted ? "hydrated" : "ssr"}
-      className={cn("relative mx-auto w-full", className)}
+      className={cn("relative w-full", className)}
       style={{ maxWidth: cardMax + 40 }}
       onPointerEnter={() => setPaused(true)}
       onPointerLeave={() => setPaused(false)}
@@ -1312,7 +1312,7 @@ export default function ProjectStack({ className }: { className?: string }) {
           return (
             <motion.article
               key={project.id}
-              className="absolute inset-x-0 top-0 mx-auto w-full select-none"
+              className="absolute inset-x-0 top-0 w-full select-none"
               style={{
                 maxWidth: cardMax,
                 // Horizontal flip only. Vertical touch starts still scroll the

@@ -76,7 +76,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
 
   <a
     href="/mood"
-    class="link mood-enter mt-6"
+    class="link section-enter"
     aria-label="View all moods"
     data-reveal-item
     style="--reveal-delay: 1000ms; --reveal-duration: 400ms"
@@ -98,24 +98,6 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     font-family: var(--font-mono);
   }
 
-  #moods-section .mood-enter {
-    display: inline-block;
-    font-size: var(--home-text-body);
-    font-weight: var(--home-weight-body);
-    letter-spacing: var(--home-track-body);
-    color: var(--home-fg-secondary);
-  }
-
-  html:not(.reveal-ready) #moods-section .mood-enter,
-  .reveal-ready #moods-section.is-settled .mood-enter {
-    transition: color 0.3s ease, transform 0.3s ease;
-  }
-
-  html:not(.reveal-ready) #moods-section .mood-enter:hover,
-  .reveal-ready #moods-section.is-settled .mood-enter:hover {
-    color: var(--home-fg-primary);
-    transform: translateX(2px);
-  }
 
   /* Feed entrance. The section itself is revealed by src/lib/home-reveal.ts;
      these two classes cover the async swap from skeletons to real cards, which
@@ -205,7 +187,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     color: var(--home-fg-faint);
     font-variant-numeric: tabular-nums;
     letter-spacing: var(--home-track-meta);
-    transition: color 0.2s ease;
+    transition: color var(--dur-base) var(--ease);
   }
 
   #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-time {
@@ -296,13 +278,13 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     padding: 10px 14px;
     background: hsl(var(--foreground) / 0.02);
     border: 1px solid hsl(var(--foreground) / 0.06);
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     min-height: var(--reserved-card-height, auto);
     transition:
-      background 0.2s ease,
-      border-color 0.2s ease,
-      transform 0.2s ease,
-      box-shadow 0.2s ease;
+      background var(--dur-base) var(--ease),
+      border-color var(--dur-base) var(--ease),
+      transform var(--dur-base) var(--ease),
+      box-shadow var(--dur-base) var(--ease);
   }
 
   @media (min-width: 640px) {
@@ -330,7 +312,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     font-weight: var(--home-weight-body);
     letter-spacing: var(--home-track-body);
     line-height: var(--mood-text-line-height);
-    color: hsl(var(--foreground) / 0.8);
+    color: var(--home-fg-primary);
     max-height: calc(var(--mood-text-line-height) * 2em);
     overflow: hidden;
     word-break: break-word;
@@ -341,7 +323,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     color: inherit;
     text-decoration: none;
     border-bottom: 1px solid hsl(var(--foreground) / 0.35);
-    transition: border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+    transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
   }
 
   #moods-section .mood-text a:hover,
@@ -389,10 +371,10 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     color: var(--home-fg-faint);
     padding: 2px 6px;
     background: hsl(var(--foreground) / 0.04);
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     transition:
-      background 0.2s ease,
-      color 0.2s ease;
+      background var(--dur-base) var(--ease),
+      color var(--dur-base) var(--ease);
   }
 
   #moods-section .mood-item:hover .mood-tag {
@@ -403,7 +385,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   #moods-section .mood-thumbnail {
     width: 48px;
     height: 48px;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     overflow: hidden;
     background: hsl(var(--foreground) / 0.04);
     flex-shrink: 0;

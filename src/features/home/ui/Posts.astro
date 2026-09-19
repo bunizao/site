@@ -85,7 +85,7 @@ const stamp = (iso: string): string => {
 
   <a
     href="/blog"
-    class="link writing-enter"
+    class="link section-enter"
     data-reveal-item
     style={`--reveal-delay: ${enterRevealDelay}ms; --reveal-duration: 400ms`}
   >Enter {blogCopy.name}</a>
@@ -294,24 +294,6 @@ const stamp = (iso: string): string => {
     color: var(--home-fg-secondary);
   }
 
-  :global(#writing-section .writing-enter) {
-    margin-top: 28px;
-    font-size: var(--home-text-body);
-    font-weight: var(--home-weight-body);
-    letter-spacing: var(--home-track-body);
-    color: var(--home-fg-secondary);
-  }
-
-  :global(html:not(.reveal-ready) #writing-section .writing-enter),
-  :global(.reveal-ready #writing-section.is-settled .writing-enter) {
-    transition: color 0.3s ease, transform 0.3s ease;
-  }
-
-  :global(html:not(.reveal-ready) #writing-section .writing-enter:hover),
-  :global(.reveal-ready #writing-section.is-settled .writing-enter:hover) {
-    color: var(--home-fg-primary);
-    transform: translateX(2px);
-  }
 </style>
 
 <script>
