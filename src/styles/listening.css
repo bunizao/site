@@ -950,7 +950,7 @@
 .listening-art.is-cover {
   width: 56px;
   height: 56px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   align-self: center;
 }
@@ -1010,7 +1010,7 @@
 .listening-art.is-cover:focus-visible {
   outline: 2px solid hsl(var(--foreground) / 0.55);
   outline-offset: 2px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .listening-art.has-no-playback .listening-art-scrim,
