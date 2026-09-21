@@ -361,33 +361,152 @@ function startLiveRefresh(postId: string): void {
   window.addEventListener('focus', tick);
 }
 
-/** Drops a just-posted own comment straight into the rendered thread --
-    detail-compose.ts calls this on a `published` outcome, rather than
-    duplicating renderComment's layout. Inserted at the top: this is always
-    the newest comment on the page, and load-more only ever brings in older
-    ones at the bottom. No-ops if the thread never finished mounting (a
-    `#comments-readonly` post has no compose box to call this from anyway). */
-export function insertOwnComment(comment: CommentData): void {
-  if (!commentsListEl) return;
-  const id = asText(comment?.id).trim();
-  const siteCommentId = asText(comment?.commentId).trim();
-  if (id && loadedCommentIds.has(id)) return;
-  if (siteCommentId && loadedSiteCommentIds.has(siteCommentId)) return;
+/* --- The reader's own comment, from press to verdict --------------------
 
-  if (siteCommentId) {
-    ownCommentIds.add(siteCommentId);
-    rememberOwnCommentId(siteCommentId);
-  }
-  if (id) loadedCommentIds.add(id);
-  if (siteCommentId) loadedSiteCommentIds.add(siteCommentId);
+   Three states, one row. It appears under the finger the moment Post is
+   pressed (`insertGhostComment`), takes on the server's version of itself
+   when the write comes back (`replaceGhostComment`), and stops breathing
+   when the moderation verdict lands (`settleOwnComment`). A refused write
+   takes it back (`dropGhostComment`) and detail-compose.ts puts the words
+   back in the box.
+
+   This replaced a banner over the compose box that said the comment had
+   been posted somewhere the reader could not see it. It was shown on nearly
+   every comment, because site-api gives the spam check 1.5 seconds and
+   finishes the request without it -- so `held` is the ordinary answer, not
+   a verdict -- and it never came down, because nothing on the page was
+   watching for the flip. The reader was told their comment was invisible,
+   and then the thread went on not containing it. */
+
+/** The stand-in, keyed by a throwaway id. Registered in the loaded-id sets
+    like any other row so the refresh tick cannot render a second copy
+    underneath it. Inserted at the top: this is always the newest comment on
+    the page, and load-more only ever brings in older ones at the bottom.
+    No-ops if the thread never finished mounting (a `#comments-readonly` post
+    has no compose box to call this from anyway). */
+export function insertGhostComment(key: string, comment: CommentData): void {
+  if (!commentsListEl) return;
+  loadedCommentIds.add(key);
+  loadedSiteCommentIds.add(key);
+  ownCommentIds.add(key);
 
   if (emptyEl) emptyEl.hidden = true;
-  const node = renderComment(comment);
+  const node = renderComment({ ...comment, id: key, commentId: key });
+  markPending(node);
   commentsListEl.prepend(node);
   linkReplyQuotes();
   hydrateAnimatedEmoji?.(commentsListEl);
   hydrateMoodRichText(commentsListEl);
   syncCommentsCount();
+}
+
+/** Swaps the stand-in for a row built from what the server actually returned
+    -- the real id, the anchor token a bridged reply will later match on, the
+    avatar behind a verified address. The stand-in is thrown away whole
+    rather than patched, which is what let it guess freely at the parts it
+    could not know.
+
+    The row stays pending: this swap is about identity, and the verdict is
+    what settleOwnComment is waiting on.
+
+    It also survives the scrape catching up. `commentId` is the id the read
+    path's overlay carries for a bridged row (see mood/shared/own-comments.ts),
+    and it is registered here, so `dedupeNewComments` drops the server's copy
+    on a later refresh tick instead of rendering it twice. */
+export function replaceGhostComment(key: string, comment: CommentData): void {
+  const node = findOwnComment(key);
+  forgetOwnComment(key);
+
+  const id = asText(comment?.id).trim();
+  const siteCommentId = asText(comment?.commentId).trim();
+  if (id) loadedCommentIds.add(id);
+  if (siteCommentId) {
+    loadedSiteCommentIds.add(siteCommentId);
+    ownCommentIds.add(siteCommentId);
+    rememberOwnCommentId(siteCommentId);
+  }
+
+  const fresh = renderComment(comment);
+  markPending(fresh);
+  if (node) node.replaceWith(fresh);
+  else commentsListEl?.prepend(fresh);
+  linkReplyQuotes();
+  if (commentsListEl) {
+    hydrateAnimatedEmoji?.(commentsListEl);
+    hydrateMoodRichText(commentsListEl);
+  }
+  syncCommentsCount();
+}
+
+/** Takes the stand-in back when the write was refused. Nothing the reader
+    wrote is lost by the row going -- detail-compose.ts returns the words to
+    the box in the same breath. */
+export function dropGhostComment(key: string): void {
+  const node = findOwnComment(key);
+  forgetOwnComment(key);
+  node?.remove();
+  syncCommentsCount();
+  if (emptyEl && commentsListEl && !commentsListEl.querySelector('.mood-comment')) {
+    emptyEl.hidden = false;
+  }
+}
+
+/** The verdict landed, or the wait for it ran out.
+
+    Published is the overwhelmingly common ending and it leaves nothing
+    behind: the bubble stops breathing, the note goes, and the row is a
+    comment in the thread like any other. Only a wait that genuinely ended in
+    a hold keeps a note, and then it says the one fact that matters --
+    everyone else is looking at a thread this row is not in.
+
+    No-ops on a row the page no longer has; the poll can outlive it. */
+export function settleOwnComment(siteCommentId: string, held: boolean): void {
+  const node = findOwnComment(siteCommentId);
+  if (!node) return;
+  delete node.dataset.pending;
+  const note = node.querySelector<HTMLElement>('.mood-comment__note');
+  if (!held) {
+    note?.remove();
+    const reply = node.querySelector<HTMLButtonElement>('.mood-comment-reply-btn');
+    if (reply) reply.hidden = false;
+    return;
+  }
+  if (note) note.textContent = t.held;
+}
+
+/** The breathing bubble and the word under it -- see `.mood-comment
+    [data-pending]` in CommentCompose.astro for why it breathes rather than
+    spins.
+
+    Reply goes away for the duration. A reply is addressed to a comment by
+    id, and a row that is still waiting on its verdict either has no id the
+    server would recognise (the stand-in's is a throwaway) or has one whose
+    thread nobody else can see. Offering the button would buy a THREAD
+    refusal at best. settleOwnComment gives it back. */
+function markPending(node: HTMLElement): void {
+  node.dataset.pending = 'true';
+  const body = node.querySelector<HTMLElement>('.mood-comment-body') ?? node;
+  const note = document.createElement('p');
+  note.className = 'mood-comment__note';
+  note.setAttribute('role', 'status');
+  note.textContent = t.publishing;
+  // Under the words, above the footer -- it is about the comment, not one
+  // more control in the row of them.
+  body.insertBefore(note, body.querySelector('.mood-comment-footer'));
+  const reply = node.querySelector<HTMLButtonElement>('.mood-comment-reply-btn');
+  if (reply) reply.hidden = true;
+}
+
+function findOwnComment(key: string): HTMLElement | null {
+  return commentsListEl?.querySelector<HTMLElement>(
+    `.mood-comment[data-site-comment-id="${CSS.escape(key)}"]`,
+  ) ?? null;
+}
+
+function forgetOwnComment(key: string): void {
+  loadedCommentIds.delete(key);
+  loadedSiteCommentIds.delete(key);
+  ownCommentIds.delete(key);
 }
 
 export async function initMoodDetailComments(

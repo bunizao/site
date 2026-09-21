@@ -43,12 +43,6 @@ export interface CommentsCopy {
   namePlaceholder: string;
   emailLabel: string;
   emailPlaceholder: string;
-  /** The green recommendation beside the email field -- shown once per
-      compose attempt, on the first press of Post, when an anonymous writer
-      left it empty. Friendly, not a gate: it names the upside (reply
-      notices, an avatar of your own) and says outright that skipping it is
-      fine, because the second press of the same button posts either way. */
-  emailRecommend: string;
   bodyLabel: string;
   /** The prompt, and the only place it appears. It used to be a line of its own
       between the heading and the box, which said the same thing one line early
@@ -94,11 +88,12 @@ export interface CommentsCopy {
       drops the accusation in the same breath. */
   held: string;
   /** A row this browser has just posted while the moderation verdict is still
-      in flight. It almost always clears within seconds, so it is a mark on the
-      byline rather than the block note `held` carries -- announcing a review
-      that is about to end is how a working thread reads as a stuck one. It
-      says what is happening (the comment is going up), not what is being done
-      to it. */
+      in flight. This is the ordinary path, not the exception: site-api gives
+      the spam check 1.5s and finishes the request without it, so most
+      comments come back `held` and go public a second or two later. The row
+      wears this until a poll sees the flip, which is why it says what is
+      happening (the comment is going up) rather than what is being done to
+      it. `held` is what replaces it when the wait genuinely ends in a hold. */
   verifying: string;
   reply: string;
   edit: string;
@@ -208,7 +203,6 @@ const zh: CommentsCopy = {
   namePlaceholder: '昵称',
   emailLabel: '邮箱',
   emailPlaceholder: '邮箱（选填）',
-  emailRecommend: '验证邮箱可跨设备改删与显示头像；不想留可直接再点一次发送。',
   bodyLabel: '写评论',
   bodyPlaceholder: '说点什么…',
   replyBodyLabel: '写回复',
@@ -298,7 +292,6 @@ const en: CommentsCopy = {
   namePlaceholder: 'Name',
   emailLabel: 'Email',
   emailPlaceholder: 'Email (optional)',
-  emailRecommend: 'A verified email means cross-device edits and an avatar; to skip it, just press send again.',
   bodyLabel: 'Write a comment',
   bodyPlaceholder: 'Say something…',
   replyBodyLabel: 'Write a reply',
@@ -416,6 +409,13 @@ export interface MoodCommentsCopy {
   disclosure: string;
   post: string;
   postAria: string;
+  /** Worn by the reader's own bubble from the moment it lands in the thread
+      until the verdict does. The blog's `verifying` with the same job: the
+      comment is on its way up, and saying so is the whole receipt. */
+  publishing: string;
+  /** Replaces `publishing` on the rare bubble whose wait ends in a real
+      hold. A note on the row, not a banner over the box -- the thing being
+      talked about is right there, and the reader can see it. */
   held: string;
   reply: string;
   replyingTo: (author: string) => string;
@@ -454,7 +454,8 @@ const moodZh: MoodCommentsCopy = {
   disclosure: '会同步到一个 Telegram 群组，注意别写不该写的。',
   post: '发表',
   postAria: '发表评论',
-  held: '已发出，暂时只有你能看到。',
+  publishing: '发布中',
+  held: '暂时只有你能看到',
   reply: '回复',
   replyingTo: (author) => `回复 ${author}`,
   cancelReply: '取消',
@@ -482,7 +483,8 @@ const moodEn: MoodCommentsCopy = {
   disclosure: 'Bridged to a Telegram group — mind what you share.',
   post: 'Post',
   postAria: 'Post comment',
-  held: 'Posted — for now, only you can see it.',
+  publishing: 'Publishing',
+  held: 'Only you can see this',
   reply: 'Reply',
   replyingTo: (author) => `Replying to ${author}`,
   cancelReply: 'Cancel',
