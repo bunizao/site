@@ -64,6 +64,10 @@ import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '
 
 const CLAIMED_STORAGE_KEY = 'buxx:reader';
 const PAGE_SIZE = 20;
+const DWELL_TOKEN_REFRESH_AGE_MS = 20 * 60 * 60 * 1000;
+const DWELL_TOKEN_HANDOFF_MS = 3_000;
+const DWELL_TOKEN_RETRY_MS = 60_000;
+const DWELL_TOKEN_REQUEST_TIMEOUT_MS = 10_000;
 
 // ---------------------------------------------------------------------------
 // Small DOM builder -- attrs + children, everything through .append() /
@@ -268,6 +272,13 @@ export function initCommentsController(): void {
   let viewer: ReaderMe | null = null;
   let dwellToken = '';
   let dwellTokenMintedAt = 0;
+  let pendingDwellToken: { token: string; readyAt: number } | null = null;
+  let dwellRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+  let dwellHandoffTimer: ReturnType<typeof setTimeout> | undefined;
+  let dwellRefreshInFlight = false;
+  let dwellFetchController: AbortController | null = null;
+  let dwellRetryAt = 0;
+  let dwellStopped = false;
   let nextBefore: string | null = null;
   let total = 0;
   let list: HTMLElement;
@@ -280,6 +291,10 @@ export function initCommentsController(): void {
     wireSignOut(compose, () => void signOut());
   }
   void mintDwellToken();
+  document.addEventListener('visibilitychange', onDwellVisibility);
+  window.addEventListener('pageshow', resumeDwellToken);
+  window.addEventListener('pagehide', onDwellPageHide);
+  document.addEventListener('astro:before-swap', stopDwellToken, { once: true });
 
   // A Turnstile solve costs ~2.3s. Asked for at submit time it landed entirely
   // between the press of Post and the request leaving the browser -- the one
@@ -598,18 +613,19 @@ export function initCommentsController(): void {
     setSubmitEnabled(box, true);
 
     if (!response.ok) {
-      // Take it all back, in the order it was given: the row goes, the words
-      // return to the box they were written in, and the reply box reopens
-      // under the comment it was answering. Then the complaint -- in the same
-      // slot an unfinished field uses, saying which refusal it was, because a
-      // rate limit and a dropped connection want opposite next moves.
+      // Restore an empty box, but keep a newer draft intact. Its failed
+      // predecessor remains available separately instead of replacing it.
       ghost.remove();
       const parentBody = parentId
         ? list.querySelector<HTMLElement>(`#comment-${cssEscape(parentId)} .blog-comment__body`)
         : null;
-      if (parentId && parentBody) openReplyBox(parentId, replyName, parentBody);
-      field!.value = text;
-      field!.dispatchEvent(new Event('input', { bubbles: true }));
+      if (field!.value.length > 0) {
+        keepFailedDraft(box, text);
+      } else {
+        if (parentId && parentBody) openReplyBox(parentId, replyName, parentBody);
+        field!.value = text;
+        field!.dispatchEvent(new Event('input', { bubbles: true }));
+      }
       toggleEmptyState(!list.querySelector('.blog-comment'));
       const failure = describeCommentFailure(response.status, response.slug, t.submitError);
       box.dataset.receipt = 'error';
@@ -673,6 +689,47 @@ export function initCommentsController(): void {
     if (!isReply && unverifiedEmail) showComposeReceipt(box, 'nudge');
 
     if (outcome === 'held') void upgradeWhenVerdictLands(comment.id, parentId, article);
+  }
+
+  /** One panel per box; a second failure adds an entry rather than a second
+      panel, and one Dismiss clears them all. */
+  function keepFailedDraft(box: HTMLElement, text: string): void {
+    const panel = box.querySelector<HTMLElement>('[data-failed-draft]') ?? createRecoveryPanel(box);
+    const copy = el('button', { type: 'button' }, [t.copyFailedDraft]);
+    copy.addEventListener('click', () => {
+      void Promise.resolve().then(() => navigator.clipboard.writeText(text)).then(() => {
+        copy.textContent = t.failedDraftCopied;
+      }).catch(() => { copy.textContent = t.failedDraftCopyError; });
+    });
+    panel.querySelector('[data-failed-draft-entries]')!.append(
+      el('details', { 'data-failed-draft-entry': '' }, [el('summary', {}, [t.failedDraft]), el('pre', {}, [text]), copy]),
+    );
+  }
+
+  function createRecoveryPanel(box: HTMLElement): HTMLElement {
+    const dismiss = el('button', { type: 'button' }, [t.dismissFailedDraft]);
+    const panel = el('div', { class: 'blog-compose__recovery', 'data-failed-draft': '' }, [
+      el('p', {}, [t.failedDraftKept]),
+      el('div', { 'data-failed-draft-entries': '' }),
+      el('div', { class: 'blog-compose__recovery-actions' }, [dismiss]),
+    ]);
+    dismiss.addEventListener('click', () => panel.remove());
+    box.append(panel);
+    return panel;
+  }
+
+  /** The reply box travels between rows and hides between replies; a failed
+      draft left inside it would travel and hide with it. The compose box
+      stays put, so that is where the copy goes. */
+  function moveFailedDraftsToCompose(): void {
+    const panel = replyBox.querySelector<HTMLElement>('[data-failed-draft]');
+    if (!panel) return;
+    if (compose) {
+      panel.querySelectorAll<HTMLElement>('[data-failed-draft-entry] pre').forEach((entry) => {
+        keepFailedDraft(compose, entry.textContent ?? '');
+      });
+    }
+    panel.remove();
   }
 
   /** The receipt for the row this browser just posted: the one thing the
@@ -1086,6 +1143,7 @@ export function initCommentsController(): void {
     }
     clearCommentMarkdownPreview(replyField);
     replyField.value = '';
+    moveFailedDraftsToCompose();
   }
 
   // --- Row rendering ------------------------------------------------------
@@ -1858,15 +1916,91 @@ export function initCommentsController(): void {
   // server's fake-success tripwire. Keeping the original page-load token
   // across submits is what fixes that; only a token old enough to be near
   // expiry -- a tab left open for most of a day -- is worth refreshing.
-  const DWELL_TOKEN_REFRESH_AGE_MS = 20 * 60 * 60 * 1000;
-
   async function mintDwellToken(): Promise<void> {
-    if (dwellToken && Date.now() - dwellTokenMintedAt < DWELL_TOKEN_REFRESH_AGE_MS) return;
-    const result = await fetchJson<{ token: string }>('/api/v2/comments/dwell-token');
-    if (result) {
-      dwellToken = result.token;
-      dwellTokenMintedAt = Date.now();
+    if (dwellStopped || !section.isConnected || dwellRefreshInFlight) return;
+    const now = Date.now();
+    if ((dwellToken && now - dwellTokenMintedAt < DWELL_TOKEN_REFRESH_AGE_MS) || now < dwellRetryAt) {
+      scheduleDwellToken();
+      return;
     }
+    dwellRefreshInFlight = true;
+    const controller = new AbortController();
+    dwellFetchController = controller;
+    const abortTimer = setTimeout(() => controller.abort(), DWELL_TOKEN_REQUEST_TIMEOUT_MS);
+    let result: { token: string } | null = null;
+    try {
+      const response = await fetch('/api/v2/comments/dwell-token', {
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      if (response.ok) result = await response.json() as { token: string };
+    } catch {
+      // Keep the current token and retry later when the connection recovers.
+    } finally {
+      clearTimeout(abortTimer);
+      dwellFetchController = null;
+      dwellRefreshInFlight = false;
+    }
+    if (dwellStopped || !section.isConnected) return;
+    if (result?.token) {
+      dwellTokenMintedAt = Date.now();
+      dwellRetryAt = 0;
+      if (dwellToken) pendingDwellToken = { token: result.token, readyAt: Date.now() + DWELL_TOKEN_HANDOFF_MS };
+      else dwellToken = result.token;
+    } else {
+      dwellRetryAt = Date.now() + DWELL_TOKEN_RETRY_MS;
+    }
+    scheduleDwellToken();
+  }
+
+  function pauseDwellToken(): void {
+    clearTimeout(dwellRefreshTimer);
+    clearTimeout(dwellHandoffTimer);
+  }
+
+  function scheduleDwellToken(): void {
+    pauseDwellToken();
+    if (dwellStopped || !section.isConnected || document.visibilityState === 'hidden') return;
+    const now = Date.now();
+    if (pendingDwellToken) {
+      if (now >= pendingDwellToken.readyAt) {
+        dwellToken = pendingDwellToken.token;
+        pendingDwellToken = null;
+      } else {
+        dwellHandoffTimer = setTimeout(scheduleDwellToken, pendingDwellToken.readyAt - now);
+      }
+    }
+    const refreshAt = Math.max(dwellTokenMintedAt + DWELL_TOKEN_REFRESH_AGE_MS, dwellRetryAt);
+    dwellRefreshTimer = setTimeout(() => void mintDwellToken(), Math.max(0, refreshAt - now));
+  }
+
+  function resumeDwellToken(): void {
+    if (!section.isConnected) {
+      stopDwellToken();
+      return;
+    }
+    scheduleDwellToken();
+    void mintDwellToken();
+  }
+
+  function onDwellVisibility(): void {
+    if (document.visibilityState === 'hidden') pauseDwellToken();
+    else resumeDwellToken();
+  }
+
+  function onDwellPageHide(event: PageTransitionEvent): void {
+    if (event.persisted) pauseDwellToken();
+    else stopDwellToken();
+  }
+
+  function stopDwellToken(): void {
+    dwellStopped = true;
+    pauseDwellToken();
+    dwellFetchController?.abort();
+    document.removeEventListener('visibilitychange', onDwellVisibility);
+    window.removeEventListener('pageshow', resumeDwellToken);
+    window.removeEventListener('pagehide', onDwellPageHide);
+    document.removeEventListener('astro:before-swap', stopDwellToken);
   }
 }
 

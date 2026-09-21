@@ -161,6 +161,12 @@ export interface CommentsCopy {
       (compose-validate.ts), so the reader meets the same sentence whether the
       browser or the server counted. One cap, one wording. */
   submitError: Record<CommentErrorCode, string>;
+  failedDraftKept: string;
+  failedDraft: string;
+  copyFailedDraft: string;
+  dismissFailedDraft: string;
+  failedDraftCopied: string;
+  failedDraftCopyError: string;
   /** Accessible name on the reference code when it links somewhere. The code
       alone reads as five characters of noise to a screen reader, and as a
       dead-looking chip to everyone else -- this is what turns it into an
@@ -249,6 +255,12 @@ const zh: CommentsCopy = {
   reactDone: '已喜欢',
   reactError: '没能点上，稍后再试。',
 
+  failedDraftKept: '新的草稿没有被改动。未发送成功的评论保留在下方。',
+  failedDraft: '未发送成功的评论',
+  copyFailedDraft: '复制未发送的评论',
+  dismissFailedDraft: '关闭这份备份',
+  failedDraftCopied: '已复制',
+  failedDraftCopyError: '请展开评论并手动复制',
   submitError: {
     NET: '好像断网了，等网络回来再发一次吧。草稿都还在。',
     RATE: '发得有点太快啦，等一会儿再来。草稿还在。',
@@ -338,6 +350,12 @@ const en: CommentsCopy = {
   reactDone: 'Liked',
   reactError: 'That like did not stick. Try again shortly.',
 
+  failedDraftKept: 'Your newer draft is unchanged. The failed comment is kept below.',
+  failedDraft: 'Failed comment',
+  copyFailedDraft: 'Copy failed comment',
+  dismissFailedDraft: 'Dismiss this copy',
+  failedDraftCopied: 'Copied',
+  failedDraftCopyError: 'Expand the comment and copy its text',
   submitError: {
     NET: "Looks like you're offline. Post again once you're back — your draft's safe.",
     RATE: "Whoa, that's a lot at once. Wait before trying again — your draft's safe.",

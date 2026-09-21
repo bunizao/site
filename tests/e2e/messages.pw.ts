@@ -18,13 +18,16 @@ interface CreateAnswer {
 
 async function installMessageApi(
   page: Page,
-  options: { status?: number; answer?: CreateAnswer; onPost?: (body: Record<string, unknown>) => void } = {},
+  options: { status?: number; answer?: CreateAnswer; onPost?: (body: Record<string, unknown>) => void; onMint?: () => void } = {},
 ): Promise<void> {
-  await page.route('**/api/v2/comments/dwell-token', (route: Route) => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({ token: 'dwell-token-fixture' }),
-  }));
+  await page.route('**/api/v2/comments/dwell-token', (route: Route) => {
+    options.onMint?.();
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ token: 'dwell-token-fixture' }),
+    });
+  });
 
   await page.route('**/api/v2/messages', async (route: Route) => {
     const request = route.request();
@@ -160,6 +163,27 @@ test.describe('/message', () => {
     await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Second message.' });
     await page.locator('[data-message-submit]').click();
     await expect(page.locator('[data-message-sent-body]')).toContainText('mail the address you left');
+  });
+
+  test('one dwell token, minted on first contact, serves every message the page sends', async ({ page }) => {
+    let mints = 0;
+    const tokens: unknown[] = [];
+    await installMessageApi(page, { onMint: () => { mints += 1; }, onPost: (body) => { tokens.push(body.dwellToken); } });
+    await page.goto('/message');
+
+    await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'First of two.' });
+    await page.locator('[data-message-submit]').click();
+    await expect(page.locator(sentView)).toBeVisible();
+
+    await page.locator('[data-message-again]').click();
+    await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Second of two.' });
+    await page.locator('[data-message-submit]').click();
+    await expect(page.locator(sentView)).toBeVisible();
+
+    // A token minted per send would be seconds old on arrival, which the
+    // service drops as a bot. The page-load token is the one that is old enough.
+    expect(tokens).toEqual(['dwell-token-fixture', 'dwell-token-fixture']);
+    expect(mints).toBe(1);
   });
 
   test('a 429 keeps the draft on screen', async ({ page }) => {

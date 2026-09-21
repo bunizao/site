@@ -626,6 +626,23 @@
   height: 16px;
 }
 
+.blog-compose__recovery {
+  padding: 12px;
+  margin-top: 12px;
+  border: 1px solid color-mix(in oklab, var(--blog-ink) 18%, transparent);
+  border-radius: 10px;
+  font-size: var(--comment-note);
+  line-height: 1.5;
+}
+
+.blog-compose__recovery p { margin: 0 0 8px; }
+.blog-compose__recovery summary { cursor: pointer; }
+.blog-compose__recovery pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.blog-compose__recovery details + details { margin-top: 8px; }
+.blog-compose__recovery details > button { margin-top: 6px; }
+.blog-compose__recovery-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.blog-compose__recovery button { text-decoration: underline; text-underline-offset: 3px; }
+
 /* The reference code, in both places a failure prints: the alert above a
    compose box and the inline error under an edit field. Pushed to the far
    end so it is out of the sentence a reader is actually acting on -- it is

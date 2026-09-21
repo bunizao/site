@@ -59,6 +59,7 @@ describe('describeCommentFailure', () => {
     expect(classify(503, { code: 'comment_target_unavailable' })).toBe('GONE');
     expect(classify(400, { error: 'body must be 1-2000 characters' })).toBe('LONG');
     expect(classify(400, { error: 'dwellToken is required' })).toBe('STALE');
+    expect(classify(400, { error: 'invalid_dwell_token' })).toBe('STALE');
   });
 
   test('an expired claim on a comment is not a retry', () => {
@@ -154,6 +155,7 @@ describe('the 400s, told apart', () => {
   test('a stale form is a refresh, not a rewrite', () => {
     const stale = [
       'dwellToken is required',      // the one in the reader's screenshot
+      'invalid_dwell_token',         // the secret moved under an open page
       'postId is required',
       'parentId must be a string or null',
       'Invalid JSON body',

@@ -454,6 +454,117 @@ test('optimistic submit and edit failures restore the reader draft', async ({ pa
   await expect(row.locator('.blog-comment__edit-error')).toContainText("edit window has closed");
 });
 
+for (const newerDraft of ['Draft B is newer and unsent.', ' \n ']) {
+  test(`a failed submit preserves ${newerDraft.trim() ? 'the newer draft' : 'a whitespace-only draft'} and offers a separate recoverable copy`, async ({ page }) => {
+    const api = await installCommentApi(page, { postStatus: 429 });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (text: string) => { (window as any).copiedFailedDraft = text; } } });
+    });
+    await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+    const compose = page.locator('.blog-comments > .blog-compose');
+    await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
+    await compose.locator('input[type="email"]').fill('reader@example.com');
+    const field = compose.locator('textarea');
+    await field.fill('Draft A failed.');
+    await compose.locator('[data-compose-submit]').click();
+    await field.fill(newerDraft);
+    await api.releasePost();
+    await expect(compose.locator('[data-failed-draft]')).toBeVisible();
+    await expect(field).toHaveValue(newerDraft);
+    await compose.getByText('Failed comment', { exact: true }).click();
+    await expect(compose.locator('[data-failed-draft] pre')).toHaveText('Draft A failed.');
+    await compose.getByRole('button', { name: 'Copy failed comment', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => (window as any).copiedFailedDraft)).toBe('Draft A failed.');
+    await expect(field).toHaveValue(newerDraft);
+  });
+}
+
+test('dwell refresh after twenty hours keeps the old token until the replacement is three seconds old', async ({ page }) => {
+  await installCommentApi(page);
+  let mints = 0;
+  const tokens: string[] = [];
+  await page.route('**/api/v2/comments/dwell-token', (route) => route.fulfill({ json: { token: `dwell-${++mints}` } }));
+  await page.route('**/api/v2/comments', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    tokens.push(route.request().postDataJSON().dwellToken);
+    await route.fulfill({ json: { outcome: 'published', comment: comment({ id: `post-${tokens.length}` }) } });
+  });
+  await page.clock.install();
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  const compose = page.locator('.blog-comments > .blog-compose');
+  await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
+  await compose.locator('input[type="email"]').fill('reader@example.com');
+  await compose.locator('textarea').fill('Keep the mature token.');
+  await page.clock.fastForward(20 * 60 * 60 * 1000);
+  await expect.poll(() => mints).toBe(2);
+  await compose.locator('[data-compose-submit]').click();
+  await expect.poll(() => tokens.length).toBe(1);
+  expect(tokens[0]).toBe('dwell-1');
+  await page.clock.fastForward(3_100);
+  await compose.locator('textarea').fill('Use the mature replacement.');
+  await compose.locator('[data-compose-submit]').click();
+  await expect.poll(() => tokens.length).toBe(2);
+  expect(tokens[1]).toBe('dwell-2');
+  expect(mints).toBe(2);
+});
+
+test('a sleeping tab refreshes dwell once on wake and stops its timers when leaving', async ({ page }) => {
+  await installCommentApi(page);
+  let mints = 0;
+  let releaseRefresh!: () => void;
+  const refreshGate = new Promise<void>((resolve) => { releaseRefresh = resolve; });
+  await page.route('**/api/v2/comments/dwell-token', async (route) => {
+    mints += 1;
+    if (mints > 1) await refreshGate;
+    await route.fulfill({ json: { token: `dwell-${mints}` } });
+  });
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  await page.clock.install();
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.clock.setSystemTime(new Date(Date.now() + 21 * 60 * 60 * 1000));
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(() => mints).toBe(2);
+  releaseRefresh();
+  await page.clock.fastForward(3_100);
+  await page.evaluate(() => document.dispatchEvent(new Event('astro:before-swap')));
+  await page.clock.fastForward(21 * 60 * 60 * 1000);
+  expect(mints).toBe(2);
+});
+
+test('a stalled dwell refresh aborts and retries after the backoff without wake request storms', async ({ page }) => {
+  await installCommentApi(page);
+  let mints = 0;
+  await page.route('**/api/v2/comments/dwell-token', async (route) => {
+    mints += 1;
+    if (mints === 2) return;
+    await route.fulfill({ json: { token: `dwell-${mints}` } });
+  });
+  await page.clock.install();
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  await page.clock.fastForward(20 * 60 * 60 * 1000);
+  await expect.poll(() => mints).toBe(2);
+  const aborted = page.waitForEvent('requestfailed', (request) => request.url().endsWith('/comments/dwell-token'));
+  await page.clock.fastForward(10_100);
+  await aborted;
+  await page.evaluate(() => {
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+  });
+  await page.clock.fastForward(1_000);
+  expect(mints).toBe(2);
+  await page.clock.fastForward(60_000);
+  await expect.poll(() => mints).toBe(3);
+});
+
 test('claimed identity sign-out is armed, cancellable, and clears the form', async ({ page }) => {
   await page.goto('/lab/comments?phase=claimed&locale=en', { waitUntil: 'networkidle' });
   const compose = page.locator('.blog-comments > .blog-compose');
