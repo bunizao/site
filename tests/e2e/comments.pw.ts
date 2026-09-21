@@ -309,13 +309,12 @@ test('a verified-only post makes the email field required', async ({ page }) => 
   await expect(email).toHaveAttribute('placeholder', 'Email (required)');
   await expect(email).toHaveAttribute('required', '');
 
-  // Anonymous posting is not offered here: an empty address is a refusal, not
-  // the green "consider leaving one" the two-press confirm shows elsewhere.
+  // Anonymous posting is not offered here: an empty address is a refusal.
+  // Everywhere else it is simply left blank and the comment goes.
   await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
   await compose.locator('.blog-compose__field').fill('A complete comment.');
   await compose.locator('[data-compose-submit]').click();
   await expect(compose.locator('.blog-compose__alert')).toContainText('verified addresses only');
-  await expect(compose.locator('[data-compose-recommend]')).toBeHidden();
 });
 
 // The served HTML, not the rendered page: a browser confirms the link on
