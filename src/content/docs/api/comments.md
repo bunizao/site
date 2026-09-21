@@ -318,8 +318,7 @@ Every submission runs the full risk stack, in order:
 
 `outcome` is `"published"` or `"held"`. `unverifiedEmail` is true when a
 supplied `email` doesn't already belong to a verified reader — the client
-shows the verification nudge. It is always false when no email was sent;
-the add-an-email recommendation is the client's own state, not this flag.
+shows the verification nudge. It is always false when no email was sent.
 On the true first comment from an unverified address, a lazy-verification
 email goes out automatically (see below); this call never waits on that
 send. A create without an email never sends mail at all.

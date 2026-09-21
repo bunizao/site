@@ -33,6 +33,31 @@ any box holding words asks before the page closes. The reply box gets only the
 second half: it is one travelling element with no memory of which comment it
 was answering, so restoring it would park a stray reply under nothing.
 
+## What happens when you press Post
+
+The comment appears in the thread immediately, before anything has been asked
+of the server. Both surfaces do this, and both mean it: the words are already
+written, and a form that visibly stops working for the two to four seconds a
+bot check plus a spam check takes is charging the reader for a comment that
+was going to be accepted anyway.
+
+For a moment the new row breathes and says *Publishing*. That is not a review
+— the API answers within about 1.5 seconds whether or not the spam check has,
+so most comments come back formally held and go public a second or two later.
+The page watches for the flip and stops breathing when it lands, and keeps
+watching for about a minute and a half, which is longer than a slow verdict
+takes.
+
+Only a wait that genuinely ends without a publish leaves a note behind, and
+it says the one thing that matters: everyone else is looking at a thread this
+row is not in. It is rare, and it is never the ordinary case dressed up as
+one.
+
+A refused write takes it all back in the order it was given — the row goes,
+the words return to the box, and a reply goes back to being a reply to the
+comment it was under — and then says which refusal it was, because a rate
+limit and a dropped connection want opposite next moves.
+
 ## Who you are
 
 Three grades, and the box climbs them on its own rather than asking anyone to
@@ -124,8 +149,6 @@ code with no number means the request never reached a server at all.
 
 ### `NAME` — that name will not work
 
-> 这个名字被拒绝了：可能超过 32 个字符、含有控制字符，或者与站长本人的名字重合（包括用形近字母拼出来的变体）。换一个就好。
-
 A display name is 1–32 characters with no control characters, and it cannot be
 one of a small reserved list: the names the site owner writes under. That list
 is matched after folding lookalike letters, so a Cyrillic **а** or a Greek
@@ -135,8 +158,6 @@ about a name is filtered — it is a name, not a comment.
 <a id="comment-error-email"></a>
 
 ### `EMAIL` — that address will not work
-
-> 邮箱地址被拒绝了。留空也能发评论——邮箱只是为了以后能编辑、能收到回复提醒。
 
 The address has to be a real, deliverable one. Placeholder domains that a
 browser's own validation is perfectly happy with — `example.com`,
@@ -149,8 +170,6 @@ reply mail later; it is not a condition of being heard now.
 <a id="comment-error-verify"></a>
 
 ### `VERIFY` — this post takes confirmed addresses
-
-> 这篇文章只收已验证的邮箱。去收件箱点一下确认链接，回来再发一次；链接只能用一次，24 小时内有效。
 
 A handful of posts are set to accept comments only from confirmed addresses.
 This is a refusal, not a moderation hold — nothing was stored, and the draft is
@@ -165,8 +184,6 @@ is free.
 <a id="comment-error-closed"></a>
 
 ### `CLOSED` — the window has passed
-
-> 可以修改的 15 分钟已经过去了，或者这条评论不属于当前登录的身份。这个不会因为重试而改变。
 
 A comment can be edited for fifteen minutes after it is posted, and only by the
 verified identity that owns it. Past that, the row is final — retrying is a
@@ -184,8 +201,6 @@ good, [the owner can remove it](/docs/platform/privacy).
 <a id="comment-error-gone"></a>
 
 ### `GONE` — that thread is not available
-
-> 找不到这篇文章的评论区，或者这条评论已经被删掉了。刷新一下就知道是哪种。草稿不会丢。
 
 Either the target genuinely no longer exists — a deleted comment, a post that
 has been unpublished — or the service that answers "does this post exist" was

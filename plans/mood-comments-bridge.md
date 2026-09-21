@@ -307,8 +307,10 @@ comment (below) is safe; when they disagree the read path logs it once and
 traffic rather than by a spike.
 
 Held rows are never in this response: the read path is public and
-edge-cached. The writer learns "held for review" from the POST response and
-a one-line note under the compose box, exactly as on the blog.
+edge-cached. So the writer's own row is rendered from the POST response and
+patched in place by the client, and the verdict is polled from
+`GET /v2/comments?surface=mood`, which is `no-store` and viewer-aware and
+serves a writer their own held row. See "Press to verdict" below.
 
 ### Reader identity, privacy, disclosure
 
@@ -347,10 +349,27 @@ scrape; nothing new there.
   comment that sets `parentId` and shows a quote chip above the textarea.
 - Every rendered comment gets `id="c-<token>"` when it has one, so the
   bridged link and the card's *View* button land on it.
-- On success the controller inserts the returned comment into
-  `[data-comments-list]` optimistically, tagged `origin: 'web'` and
-  `mine`, and bumps `[data-comments-count]`. On `held` it shows the
-  note and does not insert.
+- **Press to verdict.** The row goes into `[data-comments-list]` when the
+  button is pressed, not when the response lands — before the Turnstile
+  solve and the dwell mint, which together cost seconds. It is tagged
+  `origin: 'web'` and `mine`, bumps `[data-comments-count]`, and breathes
+  with a *Publishing* note under it. The response swaps it for a row built
+  from the real comment (id, anchor token, avatar); a refusal takes it back
+  and returns the draft and the reply chip to the box.
+
+  On `held` — which is the ordinary answer, since site-api gives the spam
+  check 1.5 s and finishes without it — the client polls
+  `GET /v2/comments?surface=mood&post=<id>` on a widening backoff out to
+  ~90 s and settles the row when the flip lands. Only a wait that really
+  ends without a publish keeps a note, and it is a note on the bubble, not a
+  banner over the compose box.
+
+  Superseded (2026-09-21): a `held` outcome used to show a standing banner
+  over the compose box and insert nothing. Because `held` is the common
+  answer and nothing watched for the flip, the banner was on screen for
+  nearly every comment and never came down, while the comment itself stayed
+  out of the thread until the bridge, the scrape, and the edge cache had all
+  caught up — minutes.
 - The feed hover popover (`feed-comments-popover.ts`) needs no change: it
   reads the same overlaid endpoint.
 - Live-ness: the detail page re-fetches the thread when the tab regains
