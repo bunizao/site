@@ -28,6 +28,8 @@ const { items } = Astro.props;
 </aside>
 
 <script>
+  import { pageScroll } from '@/lib/page-scroll';
+
   (() => {
     const nav = document.querySelector('[data-docs-toc]');
     if (!nav) return;
@@ -72,7 +74,9 @@ const { items } = Astro.props;
     };
 
     sync();
-    window.addEventListener('scroll', schedule, { passive: true });
+    // Docs contain their scroll, so scroll events land on the scroller, not on
+    // window. Reading the rect stays viewport-relative either way.
+    pageScroll().events.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
   })();
 </script>
