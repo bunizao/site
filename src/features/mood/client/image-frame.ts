@@ -29,6 +29,28 @@ function adoptNaturalRatio(frame: HTMLElement, image: HTMLImageElement): void {
   frame.style.setProperty('--mood-gallery-ratio', `${width} / ${height}`);
   frame.style.setProperty('--mood-gallery-grow', natural.toFixed(4));
   frame.classList.remove('mood-image-frame--estimated');
+
+  // The first two photos set the height of the whole row, so a corrected ratio
+  // has to reach the gallery or the row keeps the shape of the wrong number.
+  if (frame.dataset.galleryIndex === '0' || frame.dataset.galleryIndex === '1') {
+    refreshRowLead(frame.closest<HTMLElement>('[data-mood-gallery]'));
+  }
+}
+
+/* Mirrors getMoodGalleryRowLead for a gallery whose ratios have been corrected
+   in the browser. Kept to the two photos that decide where the cut lands. */
+const GALLERY_PEEK = 0.5;
+
+function refreshRowLead(gallery: HTMLElement | null): void {
+  if (!gallery) return;
+
+  const [first, second] = [...gallery.querySelectorAll<HTMLElement>('[data-mood-gallery-slide]')]
+    .slice(0, 2)
+    .map((slide) => Number(slide.dataset.aspectRatio));
+  if (!first || !second) return;
+
+  const span = first + GALLERY_PEEK * second;
+  if (span > 0) gallery.style.setProperty('--mood-gallery-lead', (1 / span).toFixed(4));
 }
 
 function releaseBlurLayer(frame: HTMLElement): void {

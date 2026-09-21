@@ -5,6 +5,10 @@ import {
   renderMoodContentWithGalleries,
   replaceMoodGalleryWithPlaceholders,
 } from '../../src/features/mood/shared/gallery';
+import {
+  getMoodGalleryRowLead,
+  type MoodGalleryItem,
+} from '../../src/features/mood/shared/gallery-render';
 
 const multiImageContent = [
   '<p>Before gallery</p>',
@@ -101,5 +105,36 @@ describe('mood gallery extraction', () => {
     expect(html).toContain('--mood-image-ratio:720 / 960');
     expect(html).toContain('class="mood-image-blur"');
     expect(html).toContain('src="/api/v2/images/mood/1/0?w=32"');
+  });
+});
+
+describe('mood gallery row height', () => {
+  const item = (width: number, height: number): MoodGalleryItem => ({
+    src: 'https://image.example.test/mood/1/0',
+    fallbackSrc: null,
+    width,
+    height,
+    layout: null,
+    alt: '',
+  });
+
+  /* The stylesheet multiplies the space left by the gap by this number to get
+     the row's height, then each photo's width from its own ratio. */
+  const cutOfSecond = (track: number, gap: number, first: number[], second: number[]): number => {
+    const lead = getMoodGalleryRowLead(item(first[0]!, first[1]!), item(second[0]!, second[1]!));
+    const height = (track - gap) * lead;
+    const firstWidth = height * (first[0]! / first[1]!);
+    const secondWidth = height * (second[0]! / second[1]!);
+    return (firstWidth + gap + secondWidth - track) / secondWidth;
+  };
+
+  test('cuts the second photo in half whatever the two ratios are', () => {
+    expect(cutOfSecond(534, 12, [720, 960], [720, 960])).toBeCloseTo(0.5, 5);
+    expect(cutOfSecond(534, 12, [720, 960], [1200, 900])).toBeCloseTo(0.5, 5);
+    expect(cutOfSecond(324, 10, [1200, 900], [540, 1200])).toBeCloseTo(0.5, 5);
+  });
+
+  test('falls back to a portrait row when a ratio is missing', () => {
+    expect(getMoodGalleryRowLead(item(0, 0), item(0, 0))).toBeCloseTo(1 / (4 / 3 + 0.5 * (4 / 3)), 5);
   });
 });
