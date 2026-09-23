@@ -187,12 +187,15 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     }
   }
 
-  /* Time column */
+  /* Time column. The stamp, the dot and the card's first line share one
+     axis: the stamp sits on the first line's baseline (36px down the row) and
+     the dot centres on that line (31px). They used to sit 7px and 14px above
+     it, so every row read as a label hung over the card's top edge. */
   #moods-section .mood-time-col {
     display: flex;
     align-items: flex-start;
     justify-content: flex-end;
-    padding-top: 14px;
+    padding-top: 21px;
     padding-right: 8px;
   }
 
@@ -228,7 +231,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     border-radius: 50%;
     background: hsl(var(--background));
     border: 2px solid hsl(var(--foreground) / 0.15);
-    margin-top: 12px;
+    margin-top: 26px;
     position: relative;
     z-index: 2;
     transition:
@@ -292,10 +295,14 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       hsl(var(--foreground) / 0.06)
     );
     margin-top: 4px;
+    /* Runs on into the next row and stops 4px short of its dot, the same gap
+       it leaves under its own, so the rail breaks only at the dots. */
+    margin-bottom: -22px;
     position: relative;
   }
 
   #moods-section .mood-item:last-child .mood-line {
+    margin-bottom: 0;
     background: linear-gradient(
       to bottom,
       hsl(var(--foreground) / 0.12),
@@ -524,10 +531,13 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     z-index: 1;
   }
 
+  /* Blocks centred where the real lines will be (24px line boxes), so the
+     swap to the loaded card does not shift the first line. */
   #moods-section .mood-skeleton-lines {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
+    padding-top: 6px;
   }
 
   #moods-section .mood-skeleton-block,
@@ -561,6 +571,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   #moods-section .mood-skeleton-time {
     width: 32px;
     height: 10px;
+    margin-top: 5px;
     border-radius: var(--radius-xs);
   }
 
