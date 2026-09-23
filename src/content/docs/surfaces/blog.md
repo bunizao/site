@@ -142,25 +142,40 @@ blues as the links above it. Change an ink, re-run, and the painting follows;
 `sillage-motion.json` next to the component, which carries the geometry and the
 motion. The component draws nothing and hardcodes no numbers.
 
-Layers, back to front: clouds, back swell, boat, near sea, then the wake and
-(at night) the lantern's reflection on top of the water. Three things are worth
+Layers, back to front: clouds, back swell, boat, near sea, the white water (bow
+wave, wake and, at night, the lantern's reflection), then a front row of waves
+across the lower sea. Each row of water is lighter at its crest and darker
+toward its floor, so the row in front stands off the one behind it; the tallest
+crests break white, on their steeper downwind faces. Four things are worth
 knowing before touching it:
 
-- **The boat holds still; the water moves.** Each strip is a seamless tile
-  translated one tile per loop, at three speeds for parallax. The near strip is
+- **The boat holds still; the water moves.** Each row is a seamless tile
+  translated one tile per loop, nearer rows faster, for parallax. The back and
+  front rows also breathe up and down on their own slow counts. The near row is
   pinned to the boat's position, so the tile point the ride was sampled at is
   under the hull at any viewport width.
 - **The boat rides the painted swell.** Its heave and pitch keyframes are
-  sampled from the surface function the near sea was painted with, averaged
-  over the hull's length and lagged, so a crest passing under it lifts it and
-  tips the bow. The near sea is opaque below the surface and hides the hull.
+  sampled from the surface function the near sea was painted with
+  (`sillage-surface.ts`, shared with the touch code), averaged over the hull's
+  length and lagged, so a crest passing under it lifts it and tips the bow. The
+  bow wave swells as the pitching stem drives into the water. The near sea is
+  opaque below the surface and hides the hull.
+- **The sea can be touched.** `sillage-touch.ts`: a tap splashes on the painted
+  surface under the finger, and rocks the boat if it lands near her; a tap on
+  the boat ducks her. A sideways drag takes hold of the water, which moves with
+  the finger — hold still and it stops, sweep and it runs, up to ten times its
+  pace — then coasts back on release. The speed is one `playbackRate` set on
+  every CSS animation in the band, so the ride, bow wave and wake stay in step
+  with the water at any speed. `touch-action: pan-y` leaves vertical swipes to
+  the page scroller.
 - **Night is repainted, not filtered.** Pastel on black paper puts the lighter
   pigment on top, which no filter over the day art can do. Night also lights the
   stern lantern: a glow on the boat and a reflection on the water.
 
-Everything animates transform or opacity only. The art loads as the band nears
-the screen, the animation runs only while it is in view, and reduced motion gets
-the same picture standing still. The whole band is `aria-hidden`.
+Everything animates transform or opacity only; the touch loop runs only while a
+finger is down or the sea is still settling. The art loads as the band nears the
+screen, the animation runs only while it is in view, and reduced motion gets the
+same picture standing still and ignores touch. The whole band is `aria-hidden`.
 
 ## Do's and Don'ts
 

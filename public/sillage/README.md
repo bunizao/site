@@ -20,17 +20,23 @@ pigment on top, and a filter cannot do that.
 
 | File | Notes |
 |------|-------|
+| `front.webp`  | The nearest row of waves, across the lower sea, on its own faster loop. Seamless tile. |
 | `near.webp`   | The sea in front of the boat. Seamless tile, opaque below the surface — it hides the hull. |
 | `back.webp`   | A paler swell behind the boat, on its own slower loop. Seamless tile. |
 | `clouds.webp` | A strip of small cumulus. Seamless tile. |
 | `boat.webp`   | The boat, hull painted well below the waterline for pitch. |
 | `flag.webp`   | Separate so it can flutter. |
-| `foam.webp`   | Six wake streaks stacked as rows. |
+| `foam.webp`   | Six wake streaks stacked as rows. Splashes reuse them. |
+| `spray.webp`  | The bow wave. |
+| `drops.webp`  | Four droplets stacked as rows, for the splash a touch makes. |
 | `glint.webp`  | Dark only: the stern lantern's reflection. |
 
 ## Changing it
 
 Every colour is mixed from `blogPalette` in `src/data/site.ts`. Change an ink
-there, re-run, and the sea follows. The swell, the boat's position on the tile
+there, re-run, and the sea follows. The swells, the boat's position on the tile
 and the tempo are constants at the top of the script; the boat's ride is
-sampled from the same swell, so it stays true to whatever the water does.
+sampled from the same swell, so it stays true to whatever the water does. The
+surface function itself lives in `src/features/posts/ui/sillage-surface.ts`,
+because the footer's touch code uses it too: a splash lands on the water that
+was painted.
