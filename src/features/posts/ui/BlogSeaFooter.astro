@@ -24,6 +24,11 @@
  *     the finger; a sideways drag takes hold of the water and moves it with the
  *     finger. Every animation here shares one clock, so however fast the
  *     finger drives the sea, the boat's ride stays true to it.
+ *   - The page's scroll runs on into it. As the band scrolls in, the sky
+ *     settles and the front row rises, so the depth opens up on arrival; at
+ *     the end, a scroll that the page can no longer take drives the sea.
+ *   - The site footer sits in its sky. The band starts under the footer's
+ *     last line, so the page ends in clouds rather than a gap.
  *
  * Everything is a transform or opacity animation, so it runs off the main
  * thread. It only runs while the band is on screen, and reduced motion gets
@@ -141,11 +146,15 @@ const vars = [
        water meets the page edge. */
     width: 100vw;
     margin-inline: calc(50% - 50vw);
-    margin-top: 64px;
+    /* Tucked under the site footer, so its last line sits in the sky just
+       above the clouds. The footer paints over the band (blog.css). */
+    margin-top: calc(-48 * var(--u));
     margin-bottom: -48px;
     height: calc(240 * var(--u));
     overflow: hidden;
     contain: layout paint;
+    /* How far the band has scrolled in, for the arrival. */
+    view-timeline: --sillage-arrive block;
     /* Sideways drags belong to the sea; vertical ones still scroll the page. */
     touch-action: pan-y pinch-zoom;
     user-select: none;
@@ -230,6 +239,22 @@ const vars = [
     }
   }
 
+  /* Arrival, on the band's scroll into view: the sky starts high and settles,
+     the front row starts low and rises, so the far and near move at
+     different speeds than the page. Both come to rest when the page ends.
+     The rows between are glued to each other and the boat, so they stay. */
+  @keyframes sillage-settle {
+    from {
+      translate: 0 calc(-34 * var(--u));
+    }
+  }
+
+  @keyframes sillage-rise {
+    from {
+      bottom: calc(-26 * var(--u));
+    }
+  }
+
   .sillage-sea__clouds {
     left: 0;
     bottom: calc(var(--cloud-floor) * var(--u));
@@ -237,7 +262,13 @@ const vars = [
     height: calc(var(--cloud-h) * var(--u));
     background-image: var(--art-clouds);
     /* The sky barely moves: furthest away, slowest past. */
-    animation-duration: calc(var(--period) * 5);
+    animation-name: sillage-drift, sillage-settle;
+    animation-duration: calc(var(--period) * 5), auto;
+    animation-timing-function: linear, ease-out;
+    animation-iteration-count: infinite, 1;
+    animation-fill-mode: none, both;
+    animation-timeline: auto, --sillage-arrive;
+    animation-range: normal, entry 0% entry 100%;
   }
 
   .sillage-sea__back {
@@ -275,10 +306,14 @@ const vars = [
     width: calc(100% + var(--tile-w));
     height: calc(var(--front-h) * var(--u));
     background-image: var(--art-front);
-    animation-name: sillage-drift, sillage-breathe;
-    animation-duration: var(--front-period), 6.3s;
-    animation-timing-function: linear, ease-in-out;
-    animation-direction: normal, alternate;
+    animation-name: sillage-drift, sillage-breathe, sillage-rise;
+    animation-duration: var(--front-period), 6.3s, auto;
+    animation-timing-function: linear, ease-in-out, ease-out;
+    animation-direction: normal, alternate, normal;
+    animation-iteration-count: infinite, infinite, 1;
+    animation-fill-mode: none, none, both;
+    animation-timeline: auto, auto, --sillage-arrive;
+    animation-range: normal, normal, entry 0% entry 100%;
   }
 
   /* --- The boat ----------------------------------------------------------
@@ -480,8 +515,10 @@ const vars = [
   }
 
   @media (prefers-reduced-motion: reduce) {
+    /* No timeline, so the arrival animations never apply. */
     .sillage-sea {
       cursor: auto;
+      view-timeline: none;
     }
 
     .sillage-sea * {
@@ -500,7 +537,6 @@ const vars = [
     .sillage-sea {
       --s: 0.62;
       --boat-x: 28%;
-      margin-top: 48px;
     }
   }
 </style>

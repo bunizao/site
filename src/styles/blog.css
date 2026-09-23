@@ -2006,6 +2006,13 @@ html:not(.js) .blog-lang__noscript a {
   margin-top: 72px;
 }
 
+/* On /blog the sea's sky runs up under the footer's last line
+   (BlogSeaFooter.astro); the footer stays on top and clickable. */
+.blog-zone .footer:has(~ [data-sillage-sea]) {
+  position: relative;
+  z-index: 1;
+}
+
 
 /* --- Tag directory (/blog/tags) ---------------------------------------- */
 /* Left-aligned to share the masthead's axis, so the page reads as part of the

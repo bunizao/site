@@ -219,13 +219,35 @@ test.describe('Blog routes', () => {
     // Touch: a tap on the water splashes, and a sideways drag takes hold of
     // the sea and drives it faster than its own pace. Under reduced motion
     // the sea stands still and a touch does nothing.
-    const band = (await sea.boundingBox())!;
-    const waterY = band.y + band.height - 24;
+    let band = (await sea.boundingBox())!;
+    let waterY = band.y + band.height - 24;
     await page.mouse.click(band.x + band.width * 0.7, waterY);
     await expect(sea.locator('.sillage-sea__splash')).toHaveCount(0);
     await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+    // Scroll runs on into the sea: past the end of the page, a wheel keeps
+    // driving the water. The sea stays silent, and fetches no surf, until it
+    // is touched.
+    const nearRate = () =>
+      sea.locator('.sillage-sea__near').evaluate((el) => el.getAnimations()[0].playbackRate);
+    const sounds: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/sillage/sound/')) sounds.push(new URL(request.url()).pathname);
+    });
+    await page.locator('[data-page-scroller]').evaluate((el) => (el.scrollTop = el.scrollHeight));
+    band = (await sea.boundingBox())!;
+    waterY = band.y + band.height - 24;
+    await page.mouse.move(band.x + band.width * 0.5, band.y - 120);
+    for (let step = 0; step < 10; step++) {
+      await page.mouse.wheel(0, 60);
+      await page.waitForTimeout(16);
+    }
+    expect(await nearRate()).toBeGreaterThan(1);
+    expect(sounds).not.toContain('/sillage/sound/surf.m4a');
+
     await page.mouse.click(band.x + band.width * 0.7, waterY);
     await expect(sea.locator('.sillage-sea__splash').first()).toBeAttached();
+    await expect.poll(() => sounds).toContain('/sillage/sound/surf.m4a');
     await page.mouse.move(band.x + band.width * 0.8, waterY);
     await page.mouse.down();
     for (let step = 1; step <= 12; step++) {
@@ -233,9 +255,7 @@ test.describe('Blog routes', () => {
       await page.waitForTimeout(16);
     }
     await expect(sea).toHaveAttribute('data-held', '');
-    expect(
-      await sea.locator('.sillage-sea__near').evaluate((el) => el.getAnimations()[0].playbackRate),
-    ).toBeGreaterThan(1);
+    expect(await nearRate()).toBeGreaterThan(1);
     await page.mouse.up();
     await expect(sea).not.toHaveAttribute('data-held', '');
 

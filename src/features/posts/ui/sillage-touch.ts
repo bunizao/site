@@ -1,5 +1,5 @@
 /**
- * Touch for the sea footer (BlogSeaFooter.astro).
+ * Touch and scroll for the sea footer (BlogSeaFooter.astro).
  *
  * A touch on the water splashes on the painted surface under the finger. A
  * sideways drag takes hold of the sea: the water moves with the finger — hold
@@ -7,11 +7,16 @@
  * to its own pace. Splashes close to the boat rock her, and a touch on the
  * boat ducks her.
  *
+ * The sea is the end of the page, and a scroll does not stop there: the speed
+ * a scroll arrives with carries on into the water, and scrolling on past the
+ * end keeps driving it, so the boat sails on for as long as the reader does.
+ *
  * The sea's speed is one playback rate applied to every CSS animation in the
  * band. They all share one clock, so the boat's ride, the bow wave and the
  * wake stay true to the water at any speed.
  */
 import { front, near, period, tile } from './sillage-motion.json';
+import { voice } from './sillage-sound';
 import { surfaceDepth, type Swell } from './sillage-surface';
 
 /** The fastest a finger can drive the sea, as a multiple of its own pace. */
@@ -21,6 +26,8 @@ const GRIP = 0.06;
 const COAST = 0.9;
 /** Finger travel between the small splashes a drag leaves, art px. */
 const TRAIL = 30;
+/** Water moved per px of scroll carried past the end of the page. */
+const SCROLL_GAIN = 0.35;
 /** Splashes this close to the boat rock her, art px. */
 const REACH = 150;
 const MAX_SPLASHES = 18;
@@ -65,6 +72,8 @@ export function stir(sea: HTMLElement) {
   ];
   const nearRow = rows[1];
   const still = matchMedia('(prefers-reduced-motion: reduce)');
+  const scroller = sea.closest<HTMLElement>('[data-page-scroller]') ?? document.documentElement;
+  const sound = voice(sea);
 
   let s = 1;
   let dim = 1;
@@ -103,9 +112,10 @@ export function stir(sea: HTMLElement) {
     return null;
   }
 
-  function splash(clientX: number, row: Row, big: boolean) {
+  function splash(clientX: number, row: Row, big: boolean, deep = false) {
     if (splashes.length >= MAX_SPLASHES) splashes.shift()!.el.remove();
     const band = sea.getBoundingClientRect();
+    sound.splash(((clientX - band.left) / band.width) * 2 - 1, big, deep);
     const el = document.createElement('span');
     el.className = 'sillage-sea__splash';
     el.style.left = `${clientX - band.left}px`;
@@ -172,6 +182,18 @@ export function stir(sea: HTMLElement) {
     splashes.push({ el, row, x: 0, end: performance.now() + end });
   }
 
+  /** The near row's own speed, CSS px/s. */
+  const pace = () => (tile * s) / period;
+
+  /** Scroll that the page could not take drives the water: each px of it is
+      an impulse, and the sea coasts back down from it. Held steady, a scroll
+      of v px/s runs the sea at 1 + SCROLL_GAIN * v / pace. */
+  function carry(distance: number) {
+    if (still.matches || distance <= 0) return;
+    wake();
+    rate = Math.min(MAX_RATE, rate + (distance * SCROLL_GAIN) / (pace() * COAST));
+  }
+
   /** The finger's speed over the last tenth of a second, CSS px/s. Zero once
       it holds still, which is what stops the sea under it. */
   function velocity(now: number) {
@@ -195,6 +217,7 @@ export function stir(sea: HTMLElement) {
     const want = held ? clamp(-velocity(now) / ((tile * s) / held.row.period), 0, MAX_RATE) : 1;
     rate += (want - rate) * (1 - Math.exp(-dt / (held ? GRIP : COAST)));
     for (const clock of clocks) clock.playbackRate = rate;
+    sound.drive(rate);
 
     // The boat leans into a push, bow down, and rocks back from a splash.
     const heel = clamp((rate - 1) * 0.6, -1, 5);
@@ -221,6 +244,7 @@ export function stir(sea: HTMLElement) {
       rate = 1;
       tilt = spin = dip = sink = 0;
       for (const clock of clocks) clock.playbackRate = 1;
+      sound.drive(1);
       boat.style.transform = '';
       frame = 0;
       return;
@@ -230,14 +254,18 @@ export function stir(sea: HTMLElement) {
 
   function wake() {
     if (frame) return;
-    clocks = sea.getAnimations({ subtree: true }).filter((a) => a instanceof CSSAnimation);
+    measure();
+    // The sea's own clocks; the scroll-linked ones follow the page, not time.
+    clocks = sea
+      .getAnimations({ subtree: true })
+      .filter((a) => a instanceof CSSAnimation && a.timeline === document.timeline);
     last = performance.now();
     frame = requestAnimationFrame(tick);
   }
 
   sea.addEventListener('pointerdown', (e) => {
     if (still.matches || finger || (e.pointerType === 'mouse' && e.button !== 0)) return;
-    measure();
+    wake();
     const onBoat = boat.contains(e.target as Node);
     const row = onBoat ? nearRow : rowAt(e.clientX, e.clientY);
     finger = {
@@ -251,12 +279,12 @@ export function stir(sea: HTMLElement) {
       track: [{ x: e.clientX, t: e.timeStamp }],
     };
     sea.setPointerCapture(e.pointerId);
+    sound.wake();
     if (onBoat) {
       sink += 40;
       spin += (Math.random() < 0.5 ? -1 : 1) * 14;
     }
-    if (row) splash(e.clientX, row, true);
-    wake();
+    if (row) splash(e.clientX, row, true, onBoat);
   });
 
   sea.addEventListener('pointermove', (e) => {
@@ -281,7 +309,55 @@ export function stir(sea: HTMLElement) {
     finger = null;
     sea.removeAttribute('data-held');
   };
-  sea.addEventListener('pointerup', release);
+  // A touch only counts as a gesture that may open the sound when it lifts.
+  sea.addEventListener('pointerup', (e) => {
+    if (finger?.id === e.pointerId) sound.wake();
+    release(e);
+  });
   sea.addEventListener('pointercancel', release);
   sea.addEventListener('lostpointercapture', release);
+
+  // Scrolling on past the end: wheels and trackpads keep sending deltas the
+  // page can no longer take, a finger keeps pulling up. Both count only
+  // downward, and only once the page has nothing left.
+  const atEnd = () => scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
+  scroller.addEventListener(
+    'wheel',
+    (e) => {
+      if (!atEnd()) return;
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? scroller.clientHeight : 1;
+      carry(e.deltaY * unit);
+    },
+    { passive: true },
+  );
+
+  let touchY: number | null = null;
+  scroller.addEventListener('touchstart', (e) => (touchY = e.touches[0].clientY), { passive: true });
+  scroller.addEventListener(
+    'touchmove',
+    (e) => {
+      const y = e.touches[0].clientY;
+      if (touchY !== null && atEnd()) carry(touchY - y);
+      touchY = y;
+    },
+    { passive: true },
+  );
+
+  // The speed a scroll arrives at the end with, as the steady scroll above
+  // would have carried it.
+  let top = scroller.scrollTop;
+  let topAt = performance.now();
+  scroller.addEventListener(
+    'scroll',
+    (e) => {
+      const was = top;
+      const dt = (e.timeStamp - topAt) / 1000;
+      top = scroller.scrollTop;
+      topAt = e.timeStamp;
+      if (still.matches || top <= was || dt <= 0 || dt > 0.1 || !atEnd()) return;
+      wake();
+      rate = Math.max(rate, Math.min(MAX_RATE, 1 + (SCROLL_GAIN * (top - was)) / dt / pace()));
+    },
+    { passive: true },
+  );
 }
