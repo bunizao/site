@@ -40,14 +40,16 @@ test.describe('Home motion', () => {
       };
       return {
         portal: read('#writing-section .writing-portal'),
-        writingEnter: read('#writing-section .writing-enter'),
-        moodEnter: read('#moods-section .mood-enter'),
+        writingEnter: read('#writing-section .section-enter'),
+        moodEnter: read('#moods-section .section-enter'),
       };
     });
 
     expect(timing.portal).toEqual({ duration: '0.5s', delay: '0.5s' });
-    expect(timing.writingEnter).toEqual({ duration: '0.4s', delay: '1.22s' });
-    expect(timing.moodEnter).toEqual({ duration: '0.4s', delay: '1s' });
+    // The exit links sit in the section head and arrive just after the label,
+    // on the same clock in every section.
+    expect(timing.writingEnter).toEqual({ duration: '0.4s', delay: '0.36s' });
+    expect(timing.moodEnter).toEqual({ duration: '0.4s', delay: '0.36s' });
   });
 
   test('reinitializes parallax across page lifecycles', async ({ page }) => {

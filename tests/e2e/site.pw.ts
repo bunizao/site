@@ -325,9 +325,11 @@ test.describe('Home page', () => {
     await expect(page.locator('#writing-section .post-meta').first()).toHaveCSS('display', 'flex');
     await expect(page.getByRole('button', { name: 'Tell me more' }).first()).toBeVisible();
     // Writing is a doorway into the blog now: the publication sign and the
-    // bottom CTA both link internally to the canonical slashless route.
+    // exit link in the section head both link internally to the canonical
+    // slashless route.
     await expect(page.locator('#writing-section .writing-portal')).toHaveAttribute('href', '/blog');
-    await expect(page.locator('#writing-section .writing-enter')).toBeVisible();
+    await expect(page.locator('#writing-section .section-enter')).toHaveAttribute('href', '/blog');
+    await expect(page.locator('#writing-section .section-enter')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
 
     const themeToggle = page.locator('[data-theme-toggle]');
