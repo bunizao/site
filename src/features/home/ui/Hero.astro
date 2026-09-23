@@ -303,9 +303,12 @@ const bioLines = bio.map((line) => line.split('**'));
   }
 
   /* Social Links with Dropdown Details */
+  /* Flex, not inline-block: an inline-block wrapper sets the chip on a line
+     box, and the descender room under it lifted every link 2.7px above the
+     "Find me at" lead-in. */
   .social-link-wrapper {
     position: relative;
-    display: inline-block;
+    display: flex;
   }
 
   /* Magnetic chips: the chip follows the mouse on a short ease-out and eases
