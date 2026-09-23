@@ -365,6 +365,11 @@ const bioLines = bio.map((line) => line.split('**'));
     heroSection.classList.add('is-live');
 
     window.setTimeout(() => announce('home:hero-name-ready'), NAME_READY_MS);
+    // The anchor only has to be painted once, so the browser can time the
+    // name before the canvas takes the line. Left in place it shows through
+    // as a ghost of the first name ahead of the caret and behind every other
+    // name. Removing it later does not withdraw the paint that was timed.
+    window.setTimeout(() => heroSection.querySelector('.hero-lcp-anchor')?.remove(), NAME_READY_MS);
     window.setTimeout(() => announce('home:hero-bio-ready'), BIO_MS);
 
     const widgets = heroElements.filter((el) => el.hasAttribute('data-hero-motion'));
