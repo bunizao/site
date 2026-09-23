@@ -133,7 +133,8 @@ Components compose the tokens above; they never introduce new colour or type.
 `BlogSeaFooter.astro` closes the `/blog` index with a crayon sailboat crossing a
 crayon sea — the literal reading of *sillage*, the wake a boat leaves behind.
 The sea is seen side on, a swell profile against the page; the page background
-is the sky, in both themes.
+is the sky, in both themes. The band starts under the site footer's last line,
+which sits on top of it, so the page ends in the sea's sky rather than a gap.
 
 The art is generated. `scripts/paint-sillage.ts` paints every layer in both
 themes, mixing each colour from `blogPalette`, so the sea is the same three
@@ -146,7 +147,7 @@ Layers, back to front: clouds, back swell, boat, near sea, the white water (bow
 wave, wake and, at night, the lantern's reflection), then a front row of waves
 across the lower sea. Each row of water is lighter at its crest and darker
 toward its floor, so the row in front stands off the one behind it; the tallest
-crests break white, on their steeper downwind faces. Four things are worth
+crests break white, on their steeper downwind faces. Five things are worth
 knowing before touching it:
 
 - **The boat holds still; the water moves.** Each row is a seamless tile
@@ -168,12 +169,26 @@ knowing before touching it:
   every CSS animation in the band, so the ride, bow wave and wake stay in step
   with the water at any speed. `touch-action: pan-y` leaves vertical swipes to
   the page scroller.
+- **The page's scroll runs on into it.** As the band scrolls in, the clouds
+  settle and the front row rises (scroll-driven animations on the band's view
+  timeline), so the depth opens on arrival. At the end, the speed a scroll
+  arrives with carries into the water, and scroll the page can no longer take —
+  wheel and trackpad deltas, a finger still pulling up — keeps driving it,
+  through the same `playbackRate`.
+- **It is silent until touched.** `sillage-sound.ts` opens audio on the first
+  touch of the water, never on its own. Then splashes sound where the finger
+  lands, panned across the band, and while the reader plays with the sea — or
+  scrolls it on — the surf comes up and a hull wash rises with the speed. Five
+  seconds after they stop it fades and the audio context sleeps. It mixes with
+  other audio and obeys the iOS silent switch. The recordings are CC0; see
+  `public/sillage/README.md`.
 - **Night is repainted, not filtered.** Pastel on black paper puts the lighter
   pigment on top, which no filter over the day art can do. Night also lights the
   stern lantern: a glow on the boat and a reflection on the water.
 
-Everything animates transform or opacity only; the touch loop runs only while a
-finger is down or the sea is still settling. The art loads as the band nears the
+The water animates transform or opacity only; the arrival moves the front
+row's `bottom`, on scroll only. The touch loop runs only while a finger is down,
+a scroll is driving the sea, or the sea is still settling. The art loads as the band nears the
 screen, the animation runs only while it is in view, and reduced motion gets the
 same picture standing still and ignores touch. The whole band is `aria-hidden`.
 

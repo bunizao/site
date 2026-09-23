@@ -27,6 +27,11 @@ side-on cross-section of sea and sailboat ("2 维剖面的 海+帆船"), moving.
   splash, drag sideways to move the sea with the finger. A diagonal hatch over
   the water and per-wave shoulder strokes were tried and dropped: both turned
   the sea grey and busy.
+- Third pass (2026-09-24, owner: "滚动到底之后 继续触发 scrolling 的效果 … 浪花海水的
+  音效 … 和之前的文字 footer 配合好一点"): scroll carries on into the sea at the
+  end of the page, the layers part in depth as the band scrolls in, the site
+  footer sits in the sea's sky, and CC0 surf, hull wash and splash recordings
+  answer touch and scroll.
 
 ## Decisions taken without the owner
 
@@ -39,6 +44,11 @@ side-on cross-section of sea and sailboat ("2 维剖面的 海+帆船"), moving.
 - **Blue boat, not the mockup's brown hull and cream sails.** Same rule.
 - **Dragging can stop the sea but not reverse it.** Running the loop backwards
   would sail the boat astern into her own wake.
+- **Silent until touched.** Scrolling to the sea never starts sound; the
+  first touch of the water does, and it fades five seconds after the reader
+  stops. No mute button: sound only ever answers the reader's own hand.
+- **Scroll only adds speed.** Scrolling back up does not slow or reverse the
+  sea; it just stops feeding it.
 - **No crest curls.** Tried on the front row; at this scale they read as stray
   white squiggles, not breaking water.
 
