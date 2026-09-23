@@ -60,6 +60,10 @@ const placeholderText = `${longestText}_`;
     height: 100%;
     opacity: 0;
     pointer-events: none;
+    /* Chrome applies a canvas element's inherited letter-spacing to its text
+       while reporting `0px`, and Safari does not. Reset it here so every
+       browser draws untracked glyphs and the script adds the tracking once. */
+    letter-spacing: normal;
   }
 
   .typewriter-text {
@@ -132,6 +136,8 @@ const placeholderText = `${longestText}_`;
     font: string;
     color: string;
     baseline: number;
+    /** CSS letter-spacing in px. Canvas text ignores it, so the draw adds it. */
+    letterSpacing: number;
   }
 
   const HERO_NAME_READY_EVENT = 'home:hero-name-ready';
@@ -199,9 +205,12 @@ const placeholderText = `${longestText}_`;
     const font = styles.font || `${styles.fontWeight} ${styles.fontSize} ${styles.fontFamily}`;
     context.font = font;
 
+    // Place the baseline the way CSS does: the font's own ascent and descent
+    // centred in the line box. Centring the ink of a sample string instead
+    // lands a few pixels off the DOM baseline the caret sits on.
     const metrics = context.measureText('Hgj');
-    const ascent = metrics.actualBoundingBoxAscent || fontSize * 0.72;
-    const descent = metrics.actualBoundingBoxDescent || fontSize * 0.24;
+    const ascent = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent || fontSize * 0.72;
+    const descent = metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent || fontSize * 0.24;
     const baseline = (height - ascent - descent) / 2 + ascent;
 
     return {
@@ -211,6 +220,7 @@ const placeholderText = `${longestText}_`;
       font,
       color: styles.color,
       baseline,
+      letterSpacing: Number.parseFloat(styles.letterSpacing) || 0,
     };
   };
 
@@ -223,20 +233,24 @@ const placeholderText = `${longestText}_`;
 
   /** Paints the glyphs and returns where the caret should sit. */
   const drawGlyphs = (state: CanvasState, glyphs: Glyph[]): number => {
-    const { context, width, height, font, color, baseline } = state;
+    const { context, width, height, font, color, baseline, letterSpacing } = state;
 
     context.clearRect(0, 0, width, height);
     context.font = font;
     context.fillStyle = color;
     context.textBaseline = 'alphabetic';
 
+    // Each glyph starts where the run before it ends. Measuring the whole run
+    // keeps the font's kerning, which summing single glyphs would drop; the
+    // name is set in a proportional face, so the pairs matter.
     let x = 0;
-    for (const glyph of glyphs) {
-      const advance = context.measureText(glyph.advance).width;
+    let run = '';
+    glyphs.forEach((glyph, index) => {
       context.globalAlpha = glyph.alpha;
       context.fillText(glyph.char, x, baseline);
-      x += advance;
-    }
+      run += glyph.advance;
+      x = context.measureText(run).width + letterSpacing * (index + 1);
+    });
 
     context.globalAlpha = 1;
     return x;
