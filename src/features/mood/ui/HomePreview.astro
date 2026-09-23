@@ -402,6 +402,11 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     margin-top: 6px;
   }
 
+  /* A photo-only card opens on its thumbnail, so there is no text to clear. */
+  #moods-section .mood-meta:first-child {
+    margin-top: 0;
+  }
+
   /* Mono at the label size, but a lowercase pill rather than a section marker,
      so it takes the mono metadata tracking and not the 0.2em spine value. */
   #moods-section .mood-tag {
@@ -932,7 +937,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
 
     const getStructuredMediaPreview = (
       mood: Pick<MoodData, 'media' | 'image'>,
-    ): { label: string; thumbnail: string } | null => {
+    ): { label: string; thumbnail: string; speaksForItself: boolean } | null => {
       const media = sanitizeCachedMedia(mood.media);
       if (!media.length) return null;
 
@@ -961,6 +966,11 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       return {
         label: title || fallbackLabels[rich.type] || 'Media post',
         thumbnail,
+        // An untitled photo or sticker is its own preview: a type name set
+        // over the thumbnail ("Photo") repeats what the image already says.
+        speaksForItself: !title
+          && Boolean(thumbnail || mood.image)
+          && (rich.type === 'image' || rich.type === 'sticker'),
       };
     };
 
@@ -1282,11 +1292,12 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       const previewHtml = mood.previewHtml || '';
       const structuredMediaPreview = getStructuredMediaPreview(mood);
       const hasText = previewText.trim().length > 0 || previewHtml.trim().length > 0;
-      if (hasText || structuredMediaPreview || !mood.image) {
+      const mediaLabel = structuredMediaPreview?.speaksForItself ? '' : structuredMediaPreview?.label ?? '';
+      if (hasText || mediaLabel || !(mood.image || structuredMediaPreview?.thumbnail)) {
         if (hasText) {
           appendPreviewLines(text, previewText, previewHtml);
-        } else if (structuredMediaPreview) {
-          text.textContent = structuredMediaPreview.label;
+        } else if (mediaLabel) {
+          text.textContent = mediaLabel;
         } else {
           text.textContent = '(No text)';
         }
@@ -1341,7 +1352,9 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
 
             removeFailedThumbnail(thumbnail);
           };
-          img.alt = '';
+          // When the card carries no words, the type name moves into the alt
+          // so the row still has a name beyond its date.
+          img.alt = !hasText && structuredMediaPreview?.speaksForItself ? structuredMediaPreview.label : '';
           img.loading = 'lazy';
           img.decoding = 'async';
           img.width = PRETEXT_THUMBNAIL_HEIGHT;
