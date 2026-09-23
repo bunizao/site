@@ -85,7 +85,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
 </section>
 
 <style is:global>
-  /* The feed reads in the human voice (Inter); the timeline spine — label, time
+  /* The feed reads in the human voice (Inter); the timeline spine — time
      stamps, tags — stays mono, the same identity thread as Hero and Experience.
      Pretext measures the live computed font, so reservations follow this. */
   #moods-section {
@@ -155,9 +155,11 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     margin-top: -8px;
   }
 
+  /* The time column matches the desktop width: 56px is what holds a
+     "SEP 23" stamp on one line at the meta step. At 52px it broke in two. */
   #moods-section .mood-item {
     display: grid;
-    grid-template-columns: 52px 24px 1fr;
+    grid-template-columns: 56px 24px 1fr;
     gap: 0;
     text-decoration: none;
     color: inherit;
@@ -203,6 +205,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     color: var(--home-fg-faint);
     font-variant-numeric: tabular-nums;
     letter-spacing: var(--home-track-meta);
+    white-space: nowrap;
     transition: color var(--dur-base) var(--ease);
   }
 
@@ -562,7 +565,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     font-size: 14px;
     color: hsl(var(--muted-foreground));
     padding: 16px 0;
-    margin-left: 76px;
+    margin-left: 80px;
   }
 
   @media (min-width: 640px) {

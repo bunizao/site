@@ -112,7 +112,7 @@ function CardFace({
       </div>
 
       <div className="px-3.5 pb-3 pt-4">
-        <p className="font-code text-[10px] uppercase tracking-[0.16em] text-stone-400 dark:text-white/35">
+        <p className="font-sans text-[11px] font-medium uppercase tracking-[0.1em] text-stone-400 dark:text-white/35">
           {project.type}
         </p>
         <div className="mt-2 flex items-center justify-between gap-3">
@@ -139,7 +139,7 @@ function CardFace({
                 : undefined
             }
             tabIndex={active ? 0 : -1}
-            className="inline-flex items-center gap-1 rounded-sm font-code text-[11px] font-semibold uppercase tracking-wide text-stone-400 transition-colors hover:text-stone-700 focus-visible:text-stone-700 dark:text-white/45 dark:hover:text-white/85 dark:focus-visible:text-white/85"
+            className="inline-flex items-center gap-1 rounded-sm font-sans text-[11px] font-medium uppercase tracking-[0.1em] text-stone-400 transition-colors hover:text-stone-700 focus-visible:text-stone-700 dark:text-white/45 dark:hover:text-white/85 dark:focus-visible:text-white/85"
           >
             Tell me more
             <ArrowUpRight className="h-3.5 w-3.5" />
@@ -179,7 +179,7 @@ function StoryCard({
         // starts on the text still pans the outer gallery scroller.
         style={{ touchAction: "pan-x pan-y" }}
       >
-        <p className="mb-2 font-code text-[11px] uppercase tracking-[0.16em] text-stone-400 dark:text-white/40">
+        <p className="mb-2 font-sans text-[11px] font-medium uppercase tracking-[0.1em] text-stone-400 dark:text-white/40">
           {project.type}
         </p>
         <div className="flex items-center justify-between gap-3">
@@ -215,7 +215,7 @@ function StoryCard({
           href={project.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-7 inline-flex items-center gap-1.5 border-b border-stone-900/25 pb-0.5 font-code text-[13px] font-semibold uppercase tracking-wide text-stone-700 transition-colors hover:border-stone-900 hover:text-stone-900 dark:border-white/25 dark:text-white/80 dark:hover:border-white dark:hover:text-white"
+          className="mt-7 inline-flex items-center gap-1.5 border-b border-stone-900/25 pb-0.5 font-sans text-[13px] font-medium uppercase tracking-[0.08em] text-stone-700 transition-colors hover:border-stone-900 hover:text-stone-900 dark:border-white/25 dark:text-white/80 dark:hover:border-white dark:hover:text-white"
         >
           View on GitHub
           <ArrowUpRight className="h-4 w-4" />

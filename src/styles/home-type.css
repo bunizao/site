@@ -10,7 +10,7 @@
  */
 
 .page-container {
-  /* Section labels: mono, tracked out, the identity spine running from Hero. */
+  /* Section labels and the smallest mono metadata. */
   --home-text-label: 11px;
   /* Metadata: tags, date stamps, mood timestamps. Mono, tabular. */
   --home-text-meta: 13px;
@@ -22,6 +22,9 @@
   /* Weight 300 is banished below 15px — at 11-13px on a dark background the
      stems thin out until the text reads as blurred rather than quiet. */
   --home-weight-label: 400;
+  /* Eyebrows are sans uppercase at the label size; at 400 Inter's caps thin
+     out against the mono metadata around them, so they carry one step more. */
+  --home-weight-eyebrow: 500;
   --home-weight-meta: 400;
   --home-weight-body: 400;
   --home-weight-title: 500;
@@ -44,25 +47,25 @@
      on a fixed advance, so tightening it pulls tabular digits off their own
      grid, which is exactly what the period stamps were doing. */
   --home-track-label: 0.2em; /* 11px mono uppercase: a rule, not language */
+  --home-track-eyebrow: 0.1em; /* 11px sans uppercase: Inter caps need half the mono air */
   --home-track-meta: 0.01em; /* 13px mono: keep the cells honest */
   --home-track-small: 0; /* 13px sans: Inter is already correct here */
   --home-track-body: -0.011em; /* 15px sans */
   --home-track-masthead: 0.01em; /* 22px sans 600, see the wordmark note */
 }
 
-/* One definition for the label that opens every section, replacing the copy of
-   `font-family: var(--font-mono)` that each section used to carry. Casing and
-   margin still come from the shared .section-label in globals.css; tracking is
-   restated here so every step on the homepage reads its value from one ramp,
-   even though this one deliberately matches what globals.css already set. */
+/* One definition for the eyebrow that opens every section. Casing comes from
+   the shared .section-label in globals.css. It is sans, not mono: the mono
+   eyebrows read as terminal chrome stamped onto sections whose content is all
+   Inter. Mono stays where it carries meaning — tabular stamps, tags, code. */
 /* The label is an `h2`, so the page has a real outline: one `h1` in the hero
-   and one heading per section. It keeps the label's quiet mono voice — the
-   size and weight below override the global heading rule on specificity. */
+   and one heading per section. The size and weight below override the global
+   heading rule on specificity. */
 .page-container .section-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--home-text-label);
-  font-weight: var(--home-weight-label);
-  letter-spacing: var(--home-track-label);
+  font-weight: var(--home-weight-eyebrow);
+  letter-spacing: var(--home-track-eyebrow);
   color: var(--home-fg-secondary);
   margin-top: 0;
   /* One lattice cell below the label, not the shared 20px. */
@@ -70,11 +73,11 @@
 }
 
 /* Every section opens on one line: the label on the left, the way out on the
-   right. The exit used to close the section as a body-size sans link under
-   the content, which gave three sections a fourth voice at the bottom and
-   left Experience, with nowhere to go, as the odd one out. Now the way out
-   speaks in the label's own mono, one step quieter, and the content below
-   the label is only content. */
+   right. The exit used to close the section as a body-size link under the
+   content, which gave three sections a fourth voice at the bottom and left
+   Experience, with nowhere to go, as the odd one out. Now the way out speaks
+   in the label's own voice, one step quieter, and the content below the
+   label is only content. */
 .page-container .section-head {
   display: flex;
   align-items: baseline;
@@ -92,10 +95,10 @@
 .page-container .section-enter {
   margin-block: -10px;
   padding-block: 10px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--home-text-label);
-  font-weight: var(--home-weight-label);
-  letter-spacing: var(--home-track-label);
+  font-weight: var(--home-weight-eyebrow);
+  letter-spacing: var(--home-track-eyebrow);
   text-transform: uppercase;
   white-space: nowrap;
   color: var(--home-fg-faint);
