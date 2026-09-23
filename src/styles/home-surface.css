@@ -49,3 +49,14 @@ html.dark .page-container {
     0 44px 90px -34px oklch(0 0 0 / 0.55);
   --home-image-outline: oklch(1 0 0 / 0.1);
 }
+
+/* The project deck keeps its own shape and its hero mats, but not its own
+   paper. ProjectStack ships a warm cream (and a stone-tinted edge) for
+   standalone use such as /components; on the homepage that cream was the only
+   warm object on a cool ground. Unlayered, so it outranks the utility
+   classes on the card without an !important. */
+.page-container .project-deck-card {
+  background: var(--home-surface);
+  border-color: transparent;
+  box-shadow: var(--home-surface-shadow-raised);
+}

@@ -99,7 +99,10 @@ function CardFace({
   return (
     <div
       className={cn(
-        "rounded-[22px] p-2 text-left text-stone-900 dark:text-stone-100",
+        // `project-deck-card` lets the homepage re-surface the deck in its
+        // shared material (src/styles/home-surface.css); elsewhere, such as
+        // /components, the cream paper below stays.
+        "project-deck-card rounded-[22px] p-2 text-left text-stone-900 dark:text-stone-100",
         surface,
       )}
     >
@@ -113,7 +116,7 @@ function CardFace({
           {project.type}
         </p>
         <div className="mt-2 flex items-center justify-between gap-3">
-          <div className="font-display text-[22px] font-extrabold leading-none tracking-[-0.01em]">
+          <div className="font-display text-[22px] font-semibold leading-none tracking-[-0.015em]">
             {project.name}
           </div>
           {project.stars != null && <StarBadge stars={project.stars} />}
@@ -136,7 +139,7 @@ function CardFace({
                 : undefined
             }
             tabIndex={active ? 0 : -1}
-            className="inline-flex items-center gap-1 font-code text-[11px] font-semibold uppercase tracking-wide text-stone-400 outline-none transition-colors hover:text-stone-700 focus-visible:text-stone-700 dark:text-white/45 dark:hover:text-white/85 dark:focus-visible:text-white/85"
+            className="inline-flex items-center gap-1 rounded-sm font-code text-[11px] font-semibold uppercase tracking-wide text-stone-400 transition-colors hover:text-stone-700 focus-visible:text-stone-700 dark:text-white/45 dark:hover:text-white/85 dark:focus-visible:text-white/85"
           >
             Tell me more
             <ArrowUpRight className="h-3.5 w-3.5" />
@@ -180,7 +183,7 @@ function StoryCard({
           {project.type}
         </p>
         <div className="flex items-center justify-between gap-3">
-          <h3 className="min-w-0 font-display text-[26px] font-extrabold leading-none tracking-[-0.01em] sm:text-[36px]">
+          <h3 className="min-w-0 font-display text-[26px] font-semibold leading-none tracking-[-0.02em] sm:text-[36px]">
             {project.name}
           </h3>
           {project.stars != null && <StarBadge stars={project.stars} />}
@@ -874,7 +877,7 @@ const GalleryScrubber = forwardRef<GalleryScrubberHandle, GalleryScrubberProps>(
           aria-valuemax={count}
           aria-valuenow={cur + 1}
           tabIndex={0}
-          className="group flex h-6 cursor-grab touch-none select-none items-center outline-none active:cursor-grabbing"
+          className="group flex h-6 cursor-grab touch-none select-none items-center rounded-full active:cursor-grabbing"
           style={{ width: trackPx }}
           onKeyDown={(event) => {
             if (event.key === "ArrowRight") {

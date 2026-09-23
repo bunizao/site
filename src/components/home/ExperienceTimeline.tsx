@@ -17,7 +17,7 @@ function RowBody({ item }: { item: ExperienceItem }) {
   return (
     <>
       <span
-        className="relative z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[hsl(var(--foreground)/0.14)] bg-[hsl(var(--card))] text-[hsl(var(--foreground)/0.82)] shadow-[0_0_0_3px_hsl(var(--background)),0_1px_2px_hsl(var(--foreground)/0.06)]"
+        className="exp-tile relative z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[hsl(var(--foreground)/0.82)]"
         aria-hidden="true"
       >
         <item.icon className={GLYPH} strokeWidth={item.strokeWidth} />
@@ -39,8 +39,8 @@ function RowBody({ item }: { item: ExperienceItem }) {
           {item.current && (
             <span className="relative flex h-[7px] w-[7px] items-center justify-center">
               <span className="sr-only">Current</span>
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[hsl(var(--foreground)/0.4)]" aria-hidden="true" />
-              <span className="relative inline-flex h-[6px] w-[6px] rounded-full bg-[hsl(var(--foreground)/0.55)]" aria-hidden="true" />
+              <span className="exp-live-ring absolute inline-flex h-full w-full rounded-full" aria-hidden="true" />
+              <span className="exp-live-dot relative inline-flex h-[6px] w-[6px] rounded-full" aria-hidden="true" />
             </span>
           )}
         </span>

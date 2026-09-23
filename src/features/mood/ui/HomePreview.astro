@@ -32,11 +32,20 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   data-mood-runtime-disabled={runtimeDisabled ? 'true' : undefined}
   aria-labelledby="moods-heading"
 >
-  <h2
-    class="section-label" id="moods-heading"
-    data-reveal-item
-    style="--reveal-delay: 300ms; --reveal-duration: 400ms"
-  >Moods</h2>
+  <div class="section-head">
+    <h2
+      class="section-label" id="moods-heading"
+      data-reveal-item
+      style="--reveal-delay: 300ms; --reveal-duration: 400ms"
+    >Moods</h2>
+    <a
+      href="/mood"
+      class="link section-enter"
+      aria-label="View all moods"
+      data-reveal-item
+      style="--reveal-delay: 360ms; --reveal-duration: 400ms"
+    >All moods</a>
+  </div>
 
   <div class="mood-timeline" data-mood-list role="region" aria-busy={runtimeDisabled ? 'false' : 'true'} aria-label="Recent moods">
     <script
@@ -73,16 +82,6 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     {runtimeDisabled ? 'Mood preview paused in home dev.' : 'No moods yet.'}
   </p>
   <p class="mood-error-state" data-mood-error hidden>Unable to load moods.</p>
-
-  <a
-    href="/mood"
-    class="link section-enter"
-    aria-label="View all moods"
-    data-reveal-item
-    style="--reveal-delay: 1000ms; --reveal-duration: 400ms"
-  >
-    View all moods
-  </a>
 </section>
 
 <style is:global>
@@ -116,9 +115,11 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     transition-delay: calc(var(--item-index, 0) * 60ms);
   }
 
+  /* Rise only, the same move as every other reveal on the page. The scale
+     made cards grow into place, which nothing else here does. */
   #moods-section .mood-item--entering {
     opacity: 0;
-    transform: translateY(24px) scale(0.94);
+    transform: translateY(16px);
   }
 
   /* An exit still has to start on the frame it is triggered. easeInCubic held
@@ -126,7 +127,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
      hanging before anything moved. */
   #moods-section .mood-item--leaving {
     opacity: 0;
-    transform: translateY(-12px) scale(0.94);
+    transform: translateY(-12px);
     transition-duration: 0.25s;
     transition-timing-function: var(--ease-out);
     transition-delay: calc(var(--item-index, 0) * 60ms);
@@ -144,10 +145,14 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   }
 
   /* Timeline Layout - 3 columns: time | line | content */
+  /* The first card's column padding already sits under the label, so the
+     list gives it back: every section's first content lands one lattice cell
+     below its label. */
   #moods-section .mood-timeline {
     display: flex;
     flex-direction: column;
     gap: 0;
+    margin-top: -8px;
   }
 
   #moods-section .mood-item {
@@ -161,6 +166,17 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
 
   #moods-section .mood-item--clickable {
     cursor: pointer;
+  }
+
+  /* The row is the focus target, but the card is the object: ring the card,
+     not a box around the time stamp, the rail and the card together. */
+  #moods-section .mood-item--clickable:focus-visible {
+    outline: none;
+  }
+
+  #moods-section .mood-item--clickable:focus-visible .mood-card {
+    outline: 2px solid hsl(var(--foreground));
+    outline-offset: 2px;
   }
 
   @media (min-width: 640px) {
@@ -228,14 +244,29 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     }
   }
 
-  /* Pulse effect on first item */
+  /* The newest mood is marked in the session ink: a filled dot where the
+     older ones are hollow. Its ring pulses twice once the section has been
+     revealed, then rests. It used to pulse forever, and from page load, so
+     most of its beats played to an empty viewport. */
+  #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot {
+    border-color: var(--home-accent);
+    background: var(--home-accent);
+  }
+
   #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot::before {
     content: '';
     position: absolute;
     inset: -4px;
     border-radius: 50%;
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    animation: mood-pulse 2.5s ease-out infinite;
+    border: 1px solid var(--home-accent);
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html:not(.reveal-ready) #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot::before,
+    .reveal-ready #moods-section.is-revealed .mood-item:first-child:not(.mood-item-skeleton) .mood-dot::before {
+      animation: mood-pulse 2.4s var(--ease-out) 600ms 2;
+    }
   }
 
   @keyframes mood-pulse {
@@ -274,10 +305,14 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     padding: 8px 0 16px 0;
   }
 
+  /* The shared homepage surface (src/styles/home-surface.css). The border
+     stays, transparent, because the reserved card height is measured with it;
+     the visible edge is the surface shadow. */
   #moods-section .mood-card {
     padding: 10px 14px;
-    background: hsl(var(--foreground) / 0.02);
-    border: 1px solid hsl(var(--foreground) / 0.06);
+    background: var(--home-surface);
+    border: 1px solid transparent;
+    box-shadow: var(--home-surface-shadow);
     border-radius: var(--radius-md);
     min-height: var(--reserved-card-height, auto);
     transition:
@@ -293,11 +328,13 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     }
   }
 
-  #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-card {
-    background: hsl(var(--foreground) / 0.04);
-    border-color: hsl(var(--foreground) / 0.12);
-    transform: translateX(4px);
-    box-shadow: -4px 0 0 hsl(var(--foreground) / 0.06);
+  /* Gated like the dot: on touch a tap leaves a synthetic hover behind, and
+     the card would stay nudged until the next tap elsewhere. */
+  @media (hover: hover) and (pointer: fine) {
+    #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-card {
+      transform: translateX(4px);
+      box-shadow: var(--home-surface-shadow-hover);
+    }
   }
 
   /* Same step as the blog post titles next door, deliberately: at this size the
@@ -389,6 +426,8 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     overflow: hidden;
     background: hsl(var(--foreground) / 0.04);
     flex-shrink: 0;
+    outline: 1px solid var(--home-image-outline);
+    outline-offset: -1px;
   }
 
   #moods-section .mood-thumbnail > img:not(.mood-image-blur) {
@@ -447,10 +486,8 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   #moods-section .mood-card-skeleton {
     position: relative;
     overflow: hidden;
-    background: hsl(var(--foreground) / 0.02);
-    border-color: hsl(var(--foreground) / 0.06);
     min-height: var(--reserved-card-height, 74px);
-    box-shadow: inset 0 0 0 1px hsl(var(--background) / 0.7);
+    box-shadow: var(--home-surface-shadow);
   }
 
   #moods-section .mood-card-skeleton::before {

@@ -34,6 +34,13 @@ import ExperienceTimeline from '@/components/home/ExperienceTimeline';
     font-family: var(--font-sans);
   }
 
+  /* The first row's own padding sits under the label; the list gives it
+     back, so the first tile lands one lattice cell below the label like the
+     first object of every other section. */
+  :global(#experience-section ol) {
+    margin-top: -16px;
+  }
+
   /* The organisation name is the row's headline and its only link. Same
      treatment as a post title in Writing — they are the same kind of thing, a
      name you can click through — where it previously ran a step heavier at 600
@@ -65,6 +72,47 @@ import ExperienceTimeline from '@/components/home/ExperienceTimeline';
     letter-spacing: var(--home-track-small);
     line-height: 1.375;
     color: var(--home-fg-faint);
+  }
+
+  /* The org tile is a small piece of the shared homepage surface. The 4px
+     ring in the page ground under the edge is what cuts the rail line where
+     it meets the tile. */
+  :global(#experience-section .exp-tile) {
+    background: var(--home-surface);
+    box-shadow:
+      var(--home-surface-shadow),
+      0 0 0 4px hsl(var(--background));
+  }
+
+  /* The "current" marker, in the session ink like every live marker on the
+     page. It pings twice when the section is revealed and then rests; it used
+     to be Tailwind's infinite ping, the fastest loop on the page. */
+  :global(#experience-section .exp-live-dot) {
+    background: var(--home-accent);
+  }
+
+  :global(#experience-section .exp-live-ring) {
+    background: var(--home-accent);
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :global(html:not(.reveal-ready) #experience-section .exp-live-ring),
+    :global(.reveal-ready #experience-section.is-revealed .exp-live-ring) {
+      animation: exp-live-ping 1.2s cubic-bezier(0, 0, 0.2, 1) 700ms 2;
+    }
+  }
+
+  @keyframes exp-live-ping {
+    from {
+      transform: scale(1);
+      opacity: 0.5;
+    }
+    75%,
+    to {
+      transform: scale(2.2);
+      opacity: 0;
+    }
   }
 
   /* The period stamp is the one mono element in the section. It was the worst
