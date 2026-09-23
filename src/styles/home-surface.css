@@ -1,0 +1,51 @@
+/* Homepage surface material and accent.
+ *
+ * Every raised thing on the page — the project deck, the mood cards, the
+ * experience tiles, the footer popover — used to carry its own paper: a warm
+ * cream, a 2% foreground wash, a card token with a 14% border. Five sections,
+ * five materials. They now share one: an opaque sheet a step off the ground,
+ * edged by a layered shadow rather than a border, so it reads the same on the
+ * dot lattice in both themes.
+ *
+ * The accent is the session's glyph ink (src/features/home/glyph-inks.ts). The
+ * field already paints the rain and the pointer spotlight in it; the handful of
+ * "live" markers below the fold now carry it too, so the page has one colour
+ * and it always matches the one at the top. Without the field script it falls
+ * back to the foreground, which is what those markers were before.
+ */
+
+.page-container {
+  --home-accent: var(--glyph-ink, hsl(var(--foreground)));
+
+  --home-surface: hsl(0 0% 100%);
+  --home-surface-shadow:
+    0 0 0 1px oklch(0 0 0 / 0.06),
+    0 1px 2px -1px oklch(0 0 0 / 0.06),
+    0 2px 4px 0 oklch(0 0 0 / 0.04);
+  --home-surface-shadow-hover:
+    0 0 0 1px oklch(0 0 0 / 0.08),
+    0 1px 2px -1px oklch(0 0 0 / 0.08),
+    0 2px 4px 0 oklch(0 0 0 / 0.06);
+  /* The deck floats higher than a card in a list, so it keeps a long ambient
+     drop under the same edge. */
+  --home-surface-shadow-raised:
+    0 0 0 1px oklch(0 0 0 / 0.06),
+    0 1px 2px -1px oklch(0 0 0 / 0.06),
+    0 6px 12px -6px oklch(0 0 0 / 0.08),
+    0 24px 48px -20px oklch(0 0 0 / 0.18);
+
+  /* Pure black or white at low alpha. A tinted outline picks up whatever sits
+     under it and reads as dirt on the image edge. */
+  --home-image-outline: oklch(0 0 0 / 0.1);
+}
+
+html.dark .page-container {
+  --home-surface: hsl(225 10% 7.6%);
+  --home-surface-shadow: 0 0 0 1px oklch(1 0 0 / 0.08);
+  --home-surface-shadow-hover: 0 0 0 1px oklch(1 0 0 / 0.13);
+  --home-surface-shadow-raised:
+    0 0 0 1px oklch(1 0 0 / 0.08),
+    0 14px 30px -12px oklch(0 0 0 / 0.6),
+    0 44px 90px -34px oklch(0 0 0 / 0.55);
+  --home-image-outline: oklch(1 0 0 / 0.1);
+}

@@ -116,6 +116,7 @@ const placeholderText = `${longestText}_`;
   type TypewriterRoot = HTMLElement & {
     _typewriterReady?: boolean;
     _typewriterStarted?: boolean;
+    _typewriterCycled?: boolean;
     _typewriterStartTimer?: number;
     _typewriterLoopTimer?: number;
     _typewriterFrame?: number;
@@ -367,13 +368,18 @@ const placeholderText = `${longestText}_`;
           window.dispatchEvent(new CustomEvent(HERO_NAME_TYPED_EVENT));
         }
 
-        if (texts.length < 2) return;
+        // One pass through the names, then the page comes to rest on the
+        // first one. A name that keeps retyping itself is the loudest thing on
+        // the page for as long as it stays open, and the reader is past the
+        // hero within seconds anyway.
+        if (texts.length < 2 || (index === 0 && root._typewriterCycled)) return;
 
         // Let the finished name sit before the carriage takes it back.
         root._typewriterLoopTimer = window.setTimeout(() => {
           animate(text, length, 0, backspaceMs, () => {
             root._typewriterCurrentText = '';
             index = (index + 1) % texts.length;
+            if (index === 0) root._typewriterCycled = true;
             // One empty beat, so the next name does not start on the same
             // frame the last one vanished.
             root._typewriterLoopTimer = window.setTimeout(playName, keystrokeMs);
@@ -411,6 +417,7 @@ const placeholderText = `${longestText}_`;
       root._typewriterCurrentText = undefined;
       root._typewriterReady = false;
       root._typewriterStarted = false;
+      root._typewriterCycled = false;
     });
   };
 

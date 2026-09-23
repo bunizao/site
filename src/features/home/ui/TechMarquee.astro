@@ -58,32 +58,38 @@ const duplicatedRow2 = [...row2, ...row2, ...row2];
     );
   }
 
+  /* Spacing is a trailing margin on every item, not a flex gap. With a gap
+     the track is three copies plus two gaps short of three full periods, so
+     the -33.33% keyframe fell a third of a gap short of one copy and the row
+     hopped by a few pixels every time the loop wrapped. */
   .marquee-track {
     display: flex;
-    gap: 1.5rem;
     width: max-content;
   }
 
-  @media (min-width: 640px) {
-    .marquee-track {
-      gap: 2rem;
-    }
-  }
-
+  /* Half the old speed. At 25s the rows drifted fast enough to pull the eye
+     off the bio above them; this is ambient, not something to read along. */
   .marquee-track.left {
-    animation: scroll-left 25s linear infinite;
+    animation: scroll-left 50s linear infinite;
   }
 
   .marquee-track.right {
-    animation: scroll-right 25s linear infinite;
+    animation: scroll-right 50s linear infinite;
   }
 
   .tech-item {
+    margin-right: 1.5rem;
     font-size: var(--home-text-label);
     font-weight: var(--home-weight-label);
-    color: hsl(var(--muted-foreground));
+    color: var(--home-fg-secondary);
     white-space: nowrap;
     letter-spacing: 0.02em;
+  }
+
+  @media (min-width: 640px) {
+    .tech-item {
+      margin-right: 2rem;
+    }
   }
 
   @keyframes scroll-left {

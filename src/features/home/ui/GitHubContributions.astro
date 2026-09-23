@@ -341,15 +341,19 @@ const placeholderBars = Array.from({ length: contributionDays });
     flex: 1;
     max-width: 10px;
     height: var(--height);
-    background: hsl(var(--foreground) / 0.35);
+    /* The resting tone the breathing loop used to average out at. */
+    background: hsl(var(--foreground) / 0.2);
     transform-origin: bottom;
     transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1), background var(--dur-base) var(--ease);
   }
 
-  /* Ambient breathing wave — handed off after the right-to-left grow-in. */
+  /* One ripple after the right-to-left grow-in, then the bars hold still.
+     They are data: a wave that kept stretching every bar by 30% on a loop
+     turned a year of contributions into a screensaver. The ripple replays
+     whenever the chart comes back into view (see updateBreathingState). */
   .activity-section.is-breathing-active .wave-bar {
     will-change: transform;
-    animation: wave 2s ease-in-out infinite;
+    animation: wave 1.6s ease-in-out 1;
     animation-delay: var(--delay);
   }
 
@@ -359,19 +363,20 @@ const placeholderBars = Array.from({ length: contributionDays });
     }
   }
 
+  /* Scale only. The loop used to swing opacity between 0.35 and 0.7 as
+     well, which with a single pass would snap every bar from its resting
+     alpha to the keyframe's and back. */
   @keyframes wave {
     0%, 100% {
       transform: scaleY(1);
-      opacity: 0.35;
     }
     50% {
       transform: scaleY(1.3);
-      opacity: 0.7;
     }
   }
 
   .wave-bar:hover {
-    background: hsl(var(--foreground));
+    background: var(--home-accent);
     animation-play-state: paused;
   }
 
@@ -380,9 +385,8 @@ const placeholderBars = Array.from({ length: contributionDays });
     bottom: calc(100% + 8px);
     left: var(--tooltip-x, 0);
     transform: translateX(-50%);
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--foreground) / 0.15);
-    border-radius: var(--radius-xs);
+    background: var(--home-surface);
+    border-radius: var(--radius-sm);
     padding: 6px 10px;
     display: flex;
     flex-direction: column;
@@ -393,29 +397,10 @@ const placeholderBars = Array.from({ length: contributionDays });
     pointer-events: none;
     transition: opacity var(--dur-fast) var(--ease), visibility var(--dur-fast) var(--ease);
     white-space: nowrap;
-    box-shadow: 0 2px 8px hsl(var(--foreground) / 0.08);
+    /* The shared surface edge. The old border-drawn arrow could not follow a
+       shadow edge, and the tooltip already sits centred on its bar. */
+    box-shadow: var(--home-surface-shadow-hover);
     z-index: 10;
-  }
-
-  .contribution-tooltip::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 5px solid transparent;
-    border-top-color: hsl(var(--foreground) / 0.15);
-  }
-
-  .contribution-tooltip::before {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 4px solid transparent;
-    border-top-color: hsl(var(--background));
-    z-index: 1;
   }
 
   .contribution-tooltip.is-visible {
@@ -424,14 +409,16 @@ const placeholderBars = Array.from({ length: contributionDays });
   }
 
   .tooltip-count {
-    font-size: 12px;
+    font-size: var(--home-text-meta);
     font-weight: 600;
-    color: hsl(var(--foreground));
+    font-variant-numeric: tabular-nums;
+    color: var(--home-fg-primary);
   }
 
   .tooltip-date {
-    font-size: 11px;
-    color: hsl(var(--muted-foreground));
+    font-size: var(--home-text-label);
+    font-variant-numeric: tabular-nums;
+    color: var(--home-fg-secondary);
   }
 
   .activity-section.is-loading .wave-bar {
@@ -463,17 +450,11 @@ const placeholderBars = Array.from({ length: contributionDays });
   }
 
   .github-link {
-    font-size: 13px;
+    font-size: var(--home-text-meta);
     font-weight: 500;
-    color: hsl(var(--foreground));
+    color: var(--home-fg-primary);
     text-decoration: none;
     transition: opacity var(--dur-fast) var(--ease);
-  }
-
-  @media (min-width: 640px) {
-    .github-link {
-      font-size: 14px;
-    }
   }
 
   .github-link:hover {
@@ -481,18 +462,13 @@ const placeholderBars = Array.from({ length: contributionDays });
   }
 
   .stat-label {
-    font-size: 11px;
-    color: hsl(var(--muted-foreground));
-  }
-
-  @media (min-width: 640px) {
-    .stat-label {
-      font-size: 12px;
-    }
+    font-size: var(--home-text-label);
+    font-variant-numeric: tabular-nums;
+    color: var(--home-fg-secondary);
   }
 
   .stat-label strong {
     font-weight: 600;
-    color: hsl(var(--foreground));
+    color: var(--home-fg-primary);
   }
 </style>

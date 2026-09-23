@@ -136,9 +136,14 @@ const bioLines = bio.map((line) => line.split('**'));
      the motion runs on the compositor. The identity lines rise 80ms apart
      from the moment `is-live` lands; the widgets follow from 950ms, 70ms
      apart. The script only flips the class and fires the hand-off events on
-     the same clock. `back.out(1.25)`, expressed as a bezier. */
+     the same clock.
+
+     The curve is the site's ease-out, the same family the sections below
+     reveal on. It used to be `back.out(1.25)`: an overshoot on text reads as
+     the line bouncing off its own baseline, and it made the hero the one part
+     of the page that moved with a different hand. */
   .hero-section {
-    --hero-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
+    --hero-ease: var(--ease-out);
   }
 
   :global(html.js) .hero-animate {
@@ -205,18 +210,19 @@ const bioLines = bio.map((line) => line.split('**'));
     position: relative;
   }
 
-  /* Status words leave upward and the next arrives from below: a quick
-     ease-in out, a springy ease-out in. The script steps the classes. */
+  /* Status words leave upward and the next arrives from below. Both legs
+     ease out: the exit is shorter and softer than the entrance, so the eye
+     follows the word that is arriving. The script steps the classes. */
   .status-text {
     display: inline-block;
     line-height: 1.2em;
     transition:
-      transform 240ms cubic-bezier(0.4, 0, 1, 1),
-      opacity 240ms cubic-bezier(0.4, 0, 1, 1);
+      transform 160ms var(--ease-out),
+      opacity 160ms var(--ease-out);
   }
 
   .status-text.is-leaving {
-    transform: translateY(-115%);
+    transform: translateY(-60%);
     opacity: 0;
   }
 
@@ -228,19 +234,23 @@ const bioLines = bio.map((line) => line.split('**'));
 
   .status-text.is-entering {
     transition:
-      transform 360ms cubic-bezier(0.34, 1.5, 0.64, 1),
-      opacity 360ms ease-out;
+      transform 300ms var(--ease-out),
+      opacity 300ms var(--ease-out);
   }
 
-  /* The dot breathes once the identity lines have landed. Overrides the
-     site-wide opacity-only pulse from site-chrome.css. */
+  /* The dot is the page's one resting pulse, and it carries the session ink:
+     the same colour as the rain behind it and every live marker below. It
+     used to beat at 820ms to 1.5x, which read as an alert rather than a
+     heartbeat. Overrides the site-wide opacity-only pulse from
+     site-chrome.css. */
   .status-dot {
     animation: none;
     transform-origin: center;
+    background: var(--home-accent);
   }
 
   .hero-section.is-live .status-dot {
-    animation: hero-dot 820ms ease-in-out 1s infinite alternate;
+    animation: hero-dot 1600ms ease-in-out 1s infinite alternate;
   }
 
   @keyframes hero-dot {
@@ -249,8 +259,8 @@ const bioLines = bio.map((line) => line.split('**'));
       opacity: 1;
     }
     to {
-      transform: scale(1.5);
-      opacity: 0.42;
+      transform: scale(1.25);
+      opacity: 0.5;
     }
   }
 
@@ -276,12 +286,12 @@ const bioLines = bio.map((line) => line.split('**'));
     display: inline-block;
   }
 
-  /* Magnetic chips: the chip follows the mouse on a short ease-out and springs
-     back on leave. The transform is set by the script; the timing lives here. */
+  /* Magnetic chips: the chip follows the mouse on a short ease-out and eases
+     home on leave. The transform is set by the script; the timing lives here. */
   .magnetic-button {
     display: inline-flex;
     align-items: center;
-    transition: transform 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: transform 420ms var(--ease-out);
   }
 
   .magnetic-button.is-magnetic {
@@ -309,8 +319,12 @@ const bioLines = bio.map((line) => line.split('**'));
   // Longest entrance: phase two plus the last widget's stagger and duration.
   const SETTLE_MS = PHASE_TWO_MS + 3 * WIDGET_STAGGER_MS + 600 + 200;
   const STATUS_HOLD_MS = 2400;
-  const STATUS_OUT_MS = 240;
-  const STATUS_IN_MS = 360;
+  const STATUS_OUT_MS = 160;
+  const STATUS_IN_MS = 300;
+  // The status runs a short random stretch of the curated verbs while the
+  // name types, then settles on its last word. Each visit lands somewhere
+  // different; nobody sits through all twenty-five.
+  const STATUS_SWAPS = 4;
 
   // Status verbs are curated in src/data/site.ts and passed through a data
   // attribute so the client bundle never imports the data module (which would
@@ -343,20 +357,24 @@ const bioLines = bio.map((line) => line.split('**'));
 
   const initStatusRotation = () => {
     if (!statusText || statusWords.length < 2) return;
-    let index = 0;
+    // Word 0 is the server-rendered one; the run draws from the rest, starting
+    // anywhere, and never repeats inside one visit.
+    const pool = statusWords.length - 1;
+    const start = Math.floor(Math.random() * pool);
+    let swaps = 0;
 
     const rotate = () => {
       statusText.classList.add('is-leaving');
       window.setTimeout(() => {
-        index = (index + 1) % statusWords.length;
-        statusText.textContent = statusWords[index];
+        statusText.textContent = statusWords[1 + ((start + swaps) % pool)];
+        swaps += 1;
         statusText.classList.replace('is-leaving', 'is-below');
         // Commit the below position, then transition up from it.
         void statusText.offsetWidth;
         statusText.classList.replace('is-below', 'is-entering');
         window.setTimeout(() => {
           statusText.classList.remove('is-entering');
-          window.setTimeout(rotate, STATUS_HOLD_MS);
+          if (swaps < Math.min(STATUS_SWAPS, pool)) window.setTimeout(rotate, STATUS_HOLD_MS);
         }, STATUS_IN_MS);
       }, STATUS_OUT_MS);
     };
