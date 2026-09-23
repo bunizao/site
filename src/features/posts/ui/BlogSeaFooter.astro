@@ -10,33 +10,48 @@
  *
  * How the motion holds together:
  *
- *   - The boat never moves across the page. The water does: each sea strip is
- *     one seamless tile repeated, translated one tile per period, so the loop
- *     has no seam to find.
+ *   - The boat never moves across the page. The water does: each row of sea
+ *     is one seamless tile repeated, translated one tile per period, so the
+ *     loop has no seam to find. Nearer rows pass faster.
  *   - The boat rides the painted swell, not a sine wave. Its heave and pitch
- *     are sampled from the same surface the near strip was painted from, so a
- *     crest passing under the hull lifts it and tips the bow.
+ *     are sampled from the same surface the near row was painted from, so a
+ *     crest passing under the hull lifts it and tips the bow, and the bow wave
+ *     swells as the stem drives into the water.
  *   - The wake is foam left on the water: each streak is born at the stern and
  *     drifts astern at exactly the water's speed, at the height of the surface
  *     it was born on — which never changes, because it moves with that water.
+ *   - The sea can be touched. A touch splashes on the painted surface under
+ *     the finger; a sideways drag takes hold of the water and moves it with the
+ *     finger. Every animation here shares one clock, so however fast the
+ *     finger drives the sea, the boat's ride stays true to it.
  *
  * Everything is a transform or opacity animation, so it runs off the main
  * thread. It only runs while the band is on screen, and reduced motion gets
- * the same picture standing still.
+ * the same picture standing still, untouchable.
  */
 import motion from './sillage-motion.json';
 
-const { tile, period, near, back, clouds, boat, foam, ride } = motion;
+const { tile, period, near, front, back, clouds, boat, foam, bow, drop, ride } = motion;
 
 // Keyframes generated from the painted surface. Closed with a copy of the first
 // frame so the loop joins itself.
 const frames = (series: number[], frame: (i: number) => string) =>
   [...series.map((_, i) => `${((i / series.length) * 100).toFixed(3)}%{${frame(i)}}`), `100%{${frame(0)}}`].join('');
 const heave = (i: number) => `translate:0 calc(${ride.heave[i]} * var(--u))`;
+const round = (v: number) => Math.round(v * 1000) / 1000;
 const lifeEnd = `${foam.life * 100}%`;
 const motionCss = [
   `@keyframes sillage-ride{${frames(ride.heave, (i) => `${heave(i)};rotate:${ride.pitch[i]}deg`)}}`,
   `@keyframes sillage-heave{${frames(ride.heave, heave)}}`,
+  // The bow wave stays on the water at the stem, and grows as the stem drives in.
+  `@keyframes sillage-bow{${frames(bow.lift, (i) => {
+    const surge = bow.surge[i];
+    return (
+      `translate:0 calc(${bow.lift[i]} * var(--u));` +
+      `scale:${round(0.7 + 0.4 * surge)} ${round(0.45 + 0.75 * surge)};` +
+      `opacity:calc(${round(0.3 + 0.7 * surge)} * var(--dim, 1))`
+    );
+  })}}`,
   // Foam: fades in at the stern, drifts astern with the water for `life` of a
   // period while it stretches and spreads, and is gone before it repeats.
   `@keyframes sillage-foam{` +
@@ -53,6 +68,8 @@ const vars = [
   `--near-h:${near.height}`,
   `--surface:${near.surface}`,
   `--anchor:${near.anchor}`,
+  `--front-h:${front.height}`,
+  `--front-period:${front.period}s`,
   `--back-h:${back.height}`,
   `--back-floor:${back.floor}`,
   `--back-period:${back.period}s`,
@@ -73,6 +90,13 @@ const vars = [
   `--foam-h:${foam.height}`,
   `--foam-rows:${foam.variants - 1}`,
   `--stern:${foam.stern}`,
+  `--bow:${bow.x}`,
+  `--bow-w:${bow.sprite.width}`,
+  `--bow-h:${bow.sprite.height}`,
+  `--bow-sx:${bow.sprite.x}`,
+  `--bow-sy:${bow.sprite.y}`,
+  `--drop:${drop.size}`,
+  `--drop-rows:${drop.variants - 1}`,
 ].join(';');
 ---
 
@@ -84,6 +108,7 @@ const vars = [
     <span class="sillage-sea__flag"></span>
   </div>
   <div class="sillage-sea__near"></div>
+  <span class="sillage-sea__bow"></span>
   <span class="sillage-sea__churn"></span>
   {
     foam.streaks.map((streak) => (
@@ -94,6 +119,7 @@ const vars = [
     ))
   }
   <span class="sillage-sea__glint"></span>
+  <div class="sillage-sea__front"></div>
 </div>
 
 <style is:inline set:html={motionCss}></style>
@@ -120,33 +146,55 @@ const vars = [
     height: calc(240 * var(--u));
     overflow: hidden;
     contain: layout paint;
-    pointer-events: none;
+    /* Sideways drags belong to the sea; vertical ones still scroll the page. */
+    touch-action: pan-y pinch-zoom;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .sillage-sea {
+      cursor: grab;
+    }
+
+    .sillage-sea[data-held] {
+      cursor: grabbing;
+    }
   }
 
   /* The art loads only once the band nears the screen; before that no layer
      has an image. The two sets are the same picture painted twice, day and
      night, in the blog's inks — not one set re-lit by a filter. */
   .sillage-sea[data-seen] {
+    --art-front: url('/sillage/light/front.webp');
     --art-near: url('/sillage/light/near.webp');
     --art-back: url('/sillage/light/back.webp');
     --art-clouds: url('/sillage/light/clouds.webp');
     --art-boat: url('/sillage/light/boat.webp');
     --art-flag: url('/sillage/light/flag.webp');
     --art-foam: url('/sillage/light/foam.webp');
+    --art-spray: url('/sillage/light/spray.webp');
+    --art-drops: url('/sillage/light/drops.webp');
   }
 
   :global(.dark) .sillage-sea[data-seen] {
+    --art-front: url('/sillage/dark/front.webp');
     --art-near: url('/sillage/dark/near.webp');
     --art-back: url('/sillage/dark/back.webp');
     --art-clouds: url('/sillage/dark/clouds.webp');
     --art-boat: url('/sillage/dark/boat.webp');
     --art-flag: url('/sillage/dark/flag.webp');
     --art-foam: url('/sillage/dark/foam.webp');
+    --art-spray: url('/sillage/dark/spray.webp');
+    --art-drops: url('/sillage/dark/drops.webp');
     --art-glint: url('/sillage/dark/glint.webp');
   }
 
   /* Defaults for every layer, at zero specificity: Astro scopes selectors with
-     attributes, so a plain `.sillage-sea *` would outrank each layer's own rule. */
+     attributes, so a plain `.sillage-sea *` would outrank each layer's own rule.
+     Global, too, because splashes are made at runtime and carry no scope. */
   :global(:where(.sillage-sea *)) {
     position: absolute;
     display: block;
@@ -156,9 +204,12 @@ const vars = [
     animation-iteration-count: infinite;
   }
 
-  /* --- Drifting strips ---------------------------------------------------
+  /* --- Drifting rows -----------------------------------------------------
      Each is its tile repeated, one tile wider than it needs to be, and
-     translated by exactly one tile per loop. */
+     translated by exactly one tile per loop. The rows away from the boat also
+     breathe up and down on their own slow count, so the sea never reads as a
+     conveyor. */
+  .sillage-sea__front,
   .sillage-sea__near,
   .sillage-sea__back,
   .sillage-sea__clouds {
@@ -173,6 +224,12 @@ const vars = [
     }
   }
 
+  @keyframes sillage-breathe {
+    to {
+      translate: 0 calc(var(--rise) * var(--u));
+    }
+  }
+
   .sillage-sea__clouds {
     left: 0;
     bottom: calc(var(--cloud-floor) * var(--u));
@@ -184,17 +241,22 @@ const vars = [
   }
 
   .sillage-sea__back {
+    --rise: -1.4;
     left: 0;
     bottom: calc(var(--back-floor) * var(--u));
     width: calc(100% + var(--tile-w));
     height: calc(var(--back-h) * var(--u));
     background-image: var(--art-back);
-    animation-duration: var(--back-period);
+    animation-name: sillage-drift, sillage-breathe;
+    animation-duration: var(--back-period), 9.7s;
+    animation-timing-function: linear, ease-in-out;
+    animation-direction: normal, alternate;
   }
 
-  /* The near strip is pinned so that the tile position the ride was sampled
-     at sits under the boat at the start of the loop, at any viewport width.
-     Otherwise the boat would pitch to a wave that is somewhere else. */
+  /* The near row is pinned so that the tile position the ride was sampled at
+     sits under the boat at the start of the loop, at any viewport width.
+     Otherwise the boat would pitch to a wave that is somewhere else. It does
+     not breathe: the boat is riding it. */
   .sillage-sea__near {
     left: calc(var(--boat-x) - (var(--anchor) + 1) * var(--tile-w));
     bottom: 0;
@@ -202,6 +264,21 @@ const vars = [
     height: calc(var(--near-h) * var(--u));
     background-image: var(--art-near);
     animation-duration: var(--period);
+  }
+
+  /* The nearest water, in front of everything. It breathes downward only, so
+     its foot never lifts off the floor. */
+  .sillage-sea__front {
+    --rise: 2.2;
+    left: 0;
+    bottom: 0;
+    width: calc(100% + var(--tile-w));
+    height: calc(var(--front-h) * var(--u));
+    background-image: var(--art-front);
+    animation-name: sillage-drift, sillage-breathe;
+    animation-duration: var(--front-period), 6.3s;
+    animation-timing-function: linear, ease-in-out;
+    animation-direction: normal, alternate;
   }
 
   /* --- The boat ----------------------------------------------------------
@@ -237,8 +314,20 @@ const vars = [
     }
   }
 
-  /* --- The wake ----------------------------------------------------------
-     Right edge on the stern; the sprite's rows are the variants. */
+  /* --- White water ---------------------------------------------------------
+     The bow wave: its sprite's stem point sits on the water at the stem. */
+  .sillage-sea__bow {
+    left: calc(var(--boat-x) + (var(--bow) - var(--bow-sx)) * var(--u));
+    bottom: calc(var(--waterline) - (var(--bow-h) - var(--bow-sy)) * var(--u));
+    width: calc(var(--bow-w) * var(--u));
+    height: calc(var(--bow-h) * var(--u));
+    background-image: var(--art-spray);
+    transform-origin: calc(var(--bow-sx) * var(--u)) calc(var(--bow-sy) * var(--u));
+    animation-name: sillage-bow;
+    animation-duration: var(--period);
+  }
+
+  /* The wake: right edge on the stern; the sprite's rows are the variants. */
   .sillage-sea__foam {
     left: calc(var(--boat-x) + (var(--stern) - var(--foam-w)) * var(--u));
     bottom: calc(var(--b) * var(--u));
@@ -256,8 +345,7 @@ const vars = [
 
   /* Moonlit foam is the brightest thing on a dark sea; at full strength it
      reads as dashes, not water. */
-  :global(.dark) .sillage-sea__foam,
-  :global(.dark) .sillage-sea__churn {
+  :global(.dark) .sillage-sea {
     --dim: 0.55;
   }
 
@@ -288,16 +376,56 @@ const vars = [
     }
   }
 
-  /* --- Night: the lantern -------------------------------------------------
-     "是深夜里独自点亮的灯" — the one light out on the water. By day the
-     lantern is an unlit object painted on the boat, and these stay hidden. */
-  .sillage-sea__glow,
-  .sillage-sea__glint {
-    display: none;
+  /* Splashes are made by the script, where a finger touches the water. Each
+     is a point on the surface; its droplets and the foam it spreads are
+     animated from there. */
+  :global(.sillage-sea__splash) {
+    width: 0;
+    height: 0;
   }
 
-  :global(.dark) .sillage-sea__glow {
-    display: block;
+  :global(.sillage-sea__drop) {
+    left: calc(var(--drop) * -0.5 * var(--u));
+    top: calc(var(--drop) * -0.5 * var(--u));
+    width: calc(var(--drop) * var(--u));
+    height: calc(var(--drop) * var(--u));
+    background-image: var(--art-drops);
+    background-size: 100% calc((var(--drop-rows) + 1) * 100%);
+    background-position: 0 calc(var(--v) / var(--drop-rows) * 100%);
+    opacity: var(--dim, 1);
+  }
+
+  /* Foam running away from the splash: the thick end of a wake streak, its
+     right edge on the point of impact. The script mirrors one of each pair
+     about that edge, so the two run off both ways. */
+  :global(.sillage-sea__spread) {
+    right: 0;
+    top: calc(var(--foam-h) * -0.62 * var(--u));
+    width: calc(var(--foam-w) * 0.42 * var(--k, 1) * var(--u));
+    height: calc(var(--foam-h) * var(--u));
+    background-image: var(--art-foam);
+    background-size: calc(var(--foam-w) * var(--k, 1) * var(--u)) calc((var(--foam-rows) + 1) * 100%);
+    background-position: 100% calc(var(--v) / var(--foam-rows) * 100%);
+    transform-origin: 100% 50%;
+    opacity: 0;
+  }
+
+  /* --- Night: the lantern -------------------------------------------------
+     "是深夜里独自点亮的灯" — the one light out on the water. By day the
+     lantern is an unlit object painted on the boat, and these stay hidden —
+     hidden, not removed, so their clocks keep time with the boat's and a
+     theme switch picks them up mid-stride. */
+  .sillage-sea__glow,
+  .sillage-sea__glint {
+    visibility: hidden;
+  }
+
+  :global(.dark) .sillage-sea__glow,
+  :global(.dark) .sillage-sea__glint {
+    visibility: visible;
+  }
+
+  .sillage-sea__glow {
     left: calc((var(--lantern-x) - 20) * var(--u));
     top: calc((var(--lantern-y) - 20) * var(--u));
     width: calc(40 * var(--u));
@@ -313,8 +441,7 @@ const vars = [
 
   /* The reflection stays on the water: it heaves with the boat but does not
      tip with it, and sits in front of the near sea. */
-  :global(.dark) .sillage-sea__glint {
-    display: block;
+  .sillage-sea__glint {
     left: calc(var(--boat-x) + (var(--lantern-x) - var(--boat-ox) - 14) * var(--u));
     bottom: calc(var(--waterline) - 46 * var(--u));
     width: calc(28 * var(--u));
@@ -353,6 +480,10 @@ const vars = [
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .sillage-sea {
+      cursor: auto;
+    }
+
     .sillage-sea * {
       animation-play-state: paused !important;
     }
@@ -375,6 +506,8 @@ const vars = [
 </style>
 
 <script>
+  import { stir } from './sillage-touch';
+
   // Load the art as the band approaches, and run it only while it is in view.
   const sea = document.querySelector<HTMLElement>('[data-sillage-sea]');
   if (sea) {
@@ -385,5 +518,6 @@ const vars = [
       },
       { root: document.querySelector('[data-page-scroller]'), rootMargin: '400px 0px' },
     ).observe(sea);
+    stir(sea);
   }
 </script>

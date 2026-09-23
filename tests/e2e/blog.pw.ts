@@ -197,8 +197,9 @@ test.describe('Blog routes', () => {
     await expect(page.locator('.blog-colophon')).toHaveCount(0);
 
     // The sea footer. Assert the layer order, not just presence: the boat has to
-    // sit between the two seas so the near one hides its hull, and the wake has
-    // to lie on top of the water. The art loads only once the band is in view.
+    // sit between the two seas so the near one hides its hull, the white water
+    // has to lie on top of the water it breaks from, and the front row goes in
+    // front of all of it. The art loads only once the band is in view.
     const sea = page.locator('.sillage-sea');
     await expect(sea).toHaveAttribute('aria-hidden', 'true');
     expect(
@@ -207,13 +208,36 @@ test.describe('Blog routes', () => {
           (layer) => layer !== 'foam',
         ),
       ),
-    ).toEqual(['clouds', 'back', 'boat', 'near', 'churn', 'glint']);
+    ).toEqual(['clouds', 'back', 'boat', 'near', 'bow', 'churn', 'glint', 'front']);
     await sea.scrollIntoViewIfNeeded();
     await expect(sea).toHaveAttribute('data-seen', '');
     await expect(sea.locator('.sillage-sea__near')).toHaveCSS(
       'background-image',
       /\/sillage\/(?:light|dark)\/near\.webp/,
     );
+
+    // Touch: a tap on the water splashes, and a sideways drag takes hold of
+    // the sea and drives it faster than its own pace. Under reduced motion
+    // the sea stands still and a touch does nothing.
+    const band = (await sea.boundingBox())!;
+    const waterY = band.y + band.height - 24;
+    await page.mouse.click(band.x + band.width * 0.7, waterY);
+    await expect(sea.locator('.sillage-sea__splash')).toHaveCount(0);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.mouse.click(band.x + band.width * 0.7, waterY);
+    await expect(sea.locator('.sillage-sea__splash').first()).toBeAttached();
+    await page.mouse.move(band.x + band.width * 0.8, waterY);
+    await page.mouse.down();
+    for (let step = 1; step <= 12; step++) {
+      await page.mouse.move(band.x + band.width * (0.8 - step * 0.03), waterY);
+      await page.waitForTimeout(16);
+    }
+    await expect(sea).toHaveAttribute('data-held', '');
+    expect(
+      await sea.locator('.sillage-sea__near').evaluate((el) => el.getAnimations()[0].playbackRate),
+    ).toBeGreaterThan(1);
+    await page.mouse.up();
+    await expect(sea).not.toHaveAttribute('data-held', '');
 
     const firstPostHref = pathFromHref(
       await page.locator('.blog-row__link').first().getAttribute('href'),
