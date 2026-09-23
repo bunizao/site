@@ -35,7 +35,7 @@ const bioLines = bio.map((line) => line.split('**'));
     </div>
 
     <!-- Name -->
-    <div class="hero-name-shell mb-2 text-[28px] font-semibold sm:text-[36px]">
+    <div class="hero-name-shell mb-3 text-[44px] sm:text-[56px]">
       <span class="hero-lcp-anchor" aria-hidden="true">{lcpAnchorName}</span>
       <h1 class="hero-animate m-0" style="--hero-i: 1" data-hero-name>
         <Typewriter texts={typewriterNames} keystrokeMs={90} />
@@ -173,8 +173,18 @@ const bioLines = bio.map((line) => line.split('**'));
     will-change: auto;
   }
 
+  /* The name is the one line on the page set in a serif. Everything around
+     it is mono, the voice of the rain behind it; the name is the person, not
+     the terminal. Instrument Serif has a single weight, so the heading's
+     global bold is turned off rather than faked, and it sets tight: at
+     display size its default spacing reads loose. */
   .hero-name-shell {
     position: relative;
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-synthesis: none;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
   }
 
   .hero-lcp-anchor {
@@ -191,6 +201,8 @@ const bioLines = bio.map((line) => line.split('**'));
   [data-hero-name] {
     position: relative;
     z-index: 1;
+    font-weight: inherit;
+    letter-spacing: inherit;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -199,6 +211,16 @@ const bioLines = bio.map((line) => line.split('**'));
       transform: none;
       transition: none;
     }
+  }
+
+  /* The status is the hero's eyebrow: label size, secondary ink, the mono
+     label tracking. At full black it sat level with the name; now the dot
+     carries the life and the words recede. Overrides the 12px caps from
+     site-chrome.css. */
+  .status {
+    font-size: var(--home-text-label);
+    letter-spacing: 0.14em;
+    color: var(--home-fg-secondary);
   }
 
   .status-text-wrapper {
