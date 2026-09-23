@@ -64,7 +64,7 @@ const bioLines = bio.map((line) => line.split('**'));
     <!-- Bio -->
     <div class="hero-animate" style="--hero-i: 4" data-hero-bio>
       <DecodeText>
-        <p class="text-[length:var(--home-text-body)] leading-[1.7] text-muted-foreground">
+        <p class="text-pretty text-[length:var(--home-text-body)] leading-[1.7] text-muted-foreground">
           {bioLines.map((segments, line) => (
             <>
               {line > 0 && <br />}

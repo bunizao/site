@@ -16,7 +16,6 @@ import SiteWordmark from '@/components/SiteWordmark.astro';
 const locale = blog.locale.home;
 const posts = (await getListedPosts()).slice(0, 3);
 const blogCopy = blog.copy[locale];
-const enterRevealDelay = posts.length > 0 ? 1040 + posts.length * 60 : 900;
 
 // Quiet "YYYY.MM" stamp, UTC-fixed so SSG output stays deterministic.
 const stamp = (iso: string): string => {
@@ -27,11 +26,19 @@ const stamp = (iso: string): string => {
 ---
 
 <section id="writing-section" class="writing-section" data-reveal aria-labelledby="writing-heading">
-  <h2
-    class="section-label" id="writing-heading"
-    data-reveal-item
-    style="--reveal-delay: 300ms; --reveal-duration: 400ms"
-  >Writing</h2>
+  <div class="section-head">
+    <h2
+      class="section-label" id="writing-heading"
+      data-reveal-item
+      style="--reveal-delay: 300ms; --reveal-duration: 400ms"
+    >Writing</h2>
+    <a
+      href="/blog"
+      class="link section-enter"
+      data-reveal-item
+      style="--reveal-delay: 360ms; --reveal-duration: 400ms"
+    >Enter {blogCopy.name}</a>
+  </div>
 
   <a
     class="writing-portal"
@@ -82,13 +89,6 @@ const stamp = (iso: string): string => {
       })}
     </div>
   )}
-
-  <a
-    href="/blog"
-    class="link section-enter"
-    data-reveal-item
-    style={`--reveal-delay: ${enterRevealDelay}ms; --reveal-duration: 400ms`}
-  >Enter {blogCopy.name}</a>
 </section>
 
 <style>
@@ -105,7 +105,9 @@ const stamp = (iso: string): string => {
     display: flex;
     align-items: center;
     gap: 16px;
-    margin-top: 24px;
+    /* The section head already leaves one lattice cell under the label, the
+       same gap every other section opens with. */
+    margin-top: 0;
     /* Deliberately larger than the gap between list rows, so the three titles
        read as one group sitting under the masthead rather than as a fourth
        sibling in the same stack. */
@@ -178,11 +180,15 @@ const stamp = (iso: string): string => {
     text-wrap: pretty;
   }
 
+  /* The rows carry 10px of side padding for the hover pill. The list gives
+     it back as a negative margin, so the titles and dates sit flush with the
+     column edge like every other line on the page, and the pill bleeds out
+     past it instead of indenting the text. */
   :global(#writing-section .post-list) {
     display: flex;
     flex-direction: column;
     position: relative;
-    margin-inline: 0;
+    margin-inline: -10px;
     padding-inline: 0;
   }
 
@@ -206,14 +212,13 @@ const stamp = (iso: string): string => {
       opacity 0.25s ease-out;
   }
 
-  /* Post rows enter from the left, so give them the lateral variant of the
-     shared reveal transform instead of the default vertical drift. */
+  /* Post rows rise on the shared reveal like every other item on the page.
+     They used to slide in from the left, the one lateral entrance in a page
+     that otherwise only moves vertically. */
   /* No `transition` shorthand here: the reveal system already owns opacity and
      transform on this element, and a shorthand would silently reset both its
      transform easing and its stagger delay. */
   :global(#writing-section .post-item) {
-    --reveal-x: -16px;
-    --reveal-y: 0;
     display: flex;
     flex-direction: column;
     gap: 4px;

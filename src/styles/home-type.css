@@ -69,27 +69,47 @@
   margin-bottom: 24px;
 }
 
-/* The link that closes a section. Projects, Writing and Moods each carried
-   their own copy of these rules -- byte for byte the same, then drifting on
-   duration. One class now, guarded the same way the reveal guards everything
-   else: no transition until the section has settled, or the hover state
-   animates while the entrance is still running. */
-.page-container .section-enter {
-  margin-top: 28px;
-  font-family: var(--font-sans);
-  font-size: var(--home-text-body);
-  font-weight: var(--home-weight-body);
-  letter-spacing: var(--home-track-body);
-  color: var(--home-fg-secondary);
+/* Every section opens on one line: the label on the left, the way out on the
+   right. The exit used to close the section as a body-size sans link under
+   the content, which gave three sections a fourth voice at the bottom and
+   left Experience, with nowhere to go, as the odd one out. Now the way out
+   speaks in the label's own mono, one step quieter, and the content below
+   the label is only content. */
+.page-container .section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
+.page-container .section-head .section-label {
+  margin-bottom: 0;
+}
+
+/* The block padding widens the hit area to a finger without moving the
+   baseline; the negative margin gives the space back. */
+.page-container .section-enter {
+  margin-block: -10px;
+  padding-block: 10px;
+  font-family: var(--font-mono);
+  font-size: var(--home-text-label);
+  font-weight: var(--home-weight-label);
+  letter-spacing: var(--home-track-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--home-fg-faint);
+}
+
+/* Guarded the same way the reveal guards everything else: no transition
+   until the section has settled, or the hover state animates while the
+   entrance is still running. The arrow's slide comes from .link. */
 html:not(.reveal-ready) .page-container .section-enter,
 .reveal-ready .page-container [data-reveal].is-settled .section-enter {
-  transition: color var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
+  transition: color var(--dur-fast) var(--ease);
 }
 
-html:not(.reveal-ready) .page-container .section-enter:hover,
-.reveal-ready .page-container [data-reveal].is-settled .section-enter:hover {
+.page-container .section-enter:hover,
+.page-container .section-enter:focus-visible {
   color: var(--home-fg-primary);
-  transform: translateX(2px);
 }
