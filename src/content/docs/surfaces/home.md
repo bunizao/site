@@ -64,6 +64,12 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
   It paints on a canvas, positioning each glyph by the measured width of the
   run before it, so kerning and the name's CSS tracking survive. It types one
   pass through the names and rests on the first.
+- The name is set in Instrument Serif (`--font-serif`, one weight, 15KB Latin
+  subset in `public/fonts/`); the rest of the hero stays mono. The serif is
+  kept for proper names: the only other user is the project titles.
+- A faint `.hero-lcp-anchor` paints the longest name at first paint, since
+  canvas text does not count for LCP. The script removes it when typing
+  starts; left in place it showed through as a ghost behind the caret.
 - Social links are local config in the component, not CMS-driven.
 - GitHub activity is client-fetched from `/api/github/contributions?days=30` after DOM ready; the API keeps the last-year total but returns only the visible waveform window.
 - Tech rows are local arrays duplicated into CSS marquee tracks.
@@ -95,6 +101,7 @@ Mapping rules:
 - tags are derived from `primaryLanguage + repositoryTopics`
 - tags are deduped and truncated to 3
 - ownership decides whether the card shows `Author` or `Contributor`
+- titles in the deck and the gallery use `font-serif`, the hero name's face
 
 Client behavior:
 
@@ -170,6 +177,11 @@ Rendering rules:
 - unsafe tags and unsafe image sources are dropped
 - image failure falls back to `imageFallback`
 - the card target is stored in `data-href="/mood/{id}"`
+- an untitled photo or sticker renders its thumbnail alone; the type name
+  ("Photo") moves into the image's `alt`
+- the time stamp sits on the card's first-line baseline and the dot centres
+  on that line; the rail runs on to 4px short of the next dot, and the
+  skeleton blocks sit where the loaded lines will
 
 Client behavior:
 
