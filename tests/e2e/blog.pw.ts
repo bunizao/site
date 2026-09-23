@@ -196,6 +196,25 @@ test.describe('Blog routes', () => {
 
     await expect(page.locator('.blog-colophon')).toHaveCount(0);
 
+    // The sea footer. Assert the layer order, not just presence: the boat has to
+    // sit between the two seas so the near one hides its hull, and the wake has
+    // to lie on top of the water. The art loads only once the band is in view.
+    const sea = page.locator('.sillage-sea');
+    await expect(sea).toHaveAttribute('aria-hidden', 'true');
+    expect(
+      await sea.evaluate((el) =>
+        Array.from(el.children, (child) => child.className.replace('sillage-sea__', '')).filter(
+          (layer) => layer !== 'foam',
+        ),
+      ),
+    ).toEqual(['clouds', 'back', 'boat', 'near', 'churn', 'glint']);
+    await sea.scrollIntoViewIfNeeded();
+    await expect(sea).toHaveAttribute('data-seen', '');
+    await expect(sea.locator('.sillage-sea__near')).toHaveCSS(
+      'background-image',
+      /\/sillage\/(?:light|dark)\/near\.webp/,
+    );
+
     const firstPostHref = pathFromHref(
       await page.locator('.blog-row__link').first().getAttribute('href'),
       BLOG_POST_PATH_RE,
