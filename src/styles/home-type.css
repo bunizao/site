@@ -61,7 +61,11 @@
 /* The label is an `h2`, so the page has a real outline: one `h1` in the hero
    and one heading per section. The size and weight below override the global
    heading rule on specificity. */
+/* Block, not the global inline-block: an inline-block label sits in a line
+   box and picks up its half-leading, which put the one section without an
+   exit link (Experience) 7px lower than the rest. */
 .page-container .section-label {
+  display: block;
   font-family: var(--font-sans);
   font-size: var(--home-text-label);
   font-weight: var(--home-weight-eyebrow);
