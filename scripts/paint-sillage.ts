@@ -24,6 +24,7 @@
 import sharp from 'sharp';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { blogPalette } from '@/data/site';
+import { surfaceDepth, type Swell } from '@/features/posts/ui/sillage-surface';
 
 // --- Geometry ---------------------------------------------------------------
 // CSS px at desktop scale. The component multiplies all of it by --s and reads
@@ -41,6 +42,11 @@ const BACK_RISE = 12;
 const BACK_HEADROOM = 16;
 /** The back swell is further off, so it drifts slower: parallax. */
 const BACK_PERIOD_RATIO = 1.55;
+/** The front row: the nearest water, a second wave line across the lower sea. */
+const FRONT_H = 66;
+const FRONT_SURFACE = 22;
+/** Nearer, so faster past. */
+const FRONT_PERIOD_RATIO = 0.68;
 const CLOUD_FLOOR = 112;
 const CLOUD_H = 110;
 /** Seconds for the near sea to drift one tile. Sets the whole tempo. */
@@ -52,6 +58,8 @@ const BOAT_TILE_X = 988;
 // centre, y up. The box is what gets painted; the origin is what rides the sea.
 const BOAT_BOX = { left: -50, right: 54, bottom: -24, top: 116 };
 const STERN_X = -37;
+/** Where the stem meets the water. */
+const BOW_X = 35;
 const HULL_HALF = 34;
 const LANTERN = { x: -41, y: 28 };
 /** How far the hull sits below the averaged surface: a laden boat, not a cork. */
@@ -69,37 +77,44 @@ const SPRITE_RES = 3;
 
 // The swell: [waves per tile, amplitude px, phase]. Integer wave counts keep the
 // tile seamless; unrelated counts keep the boat's ride from visibly repeating.
-const SWELL: [number, number, number][] = [
+// The long waves carry the boat; the short ones are the chop that breaks white.
+const SWELL: Swell = [
   [3, 2.4, 0.7],
   [5, 4.6, 2.1],
   [7, 2.8, 4.4],
   [11, 1.6, 1.3],
-  [17, 0.8, 5.2],
-  [29, 0.4, 3.0],
+  [17, 1.1, 5.2],
+  [23, 0.8, 4.1],
+  [31, 0.45, 3.0],
 ];
+const LEAN = 0.24;
 
 // The back swell: longer, lower waves, in counts that share nothing with the
 // near ones, so the two profiles never line up.
-const BACK_SWELL: [number, number, number][] = [
+const BACK_SWELL: Swell = [
   [4, 2.2, 1.9],
   [6, 3.2, 0.4],
   [9, 1.9, 3.3],
   [13, 1.0, 5.8],
   [23, 0.5, 2.2],
 ];
+const BACK_LEAN = 0.12;
 
-/** Surface depth below a strip's top at tile x, CSS px. A Stokes-style second
-    harmonic sharpens crests and flattens troughs, as real swell does. */
-function profile(swell: [number, number, number][], mean: number, x: number): number {
-  let y = mean;
-  for (const [k, a, phase] of swell) {
-    const t = (2 * Math.PI * k * x) / TILE + phase;
-    y -= a * (Math.cos(t) + 0.24 * Math.cos(2 * t));
-  }
-  return y;
-}
-const surfaceAt = (x: number) => profile(SWELL, SURFACE, x);
-const backSurfaceAt = (x: number) => profile(BACK_SWELL, BACK_HEADROOM, x);
+// The front row is the closest water, so its waves are the tallest and the
+// choppiest, and they lean the hardest.
+const FRONT_SWELL: Swell = [
+  [4, 3.0, 1.1],
+  [6, 2.4, 3.9],
+  [9, 2.2, 0.3],
+  [14, 1.5, 2.7],
+  [19, 1.1, 5.1],
+  [27, 0.6, 1.8],
+];
+const FRONT_LEAN = 0.32;
+
+const surfaceAt = (x: number) => surfaceDepth(SWELL, SURFACE, LEAN, TILE, x);
+const backSurfaceAt = (x: number) => surfaceDepth(BACK_SWELL, BACK_HEADROOM, BACK_LEAN, TILE, x);
+const frontSurfaceAt = (x: number) => surfaceDepth(FRONT_SWELL, FRONT_SURFACE, FRONT_LEAN, TILE, x);
 
 // The back strip only has to reach down to where the near sea can never
 // uncover it; everything below that would be bytes nobody sees.
@@ -135,6 +150,7 @@ interface Water {
 
 interface Palette {
   paper: RGB;
+  front: Water;
   near: Water;
   back: Water;
   cloud: RGB;
@@ -149,6 +165,9 @@ interface Palette {
   mast: RGB;
   flag: RGB;
   lantern: RGB;
+  /** Thrown water. By day it has to read against white paper, so it is blue,
+      not the white of the foam it comes from. */
+  spray: RGB;
   /** Pressure multiplier for the sky: clouds are lit by a sky that is gone at night. */
   sky: number;
 }
@@ -165,6 +184,14 @@ function palettes(): { light: Palette; dark: Palette } {
   const sea = mix(dai.light, ji.light, 0.36);
   const light: Palette = {
     paper: white,
+    // Nearest, so the deepest blue: aerial perspective runs front to back.
+    front: {
+      ground: mix(sea, white, 0.34),
+      light: mix(sea, white, 0.56),
+      mid: mix(sea, white, 0.2),
+      deep: mix(mix(sea, dian.light, 0.38), white, 0.1),
+      crest: mix(ji.light, white, 0.88),
+    },
     near: {
       ground: mix(sea, white, 0.5),
       light: mix(sea, white, 0.66),
@@ -192,6 +219,7 @@ function palettes(): { light: Palette; dark: Palette } {
     mast: dian.light,
     flag: ji.light,
     lantern: mix(dian.light, white, 0.3),
+    spray: mix(sea, white, 0.3),
     sky: 1,
   };
 
@@ -200,6 +228,13 @@ function palettes(): { light: Palette; dark: Palette } {
   const seaNight = mix(dai.dark, dian.dark, 0.3);
   const dark: Palette = {
     paper: night,
+    front: {
+      ground: mix(night, seaNight, 0.22),
+      light: mix(night, seaNight, 0.5),
+      mid: mix(night, seaNight, 0.32),
+      deep: mix(night, dian.dark, 0.17),
+      crest: mix(night, mix(ji.dark, white, 0.5), 0.84),
+    },
     near: {
       ground: mix(night, seaNight, 0.17),
       light: mix(night, seaNight, 0.42),
@@ -226,6 +261,7 @@ function palettes(): { light: Palette; dark: Palette } {
     mast: mix(night, dai.dark, 0.56),
     flag: mix(night, ji.dark, 0.8),
     lantern: mix(ji.dark, white, 0.8),
+    spray: mix(night, mix(ji.dark, white, 0.5), 0.78),
     sky: 0.55,
   };
   return { light, dark };
@@ -765,16 +801,71 @@ function outline(art: Art, tooth: Float32Array, shape: Pt[], width: number, pres
 
 // --- The sea ----------------------------------------------------------------
 
+/** One wave of a profile: its crest and the troughs either side, in art px.
+    `to` may run past the tile's end; every stroke wraps. */
+interface Wave {
+  from: number;
+  x: number;
+  to: number;
+  /** Crest height as a share of the tallest crest in the strip. */
+  height: number;
+}
+
+/** Find the crests of a painted surface (depths, art px) and the troughs between. */
+function waves(surf: Float32Array, reach: number): Wave[] {
+  const w = surf.length;
+  const at = (x: number) => surf[((x % w) + w) % w];
+  const peaks: number[] = [];
+  for (let x = 0; x < w; x++) {
+    let crest = true;
+    for (let d = 1; d <= reach && crest; d++) crest = at(x) < at(x - d) && at(x) <= at(x + d);
+    if (crest) peaks.push(x);
+  }
+  const mean = surf.reduce((s, v) => s + v, 0) / w;
+  const tallest = Math.max(...peaks.map((x) => mean - at(x)));
+  const deepestBetween = (a: number, b: number) => {
+    let best = a;
+    for (let x = a; x <= b; x++) if (at(x) > at(best)) best = x;
+    return best;
+  };
+  return peaks.map((x, i) => {
+    const prev = i > 0 ? peaks[i - 1] : peaks[peaks.length - 1] - w;
+    const next = i < peaks.length - 1 ? peaks[i + 1] : peaks[0] + w;
+    return { from: deepestBetween(prev, x), x, to: deepestBetween(x, next), height: (mean - at(x)) / tallest };
+  });
+}
+
+interface WaterSpec {
+  height: number;
+  mean: number;
+  surface: (x: number) => number;
+  seed: number;
+  glints: number;
+  /** Share of the crests, tallest first, that break white. */
+  caps: number;
+  /** How far toward the deep ink the floor of the strip goes. A row that
+      darkens downward is what lets the row in front of it stand out. */
+  fall: number;
+  /** Weight of the lit rim along the profile. */
+  rim: number;
+  /** How far below the surface the white water starts, CSS px. A row seen
+      against the page keeps its caps inside its own edge — white on white
+      paper would only erode the silhouette; a row seen against water behind
+      it wears them on top. */
+  capInset: number;
+}
+
 /**
  * One body of water seen side on: a swell profile against the paper, filled
- * with crayon down to the strip's floor. The near sea and the back swell are
- * both this, in different inks and profiles.
+ * with crayon down to the strip's floor. Every row of sea is this, in its own
+ * inks and profile.
+ *
+ * Built up the way the waves themselves are read: a ground that lightens
+ * where a crest is thin enough for light to pass and darkens toward the floor,
+ * the body laid in rows, a lit rim along the profile, and last the white
+ * water, heaviest on the steep downwind faces of the tallest crests.
  */
-function paintWater(
-  ink: Water,
-  paper: RGB,
-  o: { height: number; mean: number; surface: (x: number) => number; seed: number; glints: number },
-): Art {
+function paintWater(ink: Water, paper: RGB, o: WaterSpec): Art {
   const R = STRIP_RES;
   const w = TILE * R;
   const h = o.height * R;
@@ -786,6 +877,8 @@ function paintWater(
   for (let x = 0; x < w; x++) surf[x] = o.surface(x / R) * R;
   const surfAt = (x: number) => surf[((Math.round(x) % w) + w) % w];
   const top = o.mean * R;
+  const swell = waves(surf, 14 * R);
+  const tallest = Math.max(...Array.from(surf, (d) => top - d));
 
   // The profile's edge, roughened by the tooth: no stick stops on a clean line.
   const edge = (x: number, y: number, inset: number) => {
@@ -805,20 +898,25 @@ function paintWater(
     art,
     body,
     (x, y) => {
-      const depth = clamp01((y - surf[x]) / (h - top));
-      return mix(mix(ink.ground, ink.light, 1 - smooth(0, 0.14, depth)), ink.mid, smooth(0.3, 1, depth) * 0.7);
+      const under = y - surf[x];
+      const depth = clamp01(under / (h - top));
+      // A crest is thin enough for light to come through it.
+      const lit = smooth(0, tallest, top - surf[x]) * (1 - smooth(0, 9 * R, under));
+      const base = mix(mix(ink.ground, ink.light, 1 - smooth(0, 0.14, depth)), ink.mid, smooth(0.3, 1, depth) * 0.7);
+      return mix(mix(base, ink.deep, smooth(0.12, 1, depth) * o.fall), ink.light, lit * 0.4);
     },
     tone,
     0.1,
   );
   const below: Clip = (x, y) => edge(x, y, 0);
+  const follow = (bx: number) => surfAt(bx) - top;
 
   // Crayon over the ground in rows. Rows near the surface ride the swell;
   // deeper ones flatten out, the way the eye stops reading form below the first
   // face. Each row alternates mid and deep sticks, with the odd light one.
   for (let row = top - 24 * R; row < h + 6; row += between(r, 2.6, 4.2)) {
     const depth = clamp01((row - top + 10 * R) / (h - top + 10 * R));
-    const follow = Math.exp(-depth * 3);
+    const hold = Math.exp(-depth * 3);
     for (let x = -r() * 300; x < w; ) {
       const len = between(r, 120, 420);
       const roll = r();
@@ -838,40 +936,13 @@ function paintWater(
           width: between(r, 7, 12),
           pressure: between(r, 0.36, 0.6) + depth * 0.14,
           color: mix(color, ink.mid, between(r, -0.1, 0.1)),
-          bend: (bx) => (surfAt(bx) - top) * follow,
+          bend: (bx) => follow(bx) * hold,
           tilt: between(r, -0.003, 0.003),
           clip: below,
         },
         r,
       );
       x += len * between(r, 0.5, 0.85);
-    }
-  }
-
-  // Wave faces: faint broken lines under the crests, following the swell.
-  for (const [depthPx, follow, press] of [
-    [9, 0.9, 0.5],
-    [21, 0.65, 0.4],
-  ] as [number, number, number][]) {
-    if (depthPx * R > h - top) continue;
-    for (let x = -r() * 200; x < w; ) {
-      const len = between(r, 60, 220);
-      sweep(
-        art,
-        tooth,
-        {
-          x,
-          y: top + depthPx * R + between(r, -3, 3),
-          len,
-          width: between(r, 2.6, 4),
-          pressure: press * between(r, 0.8, 1.15),
-          color: ink.light,
-          bend: (bx) => (surfAt(bx) - top) * follow,
-          clip: below,
-        },
-        r,
-      );
-      x += len + between(r, 40, 220);
     }
   }
 
@@ -887,14 +958,65 @@ function paintWater(
         y: top + between(r, 1.4, 2.4) * R,
         len,
         width: between(r, 2.6, 4.4),
-        pressure: 0.4 + smooth(-2 * R, 10 * R, lift) * 0.42,
+        pressure: (0.4 + smooth(-2 * R, 10 * R, lift) * 0.42) * o.rim,
         color: lift > 3 * R ? ink.crest : ink.light,
-        bend: (bx) => surfAt(bx) - top,
+        bend: follow,
         clip: below,
       },
       r,
     );
     x += len + between(r, 6, 60);
+  }
+
+  // White water. The tallest crests break: a cap riding the crest and foam
+  // tumbling down the steep downwind face after it, slanted the way the face
+  // falls.
+  const capClip: Clip = (x, y) => edge(x, y, (o.capInset - 1.6) * R);
+  const slope = (x: number) => (surfAt(x + 4) - surfAt(x - 4)) / 8;
+  for (const wave of swell) {
+    const strength = smooth(1 - o.caps, 1, wave.height);
+    if (strength <= 0) continue;
+    const back = (wave.x - wave.from) * (0.1 + 0.12 * strength);
+    const ahead = (wave.to - wave.x) * (0.14 + 0.3 * strength);
+    for (let k = 0; k < 2; k++) {
+      const shift = k * between(r, 0.2, 0.4) * ahead;
+      sweep(
+        art,
+        tooth,
+        {
+          x: wave.x - back + shift,
+          y: top + (o.capInset + k * 1.4) * R,
+          len: (back + ahead) * (k ? 0.75 : 1),
+          width: (2.6 + 1.8 * strength) * R * (k ? 0.7 : 1),
+          pressure: 0.66 + 0.26 * strength,
+          color: ink.crest,
+          bend: follow,
+          clip: capClip,
+        },
+        r,
+      );
+    }
+    const flecks = Math.round(4 + 10 * strength);
+    for (let k = 0; k < flecks; k++) {
+      const u = Math.pow(r(), 0.8);
+      const x = wave.x + (wave.to - wave.x) * (0.05 + 0.6 * u);
+      sweep(
+        art,
+        tooth,
+        {
+          x,
+          y: surfAt(x) + (o.capInset + 1.8 + 6 * u + between(r, -0.8, 0.8)) * R,
+          len: between(r, 5, 14) * (1 - u * 0.5),
+          width: between(r, 1.6, 2.6) * R * (1 - u * 0.4),
+          pressure: between(r, 0.6, 0.9) * (1 - u * 0.45),
+          color: ink.crest,
+          alpha: 0.9,
+          tilt: slope(x),
+          clip: below,
+        },
+        r,
+      );
+    }
   }
 
   // Glints: short light ticks, thinning out with depth.
@@ -922,11 +1044,44 @@ function paintWater(
   return art;
 }
 
+const paintFront = (p: Palette, seed: number) =>
+  paintWater(p.front, p.paper, {
+    height: FRONT_H,
+    mean: FRONT_SURFACE,
+    surface: frontSurfaceAt,
+    seed,
+    glints: 70 * p.sky,
+    caps: 0.5,
+    fall: 0.75,
+    rim: 1.25,
+    capInset: -0.2,
+  });
+
 const paintNear = (p: Palette, seed: number) =>
-  paintWater(p.near, p.paper, { height: NEAR_H, mean: SURFACE, surface: surfaceAt, seed, glints: 160 * p.sky });
+  paintWater(p.near, p.paper, {
+    height: NEAR_H,
+    mean: SURFACE,
+    surface: surfaceAt,
+    seed,
+    glints: 120 * p.sky,
+    caps: 0.4,
+    fall: 0.5,
+    rim: 1,
+    capInset: 2.6,
+  });
 
 const paintBack = (p: Palette, seed: number) =>
-  paintWater(p.back, p.paper, { height: BACK_H, mean: BACK_HEADROOM, surface: backSurfaceAt, seed, glints: 60 * p.sky });
+  paintWater(p.back, p.paper, {
+    height: BACK_H,
+    mean: BACK_HEADROOM,
+    surface: backSurfaceAt,
+    seed,
+    glints: 60 * p.sky,
+    caps: 0.25,
+    fall: 0,
+    rim: 0.9,
+    capInset: 2,
+  });
 
 // --- Clouds -----------------------------------------------------------------
 
@@ -1266,6 +1421,119 @@ function paintGlint(p: Palette, seed: number): Art {
   return art;
 }
 
+// The bow wave sprite, CSS px: the stem meets the water at (x, y) from the
+// sprite's top-left.
+const BOW_SPRITE = { width: 30, height: 20, x: 5, y: 12 };
+
+/** Water shouldered up the stem and thrown forward off it. */
+function paintSpray(p: Palette, seed: number): Art {
+  const R = STRIP_RES;
+  const w = BOW_SPRITE.width * R;
+  const h = BOW_SPRITE.height * R;
+  const art = new Art(w, h, false);
+  const tooth = paperTooth(w, h, seed, 0.2);
+  const r = random(seed + 1);
+  const cx = BOW_SPRITE.x * R;
+  const cy = BOW_SPRITE.y * R;
+  const crest = p.near.crest;
+  // The wave itself: climbing the stem, rolling over, running out ahead.
+  for (let k = 0; k < 3; k++) {
+    line(
+      art,
+      tooth,
+      {
+        pts: tremble(
+          bezier(
+            [cx - 1 * R, cy + (1 + k) * R],
+            [cx + 2 * R, cy - (5 - k) * R],
+            [cx + 9 * R, cy - (3 - k) * R],
+            [cx + (16 + 4 * k) * R, cy + (1 + k * 0.6) * R],
+            24,
+          ),
+          0.3 * R,
+          r,
+        ),
+        width: (u) => (1.2 + 2.2 * Math.sin(Math.PI * u)) * R,
+        pressure: (u) => (0.9 - k * 0.15) * smooth(0, 0.15, u) * (1 - smooth(0.7, 1, u)),
+        color: crest,
+      },
+      r,
+    );
+  }
+  // Spray, thrown forward and up.
+  for (let k = 0; k < 12; k++) {
+    const u = r();
+    sweep(
+      art,
+      tooth,
+      {
+        x: cx + (2 + u * 18) * R,
+        y: cy - (2.5 + Math.sin(u * Math.PI) * 6 + between(r, -1.2, 1.2)) * R,
+        len: between(r, 2.5, 6) * R * (1 - u * 0.5),
+        width: between(r, 1.6, 2.6) * R,
+        pressure: between(r, 0.6, 0.9),
+        color: p.spray,
+        alpha: 0.9,
+        tilt: between(r, -0.3, 0.1),
+      },
+      r,
+    );
+  }
+  // Water churned under the surface, fading with depth.
+  for (let k = 0; k < 4; k++) {
+    sweep(
+      art,
+      tooth,
+      {
+        x: cx - 1 * R,
+        y: cy + (3 + 1.6 * k) * R,
+        len: (15 - 3 * k) * R,
+        width: 3 * R,
+        pressure: 0.55 - k * 0.1,
+        color: crest,
+        alpha: 0.6,
+      },
+      r,
+    );
+  }
+  art.soften();
+  return art;
+}
+
+const DROP = 9;
+const DROP_VARIANTS = 4;
+
+/** Loose droplets for the splash a touch makes: dabs of the crest colour. */
+function paintDrops(p: Palette, seed: number): Art {
+  const R = STRIP_RES;
+  const cell = DROP * R;
+  const art = new Art(cell, cell * DROP_VARIANTS, false);
+  const tooth = paperTooth(cell, cell * DROP_VARIANTS, seed, 0);
+  const r = random(seed + 1);
+  for (let v = 0; v < DROP_VARIANTS; v++) {
+    const dabs = v < 2 ? 1 : 2;
+    for (let k = 0; k < dabs; k++) {
+      const len = between(r, 3, 4.6) * R;
+      sweep(
+        art,
+        tooth,
+        {
+          x: cell / 2 - len / 2 + between(r, -1, 1) * R * k,
+          y: v * cell + cell / 2 + between(r, -1.2, 1.2) * R * k,
+          len,
+          width: between(r, 2.8, 3.6) * R * (k ? 0.7 : 1),
+          pressure: 0.95,
+          color: p.spray,
+          tilt: between(r, -0.4, 0.4),
+        },
+        r,
+      );
+    }
+  }
+  art.soften();
+  return art;
+}
+
 // --- Motion -----------------------------------------------------------------
 
 /**
@@ -1305,6 +1573,29 @@ function ride(steps: number) {
   return { heave: soft(heave).map(round), pitch: soft(pitch).map((v) => round(v * 0.8)) };
 }
 
+/**
+ * The bow wave follows the water at the stem and grows as the stem drives
+ * into it: how far the pitching hull's stem sits below the surface there,
+ * normalised over the loop, is how much water it throws.
+ */
+function bowWave(heave: number[], pitch: number[]) {
+  const steps = heave.length;
+  const lift: number[] = [];
+  const drive: number[] = [];
+  for (let i = 0; i < steps; i++) {
+    const x = BOAT_TILE_X + BOW_X + (TILE * i) / steps;
+    let sum = 0;
+    for (let j = -2; j <= 2; j++) sum += surfaceAt(x + j * 3);
+    const surface = sum / 5 - SURFACE;
+    lift.push(surface);
+    drive.push(heave[i] + BOW_X * Math.sin((pitch[i] * Math.PI) / 180) - surface);
+  }
+  const lo = Math.min(...drive);
+  const hi = Math.max(...drive);
+  const round = (v: number) => Math.round(v * 100) / 100;
+  return { lift: lift.map(round), surge: drive.map((d) => round((d - lo) / (hi - lo))) };
+}
+
 function foam() {
   const r = random(7);
   const out = [];
@@ -1339,12 +1630,15 @@ async function main() {
     await mkdir(dir, { recursive: true });
     const lit = name === 'dark';
     const jobs: [string, () => Art, number][] = [
+      ['front', () => paintFront(p, 59), 80],
       ['near', () => paintNear(p, 11), 80],
       ['back', () => paintBack(p, 23), 80],
       ['clouds', () => paintClouds(p, 37), 80],
       ['boat', () => paintBoat(p, 41, lit), 88],
       ['flag', () => paintFlag(p, 43), 88],
       ['foam', () => paintFoam(p, 47), 88],
+      ['spray', () => paintSpray(p, 61), 88],
+      ['drops', () => paintDrops(p, 67), 88],
     ];
     if (lit) jobs.push(['glint', () => paintGlint(p, 53), 88]);
     for (const [file, paint, quality] of jobs) {
@@ -1356,12 +1650,21 @@ async function main() {
   }
 
   const { heave, pitch } = ride(120);
+  const tenth = (v: number) => Math.round(v * 10) / 10;
   const motion = {
     note: 'Generated by scripts/paint-sillage.ts. Edit the script, not this file.',
     tile: TILE,
     period: PERIOD,
-    near: { height: NEAR_H, surface: SURFACE, anchor: BOAT_TILE_X / TILE },
-    back: { height: BACK_H, floor: BACK_FLOOR, period: Math.round(PERIOD * BACK_PERIOD_RATIO * 10) / 10 },
+    // The swells travel with the art so a touch can find the painted surface.
+    near: { height: NEAR_H, surface: SURFACE, anchor: BOAT_TILE_X / TILE, swell: SWELL, lean: LEAN },
+    front: {
+      height: FRONT_H,
+      surface: FRONT_SURFACE,
+      period: tenth(PERIOD * FRONT_PERIOD_RATIO),
+      swell: FRONT_SWELL,
+      lean: FRONT_LEAN,
+    },
+    back: { height: BACK_H, floor: BACK_FLOOR, period: tenth(PERIOD * BACK_PERIOD_RATIO) },
     clouds: { height: CLOUD_H, floor: CLOUD_FLOOR },
     boat: {
       width: BOAT_BOX.right - BOAT_BOX.left,
@@ -1373,6 +1676,8 @@ async function main() {
       flag: { x: 1.4 - BOAT_BOX.left, y: BOAT_BOX.top - 105.5, width: 18, height: 10 },
     },
     foam: { width: FOAM_W, height: FOAM_H, variants: FOAM_VARIANTS, life: FOAM_LIFE, stern: STERN_X, streaks: foam() },
+    bow: { x: BOW_X, sprite: BOW_SPRITE, ...bowWave(heave, pitch) },
+    drop: { size: DROP, variants: DROP_VARIANTS },
     ride: { heave, pitch },
   };
   await writeFile('src/features/posts/ui/sillage-motion.json', `${JSON.stringify(motion, null, 2)}\n`);
