@@ -116,7 +116,7 @@ function CardFace({
           {project.type}
         </p>
         <div className="mt-2 flex items-center justify-between gap-3">
-          <div className="font-display text-[22px] font-semibold leading-none tracking-[-0.015em]">
+          <div className="font-serif text-[28px] font-normal leading-none tracking-[-0.005em]">
             {project.name}
           </div>
           {project.stars != null && <StarBadge stars={project.stars} />}
@@ -183,7 +183,7 @@ function StoryCard({
           {project.type}
         </p>
         <div className="flex items-center justify-between gap-3">
-          <h3 className="min-w-0 font-display text-[26px] font-semibold leading-none tracking-[-0.02em] sm:text-[36px]">
+          <h3 className="min-w-0 font-serif text-[32px] font-normal leading-none tracking-[-0.01em] sm:text-[44px]">
             {project.name}
           </h3>
           {project.stars != null && <StarBadge stars={project.stars} />}

@@ -68,6 +68,7 @@ export default {
         mono: ["var(--font-mono)"],
         code: ["var(--font-code)"],
         display: ["var(--font-display)"],
+        serif: ["var(--font-serif)"],
         // coss uses font-heading for dialog/card titles; map to the portal UI face.
         heading: ["var(--font-display)"],
       },
