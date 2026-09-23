@@ -2,36 +2,37 @@
 
 Provenance: the idea has been open since 2026-08-21 ("我想在这里画一条海和船"),
 scoped against three reference sites (chloeyan.me, tinycamp.site,
-baothiento.com) and one mockup drawn by the owner. Three procedural attempts
-were rejected — the texture has to be hand-drawn, so the code half was built to
-receive art rather than to generate it.
+baothiento.com) and one mockup drawn by the owner. Three flat procedural
+attempts were rejected as not hand-drawn enough; the owner then asked for a
+side-on cross-section of sea and sailboat ("2 维剖面的 海+帆船"), moving.
 
 ## State
 
-**Scaffold: shipped.** `src/features/posts/ui/BlogSeaFooter.astro` renders on the
-`/blog` index. Seamless two-speed drift, boat occluded by the near crests, the
-horizon dissolving into the page background in both themes, night as a filter
-over the same assets, reduced-motion honoured.
+**Built, on `feat/blog-sea-footer`, awaiting the owner's eye.**
 
-**Art: outstanding.** `public/sillage/` holds flat placeholders. The drawing
-spec — sizes, the seamlessness requirement, the two mistakes that cost an
-afternoon each — is in `public/sillage/README.md`, next to the files it
-describes. Do not duplicate it here.
+- Art: `scripts/paint-sillage.ts` paints it as crayon on toothed paper —
+  pigment deposited where stroke pressure beats the paper's height field, over a
+  toned, mottled ground — in both themes, from `blogPalette`. The first crayon
+  pass (2026-09-24) read as white static and was redone: the fix was a toned
+  ground so gaps show lighter blue, not paper, and a soft deposit band.
+- Composition follows the mockup: sea profile against the page, small cumulus,
+  a back swell for depth instead of a horizon. An earlier horizon-and-far-sea
+  version contradicted the cross-section brief and was dropped.
+- Motion: the water drifts, the boat rides the painted swell, the wake is foam
+  left on the water. Night lights the stern lantern (the colophon's "深夜里独自
+  点亮的灯").
+
+## Decisions taken without the owner
+
+- **Voyage, not mooring.** The boat holds its place on the page while the sea
+  moves under it, and it leaves a wake. The alternative was a moored boat
+  bobbing in place; a boat that leaves no sillage contradicts the name.
+- **Blue flag, not the mockup's red.** The blog forbids warm accents. The flag
+  is 霁 (`ji`), the one fill-only ink. Red is a one-line palette change in the
+  script if the owner wants the mockup back.
+- **Blue boat, not the mockup's brown hull and cream sails.** Same rule.
 
 ## Remaining
 
-- [ ] Draw `sea-near`, `sea-far`, `boat`, `cloud` per `public/sillage/README.md`.
-- [ ] Drop the files in, swap the four `--sillage-art-*` URLs if the extensions
-      change, and re-tune `--sillage-draught` so the real hull sits at the real
-      waterline.
-- [ ] Re-check `--sillage-cloud-opacity` in dark. The placeholder clouds are hard
-      ellipses and read heavier at night than crayon edges will.
-
-## Open decision
-
-The boat is moored — it bobs and rocks in place. The alternative is a voyage:
-it drifts across and loops, leaving a wake. That is a call about what the page
-means, not about the code, and it is one keyframe block either way. See the
-`sillage-bob` / `sillage-rock` pair in the component.
-
-Ships to `notes/archive/` when the art lands.
+- [ ] Owner review of the art, light and dark, desktop and phone.
+- [ ] Move this file to `notes/archive/` when the branch merges.

@@ -130,30 +130,37 @@ Components compose the tokens above; they never introduce new colour or type.
 
 ### Sea footer
 
-`BlogSeaFooter.astro` closes the `/blog` index with a drawn sea and a sailboat —
-the literal reading of *sillage*, the wake a boat leaves behind. It sits outside
-the token system on purpose: it is artwork, not chrome, and its palette is the
-drawing's, not the blog's ink set.
+`BlogSeaFooter.astro` closes the `/blog` index with a crayon sailboat crossing a
+crayon sea — the literal reading of *sillage*, the wake a boat leaves behind.
+The sea is seen side on, a swell profile against the page; the page background
+is the sky, in both themes.
 
-Four layers drift over the page background: clouds, far sea, boat, near sea. The
-boat sits **between** the two water layers so the near crests occlude its hull —
-without that stacking it reads as a sticker on the water. Art lives in
-`public/sillage/` (placeholders today; `public/sillage/README.md` carries the
-drawing spec), and swapping it is four URL edits in the component.
+The art is generated. `scripts/paint-sillage.ts` paints every layer in both
+themes, mixing each colour from `blogPalette`, so the sea is the same three
+blues as the links above it. Change an ink, re-run, and the painting follows;
+`public/sillage/README.md` covers the files. The same run writes
+`sillage-motion.json` next to the component, which carries the geometry and the
+motion. The component draws nothing and hardcodes no numbers.
 
-Two things are worth knowing before touching it:
+Layers, back to front: clouds, back swell, boat, near sea, then the wake and
+(at night) the lantern's reflection on top of the water. Three things are worth
+knowing before touching it:
 
-- **The sky is the page background, not a painted layer.** With a pure white
-  light background and a near-black dark one, no painted sky matches both. Each
-  water layer instead masks its own alpha at the top, so the page shows through
-  and one set of assets serves both themes.
-- **There is no dark art set.** Night is the same files under a
-  `brightness`/`saturate`/`hue-rotate` filter driven by four custom properties.
-  The filter is on the drawn layers only — the horizon haze is air, not artwork,
-  and carries its own per-theme alpha.
+- **The boat holds still; the water moves.** Each strip is a seamless tile
+  translated one tile per loop, at three speeds for parallax. The near strip is
+  pinned to the boat's position, so the tile point the ride was sampled at is
+  under the hull at any viewport width.
+- **The boat rides the painted swell.** Its heave and pitch keyframes are
+  sampled from the surface function the near sea was painted with, averaged
+  over the hull's length and lagged, so a crest passing under it lifts it and
+  tips the bow. The near sea is opaque below the surface and hides the hull.
+- **Night is repainted, not filtered.** Pastel on black paper puts the lighter
+  pigment on top, which no filter over the day art can do. Night also lights the
+  stern lantern: a glow on the boat and a reflection on the water.
 
-The whole band is `aria-hidden` and stops entirely under
-`prefers-reduced-motion`.
+Everything animates transform or opacity only. The art loads as the band nears
+the screen, the animation runs only while it is in view, and reduced motion gets
+the same picture standing still. The whole band is `aria-hidden`.
 
 ## Do's and Don'ts
 
