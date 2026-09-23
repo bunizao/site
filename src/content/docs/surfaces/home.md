@@ -61,6 +61,9 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
 
 - Astro renders mostly static markup.
 - The displayed name uses `Typewriter.astro`, which renders a hidden longest-string placeholder to avoid layout shift during typing.
+  It paints on a canvas, positioning each glyph by the measured width of the
+  run before it, so kerning and the name's CSS tracking survive. It types one
+  pass through the names and rests on the first.
 - Social links are local config in the component, not CMS-driven.
 - GitHub activity is client-fetched from `/api/github/contributions?days=30` after DOM ready; the API keeps the last-year total but returns only the visible waveform window.
 - Tech rows are local arrays duplicated into CSS marquee tracks.
@@ -74,8 +77,8 @@ Client behavior:
   and `home:hero-github-ready` (plus `window.__homeHeroGithubReady`) when the
   contributions widget lands. `Typewriter.astro` and `DecodeText.astro` start
   on the first two; `GitHubContributions.astro` renders its bars on the third.
-- Status text rotates through a fixed word list; the dot pulses once the
-  identity lines have landed.
+- Status text runs a short random stretch (four swaps) of a fixed word list,
+  then rests; the dot pulses once the identity lines have landed.
 - Social buttons use a magnetic hover effect (pointer events plus a CSS
   transition, mouse only).
 - Reduced-motion users skip the script entirely; the elements are visible
