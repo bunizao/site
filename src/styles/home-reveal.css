@@ -7,8 +7,10 @@
 
 :root {
   --reveal-stagger: 60ms;
-  /* GSAP's power2.out (cubic ease-out), expressed natively. */
-  --reveal-ease: cubic-bezier(0.215, 0.61, 0.355, 1);
+  /* The site's ease-out, the curve the hero enters on too, so the page has
+     one entrance hand from the name down to the last mood. It was GSAP's
+     power2.out, a softer start than the hero's. */
+  --reveal-ease: var(--ease-out);
 }
 
 /* Nothing is hidden until `html.reveal-ready` is set, and that class carries a
