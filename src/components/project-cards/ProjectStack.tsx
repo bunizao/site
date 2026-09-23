@@ -190,10 +190,12 @@ function StoryCard({
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
+          {/* Tags are labels, not code: the site mono, like every other tag
+              on the page. The code face stays on the star count. */}
           {project.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-full border border-stone-900/10 bg-stone-900/[0.035] px-3 py-1 font-code text-[11px] text-stone-600 dark:border-white/10 dark:bg-white/[0.06] dark:text-white/65"
+              className="rounded-full border border-stone-900/10 bg-stone-900/[0.035] px-3 py-1 font-mono text-[11px] text-stone-600 dark:border-white/10 dark:bg-white/[0.06] dark:text-white/65"
             >
               {tag}
             </span>
