@@ -1,8 +1,12 @@
 ---
-import { FONT_FILES, type Face } from '@/lib/fonts';
+import ViewTransitionReveal from './client/ViewTransitionReveal.astro';
 
 interface Props {
   title: string;
+  /** `<html lang>`. Most surfaces are English; the localized ones pass the
+      language the page negotiated, so assistive tech and the client modules
+      that read `documentElement.lang` both get the truth. */
+  lang?: string;
   description: string;
   image?: string;
   imageAlt?: string;
@@ -10,18 +14,19 @@ interface Props {
   imageHeight?: number | null;
   url?: string;
   robots?: string;
+  /** Open Graph object type. `article` for a single post, `website` otherwise. */
+  ogType?: 'website' | 'article';
   hideSiteNav?: boolean;
   showSiteNav?: boolean;
   navVariant?: 'home' | 'page' | 'docs';
   brandVariant?: 'home';
   headerActionsVariant?: 'default' | 'home';
+  /** Drop the floating search/theme cluster below 900px. For reading surfaces
+      where it lands on the text instead of beside it. */
+  hideHeaderActionsOnMobile?: boolean;
   containedScroll?: boolean;
   scrollRestorationKey?: string;
   structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
-  // The faces this route paints above the fold, in priority order. Every face
-  // is font-display: swap, so one that is painted early but not preloaded is a
-  // guaranteed reflow the moment it arrives.
-  preloadFont?: Face | Face[];
   preloadImages?: Array<{
     href: string;
     imageSrcSet?: string;
@@ -38,10 +43,12 @@ interface Props {
 }
 
 import '../styles/globals.css';
+import '../styles/site-chrome.css';
 import '../features/mood/styles/feed-rich-text.css';
 import { Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
 import CommandPalette from '@/components/CommandPalette.astro';
+import MermaidSupport from '@/features/content/ui/MermaidSupport.astro';
 import PageScroller from '@/components/PageScroller.astro';
 import PerformanceDebugPanel from '@/components/PerformanceDebugPanel.astro';
 import SearchButton from '@/components/SearchButton.astro';
@@ -53,12 +60,16 @@ import {
   getPeekRuntimeSlotKey,
 } from '@/features/logos/data/peek-runtime';
 import { meta, navLinks } from '@/data/site';
-import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
+import {
+  hasMarkdownRenderer,
+  markdownAlternatePath,
+} from '@/features/agent-markdown/server/registry';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
 import { SITE_FAVICON } from '@/lib/favicon';
 
 const {
   title,
+  lang = 'en',
   description,
   image = '/og.png',
   imageAlt = meta.siteName,
@@ -66,18 +77,16 @@ const {
   imageHeight = 630,
   url,
   robots,
+  ogType = 'website',
   hideSiteNav = false,
   showSiteNav = false,
   navVariant,
   brandVariant,
   headerActionsVariant = 'default',
+  hideHeaderActionsOnMobile = false,
   containedScroll = false,
   scrollRestorationKey,
   structuredData,
-  // Geist Mono carries the site identity (nav brand, meta) and Inter is the
-  // body face on every page, so both are worth the priority everywhere. Routes
-  // whose headline uses a third face add it themselves.
-  preloadFont = ['mono', 'sans'],
   preloadImages = [],
   rss,
   oembed,
@@ -104,7 +113,7 @@ const site = Astro.site ?? new URL('https://buxx.me');
 const siteName = meta.siteName;
 const canonicalUrl = new URL(url ?? Astro.url?.pathname ?? '/', site).href;
 const markdownAlternateUrl = hasMarkdownRenderer(new URL(canonicalUrl).pathname)
-  ? canonicalUrl
+  ? new URL(markdownAlternatePath(new URL(canonicalUrl).pathname), site).href
   : null;
 const ogImageUrl = new URL(image, site).href;
 const ogLogoUrl = new URL('/logo/peek.svg?v=3', site).href;
@@ -128,14 +137,11 @@ const navbarSectionActiveAnimation = getPeekRuntimeSlotKey('navbar.section.activ
 const navbarSectionActiveHoldMs = getPeekRuntimeSlot('navbar.section.active').holdMs ?? 600;
 const navbarFastScrollHoldMs = getPeekRuntimeSlot('navbar.brand.hover').holdMs ?? 1000;
 const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
-const preloadFontHrefs = (Array.isArray(preloadFont) ? preloadFont : [preloadFont]).map(
-  (face) => FONT_FILES[face],
-);
 const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
 ---
 
 <!DOCTYPE html>
-<html lang="en" class:list={{ 'page-scroll-root': containedScroll }}>
+<html lang={lang} class:list={{ 'page-scroll-root': containedScroll }}>
   <head>
     <meta charset="UTF-8" />
     <!-- iOS 26 extends the layout viewport up behind Safari's translucent
@@ -145,10 +151,12 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
          The safe-area rules throughout globals.css were written for this and
          were inert until now; every inset is 0 on hardware without a notch. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>{title}</title>
     <meta name="description" content={description} />
-    {preloadFontHrefs.map((href) => (
-      <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
-    ))}
+    {/* Body faces are never preloaded: Chrome holds first paint until every
+        preloaded font arrives, so preloading them trades ~1s of blank screen
+        against a swap the metric-matched fallback faces already neutralize.
+        The wordmark is the one exception: 2.6KB and font-display: block. */}
     {isHomeNav && (
       <link rel="preload" href={wordmarkFontHref} as="font" type="font/woff2" crossorigin fetchpriority="high" />
     )}
@@ -170,7 +178,7 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalUrl} />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:image" content={ogImageUrl} />
     <meta property="og:image:secure_url" content={ogImageUrl} />
     <meta property="og:image:type" content={ogImageType} />
@@ -250,6 +258,10 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
       })();
     </script>
 
+    <!-- Incoming half of the view-transition name broker. Inline and in <head>
+         because `pagereveal` fires before any deferred module can run. -->
+    <ViewTransitionReveal />
+
     <script>
       // Dynamic import keeps the overscroll handler in a bundled, HTTP-cached
       // chunk instead of Astro inlining it into every HTML response.
@@ -257,13 +269,13 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
     </script>
 
     <script>
-      // Decides which single element (if any) may morph across the next
-      // navigation. Must register before any click can navigate away.
+      // Outgoing half: decides which single element (if any) may morph across
+      // the next navigation. Deferred is fine — it only has to beat a click.
+      // The incoming half is <ViewTransitionReveal /> above, which must be
+      // inline to beat `pagereveal`.
       import { initViewTransitionNames } from '@/lib/view-transition-names';
       initViewTransitionNames();
     </script>
-
-    <title>{title}</title>
   </head>
   <body>
     <PerformanceDebugPanel />
@@ -370,6 +382,7 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
         'global-header-actions',
         {
           'global-header-actions--home': useHomeHeaderActions,
+          'global-header-actions--desktop-only': hideHeaderActionsOnMobile,
           'has-menu-sheet': showMenu,
           'has-brand-home-bar': brandHome,
         },
@@ -1238,13 +1251,17 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
         // ─── 3e. Active indicator ─────────────────────────────────────
         // ─── 3f. Magnetic hover (desktop, vertical mode only) ─────────
         // Disabled — no hover box or physics effects
-        const initMagneticHover = async () => {
-          // Per-link char wave on hover (kept as subtle interaction)
-          const { default: gsap } = await import('gsap');
+        const initMagneticHover = () => {
+          // Per-link char wave on hover (kept as subtle interaction). GSAP is
+          // 70KB and only a mouse ever triggers this, so it loads on the first
+          // hover rather than with every page.
+          let gsapLoad: Promise<typeof import('gsap')['default']> | null = null;
+          const loadGsap = () => (gsapLoad ??= import('gsap').then((m) => m.default));
 
           linkDataList.forEach(({ el, chars }) => {
-            el.addEventListener('pointerenter', (e: PointerEvent) => {
+            el.addEventListener('pointerenter', async (e: PointerEvent) => {
               if (e.pointerType !== 'mouse' || !isVertical) return;
+              const gsap = await loadGsap();
               chars.forEach((c, i) => {
                 gsap.to(c, {
                   y: -1.5,
@@ -1255,8 +1272,11 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
               });
             });
 
-            el.addEventListener('pointerleave', (e: PointerEvent) => {
-              if (e.pointerType !== 'mouse') return;
+            el.addEventListener('pointerleave', async (e: PointerEvent) => {
+              // Nothing has waved until GSAP has loaded, so there is nothing
+              // to settle back.
+              if (e.pointerType !== 'mouse' || !gsapLoad) return;
+              const gsap = await gsapLoad;
               chars.forEach(c => {
                 gsap.to(c, {
                   y: 0,
@@ -1287,15 +1307,21 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
             nav.classList.remove('is-brand-eaten');
           };
 
-          // Spring physics for peek — pointer-follow + idle bob.
-          // Gives it weight and overshoot instead of instant linear tracking.
+          // Spring physics for peek — pointer-follow while the mascot is
+          // hovered, with weight and overshoot instead of linear tracking.
+          // The idle bob is a CSS animation (`peek-idle-bob` in
+          // site-chrome.css): this loop used to run it too, every frame for
+          // as long as the page was open, and each write of `--peek-shift-*`
+          // on the nav re-resolved the nav's whole subtree. Now the loop runs
+          // only until the spring settles, and writes on the brand, whose
+          // subtree is the mascot alone.
           const peekSpring = {
             x: 0, y: 0, vx: 0, vy: 0, tx: 0, ty: 0,
-            bobY: 0, bobVY: 0, bobTargetY: 0, bobPhase: 0,
             isHovered: false, rafId: 0, lastTime: 0,
           };
-          // PS/PD = pointer spring stiffness/damping. BS/BD = bob spring. BA = bob amplitude px.
-          const PS = 220, PD = 14, BS = 28, BD = 5.2, BA = 2.2;
+          // PS/PD = pointer spring stiffness/damping.
+          const PS = 220, PD = 14;
+          const peekHost = brand ?? nav;
 
           const tickPeekSpring = (now: number) => {
             const dt = Math.min((now - peekSpring.lastTime) / 1000, 0.05);
@@ -1305,24 +1331,12 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
             peekSpring.x += peekSpring.vx * dt;
             peekSpring.y += peekSpring.vy * dt;
 
-            // Idle bob: sinusoidal target (~one cycle per 8.7s), spring-smoothed
-            if (!peekSpring.isHovered) {
-              peekSpring.bobPhase += dt * 0.72;
-              peekSpring.bobTargetY = Math.sin(peekSpring.bobPhase) * BA;
-            } else {
-              peekSpring.bobTargetY = 0;
-            }
-            peekSpring.bobVY += (BS * (peekSpring.bobTargetY - peekSpring.bobY) - BD * peekSpring.bobVY) * dt;
-            peekSpring.bobY += peekSpring.bobVY * dt;
-
-            nav.style.setProperty('--peek-shift-x', `${peekSpring.x.toFixed(3)}px`);
-            nav.style.setProperty('--peek-shift-y', `${(peekSpring.y + peekSpring.bobY).toFixed(3)}px`);
+            peekHost.style.setProperty('--peek-shift-x', `${peekSpring.x.toFixed(3)}px`);
+            peekHost.style.setProperty('--peek-shift-y', `${peekSpring.y.toFixed(3)}px`);
 
             const stillMoving =
               Math.abs(peekSpring.tx - peekSpring.x) > 0.01 || Math.abs(peekSpring.vx) > 0.01 ||
-              Math.abs(peekSpring.ty - peekSpring.y) > 0.01 || Math.abs(peekSpring.vy) > 0.01 ||
-              Math.abs(peekSpring.bobTargetY - peekSpring.bobY) > 0.01 || Math.abs(peekSpring.bobVY) > 0.01 ||
-              !peekSpring.isHovered;
+              Math.abs(peekSpring.ty - peekSpring.y) > 0.01 || Math.abs(peekSpring.vy) > 0.01;
 
             if (stillMoving) {
               peekSpring.lastTime = now;
@@ -1374,9 +1388,7 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
             });
             if (isVertical) {
               nav.classList.remove('is-brand-eaten');
-              // Start idle bob when entering desktop vertical mode
               peekSpring.isHovered = false;
-              startPeekSpring();
             } else {
               syncBrandEaten();
             }
@@ -1510,6 +1522,6 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
         navObserver.observe(statusEl);
       })();
     </script>
-
+    <MermaidSupport />
   </body>
 </html>

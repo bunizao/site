@@ -1,0 +1,31 @@
+---
+import BlogLayout from '@/layouts/BlogLayout.astro';
+import Footer from '@/features/home/ui/Footer.astro';
+import ReaderClaims from '@/features/comments/ui/ReaderClaims';
+import { resolveReaderConfirmLocale } from '@/features/comments/reader-confirm-copy';
+import '@/features/comments/styles/comments.css';
+
+export const prerender = false;
+const locale = resolveReaderConfirmLocale(Astro.url.searchParams.get('lang'));
+const title = locale === 'zh' ? '确认历史评论' : 'Review earlier comments';
+---
+
+<BlogLayout title={title} locale={locale} path="/reader/comments" description={title} robots="noindex, nofollow">
+  <ReaderClaims locale={locale} client:load />
+  <Footer />
+</BlogLayout>
+
+<style is:global>
+  .reader-claims { max-width: 42rem; margin: 3rem auto; padding: 0 1rem; }
+  .reader-claims h1 { font-size: clamp(1.7rem, 4vw, 2.5rem); line-height: 1.2; }
+  .reader-claims p { line-height: 1.65; margin: 1rem 0; }
+  .reader-claims__list { list-style: none; margin: 2rem 0; padding: 0; }
+  .reader-claims__list li { border-top: 1px solid hsl(var(--border)); padding: 1.2rem 0; }
+  .reader-claims__list label { display: flex; align-items: center; gap: .65rem; cursor: pointer; }
+  .reader-claims__list input { width: 1rem; height: 1rem; accent-color: currentColor; }
+  .reader-claims__meta { color: hsl(var(--muted-foreground)); font-size: .85rem; }
+  .reader-claims__body { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .reader-claims__pages { display: flex; gap: 1rem; align-items: center; margin: 1.5rem 0; }
+  .reader-claims .reader-confirm__back { display: block; margin-top: 1.5rem; }
+  .reader-claims button:disabled { opacity: .5; cursor: not-allowed; }
+</style>

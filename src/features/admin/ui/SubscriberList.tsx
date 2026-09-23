@@ -348,7 +348,7 @@ function SubscriberTable({ data, loading, onEdit, onDelete }: SubscriberTablePro
             ))
           ) : data.rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-12 text-sm text-muted-foreground">
+              <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
                 No subscribers match these filters.
               </TableCell>
             </TableRow>
@@ -359,7 +359,7 @@ function SubscriberTable({ data, loading, onEdit, onDelete }: SubscriberTablePro
                 <TableRow key={row.emailHash}>
                   <TableCell>
                     <a className="text-foreground hover:underline" href={`/dev/portal/subscribers/${row.emailHash}`}>{row.email}</a>
-                    <div className="font-mono text-[10px] text-muted-foreground mt-0.5 truncate max-w-[200px]" title={row.emailHash}>
+                    <div className="portal-meta font-mono mt-0.5 truncate max-w-[200px]" title={row.emailHash}>
                       {row.emailHash.slice(0, 12)}…
                     </div>
                   </TableCell>
@@ -377,13 +377,13 @@ function SubscriberTable({ data, loading, onEdit, onDelete }: SubscriberTablePro
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs">
+                  <TableCell>
                     {row.deliveryMode || '—'}
                     {row.deliveryMode === 'daily' && (
                       <div className="text-muted-foreground">{row.timezone} · {row.dailyHour}h</div>
                     )}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{formatDate(row.updatedAt)}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatDate(row.updatedAt)}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger

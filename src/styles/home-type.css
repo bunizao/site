@@ -61,4 +61,6 @@
   font-weight: var(--home-weight-label);
   letter-spacing: var(--home-track-label);
   color: var(--home-fg-secondary);
+  /* One lattice cell below the label, not the shared 20px. */
+  margin-bottom: 24px;
 }

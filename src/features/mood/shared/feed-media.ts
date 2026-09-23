@@ -200,6 +200,18 @@ function renderDocument(media: MediaItem): string {
   ].join('');
 }
 
+function isCompactLinkPreview(media: MediaItem): boolean {
+  if (media.linkPreviewLayout) return media.linkPreviewLayout === 'compact';
+
+  // Archive rows unfurled before linkPreviewLayout existed carry only the
+  // thumbnail dimensions. Derive the layout from them with the same
+  // aspect-ratio threshold as getLinkPreviewLayout in
+  // site-api/src/features/mood/server/mood-repository.ts — keep the two in sync.
+  const width = dimension(media.width);
+  const height = dimension(media.height);
+  return Boolean(width && height && width / height < 1.5);
+}
+
 function renderLinkPreview(media: MediaItem): string {
   const href = safeUrl(media.href || media.originalUrl, 'href');
   if (!href) return '';
@@ -218,7 +230,7 @@ function renderLinkPreview(media: MediaItem): string {
   const title = (media.title || href).trim();
   const description = media.description?.trim() ?? '';
   const siteName = media.siteName?.trim() ?? '';
-  const cardClass = thumbnail && media.linkPreviewLayout === 'compact'
+  const cardClass = thumbnail && isCompactLinkPreview(media)
     ? 'bookmark-card bookmark-card--side-media'
     : 'bookmark-card';
 

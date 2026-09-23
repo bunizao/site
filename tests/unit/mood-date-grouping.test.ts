@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 let browser: Browser;
 let moduleSource = '';
+let inlineSource = '';
 
 async function buildModule(relativePath: string): Promise<string> {
   const build = await Bun.build({
@@ -19,6 +20,9 @@ async function buildModule(relativePath: string): Promise<string> {
 
 beforeAll(async () => {
   moduleSource = await buildModule('../../src/features/mood/shared/date-grouping.ts');
+  inlineSource = await Bun.file(
+    join(import.meta.dir, '../../src/features/mood/client/rekey-server-groups-inline.js'),
+  ).text();
   browser = await chromium.launch({
     channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL,
     headless: true,
@@ -178,4 +182,77 @@ describe('rekeyMoodServerRenderedGroups', () => {
     // UTC visitor: times reflect the source datetimes unchanged.
     expect(result.times).toEqual(['00:30', '23:30']);
   });
+});
+
+describe('pre-paint inline rekey script', () => {
+  // The inline script in rekey-server-groups-inline.js must regroup exactly
+  // like the module, and the module pass that follows on hydration must find
+  // nothing left to change. Both fixtures exercise regrouping: a merge across
+  // a local midnight and a split of one UTC group.
+  const fixtures = [
+    {
+      name: 'merge',
+      html: buildFeedHtml([
+        { key: '2026-06-15', posts: [{ id: '2', datetime: '2026-06-15T00:30:00.000Z' }] },
+        { key: '2026-06-14', posts: [{ id: '1', datetime: '2026-06-14T23:30:00.000Z' }] },
+      ]),
+    },
+    {
+      name: 'split',
+      html: buildFeedHtml([
+        {
+          key: '2026-06-14',
+          posts: [
+            { id: '2', datetime: '2026-06-14T23:30:00.000Z' },
+            { id: '1', datetime: '2026-06-14T20:00:00.000Z' },
+          ],
+        },
+      ]),
+    },
+  ];
+
+  for (const fixture of fixtures) {
+    test(`matches the module implementation and stays stable (${fixture.name})`, async () => {
+      const context = await browser.newContext({ timezoneId: 'Etc/GMT-2' });
+      const page = await context.newPage();
+      try {
+        // Module-only pass: the reference output.
+        await page.setContent(fixture.html);
+        const reference = await page.evaluate(async ({ source }) => {
+          const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+          try {
+            const { rekeyMoodServerRenderedGroups } = await import(moduleUrl);
+            const list = document.querySelector<HTMLElement>('[data-mood-list]')!;
+            rekeyMoodServerRenderedGroups(list);
+            return list.innerHTML;
+          } finally {
+            URL.revokeObjectURL(moduleUrl);
+          }
+        }, { source: moduleSource });
+
+        // Production sequence: inline script first, module pass after.
+        await page.setContent(fixture.html);
+        await page.addScriptTag({ content: inlineSource });
+        const afterInline = await page.evaluate(
+          () => document.querySelector<HTMLElement>('[data-mood-list]')!.innerHTML,
+        );
+        const afterModule = await page.evaluate(async ({ source }) => {
+          const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+          try {
+            const { rekeyMoodServerRenderedGroups } = await import(moduleUrl);
+            const list = document.querySelector<HTMLElement>('[data-mood-list]')!;
+            rekeyMoodServerRenderedGroups(list);
+            return list.innerHTML;
+          } finally {
+            URL.revokeObjectURL(moduleUrl);
+          }
+        }, { source: moduleSource });
+
+        expect(afterInline).toBe(reference);
+        expect(afterModule).toBe(afterInline);
+      } finally {
+        await context.close();
+      }
+    });
+  }
 });

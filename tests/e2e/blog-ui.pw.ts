@@ -150,7 +150,7 @@ async function firstBlogPostHref(page: Page): Promise<string> {
   await expect(firstPost).toBeVisible();
 
   const href = await firstPost.getAttribute('href');
-  expect(href).toMatch(/^\/blog\/[^/]+\/$/);
+  expect(href).toMatch(/^\/blog\/[^/]+$/);
 
   return href as string;
 }
@@ -325,7 +325,7 @@ test.describe('Blog reading UI', () => {
 
   test('remeasures the TOC after preceding media changes height', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
 
     const headings = page.locator('.blog-prose h2, .blog-prose h3');
     const tocLinks = page.locator('.toc-link');
@@ -362,7 +362,7 @@ test.describe('Blog reading UI', () => {
       });
     });
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
 
     const galleryImages = page.locator('.kg-gallery-card .kg-gallery-image img');
     await expect(galleryImages).toHaveCount(3);
@@ -421,9 +421,29 @@ test.describe('Blog reading UI', () => {
     await expect(page.locator('[data-ghost-draft-preview]')).toBeVisible();
     await expect(page.locator('.blog-article__title')).toHaveText('E2E Ghost draft');
     await expect(page.locator('.blog-prose blockquote')).toContainText('E2E preview line');
-    await expect(page.locator('.ai-credit')).toContainText('Claude Opus 4.6');
+    await expect(page.locator('[data-blog-music]')).toHaveCount(1);
+    await expect(page.locator('.blog-prose code.language-text')).toContainText(
+      '[!authors ai=example/model]',
+    );
+    const conversation = page.locator('.blog-prose .conv-thread');
+    await expect(conversation).toHaveCount(1);
+    await expect(conversation).toHaveAttribute('data-tints', 'off');
+    await expect(conversation.locator('.conv-group--in')).toHaveAttribute('data-tints', 'on');
+    await expect(page.locator('.blog-prose pre code.language-conversation')).toHaveCount(0);
+    await expect(page.locator('.ai-credit')).toContainText('Gemini 3.7 Flash');
     await expect(page.locator('.ai-credit')).toContainText('reviewed the draft.');
     await expect(page.locator('.not-by-ai')).toHaveCount(0);
+    const etag = response?.headers().etag;
+    expect(etag).toBeTruthy();
+
+    const unchanged = await page.request.head(`/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`, {
+      headers: { 'If-None-Match': etag ?? '' },
+    });
+    expect(unchanged.status()).toBe(304);
+
+    const current = await page.request.head(`/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`);
+    expect(current.status()).toBe(200);
+    expect(current.headers().etag).toBe(etag);
 
     const invalid = await page.request.get('/dev/blog/not-a-ghost-id');
     expect(invalid.status()).toBe(404);
@@ -432,6 +452,32 @@ test.describe('Blog reading UI', () => {
     const missing = await page.request.get('/dev/blog/aaaaaaaaaaaaaaaaaaaaaaaa');
     expect(missing.status()).toBe(404);
     expect(missing.headers()['cache-control']).toBe('no-store, max-age=0');
+  });
+
+  test('reloads a Ghost draft preview when its revision changes', async ({ page }) => {
+    let documentRequests = 0;
+    let changedRevisionSent = false;
+    await page.route(`**/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`, async (route) => {
+      if (route.request().method() === 'HEAD') {
+        if (!changedRevisionSent) {
+          changedRevisionSent = true;
+          await route.fulfill({ status: 200, headers: { ETag: '"e2e-changed"' } });
+        } else {
+          await route.fulfill({ status: 304 });
+        }
+        return;
+      }
+
+      documentRequests += 1;
+      await route.continue();
+    });
+
+    await page.goto(`/dev/blog/${GHOST_PREVIEW_E2E_POST_ID}`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    await expect.poll(() => documentRequests).toBeGreaterThan(1);
+    expect(changedRevisionSent).toBe(true);
   });
 
   test('probes YouTube capability on click without geo branching or overflow', async ({ page }) => {
@@ -463,7 +509,7 @@ test.describe('Blog reading UI', () => {
     });
 
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
 
     const card = page.locator('[data-yt]');
     const frame = card.locator('[data-yt-frame]');
@@ -523,7 +569,7 @@ test.describe('Blog reading UI', () => {
       });
     });
 
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => {
       document.documentElement.dataset.country = 'US';
       sessionStorage.removeItem('youtube-embed-reachable:v1');
@@ -563,7 +609,7 @@ test.describe('Blog reading UI', () => {
       });
     });
 
-    await page.goto('/blog/demo-effects/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => sessionStorage.removeItem('youtube-embed-reachable:v1'));
 
     const card = page.locator('[data-yt]');
@@ -833,28 +879,289 @@ test.describe('Blog reading UI', () => {
     const panel = page.locator('[data-subscribe-panel][data-subscribe-id="blog"]');
     await expect(panel).toHaveClass(/is-open/);
     await expect(panel).toHaveAttribute('aria-hidden', 'false');
-    await expect(panel.getByPlaceholder('请留邮箱')).toBeVisible();
+    await expect(panel.getByPlaceholder('留个邮箱')).toBeVisible();
 
     const blogChannel = panel.locator('[data-sub-channel][value="blog"]');
     const moodChannel = panel.locator('[data-sub-channel][value="mood"]');
     await expect(blogChannel).toBeChecked();
-    await expect(moodChannel).toBeChecked();
-    await expect(panel.getByText('Posts')).toBeVisible();
-    await expect(panel.getByText('Moods')).toBeVisible();
+    await expect(moodChannel).not.toBeChecked();
+    await expect(panel.getByText('文章')).toBeVisible();
+    await expect(panel.getByText('闲谈')).toBeVisible();
     await expect(panel.getByRole('link', { name: /RSS/ })).toHaveAttribute('href', '/blog/rss.xml');
     await expect(panel.locator('[data-sub-submit]')).toBeVisible();
 
-    await panel.getByPlaceholder('请留邮箱').fill('reader@example.com');
+    await panel.getByPlaceholder('留个邮箱').fill('reader@example.com');
     await panel.locator('[data-sub-submit]').click();
 
     await expect(panel.locator('[data-sub-success-text]')).toBeVisible();
     const submittedPayload = payload as unknown as Record<string, unknown>;
     expect(submittedPayload).toMatchObject({
       email: 'reader@example.com',
-      channels: ['blog', 'mood'],
+      channels: ['blog'],
       deliveryMode: 'instant',
       turnstileToken: '',
     });
     expect(typeof submittedPayload.timezone).toBe('string');
+  });
+});
+// The switcher is the one control on the blog that moves the whole page, so its
+// motion is asserted rather than eyeballed. `Blog reading UI` above runs under
+// reduced motion on purpose; these need the real thing.
+test.describe('Article language switcher motion', () => {
+  // The fixture pair: `quiet-architecture` (中文) and its `#en:` translation.
+  const ARTICLE = '/blog/quiet-architecture';
+
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+  });
+
+  test('opens and closes the menu as an interruptible transition', async ({ page }) => {
+    await page.goto(ARTICLE, { waitUntil: 'load' });
+
+    const menu = page.locator('.blog-lang__menu');
+    await page.locator('.blog-lang__pill').click();
+    await expect(menu).not.toHaveAttribute('hidden', /.*/);
+    await expect(menu).toHaveCSS('opacity', '1');
+
+    // Closing keeps the element rendered for the length of the exit — that is
+    // what `display` + `allow-discrete` buys — but it must stop taking clicks
+    // immediately, or a closing menu can still navigate.
+    await page.locator('.blog-lang__pill').click();
+    const closing = await menu.evaluate((node) => ({
+      display: getComputedStyle(node).display,
+      pointerEvents: getComputedStyle(node).pointerEvents,
+      transitions: node.getAnimations().length,
+    }));
+    expect(closing.display).toBe('block');
+    expect(closing.pointerEvents).toBe('none');
+    expect(closing.transitions).toBeGreaterThan(0);
+
+    await expect(menu).toHaveCSS('display', 'none');
+  });
+
+  test('dismisses the menu before the outgoing page is captured', async ({ page }) => {
+    // The outgoing snapshot is taken at `pageswap` and then crossfades over the
+    // new article. A dropdown dissolving there is clutter, not motion.
+    await page.addInitScript(() => {
+      window.addEventListener('pageswap', () => {
+        const menu = document.querySelector('.blog-lang__menu');
+        sessionStorage.setItem('menu-at-swap', menu ? getComputedStyle(menu).display : 'missing');
+      });
+    });
+
+    await page.goto(ARTICLE, { waitUntil: 'load' });
+    await page.locator('.blog-lang__pill').click();
+    await page.locator('.blog-lang__item[hreflang="en"]').click();
+    await page.waitForURL(/\/blog\/en\/quiet-architecture$/);
+
+    expect(await page.evaluate(() => sessionStorage.getItem('menu-at-swap'))).toBe('none');
+  });
+
+  test('swaps the page on a language switch and keeps the arrival elsewhere', async ({ page }) => {
+    // `pagereveal` fires before any bundled module runs, so the marker is read
+    // from the frame after it — the same window the transition itself uses.
+    await page.addInitScript(() => {
+      (window as unknown as { __vt?: unknown }).__vt = null;
+      window.addEventListener('pagereveal', (event) => {
+        if (!(event as Event & { viewTransition?: unknown }).viewTransition) return;
+        requestAnimationFrame(() => {
+          (window as unknown as { __vt: unknown }).__vt = {
+            kind: document.documentElement.getAttribute('data-vt-kind'),
+            root: document
+              .getAnimations()
+              .filter((a) => (a.effect as KeyframeEffect | null)?.pseudoElement === '::view-transition-new(root)')
+              .map((a) => a.effect?.getTiming().duration),
+          };
+        });
+      });
+    });
+
+    await page.goto(ARTICLE, { waitUntil: 'load' });
+    await page.locator('.blog-lang__pill').click();
+    await page.locator('.blog-lang__item[hreflang="en"]').click();
+    await page.waitForURL(/\/blog\/en\/quiet-architecture$/);
+
+    const swap = await page.waitForFunction(() => (window as unknown as { __vt: unknown }).__vt)
+      .then((handle) => handle.jsonValue() as Promise<{ kind: string | null; root: number[] }>);
+    expect(swap.kind).toBe('lang');
+    expect(swap.root).toEqual([200]);
+
+    // And it is only ever the navigation in flight: left behind, it would hand
+    // the next one a transition written for this one.
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.getAttribute('data-vt-kind')))
+      .toBeNull();
+
+    await page.evaluate(() => {
+      (window as unknown as { __vt: unknown }).__vt = null;
+      location.href = '/blog/notes-from-the-links-lab';
+    });
+    await page.waitForURL(/notes-from-the-links-lab/);
+
+    const arrival = await page.waitForFunction(() => (window as unknown as { __vt: unknown }).__vt)
+      .then((handle) => handle.jsonValue() as Promise<{ kind: string | null; root: number[] }>);
+    expect(arrival.kind).toBeNull();
+    expect(arrival.root).toEqual([460]);
+  });
+});
+
+interface MorphProbe {
+  transition: boolean;
+  claimed: string | null;
+}
+
+/**
+ * Records what the destination's morph candidate is named at the moment the new
+ * snapshot is captured: a `requestAnimationFrame` from inside `pagereveal` runs
+ * at the top of the very rendering opportunity the capture reads from, so it
+ * sees exactly what the transition will see.
+ */
+async function installMorphProbe(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const root = globalThis as typeof globalThis & { __vtMorph?: MorphProbe };
+    root.__vtMorph = { transition: false, claimed: null };
+    window.addEventListener('pagereveal', (event) => {
+      const transition = Boolean((event as Event & { viewTransition?: unknown }).viewTransition);
+      requestAnimationFrame(() => {
+        const candidate = document.querySelector<HTMLElement>('[data-vt-name]');
+        root.__vtMorph = {
+          transition,
+          claimed: candidate?.style.viewTransitionName || null,
+        };
+      });
+    });
+  });
+}
+
+async function stopNextNavigationAfterPageSwap(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    window.addEventListener('pageswap', (event) => {
+      if (sessionStorage.getItem('__stop-next-pageswap') !== '1') return;
+      sessionStorage.removeItem('__stop-next-pageswap');
+      const transition = (event as Event & {
+        viewTransition?: { finished: Promise<unknown>; ready: Promise<unknown> };
+      }).viewTransition;
+      const markFinished = () => sessionStorage.setItem('__stopped-pageswap-finished', '1');
+      void transition?.ready.catch(() => undefined);
+      transition?.finished.then(markFinished, markFinished);
+      queueMicrotask(() => window.stop());
+    });
+  });
+}
+
+async function firstRowTarget(page: Page): Promise<{ name: string; href: string }> {
+  const row = page.locator('.blog-row__title').first();
+  const name = await row.getAttribute('data-vt-name');
+  const href = await row.evaluate((el) => el.closest('a')?.getAttribute('href') ?? '');
+  expect(name).toMatch(/^post-/);
+  expect(href).toMatch(/^\/blog\//);
+  return { name: name as string, href };
+}
+
+test.describe('Post title shared-element morph', () => {
+  test('the clicked row title claims its name on the destination headline', async ({ page }) => {
+    await installMorphProbe(page);
+    await page.goto('/blog');
+
+    const { name, href } = await firstRowTarget(page);
+    await Promise.all([
+      page.waitForURL(`**${href}`),
+      page.locator('.blog-row__title').first().click(),
+    ]);
+
+    const probe = await test.step('read the destination probe', async () => {
+      let latest: MorphProbe = { transition: false, claimed: null };
+      await expect.poll(async () => {
+        latest = await page.evaluate(
+          () => (globalThis as typeof globalThis & { __vtMorph?: MorphProbe }).__vtMorph,
+        ) as MorphProbe;
+        return latest.claimed;
+      }).not.toBeNull();
+      return latest;
+    });
+
+    // The claim is what the broker's incoming half exists to do, and it can only
+    // happen if that half is registered before `pagereveal` — a deferred module
+    // is ~20-175ms too late, which silently degraded this to the root dissolve.
+    expect(probe.transition).toBe(true);
+    expect(probe.claimed).toBe(name);
+    await expect(page.locator(`h1[data-vt-name="${name}"]`)).toHaveAttribute(
+      'style',
+      new RegExp(`view-transition-name:\\s*${name}`),
+    );
+  });
+
+  test('a direct arrival leaves the headline unnamed', async ({ page }) => {
+    await installMorphProbe(page);
+    await page.goto('/blog');
+    const { href } = await firstRowTarget(page);
+
+    // Nothing was clicked, so nothing may fly. Without this the test above would
+    // still pass with the name baked unconditionally into the markup, which is
+    // the exact bug the broker was built to remove.
+    await page.goto(href);
+    await expect(page.locator('h1[data-vt-name]')).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (globalThis as typeof globalThis & { __vtMorph?: MorphProbe }).__vtMorph,
+      ),
+    ).toMatchObject({ claimed: null });
+  });
+
+  test('an aborted click cannot lend its morph to a later palette navigation', async ({ page }) => {
+    await installMorphProbe(page);
+    await stopNextNavigationAfterPageSwap(page);
+    await page.route('**/api/v2/mood/search*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{"results":[]}' }),
+    );
+    await page.route('**/pagefind/pagefind.js*', (route) => route.abort());
+
+    let palettePost = { title: '', path: '' };
+    await page.route('**/palette.json', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ posts: [palettePost] }),
+      }),
+    );
+
+    await page.goto('/blog');
+    const { name, href } = await firstRowTarget(page);
+    palettePost = {
+      title: (await page.locator('.blog-row__title').first().innerText()).trim(),
+      path: href,
+    };
+
+    await page.evaluate(() => sessionStorage.setItem('__stop-next-pageswap', '1'));
+    await page.locator('.blog-row__title').first().click({ noWaitAfter: true });
+    await expect.poll(
+      () => page.evaluate(() => sessionStorage.getItem('__stopped-pageswap-finished')),
+    ).toBe('1');
+    await expect(page).toHaveURL(/\/blog\/?$/);
+    expect(await page.evaluate(() => sessionStorage.getItem('vt-morph'))).toBeNull();
+    await expect(page.locator('.blog-row__title').first()).not.toHaveAttribute(
+      'style',
+      /view-transition-name/,
+    );
+
+    await page.getByRole('button', { name: 'Search and commands' }).click();
+    const palette = page.getByRole('dialog', { name: 'Site search and commands' });
+    const option = palette.getByRole('option', { name: palettePost.title });
+    await expect(option).toBeVisible();
+    await expect(option.locator('[data-vt-name]')).toHaveCount(0);
+    await Promise.all([page.waitForURL(`**${href}`), option.click()]);
+
+    await expect.poll(() => page.evaluate(
+      () => (globalThis as typeof globalThis & { __vtMorph?: MorphProbe }).__vtMorph?.transition,
+    )).toBe(true);
+    expect(
+      await page.evaluate(
+        () => (globalThis as typeof globalThis & { __vtMorph?: MorphProbe }).__vtMorph,
+      ),
+    ).toMatchObject({ transition: true, claimed: null });
+    await expect(page.locator(`h1[data-vt-name="${name}"]`)).not.toHaveAttribute(
+      'style',
+      /view-transition-name/,
+    );
   });
 });

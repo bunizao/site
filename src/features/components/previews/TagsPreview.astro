@@ -34,7 +34,7 @@ const cards = [
   <div class="tagspec-wall">
     {cards.map((card) => (
       <article class="tag-card has-image has-accent" style={`--tag-accent:${card.accent}`}>
-        <a class="tag-card-bg" href="/blog/tags/">
+        <a class="tag-card-bg" href="/blog/tags">
           <img src={card.image} alt={card.name} loading="lazy" />
           <div class="tag-card-header">
             <div class="tag-card-info">
@@ -45,7 +45,7 @@ const cards = [
         </a>
         <div class="tag-card-posts">
           {card.posts.map(([title, date]) => (
-            <a class="tag-post-preview" href="/blog/tags/">
+            <a class="tag-post-preview" href="/blog/tags">
               <span class="tag-post-title">{title}</span>
               <span class="tag-post-date">{date}</span>
             </a>

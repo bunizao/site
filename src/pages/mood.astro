@@ -22,17 +22,28 @@ import { loadInitialMoodFeed as loadInitialMoodFeedWindow } from '@/features/moo
 import { getMoodFeedPreloadImage } from '@/features/mood/shared/lcp-preload';
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { readEnv, readPublicEnv } from '@/lib/runtime/env';
+import { getMoodChannelSlug } from '@/features/mood/server/channel-service';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 import { profile } from '@/data/site';
-import { formatSiteTitle } from '@/lib/seo';
 import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
-import '@/styles/listening.css';
-import '@/styles/embed-youtube.css';
+import '@/features/mood/styles/bookmark-card.css';
+import { parseYouTubeVideoUrl } from '@/lib/embed/youtube';
+import { resolveRequestLocale } from '@/features/mood/server/locale';
+import type { BlogLocale } from '@/data/site';
 
 export const prerender = false;
 
-const title = formatSiteTitle('Moods');
+// Same negotiation as /mood/[id]: the feed's subscribe panel and its comments
+// popover follow the reader rather than the site default. See the note there.
+const locale = resolveRequestLocale({
+  query: Astro.url.searchParams.get('lang'),
+  cookie: Astro.request.headers.get('cookie'),
+  acceptLanguage: Astro.request.headers.get('accept-language'),
+}) as BlogLocale;
+Astro.response.headers.append('Vary', 'Accept-Language, Cookie');
+
+const title = 'Moods';
 const description = `Short posts, photos, links, and moments from ${profile.name}'s Telegram channel.`;
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 const moodAlternateUrl = new URL(canonicalUrl);
@@ -41,7 +52,7 @@ const rss = { href: rssHref, title: 'Moods RSS' };
 const oembed = { href: `/api/oembed.json?url=${encodeURIComponent(moodAlternateUrl.href)}`, title: 'Mood Embed' };
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
-  : readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
+  : readTurnstileSiteKey(Astro.locals);
 const moodTagFilter = normalizeMoodTagSlug(Astro.url.searchParams.get('tag'));
 // Tag mode is a plain filtered feed: no anchor deep links, archive reads only.
 const moodFeedAnchorId = moodTagFilter ? '' : readMoodFeedAnchorId(Astro.url);
@@ -69,7 +80,7 @@ async function loadInitialMoodFeed() {
       }),
     });
     if (!result.cacheable) {
-      Astro.response.headers.set('Cache-Control', 'no-store');
+      Astro.response.headers.set('X-Buxx-Cache-Ready', '0');
     }
     return result.value;
   } catch (error) {
@@ -79,10 +90,34 @@ async function loadInitialMoodFeed() {
 }
 
 const initialFeed = await loadInitialMoodFeed();
+if (!initialFeed?.posts.length) {
+  Astro.response.headers.set('X-Buxx-Cache-Ready', '0');
+}
+// Listening/YouTube styles ship only when the SSR window actually renders such
+// an embed. Posts streamed in later load them through the feed controller's
+// dynamic imports, so the common feed pays nothing.
+const initialPosts = initialFeed?.posts ?? [];
+const hasListeningCard = initialPosts.some((post) =>
+  post.media?.some((item) => item.type === 'audio'),
+);
+const hasYouTubeEmbed = initialPosts.some((post) =>
+  post.media?.some(
+    (item) =>
+      item.type === 'link-preview' &&
+      Boolean(parseYouTubeVideoUrl(item.href ?? item.originalUrl ?? '')),
+  ),
+);
+// Dynamic imports keep these css?url modules out of the page's static module
+// graph — a static import would make Astro hoist the stylesheet into <head>
+// unconditionally, defeating the point.
+const listeningCssUrl = (await import('@/styles/listening.css?url')).default;
+const embedYouTubeCssUrl = (await import('@/styles/embed-youtube.css?url')).default;
+const listeningCssHref = hasListeningCard ? listeningCssUrl : null;
+const embedYouTubeCssHref = hasYouTubeEmbed ? embedYouTubeCssUrl : null;
 // The feed mirrors a Telegram channel, so subscribing there is a real
 // alternative to email. The slug is the channel username; without it the
 // subscribe panel just drops the tile.
-const channelSlug = initialFeed?.channel?.slug?.trim() || readEnv(Astro.locals, 'CHANNEL');
+const channelSlug = initialFeed?.channel?.slug?.trim() || getMoodChannelSlug(Astro.locals);
 const telegramHref = channelSlug ? `https://t.me/${channelSlug}` : undefined;
 // Preload the exact media the priority feed element will render (see
 // getMoodFeedPreloadImage): aligns the high-priority fetch with the real LCP.
@@ -119,7 +154,7 @@ const skeletonGroups = [
 ---
 
 <Layout
-  preloadFont={['code', 'mono', 'sans']}
+  lang={locale}
   title={title}
   description={description}
   image="/mood-og.png"
@@ -127,6 +162,7 @@ const skeletonGroups = [
   rss={rss}
   oembed={oembed}
   preloadImages={preloadImages}
+  robots={Astro.url.search ? 'noindex, follow' : undefined}
   hideSiteNav
   containedScroll
   scrollRestorationKey="mood-scroll"
@@ -137,6 +173,8 @@ const skeletonGroups = [
        identity plus search + notify. -->
   <MoodNavbar slot="topbar" initialChannel={initialFeed?.channel} />
   <main class="page-container mood-route">
+    {listeningCssHref && <link rel="stylesheet" href={listeningCssHref} />}
+    {embedYouTubeCssHref && <link rel="stylesheet" href={embedYouTubeCssHref} />}
     <TimelineWheel />
     <FeedShell
       skeletonGroups={skeletonGroups}
@@ -145,9 +183,11 @@ const skeletonGroups = [
       anchorId={moodFeedAnchorId}
       readSource={moodReadSource}
       tagFilter={moodTagFilter}
+      listeningCssHref={listeningCssUrl}
+      embedYouTubeCssHref={embedYouTubeCssUrl}
     />
   </main>
-  <SubscribePanel variant="mood" id="mood" anchor="right" withTrigger={false} feed={rssHref} telegram={telegramHref} turnstileSiteKey={turnstileSiteKey} />
+  <SubscribePanel variant="mood" id="mood" locale={locale} anchor="right" withTrigger={false} feed={rssHref} telegram={telegramHref} turnstileSiteKey={turnstileSiteKey} />
   {/* Back-to-top is now the MoodNavbar avatar (click it to return to the top),
       so the floating button is retired on the feed. The component itself is kept
       — /mood/[id] still renders it — just no longer referenced here. */}
@@ -830,129 +870,6 @@ const skeletonGroups = [
     line-height: 1.4;
   }
 
-  :global(.mood-item-media .bookmark-card) {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    width: 100%;
-    max-width: 320px;
-    border: 1px solid hsl(var(--foreground) / 0.12);
-    border-radius: 8px;
-    background: hsl(var(--foreground) / 0.015);
-    text-decoration: none;
-    color: inherit;
-    overflow: hidden;
-    transition: border-color 0.15s ease;
-  }
-
-  @media (min-width: 640px) {
-    :global(.mood-item-media .bookmark-card) {
-      max-width: 360px;
-    }
-  }
-
-  :global(.mood-item-media .bookmark-card:hover) {
-    border-color: hsl(var(--foreground) / 0.2);
-  }
-
-  :global(.mood-item-media .bookmark-card__media) {
-    width: 100%;
-    background: hsl(var(--foreground) / 0.03);
-  }
-
-  :global(.mood-item-media .bookmark-card__media img) {
-    width: 100%;
-    display: block;
-    object-fit: cover;
-    aspect-ratio: 1.91 / 1;
-  }
-
-  :global(.mood-item-media .bookmark-card--side-media) {
-    display: block;
-    max-width: 360px;
-    padding: 10px 12px 11px;
-  }
-
-  :global(.mood-item-media .bookmark-card--side-media::after) {
-    content: '';
-    display: block;
-    clear: both;
-  }
-
-  :global(.mood-item-media .bookmark-card--side-media .bookmark-card__media) {
-    float: right;
-    width: 76px;
-    height: 76px;
-    margin: 0 0 8px 12px;
-    border-radius: 9px;
-    overflow: hidden;
-  }
-
-  :global(.mood-item-media .bookmark-card--side-media .bookmark-card__media img) {
-    width: 100%;
-    height: 100%;
-    aspect-ratio: 1 / 1;
-  }
-
-  :global(.mood-item-media .bookmark-card--side-media .bookmark-card__content) {
-    display: block;
-    padding: 0;
-  }
-
-  :global(.mood-item-media .bookmark-card__content) {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 10px 12px 11px;
-  }
-
-  :global(.mood-item-media .bookmark-card__title) {
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1.42;
-    color: hsl(var(--foreground));
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-    overflow-wrap: break-word;
-  }
-
-  :global(.mood-item-media .bookmark-card__description) {
-    font-size: 12px;
-    color: hsl(var(--muted-foreground));
-    line-height: 1.48;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
-    overflow-wrap: break-word;
-  }
-
-  :global(.mood-item-media .bookmark-card--side-media .bookmark-card__description) {
-    display: -webkit-box;
-    -webkit-line-clamp: 5;
-  }
-
-  :global(.mood-item-media .bookmark-card--side-media .bookmark-card__meta) {
-    order: initial;
-    display: block;
-    margin-bottom: 4px;
-    font-size: 11px;
-    letter-spacing: 0;
-    text-transform: none;
-  }
-
-  :global(.mood-item-media .bookmark-card__meta) {
-    order: -1;
-    font-size: 10px;
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: 0;
-    text-transform: none;
-    color: hsl(var(--muted-foreground));
-  }
-
   :global(.mood-item-details) {
     align-self: flex-start;
     font-size: 13px;
@@ -1313,8 +1230,11 @@ const skeletonGroups = [
     font-variant-numeric: tabular-nums;
   }
 
-  /* Floating expand button - appears on hover */
-  :global(.mood-item-expand-float) {
+  /* Floating card actions - appear on hover. The comment entry reuses the
+     expand float's affordance rather than inventing one: a feed of posts with
+     no comments would otherwise carry a row of permanent empty buttons. */
+  :global(.mood-item-expand-float),
+  :global(.mood-item-comment-float) {
     position: absolute;
     top: 12px;
     right: 12px;
@@ -1340,21 +1260,31 @@ const skeletonGroups = [
   }
 
   :global(.mood-item:hover .mood-item-expand-float),
-  :global(.mood-item-expand-float:focus-visible) {
+  :global(.mood-item:hover .mood-item-comment-float),
+  :global(.mood-item-expand-float:focus-visible),
+  :global(.mood-item-comment-float:focus-visible) {
     opacity: 1;
   }
 
-  :global(.mood-item-expand-float:hover) {
+  :global(.mood-item-expand-float:hover),
+  :global(.mood-item-comment-float:hover) {
     color: hsl(var(--foreground) / 0.7);
     background: hsl(var(--foreground) / 0.05);
   }
 
-  :global(.mood-item-expand-float:active) {
+  :global(.mood-item-expand-float:active),
+  :global(.mood-item-comment-float:active) {
     transform: scale(0.92);
   }
 
-  :global(.mood-item-expand-float svg) {
+  :global(.mood-item-expand-float svg),
+  :global(.mood-item-comment-float svg) {
     flex-shrink: 0;
+  }
+
+  /* One float's width to the left of the expand float, at every size. */
+  :global(.mood-item-comment-float) {
+    right: 40px;
   }
 
   /* Ensure mood-item has relative positioning for the float button */
@@ -1366,18 +1296,31 @@ const skeletonGroups = [
     :global(.mood-item-expand-float) {
       right: 16px;
     }
+
+    :global(.mood-item-comment-float) {
+      right: 44px;
+    }
   }
 
   @media (max-width: 640px) {
-    :global(.mood-item-expand-float) {
+    :global(.mood-item-expand-float),
+    :global(.mood-item-comment-float) {
       width: 24px;
       height: 24px;
       top: 8px;
-      right: 6px;
       opacity: 0.6;
     }
 
-    :global(.mood-item-expand-float svg) {
+    :global(.mood-item-expand-float) {
+      right: 6px;
+    }
+
+    :global(.mood-item-comment-float) {
+      right: 30px;
+    }
+
+    :global(.mood-item-expand-float svg),
+    :global(.mood-item-comment-float svg) {
       width: 12px;
       height: 12px;
     }
@@ -1398,6 +1341,17 @@ const skeletonGroups = [
   }
 
   :global(.mood-comments-popover) {
+    /* The preview is the detail bubble one rung down the same golden ladder:
+       type one step smaller, spacing one rung tighter (16 -> 10, 10 -> 6,
+       6 -> 4). Same names as `.mood-comments` on /mood/[id], so the two
+       surfaces stay in step when either moves. */
+    --comment-body: 13px;
+    --comment-meta: 11px;
+    --comment-lead: 1.618;
+    --comment-body-padding: 6px 10px;
+    --comment-gap-inner: 4px;
+    --comment-bubble-bg: color-mix(in oklab, hsl(var(--foreground)) 3.5%, hsl(var(--background)));
+    --comment-bubble-border: color-mix(in oklab, hsl(var(--foreground)) 13%, transparent);
     position: absolute;
     bottom: calc(100% + 8px);
     left: 50%;
@@ -1411,20 +1365,28 @@ const skeletonGroups = [
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
     backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid hsl(var(--foreground) / 0.08);
-    border-radius: 16px;
+    border-radius: var(--radius-xl);
     box-shadow:
       0 14px 42px hsl(var(--foreground) / 0.14),
       0 2px 8px hsl(var(--foreground) / 0.04),
       inset 0 1px 0 hsl(var(--foreground) / 0.04);
-    padding: 12px;
+    padding: 10px;
     opacity: 0;
     visibility: hidden;
     transform: translateX(-50%) translateY(4px);
-    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    transition:
+      opacity var(--dur-base) var(--ease),
+      transform var(--dur-base) var(--ease),
+      visibility var(--dur-base);
     z-index: 100;
     pointer-events: none;
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--foreground) / 0.22) transparent;
+  }
+
+  :global(.dark .mood-comments-popover) {
+    --comment-bubble-bg: color-mix(in oklab, hsl(var(--foreground)) 6%, hsl(var(--background)));
+    --comment-bubble-border: color-mix(in oklab, hsl(var(--foreground)) 9%, transparent);
   }
 
   :global(.mood-comments-popover[data-positioned="true"]) {
@@ -1509,9 +1471,9 @@ const skeletonGroups = [
 
   :global(.mood-comments-popover-empty) {
     text-align: center;
-    padding: 16px 8px;
+    padding: 16px 10px;
     color: hsl(var(--muted-foreground) / 0.6);
-    font-size: 13px;
+    font-size: var(--comment-meta);
     font-style: italic;
   }
 
@@ -1524,7 +1486,7 @@ const skeletonGroups = [
   :global(.mood-popover-comment) {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 6px;
   }
 
   :global(.mood-popover-comment-avatar) {
@@ -1553,46 +1515,43 @@ const skeletonGroups = [
   }
 
   :global(.mood-popover-comment-body) {
-    flex: 1;
+    /* Shrink-wrap like the detail bubble: a two-word reply should not be a
+       full-width slab with a sticker floating in the corner of it. */
+    width: fit-content;
+    max-width: 100%;
     min-width: 0;
     /* Read comments in sans, not the inherited site mono. */
     font-family: var(--font-sans);
-    background: hsl(var(--foreground) / 0.04);
-    border: 1px solid hsl(var(--foreground) / 0.05);
-    border-radius: 14px;
-    padding: 10px 12px;
+    background: var(--comment-bubble-bg);
+    border: 1px solid var(--comment-bubble-border);
+    border-radius: 4px var(--radius-md) var(--radius-md) var(--radius-md);
+    padding: var(--comment-body-padding);
   }
 
   :global(.mood-popover-comment-header) {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 4px;
+    margin-bottom: var(--comment-gap-inner);
     flex-wrap: wrap;
   }
 
   :global(.mood-popover-comment-author) {
-    font-size: 12px;
+    font-size: var(--comment-body);
     font-weight: 600;
     color: hsl(var(--foreground));
     letter-spacing: -0.01em;
   }
 
   :global(.mood-popover-comment-date) {
-    font-size: 10px;
+    font-size: var(--comment-meta);
     color: hsl(var(--muted-foreground) / 0.5);
     font-variant-numeric: tabular-nums;
   }
 
-  :global(.mood-popover-comment-date::before) {
-    content: '•';
-    margin-right: 6px;
-    color: hsl(var(--muted-foreground) / 0.3);
-  }
-
   :global(.mood-popover-comment-content) {
-    font-size: 12px;
-    line-height: 1.5;
+    font-size: var(--comment-body);
+    line-height: var(--comment-lead);
     color: hsl(var(--foreground) / 0.9);
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -1616,13 +1575,43 @@ const skeletonGroups = [
 
   :global(.mood-popover-comment-content blockquote) {
     margin: 0.4em 0;
-    padding: 3px 8px;
+    padding: var(--comment-gap-inner) 6px;
     border-left: 2px solid hsl(var(--foreground) / 0.12);
     background: hsl(var(--foreground) / 0.02);
     border-radius: 0 4px 4px 0;
-    font-size: 11px;
+    font-size: var(--comment-meta);
     line-height: 1.4;
     color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  /* A comment can be nothing but a sticker or a photo, and the preview had no
+     size rule at all: one 256px sticker opened the card to its full height and
+     pushed every other comment out of view. This is a scan surface, so media
+     drops two rungs off the detail page's 256px and the neighbours stay on
+     screen. */
+  :global(.mood-popover-comment-content p:has(> .sticker:only-child)) {
+    width: 96px;
+    max-width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius-sm);
+    background: color-mix(in oklab, hsl(var(--foreground)) 6%, transparent);
+    overflow: hidden;
+  }
+
+  :global(.mood-popover-comment-content .sticker) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: inherit;
+  }
+
+  :global(.mood-popover-comment-content img) {
+    max-width: 100%;
+    max-height: 96px;
+    height: auto;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
   }
 
   :global(.mood-popover-comment-content .tg-emoji) {
@@ -1643,14 +1632,14 @@ const skeletonGroups = [
   :global(.mood-popover-view-all) {
     display: block;
     text-align: center;
-    padding: 8px;
+    padding: 6px;
     margin-top: 6px;
-    font-size: 11px;
+    font-size: var(--comment-meta);
     font-weight: 500;
     color: hsl(var(--muted-foreground) / 0.7);
     text-decoration: none;
     border-top: 1px solid hsl(var(--foreground) / 0.06);
-    transition: color 0.15s ease;
+    transition: color var(--dur-fast) var(--ease);
   }
 
   :global(.mood-popover-view-all:hover) {
@@ -2075,13 +2064,33 @@ const skeletonGroups = [
 </style>
 
 <script>
-  import { initSubscribePanels } from '@/features/notify/subscribe-panel';
-
-  initSubscribePanels();
+  // The subscribe panel opens from the navbar, never during initial paint, so
+  // its wiring (and Turnstile plumbing) waits for idle and loads as its own
+  // chunk off the startup path.
+  const initPanels = () => {
+    void import('@/features/notify/subscribe-panel').then(({ initSubscribePanels }) => {
+      initSubscribePanels();
+    });
+  };
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(initPanels, { timeout: 2000 });
+  } else {
+    window.setTimeout(initPanels, 800);
+  }
 </script>
 
 <script>
-  import { initMoodFeedController } from '@/features/mood/client/feed-controller';
-
-  initMoodFeedController();
+  const initFeed = () => {
+    void import('@/features/mood/client/feed-controller').then(({ initMoodFeedController }) => {
+      initMoodFeedController();
+    });
+  };
+  const feed = document.querySelector<HTMLElement>('[data-mood-feed]');
+  if (feed?.dataset.moodAnchorId || feed?.classList.contains('is-hidden')) {
+    initFeed();
+  } else if (document.readyState === 'complete') {
+    initFeed();
+  } else {
+    window.addEventListener('load', initFeed, { once: true });
+  }
 </script>

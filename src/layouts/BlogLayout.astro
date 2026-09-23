@@ -6,7 +6,7 @@
 import '../styles/globals.css';
 import '../styles/blog.css';
 import '../styles/embed-youtube.css';
-import { meta, blog, blogPalette } from '@/data/site';
+import { meta, blog, blogPalette, type BlogLocale } from '@/data/site';
 import {
   BLOG_OG_IMAGE_HEIGHT,
   BLOG_OG_IMAGE_WIDTH,
@@ -14,18 +14,23 @@ import {
   normalizeBlogMetaText,
 } from '@/features/posts/server/og-image';
 import BlogSearch from '@/features/posts/ui/BlogSearch.astro';
+import MermaidSupport from '@/features/content/ui/MermaidSupport.astro';
 import CommandPalette from '@/components/CommandPalette.astro';
 import PageScroller from '@/components/PageScroller.astro';
 import PerformanceDebugPanel from '@/components/PerformanceDebugPanel.astro';
-import { hasMarkdownRenderer } from '@/features/agent-markdown/server/registry';
+import {
+  hasMarkdownRenderer,
+  markdownAlternatePath,
+} from '@/features/agent-markdown/server/registry';
 import { BLOG_FAVICON } from '@/lib/favicon';
 import { serializeScriptJson } from '@/lib/serialize-script-json';
 import { profileAlternateNames, profileName } from '@/lib/seo';
+import ViewTransitionReveal from './client/ViewTransitionReveal.astro';
 
 interface Props {
   title: string;
   description?: string;
-  /** Path under the site origin, e.g. "/blog/" or "/blog/my-post/". */
+  /** Path under the site origin, e.g. "/blog" or "/blog/my-post". */
   path?: string;
   ogType?: 'website' | 'article';
   ogImage?: string;
@@ -35,6 +40,24 @@ interface Props {
   authorName?: string;
   tags?: string[];
   robots?: string;
+  /**
+   * Language of the page's *content* — and, on post pages, of the whole
+   * interface: an English post runs an English UI end to end (owner
+   * decision), so /blog/[slug] passes the post's locale to every widget it
+   * renders. List pages stay in `blog.locale.blog`.
+   */
+  locale?: BlogLocale;
+  /**
+   * Keep the page out of Pagefind while leaving it indexable by search engines.
+   * A translation wants exactly this: Google should find it, site search should
+   * not surface it twice under content its sibling already covers.
+   */
+  excludeFromSearch?: boolean;
+  /**
+   * Every language this article exists in, itself included — Google ignores a
+   * cluster that does not list all of its members.
+   */
+  languageAlternates?: { locale: string; href: string }[];
   /** Preload hint for the page's LCP image (e.g. the post feature image). */
   preloadImage?: { href: string; srcset?: string; sizes?: string };
 }
@@ -42,7 +65,7 @@ interface Props {
 const {
   title,
   description = blog.copy.zh.tagline,
-  path = '/blog/',
+  path = '/blog',
   ogType = 'website',
   ogImage: customOgImage,
   ogImageAlt,
@@ -51,17 +74,28 @@ const {
   authorName,
   tags = [],
   robots,
+  locale = blog.locale.blog,
+  excludeFromSearch = false,
+  languageAlternates = [],
   preloadImage,
 } = Astro.props;
 const canonical = new URL(path, meta.siteUrl).href;
+// x-default is "the version for a reader we have no better answer for", which
+// is the publication's default language — found by name, not by list position.
+const xDefault =
+  languageAlternates.find((alternate) => alternate.locale === blog.locale.default)
+  ?? languageAlternates[0];
+const xDefaultHref = xDefault ? new URL(xDefault.href, meta.siteUrl).href : null;
 const excludesIndexing = robots
   ?.split(',')
   .some((directive) => directive.trim().toLowerCase() === 'noindex') ?? false;
 const markdownAlternateUrl = !excludesIndexing && hasMarkdownRenderer(new URL(canonical).pathname)
-  ? canonical
+  ? new URL(markdownAlternatePath(new URL(canonical).pathname), meta.siteUrl).href
   : null;
 const pageTitle = normalizeBlogMetaText(title) || blog.name;
-const fullTitle = pageTitle === blog.name ? pageTitle : `${pageTitle} — ${blog.name}`;
+// The site name is not a title suffix: search engines show it on their own
+// line from WebSite.name and og:site_name, so the page owns the whole title.
+const fullTitle = pageTitle;
 const metaDescription = normalizeBlogMetaText(description) || meta.description;
 const ogImage = customOgImage
   ? new URL(customOgImage, meta.siteUrl).href
@@ -110,7 +144,7 @@ const articleStructuredData = ogType === 'article'
       publisher: {
         '@type': 'Organization',
         name: blog.name,
-        url: new URL('/blog/', meta.siteUrl).href,
+        url: new URL('/blog', meta.siteUrl).href,
         logo: {
           '@type': 'ImageObject',
           url: new URL(BLOG_FAVICON, meta.siteUrl).href,
@@ -118,6 +152,7 @@ const articleStructuredData = ogType === 'article'
           height: 128,
         },
       },
+      inLanguage: blog.copy[locale].ogLocale.replace('_', '-'),
       datePublished: publishedTime,
       dateModified: modifiedTime ?? publishedTime,
       ...(articleTags.length > 0 ? { keywords: articleTags } : {}),
@@ -135,11 +170,13 @@ const paletteCss = [
 ---
 
 <!doctype html>
-<!-- The publication is Chinese-primary; the lang also feeds Pagefind's
-     language detection at index time (an `en` lang skips CJK segmentation). -->
+<!-- The publication is Chinese-primary, and every page says so unless it is
+     carrying a translation. The lang also feeds Pagefind's language detection
+     at index time (an `en` lang skips CJK segmentation), which is consistent:
+     the pages that set `en` here are the ones excluded from the index. -->
 <!-- The root does not scroll in this zone. Why that is load-bearing rather than
      a layout preference: page-scroller.css and @/lib/page-scroll. -->
-<html lang="zh" class="page-scroll-root">
+<html lang={locale} class="page-scroll-root">
   <head>
     <meta charset="utf-8" />
     <!-- `cover` does not make the insets readable on iOS 26 — measured on an
@@ -154,6 +191,16 @@ const paletteCss = [
     {markdownAlternateUrl ? (
       <link rel="alternate" type="text/markdown" href={markdownAlternateUrl} />
     ) : null}
+    {languageAlternates.map((alternate) => (
+      <link
+        rel="alternate"
+        hreflang={alternate.locale}
+        href={new URL(alternate.href, meta.siteUrl).href}
+      />
+    ))}
+    {xDefaultHref && (
+      <link rel="alternate" hreflang="x-default" href={xDefaultHref} />
+    )}
     <link
       rel="alternate"
       type="application/rss+xml"
@@ -165,10 +212,11 @@ const paletteCss = [
     <link rel="icon" href={BLOG_FAVICON} type="image/svg+xml" />
 
     <meta property="og:type" content={ogType} />
-    <meta property="og:site_name" content={blog.name} />
+    <meta property="og:site_name" content={meta.siteName} />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={metaDescription} />
     <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={blog.copy[locale].ogLocale} />
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:width" content={String(BLOG_OG_IMAGE_WIDTH)} />
     <meta property="og:image:height" content={String(BLOG_OG_IMAGE_HEIGHT)} />
@@ -253,13 +301,75 @@ const paletteCss = [
         const isDark = setting === 'dark' || (setting === 'system' && prefersDark);
         document.documentElement.dataset.themeSetting = setting;
         document.documentElement.classList.toggle('dark', isDark);
+
+        // Tag a language switch so the root view transition can be a swap
+        // rather than an arrival (see globals.css). Same article, same layout,
+        // same boxes — only the words change, and the arrival's lift, scale and
+        // 460ms of expo is what made the switcher feel stuck.
+        //
+        // This lives in the no-FOUC script and not in a bundled module because
+        // `pagereveal` fires ~25ms *before* deferred module scripts execute: by
+        // the time an import has run, the transition it was meant to describe
+        // has already started. Cross-document transitions are styled by the new
+        // document, so the arriving side is the only side that can do this, and
+        // view-transition types set on the outgoing `pageswap` do not carry
+        // over.
+        window.addEventListener('pagereveal', (event) => {
+          const transition = event.viewTransition;
+          if (!transition) return;
+          // The Navigation API reports the entry actually left, so a back or
+          // forward traversal reads as the move it is; `document.referrer` is
+          // the fallback, and carries the full URL on a same-origin navigation.
+          /** @type {any} Navigation API; not in this TypeScript's `lib.dom`. */
+          const nav = window;
+          const activation = nav.navigation && nav.navigation.activation;
+          const from = (activation && activation.from && activation.from.url) || document.referrer;
+          if (!from) return;
+
+          let isSwitch = false;
+          try {
+            const left = new URL(from);
+            const right = new URL(location.href);
+            // A version is `/blog/<slug>` or `/blog/<locale>/<slug>`: split the
+            // path into the article and the language in front of it, so a
+            // switch is the same article under a different language. Parsed,
+            // not string-compared: `/blog/x` and `/blog/x/` are one article.
+            const version = (url) => {
+              const match = url.pathname
+                .replace(/\/$/, '')
+                .match(/^\/blog\/(?:([a-z]{2}(?:-[a-z]+)?)\/)?([^/]+)$/i);
+              return match ? { locale: match[1] || '', article: match[2] } : null;
+            };
+            const before = version(left);
+            const after = version(right);
+            isSwitch =
+              left.origin === right.origin &&
+              before !== null &&
+              after !== null &&
+              before.article === after.article &&
+              before.locale !== after.locale;
+          } catch (e) {}
+          if (!isSwitch) return;
+
+          const root = document.documentElement;
+          root.dataset.vtKind = 'lang';
+          // The attribute describes the navigation in flight and nothing else.
+          // Left behind it would hand the next one a transition written for
+          // this one.
+          const clear = () => delete root.dataset.vtKind;
+          transition.finished.then(clear, clear);
+        });
       })();
     </script>
+
+    <!-- Incoming half of the view-transition name broker. Inline and in <head>
+         because `pagereveal` fires before any deferred module can run. -->
+    <ViewTransitionReveal />
   </head>
 
   <body
     class="blog-zone reading"
-    data-pagefind-ignore={excludesIndexing ? 'all' : undefined}
+    data-pagefind-ignore={excludesIndexing || excludeFromSearch ? 'all' : undefined}
   >
     <PerformanceDebugPanel />
     <!-- Outside the scroller: it is a fixed lid, and a fixed layer inside a
@@ -269,7 +379,7 @@ const paletteCss = [
     <PageScroller class="blog-scroller" restorationKey="blog-scroll">
       <div class="blog-shell">
         <header class="blog-topbar">
-          <a class="blog-mark" href="/blog/" aria-label={blog.name} style="view-transition-name:blog-mark">
+          <a class="blog-mark" href="/blog" aria-label={blog.name} style="view-transition-name:blog-mark">
             <img src={blogMarkAsset} alt={blog.name} width="40" height="40" />
           </a>
 
@@ -307,8 +417,10 @@ const paletteCss = [
       import { initViewTransitionNames } from '@/lib/view-transition-names';
       initSubscribePanels();
       initYouTubeEmbeds();
-      // Decides which single element (if any) may morph across the next
-      // navigation. Must register before any click can navigate away.
+      // Outgoing half: decides which single element (if any) may morph across
+      // the next navigation. Deferred is fine — it only has to beat a click.
+      // The incoming half is <ViewTransitionReveal /> in <head>, which must be
+      // inline to beat `pagereveal`.
       initViewTransitionNames();
     </script>
 
@@ -353,6 +465,6 @@ const paletteCss = [
         }
       })();
     </script>
-
+    <MermaidSupport />
   </body>
 </html>

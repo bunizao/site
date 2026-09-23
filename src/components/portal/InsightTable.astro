@@ -1,0 +1,75 @@
+---
+/* One grouped table on an insights page.
+
+   Every table on those pages is the same shape -- a label, sometimes a
+   second line under it, a count, how many of those were held, and how many
+   distinct sessions were behind the count -- so they are all this component
+   with different rows. The held rate is the column the page is read for: a
+   network with 400 writes and a 2% held rate is the internet working, and
+   one with 12 writes and a 90% held rate is a person.
+
+   A held rate of null means the table cannot have one (reactions are never
+   held) and prints nothing rather than a zero that would read as "never
+   held". A NULL group keeps its own row, labelled, because "unknown" is
+   frequently the interesting row. */
+export interface InsightTableRow {
+  key: string;
+  label: string;
+  sub?: string | null;
+  href?: string | null;
+  count: number;
+  held?: number | null;
+  heldRate?: number | null;
+  sessions?: number | null;
+  tone?: 'danger' | null;
+}
+
+interface Props {
+  rows: InsightTableRow[];
+  /** Column head over the first column. */
+  head: string;
+  countHead?: string;
+  limit?: number;
+  empty?: string;
+}
+
+const { rows, head, countHead = 'writes', limit = 12, empty = 'Nothing in this window.' } = Astro.props;
+const shown = rows.slice(0, limit);
+const peak = Math.max(1, ...shown.map((row) => row.count));
+const percent = (rate: number): string => `${Math.round(rate * 100)}%`;
+---
+
+{shown.length === 0 ? (
+  <div class="portal-list-meta">{empty}</div>
+) : (
+  <table class="portal-insight">
+    <thead>
+      <tr>
+        <th>{head}</th>
+        <th class="portal-insight__num">{countHead}</th>
+        <th class="portal-insight__num">held</th>
+        <th class="portal-insight__num">sessions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {shown.map((row) => (
+        <tr data-tone={row.tone ?? undefined}>
+          <td>
+            <span class="portal-insight__bar" style={`width: ${Math.max(2, Math.round((row.count / peak) * 100))}%`}></span>
+            <span class="portal-insight__label">
+              {row.href ? <a href={row.href}>{row.label}</a> : row.label}
+              {row.sub && <span class="portal-insight__sub">{row.sub}</span>}
+            </span>
+          </td>
+          <td class="portal-insight__num tabular-nums">{row.count.toLocaleString()}</td>
+          <td class="portal-insight__num tabular-nums">
+            {row.heldRate === null || row.heldRate === undefined
+              ? '—'
+              : <span data-hot={row.heldRate >= 0.5 ? '' : undefined}>{row.held ?? 0} · {percent(row.heldRate)}</span>}
+          </td>
+          <td class="portal-insight__num tabular-nums">{row.sessions ?? '—'}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+)}

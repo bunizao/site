@@ -1,0 +1,965 @@
+---
+// Design lab: live comparison of homepage background directions against the
+// real hero copy and the real token set. Standalone document on purpose — it
+// must not inherit the site's own background layers, or the concepts would be
+// judged on top of the thing they are meant to replace.
+export const prerender = false;
+
+// Dev-only surface. It is a design scratchpad, not a public page.
+if (!import.meta.env.DEV) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Collapsar Background Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+</head>
+<body>
+<style is:inline>
+  /* ── Tokens: lifted verbatim from src/styles/globals.css so every concept is
+       judged against the real ground, not a flattering approximation. ── */
+  :root {
+    --ground: #ffffff;
+    --fg: #000000;
+    --fg-rgb: 0 0 0;
+    --muted: #666666;
+    --faint: rgba(0, 0, 0, 0.45);
+    --grid: rgba(0, 0, 0, 0.12);
+    --rule: rgba(0, 0, 0, 0.09);
+    --hair: rgba(0, 0, 0, 0.14);
+    --chip: rgba(0, 0, 0, 0.045);
+    --chip-on: #000000;
+    --chip-on-fg: #ffffff;
+    --dock: rgba(255, 255, 255, 0.82);
+
+    --mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --lh: 26px;
+    --col: 720px;
+
+    --ease: cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0a0a0a;
+      --fg: #ffffff;
+      --fg-rgb: 255 255 255;
+      --muted: #878787;
+      --faint: rgba(255, 255, 255, 0.42);
+      --grid: rgba(255, 255, 255, 0.10);
+      --rule: rgba(255, 255, 255, 0.08);
+      --hair: rgba(255, 255, 255, 0.13);
+      --chip: rgba(255, 255, 255, 0.06);
+      --chip-on: #ffffff;
+      --chip-on-fg: #000000;
+      --dock: rgba(10, 10, 10, 0.82);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a0a0a;
+    --fg: #ffffff;
+    --fg-rgb: 255 255 255;
+    --muted: #878787;
+    --faint: rgba(255, 255, 255, 0.42);
+    --grid: rgba(255, 255, 255, 0.10);
+    --rule: rgba(255, 255, 255, 0.08);
+    --hair: rgba(255, 255, 255, 0.13);
+    --chip: rgba(255, 255, 255, 0.06);
+    --chip-on: #ffffff;
+    --chip-on-fg: #000000;
+    --dock: rgba(10, 10, 10, 0.82);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.625;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: clip;
+  }
+
+  /* ── Background layers ───────────────────────────────────────────────── */
+
+  #bg-canvas,
+  .css-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #bg-canvas { display: none; }
+  body[data-kind="canvas"] #bg-canvas { display: block; }
+
+  .css-layer { display: none; }
+
+  /* 00 · CURRENT — static dot grid, exactly as shipped. */
+  body[data-concept="current"] .layer-current { display: block; }
+  .layer-current {
+    background-image: radial-gradient(circle, var(--grid) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  /* The comet, faked at a fixed position so it is visible in a screenshot. */
+  .layer-current::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgb(var(--fg-rgb) / 0.78) 1.15px, transparent 1.15px);
+    background-size: 24px 24px;
+    opacity: 0.95;
+    -webkit-mask-image: radial-gradient(ellipse 96px 69px at var(--mx, 62%) var(--my, 34%), #000 0%, rgb(0 0 0 / 0.88) 20%, rgb(0 0 0 / 0.28) 52%, transparent 100%);
+    mask-image: radial-gradient(ellipse 96px 69px at var(--mx, 62%) var(--my, 34%), #000 0%, rgb(0 0 0 / 0.88) 20%, rgb(0 0 0 / 0.28) 52%, transparent 100%);
+  }
+
+  /* 01 · BASELINE — the page's own grid, made visible. */
+  body[data-concept="baseline"] .layer-baseline { display: block; }
+  .layer-baseline {
+    background-image:
+      repeating-linear-gradient(to bottom, var(--rule) 0 1px, transparent 1px calc(var(--lh) * 4));
+    background-position: 0 calc(var(--sy, 0px) * -1);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18vh, #000 74vh, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 18vh, #000 74vh, transparent);
+  }
+  .layer-baseline .col-rule {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--hair);
+  }
+  .layer-baseline .col-rule--l { left: calc(50% - var(--col) / 2 + 1rem); }
+  .layer-baseline .col-rule--r { right: calc(50% - var(--col) / 2 + 1rem); }
+  .layer-baseline .col-rule--c { left: 50%; background: var(--rule); }
+
+  /* 05 · GRAIN — the scan sheen rides on top of the canvas grain. */
+  body[data-concept="grain"] .layer-scan { display: block; }
+  .layer-scan {
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgb(var(--fg-rgb) / 0.028) 42%,
+      rgb(var(--fg-rgb) / 0.055) 50%,
+      rgb(var(--fg-rgb) / 0.028) 58%,
+      transparent 100%
+    );
+    background-size: 100% 62vh;
+    background-repeat: no-repeat;
+    animation: scan 34s linear infinite;
+  }
+  @keyframes scan {
+    from { background-position: 0 -62vh; }
+    to   { background-position: 0 100vh; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .layer-scan { animation: none; background-position: 0 30vh; }
+  }
+
+  /* ── Content mock: real hero copy, real column width, real type ─────── */
+
+  .stage { position: relative; z-index: 1; }
+
+  .col {
+    max-width: var(--col);
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+
+  body[data-bare="1"] .stage { opacity: 0; }
+  .stage { transition: opacity 200ms var(--ease); }
+
+  .hero {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-top: 5rem;
+    padding-bottom: 8rem;
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg);
+    margin-bottom: 1rem;
+  }
+  .status i {
+    width: 7px;
+    height: 7px;
+    background: var(--fg);
+    display: block;
+  }
+
+  h1 {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin: 0 0 0.5rem;
+    line-height: 1.2;
+  }
+
+  .chips {
+    font-size: 12px;
+    color: var(--faint);
+    letter-spacing: 0.08em;
+    margin: 0 0 0.75rem;
+  }
+  .role { font-size: 14px; color: var(--muted); margin: 0 0 1.5rem; }
+  .bio { font-size: 15px; line-height: 1.7; color: var(--muted); margin: 0; }
+  .bio b { color: var(--fg); font-weight: 400; }
+
+  .socials {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    font-size: 14px;
+  }
+  .socials span:first-child { color: var(--muted); }
+  .socials a {
+    color: var(--fg);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .socials a:hover,
+  .socials a:focus-visible { border-bottom-color: var(--fg); outline: none; }
+
+  /* A second and third band so scroll-driven concepts can be judged honestly. */
+  .band {
+    padding: 4rem 0;
+    border-top: 1px solid var(--grid);
+  }
+  .band h2 {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 1.5rem;
+    font-weight: 500;
+  }
+  .rows { display: flex; flex-direction: column; gap: 1px; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--grid);
+    font-size: 14px;
+  }
+  .row span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .tail {
+    padding: 5rem 0 8rem;
+    color: var(--faint);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ── Dock ────────────────────────────────────────────────────────────── */
+
+  .dock {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 10;
+    background: var(--dock);
+    backdrop-filter: blur(14px) saturate(1.4);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    border-top: 1px solid var(--hair);
+  }
+
+  .dock-inner {
+    max-width: 1180px;
+    margin-inline: auto;
+    padding: 0.75rem 1rem 1rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0.375rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+
+  .tab {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.4rem 0.7rem;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    background: var(--chip);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 130ms var(--ease), background 130ms var(--ease);
+  }
+  .tab:hover { color: var(--fg); }
+  .tab:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .tab em {
+    font-style: normal;
+    opacity: 0.55;
+    font-variant-numeric: tabular-nums;
+  }
+  .tab[aria-selected="true"] {
+    background: var(--chip-on);
+    color: var(--chip-on-fg);
+  }
+  .tab[aria-selected="true"] em { opacity: 0.6; }
+
+  .readout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem 1.5rem;
+    align-items: start;
+  }
+  .thesis { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); max-width: 94ch; }
+  .thesis strong { color: var(--fg); font-weight: 600; }
+
+  .meta {
+    display: flex;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .badge {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.45rem;
+    border: 1px solid var(--hair);
+    border-radius: 4px;
+    color: var(--faint);
+    white-space: nowrap;
+  }
+  .badge[data-tone="pick"] {
+    border-color: var(--fg);
+    color: var(--fg);
+  }
+
+  .controls {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 10;
+    display: flex;
+    gap: 0.375rem;
+  }
+  .ctl {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.4rem 0.6rem;
+    color: var(--muted);
+    background: var(--dock);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--hair);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .ctl:hover { color: var(--fg); }
+  .ctl:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+  .hint {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 10;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+    pointer-events: none;
+  }
+
+  @media (max-width: 720px) {
+    .stage { padding-bottom: 24rem; }
+    h1 { font-size: 28px; }
+    .bio { font-size: 14px; }
+    .readout { grid-template-columns: 1fr; }
+    .hint { display: none; }
+  }
+</style>
+
+<canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+<div class="css-layer layer-current" aria-hidden="true"></div>
+<div class="css-layer layer-baseline" aria-hidden="true">
+  <span class="col-rule col-rule--l"></span>
+  <span class="col-rule col-rule--c"></span>
+  <span class="col-rule col-rule--r"></span>
+</div>
+<div class="css-layer layer-scan" aria-hidden="true"></div>
+
+<p class="hint">1–7 switch · T theme · H hide content</p>
+
+<div class="controls">
+  <button class="ctl" id="theme-btn" type="button">Theme</button>
+  <button class="ctl" id="bare-btn" type="button">Hide content</button>
+</div>
+
+<div class="stage">
+  <div class="col">
+    <header class="hero">
+      <div class="status"><i></i><span>Learning</span></div>
+      <h1>Collapsar_</h1>
+      <p class="chips">18 y.o. · INFP · Libra</p>
+      <p class="role">Student / Developer / Blogger</p>
+      <p class="bio">
+        I make interesting things.<br>
+        Curious about <b>frontend design</b>, <b>proxy systems</b>, and contributing to <b>open source</b>.<br>
+        Obsessed with <b>speed</b> and always asking how things can be <b>smaller</b>.<br>
+        Outside of coding, I read for curiosity and write to make sense of things.<br>
+        Currently studying Computer Science at <b>Monash University</b>.
+      </p>
+      <nav class="socials">
+        <span>Find me at</span>
+        <a href="#projects">Blog</a>
+        <a href="#projects">GitHub</a>
+        <a href="#projects">Email</a>
+        <a href="#projects">Telegram</a>
+        <a href="#projects">Instagram</a>
+      </nav>
+    </header>
+
+    <section class="band" id="projects">
+      <h2>Projects</h2>
+      <div class="rows">
+        <div class="row"><span>BroadcastChannel</span><span>Astro · Telegram</span></div>
+        <div class="row"><span>site-api</span><span>Workers · D1</span></div>
+        <div class="row"><span>buxx.me</span><span>Astro v7 · React</span></div>
+      </div>
+    </section>
+
+    <section class="band">
+      <h2>Experience</h2>
+      <div class="rows">
+        <div class="row"><span>Monash University</span><span>2025 —</span></div>
+        <div class="row"><span>Open source</span><span>3602 contributions</span></div>
+      </div>
+    </section>
+
+    <p class="tail">Scroll the stage — concepts 01, 04 and 06 are scroll-driven.</p>
+  </div>
+</div>
+
+<div class="dock">
+  <div class="dock-inner">
+    <div class="tabs" role="tablist" id="tabs" aria-label="Background concepts"></div>
+    <div class="readout">
+      <p class="thesis" id="thesis"></p>
+      <div class="meta" id="meta"></div>
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+(() => {
+  'use strict';
+
+  const root = document.documentElement;
+  const body = document.body;
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d', { alpha: true });
+  const tabsEl = document.getElementById('tabs');
+  const thesisEl = document.getElementById('thesis');
+  const metaEl = document.getElementById('meta');
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  // Viewport + DPR state, refreshed on resize rather than read per frame.
+  let W = 0, H = 0, dpr = 1;
+  let scrollY = 0, scrollMax = 1;
+  let pointer = { x: 0.62, y: 0.34, has: false };
+
+  // Theme colours are read out of the live CSS custom properties so the canvas
+  // concepts follow the same tokens as the CSS ones.
+  let fg = [0, 0, 0];
+
+  function readTokens() {
+    const raw = getComputedStyle(root).getPropertyValue('--fg-rgb').trim();
+    const parts = raw.split(/[\s,]+/).map(Number).filter((n) => Number.isFinite(n));
+    if (parts.length === 3) fg = parts;
+  }
+
+  function rgba(a) {
+    return 'rgba(' + fg[0] + ',' + fg[1] + ',' + fg[2] + ',' + a + ')';
+  }
+
+  function resize() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (active && active.reset) active.reset();
+  }
+
+  // ── Deterministic per-cell noise. No Math.random: the field must look the
+  //    same on every reload so it can be judged, not re-rolled. ────────────
+  function hash(x, y, seed) {
+    let h = x * 374761393 + y * 668265263 + seed * 2246822519;
+    h = (h ^ (h >>> 13)) * 1274126177;
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+
+  // ── 02 · COLLAPSAR ─────────────────────────────────────────────────────
+  // A dot lattice bent around a gravity well: dots spiral inward, the core is
+  // hollowed out, and the compressed ring just outside it lights up.
+  function drawCollapsar(t) {
+    const S = 26;
+    const R = Math.min(W, H) * 0.26;
+    // Park the well in the right-hand gutter, outside the 720px text column,
+    // and let it bleed off the viewport edge. On narrow screens there is no
+    // gutter, so it slides off-canvas and only its outer field shows.
+    const cx = Math.min(W * 0.88, W / 2 + 360 + R * 0.55);
+    const cy = H * 0.34 - scrollY * 0.10;
+    const soft = R * 0.6;
+    const swirl = t * 0.00012;
+
+    ctx.clearRect(0, 0, W, H);
+
+    const colL = Math.max(0, W / 2 - 360) + 16;
+    const colR = Math.min(W, W / 2 + 360) - 16;
+    const feather = 90;
+
+    const pad = S * 3;
+    for (let gy = -pad; gy < H + pad; gy += S) {
+      for (let gx = -pad; gx < W + pad; gx += S) {
+        const dx = gx - cx;
+        const dy = gy - cy;
+        const r = Math.hypot(dx, dy) || 0.001;
+
+        if (r < R * 0.42) continue; // event horizon: nothing escapes
+
+        // Radial infall, capped so dots never cross the centre.
+        const pull = Math.min((R * R * 1.15) / (r + soft), r - R * 0.4);
+        // Tangential drag — the spiral. Falls off with distance.
+        const twist = (R * 2.4) / (r + soft) * 0.16 + swirl * (R * 60) / (r + soft);
+
+        const ang = Math.atan2(dy, dx) + twist;
+        const rr = r - pull;
+        const px = cx + Math.cos(ang) * rr;
+        const py = cy + Math.sin(ang) * rr;
+
+        // Accretion rim: a wide gaussian around 0.95R. Deliberately diffuse —
+        // a tight one reads as a drawn ring rather than compressed matter.
+        const d = (r - R * 0.95) / (R * 0.9);
+        const rim = Math.exp(-d * d);
+        let a = 0.085 + rim * 0.20;
+        const size = 0.95 + rim * 0.75;
+
+        // Clear zone over the text column, measured on the drawn position so a
+        // dot dragged into the column dims with it.
+        const inset = Math.min(px - (colL - feather), (colR + feather) - px);
+        if (inset > 0) {
+          const u = Math.min(1, inset / feather);
+          a *= 1 - 0.8 * (u * u * (3 - 2 * u)); // smoothstep
+        }
+        if (a < 0.006) continue;
+
+        ctx.fillStyle = rgba(a.toFixed(3));
+        ctx.beginPath();
+        ctx.arc(px, py, size, 0, 6.2832);
+        ctx.fill();
+      }
+    }
+  }
+
+  // ── 03 · TERMINAL FIELD ────────────────────────────────────────────────
+  // The background is a character buffer. Glyphs sit on the real ch/lh
+  // lattice of the body face; a handful of cells re-roll every 140ms.
+  const GLYPHS = ['·', '+', '-', '|', '/', '\\', '<', '>', '=', '_', '[', ']', ':', '.'];
+  let termCols = 0, termRows = 0, termCw = 10, termEpoch = 0, termNext = 0;
+
+  function resetTerminal() {
+    ctx.font = '12px ' + getComputedStyle(body).fontFamily;
+    termCw = ctx.measureText('0').width || 7.2;
+    termCols = Math.ceil(W / termCw) + 1;
+    termRows = Math.ceil(H / 26) + 1;
+  }
+
+  function drawTerminal(t) {
+    if (t > termNext) {
+      termEpoch++;
+      termNext = t + 140;
+    }
+    ctx.clearRect(0, 0, W, H);
+    ctx.font = '12px ' + getComputedStyle(body).fontFamily;
+    ctx.textBaseline = 'middle';
+
+    // Clear zone: the text column keeps its own air. Glyphs attenuate as they
+    // approach it instead of stopping at a hard edge.
+    const colL = W / 2 - 360;
+    const colR = W / 2 + 360;
+    const feather = 150;
+
+    for (let r = 0; r < termRows; r++) {
+      for (let c = 0; c < termCols; c++) {
+        if (hash(c, r, 7) > 0.085) continue; // ~1 glyph per 12 cells
+
+        // Only cells whose hash lands in the flip window follow the epoch,
+        // so the field is stable and only a few characters churn.
+        const flips = hash(c, r, 11) > 0.9;
+        const seed = flips ? 3 + termEpoch : 3;
+        const g = GLYPHS[Math.floor(hash(c, r, seed) * GLYPHS.length) % GLYPHS.length];
+
+        const x = c * termCw;
+        const inset = Math.min(x - (colL - feather), (colR + feather) - x);
+        let clear = 1;
+        if (inset > 0) {
+          const u = Math.min(1, inset / feather);
+          clear = 1 - 0.85 * (u * u * (3 - 2 * u)); // smoothstep
+        }
+
+        const a = (0.05 + hash(c, r, 19) * 0.07) * clear;
+        if (a < 0.006) continue;
+
+        ctx.fillStyle = rgba(a.toFixed(3));
+        ctx.fillText(g, x, r * 26 + 13);
+      }
+    }
+  }
+
+  // ── 04 · PARALLAX DEPTH ────────────────────────────────────────────────
+  // Three dot planes at different scales, drifting against scroll. Scroll,
+  // not cursor — so it reads on touch, where the comet is invisible today.
+  const PLANES = [
+    { s: 44, r: 1.5, a: 0.14, rate: 0.30 },
+    { s: 26, r: 1.1, a: 0.09, rate: 0.16 },
+    { s: 15, r: 0.8, a: 0.055, rate: 0.07 }
+  ];
+
+  function drawParallax() {
+    ctx.clearRect(0, 0, W, H);
+    for (const p of PLANES) {
+      const off = (scrollY * p.rate) % p.s;
+      ctx.fillStyle = rgba(p.a);
+      for (let y = -p.s - off; y < H + p.s; y += p.s) {
+        for (let x = -p.s; x < W + p.s; x += p.s) {
+          ctx.beginPath();
+          ctx.arc(x, y + off, p.r, 0, 6.2832);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
+  // ── 05 · GRAIN ─────────────────────────────────────────────────────────
+  // A 96px noise tile regenerated at ~11fps and scaled up. The scan sheen
+  // riding over it is CSS (.layer-scan).
+  let noiseTile = null, noiseCtx = null, noisePattern = null, noiseNext = 0;
+  const NOISE = 128;
+
+  function resetGrain() {
+    if (!noiseTile) {
+      noiseTile = document.createElement('canvas');
+      noiseTile.width = NOISE;
+      noiseTile.height = NOISE;
+      noiseCtx = noiseTile.getContext('2d');
+    }
+    noiseNext = 0;
+    noisePattern = null;
+  }
+
+  let grainSeed = 0;
+  function regenNoise() {
+    const img = noiseCtx.createImageData(NOISE, NOISE);
+    const d = img.data;
+    grainSeed = (grainSeed + 1) % 512;
+    for (let i = 0; i < NOISE * NOISE; i++) {
+      const v = hash(i % NOISE, (i / NOISE) | 0, grainSeed);
+      const o = i * 4;
+      d[o] = fg[0];
+      d[o + 1] = fg[1];
+      d[o + 2] = fg[2];
+      // Only the top third of the range lights up, so the field stays sparse
+      // and reads as grain rather than a grey wash.
+      d[o + 3] = v > 0.68 ? Math.round((v - 0.68) * 46) : 0;
+    }
+    noiseCtx.putImageData(img, 0, 0);
+    noisePattern = ctx.createPattern(noiseTile, 'repeat');
+  }
+
+  function drawGrain(t) {
+    if (t > noiseNext) {
+      regenNoise();
+      noiseNext = t + 90;
+    }
+    // Draw in device pixels: a tile scaled up gives blurry clouds, a tile
+    // repeated 1:1 gives actual grain.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (noisePattern) {
+      ctx.globalAlpha = 0.62;
+      ctx.fillStyle = noisePattern;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Second pass on a prime offset breaks up the 128px repeat.
+      ctx.globalAlpha = 0.34;
+      ctx.translate(37, 61);
+      ctx.fillRect(-37, -61, canvas.width, canvas.height);
+      ctx.globalAlpha = 1;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  // ── 06 · DENSITY GRADIENT ──────────────────────────────────────────────
+  // One grid, but it thins out as you descend: the hero is dense and lit,
+  // the footer is almost empty. Depth encoded as attenuation, not parallax.
+  function drawDensity() {
+    ctx.clearRect(0, 0, W, H);
+    const p = Math.min(1, scrollY / scrollMax); // 0 at hero, 1 at the tail
+    const fade = 1 - p * 0.86;
+    const S = 24;
+    // Thin the lattice itself as well as its opacity: past halfway, every
+    // other dot drops out, so the field feels evacuated rather than dimmed.
+    const skip = p > 0.5 ? 2 : 1;
+
+    ctx.fillStyle = rgba((0.02 + 0.14 * fade).toFixed(3));
+    for (let y = 0, ry = 0; y < H + S; y += S, ry++) {
+      for (let x = 0, rx = 0; x < W + S; x += S, rx++) {
+        if (skip > 1 && (rx + ry) % skip) continue;
+        ctx.beginPath();
+        ctx.arc(x, y, 0.5 + 0.7 * fade, 0, 6.2832);
+        ctx.fill();
+      }
+    }
+  }
+
+  // ── Registry ───────────────────────────────────────────────────────────
+  const CONCEPTS = [
+    {
+      id: 'current',
+      num: '00',
+      name: 'Current',
+      kind: 'css',
+      thesis: '<strong>What ships today.</strong> A flat ground, a static 24px dot grid, and a cursor comet that lights the grid up as it passes. The comet is genuinely good — but it is gated behind <strong>pointer: fine</strong> and <strong>prefers-reduced-motion</strong>, so touch and reduced-motion visitors get the wallpaper and nothing else. The 24px spacing matches neither the 26px line-height nor the 720px column, so the grid reads as decoration rather than structure.',
+      badges: ['CSS + rAF', 'desktop only', 'baseline']
+    },
+    {
+      id: 'baseline',
+      num: '01',
+      name: 'Baseline',
+      kind: 'css',
+      thesis: 'Stop decorating and start <strong>proving the grid</strong>. Dots go away; the background becomes the page\'s own scaffold — hairlines every fourth line of the 26px rhythm, vertical rules pinned to the text column edges and centre, masked to fade top and bottom. Zero JavaScript, zero paint cost, identical on touch. <strong>The catch: it demands you fix your vertical rhythm first.</strong> Body copy is 1.625&times;14px = 22.75px, the hero bio is 1.7&times;15px = 25.5px — right now there is no single baseline to prove, so the rules drift against the type. Worth doing anyway.',
+      badges: ['CSS only', 'no JS', 'works on touch']
+    },
+    {
+      id: 'collapsar',
+      num: '02',
+      name: 'Collapsar',
+      kind: 'canvas',
+      reset: null,
+      draw: drawCollapsar,
+      thesis: 'The site is called <strong>Collapsar_</strong> — a collapsed star. So make the background one. The dot lattice is lensed around a gravity well parked in the right-hand gutter: dots spiral inward, the core is hollowed to an event horizon, and the compressed matter outside it lights up as an accretion rim. It bleeds off the viewport edge, never crosses the 720px text column, and drifts as you scroll. <strong>Same vocabulary as today — dots on a lattice — but it now means something.</strong>',
+      badges: ['canvas', '~2k dots/frame', 'the pick'],
+      pick: true
+    },
+    {
+      id: 'terminal',
+      num: '03',
+      name: 'Terminal field',
+      kind: 'canvas',
+      reset: resetTerminal,
+      draw: drawTerminal,
+      thesis: 'If the whole site is set in Geist Mono, the background should be <strong>a character buffer</strong>. Sparse glyphs — <code>· + - | / \\ &lt; &gt; =</code> — on the real ch-by-line-height lattice, thinning to nothing behind the text column, deterministic so it never re-rolls on reload, with a few cells flipping every 140ms like a screen refreshing. The content is literally sitting inside a terminal.',
+      badges: ['canvas', 'redraw @ 7fps', 'on-brand']
+    },
+    {
+      id: 'parallax',
+      num: '04',
+      name: 'Parallax depth',
+      kind: 'canvas',
+      reset: null,
+      draw: drawParallax,
+      thesis: 'Cheapest way to turn wallpaper into space: <strong>three dot planes</strong> at 44 / 26 / 15px, each drifting against scroll at a different rate. Driven by scroll rather than cursor, so it reads on phones — where today\'s comet shows nothing at all. Fits the existing ScrollTrigger setup without new vocabulary.',
+      badges: ['canvas', 'scroll-driven', 'low risk']
+    },
+    {
+      id: 'grain',
+      num: '05',
+      name: 'Grain & scan',
+      kind: 'canvas',
+      reset: resetGrain,
+      draw: drawGrain,
+      thesis: 'The restraint option. No grid at all: a live film grain at ~4% over the flat ground, plus one very slow sheen that sweeps the viewport every 34 seconds. Invisible until you notice it, then the page feels like a lit surface rather than a PDF. A 128px noise tile regenerated 11×/s and repeated 1:1 — <strong>almost free, and it works everywhere.</strong>',
+      badges: ['canvas + CSS', '128px tile', 'safest']
+    },
+    {
+      id: 'density',
+      num: '06',
+      name: 'Density gradient',
+      kind: 'canvas',
+      reset: null,
+      draw: drawDensity,
+      thesis: 'Keep the grid, give it a <strong>direction</strong>. Dot opacity and radius attenuate as you descend, and past halfway the lattice itself thins to a checkerboard — the hero is dense and lit, the footer is nearly empty space. Six sections stop being one uniform field and start being a descent. Combines with 01 or 02 rather than competing with them.',
+      badges: ['canvas', 'scroll-driven', 'combinable']
+    }
+  ];
+
+  let active = CONCEPTS[2];
+  let raf = 0;
+
+  function stop() {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+  }
+
+  function frame(t) {
+    raf = 0;
+    if (active.draw) active.draw(t);
+    if (!reduced.matches) raf = requestAnimationFrame(frame);
+  }
+
+  function select(id, { focus = false } = {}) {
+    const next = CONCEPTS.find((c) => c.id === id);
+    if (!next) return;
+    stop();
+    active = next;
+
+    body.dataset.concept = next.id;
+    body.dataset.kind = next.kind;
+
+    thesisEl.innerHTML = next.thesis;
+    metaEl.innerHTML = '';
+    for (const b of next.badges) {
+      const el = document.createElement('span');
+      el.className = 'badge';
+      if (next.pick && b === 'the pick') el.dataset.tone = 'pick';
+      el.textContent = b;
+      metaEl.appendChild(el);
+    }
+
+    for (const tab of tabsEl.children) {
+      const on = tab.dataset.id === id;
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      tab.tabIndex = on ? 0 : -1;
+      if (on && focus) tab.focus();
+    }
+
+    if (next.kind === 'canvas') {
+      if (next.reset) next.reset();
+      raf = requestAnimationFrame(frame);
+    } else {
+      ctx.clearRect(0, 0, W, H);
+    }
+  }
+
+  // Tabs
+  CONCEPTS.forEach((c) => {
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'tab';
+    tab.role = 'tab';
+    tab.dataset.id = c.id;
+    tab.setAttribute('aria-selected', 'false');
+    tab.tabIndex = -1;
+    tab.innerHTML = '<em>' + c.num + '</em>' + c.name;
+    tab.addEventListener('click', () => select(c.id));
+    tabsEl.appendChild(tab);
+  });
+
+  // Scroll + pointer state. Both are cheap reads parked in variables; the
+  // draw functions never touch layout.
+  function onScroll() {
+    scrollY = window.scrollY || 0;
+    scrollMax = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    root.style.setProperty('--sy', scrollY + 'px');
+    if (active.kind === 'canvas' && reduced.matches) active.draw(performance.now());
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', () => { resize(); onScroll(); }, { passive: true });
+
+  window.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    pointer.x = e.clientX / W;
+    pointer.y = e.clientY / H;
+    pointer.has = true;
+    // Only concept 00 needs the cursor — it is faking the shipped comet.
+    if (active.id === 'current') {
+      root.style.setProperty('--mx', (pointer.x * 100).toFixed(2) + '%');
+      root.style.setProperty('--my', (pointer.y * 100).toFixed(2) + '%');
+    }
+  }, { passive: true });
+
+  // Controls
+  document.getElementById('theme-btn').addEventListener('click', () => {
+    const now = root.dataset.theme;
+    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const showingDark = now === 'dark' || (!now && systemDark);
+    root.dataset.theme = showingDark ? 'light' : 'dark';
+    readTokens();
+    if (active.kind === 'canvas') { if (active.reset) active.reset(); active.draw(performance.now()); }
+  });
+
+  const bareBtn = document.getElementById('bare-btn');
+  bareBtn.addEventListener('click', () => {
+    const on = body.dataset.bare === '1';
+    body.dataset.bare = on ? '0' : '1';
+    bareBtn.textContent = on ? 'Hide content' : 'Show content';
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+
+    const n = Number(e.key);
+    if (Number.isInteger(n) && n >= 1 && n <= CONCEPTS.length) {
+      select(CONCEPTS[n - 1].id, { focus: true });
+      return;
+    }
+    if (e.key === 't' || e.key === 'T') document.getElementById('theme-btn').click();
+    if (e.key === 'h' || e.key === 'H') bareBtn.click();
+
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const i = CONCEPTS.findIndex((c) => c.id === active.id);
+      const d = e.key === 'ArrowRight' ? 1 : -1;
+      select(CONCEPTS[(i + d + CONCEPTS.length) % CONCEPTS.length].id, { focus: true });
+      e.preventDefault();
+    }
+  });
+
+  reduced.addEventListener('change', () => select(active.id));
+
+  readTokens();
+  resize();
+  onScroll();
+  select('collapsar');
+})();
+</script>
+</body>
+</html>

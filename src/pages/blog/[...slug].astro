@@ -1,0 +1,290 @@
+---
+import type { GetStaticPaths } from 'astro';
+// Embed styles ride the article page, not BlogLayout — list pages never render
+// post bodies, so they should not pay for embed CSS.
+import '@/styles/embed-youtube.css';
+import BlogLayout from '@/layouts/BlogLayout.astro';
+import PostMeta from '@/features/posts/ui/PostMeta.astro';
+import TagList from '@/features/posts/ui/TagList.astro';
+import Prose from '@/features/posts/ui/Prose.astro';
+import TableOfContents from '@/features/posts/ui/TableOfContents.astro';
+import ReadingTopbar from '@/features/posts/ui/ReadingTopbar.astro';
+import AdjacentNav from '@/features/posts/ui/AdjacentNav.astro';
+import BackToTop from '@/features/posts/ui/BackToTop.astro';
+import Colophon from '@/features/posts/ui/Colophon.astro';
+import ShareRow from '@/features/posts/ui/ShareRow.astro';
+import { commentPolicyFromTags } from '@bunizao/contracts/comments';
+import BlogArticleBeacon from '@/features/posts/ui/BlogArticleBeacon.astro';
+import SubscribePanel from '@/features/notify/SubscribePanel.astro';
+import ReactionBar from '@/features/comments/ui/ReactionBar';
+import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
+import '@/features/comments/styles/comments.css';
+import { blog } from '@/data/site';
+import Footer from '@/features/home/ui/Footer.astro';
+import {
+  getAccessiblePosts,
+  getListedPosts,
+  getPostBySlug,
+} from '@/features/posts/server/content';
+import { UNLISTED_ROBOTS_DIRECTIVES } from '@/features/posts/unlisted';
+import {
+  buildPostPageProps,
+  type PostPageProps,
+} from '@/features/posts/server/page-props';
+import {
+  findPostForRoute,
+  getPostLocale,
+  isTranslation,
+  parsePostRoute,
+  postRouteSegment,
+  postVersionPath,
+} from '@/features/posts/i18n';
+import { formatPostDate, postTitleTransitionName } from '@/features/posts/format';
+import { buildBlogOgImageUrl } from '@/features/posts/server/og-image';
+import { readAuthorshipCredits } from '@/features/posts/server/directives/authors';
+import { buildSrcSet, withWidthParam } from '@/lib/media/responsive-image';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
+
+export const getStaticPaths = (async () => {
+  const [posts, listedPosts] = await Promise.all([
+    getAccessiblePosts({ outputTarget: 'web' }),
+    getListedPosts(),
+  ]);
+
+  // A translation is built under its locale, `/blog/en/<canonical>`, never at
+  // its own Ghost slug: one version, one URL, no language to negotiate.
+  return Promise.all(
+    posts.map(async (post) => ({
+      params: { slug: postRouteSegment(post) },
+      props: await buildPostPageProps(post, listedPosts, posts),
+    })),
+  );
+}) satisfies GetStaticPaths;
+
+// `prev` is older, `next` is newer (posts come back newest-first). In dev this
+// path is server-rendered so a draft can be opened without a rebuild;
+// production keeps the static article files for Pagefind.
+let { post, featureBlur, prev, next, versions, unlisted } = Astro.props as Partial<PostPageProps>;
+
+if (!post) {
+  const route = parsePostRoute(Astro.params.slug ?? '');
+  if (!route) {
+    return new Response(null, { status: 404 });
+  }
+
+  const [listedPosts, accessiblePosts] = await Promise.all([
+    getListedPosts(),
+    getAccessiblePosts({ outputTarget: 'web' }),
+  ]);
+  // The original may be a draft the accessible list does not carry yet; a
+  // translation only exists once its sibling is published, so the list is
+  // enough for it.
+  const rawPost = route.locale === null
+    ? await getPostBySlug(route.canonicalSlug, { outputTarget: 'web' })
+    : findPostForRoute(route, accessiblePosts);
+
+  if (!rawPost) {
+    return new Response(null, { status: 404 });
+  }
+
+  ({ post, featureBlur, prev, next, versions, unlisted } = await buildPostPageProps(
+    rawPost,
+    listedPosts,
+    accessiblePosts,
+  ));
+}
+
+versions ??= [];
+unlisted ??= false;
+
+prev ??= null;
+next ??= null;
+
+const featureStyle = featureBlur
+  ? `aspect-ratio:${featureBlur.width} / ${featureBlur.height}`
+  : undefined;
+const blogFeatureImageWidths = [640, 960, 1200, 1600] as const;
+const isBlogImageProxyUrl = (value: string | null) =>
+  Boolean(value && value.includes('/api/v2/images/blog/'));
+const featureImageSrc = post.featureImage && isBlogImageProxyUrl(post.featureImage)
+  ? withWidthParam(post.featureImage, 1200)
+  : post.featureImage;
+const featureImageSrcSet = post.featureImage && isBlogImageProxyUrl(post.featureImage)
+  ? buildSrcSet(post.featureImage, blogFeatureImageWidths)
+  : undefined;
+const featureImageSizes = '(min-width: 960px) 920px, calc(100vw - 40px)';
+const hasNoTocTag = post.tags.some((tag) => tag.slug === 'hash-no-toc' || tag.name === '#no-toc');
+// What this post's comment section does, and whether its heart works. The
+// site-wide answer lives in `blog.comments`; the internal tags on the post
+// override it one field at a time. site-api folds the same tags through the
+// same function on every write, so the page and the API cannot disagree about
+// a post -- see @bunizao/contracts/comments.
+const commentPolicy = commentPolicyFromTags(post.tags, blog.comments);
+// Authorship footer. A post that credits no model asserts the human pledge, so
+// the pledge is the default rather than a #not-by-ai opt-in — the tag no longer
+// gates anything here.
+//
+// Credits arrive as hoisted `authors` meta from the content pipeline.
+const authorshipCredits = readAuthorshipCredits(post.directiveMeta ?? {}, post.slug);
+const titleVT = postTitleTransitionName(post.slug);
+const postDescription = post.metaDescription ?? post.ogDescription ?? post.excerpt ?? undefined;
+const postAuthorName = post.primaryAuthor?.name ?? blog.author.name;
+const postImageForMetadata = post.featureImage ?? post.ogImage ?? post.twitterImage;
+const postOgImage = buildBlogOgImageUrl({
+  title: post.title,
+  site: blog.name,
+  excerpt: postDescription,
+  author: postAuthorName,
+  date: formatPostDate(post.publishedAt),
+  image: postImageForMetadata ? new URL(postImageForMetadata, 'https://buxx.me').toString() : undefined,
+});
+const publicTagNames = post.tags
+  .filter((tag) => tag.visibility === 'public')
+  .map((tag) => tag.name);
+const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
+  ? ''
+  : readTurnstileSiteKey(Astro.locals);
+// The site E2E fixture has no site-api service. Leave the presentational
+// loading shell in those tests and let the dedicated comments lab opt into a
+// mocked live controller explicitly with `interactive=1`.
+// A read-only thread keeps its id: it still loads and still renders what was
+// already written, it just has no box under the heading. Only `off` and the
+// fixture withhold it, and both mean "do not hydrate at all".
+const liveCommentsPostId = isE2ESiteFixtureEnabled(Astro.locals) ? undefined : post.id;
+const postLocale = getPostLocale(post);
+// Every version is self-canonical at the URL it is built under, so every
+// hreflang target declares itself and the cluster survives. Everything derived
+// from `path` — canonical, og:url, JSON-LD @id, the markdown alternate —
+// follows this, and a translation never mentions its Ghost slug.
+const canonicalPath = postVersionPath(post);
+// Out of Pagefind, still in Google: English prose segmented by the CJK
+// tokenizer surfaces as a duplicate hit for what its sibling already covers.
+const translated = isTranslation(post);
+---
+
+<BlogLayout
+  title={post.title}
+  description={postDescription}
+  path={canonicalPath}
+  locale={postLocale}
+  excludeFromSearch={translated}
+  languageAlternates={versions.map((version) => ({
+    locale: version.locale,
+    href: version.href,
+  }))}
+  ogType="article"
+  ogImage={postOgImage}
+  ogImageAlt={`${post.title} preview image`}
+  publishedTime={post.publishedAt}
+  modifiedTime={post.updatedAt}
+  authorName={postAuthorName}
+  tags={publicTagNames}
+  robots={unlisted ? UNLISTED_ROBOTS_DIRECTIVES : undefined}
+  preloadImage={featureImageSrc ? {
+    href: featureImageSrc,
+    srcset: featureImageSrcSet,
+    sizes: featureImageSrcSet ? featureImageSizes : undefined,
+  } : undefined}
+>
+  <ReadingTopbar slot="readingbar" noToc={hasNoTocTag} />
+  <a class="blog-back" href="/blog">{blog.copy[postLocale].back.index}</a>
+
+  <div class="blog-article-wrap">
+    <aside class="blog-aside">
+      <div class="blog-aside__sticky">
+        <a class="blog-back-rail" href="/blog">{blog.copy[postLocale].back.rail}</a>
+        <TableOfContents />
+      </div>
+    </aside>
+
+    <article data-pagefind-body>
+      <header class="blog-article__header">
+        <h1
+          class="blog-article__title"
+          data-vt-name={titleVT}
+          style="view-transition-class:post-title"
+        >{post.title}</h1>
+        <PostMeta post={post} />
+        <TagList
+          tags={post.tags}
+          versions={versions}
+          languageLabel={blog.copy[postLocale].languageSwitcher.open}
+        />
+      </header>
+
+      {post.featureImage && (
+        <figure class="blog-feature">
+          <span
+            class:list={['blog-media', { 'is-blur': featureBlur }]}
+            style={featureBlur ? `--lqip:url('${featureBlur.lqip}')` : undefined}
+          >
+            <img
+              src={featureImageSrc}
+              srcset={featureImageSrcSet}
+              sizes={featureImageSrcSet ? featureImageSizes : undefined}
+              alt={post.featureImageAlt ?? ''}
+              loading="eager"
+              fetchpriority="high"
+              style={featureStyle}
+              data-pagefind-meta="image[src], image_alt[alt]"
+            />
+          </span>
+          {post.featureImageCaption && (
+            <figcaption set:html={post.featureImageCaption} />
+          )}
+        </figure>
+      )}
+
+      <Prose html={post.html} />
+
+      {/* One band closes the post: provenance and reuse terms, then the things
+          a reader can do about it. The reaction bar loads its live tally and
+          persists presses through /api/v2/reactions; comments hydrate via
+          client/comments-controller.ts, which fetches the thread and owns
+          every submit, edit, delete, and like. */}
+      <Colophon credits={authorshipCredits} locale={postLocale}>
+        {/* An English post runs an English interface end to end (owner
+            decision): every widget on this page takes the post's own locale,
+            so the reaction bar, subscribe panel, share row, and the comment
+            thread below all agree with the article they sit under. */}
+        {commentPolicy.reactions && (
+          <ReactionBar client:idle count={0} locale={postLocale} postId={liveCommentsPostId} siteKey={turnstileSiteKey} />
+        )}
+        <div class="blog-article-sub">
+          <SubscribePanel variant="blog" locale={postLocale} anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
+          <ShareRow title={post.title} locale={postLocale} />
+        </div>
+      </Colophon>
+
+      {/* Last on the page, and open-ended: a thread has no fixed height, so
+          anything under it is at an address that moves. */}
+      {commentPolicy.mode !== 'off' && (
+        <CommentsSection
+          locale={postLocale}
+          state={commentPolicy.mode === 'readonly' ? 'closed' : 'loading'}
+          postId={liveCommentsPostId}
+          turnstileSiteKey={turnstileSiteKey}
+          requireEmail={commentPolicy.requireVerifiedEmail}
+        />
+      )}
+    </article>
+  </div>
+
+  {/* Leaving the post is the one thing that stays under the thread: it is
+      navigation away, not part of the article. */}
+  {(prev || next) && (
+    <footer class="blog-end">
+      <AdjacentNav prev={prev} next={next} />
+    </footer>
+  )}
+
+  <Footer />
+
+  <BackToTop />
+  <BlogArticleBeacon slug={post.slug} />
+  <script>
+    import { initCommentsController } from '@/features/comments/client/comments-controller';
+    initCommentsController();
+  </script>
+</BlogLayout>

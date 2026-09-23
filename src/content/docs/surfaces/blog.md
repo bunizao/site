@@ -38,18 +38,19 @@ read as a single voice, so the accents are three blues — not blue plus a warm
 counter-colour. Each shade owns exactly one job, and the job is fixed by WCAG
 contrast against the surface it sits on:
 
-- `{colors.dai}` — **primary**. Links, table-of-contents progress, focus rings,
-  hover. The greyed slate-blue shanshui painters dilute to push a ridge into the
-  haze. Text-safe in both modes (6.84:1 / 7.99:1).
-- `{colors.dian}` — **the mark**. The "Not by AI" pledge and the author byline.
-  A deep, concentrated indigo — the firmest blue on the page, because it stands
-  for the human behind the work. Text-safe in both modes (10.27:1 / 8.22:1).
-- `{colors.ji}` — **highlight, fill only**. The pale "sky after rain" wash for
-  emphasis on the reading surface. (Blog search now lives in the site-wide ⌘K
-  palette, which uses its own neutral mark, so `ji` is a reserved reading-zone
-  fill rather than a search-hit colour.) It measures **3.57:1** on the light
-  surface, so it **fails AA as text** — it may only ever be a background wash,
-  never a foreground colour. The constraint picks the role.
+| Token | Job | Contrast (light / dark) | Safe as text |
+| --- | --- | --- | --- |
+| `{colors.dai}` 黛 | Primary — links, table-of-contents progress, focus rings, hover | 6.84:1 / 7.99:1 | Both modes |
+| `{colors.dian}` 靛 | The mark — the "Not by AI" pledge and the author byline | 10.27:1 / 8.22:1 | Both modes |
+| `{colors.ji}` 霁 | Highlight wash on the reading surface | **3.57:1** / 8.79:1 | **No — fill only** |
+
+`dai` is the greyed slate-blue shanshui painters dilute to push a ridge into the
+haze. `dian` is the firmest blue on the page because it stands for the human
+behind the work, which is why it appears nowhere else. `ji` fails AA as text on
+the light surface, so it may only ever be a background — the constraint picks
+the role, not taste. Blog search now lives in the site-wide ⌘K palette with its
+own neutral mark, so `ji` is a reserved reading-zone fill rather than a
+search-hit colour.
 
 **Surfaces.** `{colors.surface.dark}` is `#0A0A0A`, not `#000`: pure black
 smears on OLED during scroll, and white text on it hits 21:1, which haloes in
@@ -117,8 +118,10 @@ Components compose the tokens above; they never introduce new colour or type.
 - `{components.tag-pill}` — `{colors.dai}` text on a 12% `{colors.dai}` wash. A
   tag may override its own accent via `--tag-accent`; absent that, it falls back
   to `{colors.dai}`.
-- `{components.not-by-ai}` — the pledge trigger and byline, in `{colors.dian}`.
-  This is the only place the deepest ink appears, by design.
+- `{components.ai-credit}` — the model co-author line in the post's colophon.
+  Carries no accent of its own: the vendor mark beside each model name is
+  already coloured, and a second colour inside 14px of metadata reads as two
+  competing marks. The name is told apart by weight on `{colors.body}`.
 - `{components.search-mark}` — reserved. Blog full-text search (Pagefind) now
   renders inside the site-wide ⌘K palette, which owns its own neutral highlight;
   the blog zone no longer draws its own search mark.
@@ -155,8 +158,9 @@ The whole band is `aria-hidden` and stops entirely under
 ## Do's and Don'ts
 
 - **Do** keep every accent inside the blue ink set. If a new surface needs an
-  accent, it is `{colors.dai}` unless it is specifically the human mark
-  (`{colors.dian}`) or a highlight wash (`{colors.ji}`).
+  accent, it is `{colors.dai}` unless it is a highlight wash (`{colors.ji}`);
+  `{colors.dian}` is currently unspent and stays that way until a surface has a
+  reason for an ink that is not a link.
 - **Do** derive greys from `{colors.ink}`'s alpha scale, so both modes stay in
   sync for free.
 - **Do** confirm any new text/background pair clears **WCAG AA 4.5:1** in *both*
@@ -276,9 +280,9 @@ components:
     backgroundColor: 'color-mix(in srgb, {colors.ji} 26%, transparent)'
     textColor: 'inherit'
     rounded: '3px'
-  not-by-ai:
+  ai-credit:
     typography: '{typography.meta}'
-    textColor: '{colors.dian}'
+    textColor: '{colors.body}'
   callout:
     typography: '{typography.excerpt}'
     textColor: '{colors.body}'

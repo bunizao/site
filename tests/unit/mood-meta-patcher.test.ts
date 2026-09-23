@@ -38,10 +38,10 @@ interface FakeElement {
   querySelectorAll(): FakeElement[];
 }
 
-function createMoodElement(id: string): FakeElement {
+function createMoodElement(id: string, top = 0): FakeElement {
   return {
     dataset: { moodId: id },
-    getBoundingClientRect: () => ({ width: 100, height: 100, top: 0, bottom: 100 }),
+    getBoundingClientRect: () => ({ width: 100, height: 100, top, bottom: top + 100 }),
     querySelector: () => null,
     querySelectorAll: () => [],
   };
@@ -138,6 +138,28 @@ describe('mood meta patcher live-count hydration', () => {
     await patcher.patch(['3757']);
 
     expect(calls).toEqual([['3758', '3757']]);
+  });
+
+  test('batches far-offscreen posts after the near-viewport ones', async () => {
+    const { createMoodMetaPatcher } = await importPatcher();
+    // DOM order: far post first. window.innerHeight is stubbed to 1000, so
+    // top 5000 is far outside the patch margin while top 0 is in view.
+    const root = createRoot([createMoodElement('90', 5000), createMoodElement('91', 0)]);
+
+    const calls: string[][] = [];
+    const patcher = createMoodMetaPatcher({
+      root,
+      readSource: 'archive',
+      fetchCounts: async (ids) => {
+        calls.push([...ids]);
+        return {};
+      },
+    });
+
+    await patcher.patchVisible();
+
+    // One batch, near-viewport id ordered ahead of the offscreen one.
+    expect(calls).toEqual([['91', '90']]);
   });
 });
 

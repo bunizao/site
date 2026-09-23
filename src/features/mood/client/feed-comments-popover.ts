@@ -1,11 +1,20 @@
 import {
   asText,
   buildCommentContentFragment,
+  createCommentReplyQuote,
   formatRelativeCommentDate,
+  readCommentReplyTarget,
   sanitizeImageUrl,
 } from '@/features/mood/shared/comments';
+import { resolveMoodCommentsCopy } from '@/features/comments/copy';
 import { getMoodDetailHref } from '@/features/mood/shared/feed-anchor';
 import { pageScroll } from '@/lib/page-scroll';
+
+// The popover is built from scratch rather than rendered by the page, so it
+// has no root of its own to carry `data-locale`; `<html lang>` is the page's
+// own answer to the same question.
+const locale = document.documentElement.lang || 'en';
+const t = resolveMoodCommentsCopy(locale);
 
 interface AnimatedEmojiHydrator {
   hydrate(root?: ParentNode): Promise<void>;
@@ -16,6 +25,11 @@ interface CommentPreviewData {
   authorAvatar?: string;
   datetime?: string;
   content?: string;
+  replyTo?: {
+    id?: string;
+    author?: string;
+    text?: string;
+  };
 }
 
 interface CommentsIndicatorOptions {
@@ -82,14 +96,14 @@ function createLoadingPopover({ postId, label, count }: CommentsIndicatorOptions
   return popover;
 }
 
-function renderComment(comment: CommentPreviewData): HTMLElement {
+function renderComment(comment: CommentPreviewData, postId: string): HTMLElement {
   const root = document.createElement('div');
   root.className = 'mood-popover-comment';
 
   const avatar = document.createElement('div');
   avatar.className = 'mood-popover-comment-avatar';
 
-  const author = asText(comment.author).trim() || 'Anonymous';
+  const author = asText(comment.author).trim() || t.anonymous;
   const avatarUrl = sanitizeImageUrl(comment.authorAvatar);
   if (avatarUrl) {
     const img = document.createElement('img');
@@ -118,7 +132,7 @@ function renderComment(comment: CommentPreviewData): HTMLElement {
   if (datetimeRaw) {
     dateEl.dateTime = datetimeRaw;
   }
-  dateEl.textContent = formatRelativeCommentDate(datetimeRaw, { compact: true });
+  dateEl.textContent = formatRelativeCommentDate(datetimeRaw, { compact: true, locale });
 
   header.appendChild(authorEl);
   header.appendChild(dateEl);
@@ -126,6 +140,11 @@ function renderComment(comment: CommentPreviewData): HTMLElement {
 
   const content = document.createElement('div');
   content.className = 'mood-popover-comment-content';
+  const replyTo = readCommentReplyTarget(comment.replyTo);
+  if (replyTo) {
+    // The parent lives on the detail page, not in the feed preview.
+    content.appendChild(createCommentReplyQuote(replyTo, getMoodDetailHref(postId, `#comment-${replyTo.id}`)));
+  }
   content.appendChild(buildCommentContentFragment(comment.content));
   body.appendChild(content);
 
@@ -202,11 +221,11 @@ export function createFeedCommentsPopoverController(
       const failed = document.createElement('div');
       failed.className = 'mood-comments-popover-empty mood-comments-popover-error';
       const message = document.createElement('p');
-      message.textContent = "Couldn't load comments";
+      message.textContent = t.popoverError;
       const retry = document.createElement('a');
       retry.className = 'mood-popover-view-all';
       retry.href = getMoodDetailHref(postId, '#comments');
-      retry.textContent = 'Open comments';
+      retry.textContent = t.popoverOpen;
       failed.append(message, retry);
       popover.replaceChildren(failed);
       return;
@@ -218,7 +237,7 @@ export function createFeedCommentsPopoverController(
     if (displayComments.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'mood-comments-popover-empty';
-      empty.textContent = 'No comments yet';
+      empty.textContent = t.popoverEmpty;
       popover.replaceChildren(empty);
       return;
     }
@@ -227,7 +246,7 @@ export function createFeedCommentsPopoverController(
     const list = document.createElement('div');
     list.className = 'mood-comments-popover-list';
     displayComments.forEach((comment) => {
-      list.appendChild(renderComment(comment));
+      list.appendChild(renderComment(comment, postId));
     });
     fragment.appendChild(list);
 
@@ -235,7 +254,7 @@ export function createFeedCommentsPopoverController(
       const viewAll = document.createElement('a');
       viewAll.className = 'mood-popover-view-all';
       viewAll.href = getMoodDetailHref(postId, '#comments');
-      viewAll.textContent = `View all ${options.totalLabel} comment${options.totalCount === 1 ? '' : 's'}`;
+      viewAll.textContent = t.popoverViewAll(options.totalLabel, options.totalCount);
       fragment.appendChild(viewAll);
     }
 

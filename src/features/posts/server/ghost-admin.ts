@@ -42,8 +42,20 @@ export interface GhostAdminPost {
   updatedAt: string | null;
 }
 
+export interface GhostAdminPostSummary {
+  id: string;
+  uuid: string;
+  slug: string;
+  title: string;
+  status: string;
+  updatedAt: string | null;
+  publishedAt: string | null;
+}
+
 export interface GhostAdminClient {
   readPostById(id: string): Promise<GhostAdminPost>;
+  readPostRevisionById(id: string): Promise<string | null>;
+  listPosts(): Promise<GhostAdminPostSummary[]>;
 }
 
 export type GhostAdminFetch = (
@@ -224,6 +236,84 @@ function parsePostResponse(payload: unknown, requestedId: string): GhostAdminPos
   };
 }
 
+function parsePostRevisionResponse(
+  payload: unknown,
+  requestedId: string,
+): { updatedAt: string | null } | null {
+  if (!isRecord(payload) || !Array.isArray(payload.posts) || payload.posts.length !== 1) {
+    return null;
+  }
+
+  const post = payload.posts[0];
+  if (!isRecord(post)) return null;
+  const { id, updated_at: updatedAt } = post;
+  if (
+    typeof id !== 'string'
+    || !GHOST_POST_ID_PATTERN.test(id)
+    || id.toLowerCase() !== requestedId.toLowerCase()
+    || (updatedAt !== null && typeof updatedAt !== 'string')
+  ) {
+    return null;
+  }
+
+  return { updatedAt };
+}
+
+function parsePostSummary(value: unknown): GhostAdminPostSummary | null {
+  if (!isRecord(value)) return null;
+
+  const {
+    id,
+    uuid,
+    slug,
+    title,
+    status,
+    updated_at: updatedAt,
+    published_at: publishedAt,
+  } = value;
+  const hasValidRequiredFields =
+    typeof id === 'string'
+    && GHOST_POST_ID_PATTERN.test(id)
+    && typeof uuid === 'string'
+    && GHOST_POST_UUID_PATTERN.test(uuid)
+    && typeof slug === 'string'
+    && Boolean(slug.trim())
+    && typeof title === 'string'
+    && typeof status === 'string'
+    && Boolean(status.trim());
+  const hasValidUpdatedAt = updatedAt === undefined
+    || updatedAt === null
+    || typeof updatedAt === 'string';
+  const hasValidPublishedAt = publishedAt === undefined
+    || publishedAt === null
+    || typeof publishedAt === 'string';
+
+  if (!hasValidRequiredFields || !hasValidUpdatedAt || !hasValidPublishedAt) return null;
+
+  return {
+    id,
+    uuid,
+    slug,
+    title,
+    status,
+    updatedAt: updatedAt ?? null,
+    publishedAt: publishedAt ?? null,
+  };
+}
+
+function parsePostsListResponse(payload: unknown): GhostAdminPostSummary[] | null {
+  if (!isRecord(payload) || !Array.isArray(payload.posts)) return null;
+
+  const posts: GhostAdminPostSummary[] = [];
+  for (const rawPost of payload.posts) {
+    const post = parsePostSummary(rawPost);
+    if (!post) return null;
+    posts.push(post);
+  }
+
+  return posts;
+}
+
 export function createGhostAdminClient(options: GhostAdminClientOptions): GhostAdminClient {
   const fetchImpl = options.fetch ?? fetch;
   const now = options.now ?? Date.now;
@@ -238,98 +328,126 @@ export function createGhostAdminClient(options: GhostAdminClientOptions): GhostA
   const key = splitAdminApiKey(adminApiKey);
   const apiBase = adminApiBase(ghostUrl);
 
-  return {
-    async readPostById(id: string): Promise<GhostAdminPost> {
-      if (!isGhostAdminPostId(id)) {
-        throw new GhostAdminClientError(
-          'invalid_identifier',
-          'Invalid Ghost Admin post ID.',
-        );
-      }
+  const signAdminToken = async (): Promise<string> => {
+    const nowSeconds = Math.floor(now() / 1000);
+    return new SignJWT()
+      .setProtectedHeader({ alg: 'HS256', kid: key.id, typ: 'JWT' })
+      .setIssuedAt(nowSeconds)
+      .setExpirationTime(nowSeconds + GHOST_ADMIN_TOKEN_TTL_SECONDS)
+      .setAudience('/admin/')
+      .sign(key.secret);
+  };
 
-      const nowSeconds = Math.floor(now() / 1000);
-      const token = await new SignJWT()
-        .setProtectedHeader({ alg: 'HS256', kid: key.id, typ: 'JWT' })
-        .setIssuedAt(nowSeconds)
-        .setExpirationTime(nowSeconds + GHOST_ADMIN_TOKEN_TTL_SECONDS)
-        .setAudience('/admin/')
-        .sign(key.secret);
-      const url = new URL(`posts/${id}/`, apiBase);
-      url.searchParams.set('formats', 'html');
-      const controller = new AbortController();
-      let timer: ReturnType<typeof setTimeout> | undefined;
+  // Shared fetch: signs a fresh token, applies the request timeout to both
+  // the network round trip and the bounded body read, and maps failures to
+  // GhostAdminClientError. Used by both single-post lookups and listPosts.
+  const fetchAdminJson = async (url: URL): Promise<unknown> => {
+    const token = await signAdminToken();
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
-      try {
-        const timeout = new Promise<never>((_resolve, reject) => {
-          timer = setTimeout(() => {
-            controller.abort();
-            reject(new GhostAdminClientError(
-              'timeout',
-              'Ghost Admin request timed out.',
-            ));
-          }, timeoutMs);
-        });
-        const response = await Promise.race([
-          fetchImpl(url.toString(), {
-            method: 'GET',
-            cache: 'no-store',
-            redirect: 'manual',
-            signal: controller.signal,
-            headers: {
-              Accept: 'application/json',
-              'Accept-Version': GHOST_ADMIN_API_VERSION,
-              Authorization: `Ghost ${token}`,
-            },
-          }),
-          timeout,
-        ]);
-
-        if (response.status === 404) {
-          throw new GhostAdminClientError(
-            'not_found',
-            'Ghost Admin post was not found.',
-            response.status,
-          );
-        }
-
-        if (!response.ok) {
-          throw new GhostAdminClientError(
-            'request_failed',
-            'Ghost Admin request failed.',
-            response.status,
-          );
-        }
-
-        const payload = await Promise.race([
-          readBoundedJson(response, maxResponseBytes),
-          timeout,
-        ]);
-        const post = parsePostResponse(payload, id);
-
-        if (!post) {
-          throw invalidResponseError();
-        }
-
-        return post;
-      } catch (error) {
-        if (controller.signal.aborted) {
-          throw new GhostAdminClientError(
+    try {
+      const timeout = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new GhostAdminClientError(
             'timeout',
             'Ghost Admin request timed out.',
-          );
-        }
+          ));
+        }, timeoutMs);
+      });
+      const response = await Promise.race([
+        fetchImpl(url.toString(), {
+          method: 'GET',
+          cache: 'no-store',
+          redirect: 'manual',
+          signal: controller.signal,
+          headers: {
+            Accept: 'application/json',
+            'Accept-Version': GHOST_ADMIN_API_VERSION,
+            Authorization: `Ghost ${token}`,
+          },
+        }),
+        timeout,
+      ]);
 
-        if (error instanceof GhostAdminClientError) {
-          throw error;
-        }
-
+      if (response.status === 404) {
+        throw new GhostAdminClientError(
+          'not_found',
+          'Ghost Admin post was not found.',
+          response.status,
+        );
+      }
+      if (!response.ok) {
         throw new GhostAdminClientError(
           'request_failed',
           'Ghost Admin request failed.',
+          response.status,
         );
-      } finally {
-        if (timer) clearTimeout(timer);
       }
+
+      return await Promise.race([
+        readBoundedJson(response, maxResponseBytes),
+        timeout,
+      ]);
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new GhostAdminClientError(
+          'timeout',
+          'Ghost Admin request timed out.',
+        );
+      }
+      if (error instanceof GhostAdminClientError) throw error;
+      throw new GhostAdminClientError(
+        'request_failed',
+        'Ghost Admin request failed.',
+      );
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+
+  const readPostPayload = (id: string, fields?: string): Promise<unknown> => {
+    if (!isGhostAdminPostId(id)) {
+      throw new GhostAdminClientError(
+        'invalid_identifier',
+        'Invalid Ghost Admin post ID.',
+      );
+    }
+
+    const url = new URL(`posts/${id}/`, apiBase);
+    if (fields) url.searchParams.set('fields', fields);
+    else url.searchParams.set('formats', 'html');
+    return fetchAdminJson(url);
+  };
+
+  const listPostsPayload = (): Promise<unknown> => {
+    const url = new URL('posts/', apiBase);
+    url.searchParams.set('fields', 'id,uuid,slug,title,status,updated_at,published_at');
+    url.searchParams.set('order', 'updated_at desc');
+    url.searchParams.set('limit', '100');
+    url.searchParams.set('formats', '');
+    return fetchAdminJson(url);
+  };
+
+  return {
+    async readPostById(id: string): Promise<GhostAdminPost> {
+      const post = parsePostResponse(await readPostPayload(id), id);
+      if (!post) throw invalidResponseError();
+      return post;
+    },
+    async readPostRevisionById(id: string): Promise<string | null> {
+      const revision = parsePostRevisionResponse(
+        await readPostPayload(id, 'id,updated_at'),
+        id,
+      );
+      if (!revision) throw invalidResponseError();
+      return revision.updatedAt;
+    },
+    async listPosts(): Promise<GhostAdminPostSummary[]> {
+      const posts = parsePostsListResponse(await listPostsPayload());
+      if (!posts) throw invalidResponseError();
+      return posts;
     },
   };
 }

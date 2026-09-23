@@ -78,6 +78,11 @@ describe('Cloudflare runtime configuration', () => {
     expect(prWorkflow).toContain('Install Playwright FFmpeg');
     expect(prWorkflow).toContain('PLAYWRIGHT_BROWSER_CHANNEL: chrome');
     expect(prWorkflow).toContain('node-version-file: .node-version');
+    expect(prWorkflow).toContain('max-parallel: 2');
+    expect(prWorkflow).toContain('shard: [1, 2]');
+    expect(prWorkflow).toContain('E2E_WORKERS: 2');
+    expect(prWorkflow).toContain('--fully-parallel --shard=${{ matrix.shard }}/${{ strategy.job-total }}');
+    expect(prWorkflow).toContain('name: playwright-report-${{ matrix.shard }}');
   });
 
   test('keeps dependency updates compatible with Bun and bounded CI load', () => {
@@ -109,7 +114,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(lighthouseWorkflow).toContain('skipped duplicate notification');
     expect(lighthouseWorkflow).toContain("if (issue.state === 'closed')");
     expect(lighthouseWorkflow).toContain('skipped duplicate recovery notification');
-    expect(lighthouseConfig).toContain("'/,/mood,/blog/'");
+    expect(lighthouseConfig).toContain("'/,/mood,/blog'");
+    expect(lighthouseConfig).toContain("throttlingMethod: 'devtools'");
     expect(lighthouseConfig).toContain('--disable-background-timer-throttling');
     expect(lighthouseConfig).toContain('--disable-backgrounding-occluded-windows');
     expect(lighthouseConfig).toContain('--disable-renderer-backgrounding');
@@ -160,6 +166,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(astroConfig).toContain("from '@astrojs/cloudflare'");
     expect(astroConfig).toContain("imageService: 'passthrough'");
     expect(astroConfig).toContain("prerenderEnvironment: 'node'");
+    expect(astroConfig).toContain("trailingSlash: 'never'");
+    expect(astroConfig).toContain("format: 'file'");
     expect(astroConfig).not.toContain("from '@astrojs/vercel'");
     expect(packageJson.scripts?.preview).toBe('bun run preview:cloudflare');
     expect(packageJson.scripts?.['build:cloudflare']).toBe('node scripts/build-cloudflare.mjs');
@@ -168,9 +176,11 @@ describe('Cloudflare runtime configuration', () => {
     expect(packageJson.scripts?.['preview:cloudflare']).toBe('bun run build:cloudflare && wrangler dev --config dist/server/wrangler.json');
     expect(packageJson.scripts?.['tail:cloudflare']).toBe('wrangler tail');
     expect(packageJson.scripts?.['types:cloudflare']).toBe('wrangler types');
-    expect(packageJson.scripts?.check).toBe('astro sync && node scripts/astro-check-legacy-typescript.mjs');
+    expect(packageJson.scripts?.check).toBe(
+      'bun run contracts:build && astro sync && node scripts/astro-check-legacy-typescript.mjs',
+    );
     expect(readText('scripts/astro-check-legacy-typescript.mjs')).toContain('typescript-astro-check');
-    expect(packageJson.scripts?.build).toStartWith('astro build');
+    expect(packageJson.scripts?.build).toStartWith('bun run contracts:build && astro build');
     expect(packageJson.scripts?.build).toContain('bun scripts/generate-agent-markdown.ts');
     expect(packageJson.scripts?.build).toContain('cloudflare-deploy-guard.mjs install');
     expect(packageJson.scripts?.dev).toContain('astro dev');
@@ -221,6 +231,7 @@ describe('Cloudflare runtime configuration', () => {
       assets?: {
         directory?: string;
         binding?: string;
+        html_handling?: string;
         run_worker_first?: string[];
       };
       routes?: Array<{ pattern?: string; zone_name?: string; custom_domain?: boolean }>;
@@ -236,6 +247,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.placement?.mode).toBe('smart');
     expect(config.assets?.directory).toBe('./dist');
     expect(config.assets?.binding).toBe('ASSETS');
+    expect(config.assets?.html_handling).toBe('drop-trailing-slash');
     expect(config.assets?.run_worker_first).toEqual([
       '/',
       '/api/*',
@@ -244,6 +256,7 @@ describe('Cloudflare runtime configuration', () => {
       '/mood*',
       '/privacy*',
       '/projects*',
+      '/reader*',
       '/sitemap.xml',
       '/dev',
       '/dev/*',
@@ -285,7 +298,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(headers).toContain('https://www.youtube.com');
     expect(headers).toContain('https://static.cloudflareinsights.com');
     expect(headers).toContain('https://challenges.cloudflare.com');
-    expect(headers).toContain('Cache-Control: public, max-age=0, must-revalidate');
+    expect(headers).not.toContain('must-revalidate');
     expect(headers).not.toContain('no-transform');
     expect(headers).toContain('https://buxx.me/blog*');
     expect(headers).not.toContain('https://buxx.me/gmetrics/');
@@ -324,18 +337,29 @@ describe('Cloudflare runtime configuration', () => {
 
     expect(registry).toContain('MOOD_FEED_PAGE_CACHE_TTL_SECONDS = 300');
     expect(registry).toContain('MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800');
-    expect(responses).toContain('CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 300');
+    expect(responses).toContain('CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 86400');
     expect(responses).toContain('Cloudflare-CDN-Cache-Control');
     expect(responses).toContain('stale-while-revalidate=');
     expect(responses).toContain('NO_STORE_CACHE_CONTROL');
     expect(registry).toContain('readBuiltBlogMarkdown');
+    // One URL is one document: a translation lives at its own path, so the
+    // cache key never carries a language.
     expect(responses).toContain("variant: 'html'");
     expect(responses).toContain("variant: 'markdown'");
+    expect(edgeCache).toContain("EdgeCacheVariant = 'html' | 'markdown'");
+    expect(responses).toContain('Accept-Language');
     expect(responses).toContain('url.search');
-    expect(middleware).toContain('readCachedHtmlPage');
-    expect(registry).toContain('data-mood-initial-feed');
-    expect(registry).toContain('data-mood-id=');
-    expect(registry).toContain('X-Buxx-Mood-Page-Cache');
+    // The worker entrypoint owns the edge HTML cache — one read, one write
+    // deferred via waitUntil, stale entries revalidated in the background. The
+    // middleware only decorates responses.
+    const worker = readText('src/worker.ts');
+    expect(worker).toContain('readCachedHtmlPage');
+    expect(worker).toContain('waitUntil(revalidateHtmlPage');
+    expect(middleware).not.toContain('readCachedHtmlPage');
+    expect(edgeCache).toContain('x-edge-cached-at');
+    expect(edgeCache).toContain("'STALE'");
+    expect(responses).toContain('X-Buxx-Cache-Ready');
+    expect(edgeCache).not.toContain('isResponseReady');
     expect(edgeCache).toContain('caches?.default');
     expect(builtBlog).toContain('/_agent-markdown/blog/');
   });
@@ -357,11 +381,13 @@ describe('Cloudflare runtime configuration', () => {
     const mediaHydration = readText('src/features/mood/client/feed-media-hydration.ts');
     const feedThumbnail = readText('src/features/mood/shared/feed-thumbnail.ts');
 
-    expect(feedShell).toContain('src={thumbImage}');
+    expect(feedShell).toContain('src={isPriorityMedia ? thumbImage : undefined}');
+    expect(feedShell).toContain('data-deferred-src={!isPriorityMedia ? thumbImage : undefined}');
     expect(feedShell).not.toContain('withWidthParam(thumbImage');
     expect(feedShell).not.toContain('srcset={buildSrcSet(thumbImage');
     expect(mediaHydration).toContain("img.removeAttribute('srcset')");
     expect(mediaHydration).toContain("img.removeAttribute('sizes')");
+    expect(mediaHydration).toContain('registerDeferredImage(target, () => hydrateDeferredImage(node))');
     expect(feedThumbnail).toContain('getMoodImageRatio');
     expect(renderer).toContain('img.dataset.deferredSrc = imageSrc');
     expect(renderer).toContain('mediaHydrator.registerDeferredImage(thumbWrap');
@@ -377,9 +403,21 @@ describe('Cloudflare runtime configuration', () => {
     expect(timelineWheel).not.toContain("import gsap from 'gsap'");
     expect(timelineWheel).toContain("import('gsap')");
     expect(timelineWheel).toContain("const feedStartsHidden = feedEl.classList.contains('is-hidden')");
-    expect(timelineWheel).toContain('if (isDesktop() && feedStartsHidden)');
+    expect(timelineWheel).toContain('if (feedStartsHidden)');
     expect(updateWatcher).not.toContain("import gsap from 'gsap'");
     expect(updateWatcher).toContain("import('gsap')");
+  });
+
+  test('loads the SSR mood feed controller after the critical path', () => {
+    const moodRoute = readText('src/pages/mood.astro');
+
+    expect(moodRoute).not.toContain(
+      "import { initMoodFeedController } from '@/features/mood/client/feed-controller'",
+    );
+    expect(moodRoute).toContain("import('@/features/mood/client/feed-controller')");
+    expect(moodRoute).toContain("window.addEventListener('load', initFeed, { once: true })");
+    expect(moodRoute).toContain("feed?.classList.contains('is-hidden')");
+    expect(moodRoute).toContain('feed?.dataset.moodAnchorId');
   });
 
   test('keeps the mood feed accessible under Lighthouse', () => {
@@ -407,7 +445,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(hero).toContain("import DecodeText from '@/features/home/ui/DecodeText.astro';");
     expect(hero).toContain('<DecodeText>');
     expect(hero).toContain('<h1 class="hero-animate');
-    expect(hero).toContain("const { default: gsap } = await import('gsap');");
+    // The hero entrance is CSS; nothing in the hero waits on a GSAP chunk.
+    expect(hero).not.toContain("import('gsap')");
     expect(hero).toContain('const lcpAnchorName = typewriterNames.reduce');
     expect(hero).toContain('<span class="hero-lcp-anchor" aria-hidden="true">{lcpAnchorName}</span>');
     expect(decodeEngine).toContain('document.fonts?.ready');
@@ -420,12 +459,13 @@ describe('Cloudflare runtime configuration', () => {
     // own accelerate/settle cycle and the bio reveals as a top-to-bottom queue.
     expect(decodeEngine).toContain('opts.ease(clock / duration)');
     expect(decodeEngine).toContain('requestAnimationFrame(tick)');
-    expect(hero).toContain('const identity = heroElements.filter((el) => !el.hasAttribute');
-    expect(hero).toContain('gsap.set(heroElements, { opacity: 0, y: 20 });');
-    expect(hero).toContain('heroTl.to(identity, {');
-    expect(hero).toContain('gsap.to(widgets, {');
-    expect(hero).toContain('window.addEventListener(HOME_HERO_NAME_TYPED_EVENT, startPhaseTwo');
-    expect(hero).toContain("window.dispatchEvent(new CustomEvent('home:hero-bio-ready'))");
+    expect(hero).toContain(':global(html.js) .hero-section.is-live .hero-animate {');
+    expect(hero).toContain('transition-delay: calc(var(--hero-i, 0) * 80ms);');
+    expect(hero).toContain('transition-delay: calc(950ms + var(--hero-i, 0) * 70ms);');
+    expect(hero).toContain("heroSection.classList.add('is-live');");
+    expect(hero).toContain("window.setTimeout(() => announce('home:hero-name-ready'), NAME_READY_MS);");
+    expect(hero).toContain("window.setTimeout(() => announce('home:hero-bio-ready'), BIO_MS);");
+    expect(hero).toContain('announce(HOME_HERO_GITHUB_READY_EVENT);');
     const listeningMarkup = readText('src/lib/listening/markup.ts');
     const listeningStyles = readText('src/styles/listening.css');
     const listeningController = readText('src/lib/listening/controller.ts');
@@ -446,19 +486,23 @@ describe('Cloudflare runtime configuration', () => {
     expect(homePage).not.toMatch(/content-visibility[\s\S]{0,200}> section/);
   });
 
+  // Every Turnstile surface goes through readTurnstileSiteKey (which still
+  // ends at readPublicEnv, plus the staging override) rather than reading the
+  // build-time variable inline -- an inlined PUBLIC_TURNSTILE_SITE_KEY is
+  // frozen at build and cannot follow an environment.
   test('reads Turnstile site key from runtime public env on the mood route', () => {
     const moodRoute = readText('src/pages/mood.astro');
 
-    expect(moodRoute).toContain("readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY')");
+    expect(moodRoute).toContain('readTurnstileSiteKey(Astro.locals)');
     expect(moodRoute).not.toContain('import.meta.env.PUBLIC_TURNSTILE_SITE_KEY');
   });
 
   test('reads Turnstile site key from runtime public env on blog subscribe surfaces', () => {
     const blogMasthead = readText('src/features/posts/ui/BlogMasthead.astro');
-    const blogArticle = readText('src/pages/blog/[slug].astro');
+    const blogArticle = readText('src/pages/blog/[...slug].astro');
 
-    expect(blogMasthead).toContain("readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY')");
-    expect(blogArticle).toContain("readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY')");
+    expect(blogMasthead).toContain('readTurnstileSiteKey(Astro.locals)');
+    expect(blogArticle).toContain('readTurnstileSiteKey(Astro.locals)');
     expect(blogMasthead).not.toContain('import.meta.env.PUBLIC_TURNSTILE_SITE_KEY');
     expect(blogArticle).not.toContain('import.meta.env.PUBLIC_TURNSTILE_SITE_KEY');
   });

@@ -1,4 +1,13 @@
 .mood-gallery {
+  /* The gap between slides, and the share of the next slide that stays visible
+     when the row overflows. 0.667 = one whole slide plus half of the next:
+     a row that is cut is cut unmistakably, never by a sliver. */
+  --mood-gallery-gap: 10px;
+  /* A lone photo is sized by its own height cap; a row is sized by the track,
+     and these only keep an extreme ratio from flattening or towering it. */
+  --mood-gallery-height: 280px;
+  --mood-gallery-min-height: 240px;
+  --mood-gallery-max-height: min(520px, 68vh);
   position: relative;
   width: 100%;
   min-width: 0;
@@ -8,13 +17,22 @@
 .mood-gallery-track {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--mood-gallery-gap);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 2px;
+  /* The height every photo in the row shares -- a row wants one baseline and
+     one ceiling, or it reads as debris. --mood-gallery-lead turns the space
+     left by the gap into the height that cuts the second photo in half; see
+     getMoodGalleryRowLead, which is where that solution lives. */
+  --mood-gallery-row-height: clamp(
+    var(--mood-gallery-min-height),
+    (100% - var(--mood-gallery-gap)) * var(--mood-gallery-lead, 0.5),
+    var(--mood-gallery-max-height)
+  );
 }
 
 .mood-gallery-track::-webkit-scrollbar {
@@ -32,15 +50,22 @@
   overflow: hidden;
 }
 
-.mood-gallery--feed .mood-gallery-slide {
+/* A single photo keeps its own scale: as wide as its ratio reaches at the
+   height cap, and never wider than the column it sits in. */
+:is(.mood-gallery--feed, .mood-gallery--detail) .mood-gallery-slide {
   border-radius: 20px;
-  /* The slide sizes to fit-content, which measures 0px until the deferred image
-     decodes, so every feed gallery collapsed and then popped open as it scrolled
-     into view. This is the box the image settles into anyway -- the capped
-     width, or the width its ratio reaches at the capped height, whichever is
-     smaller -- so stating it up front costs nothing and holds the height. */
-  width: min(400px, 280px * (var(--mood-gallery-ratio, 4 / 3)));
+  width: min(100%, var(--mood-gallery-height) * var(--mood-gallery-grow, 1.3333));
   aspect-ratio: var(--mood-gallery-ratio, 4 / 3);
+}
+
+/* A row is sized by the column instead: two 3:4 photos very nearly fit a 534px
+   column, and "very nearly" is the worst outcome -- the second one loses a
+   20px strip and looks broken rather than continued. Sizing the row off the
+   track puts the cut at half a photo, so the row reads as a row. The photos
+   are larger than a lone one because half of one has to be worth seeing. */
+:is(.mood-gallery--feed, .mood-gallery--detail):not([data-mood-gallery-count='1'])
+  .mood-gallery-slide {
+  width: min(100%, var(--mood-gallery-row-height) * var(--mood-gallery-grow, 1.3333));
 }
 
 .mood-gallery-image {
@@ -51,7 +76,7 @@
   box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
 }
 
-.mood-gallery--feed .mood-gallery-image {
+:is(.mood-gallery--feed, .mood-gallery--detail) .mood-gallery-image {
   width: 100%;
   height: 100%;
   max-width: none;
@@ -59,85 +84,74 @@
   object-fit: contain;
 }
 
-.mood-gallery--detail {
-  margin: 1.5em 0;
+/* The trailing edge of a row that keeps going: two stacked backdrop layers,
+   each masked further to the right, so the cut slide dissolves instead of
+   stopping. A third layer costs another backdrop pass for a difference nobody
+   sees. It is painted only while there is something to scroll to. */
+.mood-gallery-fade {
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  width: 72px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  mask-image: linear-gradient(to right, transparent 0%, #000 62%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 62%);
 }
 
-.mood-gallery--detail .mood-gallery-track {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  overflow: visible;
-  scroll-snap-type: none;
-  scrollbar-width: auto;
-  padding: 0;
-}
-
-.mood-gallery--detail .mood-gallery-track::after {
+.mood-gallery-fade::after {
   content: '';
-  flex: 999999 1 0;
-  min-width: 0;
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: linear-gradient(to right, transparent, hsl(var(--background) / 0.3));
+  mask-image: linear-gradient(to right, transparent 42%, #000 96%);
+  -webkit-mask-image: linear-gradient(to right, transparent 42%, #000 96%);
 }
 
-.mood-gallery--detail .mood-gallery-track::-webkit-scrollbar {
-  display: none;
+.mood-gallery[data-mood-gallery-edge='end'] .mood-gallery-fade {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mood-gallery-fade {
+    transition: none;
+  }
+}
+
+/* The detail gallery is the feed's gallery: one row, swiped sideways, each
+   image whole. It had been a block of its own -- justified, then a square
+   mosaic -- and both made the article stop and stare at its own pictures. The
+   feed already had the answer, so the two variants share every rule about size
+   and shape; the only thing detail adds is that its images open full size. */
+.mood-gallery--detail {
+  margin: 2em 0;
 }
 
 .mood-gallery--detail .mood-gallery-slide {
-  flex: var(--mood-gallery-grow, 1) 1 var(--mood-gallery-basis, 210px);
-  width: auto;
-  max-width: min(100%, var(--mood-gallery-max-width, 760px));
-  border-radius: 18px;
-  scroll-snap-align: unset;
-  box-shadow:
-    0 16px 40px hsl(var(--foreground) / 0.12),
-    0 6px 18px hsl(var(--foreground) / 0.08);
+  /* Never wider than the column it is read in. */
+  max-width: min(100%, 84vw, 760px);
+  cursor: zoom-in;
 }
 
-.mood-gallery--detail .mood-gallery-image {
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  object-fit: cover;
+.mood-gallery--detail .mood-gallery-slide:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.6);
+  outline-offset: 2px;
 }
 
 @media (min-width: 640px) {
-  .mood-gallery-track {
-    gap: 12px;
-  }
-
-  .mood-gallery--feed .mood-gallery-slide {
-    width: min(480px, 320px * (var(--mood-gallery-ratio, 4 / 3)));
-  }
-
-  .mood-gallery--detail .mood-gallery-slide {
-    flex-basis: var(--mood-gallery-basis-sm, 260px);
-    max-width: min(100%, var(--mood-gallery-max-width-sm, 760px));
-    border-radius: 20px;
+  .mood-gallery {
+    --mood-gallery-gap: 12px;
+    --mood-gallery-height: 320px;
   }
 }
 
 @media (min-width: 1024px) {
-  .mood-gallery--feed .mood-gallery-slide {
-    width: min(560px, 360px * (var(--mood-gallery-ratio, 4 / 3)));
-  }
-
-  .mood-gallery--detail {
-    position: relative;
-    left: 50%;
-    width: min(calc(100vw - 120px), 1280px);
-    max-width: none;
-    margin: 1.75em 0 2em;
-    transform: translateX(-50%);
-  }
-
-  .mood-gallery--detail .mood-gallery-track {
-    width: 100%;
-  }
-
-  .mood-gallery--detail .mood-gallery-slide {
-    flex-basis: var(--mood-gallery-basis-lg, 320px);
-    max-width: min(100%, var(--mood-gallery-max-width-lg, 760px));
+  .mood-gallery--feed {
+    --mood-gallery-height: 360px;
   }
 }

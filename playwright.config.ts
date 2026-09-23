@@ -24,6 +24,10 @@ export default defineConfig({
   ],
   use: {
     baseURL,
+    // /mood and /mood/[id] negotiate their language off Accept-Language, and
+    // the specs assert English strings. Pin it rather than inherit whatever
+    // the browser build defaults to.
+    locale: 'en-US',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

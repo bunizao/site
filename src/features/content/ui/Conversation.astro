@@ -13,3 +13,12 @@ const { source } = Astro.props;
 ---
 
 <Fragment set:html={renderConversation(source)} />
+
+<script>
+  // Progressive enhancement only: see conversation-fit.ts for why a wrapped
+  // bubble needs a measuring pass that CSS cannot express.
+  import { observeConversations, refitOnFontLoad } from '@/features/content/client/conversation-fit';
+
+  observeConversations(document);
+  refitOnFontLoad();
+</script>

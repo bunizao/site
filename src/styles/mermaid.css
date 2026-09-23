@@ -1,0 +1,82 @@
+.mermaid-diagram {
+  --mermaid-line: hsl(var(--foreground) / 0.1);
+  --mermaid-surface: hsl(var(--foreground) / 0.025);
+
+  width: 100%;
+  margin: 1.5rem 0;
+  border: 1px solid var(--mermaid-line);
+  border-radius: 0.75rem;
+  background: var(--mermaid-surface);
+  overflow: hidden;
+}
+
+.mermaid-diagram__canvas {
+  display: none;
+  min-height: 7rem;
+  padding: 1rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.js .mermaid-diagram__canvas {
+  display: grid;
+  place-items: center;
+}
+
+.mermaid-diagram__canvas svg {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: min(70vh, 42rem);
+  margin: auto;
+}
+
+.mermaid-diagram__source {
+  margin: 0;
+  padding: 1rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow-x: auto;
+  white-space: pre;
+  font-family: var(--font-code);
+  font-size: 0.8125rem;
+  line-height: 1.62;
+  color: hsl(var(--foreground) / 0.72);
+}
+
+.mermaid-diagram__source code {
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+
+.js .mermaid-diagram__source {
+  display: none;
+}
+
+.js .mermaid-diagram[data-mermaid-state='error'] .mermaid-diagram__canvas {
+  display: none;
+}
+
+.js .mermaid-diagram[data-mermaid-state='error'] .mermaid-diagram__source {
+  display: block;
+}
+
+.docs-prose .mermaid-diagram {
+  margin: 0 0 1.5rem;
+  border-radius: 0.6rem;
+}
+
+.blog-prose .mermaid-diagram {
+  margin-block: 36px;
+}
+
+@media (max-width: 640px) {
+  .mermaid-diagram__canvas,
+  .mermaid-diagram__source {
+    padding: 0.75rem;
+  }
+}

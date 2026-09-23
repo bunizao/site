@@ -7,9 +7,8 @@ interface CopyCommandProps {
 }
 
 /**
- * Inked command bar + copy button. The icon crossfades copy → check behind a
- * 2px blur mask; the "Copied" tooltip appears instantly (no fade-in) so the
- * confirmation reads as immediate. The button presses with scale(0.97).
+ * Inked command bar + the site's shared copy button (styles/copy-button.css):
+ * a bare icon that crossfades copy → check and pops a "Copied" bubble.
  */
 export function CopyCommand({ command }: CopyCommandProps) {
   const [copied, setCopied] = React.useState(false);
@@ -34,16 +33,16 @@ export function CopyCommand({ command }: CopyCommandProps) {
       <code className="copy-command-text">{command}</code>
       <button
         type="button"
-        className="copy-command-btn"
+        className="copy-btn"
         onClick={copy}
         aria-label={copied ? 'Copied' : 'Copy command'}
         data-copied={copied ? '' : undefined}
       >
-        <span className="copy-command-icons" aria-hidden="true">
-          <Copy className="copy-command-icon copy-command-icon--copy" />
-          <Check className="copy-command-icon copy-command-icon--check" />
+        <span className="copy-btn-icons" aria-hidden="true">
+          <Copy className="copy-btn-icon copy-btn-icon--copy" />
+          <Check className="copy-btn-icon copy-btn-icon--check" />
         </span>
-        {copied ? <span className="copy-command-tip" role="status">Copied</span> : null}
+        <span className="copy-btn-tip" role="status">Copied</span>
       </button>
     </div>
   );

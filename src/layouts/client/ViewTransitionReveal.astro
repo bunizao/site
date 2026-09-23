@@ -1,0 +1,47 @@
+---
+// Incoming half of the cross-document name broker. The outgoing half lives in
+// @/lib/view-transition-names; see that file for why names are brokered at all.
+//
+// This half MUST be inline. `pagereveal` fires on the incoming document at
+// readyState "interactive", before the first render opportunity — measured at
+// ~20ms (Layout) to ~175ms (BlogLayout) ahead of the bundled module, which is a
+// deferred ES module and so cannot execute until the parser is done. A listener
+// registered there is always too late, and the destination element never claims
+// its name, silently degrading every shared-element morph to the root dissolve.
+//
+// The two halves share one contract: sessionStorage['vt-morph'] holds
+// {name, key}, where `key` is the destination's pathname (no trailing slash)
+// plus search, normalised by the sender. sessionStorage is already origin-
+// scoped, so the key is the whole identity check.
+---
+
+<script is:inline>
+  (() => {
+    // Read-and-clear on every reveal, transition or not. The sender also clears
+    // after an outgoing transition settles without reaching this document.
+    const take = () => {
+      let raw = null;
+      try {
+        raw = sessionStorage.getItem('vt-morph');
+        sessionStorage.removeItem('vt-morph');
+      } catch (e) {
+        return null;
+      }
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw);
+        return parsed && parsed.name && parsed.key ? parsed : null;
+      } catch (e) {
+        return null;
+      }
+    };
+
+    window.addEventListener('pagereveal', (event) => {
+      const handoff = take();
+      if (!event.viewTransition || !handoff) return;
+      if (handoff.key !== location.pathname.replace(/\/$/, '') + location.search) return;
+      const target = document.querySelector('[data-vt-name="' + CSS.escape(handoff.name) + '"]');
+      if (target) target.style.viewTransitionName = handoff.name;
+    });
+  })();
+</script>

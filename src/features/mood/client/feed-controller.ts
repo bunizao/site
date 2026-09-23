@@ -6,8 +6,6 @@ import { createFeedUpdateWatcher } from '@/features/mood/client/feed-update-watc
 import { initMoodGalleries } from '@/features/mood/client/gallery';
 import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
-import { initListeningCards } from '@/lib/listening/controller';
-import { initYouTubeEmbeds } from '@/lib/embed/youtube-controller';
 import { pageScroll } from '@/lib/page-scroll';
 import { formatMoodDateKey, rekeyMoodServerRenderedGroups } from '@/features/mood/shared/date-grouping';
 import {
@@ -25,10 +23,46 @@ import type {
   MoodData,
 } from '@/features/mood/client/feed-types';
 
+// Listening cards and YouTube embeds are rare in the feed. Their controllers
+// (plus the MusicKit player behind the listening one) load only when matching
+// markup is actually in the tree, instead of shipping in the startup bundle.
+// Their stylesheets cannot ride along as CSS imports here — Astro hoists any
+// CSS reachable from a page script into <head> unconditionally — so the feed
+// element carries the built asset URLs and this injects a <link> on demand.
+function ensureStylesheet(href: string | undefined): void {
+  if (!href) return;
+  const links = document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]');
+  for (const link of links) {
+    if (link.getAttribute('href') === href) return;
+  }
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+function hydrateFeedEmbeds(root: HTMLElement): void {
+  const feed = root.closest<HTMLElement>('[data-mood-feed]');
+  if (root.querySelector('[data-listening]')) {
+    ensureStylesheet(feed?.dataset.listeningCss);
+    void import('@/lib/listening/controller').then(({ initListeningCards }) => {
+      initListeningCards(root);
+    });
+  }
+  if (root.querySelector('[data-yt]')) {
+    ensureStylesheet(feed?.dataset.embedYoutubeCss);
+    void import('@/lib/embed/youtube-controller').then(({ initYouTubeEmbeds }) => {
+      initYouTubeEmbeds(root);
+    });
+  }
+}
+
 const MOOD_FETCH_ATTEMPTS = 2;
 const MOOD_FETCH_RETRY_DELAY_MS = 200;
 const RETRYABLE_MOOD_FETCH_STATUSES = new Set([408, 425, 500, 502, 503, 504]);
-const FEED_PREFETCH_MARGIN_PX = 1200;
+// A flick on iPad covers several thousand pixels while a page is still on the
+// wire, so the next page has to start well before the last one is in view.
+const FEED_PREFETCH_MARGIN_PX = 2400;
 
 export function initMoodFeedController(): void {
     const scroll = pageScroll();
@@ -59,6 +93,7 @@ export function initMoodFeedController(): void {
         list.setAttribute('aria-busy', 'true');
       } else {
         let isLoading = false;
+        let loadMoreQueued = false;
         let isLoadingNewer = false;
         let hasMore = true;
         let hasNewer = false;
@@ -243,13 +278,19 @@ export function initMoodFeedController(): void {
           query.set('fallback', '0');
         }
         const queryString = query.toString();
+        // Archive reads degrade to the live mirror once /api/v2/mood exhausts
+        // its retries. Tag filters only exist on the archive route, so they
+        // stay strict.
         const endpoints = archiveRead
-          ? ['/api/v2/mood']
+          ? (feedTagFilter ? ['/api/v2/mood'] : ['/api/v2/mood', '/api/moods'])
           : ['/api/moods'];
         let lastError: unknown = new Error('Failed to load moods.');
 
         for (const endpoint of endpoints) {
           const url = queryString ? `${endpoint}?${queryString}` : endpoint;
+          if (endpoint !== endpoints[0]) {
+            console.warn(`Mood feed degraded to ${endpoint}.`, lastError);
+          }
           for (let attempt = 0; attempt < MOOD_FETCH_ATTEMPTS; attempt += 1) {
             let response: Response;
             try {
@@ -263,7 +304,9 @@ export function initMoodFeedController(): void {
 
             if (response.ok) {
               try {
-                return await response.json() as { posts: MoodData[]; channel?: ChannelInfo };
+                const payload = await response.json() as { posts: MoodData[]; channel?: ChannelInfo };
+                feedEl.dataset.moodFeedSource = endpoint === '/api/moods' ? 'live' : 'archive';
+                return payload;
               } catch (error) {
                 lastError = error;
                 if (attempt + 1 >= MOOD_FETCH_ATTEMPTS) break;
@@ -714,10 +757,12 @@ export function initMoodFeedController(): void {
         // timezone so per-post times read local and later client appends merge
         // into the same date groups. Runs before any append or anchor reveal.
         rekeyMoodServerRenderedGroups(list);
+        // The SSR list ships visibility:hidden until the inline pre-paint
+        // script reveals it; keep the feed usable if that script was stripped.
+        list.style.removeProperty('visibility');
         mediaHydrator.applyMediaHints(list);
         initMoodGalleries(list);
-        initListeningCards(list);
-        initYouTubeEmbeds(list);
+        hydrateFeedEmbeds(list);
       }
 
       const appendMoods = (posts: MoodData[], startIndex = totalCount): void => {
@@ -726,8 +771,7 @@ export function initMoodFeedController(): void {
           updateWatcher.syncLatestSeenId();
         }
         hydrateMoodRichText(list);
-        initListeningCards(list);
-        initYouTubeEmbeds(list);
+        hydrateFeedEmbeds(list);
         patchVisibleMoodMeta();
         revealFeedAnchor();
       };
@@ -743,8 +787,7 @@ export function initMoodFeedController(): void {
         if (heightDelta > 0) {
           scroll.el.scrollTo({ top: scroll.el.scrollTop + heightDelta, behavior: 'auto' });
         }
-        initListeningCards(list);
-        initYouTubeEmbeds(list);
+        hydrateFeedEmbeds(list);
         patchVisibleMoodMeta();
       };
 
@@ -814,19 +857,17 @@ export function initMoodFeedController(): void {
         anchorOlderTouchStartY = null;
       }
 
+      const isSentinelNear = (): boolean => {
+        const rect = sentinel.getBoundingClientRect();
+        return rect.top <= window.innerHeight + FEED_PREFETCH_MARGIN_PX
+          && rect.bottom >= -FEED_PREFETCH_MARGIN_PX;
+      };
+
       function openAnchorOlderObserverGate(): void {
         if (!anchorOlderScrollListenerActive) return;
         clearAnchorOlderObserverGate();
         startObserver();
-        if (!sentinel) return;
-
-        const sentinelRect = sentinel.getBoundingClientRect();
-        if (
-          sentinelRect.top <= window.innerHeight + FEED_PREFETCH_MARGIN_PX
-          && sentinelRect.bottom >= -FEED_PREFETCH_MARGIN_PX
-        ) {
-          void loadMore();
-        }
+        if (isSentinelNear()) void loadMore();
       }
 
       function applyAnchorPaginationIntent(
@@ -1143,7 +1184,13 @@ export function initMoodFeedController(): void {
       };
 
       const loadMore = async (): Promise<void> => {
-        if (isLoading || !hasMore) {
+        if (!hasMore) return;
+        if (isLoading) {
+          // The sentinel observer only fires on a transition. A request that
+          // arrives while a page is in flight would otherwise be lost, and a
+          // fast flick would sit at the end of the feed with nothing loading
+          // until the reader scrolled away and back.
+          loadMoreQueued = true;
           return;
         }
 
@@ -1187,6 +1234,10 @@ export function initMoodFeedController(): void {
           isLoading = false;
           setLoadingState(false);
           hideInlineLoading();
+          if (loadMoreQueued) {
+            loadMoreQueued = false;
+            if (hasMore && isSentinelNear()) void loadMore();
+          }
         }
       };
 

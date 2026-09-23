@@ -36,9 +36,34 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 - Custom color system via CSS variables (HSL format) in `globals.css`
 - `tailwindcss-animate` plugin for animation utilities
 
+## Locale and Copy
+
+The blog picks its language per surface in `blog.locale` (`src/data/site.ts`):
+`home` is English, `blog` is Chinese, `default` covers everything else. There
+are two places the words themselves live, split by where they have to be
+rendered:
+
+1. **`blog.copy[locale]` in `src/data/site.ts`** — page chrome: publication
+   name and tagline, the AI co-author credit, the whole subscribe panel, and
+   the share buttons. Server-rendered only. `site.ts`
+   must never be imported into a client bundle, so the few strings a client
+   controller writes after the fact (subscribe outcomes, the copied-link
+   label) are stamped onto the DOM as `data-*` attributes and read back from
+   there.
+2. **`src/features/comments/copy.ts`** — everything the comment thread says.
+   It lives apart because `client/comments-controller.ts` renders rows in the
+   browser and needs the table there. `CommentsSection.astro` stamps
+   `data-locale` on the thread root; `copyFor(node)` resolves a locale from
+   any descendant, which is what keeps the server renderer and the client
+   renderer from drifting apart on language.
+
+Add a string to the interface first — both tables are `satisfies
+Record<BlogLocale, …>`, so a missing translation is a type error, not a
+silently English page.
+
 ## Data Sources
 
-1. **Ghost CMS** (`src/features/posts/server/content.ts`, `src/features/posts/server/ghost-admin.ts`) — Public blog posts use the Content API during builds. Discovery surfaces read `getListedPosts()`, while direct slug route generation reads `getAccessiblePosts()`. A public post carrying the internal Ghost tag `#unlisted` (`hash-unlisted`) remains reachable by slug but is removed from lists, archives, feeds, sitemaps, search, agent indexes, and notification sources. Local draft previews use the server-only Admin API and never expose its credential to the browser.
+1. **Ghost CMS** (`src/features/posts/server/content.ts`, `src/features/posts/server/ghost-admin.ts`) — Public blog posts use the Content API during builds. Discovery surfaces read `getListedPosts()`, while direct slug route generation reads `getAccessiblePosts()`. A public post carrying the internal Ghost tag `#unlisted` (`hash-unlisted`) remains reachable by slug but is removed from lists, archives, feeds, sitemaps, search, agent indexes, and notification sources. A post carrying a `#<locale>:<canonical>` tag (e.g. `#en:lun-chenmo`) is a translation of the post at `<canonical>`: `getListedPosts()` drops it so every listing stays single-language, and it is built at `/blog/<locale>/<canonical>` rather than at its own slug, which answers a `301` there. See `src/features/posts/i18n.ts` and [Translations](/docs/writing/publishing#translations). Local draft previews use the server-only Admin API and never expose its credential to the browser.
 2. **Project cards** (`src/features/home/ui/Projects.astro`) — Local project-card UI.
 3. **Last.fm + Apple iTunes Search** (`src/features/home/ui/Listening.astro`, `site-api /api/listening`) — Recent listening status from Last.fm, with client-side home hydration and iTunes enrichment for preview URLs and stronger artwork
 4. **GitHub Contributions** (`src/features/home/ui/GitHubContributions.astro`, `site-api /api/github/contributions`) — Contribution graph from an API backed by GitHub GraphQL, with the public contributions API as a fallback
@@ -48,69 +73,79 @@ Private API ownership lives in the separate `site-api` Worker. `site-api` direct
 
 ## API Endpoints
 
-For full parameter tables, request/response schemas, error codes, cache TTLs,
-and rate limits, see [API Overview](/docs/api/overview),
-[Mood API](/docs/api/mood), and [Notify API](/docs/api/notify). This section
-stays a short index of what exists and who owns it.
+This is a short index of what exists and who owns it. Parameter tables,
+schemas, error codes, cache TTLs, and rate limits live in the API reference —
+[Overview](/docs/api/overview), [Mood](/docs/api/mood),
+[Notify](/docs/api/notify), and the rest of that group.
 
-**Public JSON, served by `site-api` on `buxx.me/api/*`:**
-- `GET|HEAD /api/ping` — Tiny uncached uptime endpoint for Better Stack monitors.
-- `GET /api/footer` — Cached footer status proxy backed by the Better Stack status page JSON API.
-- `GET /api/edge` — Uncached per-request edge diagnostics from Cloudflare `request.cf` (colo, protocol, TLS, TCP RTT, approximate visitor location, network) for the footer hover popover. Never cached, since values are visitor-specific.
-- `GET /api/github/contributions` — Cached GitHub contribution calendar for the homepage activity graph; `days` narrows the returned contribution days while preserving the last-year total.
-- `GET /api/health` — Lightweight compatibility health response for stale monitors. Use `?diagnostic=1` for the owner diagnostic report; add `&deep=1` for slower external probes.
-- `GET /api/moods`, `GET /api/v1/mood` — Live mood feed with pagination (`?before=<id>`), used for freshness probes and live fallback (docs: `/docs/api/mood`)
-- `GET /api/v2/mood`, `GET /api/v2/mood/[id]`, `GET /api/v2/mood/[id]/comments`, `GET /api/v2/mood/search`, `GET /api/v2/mood/stats` — Archive mood feed, detail, comments, search, and stats used for the default base render (docs: `/docs/api/mood`)
-- `GET /api/v2/moods/live-counts?ids=<id,...>`, `GET /api/v1/mood/meta?ids=<id,...>` — Batched live comments/reactions for visible archive-rendered or live-rendered posts (docs: `/docs/api/mood`)
-- `GET /api/comments` — Legacy alias of the comments read path (docs: `/docs/api/mood`)
-- `GET /api/oembed.json` — oEmbed endpoint (docs: `/docs/api/oembed`)
-- `POST /notify/subscribe`, `GET /notify/confirm`, `GET|POST /notify/unsubscribe`, `GET|PATCH /notify/manage`, `POST /notify/manage/request` — Mood update email subscriptions, Turnstile-gated (docs: `/docs/api/notify`)
-- `GET /api/v2/posts`, `GET /api/v2/posts/[slug]` — Disabled placeholder; returns a `posts_coming_soon` error unless `ENABLE_POSTS_API` is set (docs: `/docs/api/overview#versioning-three-generations-one-worker`)
-- `POST /api/v2/analytics/listening` — First-party listening playback events. One cumulative record per playback captures requests, starts, heard time, progress, pauses, seeks, and completion.
+Public JSON, served by `site-api` on `buxx.me/api/*`:
 
-**Machine ingress (`site-api`):**
-- `api.buxx.me` is machine ingress, not the canonical public API surface.
-- `/api/v1/mood*` — live Telegram mirror for comments, reactions, freshness probes, and archive fallback.
-- `/api/v2/mood*` — D1 archive / structured base render for public mood pages, search, AI, debugging, and ops.
-- Admin/OAuth/notify/webhook/image routes are owned by `site-api`, not by this public Worker.
+| Endpoint | What it is | Reference |
+| --- | --- | --- |
+| `GET`, `HEAD /api/ping`, `GET /api/health` | Uptime probe and compatibility health response. `health?diagnostic=1` adds the owner report, `&deep=1` adds external probes. | [Status](/docs/api/status) |
+| `GET /api/footer` | Better Stack status proxy behind the footer pill. | [Status](/docs/api/status#footer-status) |
+| `GET /api/edge` | Per-request Cloudflare facts for the footer popover. Never cached — the values are visitor-specific. | [Status](/docs/api/status#edge) |
+| `GET /api/v2/mood*` | Archive feed, detail, comments, search, stats — the default base render. | [Mood](/docs/api/mood) |
+| `GET /api/v1/mood*`, `GET /api/moods` | Live Telegram mirror: freshness probes and archive fallback. | [Mood](/docs/api/mood) |
+| `GET /api/v2/moods/live-counts`, `GET /api/v1/mood/meta` | Batched comment and reaction counts for already-rendered posts. | [Mood](/docs/api/mood) |
+| `GET /api/comments` | Legacy alias of the live comments read path. | [Content](/docs/api/content#comments-by-post-id) |
+| `GET /api/writing`, `GET /api/github/contributions`, `GET /api/musickit/token` | Ghost posts, the contribution grid, and the Apple MusicKit token. | [Content](/docs/api/content) |
+| `GET /api/v2/listening`, `POST /api/v2/analytics/listening` | Now-playing track and the player's own playback events. | [Listening](/docs/api/listening) |
+| `GET /api/oembed.json` | oEmbed discovery for mood embeds. | [oEmbed](/docs/api/oembed) |
+| `/notify/*` | Mood update email subscriptions, Turnstile-gated. | [Notify](/docs/api/notify) |
+| `GET /api/v2/posts*` | Disabled placeholder behind `ENABLE_POSTS_API`. | [Content](/docs/api/content#posts-not-enabled) |
 
-**Owner auth surface:**
-- `GET /oauth` — Short public entry that redirects to the protected OAuth hub.
-- The owner-auth boundary is enforced in `src/middleware.ts` + `src/features/admin/server/access.ts`; see [Auth and OAuth hub](/docs/platform/auth) for the credential roadmap. (The former `/dev/portal/oauth` UI page was removed.)
+Everything else on the URL surface:
 
-**Local authoring surface:**
-- `GET /dev/blog/<24-character-post-id>` — Renders a Ghost draft through the production directive and blog prose pipeline behind the owner-auth boundary. Every response is private and uncached.
+| Surface | Owner | Notes |
+| --- | --- | --- |
+| `api.buxx.me` | `site-api` | Machine ingress for webhooks, notify, image processing, archive reads, and ops — not the canonical public API host. |
+| Admin, OAuth, webhook, and image routes | `site-api` | Listed, not specified — see [Internal Endpoints](/docs/api/internal). |
+| `GET /oauth` | `site` | Short public entry that redirects to the protected OAuth hub. The boundary itself is `src/middleware.ts` + `src/features/admin/server/access.ts`; see [Auth](/docs/platform/auth). |
+| `GET /dev/blog/<24-char post id>` | `site` | Ghost draft rendered through the production pipeline, behind owner auth. Private and uncached. |
+| `GET`, `HEAD /static/*` | `site` | Allowlisted media proxy, including the fixed YouTube poster, avatar, and metadata routes. |
+| SVG badges, `/logo/{id}.svg` | `site` | `?theme=light\|dark` on all of them; `project.svg` also needs `?project=`. See [SVG](/docs/api/svg). |
+| `GET /mood/rss.xml`, `/blog/rss.xml`, `/llms.txt`, `/sitemap.xml` | `site` | See [Feeds](/docs/api/feeds). |
 
-**Public asset proxy, served by the `site` Worker:**
-- `GET|HEAD /static/youtube/<11-character-id>/<maxresdefault|hqdefault|avatar>.jpg` and `/static/youtube/<11-character-id>/metadata.json` — Fixed YouTube poster, channel-avatar, and channel-metadata boundary. The routes reject query strings and arbitrary upstream targets; no signing secret is exposed to client-rendered Mood cards.
-
-Telegram references:
-
-- [Telegram pipeline](/docs/platform/telegram)
-- `notes/debug/README.md` in the repo for local-only investigation notes and temporary debug artifacts
-
-**SVG** (all accept `?theme=light|dark`):
-- `GET /api/status.svg`, `GET /api/tech-stack.svg`, `GET /api/site-badge.svg`
-- `GET /api/project.svg` (requires `?project=<name>`)
-- SVG font stacks come from `src/lib/fonts.ts`, which mirrors the CSS font tokens for server-rendered documents.
-- Full docs: `/docs/api/svg`
-
-**RSS:** `GET /mood/rss.xml`
+Telegram ingest is documented in [Telegram pipeline](/docs/platform/telegram);
+`notes/debug/README.md` in the repo holds local-only investigation notes.
 
 ## Agent Markdown and Edge Cache Policy
 
-Content routes with Markdown renderers negotiate on `Accept`. A request that explicitly ranks `text/markdown` at least as high as `text/html` receives `text/markdown; charset=utf-8`; browsers and wildcard-only clients receive HTML. Both variants set `Vary: Accept`, and Markdown responses also set `x-markdown-tokens` using the approximate `Math.ceil(chars / 4)` estimator.
+Content routes with Markdown renderers expose an explicit `<page>/index.md` URL and also negotiate on `Accept` at the canonical URL. A request that explicitly ranks `text/markdown` at least as high as `text/html` receives `text/markdown; charset=utf-8`; browsers and wildcard-only clients receive HTML. Explicit Markdown URLs require no special header. Both variants set `Vary: Accept`, and Markdown responses also set `x-markdown-tokens` using the approximate `Math.ceil(chars / 4)` estimator. Documentation pages use their collection source as the Markdown body.
+
+Public page URLs are canonical without a trailing slash. Astro emits file-style HTML, Cloudflare Assets uses `drop-trailing-slash`, and the Worker returns a `308` for slash-suffixed requests while preserving the query string and HTTP method. Markdown alternates keep `/index.md`; the shorthand `<page>.md` redirects there.
 
 Blog Markdown is generated during `bun run build` under `dist/client/_agent-markdown/blog/*` and served through the Worker from static assets. Unlisted posts do not receive a generated Markdown asset; direct `Accept: text/markdown` access falls back to runtime rendering with `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`. Their HTML uses the same robots directives and `data-pagefind-ignore="all"`. Mood Markdown stays runtime-rendered because it reads the live feed/archive.
 
-The edge cache key includes the negotiated variant (`html` or `markdown`) plus path and query string, so HTML and Markdown can never share a cache entry. `/dev`, `/oauth*`, `/api*`, and `/v2*` are `no-store` and never negotiate Markdown.
+Workers Caching sits in front of the public Worker. A platform hit avoids a
+Worker invocation; the in-worker Cache API only avoids rendering after the
+Worker has already been invoked. The platform uses the raw URL and `Vary`
+headers, including `Host`, `Cookie`, and `Accept-Language` where they affect
+the representation. The in-worker key includes the negotiated variant (`html` or
+`markdown`) plus path and normalized query, so HTML and Markdown cannot share
+an entry. Home, blog, docs, and Mood Markdown keys include the build ID so cached content
+cannot outlive the asset version it references. `/dev`, `/oauth*`, `/api*`, and
+`/v2*` are `no-store` on the public Worker and never negotiate Markdown.
 
-| Route family | Cache-Control | Edge cache |
+`Cloudflare-CDN-Cache-Control` provides platform freshness separately from
+the browser-facing headers below: platform-eligible routes use `max-age`
+matching the route TTL, with `stale-while-revalidate=86400` by default. Mood
+feed and detail use a 1800-second platform stale window. `stale-if-error` is
+explicitly set to the same window rather than leaving the platform's default
+unbounded stale-on-error behavior. A `304` receives the same freshness policy
+as a `200`, preventing Static Assets defaults from forcing every later request
+to revalidate. Browsers still receive `max-age=0`. Background refresh can
+continue serving an old entry throughout its stale window when refreshes fail;
+the window does not guarantee a successful update after one request.
+
+| Route family | Cache-Control | In-worker cache |
 | --- | --- | --- |
-| `/mood` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800`; numeric anchor URLs share ten-post cache buckets | HTML and Markdown, variant-keyed |
-| `/mood/[id]` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML; Markdown uses `s-maxage=300` | HTML and Markdown, variant-keyed |
+| `/mood` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML | Markdown only; HTML is owned by the platform |
+| `/mood/[id]` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML; Markdown uses `s-maxage=300` | Markdown only; HTML is owned by the platform |
+| `/mood/embed` | `public, max-age=0, s-maxage=300` for supported embed parameters | HTML, query-keyed |
 | `/blog`, `/blog/tags`, `/blog/tag/[slug]` | `public, max-age=0, s-maxage=120` for HTML and Markdown | HTML and Markdown, variant-keyed |
-| `/blog/[slug]` | `public, max-age=0, s-maxage=300` for HTML and Markdown | HTML and Markdown, variant-keyed |
+| `/blog/[slug]`, `/blog/[locale]/[slug]` | `public, max-age=0, s-maxage=300` for HTML and Markdown | HTML and Markdown, variant-keyed |
 | `/` | `public, max-age=0, s-maxage=300` for HTML and Markdown | HTML and Markdown, variant-keyed |
 | `/privacy` | `public, max-age=0, s-maxage=3600` for HTML and Markdown | Markdown only |
 | `/projects` | `public, max-age=0, s-maxage=300` | Cache-Control only |
@@ -118,24 +153,74 @@ The edge cache key includes the negotiated variant (`html` or `markdown`) plus p
 | `/blog/rss.xml`, `/mood/rss.xml`, `/sitemap.xml` | `public, max-age=0, s-maxage=300` | Cache-Control only |
 | `/dev`, `/oauth*`, `/api*`, `/v2*` | `no-store, max-age=0` | None |
 
+Mood pages declare incomplete renders in page frontmatter, before streaming
+starts. Empty initial feeds, unavailable anchor windows, and details awaiting
+link previews become `no-store` in both layers. The internal readiness header
+is consumed before the response leaves the Worker. Cache writes pass the
+response stream to the native Cache API without converting the entire HTML
+body into a string or scanning DOM markers. Mood feed/detail HTML bypass the
+in-worker cache entirely: no Cache API read, write, response clone, or
+background revalidation task. Other cache users retain the streaming writer.
+The development memory fallback materializes bytes because it must support
+repeated reads.
+
+Mood feed and detail negotiate the reader's language from the query, the
+`blog_lang` cookie, and `Accept-Language`. Responses retain `Vary: Cookie,
+Accept-Language, Accept, Host`. Workers Cache honors every listed header and
+stores distinct variants for exact header values, including anonymous and
+cookie-bearing requests. Different cookies can increase the number of cache
+entries even when they resolve to the same language; there is no additional
+gateway or language redirect.
+
+Every representation of a negotiated URL uses the same ordered variance,
+including Markdown cache hits, redirects, errors, and bodyless 304 responses.
+Different Vary lists can replace the platform's per-URL variant metadata and
+force HTML and Markdown to evict each other even before their TTL expires.
+
+Supported Mood embed queries are language-independent and eligible for
+platform caching. Unsupported query shapes, detail query overrides, and
+refresh requests remain uncacheable. Feed anchors use the raw URL as the
+platform key; the former native ten-post buckets are gone. Blog translations use distinct `/blog/<locale>/<slug>`
+URLs and need no cookie negotiation. `Vary: Accept` stays required for
+Markdown negotiation.
+
+The private API Worker defaults responses without an explicit cache policy to
+`no-store, max-age=0`, including handlers outside Astro middleware. Public
+exceptions opt in explicitly. Workers Caching is enabled after route sweeps
+on an isolated deployment and production. Public Mood JSON and badge/oEmbed
+responses declare explicit CDN freshness; private routes and worker-generated
+errors stay uncached. Service-binding calls consult the callee's cache, with
+distinct entries when their raw paths or variance headers differ.
+
+Workers Cache does not include the hostname in its base key. The public
+Worker adds `Vary: Host` at its outer response boundary, including redirects,
+Markdown, and conditional responses. The API's host-dependent oEmbed response
+also varies by Host. This prevents a cached apex response from bypassing a
+www redirect or a host-dependent URL check. Bodyless `304` responses retain
+the full original negotiation dimensions rather than replacing them with
+Host alone.
+
 ## Environment Variables
 
 Accessed via `import.meta.env.*`:
-- `PUBLIC_GHOST_URL` — Ghost CMS URL (default: https://blog.buxx.me)
-- `GHOST_CONTENT_API_KEY` — Ghost CMS content API key; required in the Cloudflare build environment for the prerendered Writing section
-- `GHOST_ADMIN_API_KEY` — Server-only Ghost Admin key for authenticated draft previews. Configure it as a Cloudflare Worker secret in production and keep it in `.env.local` during local development. Never use a `PUBLIC_` prefix.
-- `PUBLIC_BLOG_OG_IMAGE_ENDPOINT` — OGIS endpoint for generated `/blog` Open Graph images
-- `GITHUB_TOKEN` — GitHub GraphQL token for project data
-- `PUBLIC_HD_IMAGE_URL` — HD mood image base URL served by `site-api`
-- `MOOD_READ_SOURCE` — `archive` (default base render) or `live` (immediate rollback); `?source=live|archive` overrides one request without caching it
-- `CHANNEL` — Telegram public channel slug used for media-group indexing
-- `TELEGRAM_HOST` — Telegram public host for embed lookups (default: `t.me`)
-- `LASTFM_API_KEY`, `LASTFM_USER` — Last.fm recent tracks integration for the home listening widget
-- `PUBLIC_SITE_URL`, `SITE_URL` — canonical base URLs for email links, previews, and health checks
 
-Cloudflare Worker bindings and non-secret vars are defined in [`wrangler.jsonc`](https://github.com/bunizao/site/blob/main/wrangler.jsonc):
+| Variable | Required | What it does |
+| --- | --- | --- |
+| `PUBLIC_GHOST_URL` | Yes | Ghost CMS URL. Defaults to `https://blog.buxx.me`. |
+| `GHOST_CONTENT_API_KEY` | Yes in CI | Ghost Content API key. The Cloudflare build environment needs it for the prerendered Writing section. |
+| `GHOST_ADMIN_API_KEY` | No | Server-only Ghost Admin key for authenticated draft previews. Worker secret in production, `.env.local` locally. **Never give it a `PUBLIC_` prefix.** |
+| `PUBLIC_BLOG_OG_IMAGE_ENDPOINT` | No | OGIS endpoint for generated `/blog` Open Graph images. |
+| `GITHUB_TOKEN` | No | GitHub GraphQL token for project card data. |
+| `PUBLIC_HD_IMAGE_URL` | No | HD mood image base URL served by `site-api`. |
+| `MOOD_READ_SOURCE` | No | `archive` (default base render) or `live` (immediate rollback). `?source=live\|archive` overrides one request without caching it. |
+| `CHANNEL` | No | Telegram public channel slug used for media-group indexing. |
+| `TELEGRAM_HOST` | No | Telegram public host for embed lookups. Defaults to `t.me`. |
+| `LASTFM_API_KEY`, `LASTFM_USER` | No | Last.fm recent tracks for the home listening widget. |
+| `PUBLIC_SITE_URL`, `SITE_URL` | Yes | Canonical base URLs for email links, previews, and health checks. |
 
-- `API` — Cloudflare Worker service binding to `site-api`
+Cloudflare Worker bindings and non-secret vars are defined in
+[`wrangler.jsonc`](https://github.com/bunizao/site/blob/main/wrangler.jsonc).
+There is exactly one binding: `API`, a service binding to `site-api`.
 
 ## Key Dependencies
 

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 describe('blog analytics beacon', () => {
   test('is wired into blog article pages', () => {
-    const source = readFileSync(new URL('../../src/pages/blog/[slug].astro', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../../src/pages/blog/[...slug].astro', import.meta.url), 'utf8');
 
     expect(source).toContain("import BlogArticleBeacon from '@/features/posts/ui/BlogArticleBeacon.astro'");
     expect(source).toContain('<BlogArticleBeacon slug={post.slug} />');

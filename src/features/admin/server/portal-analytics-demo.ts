@@ -1,4 +1,10 @@
-import type { BlogAnalyticsEventRecord } from '@bunizao/contracts';
+import type {
+  BlogAnalyticsEventRecord,
+  ListeningAnalyticsDailyStats,
+  ListeningAnalyticsSummary,
+  ListeningAnalyticsSurfaceStats,
+  ListeningAnalyticsTrackStats,
+} from '@bunizao/contracts';
 import type { PortalAnalytics } from './portal-client';
 
 // Local-dev fixture for the analytics page, mirroring the overview demo. Gives
@@ -59,6 +65,53 @@ function event(over: Partial<BlogAnalyticsEventRecord> & Pick<BlogAnalyticsEvent
   };
 }
 
+// Eight-day listening wave, small enough that the section stays obviously demo
+// data while still exercising the stat cards, chart, surfaces, and tracks table.
+const LISTENING_PLAYS = [12, 18, 15, 21, 26, 24, 19, 23];
+const listeningDaily: ListeningAnalyticsDailyStats[] = LISTENING_PLAYS.map((plays, i) => {
+  const requests = plays + Math.round(plays * 0.35);
+  const uniqueListeners = Math.round(plays * 0.72);
+  const totalListenedMs = plays * 118_000;
+  return {
+    day: dayISO(LISTENING_PLAYS.length - 1 - i),
+    requests,
+    plays,
+    uniqueListeners,
+    totalListenedMs,
+    avgListenedMs: Math.round(totalListenedMs / Math.max(1, plays)),
+    completionRate: 0.4 + (i % 4) * 0.05,
+  };
+});
+
+const listeningTracks: ListeningAnalyticsTrackStats[] = [
+  { trackId: 't1', trackTitle: 'Nightdrive', trackArtist: 'Kavinsky', requests: 88, plays: 74, uniqueListeners: 61, totalListenedMs: 74 * 148_000, avgListenedMs: 148_000, completionRate: 0.58 },
+  { trackId: 't2', trackTitle: 'Weightless', trackArtist: 'Marconi Union', requests: 61, plays: 52, uniqueListeners: 44, totalListenedMs: 52 * 210_000, avgListenedMs: 210_000, completionRate: 0.66 },
+  { trackId: 't3', trackTitle: 'Static Sea', trackArtist: null, requests: 47, plays: 38, uniqueListeners: 33, totalListenedMs: 38 * 96_000, avgListenedMs: 96_000, completionRate: 0.34 },
+  { trackId: 't4', trackTitle: 'Glass Room', trackArtist: 'Yui Sasaki', requests: 29, plays: 22, uniqueListeners: 20, totalListenedMs: 22 * 132_000, avgListenedMs: 132_000, completionRate: 0.41 },
+];
+
+const listeningSurfaces: ListeningAnalyticsSurfaceStats[] = [
+  { surface: 'home', requests: 108, plays: 89, uniqueListeners: 71, totalListenedMs: 89 * 121_000, avgListenedMs: 121_000, completionRate: 0.51 },
+  { surface: 'blog', requests: 67, plays: 54, uniqueListeners: 46, totalListenedMs: 54 * 138_000, avgListenedMs: 138_000, completionRate: 0.47 },
+  { surface: 'mood', requests: 33, plays: 26, uniqueListeners: 22, totalListenedMs: 26 * 104_000, avgListenedMs: 104_000, completionRate: 0.38 },
+  { surface: 'components', requests: 9, plays: 7, uniqueListeners: 6, totalListenedMs: 7 * 88_000, avgListenedMs: 88_000, completionRate: 0.29 },
+];
+
+const listening: ListeningAnalyticsSummary = {
+  totals: {
+    requests: listeningDaily.reduce((sum, d) => sum + d.requests, 0),
+    plays: listeningDaily.reduce((sum, d) => sum + d.plays, 0),
+    uniqueListeners: 148,
+    totalListenedMs: listeningDaily.reduce((sum, d) => sum + d.totalListenedMs, 0),
+    avgListenedMs: 118_000,
+    completionRate: 0.47,
+  },
+  tracks: listeningTracks,
+  surfaces: listeningSurfaces,
+  daily: listeningDaily,
+  recent: [],
+};
+
 export const DEMO_ANALYTICS: PortalAnalytics = {
   summary: {
     range: { from: dayISO(13), to: dayISO(0), days: 14 },
@@ -110,13 +163,14 @@ export const DEMO_ANALYTICS: PortalAnalytics = {
       ],
       daily: newsletterDaily,
     },
+    listening,
   },
   events: {
     events: [
-      event({ eventId: 'e1', slug: 'on-quiet-software', refSource: 'telegram', platform: 'chrome', os: 'Windows', browser: 'Chrome', deviceType: 'desktop', country: 'CN', city: 'Shanghai' }),
-      event({ eventId: 'e2', slug: 'a-year-of-mood', refSource: 'direct', platform: 'safari', deviceType: 'mobile', dwellMs: 41_000, scrollDepth: 0.55, completed: false, openedAt: tsISO(38), createdAt: tsISO(38) }),
-      event({ eventId: 'e3', slug: 'building-the-portal', refSource: 'search', platform: 'wechat', os: 'iOS', browser: 'WeChat', deviceType: 'mobile', country: 'CN', openedAt: tsISO(96), createdAt: tsISO(96) }),
-      event({ eventId: 'e4', slug: 'notes-on-typography', refSource: 'twitter', platform: 'firefox', os: 'Linux', browser: 'Firefox', country: 'US', city: 'Austin', openedAt: tsISO(190), createdAt: tsISO(190) }),
+      event({ eventId: 'e1', slug: 'on-quiet-software', refSource: 'telegram', platform: 'chrome', os: 'Windows', browser: 'Chrome', deviceType: 'desktop', country: 'CN', city: 'Shanghai', ip: '203.0.113.7', ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36' }),
+      event({ eventId: 'e2', slug: 'a-year-of-mood', refSource: 'direct', platform: 'safari', deviceType: 'mobile', dwellMs: 41_000, scrollDepth: 0.55, completed: false, openedAt: tsISO(38), createdAt: tsISO(38), ip: '2001:db8:85a3::8a2e:370:7334', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/19.0 Mobile/15E148 Safari/604.1' }),
+      event({ eventId: 'e3', slug: 'building-the-portal', refSource: 'search', platform: 'wechat', os: 'iOS', browser: 'WeChat', deviceType: 'mobile', country: 'CN', openedAt: tsISO(96), createdAt: tsISO(96), ip: '198.51.100.42', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.54' }),
+      event({ eventId: 'e4', slug: 'notes-on-typography', refSource: 'twitter', platform: 'firefox', os: 'Linux', browser: 'Firefox', country: 'US', city: 'Austin', openedAt: tsISO(190), createdAt: tsISO(190), ip: '192.0.2.201', ua: 'Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0' }),
     ],
   },
 };

@@ -1,0 +1,401 @@
+---
+/* Where comments come from, and what the automatic pass does with them.
+
+   Fifteen grouped tables over one window. None of them is a verdict: every
+   row is a count and a held rate, and the held rate is what makes a row
+   worth looking at -- a network with four hundred writes and a two percent
+   hold is the internet, and a network with twelve writes and a ninety
+   percent hold is one person with a script.
+
+   Every label that names a bannable key links to that key's source profile,
+   which is where the acting happens. Nothing on this page changes anything.
+
+   NULL groups keep their own row. "unknown network" is frequently the row
+   that matters, and a table that silently drops it teaches the owner to
+   trust a total that is wrong. */
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import CommentQuality from '@/features/admin/ui/CommentQuality';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/coss';
+import PortalSection from '@/components/portal/PortalSection.astro';
+import SegmentedNav from '@/components/portal/SegmentedNav.astro';
+import CommentsSubNav from '@/components/portal/CommentsSubNav.astro';
+import InsightTable, { type InsightTableRow } from '@/components/portal/InsightTable.astro';
+import { Activity, Globe, Link2, Mail, Monitor, ShieldAlert, Network, Fingerprint } from 'lucide-react';
+import { loadCommentInsights } from '@/features/admin/server/portal-client';
+import { DEMO_COMMENT_INSIGHTS } from '@/features/admin/server/portal-demo';
+import type { AdminCommentInsights, AdminCommentInsightsWindow } from '@bunizao/contracts';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+const WINDOWS: AdminCommentInsightsWindow[] = ['7d', '30d', '90d'];
+const requested = Astro.url.searchParams.get('window');
+const window: AdminCommentInsightsWindow = (WINDOWS as string[]).includes(requested ?? '')
+  ? (requested as AdminCommentInsightsWindow)
+  : '30d';
+
+let insights: AdminCommentInsights | null = null;
+let loadError: string | null = null;
+let demoMode = false;
+try {
+  insights = await loadCommentInsights(Astro.request, Astro.locals, window);
+} catch (error) {
+  loadError = error instanceof Error ? error.message : 'unknown';
+
+/* Local dev has no site-api binding, so the load above throws before any of
+   these tables has data. Same fixture swap the queue page does, and for the
+   same reason: four red banners are not a page anyone can design against. */
+  if (import.meta.env.DEV && loadError === 'api_binding_unavailable') {
+    insights = DEMO_COMMENT_INSIGHTS;
+    demoMode = true;
+    loadError = null;
+  }
+}
+
+function source(type: string, value: string | null): string | null {
+  return value ? `/dev/portal/comments/source/${encodeURIComponent(type)}/${encodeURIComponent(value)}` : null;
+}
+
+const networks: InsightTableRow[] = (insights?.networks ?? []).map((row) => ({
+  key: String(row.asn ?? 'null'),
+  label: row.asOrg ?? (row.asn ? `AS${row.asn}` : 'unknown network'),
+  sub: row.asn ? `AS${row.asn}` : null,
+  href: source('asn', row.asn === null ? null : String(row.asn)),
+  count: row.count,
+  held: row.held,
+  heldRate: row.heldRate,
+  sessions: row.sessions,
+}));
+
+const countries: InsightTableRow[] = (insights?.countries ?? []).map((row) => ({
+  key: row.country ?? 'null',
+  label: row.country ?? 'unknown',
+  count: row.count,
+  held: row.held,
+  heldRate: row.heldRate,
+  sessions: row.sessions,
+}));
+
+const subnets: InsightTableRow[] = (insights?.subnets ?? []).map((row) => ({
+  key: row.ip24 ?? 'null',
+  label: row.sampleIp ? `${row.sampleIp.split('.').slice(0, 3).join('.')}.0/24` : 'unknown subnet',
+  sub: row.sampleIp,
+  href: source('ip24', row.ip24),
+  count: row.count,
+  held: row.held,
+  heldRate: row.heldRate,
+  sessions: row.sessions,
+}));
+
+const browsers: InsightTableRow[] = (insights?.browsers ?? []).map((row) => ({
+  key: `${row.browser}|${row.os}`,
+  label: [row.browser, row.os].filter(Boolean).join(' / ') || 'unknown',
+  count: row.count,
+  held: row.held,
+  heldRate: row.heldRate,
+  sessions: row.sessions,
+}));
+
+const devices: InsightTableRow[] = (insights?.devices ?? []).map((row) => ({
+  key: row.clientFp ?? 'null',
+  label: row.renderer ?? row.platform ?? 'no fingerprint',
+  sub: [row.screen, row.platform, row.subnets > 1 ? `${row.subnets} subnets` : null].filter(Boolean).join(' · ') || null,
+  href: source('client_fp', row.clientFp),
+  count: row.count,
+  held: row.held,
+  heldRate: row.heldRate,
+  sessions: row.sessions,
+  // One device across many subnets is the shape a residential-proxy pool
+  // makes, and it is the only row on this page tinted before anyone reads it.
+  tone: row.subnets >= 5 ? 'danger' : null,
+}));
+
+const linkDomains: InsightTableRow[] = (insights?.linkDomains ?? []).map((row) => ({
+  key: row.domain,
+  label: row.domain,
+  sub: row.banned ? 'on the ban list' : null,
+  href: source('domain', row.domain),
+  count: row.count,
+  held: row.held,
+  heldRate: row.heldRate,
+  sessions: row.sessions,
+  tone: row.banned ? 'danger' : null,
+}));
+
+const emailDomains: InsightTableRow[] = (insights?.emailDomains ?? []).map((row) => ({
+  key: row.domain,
+  label: row.domain,
+  sub: [
+    row.mxShare === null ? null : `${Math.round(row.mxShare * 100)}% with MX`,
+    row.banned ? 'on the ban list' : null,
+  ].filter(Boolean).join(' · ') || null,
+  href: source('email_domain', row.domain),
+  count: row.count,
+  held: row.held,
+  heldRate: row.heldRate,
+  sessions: row.sessions,
+  tone: row.banned ? 'danger' : null,
+}));
+
+const duplicates: InsightTableRow[] = (insights?.duplicates ?? []).map((row) => ({
+  key: row.bodyHash,
+  label: row.sample,
+  href: source('body_hash', row.bodyHash),
+  count: row.count,
+  held: row.held,
+  heldRate: row.heldRate,
+  sessions: row.sessions,
+}));
+
+const simple = (rows: Array<{ hint?: string; bucket?: string; count: number; held: number; heldRate: number }>): InsightTableRow[] =>
+  rows.map((row) => ({
+    key: row.hint ?? row.bucket ?? '',
+    label: row.hint ?? row.bucket ?? '',
+    count: row.count,
+    held: row.held,
+    heldRate: row.heldRate,
+    sessions: null,
+  }));
+
+const tlsStacks: InsightTableRow[] = (insights?.tlsStacks ?? []).map((row) => ({
+  key: `${row.browser}|${row.ciphersSha1}`,
+  label: row.browser ?? 'unknown browser',
+  sub: row.ciphersSha1 ? row.ciphersSha1.slice(0, 16) : 'no TLS fingerprint',
+  count: row.count,
+  held: row.held,
+  heldRate: row.heldRate,
+  sessions: null,
+}));
+
+const email: InsightTableRow[] = (insights?.email ?? []).map((row) => ({
+  key: row.kind,
+  label: row.kind,
+  count: row.count,
+  held: row.held,
+  heldRate: row.heldRate,
+  sessions: null,
+  tone: row.kind === 'disposable' ? 'danger' : null,
+}));
+
+const bans: InsightTableRow[] = (insights?.banHits ?? []).map((row) => ({
+  key: `${row.keyType}:${row.keyValue}`,
+  label: `${row.keyType} ${row.keyValue.length > 20 ? `${row.keyValue.slice(0, 8)}…` : row.keyValue}`,
+  sub: row.note,
+  href: source(row.keyType, row.keyValue),
+  count: row.hits,
+  held: null,
+  heldRate: null,
+  sessions: null,
+}));
+
+const windowItems = WINDOWS.map((key) => ({
+  label: key,
+  href: `/dev/portal/comments/insights?window=${key}`,
+  active: key === window,
+}));
+---
+
+<PortalLayout
+  title="Comment insights"
+  description="Where writes come from, and what the automatic pass does with them."
+  active="comments"
+  user={{ login: session?.login || 'admin' }}
+>
+  <CommentsSubNav active="insights" />
+
+  {loadError && (
+    <div class="portal-notice" data-variant="error">
+      <Activity size={14} />
+      <span>Failed to load insights: <code>{loadError}</code></span>
+    </div>
+  )}
+  {demoMode && (
+    <div class="portal-notice">
+      <Activity size={14} />
+      <span>Showing demo data — the site-api binding is unavailable in local dev.</span>
+    </div>
+  )}
+
+  {insights && (
+    <>
+      <PortalSection title="Quality and friction" eyebrow="Measured outcomes" class="portal-mt-lg">
+        <CommentQuality quality={demoMode ? undefined : insights.quality} />
+      </PortalSection>
+      <PortalSection
+        title="Sources"
+        eyebrow="Network"
+        meta={`since ${insights.since.slice(0, 10)}`}
+        class="portal-mt-lg"
+      >
+        <SegmentedNav slot="action" items={windowItems} ariaLabel="Insight window" />
+        <div class="portal-grid" data-columns="wide">
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Network size={14} /> Networks</CardTitle>
+              <CardDescription>Autonomous systems, by write count. A hosting ASN writing comments is worth a look.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={networks} head="network" /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Globe size={14} /> Countries</CardTitle>
+              <CardDescription>Where the address resolved. Never a reason on its own.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={countries} head="country" /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Network size={14} /> Subnets</CardTitle>
+              <CardDescription>A /24 with many sessions is either an office or a pool.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={subnets} head="subnet" /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Monitor size={14} /> Browsers</CardTitle>
+              <CardDescription>Parsed from the user agent, which anyone can write.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={browsers} head="browser" /></CardContent>
+          </Card>
+
+          <Card className="portal-span-full">
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Fingerprint size={14} /> Browser fingerprints</CardTitle>
+              <CardDescription>
+                Similar browser environments, with their renderer and screen. Matches across networks
+                can be unrelated devices and do not establish one person.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={devices} head="fingerprint" limit={15} /></CardContent>
+          </Card>
+        </div>
+      </PortalSection>
+
+      <PortalSection title="What the writes looked like" eyebrow="Shape" class="portal-mt-lg">
+        <div class="portal-grid" data-columns="wide">
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><ShieldAlert size={14} /> Bot hints</CardTitle>
+              <CardDescription>Contradictions that count toward a row's hint total.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={simple(insights.botHints)} head="hint" countHead="writes" /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><ShieldAlert size={14} /> VPN hints</CardTitle>
+              <CardDescription>Shown, never counted. A VPN is not evidence of anything.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={simple(insights.vpnHints)} head="hint" /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Activity size={14} /> Typing spread</CardTitle>
+              <CardDescription>Coefficient of variation between keystrokes, per mille. Near zero is a machine.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={simple(insights.typing)} head="spread" /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Activity size={14} /> Dwell</CardTitle>
+              <CardDescription>How long the compose box was open before Post.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={simple(insights.dwell)} head="dwell" /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Monitor size={14} /> TLS stacks</CardTitle>
+              <CardDescription>
+                The cipher list the client offered, against the browser it claimed. A mismatch is a scripted client.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={tlsStacks} head="stack" /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Link2 size={14} /> Duplicate bodies</CardTitle>
+              <CardDescription>The same normalised text, written more than once.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={duplicates} head="body" /></CardContent>
+          </Card>
+        </div>
+      </PortalSection>
+
+      <PortalSection title="Links and addresses" eyebrow="Contact" class="portal-mt-lg">
+        <div class="portal-grid" data-columns="wide">
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Link2 size={14} /> Link domains</CardTitle>
+              <CardDescription>Registrable domains linked from comment bodies.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={linkDomains} head="domain" /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Mail size={14} /> Mail domains</CardTitle>
+              <CardDescription>With the share that had an MX record when checked.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={emailDomains} head="domain" /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><Mail size={14} /> Address kinds</CardTitle>
+              <CardDescription>No address, confirmed, unconfirmed, or a known disposable host.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={email} head="kind" /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="portal-card-title"><ShieldAlert size={14} /> Ban hits</CardTitle>
+              <CardDescription>What the ban list has caught in this window.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0"><InsightTable rows={bans} head="ban" countHead="hits" /></CardContent>
+          </Card>
+        </div>
+      </PortalSection>
+
+      <PortalSection title="Owner moderation actions" eyebrow="Review" class="portal-mt-lg">
+        <Card>
+          <CardHeader>
+            <CardTitle className="portal-card-title"><Activity size={14} /> Actions by week</CardTitle>
+            <CardDescription>
+              Counts of owner approvals and hides. These actions are not labels of automated errors;
+              the reviewed held-comment cohort is shown separately above.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {insights.overturns.length === 0 ? (
+              <div class="portal-list-meta">No owner moderation actions in this window.</div>
+            ) : (
+              <table class="portal-insight">
+                <thead>
+                  <tr><th>week</th><th class="portal-insight__num">approved</th><th class="portal-insight__num">hidden</th></tr>
+                </thead>
+                <tbody>
+                  {insights.overturns.map((row) => (
+                    <tr>
+                      <td><span class="portal-insight__label">{row.week}</span></td>
+                      <td class="portal-insight__num tabular-nums">{row.falsePositives}</td>
+                      <td class="portal-insight__num tabular-nums">{row.falseNegatives}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+      </PortalSection>
+    </>
+  )}
+</PortalLayout>

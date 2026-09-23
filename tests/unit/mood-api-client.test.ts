@@ -171,7 +171,41 @@ describe('mood API client', () => {
     ]);
   });
 
-  test('does not invoke the live reader when strict archive reads fail', async () => {
+  test('degrades unfiltered archive reads to the live reader when the archive fails', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalWarn = console.warn;
+    const liveUrls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      liveUrls.push(String(input instanceof Request ? input.url : input));
+      return new Response('live unavailable too', { status: 503 });
+    }) as unknown as typeof fetch;
+    console.warn = () => {};
+    const context = createContext({
+      env: {
+        API: {
+          async fetch() {
+            return new Response('archive unavailable', { status: 500 });
+          },
+        },
+        CHANNEL: 'tutumood',
+      },
+    });
+
+    try {
+      await loadMoodFeed(context, { limit: 20, source: 'archive' }).catch(() => null);
+      await loadMoodDocument(context, '3794', { source: 'archive' }).catch(() => null);
+    } finally {
+      globalThis.fetch = originalFetch;
+      console.warn = originalWarn;
+    }
+
+    // Both the feed and the detail path must reach the Telegram mirror after
+    // the archive call fails; the archive error itself must not surface.
+    expect(liveUrls.length).toBeGreaterThanOrEqual(2);
+    expect(liveUrls.every((url) => !url.includes('/v2/mood'))).toBe(true);
+  });
+
+  test('keeps tag-filtered archive reads strict when the archive fails', async () => {
     const originalFetch = globalThis.fetch;
     let liveFetchCalls = 0;
     globalThis.fetch = (async () => {
@@ -191,10 +225,7 @@ describe('mood API client', () => {
     let error: unknown;
 
     try {
-      await loadMoodFeed(context, {
-        limit: 20,
-        source: 'archive',
-      });
+      await loadMoodFeed(context, { limit: 20, source: 'archive', tag: 'life' });
     } catch (caught) {
       error = caught;
     } finally {

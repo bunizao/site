@@ -2,8 +2,9 @@
 import Layout from '@/layouts/Layout.astro';
 import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
 import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
+import DocsCopyPage from '@/features/docs/ui/DocsCopyPage.astro';
 import { docPath, getDocsNav } from '@/features/docs/server/nav';
-import { formatSiteTitle } from '@/lib/seo';
+import { markdownAlternatePath } from '@/features/agent-markdown/server/registry';
 import '@/styles/docs.css';
 
 export const prerender = true;
@@ -51,11 +52,14 @@ const ELSEWHERE = [
 ---
 
 <Layout
-  preloadFont={['display', 'sans', 'mono']}
-  title={formatSiteTitle('Docs')}
+  title="Docs"
   description="Reference for buxx.me — architecture, the post composing syntax, public API endpoints, and how every surface is built."
   url="/docs"
+  image="/docs-og.png"
+  imageAlt="Docs — buxx.me/docs"
   navVariant="docs"
+  containedScroll
+  scrollRestorationKey="docs-scroll"
 >
   <main class="docs docs--hub">
     <div class="docs-shell docs-shell--article docs-shell--hub">
@@ -63,7 +67,10 @@ const ELSEWHERE = [
 
       <div class="docs-article">
         <header class="docs-hub-head">
-          <p class="docs-eyebrow"><span>Documentation</span></p>
+          <div class="docs-article-head">
+            <p class="docs-eyebrow"><span>Documentation</span></p>
+            <DocsCopyPage markdownPath={markdownAlternatePath('/docs')} />
+          </div>
           <h1 class="docs-title">Everything this site does, written down.</h1>
           <p class="docs-lede">
             {pageCount} pages covering how buxx.me is built: the runtime and its

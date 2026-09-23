@@ -16,7 +16,11 @@ interface MoodMetaPatcher {
 }
 
 const MAX_VISIBLE_IDS = 30;
-const VIEWPORT_MARGIN_PX = 320;
+// Live counts can add or remove reaction pills and comment chips, which
+// changes item height. Patching 1200px ahead of the viewport keeps those
+// changes offscreen (out of CLS) by the time the reader scrolls to them;
+// 320px left the patch racing the scroll and shifting visible items.
+const VIEWPORT_MARGIN_PX = 1200;
 const LIVE_COUNTS_ENDPOINT = '/api/v2/moods/live-counts';
 
 export function getMoodReactionKey(reaction: Pick<MoodReaction, 'emoji' | 'emojiId' | 'emojiImage' | 'isPaid'>): string {
@@ -37,20 +41,22 @@ function isInViewport(element: Element): boolean {
 }
 
 function collectVisibleMoodIds(root: ParentNode, excluded: ReadonlySet<string>): string[] {
-  const ids: string[] = [];
+  // Near-viewport posts first so they always fit the batch cap; the rest of
+  // the rendered feed fills the remainder. Patching posts while they are
+  // still offscreen keeps count-driven height changes out of CLS.
+  const nearIds: string[] = [];
+  const farIds: string[] = [];
   const seen = new Set<string>();
 
   root.querySelectorAll<HTMLElement>('[data-mood-id]').forEach((element) => {
-    if (ids.length >= MAX_VISIBLE_IDS || !isInViewport(element)) return;
-
     const id = element.dataset.moodId?.trim() ?? '';
     if (!id || seen.has(id) || excluded.has(id)) return;
 
     seen.add(id);
-    ids.push(id);
+    (isInViewport(element) ? nearIds : farIds).push(id);
   });
 
-  return ids;
+  return [...nearIds, ...farIds].slice(0, MAX_VISIBLE_IDS);
 }
 
 function isMoodLiveCount(value: unknown): value is MoodLiveCount {
@@ -207,26 +213,36 @@ export function createMoodMetaPatcher({
   const attemptedIds = new Set<string>();
   const observed = new WeakSet<Element>();
   let pending: Promise<void> | null = null;
+  let rerunWhenIdle = false;
   let observer: IntersectionObserver | null = null;
 
   const patch = async (requestedIds: readonly string[]): Promise<void> => {
     if (!enabled) return;
     if (pending) await pending;
 
+    // Ids in flight count as attempted from the moment the request starts.
+    // Marking them only on success let every caller queued behind a slow
+    // request wake up, see the same unpatched ids, and fire its own copy.
     const ids = [...new Set(requestedIds.map((id) => id.trim()).filter(Boolean))]
       .filter((id) => !attemptedIds.has(id))
       .slice(0, MAX_VISIBLE_IDS);
     if (!ids.length) return;
+    ids.forEach((id) => attemptedIds.add(id));
 
     pending = fetchCounts(ids)
       .then((counts) => {
-        // Mark ids attempted only on success so a failed fetch stays retryable.
-        ids.forEach((id) => attemptedIds.add(id));
         Object.entries(counts).forEach(([id, count]) => patchMoodTarget(root, id, count));
       })
-      .catch(() => undefined)
+      .catch(() => {
+        // A failed batch stays retryable.
+        ids.forEach((id) => attemptedIds.delete(id));
+      })
       .finally(() => {
         pending = null;
+        if (rerunWhenIdle) {
+          rerunWhenIdle = false;
+          void patchVisible();
+        }
       });
 
     await pending;
@@ -248,6 +264,12 @@ export function createMoodMetaPatcher({
 
   const patchVisible = async (): Promise<void> => {
     if (!enabled) return;
+    // Scroll and intersection callbacks arrive every frame. While a request is
+    // out, skip the viewport scan and run once more when it lands.
+    if (pending) {
+      rerunWhenIdle = true;
+      return;
+    }
 
     observePosts();
     const ids = collectVisibleMoodIds(root, attemptedIds);

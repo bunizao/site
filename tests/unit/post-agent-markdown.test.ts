@@ -51,7 +51,7 @@ describe('post agent markdown', () => {
     const markdown = buildPostAgentMarkdown(createPost(), new URL('https://buxx.me'));
 
     expect(markdown).toStartWith('# Astro migration effect sandbox');
-    expect(markdown).toContain('Canonical: https://buxx.me/blog/demo-effects/');
+    expect(markdown).toContain('Canonical: https://buxx.me/blog/demo-effects');
     expect(markdown).toContain('Published: April 9, 2026');
     expect(markdown).toContain('[mood feed](https://buxx.me/mood)');
     expect(markdown).toContain('![Avatar](https://buxx.me/avatar.webp)');
@@ -90,7 +90,7 @@ describe('post agent markdown', () => {
     );
 
     expect(markdown).toContain(
-      '[Poem for the Sea](https://buxx.me/blog/poem-for-the-sea/)',
+      '[Poem for the Sea](https://buxx.me/blog/poem-for-the-sea)',
     );
     expect(markdown).not.toContain('unrelated article preview');
     expect(markdown).not.toContain("No Man's Land");

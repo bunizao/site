@@ -5,9 +5,8 @@ import { fileURLToPath } from 'node:url';
 import react from '@astrojs/react';
 import cloudflare from '@astrojs/cloudflare';
 import { satteri } from '@astrojs/markdown-satteri';
-import sitemap from '@astrojs/sitemap';
 
-import { docsCodePlugin } from './src/features/docs/server/markdown-plugin.ts';
+import { contentCodePlugin } from './src/features/docs/server/markdown-plugin.ts';
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 
@@ -35,14 +34,13 @@ const isE2EStrictPort = process.env.ASTRO_E2E_STRICT_PORT === '1';
 // runs on Astro's native Node SSR and proxies /api/* to the cloud site-api.
 const isDevServer = process.argv.includes('dev');
 const coveragePlugins = [];
-const publicSitemapPaths = new Set(['/', '/mood/', '/privacy/']);
 const negotiatedContentPageEntrypoints = new Set([
   'src/pages/index.astro',
   'src/pages/privacy.astro',
   'src/pages/blog/index.astro',
   'src/pages/blog/tags.astro',
   'src/pages/blog/tag/[slug].astro',
-  'src/pages/blog/[slug].astro',
+  'src/pages/blog/[...slug].astro',
 ]);
 const devOptimizerExcludes = [
   'cheerio',
@@ -82,9 +80,9 @@ if (isCoverageEnabled) {
 
 export default defineConfig({
   markdown: {
-    // Docs fences carry a header strip and, when tagged `demo`, a slot the
-    // docs route fills with the rendered snippet. No-ops elsewhere.
-    processor: satteri({ mdastPlugins: [docsCodePlugin] }),
+    // Mermaid fences become shared diagrams. Other docs fences carry a header
+    // strip and, when tagged `demo`, a slot filled by the docs route.
+    processor: satteri({ mdastPlugins: [contentCodePlugin] }),
     // Dual-theme fences so markdown code blocks follow the site theme instead of
     // painting one fixed palette. `defaultColor: false` emits --shiki-light /
     // --shiki-dark custom properties rather than inline colors; the CSS picks a
@@ -109,21 +107,16 @@ export default defineConfig({
       },
     },
     react(),
-    sitemap({
-      // Explicit allowlist plus the whole /docs tree — the reference is static,
-      // public, and worth indexing as a unit, so listing each page by hand would
-      // just rot the moment a doc is added.
-      filter: (page) => {
-        const { pathname } = new URL(page);
-        return publicSitemapPaths.has(pathname) || pathname.startsWith('/docs/');
-      },
-    }),
   ],
   devToolbar: {
     enabled: false,
   },
   site: 'https://buxx.me',
   output: 'static',
+  trailingSlash: 'never',
+  build: {
+    format: 'file',
+  },
   compressHTML: true,
   // Prefetch internal links on hover/focus. Portal (`/dev/*`) pages set
   // `data-astro-prefetch="false"` on their own links so authenticated routes

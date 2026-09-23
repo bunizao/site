@@ -28,8 +28,16 @@ GET /api/v1/mood
 | `after` | string (post id) | — | Cursor: posts newer than this id. Same validation as `before`. |
 | `tag` | string | — | Filters to one mood tag; normalized through `normalizeMoodTag`. |
 | `fresh` | boolean flag | `false` | Any value other than `0`/`false`/`no`/`off` counts as true. Forces `no-store` and skips the edge cache read (see rate limit note below). |
+| `fallback` | boolean flag | `true` | `fallback=0` turns off t.me completion: an empty archive page returns as-is instead of being topped up from the live channel. It does not affect availability — when the archive itself fails, the read still degrades to the live reader (see [Degradation](#degradation)). Edge-cached under its own cache entry. The site SSR sends `fallback=0` on every archive read. |
 | `probe` | boolean flag | `false` | Returns `{"latestId": "..."}` instead of a page — a cheap way to check for new posts without paying for the full payload. |
 | `probe=image` | — | — | Returns `{"latestImage": {...} | null}` — the latest post carrying an image, for the OG/preview pipeline. |
+
+A Telegram album is one post. The archive stores a `group_id` on every row
+(the lowest visible message id of the media group, or the post's own id),
+a page is the newest `limit` distinct group ids, and `before`/`after` compare
+against that id — the `id` the feed returns. Deleting an album's first photo
+re-elects the next one as the post id. Each page costs one index seek plus one
+row read per member, which is what keeps the Free-tier D1 read budget flat.
 
 Response body:
 
@@ -55,17 +63,45 @@ Response body:
 }
 ```
 
-`before`/`after` and `limit` are hashed into the edge cache key, so identical
-requests share one cache entry. A request with no cursor (the "latest" page)
+`before`/`after`, `limit`, `tag`, and the `fallback` flag are hashed into the
+edge cache key, so identical requests share one cache entry. A request with no cursor (the "latest" page)
 caches for 30s; a request with `before`/`after` (paging through history)
-caches for 300s, since history doesn't change once written.
+caches for 300s, since historical pages change less frequently.
+
+These TTLs describe the in-worker Cache API. Successful feed responses also
+advertise `Cloudflare-CDN-Cache-Control: public, max-age=60,
+stale-while-revalidate=600, stale-if-error=600`, while browsers keep
+`Cache-Control: public, max-age=0`. The private Worker's platform cache is
+enabled; a platform hit does not invoke its route handler or read D1.
+Fresh and probe reads, stale fallback responses, and errors remain `no-store`
+and do not receive the public CDN policy.
 
 **Errors:** `400 {"error": "Invalid cursor parameter"}` for a malformed
 `before`/`after`. `503 {"error":{"code":"mood_repository_unavailable", ...}}`
 if the D1/live binding isn't configured. `500
-{"error":{"code":"mood_feed_failed", ...}}` on an unhandled repository
-error. Note the shape difference — see
+{"error":{"code":"mood_feed_failed", ...}}` only after the archive, the live
+reader, and the last-known-good copy have all failed. Note the shape
+difference — see
 [Error shapes](/docs/api/overview#error-shapes-there-are-two).
+
+## Degradation
+
+Every `/v2/mood*` response carries an `X-Mood-Source` header naming what
+served it:
+
+| Value | Meaning |
+| --- | --- |
+| `archive` | The D1 archive answered, topped up from t.me unless `fallback=0`. |
+| `live` | The archive threw or is locked out, so the Telegram live reader served the page. Cached for 30s whatever the cursor. |
+| `stale` | Every reader failed. The body is the last successful default page, kept in KV for seven days, sent `no-store` with `X-Mood-Stale-Since` set to when it was captured. Only the cursorless, untagged feed page has a stale copy. |
+
+A D1 daily-quota error (code 7500) locks the archive in that Worker isolate
+until 00:00 UTC instead of retrying on every request; other errors retry on
+the next read. Tag-filtered reads never degrade — tags only exist in the
+archive, so they return 500 rather than an unfiltered page dressed up as a
+filter. The site SSR and the browser feed apply the same policy on their own
+side, falling through to `/api/v1/mood` and `/api/moods` (see
+[Mood surface](/docs/surfaces/mood)).
 
 ## Detail
 
@@ -84,7 +120,21 @@ Returns the single post document. `404
 for a missing or not-yet-archived id — that's the case where falling back to
 `/api/v1/mood` (or waiting for the archive backfill) makes sense. Successful
 responses cache at the edge for 60s; `?fresh=1` bypasses both the cache read
-and the cache write.
+and the cache write. Successful detail responses advertise the same separate
+60-second CDN TTL and 600-second stale window as the feed, including when the
+in-worker detail cache supplies the response. `fresh` and `probe` omit that
+CDN policy.
+
+The `v2` document carries two booleans a `v1` (live-mirror) document never
+sets: `discussionLinked` (the post's copy in the Telegram discussion group is
+known and `MOOD_COMMENTS_ENABLED` is on, so the site can post into it — see
+[Comments API](/docs/api/comments#mood-surface-the-telegram-bridge)) and
+`discussionRepliesEnabled` (the read path has verified the group's message
+ids really are what the scrape's comment ids claim, so a reply to a
+`telegram`-origin comment is safe to send). Both are `false`/absent on any
+post the bridge hasn't reached yet, which is also every `v1` response —
+clients render the "Leave a comment on Telegram" link there instead of the
+compose box.
 
 ## Comments
 
@@ -104,12 +154,39 @@ Same archive/live split as detail above, same response shape on both.
 ```json
 {
   "comments": [
-    { "id": "1", "author": "...", "datetime": "...", "content": "...", "reactions": [] }
+    { "id": "1", "author": "...", "datetime": "...", "content": "...", "reactions": [] },
+    {
+      "id": "4812",
+      "author": "Alice",
+      "datetime": "...",
+      "content": "nice shot",
+      "reactions": [],
+      "origin": "web",
+      "commentId": "01H...",
+      "anchorToken": "3f9a1c0b7e2d",
+      "replyTo": { "id": "1", "author": "...", "text": "..." }
+    }
   ],
   "hasMore": true,
   "nextBefore": "1"
 }
 ```
+
+`replyTo` is present only on comments that answer another comment. `id` is
+the parent comment id — it may belong to a page you have not fetched yet.
+`text` is a plain-text preview of the parent capped at 200 characters, not
+HTML; `content` never contains the parent.
+
+`origin`, `commentId`, and `anchorToken` are the Telegram bridge's overlay on
+top of the plain scrape — omitted `origin` means an ordinary Telegram
+comment, `"web"` means it was written on the site and re-attributed to its
+author here. `commentId` (the site's own comment row id) and `anchorToken`
+(`id="c-<anchorToken>"` on the rendered row) are present only on `web` items,
+letting the writer's own browser mark the row `mine` and offer edit/delete.
+See [Comments API § Mood surface](/docs/api/comments#mood-surface-the-telegram-bridge)
+for the full bridge and overlay rules, and
+[`/api/comments`](/docs/api/content#comments-by-post-id) for the legacy alias
+this route sits behind.
 
 60s edge cache when not bypassed. Same `mood_id_required` (400) /
 `mood_not_found` (404) / `mood_comments_failed` (500) error family as detail.

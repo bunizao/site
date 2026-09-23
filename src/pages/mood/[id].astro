@@ -9,20 +9,37 @@ import {
 } from '@/features/mood/server/api-client';
 import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
-import '@/styles/listening.css';
-import '@/styles/embed-youtube.css';
+import '@/styles/mood-lightbox.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import {
   prioritizeMoodDetailMedia,
+  splitMoodDetailParagraphs,
   renderStructuredMoodDetailContent,
 } from '@/features/mood/shared/detail-content';
 import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
 import DetailArticle from '@/features/mood/ui/DetailArticle.astro';
 import BackToTop from '@/features/mood/ui/BackToTop.astro';
 import { buildMoodDetailMetadata } from '@/features/mood/server/detail-metadata';
-import { readEnv } from '@/lib/runtime/env';
+import { getMoodChannelSlug } from '@/features/mood/server/channel-service';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
+import { resolveRequestLocale } from '@/features/mood/server/locale';
+import type { BlogLocale } from '@/data/site';
 
 export const prerender = false;
+
+// The mood zone used to be English-only markup on a site whose default locale
+// is zh, so a Chinese reader got an English thread beside a Chinese subscribe
+// panel. Both now follow the reader: ?lang, then the blog_lang cookie, then
+// Accept-Language. The page is rendered per request (prerender = false) and
+// declares both inputs in Vary. Workers Cache honors both header values
+// when selecting the stored representation.
+const locale = resolveRequestLocale({
+  query: Astro.url.searchParams.get('lang'),
+  cookie: Astro.request.headers.get('cookie'),
+  acceptLanguage: Astro.request.headers.get('accept-language'),
+}) as BlogLocale;
+Astro.response.headers.append('Vary', 'Accept-Language, Cookie');
 
 const { id } = Astro.params;
 
@@ -61,6 +78,15 @@ if (!post) {
   Astro.response.status = 404;
 }
 
+const hasLinkPreview = post
+  ? post.hero?.type === 'link-preview' || post.media.some((item) => item.type === 'link-preview')
+  : false;
+const previewPending = moodReadSource === 'archive'
+  && Boolean(post && /https?:\/\//i.test(post.bodyHtml) && !hasLinkPreview);
+if (previewPending) {
+  Astro.response.headers.set('X-Buxx-Cache-Ready', '0');
+}
+
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href;
 const moodAlternateUrl = new URL(canonicalUrl);
 const oembed = id
@@ -70,17 +96,30 @@ const metadata = buildMoodDetailMetadata(post, id);
 const formattedDate = post ? dayjs(post.datetime).format('MMMM D, YYYY · HH:mm') : '';
 const moodFeedBackHref = getMoodFeedAnchorHref(id ?? '');
 const canonicalPostId = post?.id ?? id ?? '';
-const channel = readEnv(Astro.locals, 'CHANNEL');
+const channel = getMoodChannelSlug(Astro.locals);
 const telegramCommentUrl = channel && canonicalPostId ? `https://t.me/${channel}/${canonicalPostId}?comment=1` : '';
+const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
+  ? ''
+  : readTurnstileSiteKey(Astro.locals);
 const renderedContent = post
   ? moodReadSource === 'archive'
     ? renderStructuredMoodDetailContent(post)
     : renderMoodContentWithGalleries(post.bodyHtml)
   : '';
-const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
+const renderedPostContent = splitMoodDetailParagraphs(prioritizeMoodDetailMedia(renderedContent));
+// Embed styles ship only when the rendered post actually contains one. The
+// css?url modules load via dynamic import so Astro does not hoist them into
+// <head> as unconditional page styles.
+const listeningCssHref = renderedPostContent.includes('data-listening')
+  ? (await import('@/styles/listening.css?url')).default
+  : null;
+const embedYouTubeCssHref = renderedPostContent.includes('data-yt')
+  ? (await import('@/styles/embed-youtube.css?url')).default
+  : null;
 ---
 
 <Layout
+  lang={locale}
   title={metadata.title}
   description={metadata.description}
   image={metadata.image}
@@ -88,11 +127,14 @@ const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
   imageWidth={metadata.imageWidth}
   imageHeight={metadata.imageHeight}
   oembed={oembed}
+  ogType="article"
   robots="noindex, follow"
-  preloadFont={['code', 'mono', 'sans']}
   hideSiteNav
+  hideHeaderActionsOnMobile
 >
   <main class="page-container">
+    {listeningCssHref && <link rel="stylesheet" href={listeningCssHref} />}
+    {embedYouTubeCssHref && <link rel="stylesheet" href={embedYouTubeCssHref} />}
     <DetailArticle
       post={post}
       error={error}
@@ -102,23 +144,35 @@ const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
       telegramCommentUrl={telegramCommentUrl}
       backHref={moodFeedBackHref}
       readSource={moodReadSource}
+      previewPending={previewPending}
+      discussionLinked={post?.discussionLinked}
+      discussionRepliesEnabled={post?.discussionRepliesEnabled}
+      turnstileSiteKey={turnstileSiteKey}
+      locale={locale}
     />
   </main>
   <BackToTop />
 </Layout>
 
+<style is:global>
+  /* The 24px dot grid is site chrome, tuned for pages with structure to sit on.
+     This one is a single 34rem column of somebody's writing, and the dots ran
+     straight through the text, the reaction chip and the compose capsule's
+     hairline. Nothing here needs a ground to be measured against. */
+  body::before {
+    display: none;
+  }
+</style>
+
 <script>
-  import {
-    replaceReplyNodesWithCommentQuotes,
-  } from '@/features/mood/shared/comments';
   import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
   import { initMoodDetailComments } from '@/features/mood/client/detail-comments-controller';
+  import { initMoodCommentCompose } from '@/features/mood/client/detail-compose';
   import { initMoodGalleries } from '@/features/mood/client/gallery';
   import { initMoodImageFrames } from '@/features/mood/client/image-frame';
+  import { initMoodLightbox } from '@/features/mood/client/lightbox';
   import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
   import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
-  import { initListeningCards } from '@/lib/listening/controller';
-  import { initYouTubeEmbeds } from '@/lib/embed/youtube-controller';
 
   document.querySelectorAll('.mood-post-content video').forEach((node) => {
     if (!(node instanceof HTMLVideoElement)) return;
@@ -163,12 +217,21 @@ const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
 
   const moodPostContent = document.querySelector('.mood-post-content');
   if (moodPostContent instanceof HTMLElement) {
-    replaceReplyNodesWithCommentQuotes(moodPostContent);
     initMoodGalleries(moodPostContent);
     initMoodImageFrames(moodPostContent);
+    initMoodLightbox(moodPostContent);
     hydrateMoodRichText(moodPostContent);
-    initListeningCards(moodPostContent);
-    initYouTubeEmbeds(moodPostContent);
+    // Load the embed controllers only when the post actually contains one.
+    if (moodPostContent.querySelector('[data-listening]')) {
+      void import('@/lib/listening/controller').then(({ initListeningCards }) => {
+        initListeningCards(moodPostContent);
+      });
+    }
+    if (moodPostContent.querySelector('[data-yt]')) {
+      void import('@/lib/embed/youtube-controller').then(({ initYouTubeEmbeds }) => {
+        initYouTubeEmbeds(moodPostContent);
+      });
+    }
   }
 
   const animatedEmoji = createAnimatedEmojiManager();
@@ -190,6 +253,7 @@ const renderedPostContent = prioritizeMoodDetailMedia(renderedContent);
         alwaysLoading: ALWAYS_LOADING,
         hydrateAnimatedEmoji: animatedEmoji.hydrate,
       });
+      initMoodCommentCompose();
     });
   });
 </script>

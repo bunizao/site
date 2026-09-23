@@ -2,14 +2,18 @@
  * Reusable hydration for Telegram Bot API rich text entities that need
  * interaction: click-to-reveal spoilers and expand/collapse blockquotes.
  *
- * Styling lives in feed-rich-text.css (loaded on every mood surface), so the
- * privacy default (blurred spoiler, clamped quote) holds even without JS. This
- * only adds the reveal/expand affordances. Idempotent — safe to call on the
- * same root repeatedly as content streams in.
+ * Styling lives in feed-rich-text.css. The spoiler blur holds even without JS;
+ * quotes clamp from first paint only under html.js so a no-JS reader never sees
+ * trapped content. This only adds the reveal/expand affordances. Idempotent —
+ * safe to call on the same root repeatedly as content streams in.
  */
 
+// t.me's widget writes `span.tg-spoiler`; `<tg-spoiler>` is the Bot API's own
+// tag, which the comment sanitizer also allows through. Both blur, both reveal.
+const SPOILER_SELECTOR = '.tg-spoiler:not([data-spoiler-ready]), tg-spoiler:not([data-spoiler-ready])';
+
 function hydrateSpoilers(root: ParentNode): void {
-  root.querySelectorAll<HTMLElement>('.tg-spoiler:not([data-spoiler-ready])').forEach((spoiler) => {
+  root.querySelectorAll<HTMLElement>(SPOILER_SELECTOR).forEach((spoiler) => {
     spoiler.dataset.spoilerReady = 'true';
     spoiler.setAttribute('role', 'button');
     spoiler.setAttribute('tabindex', '0');
@@ -38,13 +42,14 @@ function hydrateExpandableQuotes(root: ParentNode): void {
     .forEach((quote) => {
       quote.dataset.expandableReady = 'true';
 
-      // Apply the clamp, then keep the affordance only if it actually overflows.
-      // Without JS the quote stays fully visible, so this degrades safely.
-      quote.classList.add('is-collapsible');
+      // The stylesheet already clamps the quote under html.js, so this measures
+      // the clamped box. A quote that fits gets .is-static, which lifts a clamp
+      // that was not clipping anything — no layout shift either way.
       if (quote.scrollHeight <= quote.clientHeight + 1) {
-        quote.classList.remove('is-collapsible');
+        quote.classList.add('is-static');
         return;
       }
+      quote.classList.add('is-collapsible');
 
       quote.setAttribute('role', 'button');
       quote.setAttribute('tabindex', '0');

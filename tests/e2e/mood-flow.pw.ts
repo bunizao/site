@@ -159,13 +159,8 @@ function createGalleryFeedPayload(moodId: string) {
 
 function createRichCommentsPayload(moodId: string) {
   const replyHref = `/mood/${moodId}#comments`;
-  const richContent = [
-    `<a class="tgme_widget_message_reply" href="${replyHref}">`,
-    '<span class="tgme_widget_message_reply_author">Reply Author</span>',
-    '<span class="tgme_widget_message_reply_text">Reply Author: First line<br>Second line</span>',
-    '</a>',
-    `<p><strong>Bold</strong> <a href="${replyHref}">linked context</a> <span class="emoji"><b>🙂</b></span></p>`,
-  ].join('');
+  const richContent =
+    `<p><strong>Bold</strong> <a href="${replyHref}">linked context</a> <span class="emoji"><b>🙂</b></span></p>`;
 
   return {
     comments: [
@@ -176,6 +171,7 @@ function createRichCommentsPayload(moodId: string) {
         datetime: '2026-02-10T13:10:00+00:00',
         content: richContent,
         reactions: [],
+        replyTo: { id: '9000', author: 'Reply Author', text: 'First line Second line' },
       },
     ],
     hasMore: false,
@@ -188,6 +184,7 @@ function createComment(comment: {
   author?: string;
   datetime?: string;
   content?: string;
+  replyTo?: { id: string; author: string; text: string };
 }) {
   return {
     id: comment.id,
@@ -196,6 +193,7 @@ function createComment(comment: {
     datetime: comment.datetime ?? '2026-02-10T13:10:00+00:00',
     content: comment.content ?? `<p>Comment ${comment.id}</p>`,
     reactions: [],
+    ...(comment.replyTo ? { replyTo: comment.replyTo } : {}),
   };
 }
 
@@ -1592,7 +1590,7 @@ test.describe('Mood routes', () => {
     expect(attempts).toBe(2);
   });
 
-  test('keeps archive failures off the live feed after retries fail', async ({ page }) => {
+  test('falls back to the live feed after archive retries fail', async ({ page }) => {
     const anchorId = '1000';
     const channel = {
       slug: 'e2e',
@@ -1633,10 +1631,10 @@ test.describe('Mood routes', () => {
     await page.goto(`/mood?${anchorId}&source=archive`, { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('[data-mood-feed]')).toHaveAttribute('data-mood-read-source', 'archive');
-    await expect(page.locator('[data-mood-error]')).toBeVisible();
-    await expect(page.locator('[data-mood-initial-retry]')).toBeVisible();
+    await expect(page.locator(`[data-mood-id="${anchorId}"]`)).toBeVisible();
+    await expect(page.locator('[data-mood-error]')).toBeHidden();
     expect(archiveAttempts).toBe(2);
-    expect(liveAttempts).toBe(0);
+    expect(liveAttempts).toBe(1);
   });
 
   test('renders a too-big video placeholder on anchored feed posts without a poster image', async ({ page }) => {
@@ -2101,6 +2099,9 @@ test.describe('Mood routes', () => {
 
     const navbar = page.locator('[data-mood-navbar]');
     const updateNotice = navbar.locator('[data-mood-update-notice]');
+    // The watcher re-applies the resting styles on init; force the notice open
+    // only after that pass, or it stomps the inline styles set here.
+    await expect(updateNotice).toHaveAttribute('style', /translateX\(-10px\)/);
     await updateNotice.evaluate((element) => {
       element.style.display = 'inline-flex';
       element.style.opacity = '1';
@@ -2226,8 +2227,9 @@ test.describe('Mood routes', () => {
     expect(afterHover.activeTransform).toBe(beforeHover.activeTransform);
     expect(afterHover.activeWidth).toBeGreaterThan(beforeHover.activeWidth);
     expect(afterHover.wheelTransform).toBe(beforeHover.wheelTransform);
-    expect(afterHover.cursor).toBe('pointer');
-    expect(beforeHover.cursor).toBe('pointer');
+    // The wheel is an input as well as a readout: it offers a grab, not a tap.
+    expect(afterHover.cursor).toBe('grab');
+    expect(beforeHover.cursor).toBe('grab');
 
     await page.locator('[data-page-scroller]').evaluate((scroller) => {
       scroller.scrollTo({ top: scroller.scrollHeight * 0.7, behavior: 'instant' });
@@ -2314,9 +2316,11 @@ test.describe('Mood routes', () => {
       .toBe(1);
 
     const popoverContent = popover.locator('.mood-popover-comment-content').first();
-    await expect(popoverContent.locator('.mood-comment-quote')).toBeVisible();
-    await expect(popoverContent.locator('.mood-item-quote-author')).toHaveText('Reply Author');
-    await expect(popoverContent.locator('.mood-item-quote-text')).toContainText(/First line\s+Second line/);
+    const quote = popoverContent.locator('a.mood-comment-quote');
+    await expect(quote).toBeVisible();
+    await expect(quote).toHaveAttribute('href', `/mood/${moodId}#comment-9000`);
+    await expect(quote.locator('.mood-item-quote-author')).toHaveText('Reply Author');
+    await expect(quote.locator('.mood-item-quote-text')).toHaveText('First line Second line');
     await expect(popoverContent.locator('strong')).toHaveText('Bold');
     await expect(popoverContent.locator('p a')).toHaveAttribute('href', `/mood/${moodId}#comments`);
     await expect(popoverContent).toContainText('🙂');
@@ -2667,8 +2671,12 @@ test.describe('Mood routes', () => {
       };
     });
 
-    expect(styles.bodyTopLeftRadius).toBe('16px');
-    expect(styles.bodyBottomLeftRadius).toBe('5px');
+    // The bubble points its tight corner at the avatar, and the avatar sits at
+    // the top of the row -- so the small radius is top-left and the wide one
+    // covers the other three. It used to be mirrored, back when the shape also
+    // changed at narrow widths.
+    expect(styles.bodyTopLeftRadius).toBe('8px');
+    expect(styles.bodyBottomLeftRadius).toBe('16px');
     expect(styles.stickerRadius).toBe('8px');
     expect(styles.matteBackground).not.toBe('rgba(0, 0, 0, 0)');
     expect(styles.matteOverflow).toBe('hidden');
@@ -2767,16 +2775,21 @@ test.describe('Mood routes', () => {
     await expect(scrim).toBeVisible();
     expect(await panel.evaluate((element) => element.parentElement === document.body)).toBe(true);
     expect(await scrim.evaluate((element) => element.parentElement === document.body)).toBe(true);
-    await expect(panel.getByRole('link', { name: '通过 RSS 订阅' })).toHaveAttribute('href', '/mood/rss.xml');
-    await expect(panel.getByRole('link', { name: '订阅 Telegram 频道' })).toHaveAttribute('href', 'https://t.me/e2e');
+    await expect(panel.getByRole('link', { name: 'Subscribe by RSS' })).toHaveAttribute('href', '/mood/rss.xml');
+    await expect(panel.getByRole('link', { name: 'Follow on Telegram' })).toHaveAttribute('href', 'https://t.me/e2e');
 
     await disableNotifyNativeValidation(page);
     await page.locator('[data-sub-email]').fill('reader@example.com');
+    await page
+      .locator('.sub-channel')
+      .filter({ has: page.locator('[data-sub-channel][value="mood"]') })
+      .locator('.sub-channel__head')
+      .click();
     await page.locator('label[for="mood-mode-daily"]').click();
     await page.locator('[data-sub-submit]').click();
 
     await expect(page.locator('[data-sub-success-view]')).not.toHaveClass(/is-hidden/);
-    await expect(page.locator('[data-sub-success-text]')).toHaveText('确认邮件已发，去收件箱点一下。');
+    await expect(page.locator('[data-sub-success-text]')).toHaveText('Confirmation sent — tap the link in your inbox.');
     await expect.poll(() => requests.length).toBe(1);
     expect(requests[0]?.email).toBe('reader@example.com');
     expect(requests[0]?.channels).toEqual(['blog', 'mood']);
@@ -2803,7 +2816,7 @@ test.describe('Mood routes', () => {
     await page.locator('[data-sub-submit]').click();
 
     await expect(page.locator('[data-sub-success-view]')).not.toHaveClass(/is-hidden/);
-    await expect(page.locator('[data-sub-success-text]')).toHaveText('已经订阅过了。');
+    await expect(page.locator('[data-sub-success-text]')).toHaveText("You're already subscribed.");
   });
 
   test('handles notify validation, rate limits, and retryable server errors', async ({ page }) => {
@@ -2832,11 +2845,11 @@ test.describe('Mood routes', () => {
     await disableNotifyNativeValidation(page);
     await page.locator('[data-sub-email]').fill('not-an-email');
     await page.locator('[data-sub-submit]').click();
-    await expect(page.locator('[data-sub-error]')).toHaveText('请输入有效的邮箱地址。');
+    await expect(page.locator('[data-sub-error]')).toHaveText("That email doesn't look right.");
 
     await page.locator('[data-sub-email]').fill('reader@example.com');
     await page.locator('[data-sub-submit]').click();
-    await expect(page.locator('[data-sub-error]')).toHaveText('太频繁了，稍后再试。');
+    await expect(page.locator('[data-sub-error]')).toHaveText('Too many tries. Give it a minute.');
     await expect(page.locator('[data-sub-form-view]')).not.toHaveClass(/is-hidden/);
 
     await page.locator('[data-sub-submit]').click();
@@ -2892,8 +2905,12 @@ test.describe('Mood routes', () => {
     await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('[data-comments-loading]')).toHaveCount(0, { timeout: 30_000 });
-    await expect(page.locator('[data-comments-empty]')).toBeVisible();
-    await expect(page.locator('[data-comments-empty]')).toContainText('No comments here yet...');
+    // An empty thread says nothing: the heading and a line under it reading
+    // "no comments yet" say the same thing twice, so the box and the route out
+    // of the page are the whole message. The element stays in the DOM because
+    // its hidden state is what tells the section which layout to use.
+    await expect(page.locator('[data-comments-empty]')).toBeHidden();
+    await expect(page.locator('.mood-comments-header')).toBeHidden();
     await expect(page.locator('[data-comments-list] .mood-comment')).toHaveCount(0);
   });
 
@@ -2918,6 +2935,7 @@ test.describe('Mood routes', () => {
     test.skip(!latestMoodId, 'No mood id available from /api/moods');
 
     let requestCount = 0;
+    const replyToOlder = { id: '9000', author: 'E2E', text: 'Older comment' };
     await page.route('**/api/comments?postId=*', async (route) => {
       requestCount += 1;
 
@@ -2926,7 +2944,7 @@ test.describe('Mood routes', () => {
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({
-            comments: [createComment({ id: '9001' })],
+            comments: [createComment({ id: '9001', replyTo: replyToOlder })],
             hasMore: true,
             nextBefore: '9001',
           }),
@@ -2939,7 +2957,7 @@ test.describe('Mood routes', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           comments: [
-            createComment({ id: '9001' }),
+            createComment({ id: '9001', replyTo: replyToOlder }),
             createComment({
               id: '9000',
               datetime: '2026-02-10T13:05:00+00:00',
@@ -2956,6 +2974,12 @@ test.describe('Mood routes', () => {
 
     await expect(page.locator('[data-comments-list] .mood-comment')).toHaveCount(1, { timeout: 30_000 });
 
+    // The parent is not loaded yet, so the reply card is a static quote.
+    const replyQuote = page.locator('[data-comments-list] #comment-9001 .mood-comment-quote');
+    await expect(replyQuote.locator('.mood-item-quote-author')).toHaveText('E2E');
+    await expect(replyQuote.locator('.mood-item-quote-text')).toHaveText('Older comment');
+    await expect(page.locator('[data-comments-list] a.mood-comment-quote')).toHaveCount(0);
+
     const loadMoreButton = page.getByRole('button', { name: 'Load more comments' });
     await expect(loadMoreButton).toBeVisible();
     await loadMoreButton.click();
@@ -2964,6 +2988,9 @@ test.describe('Mood routes', () => {
     await expect(page.locator('[data-comments-list] .mood-comment[data-comment-id="9001"]')).toHaveCount(1);
     await expect(page.locator('[data-comments-list] .mood-comment[data-comment-id="9000"]')).toHaveCount(1);
     await expect(loadMoreButton).toBeHidden();
+
+    // Once the parent arrives the quote links to it.
+    await expect(page.locator('[data-comments-list] #comment-9001 a.mood-comment-quote')).toHaveAttribute('href', '#comment-9000');
   });
 
   test('renders a feed gallery and lazy-loads later slides on horizontal scroll', async ({ page }) => {
@@ -3058,7 +3085,7 @@ test.describe('Mood routes', () => {
     await expect(images.nth(0)).toHaveAttribute('src', /\/0$/);
     await expect(images.nth(1)).toHaveAttribute('src', /\/1$/);
     await expect(images.nth(2)).toHaveAttribute('src', /\/2$/);
-    expect(await track.evaluate((element) => getComputedStyle(element).overflowX)).toBe('visible');
+    expect(await track.evaluate((element) => getComputedStyle(element).overflowX)).toBe('auto');
     expect(await track.evaluate((element) => getComputedStyle(element).display)).toBe('flex');
   });
 
@@ -3072,18 +3099,25 @@ test.describe('Mood routes', () => {
     const track = page.locator('.mood-gallery--detail [data-mood-gallery-track]');
     const box = await track.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.height).toBeGreaterThan(300);
-    expect(box!.height).toBeLessThan(450);
+
     const slides = track.locator('[data-mood-gallery-slide]');
     await expect(slides).toHaveCount(3);
     const geometry = await slides.evaluateAll((nodes) => nodes.map((node) => {
       const rect = node.getBoundingClientRect();
-      return { top: rect.top, right: rect.right, height: rect.height };
+      return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
     }));
-    expect(Math.abs(geometry[1].right - (box!.x + box!.width))).toBeLessThan(2);
-    expect(Math.abs(geometry[0].top - geometry[1].top)).toBeLessThan(1);
-    expect(geometry[2].top).toBeGreaterThan(geometry[0].top + geometry[0].height);
-    expect(geometry[2].height).toBeLessThanOrEqual(210);
+
+    // One row, swiped sideways: every slide sits on the same line, sized from
+    // its declared ratio before a byte arrives, and the row runs past the band
+    // it is read in.
+    const [first] = geometry;
+    geometry.forEach((slide) => {
+      expect(Math.abs(slide.top - first!.top)).toBeLessThan(2);
+      expect(slide.width).toBeGreaterThan(0);
+      expect(Math.abs(slide.height - box!.height)).toBeLessThanOrEqual(box!.height);
+    });
+    const rowWidth = geometry.reduce((total, slide) => total + slide.width, 0);
+    expect(rowWidth).toBeGreaterThan(box!.width);
   });
 
   test('reserves a single detail image and paints its blur placeholder before load', async ({ page }) => {

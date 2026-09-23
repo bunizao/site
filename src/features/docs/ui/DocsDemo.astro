@@ -1,0 +1,42 @@
+---
+// The rendered half of a `demo` fence: the same snippet, run through the code
+// that publishes it, shown under the source.
+//
+// Collapsed by default. A docs page is read for its syntax, and once every
+// example carries a demo an always-open result panel doubles the page's height
+// for something the reader may not have asked to see yet.
+import { ChevronRight } from 'lucide-react';
+import Conversation from '@/features/content/ui/Conversation.astro';
+import AiCredit from '@/features/posts/ui/AiCredit.astro';
+import { readConversationSource, renderDemo } from '@/features/docs/server/demo';
+
+interface Props {
+  lang: string;
+  source: string;
+}
+
+const { lang, source } = Astro.props;
+
+// A conversation fence is not directive markup — it is a code card the prose
+// renderer swaps for a thread, so the demo takes the same route a post does.
+const conversation = readConversationSource(lang, source);
+const rendered = conversation === null ? await renderDemo(source) : null;
+
+// `[!authors]` is a meta directive: it leaves no HTML where it was written and
+// surfaces at the foot of the post instead. Say so, rather than showing a body
+// that is empty by design.
+const footerOnly = Boolean(rendered && !rendered.html.trim() && rendered.credits.length > 0);
+const label = footerOnly ? 'Post footer' : 'Rendered';
+---
+
+<details class="docs-demo">
+  <summary class="docs-demo-summary">
+    <ChevronRight className="docs-demo-caret" aria-hidden="true" />
+    <span class="docs-demo-label">{label}</span>
+  </summary>
+  <div class="blog-prose docs-demo-render">
+    {conversation !== null && <Conversation source={conversation} />}
+    {rendered?.html && <Fragment set:html={rendered.html} />}
+    {rendered && rendered.credits.length > 0 && <AiCredit credits={rendered.credits} />}
+  </div>
+</details>

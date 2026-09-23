@@ -59,25 +59,31 @@ const BARE_IFRAME_RE =
 const SHORTCODE_BLOCK_RE = /<p>\s*\[mood:(\d+)([^\]]*)\]\s*<\/p>/gi;
 const SHORTCODE_INLINE_RE = /\[mood:(\d+)([^\]]*)\]/gi;
 
+// A canonical figure still contains "/mood/embed", so the later passes match
+// what the earlier ones just wrote — BARE_IFRAME_RE re-wraps our own iframe and
+// nests a second figure around it. Park each result behind a placeholder that
+// no pattern can match, and splice them back once every pass has run.
+const PLACEHOLDER_RE = /<!--mood-embed:(\d+)-->/g;
+
 export function enrichMoodEmbeds(html: string): string {
   if (!html) return html;
+
+  const figures: string[] = [];
+  const park = (id: string, extra: string) =>
+    `<!--mood-embed:${figures.push(buildEmbedFigure(id, parseOptions(extra))) - 1}-->`;
 
   let out = html;
 
   if (out.includes('[mood:')) {
     out = out
-      .replace(SHORTCODE_BLOCK_RE, (_full, id: string, extra: string) =>
-        buildEmbedFigure(id, parseOptions(extra)),
-      )
-      .replace(SHORTCODE_INLINE_RE, (_full, id: string, extra: string) =>
-        buildEmbedFigure(id, parseOptions(extra)),
-      );
+      .replace(SHORTCODE_BLOCK_RE, (_full, id: string, extra: string) => park(id, extra))
+      .replace(SHORTCODE_INLINE_RE, (_full, id: string, extra: string) => park(id, extra));
   }
 
   if (out.includes('/mood/')) {
     const rebuild = (full: string, ref: string) => {
       const id = extractMoodId(ref);
-      return id ? buildEmbedFigure(id, parseOptions(ref)) : full;
+      return id ? park(id, ref) : full;
     };
     out = out
       .replace(BOOKMARK_RE, rebuild)
@@ -85,5 +91,5 @@ export function enrichMoodEmbeds(html: string): string {
       .replace(BARE_IFRAME_RE, rebuild);
   }
 
-  return out;
+  return out.replace(PLACEHOLDER_RE, (_full, index: string) => figures[Number(index)]);
 }

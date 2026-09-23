@@ -36,6 +36,19 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/broadcasts/:id` | Manages one broadcast. | Admin session |
 | `/admin/broadcasts/:id/progress` | Reads broadcast delivery progress. | Admin session |
 | `/admin/broadcasts/preview` | Renders a broadcast preview. | Admin session |
+| `/admin/comments` | Reads the comment moderation queue and its counts. | Admin session |
+| `/admin/comments/:id` | Approves, hides, or deletes one comment. | Admin session |
+| `/admin/comments/owner-code` | Mints the single-use code that signs the portal's browser in to the comment box as the owner. | Admin session |
+| `/admin/comments/insights` | Reads the grouped comment tables: networks, subnets, devices, hints, link and mail domains. | Admin session |
+| `/admin/reactions` | Reads the reaction list with the actor block on each row. | Admin session |
+| `/admin/reactions/insights` | Reads the grouped reaction tables. | Admin session |
+| `/admin/sources/*/*` | Reads one key's profile (key type, then value): its rows, its spread, its link graph. | Admin session |
+| `/admin/bans` | Lists the ban list, and applies bans with an optional purge. | Admin session |
+| `/admin/bans/preview` | Previews distinct affected accounts, sessions and content before a ban. | Admin session |
+| `/admin/bans/operations` | Lists recent purge operations and their recovery state. | Admin session |
+| `/admin/bans/operations/:id/restore` | Restores eligible content from one purge while leaving bans unchanged. | Admin session |
+| `/admin/bans/*/*` | Lifts one ban (key type, then value). | Admin session |
+| `/admin/activity` | Reads the append-only comment and reaction activity log. | Admin session |
 | `/admin/subscribers` | Manages subscribers. | Admin session |
 | `/admin/subscribers/:hash` | Manages one subscriber. | Admin session |
 | `/admin/subscribers/:hash/blog-welcome` | Sends one blog welcome message. | Admin session |
@@ -57,6 +70,7 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/mood-embed` | Opens mood embed tools. | Admin session |
 | `/admin/oauth` | Opens OAuth management. | Admin session |
 | `/admin/svg` | Opens SVG tools. | Admin session |
+| `/admin/portal/comments` | Opens the comment moderation queue. | Admin session |
 | `/admin/portal/broadcasts` | Opens broadcast operations. | Admin session |
 | `/admin/portal/broadcasts/:id` | Opens one broadcast. | Admin session |
 | `/admin/portal/subscribers` | Opens subscriber operations. | Admin session |
@@ -67,9 +81,27 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | Path | Purpose | Auth tier |
 | --- | --- | --- |
 | `/webhooks/ghost` | Receives Ghost publication events. | Signed Ghost webhook |
+| `/webhooks/resend` | Receives Resend delivery events (bounces, complaints) and feeds the outbound-email suppression ledger. | Svix signature |
 | `/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
 | `/v2/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
 | `/webhooks/telegram` | Receives Telegram mood events. | Telegram secret token |
+| `/webhooks/telegram-ops` | Receives the ops bot's updates: the flood-gate decision keyboard, the bot command surface, comment moderation actions, and pending-action confirmations. | Its own Telegram secret token, plus a Telegram user id allowlist |
+
+`/webhooks/telegram-ops` is deliberately separate from `/webhooks/telegram`:
+a different path, a different secret header value, and an operator allowlist
+on top, so the bot that can act on the site is not the bot that ingests public
+channel content. It is dispatched from `worker.ts` rather than a file under
+`src/pages/`, which is why
+[`check:docs-coverage`](/docs/development#checks)
+cannot see it — a manually wired route has to be added to this table by hand.
+
+## Mood sync routes
+
+| Path | Purpose | Auth tier |
+| --- | --- | --- |
+| `/v2/mood/converge/report` | The converge Durable Object reports Telegram channel differences — deletions, verifications, gaps — to the archive. | HMAC-signed with the shared mood sync secret via `X-Mood-Timestamp` / `X-Mood-Signature` |
+| `/v2/mood/reconcile/due` | Legacy VPS reconciler: requests a batch of message ids to verify. Scheduled for retirement per `plans/039-mood-converge-landing.md`. | HMAC-signed with the shared mood sync secret via `X-Mood-Timestamp` / `X-Mood-Signature` |
+| `/v2/mood/reconcile/report` | Legacy VPS reconciler: reports verification results back to the archive. Scheduled for retirement per `plans/039-mood-converge-landing.md`. | HMAC-signed with the shared mood sync secret via `X-Mood-Timestamp` / `X-Mood-Signature` |
 
 ## Scheduled notification routes
 

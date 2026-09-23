@@ -61,3 +61,38 @@ export function getTimelineDateState({
 
   return { progressIndex, activeIndex };
 }
+
+export interface DateProgressScrollInput {
+  anchors: number[];
+  feedBottomY: number;
+  progressIndex: number;
+  viewportHeight: number;
+}
+
+/**
+ * Inverse of `getTimelineDateState`: the scroll position that puts the tracking
+ * line at a fractional date index. The jog wheel drives scroll through this, so
+ * dragging travels in dates rather than pixels — one drag step covers the same
+ * ground whether a day holds one line of text or twenty photos.
+ */
+export function getScrollYForDateProgress({
+  anchors,
+  feedBottomY,
+  progressIndex,
+  viewportHeight,
+}: DateProgressScrollInput): number {
+  const totalDates = anchors.length;
+  if (totalDates === 0) return 0;
+
+  const lastIndex = totalDates - 1;
+  const progress = Math.max(progressIndex, 0);
+  const index = Math.min(Math.floor(progress), lastIndex);
+  const fraction = progress - index;
+
+  const start = anchors[index];
+  const end = index < lastIndex ? anchors[index + 1] : feedBottomY;
+  const span = Math.max(end - start, 1);
+  const focusY = start + fraction * span;
+
+  return Math.max(focusY - viewportHeight * 0.5, 0);
+}

@@ -1,0 +1,132 @@
+---
+// The reply mail's mute button, landing side.
+//
+// Same shape as /reader/confirm and for the same reason: the mail carries one
+// link here, GET renders, and only a POST writes the mute. A GET that muted
+// would let a mail scanner's prefetch (Apple MPP, corporate link checkers)
+// silence a conversation the reader never asked to leave. The inline script
+// submits on arrival, so a real visit lands on the result; scanners fetch the
+// HTML and run none of it.
+//
+// The token authenticates on its own -- no session, because the mail is
+// usually open on a phone that has never signed in here, and an off switch
+// that starts with a sign-in is one people replace with the spam button.
+export const prerender = false;
+
+import BlogLayout from '@/layouts/BlogLayout.astro';
+import Footer from '@/features/home/ui/Footer.astro';
+import '@/features/comments/styles/comments.css';
+import { proxyApiRequest } from '@/lib/http/api-service-proxy';
+import { readerMuteCopy, resolveReaderConfirmLocale } from '@/features/comments/reader-confirm-copy';
+import { ICONS } from '@/features/comments/icons';
+import { READER_MUTE_PATH } from '@bunizao/contracts/routes';
+import type { ReaderMuteResult } from '@bunizao/contracts/comments';
+
+type ViewState = 'pending' | 'muted' | 'unmuted' | 'invalid';
+
+const token = Astro.url.searchParams.get('token') ?? '';
+const locale = resolveReaderConfirmLocale(Astro.url.searchParams.get('lang'));
+const t = readerMuteCopy[locale];
+
+let state: ViewState = token ? 'pending' : 'invalid';
+let postId = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const postedToken = form.get('token');
+  const undo = form.get('undo') === '1';
+
+  if (typeof postedToken === 'string' && postedToken) {
+    const request = new Request(`${Astro.url.origin}/api${READER_MUTE_PATH}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: postedToken, muted: !undo }),
+    });
+    const response = await proxyApiRequest(request, Astro.locals);
+    const result = (await response.json().catch(() => null)) as ReaderMuteResult | null;
+    state = result?.outcome === 'muted' ? 'muted' : result?.outcome === 'unmuted' ? 'unmuted' : 'invalid';
+    postId = result?.postId ?? '';
+  } else {
+    state = 'invalid';
+  }
+}
+
+const settingsHref = `/reader/confirm?lang=${locale}${postId ? `&post=${encodeURIComponent(postId)}` : ''}`;
+
+const GLYPHS: Record<ViewState, string> = {
+  pending: ICONS.bellOff,
+  muted: ICONS.bellOff,
+  unmuted: ICONS.bell,
+  invalid: ICONS.linkOff,
+};
+---
+
+<BlogLayout title={t.pageTitle} locale={locale} path="/reader/mute" description={t.pageDescription} robots="noindex, nofollow">
+  <div class="reader-confirm">
+    <div class="reader-confirm__card" data-state={state}>
+      <span class="reader-confirm__glyph" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" set:html={GLYPHS[state]} />
+      </span>
+
+      {state === 'pending' && (
+        <>
+          <h1 class="reader-confirm__title">{t.mutedTitle}</h1>
+          <form method="post" data-auto-mute>
+            <input type="hidden" name="token" value={token} />
+            <button type="submit" class="reader-confirm__go">{t.pageTitle}</button>
+          </form>
+          <p class="reader-confirm__working" aria-live="polite">{t.working}</p>
+        </>
+      )}
+
+      {state === 'muted' && (
+        <>
+          <h1 class="reader-confirm__title">{t.mutedTitle}</h1>
+          <p class="reader-confirm__body">{t.mutedBody}</p>
+          {/* The undo is a form, not a link, for the same reason the mute is:
+              nothing here changes on a GET. */}
+          <form method="post" class="reader-confirm__form">
+            <input type="hidden" name="token" value={token} />
+            <input type="hidden" name="undo" value="1" />
+            <button type="submit" class="reader-confirm__go reader-confirm__go--quiet">{t.undo}</button>
+          </form>
+          <a class="reader-confirm__back" href={settingsHref}>{t.settings}</a>
+        </>
+      )}
+
+      {state === 'unmuted' && (
+        <>
+          <h1 class="reader-confirm__title">{t.unmutedTitle}</h1>
+          <p class="reader-confirm__body">{t.unmutedBody}</p>
+          <a class="reader-confirm__back" href={settingsHref}>{t.settings}</a>
+        </>
+      )}
+
+      {state === 'invalid' && (
+        <>
+          <h1 class="reader-confirm__title">{t.invalidTitle}</h1>
+          <p class="reader-confirm__body">{t.invalidBody}</p>
+          <a class="reader-confirm__back" href={settingsHref}>{t.settings}</a>
+        </>
+      )}
+    </div>
+  </div>
+
+  {/* Inline and parse-blocking, exactly as on the confirm page: the reader
+      pressed a button in their mail client and should not have to press a
+      second one here. The button stays as the no-JS path, and the timer puts
+      it back if the submit never navigates. */}
+  <script is:inline>
+    (function () {
+      var form = document.querySelector('[data-auto-mute]');
+      if (!form) return;
+      var card = form.closest('.reader-confirm__card');
+      card.dataset.auto = 'working';
+      setTimeout(function () { card.dataset.auto = 'manual'; }, 10000);
+      if (form.requestSubmit) form.requestSubmit();
+      else form.submit();
+    })();
+  </script>
+
+  <Footer />
+</BlogLayout>

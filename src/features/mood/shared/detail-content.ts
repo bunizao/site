@@ -121,6 +121,63 @@ function renderStructuredImageDetailMedia(document: MoodContentDocument): string
   );
 }
 
+/* Telegram writes paragraphs as a pair of <br>, which makes the gap between
+   them exactly one line-height -- leading and paragraph rhythm become the same
+   number, and nothing can tune one without the other. Real paragraphs split
+   them apart. A lone <br> stays a soft break inside its paragraph, and block
+   elements (galleries, cards, video) pass through untouched so nothing ends up
+   nested in a <p> the parser would close early. */
+const DETAIL_BLOCK_TAGS = new Set([
+  'address', 'aside', 'audio', 'blockquote', 'details', 'div', 'dl', 'figure',
+  'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'iframe', 'ol', 'p', 'pre',
+  'section', 'table', 'ul', 'video',
+]);
+
+export function splitMoodDetailParagraphs(contentHtml: string): string {
+  if (!contentHtml.includes('<br')) return contentHtml;
+
+  const $ = cheerio.load(contentHtml, null, false);
+  const out: string[] = [];
+  let buffer: string[] = [];
+  let breakRun = 0;
+
+  const flush = () => {
+    const html = buffer.join('').trim();
+    buffer = [];
+    if (html) out.push(`<p>${html}</p>`);
+  };
+
+  for (const node of $.root().contents().toArray()) {
+    const tag = node.type === 'tag' ? node.tagName.toLowerCase() : '';
+
+    if (tag === 'br') {
+      breakRun += 1;
+      if (breakRun >= 2) flush();
+      continue;
+    }
+
+    // Whitespace between two <br> must not end the run.
+    const html = $.html(node);
+    if (node.type === 'text' && !html.trim()) {
+      if (buffer.length) buffer.push(html);
+      continue;
+    }
+
+    // A single break is only a soft break once something follows it.
+    if (breakRun === 1 && buffer.length) buffer.push('<br>');
+    breakRun = 0;
+    if (DETAIL_BLOCK_TAGS.has(tag)) {
+      flush();
+      out.push(html);
+    } else {
+      buffer.push(html);
+    }
+  }
+
+  flush();
+  return out.join('');
+}
+
 export function prioritizeMoodDetailMedia(contentHtml: string): string {
   if (!contentHtml) return contentHtml;
 

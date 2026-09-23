@@ -1,6 +1,6 @@
 ---
 title: Listening
-tagline: A now-playing vinyl card that spins, samples its artwork, and plays a preview.
+tagline: A now-playing vinyl card that spins, receives a server accent, and plays a preview.
 tier: showpiece
 order: 55
 install:
@@ -22,6 +22,7 @@ const track = {
   appleMusicUrl: 'https://music.apple.com/',
   artworkUrl: 'https://example.com/artwork.jpg',
   thumbUrl: 'https://example.com/artwork.jpg',
+  accent: null,
   previewUrl: 'https://example.com/preview.m4a',
   year: '2026',
   genre: 'Pop',

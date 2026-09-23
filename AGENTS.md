@@ -36,13 +36,31 @@ bun preview              # Preview production build locally (wrangler dev on bui
 
 No separate linter is configured.
 
+## Dev Server & Worktree Hygiene
+
+RAM is the scarce resource on this machine; leaked dev servers and stale
+worktrees are the main offenders. Rules for agent sessions:
+
+- Do not start a dev server unless the task needs browser verification.
+  `bun run check` and unit tests are the default verification path.
+- One dev server per checkout, max 3 machine-wide. A PreToolUse hook
+  (`scripts/hooks/dev-server-guard.ts`) denies starts beyond that. When
+  denied, reuse the running server (`bunx astro dev status`) instead of
+  retrying; restart via `bunx astro dev stop` only when genuinely needed.
+- The background server of a checkout is stopped automatically when the
+  session ends (SessionEnd hook, `scripts/hooks/stop-dev-server.sh`).
+- `bash scripts/worktree-gc.sh` lists merged or stale worktrees; `--apply`
+  removes them and prunes registrations. Run it when worktrees pile up.
+- Dev scripts cap the Node heap at 1GB (`NODE_OPTIONS` in package.json), so a
+  long-lived server GCs instead of ballooning.
+
 **Dev runtime note:** `astro dev` runs on Astro's native Node SSR — the Cloudflare adapter (and its workerd runner) only applies during `build`. In dev, `/api/*`, `/v2/*`, and `/oauth*` are proxied over HTTP via `API_DEV_ORIGIN` (default `https://buxx.me`). Use `bun dev:api` to redirect that proxy to a local `wrangler dev` site-api instead. Set `API_DEV_ORIGIN` in `.env.local` to target a preview deployment or any other origin.
 
 ## Related Repository (site-api)
 
 This is the public Worker. The private Worker `site-api` lives in the sibling repo `../site-api` (separate git repo, same `Dropbox/Dev/` parent). It owns D1, KV, R2, queues, crons, admin/OAuth, notify, the Telegram webhook, the image proxy, and concrete public API implementations. Production `buxx.me/api/*` is directly routed to `site-api`; this repo keeps only a thin `/api/*` service-binding fallback for deploy/preview environments. Keep them split — it is the public/private security boundary.
 
-- `@bunizao/contracts` is duplicated in both repos as byte-identical copies; **this repo (`site`) is canonical**. After editing contracts, sync the copy in `../site-api` via `bun run sync:contracts` there.
+- `@bunizao/contracts` is published from `packages/contracts` here; **this repo (`site`) is canonical**. `../site-api` pins an exact published version. After editing contracts, bump the package version, publish, then raise the pin in `../site-api` (`package.json`, `scripts/check-contract-package.ts`, `tests/unit/ci-workflow.test.ts`).
 - To develop against a local site-api: run `bun run dev` in `../site-api` (boots wrangler on `127.0.0.1:8787`), then use `bun dev:api` here. The `API` service binding only resolves at deploy/`wrangler dev` time; `bun dev` is not broken without it — it just proxies to prod.
 
 ## Architecture

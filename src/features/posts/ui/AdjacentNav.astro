@@ -1,8 +1,14 @@
 ---
 // Prev/next reading-order navigation at the foot of an article. `prev` is older,
 // `next` is newer. Renders nothing if the post stands alone.
+//
+// The newest post has no `next` and the oldest has no `prev`, which used to
+// leave half the row empty and the reader with one way out. The missing side
+// carries the index instead -- quieter than a post title, because it is a way
+// out of the reading order rather than the next step in it.
 import type { Post } from '../types';
 import { postPath } from '../format';
+import { withWidthParam } from '@/lib/media/responsive-image';
 
 interface Props {
   prev: Post | null;
@@ -10,21 +16,61 @@ interface Props {
 }
 
 const { prev, next } = Astro.props;
+
+// The card renders at 200px, so 480 covers a 2x screen with room to spare.
+// Anything larger is a full-size capture pulled through the proxy for a hover.
+const isBlogImageProxyUrl = (value: string) => value.includes('/api/v2/images/blog/');
+const cover = (post: Post | null) =>
+  post?.featureImage && isBlogImageProxyUrl(post.featureImage)
+    ? withWidthParam(post.featureImage, 480)
+    : post?.featureImage ?? null;
+
+const prevCover = cover(prev);
+const nextCover = cover(next);
 ---
 
 {(prev || next) && (
   <nav class="blog-adjacent" aria-label="More posts">
     {prev ? (
       <a class="blog-adjacent__item blog-adjacent__item--prev" href={postPath(prev.slug)}>
+        {prevCover && (
+          <span class="blog-adjacent__cover" aria-hidden="true">
+            <img src={prevCover} alt="" loading="lazy" decoding="async" />
+          </span>
+        )}
         <span class="blog-adjacent__dir">← Older</span>
         <span class="blog-adjacent__title">{prev.title}</span>
       </a>
-    ) : <span />}
-    {next && (
+    ) : (
+      <a class="blog-adjacent__index" href="/blog">← All posts</a>
+    )}
+    {next ? (
       <a class="blog-adjacent__item blog-adjacent__item--next" href={postPath(next.slug)}>
+        {nextCover && (
+          <span class="blog-adjacent__cover" aria-hidden="true">
+            <img src={nextCover} alt="" loading="lazy" decoding="async" />
+          </span>
+        )}
         <span class="blog-adjacent__dir">Newer →</span>
         <span class="blog-adjacent__title">{next.title}</span>
       </a>
+    ) : (
+      <a class="blog-adjacent__index blog-adjacent__index--next" href="/blog">All posts →</a>
     )}
   </nav>
 )}
+
+<script>
+  // A cover that 404s would otherwise hover open as a broken-image box. The
+  // list preview drops dead covers the same way (PostHover.astro); this is the
+  // same invariant without the positioning machinery.
+  //
+  // The error event is the whole test on purpose. `naturalWidth === 0` looks
+  // like a cheaper synchronous check and is not one: an SVG with no intrinsic
+  // size reports 0 after loading perfectly well, so it would drop good covers.
+  // These images are lazy and sit at the foot of the page, so they start
+  // loading long after this module runs -- the event always has a listener.
+  document.querySelectorAll<HTMLImageElement>('.blog-adjacent__cover img').forEach((img) => {
+    img.addEventListener('error', () => img.parentElement?.remove());
+  });
+</script>

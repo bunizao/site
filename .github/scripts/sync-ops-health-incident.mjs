@@ -45,6 +45,8 @@ export function buildIncidentReport({ codexResult, context, evidence, healthStat
         `**Disposition:** ${codexResult.disposition}`,
         `**Classification:** ${codexResult.classification}`,
         `**Confidence:** ${codexResult.confidence}`,
+        `**Signal validity:** ${codexResult.signalValidity}`,
+        `**Occurrence pattern:** ${codexResult.occurrencePattern}`,
         `**Repository scope:** ${codexResult.repositoryScope}`,
         '',
         codexResult.summary,

@@ -83,6 +83,35 @@ describe('components showcase registry', () => {
     expect(verifier).toContain('src/content/components/conversation.md');
   });
 
+  test('publishes every conversation runtime at a stable library target', async () => {
+    const item = await buildRegistryItem(registryEntry('conversation'));
+
+    expect(item.files.map(({ path, target, type }) => ({ path, target, type }))).toEqual([
+      {
+        path: 'features/content/ui/Conversation.astro',
+        target: '@ui/conversation.astro',
+        type: 'registry:ui',
+      },
+      {
+        path: 'features/content/conversation.ts',
+        target: '@lib/conversation.ts',
+        type: 'registry:lib',
+      },
+      {
+        path: 'features/content/client/conversation-fit.ts',
+        target: '@lib/conversation-fit.ts',
+        type: 'registry:lib',
+      },
+      {
+        path: 'styles/conversation.css',
+        target: '@lib/conversation.css',
+        type: 'registry:lib',
+      },
+    ]);
+    expect(item.files[0]?.content).toContain("from '@/lib/conversation-fit'");
+    expect(item.files.some(({ content }) => content.includes('@/features/'))).toBe(false);
+  });
+
   test('keeps decode text component and engine targets distinct', async () => {
     const item = await buildRegistryItem(registryEntry('decode-text'));
 
@@ -101,7 +130,7 @@ describe('components showcase registry', () => {
     expect(item.files[0]?.content).toContain("from '@/lib/listening-markup'");
     expect(item.files[0]?.content).toContain("from '@/lib/listening-controller'");
     expect(item.files[0]?.content).toContain("import '@/lib/listening.css'");
-    expect(item.files[1]?.content).toBe(readText('src/features/home/types.ts'));
+    expect(item.files[1]?.content).toBe(readText('packages/contracts/src/listening.ts'));
     expect(item.files[3]?.content).not.toContain("from '@/lib/listening/analytics'");
     expect(item.files[3]?.content).toContain('ListeningAnalytics | null => null');
     expect(item.files[6]?.target).toBe('types/musickit.d.ts');
@@ -154,6 +183,21 @@ describe('components showcase registry', () => {
         type: 'registry:lib',
       },
       {
+        path: 'features/mood/client/date-label.ts',
+        target: '@lib/date-label.ts',
+        type: 'registry:lib',
+      },
+      {
+        path: 'features/mood/client/wheel-feedback.ts',
+        target: '@lib/wheel-feedback.ts',
+        type: 'registry:lib',
+      },
+      {
+        path: 'features/mood/client/wheel-frame-meter.ts',
+        target: '@lib/wheel-frame-meter.ts',
+        type: 'registry:lib',
+      },
+      {
         path: 'features/mood/shared/feed-anchor.ts',
         target: '@lib/feed-anchor.ts',
         type: 'registry:lib',
@@ -169,10 +213,16 @@ describe('components showcase registry', () => {
         type: 'registry:ui',
       },
     ]);
-    expect(item.files[0]?.content).toContain("from '@/lib/timeline-date-tracker'");
-    expect(item.files[0]?.content).toContain("from '@/lib/feed-anchor'");
-    expect(item.files[4]?.content).toContain("from '@/lib/timeline-wheel'");
-    expect(item.files[4]?.content).toContain('data-timeline-wheel');
+    const byTarget = (target: string) =>
+      item.files.find((file) => file.target === target)?.content ?? '';
+
+    expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/timeline-date-tracker'");
+    expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/date-label'");
+    expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/wheel-feedback'");
+    expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/wheel-frame-meter'");
+    expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/feed-anchor'");
+    expect(byTarget('@ui/timeline-wheel.astro')).toContain("import('@/lib/timeline-wheel')");
+    expect(byTarget('@ui/timeline-wheel.astro')).toContain('data-timeline-wheel');
     expect(item.files.some(({ content }) => content.includes('@/features/'))).toBe(false);
   });
 

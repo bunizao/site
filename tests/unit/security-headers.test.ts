@@ -18,6 +18,39 @@ function htmlResponse(headers: Record<string, string> = {}): Response {
   });
 }
 
+describe('non-canonical hosts', () => {
+  test('marks every response from a copy of the site as noindex', () => {
+    const tunnel = withHtmlSecurityHeaders(
+      new Request('https://dev-preview.buxx.me/blog'),
+      htmlResponse(),
+    );
+    expect(tunnel.headers.get('X-Robots-Tag')).toBe('noindex, nofollow');
+
+    const preview = withHtmlSecurityHeaders(
+      new Request('https://abc123-site.bunizao.workers.dev/mood/rss.xml'),
+      new Response('<rss/>', { headers: { 'Content-Type': 'application/xml' } }),
+    );
+    expect(preview.headers.get('X-Robots-Tag')).toBe('noindex, nofollow');
+  });
+
+  test('leaves production and local hosts alone', () => {
+    expect(
+      withHtmlSecurityHeaders(new Request('https://buxx.me/blog'), htmlResponse()).headers.get('X-Robots-Tag'),
+    ).toBeNull();
+    expect(
+      withHtmlSecurityHeaders(new Request('http://localhost:4321/blog'), htmlResponse()).headers.get('X-Robots-Tag'),
+    ).toBeNull();
+  });
+
+  test('never weakens a stricter robots header already on the response', () => {
+    const response = withHtmlSecurityHeaders(
+      new Request('https://dev-preview.buxx.me/blog/secret'),
+      htmlResponse({ 'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet' }),
+    );
+    expect(response.headers.get('X-Robots-Tag')).toBe('noindex, nofollow, noarchive, nosnippet');
+  });
+});
+
 describe('html security headers', () => {
   test('mood embeds allow only the official YouTube API and privacy-enhanced frame host', () => {
     const csp = getEmbedHeaders().get('Content-Security-Policy') ?? '';
@@ -45,6 +78,16 @@ describe('html security headers', () => {
     );
 
     expect(response.headers.get('Content-Security-Policy')).toContain("frame-ancestors 'none'");
+    expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
+  test('dev blog preview pages get frame-ancestors self so the portal can iframe them', () => {
+    const response = withHtmlSecurityHeaders(
+      new Request('https://buxx.me/dev/blog/5ddc9141c35e7700383b2937'),
+      htmlResponse(),
+    );
+
+    expect(response.headers.get('Content-Security-Policy')).toContain("frame-ancestors 'self'");
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
 

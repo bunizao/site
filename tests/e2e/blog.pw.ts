@@ -1,8 +1,8 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
-const BLOG_POST_PATH_RE = /^\/blog\/[^/?#]+\/$/;
-const BLOG_TAG_PATH_RE = /^\/blog\/tag\/[^/?#]+\/$/;
+const BLOG_POST_PATH_RE = /^\/blog\/[^/?#]+$/;
+const BLOG_TAG_PATH_RE = /^\/blog\/tag\/[^/?#]+$/;
 
 async function readPageScrollTop(page: Page): Promise<number> {
   return page.locator('[data-page-scroller]').evaluate((scroller) => scroller.scrollTop);
@@ -37,7 +37,7 @@ async function openBlogIndex(page: Page): Promise<void> {
   const response = await page.goto('/blog');
 
   expect(response?.ok()).toBeTruthy();
-  await expect(page).toHaveURL(/\/blog\/?$/);
+  await expect(page).toHaveURL(/\/blog$/);
   await expect(page.locator('.blog-shell')).toBeVisible();
 }
 
@@ -156,6 +156,21 @@ test.describe('Blog wordmark', () => {
     );
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
   });
+
+  test.describe('under increased contrast', () => {
+    test.use({ contrast: 'more' });
+
+    test('lifts the wake to the stronger foreground alpha', async ({ page }) => {
+      await openBlogIndex(page);
+
+      const token = await page
+        .locator('[data-site-wordmark-variant="blog"]')
+        .evaluate((element) => getComputedStyle(element).getPropertyValue('--wordmark-wake-rest').trim());
+
+      // Chromium serialises the alpha without its leading zero.
+      expect(token).toMatch(/\/\s*0?\.82\s*\)/);
+    });
+  });
 });
 
 test.describe('Blog routes', () => {
@@ -179,10 +194,7 @@ test.describe('Blog routes', () => {
     await expect(firstYear.locator('.blog-year__heading')).toHaveText(/^(?:\d{4}|Unknown)$/);
     await expect(firstYear.locator('.blog-list .blog-row').first()).toBeVisible();
 
-    const colophon = page.locator('.blog-colophon');
-    await expect(colophon).toBeVisible();
-    await expect(colophon.getByRole('heading', { name: 'sillage' })).toBeVisible();
-    await expect(colophon.locator('.blog-colophon__body > p')).toHaveCount(3);
+    await expect(page.locator('.blog-colophon')).toHaveCount(0);
 
     const firstPostHref = pathFromHref(
       await page.locator('.blog-row__link').first().getAttribute('href'),
@@ -271,7 +283,7 @@ test.describe('Blog routes', () => {
   test('emits generated Open Graph image metadata for index and posts', async ({ page }) => {
     const { firstPostHref, firstPostTitle } = await collectBlogIndexTargets(page);
 
-    await expect(page).toHaveTitle('無人之境');
+    await expect(page).toHaveTitle("無人之境 — Lucian's Blog");
     const indexOgImage = new URL(await readMetaContent(page, 'meta[property="og:image"]'));
     expect(indexOgImage.toString()).toBe('https://buxx.me/blog-og.jpg');
     expect(await readMetaContent(page, 'meta[property="og:image:width"]')).toBe('1200');
@@ -286,8 +298,8 @@ test.describe('Blog routes', () => {
     expect(await readMetaContent(page, 'meta[property="og:type"]')).toBe('article');
     expect(await readMetaContent(page, 'meta[property="article:published_time"]')).toBeTruthy();
     expect(await readMetaContent(page, 'meta[property="article:author"]')).toBeTruthy();
-    await expect(page).toHaveTitle(`${firstPostTitle} — 無人之境`);
-    expect(await readMetaContent(page, 'meta[property="og:title"]')).toBe(`${firstPostTitle} — 無人之境`);
+    await expect(page).toHaveTitle(firstPostTitle);
+    expect(await readMetaContent(page, 'meta[property="og:title"]')).toBe(firstPostTitle);
     expect(postOgImage.origin + postOgImage.pathname).toBe('https://og.tuuhub.com/api/og');
     expect(postOgImage.searchParams.get('title')).toBe(firstPostTitle);
     expect(postOgImage.searchParams.get('site')).toBe('無人之境');
@@ -309,7 +321,7 @@ test.describe('Blog routes', () => {
       publisher: {
         '@type': 'Organization',
         name: '無人之境',
-        url: 'https://buxx.me/blog/',
+        url: 'https://buxx.me/blog',
         logo: {
           '@type': 'ImageObject',
           width: 128,
@@ -324,7 +336,7 @@ test.describe('Blog routes', () => {
 
     await page.locator('.blog-row__link').first().click();
 
-    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(firstPostHref)}/?$`));
+    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(firstPostHref)}$`));
 
     const article = page.locator('article[data-pagefind-body]');
     await expect(article).toBeVisible();
@@ -353,7 +365,7 @@ test.describe('Blog routes', () => {
   });
 
   test('keeps an unlisted post direct-only and excluded from crawlers and Pagefind', async ({ page }) => {
-    await page.goto('/blog/private-link-demo/');
+    await page.goto('/blog/private-link-demo');
 
     await expect(page).toHaveTitle(/Direct link only fixture/);
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
@@ -364,14 +376,14 @@ test.describe('Blog routes', () => {
     await expect(page.locator('link[rel="alternate"][type="text/markdown"]')).toHaveCount(0);
     await expect(page.getByRole('navigation', { name: 'More posts' })).toHaveCount(0);
 
-    await page.goto('/blog/');
+    await page.goto('/blog');
     await expect(page.getByText('Direct link only fixture')).toHaveCount(0);
   });
 
   test('renders model credits from post metadata without leaking the carrier or overflowing', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 900 });
 
-    const response = await page.goto('/blog/demo-effects/');
+    const response = await page.goto('/blog/demo-effects');
 
     expect(response?.ok()).toBeTruthy();
 
@@ -389,14 +401,14 @@ test.describe('Blog routes', () => {
     expect(creditBounds!.x).toBeGreaterThanOrEqual(0);
     expect(creditBounds!.x + creditBounds!.width).toBeLessThanOrEqual(321);
 
-    await page.goto('/blog/quiet-architecture/');
+    await page.goto('/blog/quiet-architecture');
     await expect(page.locator('.not-by-ai')).toHaveText('本文由真人撰写，未使用 AI 创作。');
     await expect(page.locator('.ai-credit')).toHaveCount(0);
     await expect(page.locator('.not-by-ai__trigger, .not-by-ai__card')).toHaveCount(0);
   });
 
   test('renders Ghost code through the shared code box component', async ({ page }) => {
-    const response = await page.goto('/blog/demo-effects/');
+    const response = await page.goto('/blog/demo-effects');
 
     expect(response?.ok()).toBeTruthy();
 
@@ -404,6 +416,33 @@ test.describe('Blog routes', () => {
     await expect(codeBox).toBeVisible();
     await expect(codeBox.locator('pre.astro-code')).toBeVisible();
     await expect(codeBox.getByRole('button', { name: 'Copy code' })).toBeVisible();
+  });
+
+  // The Instant View template in config/instant-view/buxx.me.iv addresses these
+  // selectors by name, and Telegram parses the published page rather than
+  // anything this repo can assert against. The site no longer hands Telegram a
+  // link itself, but the template still applies to any post pasted into a chat,
+  // so the contract is pinned here: fix the template alongside a rename.
+  test('keeps the structure the Telegram Instant View template addresses', async ({ page }) => {
+    const response = await page.goto('/blog/demo-effects');
+
+    expect(response?.ok()).toBeTruthy();
+
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'article');
+    await expect(page.locator('meta[property="article:published_time"]')).toHaveCount(1);
+    await expect(page.locator('meta[property="article:author"]')).toHaveCount(1);
+
+    await expect(page.locator('h1.blog-article__title')).toBeVisible();
+    await expect(page.locator('.blog-prose')).toBeVisible();
+
+    // Article body only: the template takes .blog-prose as the Instant View
+    // body precisely because the colophon and the comment thread sit outside
+    // it, and nothing it cannot render has to be removed rule by rule.
+    await expect(page.locator('.blog-prose .blog-colophon')).toHaveCount(0);
+    await expect(page.locator('.blog-prose .blog-comments')).toHaveCount(0);
+
+    const codeBox = page.locator('.blog-prose > .code-box').first();
+    await expect(codeBox.locator('.code-box-body > pre')).toHaveCount(1);
   });
 
   test('serves negotiated markdown for blog posts without crossing html cache entries', async ({ page, request }) => {
@@ -449,14 +488,19 @@ test.describe('Blog routes', () => {
     await page.goto(firstPostHref);
     const alternate = page.locator('link[rel="alternate"][type="text/markdown"]');
     await expect(alternate).toHaveCount(1);
-    expect(await alternate.first().getAttribute('href')).toBe(`https://buxx.me${firstPostHref}`);
+    expect(await alternate.first().getAttribute('href'))
+      .toBe(`https://buxx.me${firstPostHref.replace(/\/$/, '')}/index.md`);
+
+    const explicitMarkdown = await request.get(`${firstPostHref.replace(/\/$/, '')}/index.md`);
+    expect(explicitMarkdown.ok()).toBeTruthy();
+    expect(explicitMarkdown.headers()['content-type']).toContain('text/markdown');
 
     const llms = await request.get('/llms.txt');
     expect(llms.ok()).toBeTruthy();
     expect(llms.headers()['content-type']).toContain('text/plain');
     expect(llms.headers()['cache-control']).toContain('s-maxage=300');
     const body = await llms.text();
-    expect(body).toContain('https://buxx.me/blog/');
+    expect(body).toContain('https://buxx.me/blog');
     expect(body).toContain('https://buxx.me/mood');
   });
 
@@ -468,7 +512,7 @@ test.describe('Blog routes', () => {
     const response = await page.goto(firstTagHref as string);
 
     expect(response?.ok()).toBeTruthy();
-    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(firstTagHref as string)}/?$`));
+    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(firstTagHref as string)}$`));
     await expect(page.locator('.tag-archive__title')).toContainText(firstTagName as string);
     await expect(page.locator('.tag-archive__count')).toHaveText(/\d+\s+posts?/);
     await expect(page.locator('.blog-row__link').first()).toBeVisible();
@@ -494,7 +538,7 @@ test.describe('Blog routes', () => {
 
     expect(xml).toContain('<rss version="2.0"');
     expect(xml).toContain('<channel>');
-    expect(xml).toContain('<link>https://buxx.me/blog/</link>');
+    expect(xml).toContain('<link>https://buxx.me/blog</link>');
     expect(xml).toMatch(/<item>[\s\S]*<link>https:\/\/buxx\.me\/blog\/[^<]+<\/link>/);
     expect(xml).not.toContain('blog.buxx.me/rss');
   });
@@ -503,7 +547,7 @@ test.describe('Blog routes', () => {
     const { firstPostHref, firstTagHref } = await collectBlogIndexTargets(page);
     const xml = await readTextRoute(request, '/sitemap.xml', /(?:application|text)\/xml/i);
 
-    expect(xml).toContain(canonicalLoc('/blog/'));
+    expect(xml).toContain(canonicalLoc('/blog'));
     expect(xml).toContain(canonicalLoc(firstPostHref));
 
     if (firstTagHref) {

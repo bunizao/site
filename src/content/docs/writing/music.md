@@ -9,7 +9,7 @@ order: 3
 sleeve with the artwork on a spinning disc, a tonearm that swings in on play, the
 title, artist, year, a scrubber, and a live equalizer while it is streaming.
 
-```
+```md demo
 [!music id=1440857781]
 ```
 

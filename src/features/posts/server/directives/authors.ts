@@ -18,10 +18,6 @@ import type {
 
 const AUTHORS_ATTRIBUTES = ['ai', 'note'] as const;
 
-// A note is one clause completing "<model> ___" — long enough to say what the
-// model did, short enough to stay on the footer's two lines.
-const NOTE_MAX_LENGTH = 160;
-
 export type AuthorshipValidationCode = 'unknown-model';
 
 export class AuthorshipValidationError extends Error {
@@ -51,6 +47,15 @@ export interface PostAuthorshipValidationInput {
   meta: DirectiveTransformResult['meta'];
 }
 
+function normalizeAuthorshipModelReference(reference: string): string {
+  const providerReference = reference.startsWith('gemini/')
+    ? `google/${reference.slice('gemini/'.length)}`
+    : reference;
+  return providerReference === 'google/gemini-3.1-pro'
+    ? 'google/gemini-3.1-pro-preview'
+    : providerReference;
+}
+
 function readCredit(attributes: DirectiveAttributes, slug: string): AuthorshipCredit {
   rejectUnsupportedAttributes(attributes, AUTHORS_ATTRIBUTES);
 
@@ -58,21 +63,17 @@ function readCredit(attributes: DirectiveAttributes, slug: string): AuthorshipCr
   if (!ai) {
     throw new DirectiveAttributeError('attribute "ai" is required.');
   }
-  const model = resolveAuthorshipModel(ai);
+  const modelReference = normalizeAuthorshipModelReference(ai);
+  const model = resolveAuthorshipModel(modelReference);
   if (!model) {
     // Not a DirectiveAttributeError: a typo'd model reference must stop the
     // build, not degrade to a warning and drop the credit off the post.
-    throw new AuthorshipValidationError('unknown-model', slug, ai);
+    throw new AuthorshipValidationError('unknown-model', slug, modelReference);
   }
 
   const note = attributes.note?.trim();
   if (note !== undefined && !note) {
     throw new DirectiveAttributeError('attribute "note" must not be empty.');
-  }
-  if (note && note.length > NOTE_MAX_LENGTH) {
-    throw new DirectiveAttributeError(
-      `attribute "note" must be at most ${NOTE_MAX_LENGTH} characters.`,
-    );
   }
 
   return { model, ...(note ? { note } : {}) };
@@ -82,7 +83,15 @@ function parseAuthorsAttributes(
   rawAttributes: string,
   context: DirectiveContext,
 ): DirectiveAttributes {
-  const credit = readCredit(parseKeyValueAttributes(rawAttributes), context.slug);
+  let credit: AuthorshipCredit;
+  try {
+    credit = readCredit(parseKeyValueAttributes(rawAttributes), context.slug);
+  } catch (error) {
+    if (context.outputTarget === 'preview' && error instanceof AuthorshipValidationError) {
+      throw new DirectiveAttributeError(error.message);
+    }
+    throw error;
+  }
   return { ai: credit.model.id, ...(credit.note ? { note: credit.note } : {}) };
 }
 

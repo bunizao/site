@@ -25,7 +25,7 @@ test.describe('Standalone pages', () => {
     expect(home.ok()).toBeTruthy();
     expect(home.headers()['content-type']).toContain('text/markdown');
     expect(home.headers()['x-markdown-tokens']).toBeTruthy();
-    expect(await home.text()).toContain('[Blog](https://buxx.me/blog/)');
+    expect(await home.text()).toContain('[Blog](https://buxx.me/blog)');
 
     const privacy = await request.get('/privacy', { headers: { Accept: 'text/markdown' } });
     expect(privacy.ok()).toBeTruthy();

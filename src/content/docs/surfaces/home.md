@@ -5,56 +5,59 @@ group: Surfaces
 order: 0
 ---
 
-## Scope
+`/` is a prerendered shell: [`src/pages/index.astro`](https://github.com/bunizao/site/blob/main/src/pages/index.astro)
+mounts the shared layout, wraps everything in `ParallaxWrapper.astro`, and
+renders six sections in a fixed order. Runtime-only data is deliberately kept
+out of the route frontmatter so the page can be served as static HTML.
 
-This document covers the home page entry and the sections rendered on `/`:
+## Sections at a glance
 
-- intro / hero
-- projects
-- writing
-- mood preview (`L0`)
+| Section | Component | Data | Rendered |
+| --- | --- | --- | --- |
+| Hero / intro | `home/ui/Hero.astro` | Local config, plus `/api/github/contributions?days=30` | Static; contributions fetched after DOM ready |
+| Listening | `home/ui/Listening.astro` | `/api/listening` | Neutral shell at build, hydrated on load, refreshed every 45s |
+| Projects | `home/ui/Projects.astro` | Local card data | Static, revealed on scroll |
+| Writing | `home/ui/Posts.astro` | Ghost Content API | **Build time** — needs build-env credentials |
+| Mood preview (`L0`) | `mood/ui/HomePreview.astro` | `/api/moods` | Skeleton at build, fetched when the section enters the viewport |
+| Footer | `home/ui/Footer.astro` | `/api/footer`, `/api/edge` | Client |
 
-## Entry Composition
+Everything under `src/features/home/` is home-private — `ui/` for components,
+`server/` for helpers. Shared scaffolding lives in `src/layouts/`.
 
-Entry file: [`src/pages/index.astro`](https://github.com/bunizao/site/blob/main/src/pages/index.astro)
+The navbar owns three section anchors — `#projects-section`,
+`#writing-section`, `#moods-section`. The hero has none.
 
-The page is a prerendered shell:
+## Glyph field
 
-- mounts [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro)
-- wraps content in [`src/features/home/ui/ParallaxWrapper.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/ParallaxWrapper.astro)
-- renders sections in fixed order:
-  - [`src/features/home/ui/Hero.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Hero.astro)
-  - [`src/features/home/ui/Listening.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Listening.astro)
-  - [`src/features/home/ui/Projects.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Projects.astro)
-  - [`src/features/home/ui/Posts.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Posts.astro)
-  - [`src/features/mood/ui/HomePreview.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/HomePreview.astro)
-  - [`src/features/home/ui/Footer.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Footer.astro)
-- keeps runtime-only data out of the route frontmatter so `/` can be served as static HTML
+`home/ui/GlyphField.astro` mounts a monospace rain band behind the hero,
+painted on a canvas by `src/lib/glyph-field.ts` (decisions and tunables in
+`plans/home-background.md`). The canvas is sized to its host, so the engine
+only simulates cells that can be seen:
 
-Section anchors are owned by the shared layout navbar:
+- Wide screens (≥ 640px): a 560px band, at most 1200px wide, masked on both
+  sides so the field dissolves before the viewport edges.
+- Phones: the same composition as wide screens (copy at the top, rain
+  behind it), on a 320px band with no side mask. The mask is full behind
+  the status line and the display name and dissolves through the chips and
+  the role, so it is gone where the bio starts. The rain is the same mono
+  face at nearly the bio's size, so it may sit behind display type but never
+  behind body text.
+- The band width snaps to the 24px lattice, a `ResizeObserver` rebuilds the
+  grid on resize, pointer-glow repaints are capped near 30fps, and the band
+  is sticky in a track that lets it condense and fade over the first 320px
+  of scroll.
+- The simulation ticks every 60ms; heads fall 6–12 cells/s (about 150px/s
+  on average), the pace of the typewriter's 11 keystrokes a second. One
+  fixed preset, no time-of-day variation. Trails linger about half a second,
+  and a gust crosses the band every 8–14s at under twice the resting speed.
+  Gust timing and glyph churn are written in wall-clock terms, so the tick
+  only sets smoothness. Review pins: `?speed=<multiplier>` scales the fall,
+  `?ink=<name>` picks the hue.
 
-- `#projects-section`
-- `#writing-section`
-- `#moods-section`
+## Hero / intro
 
-The hero block does not have a navbar anchor.
-
-Feature boundary:
-
-- home-private UI lives in [`src/features/home/ui/`](https://github.com/bunizao/site/blob/main/src/features/home/ui)
-- home-private server helpers live in [`src/features/home/server/`](https://github.com/bunizao/site/blob/main/src/features/home/server/)
-- shared site scaffolding lives in [`src/layouts/`](https://github.com/bunizao/site/blob/main/src/layouts) and other feature-local UI shells
-
-## Hero / Intro
-
-Implementation files:
-
-- [`src/features/home/ui/Hero.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Hero.astro)
-- [`src/features/home/ui/Typewriter.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Typewriter.astro)
-- [`src/features/home/ui/GitHubContributions.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/GitHubContributions.astro)
-- [`src/features/home/ui/TechMarquee.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/TechMarquee.astro)
-
-Implementation shape:
+Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
+`TechMarquee.astro`.
 
 - Astro renders mostly static markup.
 - The displayed name uses `Typewriter.astro`, which renders a hidden longest-string placeholder to avoid layout shift during typing.
@@ -64,24 +67,25 @@ Implementation shape:
 
 Client behavior:
 
-- GSAP reveals `.hero-animate` elements with staggered fade-up.
-- Status text rotates through a fixed word list.
-- Social buttons use a magnetic hover effect.
-- Reduced-motion users skip the initial hidden state.
+- The entrance is CSS transitions, no GSAP: the script adds `is-live` to the
+  section and each `.hero-animate` element rises on its `--hero-i` stagger
+  (identity lines 80ms apart, widgets from 950ms in 70ms steps).
+- The script fires `home:hero-name-ready` and `home:hero-bio-ready` at 600ms
+  and `home:hero-github-ready` (plus `window.__homeHeroGithubReady`) when the
+  contributions widget lands. `Typewriter.astro` and `DecodeText.astro` start
+  on the first two; `GitHubContributions.astro` renders its bars on the third.
+- Status text rotates through a fixed word list; the dot pulses once the
+  identity lines have landed.
+- Social buttons use a magnetic hover effect (pointer events plus a CSS
+  transition, mouse only).
+- Reduced-motion users skip the script entirely; the elements are visible
+  from the first paint.
 
 ## Projects
 
-Implementation files:
-
-- [`src/features/home/ui/Projects.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Projects.astro)
-- [`src/features/home/server/e2e-fixtures.ts`](https://github.com/bunizao/site/blob/main/src/features/home/server/e2e-fixtures.ts)
-- [`src/lib/e2e.ts`](https://github.com/bunizao/site/blob/main/src/lib/e2e.ts)
-
-Data flow:
-
-- Project cards are rendered from local card data.
-- The contribution waveform fetches `/api/github/contributions`; production traffic is served by `site-api`.
-- E2E mode swaps live data with fixtures.
+Cards come from local data, and the contribution waveform fetches
+`/api/github/contributions`. E2E mode swaps live data for fixtures through
+`home/server/e2e-fixtures.ts` and `lib/e2e.ts`.
 
 Mapping rules:
 
@@ -97,18 +101,11 @@ Client behavior:
 
 ## Listening
 
-Implementation files:
-
-- [`src/features/home/ui/Listening.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Listening.astro)
-- [`src/features/home/server/listening.ts`](https://github.com/bunizao/site/blob/main/src/features/home/server/listening.ts)
-- `site-api /api/listening`
-
-Data flow:
-
-- The initial render uses a neutral loading shell so the static home page never freezes an old track into the HTML.
-- The client fetches `/api/listening`, served by `site-api`, as soon as the listening script loads.
-- Last.fm provides the current or latest track; iTunes Search enriches it with preview audio and higher-confidence artwork when available.
-- Missing Last.fm configuration keeps the static fallback in place.
+The initial render is a neutral loading shell, so the static home page never
+freezes an old track into the HTML. Last.fm supplies the track; iTunes Search
+enriches it with preview audio and better artwork. Missing configuration keeps
+the fallback in place — the endpoint's three-state `source` contract is in
+[Listening API](/docs/api/listening#read-source-before-rendering).
 
 Rendering rules:
 
@@ -126,25 +123,16 @@ Client behavior:
 
 ## Writing
 
-Implementation files:
+The build fetches the latest five public Ghost posts from `PUBLIC_GHOST_URL`
+and keeps only `id`, `title`, `url`, `published_at`, and `tags`.
 
-- [`src/features/home/ui/Posts.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Posts.astro)
-- [`src/features/home/server/e2e-fixtures.ts`](https://github.com/bunizao/site/blob/main/src/features/home/server/e2e-fixtures.ts)
-- [`src/lib/e2e.ts`](https://github.com/bunizao/site/blob/main/src/lib/e2e.ts)
-
-Data flow:
-
-- Build-time render fetches the latest 5 public Ghost posts from `PUBLIC_GHOST_URL`.
-- The request uses `GHOST_CONTENT_API_KEY`.
-- `PUBLIC_GHOST_URL` and `GHOST_CONTENT_API_KEY` must exist in the Cloudflare build environment. Worker runtime secrets alone are not enough because the home page is prerendered into static HTML.
-- Preview Workers have the same rule: GitHub Actions must pass those values into the build step before `wrangler versions upload`. Runtime dashboard variables only affect on-demand Worker code.
-- Ghost's `Post published` webhook should call the Cloudflare Workers Builds deploy hook for the production branch. The old Vercel deploy hook does not rebuild the Cloudflare Worker.
-- Only metadata needed by the section is fetched:
-  - `id`
-  - `title`
-  - `url`
-  - `published_at`
-  - `tags`
+**This is the one section that fails at build time rather than at runtime.**
+`PUBLIC_GHOST_URL` and `GHOST_CONTENT_API_KEY` must exist in the *build*
+environment — Worker runtime secrets are not enough, because the page is
+prerendered into static HTML. Preview Workers have the same rule: GitHub
+Actions must pass both into the build step before `wrangler versions upload`.
+Ghost's `Post published` webhook must call the Cloudflare Workers Builds deploy
+hook; the old Vercel hook does not rebuild this Worker.
 
 Rendering rules:
 
@@ -155,10 +143,9 @@ Rendering rules:
 
 Publishing flow:
 
-- In Cloudflare, create a Workers Builds deploy hook for the `cloudflare-runtime` production branch.
-- In Ghost, replace the old Vercel deploy hook URL with that Cloudflare deploy hook URL.
-- Keep the Ghost hook event as `Post published`.
-- After changing build variables or the hook URL, trigger one fresh Cloudflare build and verify that the deployed HTML no longer contains `No posts yet.` inside `#writing-section`.
+1. Create a Workers Builds deploy hook for the `cloudflare-runtime` production branch.
+2. Replace the old Vercel deploy hook URL in Ghost with that one, keeping the event as `Post published`.
+3. After changing build variables or the hook URL, trigger a fresh build and confirm the deployed HTML no longer contains `No posts yet.` inside `#writing-section`.
 
 Client behavior:
 
@@ -166,31 +153,12 @@ Client behavior:
 - list items slide in from the left.
 - the trailing link fades in last.
 
-## Mood Preview (`L0`)
+## Mood preview (`L0`)
 
-Implementation files:
-
-- [`src/features/mood/ui/HomePreview.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/HomePreview.astro)
-- `site-api /api/moods`
-
-Rendering strategy:
-
-- Astro renders skeleton rows only.
-- Real content is fetched on the client after the section enters the viewport.
-- The client keeps only the latest 5 moods for home preview.
-
-Data flow:
-
-- fetches `GET /api/moods`
-- consumes feed-optimized payload:
-  - `previewText`
-  - `previewHtml`
-  - `image`
-  - `imageFallback`
-  - `mediaHtml`
-  - `needsDetailPage`
-  - `reactions`
-  - `commentsCount`
+Astro renders skeleton rows only; the client fetches `GET /api/moods` once the
+section enters the viewport and keeps the latest five. It consumes the
+feed-optimized fields — `previewText`, `previewHtml`, `image`, `imageFallback`,
+`mediaHtml`, `needsDetailPage`, `reactions`, `commentsCount`.
 
 Rendering rules:
 
@@ -210,14 +178,9 @@ Debug hook:
 
 - `PUBLIC_DEBUG_ALWAYS_LOADING === 'true'` keeps the section in loading mode
 
-## Shared Home Hooks
+## Shared home hooks
 
-Relevant files:
-
-- [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro)
-- [`src/features/home/ui/ParallaxWrapper.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/ParallaxWrapper.astro)
-
-Cross-cutting behavior:
+From `Layout.astro` and `ParallaxWrapper.astro`:
 
 - theme is applied before paint from `localStorage.theme` or `prefers-color-scheme`
 - navbar is section-anchor based, not route-aware

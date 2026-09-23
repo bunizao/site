@@ -29,7 +29,7 @@ describe('buildMoodDetailMetadata', () => {
 
     const metadata = buildMoodDetailMetadata(post, '655');
 
-    expect(metadata.title).toBe('Mood #655 — buxx.me');
+    expect(metadata.title).toBe('Mood #655');
     expect(metadata.description).toBe('Strawberry milk');
     expect(metadata.image).toBe('https://image.buxx.me/mood/655/0');
     expect(metadata.imageAlt).toBe('Strawberry milk');
@@ -50,7 +50,7 @@ describe('buildMoodDetailMetadata', () => {
 
     const metadata = buildMoodDetailMetadata(post, '664');
 
-    expect(metadata.title).toBe('Mood #664 — buxx.me');
+    expect(metadata.title).toBe('Mood #664');
     expect(metadata.description).toBe('Mood #664 from Lucian Bu.');
     expect(metadata.description).not.toBe('Mood not found.');
     expect(metadata.image).toBe('https://image.buxx.me/mood/664/0');
@@ -65,7 +65,7 @@ describe('buildMoodDetailMetadata', () => {
       bodyHtml: `
         <a href="https://x.com/dviolettchan/status/2060659248959299645">https://x.com/dviolettchan/status/2060659248959299645</a><br><br>看哭了
         <a class="bookmark-card bookmark-card--side-media" href="https://x.com/dviolettchan/status/2060659248959299645">
-          <span class="bookmark-card__media bookmark-card__media--side">
+          <span class="bookmark-card__media">
             <img src="/static/https:/cdn4.telesco.pe/file/x-avatar.jpg" alt="紫云 (@dviolettchan) on X" />
           </span>
           <span class="bookmark-card__content">
@@ -90,7 +90,7 @@ describe('buildMoodDetailMetadata', () => {
   test('keeps not found copy only for missing posts', () => {
     const metadata = buildMoodDetailMetadata(null, '999');
 
-    expect(metadata.title).toBe('Mood not found — buxx.me');
+    expect(metadata.title).toBe('Mood not found');
     expect(metadata.description).toBe('Mood not found.');
     expect(metadata.image).toBeUndefined();
   });

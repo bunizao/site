@@ -56,6 +56,7 @@ function createListeningPayload(overrides: Record<string, unknown>) {
       appleMusicUrl: 'https://music.apple.com/test',
       artworkUrl: '/avatar.webp',
       thumbUrl: '/avatar.webp',
+      accent: { hue: 48, chromaLight: 0.12, chromaDark: 0.1 },
       previewUrl: '',
       year: '2010',
       genre: 'Hip-Hop/Rap',
@@ -324,8 +325,8 @@ test.describe('Home page', () => {
     await expect(page.locator('#writing-section .post-meta').first()).toHaveCSS('display', 'flex');
     await expect(page.getByRole('button', { name: 'Tell me more' }).first()).toBeVisible();
     // Writing is a doorway into the blog now: the publication sign and the
-    // bottom CTA both link internally to the canonical trailing-slash route.
-    await expect(page.locator('#writing-section .writing-portal')).toHaveAttribute('href', '/blog/');
+    // bottom CTA both link internally to the canonical slashless route.
+    await expect(page.locator('#writing-section .writing-portal')).toHaveAttribute('href', '/blog');
     await expect(page.locator('#writing-section .writing-enter')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
 
@@ -429,7 +430,7 @@ test.describe('Home page', () => {
       .not.toBe(projectBefore);
   });
 
-  test('cleans up theme transitions across both theme controls', async ({ page }) => {
+  test('cleans up theme transitions after switching', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto('/');
 
@@ -445,29 +446,31 @@ test.describe('Home page', () => {
         )
       )
       .toBe(false);
-
-    await page.goto('/dev/portal');
-    const portalToggle = page.locator('[data-portal-theme-toggle]');
-    await expect(portalToggle).toBeVisible();
-    await portalToggle.click();
-    await expect(page.locator('html')).not.toHaveClass(/dark/);
-    await expect
-      .poll(() =>
-        page.locator('html').evaluate((node) =>
-          ['theme-wipe', 'theme-wipe-webkit', 'no-transition'].some((name) => node.classList.contains(name))
-        )
-      )
-      .toBe(false);
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).toBe('light');
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).toBe('dark');
   });
 
   test('skips transient theme classes with reduced motion', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/dev/portal');
-    await page.locator('[data-portal-theme-toggle]').click();
+    await page.goto('/');
+    await page.locator('[data-theme-dropdown]').hover();
+    await page.locator('[data-theme-option="dark"]').click();
 
     await expect(page.locator('html')).toHaveClass(/dark/);
     await expect(page.locator('html')).not.toHaveClass(/theme-wipe|theme-wipe-webkit|no-transition/);
+  });
+
+  test('portal is dark only and carries no theme control', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('[data-theme-dropdown]').hover();
+    await page.locator('[data-theme-option="light"]').click();
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
+
+    // The portal ignores the stored site theme: its surfaces are authored for a
+    // near-black ground and it pins `dark` server-side.
+    await page.goto('/dev/portal');
+    await expect(page.locator('html')).toHaveClass(/theme-portal/);
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await expect(page.locator('[data-portal-theme-toggle]')).toHaveCount(0);
   });
 
   test('keeps runtime home data out of the initial HTML', async ({ page }) => {
@@ -795,6 +798,20 @@ test.describe('Home page', () => {
     const title = page.locator('[data-listening-title]');
 
     await expect(page.locator('[data-listening-title-label]')).toHaveText('All of the Lights');
+    const listening = page.locator('[data-listening]');
+    await expect(listening).toHaveAttribute('data-accent', '');
+    await expect(page.locator('[data-listening-artwork]')).not.toHaveAttribute('crossorigin', /.+/u);
+    expect(await listening.evaluate((element) => ({
+      hue: (element as HTMLElement).style.getPropertyValue('--listening-accent-h'),
+      chromaLight: (element as HTMLElement).style.getPropertyValue('--listening-accent-c-light'),
+      chromaDark: (element as HTMLElement).style.getPropertyValue('--listening-accent-c-dark'),
+      canvases: element.querySelectorAll('canvas').length,
+    }))).toEqual({
+      hue: '48.0',
+      chromaLight: '0.120',
+      chromaDark: '0.100',
+      canvases: 0,
+    });
     await expect(track).toHaveClass(/is-inline/);
     await expect(title).not.toHaveClass(/is-marquee/);
     expect(legacyRequests).toBe(0);
@@ -1357,7 +1374,7 @@ test.describe('Home page', () => {
 
 test.describe('Blog posts', () => {
   test('hides the table of contents for posts tagged no-toc', async ({ page }) => {
-    const response = await page.goto('/blog/quiet-architecture/');
+    const response = await page.goto('/blog/quiet-architecture');
     expect(response?.ok()).toBeTruthy();
 
     await expect(page.locator('.toc-container')).toHaveAttribute('hidden', '');
@@ -1365,7 +1382,7 @@ test.describe('Blog posts', () => {
   });
 
   test('renders the table of contents for posts with enough headings', async ({ page }) => {
-    await page.goto('/blog/demo-effects/');
+    await page.goto('/blog/demo-effects');
 
     await expect(page.locator('.toc-container')).toBeVisible();
     expect(await page.locator('.toc-link').count()).toBeGreaterThanOrEqual(2);

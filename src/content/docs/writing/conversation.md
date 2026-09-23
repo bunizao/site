@@ -8,7 +8,7 @@ playground: /components/conversation#playground
 
 A chat thread written as plain text. In a blog post, fence it as `conversation`:
 
-````markdown
+````markdown demo
 ```conversation
 you: how wide should a bubble be?
 ada: 30em.
@@ -35,29 +35,37 @@ The optional `@conversation` line controls the whole thread. It must be the
 first non-empty line inside the fence. `conversation` is reserved for this
 header and cannot be used as a speaker key:
 
-````markdown
+````markdown demo
 ```conversation
-@conversation avatars=off names=off
+@conversation avatars=on names=on tints=off
+@gemini [Gemini] accent=#6E7FD8 tints=on
+@ada [Ada] accent=#6F8F9D
 
-you: this source is ready to paste.
-ada: Both switches are part of the source.
+gemini: My tint overrides the thread default.
+ada: I inherit the neutral receiving bubble.
 ```
 ````
 
 | Option | Default | Effect when `off` |
 | --- | --- | --- |
-| `avatars` | `on` | Hides every avatar while preserving the alignment gutter. |
-| `names` | `on` | Hides visible speaker names; accessible labels remain. |
+| `avatars` | `on` | Hides avatars; wide threads keep their alignment gutters, narrow ones close them. |
+| `names` | `on` | Hides visible names; accessible labels remain. |
+| `tints` | `on` | Leaves receiving bubbles neutral. |
 
 Only `on` and `off` are valid. Unknown, repeated, malformed, or misplaced
 options remain visible as prose instead of being partially applied.
+
+Thread options are defaults inherited by every speaker. Put the same option on
+a cast line to override it for that speaker only; omitted speaker options keep
+the thread value. This precedence applies uniformly to `avatars`, `names`, and
+`tints`.
 
 ## Messages
 
 A line of the form `name: text` is a message. Speakers are auto-registered on
 first use, so the simplest possible thread needs nothing else:
 
-```conversation
+```conversation demo
 ann: is that all?
 bob: that's all.
 ```
@@ -87,7 +95,7 @@ Four keys are reserved: **`me`**, **`you`**, **`我`**, **`你`**. Whoever speak
 under one of them is drawn on the trailing edge, filled, with no name and no
 avatar — a reader does not need reminding what they look like.
 
-```conversation
+```conversation demo
 @Ada avatar=🐈
 
 me: how wide should a bubble be?
@@ -111,10 +119,12 @@ one worth hearing with a cast line: `@me [Lucian]`.
 ### Runs
 
 Consecutive messages from one speaker collapse into a **run**: each message
-keeps its own bubble, but the name is drawn once, at the top of the first one,
-and only the last bubble squares off the corner nearest its speaker.
+keeps its own bubble, but the name is drawn once, on its own line above the
+first one, and only the last bubble squares off the corner nearest its speaker.
+The name sits beside the bubbles rather than inside them — the bubble is the
+message, the name is who sent it.
 
-```conversation
+```conversation demo
 grace: One thing first.
 grace: A run of messages from one person is labelled once.
 grace: Like this. Three bubbles, one name.
@@ -125,7 +135,7 @@ grace: Like this. Three bubbles, one name.
 An **indented** line is a soft wrap, exactly as in Markdown — it continues the
 sentence rather than starting a new paragraph:
 
-```conversation
+```conversation demo
 ada: A CJK glyph is 1em and a Latin glyph about half that,
   so one number lands on ~30 Chinese characters and ~60 Latin ones.
 ```
@@ -149,7 +159,7 @@ A line starting with `---` is a divider. With text after it, it renders as a
 labelled beat; bare, it collapses to a single rule. Either way it breaks the
 current run, so the next message is labelled again.
 
-```conversation
+```conversation demo
 ann: morning
 --- three hours later
 ann: afternoon
@@ -160,16 +170,24 @@ ann: afternoon
 A line starting with `@` declares a speaker before they talk. Every attribute
 is optional — cast lines exist to override defaults, not to satisfy the parser.
 
-```conversation
-@Ada accent=#4E7A5E
+```conversation demo
+@gemini [Gemini] accent=#6E7FD8 tints=on
+@ada [Ada] accent=#6F8F9D
 @tutu [图图] accent=#B4603A avatar=🐈
+
+gemini: Declared before I say anything.
+ada: Nothing here needed a cast line either.
+tutu: 只是想换个颜色。
 ```
 
 | Written as | Effect |
 | --- | --- |
 | `[…]` | Display name. Defaults to the key, exactly as first written. |
-| `accent=#RRGGBB` | Custom hue for the fill and the name. Must be a hex colour. |
+| `accent=#RRGGBB` | Custom hue for the own-side fill, receiving-side tint, and name. Must be a hex colour. |
 | `avatar=…` | See below. |
+| `avatars=on` or `avatars=off` | Overrides the thread avatar default for this speaker. |
+| `names=on` or `names=off` | Overrides the thread name default for this speaker. |
+| `tints=on` or `tints=off` | Overrides the thread tint default for this speaker. |
 
 A value is one token: `name=value`, never quoted. The display name is the one
 thing that is a phrase, so it is the one thing that is a content block —
@@ -186,7 +204,7 @@ any number of `name=value` pairs, and **nothing else** — a stray word or an
 attribute that is not on the list means the line is not a cast line, so it
 falls through and renders as written:
 
-```conversation
+```conversation demo
 @Ada Lovelace accent=#4E7A5E
 ```
 
@@ -203,7 +221,7 @@ see [the own side](#the-own-side).
 The label defaults to the key **as first written**, and nothing rewrites it.
 Capitalisation is therefore not something to declare — it is something to type:
 
-```conversation
+```conversation demo
 @Ada accent=#4E7A5E
 
 ada: Case only matters the first time. Match it however you like after that.
@@ -212,10 +230,14 @@ ada: Case only matters the first time. Match it however you like after that.
 Brackets are for the names a key cannot spell — a space, a script the key is
 not in, a name that is not the handle:
 
-```conversation
+```conversation demo
 @ada [Ada Lovelace]
 @tutu [图图] avatar=🐈
 @octo [Octocat] avatar=https://avatars.githubusercontent.com/u/583231?v=4
+
+ada: A name with a space in it.
+tutu: 一个键写不出的名字。
+octo: A handle that is not the name.
 ```
 
 
@@ -224,11 +246,36 @@ not in, a name that is not the handle:
 The default is monochrome, derived from the site's `--foreground`, and is AA in
 both themes by construction.
 
-Supplying `accent=#RRGGBB` opts into a hue. A hex chosen to look good as a
-*fill* routinely lands near 4:1 when reused as *name text*, so the accent is
-walked toward the far end of the bubble in 4% steps until it clears 4.5:1 —
-once per theme, at build time. You keep as much of the chosen hue as the
-contrast ratio allows, and no configuration can produce unreadable text.
+Supplying `accent=#RRGGBB` opts into a hue, and where it lands depends on which
+side the speaker is on:
+
+| Side | What the accent paints |
+| --- | --- |
+| own side (`me:`, `you:`, `我:`, `你:`) | the whole bubble, filled |
+| everyone else | a tint on the bubble, plus the name |
+
+The tint is what makes a colour worth declaring on a thread running
+`avatars=off names=off`: with no name and no avatar to carry it, the bubble is
+the only surface left. It stays a tint on purpose — one side filled outright is
+what tells a reader which way the conversation runs, and two filled sides lose
+that. `tints=off` drops it entirely.
+
+Put `tints=off` on a cast line to keep only that speaker's receiving bubbles
+neutral. The speaker value overrides the thread default in either direction, so
+`tints=on` can opt one speaker back in when `@conversation tints=off`.
+
+The tint is **not** your hex mixed into the bubble. It keeps the hue, pins
+lightness beside the bubble's own, and caps chroma, all in OKLCH. That is what
+keeps a thread even: a vivid violet and a muted sage arrive at the same weight,
+so no speaker shouts louder than another for a reason you did not choose. It is
+also the only way light mode stays clean — an accent picked as a fill is
+mid-dark, and mixing one into a light bubble lands on a dirty pastel every time.
+
+A hex chosen to look good as a *fill* routinely lands near 4:1 when reused as
+*name text*, so the accent is walked toward the far end of the page background in
+4% steps until it clears 4.5:1 — once per theme, when the conversation is
+rendered. You keep as much of the chosen hue as the contrast ratio allows, and
+no configuration can produce unreadable text.
 
 Anything that is not a hex colour makes the cast line invalid and leaves it
 visible as prose.
@@ -268,8 +315,21 @@ for mixed text.
 
 Everything reflows on **container queries**, not viewport media queries, so a
 thread in a narrow column adapts to that column rather than to the window. At
-container widths under 520px the avatar gutter and the far-side channel shrink;
-under 360px avatars are dropped and the body steps down to 15px.
+container widths under 520px the avatar gutter and the far-side channel shrink,
+and any row without a visible avatar — every sending run, and both sides under
+`avatars=off` — stops reserving the gutter and closes to the column edge, so the
+two sides of the thread end on the same line the surrounding prose does. Under
+360px avatars are dropped everywhere and the body steps down to 15px.
+
+A bubble is sized to hug its own text, which CSS alone cannot express: once a
+message wraps, `width: fit-content` locks the box to the cap and whatever the
+line breaker could not spend stays inside the right border as dead space — worst
+on CJK, where a trailing 「吗？」 cannot be split and drops to the next line
+whole. A small client pass measures the line boxes and sets the width to the
+widest one, so the gap at the right border matches the padding at the left. It
+never narrows a bubble past a line already laid out, so line breaks are
+identical with and without it; with no JavaScript the bubble simply keeps the
+cap.
 
 The renderer translates `@conversation` into namespaced attributes on the
 thread. The playground edits that source line directly, so its switches never

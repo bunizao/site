@@ -18,6 +18,29 @@ interface GalleryController {
 const galleryControllers = new Map<HTMLElement, GalleryController>();
 let galleryCleanupObserver: MutationObserver | null = null;
 
+/* A wheel gesture that began as page scrolling stays page scrolling, even once
+   the pointer lands on a gallery. Without this the feed stops dead under the
+   cursor every time a row of photos passes by. */
+let lastPageScrollAt = 0;
+let pageScrollWatcherStarted = false;
+
+function ensurePageScrollWatcher(): void {
+  if (pageScrollWatcherStarted || typeof window === 'undefined') return;
+  pageScrollWatcherStarted = true;
+  // The page scrolls inside .page-scroller, not the window, and scroll events
+  // do not bubble -- capture on the document is what sees them. A gallery
+  // settling itself is not the page moving, so it does not count.
+  document.addEventListener(
+    'scroll',
+    (event) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest('[data-mood-gallery-track]')) return;
+      lastPageScrollAt = performance.now();
+    },
+    { capture: true, passive: true },
+  );
+}
+
 function disconnectMoodGallery(gallery: HTMLElement): void {
   const controller = galleryControllers.get(gallery);
   if (!controller) return;
@@ -139,6 +162,9 @@ function initMoodGallery(gallery: HTMLElement): void {
     galleryTrack.dataset.nudged = '1';
 
     window.setTimeout(() => {
+      // Someone who already swiped does not need to be told the row moves.
+      if (galleryTrack.scrollLeft > 0) return;
+
       const peakOffset = 28;
       const outMs = 240;
       const backMs = 400;
@@ -175,12 +201,22 @@ function initMoodGallery(gallery: HTMLElement): void {
       return;
     }
 
+    ensurePageScrollWatcher();
+
+    /* The trailing blur is only honest while something is still hidden. */
+    const updateEdge = (): void => {
+      const maxScroll = track.scrollWidth - track.clientWidth;
+      const atEnd = track.scrollLeft >= maxScroll - 1;
+      gallery.dataset.moodGalleryEdge = maxScroll > 1 && !atEnd ? 'end' : 'none';
+    };
+
     let rafId = 0;
     const onScroll = (): void => {
       if (rafId) return;
 
       rafId = window.requestAnimationFrame(() => {
         rafId = 0;
+        updateEdge();
         const left = track.scrollLeft;
         const right = left + track.clientWidth;
 
@@ -199,6 +235,11 @@ function initMoodGallery(gallery: HTMLElement): void {
     };
 
     track.addEventListener('scroll', onScroll, { passive: true });
+    // Images decode late, so the row's width -- and whether it overflows at all
+    // -- is only known once they land. `load` does not bubble; capture it.
+    track.addEventListener('load', updateEdge, { capture: true });
+    window.addEventListener('resize', updateEdge, { passive: true });
+    updateEdge();
 
     // ─── Wheel-to-scroll (desktop only): redirect vertical wheel to horizontal ───
     let wheelRafId = 0;
@@ -211,6 +252,9 @@ function initMoodGallery(gallery: HTMLElement): void {
       const absDx = Math.abs(event.deltaX);
       const absDy = Math.abs(event.deltaY);
       if (absDx >= absDy) return; // horizontal trackpad swipe — let CSS handle it
+
+      // Mid-flick down the feed: the page owns this gesture, not the gallery.
+      if (!track.dataset.wheeling && performance.now() - lastPageScrollAt < 220) return;
 
       const maxScroll = track.scrollWidth - track.clientWidth;
       const atLeft = track.scrollLeft <= 1;
@@ -236,18 +280,38 @@ function initMoodGallery(gallery: HTMLElement): void {
         });
       }
 
-      // After gesture ends, re-enable snap and settle to nearest slide
+      // After the gesture ends, settle on the nearest slide and only then hand
+      // snapping back. Restoring it first made the browser snap instantly and
+      // then fight the smooth scroll -- the jolt at the end of every swipe.
       clearTimeout(snapTimer);
       snapTimer = window.setTimeout(() => {
         delete track.dataset.wheeling;
-        track.style.scrollSnapType = '';
-        const firstSlide = slides[0];
-        if (!firstSlide) return;
-        const gap = Number.parseFloat(window.getComputedStyle(track).gap) || 0;
-        const slideStep = firstSlide.offsetWidth + gap;
-        const nearestIndex = Math.round(track.scrollLeft / slideStep);
-        track.scrollTo({ left: nearestIndex * slideStep, behavior: 'smooth' });
-      }, 150);
+
+        // Slides differ in width whenever their photos differ in ratio, so the
+        // nearest one is the nearest offset, not a multiple of the first. The
+        // last slide's offset is past the end of the track -- half of it is
+        // all there ever is to see -- so every candidate is clamped first, or
+        // the row snaps back to the start the moment someone reaches the end.
+        const maxScroll = track.scrollWidth - track.clientWidth;
+        const target = slides
+          .map((slide) => Math.max(0, Math.min(maxScroll, slide.offsetLeft)))
+          .reduce((best, left) =>
+            Math.abs(left - track.scrollLeft) < Math.abs(best - track.scrollLeft) ? left : best,
+          );
+
+        const restoreSnap = (): void => {
+          track.style.scrollSnapType = '';
+        };
+
+        if (Math.abs(target - track.scrollLeft) < 1) {
+          restoreSnap();
+          return;
+        }
+
+        track.addEventListener('scrollend', restoreSnap, { once: true });
+        window.setTimeout(restoreSnap, 700);
+        track.scrollTo({ left: target, behavior: 'smooth' });
+      }, 160);
     };
 
     gallery.addEventListener('wheel', onWheel, { passive: false });
@@ -259,6 +323,8 @@ function initMoodGallery(gallery: HTMLElement): void {
         if (wheelRafId) window.cancelAnimationFrame(wheelRafId);
         clearTimeout(snapTimer);
         track.removeEventListener('scroll', onScroll);
+        track.removeEventListener('load', updateEdge, { capture: true });
+        window.removeEventListener('resize', updateEdge);
         gallery.removeEventListener('wheel', onWheel);
       },
     });
@@ -272,13 +338,16 @@ function initMoodGallery(gallery: HTMLElement): void {
 
   if (variant === 'detail' || priority) {
     if (variant === 'detail') {
+      // The article's own pictures, already in view and few: load them all
+      // rather than making the reader scroll one into existence. The track
+      // still gets the feed's watcher, which is what carries wheel-to-sideways.
       slides.forEach((_slide, index) => {
         hydrateSlideAtIndex(slides, index);
       });
-      galleryControllers.set(gallery, {
-        containerObserver: null,
-        cleanupTrack: null,
-      });
+      startTrackWatcher();
+      if (slides.length > 1) {
+        nudgeTrack();
+      }
       return;
     }
 

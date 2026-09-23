@@ -14,6 +14,33 @@
   width: fit-content;
 }
 
+/* Inside a comment bubble a quoted parent is a citation, not a second bubble:
+   carried by a left rule instead of a full slab. Lives here rather than with
+   the thread's other styles because this file is unlayered and globals.css is
+   not -- an @layer rule loses to this one whatever its specificity. */
+.mood-comment-content .mood-comment-quote {
+  padding: var(--comment-gap-inner, 6px) 10px;
+  border-left: 2px solid hsl(var(--foreground) / 0.22);
+  border-radius: 3px var(--radius-sm) var(--radius-sm) 3px;
+  background: hsl(var(--foreground) / 0.05);
+}
+
+/* Discourse renders a quoted post at the thread's own body size and Telegram
+   keeps its reply preview one step under; neither shrinks it to a third size.
+   One step under the comment it sits in, and no smaller. */
+.mood-comment-content .mood-comment-quote .mood-item-quote-author {
+  font-size: var(--comment-meta);
+  font-weight: 600;
+  letter-spacing: normal;
+  color: hsl(var(--foreground) / 0.8);
+}
+
+.mood-comment-content .mood-comment-quote .mood-item-quote-text {
+  font-size: var(--comment-meta);
+  line-height: 1.45;
+  color: hsl(var(--foreground) / 0.62);
+}
+
 .mood-item-quote[href],
 .mood-quote-card[href] {
   cursor: pointer;
@@ -300,8 +327,11 @@
 }
 
 /* Telegram Bot API spoiler — blurred by default on every mood surface, revealed
-   on activation by hydrateMoodRichText. */
-.tg-spoiler {
+   on activation by hydrateMoodRichText. t.me's widget writes the class form;
+   the bare element is the Bot API's own tag, which the comment sanitizer
+   allows, so it must blur too rather than render the secret in the clear. */
+.tg-spoiler,
+tg-spoiler {
   border-radius: 4px;
   background-color: hsl(var(--foreground) / 0.12);
   filter: blur(0.32em);
@@ -311,22 +341,29 @@
   transition: filter 0.2s ease, background-color 0.2s ease;
 }
 
-.tg-spoiler.is-revealed {
+.tg-spoiler.is-revealed,
+tg-spoiler.is-revealed {
   filter: none;
   background-color: transparent;
   cursor: text;
 }
 
-/* Expandable blockquote — JS adds .is-collapsible (clamp) only when it
-   overflows, then .is-expanded toggles the full height. */
-.tg-blockquote-expandable.is-collapsible {
+/* Expandable blockquote — clamped from first paint whenever JS will hydrate
+   (html.js is set by an inline head script), so hydration never shifts layout.
+   hydrateMoodRichText then adds .is-collapsible (affordance) on quotes that
+   overflow or .is-static (lifts the clamp, visually a no-op) on quotes that
+   fit. Without JS the quote stays fully visible. */
+html.js .tg-blockquote-expandable:not(.is-expanded):not(.is-static) {
   position: relative;
   max-height: 5.4em;
   overflow: hidden;
+}
+
+.tg-blockquote-expandable.is-collapsible {
   cursor: pointer;
 }
 
-.tg-blockquote-expandable.is-collapsible::after {
+.tg-blockquote-expandable.is-collapsible:not(.is-expanded)::after {
   content: "";
   position: absolute;
   inset-inline: 0;
@@ -334,14 +371,6 @@
   height: 2.2em;
   background: linear-gradient(to bottom, transparent, hsl(var(--background)));
   pointer-events: none;
-}
-
-.tg-blockquote-expandable.is-expanded {
-  max-height: none;
-}
-
-.tg-blockquote-expandable.is-expanded::after {
-  display: none;
 }
 
 @media (min-width: 640px) {

@@ -108,6 +108,27 @@ describe('Ghost Admin client', () => {
     expect(didFetch).toBe(false);
   });
 
+  test('reads only the post revision for live preview probes', async () => {
+    let requestUrl = '';
+    const client = createGhostAdminClient({
+      url: 'https://blog.example.test',
+      adminApiKey: ADMIN_KEY,
+      fetch: async (input) => {
+        requestUrl = String(input);
+        return Response.json({
+          posts: [{ id: POST_ID, updated_at: '2026-07-31T12:01:00.000Z' }],
+        });
+      },
+    });
+
+    const revision = await client.readPostRevisionById(POST_ID);
+
+    expect(requestUrl).toBe(
+      `https://blog.example.test/ghost/api/admin/posts/${POST_ID}/?fields=id%2Cupdated_at`,
+    );
+    expect(revision).toBe('2026-07-31T12:01:00.000Z');
+  });
+
   test('reads the Admin key from server runtime configuration', async () => {
     let requestUrl = '';
     const client = createGhostAdminClient({
@@ -409,6 +430,95 @@ describe('Ghost Admin client', () => {
     try {
       await client.readPostById(POST_ID);
       throw new Error('Expected the streamed response to exceed the limit');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'invalid_response',
+        message: 'Ghost Admin returned an invalid response.',
+      });
+    }
+  });
+
+  test('lists posts with the Ghost Admin JWT contract and summary fields', async () => {
+    let requestUrl = '';
+    let requestInit: RequestInit | undefined;
+    const client = createGhostAdminClient({
+      url: 'https://blog.example.test/',
+      adminApiKey: ADMIN_KEY,
+      now: () => NOW_MS,
+      fetch: async (input, init) => {
+        requestUrl = String(input);
+        requestInit = init;
+
+        return Response.json({
+          posts: [
+            {
+              id: POST_ID,
+              uuid: POST_UUID,
+              slug: 'draft-post',
+              title: 'Draft post',
+              status: 'draft',
+              updated_at: '2026-07-31T11:59:00.000Z',
+              published_at: null,
+            },
+            {
+              id: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+              uuid: POST_UUID,
+              slug: 'published-post',
+              title: 'Published post',
+              status: 'published',
+              updated_at: '2026-07-30T10:00:00.000Z',
+              published_at: '2026-07-30T10:00:00.000Z',
+            },
+          ],
+        });
+      },
+    });
+
+    const posts = await client.listPosts();
+    const requestHeaders = new Headers(requestInit?.headers);
+    const authorization = requestHeaders.get('Authorization') ?? '';
+
+    expect(requestUrl).toBe(
+      'https://blog.example.test/ghost/api/admin/posts/'
+      + '?fields=id%2Cuuid%2Cslug%2Ctitle%2Cstatus%2Cupdated_at%2Cpublished_at'
+      + '&order=updated_at+desc&limit=100&formats=',
+    );
+    expect(requestInit?.method).toBe('GET');
+    expect(authorization.startsWith('Ghost ')).toBe(true);
+    expect(posts).toEqual([
+      {
+        id: POST_ID,
+        uuid: POST_UUID,
+        slug: 'draft-post',
+        title: 'Draft post',
+        status: 'draft',
+        updatedAt: '2026-07-31T11:59:00.000Z',
+        publishedAt: null,
+      },
+      {
+        id: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+        uuid: POST_UUID,
+        slug: 'published-post',
+        title: 'Published post',
+        status: 'published',
+        updatedAt: '2026-07-30T10:00:00.000Z',
+        publishedAt: '2026-07-30T10:00:00.000Z',
+      },
+    ]);
+  });
+
+  test('rejects a malformed posts list payload without leaking upstream data', async () => {
+    const client = createGhostAdminClient({
+      url: 'https://blog.example.test',
+      adminApiKey: ADMIN_KEY,
+      fetch: async () => Response.json({
+        posts: [{ id: POST_ID, uuid: POST_UUID, slug: 'missing-title', status: 'draft' }],
+      }),
+    });
+
+    try {
+      await client.listPosts();
+      throw new Error('Expected the malformed list payload to fail');
     } catch (error) {
       expect(error).toMatchObject({
         code: 'invalid_response',

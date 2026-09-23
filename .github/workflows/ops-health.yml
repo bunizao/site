@@ -50,7 +50,7 @@ jobs:
         continue-on-error: true
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.2
 
       - name: Install dependencies
         id: install
@@ -69,6 +69,7 @@ jobs:
           HD_IMAGE_HEALTH_TIMEOUT_MS: 4000
           LIVE_PHOTO_DETAIL_IDS: 3327
           MOOD_REPLY_CANARIES: 1609:1600
+          GHOST_CONTENT_API_KEY: ${{ secrets.GHOST_CONTENT_API_KEY }}
         run: bun run test:ops
 
       - name: Wait before confirmation
@@ -176,7 +177,49 @@ jobs:
             .ops-health/job.log \
             .ops-health/evidence.json \
             "${HEALTH_STATE}"
+
+          node .github/scripts/reprobe-ops-health-targets.mjs \
+            .ops-health/evidence.json \
+            .ops-health/reprobe.json
+
+          if gh api \
+            "repos/${GH_REPO}/actions/workflows/ops-health.yml/runs?per_page=12" \
+            > .ops-health/history-source.json; then
+            jq \
+              --arg current_run "${GITHUB_RUN_ID}" \
+              --arg current_sha "${GITHUB_SHA}" \
+              '
+                [.workflow_runs[]
+                  | select((.id | tostring) != $current_run)
+                  | select(.status == "completed")
+                  | {
+                      runId: .id,
+                      runNumber: .run_number,
+                      createdAt: .created_at,
+                      conclusion,
+                      headSha: .head_sha,
+                      url: .html_url
+                    }
+                ] as $runs
+                | {
+                    currentRunId: ($current_run | tonumber),
+                    currentSha: $current_sha,
+                    recentRuns: $runs[:10],
+                    sameCommit: {
+                      successful: ([$runs[] | select(.headSha == $current_sha and .conclusion == "success")] | length),
+                      failed: ([$runs[] | select(.headSha == $current_sha and .conclusion == "failure")] | length)
+                    }
+                  }
+              ' \
+              .ops-health/history-source.json \
+              > .ops-health/history.json
+          else
+            echo '{"recentRuns":[],"sameCommit":{"successful":0,"failed":0}}' \
+              > .ops-health/history.json
+          fi
+
           rm -f .ops-health/raw.log
+          rm -f .ops-health/history-source.json
 
           echo "artifact_name=ops-health-evidence-${GITHUB_RUN_ID}" >> "${GITHUB_OUTPUT}"
           echo "fingerprint=$(jq -r '.fingerprint' .ops-health/evidence.json)" >> "${GITHUB_OUTPUT}"
@@ -185,7 +228,7 @@ jobs:
         if: steps.evidence.outputs.fingerprint != ''
         uses: actions/cache/restore@v6
         with:
-          key: ops-health-ignore-v1-${{ steps.evidence.outputs.fingerprint }}
+          key: ops-health-ignore-v2-${{ steps.evidence.outputs.fingerprint }}
           path: .ops-health-cache/ignored-decision.json
 
       - name: Find open incident
@@ -351,7 +394,7 @@ jobs:
         if: steps.sync.outputs.cache_ignore == 'true'
         uses: actions/cache/save@v6
         with:
-          key: ops-health-ignore-v1-${{ needs.context.outputs.fingerprint }}
+          key: ops-health-ignore-v2-${{ needs.context.outputs.fingerprint }}
           path: .ops-health-cache/ignored-decision.json
 
   gate:

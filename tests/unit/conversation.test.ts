@@ -2,16 +2,22 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   isConversationLanguage,
-  nameOnBubble,
+  nameOnBackground,
   parseConversation,
   renderConversation,
   setConversationOption,
   textOnAccent,
+  tintedBubble,
 } from '@/features/content/conversation';
-import { splitBlogProse } from '@/features/posts/server/code-blocks';
+import {
+  promoteConversationBlocks,
+  splitBlogProse,
+} from '@/features/posts/server/code-blocks';
 
 const BUBBLE_LIGHT = '#ECECEC';
 const BUBBLE_DARK = '#232323';
+const PAGE_LIGHT = '#FFFFFF';
+const PAGE_DARK = '#0A0A0A';
 
 function toRgb(hex: string): [number, number, number] {
   const raw = hex.replace('#', '');
@@ -41,7 +47,7 @@ describe('conversation parsing', () => {
     ].join('\n');
     const { items, options } = parseConversation(source);
 
-    expect(options).toEqual({ avatars: false, names: true });
+    expect(options).toEqual({ avatars: false, names: true, tints: true });
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({ type: 'group' });
   });
@@ -56,7 +62,7 @@ describe('conversation parsing', () => {
 
     expect(setConversationOption(source, 'avatars', false)).toBe([
       '```conversation',
-      '@conversation avatars=off names=on',
+      '@conversation avatars=off names=on tints=on',
       'me: hi',
       '```',
     ].join('\n'));
@@ -66,7 +72,7 @@ describe('conversation parsing', () => {
     const malformed = parseConversation('@conversation avatars=hidden\nme: hi');
     const misplaced = parseConversation('me: hi\n@conversation names=off');
 
-    expect(malformed.options).toEqual({ avatars: true, names: true });
+    expect(malformed.options).toEqual({ avatars: true, names: true, tints: true });
     expect(malformed.items[0]).toEqual({ type: 'note', text: '@conversation avatars=hidden' });
     expect(misplaced.items[1]).toEqual({ type: 'note', text: '@conversation names=off' });
   });
@@ -236,6 +242,7 @@ describe('conversation parsing', () => {
       '@a [A]avatar=x',
       '@a []',
       '@a accent=#fff accent=#000',
+      '@a tints=maybe',
     ]) {
       const { cast, items } = parseConversation(line);
 
@@ -284,13 +291,16 @@ describe('conversation parsing', () => {
     expect(cast.get('octo')?.avatar).toBe('https://example.com/o.png');
   });
 
-  test('reads label, accent and avatar off a cast line', () => {
-    const { cast } = parseConversation('@tu [Tu Tu] accent=#B4603A avatar=🐈');
+  test('reads label, accent, visibility overrides and avatar off a cast line', () => {
+    const { cast } = parseConversation(
+      '@tu [Tu Tu] accent=#B4603A avatar=🐈 avatars=off names=on tints=off',
+    );
     const speaker = cast.get('tu');
 
     expect(speaker?.label).toBe('Tu Tu');
     expect(speaker?.accent).toBe('#B4603A');
     expect(speaker?.avatar).toBe('🐈');
+    expect(speaker?.options).toEqual({ avatars: false, names: true, tints: false });
   });
 });
 
@@ -302,12 +312,15 @@ describe('conversation rendering', () => {
     expect(html).toContain('data-names="off"');
   });
 
-  test('labels only the first bubble of a run', () => {
+  test('labels a run once, above the stack rather than inside a bubble', () => {
     const html = renderConversation(['me: hi', 'ann: one', 'ann: two'].join('\n'));
 
     // One visible name for Ann's run, plus the screen-reader-only one on mine.
     expect(html.match(/class="conv-name/g)).toHaveLength(2);
     expect(html.match(/conv-name--sr/g)).toHaveLength(1);
+    // The name heads the stack; the bubbles below it hold nothing but content.
+    expect(html).toContain('<div class="conv-stack"><div class="conv-name"');
+    expect(html).not.toContain('conv-bubble--wide"><div class="conv-name');
   });
 
   test('keeps the own-side label in the accessibility tree instead of dropping it', () => {
@@ -396,6 +409,55 @@ describe('conversation rendering', () => {
     }
   });
 
+  test('washes the receiving side\'s bubble with the accent', () => {
+    const html = renderConversation(['@a accent=#4E7A5E', 'a: hi', 'you: yo'].join('\n'));
+
+    // Without this the accent has nowhere to land on a thread whose names and
+    // avatars are switched off: the own side is the only filled one.
+    expect(html).toContain('--conv-tint-light:' + tintedBubble('#4E7A5E', BUBBLE_LIGHT));
+    expect(html).toContain('--conv-tint-dark:' + tintedBubble('#4E7A5E', BUBBLE_DARK));
+  });
+
+  test('applies the thread tint default to every speaker', () => {
+    const on = renderConversation(['@a accent=#4E7A5E', 'a: hi'].join('\n'));
+    const off = renderConversation(
+      ['@conversation tints=off', '@a accent=#4E7A5E', 'a: hi'].join('\n'),
+    );
+
+    expect(on).toContain('data-tints="on"');
+    expect(off).toContain('data-tints="off"');
+    expect(off).toContain(
+      'class="conv-group conv-group--out" data-avatars="on" data-names="on" data-tints="off"',
+    );
+    expect(off).toContain('--conv-tint-light:');
+  });
+
+  test('lets each speaker override every thread option', () => {
+    const html = renderConversation(
+      [
+        '@conversation avatars=off names=off tints=off',
+        '@gemini [Gemini] accent=#6E7FD8 avatars=on names=on tints=on',
+        '@ada [Ada] accent=#6F8F9D',
+        'you: compare',
+        'gemini: overridden',
+        'ada: inherited',
+      ].join('\n'),
+    );
+
+    expect(html).toContain(
+      'class="conv-group conv-group--in" data-avatars="on" data-names="on" data-tints="on" style="--conv-accent:#6E7FD8',
+    );
+    expect(html).toContain(
+      'class="conv-group conv-group--in" data-avatars="off" data-names="off" data-tints="off" style="--conv-accent:#6F8F9D',
+    );
+  });
+
+  test('leaves the bubble neutral when no accent is declared', () => {
+    const html = renderConversation(['a: hi', 'you: yo'].join('\n'));
+
+    expect(html).not.toContain('--conv-tint');
+  });
+
   test('rejects an accent that is not a hex colour', () => {
     const html = renderConversation(['@a accent=javascript:alert(1)', 'a: hi'].join('\n'));
 
@@ -410,11 +472,21 @@ describe('conversation contrast', () => {
     expect(textOnAccent('#F2E8C9')).toBe('#0A0A0A');
   });
 
-  test('walks a name colour to AA against both bubble floors', () => {
+  test('walks a name colour to AA against both page backgrounds', () => {
     // Hexes chosen as fills; several land near 4:1 when reused as name text.
+    // The name sits beside the bubble, so the page is what it is read against.
     for (const accent of ['#3C5D80', '#B4603A', '#4E7A5E', '#7C5CD6', '#A8455F', '#2F6E7A']) {
-      expect(ratio(nameOnBubble(accent, BUBBLE_LIGHT), BUBBLE_LIGHT)).toBeGreaterThanOrEqual(4.5);
-      expect(ratio(nameOnBubble(accent, BUBBLE_DARK), BUBBLE_DARK)).toBeGreaterThanOrEqual(4.5);
+      for (const page of [PAGE_LIGHT, PAGE_DARK]) {
+        expect(ratio(nameOnBackground(accent, page), page)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  test('keeps a tinted bubble readable under its own body text', () => {
+    // The tint replaces the neutral bubble, so the body copy has to survive it.
+    for (const accent of ['#3C5D80', '#B4603A', '#4E7A5E', '#7C5CD6', '#A8455F', '#2F6E7A']) {
+      expect(ratio('#0A0A0A', tintedBubble(accent, BUBBLE_LIGHT))).toBeGreaterThanOrEqual(4.5);
+      expect(ratio('#FFFFFF', tintedBubble(accent, BUBBLE_DARK))).toBeGreaterThanOrEqual(4.5);
     }
   });
 });
@@ -440,6 +512,27 @@ describe('conversation fences in blog prose', () => {
     const fragments = splitBlogProse('<pre><code class="language-ts">const a = 1;</code></pre>');
 
     expect(fragments).toEqual([{ kind: 'code', code: 'const a = 1;', lang: 'ts' }]);
+  });
+
+  test('promotes draft conversations without rewriting ordinary code cards', () => {
+    const ordinary = '<pre><code class="language-ts">const a = 1;</code></pre>';
+    const conversation = [
+      '<figure class="kg-card kg-code-card"><pre><code class="language-conversation">',
+      '```conversation\n',
+      '@conversation tints=off\n',
+      '@gemini [Gemini] accent=#6E7FD8 tints=on\n',
+      'you: preview\n',
+      'gemini: promoted\n',
+      '```',
+      '</code></pre></figure>',
+    ].join('');
+
+    const html = promoteConversationBlocks(ordinary + conversation);
+
+    expect(html.startsWith(ordinary)).toBe(true);
+    expect(html).toContain('class="conv-thread"');
+    expect(html).toContain('data-tints="off"');
+    expect(html).not.toContain('language-conversation');
   });
 
   test('matches the language case-insensitively', () => {

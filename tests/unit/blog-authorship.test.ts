@@ -44,6 +44,29 @@ describe('authorship model registry', () => {
     expect(resolveAuthorshipModel('anthropic/claude-haiku-4-5')?.providerId).toBe('anthropic');
     expect(resolveAuthorshipModel('openai/gpt-5')?.providerId).toBe('openai');
   });
+
+  test('normalizes the Gemini authoring shorthand to the Google provider', async () => {
+    const result = await transformPostDirectives(
+      '<p>[!authors ai=gemini/gemini-3.7-flash]</p>',
+      context,
+    );
+
+    expect(result.meta.authors).toEqual([{ ai: 'google/gemini-3.7-flash' }]);
+    expect(readAuthorshipCredits(result.meta, context.slug)[0]?.model).toMatchObject({
+      id: 'google/gemini-3.7-flash',
+      name: 'Gemini 3.7 Flash',
+      providerName: 'Google',
+    });
+  });
+
+  test('normalizes the published Gemini 3.1 Pro alias', async () => {
+    const result = await transformPostDirectives(
+      '<p>[!authors ai=google/gemini-3.1-pro]</p>',
+      context,
+    );
+
+    expect(result.meta.authors).toEqual([{ ai: 'google/gemini-3.1-pro-preview' }]);
+  });
 });
 
 describe('authors meta directive', () => {
@@ -107,10 +130,6 @@ describe('authors meta directive', () => {
         carrier: '[!authors ai="anthropic/claude-opus-4-6" note=""]',
         message: 'attribute "note" must not be empty.',
       },
-      {
-        carrier: `[!authors ai="anthropic/claude-opus-4-6" note="${'x'.repeat(161)}"]`,
-        message: 'attribute "note" must be at most 160 characters.',
-      },
     ] as const;
 
     for (const { carrier, message } of cases) {
@@ -134,6 +153,16 @@ describe('authors meta directive', () => {
     }
   });
 
+  test('accepts long notes with inline Markdown', async () => {
+    const note = `Reviewed the **English** translation and ${'expanded the context. '.repeat(12)}`;
+    const result = await transformPostDirectives(
+      `<p>[!authors ai="anthropic/claude-opus-4-6" note="${note}"]</p>`,
+      context,
+    );
+
+    expect(readAuthorshipCredits(result.meta, context.slug)[0]?.note).toBe(note.trim());
+  });
+
   test('fails an unknown model through a typed error naming the post and model', async () => {
     try {
       await transformPostDirectives('<p>[!authors ai="anthropic/claude-opus-9-9"]</p>', context);
@@ -146,6 +175,20 @@ describe('authors meta directive', () => {
         model: 'anthropic/claude-opus-9-9',
       });
     }
+  });
+
+  test('turns an unknown preview model into a visible warning', async () => {
+    const result = await transformPostDirectives(
+      '<p>[!authors ai=gemini/not-a-model]</p><p>Draft body</p>',
+      { ...context, outputTarget: 'preview' },
+    );
+
+    expect(result.html).toBe('<p>Draft body</p>');
+    expect(result.meta).toEqual({});
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]?.message).toContain(
+      'Unknown authorship model "google/not-a-model"',
+    );
   });
 
   test('reports no credits for a post without the directive', async () => {

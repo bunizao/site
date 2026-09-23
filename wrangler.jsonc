@@ -14,6 +14,7 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
+    "html_handling": "drop-trailing-slash",
     "run_worker_first": [
       "/",
       "/api/*",
@@ -22,6 +23,7 @@
       "/mood*",
       "/privacy*",
       "/projects*",
+      "/reader*",
       "/sitemap.xml",
       "/dev",
       "/dev/*",

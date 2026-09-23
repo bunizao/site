@@ -33,7 +33,7 @@ const repoRoot = path.resolve(process.cwd());
 
 const primitiveConfig = {
   button: {
-    dependencies: ['@radix-ui/react-slot', 'class-variance-authority'],
+    dependencies: ['@base-ui/react', 'class-variance-authority'],
   },
   badge: {},
   card: {},
@@ -96,6 +96,21 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
       type: 'registry:lib' as const,
     },
     {
+      path: 'features/mood/client/date-label.ts',
+      target: '@lib/date-label.ts',
+      type: 'registry:lib' as const,
+    },
+    {
+      path: 'features/mood/client/wheel-feedback.ts',
+      target: '@lib/wheel-feedback.ts',
+      type: 'registry:lib' as const,
+    },
+    {
+      path: 'features/mood/client/wheel-frame-meter.ts',
+      target: '@lib/wheel-frame-meter.ts',
+      type: 'registry:lib' as const,
+    },
+    {
       path: 'features/mood/shared/feed-anchor.ts',
       target: '@lib/feed-anchor.ts',
       type: 'registry:lib' as const,
@@ -115,13 +130,22 @@ async function buildMoodWheelItem(): Promise<RegistryItem> {
     ...await readRegistryFile(filePath, type),
     target,
   })));
-  files[0].content = files[0].content
-    .replace("@/features/mood/client/timeline-date-tracker", '@/lib/timeline-date-tracker')
-    .replace("@/features/mood/shared/feed-anchor", '@/lib/feed-anchor');
-  files[4].content = files[4].content.replace(
-    "@/features/mood/client/timeline-wheel",
-    '@/lib/timeline-wheel'
-  );
+  // Addressed by target, not by index: the source list grows, and a shifted
+  // index would silently publish an unrewritten @/features import.
+  const rewrite = (target: string, apply: (content: string) => string): void => {
+    const file = files.find((candidate) => candidate.target === target);
+    if (!file) throw new Error(`mood-wheel registry is missing ${target}`);
+    file.content = apply(file.content);
+  };
+
+  rewrite('@lib/timeline-wheel.ts', (content) => content
+    .replace('@/features/mood/client/timeline-date-tracker', '@/lib/timeline-date-tracker')
+    .replace('@/features/mood/client/date-label', '@/lib/date-label')
+    .replace('@/features/mood/client/wheel-feedback', '@/lib/wheel-feedback')
+    .replace('@/features/mood/client/wheel-frame-meter', '@/lib/wheel-frame-meter')
+    .replace('@/features/mood/shared/feed-anchor', '@/lib/feed-anchor'));
+  rewrite('@ui/timeline-wheel.astro', (content) => content
+    .replace('@/features/mood/client/timeline-wheel', '@/lib/timeline-wheel'));
 
   return {
     $schema: REGISTRY_ITEM_SCHEMA,
@@ -180,7 +204,7 @@ const inferListeningSurface = (_pathname: string): 'other' => 'other';`,
         rewriteImports
       ),
       await readRepoRegistryFile(
-        'src/features/home/types.ts',
+        'packages/contracts/src/listening.ts',
         'lib/listening-types.ts',
         'registry:lib'
       ),
@@ -193,7 +217,7 @@ const inferListeningSurface = (_pathname: string): 'other' => 'other';`,
         'src/lib/listening/controller.ts',
         'lib/listening-controller.ts',
         'registry:lib',
-        removeSiteAnalytics
+        (content) => removeSiteAnalytics(rewriteImports(content))
       ),
       await readRepoRegistryFile(
         'src/styles/listening.css',
@@ -244,7 +268,10 @@ async function buildProjectsDeckItem(): Promise<RegistryItem> {
     $schema: REGISTRY_ITEM_SCHEMA,
     name: 'projects-deck',
     type: 'registry:ui',
-    dependencies: ['framer-motion', 'lucide-react'],
+    // data/site.ts carries the per-post comment policy, so a consumer of this
+    // item needs the contract that types it. Undeclared, it resolved through
+    // this repo's own workspace and failed only in a fresh consumer.
+    dependencies: ['@bunizao/contracts', 'framer-motion', 'lucide-react'],
     registryDependencies: ['utils'],
     files: await Promise.all(paths.map(async (filePath) => {
       const file = await readRegistryFile(filePath, 'registry:ui');
@@ -263,6 +290,12 @@ async function buildConversationItem(): Promise<RegistryItem> {
   const renderer = await readRegistryFile('features/content/conversation.ts', 'registry:lib');
   renderer.target = '@lib/conversation.ts';
 
+  const fitter = await readRegistryFile(
+    'features/content/client/conversation-fit.ts',
+    'registry:lib'
+  );
+  fitter.target = '@lib/conversation-fit.ts';
+
   const stylesheet = await readRegistryFile('styles/conversation.css', 'registry:lib');
   stylesheet.target = '@lib/conversation.css';
 
@@ -270,7 +303,8 @@ async function buildConversationItem(): Promise<RegistryItem> {
   component.target = '@ui/conversation.astro';
   component.content = component.content
     .replace("@/styles/conversation.css", '@/lib/conversation.css')
-    .replace("@/features/content/conversation", '@/lib/conversation');
+    .replace("@/features/content/conversation", '@/lib/conversation')
+    .replace("@/features/content/client/conversation-fit", '@/lib/conversation-fit');
 
   // No cssVars: every token is declared on .conv-thread, so a :root entry
   // written into the consumer's globals would lose the cascade and do nothing.
@@ -279,7 +313,7 @@ async function buildConversationItem(): Promise<RegistryItem> {
     $schema: REGISTRY_ITEM_SCHEMA,
     name: 'conversation',
     type: 'registry:ui',
-    files: [component, renderer, stylesheet],
+    files: [component, renderer, fitter, stylesheet],
   };
 }
 

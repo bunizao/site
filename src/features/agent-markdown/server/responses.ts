@@ -1,13 +1,29 @@
-import { cacheEdgeResponse, readEdgeCache } from '@/lib/http/edge-cache';
+import {
+  cacheEdgeResponse,
+  readEdgeCache,
+  type EdgeCacheHit,
+  type EdgeCacheWaitContext,
+} from '@/lib/http/edge-cache';
+import {
+  isBlogPostPath,
+  manifestEntryForPath,
+  readI18nManifest,
+} from '@/features/posts/server/i18n-manifest';
+import { translationPath } from '@/features/posts/i18n';
+import type { BlogLocale } from '@/data/site';
+import { meta } from '@/data/site';
 import { estimateMarkdownTokens, prefersMarkdown } from './negotiation';
 import {
   EDGE_CACHE_HEADER,
+  MARKDOWN_PATH_SUFFIX,
   MARKDOWN_CONTENT_TYPE,
   MARKDOWN_TOKEN_HEADER,
   type ContentRoutePolicy,
+  explicitMarkdownSourcePath,
   getContentRoutePolicy,
   getMarkdownRenderer,
   hasMarkdownRenderer,
+  markdownAlternatePath,
 } from './registry';
 
 const EDGE_CACHE_VERSION = '2';
@@ -19,22 +35,92 @@ export function contentEdgeCacheVersion(
   const normalizedPath = pathname === '/' ? pathname : pathname.replace(/\/+$/, '');
   const isBuildBackedContent = normalizedPath === '/'
     || normalizedPath === '/blog'
-    || normalizedPath.startsWith('/blog/');
+    || normalizedPath.startsWith('/blog/')
+    || normalizedPath === '/docs'
+    || normalizedPath.startsWith('/docs/')
+    || normalizedPath === '/mood'
+    || normalizedPath.startsWith('/mood/');
 
   return isBuildBackedContent
     ? `${EDGE_CACHE_VERSION}:${buildId?.trim() || 'dev'}`
     : EDGE_CACHE_VERSION;
 }
 const CLOUDFLARE_CDN_CACHE_CONTROL_HEADER = 'Cloudflare-CDN-Cache-Control';
-const CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 300;
+const CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 86400;
 const NO_STORE_CACHE_CONTROL = 'no-store, max-age=0';
 
-export function appendHeaderToken(value: string | null, token: string): string {
+function permanentRedirect(location: string): Response {
+  return new Response(null, {
+    status: 301,
+    headers: { Location: location, 'Cache-Control': 'public, max-age=3600' },
+  });
+}
+
+/**
+ * Send the two URL shapes an article version is not served at to the one it
+ * is. A translation's own Ghost slug is a build-time identity, not an address;
+ * `?lang=` is the form the first i18n round indexed. Both answer a single 301,
+ * so no version ever has a second URL competing with it in search.
+ */
+export async function redirectLegacyBlogUrl(request: Request, locals: unknown): Promise<Response | null> {
+  const url = new URL(request.url);
+  if (!isBlogPostPath(url.pathname)) return null;
+  const manifest = await readI18nManifest(locals, url.origin);
+  if (!manifest) return null;
+  const match = manifestEntryForPath(manifest, url.pathname);
+  if (match?.entry.canonical && match.entry.locale) {
+    return permanentRedirect(
+      `${translationPath(match.entry.locale as BlogLocale, match.entry.canonical)}${url.search}`,
+    );
+  }
+  const lang = url.searchParams.get('lang');
+  if (lang === null || !match) return null;
+  url.searchParams.delete('lang');
+  const translation = match.entry.translations?.[lang.trim().toLowerCase()];
+  const pathname = translation
+    ? translationPath(lang.trim().toLowerCase() as BlogLocale, match.slug)
+    : `/blog/${match.slug}`;
+  return permanentRedirect(`${pathname}${url.search}`);
+}
+
+function appendHeaderToken(value: string | null, token: string): string {
   const current = value?.trim();
   if (!current) return token;
   const tokens = current.split(',').map((item) => item.trim().toLowerCase());
   if (tokens.includes(token.toLowerCase())) return current;
   return `${current}, ${token}`;
+}
+
+// Workers Cache omits Host from its base key and shares Vary metadata across
+// representations of a URL. Normalize at the outer boundary, including old
+// Markdown cache hits, so switching formats cannot discard HTML variants.
+export function withRequestVary(request: Request, response: Response): Response {
+  const current = response.headers.get('Vary');
+  const tokens = current?.split(',').map((token) => token.trim()).filter(Boolean) ?? [];
+  if (tokens.includes('*')) return response;
+
+  const pathname = new URL(request.url).pathname;
+  const sourcePath = explicitMarkdownSourcePath(pathname) ?? pathname;
+  const policy = getContentRoutePolicy(pathname);
+  const required = hasMarkdownRenderer(sourcePath) ? ['Accept'] : [];
+  if (policy?.varyByLocale) required.push('Accept-Language', 'Cookie');
+  required.push('Host');
+  const seen = new Set(required.map((token) => token.toLowerCase()));
+  for (const token of tokens) {
+    if (seen.has(token.toLowerCase())) continue;
+    required.push(token);
+    seen.add(token.toLowerCase());
+  }
+  const vary = required.join(', ');
+  if (vary === current) return response;
+
+  const headers = new Headers(response.headers);
+  headers.set('Vary', vary);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 function appendCacheControlDirective(value: string | null, directive: string): string {
@@ -76,6 +162,48 @@ export function publicCacheControl(ttlSeconds: number, staleWhileRevalidateSecon
   ].filter(Boolean).join(', ');
 }
 
+const CANONICAL_HOSTNAME = new URL(meta.siteUrl).hostname;
+
+export function redirectCanonicalUrl(request: Request): Response | null {
+  const url = new URL(request.url);
+  let pathname = url.pathname;
+
+  if (pathname !== '/') {
+    pathname = pathname.replace(/\/+$/, '');
+  }
+
+  if (pathname.endsWith('.md') && !pathname.endsWith(MARKDOWN_PATH_SUFFIX)) {
+    const sourcePath = pathname.slice(0, -'.md'.length) || '/';
+    if (hasMarkdownRenderer(sourcePath)) {
+      pathname = markdownAlternatePath(sourcePath);
+    }
+  }
+
+  // www is a copy of the apex. The Worker is routed on both, so the redirect
+  // lives here rather than in a zone rule, and it lands on the normalized
+  // path in one hop.
+  if (url.hostname === `www.${CANONICAL_HOSTNAME}`) {
+    return new Response(null, {
+      status: 301,
+      headers: {
+        'Cache-Control': 'public, max-age=3600',
+        Location: `${meta.siteUrl}${pathname}${url.search}`,
+      },
+    });
+  }
+
+  if (pathname === url.pathname) return null;
+
+  url.pathname = pathname;
+  return new Response(null, {
+    status: 308,
+    headers: {
+      'Cache-Control': 'public, max-age=3600',
+      Location: `${url.pathname}${url.search}`,
+    },
+  });
+}
+
 export function cloudflareCdnCacheControl(
   ttlSeconds: number,
   staleWhileRevalidateSeconds = CONTENT_STALE_WHILE_REVALIDATE_SECONDS,
@@ -84,6 +212,7 @@ export function cloudflareCdnCacheControl(
     'public',
     `max-age=${ttlSeconds}`,
     `stale-while-revalidate=${staleWhileRevalidateSeconds}`,
+    `stale-if-error=${staleWhileRevalidateSeconds}`,
   ].join(', ');
 }
 
@@ -117,17 +246,22 @@ export function withContentPolicy(request: Request, response: Response): Respons
   if (!isHtml && !policy) return response;
 
   const headers = new Headers(response.headers);
+  const cacheReady = headers.get('X-Buxx-Cache-Ready') !== '0';
+  headers.delete('X-Buxx-Cache-Ready');
 
-  if (isHtml && hasMarkdownRenderer(url.pathname)) {
+  if ((isHtml || response.status === 304) && hasMarkdownRenderer(url.pathname)) {
     headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Accept'));
   }
 
-  if (
-    policy
-    && response.status === 200
-    && !hasExplicitBypassDirective(headers.get('Cache-Control'))
-    && shouldApplyRouteCacheHeaders(url, policy)
-  ) {
+  // Persist readiness as no-store: middleware and the Worker both decorate
+  // this response before the in-worker cache decides whether to write it.
+  if (!cacheReady) {
+    setNoStoreHeaders(headers);
+  } else if (hasExplicitBypassDirective(headers.get('Cache-Control'))) {
+    headers.delete(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER);
+  } else if (policy && !shouldApplyRouteCacheHeaders(url, policy)) {
+    setNoStoreHeaders(headers);
+  } else if (policy && (response.status === 200 || response.status === 304)) {
     setContentCacheHeaders(
       headers,
       policy.cacheTtlSeconds,
@@ -139,6 +273,11 @@ export function withContentPolicy(request: Request, response: Response): Respons
       appendCacheControlDirective(headers.get('Cache-Control'), NO_STORE_CACHE_CONTROL),
     );
     headers.delete(CLOUDFLARE_CDN_CACHE_CONTROL_HEADER);
+  }
+
+  if (policy?.varyByLocale && (isHtml || response.status === 304)) {
+    headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Accept-Language'));
+    headers.set('Vary', appendHeaderToken(headers.get('Vary'), 'Cookie'));
   }
 
   return new Response(response.body, {
@@ -177,14 +316,23 @@ export async function renderMarkdownIfRequested(context: {
   site?: URL;
 }): Promise<Response | null> {
   if (context.request.method !== 'GET') return null;
-  if (!prefersMarkdown(context.request.headers.get('accept'))) return null;
 
   const url = new URL(context.request.url);
-  if (isNeverCachePath(url.pathname)) return null;
+  const explicitSourcePath = explicitMarkdownSourcePath(url.pathname);
+  if (!explicitSourcePath && !prefersMarkdown(context.request.headers.get('accept'))) return null;
+  if (isNeverCachePath(explicitSourcePath ?? url.pathname)) return null;
 
-  const match = getMarkdownRenderer(url.pathname);
+  const sourcePath = explicitSourcePath ?? url.pathname;
+  const resolutionUrl = new URL(sourcePath, url.origin);
+  resolutionUrl.search = url.search;
+  const legacyRedirect = await redirectLegacyBlogUrl(
+    new Request(resolutionUrl, context.request),
+    context.locals,
+  );
+  if (legacyRedirect) return legacyRedirect;
+  const match = getMarkdownRenderer(sourcePath);
   if (!match) return null;
-  const cacheVersion = contentEdgeCacheVersion(url.pathname);
+  const cacheVersion = contentEdgeCacheVersion(sourcePath);
 
   const cached = await readEdgeCache(context.request, {
     namespace: 'content',
@@ -197,12 +345,13 @@ export async function renderMarkdownIfRequested(context: {
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown'),
   });
-  if (cached) return cached;
+  // Markdown passes no staleWhileRevalidateSeconds, so a hit is always fresh.
+  if (cached) return cached.response;
 
   const result = await match.renderer.render({
     request: context.request,
     locals: context.locals as App.Locals,
-    url,
+    url: new URL(`${sourcePath}${url.search}`, url.origin),
     site: siteUrlForContext(context),
     params: match.params,
   });
@@ -212,6 +361,12 @@ export async function renderMarkdownIfRequested(context: {
     result.headers,
     match.renderer.cacheTtlSeconds,
   );
+  // Search engines index text/markdown as a document of its own; the HTTP
+  // canonical folds it into the HTML page the same way a PDF's would.
+  if (response.status === 200) {
+    const canonicalHtml = new URL(`${sourcePath}${url.search}`, meta.siteUrl).href;
+    response.headers.set('Link', `<${canonicalHtml}>; rel="canonical"`);
+  }
 
   return cacheEdgeResponse(context.request, response, {
     namespace: 'content',
@@ -243,35 +398,39 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
     variant: 'html',
     version: contentEdgeCacheVersion(url.pathname),
     ttlSeconds: policy.cacheTtlSeconds,
+    staleWhileRevalidateSeconds: policy.cacheStaleWhileRevalidateSeconds,
     headerName: policy.cacheHeaderName,
     cacheControl: publicCacheControl(
       policy.cacheTtlSeconds,
       policy.cacheStaleWhileRevalidateSeconds,
     ),
-    cloudflareCacheControl: policy.normalizeHtmlCacheSearch
-      ? 'no-store'
-      : cloudflareCdnCacheControl(
-          policy.cacheTtlSeconds,
-          policy.cacheStaleWhileRevalidateSeconds,
-        ),
+    cloudflareCacheControl: cloudflareCdnCacheControl(
+      policy.cacheTtlSeconds,
+      policy.cacheStaleWhileRevalidateSeconds,
+    ),
     cacheSearch,
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html')
+      && response.headers.get('X-Buxx-Cache-Ready') !== '0'
       && !hasExplicitBypassDirective(response.headers.get('Cache-Control')),
-    isResponseReady: policy.isHtmlReady,
   };
 }
 
-export async function readCachedHtmlPage(request: Request): Promise<Response | null> {
+export async function readCachedHtmlPage(request: Request): Promise<EdgeCacheHit | null> {
   const options = createHtmlCacheOptions(request);
   if (!options) return null;
 
   return readEdgeCache(request, options);
 }
 
-export async function cacheHtmlPageResponse(request: Request, response: Response): Promise<Response> {
+export async function cacheHtmlPageResponse(
+  request: Request,
+  response: Response,
+  context?: EdgeCacheWaitContext,
+): Promise<Response> {
+  const decorated = withContentPolicy(request, response);
   const options = createHtmlCacheOptions(request);
-  if (!options) return response;
+  if (!options) return decorated;
 
-  return cacheEdgeResponse(request, response, options);
+  return cacheEdgeResponse(request, decorated, options, context);
 }

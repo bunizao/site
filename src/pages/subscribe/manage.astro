@@ -13,14 +13,13 @@
 //   /subscribe/manage?demo=1               → control panel with sample data
 import Layout from '@/layouts/Layout.astro';
 import ManagePreferences from '@/features/notify/ui/ManagePreferences.tsx';
-import { readPublicEnv } from '@/lib/runtime/env';
-import { formatSiteTitle } from '@/lib/seo';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 
 export const prerender = false;
 
-const turnstileSiteKey = readPublicEnv(Astro.locals, 'TURNSTILE_SITE_KEY');
+const turnstileSiteKey = readTurnstileSiteKey(Astro.locals);
 Astro.response.headers.set('Referrer-Policy', 'no-referrer');
-const title = formatSiteTitle('Subscription preferences');
+const title = 'Subscription preferences';
 const description = 'Manage your email subscriptions and delivery frequency, or unsubscribe.';
 ---
 

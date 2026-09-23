@@ -11,7 +11,7 @@ const PHONE = { width: 390, height: 844 };
 
 test('blog list pill is a rounded rect, not an ellipse', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/blog/', { waitUntil: 'networkidle' });
+  await page.goto('/blog', { waitUntil: 'networkidle' });
 
   // .blog-row is the hover target PostHover.astro binds the pill to.
   const row = page.locator('.blog-row').first();
@@ -47,7 +47,7 @@ test('blog list pill is a rounded rect, not an ellipse', async ({ page }) => {
 
 test('post footer pledge line reserves no vertical void on a phone', async ({ page }) => {
   await page.setViewportSize(PHONE);
-  await page.goto('/blog/demo-effects/', { waitUntil: 'networkidle' });
+  await page.goto('/blog/demo-effects', { waitUntil: 'networkidle' });
 
   const metrics = await page.evaluate(() => {
     const aside = document.querySelector<HTMLElement>('.not-by-ai, .ai-credit');

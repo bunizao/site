@@ -23,6 +23,7 @@ import { readMoodEmbedQuery } from '@/features/mood/server/embed-query';
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import { getEmbedHeaders } from '../../lib/embed-response';
 import '@/features/mood/styles/feed-rich-text.css';
+import '@/features/mood/styles/bookmark-card.css';
 import '@/styles/mood-gallery.css';
 import '@/styles/mood-image.css';
 import '@/styles/embed-youtube.css';
@@ -737,7 +738,7 @@ function getImageClassName(post: MoodFeedItem): string {
   <script is:inline define:vars={{ refresh, allowedOrigin }}>
     const targetOrigin = allowedOrigin || '*';
     let lastHeight = 0;
-    let rafId = 0;
+    let sendTimer = 0;
 
     function measureHeight() {
       const doc = document.documentElement;
@@ -757,12 +758,18 @@ function getImageClassName(post: MoodFeedItem): string {
       window.parent.postMessage({ type: 'mood-embed-resize', height }, targetOrigin);
     }
 
+    // Coalesce on a timer, not requestAnimationFrame. The browser throttles
+    // animation frames in an off-screen or hidden frame — an embed below the
+    // fold, or one inside a collapsed <details> — to nothing at all, so the
+    // very first height never leaves and the host keeps the fallback size for
+    // good. Timers keep running there, and a resize is not a paint-synchronised
+    // job in the first place.
     function scheduleSend() {
-      if (rafId) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = 0;
+      if (sendTimer) return;
+      sendTimer = window.setTimeout(() => {
+        sendTimer = 0;
         postHeight();
-      });
+      }, 0);
     }
 
     // Send initial height
@@ -840,6 +847,16 @@ function getImageClassName(post: MoodFeedItem): string {
         return;
       }
       if (event.source !== window.parent) {
+        return;
+      }
+      // The host asks for a fresh height when the frame scrolls into view. An
+      // off-screen frame is render-throttled — no animation frames, no resize
+      // observations, and a layout read that comes back 0 — so its own initial
+      // send can leave with nothing. Being asked once it is visible is the only
+      // reliable moment to answer.
+      if (event.data && event.data.type === 'mood-embed-measure') {
+        lastHeight = 0;
+        scheduleSend();
         return;
       }
       if (event.data && event.data.type === 'mood-embed-theme') {

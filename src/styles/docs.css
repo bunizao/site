@@ -34,13 +34,13 @@ body:has(.docs) .spotlight-overlay {
   display: none;
 }
 
-/* Neither axis overscrolls on a docs page. Horizontally there is nothing to
-   scroll — the fences and tables scroll inside their own frames — so a swipe
-   reaching an edge would chain out to the browser back gesture, which looks
-   exactly like the page being dragged. Vertically the rubber-band at the foot
-   of the page carries the rail with it, because a sticky element rides the
-   document it is stuck to. globals.css already clips the horizontal overflow
-   itself; only the chaining is left. */
+/* Docs contain their scroll (see @/lib/page-scroll): the root is locked and
+   .page-scroller owns the axis, which is what keeps Safari's dynamic toolbar
+   from collapsing and painting page content into the unmeasurable band above
+   the layout viewport. The scroller carries the overscroll containment that
+   used to live here — `overscroll-behavior-y: contain` stops the foot-of-page
+   rubber-band from dragging the rail with it, and `overflow-x: hidden` stops a
+   sideways swipe chaining out to the browser back gesture. */
 html:has(.docs) {
   /* Declared on the root, not on .docs: the top bar lives in the site header,
      outside the .docs subtree, and it has to agree with the rail on this number
@@ -51,8 +51,6 @@ html:has(.docs) {
      and T-junctions. They were 0.07, 0.06 and 0.1, which at a junction reads as
      one line changing weight halfway. One value for all three. */
   --docs-chrome-line: hsl(var(--foreground) / 0.08);
-
-  overscroll-behavior: none;
 }
 
 /* globals.css gives every bare <section> the home page's band treatment (48px of
@@ -75,7 +73,12 @@ html:has(.docs) {
   --docs-chrome-inset: max(1.75rem, calc((100vw - 88rem) / 2));
 
   display: flex;
-  top: var(--site-nav-mobile-top, 0px);
+  /* The plain inset, not --site-nav-mobile-top. That token adds
+     `visualViewport.offsetTop`, which is a pinch-zoom signal: it reads 0 through
+     an entire iOS scroll, so it never corrected the drift it was there for, and
+     the moment it is non-zero it pushes the bar down by a toolbar's height.
+     Contained scroll removes the drift at the source. */
+  top: env(safe-area-inset-top, 0px);
   left: 0;
   right: 0;
   height: var(--docs-bar-h);
@@ -138,12 +141,12 @@ html:has(.docs) {
 /* The bar is fixed and .site-shell is its sibling, so nothing pushes the page
    below it. */
 body:has(.site-nav--docs) .site-shell {
-  padding-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 3.25rem);
+  padding-top: calc(env(safe-area-inset-top, 0px) + 3.25rem);
 }
 
 /* Re-centre the theme control into the bar. */
 body:has(.site-nav--docs) .global-header-actions {
-  top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.625rem);
+  top: calc(env(safe-area-inset-top, 0px) + 0.625rem);
   right: 1rem;
   z-index: 61;
 }
@@ -152,6 +155,23 @@ body:has(.site-nav--docs) .global-header-actions {
   body:has(.site-nav--docs) .global-header-actions {
     right: max(1.75rem, calc((100vw - 88rem) / 2));
   }
+}
+
+/* The bar's controls are bare glyphs, the same ghost treatment the home header
+   uses on mobile (globals.css): the docs chrome already carries a hairline under
+   it, and a boxed button hanging off that line reads as a second frame. */
+body:has(.site-nav--docs) .global-header-actions .header-action-btn {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
+  background: hsl(var(--foreground) / 0.06);
+  border-color: transparent;
+  color: hsl(var(--foreground));
 }
 
 /* --- Navigation --------------------------------------------------------- */
@@ -686,12 +706,14 @@ body:has(.site-nav--docs) .global-header-actions {
   font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 600;
-  color: #a84f2c;
+  /* dai 黛, the blog's primary ink — blogPalette.dai in src/data/site.ts. Docs
+     sit on the same two surfaces the ink was contrast-checked against. */
+  color: #3c5d80;
   text-decoration: none;
 }
 
 .dark .docs-playground-link {
-  color: #ee9a73;
+  color: #7fa8d6;
 }
 
 .docs-playground-link svg {
@@ -701,6 +723,179 @@ body:has(.site-nav--docs) .global-header-actions {
 .docs-playground-link:hover svg,
 .docs-playground-link:focus-visible svg {
   transform: translate(2px, -2px);
+}
+
+/* --- Copy page ---------------------------------------------------------- */
+/* The eyebrow and the control share one line: the crumb is the shortest thing
+   on the page, so the row costs no vertical space the article did not already
+   spend. */
+.docs-article-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.7rem;
+}
+
+.docs-article-head .docs-eyebrow {
+  margin-bottom: 0;
+}
+
+.docs-copy-page {
+  /* Linear's proportion: a 16px mark against 14px text. Anything smaller and
+     the mark reads as a bullet rather than the button's subject. */
+  --copy-btn-icon: 1rem;
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: stretch;
+  height: 2.1rem;
+  border: 1px solid var(--docs-line);
+  border-radius: 0.6rem;
+  background: var(--docs-surface);
+}
+
+.docs-copy-page-action,
+.docs-copy-page-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.65rem;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--ink-body);
+  transition: color 0.14s ease, background-color 0.14s ease;
+}
+
+.docs-copy-page-action {
+  position: relative;
+  border-radius: 0.5rem 0 0 0.5rem;
+}
+
+.docs-copy-page-toggle {
+  padding: 0 0.35rem;
+  border-left: 1px solid var(--docs-line);
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: var(--ink-faint);
+}
+
+.docs-copy-page-action:hover,
+.docs-copy-page-action:focus-visible,
+.docs-copy-page-toggle:hover,
+.docs-copy-page-toggle:focus-visible,
+.docs-copy-page[data-open] .docs-copy-page-toggle {
+  background: var(--docs-surface-hover);
+  color: var(--ink-strong);
+}
+
+.docs-copy-page-toggle svg {
+  transition: rotate 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.docs-copy-page[data-open] .docs-copy-page-toggle svg {
+  rotate: 180deg;
+}
+
+/* The bubble only shows while the control is in one of its two end states. */
+.docs-copy-page[data-failed] .copy-btn-tip {
+  opacity: 1;
+  translate: -50% 0;
+  scale: 1;
+}
+
+/* A hairline plus one soft, short shadow. A long blurred drop reads as a
+   floating card on a page whose every other edge is a 1px line. */
+.docs-copy-page-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  width: 16.5rem;
+  padding: 0.3rem;
+  border: 1px solid var(--docs-line);
+  border-radius: 0.7rem;
+  background: hsl(var(--background));
+  box-shadow: 0 1px 1px hsl(var(--foreground) / 0.04), 0 6px 14px -8px hsl(var(--foreground) / 0.16);
+  animation: docs-copy-page-menu-in 0.14s cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes docs-copy-page-menu-in {
+  from {
+    opacity: 0;
+    translate: 0 -3px;
+    scale: 0.985;
+  }
+}
+
+.docs-copy-page-menu[hidden] {
+  display: none;
+}
+
+.docs-copy-page-item {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.55rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  color: var(--ink-body);
+  transition: background-color 0.12s ease;
+}
+
+.docs-copy-page-item:hover,
+.docs-copy-page-item:focus-visible {
+  background: var(--docs-surface-hover);
+}
+
+.docs-copy-page-item-mark {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.1rem;
+  color: var(--ink-faint);
+}
+
+.docs-copy-page-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.docs-copy-page-item-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: hsl(var(--foreground));
+}
+
+.docs-copy-page-item-note {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 30rem) {
+  /* Narrow enough that the label plus the crumb no longer share a line. */
+  .docs-copy-page-action {
+    padding-inline: 0.55rem;
+    font-size: 0.82rem;
+  }
 }
 
 /* --- Prose -------------------------------------------------------------- */
@@ -933,7 +1128,7 @@ body:has(.site-nav--docs) .global-header-actions {
   justify-content: space-between;
   gap: 0.75rem;
   height: 2.15rem;
-  padding: 0 0.35rem 0 0.85rem;
+  padding: 0 0.3rem 0 0.8rem;
   border: 1px solid var(--docs-line);
   border-bottom: 0;
   border-radius: 0.6rem 0.6rem 0 0;
@@ -941,38 +1136,20 @@ body:has(.site-nav--docs) .global-header-actions {
 }
 
 .docs-code-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-family: var(--font-code);
   font-size: 0.7rem;
   letter-spacing: 0.02em;
   color: var(--ink-faint);
 }
 
-/* Concentric: the frame's 0.6rem minus the 0.35rem of padding beside it. */
-.docs-code-copy {
-  padding: 0.22rem 0.45rem;
-  border: 0;
-  border-radius: 0.25rem;
-  background: none;
-  cursor: pointer;
-  font-family: var(--font-code);
-  font-size: 0.7rem;
-  letter-spacing: 0.02em;
-  color: var(--ink-faint);
-  transition: color 0.12s ease, background-color 0.12s ease, scale 0.12s ease;
-}
-
-.docs-code-copy:hover,
-.docs-code-copy:focus-visible {
-  background: hsl(var(--foreground) / 0.06);
-  color: var(--ink-strong);
-}
-
-.docs-code-copy:active {
-  scale: 0.96;
-}
-
-.docs-code-copy[data-copied] {
-  color: var(--ink-strong);
+.docs-code-logo {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+  color: hsl(var(--foreground) / 0.7);
 }
 
 .docs-prose pre.astro-code {
@@ -1005,26 +1182,70 @@ body:has(.site-nav--docs) .global-header-actions {
   border-radius: 0;
 }
 
+/* Collapsed by default: every example on these pages carries a demo, and an
+   always-open result panel would double the length of a page read mostly for
+   its syntax. The summary is the same strip as the fence header above it, so
+   closed the pair reads as one framed block with a footer. */
 .docs-demo {
   max-width: 44rem;
   margin: 0 0 1.5rem;
   border: 1px solid var(--docs-line);
   border-top: 0;
   border-radius: 0 0 0.6rem 0.6rem;
-  overflow: hidden;
+}
+
+.docs-demo-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.15rem;
+  padding: 0 0.85rem;
+  border-radius: 0 0 0.5rem 0.5rem;
+  background: var(--docs-surface);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+/* Safari still draws its own triangle from the shadow DOM. */
+.docs-demo-summary::-webkit-details-marker {
+  display: none;
+}
+
+.docs-demo[open] .docs-demo-summary {
+  border-bottom: 1px solid var(--docs-line);
+  border-radius: 0;
+}
+
+.docs-demo-summary:hover .docs-demo-label,
+.docs-demo-summary:focus-visible .docs-demo-label {
+  color: var(--ink-strong);
+}
+
+.docs-demo-summary:focus-visible {
+  outline: 2px solid hsl(var(--foreground) / 0.5);
+  outline-offset: -2px;
+}
+
+.docs-demo-caret {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex: none;
+  color: var(--ink-faint);
+  transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.docs-demo[open] .docs-demo-caret {
+  transform: rotate(90deg);
 }
 
 .docs-demo-label {
-  display: flex;
-  align-items: center;
-  height: 2.15rem;
-  padding: 0 0.85rem;
-  border-bottom: 1px solid var(--docs-line);
-  background: var(--docs-surface);
   font-family: var(--font-code);
   font-size: 0.7rem;
   letter-spacing: 0.02em;
   color: var(--ink-faint);
+  transition: color 0.15s ease;
 }
 
 .docs-demo-render {
@@ -1037,9 +1258,7 @@ body:has(.site-nav--docs) .global-header-actions {
   --blog-line: hsl(var(--foreground) / 0.1);
   --blog-img-edge: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
 
-  max-width: 36rem;
-  margin-inline: auto;
-  padding: 0.35rem 1.05rem;
+  padding: 1rem 1.05rem;
   color: var(--blog-body);
 }
 

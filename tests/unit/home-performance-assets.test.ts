@@ -134,9 +134,10 @@ describe('homepage performance assets', () => {
 
     expect(homePage).toContain('--font-code: var(--font-mono);');
     expect(homeHero).not.toContain('font-code');
-    // The default preload set is the two faces every page paints. 'code' is not
-    // one of them, so the homepage never pulls JetBrains Mono in.
-    expect(layout).toContain("preloadFont = ['mono', 'sans']");
+    // No body-font preloads exist at all — Chrome holds first paint until
+    // every preloaded font arrives — so the homepage cannot pull JetBrains
+    // Mono in through one.
+    expect(layout).not.toContain('preloadFont');
     expect(homePage).not.toContain('preloadFont');
     expect(fonts).toContain("mono: '/fonts/geist-mono-variable.woff2'");
     expect(layout).not.toContain('jetbrains-mono-variable.woff2');

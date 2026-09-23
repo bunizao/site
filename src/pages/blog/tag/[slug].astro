@@ -4,10 +4,13 @@ import BlogLayout from '@/layouts/BlogLayout.astro';
 import PostRow from '@/features/posts/ui/PostRow.astro';
 import PostHover from '@/features/posts/ui/PostHover.astro';
 import {
+  getAccessiblePosts,
   getPublicTagDirectory,
   getTagArchive,
   groupPostsByYear,
 } from '@/features/posts/server/content';
+import { mapOtherLanguages } from '@/features/posts/i18n';
+import { blog } from '@/data/site';
 
 export const getStaticPaths = (async () => {
   const tags = await getPublicTagDirectory();
@@ -26,16 +29,17 @@ if (!archive) {
 
 const { tag, archive: { posts } } = archive;
 const groups = groupPostsByYear(posts);
+const otherLanguages = mapOtherLanguages(await getAccessiblePosts({ outputTarget: 'web' }));
 const accent = tag.accentColor ?? 'var(--blog-accent)';
 ---
 
 <BlogLayout
   title={`#${tag.name}`}
-  description={tag.description ?? `Writing tagged ${tag.name} on 無人之境.`}
-  path={`/blog/tag/${tag.slug}/`}
+  description={tag.description ?? blog.copy.zh.tagline}
+  path={`/blog/tag/${tag.slug}`}
 >
   <header class="tag-archive__head" style={`--tag-accent:${accent}`}>
-    <a class="tag-index__back" href="/blog/tags/">← All tags</a>
+    <a class="tag-index__back" href="/blog/tags">← All tags</a>
     <h1 class="tag-archive__title">
       <span class="tag-archive__hash" aria-hidden="true">#</span>{tag.name}
     </h1>
@@ -50,7 +54,7 @@ const accent = tag.accentColor ?? 'var(--blog-accent)';
       <h2 class="blog-year__heading">{group.year}</h2>
       <ul class="blog-list">
         {group.posts.map((post) => (
-          <PostRow post={post} />
+          <PostRow post={post} otherLanguages={otherLanguages.get(post.slug)} />
         ))}
       </ul>
     </section>

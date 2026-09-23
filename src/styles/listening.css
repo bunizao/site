@@ -4,6 +4,7 @@
    src/lib/listening/markup.ts). Keep selectors class-based and global. */
 
 .listening {
+  /* Neutral is a deliberate server result for monochrome artwork. */
   --listening-accent: hsl(var(--foreground));
   --record-rotation: 0turn;
   display: grid;
@@ -13,6 +14,19 @@
   width: fit-content;
   max-width: min(100%, 520px);
   color: hsl(var(--muted-foreground));
+}
+
+/* The Worker fixes hue and theme-specific sRGB-safe chroma. */
+.listening[data-accent] {
+  --listening-accent: oklch(
+    0.56 var(--listening-accent-c-light) var(--listening-accent-h)
+  );
+}
+
+.dark .listening[data-accent] {
+  --listening-accent: oklch(
+    0.74 var(--listening-accent-c-dark) var(--listening-accent-h)
+  );
 }
 
 .listening.is-loading .listening-track {

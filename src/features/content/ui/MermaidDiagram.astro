@@ -1,0 +1,11 @@
+---
+import { renderMermaidDiagram } from '@/features/content/mermaid';
+
+interface Props {
+  source: string;
+}
+
+const { source } = Astro.props;
+---
+
+<Fragment set:html={renderMermaidDiagram(source)} />

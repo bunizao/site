@@ -59,6 +59,24 @@ data as `/api/mood/:id/comments` through the **live** Telegram mirror, not the
 D1 archive — see [Mood API](/docs/api/mood) for the response shape and the
 freshness trade-off.
 
+Each comment carries the same fields as the mood route, including the
+optional `replyTo: { id, author, text }` block that names the parent comment
+when the comment is a reply. `text` is a plain-text preview (≤ 200 chars);
+`content` is the reply body only. It also carries the Telegram-bridge overlay
+fields: `origin` (`"web"` for a comment written on the site, omitted for an
+ordinary Telegram one), and, on `web` items only, `commentId` (the site's own
+comment row id) and `anchorToken` (renders as `id="c-<anchorToken>"`). The
+overlay replaces a scraped message that links back to a published site row
+with that row's author and body, and appends a site row the scrape hasn't
+picked up yet — never both for the same comment. See
+[Comments API § Mood surface](/docs/api/comments#mood-surface-the-telegram-bridge)
+for the full bridge.
+
+The `MoodContentDocument` this thread hangs off carries `discussionLinked`
+(the compose box on `/mood/[id]` may post into this thread) and
+`discussionRepliesEnabled` (a reply to a `telegram`-origin comment is safe to
+send) — see [Mood API § Detail](/docs/api/mood#detail).
+
 `postId` is required and trimmed; omitting it (or sending only whitespace)
 returns `400 {"error":"Missing postId parameter"}`. Note the flat error string
 here, while the mood comment payload it wraps uses the nested

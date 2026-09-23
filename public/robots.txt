@@ -1,4 +1,11 @@
+# Crawl policy for buxx.me. Pages that must stay out of search results carry
+# a `noindex` meta tag and remain crawlable so the directive is seen; only
+# non-HTML and access-gated surfaces are disallowed here.
 User-agent: *
-Allow: /
+Disallow: /api/
+Disallow: /v2/
+Disallow: /oauth
+Disallow: /dev
+Disallow: /dev/
 
 Sitemap: https://buxx.me/sitemap.xml

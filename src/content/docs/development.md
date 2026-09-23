@@ -42,6 +42,21 @@ a route skip work it does not need:
 | `bun dev:portal` | Admin portal with the auth bypass on |
 | `bun dev:api` | Proxy `/api/*` at a local `site-api` instead of production |
 
+## Draft preview
+
+`/dev/blog/<ghost-post-id>` renders the current Ghost draft through the same
+rich-source compiler used by published posts. Registered directive markers may
+be standalone paragraphs or exact, unlabelled Ghost code cards. Conversation,
+authors, listening, mood, and YouTube share one transform order owned by that
+compiler.
+
+The preview checks the draft revision every 1.5 seconds while its tab is visible.
+When Ghost saves a newer revision, the page reloads automatically and restores
+the contained reading scroll position. A full-page reload initializes listening,
+video, image, and embed behavior once and prevents partial replacement from
+duplicating event listeners. Failed probes keep the current preview visible and
+retry with bounded backoff.
+
 ## The dev/production runtime gap
 
 This trips people up, so it is worth stating plainly: **`astro dev` runs on Astro's
@@ -94,10 +109,20 @@ bun run test:unit
 bun run test:e2e:site    # Playwright; needs test:e2e:install once
 bun run test:registry    # installs every published component with the real CLI
 bun run test:ops         # scheduled health checks
+bun run check:docs-coverage   # every HTTP route is named somewhere under /docs
 ```
 
 No linter is configured. That is on purpose — the type checker and the tests are
 the gate, and a third opinion about formatting was not earning its keep.
+
+`check:docs-coverage` walks `src/pages/**` in this repo and in the sibling
+`site-api` checkout, derives each public path, and fails when no page under
+`src/content/docs/` mentions it. Pass a different sibling as
+`bun scripts/check-docs-coverage.ts <path>` or `SITE_API_REPO=<path>`; from a
+worktree that is not beside `../site-api`, passing it is the difference between
+checking both halves and silently checking one. It sees only routes that exist
+as files: anything dispatched by hand in `worker.ts` — the Telegram webhooks,
+for instance — has to be documented by hand too.
 
 ## Environment variables
 
@@ -132,6 +157,13 @@ repo keeps only a thin service-binding fallback for preview environments.
 Keep them split. The boundary is a security boundary, not an organizational
 preference.
 
-`@bunizao/contracts` is duplicated byte-for-byte in both repos and **this repo is
-canonical**. After editing a contract here, run `bun run sync:contracts` in
-`../site-api`.
+`@bunizao/contracts` is maintained in this public repo and released as a public
+npm package. The initial release is `@bunizao/contracts@0.1.0`; the package
+source and release metadata live in [`packages/contracts/`](https://github.com/bunizao/site/tree/main/packages/contracts).
+Consumers, including `site-api`, pin an exact package version and upgrade it
+deliberately. Local development in this repo keeps the workspace dependency so
+contract changes can be tested before a release. The root `check`, tests, and
+build commands prepare the workspace package automatically; run
+`bun run contracts:build` before starting a focused dev server. Publish a
+version only from a matching `contracts-v<version>` tag; the release workflow
+uses npm trusted publishing with provenance.

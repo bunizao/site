@@ -80,18 +80,18 @@ test.describe('Preview smoke', () => {
     await expect(page.locator('.blog-shell')).toBeVisible();
     await expect(page.locator('.blog-masthead__wordmark')).toBeVisible();
     await expect(page.locator('[data-site-wordmark-variant="blog"]')).toBeVisible();
-    await expect(page.locator('.blog-colophon')).toBeVisible();
+    await expect(page.locator('.blog-colophon')).toHaveCount(0);
     await expect(page.locator('.blog-row__link').first()).toBeVisible();
 
     const rss = await request.get('/blog/rss.xml');
     expect(rss.ok()).toBeTruthy();
     expect(rss.headers()['content-type']).toContain('application/rss+xml');
-    expect(await rss.text()).toContain('<link>https://buxx.me/blog/</link>');
+    expect(await rss.text()).toContain('<link>https://buxx.me/blog</link>');
 
     const sitemap = await request.get('/sitemap.xml');
     expect(sitemap.ok()).toBeTruthy();
     expect(sitemap.headers()['content-type']).toContain('application/xml');
-    expect(await sitemap.text()).toContain('<loc>https://buxx.me/blog/</loc>');
+    expect(await sitemap.text()).toContain('<loc>https://buxx.me/blog</loc>');
   });
 
   test('redirects the dev root to the admin portal', async ({ request }) => {

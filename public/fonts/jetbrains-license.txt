@@ -18,3 +18,9 @@ reduced to the Unicode ranges code blocks and data readouts on this site use
 (Latin-1, common punctuation and symbols, currency, arrows, math operators,
 box-drawing and block elements). The SIL OFL permits this modification. The
 subset remains under the SIL OFL 1.1 and must not be sold on its own.
+
+That subset is now split again into jetbrains-mono-latin.woff2 and
+jetbrains-mono-rest.woff2 by scripts/subset-fonts.py, so a page loads only the
+half its text falls into (see the unicode-range pairs in src/styles/globals.css).
+Together the two files cover exactly what jetbrains-mono-variable.woff2 covers.
+Both remain under the SIL OFL 1.1 and must not be sold on their own.

@@ -130,11 +130,22 @@ export default function TemplatePreview() {
         sample,
         timezone,
       });
-      const response = await fetch(`/api/notify/preview?${params.toString()}`, {
+      const response = await fetch(`/dev/portal/api/notify-preview?${params.toString()}`, {
         cache: 'no-store',
       });
       if (!response.ok) {
-        throw new Error(`Preview request failed (${response.status})`);
+        const detail = await response
+          .clone()
+          .json()
+          .then((body: unknown) => (
+            body && typeof body === 'object' && 'error' in body ? String((body as { error: unknown }).error) : null
+          ))
+          .catch(() => null);
+        throw new Error(
+          detail
+            ? `Preview request failed (${response.status}): ${detail}`
+            : `Preview request failed (${response.status})`
+        );
       }
 
       const data = (await response.json()) as PreviewResponse;

@@ -1,3 +1,4 @@
+  import { wireMoodEmbeds } from './mood-embeds';
   import { musicKitPlayer } from '@/lib/musickit/player';
   import {
     createBrowserListeningAnalytics,
@@ -98,47 +99,7 @@
       lazyVideos.forEach((video) => io.observe(video));
     }
 
-    // --- Mood embeds: grow the iframe to its real content height ---
-    // Ghost HTML cards can embed buxx.me/mood (class="js-mood-embed"), which
-    // posts a {type:'mood-embed-resize', height} message but ships no host-side
-    // listener. Authors hardcode a short height + overflow:hidden, so the embed
-    // clips (avatar, title, image cut off). We are the documented host here, so
-    // wire the listener: unclip the frame and size it to the reported height.
-    const moodFrames = root.querySelectorAll<HTMLIFrameElement>(
-      'iframe.js-mood-embed, iframe[src*="/mood/embed"]',
-    );
-    if (moodFrames.length > 0) {
-      moodFrames.forEach((frame) => {
-        frame.style.height = '120px';
-        frame.style.overflow = 'hidden';
-      });
-      window.addEventListener('message', (event) => {
-        const data = event.data;
-        if (!data || data.type !== 'mood-embed-resize') return;
-        const height = Number(data.height);
-        if (!Number.isFinite(height)) return;
-        moodFrames.forEach((frame) => {
-          if (frame.contentWindow && event.source === frame.contentWindow) {
-            frame.style.height = `${Math.max(120, Math.ceil(height))}px`;
-          }
-        });
-      });
-
-      // Keep the embed's theme in step with the blog (the toggle adds/removes
-      // `.dark` on <html>); without this the iframe only follows the OS scheme.
-      const moodTheme = () =>
-        document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-      const pushMoodTheme = () => {
-        moodFrames.forEach((frame) => {
-          frame.contentWindow?.postMessage({ type: 'mood-embed-theme', theme: moodTheme() }, '*');
-        });
-      };
-      moodFrames.forEach((frame) => frame.addEventListener('load', pushMoodTheme));
-      new MutationObserver(pushMoodTheme).observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ['class'],
-      });
-    }
+    wireMoodEmbeds(root);
 
     // --- Promote literary blockquotes to verse cards ---
     // The author marks verse three ways and we normalize all of them into clean

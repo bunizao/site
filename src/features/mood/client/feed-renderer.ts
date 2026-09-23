@@ -602,7 +602,11 @@ export function createFeedRenderer({
     const hasReactions = mood.reactions && mood.reactions.length > 0;
     const commentsInfo = getCommentsCountInfo(mood.commentsCount);
     const reactionsWrap = document.createElement('div');
-    reactionsWrap.className = 'mood-item-reactions';
+    // Hidden while empty, matching the SSR markup, so the live-counts patch
+    // never collapses an already-painted row. The patcher un-hides it.
+    reactionsWrap.className = hasReactions || commentsInfo.count > 0
+      ? 'mood-item-reactions'
+      : 'mood-item-reactions is-hidden';
 
     if (hasReactions) {
       (mood.reactions ?? []).forEach((reaction) => {
@@ -657,6 +661,14 @@ export function createFeedRenderer({
     reactionsWrap.appendChild(commentsIndicator);
 
     content.appendChild(reactionsWrap);
+
+    const commentBtn = document.createElement('a');
+    commentBtn.className = 'mood-item-comment-float';
+    commentBtn.href = `${detailHref}#comments`;
+    commentBtn.title = 'Comment';
+    commentBtn.setAttribute('aria-label', 'Comment on this post');
+    commentBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+    element.appendChild(commentBtn);
 
     const expandBtn = document.createElement('a');
     expandBtn.className = 'mood-item-expand-float';

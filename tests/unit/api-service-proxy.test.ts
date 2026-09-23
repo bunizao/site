@@ -61,6 +61,27 @@ describe('api service proxy', () => {
     expect(await proxied.json()).toEqual({ postId: '123' });
   });
 
+  test('translates a same-origin Origin header to the binding origin', () => {
+    const request = new Request('https://buxx.me/api/v2/comments/abc', {
+      method: 'DELETE',
+      headers: { Origin: 'https://buxx.me' },
+    });
+    const proxied = createApiServiceRequest(request);
+
+    expect(proxied.headers.get('origin')).toBe('https://site-api.internal');
+    expect(proxied.headers.get('x-forwarded-origin')).toBe('https://buxx.me');
+  });
+
+  test('forwards a cross-site Origin header untouched', () => {
+    const request = new Request('https://buxx.me/api/v2/comments/abc', {
+      method: 'DELETE',
+      headers: { Origin: 'https://evil.example' },
+    });
+    const proxied = createApiServiceRequest(request);
+
+    expect(proxied.headers.get('origin')).toBe('https://evil.example');
+  });
+
   test('returns 503 when the API service binding is unavailable', async () => {
     const response = await proxyApiRequest(new Request('https://buxx.me/api/health'), { env: {} });
     const body = await response.json() as { error?: string };
@@ -124,6 +145,48 @@ describe('api service proxy', () => {
       expect(response.headers.get('content-encoding')).toBeNull();
       expect(response.headers.get('content-length')).toBeNull();
       expect(await response.json()).toEqual({ results: [{ id: '3675' }] });
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalDev === undefined) delete process.env.DEV;
+      else process.env.DEV = originalDev;
+      if (originalApiDevOrigin === undefined) delete process.env.API_DEV_ORIGIN;
+      else process.env.API_DEV_ORIGIN = originalApiDevOrigin;
+    }
+  });
+
+  test('aligns dev HTTP Origin with the upstream API origin', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalDev = process.env.DEV;
+    const originalApiDevOrigin = process.env.API_DEV_ORIGIN;
+    const capturedOrigins: { upstream: string | null; forwarded: string | null } = {
+      upstream: null,
+      forwarded: null,
+    };
+
+    process.env.DEV = 'true';
+    process.env.API_DEV_ORIGIN = 'http://127.0.0.1:8787';
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const request = input instanceof Request ? input : new Request(input);
+      capturedOrigins.upstream = request.headers.get('origin');
+      capturedOrigins.forwarded = request.headers.get('x-forwarded-origin');
+      return Response.json({ ok: true });
+    }) as unknown as typeof fetch;
+
+    try {
+      await proxyApiRequest(new Request(
+        'http://localhost:4321/api/admin/broadcasts',
+        {
+          method: 'POST',
+          headers: {
+            Origin: 'http://localhost:4321',
+            'Sec-Fetch-Site': 'same-origin',
+          },
+          body: '{}',
+        },
+      ), { env: {} });
+
+      expect(capturedOrigins.upstream).toBe('http://127.0.0.1:8787');
+      expect(capturedOrigins.forwarded).toBe('http://localhost:4321');
     } finally {
       globalThis.fetch = originalFetch;
       if (originalDev === undefined) delete process.env.DEV;

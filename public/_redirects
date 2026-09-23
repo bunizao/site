@@ -62,6 +62,10 @@
 /blog/sitemap-tags.xml /sitemap.xml 301
 /blog/sitemap-authors.xml /sitemap.xml 301
 
+# Retired @astrojs/sitemap output; /sitemap.xml is the only sitemap.
+/sitemap-index.xml /sitemap.xml 301
+/sitemap-0.xml /sitemap.xml 301
+
 # Legacy component playground.
 /components/preview/conversation /components/conversation#playground 301
 /components/preview/conversation/ /components/conversation#playground 301

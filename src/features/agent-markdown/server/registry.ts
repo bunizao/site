@@ -3,7 +3,7 @@ import {
   readCursorQuery,
 } from '@/lib/http/query';
 import { withRateLimit } from '@/lib/http/rate-limited';
-import { meta, profile } from '@/data/site';
+import { blog, meta, profile } from '@/data/site';
 import {
   buildMoodAgentMarkdown,
   buildMoodAgentPostPageMarkdown,
@@ -25,40 +25,32 @@ import type {
   MatchedMarkdownRenderer,
 } from './types';
 import { normalizeMoodEmbedCacheSearch } from '@/features/mood/server/embed-query';
-import {
-  getMoodFeedAnchorBucketBase,
-  isMoodFeedAnchorId,
-} from '@/features/mood/shared/feed-anchor';
+import { isMoodFeedAnchorId } from '@/features/mood/shared/feed-anchor';
 import { normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { readBuiltBlogMarkdown } from './built-blog';
 import {
-  isUnlistedPost,
+  isUnlistedVersion,
   UNLISTED_ROBOTS_DIRECTIVES,
 } from '@/features/posts/unlisted';
 import privacyMarkdownRaw from '@/content/pages/privacy.md?raw';
 
 export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 export const MARKDOWN_TOKEN_HEADER = 'x-markdown-tokens';
+export const MARKDOWN_PATH_SUFFIX = '/index.md';
 export const EDGE_CACHE_HEADER = 'X-Buxx-Edge-Cache';
-export const MOOD_PAGE_CACHE_HEADER = 'X-Buxx-Mood-Page-Cache';
 export const MOOD_FEED_PAGE_CACHE_TTL_SECONDS = 300;
 export const MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800;
 export const MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS = 300;
 export const MOOD_DETAIL_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800;
 export const MOOD_EMBED_CACHE_TTL_SECONDS = 300;
 
-export const MOOD_PAGE_CACHE_READY_MARKERS = [
-  'data-mood-initial-feed',
-  'data-mood-id=',
-];
-
 export interface ContentRoutePolicy {
   cacheTtlSeconds: number;
   cacheStaleWhileRevalidateSeconds?: number;
   edgeCacheHtml: boolean;
+  varyByLocale?: boolean;
   cacheHeaderName: string;
   normalizeHtmlCacheSearch?: (url: URL) => string | null;
-  isHtmlReady?: (body: string, response: Response) => boolean;
 }
 
 function normalizePathname(pathname: string): string {
@@ -79,15 +71,37 @@ function safeDecode(value: string): string {
   }
 }
 
+// `/blog/<slug>` is an original, `/blog/<locale>/<slug>` one of its
+// translations; the params carry the locale so the renderer can tell them apart.
 function matchBlogPost(pathname: string): Record<string, string> | null {
   const normalized = normalizePathname(pathname);
-  const match = normalized.match(/^\/blog\/([^/]+)$/);
+  const match = normalized.match(/^\/blog\/(?:([^/]+)\/)?([^/]+)$/);
   if (!match) return null;
 
-  const slug = safeDecode(match[1]);
-  if (slug === 'tags' || slug === 'rss.xml' || slug === 'search.json') return null;
+  const slug = safeDecode(match[2]);
+  if (match[1] === undefined) {
+    if (slug === 'tags' || slug === 'rss.xml' || slug === 'search.json') return null;
+    return { slug };
+  }
 
-  return { slug };
+  const locale = safeDecode(match[1]);
+  if (!isTranslationLocale(locale)) return null;
+
+  return { slug, locale };
+}
+
+function isTranslationLocale(value: string): boolean {
+  return value !== blog.locale.default && Object.hasOwn(blog.copy, value);
+}
+
+async function translationGhostSlug(
+  context: MarkdownRendererContext,
+  canonicalSlug: string,
+  locale: string,
+): Promise<string | null> {
+  const { readI18nManifest } = await import('@/features/posts/server/i18n-manifest');
+  const manifest = await readI18nManifest(context.locals, context.url.origin);
+  return manifest?.[canonicalSlug]?.translations?.[locale] ?? null;
 }
 
 function matchBlogTag(pathname: string): Record<string, string> | null {
@@ -103,6 +117,27 @@ function matchMoodPost(pathname: string): Record<string, string> | null {
 
   const id = safeDecode(match[1]);
   return id && isValidCursor(id) ? { id } : null;
+}
+
+function matchDocsPage(pathname: string): Record<string, string> | null {
+  const normalized = normalizePathname(pathname);
+  const match = normalized.match(/^\/docs\/(.+)$/);
+  if (!match || match[1] === 'search.json') return null;
+
+  return { slug: safeDecode(match[1]) };
+}
+
+export function markdownAlternatePath(pathname: string): string {
+  const normalized = normalizePathname(pathname);
+  return normalized === '/' ? '/index.md' : `${normalized}${MARKDOWN_PATH_SUFFIX}`;
+}
+
+export function explicitMarkdownSourcePath(pathname: string): string | null {
+  const normalized = normalizePathname(pathname);
+  if (normalized === '/index.md') return '/';
+  if (!normalized.endsWith(MARKDOWN_PATH_SUFFIX)) return null;
+
+  return normalized.slice(0, -MARKDOWN_PATH_SUFFIX.length) || '/';
 }
 
 function normalizeMoodFeedCacheSearch(url: URL): string | null {
@@ -126,8 +161,7 @@ function normalizeMoodFeedCacheSearch(url: URL): string | null {
       : '';
   if (!isMoodFeedAnchorId(anchorId)) return null;
 
-  const bucketBase = getMoodFeedAnchorBucketBase(anchorId);
-  return bucketBase ? `?anchor-bucket=${bucketBase}` : null;
+  return url.search;
 }
 
 function markdownResult(body: string, status = 200, headers?: HeadersInit) {
@@ -149,7 +183,7 @@ function buildHomeAgentMarkdown(baseUrl: URL): string {
     '',
     '## Links',
     '',
-    `- [Blog](${new URL('/blog/', baseUrl).href})`,
+    `- [Blog](${new URL('/blog', baseUrl).href})`,
     `- [Mood](${new URL('/mood', baseUrl).href})`,
     `- [Projects](${new URL('/projects', baseUrl).href})`,
     `- [Privacy](${new URL('/privacy', baseUrl).href})`,
@@ -254,20 +288,67 @@ async function renderBlogTag(context: MarkdownRendererContext) {
 
 async function renderBlogPost(context: MarkdownRendererContext) {
   const slug = context.params.slug ?? '';
-  const built = await readBuiltBlogMarkdown(context, { kind: 'post', slug });
+  const locale = context.params.locale;
+  const built = await readBuiltBlogMarkdown(context, { kind: 'post', slug, locale });
   if (built && built.status !== 404) return markdownResult(built.body, built.status);
 
   const { getPostBySlug } = await import('@/features/posts/server/content');
-  const post = await getPostBySlug(slug, { outputTarget: 'agent-markdown' });
+  // A translation is addressed by its sibling's slug; the manifest turns that
+  // back into the Ghost slug the Content API knows.
+  const ghostSlug = locale ? await translationGhostSlug(context, slug, locale) : slug;
+  const post = ghostSlug ? await getPostBySlug(ghostSlug, { outputTarget: 'agent-markdown' }) : null;
   if (!post) return markdownResult('Blog post not found.\n', 404);
+  // An unlisted original hides its translations too; the original is fetched
+  // only for a translation, and only to read its tags.
+  const original = locale ? await getPostBySlug(slug, { outputTarget: 'agent-markdown' }) : null;
 
   return markdownResult(
     buildPostAgentMarkdown(post, context.site),
     200,
-    isUnlistedPost(post)
+    isUnlistedVersion(post, original ? [original] : [])
       ? { 'X-Robots-Tag': UNLISTED_ROBOTS_DIRECTIVES }
       : undefined,
   );
+}
+
+async function renderDocsIndex(context: MarkdownRendererContext) {
+  const { getDocsNav } = await import('@/features/docs/server/nav');
+  const groups = await getDocsNav();
+  const lines = [
+    '# Documentation',
+    '',
+    'Reference for buxx.me.',
+    '',
+    ...groups.flatMap((group) => [
+      `## ${group.label}`,
+      '',
+      group.blurb,
+      '',
+      ...group.entries.map((entry) =>
+        `- [${entry.data.title}](${new URL(markdownAlternatePath(`/docs/${entry.id}`), context.site).href}): ${entry.data.description}`
+      ),
+      '',
+    ]),
+  ];
+
+  return markdownResult(lines.join('\n'));
+}
+
+async function renderDocsPage(context: MarkdownRendererContext) {
+  const slug = context.params.slug ?? '';
+  const { getCollection } = await import('astro:content');
+  const entries = await getCollection('docs', ({ data }) => !data.draft);
+  const entry = entries.find((candidate) => candidate.id === slug);
+  if (!entry) return markdownResult('Documentation page not found.\n', 404);
+
+  return markdownResult([
+    `# ${entry.data.title}`,
+    '',
+    entry.data.description,
+    '',
+    entry.body?.trim() ?? '',
+    '',
+  ].join('\n'));
 }
 
 const renderers: MarkdownRenderer[] = [
@@ -282,6 +363,18 @@ const renderers: MarkdownRenderer[] = [
     cacheTtlSeconds: 3600,
     match: matchExact('/privacy'),
     render: () => markdownResult(`${stripFrontmatter(privacyMarkdownRaw)}\n`),
+  },
+  {
+    id: 'docs-index',
+    cacheTtlSeconds: 3600,
+    match: matchExact('/docs'),
+    render: renderDocsIndex,
+  },
+  {
+    id: 'docs-page',
+    cacheTtlSeconds: 3600,
+    match: matchDocsPage,
+    render: renderDocsPage,
   },
   {
     id: 'blog-index',
@@ -355,11 +448,11 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
   if (normalized === '/mood') {
     return {
       cacheTtlSeconds: MOOD_FEED_PAGE_CACHE_TTL_SECONDS,
+      varyByLocale: true,
       cacheStaleWhileRevalidateSeconds: MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
-      edgeCacheHtml: true,
-      cacheHeaderName: MOOD_PAGE_CACHE_HEADER,
+      edgeCacheHtml: false,
+      cacheHeaderName: EDGE_CACHE_HEADER,
       normalizeHtmlCacheSearch: normalizeMoodFeedCacheSearch,
-      isHtmlReady: (body) => MOOD_PAGE_CACHE_READY_MARKERS.every((marker) => body.includes(marker)),
     };
   }
   if (normalized === '/mood/embed') {
@@ -379,10 +472,11 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
   if (matchMoodPost(normalized)) {
     return {
       cacheTtlSeconds: MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS,
+      varyByLocale: true,
       cacheStaleWhileRevalidateSeconds: MOOD_DETAIL_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
-      edgeCacheHtml: true,
+      edgeCacheHtml: false,
       cacheHeaderName: EDGE_CACHE_HEADER,
-      isHtmlReady: (body) => !body.includes('data-mood-preview-pending="true"'),
+      normalizeHtmlCacheSearch: (url) => url.search ? null : '',
     };
   }
 

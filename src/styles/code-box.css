@@ -47,68 +47,6 @@
   color: hsl(var(--foreground) / 0.75);
 }
 
-.code-box-copy {
-  position: relative;
-  flex-shrink: 0;
-  display: inline-grid;
-  place-items: center;
-  width: 1.85rem;
-  height: 1.85rem;
-  border: 1px solid var(--cb-line);
-  border-radius: var(--radius-sm);
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  cursor: pointer;
-  transition: transform 0.16s var(--cb-ease), border-color 0.16s ease;
-}
-
-.code-box-copy:hover {
-  border-color: var(--cb-line-strong);
-}
-
-.code-box-copy:active {
-  transform: scale(0.94);
-}
-
-.code-box-copy:focus-visible {
-  outline: 2px solid hsl(var(--foreground));
-  outline-offset: 2px;
-}
-
-.code-box-icons {
-  position: relative;
-  display: grid;
-  width: 0.85rem;
-  height: 0.85rem;
-}
-
-.code-box-icon {
-  grid-area: 1 / 1;
-  width: 0.85rem;
-  height: 0.85rem;
-  transition: opacity 0.2s ease, filter 0.2s ease;
-}
-
-.code-box-icon--copy {
-  opacity: 1;
-  filter: blur(0);
-}
-
-.code-box-icon--check {
-  opacity: 0;
-  filter: blur(2px);
-}
-
-.code-box-copy[data-copied] .code-box-icon--copy {
-  opacity: 0;
-  filter: blur(2px);
-}
-
-.code-box-copy[data-copied] .code-box-icon--check {
-  opacity: 1;
-  filter: blur(0);
-}
-
 .code-box-body pre.astro-code {
   margin: 0;
   padding: 1.15rem 1.25rem;
@@ -207,3 +145,18 @@ html.dark .cb-t-prop { color: #ffa657; }
 html.dark .cb-t-str { color: #a5d6ff; }
 html.dark .cb-t-num { color: #79c0ff; }
 html.dark .cb-t-punc { color: #c9d1d9; }
+
+/* The frame clips its own overflow, so the shared copy bubble drops below the
+   button instead of rising out of the header and being cut in half. */
+.code-box .copy-btn-tip {
+  top: calc(100% + 0.3rem);
+  right: 0;
+  bottom: auto;
+  left: auto;
+  translate: 0 -3px;
+}
+
+[data-copied] .code-box .copy-btn-tip,
+.code-box [data-copied] .copy-btn-tip {
+  translate: 0 0;
+}

@@ -47,7 +47,12 @@ const ELSEWHERE = [
 
     <nav class="docs-nav-tree" aria-label="Docs">
       {groups.map((group) => (
-        <details class="docs-nav-group" open data-docs-group={group.label}>
+        <details
+          class="docs-nav-group"
+          open
+          data-docs-group={group.label}
+          data-docs-group-current={group.entries.some((entry) => entry.id === current) ? '' : undefined}
+        >
           <summary class="docs-nav-group-label">
             <span>{group.label}</span>
             <svg class="docs-nav-group-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -96,36 +101,41 @@ const ELSEWHERE = [
     sync();
     wide.addEventListener('change', sync);
 
-    // Group collapse has to survive navigation or it is useless — docs reading is
-    // page-hopping, and a section folded away would reopen on every click.
-    const STORE = 'docs-nav-collapsed';
-    const read = (): string[] => {
-      try {
-        return JSON.parse(localStorage.getItem(STORE) ?? '[]');
-      } catch {
-        return [];
-      }
-    };
-    const collapsed = new Set(read());
     const groups = nav.querySelectorAll<HTMLDetailsElement>('[data-docs-group]');
-    for (const group of groups) {
-      const key = group.dataset.docsGroup ?? '';
-      if (collapsed.has(key)) group.open = false;
-      group.addEventListener('toggle', () => {
-        if (group.open) collapsed.delete(key);
-        else collapsed.add(key);
+    if (wide.matches) {
+      // Group collapse has to survive navigation or it is useless — docs reading
+      // is page-hopping, and a section folded away would reopen on every click.
+      const STORE = 'docs-nav-collapsed';
+      const read = (): string[] => {
         try {
-          localStorage.setItem(STORE, JSON.stringify([...collapsed]));
+          return JSON.parse(localStorage.getItem(STORE) ?? '[]');
         } catch {
-          /* private mode — collapse still works, it just will not persist */
+          return [];
         }
-      });
-    }
-
-    // Keep the active entry in view when the tree is taller than the rail.
-    const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
-    if (active && wide.matches) {
-      active.scrollIntoView({ block: 'nearest' });
+      };
+      const collapsed = new Set(read());
+      for (const group of groups) {
+        const key = group.dataset.docsGroup ?? '';
+        if (collapsed.has(key)) group.open = false;
+        group.addEventListener('toggle', () => {
+          if (group.open) collapsed.delete(key);
+          else collapsed.add(key);
+          try {
+            localStorage.setItem(STORE, JSON.stringify([...collapsed]));
+          } catch {
+            /* private mode — collapse still works, it just will not persist */
+          }
+        });
+      }
+    } else {
+      // The narrow layout puts the whole tree inside a dropdown, and every group
+      // expanded makes that dropdown taller than the screen. Open only the
+      // section being read; the rest are one tap away. The persisted preference
+      // is deliberately not applied here — it belongs to the rail, which is a
+      // column with its own scroll.
+      for (const group of groups) {
+        group.open = group.dataset.docsGroupCurrent !== undefined;
+      }
     }
 
     // Tell the tree which of its ends still has rows behind it; the mask in
@@ -133,6 +143,35 @@ const ELSEWHERE = [
     // lengths stay in the stylesheet with the rest of the rail's geometry.
     const tree = nav.querySelector<HTMLElement>('.docs-nav-tree');
     if (tree) {
+      // Every docs hop is a full document load, so the rail's scroll offset has
+      // to be carried across by hand — otherwise reading down a long section
+      // throws you back to the top of the tree on each click. Session-scoped
+      // because it is a reading position, not a preference.
+      const SCROLL_STORE = 'docs-nav-scroll';
+      try {
+        const saved = Number(sessionStorage.getItem(SCROLL_STORE));
+        if (Number.isFinite(saved) && saved > 0) tree.scrollTop = saved;
+      } catch {
+        /* private mode — the rail just starts at the top */
+      }
+      let queued = false;
+      tree.addEventListener(
+        'scroll',
+        () => {
+          if (queued) return;
+          queued = true;
+          requestAnimationFrame(() => {
+            queued = false;
+            try {
+              sessionStorage.setItem(SCROLL_STORE, String(tree.scrollTop));
+            } catch {
+              /* ignore */
+            }
+          });
+        },
+        { passive: true },
+      );
+
       const syncFade = () => {
         const slack = tree.scrollHeight - tree.clientHeight;
         tree.classList.toggle('is-fade-top', tree.scrollTop > 1);
@@ -144,6 +183,13 @@ const ELSEWHERE = [
       // new height is not laid out until the frame after the event.
       nav.addEventListener('toggle', () => requestAnimationFrame(syncFade), true);
       syncFade();
+    }
+
+    // Runs after the restore above so it only corrects the offset when the entry
+    // you navigated to is genuinely off-screen; `nearest` is a no-op otherwise.
+    const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+    if (active && wide.matches) {
+      active.scrollIntoView({ block: 'nearest' });
     }
   })();
 </script>

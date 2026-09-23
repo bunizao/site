@@ -1,6 +1,7 @@
 ---
 import type { MoodContentDocument } from '@bunizao/contracts';
 import CommentsSection from '@/features/mood/ui/CommentsSection.astro';
+import type { BlogLocale } from '@/data/site';
 import { getMoodTagHref } from '@/features/mood/shared/tag-filter';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
 
@@ -13,6 +14,17 @@ interface Props {
   telegramCommentUrl?: string;
   backHref?: string;
   readSource?: 'live' | 'archive';
+  previewPending?: boolean;
+  /** MoodContentDocument.discussionLinked -- renders CommentCompose in place
+      of the "Leave a comment on Telegram" CTA row when true. */
+  discussionLinked?: boolean;
+  /** MoodContentDocument.discussionRepliesEnabled -- passed through to the
+      compose box, which stamps it as a data attribute for the reply
+      affordance's own gating. */
+  discussionRepliesEnabled?: boolean;
+  turnstileSiteKey?: string;
+  /** The page's negotiated language -- see `resolveRequestLocale`. */
+  locale: BlogLocale;
 }
 
 const {
@@ -24,15 +36,19 @@ const {
   telegramCommentUrl = '',
   backHref = '/mood',
   readSource = 'live',
+  previewPending = false,
+  discussionLinked = false,
+  discussionRepliesEnabled = false,
+  turnstileSiteKey = '',
+  locale,
 } = Astro.props;
 
 const postTags = post ? post.tags ?? (post.tag ? [post.tag] : []) : [];
+// The header used to be a mono date over a rule. It says who wrote this now:
+// the channel's avatar and name, with the date as its second line.
+const channelName = post?.channel?.title?.trim() || post?.channel?.slug?.trim() || '';
+const channelAvatar = post?.channel?.avatar?.trim() || '';
 const postReactions = post?.reactions ?? [];
-const hasLinkPreview = post
-  ? post.hero?.type === 'link-preview' || post.media.some((item) => item.type === 'link-preview')
-  : false;
-const previewPending = readSource === 'archive'
-  && Boolean(post && /https?:\/\//i.test(post.bodyHtml) && !hasLinkPreview);
 ---
 
 {post ? (
@@ -43,11 +59,28 @@ const previewPending = readSource === 'archive'
     data-mood-preview-pending={previewPending ? 'true' : undefined}
   >
     <div class="mood-post-header">
-      <a href={backHref} class="back-link" data-back-button>← Back to Moods</a>
+      <a href={backHref} class="back-link" data-back-button>
+        <span class="back-link__arrow" aria-hidden="true">&#8592;</span>Moods
+      </a>
+      <div class="post-head">
+        {channelAvatar && (
+          <img
+            class="post-head__avatar"
+            src={channelAvatar}
+            alt=""
+            width="40"
+            height="40"
+            decoding="async"
+          />
+        )}
+        <div class="post-head__who">
+          {channelName && <span class="post-head__name">{channelName}</span>}
+          <time datetime={post.datetime} class="post-head__meta mood-post-date">
+            {formattedDate}
+          </time>
+        </div>
+      </div>
       <div class="mood-post-meta">
-        <time datetime={post.datetime} class="mood-post-date">
-          {formattedDate}
-        </time>
         {postTags.length > 0 && (
           <div class="mood-post-tags">
             {postTags.map((tag) => (
@@ -55,28 +88,49 @@ const previewPending = readSource === 'archive'
             ))}
           </div>
         )}
-        {post.forwardedFrom && (
-          <div class="mood-post-forwarded">
-            <span class="mood-forwarded-label">Forwarded from</span>
-            {post.forwardedFrom.href ? (
-              <a
-                class="mood-forwarded-source"
-                href={post.forwardedFrom.href}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {post.forwardedFrom.name}
-              </a>
-            ) : (
-              <span class="mood-forwarded-source">{post.forwardedFrom.name}</span>
-            )}
-            {post.forwardedFrom.author && post.forwardedFrom.author !== post.forwardedFrom.name && (
-              <span class="mood-forwarded-author">({post.forwardedFrom.author})</span>
-            )}
-          </div>
-        )}
       </div>
     </div>
+    {/* Provenance for the body, so it sits against the body rather than in
+        the meta column with the tags. The glyph carries "forwarded" and lets
+        the words stay a quiet sentence: as an uppercase micro-label this was
+        a third type voice stacked under the channel name and the date, and
+        it sat in the avatar's column, which broke the byline's two columns
+        in half. */}
+    {post.forwardedFrom && (
+      <p class="mood-post-forwarded">
+        <svg
+          class="mood-post-forwarded__icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="15 17 20 12 15 7"></polyline>
+          <path d="M4 18v-2a4 4 0 0 1 4-4h12"></path>
+        </svg>
+        <span class="mood-post-forwarded__text">
+          <span class="mood-forwarded-label">Forwarded from</span>{' '}
+          {post.forwardedFrom.href ? (
+            <a
+              class="mood-forwarded-source"
+              href={post.forwardedFrom.href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {post.forwardedFrom.name}
+            </a>
+          ) : (
+            <span class="mood-forwarded-source">{post.forwardedFrom.name}</span>
+          )}
+          {post.forwardedFrom.author && post.forwardedFrom.author !== post.forwardedFrom.name && (
+            <span class="mood-forwarded-author">{' '}&middot; {post.forwardedFrom.author}</span>
+          )}
+        </span>
+      </p>
+    )}
     <div class="mood-post-content reading" set:html={renderedPostContent} />
     <div class={`mood-post-reactions${postReactions.length > 0 ? '' : ' is-hidden'}`} aria-label="Reactions">
         {postReactions.map((reaction) => (
@@ -111,7 +165,14 @@ const previewPending = readSource === 'archive'
         ))}
     </div>
     {postId && (
-      <CommentsSection postId={postId} telegramCommentUrl={telegramCommentUrl} />
+      <CommentsSection
+        postId={postId}
+        telegramCommentUrl={telegramCommentUrl}
+        discussionLinked={discussionLinked}
+        discussionRepliesEnabled={discussionRepliesEnabled}
+        turnstileSiteKey={turnstileSiteKey}
+        locale={locale}
+      />
     )}
   </article>
 ) : (
@@ -138,6 +199,11 @@ const previewPending = readSource === 'archive'
     max-width: 680px;
     margin: 0 auto;
     font-family: var(--font-sans);
+    /* One column for the whole page. The body already read at 34rem while the
+       header rule and the reaction row ran the full 680px, so three blocks of
+       one post had three different left edges. */
+    --measure: 34rem;
+    --detail-ease: cubic-bezier(0.2, 0, 0, 1);
   }
 
   @media (min-width: 640px) {
@@ -160,27 +226,28 @@ const previewPending = readSource === 'archive'
 
     .mood-post-header {
       margin-bottom: 24px;
-      padding-bottom: 16px;
     }
 
     .back-link {
       margin-bottom: 14px;
-      font-size: 12px;
-      letter-spacing: 0.01em;
-      opacity: 0.7;
-    }
-
-    .back-link:hover {
-      opacity: 1;
+      font-size: 13px;
     }
 
     .mood-post-meta {
       gap: 8px;
     }
 
-    .mood-post-date {
-      font-size: 12px;
-      letter-spacing: 0.01em;
+    .post-head__avatar {
+      width: 36px;
+      height: 36px;
+    }
+
+    .post-head__name {
+      font-size: 14.5px;
+    }
+
+    .post-head__meta.mood-post-date {
+      font-size: 12.5px;
     }
 
     .mood-post-tags {
@@ -195,29 +262,27 @@ const previewPending = readSource === 'archive'
     }
 
     .mood-post-forwarded {
-      font-size: 11px;
       gap: 6px;
-      padding: 4px 0;
+      margin: -6px auto 12px;
+      font-size: 12.5px;
+      line-height: 18px;
     }
 
-    .mood-forwarded-label {
-      font-size: 9px;
+    .mood-post-forwarded__icon {
+      width: 13px;
+      height: 13px;
+      margin-top: 2.5px;
     }
 
     .mood-post-content {
       font-size: 17px;
-      line-height: 1.55;
+      line-height: 1.56;
       margin-top: 0;
     }
 
-    .mood-post-content :global(p) {
-      margin-bottom: 1.1em;
-    }
-
     .mood-post-reactions {
-      margin-top: 32px;
-      padding-top: 12px;
-      gap: 6px;
+      margin-top: 20px;
+      padding-top: 0;
     }
 
     .mood-post-content :global(.image-list-container) {
@@ -343,44 +408,37 @@ const previewPending = readSource === 'archive'
 
     .mood-post-content {
       font-size: 16px;
-      line-height: 1.55;
+      line-height: 1.56;
     }
 
     .mood-post-reactions {
-      margin-top: 28px;
+      margin-top: 20px;
     }
   }
 
+  /* The rule under the header was the page's loudest line and it separated
+     nothing -- the author block and the body are one post. Space does the job
+     the border was doing. */
   .mood-post-header {
-    margin-bottom: 24px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid hsl(var(--foreground) / 0.06);
+    max-width: var(--measure);
+    margin: 0 auto 24px;
   }
 
-  @media (min-width: 640px) {
-    .mood-post-header {
-      margin-bottom: 28px;
-      padding-bottom: 24px;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .mood-post-header {
-      margin-bottom: 28px;
-      padding-bottom: 28px;
-    }
-  }
-
+  /* A way back, not a headline. Mono caps at 0.14em tracking made the quietest
+     control on the page the first thing read; sans at the meta size puts it
+     back in its place, and the arrow leads on hover. */
   .back-link {
-    display: inline-block;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground) / 0.75);
-    margin-bottom: 28px;
-    transition: color 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: hsl(var(--muted-foreground) / 0.8);
+    margin-bottom: 20px;
+    transition: color 0.15s var(--detail-ease);
     background: none;
     border: none;
     padding: 0;
@@ -388,14 +446,70 @@ const previewPending = readSource === 'archive'
     text-decoration: none;
   }
 
-  @media (min-width: 640px) {
-    .back-link {
-      margin-bottom: 32px;
-    }
-  }
-
   .back-link:hover {
     color: hsl(var(--foreground));
+  }
+
+  .back-link__arrow {
+    display: inline-block;
+    transition: translate 0.15s var(--detail-ease);
+  }
+
+  .back-link:hover .back-link__arrow {
+    translate: -2px 0;
+  }
+
+  /* 40px avatar against a 38px two-line text block; the text column is nudged
+     1px up because cap-height sits low in its line box. */
+  .post-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .post-head__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: none;
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
+  }
+
+  /* Both lines are set tight (15/20 and 13/18), so with no gap the date sat
+     inside the name's descenders and the pair read as one smudged block. 3px
+     is the smallest step that separates them without turning two lines of one
+     byline into two things. */
+  .post-head__who {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  /* The channel name is the site's identity on this page, so it is set the way
+     the feed's docked title is set -- --font-code at 600 and -0.01em -- and
+     reads as the same name in both places. Mono runs wide, so it keeps a
+     half-step off the sans size it replaced. */
+  .post-head__name {
+    font-family: var(--font-code);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 20px;
+    letter-spacing: -0.01em;
+    color: hsl(var(--foreground));
+  }
+
+  /* Second line of the author block, so it drops the standalone date's mono
+     caps and takes the meta treatment the comment timestamps already use. */
+  .post-head__meta.mood-post-date {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: hsl(var(--muted-foreground) / 0.75);
   }
 
   .mood-post-meta {
@@ -459,30 +573,58 @@ const previewPending = readSource === 'archive'
     border-color: hsl(var(--foreground) / 0.12);
   }
 
+  /* On the body's own axis and measure, one step under it, so the sentence
+     it attributes starts directly below its own left edge. The header above
+     keeps the tags; this is not one of them. */
   .mood-post-forwarded {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 12px;
-    color: hsl(var(--muted-foreground));
-    padding: 6px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    max-width: var(--measure);
+    /* The header's 24px is the gap between the byline and the post. This line
+       belongs to the post, so it takes that gap above and a tighter one
+       below -- closer to the words it introduces than to the byline it is
+       not part of. */
+    margin: -8px auto 14px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 19px;
+    color: hsl(var(--muted-foreground) / 0.8);
   }
 
+  /* The glyph is the whole reason the words can be a quiet sentence, so it
+     reads at the text's weight rather than as decoration -- and it is nudged
+     onto the first line's baseline, not the box's top edge. */
+  .mood-post-forwarded__icon {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    margin-top: 2.5px;
+    opacity: 0.75;
+  }
+
+  /* A long display name is still a sentence: it wraps under itself rather
+     than pushing the line past the measure. */
+  .mood-post-forwarded__text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* Sentence case at the byline's own size. Uppercase at 10px/0.08em was
+     chrome announcing itself ahead of the name it introduces. */
   .mood-forwarded-label {
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 10px;
-    line-height: 1.2;
-    color: hsl(var(--muted-foreground) / 0.7);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: inherit;
+    color: inherit;
   }
 
   .mood-forwarded-source {
     font-weight: 500;
-    line-height: 1.2;
-    color: hsl(var(--foreground) / 0.85);
+    color: hsl(var(--foreground) / 0.9);
     text-decoration: none;
     border-bottom: 1px solid transparent;
+    transition: border-color 0.15s ease;
   }
 
   .mood-forwarded-source:hover,
@@ -491,15 +633,15 @@ const previewPending = readSource === 'archive'
   }
 
   .mood-forwarded-author {
-    line-height: 1.2;
     color: hsl(var(--muted-foreground) / 0.7);
   }
 
   .mood-post-reactions {
-    display: inline-flex;
+    display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 28px;
+    gap: 6px;
+    max-width: var(--measure);
+    margin: 18px auto 0;
     padding-top: 0;
     border-top: none;
   }
@@ -508,17 +650,41 @@ const previewPending = readSource === 'archive'
     display: none;
   }
 
-  @media (min-width: 640px) {
-    .mood-post-reactions {
-      margin-top: 32px;
-      padding-top: 0;
-    }
+  /* A reaction is a count, not a control -- the filled pill read as a button
+     and the page has no such button. Stripped bare it read as nothing at all:
+     an emoji and a digit adrift under the text. An outline makes it an object
+     without making it pressable. */
+  .mood-post-reactions .mood-reaction {
+    background: none;
+    border: 1px solid hsl(var(--foreground) / 0.12);
+    border-radius: 999px;
+    padding: 2px 9px;
+    color: hsl(var(--muted-foreground));
   }
 
   .mood-post-content {
-    max-width: 34rem;
+    max-width: var(--measure);
     font-size: 17px;
-    line-height: 1.58;
+    /* This column is mixed, so the numbers are a compromise, not a CJK setting.
+       Latin body wants ~1.5-1.6 leading and CJK ~1.7 (the glyphs fill their em
+       box, and a tight line turns into a grey block), so 1.65 sits between and
+       neither script is set wrong. Tracking stays at the font's own metrics:
+       adding it opens CJK a little and damages Latin, and the boundary it was
+       meant to fix has its own property below.
+
+       That boundary is text-autospace's job, and its initial value already
+       inserts the quarter-em where a browser supports it (Safari 18.4 ships
+       it, Chrome is partway in), so there is nothing to declare -- only a
+       reason not to fake it with tracking.
+
+       Left, not justified. Continuous CJK justifies well and would want
+       text-justify: inter-character, but this column is mixed and has no
+       hyphenation, so the same setting stretches the Latin word spaces into
+       rivers. */
+    line-height: 1.65;
+    letter-spacing: normal;
+    text-align: left;
+    text-wrap: pretty;
     color: hsl(var(--foreground));
     margin-top: 8px;
     margin-inline: auto;
@@ -528,21 +694,15 @@ const previewPending = readSource === 'archive'
 
   @media (min-width: 640px) {
     .mood-post-content {
-      font-size: 18px;
-      line-height: 1.6;
       margin-top: 12px;
     }
   }
 
-  @media (min-width: 1024px) {
-    .mood-post-content {
-      font-size: 18px;
-      line-height: 1.6;
-    }
-  }
-
+  /* A blank line between paragraphs was a whole line-height of air, and these
+     paragraphs are one or two short lines each -- the post read as a list. Two
+     thirds of a line still separates them. */
   .mood-post-content :global(p) {
-    margin-bottom: 1.15em;
+    margin-bottom: 0.6em;
   }
 
   .mood-post-content :global(p:last-child) {

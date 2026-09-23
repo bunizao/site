@@ -8,6 +8,7 @@ import {
   createBrowserListeningAnalytics,
   inferListeningSurface,
 } from '@/lib/listening/analytics';
+import type { ListeningAccent } from '@/features/home/types';
 
 type ListeningTrackPayload = {
   id?: string;
@@ -20,6 +21,7 @@ type ListeningTrackPayload = {
   sourceUrl?: string;
   artworkUrl?: string;
   thumbUrl?: string;
+  accent?: ListeningAccent | null;
   previewUrl?: string;
   year?: string;
   playedAt?: string;
@@ -27,153 +29,16 @@ type ListeningTrackPayload = {
 };
 
 const LISTENING_REFRESH_MS = 45_000;
-const ARTWORK_SAMPLE_SIZE = 24;
-const HUE_BUCKET_SIZE = 18;
-const SATURATION_BUCKETS = 4;
-const LIGHTNESS_BUCKETS = 4;
-const artworkAccentCache = new Map<string, string>();
 const playedAtDateFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',
 });
 
-type ColorBucket = {
-  redTotal: number;
-  greenTotal: number;
-  blueTotal: number;
-  weightTotal: number;
-  count: number;
-  saturationTotal: number;
-  lightnessTotal: number;
-};
-
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-
-const rgbToHsl = (red: number, green: number, blue: number): [number, number, number] => {
-  const r = red / 255;
-  const g = green / 255;
-  const b = blue / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const lightness = (max + min) / 2;
-
-  if (max === min) {
-    return [0, 0, lightness];
-  }
-
-  const delta = max - min;
-  const saturation = lightness > 0.5
-    ? delta / (2 - max - min)
-    : delta / (max + min);
-  let hue = 0;
-
-  if (max === r) {
-    hue = (g - b) / delta + (g < b ? 6 : 0);
-  } else if (max === g) {
-    hue = (b - r) / delta + 2;
-  } else {
-    hue = (r - g) / delta + 4;
-  }
-
-  return [hue * 60, saturation, lightness];
-};
-
-const getColorBucketKey = (hue: number, saturation: number, lightness: number): string => {
-  const hueBucket = Math.floor(hue / HUE_BUCKET_SIZE);
-  const saturationBucket = Math.floor(clamp(saturation, 0, 0.999) * SATURATION_BUCKETS);
-  const lightnessBucket = Math.floor(clamp(lightness, 0, 0.999) * LIGHTNESS_BUCKETS);
-  return `${hueBucket}:${saturationBucket}:${lightnessBucket}`;
-};
-
-const scoreColorBucket = (bucket: ColorBucket): number => {
-  const saturation = bucket.saturationTotal / bucket.count;
-  const lightness = bucket.lightnessTotal / bucket.count;
-  const midLightness = 1 - Math.abs(lightness - 0.54) * 1.7;
-  const usableLightness = clamp(midLightness, 0.12, 1);
-
-  return bucket.count * Math.pow(clamp(saturation, 0.08, 1), 1.35) * usableLightness;
-};
-
-const sampleArtworkAccent = (image: HTMLImageElement): string | null => {
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d', { willReadFrequently: true });
-  if (!context || !image.naturalWidth || !image.naturalHeight) {
-    return null;
-  }
-
-  canvas.width = ARTWORK_SAMPLE_SIZE;
-  canvas.height = ARTWORK_SAMPLE_SIZE;
-  context.drawImage(image, 0, 0, ARTWORK_SAMPLE_SIZE, ARTWORK_SAMPLE_SIZE);
-
-  const { data } = context.getImageData(0, 0, ARTWORK_SAMPLE_SIZE, ARTWORK_SAMPLE_SIZE);
-  const buckets = new Map<string, ColorBucket>();
-
-  for (let index = 0; index < data.length; index += 4) {
-    const alpha = data[index + 3] ?? 0;
-    if (alpha < 180) continue;
-
-    const red = data[index] ?? 0;
-    const green = data[index + 1] ?? 0;
-    const blue = data[index + 2] ?? 0;
-    const [hue, saturation, lightness] = rgbToHsl(red, green, blue);
-    if (saturation < 0.08 || lightness < 0.12 || lightness > 0.9) continue;
-
-    const key = getColorBucketKey(hue, saturation, lightness);
-    const bucket = buckets.get(key) ?? {
-      redTotal: 0,
-      greenTotal: 0,
-      blueTotal: 0,
-      weightTotal: 0,
-      count: 0,
-      saturationTotal: 0,
-      lightnessTotal: 0
-    };
-    const weight = 0.35 + saturation * 1.8 + clamp(1 - Math.abs(lightness - 0.54) * 1.6, 0, 1);
-    bucket.redTotal += red * weight;
-    bucket.greenTotal += green * weight;
-    bucket.blueTotal += blue * weight;
-    bucket.weightTotal += weight;
-    bucket.count += 1;
-    bucket.saturationTotal += saturation;
-    bucket.lightnessTotal += lightness;
-    buckets.set(key, bucket);
-  }
-
-  let selectedBucket: ColorBucket | null = null;
-  let selectedScore = 0;
-
-  for (const bucket of buckets.values()) {
-    const score = scoreColorBucket(bucket);
-    if (score > selectedScore) {
-      selectedBucket = bucket;
-      selectedScore = score;
-    }
-  }
-
-  if (!selectedBucket || selectedBucket.weightTotal <= 0) {
-    return null;
-  }
-
-  const [hue, saturation, lightness] = rgbToHsl(
-    selectedBucket.redTotal / selectedBucket.weightTotal,
-    selectedBucket.greenTotal / selectedBucket.weightTotal,
-    selectedBucket.blueTotal / selectedBucket.weightTotal
-  );
-  const boostedSaturation = clamp(saturation * 1.16, 0.4, 0.86);
-  const boostedLightness = clamp(lightness * 1.04, 0.42, 0.66);
-
-  return `hsl(${Math.round(hue)} ${Math.round(boostedSaturation * 100)}% ${Math.round(boostedLightness * 100)}%)`;
-};
-
-const runWhenIdle = (callback: () => void, timeout = 1500) => {
-  const requestIdle = window.requestIdleCallback;
-  if (typeof requestIdle === 'function') {
-    requestIdle(callback, { timeout });
-    return;
-  }
-
-  window.setTimeout(callback, 0);
-};
+const ACCENT_PROPERTIES = [
+  '--listening-accent-h',
+  '--listening-accent-c-light',
+  '--listening-accent-c-dark'
+] as const;
 
 export const initListeningCards = (root: ParentNode = document): void => {
   const roots = root.querySelectorAll('[data-listening]');
@@ -224,37 +89,18 @@ export const initListeningCards = (root: ParentNode = document): void => {
       surface: inferListeningSurface(window.location.pathname),
     }));
 
-    const updateArtworkAccent = () => {
-      if (!(artwork instanceof HTMLImageElement)) {
+    const applyAccent = (accent: ListeningAccent | null) => {
+      if (!accent) {
+        delete root.dataset.accent;
+        for (const name of ACCENT_PROPERTIES) root.style.removeProperty(name);
         return;
       }
 
-      const artworkSrc = artwork.currentSrc || artwork.src;
-      if (!artworkSrc || artwork.naturalWidth === 0) {
-        return;
-      }
-
-      const cachedAccent = artworkAccentCache.get(artworkSrc);
-      if (cachedAccent) {
-        root.style.setProperty('--listening-accent', cachedAccent);
-        return;
-      }
-
-      runWhenIdle(() => {
-        try {
-          const accent = sampleArtworkAccent(artwork);
-          if (!accent) return;
-          artworkAccentCache.set(artworkSrc, accent);
-          root.style.setProperty('--listening-accent', accent);
-        } catch {
-          root.style.removeProperty('--listening-accent');
-        }
-      });
+      root.dataset.accent = '';
+      root.style.setProperty('--listening-accent-h', accent.hue.toFixed(1));
+      root.style.setProperty('--listening-accent-c-light', accent.chromaLight.toFixed(3));
+      root.style.setProperty('--listening-accent-c-dark', accent.chromaDark.toFixed(3));
     };
-
-    if (artwork instanceof HTMLImageElement) {
-      artwork.addEventListener('load', updateArtworkAccent);
-    }
 
     const setLiveState = (nextIsLive: boolean) => {
       isLive = nextIsLive;
@@ -442,6 +288,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
       const nextCatalogId = normalizeCatalogId(track);
       const nextYear = track.year?.trim() || formatPlayedAt(track.playedAt ?? '');
       const nextIsLive = Boolean(track.isNowPlaying);
+      applyAccent(track.accent ?? null);
 
       trackTitle = nextTitle;
       trackArtist = nextArtist;
@@ -476,10 +323,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
       if (artwork instanceof HTMLImageElement && nextArtwork) {
         const currentArtwork = artwork.currentSrc || artwork.src;
         if (currentArtwork !== nextArtwork) {
-          root.style.removeProperty('--listening-accent');
           artwork.src = nextArtwork;
-        } else if (artwork.complete) {
-          updateArtworkAccent();
         }
       }
 

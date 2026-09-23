@@ -1,0 +1,198 @@
+---
+/* Every heart, newest first, read for its source.
+
+   Reached from a source profile as often as from the nav: the question
+   "this session wrote two comments, what else did it do" is answered here
+   and nowhere else. */
+import PortalLayout from '@/layouts/PortalLayout.astro';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/coss';
+import PortalSection from '@/components/portal/PortalSection.astro';
+import SegmentedNav from '@/components/portal/SegmentedNav.astro';
+import CommentsSubNav from '@/components/portal/CommentsSubNav.astro';
+import InsightTable, { type InsightTableRow } from '@/components/portal/InsightTable.astro';
+import ReactionsList from '@/features/admin/ui/ReactionsList';
+import { Activity, Heart, Network, Monitor } from 'lucide-react';
+import { loadPortalReactions, loadReactionInsights } from '@/features/admin/server/portal-client';
+import type {
+  AdminReactionInsights,
+  AdminReactionInsightsWindow,
+  AdminReactionRecord,
+  AdminSourceKeyType,
+} from '@bunizao/contracts';
+
+import { DEMO_REACTIONS, DEMO_REACTION_INSIGHTS } from '@/features/admin/server/portal-demo';
+
+export const prerender = false;
+
+const session = (Astro.locals as any).adminSession;
+
+const WINDOWS: AdminReactionInsightsWindow[] = ['48h', '7d'];
+const requestedWindow = Astro.url.searchParams.get('window');
+const window: AdminReactionInsightsWindow = (WINDOWS as string[]).includes(requestedWindow ?? '')
+  ? (requestedWindow as AdminReactionInsightsWindow)
+  : '7d';
+
+const key = Astro.url.searchParams.get('key') as AdminSourceKeyType | null;
+const value = Astro.url.searchParams.get('value');
+
+let reactions: AdminReactionRecord[] = [];
+let total = 0;
+let insights: AdminReactionInsights | null = null;
+let loadError: string | null = null;
+let demoMode = false;
+try {
+  const [list, summary] = await Promise.all([
+    loadPortalReactions(Astro.request, Astro.locals, {
+      limit: 50,
+      ...(key && value ? { key, value } : {}),
+    }),
+    loadReactionInsights(Astro.request, Astro.locals, window),
+  ]);
+  reactions = list.reactions;
+  total = list.total;
+  insights = summary;
+} catch (error) {
+  loadError = error instanceof Error ? error.message : 'unknown';
+
+/* Local dev has no site-api binding, so the load above throws before any of
+   these tables has data. Same fixture swap the queue page does, and for the
+   same reason: four red banners are not a page anyone can design against. */
+  if (import.meta.env.DEV && loadError === 'api_binding_unavailable') {
+    reactions = DEMO_REACTIONS.reactions;
+    total = DEMO_REACTIONS.total;
+    insights = DEMO_REACTION_INSIGHTS;
+    demoMode = true;
+    loadError = null;
+  }
+}
+
+const networks: InsightTableRow[] = (insights?.networks ?? []).map((row) => ({
+  key: String(row.asn ?? 'null'),
+  label: row.asOrg ?? (row.asn ? `AS${row.asn}` : 'unknown network'),
+  count: row.count,
+  held: null,
+  heldRate: null,
+  sessions: row.sessions,
+}));
+
+const subnets: InsightTableRow[] = (insights?.subnets ?? []).map((row) => ({
+  key: row.ip24 ?? 'null',
+  label: row.sampleIp ? `${row.sampleIp.split('.').slice(0, 3).join('.')}.0/24` : 'unknown subnet',
+  href: row.ip24 ? `/dev/portal/comments/source/ip24/${encodeURIComponent(row.ip24)}` : null,
+  count: row.count,
+  held: null,
+  heldRate: null,
+  sessions: row.sessions,
+}));
+
+const devices: InsightTableRow[] = (insights?.devices ?? []).map((row) => ({
+  key: row.clientFp ?? 'null',
+  label: row.renderer ?? row.platform ?? 'no fingerprint',
+  sub: [row.screen, row.subnets > 1 ? `${row.subnets} subnets` : null].filter(Boolean).join(' · ') || null,
+  href: row.clientFp ? `/dev/portal/comments/source/client_fp/${encodeURIComponent(row.clientFp)}` : null,
+  count: row.count,
+  held: null,
+  heldRate: null,
+  sessions: row.sessions,
+  tone: row.subnets >= 5 ? 'danger' : null,
+}));
+
+const targets: InsightTableRow[] = (insights?.targets ?? []).map((row) => ({
+  key: `${row.targetType}:${row.targetId}`,
+  label: row.postTitle ?? row.targetId,
+  sub: `${row.subnets} subnet${row.subnets === 1 ? '' : 's'} · ${row.fps} device${row.fps === 1 ? '' : 's'}`,
+  count: row.reactions,
+  held: null,
+  heldRate: null,
+  sessions: null,
+  // Many hearts from few subnets on one post is the shape of a vote being
+  // stuffed, and it is the only thing this page is really watching for.
+  tone: row.subnets > 0 && row.reactions / row.subnets >= 8 ? 'danger' : null,
+}));
+
+const windowItems = WINDOWS.map((each) => ({
+  label: each,
+  href: `/dev/portal/comments/reactions?window=${each}`,
+  active: each === window,
+}));
+---
+
+<PortalLayout
+  title="Reactions"
+  description="Hearts, and where they came from."
+  active="comments"
+  user={{ login: session?.login || 'admin' }}
+>
+  <CommentsSubNav active="reactions" />
+
+  {loadError && (
+    <div class="portal-notice" data-variant="error">
+      <Activity size={14} />
+      <span>Failed to load reactions: <code>{loadError}</code></span>
+    </div>
+  )}
+  {demoMode && (
+    <div class="portal-notice">
+      <Activity size={14} />
+      <span>Showing demo data — the site-api binding is unavailable in local dev.</span>
+    </div>
+  )}
+
+  {key && value && (
+    <div class="portal-notice">
+      <Activity size={14} />
+      <span>
+        Filtered to <code>{key}</code> <code>{value}</code>.
+        <a href="/dev/portal/comments/reactions"> Show all</a>
+      </span>
+    </div>
+  )}
+
+  {insights && (
+    <PortalSection title="Concentration" eyebrow="Shape" class="portal-mt-lg">
+      <SegmentedNav slot="action" items={windowItems} ariaLabel="Insight window" />
+      <div class="portal-grid" data-columns="wide">
+        <Card>
+          <CardHeader>
+            <CardTitle className="portal-card-title"><Heart size={14} /> Targets</CardTitle>
+            <CardDescription>Hearts per post, with how many subnets and devices they came from.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0"><InsightTable rows={targets} head="target" countHead="hearts" /></CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="portal-card-title"><Network size={14} /> Networks</CardTitle>
+            <CardDescription>Hosting networks pressing hearts is the cheap kind of inflation.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0"><InsightTable rows={networks} head="network" countHead="hearts" /></CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="portal-card-title"><Network size={14} /> Subnets</CardTitle>
+            <CardDescription>One /24 with many sessions and one heart each.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0"><InsightTable rows={subnets} head="subnet" countHead="hearts" /></CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="portal-card-title"><Monitor size={14} /> Devices</CardTitle>
+            <CardDescription>The same browser across many networks.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0"><InsightTable rows={devices} head="device" countHead="hearts" /></CardContent>
+        </Card>
+      </div>
+    </PortalSection>
+  )}
+
+  <PortalSection
+    title="Latest"
+    eyebrow="Rows"
+    meta={total > reactions.length ? `showing ${reactions.length} of ${total}` : `${total} reaction${total === 1 ? '' : 's'}`}
+    class="portal-mt-lg"
+  >
+    <ReactionsList reactions={reactions} client:load />
+  </PortalSection>
+</PortalLayout>
