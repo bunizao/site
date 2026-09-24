@@ -53,12 +53,12 @@
   --home-track-masthead: 0.01em; /* 22px sans 600, see the wordmark note */
 }
 
-/* One definition for the eyebrow that opens every section. It is lowercase
-   at the meta step, not the shared uppercase .section-label from globals.css:
-   tracked caps read as a stamp above prose that is all sentence case. Sans,
-   not mono: the mono
-   eyebrows read as terminal chrome stamped onto sections whose content is all
-   Inter. Mono stays where it carries meaning — tabular stamps, tags, code. */
+/* One definition for the eyebrow that opens every section. It is sentence
+   case at the meta step, not the shared uppercase .section-label from
+   globals.css: tracked caps read as a stamp above prose that is all sentence
+   case. Sans, not mono: the mono eyebrows read as terminal chrome stamped onto
+   sections whose content is all Inter. Mono stays where it carries meaning —
+   tabular stamps, tags, code. */
 /* The label is an `h2`, so the page has a real outline: one `h1` in the hero
    and one heading per section. The size and weight below override the global
    heading rule on specificity. */
@@ -71,7 +71,7 @@
   font-size: var(--home-text-meta);
   font-weight: var(--home-weight-eyebrow);
   letter-spacing: var(--home-track-small);
-  text-transform: lowercase;
+  text-transform: none;
   color: var(--home-fg-secondary);
   margin-top: 0;
   /* One lattice cell below the label, not the shared 20px. */
@@ -105,7 +105,7 @@
   font-size: var(--home-text-meta);
   font-weight: var(--home-weight-label);
   letter-spacing: var(--home-track-small);
-  text-transform: lowercase;
+  text-transform: none;
   white-space: nowrap;
   color: var(--home-fg-faint);
 }

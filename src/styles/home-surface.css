@@ -70,7 +70,7 @@ html.dark .page-container {
   font-size: var(--home-text-meta);
   font-weight: var(--home-weight-eyebrow);
   letter-spacing: var(--home-track-small);
-  text-transform: lowercase;
+  text-transform: none;
   color: var(--home-fg-secondary);
 }
 
@@ -84,7 +84,7 @@ html.dark .page-container {
   font-size: var(--home-text-meta);
   font-weight: var(--home-weight-label);
   letter-spacing: var(--home-track-small);
-  text-transform: lowercase;
+  text-transform: none;
   color: var(--home-fg-faint);
 }
 
