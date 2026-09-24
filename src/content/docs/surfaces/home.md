@@ -68,7 +68,7 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
   canvas text does not count for LCP. The script removes it when typing
   starts; left in place it showed through as a ghost behind the caret.
 - The bio is three paragraphs of prose written in `Hero.astro`, and all of
-  it decodes. Every link is a word in the sentence: Monash, `projects`,
+  it decodes. Every link is a word in the sentence: Monash University, `projects`,
   `write`, `moods`, `Reach out` (to `/message`) and the `hero.socials`
   channels. They are decode atoms, so they keep their boxes through the
   reveal, and the original markup comes back once it settles. No email
@@ -88,9 +88,16 @@ Client behavior:
 - Status text runs a short random stretch (four swaps) of a fixed word list,
   then rests; the dot pulses once the identity lines have landed.
 - Link underlines draw in one after another once the decode settles
-  (`dt-settled`). Hovering a link raises a highlight out of its underline and
-  unfolds a chip above it naming the destination (`data-peek`: a path here,
-  a host with an arrow elsewhere). CSS only.
+  (`dt-settled`). Hovering a link raises a highlight out of its underline.
+- Each bio link names a hover card (`data-card`, rendered by
+  `HeroCards.astro` outside the decode root). Every card has its own body:
+  the course for Monash, projects with stars, the three latest posts, the
+  latest mood (fetched from `/api/moods` on the first link hover), the
+  message promise, the GitHub year total (read from the hero widget), and
+  each channel's short link. The footer names the real destination. Cards
+  open after 120ms of mouse hover or on keyboard focus, swap instantly
+  between links, sit above the word and flip below near the viewport top.
+  Escape closes them; touch never opens them.
 - Reduced-motion users skip the script entirely; the elements are visible
   from the first paint.
 

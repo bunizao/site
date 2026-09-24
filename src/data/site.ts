@@ -43,8 +43,8 @@ export const profile = {
     { name: 'Blog', url: 'https://buxx.me/blog', icon: FileText, description: 'Read my articles', handle: 'buxx.me/blog', sameAs: true },
     { name: 'GitHub', url: 'https://tuu.cat/gh', icon: GitHubIcon, description: 'Check out my code', handle: '@bunizao', sameAs: true, canonicalUrl: 'https://github.com/bunizao' },
     { name: 'Email', url: 'mailto:me@buxx.me', icon: Mail, description: 'Send me a message', handle: 'me@buxx.me' },
-    { name: 'Telegram', url: 'https://tuu.cat/tg', icon: Send, description: 'Chat with me', handle: 'tuu.cat/tg', sameAs: true },
-    { name: 'Instagram', url: 'https://tuu.cat/ig', icon: InstagramIcon, description: 'See my photos', handle: 'tuu.cat/ig', sameAs: true },
+    { name: 'Telegram', url: 'https://tuu.cat/tg', icon: Send, description: 'Chat with me', handle: 'tuu.cat/tg', sameAs: true, canonicalUrl: 'https://t.me/hututu0' },
+    { name: 'Instagram', url: 'https://tuu.cat/ig', icon: InstagramIcon, description: 'See my photos', handle: 'tuu.cat/ig', sameAs: true, canonicalUrl: 'https://instagram.com/bunizao_' },
   ] satisfies ProfileLink[],
 } as const;
 

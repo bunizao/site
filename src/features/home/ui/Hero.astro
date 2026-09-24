@@ -4,6 +4,7 @@ import DecodeText from '@/features/home/ui/DecodeText.astro';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
+import HeroCards from '@/features/home/ui/HeroCards.astro';
 import type { ListeningTrack } from '@/features/home/types';
 import { hero, tech, profile, experience } from '@/data/site';
 
@@ -20,12 +21,10 @@ const lcpAnchorName = typewriterNames.reduce(
 );
 const school = experience[0];
 
-// The hover chip names where a link goes: a path on this site, or the host
-// elsewhere with an arrow.
-const peek = (url: string): string =>
-  url.startsWith('/') ? url : `${url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')} ↗`;
+// Each link opens its own hover card (HeroCards.astro), named by `data-card`.
+const cardAttrs = (id: string) => ({ 'data-card': id, 'aria-describedby': `hero-card-${id}` });
 const external = { target: '_blank', rel: 'noopener noreferrer' };
-// Underlines draw in reading order; the socials follow the four links above.
+// Underlines draw in reading order; the socials follow the five links above.
 const SOCIAL_DRAW_START = 5;
 const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length - 1 ? ' and ' : ', ');
 ---
@@ -74,26 +73,27 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
       <DecodeText class="hero-bio">
         <p>
           I make interesting things. Currently studying Computer Science in
-          DS &amp; AI at <a class="hero-link" href={school.url} {...external} data-peek={peek(school.url)} style="--draw-i: 0" data-decode-atom>Monash</a>.
+          DS &amp; AI at <a class="hero-link" href={school.url} {...external} {...cardAttrs('monash')} style="--draw-i: 0" data-decode-atom>{school.org}</a>.
         </p>
         <p>
           Curious about <span class="text-foreground">frontend design</span>,
           <span class="text-foreground">proxy systems</span> and
           <span class="text-foreground">open source</span>, and obsessed with
           <span class="text-foreground">speed</span>. Some of it ships as
-          <a class="hero-link" href="/projects" data-peek={peek('/projects')} style="--draw-i: 1" data-decode-atom>projects</a>,
-          some I <a class="hero-link" href="/blog" data-peek={peek('/blog')} style="--draw-i: 2" data-decode-atom>write</a> about,
-          and the small stuff lands in <a class="hero-link" href="/mood" data-peek={peek('/mood')} style="--draw-i: 3" data-decode-atom>moods</a>.
+          <a class="hero-link" href="/projects" {...cardAttrs('projects')} style="--draw-i: 1" data-decode-atom>projects</a>,
+          some I <a class="hero-link" href="/blog" {...cardAttrs('write')} style="--draw-i: 2" data-decode-atom>write</a> about,
+          and the small stuff lands in <a class="hero-link" href="/mood" {...cardAttrs('moods')} style="--draw-i: 3" data-decode-atom>moods</a>.
         </p>
         <p>
-          <a class="hero-link" href="/message" data-peek={peek('/message')} style="--draw-i: 4" data-decode-atom>Reach out</a>
+          <a class="hero-link" href="/message" {...cardAttrs('message')} style="--draw-i: 4" data-decode-atom>Reach out</a>
           about a cool idea, a bug on this site, or anything at all. I'm also on
           {socials.map((social, i) => (
-            <>{socialJoiner(i)}<a class="hero-link" href={social.url} {...external} data-peek={peek(social.canonicalUrl ?? social.url)} style={`--draw-i: ${SOCIAL_DRAW_START + i}`} data-decode-atom>{social.name}</a></>
+            <>{socialJoiner(i)}<a class="hero-link" href={social.url} {...external} {...cardAttrs(social.name.toLowerCase())} style={`--draw-i: ${SOCIAL_DRAW_START + i}`} data-decode-atom>{social.name}</a></>
           ))}.
         </p>
       </DecodeText>
     </div>
+    <HeroCards />
 
     <div class="hero-animate mt-6" style="--hero-i: 0" data-hero-motion data-hero-listening>
       <Listening track={listeningTrack} />
@@ -302,9 +302,8 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
   }
 
   /* Every link is the word itself, underlined. The underline is a background
-     rather than a pseudo-element, which leaves ::after free for the chip;
-     the bottom padding drops it just under the descenders without touching
-     the line box. */
+     so it draws with one property; the bottom padding drops it just under the
+     descenders without touching the line box. */
   .hero-link {
     --underline: hsl(var(--foreground) / 0.3);
     position: relative;
@@ -329,33 +328,9 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
     transition: transform 200ms var(--ease-out);
   }
 
-  /* The chip unfolds upward from the word and says where it goes. It is
-     drawn from `data-peek`, so the decode never sees its text. It shares
-     the mood cards' surface: page colour, one hairline. */
-  .hero-link::after {
-    content: attr(data-peek);
-    position: absolute;
-    left: -0.12em;
-    bottom: calc(100% + 6px);
-    padding: 5px 7px;
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    border-radius: 6px;
-    background: hsl(var(--background));
-    color: var(--home-fg-secondary);
-    font-size: var(--home-text-label);
-    line-height: 1;
-    white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    translate: 0 4px;
-    clip-path: inset(100% 0 0 0 round 6px);
-    transition-property: opacity, translate, clip-path;
-    transition-duration: 120ms;
-    transition-timing-function: var(--ease-out);
-  }
-
   @media (hover: hover) {
-    .hero-link:hover {
+    .hero-link:hover,
+    .hero-link:focus-visible {
       --underline: hsl(var(--foreground) / 0.6);
     }
 
@@ -363,12 +338,6 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
       transform: scaleY(1);
     }
 
-    .hero-link:hover::after {
-      opacity: 1;
-      translate: 0 0;
-      clip-path: inset(0 round 6px);
-      transition-duration: 220ms;
-    }
   }
 
   /* Underlines wait for the decode to settle, then draw in reading order.
@@ -384,8 +353,7 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .hero-link::before,
-    .hero-link::after {
+    .hero-link::before {
       transition: none;
     }
   }
