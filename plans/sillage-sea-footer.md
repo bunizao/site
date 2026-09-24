@@ -59,7 +59,7 @@ side-on cross-section of sea and sailboat ("2 维剖面的 海+帆船"), moving.
 - **Silent until touched.** Scrolling to the sea never starts sound; the
   first touch of the water does, and it fades five seconds after the reader
   stops. The owner then asked for an off switch as well; it is remembered.
-- **Dusk is a fixed window, 17:00–19:30 local.** The page knows the time, not
+- **Dusk is a fixed window, 16:30–20:00 local** (widened from 17:00–19:30 at the owner's asking). The page knows the time, not
   the place, so it cannot know the real sunset. The constants are in the
   component script.
 - **Dusk is warm.** The blog's no-warm-accents rule gives way here only, at the

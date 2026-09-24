@@ -201,7 +201,7 @@ before touching it:
 - **Night is repainted, not filtered.** Pastel on black paper puts the lighter
   pigment on top, which no filter over the day art can do. Night also lights the
   stern lantern: a glow on the boat and a reflection on the water.
-- **Dusk is the reader's clock.** From 17:00 to 19:30 local time the component
+- **Dusk is the reader's clock.** From 16:30 to 20:00 local time the component
   sets `data-dusk` and the dusk set loads instead: violet water with rose and
   gold crests, clouds lit from below, and a sunset sky that eases out to the
   bare page before the footer's text. By day a sun sits half down behind
