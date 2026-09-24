@@ -15,19 +15,13 @@ export function countWords(text: string): number {
 }
 
 export interface LedgerMonth {
+  year: number;
   /** 1–12. */
   month: number;
   posts: number;
   words: number;
-  /** 0 for nothing written, then 1–4 by words against the busiest month. */
-  level: 0 | 1 | 2 | 3 | 4;
-  /** Not yet come. */
-  ahead: boolean;
-}
-
-export interface LedgerYear {
-  year: number;
-  months: LedgerMonth[];
+  /** 0–1: words against the busiest month, on a square root. */
+  height: number;
 }
 
 export interface WritingLedger {
@@ -35,8 +29,8 @@ export interface WritingLedger {
   words: number;
   /** The year of the first post. */
   since: number;
-  /** Newest year first, every year from the first post to `now`. */
-  years: LedgerYear[];
+  /** Oldest first, every month from January of `since` to `now`. */
+  months: LedgerMonth[];
 }
 
 interface LedgerPost {
@@ -61,33 +55,33 @@ export function writingLedger(posts: LedgerPost[], now = new Date()): WritingLed
   }
 
   const busiest = Math.max(...[...tally.values()].map((month) => month.words));
-  // Square root, so one long essay does not wash every other month out.
-  const levelOf = (words: number): LedgerMonth['level'] =>
-    words <= 0 || busiest <= 0 ? 0 : (Math.max(1, Math.ceil(4 * Math.sqrt(words / busiest))) as LedgerMonth['level']);
-
   const since = Math.min(...dated.map(({ at }) => at.getUTCFullYear()));
-  const thisYear = now.getUTCFullYear();
-  const thisMonth = now.getUTCMonth() + 1;
-  const years: LedgerYear[] = [];
-  for (let year = Math.max(thisYear, since); year >= since; year--) {
-    const months = Array.from({ length: 12 }, (_, i) => {
-      const month = i + 1;
+  // A post dated ahead of `now` still gets its month.
+  const last = Math.max(now.getTime(), ...dated.map(({ at }) => at.getTime()));
+  const lastYear = new Date(last).getUTCFullYear();
+  const lastMonth = new Date(last).getUTCMonth() + 1;
+
+  const months: LedgerMonth[] = [];
+  for (let year = since; year <= lastYear; year++) {
+    for (let month = 1; month <= (year === lastYear ? lastMonth : 12); month++) {
       const { posts = 0, words = 0 } = tally.get(`${year}-${month}`) ?? {};
-      return { month, posts, words, level: levelOf(words), ahead: year === thisYear && month > thisMonth };
-    });
-    years.push({ year, months });
+      // Square root, so one long essay does not flatten every other month.
+      const height = busiest > 0 ? Math.sqrt(words / busiest) : 0;
+      months.push({ year, month, posts, words, height });
+    }
   }
 
   return {
     posts: dated.length,
     words: dated.reduce((sum, post) => sum + post.words, 0),
     since,
-    years,
+    months,
   };
 }
 
-/** A word count as each locale writes it: 12.3 万 in Chinese, 123,456 in English. */
+/** A word count as each locale says it: 3.4 万字 or 607 字, 34,120 words. */
 export function formatWords(words: number, locale: 'zh' | 'en'): string {
-  if (locale === 'zh' && words >= 10_000) return `${(words / 10_000).toFixed(1).replace(/\.0$/, '')} 万`;
-  return words.toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US');
+  if (locale === 'en') return `${words.toLocaleString('en-US')} ${words === 1 ? 'word' : 'words'}`;
+  if (words >= 10_000) return `${(words / 10_000).toFixed(1).replace(/\.0$/, '')} 万字`;
+  return `${words.toLocaleString('zh-CN')} 字`;
 }

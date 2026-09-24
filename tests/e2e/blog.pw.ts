@@ -283,12 +283,14 @@ test.describe('Blog routes', () => {
 
     const ledger = page.locator('.blog-ledger');
     await expect(ledger.locator('.blog-ledger__stats')).toContainText(/\d+ 篇/);
-    // Twelve months a year, every year from the first post to now.
+    // One strip of months from the first January to now, one label a year.
     const years = await ledger.locator('.blog-ledger__year').count();
-    expect(await ledger.locator('.blog-ledger__cell').count()).toBe(years * 12);
+    const months = await ledger.locator('.blog-ledger__month').count();
+    expect(months).toBeGreaterThan((years - 1) * 12);
+    expect(months).toBeLessThanOrEqual(years * 12);
 
     // Hovering a month reads it out under the map; leaving the map clears it.
-    const written = ledger.locator('.blog-ledger__cell[data-level]:not([data-level="0"])').first();
+    const written = ledger.locator('.blog-ledger__month[role="img"]').first();
     await written.hover();
     await expect(ledger.locator('.blog-ledger__note')).toContainText(/\d+ 篇/);
     await page.mouse.move(0, 0);

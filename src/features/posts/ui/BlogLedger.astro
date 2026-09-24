@@ -1,10 +1,11 @@
 ---
-// The writing ledger: how many posts, how many words, since when, and a
-// year-by-month map of when they were written. It closes the short /blog index
+// The writing ledger: how many posts, how many words, since when, and one
+// strip of months showing when they were written. The strip keeps its height
+// however many years it covers; more years only make the months thinner. It closes the short /blog index
 // and opens /blog/archive, so the index hands over to the full list through the
 // same picture. A year with posts links to its group in the archive.
 import { blog } from '@/data/site';
-import type { WritingLedger } from '../ledger';
+import type { LedgerMonth, WritingLedger } from '../ledger';
 import { formatWords } from '../ledger';
 
 interface Props {
@@ -23,42 +24,51 @@ const fill = (text: string, values: Record<string, string | number>) =>
 const number = (n: number) => n.toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US');
 const pad = (month: number) => String(month).padStart(2, '0');
 
-const note = (year: number, month: { month: number; posts: number; words: number }) =>
-  month.posts > 0
-    ? fill(t.month, { year, month: locale === 'zh' ? month.month : pad(month.month), posts: month.posts, words: formatWords(month.words, locale) })
-    : fill(t.empty, { year, month: locale === 'zh' ? month.month : pad(month.month) });
+const note = ({ year, month, posts, words }: LedgerMonth) => {
+  const name = locale === 'zh' ? month : pad(month);
+  return posts > 0
+    ? fill(t.month, { year, month: name, posts, words: formatWords(words, locale) })
+    : fill(t.empty, { year, month: name });
+};
+
+// Each year's label sits under its January and spans its months.
+const years = ledger.months.reduce<{ year: number; start: number; span: number }[]>((list, month, i) => {
+  if (month.month === 1 || i === 0) list.push({ year: month.year, start: i + 1, span: 0 });
+  list[list.length - 1].span += 1;
+  return list;
+}, []);
+const written = new Set(ledger.months.filter((month) => month.posts > 0).map((month) => month.year));
 ---
 
 <div class="blog-ledger" data-blog-ledger>
   <p class="blog-ledger__stats">
     <span>{fill(t.posts, { n: number(ledger.posts) })}</span>
-    <span>{fill(t.words, { n: formatWords(ledger.words, locale) })}</span>
+    <span>{formatWords(ledger.words, locale)}</span>
     <span>{fill(t.since, { year: ledger.since })}</span>
   </p>
 
-  <div class="blog-ledger__map" role="group" aria-label={fill(t.label, { year: ledger.since })}>
-    <span aria-hidden="true"></span>
-    {Array.from({ length: 12 }, (_, i) => (
-      <span class="blog-ledger__month" aria-hidden="true">{[1, 6, 12].includes(i + 1) ? i + 1 : ''}</span>
+  <div
+    class="blog-ledger__map"
+    role="group"
+    aria-label={fill(t.label, { year: ledger.since })}
+    style={`--months:${ledger.months.length}`}
+  >
+    {ledger.months.map((month) => (
+      <span
+        class="blog-ledger__month"
+        style={`--h:${month.height.toFixed(3)}`}
+        data-note={note(month)}
+        role={month.posts > 0 ? 'img' : undefined}
+        aria-label={month.posts > 0 ? note(month) : undefined}
+        aria-hidden={month.posts > 0 ? undefined : 'true'}
+      ></span>
     ))}
-    {ledger.years.map(({ year, months }) => (
-      <>
-        {months.some((month) => month.posts > 0) ? (
-          <a class="blog-ledger__year" href={`${archive}#y${year}`}>{year}</a>
-        ) : (
-          <span class="blog-ledger__year">{year}</span>
-        )}
-        {months.map((month) => (
-          <span
-            class:list={['blog-ledger__cell', { 'is-ahead': month.ahead }]}
-            data-level={month.level}
-            data-note={month.ahead ? undefined : note(year, month)}
-            role={month.posts > 0 ? 'img' : undefined}
-            aria-label={month.posts > 0 ? note(year, month) : undefined}
-            aria-hidden={month.posts > 0 ? undefined : 'true'}
-          ></span>
-        ))}
-      </>
+    {years.map(({ year, start, span }) => (
+      written.has(year) ? (
+        <a class="blog-ledger__year" href={`${archive}#y${year}`} style={`grid-column:${start} / span ${span}`}>{year}</a>
+      ) : (
+        <span class="blog-ledger__year" style={`grid-column:${start} / span ${span}`}>{year}</span>
+      )
     ))}
   </div>
 

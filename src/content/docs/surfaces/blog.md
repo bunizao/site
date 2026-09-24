@@ -133,11 +133,13 @@ Components compose the tokens above; they never introduce new colour or type.
 `/blog` lists the latest eight posts, not all of them, so a reader reaches the
 sea footer. The index then closes with the writing ledger
 (`BlogLedger.astro`, figures from `src/features/posts/ledger.ts`): posts, words
-and the first year on one line, then a year-by-month map of words written,
-inked in `{colors.ji}` on a square-root scale so one long essay does not wash
-the other months out. Chinese is counted by character and other scripts by
-word. Hovering or tapping a month reads it out under the map; a year with posts
-links to its group in the archive. A "全部 N 篇 →" link follows.
+and the first year on one line, then one strip of months from the first
+January to now: a `{colors.ji}` bar per month, its height the words written on a
+square-root scale so one long essay does not flatten the rest. The strip keeps
+its height and the column's width however many years it covers — more years
+only make the bars thinner. Chinese is counted by character and other scripts
+by word. Hovering or tapping a month reads it out under the strip; a year label
+with posts links to its group in the archive. A "全部 N 篇 →" link follows.
 
 `/blog/archive` opens with the same ledger and then lists every listed post by
 year, with the year rail, and ends in the same sea. The ledger is the bridge:

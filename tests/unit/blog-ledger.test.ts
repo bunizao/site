@@ -14,7 +14,7 @@ describe('countWords', () => {
 describe('writingLedger', () => {
   const post = (publishedAt: string, plaintext: string) => ({ publishedAt, plaintext });
 
-  test('tallies months from the first year to now, newest first', () => {
+  test('tallies every month from the first January to now, oldest first', () => {
     const ledger = writingLedger(
       [
         post('2024-03-05T10:00:00Z', 'one two three four'),
@@ -27,16 +27,16 @@ describe('writingLedger', () => {
     expect(ledger.posts).toBe(3);
     expect(ledger.words).toBe(21);
     expect(ledger.since).toBe(2024);
-    expect(ledger.years.map((year) => year.year)).toEqual([2026, 2025, 2024]);
+    // 2024 and 2025 in full, then January to April 2026.
+    expect(ledger.months).toHaveLength(12 + 12 + 4);
+    expect(ledger.months[0]).toMatchObject({ year: 2024, month: 1, posts: 0, height: 0 });
+    expect(ledger.months.at(-1)).toMatchObject({ year: 2026, month: 4 });
 
-    const march = ledger.years[2].months[2];
-    expect(march).toMatchObject({ month: 3, posts: 2, words: 5, ahead: false });
+    const march = ledger.months[2];
+    expect(march).toMatchObject({ year: 2024, month: 3, posts: 2, words: 5 });
     // Against the busiest month (16 words), on a square root.
-    expect(march.level).toBe(3);
-    expect(ledger.years[0].months[0].level).toBe(4);
-    expect(ledger.years[1].months.every((month) => month.level === 0)).toBe(true);
-    expect(ledger.years[0].months[3].ahead).toBe(false);
-    expect(ledger.years[0].months[4].ahead).toBe(true);
+    expect(march.height).toBeCloseTo(Math.sqrt(5 / 16));
+    expect(ledger.months[24]).toMatchObject({ year: 2026, month: 1, height: 1 });
   });
 
   test('is null with nothing written', () => {
@@ -46,9 +46,10 @@ describe('writingLedger', () => {
 
 describe('formatWords', () => {
   test('writes 万 in Chinese and grouped digits in English', () => {
-    expect(formatWords(86_240, 'zh')).toBe('8.6 万');
-    expect(formatWords(120_000, 'zh')).toBe('12 万');
-    expect(formatWords(9_999, 'zh')).toBe('9,999');
-    expect(formatWords(86_240, 'en')).toBe('86,240');
+    expect(formatWords(86_240, 'zh')).toBe('8.6 万字');
+    expect(formatWords(120_000, 'zh')).toBe('12 万字');
+    expect(formatWords(9_999, 'zh')).toBe('9,999 字');
+    expect(formatWords(86_240, 'en')).toBe('86,240 words');
+    expect(formatWords(1, 'en')).toBe('1 word');
   });
 });
