@@ -114,17 +114,19 @@ const vars = [
       <span class="sillage-sea__flag"></span>
     </div>
     <div class="sillage-sea__near"></div>
-    <span class="sillage-sea__bow"></span>
-    <span class="sillage-sea__churn"></span>
-    {
-      foam.streaks.map((streak) => (
-        <span
-          class="sillage-sea__foam"
-          style={`--b:${streak.bottom};--d:${streak.delay}s;--v:${streak.variant};--o:${streak.opacity};--sp:${streak.spread};--st:${streak.stretch}`}
-        />
-      ))
-    }
-    <span class="sillage-sea__glint"></span>
+    <div class="sillage-sea__wake">
+      <span class="sillage-sea__bow"></span>
+      <span class="sillage-sea__churn"></span>
+      {
+        foam.streaks.map((streak) => (
+          <span
+            class="sillage-sea__foam"
+            style={`--b:${streak.bottom};--d:${streak.delay}s;--v:${streak.variant};--o:${streak.opacity};--sp:${streak.spread};--st:${streak.stretch}`}
+          />
+        ))
+      }
+      <span class="sillage-sea__glint"></span>
+    </div>
     <div class="sillage-sea__front"></div>
   </div>
   <button class="sillage-sound" type="button" aria-label="Sound of the sea" aria-pressed="true" data-sillage-sound hidden>
@@ -160,17 +162,19 @@ const vars = [
     margin-top: calc(-48 * var(--u));
     margin-bottom: -48px;
     height: calc(240 * var(--u));
+    /* How far the band has scrolled in, for the arrival. */
+    view-timeline: --sillage-arrive block;
   }
 
   /* The picture. Hidden from assistive tech as a whole; the sound switch
-     beside it is the one control. */
+     beside it is the one control. Its sky runs on up behind the footer, so
+     a boat thrown into the air, or anything else leaping out of the water,
+     has room above the band — the footer stays on top of it all. */
   .sillage-sea {
     position: absolute;
-    inset: 0;
+    inset: calc(-120 * var(--u)) 0 0;
     overflow: hidden;
     contain: layout paint;
-    /* How far the band has scrolled in, for the arrival. */
-    view-timeline: --sillage-arrive block;
     /* Sideways drags belong to the sea; vertical ones still scroll the page. */
     touch-action: pan-y pinch-zoom;
     user-select: none;
@@ -417,7 +421,15 @@ const vars = [
   }
 
   /* --- White water ---------------------------------------------------------
-     The bow wave: its sprite's stem point sits on the water at the stem. */
+     All of it lives in one layer the size of the band, so the script can
+     carry the boat's water with her when she is moved, and dry it up when
+     she is lifted out. */
+  .sillage-sea__wake {
+    inset: 0;
+    pointer-events: none;
+  }
+
+  /* The bow wave: its sprite's stem point sits on the water at the stem. */
   .sillage-sea__bow {
     left: calc(var(--boat-x) + (var(--bow) - var(--bow-sx)) * var(--u));
     bottom: calc(var(--waterline) - (var(--bow-h) - var(--bow-sy)) * var(--u));
@@ -583,9 +595,12 @@ const vars = [
 
   @media (prefers-reduced-motion: reduce) {
     /* No timeline, so the arrival animations never apply. */
+    .sillage {
+      view-timeline: none;
+    }
+
     .sillage-sea {
       cursor: auto;
-      view-timeline: none;
     }
 
     .sillage-sea * {

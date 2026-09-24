@@ -202,13 +202,12 @@ test.describe('Blog routes', () => {
     // front of all of it. The art loads only once the band is in view.
     const sea = page.locator('.sillage-sea');
     await expect(sea).toHaveAttribute('aria-hidden', 'true');
-    expect(
-      await sea.evaluate((el) =>
-        Array.from(el.children, (child) => child.className.replace('sillage-sea__', '')).filter(
-          (layer) => layer !== 'foam',
-        ),
-      ),
-    ).toEqual(['clouds', 'back', 'boat', 'near', 'bow', 'churn', 'glint', 'front']);
+    const layers = (el: Element) =>
+      Array.from(el.children, (child) => child.className.replace('sillage-sea__', '')).filter(
+        (layer) => layer !== 'foam',
+      );
+    expect(await sea.evaluate(layers)).toEqual(['clouds', 'back', 'boat', 'near', 'wake', 'front']);
+    expect(await sea.locator('.sillage-sea__wake').evaluate(layers)).toEqual(['bow', 'churn', 'glint']);
     await sea.scrollIntoViewIfNeeded();
     await expect(sea).toHaveAttribute('data-seen', '');
     await expect(sea.locator('.sillage-sea__near')).toHaveCSS(
