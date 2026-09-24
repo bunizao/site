@@ -41,7 +41,10 @@ function RowBody({ item }: { item: ExperienceItem }) {
         )}
       </div>
 
-      <span className="exp-period shrink-0 pt-[3px] max-[480px]:w-full max-[480px]:pl-[50px] max-[480px]:pt-1">
+      {/* On a phone the period wraps under the text column. It takes the
+          column's own 2px line step there, not the row's 14px gap plus 4px of
+          padding, which left it floating 18px below the row it dates. */}
+      <span className="exp-period shrink-0 pt-[3px] max-[480px]:w-full max-[480px]:pl-[50px] max-[480px]:pt-0">
         {item.period}
       </span>
     </>
@@ -49,7 +52,7 @@ function RowBody({ item }: { item: ExperienceItem }) {
 }
 
 const ROW_FLEX =
-  'flex flex-wrap items-start gap-[14px] py-4 min-[481px]:flex-nowrap';
+  'flex flex-wrap items-start gap-x-[14px] gap-y-0.5 py-4 min-[481px]:flex-nowrap';
 
 export default function ExperienceTimeline() {
   const [hydrated, setHydrated] = useState(false);
