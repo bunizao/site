@@ -1,8 +1,13 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test';
 import { chromium, type Browser, type Page } from '@playwright/test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
+
+// Each case builds a fixture and waits out a ~2s evidence deadline in headless
+// Chromium; on a slow shared runner that overran bun's 5s default. The 2.7s
+// deadline the tests assert is the contract, not this harness limit.
+setDefaultTimeout(30_000);
 
 let browser: Browser;
 let directory: string;
@@ -45,7 +50,7 @@ beforeAll(async () => {
   }
   if (!entryPath || !fingerprintPath) throw new Error('Missing evidence fixture modules');
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL, headless: true });
-}, 15_000);
+}, 60_000);
 
 afterAll(async () => {
   await browser?.close();

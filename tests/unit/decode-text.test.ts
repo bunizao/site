@@ -1,6 +1,11 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test';
 import { chromium, type Browser } from '@playwright/test';
 import { join } from 'node:path';
+
+// These tests drive real multi-second animations in headless Chromium. Shared
+// CI runners vary about 2x in CPU speed, which pushed the 2s reveal past bun's
+// 5s default and the browser launch past 15s.
+setDefaultTimeout(30_000);
 
 let browser: Browser;
 let moduleSource = '';
@@ -20,7 +25,7 @@ beforeAll(async () => {
     channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL,
     headless: true,
   });
-}, 15_000);
+}, 60_000);
 
 afterAll(async () => {
   await browser?.close();
