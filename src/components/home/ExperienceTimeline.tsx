@@ -18,22 +18,14 @@ function RowBody({ item }: { item: ExperienceItem }) {
           names, so this section reads the same --home-* scale as the four
           Astro sections instead of carrying its own hardcoded sizes. */}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-px">
-        <span className="flex items-center gap-2">
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="exp-org w-fit transition-opacity duration-150 hover:opacity-60"
-          >
-            {item.org}
-          </a>
-          {item.current && (
-            <span className="flex h-[7px] w-[7px] items-center justify-center">
-              <span className="sr-only">Current</span>
-              <span className="exp-live-dot inline-flex h-[6px] w-[6px]" aria-hidden="true" />
-            </span>
-          )}
-        </span>
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="exp-org w-fit transition-opacity duration-150 hover:opacity-60"
+        >
+          {item.org}
+        </a>
 
         {item.role && <span className="exp-detail text-pretty">{item.role}</span>}
 

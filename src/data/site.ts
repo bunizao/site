@@ -465,8 +465,6 @@ export interface ExperienceItem {
   /** Monash carries a fuller description + location instead of a role. */
   description?: string;
   location?: string;
-  /** Pulsing dot — the one role that's genuinely current. */
-  current?: boolean;
   /** Tongue-in-cheek "subscriber" row; llms.txt leaves it out. */
   joke?: boolean;
 }
@@ -480,7 +478,6 @@ export const experience: ExperienceItem[] = [
     strokeWidth: 1.8,
     description: "Studying for a Bachelor's degree in Data Science (Honours)",
     location: 'Clayton, Melbourne, Australia',
-    current: true,
   },
   {
     org: 'Anthropic',

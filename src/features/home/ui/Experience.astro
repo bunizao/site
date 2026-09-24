@@ -84,29 +84,6 @@ import ExperienceTimeline from '@/components/home/ExperienceTimeline';
       0 0 0 4px hsl(var(--background));
   }
 
-  /* The "current" marker, in the session ink like every live marker on the
-     page and in the same shape: a 1-radius square cell, like the hero's
-     status mark. It used to be a disc with a ping ring, the stock "online"
-     badge. It blinks twice like the name's caret when the section is
-     revealed and then rests. */
-  :global(#experience-section .exp-live-dot) {
-    background: var(--home-accent);
-    border-radius: 1px;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    :global(html:not(.reveal-ready) #experience-section .exp-live-dot),
-    :global(.reveal-ready #experience-section.is-revealed .exp-live-dot) {
-      animation: exp-live-caret 1s steps(1, end) 700ms 2;
-    }
-  }
-
-  @keyframes exp-live-caret {
-    50% {
-      opacity: 0;
-    }
-  }
-
   /* The period stamp is the one mono element in the section. It was the worst
      offender: 12px at weight 300 (which the scale banishes below 15px) with
      tracking inherited as 0, so the tabular digits sat cramped against their
