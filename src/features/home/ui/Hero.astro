@@ -77,19 +77,21 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
     <div class="hero-animate" style="--hero-i: 4" data-hero-bio>
       <DecodeText class="hero-bio">
         <p>
-          I make interesting things, and study Computer Science (DS &amp; AI)
-          at <a class="hero-link" href={school.url} {...external} {...cardAttrs('monash')} style="--draw-i: 0" data-decode-atom>{school.org}</a>.
+          I build things, then polish them. Interfaces, proxy systems, and the
+          small tools in between. I sweat the details, and the milliseconds.
         </p>
         <p>
-          Mostly frontend, proxies and open source, with a soft spot for
-          speed. Some of it ships as
-          <a class="hero-link" href="/projects" {...cardAttrs('projects')} style="--draw-i: 1" data-decode-atom>projects</a>,
-          some I <a class="hero-link" href="/blog" {...cardAttrs('write')} style="--draw-i: 2" data-decode-atom>write</a> about,
-          and the small stuff lands in <a class="hero-link" href="/mood" {...cardAttrs('moods')} style="--draw-i: 3" data-decode-atom>moods</a>.
+          Some of it ships as
+          <a class="hero-link" href="/projects" {...cardAttrs('projects')} style="--draw-i: 0" data-decode-atom>projects</a>,
+          some I <a class="hero-link" href="/blog" {...cardAttrs('write')} style="--draw-i: 1" data-decode-atom>write</a> about,
+          and the small stuff lands in <a class="hero-link" href="/mood" {...cardAttrs('moods')} style="--draw-i: 2" data-decode-atom>moods</a>.
         </p>
         <p>
-          <a class="hero-link" href="/message" {...cardAttrs('message')} style="--draw-i: 4" data-decode-atom>Say hi</a>
-          about an idea, a bug on this site, or anything at all. I'm also on
+          Currently studying Computer Science at
+          <a class="hero-link" href={school.url} {...external} {...cardAttrs('monash')} style="--draw-i: 3" data-decode-atom>{school.org}</a>,
+          in Melbourne.
+          <a class="hero-link" href="/message" {...cardAttrs('message')} style="--draw-i: 4" data-decode-atom>Say hi</a>,
+          or find me on
           {socials.map((social, i) => {
             const Icon = brandIcons[social.name] ?? social.icon;
             return (

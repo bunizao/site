@@ -70,9 +70,10 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
 - A faint `.hero-lcp-anchor` paints the longest name at first paint, since
   canvas text does not count for LCP. The script removes it when typing
   starts; left in place it showed through as a ghost behind the caret.
-- The bio is three paragraphs of prose written in `Hero.astro`, and all of
-  it decodes. Every link is a word in the sentence: Monash University, `projects`,
-  `write`, `moods`, `Say hi` (to `/message`) and the `hero.socials`
+- The bio is three short paragraphs of prose written in `Hero.astro`, and
+  all of it decodes: what I build, where it goes, and where I am. Every link
+  is a word in the sentence, in reading order: `projects`, `write`, `moods`,
+  Monash University, `Say hi` (to `/message`) and the `hero.socials`
   channels. Only links are bright; the rest of the prose stays muted. They are decode atoms, so they keep their boxes through the
   reveal, and the original markup comes back once it settles. No email
   address on the page, only `/message`.
