@@ -3,3 +3,4 @@ export { AnthropicIcon } from './anthropic';
 export { ClaudeIcon } from './claude';
 export { PerplexityIcon } from './perplexity';
 export { GitHubIcon, InstagramIcon, TelegramIcon } from './brand';
+export { MonashCrestIcon } from './monash';

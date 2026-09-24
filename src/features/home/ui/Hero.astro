@@ -31,8 +31,6 @@ const brandIcons: Record<string, typeof GitHubIcon> = {
   Instagram: InstagramIcon,
 };
 const external = { target: '_blank', rel: 'noopener noreferrer' };
-// Underlines draw in reading order; the socials follow the five links above.
-const SOCIAL_DRAW_START = 5;
 const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length - 1 ? ' and ' : ', ');
 ---
 
@@ -80,7 +78,7 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
       <DecodeText class="hero-bio">
         <p>
           I make interesting things. Currently studying Computer Science in
-          DS &amp; AI at <a class="hero-link hero-link--icon" href={school.url} {...external} {...cardAttrs('monash')} style="--draw-i: 0" data-decode-atom><span class="hero-link-icon hero-link-crest"></span>{school.org}</a>.
+          DS &amp; AI at <a class="hero-link" href={school.url} {...external} {...cardAttrs('monash')} style="--draw-i: 0" data-decode-atom>{school.org}</a>.
         </p>
         <p>
           Curious about <span class="text-foreground">frontend design</span>,
@@ -97,7 +95,7 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
           {socials.map((social, i) => {
             const Icon = brandIcons[social.name] ?? social.icon;
             return (
-              <>{socialJoiner(i)}<a class="hero-link hero-link--icon" href={social.url} {...external} {...cardAttrs(social.name.toLowerCase())} style={`--draw-i: ${SOCIAL_DRAW_START + i}`} data-decode-atom><Icon className="hero-link-icon" />{social.name}</a></>
+              <>{socialJoiner(i)}<a class="hero-link hero-link--icon" href={social.url} {...external} {...cardAttrs(social.name.toLowerCase())} data-decode-atom><Icon className="hero-link-icon" />{social.name}</a></>
             );
           })}.
         </p>
@@ -311,39 +309,39 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
     margin-top: 0.6em;
   }
 
-  /* Every link is the word itself, underlined. The underline is a background
-     so it draws with one property; the bottom padding drops it just under the
-     descenders without touching the line box. */
+  /* Every link carries one mark: the words that stay on the site are
+     underlined, the channels that leave it lead with their brand. Both
+     marks on one word, or an underline under every word, crowded the lines.
+     The underline is a background so it draws with one property; the bottom
+     padding drops it just under the descenders without touching the line
+     box. */
   .hero-link {
-    --underline: hsl(var(--foreground) / 0.3);
+    --underline: hsl(var(--foreground) / 0.24);
     position: relative;
     z-index: 0;
     padding-bottom: 0.1em;
     color: var(--home-fg-primary);
     text-decoration: none;
     white-space: nowrap;
-    background: linear-gradient(var(--underline), var(--underline)) no-repeat var(--icon-w, 0px) 100% / calc(100% - var(--icon-w, 0px)) max(1px, 0.12em);
+    background: linear-gradient(var(--underline), var(--underline)) no-repeat 0 100% / 100% 1px;
   }
 
-  /* A brand mark sits in front of the word, outside its underline, so the
-     line still reads as the word. */
   .hero-link--icon {
-    --icon-w: 1.25em;
+    background: none;
   }
 
   .hero-link :global(.hero-link-icon) {
     display: inline-block;
-    width: 0.95em;
-    height: 0.95em;
-    margin-right: 0.3em;
-    vertical-align: -0.12em;
-    opacity: 0.86;
+    width: 0.9em;
+    height: 0.9em;
+    margin-right: 0.28em;
+    vertical-align: -0.1em;
+    opacity: 0.72;
+    transition: opacity 150ms ease;
   }
 
-  /* The crest is detailed line art; a mask keeps it one ink in both themes. */
-  .hero-link-crest {
-    background: currentColor;
-    mask: url('/brands/monash-crest.svg') center / contain no-repeat;
+  .hero-link:hover :global(.hero-link-icon) {
+    opacity: 1;
   }
 
   /* The hover highlight rises out of the underline. */
@@ -375,7 +373,7 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
      Reduced motion never hides them. */
   @media (prefers-reduced-motion: no-preference) {
     :global(html.js .decode-text:not(.dt-settled)) .hero-link {
-      background-size: 0% max(1px, 0.12em);
+      background-size: 0% 1px;
     }
 
     :global(.decode-text.dt-settled) .hero-link {

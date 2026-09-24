@@ -4,8 +4,8 @@
 // documents, not UI labels.
 import type { CommentPolicy } from '@bunizao/contracts/comments';
 import type { ComponentType } from 'react';
-import { FileText, Mail, Send, GraduationCap } from 'lucide-react';
-import { OpenAIIcon, AnthropicIcon, GitHubIcon, InstagramIcon } from '@/components/icons';
+import { FileText, Mail, Send } from 'lucide-react';
+import { OpenAIIcon, AnthropicIcon, GitHubIcon, InstagramIcon, MonashCrestIcon } from '@/components/icons';
 
 // --- Identity ---------------------------------------------------------------
 // The canonical "who I am" facts. seo.ts reads name/jobTitle/knowsAbout/links
@@ -465,8 +465,7 @@ export const experience: ExperienceItem[] = [
     org: 'Monash University',
     url: 'https://www.monash.edu',
     period: 'Jul 2025 — Present',
-    icon: GraduationCap,
-    strokeWidth: 1.8,
+    icon: MonashCrestIcon,
     description: 'Studying Computer Science in Data Science and AI',
     location: 'Clayton, Melbourne, Australia',
   },
