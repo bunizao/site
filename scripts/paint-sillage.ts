@@ -373,8 +373,8 @@ function palettes(): Record<'light' | 'dark' | 'dusk-light' | 'dusk-dark', Palet
         [0.45, mix(rose, mauve, 0.55)],
         [0.62, mix(mauve, white, 0.35)],
       ],
-      wash: 0.78,
-      strokes: 0.7,
+      wash: 0.5,
+      strokes: 0.5,
     },
   };
 
@@ -439,8 +439,8 @@ function palettes(): Record<'light' | 'dark' | 'dusk-light' | 'dusk-dark', Palet
         [0.34, mix(night, mix(periwinkle, mauve, 0.3), 0.56)],
         [0.6, mix(night, violet, 0.5)],
       ],
-      wash: 0.66,
-      strokes: 0.7,
+      wash: 0.5,
+      strokes: 0.5,
     },
   };
   return { light, dark, 'dusk-light': duskLight, 'dusk-dark': duskDark };
@@ -1855,9 +1855,9 @@ const SEA_BOX_H = 360;
 const SKY = { width: 640, height: SEA_BOX_H - BACK_FLOOR };
 /** The far swell's resting surface, from the strip's top: the sky's 0. */
 const HORIZON = SKY.height - (BACK_H - BACK_HEADROOM);
-/** How high the colour reaches, and the crayon along the horizon. */
-const SKY_REACH = 0.62;
-const SKY_STROKES = 0.16;
+/** How fast the colour thins above the horizon, and how high the crayon goes. */
+const SKY_FALL = 3.2;
+const SKY_STROKES = 0.12;
 
 function skyColor(colors: [number, RGB][], t: number): RGB {
   let i = 0;
@@ -1868,9 +1868,8 @@ function skyColor(colors: [number, RGB][], t: number): RGB {
 }
 
 /**
- * The sky's colour: one even wash, heaviest on the horizon and eased out to
- * nothing well below the footer's text, so the page's own sky takes over
- * without a seam; then a few level crayon strokes along the horizon only,
+ * The sky's colour: one faint wash, heaviest on the horizon and thinning all
+ * the way up, so the page's own sky takes over without a seam; then a few level crayon strokes along the horizon only,
  * where the light is, so it still reads as drawn.
  */
 function paintSky(p: Palette, seed: number): Art {
@@ -1886,7 +1885,11 @@ function paintSky(p: Palette, seed: number): Art {
 
   const cover = new Float32Array(w * h);
   for (let y = 0; y < h; y++) {
-    const a = wash * (1 - smooth(0, SKY_REACH, heightAt(y)));
+    // Mostly on the horizon, with a long faint tail that reaches nothing at
+    // the top of the box: on a phone the whole sky is a few dozen px tall, and
+    // a short fade there reads as an edge.
+    const t = heightAt(y);
+    const a = wash * Math.exp(-SKY_FALL * t) * (1 - smooth(0, 1, t));
     for (let x = 0; x < w; x++) cover[y * w + x] = a * (0.92 + 0.16 * tone[y * w + x]);
   }
   ground(art, cover, (_x, y) => skyColor(colors, heightAt(y)), tone, 0);
@@ -1928,8 +1931,8 @@ const SUN_R = 26;
 const HALO_R = 72;
 
 /**
- * The low sun: a crayoned disc, hotter at the heart, rimmed rose, in a haze of
- * level strokes that thin out away from it. Its centre sits on the far
+ * The low sun: a crayoned disc, hotter at the heart, rimmed rose, in a soft
+ * haze. Strokes in the haze read as a patch against the faint sky. Its centre sits on the far
  * swell, so the water hides the lower half of both.
  */
 function paintSun(p: Palette, seed: number): Art {
@@ -1939,30 +1942,8 @@ function paintSun(p: Palette, seed: number): Art {
   const glow = (x: number, y: number) => Math.pow(clamp01(1 - Math.hypot(x - c, y - c) / (HALO_R * R)), 1.7);
 
   const haze = new Float32Array(art.w * art.h);
-  for (let i = 0; i < haze.length; i++) haze[i] = glow(i % art.w, (i / art.w) | 0) * 0.5;
+  for (let i = 0; i < haze.length; i++) haze[i] = glow(i % art.w, (i / art.w) | 0) * 0.35;
   ground(art, haze, () => p.halo, tone, 0.04);
-  for (let y = SUN.width / 2 - HALO_R; y < SUN.width / 2 + 4; y += between(r, 2.4, 3.6)) {
-    const half = Math.sqrt(Math.max(0, HALO_R * HALO_R - (y - SUN.width / 2) ** 2));
-    let x = SUN.width / 2 - half + between(r, -4, 4);
-    while (x < SUN.width / 2 + half) {
-      const len = between(r, 14, 44);
-      sweep(
-        art,
-        tooth,
-        {
-          x: x * R,
-          y: y * R,
-          len: len * R,
-          width: between(r, 3.5, 5.5) * R,
-          pressure: 0.85,
-          color: mix(p.halo, p.sun, glow(x * R + (len * R) / 2, y * R)),
-          clip: (px, py) => Math.pow(glow(px, py), 0.6),
-        },
-        r,
-      );
-      x += len * between(r, 0.75, 1.15);
-    }
-  }
 
   const disc: Pt[] = [];
   for (let i = 0; i < 90; i++) {
