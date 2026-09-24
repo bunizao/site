@@ -1436,33 +1436,34 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     pointer-events: auto;
   }
 
-  /* The chat floats over prose, so it clears a patch of glass behind it
-     with no edge: two backdrop blurs, the stronger one tighter, each fading
-     out at its sides, so the text behind softens progressively towards the
-     messages. */
+  /* The chat floats over prose, so the prose behind it softens: a haze with
+     no edge, cut from overlapping ellipses that follow the two bubbles and
+     the reply box, so its outline is a cloud rather than a box. Two layers,
+     the stronger blur on the tighter shape, so it thickens towards the
+     messages. The shapes are percentages of a box whose content is fixed. */
   .hc--telegram::before,
   .hc--telegram::after {
-    --tg-fade: 40px;
     content: '';
     position: absolute;
-    inset: -36px -44px;
+    inset: -40px -48px;
     z-index: -1;
     pointer-events: none;
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
     mask:
-      linear-gradient(to right, transparent, #000 var(--tg-fade), #000 calc(100% - var(--tg-fade)), transparent),
-      linear-gradient(transparent, #000 var(--tg-fade), #000 calc(100% - var(--tg-fade)), transparent);
-    mask-composite: intersect;
-    -webkit-mask-composite: source-in;
+      radial-gradient(ellipse 19% 22% at 79% 28%, #000 35%, transparent),
+      radial-gradient(ellipse 42% 22% at 58% 46%, #000 40%, transparent),
+      radial-gradient(ellipse 48% 22% at 50% 69%, #000 40%, transparent);
   }
 
   .hc--telegram::after {
-    --tg-fade: 20px;
-    inset: -14px -18px;
-    background: color-mix(in oklab, var(--home-surface) 45%, transparent);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: color-mix(in oklab, var(--home-surface) 35%, transparent);
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+    mask:
+      radial-gradient(ellipse 13% 15% at 79% 28%, #000 45%, transparent),
+      radial-gradient(ellipse 35% 15% at 58% 46%, #000 50%, transparent),
+      radial-gradient(ellipse 43% 17% at 50% 69%, #000 50%, transparent);
   }
 
   /* Two messages from me, sent side and iMessage blue, so they stand off the
