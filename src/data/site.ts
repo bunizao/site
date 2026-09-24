@@ -467,7 +467,7 @@ export interface ExperienceItem {
   location?: string;
   /** Pulsing dot — the one role that's genuinely current. */
   current?: boolean;
-  /** Hidden behind a blur until hovered; reveals with a particle burst. */
+  /** Tongue-in-cheek "subscriber" row; llms.txt leaves it out. */
   joke?: boolean;
 }
 
