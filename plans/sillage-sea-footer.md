@@ -32,6 +32,11 @@ side-on cross-section of sea and sailboat ("2 维剖面的 海+帆船"), moving.
   end of the page, the layers part in depth as the band scrolls in, the site
   footer sits in the sea's sky, and CC0 surf, hull wash and splash recordings
   answer touch and scroll.
+- Fourth pass (2026-09-24, owner: "在页面底部往下滚还是会露出白色的底部 … 音效没有
+  关闭的按钮 … 拖动这个船好像也没有交互 … 能不能搞个海豚 … 黄昏时的大海 根据用户浏览
+  器时间判定"): the rubber band past the sea is gone, a sound switch sits in the
+  sky, the boat can be picked up and thrown, dolphins, fish, gulls and stars
+  answer touches, and a dusk sea comes up on the reader's evening clock.
 
 ## Decisions taken without the owner
 
@@ -46,7 +51,16 @@ side-on cross-section of sea and sailboat ("2 维剖面的 海+帆船"), moving.
   would sail the boat astern into her own wake.
 - **Silent until touched.** Scrolling to the sea never starts sound; the
   first touch of the water does, and it fades five seconds after the reader
-  stops. No mute button: sound only ever answers the reader's own hand.
+  stops. The owner then asked for an off switch as well; it is remembered.
+- **Dusk is a fixed window, 17:00–19:30 local.** The page knows the time, not
+  the place, so it cannot know the real sunset. The constants are in the
+  component script.
+- **Dusk is warm.** The blog's no-warm-accents rule gives way here only, at the
+  owner's asking; the flag stays 霁.
+- **No rubber band on /blog.** `overscroll-behavior-y: none` on the page
+  scroller wherever the sea is. The top of the page loses its bounce too.
+- **The boat blocks scrolling where she stands.** A touch on her box never
+  scrolls, so she can be lifted in any direction on a phone.
 - **Scroll only adds speed.** Scrolling back up does not slow or reverse the
   sea; it just stops feeding it.
 - **No crest curls.** Tried on the front row; at this scale they read as stray

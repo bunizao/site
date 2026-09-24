@@ -5,7 +5,7 @@ The art is generated, not drawn by hand. Every image here comes out of
 
 ```bash
 bun scripts/paint-sillage.ts          # repaint everything
-bun scripts/paint-sillage.ts boat     # repaint one piece, both themes
+bun scripts/paint-sillage.ts boat     # repaint one piece, in every set
 ```
 
 The same run writes `src/features/posts/ui/sillage-motion.json` — the geometry,
@@ -14,9 +14,10 @@ two must always come from the same run; commit them together.
 
 ## What is here
 
-Two sets, `light/` and `dark/`, of the same picture. Night is repainted in a
-night palette, not filtered from day: pastel on black paper puts the lighter
-pigment on top, and a filter cannot do that.
+Four sets of the same picture: `light/` and `dark/`, and `dusk-light/` and
+`dusk-dark/` (blue hour) for the reader's evening. Each is repainted in its own
+palette, not filtered from day: pastel on black paper puts the lighter pigment
+on top, and a filter cannot do that. Only one set ever loads.
 
 | File | Notes |
 |------|-------|
@@ -29,11 +30,18 @@ pigment on top, and a filter cannot do that.
 | `foam.webp`   | Six wake streaks stacked as rows. Splashes reuse them. |
 | `spray.webp`  | The bow wave. |
 | `drops.webp`  | Four droplets stacked as rows, for the splash a touch makes. |
-| `glint.webp`  | Dark only: the stern lantern's reflection. |
+| `glint.webp`  | Wherever the lantern is lit (all but day): its reflection. |
+| `dolphin.webp`| Leaps out of the near water at a touch. |
+| `fish.webp`   | One of a jumping shoal. |
+| `gull.webp`   | Day and dusk skies: two frames of a wingbeat, stacked. |
+| `star.webp`   | Night and blue hour skies: lit where the sky is touched. |
+| `sun.webp`    | `dusk-light/` only: the low sun, half behind the far swell. |
+| `glitter.webp`| `dusk-light/` only: the sun's road on the water. |
 
 ## Changing it
 
-Every colour is mixed from `blogPalette` in `src/data/site.ts`. Change an ink
+Every day and night colour is mixed from `blogPalette` in `src/data/site.ts`;
+dusk has its own few warm inks at the top of `palettes()`. Change an ink
 there, re-run, and the sea follows. The swells, the boat's position on the tile
 and the tempo are constants at the top of the script; the boat's ride is
 sampled from the same swell, so it stays true to whatever the water does. The
