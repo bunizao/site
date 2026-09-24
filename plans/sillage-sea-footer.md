@@ -37,6 +37,11 @@ side-on cross-section of sea and sailboat ("2 维剖面的 海+帆船"), moving.
   器时间判定"): the rubber band past the sea is gone, a sound switch sits in the
   sky, the boat can be picked up and thrown, dolphins, fish, gulls and stars
   answer touches, and a dusk sea comes up on the reader's evening clock.
+- Fifth pass (2026-09-24, owner: "海豚太频繁了 … 蓝调时刻和黄昏的效果还可以再优化"):
+  dolphins are rare after the first; the dusk sky is crayoned instead of a CSS
+  gradient, which over black paper went brown; the sun has a haze and a longer
+  road; blue hour trades its gold crests for lilac and gets indigo clouds, a
+  new moon and the first stars.
 
 ## Decisions taken without the owner
 

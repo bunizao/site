@@ -35,8 +35,10 @@ on top, and a filter cannot do that. Only one set ever loads.
 | `fish.webp`   | One of a jumping shoal. |
 | `gull.webp`   | Day and dusk skies: two frames of a wingbeat, stacked. |
 | `star.webp`   | Night and blue hour skies: lit where the sky is touched. |
-| `sun.webp`    | `dusk-light/` only: the low sun, half behind the far swell. |
-| `glitter.webp`| `dusk-light/` only: the sun's road on the water. |
+| `sky.webp`    | Dusk sets only: the sky's colour, crayoned from the far swell up and gone to bare page before the footer's text. Tiles across; lossless alpha, because a lossy one bands. |
+| `sun.webp`    | `dusk-light/` only: the low sun in its haze, half behind the far swell. |
+| `glitter.webp`| `dusk-light/` only: the sun's road, from the far swell to the front row. |
+| `moon.webp`   | `dusk-dark/` only: blue hour's new moon. The first stars reuse `star.webp`. |
 
 ## Changing it
 

@@ -144,7 +144,7 @@ blues as the links above it. Change an ink, re-run, and the painting follows;
 `sillage-motion.json` next to the component, which carries the geometry and the
 motion. The component draws nothing and hardcodes no numbers.
 
-Layers, back to front: the dusk sky wash and sun (dusk only), clouds, back
+Layers, back to front: the dusk sky and sun or moon (dusk only), clouds, back
 swell, boat, near sea, the sun's road (dusk only), the white water (bow wave,
 wake and, once the lantern is lit, its reflection), then a front row of waves
 across the lower sea. The picture's box runs 120 art px above the band, behind
@@ -203,9 +203,11 @@ before touching it:
   stern lantern: a glow on the boat and a reflection on the water.
 - **Dusk is the reader's clock.** From 17:00 to 19:30 local time the component
   sets `data-dusk` and the dusk set loads instead: violet water with rose and
-  gold crests, clouds lit from below, a wash of sunset over the page's own sky,
-  and by day a sun half down behind the far swell with its road on the water;
-  in the dark theme it is blue hour, the sun gone and the glow left. It is the
+  gold crests, clouds lit from below, and a crayoned sunset sky that fades to
+  the bare page before the footer's text. By day a sun sits half down behind
+  the far swell, in a haze, its road running down to the front row; in the
+  dark theme it is blue hour — the sun gone, a thin warm line left on the far
+  water, indigo clouds lit from under, a new moon and the first stars. It is the
   one place warm colour is allowed on the blog, at the owner's asking.
   `?sea=dusk` or `?sea=day` previews either at any hour.
 
