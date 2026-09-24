@@ -349,6 +349,14 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
     mask: url('/brands/monash-crest.svg') center / contain no-repeat;
   }
 
+  /* During the decode an icon is a text-free child the atom copies in whole,
+     so it would stand alone before any text has appeared. It waits for the
+     first letter of its word: a cell not yet shown is empty. The restored
+     markup has no cells, so this never applies once the text settles. */
+  .hero-link :global(.hero-link-icon:has(+ .dt-c:empty)) {
+    display: none;
+  }
+
   .hero-link:hover :global(.hero-link-icon) {
     opacity: 1;
   }
