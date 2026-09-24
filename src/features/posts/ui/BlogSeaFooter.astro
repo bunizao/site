@@ -32,7 +32,9 @@
  *   - The boat can be picked up and thrown, and the sea keeps company:
  *     dolphins and fish leap at a touch of the water, gulls and stars answer
  *     the sky (sillage-life.ts).
- *   - At dusk by the reader's clock, the dusk set is painted in instead.
+ *   - At dusk by the reader's clock, the dusk set is painted in instead,
+ *     with a crayoned sky: a low sun by day, a new moon and the first stars
+ *     in blue hour.
  *
  * Everything is a transform or opacity animation, so it runs off the main
  * thread. It only runs while the band is on screen, and reduced motion gets
@@ -40,7 +42,7 @@
  */
 import motion from './sillage-motion.json';
 
-const { tile, period, near, front, back, clouds, boat, foam, bow, drop, creatures, ride } = motion;
+const { tile, period, near, front, back, clouds, boat, foam, bow, drop, creatures, sky, ride } = motion;
 
 // Keyframes generated from the painted surface. Closed with a copy of the first
 // frame so the loop joins itself.
@@ -78,8 +80,8 @@ const common = ['front', 'near', 'back', 'clouds', 'boat', 'flag', 'foam', 'spra
 const sets: [string, string, string[]][] = [
   ['light', '.sillage-sea[data-seen]', [...common, 'gull']],
   ['dark', '.dark .sillage-sea[data-seen]', [...common, 'star', 'glint']],
-  ['dusk-light', '.sillage-sea[data-seen][data-dusk]', [...common, 'gull', 'glint', 'sun', 'glitter']],
-  ['dusk-dark', '.dark .sillage-sea[data-seen][data-dusk]', [...common, 'star', 'glint']],
+  ['dusk-light', '.sillage-sea[data-seen][data-dusk]', [...common, 'gull', 'glint', 'sky', 'sun', 'glitter']],
+  ['dusk-dark', '.dark .sillage-sea[data-seen][data-dusk]', [...common, 'star', 'glint', 'sky', 'moon']],
 ];
 const artCss = sets
   .map(([dir, selector, files]) => `${selector}{${files.map((f) => `--art-${f}:url('/sillage/${dir}/${f}.webp')`).join(';')}}`)
@@ -130,12 +132,29 @@ const vars = [
   `--sun-w:${creatures.sun.width}`,
   `--glitter-w:${creatures.glitter.width}`,
   `--glitter-h:${creatures.glitter.height}`,
+  `--moon-w:${creatures.moon.width}`,
+  `--sky-w:${sky.width}`,
 ].join(';');
+
+// Blue hour's first stars: x across the band, y in art px up from the dusk
+// sky's floor, and each its own twinkle. The footer's text reaches down to
+// 150 there on a phone and spans 21–79% of it, so a star is under that or
+// outside it.
+const firstStars = [
+  [6, 196, 2.3],
+  [17, 150, 3.1],
+  [28, 136, 2.7],
+  [66, 128, 3.6],
+  [93, 210, 2.9],
+];
 ---
 
 <div class="sillage" style={vars} data-sillage>
   <div class="sillage-sea" data-sillage-sea aria-hidden="true">
-    <span class="sillage-sea__dusk"></span>
+    <span class="sillage-sea__dusk">
+      <i class="sillage-sea__moon"></i>
+      {firstStars.map(([x, y, tw]) => <i class="sillage-sea__first" style={`--x:${x}%;--y:${y};--tw:${tw}s`} />)}
+    </span>
     <span class="sillage-sea__sun"></span>
     <div class="sillage-sea__clouds"></div>
     <div class="sillage-sea__back"></div>
@@ -609,26 +628,44 @@ const vars = [
     display: none;
   }
 
+  /* The sky's colour, crayoned: a still strip from the far swell's floor to
+     the top of the box, going to bare page before the footer's text. */
   .sillage-sea[data-dusk] .sillage-sea__dusk {
     display: block;
     inset: 0 0 calc(var(--back-floor) * var(--u));
-    background: linear-gradient(
-      to top,
-      rgb(255 196 150 / 0.55),
-      rgb(240 164 146 / 0.32) 22%,
-      rgb(180 148 187 / 0.14) 48%,
-      transparent 78%
-    );
+    background-image: var(--art-sky);
+    background-repeat: repeat-x;
+    background-size: calc(var(--sky-w) * var(--u)) 100%;
   }
 
-  :global(.dark) .sillage-sea[data-dusk] .sillage-sea__dusk {
-    background: linear-gradient(
-      to top,
-      rgb(196 112 138 / 0.3),
-      rgb(113 121 200 / 0.16) 30%,
-      rgb(113 121 200 / 0.05) 55%,
-      transparent 80%
-    );
+  /* Blue hour: a new moon low to the right, under the footer's text on any
+     screen and clear of the sound switch, and the first few stars. */
+  .sillage-sea__moon,
+  .sillage-sea__first {
+    display: none;
+  }
+
+  :global(.dark) .sillage-sea[data-dusk] .sillage-sea__moon,
+  :global(.dark) .sillage-sea[data-dusk] .sillage-sea__first {
+    display: block;
+  }
+
+  .sillage-sea__moon {
+    left: calc(80% - var(--moon-w) * 0.5 * var(--u));
+    bottom: calc(108 * var(--u));
+    width: calc(var(--moon-w) * var(--u));
+    height: calc(var(--moon-w) * var(--u));
+    background-image: var(--art-moon);
+  }
+
+  .sillage-sea__first {
+    left: var(--x);
+    bottom: calc(var(--y) * var(--u));
+    width: calc(var(--star-w) * 0.6 * var(--u));
+    height: calc(var(--star-w) * 0.6 * var(--u));
+    background-image: var(--art-star);
+    opacity: 0.7;
+    animation: sillage-twinkle var(--tw) ease-in-out infinite alternate;
   }
 
   .sillage-sea[data-dusk] .sillage-sea__sun,

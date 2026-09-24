@@ -634,13 +634,21 @@
       "height": 14
     },
     "sun": {
-      "width": 64,
-      "height": 64
+      "width": 150,
+      "height": 150
     },
     "glitter": {
-      "width": 80,
-      "height": 44
+      "width": 120,
+      "height": 58
+    },
+    "moon": {
+      "width": 36,
+      "height": 36
     }
+  },
+  "sky": {
+    "width": 640,
+    "height": 286
   },
   "ride": {
     "heave": [

@@ -176,10 +176,24 @@ interface Palette {
   fish: RGB;
   bird: RGB;
   star: RGB;
-  /** Dusk only: the low sun and its road on the water. */
+  /** Dusk only: the low sun, the haze round it and its road on the water;
+      the sky's colour from the horizon up; the moon of blue hour. */
   sun: RGB;
   sunRim: RGB;
+  halo: RGB;
   glitter: RGB;
+  dusk: SkyStop[];
+  moon: RGB;
+}
+
+/** One band of dusk sky: `at` is the height over the far swell, 0 to 1 of the
+    strip's sky; `press` is how hard the crayon goes on, `wash` how much rubbed
+    colour lies under it. */
+interface SkyStop {
+  at: number;
+  color: RGB;
+  press: number;
+  wash: number;
 }
 
 function palettes(): Record<'light' | 'dark' | 'dusk-light' | 'dusk-dark', Palette> {
@@ -238,7 +252,10 @@ function palettes(): Record<'light' | 'dark' | 'dusk-light' | 'dusk-dark', Palet
     star: mix(ji.light, white, 0.6),
     sun: white,
     sunRim: white,
+    halo: white,
     glitter: white,
+    dusk: [],
+    moon: white,
   };
 
   // Night is pastel on black paper: the pigment is lighter than the ground, so
@@ -288,7 +305,10 @@ function palettes(): Record<'light' | 'dark' | 'dusk-light' | 'dusk-dark', Palet
     star: mix(ji.dark, white, 0.72),
     sun: white,
     sunRim: white,
+    halo: white,
     glitter: white,
+    dusk: [],
+    moon: white,
   };
 
   // Dusk, at the owner's asking ("黄昏时的大海"), is the one place the blog's
@@ -344,9 +364,21 @@ function palettes(): Record<'light' | 'dark' | 'dusk-light' | 'dusk-dark', Palet
     fish: mix(gold, white, 0.3),
     bird: mix(indigo, dian.light, 0.3),
     star: mix(peach, white, 0.5),
-    sun: mix(gold, white, 0.25),
-    sunRim: mix(rose, gold, 0.35),
-    glitter: mix(gold, white, 0.35),
+    sun: mix(gold, white, 0.12),
+    sunRim: mix(rose, gold, 0.25),
+    halo: mix(gold, peach, 0.5),
+    glitter: mix(gold, white, 0.2),
+    // Gold on the water, peach and rose above it, lilac going to the page.
+    dusk: [
+      { at: 0, color: mix(gold, peach, 0.4), press: 0.8, wash: 0.74 },
+      { at: 0.08, color: peach, press: 0.55, wash: 0.62 },
+      { at: 0.2, color: mix(rose, peach, 0.35), press: 0.28, wash: 0.44 },
+      { at: 0.36, color: mix(rose, mauve, 0.55), press: 0.1, wash: 0.24 },
+      { at: 0.52, color: mix(mauve, white, 0.35), press: 0, wash: 0.1 },
+      { at: 0.66, color: mix(mauve, white, 0.5), press: 0, wash: 0.03 },
+      { at: 0.78, color: mix(mauve, white, 0.6), press: 0, wash: 0 },
+    ],
+    moon: white,
   };
 
   // Blue hour: the sun gone, the last of its colour low in the sky and on the
@@ -355,29 +387,31 @@ function palettes(): Record<'light' | 'dark' | 'dusk-light' | 'dusk-dark', Palet
   const duskDark: Palette = {
     paper: night,
     front: {
-      ground: mix(night, periwinkle, 0.24),
-      light: mix(night, periwinkle, 0.5),
-      mid: mix(night, periwinkle, 0.34),
-      deep: mix(night, indigo, 0.34),
-      crest: mix(night, mix(rose, white, 0.3), 0.74),
+      ground: mix(night, periwinkle, 0.28),
+      light: mix(night, periwinkle, 0.56),
+      mid: mix(night, periwinkle, 0.4),
+      deep: mix(night, indigo, 0.4),
+      crest: mix(night, mix(mauve, white, 0.45), 0.74),
     },
     near: {
-      ground: mix(night, periwinkle, 0.19),
-      light: mix(night, mix(periwinkle, mauve, 0.3), 0.44),
-      mid: mix(night, periwinkle, 0.28),
-      deep: mix(night, indigo, 0.28),
-      crest: mix(night, mix(rose, white, 0.3), 0.68),
+      ground: mix(night, periwinkle, 0.23),
+      light: mix(night, mix(periwinkle, mauve, 0.4), 0.5),
+      mid: mix(night, periwinkle, 0.33),
+      deep: mix(night, indigo, 0.34),
+      crest: mix(night, mix(mauve, white, 0.45), 0.7),
     },
+    // The far water holds what is left of the sky: lilac, and rose on top.
     back: {
-      ground: mix(night, mauve, 0.18),
-      light: mix(night, mix(mauve, rose, 0.5), 0.38),
-      mid: mix(night, mauve, 0.26),
-      deep: mix(night, mix(mauve, indigo, 0.5), 0.16),
-      crest: mix(night, gold, 0.6),
+      ground: mix(night, mix(mauve, periwinkle, 0.4), 0.3),
+      light: mix(night, mix(mauve, rose, 0.45), 0.52),
+      mid: mix(night, mauve, 0.36),
+      deep: mix(night, mix(mauve, indigo, 0.5), 0.26),
+      crest: mix(night, mix(rose, peach, 0.4), 0.62),
     },
-    cloud: mix(night, mix(mauve, rose, 0.3), 0.2),
-    cloudLight: mix(night, mauve, 0.26),
-    cloudShade: mix(night, rose, 0.36),
+    // Dark against the last light, and lit from under by a sun gone down.
+    cloud: mix(night, mix(indigo, violet, 0.5), 0.62),
+    cloudLight: mix(night, violet, 0.62),
+    cloudShade: mix(night, mix(rose, peach, 0.3), 0.66),
     hull: mix(night, periwinkle, 0.3),
     hullDark: mix(night, periwinkle, 0.17),
     hullEdge: mix(night, mix(periwinkle, white, 0.4), 0.5),
@@ -388,7 +422,7 @@ function palettes(): Record<'light' | 'dark' | 'dusk-light' | 'dusk-dark', Palet
     flag: mix(night, ji.dark, 0.8),
     lantern: mix(gold, white, 0.45),
     spray: mix(night, mix(rose, white, 0.3), 0.66),
-    sky: 0.7,
+    sky: 0.85,
     dolphin: mix(night, mix(periwinkle, mauve, 0.3), 0.46),
     dolphinBelly: mix(night, mix(rose, white, 0.4), 0.66),
     fish: mix(night, gold, 0.7),
@@ -396,7 +430,20 @@ function palettes(): Record<'light' | 'dark' | 'dusk-light' | 'dusk-dark', Palet
     star: mix(peach, white, 0.6),
     sun: gold,
     sunRim: rose,
+    halo: gold,
     glitter: mix(gold, white, 0.3),
+    // A thin warm line on the water, then lilac, then the blue of the hour
+    // going up to the night that is coming.
+    dusk: [
+      { at: 0, color: mix(night, mix(peach, rose, 0.4), 0.86), press: 0.8, wash: 0.64 },
+      { at: 0.05, color: mix(night, rose, 0.74), press: 0.55, wash: 0.52 },
+      { at: 0.14, color: mix(night, mix(mauve, rose, 0.3), 0.64), press: 0.28, wash: 0.44 },
+      { at: 0.28, color: mix(night, mix(periwinkle, mauve, 0.3), 0.56), press: 0.1, wash: 0.4 },
+      { at: 0.46, color: mix(night, violet, 0.5), press: 0, wash: 0.26 },
+      { at: 0.62, color: mix(night, violet, 0.46), press: 0, wash: 0.1 },
+      { at: 0.8, color: mix(night, indigo, 0.5), press: 0, wash: 0 },
+    ],
+    moon: mix(peach, white, 0.55),
   };
   return { light, dark, 'dusk-light': duskLight, 'dusk-dark': duskDark };
 }
@@ -558,7 +605,9 @@ class Art {
     }
   }
 
-  async save(file: string, quality: number): Promise<number> {
+  /** Lossy alpha suits grainy strokes; a wide soft gradient wants 100: lossy,
+      it bands into contour lines, and lossless is smaller anyway. */
+  async save(file: string, quality: number, alphaQuality = 85): Promise<number> {
     const out = Buffer.alloc(this.w * this.h * 4);
     for (let i = 0; i < this.w * this.h; i++) {
       const a = this.px[i * 4 + 3];
@@ -569,7 +618,7 @@ class Art {
       out[i * 4 + 3] = Math.round(clamp01(a) * 255);
     }
     const webp = await sharp(out, { raw: { width: this.w, height: this.h, channels: 4 } })
-      .webp({ quality, alphaQuality: 85, effort: 6, smartSubsample: true })
+      .webp({ quality, alphaQuality, effort: 6, smartSubsample: true })
       .toBuffer();
     await writeFile(file, webp);
     return webp.length;
@@ -1677,8 +1726,10 @@ const DOLPHIN = { width: 70, height: 32 };
 const FISH = { width: 18, height: 9 };
 const GULL = { width: 32, height: 14, frames: 2 };
 const STAR = { width: 14, height: 14 };
-const SUN = { width: 64, height: 64 };
-const GLITTER = { width: 80, height: 44 };
+const SUN = { width: 150, height: 150 };
+/** From the far swell's surface (102 art px up) to the front row's (44). */
+const GLITTER = { width: 120, height: 58 };
+const MOON = { width: 36, height: 36 };
 
 /** A sprite canvas, and a mapper from sprite CSS px to its pixels. */
 function sprite(box: { width: number; height: number }, rows = 1, seed = 0) {
@@ -1801,27 +1852,140 @@ function paintStar(p: Palette, seed: number): Art {
   return art;
 }
 
-/** The low sun: a crayoned disc, hotter at the heart, rimmed rose. */
+/** The dusk sky, from the far swell's floor to the top of the sea box
+    (BlogSeaFooter.astro: the 240 px band and 120 px of sky above it). */
+const SEA_BOX_H = 360;
+const SKY = { width: 640, height: SEA_BOX_H - BACK_FLOOR };
+/** The sky is soft and wide: painted at 1x, it costs a quarter and looks the same. */
+const SKY_RES = 1;
+/** The far swell's resting surface, from the strip's top: the sky's 0. */
+const HORIZON = SKY.height - (BACK_H - BACK_HEADROOM);
+
+function skyAt(stops: SkyStop[], t: number): SkyStop {
+  let i = 0;
+  while (i < stops.length - 2 && t > stops[i + 1].at) i++;
+  const a = stops[i];
+  const b = stops[i + 1];
+  const k = clamp01((t - a.at) / (b.at - a.at));
+  return { at: t, color: mix(a.color, b.color, k), press: a.press + (b.press - a.press) * k, wash: a.wash + (b.wash - a.wash) * k };
+}
+
+/**
+ * The sky's colour, laid in the way pastel goes on: a thin rubbed wash, then
+ * long level strokes over it, pressed hard at the horizon and lifting off as
+ * they go up, until only the paper is left. Coverage fades, not opacity — a
+ * warm ink faded by alpha over black paper goes brown, but a warm ink laid
+ * thinner still reads as warm.
+ */
+function paintSky(p: Palette, seed: number): Art {
+  const R = SKY_RES;
+  const w = SKY.width * R;
+  const h = SKY.height * R;
+  const art = new Art(w, h, true);
+  const tooth = paperTooth(w, h, seed, 0.06);
+  const tone = mottle(w, h, seed + 2, 48, 5);
+  const r = random(seed + 1);
+  const heightAt = (y: number) => clamp01((HORIZON * R - y) / (HORIZON * R));
+
+  const wash = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const a = skyAt(p.dusk, heightAt(y)).wash;
+    for (let x = 0; x < w; x++) wash[y * w + x] = a * (0.8 + 0.4 * tone[y * w + x]);
+  }
+  ground(art, wash, (_x, y) => skyAt(p.dusk, heightAt(y)).color, tone, 0);
+
+  for (let y = h; y > 0; y -= between(r, 2.4, 4) * R) {
+    const band = skyAt(p.dusk, heightAt(y));
+    if (band.press < 0.02) continue;
+    let x = r() * 40 * R;
+    while (x < w) {
+      const len = between(r, 50, 200) * R;
+      // Now and then a gap, so the rows never close into a flat fill.
+      if (r() > band.press * 0.4 + 0.6) {
+        x += len * 0.6;
+        continue;
+      }
+      const at = skyAt(p.dusk, clamp01(heightAt(y) + between(r, -0.05, 0.05)));
+      sweep(
+        art,
+        tooth,
+        {
+          x,
+          y: y + between(r, -1, 1) * R,
+          len,
+          width: between(r, 4.5, 8) * R,
+          pressure: at.press * between(r, 0.8, 1.1),
+          color: at.color,
+          tilt: between(r, -0.008, 0.008),
+        },
+        r,
+      );
+      x += len * between(r, 0.7, 1.05);
+    }
+  }
+  // Rubbed in: a sky is worked with the side of the stick and a finger, not
+  // the point, so it carries none of the water's hard grain.
+  for (let i = 0; i < 3; i++) art.soften();
+  return art;
+}
+
+const SUN_R = 26;
+const HALO_R = 72;
+
+/**
+ * The low sun: a crayoned disc, hotter at the heart, rimmed rose, in a haze of
+ * level strokes that thin out away from it. Its centre sits on the far
+ * swell, so the water hides the lower half of both.
+ */
 function paintSun(p: Palette, seed: number): Art {
   const R = SPRITE_RES;
   const { art, tooth, tone, r, at } = sprite(SUN, 1, seed);
+  const c = (SUN.width / 2) * R;
+  const glow = (x: number, y: number) => Math.pow(clamp01(1 - Math.hypot(x - c, y - c) / (HALO_R * R)), 1.7);
+
+  const haze = new Float32Array(art.w * art.h);
+  for (let i = 0; i < haze.length; i++) haze[i] = glow(i % art.w, (i / art.w) | 0) * 0.5;
+  ground(art, haze, () => p.halo, tone, 0.04);
+  for (let y = SUN.width / 2 - HALO_R; y < SUN.width / 2 + 4; y += between(r, 2.4, 3.6)) {
+    const half = Math.sqrt(Math.max(0, HALO_R * HALO_R - (y - SUN.width / 2) ** 2));
+    let x = SUN.width / 2 - half + between(r, -4, 4);
+    while (x < SUN.width / 2 + half) {
+      const len = between(r, 14, 44);
+      sweep(
+        art,
+        tooth,
+        {
+          x: x * R,
+          y: y * R,
+          len: len * R,
+          width: between(r, 3.5, 5.5) * R,
+          pressure: 0.85,
+          color: mix(p.halo, p.sun, glow(x * R + (len * R) / 2, y * R)),
+          clip: (px, py) => Math.pow(glow(px, py), 0.6),
+        },
+        r,
+      );
+      x += len * between(r, 0.75, 1.15);
+    }
+  }
+
   const disc: Pt[] = [];
   for (let i = 0; i < 90; i++) {
     const a = (i / 90) * Math.PI * 2;
-    disc.push([32 + Math.cos(a) * 28, 32 + Math.sin(a) * 28]);
+    disc.push([SUN.width / 2 + Math.cos(a) * SUN_R, SUN.width / 2 + Math.sin(a) * SUN_R]);
   }
   const shape = tremble(at(disc), 0.3 * R, r);
   const mask = polygonMask(art.w, art.h, shape);
-  const c = 32 * R;
-  const edge = (x: number, y: number) => smooth(14 * R, 28 * R, Math.hypot(x - c, y - c));
-  ground(art, mask, (x, y) => mix(p.sun, p.sunRim, edge(x, y) * 0.8), tone, 0.05);
-  hatchFill(art, tooth, mask, { angle: -0.4, gap: 3.6, width: 6, pressure: 0.5, color: mix(p.sun, [1, 1, 1], 0.4), run: [20, 60], rough: 0.6, weight: (x, y) => 1 - edge(x, y) }, r);
+  const edge = (x: number, y: number) => smooth(SUN_R * 0.45 * R, SUN_R * R, Math.hypot(x - c, y - c));
+  ground(art, mask, (x, y) => mix(p.sun, p.sunRim, edge(x, y) * 0.75), tone, 0.05);
+  hatchFill(art, tooth, mask, { angle: -0.4, gap: 3.4, width: 6, pressure: 0.55, color: mix(p.sun, [1, 1, 1], 0.5), run: [20, 60], rough: 0.6, weight: (x, y) => 1 - edge(x, y) }, r);
   hatchFill(art, tooth, mask, { angle: 0.3, gap: 4.2, width: 6, pressure: 0.45, color: p.sunRim, run: [20, 60], rough: 0.6, weight: edge }, r);
   art.soften();
   return art;
 }
 
-/** The sun's road on the water: broken bars, longer and bolder nearer. */
+/** The sun's road on the water: broken bars from the far swell down to the
+    front row, short and rose far off, long and bright near. */
 function paintGlitter(p: Palette, seed: number): Art {
   const R = STRIP_RES;
   const w = GLITTER.width * R;
@@ -1829,25 +1993,58 @@ function paintGlitter(p: Palette, seed: number): Art {
   const art = new Art(w, h, false);
   const tooth = paperTooth(w, h, seed, 0.3);
   const r = random(seed + 1);
-  for (let k = 0; k < 11; k++) {
-    const u = k / 10;
-    for (let piece = 0; piece < 2 + Math.round(u * 2); piece++) {
-      const len = (8 + u * 26) * R * between(r, 0.5, 1);
+  const rows = 17;
+  for (let k = 0; k < rows; k++) {
+    const u = k / (rows - 1);
+    for (let piece = 0; piece < 2 + Math.round(u * 3); piece++) {
+      const len = (7 + u * 30) * R * between(r, 0.45, 1);
       sweep(
         art,
         tooth,
         {
-          x: w / 2 + between(r, -0.5, 0.5) * (14 + u * 50) * R - len / 2,
-          y: (2 + Math.pow(u, 1.3) * 39) * R,
+          x: w / 2 + between(r, -0.5, 0.5) * (12 + u * 76) * R - len / 2,
+          y: (2 + Math.pow(u, 1.25) * (GLITTER.height - 5)) * R,
           len,
-          width: (1.6 + u * 1.8) * R,
-          pressure: 0.6 + u * 0.35,
-          color: p.glitter,
+          width: (1.4 + u * 2) * R,
+          pressure: 0.62 + u * 0.36,
+          color: mix(mix(p.glitter, p.sunRim, 0.35), mix(p.glitter, [1, 1, 1], 0.4), u),
         },
         r,
       );
     }
   }
+  art.soften();
+  return art;
+}
+
+const MOON_R = 10;
+
+/** Blue hour's new moon: a thin crescent, lit on the side of the gone sun,
+    in a small haze of its own. */
+function paintMoon(p: Palette, seed: number): Art {
+  const R = SPRITE_RES;
+  const { art, tooth, tone, r, at } = sprite(MOON, 1, seed);
+  const c = (MOON.width / 2) * R;
+  const haze = new Float32Array(art.w * art.h);
+  for (let i = 0; i < haze.length; i++) {
+    const d = Math.hypot((i % art.w) - c, ((i / art.w) | 0) - c) / c;
+    haze[i] = Math.pow(clamp01(1 - d), 2) * 0.22;
+  }
+  ground(art, haze, () => p.moon, tone, 0);
+  const lit: Pt[] = [];
+  for (let i = 0; i <= 40; i++) {
+    const a = -Math.PI / 2 + (i / 40) * Math.PI;
+    lit.push([MOON.width / 2 + Math.cos(a) * MOON_R, MOON.width / 2 + Math.sin(a) * MOON_R]);
+  }
+  // The dark limb: a flatter arc back up the inside.
+  for (let i = 40; i >= 0; i--) {
+    const a = -Math.PI / 2 + (i / 40) * Math.PI;
+    lit.push([MOON.width / 2 + Math.cos(a) * MOON_R * 0.38, MOON.width / 2 + Math.sin(a) * MOON_R * 0.97]);
+  }
+  const shape = tremble(at(lit), 0.2 * R, r);
+  const mask = polygonMask(art.w, art.h, shape);
+  ground(art, mask, () => p.moon, tone, 0.06);
+  hatchFill(art, tooth, mask, { angle: 1.2, gap: 2.6, width: 4, pressure: 0.6, color: mix(p.moon, [1, 1, 1], 0.6), run: [10, 30], rough: 0.5 }, r);
   art.soften();
   return art;
 }
@@ -1946,7 +2143,7 @@ async function main() {
     // The lantern is lit from dusk on; the sun is up only at dusk by day.
     const lit = name !== 'light';
     const night = name.endsWith('dark');
-    const jobs: [string, () => Art, number][] = [
+    const jobs: [string, () => Art, number, number?][] = [
       ['front', () => paintFront(p, 59), 80],
       ['near', () => paintNear(p, 11), 80],
       ['back', () => paintBack(p, 23), 80],
@@ -1961,11 +2158,13 @@ async function main() {
       night ? ['star', () => paintStar(p, 79), 88] : ['gull', () => paintGull(p, 83), 88],
     ];
     if (lit) jobs.push(['glint', () => paintGlint(p, 53), 88]);
+    if (name.startsWith('dusk')) jobs.push(['sky', () => paintSky(p, 101), 74, 100]);
     if (name === 'dusk-light') jobs.push(['sun', () => paintSun(p, 89), 88], ['glitter', () => paintGlitter(p, 97), 88]);
-    for (const [file, paint, quality] of jobs) {
+    if (name === 'dusk-dark') jobs.push(['moon', () => paintMoon(p, 103), 88]);
+    for (const [file, paint, quality, alphaQuality] of jobs) {
       if (only && only !== file) continue;
       const art = paint();
-      const bytes = await art.save(`${dir}/${file}.webp`, quality);
+      const bytes = await art.save(`${dir}/${file}.webp`, quality, alphaQuality);
       report.push(`${name}/${file}.webp ${art.w}x${art.h} ${(bytes / 1024).toFixed(1)} KB`);
     }
   }
@@ -1999,7 +2198,8 @@ async function main() {
     foam: { width: FOAM_W, height: FOAM_H, variants: FOAM_VARIANTS, life: FOAM_LIFE, stern: STERN_X, streaks: foam() },
     bow: { x: BOW_X, sprite: BOW_SPRITE, ...bowWave(heave, pitch) },
     drop: { size: DROP, variants: DROP_VARIANTS },
-    creatures: { dolphin: DOLPHIN, fish: FISH, gull: GULL, star: STAR, sun: SUN, glitter: GLITTER },
+    creatures: { dolphin: DOLPHIN, fish: FISH, gull: GULL, star: STAR, sun: SUN, glitter: GLITTER, moon: MOON },
+    sky: SKY,
     ride: { heave, pitch },
   };
   await writeFile('src/features/posts/ui/sillage-motion.json', `${JSON.stringify(motion, null, 2)}\n`);
