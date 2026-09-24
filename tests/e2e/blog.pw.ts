@@ -212,7 +212,8 @@ test.describe('Blog routes', () => {
     await expect(sea).toHaveAttribute('data-seen', '');
     await expect(sea.locator('.sillage-sea__near')).toHaveCSS(
       'background-image',
-      /\/sillage\/(?:light|dark)\/near\.webp/,
+      // Dusk by the reader's clock is its own set; either is right here.
+      /\/sillage\/(?:dusk-)?(?:light|dark)\/near\.webp/,
     );
 
     // Touch: a tap on the water splashes, and a sideways drag takes hold of
@@ -271,6 +272,39 @@ test.describe('Blog routes', () => {
     const searchDialog = page.getByRole('dialog', { name: 'Site search and commands' });
     await expect(searchDialog).toBeVisible();
     await expect(searchDialog).toHaveJSProperty('open', true);
+  });
+
+  test('closes the index with the writing ledger and hands over to the archive', async ({ page }) => {
+    await openBlogIndex(page);
+
+    const rows = page.locator('.blog-row');
+    const shown = await rows.count();
+    expect(shown).toBeLessThanOrEqual(8);
+
+    const ledger = page.locator('.blog-ledger');
+    await expect(ledger.locator('.blog-ledger__stats')).toContainText(/\d+ 篇/);
+    // Twelve months a year, every year from the first post to now.
+    const years = await ledger.locator('.blog-ledger__year').count();
+    expect(await ledger.locator('.blog-ledger__cell').count()).toBe(years * 12);
+
+    // Hovering a month reads it out under the map; leaving the map clears it.
+    const written = ledger.locator('.blog-ledger__cell[data-level]:not([data-level="0"])').first();
+    await written.hover();
+    await expect(ledger.locator('.blog-ledger__note')).toContainText(/\d+ 篇/);
+    await page.mouse.move(0, 0);
+    await expect(ledger.locator('.blog-ledger__note')).toHaveText('');
+
+    const more = ledger.locator('.blog-ledger__more');
+    if ((await more.count()) > 0) {
+      await more.click();
+      await expect(page).toHaveURL(/\/blog\/archive$/);
+      expect(await page.locator('.blog-row').count()).toBeGreaterThan(shown);
+    } else {
+      await page.goto('/blog/archive');
+      expect(await page.locator('.blog-row').count()).toBe(shown);
+    }
+    await expect(page.locator('.blog-ledger')).toBeVisible();
+    await expect(page.locator('.sillage-sea')).toHaveCount(1);
   });
 
   test('lets the sea footer be played with: sound switch, creatures, the boat and dusk', async ({ page }) => {

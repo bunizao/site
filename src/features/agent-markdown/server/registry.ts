@@ -80,7 +80,7 @@ function matchBlogPost(pathname: string): Record<string, string> | null {
 
   const slug = safeDecode(match[2]);
   if (match[1] === undefined) {
-    if (slug === 'tags' || slug === 'rss.xml' || slug === 'search.json') return null;
+    if (slug === 'tags' || slug === 'archive' || slug === 'rss.xml' || slug === 'search.json') return null;
     return { slug };
   }
 
@@ -383,6 +383,13 @@ const renderers: MarkdownRenderer[] = [
     render: renderBlogIndex,
   },
   {
+    // The full list the short index hands over to; agents get it at /blog too.
+    id: 'blog-archive',
+    cacheTtlSeconds: 120,
+    match: matchExact('/blog/archive'),
+    render: renderBlogIndex,
+  },
+  {
     id: 'blog-tags',
     cacheTtlSeconds: 120,
     match: matchExact('/blog/tags'),
@@ -466,7 +473,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
   if (matchBlogPost(normalized)) {
     return { cacheTtlSeconds: 300, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
   }
-  if (normalized === '/blog' || normalized === '/blog/tags' || matchBlogTag(normalized)) {
+  if (normalized === '/blog' || normalized === '/blog/archive' || normalized === '/blog/tags' || matchBlogTag(normalized)) {
     return { cacheTtlSeconds: 120, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
   }
   if (matchMoodPost(normalized)) {

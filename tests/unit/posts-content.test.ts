@@ -418,6 +418,7 @@ describe('blog subscription feed', () => {
     expect(response.status).toBe(200);
     expect(xml).toContain('<loc>https://buxx.me/blog</loc>');
     expect(xml).toContain('<loc>https://buxx.me/blog/demo-effects</loc>');
+    expect(xml).toContain('<loc>https://buxx.me/blog/archive</loc>');
     expect(xml).toContain('<loc>https://buxx.me/blog/tags</loc>');
   });
 

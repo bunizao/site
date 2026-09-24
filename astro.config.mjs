@@ -38,6 +38,7 @@ const negotiatedContentPageEntrypoints = new Set([
   'src/pages/index.astro',
   'src/pages/privacy.astro',
   'src/pages/blog/index.astro',
+  'src/pages/blog/archive.astro',
   'src/pages/blog/tags.astro',
   'src/pages/blog/tag/[slug].astro',
   'src/pages/blog/[...slug].astro',

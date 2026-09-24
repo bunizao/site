@@ -450,6 +450,109 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   }
 }
 
+/* --- Writing ledger ------------------------------------------------------ */
+/* Totals and a year-by-month map, closing the /blog index and opening
+   /blog/archive (BlogLedger.astro). Months ink in 霁 blue by words written;
+   the map stays small and left-set, a margin note rather than a dashboard. */
+.blog-ledger {
+  /* The last year section already pads 48px below itself. */
+  margin-top: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.blog-archive__head + .blog-ledger {
+  margin-top: 0;
+}
+
+.blog-ledger__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  margin-bottom: 18px;
+  font-size: 15px;
+  color: var(--blog-ink);
+}
+
+.blog-ledger__stats span + span::before {
+  content: '·';
+  margin: 0 10px;
+  color: var(--blog-faint);
+}
+
+.blog-ledger__map {
+  display: grid;
+  grid-template-columns: 3.2em repeat(12, 18px);
+  gap: 4px;
+  align-items: center;
+  width: max-content;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--blog-faint);
+}
+
+.blog-ledger__month {
+  text-align: center;
+}
+
+.blog-ledger__year {
+  color: var(--blog-faint);
+  transition: color 0.15s ease;
+}
+
+a.blog-ledger__year:hover {
+  color: var(--blog-ink);
+}
+
+.blog-ledger__cell {
+  height: 18px;
+  border-radius: 4px;
+  background: hsl(var(--foreground) / 0.05);
+}
+
+.blog-ledger__cell[data-level='1'] { background: color-mix(in oklab, var(--blog-ji) 28%, transparent); }
+.blog-ledger__cell[data-level='2'] { background: color-mix(in oklab, var(--blog-ji) 50%, transparent); }
+.blog-ledger__cell[data-level='3'] { background: color-mix(in oklab, var(--blog-ji) 75%, transparent); }
+.blog-ledger__cell[data-level='4'] { background: var(--blog-ji); }
+
+.blog-ledger__cell.is-ahead {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.06);
+}
+
+.blog-ledger__cell.is-read {
+  outline: 1.5px solid var(--blog-ink);
+  outline-offset: 1.5px;
+}
+
+/* One line kept free, so reading a month never shifts the page. */
+.blog-ledger__note {
+  min-height: 1.5em;
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--blog-muted);
+}
+
+.blog-ledger__more {
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 15px;
+  color: var(--blog-accent);
+}
+
+.blog-ledger__more span {
+  transition: transform 0.2s ease;
+}
+
+.blog-ledger__more:hover span {
+  transform: translateX(3px);
+}
+
+.blog-archive__head {
+  margin-bottom: 32px;
+}
+
 /* --- Floating hero preview (cai.im) ------------------------------------- */
 /* A single image pinned near the cursor, swapped per hovered row. Springy
    fade+scale in, quick fade out. Fixed-position so it never causes layout

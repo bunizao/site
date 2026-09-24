@@ -1,0 +1,101 @@
+---
+// The writing ledger: how many posts, how many words, since when, and a
+// year-by-month map of when they were written. It closes the short /blog index
+// and opens /blog/archive, so the index hands over to the full list through the
+// same picture. A year with posts links to its group in the archive.
+import { blog } from '@/data/site';
+import type { WritingLedger } from '../ledger';
+import { formatWords } from '../ledger';
+
+interface Props {
+  ledger: WritingLedger;
+  /** Where the year labels point: '' on the archive itself, '/blog/archive' elsewhere. */
+  archive: string;
+  /** Show the way on to the archive under the map. */
+  more?: boolean;
+}
+
+const { ledger, archive, more = false } = Astro.props;
+const locale = blog.locale.blog;
+const t = blog.copy[locale].ledger;
+const fill = (text: string, values: Record<string, string | number>) =>
+  text.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''));
+const number = (n: number) => n.toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US');
+const pad = (month: number) => String(month).padStart(2, '0');
+
+const note = (year: number, month: { month: number; posts: number; words: number }) =>
+  month.posts > 0
+    ? fill(t.month, { year, month: locale === 'zh' ? month.month : pad(month.month), posts: month.posts, words: formatWords(month.words, locale) })
+    : fill(t.empty, { year, month: locale === 'zh' ? month.month : pad(month.month) });
+---
+
+<div class="blog-ledger" data-blog-ledger>
+  <p class="blog-ledger__stats">
+    <span>{fill(t.posts, { n: number(ledger.posts) })}</span>
+    <span>{fill(t.words, { n: formatWords(ledger.words, locale) })}</span>
+    <span>{fill(t.since, { year: ledger.since })}</span>
+  </p>
+
+  <div class="blog-ledger__map" role="group" aria-label={fill(t.label, { year: ledger.since })}>
+    <span aria-hidden="true"></span>
+    {Array.from({ length: 12 }, (_, i) => (
+      <span class="blog-ledger__month" aria-hidden="true">{[1, 6, 12].includes(i + 1) ? i + 1 : ''}</span>
+    ))}
+    {ledger.years.map(({ year, months }) => (
+      <>
+        {months.some((month) => month.posts > 0) ? (
+          <a class="blog-ledger__year" href={`${archive}#y${year}`}>{year}</a>
+        ) : (
+          <span class="blog-ledger__year">{year}</span>
+        )}
+        {months.map((month) => (
+          <span
+            class:list={['blog-ledger__cell', { 'is-ahead': month.ahead }]}
+            data-level={month.level}
+            data-note={month.ahead ? undefined : note(year, month)}
+            role={month.posts > 0 ? 'img' : undefined}
+            aria-label={month.posts > 0 ? note(year, month) : undefined}
+            aria-hidden={month.posts > 0 ? undefined : 'true'}
+          ></span>
+        ))}
+      </>
+    ))}
+  </div>
+
+  <p class="blog-ledger__note" aria-hidden="true" data-blog-ledger-note></p>
+
+  {more && (
+    <a class="blog-ledger__more" href={archive}>
+      {fill(t.more, { n: number(ledger.posts) })} <span aria-hidden="true">→</span>
+    </a>
+  )}
+</div>
+
+<script>
+  // Hover or tap a month to read it under the map. Touch has no title tooltip,
+  // so the note line is the one read-out for both.
+  for (const ledger of document.querySelectorAll<HTMLElement>('[data-blog-ledger]')) {
+    const note = ledger.querySelector<HTMLElement>('[data-blog-ledger-note]');
+    if (!note) continue;
+    let current: HTMLElement | null = null;
+    const show = (cell: HTMLElement | null) => {
+      current?.classList.remove('is-read');
+      current = cell;
+      current?.classList.add('is-read');
+      note.textContent = cell?.dataset.note ?? '';
+    };
+    ledger.addEventListener('pointerover', (event) => {
+      const cell = (event.target as HTMLElement).closest<HTMLElement>('[data-note]');
+      if (cell && event.pointerType === 'mouse') show(cell);
+    });
+    ledger.addEventListener('pointerleave', (event) => {
+      if (event.pointerType === 'mouse') show(null);
+    });
+    ledger.addEventListener('click', (event) => {
+      // A mouse already reads by hovering; a click there must not toggle it off.
+      if ((event as PointerEvent).pointerType === 'mouse') return;
+      const cell = (event.target as HTMLElement).closest<HTMLElement>('[data-note]');
+      if (cell) show(cell === current ? null : cell);
+    });
+  }
+</script>
