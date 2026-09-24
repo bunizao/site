@@ -51,9 +51,7 @@ only simulates cells that can be seen:
   fixed preset, no time-of-day variation. Trails linger about half a second,
   and a gust crosses the band every 8–14s at under twice the resting speed.
   Gust timing and glyph churn are written in wall-clock terms, so the tick
-  only sets smoothness. Glyphs are rasterised once into an atlas per theme
-  and DPR and blitted with `drawImage`, since per-cell `fillText` dominated
-  the tick on phones. Review pins: `?speed=<multiplier>` scales the fall,
+  only sets smoothness. Review pins: `?speed=<multiplier>` scales the fall,
   `?ink=<name>` picks the hue.
 
 ## Hero / intro
