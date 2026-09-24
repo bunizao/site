@@ -128,9 +128,25 @@ Components compose the tokens above; they never introduce new colour or type.
 - `{components.callout}` / `{components.inline-code}` — quiet `{colors.fill}`
   surfaces at card / inline radius.
 
+### Index, ledger and archive
+
+`/blog` lists the latest eight posts, not all of them, so a reader reaches the
+sea footer. The index then closes with the writing ledger
+(`BlogLedger.astro`, figures from `src/features/posts/ledger.ts`): posts, words
+and the first year on one line, then a year-by-month map of words written,
+inked in `{colors.ji}` on a square-root scale so one long essay does not wash
+the other months out. Chinese is counted by character and other scripts by
+word. Hovering or tapping a month reads it out under the map; a year with posts
+links to its group in the archive. A "全部 N 篇 →" link follows.
+
+`/blog/archive` opens with the same ledger and then lists every listed post by
+year, with the year rail, and ends in the same sea. The ledger is the bridge:
+the index hands over to the full list through the same picture. A post's
+"← 全部文章" link goes to the archive.
+
 ### Sea footer
 
-`BlogSeaFooter.astro` closes the `/blog` index with a crayon sailboat crossing a
+`BlogSeaFooter.astro` closes the `/blog` index and archive with a crayon sailboat crossing a
 crayon sea — the literal reading of *sillage*, the wake a boat leaves behind.
 The sea is seen side on, a swell profile against the page; the page background
 is the sky, in both themes. The band starts under the site footer's last line,

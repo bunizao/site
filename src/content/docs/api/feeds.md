@@ -61,7 +61,7 @@ Supported pages:
 | Path | Returns |
 | --- | --- |
 | `/` | Profile, projects, recent posts. |
-| `/blog` | The post index. |
+| `/blog`, `/blog/archive` | The post index; both return every listed post. |
 | `/blog/{slug}` | One post, in full. |
 | `/blog/tags`, `/blog/tag/{slug}` | Tag directory and tag archives. |
 | `/mood` | The feed, paginated by cursor. |
