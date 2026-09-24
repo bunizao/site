@@ -107,11 +107,25 @@ const featureStyle = featureBlur
 const blogFeatureImageWidths = [640, 960, 1200, 1600] as const;
 const isBlogImageProxyUrl = (value: string | null) =>
   Boolean(value && value.includes('/api/v2/images/blog/'));
-const featureImageSrc = post.featureImage && isBlogImageProxyUrl(post.featureImage)
-  ? withWidthParam(post.featureImage, 1200)
+// Ghost's Unsplash picker stores a fixed w=2000 JPEG. Unsplash is imgix, so
+// it honours `w` like our proxy does, and `auto=format` hands WebP/AVIF to
+// browsers that take them.
+const isUnsplashImageUrl = (value: string | null) =>
+  Boolean(value && value.startsWith('https://images.unsplash.com/'));
+const withAutoFormat = (value: string) => {
+  const url = new URL(value);
+  url.searchParams.set('auto', 'format');
+  return url.toString();
+};
+const featureImageBase = post.featureImage && isUnsplashImageUrl(post.featureImage)
+  ? withAutoFormat(post.featureImage)
   : post.featureImage;
-const featureImageSrcSet = post.featureImage && isBlogImageProxyUrl(post.featureImage)
-  ? buildSrcSet(post.featureImage, blogFeatureImageWidths)
+const isResizableFeatureImage = isBlogImageProxyUrl(post.featureImage) || isUnsplashImageUrl(post.featureImage);
+const featureImageSrc = featureImageBase && isResizableFeatureImage
+  ? withWidthParam(featureImageBase, 1200)
+  : featureImageBase;
+const featureImageSrcSet = featureImageBase && isResizableFeatureImage
+  ? buildSrcSet(featureImageBase, blogFeatureImageWidths)
   : undefined;
 const featureImageSizes = '(min-width: 960px) 920px, calc(100vw - 40px)';
 const hasNoTocTag = post.tags.some((tag) => tag.slug === 'hash-no-toc' || tag.name === '#no-toc');
