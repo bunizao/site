@@ -3,9 +3,9 @@
  * The sea at the end of /blog: a crayon sailboat crossing a crayon sea, seen
  * side on, the page itself standing in for the sky.
  *
- * Nothing here is drawn. The art in public/sillage/{light,dark}/ and every
- * number below come from scripts/paint-sillage.ts, which paints both themes in
- * the blog's own inks and writes sillage-motion.json beside this file. Repaint
+ * Nothing here is drawn. The art in public/sillage/ and every number below
+ * come from scripts/paint-sillage.ts, which paints day, night and dusk in
+ * their own inks and writes sillage-motion.json beside this file. Repaint
  * there; this file only moves the pieces.
  *
  * How the motion holds together:
@@ -29,6 +29,10 @@
  *     the end, a scroll that the page can no longer take drives the sea.
  *   - The site footer sits in its sky. The band starts under the footer's
  *     last line, so the page ends in clouds rather than a gap.
+ *   - The boat can be picked up and thrown, and the sea keeps company:
+ *     dolphins and fish leap at a touch of the water, gulls and stars answer
+ *     the sky (sillage-life.ts).
+ *   - At dusk by the reader's clock, the dusk set is painted in instead.
  *
  * Everything is a transform or opacity animation, so it runs off the main
  * thread. It only runs while the band is on screen, and reduced motion gets
