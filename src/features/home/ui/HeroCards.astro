@@ -20,26 +20,49 @@ import { getListedPosts } from '@/features/posts/server/content';
 import { GitHubIcon, InstagramIcon, TelegramIcon } from '@/components/icons';
 
 const school = experience[0];
-const [since] = school.period.split(' — ');
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const firstName = profile.name.split(' ')[0];
 
-// The barcode on the badge is decoration seeded by the name, so it is the
-// same on every build. It encodes nothing: the real card carries a student
-// number, which has no business on a public page.
-const barcode = (() => {
-  let seed = 0;
-  for (const ch of profile.name) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) >>> 0;
+// Expected graduation; the badge prints it as the card's expiry.
+const EXPIRES = '2028';
+const initials = profile.name
+  .split(' ')
+  .map((part) => part[0])
+  .join('');
+
+// The badge barcode is real Code 128 (set B) and scans to the site. Each
+// entry is one symbol's bar and space widths, bar first, by symbol value;
+// the stop symbol is the one with seven.
+const CODE128 = [
+  '212222', '222122', '222221', '121223', '121322', '131222', '122213', '122312', '132212', '221213',
+  '221312', '231212', '112232', '122132', '122231', '113222', '123122', '123221', '223211', '221132',
+  '221231', '213212', '223112', '312131', '311222', '321122', '321221', '312212', '322112', '322211',
+  '212123', '212321', '232121', '111323', '131123', '131321', '112313', '132113', '132311', '211313',
+  '231113', '231311', '112133', '112331', '132131', '113123', '113321', '133121', '313121', '211331',
+  '231131', '213113', '213311', '213131', '311123', '311321', '331121', '312113', '312311', '332111',
+  '314111', '221411', '431111', '111224', '111422', '121124', '121421', '141122', '141221', '112214',
+  '112412', '122114', '122411', '142112', '142211', '241211', '221114', '413111', '241112', '134111',
+  '111242', '121142', '121241', '114212', '124112', '124211', '411212', '421112', '421211', '212141',
+  '214121', '412121', '111143', '111341', '131141', '114113', '114311', '411113', '411311', '113141',
+  '114131', '311141', '411131', '211412', '211214', '211232',
+];
+const CODE128_START_B = 104;
+const CODE128_STOP = '2331112';
+const code128 = (text: string) => {
+  const values = [CODE128_START_B, ...Array.from(text, (ch) => ch.charCodeAt(0) - 32)];
+  const check = values.reduce((sum, value, i) => sum + value * Math.max(i, 1), 0) % 103;
+  const widths = [...values, check].map((value) => CODE128[value]).join('') + CODE128_STOP;
   const bars: { x: number; w: number }[] = [];
   let x = 0;
-  for (let i = 0; i < 57; i++) {
-    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
-    const w = 1 + ((seed >>> 16) % 3);
+  Array.from(widths, Number).forEach((w, i) => {
     if (i % 2 === 0) bars.push({ x, w });
     x += w;
-  }
+  });
   return { bars, width: x };
-})();
+};
+const barcode = code128('buxx.me');
+// Ten modules of quiet zone each side, so a scanner finds the edges.
+const QUIET = 10;
 
 const blogCopy = blog.copy[blog.locale.home];
 const allPosts = await getListedPosts();
@@ -53,13 +76,28 @@ const postDate = (iso: string): string => {
 // "TutuBetterRules" may break as "TutuBetter / Rules" on a narrow card.
 const camelBreaks = (name: string): string => name.replace(/([a-z])([A-Z])/g, '$1<wbr>$2');
 
-const totalStars = projects.reduce((sum, project) => sum + (project.stars ?? 0), 0);
+// Stars across every repo, from the self-hosted github-readme-stats card the
+// GitHub profile shows (gh-stats.buxx.me). It serves SVG without CORS, so the
+// page reads it here at build time; a failed read leaves the stat blank.
+const readTotalStars = async (): Promise<string | null> => {
+  try {
+    const response = await fetch('https://gh-stats.buxx.me/api?username=bunizao', {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!response.ok) return null;
+    const match = (await response.text()).match(/data-testid="stars"\s*>\s*([\d.,]+k?)\s*</);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+};
+const totalStars = await readTotalStars();
 // A hand of cards fanned from the middle, the outer ones lower and turned
 // further. The way to the whole list is the first card, under the others.
 const HAND = projects.length + 1;
 const fan = (i: number) => {
   const t = (i / (HAND - 1)) * 2 - 1;
-  return `--i: ${i}; --fx: ${Math.round(t * 124)}px; --fy: ${Math.round(Math.abs(t) * 16)}px; --fr: ${(t * 9).toFixed(1)}deg`;
+  return `--i: ${i}; --fx: ${Math.round(t * 108)}px; --fy: ${Math.round(Math.abs(t) * 14)}px; --fr: ${(t * 9).toFixed(1)}deg`;
 };
 
 // The bio links go through the short links, so the cards name those and
@@ -90,31 +128,32 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
       </svg>
       <a class="mo-badge" href={school.url} {...external}>
         <span class="mo-photo">
-          <svg class="mo-m" viewBox="0 0 132 132" preserveAspectRatio="none" aria-hidden="true">
+          <svg class="mo-m" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             <defs>
-              <linearGradient id="mo-m-ink" x1="0" y1="0" x2="0.35" y2="1">
-                <stop offset="0" stop-color="#bcd3f0" />
-                <stop offset="1" stop-color="#bcd3f0" stop-opacity="0.15" />
+              <linearGradient id="mo-m-ink" x1="0" y1="0" x2="0.6" y2="1">
+                <stop offset="0" stop-color="#c3d8f2" />
+                <stop offset="1" stop-color="#dbe6f4" stop-opacity="0.5" />
               </linearGradient>
             </defs>
-            <path d="M-6 132 L6 0 L34 0 L66 86 L98 0 L126 0 L138 132 L112 132 L104 44 L74 124 L58 124 L28 44 L20 132 Z" fill="url(#mo-m-ink)" />
+            <path d="M0 0 H46 L50.5 36 L55 0 H100 V100 H73 L69.5 78 L66 100 H37 L31.5 56 L26 100 H0 Z" fill="url(#mo-m-ink)" />
           </svg>
           <span class="mo-slot"></span>
-          <img src="/avatar.webp" alt="" width="96" height="96" loading="lazy" decoding="async" />
+          <span class="mo-portrait">{initials}</span>
         </span>
         <span class="mo-info">
           <span class="mo-wordmark">
             <span class="mo-crest"></span>
             <span class="mo-word"><span>Monash</span><span>University</span></span>
           </span>
-          <svg class="mo-barcode" viewBox={`0 0 ${barcode.width} 1`} preserveAspectRatio="none" aria-hidden="true">
+          <svg class="mo-barcode" viewBox={`${-QUIET} 0 ${barcode.width + QUIET * 2} 1`} preserveAspectRatio="none" aria-hidden="true">
             {barcode.bars.map((bar) => <rect x={bar.x} width={bar.w} height="1" />)}
           </svg>
           <span class="mo-name">{profile.name}</span>
-          <span class="mo-course">Computer Science · DS &amp; AI</span>
-          <span class="mo-terms">
-            <span data-term-now></span>
-            <span>Since {since.split(' ').pop()}</span>
+          <span class="mo-course">Bachelor of Computer Science (Honours)</span>
+          <span class="mo-faculty">Faculty of Information Technology</span>
+          <span class="mo-expiry">
+            <span>Expiry date</span>
+            <span class="hc-num">{EXPIRES}</span>
           </span>
         </span>
       </a>
@@ -125,15 +164,18 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   <div class="hc hc--loose hc--projects" data-card-id="projects">
     <div class="pj-hand">
       <a class="pj-card pj-card--all" href="/projects" tabindex="-1" style={fan(0)}>
-        <span class="pj-all">All<ArrowRight className="pj-all-arrow" aria-hidden="true" /></span>
-        <span class="pj-stars">{projects.length} projects</span>
+        <span class="pj-face">
+          <span class="pj-all">All<ArrowRight className="pj-all-arrow" aria-hidden="true" /></span>
+          <span class="pj-stars">{projects.length} projects</span>
+        </span>
       </a>
       {projects.map((project, i) => (
         <a class="pj-card" href={project.url} {...external} style={fan(i + 1)}>
-          <span class="pj-type">{project.type}</span>
-          <span class="pj-name" set:html={camelBreaks(project.name)} />
-          <span class="pj-blurb">{project.blurb}</span>
-          <span class="pj-stars hc-num">{project.stars !== null ? `★ ${project.stars}` : 'Suite'}</span>
+          <span class="pj-face">
+            <span class="pj-type">{project.type}</span>
+            <span class="pj-name" set:html={camelBreaks(project.name)} />
+            <span class="pj-stars hc-num">{project.stars !== null ? `★ ${project.stars}` : 'Suite'}</span>
+          </span>
         </a>
       ))}
     </div>
@@ -187,16 +229,31 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
       <span class="ms-back"></span>
       <span class="ms-letter">
         <span class="ms-dear">Dear {firstName},</span>
-        <span class="ms-rule"></span>
-        <span class="ms-rule"></span>
-        <span class="ms-rule"></span>
+        <span class="ms-line">Found your site today and had to</span>
+        <span class="ms-line">say hi. I have a cool idea, and</span>
+        <span class="ms-line">maybe a bug to report too…</span>
       </span>
       <span class="ms-pocket"><span></span></span>
       <span class="ms-address">
         <strong>{messageCopy.title}</strong>
         <span>Only I read what you write.</span>
       </span>
-      <span class="ms-stamp"><img src="/avatar.webp" alt="" width="32" height="32" loading="lazy" decoding="async" /></span>
+      <span class="ms-stamp">
+        <svg viewBox="0 0 30 38" aria-hidden="true">
+          <rect width="30" height="38" fill="#1d4f91" />
+          <g fill="#fff">
+            <use href="#ms-star" transform="translate(15 8) scale(2.6)" />
+            <use href="#ms-star" transform="translate(8 16) scale(2.3)" />
+            <use href="#ms-star" transform="translate(22 14.5) scale(2.1)" />
+            <use href="#ms-star" transform="translate(15.5 26) scale(2.8)" />
+            <use href="#ms-star" transform="translate(19.5 20) scale(1.3)" />
+          </g>
+          <text x="15" y="35" text-anchor="middle">AUSTRALIA</text>
+          <defs>
+            <path id="ms-star" d="M0-1 .29-.4.95-.31.48.15.59.81 0 .5-.59.81-.48.15-.95-.31-.29-.4Z" />
+          </defs>
+        </svg>
+      </span>
       <span class="ms-postmark">
         <span class="ms-postmark-city">Melbourne</span>
         <span class="ms-postmark-time hc-num" data-melbourne-stamp>…</span>
@@ -220,7 +277,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
         <div class="gh-heat" data-heat></div>
         <dl class="gh-stats">
           <div><dt>Last year</dt><dd class="hc-num" data-gh-total>—</dd></div>
-          <div><dt>Stars</dt><dd class="hc-num">{totalStars}</dd></div>
+          <div><dt>Stars</dt><dd class="hc-num">{totalStars ?? '—'}</dd></div>
           <div><dt>Streak</dt><dd class="hc-num" data-gh-streak>—</dd></div>
         </dl>
       </div>
@@ -232,7 +289,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   {telegram && (
     <div class="hc hc--bubble hc--telegram" data-card-id="telegram">
       <a class="hc-head hc-head--avatar" href={telegram.url} {...external}>
-        <img class="hc-avatar" src="/avatar.webp" alt="" width="36" height="36" loading="lazy" decoding="async" />
+        <span class="hc-avatar hc-monogram">{initials}</span>
         <span class="hc-id">
           <span class="hc-title">{profile.name}</span>
           <span class="hc-sub">{telegram.handle} · <span data-melbourne-time>…</span> for me</span>
@@ -252,7 +309,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   <!-- Instagram: the profile, behind a story ring. -->
   {instagram && (
     <div class="hc hc--instagram" data-card-id="instagram">
-      <span class="ig-ring"><img src="/avatar.webp" alt="" width="64" height="64" loading="lazy" decoding="async" /></span>
+      <span class="ig-ring"><span class="hc-monogram">{initials}</span></span>
       <span class="hc-title">{instagram.handle}</span>
       <span class="hc-sub">{profile.name} · {instagram.description}</span>
       <a class="ig-button" href={instagram.url} {...external}>
@@ -439,6 +496,22 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     outline-offset: -1px;
   }
 
+  /* Initials stand in for a face everywhere but GitHub, whose avatar is
+     the profile picture there. */
+  .hc-monogram {
+    display: grid;
+    place-items: center;
+    background: color-mix(in oklab, hsl(var(--foreground)) 8%, var(--home-surface));
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--home-fg-primary);
+  }
+
+  .hc-avatar.hc-monogram {
+    font-size: 13px;
+  }
+
   .hc-note {
     margin: 12px 0 0;
     color: var(--home-fg-faint);
@@ -564,16 +637,23 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     translate: -50% 0;
   }
 
-  .mo-photo img {
+  .mo-portrait {
     position: relative;
+    display: grid;
+    place-items: center;
     width: 88px;
     height: 88px;
     margin-top: 10px;
     border-radius: 50%;
-    object-fit: cover;
+    background: #e2e8f1;
     box-shadow:
       0 0 0 4px #fff,
       0 0 0 5px oklch(0 0 0 / 0.06);
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #3a4a60;
   }
 
   .mo-info {
@@ -631,63 +711,76 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   }
 
   .mo-course {
-    margin-top: 2px;
+    margin-top: 3px;
     font-size: 12px;
-    color: #4b5563;
+    font-weight: 500;
+    line-height: 1.35;
   }
 
-  .mo-terms {
+  .mo-faculty {
+    margin-top: 2px;
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  .mo-expiry {
     display: flex;
     justify-content: space-between;
-    gap: 8px;
+    align-items: baseline;
     margin-top: 10px;
     padding-top: 8px;
     border-top: 1px dashed #dde2e9;
     font-size: 11px;
     color: #6b7280;
-    font-variant-numeric: tabular-nums;
   }
 
-  .mo-terms span:first-child {
+  .mo-expiry span:last-child {
+    font-size: 12px;
+    font-weight: 600;
     color: var(--mo-ink);
-    font-weight: 500;
   }
 
   /* ---------- Projects: a loose hand of cards ---------------------------- */
 
   .hc--projects {
-    --hc-w: 392px;
+    --hc-w: 352px;
     --hc-origin: 50% 100%;
   }
 
   .pj-hand {
     position: relative;
-    height: 196px;
+    height: 164px;
   }
 
+  /* The card itself is the fanned hit area and never moves on hover; its
+     face lifts inside it. Lifting the hit area slid it out from under the
+     pointer, and the card dropped back and flickered. */
   .pj-card {
     position: absolute;
-    bottom: 20px;
+    bottom: 18px;
     left: 50%;
     z-index: var(--i);
+    width: 116px;
+    height: 128px;
+    color: var(--home-fg-primary);
+    transform-origin: 50% 130%;
+    transform: translate(calc(-50% + var(--fx)), var(--fy)) rotate(var(--fr));
+  }
+
+  .pj-face {
     display: flex;
     flex-direction: column;
-    width: 132px;
-    height: 164px;
+    height: 100%;
     padding: 11px 12px 12px;
     border-radius: 12px;
     background: var(--home-surface);
     box-shadow:
       var(--home-surface-shadow),
       var(--hc-card-drop);
-    color: var(--home-fg-primary);
-    transform-origin: 50% 130%;
-    transform: translate(calc(-50% + var(--fx)), var(--fy)) rotate(var(--fr));
-    transition: transform 260ms var(--ease-out);
+    transition: transform 240ms var(--ease-out);
   }
 
-  /* Dealt from a stack on open. `backwards` fill only, so once the deal ends
-     the hover transform owns the card again. */
+  /* Dealt from a stack on open. */
   .hc[data-open] .pj-card {
     animation: pj-deal 560ms cubic-bezier(0.2, 1.2, 0.4, 1) backwards;
     animation-delay: calc(60ms + var(--i) * 50ms);
@@ -701,7 +794,10 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 
   .pj-card:hover {
     z-index: 10;
-    transform: translate(calc(-50% + var(--fx)), calc(var(--fy) - 20px)) rotate(0deg) scale(1.04);
+  }
+
+  .pj-card:hover .pj-face {
+    transform: translateY(-16px) rotate(calc(var(--fr) * -1)) scale(1.04);
   }
 
   .pj-type {
@@ -723,17 +819,6 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     letter-spacing: -0.01em;
   }
 
-  .pj-blurb {
-    display: -webkit-box;
-    margin-top: 6px;
-    overflow: hidden;
-    font-size: 11px;
-    line-height: 1.45;
-    color: var(--home-fg-secondary);
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
-  }
-
   .pj-stars {
     margin-top: auto;
     font-size: 11px;
@@ -741,7 +826,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   }
 
   /* The bottom card of the hand is the way to the whole list. */
-  .pj-card--all {
+  .pj-card--all .pj-face {
     background: var(--home-fg-primary);
     color: var(--home-surface);
   }
@@ -1067,10 +1152,20 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     color: var(--home-fg-primary);
   }
 
-  .ms-rule {
-    height: 1px;
-    margin-top: 17px;
-    background: hsl(var(--foreground) / 0.1);
+  /* A draft in the visitor's hand, on the sheet's ruled lines. */
+  .ms-line {
+    margin-top: 2px;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.1);
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 12px;
+    font-style: italic;
+    line-height: 18px;
+    white-space: nowrap;
+    color: var(--home-fg-secondary);
+  }
+
+  .ms-dear + .ms-line {
+    margin-top: 6px;
   }
 
   /* The pocket's V edge casts onto the letter behind it. */
@@ -1114,17 +1209,24 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     width: 36px;
     height: 44px;
     padding: 3px;
-    background: color-mix(in oklab, hsl(var(--foreground)) 7%, var(--home-surface));
+    background: #f6f4ef;
     mask:
       linear-gradient(#000 0 0) content-box,
       radial-gradient(circle, transparent 1.3px, #000 1.5px) -2.5px -2.5px / 5px 5px round;
   }
 
-  .ms-stamp img {
+  .ms-stamp svg {
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+  }
+
+  .ms-stamp text {
+    font-family: var(--font-sans);
+    font-size: 3.4px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    fill: #fff;
   }
 
   /* The postmark tells the time where the letter lands. */
@@ -1407,13 +1509,11 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     }
   }
 
-  .ig-ring img {
+  .ig-ring .hc-monogram {
     width: 64px;
     height: 64px;
     border-radius: 50%;
-    object-fit: cover;
-    outline: 1px solid var(--home-image-outline);
-    outline-offset: -1px;
+    font-size: 20px;
   }
 
   .hc--instagram .hc-sub {
@@ -1511,7 +1611,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     return node;
   };
 
-  // ---------- Clock and semesters -----------------------------------------
+  // ---------- Clock ------------------------------------------------------
 
   const melbourne = (options: Intl.DateTimeFormatOptions) =>
     new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', ...options });
@@ -1527,19 +1627,6 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     card.querySelectorAll('[data-melbourne-stamp]').forEach((node) => {
       node.textContent = stampFormat.format(new Date());
     });
-  };
-
-  // Monash runs Semester 1 from March to June and Semester 2 from July to
-  // November; December to February is the summer break.
-  const fillTerms = (card: HTMLElement): void => {
-    const label = card.querySelector<HTMLElement>('[data-term-now]');
-    if (!label) return;
-    const parts = melbourne({ year: 'numeric', month: 'numeric' }).formatToParts(new Date());
-    const year = parts.find((part) => part.type === 'year')?.value;
-    const month = Number(parts.find((part) => part.type === 'month')?.value);
-    if (month >= 3 && month <= 6) label.textContent = `Semester 1, ${year}`;
-    else if (month >= 7 && month <= 11) label.textContent = `Semester 2, ${year}`;
-    else label.textContent = 'Summer break';
   };
 
   // ---------- Moods ------------------------------------------------------
@@ -1699,7 +1786,6 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
       delete current.dataset.open;
     }
     fillClock(card);
-    if (card.dataset.cardId === 'monash') fillTerms(card);
     if (switching) card.dataset.instant = '';
     else delete card.dataset.instant;
     place(card, link);
