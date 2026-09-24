@@ -8,7 +8,8 @@
  * answers what the reader does: splashes where they touch, the surf while they
  * play with it, and water rushing along the hull as fast as they drive it.
  * When they stop, it goes quiet again. It is quiet off screen, in a hidden
- * tab, and on an iPhone or iPad with the silent switch on.
+ * tab, and on an iPhone or iPad with the silent switch on. A switch beside the
+ * sea turns it off for good; the choice is remembered.
  */
 
 const BASE = '/sillage/sound/';
@@ -26,6 +27,8 @@ const WASH = 0.45;
 /** Small splashes closer together than this are skipped, s. */
 const SPACING = 0.07;
 
+export type Voice = ReturnType<typeof voice>;
+
 type Loop = { gain: GainNode; source: AudioBufferSourceNode };
 
 export function voice(sea: HTMLElement) {
@@ -39,6 +42,7 @@ export function voice(sea: HTMLElement) {
   let lastSmall = -Infinity;
   let speed = 1;
   let timer = 0;
+  let muted = false;
 
   const fetchBytes = (name: string) =>
     fetch(BASE + name)
@@ -68,7 +72,7 @@ export function voice(sea: HTMLElement) {
   function mix() {
     if (!ctx) return;
     const now = ctx.currentTime;
-    const heard = sea.hasAttribute('data-awake') && !document.hidden;
+    const heard = !muted && sea.hasAttribute('data-awake') && !document.hidden;
     const playing = heard && (now - lastPlay < LINGER || speed > 1.05);
     const drive = Math.min(1, Math.max(0, (speed - 1) / 6));
     surf?.gain.gain.setTargetAtTime(playing ? SURF * (1 + 0.4 * drive) : 0, now, playing ? 0.6 : 1.2);
@@ -93,6 +97,7 @@ export function voice(sea: HTMLElement) {
 
   /** Called on every touch of the sea. The first opens the sound. */
   function wake() {
+    if (muted) return;
     if (!ctx) {
       const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Ctx) return;
@@ -111,7 +116,7 @@ export function voice(sea: HTMLElement) {
 
   /** A splash at pan -1 (left edge) to 1 (right edge); deeper for the boat. */
   function splash(pan: number, big: boolean, deep = false) {
-    if (!ctx || !splashes) return;
+    if (muted || !ctx || !splashes) return;
     if (!big) {
       if (ctx.currentTime - lastSmall < SPACING) return;
       lastSmall = ctx.currentTime;
@@ -142,6 +147,18 @@ export function voice(sea: HTMLElement) {
     else mix();
   }
 
+  /** Off cuts everything at once; back on is a gesture, so it opens the
+      sound and answers with a splash. */
+  function mute(off: boolean) {
+    muted = off;
+    if (ctx) master.gain.setTargetAtTime(off ? 0 : 1, ctx.currentTime, 0.04);
+    if (off) mix();
+    else {
+      wake();
+      splash(0.6, true);
+    }
+  }
+
   // The splash takes are small: fetch them as the band comes near, so the
   // first touch is not silent while they load.
   new MutationObserver(() => {
@@ -150,5 +167,5 @@ export function voice(sea: HTMLElement) {
   }).observe(sea, { attributes: true, attributeFilter: ['data-seen', 'data-awake'] });
   document.addEventListener('visibilitychange', mix);
 
-  return { wake, splash, drive };
+  return { wake, splash, drive, mute };
 }

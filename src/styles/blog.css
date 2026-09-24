@@ -2008,9 +2008,16 @@ html:not(.js) .blog-lang__noscript a {
 
 /* On /blog the sea's sky runs up under the footer's last line
    (BlogSeaFooter.astro); the footer stays on top and clickable. */
-.blog-zone .footer:has(~ [data-sillage-sea]) {
+.blog-zone .footer:has(~ [data-sillage]) {
   position: relative;
   z-index: 1;
+}
+
+/* The sea is the floor of the page: no rubber band past it, which would pull
+   the water up and show bare page underneath. Scroll carried past the end
+   still reaches the sea as wheel and touch input. */
+.page-scroller:has([data-sillage]) {
+  overscroll-behavior-y: none;
 }
 
 

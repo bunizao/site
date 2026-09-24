@@ -105,32 +105,41 @@ const vars = [
 ].join(';');
 ---
 
-<div class="sillage-sea" style={vars} data-sillage-sea aria-hidden="true">
-  <div class="sillage-sea__clouds"></div>
-  <div class="sillage-sea__back"></div>
-  <div class="sillage-sea__boat">
-    <span class="sillage-sea__glow"></span>
-    <span class="sillage-sea__flag"></span>
+<div class="sillage" style={vars} data-sillage>
+  <div class="sillage-sea" data-sillage-sea aria-hidden="true">
+    <div class="sillage-sea__clouds"></div>
+    <div class="sillage-sea__back"></div>
+    <div class="sillage-sea__boat">
+      <span class="sillage-sea__glow"></span>
+      <span class="sillage-sea__flag"></span>
+    </div>
+    <div class="sillage-sea__near"></div>
+    <span class="sillage-sea__bow"></span>
+    <span class="sillage-sea__churn"></span>
+    {
+      foam.streaks.map((streak) => (
+        <span
+          class="sillage-sea__foam"
+          style={`--b:${streak.bottom};--d:${streak.delay}s;--v:${streak.variant};--o:${streak.opacity};--sp:${streak.spread};--st:${streak.stretch}`}
+        />
+      ))
+    }
+    <span class="sillage-sea__glint"></span>
+    <div class="sillage-sea__front"></div>
   </div>
-  <div class="sillage-sea__near"></div>
-  <span class="sillage-sea__bow"></span>
-  <span class="sillage-sea__churn"></span>
-  {
-    foam.streaks.map((streak) => (
-      <span
-        class="sillage-sea__foam"
-        style={`--b:${streak.bottom};--d:${streak.delay}s;--v:${streak.variant};--o:${streak.opacity};--sp:${streak.spread};--st:${streak.stretch}`}
-      />
-    ))
-  }
-  <span class="sillage-sea__glint"></span>
-  <div class="sillage-sea__front"></div>
+  <button class="sillage-sound" type="button" aria-label="Sound of the sea" aria-pressed="true" data-sillage-sound hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4.2 9.4c1.3-.1 2.6 0 3.8-.2l4.6-3.9c.4 4.4.5 9 .1 13.4L8 15c-1.3-.3-2.6-.2-3.9-.3-.3-1.8-.3-3.6.1-5.3Z" />
+      <path class="sillage-sound__on" d="M16 9.3c.9 1.7.9 3.7 0 5.4M18.6 7c1.8 3.1 1.8 6.9 0 10" />
+      <path class="sillage-sound__off" d="M16.4 9.6l4.4 4.9M20.9 9.5l-4.6 5" />
+    </svg>
+  </button>
 </div>
 
 <style is:inline set:html={motionCss}></style>
 
 <style>
-  .sillage-sea {
+  .sillage {
     /* One art pixel. Everything is sized in art pixels, so the scene scales as
        one picture and the tiles keep their painted proportions. */
     --s: 1;
@@ -151,6 +160,13 @@ const vars = [
     margin-top: calc(-48 * var(--u));
     margin-bottom: -48px;
     height: calc(240 * var(--u));
+  }
+
+  /* The picture. Hidden from assistive tech as a whole; the sound switch
+     beside it is the one control. */
+  .sillage-sea {
+    position: absolute;
+    inset: 0;
     overflow: hidden;
     contain: layout paint;
     /* How far the band has scrolled in, for the arrival. */
@@ -161,6 +177,57 @@ const vars = [
     -webkit-user-select: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* The sound switch, up in the sky clear of the footer. A 44px target around
+     a small hand-drawn glyph in the links' ink. */
+  .sillage-sound {
+    position: absolute;
+    z-index: 1;
+    top: calc(64 * var(--u));
+    right: max(8px, calc(50vw - 560px));
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--blog-dai);
+    opacity: 0.55;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.2s;
+  }
+
+  .sillage-sound[hidden] {
+    display: none;
+  }
+
+  .sillage-sound:hover,
+  .sillage-sound:focus-visible {
+    opacity: 1;
+  }
+
+  .sillage-sound:focus-visible {
+    outline: 2px solid var(--blog-ji);
+    outline-offset: -4px;
+  }
+
+  .sillage-sound svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sillage-sound[aria-pressed='true'] .sillage-sound__off,
+  .sillage-sound[aria-pressed='false'] .sillage-sound__on {
+    display: none;
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -527,14 +594,14 @@ const vars = [
   }
 
   @media (max-width: 1023px) {
-    .sillage-sea {
+    .sillage {
       --s: 0.8;
       --boat-x: 30%;
     }
   }
 
   @media (max-width: 639px) {
-    .sillage-sea {
+    .sillage {
       --s: 0.62;
       --boat-x: 28%;
     }
@@ -542,10 +609,14 @@ const vars = [
 </style>
 
 <script>
+  import { voice } from './sillage-sound';
   import { stir } from './sillage-touch';
+
+  const KEY = 'sillage-sound';
 
   // Load the art as the band approaches, and run it only while it is in view.
   const sea = document.querySelector<HTMLElement>('[data-sillage-sea]');
+  const toggle = document.querySelector<HTMLButtonElement>('[data-sillage-sound]');
   if (sea) {
     new IntersectionObserver(
       ([entry]) => {
@@ -554,6 +625,28 @@ const vars = [
       },
       { root: document.querySelector('[data-page-scroller]'), rootMargin: '400px 0px' },
     ).observe(sea);
-    stir(sea);
+    const sound = voice(sea);
+    stir(sea, sound);
+
+    // The sound switch. Only where the sea can be touched: a sea standing
+    // still never makes a sound to switch off.
+    let off = false;
+    try {
+      off = localStorage.getItem(KEY) === 'off';
+    } catch {}
+    if (off) sound.mute(true);
+    if (toggle && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      toggle.setAttribute('aria-pressed', String(!off));
+      toggle.hidden = false;
+      toggle.addEventListener('click', () => {
+        off = !off;
+        toggle.setAttribute('aria-pressed', String(!off));
+        sound.mute(off);
+        try {
+          if (off) localStorage.setItem(KEY, 'off');
+          else localStorage.removeItem(KEY);
+        } catch {}
+      });
+    }
   }
 </script>

@@ -16,7 +16,7 @@
  * wake stay true to the water at any speed.
  */
 import { front, near, period, tile } from './sillage-motion.json';
-import { voice } from './sillage-sound';
+import type { Voice } from './sillage-sound';
 import { surfaceDepth, type Swell } from './sillage-surface';
 
 /** The fastest a finger can drive the sea, as a multiple of its own pace. */
@@ -62,7 +62,7 @@ interface Splash {
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-export function stir(sea: HTMLElement) {
+export function stir(sea: HTMLElement, sound: Voice) {
   const part = (name: string) => sea.querySelector<HTMLElement>(`.sillage-sea__${name}`)!;
   const boat = part('boat');
   // Front to back: the front row is the first water a finger meets.
@@ -73,7 +73,6 @@ export function stir(sea: HTMLElement) {
   const nearRow = rows[1];
   const still = matchMedia('(prefers-reduced-motion: reduce)');
   const scroller = sea.closest<HTMLElement>('[data-page-scroller]') ?? document.documentElement;
-  const sound = voice(sea);
 
   let s = 1;
   let dim = 1;
