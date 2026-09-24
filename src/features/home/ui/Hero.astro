@@ -19,6 +19,15 @@ const lcpAnchorName = typewriterNames.reduce(
   typewriterNames[0] ?? '',
 );
 const school = experience[0];
+
+// The hover chip names where a link goes: a path on this site, or the host
+// elsewhere with an arrow.
+const peek = (url: string): string =>
+  url.startsWith('/') ? url : `${url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')} ↗`;
+const external = { target: '_blank', rel: 'noopener noreferrer' };
+// Underlines draw in reading order; the socials follow the four links above.
+const SOCIAL_DRAW_START = 5;
+const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length - 1 ? ' and ' : ', ');
 ---
 
 <header class="hero-section pb-8 sm:pb-12" data-hero>
@@ -59,50 +68,44 @@ const school = experience[0];
       {profile.jobTitle}
     </p>
 
-    <!-- Bio. The whole thing decodes; pills and links are atoms, so they
-         keep their boxes through it and come back as real elements. -->
+    <!-- Bio. The whole thing decodes. Links are atoms, so they keep their
+         boxes through it and come back as real elements. -->
     <div class="hero-animate" style="--hero-i: 4" data-hero-bio>
       <DecodeText class="hero-bio">
         <p>
-          I make interesting things. Currently studying Computer Science
-          (Honours) in Data Science and AI <span class="whitespace-nowrap">at <a class="hero-pill" href={school.url} target="_blank" rel="noopener noreferrer" data-decode-atom><school.icon className="hero-pill-icon" aria-hidden="true" />{school.org}</a>.</span>
+          I make interesting things. Currently studying Computer Science in
+          DS &amp; AI at <a class="hero-link" href={school.url} {...external} data-peek={peek(school.url)} style="--draw-i: 0" data-decode-atom>Monash</a>.
         </p>
         <p>
           Curious about <span class="text-foreground">frontend design</span>,
           <span class="text-foreground">proxy systems</span> and
           <span class="text-foreground">open source</span>, and obsessed with
-          <span class="text-foreground">speed</span>. The work ships as
-          <a class="hero-link" href="/projects" style="--draw-i: 0" data-decode-atom>projects</a>; the
-          thinking I <a class="hero-link" href="/blog" style="--draw-i: 1" data-decode-atom>write</a> down,
-          and the small stuff lands in <a class="hero-link" href="/mood" style="--draw-i: 2" data-decode-atom>moods</a>.
+          <span class="text-foreground">speed</span>. Some of it ships as
+          <a class="hero-link" href="/projects" data-peek={peek('/projects')} style="--draw-i: 1" data-decode-atom>projects</a>,
+          some I <a class="hero-link" href="/blog" data-peek={peek('/blog')} style="--draw-i: 2" data-decode-atom>write</a> about,
+          and the small stuff lands in <a class="hero-link" href="/mood" data-peek={peek('/mood')} style="--draw-i: 3" data-decode-atom>moods</a>.
         </p>
         <p>
-          <a class="hero-link" href="/message" style="--draw-i: 3" data-decode-atom>Reach out</a> about a
-          cool idea, a bug on this site, or anything at all.
+          <a class="hero-link" href="/message" data-peek={peek('/message')} style="--draw-i: 4" data-decode-atom>Reach out</a>
+          about a cool idea, a bug on this site, or anything at all. I'm also on
+          {socials.map((social, i) => (
+            <>{socialJoiner(i)}<a class="hero-link" href={social.url} {...external} data-peek={peek(social.canonicalUrl ?? social.url)} style={`--draw-i: ${SOCIAL_DRAW_START + i}`} data-decode-atom>{social.name}</a></>
+          ))}.
         </p>
       </DecodeText>
     </div>
 
-    <!-- Elsewhere: icons only, quiet until pointed at. -->
-    <nav class="hero-socials hero-animate" style="--hero-i: 0" aria-label="Elsewhere" data-hero-motion data-hero-socials>
-      {socials.map((social) => (
-        <a href={social.url} target="_blank" rel="noopener noreferrer" aria-label={social.name} title={social.name}>
-          <social.icon className="h-4 w-4" aria-hidden="true" />
-        </a>
-      ))}
-    </nav>
-
-    <div class="hero-animate mt-6" style="--hero-i: 1" data-hero-motion data-hero-listening>
+    <div class="hero-animate mt-6" style="--hero-i: 0" data-hero-motion data-hero-listening>
       <Listening track={listeningTrack} />
     </div>
 
     <!-- GitHub Activity -->
-    <div class="hero-animate" style="--hero-i: 2" data-hero-motion data-hero-github>
+    <div class="hero-animate" style="--hero-i: 1" data-hero-motion data-hero-github>
       <GitHubContributions />
     </div>
 
     <!-- Tech Stack Marquee -->
-    <div class="mt-6 hero-animate" style="--hero-i: 3" data-hero-motion data-hero-tech>
+    <div class="mt-6 hero-animate" style="--hero-i: 2" data-hero-motion data-hero-tech>
       <TechMarquee row1={tech.row1} row2={tech.row2} />
     </div>
 </header>
@@ -298,65 +301,26 @@ const school = experience[0];
     margin-top: 0.6em;
   }
 
-  /* A pill names a place outside the site. It must not touch the rhythm:
-     leading-none keeps it at 1.5em, inside the 1.7 line. Centred on the
-     line, its text lands 0.6px under the words around it; the 0.1em lift
-     puts the two baselines within 0.05px. */
-  .hero-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4em;
-    padding: 0.25em 0.5em 0.25em 0.45em;
-    border-radius: 999px;
-    background: hsl(var(--foreground) / 0.06);
-    color: var(--home-fg-primary);
-    line-height: 1;
-    vertical-align: middle;
-    translate: 0 -0.1em;
-    white-space: nowrap;
-    text-decoration: none;
-    transition-property: background-color, scale;
-    transition-duration: 150ms;
-    transition-timing-function: var(--ease-out);
-  }
-
-  .hero-pill :global(.hero-pill-icon) {
-    width: 0.9em;
-    height: 0.9em;
-    flex: none;
-  }
-
-  .hero-pill:active {
-    scale: 0.96;
-  }
-
-  /* A link names a place on the site: the word itself, underlined. */
+  /* Every link is the word itself, underlined. The underline is a background
+     rather than a pseudo-element, which leaves ::after free for the chip;
+     the bottom padding drops it just under the descenders without touching
+     the line box. */
   .hero-link {
+    --underline: hsl(var(--foreground) / 0.3);
     position: relative;
     z-index: 0;
+    padding-bottom: 0.1em;
     color: var(--home-fg-primary);
     text-decoration: none;
     white-space: nowrap;
-  }
-
-  .hero-link::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -0.1em;
-    height: max(1px, 0.12em);
-    border-radius: 999px;
-    background: hsl(var(--foreground) / 0.3);
-    transform-origin: left;
-    transition: background-color 150ms var(--ease-out);
+    background: linear-gradient(var(--underline), var(--underline)) no-repeat 0 100% / 100% max(1px, 0.12em);
   }
 
   /* The hover highlight rises out of the underline. */
   .hero-link::before {
     content: '';
     position: absolute;
-    inset: 0 -0.12em -0.04em;
+    inset: 0 -0.12em;
     z-index: -1;
     border-radius: 0.2em 0.2em 0 0;
     background: hsl(var(--foreground) / 0.08);
@@ -365,9 +329,34 @@ const school = experience[0];
     transition: transform 200ms var(--ease-out);
   }
 
+  /* The chip unfolds upward from the word and says where it goes. It is
+     drawn from `data-peek`, so the decode never sees its text. It shares
+     the mood cards' surface: page colour, one hairline. */
+  .hero-link::after {
+    content: attr(data-peek);
+    position: absolute;
+    left: -0.12em;
+    bottom: calc(100% + 6px);
+    padding: 5px 7px;
+    border: 1px solid hsl(var(--foreground) / 0.1);
+    border-radius: 6px;
+    background: hsl(var(--background));
+    color: var(--home-fg-secondary);
+    font-size: var(--home-text-label);
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    translate: 0 4px;
+    clip-path: inset(100% 0 0 0 round 6px);
+    transition-property: opacity, translate, clip-path;
+    transition-duration: 120ms;
+    transition-timing-function: var(--ease-out);
+  }
+
   @media (hover: hover) {
-    .hero-pill:hover {
-      background: hsl(var(--foreground) / 0.1);
+    .hero-link:hover {
+      --underline: hsl(var(--foreground) / 0.6);
     }
 
     .hero-link:hover::before {
@@ -375,54 +364,29 @@ const school = experience[0];
     }
 
     .hero-link:hover::after {
-      background: hsl(var(--foreground) / 0.6);
+      opacity: 1;
+      translate: 0 0;
+      clip-path: inset(0 round 6px);
+      transition-duration: 220ms;
     }
   }
 
   /* Underlines wait for the decode to settle, then draw in reading order.
-     The delay sits on transform alone, which never changes again, so hover
-     colour stays instant. Reduced motion never hides them. */
+     Reduced motion never hides them. */
   @media (prefers-reduced-motion: no-preference) {
-    :global(html.js .decode-text:not(.dt-settled)) .hero-link::after {
-      transform: scaleX(0);
+    :global(html.js .decode-text:not(.dt-settled)) .hero-link {
+      background-size: 0% max(1px, 0.12em);
     }
 
-    :global(.decode-text.dt-settled) .hero-link::after {
-      transition:
-        transform 450ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--draw-i, 0) * 140ms),
-        background-color 150ms var(--ease-out);
+    :global(.decode-text.dt-settled) .hero-link {
+      transition: background-size 450ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--draw-i, 0) * 110ms);
     }
   }
 
-  .hero-socials {
-    display: flex;
-    gap: 4px;
-    margin-top: 16px;
-    margin-left: -6px;
-  }
-
-  /* 28px targets around 16px glyphs; the row gives the padding back on the
-     left so the first icon sits on the text edge. */
-  .hero-socials a {
-    display: grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-md);
-    color: var(--home-fg-faint);
-    transition-property: color, background-color, scale;
-    transition-duration: 150ms;
-    transition-timing-function: var(--ease-out);
-  }
-
-  .hero-socials a:active {
-    scale: 0.96;
-  }
-
-  @media (hover: hover) {
-    .hero-socials a:hover {
-      color: var(--home-fg-primary);
-      background: hsl(var(--foreground) / 0.06);
+  @media (prefers-reduced-motion: reduce) {
+    .hero-link::before,
+    .hero-link::after {
+      transition: none;
     }
   }
 </style>
@@ -445,7 +409,7 @@ const school = experience[0];
   const PHASE_TWO_MS = 950;
   const WIDGET_STAGGER_MS = 70;
   // Longest entrance: phase two plus the last widget's stagger and duration.
-  const SETTLE_MS = PHASE_TWO_MS + 3 * WIDGET_STAGGER_MS + 600 + 200;
+  const SETTLE_MS = PHASE_TWO_MS + 2 * WIDGET_STAGGER_MS + 600 + 200;
   const STATUS_HOLD_MS = 2400;
   const STATUS_OUT_MS = 160;
   const STATUS_IN_MS = 300;

@@ -425,7 +425,7 @@ export const hero = {
     'Crafting', 'Tinkering', 'Pondering', 'Researching', 'Prototyping',
     'Deploying', 'Solving',
   ],
-  // The icon row under the bio: `contactLinks` without the address. A mailto
+  // Named at the end of the bio: `contactLinks` without the address. A mailto
   // on the landing page is a spam magnet; the bio links /message instead.
   // No Blog either, the bio already links it from "write".
   socials: contactLinks.filter((link) => !link.url.startsWith('mailto:')),
@@ -467,7 +467,7 @@ export const experience: ExperienceItem[] = [
     period: 'Jul 2025 — Present',
     icon: GraduationCap,
     strokeWidth: 1.8,
-    description: 'Studying Computer Science (Honours) in Data Science and AI',
+    description: 'Studying Computer Science in Data Science and AI',
     location: 'Clayton, Melbourne, Australia',
   },
   {
