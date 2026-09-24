@@ -94,9 +94,12 @@ Client behavior:
   then rests; the dot pulses once the identity lines have landed.
 - Link underlines draw in one after another once the decode settles
   (`dt-settled`). Hovering a link raises a highlight out of its underline.
-- Every link carries one mark. Words that stay on the site are underlined;
-  the three channels lead with their brand instead, with no underline, since
-  both marks together crowded the lines.
+- Every link carries one mark. The prose words (`projects`, `write`,
+  `moods`) are underlined. The last paragraph's links lead with an icon
+  instead, with no underline, since both marks together crowded the lines:
+  the Monash crest (`/brands/monash-crest.svg`, cut from the full logo and
+  drawn as a CSS mask so it takes the link colour), an envelope for
+  `Message me`, and each channel's brand.
 - Each bio link names a hover card (`data-card`, rendered by
   `HeroCards.astro` outside the decode root). Every card is its own object,
   and the ones with a shape of their own float on the page with no card

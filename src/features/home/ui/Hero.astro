@@ -6,6 +6,7 @@ import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
 import HeroCards from '@/features/home/ui/HeroCards.astro';
 import type { ListeningTrack } from '@/features/home/types';
+import { Mail } from 'lucide-react';
 import { GitHubIcon, InstagramIcon, TelegramIcon } from '@/components/icons';
 import { hero, tech, profile, experience } from '@/data/site';
 
@@ -24,7 +25,7 @@ const school = experience[0];
 
 // Each link opens its own hover card (HeroCards.astro), named by `data-card`.
 const cardAttrs = (id: string) => ({ 'data-card': id });
-// Brand marks lead the links that leave the site for a named place.
+// Brand marks lead the links in the last paragraph, in place of an underline.
 const brandIcons: Record<string, typeof GitHubIcon> = {
   GitHub: GitHubIcon,
   Telegram: TelegramIcon,
@@ -83,14 +84,14 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
         </p>
         <p>
           I also <a class="hero-link" href="/blog" {...cardAttrs('write')} style="--draw-i: 1" data-decode-atom>write</a>,
-          mostly about life itself and whatever I can't stop thinking about.
+          mostly about being alive and whatever I can't stop thinking about.
           Shorter thoughts go to <a class="hero-link" href="/mood" {...cardAttrs('moods')} style="--draw-i: 2" data-decode-atom>moods</a>.
         </p>
         <p>
           I study Computer Science at
-          <a class="hero-link" href={school.url} {...external} {...cardAttrs('monash')} style="--draw-i: 3" data-decode-atom>{school.org}</a>.
+          <a class="hero-link hero-link--icon" href={school.url} {...external} {...cardAttrs('monash')} data-decode-atom><span class="hero-link-icon hero-link-icon--monash" aria-hidden="true"></span>{school.org}</a>.
           Currently in Melbourne.
-          <a class="hero-link" href="/message" {...cardAttrs('message')} style="--draw-i: 4" data-decode-atom>Message me</a>
+          <a class="hero-link hero-link--icon" href="/message" {...cardAttrs('message')} data-decode-atom><Mail className="hero-link-icon" aria-hidden="true" />Message me</a>
           directly, or find me on
           {socials.map((social, i) => {
             const Icon = brandIcons[social.name] ?? social.icon;
@@ -340,6 +341,12 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
     vertical-align: -0.1em;
     opacity: 0.72;
     transition: opacity 150ms ease;
+  }
+
+  /* The crest is a mask, so it takes the link colour like the brand marks. */
+  .hero-link-icon--monash {
+    background-color: currentColor;
+    mask: url('/brands/monash-crest.svg') center / contain no-repeat;
   }
 
   .hero-link:hover :global(.hero-link-icon) {
