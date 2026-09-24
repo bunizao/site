@@ -19,7 +19,8 @@
  * band. They all share one clock, so the boat's ride, the bow wave and the
  * wake stay true to the water at any speed.
  */
-import { front, near, period, tile } from './sillage-motion.json';
+import { bow, front, near, period, tile } from './sillage-motion.json';
+import { life } from './sillage-life';
 import type { Voice } from './sillage-sound';
 import { surfaceDepth, type Swell } from './sillage-surface';
 
@@ -90,6 +91,18 @@ export function stir(sea: HTMLElement, sound: Voice) {
   const nearRow = rows[1];
   const still = matchMedia('(prefers-reduced-motion: reduce)');
   const scroller = sea.closest<HTMLElement>('[data-page-scroller]') ?? document.documentElement;
+  const critters = life({
+    sea,
+    scale: () => s,
+    near: nearRow.el,
+    clouds: part('clouds'),
+    back: part('back'),
+    surfaceY: (x) => surfaceY(nearRow, x),
+    splash: (x, big) => {
+      wake();
+      splash(x, nearRow, big);
+    },
+  });
 
   let s = 1;
   let dim = 1;
@@ -317,6 +330,7 @@ export function stir(sea: HTMLElement, sound: Voice) {
       sink *= 0.3;
       spin += (Math.random() - 0.5) * sink * 0.12;
     }
+    critters.escort(rate, boatX() + bow.x * s, now);
     // Out of the water she drips, for a while.
     if (dip < -10 && now - dripAt > 140) {
       dripAt = now;
@@ -405,7 +419,11 @@ export function stir(sea: HTMLElement, sound: Voice) {
     sea.setPointerCapture(e.pointerId);
     sound.wake();
     // A touch on the boat waits to see whether it picks her up.
-    if (row && !onBoat) splash(e.clientX, row, true);
+    if (onBoat) return;
+    if (row) {
+      splash(e.clientX, row, true);
+      critters.water(e.clientX);
+    } else critters.sky(e.clientX, e.clientY);
   });
 
   sea.addEventListener('pointermove', (e) => {

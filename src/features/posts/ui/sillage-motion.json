@@ -615,6 +615,33 @@
     "size": 9,
     "variants": 4
   },
+  "creatures": {
+    "dolphin": {
+      "width": 70,
+      "height": 32
+    },
+    "fish": {
+      "width": 18,
+      "height": 9
+    },
+    "gull": {
+      "width": 32,
+      "height": 14,
+      "frames": 2
+    },
+    "star": {
+      "width": 14,
+      "height": 14
+    },
+    "sun": {
+      "width": 64,
+      "height": 64
+    },
+    "glitter": {
+      "width": 80,
+      "height": 44
+    }
+  },
   "ride": {
     "heave": [
       -0.91,

@@ -36,7 +36,7 @@
  */
 import motion from './sillage-motion.json';
 
-const { tile, period, near, front, back, clouds, boat, foam, bow, drop, ride } = motion;
+const { tile, period, near, front, back, clouds, boat, foam, bow, drop, creatures, ride } = motion;
 
 // Keyframes generated from the painted surface. Closed with a copy of the first
 // frame so the loop joins itself.
@@ -66,6 +66,20 @@ const motionCss = [
     `${lifeEnd},100%{transform:translate3d(calc(${-foam.life * tile} * var(--u)),calc(var(--sp) * var(--u)),0) scaleX(var(--st));opacity:0}` +
     `}`,
 ].join('');
+
+// The four painted sets, and when each is up. The art loads only once the band
+// nears the screen; before that no layer has an image. Each set is the same
+// picture painted again in its own light — not one set re-lit by a filter.
+const common = ['front', 'near', 'back', 'clouds', 'boat', 'flag', 'foam', 'spray', 'drops', 'dolphin', 'fish'];
+const sets: [string, string, string[]][] = [
+  ['light', '.sillage-sea[data-seen]', [...common, 'gull']],
+  ['dark', '.dark .sillage-sea[data-seen]', [...common, 'star', 'glint']],
+  ['dusk-light', '.sillage-sea[data-seen][data-dusk]', [...common, 'gull', 'glint', 'sun', 'glitter']],
+  ['dusk-dark', '.dark .sillage-sea[data-seen][data-dusk]', [...common, 'star', 'glint']],
+];
+const artCss = sets
+  .map(([dir, selector, files]) => `${selector}{${files.map((f) => `--art-${f}:url('/sillage/${dir}/${f}.webp')`).join(';')}}`)
+  .join('');
 
 const vars = [
   `--tile:${tile}`,
@@ -102,11 +116,23 @@ const vars = [
   `--bow-sy:${bow.sprite.y}`,
   `--drop:${drop.size}`,
   `--drop-rows:${drop.variants - 1}`,
+  `--dolphin-w:${creatures.dolphin.width}`,
+  `--dolphin-h:${creatures.dolphin.height}`,
+  `--fish-w:${creatures.fish.width}`,
+  `--fish-h:${creatures.fish.height}`,
+  `--gull-w:${creatures.gull.width}`,
+  `--gull-h:${creatures.gull.height}`,
+  `--star-w:${creatures.star.width}`,
+  `--sun-w:${creatures.sun.width}`,
+  `--glitter-w:${creatures.glitter.width}`,
+  `--glitter-h:${creatures.glitter.height}`,
 ].join(';');
 ---
 
 <div class="sillage" style={vars} data-sillage>
   <div class="sillage-sea" data-sillage-sea aria-hidden="true">
+    <span class="sillage-sea__dusk"></span>
+    <span class="sillage-sea__sun"></span>
     <div class="sillage-sea__clouds"></div>
     <div class="sillage-sea__back"></div>
     <div class="sillage-sea__boat">
@@ -114,6 +140,7 @@ const vars = [
       <span class="sillage-sea__flag"></span>
     </div>
     <div class="sillage-sea__near"></div>
+    <span class="sillage-sea__glitter"></span>
     <div class="sillage-sea__wake">
       <span class="sillage-sea__bow"></span>
       <span class="sillage-sea__churn"></span>
@@ -138,7 +165,7 @@ const vars = [
   </button>
 </div>
 
-<style is:inline set:html={motionCss}></style>
+<style is:inline set:html={motionCss + artCss}></style>
 
 <style>
   .sillage {
@@ -242,34 +269,6 @@ const vars = [
     .sillage-sea[data-held] {
       cursor: grabbing;
     }
-  }
-
-  /* The art loads only once the band nears the screen; before that no layer
-     has an image. The two sets are the same picture painted twice, day and
-     night, in the blog's inks — not one set re-lit by a filter. */
-  .sillage-sea[data-seen] {
-    --art-front: url('/sillage/light/front.webp');
-    --art-near: url('/sillage/light/near.webp');
-    --art-back: url('/sillage/light/back.webp');
-    --art-clouds: url('/sillage/light/clouds.webp');
-    --art-boat: url('/sillage/light/boat.webp');
-    --art-flag: url('/sillage/light/flag.webp');
-    --art-foam: url('/sillage/light/foam.webp');
-    --art-spray: url('/sillage/light/spray.webp');
-    --art-drops: url('/sillage/light/drops.webp');
-  }
-
-  :global(.dark) .sillage-sea[data-seen] {
-    --art-front: url('/sillage/dark/front.webp');
-    --art-near: url('/sillage/dark/near.webp');
-    --art-back: url('/sillage/dark/back.webp');
-    --art-clouds: url('/sillage/dark/clouds.webp');
-    --art-boat: url('/sillage/dark/boat.webp');
-    --art-flag: url('/sillage/dark/flag.webp');
-    --art-foam: url('/sillage/dark/foam.webp');
-    --art-spray: url('/sillage/dark/spray.webp');
-    --art-drops: url('/sillage/dark/drops.webp');
-    --art-glint: url('/sillage/dark/glint.webp');
   }
 
   /* Defaults for every layer, at zero specificity: Astro scopes selectors with
@@ -535,7 +534,9 @@ const vars = [
   }
 
   :global(.dark) .sillage-sea__glow,
-  :global(.dark) .sillage-sea__glint {
+  :global(.dark) .sillage-sea__glint,
+  .sillage-sea[data-dusk] .sillage-sea__glow,
+  .sillage-sea[data-dusk] .sillage-sea__glint {
     visibility: visible;
   }
 
@@ -551,6 +552,11 @@ const vars = [
       transparent
     );
     animation: sillage-flicker 5.3s ease-in-out infinite alternate;
+  }
+
+  /* At dusk the lantern burns warm, like the light around it. */
+  .sillage-sea[data-dusk] .sillage-sea__glow {
+    background: radial-gradient(closest-side, rgb(255 207 138 / 0.5), rgb(255 207 138 / 0.14) 55%, transparent);
   }
 
   /* The reflection stays on the water: it heaves with the boat but does not
@@ -585,6 +591,149 @@ const vars = [
       transform: scaleX(0.82) scaleY(1.08);
       opacity: 0.55;
     }
+  }
+
+  /* --- Dusk --------------------------------------------------------------
+     By the reader's own clock (the script sets data-dusk). The page is still
+     the sky, so the sky's colour is a wash laid over it from the horizon up,
+     fading out before it reaches the footer. By day the sun sits half down
+     behind the far swell with its road on the water; in blue hour it has
+     gone and left only the glow. */
+  .sillage-sea__dusk,
+  .sillage-sea__sun,
+  .sillage-sea__glitter {
+    display: none;
+  }
+
+  .sillage-sea[data-dusk] .sillage-sea__dusk {
+    display: block;
+    inset: 0 0 calc(var(--back-floor) * var(--u));
+    background: linear-gradient(
+      to top,
+      rgb(255 196 150 / 0.55),
+      rgb(240 164 146 / 0.32) 22%,
+      rgb(180 148 187 / 0.14) 48%,
+      transparent 78%
+    );
+  }
+
+  :global(.dark) .sillage-sea[data-dusk] .sillage-sea__dusk {
+    background: linear-gradient(
+      to top,
+      rgb(196 112 138 / 0.3),
+      rgb(113 121 200 / 0.16) 30%,
+      rgb(113 121 200 / 0.05) 55%,
+      transparent 80%
+    );
+  }
+
+  .sillage-sea[data-dusk] .sillage-sea__sun,
+  .sillage-sea[data-dusk] .sillage-sea__glitter {
+    display: block;
+  }
+
+  :global(.dark) .sillage-sea[data-dusk] .sillage-sea__sun,
+  :global(.dark) .sillage-sea[data-dusk] .sillage-sea__glitter {
+    display: none;
+  }
+
+  /* Its centre on the far swell's surface, so the far water hides half. */
+  .sillage-sea__sun {
+    --sun-x: 72%;
+    left: calc(var(--sun-x) - var(--sun-w) * 0.5 * var(--u));
+    bottom: calc((var(--back-floor) + var(--back-h) - 16 - var(--sun-w) * 0.5) * var(--u));
+    width: calc(var(--sun-w) * var(--u));
+    height: calc(var(--sun-w) * var(--u));
+    background-image: var(--art-sun);
+    animation: sillage-glow 7s ease-in-out infinite alternate;
+  }
+
+  /* The sun's road: from the far swell down across the near water. */
+  .sillage-sea__glitter {
+    left: calc(72% - var(--glitter-w) * 0.5 * var(--u));
+    bottom: calc((var(--back-floor) + var(--back-h) - 16 - var(--glitter-h)) * var(--u));
+    width: calc(var(--glitter-w) * var(--u));
+    height: calc(var(--glitter-h) * var(--u));
+    background-image: var(--art-glitter);
+    transform-origin: 50% 0;
+    animation: sillage-shimmer 2.9s ease-in-out infinite alternate;
+  }
+
+  @keyframes sillage-glow {
+    from {
+      opacity: 0.9;
+      scale: 1;
+    }
+    to {
+      opacity: 1;
+      scale: 1.03;
+    }
+  }
+
+  /* --- Creatures ---------------------------------------------------------
+     Made by sillage-life.ts, where the sea or the sky is touched, and flown
+     there with Web Animations; these only give them their paint. */
+  :global(.sillage-sea__dolphin),
+  :global(.sillage-sea__fish),
+  :global(.sillage-sea__gull),
+  :global(.sillage-sea__meteor) {
+    left: 0;
+    top: 0;
+  }
+
+  :global(.sillage-sea__dolphin) {
+    width: calc(var(--dolphin-w) * var(--u));
+    height: calc(var(--dolphin-h) * var(--u));
+    background-image: var(--art-dolphin);
+  }
+
+  :global(.sillage-sea__fish) {
+    width: calc(var(--fish-w) * var(--u));
+    height: calc(var(--fish-h) * var(--u));
+    background-image: var(--art-fish);
+  }
+
+  /* Two frames of a wingbeat, swapped. */
+  :global(.sillage-sea__gull) {
+    width: calc(var(--gull-w) * var(--u));
+    height: calc(var(--gull-h) * var(--u));
+    background-image: var(--art-gull);
+    background-size: 100% 200%;
+    animation: sillage-flap 0.34s steps(1) infinite;
+  }
+
+  @keyframes sillage-flap {
+    0% {
+      background-position: 0 0;
+    }
+    50% {
+      background-position: 0 100%;
+    }
+  }
+
+  :global(.sillage-sea__star) {
+    width: calc(var(--star-w) * var(--u));
+    height: calc(var(--star-w) * var(--u));
+    background-image: var(--art-star);
+    animation: sillage-twinkle var(--tw, 2s) ease-in-out infinite alternate;
+  }
+
+  @keyframes sillage-twinkle {
+    to {
+      scale: 0.55;
+    }
+  }
+
+  /* A falling star: a bright head at the right end, its tail behind it. */
+  :global(.sillage-sea__meteor) {
+    left: calc(-70 * var(--u));
+    top: calc(-1 * var(--u));
+    width: calc(70 * var(--u));
+    height: calc(2 * var(--u));
+    border-radius: 2px;
+    background: linear-gradient(to right, transparent, color-mix(in srgb, white 80%, var(--blog-ji)));
+    transform-origin: 100% 50%;
+    opacity: 0;
   }
 
   /* Off screen, or asked to hold still: the same picture, standing still. The
@@ -628,11 +777,28 @@ const vars = [
   import { stir } from './sillage-touch';
 
   const KEY = 'sillage-sound';
+  /** Dusk on the reader's own clock, minutes after local midnight. A fixed
+      window, not a sunset table: the page knows the time, not the place. */
+  const DUSK_FROM = 17 * 60;
+  const DUSK_TO = 19 * 60 + 30;
+
+  /** `?sea=dusk` or `?sea=day` shows either at any hour. */
+  function isDusk() {
+    const asked = new URLSearchParams(location.search).get('sea');
+    if (asked === 'dusk' || asked === 'day') return asked === 'dusk';
+    const now = new Date();
+    const minute = now.getHours() * 60 + now.getMinutes();
+    return minute >= DUSK_FROM && minute < DUSK_TO;
+  }
 
   // Load the art as the band approaches, and run it only while it is in view.
   const sea = document.querySelector<HTMLElement>('[data-sillage-sea]');
   const toggle = document.querySelector<HTMLButtonElement>('[data-sillage-sound]');
   if (sea) {
+    // Before the art is asked for, so only one set ever loads.
+    const light = () => sea.toggleAttribute('data-dusk', isDusk());
+    light();
+    window.setInterval(light, 60_000);
     new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) sea.toggleAttribute('data-seen', true);

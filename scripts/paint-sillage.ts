@@ -1,6 +1,6 @@
 /**
- * Paints the sillage sea footer: the art in public/sillage/{light,dark}/ and
- * the motion data the component animates it with.
+ * Paints the sillage sea footer: the art in public/sillage/{light,dark,
+ * dusk-light,dusk-dark}/ and the motion data the component animates it with.
  *
  *   bun scripts/paint-sillage.ts
  *
@@ -170,9 +170,19 @@ interface Palette {
   spray: RGB;
   /** Pressure multiplier for the sky: clouds are lit by a sky that is gone at night. */
   sky: number;
+  /** What the sea keeps under it, and what flies over it. */
+  dolphin: RGB;
+  dolphinBelly: RGB;
+  fish: RGB;
+  bird: RGB;
+  star: RGB;
+  /** Dusk only: the low sun and its road on the water. */
+  sun: RGB;
+  sunRim: RGB;
+  glitter: RGB;
 }
 
-function palettes(): { light: Palette; dark: Palette } {
+function palettes(): Record<'light' | 'dark' | 'dusk-light' | 'dusk-dark', Palette> {
   const white: RGB = [1, 1, 1];
   const night = hex('#0a0a0a');
   const dai = { light: hex(blogPalette.dai.light), dark: hex(blogPalette.dai.dark) };
@@ -221,6 +231,14 @@ function palettes(): { light: Palette; dark: Palette } {
     lantern: mix(dian.light, white, 0.3),
     spray: mix(sea, white, 0.3),
     sky: 1,
+    dolphin: mix(dai.light, white, 0.4),
+    dolphinBelly: mix(ji.light, white, 0.9),
+    fish: mix(ji.light, white, 0.4),
+    bird: mix(dai.light, dian.light, 0.3),
+    star: mix(ji.light, white, 0.6),
+    sun: white,
+    sunRim: white,
+    glitter: white,
   };
 
   // Night is pastel on black paper: the pigment is lighter than the ground, so
@@ -263,8 +281,124 @@ function palettes(): { light: Palette; dark: Palette } {
     lantern: mix(ji.dark, white, 0.8),
     spray: mix(night, mix(ji.dark, white, 0.5), 0.78),
     sky: 0.55,
+    dolphin: mix(night, dai.dark, 0.42),
+    dolphinBelly: mix(night, mix(ji.dark, white, 0.5), 0.66),
+    fish: mix(night, mix(ji.dark, white, 0.4), 0.8),
+    bird: mix(night, dai.dark, 0.6),
+    star: mix(ji.dark, white, 0.72),
+    sun: white,
+    sunRim: white,
+    glitter: white,
   };
-  return { light, dark };
+
+  // Dusk, at the owner's asking ("黄昏时的大海"), is the one place the blog's
+  // no-warm-accents rule gives way: the sun is down to the water and the sky
+  // is in the sea. The blues go violet, the crests take the light, and the
+  // far water, which mirrors the most sky, goes rose.
+  const violet = hex('#5d62a4');
+  const indigo = hex('#40467f');
+  const mauve = hex('#b494bb');
+  const rose = hex('#f0a492');
+  const peach = hex('#ffd6b0');
+  const gold = hex('#ffcf8a');
+  const duskLight: Palette = {
+    paper: white,
+    front: {
+      ground: mix(violet, white, 0.3),
+      light: mix(violet, white, 0.5),
+      mid: mix(violet, white, 0.14),
+      deep: mix(indigo, white, 0.06),
+      crest: mix(peach, white, 0.35),
+    },
+    near: {
+      ground: mix(violet, white, 0.44),
+      light: mix(mix(violet, mauve, 0.4), white, 0.52),
+      mid: mix(violet, white, 0.28),
+      deep: mix(indigo, white, 0.16),
+      crest: mix(peach, white, 0.3),
+    },
+    back: {
+      ground: mix(mauve, white, 0.36),
+      light: mix(mix(mauve, rose, 0.5), white, 0.4),
+      mid: mix(mauve, white, 0.18),
+      deep: mix(mix(mauve, violet, 0.5), white, 0.2),
+      crest: mix(gold, white, 0.3),
+    },
+    // Lit from below by a sun under them: warm undersides, cooler tops.
+    cloud: mix(mix(rose, mauve, 0.3), white, 0.5),
+    cloudLight: mix(mix(mauve, white, 0.5), rose, 0.2),
+    cloudShade: mix(mix(rose, gold, 0.35), white, 0.12),
+    hull: mix(indigo, white, 0.1),
+    hullDark: mix(indigo, hex('#000000'), 0.15),
+    hullEdge: mix(mix(indigo, rose, 0.3), white, 0.4),
+    sail: mix(peach, white, 0.62),
+    sailShade: mix(mix(rose, mauve, 0.5), white, 0.5),
+    line: mix(indigo, dian.light, 0.3),
+    mast: indigo,
+    flag: ji.light,
+    lantern: mix(gold, white, 0.3),
+    spray: mix(violet, white, 0.26),
+    sky: 1,
+    dolphin: mix(mix(violet, mauve, 0.35), white, 0.28),
+    dolphinBelly: mix(peach, white, 0.55),
+    fish: mix(gold, white, 0.3),
+    bird: mix(indigo, dian.light, 0.3),
+    star: mix(peach, white, 0.5),
+    sun: mix(gold, white, 0.25),
+    sunRim: mix(rose, gold, 0.35),
+    glitter: mix(gold, white, 0.35),
+  };
+
+  // Blue hour: the sun gone, the last of its colour low in the sky and on the
+  // far water, the lantern already lit. Pastel on black, like night.
+  const periwinkle = hex('#7179c8');
+  const duskDark: Palette = {
+    paper: night,
+    front: {
+      ground: mix(night, periwinkle, 0.24),
+      light: mix(night, periwinkle, 0.5),
+      mid: mix(night, periwinkle, 0.34),
+      deep: mix(night, indigo, 0.34),
+      crest: mix(night, mix(rose, white, 0.3), 0.74),
+    },
+    near: {
+      ground: mix(night, periwinkle, 0.19),
+      light: mix(night, mix(periwinkle, mauve, 0.3), 0.44),
+      mid: mix(night, periwinkle, 0.28),
+      deep: mix(night, indigo, 0.28),
+      crest: mix(night, mix(rose, white, 0.3), 0.68),
+    },
+    back: {
+      ground: mix(night, mauve, 0.18),
+      light: mix(night, mix(mauve, rose, 0.5), 0.38),
+      mid: mix(night, mauve, 0.26),
+      deep: mix(night, mix(mauve, indigo, 0.5), 0.16),
+      crest: mix(night, gold, 0.6),
+    },
+    cloud: mix(night, mix(mauve, rose, 0.3), 0.2),
+    cloudLight: mix(night, mauve, 0.26),
+    cloudShade: mix(night, rose, 0.36),
+    hull: mix(night, periwinkle, 0.3),
+    hullDark: mix(night, periwinkle, 0.17),
+    hullEdge: mix(night, mix(periwinkle, white, 0.4), 0.5),
+    sail: mix(night, mix(mauve, white, 0.5), 0.5),
+    sailShade: mix(night, mauve, 0.34),
+    line: mix(night, mix(periwinkle, white, 0.4), 0.66),
+    mast: mix(night, mix(periwinkle, white, 0.4), 0.56),
+    flag: mix(night, ji.dark, 0.8),
+    lantern: mix(gold, white, 0.45),
+    spray: mix(night, mix(rose, white, 0.3), 0.66),
+    sky: 0.7,
+    dolphin: mix(night, mix(periwinkle, mauve, 0.3), 0.46),
+    dolphinBelly: mix(night, mix(rose, white, 0.4), 0.66),
+    fish: mix(night, gold, 0.7),
+    bird: mix(night, mauve, 0.6),
+    star: mix(peach, white, 0.6),
+    sun: gold,
+    sunRim: rose,
+    glitter: mix(gold, white, 0.3),
+  };
+  return { light, dark, 'dusk-light': duskLight, 'dusk-dark': duskDark };
 }
 
 // --- Paper ------------------------------------------------------------------
@@ -1534,6 +1668,190 @@ function paintDrops(p: Palette, seed: number): Art {
   return art;
 }
 
+// --- Creatures ----------------------------------------------------------------
+// What a touch can bring up out of the water or down out of the sky. Each is
+// a sprite in CSS px, drawn in the same crayon as the boat; the script flies
+// them.
+
+const DOLPHIN = { width: 70, height: 32 };
+const FISH = { width: 18, height: 9 };
+const GULL = { width: 32, height: 14, frames: 2 };
+const STAR = { width: 14, height: 14 };
+const SUN = { width: 64, height: 64 };
+const GLITTER = { width: 80, height: 44 };
+
+/** A sprite canvas, and a mapper from sprite CSS px to its pixels. */
+function sprite(box: { width: number; height: number }, rows = 1, seed = 0) {
+  const R = SPRITE_RES;
+  const w = box.width * R;
+  const h = box.height * R * rows;
+  return {
+    art: new Art(w, h, false),
+    tooth: paperTooth(w, h, seed, 0),
+    tone: mottle(w, h, seed + 2, 8, 6),
+    r: random(seed + 1),
+    at: (pts: Pt[], row = 0): Pt[] => pts.map(([x, y]) => [x * R, (y + row * box.height) * R]),
+  };
+}
+
+/** A bottlenose, side on, facing right, as it clears the water. */
+function paintDolphin(p: Palette, seed: number): Art {
+  const R = SPRITE_RES;
+  const { art, tooth, tone, r, at } = sprite(DOLPHIN, 1, seed);
+  const shape = tremble(
+    at([
+      ...bezier([68, 19], [64, 17.6], [61, 17], [58, 13.5], 10),
+      ...bezier([58, 13.5], [55, 9], [46, 7.2], [39, 7.6], 14),
+      ...bezier([39, 7.6], [36, 4], [33, 1.5], [29.5, 0.8], 10),
+      ...bezier([29.5, 0.8], [30.5, 4], [30, 6.5], [28, 9.5], 8),
+      ...bezier([28, 9.5], [22, 10.5], [15, 12.5], [10, 15.5], 12),
+      ...bezier([10, 15.5], [7, 13], [4, 10.5], [1.5, 9.5], 8),
+      ...bezier([1.5, 9.5], [3, 13], [4, 15.5], [5, 17], 6),
+      ...bezier([5, 17], [4, 19], [3, 21.5], [1.5, 24.5], 6),
+      ...bezier([1.5, 24.5], [5, 23], [8, 20.5], [10.5, 18.5], 8),
+      ...bezier([10.5, 18.5], [18, 20.5], [28, 23], [40, 23], 14),
+      ...bezier([40, 23], [39, 26], [37, 28.5], [35, 30.5], 6),
+      ...bezier([35, 30.5], [38.5, 28.5], [42, 25], [46, 22.4], 6),
+      ...bezier([46, 22.4], [54, 22], [62, 21], [68, 19], 12),
+    ]),
+    0.25 * R,
+    r,
+  );
+  const mask = polygonMask(art.w, art.h, shape);
+  // Dark back, pale belly, the line between them running along the flank.
+  const belly = (x: number, y: number) => smooth(15.5 * R, 21 * R, y + (x / R - 40) * 0.08 * R);
+  ground(art, mask, () => p.paper, tone, 0);
+  ground(art, mask, (x, y) => mix(p.dolphin, p.dolphinBelly, belly(x, y)), tone, 0.12);
+  hatchFill(art, tooth, mask, { angle: -0.12, gap: 3.4, width: 5, pressure: 0.5, color: mix(p.dolphin, p.line, 0.35), run: [20, 60], rough: 0.4, weight: (x, y) => 1 - belly(x, y) }, r);
+  hatchFill(art, tooth, mask, { angle: 0.08, gap: 3.8, width: 5, pressure: 0.46, color: p.dolphinBelly, run: [16, 50], rough: 0.4, weight: belly }, r);
+  // Wet light along the back.
+  line(art, tooth, { pts: tremble(at(bezier([56, 12.5], [50, 8.8], [44, 8.4], [40, 8.8], 16)), 0.2 * R, r), width: 1.3 * R, pressure: taper(0.6, 0.1, 0.7), color: p.dolphinBelly, alpha: 0.8 }, r);
+  outline(art, tooth, shape, 0.9 * R, 0.6, p.line, r);
+  // Mouth and eye.
+  line(art, tooth, { pts: at([[66.5, 19.4], [61, 19.6], [57.5, 18.6]]), width: 0.6 * R, pressure: taper(0.7, 0.1, 0.8), color: p.line }, r);
+  line(art, tooth, { pts: at([[56.6, 15.6], [57.4, 15.4]]), width: 1.5 * R, pressure: 1, color: p.line }, r);
+  art.soften();
+  return art;
+}
+
+/** A small fish, facing right, the kind that jumps in a shoal. */
+function paintFish(p: Palette, seed: number): Art {
+  const R = SPRITE_RES;
+  const { art, tooth, tone, r, at } = sprite(FISH, 1, seed);
+  const shape = at([
+    ...bezier([17, 4.6], [14, 1.6], [9, 1.6], [5.5, 4], 10),
+    ...bezier([5.5, 4], [4, 2.5], [2.5, 1.4], [0.8, 1], 4),
+    ...bezier([0.8, 1], [1.8, 3], [1.8, 5.8], [0.8, 8], 4),
+    ...bezier([0.8, 8], [2.5, 7.4], [4, 6.4], [5.5, 5.2], 4),
+    ...bezier([5.5, 5.2], [9, 7.8], [14, 7.6], [17, 4.6], 10),
+  ]);
+  const mask = polygonMask(art.w, art.h, shape);
+  ground(art, mask, () => p.paper, tone, 0);
+  ground(art, mask, (_x, y) => mix(p.fish, p.dolphinBelly, smooth(3.8 * R, 6.5 * R, y) * 0.6), tone, 0.1);
+  hatchFill(art, tooth, mask, { angle: -0.1, gap: 2.4, width: 3.4, pressure: 0.5, color: mix(p.fish, p.line, 0.25), run: [8, 24], rough: 0.4, weight: (_x, y) => 1 - smooth(3 * R, 5 * R, y) }, r);
+  outline(art, tooth, shape, 0.55 * R, 0.55, p.line, r);
+  line(art, tooth, { pts: at([[13.6, 3.7], [14.1, 3.6]]), width: 1 * R, pressure: 1, color: p.line }, r);
+  art.soften();
+  return art;
+}
+
+/** A gull, two frames of one wingbeat: up, then down. */
+function paintGull(p: Palette, seed: number): Art {
+  const R = SPRITE_RES;
+  const { art, tooth, r, at } = sprite(GULL, GULL.frames, seed);
+  const wings: [Pt, Pt, Pt, Pt][][] = [
+    [
+      [[1, 2.5], [5, 3], [10, 5], [15.2, 9.2]],
+      [[15.2, 9.2], [19, 5.5], [25, 3.5], [31, 3]],
+    ],
+    [
+      [[1.5, 10.5], [5, 7.5], [10, 7], [15.2, 8.6]],
+      [[15.2, 8.6], [20, 7], [26, 7.6], [30.5, 11]],
+    ],
+  ];
+  wings.forEach((pair, frame) => {
+    for (const [a, b, c, d] of pair) {
+      line(
+        art,
+        tooth,
+        {
+          pts: tremble(at(bezier(a, b, c, d, 20), frame), 0.2 * R, r),
+          width: (u) => (0.7 + 1.5 * Math.sin(Math.PI * Math.min(1, 0.25 + u * 0.75))) * R,
+          pressure: taper(0.92, 0.05, 0.85),
+          color: p.bird,
+        },
+        r,
+      );
+    }
+    line(art, tooth, { pts: at([[14, 9.3], [16.4, 9.6]], frame), width: 2.2 * R, pressure: 0.95, color: p.bird }, r);
+  });
+  art.soften();
+  return art;
+}
+
+/** A four-pointed star: two tapered strokes crossed, and a dab. */
+function paintStar(p: Palette, seed: number): Art {
+  const R = SPRITE_RES;
+  const { art, tooth, r, at } = sprite(STAR, 1, seed);
+  const ray = (u: number) => (0.3 + 1.9 * Math.pow(Math.sin(Math.PI * u), 3)) * R;
+  line(art, tooth, { pts: at([[7, 0.6], [7.1, 7], [7, 13.4]]), width: ray, pressure: 0.95, color: p.star }, r);
+  line(art, tooth, { pts: at([[0.6, 7.1], [7, 7], [13.4, 6.9]]), width: ray, pressure: 0.95, color: p.star }, r);
+  line(art, tooth, { pts: at([[6.4, 7], [7.6, 7]]), width: 2.4 * R, pressure: 1, color: mix(p.star, [1, 1, 1], 0.5) }, r);
+  art.soften();
+  return art;
+}
+
+/** The low sun: a crayoned disc, hotter at the heart, rimmed rose. */
+function paintSun(p: Palette, seed: number): Art {
+  const R = SPRITE_RES;
+  const { art, tooth, tone, r, at } = sprite(SUN, 1, seed);
+  const disc: Pt[] = [];
+  for (let i = 0; i < 90; i++) {
+    const a = (i / 90) * Math.PI * 2;
+    disc.push([32 + Math.cos(a) * 28, 32 + Math.sin(a) * 28]);
+  }
+  const shape = tremble(at(disc), 0.3 * R, r);
+  const mask = polygonMask(art.w, art.h, shape);
+  const c = 32 * R;
+  const edge = (x: number, y: number) => smooth(14 * R, 28 * R, Math.hypot(x - c, y - c));
+  ground(art, mask, (x, y) => mix(p.sun, p.sunRim, edge(x, y) * 0.8), tone, 0.05);
+  hatchFill(art, tooth, mask, { angle: -0.4, gap: 3.6, width: 6, pressure: 0.5, color: mix(p.sun, [1, 1, 1], 0.4), run: [20, 60], rough: 0.6, weight: (x, y) => 1 - edge(x, y) }, r);
+  hatchFill(art, tooth, mask, { angle: 0.3, gap: 4.2, width: 6, pressure: 0.45, color: p.sunRim, run: [20, 60], rough: 0.6, weight: edge }, r);
+  art.soften();
+  return art;
+}
+
+/** The sun's road on the water: broken bars, longer and bolder nearer. */
+function paintGlitter(p: Palette, seed: number): Art {
+  const R = STRIP_RES;
+  const w = GLITTER.width * R;
+  const h = GLITTER.height * R;
+  const art = new Art(w, h, false);
+  const tooth = paperTooth(w, h, seed, 0.3);
+  const r = random(seed + 1);
+  for (let k = 0; k < 11; k++) {
+    const u = k / 10;
+    for (let piece = 0; piece < 2 + Math.round(u * 2); piece++) {
+      const len = (8 + u * 26) * R * between(r, 0.5, 1);
+      sweep(
+        art,
+        tooth,
+        {
+          x: w / 2 + between(r, -0.5, 0.5) * (14 + u * 50) * R - len / 2,
+          y: (2 + Math.pow(u, 1.3) * 39) * R,
+          len,
+          width: (1.6 + u * 1.8) * R,
+          pressure: 0.6 + u * 0.35,
+          color: p.glitter,
+        },
+        r,
+      );
+    }
+  }
+  art.soften();
+  return art;
+}
+
 // --- Motion -----------------------------------------------------------------
 
 /**
@@ -1619,16 +1937,15 @@ function foam() {
 // --- Run --------------------------------------------------------------------
 
 async function main() {
-  const { light, dark } = palettes();
+  const inks = palettes();
   const only = process.argv[2];
   const report: string[] = [];
-  for (const [name, p] of [
-    ['light', light],
-    ['dark', dark],
-  ] as [string, Palette][]) {
+  for (const [name, p] of Object.entries(inks)) {
     const dir = `public/sillage/${name}`;
     await mkdir(dir, { recursive: true });
-    const lit = name === 'dark';
+    // The lantern is lit from dusk on; the sun is up only at dusk by day.
+    const lit = name !== 'light';
+    const night = name.endsWith('dark');
     const jobs: [string, () => Art, number][] = [
       ['front', () => paintFront(p, 59), 80],
       ['near', () => paintNear(p, 11), 80],
@@ -1639,8 +1956,12 @@ async function main() {
       ['foam', () => paintFoam(p, 47), 88],
       ['spray', () => paintSpray(p, 61), 88],
       ['drops', () => paintDrops(p, 67), 88],
+      ['dolphin', () => paintDolphin(p, 71), 88],
+      ['fish', () => paintFish(p, 73), 88],
+      night ? ['star', () => paintStar(p, 79), 88] : ['gull', () => paintGull(p, 83), 88],
     ];
     if (lit) jobs.push(['glint', () => paintGlint(p, 53), 88]);
+    if (name === 'dusk-light') jobs.push(['sun', () => paintSun(p, 89), 88], ['glitter', () => paintGlitter(p, 97), 88]);
     for (const [file, paint, quality] of jobs) {
       if (only && only !== file) continue;
       const art = paint();
@@ -1678,6 +1999,7 @@ async function main() {
     foam: { width: FOAM_W, height: FOAM_H, variants: FOAM_VARIANTS, life: FOAM_LIFE, stern: STERN_X, streaks: foam() },
     bow: { x: BOW_X, sprite: BOW_SPRITE, ...bowWave(heave, pitch) },
     drop: { size: DROP, variants: DROP_VARIANTS },
+    creatures: { dolphin: DOLPHIN, fish: FISH, gull: GULL, star: STAR, sun: SUN, glitter: GLITTER },
     ride: { heave, pitch },
   };
   await writeFile('src/features/posts/ui/sillage-motion.json', `${JSON.stringify(motion, null, 2)}\n`);
