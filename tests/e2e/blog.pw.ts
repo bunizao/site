@@ -206,7 +206,7 @@ test.describe('Blog routes', () => {
       Array.from(el.children, (child) => child.className.replace('sillage-sea__', '')).filter(
         (layer) => layer !== 'foam',
       );
-    expect(await sea.evaluate(layers)).toEqual(['clouds', 'back', 'boat', 'near', 'wake', 'front']);
+    expect(await sea.evaluate(layers)).toEqual(['dusk', 'sun', 'clouds', 'back', 'boat', 'near', 'glitter', 'wake', 'front']);
     expect(await sea.locator('.sillage-sea__wake').evaluate(layers)).toEqual(['bow', 'churn', 'glint']);
     await sea.scrollIntoViewIfNeeded();
     await expect(sea).toHaveAttribute('data-seen', '');
@@ -222,6 +222,8 @@ test.describe('Blog routes', () => {
     let waterY = band.y + band.height - 24;
     await page.mouse.click(band.x + band.width * 0.7, waterY);
     await expect(sea.locator('.sillage-sea__splash')).toHaveCount(0);
+    // A sea that cannot be touched never sounds, so it has no sound switch.
+    await expect(page.getByRole('button', { name: 'Sound of the sea' })).toBeHidden();
     await page.emulateMedia({ reducedMotion: 'no-preference' });
 
     // Scroll runs on into the sea: past the end of the page, a wheel keeps
@@ -269,6 +271,51 @@ test.describe('Blog routes', () => {
     const searchDialog = page.getByRole('dialog', { name: 'Site search and commands' });
     await expect(searchDialog).toBeVisible();
     await expect(searchDialog).toHaveJSProperty('open', true);
+  });
+
+  test('lets the sea footer be played with: sound switch, creatures, the boat and dusk', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const response = await page.goto('/blog?sea=dusk');
+    expect(response?.ok()).toBeTruthy();
+    const sea = page.locator('.sillage-sea');
+    await page.locator('[data-page-scroller]').evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await expect(sea).toHaveAttribute('data-seen', '');
+
+    // Dusk, on request here and by the reader's clock otherwise: its own set.
+    await expect(sea).toHaveAttribute('data-dusk', '');
+    await expect(sea.locator('.sillage-sea__near')).toHaveCSS('background-image', /\/sillage\/dusk-(?:light|dark)\/near\.webp/);
+
+    // The sound switch: pressed means on; off is remembered.
+    const toggle = page.getByRole('button', { name: 'Sound of the sea' });
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Sound of the sea' })).toHaveAttribute('aria-pressed', 'false');
+    await page.getByRole('button', { name: 'Sound of the sea' }).click();
+    await page.locator('[data-page-scroller]').evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await expect(sea).toHaveAttribute('data-awake', '');
+
+    // The first touch of the water always brings a dolphin up.
+    const band = (await sea.boundingBox())!;
+    await page.mouse.click(band.x + band.width * 0.7, band.y + band.height - 24);
+    await expect(sea.locator('.sillage-sea__dolphin')).toBeAttached();
+
+    // The boat can be picked up out of the water, and falls back when let go.
+    const boat = sea.locator('.sillage-sea__boat');
+    const hull = (await boat.boundingBox())!;
+    const lift = async () =>
+      boat.evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m42);
+    await page.mouse.move(hull.x + hull.width / 2, hull.y + hull.height * 0.6);
+    await page.mouse.down();
+    for (let step = 1; step <= 10; step++) {
+      await page.mouse.move(hull.x + hull.width / 2, hull.y + hull.height * 0.6 - step * 5);
+      await page.waitForTimeout(16);
+    }
+    await expect(sea).toHaveAttribute('data-held', '');
+    expect(await lift()).toBeLessThan(-20);
+    await page.mouse.up();
+    await expect.poll(lift, { timeout: 5000 }).toBeGreaterThan(-3);
   });
 
   test('keeps the hover cover and indicator aligned during wheel scrolling', async ({ page }) => {
