@@ -119,12 +119,19 @@ Client behavior:
     the stars across every repo. Stars come from the self-hosted
     github-readme-stats card (`gh-stats.buxx.me`), read at build time
     because it serves SVG without CORS; a failed read shows a dash.
-  - Telegram: a chat, on a card shaped like a message bubble.
-  - Instagram: the profile behind a story ring.
+  - Telegram: the chat itself, two messages and a reply box floating on
+    the page, with no name, handle or window around them.
+  - Instagram: the profile picture behind a story ring, with the post,
+    follower and following counts. Both come from the profile page at build
+    time: Instagram answers link-preview crawlers (`facebookexternalhit`)
+    without a login, `og:image` names the picture and `og:description`
+    carries the counts. The CDN signs the picture's address and expires it
+    within days, so the bytes are inlined as a data URI. A failed read
+    leaves the initials and no counts.
 
   Cards name the short links (`tuu.cat/gh`), never the address behind them.
-  Only the GitHub card shows the avatar, since it is the GitHub picture;
-  the others use initials.
+  GitHub and Instagram show their own profile pictures; the others use
+  initials.
   The two network reads start on the first link hover. Cards open after
   120ms of mouse hover or on keyboard focus. They swap instantly between
   links, sit above the word, and flip below it near the viewport top. The

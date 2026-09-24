@@ -12,7 +12,7 @@
 // script listens on the bio by delegation and positions one card at a time.
 // They are a pointer enhancement: every destination is also the link itself,
 // so the cards stay out of the accessibility tree and the tab order.
-import { ArrowRight, Send } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { blog, experience, hero, profile, projects } from '@/data/site';
 import { messageCopy } from '@/features/messages/copy';
 import { postPath } from '@/features/posts/format';
@@ -92,6 +92,51 @@ const readTotalStars = async (): Promise<string | null> => {
   }
 };
 const totalStars = await readTotalStars();
+
+// The Instagram profile. Instagram answers link-preview crawlers without a
+// login: og:image names the picture and og:description carries the counts
+// ("33 Followers, 94 Following, 35 Posts"). The CDN signs the picture's
+// address and expires it within days, so its bytes are inlined, not linked.
+// It is read on every build; a failed read leaves the initials and no counts.
+type InstagramProfile = {
+  avatar: string | null;
+  counts: { label: string; value: string }[];
+};
+const readInstagram = async (profileUrl: string): Promise<InstagramProfile | null> => {
+  try {
+    const page = await fetch(profileUrl, {
+      headers: { 'user-agent': 'facebookexternalhit/1.1' },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!page.ok) return null;
+    const html = await page.text();
+    const meta = (name: string) =>
+      html.match(new RegExp(`<meta property="og:${name}" content="([^"]+)"`))?.[1]?.replaceAll('&amp;', '&');
+
+    const summary = meta('description') ?? '';
+    const count = (label: string) => summary.match(new RegExp(`([\\d.,]+[KM]?) ${label}`, 'i'))?.[1];
+    const counts = [
+      { label: 'Posts', value: count('Posts') },
+      { label: 'Followers', value: count('Followers') },
+      { label: 'Following', value: count('Following') },
+    ].filter((item): item is { label: string; value: string } => Boolean(item.value));
+
+    let avatar: string | null = null;
+    const src = meta('image');
+    if (src) {
+      const image = await fetch(src, { signal: AbortSignal.timeout(4000) });
+      const type = image.headers.get('content-type') ?? '';
+      if (image.ok && type.startsWith('image/')) {
+        let binary = '';
+        for (const byte of new Uint8Array(await image.arrayBuffer())) binary += String.fromCharCode(byte);
+        avatar = `data:${type};base64,${btoa(binary)}`;
+      }
+    }
+    return { avatar, counts };
+  } catch {
+    return null;
+  }
+};
 // A hand of cards fanned from the middle, the outer ones lower and turned
 // further. The way to the whole list is the first card, under the others.
 const HAND = projects.length + 1;
@@ -112,6 +157,7 @@ const channel = (name: string) => {
 const github = channel('GitHub');
 const telegram = channel('Telegram');
 const instagram = channel('Instagram');
+const instagramProfile = instagram?.canonicalUrl ? await readInstagram(instagram.canonicalUrl) : null;
 const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 ---
 
@@ -283,23 +329,16 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     </div>
   )}
 
-  <!-- Telegram: the card is the chat bubble. -->
+  <!-- Telegram: the chat itself, two messages from me and the reply box. -->
   {telegram && (
-    <div class="hc hc--bubble hc--telegram" data-card-id="telegram">
-      <a class="hc-head hc-head--avatar" href={telegram.url} {...external}>
-        <span class="hc-avatar hc-monogram">{initials}</span>
-        <span class="hc-id">
-          <span class="hc-title">{profile.name}</span>
-          <span class="hc-sub">{telegram.handle} · <span data-melbourne-time>…</span> for me</span>
-        </span>
-        <TelegramIcon className="hc-brand" />
+    <div class="hc hc--loose hc--telegram" data-card-id="telegram">
+      <a class="tg-chat" href={telegram.url} {...external}>
+        <span class="tg-bubble">Hey!</span>
+        <span class="tg-bubble">{telegram.description}, about anything.</span>
       </a>
-      <div class="tg-chat">
-        <span class="tg-bubble">Hey! {telegram.description}, about anything.</span>
-      </div>
       <a class="tg-composer" href={telegram.url} {...external}>
-        <span>Say hi on Telegram</span>
-        <span class="tg-send"><Send className="tg-plane" aria-hidden="true" /></span>
+        <span>Message</span>
+        <span class="tg-send"><TelegramIcon className="tg-plane" /></span>
       </a>
     </div>
   )}
@@ -307,9 +346,21 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   <!-- Instagram: the profile, behind a story ring. -->
   {instagram && (
     <div class="hc hc--instagram" data-card-id="instagram">
-      <span class="ig-ring"><span class="hc-monogram">{initials}</span></span>
+      <span class="ig-ring">
+        {instagramProfile?.avatar ? (
+          <img class="ig-avatar" src={instagramProfile.avatar} alt="" width="64" height="64" decoding="async" />
+        ) : (
+          <span class="hc-monogram">{initials}</span>
+        )}
+      </span>
       <span class="hc-title">{instagram.handle}</span>
-      <span class="hc-sub">{profile.name} · {instagram.description}</span>
+      {instagramProfile && instagramProfile.counts.length > 0 && (
+        <dl class="ig-counts">
+          {instagramProfile.counts.map((item) => (
+            <div><dd class="hc-num">{item.value}</dd><dt>{item.label}</dt></div>
+          ))}
+        </dl>
+      )}
       <a class="ig-button" href={instagram.url} {...external}>
         <InstagramIcon className="ig-button-icon" />View profile
       </a>
@@ -1363,32 +1414,49 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     font-variant-numeric: tabular-nums;
   }
 
-  /* ---------- Telegram: chat -------------------------------------------- */
+  /* ---------- Telegram: the chat, no window around it ----------------- */
 
   .hc--telegram {
-    --hc-w: 296px;
+    --hc-w: 264px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 
+  .hc--loose[data-open] :is(.tg-chat, .tg-composer) {
+    pointer-events: auto;
+  }
+
+  /* Two messages in a row, grouped the way Telegram groups them: only the
+     last one carries the tail. */
   .tg-chat {
     display: flex;
-    margin: 14px -16px 0;
-    padding: 18px 16px 14px;
-    background:
-      radial-gradient(circle, hsl(var(--foreground) / 0.07) 1px, transparent 1.2px) 0 0 / 12px 12px,
-      hsl(var(--foreground) / 0.025);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
   }
 
   .tg-bubble {
-    max-width: 85%;
-    padding: 8px 12px;
-    border-radius: 16px 16px 16px 4px;
+    padding: 7px 12px;
+    border-radius: 16px 16px 16px 6px;
     background: var(--home-surface);
-    box-shadow: var(--home-surface-shadow);
+    box-shadow:
+      var(--home-surface-shadow),
+      var(--hc-card-drop);
     color: var(--home-fg-primary);
   }
 
+  .tg-bubble:last-child {
+    border-radius: 6px 16px 16px 4px;
+  }
+
   .hc[data-open] .tg-bubble {
-    animation: hc-rise 380ms var(--ease-out) 160ms backwards;
+    animation: hc-rise 380ms var(--ease-out) backwards;
+  }
+
+  .hc[data-open] .tg-bubble:last-child {
+    animation-delay: 100ms;
   }
 
   .tg-composer {
@@ -1396,11 +1464,19 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    margin: 0 -16px -16px;
-    padding: 8px 10px 8px 16px;
-    border-top: 1px solid hsl(var(--foreground) / 0.07);
+    align-self: stretch;
+    padding: 5px 5px 5px 16px;
+    border-radius: 999px;
+    background: var(--home-surface);
+    box-shadow:
+      var(--home-surface-shadow),
+      var(--hc-card-drop);
     color: var(--home-fg-faint);
     transition: color 150ms ease;
+  }
+
+  .hc[data-open] .tg-composer {
+    animation: hc-rise 380ms var(--ease-out) 200ms backwards;
   }
 
   .tg-composer:hover {
@@ -1423,9 +1499,9 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   }
 
   .tg-send :global(.tg-plane) {
-    width: 14px;
-    height: 14px;
-    translate: -1px 1px;
+    width: 15px;
+    height: 15px;
+    translate: -1px 0;
   }
 
   .hc[data-open] .tg-send :global(.tg-plane) {
@@ -1487,8 +1563,40 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     font-size: 20px;
   }
 
-  .hc--instagram .hc-sub {
-    margin-top: 2px;
+  .ig-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    outline: 1px solid oklch(0 0 0 / 0.1);
+    outline-offset: -1px;
+  }
+
+  :global(html.dark) .ig-avatar {
+    outline-color: oklch(1 0 0 / 0.1);
+  }
+
+  .ig-counts {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin: 10px 0 0;
+  }
+
+  .ig-counts div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .ig-counts dd {
+    margin: 0;
+    font-weight: 600;
+    color: var(--home-fg-primary);
+  }
+
+  .ig-counts dt {
+    font-size: 11px;
+    color: var(--home-fg-faint);
   }
 
   .ig-button {
