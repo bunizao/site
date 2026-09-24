@@ -235,6 +235,20 @@ test.describe('Home page', () => {
 
         const inspect = () => {
           const currentCells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
+          // The hero decodes with `restore`, so the cells give way to the
+          // original markup once the reveal settles. That is the finish line.
+          if (currentCells.length === 0 && root.classList.contains('dt-settled')) {
+            const finalText = compact(root.textContent ?? '');
+            const sourceText = compact(source);
+            resolve({
+              stable: true,
+              interleaved,
+              slotCountStable: true,
+              textMatches: finalText === sourceText,
+              snapshot: `source=${sourceText}|final=${finalText}`,
+            });
+            return;
+          }
           if (currentCells.length !== slotCount) {
             resolve({
               stable: true,

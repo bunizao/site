@@ -45,8 +45,16 @@ const { class: className } = Astro.props;
     root._decodeReady = true;
 
     try {
-      const controller = await prepareDecode(root);
+      // `restore` hands the links back as real elements once the text lands.
+      const controller = await prepareDecode(root, { restore: true });
       root._decodeController = controller;
+      // `dt-settled` cues what waits for the text, such as link underlines.
+      // The reflow commits the restored markup first, so their transitions
+      // run from the unsettled state instead of painting at the end.
+      void controller.finished.then(() => {
+        void root.offsetWidth;
+        root.classList.add('dt-settled');
+      });
       // Visible, but every slot is blank — no full-text flash. Under reduced
       // motion the DOM is untouched and start() is a no-op, so this simply
       // shows the text.

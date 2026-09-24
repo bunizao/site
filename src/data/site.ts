@@ -425,19 +425,11 @@ export const hero = {
     'Crafting', 'Tinkering', 'Pondering', 'Researching', 'Prototyping',
     'Deploying', 'Solving',
   ],
-  // `contactLinks`, not `profile.links` — no Blog pill here. The nav, the
-  // Writing masthead and that section's own door already lead to the blog;
-  // the hero only links it from the word "write".
-  socials: contactLinks,
-
-  // The lead paragraph, the one the hero decodes. `**...**` marks the single
-  // highlight effect (rendered as <span class="text-foreground">). It stays
-  // plain prose: the decode flattens every element into character cells, so
-  // links and pills live in the paragraphs after it (Hero.astro).
-  bio: 'I make interesting things. Curious about **frontend design**, **proxy systems** and **open source**, obsessed with **speed**, and always asking how things can be **better**.',
-  // What the second paragraph says about school; the org name and link come
-  // from the Monash row in `experience`.
-  study: 'Computer Science in Data Science and AI',
+  // The icon row under the bio: `contactLinks` without the address. A mailto
+  // on the landing page is a spam magnet; the bio links /message instead.
+  // No Blog either, the bio already links it from "write".
+  socials: contactLinks.filter((link) => !link.url.startsWith('mailto:')),
+  // The bio itself is prose with inline links, so it lives in Hero.astro.
 };
 
 // --- Tech marquee -----------------------------------------------------------
@@ -475,7 +467,7 @@ export const experience: ExperienceItem[] = [
     period: 'Jul 2025 — Present',
     icon: GraduationCap,
     strokeWidth: 1.8,
-    description: 'Studying Computer Science in Data Science and AI',
+    description: 'Studying Computer Science (Honours) in Data Science and AI',
     location: 'Clayton, Melbourne, Australia',
   },
   {
