@@ -71,7 +71,7 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
   canvas text does not count for LCP. The script removes it when typing
   starts; left in place it showed through as a ghost behind the caret.
 - The bio is three short paragraphs of prose written in `Hero.astro`, and
-  all of it decodes: what I build, where the code and the writing go,
+  all of it decodes: what I make, what I write,
   and where I am. Every link
   is a word in the sentence, in reading order: `projects`, `write`, `moods`,
   Monash University, `Message me` (to `/message`) and the `hero.socials`
