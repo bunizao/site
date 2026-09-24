@@ -64,9 +64,16 @@ onHeroReady(() => controller.start());
 controller.cancel();                        // restore original markup any time
 ```
 
-Inline markup inside the host is flattened (except `<br>`); color, font-weight
-and font-style that differ from the host are baked onto each character, so
-`<span class="highlight">` / `<b>` emphasis survives.
+Every `<p>` inside the element decodes on one shared timeline; without any,
+the element itself is the host. Inline markup is flattened (except `<br>`);
+color, font-weight and font-style that differ from the host are baked onto each
+character, so `<span class="highlight">` / `<b>` emphasis survives.
+
+Mark an inline element `data-decode-atom` to keep its box — a pill or a link
+decodes inside its own background and padding, with any text-free child (an
+icon) in place. An atom never breaks across lines. Pass `restore: true` to put
+the original markup back once the reveal settles, so links get their real
+elements back and the text reflows on resize.
 
 ### Options
 
@@ -75,6 +82,7 @@ and font-style that differ from the host are baked onto each character, so
 | `charset` | `` __-—/\|<> `` | Scramble glyph pool |
 | `cursorChar` | `-` | Glyph a cell shows between the show and mash fronts |
 | `layout` | `grow` | `grow` (condense, monospace) / `static` (pop in place, any font) |
+| `restore` | `false` | Swap the original markup back in once the reveal settles |
 | `order` | `shuffle` | Queue order: `shuffle` (original — resolution interleaves across the line) or `ltr` (smooth right-edge growth, resolution follows it) |
 | `showPower` | `0.5` | Show front exponent — cells turn visible as `p^showPower` sweeps the queue |
 | `mashPower` | `2` | Mash front exponent — cursor graduates to scramble |

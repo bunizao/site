@@ -443,7 +443,7 @@ describe('Cloudflare runtime configuration', () => {
     expect(globals).toContain('.js .hero-animate {');
     expect(globals).toMatch(/font-family: 'Geist Mono';[\s\S]*?font-display: optional;/);
     expect(hero).toContain("import DecodeText from '@/features/home/ui/DecodeText.astro';");
-    expect(hero).toContain('<DecodeText>');
+    expect(hero).toContain('<DecodeText class="hero-bio">');
     expect(hero).toContain('<h1 class="hero-animate');
     // The hero entrance is CSS; nothing in the hero waits on a GSAP chunk.
     expect(hero).not.toContain("import('gsap')");

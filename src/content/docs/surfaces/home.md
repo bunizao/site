@@ -35,7 +35,10 @@ painted on a canvas by `src/lib/glyph-field.ts` (decisions and tunables in
 only simulates cells that can be seen:
 
 - Wide screens (≥ 640px): a 560px band, at most 1200px wide, masked on both
-  sides so the field dissolves before the viewport edges.
+  sides so the field dissolves before the viewport edges. It is full behind
+  the status line and the name, drops to a faint floor (22%) by 270px where
+  the bio starts, and is gone at the band's end, so body text never sits in
+  full rain.
 - Phones: the same composition as wide screens (copy at the top, rain
   behind it), on a 320px band with no side mask. The mask is full behind
   the status line and the display name and dissolves through the chips and
@@ -61,7 +64,20 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
 
 - Astro renders mostly static markup.
 - The displayed name uses `Typewriter.astro`, which renders a hidden longest-string placeholder to avoid layout shift during typing.
-- Social links are local config in the component, not CMS-driven.
+  It paints on a canvas, positioning each glyph by the measured width of the
+  run before it, so kerning and the name's CSS tracking survive. It types one
+  pass through the names and rests on the first.
+- A faint `.hero-lcp-anchor` paints the longest name at first paint, since
+  canvas text does not count for LCP. The script removes it when typing
+  starts; left in place it showed through as a ghost behind the caret.
+- The bio is three short paragraphs of prose written in `Hero.astro`, and
+  all of it decodes: what I make, what I write,
+  and where I am. Every link
+  is a word in the sentence, in reading order: `projects`, `write`, `moods`,
+  Monash University, `Message me` (to `/message`) and the `hero.socials`
+  channels. Only links are bright; the rest of the prose stays muted. They are decode atoms, so they keep their boxes through the
+  reveal, and the original markup comes back once it settles. No email
+  address on the page, only `/message`.
 - GitHub activity is client-fetched from `/api/github/contributions?days=30` after DOM ready; the API keeps the last-year total but returns only the visible waveform window.
 - Tech rows are local arrays duplicated into CSS marquee tracks.
 
@@ -74,10 +90,69 @@ Client behavior:
   and `home:hero-github-ready` (plus `window.__homeHeroGithubReady`) when the
   contributions widget lands. `Typewriter.astro` and `DecodeText.astro` start
   on the first two; `GitHubContributions.astro` renders its bars on the third.
-- Status text rotates through a fixed word list; the dot pulses once the
-  identity lines have landed.
-- Social buttons use a magnetic hover effect (pointer events plus a CSS
-  transition, mouse only).
+- Status text runs a short random stretch (four swaps) of a fixed word list,
+  then rests; the dot pulses once the identity lines have landed.
+- Link underlines draw in one after another once the decode settles
+  (`dt-settled`). Hovering a link raises a highlight out of its underline.
+- Every link carries one mark. The prose words (`projects`, `write`,
+  `moods`) are underlined. The last paragraph's links lead with an icon
+  instead, with no underline, since both marks together crowded the lines:
+  the Monash crest (`/brands/monash-crest.svg`, cut from the full logo and
+  drawn as a CSS mask so it takes the link colour), an envelope for
+  `Message me`, and each channel's brand.
+- Each bio link names a hover card (`data-card`, rendered by
+  `HeroCards.astro` outside the decode root). Every card is its own object,
+  and the ones with a shape of their own float on the page with no card
+  under them:
+  - Monash: the student card on its lanyard, after the university's own:
+    the Monash M device beside the photo (its fixed 1:2.3 shape from the
+    brand book), the clip through a punched hole, a drawn portrait
+    (`public/badge/portrait-{128,256,384}.webp`, picked by pixel density
+    through `srcset`), the full logo
+    (`public/brands/monash-logo.svg`, crest in Monash blue), the degree, the
+    faculty and graduation as the expiry date. It hangs below
+    the word and swings once. The barcode is real Code 128 and scans to
+    `buxx.me`; no student number goes on the page.
+  - Projects: a loose hand of cards dealt on open (type, name, stars), with
+    the way to the whole list as the bottom card. Hovering a card lifts its
+    face; the fanned hit area stays put, so the card never slides out from
+    under the pointer.
+  - Write: the blog's latest three posts as a page of contents, one corner
+    turned down.
+  - Moods: the latest three moods as a channel, from `/api/moods`.
+  - Message: an open envelope holding a letter to me, a visitor's draft
+    already started, under a Southern Cross stamp postmarked with the time
+    in Melbourne.
+  - GitHub: a twelve-week heatmap from
+    `/api/github/contributions?days=84`, with the year total, the streak and
+    the stars across every repo. Stars come from the self-hosted
+    github-readme-stats card (`gh-stats.buxx.me`), read at build time
+    because it serves SVG without CORS; a failed read shows a dash.
+  - Telegram: the chat itself, two sent messages in iMessage blue and a
+    reply box floating on the page, with no name, handle or window around
+    them. The blue keeps them off the page in the dark theme, where the
+    card surface is the page colour.
+  - Instagram: the profile picture behind a story ring, with the post,
+    follower and following counts. Both come from the profile page at build
+    time: Instagram answers link-preview crawlers (`facebookexternalhit`)
+    without a login, `og:image` names the picture and `og:description`
+    carries the counts. The CDN signs the picture's address and expires it
+    within days, so the bytes are inlined as a data URI. A failed read
+    leaves the initials and no counts.
+
+  Cards name the short links (`tuu.cat/gh`), never the address behind them.
+  GitHub and Instagram show their own profile pictures; the others use
+  initials.
+  The two network reads start on the first link hover. Cards open after
+  120ms of mouse hover or on keyboard focus. They swap instantly between
+  links, sit above the word, and flip below it near the viewport top. The
+  open card takes the pointer: it stays open while the pointer is on it and
+  closes 280ms after the pointer leaves. Escape closes it. Touch never
+  opens a card. The layer is `aria-hidden`, and its links are out of the
+  tab order, because every destination is also the link itself.
+- The experience row for Monash carries the crest
+  (`public/brands/monash-crest.svg`, cut from the Wikimedia Commons logo),
+  drawn as a mask in the text colour.
 - Reduced-motion users skip the script entirely; the elements are visible
   from the first paint.
 
@@ -167,6 +242,17 @@ Rendering rules:
 - unsafe tags and unsafe image sources are dropped
 - image failure falls back to `imageFallback`
 - the card target is stored in `data-href="/mood/{id}"`
+- a bare URL shows as `host/path`, without scheme or query; past 32
+  characters it keeps the host and first segment (`x.com/ryolu_/…`), and the
+  full address moves to the link's `title`
+- an untitled photo or sticker renders its thumbnail alone; the type name
+  ("Photo") moves into the image's `alt`
+- the time stamp sits on the card's first-line baseline and the dot centres
+  on that line; the rail runs on to 4px short of the next dot, and the
+  skeleton blocks sit where the loaded lines will
+- a card is the page colour, opaque, so it cuts a clean window in the dot
+  lattice; a hairline draws the edge and a small tail points at the row's
+  dot. Hover darkens the edge, tail included
 
 Client behavior:
 

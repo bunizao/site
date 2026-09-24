@@ -105,7 +105,10 @@ function CardFace({
   return (
     <div
       className={cn(
-        "rounded-[22px] p-2 text-left text-stone-900 dark:text-stone-100",
+        // `project-deck-card` lets the homepage re-surface the deck in its
+        // shared material (src/styles/home-surface.css); elsewhere, such as
+        // /components, the cream paper below stays.
+        "project-deck-card rounded-[22px] p-2 text-left text-stone-900 dark:text-stone-100",
         surface,
       )}
     >
@@ -115,17 +118,17 @@ function CardFace({
       </div>
 
       <div className="px-3.5 pb-3 pt-4">
-        <p className="font-code text-[10px] uppercase tracking-[0.16em] text-stone-400 dark:text-white/35">
+        <p className="project-deck-type font-sans text-[11px] font-medium uppercase tracking-[0.1em] text-stone-400 dark:text-white/35">
           {project.type}
         </p>
         <div className="mt-2 flex items-center justify-between gap-3">
-          <div className="font-display text-[22px] font-extrabold leading-none tracking-[-0.01em]">
+          <div className="font-display text-[22px] font-semibold leading-none tracking-[-0.015em]">
             {project.name}
           </div>
           {project.stars != null && <StarBadge stars={project.stars} />}
         </div>
 
-        <p className="mt-2.5 font-sans text-[13.5px] leading-relaxed text-stone-500 dark:text-white/55">
+        <p className="project-deck-blurb mt-2.5 font-sans text-[13.5px] leading-relaxed text-stone-500 dark:text-white/55">
           {project.blurb}
         </p>
 
@@ -142,7 +145,7 @@ function CardFace({
                 : undefined
             }
             tabIndex={active ? 0 : -1}
-            className="inline-flex items-center gap-1 font-code text-[11px] font-semibold uppercase tracking-wide text-stone-400 outline-none transition-colors hover:text-stone-700 focus-visible:text-stone-700 dark:text-white/45 dark:hover:text-white/85 dark:focus-visible:text-white/85"
+            className="project-deck-more inline-flex items-center gap-1 rounded-sm font-sans text-[11px] font-medium uppercase tracking-[0.1em] text-stone-400 transition-colors hover:text-stone-700 focus-visible:text-stone-700 dark:text-white/45 dark:hover:text-white/85 dark:focus-visible:text-white/85"
           >
             Tell me more
             <ArrowUpRight className="h-3.5 w-3.5" />
@@ -182,21 +185,23 @@ function StoryCard({
         // starts on the text still pans the outer gallery scroller.
         style={{ touchAction: "pan-x pan-y" }}
       >
-        <p className="mb-2 font-code text-[11px] uppercase tracking-[0.16em] text-stone-400 dark:text-white/40">
+        <p className="mb-2 font-sans text-[11px] font-medium uppercase tracking-[0.1em] text-stone-400 dark:text-white/40">
           {project.type}
         </p>
         <div className="flex items-center justify-between gap-3">
-          <h3 className="min-w-0 font-display text-[26px] font-extrabold leading-none tracking-[-0.01em] sm:text-[36px]">
+          <h3 className="min-w-0 font-display text-[26px] font-semibold leading-none tracking-[-0.02em] sm:text-[36px]">
             {project.name}
           </h3>
           {project.stars != null && <StarBadge stars={project.stars} />}
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
+          {/* Tags are labels, not code: the site mono, like every other tag
+              on the page. The code face stays on the star count. */}
           {project.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-full border border-stone-900/10 bg-stone-900/[0.035] px-3 py-1 font-code text-[11px] text-stone-600 dark:border-white/10 dark:bg-white/[0.06] dark:text-white/65"
+              className="rounded-full border border-stone-900/10 bg-stone-900/[0.035] px-3 py-1 font-mono text-[11px] text-stone-600 dark:border-white/10 dark:bg-white/[0.06] dark:text-white/65"
             >
               {tag}
             </span>
@@ -218,7 +223,7 @@ function StoryCard({
           href={project.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-7 inline-flex items-center gap-1.5 border-b border-stone-900/25 pb-0.5 font-code text-[13px] font-semibold uppercase tracking-wide text-stone-700 transition-colors hover:border-stone-900 hover:text-stone-900 dark:border-white/25 dark:text-white/80 dark:hover:border-white dark:hover:text-white"
+          className="mt-7 inline-flex items-center gap-1.5 border-b border-stone-900/25 pb-0.5 font-sans text-[13px] font-medium uppercase tracking-[0.08em] text-stone-700 transition-colors hover:border-stone-900 hover:text-stone-900 dark:border-white/25 dark:text-white/80 dark:hover:border-white dark:hover:text-white"
         >
           View on GitHub
           <ArrowUpRight className="h-4 w-4" />
@@ -880,7 +885,7 @@ const GalleryScrubber = forwardRef<GalleryScrubberHandle, GalleryScrubberProps>(
           aria-valuemax={count}
           aria-valuenow={cur + 1}
           tabIndex={0}
-          className="group flex h-6 cursor-grab touch-none select-none items-center outline-none active:cursor-grabbing"
+          className="group flex h-6 cursor-grab touch-none select-none items-center rounded-full active:cursor-grabbing"
           style={{ width: trackPx }}
           onKeyDown={(event) => {
             if (event.key === "ArrowRight") {

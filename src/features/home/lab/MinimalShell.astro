@@ -1,0 +1,189 @@
+---
+// Shared shell for the minimal home demos.
+//
+// Standalone document on purpose: it must not inherit the site's dot lattice,
+// spotlight or glyph field, or the compositions would be judged on top of the
+// thing they are meant to replace. Same reasoning as lab/glyph.astro.
+//
+// One type scale, one colour ramp and one column live here, and every variant
+// shares them. That is the point of the exercise: the variants differ only in
+// what they compose, never in how a paragraph or a link is set.
+interface Props {
+  title: string;
+  /** Which demo is showing; drives the harness switcher's active state. */
+  variant: 'prose' | 'index' | 'hybrid';
+}
+
+const { title, variant } = Astro.props;
+
+const demos = [
+  { key: 'prose', href: '/lab/home-prose', label: 'A prose' },
+  { key: 'index', href: '/lab/home-index', label: 'B index' },
+  { key: 'hybrid', href: '/lab/home-hybrid', label: 'C hybrid' },
+] as const;
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>{title}</title>
+  <style is:global>
+    @font-face {
+      font-family: 'Inter';
+      src: url('/fonts/inter-variable.woff2') format('woff2-variations');
+      font-weight: 100 900;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Geist Mono';
+      src: url('/fonts/geist-mono-variable.woff2') format('woff2-variations');
+      font-weight: 100 900;
+      font-display: swap;
+    }
+
+    :root {
+      color-scheme: light dark;
+
+      /* One ramp. Three steps, no fourth. */
+      --bg: 0 0% 100%;
+      --fg: 0 0% 9%;
+      --fg-muted: 0 0% 42%;
+      --fg-faint: 0 0% 62%;
+      --rule: 0 0% 90%;
+
+      /* One scale. Body is the only prose size on the page. */
+      --text-body: 15px;
+      --text-meta: 13px;
+      --leading-body: 1.75;
+
+      /* One column, one gutter. */
+      --column: 600px;
+      --gutter: 24px;
+
+      /* One motion pair. Everything that moves uses these two. */
+      --dur: 150ms;
+      --ease: cubic-bezier(0.25, 1, 0.3, 1);
+
+      --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: 0 0% 5%;
+        --fg: 0 0% 93%;
+        --fg-muted: 0 0% 58%;
+        --fg-faint: 0 0% 38%;
+        --rule: 0 0% 16%;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: hsl(var(--bg));
+      color: hsl(var(--fg));
+      font-family: var(--font-sans);
+      font-size: var(--text-body);
+      line-height: var(--leading-body);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    main {
+      max-width: var(--column);
+      margin-inline: auto;
+      padding: 96px var(--gutter) 64px;
+    }
+
+    p { margin: 0 0 1.5em; color: hsl(var(--fg-muted)); }
+    p:last-of-type { margin-bottom: 0; }
+
+    /* Inline links carry the page's only emphasis: full-strength ink plus a
+       hairline underline. No colour, no weight change — the prose stays even. */
+    a {
+      color: hsl(var(--fg));
+      text-decoration: underline;
+      text-decoration-color: hsl(var(--fg-faint));
+      text-underline-offset: 3px;
+      text-decoration-thickness: 1px;
+      transition: text-decoration-color var(--dur) var(--ease);
+    }
+    a:hover { text-decoration-color: hsl(var(--fg)); }
+    a:focus-visible {
+      outline: 2px solid hsl(var(--fg));
+      outline-offset: 3px;
+      border-radius: 2px;
+    }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: block;
+      margin-bottom: 40px;
+    }
+
+    .meta { font-family: var(--font-mono); font-size: var(--text-meta); color: hsl(var(--fg-faint)); }
+
+    /* Footer row: the contact channels, stated once on the page. */
+    .channels {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-top: 64px;
+      padding-top: 24px;
+      border-top: 1px solid hsl(var(--rule));
+      font-family: var(--font-mono);
+      font-size: var(--text-meta);
+    }
+    .channels a { color: hsl(var(--fg-muted)); text-decoration: none; }
+    .channels a:hover { color: hsl(var(--fg)); }
+
+    /* --- Harness, not design -------------------------------------------- */
+    .switcher {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      gap: 2px;
+      padding: 8px var(--gutter);
+      background: hsl(var(--bg) / 0.86);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid hsl(var(--rule));
+      font-family: var(--font-mono);
+      font-size: 11px;
+      z-index: 10;
+    }
+    .switcher a {
+      padding: 2px 8px;
+      color: hsl(var(--fg-faint));
+      text-decoration: none;
+      border-radius: 4px;
+    }
+    .switcher a[aria-current='page'] { color: hsl(var(--fg)); background: hsl(var(--fg) / 0.07); }
+    .switcher .spacer { flex: 1; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="switcher" aria-label="Demo variants">
+    {demos.map((demo) => (
+      <a href={demo.href} aria-current={demo.key === variant ? 'page' : undefined}>{demo.label}</a>
+    ))}
+    <span class="spacer"></span>
+    <a href="/">current →</a>
+  </nav>
+
+  <main>
+    <slot />
+  </main>
+</body>
+</html>

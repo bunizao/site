@@ -2,12 +2,20 @@
 import ProjectStack from '@/components/project-cards/ProjectStack';
 ---
 
-<section id="projects-section" class="projects-section" data-reveal>
-  <span
-    class="section-label"
-    data-reveal-item
-    style="--reveal-delay: 300ms; --reveal-duration: 400ms"
-  >Projects</span>
+<section id="projects-section" class="projects-section" data-reveal aria-labelledby="projects-heading">
+  <div class="section-head">
+    <h2
+      class="section-label" id="projects-heading"
+      data-reveal-item
+      style="--reveal-delay: 300ms; --reveal-duration: 400ms"
+    >Projects</h2>
+    <a
+      href="/projects"
+      class="link section-enter"
+      data-reveal-item
+      style="--reveal-delay: 360ms; --reveal-duration: 400ms"
+    >All projects</a>
+  </div>
 
   <div
     class="projects-card"
@@ -17,3 +25,4 @@ import ProjectStack from '@/components/project-cards/ProjectStack';
     <ProjectStack client:visible />
   </div>
 </section>
+

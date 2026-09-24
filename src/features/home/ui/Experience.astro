@@ -2,12 +2,12 @@
 import ExperienceTimeline from '@/components/home/ExperienceTimeline';
 ---
 
-<section id="experience-section" class="experience-section" data-reveal>
-  <span
-    class="section-label"
+<section id="experience-section" class="experience-section" data-reveal aria-labelledby="experience-heading">
+  <h2
+    class="section-label" id="experience-heading"
     data-reveal-item
     style="--reveal-delay: 300ms; --reveal-duration: 400ms"
-  >Experience</span>
+  >Experience</h2>
 
   <div
     class="experience-card"
@@ -20,9 +20,8 @@ import ExperienceTimeline from '@/components/home/ExperienceTimeline';
 
 <style>
   /* The swap moved Experience below Projects, off the Hero mono spine, so it
-     joins the human voice (Inter). Hero is now the lone mono anchor. The
-     metadata spine — the tabular period stamps — stays mono; the section
-     label is handled centrally in home-type.css.
+     joins the human voice (Inter). Hero is the lone mono anchor, period stamps
+     included; the section label is handled centrally in home-type.css.
 
      Everything below is `:global()` because the rows are rendered by a React
      island, so Astro's scoping attribute never reaches them. The island used to
@@ -32,6 +31,13 @@ import ExperienceTimeline from '@/components/home/ExperienceTimeline';
      value that contradicted the other four sections. */
   :global(#experience-section) {
     font-family: var(--font-sans);
+  }
+
+  /* The first row's own padding sits under the label; the list gives it
+     back, so the first tile lands one lattice cell below the label like the
+     first object of every other section. */
+  :global(#experience-section ol) {
+    margin-top: -16px;
   }
 
   /* The organisation name is the row's headline and its only link. Same
@@ -67,15 +73,23 @@ import ExperienceTimeline from '@/components/home/ExperienceTimeline';
     color: var(--home-fg-faint);
   }
 
-  /* The period stamp is the one mono element in the section. It was the worst
-     offender: 12px at weight 300 (which the scale banishes below 15px) with
-     tracking inherited as 0, so the tabular digits sat cramped against their
-     own advance width. Mono takes the positive step. */
+  /* The org tile is a small piece of the shared homepage surface. The 4px
+     ring in the page ground under the edge is what cuts the rail line where
+     it meets the tile. */
+  :global(#experience-section .exp-tile) {
+    background: var(--home-surface);
+    box-shadow:
+      var(--home-surface-shadow),
+      0 0 0 4px hsl(var(--background));
+  }
+
+  /* The period stamp is sans like the rest of the row; tabular figures keep
+     the years in one column. It used to be the section's one mono element,
+     a second voice set wide and faint beside the Inter it dates. */
   :global(#experience-section .exp-period) {
-    font-family: var(--font-mono);
     font-size: var(--home-text-meta);
     font-weight: var(--home-weight-meta);
-    letter-spacing: var(--home-track-meta);
+    letter-spacing: var(--home-track-small);
     line-height: 1.375;
     font-variant-numeric: tabular-nums;
     color: var(--home-fg-faint);

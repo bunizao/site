@@ -191,3 +191,11 @@ cherry-picked. The overlay is now hidden on the homepage only; removing it
 everywhere is still a separate call, and `src/layouts/Layout.astro` keeps it.
 
 Ships to `notes/archive/` when a concept lands on the homepage.
+
+**Wide-screen floor, 2026-09-24.** The owner found the desktop hero "crowded
+and messy". The rule above (never behind body type) had only been applied to
+phones: on wide screens the band was full to 280px and the bio starts at
+270px, so the whole bio sat in full rain. The wide mask is now full to 36%
+(202px: status line and name), down to a 22% floor by 48% (270px) and gone
+at 96%. The floor is there to keep some texture beside the copy; a fade to
+nothing was not tried.

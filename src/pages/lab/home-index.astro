@@ -1,0 +1,98 @@
+---
+// Demo B — index. Fable's "The Index": the page names the doors and gets out
+// of the way. One line of who, then one row per destination, each carrying the
+// freshest thing behind it so the row is worth reading, not just clicking.
+//
+// Dev-only surface. It is a design scratchpad, not a public page.
+import MinimalShell from '@/features/home/lab/MinimalShell.astro';
+import { contactLinks } from '@/data/site';
+import { getListedPosts } from '@/features/posts/server/content';
+
+export const prerender = false;
+
+if (!import.meta.env.DEV && import.meta.env.PUBLIC_STAGING_LABS !== '1') {
+  return new Response(null, { status: 404 });
+}
+
+const posts = await getListedPosts();
+const latestPost = posts[0];
+
+// One row per destination. `latest` is the thing behind the door right now;
+// when there is nothing live to show, the row states what the place is for.
+const doors = [
+  { href: '/blog', label: 'Writing', latest: latestPost?.title, note: `${posts.length} posts, in chinese` },
+  { href: '/mood', label: 'Moods', note: 'short notes, most days' },
+  { href: '/projects', label: 'Projects', note: 'things that got finished' },
+  { href: '/components', label: 'Components', note: 'the registry i build from' },
+  { href: '/docs', label: 'Docs', note: 'how this site is put together' },
+];
+---
+
+<MinimalShell title="Demo B — index" variant="index">
+  <img class="avatar" src="/avatar.webp" alt="" width="44" height="44" />
+
+  <p class="lede">
+    Lucian Bu — studying computer science at Monash, building for the web,
+    writing in between. Obsessed with speed.
+  </p>
+
+  <nav class="doors" aria-label="Destinations">
+    {doors.map((door) => (
+      <a class="door" href={door.href}>
+        <span class="door-label">{door.label}</span>
+        <span class="door-body">
+          {door.latest && <span class="door-latest">{door.latest}</span>}
+          <span class="door-note">{door.note}</span>
+        </span>
+        <span class="door-arrow" aria-hidden="true">&rarr;</span>
+      </a>
+    ))}
+  </nav>
+
+  <div class="channels">
+    {contactLinks.map((link) => (
+      <a href={link.url} rel="me noopener">{link.name.toLowerCase()}</a>
+    ))}
+  </div>
+</MinimalShell>
+
+<style>
+  .lede { color: hsl(var(--fg)); margin-bottom: 48px; }
+
+  .doors { display: block; border-top: 1px solid hsl(var(--rule)); }
+
+  .door {
+    display: grid;
+    grid-template-columns: 116px 1fr auto;
+    align-items: baseline;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid hsl(var(--rule));
+    text-decoration: none;
+  }
+
+  .door-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-meta);
+    color: hsl(var(--fg-muted));
+    transition: color var(--dur) var(--ease);
+  }
+
+  .door-body { display: flex; flex-direction: column; gap: 2px; }
+  .door-latest { color: hsl(var(--fg)); }
+  .door-note { font-size: var(--text-meta); color: hsl(var(--fg-faint)); }
+
+  .door-arrow {
+    color: hsl(var(--fg-faint));
+    transition: transform var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+
+  .door:hover .door-label,
+  .door:hover .door-arrow { color: hsl(var(--fg)); }
+  .door:hover .door-arrow { transform: translateX(3px); }
+
+  @media (max-width: 520px) {
+    .door { grid-template-columns: 1fr auto; }
+    .door-label { grid-column: 1 / -1; }
+  }
+</style>

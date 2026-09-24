@@ -84,13 +84,17 @@
     mask-image: linear-gradient(to bottom, #000 45%, transparent 76%);
   }
 
+  /* Wide screens: full behind the status line and the name, then down to a
+     faint floor by 270px, where the bio starts, and gone at the band's end.
+     The floor keeps the texture beside the copy without a rain of stray
+     characters through the body text. */
   @media (min-width: 640px) {
     .glyph-field canvas {
       -webkit-mask-image:
-        linear-gradient(to bottom, #000 50%, transparent 96%),
+        linear-gradient(to bottom, #000 36%, rgb(0 0 0 / 0.22) 48%, rgb(0 0 0 / 0.22) 70%, transparent 96%),
         linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
       mask-image:
-        linear-gradient(to bottom, #000 50%, transparent 96%),
+        linear-gradient(to bottom, #000 36%, rgb(0 0 0 / 0.22) 48%, rgb(0 0 0 / 0.22) 70%, transparent 96%),
         linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
       -webkit-mask-composite: source-in;
       mask-composite: intersect;

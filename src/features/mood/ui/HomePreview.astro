@@ -30,12 +30,22 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   class="moods-section"
   data-reveal
   data-mood-runtime-disabled={runtimeDisabled ? 'true' : undefined}
+  aria-labelledby="moods-heading"
 >
-  <span
-    class="section-label"
-    data-reveal-item
-    style="--reveal-delay: 300ms; --reveal-duration: 400ms"
-  >Moods</span>
+  <div class="section-head">
+    <h2
+      class="section-label" id="moods-heading"
+      data-reveal-item
+      style="--reveal-delay: 300ms; --reveal-duration: 400ms"
+    >Moods</h2>
+    <a
+      href="/mood"
+      class="link section-enter"
+      aria-label="View all moods"
+      data-reveal-item
+      style="--reveal-delay: 360ms; --reveal-duration: 400ms"
+    >All moods</a>
+  </div>
 
   <div class="mood-timeline" data-mood-list role="region" aria-busy={runtimeDisabled ? 'false' : 'true'} aria-label="Recent moods">
     <script
@@ -72,49 +82,17 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     {runtimeDisabled ? 'Mood preview paused in home dev.' : 'No moods yet.'}
   </p>
   <p class="mood-error-state" data-mood-error hidden>Unable to load moods.</p>
-
-  <a
-    href="/mood"
-    class="link mood-enter mt-6"
-    aria-label="View all moods"
-    data-reveal-item
-    style="--reveal-delay: 1000ms; --reveal-duration: 400ms"
-  >
-    View all moods
-  </a>
 </section>
 
 <style is:global>
-  /* The feed reads in the human voice (Inter); the timeline spine — label, time
-     stamps, tags — stays mono, the same identity thread as Hero and Experience.
-     Pretext measures the live computed font, so reservations follow this. */
+  /* The whole section reads in Inter, stamps and tags included. Mono stays
+     with the hero, where it is the site's identity; a mono stamp beside an
+     Inter card was a second voice in every row. Pretext measures the live
+     computed font, so reservations follow this. */
   #moods-section {
     font-family: var(--font-sans);
   }
 
-  #moods-section .mood-time,
-  #moods-section .mood-tag {
-    font-family: var(--font-mono);
-  }
-
-  #moods-section .mood-enter {
-    display: inline-block;
-    font-size: var(--home-text-body);
-    font-weight: var(--home-weight-body);
-    letter-spacing: var(--home-track-body);
-    color: var(--home-fg-secondary);
-  }
-
-  html:not(.reveal-ready) #moods-section .mood-enter,
-  .reveal-ready #moods-section.is-settled .mood-enter {
-    transition: color 0.3s ease, transform 0.3s ease;
-  }
-
-  html:not(.reveal-ready) #moods-section .mood-enter:hover,
-  .reveal-ready #moods-section.is-settled .mood-enter:hover {
-    color: var(--home-fg-primary);
-    transform: translateX(2px);
-  }
 
   /* Feed entrance. The section itself is revealed by src/lib/home-reveal.ts;
      these two classes cover the async swap from skeletons to real cards, which
@@ -128,14 +106,16 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
      data that just arrived. */
   #moods-section .mood-item {
     transition:
-      opacity 0.55s var(--expo-out),
-      transform 0.55s var(--expo-out);
+      opacity 0.55s var(--reveal-ease),
+      transform 0.55s var(--reveal-ease);
     transition-delay: calc(var(--item-index, 0) * 60ms);
   }
 
+  /* Rise only, the same move as every other reveal on the page. The scale
+     made cards grow into place, which nothing else here does. */
   #moods-section .mood-item--entering {
     opacity: 0;
-    transform: translateY(24px) scale(0.94);
+    transform: translateY(16px);
   }
 
   /* An exit still has to start on the frame it is triggered. easeInCubic held
@@ -143,7 +123,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
      hanging before anything moved. */
   #moods-section .mood-item--leaving {
     opacity: 0;
-    transform: translateY(-12px) scale(0.94);
+    transform: translateY(-12px);
     transition-duration: 0.25s;
     transition-timing-function: var(--ease-out);
     transition-delay: calc(var(--item-index, 0) * 60ms);
@@ -161,15 +141,21 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   }
 
   /* Timeline Layout - 3 columns: time | line | content */
+  /* The first card's column padding already sits under the label, so the
+     list gives it back: every section's first content lands one lattice cell
+     below its label. */
   #moods-section .mood-timeline {
     display: flex;
     flex-direction: column;
     gap: 0;
+    margin-top: -8px;
   }
 
+  /* The time column matches the desktop width: 56px is what holds a
+     "SEP 23" stamp on one line at the meta step. At 52px it broke in two. */
   #moods-section .mood-item {
     display: grid;
-    grid-template-columns: 52px 24px 1fr;
+    grid-template-columns: 56px 24px 1fr;
     gap: 0;
     text-decoration: none;
     color: inherit;
@@ -180,31 +166,45 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     cursor: pointer;
   }
 
+  /* The row is the focus target, but the card is the object: ring the card,
+     not a box around the time stamp, the rail and the card together. */
+  #moods-section .mood-item--clickable:focus-visible {
+    outline: none;
+  }
+
+  #moods-section .mood-item--clickable:focus-visible .mood-card {
+    outline: 2px solid hsl(var(--foreground));
+    outline-offset: 2px;
+  }
+
   @media (min-width: 640px) {
     #moods-section .mood-item {
       grid-template-columns: 56px 28px 1fr;
     }
   }
 
-  /* Time column */
+  /* Time column. The stamp, the dot and the card's first line share one
+     axis: the stamp sits on the first line's baseline (36px down the row) and
+     the dot centres on that line (31px). They used to sit 7px and 14px above
+     it, so every row read as a label hung over the card's top edge. */
   #moods-section .mood-time-col {
     display: flex;
     align-items: flex-start;
     justify-content: flex-end;
-    padding-top: 14px;
+    padding-top: 21px;
     padding-right: 8px;
   }
 
-  /* Tracking was -0.01em here, which is the wrong sign for a monospaced face:
-     the glyphs already sit on a fixed advance, so tightening them pulls the
-     tabular digits off the grid the column exists to hold. */
+  /* Inter's tabular figures hold the column's digits on one grid, which is
+     all the mono face was doing here. */
   #moods-section .mood-time {
     font-size: var(--home-text-meta);
     font-weight: var(--home-weight-meta);
     color: var(--home-fg-faint);
     font-variant-numeric: tabular-nums;
-    letter-spacing: var(--home-track-meta);
-    transition: color 0.2s ease;
+    letter-spacing: var(--home-track-small);
+    white-space: nowrap;
+    transition: color var(--dur-base) var(--ease);
   }
 
   #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-time {
@@ -226,7 +226,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     border-radius: 50%;
     background: hsl(var(--background));
     border: 2px solid hsl(var(--foreground) / 0.15);
-    margin-top: 12px;
+    margin-top: 26px;
     position: relative;
     z-index: 2;
     transition:
@@ -245,25 +245,13 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     }
   }
 
-  /* Pulse effect on first item */
-  #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot::before {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border-radius: 50%;
-    border: 1px solid hsl(var(--foreground) / 0.1);
-    animation: mood-pulse 2.5s ease-out infinite;
-  }
-
-  @keyframes mood-pulse {
-    0% {
-      transform: scale(1);
-      opacity: 0.6;
-    }
-    100% {
-      transform: scale(2);
-      opacity: 0;
-    }
+  /* The newest mood is the one solid dot on the rail, in the ink of the
+     text, where the older ones are hollow. No colour and no motion: it used
+     to be the session accent inside a pulsing halo, the stock "online" badge,
+     and the solid fill already says "latest" on its own. */
+  #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot {
+    border-color: hsl(var(--foreground));
+    background: hsl(var(--foreground));
   }
 
   #moods-section .mood-line {
@@ -275,10 +263,14 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       hsl(var(--foreground) / 0.06)
     );
     margin-top: 4px;
+    /* Runs on into the next row and stops 4px short of its dot, the same gap
+       it leaves under its own, so the rail breaks only at the dots. */
+    margin-bottom: -22px;
     position: relative;
   }
 
   #moods-section .mood-item:last-child .mood-line {
+    margin-bottom: 0;
     background: linear-gradient(
       to bottom,
       hsl(var(--foreground) / 0.12),
@@ -286,35 +278,56 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     );
   }
 
-  /* Content column */
+  /* Content column. 16px between cards, down from 24: with quieter cards the
+     rows can sit closer without merging. */
   #moods-section .mood-content-col {
-    padding: 8px 0 16px 0;
+    padding: 8px 0 8px 0;
   }
 
+  /* The card is a window cut in the lattice, not a panel laid on it. Five
+     white, shadowed cards read as the rungs of a ladder, and a grey tint read
+     as heavy: both add a surface. This one adds nothing. It is the page
+     colour, opaque, so the dot lattice stops at its edge, and a hairline
+     draws the edge. A small tail points at the row's dot, so each note is
+     spoken from its moment on the rail instead of hanging beside it. The
+     border also carries the reserved height, so it stays 1px in every
+     state. */
   #moods-section .mood-card {
-    padding: 10px 14px;
-    background: hsl(var(--foreground) / 0.02);
-    border: 1px solid hsl(var(--foreground) / 0.06);
-    border-radius: 10px;
+    position: relative;
+    padding: 10px 12px;
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--foreground) / 0.09);
+    border-radius: var(--radius-md);
     min-height: var(--reserved-card-height, auto);
-    transition:
-      background 0.2s ease,
-      border-color 0.2s ease,
-      transform 0.2s ease,
-      box-shadow 0.2s ease;
+    transition: border-color var(--dur-fast) var(--ease);
   }
 
-  @media (min-width: 640px) {
-    #moods-section .mood-card {
-      padding: 10px 14px;
+  /* An 8px square turned 45deg, drawn with the card's own fill and two of its
+     edges, centred on the left border. Its centre sits 22px into the padding
+     box, level with the dot (31px down the row, less the 8px column padding
+     and the 1px border). The skeleton clips its sheen, so only loaded cards
+     carry one. */
+  #moods-section .mood-card:not(.mood-card-skeleton)::after {
+    content: '';
+    position: absolute;
+    top: 18px;
+    left: -5px;
+    width: 8px;
+    height: 8px;
+    background: hsl(var(--background));
+    border-left: 1px solid hsl(var(--foreground) / 0.09);
+    border-bottom: 1px solid hsl(var(--foreground) / 0.09);
+    transform: rotate(45deg);
+    transition: border-color var(--dur-fast) var(--ease);
+  }
+
+  /* Hover darkens the edge, tail included. Gated like the dot, since a tap
+     leaves a synthetic hover behind on touch. */
+  @media (hover: hover) and (pointer: fine) {
+    #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-card,
+    #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-card::after {
+      border-color: hsl(var(--foreground) / 0.2);
     }
-  }
-
-  #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-card {
-    background: hsl(var(--foreground) / 0.04);
-    border-color: hsl(var(--foreground) / 0.12);
-    transform: translateX(4px);
-    box-shadow: -4px 0 0 hsl(var(--foreground) / 0.06);
   }
 
   /* Same step as the blog post titles next door, deliberately: at this size the
@@ -329,7 +342,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     font-weight: var(--home-weight-body);
     letter-spacing: var(--home-track-body);
     line-height: var(--mood-text-line-height);
-    color: hsl(var(--foreground) / 0.8);
+    color: var(--home-fg-primary);
     max-height: calc(var(--mood-text-line-height) * 2em);
     overflow: hidden;
     word-break: break-word;
@@ -340,7 +353,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     color: inherit;
     text-decoration: none;
     border-bottom: 1px solid hsl(var(--foreground) / 0.35);
-    transition: border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+    transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
   }
 
   #moods-section .mood-text a:hover,
@@ -379,19 +392,23 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     margin-top: 6px;
   }
 
-  /* Mono at the label size, but a lowercase pill rather than a section marker,
-     so it takes the mono metadata tracking and not the 0.2em spine value. */
+  /* A photo-only card opens on its thumbnail, so there is no text to clear. */
+  #moods-section .mood-meta:first-child {
+    margin-top: 0;
+  }
+
+  /* A lowercase pill at the label size, in the section's sans. */
   #moods-section .mood-tag {
     font-size: var(--home-text-label);
     font-weight: var(--home-weight-meta);
-    letter-spacing: var(--home-track-meta);
+    letter-spacing: var(--home-track-small);
     color: var(--home-fg-faint);
     padding: 2px 6px;
     background: hsl(var(--foreground) / 0.04);
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     transition:
-      background 0.2s ease,
-      color 0.2s ease;
+      background var(--dur-base) var(--ease),
+      color var(--dur-base) var(--ease);
   }
 
   #moods-section .mood-item:hover .mood-tag {
@@ -402,10 +419,12 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   #moods-section .mood-thumbnail {
     width: 48px;
     height: 48px;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     overflow: hidden;
     background: hsl(var(--foreground) / 0.04);
     flex-shrink: 0;
+    outline: 1px solid var(--home-image-outline);
+    outline-offset: -1px;
   }
 
   #moods-section .mood-thumbnail > img:not(.mood-image-blur) {
@@ -464,10 +483,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   #moods-section .mood-card-skeleton {
     position: relative;
     overflow: hidden;
-    background: hsl(var(--foreground) / 0.02);
-    border-color: hsl(var(--foreground) / 0.06);
     min-height: var(--reserved-card-height, 74px);
-    box-shadow: inset 0 0 0 1px hsl(var(--background) / 0.7);
   }
 
   #moods-section .mood-card-skeleton::before {
@@ -496,10 +512,13 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     z-index: 1;
   }
 
+  /* Blocks centred where the real lines will be (24px line boxes), so the
+     swap to the loaded card does not shift the first line. */
   #moods-section .mood-skeleton-lines {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
+    padding-top: 6px;
   }
 
   #moods-section .mood-skeleton-block,
@@ -517,7 +536,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
 
   #moods-section .mood-skeleton-block {
     height: 12px;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     width: var(--line-1, 70%);
   }
 
@@ -533,7 +552,8 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   #moods-section .mood-skeleton-time {
     width: 32px;
     height: 10px;
-    border-radius: 4px;
+    margin-top: 5px;
+    border-radius: var(--radius-xs);
   }
 
   /* Empty and error states */
@@ -542,7 +562,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     font-size: 14px;
     color: hsl(var(--muted-foreground));
     padding: 16px 0;
-    margin-left: 76px;
+    margin-left: 80px;
   }
 
   @media (min-width: 640px) {
@@ -569,17 +589,13 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     #moods-section .mood-item-skeleton .mood-card-skeleton::before {
       display: none;
     }
-
-    #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot::before {
-      animation: none;
-    }
   }
 </style>
 
 <script>
   import type { MediaItem } from '@bunizao/contracts/content';
   import { getMoodDetailHref } from '@/features/mood/shared/feed-anchor';
-  import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
+  import { buildMoodPreviewFragment, formatUrlLabel } from '@/features/mood/shared/preview';
   import { getMoodImagePlaceholderSrc } from '@/features/mood/shared/image-srcset';
   import { initMoodImageFrames } from '@/features/mood/client/image-frame';
   import { withWidthParam } from '@/lib/media/responsive-image';
@@ -618,9 +634,11 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
         return `${hours}:${minutes}`;
       }
 
-      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      // Title case and an unpadded day, like "Jul 2025" in Experience. The
+      // capitals and the leading zero were terminal habits of the mono stamp.
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const monthName = months[date.getMonth()];
-      const day = String(date.getDate()).padStart(2, '0');
+      const day = String(date.getDate());
 
       return `${monthName} ${day}`;
     };
@@ -637,6 +655,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     const buildPreviewFragment = (previewText: string, previewHtml?: string): DocumentFragment => (
       buildMoodPreviewFragment(previewText, previewHtml, {
         decorateEmoji: decoratePreviewEmoji,
+        compactUrls: true,
       })
     );
 
@@ -909,7 +928,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
 
     const getStructuredMediaPreview = (
       mood: Pick<MoodData, 'media' | 'image'>,
-    ): { label: string; thumbnail: string } | null => {
+    ): { label: string; thumbnail: string; speaksForItself: boolean } | null => {
       const media = sanitizeCachedMedia(mood.media);
       if (!media.length) return null;
 
@@ -938,6 +957,11 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       return {
         label: title || fallbackLabels[rich.type] || 'Media post',
         thumbnail,
+        // An untitled photo or sticker is its own preview: a type name set
+        // over the thumbnail ("Photo") repeats what the image already says.
+        speaksForItself: !title
+          && Boolean(thumbnail || mood.image)
+          && (rich.type === 'image' || rich.type === 'sticker'),
       };
     };
 
@@ -1084,7 +1108,10 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
         return null;
       }
 
-      const prepared = pretext.prepareWithSegments(previewText, config.font);
+      // Measure what the card will show: bare links render as short labels
+      // (compactUrls), and a long raw URL wraps to lines the card never has.
+      const displayText = previewText.replace(/https?:\/\/[^\s]+/g, formatUrlLabel);
+      const prepared = pretext.prepareWithSegments(displayText, config.font);
       const result = pretext.layoutWithLines(prepared, config.textWidth, config.lineHeight);
       const visibleLines = result.lines.slice(0, MAX_PREVIEW_LINES);
       const lineCount = Math.max(1, Math.min(MAX_PREVIEW_LINES, visibleLines.length || result.lineCount || 1));
@@ -1259,11 +1286,12 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       const previewHtml = mood.previewHtml || '';
       const structuredMediaPreview = getStructuredMediaPreview(mood);
       const hasText = previewText.trim().length > 0 || previewHtml.trim().length > 0;
-      if (hasText || structuredMediaPreview || !mood.image) {
+      const mediaLabel = structuredMediaPreview?.speaksForItself ? '' : structuredMediaPreview?.label ?? '';
+      if (hasText || mediaLabel || !(mood.image || structuredMediaPreview?.thumbnail)) {
         if (hasText) {
           appendPreviewLines(text, previewText, previewHtml);
-        } else if (structuredMediaPreview) {
-          text.textContent = structuredMediaPreview.label;
+        } else if (mediaLabel) {
+          text.textContent = mediaLabel;
         } else {
           text.textContent = '(No text)';
         }
@@ -1318,7 +1346,9 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
 
             removeFailedThumbnail(thumbnail);
           };
-          img.alt = '';
+          // When the card carries no words, the type name moves into the alt
+          // so the row still has a name beyond its date.
+          img.alt = !hasText && structuredMediaPreview?.speaksForItself ? structuredMediaPreview.label : '';
           img.loading = 'lazy';
           img.decoding = 'async';
           img.width = PRETEXT_THUMBNAIL_HEIGHT;

@@ -1,6 +1,32 @@
 export interface MoodPreviewOptions {
   decorateEmoji?: (emoji: HTMLSpanElement) => void;
   preserveRichTextTags?: boolean;
+  /** Show a bare URL as `host/path` instead of the full address. */
+  compactUrls?: boolean;
+}
+
+const COMPACT_URL_MAX = 32;
+
+/**
+ * The label for a link whose text is its own address. Drops the scheme,
+ * `www.`, the query, the hash and a trailing slash, so
+ * `https://x.com/a/status/123?s=46` reads `x.com/a/status/123`. A label still
+ * longer than COMPACT_URL_MAX keeps the host and first path segment and
+ * elides the rest: the owner is what a reader scans for, not the post id.
+ */
+export function formatUrlLabel(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  const host = parsed.hostname.replace(/^www\./, '');
+  const path = parsed.pathname.replace(/\/+$/, '');
+  const label = host + path;
+  if (label.length <= COMPACT_URL_MAX) return label;
+  const [first] = path.split('/').filter(Boolean);
+  return first ? `${host}/${first}/…` : label;
 }
 
 function isSafeEmojiImageSrc(value: string): boolean {
@@ -9,7 +35,7 @@ function isSafeEmojiImageSrc(value: string): boolean {
   return /^[/?]/.test(value);
 }
 
-function linkifyText(value: string): DocumentFragment {
+function linkifyText(value: string, options: MoodPreviewOptions = {}): DocumentFragment {
   const fragment = document.createDocumentFragment();
   if (!value) return fragment;
 
@@ -34,7 +60,8 @@ function linkifyText(value: string): DocumentFragment {
 
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.textContent = url;
+    anchor.textContent = options.compactUrls ? formatUrlLabel(url) : url;
+    if (options.compactUrls) anchor.title = url;
     anchor.target = '_blank';
     anchor.rel = 'noopener noreferrer';
     fragment.appendChild(anchor);
@@ -62,7 +89,7 @@ function linkifyHtml(value: string, options: MoodPreviewOptions): DocumentFragme
 
   const appendNode = (node: ChildNode, target: DocumentFragment | HTMLElement): void => {
     if (node.nodeType === Node.TEXT_NODE) {
-      target.appendChild(linkifyText(node.textContent ?? ''));
+      target.appendChild(linkifyText(node.textContent ?? '', options));
       return;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
@@ -76,7 +103,10 @@ function linkifyHtml(value: string, options: MoodPreviewOptions): DocumentFragme
     if (tag === 'a') {
       const anchor = document.createElement('a');
       const href = element.getAttribute('href') ?? '';
-      anchor.textContent = element.textContent ?? '';
+      const text = element.textContent ?? '';
+      const bare = options.compactUrls && href !== '' && text.trim() === href;
+      anchor.textContent = bare ? formatUrlLabel(href) : text;
+      if (bare) anchor.title = href;
       if (href) {
         anchor.href = href;
         if (/^https?:\/\//i.test(href)) {
@@ -167,5 +197,5 @@ export function buildMoodPreviewFragment(
   if (html) {
     return linkifyHtml(html, options);
   }
-  return linkifyText(previewText);
+  return linkifyText(previewText, options);
 }

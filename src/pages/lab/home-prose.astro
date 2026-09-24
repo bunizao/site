@@ -1,0 +1,51 @@
+---
+// Demo A — prose. The sanyam.sh reading of "minimal": the page is four
+// paragraphs and the navigation is embedded in the sentences. No section
+// labels, no lists, no feed, no dates. The only structured element is the
+// channel row at the bottom.
+//
+// Dev-only surface. It is a design scratchpad, not a public page.
+import MinimalShell from '@/features/home/lab/MinimalShell.astro';
+import { contactLinks } from '@/data/site';
+
+export const prerender = false;
+
+if (!import.meta.env.DEV && import.meta.env.PUBLIC_STAGING_LABS !== '1') {
+  return new Response(null, { status: 404 });
+}
+---
+
+<MinimalShell title="Demo A — prose" variant="prose">
+  <img class="avatar" src="/avatar.webp" alt="" width="44" height="44" />
+
+  <p>
+    i'm lucian — bunizao, tutu or collapsar, depending on where you found me.
+    eighteen, reading computer science at <a href="https://www.monash.edu">monash
+    university</a> in melbourne.
+  </p>
+
+  <p>
+    i care about frontend design, proxy systems and open source, and i'm
+    obsessed with speed — most of what i build starts as "why is this slow".
+    the things that got finished live in <a href="/projects">projects</a>. i
+    write in chinese at <a href="/blog">無人之境</a>, and keep the shorter,
+    less finished thoughts as <a href="/mood">moods</a>.
+  </p>
+
+  <p>
+    there's a <a href="/components">components registry</a> i pull from when i
+    build, and <a href="/docs">docs</a> that explain how this site is put
+    together — both are mostly for me, but they're open.
+  </p>
+
+  <p>
+    outside of code i read for curiosity and write to make sense of things.
+    reach out about a project, a cool idea, or anything at all.
+  </p>
+
+  <div class="channels">
+    {contactLinks.map((link) => (
+      <a href={link.url} rel="me noopener">{link.name.toLowerCase()}</a>
+    ))}
+  </div>
+</MinimalShell>

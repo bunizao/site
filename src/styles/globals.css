@@ -189,6 +189,7 @@
     --input: 0 0% 0%;
     --ring: 0 0% 0%;
     --radius: 0.875rem;
+    --radius-xs: 0.375rem;
     --radius-sm: 0.5rem;
     --radius-md: 0.75rem;
     --radius-lg: 0.875rem;
@@ -781,26 +782,6 @@
   }
 
   .social-link-minimal:hover span {
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-
-  /* Contact links - minimal style without borders */
-  .contact-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: hsl(var(--muted-foreground));
-    font-size: 13px;
-    transition: color 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .contact-link:hover {
-    color: hsl(var(--foreground));
-    transform: translateY(-1px);
-  }
-
-  .contact-link:hover span {
     text-decoration: underline;
     text-underline-offset: 3px;
   }

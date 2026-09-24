@@ -95,8 +95,11 @@ describe('homepage performance assets', () => {
     }
     expect(writing).toContain('--reveal-delay: 500ms; --reveal-duration: 500ms');
     expect(writing).toContain('${800 + index * 60}ms; --reveal-duration: 400ms');
-    expect(writing).toContain('1040 + posts.length * 60');
-    expect(moods).toContain('--reveal-delay: 1000ms; --reveal-duration: 400ms');
+    // Each exit link rides in the section head, one beat behind its label.
+    for (const section of [projects, writing, moods]) {
+      expect(section).toContain('class="section-head"');
+      expect(section).toContain('--reveal-delay: 360ms; --reveal-duration: 400ms');
+    }
   });
 
   test('keeps the home mood blur layer independent from sharp thumbnail sizing', () => {

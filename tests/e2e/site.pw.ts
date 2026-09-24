@@ -1,4 +1,4 @@
-import { devices, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 test.describe('Performance diagnostics', () => {
@@ -235,6 +235,20 @@ test.describe('Home page', () => {
 
         const inspect = () => {
           const currentCells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
+          // The hero decodes with `restore`, so the cells give way to the
+          // original markup once the reveal settles. That is the finish line.
+          if (currentCells.length === 0 && root.classList.contains('dt-settled')) {
+            const finalText = compact(root.textContent ?? '');
+            const sourceText = compact(source);
+            resolve({
+              stable: true,
+              interleaved,
+              slotCountStable: true,
+              textMatches: finalText === sourceText,
+              snapshot: `source=${sourceText}|final=${finalText}`,
+            });
+            return;
+          }
           if (currentCells.length !== slotCount) {
             resolve({
               stable: true,
@@ -325,9 +339,11 @@ test.describe('Home page', () => {
     await expect(page.locator('#writing-section .post-meta').first()).toHaveCSS('display', 'flex');
     await expect(page.getByRole('button', { name: 'Tell me more' }).first()).toBeVisible();
     // Writing is a doorway into the blog now: the publication sign and the
-    // bottom CTA both link internally to the canonical slashless route.
+    // exit link in the section head both link internally to the canonical
+    // slashless route.
     await expect(page.locator('#writing-section .writing-portal')).toHaveAttribute('href', '/blog');
-    await expect(page.locator('#writing-section .writing-enter')).toBeVisible();
+    await expect(page.locator('#writing-section .section-enter')).toHaveAttribute('href', '/blog');
+    await expect(page.locator('#writing-section .section-enter')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
 
     const themeToggle = page.locator('[data-theme-toggle]');
@@ -1397,57 +1413,16 @@ test.describe('Blog posts', () => {
 });
 
 test.describe('Home page mobile touch', () => {
-  test('reveals hidden experience rows on tap and keeps them open', async ({ browser }, testInfo) => {
-    const iphone = devices['iPhone 13'];
-    const context = await browser.newContext({
-      baseURL: String(testInfo.project.use.baseURL),
-      deviceScaleFactor: iphone.deviceScaleFactor,
-      hasTouch: iphone.hasTouch,
-      isMobile: iphone.isMobile,
-      screen: { width: 390, height: 844 },
-      userAgent: iphone.userAgent,
-      viewport: iphone.viewport,
-    });
-    const page = await context.newPage();
+  test('shows every experience row without a veil', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#experience-section').scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-experience-timeline="hydrated"]')).toHaveCount(1);
 
-    try {
-      await page.emulateMedia({ reducedMotion: 'no-preference' });
-
-      await page.goto('/');
-      expect(page.url()).toBe(`${String(testInfo.project.use.baseURL)}/`);
-      await page.locator('#experience-section').scrollIntoViewIfNeeded();
-      await expect(page.locator('[data-experience-timeline="hydrated"]')).toHaveCount(1);
-
-      const jokeRows = page.locator('#experience-section [data-experience-joke-row]');
-      await expect(jokeRows).toHaveCount(2);
-      await expect(jokeRows.first()).toHaveAttribute('data-revealed', 'false');
-
-      const firstLink = jokeRows.first().getByRole('link', { name: 'Anthropic' });
-      const firstTapResult = await firstLink.evaluate((node) => {
-        node.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, cancelable: true }));
-        const touchEnd = new TouchEvent('touchend', { bubbles: true, cancelable: true });
-        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-        const touchEndWasPrevented = !node.dispatchEvent(touchEnd);
-        const clickWasPrevented = !node.dispatchEvent(click);
-
-        return {
-          clickWasPrevented,
-          touchEndWasPrevented,
-        };
-      });
-
-      await expect(jokeRows.first()).toHaveAttribute('data-revealed', 'true');
-      await expect(jokeRows.nth(1)).toHaveAttribute('data-revealed', 'true');
-      expect(firstTapResult).toEqual({
-        clickWasPrevented: true,
-        touchEndWasPrevented: true,
-      });
-
-      await page.touchscreen.tap(10, 10);
-      await expect(jokeRows.first()).toHaveAttribute('data-revealed', 'true');
-    } finally {
-      await context.close();
-    }
+    const rows = page.locator('#experience-section li');
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(1).getByRole('link', { name: 'Anthropic' })).toBeVisible();
+    await expect(rows.nth(2).getByRole('link', { name: 'OpenAI' })).toBeVisible();
+    await expect(rows.nth(1)).toHaveCSS('filter', 'none');
   });
 });
 

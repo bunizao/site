@@ -1,0 +1,1996 @@
+---
+// Hover cards for the hero bio links. Each link names one (`data-card`), and
+// each card is its own object rather than a template with different rows: a
+// student card on a lanyard for Monash, a loose hand of project cards, a page
+// of contents for the blog, the latest moods as a channel, an envelope for
+// /message, a contribution heatmap for GitHub, a chat bubble for Telegram and
+// a story ring for Instagram. The objects that have a shape of their own
+// (badge, hand, envelope) drop the card surface and float on the page.
+//
+// The cards sit outside the decode root on purpose. The decode flattens
+// everything inside it and swaps the markup back when it settles, so the
+// script listens on the bio by delegation and positions one card at a time.
+// They are a pointer enhancement: every destination is also the link itself,
+// so the cards stay out of the accessibility tree and the tab order.
+import { ArrowRight } from 'lucide-react';
+import { blog, experience, hero, profile, projects } from '@/data/site';
+import { messageCopy } from '@/features/messages/copy';
+import { postPath } from '@/features/posts/format';
+import { getListedPosts } from '@/features/posts/server/content';
+import { GitHubIcon, InstagramIcon, TelegramIcon } from '@/components/icons';
+
+const school = experience[0];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const firstName = profile.name.split(' ')[0];
+
+// Expected graduation; the badge prints it as the card's expiry.
+const EXPIRES = '2028';
+const initials = profile.name
+  .split(' ')
+  .map((part) => part[0])
+  .join('');
+
+// The badge barcode is real Code 128 (set B) and scans to the site. Each
+// entry is one symbol's bar and space widths, bar first, by symbol value;
+// the stop symbol is the one with seven.
+const CODE128 = [
+  '212222', '222122', '222221', '121223', '121322', '131222', '122213', '122312', '132212', '221213',
+  '221312', '231212', '112232', '122132', '122231', '113222', '123122', '123221', '223211', '221132',
+  '221231', '213212', '223112', '312131', '311222', '321122', '321221', '312212', '322112', '322211',
+  '212123', '212321', '232121', '111323', '131123', '131321', '112313', '132113', '132311', '211313',
+  '231113', '231311', '112133', '112331', '132131', '113123', '113321', '133121', '313121', '211331',
+  '231131', '213113', '213311', '213131', '311123', '311321', '331121', '312113', '312311', '332111',
+  '314111', '221411', '431111', '111224', '111422', '121124', '121421', '141122', '141221', '112214',
+  '112412', '122114', '122411', '142112', '142211', '241211', '221114', '413111', '241112', '134111',
+  '111242', '121142', '121241', '114212', '124112', '124211', '411212', '421112', '421211', '212141',
+  '214121', '412121', '111143', '111341', '131141', '114113', '114311', '411113', '411311', '113141',
+  '114131', '311141', '411131', '211412', '211214', '211232',
+];
+const CODE128_START_B = 104;
+const CODE128_STOP = '2331112';
+const code128 = (text: string) => {
+  const values = [CODE128_START_B, ...Array.from(text, (ch) => ch.charCodeAt(0) - 32)];
+  const check = values.reduce((sum, value, i) => sum + value * Math.max(i, 1), 0) % 103;
+  const widths = [...values, check].map((value) => CODE128[value]).join('') + CODE128_STOP;
+  const bars: { x: number; w: number }[] = [];
+  let x = 0;
+  Array.from(widths, Number).forEach((w, i) => {
+    if (i % 2 === 0) bars.push({ x, w });
+    x += w;
+  });
+  return { bars, width: x };
+};
+// The bars run flush with the text. The badge margin either side is the
+// quiet zone a scanner needs, about ten modules at this width.
+const barcode = code128('buxx.me');
+
+const blogCopy = blog.copy[blog.locale.home];
+const allPosts = await getListedPosts();
+const posts = allPosts.slice(0, 3);
+const postDate = (iso: string): string => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+};
+
+// "TutuBetterRules" may break as "TutuBetter / Rules" on a narrow card.
+const camelBreaks = (name: string): string => name.replace(/([a-z])([A-Z])/g, '$1<wbr>$2');
+
+// Stars across every repo, from the self-hosted github-readme-stats card the
+// GitHub profile shows (gh-stats.buxx.me). It serves SVG without CORS, so the
+// page reads it here at build time; a failed read leaves the stat blank.
+const readTotalStars = async (): Promise<string | null> => {
+  try {
+    const response = await fetch('https://gh-stats.buxx.me/api?username=bunizao', {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!response.ok) return null;
+    const match = (await response.text()).match(/data-testid="stars"\s*>\s*([\d.,]+k?)\s*</);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+};
+const totalStars = await readTotalStars();
+
+// The Instagram profile. Instagram answers link-preview crawlers without a
+// login: og:image names the picture and og:description carries the counts
+// ("33 Followers, 94 Following, 35 Posts"). The CDN signs the picture's
+// address and expires it within days, so its bytes are inlined, not linked.
+// It is read on every build; a failed read leaves the initials and no counts.
+type InstagramProfile = {
+  avatar: string | null;
+  counts: { label: string; value: string }[];
+};
+const readInstagram = async (profileUrl: string): Promise<InstagramProfile | null> => {
+  try {
+    const page = await fetch(profileUrl, {
+      headers: { 'user-agent': 'facebookexternalhit/1.1' },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!page.ok) return null;
+    const html = await page.text();
+    const meta = (name: string) =>
+      html.match(new RegExp(`<meta property="og:${name}" content="([^"]+)"`))?.[1]?.replaceAll('&amp;', '&');
+
+    const summary = meta('description') ?? '';
+    const count = (label: string) => summary.match(new RegExp(`([\\d.,]+[KM]?) ${label}`, 'i'))?.[1];
+    const counts = [
+      { label: 'Posts', value: count('Posts') },
+      { label: 'Followers', value: count('Followers') },
+      { label: 'Following', value: count('Following') },
+    ].filter((item): item is { label: string; value: string } => Boolean(item.value));
+
+    let avatar: string | null = null;
+    const src = meta('image');
+    if (src) {
+      const image = await fetch(src, { signal: AbortSignal.timeout(4000) });
+      const type = image.headers.get('content-type') ?? '';
+      if (image.ok && type.startsWith('image/')) {
+        let binary = '';
+        for (const byte of new Uint8Array(await image.arrayBuffer())) binary += String.fromCharCode(byte);
+        avatar = `data:${type};base64,${btoa(binary)}`;
+      }
+    }
+    return { avatar, counts };
+  } catch {
+    return null;
+  }
+};
+// A hand of cards fanned from the middle, the outer ones lower and turned
+// further. The way to the whole list is the first card, under the others.
+const HAND = projects.length + 1;
+const fan = (i: number) => {
+  const t = (i / (HAND - 1)) * 2 - 1;
+  return `--i: ${i}; --fx: ${Math.round(t * 108)}px; --fy: ${Math.round(Math.abs(t) * 14)}px; --fr: ${(t * 9).toFixed(1)}deg`;
+};
+
+// The bio links go through the short links, so the cards name those and
+// never the long address behind them.
+const host = (url: string): string => url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+const channel = (name: string) => {
+  const social = hero.socials.find((link) => link.name === name);
+  if (!social) return null;
+  const target = host(social.canonicalUrl ?? social.url);
+  return { ...social, short: host(social.url), handle: `@${target.split('/').pop()}` };
+};
+const github = channel('GitHub');
+const telegram = channel('Telegram');
+const instagram = channel('Instagram');
+const instagramProfile = instagram?.canonicalUrl ? await readInstagram(instagram.canonicalUrl) : null;
+const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
+---
+
+<div class="hero-cards" data-hero-cards aria-hidden="true">
+  <!-- Monash: the student card, on its lanyard. -->
+  <div class="hc hc--loose hc--monash" data-card-id="monash" data-prefer="bottom">
+    <div class="mo-swing">
+      <svg class="mo-lanyard" viewBox="-36 0 280 80" aria-hidden="true">
+        <path class="mo-strap mo-strap--back" d="M142 -8 L110 34" />
+        <path class="mo-strap" d="M66 -8 L98 34" />
+        <rect class="mo-clamp" x="89" y="28" width="30" height="12" rx="3" />
+        <circle class="mo-ring" cx="104" cy="49" r="6" />
+        <rect class="mo-hook" x="99.5" y="53" width="9" height="24" rx="4.5" />
+      </svg>
+      <a class="mo-badge" href={school.url} {...external}>
+        <span class="mo-photo">
+          <svg class="mo-m" viewBox="0 0 100 230" aria-hidden="true">
+            <defs>
+              <linearGradient id="mo-m-ink" x1="0" y1="0" x2="0.5" y2="1">
+                <stop offset="0" stop-color="#c4d9f2" />
+                <stop offset="1" stop-color="#e3eaf4" />
+              </linearGradient>
+            </defs>
+            <rect width="100" height="230" fill="#fafbfd" />
+            <path d="M0 0 H44 L50 74 L56 0 H100 V230 H72.8 V136 L64.4 230 H35.6 L27.2 136 V230 H0 Z" fill="url(#mo-m-ink)" />
+          </svg>
+          <span class="mo-hole"></span>
+          <img
+            class="mo-portrait"
+            src="/badge/portrait-256.webp"
+            srcset="/badge/portrait-128.webp 128w, /badge/portrait-256.webp 256w, /badge/portrait-384.webp 384w"
+            sizes="128px"
+            alt=""
+            width="128"
+            height="128"
+            loading="lazy"
+            decoding="async"
+          />
+        </span>
+        <span class="mo-info">
+          <img class="mo-logo" src="/brands/monash-logo.svg" alt="" width="146" height="43" loading="lazy" decoding="async" />
+          <svg class="mo-barcode" viewBox={`0 0 ${barcode.width} 1`} preserveAspectRatio="none" shape-rendering="crispEdges" aria-hidden="true">
+            {barcode.bars.map((bar) => <rect x={bar.x} width={bar.w} height="1" />)}
+          </svg>
+          <span class="mo-name">{profile.name}</span>
+          <span class="mo-course">Bachelor of Computer Science (Honours)</span>
+          <span class="mo-faculty">Faculty of Information Technology</span>
+          <span class="mo-expiry">
+            <span>Expiry date</span>
+            <span class="hc-num">{EXPIRES}</span>
+          </span>
+        </span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Projects: a loose hand of cards. -->
+  <div class="hc hc--loose hc--projects" data-card-id="projects">
+    <div class="pj-hand">
+      <a class="pj-card pj-card--all" href="/projects" tabindex="-1" style={fan(0)}>
+        <span class="pj-face">
+          <span class="pj-all">All<ArrowRight className="pj-all-arrow" aria-hidden="true" /></span>
+          <span class="pj-stars">{projects.length} projects</span>
+        </span>
+      </a>
+      {projects.map((project, i) => (
+        <a class="pj-card" href={project.url} {...external} style={fan(i + 1)}>
+          <span class="pj-face">
+            <span class="pj-type">{project.type}</span>
+            <span class="pj-name" set:html={camelBreaks(project.name)} />
+            <span class="pj-stars hc-num">{project.stars !== null ? `★ ${project.stars}` : 'Suite'}</span>
+          </span>
+        </a>
+      ))}
+    </div>
+  </div>
+
+  <!-- Write: a page of contents, corner turned down. -->
+  <div class="hc hc--page hc--write" data-card-id="write">
+    <div class="wr-page">
+      <a class="hc-head wr-head" href="/blog" tabindex="-1">
+        <span class="wr-mark"><img src={blog.mark} alt="" width="28" height="28" loading="lazy" decoding="async" /></span>
+        <span class="hc-id">
+          <span class="hc-title">{blogCopy.name}</span>
+          <span class="hc-sub hc-clamp-2">{blogCopy.tagline}</span>
+        </span>
+      </a>
+      {posts.length > 0 ? (
+        <ol class="wr-toc">
+          {posts.map((post, i) => (
+            <li>
+              <a href={postPath(post.slug)} tabindex="-1">
+                <span class="wr-num hc-num">{String(i + 1).padStart(2, '0')}</span>
+                <span class="wr-title">{post.title}</span>
+                <span class="wr-leader"></span>
+                <span class="wr-date hc-num">{postDate(post.publishedAt)}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p class="hc-note">Nothing published yet.</p>
+      )}
+      <span class="wr-count hc-num">{allPosts.length} posts in all</span>
+    </div>
+    <span class="wr-fold"></span>
+  </div>
+
+  <!-- Moods: the channel, newest at the bottom. -->
+  <div class="hc hc--moods" data-card-id="moods">
+    <a class="hc-head" href="/mood" tabindex="-1">
+      <span class="hc-title">Moods</span>
+      <span class="hc-sub">Short notes, as they happen</span>
+    </a>
+    <div class="md-stream" data-mood-stream>
+      <span class="md-typing"><span></span><span></span><span></span></span>
+    </div>
+  </div>
+
+  <!-- Message: an envelope, opened. The letter is to me, still blank. -->
+  <div class="hc hc--loose hc--message" data-card-id="message">
+    <a class="ms-env" href="/message" tabindex="-1">
+      <span class="ms-back"></span>
+      <span class="ms-letter">
+        <span class="ms-dear">Dear {firstName},</span>
+        <span class="ms-line">Found your site today and had to</span>
+        <span class="ms-line">say hi. I have a cool idea, and</span>
+        <span class="ms-line">maybe a bug to report too…</span>
+      </span>
+      <span class="ms-pocket"><span></span></span>
+      <span class="ms-address">
+        <strong>{messageCopy.title}</strong>
+        <span>Only I read what you write.</span>
+      </span>
+      <span class="ms-stamp">
+        <svg viewBox="0 0 30 38" aria-hidden="true">
+          <rect width="30" height="38" fill="#1d4f91" />
+          <g fill="#fff">
+            <use href="#ms-star" transform="translate(15 8) scale(2.6)" />
+            <use href="#ms-star" transform="translate(8 16) scale(2.3)" />
+            <use href="#ms-star" transform="translate(22 14.5) scale(2.1)" />
+            <use href="#ms-star" transform="translate(15.5 26) scale(2.8)" />
+            <use href="#ms-star" transform="translate(19.5 20) scale(1.3)" />
+          </g>
+          <text x="15" y="35" text-anchor="middle">AUSTRALIA</text>
+          <defs>
+            <path id="ms-star" d="M0-1 .29-.4.95-.31.48.15.59.81 0 .5-.59.81-.48.15-.95-.31-.29-.4Z" />
+          </defs>
+        </svg>
+      </span>
+      <span class="ms-postmark">
+        <span class="ms-postmark-city">Melbourne</span>
+        <span class="ms-postmark-time hc-num" data-melbourne-stamp>…</span>
+      </span>
+      <span class="ms-flap"><span></span></span>
+    </a>
+  </div>
+
+  <!-- GitHub: twelve weeks of contributions. -->
+  {github && (
+    <div class="hc hc--github" data-card-id="github">
+      <a class="hc-head hc-head--avatar" href={github.url} {...external}>
+        <img class="hc-avatar" src="/avatar.webp" alt="" width="36" height="36" loading="lazy" decoding="async" />
+        <span class="hc-id">
+          <span class="hc-title">{github.handle}</span>
+          <span class="hc-sub">{github.short}</span>
+        </span>
+        <GitHubIcon className="hc-brand" />
+      </a>
+      <div class="gh-body">
+        <div class="gh-heat" data-heat></div>
+        <dl class="gh-stats">
+          <div><dt>Last year</dt><dd class="hc-num" data-gh-total>—</dd></div>
+          <div><dt>Stars</dt><dd class="hc-num">{totalStars ?? '—'}</dd></div>
+          <div><dt>Streak</dt><dd class="hc-num" data-gh-streak>—</dd></div>
+        </dl>
+      </div>
+      <p class="gh-caption" data-heat-caption>Last 12 weeks</p>
+    </div>
+  )}
+
+  <!-- Telegram: the chat itself, two messages from me and the reply box. -->
+  {telegram && (
+    <div class="hc hc--loose hc--telegram" data-card-id="telegram">
+      <a class="tg-chat" href={telegram.url} {...external}>
+        <span class="tg-bubble">Hey!</span>
+        <span class="tg-bubble">{telegram.description}, about anything.</span>
+      </a>
+      <a class="tg-composer" href={telegram.url} {...external}>
+        <span>Message</span>
+        <span class="tg-send"><TelegramIcon className="tg-plane" /></span>
+      </a>
+    </div>
+  )}
+
+  <!-- Instagram: the profile, behind a story ring. -->
+  {instagram && (
+    <div class="hc hc--instagram" data-card-id="instagram">
+      <span class="ig-ring">
+        {instagramProfile?.avatar ? (
+          <img class="ig-avatar" src={instagramProfile.avatar} alt="" width="64" height="64" decoding="async" />
+        ) : (
+          <span class="hc-monogram">{initials}</span>
+        )}
+      </span>
+      <span class="hc-title">{instagram.handle}</span>
+      {instagramProfile && instagramProfile.counts.length > 0 && (
+        <dl class="ig-counts">
+          {instagramProfile.counts.map((item) => (
+            <div><dd class="hc-num">{item.value}</dd><dt>{item.label}</dt></div>
+          ))}
+        </dl>
+      )}
+      <a class="ig-button" href={instagram.url} {...external}>
+        <InstagramIcon className="ig-button-icon" />View profile
+      </a>
+    </div>
+  )}
+</div>
+
+<style>
+  /* The layer covers the hero so a card can sit anywhere over it. Only the
+     open card takes the pointer, so it can be read and clicked. */
+  .hero-cards {
+    --hc-drop: drop-shadow(0 0 0.5px oklch(0 0 0 / 0.3)) drop-shadow(0 14px 22px oklch(0 0 0 / 0.12));
+    --hc-card-drop: 0 12px 24px -12px oklch(0 0 0 / 0.35);
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    pointer-events: none;
+  }
+
+  :global(html.dark) .hero-cards {
+    --hc-drop: drop-shadow(0 0 0.5px oklch(1 0 0 / 0.4)) drop-shadow(0 18px 30px oklch(0 0 0 / 0.6));
+    --hc-card-drop: 0 14px 28px -12px oklch(0 0 0 / 0.7);
+  }
+
+  /* ---------- Shell ------------------------------------------------------ */
+
+  /* A card is a raised piece of the home surface, the same edge and drop as
+     the project deck. It speaks in the sans UI voice. */
+  .hc {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--hc-w, 296px);
+    padding: 16px;
+    overflow: hidden;
+    border-radius: 16px;
+    background: var(--home-surface);
+    box-shadow: var(--home-surface-shadow-raised);
+    font-family: var(--font-sans);
+    font-size: var(--home-text-meta);
+    line-height: 1.4;
+    color: var(--home-fg-secondary);
+    opacity: 0;
+    visibility: hidden;
+    scale: 0.96;
+    translate: 0 6px;
+    transform-origin: var(--hc-origin, 24px 100%);
+    transition:
+      opacity 140ms var(--ease-out),
+      scale 140ms var(--ease-out),
+      translate 140ms var(--ease-out),
+      visibility 0s 140ms;
+  }
+
+  .hc[data-side='bottom'] {
+    --hc-origin: 24px 0;
+    translate: 0 -6px;
+  }
+
+  .hc[data-open] {
+    opacity: 1;
+    visibility: visible;
+    scale: 1;
+    translate: 0 0;
+    pointer-events: auto;
+    transition:
+      opacity 200ms var(--ease-out),
+      scale 260ms var(--ease-out),
+      translate 260ms var(--ease-out),
+      visibility 0s;
+  }
+
+  /* Switching between links swaps the card in place, no second entrance. */
+  .hc[data-instant] {
+    transition: none;
+  }
+
+  /* An object with a shape of its own floats on the page with no card under
+     it. Only the object takes the pointer, so the empty corners of its box
+     never cover the prose. */
+  .hc--loose {
+    padding: 0;
+    overflow: visible;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .hc--loose[data-open] {
+    pointer-events: none;
+  }
+
+  .hc--loose[data-open] :is(.mo-badge, .pj-card, .ms-env) {
+    pointer-events: auto;
+  }
+
+  /* The card whose corner points at the link, like a message bubble. */
+  .hc--bubble {
+    border-radius: 18px 18px 18px 6px;
+  }
+
+  .hc--bubble[data-side='bottom'] {
+    border-radius: 6px 18px 18px 18px;
+  }
+
+  /* Zero specificity, so every link class below sets its own colour. */
+  :where(.hc a) {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* The name at the top of a card is also the way to it. */
+  .hc-head {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    transition: opacity 150ms ease;
+  }
+
+  .hc-head:hover {
+    opacity: 0.72;
+  }
+
+  .hc-head--avatar {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .hc-head--avatar :global(.hc-brand) {
+    margin-left: auto;
+  }
+
+  .hc-id {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .hc-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--home-fg-primary);
+  }
+
+  .hc-sub {
+    overflow: hidden;
+    font-size: 12px;
+    color: var(--home-fg-faint);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hc-clamp-2 {
+    display: -webkit-box;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .hc-num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hc :global(.hc-brand) {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: var(--home-fg-faint);
+  }
+
+  .hc-avatar {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    outline: 1px solid var(--home-image-outline);
+    outline-offset: -1px;
+  }
+
+  /* Initials stand in for a face everywhere but GitHub, whose avatar is
+     the profile picture there. */
+  .hc-monogram {
+    display: grid;
+    place-items: center;
+    background: color-mix(in oklab, hsl(var(--foreground)) 8%, var(--home-surface));
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--home-fg-primary);
+  }
+
+  .hc-avatar.hc-monogram {
+    font-size: 13px;
+  }
+
+  .hc-note {
+    margin: 12px 0 0;
+    color: var(--home-fg-faint);
+  }
+
+  /* ---------- Monash: the student card on its lanyard -------------------- */
+
+  /* A real card is white plastic whatever the room, so the badge keeps its
+     own light palette in both themes and only dims in the dark. */
+  .hc--monash {
+    --hc-w: 280px;
+    --hc-origin: 50% 0;
+    --mo-ink: #1c2430;
+  }
+
+  .mo-swing {
+    transform-origin: 140px 0;
+  }
+
+  /* It is picked up by the strap, so it swings once and settles. */
+  .hc--monash[data-open] .mo-swing {
+    animation: mo-swing 1100ms ease-in-out;
+  }
+
+  @keyframes mo-swing {
+    0% {
+      rotate: 5deg;
+    }
+    30% {
+      rotate: -2.6deg;
+    }
+    55% {
+      rotate: 1.2deg;
+    }
+    78% {
+      rotate: -0.4deg;
+    }
+    100% {
+      rotate: 0deg;
+    }
+  }
+
+  /* The strap runs off the top and fades there. */
+  .mo-lanyard {
+    position: relative;
+    z-index: 2;
+    display: block;
+    width: 280px;
+    height: 80px;
+    margin-bottom: -16px;
+    overflow: visible;
+    mask: linear-gradient(transparent, #000 24px);
+  }
+
+  .mo-strap {
+    fill: none;
+    stroke: #2a6fc4;
+    stroke-width: 20;
+  }
+
+  .mo-strap--back {
+    stroke: #1d5599;
+  }
+
+  .mo-clamp {
+    fill: #d3d9e1;
+  }
+
+  .mo-ring {
+    fill: none;
+    stroke: #aab4c0;
+    stroke-width: 3.5;
+  }
+
+  .mo-hook {
+    fill: #b6bfcb;
+  }
+
+  .mo-badge {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow:
+      0 0 0 1px oklch(0 0 0 / 0.06),
+      0 4px 10px -4px oklch(0 0 0 / 0.16),
+      0 20px 36px -14px oklch(0 0 0 / 0.34);
+    color: var(--mo-ink);
+  }
+
+  :global(html.dark) .mo-badge {
+    filter: brightness(0.92);
+  }
+
+  /* The photo panel. The M is the university's M device, one shape at
+     1:2.3 and never stretched, so its height sets its width. */
+  .mo-photo {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 196px;
+    overflow: hidden;
+    background: #f1f3f7;
+  }
+
+  .mo-m {
+    position: absolute;
+    inset: 0 auto 0 0;
+    height: 100%;
+    width: auto;
+  }
+
+  /* The punched hole the clip goes through. */
+  .mo-hole {
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #3a414b;
+    box-shadow: inset 0 1px 2px oklch(0 0 0 / 0.5);
+    translate: -50% 0;
+  }
+
+  /* The drawn portrait. Its width matches `sizes` on the img, so the
+     browser picks the 128, 256 or 384 file by pixel density. */
+  .mo-portrait {
+    position: relative;
+    display: block;
+    width: 128px;
+    height: 128px;
+    margin-top: 12px;
+    border-radius: 50%;
+    background: #dde6f1;
+    box-shadow: 0 0 0 5px #fff;
+    object-fit: cover;
+  }
+
+  .mo-info {
+    display: flex;
+    flex-direction: column;
+    padding: 14px 20px 18px;
+  }
+
+  /* The university's own logo, crest in blue and wordmark in black. */
+  .mo-logo {
+    display: block;
+    width: 112px;
+    height: auto;
+  }
+
+  .mo-barcode {
+    display: block;
+    width: 100%;
+    height: 28px;
+    margin-top: 14px;
+    fill: var(--mo-ink);
+  }
+
+  .mo-name {
+    margin-top: 12px;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+
+  .mo-course {
+    margin-top: 3px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  .mo-faculty {
+    margin-top: 2px;
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  .mo-expiry {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed #dde2e9;
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  .mo-expiry span:last-child {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mo-ink);
+  }
+
+  /* ---------- Projects: a loose hand of cards ---------------------------- */
+
+  .hc--projects {
+    --hc-w: 352px;
+    --hc-origin: 50% 100%;
+  }
+
+  .pj-hand {
+    position: relative;
+    height: 164px;
+  }
+
+  /* The card itself is the fanned hit area and never moves on hover; its
+     face lifts inside it. Lifting the hit area slid it out from under the
+     pointer, and the card dropped back and flickered. */
+  .pj-card {
+    position: absolute;
+    bottom: 18px;
+    left: 50%;
+    z-index: var(--i);
+    width: 116px;
+    height: 128px;
+    color: var(--home-fg-primary);
+    transform-origin: 50% 130%;
+    transform: translate(calc(-50% + var(--fx)), var(--fy)) rotate(var(--fr));
+  }
+
+  .pj-face {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 11px 12px 12px;
+    border-radius: 12px;
+    background: var(--home-surface);
+    box-shadow:
+      var(--home-surface-shadow),
+      var(--hc-card-drop);
+    transition: transform 240ms var(--ease-out);
+  }
+
+  /* Dealt from a stack on open. */
+  .hc[data-open] .pj-card {
+    animation: pj-deal 560ms cubic-bezier(0.2, 1.2, 0.4, 1) backwards;
+    animation-delay: calc(60ms + var(--i) * 50ms);
+  }
+
+  @keyframes pj-deal {
+    from {
+      transform: translate(-50%, 20px) rotate(0deg) scale(0.9);
+    }
+  }
+
+  .pj-card:hover {
+    z-index: 10;
+  }
+
+  .pj-card:hover .pj-face {
+    transform: translateY(-16px) rotate(calc(var(--fr) * -1)) scale(1.04);
+  }
+
+  .pj-type {
+    overflow: hidden;
+    font-size: 9.5px;
+    font-weight: var(--home-weight-eyebrow);
+    letter-spacing: 0.1em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--home-fg-faint);
+  }
+
+  .pj-name {
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  .pj-stars {
+    margin-top: auto;
+    font-size: 11px;
+    color: var(--home-fg-faint);
+  }
+
+  /* The bottom card of the hand is the way to the whole list. */
+  .pj-card--all .pj-face {
+    background: var(--home-fg-primary);
+    color: var(--home-surface);
+  }
+
+  .pj-all {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .pj-all :global(.pj-all-arrow) {
+    width: 14px;
+    height: 14px;
+    transition: translate 150ms var(--ease-out);
+  }
+
+  .pj-card--all:hover :global(.pj-all-arrow) {
+    translate: 2px 0;
+  }
+
+  .pj-card--all .pj-stars {
+    color: inherit;
+    opacity: 0.6;
+  }
+
+  /* ---------- Write: a page of contents --------------------------------- */
+
+  /* The drop shadow sits on the card and the corner is cut from the page
+     inside it, so the shadow follows the turned-down corner. */
+  .hc--write {
+    --hc-w: 312px;
+    padding: 0;
+    overflow: visible;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    filter: var(--hc-drop);
+  }
+
+  .wr-page {
+    padding: 16px;
+    border-radius: 14px;
+    background: var(--home-surface);
+    mask: linear-gradient(225deg, transparent 15px, #000 15px);
+  }
+
+  .wr-fold {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 21px;
+    height: 21px;
+    border-bottom-left-radius: 4px;
+    background: linear-gradient(
+      45deg,
+      color-mix(in oklab, hsl(var(--foreground)) 11%, var(--home-surface)) 50%,
+      transparent 50%
+    );
+  }
+
+  .wr-head {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 12px;
+    padding-right: 12px;
+  }
+
+  .wr-mark {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--home-surface);
+    box-shadow: var(--home-surface-shadow);
+  }
+
+  .wr-mark img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+  }
+
+  :global(html.dark) .wr-mark img {
+    filter: invert(1);
+  }
+
+  .hc--write .hc-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+  }
+
+  /* One track that may shrink below the titles' nowrap width. */
+  .wr-toc {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 14px -8px 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .wr-toc a {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    transition: background-color 150ms ease;
+  }
+
+  .wr-toc a:hover {
+    background: hsl(var(--foreground) / 0.045);
+  }
+
+  .wr-num {
+    flex: none;
+    font-size: 11px;
+    color: var(--home-fg-faint);
+  }
+
+  .wr-title {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--home-fg-primary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The dotted leader of a printed contents page. */
+  .wr-leader {
+    flex: 1 0 12px;
+    align-self: center;
+    height: 2px;
+    margin-top: 0.3em;
+    background: radial-gradient(circle, hsl(var(--foreground) / 0.3) 0.7px, transparent 1px) 0 50% / 4px 2px repeat-x;
+  }
+
+  .wr-date {
+    flex: none;
+    font-size: 12px;
+    color: var(--home-fg-faint);
+  }
+
+  .wr-toc a:hover .wr-date,
+  .wr-toc a:hover .wr-num {
+    color: var(--home-fg-secondary);
+  }
+
+  /* The folio at the foot of the page. */
+  .wr-count {
+    display: block;
+    margin-top: 8px;
+    font-size: 11px;
+    text-align: right;
+    color: var(--home-fg-faint);
+  }
+
+  /* ---------- Moods: the channel ---------------------------------------- */
+
+  .hc--moods {
+    --hc-w: 304px;
+  }
+
+  .md-stream {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 6px;
+    min-height: 64px;
+    margin-top: 14px;
+  }
+
+  .md-stream :global(.md-bubble) {
+    display: flex;
+    max-width: 100%;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 14px 14px 14px 4px;
+    background: hsl(var(--foreground) / 0.055);
+    transition: background-color 150ms ease;
+  }
+
+  .md-stream :global(.md-bubble:hover) {
+    background: hsl(var(--foreground) / 0.09);
+  }
+
+  .hc[data-open] .md-stream :global(.md-bubble) {
+    animation: hc-rise 360ms var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 70ms);
+  }
+
+  @keyframes hc-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.97);
+    }
+  }
+
+  .md-stream :global(.md-text) {
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--home-fg-primary);
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .md-stream :global(.md-meta) {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--home-fg-faint);
+  }
+
+  .md-stream :global(.md-thumb) {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    object-fit: cover;
+    outline: 1px solid var(--home-image-outline);
+    outline-offset: -1px;
+  }
+
+  .md-typing {
+    display: inline-flex;
+    gap: 4px;
+    padding: 12px 14px;
+    border-radius: 14px 14px 14px 4px;
+    background: hsl(var(--foreground) / 0.055);
+  }
+
+  .md-typing span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: hsl(var(--foreground) / 0.35);
+    animation: md-typing 1.1s ease-in-out infinite;
+  }
+
+  .md-typing span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  .md-typing span:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
+  @keyframes md-typing {
+    0%,
+    60%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.5;
+    }
+    30% {
+      transform: translateY(-3px);
+      opacity: 1;
+    }
+  }
+
+  /* ---------- Message: the envelope -------------------------------------- */
+
+  /* The box leaves room above the envelope for the flap and the letter. */
+  .hc--message {
+    --hc-w: 264px;
+    --hc-origin: 50% 100%;
+  }
+
+  .ms-env {
+    position: relative;
+    display: block;
+    width: 264px;
+    height: 164px;
+    margin-top: 104px;
+    perspective: 800px;
+    filter: var(--hc-drop);
+  }
+
+  .ms-back,
+  .ms-letter,
+  .ms-pocket,
+  .ms-pocket > span,
+  .ms-flap,
+  .ms-flap > span,
+  .ms-address,
+  .ms-stamp,
+  .ms-postmark {
+    position: absolute;
+  }
+
+  .ms-back {
+    inset: 0;
+    border-radius: 8px;
+    background: color-mix(in oklab, hsl(var(--foreground)) 8%, var(--home-surface));
+  }
+
+  /* A blank sheet, addressed to me: the visitor writes the rest. */
+  .ms-letter {
+    left: 14px;
+    right: 14px;
+    bottom: 8px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    height: 138px;
+    padding: 14px 16px;
+    border-radius: 6px;
+    background: var(--home-surface);
+    box-shadow: var(--home-surface-shadow);
+    transition: transform 0s 150ms;
+  }
+
+  .ms-dear {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 15px;
+    font-style: italic;
+    color: var(--home-fg-primary);
+  }
+
+  /* A draft in the visitor's hand, on the sheet's ruled lines. */
+  .ms-line {
+    margin-top: 2px;
+    border-bottom: 1px solid hsl(var(--foreground) / 0.1);
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 12px;
+    font-style: italic;
+    line-height: 18px;
+    white-space: nowrap;
+    color: var(--home-fg-secondary);
+  }
+
+  .ms-dear + .ms-line {
+    margin-top: 6px;
+  }
+
+  /* The pocket's V edge casts onto the letter behind it. */
+  .ms-pocket {
+    inset: 0;
+    z-index: 3;
+    filter: drop-shadow(0 -1px 1px oklch(0 0 0 / 0.1));
+  }
+
+  .ms-pocket > span {
+    inset: 0;
+    border-radius: 8px;
+    background: var(--home-surface);
+    clip-path: polygon(0 38%, 50% 72%, 100% 38%, 100% 100%, 0 100%);
+  }
+
+  .ms-address {
+    left: 16px;
+    bottom: 14px;
+    z-index: 4;
+    display: grid;
+    gap: 1px;
+  }
+
+  .ms-address strong {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--home-fg-primary);
+  }
+
+  .ms-address span {
+    font-size: 11px;
+    color: var(--home-fg-faint);
+  }
+
+  /* A stamp with perforated edges: the padding ring is punched through. */
+  .ms-stamp {
+    right: 14px;
+    bottom: 14px;
+    z-index: 4;
+    width: 36px;
+    height: 44px;
+    padding: 3px;
+    background: #f6f4ef;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      radial-gradient(circle, transparent 1.3px, #000 1.5px) -2.5px -2.5px / 5px 5px round;
+  }
+
+  .ms-stamp svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .ms-stamp text {
+    font-family: var(--font-sans);
+    font-size: 3.4px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    fill: #fff;
+  }
+
+  /* The postmark tells the time where the letter lands. */
+  .ms-postmark {
+    right: 40px;
+    bottom: 20px;
+    z-index: 5;
+    display: grid;
+    place-content: center;
+    width: 46px;
+    height: 46px;
+    border: 1.2px solid hsl(var(--foreground) / 0.38);
+    border-radius: 50%;
+    font-family: var(--font-mono);
+    line-height: 1.15;
+    text-align: center;
+    color: hsl(var(--foreground) / 0.55);
+    rotate: -12deg;
+  }
+
+  .ms-postmark-city {
+    font-size: 6px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .ms-postmark-time {
+    font-size: 9.5px;
+    font-weight: 600;
+  }
+
+  .ms-flap {
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 6;
+    height: 62%;
+    transform-origin: 50% 0;
+    filter: drop-shadow(0 1px 1.5px oklch(0 0 0 / 0.14));
+    transition:
+      transform 0s 150ms,
+      z-index 0s 150ms;
+  }
+
+  .ms-flap > span {
+    inset: 0;
+    background: color-mix(in oklab, hsl(var(--foreground)) 4%, var(--home-surface));
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+  }
+
+  /* The flap swings up and back, then the letter rises out of the pocket. */
+  .hc[data-open] .ms-flap {
+    z-index: 1;
+    transform: rotateX(180deg);
+    transition:
+      transform 420ms var(--ease-out) 120ms,
+      z-index 0s 330ms;
+  }
+
+  .hc[data-open] .ms-letter {
+    transform: translateY(-80px);
+    transition: transform 520ms cubic-bezier(0.2, 1.15, 0.4, 1) 380ms;
+  }
+
+  .hc[data-open] .ms-env:hover .ms-letter {
+    transform: translateY(-88px);
+    transition: transform 240ms var(--ease-out);
+  }
+
+  /* ---------- GitHub: heatmap ------------------------------------------- */
+
+  .hc--github {
+    --hc-w: 312px;
+  }
+
+  .gh-body {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .gh-heat {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(7, 11px);
+    grid-auto-columns: 11px;
+    gap: 3px;
+    min-width: 179px;
+  }
+
+  .gh-heat :global(span) {
+    border-radius: 3px;
+    background: hsl(var(--foreground) / 0.07);
+  }
+
+  .gh-heat :global(span[data-l='1']) {
+    background: color-mix(in oklab, var(--home-accent) 32%, transparent);
+  }
+
+  .gh-heat :global(span[data-l='2']) {
+    background: color-mix(in oklab, var(--home-accent) 55%, transparent);
+  }
+
+  .gh-heat :global(span[data-l='3']) {
+    background: color-mix(in oklab, var(--home-accent) 78%, transparent);
+  }
+
+  .gh-heat :global(span[data-l='4']) {
+    background: var(--home-accent);
+  }
+
+  .gh-heat :global(span[data-blank]) {
+    visibility: hidden;
+  }
+
+  .gh-heat :global(span[data-date]:hover) {
+    outline: 1.5px solid var(--home-fg-primary);
+    outline-offset: 1px;
+  }
+
+  .hc[data-open] .gh-heat :global(span) {
+    animation: gh-cell 320ms var(--ease-out) backwards;
+    animation-delay: calc(var(--c, 0) * 22ms);
+  }
+
+  @keyframes gh-cell {
+    from {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+  }
+
+  .gh-stats {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    margin: 0;
+    text-align: right;
+  }
+
+  .gh-stats dt {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--home-fg-faint);
+    white-space: nowrap;
+  }
+
+  .gh-stats dd {
+    margin: 1px 0 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--home-fg-primary);
+  }
+
+  .gh-caption {
+    min-height: 1.4em;
+    margin: 10px 0 0;
+    font-size: 11px;
+    color: var(--home-fg-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- Telegram: the chat, no window around it ----------------- */
+
+  .hc--telegram {
+    --hc-w: 264px;
+    --tg-blue: #0a84ff;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .hc--loose[data-open] :is(.tg-chat, .tg-composer) {
+    pointer-events: auto;
+  }
+
+  /* The chat floats over prose, so the prose behind it softens: a haze with
+     no edge, cut from overlapping ellipses that follow the two bubbles and
+     the reply box, so its outline is a cloud rather than a box. Two layers,
+     the stronger blur on the tighter shape, so it thickens towards the
+     messages. The shapes are percentages of a box whose content is fixed. */
+  .hc--telegram::before,
+  .hc--telegram::after {
+    content: '';
+    position: absolute;
+    inset: -40px -48px;
+    z-index: -1;
+    pointer-events: none;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    mask:
+      radial-gradient(ellipse 19% 22% at 79% 28%, #000 35%, transparent),
+      radial-gradient(ellipse 42% 22% at 58% 46%, #000 40%, transparent),
+      radial-gradient(ellipse 48% 22% at 50% 69%, #000 40%, transparent);
+  }
+
+  .hc--telegram::after {
+    background: color-mix(in oklab, var(--home-surface) 35%, transparent);
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+    mask:
+      radial-gradient(ellipse 13% 15% at 79% 28%, #000 45%, transparent),
+      radial-gradient(ellipse 35% 15% at 58% 46%, #000 50%, transparent),
+      radial-gradient(ellipse 43% 17% at 50% 69%, #000 50%, transparent);
+  }
+
+  /* Two messages from me, sent side and iMessage blue, so they stand off the
+     page in either theme. Grouped the iOS way: only the last one has the
+     tucked corner. */
+  .tg-chat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    align-self: flex-end;
+    gap: 3px;
+  }
+
+  .tg-bubble {
+    padding: 7px 13px;
+    border-radius: 18px 18px 6px 18px;
+    background: var(--tg-blue);
+    box-shadow: var(--hc-card-drop);
+    color: #fff;
+  }
+
+  .tg-bubble:last-child {
+    border-radius: 18px 6px 4px 18px;
+  }
+
+  .hc[data-open] .tg-bubble {
+    animation: hc-rise 380ms var(--ease-out) backwards;
+  }
+
+  .hc[data-open] .tg-bubble:last-child {
+    animation-delay: 100ms;
+  }
+
+  .tg-composer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    align-self: stretch;
+    padding: 5px 5px 5px 16px;
+    border-radius: 999px;
+    background: var(--home-surface);
+    box-shadow:
+      inset 0 0 0 1px hsl(var(--foreground) / 0.14),
+      var(--hc-card-drop);
+    color: var(--home-fg-faint);
+    transition: color 150ms ease;
+  }
+
+  /* The dark surface is the page colour, so the box lifts a step off it. */
+  :global(html.dark) .tg-composer {
+    background: color-mix(in oklab, var(--home-surface), white 7%);
+  }
+
+  .hc[data-open] .tg-composer {
+    animation: hc-rise 380ms var(--ease-out) 200ms backwards;
+  }
+
+  .tg-composer:hover {
+    color: var(--home-fg-primary);
+  }
+
+  .tg-send {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--tg-blue);
+    color: #fff;
+    transition: scale 150ms var(--ease-out);
+  }
+
+  .tg-composer:hover .tg-send {
+    scale: 1.08;
+  }
+
+  .tg-send :global(.tg-plane) {
+    width: 15px;
+    height: 15px;
+    translate: -1px 0;
+  }
+
+  .hc[data-open] .tg-send :global(.tg-plane) {
+    animation: tg-plane 700ms var(--ease-out) 420ms backwards;
+  }
+
+  @keyframes tg-plane {
+    from {
+      opacity: 0;
+      transform: translate(-8px, 8px) scale(0.6);
+    }
+  }
+
+  /* ---------- Instagram: story ring ------------------------------------- */
+
+  .hc--instagram {
+    --hc-w: 240px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  /* The brand's story ring, the one place a card borrows another's colour:
+     it is how anyone recognises "there is something new to look at". */
+  .ig-ring {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 76px;
+    height: 76px;
+    margin: 4px 0 12px;
+    border-radius: 50%;
+  }
+
+  .ig-ring::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(from 210deg, #feda75, #fa7e1e, #d62976, #962fbf, #4f5bd5, #feda75);
+    mask: radial-gradient(circle, transparent 35px, #000 35.5px);
+  }
+
+  .hc[data-open] .ig-ring::before {
+    animation: ig-spin 5s linear infinite;
+  }
+
+  @keyframes ig-spin {
+    to {
+      rotate: 1turn;
+    }
+  }
+
+  .ig-ring .hc-monogram {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    font-size: 20px;
+  }
+
+  .ig-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    outline: 1px solid oklch(0 0 0 / 0.1);
+    outline-offset: -1px;
+  }
+
+  :global(html.dark) .ig-avatar {
+    outline-color: oklch(1 0 0 / 0.1);
+  }
+
+  .ig-counts {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin: 10px 0 0;
+  }
+
+  .ig-counts div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .ig-counts dd {
+    margin: 0;
+    font-weight: 600;
+    color: var(--home-fg-primary);
+  }
+
+  .ig-counts dt {
+    font-size: 11px;
+    color: var(--home-fg-faint);
+  }
+
+  .ig-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    align-self: stretch;
+    height: 34px;
+    margin-top: 14px;
+    border-radius: 10px;
+    background: var(--home-fg-primary);
+    color: var(--home-surface);
+    font-weight: 500;
+    transition: scale 150ms var(--ease-out);
+  }
+
+  .ig-button:active {
+    scale: 0.96;
+  }
+
+  .ig-button :global(.ig-button-icon) {
+    width: 14px;
+    height: 14px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hc,
+    .hc[data-open] {
+      scale: 1;
+      translate: 0 0;
+      transition: none;
+    }
+
+    .hc *,
+    .hc *::before {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+</style>
+
+<script>
+  const layer = document.querySelector<HTMLElement>('[data-hero-cards]');
+  const bio = document.querySelector<HTMLElement>('[data-hero-bio]');
+
+  // Hover intent: a pass over a link on the way elsewhere opens nothing, and
+  // the card waits long enough for the pointer to cross the gap onto it.
+  const OPEN_DELAY_MS = 120;
+  const CLOSE_DELAY_MS = 280;
+  const GAP = 10;
+  const VIEWPORT_MARGIN = 8;
+
+  let current: HTMLElement | null = null;
+  let currentLink: HTMLElement | null = null;
+  let openTimer = 0;
+  let closeTimer = 0;
+
+  const cardById = (id: string | undefined): HTMLElement | null =>
+    (id && layer?.querySelector<HTMLElement>(`[data-card-id="${id}"]`)) || null;
+
+  // Above the word, left edges aligned; below it when the viewport has no room.
+  // A card that hangs (the badge on its lanyard) prefers below.
+  const place = (card: HTMLElement, link: HTMLElement): void => {
+    if (!layer) return;
+    const host = layer.getBoundingClientRect();
+    const word = link.getBoundingClientRect();
+    const width = card.offsetWidth;
+    const height = card.offsetHeight;
+    const hangs = card.dataset.prefer === 'bottom';
+    // A hanging card centres its strap on the word.
+    const anchor = hangs ? word.left + word.width / 2 - width / 2 : word.left - 16;
+    const left = Math.min(Math.max(anchor - host.left, 0), Math.max(host.width - width, 0));
+    const roomAbove = word.top - height - GAP >= VIEWPORT_MARGIN;
+    const roomBelow = word.bottom + GAP + height <= window.innerHeight - VIEWPORT_MARGIN;
+    const above = hangs ? roomAbove && !roomBelow : roomAbove;
+    const top = above ? word.top - host.top - height - GAP : word.bottom - host.top + GAP;
+    card.style.left = `${Math.round(left)}px`;
+    card.style.top = `${Math.round(top)}px`;
+    card.dataset.side = above ? 'top' : 'bottom';
+  };
+
+  const reposition = (): void => {
+    if (current && currentLink) place(current, currentLink);
+  };
+
+  const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+
+  // ---------- Clock ------------------------------------------------------
+
+  const melbourne = (options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', ...options });
+  const timeFormat = melbourne({ hour: 'numeric', minute: '2-digit' });
+  // A postmark is stamped in 24-hour time.
+  const stampFormat = melbourne({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+
+  const fillClock = (card: HTMLElement): void => {
+    const now = timeFormat.format(new Date());
+    card.querySelectorAll('[data-melbourne-time]').forEach((node) => {
+      node.textContent = now;
+    });
+    card.querySelectorAll('[data-melbourne-stamp]').forEach((node) => {
+      node.textContent = stampFormat.format(new Date());
+    });
+  };
+
+  // ---------- Moods ------------------------------------------------------
+
+  const relativeTime = (iso: string): string => {
+    const then = new Date(iso).getTime();
+    if (Number.isNaN(then)) return '';
+    const minutes = Math.round((Date.now() - then) / 60_000);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.round(hours / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Date(iso).toLocaleDateString('en', { month: 'short', day: 'numeric' });
+  };
+
+  // A mood that is only a link reads as its host and path, like the feed.
+  const shortenUrl = (text: string): string => {
+    if (!/^https?:\/\/\S+$/.test(text)) return text;
+    const bare = text.replace(/^https?:\/\/(www\.)?/, '').replace(/[?#].*$/, '');
+    return bare.length > 30 ? `${bare.slice(0, 29)}…` : bare;
+  };
+
+  interface MoodPost {
+    id?: string | number;
+    previewText?: string;
+    datetime?: string;
+    image?: string | null;
+    reactions?: { emoji?: string; count?: string | number }[];
+  }
+
+  let moodRequested = false;
+  const loadMoods = async (): Promise<void> => {
+    if (moodRequested) return;
+    moodRequested = true;
+    const card = cardById('moods');
+    const stream = card?.querySelector<HTMLElement>('[data-mood-stream]');
+    if (!card || !stream) return;
+    let latest: MoodPost[] = [];
+    try {
+      const response = await fetch('/api/moods');
+      if (!response.ok) throw new Error(String(response.status));
+      const data = (await response.json()) as { posts?: MoodPost[] };
+      latest = (data.posts ?? []).slice(0, 3).reverse();
+    } catch {
+      // Falls through to the line below; the link still works.
+    }
+    if (latest.length === 0) {
+      stream.replaceChildren(el('span', 'md-meta', 'Could not load the channel right now.'));
+      return;
+    }
+    stream.replaceChildren(
+      ...latest.map((post, i) => {
+        const bubble = el('a', 'md-bubble');
+        bubble.href = post.id !== undefined ? `/mood/${post.id}` : '/mood';
+        bubble.tabIndex = -1;
+        bubble.style.setProperty('--i', String(i));
+        const body = el('span');
+        body.append(el('span', 'md-text', shortenUrl(post.previewText?.trim() || 'A photo, no words.')));
+        const reactions = (post.reactions ?? [])
+          .slice(0, 2)
+          .map((reaction) => `${reaction.emoji ?? ''} ${reaction.count ?? ''}`.trim());
+        body.append(el('span', 'md-meta', [relativeTime(post.datetime ?? ''), ...reactions].filter(Boolean).join(' · ')));
+        bubble.append(body);
+        if (post.image) {
+          const thumb = el('img', 'md-thumb');
+          thumb.src = post.image;
+          thumb.alt = '';
+          thumb.loading = 'lazy';
+          thumb.decoding = 'async';
+          bubble.append(thumb);
+        }
+        return bubble;
+      }),
+    );
+    if (current === card) reposition();
+  };
+
+  // ---------- GitHub ------------------------------------------------------
+
+  interface Day {
+    date: string;
+    count: number;
+    level: number;
+  }
+
+  const dayLabel = (iso: string): string =>
+    new Date(`${iso}T00:00:00Z`).toLocaleDateString('en', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+  let githubRequested = false;
+  const loadGitHub = async (): Promise<void> => {
+    if (githubRequested) return;
+    githubRequested = true;
+    const card = cardById('github');
+    const heat = card?.querySelector<HTMLElement>('[data-heat]');
+    if (!card || !heat) return;
+    let days: Day[] = [];
+    let total: number | null = null;
+    try {
+      const response = await fetch('/api/github/contributions?days=84');
+      if (!response.ok) throw new Error(String(response.status));
+      const data = (await response.json()) as { total?: { lastYear?: number }; contributions?: Day[] };
+      days = data.contributions ?? [];
+      total = data.total?.lastYear ?? null;
+    } catch {
+      // The grid stays empty and the stats keep their dashes.
+    }
+    if (days.length === 0) return;
+
+    // Rows are weekdays, Sunday first, the way GitHub draws it.
+    const offset = new Date(`${days[0].date}T00:00:00Z`).getUTCDay();
+    const cells: HTMLElement[] = [];
+    for (let i = 0; i < offset; i++) {
+      const blank = el('span');
+      blank.dataset.blank = '';
+      cells.push(blank);
+    }
+    days.forEach((day, i) => {
+      const cell = el('span');
+      cell.dataset.l = String(day.level);
+      cell.dataset.date = day.date;
+      cell.dataset.count = String(day.count);
+      cell.style.setProperty('--c', String(Math.floor((i + offset) / 7)));
+      cells.push(cell);
+    });
+    heat.replaceChildren(...cells);
+
+    const best = days.reduce((a, b) => (b.count > a.count ? b : a));
+    // Today may not have a commit yet; the streak counts back from yesterday then.
+    let streak = 0;
+    for (let i = days.length - 1; i >= 0; i--) {
+      if (days[i].count > 0) streak++;
+      else if (i < days.length - 1) break;
+    }
+    const set = (selector: string, text: string) => {
+      const node = card.querySelector(selector);
+      if (node) node.textContent = text;
+    };
+    if (total !== null) set('[data-gh-total]', total.toLocaleString('en'));
+    set('[data-gh-streak]', `${streak}d`);
+    heat.dataset.caption = `Last 12 weeks · busiest ${dayLabel(best.date)}, with ${best.count}`;
+    set('[data-heat-caption]', heat.dataset.caption);
+    if (current === card) reposition();
+  };
+
+  // ---------- Open and close ----------------------------------------------
+
+  const open = (link: HTMLElement): void => {
+    const card = cardById(link.dataset.card);
+    if (!card) return;
+    currentLink = link;
+    if (card === current) return;
+    const switching = current !== null;
+    if (current) {
+      current.dataset.instant = '';
+      delete current.dataset.open;
+    }
+    fillClock(card);
+    if (switching) card.dataset.instant = '';
+    else delete card.dataset.instant;
+    place(card, link);
+    card.dataset.open = '';
+    current = card;
+  };
+
+  const close = (): void => {
+    if (!current) return;
+    delete current.dataset.instant;
+    delete current.dataset.open;
+    current = null;
+    currentLink = null;
+  };
+
+  const scheduleClose = (): void => {
+    window.clearTimeout(openTimer);
+    window.clearTimeout(closeTimer);
+    closeTimer = window.setTimeout(close, CLOSE_DELAY_MS);
+  };
+
+  const linkFrom = (target: EventTarget | null): HTMLElement | null =>
+    target instanceof Element ? target.closest<HTMLElement>('a[data-card]') : null;
+
+  const warm = (): void => {
+    void loadMoods();
+    void loadGitHub();
+  };
+
+  if (layer && bio) {
+    bio.addEventListener('pointerover', (event) => {
+      if (event.pointerType !== 'mouse') return;
+      const link = linkFrom(event.target);
+      if (!link) return;
+      // Any link hover is intent to explore; start the network reads now so
+      // the live cards rarely open on a placeholder.
+      warm();
+      window.clearTimeout(closeTimer);
+      window.clearTimeout(openTimer);
+      if (current) open(link);
+      else openTimer = window.setTimeout(() => open(link), OPEN_DELAY_MS);
+    });
+
+    bio.addEventListener('pointerout', (event) => {
+      if (event.pointerType !== 'mouse') return;
+      const link = linkFrom(event.target);
+      if (!link || link.contains(event.relatedTarget as Node | null)) return;
+      scheduleClose();
+    });
+
+    // The open card holds itself open while the pointer is on it.
+    layer.addEventListener('pointerover', (event) => {
+      if (event.pointerType === 'mouse' && current?.contains(event.target as Node)) window.clearTimeout(closeTimer);
+    });
+    layer.addEventListener('pointerout', (event) => {
+      if (event.pointerType !== 'mouse' || !current) return;
+      if (current.contains(event.relatedTarget as Node | null)) return;
+      scheduleClose();
+    });
+
+    // GitHub: the caption reads out the day under the pointer.
+    const heat = layer.querySelector<HTMLElement>('[data-heat]');
+    const heatCaption = layer.querySelector<HTMLElement>('[data-heat-caption]');
+    heat?.addEventListener('pointerover', (event) => {
+      const cell = (event.target as Element).closest<HTMLElement>('span[data-date]');
+      if (!cell || !heatCaption) return;
+      const count = Number(cell.dataset.count);
+      heatCaption.textContent = `${dayLabel(cell.dataset.date ?? '')} · ${count} contribution${count === 1 ? '' : 's'}`;
+    });
+    heat?.addEventListener('pointerleave', () => {
+      if (heatCaption) heatCaption.textContent = heat.dataset.caption || 'Last 12 weeks';
+    });
+
+    bio.addEventListener('focusin', (event) => {
+      const link = linkFrom(event.target);
+      if (!link?.matches(':focus-visible')) return;
+      warm();
+      open(link);
+    });
+
+    bio.addEventListener('focusout', close);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') close();
+    });
+  }
+</script>

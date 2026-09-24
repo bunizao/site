@@ -407,7 +407,7 @@ const socials = socialNames
     width: 28px;
     height: 28px;
     color: hsl(var(--muted-foreground));
-    transition: color 0.15s ease;
+    transition: color var(--dur-fast) var(--ease);
   }
 
   .footer-social:hover {
@@ -431,17 +431,18 @@ const socials = socialNames
   }
 
   .footer-nav {
-    font-size: 13px;
+    font-size: var(--home-text-meta);
     color: hsl(var(--muted-foreground));
   }
 
   .footer-meta {
-    font-size: 11px;
+    font-size: var(--home-text-label);
     color: hsl(var(--muted-foreground));
   }
 
+  /* At 0.22 the dots vanished and the links read as three loose words. */
   .footer-sep {
-    color: hsl(var(--muted-foreground) / 0.22);
+    color: hsl(var(--muted-foreground) / 0.45);
   }
 
   .footer-sep[hidden] {
@@ -450,7 +451,7 @@ const socials = socialNames
 
   .footer-link {
     color: hsl(var(--muted-foreground));
-    transition: color 0.15s ease;
+    transition: color var(--dur-fast) var(--ease);
   }
 
   .footer-link:hover {
@@ -462,35 +463,34 @@ const socials = socialNames
     align-items: center;
     gap: 6px;
     color: inherit;
-    transition: color 0.15s ease;
+    transition: color var(--dur-fast) var(--ease);
   }
 
   .footer-status:hover {
     color: hsl(var(--muted-foreground));
   }
 
+  /* A plain dot in the status colour. The 3px halo it used to wear is the
+     stock "online" badge, the look the rest of the page dropped. */
   .footer-status-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     background: var(--footer-status-color, hsl(var(--muted-foreground) / 0.4));
-    transition: background 0.2s ease;
+    transition: background var(--dur-base) var(--ease);
   }
 
   [data-footer-status='operational'] .footer-status-dot {
     --footer-status-color: hsl(142 70% 45%);
-    box-shadow: 0 0 0 3px hsl(142 70% 45% / 0.18);
   }
 
   [data-footer-status='degraded'] .footer-status-dot,
   [data-footer-status='maintenance'] .footer-status-dot {
     --footer-status-color: hsl(38 92% 55%);
-    box-shadow: 0 0 0 3px hsl(38 92% 55% / 0.18);
   }
 
   [data-footer-status='down'] .footer-status-dot {
     --footer-status-color: hsl(0 75% 55%);
-    box-shadow: 0 0 0 3px hsl(0 75% 55% / 0.18);
   }
 
   .footer-region {
@@ -518,13 +518,13 @@ const socials = socialNames
 
   .footer-region-label {
     color: hsl(var(--muted-foreground));
-    transition: color 0.15s ease;
+    transition: color var(--dur-fast) var(--ease);
   }
 
   .footer-region-code {
     color: hsl(var(--muted-foreground));
     letter-spacing: 0.04em;
-    transition: color 0.15s ease;
+    transition: color var(--dur-fast) var(--ease);
   }
 
   .footer-region-trigger:hover .footer-region-code,
@@ -567,7 +567,7 @@ const socials = socialNames
     margin: 0;
     padding: 11px 13px;
     overflow: visible;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     border: 1px solid hsl(var(--foreground) / 0.1);
     background: hsl(var(--card) / 0.92);
     -webkit-backdrop-filter: blur(18px) saturate(160%);
@@ -684,7 +684,7 @@ const socials = socialNames
   .footer-mark {
     margin: 0;
     text-align: center;
-    font-size: 11px;
+    font-size: var(--home-text-label);
     color: hsl(var(--muted-foreground));
   }
 </style>

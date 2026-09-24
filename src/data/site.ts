@@ -4,8 +4,8 @@
 // documents, not UI labels.
 import type { CommentPolicy } from '@bunizao/contracts/comments';
 import type { ComponentType } from 'react';
-import { FileText, Mail, Send, GraduationCap } from 'lucide-react';
-import { OpenAIIcon, AnthropicIcon, GitHubIcon, InstagramIcon } from '@/components/icons';
+import { FileText, Mail, Send } from 'lucide-react';
+import { OpenAIIcon, AnthropicIcon, GitHubIcon, InstagramIcon, MonashCrestIcon } from '@/components/icons';
 
 // --- Identity ---------------------------------------------------------------
 // The canonical "who I am" facts. seo.ts reads name/jobTitle/knowsAbout/links
@@ -43,8 +43,8 @@ export const profile = {
     { name: 'Blog', url: 'https://buxx.me/blog', icon: FileText, description: 'Read my articles', handle: 'buxx.me/blog', sameAs: true },
     { name: 'GitHub', url: 'https://tuu.cat/gh', icon: GitHubIcon, description: 'Check out my code', handle: '@bunizao', sameAs: true, canonicalUrl: 'https://github.com/bunizao' },
     { name: 'Email', url: 'mailto:me@buxx.me', icon: Mail, description: 'Send me a message', handle: 'me@buxx.me' },
-    { name: 'Telegram', url: 'https://tuu.cat/tg', icon: Send, description: 'Chat with me', handle: 'tuu.cat/tg', sameAs: true },
-    { name: 'Instagram', url: 'https://tuu.cat/ig', icon: InstagramIcon, description: 'See my photos', handle: 'tuu.cat/ig', sameAs: true },
+    { name: 'Telegram', url: 'https://tuu.cat/tg', icon: Send, description: 'Chat with me', handle: 'tuu.cat/tg', sameAs: true, canonicalUrl: 'https://t.me/hututu0' },
+    { name: 'Instagram', url: 'https://tuu.cat/ig', icon: InstagramIcon, description: 'See my photos', handle: 'tuu.cat/ig', sameAs: true, canonicalUrl: 'https://instagram.com/bunizao_' },
   ] satisfies ProfileLink[],
 } as const;
 
@@ -451,17 +451,11 @@ export const hero = {
     'Crafting', 'Tinkering', 'Pondering', 'Researching', 'Prototyping',
     'Deploying', 'Solving',
   ],
-  socials: profile.links,
-
-  // One line per visual line; `**...**` marks the single highlight effect
-  // (rendered as <span class="text-foreground"> for the hero decode reveal).
-  bio: [
-    'I make interesting things.',
-    'Curious about **frontend design**, **proxy systems**, and contributing to **open source**.',
-    'Obsessed with **speed** and always asking how things can be **better**.',
-    'Outside of coding, I read for curiosity and write to make sense of things.',
-    'Currently studying Computer Science at **Monash University**.',
-  ],
+  // Named at the end of the bio: `contactLinks` without the address. A mailto
+  // on the landing page is a spam magnet; the bio links /message instead.
+  // No Blog either, the bio already links it from "write".
+  socials: contactLinks.filter((link) => !link.url.startsWith('mailto:')),
+  // The bio itself is prose with inline links, so it lives in Hero.astro.
 };
 
 // --- Tech marquee -----------------------------------------------------------
@@ -488,9 +482,7 @@ export interface ExperienceItem {
   /** Monash carries a fuller description + location instead of a role. */
   description?: string;
   location?: string;
-  /** Pulsing dot — the one role that's genuinely current. */
-  current?: boolean;
-  /** Hidden behind a blur until hovered; reveals with a particle burst. */
+  /** Tongue-in-cheek "subscriber" row; llms.txt leaves it out. */
   joke?: boolean;
 }
 
@@ -499,11 +491,9 @@ export const experience: ExperienceItem[] = [
     org: 'Monash University',
     url: 'https://www.monash.edu',
     period: 'Jul 2025 — Present',
-    icon: GraduationCap,
-    strokeWidth: 1.8,
-    description: "Studying for a Bachelor's degree in Data Science (Honours)",
+    icon: MonashCrestIcon,
+    description: 'Studying Computer Science in Data Science and AI',
     location: 'Clayton, Melbourne, Australia',
-    current: true,
   },
   {
     org: 'Anthropic',
