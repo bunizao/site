@@ -640,10 +640,6 @@
     "glitter": {
       "width": 120,
       "height": 58
-    },
-    "moon": {
-      "width": 36,
-      "height": 36
     }
   },
   "sky": {
