@@ -157,6 +157,11 @@ crayon sea — the literal reading of *sillage*, the wake a boat leaves behind.
 The sea is seen side on, a swell profile against the page; the page background
 is the sky, in both themes. The band starts under the site footer's last line,
 which sits on top of it, so the page ends in the sea's sky rather than a gap.
+On iOS the water fades into the page at its foot: Safari fills the strip under
+its bottom toolbar, and the status bar, with one flat colour taken from the
+page's `background-color`, and nothing on a locked-root page can paint into
+either. Tinting that colour sea-blue would tint the status bar too, so the sea
+ends in page colour and the strip continues it.
 
 The art is generated. `scripts/paint-sillage.ts` paints every layer in four
 lights — day, night, and dusk in each theme — mixing the day and night colours
