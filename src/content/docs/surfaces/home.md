@@ -120,8 +120,10 @@ Client behavior:
     the stars across every repo. Stars come from the self-hosted
     github-readme-stats card (`gh-stats.buxx.me`), read at build time
     because it serves SVG without CORS; a failed read shows a dash.
-  - Telegram: the chat itself, two messages and a reply box floating on
-    the page, with no name, handle or window around them.
+  - Telegram: the chat itself, two sent messages in iMessage blue and a
+    reply box floating on the page, with no name, handle or window around
+    them. The blue keeps them off the page in the dark theme, where the
+    card surface is the page colour.
   - Instagram: the profile picture behind a story ring, with the post,
     follower and following counts. Both come from the profile page at build
     time: Instagram answers link-preview crawlers (`facebookexternalhit`)

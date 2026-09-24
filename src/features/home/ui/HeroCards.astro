@@ -1425,6 +1425,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 
   .hc--telegram {
     --hc-w: 264px;
+    --tg-blue: #0a84ff;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -1435,27 +1436,27 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     pointer-events: auto;
   }
 
-  /* Two messages in a row, grouped the way Telegram groups them: only the
-     last one carries the tail. */
+  /* Two messages from me, sent side and iMessage blue, so they stand off the
+     page in either theme. Grouped the iOS way: only the last one has the
+     tucked corner. */
   .tg-chat {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: flex-end;
+    align-self: flex-end;
     gap: 3px;
   }
 
   .tg-bubble {
-    padding: 7px 12px;
-    border-radius: 16px 16px 16px 6px;
-    background: var(--home-surface);
-    box-shadow:
-      var(--home-surface-shadow),
-      var(--hc-card-drop);
-    color: var(--home-fg-primary);
+    padding: 7px 13px;
+    border-radius: 18px 18px 6px 18px;
+    background: var(--tg-blue);
+    box-shadow: var(--hc-card-drop);
+    color: #fff;
   }
 
   .tg-bubble:last-child {
-    border-radius: 6px 16px 16px 4px;
+    border-radius: 18px 6px 4px 18px;
   }
 
   .hc[data-open] .tg-bubble {
@@ -1476,10 +1477,15 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     border-radius: 999px;
     background: var(--home-surface);
     box-shadow:
-      var(--home-surface-shadow),
+      inset 0 0 0 1px hsl(var(--foreground) / 0.14),
       var(--hc-card-drop);
     color: var(--home-fg-faint);
     transition: color 150ms ease;
+  }
+
+  /* The dark surface is the page colour, so the box lifts a step off it. */
+  :global(html.dark) .tg-composer {
+    background: color-mix(in oklab, var(--home-surface), white 7%);
   }
 
   .hc[data-open] .tg-composer {
@@ -1496,8 +1502,8 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: var(--home-fg-primary);
-    color: var(--home-surface);
+    background: var(--tg-blue);
+    color: #fff;
     transition: scale 150ms var(--ease-out);
   }
 
