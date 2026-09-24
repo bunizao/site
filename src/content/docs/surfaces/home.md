@@ -89,23 +89,32 @@ Client behavior:
   then rests; the dot pulses once the identity lines have landed.
 - Link underlines draw in one after another once the decode settles
   (`dt-settled`). Hovering a link raises a highlight out of its underline.
-- Monash University and the three channels carry a mark in front of the
-  word, outside its underline. The crest is `public/brands/monash-crest.svg`
-  (cut from the Wikimedia Commons logo), drawn as a mask in the text colour.
+- Every link carries one mark. Words that stay on the site are underlined;
+  the three channels lead with their brand instead, with no underline, since
+  both marks together crowded the lines.
 - Each bio link names a hover card (`data-card`, rendered by
-  `HeroCards.astro` outside the decode root). Every card is its own object:
-  - Monash: a student card with the crest, course, major, the semesters
-    since July 2025 (worked out in Melbourne time) and the motto.
-  - Projects: a hand of cards dealt on open; hovering one tells its story.
-  - Write: the blog's latest three posts as a table of contents.
+  `HeroCards.astro` outside the decode root). Every card is its own object,
+  and the ones with a shape of their own float on the page with no card
+  under them:
+  - Monash: the student card on its lanyard, after the university's own:
+    the pale M behind the photo, the crest, a barcode and the current
+    semester in Melbourne time. It hangs below the word and swings once.
+    The barcode is seeded by the name and encodes nothing; no student
+    number goes on the page.
+  - Projects: a loose hand of cards dealt on open, with the way to the
+    whole list as the bottom card. Hovering a card lifts it.
+  - Write: the blog's latest three posts as a page of contents, one corner
+    turned down.
   - Moods: the latest three moods as a channel, from `/api/moods`.
-  - Message: an envelope that opens on the /message promise, with the
-    time in Melbourne.
+  - Message: an open envelope holding a blank letter to me, postmarked with
+    the time in Melbourne.
   - GitHub: a twelve-week heatmap from
-    `/api/github/contributions?days=84`, with the year total, busiest day
-    and streak.
-  - Telegram and Instagram: a chat and a profile behind a story ring.
+    `/api/github/contributions?days=84`, with the year total, the stars on
+    the listed projects and the streak.
+  - Telegram: a chat, on a card shaped like a message bubble.
+  - Instagram: the profile behind a story ring.
 
+  Cards name the short links (`tuu.cat/gh`), never the address behind them.
   The two network reads start on the first link hover. Cards open after
   120ms of mouse hover or on keyboard focus. They swap instantly between
   links, sit above the word, and flip below it near the viewport top. The
@@ -113,6 +122,9 @@ Client behavior:
   closes 280ms after the pointer leaves. Escape closes it. Touch never
   opens a card. The layer is `aria-hidden`, and its links are out of the
   tab order, because every destination is also the link itself.
+- The experience row for Monash carries the crest
+  (`public/brands/monash-crest.svg`, cut from the Wikimedia Commons logo),
+  drawn as a mask in the text colour.
 - Reduced-motion users skip the script entirely; the elements are visible
   from the first paint.
 
