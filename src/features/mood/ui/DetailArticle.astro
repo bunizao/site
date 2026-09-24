@@ -49,6 +49,12 @@ const postTags = post ? post.tags ?? (post.tag ? [post.tag] : []) : [];
 const channelName = post?.channel?.title?.trim() || post?.channel?.slug?.trim() || '';
 const channelAvatar = post?.channel?.avatar?.trim() || '';
 const postReactions = post?.reactions ?? [];
+// The tally arrives as a number or a numeric string depending on the read
+// path; anything else is unknown, which keeps the default skeleton.
+const parsedCommentsCount = Number(post?.commentsCount);
+const knownCommentsCount = post?.commentsCount !== undefined && Number.isFinite(parsedCommentsCount)
+  ? parsedCommentsCount
+  : undefined;
 ---
 
 {post ? (
@@ -88,28 +94,49 @@ const postReactions = post?.reactions ?? [];
             ))}
           </div>
         )}
-        {post.forwardedFrom && (
-          <div class="mood-post-forwarded">
-            <span class="mood-forwarded-label">Forwarded from</span>
-            {post.forwardedFrom.href ? (
-              <a
-                class="mood-forwarded-source"
-                href={post.forwardedFrom.href}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {post.forwardedFrom.name}
-              </a>
-            ) : (
-              <span class="mood-forwarded-source">{post.forwardedFrom.name}</span>
-            )}
-            {post.forwardedFrom.author && post.forwardedFrom.author !== post.forwardedFrom.name && (
-              <span class="mood-forwarded-author">({post.forwardedFrom.author})</span>
-            )}
-          </div>
-        )}
       </div>
     </div>
+    {/* Provenance for the body, so it sits against the body rather than in
+        the meta column with the tags. The glyph carries "forwarded" and lets
+        the words stay a quiet sentence: as an uppercase micro-label this was
+        a third type voice stacked under the channel name and the date, and
+        it sat in the avatar's column, which broke the byline's two columns
+        in half. */}
+    {post.forwardedFrom && (
+      <p class="mood-post-forwarded">
+        <svg
+          class="mood-post-forwarded__icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="15 17 20 12 15 7"></polyline>
+          <path d="M4 18v-2a4 4 0 0 1 4-4h12"></path>
+        </svg>
+        <span class="mood-post-forwarded__text">
+          <span class="mood-forwarded-label">Forwarded from</span>{' '}
+          {post.forwardedFrom.href ? (
+            <a
+              class="mood-forwarded-source"
+              href={post.forwardedFrom.href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {post.forwardedFrom.name}
+            </a>
+          ) : (
+            <span class="mood-forwarded-source">{post.forwardedFrom.name}</span>
+          )}
+          {post.forwardedFrom.author && post.forwardedFrom.author !== post.forwardedFrom.name && (
+            <span class="mood-forwarded-author">{' '}&middot; {post.forwardedFrom.author}</span>
+          )}
+        </span>
+      </p>
+    )}
     <div class="mood-post-content reading" set:html={renderedPostContent} />
     <div class={`mood-post-reactions${postReactions.length > 0 ? '' : ' is-hidden'}`} aria-label="Reactions">
         {postReactions.map((reaction) => (
@@ -151,6 +178,7 @@ const postReactions = post?.reactions ?? [];
         discussionRepliesEnabled={discussionRepliesEnabled}
         turnstileSiteKey={turnstileSiteKey}
         locale={locale}
+        commentsCount={knownCommentsCount}
       />
     )}
   </article>
@@ -241,13 +269,16 @@ const postReactions = post?.reactions ?? [];
     }
 
     .mood-post-forwarded {
-      font-size: 11px;
       gap: 6px;
-      padding: 4px 0;
+      margin: -6px auto 12px;
+      font-size: 12.5px;
+      line-height: 18px;
     }
 
-    .mood-forwarded-label {
-      font-size: 9px;
+    .mood-post-forwarded__icon {
+      width: 13px;
+      height: 13px;
+      margin-top: 2.5px;
     }
 
     .mood-post-content {
@@ -549,30 +580,58 @@ const postReactions = post?.reactions ?? [];
     border-color: hsl(var(--foreground) / 0.12);
   }
 
+  /* On the body's own axis and measure, one step under it, so the sentence
+     it attributes starts directly below its own left edge. The header above
+     keeps the tags; this is not one of them. */
   .mood-post-forwarded {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 12px;
-    color: hsl(var(--muted-foreground));
-    padding: 6px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    max-width: var(--measure);
+    /* The header's 24px is the gap between the byline and the post. This line
+       belongs to the post, so it takes that gap above and a tighter one
+       below -- closer to the words it introduces than to the byline it is
+       not part of. */
+    margin: -8px auto 14px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 19px;
+    color: hsl(var(--muted-foreground) / 0.8);
   }
 
+  /* The glyph is the whole reason the words can be a quiet sentence, so it
+     reads at the text's weight rather than as decoration -- and it is nudged
+     onto the first line's baseline, not the box's top edge. */
+  .mood-post-forwarded__icon {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    margin-top: 2.5px;
+    opacity: 0.75;
+  }
+
+  /* A long display name is still a sentence: it wraps under itself rather
+     than pushing the line past the measure. */
+  .mood-post-forwarded__text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* Sentence case at the byline's own size. Uppercase at 10px/0.08em was
+     chrome announcing itself ahead of the name it introduces. */
   .mood-forwarded-label {
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 10px;
-    line-height: 1.2;
-    color: hsl(var(--muted-foreground) / 0.7);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: inherit;
+    color: inherit;
   }
 
   .mood-forwarded-source {
     font-weight: 500;
-    line-height: 1.2;
-    color: hsl(var(--foreground) / 0.85);
+    color: hsl(var(--foreground) / 0.9);
     text-decoration: none;
     border-bottom: 1px solid transparent;
+    transition: border-color 0.15s ease;
   }
 
   .mood-forwarded-source:hover,
@@ -581,7 +640,6 @@ const postReactions = post?.reactions ?? [];
   }
 
   .mood-forwarded-author {
-    line-height: 1.2;
     color: hsl(var(--muted-foreground) / 0.7);
   }
 
@@ -842,9 +900,13 @@ const postReactions = post?.reactions ?? [];
     box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
   }
 
+  /* A tall frame caps its height through its width: as wide as the image is
+     at the height cap, never wider. A max-height on an aspect-ratio box clamps
+     the height alone, leaving a box of neither shape with the image
+     letterboxed inside and the frame's fill standing in as bars. */
   .mood-post-content :global(.image-preview-wrap--portrait) {
+    width: min(100%, 60vh * var(--mood-image-ratio, 3 / 4));
     max-width: 400px;
-    max-height: 60vh;
     margin: 0 auto;
     background: hsl(var(--foreground) / 0.03);
   }
@@ -856,8 +918,8 @@ const postReactions = post?.reactions ?? [];
   }
 
   .mood-post-content :global(.image-preview-wrap--ultra-tall) {
+    width: min(100%, 70vh * var(--mood-image-ratio, 9 / 16));
     max-width: 300px;
-    max-height: 70vh;
     margin: 0 auto;
     background: hsl(var(--foreground) / 0.04);
   }
@@ -883,15 +945,15 @@ const postReactions = post?.reactions ?? [];
   }
 
   .mood-post-content :global(.rich-content-media--image.mood-image-frame.rich-content-media--portrait) {
+    width: min(100%, 60vh * var(--mood-image-ratio, 3 / 4));
     max-width: 400px;
-    max-height: 60vh;
     margin-left: auto;
     margin-right: auto;
   }
 
   .mood-post-content :global(.rich-content-media--image.mood-image-frame.rich-content-media--ultra-tall) {
+    width: min(100%, 70vh * var(--mood-image-ratio, 9 / 16));
     max-width: 300px;
-    max-height: 70vh;
     margin-left: auto;
     margin-right: auto;
   }

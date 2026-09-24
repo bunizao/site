@@ -476,7 +476,7 @@ const t = commentsCopy[locale];
   // Wires the reply box's own submit button — see compose-validate.ts.
   // Idempotent and namespaced by a data attribute, so it does not matter that
   // the compose box's script calls the same function against the same document.
-  import { resetAnonymousConfirm, wireBodyCounter, wireComposeValidation } from '@/features/comments/compose-validate';
+  import { wireBodyCounter, wireComposeValidation } from '@/features/comments/compose-validate';
   import { copyFor } from '@/features/comments/copy';
   import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
   import { clearCommentMarkdownPreview } from '@/features/comments/client/markdown-preview';
@@ -515,8 +515,6 @@ const t = commentsCopy[locale];
       }
       note.hidden = true;
     }
-    // Landing on a different row starts a fresh reply attempt.
-    resetAnonymousConfirm(box);
     clearCommentMarkdownPreview(field);
     if (field) field.value = '';
   }

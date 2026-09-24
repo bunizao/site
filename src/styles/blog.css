@@ -450,6 +450,216 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   }
 }
 
+/* --- Writing ledger ------------------------------------------------------ */
+/* Totals and a strip of months closing the /blog index (BlogLedger.astro).
+   Months ink in 霁 blue by words written; the strip is a margin note, not a
+   dashboard. */
+.blog-ledger {
+  /* The last year section already pads 48px below itself. */
+  margin-top: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A caption for the strip, not a line of text of its own: small and faint,
+   only the figures in ink. */
+.blog-ledger__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--blog-faint);
+}
+
+.blog-ledger__stats b {
+  font-weight: 550;
+  color: var(--blog-ink);
+}
+
+.blog-ledger__stats span + span::before {
+  content: '·';
+  margin: 0 10px;
+  color: var(--blog-faint);
+}
+
+/* One column per month, oldest on the left, bars rising from a shared
+   baseline; year labels run under each January. */
+.blog-ledger__map {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--months), minmax(0, 1fr));
+  grid-template-rows: 44px auto;
+  row-gap: 8px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.blog-ledger__month {
+  position: relative;
+  height: 100%;
+  cursor: default;
+}
+
+/* The bar is drawn inside the column, so the gap scales with the month. */
+.blog-ledger__month::before {
+  content: '';
+  position: absolute;
+  inset: auto 15% 0;
+  height: max(2px, calc(var(--h) * 100%));
+  border-radius: 2px;
+  background: hsl(var(--foreground) / 0.08);
+}
+
+.blog-ledger__month.is-written {
+  cursor: pointer;
+}
+
+.blog-ledger__month.is-written::before {
+  background: var(--blog-ji);
+}
+
+/* A ring, not a new fill: the bar keeps its colour in both themes. */
+.blog-ledger__month.is-read::before {
+  box-shadow: 0 0 0 1.5px hsl(var(--background)), 0 0 0 2.5px var(--blog-ji);
+}
+
+.blog-ledger__year {
+  grid-row: 2;
+  border-left: 1px solid hsl(var(--foreground) / 0.12);
+  padding-left: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--blog-faint);
+  transition: color 0.15s ease;
+}
+
+a.blog-ledger__year:hover {
+  color: var(--blog-ink);
+}
+
+/* A month's posts, over its bar. `--tip` is the bar's centre within the card. */
+.blog-ledger__card {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  z-index: 5;
+  width: max-content;
+  max-width: min(320px, 100%);
+  padding: 10px 14px 12px;
+  border-radius: 12px;
+  background: hsl(var(--background));
+  box-shadow:
+    0 0 0 1px hsl(var(--foreground) / 0.08),
+    0 8px 24px hsl(var(--foreground) / 0.08);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Bridges the gap down to the bar, so a pointer on its way up never leaves. */
+.blog-ledger__card::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 12px;
+}
+
+.blog-ledger__card::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: var(--tip, 50%);
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  box-shadow: 1px 1px 0 hsl(var(--foreground) / 0.08);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.blog-ledger__card-note {
+  color: var(--blog-faint);
+}
+
+.blog-ledger__card ul {
+  margin-top: 4px;
+  list-style: none;
+}
+
+.blog-ledger__card a {
+  display: block;
+  padding: 3px 0;
+  font-size: 14px;
+  color: var(--blog-ink);
+  transition: color 0.15s ease;
+}
+
+.blog-ledger__card a:hover {
+  color: var(--blog-accent);
+}
+
+/* --- Earlier posts ------------------------------------------------------- */
+/* The index renders every post and folds all but the latest away; this
+   unfolds the next few in place (index.astro). */
+/* A full-width control that belongs to the list, so it never reads as a
+   line of text beside the ledger's caption. */
+.blog-earlier {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: -16px;
+  border-radius: 12px;
+  background: var(--blog-fill);
+  font-size: 14px;
+  color: var(--blog-muted);
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.blog-earlier:hover {
+  color: var(--blog-accent);
+  background: color-mix(in srgb, var(--blog-accent) 8%, transparent);
+}
+
+.blog-earlier span {
+  transition: transform 0.2s ease;
+}
+
+.blog-earlier:hover span[aria-hidden] {
+  transform: translateY(2px);
+}
+
+/* The ledger stands apart from the button above it. */
+.blog-earlier:not([hidden]) + noscript + .blog-ledger {
+  margin-top: 64px;
+}
+
+/* The year above folded posts drops its closing rule: the button follows. */
+.blog-year:has(+ .blog-year[hidden]) {
+  border-bottom: 0;
+}
+
+/* Unfolded posts rise in one after another; `--i` is set by the index. */
+.blog-row.is-arriving {
+  animation: blog-arrive 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes blog-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-row.is-arriving {
+    animation: none;
+  }
+}
+
 /* --- Floating hero preview (cai.im) ------------------------------------- */
 /* A single image pinned near the cursor, swapped per hovered row. Springy
    fade+scale in, quick fade out. Fixed-position so it never causes layout
@@ -2004,6 +2214,20 @@ html:not(.js) .blog-lang__noscript a {
    The reading column adds top breathing room before it. */
 .blog-zone .footer {
   margin-top: 72px;
+}
+
+/* On /blog the sea's sky runs up under the footer's last line
+   (BlogSeaFooter.astro); the footer stays on top and clickable. */
+.blog-zone .footer:has(~ [data-sillage]) {
+  position: relative;
+  z-index: 1;
+}
+
+/* The sea is the floor of the page: no rubber band past it, which would pull
+   the water up and show bare page underneath. Scroll carried past the end
+   still reaches the sea as wheel and touch input. */
+.page-scroller:has([data-sillage]) {
+  overscroll-behavior-y: none;
 }
 
 

@@ -258,6 +258,12 @@ async function buildDecodeTextItem(): Promise<RegistryItem> {
   };
 }
 
+const PROJECTS_DECK_LIB_FILES = [
+  'lib/use-prefers-reduced-motion.ts',
+  'lib/motion-features/dom-animation.ts',
+  'lib/motion-features/dom-max.ts',
+];
+
 async function buildProjectsDeckItem(): Promise<RegistryItem> {
   const paths = [
     ...(await listFiles('components/project-cards')),
@@ -273,16 +279,25 @@ async function buildProjectsDeckItem(): Promise<RegistryItem> {
     // this repo's own workspace and failed only in a fresh consumer.
     dependencies: ['@bunizao/contracts', 'framer-motion', 'lucide-react'],
     registryDependencies: ['utils'],
-    files: await Promise.all(paths.map(async (filePath) => {
-      const file = await readRegistryFile(filePath, 'registry:ui');
-      return {
-        ...file,
-        content: file.content
-          .replaceAll('@/components/project-cards/', '@/components/ui/')
-          .replaceAll('@/components/icons', '@/components/ui')
-          .replaceAll('@/data/site', '@/components/ui/site'),
-      };
-    })),
+    files: [
+      ...await Promise.all(paths.map(async (filePath) => {
+        const file = await readRegistryFile(filePath, 'registry:ui');
+        return {
+          ...file,
+          content: file.content
+            .replaceAll('@/components/project-cards/', '@/components/ui/')
+            .replaceAll('@/components/icons', '@/components/ui')
+            .replaceAll('@/data/site', '@/components/ui/site'),
+        };
+      })),
+      // The heroes import these through `@/lib/...`, which is where a
+      // consumer's `@lib` target lands them.
+      ...await Promise.all(PROJECTS_DECK_LIB_FILES.map(async (filePath) => {
+        const file = await readRegistryFile(filePath, 'registry:lib');
+        file.target = filePath.replace(/^lib\//, '@lib/');
+        return file;
+      })),
+    ],
   };
 }
 

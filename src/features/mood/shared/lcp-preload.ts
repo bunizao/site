@@ -1,5 +1,5 @@
 import type { MoodFeedItem } from '@bunizao/contracts/mood';
-import { getCriticalInitialPosts, hasRenderableMoodFeedMedia } from '@/features/mood/shared/initial-feed';
+import { getCriticalInitialPosts, hasLcpCandidateMedia } from '@/features/mood/shared/initial-feed';
 import { findTooBigVideoMedia, hasStructuredMoodFeedMedia } from '@/features/mood/shared/feed-media';
 import { getMoodGallerySizes } from '@/features/mood/shared/gallery-render';
 import { resolveMoodFeedImageLayout } from '@/features/mood/shared/feed-thumbnail';
@@ -12,7 +12,7 @@ export interface MoodPreloadImage {
 }
 
 // Derive the LCP preload from the exact post FeedShell renders with
-// fetchpriority=high: the first critical post carrying renderable media. Only
+// fetchpriority=high: the first critical post carrying LCP-candidate media. Only
 // plain image thumbs and galleries surface a real high-priority <img>; video,
 // too-big, and structured-media posts get no preload so we never fetch a wasted
 // candidate at high priority. Mirror the media-branch selection in FeedShell.astro
@@ -21,7 +21,7 @@ export function getMoodFeedPreloadImage(
   posts: MoodFeedItem[],
   anchorId = '',
 ): MoodPreloadImage | null {
-  const priorityPost = getCriticalInitialPosts(posts, anchorId).find(hasRenderableMoodFeedMedia);
+  const priorityPost = getCriticalInitialPosts(posts, anchorId).find(hasLcpCandidateMedia);
   if (!priorityPost) return null;
 
   const tooBigVideoMedia = findTooBigVideoMedia(priorityPost.media);

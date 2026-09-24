@@ -34,13 +34,13 @@ body:has(.docs) .spotlight-overlay {
   display: none;
 }
 
-/* Neither axis overscrolls on a docs page. Horizontally there is nothing to
-   scroll — the fences and tables scroll inside their own frames — so a swipe
-   reaching an edge would chain out to the browser back gesture, which looks
-   exactly like the page being dragged. Vertically the rubber-band at the foot
-   of the page carries the rail with it, because a sticky element rides the
-   document it is stuck to. globals.css already clips the horizontal overflow
-   itself; only the chaining is left. */
+/* Docs contain their scroll (see @/lib/page-scroll): the root is locked and
+   .page-scroller owns the axis, which is what keeps Safari's dynamic toolbar
+   from collapsing and painting page content into the unmeasurable band above
+   the layout viewport. The scroller carries the overscroll containment that
+   used to live here — `overscroll-behavior-y: contain` stops the foot-of-page
+   rubber-band from dragging the rail with it, and `overflow-x: hidden` stops a
+   sideways swipe chaining out to the browser back gesture. */
 html:has(.docs) {
   /* Declared on the root, not on .docs: the top bar lives in the site header,
      outside the .docs subtree, and it has to agree with the rail on this number
@@ -51,8 +51,6 @@ html:has(.docs) {
      and T-junctions. They were 0.07, 0.06 and 0.1, which at a junction reads as
      one line changing weight halfway. One value for all three. */
   --docs-chrome-line: hsl(var(--foreground) / 0.08);
-
-  overscroll-behavior: none;
 }
 
 /* globals.css gives every bare <section> the home page's band treatment (48px of
@@ -75,7 +73,12 @@ html:has(.docs) {
   --docs-chrome-inset: max(1.75rem, calc((100vw - 88rem) / 2));
 
   display: flex;
-  top: var(--site-nav-mobile-top, 0px);
+  /* The plain inset, not --site-nav-mobile-top. That token adds
+     `visualViewport.offsetTop`, which is a pinch-zoom signal: it reads 0 through
+     an entire iOS scroll, so it never corrected the drift it was there for, and
+     the moment it is non-zero it pushes the bar down by a toolbar's height.
+     Contained scroll removes the drift at the source. */
+  top: env(safe-area-inset-top, 0px);
   left: 0;
   right: 0;
   height: var(--docs-bar-h);
@@ -138,12 +141,12 @@ html:has(.docs) {
 /* The bar is fixed and .site-shell is its sibling, so nothing pushes the page
    below it. */
 body:has(.site-nav--docs) .site-shell {
-  padding-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 3.25rem);
+  padding-top: calc(env(safe-area-inset-top, 0px) + 3.25rem);
 }
 
 /* Re-centre the theme control into the bar. */
 body:has(.site-nav--docs) .global-header-actions {
-  top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.625rem);
+  top: calc(env(safe-area-inset-top, 0px) + 0.625rem);
   right: 1rem;
   z-index: 61;
 }

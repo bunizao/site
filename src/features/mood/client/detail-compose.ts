@@ -1,20 +1,18 @@
 /* Wires the presentational compose box (CommentCompose.astro) to
    POST /api/v2/comments with surface: 'mood'. Mirrors the minimum of
    src/features/comments/client/comments-controller.ts's submit path --
-   Turnstile warm/solve, the dwell token, the email-optional two-press
-   confirm, and the same error copy -- without its reader-session phases
+   Turnstile warm/solve, the dwell token, the optimistic row, the verdict
+   poll, and the same error copy -- without its reader-session phases
    (`claimed`/`ready`) or the subscribe nudge, neither of which mood
    comments have.
 
    Submission and rendering are deliberately two files: this one owns the
-   fetch, detail-comments-controller.ts owns the DOM. insertOwnComment() is
-   the seam -- both modules are singletons (one import per specifier), so
-   calling it here reaches the same rendered thread the controller built. */
+   fetch, detail-comments-controller.ts owns the DOM. The ghost-row functions
+   are the seam -- both modules are singletons (one import per specifier), so
+   calling them here reaches the same rendered thread the controller built. */
 
-import type { CommentCreateInput, CommentCreateResult } from '@bunizao/contracts/comments';
+import type { CommentCreateInput, CommentCreateResult, CommentListResult } from '@bunizao/contracts/comments';
 import {
-  confirmAnonymousSubmit,
-  resetAnonymousConfirm,
   sayComposeAlert,
   validateCompose,
   wireComposeValidation,
@@ -37,7 +35,13 @@ import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import { copyFor } from '@/features/comments/copy';
 import { createCommentReplyQuote, readCommentReplyTarget } from '@/features/mood/shared/comments';
-import { insertOwnComment, type CommentData } from '@/features/mood/client/detail-comments-controller';
+import {
+  dropGhostComment,
+  insertGhostComment,
+  replaceGhostComment,
+  settleOwnComment,
+  type CommentData,
+} from '@/features/mood/client/detail-comments-controller';
 
 const TURNSTILE_ACTION = 'mood_comment_create' as const;
 // Same table the blog's error/validation copy comes from -- `data-locale` on
@@ -150,8 +154,19 @@ function wireComposeShell(box: HTMLElement): void {
   });
 }
 
+/* The three attributes are what lets a refused write put the chip back
+   exactly as it was -- the rendered quote is markup, not something to read a
+   target back out of. */
+function readReplyChip(box: HTMLElement): { id: string; author: string; text: string } | null {
+  const id = box.dataset.replyTarget;
+  if (!id) return null;
+  return { id, author: box.dataset.replyAuthor ?? '', text: box.dataset.replyText ?? '' };
+}
+
 function armReply(box: HTMLElement, parentId: string, author: string, text: string): void {
   box.dataset.replyTarget = parentId;
+  box.dataset.replyAuthor = author;
+  box.dataset.replyText = text;
   expandCompose(box);
   const chip = box.querySelector<HTMLElement>('[data-reply-chip]');
   const quoteHost = chip?.querySelector<HTMLElement>('[data-reply-quote]');
@@ -165,6 +180,8 @@ function armReply(box: HTMLElement, parentId: string, author: string, text: stri
 
 function disarmReply(box: HTMLElement): void {
   delete box.dataset.replyTarget;
+  delete box.dataset.replyAuthor;
+  delete box.dataset.replyText;
   const chip = box.querySelector<HTMLElement>('[data-reply-chip]');
   if (chip) chip.hidden = true;
   chip?.querySelector<HTMLElement>('[data-reply-quote]')?.replaceChildren();
@@ -176,7 +193,6 @@ function disarmReply(box: HTMLElement): void {
 
 async function handleSubmit(box: HTMLElement): Promise<void> {
   if (!validateCompose(box)) return;
-  if (!confirmAnonymousSubmit(box)) return;
 
   const field = box.querySelector<HTMLTextAreaElement>('.blog-compose__field');
   const text = field?.value.trim() ?? '';
@@ -189,8 +205,30 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
 
   setSubmitEnabled(box, false);
   sayComposeAlert(box, null);
-  const heldNote = box.querySelector<HTMLElement>('[data-compose-held]');
-  if (heldNote) heldNote.hidden = true;
+
+  // Everything the reader can see happens here, before a byte leaves the
+  // browser -- the same trade the blog's compose box makes. A Turnstile solve
+  // plus a moderation call is two to four seconds of a form that has visibly
+  // stopped working, for a comment that is going to be accepted. The words
+  // are already written and the thread has room for them; the one honest use
+  // of the round trip is to correct the page if it turns out wrong, which is
+  // what the refusal branch below does.
+  const ghostKey = `pending-${Date.now()}`;
+  insertGhostComment(ghostKey, {
+    author: identity.displayName,
+    datetime: new Date().toISOString(),
+    content: commentMarkdownToHtml(text),
+    reactions: [],
+    origin: 'web',
+  });
+  // Cleared and left writable: a reader with a second thing to say can start
+  // it while the first is in the air. The synthetic `input` is what drafts.ts
+  // listens on -- it drops the saved copy, and a programmatic write does not
+  // fire it on its own.
+  const replyTarget = parentId ? readReplyChip(box) : null;
+  field!.value = '';
+  field!.dispatchEvent(new Event('input', { bubbles: true }));
+  disarmReply(box);
 
   hostTurnstileIn(box);
   const turnstileToken = await getTurnstileToken(turnstileSiteKey, TURNSTILE_ACTION);
@@ -216,6 +254,15 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
   setSubmitEnabled(box, true);
 
   if (!response.ok) {
+    // Take it all back, in the order it was given: the row goes, the words
+    // return to the box they were written in, and the reply chip comes back
+    // over the comment it was answering. Then the complaint, in the same slot
+    // an unfinished field uses -- a rate limit and a dropped connection want
+    // opposite next moves, so it says which refusal this was.
+    dropGhostComment(ghostKey);
+    field!.value = text;
+    field!.dispatchEvent(new Event('input', { bubbles: true }));
+    if (replyTarget) armReply(box, replyTarget.id, replyTarget.author, replyTarget.text);
     const t = copyFor(box);
     const failure = describeCommentFailure(response.status, response.slug, t.submitError);
     box.dataset.receipt = 'error';
@@ -232,25 +279,11 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
   }
 
   delete box.dataset.botRetry;
-  resetAnonymousConfirm(box);
 
   const { outcome, comment } = response.data;
-
-  if (outcome === 'held') {
-    box.dataset.receipt = 'held';
-    if (heldNote) heldNote.hidden = false;
-    field!.value = '';
-    field!.dispatchEvent(new Event('input', { bubbles: true }));
-    disarmReply(box);
-    return;
-  }
-
   box.dataset.receipt = 'posted';
-  field!.value = '';
-  field!.dispatchEvent(new Event('input', { bubbles: true }));
-  disarmReply(box);
 
-  const moodComment: CommentData = {
+  replaceGhostComment(ghostKey, {
     id: comment.id,
     author: comment.author.name,
     authorAvatar: safeReaderAvatarUrl(comment.author.avatarUrl) || undefined,
@@ -260,8 +293,46 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
     origin: 'web',
     commentId: comment.id,
     anchorToken: comment.anchorToken,
-  };
-  insertOwnComment(moodComment);
+  });
+
+  if (outcome === 'held') void upgradeWhenVerdictLands(postId, comment.id);
+  else settleOwnComment(comment.id, false);
+}
+
+// ---------------------------------------------------------------------------
+// The verdict
+// ---------------------------------------------------------------------------
+
+// site-api gives the spam check 1.5s and finishes the request without it, so
+// `held` is the ordinary answer to an ordinary comment and the real verdict
+// lands seconds later in a `waitUntil` continuation. Probe until it does.
+//
+// The mood thread's own read path cannot answer this. `/api/comments` is
+// edge-cached, viewer-agnostic, and lists only published rows re-attributed
+// from the Telegram scrape -- by design, since everyone gets the same thread.
+// `/api/v2/comments` is the viewer-aware one: `no-store`, and it serves a
+// writer their own held row (comments-data.ts's visibility clause). So the
+// poll asks there, and the thread on screen is patched in place.
+//
+// The gaps widen as the odds of a flip fall: eight probes out to roughly a
+// minute and a half, five of them inside the first seventeen seconds where
+// nearly every verdict lands.
+const VERDICT_POLL_DELAYS_MS = [1500, 2000, 3000, 4000, 6000, 15_000, 30_000, 30_000];
+
+async function upgradeWhenVerdictLands(postId: string, commentId: string): Promise<void> {
+  for (const delay of VERDICT_POLL_DELAYS_MS) {
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    const page = await fetchJson<CommentListResult>(
+      `/api/v2/comments?surface=mood&post=${encodeURIComponent(postId)}&limit=20`,
+    );
+    const match = page?.comments.find((row) => row.id === commentId);
+    // Gone from a listing that would show it to its own writer: deleted under
+    // us, or never ours to begin with. Either way the wait is over.
+    if (!match) return settleOwnComment(commentId, true);
+    if (match.status === 'held') continue;
+    return settleOwnComment(commentId, match.status !== 'published');
+  }
+  settleOwnComment(commentId, true);
 }
 
 // ---------------------------------------------------------------------------
@@ -340,16 +411,12 @@ export function initMoodCommentCompose(): void {
   const turnstileHost = box.querySelector<HTMLElement>('[data-turnstile-host]');
   const turnstileSiteKey = box.dataset.turnstileSiteKey ?? '';
   if (turnstileHost) setTurnstileHost(TURNSTILE_ACTION, turnstileHost);
+  // Warm on intent, not on sight. The box sits in the first viewport of most
+  // detail pages, so warming on intersection cost every reader ~700 KB of
+  // challenge traffic plus a solve, and most of them never write. A pointer
+  // landing on the box still buys the solve a head start on the first keystroke.
   const warm = () => warmTurnstileToken(turnstileSiteKey, TURNSTILE_ACTION);
-  if (typeof IntersectionObserver === 'function') {
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        warm();
-        observer.disconnect();
-      }
-    }, { rootMargin: '200px' });
-    observer.observe(box);
-  }
+  box.addEventListener('pointerdown', warm, { once: true });
   box.addEventListener('focusin', warm, { once: true });
 
   // `enterkeyhint="next"` promises the iOS keyboard moves on to the next

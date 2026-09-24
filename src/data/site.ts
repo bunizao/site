@@ -118,6 +118,18 @@ export interface BlogLocaleCopy {
       screens, and the rail in the gutter that replaces it on wide ones. Both
       say the same thing at different lengths. */
   back: { index: string; rail: string };
+  /** The writing ledger closing the index. `{n}`, `{year}`, `{month}`,
+      `{posts}` and `{words}` are filled in; word counts come whole from
+      `formatWords`. */
+  ledger: {
+    posts: string;
+    since: string;
+    /** The month strip's accessible name. */
+    label: string;
+    month: string;
+  };
+  /** The index's button that unfolds the next posts; `{n}` is how many remain. */
+  earlier: string;
 }
 
 /**
@@ -230,6 +242,13 @@ export const blog = {
         share: '分享',
       },
       back: { index: '← 全部文章', rail: '← 博客' },
+      ledger: {
+        posts: '{n} 篇',
+        since: '始于 {year}',
+        label: '{year} 年以来每月写下的字数',
+        month: '{year} 年 {month} 月 · {posts} 篇 · {words}',
+      },
+      earlier: '更早的 {n} 篇',
       languageSwitcher: {
         language: '中文',
         open: '切换语言',
@@ -285,6 +304,13 @@ export const blog = {
         share: 'Share',
       },
       back: { index: '← All posts', rail: '← Blog' },
+      ledger: {
+        posts: '{n} posts',
+        since: 'since {year}',
+        label: 'Words written each month since {year}',
+        month: '{year}-{month} · {posts} posts · {words}',
+      },
+      earlier: '{n} earlier posts',
       languageSwitcher: {
         language: 'English',
         open: 'Change language',

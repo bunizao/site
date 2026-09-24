@@ -13,8 +13,8 @@ import {
 import { createPortal } from "react-dom";
 import {
   AnimatePresence,
-  motion,
-  useReducedMotion,
+  LazyMotion,
+  m,
   type PanInfo,
   type TargetAndTransition,
   type Transition,
@@ -27,6 +27,12 @@ import {
   type ShowcaseProject,
 } from "@/components/project-cards/ProjectShowcaseCard";
 import { cn } from "@/lib/utils";
+import { usePrefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
+
+// This is the only consumer that needs drag, so it gets the bigger domMax
+// bundle; everything else in project-cards loads the smaller domAnimation one.
+const loadDomMax = () =>
+  import("@/lib/motion-features/dom-max").then((mod) => mod.default);
 
 // ---------------------------------------------------------------------------
 // A space-frugal alternative to the flex-wrap grid: collapse every project
@@ -321,7 +327,7 @@ function StoryGallery({
   dark: boolean;
   active: boolean;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const count = projects.length;
 
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -623,7 +629,7 @@ function StoryGallery({
         : { x: 0, y: 24, scale: 0.95 };
 
   return createPortal(
-    <motion.div
+    <m.div
       role="dialog"
       aria-modal="true"
       aria-label="Project gallery"
@@ -647,7 +653,7 @@ function StoryGallery({
         onClick={onClose}
       />
 
-      <motion.div
+      <m.div
         className="absolute inset-0"
         // Promote to its own layer so the whole card subtree (heavy shadows
         // included) rasterises once and just composites during the grow-in —
@@ -749,9 +755,9 @@ function StoryGallery({
             </div>
           ))}
         </div>
-      </motion.div>
+      </m.div>
 
-      <motion.div
+      <m.div
         className="pointer-events-none absolute inset-0"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -789,8 +795,8 @@ function StoryGallery({
           trackPx={trackPx}
           onScrub={onScrub}
         />
-      </motion.div>
-    </motion.div>,
+      </m.div>
+    </m.div>,
     document.body,
   );
 }
@@ -1014,7 +1020,7 @@ const dealTransition: Transition = {
 };
 
 export default function ProjectStack({ className }: { className?: string }) {
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const [mounted, setMounted] = useState(false);
   const ids = useMemo(() => projects.map((p) => p.id), []);
   const [order, setOrder] = useState(ids);
@@ -1295,157 +1301,159 @@ export default function ProjectStack({ className }: { className?: string }) {
   };
 
   return (
-    <div
-      data-project-stack={mounted ? "hydrated" : "ssr"}
-      className={cn("relative mx-auto w-full", className)}
-      style={{ maxWidth: cardMax + 40 }}
-      onPointerEnter={() => setPaused(true)}
-      onPointerLeave={() => setPaused(false)}
-    >
+    <LazyMotion features={loadDomMax}>
       <div
-        ref={regionRef}
-        className="relative w-full"
-        style={{ height: regionH, perspective: 1200 }}
-        aria-roledescription="carousel"
-        aria-label="Projects"
+        data-project-stack={mounted ? "hydrated" : "ssr"}
+        className={cn("relative mx-auto w-full", className)}
+        style={{ maxWidth: cardMax + 40 }}
+        onPointerEnter={() => setPaused(true)}
+        onPointerLeave={() => setPaused(false)}
       >
-        {ordered.map((project, depth) => {
-          const active = depth === 0;
-          // The card just dealt away. It keeps the lowest z-index (it is now the
-          // rear card), so it slides to the back hidden behind the rest.
-          const leaving = project.id === leavingId;
-          return (
-            <motion.article
-              key={project.id}
-              className="absolute inset-x-0 top-0 mx-auto w-full select-none"
-              style={{
-                maxWidth: cardMax,
-                // Horizontal flip only. Vertical touch starts still scroll the
-                // page, which matters on mobile where this card fills the viewport.
-                touchAction: "pan-y pinch-zoom",
-                transformStyle: "preserve-3d",
-                transformOrigin: "center center",
-                // Promote the moving card to its own GPU layer and skip back-face
-                // rasterisation — Safari then translates a cached texture instead
-                // of repainting the card + its heavy shadow on every drag frame.
-                willChange: active ? "transform" : "auto",
-                WebkitBackfaceVisibility: "hidden",
-                backfaceVisibility: "hidden",
-                zIndex: projects.length - depth,
-                pointerEvents: leaving
-                  ? "none"
-                  : depth <= visibleDepth
-                    ? "auto"
-                    : "none",
-                cursor: active ? "grab" : "pointer",
-              }}
-              initial={getEntrancePose()}
-              animate={getStackPose(depth, fan)}
-              transition={
-                leaving
-                  ? dealTransition
-                  : {
-                      type: "spring",
-                      stiffness: hasEntered ? 150 : 96,
-                      damping: hasEntered ? 24 : 24,
-                      mass: 0.9,
-                      // During a cycle the deck ripples forward: front card
-                      // leads, those behind follow a beat later.
-                      delay: !hasEntered
-                        ? shouldReduce
-                          ? 0
-                          : depth * 0.08
-                        : leavingId
-                          ? depth * 0.05
-                          : 0,
-                    }
-              }
-              // Desktop drives the deck with framer's free-card drag. Mobile is
-              // owned by the custom touch effect above (framer drag off), so a
-              // horizontal swipe never competes with the browser's pan-y.
-              drag={active && !shouldReduce && !compact}
-              dragSnapToOrigin
-              dragElastic={0.5}
-              whileHover={
-                active && !shouldReduce && !compact ? { y: -6 } : undefined
-              }
-              whileDrag={{ cursor: "grabbing" }}
-              onPointerDown={() => {
-                draggedRef.current = false;
-              }}
-              onDragStart={(e) => e.preventDefault()}
-              onDrag={() => {
-                draggedRef.current = true;
-              }}
-              onDragEnd={onDragEnd}
-              // Desktop tap/back-card promote. On mobile the active card's
-              // tap+swipe is handled by the touch effect; only back cards
-              // promote through framer here.
-              onTap={() => {
-                if (compact) {
-                  if (!active) promote(project.id);
-                  return;
+        <div
+          ref={regionRef}
+          className="relative w-full"
+          style={{ height: regionH, perspective: 1200 }}
+          aria-roledescription="carousel"
+          aria-label="Projects"
+        >
+          {ordered.map((project, depth) => {
+            const active = depth === 0;
+            // The card just dealt away. It keeps the lowest z-index (it is now the
+            // rear card), so it slides to the back hidden behind the rest.
+            const leaving = project.id === leavingId;
+            return (
+              <m.article
+                key={project.id}
+                className="absolute inset-x-0 top-0 mx-auto w-full select-none"
+                style={{
+                  maxWidth: cardMax,
+                  // Horizontal flip only. Vertical touch starts still scroll the
+                  // page, which matters on mobile where this card fills the viewport.
+                  touchAction: "pan-y pinch-zoom",
+                  transformStyle: "preserve-3d",
+                  transformOrigin: "center center",
+                  // Promote the moving card to its own GPU layer and skip back-face
+                  // rasterisation — Safari then translates a cached texture instead
+                  // of repainting the card + its heavy shadow on every drag frame.
+                  willChange: active ? "transform" : "auto",
+                  WebkitBackfaceVisibility: "hidden",
+                  backfaceVisibility: "hidden",
+                  zIndex: projects.length - depth,
+                  pointerEvents: leaving
+                    ? "none"
+                    : depth <= visibleDepth
+                      ? "auto"
+                      : "none",
+                  cursor: active ? "grab" : "pointer",
+                }}
+                initial={getEntrancePose()}
+                animate={getStackPose(depth, fan)}
+                transition={
+                  leaving
+                    ? dealTransition
+                    : {
+                        type: "spring",
+                        stiffness: hasEntered ? 150 : 96,
+                        damping: hasEntered ? 24 : 24,
+                        mass: 0.9,
+                        // During a cycle the deck ripples forward: front card
+                        // leads, those behind follow a beat later.
+                        delay: !hasEntered
+                          ? shouldReduce
+                            ? 0
+                            : depth * 0.08
+                          : leavingId
+                            ? depth * 0.05
+                            : 0,
+                      }
                 }
-                if (draggedRef.current) return;
-                if (active) openGallery(project.id);
-                else promote(project.id);
-              }}
-              aria-hidden={!active}
-              tabIndex={active ? 0 : -1}
-            >
-              <div
-                data-l0-drag
-                style={compact ? { willChange: "transform" } : undefined}
+                // Desktop drives the deck with framer's free-card drag. Mobile is
+                // owned by the custom touch effect above (framer drag off), so a
+                // horizontal swipe never competes with the browser's pan-y.
+                drag={active && !shouldReduce && !compact}
+                dragSnapToOrigin
+                dragElastic={0.5}
+                whileHover={
+                  active && !shouldReduce && !compact ? { y: -6 } : undefined
+                }
+                whileDrag={{ cursor: "grabbing" }}
+                onPointerDown={() => {
+                  draggedRef.current = false;
+                }}
+                onDragStart={(e) => e.preventDefault()}
+                onDrag={() => {
+                  draggedRef.current = true;
+                }}
+                onDragEnd={onDragEnd}
+                // Desktop tap/back-card promote. On mobile the active card's
+                // tap+swipe is handled by the touch effect; only back cards
+                // promote through framer here.
+                onTap={() => {
+                  if (compact) {
+                    if (!active) promote(project.id);
+                    return;
+                  }
+                  if (draggedRef.current) return;
+                  if (active) openGallery(project.id);
+                  else promote(project.id);
+                }}
+                aria-hidden={!active}
+                tabIndex={active ? 0 : -1}
               >
-                <CardFace
-                  project={project}
-                  active={active}
-                  heroActive={stackActive && active}
-                  onOpen={() => openGallery(project.id)}
-                />
-              </div>
-            </motion.article>
-          );
-        })}
-      </div>
+                <div
+                  data-l0-drag
+                  style={compact ? { willChange: "transform" } : undefined}
+                >
+                  <CardFace
+                    project={project}
+                    active={active}
+                    heroActive={stackActive && active}
+                    onOpen={() => openGallery(project.id)}
+                  />
+                </div>
+              </m.article>
+            );
+          })}
+        </div>
 
-      {/* Position dots: which project is on top, jump straight to any. */}
-      <div className="mt-5 flex items-center justify-center gap-2">
-        {projects.map((p) => {
-          const isTop = order[0] === p.id;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => promote(p.id)}
-              aria-label={`Show ${p.name}`}
-              aria-current={isTop}
-              className={cn(
-                "h-1.5 rounded-full transition-all duration-300",
-                // Dots sit on the page background, not the card — track the theme.
-                isTop
-                  ? "w-6 bg-[hsl(var(--foreground)/0.85)]"
-                  : "w-1.5 bg-[hsl(var(--foreground)/0.22)] hover:bg-[hsl(var(--foreground)/0.45)]",
-              )}
+        {/* Position dots: which project is on top, jump straight to any. */}
+        <div className="mt-5 flex items-center justify-center gap-2">
+          {projects.map((p) => {
+            const isTop = order[0] === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => promote(p.id)}
+                aria-label={`Show ${p.name}`}
+                aria-current={isTop}
+                className={cn(
+                  "h-1.5 rounded-full transition-all duration-300",
+                  // Dots sit on the page background, not the card — track the theme.
+                  isTop
+                    ? "w-6 bg-[hsl(var(--foreground)/0.85)]"
+                    : "w-1.5 bg-[hsl(var(--foreground)/0.22)] hover:bg-[hsl(var(--foreground)/0.45)]",
+                )}
+              />
+            );
+          })}
+        </div>
+
+        <AnimatePresence>
+          {galleryIndex != null && (
+            <StoryGallery
+              index={galleryIndex}
+              setIndex={(n) => setGalleryIndex(n)}
+              onClose={() => setGalleryIndex(null)}
+              vw={vw}
+              compact={compact}
+              origin={galleryOrigin}
+              dark={galleryDark}
+              active={documentVisible}
             />
-          );
-        })}
+          )}
+        </AnimatePresence>
       </div>
-
-      <AnimatePresence>
-        {galleryIndex != null && (
-          <StoryGallery
-            index={galleryIndex}
-            setIndex={(n) => setGalleryIndex(n)}
-            onClose={() => setGalleryIndex(null)}
-            vw={vw}
-            compact={compact}
-            origin={galleryOrigin}
-            dark={galleryDark}
-            active={documentVisible}
-          />
-        )}
-      </AnimatePresence>
-    </div>
+    </LazyMotion>
   );
 }

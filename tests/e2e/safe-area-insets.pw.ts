@@ -2,12 +2,13 @@ import { expect, test } from '@playwright/test';
 
 // iOS 26 can paint root-scrolling content above the layout viewport when its
 // dynamic toolbar collapses, while every CSS safe-area signal still reads 0.
-// Blog and Mood close that band at the source: the root stays locked and a
+// Blog, Mood and Docs close that band at the source: the root stays locked and a
 // full-viewport inner element owns scrolling. Chromium cannot reproduce the
 // physical band, so these tests guard the structural contract that prevents it.
 
 const PHONE = { width: 390, height: 844 };
 const FAKE_INSET = 59; // iPhone 16 Pro portrait status-bar band.
+const DOCS_ARTICLE = '/docs/surfaces/comments';
 
 async function openDemoPost(page: import('@playwright/test').Page) {
   await page.setViewportSize(PHONE);
@@ -21,7 +22,7 @@ async function scrollPageTo(page: import('@playwright/test').Page, top: number) 
 }
 
 test('every zone opts into the hardware band', async ({ page }) => {
-  for (const path of ['/blog', '/blog/demo-effects', '/', '/mood']) {
+  for (const path of ['/blog', '/blog/demo-effects', '/', '/mood', '/docs', DOCS_ARTICLE]) {
     await page.goto(path, { waitUntil: 'domcontentloaded' });
     const content = await page.getAttribute('meta[name="viewport"]', 'content');
     expect(content, `${path} must declare cover`).toContain('viewport-fit=cover');
@@ -217,4 +218,78 @@ test('the blog path never reads the pinch-zoom viewport signal', async ({ page }
   });
 
   expect(offenders).toEqual([]);
+});
+
+
+// Docs carry a full-width opaque bar pinned to the top of a long reference page,
+// which is the exact shape that drifts when the root scroller moves. They were
+// built after Blog and Mood were contained and inherited neither the containment
+// nor the ban on chasing the band with JS.
+test('docs contain their scroll instead of moving the root', async ({ page }) => {
+  for (const path of ['/docs', DOCS_ARTICLE]) {
+    await page.setViewportSize(PHONE);
+    await page.goto(path, { waitUntil: 'networkidle' });
+
+    const geometry = await page.evaluate(() => {
+      const scroller = document.querySelector<HTMLElement>('[data-page-scroller]');
+      const bar = document.querySelector<HTMLElement>('.site-nav--docs');
+      if (!scroller || !bar) return null;
+      scroller.scrollTo({ top: 600, behavior: 'instant' });
+      const barStyle = getComputedStyle(bar);
+      return {
+        barPosition: barStyle.position,
+        barTop: bar.getBoundingClientRect().top,
+        barTransform: barStyle.transform,
+        rootOverflow: getComputedStyle(document.documentElement).overflowY,
+        rootScrollTop: window.scrollY,
+        scrollerOverflow: getComputedStyle(scroller).overflowY,
+        scrollerScrollTop: scroller.scrollTop,
+      };
+    });
+
+    expect(geometry, `${path} must render a contained scroller and a docs bar`).not.toBeNull();
+    expect(geometry!.rootOverflow).toBe('hidden');
+    expect(geometry!.rootScrollTop).toBe(0);
+    expect(geometry!.scrollerOverflow).toBe('auto');
+    expect(geometry!.scrollerScrollTop).toBeGreaterThan(0);
+    // The bar sits outside the scrolling layer, so scrolling never moves it.
+    expect(geometry!.barPosition).toBe('fixed');
+    expect(geometry!.barTransform).toBe('none');
+    expect(geometry!.barTop).toBeCloseTo(0, 0);
+  }
+});
+
+test('the pinch-zoom viewport signal cannot move the docs bar', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto(DOCS_ARTICLE, { waitUntil: 'networkidle' });
+
+  const read = () =>
+    page.evaluate(() => ({
+      actionsTop: document
+        .querySelector<HTMLElement>('.global-header-actions')!
+        .getBoundingClientRect().top,
+      barTop: document.querySelector<HTMLElement>('.site-nav--docs')!.getBoundingClientRect().top,
+      shellPadTop: getComputedStyle(document.querySelector<HTMLElement>('.site-shell')!).paddingTop,
+    }));
+
+  const before = await read();
+  // The docs bar used to consume --site-nav-mobile-top, which adds this token.
+  // It reads 0 through an entire iOS scroll, so it never corrected the drift it
+  // was there for — and when it is non-zero it shoves the bar down by a
+  // toolbar's height. Contained scroll removes the drift at the source, so no
+  // docs chrome may chase the band any more, directly or through that alias.
+  const after = await page.evaluate((inset) => {
+    document.documentElement.style.setProperty('--visual-viewport-top', `${inset}px`);
+    return {
+      actionsTop: document
+        .querySelector<HTMLElement>('.global-header-actions')!
+        .getBoundingClientRect().top,
+      barTop: document.querySelector<HTMLElement>('.site-nav--docs')!.getBoundingClientRect().top,
+      shellPadTop: getComputedStyle(document.querySelector<HTMLElement>('.site-shell')!).paddingTop,
+    };
+  }, FAKE_INSET);
+
+  expect(after.barTop).toBe(before.barTop);
+  expect(after.actionsTop).toBe(before.actionsTop);
+  expect(after.shellPadTop).toBe(before.shellPadTop);
 });

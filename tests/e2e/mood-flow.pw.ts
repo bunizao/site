@@ -12,6 +12,10 @@ async function scrollPageTo(page: Page, top: number): Promise<void> {
   }, top);
 }
 
+function tallSvg(width: number, height: number): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="#333" /></svg>`;
+}
+
 function createMoodFeedPost(
   id: string,
   text = `E2E mood feed item ${id}`,
@@ -2099,6 +2103,9 @@ test.describe('Mood routes', () => {
 
     const navbar = page.locator('[data-mood-navbar]');
     const updateNotice = navbar.locator('[data-mood-update-notice]');
+    // The watcher re-applies the resting styles on init; force the notice open
+    // only after that pass, or it stomps the inline styles set here.
+    await expect(updateNotice).toHaveAttribute('style', /translateX\(-10px\)/);
     await updateNotice.evaluate((element) => {
       element.style.display = 'inline-flex';
       element.style.opacity = '1';
@@ -3131,7 +3138,7 @@ test.describe('Mood routes', () => {
         return;
       }
       await imageGate;
-      await route.fulfill({ status: 200, contentType: 'image/gif', body: tinyGif });
+      await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: tallSvg(589, 1280) });
     });
     await page.goto('/mood/990778', { waitUntil: 'domcontentloaded' });
 
@@ -3160,6 +3167,45 @@ test.describe('Mood routes', () => {
     const after = await frame.boundingBox();
     expect(after).not.toBeNull();
     expect(Math.abs(after!.height - before!.height)).toBeLessThan(1);
+  });
+
+  test('fits a tall detail frame to its image at the height cap', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 1000 });
+    await page.route('**/api/v2/images/mood/990778/0*', (route) => route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: tallSvg(589, 1280),
+    }));
+    await page.goto('/mood/990778', { waitUntil: 'domcontentloaded' });
+
+    const frame = page.locator('.mood-post-content [data-mood-image-frame]').first();
+    await expect.poll(() => frame.locator('[data-mood-image-main]').evaluate((node) => {
+      return (node as HTMLImageElement).naturalWidth;
+    })).toBeGreaterThan(0);
+    const box = await frame.boundingBox();
+    expect(box).not.toBeNull();
+    // Capped by height, the frame narrows to the image instead of keeping its
+    // max width and letterboxing the screenshot inside it.
+    expect(box!.height).toBeLessThanOrEqual(600.5);
+    expect(Math.abs(box!.width / box!.height - 589 / 1280)).toBeLessThan(0.01);
+  });
+
+  test('reshapes a feed thumb to an image whose declared ratio is wrong', async ({ page }) => {
+    await page.route('**/api/v2/images/mood/990778/0*', (route) => route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: tallSvg(300, 1280),
+    }));
+    await page.goto('/mood/embed?id=990778&theme=light&link=false', { waitUntil: 'domcontentloaded' });
+
+    const frame = page.locator('.mood-item-thumb[data-mood-image-frame]');
+    await expect.poll(() => frame.locator('[data-mood-image-main]').evaluate((node) => {
+      return (node as HTMLImageElement).naturalWidth;
+    })).toBeGreaterThan(0);
+    await expect.poll(async () => {
+      const box = await frame.boundingBox();
+      return box ? Math.abs(box.width / box.height - 300 / 1280) : 1;
+    }).toBeLessThan(0.01);
   });
 
   test('keeps detail reactions visually stable on hover', async ({ page }) => {
@@ -3277,7 +3323,7 @@ test.describe('Mood routes', () => {
   test('reserves an embedded image before its bytes arrive', async ({ page }) => {
     const imagePattern = '**/api/v2/images/mood/990778/0*';
     const blurSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#999" /></svg>';
-    const sharpSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><rect width="800" height="800" fill="#333" /></svg>';
+    const sharpSvg = tallSvg(589, 1280);
     let releaseImages!: () => void;
     const imageGate = new Promise<void>((resolve) => {
       releaseImages = resolve;

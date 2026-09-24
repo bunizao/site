@@ -126,18 +126,19 @@ is the kill switch. The one thing an unverified address can **never** do is
 receive email (see Notifications) — that line is what keeps us from being an
 open relay, and it is not negotiable.
 
-### Compose: name required, email recommended, post immediately
+### Compose: name required, email optional, post immediately
 
 1. The field is writable from first paint. Primary button always says Post.
 2. First Post press with an empty identity row reveals it: name (required) +
    email (optional) under the draft. (An empty draft reveals nothing and
    focuses the field.)
-3. A Post press with the email still empty arms a one-shot green
-   recommendation box — benefit-framed (reply notifications, your own
-   avatar), never an error state — and the next press submits as anonymous.
-   A filled email submits on the first press. The second press is the
-   "post without email" confirmation, so the friction only ever lands on
-   the no-email path and carries information.
+3. A Post press submits, empty email or not. This used to arm a one-shot
+   green recommendation box and require a second press — friction that only
+   landed on the no-email path, which sounded like it carried information
+   and in practice was three clauses of upside for something the reader had
+   already decided to skip, charged to every anonymous comment. A field
+   marked "(optional)" that argues back the first time you take it at its
+   word is not optional. Removed 2026-09-21.
 4. The submit carries: Turnstile token, honeypot, dwell-time stamp, body,
    name, email (when given). The token is solved on the first focus in the
    box, not at submit -- at submit it cost ~2.3s of dead time between the

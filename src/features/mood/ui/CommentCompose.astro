@@ -7,8 +7,7 @@
    Behavioural markup is borrowed verbatim from the blog's compose box:
    `.blog-compose`, `[data-compose-identity]`, `.blog-compose__input`,
    `.blog-compose__field`, `[data-compose-count]`, `[data-compose-error*]`,
-   `[data-compose-recommend]`, `[data-compose-submit]`, the `website`
-   honeypot -- so compose-validate.ts, drafts.ts, and the risk-stack modules
+   `[data-compose-submit]`, the `website` honeypot -- so compose-validate.ts, drafts.ts, and the risk-stack modules
    under src/features/comments/client/ work unmodified. `data-locale` is what
    makes their shared copy table (copy.ts) resolve here; the page negotiates
    it and passes it down, so the box speaks the same language as the rest of
@@ -143,11 +142,6 @@ const shared = resolveCommentsCopy(locale);
       />
     </div>
 
-    <p class="mood-compose__recommend" data-compose-recommend aria-live="polite" hidden>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.mail} />
-      {shared.emailRecommend}
-    </p>
-
     <label class="sr-only" for="mood-compose-text">{shared.bodyLabel}</label>
     <textarea
       id="mood-compose-text"
@@ -177,10 +171,6 @@ const shared = resolveCommentsCopy(locale);
       </div>
     </div>
   </div>
-
-  {/* Posted, but held for review -- not inserted into the thread. Cleared
-      the moment the reader starts a new comment (detail-compose.ts). */}
-  <p class="mood-compose__held" data-compose-held role="status" hidden>{t.held}</p>
 
   <p class="mood-compose__disclosure" data-compose-disclosure>{t.disclosure}</p>
 </div>
@@ -678,27 +668,6 @@ const shared = resolveCommentsCopy(locale);
     margin: 0 18px 12px;
   }
 
-  .mood-compose__held:not([hidden]) {
-    animation: mood-compose-receipt-in 0.24s var(--compose-ease) both;
-  }
-
-  @keyframes mood-compose-receipt-in {
-    from {
-      opacity: 0;
-      translate: 0 -6px;
-    }
-  }
-
-  .mood-compose__held {
-    margin: 8px 2px 0;
-    padding: 8px 12px;
-    font-size: 12.5px;
-    color: hsl(38 80% 40%);
-    background: hsl(38 80% 50% / 0.1);
-    border: 1px solid hsl(38 80% 50% / 0.2);
-    border-radius: 8px;
-  }
-
   /* Content leaving for a third party is not fine print, but it is a caption
      about the send rather than a field, so it waits until the box is open. */
   .mood-compose__disclosure {
@@ -749,9 +718,6 @@ const shared = resolveCommentsCopy(locale);
       transition: none !important;
     }
 
-    .mood-compose__held:not([hidden]) {
-      animation: none !important;
-    }
   }
 
   /* Sits in .mood-comment-footer beside the reactions, so no top margin of
@@ -784,6 +750,63 @@ const shared = resolveCommentsCopy(locale);
      light, where the same mix runs the other way. */
   .mood-comment--mine .mood-comment-body {
     border-color: color-mix(in oklab, hsl(var(--foreground)) 30%, transparent);
+  }
+
+  /* --- A bubble whose verdict has not landed ---------------------------
+
+     The comment goes into the thread the moment the reader presses send,
+     before the server has said anything about it. Almost all of them are
+     published a second or two later (site-api gives the spam check 1.5s and
+     finishes the request without it), so the receipt is the bubble itself,
+     breathing, rather than a banner over the box saying the comment exists
+     somewhere the reader cannot see it.
+
+     Breathing, not a spinner: a spinner says "wait", and there is nothing to
+     wait for -- the words are on the page and the reader can write the next
+     one. This just says the row is not quite settled yet. It stops on its
+     own, either because the flip landed or because the poll window ran out
+     and the note below takes over. */
+  .mood-comment[data-pending] .mood-comment-body {
+    animation: mood-comment-breathe 1.8s ease-in-out infinite;
+  }
+
+  @keyframes mood-comment-breathe {
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  /* The word under the bubble: "Publishing" while the polls run, "Only you
+     can see this" if they run out. Sized and coloured like the byline above
+     it, because it is the same grade of information -- something about the
+     row, not something wrong with it. */
+  .mood-comment__note {
+    margin: 4px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: hsl(var(--muted-foreground) / 0.75);
+  }
+
+  /* The one that survives the wait earns a little more weight: it is the
+     only state here the reader may want to act on. */
+  .mood-comment:not([data-pending]) .mood-comment__note {
+    color: hsl(38 80% 40%);
+  }
+
+  .dark .mood-comment:not([data-pending]) .mood-comment__note {
+    color: hsl(38 80% 62%);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mood-comment[data-pending] .mood-comment-body {
+      animation: none;
+      opacity: 0.7;
+    }
   }
 
   @media (max-width: 540px) {

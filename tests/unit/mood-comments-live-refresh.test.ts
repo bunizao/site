@@ -33,7 +33,7 @@ describe('mood comments live refresh', () => {
   test('every path that adds comments to the thread clears the empty note', () => {
     for (const signature of [
       'async function refreshLiveComments',
-      'export function insertOwnComment',
+      'export function insertGhostComment',
     ]) {
       expect(bodyOf(signature)).toContain('emptyEl.hidden = true');
     }

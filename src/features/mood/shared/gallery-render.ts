@@ -51,6 +51,24 @@ export function getMoodGalleryAspectRatioValue(item: MoodGalleryItem): number {
   return getMoodImageRatio(item.width, item.height, item.layout).value;
 }
 
+/* How much of the second photo stays visible when the row overflows. Half:
+   a row that is cut has to be cut unmistakably, or the reader reads the cut
+   as a mistake rather than as more photos. */
+const GALLERY_PEEK = 0.5;
+
+/* One height is shared by every photo in a row, and it is the height that
+   lands the cut on half of the second photo:
+
+     first * height + gap + PEEK * second * height = track
+
+   The stylesheet supplies the track width and the gap, since only it knows
+   them; this is the rest of that solution, inverted because CSS multiplies
+   by a variable but cannot divide by one. */
+export function getMoodGalleryRowLead(first: MoodGalleryItem, second: MoodGalleryItem): number {
+  const span = getMoodGalleryAspectRatioValue(first) + GALLERY_PEEK * getMoodGalleryAspectRatioValue(second);
+  return span > 0 ? 1 / span : 0.75;
+}
+
 function formatCssNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
 }
@@ -97,9 +115,18 @@ export function renderMoodGalleryMarkup(
     })
     .join('');
 
+  const lead = gallery.items.length > 1
+    ? ` style="--mood-gallery-lead:${formatCssNumber(
+      getMoodGalleryRowLead(gallery.items[0]!, gallery.items[1]!),
+    )};"`
+    : '';
+
   return [
-    `<div class="mood-gallery mood-gallery--${variant}" data-mood-gallery data-mood-gallery-variant="${variant}" data-mood-gallery-count="${gallery.count}"${priority ? ' data-mood-gallery-priority="true"' : ''}>`,
+    `<div class="mood-gallery mood-gallery--${variant}" data-mood-gallery data-mood-gallery-variant="${variant}" data-mood-gallery-count="${gallery.count}"${priority ? ' data-mood-gallery-priority="true"' : ''}${lead}>`,
     `<div class="mood-gallery-track" data-mood-gallery-track>${slides}</div>`,
+    gallery.items.length > 1
+      ? '<span class="mood-gallery-fade" data-mood-gallery-fade aria-hidden="true"></span>'
+      : '',
     '</div>',
   ].join('');
 }

@@ -52,7 +52,11 @@ const linkLabel = (url: string) =>
       {projects.map((project, index) => (
         <li class="proj-entry">
           <div class="proj-visual">
-            <HeroPanel client:load hero={project.hero} accent={project.accent} />
+            {index === 0 ? (
+              <HeroPanel client:load hero={project.hero} accent={project.accent} />
+            ) : (
+              <HeroPanel client:visible hero={project.hero} accent={project.accent} />
+            )}
           </div>
 
           <div class="proj-body">

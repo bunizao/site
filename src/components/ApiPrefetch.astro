@@ -1,0 +1,12 @@
+---
+/* Starts API requests during HTML parse; see lib/api-prefetch.ts. */
+import { prefetchScript } from '@/lib/api-prefetch';
+
+interface Props {
+  urls: string[];
+}
+
+const { urls } = Astro.props;
+---
+
+{urls.length > 0 && <script is:inline set:html={prefetchScript(urls)} />}

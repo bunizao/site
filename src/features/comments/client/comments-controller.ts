@@ -25,11 +25,8 @@ import type {
 import { collectClientEvidence, warmClientEvidence } from './client-evidence';
 import { beginWriteTelemetry, type WriteTelemetry } from './telemetry';
 import {
-  confirmAnonymousSubmit,
-  dismissRecommendOnFill,
   MAX_BODY_LENGTH,
   nudgeBodyCount,
-  resetAnonymousConfirm,
   sayComposeAlert,
   buildErrorCode,
   type ComposeAlertHelp,
@@ -64,9 +61,10 @@ import { ICONS, SIGNOUT_ICONS, iconSvg } from '@/features/comments/icons';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
+import { READER_ME_URL, blogCommentsUrl, reactionsUrl } from '@/features/comments/api-urls';
+import { fetchPrefetched } from '@/lib/api-prefetch';
 
 const CLAIMED_STORAGE_KEY = 'buxx:reader';
-const PAGE_SIZE = 20;
 
 // ---------------------------------------------------------------------------
 // Small DOM builder -- attrs + children, everything through .append() /
@@ -102,7 +100,6 @@ const EDIT_ICON_SVG = iconSvg(ICONS.pencil);
 const TRASH_ICON_SVG = iconSvg(ICONS.trash);
 const GHOST_ICON_SVG = iconSvg(ICONS.circleSlash);
 const ALERT_ICON_SVG = iconSvg(ICONS.circleAlert, 'stroke-width="2"');
-const MAIL_ICON_SVG = iconSvg(ICONS.mail, 'stroke-width="1.7"');
 // Gives the nudge an identity of its own. Without it the row read as a strip
 // of controls that happened to sit under the box, which is how a message ends
 // up ignored by the people it is for.
@@ -338,8 +335,9 @@ export function initCommentsController(): void {
 
   async function bootstrap(): Promise<void> {
     const [meResult, pageResult] = await Promise.all([
-      fetchJson<ReaderMeResult>(`/api/v2/reader/me`),
-      fetchJson<CommentListResult>(`/api/v2/comments?post=${encodeURIComponent(postId)}&limit=${PAGE_SIZE}`),
+      // Both were started by the page's inline prefetch while it parsed.
+      fetchJson<ReaderMeResult>(READER_ME_URL, { early: true }),
+      fetchJson<CommentListResult>(blogCommentsUrl(postId), { early: true }),
     ]);
 
     if (meResult) {
@@ -467,9 +465,7 @@ export function initCommentsController(): void {
     moreButton.disabled = true;
     moreButton.textContent = t.loading;
 
-    const page = await fetchJson<CommentListResult>(
-      `/api/v2/comments?post=${encodeURIComponent(postId)}&before=${encodeURIComponent(nextBefore)}&limit=${PAGE_SIZE}`,
-    );
+    const page = await fetchJson<CommentListResult>(blogCommentsUrl(postId, nextBefore));
     if (!page) {
       moreButton.setAttribute('aria-busy', 'false');
       moreButton.disabled = false;
@@ -492,7 +488,7 @@ export function initCommentsController(): void {
       .filter((c) => !c.tombstone)
       .map((c) => `comment:${c.id}`);
     const reactions = targets.length > 0
-      ? (await fetchJson<ReactionBatchResult>(`/api/v2/reactions?targets=${encodeURIComponent(targets.join(','))}`))?.reactions ?? {}
+      ? (await fetchJson<ReactionBatchResult>(reactionsUrl(targets)))?.reactions ?? {}
       : {};
 
     for (const { comment, parentId } of orderForRender(comments)) {
@@ -525,11 +521,6 @@ export function initCommentsController(): void {
       previousAttempt?.finish('http_error');
       return;
     }
-
-    // An anonymous writer with an empty email field gets one more press: the
-    // first one arms the box and shows the recommendation instead of
-    // sending anything. See confirmAnonymousSubmit() for the state machine.
-    if (!confirmAnonymousSubmit(box)) return;
 
     const field = box.querySelector<HTMLTextAreaElement>('.blog-compose__field');
     const text = field?.value.trim() ?? '';
@@ -641,10 +632,6 @@ export function initCommentsController(): void {
     const { outcome, comment, unverifiedEmail } = response.data;
     telemetry.finish('accepted');
     delete box.dataset.botRetry;
-    // Success only -- a failed submit restores the draft, and the retry press
-    // should send it, not re-arm the add-an-email recommendation. The next
-    // comment in this box starts a fresh attempt and earns its own first press.
-    resetAnonymousConfirm(box);
 
     if (phase === 'anonymous') {
       claimed = { name: identity.displayName, email: identity.email };
@@ -727,13 +714,23 @@ export function initCommentsController(): void {
     await handleSubmit(box, telemetry);
   }
 
-  // The API answers within ~1.5s even while the AI verdict is still in
+  // The API answers within ~1.5s even while the spam verdict is still in
   // flight: the comment lands as held and flips to published in the
-  // background. Probe the list a few times so the writer sees the flip
-  // without reloading. A comment that stays held (genuine hold, reject, or
-  // an edit during the race) keeps its held rendering -- the wire never
-  // says which.
-  const VERDICT_POLL_DELAYS_MS = [2500, 3500, 6000];
+  // background. Probe the list until the flip lands, so the writer sees it
+  // without reloading.
+  //
+  // The window used to be three probes over twelve seconds, which was sized
+  // for the round trip rather than for what actually has to finish inside it.
+  // The late verdict runs in the Worker's `waitUntil` continuation after the
+  // response is already sent -- a queued continuation, a retried fetch, or a
+  // cold check lands well past twelve seconds, and the row was being told it
+  // was invisible for a comment that went public moments later, permanently,
+  // with no way back short of a reload. Telling a reader the wrong thing
+  // forever is worse than a few more cheap `no-store` GETs, so the window is
+  // a backoff out to roughly a minute and a half. The gaps widen as the odds
+  // of a flip fall: eight probes total, five of them inside the first
+  // seventeen seconds, where nearly every verdict lands.
+  const VERDICT_POLL_DELAYS_MS = [1500, 2000, 3000, 4000, 6000, 15_000, 30_000, 30_000];
 
   /** The row was just written by this browser and came back held. Almost every
       one of those is the classifier still thinking, not a decision, and it
@@ -775,6 +772,11 @@ export function initCommentsController(): void {
     body.append(el('p', { class: 'blog-comment__note' }, [t.held]));
   }
 
+  /** The wait is over and it did not end in a publish: drop the breathing
+      and say the real thing. Reached two ways -- a verdict that came back
+      something other than `published`, and a poll window that ran out -- and
+      the row reads the same either way, because from here nothing this page
+      does will change it. */
   function settlePending(article: HTMLElement): void {
     const note = article.querySelector<HTMLElement>('.blog-comment__note');
     delete article.dataset.pending;
@@ -788,9 +790,11 @@ export function initCommentsController(): void {
   ): Promise<void> {
     for (const delay of VERDICT_POLL_DELAYS_MS) {
       await new Promise((resolve) => setTimeout(resolve, delay));
-      const page = await fetchJson<CommentListResult>(
-        `/api/v2/comments?post=${encodeURIComponent(postId)}&limit=${PAGE_SIZE}`,
-      );
+      // The reader deleted it, or the thread re-rendered under us. Either way
+      // there is nothing left to upgrade, and the remaining probes would be
+      // spent on a detached node.
+      if (!article.isConnected) return;
+      const page = await fetchJson<CommentListResult>(blogCommentsUrl(postId));
       const match = page?.comments.find((c) => c.id === commentId);
       if (!match) {
         settlePending(article);
@@ -1026,14 +1030,6 @@ export function initCommentsController(): void {
           ...(requireEmail ? { required: '' } : {}),
         }),
       ]),
-      // The two-click anonymous-post confirm's recommendation -- see
-      // confirmAnonymousSubmit() in compose-validate.ts. Green, and beside
-      // the field it is about, because it is a suggestion and the field it
-      // suggests filling is still right there to fill.
-      el('p', { class: 'blog-compose__recommend', 'data-compose-recommend': '', 'aria-live': 'polite', hidden: '' }, [
-        parseStaticSvg(MAIL_ICON_SVG),
-        t.emailRecommend,
-      ]),
       el('input', {
         type: 'text', name: 'website', 'data-honeypot': '', tabindex: '-1', autocomplete: 'off', 'aria-hidden': 'true',
         style: 'position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;',
@@ -1051,10 +1047,6 @@ export function initCommentsController(): void {
     replyBox.addEventListener('keydown', (event) => {
       if ((event as KeyboardEvent).key === 'Escape') closeReplyBox();
     });
-    // The reply box is built once and travels between rows, so it never goes
-    // through wireComposeValidation() -- wire the same "typing an email hides
-    // the recommendation" behaviour directly.
-    dismissRecommendOnFill(replyBox);
   }
 
   function openReplyBox(commentId: string, authorName: string, rowBody: HTMLElement): void {
@@ -1090,9 +1082,6 @@ export function initCommentsController(): void {
       }
       note.hidden = true;
     }
-    // Landing on a different row starts a fresh reply attempt -- the arm from
-    // whatever was typed for the last one has nothing to do with this one.
-    resetAnonymousConfirm(replyBox);
     clearCommentMarkdownPreview(replyField);
     replyField.value = '';
   }
@@ -1883,9 +1872,13 @@ export function initCommentsController(): void {
 // fetch helpers
 // ---------------------------------------------------------------------------
 
-async function fetchJson<T>(url: string): Promise<T | null> {
+/** `early` takes the response the inline prefetch already started, if there
+    is one. Only the first read of a URL should ask: later reads are refreshes
+    and polls that need the network. */
+async function fetchJson<T>(url: string, { early = false } = {}): Promise<T | null> {
   try {
-    const response = await fetch(url, { headers: { Accept: 'application/json' } });
+    const init = { headers: { Accept: 'application/json' } };
+    const response = await (early ? fetchPrefetched(url, init) : fetch(url, init));
     if (!response.ok) return null;
     return (await response.json()) as T;
   } catch {

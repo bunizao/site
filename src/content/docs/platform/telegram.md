@@ -59,6 +59,27 @@ flowchart TD
   K --> M["No match yet -> append the pending row instead"]
 ```
 
+### How a post finds its thread
+
+`discussion_message_id` is written by the ops bot when Telegram copies a
+channel post into the linked group (`is_automatic_forward`). Normally that
+copy's `forward_origin` names the channel and the post's own id, and the
+mapping is exact.
+
+A post that was *itself* a forward is the exception. Telegram flattens
+forward chains, so the group copy's `forward_origin` describes the original
+author — another channel, using its own message numbering, or a plain user,
+which carries no message id at all. MTProto keeps the immediate source in
+`saved_from_msg_id`; the Bot API does not expose it, so there is nothing in
+the copy that names our post. The bot therefore only trusts the origin's id
+when the origin chat is our own channel, and otherwise matches the newest
+still-unlinked post published within two minutes of the copy. An origin
+match overwrites whatever the column held; a date match only ever fills a
+blank.
+
+Posts forwarded before this landed (mood 3823, 3873) have no thread and
+render the "Leave a comment on Telegram" link instead of the compose box.
+
 ## Who does what
 
 | `site-api` (private) | Public `site` |
