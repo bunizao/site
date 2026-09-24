@@ -370,6 +370,8 @@ test.describe('Home page', () => {
 
     const projects = page.locator('#projects-section');
     await projects.scrollIntoViewIfNeeded();
+    // The deck hydrates client:visible; a dot clicked while still SSR markup is dropped.
+    await expect(projects.locator('[data-project-stack="hydrated"]')).toHaveCount(1);
     await page.getByRole('button', { name: 'Show ogis' }).click();
 
     const activeCard = projects.locator('article[aria-hidden="false"]');
