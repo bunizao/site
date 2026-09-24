@@ -194,13 +194,13 @@ function extractGalleryItemFromPhotoWrap($: cheerio.CheerioAPI, wrapper: Element
   };
 }
 
-export function getMoodGallery(content: string): MoodGallery | null {
+export function getMoodGallery(content: string | cheerio.CheerioAPI): MoodGallery | null {
   const groups = getMoodGalleryGroups(content);
   return groups[0] ?? null;
 }
 
-export function getMoodGalleryGroups(content: string): MoodGallery[] {
-  const $ = cheerio.load(content);
+export function getMoodGalleryGroups(content: string | cheerio.CheerioAPI): MoodGallery[] {
+  const $ = typeof content === 'string' ? cheerio.load(content) : content;
   const galleries: MoodGallery[] = [];
 
   $.root()

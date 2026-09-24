@@ -9,6 +9,17 @@ function isCustomEmojiImageSrc(src: string): boolean {
   return src.trim().toLowerCase().includes('/i/emoji/');
 }
 
+/**
+ * Deep-clone a loaded document into a fresh, independent CheerioAPI without
+ * re-parsing HTML. Used by helpers that mutate the tree (remove/replaceWith)
+ * so they never corrupt a `$` shared with other read-only helpers.
+ * `cheerio.load()` skips its parser entirely when given an already-built
+ * document node, so this is much cheaper than `cheerio.load($.html())`.
+ */
+function cloneCheerioDocument($: cheerio.CheerioAPI): cheerio.CheerioAPI {
+  return cheerio.load($.root().clone().get(0)!);
+}
+
 export function isEmojiImageElement(element: Element, $: cheerio.CheerioAPI): boolean {
   const $element = $(element);
 
@@ -233,8 +244,8 @@ function getFirstImageFallbackFromElement($: cheerio.CheerioAPI, image: Element)
   return fallbackSrc || null;
 }
 
-export function getFirstImageMeta(content: string): MoodImageMeta {
-  const $ = cheerio.load(content);
+export function getFirstImageMeta(content: string | cheerio.CheerioAPI): MoodImageMeta {
+  const $ = typeof content === 'string' ? cheerio.load(content) : content;
   const selectors = [
     '.image-preview-wrap img:not(.modal-img)',
     '.image-list-container img:not(.modal-img)',
@@ -566,8 +577,8 @@ export function getRelatedLinks(
 /**
  * Check if content contains media elements
  */
-export function hasMedia(content: string): boolean {
-  const $ = cheerio.load(content);
+export function hasMedia(content: string | cheerio.CheerioAPI): boolean {
+  const $ = typeof content === 'string' ? cheerio.load(content) : content;
 
   const hasValidImage = $('img')
     .toArray()
@@ -605,8 +616,10 @@ export function isLongContent(text: string): boolean {
 /**
  * Get inline media preview (video, audio, document, location, or bookmark)
  */
-export function getInlineMediaPreview(content: string): { type: 'video' | 'audio' | 'document' | 'location' | 'bookmark'; html: string } | null {
-  const $ = cheerio.load(content);
+export function getInlineMediaPreview(
+  content: string | cheerio.CheerioAPI
+): { type: 'video' | 'audio' | 'document' | 'location' | 'bookmark'; html: string } | null {
+  const $ = typeof content === 'string' ? cheerio.load(content) : content;
 
   const video = $('video').first();
   if (video.length) {
@@ -646,9 +659,14 @@ export function getInlineMediaPreview(content: string): { type: 'video' | 'audio
 /**
  * Get clean text preview from mood content
  */
-export function getTextPreview(mood: { text?: string; content: string }): string {
+export function getTextPreview(
+  mood: { text?: string; content: string },
+  sharedDocument?: cheerio.CheerioAPI
+): string {
   const fallback = (mood.text ?? '').trim();
-  const $ = cheerio.load(mood.content);
+  // This removes nodes, so never operate directly on a $ shared with other
+  // helpers — clone it (cheap: no re-parse) or parse mood.content fresh.
+  const $ = sharedDocument ? cloneCheerioDocument(sharedDocument) : cheerio.load(mood.content);
 
   // Remove elements that shouldn't be in preview
   removePreviewElements($);
@@ -680,8 +698,8 @@ export function hasImageMedia(content: string): boolean {
 /**
  * Check whether content contains emoji image media
  */
-export function hasEmojiImageMedia(content: string): boolean {
-  const $ = cheerio.load(content);
+export function hasEmojiImageMedia(content: string | cheerio.CheerioAPI): boolean {
+  const $ = typeof content === 'string' ? cheerio.load(content) : content;
 
   return $('img')
     .toArray()
@@ -742,9 +760,12 @@ export function getTextPreviewWithMedia(mood: { text?: string; content: string }
  */
 export function getTextPreviewHtml(
   mood: { text?: string; content: string },
-  options: TextPreviewHtmlOptions = {}
+  options: TextPreviewHtmlOptions = {},
+  sharedDocument?: cheerio.CheerioAPI
 ): string {
-  const $ = cheerio.load(mood.content);
+  // This mutates heavily (removes/replaces nodes throughout), so never
+  // operate directly on a $ shared with other helpers.
+  const $ = sharedDocument ? cloneCheerioDocument(sharedDocument) : cheerio.load(mood.content);
   removePreviewElements($, options);
   $('script, style').remove();
 
@@ -982,10 +1003,10 @@ const getReplyThumbnailSrc = (reply: cheerio.Cheerio<any>): string | undefined =
 };
 
 export function getQuotePreview(
-  content: string,
+  content: string | cheerio.CheerioAPI,
   options: { channel?: string; channelTitle?: string; hdImageBase?: string } = {}
 ): QuoteData | null {
-  const $ = cheerio.load(content);
+  const $ = typeof content === 'string' ? cheerio.load(content) : content;
   const reply = $('.tgme_widget_message_reply').first();
   if (!reply.length) {
     const detailQuote = $('.mood-detail-quote, .mood-comment-quote, .mood-item-quote').first();
