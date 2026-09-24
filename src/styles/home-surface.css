@@ -67,8 +67,10 @@ html.dark .page-container {
    sat at 13.5px, half a step off the scale. On the homepage the eyebrow and
    the way out take the section-head voice, and the blurb the meta step. */
 .page-container .project-deck-type {
+  font-size: var(--home-text-meta);
   font-weight: var(--home-weight-eyebrow);
-  letter-spacing: var(--home-track-eyebrow);
+  letter-spacing: var(--home-track-small);
+  text-transform: lowercase;
   color: var(--home-fg-secondary);
 }
 
@@ -79,8 +81,10 @@ html.dark .page-container {
 }
 
 .page-container .project-deck-more {
-  font-weight: var(--home-weight-eyebrow);
-  letter-spacing: var(--home-track-eyebrow);
+  font-size: var(--home-text-meta);
+  font-weight: var(--home-weight-label);
+  letter-spacing: var(--home-track-small);
+  text-transform: lowercase;
   color: var(--home-fg-faint);
 }
 
