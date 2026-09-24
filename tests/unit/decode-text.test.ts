@@ -375,3 +375,61 @@ describe('decode-text grapheme handling', () => {
     expect(await decodeCells(input, { segmenter: false })).toEqual(['A', ' ', 'B']);
   });
 });
+
+describe('decode-text markup', () => {
+  const MARKUP =
+    '<p>Study at <a class="pill" href="#" data-decode-atom><i class="icon"></i>Monash University</a>.</p>' +
+    '<p>I <a class="link" href="/blog" data-decode-atom>write</a> things.</p>';
+
+  // Snapshot the DOM mid-reveal (prepared, before any frame runs) and after.
+  async function decodeMarkup(restore: boolean) {
+    const page = await browser.newPage();
+    try {
+      await page.setContent(`<div id="target" style="width:240px;font:16px monospace">${MARKUP}</div>`);
+      return await page.evaluate(
+        async ({ source, restore }) => {
+          const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+          try {
+            const { prepareDecode } = await import(moduleUrl);
+            const root = document.querySelector<HTMLElement>('#target')!;
+            const original = root.innerHTML;
+            const controller = await prepareDecode(root, {
+              durationPerChar: 0,
+              fontTimeout: 0,
+              maxDuration: 0,
+              minDuration: 0,
+              respectReducedMotion: false,
+              restore,
+            });
+            const mid = {
+              paragraphs: root.querySelectorAll('p').length,
+              pill: root.querySelectorAll('.pill').length,
+              pillIcon: root.querySelectorAll('.pill > .icon').length,
+              pillCells: root.querySelectorAll('.pill .dt-c').length,
+              link: root.querySelectorAll('.link').length,
+            };
+            controller.start();
+            await controller.finished;
+            return { mid, restored: root.innerHTML === original, cellsAfter: root.querySelectorAll('.dt-c').length };
+          } finally {
+            URL.revokeObjectURL(moduleUrl);
+          }
+        },
+        { source: moduleSource, restore }
+      );
+    } finally {
+      await page.close();
+    }
+  }
+
+  test('decodes every paragraph and keeps atoms whole', async () => {
+    const { mid } = await decodeMarkup(false);
+
+    expect(mid).toEqual({ paragraphs: 2, pill: 1, pillIcon: 1, pillCells: 17, link: 1 });
+  });
+
+  test('puts the original markup back when restore is on', async () => {
+    expect(await decodeMarkup(true)).toMatchObject({ restored: true, cellsAfter: 0 });
+    expect(await decodeMarkup(false)).toMatchObject({ restored: false });
+  });
+});

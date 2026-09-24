@@ -2,11 +2,18 @@
  * decode-text — dependency-free scramble/decode text reveal.
  *
  * Mechanics:
- *  - The host's text is split into one span per visible grapheme (`.dt-c`)
- *    and one span per whitespace run; `<br>` is kept. Inline color / weight /
- *    style from the original markup is baked onto each cell, because cells are
- *    re-homed into per-line blocks and lose their ancestors.
- *  - Real VISUAL lines are measured (offsetTop grouping) and each line is
+ *  - Every `<p>` in the root is a host (the root itself when it has none);
+ *    all hosts share one timeline. A host's text is split into one span per
+ *    visible grapheme (`.dt-c`) and one span per whitespace run; `<br>` is
+ *    kept. Inline color / weight / style from the original markup is baked
+ *    onto each cell, because cells are re-homed into per-line blocks and lose
+ *    their ancestors.
+ *  - An element marked `data-decode-atom` keeps its box: its text becomes
+ *    cells inside a shallow copy of it, text-free children (an icon) come
+ *    along, and the copy moves into a line block whole. A pill or a link
+ *    decodes in place instead of being flattened. Atoms never break across
+ *    lines.
+ *  - Real VISUAL lines are measured (grouped by centre) and each line is
  *    rendered as a `white-space: nowrap` block, so a line can change width
  *    without re-wrapping the paragraph.
  *  - Scheduling runs Soulwire's fronts over a shuffled queue: `show` (p^0.5 —
@@ -89,6 +96,13 @@ export interface DecodeOptions {
   fontTimeout?: number;
   /** Skip the animation entirely under prefers-reduced-motion. Default: true */
   respectReducedMotion?: boolean;
+  /**
+   * Put the original markup back once the reveal settles, instead of leaving
+   * the per-line cell blocks. The lines were measured from the natural wrap,
+   * so the swap is invisible, and the text reflows on resize afterwards.
+   * Default: false
+   */
+  restore?: boolean;
   onComplete?: () => void;
 }
 
@@ -105,6 +119,8 @@ export interface DecodeController {
 
 interface Cell {
   el: HTMLElement;
+  /** What moves into a line block: the cell itself, or the atom holding it. */
+  unit: HTMLElement;
   ch: string;
   space: boolean;
   temp: string;
@@ -167,6 +183,7 @@ const DEFAULTS = {
   mutationHz: 18,
   fontTimeout: 400,
   respectReducedMotion: true,
+  restore: false,
   ease: pushAndCoast,
 };
 
@@ -270,7 +287,13 @@ const buildCells = (host: HTMLElement): Cell[] => {
     return baked;
   };
 
-  const pushCell = (parent: Node, ch: string, space: boolean, source: Element): void => {
+  const pushCell = (
+    parent: Node,
+    ch: string,
+    space: boolean,
+    source: Element,
+    atom: HTMLElement | null
+  ): void => {
     const span = document.createElement('span');
     span.className = 'dt-c';
     span.textContent = space ? ' ' : ch;
@@ -282,11 +305,21 @@ const buildCells = (host: HTMLElement): Cell[] => {
         span.style.fontStyle = baked.fontStyle;
       }
     }
-    cells.push({ el: span, ch, space, temp: '', appearAt: 0, mashAt: 0, settleAt: 0, nextMutation: 0 });
+    cells.push({
+      el: span,
+      unit: atom ?? span,
+      ch,
+      space,
+      temp: '',
+      appearAt: 0,
+      mashAt: 0,
+      settleAt: 0,
+      nextMutation: 0,
+    });
     parent.appendChild(span);
   };
 
-  const walk = (node: Element, parent: Node): void => {
+  const walk = (node: Element, parent: Node, atom: HTMLElement | null): void => {
     for (const child of Array.from(node.childNodes)) {
       if (child.nodeType === Node.TEXT_NODE) {
         const text = child.textContent ?? '';
@@ -295,39 +328,57 @@ const buildCells = (host: HTMLElement): Cell[] => {
         while (i < graphemes.length) {
           if (/\s/u.test(graphemes[i])) {
             while (i < graphemes.length && /\s/u.test(graphemes[i])) i += 1;
-            pushCell(parent, ' ', true, node);
+            pushCell(parent, ' ', true, node, atom);
           } else {
-            pushCell(parent, graphemes[i], false, node);
+            pushCell(parent, graphemes[i], false, node, atom);
             i += 1;
           }
         }
       } else if (child.nodeType === Node.ELEMENT_NODE) {
         const el = child as HTMLElement;
-        if (el.tagName === 'BR') parent.appendChild(document.createElement('br'));
-        else walk(el, parent);
+        if (el.tagName === 'BR') {
+          parent.appendChild(document.createElement('br'));
+        } else if (!atom && el.hasAttribute('data-decode-atom')) {
+          const shell = el.cloneNode(false) as HTMLElement;
+          parent.appendChild(shell);
+          walk(el, shell, shell);
+        } else if (atom && !el.textContent?.trim()) {
+          parent.appendChild(el.cloneNode(true));
+        } else {
+          walk(el, parent, atom);
+        }
       }
     }
   };
 
-  walk(host, frag);
+  walk(host, frag, null);
   host.replaceChildren(frag);
   return cells;
 };
 
 /**
- * Group cells into visual lines by measured offsetTop, then re-home each line
- * into its own nowrap block so a growing line never re-wraps. Leading and
- * trailing spaces are dropped. In `static` layout every cell is additionally
- * locked to its measured glyph width so scramble glyphs cannot shift anything.
+ * Group cells into visual lines by the measured centre of their unit, then
+ * re-home each line into its own nowrap block so a growing line never re-wraps.
+ * Centres, not tops: an atom is taller than the text beside it, so its top sits
+ * above the line's while its centre stays on it. Leading and trailing spaces
+ * are dropped. In `static` layout every cell is additionally locked to its
+ * measured glyph width so scramble glyphs cannot shift anything.
  */
 const layoutLines = (host: HTMLElement, cells: Cell[], layout: DecodeLayout): Line[] => {
   const groups: Cell[][] = [];
-  let top = Number.NaN;
+  const lineHeight = Number.parseFloat(getComputedStyle(host).lineHeight);
+  let center = Number.NaN;
+  let unit: HTMLElement | null = null;
   for (const cell of cells) {
-    const cellTop = Math.round(cell.el.offsetTop);
-    if (cellTop !== top) {
-      top = cellTop;
-      groups.push([]);
+    if (cell.unit !== unit) {
+      unit = cell.unit;
+      const rect = unit.getBoundingClientRect();
+      const unitCenter = rect.top + rect.height / 2;
+      const half = (Number.isFinite(lineHeight) ? lineHeight : rect.height) / 2;
+      if (!(Math.abs(unitCenter - center) < half)) {
+        center = unitCenter;
+        groups.push([]);
+      }
     }
     groups[groups.length - 1].push(cell);
   }
@@ -359,7 +410,12 @@ const layoutLines = (host: HTMLElement, cells: Cell[], layout: DecodeLayout): Li
     block.className = 'dt-line';
     block.style.display = 'block';
     block.style.whiteSpace = 'nowrap';
-    for (const cell of cells) block.appendChild(cell.el);
+    let unit: HTMLElement | null = null;
+    for (const cell of cells) {
+      if (cell.unit === unit) continue;
+      unit = cell.unit;
+      block.appendChild(unit);
+    }
     host.appendChild(block);
     lines.push({ cells, start: 0, duration: 0, done: 0, complete: false });
   }
@@ -541,15 +597,19 @@ export const prepareDecode = async (
   // Lock the footprint so text -> cells -> text never shifts the page.
   root.style.minHeight = `${root.getBoundingClientRect().height}px`;
 
-  const host = root.querySelector<HTMLElement>('p') ?? root;
-  const srText = host.textContent ?? '';
-  const cells = buildCells(host);
+  const paragraphs = Array.from(root.querySelectorAll<HTMLElement>('p'));
+  const hosts = paragraphs.length > 0 ? paragraphs : [root];
+  const srText = hosts.map((host) => host.textContent ?? '').join('\n');
+  // Build every host before measuring any, so all reads share one layout.
+  const hostCells = hosts.map(buildCells);
+  const cells = hostCells.flat();
   if (cells.length === 0) {
+    root.innerHTML = original;
     root.style.removeProperty('min-height');
     return inert;
   }
 
-  const lines = layoutLines(host, cells, opts.layout);
+  const lines = hosts.flatMap((host, i) => layoutLines(host, hostCells[i], opts.layout));
   for (const line of lines) {
     for (const cell of line.cells) setCell(cell, '', hiddenText(cell, opts.layout));
   }
@@ -559,7 +619,7 @@ export const prepareDecode = async (
   sr.setAttribute('style', SR_ONLY_STYLE);
   sr.textContent = srText;
   root.prepend(sr);
-  host.setAttribute('aria-hidden', 'true');
+  for (const host of hosts) host.setAttribute('aria-hidden', 'true');
 
   let started = false;
   let raf = 0;
@@ -574,8 +634,9 @@ export const prepareDecode = async (
     root.classList.remove('dt-animating');
     root.style.removeProperty('contain');
     root.style.removeProperty('min-height');
-    host.removeAttribute('aria-hidden');
+    for (const host of hosts) host.removeAttribute('aria-hidden');
     sr.remove();
+    if (opts.restore) root.innerHTML = original;
     resolveFinished();
   };
 
