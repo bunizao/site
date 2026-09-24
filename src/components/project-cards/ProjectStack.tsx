@@ -112,7 +112,7 @@ function CardFace({
       </div>
 
       <div className="px-3.5 pb-3 pt-4">
-        <p className="font-sans text-[11px] font-medium uppercase tracking-[0.1em] text-stone-400 dark:text-white/35">
+        <p className="project-deck-type font-sans text-[11px] font-medium uppercase tracking-[0.1em] text-stone-400 dark:text-white/35">
           {project.type}
         </p>
         <div className="mt-2 flex items-center justify-between gap-3">
@@ -122,7 +122,7 @@ function CardFace({
           {project.stars != null && <StarBadge stars={project.stars} />}
         </div>
 
-        <p className="mt-2.5 font-sans text-[13.5px] leading-relaxed text-stone-500 dark:text-white/55">
+        <p className="project-deck-blurb mt-2.5 font-sans text-[13.5px] leading-relaxed text-stone-500 dark:text-white/55">
           {project.blurb}
         </p>
 
@@ -139,7 +139,7 @@ function CardFace({
                 : undefined
             }
             tabIndex={active ? 0 : -1}
-            className="inline-flex items-center gap-1 rounded-sm font-sans text-[11px] font-medium uppercase tracking-[0.1em] text-stone-400 transition-colors hover:text-stone-700 focus-visible:text-stone-700 dark:text-white/45 dark:hover:text-white/85 dark:focus-visible:text-white/85"
+            className="project-deck-more inline-flex items-center gap-1 rounded-sm font-sans text-[11px] font-medium uppercase tracking-[0.1em] text-stone-400 transition-colors hover:text-stone-700 focus-visible:text-stone-700 dark:text-white/45 dark:hover:text-white/85 dark:focus-visible:text-white/85"
           >
             Tell me more
             <ArrowUpRight className="h-3.5 w-3.5" />

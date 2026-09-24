@@ -59,4 +59,32 @@ html.dark .page-container {
   background: var(--home-surface);
   border-color: transparent;
   box-shadow: var(--home-surface-shadow-raised);
+  color: var(--home-fg-primary);
+}
+
+/* The same goes for its ink. The card's text ran Tailwind's stone greys, a
+   brown cast next to the neutral greys of every other section, and the blurb
+   sat at 13.5px, half a step off the scale. On the homepage the eyebrow and
+   the way out take the section-head voice, and the blurb the meta step. */
+.page-container .project-deck-type {
+  font-weight: var(--home-weight-eyebrow);
+  letter-spacing: var(--home-track-eyebrow);
+  color: var(--home-fg-secondary);
+}
+
+.page-container .project-deck-blurb {
+  font-size: var(--home-text-meta);
+  letter-spacing: var(--home-track-small);
+  color: var(--home-fg-secondary);
+}
+
+.page-container .project-deck-more {
+  font-weight: var(--home-weight-eyebrow);
+  letter-spacing: var(--home-track-eyebrow);
+  color: var(--home-fg-faint);
+}
+
+.page-container .project-deck-more:hover,
+.page-container .project-deck-more:focus-visible {
+  color: var(--home-fg-primary);
 }
