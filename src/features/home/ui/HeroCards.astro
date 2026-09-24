@@ -1436,6 +1436,35 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     pointer-events: auto;
   }
 
+  /* The chat floats over prose, so it clears a patch of glass behind it
+     with no edge: two backdrop blurs, the stronger one tighter, each fading
+     out at its sides, so the text behind softens progressively towards the
+     messages. */
+  .hc--telegram::before,
+  .hc--telegram::after {
+    --tg-fade: 40px;
+    content: '';
+    position: absolute;
+    inset: -36px -44px;
+    z-index: -1;
+    pointer-events: none;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    mask:
+      linear-gradient(to right, transparent, #000 var(--tg-fade), #000 calc(100% - var(--tg-fade)), transparent),
+      linear-gradient(transparent, #000 var(--tg-fade), #000 calc(100% - var(--tg-fade)), transparent);
+    mask-composite: intersect;
+    -webkit-mask-composite: source-in;
+  }
+
+  .hc--telegram::after {
+    --tg-fade: 20px;
+    inset: -14px -18px;
+    background: color-mix(in oklab, var(--home-surface) 45%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
   /* Two messages from me, sent side and iMessage blue, so they stand off the
      page in either theme. Grouped the iOS way: only the last one has the
      tucked corner. */
