@@ -284,6 +284,7 @@ test.describe('Blog routes', () => {
     // Dusk, on request here and by the reader's clock otherwise: its own set.
     await expect(sea).toHaveAttribute('data-dusk', '');
     await expect(sea.locator('.sillage-sea__near')).toHaveCSS('background-image', /\/sillage\/dusk-(?:light|dark)\/near\.webp/);
+    await expect(sea.locator('.sillage-sea__dusk')).toHaveCSS('background-image', /\/sillage\/dusk-(?:light|dark)\/sky\.webp/);
 
     // The sound switch: pressed means on; off is remembered.
     const toggle = page.getByRole('button', { name: 'Sound of the sea' });
