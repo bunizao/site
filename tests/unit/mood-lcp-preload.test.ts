@@ -98,6 +98,21 @@ describe('mood lcp preload selection', () => {
     expect(getMoodFeedPreloadImage(posts)).toBeNull();
   });
 
+  test('a link-card-only post does not take the priority slot from a photo below it', () => {
+    const linkMedia = {
+      type: 'link-preview',
+      href: 'https://x.com/example/status/1',
+      title: 'Example',
+      thumbnailSrc: 'https://buxx.me/api/v2/images/mood/1/link-preview?v=2',
+    } as MediaItem;
+    const posts = [
+      createPost('1', { media: [linkMedia] }),
+      createPost('2', { image: ARCHIVE_IMAGE }),
+    ];
+
+    expect(getMoodFeedPreloadImage(posts)?.href).toBe(ARCHIVE_IMAGE);
+  });
+
   test('skips a too-big-video priority post', () => {
     const posts = [
       createPost('1', {
