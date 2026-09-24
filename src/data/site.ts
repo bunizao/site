@@ -118,6 +118,20 @@ export interface BlogLocaleCopy {
       screens, and the rail in the gutter that replaces it on wide ones. Both
       say the same thing at different lengths. */
   back: { index: string; rail: string };
+  /** The writing ledger under the index and over the archive. `{n}`,
+      `{year}`, `{month}`, `{posts}` and `{words}` are filled in. */
+  ledger: {
+    posts: string;
+    words: string;
+    since: string;
+    /** The heatmap's accessible name. */
+    label: string;
+    month: string;
+    empty: string;
+    /** The index's way on to the archive. */
+    more: string;
+    archiveTitle: string;
+  };
 }
 
 /**
@@ -230,6 +244,16 @@ export const blog = {
         share: '分享',
       },
       back: { index: '← 全部文章', rail: '← 博客' },
+      ledger: {
+        posts: '{n} 篇',
+        words: '{n} 字',
+        since: '始于 {year}',
+        label: '{year} 年以来每月写下的字数',
+        month: '{year} 年 {month} 月 · {posts} 篇 · {words} 字',
+        empty: '{year} 年 {month} 月',
+        more: '全部 {n} 篇',
+        archiveTitle: '全部文章',
+      },
       languageSwitcher: {
         language: '中文',
         open: '切换语言',
@@ -285,6 +309,16 @@ export const blog = {
         share: 'Share',
       },
       back: { index: '← All posts', rail: '← Blog' },
+      ledger: {
+        posts: '{n} posts',
+        words: '{n} words',
+        since: 'since {year}',
+        label: 'Words written each month since {year}',
+        month: '{year}-{month} · {posts} posts · {words} words',
+        empty: '{year}-{month}',
+        more: 'All {n} posts',
+        archiveTitle: 'All posts',
+      },
       languageSwitcher: {
         language: 'English',
         open: 'Change language',
