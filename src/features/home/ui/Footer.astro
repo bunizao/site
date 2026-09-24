@@ -440,8 +440,9 @@ const socials = socialNames
     color: hsl(var(--muted-foreground));
   }
 
+  /* At 0.22 the dots vanished and the links read as three loose words. */
   .footer-sep {
-    color: hsl(var(--muted-foreground) / 0.22);
+    color: hsl(var(--muted-foreground) / 0.45);
   }
 
   .footer-sep[hidden] {
@@ -469,6 +470,8 @@ const socials = socialNames
     color: hsl(var(--muted-foreground));
   }
 
+  /* A plain dot in the status colour. The 3px halo it used to wear is the
+     stock "online" badge, the look the rest of the page dropped. */
   .footer-status-dot {
     width: 6px;
     height: 6px;
@@ -479,18 +482,15 @@ const socials = socialNames
 
   [data-footer-status='operational'] .footer-status-dot {
     --footer-status-color: hsl(142 70% 45%);
-    box-shadow: 0 0 0 3px hsl(142 70% 45% / 0.18);
   }
 
   [data-footer-status='degraded'] .footer-status-dot,
   [data-footer-status='maintenance'] .footer-status-dot {
     --footer-status-color: hsl(38 92% 55%);
-    box-shadow: 0 0 0 3px hsl(38 92% 55% / 0.18);
   }
 
   [data-footer-status='down'] .footer-status-dot {
     --footer-status-color: hsl(0 75% 55%);
-    box-shadow: 0 0 0 3px hsl(0 75% 55% / 0.18);
   }
 
   .footer-region {
