@@ -372,6 +372,11 @@ test.describe('Home page', () => {
     await projects.scrollIntoViewIfNeeded();
     // The deck hydrates client:visible; a dot clicked while still SSR markup is dropped.
     await expect(projects.locator('[data-project-stack="hydrated"]')).toHaveCount(1);
+    // The reveal entrance slides the dots for ~1s. Clicking mid-slide makes
+    // Playwright retry "not stable" and force scrollIntoView with a rotating
+    // block alignment; `start` or `center` smooth-scrolls the deck off-screen,
+    // where its observer rightly pauses the carousel.
+    await expect(projects).toHaveClass(/is-settled/);
     await page.getByRole('button', { name: 'Show ogis' }).click();
 
     const activeCard = projects.locator('article[aria-hidden="false"]');

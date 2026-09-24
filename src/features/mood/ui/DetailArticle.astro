@@ -900,9 +900,13 @@ const knownCommentsCount = post?.commentsCount !== undefined && Number.isFinite(
     box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
   }
 
+  /* A tall frame caps its height through its width: as wide as the image is
+     at the height cap, never wider. A max-height on an aspect-ratio box clamps
+     the height alone, leaving a box of neither shape with the image
+     letterboxed inside and the frame's fill standing in as bars. */
   .mood-post-content :global(.image-preview-wrap--portrait) {
+    width: min(100%, 60vh * var(--mood-image-ratio, 3 / 4));
     max-width: 400px;
-    max-height: 60vh;
     margin: 0 auto;
     background: hsl(var(--foreground) / 0.03);
   }
@@ -914,8 +918,8 @@ const knownCommentsCount = post?.commentsCount !== undefined && Number.isFinite(
   }
 
   .mood-post-content :global(.image-preview-wrap--ultra-tall) {
+    width: min(100%, 70vh * var(--mood-image-ratio, 9 / 16));
     max-width: 300px;
-    max-height: 70vh;
     margin: 0 auto;
     background: hsl(var(--foreground) / 0.04);
   }
@@ -941,15 +945,15 @@ const knownCommentsCount = post?.commentsCount !== undefined && Number.isFinite(
   }
 
   .mood-post-content :global(.rich-content-media--image.mood-image-frame.rich-content-media--portrait) {
+    width: min(100%, 60vh * var(--mood-image-ratio, 3 / 4));
     max-width: 400px;
-    max-height: 60vh;
     margin-left: auto;
     margin-right: auto;
   }
 
   .mood-post-content :global(.rich-content-media--image.mood-image-frame.rich-content-media--ultra-tall) {
+    width: min(100%, 70vh * var(--mood-image-ratio, 9 / 16));
     max-width: 300px;
-    max-height: 70vh;
     margin-left: auto;
     margin-right: auto;
   }

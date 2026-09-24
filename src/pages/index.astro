@@ -96,10 +96,11 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
      and reveal triggers were left pointing at stale offsets. The sections are
      small enough that skipping their layout was never worth that. The footer
      keeps it: it is last, so a late size correction has nothing below it to
-     disturb, and its reservation now matches its real height. */
+     disturb. The reservation is the content box only (padding is added on
+     top): 127px matches the rendered footer at every width. */
   :global(.page-container > footer) {
     content-visibility: auto;
-    contain-intrinsic-size: auto 210px;
+    contain-intrinsic-size: auto 127px;
   }
 </style>
 
