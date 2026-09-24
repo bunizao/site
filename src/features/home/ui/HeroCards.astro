@@ -119,7 +119,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   <!-- Monash: the student card, on its lanyard. -->
   <div class="hc hc--loose hc--monash" data-card-id="monash" data-prefer="bottom">
     <div class="mo-swing">
-      <svg class="mo-lanyard" viewBox="0 0 208 64" aria-hidden="true">
+      <svg class="mo-lanyard" viewBox="-32 0 272 64" aria-hidden="true">
         <path class="mo-strap mo-strap--back" d="M142 -8 L110 34" />
         <path class="mo-strap" d="M66 -8 L98 34" />
         <rect class="mo-clamp" x="89" y="28" width="30" height="12" rx="3" />
@@ -141,10 +141,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
           <span class="mo-portrait">{initials}</span>
         </span>
         <span class="mo-info">
-          <span class="mo-wordmark">
-            <span class="mo-crest"></span>
-            <span class="mo-word"><span>Monash</span><span>University</span></span>
-          </span>
+          <img class="mo-logo" src="/brands/monash-logo.svg" alt="" width="146" height="43" loading="lazy" decoding="async" />
           <svg class="mo-barcode" viewBox={`${-QUIET} 0 ${barcode.width + QUIET * 2} 1`} preserveAspectRatio="none" aria-hidden="true">
             {barcode.bars.map((bar) => <rect x={bar.x} width={bar.w} height="1" />)}
           </svg>
@@ -522,14 +519,13 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   /* A real card is white plastic whatever the room, so the badge keeps its
      own light palette in both themes and only dims in the dark. */
   .hc--monash {
-    --hc-w: 208px;
+    --hc-w: 272px;
     --hc-origin: 50% 0;
     --mo-ink: #1c2430;
-    --mo-blue: #006dae;
   }
 
   .mo-swing {
-    transform-origin: 104px 0;
+    transform-origin: 136px 0;
   }
 
   /* It is picked up by the strap, so it swings once and settles. */
@@ -560,7 +556,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     position: relative;
     z-index: 2;
     display: block;
-    width: 208px;
+    width: 272px;
     height: 64px;
     overflow: visible;
     mask: linear-gradient(transparent, #000 24px);
@@ -620,8 +616,8 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   .mo-m {
     position: absolute;
     top: 0;
-    left: -6px;
-    width: 124px;
+    left: -8px;
+    width: 162px;
     height: 100%;
   }
 
@@ -662,37 +658,11 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     padding: 14px 16px 16px;
   }
 
-  .mo-wordmark {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-
-  .mo-crest {
-    flex: none;
-    width: 24px;
-    height: 26px;
-    background: var(--mo-blue);
-    mask: url('/brands/monash-crest.svg') center / contain no-repeat;
-  }
-
-  .mo-word {
-    display: flex;
-    flex-direction: column;
-    line-height: 0.98;
-  }
-
-  .mo-word span:first-child {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 15px;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-  }
-
-  .mo-word span:last-child {
-    font-size: 14px;
-    font-weight: 300;
-    letter-spacing: -0.01em;
+  /* The university's own logo, crest in blue and wordmark in black. */
+  .mo-logo {
+    display: block;
+    width: 112px;
+    height: auto;
   }
 
   .mo-barcode {

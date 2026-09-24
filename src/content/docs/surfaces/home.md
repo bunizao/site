@@ -97,8 +97,9 @@ Client behavior:
   and the ones with a shape of their own float on the page with no card
   under them:
   - Monash: the student card on its lanyard, after the university's own:
-    the Monash M behind the photo slot (initials, no photo), the crest, the
-    degree, the faculty and graduation as the expiry date. It hangs below
+    the Monash M behind the photo slot (initials, no photo), the full logo
+    (`public/brands/monash-logo.svg`, crest in Monash blue), the degree, the
+    faculty and graduation as the expiry date. It hangs below
     the word and swings once. The barcode is real Code 128 and scans to
     `buxx.me`; no student number goes on the page.
   - Projects: a loose hand of cards dealt on open (type, name, stars), with
