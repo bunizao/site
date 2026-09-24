@@ -250,38 +250,33 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     }
   }
 
-  /* The newest mood is marked in the session ink: a filled dot where the
-     older ones are hollow. Its ring pulses twice once the section has been
-     revealed, then rests. It used to pulse forever, and from page load, so
-     most of its beats played to an empty viewport. */
+  /* The newest mood is marked in the session ink, as a square cell rather
+     than a disc: the same 1-radius square as the hero's status mark and the
+     glyph cells in the rain, so every live marker on the page speaks the
+     field's language. It used to be a filled disc inside a pulsing halo,
+     which is the stock "online" badge and read as a UI widget dropped onto
+     the rail. 8px square, centred where the 10px dot centres (31px down). It
+     blinks twice like the name's caret once the section is revealed, then
+     rests. */
   #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot {
-    border-color: var(--home-accent);
+    width: 8px;
+    height: 8px;
+    margin-top: 27px;
+    margin-bottom: 1px;
+    border: 0;
+    border-radius: 1px;
     background: var(--home-accent);
   }
 
-  #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot::before {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border-radius: 50%;
-    border: 1px solid var(--home-accent);
-    opacity: 0;
-  }
-
   @media (prefers-reduced-motion: no-preference) {
-    html:not(.reveal-ready) #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot::before,
-    .reveal-ready #moods-section.is-revealed .mood-item:first-child:not(.mood-item-skeleton) .mood-dot::before {
-      animation: mood-pulse 2.4s var(--ease-out) 600ms 2;
+    html:not(.reveal-ready) #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot,
+    .reveal-ready #moods-section.is-revealed .mood-item:first-child:not(.mood-item-skeleton) .mood-dot {
+      animation: mood-caret 1s steps(1, end) 600ms 2;
     }
   }
 
-  @keyframes mood-pulse {
-    0% {
-      transform: scale(1);
-      opacity: 0.6;
-    }
-    100% {
-      transform: scale(2);
+  @keyframes mood-caret {
+    50% {
       opacity: 0;
     }
   }
@@ -623,7 +618,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       display: none;
     }
 
-    #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot::before {
+    #moods-section .mood-item:first-child:not(.mood-item-skeleton) .mood-dot {
       animation: none;
     }
   }

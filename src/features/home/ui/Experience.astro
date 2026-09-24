@@ -85,32 +85,24 @@ import ExperienceTimeline from '@/components/home/ExperienceTimeline';
   }
 
   /* The "current" marker, in the session ink like every live marker on the
-     page. It pings twice when the section is revealed and then rests; it used
-     to be Tailwind's infinite ping, the fastest loop on the page. */
+     page and in the same shape: a 1-radius square cell, like the hero's
+     status mark. It used to be a disc with a ping ring, the stock "online"
+     badge. It blinks twice like the name's caret when the section is
+     revealed and then rests. */
   :global(#experience-section .exp-live-dot) {
     background: var(--home-accent);
-  }
-
-  :global(#experience-section .exp-live-ring) {
-    background: var(--home-accent);
-    opacity: 0;
+    border-radius: 1px;
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    :global(html:not(.reveal-ready) #experience-section .exp-live-ring),
-    :global(.reveal-ready #experience-section.is-revealed .exp-live-ring) {
-      animation: exp-live-ping 1.2s cubic-bezier(0, 0, 0.2, 1) 700ms 2;
+    :global(html:not(.reveal-ready) #experience-section .exp-live-dot),
+    :global(.reveal-ready #experience-section.is-revealed .exp-live-dot) {
+      animation: exp-live-caret 1s steps(1, end) 700ms 2;
     }
   }
 
-  @keyframes exp-live-ping {
-    from {
-      transform: scale(1);
-      opacity: 0.5;
-    }
-    75%,
-    to {
-      transform: scale(2.2);
+  @keyframes exp-live-caret {
+    50% {
       opacity: 0;
     }
   }

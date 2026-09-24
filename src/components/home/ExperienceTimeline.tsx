@@ -28,10 +28,9 @@ function RowBody({ item }: { item: ExperienceItem }) {
             {item.org}
           </a>
           {item.current && (
-            <span className="relative flex h-[7px] w-[7px] items-center justify-center">
+            <span className="flex h-[7px] w-[7px] items-center justify-center">
               <span className="sr-only">Current</span>
-              <span className="exp-live-ring absolute inline-flex h-full w-full rounded-full" aria-hidden="true" />
-              <span className="exp-live-dot relative inline-flex h-[6px] w-[6px] rounded-full" aria-hidden="true" />
+              <span className="exp-live-dot inline-flex h-[6px] w-[6px]" aria-hidden="true" />
             </span>
           )}
         </span>
