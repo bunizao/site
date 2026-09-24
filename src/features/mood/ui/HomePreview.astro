@@ -601,7 +601,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
 <script>
   import type { MediaItem } from '@bunizao/contracts/content';
   import { getMoodDetailHref } from '@/features/mood/shared/feed-anchor';
-  import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
+  import { buildMoodPreviewFragment, formatUrlLabel } from '@/features/mood/shared/preview';
   import { getMoodImagePlaceholderSrc } from '@/features/mood/shared/image-srcset';
   import { initMoodImageFrames } from '@/features/mood/client/image-frame';
   import { withWidthParam } from '@/lib/media/responsive-image';
@@ -1112,7 +1112,10 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
         return null;
       }
 
-      const prepared = pretext.prepareWithSegments(previewText, config.font);
+      // Measure what the card will show: bare links render as short labels
+      // (compactUrls), and a long raw URL wraps to lines the card never has.
+      const displayText = previewText.replace(/https?:\/\/[^\s]+/g, formatUrlLabel);
+      const prepared = pretext.prepareWithSegments(displayText, config.font);
       const result = pretext.layoutWithLines(prepared, config.textWidth, config.lineHeight);
       const visibleLines = result.lines.slice(0, MAX_PREVIEW_LINES);
       const lineCount = Math.max(1, Math.min(MAX_PREVIEW_LINES, visibleLines.length || result.lineCount || 1));
