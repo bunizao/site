@@ -29,6 +29,8 @@ import { collectClientEvidence, warmClientEvidence } from '@/features/comments/c
 import { beginWriteTelemetry, type WriteTelemetry } from '@/features/comments/client/telemetry';
 import type { Reactor } from '@/features/comments/types';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
+import { reactionsUrl } from '@/features/comments/api-urls';
+import { fetchPrefetched } from '@/lib/api-prefetch';
 
 interface Props {
   count: number;
@@ -100,12 +102,13 @@ export default function ReactionBar({
   const challenge = React.useRef<HTMLDivElement>(null);
 
   // /blog/[slug] is prerendered, so the island always ships with a zero
-  // tally and asks for the live one on mount.
+  // tally and reads the live one on mount -- from the request the page's
+  // inline prefetch started while it parsed, when there is one.
   React.useEffect(() => {
     if (!postId) return;
     const key = `post:${postId}`;
     let cancelled = false;
-    fetch(`/api/v2/reactions?targets=${encodeURIComponent(key)}`)
+    fetchPrefetched(reactionsUrl([key]))
       .then((response) => (response.ok ? response.json() : null))
       .then((json) => {
         const live = json?.reactions?.[key]?.[0];

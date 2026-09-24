@@ -411,16 +411,12 @@ export function initMoodCommentCompose(): void {
   const turnstileHost = box.querySelector<HTMLElement>('[data-turnstile-host]');
   const turnstileSiteKey = box.dataset.turnstileSiteKey ?? '';
   if (turnstileHost) setTurnstileHost(TURNSTILE_ACTION, turnstileHost);
+  // Warm on intent, not on sight. The box sits in the first viewport of most
+  // detail pages, so warming on intersection cost every reader ~700 KB of
+  // challenge traffic plus a solve, and most of them never write. A pointer
+  // landing on the box still buys the solve a head start on the first keystroke.
   const warm = () => warmTurnstileToken(turnstileSiteKey, TURNSTILE_ACTION);
-  if (typeof IntersectionObserver === 'function') {
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        warm();
-        observer.disconnect();
-      }
-    }, { rootMargin: '200px' });
-    observer.observe(box);
-  }
+  box.addEventListener('pointerdown', warm, { once: true });
   box.addEventListener('focusin', warm, { once: true });
 
   // `enterkeyhint="next"` promises the iOS keyboard moves on to the next

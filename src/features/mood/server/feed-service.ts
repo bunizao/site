@@ -1,3 +1,4 @@
+import * as cheerio from 'cheerio';
 import { getMoodGallery } from '@/features/mood/shared/gallery';
 import {
   getFirstImageMeta,
@@ -38,13 +39,18 @@ export async function buildMoodFeedItem(
   post: Post,
   channelInfo: ChannelInfo
 ): Promise<MoodFeedItem> {
-  const mediaPreview = getInlineMediaPreview(post.content);
+  // Parse post.content once; every helper below reads this shared document
+  // (or, for the two that mutate the tree, clones it) instead of each doing
+  // its own cheerio.load(post.content).
+  const $ = cheerio.load(post.content);
+
+  const mediaPreview = getInlineMediaPreview($);
   const tooBigVideo = hasTooBigVideo(post.content);
-  let previewText = getTextPreview(post);
-  let previewHtml = getTextPreviewHtml(post);
-  const gallery = getMoodGallery(post.content);
+  let previewText = getTextPreview(post, $);
+  let previewHtml = getTextPreviewHtml(post, {}, $);
+  const gallery = getMoodGallery($);
   const leadItem = gallery?.items[0] ?? null;
-  const imageMeta = getFirstImageMeta(post.content);
+  const imageMeta = getFirstImageMeta($);
   const media: MediaItem[] = gallery?.items.map((item, index) => ({
     id: `legacy-${post.id}-${index}`,
     type: 'image',
@@ -55,7 +61,7 @@ export async function buildMoodFeedItem(
     layout: item.layout,
     alt: item.alt,
   })) ?? [];
-  const rawQuote = getQuotePreview(post.content, {
+  const rawQuote = getQuotePreview($, {
     channel: getMoodChannelSlug(context.locals),
     channelTitle: channelInfo.title?.trim() ?? '',
     hdImageBase: getMoodHdImageBase(context.locals),
@@ -65,12 +71,15 @@ export async function buildMoodFeedItem(
   const quoteTargetPost = quoteTargetId
     ? channelInfo.posts?.find((candidate) => candidate.id === quoteTargetId)
     : null;
-  const quoteTargetVideoPoster = quoteTargetPost ? getFirstVideoPosterSrc(quoteTargetPost.content) : null;
+  // Parse the quote target's content once too, rather than letting
+  // getFirstVideoPosterSrc take the raw string.
+  const quoteTargetDocument = quoteTargetPost ? cheerio.load(quoteTargetPost.content) : null;
+  const quoteTargetVideoPoster = quoteTargetDocument ? getFirstVideoPosterSrc(quoteTargetDocument) : null;
   if (quote && quoteTargetVideoPoster) {
     quote.thumbnailSrc = quoteTargetVideoPoster;
   }
   const hasUnsupportedMedia = post.content.includes('mood-unsupported-media-card');
-  const hasDetailMedia = hasUnsupportedMedia || hasMedia(post.content) || hasEmojiImageMedia(post.content);
+  const hasDetailMedia = hasUnsupportedMedia || hasMedia($) || hasEmojiImageMedia($);
 
   const needsDetailPage = !mediaPreview && (hasDetailMedia || tooBigVideo || isLongContent(previewText));
 

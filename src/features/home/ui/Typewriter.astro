@@ -323,20 +323,28 @@ const placeholderText = `${longestText}_`;
       // would read as a typo being fixed, not as the name being taken back.
       const landingMs = direction > 0 ? stepMs * LANDING_BEATS : 0;
       const startedAt = performance.now();
+      let drawnBeat = -1;
 
       const drawNext = (now: number): void => {
         // The beat is absolute rather than a share of the word, so "Tutu"
         // types at exactly the pace of "Collapsar".
         const elapsed = now - startedAt;
-        const step = Math.min(steps, Math.floor(elapsed / stepMs));
+        const beat = Math.floor(elapsed / stepMs);
+        const step = Math.min(steps, beat);
         const next = from + direction * step;
 
-        placeCaret(caret, drawGlyphs(state, chars.slice(0, next).map((char, index) => {
-          const struckAt = (index - from + 1) * stepMs;
-          return elapsed - struckAt < landingMs
-            ? { char: LANDING_CHAR, alpha: LANDING_ALPHA, advance: char }
-            : { char, alpha: 1, advance: char };
-        })));
+        // Strikes and landings both fall on beat boundaries, so the canvas
+        // only changes when the beat does. Repainting every frame in between
+        // kept the main thread busy at display rate for nothing.
+        if (beat !== drawnBeat) {
+          drawnBeat = beat;
+          placeCaret(caret, drawGlyphs(state, chars.slice(0, next).map((char, index) => {
+            const struckAt = (index - from + 1) * stepMs;
+            return elapsed - struckAt < landingMs
+              ? { char: LANDING_CHAR, alpha: LANDING_ALPHA, advance: char }
+              : { char, alpha: 1, advance: char };
+          })));
+        }
 
         // The last character still owes its landing beat once the walk is done.
         if (step < steps || elapsed < steps * stepMs + landingMs) {

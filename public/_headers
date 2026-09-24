@@ -31,3 +31,9 @@ https://buxx.me/llms.txt
 https://www.buxx.me/llms.txt
   Content-Type: text/plain; charset=utf-8
   Cache-Control: public, max-age=0, s-maxage=300
+
+https://buxx.me/docs*
+  Cache-Control: public, max-age=0, s-maxage=300, stale-while-revalidate=86400
+
+https://www.buxx.me/docs*
+  Cache-Control: public, max-age=0, s-maxage=300, stale-while-revalidate=86400
