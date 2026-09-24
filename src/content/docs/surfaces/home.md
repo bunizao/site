@@ -64,9 +64,6 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
   It paints on a canvas, positioning each glyph by the measured width of the
   run before it, so kerning and the name's CSS tracking survive. It types one
   pass through the names and rests on the first.
-- The name is set in Instrument Serif (`--font-serif`, one weight, 15KB Latin
-  subset in `public/fonts/`); the rest of the hero stays mono. The serif is
-  kept for proper names: the only other user is the project titles.
 - A faint `.hero-lcp-anchor` paints the longest name at first paint, since
   canvas text does not count for LCP. The script removes it when typing
   starts; left in place it showed through as a ghost behind the caret.
@@ -101,7 +98,6 @@ Mapping rules:
 - tags are derived from `primaryLanguage + repositoryTopics`
 - tags are deduped and truncated to 3
 - ownership decides whether the card shows `Author` or `Contributor`
-- titles in the deck and the gallery use `font-serif`, the hero name's face
 
 Client behavior:
 
