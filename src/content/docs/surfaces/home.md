@@ -74,7 +74,7 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
   all of it decodes: what I build, where the code and the writing go,
   and where I am. Every link
   is a word in the sentence, in reading order: `projects`, `write`, `moods`,
-  Monash University, `Say hi` (to `/message`) and the `hero.socials`
+  Monash University, `Message me` (to `/message`) and the `hero.socials`
   channels. Only links are bright; the rest of the prose stays muted. They are decode atoms, so they keep their boxes through the
   reveal, and the original markup comes back once it settles. No email
   address on the page, only `/message`.

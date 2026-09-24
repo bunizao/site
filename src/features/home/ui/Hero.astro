@@ -77,9 +77,8 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
     <div class="hero-animate" style="--hero-i: 4" data-hero-bio>
       <DecodeText class="hero-bio">
         <p>
-          I build things, then polish them. Frontends in TypeScript and React,
-          networks down to BGP, Linux boxes in Docker, and small tools that
-          agents can run. I sweat the details, and the milliseconds.
+          I build things, then polish them. Lately with agents, and for them.
+          I sweat the details, and the milliseconds.
         </p>
         <p>
           The code ships as
@@ -89,11 +88,11 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
           in <a class="hero-link" href="/mood" {...cardAttrs('moods')} style="--draw-i: 2" data-decode-atom>moods</a>.
         </p>
         <p>
-          Currently studying Computer Science at
-          <a class="hero-link" href={school.url} {...external} {...cardAttrs('monash')} style="--draw-i: 3" data-decode-atom>{school.org}</a>,
-          in Melbourne.
-          <a class="hero-link" href="/message" {...cardAttrs('message')} style="--draw-i: 4" data-decode-atom>Say hi</a>,
-          or find me on
+          I study Computer Science at
+          <a class="hero-link" href={school.url} {...external} {...cardAttrs('monash')} style="--draw-i: 3" data-decode-atom>{school.org}</a>.
+          Currently in Melbourne.
+          <a class="hero-link" href="/message" {...cardAttrs('message')} style="--draw-i: 4" data-decode-atom>Message me</a>
+          directly, or find me on
           {socials.map((social, i) => {
             const Icon = brandIcons[social.name] ?? social.icon;
             return (
