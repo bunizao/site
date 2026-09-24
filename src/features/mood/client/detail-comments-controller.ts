@@ -13,6 +13,8 @@ import { readOwnCommentIds, rememberOwnCommentId } from '@/features/mood/shared/
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 import { resolveMoodCommentsCopy, type MoodCommentsCopy } from '@/features/comments/copy';
 import { initials } from '@/features/comments/identity';
+import { moodCommentsUrl } from '@/features/comments/api-urls';
+import { fetchPrefetched } from '@/lib/api-prefetch';
 
 interface CommentReactionData {
   emoji?: string;
@@ -330,7 +332,7 @@ async function refreshLiveComments(postId: string): Promise<void> {
   lastRefreshAt = now;
 
   try {
-    const response = await fetch(`/api/comments?${new URLSearchParams({ postId })}`);
+    const response = await fetch(moodCommentsUrl(postId));
     if (!response.ok) return;
     const data = await response.json() as { comments?: CommentData[] };
     const comments = data.comments ?? [];
@@ -536,9 +538,9 @@ export async function initMoodDetailComments(
 
   const loadComments = async (before = ''): Promise<void> => {
     try {
-      const query = new URLSearchParams({ postId });
-      if (before) query.set('before', before);
-      const response = await fetch(`/api/comments?${query}`);
+      // The first page was started by the section's inline prefetch.
+      const url = moodCommentsUrl(postId, before);
+      const response = await (before ? fetch(url) : fetchPrefetched(url));
       const data = await response.json() as {
         comments?: CommentData[];
         nextBefore?: string;

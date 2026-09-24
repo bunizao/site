@@ -61,9 +61,10 @@ import { ICONS, SIGNOUT_ICONS, iconSvg } from '@/features/comments/icons';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
+import { READER_ME_URL, blogCommentsUrl, reactionsUrl } from '@/features/comments/api-urls';
+import { fetchPrefetched } from '@/lib/api-prefetch';
 
 const CLAIMED_STORAGE_KEY = 'buxx:reader';
-const PAGE_SIZE = 20;
 
 // ---------------------------------------------------------------------------
 // Small DOM builder -- attrs + children, everything through .append() /
@@ -334,8 +335,9 @@ export function initCommentsController(): void {
 
   async function bootstrap(): Promise<void> {
     const [meResult, pageResult] = await Promise.all([
-      fetchJson<ReaderMeResult>(`/api/v2/reader/me`),
-      fetchJson<CommentListResult>(`/api/v2/comments?post=${encodeURIComponent(postId)}&limit=${PAGE_SIZE}`),
+      // Both were started by the page's inline prefetch while it parsed.
+      fetchJson<ReaderMeResult>(READER_ME_URL, { early: true }),
+      fetchJson<CommentListResult>(blogCommentsUrl(postId), { early: true }),
     ]);
 
     if (meResult) {
@@ -463,9 +465,7 @@ export function initCommentsController(): void {
     moreButton.disabled = true;
     moreButton.textContent = t.loading;
 
-    const page = await fetchJson<CommentListResult>(
-      `/api/v2/comments?post=${encodeURIComponent(postId)}&before=${encodeURIComponent(nextBefore)}&limit=${PAGE_SIZE}`,
-    );
+    const page = await fetchJson<CommentListResult>(blogCommentsUrl(postId, nextBefore));
     if (!page) {
       moreButton.setAttribute('aria-busy', 'false');
       moreButton.disabled = false;
@@ -488,7 +488,7 @@ export function initCommentsController(): void {
       .filter((c) => !c.tombstone)
       .map((c) => `comment:${c.id}`);
     const reactions = targets.length > 0
-      ? (await fetchJson<ReactionBatchResult>(`/api/v2/reactions?targets=${encodeURIComponent(targets.join(','))}`))?.reactions ?? {}
+      ? (await fetchJson<ReactionBatchResult>(reactionsUrl(targets)))?.reactions ?? {}
       : {};
 
     for (const { comment, parentId } of orderForRender(comments)) {
@@ -794,9 +794,7 @@ export function initCommentsController(): void {
       // there is nothing left to upgrade, and the remaining probes would be
       // spent on a detached node.
       if (!article.isConnected) return;
-      const page = await fetchJson<CommentListResult>(
-        `/api/v2/comments?post=${encodeURIComponent(postId)}&limit=${PAGE_SIZE}`,
-      );
+      const page = await fetchJson<CommentListResult>(blogCommentsUrl(postId));
       const match = page?.comments.find((c) => c.id === commentId);
       if (!match) {
         settlePending(article);
@@ -1874,9 +1872,13 @@ export function initCommentsController(): void {
 // fetch helpers
 // ---------------------------------------------------------------------------
 
-async function fetchJson<T>(url: string): Promise<T | null> {
+/** `early` takes the response the inline prefetch already started, if there
+    is one. Only the first read of a URL should ask: later reads are refreshes
+    and polls that need the network. */
+async function fetchJson<T>(url: string, { early = false } = {}): Promise<T | null> {
   try {
-    const response = await fetch(url, { headers: { Accept: 'application/json' } });
+    const init = { headers: { Accept: 'application/json' } };
+    const response = await (early ? fetchPrefetched(url, init) : fetch(url, init));
     if (!response.ok) return null;
     return (await response.json()) as T;
   } catch {

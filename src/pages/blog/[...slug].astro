@@ -18,6 +18,8 @@ import BlogArticleBeacon from '@/features/posts/ui/BlogArticleBeacon.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import ReactionBar from '@/features/comments/ui/ReactionBar';
 import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
+import ApiPrefetch from '@/components/ApiPrefetch.astro';
+import { READER_ME_URL, blogCommentsUrl, reactionsUrl } from '@/features/comments/api-urls';
 import '@/features/comments/styles/comments.css';
 import { blog } from '@/data/site';
 import Footer from '@/features/home/ui/Footer.astro';
@@ -166,6 +168,15 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
 // already written, it just has no box under the heading. Only `off` and the
 // fixture withhold it, and both mean "do not hydrate at all".
 const liveCommentsPostId = isE2ESiteFixtureEnabled(Astro.locals) ? undefined : post.id;
+// The reads the reaction bar and comment thread make first, started by an
+// inline script while the page parses instead of after hydration; see
+// lib/api-prefetch.ts.
+const earlyApiUrls = liveCommentsPostId
+  ? [
+      ...(commentPolicy.reactions ? [reactionsUrl([`post:${liveCommentsPostId}`])] : []),
+      ...(commentPolicy.mode !== 'off' ? [READER_ME_URL, blogCommentsUrl(liveCommentsPostId)] : []),
+    ]
+  : [];
 const postLocale = getPostLocale(post);
 // Every version is self-canonical at the URL it is built under, so every
 // hreflang target declares itself and the cluster survives. Everything derived
@@ -202,6 +213,7 @@ const translated = isTranslation(post);
   } : undefined}
 >
   <ReadingTopbar slot="readingbar" noToc={hasNoTocTag} />
+  <ApiPrefetch urls={earlyApiUrls} />
   <a class="blog-back" href="/blog">{blog.copy[postLocale].back.index}</a>
 
   <div class="blog-article-wrap">
@@ -263,7 +275,7 @@ const translated = isTranslation(post);
             so the reaction bar, subscribe panel, share row, and the comment
             thread below all agree with the article they sit under. */}
         {commentPolicy.reactions && (
-          <ReactionBar client:idle count={0} locale={postLocale} postId={liveCommentsPostId} siteKey={turnstileSiteKey} />
+          <ReactionBar client:visible count={0} locale={postLocale} postId={liveCommentsPostId} siteKey={turnstileSiteKey} />
         )}
         <div class="blog-article-sub">
           <SubscribePanel variant="blog" locale={postLocale} anchor="right" feed={blog.feed} turnstileSiteKey={turnstileSiteKey} />
