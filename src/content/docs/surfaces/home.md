@@ -178,6 +178,8 @@ Rendering rules:
 - the time stamp sits on the card's first-line baseline and the dot centres
   on that line; the rail runs on to 4px short of the next dot, and the
   skeleton blocks sit where the loaded lines will
+- rows have no resting surface; the rail groups them, and a faint tint marks
+  the hovered row
 
 Client behavior:
 

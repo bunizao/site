@@ -310,40 +310,34 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     );
   }
 
-  /* Content column */
+  /* Content column. Without card boxes the gaps between rows are the only
+     grouping left, so the bottom padding is small: a row's lines stay closer
+     to each other than to the next row. */
   #moods-section .mood-content-col {
-    padding: 8px 0 16px 0;
+    padding: 8px 0 4px 0;
   }
 
-  /* The shared homepage surface (src/styles/home-surface.css). The border
-     stays, transparent, because the reserved card height is measured with it;
-     the visible edge is the surface shadow. */
+  /* No resting surface. Five white cards stacked on the rail read as the
+     rungs of a ladder; a mood is a line in a log, so it sits on the page and
+     the rail does the grouping. The padding stays, so the hover tint has room
+     and the reserved heights (measured with the transparent border) hold.
+     10px sides put the text as far right of the rail as the stamp sits left
+     of it. */
   #moods-section .mood-card {
-    padding: 10px 14px;
-    background: var(--home-surface);
+    padding: 10px;
+    background: transparent;
     border: 1px solid transparent;
-    box-shadow: var(--home-surface-shadow);
     border-radius: var(--radius-md);
     min-height: var(--reserved-card-height, auto);
-    transition:
-      background var(--dur-base) var(--ease),
-      border-color var(--dur-base) var(--ease),
-      transform var(--dur-base) var(--ease),
-      box-shadow var(--dur-base) var(--ease);
+    transition: background var(--dur-fast) var(--ease);
   }
 
-  @media (min-width: 640px) {
-    #moods-section .mood-card {
-      padding: 10px 14px;
-    }
-  }
-
-  /* Gated like the dot: on touch a tap leaves a synthetic hover behind, and
-     the card would stay nudged until the next tap elsewhere. */
+  /* The row is a link, so hover still answers: a faint tint where the card
+     used to be. Gated like the dot, since a tap leaves a synthetic hover
+     behind on touch. */
   @media (hover: hover) and (pointer: fine) {
     #moods-section .mood-item:not(.mood-item-skeleton):hover .mood-card {
-      transform: translateX(4px);
-      box-shadow: var(--home-surface-shadow-hover);
+      background: hsl(var(--foreground) / 0.035);
     }
   }
 
@@ -502,7 +496,6 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     position: relative;
     overflow: hidden;
     min-height: var(--reserved-card-height, 74px);
-    box-shadow: var(--home-surface-shadow);
   }
 
   #moods-section .mood-card-skeleton::before {
