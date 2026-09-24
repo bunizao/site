@@ -173,6 +173,9 @@ Rendering rules:
 - unsafe tags and unsafe image sources are dropped
 - image failure falls back to `imageFallback`
 - the card target is stored in `data-href="/mood/{id}"`
+- a bare URL shows as `host/path`, without scheme or query; past 32
+  characters it keeps the host and first segment (`x.com/ryolu_/…`), and the
+  full address moves to the link's `title`
 - an untitled photo or sticker renders its thumbnail alone; the type name
   ("Photo") moves into the image's `alt`
 - the time stamp sits on the card's first-line baseline and the dot centres

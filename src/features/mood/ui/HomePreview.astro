@@ -659,6 +659,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     const buildPreviewFragment = (previewText: string, previewHtml?: string): DocumentFragment => (
       buildMoodPreviewFragment(previewText, previewHtml, {
         decorateEmoji: decoratePreviewEmoji,
+        compactUrls: true,
       })
     );
 
