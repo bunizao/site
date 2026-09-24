@@ -22,11 +22,23 @@ export function formatUrlLabel(url: string): string {
     return url;
   }
   const host = parsed.hostname.replace(/^www\./, '');
-  const path = parsed.pathname.replace(/\/+$/, '');
+  const path = decodePath(parsed.pathname).replace(/\/+$/, '');
   const label = host + path;
   if (label.length <= COMPACT_URL_MAX) return label;
   const [first] = path.split('/').filter(Boolean);
-  return first ? `${host}/${first}/…` : label;
+  if (!first) return label;
+  const room = COMPACT_URL_MAX - host.length - 1;
+  const owner = Array.from(first);
+  return owner.length <= room ? `${host}/${first}/…` : `${host}/${owner.slice(0, Math.max(room, 8)).join('')}…`;
+}
+
+// `URL.pathname` is percent-encoded, which turns a CJK slug into `%E4%B8…`.
+function decodePath(path: string): string {
+  try {
+    return decodeURI(path);
+  } catch {
+    return path;
+  }
 }
 
 function isSafeEmojiImageSrc(value: string): boolean {

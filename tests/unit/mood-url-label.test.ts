@@ -14,6 +14,14 @@ describe('formatUrlLabel', () => {
     expect(formatUrlLabel('https://buxx.me/')).toBe('buxx.me');
   });
 
+  test('decodes a percent-encoded path', () => {
+    expect(formatUrlLabel('https://buxx.me/blog/%E4%B8%8A%E7%BA%BF%E4%BA%86')).toBe('buxx.me/blog/上线了');
+  });
+
+  test('cuts an overlong first segment instead of keeping it whole', () => {
+    expect(formatUrlLabel(`https://buxx.me/${'a'.repeat(60)}`)).toBe(`buxx.me/${'a'.repeat(24)}…`);
+  });
+
   test('returns an unparsable value unchanged', () => {
     expect(formatUrlLabel('not a url')).toBe('not a url');
   });
