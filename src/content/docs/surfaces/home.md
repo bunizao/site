@@ -178,8 +178,9 @@ Rendering rules:
 - the time stamp sits on the card's first-line baseline and the dot centres
   on that line; the rail runs on to 4px short of the next dot, and the
   skeleton blocks sit where the loaded lines will
-- cards are a faint opaque tint of the ink with a hairline edge, not a white
-  shadowed surface; hover deepens the tint one step
+- a card is the page colour, opaque, so it cuts a clean window in the dot
+  lattice; a hairline draws the edge and a small tail points at the row's
+  dot. Hover darkens the edge, tail included
 
 Client behavior:
 
