@@ -67,7 +67,11 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
 - A faint `.hero-lcp-anchor` paints the longest name at first paint, since
   canvas text does not count for LCP. The script removes it when typing
   starts; left in place it showed through as a ghost behind the caret.
-- Social links are local config in the component, not CMS-driven.
+- The bio is prose from `hero` in `src/data/site.ts`. Only the lead
+  paragraph decodes: the decode flattens elements into character cells, so
+  links can't live inside it. The two paragraphs after it carry the links:
+  the school and each contact channel as a pill, `write` (to `/blog`) and the
+  email address as underlined links.
 - GitHub activity is client-fetched from `/api/github/contributions?days=30` after DOM ready; the API keeps the last-year total but returns only the visible waveform window.
 - Tech rows are local arrays duplicated into CSS marquee tracks.
 
@@ -82,8 +86,9 @@ Client behavior:
   on the first two; `GitHubContributions.astro` renders its bars on the third.
 - Status text runs a short random stretch (four swaps) of a fixed word list,
   then rests; the dot pulses once the identity lines have landed.
-- Social buttons use a magnetic hover effect (pointer events plus a CSS
-  transition, mouse only).
+- The link paragraphs rise with the widgets; their underlines then draw in
+  one after another. Hovering a link raises a highlight from its underline;
+  hovering a pill darkens it. Both are CSS only.
 - Reduced-motion users skip the script entirely; the elements are visible
   from the first paint.
 

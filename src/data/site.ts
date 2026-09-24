@@ -425,20 +425,19 @@ export const hero = {
     'Crafting', 'Tinkering', 'Pondering', 'Researching', 'Prototyping',
     'Deploying', 'Solving',
   ],
-  // `contactLinks`, not `profile.links` — the Blog chip is dropped here.
-  // The nav, the Writing masthead and that section's own door already lead
-  // to the blog; a fourth doorway in the hero says nothing new.
+  // `contactLinks`, not `profile.links` — no Blog pill here. The nav, the
+  // Writing masthead and that section's own door already lead to the blog;
+  // the hero only links it from the word "write".
   socials: contactLinks,
 
-  // One line per visual line; `**...**` marks the single highlight effect
-  // (rendered as <span class="text-foreground"> for the hero decode reveal).
-  bio: [
-    'I make interesting things.',
-    'Curious about **frontend design**, **proxy systems**, and contributing to **open source**.',
-    'Obsessed with **speed** and always asking how things can be **better**.',
-    'Outside of coding, I read for curiosity and write to make sense of things.',
-    'Currently studying Computer Science at **Monash University**.',
-  ],
+  // The lead paragraph, the one the hero decodes. `**...**` marks the single
+  // highlight effect (rendered as <span class="text-foreground">). It stays
+  // plain prose: the decode flattens every element into character cells, so
+  // links and pills live in the paragraphs after it (Hero.astro).
+  bio: 'I make interesting things. Curious about **frontend design**, **proxy systems** and **open source**, obsessed with **speed**, and always asking how things can be **better**.',
+  // What the second paragraph says about school; the org name and link come
+  // from the Monash row in `experience`.
+  study: 'Computer Science in Data Science and AI',
 };
 
 // --- Tech marquee -----------------------------------------------------------
@@ -476,7 +475,7 @@ export const experience: ExperienceItem[] = [
     period: 'Jul 2025 — Present',
     icon: GraduationCap,
     strokeWidth: 1.8,
-    description: "Studying for a Bachelor's degree in Data Science (Honours)",
+    description: 'Studying Computer Science in Data Science and AI',
     location: 'Clayton, Melbourne, Australia',
   },
   {

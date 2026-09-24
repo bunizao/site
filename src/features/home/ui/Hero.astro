@@ -5,7 +5,7 @@ import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
 import type { ListeningTrack } from '@/features/home/types';
-import { hero, tech, profile } from '@/data/site';
+import { hero, tech, profile, experience } from '@/data/site';
 
 interface Props {
   listeningTrack?: ListeningTrack;
@@ -19,8 +19,15 @@ const lcpAnchorName = typewriterNames.reduce(
   typewriterNames[0] ?? '',
 );
 
-// Split each bio line on the `**` highlight marker: odd chunks are emphasized.
-const bioLines = bio.map((line) => line.split('**'));
+// Split the lead on the `**` highlight marker: odd chunks are emphasized.
+const bioSegments = bio.split('**');
+
+// The prose after the lead carries the links. Email reads as a plain address;
+// every other channel is a pill, joined as a sentence ("A, B and C").
+const school = experience[0];
+const email = socials.find((social) => social.url.startsWith('mailto:'));
+const pills = socials.filter((social) => social !== email);
+const joiner = (i: number) => (i === 0 ? '' : i === pills.length - 1 ? ' and ' : ', ');
 ---
 
 <header class="hero-section pb-8 sm:pb-12" data-hero>
@@ -64,38 +71,27 @@ const bioLines = bio.map((line) => line.split('**'));
     <!-- Bio -->
     <div class="hero-animate" style="--hero-i: 4" data-hero-bio>
       <DecodeText>
-        <p class="text-pretty text-[length:var(--home-text-body)] leading-[1.7] text-muted-foreground">
-          {bioLines.map((segments, line) => (
-            <>
-              {line > 0 && <br />}
-              {segments.map((seg, i) => (
-                i % 2 === 1 ? <span class="text-foreground">{seg}</span> : seg
-              ))}
-            </>
+        <p class="hero-prose">
+          {bioSegments.map((seg, i) => (
+            i % 2 === 1 ? <span class="text-foreground">{seg}</span> : seg
           ))}
         </p>
       </DecodeText>
     </div>
 
-    <!-- Social Links -->
-    <div class="mt-6 flex flex-wrap items-center gap-4 hero-animate sm:mt-8" style="--hero-i: 0" data-hero-motion data-hero-socials>
-      <span class="flex-none whitespace-nowrap text-[length:var(--home-text-meta)] text-muted-foreground">Find me at</span>
-      {socials.map((social) => (
-        <div class="social-link-wrapper">
-          <div class="magnetic-button" data-magnetic data-strength="0.4">
-            <a
-              href={social.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="contact-link"
-              title={social.name}
-            >
-              <social.icon className="h-4 w-4" aria-hidden="true" />
-              <span class="hidden sm:inline">{social.name}</span>
-            </a>
-          </div>
-        </div>
-      ))}
+    <!-- Links, set as prose. Outside the decode, which would flatten them. -->
+    <div class="hero-links hero-animate" style="--hero-i: 0" data-hero-motion data-hero-socials>
+      <p class="hero-prose">
+        Studying {hero.study} at&nbsp;<a class="hero-pill" href={school.url} target="_blank" rel="noopener noreferrer"><school.icon className="hero-pill-icon" aria-hidden="true" />{school.org}</a>.
+        Outside of code, I read for curiosity and <a class="hero-link" href="/blog" style="--draw-i: 0">write</a> to make sense of things.
+      </p>
+      <p class="hero-prose">
+        Find me on {pills.map((social, i) => (
+          <>{joiner(i)}<a class="hero-pill" href={social.url} target="_blank" rel="noopener noreferrer"><social.icon className="hero-pill-icon" aria-hidden="true" />{social.name}</a></>
+        ))}{email && (
+          <>, or say hello at&nbsp;<a class="hero-link" href={email.url} style="--draw-i: 1">{email.handle}</a></>
+        )}.
+      </p>
     </div>
 
     <div class="hero-animate mt-6" style="--hero-i: 1" data-hero-motion data-hero-listening>
@@ -290,25 +286,118 @@ const bioLines = bio.map((line) => line.split('**'));
     opacity: 0.5;
   }
 
-  /* Social Links with Dropdown Details */
-  /* Flex, not inline-block: an inline-block wrapper sets the chip on a line
-     box, and the descender room under it lifted every link 2.7px above the
-     "Find me at" lead-in. */
-  .social-link-wrapper {
-    position: relative;
-    display: flex;
+  .hero-prose {
+    margin: 0;
+    font-size: var(--home-text-body);
+    line-height: 1.7;
+    color: hsl(var(--muted-foreground));
+    text-wrap: pretty;
   }
 
-  /* Magnetic chips: the chip follows the mouse on a short ease-out and eases
-     home on leave. The transform is set by the script; the timing lives here. */
-  .magnetic-button {
+  .hero-links {
+    margin-top: 0.85em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85em;
+  }
+
+  /* Pills name the places elsewhere: the school and each channel. They sit
+     on the text baseline, so a row of them reads as words, not buttons. */
+  .hero-pill {
     display: inline-flex;
     align-items: center;
-    transition: transform 420ms var(--ease-out);
+    gap: 0.4em;
+    padding: 0.1em 0.55em 0.1em 0.45em;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.06);
+    color: var(--home-fg-primary);
+    line-height: 1.4;
+    white-space: nowrap;
+    text-decoration: none;
+    transition-property: background-color, scale;
+    transition-duration: 150ms;
+    transition-timing-function: var(--ease-out);
   }
 
-  .magnetic-button.is-magnetic {
-    transition: transform 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  .hero-pill :global(.hero-pill-icon) {
+    width: 0.9em;
+    height: 0.9em;
+    flex: none;
+    opacity: 0.75;
+    transition: opacity 150ms var(--ease-out);
+  }
+
+  .hero-pill:active {
+    scale: 0.96;
+  }
+
+  /* Links inside the site: an underline that draws in once the paragraph
+     lands, and a highlight that rises from it on hover. */
+  .hero-link {
+    position: relative;
+    z-index: 0;
+    color: var(--home-fg-primary);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .hero-link::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.05em;
+    height: max(1px, 0.1em);
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.3);
+    transform-origin: left;
+    transition: background-color 150ms var(--ease-out);
+  }
+
+  .hero-link::before {
+    content: '';
+    position: absolute;
+    inset: 0.05em -0.2em -0.05em;
+    z-index: -1;
+    border-radius: 0.25em;
+    background: hsl(var(--foreground) / 0.08);
+    transform: scaleY(0);
+    transform-origin: bottom;
+    transition: transform 200ms var(--ease-out);
+  }
+
+  @media (hover: hover) {
+    .hero-pill:hover {
+      background: hsl(var(--foreground) / 0.1);
+    }
+
+    .hero-pill:hover :global(.hero-pill-icon) {
+      opacity: 1;
+    }
+
+    .hero-link:hover::before {
+      transform: scaleY(1);
+    }
+
+    .hero-link:hover::after {
+      background: hsl(var(--foreground) / 0.5);
+    }
+  }
+
+  /* The draw waits for the widget phase to land (950ms + 600ms), then runs
+     one link after another. The delay sits on transform alone, which never
+     changes again, so hover colour stays instant. Reduced motion never hides
+     the line. */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(html.js) .hero-section:not(.is-live) .hero-link::after {
+      transform: scaleX(0);
+    }
+
+    :global(html.js) .hero-section.is-live .hero-link::after {
+      transition:
+        transform 450ms cubic-bezier(0.22, 1, 0.36, 1) calc(1400ms + var(--draw-i, 0) * 150ms),
+        background-color 150ms var(--ease-out);
+    }
   }
 </style>
 
@@ -401,36 +490,8 @@ const bioLines = bio.map((line) => line.split('**'));
     window.setTimeout(rotate, NAME_READY_MS + STATUS_HOLD_MS);
   };
 
-  const initMagnetic = () => {
-    document.querySelectorAll<HTMLElement>('[data-magnetic]').forEach((element) => {
-      const strength = Number.parseFloat(element.dataset.strength || '0.3');
-      let bounds: DOMRect | null = null;
-
-      element.addEventListener('pointerenter', (event) => {
-        if (event.pointerType !== 'mouse') return;
-        bounds = element.getBoundingClientRect();
-        element.classList.add('is-magnetic');
-      }, { passive: true });
-
-      element.addEventListener('pointermove', (event) => {
-        if (event.pointerType !== 'mouse' || !bounds) return;
-        const dx = (event.clientX - (bounds.left + bounds.width / 2)) * strength;
-        const dy = (event.clientY - (bounds.top + bounds.height / 2)) * strength;
-        element.style.transform = `translate(${dx}px, ${dy}px)`;
-      }, { passive: true });
-
-      element.addEventListener('pointerleave', (event) => {
-        if (event.pointerType !== 'mouse') return;
-        bounds = null;
-        element.classList.remove('is-magnetic');
-        element.style.transform = '';
-      }, { passive: true });
-    });
-  };
-
   if (!prefersReducedMotion && heroElements.length) {
     initEntrance();
     initStatusRotation();
-    initMagnetic();
   }
 </script>
