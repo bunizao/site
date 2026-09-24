@@ -198,6 +198,39 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   let glowQueued = false;
   let destroyed = false;
 
+  /**
+   * Every cell is one of GLYPHS in one ink, so each glyph is rasterised once
+   * into a strip and blitted per cell. drawImage from a bitmap skips the text
+   * shaping fillText pays on every call, which was most of each tick.
+   */
+  const atlas = document.createElement('canvas');
+  const atlasCtx = atlas.getContext('2d');
+  const glyphSlot = new Map([...GLYPHS].map((char, i) => [char, i]));
+  let atlasScale = 1;
+
+  const buildAtlas = () => {
+    if (!atlasCtx) return;
+    atlasScale = Math.min(window.devicePixelRatio || 1, 2);
+    atlas.width = Math.round(GLYPHS.length * CELL_W * atlasScale);
+    atlas.height = Math.round(CELL_H * atlasScale);
+    atlasCtx.setTransform(atlasScale, 0, 0, atlasScale, 0, 0);
+    atlasCtx.font = font;
+    atlasCtx.textBaseline = 'top';
+    atlasCtx.fillStyle = ink;
+    for (let i = 0; i < GLYPHS.length; i++) atlasCtx.fillText(GLYPHS[i], i * CELL_W, 0);
+  };
+
+  const drawGlyph = (char: string, x: number, y: number) => {
+    const slot = glyphSlot.get(char);
+    if (slot === undefined || !atlasCtx) {
+      ctx.fillText(char, x, y);
+      return;
+    }
+    const w = CELL_W * atlasScale;
+    const h = CELL_H * atlasScale;
+    ctx.drawImage(atlas, slot * w, 0, w, h, x, y, CELL_W, CELL_H);
+  };
+
   const readTheme = () => {
     const dark = root.classList.contains('dark');
     ink = dark ? inks.dark : inks.light;
@@ -207,6 +240,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     gain = dark ? 0.62 : 0.72;
     // Published so the page can paint the pointer spotlight in the same ink.
     root.style.setProperty('--glyph-ink', ink);
+    buildAtlas();
   };
 
   const respawn = (col: Column, initial: boolean) => {
@@ -324,7 +358,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
         }
         if (rain * gain < 0.012) continue;
         ctx.globalAlpha = rain * gain;
-        ctx.fillText(col.chars[r], x, y);
+        drawGlyph(col.chars[r], x, y);
       }
     }
     if (allAwake) awake = true;
@@ -332,7 +366,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     if (lit.length) {
       for (let i = 0; i < lit.length; i += 4) {
         ctx.globalAlpha = lit[i + 3] as number;
-        ctx.fillText(lit[i + 2] as string, lit[i] as number, lit[i + 1] as number);
+        drawGlyph(lit[i + 2] as string, lit[i] as number, lit[i + 1] as number);
       }
     }
     ctx.globalAlpha = 1;
@@ -357,6 +391,7 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
     canvas.style.width = `${bandW}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.font = font;
+    buildAtlas();
 
     // Cells are 12 x 16: two columns and one and a half rows per 24px cell of
     // the site's dot lattice. 12px is also ~1.7 glyph widths, which keeps the
@@ -556,6 +591,12 @@ export function mountGlyphField(host: HTMLElement): GlyphFieldHandle | null {
   // once Geist Mono arrives, so wait for it — briefly.
   const fontReady = document.fonts?.load(font).then(() => undefined, () => undefined) ?? Promise.resolve();
   Promise.race([fontReady, new Promise<void>((r) => setTimeout(r, 800))]).then(start);
+  // A late face would otherwise stay baked into the atlas as the fallback.
+  void fontReady.then(() => {
+    if (!started || destroyed) return;
+    buildAtlas();
+    paint();
+  });
 
   onScroll();
   document.addEventListener('visibilitychange', onVisibility);
