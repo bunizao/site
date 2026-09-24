@@ -98,8 +98,9 @@ Client behavior:
   under them:
   - Monash: the student card on its lanyard, after the university's own:
     the Monash M device beside the photo (its fixed 1:2.3 shape from the
-    brand book), the clip through a punched hole, initials for now in place
-    of a photo, the full logo
+    brand book), the clip through a punched hole, a drawn portrait
+    (`public/badge/portrait-{128,256,384}.webp`, picked by pixel density
+    through `srcset`), the full logo
     (`public/brands/monash-logo.svg`, crest in Monash blue), the degree, the
     faculty and graduation as the expiry date. It hangs below
     the word and swings once. The barcode is real Code 128 and scans to

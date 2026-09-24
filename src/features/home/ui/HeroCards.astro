@@ -185,7 +185,17 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
             <path d="M0 0 H44 L50 74 L56 0 H100 V230 H72.8 V136 L64.4 230 H35.6 L27.2 136 V230 H0 Z" fill="url(#mo-m-ink)" />
           </svg>
           <span class="mo-hole"></span>
-          <span class="mo-portrait">{initials}</span>
+          <img
+            class="mo-portrait"
+            src="/badge/portrait-256.webp"
+            srcset="/badge/portrait-128.webp 128w, /badge/portrait-256.webp 256w, /badge/portrait-384.webp 384w"
+            sizes="128px"
+            alt=""
+            width="128"
+            height="128"
+            loading="lazy"
+            decoding="async"
+          />
         </span>
         <span class="mo-info">
           <img class="mo-logo" src="/brands/monash-logo.svg" alt="" width="146" height="43" loading="lazy" decoding="async" />
@@ -687,21 +697,18 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     translate: -50% 0;
   }
 
+  /* The drawn portrait. Its width matches `sizes` on the img, so the
+     browser picks the 128, 256 or 384 file by pixel density. */
   .mo-portrait {
     position: relative;
-    display: grid;
-    place-items: center;
+    display: block;
     width: 128px;
     height: 128px;
     margin-top: 12px;
     border-radius: 50%;
-    background: #e2e8f1;
+    background: #141414;
     box-shadow: 0 0 0 5px #fff;
-    font-family: var(--font-display);
-    font-size: 38px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: #3a4a60;
+    object-fit: cover;
   }
 
   .mo-info {
