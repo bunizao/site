@@ -89,15 +89,30 @@ Client behavior:
   then rests; the dot pulses once the identity lines have landed.
 - Link underlines draw in one after another once the decode settles
   (`dt-settled`). Hovering a link raises a highlight out of its underline.
+- Monash University and the three channels carry a mark in front of the
+  word, outside its underline. The crest is `public/brands/monash-crest.svg`
+  (cut from the Wikimedia Commons logo), drawn as a mask in the text colour.
 - Each bio link names a hover card (`data-card`, rendered by
-  `HeroCards.astro` outside the decode root). Every card has its own body:
-  the course for Monash, projects with stars, the three latest posts, the
-  latest mood (fetched from `/api/moods` on the first link hover), the
-  message promise, the GitHub year total (read from the hero widget), and
-  each channel's short link. The footer names the real destination. Cards
-  open after 120ms of mouse hover or on keyboard focus, swap instantly
-  between links, sit above the word and flip below near the viewport top.
-  Escape closes them; touch never opens them.
+  `HeroCards.astro` outside the decode root). Every card is its own object:
+  - Monash: a student card with the crest, course, major, the semesters
+    since July 2025 (worked out in Melbourne time) and the motto.
+  - Projects: a hand of cards dealt on open; hovering one tells its story.
+  - Write: the blog's latest three posts as a table of contents.
+  - Moods: the latest three moods as a channel, from `/api/moods`.
+  - Message: an envelope that opens on the /message promise, with the
+    time in Melbourne.
+  - GitHub: a twelve-week heatmap from
+    `/api/github/contributions?days=84`, with the year total, busiest day
+    and streak.
+  - Telegram and Instagram: a chat and a profile behind a story ring.
+
+  The two network reads start on the first link hover. Cards open after
+  120ms of mouse hover or on keyboard focus. They swap instantly between
+  links, sit above the word, and flip below it near the viewport top. The
+  open card takes the pointer: it stays open while the pointer is on it and
+  closes 280ms after the pointer leaves. Escape closes it. Touch never
+  opens a card. The layer is `aria-hidden`, and its links are out of the
+  tab order, because every destination is also the link itself.
 - Reduced-motion users skip the script entirely; the elements are visible
   from the first paint.
 

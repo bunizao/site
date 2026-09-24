@@ -1,170 +1,293 @@
 ---
 // Hover cards for the hero bio links. Each link names one (`data-card`), and
-// each card is its own small UI with what is useful to know before clicking:
-// the course, the projects and their stars, the latest posts, the latest
-// mood, what happens to a message, the GitHub year, where a handle leads.
+// each card is its own object, not a template with different rows: a student
+// card for Monash, a hand of project cards, a table of contents for the blog,
+// the latest moods as a channel, an envelope for /message, a contribution
+// heatmap for GitHub, a chat for Telegram and a story ring for Instagram.
 //
 // The cards sit outside the decode root on purpose. The decode flattens
 // everything inside it and swaps the markup back when it settles, so the
 // script listens on the bio by delegation and positions one card at a time.
-import { ArrowRight, ArrowUpRight, GraduationCap, Layers, MessageCircle, Quote } from 'lucide-react';
+// They are a pointer enhancement: every destination is also the link itself,
+// so the cards stay out of the accessibility tree and the tab order.
+import { ArrowRight, ArrowUpRight, Clock, Lock, Send } from 'lucide-react';
 import { blog, experience, hero, profile, projects } from '@/data/site';
 import { messageCopy } from '@/features/messages/copy';
+import { postPath } from '@/features/posts/format';
 import { getListedPosts } from '@/features/posts/server/content';
+import { GitHubIcon, InstagramIcon, TelegramIcon } from '@/components/icons';
 
 const school = experience[0];
 const [since] = school.period.split(' — ');
-const campus = school.location?.split(', ').slice(0, 2).join(', ');
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const [sinceMonth, sinceYear] = since.split(' ');
+const sinceKey = `${sinceYear}-${String(MONTHS.indexOf(sinceMonth) + 1).padStart(2, '0')}`;
 
 const blogCopy = blog.copy[blog.locale.home];
-const posts = (await getListedPosts()).slice(0, 3);
-const stamp = (iso: string): string => {
+const allPosts = await getListedPosts();
+const posts = allPosts.slice(0, 3);
+const postDate = (iso: string): string => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 };
 
+// "TutuBetterRules" may break as "TutuBetter / Rules" on a narrow card.
+const camelBreaks = (name: string): string => name.replace(/([a-z])([A-Z])/g, '$1<wbr>$2');
+
+const totalStars = projects.reduce((sum, project) => sum + (project.stars ?? 0), 0);
 const topRepo = projects
   .filter((project) => project.stars !== null)
   .sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0))[0];
+// A hand of cards: fanned out from the middle, the outer ones lower and
+// turned further.
+const fan = (i: number, n: number) => {
+  const t = n === 1 ? 0 : (i / (n - 1)) * 2 - 1;
+  return `--i: ${i}; --fx: ${Math.round(t * 92)}px; --fy: ${Math.round(Math.abs(t) * 12)}px; --fr: ${(t * 8).toFixed(1)}deg`;
+};
 
 // "github.com/bunizao", "t.me/hututu0": where a link really lands.
 const host = (url: string): string => url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
-const handle = (url: string): string => `@${host(url).split('/').pop()}`;
-const socials = hero.socials.map((social) => {
+const channel = (name: string) => {
+  const social = hero.socials.find((link) => link.name === name);
+  if (!social) return null;
   const target = social.canonicalUrl ?? social.url;
-  return { ...social, id: social.name.toLowerCase(), short: host(social.url), target: host(target), handle: handle(target) };
-});
-const github = socials.find((social) => social.id === 'github');
+  return { ...social, short: host(social.url), target: host(target), handle: `@${host(target).split('/').pop()}` };
+};
+const github = channel('GitHub');
+const telegram = channel('Telegram');
+const instagram = channel('Instagram');
+const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 ---
 
-<div class="hero-cards" data-hero-cards>
-  <div class="hc" id="hero-card-monash" role="tooltip" data-card-id="monash">
-    <div class="hc-head">
-      <span class="hc-tile"><GraduationCap className="hc-glyph" strokeWidth={1.8} aria-hidden="true" /></span>
+<div class="hero-cards" data-hero-cards aria-hidden="true">
+  <!-- Monash: a student card. -->
+  <div class="hc hc--monash" data-card-id="monash">
+    <span class="mo-watermark"></span>
+    <div class="mo-top">
+      <span class="mo-crest"></span>
       <span class="hc-id">
+        <span class="hc-eyebrow">Student</span>
         <span class="hc-title">{school.org}</span>
-        {campus && <span class="hc-sub">{campus}</span>}
+        <span class="hc-sub">Faculty of Information Technology</span>
       </span>
     </div>
-    <dl class="hc-rows">
+    <dl class="mo-fields">
       <div><dt>Course</dt><dd>Computer Science</dd></div>
       <div><dt>Major</dt><dd>Data Science &amp; AI</dd></div>
-      <div><dt>Since</dt><dd class="hc-num">{since}</dd></div>
     </dl>
-    <div class="hc-foot"><span>{host(school.url)}</span><ArrowUpRight className="hc-arrow" aria-hidden="true" /></div>
+    <div class="mo-terms" data-terms data-since={sinceKey}>
+      <div class="mo-terms-head">
+        <span>Since {since}</span>
+        <span class="mo-now" data-term-now></span>
+      </div>
+      <div class="mo-track" data-term-track></div>
+    </div>
+    <p class="mo-motto"><em>Ancora imparo</em> · I am still learning</p>
+    <a class="hc-foot" href={school.url} {...external}>
+      <span>{host(school.url)}</span>
+      <span class="hc-foot-note">Clayton campus</span>
+      <ArrowUpRight className="hc-arrow" aria-hidden="true" />
+    </a>
   </div>
 
-  <div class="hc" id="hero-card-projects" role="tooltip" data-card-id="projects">
-    <div class="hc-head">
-      <span class="hc-tile"><Layers className="hc-glyph" strokeWidth={1.8} aria-hidden="true" /></span>
+  <!-- Projects: a hand of cards. -->
+  <div class="hc hc--projects" data-card-id="projects">
+    <div class="hc-row">
       <span class="hc-id">
         <span class="hc-title">Projects</span>
-        <span class="hc-sub">{projects.length} things I built and still run</span>
+        <span class="hc-sub">{projects.length} open-source projects</span>
       </span>
+      <span class="hc-stat"><strong class="hc-num">{totalStars}</strong> stars</span>
     </div>
-    <ul class="hc-list">
-      {projects.map((project) => (
-        <li>
-          <span class="hc-item">
-            <span class="hc-item-name">{project.name}</span>
-            <span class="hc-item-meta">{project.type}</span>
-          </span>
-          {project.stars !== null && <span class="hc-num hc-stars">★ {project.stars}</span>}
-        </li>
+    <div class="pj-stage" data-pj-stage>
+      {projects.map((project, i) => (
+        <a
+          class="pj-mini"
+          href={project.url}
+          {...external}
+          style={fan(i, projects.length)}
+          data-name={project.name}
+          data-blurb={project.blurb}
+        >
+          <span class="pj-type">{project.type}</span>
+          <span class="pj-name" set:html={camelBreaks(project.name)} />
+          <span class="pj-stars hc-num">{project.stars !== null ? `★ ${project.stars}` : 'Suite'}</span>
+        </a>
       ))}
-    </ul>
-    <div class="hc-foot"><span>/projects</span><ArrowRight className="hc-arrow" aria-hidden="true" /></div>
+    </div>
+    <p class="pj-caption" data-pj-caption>
+      <strong>Pick a card.</strong> Each one tells you what it is and why it exists.
+    </p>
+    <a class="hc-foot" href="/projects" tabindex="-1">
+      <span>/projects</span>
+      <ArrowRight className="hc-arrow" aria-hidden="true" />
+    </a>
   </div>
 
-  <div class="hc" id="hero-card-write" role="tooltip" data-card-id="write">
-    <div class="hc-head">
-      <span class="hc-tile hc-tile--mark"><img src={blog.mark} alt="" width="20" height="20" loading="lazy" decoding="async" /></span>
+  <!-- Write: the blog's table of contents. -->
+  <div class="hc hc--write" data-card-id="write">
+    <div class="hc-row hc-row--start">
+      <span class="wr-mark"><img src={blog.mark} alt="" width="28" height="28" loading="lazy" decoding="async" /></span>
       <span class="hc-id">
         <span class="hc-title">{blogCopy.name}</span>
-        <span class="hc-sub">{blogCopy.tagline}</span>
+        <span class="hc-sub hc-clamp-2">{blogCopy.tagline}</span>
       </span>
     </div>
+    <div class="wr-label">
+      <span>Latest</span>
+      <span class="hc-num">{allPosts.length} posts</span>
+    </div>
     {posts.length > 0 ? (
-      <ul class="hc-list">
-        {posts.map((post) => (
+      <ol class="wr-toc">
+        {posts.map((post, i) => (
           <li>
-            <span class="hc-item-name hc-clamp-1">{post.title}</span>
-            <span class="hc-num hc-item-meta">{stamp(post.publishedAt)}</span>
+            <a href={postPath(post.slug)} tabindex="-1">
+              <span class="wr-num hc-num">{String(i + 1).padStart(2, '0')}</span>
+              <span class="wr-title">{post.title}</span>
+              <span class="wr-leader"></span>
+              <span class="wr-date hc-num">{postDate(post.publishedAt)}</span>
+            </a>
           </li>
         ))}
-      </ul>
+      </ol>
     ) : (
-      <p class="hc-text">Nothing published yet.</p>
+      <p class="hc-note">Nothing published yet.</p>
     )}
-    <div class="hc-foot"><span>/blog</span><ArrowRight className="hc-arrow" aria-hidden="true" /></div>
+    <a class="hc-foot" href="/blog" tabindex="-1">
+      <span>/blog</span>
+      <ArrowRight className="hc-arrow" aria-hidden="true" />
+    </a>
   </div>
 
-  <div class="hc" id="hero-card-moods" role="tooltip" data-card-id="moods">
-    <div class="hc-head">
-      <span class="hc-tile"><Quote className="hc-glyph" strokeWidth={1.8} aria-hidden="true" /></span>
+  <!-- Moods: the channel, newest at the bottom. -->
+  <div class="hc hc--moods" data-card-id="moods">
+    <div class="hc-row">
       <span class="hc-id">
         <span class="hc-title">Moods</span>
         <span class="hc-sub">Short notes, as they happen</span>
       </span>
+      <span class="md-live"><span class="md-dot"></span>Live</span>
     </div>
-    <div class="hc-mood" data-mood-latest aria-busy="true">
-      <span class="hc-skeleton"></span>
-      <span class="hc-skeleton hc-skeleton--short"></span>
+    <div class="md-stream" data-mood-stream>
+      <span class="md-typing"><span></span><span></span><span></span></span>
     </div>
-    <div class="hc-foot"><span>/mood</span><ArrowRight className="hc-arrow" aria-hidden="true" /></div>
+    <a class="hc-foot" href="/mood" tabindex="-1">
+      <span>/mood</span>
+      <ArrowRight className="hc-arrow" aria-hidden="true" />
+    </a>
   </div>
 
-  <div class="hc" id="hero-card-message" role="tooltip" data-card-id="message">
-    <div class="hc-head">
-      <span class="hc-tile"><MessageCircle className="hc-glyph" strokeWidth={1.8} aria-hidden="true" /></span>
-      <span class="hc-id">
-        <span class="hc-title">Leave a message</span>
-        <span class="hc-sub">{messageCopy.privacy}</span>
-      </span>
-    </div>
-    <p class="hc-bubble">{messageCopy.intro}</p>
-    <div class="hc-foot"><span>/message</span><ArrowRight className="hc-arrow" aria-hidden="true" /></div>
-  </div>
-
-  {github && (
-    <div class="hc" id="hero-card-github" role="tooltip" data-card-id="github">
-      <div class="hc-head">
-        <span class="hc-tile hc-tile--avatar"><img src="/avatar.webp" alt="" width="32" height="32" loading="lazy" decoding="async" /></span>
-        <span class="hc-id">
-          <span class="hc-title">{github.handle}</span>
-          <span class="hc-sub">{profile.name}</span>
+  <!-- Message: an envelope that opens. -->
+  <div class="hc hc--message" data-card-id="message">
+    <div class="ms-stage">
+      <div class="ms-env">
+        <span class="ms-back"></span>
+        <span class="ms-letter">
+          {messageCopy.intro}
+          <span class="ms-sign">— {profile.name.split(' ')[0]}</span>
         </span>
+        <span class="ms-front"></span>
+        <span class="ms-flap"></span>
       </div>
-      <dl class="hc-rows">
-        <div data-contrib-row hidden><dt>Last year</dt><dd class="hc-num" data-contrib></dd></div>
-        {topRepo && <div><dt>Top repo</dt><dd>{topRepo.name} <span class="hc-num hc-stars">★ {topRepo.stars}</span></dd></div>}
-        <div><dt>Short link</dt><dd>{github.short}</dd></div>
-      </dl>
-      <div class="hc-foot"><span>{github.target}</span><ArrowUpRight className="hc-arrow" aria-hidden="true" /></div>
+    </div>
+    <span class="hc-title">Leave a message</span>
+    <ul class="hc-facts">
+      <li><Lock className="hc-fact-icon" aria-hidden="true" />{messageCopy.privacy}</li>
+      <li><Clock className="hc-fact-icon" aria-hidden="true" /><span>It's <span data-melbourne-time>…</span> in Melbourne</span></li>
+    </ul>
+    <a class="hc-foot" href="/message" tabindex="-1">
+      <span>/message</span>
+      <ArrowRight className="hc-arrow" aria-hidden="true" />
+    </a>
+  </div>
+
+  <!-- GitHub: twelve weeks of contributions. -->
+  {github && (
+    <div class="hc hc--github" data-card-id="github">
+      <div class="hc-row">
+        <span class="hc-row hc-row--tight">
+          <img class="hc-avatar" src="/avatar.webp" alt="" width="36" height="36" loading="lazy" decoding="async" />
+          <span class="hc-id">
+            <span class="hc-title">{github.handle}</span>
+            <span class="hc-sub">{profile.name}</span>
+          </span>
+        </span>
+        <GitHubIcon className="hc-brand" />
+      </div>
+      <div class="gh-body">
+        <div class="gh-heat" data-heat></div>
+        <dl class="gh-stats">
+          <div><dt>Last year</dt><dd class="hc-num" data-gh-total>—</dd></div>
+          <div><dt>Busiest day</dt><dd class="hc-num" data-gh-best>—</dd></div>
+          <div><dt>Streak</dt><dd class="hc-num" data-gh-streak>—</dd></div>
+        </dl>
+      </div>
+      <p class="gh-caption" data-heat-caption>Last 12 weeks</p>
+      {topRepo && (
+        <a class="gh-repo" href={topRepo.url} {...external}>
+          <span class="gh-repo-label">Top repo</span>
+          <span class="gh-repo-name">{topRepo.name}</span>
+          <span class="hc-num gh-repo-stars">★ {topRepo.stars}</span>
+        </a>
+      )}
+      <a class="hc-foot" href={github.url} {...external}>
+        <span>{github.target}</span>
+        <span class="hc-foot-note">{github.short}</span>
+        <ArrowUpRight className="hc-arrow" aria-hidden="true" />
+      </a>
     </div>
   )}
 
-  {socials.filter((social) => social !== github).map((social) => (
-    <div class="hc" id={`hero-card-${social.id}`} role="tooltip" data-card-id={social.id}>
-      <div class="hc-head">
-        <span class="hc-tile"><social.icon className="hc-glyph" aria-hidden="true" /></span>
-        <span class="hc-id">
-          <span class="hc-title">{social.handle}</span>
-          <span class="hc-sub">{social.name} · {social.description}</span>
+  <!-- Telegram: a chat, already open. -->
+  {telegram && (
+    <div class="hc hc--telegram" data-card-id="telegram">
+      <div class="hc-row">
+        <span class="hc-row hc-row--tight">
+          <img class="hc-avatar" src="/avatar.webp" alt="" width="36" height="36" loading="lazy" decoding="async" />
+          <span class="hc-id">
+            <span class="hc-title">{profile.name}</span>
+            <span class="hc-sub">{telegram.handle} · <span data-melbourne-time>…</span> for me</span>
+          </span>
         </span>
+        <TelegramIcon className="hc-brand" />
       </div>
-      <dl class="hc-rows">
-        <div><dt>Short link</dt><dd>{social.short}</dd></div>
-      </dl>
-      <div class="hc-foot"><span>{social.target}</span><ArrowUpRight className="hc-arrow" aria-hidden="true" /></div>
+      <div class="tg-chat">
+        <span class="tg-bubble">Hey! {telegram.description}, about anything.</span>
+      </div>
+      <a class="tg-composer" href={telegram.url} {...external}>
+        <span>Say hi on Telegram</span>
+        <span class="tg-send"><Send className="tg-plane" aria-hidden="true" /></span>
+      </a>
+      <a class="hc-foot" href={telegram.url} {...external}>
+        <span>{telegram.target}</span>
+        <span class="hc-foot-note">{telegram.short}</span>
+        <ArrowUpRight className="hc-arrow" aria-hidden="true" />
+      </a>
     </div>
-  ))}
+  )}
+
+  <!-- Instagram: the profile, behind a story ring. -->
+  {instagram && (
+    <div class="hc hc--instagram" data-card-id="instagram">
+      <span class="ig-ring"><img src="/avatar.webp" alt="" width="64" height="64" loading="lazy" decoding="async" /></span>
+      <span class="hc-title">{instagram.handle}</span>
+      <span class="hc-sub">{profile.name} · {instagram.description}</span>
+      <a class="ig-button" href={instagram.url} {...external}>
+        <InstagramIcon className="ig-button-icon" />View profile
+      </a>
+      <a class="hc-foot" href={instagram.url} {...external}>
+        <span>{instagram.target}</span>
+        <span class="hc-foot-note">{instagram.short}</span>
+        <ArrowUpRight className="hc-arrow" aria-hidden="true" />
+      </a>
+    </div>
+  )}
 </div>
 
 <style>
-  /* The layer covers the hero so a card can sit anywhere over it; only the
-     open card shows, and none of them take the pointer. */
+  /* The layer covers the hero so a card can sit anywhere over it. Only the
+     open card takes the pointer, so it can be read and clicked. */
   .hero-cards {
     position: absolute;
     inset: 0;
@@ -172,16 +295,18 @@ const github = socials.find((social) => social.id === 'github');
     pointer-events: none;
   }
 
+  /* ---------- Shell ------------------------------------------------------ */
+
   /* A card is a raised piece of the home surface, the same edge and drop as
-     the project deck. It speaks in the sans UI voice; the hero's mono only
-     comes back for the destination in the footer. */
+     the project deck. It speaks in the sans UI voice. */
   .hc {
     position: absolute;
     top: 0;
     left: 0;
-    width: 272px;
-    padding: 12px;
-    border-radius: 12px;
+    width: var(--hc-w, 296px);
+    padding: 16px;
+    overflow: hidden;
+    border-radius: 16px;
     background: var(--home-surface);
     box-shadow: var(--home-surface-shadow-raised);
     font-family: var(--font-sans);
@@ -191,18 +316,18 @@ const github = socials.find((social) => social.id === 'github');
     opacity: 0;
     visibility: hidden;
     scale: 0.96;
-    translate: 0 4px;
-    transform-origin: var(--hc-origin, left bottom);
+    translate: 0 6px;
+    transform-origin: var(--hc-origin, 24px 100%);
     transition:
-      opacity 120ms var(--ease-out),
-      scale 120ms var(--ease-out),
-      translate 120ms var(--ease-out),
-      visibility 0s 120ms;
+      opacity 140ms var(--ease-out),
+      scale 140ms var(--ease-out),
+      translate 140ms var(--ease-out),
+      visibility 0s 140ms;
   }
 
   .hc[data-side='bottom'] {
-    --hc-origin: left top;
-    translate: 0 -4px;
+    --hc-origin: 24px 0;
+    translate: 0 -6px;
   }
 
   .hc[data-open] {
@@ -210,10 +335,11 @@ const github = socials.find((social) => social.id === 'github');
     visibility: visible;
     scale: 1;
     translate: 0 0;
+    pointer-events: auto;
     transition:
-      opacity 180ms var(--ease-out),
-      scale 180ms var(--ease-out),
-      translate 180ms var(--ease-out),
+      opacity 200ms var(--ease-out),
+      scale 260ms var(--ease-out),
+      translate 260ms var(--ease-out),
       visibility 0s;
   }
 
@@ -222,48 +348,28 @@ const github = socials.find((social) => social.id === 'github');
     transition: none;
   }
 
-  .hc-head {
+  /* Zero specificity, so every link class below sets its own colour. */
+  :where(.hc a) {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .hc-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .hc-row--start {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  .hc-row--tight {
+    justify-content: flex-start;
     gap: 10px;
-  }
-
-  /* The Experience tile, reused: the same small surface with a glyph. */
-  .hc-tile {
-    display: grid;
-    place-items: center;
-    flex: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: var(--home-surface);
-    box-shadow: var(--home-surface-shadow);
-    color: hsl(var(--foreground) / 0.82);
-    overflow: hidden;
-  }
-
-  .hc-tile :global(.hc-glyph) {
-    width: 16px;
-    height: 16px;
-  }
-
-  .hc-tile--mark img {
-    width: 20px;
-    height: 20px;
-    object-fit: contain;
-  }
-
-  :global(.dark) .hc-tile--mark img {
-    filter: invert(1);
-  }
-
-  .hc-tile--avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    outline: 1px solid var(--home-image-outline);
-    outline-offset: -1px;
-    border-radius: inherit;
+    min-width: 0;
   }
 
   .hc-id {
@@ -273,8 +379,27 @@ const github = socials.find((social) => social.id === 'github');
     gap: 1px;
   }
 
+  .hc-eyebrow,
+  .mo-fields dt,
+  .mo-terms-head span:first-child,
+  .wr-label,
+  .md-live,
+  .pj-type {
+    font-size: 10px;
+    font-weight: var(--home-weight-eyebrow);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--home-fg-faint);
+  }
+
+  .hc-eyebrow {
+    margin-bottom: 2px;
+  }
+
   .hc-title {
-    font-weight: var(--home-weight-title);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
     color: var(--home-fg-primary);
   }
 
@@ -286,156 +411,927 @@ const github = socials.find((social) => social.id === 'github');
     white-space: nowrap;
   }
 
+  .hc-clamp-2 {
+    display: -webkit-box;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
   .hc-num {
     font-variant-numeric: tabular-nums;
   }
 
-  .hc-rows,
-  .hc-list,
-  .hc-mood,
-  .hc-bubble,
-  .hc-text {
+  .hc-stat {
+    flex: none;
+    font-size: 12px;
+    color: var(--home-fg-faint);
+  }
+
+  .hc-stat strong {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--home-fg-primary);
+  }
+
+  .hc :global(.hc-brand) {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: var(--home-fg-faint);
+  }
+
+  .hc-avatar {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    outline: 1px solid var(--home-image-outline);
+    outline-offset: -1px;
+  }
+
+  .hc-note {
     margin: 12px 0 0;
-  }
-
-  .hc-rows {
-    display: grid;
-    gap: 6px;
-  }
-
-  .hc-rows div {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .hc-rows div[hidden] {
-    display: none;
-  }
-
-  .hc-rows dt {
     color: var(--home-fg-faint);
   }
 
-  .hc-rows dd {
-    margin: 0;
-    color: var(--home-fg-primary);
-    text-align: right;
-  }
-
-  .hc-list {
-    display: grid;
-    gap: 8px;
-    padding: 0;
-    list-style: none;
-  }
-
-  .hc-list li {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    min-width: 0;
-  }
-
-  .hc-item {
-    display: flex;
-    min-width: 0;
-    align-items: baseline;
-    gap: 6px;
-  }
-
-  .hc-item-name {
-    color: var(--home-fg-primary);
-    white-space: nowrap;
-  }
-
-  .hc-item-meta {
-    flex: none;
-    font-size: 12px;
-    color: var(--home-fg-faint);
-    white-space: nowrap;
-  }
-
-  .hc-item .hc-item-meta {
-    flex: 1 1 auto;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .hc-clamp-1 {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .hc-stars {
-    flex: none;
-    font-size: 12px;
-    color: var(--home-fg-secondary);
-  }
-
-  .hc-mood {
-    display: grid;
-    gap: 6px;
-    min-height: 44px;
-  }
-
-  .hc-mood-text {
-    display: -webkit-box;
-    overflow: hidden;
-    color: var(--home-fg-primary);
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow-wrap: anywhere;
-  }
-
-  .hc-mood-meta {
-    font-size: 12px;
-    color: var(--home-fg-faint);
-  }
-
-  .hc-skeleton {
-    height: 10px;
-    margin-top: 4px;
-    border-radius: 999px;
-    background: hsl(var(--foreground) / 0.07);
-  }
-
-  .hc-skeleton--short {
-    width: 60%;
-  }
-
-  /* The /message page is a conversation, so its promise is a speech bubble
-     here too, in the owner's corner. */
-  .hc-bubble {
-    width: fit-content;
-    max-width: 100%;
-    padding: 7px 10px;
-    border-radius: 12px 12px 12px 4px;
-    background: hsl(var(--foreground) / 0.06);
-    color: var(--home-fg-primary);
-  }
-
-  .hc-text {
-    color: var(--home-fg-faint);
-  }
-
+  /* The way out: where the click lands, and the short link when there is one. */
   .hc-foot {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-top: 12px;
-    padding-top: 10px;
+    gap: 8px;
+    margin: 14px -16px -16px;
+    padding: 10px 16px;
     border-top: 1px solid hsl(var(--foreground) / 0.07);
     font-family: var(--font-mono);
     font-size: var(--home-text-label);
     color: var(--home-fg-faint);
+    transition:
+      color 150ms ease,
+      background-color 150ms ease;
+  }
+
+  .hc-foot:hover {
+    background: hsl(var(--foreground) / 0.03);
+    color: var(--home-fg-primary);
+  }
+
+  .hc-foot-note {
+    margin-left: auto;
+    opacity: 0.7;
   }
 
   .hc-foot :global(.hc-arrow) {
+    flex: none;
     width: 12px;
     height: 12px;
+    margin-left: auto;
+  }
+
+  .hc-foot-note + :global(.hc-arrow) {
+    margin-left: 0;
+  }
+
+  /* ---------- Monash: student card --------------------------------------- */
+
+  .hc--monash {
+    --hc-w: 304px;
+  }
+
+  .mo-crest,
+  .mo-watermark {
+    background: currentColor;
+    mask: url('/brands/monash-crest.svg') center / contain no-repeat;
+  }
+
+  .mo-top {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .mo-crest {
+    flex: none;
+    width: 40px;
+    height: 44px;
+    color: var(--home-fg-primary);
+  }
+
+  /* The crest again, huge and faint, bleeding off the corner like the
+     security print on a real card. */
+  .mo-watermark {
+    position: absolute;
+    right: -34px;
+    bottom: 18px;
+    width: 168px;
+    height: 182px;
+    color: hsl(var(--foreground) / 0.045);
+    rotate: -12deg;
+    pointer-events: none;
+  }
+
+  .mo-fields {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0 0;
+    padding-top: 14px;
+    border-top: 1px dashed hsl(var(--foreground) / 0.12);
+  }
+
+  .mo-fields dd {
+    margin: 3px 0 0;
+    font-weight: 500;
+    color: var(--home-fg-primary);
+  }
+
+  .mo-terms {
+    position: relative;
+    margin-top: 16px;
+  }
+
+  .mo-terms-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .mo-now {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--home-fg-primary);
+  }
+
+  .mo-track {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+  }
+
+  .mo-track :global(.mo-term) {
+    display: grid;
+    flex: 1;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--home-fg-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mo-track :global(.mo-term)::before {
+    content: '';
+    height: 6px;
+    border-radius: 3px;
+    background: hsl(var(--foreground) / 0.5);
+  }
+
+  .mo-track :global(.mo-term[data-current]) {
+    color: var(--home-fg-primary);
+  }
+
+  .mo-track :global(.mo-term[data-current])::before {
+    background: var(--home-accent);
+  }
+
+  .mo-motto {
+    position: relative;
+    margin: 14px 0 0;
+    font-size: 12px;
+    color: var(--home-fg-faint);
+  }
+
+  .mo-motto em {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 13px;
+    color: var(--home-fg-secondary);
+  }
+
+  /* ---------- Projects: a hand of cards ---------------------------------- */
+
+  .hc--projects {
+    --hc-w: 328px;
+  }
+
+  .pj-stage {
+    position: relative;
+    height: 132px;
+    margin-top: 10px;
+  }
+
+  .pj-mini {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    z-index: var(--i);
+    display: flex;
+    flex-direction: column;
+    width: 108px;
+    height: 88px;
+    padding: 10px;
+    border-radius: 10px;
+    background: var(--home-surface);
+    box-shadow:
+      var(--home-surface-shadow),
+      0 8px 16px -10px oklch(0 0 0 / 0.25);
+    color: var(--home-fg-primary);
+    transform-origin: 50% 120%;
+    transform: translate(calc(-50% + var(--fx)), var(--fy)) rotate(var(--fr));
+    transition:
+      transform 240ms var(--ease-out),
+      opacity 200ms ease;
+  }
+
+  /* Dealt from a stack on open. `backwards` fill only, so once the deal ends
+     the hover transform owns the card again. */
+  .hc[data-open] .pj-mini {
+    animation: pj-deal 560ms cubic-bezier(0.2, 1.2, 0.4, 1) backwards;
+    animation-delay: calc(60ms + var(--i) * 50ms);
+  }
+
+  @keyframes pj-deal {
+    from {
+      transform: translate(-50%, 18px) rotate(0deg) scale(0.9);
+    }
+  }
+
+  .pj-mini:hover {
+    z-index: 10;
+    transform: translate(calc(-50% + var(--fx)), calc(var(--fy) - 14px)) rotate(0deg) scale(1.06);
+  }
+
+  .pj-stage:hover .pj-mini:not(:hover) {
+    opacity: 0.6;
+  }
+
+  .pj-type {
+    overflow: hidden;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pj-name {
+    margin-top: auto;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .pj-stars {
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--home-fg-faint);
+  }
+
+  .pj-caption {
+    min-height: 4.5em;
+    margin: 12px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+
+  .pj-caption :global(strong) {
+    font-weight: 600;
+    color: var(--home-fg-primary);
+  }
+
+  /* ---------- Write: table of contents ----------------------------------- */
+
+  .hc--write {
+    --hc-w: 312px;
+  }
+
+  .hc--write .hc-row--start {
+    gap: 12px;
+  }
+
+  .wr-mark {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--home-surface);
+    box-shadow: var(--home-surface-shadow);
+  }
+
+  .wr-mark img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+  }
+
+  :global(.dark) .wr-mark img {
+    filter: invert(1);
+  }
+
+  .hc--write .hc-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+  }
+
+  .wr-label {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+  }
+
+  /* One track that may shrink below the titles' nowrap width. */
+  .wr-toc {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 6px -8px 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .wr-toc a {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    transition: background-color 150ms ease;
+  }
+
+  .wr-toc a:hover {
+    background: hsl(var(--foreground) / 0.045);
+  }
+
+  .wr-num {
+    flex: none;
+    font-size: 11px;
+    color: var(--home-fg-faint);
+  }
+
+  .wr-title {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--home-fg-primary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The dotted leader of a printed contents page. */
+  .wr-leader {
+    flex: 1 0 12px;
+    align-self: center;
+    height: 2px;
+    margin-top: 0.3em;
+    background: radial-gradient(circle, hsl(var(--foreground) / 0.3) 0.7px, transparent 1px) 0 50% / 4px 2px repeat-x;
+  }
+
+  .wr-date {
+    flex: none;
+    font-size: 12px;
+    color: var(--home-fg-faint);
+  }
+
+  .wr-toc a:hover .wr-date,
+  .wr-toc a:hover .wr-num {
+    color: var(--home-fg-secondary);
+  }
+
+  /* ---------- Moods: the channel ---------------------------------------- */
+
+  .hc--moods {
+    --hc-w: 304px;
+  }
+
+  .md-live {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .md-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--home-accent);
+  }
+
+  .hc[data-open] .md-dot {
+    animation: md-pulse 1.8s ease-out infinite;
+  }
+
+  @keyframes md-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--home-accent) 55%, transparent);
+    }
+    70%,
+    100% {
+      box-shadow: 0 0 0 6px transparent;
+    }
+  }
+
+  .md-stream {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 6px;
+    min-height: 64px;
+    margin-top: 14px;
+  }
+
+  .md-stream :global(.md-bubble) {
+    display: flex;
+    max-width: 100%;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 14px 14px 14px 4px;
+    background: hsl(var(--foreground) / 0.055);
+    transition: background-color 150ms ease;
+  }
+
+  .md-stream :global(.md-bubble:hover) {
+    background: hsl(var(--foreground) / 0.09);
+  }
+
+  .hc[data-open] .md-stream :global(.md-bubble) {
+    animation: hc-rise 360ms var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 70ms);
+  }
+
+  @keyframes hc-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.97);
+    }
+  }
+
+  .md-stream :global(.md-text) {
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--home-fg-primary);
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .md-stream :global(.md-meta) {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--home-fg-faint);
+  }
+
+  .md-stream :global(.md-thumb) {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    object-fit: cover;
+    outline: 1px solid var(--home-image-outline);
+    outline-offset: -1px;
+  }
+
+  .md-typing {
+    display: inline-flex;
+    gap: 4px;
+    padding: 12px 14px;
+    border-radius: 14px 14px 14px 4px;
+    background: hsl(var(--foreground) / 0.055);
+  }
+
+  .md-typing span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: hsl(var(--foreground) / 0.35);
+    animation: md-typing 1.1s ease-in-out infinite;
+  }
+
+  .md-typing span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  .md-typing span:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
+  @keyframes md-typing {
+    0%,
+    60%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.5;
+    }
+    30% {
+      transform: translateY(-3px);
+      opacity: 1;
+    }
+  }
+
+  /* ---------- Message: envelope ----------------------------------------- */
+
+  .hc--message {
+    --hc-w: 280px;
+  }
+
+  .ms-stage {
+    display: grid;
+    place-items: end center;
+    height: 150px;
+    margin: -4px 0 14px;
+    perspective: 700px;
+  }
+
+  .ms-env {
+    position: relative;
+    width: 176px;
+    height: 104px;
+  }
+
+  .ms-back,
+  .ms-front,
+  .ms-flap,
+  .ms-letter {
+    position: absolute;
+  }
+
+  .ms-back {
+    inset: 0;
+    border-radius: 8px;
+    background: color-mix(in oklab, hsl(var(--foreground)) 9%, var(--home-surface));
+  }
+
+  .ms-letter {
+    left: 10px;
+    right: 10px;
+    bottom: 6px;
+    z-index: 2;
+    height: 96px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: var(--home-surface);
+    box-shadow: var(--home-surface-shadow);
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--home-fg-primary);
+    transition: transform 0s 150ms;
+  }
+
+  .ms-sign {
+    display: block;
+    margin-top: 4px;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-style: italic;
+    color: var(--home-fg-secondary);
+  }
+
+  .ms-front {
+    inset: 0;
+    z-index: 3;
+    border-radius: 8px;
+    background: color-mix(in oklab, hsl(var(--foreground)) 5%, var(--home-surface));
+    clip-path: polygon(0 36%, 50% 74%, 100% 36%, 100% 100%, 0 100%);
+  }
+
+  .ms-flap {
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 4;
+    height: 62%;
+    background: color-mix(in oklab, hsl(var(--foreground)) 13%, var(--home-surface));
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+    transform-origin: 50% 0;
+    transition:
+      transform 0s 150ms,
+      z-index 0s 150ms;
+  }
+
+  /* The flap swings up and back, then the letter rises out of the pocket. */
+  .hc[data-open] .ms-flap {
+    z-index: 1;
+    transform: rotateX(180deg);
+    transition:
+      transform 420ms var(--ease-out) 120ms,
+      z-index 0s 330ms;
+  }
+
+  .hc[data-open] .ms-letter {
+    transform: translateY(-44px);
+    transition: transform 520ms cubic-bezier(0.2, 1.15, 0.4, 1) 380ms;
+  }
+
+  .hc-facts {
+    display: grid;
+    gap: 5px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+  }
+
+  .hc-facts li {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .hc-facts :global(.hc-fact-icon) {
+    flex: none;
+    width: 13px;
+    height: 13px;
+    color: var(--home-fg-faint);
+  }
+
+  /* ---------- GitHub: heatmap ------------------------------------------- */
+
+  .hc--github {
+    --hc-w: 312px;
+  }
+
+  .gh-body {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .gh-heat {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(7, 11px);
+    grid-auto-columns: 11px;
+    gap: 3px;
+    min-width: 179px;
+  }
+
+  .gh-heat :global(span) {
+    border-radius: 3px;
+    background: hsl(var(--foreground) / 0.07);
+  }
+
+  .gh-heat :global(span[data-l='1']) {
+    background: color-mix(in oklab, var(--home-accent) 32%, transparent);
+  }
+
+  .gh-heat :global(span[data-l='2']) {
+    background: color-mix(in oklab, var(--home-accent) 55%, transparent);
+  }
+
+  .gh-heat :global(span[data-l='3']) {
+    background: color-mix(in oklab, var(--home-accent) 78%, transparent);
+  }
+
+  .gh-heat :global(span[data-l='4']) {
+    background: var(--home-accent);
+  }
+
+  .gh-heat :global(span[data-blank]) {
+    visibility: hidden;
+  }
+
+  .gh-heat :global(span[data-date]:hover) {
+    outline: 1.5px solid var(--home-fg-primary);
+    outline-offset: 1px;
+  }
+
+  .hc[data-open] .gh-heat :global(span) {
+    animation: gh-cell 320ms var(--ease-out) backwards;
+    animation-delay: calc(var(--c, 0) * 22ms);
+  }
+
+  @keyframes gh-cell {
+    from {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+  }
+
+  .gh-stats {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    margin: 0;
+    text-align: right;
+  }
+
+  .gh-stats dt {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--home-fg-faint);
+    white-space: nowrap;
+  }
+
+  .gh-stats dd {
+    margin: 1px 0 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--home-fg-primary);
+  }
+
+  .gh-caption {
+    min-height: 1.4em;
+    margin: 8px 0 0;
+    font-size: 11px;
+    color: var(--home-fg-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gh-repo {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 10px -8px 0;
+    padding: 7px 8px;
+    border-radius: 8px;
+    transition: background-color 150ms ease;
+  }
+
+  .gh-repo:hover {
+    background: hsl(var(--foreground) / 0.045);
+  }
+
+  .gh-repo-label {
+    font-size: 12px;
+    color: var(--home-fg-faint);
+  }
+
+  .gh-repo-name {
+    font-weight: 500;
+    color: var(--home-fg-primary);
+  }
+
+  .gh-repo-stars {
+    margin-left: auto;
+    font-size: 12px;
+  }
+
+  /* ---------- Telegram: chat -------------------------------------------- */
+
+  .hc--telegram {
+    --hc-w: 296px;
+  }
+
+  .tg-chat {
+    display: flex;
+    margin: 14px -16px 0;
+    padding: 18px 16px 14px;
+    background:
+      radial-gradient(circle, hsl(var(--foreground) / 0.07) 1px, transparent 1.2px) 0 0 / 12px 12px,
+      hsl(var(--foreground) / 0.025);
+  }
+
+  .tg-bubble {
+    max-width: 85%;
+    padding: 8px 12px;
+    border-radius: 16px 16px 16px 4px;
+    background: var(--home-surface);
+    box-shadow: var(--home-surface-shadow);
+    color: var(--home-fg-primary);
+  }
+
+  .hc[data-open] .tg-bubble {
+    animation: hc-rise 380ms var(--ease-out) 160ms backwards;
+  }
+
+  .tg-composer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 -16px;
+    padding: 8px 10px 8px 16px;
+    border-top: 1px solid hsl(var(--foreground) / 0.07);
+    color: var(--home-fg-faint);
+    transition: color 150ms ease;
+  }
+
+  .tg-composer:hover {
+    color: var(--home-fg-primary);
+  }
+
+  .tg-send {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--home-fg-primary);
+    color: var(--home-surface);
+    transition: scale 150ms var(--ease-out);
+  }
+
+  .tg-composer:hover .tg-send {
+    scale: 1.08;
+  }
+
+  .tg-send :global(.tg-plane) {
+    width: 14px;
+    height: 14px;
+    translate: -1px 1px;
+  }
+
+  .hc[data-open] .tg-send :global(.tg-plane) {
+    animation: tg-plane 700ms var(--ease-out) 420ms backwards;
+  }
+
+  @keyframes tg-plane {
+    from {
+      opacity: 0;
+      transform: translate(-8px, 8px) scale(0.6);
+    }
+  }
+
+  .hc--telegram .hc-foot {
+    margin-top: 0;
+  }
+
+  /* ---------- Instagram: story ring ------------------------------------- */
+
+  .hc--instagram {
+    --hc-w: 256px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  /* The brand's story ring, the one place a card borrows another's colour:
+     it is how anyone recognises "there is something new to look at". */
+  .ig-ring {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 76px;
+    height: 76px;
+    margin: 4px 0 12px;
+    border-radius: 50%;
+  }
+
+  .ig-ring::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(from 210deg, #feda75, #fa7e1e, #d62976, #962fbf, #4f5bd5, #feda75);
+    mask: radial-gradient(circle, transparent 35px, #000 35.5px);
+  }
+
+  .hc[data-open] .ig-ring::before {
+    animation: ig-spin 5s linear infinite;
+  }
+
+  @keyframes ig-spin {
+    to {
+      rotate: 1turn;
+    }
+  }
+
+  .ig-ring img {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    outline: 1px solid var(--home-image-outline);
+    outline-offset: -1px;
+  }
+
+  .hc--instagram .hc-sub {
+    margin-top: 2px;
+  }
+
+  .ig-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    align-self: stretch;
+    height: 34px;
+    margin-top: 14px;
+    border-radius: 10px;
+    background: var(--home-fg-primary);
+    color: var(--home-surface);
+    font-weight: 500;
+    transition: scale 150ms var(--ease-out);
+  }
+
+  .ig-button:active {
+    scale: 0.96;
+  }
+
+  .ig-button :global(.ig-button-icon) {
+    width: 14px;
+    height: 14px;
+  }
+
+  .hc--instagram .hc-foot {
+    align-self: stretch;
+    text-align: left;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -445,6 +1341,12 @@ const github = socials.find((social) => social.id === 'github');
       translate: 0 0;
       transition: none;
     }
+
+    .hc *,
+    .hc *::before {
+      animation: none !important;
+      transition: none !important;
+    }
   }
 </style>
 
@@ -452,18 +1354,20 @@ const github = socials.find((social) => social.id === 'github');
   const layer = document.querySelector<HTMLElement>('[data-hero-cards]');
   const bio = document.querySelector<HTMLElement>('[data-hero-bio]');
 
-  // Hover intent: a pass over a link on the way elsewhere opens nothing.
+  // Hover intent: a pass over a link on the way elsewhere opens nothing, and
+  // the card waits long enough for the pointer to cross the gap onto it.
   const OPEN_DELAY_MS = 120;
-  const CLOSE_DELAY_MS = 80;
-  const GAP = 8;
+  const CLOSE_DELAY_MS = 280;
+  const GAP = 10;
   const VIEWPORT_MARGIN = 8;
 
   let current: HTMLElement | null = null;
+  let currentLink: HTMLElement | null = null;
   let openTimer = 0;
   let closeTimer = 0;
 
-  const cardFor = (link: HTMLElement): HTMLElement | null =>
-    layer?.querySelector<HTMLElement>(`[data-card-id="${link.dataset.card}"]`) ?? null;
+  const cardById = (id: string | undefined): HTMLElement | null =>
+    (id && layer?.querySelector<HTMLElement>(`[data-card-id="${id}"]`)) || null;
 
   // Above the word, left edges aligned; below it when the viewport has no room.
   const place = (card: HTMLElement, link: HTMLElement): void => {
@@ -472,13 +1376,71 @@ const github = socials.find((social) => social.id === 'github');
     const word = link.getBoundingClientRect();
     const width = card.offsetWidth;
     const height = card.offsetHeight;
-    const left = Math.min(Math.max(word.left - host.left - 12, 0), Math.max(host.width - width, 0));
+    const left = Math.min(Math.max(word.left - host.left - 16, 0), Math.max(host.width - width, 0));
     const above = word.top - height - GAP >= VIEWPORT_MARGIN;
     const top = above ? word.top - host.top - height - GAP : word.bottom - host.top + GAP;
     card.style.left = `${Math.round(left)}px`;
     card.style.top = `${Math.round(top)}px`;
     card.dataset.side = above ? 'top' : 'bottom';
   };
+
+  const reposition = (): void => {
+    if (current && currentLink) place(current, currentLink);
+  };
+
+  const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+
+  // ---------- Clock and semesters -----------------------------------------
+
+  const melbourne = (options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', ...options });
+  const timeFormat = melbourne({ hour: 'numeric', minute: '2-digit' });
+
+  const fillClock = (card: HTMLElement): void => {
+    const now = timeFormat.format(new Date());
+    card.querySelectorAll('[data-melbourne-time]').forEach((node) => {
+      node.textContent = now;
+    });
+  };
+
+  // Monash runs Semester 1 from March to June and Semester 2 from July to
+  // November; December to February is the summer break.
+  const fillTerms = (card: HTMLElement): void => {
+    const box = card.querySelector<HTMLElement>('[data-terms]');
+    const track = card.querySelector<HTMLElement>('[data-term-track]');
+    const label = card.querySelector<HTMLElement>('[data-term-now]');
+    if (!box || !track || !label || track.childElementCount > 0) return;
+    const [startYear, startMonth] = (box.dataset.since ?? '').split('-').map(Number);
+    if (!startYear || !startMonth) return;
+    const parts = melbourne({ year: 'numeric', month: 'numeric' }).formatToParts(new Date());
+    const year = Number(parts.find((part) => part.type === 'year')?.value);
+    const month = Number(parts.find((part) => part.type === 'month')?.value);
+    const inTerm = month >= 3 && month <= 11;
+    const endYear = month <= 2 ? year - 1 : year;
+    const endTerm = month <= 2 || month >= 7 ? 2 : 1;
+
+    let y = startYear;
+    let t = startMonth >= 7 ? 2 : 1;
+    while (y < endYear || (y === endYear && t <= endTerm)) {
+      const term = el('span', 'mo-term', `S${t} ’${String(y).slice(2)}`);
+      if (inTerm && y === endYear && t === endTerm) term.dataset.current = '';
+      track.append(term);
+      if (t === 2) {
+        y += 1;
+        t = 1;
+      } else {
+        t = 2;
+      }
+    }
+    label.textContent = inTerm ? `Now in S${endTerm} ${endYear}` : 'Summer break';
+  };
+
+  // ---------- Moods ------------------------------------------------------
 
   const relativeTime = (iso: string): string => {
     const then = new Date(iso).getTime();
@@ -493,66 +1455,150 @@ const github = socials.find((social) => social.id === 'github');
     return new Date(iso).toLocaleDateString('en', { month: 'short', day: 'numeric' });
   };
 
+  // A mood that is only a link reads as its host and path, like the feed.
+  const shortenUrl = (text: string): string => {
+    if (!/^https?:\/\/\S+$/.test(text)) return text;
+    const bare = text.replace(/^https?:\/\/(www\.)?/, '').replace(/[?#].*$/, '');
+    return bare.length > 30 ? `${bare.slice(0, 29)}…` : bare;
+  };
+
+  interface MoodPost {
+    id?: string | number;
+    previewText?: string;
+    datetime?: string;
+    image?: string | null;
+    reactions?: { emoji?: string; count?: string | number }[];
+  }
+
   let moodRequested = false;
-  const loadMood = async (card: HTMLElement): Promise<void> => {
+  const loadMoods = async (): Promise<void> => {
     if (moodRequested) return;
     moodRequested = true;
-    const slot = card.querySelector<HTMLElement>('[data-mood-latest]');
-    if (!slot) return;
-    let text = 'Could not load the latest one.';
-    let meta = '';
+    const card = cardById('moods');
+    const stream = card?.querySelector<HTMLElement>('[data-mood-stream]');
+    if (!card || !stream) return;
+    let latest: MoodPost[] = [];
     try {
       const response = await fetch('/api/moods');
       if (!response.ok) throw new Error(String(response.status));
-      const data = (await response.json()) as { posts?: { previewText?: string; datetime?: string; tag?: string }[] };
-      const latest = data.posts?.[0];
-      if (latest) {
-        text = latest.previewText?.trim() || 'A photo, no words.';
-        meta = ['Latest', relativeTime(latest.datetime ?? ''), latest.tag].filter(Boolean).join(' · ');
-      }
+      const data = (await response.json()) as { posts?: MoodPost[] };
+      latest = (data.posts ?? []).slice(0, 3).reverse();
     } catch {
-      // Keep the fallback line; the link still works.
+      // Falls through to the line below; the link still works.
     }
-    const body = document.createElement('p');
-    body.className = 'hc-mood-text';
-    body.textContent = text;
-    slot.replaceChildren(body);
-    if (meta) {
-      const line = document.createElement('span');
-      line.className = 'hc-mood-meta';
-      line.textContent = meta;
-      slot.append(line);
+    if (latest.length === 0) {
+      stream.replaceChildren(el('span', 'md-meta', 'Could not load the channel right now.'));
+      return;
     }
-    // Scoped styles need the component's attribute on nodes made here.
-    const scope = Array.from(slot.attributes).find((attr) => attr.name.startsWith('data-astro-cid'));
-    if (scope) slot.querySelectorAll('*').forEach((node) => node.setAttribute(scope.name, ''));
-    slot.removeAttribute('aria-busy');
-    if (current === card) {
-      const link = bio?.querySelector<HTMLElement>('[data-card="moods"]');
-      if (link) place(card, link);
-    }
+    stream.replaceChildren(
+      ...latest.map((post, i) => {
+        const bubble = el('a', 'md-bubble');
+        bubble.href = post.id !== undefined ? `/mood/${post.id}` : '/mood';
+        bubble.tabIndex = -1;
+        bubble.style.setProperty('--i', String(i));
+        const body = el('span');
+        body.append(el('span', 'md-text', shortenUrl(post.previewText?.trim() || 'A photo, no words.')));
+        const reactions = (post.reactions ?? [])
+          .slice(0, 2)
+          .map((reaction) => `${reaction.emoji ?? ''} ${reaction.count ?? ''}`.trim());
+        body.append(el('span', 'md-meta', [relativeTime(post.datetime ?? ''), ...reactions].filter(Boolean).join(' · ')));
+        bubble.append(body);
+        if (post.image) {
+          const thumb = el('img', 'md-thumb');
+          thumb.src = post.image;
+          thumb.alt = '';
+          thumb.loading = 'lazy';
+          thumb.decoding = 'async';
+          bubble.append(thumb);
+        }
+        return bubble;
+      }),
+    );
+    if (current === card) reposition();
   };
 
-  // The GitHub widget in the hero already fetched the year's total.
-  const fillContributions = (card: HTMLElement): void => {
-    const total = document.querySelector('[data-total] strong')?.textContent;
-    const row = card.querySelector<HTMLElement>('[data-contrib-row]');
-    const slot = card.querySelector<HTMLElement>('[data-contrib]');
-    if (!total || !row || !slot) return;
-    slot.textContent = `${total} contributions`;
-    row.hidden = false;
+  // ---------- GitHub ------------------------------------------------------
+
+  interface Day {
+    date: string;
+    count: number;
+    level: number;
+  }
+
+  const dayLabel = (iso: string): string =>
+    new Date(`${iso}T00:00:00Z`).toLocaleDateString('en', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+  let githubRequested = false;
+  const loadGitHub = async (): Promise<void> => {
+    if (githubRequested) return;
+    githubRequested = true;
+    const card = cardById('github');
+    const heat = card?.querySelector<HTMLElement>('[data-heat]');
+    if (!card || !heat) return;
+    let days: Day[] = [];
+    let total: number | null = null;
+    try {
+      const response = await fetch('/api/github/contributions?days=84');
+      if (!response.ok) throw new Error(String(response.status));
+      const data = (await response.json()) as { total?: { lastYear?: number }; contributions?: Day[] };
+      days = data.contributions ?? [];
+      total = data.total?.lastYear ?? null;
+    } catch {
+      // The grid stays empty and the stats keep their dashes.
+    }
+    if (days.length === 0) return;
+
+    // Rows are weekdays, Sunday first, the way GitHub draws it.
+    const offset = new Date(`${days[0].date}T00:00:00Z`).getUTCDay();
+    const cells: HTMLElement[] = [];
+    for (let i = 0; i < offset; i++) {
+      const blank = el('span');
+      blank.dataset.blank = '';
+      cells.push(blank);
+    }
+    days.forEach((day, i) => {
+      const cell = el('span');
+      cell.dataset.l = String(day.level);
+      cell.dataset.date = day.date;
+      cell.dataset.count = String(day.count);
+      cell.style.setProperty('--c', String(Math.floor((i + offset) / 7)));
+      cells.push(cell);
+    });
+    heat.replaceChildren(...cells);
+
+    const best = days.reduce((a, b) => (b.count > a.count ? b : a));
+    // Today may not have a commit yet; the streak counts back from yesterday then.
+    let streak = 0;
+    for (let i = days.length - 1; i >= 0; i--) {
+      if (days[i].count > 0) streak++;
+      else if (i < days.length - 1) break;
+    }
+    const set = (selector: string, text: string) => {
+      const node = card.querySelector(selector);
+      if (node) node.textContent = text;
+    };
+    if (total !== null) set('[data-gh-total]', total.toLocaleString('en'));
+    set('[data-gh-best]', String(best.count));
+    set('[data-gh-streak]', `${streak}d`);
+    heat.dataset.caption = `Last 12 weeks · busiest was ${dayLabel(best.date)}`;
+    set('[data-heat-caption]', heat.dataset.caption);
+    if (current === card) reposition();
   };
+
+  // ---------- Open and close ----------------------------------------------
 
   const open = (link: HTMLElement): void => {
-    const card = cardFor(link);
-    if (!card || card === current) return;
+    const card = cardById(link.dataset.card);
+    if (!card) return;
+    currentLink = link;
+    if (card === current) return;
     const switching = current !== null;
     if (current) {
       current.dataset.instant = '';
       delete current.dataset.open;
     }
-    if (card.dataset.cardId === 'moods') void loadMood(card);
-    if (card.dataset.cardId === 'github') fillContributions(card);
+    fillClock(card);
+    if (card.dataset.cardId === 'monash') fillTerms(card);
     if (switching) card.dataset.instant = '';
     else delete card.dataset.instant;
     place(card, link);
@@ -565,20 +1611,31 @@ const github = socials.find((social) => social.id === 'github');
     delete current.dataset.instant;
     delete current.dataset.open;
     current = null;
+    currentLink = null;
+  };
+
+  const scheduleClose = (): void => {
+    window.clearTimeout(openTimer);
+    window.clearTimeout(closeTimer);
+    closeTimer = window.setTimeout(close, CLOSE_DELAY_MS);
   };
 
   const linkFrom = (target: EventTarget | null): HTMLElement | null =>
     target instanceof Element ? target.closest<HTMLElement>('a[data-card]') : null;
+
+  const warm = (): void => {
+    void loadMoods();
+    void loadGitHub();
+  };
 
   if (layer && bio) {
     bio.addEventListener('pointerover', (event) => {
       if (event.pointerType !== 'mouse') return;
       const link = linkFrom(event.target);
       if (!link) return;
-      // Any link hover is intent to explore; start the one network read now
-      // so the mood card rarely opens on its skeleton.
-      const moods = layer.querySelector<HTMLElement>('[data-card-id="moods"]');
-      if (moods) void loadMood(moods);
+      // Any link hover is intent to explore; start the network reads now so
+      // the live cards rarely open on a placeholder.
+      warm();
       window.clearTimeout(closeTimer);
       window.clearTimeout(openTimer);
       if (current) open(link);
@@ -589,13 +1646,50 @@ const github = socials.find((social) => social.id === 'github');
       if (event.pointerType !== 'mouse') return;
       const link = linkFrom(event.target);
       if (!link || link.contains(event.relatedTarget as Node | null)) return;
-      window.clearTimeout(openTimer);
-      closeTimer = window.setTimeout(close, CLOSE_DELAY_MS);
+      scheduleClose();
+    });
+
+    // The open card holds itself open while the pointer is on it.
+    layer.addEventListener('pointerover', (event) => {
+      if (event.pointerType === 'mouse' && current?.contains(event.target as Node)) window.clearTimeout(closeTimer);
+    });
+    layer.addEventListener('pointerout', (event) => {
+      if (event.pointerType !== 'mouse' || !current) return;
+      if (current.contains(event.relatedTarget as Node | null)) return;
+      scheduleClose();
+    });
+
+    // Projects: the caption tells the story of the card under the pointer.
+    const stage = layer.querySelector<HTMLElement>('[data-pj-stage]');
+    const caption = layer.querySelector<HTMLElement>('[data-pj-caption]');
+    const captionDefault = caption ? Array.from(caption.childNodes) : [];
+    stage?.addEventListener('pointerover', (event) => {
+      const mini = (event.target as Element).closest<HTMLElement>('.pj-mini');
+      if (!mini || !caption) return;
+      caption.replaceChildren(el('strong', undefined, mini.dataset.name ?? ''), ` ${mini.dataset.blurb ?? ''}`);
+    });
+    stage?.addEventListener('pointerleave', () => {
+      caption?.replaceChildren(...captionDefault);
+    });
+
+    // GitHub: the caption reads out the day under the pointer.
+    const heat = layer.querySelector<HTMLElement>('[data-heat]');
+    const heatCaption = layer.querySelector<HTMLElement>('[data-heat-caption]');
+    heat?.addEventListener('pointerover', (event) => {
+      const cell = (event.target as Element).closest<HTMLElement>('span[data-date]');
+      if (!cell || !heatCaption) return;
+      const count = Number(cell.dataset.count);
+      heatCaption.textContent = `${dayLabel(cell.dataset.date ?? '')} · ${count} contribution${count === 1 ? '' : 's'}`;
+    });
+    heat?.addEventListener('pointerleave', () => {
+      if (heatCaption) heatCaption.textContent = heat.dataset.caption || 'Last 12 weeks';
     });
 
     bio.addEventListener('focusin', (event) => {
       const link = linkFrom(event.target);
-      if (link?.matches(':focus-visible')) open(link);
+      if (!link?.matches(':focus-visible')) return;
+      warm();
+      open(link);
     });
 
     bio.addEventListener('focusout', close);

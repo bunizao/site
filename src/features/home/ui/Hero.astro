@@ -6,6 +6,7 @@ import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
 import HeroCards from '@/features/home/ui/HeroCards.astro';
 import type { ListeningTrack } from '@/features/home/types';
+import { GitHubIcon, InstagramIcon, TelegramIcon } from '@/components/icons';
 import { hero, tech, profile, experience } from '@/data/site';
 
 interface Props {
@@ -22,7 +23,13 @@ const lcpAnchorName = typewriterNames.reduce(
 const school = experience[0];
 
 // Each link opens its own hover card (HeroCards.astro), named by `data-card`.
-const cardAttrs = (id: string) => ({ 'data-card': id, 'aria-describedby': `hero-card-${id}` });
+const cardAttrs = (id: string) => ({ 'data-card': id });
+// Brand marks lead the links that leave the site for a named place.
+const brandIcons: Record<string, typeof GitHubIcon> = {
+  GitHub: GitHubIcon,
+  Telegram: TelegramIcon,
+  Instagram: InstagramIcon,
+};
 const external = { target: '_blank', rel: 'noopener noreferrer' };
 // Underlines draw in reading order; the socials follow the five links above.
 const SOCIAL_DRAW_START = 5;
@@ -73,7 +80,7 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
       <DecodeText class="hero-bio">
         <p>
           I make interesting things. Currently studying Computer Science in
-          DS &amp; AI at <a class="hero-link" href={school.url} {...external} {...cardAttrs('monash')} style="--draw-i: 0" data-decode-atom>{school.org}</a>.
+          DS &amp; AI at <a class="hero-link hero-link--icon" href={school.url} {...external} {...cardAttrs('monash')} style="--draw-i: 0" data-decode-atom><span class="hero-link-icon hero-link-crest"></span>{school.org}</a>.
         </p>
         <p>
           Curious about <span class="text-foreground">frontend design</span>,
@@ -87,9 +94,12 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
         <p>
           <a class="hero-link" href="/message" {...cardAttrs('message')} style="--draw-i: 4" data-decode-atom>Reach out</a>
           about a cool idea, a bug on this site, or anything at all. I'm also on
-          {socials.map((social, i) => (
-            <>{socialJoiner(i)}<a class="hero-link" href={social.url} {...external} {...cardAttrs(social.name.toLowerCase())} style={`--draw-i: ${SOCIAL_DRAW_START + i}`} data-decode-atom>{social.name}</a></>
-          ))}.
+          {socials.map((social, i) => {
+            const Icon = brandIcons[social.name] ?? social.icon;
+            return (
+              <>{socialJoiner(i)}<a class="hero-link hero-link--icon" href={social.url} {...external} {...cardAttrs(social.name.toLowerCase())} style={`--draw-i: ${SOCIAL_DRAW_START + i}`} data-decode-atom><Icon className="hero-link-icon" />{social.name}</a></>
+            );
+          })}.
         </p>
       </DecodeText>
     </div>
@@ -312,7 +322,28 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
     color: var(--home-fg-primary);
     text-decoration: none;
     white-space: nowrap;
-    background: linear-gradient(var(--underline), var(--underline)) no-repeat 0 100% / 100% max(1px, 0.12em);
+    background: linear-gradient(var(--underline), var(--underline)) no-repeat var(--icon-w, 0px) 100% / calc(100% - var(--icon-w, 0px)) max(1px, 0.12em);
+  }
+
+  /* A brand mark sits in front of the word, outside its underline, so the
+     line still reads as the word. */
+  .hero-link--icon {
+    --icon-w: 1.25em;
+  }
+
+  .hero-link :global(.hero-link-icon) {
+    display: inline-block;
+    width: 0.95em;
+    height: 0.95em;
+    margin-right: 0.3em;
+    vertical-align: -0.12em;
+    opacity: 0.86;
+  }
+
+  /* The crest is detailed line art; a mask keeps it one ink in both themes. */
+  .hero-link-crest {
+    background: currentColor;
+    mask: url('/brands/monash-crest.svg') center / contain no-repeat;
   }
 
   /* The hover highlight rises out of the underline. */
