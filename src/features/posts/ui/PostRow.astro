@@ -13,9 +13,11 @@ interface Props {
    * majority of rows; the listing pages compute it once for the whole page.
    */
   otherLanguages?: string[];
+  /** Rendered but folded away until the index reveals it. */
+  hidden?: boolean;
 }
 
-const { post, otherLanguages = [] } = Astro.props;
+const { post, otherLanguages = [], hidden = false } = Astro.props;
 // The hover preview card renders well under 640px; don't let a hover pull the
 // full-size capture through the image proxy.
 const heroPreview = post.featureImage && post.featureImage.includes('/api/v2/images/blog/')
@@ -45,6 +47,7 @@ const languageMark = otherLanguages.length > 0
 
 <li
   class="blog-row"
+  hidden={hidden || undefined}
   data-hero={heroPreview ?? undefined}
   data-hero-alt={post.featureImageAlt ?? post.title}
 >

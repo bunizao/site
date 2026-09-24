@@ -128,27 +128,28 @@ Components compose the tokens above; they never introduce new colour or type.
 - `{components.callout}` / `{components.inline-code}` — quiet `{colors.fill}`
   surfaces at card / inline radius.
 
-### Index, ledger and archive
+### Index and ledger
 
-`/blog` lists the latest eight posts, not all of them, so a reader reaches the
-sea footer. The index then closes with the writing ledger
-(`BlogLedger.astro`, figures from `src/features/posts/ledger.ts`): posts, words
-and the first year on one line, then one strip of months from the first
-January to now: a `{colors.ji}` bar per month, its height the words written on a
-square-root scale so one long essay does not flatten the rest. The strip keeps
-its height and the column's width however many years it covers — more years
-only make the bars thinner. Chinese is counted by character and other scripts
-by word. Hovering or tapping a month reads it out under the strip; a year label
-with posts links to its group in the archive. A "全部 N 篇 →" link follows.
+`/blog` renders every listed post but shows only the latest eight, so a reader
+reaches the sea footer. "更早的 N 篇 ↓" unfolds the next eight in place, and
+any link to a year (`#y2024`: the year rail, which lists every year, the
+ledger's year labels, or a shared URL) unfolds every post down to the end of
+that year and scrolls to it. Without script, everything shows. There is no
+separate archive page.
 
-`/blog/archive` opens with the same ledger and then lists every listed post by
-year, with the year rail, and ends in the same sea. The ledger is the bridge:
-the index hands over to the full list through the same picture. A post's
-"← 全部文章" link goes to the archive.
+The index closes with the writing ledger (`BlogLedger.astro`, figures from
+`src/features/posts/ledger.ts`): posts, words and the first year on one line,
+then one strip of months from the first January to now: a `{colors.ji}` bar
+per month, its height the words written on a square-root scale so one long
+essay does not flatten the rest. The strip keeps its height and the column's
+width however many years it covers — more years only make the bars thinner.
+Chinese is counted by character and other scripts by word. Hovering a month
+with posts, or tapping it, opens a card over the bar naming that month's posts
+as links; the card stays while the pointer climbs into it.
 
 ### Sea footer
 
-`BlogSeaFooter.astro` closes the `/blog` index and archive with a crayon sailboat crossing a
+`BlogSeaFooter.astro` closes the `/blog` index with a crayon sailboat crossing a
 crayon sea — the literal reading of *sillage*, the wake a boat leaves behind.
 The sea is seen side on, a swell profile against the page; the page background
 is the sky, in both themes. The band starts under the site footer's last line,

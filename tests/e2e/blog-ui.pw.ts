@@ -156,7 +156,7 @@ async function firstBlogPostHref(page: Page): Promise<string> {
 }
 
 async function findBlogMusicPostHref(page: Page): Promise<string | null> {
-  await page.goto('/blog/archive', { waitUntil: 'domcontentloaded' });
+  await page.goto('/blog', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('.blog-row__link').first()).toBeVisible();
 
   const hrefs = await page.locator('.blog-row__link').evaluateAll((links) =>

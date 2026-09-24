@@ -12,7 +12,7 @@ describe('countWords', () => {
 });
 
 describe('writingLedger', () => {
-  const post = (publishedAt: string, plaintext: string) => ({ publishedAt, plaintext });
+  const post = (publishedAt: string, plaintext: string) => ({ title: publishedAt, slug: publishedAt, publishedAt, plaintext });
 
   test('tallies every month from the first January to now, oldest first', () => {
     const ledger = writingLedger(
@@ -34,6 +34,7 @@ describe('writingLedger', () => {
 
     const march = ledger.months[2];
     expect(march).toMatchObject({ year: 2024, month: 3, posts: 2, words: 5 });
+    expect(march.items.map((item) => item.slug)).toEqual(['2024-03-05T10:00:00Z', '2024-03-20T10:00:00Z']);
     // Against the busiest month (16 words), on a square root.
     expect(march.height).toBeCloseTo(Math.sqrt(5 / 16));
     expect(ledger.months[24]).toMatchObject({ year: 2026, month: 1, height: 1 });

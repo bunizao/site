@@ -16,17 +16,21 @@ import { mapOtherLanguages } from '@/features/posts/i18n';
 import Footer from '@/features/home/ui/Footer.astro';
 import { blog } from '@/data/site';
 
-/** The index shows the latest few; the ledger hands over to /blog/archive. */
-const RECENT = 8;
+/** Posts shown at first, and unfolded per press of "earlier". Every post is in
+    the page; the rest wait folded, so the sea footer is in reach. */
+const BATCH = 8;
 
 const [listedPosts, accessiblePosts] = await Promise.all([
   getListedPosts(),
   getAccessiblePosts({ outputTarget: 'web' }),
 ]);
-const groups = groupPostsByYear(listedPosts.slice(0, RECENT));
+const groups = groupPostsByYear(listedPosts);
 const ledger = writingLedger(listedPosts);
 // One pass for the whole page: a row cannot see its own siblings.
 const otherLanguages = mapOtherLanguages(accessiblePosts);
+const rank = new Map(listedPosts.map((post, i) => [post.slug, i]));
+const folded = (slug: string) => (rank.get(slug) ?? 0) >= BATCH;
+const earlier = blog.copy[blog.locale.blog].earlier;
 ---
 
 <BlogLayout
@@ -40,17 +44,31 @@ const otherLanguages = mapOtherLanguages(accessiblePosts);
   <BlogYearRail years={groups.map((group) => group.year)} />
 
   {groups.map((group) => (
-    <section class="blog-year" id={`y${group.year}`}>
+    <section class="blog-year" id={`y${group.year}`} hidden={group.posts.every((post) => folded(post.slug)) || undefined}>
       <h2 class="blog-year__heading">{group.year}</h2>
       <ul class="blog-list">
         {group.posts.map((post) => (
-          <PostRow post={post} otherLanguages={otherLanguages.get(post.slug)} />
+          <PostRow post={post} otherLanguages={otherLanguages.get(post.slug)} hidden={folded(post.slug)} />
         ))}
       </ul>
     </section>
   ))}
 
-  {ledger && <BlogLedger ledger={ledger} archive="/blog/archive" more={listedPosts.length > RECENT} />}
+  {listedPosts.length > BATCH && (
+    <button class="blog-earlier" type="button" data-blog-earlier data-template={earlier} hidden>
+      <span class="blog-earlier__label">{earlier.replace('{n}', String(listedPosts.length - BATCH))}</span>
+      <span aria-hidden="true">↓</span>
+    </button>
+  )}
+
+  {/* Without the script nothing unfolds, so show everything. */}
+  <noscript>
+    <style>
+      .blog-year[hidden], .blog-row[hidden] { display: block !important; }
+    </style>
+  </noscript>
+
+  {ledger && <BlogLedger ledger={ledger} />}
 
   {/* The sillage colophon is parked, not retired: BlogColophon.astro stays
      in place and this line is the whole switch. */}
@@ -61,3 +79,51 @@ const otherLanguages = mapOtherLanguages(accessiblePosts);
 
   <PostHover />
 </BlogLayout>
+
+<script>
+  // Unfold the folded posts: the next batch per press of "earlier", or every
+  // post down to the end of a year when a link to #y{year} is followed (the
+  // year rail, the ledger's year labels, or a shared URL).
+  const BATCH = 8;
+  const rows = Array.from(document.querySelectorAll<HTMLElement>('.blog-row'));
+  const sections = Array.from(document.querySelectorAll<HTMLElement>('.blog-year'));
+  const button = document.querySelector<HTMLButtonElement>('[data-blog-earlier]');
+  let shown = rows.findIndex((row) => row.hidden);
+  if (shown === -1) shown = rows.length;
+
+  const show = (count: number) => {
+    shown = Math.min(Math.max(count, shown), rows.length);
+    rows.forEach((row, i) => (row.hidden = i >= shown));
+    sections.forEach((section) => (section.hidden = !section.querySelector('.blog-row:not([hidden])')));
+    if (!button) return;
+    button.hidden = shown >= rows.length;
+    const label = button.querySelector('.blog-earlier__label');
+    if (label) label.textContent = (button.dataset.template ?? '').replace('{n}', String(rows.length - shown));
+  };
+
+  const throughYear = (hash: string) => {
+    const section = hash.startsWith('#y') ? document.getElementById(hash.slice(1)) : null;
+    const last = section?.querySelector<HTMLElement>('.blog-row:last-child');
+    if (last) show(rows.indexOf(last) + 1);
+    return section;
+  };
+
+  if (button) {
+    button.hidden = false;
+    button.addEventListener('click', () => show(shown + BATCH));
+  }
+
+  // Capture phase: unfold before the rail's own handler scrolls, or before
+  // the browser follows a plain anchor.
+  document.addEventListener(
+    'click',
+    (event) => {
+      const link = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="#y"]');
+      if (link) throughYear(link.getAttribute('href') ?? '');
+    },
+    true,
+  );
+
+  const landed = throughYear(location.hash);
+  landed?.scrollIntoView({ block: 'start' });
+</script>

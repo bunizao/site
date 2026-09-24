@@ -451,17 +451,13 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 }
 
 /* --- Writing ledger ------------------------------------------------------ */
-/* Totals and a year-by-month map, closing the /blog index and opening
-   /blog/archive (BlogLedger.astro). Months ink in 霁 blue by words written;
-   the map stays small and left-set, a margin note rather than a dashboard. */
+/* Totals and a strip of months closing the /blog index (BlogLedger.astro).
+   Months ink in 霁 blue by words written; the strip is a margin note, not a
+   dashboard. */
 .blog-ledger {
   /* The last year section already pads 48px below itself. */
   margin-top: 24px;
   font-variant-numeric: tabular-nums;
-}
-
-.blog-archive__head + .blog-ledger {
-  margin-top: 0;
 }
 
 .blog-ledger__stats {
@@ -482,6 +478,7 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
 /* One column per month, oldest on the left, bars rising from a shared
    baseline; year labels run under each January. */
 .blog-ledger__map {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(var(--months), minmax(0, 1fr));
   grid-template-rows: 44px auto;
@@ -506,13 +503,17 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   background: hsl(var(--foreground) / 0.08);
 }
 
-.blog-ledger__month[role='img']::before {
+.blog-ledger__month.is-written {
+  cursor: pointer;
+}
+
+.blog-ledger__month.is-written::before {
   background: var(--blog-ji);
 }
 
 /* A ring, not a new fill: the bar keeps its colour in both themes. */
 .blog-ledger__month.is-read::before {
-  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 3.5px var(--blog-ji);
+  box-shadow: 0 0 0 1.5px hsl(var(--background)), 0 0 0 2.5px var(--blog-ji);
 }
 
 .blog-ledger__year {
@@ -529,33 +530,86 @@ a.blog-ledger__year:hover {
   color: var(--blog-ink);
 }
 
-/* One line kept free, so reading a month never shifts the page. */
-.blog-ledger__note {
-  min-height: 1.5em;
-  margin-top: 10px;
+/* A month's posts, over its bar. `--tip` is the bar's centre within the card. */
+.blog-ledger__card {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  z-index: 5;
+  width: max-content;
+  max-width: min(320px, 100%);
+  padding: 10px 14px 12px;
+  border-radius: 12px;
+  background: hsl(var(--background));
+  box-shadow:
+    0 0 0 1px hsl(var(--foreground) / 0.08),
+    0 8px 24px hsl(var(--foreground) / 0.08);
   font-size: 13px;
-  line-height: 1.5;
-  color: var(--blog-muted);
+  line-height: 1.45;
 }
 
-.blog-ledger__more {
-  display: inline-flex;
-  gap: 6px;
-  margin-top: 8px;
-  font-size: 15px;
+/* Bridges the gap down to the bar, so a pointer on its way up never leaves. */
+.blog-ledger__card::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 12px;
+}
+
+.blog-ledger__card::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: var(--tip, 50%);
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  box-shadow: 1px 1px 0 hsl(var(--foreground) / 0.08);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.blog-ledger__card-note {
+  color: var(--blog-faint);
+}
+
+.blog-ledger__card ul {
+  margin-top: 4px;
+  list-style: none;
+}
+
+.blog-ledger__card a {
+  display: block;
+  padding: 3px 0;
+  font-size: 14px;
+  color: var(--blog-ink);
+  transition: color 0.15s ease;
+}
+
+.blog-ledger__card a:hover {
   color: var(--blog-accent);
 }
 
-.blog-ledger__more span {
+/* --- Earlier posts ------------------------------------------------------- */
+/* The index renders every post and folds all but the latest away; this
+   unfolds the next few in place (index.astro). */
+.blog-earlier {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 0;
+  font-size: 15px;
+  color: var(--blog-accent);
+  cursor: pointer;
+}
+
+.blog-earlier span {
   transition: transform 0.2s ease;
 }
 
-.blog-ledger__more:hover span {
-  transform: translateX(3px);
-}
-
-.blog-archive__head {
-  margin-bottom: 32px;
+.blog-earlier:hover span {
+  transform: translateY(2px);
 }
 
 /* --- Floating hero preview (cai.im) ------------------------------------- */

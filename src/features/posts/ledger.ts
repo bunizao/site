@@ -1,6 +1,5 @@
-// The blog's writing ledger: how much has been written, and when. Shown at the
-// foot of the /blog index and the head of /blog/archive, so the short index
-// hands over to the full list through the same picture instead of a cut.
+// The blog's writing ledger: how much has been written, and when. It closes the
+// /blog index, under the posts.
 
 /** Han, kana and hangul: each character is a word, the way 字 are counted. */
 const CJK = /[぀-ヿ㐀-䶿一-鿿가-힯豈-﫿]/g;
@@ -22,6 +21,8 @@ export interface LedgerMonth {
   words: number;
   /** 0–1: words against the busiest month, on a square root. */
   height: number;
+  /** What was published that month, oldest first. */
+  items: { title: string; slug: string }[];
 }
 
 export interface WritingLedger {
@@ -34,6 +35,8 @@ export interface WritingLedger {
 }
 
 interface LedgerPost {
+  title: string;
+  slug: string;
   publishedAt: string;
   plaintext: string;
 }
@@ -41,16 +44,21 @@ interface LedgerPost {
 /** Months are UTC, like the year groups on the index. */
 export function writingLedger(posts: LedgerPost[], now = new Date()): WritingLedger | null {
   const dated = posts
-    .map((post) => ({ at: new Date(post.publishedAt), words: countWords(post.plaintext ?? '') }))
-    .filter((post) => Number.isFinite(post.at.getTime()));
+    .map((post) => ({
+      at: new Date(post.publishedAt),
+      words: countWords(post.plaintext ?? ''),
+      item: { title: post.title, slug: post.slug },
+    }))
+    .filter((post) => Number.isFinite(post.at.getTime()))
+    .sort((a, b) => a.at.getTime() - b.at.getTime());
   if (dated.length === 0) return null;
 
-  const tally = new Map<string, { posts: number; words: number }>();
-  for (const { at, words } of dated) {
+  const tally = new Map<string, { words: number; items: LedgerMonth['items'] }>();
+  for (const { at, words, item } of dated) {
     const key = `${at.getUTCFullYear()}-${at.getUTCMonth() + 1}`;
-    const month = tally.get(key) ?? { posts: 0, words: 0 };
-    month.posts += 1;
+    const month = tally.get(key) ?? { words: 0, items: [] };
     month.words += words;
+    month.items.push(item);
     tally.set(key, month);
   }
 
@@ -64,10 +72,10 @@ export function writingLedger(posts: LedgerPost[], now = new Date()): WritingLed
   const months: LedgerMonth[] = [];
   for (let year = since; year <= lastYear; year++) {
     for (let month = 1; month <= (year === lastYear ? lastMonth : 12); month++) {
-      const { posts = 0, words = 0 } = tally.get(`${year}-${month}`) ?? {};
+      const { words = 0, items = [] } = tally.get(`${year}-${month}`) ?? {};
       // Square root, so one long essay does not flatten every other month.
       const height = busiest > 0 ? Math.sqrt(words / busiest) : 0;
-      months.push({ year, month, posts, words, height });
+      months.push({ year, month, posts: items.length, words, height, items });
     }
   }
 

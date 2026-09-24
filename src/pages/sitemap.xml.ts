@@ -23,7 +23,6 @@ const STATIC_PAGES = [
   '/mood',
   '/privacy',
   '/blog',
-  '/blog/archive',
   '/blog/tags',
   '/docs',
   '/components',

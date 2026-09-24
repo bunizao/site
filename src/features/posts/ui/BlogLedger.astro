@@ -1,35 +1,32 @@
 ---
-// The writing ledger: how many posts, how many words, since when, and one
-// strip of months showing when they were written. The strip keeps its height
-// however many years it covers; more years only make the months thinner. It closes the short /blog index
-// and opens /blog/archive, so the index hands over to the full list through the
-// same picture. A year with posts links to its group in the archive.
+// The writing ledger closing the /blog index: how many posts, how many words,
+// since when, and one strip of months showing when they were written. The
+// strip keeps its height however many years it covers; more years only make
+// the months thinner. Hovering or tapping a month with posts opens a small card
+// naming them; a year label unfolds the index down to that year.
 import { blog } from '@/data/site';
+import { postPath } from '../format';
 import type { LedgerMonth, WritingLedger } from '../ledger';
 import { formatWords } from '../ledger';
 
 interface Props {
   ledger: WritingLedger;
-  /** Where the year labels point: '' on the archive itself, '/blog/archive' elsewhere. */
-  archive: string;
-  /** Show the way on to the archive under the map. */
-  more?: boolean;
 }
 
-const { ledger, archive, more = false } = Astro.props;
+const { ledger } = Astro.props;
 const locale = blog.locale.blog;
 const t = blog.copy[locale].ledger;
 const fill = (text: string, values: Record<string, string | number>) =>
   text.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''));
 const number = (n: number) => n.toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US');
-const pad = (month: number) => String(month).padStart(2, '0');
 
-const note = ({ year, month, posts, words }: LedgerMonth) => {
-  const name = locale === 'zh' ? month : pad(month);
-  return posts > 0
-    ? fill(t.month, { year, month: name, posts, words: formatWords(words, locale) })
-    : fill(t.empty, { year, month: name });
-};
+const note = ({ year, month, posts, words }: LedgerMonth) =>
+  fill(t.month, {
+    year,
+    month: locale === 'zh' ? month : String(month).padStart(2, '0'),
+    posts,
+    words: formatWords(words, locale),
+  });
 
 // Each year's label sits under its January and spans its months.
 const years = ledger.months.reduce<{ year: number; start: number; span: number }[]>((list, month, i) => {
@@ -53,59 +50,94 @@ const written = new Set(ledger.months.filter((month) => month.posts > 0).map((mo
     aria-label={fill(t.label, { year: ledger.since })}
     style={`--months:${ledger.months.length}`}
   >
-    {ledger.months.map((month) => (
-      <span
-        class="blog-ledger__month"
-        style={`--h:${month.height.toFixed(3)}`}
-        data-note={note(month)}
-        role={month.posts > 0 ? 'img' : undefined}
-        aria-label={month.posts > 0 ? note(month) : undefined}
-        aria-hidden={month.posts > 0 ? undefined : 'true'}
-      ></span>
-    ))}
-    {years.map(({ year, start, span }) => (
+    {ledger.months.map((month, i) =>
+      month.posts > 0 ? (
+        <span
+          class="blog-ledger__month is-written"
+          style={`--h:${month.height.toFixed(3)}`}
+          data-card={i}
+          role="img"
+          aria-label={note(month)}
+        ></span>
+      ) : (
+        <span class="blog-ledger__month" aria-hidden="true"></span>
+      ),
+    )}
+    {years.map(({ year, start, span }) =>
       written.has(year) ? (
-        <a class="blog-ledger__year" href={`${archive}#y${year}`} style={`grid-column:${start} / span ${span}`}>{year}</a>
+        <a class="blog-ledger__year" href={`#y${year}`} style={`grid-column:${start} / span ${span}`}>{year}</a>
       ) : (
         <span class="blog-ledger__year" style={`grid-column:${start} / span ${span}`}>{year}</span>
-      )
-    ))}
+      ),
+    )}
+
+    {/* One card per written month, placed over its bar by the script. The
+       posts are already listed on the page, so the cards stay out of the
+       accessibility tree. */}
+    {ledger.months.map((month, i) =>
+      month.posts > 0 && (
+        <div class="blog-ledger__card" data-card-for={i} hidden aria-hidden="true">
+          <p class="blog-ledger__card-note">{note(month)}</p>
+          <ul>
+            {month.items.map((item) => (
+              <li><a href={postPath(item.slug)} tabindex="-1">{item.title}</a></li>
+            ))}
+          </ul>
+        </div>
+      ),
+    )}
   </div>
-
-  <p class="blog-ledger__note" aria-hidden="true" data-blog-ledger-note></p>
-
-  {more && (
-    <a class="blog-ledger__more" href={archive}>
-      {fill(t.more, { n: number(ledger.posts) })} <span aria-hidden="true">→</span>
-    </a>
-  )}
 </div>
 
 <script>
-  // Hover or tap a month to read it under the map. Touch has no title tooltip,
-  // so the note line is the one read-out for both.
+  // A mouse opens a month's card by hovering and keeps it while the pointer
+  // stays in the ledger, so it can travel up into the card and click a title.
+  // A tap opens it; a tap on the same bar or anywhere else closes it.
   for (const ledger of document.querySelectorAll<HTMLElement>('[data-blog-ledger]')) {
-    const note = ledger.querySelector<HTMLElement>('[data-blog-ledger-note]');
-    if (!note) continue;
-    let current: HTMLElement | null = null;
-    const show = (cell: HTMLElement | null) => {
-      current?.classList.remove('is-read');
-      current = cell;
-      current?.classList.add('is-read');
-      note.textContent = cell?.dataset.note ?? '';
+    const map = ledger.querySelector<HTMLElement>('.blog-ledger__map');
+    if (!map) continue;
+    let bar: HTMLElement | null = null;
+    let card: HTMLElement | null = null;
+
+    const close = () => {
+      bar?.classList.remove('is-read');
+      if (card) card.hidden = true;
+      bar = card = null;
     };
-    ledger.addEventListener('pointerover', (event) => {
-      const cell = (event.target as HTMLElement).closest<HTMLElement>('[data-note]');
-      if (cell && event.pointerType === 'mouse') show(cell);
+
+    const open = (next: HTMLElement) => {
+      if (next === bar) return;
+      close();
+      card = map.querySelector<HTMLElement>(`[data-card-for="${next.dataset.card}"]`);
+      if (!card) return;
+      bar = next;
+      bar.classList.add('is-read');
+      card.hidden = false;
+      // Centre the card over its bar, kept inside the ledger's column.
+      const center = next.offsetLeft + next.offsetWidth / 2;
+      const left = Math.min(Math.max(center - card.offsetWidth / 2, 0), map.clientWidth - card.offsetWidth);
+      card.style.left = `${left}px`;
+      card.style.setProperty('--tip', `${center - left}px`);
+    };
+
+    const barAt = (event: Event) => (event.target as HTMLElement).closest<HTMLElement>('[data-card]');
+
+    map.addEventListener('pointerover', (event) => {
+      const next = barAt(event);
+      if (next && event.pointerType === 'mouse') open(next);
     });
     ledger.addEventListener('pointerleave', (event) => {
-      if (event.pointerType === 'mouse') show(null);
+      if (event.pointerType === 'mouse') close();
     });
-    ledger.addEventListener('click', (event) => {
-      // A mouse already reads by hovering; a click there must not toggle it off.
+    map.addEventListener('click', (event) => {
       if ((event as PointerEvent).pointerType === 'mouse') return;
-      const cell = (event.target as HTMLElement).closest<HTMLElement>('[data-note]');
-      if (cell) show(cell === current ? null : cell);
+      const next = barAt(event);
+      if (!next) return;
+      if (next === bar) close();
+      else open(next);
+    });
+    document.addEventListener('pointerdown', (event) => {
+      if (card && !ledger.contains(event.target as Node)) close();
     });
   }
 </script>

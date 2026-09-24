@@ -144,7 +144,7 @@ the window does not guarantee a successful update after one request.
 | `/mood` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML | Markdown only; HTML is owned by the platform |
 | `/mood/[id]` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML; Markdown uses `s-maxage=300` | Markdown only; HTML is owned by the platform |
 | `/mood/embed` | `public, max-age=0, s-maxage=300` for supported embed parameters | HTML, query-keyed |
-| `/blog`, `/blog/archive`, `/blog/tags`, `/blog/tag/[slug]` | `public, max-age=0, s-maxage=120` for HTML and Markdown | HTML and Markdown, variant-keyed |
+| `/blog`, `/blog/tags`, `/blog/tag/[slug]` | `public, max-age=0, s-maxage=120` for HTML and Markdown | HTML and Markdown, variant-keyed |
 | `/blog/[slug]`, `/blog/[locale]/[slug]` | `public, max-age=0, s-maxage=300` for HTML and Markdown | HTML and Markdown, variant-keyed |
 | `/` | `public, max-age=0, s-maxage=300` for HTML and Markdown | HTML and Markdown, variant-keyed |
 | `/privacy` | `public, max-age=0, s-maxage=3600` for HTML and Markdown | Markdown only |

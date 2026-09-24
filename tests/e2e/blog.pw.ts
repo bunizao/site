@@ -274,12 +274,23 @@ test.describe('Blog routes', () => {
     await expect(searchDialog).toHaveJSProperty('open', true);
   });
 
-  test('closes the index with the writing ledger and hands over to the archive', async ({ page }) => {
+  test('folds older posts behind "earlier" and the year links, under the writing ledger', async ({ page }) => {
     await openBlogIndex(page);
 
     const rows = page.locator('.blog-row');
-    const shown = await rows.count();
-    expect(shown).toBeLessThanOrEqual(8);
+    const visible = page.locator('.blog-row:not([hidden])');
+    const total = await rows.count();
+    const shown = await visible.count();
+    expect(shown).toBe(Math.min(total, 8));
+
+    const earlier = page.locator('[data-blog-earlier]');
+    if (total > shown) {
+      await expect(earlier).toContainText(`${total - shown}`);
+      await earlier.click();
+      expect(await visible.count()).toBe(Math.min(total, shown + 8));
+    } else {
+      await expect(earlier).toHaveCount(0);
+    }
 
     const ledger = page.locator('.blog-ledger');
     await expect(ledger.locator('.blog-ledger__stats')).toContainText(/\d+ 篇/);
@@ -289,24 +300,27 @@ test.describe('Blog routes', () => {
     expect(months).toBeGreaterThan((years - 1) * 12);
     expect(months).toBeLessThanOrEqual(years * 12);
 
-    // Hovering a month reads it out under the map; leaving the map clears it.
-    const written = ledger.locator('.blog-ledger__month[role="img"]').first();
-    await written.hover();
-    await expect(ledger.locator('.blog-ledger__note')).toContainText(/\d+ 篇/);
+    // Hovering a written month opens a card naming its posts, which stays
+    // while the pointer climbs into it, and closes once it leaves the ledger.
+    const bar = ledger.locator('.blog-ledger__month.is-written').first();
+    await bar.scrollIntoViewIfNeeded();
+    await bar.hover();
+    const card = ledger.locator('.blog-ledger__card:not([hidden])');
+    await expect(card).toHaveCount(1);
+    await expect(card.locator('.blog-ledger__card-note')).toContainText(/\d+ 篇/);
+    const link = card.locator('a').first();
+    await link.hover();
+    await expect(card).toHaveCount(1);
     await page.mouse.move(0, 0);
-    await expect(ledger.locator('.blog-ledger__note')).toHaveText('');
+    await expect(card).toHaveCount(0);
 
-    const more = ledger.locator('.blog-ledger__more');
-    if ((await more.count()) > 0) {
-      await more.click();
-      await expect(page).toHaveURL(/\/blog\/archive$/);
-      expect(await page.locator('.blog-row').count()).toBeGreaterThan(shown);
-    } else {
-      await page.goto('/blog/archive');
-      expect(await page.locator('.blog-row').count()).toBe(shown);
-    }
-    await expect(page.locator('.blog-ledger')).toBeVisible();
-    await expect(page.locator('.sillage-sea')).toHaveCount(1);
+    // The oldest year's label unfolds every post down to it.
+    const oldest = ledger.locator('a.blog-ledger__year').first();
+    const year = (await oldest.innerText()).trim();
+    await oldest.click();
+    await expect(page.locator(`#y${year}`)).toBeVisible();
+    await expect(page.locator(`#y${year} .blog-row`).last()).toBeVisible();
+    await expect(earlier).toBeHidden();
   });
 
   test('lets the sea footer be played with: sound switch, creatures, the boat and dusk', async ({ page }) => {

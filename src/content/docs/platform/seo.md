@@ -123,7 +123,7 @@ permalink stops being root-level, or when a Ghost surface starts redirecting.
 `/sitemap.xml` ([`src/pages/sitemap.xml.ts`](https://github.com/bunizao/site/blob/main/src/pages/sitemap.xml.ts))
 is the only sitemap. It is built at deploy time from the same sources the
 pages render from: the fixed public sections (`/`, `/projects`, `/mood`,
-`/privacy`, `/blog`, `/blog/archive`, `/blog/tags`, `/docs`, `/components`), every non-draft
+`/privacy`, `/blog`, `/blog/tags`, `/docs`, `/components`), every non-draft
 docs and components entry, every listed blog article in each indexed language
 form, and every public tag. It omits `priority` and `changefreq` — Google
 ignores both — and carries `lastmod` only where a real edit date exists, which
