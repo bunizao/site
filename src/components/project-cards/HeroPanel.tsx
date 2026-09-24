@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { useReducedMotion } from "framer-motion";
+import { LazyMotion } from "framer-motion";
 import { renderHero } from "@/components/project-cards/ProjectShowcaseCard";
+import { usePrefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
 import type { ProjectHero } from "@/data/site";
+
+// Loaded async so the hero's own chunk stays framer-motion-free; only the
+// heroes that actually animate (OgCarouselHero, AttegiTourHero) pull this in
+// once they mount under this LazyMotion.
+const loadDomAnimation = () =>
+  import("@/lib/motion-features/dom-animation").then((mod) => mod.default);
 
 // A single project's living hero, sized for the /projects ledger. Unlike the
 // home deck — where every hero is a thumbnail card face flipped through one at
@@ -17,7 +24,7 @@ export default function HeroPanel({
   accent?: { light: string; dark: string };
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const [inView, setInView] = useState(false);
   const [hovered, setHovered] = useState(false);
 
@@ -51,7 +58,7 @@ export default function HeroPanel({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {renderHero(hero, live)}
+      <LazyMotion features={loadDomAnimation}>{renderHero(hero, live)}</LazyMotion>
     </div>
   );
 }

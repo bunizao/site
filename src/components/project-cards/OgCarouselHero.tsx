@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
-import {
-  AnimatePresence,
-  motion,
-  useIsPresent,
-  useReducedMotion,
-} from "framer-motion";
+import { AnimatePresence, m, useIsPresent } from "framer-motion";
+import { usePrefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
 
 // A framed carousel of OG cards — each one generated live by ogis from a
 // different background and headline. The hero IS the demo. The card floats at
@@ -36,7 +32,7 @@ function ForegroundImage({ slide, eager }: { slide: Slide; eager: boolean }) {
   const present = useIsPresent();
 
   return (
-    <motion.img
+    <m.img
       src={slide.src}
       alt={present ? slide.alt : ""}
       aria-hidden={present ? undefined : true}
@@ -53,7 +49,7 @@ function ForegroundImage({ slide, eager }: { slide: Slide; eager: boolean }) {
 }
 
 export default function OgCarouselHero({ hovered = false }: { hovered?: boolean }) {
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const [mounted, setMounted] = useState(false);
   const [active, setActive] = useState(0);
   const shouldReduce = mounted && reduced === true;
@@ -81,7 +77,7 @@ export default function OgCarouselHero({ hovered = false }: { hovered?: boolean 
           sharp card on top melts into its own colour instead of sitting inside a
           frame. No border, no mount: the only edge is the hero tile's ring. */}
       <AnimatePresence initial={false}>
-        <motion.img
+        <m.img
           key={`bg-${backgroundSrc}`}
           src={backgroundSrc}
           alt=""

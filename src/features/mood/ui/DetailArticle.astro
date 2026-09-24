@@ -49,6 +49,12 @@ const postTags = post ? post.tags ?? (post.tag ? [post.tag] : []) : [];
 const channelName = post?.channel?.title?.trim() || post?.channel?.slug?.trim() || '';
 const channelAvatar = post?.channel?.avatar?.trim() || '';
 const postReactions = post?.reactions ?? [];
+// The tally arrives as a number or a numeric string depending on the read
+// path; anything else is unknown, which keeps the default skeleton.
+const parsedCommentsCount = Number(post?.commentsCount);
+const knownCommentsCount = post?.commentsCount !== undefined && Number.isFinite(parsedCommentsCount)
+  ? parsedCommentsCount
+  : undefined;
 ---
 
 {post ? (
@@ -172,6 +178,7 @@ const postReactions = post?.reactions ?? [];
         discussionRepliesEnabled={discussionRepliesEnabled}
         turnstileSiteKey={turnstileSiteKey}
         locale={locale}
+        commentsCount={knownCommentsCount}
       />
     )}
   </article>

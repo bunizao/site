@@ -114,8 +114,12 @@ state rather than crashing. It composes [`DetailArticle.astro`](https://github.c
 
 ### Comments
 
-1. [`CommentsSection.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/CommentsSection.astro) renders a skeleton.
-2. [`detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts) fetches `GET /api/comments?postId=…`.
+1. [`CommentsSection.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/CommentsSection.astro) renders one skeleton row per known comment (at
+   most three), or the collapsed empty thread when the post's count is `0`,
+   and an inline script starts `GET /api/comments?postId=…` while the page is
+   still parsing (`src/lib/api-prefetch.ts`).
+2. [`detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts) takes that in-flight response for
+   the first page; later pages and live refreshes fetch normally.
 3. `site-api` validates `postId` and optional `before`, then reads the live
    Telegram mirror through the canonical v1 path.
 4. The client renders sanitized comments and pages with `before=<commentId>`.

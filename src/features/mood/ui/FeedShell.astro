@@ -12,7 +12,7 @@ import {
   getMoodFeedAnchorFragmentId,
   getMoodFeedNavigationId,
 } from '@/features/mood/shared/feed-anchor';
-import { getCriticalInitialPosts, hasRenderableMoodFeedMedia } from '@/features/mood/shared/initial-feed';
+import { getCriticalInitialPosts, hasLcpCandidateMedia } from '@/features/mood/shared/initial-feed';
 import {
   formatMoodDateHeader,
   formatMoodDateKey,
@@ -72,7 +72,7 @@ const activeTagFilter = normalizeMoodTagSlug(tagFilter);
 // a hard layout shift; the payload stubs below keep the inline JSON small.
 const criticalInitialPosts = getCriticalInitialPosts(initialPosts, anchorId, initialPosts.length);
 const criticalDateGroups = groupPostsByDate(criticalInitialPosts);
-const criticalPriorityPostId = criticalInitialPosts.find(hasRenderableMoodFeedMedia)?.id ?? '';
+const criticalPriorityPostId = criticalInitialPosts.find(hasLcpCandidateMedia)?.id ?? '';
 const hasCriticalInitialPosts = criticalInitialPosts.length > 0;
 
 // The critical posts above are already SSR-rendered into the feed markup, and

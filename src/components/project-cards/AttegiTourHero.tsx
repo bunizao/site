@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
-import {
-  AnimatePresence,
-  motion,
-  useIsPresent,
-  useReducedMotion,
-} from "framer-motion";
+import { AnimatePresence, m, useIsPresent } from "framer-motion";
+import { usePrefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
 
 // A live-site tour of the Attegi theme. Three real screenshots — homepage,
 // editorial TOC, code blocks — cross-dissolve inside a browser chrome, and
@@ -51,7 +47,7 @@ function TourImage({
   const present = useIsPresent();
 
   return (
-    <motion.img
+    <m.img
       src={slide.src}
       alt={present ? slide.alt : ""}
       aria-hidden={present ? undefined : true}
@@ -76,7 +72,7 @@ function TourImage({
 }
 
 export default function AttegiTourHero({ hovered = false }: { hovered?: boolean }) {
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const [mounted, setMounted] = useState(false);
   const [active, setActive] = useState(0);
   const shouldReduce = mounted && reduced === true;
@@ -107,7 +103,7 @@ export default function AttegiTourHero({ hovered = false }: { hovered?: boolean 
         <span className="h-2 w-2 rounded-full bg-[#28c840]" />
         <div className="ml-2 flex-1 overflow-hidden rounded-[4px] bg-stone-900/[0.05] px-2 py-0.5 dark:bg-white/[0.06]">
           <AnimatePresence mode="wait" initial={false}>
-            <motion.span
+            <m.span
               key={slide.url}
               className="block truncate text-center font-code text-[10px] text-stone-500 dark:text-white/40"
               initial={shouldReduce ? false : { opacity: 0 }}
@@ -116,7 +112,7 @@ export default function AttegiTourHero({ hovered = false }: { hovered?: boolean 
               transition={{ duration: 0.3 }}
             >
               {slide.url}
-            </motion.span>
+            </m.span>
           </AnimatePresence>
         </div>
       </div>

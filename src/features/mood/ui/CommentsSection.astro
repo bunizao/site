@@ -2,6 +2,8 @@
 import CommentCompose from '@/features/mood/ui/CommentCompose.astro';
 import { resolveMoodCommentsCopy } from '@/features/comments/copy';
 import type { BlogLocale } from '@/data/site';
+import ApiPrefetch from '@/components/ApiPrefetch.astro';
+import { moodCommentsUrl } from '@/features/comments/api-urls';
 
 interface Props {
   postId: string;
@@ -17,6 +19,11 @@ interface Props {
       the section as `data-locale` so the client controller, which builds the
       comment rows, reads the same language this markup was rendered in. */
   locale: BlogLocale;
+  /** The post's comment tally as the page knows it. Sizes the loading
+      skeleton so the thread lands close to where it will end up; 0 renders
+      the empty (collapsed) thread straight away instead of two placeholder
+      rows that would vanish. Omitted means unknown: two rows. */
+  commentsCount?: number;
 }
 
 const {
@@ -26,9 +33,17 @@ const {
   discussionRepliesEnabled = false,
   turnstileSiteKey = '',
   locale,
+  commentsCount,
 } = Astro.props;
 
 const t = resolveMoodCommentsCopy(locale);
+
+const SKELETON_ROWS = [
+  { delay: '0s', author: '100px', date: '49px', content: '34px' },
+  { delay: '0.15s', author: '85px', date: '55px', content: '120px' },
+  { delay: '0.3s', author: '92px', date: '52px', content: '76px' },
+];
+const skeletonRows = SKELETON_ROWS.slice(0, commentsCount === undefined ? 2 : Math.min(commentsCount, SKELETON_ROWS.length));
 ---
 
 <section
@@ -38,6 +53,9 @@ const t = resolveMoodCommentsCopy(locale);
   data-locale={locale}
   data-discussion-replies-enabled={discussionRepliesEnabled ? 'true' : 'false'}
 >
+  {/* The thread's first page, requested while the page parses; the controller
+      only runs after load and two frames. See lib/api-prefetch.ts. */}
+  <ApiPrefetch urls={[moodCommentsUrl(postId)]} />
   {discussionLinked && (
     <CommentCompose
       postId={postId}
@@ -51,52 +69,35 @@ const t = resolveMoodCommentsCopy(locale);
     <span class="mood-comments-count" data-comments-count></span>
   </div>
   <div class="mood-comments-list" data-comments-list>
-    <div class="mood-comments-skeleton" data-comments-loading>
-      <div class="mood-comment mood-comment--skeleton" style="--skeleton-delay: 0s;">
-        <div class="mood-comment-avatar mood-comment-avatar--skeleton" aria-hidden="true"></div>
-        <div class="mood-comment-body">
-          <div class="mood-comment-header">
-            <span
-              class="mood-comment-skeleton-line mood-comment-skeleton-line--author"
-              style="--line-width: 100px;"
-            ></span>
-            <span
-              class="mood-comment-skeleton-line mood-comment-skeleton-line--date"
-              style="--line-width: 49px;"
-            ></span>
+    {skeletonRows.length > 0 && (
+      <div class="mood-comments-skeleton" data-comments-loading>
+        {skeletonRows.map((row) => (
+          <div class="mood-comment mood-comment--skeleton" style={`--skeleton-delay: ${row.delay};`}>
+            <div class="mood-comment-avatar mood-comment-avatar--skeleton" aria-hidden="true"></div>
+            <div class="mood-comment-body">
+              <div class="mood-comment-header">
+                <span
+                  class="mood-comment-skeleton-line mood-comment-skeleton-line--author"
+                  style={`--line-width: ${row.author};`}
+                ></span>
+                <span
+                  class="mood-comment-skeleton-line mood-comment-skeleton-line--date"
+                  style={`--line-width: ${row.date};`}
+                ></span>
+              </div>
+              <div class="mood-comment-content mood-comment-content--skeleton">
+                <span
+                  class="mood-comment-skeleton-line mood-comment-skeleton-line--content"
+                  style={`--line-width: ${row.content};`}
+                ></span>
+              </div>
+            </div>
           </div>
-          <div class="mood-comment-content mood-comment-content--skeleton">
-            <span
-              class="mood-comment-skeleton-line mood-comment-skeleton-line--content"
-              style="--line-width: 34px;"
-            ></span>
-          </div>
-        </div>
+        ))}
       </div>
-      <div class="mood-comment mood-comment--skeleton" style="--skeleton-delay: 0.15s;">
-        <div class="mood-comment-avatar mood-comment-avatar--skeleton" aria-hidden="true"></div>
-        <div class="mood-comment-body">
-          <div class="mood-comment-header">
-            <span
-              class="mood-comment-skeleton-line mood-comment-skeleton-line--author"
-              style="--line-width: 85px;"
-            ></span>
-            <span
-              class="mood-comment-skeleton-line mood-comment-skeleton-line--date"
-              style="--line-width: 55px;"
-            ></span>
-          </div>
-          <div class="mood-comment-content mood-comment-content--skeleton">
-            <span
-              class="mood-comment-skeleton-line mood-comment-skeleton-line--content"
-              style="--line-width: 120px;"
-            ></span>
-          </div>
-        </div>
-      </div>
-    </div>
+    )}
   </div>
-  <div class="mood-comments-empty" data-comments-empty hidden>
+  <div class="mood-comments-empty" data-comments-empty hidden={skeletonRows.length > 0}>
     <p>{t.empty}</p>
   </div>
   {/* The thread's foot: the control that continues it, and the route out of
