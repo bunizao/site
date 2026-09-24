@@ -119,25 +119,26 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   <!-- Monash: the student card, on its lanyard. -->
   <div class="hc hc--loose hc--monash" data-card-id="monash" data-prefer="bottom">
     <div class="mo-swing">
-      <svg class="mo-lanyard" viewBox="-32 0 272 64" aria-hidden="true">
+      <svg class="mo-lanyard" viewBox="-32 0 272 80" aria-hidden="true">
         <path class="mo-strap mo-strap--back" d="M142 -8 L110 34" />
         <path class="mo-strap" d="M66 -8 L98 34" />
         <rect class="mo-clamp" x="89" y="28" width="30" height="12" rx="3" />
         <circle class="mo-ring" cx="104" cy="49" r="6" />
-        <rect class="mo-hook" x="99.5" y="53" width="9" height="19" rx="4.5" />
+        <rect class="mo-hook" x="99.5" y="53" width="9" height="24" rx="4.5" />
       </svg>
       <a class="mo-badge" href={school.url} {...external}>
         <span class="mo-photo">
-          <svg class="mo-m" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <svg class="mo-m" viewBox="0 0 100 230" aria-hidden="true">
             <defs>
-              <linearGradient id="mo-m-ink" x1="0" y1="0" x2="0.6" y2="1">
-                <stop offset="0" stop-color="#c3d8f2" />
-                <stop offset="1" stop-color="#dbe6f4" stop-opacity="0.5" />
+              <linearGradient id="mo-m-ink" x1="0" y1="0" x2="0.5" y2="1">
+                <stop offset="0" stop-color="#c4d9f2" />
+                <stop offset="1" stop-color="#e3eaf4" />
               </linearGradient>
             </defs>
-            <path d="M0 0 H46 L50.5 36 L55 0 H100 V100 H73 L69.5 78 L66 100 H37 L31.5 56 L26 100 H0 Z" fill="url(#mo-m-ink)" />
+            <rect width="100" height="230" fill="#fafbfd" />
+            <path d="M0 0 H44 L50 74 L56 0 H100 V230 H72.8 V136 L64.4 230 H35.6 L27.2 136 V230 H0 Z" fill="url(#mo-m-ink)" />
           </svg>
-          <span class="mo-slot"></span>
+          <span class="mo-hole"></span>
           <span class="mo-portrait">{initials}</span>
         </span>
         <span class="mo-info">
@@ -557,7 +558,8 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     z-index: 2;
     display: block;
     width: 272px;
-    height: 64px;
+    height: 80px;
+    margin-bottom: -16px;
     overflow: visible;
     mask: linear-gradient(transparent, #000 24px);
   }
@@ -603,33 +605,34 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     filter: brightness(0.92);
   }
 
-  /* The photo panel, with the big pale M the university prints behind it. */
+  /* The photo panel. The M is the university's M device, one shape at
+     1:2.3 and never stretched, so its height sets its width. */
   .mo-photo {
     position: relative;
     display: grid;
     place-items: center;
-    height: 128px;
+    height: 196px;
     overflow: hidden;
     background: #f1f3f7;
   }
 
   .mo-m {
     position: absolute;
-    top: 0;
-    left: -8px;
-    width: 162px;
+    inset: 0 auto 0 0;
     height: 100%;
+    width: auto;
   }
 
-  .mo-slot {
+  /* The punched hole the clip goes through. */
+  .mo-hole {
     position: absolute;
-    top: 5px;
+    top: 7px;
     left: 50%;
-    width: 34px;
-    height: 7px;
-    border-radius: 4px;
-    background: #d9dee6;
-    box-shadow: inset 0 1px 2px oklch(0 0 0 / 0.25);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #3a414b;
+    box-shadow: inset 0 1px 2px oklch(0 0 0 / 0.5);
     translate: -50% 0;
   }
 
@@ -637,16 +640,14 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     position: relative;
     display: grid;
     place-items: center;
-    width: 88px;
-    height: 88px;
-    margin-top: 10px;
+    width: 128px;
+    height: 128px;
+    margin-top: 12px;
     border-radius: 50%;
     background: #e2e8f1;
-    box-shadow:
-      0 0 0 4px #fff,
-      0 0 0 5px oklch(0 0 0 / 0.06);
+    box-shadow: 0 0 0 5px #fff;
     font-family: var(--font-display);
-    font-size: 28px;
+    font-size: 38px;
     font-weight: 600;
     letter-spacing: 0.02em;
     color: #3a4a60;
