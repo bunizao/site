@@ -196,6 +196,71 @@ test.describe('Blog routes', () => {
 
     await expect(page.locator('.blog-colophon')).toHaveCount(0);
 
+    // The sea footer. Assert the layer order, not just presence: the boat has to
+    // sit between the two seas so the near one hides its hull, the white water
+    // has to lie on top of the water it breaks from, and the front row goes in
+    // front of all of it. The art loads only once the band is in view.
+    const sea = page.locator('.sillage-sea');
+    await expect(sea).toHaveAttribute('aria-hidden', 'true');
+    const layers = (el: Element) =>
+      Array.from(el.children, (child) => child.className.replace('sillage-sea__', '')).filter(
+        (layer) => layer !== 'foam',
+      );
+    expect(await sea.evaluate(layers)).toEqual(['dusk', 'sun', 'clouds', 'back', 'boat', 'near', 'glitter', 'wake', 'front']);
+    expect(await sea.locator('.sillage-sea__wake').evaluate(layers)).toEqual(['bow', 'churn', 'glint']);
+    await sea.scrollIntoViewIfNeeded();
+    await expect(sea).toHaveAttribute('data-seen', '');
+    await expect(sea.locator('.sillage-sea__near')).toHaveCSS(
+      'background-image',
+      // Dusk by the reader's clock is its own set; either is right here.
+      /\/sillage\/(?:dusk-)?(?:light|dark)\/near\.webp/,
+    );
+
+    // Touch: a tap on the water splashes, and a sideways drag takes hold of
+    // the sea and drives it faster than its own pace. Under reduced motion
+    // the sea stands still and a touch does nothing.
+    let band = (await sea.boundingBox())!;
+    let waterY = band.y + band.height - 24;
+    await page.mouse.click(band.x + band.width * 0.7, waterY);
+    await expect(sea.locator('.sillage-sea__splash')).toHaveCount(0);
+    // A sea that cannot be touched never sounds, so it has no sound switch.
+    await expect(page.getByRole('button', { name: 'Sound of the sea' })).toBeHidden();
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+    // Scroll runs on into the sea: past the end of the page, a wheel keeps
+    // driving the water. The sea stays silent, and fetches no surf, until it
+    // is touched.
+    const nearRate = () =>
+      sea.locator('.sillage-sea__near').evaluate((el) => el.getAnimations()[0].playbackRate);
+    const sounds: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/sillage/sound/')) sounds.push(new URL(request.url()).pathname);
+    });
+    await page.locator('[data-page-scroller]').evaluate((el) => (el.scrollTop = el.scrollHeight));
+    band = (await sea.boundingBox())!;
+    waterY = band.y + band.height - 24;
+    await page.mouse.move(band.x + band.width * 0.5, band.y - 120);
+    for (let step = 0; step < 10; step++) {
+      await page.mouse.wheel(0, 60);
+      await page.waitForTimeout(16);
+    }
+    expect(await nearRate()).toBeGreaterThan(1);
+    expect(sounds).not.toContain('/sillage/sound/surf.m4a');
+
+    await page.mouse.click(band.x + band.width * 0.7, waterY);
+    await expect(sea.locator('.sillage-sea__splash').first()).toBeAttached();
+    await expect.poll(() => sounds).toContain('/sillage/sound/surf.m4a');
+    await page.mouse.move(band.x + band.width * 0.8, waterY);
+    await page.mouse.down();
+    for (let step = 1; step <= 12; step++) {
+      await page.mouse.move(band.x + band.width * (0.8 - step * 0.03), waterY);
+      await page.waitForTimeout(16);
+    }
+    await expect(sea).toHaveAttribute('data-held', '');
+    expect(await nearRate()).toBeGreaterThan(1);
+    await page.mouse.up();
+    await expect(sea).not.toHaveAttribute('data-held', '');
+
     const firstPostHref = pathFromHref(
       await page.locator('.blog-row__link').first().getAttribute('href'),
       BLOG_POST_PATH_RE,
@@ -207,6 +272,101 @@ test.describe('Blog routes', () => {
     const searchDialog = page.getByRole('dialog', { name: 'Site search and commands' });
     await expect(searchDialog).toBeVisible();
     await expect(searchDialog).toHaveJSProperty('open', true);
+  });
+
+  test('folds older posts behind "earlier" and the year links, under the writing ledger', async ({ page }) => {
+    await openBlogIndex(page);
+
+    const rows = page.locator('.blog-row');
+    const visible = page.locator('.blog-row:not([hidden])');
+    const total = await rows.count();
+    const shown = await visible.count();
+    expect(shown).toBe(Math.min(total, 8));
+
+    const earlier = page.locator('[data-blog-earlier]');
+    if (total > shown) {
+      await expect(earlier).toContainText(`${total - shown}`);
+      await earlier.click();
+      expect(await visible.count()).toBe(Math.min(total, shown + 8));
+    } else {
+      await expect(earlier).toHaveCount(0);
+    }
+
+    const ledger = page.locator('.blog-ledger');
+    await expect(ledger.locator('.blog-ledger__stats')).toContainText(/\d+ 篇/);
+    // One strip of months from the first January to now, one label a year.
+    const years = await ledger.locator('.blog-ledger__year').count();
+    const months = await ledger.locator('.blog-ledger__month').count();
+    expect(months).toBeGreaterThan((years - 1) * 12);
+    expect(months).toBeLessThanOrEqual(years * 12);
+
+    // Hovering a written month opens a card naming its posts, which stays
+    // while the pointer climbs into it, and closes once it leaves the ledger.
+    const bar = ledger.locator('.blog-ledger__month.is-written').first();
+    await bar.scrollIntoViewIfNeeded();
+    await bar.hover();
+    const card = ledger.locator('.blog-ledger__card:not([hidden])');
+    await expect(card).toHaveCount(1);
+    await expect(card.locator('.blog-ledger__card-note')).toContainText(/\d+ 篇/);
+    const link = card.locator('a').first();
+    await link.hover();
+    await expect(card).toHaveCount(1);
+    await page.mouse.move(0, 0);
+    await expect(card).toHaveCount(0);
+
+    // The oldest year's label unfolds every post down to it.
+    const oldest = ledger.locator('a.blog-ledger__year').first();
+    const year = (await oldest.innerText()).trim();
+    await oldest.click();
+    await expect(page.locator(`#y${year}`)).toBeVisible();
+    await expect(page.locator(`#y${year} .blog-row`).last()).toBeVisible();
+    await expect(earlier).toBeHidden();
+  });
+
+  test('lets the sea footer be played with: sound switch, creatures, the boat and dusk', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const response = await page.goto('/blog?sea=dusk');
+    expect(response?.ok()).toBeTruthy();
+    const sea = page.locator('.sillage-sea');
+    await page.locator('[data-page-scroller]').evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await expect(sea).toHaveAttribute('data-seen', '');
+
+    // Dusk, on request here and by the reader's clock otherwise: its own set.
+    await expect(sea).toHaveAttribute('data-dusk', '');
+    await expect(sea.locator('.sillage-sea__near')).toHaveCSS('background-image', /\/sillage\/dusk-(?:light|dark)\/near\.webp/);
+    await expect(sea.locator('.sillage-sea__dusk')).toHaveCSS('background-image', /\/sillage\/dusk-(?:light|dark)\/sky\.webp/);
+
+    // The sound switch: pressed means on; off is remembered.
+    const toggle = page.getByRole('button', { name: 'Sound of the sea' });
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Sound of the sea' })).toHaveAttribute('aria-pressed', 'false');
+    await page.getByRole('button', { name: 'Sound of the sea' }).click();
+    await page.locator('[data-page-scroller]').evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await expect(sea).toHaveAttribute('data-awake', '');
+
+    // The first touch of the water always brings a dolphin up.
+    const band = (await sea.boundingBox())!;
+    await page.mouse.click(band.x + band.width * 0.7, band.y + band.height - 24);
+    await expect(sea.locator('.sillage-sea__dolphin')).toBeAttached();
+
+    // The boat can be picked up out of the water, and falls back when let go.
+    const boat = sea.locator('.sillage-sea__boat');
+    const hull = (await boat.boundingBox())!;
+    const lift = async () =>
+      boat.evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m42);
+    await page.mouse.move(hull.x + hull.width / 2, hull.y + hull.height * 0.6);
+    await page.mouse.down();
+    for (let step = 1; step <= 10; step++) {
+      await page.mouse.move(hull.x + hull.width / 2, hull.y + hull.height * 0.6 - step * 5);
+      await page.waitForTimeout(16);
+    }
+    await expect(sea).toHaveAttribute('data-held', '');
+    expect(await lift()).toBeLessThan(-20);
+    await page.mouse.up();
+    await expect.poll(lift, { timeout: 5000 }).toBeGreaterThan(-3);
   });
 
   test('keeps the hover cover and indicator aligned during wheel scrolling', async ({ page }) => {

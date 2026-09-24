@@ -128,6 +128,123 @@ Components compose the tokens above; they never introduce new colour or type.
 - `{components.callout}` / `{components.inline-code}` — quiet `{colors.fill}`
   surfaces at card / inline radius.
 
+### Index and ledger
+
+`/blog` renders every listed post but shows only the latest eight, so a reader
+reaches the sea footer. "更早的 N 篇 ↓", a full-width filled control, unfolds
+the next eight in place; the rows arrive staggered, rising and fading in (no
+motion under `prefers-reduced-motion`). The year section above the control drops
+its hairline while the fold hides the rest, so the control, not a rule, ends the
+list. Any link to a year (`#y2024`: the year rail, which lists every year, the
+ledger's year labels, or a shared URL) unfolds every post down to the end of
+that year and scrolls to it. Without script, everything shows. There is no
+separate archive page.
+
+The index closes with the writing ledger (`BlogLedger.astro`, figures from
+`src/features/posts/ledger.ts`): posts, words and the first year on one quiet
+caption line, figures in ink and units faint, well clear of the control, then
+one strip of months from the first January to now: a `{colors.ji}` bar per month, its height the words written on a square-root scale so one long
+essay does not flatten the rest. The strip keeps its height and the column's
+width however many years it covers — more years only make the bars thinner.
+Chinese is counted by character and other scripts by word. Hovering a month
+with posts, or tapping it, opens a card over the bar naming that month's posts
+as links; the card stays while the pointer climbs into it.
+
+### Sea footer
+
+`BlogSeaFooter.astro` closes the `/blog` index with a crayon sailboat crossing a
+crayon sea — the literal reading of *sillage*, the wake a boat leaves behind.
+The sea is seen side on, a swell profile against the page; the page background
+is the sky, in both themes. The band starts under the site footer's last line,
+which sits on top of it, so the page ends in the sea's sky rather than a gap.
+
+The art is generated. `scripts/paint-sillage.ts` paints every layer in four
+lights — day, night, and dusk in each theme — mixing the day and night colours
+from `blogPalette`, so the sea is the same three
+blues as the links above it. Change an ink, re-run, and the painting follows;
+`public/sillage/README.md` covers the files. The same run writes
+`sillage-motion.json` next to the component, which carries the geometry and the
+motion. The component draws nothing and hardcodes no numbers.
+
+Layers, back to front: the dusk sky and sun (dusk only), clouds, back
+swell, boat, near sea, the sun's road (dusk only), the white water (bow wave,
+wake and, once the lantern is lit, its reflection), then a front row of waves
+across the lower sea. The picture's box runs 120 art px above the band, behind
+the footer, so whatever leaves the water has sky to fly in. Each row of water is lighter at its crest and darker
+toward its floor, so the row in front stands off the one behind it; the tallest
+crests break white, on their steeper downwind faces. These are worth knowing
+before touching it:
+
+- **The boat holds still; the water moves.** Each row is a seamless tile
+  translated one tile per loop, nearer rows faster, for parallax. The back and
+  front rows also breathe up and down on their own slow counts. The near row is
+  pinned to the boat's position, so the tile point the ride was sampled at is
+  under the hull at any viewport width.
+- **The boat rides the painted swell.** Its heave and pitch keyframes are
+  sampled from the surface function the near sea was painted with
+  (`sillage-surface.ts`, shared with the touch code), averaged over the hull's
+  length and lagged, so a crest passing under it lifts it and tips the bow. The
+  bow wave swells as the pitching stem drives into the water. The near sea is
+  opaque below the surface and hides the hull.
+- **The sea can be touched.** `sillage-touch.ts`: a tap splashes on the painted
+  surface under the finger, and rocks the boat if it lands near her; a tap on
+  the boat ducks her. The boat can be picked up: she follows the finger out of
+  the water, swings as it moves, drips, and on release falls back, or flies if
+  thrown, then lands with a splash and drifts back to her place; her bow wave,
+  stern water and wake go with her and dry up while she is out. A sideways drag
+  of the water takes hold of it, which moves with
+  the finger — hold still and it stops, sweep and it runs, up to ten times its
+  pace — then coasts back on release. The speed is one `playbackRate` set on
+  every CSS animation in the band, so the ride, bow wave and wake stay in step
+  with the water at any speed. `touch-action: pan-y` leaves vertical swipes to
+  the page scroller, except on the boat, which can be lifted any way.
+- **Things live in it.** `sillage-life.ts`: the first touch of the water always
+  brings a dolphin leaping past it; later touches sometimes bring one, or a
+  shoal of small fish. A touch on the sky sends a gull off by day and lights a
+  twinkling star by night; every fifth star falls. Drive the sea fast and
+  dolphins come to leap at the bow. Each creature is a sprite from the same
+  painter, flown once with Web Animations and removed.
+- **The page's scroll runs on into it.** As the band scrolls in, the clouds
+  settle and the front row rises (scroll-driven animations on the band's view
+  timeline), so the depth opens on arrival. At the end, the speed a scroll
+  arrives with carries into the water, and scroll the page can no longer take —
+  wheel and trackpad deltas, a finger still pulling up — keeps driving it,
+  through the same `playbackRate`.
+- **It is silent until touched.** `sillage-sound.ts` opens audio on the first
+  touch of the water, never on its own. The speaker in the sea's sky switches
+  it off, remembered in `localStorage` (`sillage-sound`); it is the band's one
+  control, outside the `aria-hidden` picture, and hidden under reduced motion,
+  where the sea never sounds. Then splashes sound where the finger
+  lands, panned across the band, and while the reader plays with the sea — or
+  scrolls it on — the surf comes up and a hull wash rises with the speed. Five
+  seconds after they stop it fades and the audio context sleeps. It mixes with
+  other audio and obeys the iOS silent switch. The recordings are CC0; see
+  `public/sillage/README.md`.
+- **Night is repainted, not filtered.** Pastel on black paper puts the lighter
+  pigment on top, which no filter over the day art can do. Night also lights the
+  stern lantern: a glow on the boat and a reflection on the water.
+- **Dusk is the reader's clock.** From 16:30 to 20:00 local time the component
+  sets `data-dusk` and the dusk set loads instead: violet water with rose and
+  gold crests, clouds lit from below, and a sunset sky that eases out to the
+  bare page before the footer's text. By day a sun sits half down behind
+  the far swell, in a haze, its road running down to the front row; in the
+  dark theme it is blue hour — the sun gone, a thin warm line left on the far
+  water and indigo clouds lit from under. It is the
+  one place warm colour is allowed on the blog, at the owner's asking.
+  `?sea=dusk` or `?sea=day` previews either at any hour.
+
+The water animates transform or opacity only; the arrival moves the front
+row's `bottom`, on scroll only. The touch loop runs only while a finger is down,
+a scroll is driving the sea, or the sea is still settling. The art loads as the band nears the
+screen, the animation runs only while it is in view, and reduced motion gets the
+same picture standing still and ignores touch. The picture is `aria-hidden`; the
+sound switch is the only thing in it assistive tech sees.
+
+On `/blog` the page scroller drops its rubber band (`overscroll-behavior-y:
+none`, `blog.css`): bouncing past the sea pulled the water up and showed bare
+page under it. Scroll past the end still reaches the sea as wheel and touch
+input.
+
 ## Do's and Don'ts
 
 - **Do** keep every accent inside the blue ink set. If a new surface needs an
