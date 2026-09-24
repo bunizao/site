@@ -12,7 +12,7 @@
 .page-container {
   /* Section labels and the smallest mono metadata. */
   --home-text-label: 11px;
-  /* Metadata: tags, date stamps, mood timestamps. Mono, tabular. */
+  /* Metadata: tags, date stamps, mood timestamps. Sans, tabular figures. */
   --home-text-meta: 13px;
   /* Everything that is read as language: titles, prose, links. */
   --home-text-body: 15px;
@@ -48,7 +48,6 @@
      grid, which is exactly what the period stamps were doing. */
   --home-track-label: 0.2em; /* 11px mono uppercase: a rule, not language */
   --home-track-eyebrow: 0.1em; /* 11px sans uppercase: Inter caps need half the mono air */
-  --home-track-meta: 0.01em; /* 13px mono: keep the cells honest */
   --home-track-small: 0; /* 13px sans: Inter is already correct here */
   --home-track-body: -0.011em; /* 15px sans */
   --home-track-masthead: 0.01em; /* 22px sans 600, see the wordmark note */

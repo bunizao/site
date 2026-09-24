@@ -93,8 +93,7 @@ const stamp = (iso: string): string => {
 
 <style>
   /* Writing reads in the human voice (Inter), matching the publication it opens
-     into. The metadata spine — tags and date stamps — stays on the mono identity
-     thread that runs through Hero and Experience. */
+     into, tags and date stamps included. Mono belongs to the hero. */
   :global(#writing-section) {
     font-family: var(--font-sans);
   }
@@ -280,12 +279,13 @@ const stamp = (iso: string): string => {
     flex-shrink: 0;
   }
 
+  /* Sans, like the title it sits beside; tabular figures on the date keep
+     the column aligned without the mono face. */
   :global(#writing-section .post-tag),
   :global(#writing-section .post-date) {
-    font-family: var(--font-mono);
     font-size: var(--home-text-meta);
     font-weight: var(--home-weight-meta);
-    letter-spacing: var(--home-track-meta);
+    letter-spacing: var(--home-track-small);
     color: var(--home-fg-faint);
     transition: color 0.3s ease;
   }

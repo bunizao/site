@@ -20,9 +20,8 @@ import ExperienceTimeline from '@/components/home/ExperienceTimeline';
 
 <style>
   /* The swap moved Experience below Projects, off the Hero mono spine, so it
-     joins the human voice (Inter). Hero is now the lone mono anchor. The
-     metadata spine — the tabular period stamps — stays mono; the section
-     label is handled centrally in home-type.css.
+     joins the human voice (Inter). Hero is the lone mono anchor, period stamps
+     included; the section label is handled centrally in home-type.css.
 
      Everything below is `:global()` because the rows are rendered by a React
      island, so Astro's scoping attribute never reaches them. The island used to
@@ -84,15 +83,13 @@ import ExperienceTimeline from '@/components/home/ExperienceTimeline';
       0 0 0 4px hsl(var(--background));
   }
 
-  /* The period stamp is the one mono element in the section. It was the worst
-     offender: 12px at weight 300 (which the scale banishes below 15px) with
-     tracking inherited as 0, so the tabular digits sat cramped against their
-     own advance width. Mono takes the positive step. */
+  /* The period stamp is sans like the rest of the row; tabular figures keep
+     the years in one column. It used to be the section's one mono element,
+     a second voice set wide and faint beside the Inter it dates. */
   :global(#experience-section .exp-period) {
-    font-family: var(--font-mono);
     font-size: var(--home-text-meta);
     font-weight: var(--home-weight-meta);
-    letter-spacing: var(--home-track-meta);
+    letter-spacing: var(--home-track-small);
     line-height: 1.375;
     font-variant-numeric: tabular-nums;
     color: var(--home-fg-faint);
