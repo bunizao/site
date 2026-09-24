@@ -35,7 +35,10 @@ painted on a canvas by `src/lib/glyph-field.ts` (decisions and tunables in
 only simulates cells that can be seen:
 
 - Wide screens (≥ 640px): a 560px band, at most 1200px wide, masked on both
-  sides so the field dissolves before the viewport edges.
+  sides so the field dissolves before the viewport edges. It is full behind
+  the status line and the name, drops to a faint floor (22%) by 270px where
+  the bio starts, and is gone at the band's end, so body text never sits in
+  full rain.
 - Phones: the same composition as wide screens (copy at the top, rain
   behind it), on a 320px band with no side mask. The mask is full behind
   the status line and the display name and dissolves through the chips and
@@ -69,8 +72,8 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
   starts; left in place it showed through as a ghost behind the caret.
 - The bio is three paragraphs of prose written in `Hero.astro`, and all of
   it decodes. Every link is a word in the sentence: Monash University, `projects`,
-  `write`, `moods`, `Reach out` (to `/message`) and the `hero.socials`
-  channels. They are decode atoms, so they keep their boxes through the
+  `write`, `moods`, `Say hi` (to `/message`) and the `hero.socials`
+  channels. Only links are bright; the rest of the prose stays muted. They are decode atoms, so they keep their boxes through the
   reveal, and the original markup comes back once it settles. No email
   address on the page, only `/message`.
 - GitHub activity is client-fetched from `/api/github/contributions?days=30` after DOM ready; the API keeps the last-year total but returns only the visible waveform window.

@@ -77,21 +77,19 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
     <div class="hero-animate" style="--hero-i: 4" data-hero-bio>
       <DecodeText class="hero-bio">
         <p>
-          I make interesting things. Currently studying Computer Science in
-          DS &amp; AI at <a class="hero-link" href={school.url} {...external} {...cardAttrs('monash')} style="--draw-i: 0" data-decode-atom>{school.org}</a>.
+          I make interesting things, and study Computer Science (DS &amp; AI)
+          at <a class="hero-link" href={school.url} {...external} {...cardAttrs('monash')} style="--draw-i: 0" data-decode-atom>{school.org}</a>.
         </p>
         <p>
-          Curious about <span class="text-foreground">frontend design</span>,
-          <span class="text-foreground">proxy systems</span> and
-          <span class="text-foreground">open source</span>, and obsessed with
-          <span class="text-foreground">speed</span>. Some of it ships as
+          Mostly frontend, proxies and open source, with a soft spot for
+          speed. Some of it ships as
           <a class="hero-link" href="/projects" {...cardAttrs('projects')} style="--draw-i: 1" data-decode-atom>projects</a>,
           some I <a class="hero-link" href="/blog" {...cardAttrs('write')} style="--draw-i: 2" data-decode-atom>write</a> about,
           and the small stuff lands in <a class="hero-link" href="/mood" {...cardAttrs('moods')} style="--draw-i: 3" data-decode-atom>moods</a>.
         </p>
         <p>
-          <a class="hero-link" href="/message" {...cardAttrs('message')} style="--draw-i: 4" data-decode-atom>Reach out</a>
-          about a cool idea, a bug on this site, or anything at all. I'm also on
+          <a class="hero-link" href="/message" {...cardAttrs('message')} style="--draw-i: 4" data-decode-atom>Say hi</a>
+          about an idea, a bug on this site, or anything at all. I'm also on
           {socials.map((social, i) => {
             const Icon = brandIcons[social.name] ?? social.icon;
             return (
@@ -103,7 +101,7 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
     </div>
     <HeroCards />
 
-    <div class="hero-animate mt-6" style="--hero-i: 0" data-hero-motion data-hero-listening>
+    <div class="hero-animate mt-10" style="--hero-i: 0" data-hero-motion data-hero-listening>
       <Listening track={listeningTrack} />
     </div>
 
@@ -295,8 +293,10 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
     opacity: 0.5;
   }
 
-  /* The bio is three short paragraphs of one voice. The gap between them is
-     smaller than a line, so they read as one block with breaths in it. */
+  /* The bio is three short paragraphs of one voice. Only links are bright;
+     everything else stays muted, so the eye lands on the ways out. The gap
+     between paragraphs is just under a line, so they read as one block with
+     breaths in it. */
   :global(.hero-bio) p {
     margin: 0;
     font-size: var(--home-text-body);
@@ -306,7 +306,7 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
   }
 
   :global(.hero-bio) p + p {
-    margin-top: 0.6em;
+    margin-top: 0.9em;
   }
 
   /* Every link carries one mark: the words that stay on the site are
