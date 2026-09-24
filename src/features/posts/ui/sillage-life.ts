@@ -2,10 +2,10 @@
  * What lives in the sea footer (BlogSeaFooter.astro), brought out by a touch.
  *
  * The first touch of the water always brings a dolphin up beside it; after
- * that the sea answers now and then — a dolphin, a shoal of small fish
- * jumping, or just the splash. A touch on the sky sends a gull off by day and
+ * that the sea answers now and then — rarely a dolphin, and never two close
+ * together, sometimes a shoal of small fish jumping, mostly just the splash. A touch on the sky sends a gull off by day and
  * lights a star by night, and every so often a star falls. Drive the sea fast
- * enough and dolphins come to race the boat.
+ * hard enough and a dolphin may come to race the boat.
  *
  * Everything here is a one-off Web Animation on a sprite painted by
  * scripts/paint-sillage.ts. Nothing waits on the sea's clock: a leap is a leap
@@ -15,12 +15,18 @@ import { creatures } from './sillage-motion.json';
 
 const { dolphin, fish, gull, star } = creatures;
 
-/** At most this many of each on the band at once. */
-const MAX_DOLPHINS = 2;
+/** At most this many on the band at once. */
 const MAX_STARS = 14;
+/** A dolphin is a treat: after one, none for this long, ms. */
+const DOLPHIN_REST = 25_000;
 /** Chance that a later touch of the water brings a dolphin, or fish. */
-const DOLPHIN_ODDS = 0.28;
-const FISH_ODDS = 0.3;
+const DOLPHIN_ODDS = 0.12;
+const FISH_ODDS = 0.22;
+/** How fast the sea must run before a dolphin comes to the bow, and the
+    chance that one does, checked every ESCORT_EVERY ms. */
+const ESCORT_RATE = 6;
+const ESCORT_ODDS = 0.25;
+const ESCORT_EVERY = 1500;
 /** Every this many stars, one falls. */
 const FALLING = 5;
 
@@ -42,10 +48,11 @@ export interface Shore {
 export function life(shore: Shore) {
   const { sea, near, clouds, back } = shore;
   let touched = false;
-  let dolphins = 0;
+  let dolphinAt = -Infinity;
   let stars: HTMLElement[] = [];
   let starCount = 0;
   let escortAt = 0;
+  const rested = () => performance.now() - dolphinAt > DOLPHIN_REST;
 
   const make = (name: string, before: Element) => {
     const el = document.createElement('i');
@@ -85,10 +92,7 @@ export function life(shore: Shore) {
         transform: `translate(${px - w / 2}px, ${py - h / 2}px) rotate(${turn}rad)${dir > 0 ? '' : ' scaleX(-1)'}`,
       });
     }
-    el.animate(keys, { duration, easing: 'linear' }).onfinish = () => {
-      el.remove();
-      if (name === 'dolphin') dolphins--;
-    };
+    el.animate(keys, { duration, easing: 'linear' }).onfinish = () => el.remove();
     // Out through the surface, and back in with a bigger one.
     const entry = 0.06 / 1.12;
     window.setTimeout(() => shore.splash(x, false), duration * entry);
@@ -96,8 +100,7 @@ export function life(shore: Shore) {
   }
 
   function dolphinNear(x: number, dir: 1 | -1 = Math.random() < 0.5 ? 1 : -1) {
-    if (dolphins >= MAX_DOLPHINS) return;
-    dolphins++;
+    dolphinAt = performance.now();
     const span = 110 + Math.random() * 60;
     // Start behind the touch, so the leap passes over it.
     leap('dolphin', x - dir * span * 0.35 * shore.scale(), dir, span, 46 + Math.random() * 22, 1150 + Math.random() * 250);
@@ -125,7 +128,7 @@ export function life(shore: Shore) {
       return;
     }
     const roll = Math.random();
-    if (roll < DOLPHIN_ODDS) dolphinNear(x);
+    if (roll < DOLPHIN_ODDS && rested()) dolphinNear(x);
     else if (roll < DOLPHIN_ODDS + FISH_ODDS) shoal(x);
   }
 
@@ -211,11 +214,11 @@ export function life(shore: Shore) {
   }
 
   /** Called every frame the sea runs; `bow` is the stem's screen x. Fast
-      enough, and dolphins come to play at the bow. */
+      enough, and now and then a dolphin comes to play at the bow. */
   function escort(rate: number, bow: number, now: number) {
-    if (rate < 4 || now - escortAt < 1400) return;
+    if (rate < ESCORT_RATE || now - escortAt < ESCORT_EVERY) return;
     escortAt = now;
-    if (Math.random() < 0.55) dolphinNear(bow + (30 + Math.random() * 90) * shore.scale(), 1);
+    if (rested() && Math.random() < ESCORT_ODDS) dolphinNear(bow + (30 + Math.random() * 90) * shore.scale(), 1);
   }
 
   return { water, sky, escort };
