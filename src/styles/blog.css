@@ -460,12 +460,19 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   font-variant-numeric: tabular-nums;
 }
 
+/* A caption for the strip, not a line of text of its own: small and faint,
+   only the figures in ink. */
 .blog-ledger__stats {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 0;
-  margin-bottom: 18px;
-  font-size: 15px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--blog-faint);
+}
+
+.blog-ledger__stats b {
+  font-weight: 550;
   color: var(--blog-ink);
 }
 
@@ -593,23 +600,64 @@ a.blog-ledger__year:hover {
 /* --- Earlier posts ------------------------------------------------------- */
 /* The index renders every post and folds all but the latest away; this
    unfolds the next few in place (index.astro). */
+/* A full-width control that belongs to the list, so it never reads as a
+   line of text beside the ledger's caption. */
 .blog-earlier {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  margin-top: 8px;
-  padding: 8px 0;
-  font-size: 15px;
-  color: var(--blog-accent);
+  width: 100%;
+  min-height: 44px;
+  margin-top: -16px;
+  border-radius: 12px;
+  background: var(--blog-fill);
+  font-size: 14px;
+  color: var(--blog-muted);
   cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.blog-earlier:hover {
+  color: var(--blog-accent);
+  background: color-mix(in srgb, var(--blog-accent) 8%, transparent);
 }
 
 .blog-earlier span {
   transition: transform 0.2s ease;
 }
 
-.blog-earlier:hover span {
+.blog-earlier:hover span[aria-hidden] {
   transform: translateY(2px);
+}
+
+/* The ledger stands apart from the button above it. */
+.blog-earlier:not([hidden]) + noscript + .blog-ledger {
+  margin-top: 64px;
+}
+
+/* The year above folded posts drops its closing rule: the button follows. */
+.blog-year:has(+ .blog-year[hidden]) {
+  border-bottom: 0;
+}
+
+/* Unfolded posts rise in one after another; `--i` is set by the index. */
+.blog-row.is-arriving {
+  animation: blog-arrive 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes blog-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-row.is-arriving {
+    animation: none;
+  }
 }
 
 /* --- Floating hero preview (cai.im) ------------------------------------- */

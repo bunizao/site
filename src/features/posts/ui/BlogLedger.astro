@@ -19,6 +19,8 @@ const t = blog.copy[locale].ledger;
 const fill = (text: string, values: Record<string, string | number>) =>
   text.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''));
 const number = (n: number) => n.toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US');
+/** Text split around its figures: odd parts are the numbers, set in ink. */
+const figures = (text: string) => text.split(/(\d[\d.,]*)/);
 
 const note = ({ year, month, posts, words }: LedgerMonth) =>
   fill(t.month, {
@@ -39,9 +41,9 @@ const written = new Set(ledger.months.filter((month) => month.posts > 0).map((mo
 
 <div class="blog-ledger" data-blog-ledger>
   <p class="blog-ledger__stats">
-    <span>{fill(t.posts, { n: number(ledger.posts) })}</span>
-    <span>{formatWords(ledger.words, locale)}</span>
-    <span>{fill(t.since, { year: ledger.since })}</span>
+    {[fill(t.posts, { n: number(ledger.posts) }), formatWords(ledger.words, locale), fill(t.since, { year: ledger.since })].map(
+      (text) => <span>{figures(text).map((part, i) => (i % 2 ? <b>{part}</b> : part))}</span>,
+    )}
   </p>
 
   <div

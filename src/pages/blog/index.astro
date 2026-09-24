@@ -92,8 +92,16 @@ const earlier = blog.copy[blog.locale.blog].earlier;
   if (shown === -1) shown = rows.length;
 
   const show = (count: number) => {
+    const from = shown;
     shown = Math.min(Math.max(count, shown), rows.length);
-    rows.forEach((row, i) => (row.hidden = i >= shown));
+    rows.forEach((row, i) => {
+      row.hidden = i >= shown;
+      if (i < from || i >= shown) return;
+      // Stagger only the first few, so a whole year does not trickle in.
+      row.style.setProperty('--i', String(Math.min(i - from, 8)));
+      row.classList.add('is-arriving');
+      row.addEventListener('animationend', () => row.classList.remove('is-arriving'), { once: true });
+    });
     sections.forEach((section) => (section.hidden = !section.querySelector('.blog-row:not([hidden])')));
     if (!button) return;
     button.hidden = shown >= rows.length;

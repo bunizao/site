@@ -131,16 +131,19 @@ Components compose the tokens above; they never introduce new colour or type.
 ### Index and ledger
 
 `/blog` renders every listed post but shows only the latest eight, so a reader
-reaches the sea footer. "更早的 N 篇 ↓" unfolds the next eight in place, and
-any link to a year (`#y2024`: the year rail, which lists every year, the
+reaches the sea footer. "更早的 N 篇 ↓", a full-width filled control, unfolds
+the next eight in place; the rows arrive staggered, rising and fading in (no
+motion under `prefers-reduced-motion`). The year section above the control drops
+its hairline while the fold hides the rest, so the control, not a rule, ends the
+list. Any link to a year (`#y2024`: the year rail, which lists every year, the
 ledger's year labels, or a shared URL) unfolds every post down to the end of
 that year and scrolls to it. Without script, everything shows. There is no
 separate archive page.
 
 The index closes with the writing ledger (`BlogLedger.astro`, figures from
-`src/features/posts/ledger.ts`): posts, words and the first year on one line,
-then one strip of months from the first January to now: a `{colors.ji}` bar
-per month, its height the words written on a square-root scale so one long
+`src/features/posts/ledger.ts`): posts, words and the first year on one quiet
+caption line, figures in ink and units faint, well clear of the control, then
+one strip of months from the first January to now: a `{colors.ji}` bar per month, its height the words written on a square-root scale so one long
 essay does not flatten the rest. The strip keeps its height and the column's
 width however many years it covers — more years only make the bars thinner.
 Chinese is counted by character and other scripts by word. Hovering a month
