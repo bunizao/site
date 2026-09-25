@@ -96,6 +96,9 @@ export interface ReaderMe {
   provider: ReaderProvider;
   displayName: string;
   avatarUrl: string;
+  /** Seed of the drawn face shown when `avatarUrl` is empty. Null until one
+      has been handed out -- the client then draws from the name. */
+  avatarSeed: number | null;
   notifyReplies: boolean;
   /** Whether this address holds an active newsletter subscription. */
   subscribed: boolean;
@@ -188,6 +191,8 @@ export const DEFAULT_REACTION_EMOJI = '❤️';
 export interface ReactorChip {
   name: string;
   avatarUrl: string | null;
+  /** Drawn-face seed; absent from servers older than 0.8.0. */
+  avatarSeed?: number | null;
 }
 
 export interface ReactionSummary {
@@ -378,6 +383,10 @@ export interface CommentAuthor {
       any key it does not know, so a path emitted for every address would make
       every face an identicon. */
   avatarUrl: string;
+  /** Seed of the drawn face for an empty `avatarUrl`: the writer's reader
+      seed when they have one, else the seed the comment was posted with.
+      Null or absent (servers older than 0.8.0) means draw from the name. */
+  avatarSeed?: number | null;
   /** True when this row's writer is the blog owner. */
   byAuthor: boolean;
 }
@@ -438,6 +447,9 @@ export interface CommentCreateInput {
       Omitted or empty: the comment is owned by its anon session only and
       the client renders an identicon. */
   email?: string;
+  /** The drawn face the writer picked in the compose box, from
+      `READER_AVATAR_SEED_PATH`. Ignored when it is not an `isAvatarSeed`. */
+  avatarSeed?: number;
   turnstileToken: string;
   /** Visually-hidden honeypot field. Must arrive empty. */
   website?: string;
@@ -606,4 +618,47 @@ export interface CommentTelemetryInput {
   kind: 'comment' | 'reaction';
   outcome: 'accepted' | 'http_error' | 'network_error' | 'challenge_failed';
   challenges: number;
+}
+
+// ---------------------------------------------------------------------------
+// Drawn avatars
+// ---------------------------------------------------------------------------
+
+/** A drawn face's colour pair is `seed % AVATAR_CLASSES`: five palette
+    colours as background, times the four others as head. The pair is what
+    tells two faces apart at stack size, so it is the unit the server balances
+    when it hands out a seed and the unit a re-roll must change. The palette
+    itself is a rendering concern and lives with the client. */
+export const AVATAR_CLASSES = 20;
+export const MAX_AVATAR_SEED = 0xffffffff;
+
+export function isAvatarSeed(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= MAX_AVATAR_SEED;
+}
+
+export function avatarClass(seed: number): number {
+  return seed % AVATAR_CLASSES;
+}
+
+/** A seed in colour class `cls`; `variety` fills the digits that pick the
+    expression, pose and head shape. */
+export function seedInClass(cls: number, variety: number): number {
+  const span = Math.floor(MAX_AVATAR_SEED / AVATAR_CLASSES);
+  return (Math.abs(Math.trunc(variety)) % span) * AVATAR_CLASSES + (Math.abs(Math.trunc(cls)) % AVATAR_CLASSES);
+}
+
+/** POST body for `READER_AVATAR_SEED_PATH`. */
+export interface AvatarSeedInput {
+  /** The seed on screen now. The answer is always in a different colour
+      class, so every re-roll visibly changes the face. */
+  current?: number | null;
+}
+
+export interface AvatarSeedResult {
+  /** In the least-used colour class across the site, never `current`'s. */
+  seed: number;
+  /** True when the caller is a verified reader and the seed is now theirs
+      everywhere. False for anyone else: the client keeps it and sends it as
+      `CommentCreateInput.avatarSeed`. */
+  persisted: boolean;
 }
