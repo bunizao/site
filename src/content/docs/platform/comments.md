@@ -113,25 +113,37 @@ session was new. Those describe a request, not a requester.
 
 Two automatic mechanisms and two manual ones. The automatic pair exists so a
 flood at 3am is handled by the time the owner wakes up; the manual pair is
-the owner's own lever afterwards. None of them rejects anything: the safe
-state everywhere is `held`, so a false positive is still in the queue.
+the owner's own lever afterwards. Neither automatic one holds or rejects:
+both ask the anonymous writer to confirm an email address, the same step-up
+a suspicious score triggers (see
+[the risk stack](/docs/api/comments#post-a-comment)). A person gets through
+with one click; an agent without a mailbox never does; and every waiting
+comment that carried an address is in the queue with a note beginning
+`Awaiting email`, so the owner can approve it without waiting for the
+writer. A step-up without an address stores nothing — the writer was told
+what to do, which is the difference from a silent block. The one automatic
+reject — a declared agent — stores its row too, sends a card with Approve
+on the first strike, and lets the portal approve it.
 
 **Identity quarantine** — 24 hours, in KV under `comments:quarantine:`,
-scoped to the current account or anonymous session. Honeypot and moderation
-signals may quarantine that subject; shared IP, subnet and fingerprint values
-never spread the hold to other readers. Ordinary owner hide/delete actions
-do not add a quarantine. Approving a flagged comment lifts its scoped hold.
-Independent network rate limits and the site-wide lockdown remain in place.
+scoped to the current account or anonymous session. A filled honeypot, a
+declared agent or a spam verdict quarantines that subject; shared IP,
+subnet and fingerprint values never spread it to other readers. Ordinary
+owner hide/delete actions do not add a quarantine. Approving a flagged
+comment lifts it. Independent network rate limits and the site-wide
+lockdown remain in place.
 
 **Lockdown** — one hour, site-wide, in KV under `comments:lockdown`. Engages
 on its own when anonymous traffic as a whole looks like a flood: more than
-8 anonymous comments in 10 minutes, or 3 of the last 5 anonymous comments
-judged spam. For its duration every anonymous comment is held with reason
-`ok` (so it never counts toward the ratio that engaged it), external checks
-are skipped, no per-comment cards are sent, and the owner gets exactly one
-card saying when it lifts. `/comments` in the ops bot shows the status.
-Verified readers are never affected. A flood that outlasts the hour
-re-engages it on the next comment.
+8 anonymous comments in 10 minutes, more than 2 writers asked for an email
+by the score in 10 minutes, or 3 of the last 5 anonymous comments judged
+spam. For its duration every anonymous writer is asked to confirm an email;
+waiting rows carry reason `ok` (so they never count toward the ratio that
+engaged it), Akismet and the AI gateway still judge each one (a spam verdict
+replaces the wait), no per-comment cards are sent, and the owner gets
+exactly one card saying when it lifts. `/comments` in the ops
+bot shows the status. Verified readers are never affected. A flood that
+outlasts the hour re-engages it.
 
 **Ban list** — the `blog_bans` table, one row per key, with an optional note
 and expiry. A key is one of: the address hash, the session, the IP hash, its
@@ -142,7 +154,8 @@ query.
 
 The effect is shadow-only, and the same for the two paths in different
 shapes. A listed writer's comment is created and held with the note
-`Shadow-banned writer.`; their own browser shows the normal "sent for
+`Shadow-banned writer.`, without an Akismet or model call and without a
+Telegram card; their own browser shows the normal "sent for
 review" state and nobody else ever sees the row. A listed source's heart
 gets the ordinary envelope carrying the `reacted` state it asked for and a
 count that did not move: no row, no reader pass, no error. Neither says a
@@ -225,10 +238,13 @@ and fingerprint matches name their basis and may include different readers.
   the `task-guard` alias behind `AI_BASE_URL` / `AI_API_KEY`, the same gateway
   mood sentiment runs on. It reads the text the way the owner would (VPN
   pitches, referral links, "contact me on Telegram") and can turn Akismet's
-  ham into a hold, never the reverse. Unset key, timeout, or refusal means
-  the Akismet verdict stands alone. The create request
-  waits 2500ms for both and finishes the check in the background if it runs
-  over, so a `held` outcome can quietly become `published` a second later.
+  ham into a hold, never the reverse. It also reads who wrote it, with the
+  writer's last day and the site's last hour as context: an `unclear` or
+  `agent` answer is a step-up source, never a hold, and an `agent` answer
+  keeps a comment held after its email is confirmed. Unset key, timeout, or
+  refusal means the Akismet verdict stands alone. The create request
+  waits 8000ms for both and finishes the check in the background if it runs
+  over, so a `held` outcome can quietly become `published` a moment later.
 
 ## Mood surface
 

@@ -27,6 +27,7 @@ export type CommentErrorCode =
   | 'CLOSED'
   | 'LOCKED'
   | 'VERIFY'
+  | 'NOMAIL'
   | 'NAME'
   | 'EMAIL'
   | 'LONG'
@@ -117,6 +118,9 @@ function classify(status: number, slug: string): CommentErrorCode {
   // out", which is a different next move -- and both of these arrive as 403.
   if (slug.includes('comments_closed')) return 'LOCKED';
   if (slug.includes('email_verification_required')) return 'VERIFY';
+  // The writer, not the post: this request looked enough like automation
+  // that it goes nowhere without an address to confirm. Nothing was stored.
+  if (slug.includes('email_required')) return 'NOMAIL';
   // 403 not_owner and 409 edit_window_closed both mean the reader's claim on
   // this comment has run out. Retrying either is a guaranteed second refusal.
   if (status === 403 || status === 409) return 'CLOSED';
@@ -167,6 +171,7 @@ const EXPLAINED: Partial<Record<CommentErrorCode, string>> = {
   NAME: 'name',
   EMAIL: 'email',
   VERIFY: 'verify',
+  NOMAIL: 'nomail',
   CLOSED: 'closed',
   GONE: 'gone',
 };

@@ -91,7 +91,7 @@ const receipt: ComposeReceipt =
   || rawReceipt === 'nudge' || rawReceipt === 'error'
     ? rawReceipt
     : 'idle';
-const errorCodes: CommentErrorCode[] = ['NET', 'RATE', 'BOT', 'GONE', 'THREAD', 'CLOSED', 'LOCKED', 'VERIFY', 'NAME', 'EMAIL', 'LONG', 'STALE', 'INPUT', 'SERVER'];
+const errorCodes: CommentErrorCode[] = ['NET', 'RATE', 'BOT', 'GONE', 'THREAD', 'CLOSED', 'LOCKED', 'VERIFY', 'NOMAIL', 'NAME', 'EMAIL', 'LONG', 'STALE', 'INPUT', 'SERVER'];
 const requestedError = params.get('error')?.toUpperCase() as CommentErrorCode | undefined;
 const errorCode = requestedError && errorCodes.includes(requestedError) ? requestedError : undefined;
 
@@ -151,6 +151,7 @@ const behaviorRows = [
   { behavior: 'Post takes verified email only', state: 'requireEmail=1', zh: commentsCopy.zh.emailRequired, en: commentsCopy.en.emailRequired, next: 'Enter an address; anonymous posting is not offered' },
   { behavior: 'Post with no email, verified-only post', state: 'validation email required', zh: commentsCopy.zh.needEmail, en: commentsCopy.en.needEmail, next: 'Enter an address' },
   { behavior: 'Unverified email on a verified-only post', state: 'API email_verification_required', zh: commentsCopy.zh.submitError.VERIFY, en: commentsCopy.en.submitError.VERIFY, next: 'Confirm the link in the inbox, then post' },
+  { behavior: 'Suspicious anonymous writer with no email', state: 'API 403 email_required', zh: commentsCopy.zh.submitError.NOMAIL, en: commentsCopy.en.submitError.NOMAIL, next: 'Add an email, post, confirm the link; the comment then goes out' },
   { behavior: 'Load another page', state: 'load-more', zh: `${commentsCopy.zh.loadMore} → ${commentsCopy.zh.loading}`, en: `${commentsCopy.en.loadMore} → ${commentsCopy.en.loading}`, next: 'Wait for rows; on failure press Retry' },
   { behavior: 'Anonymous compose', state: 'phase=anonymous', zh: `${commentsCopy.zh.namePlaceholder} · ${commentsCopy.zh.emailPlaceholder} · ${commentsCopy.zh.hint}`, en: `${commentsCopy.en.namePlaceholder} · ${commentsCopy.en.emailPlaceholder} · ${commentsCopy.en.hint}`, next: 'Fill identity and body' },
   { behavior: 'Post with no name', state: 'validation name', zh: commentsCopy.zh.needName, en: commentsCopy.en.needName, next: 'Enter a display name' },
@@ -165,7 +166,9 @@ const behaviorRows = [
   { behavior: 'Comment appears before API returns', state: 'optimistic post', zh: '新行先出现；审核中短暂显示“发布中”', en: 'New row appears first; a held row briefly says “Publishing”', next: 'Keep typing; a failed request restores the draft' },
   { behavior: 'Published result', state: 'posted', zh: '新评论本身就是确认（不重复显示状态条）', en: 'The new comment is the receipt (no duplicate status bar)', next: 'Continue writing' },
   { behavior: 'Verdict still in flight', state: 'pending', zh: commentsCopy.zh.verifying, en: commentsCopy.en.verifying, next: 'The row breathes until a poll sees the flip, up to ~90s' },
+  { behavior: 'Verdict slower than 3s', state: 'pending, slow', zh: commentsCopy.zh.verifyingSlow, en: commentsCopy.en.verifyingSlow, next: 'The language model is still reading; the server waits up to 8s' },
   { behavior: 'Held result', state: 'held', zh: commentsCopy.zh.held, en: commentsCopy.en.held, next: 'Only reached once the poll window ends without a publish' },
+  { behavior: 'Held until the email is confirmed', state: 'awaiting email', zh: commentsCopy.zh.awaitingEmail, en: commentsCopy.en.awaitingEmail, next: 'No polling; the verification mail link publishes it' },
   { behavior: 'Own row, email never verified', state: 'verify hint', zh: commentsCopy.zh.verifyHint, en: commentsCopy.en.verifyHint, next: 'Confirm the address to unlock Edit and Delete' },
   { behavior: 'Unverified email result', state: 'nudge', zh: `${commentsCopy.zh.nudgeText('reader@example.com')} · ${commentsCopy.zh.nudgeSubscribe} · ${commentsCopy.zh.dismiss}`, en: `${commentsCopy.en.nudgeText('reader@example.com')} · ${commentsCopy.en.nudgeSubscribe} · ${commentsCopy.en.dismiss}`, next: 'Confirm email, subscribe, or dismiss' },
   { behavior: 'Verification email reaches the reader', state: 'reader email', zh: '主题“评论已发布 · 验证一下邮箱” · 评论已发布。 · 验证邮箱', en: 'Subject “Your comment is live — confirm your email” · Your comment is live. · Confirm email', next: 'Open the confirmation page or ignore the expiring link' },

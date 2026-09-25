@@ -429,7 +429,7 @@ export function replaceGhostComment(key: string, comment: CommentData): void {
   }
 
   const fresh = renderComment(comment);
-  markPending(fresh);
+  markPending(fresh, Number(node?.dataset.pendingSince) || Date.now());
   if (node) node.replaceWith(fresh);
   else commentsListEl?.prepend(fresh);
   linkReplyQuotes();
@@ -462,7 +462,7 @@ export function dropGhostComment(key: string): void {
     everyone else is looking at a thread this row is not in.
 
     No-ops on a row the page no longer has; the poll can outlive it. */
-export function settleOwnComment(siteCommentId: string, held: boolean): void {
+export function settleOwnComment(siteCommentId: string, held: boolean, awaitingEmail = false): void {
   const node = findOwnComment(siteCommentId);
   if (!node) return;
   delete node.dataset.pending;
@@ -473,7 +473,7 @@ export function settleOwnComment(siteCommentId: string, held: boolean): void {
     if (reply) reply.hidden = false;
     return;
   }
-  if (note) note.textContent = t.held;
+  if (note) note.textContent = awaitingEmail ? t.awaitingEmail : t.held;
 }
 
 /** The breathing bubble and the word under it -- see `.mood-comment
@@ -485,13 +485,26 @@ export function settleOwnComment(siteCommentId: string, held: boolean): void {
     server would recognise (the stand-in's is a throwaway) or has one whose
     thread nobody else can see. Offering the button would buy a THREAD
     refusal at best. settleOwnComment gives it back. */
-function markPending(node: HTMLElement): void {
+// When "Publishing" becomes "Still checking": past this the language model
+// reading an anonymous comment is what the row is waiting on.
+const SLOW_VERDICT_MS = 3000;
+
+function markPending(node: HTMLElement, since = Date.now()): void {
   node.dataset.pending = 'true';
+  // Carried from the stand-in to the row that replaces it, so a long wait
+  // does not start over at "Publishing".
+  node.dataset.pendingSince = String(since);
   const body = node.querySelector<HTMLElement>('.mood-comment-body') ?? node;
   const note = document.createElement('p');
   note.className = 'mood-comment__note';
   note.setAttribute('role', 'status');
-  note.textContent = t.publishing;
+  const slowIn = since + SLOW_VERDICT_MS - Date.now();
+  note.textContent = slowIn > 0 ? t.publishing : t.publishingSlow;
+  if (slowIn > 0) {
+    window.setTimeout(() => {
+      if (node.dataset.pending) note.textContent = t.publishingSlow;
+    }, slowIn);
+  }
   // Under the words, above the footer -- it is about the comment, not one
   // more control in the row of them.
   body.insertBefore(note, body.querySelector('.mood-comment-footer'));

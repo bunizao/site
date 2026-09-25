@@ -24,7 +24,9 @@ async function installCommentApi(page: import('@playwright/test').Page, options:
   postStatus?: number;
   patchStatus?: number;
   postOutcome?: 'published' | 'held';
+  postError?: string;
   unverifiedEmail?: boolean;
+  awaitingEmail?: boolean;
 } = {}) {
   await page.route('**/api/v2/reader/me', (route) => route.fulfill({
     status: 200,
@@ -49,14 +51,14 @@ async function installCommentApi(page: import('@playwright/test').Page, options:
       markPostReceived();
       await postGate;
       if (options.postStatus && options.postStatus !== 200) {
-        await route.fulfill({ status: options.postStatus, contentType: 'application/json', body: JSON.stringify({ error: 'rate limited' }) });
+        await route.fulfill({ status: options.postStatus, contentType: 'application/json', body: JSON.stringify({ error: options.postError ?? 'rate limited' }) });
         return;
       }
       postCompleted = true;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ outcome: options.postOutcome ?? 'published', comment: comment({ id: 'comment-posted', body: 'Optimistic comment.', status: options.postOutcome ?? 'published' }), unverifiedEmail: options.unverifiedEmail ?? false }),
+        body: JSON.stringify({ outcome: options.postOutcome ?? 'published', comment: comment({ id: 'comment-posted', body: 'Optimistic comment.', status: options.postOutcome ?? 'published' }), unverifiedEmail: options.unverifiedEmail ?? false, awaitingEmail: options.awaitingEmail ?? false }),
       });
       return;
     }
@@ -117,7 +119,7 @@ test('lab lists every interaction outcome and transitions reader verification', 
 
   await expect(page.locator('.blog-compose__alert:visible')).toContainText('human check');
   await expect(page.locator('.blog-comments > .blog-compose [data-compose-identity] input[type="text"]').first()).toHaveAttribute('placeholder', 'Name');
-  await expect(page.locator('.comments-lab-catalog tbody tr')).toHaveCount(65);
+  await expect(page.locator('.comments-lab-catalog tbody tr')).toHaveCount(69);
   await expect(page.locator('.comments-lab-catalog')).toContainText('Submit/edit failure (BOT)');
   await expect(page.locator('.blog-comment--held .blog-comment__note')).toContainText('Posted');
   await expect(page.locator('.comments-lab-preview .blog-compose__preview')).toBeVisible();
@@ -405,6 +407,51 @@ test('a late moderation verdict upgrades a held optimistic row', async ({ page }
   await expect(posted.locator('.blog-comment__note')).toContainText('Publishing');
   await expect(posted.locator('.blog-comment__note')).toHaveCount(0, { timeout: 5000 });
   await expect(page.locator('.blog-comments__tally')).toHaveText('2');
+});
+
+test('a slow verdict says it is still checking', async ({ page }) => {
+  const api = await installCommentApi(page, { postOutcome: 'held' });
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  const compose = page.locator('.blog-comments > .blog-compose');
+  await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
+  await compose.locator('textarea').fill('A slow comment.');
+  await compose.locator('[data-compose-submit]').click();
+  const ghost = page.locator('.blog-comment[data-pending]').first();
+  await expect(ghost.locator('.blog-comment__note')).toHaveText('Publishing');
+  await expect(ghost.locator('.blog-comment__note')).toHaveText('Still checking — a few more seconds', { timeout: 5000 });
+  // The held row that replaces the stand-in keeps the slower word rather
+  // than starting the wait over.
+  await api.releasePost();
+  await expect(page.locator('#comment-comment-posted .blog-comment__note')).toHaveText('Still checking — a few more seconds');
+});
+
+test('a comment awaiting its email says how to publish it', async ({ page }) => {
+  const api = await installCommentApi(page, { postOutcome: 'held', unverifiedEmail: true, awaitingEmail: true });
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  const compose = page.locator('.blog-comments > .blog-compose');
+  await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
+  await compose.locator('input[type="email"]').fill('reader@example.com');
+  await compose.locator('textarea').fill('Optimistic comment.');
+  await compose.locator('[data-compose-submit]').click();
+  await api.releasePost();
+  const posted = page.locator('#comment-comment-posted');
+  await expect(posted.locator('.blog-comment__note')).toHaveText('Confirm the link in your inbox and this goes public. Only you can see it for now.');
+  await expect(posted).not.toHaveAttribute('data-pending');
+  await expect(compose.locator('.blog-compose__nudge-text')).toHaveText("We've sent a message to reader@example.com — confirm it and this comment goes public.");
+});
+
+test('an email request keeps a draft typed while it was in the air', async ({ page }) => {
+  const api = await installCommentApi(page, { postStatus: 403, postError: 'email_required' });
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  const compose = page.locator('.blog-comments > .blog-compose');
+  await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
+  await compose.locator('textarea').fill('First thought.');
+  await compose.locator('[data-compose-submit]').click();
+  await compose.locator('textarea').fill('Second thought.');
+  await api.releasePost();
+  await expect(compose.locator('textarea')).toHaveValue('First thought.\n\nSecond thought.');
+  await expect(compose.locator('.blog-compose__alert')).toContainText('needs an email');
+  await expect(compose.locator('input[type="email"]')).toBeFocused();
 });
 
 test('verification nudge opens the localized subscribe panel with the known email', async ({ page }) => {

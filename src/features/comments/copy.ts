@@ -88,13 +88,21 @@ export interface CommentsCopy {
       drops the accusation in the same breath. */
   held: string;
   /** A row this browser has just posted while the moderation verdict is still
-      in flight. This is the ordinary path, not the exception: site-api gives
-      the spam check 1.5s and finishes the request without it, so most
-      comments come back `held` and go public a second or two later. The row
+      in flight. site-api waits up to 8s for the verdict and finishes the
+      request without it past that, so a slow one comes back `held` and goes
+      public a moment later. The row
       wears this until a poll sees the flip, which is why it says what is
       happening (the comment is going up) rather than what is being done to
       it. `held` is what replaces it when the wait genuinely ends in a hold. */
   verifying: string;
+  /** Replaces `verifying` once the wait passes a few seconds. An anonymous
+      comment is read by a language model that can take several seconds, and a
+      pulse that never changes its word starts to look stuck. */
+  verifyingSlow: string;
+  /** The row's note when the server holds the comment until its address is
+      confirmed. The one hold the reader can end on their own, so it names the
+      way out. */
+  awaitingEmail: string;
   reply: string;
   edit: string;
   editLabel: string;
@@ -172,6 +180,8 @@ export interface CommentsCopy {
       never hearing anything again. Takes the empty string where no address is
       on hand (the server-rendered demo state) and says the generic thing. */
   nudgeText: (email: string) => string;
+  /** `nudgeText` when the comment itself is waiting on that confirmation. */
+  nudgeAwaiting: (email: string) => string;
   /** Label on the button that opens the page's subscribe panel. A verb, not
       a checkbox label: pressing it opens something. */
   nudgeSubscribe: string;
@@ -224,6 +234,8 @@ const zh: CommentsCopy = {
   tombstone: '这条评论已删除。',
   held: '这条评论已发出，暂时只有你能看到。',
   verifying: '发布中',
+  verifyingSlow: '还在检查，稍等几秒',
+  awaitingEmail: '去邮箱点一下确认链接，这条评论就会公开。现在只有你能看到。',
   reply: '回复',
   edit: '编辑',
   editLabel: '编辑你的评论',
@@ -258,6 +270,7 @@ const zh: CommentsCopy = {
     CLOSED: '过了可以修改的时间，这条改不了啦。',
     LOCKED: '这篇的评论区已经打烊了，不收新评论啦。',
     VERIFY: '这篇只收验证过的邮箱。去收件箱点一下确认链接，再回来发。',
+    NOMAIL: '这条需要留个邮箱。填上再发，去收件箱点一下确认，评论就会出现。草稿还在。',
     NAME: '这个名字用不了，换一个试试？',
     EMAIL: '这个邮箱地址用不了，换一个试试？',
     LONG: '字数有点超啦（上限 2000 字），精简一下再发吧。',
@@ -269,6 +282,9 @@ const zh: CommentsCopy = {
   nudgeText: (email) => (email
     ? `我们向 ${email} 发了一封信，确认一下就能管理评论和接收回复通知。`
     : '确认邮箱后，就能管理评论和接收回复通知。'),
+  nudgeAwaiting: (email) => (email
+    ? `我们向 ${email} 发了一封信，点里面的确认链接，这条评论就会公开。`
+    : '确认邮箱后，这条评论就会公开。'),
   nudgeSubscribe: '订阅新文章',
   dismiss: '关闭',
 
@@ -313,6 +329,8 @@ const en: CommentsCopy = {
   tombstone: 'This comment was deleted.',
   held: 'Posted — for now, only you can see it.',
   verifying: 'Publishing',
+  verifyingSlow: 'Still checking — a few more seconds',
+  awaitingEmail: 'Confirm the link in your inbox and this goes public. Only you can see it for now.',
   reply: 'Reply',
   edit: 'Edit',
   editLabel: 'Edit your comment',
@@ -347,6 +365,7 @@ const en: CommentsCopy = {
     CLOSED: "The edit window has closed — this one can't be changed now.",
     LOCKED: 'This post has stopped taking new comments.',
     VERIFY: 'This post takes verified addresses only. Confirm the link in your inbox, then post.',
+    NOMAIL: "This one needs an email. Add it, post again, and confirm the link we send — your draft's safe.",
     NAME: "That name won't work here. Try another?",
     EMAIL: "That email address won't work. Try another?",
     LONG: "That's a bit long (2000 characters max). Trim it and post again.",
@@ -358,6 +377,9 @@ const en: CommentsCopy = {
   nudgeText: (email) => (email
     ? `We've sent a message to ${email} — confirm it to manage your comments and receive reply notifications.`
     : 'Confirm your email to manage your comments and receive reply notifications.'),
+  nudgeAwaiting: (email) => (email
+    ? `We've sent a message to ${email} — confirm it and this comment goes public.`
+    : 'Confirm your email and this comment goes public.'),
   nudgeSubscribe: 'Subscribe to new posts',
   dismiss: 'Dismiss',
 
@@ -413,10 +435,15 @@ export interface MoodCommentsCopy {
       until the verdict does. The blog's `verifying` with the same job: the
       comment is on its way up, and saying so is the whole receipt. */
   publishing: string;
+  /** Replaces `publishing` after a few seconds of waiting. */
+  publishingSlow: string;
   /** Replaces `publishing` on the rare bubble whose wait ends in a real
       hold. A note on the row, not a banner over the box -- the thing being
       talked about is right there, and the reader can see it. */
   held: string;
+  /** Replaces `held` when the comment waits on its address being confirmed:
+      the one hold the reader can end, so it says how. */
+  awaitingEmail: string;
   reply: string;
   replyingTo: (author: string) => string;
   cancelReply: string;
@@ -455,7 +482,9 @@ const moodZh: MoodCommentsCopy = {
   post: '发表',
   postAria: '发表评论',
   publishing: '发布中',
+  publishingSlow: '还在检查，稍等几秒',
   held: '暂时只有你能看到',
+  awaitingEmail: '去邮箱确认后公开',
   reply: '回复',
   replyingTo: (author) => `回复 ${author}`,
   cancelReply: '取消',
@@ -484,7 +513,9 @@ const moodEn: MoodCommentsCopy = {
   post: 'Post',
   postAria: 'Post comment',
   publishing: 'Publishing',
+  publishingSlow: 'Still checking — a few more seconds',
   held: 'Only you can see this',
+  awaitingEmail: 'Confirm your email to publish',
   reply: 'Reply',
   replyingTo: (author) => `Replying to ${author}`,
   cancelReply: 'Cancel',
