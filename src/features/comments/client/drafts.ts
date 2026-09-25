@@ -131,8 +131,8 @@ export function wireDrafts(root: ParentNode = document): void {
 
     // Words in the box at load -- restored above, or by the browser's own
     // form restore -- were typed on an earlier page, so this page saw none of
-    // the keys. fingerprint.ts reports them as a paste; without the mark,
-    // site-api's untyped-text check would reject a returning reader.
+    // the keys. fingerprint.ts reports them as a paste, which keeps the
+    // record from calling a returning reader's comment input-less.
     if (fields.body.value.trim()) compose.dataset.draftRestored = 'true';
 
     let timer: number | undefined;

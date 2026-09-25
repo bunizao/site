@@ -115,13 +115,13 @@ Two automatic mechanisms and two manual ones. The automatic pair exists so a
 flood at 3am is handled by the time the owner wakes up; the manual pair is
 the owner's own lever afterwards. None of them rejects anything: the safe
 state everywhere is `held`, so a false positive is still in the queue. The
-one automatic reject — untyped text, see
+one automatic reject — a declared agent, see
 [the risk stack](/docs/api/comments#post-a-comment) — stores its row too,
 sends a card with Approve on the first strike, and lets the portal approve
 it, so a mistaken reject is recoverable the same way a hold is.
 
 **Identity quarantine** — 24 hours, in KV under `comments:quarantine:`,
-scoped to the current account or anonymous session. Honeypot, untyped-text,
+scoped to the current account or anonymous session. Honeypot, automation,
 post-hop (a third distinct post in 10 minutes from one session or
 fingerprint) and moderation signals may quarantine that subject; shared IP, subnet and fingerprint values
 never spread the hold to other readers. Ordinary owner hide/delete actions

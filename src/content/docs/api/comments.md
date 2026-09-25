@@ -209,8 +209,10 @@ box and never on a page view. **Leaving them out is never a gate.** A body
 that omits them, sends the wrong type, or sends 40 KiB of nonsense is written
 exactly like one that sends them well: the server stores what survives its
 bounds and NULL for the rest, and none of it feeds a rate-limit budget. Only
-what a well-formed `interaction` says can count against a comment, through
-the untyped-text check in step 3.
+what a well-formed `clientFp` says about the machine can count against a
+comment, through the automation check in step 3. `interaction` never does:
+dictation, input methods and assistive technology all put text in the box
+without key presses, so how the words got there is recorded, never judged.
 
 `clientFp` is what the browser says about itself — platform, screen, time
 zone, a canvas and audio hash, the font families a width probe found, media
@@ -261,16 +263,20 @@ Every submission runs the full risk stack, in order:
    gets a higher link ceiling (6 instead of 3). The exact-duplicate hold
    and the keyword blocklist apply to everyone.
 
-   **Untyped text** (anonymous writers only) is the one heuristic that
-   rejects. A body of 40+ characters whose `interaction` reports no paste
-   and fewer than one key press per 8 characters was put in the box by
-   something other than a keyboard — the shape a browser agent leaves. The
-   row is stored as `rejected` with reason `spam`, the writer gets the same
-   `held` envelope as any hold, the session is quarantined (step 5), and the
-   external checks in step 6 never run. Touch and pen sessions, a missing
-   `interaction`, and a draft the page restored at load (reported as a
-   paste) are never judged. The owner's card for a rejected comment carries
-   Approve, and so does the portal, so a false positive can be put back.
+   **Automation** (anonymous writers only) judges the machine, never the
+   person at it. A request carrying a header a person's browser never sends
+   — Cloudflare Browser Run's `cf-brapi-devtools` or `cf-biso-devtools`, or
+   Web Bot Auth's `Signature-Agent` — is a **declared agent**: stored as
+   `rejected` with reason `spam`. A browser with a headless marker (software
+   WebGL such as SwiftShader, `navigator.webdriver`, a headless window
+   shape, or a Worker's `cf-worker` header) **and** an address on a hosting
+   network is a **cloud browser**: held with reason `spam`. Either half
+   alone passes — a Linux laptop without GPU drivers and a reader behind a
+   VPN are both ordinary. Both gates answer with the usual `held` envelope,
+   quarantine the session (step 5), skip the external checks in step 6 and,
+   as a first strike, send the owner a card. The card for a rejected comment
+   carries Approve, and so does the portal, so a false positive can be put
+   back.
 4. **Rate limits**, durably enforced across three dimensions (anonymous
    session, IP, server-derived fingerprint) and two windows each: 5/minute
    and 20/hour for anonymous writers; 10/minute and 60/hour for verified
@@ -286,8 +292,8 @@ Every submission runs the full risk stack, in order:
    held with reason `spam` — the writer being the browser session or the
    server-derived fingerprint (IP /24 and user agent), so rotating sessions
    does not reset it. Readers in the archive have never passed two.
-   A session quarantined after a filled honeypot, untyped text, a post hop
-   or a spam verdict is held for 24 hours. Account-backed keys, when
+   A session quarantined after a filled honeypot, an automation hit, a post
+   hop or a spam verdict is held for 24 hours. Account-backed keys, when
    present, refer to that account only; IP and fingerprint matches do not
    share a quarantine. Ordinary owner hide/delete actions do not create a
    quarantine. The system also holds every anonymous writer while the
