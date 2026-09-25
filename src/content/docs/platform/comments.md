@@ -121,8 +121,9 @@ sends a card with Approve on the first strike, and lets the portal approve
 it, so a mistaken reject is recoverable the same way a hold is.
 
 **Identity quarantine** — 24 hours, in KV under `comments:quarantine:`,
-scoped to the current account or anonymous session. Honeypot, untyped-text
-and moderation signals may quarantine that subject; shared IP, subnet and fingerprint values
+scoped to the current account or anonymous session. Honeypot, untyped-text,
+post-hop (a third distinct post in 10 minutes from one session or
+fingerprint) and moderation signals may quarantine that subject; shared IP, subnet and fingerprint values
 never spread the hold to other readers. Ordinary owner hide/delete actions
 do not add a quarantine. Approving a flagged comment lifts its scoped hold.
 Independent network rate limits and the site-wide lockdown remain in place.

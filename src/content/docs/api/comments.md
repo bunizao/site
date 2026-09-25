@@ -281,14 +281,20 @@ Every submission runs the full risk stack, in order:
    [Rate limits](/docs/api/overview#rate-limits)) — the only rate-limited
    route family on this whole site running in durable, not observability,
    mode.
-5. **Quarantine and lockdown** (anonymous writers only).
-   A session quarantined after a filled honeypot, untyped text or a spam
-   verdict is held for 24 hours. Account-backed keys, when present, refer to that account only;
-   IP and fingerprint matches do not share a quarantine. Ordinary owner
-   hide/delete actions do not create a quarantine. The system also holds every
-   anonymous writer while the site-wide one-hour lockdown is engaged. Both
+5. **Post hop, quarantine and lockdown** (anonymous writers only).
+   A comment that would be the writer's third distinct post in 10 minutes is
+   held with reason `spam` — the writer being the browser session or the
+   server-derived fingerprint (IP /24 and user agent), so rotating sessions
+   does not reset it. Readers in the archive have never passed two.
+   A session quarantined after a filled honeypot, untyped text, a post hop
+   or a spam verdict is held for 24 hours. Account-backed keys, when
+   present, refer to that account only; IP and fingerprint matches do not
+   share a quarantine. Ordinary owner hide/delete actions do not create a
+   quarantine. The system also holds every anonymous writer while the
+   site-wide one-hour lockdown is engaged. Quarantine and lockdown
    holds carry reason `ok`, skip the external checks below, and send the
-   owner no per-comment card. The lockdown engages on its own after more
+   owner no per-comment card; a post hop also skips them but, as a first
+   strike, still sends its card. The lockdown engages on its own after more
    than 8 anonymous comments in 10 minutes or 3 of the last 5 anonymous
    comments judged spam, and lifts on its own; see
    [Stopping somebody](/docs/platform/comments#stopping-somebody).
