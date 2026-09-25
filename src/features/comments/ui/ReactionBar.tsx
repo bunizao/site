@@ -11,6 +11,7 @@ import { mountAvatarComb } from '@/features/comments/client/use-avatar-comb';
 import { mountMagnetic } from '@/features/comments/client/use-magnetic';
 import {
   challengeTurnstile,
+  dismissTurnstileChallenge,
   getTurnstileToken,
   releaseTurnstileToken,
   setTurnstileHost,
@@ -305,6 +306,7 @@ export default function ReactionBar({
 
       const json = await response.json();
       telemetry.finish('accepted');
+      dismissTurnstileChallenge('blog_reaction');
       rememberReactionPass(json?.passUntil);
       const live = json?.reaction;
       if (live && typeof live.count === 'number') {

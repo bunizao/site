@@ -86,7 +86,7 @@ export const messageCopy: MessageCopy = {
   sendAnother: 'Write another',
   errorGeneric: "That didn't send, try again in a bit?",
   errorRateLimited: "That's a lot at once, give it a few minutes",
-  errorTurnstile: "The human check didn't pass, reload and try again",
+  errorTurnstile: 'One more step, tick the box below and it sends',
   errorBody: 'Write something, a couple of characters at least',
   errorName: 'Leave a name, any name',
   errorEmailMissing: "Leave an email, or I can't answer",

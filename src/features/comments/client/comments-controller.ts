@@ -42,6 +42,7 @@ import {
 } from '@/features/comments/comment-error';
 import {
   challengeTurnstile,
+  dismissTurnstileChallenge,
   getTurnstileToken,
   releaseTurnstileToken,
   setTurnstileHost,
@@ -637,10 +638,10 @@ export function initCommentsController(): void {
       // alone. Open the challenge under this box and resend once it is
       // answered, rather than telling the reader to reload -- the reload was
       // never the fix, it just spent the draft on a second try of the same
-      // silent solve. Once per submission: a challenge that fails again leaves
-      // the message standing rather than looping.
-      if (failure.code === 'BOT' && box.dataset.botRetry !== 'spent') {
-        box.dataset.botRetry = 'spent';
+      // silent solve. One automatic resend per press: a refusal of the resend
+      // leaves the message standing and the checkbox open under it, and the
+      // reader's next press spends the checkbox's next token.
+      if (failure.code === 'BOT' && !previousAttempt) {
         void solveChallengeAndResend(box, telemetry);
       } else {
         telemetry.finish(response.status === 0 ? 'network_error' : failure.code === 'BOT' ? 'challenge_failed' : 'http_error');
@@ -651,7 +652,10 @@ export function initCommentsController(): void {
     const { outcome, comment, unverifiedEmail } = response.data;
     const awaitingEmail = response.data.awaitingEmail === true;
     telemetry.finish('accepted');
-    delete box.dataset.botRetry;
+    // Through at last: the checkbox has done its job, and the next comment
+    // goes back to solving silently.
+    dismissTurnstileChallenge('blog_comment_create');
+    warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
 
     if (phase === 'anonymous') {
       claimed = { name: identity.displayName, email: identity.email };
@@ -723,9 +727,9 @@ export function initCommentsController(): void {
   }
 
   /** Draw a real, pressable Turnstile under `box` and send the comment again
-      the moment it is solved. An unsolved challenge (the reader ignored it, or
-      it failed again) simply returns: the refusal message is still on screen
-      and the draft is still in the field. */
+      the moment it is solved. The box stays on screen until a comment goes
+      through; while Cloudflare retries a failed challenge this simply waits,
+      with the refusal message and the draft both still in place. */
   async function solveChallengeAndResend(box: HTMLElement, telemetry: WriteTelemetry): Promise<void> {
     hostTurnstileIn(box);
     box.querySelector('[data-turnstile-host]')?.scrollIntoView({ block: 'nearest' });
@@ -1344,7 +1348,12 @@ export function initCommentsController(): void {
   /** The write itself, without the burst or the double-press guard, so the
       Turnstile retry below can resend without throwing a second handful of
       hearts for a press the reader only made once. */
-  async function sendCommentLike(commentId: string, button: HTMLButtonElement, telemetry: WriteTelemetry, options: { viaPass?: boolean } = {}): Promise<void> {
+  async function sendCommentLike(
+    commentId: string,
+    button: HTMLButtonElement,
+    telemetry: WriteTelemetry,
+    options: { viaPass?: boolean; retried?: boolean } = {},
+  ): Promise<void> {
     const article = button.closest<HTMLElement>('.blog-comment');
     button.setAttribute('aria-pressed', 'true');
 
@@ -1384,7 +1393,7 @@ export function initCommentsController(): void {
       // once more the ordinary way.
       if (failure.code === 'BOT' && viaPass) {
         forgetReactionPass();
-        await sendCommentLike(commentId, button, telemetry, { viaPass: true });
+        await sendCommentLike(commentId, button, telemetry, { viaPass: true, retried: options.retried });
         return;
       }
       button.setAttribute('aria-pressed', 'false');
@@ -1392,10 +1401,9 @@ export function initCommentsController(): void {
       showRowActionError(article, failure.message, failureTag(failure), helpFor(failure));
       // Same bargain the compose box strikes: draw a real checkbox under the
       // refusal that asked for one and resend the moment it is answered,
-      // rather than printing "one more step" beside nothing to press. Once per
-      // row, so a challenge that fails again leaves the message standing.
-      if (failure.code === 'BOT' && article && article.dataset.botRetry !== 'spent') {
-        article.dataset.botRetry = 'spent';
+      // rather than printing "one more step" beside nothing to press. One
+      // automatic resend per press; the checkbox stays for the next one.
+      if (failure.code === 'BOT' && article && !options.retried) {
         void solveReactionChallengeAndResend(article, commentId, button, telemetry);
       } else {
         telemetry.finish(response.status === 0 ? 'network_error' : failure.code === 'BOT' ? 'challenge_failed' : 'http_error');
@@ -1404,7 +1412,7 @@ export function initCommentsController(): void {
     }
     article?.querySelector('.blog-comment__action-error')?.remove();
     telemetry.finish('accepted');
-    delete article?.dataset.botRetry;
+    dismissTurnstileChallenge('blog_reaction');
     rememberReactionPass(response.data.passUntil);
     button.setAttribute('aria-pressed', String(response.data.reaction.reacted));
     if (countEl) countEl.textContent = String(response.data.reaction.count);
@@ -1425,8 +1433,8 @@ export function initCommentsController(): void {
   }
 
   /** Draw a pressable Turnstile under this comment and send the like again the
-      moment it is solved. An unanswered challenge simply returns: the refusal
-      is still on screen and the heart is still unpressed. */
+      moment it is solved. The box stays until a like goes through; the refusal
+      is still on screen and the heart still unpressed while it waits. */
   async function solveReactionChallengeAndResend(
     article: HTMLElement,
     commentId: string,
@@ -1446,7 +1454,7 @@ export function initCommentsController(): void {
       telemetry.finish('challenge_failed');
       return;
     }
-    await sendCommentLike(commentId, button, telemetry);
+    await sendCommentLike(commentId, button, telemetry, { retried: true });
   }
 
   /** Three hearts up and out of the button, per press. Sized and timed to the
