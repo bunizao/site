@@ -282,7 +282,7 @@ Every submission runs the full risk stack, in order:
    route family on this whole site running in durable, not observability,
    mode.
 5. **Step-up: confirm an email** (anonymous writers only). A score from
-   three independent sources decides whether this writer has to confirm an
+   four independent sources decides whether this writer has to confirm an
    address before the comment goes anywhere:
 
    | Source | Signals and weights | Cap |
@@ -290,6 +290,7 @@ Every submission runs the full risk stack, in order:
    | Network | hosting ASN 2, Tor 2, timezone differs from the IP's 1 | 2 |
    | Browser | `navigator.webdriver` 4; software WebGL, headless window shape, zero outer window, a Worker's `cf-worker` header 2; each inconsistency (platform, client hints, touch, languages, plugins, missing client hints, priority or client evidence) 1 | 4 |
    | History | a third distinct post in 10 minutes 4; the same browser session under another name within 24 hours 2 | — |
+   | Content | the AI gateway's authorship reading (step 6): `unclear` 2, `agent` 4 | — |
 
    A score of 4 or more steps up. The caps keep any one weak source below
    it — a VPN, a laptop without GPU drivers and a spoofed user agent are
@@ -300,6 +301,12 @@ Every submission runs the full risk stack, in order:
    entered — keystrokes, dictation, paste, pointer — is recorded and never
    scored.
 
+   The content source arrives with the step 6 verdict, so it is added
+   when that verdict does. Within the 2500ms window a content step-up is
+   refused or stored like any other; after it, the stored row becomes an
+   awaiting one (below) and the verification mail, which waits for the
+   verdict, says so.
+
    A session quarantined for 24 hours (a filled honeypot, a declared agent
    or a spam verdict; account-backed keys refer to that account only, and
    IP and fingerprint matches do not share one) and every anonymous writer
@@ -308,19 +315,25 @@ Every submission runs the full risk stack, in order:
 
    A step-up without an `email` is refused with `403 email_required` and
    nothing is stored. With one, the row is stored `held` with reason `ok`
-   and a note beginning `Awaiting email`, the external checks are skipped,
-   no per-comment card is sent, and the verification mail says confirming
-   publishes the comment. Confirming — the link opened in the same browser,
-   or the comment selected in `POST /api/v2/reader/claims` — sends it
-   through step 6 as a verified reader's comment. The owner can approve an
-   awaiting row from the queue at any time.
+   and a note beginning `Awaiting email`, and the verification mail says
+   confirming publishes the comment. Step 6 still judges it: an adverse
+   verdict (spam, a gateway hold, a reject) replaces the wait and stands,
+   and a clean one is appended to the note. The owner gets the usual card
+   once the verdict lands, except during a lockdown or quarantine.
+   Confirming — the link opened in the same browser, or the comment
+   selected in `POST /api/v2/reader/claims` — sends it through step 6
+   again, as a verified reader's comment, with the gateway's second
+   opinion. A mailbox is not a person: if the gateway still reads the
+   writer as an `agent`, the comment stays held with a note beginning
+   `Email confirmed; still held.` for the owner to decide. The owner can
+   approve an awaiting row from the queue at any time.
 
    The lockdown engages on its own after more than 8 anonymous comments in
    10 minutes, more than 2 score step-ups in 10 minutes, or 3 of the last 5
    anonymous comments judged spam, and lifts on its own; step-ups caused by
    the lockdown or a quarantine do not count toward it. See
    [Stopping somebody](/docs/platform/comments#stopping-somebody).
-6. **Content moderation** (skipped when a step above already held) — one
+6. **Content moderation** (skipped after a heuristics hold, a declared agent or a ban; a step-up row is still judged) — one
    Akismet `comment-check` carrying the body, author fields, IP, user
    agent, referrer, post permalink, site language, honeypot field, and the
    owner's `administrator` role when it is the owner writing. Ham
@@ -332,11 +345,20 @@ Every submission runs the full risk stack, in order:
 
    For an **anonymous** writer, a language model behind the owner's AI
    gateway (`task-guard` via `AI_BASE_URL` / `AI_API_KEY`) reads the text at
-   the same time. It can turn Akismet's ham into a
-   hold with reason `spam`, `promotional`, `abuse` or `personal_info`,
-   never a hold into a publish; when it is unavailable the Akismet verdict
-   stands alone. A spam verdict from either quarantines the writer's
-   identity for 24 hours. Verified readers get Akismet only.
+   the same time, beside the post's title and excerpt, this writer's
+   comments from the last 24 hours and other anonymous comments from the
+   last hour. It answers two questions. What the comment is: it can turn
+   Akismet's ham into a hold with reason `spam`, `promotional`, `abuse` or
+   `personal_info`, never a hold into a publish. Who wrote it: `person`,
+   `unclear` (reads machine-written, nothing confirms it) or `agent`
+   (behaviour confirms it — bursts across posts, a numbered persona in a
+   wave, a comment answering a different post, tool artifacts). Style alone
+   is never `agent`, and dictation artifacts, typos, slang and brevity are
+   never evidence. The authorship answer only feeds the step 5 score and
+   the note; it never holds a comment by itself. When the gateway is
+   unavailable the Akismet verdict stands alone. A spam verdict from either
+   quarantines the writer's identity for 24 hours. Verified readers get
+   Akismet only.
 
    The request does not wait the full ten seconds. After **2500ms** the
    create returns with the row stored as `held` and finishes the check in

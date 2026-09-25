@@ -139,8 +139,9 @@ on its own when anonymous traffic as a whole looks like a flood: more than
 by the score in 10 minutes, or 3 of the last 5 anonymous comments judged
 spam. For its duration every anonymous writer is asked to confirm an email;
 waiting rows carry reason `ok` (so they never count toward the ratio that
-engaged it), external checks are skipped, no per-comment cards are sent, and
-the owner gets exactly one card saying when it lifts. `/comments` in the ops
+engaged it), Akismet and the AI gateway still judge each one (a spam verdict
+replaces the wait), no per-comment cards are sent, and the owner gets
+exactly one card saying when it lifts. `/comments` in the ops
 bot shows the status. Verified readers are never affected. A flood that
 outlasts the hour re-engages it.
 
@@ -237,8 +238,11 @@ and fingerprint matches name their basis and may include different readers.
   the `task-guard` alias behind `AI_BASE_URL` / `AI_API_KEY`, the same gateway
   mood sentiment runs on. It reads the text the way the owner would (VPN
   pitches, referral links, "contact me on Telegram") and can turn Akismet's
-  ham into a hold, never the reverse. Unset key, timeout, or refusal means
-  the Akismet verdict stands alone. The create request
+  ham into a hold, never the reverse. It also reads who wrote it, with the
+  writer's last day and the site's last hour as context: an `unclear` or
+  `agent` answer is a step-up source, never a hold, and an `agent` answer
+  keeps a comment held after its email is confirmed. Unset key, timeout, or
+  refusal means the Akismet verdict stands alone. The create request
   waits 2500ms for both and finishes the check in the background if it runs
   over, so a `held` outcome can quietly become `published` a second later.
 
