@@ -329,9 +329,8 @@ Every submission runs the full risk stack, in order:
    approve an awaiting row from the queue at any time.
 
    The lockdown engages on its own after more than 8 anonymous comments in
-   10 minutes, more than 2 score step-ups in 10 minutes, or 3 of the last 5
-   anonymous comments judged spam, and lifts on its own; step-ups caused by
-   the lockdown or a quarantine do not count toward it. See
+   10 minutes or 3 of the last 5 anonymous comments judged spam, and lifts
+   on its own; step-ups never engage it. See
    [Stopping somebody](/docs/platform/comments#stopping-somebody).
 6. **Content moderation** (skipped after a heuristics hold, a declared agent or a ban; a step-up row is still judged) — one
    Akismet `comment-check` carrying the body, author fields, IP, user
