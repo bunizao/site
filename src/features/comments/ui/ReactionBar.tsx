@@ -21,7 +21,9 @@ import {
   hasReactionPass,
   rememberReactionPass,
 } from '@/features/comments/client/reaction-pass';
-import { initials, seedHue } from '@/features/comments/identity';
+import { seedNumber } from '@/features/comments/identity';
+import { anonymousSeeds, beamAvatarSvg } from '@/features/comments/beam-avatar';
+import { avatarClass, isAvatarSeed } from '@bunizao/contracts/comments';
 import { ICONS } from '@/features/comments/icons';
 import { resolveCommentsCopy } from '@/features/comments/copy';
 import type { ClientEvidence, ReactionToggleInput } from '@bunizao/contracts/comments';
@@ -71,8 +73,21 @@ function Heart({ filled = false }: { filled?: boolean }) {
 }
 
 /** Server chips to stack faces. Only the same-origin avatar route survives. */
-function toReactors(chips: { name: string; avatarUrl: string | null }[] | undefined): Reactor[] {
-  return (chips ?? []).map((chip) => ({ name: chip.name, avatar: safeReaderAvatarUrl(chip.avatarUrl) }));
+function toReactors(
+  chips: { name: string; avatarUrl: string | null; avatarSeed?: number | null }[] | undefined,
+): Reactor[] {
+  return (chips ?? []).map((chip) => ({
+    name: chip.name,
+    avatar: safeReaderAvatarUrl(chip.avatarUrl),
+    avatarSeed: isAvatarSeed(chip.avatarSeed) ? chip.avatarSeed : undefined,
+  }));
+}
+
+const reactorSeed = (reactor: Reactor) => reactor.avatarSeed ?? seedNumber(reactor.name);
+
+function Beam({ seed }: { seed: number }) {
+  // beam-avatar.ts builds this from numbers and palette constants only.
+  return <span className="blog-avatar-beam size-full" dangerouslySetInnerHTML={{ __html: beamAvatarSvg(seed) }} />;
 }
 
 /** One burst of hearts per press. Keyed by id so a fast double-tap stacks --
@@ -140,11 +155,13 @@ export default function ReactionBar({
   const faces = summary.reactors.slice(0, faceLimit);
   // Likes with no reader behind them still get a face, after the named ones:
   // the count already says they happened, and a stack that shows only the
-  // few readers who signed in reads as a room with one person in it. Seeded
-  // by post, then stepped by the golden angle: FNV over "post:0", "post:1"...
-  // clusters into two hues, and neighbours in an overlapping stack must differ.
+  // few readers who signed in reads as a room with one person in it.
   const anonymous = Math.max(0, Math.min(faceLimit - faces.length, total - summary.reactors.length));
-  const anonBaseHue = seedHue(postId ?? 'lab');
+  const anonSeeds = anonymousSeeds(
+    anonymous,
+    new Set(faces.filter((reactor) => !reactor.avatar).map((reactor) => avatarClass(reactorSeed(reactor)))),
+    postId ?? 'lab',
+  );
   const overflow = Math.max(0, total - faces.length - anonymous);
 
   React.useEffect(() => {
@@ -382,12 +399,11 @@ export default function ReactionBar({
                 style={{
                   zIndex: i,
                   ['--entry-delay' as string]: `${i * 60}ms`,
-                  ['--seed-hue' as string]: seedHue(reactor.name),
                 }}
               >
                 {reactor.avatar && <AvatarImage src={reactor.avatar} alt={reactor.name} />}
-                <AvatarFallback className="blog-avatar-seed blog-avatar-initials">
-                  {initials(reactor.name)}
+                <AvatarFallback>
+                  <Beam seed={reactorSeed(reactor)} />
                 </AvatarFallback>
                 {/* Hover names the face instead of pulling it clear of the stack:
                     the overlap is the point, and a face that jumps to the front
@@ -400,7 +416,7 @@ export default function ReactionBar({
                 </span>
               </Avatar>
             ))}
-            {Array.from({ length: anonymous }, (_, j) => {
+            {anonSeeds.map((seed, j) => {
               const i = faces.length + j;
               return (
                 <Avatar
@@ -408,23 +424,10 @@ export default function ReactionBar({
                   size="default"
                   data-comb-item
                   className="blog-react__avatar"
-                  style={{
-                    zIndex: i,
-                    ['--entry-delay' as string]: `${i * 60}ms`,
-                    ['--seed-hue' as string]: Math.round(anonBaseHue + j * 137.508) % 360,
-                  }}
+                  style={{ zIndex: i, ['--entry-delay' as string]: `${i * 60}ms` }}
                 >
-                  <AvatarFallback className="blog-avatar-seed blog-avatar-anon">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                      dangerouslySetInnerHTML={{ __html: ICONS.userRound }}
-                    />
+                  <AvatarFallback>
+                    <Beam seed={seed} />
                   </AvatarFallback>
                   <span className="blog-react__name" aria-hidden="true">
                     {t.reactAnonymous}

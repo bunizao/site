@@ -163,16 +163,17 @@ test('confirm card carries the reply switch and the newsletter switch', async ({
   expect(width).toBeGreaterThan(30);
 });
 
-test('a resolved avatar draws a photo, everyone else draws initials', async ({ page }) => {
+test('a resolved avatar draws a photo, everyone else a drawn face', async ({ page }) => {
   await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
   const withPhoto = page.locator('#comment-8 .blog-comment__avatar');
   await expect(withPhoto).toHaveJSProperty('tagName', 'IMG');
   await expect(withPhoto).toHaveAttribute('src', '/avatar.webp');
-  // A row whose writer never resolved one falls back to initials rather than
-  // a broken image -- the avatar URL is empty precisely when there is nothing
-  // to fetch.
+  // A row whose writer never resolved one falls back to a drawn face rather
+  // than a broken image -- the avatar URL is empty precisely when there is
+  // nothing to fetch.
   const withoutPhoto = page.locator('#comment-1 .blog-comment__avatar');
-  await expect(withoutPhoto).toHaveClass(/blog-avatar-initials/);
+  await expect(withoutPhoto).toHaveClass(/blog-avatar-beam/);
+  await expect(withoutPhoto.locator('svg rect')).not.toHaveCount(0);
 });
 
 test('mute card says what went quiet and what did not', async ({ page }) => {

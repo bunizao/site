@@ -5,6 +5,8 @@
 export interface Reactor {
   name: string;
   avatar?: string;
+  /** Drawn-face seed from the server, when the reactor has one. */
+  avatarSeed?: number;
 }
 
 /** The reader's standing, from plans/blog-comments.md → "Identity: three
@@ -30,6 +32,7 @@ export interface ClaimedIdentity {
 export interface Viewer {
   name: string;
   avatar?: string;
+  avatarSeed?: number;
 }
 
 /** Where the current submission attempt stands. `idle` is "nothing in
@@ -61,6 +64,8 @@ export interface BlogComment {
       draws instead, seeded so a name many anonymous writers reuse does not
       give them all the same coloured circle. */
   avatarUrl?: string;
+  /** `CommentAuthor.avatarSeed`: the drawn face when there is no picture. */
+  avatarSeed?: number;
   isReply?: boolean;
   /** Reactions on the comment itself. A thread is a conversation, and most of
       what people want to say back is "agreed" — a like says it without adding

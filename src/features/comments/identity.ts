@@ -1,3 +1,5 @@
+import { isAvatarSeed } from '@bunizao/contracts/comments';
+
 /* Reader identity for people with no avatar on file.
 
    Both halves are pure functions of a seed string, so the same seed draws the
@@ -22,12 +24,18 @@ export function initials(name: string): string {
     every generated avatar lands on the same contrast step and no unlucky name
     draws an unreadable pair. */
 export function seedHue(name: string): number {
+  return seedNumber(name) % 360;
+}
+
+/** The same FNV-1a, unfolded: a uint32 usable as a drawn-avatar seed for
+    anyone the server has not handed one to. */
+export function seedNumber(name: string): number {
   let hash = 0x811c9dc5;
   for (const char of name.trim().toLowerCase()) {
     hash ^= char.codePointAt(0) ?? 0;
     hash = Math.imul(hash, 0x01000193);
   }
-  return (hash >>> 0) % 360;
+  return hash >>> 0;
 }
 
 /** What to feed seedHue() for a comment row's generated avatar. A writer who
@@ -40,4 +48,16 @@ export function seedHue(name: string): number {
     collides. */
 export function avatarSeed(id: string, author: string, avatarUrl: string | undefined): string {
   return avatarUrl ? author : id;
+}
+
+/** The drawn face for a row: the seed the server handed out when there is
+    one, else one derived exactly the way the colour always was, so rows from
+    before seeds existed keep a stable face. */
+export function rowFaceSeed(
+  id: string,
+  author: string,
+  avatarUrl: string | undefined,
+  serverSeed: number | null | undefined,
+): number {
+  return isAvatarSeed(serverSeed) ? serverSeed : seedNumber(avatarSeed(id, author, avatarUrl));
 }

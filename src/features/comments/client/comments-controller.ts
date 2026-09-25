@@ -56,7 +56,9 @@ import { clearCommentMarkdownPreview } from '@/features/comments/client/markdown
 import { readCommentText, setCommentText } from '@/features/comments/comment-markdown';
 import { forgetReaderEmail, readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { wireSignOut } from '@/features/comments/client/sign-out';
-import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
+import { rowFaceSeed, seedNumber } from '@/features/comments/identity';
+import { beamAvatarSvg } from '@/features/comments/beam-avatar';
+import { readAvatarSeed, rememberAvatarSeed, requestAvatarSeed } from '@/features/comments/client/avatar-seed';
 import { ICONS, SIGNOUT_ICONS, iconSvg } from '@/features/comments/icons';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
@@ -156,6 +158,7 @@ function toBlogComment(
     date: formatRelativeDate(comment.createdAt, t),
     text: comment.tombstone ? '' : comment.body,
     avatarUrl: comment.tombstone ? undefined : safeReaderAvatarUrl(comment.author.avatarUrl),
+    avatarSeed: comment.tombstone ? undefined : comment.author.avatarSeed ?? undefined,
     byAuthor: comment.author.byAuthor,
     held: comment.status === 'held',
     isReply: comment.parentId !== null,
@@ -169,9 +172,17 @@ function toBlogComment(
   };
 }
 
-/** A real picture when the writer has one on file, and the generated circle
+/** A drawn face into `host`, replacing whatever it held. beam-avatar.ts
+    builds its markup from numbers and palette constants only, so it parses
+    as safely as the static icons. */
+function paintBeam(host: HTMLElement, seed: number): HTMLElement {
+  host.replaceChildren(parseStaticSvg(beamAvatarSvg(seed)));
+  return host;
+}
+
+/** A real picture when the writer has one on file, and the drawn face
     otherwise. `avatarUrl` is only ever set when an avatar actually resolved,
-    so this never trades a tinted set of initials for a random identicon. */
+    so this never trades a drawn face for a random identicon. */
 function commentFace(comment: BlogComment): HTMLElement {
   if (comment.avatarUrl) {
     return el('img', {
@@ -184,11 +195,10 @@ function commentFace(comment: BlogComment): HTMLElement {
       decoding: 'async',
     });
   }
-  return el('span', {
-    class: 'blog-comment__avatar blog-avatar-seed blog-avatar-initials',
-    style: `--seed-hue:${seedHue(avatarSeed(comment.id, comment.author, comment.avatarUrl))}`,
-    'aria-hidden': 'true',
-  }, [initials(comment.author)]);
+  return paintBeam(
+    el('span', { class: 'blog-comment__avatar blog-avatar-beam', 'aria-hidden': 'true' }),
+    rowFaceSeed(comment.id, comment.author, comment.avatarUrl, comment.avatarSeed),
+  );
 }
 
 /** Mutation rights, derived only from the fields the server actually sends.
@@ -280,6 +290,7 @@ export function initCommentsController(): void {
     applyPhase(compose, phase, claimed, viewer);
     wireSignOut(compose, () => void signOut());
   }
+  paintOwnFaces();
   void mintDwellToken();
 
   // A Turnstile solve costs ~2.3s. Asked for at submit time it landed entirely
@@ -323,6 +334,7 @@ export function initCommentsController(): void {
     if (!(event.target as HTMLElement).closest('.blog-compose')) return;
     warmCreate();
     armEvidence();
+    void ensureOwnSeed();
   });
 
   // Build the "loaded" shell up front -- state="loading" carries neither the
@@ -344,6 +356,8 @@ export function initCommentsController(): void {
       viewer = meResult.reader;
       if (viewer) {
         phase = 'ready';
+        // Kept locally too, so signing out leaves the same face behind.
+        rememberAvatarSeed(viewer.avatarSeed);
       }
       if (compose) applyPhase(compose, phase, claimed, viewer);
       applyPhase(replyBox, phase, claimed, viewer);
@@ -580,6 +594,7 @@ export function initCommentsController(): void {
       parentId,
       displayName: identity.displayName,
       email: identity.email,
+      avatarSeed: readAvatarSeed(),
       turnstileToken,
       website: (box.querySelector<HTMLInputElement>('[data-honeypot]')?.value ?? ''),
       dwellToken,
@@ -1074,7 +1089,17 @@ export function initCommentsController(): void {
   function buildIdentityRow(id: string): HTMLElement {
     // Mirrors IdentityRow.astro -- the two have to agree, since the lab
     // renders that one and a live thread renders this one.
+    const face = el('button', {
+      type: 'button',
+      class: 'blog-compose__face blog-avatar-beam blog-avatar-shuffle',
+      'data-avatar-own': '',
+      'data-avatar-name': '',
+      'aria-label': t.avatarShuffle,
+      title: t.avatarShuffle,
+    });
+    paintOwnFace(face);
     return el('div', { class: 'blog-compose__identity', id, 'data-compose-identity': '' }, [
+      face,
       el('div', { class: 'blog-compose__fields' }, [
         el('label', { class: 'sr-only', for: `${id}-name` }, [t.nameLabel]),
         el('input', { id: `${id}-name`, class: 'blog-compose__input blog-compose__input--name', type: 'text', maxlength: '32', autocomplete: 'nickname', placeholder: t.namePlaceholder, required: '' }),
@@ -1271,6 +1296,7 @@ export function initCommentsController(): void {
       author: authorName,
       date: t.relativeDate.now,
       text: body,
+      avatarSeed: ownSeed(authorName),
       held: true,
       isReply: parentId !== null,
       own: true,
@@ -1775,7 +1801,7 @@ export function initCommentsController(): void {
         const avatarUrl = safeReaderAvatarUrl(currentViewer.avatarUrl);
         const face = avatarUrl
           ? el('img', { class: 'blog-compose__whoface', src: avatarUrl, alt: '', width: '20', height: '20' })
-          : identityFace(currentViewer.displayName);
+          : ownFace(currentViewer.displayName);
         who.append(face, ...identityName(currentViewer.displayName, t.postingAs(currentViewer.displayName)));
       }
     }
@@ -1786,22 +1812,98 @@ export function initCommentsController(): void {
       claim.replaceChildren();
       if (currentPhase === 'claimed' && claimedIdentity) {
         claim.append(
-          identityFace(claimedIdentity.name),
+          ownFace(claimedIdentity.name),
           ...identityName(claimedIdentity.name, t.claimedAs(claimedIdentity.name)),
         );
       }
     }
   }
 
-  /** The generated face both grades fall back to -- a claimed identity never
-      has a picture, and a verified reader only has one once it resolved. */
-  function identityFace(name: string): HTMLElement {
-    return el('span', {
-      class: 'blog-compose__whoface blog-avatar-seed blog-avatar-initials',
-      style: `--seed-hue:${seedHue(name)}`,
-      'aria-hidden': 'true',
-    }, [initials(name)]);
+  // --- Own drawn face ------------------------------------------------------
+
+  /** The face this browser posts under: a verified reader's stored seed, else
+      the one this browser was handed, else one drawn from the name until the
+      first focus asks the server for a real one. */
+  function ownSeed(name: string): number {
+    return viewer?.avatarSeed ?? readAvatarSeed() ?? seedNumber(name);
   }
+
+  /** The drawn face both grades fall back to -- a claimed identity never has
+      a picture, and a verified reader only has one once it resolved. It is
+      also the control: tapping your own face draws another. */
+  function ownFace(name: string): HTMLElement {
+    const face = el('button', {
+      type: 'button',
+      class: 'blog-compose__whoface blog-avatar-beam blog-avatar-shuffle',
+      'data-avatar-own': '',
+      'data-avatar-name': name,
+      'aria-label': t.avatarShuffle,
+      title: t.avatarShuffle,
+    });
+    return paintBeam(face, ownSeed(name));
+  }
+
+  /** Repaints every copy of the reader's own face: the strip in the compose
+      box, the one in the reply box, and the face beside the name field. */
+  function paintOwnFaces(): void {
+    for (const face of document.querySelectorAll<HTMLElement>('[data-avatar-own]')) paintOwnFace(face);
+  }
+
+  function paintOwnFace(face: HTMLElement): void {
+    const name = face.dataset.avatarName ?? '';
+    // The face beside an empty name field has nothing to draw from yet: a
+    // silhouette until the first seed lands, rather than one face every new
+    // visitor shares.
+    if (!name && viewer?.avatarSeed == null && readAvatarSeed() === undefined) {
+      face.replaceChildren(parseStaticSvg(iconSvg(ICONS.userRound)));
+      face.classList.add('is-empty');
+      return;
+    }
+    face.classList.remove('is-empty');
+    paintBeam(face, ownSeed(name));
+  }
+
+  let seedRequest: Promise<void> | null = null;
+
+  /** The first seed comes from the server, which picks a colour pair the site
+      is not already full of. Asked for on first focus rather than on load:
+      most readers never write, and each ask reads the tables it balances. */
+  function ensureOwnSeed(): Promise<void> {
+    if (viewer?.avatarSeed != null || readAvatarSeed() !== undefined) return Promise.resolve();
+    return shuffleOwnSeed(undefined);
+  }
+
+  function shuffleOwnSeed(current: number | undefined): Promise<void> {
+    seedRequest ??= requestAvatarSeed(current).then((result) => {
+      seedRequest = null;
+      if (!result) return;
+      if (viewer && result.persisted) viewer = { ...viewer, avatarSeed: result.seed };
+      paintOwnFaces();
+    });
+    return seedRequest;
+  }
+
+  // Until a seed lands, the face beside the name field follows the name, so a
+  // failed seed request still leaves a face rather than a silhouette.
+  document.addEventListener('input', (event) => {
+    const field = event.target as HTMLElement;
+    if (!field.matches('.blog-compose__input--name')) return;
+    const face = field.closest('[data-compose-identity]')?.querySelector<HTMLElement>('[data-avatar-own]');
+    if (!face) return;
+    face.dataset.avatarName = (field as HTMLInputElement).value.trim();
+    paintOwnFace(face);
+  });
+
+  document.addEventListener('click', (event) => {
+    const face = (event.target as HTMLElement).closest<HTMLElement>('[data-avatar-own]');
+    if (!face) return;
+    face.classList.remove('is-shuffled');
+    void shuffleOwnSeed(viewer?.avatarSeed ?? readAvatarSeed()).then(() => {
+      // Restarted on every tap, so a second tap still reads as one.
+      void face.offsetWidth;
+      face.classList.add('is-shuffled');
+    });
+  });
 
   /** The name as the strip shows it, plus the sentence a screen reader hears
       instead -- which grade this is matters to someone who cannot see that the
