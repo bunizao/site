@@ -114,11 +114,15 @@ session was new. Those describe a request, not a requester.
 Two automatic mechanisms and two manual ones. The automatic pair exists so a
 flood at 3am is handled by the time the owner wakes up; the manual pair is
 the owner's own lever afterwards. None of them rejects anything: the safe
-state everywhere is `held`, so a false positive is still in the queue.
+state everywhere is `held`, so a false positive is still in the queue. The
+one automatic reject — untyped text, see
+[the risk stack](/docs/api/comments#post-a-comment) — stores its row too,
+sends a card with Approve on the first strike, and lets the portal approve
+it, so a mistaken reject is recoverable the same way a hold is.
 
 **Identity quarantine** — 24 hours, in KV under `comments:quarantine:`,
-scoped to the current account or anonymous session. Honeypot and moderation
-signals may quarantine that subject; shared IP, subnet and fingerprint values
+scoped to the current account or anonymous session. Honeypot, untyped-text
+and moderation signals may quarantine that subject; shared IP, subnet and fingerprint values
 never spread the hold to other readers. Ordinary owner hide/delete actions
 do not add a quarantine. Approving a flagged comment lifts its scoped hold.
 Independent network rate limits and the site-wide lockdown remain in place.
@@ -142,7 +146,8 @@ query.
 
 The effect is shadow-only, and the same for the two paths in different
 shapes. A listed writer's comment is created and held with the note
-`Shadow-banned writer.`; their own browser shows the normal "sent for
+`Shadow-banned writer.`, without an Akismet or model call and without a
+Telegram card; their own browser shows the normal "sent for
 review" state and nobody else ever sees the row. A listed source's heart
 gets the ordinary envelope carrying the `reacted` state it asked for and a
 count that did not move: no row, no reader pass, no error. Neither says a

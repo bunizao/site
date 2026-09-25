@@ -205,11 +205,12 @@ it in.
 
 `clientFp`, `interaction` and `storageId` are the optional client evidence,
 collected by a module the page loads on the first focus inside the compose
-box and never on a page view. **None of the three is ever a gate.** A body
+box and never on a page view. **Leaving them out is never a gate.** A body
 that omits them, sends the wrong type, or sends 40 KiB of nonsense is written
 exactly like one that sends them well: the server stores what survives its
-bounds and NULL for the rest, and none of it feeds a rate-limit budget. Send
-them or do not.
+bounds and NULL for the rest, and none of it feeds a rate-limit budget. Only
+what a well-formed `interaction` says can count against a comment, through
+the untyped-text check in step 3.
 
 `clientFp` is what the browser says about itself — platform, screen, time
 zone, a canvas and audio hash, the font families a width probe found, media
@@ -259,6 +260,17 @@ Every submission runs the full risk stack, in order:
    check — verification already priced out the throwaway identity — and
    gets a higher link ceiling (6 instead of 3). The exact-duplicate hold
    and the keyword blocklist apply to everyone.
+
+   **Untyped text** (anonymous writers only) is the one heuristic that
+   rejects. A body of 40+ characters whose `interaction` reports no paste
+   and fewer than one key press per 8 characters was put in the box by
+   something other than a keyboard — the shape a browser agent leaves. The
+   row is stored as `rejected` with reason `spam`, the writer gets the same
+   `held` envelope as any hold, the session is quarantined (step 5), and the
+   external checks in step 6 never run. Touch and pen sessions, a missing
+   `interaction`, and a draft the page restored at load (reported as a
+   paste) are never judged. The owner's card for a rejected comment carries
+   Approve, and so does the portal, so a false positive can be put back.
 4. **Rate limits**, durably enforced across three dimensions (anonymous
    session, IP, server-derived fingerprint) and two windows each: 5/minute
    and 20/hour for anonymous writers; 10/minute and 60/hour for verified
@@ -270,8 +282,8 @@ Every submission runs the full risk stack, in order:
    route family on this whole site running in durable, not observability,
    mode.
 5. **Quarantine and lockdown** (anonymous writers only).
-   A session quarantined after a filled honeypot or spam verdict is held for
-   24 hours. Account-backed keys, when present, refer to that account only;
+   A session quarantined after a filled honeypot, untyped text or a spam
+   verdict is held for 24 hours. Account-backed keys, when present, refer to that account only;
    IP and fingerprint matches do not share a quarantine. Ordinary owner
    hide/delete actions do not create a quarantine. The system also holds every
    anonymous writer while the site-wide one-hour lockdown is engaged. Both
@@ -286,7 +298,7 @@ Every submission runs the full risk stack, in order:
    owner's `administrator` role when it is the owner writing. Ham
    publishes; spam holds (the owner can rescue a false positive); Akismet's
    "blatant spam" signal rejects so a spam wave never floods the
-   moderation queue. Fails closed to `hold` on any error, timeout, or
+   moderation queue — the owner can still approve a rejected row. Fails closed to `hold` on any error, timeout, or
    non-verdict response; the HTTP call itself is abandoned after 10
    seconds.
 
@@ -305,9 +317,10 @@ Every submission runs the full risk stack, in order:
    The upgrade is guarded on `updated_at`, so a writer who edits in the
    meantime keeps their row held rather than having it clobbered by a
    stale verdict. A `held` response is therefore not always final.
-7. **Shadow-ban.** A banned writer's otherwise-`publish` verdict is quietly
-   downgraded to `hold` — they see their own comment as normal; nobody else
-   ever does. The ban list holds nine kinds of key: the address,
+7. **Shadow-ban.** A banned writer is held on sight with the note
+   `Shadow-banned writer.`, before step 6 spends an external call and
+   without a per-comment card — they see their own comment as normal;
+   nobody else ever does. The ban list holds nine kinds of key: the address,
    the session, the IP, its /24, the server-side and client-side
    fingerprints, the network, a link domain and a mail domain. A write
    matching any one of them is held. Nothing in the response says so.
@@ -360,9 +373,9 @@ discussion group:
   The bridge send failing never fails the create — the comment is already
   published on the site (`outcome` in the response is unaffected either
   way).
-- **`held`** never reaches Telegram. Approving a held comment (card or
-  portal) runs the same bridge step then, at that point — not before. A
-  rejected comment is never bridged, ever.
+- **`held`** and **`rejected`** never reach Telegram. Approving either
+  (card or portal) runs the same bridge step then, at that point — not
+  before.
 - **Edit** (the same 15-minute, verified-reader-only window as the blog)
   edits the bridged message in place; Telegram shows "edited". **Delete** —
   by the reader, or by the owner — deletes the bridged message. Both are
