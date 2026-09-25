@@ -1834,8 +1834,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 
   // ---------- Instagram ---------------------------------------------------
 
-  const compactCount = (value: number): string =>
-    new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+  const compactCount = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
 
   let instagramRequested = false;
   const loadInstagram = async (): Promise<void> => {
@@ -1854,7 +1853,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     if (!counts) return;
     for (const [key, value] of Object.entries(counts)) {
       const node = card.querySelector(`[data-ig-count="${key}"]`);
-      if (node && typeof value === 'number') node.textContent = compactCount(value);
+      if (node && typeof value === 'number') node.textContent = compactCount.format(value);
     }
     if (current === card) reposition();
   };
