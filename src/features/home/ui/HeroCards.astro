@@ -25,10 +25,6 @@ const firstName = profile.name.split(' ')[0];
 
 // Expected graduation; the badge prints it as the card's expiry.
 const EXPIRES = '2028';
-const initials = profile.name
-  .split(' ')
-  .map((part) => part[0])
-  .join('');
 
 // The badge barcode is real Code 128 (set B) and scans to the site. Each
 // entry is one symbol's bar and space widths, bar first, by symbol value;
@@ -93,48 +89,35 @@ const readTotalStars = async (): Promise<string | null> => {
 };
 const totalStars = await readTotalStars();
 
-// The Instagram profile. Instagram answers link-preview crawlers without a
-// login: og:image names the picture and og:description carries the counts
-// ("33 Followers, 94 Following, 35 Posts"). The CDN signs the picture's
-// address and expires it within days, so its bytes are inlined, not linked.
-// It is read on every build; a failed read leaves the initials and no counts.
-type InstagramProfile = {
-  avatar: string | null;
-  counts: { label: string; value: string }[];
-};
-const readInstagram = async (profileUrl: string): Promise<InstagramProfile | null> => {
+// The Instagram profile picture is a file in public/, not read at build.
+// Instagram serves build runners its login wall, whose og:image is the
+// Instagram logo, and the picture's CDN address is signed and expires within
+// days. The bytes of the address are fetchable from anywhere while it is
+// valid, so the picture is saved once and replaced when it changes.
+const INSTAGRAM_AVATAR = '/instagram-avatar.jpg';
+
+// The counts. Instagram answers link-preview crawlers without a login:
+// og:description carries them ("33 Followers, 94 Following, 35 Posts"). It
+// is read on every build; a failed read or a login wall leaves no counts.
+type InstagramCount = { label: string; value: string };
+const readInstagramCounts = async (profileUrl: string): Promise<InstagramCount[]> => {
   try {
     const page = await fetch(profileUrl, {
       headers: { 'user-agent': 'facebookexternalhit/1.1' },
       signal: AbortSignal.timeout(4000),
     });
-    if (!page.ok) return null;
+    if (!page.ok) return [];
     const html = await page.text();
-    const meta = (name: string) =>
-      html.match(new RegExp(`<meta property="og:${name}" content="([^"]+)"`))?.[1]?.replaceAll('&amp;', '&');
-
-    const summary = meta('description') ?? '';
+    const summary =
+      html.match(/<meta property="og:description" content="([^"]+)"/)?.[1]?.replaceAll('&amp;', '&') ?? '';
     const count = (label: string) => summary.match(new RegExp(`([\\d.,]+[KM]?) ${label}`, 'i'))?.[1];
-    const counts = [
+    return [
       { label: 'Posts', value: count('Posts') },
       { label: 'Followers', value: count('Followers') },
       { label: 'Following', value: count('Following') },
-    ].filter((item): item is { label: string; value: string } => Boolean(item.value));
-
-    let avatar: string | null = null;
-    const src = meta('image');
-    if (src) {
-      const image = await fetch(src, { signal: AbortSignal.timeout(4000) });
-      const type = image.headers.get('content-type') ?? '';
-      if (image.ok && type.startsWith('image/')) {
-        let binary = '';
-        for (const byte of new Uint8Array(await image.arrayBuffer())) binary += String.fromCharCode(byte);
-        avatar = `data:${type};base64,${btoa(binary)}`;
-      }
-    }
-    return { avatar, counts };
+    ].filter((item): item is InstagramCount => Boolean(item.value));
   } catch {
-    return null;
+    return [];
   }
 };
 // A hand of cards fanned from the middle, the outer ones lower and turned
@@ -157,7 +140,7 @@ const channel = (name: string) => {
 const github = channel('GitHub');
 const telegram = channel('Telegram');
 const instagram = channel('Instagram');
-const instagramProfile = instagram?.canonicalUrl ? await readInstagram(instagram.canonicalUrl) : null;
+const instagramCounts = instagram?.canonicalUrl ? await readInstagramCounts(instagram.canonicalUrl) : [];
 const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 ---
 
@@ -357,16 +340,12 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   {instagram && (
     <div class="hc hc--instagram" data-card-id="instagram">
       <span class="ig-ring">
-        {instagramProfile?.avatar ? (
-          <img class="ig-avatar" src={instagramProfile.avatar} alt="" width="64" height="64" decoding="async" />
-        ) : (
-          <span class="hc-monogram">{initials}</span>
-        )}
+        <img class="ig-avatar" src={INSTAGRAM_AVATAR} alt="" width="64" height="64" loading="lazy" decoding="async" />
       </span>
       <span class="hc-title">{instagram.handle}</span>
-      {instagramProfile && instagramProfile.counts.length > 0 && (
+      {instagramCounts.length > 0 && (
         <dl class="ig-counts">
-          {instagramProfile.counts.map((item) => (
+          {instagramCounts.map((item) => (
             <div><dd class="hc-num">{item.value}</dd><dt>{item.label}</dt></div>
           ))}
         </dl>
@@ -553,22 +532,6 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     object-fit: cover;
     outline: 1px solid var(--home-image-outline);
     outline-offset: -1px;
-  }
-
-  /* Initials stand in for a face everywhere but GitHub, whose avatar is
-     the profile picture there. */
-  .hc-monogram {
-    display: grid;
-    place-items: center;
-    background: color-mix(in oklab, hsl(var(--foreground)) 8%, var(--home-surface));
-    font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--home-fg-primary);
-  }
-
-  .hc-avatar.hc-monogram {
-    font-size: 13px;
   }
 
   .hc-note {
@@ -1597,13 +1560,6 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     to {
       rotate: 1turn;
     }
-  }
-
-  .ig-ring .hc-monogram {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    font-size: 20px;
   }
 
   .ig-avatar {
