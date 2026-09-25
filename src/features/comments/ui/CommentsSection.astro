@@ -405,11 +405,12 @@ const t = commentsCopy[locale];
                   ) : (
                     <button
                       type="button"
-                      class="blog-compose__whoface blog-avatar-drawn blog-avatar-shuffle"
+                      class="blog-compose__whoface blog-avatar-drawn blog-avatar-choose"
                       data-avatar-own
                       data-avatar-name={viewer.name}
-                      aria-label={t.avatarShuffle}
-                      title={t.avatarShuffle}
+                      aria-label={t.avatarChoose}
+                      aria-expanded="false"
+                      title={t.avatarChoose}
                       set:html={drawnAvatarSvg(viewer.avatarSeed ?? seedNumber(viewer.name))}
                     ></button>
                   )}
@@ -423,11 +424,12 @@ const t = commentsCopy[locale];
                 <>
                   <button
                     type="button"
-                    class="blog-compose__whoface blog-avatar-drawn blog-avatar-shuffle"
+                    class="blog-compose__whoface blog-avatar-drawn blog-avatar-choose"
                     data-avatar-own
                     data-avatar-name={claimed.name}
-                    aria-label={t.avatarShuffle}
-                    title={t.avatarShuffle}
+                    aria-label={t.avatarChoose}
+                    aria-expanded="false"
+                    title={t.avatarChoose}
                     set:html={drawnAvatarSvg(seedNumber(claimed.name))}
                   ></button>
                   <span class="sr-only">{t.claimedAs(claimed.name)}</span>
