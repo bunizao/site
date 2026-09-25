@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { resolveCloudflareBuildId } from './build-id.mjs';
+import { carryOverAstroAssets } from './carry-over-astro-assets.mjs';
 import { verifyCloudflareDeployArtifacts } from './cloudflare-deploy-guard.mjs';
 
 function hasValue(name) {
@@ -84,7 +85,7 @@ const child = spawn('bun', ['run', 'build'], {
   stdio: 'inherit',
 });
 
-child.on('exit', (code, signal) => {
+child.on('exit', async (code, signal) => {
   if (signal) {
     console.error(`Cloudflare build stopped by ${signal}.`);
     process.exit(1);
@@ -92,5 +93,7 @@ child.on('exit', (code, signal) => {
   if (code !== 0) {
     process.exit(code ?? 1);
   }
-  process.exit(verifyCloudflareDeployArtifacts() ? 0 : 1);
+  if (!verifyCloudflareDeployArtifacts()) process.exit(1);
+  await carryOverAstroAssets({ origin: buildEnv.PUBLIC_SITE_URL?.trim() || 'https://buxx.me' });
+  process.exit(0);
 });
