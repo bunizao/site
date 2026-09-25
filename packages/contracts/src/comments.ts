@@ -70,6 +70,7 @@ export const MODERATION_REASONS = [
   'abuse',
   'off_topic',
   'personal_info',
+  'dwell_expired',
 ] as const;
 
 export type ModerationReason = (typeof MODERATION_REASONS)[number];
@@ -465,6 +466,11 @@ export interface CommentCreateResult {
       offer). Always false when no email was supplied; the add-an-email
       nudge is driven client-side by the missing address, not by this flag. */
   unverifiedEmail: boolean;
+  /** True when the comment is held until the address is confirmed (the
+      step-up in the risk stack): the verification mail says confirming
+      publishes it, and the client should say the same. Absent from servers
+      older than 0.7.2; treat absent as false. */
+  awaitingEmail?: boolean;
 }
 
 export interface CommentEditInput {

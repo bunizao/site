@@ -91,7 +91,7 @@ describe('navbar regression guards', () => {
     expect(pageStyles).toContain('width: var(--site-nav-mobile-wordmark-width);');
   });
 
-  test('blog and Mood share the contained page scroll contract', () => {
+  test('Mood shares the contained page scroll contract and the blog scrolls the root', () => {
     const pageScroller = read('src/components/PageScroller.astro');
     const pageScrollerStyles = read('src/styles/page-scroller.css');
     const pageScroll = read('src/lib/page-scroll.ts');
@@ -110,7 +110,11 @@ describe('navbar regression guards', () => {
     expect(pageScrollerStyles).toContain('html.page-scroll-root');
     expect(pageScroll).toContain("timeline: CONTAINED_TIMELINE");
     expect(layout).toContain("'page-scroll-root': containedScroll");
-    expect(blogLayout).toContain('<PageScroller class="blog-scroller" restorationKey="blog-scroll">');
+    // The blog went back to the root (2026-09-25): a toolbar that never
+    // collapses and a flat strip under it cost a reading page more than the
+    // status-bar band did.
+    expect(blogLayout).not.toContain('PageScroller');
+    expect(blogLayout).not.toContain('page-scroll-root');
     expect(moodPage).toContain('containedScroll');
     expect(moodClients).toContain('pageScroll()');
     expect(moodClients).not.toContain('window.scrollY');

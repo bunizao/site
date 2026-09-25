@@ -527,6 +527,8 @@ export function interactionFor(extras: InteractionExtras): Interaction | undefin
     const now = performance.now();
     const turnstile = extras.turnstileAction ? readTurnstileTiming(extras.turnstileAction) : null;
     const comment = extras.kind === 'comment';
+    // A draft already in the box at load arrived without keys -- see drafts.ts.
+    const restored = document.querySelector('[data-draft-restored]') ? 1 : 0;
     const mean = intervalCount ? intervalSum / intervalCount : 0;
     // Per mille, so a 0-1 ratio survives as a bounded integer.
     const cv = intervalCount >= 3 && mean > 0
@@ -539,7 +541,7 @@ export function interactionFor(extras: InteractionExtras): Interaction | undefin
       composeMs: comment && extras.armedAt !== undefined ? whole(now - extras.armedAt, 86_400_000) : undefined,
       keyEvents: comment ? whole(counts.keyEvents, 100_000) : undefined,
       inputEvents: comment ? whole(counts.inputEvents, 100_000) : undefined,
-      pasteEvents: comment ? whole(counts.pasteEvents, 100_000) : undefined,
+      pasteEvents: comment ? whole(counts.pasteEvents + restored, 100_000) : undefined,
       keyIntervalCv: comment ? whole(cv, 100_000) : undefined,
       pointerType: text(lastPointer?.pointerType),
       pointerMoves: whole(counts.pointerMoves, 1_000_000),

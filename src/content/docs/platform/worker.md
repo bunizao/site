@@ -99,6 +99,7 @@ Production setup:
 - Cloudflare builds require live Ghost content and reject mock fallback flags.
 - Every build installs a Wrangler pre-upload hook in `dist/server/wrangler.json`. The hook blocks fixture or empty blog artifacts even when someone runs `wrangler versions upload` directly.
 - Use `bun run upload:cloudflare -- --message "..."` for version uploads so the guard is also explicit in deployment logs.
+- `build:cloudflare` keeps the previous deploy's hashed `/_astro/*` files for one more deploy. Each build publishes `/_astro-files.json` listing its own assets; the next build reads that list from the live site and copies the files it no longer produces into `dist/client/_astro`. A rollout is not atomic across the edge — for a moment old HTML (fresh or from the old version's cache) is still served while the asset layer already answers from the new version, and open tabs keep lazy-loading old chunks — so without this those requests 404. Carry-over failures only warn and never block a deploy.
 
 ### Unlisted posts
 

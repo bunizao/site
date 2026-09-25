@@ -18,6 +18,7 @@ import {
   wireComposeValidation,
 } from '@/features/comments/compose-validate';
 import { wireDrafts } from '@/features/comments/client/drafts';
+import { collectClientEvidence, warmClientEvidence } from '@/features/comments/client/client-evidence';
 import {
   describeCommentFailure,
   failureTag,
@@ -45,6 +46,18 @@ import {
 } from '@/features/mood/client/detail-comments-controller';
 
 const TURNSTILE_ACTION = 'mood_comment_create' as const;
+
+// The same browser evidence the blog box sends. Without it every mood comment
+// scored `no_client`, and a reader on a proxy plus an unsure AI reading was
+// enough to be asked for an email. Stamped on first intent, before the lazy
+// import, so its network time is not counted as reading time.
+let armedAt: number | undefined;
+let validationErrors = 0;
+function armEvidence(): void {
+  if (armedAt !== undefined) return;
+  armedAt = Math.round(performance.now());
+  warmClientEvidence();
+}
 // Same table the blog's error/validation copy comes from -- `data-locale` on
 // the compose box is what makes copyFor() resolve it here too, so the two
 // never say the refusal two different ways. Read per submit rather than at
@@ -196,7 +209,10 @@ function disarmReply(box: HTMLElement): void {
     refusal ends there instead of looping; the checkbox stays open for the
     reader's next press. */
 async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
-  if (!validateCompose(box)) return;
+  if (!validateCompose(box)) {
+    validationErrors += 1;
+    return;
+  }
 
   const field = box.querySelector<HTMLTextAreaElement>('.blog-compose__field');
   const text = field?.value.trim() ?? '';
@@ -209,6 +225,12 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
 
   setSubmitEnabled(box, false);
   sayComposeAlert(box, null);
+  const submittedEvidence = collectClientEvidence({
+    kind: 'comment',
+    armedAt,
+    validationErrors,
+    turnstileAction: TURNSTILE_ACTION,
+  });
 
   // Everything the reader can see happens here, before a byte leaves the
   // browser -- the same trade the blog's compose box makes. A Turnstile solve
@@ -249,6 +271,7 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
     dwellToken: await mintDwellToken(),
     notifyReplies: false,
     locale: readLocale(box),
+    ...(await submittedEvidence),
   };
 
   const response = await postJson<CommentCreateResult>('/api/v2/comments', input);
@@ -264,7 +287,9 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
     // an unfinished field uses -- a rate limit and a dropped connection want
     // opposite next moves, so it says which refusal this was.
     dropGhostComment(ghostKey);
-    field!.value = text;
+    // The box stayed writable while the request was out, and a refusal can
+    // take seconds: keep whatever was typed since, after the refused words.
+    field!.value = field!.value.trim() ? `${text}\n\n${field!.value}` : text;
     field!.dispatchEvent(new Event('input', { bubbles: true }));
     if (replyTarget) armReply(box, replyTarget.id, replyTarget.author, replyTarget.text);
     const t = copyFor(box);
@@ -272,6 +297,9 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
     box.dataset.receipt = 'error';
     const docsHref = commentErrorDocsHref(failure.code);
     sayComposeAlert(box, failure.message, failureTag(failure), docsHref ? { href: docsHref, label: t.errorHelp } : null);
+    if (failure.code === 'NOMAIL') {
+      box.querySelector<HTMLInputElement>('[data-compose-identity] input[type="email"]')?.focus();
+    }
     if (failure.code === 'BOT' && !resend) {
       hostTurnstileIn(box);
       box.querySelector('[data-turnstile-host]')?.scrollIntoView({ block: 'nearest' });
@@ -299,7 +327,10 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
     anchorToken: comment.anchorToken,
   });
 
-  if (outcome === 'held') void upgradeWhenVerdictLands(postId, comment.id);
+  // A comment waiting on its address is settled now: confirming happens in a
+  // mail client, far past anything the polls below would wait for.
+  if (response.data.awaitingEmail) settleOwnComment(comment.id, true, true);
+  else if (outcome === 'held') void upgradeWhenVerdictLands(postId, comment.id);
   else settleOwnComment(comment.id, false);
 }
 
@@ -307,9 +338,9 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
 // The verdict
 // ---------------------------------------------------------------------------
 
-// site-api gives the spam check 1.5s and finishes the request without it, so
-// `held` is the ordinary answer to an ordinary comment and the real verdict
-// lands seconds later in a `waitUntil` continuation. Probe until it does.
+// site-api waits up to 8s for the verdict and finishes the request without it
+// past that, so a slow verdict comes back `held` and lands seconds later in a
+// `waitUntil` continuation. Probe until it does.
 //
 // The mood thread's own read path cannot answer this. `/api/comments` is
 // edge-cached, viewer-agnostic, and lists only published rows re-attributed
@@ -422,6 +453,7 @@ export function initMoodCommentCompose(): void {
   const warm = () => warmTurnstileToken(turnstileSiteKey, TURNSTILE_ACTION);
   box.addEventListener('pointerdown', warm, { once: true });
   box.addEventListener('focusin', warm, { once: true });
+  box.addEventListener('focusin', armEvidence, { once: true });
 
   // `enterkeyhint="next"` promises the iOS keyboard moves on to the next
   // field. There is no <form> here, so nothing would honour that promise --

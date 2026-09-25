@@ -56,13 +56,20 @@ describe('mood: the row is the receipt', () => {
     expect(pressToPost.indexOf('insertGhostComment')).toBeLessThan(pressToPost.indexOf('mintDwellToken'));
   });
 
+  test('the write carries the same browser evidence as the blog', () => {
+    // Without it every mood comment scored `no_client` toward the email ask.
+    expect(moodCompose).toContain("addEventListener('focusin', armEvidence");
+    expect(moodCompose).toContain('collectClientEvidence({');
+    expect(moodCompose).toContain('...(await submittedEvidence)');
+  });
+
   test('a refused write takes the row back and returns the draft', () => {
     const refused = moodCompose.slice(
       moodCompose.indexOf('if (!response.ok) {'),
       moodCompose.indexOf('dismissTurnstileChallenge(TURNSTILE_ACTION);'),
     );
     expect(refused).toContain('dropGhostComment(ghostKey)');
-    expect(refused).toContain('field!.value = text');
+    expect(refused).toContain('field!.value = field!.value.trim() ? `${text}\\n\\n${field!.value}` : text;');
     expect(refused).toContain('armReply(box, replyTarget.id');
   });
 
@@ -108,7 +115,7 @@ describe('the verdict window', () => {
       blogController.indexOf('const { outcome, comment, unverifiedEmail }'),
       blogController.indexOf('function announcePosted'),
     );
-    expect(submit).toContain("if (outcome === 'held') markPending(article);");
+    expect(submit).toContain("else if (outcome === 'held') markPending(article, Number(ghost.dataset.pendingSince));");
     expect(submit).not.toContain('t.held');
   });
 });

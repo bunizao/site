@@ -66,6 +66,12 @@ describe('describeCommentFailure', () => {
     expect(classify(403, { error: 'not_owner' })).toBe('CLOSED');
   });
 
+  // Also a 403, but a next move the reader can take: add an address.
+  test('a writer asked for an email is not an expired claim', () => {
+    expect(classify(403, { error: 'email_required' })).toBe('NOMAIL');
+    expect(classify(403, { error: 'email_verification_required' })).toBe('VERIFY');
+  });
+
   test('an unknown target reads as gone', () => {
     expect(classify(404, { error: 'not_found' })).toBe('GONE');
   });
@@ -183,7 +189,7 @@ describe('the 400s, told apart', () => {
 // sentence already carries the whole problem and the whole fix, and pointing
 // at a page under it would be an offer of nothing.
 describe('commentErrorDocsHref', () => {
-  const EXPLAINED: CommentErrorCode[] = ['NAME', 'EMAIL', 'VERIFY', 'CLOSED', 'GONE'];
+  const EXPLAINED: CommentErrorCode[] = ['NAME', 'EMAIL', 'VERIFY', 'NOMAIL', 'CLOSED', 'GONE'];
 
   test('the refusals whose reason is invisible from the message get a link', () => {
     for (const code of EXPLAINED) {

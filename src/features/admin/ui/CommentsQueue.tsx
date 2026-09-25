@@ -165,7 +165,9 @@ function CommentRow({
       )}
 
       <div className="portal-comment__acts">
-        {comment.status === 'held' && (
+        {/* Rejected rows are approvable too: a gate that rejects without
+            asking anyone needs a way back for the reader it got wrong. */}
+        {(comment.status === 'held' || comment.status === 'rejected') && (
           <Button size="sm" {...actProps} onClick={() => onAct(comment, 'approve')}>
             <Check size={14} /> {working ? 'Working…' : 'Approve'}
           </Button>

@@ -125,7 +125,14 @@ headers, including `Host`, `Cookie`, and `Accept-Language` where they affect
 the representation. The in-worker key includes the negotiated variant (`html` or
 `markdown`) plus path and normalized query, so HTML and Markdown cannot share
 an entry. Home, blog, docs, and Mood Markdown keys include the build ID so cached content
-cannot outlive the asset version it references. `/dev`, `/oauth*`, `/api*`, and
+cannot outlive the asset version it references.
+Workers Caching keys by Worker version as well (`cross_version_cache` stays
+off), so a deploy starts both layers cold. What remains is rollout skew: for a
+moment the edge can serve the old version's HTML while static assets already
+come from the new version. `build:cloudflare` closes that gap by carrying the
+previous build's `/_astro/*` files into the next deploy — see
+[Worker](/docs/platform/worker#ghost-publishing-hook). Purging on deploy would
+not help; the stale HTML is not a cache leak. `/dev`, `/oauth*`, `/api*`, and
 `/v2*` are `no-store` on the public Worker and never negotiate Markdown.
 
 `Cloudflare-CDN-Cache-Control` provides platform freshness separately from

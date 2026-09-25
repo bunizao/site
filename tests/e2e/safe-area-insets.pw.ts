@@ -2,9 +2,12 @@ import { expect, test } from '@playwright/test';
 
 // iOS 26 can paint root-scrolling content above the layout viewport when its
 // dynamic toolbar collapses, while every CSS safe-area signal still reads 0.
-// Blog, Mood and Docs close that band at the source: the root stays locked and a
-// full-viewport inner element owns scrolling. Chromium cannot reproduce the
-// physical band, so these tests guard the structural contract that prevents it.
+// Mood and Docs close that band at the source: the root stays locked and a
+// full-viewport inner element owns scrolling. The blog scrolls the root
+// (2026-09-25): locked, its toolbar never collapsed and the strip under it was
+// a flat slab nothing could paint into. Instead its reading bar hands Safari a
+// colour for the band. Chromium cannot reproduce the physical band, so these
+// tests guard structure.
 
 const PHONE = { width: 390, height: 844 };
 const FAKE_INSET = 59; // iPhone 16 Pro portrait status-bar band.
@@ -16,9 +19,7 @@ async function openDemoPost(page: import('@playwright/test').Page) {
 }
 
 async function scrollPageTo(page: import('@playwright/test').Page, top: number) {
-  await page.locator('[data-page-scroller]').evaluate((scroller, nextTop) => {
-    scroller.scrollTo({ top: nextTop, behavior: 'instant' });
-  }, top);
+  await page.evaluate((nextTop) => window.scrollTo({ top: nextTop, behavior: 'instant' }), top);
 }
 
 test('every zone opts into the hardware band', async ({ page }) => {
@@ -45,6 +46,9 @@ test('no fixed layer at the screen top is fully opaque', async ({ page }) => {
     for (const el of Array.from(document.querySelectorAll<HTMLElement>('[class*="blog-"], [class*="toc-"]'))) {
       const style = getComputedStyle(el);
       if (style.position !== 'fixed') continue;
+      // The band strips are Safari's colour probe target, not a cover for the
+      // band; being clipped to the viewport is fine for them.
+      if (el.classList.contains('toc-topbar__band')) continue;
       // Only layers that must reach the physical top are at risk.
       if (Number.parseFloat(style.top) !== 0) continue;
       if (alpha(style.backgroundColor) >= 1) found.push(el.className);
@@ -58,21 +62,45 @@ test('no fixed layer at the screen top is fully opaque', async ({ page }) => {
   expect(opaque, 'Safari 26 clips opaque fixed layers to the visual viewport').toEqual([]);
 });
 
-test('contained scroll keeps the reading chrome at the viewport origin', async ({ page }) => {
+// Safari 26 colours the status-bar band from a hit test about 8px inside the
+// top edge: fixed and sticky layers only, first plain background-color up to
+// the fixed ancestor. The bar's controls sit over the same point, so this
+// checks what the probe actually lands on.
+test('the reading bar gives Safari an opaque colour at the top-edge probe', async ({ page }) => {
+  await openDemoPost(page);
+  await scrollPageTo(page, 800);
+  await expect(page.locator('.toc-topbar')).toHaveClass(/is-visible/);
+
+  const probe = await page.evaluate(() => {
+    const hit = document.elementFromPoint(window.innerWidth / 2, 8);
+    return {
+      className: hit?.className ?? null,
+      background: hit ? getComputedStyle(hit).backgroundColor : null,
+    };
+  });
+
+  expect(probe.className).toBe('toc-topbar__band toc-topbar__band--light');
+  expect(probe.background).toMatch(/^rgb\(/);
+
+  await scrollPageTo(page, 0);
+  await expect(page.locator('.toc-topbar')).not.toHaveClass(/is-visible/);
+  const atTop = await page.evaluate(() => document.elementFromPoint(window.innerWidth / 2, 8)?.className ?? null);
+  expect(atTop).not.toContain('toc-topbar__band');
+});
+
+test('the blog scrolls the root and keeps the reading chrome at the viewport origin', async ({ page }) => {
   await openDemoPost(page);
   await scrollPageTo(page, 800);
 
   const geometry = await page.locator('.toc-topbar').evaluate((bar) => {
-    const scroller = document.querySelector<HTMLElement>('[data-page-scroller]');
     const row = bar.querySelector<HTMLElement>('.toc-topbar__bar');
     const fade = bar.querySelector<HTMLElement>('.toc-topbar__fade');
-    if (!scroller || !row || !fade) return null;
+    if (!row || !fade) return null;
 
     const barStyle = getComputedStyle(bar);
     const barRect = bar.getBoundingClientRect();
     const fadeRect = fade.getBoundingClientRect();
     const rowRect = row.getBoundingClientRect();
-    const scrollerRect = scroller.getBoundingClientRect();
 
     return {
       barTop: barRect.top,
@@ -80,22 +108,18 @@ test('contained scroll keeps the reading chrome at the viewport origin', async (
       marginTop: barStyle.marginTop,
       position: barStyle.position,
       rowTop: rowRect.top,
+      containedScroller: document.querySelector('[data-page-scroller]') !== null,
       rootOverflow: getComputedStyle(document.documentElement).overflowY,
       rootScrollTop: window.scrollY,
-      scrollerBottom: scrollerRect.bottom,
-      scrollerOverflow: getComputedStyle(scroller).overflowY,
-      scrollerScrollTop: scroller.scrollTop,
-      scrollerTop: scrollerRect.top,
       top: barStyle.top,
       transform: barStyle.transform,
-      viewportHeight: window.innerHeight,
     };
   });
 
   expect(geometry).not.toBeNull();
 
-  // The bar and scrolling layer share the viewport origin. The root never moves,
-  // so Safari never opens the unmeasurable band above them.
+  // The document scrolls, so Safari can collapse its toolbar; the bar stays a
+  // fixed lid at the viewport origin.
   expect(geometry!.position).toBe('fixed');
   expect(geometry!.top).toBe('0px');
   expect(geometry!.marginTop).toBe('0px');
@@ -103,12 +127,9 @@ test('contained scroll keeps the reading chrome at the viewport origin', async (
   expect(geometry!.barTop).toBeCloseTo(0, 0);
   expect(geometry!.fadeTop).toBeCloseTo(0, 0);
   expect(geometry!.rowTop).toBeCloseTo(0, 0);
-  expect(geometry!.rootOverflow).toBe('hidden');
-  expect(geometry!.rootScrollTop).toBe(0);
-  expect(geometry!.scrollerOverflow).toBe('auto');
-  expect(geometry!.scrollerScrollTop).toBeGreaterThan(0);
-  expect(geometry!.scrollerTop).toBe(0);
-  expect(geometry!.scrollerBottom).toBe(geometry!.viewportHeight);
+  expect(geometry!.containedScroller).toBe(false);
+  expect(geometry!.rootOverflow).not.toBe('hidden');
+  expect(geometry!.rootScrollTop).toBeGreaterThan(0);
 });
 
 test('the reading bar keeps its progressive blur', async ({ page }) => {
@@ -148,7 +169,7 @@ test('opening the reading menu grows the glass without moving the article', asyn
       fadeHeight: document
         .querySelector<HTMLElement>('.toc-topbar__fade')!
         .getBoundingClientRect().height,
-      scrollY: document.querySelector<HTMLElement>('[data-page-scroller]')!.scrollTop,
+      scrollY: window.scrollY,
       shellTop: document.querySelector<HTMLElement>('.blog-shell')!.getBoundingClientRect().top,
     }));
 
@@ -164,7 +185,7 @@ test('opening the reading menu grows the glass without moving the article', asyn
   expect(after.fadeHeight).toBeGreaterThan(before.fadeHeight);
 });
 
-test('legacy safe-area variables cannot shift the contained reading column', async ({ page }) => {
+test('legacy safe-area variables cannot shift the reading column', async ({ page }) => {
   await openDemoPost(page);
 
   const base = await page.evaluate(() => {
@@ -184,8 +205,8 @@ test('legacy safe-area variables cannot shift the contained reading column', asy
   // 5vmin of a 390x844 viewport.
   if (base.lightboxPadTop !== null) expect(base.lightboxPadTop).toBe('19.5px');
 
-  // The contained-scroll strategy does not chase Safari's unreadable band with
-  // a synthetic offset; reintroducing that old variable must not move content.
+  // The blog does not chase Safari's unreadable band with a synthetic offset;
+  // reintroducing that old variable must not move content.
   const shellPadTop = await page.evaluate((inset) => {
     document.body.style.setProperty('--blog-top-safe-area', `${inset}px`);
     return getComputedStyle(document.querySelector<HTMLElement>('.blog-shell')!).paddingTop;

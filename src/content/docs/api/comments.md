@@ -205,11 +205,14 @@ it in.
 
 `clientFp`, `interaction` and `storageId` are the optional client evidence,
 collected by a module the page loads on the first focus inside the compose
-box and never on a page view. **None of the three is ever a gate.** A body
+box and never on a page view. **Leaving them out is never a gate.** A body
 that omits them, sends the wrong type, or sends 40 KiB of nonsense is written
 exactly like one that sends them well: the server stores what survives its
-bounds and NULL for the rest, and none of it feeds a rate-limit budget. Send
-them or do not.
+bounds and NULL for the rest, and none of it feeds a rate-limit budget. Only
+what a well-formed `clientFp` says about the machine can count against a
+comment, through the automation check in step 3. `interaction` never does:
+dictation, input methods and assistive technology all put text in the box
+without key presses, so how the words got there is recorded, never judged.
 
 `clientFp` is what the browser says about itself — platform, screen, time
 zone, a canvas and audio hash, the font families a width probe found, media
@@ -239,9 +242,9 @@ follow the session, never the typed field.
 
 Every submission runs the full risk stack, in order:
 
-1. **Turnstile.** A failed or missing token is the only step that answers
-   plainly with `400`/`503` — everything below this line either succeeds
-   outright or fails silently.
+1. **Turnstile.** A failed or missing token answers plainly with
+   `400`/`503`. Below this line only the step-up (step 5) refuses in the
+   open; everything else either succeeds outright or fails silently.
 2. **Honeypot and dwell time.** Tripping either returns a fabricated
    `201 { "outcome": "held", ... }` envelope that is **never persisted**.
    A filled honeypot also quarantines the current session or account for
@@ -259,6 +262,15 @@ Every submission runs the full risk stack, in order:
    check — verification already priced out the throwaway identity — and
    gets a higher link ceiling (6 instead of 3). The exact-duplicate hold
    and the keyword blocklist apply to everyone.
+
+   **Declared automation** (anonymous writers only). A request carrying a
+   header a person's browser never sends — Cloudflare Browser Run's
+   `cf-brapi-devtools` or `cf-biso-devtools`, or Web Bot Auth's
+   `Signature-Agent` — is stored as `rejected` with reason `spam`, answered
+   with the usual `held` envelope, quarantines the session (step 5), skips
+   the external checks in step 6 and, as a first strike, sends the owner a
+   card. The card for a rejected comment carries Approve, and so does the
+   portal, so a false positive can be put back.
 4. **Rate limits**, durably enforced across three dimensions (anonymous
    session, IP, server-derived fingerprint) and two windows each: 5/minute
    and 20/hour for anonymous writers; 10/minute and 60/hour for verified
@@ -269,56 +281,114 @@ Every submission runs the full risk stack, in order:
    [Rate limits](/docs/api/overview#rate-limits)) — the only rate-limited
    route family on this whole site running in durable, not observability,
    mode.
-5. **Quarantine and lockdown** (anonymous writers only).
-   A session quarantined after a filled honeypot or spam verdict is held for
-   24 hours. Account-backed keys, when present, refer to that account only;
-   IP and fingerprint matches do not share a quarantine. Ordinary owner
-   hide/delete actions do not create a quarantine. The system also holds every
-   anonymous writer while the site-wide one-hour lockdown is engaged. Both
-   holds carry reason `ok`, skip the external checks below, and send the
-   owner no per-comment card. The lockdown engages on its own after more
-   than 8 anonymous comments in 10 minutes or 3 of the last 5 anonymous
-   comments judged spam, and lifts on its own; see
+5. **Step-up: confirm an email** (anonymous writers only). A score from
+   four independent sources decides whether this writer has to confirm an
+   address before the comment goes anywhere:
+
+   | Source | Signals and weights | Cap |
+   | --- | --- | --- |
+   | Network | hosting ASN 2, Tor 2, timezone differs from the IP's 1 | 2 |
+   | Browser | `navigator.webdriver` 4; software WebGL, headless window shape, zero outer window, a Worker's `cf-worker` header 2; each inconsistency (platform, client hints, touch, languages, plugins, missing client hints, priority or client evidence) 1 | 4 |
+   | History | a third distinct post in 10 minutes 4; the same browser session under another name within 24 hours 2 | — |
+   | Content | the AI gateway's authorship reading (step 6): `unclear` 2, `agent` 4 | — |
+
+   A score of 4 or more steps up. The caps keep any one weak source below
+   it — a VPN, a laptop without GPU drivers and a spoofed user agent are
+   each ordinary — so a step-up takes two sources, or one that is
+   unambiguous. The writer for post hops is the browser session or the
+   server-derived fingerprint (IP /24 and user agent), so rotating sessions
+   does not reset it; a rename reads the session only. How the text was
+   entered — keystrokes, dictation, paste, pointer — is recorded and never
+   scored.
+
+   The content source arrives with the step 6 verdict, so it is added
+   when that verdict does. Within the 8000ms window a content step-up is
+   refused or stored like any other; after it, the stored row becomes an
+   awaiting one (below) and the verification mail, which waits for the
+   verdict, says so.
+
+   A session quarantined for 24 hours (a filled honeypot, a declared agent
+   or a spam verdict; account-backed keys refer to that account only, and
+   IP and fingerprint matches do not share one) and every anonymous writer
+   during the site-wide one-hour lockdown step up the same way. Ordinary
+   owner hide/delete actions do not create a quarantine.
+
+   A step-up without an `email` is refused with `403 email_required` and
+   nothing is stored. With one, the row is stored `held` with reason `ok`
+   and a note beginning `Awaiting email`, and the verification mail says
+   confirming publishes the comment. Step 6 still judges it: an adverse
+   verdict (spam, a gateway hold, a reject) replaces the wait and stands,
+   and a clean one is appended to the note. The owner gets the usual card
+   once the verdict lands, except during a lockdown or quarantine.
+   Confirming — the link opened in the same browser, or the comment
+   selected in `POST /api/v2/reader/claims` — sends it through step 6
+   again, as a verified reader's comment, with the gateway's second
+   opinion. A mailbox is not a person: if the gateway still reads the
+   writer as an `agent`, the comment stays held with a note beginning
+   `Email confirmed; still held.` for the owner to decide. The owner can
+   approve an awaiting row from the queue at any time.
+
+   The lockdown engages on its own after more than 8 anonymous comments in
+   10 minutes or 3 of the last 5 anonymous comments judged spam, and lifts
+   on its own; step-ups never engage it. See
    [Stopping somebody](/docs/platform/comments#stopping-somebody).
-6. **Content moderation** (skipped when a step above already held) — one
+6. **Content moderation** (skipped after a heuristics hold, a declared agent or a ban; a step-up row is still judged) — one
    Akismet `comment-check` carrying the body, author fields, IP, user
    agent, referrer, post permalink, site language, honeypot field, and the
    owner's `administrator` role when it is the owner writing. Ham
    publishes; spam holds (the owner can rescue a false positive); Akismet's
    "blatant spam" signal rejects so a spam wave never floods the
-   moderation queue. Fails closed to `hold` on any error, timeout, or
+   moderation queue — the owner can still approve a rejected row. Fails closed to `hold` on any error, timeout, or
    non-verdict response; the HTTP call itself is abandoned after 10
    seconds.
 
    For an **anonymous** writer, a language model behind the owner's AI
    gateway (`task-guard` via `AI_BASE_URL` / `AI_API_KEY`) reads the text at
-   the same time. It can turn Akismet's ham into a
-   hold with reason `spam`, `promotional`, `abuse` or `personal_info`,
-   never a hold into a publish; when it is unavailable the Akismet verdict
-   stands alone. A spam verdict from either quarantines the writer's
-   identity for 24 hours. Verified readers get Akismet only.
+   the same time, beside the post's title and excerpt, this writer's
+   comments from the last 24 hours and other anonymous comments from the
+   last hour. It answers two questions. What the comment is: it can turn
+   Akismet's ham into a hold with reason `spam`, `promotional`, `abuse` or
+   `personal_info`, never a hold into a publish. Who wrote it: `person`,
+   `unclear` (reads machine-written, nothing confirms it) or `agent`
+   (behaviour confirms it — bursts across posts, a numbered persona in a
+   wave, a comment answering a different post, tool artifacts). Style alone
+   is never `agent`, and dictation artifacts, typos, slang and brevity are
+   never evidence. The authorship answer only feeds the step 5 score and
+   the note; it never holds a comment by itself. When the gateway is
+   unavailable the Akismet verdict stands alone. A spam verdict from either
+   quarantines the writer's identity for 24 hours. Verified readers get
+   Akismet only.
 
-   The request does not wait the full ten seconds. After **2500ms** the
+   The request does not wait the full ten seconds. After **8000ms** the
    create returns with the row stored as `held` and finishes the check in
    the background — a late verdict then upgrades the row, notifies the
    owner with the real outcome, and sends the reply alert if it published.
    The upgrade is guarded on `updated_at`, so a writer who edits in the
    meantime keeps their row held rather than having it clobbered by a
-   stale verdict. A `held` response is therefore not always final.
-7. **Shadow-ban.** A banned writer's otherwise-`publish` verdict is quietly
-   downgraded to `hold` — they see their own comment as normal; nobody else
-   ever does. The ban list holds nine kinds of key: the address,
+   stale verdict. A `held` response is therefore not always final. Only
+   anonymous writers feel the wait: Akismet alone answers in well under a
+   second, and the gateway, reading the context as well, takes 3–7 seconds.
+7. **Shadow-ban.** A banned writer is held on sight with the note
+   `Shadow-banned writer.`, before step 6 spends an external call and
+   without a per-comment card — they see their own comment as normal;
+   nobody else ever does. The ban list holds nine kinds of key: the address,
    the session, the IP, its /24, the server-side and client-side
    fingerprints, the network, a link domain and a mail domain. A write
    matching any one of them is held. Nothing in the response says so.
 
 ```json
-{ "outcome": "published", "comment": { "...": "..." }, "unverifiedEmail": true }
+{ "outcome": "held", "comment": { "...": "..." }, "unverifiedEmail": true, "awaitingEmail": true }
 ```
 
 `outcome` is `"published"` or `"held"`. `unverifiedEmail` is true when a
 supplied `email` doesn't already belong to a verified reader — the client
 shows the verification nudge. It is always false when no email was sent.
+`awaitingEmail` is true when the comment is held until that address is
+confirmed (the step-up in step 5), so the client says confirming publishes
+it rather than showing an ordinary hold. It is known only for a verdict that
+landed inside the 8000ms window; a later step-up reads as an ordinary
+`held`, and the verification mail still says the right thing. Clients treat
+an absent field as false.
 On the true first comment from an unverified address, a lazy-verification
 email goes out automatically (see below); this call never waits on that
 send. A create without an email never sends mail at all.
@@ -330,7 +400,8 @@ root comment, or belongs to a different post, `404 not_found` for an unknown
 reached, `403 comments_closed` and `403 email_verification_required` from the
 [per-post policy](#per-post-policy), `400 turnstile_failed` /
 `503 turnstile_unavailable` (with a `code` extra) for Turnstile,
-`429 Too Many Requests` for a rate limit.
+`403 email_required` for an anonymous writer the step-up asks for an address
+(step 5), `429 Too Many Requests` for a rate limit.
 
 Same-origin only — no CORS header.
 
@@ -360,9 +431,9 @@ discussion group:
   The bridge send failing never fails the create — the comment is already
   published on the site (`outcome` in the response is unaffected either
   way).
-- **`held`** never reaches Telegram. Approving a held comment (card or
-  portal) runs the same bridge step then, at that point — not before. A
-  rejected comment is never bridged, ever.
+- **`held`** and **`rejected`** never reach Telegram. Approving either
+  (card or portal) runs the same bridge step then, at that point — not
+  before.
 - **Edit** (the same 15-minute, verified-reader-only window as the blog)
   edits the bridged message in place; Telegram shows "edited". **Delete** —
   by the reader, or by the owner — deletes the bridged message. Both are
@@ -821,11 +892,14 @@ selection explicit; opening it or paging through it claims nothing.
 IDs and returns `{ "claimedIds": ["..."] }`. The update repeats the mailbox,
 unclaimed, and non-deleted conditions atomically. It changes ownership and
 claim metadata only; it never changes the original session or authentication
-evidence. Both methods return `401 reader_sign_in_required` without a valid
+evidence. A claimed comment still awaiting its email confirmation (step 5 of
+the risk stack) is then released through content moderation. Both methods return `401 reader_sign_in_required` without a valid
 reader session and use `Cache-Control: private, no-store`.
 
 Automatic claiming after email verification, OAuth, or owner sign-in requires
-both the matching mailbox and an existing valid anonymous session cookie.
+both the matching mailbox and an existing valid anonymous session cookie. After
+email verification, claimed comments awaiting confirmation are released the
+same way.
 Comments from another browser remain unclaimed until selected explicitly.
 
 ## Operational measurements
