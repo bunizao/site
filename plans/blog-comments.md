@@ -317,10 +317,12 @@ fills, the count moves.
 - Dedup key: `reader_id` when the browser holds one, else
   `hash(anon_session_id)`; unique per `(target_type, target_id, key, emoji)`.
   Toggling is insert/delete; counts are `COUNT(*)`.
-- **The stack shows faces only for reactions that carry an identity with an
-  avatar** (L1/L2, or L0 whose claimed email resolves); purely anonymous
-  reactions fold into the `+N` chip. The stack stays honest and the number
-  stays cheap.
+- **The stack shows faces only for reactions that carry an identity**: a
+  verified reader, or an L0 reaction whose anon session has published a
+  comment, which wears that comment's name and face. Both tables record the
+  anon cookie as `session_id`, so the match needs no new column. Reactions
+  with no identity at all get a nameless placeholder face or fold into the
+  `+N` chip.
 - The decided posture on gating: reactions must not require OAuth. Google
   OAuth is unreachable from mainland China and GitHub is unreliable there; an
   OAuth-gated heart on a Chinese-language blog is a heart nobody presses.

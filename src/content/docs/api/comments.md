@@ -537,9 +537,13 @@ GET /api/v2/reactions?targets=post:<id>,comment:<id>,...
 ```
 
 `targets` is a comma-separated list of `type:id` pairs, up to 50. Anonymous
-counts, identified faces: every reaction is visible to anyone, but only
-identified reactors (L1/L2, or an L0 reactor whose claimed email resolves)
-ever show up in `reactors`.
+counts, identified faces: every reaction is visible to anyone, but only a
+reaction with an identity behind it shows up in `reactors`. That is a
+verified reader, or an anonymous reaction from a browser that has published a
+comment: it carries the name, avatar and `avatarSeed` of that browser's most
+recent published comment, so a like and a comment from the same person show
+the same face. A browser that has only ever liked stays out of `reactors`,
+and a held or deleted comment never lends its name.
 
 ```json
 {
