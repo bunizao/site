@@ -384,7 +384,14 @@ const socials = socialNames
 </script>
 
 <style>
+  /* The type scale lives on the homepage's .page-container (home-type.css).
+     Elsewhere — the blog above all — those variables are undefined, font-size
+     falls back to inherit, and the footer grows to the reading size. The
+     fallbacks keep the footer the same size on every page. */
   .footer {
+    --footer-text-meta: var(--home-text-meta, 13px);
+    --footer-text-label: var(--home-text-label, 11px);
+
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -431,12 +438,12 @@ const socials = socialNames
   }
 
   .footer-nav {
-    font-size: var(--home-text-meta);
+    font-size: var(--footer-text-meta);
     color: hsl(var(--muted-foreground));
   }
 
   .footer-meta {
-    font-size: var(--home-text-label);
+    font-size: var(--footer-text-label);
     color: hsl(var(--muted-foreground));
   }
 
@@ -684,7 +691,7 @@ const socials = socialNames
   .footer-mark {
     margin: 0;
     text-align: center;
-    font-size: var(--home-text-label);
+    font-size: var(--footer-text-label);
     color: hsl(var(--muted-foreground));
   }
 </style>
