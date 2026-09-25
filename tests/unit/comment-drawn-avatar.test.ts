@@ -1,28 +1,61 @@
 import { describe, expect, test } from 'bun:test';
 import { AVATAR_CLASSES, avatarClass, isAvatarSeed, seedInClass } from '@bunizao/contracts/comments';
-import { anonymousSeeds, AVATAR_PALETTE, drawnAvatarSvg } from '@/features/comments/drawn-avatar';
+import {
+  anonymousSeeds,
+  AVATAR_PALETTES,
+  AVATAR_STYLES,
+  avatarStyle,
+  drawnAvatarSvg,
+  type AvatarStyle,
+} from '@/features/comments/drawn-avatar';
 
-/** [base, accent, glaze] in paint order. */
+/** Palette fills in paint order: [base, accent] and, for the washes, a glaze. */
 const fills = (svg: string) => [...svg.matchAll(/<(?:rect|path)[^>]*fill="(#[0-9A-Fa-f]{6})"/g)].map((m) => m[1]);
 
+/** A seed in `cls` that draws `style`. */
+const seedOf = (cls: number, style: AvatarStyle, variety = 12345) =>
+  seedInClass(cls, variety - (variety % 3) + AVATAR_STYLES.indexOf(style));
+
 describe('drawnAvatarSvg', () => {
-  test('every class is its own colour pair, and no shape vanishes into the base', () => {
-    const pairs = new Set<string>();
-    for (let cls = 0; cls < AVATAR_CLASSES; cls++) {
-      const [base, accent, glaze] = fills(drawnAvatarSvg(seedInClass(cls, 12345)));
-      expect(AVATAR_PALETTE).toContain(base as (typeof AVATAR_PALETTE)[number]);
-      expect(new Set([base, accent, glaze]).size).toBe(3);
-      pairs.add(`${base}/${accent}`);
+  for (const style of AVATAR_STYLES) {
+    test(`${style}: every class is its own colour pair, and no shape vanishes into the base`, () => {
+      const pairs = new Set<string>();
+      for (let cls = 0; cls < AVATAR_CLASSES; cls++) {
+        const seed = seedOf(cls, style);
+        expect(avatarStyle(seed)).toBe(style);
+        const colours = fills(drawnAvatarSvg(seed));
+        expect(colours.length).toBe(style === 'beam' ? 2 : 3);
+        for (const colour of colours) expect(AVATAR_PALETTES[style]).toContain(colour);
+        expect(new Set(colours).size).toBe(colours.length);
+        pairs.add(`${colours[0]}/${colours[1]}`);
+      }
+      expect(pairs.size).toBe(AVATAR_CLASSES);
+    });
+  }
+
+  test('only the washes blur; the beam face keeps its eyes sharp', () => {
+    expect(drawnAvatarSvg(seedOf(3, 'beam'))).not.toContain('drawn-face');
+    expect(drawnAvatarSvg(seedOf(3, 'marble'))).toContain('class="drawn-face"');
+    expect(drawnAvatarSvg(seedOf(3, 'mist'))).toContain('class="drawn-face"');
+  });
+
+  test('random seeds spread evenly across the styles', () => {
+    const counts = new Map<AvatarStyle, number>();
+    for (let i = 0; i < 3000; i++) {
+      const style = avatarStyle(Math.floor(Math.random() * 0xffffffff));
+      counts.set(style, (counts.get(style) ?? 0) + 1);
     }
-    expect(pairs.size).toBe(AVATAR_CLASSES);
+    for (const style of AVATAR_STYLES) expect(counts.get(style)).toBeGreaterThan(850);
   });
 
   test('the same seed draws the same face, and the markup carries no id', () => {
-    const svg = drawnAvatarSvg(987654321);
-    expect(drawnAvatarSvg(987654321)).toBe(svg);
-    // The same face appears several times on one page (every copy of the
-    // reader's own); an id would repeat.
-    expect(svg).not.toMatch(/\sid=/);
+    for (const style of AVATAR_STYLES) {
+      const svg = drawnAvatarSvg(seedOf(7, style, 987654321));
+      expect(drawnAvatarSvg(seedOf(7, style, 987654321))).toBe(svg);
+      // The same face appears several times on one page (every copy of the
+      // reader's own); an id would repeat.
+      expect(svg).not.toMatch(/\sid=/);
+    }
   });
 });
 
@@ -56,6 +89,13 @@ describe('anonymousSeeds', () => {
       const colours = anonymousSeeds(5, new Set(), basis).map((seed) => fills(drawnAvatarSvg(seed)));
       expect(new Set(colours.map(([base]) => base)).size).toBe(5);
       expect(new Set(colours.map(([, accent]) => accent)).size).toBe(5);
+    }
+  });
+
+  test('neighbours never share a style', () => {
+    for (let i = 0; i < 500; i++) {
+      const seeds = anonymousSeeds(8, new Set([i % 20]), `post-${i}`);
+      for (let j = 1; j < seeds.length; j++) expect(avatarStyle(seeds[j])).not.toBe(avatarStyle(seeds[j - 1]));
     }
   });
 
