@@ -18,6 +18,7 @@ import {
   wireComposeValidation,
 } from '@/features/comments/compose-validate';
 import { wireDrafts } from '@/features/comments/client/drafts';
+import { collectClientEvidence, warmClientEvidence } from '@/features/comments/client/client-evidence';
 import {
   describeCommentFailure,
   failureTag,
@@ -44,6 +45,18 @@ import {
 } from '@/features/mood/client/detail-comments-controller';
 
 const TURNSTILE_ACTION = 'mood_comment_create' as const;
+
+// The same browser evidence the blog box sends. Without it every mood comment
+// scored `no_client`, and a reader on a proxy plus an unsure AI reading was
+// enough to be asked for an email. Stamped on first intent, before the lazy
+// import, so its network time is not counted as reading time.
+let armedAt: number | undefined;
+let validationErrors = 0;
+function armEvidence(): void {
+  if (armedAt !== undefined) return;
+  armedAt = Math.round(performance.now());
+  warmClientEvidence();
+}
 // Same table the blog's error/validation copy comes from -- `data-locale` on
 // the compose box is what makes copyFor() resolve it here too, so the two
 // never say the refusal two different ways. Read per submit rather than at
@@ -192,7 +205,10 @@ function disarmReply(box: HTMLElement): void {
 // ---------------------------------------------------------------------------
 
 async function handleSubmit(box: HTMLElement): Promise<void> {
-  if (!validateCompose(box)) return;
+  if (!validateCompose(box)) {
+    validationErrors += 1;
+    return;
+  }
 
   const field = box.querySelector<HTMLTextAreaElement>('.blog-compose__field');
   const text = field?.value.trim() ?? '';
@@ -205,6 +221,12 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
 
   setSubmitEnabled(box, false);
   sayComposeAlert(box, null);
+  const submittedEvidence = collectClientEvidence({
+    kind: 'comment',
+    armedAt,
+    validationErrors,
+    turnstileAction: TURNSTILE_ACTION,
+  });
 
   // Everything the reader can see happens here, before a byte leaves the
   // browser -- the same trade the blog's compose box makes. A Turnstile solve
@@ -245,6 +267,7 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
     dwellToken: await mintDwellToken(),
     notifyReplies: false,
     locale: readLocale(box),
+    ...(await submittedEvidence),
   };
 
   const response = await postJson<CommentCreateResult>('/api/v2/comments', input);
@@ -426,6 +449,7 @@ export function initMoodCommentCompose(): void {
   const warm = () => warmTurnstileToken(turnstileSiteKey, TURNSTILE_ACTION);
   box.addEventListener('pointerdown', warm, { once: true });
   box.addEventListener('focusin', warm, { once: true });
+  box.addEventListener('focusin', armEvidence, { once: true });
 
   // `enterkeyhint="next"` promises the iOS keyboard moves on to the next
   // field. There is no <form> here, so nothing would honour that promise --
