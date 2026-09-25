@@ -242,9 +242,9 @@ follow the session, never the typed field.
 
 Every submission runs the full risk stack, in order:
 
-1. **Turnstile.** A failed or missing token is the only step that answers
-   plainly with `400`/`503` — everything below this line either succeeds
-   outright or fails silently.
+1. **Turnstile.** A failed or missing token answers plainly with
+   `400`/`503`. Below this line only the step-up (step 5) refuses in the
+   open; everything else either succeeds outright or fails silently.
 2. **Honeypot and dwell time.** Tripping either returns a fabricated
    `201 { "outcome": "held", ... }` envelope that is **never persisted**.
    A filled honeypot also quarantines the current session or account for
@@ -263,20 +263,14 @@ Every submission runs the full risk stack, in order:
    gets a higher link ceiling (6 instead of 3). The exact-duplicate hold
    and the keyword blocklist apply to everyone.
 
-   **Automation** (anonymous writers only) judges the machine, never the
-   person at it. A request carrying a header a person's browser never sends
-   — Cloudflare Browser Run's `cf-brapi-devtools` or `cf-biso-devtools`, or
-   Web Bot Auth's `Signature-Agent` — is a **declared agent**: stored as
-   `rejected` with reason `spam`. A browser with a headless marker (software
-   WebGL such as SwiftShader, `navigator.webdriver`, a headless window
-   shape, or a Worker's `cf-worker` header) **and** an address on a hosting
-   network is a **cloud browser**: held with reason `spam`. Either half
-   alone passes — a Linux laptop without GPU drivers and a reader behind a
-   VPN are both ordinary. Both gates answer with the usual `held` envelope,
-   quarantine the session (step 5), skip the external checks in step 6 and,
-   as a first strike, send the owner a card. The card for a rejected comment
-   carries Approve, and so does the portal, so a false positive can be put
-   back.
+   **Declared automation** (anonymous writers only). A request carrying a
+   header a person's browser never sends — Cloudflare Browser Run's
+   `cf-brapi-devtools` or `cf-biso-devtools`, or Web Bot Auth's
+   `Signature-Agent` — is stored as `rejected` with reason `spam`, answered
+   with the usual `held` envelope, quarantines the session (step 5), skips
+   the external checks in step 6 and, as a first strike, sends the owner a
+   card. The card for a rejected comment carries Approve, and so does the
+   portal, so a false positive can be put back.
 4. **Rate limits**, durably enforced across three dimensions (anonymous
    session, IP, server-derived fingerprint) and two windows each: 5/minute
    and 20/hour for anonymous writers; 10/minute and 60/hour for verified
@@ -287,22 +281,44 @@ Every submission runs the full risk stack, in order:
    [Rate limits](/docs/api/overview#rate-limits)) — the only rate-limited
    route family on this whole site running in durable, not observability,
    mode.
-5. **Post hop, quarantine and lockdown** (anonymous writers only).
-   A comment that would be the writer's third distinct post in 10 minutes is
-   held with reason `spam` — the writer being the browser session or the
+5. **Step-up: confirm an email** (anonymous writers only). A score from
+   three independent sources decides whether this writer has to confirm an
+   address before the comment goes anywhere:
+
+   | Source | Signals and weights | Cap |
+   | --- | --- | --- |
+   | Network | hosting ASN 2, Tor 2, timezone differs from the IP's 1 | 2 |
+   | Browser | `navigator.webdriver` 4; software WebGL, headless window shape, zero outer window, a Worker's `cf-worker` header 2; each inconsistency (platform, client hints, touch, languages, plugins, missing client hints, priority or client evidence) 1 | 4 |
+   | History | a third distinct post in 10 minutes 4; the same browser session under another name within 24 hours 2 | — |
+
+   A score of 4 or more steps up. The caps keep any one weak source below
+   it — a VPN, a laptop without GPU drivers and a spoofed user agent are
+   each ordinary — so a step-up takes two sources, or one that is
+   unambiguous. The writer for post hops is the browser session or the
    server-derived fingerprint (IP /24 and user agent), so rotating sessions
-   does not reset it. Readers in the archive have never passed two.
-   A session quarantined after a filled honeypot, an automation hit, a post
-   hop or a spam verdict is held for 24 hours. Account-backed keys, when
-   present, refer to that account only; IP and fingerprint matches do not
-   share a quarantine. Ordinary owner hide/delete actions do not create a
-   quarantine. The system also holds every anonymous writer while the
-   site-wide one-hour lockdown is engaged. Quarantine and lockdown
-   holds carry reason `ok`, skip the external checks below, and send the
-   owner no per-comment card; a post hop also skips them but, as a first
-   strike, still sends its card. The lockdown engages on its own after more
-   than 8 anonymous comments in 10 minutes or 3 of the last 5 anonymous
-   comments judged spam, and lifts on its own; see
+   does not reset it; a rename reads the session only. How the text was
+   entered — keystrokes, dictation, paste, pointer — is recorded and never
+   scored.
+
+   A session quarantined for 24 hours (a filled honeypot, a declared agent
+   or a spam verdict; account-backed keys refer to that account only, and
+   IP and fingerprint matches do not share one) and every anonymous writer
+   during the site-wide one-hour lockdown step up the same way. Ordinary
+   owner hide/delete actions do not create a quarantine.
+
+   A step-up without an `email` is refused with `403 email_required` and
+   nothing is stored. With one, the row is stored `held` with reason `ok`
+   and a note beginning `Awaiting email`, the external checks are skipped,
+   no per-comment card is sent, and the verification mail says confirming
+   publishes the comment. Confirming — the link opened in the same browser,
+   or the comment selected in `POST /api/v2/reader/claims` — sends it
+   through step 6 as a verified reader's comment. The owner can approve an
+   awaiting row from the queue at any time.
+
+   The lockdown engages on its own after more than 8 anonymous comments in
+   10 minutes, more than 2 score step-ups in 10 minutes, or 3 of the last 5
+   anonymous comments judged spam, and lifts on its own; step-ups caused by
+   the lockdown or a quarantine do not count toward it. See
    [Stopping somebody](/docs/platform/comments#stopping-somebody).
 6. **Content moderation** (skipped when a step above already held) — one
    Akismet `comment-check` carrying the body, author fields, IP, user
@@ -355,7 +371,8 @@ root comment, or belongs to a different post, `404 not_found` for an unknown
 reached, `403 comments_closed` and `403 email_verification_required` from the
 [per-post policy](#per-post-policy), `400 turnstile_failed` /
 `503 turnstile_unavailable` (with a `code` extra) for Turnstile,
-`429 Too Many Requests` for a rate limit.
+`403 email_required` for an anonymous writer the step-up asks for an address
+(step 5), `429 Too Many Requests` for a rate limit.
 
 Same-origin only — no CORS header.
 
@@ -846,11 +863,14 @@ selection explicit; opening it or paging through it claims nothing.
 IDs and returns `{ "claimedIds": ["..."] }`. The update repeats the mailbox,
 unclaimed, and non-deleted conditions atomically. It changes ownership and
 claim metadata only; it never changes the original session or authentication
-evidence. Both methods return `401 reader_sign_in_required` without a valid
+evidence. A claimed comment still awaiting its email confirmation (step 5 of
+the risk stack) is then released through content moderation. Both methods return `401 reader_sign_in_required` without a valid
 reader session and use `Cache-Control: private, no-store`.
 
 Automatic claiming after email verification, OAuth, or owner sign-in requires
-both the matching mailbox and an existing valid anonymous session cookie.
+both the matching mailbox and an existing valid anonymous session cookie. After
+email verification, claimed comments awaiting confirmation are released the
+same way.
 Comments from another browser remain unclaimed until selected explicitly.
 
 ## Operational measurements

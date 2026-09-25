@@ -91,7 +91,7 @@ const receipt: ComposeReceipt =
   || rawReceipt === 'nudge' || rawReceipt === 'error'
     ? rawReceipt
     : 'idle';
-const errorCodes: CommentErrorCode[] = ['NET', 'RATE', 'BOT', 'GONE', 'THREAD', 'CLOSED', 'LOCKED', 'VERIFY', 'NAME', 'EMAIL', 'LONG', 'STALE', 'INPUT', 'SERVER'];
+const errorCodes: CommentErrorCode[] = ['NET', 'RATE', 'BOT', 'GONE', 'THREAD', 'CLOSED', 'LOCKED', 'VERIFY', 'NOMAIL', 'NAME', 'EMAIL', 'LONG', 'STALE', 'INPUT', 'SERVER'];
 const requestedError = params.get('error')?.toUpperCase() as CommentErrorCode | undefined;
 const errorCode = requestedError && errorCodes.includes(requestedError) ? requestedError : undefined;
 
@@ -151,6 +151,7 @@ const behaviorRows = [
   { behavior: 'Post takes verified email only', state: 'requireEmail=1', zh: commentsCopy.zh.emailRequired, en: commentsCopy.en.emailRequired, next: 'Enter an address; anonymous posting is not offered' },
   { behavior: 'Post with no email, verified-only post', state: 'validation email required', zh: commentsCopy.zh.needEmail, en: commentsCopy.en.needEmail, next: 'Enter an address' },
   { behavior: 'Unverified email on a verified-only post', state: 'API email_verification_required', zh: commentsCopy.zh.submitError.VERIFY, en: commentsCopy.en.submitError.VERIFY, next: 'Confirm the link in the inbox, then post' },
+  { behavior: 'Suspicious anonymous writer with no email', state: 'API 403 email_required', zh: commentsCopy.zh.submitError.NOMAIL, en: commentsCopy.en.submitError.NOMAIL, next: 'Add an email, post, confirm the link; the comment then goes out' },
   { behavior: 'Load another page', state: 'load-more', zh: `${commentsCopy.zh.loadMore} → ${commentsCopy.zh.loading}`, en: `${commentsCopy.en.loadMore} → ${commentsCopy.en.loading}`, next: 'Wait for rows; on failure press Retry' },
   { behavior: 'Anonymous compose', state: 'phase=anonymous', zh: `${commentsCopy.zh.namePlaceholder} · ${commentsCopy.zh.emailPlaceholder} · ${commentsCopy.zh.hint}`, en: `${commentsCopy.en.namePlaceholder} · ${commentsCopy.en.emailPlaceholder} · ${commentsCopy.en.hint}`, next: 'Fill identity and body' },
   { behavior: 'Post with no name', state: 'validation name', zh: commentsCopy.zh.needName, en: commentsCopy.en.needName, next: 'Enter a display name' },

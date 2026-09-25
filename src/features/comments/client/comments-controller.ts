@@ -614,6 +614,7 @@ export function initCommentsController(): void {
       const failure = describeCommentFailure(response.status, response.slug, t.submitError);
       box.dataset.receipt = 'error';
       sayComposeAlert(box, failure.message, failureTag(failure), helpFor(failure));
+      if (failure.code === 'NOMAIL') askForEmail(box);
       // Cloudflare wanted a human and the invisible widget could not settle it
       // alone. Open the challenge under this box and resend once it is
       // answered, rather than telling the reader to reload -- the reload was
@@ -846,6 +847,24 @@ export function initCommentsController(): void {
     article.classList.add('blog-comment--new');
     const body = article.querySelector<HTMLElement>('.blog-comment__body');
     body?.addEventListener('animationend', () => article.classList.remove('blog-comment--new'), { once: true });
+  }
+
+  /** The server wants an address before this comment goes anywhere. A
+      claimed identity without one shows no email field, so both boxes drop
+      back to the anonymous grade with the name kept; the next successful
+      post claims again with the address. */
+  function askForEmail(box: HTMLElement): void {
+    if (phase === 'claimed' && claimed) {
+      const name = claimed.name;
+      phase = 'anonymous';
+      if (compose) applyPhase(compose, phase, claimed, viewer);
+      applyPhase(replyBox, phase, claimed, viewer);
+      for (const target of [compose, replyBox]) {
+        const input = target?.querySelector<HTMLInputElement>('[data-compose-identity] input[type="text"]');
+        if (input && !input.value) input.value = name;
+      }
+    }
+    box.querySelector<HTMLInputElement>('[data-compose-identity] input[type="email"]')?.focus();
   }
 
   function readIdentity(box: HTMLElement): { displayName: string; email: string } | null {

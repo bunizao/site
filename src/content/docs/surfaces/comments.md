@@ -134,6 +134,7 @@ alert, the code is a link and lands on one of the sections below.
 | [`CLOSED`](#comment-error-closed) | The claim on that comment ran out | Nothing to retry |
 | `LOCKED` | The post has stopped taking comments | Nothing to retry |
 | [`VERIFY`](#comment-error-verify) | The post takes confirmed addresses only | Confirm, then post |
+| [`NOMAIL`](#comment-error-nomail) | This comment needs an address to confirm | Add one, post, confirm the link |
 | [`NAME`](#comment-error-name) | The name was refused | Pick another |
 | [`EMAIL`](#comment-error-email) | The address was refused | Correct it, or leave it blank |
 | `LONG` | Over 2000 characters | Trim it |
@@ -164,8 +165,9 @@ browser's own validation is perfectly happy with — `example.com`,
 `localhost`, anything at `.test` or `.invalid` — are refused here, which is the
 usual reason a well-formed address comes back rejected.
 
-Leaving the field empty is always allowed. An address is what buys editing and
-reply mail later; it is not a condition of being heard now.
+Leaving the field empty is usually allowed. An address is what buys editing
+and reply mail later; the one time it is a condition of being heard now is
+[`NOMAIL`](#comment-error-nomail).
 
 <a id="comment-error-verify"></a>
 
@@ -180,6 +182,22 @@ Confirm the link already sitting in the inbox, or send a fresh one from
 signs in one device and expires after 24 hours, so the one from three weeks ago
 will not work and neither will one already used elsewhere; asking for another
 is free.
+
+<a id="comment-error-nomail"></a>
+
+### `NOMAIL` — this comment needs an address
+
+The request looked enough like automation — a data-centre network, a browser
+without a graphics card, several posts in a few minutes, one browser writing
+under several names — that it goes nowhere without an email address to
+confirm. How the words were typed, dictated or pasted never counts toward
+this. Nothing was stored, and the draft is still in the box.
+
+Add an address and post again. The comment waits, unseen, until the link in
+the confirmation mail is opened; then it goes through the usual checks and
+appears. An agent without a mailbox never gets further, and a person gets
+through with one click. The same thing happens, with no refusal first, to
+anyone who already gave an address.
 
 <a id="comment-error-closed"></a>
 
