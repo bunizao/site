@@ -43,7 +43,7 @@
 
 import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
 import { seedNumber } from '@/features/comments/identity';
-import { beamAvatarSvg } from '@/features/comments/beam-avatar';
+import { drawnAvatarSvg } from '@/features/comments/drawn-avatar';
 import { ICONS, SIGNOUT_ICONS } from '@/features/comments/icons';
 import type { CommentErrorCode } from '@/features/comments/comment-error';
 import type { ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
@@ -151,12 +151,12 @@ const showNudge = receipt === 'nudge';
             ) : (
               <button
                 type="button"
-                class="blog-compose__whoface blog-avatar-beam blog-avatar-shuffle"
+                class="blog-compose__whoface blog-avatar-drawn blog-avatar-shuffle"
                 data-avatar-own
                 data-avatar-name={viewer.name}
                 aria-label={t.avatarShuffle}
                 title={t.avatarShuffle}
-                set:html={beamAvatarSvg(viewer.avatarSeed ?? seedNumber(viewer.name))}
+                set:html={drawnAvatarSvg(viewer.avatarSeed ?? seedNumber(viewer.name))}
               ></button>
             )}
             <span class="sr-only">{t.postingAs(viewer.name)}</span>
@@ -170,12 +170,12 @@ const showNudge = receipt === 'nudge';
           <>
             <button
               type="button"
-              class="blog-compose__whoface blog-avatar-beam blog-avatar-shuffle"
+              class="blog-compose__whoface blog-avatar-drawn blog-avatar-shuffle"
               data-avatar-own
               data-avatar-name={claimed.name}
               aria-label={t.avatarShuffle}
               title={t.avatarShuffle}
-              set:html={beamAvatarSvg(seedNumber(claimed.name))}
+              set:html={drawnAvatarSvg(seedNumber(claimed.name))}
             ></button>
             <span class="sr-only">{t.claimedAs(claimed.name)}</span>
             <span class="blog-compose__whoname" aria-hidden="true">{claimed.name}</span>

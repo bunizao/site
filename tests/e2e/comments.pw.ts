@@ -172,7 +172,7 @@ test('a resolved avatar draws a photo, everyone else a drawn face', async ({ pag
   // than a broken image -- the avatar URL is empty precisely when there is
   // nothing to fetch.
   const withoutPhoto = page.locator('#comment-1 .blog-comment__avatar');
-  await expect(withoutPhoto).toHaveClass(/blog-avatar-beam/);
+  await expect(withoutPhoto).toHaveClass(/blog-avatar-drawn/);
   await expect(withoutPhoto.locator('svg rect')).not.toHaveCount(0);
 });
 

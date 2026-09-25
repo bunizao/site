@@ -22,7 +22,7 @@ import {
   rememberReactionPass,
 } from '@/features/comments/client/reaction-pass';
 import { seedNumber } from '@/features/comments/identity';
-import { anonymousSeeds, beamAvatarSvg } from '@/features/comments/beam-avatar';
+import { anonymousSeeds, drawnAvatarSvg } from '@/features/comments/drawn-avatar';
 import { avatarClass, isAvatarSeed } from '@bunizao/contracts/comments';
 import { ICONS } from '@/features/comments/icons';
 import { resolveCommentsCopy } from '@/features/comments/copy';
@@ -85,9 +85,9 @@ function toReactors(
 
 const reactorSeed = (reactor: Reactor) => reactor.avatarSeed ?? seedNumber(reactor.name);
 
-function Beam({ seed }: { seed: number }) {
-  // beam-avatar.ts builds this from numbers and palette constants only.
-  return <span className="blog-avatar-beam size-full" dangerouslySetInnerHTML={{ __html: beamAvatarSvg(seed) }} />;
+function DrawnFace({ seed }: { seed: number }) {
+  // drawn-avatar.ts builds this from numbers and palette constants only.
+  return <span className="blog-avatar-drawn size-full" dangerouslySetInnerHTML={{ __html: drawnAvatarSvg(seed) }} />;
 }
 
 /** One burst of hearts per press. Keyed by id so a fast double-tap stacks --
@@ -403,7 +403,7 @@ export default function ReactionBar({
               >
                 {reactor.avatar && <AvatarImage src={reactor.avatar} alt={reactor.name} />}
                 <AvatarFallback>
-                  <Beam seed={reactorSeed(reactor)} />
+                  <DrawnFace seed={reactorSeed(reactor)} />
                 </AvatarFallback>
                 {/* Hover names the face instead of pulling it clear of the stack:
                     the overlap is the point, and a face that jumps to the front
@@ -427,7 +427,7 @@ export default function ReactionBar({
                   style={{ zIndex: i, ['--entry-delay' as string]: `${i * 60}ms` }}
                 >
                   <AvatarFallback>
-                    <Beam seed={seed} />
+                    <DrawnFace seed={seed} />
                   </AvatarFallback>
                   <span className="blog-react__name" aria-hidden="true">
                     {t.reactAnonymous}

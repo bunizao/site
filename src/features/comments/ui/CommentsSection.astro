@@ -21,7 +21,7 @@
 import CommentForm from '@/features/comments/ui/CommentForm.astro';
 import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
 import { rowFaceSeed, seedNumber } from '@/features/comments/identity';
-import { beamAvatarSvg } from '@/features/comments/beam-avatar';
+import { drawnAvatarSvg } from '@/features/comments/drawn-avatar';
 import { ICONS, SIGNOUT_ICONS } from '@/features/comments/icons';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import { blog, type BlogLocale } from '@/data/site';
@@ -230,9 +230,9 @@ const t = commentsCopy[locale];
             />
           ) : (
             <span
-              class="blog-comment__avatar blog-avatar-beam"
+              class="blog-comment__avatar blog-avatar-drawn"
               aria-hidden="true"
-              set:html={beamAvatarSvg(rowFaceSeed(comment.id, comment.author, comment.avatarUrl, comment.avatarSeed))}
+              set:html={drawnAvatarSvg(rowFaceSeed(comment.id, comment.author, comment.avatarUrl, comment.avatarSeed))}
             />
           )}
           <div class="blog-comment__body">
@@ -405,12 +405,12 @@ const t = commentsCopy[locale];
                   ) : (
                     <button
                       type="button"
-                      class="blog-compose__whoface blog-avatar-beam blog-avatar-shuffle"
+                      class="blog-compose__whoface blog-avatar-drawn blog-avatar-shuffle"
                       data-avatar-own
                       data-avatar-name={viewer.name}
                       aria-label={t.avatarShuffle}
                       title={t.avatarShuffle}
-                      set:html={beamAvatarSvg(viewer.avatarSeed ?? seedNumber(viewer.name))}
+                      set:html={drawnAvatarSvg(viewer.avatarSeed ?? seedNumber(viewer.name))}
                     ></button>
                   )}
                   <span class="sr-only">{t.postingAs(viewer.name)}</span>
@@ -423,12 +423,12 @@ const t = commentsCopy[locale];
                 <>
                   <button
                     type="button"
-                    class="blog-compose__whoface blog-avatar-beam blog-avatar-shuffle"
+                    class="blog-compose__whoface blog-avatar-drawn blog-avatar-shuffle"
                     data-avatar-own
                     data-avatar-name={claimed.name}
                     aria-label={t.avatarShuffle}
                     title={t.avatarShuffle}
-                    set:html={beamAvatarSvg(seedNumber(claimed.name))}
+                    set:html={drawnAvatarSvg(seedNumber(claimed.name))}
                   ></button>
                   <span class="sr-only">{t.claimedAs(claimed.name)}</span>
                   <span class="blog-compose__whoname" aria-hidden="true">{claimed.name}</span>

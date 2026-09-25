@@ -57,7 +57,7 @@ import { readCommentText, setCommentText } from '@/features/comments/comment-mar
 import { forgetReaderEmail, readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { wireSignOut } from '@/features/comments/client/sign-out';
 import { rowFaceSeed, seedNumber } from '@/features/comments/identity';
-import { beamAvatarSvg } from '@/features/comments/beam-avatar';
+import { drawnAvatarSvg } from '@/features/comments/drawn-avatar';
 import { readAvatarSeed, rememberAvatarSeed, requestAvatarSeed } from '@/features/comments/client/avatar-seed';
 import { ICONS, SIGNOUT_ICONS, iconSvg } from '@/features/comments/icons';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
@@ -172,11 +172,11 @@ function toBlogComment(
   };
 }
 
-/** A drawn face into `host`, replacing whatever it held. beam-avatar.ts
+/** A drawn face into `host`, replacing whatever it held. drawn-avatar.ts
     builds its markup from numbers and palette constants only, so it parses
     as safely as the static icons. */
-function paintBeam(host: HTMLElement, seed: number): HTMLElement {
-  host.replaceChildren(parseStaticSvg(beamAvatarSvg(seed)));
+function paintFace(host: HTMLElement, seed: number): HTMLElement {
+  host.replaceChildren(parseStaticSvg(drawnAvatarSvg(seed)));
   return host;
 }
 
@@ -195,8 +195,8 @@ function commentFace(comment: BlogComment): HTMLElement {
       decoding: 'async',
     });
   }
-  return paintBeam(
-    el('span', { class: 'blog-comment__avatar blog-avatar-beam', 'aria-hidden': 'true' }),
+  return paintFace(
+    el('span', { class: 'blog-comment__avatar blog-avatar-drawn', 'aria-hidden': 'true' }),
     rowFaceSeed(comment.id, comment.author, comment.avatarUrl, comment.avatarSeed),
   );
 }
@@ -1091,7 +1091,7 @@ export function initCommentsController(): void {
     // renders that one and a live thread renders this one.
     const face = el('button', {
       type: 'button',
-      class: 'blog-compose__face blog-avatar-beam blog-avatar-shuffle',
+      class: 'blog-compose__face blog-avatar-drawn blog-avatar-shuffle',
       'data-avatar-own': '',
       'data-avatar-name': '',
       'aria-label': t.avatarShuffle,
@@ -1834,13 +1834,13 @@ export function initCommentsController(): void {
   function ownFace(name: string): HTMLElement {
     const face = el('button', {
       type: 'button',
-      class: 'blog-compose__whoface blog-avatar-beam blog-avatar-shuffle',
+      class: 'blog-compose__whoface blog-avatar-drawn blog-avatar-shuffle',
       'data-avatar-own': '',
       'data-avatar-name': name,
       'aria-label': t.avatarShuffle,
       title: t.avatarShuffle,
     });
-    return paintBeam(face, ownSeed(name));
+    return paintFace(face, ownSeed(name));
   }
 
   /** Repaints every copy of the reader's own face: the strip in the compose
@@ -1860,7 +1860,7 @@ export function initCommentsController(): void {
       return;
     }
     face.classList.remove('is-empty');
-    paintBeam(face, ownSeed(name));
+    paintFace(face, ownSeed(name));
   }
 
   let seedRequest: Promise<void> | null = null;

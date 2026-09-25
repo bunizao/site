@@ -288,10 +288,10 @@
   animation-delay: var(--entry-delay, 0ms);
 }
 
-/* Drawn faces (beam-avatar.ts). The SVG is full-bleed; the circle is this
+/* Drawn faces (drawn-avatar.ts). The SVG is full-bleed; the circle is this
    box's. Also a button when it is the reader's own face, so the resets
    live here rather than on every host. */
-.blog-avatar-beam {
+.blog-avatar-drawn {
   display: block;
   overflow: hidden;
   padding: 0;
@@ -299,14 +299,23 @@
   border-radius: 50%;
 }
 
-.blog-avatar-beam > svg {
+.blog-avatar-drawn > svg {
   display: block;
   width: 100%;
   height: 100%;
 }
 
+/* The wash itself: drawn-avatar.ts paints hard shapes and this softens them.
+   Visible overflow lets the overhanging base rect reach the blur, so the rim
+   stays solid colour; the host's circle does the clipping. About 7 units of
+   the 80-unit drawing at the 28-32px these render at. */
+.drawn-face {
+  overflow: visible;
+  filter: blur(2.6px);
+}
+
 /* Before the first seed lands: a quiet disc, not a face everyone shares. */
-.blog-avatar-beam.is-empty {
+.blog-avatar-drawn.is-empty {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -314,7 +323,7 @@
   color: var(--blog-muted);
 }
 
-.blog-avatar-beam.is-empty > svg {
+.blog-avatar-drawn.is-empty > svg {
   width: 55%;
   height: 55%;
 }

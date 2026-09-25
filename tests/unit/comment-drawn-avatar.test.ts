@@ -1,25 +1,28 @@
 import { describe, expect, test } from 'bun:test';
 import { AVATAR_CLASSES, avatarClass, isAvatarSeed, seedInClass } from '@bunizao/contracts/comments';
-import { anonymousSeeds, BEAM_PALETTE, beamAvatarSvg } from '@/features/comments/beam-avatar';
+import { anonymousSeeds, AVATAR_PALETTE, drawnAvatarSvg } from '@/features/comments/drawn-avatar';
 
-const fills = (svg: string) => [...svg.matchAll(/<rect[^>]*fill="(#[0-9A-Fa-f]{6})"/g)].map((m) => m[1]);
+/** [base, accent, glaze] in paint order. */
+const fills = (svg: string) => [...svg.matchAll(/<(?:rect|path)[^>]*fill="(#[0-9A-Fa-f]{6})"/g)].map((m) => m[1]);
 
-describe('beamAvatarSvg', () => {
-  test('every class is its own colour pair and no head vanishes into its background', () => {
+describe('drawnAvatarSvg', () => {
+  test('every class is its own colour pair, and no shape vanishes into the base', () => {
     const pairs = new Set<string>();
     for (let cls = 0; cls < AVATAR_CLASSES; cls++) {
-      const [background, head] = fills(beamAvatarSvg(seedInClass(cls, 12345)));
-      expect(BEAM_PALETTE).toContain(background as (typeof BEAM_PALETTE)[number]);
-      expect(head).not.toBe(background);
-      pairs.add(`${background}/${head}`);
+      const [base, accent, glaze] = fills(drawnAvatarSvg(seedInClass(cls, 12345)));
+      expect(AVATAR_PALETTE).toContain(base as (typeof AVATAR_PALETTE)[number]);
+      expect(new Set([base, accent, glaze]).size).toBe(3);
+      pairs.add(`${base}/${accent}`);
     }
     expect(pairs.size).toBe(AVATAR_CLASSES);
   });
 
-  test('the same seed draws the same face, and no mask id is emitted', () => {
-    const svg = beamAvatarSvg(987654321);
-    expect(beamAvatarSvg(987654321)).toBe(svg);
-    expect(svg).not.toContain('mask');
+  test('the same seed draws the same face, and the markup carries no id', () => {
+    const svg = drawnAvatarSvg(987654321);
+    expect(drawnAvatarSvg(987654321)).toBe(svg);
+    // The same face appears several times on one page (every copy of the
+    // reader's own); an id would repeat.
+    expect(svg).not.toMatch(/\sid=/);
   });
 });
 
@@ -47,9 +50,13 @@ describe('anonymousSeeds', () => {
     expect(anonymousSeeds(3, new Set(), 'post-1')).not.toEqual(anonymousSeeds(3, new Set(), 'post-2'));
   });
 
-  test('five faces wear five different head colours', () => {
-    const heads = anonymousSeeds(5, new Set(), 'post-1').map((seed) => fills(beamAvatarSvg(seed))[1]);
-    expect(new Set(heads).size).toBe(5);
+  test('five faces wear five different base colours and five different accents', () => {
+    for (let i = 0; i < 500; i++) {
+      const basis = `post-${i}`;
+      const colours = anonymousSeeds(5, new Set(), basis).map((seed) => fills(drawnAvatarSvg(seed)));
+      expect(new Set(colours.map(([base]) => base)).size).toBe(5);
+      expect(new Set(colours.map(([, accent]) => accent)).size).toBe(5);
+    }
   });
 
   test('covers all classes before repeating', () => {

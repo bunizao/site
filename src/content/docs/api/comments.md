@@ -882,13 +882,14 @@ POST /api/v2/reader/avatar-seed
 { "seed": 7654320, "persisted": false }
 ```
 
-Anyone without a picture gets a drawn face: the `beam` style from Boring
-Avatars, ported to `src/features/comments/beam-avatar.ts` and drawn in the
-browser. A seed is a uint32; `seed % 20` is its colour class (five
-backgrounds, four heads each, never the same colour twice), and the rest
-picks expression, pose and shape. `avatarSeed` on a comment author, a reactor
-chip, or `ReaderMe` is that seed, or `null` for anything older than the
-feature, which the client draws from the row id as before.
+Anyone without a picture gets a drawn face: the `marble` style from Boring
+Avatars in a muted palette, ported to `src/features/comments/drawn-avatar.ts`
+and drawn in the browser. A seed is a uint32; `seed % 20` is its colour class
+(five base colours, four accents each, never the same colour twice), and the
+rest picks the third colour and where the blurred shapes sit. `avatarSeed` on
+a comment author, a reactor chip, or `ReaderMe` is that seed, or `null` for
+anything older than the feature, which the client draws from the row id as
+before.
 
 This route hands out a seed in the least-issued colour class across the
 site, never the class of `current`, so a new face or a re-roll lands on a
@@ -902,9 +903,10 @@ the first seed on the first focus of a compose box, not on page load, and
 each tap on the reader's own face asks for another. `private, no-store`;
 rate-limited at 30/minute per IP.
 
-The like stack does its own avoidance on screen: likes with no reader behind
-them draw faces whose head colours (the head covers most of the disc) differ
-from the named faces beside them and from each other.
+The like stack does its own avoidance on screen: up to five likes with no
+reader behind them each wear a different base colour and a different accent,
+chosen to repeat as little as possible of what the named faces beside them
+wear.
 
 ## Reader OAuth (GitHub, Google)
 
