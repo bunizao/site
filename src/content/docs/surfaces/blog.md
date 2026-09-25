@@ -131,7 +131,8 @@ Components compose the tokens above; they never introduce new colour or type.
 ### Index and ledger
 
 `/blog` renders every listed post but shows only the latest eight, so a reader
-reaches the sea footer. "更早的 N 篇 ↓", a full-width filled control, unfolds
+reaches the sea footer. "更早的 N 篇 ↓", a quiet centred line in the faint ink
+(a 44px touch target, no fill), unfolds
 the next eight in place; the rows arrive staggered, rising and fading in (no
 motion under `prefers-reduced-motion`). The year section above the control drops
 its hairline while the fold hides the rest, so the control, not a rule, ends the
@@ -147,12 +148,15 @@ one strip of months from the first January to now: a `{colors.ji}` bar per month
 essay does not flatten the rest. The strip keeps its height and the column's
 width however many years it covers — more years only make the bars thinner.
 Chinese is counted by character and other scripts by word. Hovering a month
-with posts, or tapping it, opens a card over the bar naming that month's posts
-as links; the card stays while the pointer climbs into it.
+with posts opens a card over the bar naming that month's posts as links; the
+card stays while the pointer climbs into it. On a phone the bars are a few
+pixels wide, too thin to hit, so a touch anywhere on the strip opens the
+written month nearest the finger, and sliding sideways moves the card with it
+(`touch-action: pan-y`, so a vertical drag still scrolls).
 
 ### Sea footer
 
-`BlogSeaFooter.astro` closes the `/blog` index with a crayon sailboat crossing a
+`BlogSeaFooter.astro` closes the `/blog` index and every post with a crayon sailboat crossing a
 crayon sea — the literal reading of *sillage*, the wake a boat leaves behind.
 The sea is seen side on, a swell profile against the page; the page background
 is the sky, in both themes. The band starts under the site footer's last line,

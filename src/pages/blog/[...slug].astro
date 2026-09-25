@@ -23,6 +23,7 @@ import { READER_ME_URL, blogCommentsUrl, reactionsUrl } from '@/features/comment
 import '@/features/comments/styles/comments.css';
 import { blog } from '@/data/site';
 import Footer from '@/features/home/ui/Footer.astro';
+import BlogSeaFooter from '@/features/posts/ui/BlogSeaFooter.astro';
 import {
   getAccessiblePosts,
   getListedPosts,
@@ -306,6 +307,8 @@ const translated = isTranslation(post);
   )}
 
   <Footer />
+
+  <BlogSeaFooter />
 
   <BackToTop />
   <BlogArticleBeacon slug={post.slug} />

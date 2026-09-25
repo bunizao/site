@@ -94,7 +94,9 @@ const written = new Set(ledger.months.filter((month) => month.posts > 0).map((mo
 <script>
   // A mouse opens a month's card by hovering and keeps it while the pointer
   // stays in the ledger, so it can travel up into the card and click a title.
-  // A tap opens it; a tap on the same bar or anywhere else closes it.
+  // A finger cannot hit a bar a few pixels wide, so a touch on the strip opens
+  // the written month nearest it, and sliding along the strip moves the card
+  // with the finger. A tap on the open bar or anywhere else closes it.
   for (const ledger of document.querySelectorAll<HTMLElement>('[data-blog-ledger]')) {
     const map = ledger.querySelector<HTMLElement>('.blog-ledger__map');
     if (!map) continue;
@@ -123,6 +125,17 @@ const written = new Set(ledger.months.filter((month) => month.posts > 0).map((mo
     };
 
     const barAt = (event: Event) => (event.target as HTMLElement).closest<HTMLElement>('[data-card]');
+    const bars = Array.from(map.querySelectorAll<HTMLElement>('[data-card]'));
+    const nearest = (x: number) => {
+      let best = bars[0];
+      let gap = Infinity;
+      for (const candidate of bars) {
+        const rect = candidate.getBoundingClientRect();
+        const d = Math.abs(rect.left + rect.width / 2 - x);
+        if (d < gap) [best, gap] = [candidate, d];
+      }
+      return best;
+    };
 
     map.addEventListener('pointerover', (event) => {
       const next = barAt(event);
@@ -131,13 +144,29 @@ const written = new Set(ledger.months.filter((month) => month.posts > 0).map((mo
     ledger.addEventListener('pointerleave', (event) => {
       if (event.pointerType === 'mouse') close();
     });
-    map.addEventListener('click', (event) => {
-      if ((event as PointerEvent).pointerType === 'mouse') return;
-      const next = barAt(event);
-      if (!next) return;
-      if (next === bar) close();
-      else open(next);
+    // Touch and pen. The strip takes sideways drags (touch-action in
+    // blog.css); a vertical one scrolls the page and cancels the scrub.
+    let scrubbing = false;
+    let reopened = false;
+    map.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse' || !bars.length) return;
+      if (!(event.target as HTMLElement).closest('.blog-ledger__month')) return;
+      const next = nearest(event.clientX);
+      scrubbing = true;
+      reopened = next === bar;
+      open(next);
     });
+    map.addEventListener('pointermove', (event) => {
+      if (!scrubbing) return;
+      const next = nearest(event.clientX);
+      if (next !== bar) reopened = false;
+      open(next);
+    });
+    map.addEventListener('pointerup', () => {
+      if (scrubbing && reopened) close();
+      scrubbing = false;
+    });
+    map.addEventListener('pointercancel', () => (scrubbing = false));
     document.addEventListener('pointerdown', (event) => {
       if (card && !ledger.contains(event.target as Node)) close();
     });
