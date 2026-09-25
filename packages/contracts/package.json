@@ -1,6 +1,6 @@
 {
   "name": "@bunizao/contracts",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Shared TypeScript contracts for buxx.me services and clients.",
   "type": "module",
   "sideEffects": false,
@@ -47,6 +47,11 @@
       "types": "./dist/content.d.ts",
       "import": "./dist/content.js",
       "default": "./dist/content.js"
+    },
+    "./instagram": {
+      "types": "./dist/instagram.d.ts",
+      "import": "./dist/instagram.js",
+      "default": "./dist/instagram.js"
     },
     "./listening": {
       "types": "./dist/listening.d.ts",
