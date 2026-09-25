@@ -133,18 +133,21 @@ Client behavior:
     them. The blue keeps them off the page in the dark theme, where the
     card surface is the page colour.
   - Instagram: the profile picture behind a story ring, with the post,
-    follower and following counts. The picture is a file,
-    `public/instagram-avatar.jpg`, not read at build: build runners get
-    Instagram's login wall, whose `og:image` is the Instagram logo, and the
-    picture's CDN address is signed and expires within days. Its bytes are
-    fetchable from anywhere while the address is valid, so a new picture is
-    saved over the file. The counts come from the profile page's
-    `og:description` at build time (`facebookexternalhit` user agent); a
-    failed read or a login wall leaves no counts.
+    follower and following counts, both from `site-api`
+    ([Instagram profile](/docs/api/content#instagram-profile)). The picture
+    is `/api/v2/instagram/avatar`, the stored copy of the last read that
+    passed validation, so the page never links a signed Instagram address and
+    never shows the Instagram logo in its place. The counts load with the
+    other live reads and keep their dashes until they arrive. Nothing about
+    the card is read at build. Ops Health
+    (`tests/ops/instagram-profile-health.test.ts`) fails when the stored read
+    is over a day old, when the served picture stops matching the profile,
+    when the handle drifts from the site's link, or when the card links
+    anything but the stored picture.
 
   Cards name the short links (`tuu.cat/gh`), never the address behind them.
   GitHub and Instagram show profile pictures.
-  The two network reads start on the first link hover. Cards open after
+  The three network reads start on the first link hover. Cards open after
   120ms of mouse hover or on keyboard focus. They swap instantly between
   links, sit above the word, and flip below it near the viewport top. The
   open card takes the pointer: it stays open while the pointer is on it and

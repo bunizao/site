@@ -18,6 +18,7 @@ import { messageCopy } from '@/features/messages/copy';
 import { postPath } from '@/features/posts/format';
 import { getListedPosts } from '@/features/posts/server/content';
 import { GitHubIcon, InstagramIcon, TelegramIcon } from '@/components/icons';
+import { API_PREFIX, INSTAGRAM_AVATAR_PATH } from '@bunizao/contracts/routes';
 
 const school = experience[0];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -89,37 +90,13 @@ const readTotalStars = async (): Promise<string | null> => {
 };
 const totalStars = await readTotalStars();
 
-// The Instagram profile picture is a file in public/, not read at build.
-// Instagram serves build runners its login wall, whose og:image is the
-// Instagram logo, and the picture's CDN address is signed and expires within
-// days. The bytes of the address are fetchable from anywhere while it is
-// valid, so the picture is saved once and replaced when it changes.
-const INSTAGRAM_AVATAR = '/instagram-avatar.jpg';
+// The Instagram picture and counts come from site-api, which stores the last
+// profile read that passed validation (src/features/home/server/instagram.ts
+// there). The picture is its own route, so the page never names a signed
+// Instagram address; the counts load with the other live reads.
+const INSTAGRAM_AVATAR_URL = `${API_PREFIX}${INSTAGRAM_AVATAR_PATH}`;
+const INSTAGRAM_COUNT_LABELS = ['Posts', 'Followers', 'Following'] as const;
 
-// The counts. Instagram answers link-preview crawlers without a login:
-// og:description carries them ("33 Followers, 94 Following, 35 Posts"). It
-// is read on every build; a failed read or a login wall leaves no counts.
-type InstagramCount = { label: string; value: string };
-const readInstagramCounts = async (profileUrl: string): Promise<InstagramCount[]> => {
-  try {
-    const page = await fetch(profileUrl, {
-      headers: { 'user-agent': 'facebookexternalhit/1.1' },
-      signal: AbortSignal.timeout(4000),
-    });
-    if (!page.ok) return [];
-    const html = await page.text();
-    const summary =
-      html.match(/<meta property="og:description" content="([^"]+)"/)?.[1]?.replaceAll('&amp;', '&') ?? '';
-    const count = (label: string) => summary.match(new RegExp(`([\\d.,]+[KM]?) ${label}`, 'i'))?.[1];
-    return [
-      { label: 'Posts', value: count('Posts') },
-      { label: 'Followers', value: count('Followers') },
-      { label: 'Following', value: count('Following') },
-    ].filter((item): item is InstagramCount => Boolean(item.value));
-  } catch {
-    return [];
-  }
-};
 // A hand of cards fanned from the middle, the outer ones lower and turned
 // further. The way to the whole list is the first card, under the others.
 const HAND = projects.length + 1;
@@ -140,7 +117,6 @@ const channel = (name: string) => {
 const github = channel('GitHub');
 const telegram = channel('Telegram');
 const instagram = channel('Instagram');
-const instagramCounts = instagram?.canonicalUrl ? await readInstagramCounts(instagram.canonicalUrl) : [];
 const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 ---
 
@@ -340,16 +316,14 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   {instagram && (
     <div class="hc hc--instagram" data-card-id="instagram">
       <span class="ig-ring">
-        <img class="ig-avatar" src={INSTAGRAM_AVATAR} alt="" width="64" height="64" loading="lazy" decoding="async" />
+        <img class="ig-avatar" src={INSTAGRAM_AVATAR_URL} alt="" width="64" height="64" loading="lazy" decoding="async" />
       </span>
       <span class="hc-title">{instagram.handle}</span>
-      {instagramCounts.length > 0 && (
-        <dl class="ig-counts">
-          {instagramCounts.map((item) => (
-            <div><dd class="hc-num">{item.value}</dd><dt>{item.label}</dt></div>
-          ))}
-        </dl>
-      )}
+      <dl class="ig-counts">
+        {INSTAGRAM_COUNT_LABELS.map((label) => (
+          <div><dd class="hc-num" data-ig-count={label.toLowerCase()}>—</dd><dt>{label}</dt></div>
+        ))}
+      </dl>
       <a class="ig-button" href={instagram.url} {...external}>
         <InstagramIcon className="ig-button-icon" />View profile
       </a>
@@ -1639,6 +1613,9 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 </style>
 
 <script>
+  import type { InstagramProfile } from '@bunizao/contracts/instagram';
+  import { API_PREFIX, INSTAGRAM_PROFILE_PATH } from '@bunizao/contracts/routes';
+
   const layer = document.querySelector<HTMLElement>('[data-hero-cards]');
   const bio = document.querySelector<HTMLElement>('[data-hero-bio]');
 
@@ -1855,6 +1832,33 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     if (current === card) reposition();
   };
 
+  // ---------- Instagram ---------------------------------------------------
+
+  const compactCount = (value: number): string =>
+    new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+
+  let instagramRequested = false;
+  const loadInstagram = async (): Promise<void> => {
+    if (instagramRequested) return;
+    instagramRequested = true;
+    const card = cardById('instagram');
+    if (!card) return;
+    let counts: InstagramProfile['counts'] | null = null;
+    try {
+      const response = await fetch(`${API_PREFIX}${INSTAGRAM_PROFILE_PATH}`);
+      if (!response.ok) throw new Error(String(response.status));
+      counts = ((await response.json()) as Partial<InstagramProfile>).counts ?? null;
+    } catch {
+      // The counts keep their dashes; the picture is its own request.
+    }
+    if (!counts) return;
+    for (const [key, value] of Object.entries(counts)) {
+      const node = card.querySelector(`[data-ig-count="${key}"]`);
+      if (node && typeof value === 'number') node.textContent = compactCount(value);
+    }
+    if (current === card) reposition();
+  };
+
   // ---------- Open and close ----------------------------------------------
 
   const open = (link: HTMLElement): void => {
@@ -1899,6 +1903,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   const warm = (): void => {
     void loadMoods();
     void loadGitHub();
+    void loadInstagram();
   };
 
   if (layer && bio) {
