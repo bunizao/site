@@ -24,9 +24,11 @@ beforeAll(async () => {
     import { createRoot } from '${root}/node_modules/react-dom/client.js';
     import ReactionBar from '${root}/src/features/comments/ui/ReactionBar.tsx';
     import { collectClientEvidence, warmClientEvidence } from '${root}/src/features/comments/client/client-evidence.ts';
+    import { wireDrafts } from '${root}/src/features/comments/client/drafts.ts';
     window.evidenceReview = {
       collect: collectClientEvidence,
       warm: warmClientEvidence,
+      wireDrafts,
       mount: () => createRoot(document.getElementById('root')).render(
         React.createElement(ReactionBar, { count: 0, postId: 'test-post', locale: 'en' })
       ),
@@ -83,7 +85,7 @@ async function fixture(mode: Mode, run: (page: Page, posts: Record<string, unkno
     } else {
       await route.fulfill({
         contentType: 'text/html',
-        body: '<html><body><div id="root"></div><div class="blog-compose"><textarea></textarea></div></body></html>',
+        body: '<html><body><div id="root"></div><div class="blog-compose"><textarea class="blog-compose__field"></textarea></div></body></html>',
       });
     }
   });
@@ -156,6 +158,24 @@ describe('optional comment evidence', () => {
         return { first: first.interaction.inputEvents, later: later.interaction.inputEvents };
       });
       expect(result).toEqual({ first: 1, later: 2 });
+      expect(errors).toEqual([]);
+    });
+  });
+
+  test('a draft restored at load reaches site-api as a paste', async () => {
+    await fixture('normal', async (page, _posts, errors) => {
+      const result = await page.evaluate(async () => {
+        const review = (window as any).evidenceReview;
+        review.warm();
+        // The first collect only waits out the import; its snapshot predates the module.
+        await review.collect({ kind: 'comment' });
+        const before = (await review.collect({ kind: 'comment' })).interaction.pasteEvents;
+        localStorage.setItem('buxx:draft:/', JSON.stringify({ body: 'Words written on an earlier visit, long enough to matter.' }));
+        review.wireDrafts();
+        const after = (await review.collect({ kind: 'comment' })).interaction;
+        return { before, pasteEvents: after.pasteEvents, keyEvents: after.keyEvents, restored: document.querySelector('textarea')!.value.length > 0 };
+      });
+      expect(result).toEqual({ before: 0, pasteEvents: 1, keyEvents: 0, restored: true });
       expect(errors).toEqual([]);
     });
   });
