@@ -148,6 +148,8 @@ export interface CommentsCopy {
   reactAdd: string;
   reactDone: string;
   reactError: string;
+  /** Hover label on a stack face that stands in for an anonymous like. */
+  reactAnonymous: string;
 
   /* --- Receipt -----------------------------------------------------------
      Success says nothing: the comment itself arrives in the list under the box
@@ -260,6 +262,7 @@ const zh: CommentsCopy = {
   reactAdd: '喜欢这篇',
   reactDone: '已喜欢',
   reactError: '没能点上，稍后再试。',
+  reactAnonymous: '匿名读者',
 
   submitError: {
     NET: '好像断网了，等网络回来再发一次吧。草稿都还在。',
@@ -355,6 +358,7 @@ const en: CommentsCopy = {
   reactAdd: 'Like this post',
   reactDone: 'Liked',
   reactError: 'That like did not stick. Try again shortly.',
+  reactAnonymous: 'Anonymous reader',
 
   submitError: {
     NET: "Looks like you're offline. Post again once you're back — your draft's safe.",

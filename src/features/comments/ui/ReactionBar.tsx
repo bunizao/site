@@ -70,6 +70,11 @@ function Heart({ filled = false }: { filled?: boolean }) {
   );
 }
 
+/** Server chips to stack faces. Only the same-origin avatar route survives. */
+function toReactors(chips: { name: string; avatarUrl: string | null }[] | undefined): Reactor[] {
+  return (chips ?? []).map((chip) => ({ name: chip.name, avatar: safeReaderAvatarUrl(chip.avatarUrl) }));
+}
+
 /** One burst of hearts per press. Keyed by id so a fast double-tap stacks --
     which is now the whole point of a second press, since a like cannot be
     taken back. Capped in spawnSparks so a stuck pointer cannot mount an
@@ -116,12 +121,7 @@ export default function ReactionBar({
         setSummary({
           count: live.count,
           reacted: live.reacted,
-          reactors: (live.reactors ?? []).map(
-            (chip: { name: string; avatarUrl: string | null }): Reactor => ({
-              name: chip.name,
-              avatar: safeReaderAvatarUrl(chip.avatarUrl),
-            }),
-          ),
+          reactors: toReactors(live.reactors),
         });
         setLiked(live.reacted);
       })
@@ -138,12 +138,19 @@ export default function ReactionBar({
   const mine = base + 1;
   const total = liked ? mine : base;
   const faces = summary.reactors.slice(0, faceLimit);
-  const overflow = Math.max(0, total - faces.length);
+  // Likes with no reader behind them still get a face, after the named ones:
+  // the count already says they happened, and a stack that shows only the
+  // few readers who signed in reads as a room with one person in it. Seeded
+  // by post, then stepped by the golden angle: FNV over "post:0", "post:1"...
+  // clusters into two hues, and neighbours in an overlapping stack must differ.
+  const anonymous = Math.max(0, Math.min(faceLimit - faces.length, total - summary.reactors.length));
+  const anonBaseHue = seedHue(postId ?? 'lab');
+  const overflow = Math.max(0, total - faces.length - anonymous);
 
   React.useEffect(() => {
     if (!stack.current) return;
     return mountAvatarComb(stack.current);
-  }, [faces.length, overflow]);
+  }, [faces.length, anonymous, overflow]);
 
   // Somewhere for an interactive Turnstile challenge to open. Invisible mode
   // stays invisible right up until Cloudflare wants a human, and a widget
@@ -284,7 +291,14 @@ export default function ReactionBar({
       rememberReactionPass(json?.passUntil);
       const live = json?.reaction;
       if (live && typeof live.count === 'number') {
-        setSummary((current) => ({ ...current, count: live.count, reacted: live.reacted }));
+        // The response carries the fresh reactor list, so a signed-in reader's
+        // own face lands in the stack now instead of as an anonymous one.
+        setSummary((current) => ({
+          ...current,
+          count: live.count,
+          reacted: live.reacted,
+          reactors: live.reactors ? toReactors(live.reactors) : current.reactors,
+        }));
         setLiked(Boolean(live.reacted));
       }
     } catch {
@@ -302,8 +316,8 @@ export default function ReactionBar({
             charged a reader an identity for one bit of feedback. It still turns
             over -- that was the good part -- but the far side is now the liked
             state itself, so the flip IS the feedback rather than a toll gate.
-            Anonymous presses are counted; they just put no face in the stack,
-            because the site has no name to put there.
+            Anonymous presses are counted, and each one puts a nameless
+            generated face in the stack.
 
             The turn happens once. Nothing here turns back: see like(). */}
         <div className="blog-react__pull" data-magnetic>
@@ -347,7 +361,7 @@ export default function ReactionBar({
           </button>
         </div>
 
-        {faces.length > 0 && (
+        {total > 0 && (
           /* Tighter than the component default: the faces have to read as one
              overlapping stack, not a row that happens to touch. Paint order runs
              left to right via an explicit z-index, so each face clips the one
@@ -386,11 +400,46 @@ export default function ReactionBar({
                 </span>
               </Avatar>
             ))}
+            {Array.from({ length: anonymous }, (_, j) => {
+              const i = faces.length + j;
+              return (
+                <Avatar
+                  key={`anon-${j}`}
+                  size="default"
+                  data-comb-item
+                  className="blog-react__avatar"
+                  style={{
+                    zIndex: i,
+                    ['--entry-delay' as string]: `${i * 60}ms`,
+                    ['--seed-hue' as string]: Math.round(anonBaseHue + j * 137.508) % 360,
+                  }}
+                >
+                  <AvatarFallback className="blog-avatar-seed blog-avatar-anon">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                      dangerouslySetInnerHTML={{ __html: ICONS.userRound }}
+                    />
+                  </AvatarFallback>
+                  <span className="blog-react__name" aria-hidden="true">
+                    {t.reactAnonymous}
+                  </span>
+                </Avatar>
+              );
+            })}
             {overflow > 0 && (
               <AvatarGroupCount
                 data-comb-item
                 className="blog-react__avatar blog-react__more"
-                style={{ zIndex: faces.length, ['--entry-delay' as string]: `${faces.length * 60}ms` }}
+                style={{
+                  zIndex: faces.length + anonymous,
+                  ['--entry-delay' as string]: `${(faces.length + anonymous) * 60}ms`,
+                }}
               >
                 +{overflow}
               </AvatarGroupCount>

@@ -321,6 +321,19 @@
   font-size: 12px;
 }
 
+/* A like with no name behind it: same seeded disc, a silhouette where the
+   initials would go. */
+.blog-avatar-anon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.blog-avatar-anon svg {
+  width: 55%;
+  height: 55%;
+}
+
 /* Opaque, and painted from the page's own two colours. A translucent fill here
    let the face underneath show through the +N, which read as a rendering fault
    rather than as a chip — the whole point of the stack is that each circle
