@@ -42,8 +42,10 @@ bot check plus a spam check takes is charging the reader for a comment that
 was going to be accepted anyway.
 
 For a moment the new row breathes and says *Publishing*. That is not a review
-— the API answers within about 1.5 seconds whether or not the spam check has,
-so most comments come back formally held and go public a second or two later.
+— for an anonymous writer the API waits up to eight seconds while a language
+model reads the comment, and after three the word becomes *Still checking — a
+few more seconds*, so a wait that long never looks stuck. A verdict slower
+than that comes back formally held and goes public a moment later.
 The page watches for the flip and stops breathing when it lands, and keeps
 watching for about a minute and a half, which is longer than a slow verdict
 takes.
@@ -51,7 +53,11 @@ takes.
 Only a wait that genuinely ends without a publish leaves a note behind, and
 it says the one thing that matters: everyone else is looking at a thread this
 row is not in. It is rare, and it is never the ordinary case dressed up as
-one.
+one. A comment held until its address is confirmed says so instead — the
+link in the inbox publishes it — and the nudge under the box says the same,
+because that is the one hold the reader can end on their own. A request for
+an email (`NOMAIL`) focuses the email field; anything typed into the box
+while the request was out is kept after the returned draft.
 
 A refused write takes it all back in the order it was given — the row goes,
 the words return to the box, and a reply goes back to being a reply to the

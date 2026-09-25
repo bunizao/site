@@ -302,7 +302,7 @@ Every submission runs the full risk stack, in order:
    scored.
 
    The content source arrives with the step 6 verdict, so it is added
-   when that verdict does. Within the 2500ms window a content step-up is
+   when that verdict does. Within the 8000ms window a content step-up is
    refused or stored like any other; after it, the stored row becomes an
    awaiting one (below) and the verification mail, which waits for the
    verdict, says so.
@@ -360,13 +360,15 @@ Every submission runs the full risk stack, in order:
    quarantines the writer's identity for 24 hours. Verified readers get
    Akismet only.
 
-   The request does not wait the full ten seconds. After **2500ms** the
+   The request does not wait the full ten seconds. After **8000ms** the
    create returns with the row stored as `held` and finishes the check in
    the background — a late verdict then upgrades the row, notifies the
    owner with the real outcome, and sends the reply alert if it published.
    The upgrade is guarded on `updated_at`, so a writer who edits in the
    meantime keeps their row held rather than having it clobbered by a
-   stale verdict. A `held` response is therefore not always final.
+   stale verdict. A `held` response is therefore not always final. Only
+   anonymous writers feel the wait: Akismet alone answers in well under a
+   second, and the gateway, reading the context as well, takes 3–7 seconds.
 7. **Shadow-ban.** A banned writer is held on sight with the note
    `Shadow-banned writer.`, before step 6 spends an external call and
    without a per-comment card — they see their own comment as normal;
@@ -376,12 +378,18 @@ Every submission runs the full risk stack, in order:
    matching any one of them is held. Nothing in the response says so.
 
 ```json
-{ "outcome": "published", "comment": { "...": "..." }, "unverifiedEmail": true }
+{ "outcome": "held", "comment": { "...": "..." }, "unverifiedEmail": true, "awaitingEmail": true }
 ```
 
 `outcome` is `"published"` or `"held"`. `unverifiedEmail` is true when a
 supplied `email` doesn't already belong to a verified reader — the client
 shows the verification nudge. It is always false when no email was sent.
+`awaitingEmail` is true when the comment is held until that address is
+confirmed (the step-up in step 5), so the client says confirming publishes
+it rather than showing an ordinary hold. It is known only for a verdict that
+landed inside the 8000ms window; a later step-up reads as an ordinary
+`held`, and the verification mail still says the right thing. Clients treat
+an absent field as false.
 On the true first comment from an unverified address, a lazy-verification
 email goes out automatically (see below); this call never waits on that
 send. A create without an email never sends mail at all.

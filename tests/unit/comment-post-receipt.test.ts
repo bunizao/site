@@ -62,7 +62,7 @@ describe('mood: the row is the receipt', () => {
       moodCompose.indexOf('delete box.dataset.botRetry;'),
     );
     expect(refused).toContain('dropGhostComment(ghostKey)');
-    expect(refused).toContain('field!.value = text');
+    expect(refused).toContain('field!.value = field!.value.trim() ? `${text}\\n\\n${field!.value}` : text;');
     expect(refused).toContain('armReply(box, replyTarget.id');
   });
 
@@ -108,7 +108,7 @@ describe('the verdict window', () => {
       blogController.indexOf('const { outcome, comment, unverifiedEmail }'),
       blogController.indexOf('function announcePosted'),
     );
-    expect(submit).toContain("if (outcome === 'held') markPending(article);");
+    expect(submit).toContain("else if (outcome === 'held') markPending(article, Number(ghost.dataset.pendingSince));");
     expect(submit).not.toContain('t.held');
   });
 });

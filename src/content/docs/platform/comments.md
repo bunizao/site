@@ -243,8 +243,8 @@ and fingerprint matches name their basis and may include different readers.
   `agent` answer is a step-up source, never a hold, and an `agent` answer
   keeps a comment held after its email is confirmed. Unset key, timeout, or
   refusal means the Akismet verdict stands alone. The create request
-  waits 2500ms for both and finishes the check in the background if it runs
-  over, so a `held` outcome can quietly become `published` a second later.
+  waits 8000ms for both and finishes the check in the background if it runs
+  over, so a `held` outcome can quietly become `published` a moment later.
 
 ## Mood surface
 

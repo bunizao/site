@@ -260,7 +260,9 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
     // an unfinished field uses -- a rate limit and a dropped connection want
     // opposite next moves, so it says which refusal this was.
     dropGhostComment(ghostKey);
-    field!.value = text;
+    // The box stayed writable while the request was out, and a refusal can
+    // take seconds: keep whatever was typed since, after the refused words.
+    field!.value = field!.value.trim() ? `${text}\n\n${field!.value}` : text;
     field!.dispatchEvent(new Event('input', { bubbles: true }));
     if (replyTarget) armReply(box, replyTarget.id, replyTarget.author, replyTarget.text);
     const t = copyFor(box);
@@ -268,6 +270,9 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
     box.dataset.receipt = 'error';
     const docsHref = commentErrorDocsHref(failure.code);
     sayComposeAlert(box, failure.message, failureTag(failure), docsHref ? { href: docsHref, label: t.errorHelp } : null);
+    if (failure.code === 'NOMAIL') {
+      box.querySelector<HTMLInputElement>('[data-compose-identity] input[type="email"]')?.focus();
+    }
     if (failure.code === 'BOT' && box.dataset.botRetry !== 'spent') {
       box.dataset.botRetry = 'spent';
       hostTurnstileIn(box);
@@ -295,7 +300,10 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
     anchorToken: comment.anchorToken,
   });
 
-  if (outcome === 'held') void upgradeWhenVerdictLands(postId, comment.id);
+  // A comment waiting on its address is settled now: confirming happens in a
+  // mail client, far past anything the polls below would wait for.
+  if (response.data.awaitingEmail) settleOwnComment(comment.id, true, true);
+  else if (outcome === 'held') void upgradeWhenVerdictLands(postId, comment.id);
   else settleOwnComment(comment.id, false);
 }
 
@@ -303,9 +311,9 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
 // The verdict
 // ---------------------------------------------------------------------------
 
-// site-api gives the spam check 1.5s and finishes the request without it, so
-// `held` is the ordinary answer to an ordinary comment and the real verdict
-// lands seconds later in a `waitUntil` continuation. Probe until it does.
+// site-api waits up to 8s for the verdict and finishes the request without it
+// past that, so a slow verdict comes back `held` and lands seconds later in a
+// `waitUntil` continuation. Probe until it does.
 //
 // The mood thread's own read path cannot answer this. `/api/comments` is
 // edge-cached, viewer-agnostic, and lists only published rows re-attributed

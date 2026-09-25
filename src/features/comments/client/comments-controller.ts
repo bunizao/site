@@ -608,13 +608,16 @@ export function initCommentsController(): void {
         ? list.querySelector<HTMLElement>(`#comment-${cssEscape(parentId)} .blog-comment__body`)
         : null;
       if (parentId && parentBody) openReplyBox(parentId, replyName, parentBody);
-      field!.value = text;
+      field!.value = restoreDraft(text, field!.value);
       field!.dispatchEvent(new Event('input', { bubbles: true }));
       toggleEmptyState(!list.querySelector('.blog-comment'));
       const failure = describeCommentFailure(response.status, response.slug, t.submitError);
       box.dataset.receipt = 'error';
       sayComposeAlert(box, failure.message, failureTag(failure), helpFor(failure));
       if (failure.code === 'NOMAIL') askForEmail(box);
+      // An anonymous refusal can take several seconds to arrive, long enough
+      // to have scrolled away from the box it is written in.
+      box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       // Cloudflare wanted a human and the invisible widget could not settle it
       // alone. Open the challenge under this box and resend once it is
       // answered, rather than telling the reader to reload -- the reload was
@@ -631,6 +634,7 @@ export function initCommentsController(): void {
     }
 
     const { outcome, comment, unverifiedEmail } = response.data;
+    const awaitingEmail = response.data.awaitingEmail === true;
     telemetry.finish('accepted');
     delete box.dataset.botRetry;
 
@@ -661,8 +665,10 @@ export function initCommentsController(): void {
     if (outcome !== 'held') announcePosted(article);
     // A hold this browser just caused is nearly always the moderation verdict
     // still in flight rather than a decision -- render it as posted until the
-    // polls below say otherwise. See markPending.
-    if (outcome === 'held') markPending(article);
+    // polls below say otherwise. See markPending. The exception says so: a
+    // comment waiting on its address is a decision, with a way out.
+    if (awaitingEmail) markAwaitingEmail(article);
+    else if (outcome === 'held') markPending(article, Number(ghost.dataset.pendingSince));
     if (ghost.isConnected) ghost.replaceWith(article);
     else insertNewRow(article, parentId);
     if (outcome !== 'held') setTally(total + 1);
@@ -671,9 +677,11 @@ export function initCommentsController(): void {
     // is the one thing here that genuinely could not be shown before the
     // answer came back, because only the server knows whether this address
     // has ever been confirmed.
-    if (!isReply && unverifiedEmail) showComposeReceipt(box, 'nudge');
+    if (!isReply && unverifiedEmail) showComposeReceipt(box, 'nudge', awaitingEmail);
 
-    if (outcome === 'held') void upgradeWhenVerdictLands(comment.id, parentId, article);
+    // Confirming happens in a mail client, usually well past the poll window,
+    // so there is nothing for the polls to wait on.
+    if (outcome === 'held' && !awaitingEmail) void upgradeWhenVerdictLands(comment.id, parentId, article);
   }
 
   /** The receipt for the row this browser just posted: the one thing the
@@ -715,9 +723,9 @@ export function initCommentsController(): void {
     await handleSubmit(box, telemetry);
   }
 
-  // The API answers within ~1.5s even while the spam verdict is still in
-  // flight: the comment lands as held and flips to published in the
-  // background. Probe the list until the flip lands, so the writer sees it
+  // The API waits up to 8s for the verdict -- the language model reading an
+  // anonymous comment takes most of that -- and past it the comment lands as
+  // held and flips to published in the background. Probe the list until the flip lands, so the writer sees it
   // without reloading.
   //
   // The window used to be three probes over twelve seconds, which was sized
@@ -732,6 +740,9 @@ export function initCommentsController(): void {
   // of a flip fall: eight probes total, five of them inside the first
   // seventeen seconds, where nearly every verdict lands.
   const VERDICT_POLL_DELAYS_MS = [1500, 2000, 3000, 4000, 6000, 15_000, 30_000, 30_000];
+  // When "Publishing" becomes "Still checking". Akismet alone answers in well
+  // under a second; past this the language model is the one still reading.
+  const SLOW_VERDICT_MS = 3000;
 
   /** The row was just written by this browser and came back held. Almost every
       one of those is the classifier still thinking, not a decision, and it
@@ -740,11 +751,29 @@ export function initCommentsController(): void {
       reader their comment is "under review" and then silently withdrawing it
       four seconds later is how a thread that works reads as one that does
       not. */
-  function markPending(article: HTMLElement): void {
+  function markPending(article: HTMLElement, since = Date.now()): void {
     const note = article.querySelector<HTMLElement>('.blog-comment__note');
     if (!note) return;
     article.dataset.pending = 'true';
-    note.textContent = t.verifying;
+    // `since` carries the ghost row's start over to the held row that
+    // replaces it, so a wait already past the threshold stays on the slower
+    // word instead of going back to "Publishing".
+    article.dataset.pendingSince = String(since);
+    const slowIn = since + SLOW_VERDICT_MS - Date.now();
+    note.textContent = slowIn > 0 ? t.verifying : t.verifyingSlow;
+    if (slowIn > 0) {
+      window.setTimeout(() => {
+        if (article.dataset.pending) note.textContent = t.verifyingSlow;
+      }, slowIn);
+    }
+  }
+
+  /** Held until the writer confirms their address: not a wait the page can
+      watch, and not a verdict to hide behind "only you can see it" either. */
+  function markAwaitingEmail(article: HTMLElement): void {
+    delete article.dataset.pending;
+    const note = article.querySelector<HTMLElement>('.blog-comment__note');
+    if (note) note.textContent = t.awaitingEmail;
   }
 
   /** No verdict inside the window, or one that was not `published`: this is a
@@ -867,6 +896,14 @@ export function initCommentsController(): void {
     box.querySelector<HTMLInputElement>('[data-compose-identity] input[type="email"]')?.focus();
   }
 
+  /** The words of a refused comment go back into the box they came from --
+      but the box stayed writable while the request was in the air, and a
+      refusal can take several seconds, so it may hold a second thought by
+      now. Neither is thrown away. */
+  function restoreDraft(refused: string, current: string): string {
+    return current.trim() ? `${refused}\n\n${current}` : refused;
+  }
+
   function readIdentity(box: HTMLElement): { displayName: string; email: string } | null {
     if (phase === 'ready' && viewer) {
       return { displayName: viewer.displayName, email: '' };
@@ -953,14 +990,16 @@ export function initCommentsController(): void {
     });
   }
 
-  function showComposeReceipt(box: HTMLElement, receipt: ComposeReceipt): void {
+  function showComposeReceipt(box: HTMLElement, receipt: ComposeReceipt, awaitingEmail = false): void {
     box.dataset.receipt = receipt;
     box.querySelector('[data-compose-receipt]')?.remove();
     if (receipt !== 'nudge') return;
 
     const nudge = el('div', { class: 'blog-compose__nudge', 'data-compose-nudge': '' }, [
       parseStaticSvg(NUDGE_MAIL_SVG),
-      el('p', { class: 'blog-compose__nudge-text' }, [t.nudgeText(claimed?.email ?? '')]),
+      el('p', { class: 'blog-compose__nudge-text' }, [
+        (awaitingEmail ? t.nudgeAwaiting : t.nudgeText)(claimed?.email ?? ''),
+      ]),
       el('button', { type: 'button', class: 'blog-compose__nudge-sub', 'data-compose-subscribe': '' }, [
         t.nudgeSubscribe,
       ]),
