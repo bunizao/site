@@ -1,56 +1,72 @@
 /* Drawn faces for people with no picture on file.
 
-   Three styles, adapted from boring-avatars
+   Three styles, ported from boring-avatars
    (https://github.com/boringdesigners/boring-avatars, MIT, (c) 2021
-   boringdesigners), mixed on purpose so two strangers rarely look alike:
+   boringdesigners) with the same geometry, mixed so two strangers rarely
+   look alike:
 
-   - beam: the cartoon face, in the muted palette.
-   - marble: a blurred wash, in the muted palette.
-   - mist: the same wash in pastels, nearly the page colour.
+   - beam: the cartoon face.
+   - marble: a blurred wash.
+   - mist: the same wash with its palette lifted halfway to white.
 
-   The seed decides everything, so a face is the same wherever it is drawn:
+   Colours come from avatar-palettes.ts, the palette set boringavatars.com
+   samples from. The seed decides everything, so a face is the same wherever
+   it is drawn:
 
    - `seed % AVATAR_CLASSES` is the colour class: base = class / 4 and
-     accent = the (class % 4)-th of the other four colours in the style's
-     palette, so the two never match. That pair is what the server balances
-     when it hands out a seed (site-api avatar-seed.ts), with a plain modulo
-     on both sides.
-   - The next ternary digit, `floor(seed / AVATAR_CLASSES) % 3`, is the
-     style. The server leaves it to chance, which spreads it evenly;
-     anonymousSeeds() below sets it outright so neighbours differ.
-   - Everything above that places the shapes.
+     accent = the (class % 4)-th of the palette's other four colours, so the
+     two never match. That class is what the server balances when it hands
+     out a seed (site-api avatar-seed.ts), with a plain modulo on both sides.
+   - Above it, in turn: the style (3), the palette (AVATAR_PALETTE_COUNT),
+     and the number that places the shapes. The server leaves these to
+     chance, which spreads them evenly; anonymousSeeds() below sets them
+     outright so neighbours differ.
 
-   Changes from the original: muted palettes, where the original's saturated
-   sets shouted over a page of greys; colours picked by class rather than
-   hashed independently, so a shape never vanishes into its own background;
-   and no SVG mask or filter. Either needs an id, which repeats when the same
-   face is on screen twice (invalid HTML, and the lab checks) or differs
-   between the server render and hydration. The circle is the host's
-   overflow clip, and the marble blur is CSS on .drawn-face (comments.css);
-   its base rect overhangs the box so the blur has colour to pull in at the
-   rim.
+   The one change from the original: no SVG mask or filter. Either needs an
+   id, which repeats when the same face is on screen twice (invalid HTML,
+   and the lab checks) or differs between the server render and hydration.
+   The circle is the host's overflow clip, and the marble blur is CSS on
+   .drawn-face (comments.css); its base rect overhangs the box so the blur
+   has colour to pull in at the rim.
 
    Output is built only from numbers and palette constants, so it is safe to
    insert as markup. */
 
-import { AVATAR_CLASSES, avatarClass, seedInClass } from '@bunizao/contracts/comments';
+import { AVATAR_CLASSES, MAX_AVATAR_SEED, avatarClass, seedInClass } from '@bunizao/contracts/comments';
+import { AVATAR_PALETTE_COUNT, avatarPalette } from '@/features/comments/avatar-palettes';
 import { seedNumber } from '@/features/comments/identity';
 
 export const AVATAR_STYLES = ['beam', 'marble', 'mist'] as const;
 export type AvatarStyle = (typeof AVATAR_STYLES)[number];
 
-/** Five colours each, because AVATAR_CLASSES is fixed at 5 bases x 4 accents. */
-export const AVATAR_PALETTES: Record<AvatarStyle, readonly string[]> = {
-  beam: ['#2F3A45', '#8A9BB0', '#A8B8A0', '#E4D3BD', '#C99A8B'],
-  marble: ['#2F3A45', '#8A9BB0', '#A8B8A0', '#E4D3BD', '#C99A8B'],
-  // The sheet's pastels, reordered to follow the muted hues above.
-  mist: ['#DCE3EA', '#DDD9EA', '#D9E3D6', '#E7DDD3', '#E9D9DE'],
-};
-
+const STYLES = AVATAR_STYLES.length;
 const COLOURS = 5;
+/** Seeds per class that share a style and palette: the shape numbers. */
+const SHAPES = Math.floor(Math.floor(MAX_AVATAR_SEED / AVATAR_CLASSES) / (STYLES * AVATAR_PALETTE_COUNT));
 
-export function avatarStyle(seed: number): AvatarStyle {
-  return AVATAR_STYLES[Math.floor(seed / AVATAR_CLASSES) % AVATAR_STYLES.length];
+export interface AvatarParts {
+  cls: number;
+  style: AvatarStyle;
+  palette: number;
+  shape: number;
+}
+
+export function avatarParts(seed: number): AvatarParts {
+  const rest = Math.floor(seed / AVATAR_CLASSES);
+  return {
+    cls: avatarClass(seed),
+    style: AVATAR_STYLES[rest % STYLES],
+    palette: Math.floor(rest / STYLES) % AVATAR_PALETTE_COUNT,
+    shape: Math.floor(rest / STYLES / AVATAR_PALETTE_COUNT),
+  };
+}
+
+/** The seed that draws exactly these parts; `shape` wraps into range. */
+export function seedOfParts({ cls, style, palette, shape }: AvatarParts): number {
+  const rest = (Math.abs(Math.trunc(shape)) % SHAPES) * STYLES * AVATAR_PALETTE_COUNT
+    + (palette % AVATAR_PALETTE_COUNT) * STYLES
+    + AVATAR_STYLES.indexOf(style);
+  return seedInClass(cls, rest);
 }
 
 /** Palette indices of a class's two colours. */
@@ -69,11 +85,15 @@ const unit = (n: number, range: number, place?: number) => {
   return place !== undefined && digit(n, place) % 2 === 0 ? -value : value;
 };
 
+const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
 function contrast(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000 >= 128 ? '#000' : '#fff';
+  const [r, g, b] = channels(hex);
+  return (r * 299 + g * 587 + b * 114) / 1000 >= 128 ? '#000000' : '#ffffff';
+}
+
+function lift(hex: string): string {
+  return `#${channels(hex).map((c) => Math.round(c + (255 - c) / 2).toString(16).padStart(2, '0')).join('')}`;
 }
 
 function beamSvg(base: string, head: string, n: number): string {
@@ -106,8 +126,9 @@ function beamSvg(base: string, head: string, n: number): string {
 
 function marbleSvg(base: string, accent: string, glaze: string, n: number): string {
   const size = 80;
+  // The original numbers its three layers 0-2 and places layer i with n * (i + 1).
   const placement = (layer: number) => {
-    const m = n * layer;
+    const m = n * (layer + 1);
     const tx = unit(m, size / 10, 1);
     const ty = unit(m, size / 10, 2);
     const rotate = unit(m, 360, 1);
@@ -123,63 +144,39 @@ function marbleSvg(base: string, accent: string, glaze: string, n: number): stri
 }
 
 export function drawnAvatarSvg(seed: number): string {
-  const style = avatarStyle(seed);
-  const palette = AVATAR_PALETTES[style];
-  const { base, accent } = classPair(avatarClass(seed));
-  const n = Math.floor(seed / AVATAR_CLASSES / AVATAR_STYLES.length);
-  if (style === 'beam') return beamSvg(palette[base], palette[accent], n);
+  const { cls, style, palette: index, shape } = avatarParts(seed);
+  const palette = style === 'mist' ? avatarPalette(index).map(lift) : avatarPalette(index);
+  const { base, accent } = classPair(cls);
+  if (style === 'beam') return beamSvg(palette[base], palette[accent], shape);
   const rest = palette.filter((_, i) => i !== base && i !== accent);
-  return marbleSvg(palette[base], palette[accent], rest[n % rest.length], n);
+  return marbleSvg(palette[base], palette[accent], rest[shape % rest.length], shape);
 }
 
-/** The class whose accent sits `shift` (1-4) palette steps after `base`. */
-function classOf(base: number, shift: number): number {
-  const colours = COLOURS;
-  const accent = (base + shift) % colours;
-  return base * (colours - 1) + (accent < base ? accent : accent - 1);
-}
-
-/** Faces for likes with no reader behind them, each as unlike its
-    neighbours as the palette allows. Base and accent split the disc about
-    evenly, so both have to differ.
-
-    Built, not searched: five faces on consecutive bases with one fixed
-    accent shift wear every base and every accent exactly once (a greedy pick
-    dead-ended on a repeat in about one stack in seven). Faces past five move
-    to the next shift, so twenty faces cover all twenty classes. Of the
-    twenty such runs (5 starting bases x 4 first shifts), the one that
-    repeats least of what the named faces in `taken` already wear wins; the
-    post's own hash breaks ties, so a post keeps its faces across loads.
-    Styles rotate through the run, so no two neighbours share one. */
-export function anonymousSeeds(count: number, taken: Set<number>, basis: string): number[] {
-  const colours = COLOURS;
-  const takenBases = new Set([...taken].map((cls) => classPair(cls).base));
-  const takenAccents = new Set([...taken].map((cls) => classPair(cls).accent));
-  const run = (start: number, firstShift: number) => Array.from({ length: count }, (_, j) =>
-    classOf((start + j) % colours, ((firstShift - 1 + Math.floor(j / colours)) % (colours - 1)) + 1));
-  const cost = (classes: number[]) => classes.reduce((sum, cls) => {
-    const { base, accent } = classPair(cls);
-    return sum + (takenBases.has(base) ? 1 : 0) + (takenAccents.has(accent) ? 1 : 0) + (taken.has(cls) ? 2 : 0);
-  }, 0);
-
+/** Seeds for faces with no seed of their own (likes with no reader behind
+    them), drawn side by side in a stack. Each wears its own palette, none
+    of the palettes or classes the named faces in `taken` wear, and a style
+    different from its neighbours. The post's hash picks the order, so a
+    post keeps its faces across loads and two posts differ. */
+export function anonymousSeeds(count: number, taken: readonly number[], basis: string): number[] {
+  const takenParts = taken.map(avatarParts);
+  const takenClasses = new Set(takenParts.map((parts) => parts.cls));
+  const takenPalettes = new Set(takenParts.map((parts) => parts.palette));
   const hash = seedNumber(basis);
-  let best: number[] = [];
-  let bestCost = Infinity;
-  for (let k = 0; k < AVATAR_CLASSES; k++) {
-    const plan = (hash + k) % AVATAR_CLASSES;
-    const classes = run(plan % colours, Math.floor(plan / colours) + 1);
-    const c = cost(classes);
-    if (c < bestCost) {
-      best = classes;
-      bestCost = c;
-    }
+
+  // 7 is coprime to 20, so the walk visits every class once; free ones first.
+  const walk = Array.from({ length: AVATAR_CLASSES }, (_, k) => (hash + 7 * k) % AVATAR_CLASSES);
+  const classes = [...walk.filter((cls) => !takenClasses.has(cls)), ...walk.filter((cls) => takenClasses.has(cls))];
+
+  const palettes: number[] = [];
+  for (let k = 0; palettes.length < count && k < AVATAR_PALETTE_COUNT; k++) {
+    const palette = (hash + k) % AVATAR_PALETTE_COUNT;
+    if (!takenPalettes.has(palette)) palettes.push(palette);
   }
-  const firstStyle = hash % AVATAR_STYLES.length;
-  return best.map((cls, j) => {
-    // seedInClass keeps the variety's residue mod 3 (the span of varieties is
-    // a multiple of 3), so pinning it here pins the style.
-    const variety = seedNumber(`${basis}:anon:${j}`);
-    const style = (firstStyle + j) % AVATAR_STYLES.length;
-    return seedInClass(cls, variety - (variety % AVATAR_STYLES.length) + style);
-  });
+
+  return Array.from({ length: count }, (_, j) => seedOfParts({
+    cls: classes[j % AVATAR_CLASSES],
+    style: AVATAR_STYLES[(hash + j) % STYLES],
+    palette: palettes[j % palettes.length],
+    shape: seedNumber(`${basis}:anon:${j}`),
+  }));
 }

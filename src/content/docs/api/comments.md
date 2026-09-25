@@ -882,15 +882,17 @@ POST /api/v2/reader/avatar-seed
 { "seed": 7654320, "persisted": false }
 ```
 
-Anyone without a picture gets a drawn face in one of three styles adapted
-from Boring Avatars and ported to `src/features/comments/drawn-avatar.ts`,
-drawn in the browser: `beam` (a cartoon face) and `marble` (a blurred wash)
-in a muted palette, and `mist` (the same wash in pastels). A seed is a
-uint32; `seed % 20` is its colour class (five base colours, four accents
-each, never the same colour twice), `floor(seed / 20) % 3` is the style, and
-the rest places the shapes. `avatarSeed` on a comment author, a reactor chip,
-or `ReaderMe` is that seed, or `null` for anything older than the feature,
-which the client draws from the row id as before.
+Anyone without a picture gets a drawn face in one of three styles ported
+from Boring Avatars to `src/features/comments/drawn-avatar.ts` and drawn in
+the browser: `beam` (a cartoon face), `marble` (a blurred wash), and `mist`
+(the wash with its palette lifted halfway to white). Colours come from 653
+five-colour sets of Nice Color Palettes, the ones whose colours all stay
+clearly apart. A seed is a uint32: `seed % 20` is its colour class (which
+two of the palette's five colours are base and accent, never the same one),
+and the rest picks, in turn, the style, the palette, and where the shapes
+sit. `avatarSeed` on a comment author, a reactor chip, or `ReaderMe` is that
+seed, or `null` for anything older than the feature, which the client draws
+from the row id as before.
 
 This route hands out a seed in the least-issued colour class across the
 site, never the class of `current`, so a new face or a re-roll lands on a
@@ -904,12 +906,11 @@ the first seed on the first focus of a compose box, not on page load, and
 each tap on the reader's own face asks for another. `private, no-store`;
 rate-limited at 30/minute per IP.
 
-The like stack does its own avoidance on screen: up to five likes with no
-reader behind them each wear a different base colour and a different accent,
-chosen to repeat as little as possible of what the named faces beside them
-wear, and no two neighbours share a style. The server balances only the
-colour class; the style of a seed it issues is left to chance, which spreads
-evenly.
+The like stack does its own avoidance on screen: likes with no reader
+behind them each wear their own palette and class, none that the named faces
+beside them wear, and no two neighbours share a style. The server balances
+only the colour class; the style and palette of a seed it issues are left to
+chance, which spreads evenly.
 
 ## Reader OAuth (GitHub, Google)
 

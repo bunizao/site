@@ -23,7 +23,7 @@ import {
 } from '@/features/comments/client/reaction-pass';
 import { seedNumber } from '@/features/comments/identity';
 import { anonymousSeeds, drawnAvatarSvg } from '@/features/comments/drawn-avatar';
-import { avatarClass, isAvatarSeed } from '@bunizao/contracts/comments';
+import { isAvatarSeed } from '@bunizao/contracts/comments';
 import { ICONS } from '@/features/comments/icons';
 import { resolveCommentsCopy } from '@/features/comments/copy';
 import type { ClientEvidence, ReactionToggleInput } from '@bunizao/contracts/comments';
@@ -159,7 +159,7 @@ export default function ReactionBar({
   const anonymous = Math.max(0, Math.min(faceLimit - faces.length, total - summary.reactors.length));
   const anonSeeds = anonymousSeeds(
     anonymous,
-    new Set(faces.filter((reactor) => !reactor.avatar).map((reactor) => avatarClass(reactorSeed(reactor)))),
+    faces.filter((reactor) => !reactor.avatar).map(reactorSeed),
     postId ?? 'lab',
   );
   const overflow = Math.max(0, total - faces.length - anonymous);
