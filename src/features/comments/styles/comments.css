@@ -387,9 +387,11 @@
   }
 }
 
-/* The fan: a zero-size layer pinned to the trigger's centre, in the top
-   layer as a popover, so the UA's popover box is undone here. The items are
-   placed on the arc through --x/--y, which avatar-fan.ts writes. */
+/* The fan: a zero-size layer pinned to the ring's centre, in the top layer
+   as a popover, so the UA's popover box is undone here. avatar-fan.ts writes
+   each item's place on the ring as --x/--y, and --fx, how far left of the
+   centre the reader's face is, which is where the items come from and fold
+   back to. */
 .blog-avatar-fan {
   position: fixed;
   inset: auto;
@@ -405,17 +407,18 @@
   z-index: 60;
 }
 
-/* A wash of page colour behind the arc, so the form under it stops reading
-   through the gaps between faces. Sized to the arc (radius 108 + an item). */
+/* A disc of page colour under the ring, so the form beneath stops reading
+   through the gaps between faces. Solid out to the faces' outer edge (66 +
+   22), then gone by 130. */
 .blog-avatar-fan::before {
   content: '';
   position: absolute;
-  left: -170px;
-  top: -170px;
-  width: 340px;
-  height: 340px;
+  left: -130px;
+  top: -130px;
+  width: 260px;
+  height: 260px;
   border-radius: 50%;
-  background: radial-gradient(closest-side, hsl(var(--background) / 0.94) 62%, hsl(var(--background) / 0));
+  background: radial-gradient(closest-side, hsl(var(--background) / 0.96) 70%, hsl(var(--background) / 0));
   opacity: 0;
   transition: opacity 180ms ease;
 }
@@ -443,7 +446,7 @@
     0 0 0 2px hsl(var(--background)),
     0 6px 16px -4px rgb(0 0 0 / 0.3);
   opacity: 0;
-  transform: translate(0, 0) scale(0.4);
+  transform: translate(var(--fx, 0px), 0) scale(0.4);
   /* Folding in: last out, first in. */
   transition:
     transform 200ms cubic-bezier(0.4, 0, 1, 1),

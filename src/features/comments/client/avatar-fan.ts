@@ -1,6 +1,11 @@
-// The picker behind the reader's own face. Pressing the face fans five
-// candidates out beside it on an arc, with a sixth button at the bottom that
-// deals five more; picking one makes it the reader's face.
+// The picker behind the reader's own face. Pressing the face throws five
+// candidates out of it onto a ring, with the button that deals five more at
+// the ring's centre; picking one makes it the reader's face.
+//
+// The ring is centred on the compose box rather than on the face, which sits
+// at the box's left edge: an arc from there ran diagonally across the name
+// and email fields and read as clutter on a phone. On a wide box the centre
+// stays within MAX_OFFSET of the face, so the ring never lands far from it.
 //
 // Built for a finger first (Apple HIG, the way the owner judges it on iPad):
 //
@@ -33,17 +38,16 @@ export interface AvatarFanOptions {
   choose: (seed: number, trigger: HTMLElement) => void;
 }
 
-/** Arc radius, from the trigger's centre to each item's centre. */
-const RADIUS = 108;
-/** Degrees clockwise from pointing right; the faces fan from up-right round
-    to down-right, and the more button sits straight below. */
-const FACE_ANGLES = [-60, -30, 0, 30, 60];
-const MORE_ANGLE = 90;
+/** Ring radius, from the more button's centre to each face's centre: the
+    faces clear each other and the centre button by about 30px. */
+const RADIUS = 66;
+/** A pentagon standing on its point, clockwise from the top. */
+const FACE_ANGLES = [-90, -18, 54, 126, 198];
 const ITEM = 44;
-/** Room the arc needs above and below the trigger's centre. */
-const ABOVE = Math.ceil(RADIUS * Math.sin(Math.PI / 3) + ITEM / 2 + 8);
-const BELOW = RADIUS + ITEM / 2 + 8;
+/** Room the ring needs on every side of its centre. */
 const REACH = RADIUS + ITEM / 2 + 8;
+/** Furthest the ring's centre sits from the face on a wide screen. */
+const MAX_OFFSET = 160;
 /** Movement before a press counts as a drag rather than a tap. */
 const DRAG_SLOP = 8;
 /** Matches the close transition in comments.css. */
@@ -81,8 +85,15 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
       return;
     }
     const rect = fan.trigger.getBoundingClientRect();
-    fan.layer.style.left = `${rect.left + rect.width / 2}px`;
-    fan.layer.style.top = `${rect.top + rect.height / 2}px`;
+    const faceX = rect.left + rect.width / 2;
+    const faceY = rect.top + rect.height / 2;
+    const box = (fan.trigger.closest('.blog-compose') ?? document.documentElement).getBoundingClientRect();
+    const width = document.documentElement.clientWidth;
+    const x = Math.min(Math.max(Math.min(box.left + box.width / 2, faceX + MAX_OFFSET), REACH), width - REACH);
+    fan.layer.style.left = `${x}px`;
+    fan.layer.style.top = `${faceY}px`;
+    // Where the items start from and fold back to: the face itself.
+    fan.layer.style.setProperty('--fx', `${Math.round(faceX - x)}px`);
   };
 
   function itemAt(x: number, y: number): HTMLButtonElement | null {
@@ -95,7 +106,7 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
     fan?.more.classList.toggle('is-hot', fan.more === item);
   }
 
-  /** Scrolls just enough for the whole arc to be on screen -- the visible
+  /** Scrolls just enough for the whole ring to be on screen -- the visible
       part, which on a phone with the keyboard up is much less than the
       window. */
   function makeRoom(trigger: HTMLElement): void {
@@ -104,19 +115,20 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
     const bottom = top + (viewport?.height ?? window.innerHeight);
     const rect = trigger.getBoundingClientRect();
     const centre = rect.top + rect.height / 2;
-    if (centre - ABOVE < top) window.scrollBy({ top: centre - ABOVE - top, behavior: 'instant' });
-    else if (centre + BELOW > bottom) window.scrollBy({ top: centre + BELOW - bottom, behavior: 'instant' });
+    if (centre - REACH < top) window.scrollBy({ top: centre - REACH - top, behavior: 'instant' });
+    else if (centre + REACH > bottom) window.scrollBy({ top: centre + REACH - bottom, behavior: 'instant' });
   }
 
-  function item(className: string, label: string, angle: number, index: number, mirror: boolean): HTMLButtonElement {
+  /** `angle` null is the centre. */
+  function item(className: string, label: string, angle: number | null, index: number): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `blog-avatar-fan__item ${className}`;
     button.setAttribute('aria-label', label);
-    const radians = (angle * Math.PI) / 180;
-    const x = Math.round(Math.cos(radians) * RADIUS) * (mirror ? -1 : 1);
-    button.style.setProperty('--x', `${x}px`);
-    button.style.setProperty('--y', `${Math.round(Math.sin(radians) * RADIUS)}px`);
+    const radians = ((angle ?? 0) * Math.PI) / 180;
+    const radius = angle === null ? 0 : RADIUS;
+    button.style.setProperty('--x', `${Math.round(Math.cos(radians) * radius)}px`);
+    button.style.setProperty('--y', `${Math.round(Math.sin(radians) * radius)}px`);
     button.style.setProperty('--i', String(index));
     return button;
   }
@@ -125,23 +137,21 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
     close(false);
     makeRoom(trigger);
 
-    // The faces open to the right; mirrored when the trigger sits too close
-    // to the right edge for the arc to fit.
-    const mirror = trigger.getBoundingClientRect().right + REACH > document.documentElement.clientWidth;
     const layer = document.createElement('div');
     layer.className = 'blog-avatar-fan';
     layer.setAttribute('popover', 'manual');
     layer.setAttribute('role', 'group');
     layer.setAttribute('aria-label', options.labels.group);
 
+    // The centre button first out, then the faces round the ring.
+    const more = item('blog-avatar-fan__more', options.labels.more, null, 0);
+    more.innerHTML = options.moreIcon;
     const items = FACE_ANGLES.map((angle, i) => {
-      const face = item('blog-avatar-drawn is-empty', options.labels.option(i + 1), angle, i, mirror);
+      const face = item('blog-avatar-drawn is-empty', options.labels.option(i + 1), angle, i + 1);
       face.setAttribute('aria-disabled', 'true');
       return face;
     });
-    const more = item('blog-avatar-fan__more', options.labels.more, MORE_ANGLE, FACE_ANGLES.length, mirror);
-    more.innerHTML = options.moreIcon;
-    layer.append(...items, more);
+    layer.append(more, ...items);
     options.host.append(layer);
 
     fan = { trigger, layer, items, more, turns: 0, deal: 0 };
