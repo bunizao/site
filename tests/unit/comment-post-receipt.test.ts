@@ -66,7 +66,7 @@ describe('mood: the row is the receipt', () => {
   test('a refused write takes the row back and returns the draft', () => {
     const refused = moodCompose.slice(
       moodCompose.indexOf('if (!response.ok) {'),
-      moodCompose.indexOf('delete box.dataset.botRetry;'),
+      moodCompose.indexOf('dismissTurnstileChallenge(TURNSTILE_ACTION);'),
     );
     expect(refused).toContain('dropGhostComment(ghostKey)');
     expect(refused).toContain('field!.value = field!.value.trim() ? `${text}\\n\\n${field!.value}` : text;');

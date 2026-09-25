@@ -50,8 +50,10 @@ interface TurnstileWidgetState {
   settled: boolean;
   /** When the current token was solved. Only meaningful while `settled`. */
   solvedAt: number;
-  /** The next render should draw a visible checkbox the reader can press,
-      rather than the invisible widget. Set only by challengeTurnstile. */
+  /** A visible checkbox is on screen for this action. Set by
+      challengeTurnstile, cleared only by dismissTurnstileChallenge: once the
+      reader has been shown the box it stays put -- open, retrying on its own
+      after a failure -- until a write actually goes through. */
   forced: boolean;
   /** `performance.now()` when the current solve started, and whether
       Cloudflare opened an interactive challenge during it. Read once at
@@ -131,6 +133,11 @@ function widgetFor(action: TurnstileAction): TurnstileWidgetState {
 }
 
 function setInteractive(state: TurnstileWidgetState, open: boolean): void {
+  // A forced checkbox never collapses on its own. Cloudflare reports "after
+  // interactive" the moment the box is pressed, before it has decided
+  // anything, so closing on it hid the verdict -- pass or fail -- and left
+  // nothing on screen to press again.
+  if (!open && state.forced) return;
   if (open) state.interactive = true;
   const host = state.container.parentElement;
   if (!host || host === document.body) {
@@ -202,8 +209,13 @@ function mintToken(state: TurnstileWidgetState, siteKey: string, action: Turnsti
         // below renders a new one rather than resetting this one.
         appearance: state.forced ? 'always' : 'interaction-only',
         callback: (token: string) => settleWidget(state, token),
-        'error-callback': () => settleWidget(state, ''),
-        'timeout-callback': () => settleWidget(state, ''),
+        // The invisible widget gives up with an empty token, and the refusal
+        // that follows is what brings the checkbox out. The checkbox itself
+        // must not give up: Cloudflare retries it in place (`retry` and
+        // `refresh-timeout` both default to auto), so the solve stays pending
+        // and the reader keeps a box to press.
+        'error-callback': () => { if (!state.forced) settleWidget(state, ''); },
+        'timeout-callback': () => { if (!state.forced) settleWidget(state, ''); },
         'expired-callback': () => expireWidget(state, siteKey, action),
         // Cloudflare wants a human. Open the host so the challenge has room
         // and the reader can answer it here, rather than hitting a refusal
@@ -239,23 +251,25 @@ export async function getTurnstileToken(siteKey: string, action: TurnstileAction
     submission came back `turnstile_failed`, so the silent solve either never
     produced a token or produced one Cloudflare refused.
 
-    The old answer to that was a sentence telling the reader to reload the
-    page, which threw away their draft's place in the thread and did nothing
-    the reader could not have done by pressing Post again. This asks the one
-    question that actually unblocks them, in the box they are already looking
-    at.
-
     `appearance` is fixed when a widget is rendered, so the invisible one is
-    torn down and replaced -- and torn down again afterwards, so the next
-    ordinary submission is back to solving silently. Resolves to '' if the
-    reader walks away from the challenge or it fails again; the caller's
-    existing message is still on screen for that. */
+    torn down and replaced. The visible one is not torn down afterwards: it
+    stays on screen through a pass, a failure or another refusal, and every
+    later token for this action comes from it, until the caller reports an
+    accepted write with dismissTurnstileChallenge. Taking it away after one
+    try used to drop a flagged reader back onto the silent widget that had
+    just failed them, which failed them again with nothing left to press.
+
+    Calling it again while the box is up does not redraw it; it waits on the
+    box's next token. The promise stays pending while Cloudflare retries a
+    failed challenge, so callers must not hold anything the reader needs
+    behind it. */
 export async function challengeTurnstile(siteKey: string, action: TurnstileAction): Promise<string> {
   if (!siteKey) return '';
   const api = await loadTurnstileScript();
   if (!api) return '';
 
   const state = widgetFor(action);
+  if (state.forced && state.widgetId !== null) return getTurnstileToken(siteKey, action);
   if (state.widgetId !== null) api.remove?.(state.widgetId);
   state.widgetId = null;
   state.tokenPromise = null;
@@ -264,18 +278,24 @@ export async function challengeTurnstile(siteKey: string, action: TurnstileActio
   // is in, so opening before the move marks the host the reader has just been
   // moved away from -- and leaves the one they are looking at collapsed.
   homeContainer(state, action);
+  return mintToken(state, siteKey, action);
+}
 
-  try {
-    const token = await mintToken(state, siteKey, action);
-    return token;
-  } finally {
-    state.forced = false;
-    setInteractive(state, false);
-    // Keep the token (it is in `tokenPromise`, and the retry is about to
-    // spend it) but not the visible widget it came from.
-    if (state.widgetId !== null) api.remove?.(state.widgetId);
-    state.widgetId = null;
-  }
+/** A write went through: take the visible checkbox away, so the next solve for
+    this action is silent again. A no-op when no checkbox is up. Any token the
+    box was still solving goes with it -- the next getTurnstileToken mints on
+    the invisible widget. */
+export function dismissTurnstileChallenge(action: TurnstileAction): void {
+  const state = turnstileWidgets.get(action);
+  if (!state?.forced) return;
+  state.forced = false;
+  setInteractive(state, false);
+  const turnstile = (window as unknown as { turnstile?: { remove?: (id: string) => void } }).turnstile;
+  if (state.widgetId !== null) turnstile?.remove?.(state.widgetId);
+  state.widgetId = null;
+  state.tokenPromise = null;
+  state.resolveCurrent = null;
+  state.settled = false;
 }
 
 /** Start solving now, for a submission that has not happened yet. Idempotent:

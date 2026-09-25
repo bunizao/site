@@ -27,6 +27,7 @@ import {
 } from '@/features/comments/comment-error';
 import {
   challengeTurnstile,
+  dismissTurnstileChallenge,
   getTurnstileToken,
   releaseTurnstileToken,
   setTurnstileHost,
@@ -204,7 +205,10 @@ function disarmReply(box: HTMLElement): void {
 // Submit
 // ---------------------------------------------------------------------------
 
-async function handleSubmit(box: HTMLElement): Promise<void> {
+/** `resend` marks the automatic retry after a solved challenge, so a second
+    refusal ends there instead of looping; the checkbox stays open for the
+    reader's next press. */
+async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
   if (!validateCompose(box)) {
     validationErrors += 1;
     return;
@@ -296,17 +300,17 @@ async function handleSubmit(box: HTMLElement): Promise<void> {
     if (failure.code === 'NOMAIL') {
       box.querySelector<HTMLInputElement>('[data-compose-identity] input[type="email"]')?.focus();
     }
-    if (failure.code === 'BOT' && box.dataset.botRetry !== 'spent') {
-      box.dataset.botRetry = 'spent';
+    if (failure.code === 'BOT' && !resend) {
       hostTurnstileIn(box);
       box.querySelector('[data-turnstile-host]')?.scrollIntoView({ block: 'nearest' });
       const retryToken = await challengeTurnstile(turnstileSiteKey, TURNSTILE_ACTION);
-      if (retryToken) void handleSubmit(box);
+      if (retryToken) void handleSubmit(box, true);
     }
     return;
   }
 
-  delete box.dataset.botRetry;
+  dismissTurnstileChallenge(TURNSTILE_ACTION);
+  warmTurnstileToken(turnstileSiteKey, TURNSTILE_ACTION);
 
   const { outcome, comment } = response.data;
   box.dataset.receipt = 'posted';
