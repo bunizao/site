@@ -60,7 +60,7 @@ export async function carryOverAstroAssets({
   try {
     liveFiles = await readLiveAssetList(origin, fetchImpl);
   } catch (error) {
-    console.warn(`Asset carry-over skipped: ${origin}/${ASSET_LIST_FILE} unreadable (${error.message}).`);
+    console.warn(`Asset carry-over skipped: live /${ASSET_LIST_FILE} unreadable (${error.message}).`);
     return { carried: 0, failed: 0 };
   }
 
