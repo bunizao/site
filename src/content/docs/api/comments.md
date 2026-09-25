@@ -111,7 +111,7 @@ is a root comment id cursor; omit it for the first page. `limit` defaults to
       "id": "01H...",
       "postId": "...",
       "parentId": null,
-      "author": { "name": "A Reader", "avatarUrl": "/api/v2/reader/avatar/<hash>", "byAuthor": false },
+      "author": { "name": "A Reader", "avatarUrl": "/api/v2/reader/avatar/<hash>", "avatarSeed": 1234567, "byAuthor": false },
       "body": "Nice post.",
       "status": "published",
       "createdAt": "2026-01-01T00:00:00.000Z",
@@ -161,6 +161,7 @@ POST /api/v2/comments
   "dwellToken": "...",
   "website": "",
   "notifyReplies": false,
+  "avatarSeed": 1234567,
   "locale": "zh",
   "clientFp": { "navigator": {}, "screen": {}, "canvas": "..." },
   "interaction": { "composeMs": 42000, "keyEvents": 180, "keyIntervalCv": 220 },
@@ -194,7 +195,7 @@ alphabets, so a term spelled in a second script is refused too; the term list
 itself is not published. A name already stored on a signed-in reader is
 checked for shape only, so a later edit to the term list never locks an
 existing account out — the owner renames those from the moderation queue. `email` is optional — omitted or empty means an anonymous
-comment (session-owned, identicon avatar, never
+comment (session-owned, drawn avatar, never
 claimable); a non-empty value must be a valid address (`400` otherwise).
 `turnstileToken` uses `expectedAction: 'blog_comment_create'`.
 `locale` is the post page language (`zh` or `en`) and keeps the verification
@@ -231,7 +232,12 @@ to be a different device. `notifyReplies` sets the writer's reply-mail preferenc
 [What `notifyReplies` actually sends](#what-notifyreplies-actually-sends).
 
 A comment written without an email serializes with `avatarUrl: ""`; the
-client renders a deterministic identicon for it.
+client draws a face for it instead (see [Drawn avatars](#drawn-avatars)).
+`avatarSeed` is the face the writer picked, a uint32 from
+`/api/v2/reader/avatar-seed`; anything else is dropped rather than refused. A
+verified reader's stored seed wins over the one sent, and a reader who has
+none yet adopts the one sent, so a face picked before signing in is the one
+kept.
 
 An `email` that belongs to a verified reader does **not** by itself attach
 that reader's `reader_id` to the row. The identity comes from the session
@@ -539,7 +545,7 @@ ever show up in `reactors`.
 {
   "reactions": {
     "post:abc123": [
-      { "emoji": "❤️", "count": 3, "reacted": true, "reactors": [{ "name": "A Reader", "avatarUrl": null }] }
+      { "emoji": "❤️", "count": 3, "reacted": true, "reactors": [{ "name": "A Reader", "avatarUrl": null, "avatarSeed": 1234567 }] }
     ]
   }
 }
@@ -627,6 +633,7 @@ or, when signed in:
     "provider": "email",
     "displayName": "A Reader",
     "avatarUrl": "/api/v2/reader/avatar/<email_hash>",
+    "avatarSeed": 1234567,
     "notifyReplies": false,
     "subscribed": false
   }
@@ -832,7 +839,7 @@ any `blog_comments` row older than that which still has no `reader_id`. No new
 cron — it rides the schedule that already runs the other notify maintenance.
 The comment itself stays published; it simply degrades to the shape a comment
 posted without an address has always had, meaning anon-session ownership, an
-identicon, and no claim-on-verify. Confirming afterwards mints a fresh reader
+drawn face, and no claim-on-verify. Confirming afterwards mints a fresh reader
 and does not adopt the old comment.
 
 ## Reader avatar
@@ -860,6 +867,50 @@ reveals (something any client could compute for any address itself).
 `?s=<pixels>` requests an identicon size, snapped up to the nearest of
 40/80/120/160. `Content-Security-Policy: default-src 'none'; sandbox` on
 every response. Not rate-limited (cacheable image proxy).
+
+## Drawn avatars
+
+```
+POST /api/v2/reader/avatar-seed
+```
+
+```json
+{ "current": 1234567 }
+```
+
+```json
+{ "seed": 7654320, "persisted": false }
+```
+
+Anyone without a picture gets a drawn face in one of three styles ported
+from Boring Avatars to `src/features/comments/drawn-avatar.ts` and drawn in
+the browser: `beam` (a cartoon face), `marble` (a blurred wash), and `mist`
+(the wash with its palette lifted halfway to white). Colours come from 653
+five-colour sets of Nice Color Palettes, the ones whose colours all stay
+clearly apart. A seed is a uint32: `seed % 20` is its colour class (which
+two of the palette's five colours are base and accent, never the same one),
+and the rest picks, in turn, the style, the palette, and where the shapes
+sit. `avatarSeed` on a comment author, a reactor chip, or `ReaderMe` is that
+seed, or `null` for anything older than the feature, which the client draws
+from the row id as before.
+
+This route hands out a seed in the least-issued colour class across the
+site, never the class of `current`, so a new face or a re-roll lands on a
+colour pair the fewest people already wear. It keeps a count per class
+rather than counting every reader and comment, so each call reads twenty rows.
+Open to anonymous writers: they get `persisted: false`, and the browser keeps
+the seed and posts it with each comment. A signed-in reader's pick is stored
+on their reader row and every comment they own (`persisted: true`); their
+stored seed is the one replaced, whatever `current` says. The client asks for
+the first seed on the first focus of a compose box, not on page load, and
+each tap on the reader's own face asks for another. `private, no-store`;
+rate-limited at 30/minute per IP.
+
+The like stack does its own avoidance on screen: likes with no reader
+behind them each wear their own palette and class, none that the named faces
+beside them wear, and no two neighbours share a style. The server balances
+only the colour class; the style and palette of a seed it issues are left to
+chance, which spreads evenly.
 
 ## Reader OAuth (GitHub, Google)
 

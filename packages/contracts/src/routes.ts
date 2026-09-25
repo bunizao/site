@@ -31,6 +31,7 @@ export const READER_RESEND_PATH = '/v2/reader/resend' as const;
 export const READER_PREFERENCES_PATH = '/v2/reader/preferences' as const;
 export const READER_MUTE_PATH = '/v2/reader/mute' as const;
 export const READER_AVATAR_PATH_PREFIX = '/v2/reader/avatar/' as const;
+export const READER_AVATAR_SEED_PATH = '/v2/reader/avatar-seed' as const;
 export const READER_OAUTH_PATH_PREFIX = '/oauth/reader/' as const;
 export const READER_CONFIRM_PATH = '/reader/confirm' as const;
 export const READER_MUTE_PAGE_PATH = '/reader/mute' as const;

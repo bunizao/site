@@ -115,13 +115,19 @@ const draftText = "Might be worth mentioning the rollback plan too — did you k
 // Real faces on purpose: a stack of five identical initial-circles reads as one
 // grey mass, which is a property of the fixture, not of the design. The shipped
 // bar serves reader avatars through the signed static proxy.
-const reactors = [
+// `?reactors=N` keeps only the first N named faces, so the anonymous fill that
+// takes the rest of the stack can be judged (`?reactors=1` is the owner alone).
+const allReactors = [
   { name: 'Nina Kato', avatar: 'https://avatars.githubusercontent.com/u/1?s=96' },
   { name: 'Wei Zhang', avatar: 'https://avatars.githubusercontent.com/u/810438?s=96' },
   { name: 'Oskar Lind', avatar: 'https://avatars.githubusercontent.com/u/124599?s=96' },
   { name: 'Priya R', avatar: 'https://avatars.githubusercontent.com/u/1024025?s=96' },
   { name: 'Tom Beck' },
 ];
+const namedReactors = Number.parseInt(params.get('reactors') ?? '', 10);
+const reactors = Number.isInteger(namedReactors) && namedReactors >= 0
+  ? allReactors.slice(0, namedReactors)
+  : allReactors;
 
 // Nearly every post credits a model, so the harness renders one: the colophon
 // has to be judged with its provenance line present, not in the rare state.

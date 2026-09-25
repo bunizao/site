@@ -30,6 +30,7 @@
 
 import { blog, type BlogLocale } from '@/data/site';
 import { commentsCopy } from '@/features/comments/copy';
+import { ICONS, iconSvg } from '@/features/comments/icons';
 
 interface Props {
   locale?: BlogLocale;
@@ -49,6 +50,18 @@ const t = commentsCopy[locale];
 ---
 
 <div class="blog-compose__identity" id={id} data-compose-identity>
+  {/* The face this reader will post under, and the way to change it: a tap
+      draws another. A silhouette until comments-controller.ts paints it --
+      the seed lives in this browser, which the prerendered page cannot see. */}
+  <button
+    type="button"
+    class="blog-compose__face blog-avatar-drawn blog-avatar-shuffle is-empty"
+    data-avatar-own
+    data-avatar-name=""
+    aria-label={t.avatarShuffle}
+    title={t.avatarShuffle}
+    set:html={iconSvg(ICONS.userRound)}
+  />
   <div class="blog-compose__fields">
     <label class="sr-only" for={`${id}-name`}>{t.nameLabel}</label>
     <input

@@ -20,7 +20,8 @@
 
 import CommentForm from '@/features/comments/ui/CommentForm.astro';
 import IdentityRow from '@/features/comments/ui/IdentityRow.astro';
-import { avatarSeed, initials, seedHue } from '@/features/comments/identity';
+import { rowFaceSeed, seedNumber } from '@/features/comments/identity';
+import { drawnAvatarSvg } from '@/features/comments/drawn-avatar';
 import { ICONS, SIGNOUT_ICONS } from '@/features/comments/icons';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase, Viewer } from '@/features/comments/types';
 import { blog, type BlogLocale } from '@/data/site';
@@ -229,9 +230,10 @@ const t = commentsCopy[locale];
             />
           ) : (
             <span
-              class="blog-comment__avatar blog-avatar-seed blog-avatar-initials"
-              style={`--seed-hue:${seedHue(avatarSeed(comment.id, comment.author, comment.avatarUrl))}`}
-              aria-hidden="true">{initials(comment.author)}</span>
+              class="blog-comment__avatar blog-avatar-drawn"
+              aria-hidden="true"
+              set:html={drawnAvatarSvg(rowFaceSeed(comment.id, comment.author, comment.avatarUrl, comment.avatarSeed))}
+            />
           )}
           <div class="blog-comment__body">
             <div class="blog-comment__meta">
@@ -401,10 +403,15 @@ const t = commentsCopy[locale];
                   {viewer.avatar ? (
                     <img class="blog-compose__whoface" src={viewer.avatar} alt="" width="20" height="20" />
                   ) : (
-                    <span
-                      class="blog-compose__whoface blog-avatar-seed blog-avatar-initials"
-                      style={`--seed-hue:${seedHue(viewer.name)}`}
-                      aria-hidden="true">{initials(viewer.name)}</span>
+                    <button
+                      type="button"
+                      class="blog-compose__whoface blog-avatar-drawn blog-avatar-shuffle"
+                      data-avatar-own
+                      data-avatar-name={viewer.name}
+                      aria-label={t.avatarShuffle}
+                      title={t.avatarShuffle}
+                      set:html={drawnAvatarSvg(viewer.avatarSeed ?? seedNumber(viewer.name))}
+                    ></button>
                   )}
                   <span class="sr-only">{t.postingAs(viewer.name)}</span>
                   <span class="blog-compose__whoname" aria-hidden="true">{viewer.name}</span>
@@ -414,10 +421,15 @@ const t = commentsCopy[locale];
             <span class="blog-compose__claim">
               {claimed && (
                 <>
-                  <span
-                    class="blog-compose__whoface blog-avatar-seed blog-avatar-initials"
-                    style={`--seed-hue:${seedHue(claimed.name)}`}
-                    aria-hidden="true">{initials(claimed.name)}</span>
+                  <button
+                    type="button"
+                    class="blog-compose__whoface blog-avatar-drawn blog-avatar-shuffle"
+                    data-avatar-own
+                    data-avatar-name={claimed.name}
+                    aria-label={t.avatarShuffle}
+                    title={t.avatarShuffle}
+                    set:html={drawnAvatarSvg(seedNumber(claimed.name))}
+                  ></button>
                   <span class="sr-only">{t.claimedAs(claimed.name)}</span>
                   <span class="blog-compose__whoname" aria-hidden="true">{claimed.name}</span>
                 </>
