@@ -514,6 +514,11 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   cursor: pointer;
 }
 
+/* Sideways drags on the strip scrub the months (BlogLedger.astro). */
+.blog-ledger__month {
+  touch-action: pan-y;
+}
+
 .blog-ledger__month.is-written::before {
   background: var(--blog-ji);
 }
@@ -602,25 +607,26 @@ a.blog-ledger__year:hover {
    unfolds the next few in place (index.astro). */
 /* A full-width control that belongs to the list, so it never reads as a
    line of text beside the ledger's caption. */
+/* A quiet line of text, not a slab: the list ends, and this only says more
+   is folded below. The 44px height is the touch target, not the look. */
 .blog-earlier {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: 100%;
+  gap: 4px;
+  width: fit-content;
   min-height: 44px;
-  margin-top: -16px;
-  border-radius: 12px;
-  background: var(--blog-fill);
-  font-size: 14px;
-  color: var(--blog-muted);
+  margin: -16px auto 0;
+  padding: 0 12px;
+  background: none;
+  font-size: 13px;
+  color: var(--blog-faint);
   cursor: pointer;
-  transition: color 0.2s ease, background-color 0.2s ease;
+  transition: color 0.2s ease;
 }
 
 .blog-earlier:hover {
   color: var(--blog-accent);
-  background: color-mix(in srgb, var(--blog-accent) 8%, transparent);
 }
 
 .blog-earlier span {
