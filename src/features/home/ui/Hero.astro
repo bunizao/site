@@ -386,6 +386,16 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
 
   }
 
+  /* On touch the word whose card is open holds the hover look, so the tap
+     reads as having landed and the second tap as going through. */
+  .hero-link[data-card-active] {
+    --underline: hsl(var(--foreground) / 0.6);
+  }
+
+  .hero-link[data-card-active]::before {
+    transform: scaleY(1);
+  }
+
   /* Underlines wait for the decode to settle, then draw in reading order.
      Reduced motion never hides them. */
   @media (prefers-reduced-motion: no-preference) {

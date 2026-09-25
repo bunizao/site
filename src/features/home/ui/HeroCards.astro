@@ -1697,6 +1697,10 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   let currentLink: HTMLElement | null = null;
   let openTimer = 0;
   let closeTimer = 0;
+  // A card opened by a tap stays until the next tap lands somewhere else;
+  // there is no hover to leave and no focus to lose.
+  let tapped = false;
+  let tapPointer = '';
 
   const cardById = (id: string | undefined): HTMLElement | null =>
     (id && layer?.querySelector<HTMLElement>(`[data-card-id="${id}"]`)) || null;
@@ -1900,6 +1904,8 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   const open = (link: HTMLElement): void => {
     const card = cardById(link.dataset.card);
     if (!card) return;
+    currentLink?.removeAttribute('data-card-active');
+    link.dataset.cardActive = '';
     currentLink = link;
     if (card === current) return;
     const switching = current !== null;
@@ -1919,8 +1925,10 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     if (!current) return;
     delete current.dataset.instant;
     delete current.dataset.open;
+    currentLink?.removeAttribute('data-card-active');
     current = null;
     currentLink = null;
+    tapped = false;
   };
 
   const scheduleClose = (): void => {
@@ -1988,7 +1996,41 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
       open(link);
     });
 
-    bio.addEventListener('focusout', close);
+    // Touch has no hover, so the first tap on a word shows its card instead
+    // of leaving the page. The card is the way through: tapping the object,
+    // or the same word again, follows the link. A tap anywhere else puts the
+    // card away. Keyboard activation fires a click with no pointer and still
+    // navigates at once.
+    bio.addEventListener('pointerdown', (event) => {
+      tapPointer = event.pointerType;
+    });
+    bio.addEventListener('click', (event) => {
+      const pointer = tapPointer;
+      tapPointer = '';
+      if (pointer !== 'touch' && pointer !== 'pen') return;
+      const link = linkFrom(event.target);
+      if (!link) return;
+      const card = cardById(link.dataset.card);
+      // Compared by id: the decode swaps the link elements when it settles.
+      if (!card || (tapped && current === card)) return;
+      event.preventDefault();
+      warm();
+      window.clearTimeout(openTimer);
+      window.clearTimeout(closeTimer);
+      open(link);
+      tapped = true;
+    });
+    document.addEventListener('pointerdown', (event) => {
+      if (!tapped || !current) return;
+      const target = event.target as Node;
+      if (current.contains(target) || linkFrom(target)) return;
+      close();
+    });
+    window.addEventListener('resize', reposition);
+
+    bio.addEventListener('focusout', () => {
+      if (!tapped) close();
+    });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') close();
     });

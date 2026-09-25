@@ -147,8 +147,10 @@ Client behavior:
   120ms of mouse hover or on keyboard focus. They swap instantly between
   links, sit above the word, and flip below it near the viewport top. The
   open card takes the pointer: it stays open while the pointer is on it and
-  closes 280ms after the pointer leaves. Escape closes it. Touch never
-  opens a card. The layer is `aria-hidden`, and its links are out of the
+  closes 280ms after the pointer leaves. Escape closes it. On touch the
+  first tap on a link opens its card instead of navigating and marks the
+  word (`data-card-active`); tapping the card's object or the same word
+  again follows the link, and a tap anywhere else closes it. The layer is `aria-hidden`, and its links are out of the
   tab order, because every destination is also the link itself.
 - The experience row for Monash carries the crest
   (`public/brands/monash-crest.svg`, cut from the Wikimedia Commons logo),
