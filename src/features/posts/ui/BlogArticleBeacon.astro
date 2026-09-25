@@ -32,9 +32,9 @@ const {
     const eventId = createId();
     const visitorId = readStoredId('localStorage', visitorKey);
     const sessionId = readStoredId('sessionStorage', sessionKey);
-    // The blog zone scrolls an inner element, so the root reads 0 forever. This
-    // script is is:inline and cannot import @/lib/page-scroll — the attribute is
-    // the contract between them. Declared above the first readScrollDepth() call.
+    // A contained scroller wins when a page has one (see @/lib/page-scroll); this
+    // script is is:inline and cannot import it, so the attribute is the contract.
+    // Declared above the first readScrollDepth() call.
     const scroller = document.querySelector('[data-page-scroller]') || document.documentElement;
     let dwellMs = 0;
     let visibleSince = document.visibilityState === 'visible' ? now() : 0;

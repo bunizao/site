@@ -216,12 +216,13 @@ const vars = [
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* iOS Safari fills the strip under its bottom toolbar with the page's
-     background-color, and fills the status bar with the same flat colour, so
-     the strip cannot take the sea's. Nothing can paint into it either: the
-     locked root clips every layer at the layout viewport (iOS 26.1, measured).
-     So on iOS the water fades into the page at its foot, the way its top fades
-     into the sky, and the strip reads as more page instead of a cut. */
+  /* At the end of a page iOS Safari brings its toolbar back and fills the strip
+     under it with body's background-color. Nothing can paint into that strip:
+     the document ends at the toolbar's top edge and fixed layers are clipped
+     there too (iOS 26.1, measured). Tinting body sea-blue is out as well —
+     Safari tints its top edge with the same colour. So on iOS the water fades
+     into the page at its foot, the way its top fades into the sky, and the
+     strip reads as more page instead of a cut. */
   @supports (-webkit-touch-callout: none) {
     .sillage-sea::after {
       content: '';

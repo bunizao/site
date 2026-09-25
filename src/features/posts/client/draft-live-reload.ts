@@ -1,3 +1,5 @@
+import { pageScroll } from '@/lib/page-scroll';
+
 const DEFAULT_POLL_MS = 1_500;
 const MAX_RETRY_MS = 30_000;
 const SCROLL_KEY_PREFIX = 'buxx:ghost-draft-scroll:';
@@ -11,8 +13,7 @@ function scrollKey(): string {
 }
 
 function restoreScroll(): void {
-  const scroller = document.querySelector<HTMLElement>('[data-page-scroller]');
-  if (!scroller) return;
+  const scroller = pageScroll().el;
 
   try {
     const raw = sessionStorage.getItem(scrollKey());
@@ -29,8 +30,7 @@ function restoreScroll(): void {
 }
 
 function saveScroll(): void {
-  const scroller = document.querySelector<HTMLElement>('[data-page-scroller]');
-  if (!scroller) return;
+  const scroller = pageScroll().el;
 
   try {
     sessionStorage.setItem(scrollKey(), String(scroller.scrollTop));

@@ -4,7 +4,7 @@ import { expect, test } from './fixtures';
 const GHOST_PREVIEW_E2E_POST_ID = '5ddc9141c35e7700383b2937';
 
 async function scrollPageTo(page: Page, top: number): Promise<void> {
-  await page.locator('[data-page-scroller]').evaluate((scroller, nextTop) => {
+  await page.locator('html').evaluate((scroller, nextTop) => {
     scroller.scrollTo({ top: nextTop, behavior: 'instant' });
   }, top);
 }
@@ -338,7 +338,7 @@ test.describe('Blog reading UI', () => {
       spacer.style.height = '500px';
       spacer.setAttribute('data-e2e-preceding-shift', '');
       document.querySelector('.blog-prose')?.before(spacer);
-      const scroller = document.querySelector<HTMLElement>('[data-page-scroller]')!;
+      const scroller = document.documentElement;
       return heading.getBoundingClientRect().top + scroller.scrollTop - 95;
     });
 

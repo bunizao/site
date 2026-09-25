@@ -85,6 +85,14 @@ Vertical rhythm follows the `spacing` scale: `{spacing.sm}` inside a group,
 drops the site's ambient dot-grid background — chl.ee is a flat surface, so this
 is too.
 
+The document scrolls, as on the homepage, so iOS Safari collapses its toolbar
+on the way down and the page shows through its glass. From August to September
+2026 the zone contained its scroll in an inner element to keep content out of
+the status-bar band; the toolbar then never collapsed and the strip under it was
+flat body colour, a fixed band at both ends of every reading screen. The band
+above the reading bar is now left to Safari, as on every other root-scrolling
+page.
+
 ## Elevation & Depth
 
 **There is no elevation.** The zone is intentionally flat — no drop shadows, no
@@ -161,11 +169,12 @@ crayon sea — the literal reading of *sillage*, the wake a boat leaves behind.
 The sea is seen side on, a swell profile against the page; the page background
 is the sky, in both themes. The band starts under the site footer's last line,
 which sits on top of it, so the page ends in the sea's sky rather than a gap.
-On iOS the water fades into the page at its foot: Safari fills the strip under
-its bottom toolbar, and the status bar, with one flat colour taken from the
-page's `background-color`, and nothing on a locked-root page can paint into
-either. Tinting that colour sea-blue would tint the status bar too, so the sea
-ends in page colour and the strip continues it.
+On iOS the water fades into the page at its foot: at the end of a page Safari
+brings its toolbar back and fills the strip under it with body's
+`background-color`, and nothing can paint into it — the document ends at the
+toolbar's top edge and fixed layers are clipped there too. Tinting body
+sea-blue would also tint Safari's top edge, so the sea ends in page colour and
+the strip continues it.
 
 The art is generated. `scripts/paint-sillage.ts` paints every layer in four
 lights — day, night, and dusk in each theme — mixing the day and night colours
@@ -249,7 +258,7 @@ screen, the animation runs only while it is in view, and reduced motion gets the
 same picture standing still and ignores touch. The picture is `aria-hidden`; the
 sound switch is the only thing in it assistive tech sees.
 
-On `/blog` the page scroller drops its rubber band (`overscroll-behavior-y:
+Wherever the sea is, the root drops its rubber band (`overscroll-behavior-y:
 none`, `blog.css`): bouncing past the sea pulled the water up and showed bare
 page under it. Scroll past the end still reaches the sea as wheel and touch
 input.

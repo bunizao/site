@@ -5,7 +5,7 @@ const BLOG_POST_PATH_RE = /^\/blog\/[^/?#]+$/;
 const BLOG_TAG_PATH_RE = /^\/blog\/tag\/[^/?#]+$/;
 
 async function readPageScrollTop(page: Page): Promise<number> {
-  return page.locator('[data-page-scroller]').evaluate((scroller) => scroller.scrollTop);
+  return page.locator('html').evaluate((scroller) => scroller.scrollTop);
 }
 
 interface BlogIndexTargets {
@@ -236,7 +236,7 @@ test.describe('Blog routes', () => {
     page.on('request', (request) => {
       if (request.url().includes('/sillage/sound/')) sounds.push(new URL(request.url()).pathname);
     });
-    await page.locator('[data-page-scroller]').evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await page.locator('html').evaluate((el) => (el.scrollTop = el.scrollHeight));
     band = (await sea.boundingBox())!;
     waterY = band.y + band.height - 24;
     await page.mouse.move(band.x + band.width * 0.5, band.y - 120);
@@ -328,7 +328,7 @@ test.describe('Blog routes', () => {
     const response = await page.goto('/blog?sea=dusk');
     expect(response?.ok()).toBeTruthy();
     const sea = page.locator('.sillage-sea');
-    await page.locator('[data-page-scroller]').evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await page.locator('html').evaluate((el) => (el.scrollTop = el.scrollHeight));
     await expect(sea).toHaveAttribute('data-seen', '');
 
     // Dusk, on request here and by the reader's clock otherwise: its own set.
@@ -344,7 +344,7 @@ test.describe('Blog routes', () => {
     await page.reload();
     await expect(page.getByRole('button', { name: 'Sound of the sea' })).toHaveAttribute('aria-pressed', 'false');
     await page.getByRole('button', { name: 'Sound of the sea' }).click();
-    await page.locator('[data-page-scroller]').evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await page.locator('html').evaluate((el) => (el.scrollTop = el.scrollHeight));
     await expect(sea).toHaveAttribute('data-awake', '');
 
     // The first touch of the water always brings a dolphin up.
@@ -429,7 +429,7 @@ test.describe('Blog routes', () => {
       );
     }, pointer)).toBeLessThan(3);
 
-    const pageHeight = await page.locator('[data-page-scroller]').evaluate((scroller) => scroller.scrollHeight);
+    const pageHeight = await page.locator('html').evaluate((scroller) => scroller.scrollHeight);
     await page.mouse.wheel(0, pageHeight);
     await expect.poll(async () => page.evaluate(
       ({ x, y }) => document.elementFromPoint(x, y)?.closest('.blog-list') !== null,

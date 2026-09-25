@@ -1,9 +1,9 @@
 /**
  * Who scrolls the page.
  *
- * Most zones scroll the document root. Blog and Mood contain their scroll in an
- * inner element instead, and that is not a style choice — it is the only fix for
- * a measured iOS constraint (iPhone 16 Pro Max / iOS 26.1):
+ * Most zones scroll the document root, the blog included. Mood and docs contain
+ * their scroll in an inner element instead, the only fix for a measured iOS
+ * constraint (iPhone 16 Pro Max / iOS 26.1):
  *
  *   - When Safari collapses its toolbar, `window.innerHeight` grows past
  *     `documentElement.clientHeight` and ordinary document content paints ~60px
@@ -18,6 +18,11 @@
  *
  * So the band is closed at the source: the root does not scroll in that zone, the
  * toolbar never collapses, and nothing ever paints above y=0.
+ *
+ * The cost is a toolbar that never collapses and, under it, a strip of flat body
+ * colour nothing can paint into. The blog paid it from 2026-08 to 2026-09 and
+ * went back to the root: a reading page loses more height to those two bands
+ * than the status-bar band ever cost it.
  *
  * The consequence for callers: nothing may assume `window.scrollY`. Read
  * `el.scrollTop`, listen on `events`, and hand `timeline` to a scroll-driven
