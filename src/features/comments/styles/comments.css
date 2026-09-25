@@ -387,11 +387,10 @@
   }
 }
 
-/* The fan: a zero-size layer pinned to the ring's centre, in the top layer
-   as a popover, so the UA's popover box is undone here. avatar-fan.ts writes
-   each item's place on the ring as --x/--y, and --fx, how far left of the
-   centre the reader's face is, which is where the items come from and fold
-   back to. */
+/* The fan: a zero-size layer pinned to its pivot, in the top layer as a
+   popover, so the UA's popover box is undone here. avatar-fan.ts writes each
+   item's place as --x/--y, and --fx, how far left of the pivot the reader's
+   face is, which is where the items come from and fold back to. */
 .blog-avatar-fan {
   position: fixed;
   inset: auto;
@@ -407,16 +406,16 @@
   z-index: 60;
 }
 
-/* A disc of page colour under the ring, so the form beneath stops reading
-   through the gaps between faces. Solid out to the faces' outer edge (66 +
-   22), then gone by 130. */
+/* A wash of page colour under the fan, so the form beneath stops reading
+   through the gaps between faces: an ellipse centred halfway up the fan,
+   solid over the faces and gone by its rim. */
 .blog-avatar-fan::before {
   content: '';
   position: absolute;
-  left: -130px;
-  top: -130px;
-  width: 260px;
-  height: 260px;
+  left: -150px;
+  top: -160px;
+  width: 300px;
+  height: 230px;
   border-radius: 50%;
   background: radial-gradient(closest-side, hsl(var(--background) / 0.96) 70%, hsl(var(--background) / 0));
   opacity: 0;
