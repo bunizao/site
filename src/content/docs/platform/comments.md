@@ -135,9 +135,9 @@ lockdown remain in place.
 
 **Lockdown** — one hour, site-wide, in KV under `comments:lockdown`. Engages
 on its own when anonymous traffic as a whole looks like a flood: more than
-8 anonymous comments in 10 minutes, more than 2 writers asked for an email
-by the score in 10 minutes, or 3 of the last 5 anonymous comments judged
-spam. For its duration every anonymous writer is asked to confirm an email;
+8 anonymous comments in 10 minutes, or 3 of the last 5 anonymous comments
+judged spam. Writers the score asks for an email never engage it: they are
+already stopped, and one agent retrying is not a wave. For its duration every anonymous writer is asked to confirm an email;
 waiting rows carry reason `ok` (so they never count toward the ratio that
 engaged it), Akismet and the AI gateway still judge each one (a spam verdict
 replaces the wait), no per-comment cards are sent, and the owner gets

@@ -56,6 +56,13 @@ describe('mood: the row is the receipt', () => {
     expect(pressToPost.indexOf('insertGhostComment')).toBeLessThan(pressToPost.indexOf('mintDwellToken'));
   });
 
+  test('the write carries the same browser evidence as the blog', () => {
+    // Without it every mood comment scored `no_client` toward the email ask.
+    expect(moodCompose).toContain("addEventListener('focusin', armEvidence");
+    expect(moodCompose).toContain('collectClientEvidence({');
+    expect(moodCompose).toContain('...(await submittedEvidence)');
+  });
+
   test('a refused write takes the row back and returns the draft', () => {
     const refused = moodCompose.slice(
       moodCompose.indexOf('if (!response.ok) {'),
