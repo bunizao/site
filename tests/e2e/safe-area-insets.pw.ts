@@ -3,10 +3,11 @@ import { expect, test } from '@playwright/test';
 // iOS 26 can paint root-scrolling content above the layout viewport when its
 // dynamic toolbar collapses, while every CSS safe-area signal still reads 0.
 // Mood and Docs close that band at the source: the root stays locked and a
-// full-viewport inner element owns scrolling. The blog scrolls the root and
-// leaves the band to Safari (2026-09-25): locked, its toolbar never collapsed
-// and the strip under it was a flat slab nothing could paint into. Chromium
-// cannot reproduce the physical band, so these tests guard structure.
+// full-viewport inner element owns scrolling. The blog scrolls the root
+// (2026-09-25): locked, its toolbar never collapsed and the strip under it was
+// a flat slab nothing could paint into. Instead its reading bar hands Safari a
+// colour for the band. Chromium cannot reproduce the physical band, so these
+// tests guard structure.
 
 const PHONE = { width: 390, height: 844 };
 const FAKE_INSET = 59; // iPhone 16 Pro portrait status-bar band.
@@ -45,6 +46,9 @@ test('no fixed layer at the screen top is fully opaque', async ({ page }) => {
     for (const el of Array.from(document.querySelectorAll<HTMLElement>('[class*="blog-"], [class*="toc-"]'))) {
       const style = getComputedStyle(el);
       if (style.position !== 'fixed') continue;
+      // The band strips are Safari's colour probe target, not a cover for the
+      // band; being clipped to the viewport is fine for them.
+      if (el.classList.contains('toc-topbar__band')) continue;
       // Only layers that must reach the physical top are at risk.
       if (Number.parseFloat(style.top) !== 0) continue;
       if (alpha(style.backgroundColor) >= 1) found.push(el.className);
@@ -56,6 +60,32 @@ test('no fixed layer at the screen top is fully opaque', async ({ page }) => {
   });
 
   expect(opaque, 'Safari 26 clips opaque fixed layers to the visual viewport').toEqual([]);
+});
+
+// Safari 26 colours the status-bar band from a hit test about 8px inside the
+// top edge: fixed and sticky layers only, first plain background-color up to
+// the fixed ancestor. The bar's controls sit over the same point, so this
+// checks what the probe actually lands on.
+test('the reading bar gives Safari an opaque colour at the top-edge probe', async ({ page }) => {
+  await openDemoPost(page);
+  await scrollPageTo(page, 800);
+  await expect(page.locator('.toc-topbar')).toHaveClass(/is-visible/);
+
+  const probe = await page.evaluate(() => {
+    const hit = document.elementFromPoint(window.innerWidth / 2, 8);
+    return {
+      className: hit?.className ?? null,
+      background: hit ? getComputedStyle(hit).backgroundColor : null,
+    };
+  });
+
+  expect(probe.className).toBe('toc-topbar__band toc-topbar__band--light');
+  expect(probe.background).toMatch(/^rgb\(/);
+
+  await scrollPageTo(page, 0);
+  await expect(page.locator('.toc-topbar')).not.toHaveClass(/is-visible/);
+  const atTop = await page.evaluate(() => document.elementFromPoint(window.innerWidth / 2, 8)?.className ?? null);
+  expect(atTop).not.toContain('toc-topbar__band');
 });
 
 test('the blog scrolls the root and keeps the reading chrome at the viewport origin', async ({ page }) => {

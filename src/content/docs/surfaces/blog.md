@@ -89,9 +89,18 @@ The document scrolls, as on the homepage, so iOS Safari collapses its toolbar
 on the way down and the page shows through its glass. From August to September
 2026 the zone contained its scroll in an inner element to keep content out of
 the status-bar band; the toolbar then never collapsed and the strip under it was
-flat body colour, a fixed band at both ends of every reading screen. The band
-above the reading bar is now left to Safari, as on every other root-scrolling
-page.
+flat body colour, a fixed band at both ends of every reading screen.
+
+While the reading bar is up, Safari fills the status-bar band above it with
+page colour. Safari 26 ignores `theme-color`; it hit-tests about 8px inside the
+top edge, keeps only fixed and sticky layers, and paints the band with the
+plain `background-color` it finds. The bar's glass is a gradient and lets taps
+through, so the bar carries a 10px opaque strip (`.toc-topbar__band`) over its
+row for the probe to land on. Safari paints the band itself, so it holds through
+a momentum fling; a scroll-driven fill tried first lagged there. Safari caches
+the colour per fixed layer, so there is one strip per theme and a theme switch
+swaps the layer. With the bar hidden, near the top of a post, the band shows
+the page as on every other root-scrolling page.
 
 ## Elevation & Depth
 

@@ -1596,6 +1596,43 @@ html:not(.js) .blog-lang__noscript a {
   visibility: visible;
 }
 
+/* The iOS status-bar band above the bar. Safari 26 ignores theme-color and
+   fills that band from the page: it hit-tests a point about 8px inside the top
+   edge, keeping only fixed and sticky layers, and takes the first plain
+   background-color on the way up to the fixed ancestor. The glass is a
+   gradient and the title's hit box reaches that point, so without this the
+   band shows the article.
+
+   This strip is what Safari finds: opaque page colour, over the row so the
+   probe cannot land on the title, and short enough to clear the logo and the
+   title's ink. It matches the glass's near-solid top, so it cannot be seen. It
+   shares the surface's fade and visibility, so the band closes with the bar.
+   Safari paints the band itself, which holds through a momentum fling where a
+   scroll-linked fill lags.
+
+   Safari keeps the colour for as long as the same element answers the probe,
+   so a theme switch would leave the old band behind. One strip per theme makes
+   the switch swap the element, and Safari samples again. */
+.toc-topbar__band {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  z-index: 2;
+  background-color: hsl(var(--background));
+  pointer-events: auto;
+}
+
+.toc-topbar__band--dark,
+.dark .toc-topbar__band--light {
+  display: none;
+}
+
+.dark .toc-topbar__band--dark {
+  display: block;
+}
+
 /* The single progressive surface behind row + menu, sized inset:0 to the whole
    control so it grows with an open menu for free — one layer, one material, no
    seam to keep aligned.
