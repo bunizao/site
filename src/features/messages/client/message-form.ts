@@ -17,6 +17,8 @@ import {
   MESSAGE_MIN_BODY_LENGTH,
 } from '@bunizao/contracts/messages';
 import {
+  challengeTurnstile,
+  dismissTurnstileChallenge,
   getTurnstileToken,
   releaseTurnstileToken,
   setTurnstileHost,
@@ -71,6 +73,10 @@ export function initMessageForm(root: HTMLElement): void {
   let dwellToken = '';
   let dwellTokenMintedAt = 0;
   let submitting = false;
+  // The submit that follows a solved challenge. One automatic resend per
+  // press: a refusal of that one leaves the checkbox open for the next press
+  // instead of challenging again on its own.
+  let resending = false;
 
   async function ensureDwellToken(): Promise<void> {
     if (dwellToken && Date.now() - dwellTokenMintedAt < DWELL_TOKEN_REFRESH_AGE_MS) return;
@@ -173,9 +179,24 @@ export function initMessageForm(root: HTMLElement): void {
     });
   };
 
+  // Cloudflare wants a human the invisible widget could not settle. Draw the
+  // checkbox under the form and send again the moment it is solved. It stays
+  // on screen, retrying on its own after a failure, until a message goes
+  // through -- the old "reload and try again" put a flagged reader straight
+  // back on the silent widget that had just failed them.
+  const challengeAndResend = async (): Promise<void> => {
+    turnstileHost?.scrollIntoView({ block: 'nearest' });
+    const token = await challengeTurnstile(siteKey, ACTION);
+    if (!token || submitting) return;
+    resending = true;
+    form.requestSubmit();
+  };
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (submitting) return;
+    const isResend = resending;
+    resending = false;
     clearError();
 
     const displayName = nameField.value.trim();
@@ -223,7 +244,7 @@ export function initMessageForm(root: HTMLElement): void {
           // that has aged past Cloudflare's expiry and solves a fresh one.
           turnstileToken = await getTurnstileToken(siteKey, ACTION);
         } catch {
-          showError(t.errorTurnstile);
+          showError(t.errorGeneric);
           setBusy(false);
           return;
         }
@@ -253,9 +274,9 @@ export function initMessageForm(root: HTMLElement): void {
           showError(t.errorRateLimited);
         } else if (response.status === 400 || response.status === 503) {
           const detail = (await response.json().catch(() => null)) as { error?: string } | null;
-          showError(
-            detail?.error?.startsWith('turnstile') ? t.errorTurnstile : t.errorGeneric,
-          );
+          const refused = detail?.error === 'turnstile_failed';
+          showError(refused ? t.errorTurnstile : t.errorGeneric);
+          if (refused && siteKey && !isResend) void challengeAndResend();
         } else {
           showError(t.errorGeneric);
         }
@@ -265,6 +286,7 @@ export function initMessageForm(root: HTMLElement): void {
 
       const result = (await response.json()) as CreateResult;
       releaseTurnstileToken(ACTION);
+      dismissTurnstileChallenge(ACTION);
       // A fresh dwell token per submission: the one just spent is burnt.
       dwellToken = '';
       dwellTokenMintedAt = 0;
