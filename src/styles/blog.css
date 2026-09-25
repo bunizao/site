@@ -33,25 +33,13 @@
   --blog-img-edge: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
-/* --- Contained scroll: the iOS status-bar band, closed at the source ------
-   Measured on an iPhone 16 Pro Max / iOS 26.1. When Safari collapses its
-   toolbar, window.innerHeight grows past documentElement.clientHeight and
-   ordinary document content paints ~60px ABOVE client y=0, into the band beside
-   the Dynamic Island.
-
-   CSS can neither measure that band — env(safe-area-inset-top) and
-   env(safe-area-max-inset-top) both read 0, with or without viewport-fit=cover —
-   nor cover it: fixed layers, sticky layers, and a sticky layer's absolutely
-   positioned children are all clipped to the layout viewport top, while the
-   scrolling contents layer is not. Four attempts died on that clip.
-
-   Safari collapses the toolbar only when the ROOT scroller moves. The shared
-   PageScroller keeps the root still, so the band never opens and the reading
-   bar is a plain lid at y=0 again.
-
-   It buys reading height rather than costing it: collapsed gives 836px with the
-   top 62 under a translucent system scrim, this gives a clean 796. The reusable
-   mechanics live in page-scroller.css; this block records the measured reason. */
+/* --- Root scroll -------------------------------------------------------
+   The blog scrolls the document, like the rest of the site. From 2026-08 to
+   2026-09 it contained its scroll in an inner element so iOS Safari would never
+   collapse its toolbar, which kept page content out of the status-bar band. The
+   price was worse: the toolbar never collapsed, and the strip under it was a
+   flat slab of body colour that nothing could paint into — a fixed band at the
+   top and another at the bottom of every reading screen. */
 
 /* chl.ee is a flat surface — drop the site's ambient dot grid in this zone. */
 body.blog-zone::before {
@@ -1573,10 +1561,9 @@ html:not(.js) .blog-lang__noscript a {
   left: 0;
   right: 0;
   z-index: 55;
-  /* A plain lid at the viewport edge — no height and no fill of its own. It used
-     to carry both, as a cover for the iOS status-bar band; the band cannot be
-     covered from a fixed layer and no longer opens at all, because the scroll is
-     contained (see .blog-scroller). */
+  /* A plain lid at the viewport edge — no height and no fill of its own. A
+     fixed layer cannot cover the iOS status-bar band above it, so the band is
+     left to Safari's own scroll-edge treatment, as on every other page. */
   pointer-events: none;
 }
 
@@ -1607,6 +1594,43 @@ html:not(.js) .blog-lang__noscript a {
 
 .toc-topbar.is-visible .toc-topbar__surface {
   visibility: visible;
+}
+
+/* The iOS status-bar band above the bar. Safari 26 ignores theme-color and
+   fills that band from the page: it hit-tests a point about 8px inside the top
+   edge, keeping only fixed and sticky layers, and takes the first plain
+   background-color on the way up to the fixed ancestor. The glass is a
+   gradient and the title's hit box reaches that point, so without this the
+   band shows the article.
+
+   This strip is what Safari finds: opaque page colour, over the row so the
+   probe cannot land on the title, and short enough to clear the logo and the
+   title's ink. It matches the glass's near-solid top, so it cannot be seen. It
+   shares the surface's fade and visibility, so the band closes with the bar.
+   Safari paints the band itself, which holds through a momentum fling where a
+   scroll-linked fill lags.
+
+   Safari keeps the colour for as long as the same element answers the probe,
+   so a theme switch would leave the old band behind. One strip per theme makes
+   the switch swap the element, and Safari samples again. */
+.toc-topbar__band {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  z-index: 2;
+  background-color: hsl(var(--background));
+  pointer-events: auto;
+}
+
+.toc-topbar__band--dark,
+.dark .toc-topbar__band--light {
+  display: none;
+}
+
+.dark .toc-topbar__band--dark {
+  display: block;
 }
 
 /* The single progressive surface behind row + menu, sized inset:0 to the whole
@@ -2232,7 +2256,7 @@ html:not(.js) .blog-lang__noscript a {
 /* The sea is the floor of the page: no rubber band past it, which would pull
    the water up and show bare page underneath. Scroll carried past the end
    still reaches the sea as wheel and touch input. */
-.page-scroller:has([data-sillage]) {
+html:has([data-sillage]) {
   overscroll-behavior-y: none;
 }
 

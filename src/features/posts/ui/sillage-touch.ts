@@ -19,6 +19,7 @@
  * band. They all share one clock, so the boat's ride, the bow wave and the
  * wake stay true to the water at any speed.
  */
+import { pageScroll } from '@/lib/page-scroll';
 import { bow, front, near, period, tile } from './sillage-motion.json';
 import { life } from './sillage-life';
 import type { Voice } from './sillage-sound';
@@ -90,7 +91,11 @@ export function stir(sea: HTMLElement, sound: Voice) {
   ];
   const nearRow = rows[1];
   const still = matchMedia('(prefers-reduced-motion: reduce)');
-  const scroller = sea.closest<HTMLElement>('[data-page-scroller]') ?? document.documentElement;
+  const scroll = pageScroll();
+  const scroller = scroll.el;
+  // The root's clientHeight is the viewport with the toolbar shown; a scroll
+  // with the toolbar collapsed ends innerHeight short of the bottom.
+  const viewHeight = () => (scroller === document.documentElement ? window.innerHeight : scroller.clientHeight);
   const critters = life({
     sea,
     scale: () => s,
@@ -480,10 +485,11 @@ export function stir(sea: HTMLElement, sound: Voice) {
   // Scrolling on past the end: wheels and trackpads keep sending deltas the
   // page can no longer take, a finger keeps pulling up. Both count only
   // downward, and only once the page has nothing left.
-  const atEnd = () => scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
-  scroller.addEventListener(
+  const atEnd = () => scroller.scrollTop + viewHeight() >= scroller.scrollHeight - 2;
+  scroll.events.addEventListener(
     'wheel',
-    (e) => {
+    (event) => {
+      const e = event as WheelEvent;
       if (!atEnd()) return;
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? scroller.clientHeight : 1;
       carry(e.deltaY * unit);
@@ -492,10 +498,11 @@ export function stir(sea: HTMLElement, sound: Voice) {
   );
 
   let touchY: number | null = null;
-  scroller.addEventListener('touchstart', (e) => (touchY = e.touches[0].clientY), { passive: true });
-  scroller.addEventListener(
+  scroll.events.addEventListener('touchstart', (e) => (touchY = (e as TouchEvent).touches[0].clientY), { passive: true });
+  scroll.events.addEventListener(
     'touchmove',
-    (e) => {
+    (event) => {
+      const e = event as TouchEvent;
       const y = e.touches[0].clientY;
       if (touchY !== null && atEnd()) carry(touchY - y);
       touchY = y;
@@ -507,7 +514,7 @@ export function stir(sea: HTMLElement, sound: Voice) {
   // would have carried it.
   let top = scroller.scrollTop;
   let topAt = performance.now();
-  scroller.addEventListener(
+  scroll.events.addEventListener(
     'scroll',
     (e) => {
       const was = top;

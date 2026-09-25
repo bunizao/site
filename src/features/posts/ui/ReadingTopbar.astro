@@ -8,11 +8,13 @@ interface Props {
 const { noToc = false } = Astro.props;
 ---
 
-<!-- Slotted directly under <body>, outside the contained scroller: a fixed lid at
-     the viewport edge. Its reveal is driven by the scroller's named timeline (see
-     @/lib/page-scroll), not by anything on this thread. -->
+<!-- Slotted directly under <body>: a fixed lid at the viewport edge. Its reveal
+     is driven by the root's scroll timeline (see @/lib/page-scroll), not by
+     anything on this thread. -->
 <div class="toc-topbar" data-no-toc={noToc ? 'true' : 'false'} hidden>
   <div class="toc-topbar__surface">
+    <div class="toc-topbar__band toc-topbar__band--light" aria-hidden="true"></div>
+    <div class="toc-topbar__band toc-topbar__band--dark" aria-hidden="true"></div>
     <div class="toc-topbar__fade" aria-hidden="true"></div>
     <div class="toc-topbar__bar">
       <a class="toc-topbar__logo" href="/blog" aria-label={blog.name}>
