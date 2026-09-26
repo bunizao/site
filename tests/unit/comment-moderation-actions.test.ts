@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { AdminCommentActor, AdminCommentQuality } from '@bunizao/contracts';
 import ActorStrip from '@/features/admin/ui/ActorStrip';
 import CommentQuality from '@/features/admin/ui/CommentQuality';
-import { identityStatus } from '@/features/admin/ui/IdentityBadge';
+import { identityStatus, type IdentityStatus } from '@/features/admin/ui/IdentityBadge';
 import { DEMO_COMMENTS } from '@/features/admin/server/portal-demo';
 
 let browser: Browser;
@@ -135,7 +135,7 @@ function actorWith(fields: Partial<AdminCommentActor>): AdminCommentActor {
 
 describe('identity provenance', () => {
   test('an actor is verified only with a verified session at writing; claims and missing history read distinctly', () => {
-    const rows: Array<[Partial<AdminCommentActor>, string]> = [
+    const rows: Array<[Partial<AdminCommentActor>, IdentityStatus]> = [
       [{ authAtWrite: 'verified', readerId: 'reader', claimedAt: null }, 'verified'],
       [{ authAtWrite: 'verified', readerId: 'reader', claimedAt: '2026-09-13T00:00:00Z' }, 'verified'],
       [{ authAtWrite: 'anonymous', readerId: 'reader', claimedAt: '2026-09-13T00:00:00Z' }, 'claimed'],
