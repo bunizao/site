@@ -1,6 +1,8 @@
 import type { APIContext } from 'astro';
 import type { InstagramProfile } from '@bunizao/contracts/instagram';
-import { loadMoodComments, loadMoodFeed, loadMoodProbe } from '@/features/mood/server/api-client';
+import { loadMoodFeed } from '@/features/mood/server/api-client';
+import { loadMoodCommentsFixture } from '@/features/mood/server/channel-service';
+import { createE2EChannelInfo } from '@/features/mood/server/e2e-fixtures';
 import { json, jsonBadRequest, jsonError, jsonOk } from '@/lib/http/json-response';
 import {
   API_PREFIX,
@@ -31,7 +33,7 @@ async function moodFixtureResponse(context: FixtureContext, url: URL): Promise<R
   }
 
   if (url.searchParams.get('probe') === '1') {
-    return jsonOk(await loadMoodProbe(context), noStore());
+    return jsonOk({ latestId: createE2EChannelInfo().posts[0]?.id ?? '' }, noStore());
   }
 
   return jsonOk(await loadMoodFeed(context, {
@@ -40,7 +42,7 @@ async function moodFixtureResponse(context: FixtureContext, url: URL): Promise<R
   }), noStore());
 }
 
-async function commentsFixtureResponse(context: FixtureContext, url: URL): Promise<Response> {
+function commentsFixtureResponse(url: URL): Response {
   const postId = url.searchParams.get('postId');
   if (!postId) {
     return jsonBadRequest('Missing postId', noStore());
@@ -49,9 +51,7 @@ async function commentsFixtureResponse(context: FixtureContext, url: URL): Promi
     return jsonBadRequest('Invalid postId', noStore());
   }
 
-  return jsonOk(await loadMoodComments(context, postId, {
-    before: url.searchParams.get('before') ?? undefined,
-  }), noStore());
+  return jsonOk(loadMoodCommentsFixture(postId), noStore());
 }
 
 function liveCountsFixtureResponse(url: URL): Response {
@@ -252,7 +252,7 @@ export async function createE2EApiFixtureResponse(context: FixtureContext): Prom
     return liveCountsFixtureResponse(url);
   }
   if (url.pathname === MOOD_PUBLIC_COMMENTS_PATH) {
-    return commentsFixtureResponse(context, url);
+    return commentsFixtureResponse(url);
   }
   if (url.pathname === `${API_PREFIX}${INSTAGRAM_PROFILE_PATH}`) {
     return instagramProfileFixtureResponse(url);

@@ -1,27 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  getFirstImage,
   getFirstImageMeta,
   getInlineMediaPreview,
   getQuotePreview,
-  getRelatedLinks,
   getTextPreview,
   getTextPreviewHtml,
 } from '../../src/features/mood/shared/utils';
 
-describe('getFirstImage', () => {
-  test('extracts video poster when no img exists', () => {
-    const content = `
-      <video
-        src="/static/https://cdn5.telesco.pe/file/example.mp4"
-        poster="/static/https://cdn5.telesco.pe/file/example-poster.jpg"
-        controls="true"
-      ></video>
-    `;
-
-    expect(getFirstImage(content)).toBe('/static/https://cdn5.telesco.pe/file/example-poster.jpg');
-  });
-
+describe('getFirstImageMeta', () => {
   test('marks sticker images as sticker media', () => {
     const content = '<img class="sticker" src="/static/sticker.webp" alt="Sticker" loading="lazy" />';
 
@@ -47,27 +33,7 @@ describe('getFirstImage', () => {
   });
 });
 
-describe('video-only feed preview heuristic', () => {
-  test('can prefer a static image for empty-text video posts', () => {
-    const content = `
-      <video
-        src="/static/https://cdn5.telesco.pe/file/example.mp4"
-        poster="/static/https://cdn5.telesco.pe/file/example-poster.jpg"
-        controls="true"
-      ></video>
-    `;
-
-    const mediaPreview = getInlineMediaPreview(content);
-    const previewText = getTextPreview({ text: '', content });
-    const firstImage = getFirstImage(content);
-    const preferStaticImagePreview = mediaPreview?.type === 'video' && !previewText.trim() && Boolean(firstImage);
-
-    expect(mediaPreview?.type).toBe('video');
-    expect(previewText).toBe('');
-    expect(firstImage).toBe('/static/https://cdn5.telesco.pe/file/example-poster.jpg');
-    expect(preferStaticImagePreview).toBe(true);
-  });
-
+describe('getInlineMediaPreview', () => {
   test('keeps audio documents ahead of generic document previews', () => {
     const content = `
       <a class="tgme_widget_message_document_wrap" href="https://t.me/tutumood/4106">
@@ -156,7 +122,6 @@ describe('getQuotePreview', () => {
       '我是爱因斯坦',
     ].join('');
 
-    expect(getFirstImage(content)).toBe('https://image.buxx.me/mood/1000/0');
     expect(getFirstImageMeta(content)).toMatchObject({
       src: 'https://image.buxx.me/mood/1000/0',
       fallbackSrc: null,
@@ -209,30 +174,5 @@ describe('getQuotePreview', () => {
     expect(quote).not.toBeNull();
     expect(quote?.href).toBe('/mood/3408');
     expect(quote?.thumbnailSrc).toBe('/static/https:/cdn5.telesco.pe/file/reply-video-thumb.jpg');
-  });
-});
-
-describe('getRelatedLinks', () => {
-  test('skips inline anchors and internal site links for newsletters', () => {
-    const links = getRelatedLinks(
-      {
-        content: [
-          '<p><a href="https://example.org/article">inline source</a></p>',
-          '<p>https://buxx.me/mood/123</p>',
-          '<p>https://example.net/plain</p>',
-          '<img src="https://image.buxx.me/mood/123/0" alt="" />',
-        ].join(''),
-      },
-      {
-        baseUrl: 'https://buxx.me',
-        excludeInlineAnchors: true,
-        excludeInternalLinks: true,
-      }
-    );
-
-    expect(links).toEqual([
-      { url: 'https://image.buxx.me/mood/123/0', type: 'image' },
-      { url: 'https://example.net/plain', type: 'link' },
-    ]);
   });
 });

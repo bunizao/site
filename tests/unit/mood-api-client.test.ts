@@ -1,16 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  loadMoodArchiveWithFallback,
-  loadMoodComments,
   loadMoodDocument,
   loadMoodFeed,
-  loadMoodProbe,
+  resolveMoodReadSource,
 } from '../../src/features/mood/server/api-client';
 import type {
-  MoodCommentsPage,
   MoodContentDocument,
   MoodFeedResponse,
-  MoodProbeResult,
 } from '@bunizao/contracts';
 
 function createContext(locals: Record<string, unknown> = {}) {
@@ -21,24 +17,19 @@ function createContext(locals: Record<string, unknown> = {}) {
 }
 
 describe('mood API client', () => {
-  test('falls back to the live reader when an archive request fails', async () => {
-    const warnings: unknown[][] = [];
-    const originalWarn = console.warn;
-    console.warn = (...args: unknown[]) => warnings.push(args);
-
+  test('the read source is the explicit option, else MOOD_READ_SOURCE, else live', () => {
+    // bun exposes .env files through process.env, which outranks locals.
+    const previous = process.env.MOOD_READ_SOURCE;
+    delete process.env.MOOD_READ_SOURCE;
     try {
-      expect(await loadMoodArchiveWithFallback(
-        'feed',
-        async () => {
-          throw new Error('archive unavailable');
-        },
-        async () => 'live result',
-      )).toBe('live result');
+      const archiveLocals = { env: { MOOD_READ_SOURCE: 'archive' } };
+      expect(resolveMoodReadSource(archiveLocals, 'live')).toBe('live');
+      expect(resolveMoodReadSource(archiveLocals)).toBe('archive');
+      expect(resolveMoodReadSource({ env: {} })).toBe('live');
     } finally {
-      console.warn = originalWarn;
+      if (previous === undefined) delete process.env.MOOD_READ_SOURCE;
+      else process.env.MOOD_READ_SOURCE = previous;
     }
-
-    expect(warnings[0]?.[0]).toBe('Mood archive feed failed; falling back to live reader.');
   });
 
   test('routes explicit archive mood reads through the private API binding', async () => {
@@ -87,27 +78,11 @@ describe('mood API client', () => {
       commentsCount: 2,
       channel: feed.channel,
     };
-    const comments: MoodCommentsPage = {
-      comments: [{
-        id: '990000',
-        author: 'Tester',
-        datetime: '2026-06-14T00:01:00.000Z',
-        content: 'Comment',
-        reactions: [],
-      }],
-      hasMore: false,
-      nextBefore: '',
-    };
-    const probe: MoodProbeResult = { latestId: '990001' };
     const api = {
       async fetch(input: RequestInfo | URL) {
         const request = input instanceof Request ? input : new Request(input);
         const url = new URL(request.url);
         paths.push(`${url.pathname}${url.search}`);
-
-        if (url.pathname === '/v2/mood' && url.searchParams.get('probe') === 'true') {
-          return Response.json(probe);
-        }
 
         if (url.pathname === '/v2/mood') {
           return Response.json(feed);
@@ -115,10 +90,6 @@ describe('mood API client', () => {
 
         if (url.pathname === '/v2/mood/990001') {
           return Response.json(document);
-        }
-
-        if (url.pathname === '/v2/mood/990001/comments') {
-          return Response.json(comments);
         }
 
         return Response.json({ error: 'unexpected path' }, { status: 404 });
@@ -133,18 +104,12 @@ describe('mood API client', () => {
       fallback: false,
     });
     const documentResult = await loadMoodDocument(context, '990001', { source: 'archive' });
-    const commentsResult = await loadMoodComments(context, '990001', { before: '990000', source: 'archive' });
-    const probeResult = await loadMoodProbe(context, { source: 'archive' });
 
     expect(feedResult.posts[0]?.media[0]?.type).toBe('video');
     expect(documentResult?.id).toBe('990001');
-    expect(commentsResult.comments[0]?.id).toBe('990000');
-    expect(probeResult.latestId).toBe('990001');
     expect(paths).toEqual([
       '/v2/mood?fresh=true&limit=1&fallback=0',
       '/v2/mood/990001?fallback=0',
-      '/v2/mood/990001/comments?before=990000',
-      '/v2/mood?probe=true&fresh=true',
     ]);
   });
 
@@ -242,12 +207,8 @@ describe('mood API client', () => {
 
     const feed = await loadMoodFeed(context, { limit: 1, source: 'archive' });
     const document = await loadMoodDocument(context, feed.posts[0]?.id ?? '990001', { source: 'archive' });
-    const comments = await loadMoodComments(context, feed.posts[0]?.id ?? '990001', { source: 'archive' });
-    const probe = await loadMoodProbe(context, { source: 'archive' });
 
     expect(feed.posts.length).toBeGreaterThan(0);
     expect(document?.id).toBe(feed.posts[0]?.id);
-    expect(Array.isArray(comments.comments)).toBe(true);
-    expect(probe.latestId).toBeTruthy();
   });
 });
