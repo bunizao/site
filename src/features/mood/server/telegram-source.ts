@@ -1545,6 +1545,9 @@ async function getCommentsCount(
     commentsCountCache.set(cacheKey, count);
     return count;
   } catch (error) {
+    // Cache the failure briefly so a slow or failing t.me embed does not
+    // re-issue one subrequest per post on every list read.
+    commentsCountCache.set(cacheKey, 0, { ttl: 60_000 });
     console.error('Failed to fetch comments count:', error);
     return 0;
   }
