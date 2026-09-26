@@ -4,9 +4,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
-// Each case builds a fixture and waits out a ~2s evidence deadline in headless
-// Chromium; on a slow shared runner that overran bun's 5s default. The 2.7s
-// deadline the tests assert is the contract, not this harness limit.
+// The evidence deadline runs on the page clock, so no case waits it out in
+// real time; the headroom is for a cold Chromium on a slow shared runner.
 setDefaultTimeout(30_000);
 
 let browser: Browser;
@@ -59,11 +58,12 @@ afterAll(async () => {
   if (directory) await rm(directory, { recursive: true, force: true });
 });
 
-type Mode = 'normal' | 'module' | 'storage' | 'fingerprint' | 'late-rejection';
+type Mode = 'normal' | 'module' | 'storage' | 'fingerprint';
 
 async function fixture(mode: Mode, run: (page: Page, posts: Record<string, unknown>[], errors: string[]) => Promise<void>) {
   const context = await browser.newContext();
   const page = await context.newPage();
+  await page.clock.install();
   const posts: Record<string, unknown>[] = [];
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -94,11 +94,13 @@ async function fixture(mode: Mode, run: (page: Page, posts: Record<string, unkno
     await page.evaluate((mode) => {
       localStorage.setItem('blog:reaction-pass-until', String(Date.now() + 3_600_000));
       if (mode === 'storage') Object.defineProperty(window, 'indexedDB', { value: { open: () => ({}) } });
-      if (mode === 'fingerprint' || mode === 'late-rejection') {
+      // A probe that stalls past the deadline and then fails: the rejection
+      // must land on nobody.
+      if (mode === 'fingerprint') {
         Object.defineProperty(navigator, 'userAgentData', {
           value: {
             getHighEntropyValues: () => new Promise((_, reject) => {
-              if (mode === 'late-rejection') setTimeout(() => reject(new Error('late probe failure')), 2_200);
+              setTimeout(() => reject(new Error('late probe failure')), 2_200);
             }),
           },
         });
@@ -117,11 +119,13 @@ describe('optional comment evidence', () => {
     test(`sends a reaction within the shared deadline when ${mode} stalls`, async () => {
       await fixture(mode, async (page, posts, errors) => {
         await page.evaluate(() => (window as any).evidenceReview.mount());
-        const started = Date.now();
-        const response = page.waitForResponse((one) => one.url().endsWith('/api/v2/reactions/toggle'), { timeout: 2_700 });
+        const response = page.waitForResponse((one) => one.url().endsWith('/api/v2/reactions/toggle'), { timeout: 2_000 });
         await page.locator('.blog-react__card').click();
+        await page.clock.runFor(2_000);
         await response;
-        expect(Date.now() - started).toBeLessThan(2_700);
+        // Past the deadline, where the stalled fingerprint probe rejects.
+        await page.clock.runFor(300);
+        await page.evaluate(() => 0);
         expect(posts).toHaveLength(1);
         expect(posts[0]).not.toHaveProperty('clientFp');
         expect(posts[0]).not.toHaveProperty('storageId');
@@ -207,19 +211,6 @@ describe('optional comment evidence', () => {
         }
       });
       expect(pendingTimers).toBe(0);
-      expect(errors).toEqual([]);
-    });
-  });
-
-  test('handles a probe rejection after the deadline without delaying the write', async () => {
-    await fixture('late-rejection', async (page, posts, errors) => {
-      await page.evaluate(() => (window as any).evidenceReview.mount());
-      const response = page.waitForResponse((one) => one.url().endsWith('/api/v2/reactions/toggle'));
-      await page.locator('.blog-react__card').click();
-      await response;
-      await page.waitForTimeout(350);
-      expect(posts).toHaveLength(1);
-      expect(posts[0]).not.toHaveProperty('clientFp');
       expect(errors).toEqual([]);
     });
   });

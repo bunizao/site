@@ -8,6 +8,13 @@
 
 import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { loadTurnstileScript } from '@/lib/turnstile-script';
+import {
+  getTurnstileToken,
+  releaseTurnstileToken,
+  setTurnstileHost,
+} from '@/features/comments/client/turnstile-token';
+
+const TURNSTILE_ACTION = 'notify_subscribe';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -69,10 +76,8 @@ function setupPanel(panel: HTMLElement): void {
   const anchor = panel.dataset.anchor === 'left' ? 'left' : 'right';
   const siteKey = panel.dataset.turnstileSiteKey || '';
   const supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  setTurnstileHost(TURNSTILE_ACTION, turnstileContainer);
 
-  let turnstileWidgetId: string | null = null;
-  let tokenPromise: Promise<string> | null = null;
-  let settleToken: ((token: string) => void) | null = null;
   let isSubmitting = false;
   let isOpen = false;
   let hoverCloseTimer: number | null = null;
@@ -159,49 +164,12 @@ function setupPanel(panel: HTMLElement): void {
     submit.disabled = isSubmitting;
   };
 
-  const requestToken = (): Promise<string> => {
-    if (!siteKey) return Promise.resolve('');
-    if (tokenPromise) return tokenPromise;
-    tokenPromise = new Promise<string>((resolve) => {
-      settleToken = resolve;
-      const settle = (token: string) => settleToken?.(token || '');
-      void loadTurnstileScript().then((turnstile) => {
-        if (!turnstile) {
-          settle('');
-          return;
-        }
-        if (turnstileWidgetId === null) {
-          turnstileWidgetId = turnstile.render(turnstileContainer, {
-            sitekey: siteKey,
-            action: 'notify_subscribe',
-            appearance: 'interaction-only',
-            callback: settle,
-            'expired-callback': () => settle(''),
-            'error-callback': () => settle(''),
-            'timeout-callback': () => settle(''),
-            'before-interactive-callback': () => turnstileContainer.classList.add('has-widget'),
-            'after-interactive-callback': () => turnstileContainer.classList.remove('has-widget'),
-          });
-        } else {
-          turnstile.reset(turnstileWidgetId);
-        }
-      });
-    });
-    return tokenPromise;
-  };
-
-  const releaseToken = () => {
-    tokenPromise = null;
-    settleToken = null;
-    turnstileContainer.classList.remove('has-widget');
-  };
-
   const resetForm = () => {
     showView('form');
     errorMsg.textContent = '';
     successText.textContent = t.success;
     isSubmitting = false;
-    releaseToken();
+    releaseTurnstileToken(TURNSTILE_ACTION);
     submitSpinner.classList.add('is-hidden');
     submit.removeAttribute('aria-busy');
     syncGate();
@@ -210,8 +178,7 @@ function setupPanel(panel: HTMLElement): void {
   const openPanel = ({ focusEmail = true } = {}) => {
     isOpen = true;
     if (!email.value) {
-      const known = readReaderEmail();
-      if (known) email.value = known.email;
+      email.value = readReaderEmail() ?? '';
     }
     clearHoverTimer();
     positionPanel();
@@ -321,7 +288,7 @@ function setupPanel(panel: HTMLElement): void {
     syncGate();
     submit.setAttribute('aria-busy', 'true');
     submitSpinner.classList.remove('is-hidden');
-    const token = await requestToken();
+    const token = await getTurnstileToken(siteKey, TURNSTILE_ACTION);
 
     try {
       const response = await fetch('/api/notify/subscribe', {
@@ -338,7 +305,7 @@ function setupPanel(panel: HTMLElement): void {
       const data = (await response.json().catch(() => ({}))) as { status?: string; code?: string; error?: string };
 
       if (response.ok) {
-        rememberReaderEmail(value, 'subscribe');
+        rememberReaderEmail(value);
         successText.textContent = data.status === 'already_subscribed' ? t.already : t.success;
         showView('success');
       } else if (response.status === 429) {
@@ -353,7 +320,7 @@ function setupPanel(panel: HTMLElement): void {
       errorText.textContent = t.network;
       showView('error');
     } finally {
-      releaseToken();
+      releaseTurnstileToken(TURNSTILE_ACTION);
       isSubmitting = false;
       submit.removeAttribute('aria-busy');
       submitSpinner.classList.add('is-hidden');

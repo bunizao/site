@@ -40,7 +40,7 @@ describe('api prefetch', () => {
     expect(prefetchScript(['/api/x?q=</script>'])).not.toContain('</script>');
   });
 
-  test('URL builders match the shapes the controllers used to inline', () => {
+  test('URL builders percent-encode post ids and cursors', () => {
     expect(blogCommentsUrl('a b')).toBe('/api/v2/comments?post=a%20b&limit=20');
     expect(blogCommentsUrl('p', 'c/1')).toBe('/api/v2/comments?post=p&before=c%2F1&limit=20');
     expect(reactionsUrl(['post:p', 'comment:c'])).toBe('/api/v2/reactions?targets=post%3Ap%2Ccomment%3Ac');

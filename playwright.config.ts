@@ -14,6 +14,7 @@ export default defineConfig({
   // Preview smoke targets a deployed preview; locally it would only re-run
   // other specs against fixtures.
   testIgnore: remoteBaseURL ? [] : ['**/preview-smoke.pw.ts'],
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: false,
   workers: Number(process.env.E2E_WORKERS || 1),
   retries: process.env.CI ? 2 : 0,

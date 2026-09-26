@@ -24,6 +24,9 @@ describe('shared Turnstile script readiness', () => {
   test('waits for the API when another consumer inserted the script first', async () => {
     const page = await browser.newPage();
     try {
+      // An empty script, so the API appears only when the test defines it and
+      // the real Cloudflare file can never win the race offline or online.
+      await page.route('https://challenges.cloudflare.com/**', (route) => route.fulfill({ body: '', contentType: 'text/javascript' }));
       await page.setContent('<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"></script>');
       const result = await page.evaluate(async (moduleSource) => {
         const moduleUrl = URL.createObjectURL(new Blob([moduleSource], { type: 'text/javascript' }));

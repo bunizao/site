@@ -13,35 +13,31 @@ const { locale } = Astro.props;
 const SAMPLE = {
   zh: {
     postTitle: '少一层，而不是多一层',
-    replier: 'Nina Kato',
     parent: '所以判断标准是“调用它的人可以不知道什么”，而不是省了多少行？',
-    reply: '对，而且这条标准还有个副作用：它逼你把生命周期不同的东西拆开。你那三件事之所以能塞进一层，正是因为没人问过这个问题。',
   },
   en: {
     postTitle: 'One layer fewer, not one more',
-    replier: 'Nina Kato',
     parent: 'So the test is what the caller gets to not know, rather than how many lines it saved?',
-    reply: 'Right — and it has a side effect: it forces you to split things whose lifecycles differ. Your three jobs only fit in one layer because nobody asked the question.',
   },
 } as const;
+// The real mail never names the replier or quotes the reply: it tells the
+// reader that there is an answer and where, and the thread page shows it.
 const copy = {
   zh: {
-    subject: (replier: string) => `${replier} 回复了你的评论`,
+    subject: '有人回复了你的评论',
     title: '你的评论收到了新回复。',
-    body: (postTitle: string) => `您在《${postTitle}》下发布的评论有了新的回复：`,
+    body: (postTitle: string) => `有人回复了你在《${postTitle}》下的评论。点击下方按钮查看完整对话。`,
     yourComment: '你的评论',
-    reply: (replier: string) => `${replier} 的回复`,
-    button: '查看完整对话',
+    button: '查看回复',
     muteLink: '静音这个对话',
     settingsLink: '提醒设置',
   },
   en: {
-    subject: (replier: string) => `${replier} replied to your comment`,
+    subject: 'Someone replied to your comment',
     title: 'Someone replied to your comment.',
-    body: (postTitle: string) => `Your comment on “${postTitle}” has a new reply:`,
+    body: (postTitle: string) => `Your comment on “${postTitle}” has a new reply. Open the thread to read it.`,
     yourComment: 'Your comment',
-    reply: (replier: string) => `${replier} replied`,
-    button: 'View the thread',
+    button: 'Read the reply',
     muteLink: 'Mute this conversation',
     settingsLink: 'Notification settings',
   },
@@ -54,7 +50,7 @@ const s = SAMPLE[locale];
   <div class="reader-mail-preview__chrome">
     <div>
       <span>Subject</span>
-      <strong data-reader-reply-subject>{t.subject(s.replier)}</strong>
+      <strong data-reader-reply-subject>{t.subject}</strong>
     </div>
     <div>
       <span>From</span>
@@ -75,10 +71,6 @@ const s = SAMPLE[locale];
       <h3>{t.title}</h3>
       <p class="reader-mail__body">{t.body(s.postTitle)}</p>
       <p class="reader-mail__quote"><b>{t.yourComment}</b>{s.parent}</p>
-      <div class="reader-mail__answer">
-        <b>{t.reply(s.replier)}</b>
-        <p>{s.reply}</p>
-      </div>
       <a class="reader-mail__button" href="/blog">{t.button}</a>
       {/* Two labels, no sentences: the narrow off switch and the page with
           the global one. Long enough to underline a whole sentence is long
@@ -179,41 +171,6 @@ const s = SAMPLE[locale];
 
   .reader-mail[lang='zh'] .reader-mail__body { line-height: 1.78; }
 
-  .reader-mail__panel {
-    margin: 20px 32px 0;
-    padding: 4px 18px;
-    border-radius: 12px;
-    background: #f4f4f5;
-  }
-
-  .reader-mail__panel dl { margin: 0; }
-  .reader-mail__panel > dl > div {
-    padding: 13px 0;
-    border-top: 1px solid rgba(10, 10, 10, 0.06);
-  }
-
-  .reader-mail__panel > dl > div:first-child { border-top: none; }
-
-  .reader-mail__panel dt {
-    color: #18181b;
-    font-size: 13.5px;
-    font-weight: 600;
-    line-height: 1.5;
-  }
-
-  .reader-mail__panel dd {
-    margin: 2px 0 0;
-    color: #6f6f76;
-    font-size: 13.5px;
-    line-height: 1.6;
-  }
-
-  .reader-mail[lang='zh'] .reader-mail__panel dd { line-height: 1.7; }
-
-  /* The parent and the reply are one thread, not a quote and then a box.
-     Two hairlines of different weight say which is which, and drop a
-     container -- the grey panel was a second frame around content the
-     hairline was already framing. */
   .reader-mail__quote {
     margin: 18px 32px 0;
     padding: 0 0 0 14px;
@@ -224,30 +181,6 @@ const s = SAMPLE[locale];
   }
 
   .reader-mail__quote b { display: block; font-weight: 600; padding-bottom: 2px; }
-
-  .reader-mail__answer {
-    margin: 16px 32px 0;
-    padding: 0 0 0 14px;
-    border-left: 2px solid rgba(10, 10, 10, 0.32);
-  }
-
-  .reader-mail__answer b {
-    display: block;
-    padding-bottom: 4px;
-    color: #18181b;
-    font-size: 13.5px;
-    font-weight: 600;
-    line-height: 1.5;
-  }
-
-  .reader-mail__answer p {
-    margin: 0;
-    color: #6f6f76;
-    font-size: 14.5px;
-    line-height: 1.6;
-  }
-
-  .reader-mail[lang='zh'] .reader-mail__answer p { line-height: 1.7; }
 
   .reader-mail__button {
     display: inline-block;
@@ -289,14 +222,8 @@ const s = SAMPLE[locale];
     .reader-mail-preview { background: #0a0a0a; }
     .reader-mail__card { background: #161618; }
     .reader-mail__brand, .reader-mail h3 { color: #fafafa; }
-    .reader-mail__body, .reader-mail__panel dd { color: #a1a1aa; }
-    .reader-mail__panel { background: rgba(255, 255, 255, 0.045); }
-    .reader-mail__panel > dl > div { border-color: rgba(255, 255, 255, 0.07); }
-    .reader-mail__panel dt { color: #fafafa; }
+    .reader-mail__body { color: #a1a1aa; }
     .reader-mail__quote { color: #6e6e76; border-color: #444; }
-    .reader-mail__answer { border-color: rgba(255, 255, 255, 0.34); }
-    .reader-mail__answer b { color: #fafafa; }
-    .reader-mail__answer p { color: #a1a1aa; }
     .reader-mail__ignore, .reader-mail__footer, .reader-mail__brand i { color: #6e6e76; }
     .reader-mail__ignore { border-color: rgba(255, 255, 255, 0.08); }
     .reader-mail__button { border-color: #fafafa; background: #fafafa; color: #0a0a0a; }
@@ -305,7 +232,7 @@ const s = SAMPLE[locale];
   @media (max-width: 520px) {
     .reader-mail { padding: 18px 8px; }
     .reader-mail__brand { margin-inline: 22px; }
-    .reader-mail h3, .reader-mail__body, .reader-mail__panel, .reader-mail__quote,
-    .reader-mail__answer, .reader-mail__button, .reader-mail__ignore { margin-inline: 22px; }
+    .reader-mail h3, .reader-mail__body, .reader-mail__quote, .reader-mail__button,
+    .reader-mail__ignore { margin-inline: 22px; }
   }
 </style>

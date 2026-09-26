@@ -1,8 +1,16 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { chromium, type Browser, type Page } from '@playwright/test';
+import { load } from 'cheerio';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import type { AdminCommentActor, AdminCommentQuality } from '@bunizao/contracts';
+import ActorStrip from '@/features/admin/ui/ActorStrip';
+import CommentQuality from '@/features/admin/ui/CommentQuality';
+import { identityStatus, type IdentityStatus } from '@/features/admin/ui/IdentityBadge';
+import { DEMO_COMMENTS } from '@/features/admin/server/portal-demo';
 
 let browser: Browser;
 let directory: string;
@@ -17,30 +25,10 @@ beforeAll(async () => {
     import { createRoot } from '${root}/node_modules/react-dom/client.js';
     import BanDialog from '${root}/src/features/admin/ui/BanDialog.tsx';
     import BanOperations from '${root}/src/features/admin/ui/BanOperations.tsx';
-    import ActorStrip from '${root}/src/features/admin/ui/ActorStrip.tsx';
-    import CommentsQueue from '${root}/src/features/admin/ui/CommentsQueue.tsx';
-    import CommentQuality from '${root}/src/features/admin/ui/CommentQuality.tsx';
-    import { DEMO_COMMENTS } from '${root}/src/features/admin/server/portal-demo.ts';
     const root = createRoot(document.getElementById('root'));
     window.moderationReview = {
       ban: () => root.render(React.createElement(BanDialog, {source:{type:'ip24',value:'reviewed-subnet'},onClose:()=>{},onDone:()=>{}})),
       operations: () => root.render(React.createElement(BanOperations)),
-      queue: () => {
-        const comments = structuredClone(DEMO_COMMENTS.comments);
-        const legacy = structuredClone(comments[0]);
-        legacy.id = 'legacy-identity';
-        legacy.author = 'Legacy reader';
-        legacy.verified = true;
-        Object.assign(legacy.actor, {readerId:'legacy-reader',authAtWrite:undefined});
-        comments.push(legacy);
-        root.render(React.createElement(CommentsQueue,{initialComments:comments,status:'held',demo:true}));
-      },
-      actor: () => {
-        const actor = structuredClone(DEMO_COMMENTS.comments[0].actor);
-        Object.assign(actor,{readerId:'claimed-reader',authAtWrite:'anonymous',claimedAt:'2026-09-13T00:00:00Z',claimMethod:'confirmed'});
-        root.render(React.createElement(ActorStrip,{actor}));
-      },
-      quality: value => root.render(React.createElement(CommentQuality,{quality:value})),
     };
   `);
   const build = await Bun.build({ entrypoints: [entry], target: 'browser', format: 'esm', tsconfig: join(root, 'tsconfig.json') });
@@ -97,23 +85,6 @@ async function fixture(run: (page: Page, calls: Array<{ path: string; method: st
 }
 
 describe('reviewed moderation actions', () => {
-  test('identity filters distinguish verified sessions, claims and missing historical evidence', async () => {
-    await fixture(async (page, calls) => {
-      await page.evaluate(() => (window as any).moderationReview.queue());
-      const filter = page.getByLabel('Identity on this page');
-      await filter.waitFor();
-      expect(await page.getByRole('status').innerText()).toBe('Showing 4 of 4 loaded comments');
-      for (const [status, author] of [['verified', '老陈'], ['claimed', 'Wren'], ['anonymous', 'seo-growth-hub'], ['unknown', 'Legacy reader']]) {
-        await filter.selectOption(status!);
-        await page.waitForFunction((name) => document.querySelector('.portal-comment__name')?.textContent === name, author);
-        expect(await page.locator('.portal-comment').count()).toBe(1);
-        expect(await page.getByRole('status').innerText()).toBe('Showing 1 of 4 loaded comments');
-      }
-      expect(await page.locator('[data-identity="unknown"]').count()).toBeGreaterThan(0);
-      expect(calls).toHaveLength(0);
-    });
-  });
-
   test('previews only the selected source before an explicit ban write', async () => {
     await fixture(async (page, calls) => {
       await page.evaluate(() => (window as any).moderationReview.ban());
@@ -156,30 +127,43 @@ describe('reviewed moderation actions', () => {
       expect(calls[1]?.path).toBe('/dev/portal/api/admin/bans/operations/operation-a/restore');
     });
   });
+});
 
-  test('historical claims remain distinct from verification at writing', async () => {
-    await fixture(async (page) => {
-      await page.evaluate(() => (window as any).moderationReview.actor());
-      await page.locator('[data-provenance]').waitFor();
-      expect(await page.locator('[data-provenance]').innerText()).toBe('Anonymous when written · linked later by reader confirmation');
-      expect(await page.locator('[data-provenance]').getAttribute('data-provenance')).toBe('anonymous');
-    });
+function actorWith(fields: Partial<AdminCommentActor>): AdminCommentActor {
+  return { ...structuredClone(DEMO_COMMENTS.comments[0]!.actor), ...fields };
+}
+
+describe('identity provenance', () => {
+  test('an actor is verified only with a verified session at writing; claims and missing history read distinctly', () => {
+    const rows: Array<[Partial<AdminCommentActor>, IdentityStatus]> = [
+      [{ authAtWrite: 'verified', readerId: 'reader', claimedAt: null }, 'verified'],
+      [{ authAtWrite: 'verified', readerId: 'reader', claimedAt: '2026-09-13T00:00:00Z' }, 'verified'],
+      [{ authAtWrite: 'anonymous', readerId: 'reader', claimedAt: '2026-09-13T00:00:00Z' }, 'claimed'],
+      [{ authAtWrite: 'anonymous', readerId: null, claimedAt: null }, 'anonymous'],
+      // A reader id with no claim and no recorded session is not proof of anything.
+      [{ authAtWrite: undefined, readerId: 'legacy-reader', claimedAt: null }, 'unknown'],
+    ];
+    expect(rows.map(([fields]) => identityStatus(actorWith(fields)))).toEqual(rows.map(([, status]) => status));
   });
 
-  test('empty quality denominators do not imply zero failure rates', async () => {
-    await fixture(async (page) => {
-      await page.evaluate(() => (window as any).moderationReview.quality({
-        since: '2026-09-01T00:00:00Z', collectedSince: null,
-        available: { moderation: true, requests: true, clientReports: false },
-        moderation: { held: 0, reviewed: 0, released: 0, releasedShare: null },
-        requests: { attempts: 0, failures: 0, failureShare: null, authenticatedAttempts: 0, authenticatedFailures: 0, authenticatedFailureShare: null, outcomes: [] },
-        clientReports: { reports: 0, failures: 0, networkFailures: 0, challengedAttempts: 0, repeatedChallenges: 0, untrusted: true },
-      }));
-      await page.getByText('Held comments later approved', { exact: true }).waitFor();
-      const text = await page.locator('#root').innerText();
-      expect(text).toContain('No denominator');
-      expect(text).toContain('Browser reports have not been collected.');
-      expect(text).not.toContain('0.0%');
-    });
+  test('historical claims remain distinct from verification at writing', () => {
+    const actor = actorWith({ readerId: 'claimed-reader', authAtWrite: 'anonymous', claimedAt: '2026-09-13T00:00:00Z', claimMethod: 'confirmed' });
+    const provenance = load(renderToStaticMarkup(createElement(ActorStrip, { actor })))('[data-provenance]');
+    expect(provenance.text()).toBe('Anonymous when written · linked later by reader confirmation');
+    expect(provenance.attr('data-provenance')).toBe('anonymous');
   });
+});
+
+test('empty quality denominators do not imply zero failure rates', () => {
+  const quality: AdminCommentQuality = {
+    since: '2026-09-01T00:00:00Z', collectedSince: null,
+    available: { moderation: true, requests: true, clientReports: false },
+    moderation: { held: 0, reviewed: 0, released: 0, releasedShare: null },
+    requests: { attempts: 0, failures: 0, failureShare: null, authenticatedAttempts: 0, authenticatedFailures: 0, authenticatedFailureShare: null, outcomes: [] },
+    clientReports: { reports: 0, failures: 0, networkFailures: 0, challengedAttempts: 0, repeatedChallenges: 0, untrusted: true },
+  };
+  const text = load(renderToStaticMarkup(createElement(CommentQuality, { quality }))).text();
+  expect(text).toContain('No denominator');
+  expect(text).toContain('Browser reports have not been collected.');
+  expect(text).not.toContain('0.0%');
 });
