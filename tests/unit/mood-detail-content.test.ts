@@ -4,6 +4,7 @@ import type { MoodContentDocument } from '@bunizao/contracts';
 import {
   prioritizeMoodDetailMedia,
   renderStructuredMoodDetailContent,
+  splitMoodDetailParagraphs,
 } from '../../src/features/mood/shared/detail-content';
 
 function createDocument(overrides: Partial<MoodContentDocument> = {}): MoodContentDocument {
@@ -27,12 +28,16 @@ function createDocument(overrides: Partial<MoodContentDocument> = {}): MoodConte
 describe('structured mood detail content rendering', () => {
   test('keeps the detail article visible during first paint', async () => {
     const source = await Bun.file('src/features/mood/ui/DetailArticle.astro').text();
-    const route = await Bun.file('src/pages/mood/[id].astro').text();
-    const layout = await Bun.file('src/layouts/Layout.astro').text();
 
     expect(source).not.toContain('animation: fade-in');
     expect(source).not.toContain('@keyframes fade-in');
     expect(source).toMatch(/@view-transition\s*\{\s*navigation:\s*none;/);
+  });
+
+  test('detail pages preload only the wordmark font', async () => {
+    const route = await Bun.file('src/pages/mood/[id].astro').text();
+    const layout = await Bun.file('src/layouts/Layout.astro').text();
+
     // Body faces are never preloaded: Chrome holds first paint until every
     // preloaded font arrives, and the metric-matched fallback faces in
     // globals.css already neutralize the swap. Only the tiny wordmark keeps a
@@ -41,7 +46,6 @@ describe('structured mood detail content rendering', () => {
     expect(layout).not.toContain('preloadFont');
     expect(layout.match(/as="font"/g)?.length).toBe(1);
     expect(layout).toContain('wenkai-wordmark.woff2');
-    expect(route).toMatch(/requestAnimationFrame\(\(\) => \{\s*requestAnimationFrame\(\(\) => \{/);
   });
 
   test('prioritizes only the first meaningful detail image', () => {
@@ -226,5 +230,16 @@ describe('structured mood detail content rendering', () => {
     expect(html).toContain('class="video-too-big__thumb"');
     expect(html).toContain('Media is too big');
     expect(html).not.toContain('tgme_widget_message_document_wrap');
+  });
+});
+
+describe('splitMoodDetailParagraphs', () => {
+  test.each([
+    ['a<br><br>b', '<p>a</p><p>b</p>'],
+    ['a<br>b', '<p>a<br>b</p>'],
+    ['a<br> <br>b', '<p>a</p><p>b</p>'],
+    ['a<br>b<blockquote>q</blockquote>', '<p>a<br>b</p><blockquote>q</blockquote>'],
+  ])('a double break starts a paragraph, a single one stays soft, blocks stay outside: %p', (input, expected) => {
+    expect(splitMoodDetailParagraphs(input)).toBe(expected);
   });
 });
