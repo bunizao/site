@@ -210,8 +210,7 @@ function setupPanel(panel: HTMLElement): void {
   const openPanel = ({ focusEmail = true } = {}) => {
     isOpen = true;
     if (!email.value) {
-      const known = readReaderEmail();
-      if (known) email.value = known.email;
+      email.value = readReaderEmail() ?? '';
     }
     clearHoverTimer();
     positionPanel();
@@ -338,7 +337,7 @@ function setupPanel(panel: HTMLElement): void {
       const data = (await response.json().catch(() => ({}))) as { status?: string; code?: string; error?: string };
 
       if (response.ok) {
-        rememberReaderEmail(value, 'subscribe');
+        rememberReaderEmail(value);
         successText.textContent = data.status === 'already_subscribed' ? t.already : t.success;
         showView('success');
       } else if (response.status === 429) {

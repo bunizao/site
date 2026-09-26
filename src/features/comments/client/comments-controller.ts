@@ -2002,7 +2002,7 @@ export function initCommentsController(): void {
     // Also handed to the subscribe panel, which asks for the same address
     // (lib/reader-email.ts). The claim keeps the richer name+email record;
     // that one keeps the lowest common denominator both forms can use.
-    rememberReaderEmail(identity.email, 'comment');
+    rememberReaderEmail(identity.email);
     try {
       window.localStorage.setItem(CLAIMED_STORAGE_KEY, JSON.stringify(identity));
     } catch {
@@ -2019,7 +2019,7 @@ export function initCommentsController(): void {
     if (!known) return;
     for (const box of [compose, replyBox]) {
       const input = box?.querySelector<HTMLInputElement>('[data-compose-identity] input[type="email"]');
-      if (input && !input.value) input.value = known.email;
+      if (input && !input.value) input.value = known;
     }
   }
 

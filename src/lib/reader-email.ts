@@ -14,27 +14,14 @@
 
 const KEY = 'buxx:email';
 
-/** Where the address came from, kept only so a caller can tell whether the
-    reader has already done the other thing. */
-export type ReaderEmailSource = 'comment' | 'subscribe';
-
-export interface ReaderEmail {
-  email: string;
-  source: ReaderEmailSource;
-}
-
 /** Never throws: private-mode and blocked-storage browsers get null, and both
     call sites treat that as "ask normally". */
-export function readReaderEmail(): ReaderEmail | null {
+export function readReaderEmail(): string | null {
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<ReaderEmail>;
-    if (typeof parsed?.email !== 'string' || !parsed.email) return null;
-    return {
-      email: parsed.email,
-      source: parsed.source === 'subscribe' ? 'subscribe' : 'comment',
-    };
+    const parsed = JSON.parse(raw) as { email?: unknown } | null;
+    return typeof parsed?.email === 'string' && parsed.email ? parsed.email : null;
   } catch {
     return null;
   }
@@ -52,11 +39,11 @@ export function forgetReaderEmail(): void {
   }
 }
 
-export function rememberReaderEmail(email: string, source: ReaderEmailSource): void {
+export function rememberReaderEmail(email: string): void {
   const value = email.trim();
   if (!value) return;
   try {
-    window.localStorage.setItem(KEY, JSON.stringify({ email: value, source }));
+    window.localStorage.setItem(KEY, JSON.stringify({ email: value }));
   } catch {
     // Storage refused. The reader types it again next time; nothing else
     // depends on this having worked.
