@@ -131,7 +131,7 @@ describe('posts content provider', () => {
 
     expect(systems?.posts.map((post) => post.slug)).not.toContain('private-link-demo');
     expect(systems?.postCount).toBe(systems?.posts.length);
-    expect(archive?.archive.posts.map((post) => post.slug)).not.toContain('private-link-demo');
+    expect(archive?.posts.map((post) => post.slug)).not.toContain('private-link-demo');
   });
 
   test('hoists post directive metadata through the content boundary', async () => {

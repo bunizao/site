@@ -281,7 +281,7 @@ async function renderBlogTag(context: MarkdownRendererContext) {
 
   return markdownResult(buildTagArchiveAgentMarkdown(
     archive.tag,
-    archive.archive.posts,
+    archive.posts,
     context.site,
   ));
 }

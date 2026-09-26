@@ -11,7 +11,6 @@ import type {
 import type {
   ContentProvider,
   Post,
-  Tag,
   TagArchiveResult,
   TagDirectoryEntry,
 } from '../types';
@@ -80,10 +79,6 @@ export async function getPostBySlug(
   return transformPostContent(post, options.outputTarget);
 }
 
-export async function getAllPublicTags(): Promise<Tag[]> {
-  return getPostsProvider().getAllTags();
-}
-
 // Tag directory limited to public tags that actually carry posts. Internal tags
 // (#not-by-ai, #no-toc) and empty tags never get an archive route, so they must
 // not surface in the directory or homepage rail either.
@@ -96,7 +91,7 @@ export async function getPublicTagDirectory(): Promise<TagDirectoryEntry[]> {
 }
 
 export async function getTagArchive(slug: string): Promise<TagArchiveResult | null> {
-  const result = await getPostsProvider().getTagArchive(slug, 1, 9999);
+  const result = await getPostsProvider().getTagArchive(slug);
 
   if (!result || result.tag.visibility !== 'public') {
     return null;
