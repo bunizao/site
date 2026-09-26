@@ -11,6 +11,7 @@ const shouldReuseWebServer = process.env.E2E_REUSE_SERVER === '1';
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.pw.ts',
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: false,
   workers: Number(process.env.E2E_WORKERS || 1),
   retries: process.env.CI ? 2 : 0,
