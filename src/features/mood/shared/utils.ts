@@ -110,8 +110,7 @@ function getFirstPhotoWrapImageSrc($: cheerio.CheerioAPI): string | null {
   return extractBackgroundImageUrl(style) || null;
 }
 
-export function getFirstVideoPosterSrc(content: string | cheerio.CheerioAPI): string | null {
-  const $ = typeof content === 'string' ? cheerio.load(content) : content;
+export function getFirstVideoPosterSrc($: cheerio.CheerioAPI): string | null {
   const video = $('video[poster]')
     .toArray()
     .find((element) => {
@@ -235,8 +234,7 @@ function getFirstImageFallbackFromElement($: cheerio.CheerioAPI, image: Element)
   return fallbackSrc || null;
 }
 
-export function getFirstImageMeta(content: string | cheerio.CheerioAPI): MoodImageMeta {
-  const $ = typeof content === 'string' ? cheerio.load(content) : content;
+export function getFirstImageMeta($: cheerio.CheerioAPI): MoodImageMeta {
   const selectors = [
     '.image-preview-wrap img:not(.modal-img)',
     '.image-list-container img:not(.modal-img)',
@@ -399,8 +397,7 @@ function sanitizePreviewImageSrc(value: string): string {
 /**
  * Check if content contains media elements
  */
-export function hasMedia(content: string | cheerio.CheerioAPI): boolean {
-  const $ = typeof content === 'string' ? cheerio.load(content) : content;
+export function hasMedia($: cheerio.CheerioAPI): boolean {
 
   const hasValidImage = $('img')
     .toArray()
@@ -439,9 +436,8 @@ export function isLongContent(text: string): boolean {
  * Get inline media preview (video, audio, document, location, or bookmark)
  */
 export function getInlineMediaPreview(
-  content: string | cheerio.CheerioAPI
+  $: cheerio.CheerioAPI
 ): { type: 'video' | 'audio' | 'document' | 'location' | 'bookmark'; html: string } | null {
-  const $ = typeof content === 'string' ? cheerio.load(content) : content;
 
   const video = $('video').first();
   if (video.length) {
@@ -501,8 +497,7 @@ export function getTextPreview(
 /**
  * Check whether content contains emoji image media
  */
-export function hasEmojiImageMedia(content: string | cheerio.CheerioAPI): boolean {
-  const $ = typeof content === 'string' ? cheerio.load(content) : content;
+export function hasEmojiImageMedia($: cheerio.CheerioAPI): boolean {
 
   return $('img')
     .toArray()
@@ -768,10 +763,9 @@ const getReplyThumbnailSrc = (reply: cheerio.Cheerio<any>): string | undefined =
 };
 
 export function getQuotePreview(
-  content: string | cheerio.CheerioAPI,
+  $: cheerio.CheerioAPI,
   options: { channel?: string; channelTitle?: string; hdImageBase?: string } = {}
 ): QuoteData | null {
-  const $ = typeof content === 'string' ? cheerio.load(content) : content;
   const reply = $('.tgme_widget_message_reply').first();
   if (!reply.length) {
     const detailQuote = $('.mood-detail-quote, .mood-comment-quote, .mood-item-quote').first();

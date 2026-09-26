@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import * as cheerio from 'cheerio';
 import {
   getFirstImageMeta,
   getInlineMediaPreview,
@@ -11,7 +12,7 @@ describe('getFirstImageMeta', () => {
   test('marks sticker images as sticker media', () => {
     const content = '<img class="sticker" src="/static/sticker.webp" alt="Sticker" loading="lazy" />';
 
-    expect(getFirstImageMeta(content)).toMatchObject({
+    expect(getFirstImageMeta(cheerio.load(content))).toMatchObject({
       src: '/static/sticker.webp',
       kind: 'sticker',
     });
@@ -24,7 +25,7 @@ describe('getFirstImageMeta', () => {
       '</a>',
     ].join('');
 
-    expect(getFirstImageMeta(content)).toMatchObject({
+    expect(getFirstImageMeta(cheerio.load(content))).toMatchObject({
       src: 'https://cdn5.telesco.pe/file/photo.jpg',
       width: 800,
       height: 165,
@@ -44,28 +45,28 @@ describe('getInlineMediaPreview', () => {
       </a>
     `;
 
-    const mediaPreview = getInlineMediaPreview(content);
+    const mediaPreview = getInlineMediaPreview(cheerio.load(content));
 
     expect(mediaPreview?.type).toBe('audio');
     expect(mediaPreview?.html).toContain('voice.mp3');
   });
 
   test('extracts generic documents without affecting bookmark-only previews', () => {
-    const documentPreview = getInlineMediaPreview(`
+    const documentPreview = getInlineMediaPreview(cheerio.load(`
       <a class="tgme_widget_message_document_wrap" href="https://t.me/tutumood/4105">
         <div class="tgme_widget_message_document_icon accent_bg"></div>
         <div class="tgme_widget_message_document">
           <div class="tgme_widget_message_document_title accent_color">My Vibe.pdf</div>
         </div>
       </a>
-    `);
-    const bookmarkPreview = getInlineMediaPreview(`
+    `));
+    const bookmarkPreview = getInlineMediaPreview(cheerio.load(`
       <a class="bookmark-card" href="https://example.org/article">
         <span class="bookmark-card__content">
           <span class="bookmark-card__title">Article</span>
         </span>
       </a>
-    `);
+    `));
 
     expect(documentPreview?.type).toBe('document');
     expect(documentPreview?.html).toContain('My Vibe.pdf');
@@ -74,7 +75,7 @@ describe('getInlineMediaPreview', () => {
   });
 
   test('extracts location cards as inline previews', () => {
-    const mediaPreview = getInlineMediaPreview(`
+    const mediaPreview = getInlineMediaPreview(cheerio.load(`
       <a class="tgme_widget_message_location_wrap" href="https://foursquare.com/v/example">
         <div class="tgme_widget_message_location" style="background-image:url('/static/map.jpg')"></div>
         <div class="tgme_widget_message_location_info">
@@ -82,7 +83,7 @@ describe('getInlineMediaPreview', () => {
           <div class="tgme_widget_message_location_address">Macau</div>
         </div>
       </a>
-    `);
+    `));
 
     expect(mediaPreview?.type).toBe('location');
     expect(mediaPreview?.html).toContain('Mannings Venetian');
@@ -100,7 +101,7 @@ describe('getQuotePreview', () => {
       '卧槽记错时间了！',
     ].join('');
 
-    expect(getQuotePreview(content)).toEqual({
+    expect(getQuotePreview(cheerio.load(content))).toEqual({
       text: '哎想到今晚 meta 财报又睡不着了',
       href: '/mood/3420',
       thumbnailSrc: undefined,
@@ -122,7 +123,7 @@ describe('getQuotePreview', () => {
       '我是爱因斯坦',
     ].join('');
 
-    expect(getFirstImageMeta(content)).toMatchObject({
+    expect(getFirstImageMeta(cheerio.load(content))).toMatchObject({
       src: 'https://image.buxx.me/mood/1000/0',
       fallbackSrc: null,
       layout: null,
@@ -141,7 +142,7 @@ describe('getQuotePreview', () => {
       </a>
     `;
 
-    const quote = getQuotePreview(content, {
+    const quote = getQuotePreview(cheerio.load(content), {
       channel: 'tutumood',
       channelTitle: 'Levitating',
       hdImageBase: 'https://image.buxx.me',
@@ -165,7 +166,7 @@ describe('getQuotePreview', () => {
       </a>
     `;
 
-    const quote = getQuotePreview(content, {
+    const quote = getQuotePreview(cheerio.load(content), {
       channel: 'tutumood',
       channelTitle: 'Levitating',
       hdImageBase: 'https://image.buxx.me',
