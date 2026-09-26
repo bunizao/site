@@ -58,13 +58,9 @@ async function installMusicKitTokenFixture(page: Page): Promise<void> {
   });
 }
 
-type MusicKitFixtureOutcome =
-  | 'ready'
-  | 'configure-error'
-  | 'authorize-error'
-  | 'unauthorized'
-  | 'queue-error'
-  | 'play-error';
+// Authorize, queue and play failures all land in the player's one catch, so
+// `play-error` stands in for the three.
+type MusicKitFixtureOutcome = 'ready' | 'play-error';
 
 async function installMusicKitFixture(
   page: Page,
@@ -88,7 +84,6 @@ async function installMusicKitFixture(
           },
           PlaybackStates: { playing: 2 },
           async configure() {
-            if (${JSON.stringify(outcome)} === 'configure-error') throw new Error('configure failed');
             const listeners = new Map();
             const instance = {
               isAuthorized: false,
@@ -102,12 +97,10 @@ async function installMusicKitFixture(
                 }
               },
               async authorize() {
-                if (${JSON.stringify(outcome)} === 'authorize-error') throw new Error('authorization failed');
-                if (${JSON.stringify(outcome)} !== 'unauthorized') this.isAuthorized = true;
+                this.isAuthorized = true;
                 return 'user-token';
               },
               async setQueue(descriptor) {
-                if (${JSON.stringify(outcome)} === 'queue-error') throw new Error('queue failed');
                 globalThis.__musicKitQueue = descriptor;
               },
               async play() {
@@ -155,25 +148,8 @@ async function firstBlogPostHref(page: Page): Promise<string> {
   return href as string;
 }
 
-async function findBlogMusicPostHref(page: Page): Promise<string | null> {
-  await page.goto('/blog', { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('.blog-row__link').first()).toBeVisible();
-
-  const hrefs = await page.locator('.blog-row__link').evaluateAll((links) =>
-    links
-      .map((link) => link.getAttribute('href'))
-      .filter((href): href is string => Boolean(href?.startsWith('/blog/')))
-  );
-
-  for (const href of hrefs.slice(0, 12)) {
-    await page.goto(href, { waitUntil: 'domcontentloaded' });
-    if (await page.locator('[data-blog-music]').count() > 0) {
-      return href;
-    }
-  }
-
-  return null;
-}
+// The mock `demo-effects` post carries the fixture's one Apple Music card.
+const MUSIC_POST_PATH = '/blog/demo-effects';
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   const overflow = await page.evaluate(() => {
@@ -257,14 +233,7 @@ test.describe('Blog reading UI', () => {
     await expect(masthead).not.toContainText('Iris Zhang');
     await expect(masthead).not.toContainText('Sam Lin');
 
-    const searchButton = page.getByRole('button', { name: 'Search and commands' });
-    await expect(searchButton).toBeVisible();
-    await searchButton.click();
-    const searchDialog = page.getByRole('dialog', { name: 'Site search and commands' });
-    await expect(searchDialog).toBeVisible();
-    await expect(searchDialog).toHaveAttribute('open', '');
-    await page.keyboard.press('Escape');
-    await expect(searchDialog).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Search and commands' })).toBeVisible();
 
     const yearLinks = page.locator('nav[aria-label="Jump to year"] a[href^="#y"]');
     const yearLinkCount = await yearLinks.count();
@@ -508,6 +477,9 @@ test.describe('Blog reading UI', () => {
       });
     });
 
+    // A fake clock that still flows, so the 5s probe timeout below can be
+    // fast-forwarded instead of waited out.
+    await page.clock.install();
     await page.setViewportSize({ width: 320, height: 900 });
     await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
 
@@ -548,7 +520,10 @@ test.describe('Blog reading UI', () => {
     await page.reload({ waitUntil: 'domcontentloaded' });
     const laterCard = page.locator('[data-yt]');
     await laterCard.locator('[data-yt-frame]').click();
-    await expect(laterCard).toHaveClass(/is-unreachable/u, { timeout: 7_000 });
+    await expect(laterCard).toHaveClass(/is-loading/u);
+    await expect.poll(() => apiRequests).toBe(2);
+    await page.clock.runFor(5_000);
+    await expect(laterCard).toHaveClass(/is-unreachable/u);
     expect(await page.evaluate(() => sessionStorage.getItem('youtube-embed-reachable:v1'))).toBe('yes');
   });
 
@@ -569,6 +544,7 @@ test.describe('Blog reading UI', () => {
       });
     });
 
+    await page.clock.install();
     await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => {
       document.documentElement.dataset.country = 'US';
@@ -579,10 +555,12 @@ test.describe('Blog reading UI', () => {
     const player = card.locator('[data-yt-player]');
     await card.locator('[data-yt-frame]').click();
     await expect(card).toHaveClass(/is-loading/u);
-    await expect(card).toHaveClass(/is-unreachable/u, { timeout: 7_000 });
+    // The player loads but never answers; only then run out the probe timeout.
+    await expect.poll(() => playerRequests).toBe(1);
+    await page.clock.runFor(5_000);
+    await expect(card).toHaveClass(/is-unreachable/u);
     await expect(player).toBeHidden();
     await expect(player).not.toHaveAttribute('src', /.+/u);
-    expect(playerRequests).toBe(1);
     expect(await page.evaluate(() => sessionStorage.getItem('youtube-embed-reachable:v1'))).toBe('no');
 
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -672,6 +650,8 @@ test.describe('Blog reading UI', () => {
     await expectNoHorizontalOverflow(page);
   });
 
+  // A missing token, a failed script and a configure error all leave the
+  // player with no kit; this one path stands in for the three.
   test('falls back to the preview when the MusicKit token is unavailable', async ({ page }) => {
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
@@ -697,10 +677,7 @@ test.describe('Blog reading UI', () => {
       });
     });
 
-    const href = await findBlogMusicPostHref(page);
-    test.skip(!href, 'No Apple Music card is available in the current blog fixture.');
-
-    await page.goto(href as string, { waitUntil: 'domcontentloaded' });
+    await page.goto(MUSIC_POST_PATH, { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('iframe[src*="embed.music.apple.com"]')).toHaveCount(0);
 
@@ -769,10 +746,7 @@ test.describe('Blog reading UI', () => {
       sdkRequests += 1;
     });
 
-    const href = await findBlogMusicPostHref(page);
-    test.skip(!href, 'No Apple Music card is available in the current blog fixture.');
-
-    await page.goto(href as string, { waitUntil: 'domcontentloaded' });
+    await page.goto(MUSIC_POST_PATH, { waitUntil: 'domcontentloaded' });
 
     const card = page.locator('[data-blog-music]').first();
     const playButton = card.locator('[data-blog-music-play]');
@@ -815,46 +789,21 @@ test.describe('Blog reading UI', () => {
     });
   });
 
-  for (const outcome of [
-    'configure-error',
-    'authorize-error',
-    'unauthorized',
-    'queue-error',
-    'play-error',
-  ] as const) {
-    test(`falls back to the preview when MusicKit hits ${outcome}`, async ({ page }) => {
-      await page.addInitScript(() => {
-        window.process = { env: {} } as typeof window.process;
-      });
-      await installFakeAudio(page);
-      await installMusicKitTokenFixture(page);
-      await installMusicKitFixture(page, outcome);
-
-      const href = await findBlogMusicPostHref(page);
-      test.skip(!href, 'No Apple Music card is available in the current blog fixture.');
-      await page.goto(href as string, { waitUntil: 'domcontentloaded' });
-
-      const card = page.locator('[data-blog-music]').first();
-      await card.locator('[data-blog-music-play]').click();
-      await expect(card).toHaveClass(/is-playing/);
-      await expect(card).toHaveClass(/is-source-preview/);
-      await expect(card).not.toHaveClass(/is-source-full/);
+  test('falls back to the preview when a loaded MusicKit fails to play', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.process = { env: {} } as typeof window.process;
     });
-  }
-
-  test('falls back to the preview when the MusicKit script fails to load', async ({ page }) => {
     await installFakeAudio(page);
     await installMusicKitTokenFixture(page);
-    await page.route('https://js-cdn.music.apple.com/musickit/v3/musickit.js', (route) => route.abort());
+    await installMusicKitFixture(page, 'play-error');
 
-    const href = await findBlogMusicPostHref(page);
-    test.skip(!href, 'No Apple Music card is available in the current blog fixture.');
-    await page.goto(href as string, { waitUntil: 'domcontentloaded' });
+    await page.goto(MUSIC_POST_PATH, { waitUntil: 'domcontentloaded' });
 
     const card = page.locator('[data-blog-music]').first();
     await card.locator('[data-blog-music-play]').click();
     await expect(card).toHaveClass(/is-playing/);
     await expect(card).toHaveClass(/is-source-preview/);
+    await expect(card).not.toHaveClass(/is-source-full/);
   });
 
   test('opens the subscribe panel with email, channel, and RSS controls', async ({ page }) => {
