@@ -2467,6 +2467,48 @@ test.describe('Mood routes', () => {
       })
       .toBe(true);
 
+    // Telegram-origin comments carry an accessible origin marker.
+    await expect(
+      page.locator('[data-comments-list]').getByRole('img', { name: 'Written on Telegram' }).first()
+    ).toBeVisible();
+
+    // Back-to-top never covers the comment send button on narrow screens: it
+    // steps aside while the thread sits in its band. The fixture post is short
+    // and has no compose box, so the page is padded until the control's 600px
+    // threshold is reachable, and the thread stands in for the send button.
+    const desktopViewport = page.viewportSize();
+    await page.setViewportSize({ width: 700, height: 500 });
+    await page.locator('main.page-container').evaluate((main) => {
+      (main as HTMLElement).style.paddingTop = '2000px';
+    });
+    // The detail page scrolls the root, not a contained [data-page-scroller].
+    const threadTop = await page.locator('section.mood-comments').evaluate((thread) => {
+      return thread.getBoundingClientRect().top + window.scrollY;
+    });
+    const scrollRootTo = (top: number) => page.evaluate((nextTop) => {
+      window.scrollTo({ top: nextTop, behavior: 'instant' });
+      return new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+    }, top);
+    // Down first, then up: the control only shows while scrolling up.
+    const scrollUpTo = async (top: number) => {
+      await scrollRootTo(top + 100);
+      await scrollRootTo(top);
+    };
+    const backToTop = page.locator('[data-back-to-top]');
+
+    // Thread top 450px down a 500px screen: inside the control's bottom band.
+    await scrollUpTo(threadTop - 450);
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(600);
+    await expect(backToTop).not.toHaveClass(/is-visible/);
+    // The same upward scroll with the thread below the fold does show it.
+    await scrollUpTo(threadTop - 900);
+    await expect(backToTop).toHaveClass(/is-visible/);
+
+    if (desktopViewport) await page.setViewportSize(desktopViewport);
+    await scrollRootTo(0);
+
     await page.locator('[data-back-button]').click();
     await expect(page).toHaveURL(new RegExp(`/mood\\?${latestMoodId}$`));
   });
