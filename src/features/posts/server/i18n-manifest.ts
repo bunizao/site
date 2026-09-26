@@ -98,7 +98,7 @@ export async function readI18nManifest(locals: unknown, origin: string): Promise
     return assetManifestPromise;
   }
   if (!builtManifestPromise) {
-    builtManifestPromise = getAccessiblePosts({ outputTarget: 'web' })
+    builtManifestPromise = getAccessiblePosts()
       .then((posts) => createManifest(posts))
       .catch(() => null);
   }

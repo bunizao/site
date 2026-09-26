@@ -29,7 +29,7 @@ if (!archive) {
 
 const { tag, archive: { posts } } = archive;
 const groups = groupPostsByYear(posts);
-const otherLanguages = mapOtherLanguages(await getAccessiblePosts({ outputTarget: 'web' }));
+const otherLanguages = mapOtherLanguages(await getAccessiblePosts());
 const accent = tag.accentColor ?? 'var(--blog-accent)';
 ---
 

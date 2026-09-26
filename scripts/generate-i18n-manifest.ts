@@ -5,7 +5,7 @@ import { getAccessiblePosts } from '@/features/posts/server/content';
 import { createManifest } from '@/features/posts/server/i18n-manifest';
 
 const output = join(process.cwd(), 'dist/client/_i18n/posts.json');
-const posts = await getAccessiblePosts({ outputTarget: 'web' });
+const posts = await getAccessiblePosts();
 const manifest = createManifest(posts, { strict: true });
 
 await mkdir(dirname(output), { recursive: true });
