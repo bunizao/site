@@ -79,8 +79,8 @@ File: [`src/pages/static/[...path].ts`](https://github.com/bunizao/site/blob/mai
 
 | Guard | Behavior |
 | --- | --- |
-| Host allowlist | Telegram family plus the YouTube poster and avatar hosts. Every redirect hop is re-checked. |
-| Private network block | Localhost and private-range targets are rejected. |
+| Host allowlist | Telegram family and its subdomains, plus exact matches for the `PUBLIC_HD_IMAGE_URL` host, the legacy `image.buxx.me` host, and the YouTube poster and avatar hosts. Every redirect hop is re-checked. |
+| Loopback block | `localhost` and `127.0.0.1` are rejected even when configured as the HD image host. |
 | Redirect depth | At most three hops. |
 | Content type | Only `image/*`, `video/*`, `audio/*`, `font/*`; anything else is `415`. |
 | Rate limit | The shared in-memory limiter above, 240 / 60s. |

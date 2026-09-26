@@ -108,8 +108,12 @@ const normalizeTarget = (value: string): string => {
   return value;
 };
 
+// The retired HD image host. Old mood content still names it, and site-api's
+// email renderer routes such image URLs through this proxy.
+const LEGACY_HD_IMAGE_HOST = 'image.buxx.me';
+
 function getAllowedDomains(locals: any): string[] {
-  const domains = new Set(TELEGRAM_ALLOWED_DOMAINS);
+  const domains = new Set([...TELEGRAM_ALLOWED_DOMAINS, LEGACY_HD_IMAGE_HOST]);
   const hdImageUrl = readEnv(locals, 'PUBLIC_HD_IMAGE_URL');
 
   if (hdImageUrl) {
@@ -127,13 +131,14 @@ function getAllowedDomains(locals: any): string[] {
 }
 
 const isAllowedTargetHost = (url: URL, allowedDomains: string[]): boolean => {
-  if (['localhost', '127.0.0.1', '::1'].includes(url.hostname)) {
+  if (['localhost', '127.0.0.1'].includes(url.hostname)) {
     return false;
   }
+  if (allowedDomains.includes(url.hostname)) return true;
 
-  return allowedDomains.some(
-    (domain) => url.hostname === domain || url.hostname.endsWith(`.${domain}`)
-  );
+  // Only Telegram serves media from subdomains; every other host must match
+  // exactly, so the HD image host never admits its siblings (admin., api.).
+  return TELEGRAM_ALLOWED_DOMAINS.some((domain) => url.hostname.endsWith(`.${domain}`));
 };
 
 const fetchWithValidatedRedirects = async (
