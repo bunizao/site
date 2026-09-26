@@ -449,9 +449,14 @@ export async function buildGhostDataset(
   }
 
   if (runtimeConfig.mockContent) {
+    if (!runtimeConfig.isConfigured) {
+      return buildMockDataset();
+    }
+
     try {
       return await loadGhostDataset(options);
     } catch {
+      console.warn('Failed to load Ghost content; using mock posts.');
       return buildMockDataset();
     }
   }
