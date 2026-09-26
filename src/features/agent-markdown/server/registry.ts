@@ -80,7 +80,7 @@ function matchBlogPost(pathname: string): Record<string, string> | null {
 
   const slug = safeDecode(match[2]);
   if (match[1] === undefined) {
-    if (slug === 'tags' || slug === 'rss.xml' || slug === 'search.json') return null;
+    if (slug === 'tags' || slug === 'rss.xml') return null;
     return { slug };
   }
 

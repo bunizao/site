@@ -111,7 +111,7 @@ export function resetI18nManifestForTests(): void {
 }
 
 export function isBlogPostPath(pathname: string): boolean {
-  return /^\/blog\/[^/]+\/?$/.test(pathname) && !/^\/blog\/(tag|rss\.xml|search\.json)(?:\/|$)/.test(pathname);
+  return /^\/blog\/[^/]+\/?$/.test(pathname) && !/^\/blog\/(tag|rss\.xml)(?:\/|$)/.test(pathname);
 }
 
 export function manifestEntryForPath(manifest: I18nManifest, pathname: string): { slug: string; entry: I18nManifestEntry } | null {
