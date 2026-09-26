@@ -2934,6 +2934,53 @@ test.describe('Mood routes', () => {
     await expect(page.locator('[data-comments-list] .mood-comment')).toHaveCount(0);
   });
 
+  // The row goes in before the request leaves, so a refusal has to take it
+  // back and hand the words to the box they were written in -- the same rule
+  // as the blog's draft restore.
+  test('a refused mood comment takes its row back and returns the draft', async ({ page, request }) => {
+    const latestMoodId = await getLatestMoodId(request);
+    test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+    await page.route('**/api/comments?postId=*', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ comments: [], hasMore: false, nextBefore: '' }),
+    }));
+    let releasePost!: () => void;
+    const postGate = new Promise<void>((resolve) => { releasePost = resolve; });
+    await page.route('**/api/v2/comments**', async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('/dwell-token')) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ token: 'dwell-token' }) });
+        return;
+      }
+      if (route.request().method() !== 'POST' || path !== '/api/v2/comments') {
+        await route.fallback();
+        return;
+      }
+      await postGate;
+      await route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'Too Many Requests' }) });
+    });
+
+    await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
+    const compose = page.locator('[data-mood-compose]');
+    // Set by the compose init, which runs two frames after load.
+    await expect(compose).toHaveAttribute('data-validate-wired', 'true');
+    await compose.locator('[data-compose-seed]').click();
+    await compose.locator('#mood-compose-name').fill('Reader');
+    await compose.locator('#mood-compose-text').fill('Give this back.');
+    await compose.locator('[data-compose-submit]').click();
+
+    const row = page.locator('[data-comments-list] .mood-comment').filter({ hasText: 'Give this back.' });
+    await expect(row).toHaveCount(1);
+    await expect(compose.locator('#mood-compose-text')).toHaveValue('');
+
+    releasePost();
+    await expect(row).toHaveCount(0);
+    await expect(compose.locator('#mood-compose-text')).toHaveValue('Give this back.');
+    await expect(compose.locator('[data-compose-error-code]')).toHaveText('RATE 429');
+  });
+
   test('loads more comments without duplicating existing entries', async ({ page, request }) => {
     const latestMoodId = await getLatestMoodId(request);
     test.skip(!latestMoodId, 'No mood id available from /api/moods');
