@@ -44,19 +44,12 @@ test.describe('blog translation URLs', () => {
     );
   });
 
-  // A translation's Ghost slug and the retired `?lang=` form are not addresses.
-  test('answers the retired forms with one permanent redirect', async ({ request }) => {
+  // The unit suite covers every retired form, `?lang=` included; this pins the
+  // one path it cannot reach: the dev manifest and middleware on a real request.
+  test('redirects a translation\'s Ghost slug once and serves the original unnegotiated', async ({ request }) => {
     const ghostSlug = await request.get('/blog/on-quiet-architecture', { maxRedirects: 0 });
     expect(ghostSlug.status()).toBe(301);
     expect(ghostSlug.headers().location).toBe('/blog/en/quiet-architecture');
-
-    const query = await request.get('/blog/quiet-architecture?lang=en&ref=tg', { maxRedirects: 0 });
-    expect(query.status()).toBe(301);
-    expect(query.headers().location).toBe('/blog/en/quiet-architecture?ref=tg');
-
-    const defaultLocale = await request.get('/blog/quiet-architecture?lang=zh', { maxRedirects: 0 });
-    expect(defaultLocale.status()).toBe(301);
-    expect(defaultLocale.headers().location).toBe('/blog/quiet-architecture');
 
     const original = await request.get('/blog/quiet-architecture', { maxRedirects: 0 });
     expect(original.status()).toBe(200);
