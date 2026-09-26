@@ -47,7 +47,7 @@ describe('Worker response cache boundary', () => {
         value: { default: { async match(request: Request) {
           if (new URL(request.url).searchParams.get('variant') !== 'markdown') return undefined;
           return new Response('# Cached Mood', { headers: {
-            'Content-Type': 'text/markdown', Vary: 'Accept', 'x-edge-cached-at': String(Date.now()),
+            'Content-Type': 'text/markdown', Vary: 'Accept',
           } });
         } } },
       });
@@ -85,7 +85,7 @@ describe('Worker response cache boundary', () => {
           async match(request: Request) {
             if (new URL(request.url).searchParams.get('variant') !== 'markdown') return undefined;
             return new Response('# Cached content', { headers: {
-              'Content-Type': 'text/markdown', Vary: 'Accept', 'x-edge-cached-at': String(Date.now()),
+              'Content-Type': 'text/markdown', Vary: 'Accept',
             } });
           },
           async put() {},

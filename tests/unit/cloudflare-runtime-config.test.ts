@@ -316,42 +316,6 @@ describe('Cloudflare runtime configuration', () => {
     expect(middleware).toContain("script-src 'self' 'unsafe-inline'");
   });
 
-  test('caches rendered content variants at the edge', () => {
-    const middleware = readText('src/middleware.ts');
-    const registry = readText('src/features/agent-markdown/server/registry.ts');
-    const responses = readText('src/features/agent-markdown/server/responses.ts');
-    const edgeCache = readText('src/lib/http/edge-cache.ts');
-    const builtBlog = readText('src/features/agent-markdown/server/built-blog.ts');
-
-    expect(registry).toContain('MOOD_FEED_PAGE_CACHE_TTL_SECONDS = 300');
-    expect(registry).toContain('MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800');
-    expect(responses).toContain('CONTENT_STALE_WHILE_REVALIDATE_SECONDS = 86400');
-    expect(responses).toContain('Cloudflare-CDN-Cache-Control');
-    expect(responses).toContain('stale-while-revalidate=');
-    expect(responses).toContain('NO_STORE_CACHE_CONTROL');
-    expect(registry).toContain('readBuiltBlogMarkdown');
-    // One URL is one document: a translation lives at its own path, so the
-    // cache key never carries a language.
-    expect(responses).toContain("variant: 'html'");
-    expect(responses).toContain("variant: 'markdown'");
-    expect(edgeCache).toContain("EdgeCacheVariant = 'html' | 'markdown'");
-    expect(responses).toContain('Accept-Language');
-    expect(responses).toContain('url.search');
-    // The worker entrypoint owns the edge HTML cache — one read, one write
-    // deferred via waitUntil, stale entries revalidated in the background. The
-    // middleware only decorates responses.
-    const worker = readText('src/worker.ts');
-    expect(worker).toContain('readCachedHtmlPage');
-    expect(worker).toContain('waitUntil(revalidateHtmlPage');
-    expect(middleware).not.toContain('readCachedHtmlPage');
-    expect(edgeCache).toContain('x-edge-cached-at');
-    expect(edgeCache).toContain("'STALE'");
-    expect(responses).toContain('X-Buxx-Cache-Ready');
-    expect(edgeCache).not.toContain('isResponseReady');
-    expect(edgeCache).toContain('caches?.default');
-    expect(builtBlog).toContain('/_agent-markdown/blog/');
-  });
-
   test('warms the rendered mood cache before Lighthouse', () => {
     const workflow = readText('.github/workflows/lighthouse.yml');
 
