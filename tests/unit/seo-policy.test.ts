@@ -58,7 +58,6 @@ describe('search indexing policy', () => {
       'src/pages/lab/glyph.astro',
       'src/pages/components/preview/mobile-toc.astro',
       'src/pages/components/preview/mood-wheel.astro',
-      'src/pages/probe-safe-area.astro',
       'src/pages/mood/embed.astro',
       'src/pages/message.astro',
       'src/pages/subscribe/manage.astro',
