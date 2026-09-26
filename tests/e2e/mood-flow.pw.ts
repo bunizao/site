@@ -207,6 +207,112 @@ async function disableNotifyNativeValidation(page: import('@playwright/test').Pa
   });
 }
 
+// /mood?1000 opens the ten-post bucket around 1000. Post 1001 sits above the
+// anchor with an undeclared-size image that lands 500ms late, and `after=1002`
+// answers with newer posts. Every scrollIntoView on a feed item is recorded in
+// window.__moodScrollIntoViewCalls.
+async function openShortQueryAnchorFeed(page: Page): Promise<{ afterRequests: string[] }> {
+  await page.addInitScript(() => {
+    const original = Element.prototype.scrollIntoView;
+    (window as any).__moodScrollIntoViewCalls = [];
+    Element.prototype.scrollIntoView = function patchedScrollIntoView(
+      arg?: boolean | ScrollIntoViewOptions
+    ) {
+      if (this instanceof HTMLElement && this.dataset.moodId) {
+        (window as any).__moodScrollIntoViewCalls.push({
+          id: this.dataset.moodId,
+          time: performance.now(),
+        });
+      }
+      return original.call(this, arg as any);
+    };
+  });
+
+  const shiftingImage = 'https://image.example.test/mood/1001/0';
+  const channel = {
+    slug: 'e2e',
+    title: 'E2E Channel',
+    description: 'E2E mood feed',
+    avatar: '',
+  };
+  const afterRequests: string[] = [];
+
+  await page.route('**/api/moods**', async (route) => {
+    const url = new URL(route.request().url());
+    const after = url.searchParams.get('after');
+    const before = url.searchParams.get('before');
+
+    if (after) {
+      afterRequests.push(after);
+    }
+
+    if (before === '1011') {
+      const imagePost = createMoodFeedPost('1001', 'E2E mood feed item 1001', {
+        image: shiftingImage,
+        imageHeight: null,
+        imageLayout: null,
+        imageWidth: null,
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          posts: [createMoodFeedPost('1002'), imagePost, createMoodFeedPost('1000'), createMoodFeedPost('999')],
+          channel,
+        }),
+      });
+      return;
+    }
+
+    if (after === '1002') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          posts: [createMoodFeedPost('1004'), createMoodFeedPost('1003'), createMoodFeedPost('1002')],
+          channel,
+        }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ posts: [], channel }),
+    });
+  });
+
+  await page.route('https://image.example.test/**', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1600"></svg>',
+    });
+  });
+
+  await page.goto('/mood?1000', { waitUntil: 'domcontentloaded' });
+  return { afterRequests };
+}
+
+// Two animation frames: observer callbacks and rAF-batched handlers have run
+// for whatever the page did before this call.
+async function waitForFrames(page: Page): Promise<void> {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+}
+
+async function waitForFeedImageLoad(page: Page, moodId: string): Promise<void> {
+  await expect.poll(() => page.locator(`[data-mood-id="${moodId}"] [data-mood-image-main]`).evaluate((node) => {
+    const image = node as HTMLImageElement;
+    return image.complete && image.naturalWidth > 0;
+  }), { timeout: 30_000 }).toBe(true);
+  // One frame for the thumb to reshape, one for anything reacting to it.
+  await waitForFrames(page);
+}
+
 test.describe('Mood routes', () => {
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -267,43 +373,52 @@ test.describe('Mood routes', () => {
     await expect(page).toHaveURL(new RegExp(`${href}$`));
   });
 
-  test('derives tall image limits from feed dimensions', async ({ page }) => {
-    const moodId = '9903623';
-    const imageUrl = 'https://image.example.test/mood/9903623/0';
+  test('feed thumbs reserve and then settle on their true ratio', async ({ page }) => {
+    // Unknown dimensions: the reserved frame keeps its height once the portrait lands.
+    const portraitId = '9903769';
+    const portraitUrl = 'https://image.example.test/mood/9903769/0';
+    // Declared dimensions without a layout: a tall image takes the capped ultra-tall frame.
+    const tallId = '9903623';
+    const tallUrl = 'https://image.example.test/mood/9903623/0';
     const payload = {
       posts: [
-        createMoodFeedPost(moodId, 'Tall image without layout metadata', {
-          image: imageUrl,
+        createMoodFeedPost(portraitId, 'Portrait with incomplete metadata', {
+          image: portraitUrl,
+          imageHeight: null,
+          imageLayout: null,
+          imageWidth: 225,
+        }),
+        createMoodFeedPost(tallId, 'Tall image without layout metadata', {
+          image: tallUrl,
           imageHeight: 2560,
           imageLayout: null,
           imageWidth: 1178,
         }),
       ],
-      channel: {
-        slug: 'e2e',
-        title: 'E2E Channel',
-      },
+      channel: { slug: 'e2e', title: 'E2E Channel' },
     };
+    let releasePortrait!: () => void;
+    const portraitGate = new Promise<void>((resolve) => {
+      releasePortrait = resolve;
+    });
 
     await page.route('**/api/moods**', async (route) => {
       const url = new URL(route.request().url());
-      if (url.searchParams.get('probe') === '1') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ latestId: moodId }),
-        });
-        return;
-      }
-
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(url.searchParams.get('probe') === '1' ? { latestId: portraitId } : payload),
       });
     });
-
-    await page.route(imageUrl, async (route) => {
+    await page.route(portraitUrl, async (route) => {
+      await portraitGate;
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="589" height="1280"></svg>',
+      });
+    });
+    await page.route(tallUrl, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'image/svg+xml',
@@ -311,57 +426,21 @@ test.describe('Mood routes', () => {
       });
     });
 
-    await page.goto('/mood');
-
-    const thumbnail = page.locator(`[data-mood-id="${moodId}"] .mood-item-thumb`);
-    await expect(thumbnail).toHaveClass(/mood-item-thumb--ultra-tall/);
-    await expect
-      .poll(async () => thumbnail.evaluate((element) => element.getBoundingClientRect().height))
-      .toBeLessThanOrEqual(400);
-  });
-
-  test('contains an unknown-dimension portrait inside a stable feed frame', async ({ page }) => {
-    const moodId = '9903769';
-    const imageUrl = 'https://image.example.test/mood/9903769/0';
-    const payload = {
-      posts: [createMoodFeedPost(moodId, 'Portrait with incomplete metadata', {
-        image: imageUrl,
-        imageHeight: null,
-        imageLayout: null,
-        imageWidth: 225,
-      })],
-      channel: { slug: 'e2e', title: 'E2E Channel' },
-    };
-    let releaseImage!: () => void;
-    const imageGate = new Promise<void>((resolve) => {
-      releaseImage = resolve;
-    });
-
-    await page.route('**/api/moods**', async (route) => {
-      const url = new URL(route.request().url());
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(url.searchParams.get('probe') === '1' ? { latestId: moodId } : payload),
-      });
-    });
-    await page.route(imageUrl, async (route) => {
-      await imageGate;
-      await route.fulfill({
-        status: 200,
-        contentType: 'image/svg+xml',
-        body: '<svg xmlns="http://www.w3.org/2000/svg" width="589" height="1280"></svg>',
-      });
-    });
-
     await page.goto('/mood', { waitUntil: 'domcontentloaded' });
-    const frame = page.locator(`[data-mood-id="${moodId}"] .mood-item-thumb`);
+
+    const tallThumb = page.locator(`[data-mood-id="${tallId}"] .mood-item-thumb`);
+    await expect(tallThumb).toHaveClass(/mood-item-thumb--ultra-tall/);
+    await expect
+      .poll(async () => tallThumb.evaluate((element) => element.getBoundingClientRect().height))
+      .toBeLessThanOrEqual(400);
+
+    const frame = page.locator(`[data-mood-id="${portraitId}"] .mood-item-thumb`);
     const image = frame.locator('[data-mood-image-main]');
     const before = await frame.boundingBox();
     expect(before).not.toBeNull();
     expect(before!.height).toBeGreaterThan(100);
 
-    releaseImage();
+    releasePortrait();
     await expect.poll(() => image.evaluate((node) => {
       const element = node as HTMLImageElement;
       return element.complete && element.naturalHeight > element.naturalWidth;
@@ -687,7 +766,17 @@ test.describe('Mood routes', () => {
     await page.goto(`/mood?${anchorId}`, { waitUntil: 'domcontentloaded' });
     const anchor = page.locator(`[data-mood-id="${anchorId}"]`);
     await expect(anchor).toBeVisible();
-    await page.waitForTimeout(1_500);
+    // Hover once the reveal has settled: the anchor is on screen and has not
+    // moved across two samples 100ms apart.
+    await expect
+      .poll(() => anchor.evaluate((element) => new Promise<boolean>((resolve) => {
+        const first = element.getBoundingClientRect();
+        setTimeout(() => {
+          const second = element.getBoundingClientRect();
+          resolve(second.top === first.top && second.top >= 0 && second.bottom <= window.innerHeight);
+        }, 100);
+      })), { timeout: 10_000 })
+      .toBe(true);
     await anchor.hover();
     await anchor.locator('.mood-item-expand-float').click();
     await expect(page).toHaveURL(new RegExp(`/mood/${anchorId}$`));
@@ -804,92 +893,8 @@ test.describe('Mood routes', () => {
     expect(Math.abs(afterTop - beforeTop)).toBeLessThanOrEqual(24);
   });
 
-  test('uses short query ids as bounded feed anchors without repeated scroll correction', async ({ page }) => {
-    await page.addInitScript(() => {
-      const original = Element.prototype.scrollIntoView;
-      (window as any).__moodScrollIntoViewCalls = [];
-      Element.prototype.scrollIntoView = function patchedScrollIntoView(
-        arg?: boolean | ScrollIntoViewOptions
-      ) {
-        if (this instanceof HTMLElement && this.dataset.moodId) {
-          (window as any).__moodScrollIntoViewCalls.push({
-            id: this.dataset.moodId,
-            time: performance.now(),
-          });
-        }
-        return original.call(this, arg as any);
-      };
-    });
-
-    const shiftingImage = 'https://image.example.test/mood/1001/0';
-    const channel = {
-      slug: 'e2e',
-      title: 'E2E Channel',
-      description: 'E2E mood feed',
-      avatar: '',
-    };
-    const afterRequests: string[] = [];
-    const beforeRequests: string[] = [];
-
-    await page.route('**/api/moods**', async (route) => {
-      const url = new URL(route.request().url());
-      const after = url.searchParams.get('after');
-      const before = url.searchParams.get('before');
-
-      if (after) {
-        afterRequests.push(after);
-      }
-      if (before) {
-        beforeRequests.push(before);
-      }
-
-      if (before === '1011') {
-        const imagePost = createMoodFeedPost('1001', 'E2E mood feed item 1001', {
-          image: shiftingImage,
-          imageHeight: null,
-          imageLayout: null,
-          imageWidth: null,
-        });
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            posts: [createMoodFeedPost('1002'), imagePost, createMoodFeedPost('1000'), createMoodFeedPost('999')],
-            channel,
-          }),
-        });
-        return;
-      }
-
-      if (after === '1002') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            posts: [createMoodFeedPost('1004'), createMoodFeedPost('1003'), createMoodFeedPost('1002')],
-            channel,
-          }),
-        });
-        return;
-      }
-
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ posts: [], channel }),
-      });
-    });
-
-    await page.route('https://image.example.test/**', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      await route.fulfill({
-        status: 200,
-        contentType: 'image/svg+xml',
-        body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1600"></svg>',
-      });
-    });
-
-    await page.goto('/mood?1000', { waitUntil: 'domcontentloaded' });
+  test('a short query id reveals its anchor with exactly one scroll and no newer fetch', async ({ page }) => {
+    const { afterRequests } = await openShortQueryAnchorFeed(page);
 
     await expect(page.locator('[data-mood-id="1001"]')).toBeVisible();
     await expect(page.locator('[data-mood-id="1000"]')).toBeVisible();
@@ -909,12 +914,31 @@ test.describe('Mood routes', () => {
       }, { timeout: 30_000 })
       .toBe(true);
 
-    await page.waitForTimeout(1200);
+    // The late image above the anchor is what could ask for a second
+    // correction, so the count is read once that image has settled.
+    await waitForFeedImageLoad(page, '1001');
     const anchorScrollCalls = await page.evaluate(() => (
       (window as any).__moodScrollIntoViewCalls as Array<{ id: string }>
     ).filter((call) => call.id === '1000').length);
     expect(anchorScrollCalls).toBe(1);
     expect(afterRequests).not.toContain('1002');
+  });
+
+  test('the anchor stays in the viewport after late media above it loads', async ({ page }) => {
+    await openShortQueryAnchorFeed(page);
+
+    await expect
+      .poll(async () => {
+        return page.locator('[data-mood-id="1000"]').evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.top >= 0 && rect.bottom <= window.innerHeight;
+        });
+      }, { timeout: 30_000 })
+      .toBe(true);
+
+    // Judged on the settled layout rather than after a fixed delay, so a slow
+    // machine that lands the image late is still measured after it lands.
+    await waitForFeedImageLoad(page, '1001');
     await expect
       .poll(async () => {
         return page.locator('[data-mood-id="1000"]').evaluate((element) => {
@@ -923,21 +947,6 @@ test.describe('Mood routes', () => {
         });
       }, { timeout: 10_000 })
       .toBe(true);
-
-    await scrollPageTo(page, 0);
-    await expect(page.locator('[data-mood-id="1003"]')).toBeVisible();
-
-    const updatedOrder = await page.locator('[data-mood-list] .mood-item').evaluateAll((items) => (
-      items.map((item) => (item as HTMLElement).dataset.moodId)
-    ));
-    expect(updatedOrder.indexOf('1003')).toBeLessThan(updatedOrder.indexOf('1002'));
-    expect(afterRequests).toContain('1002');
-    expect(beforeRequests).not.toContain('1021');
-
-    const dateGroupsHaveItems = await page.locator('.mood-date-group').evaluateAll((groups) => (
-      groups.every((group) => group.querySelectorAll('.mood-item').length > 0)
-    ));
-    expect(dateGroupsHaveItems).toBe(true);
   });
 
   test('hydrates anchored live metadata before the first visible positioning', async ({ page }) => {
@@ -1119,7 +1128,7 @@ test.describe('Mood routes', () => {
     expect(beforeRequests).toContain('3470');
   });
 
-  test('loads older moods when an anchored feed starts at the bottom boundary', async ({ page }) => {
+  test('an anchored feed loads older moods at its bottom boundary and newer moods at its top', async ({ page }) => {
     const anchorId = '1000';
     const channel = {
       slug: 'e2e',
@@ -1131,12 +1140,27 @@ test.describe('Mood routes', () => {
       const id = String(1017 - index);
       return createMoodFeedPost(id, `E2E anchored boundary item ${id} ${'body '.repeat(20)}`);
     });
+    const afterRequests: string[] = [];
     const beforeRequests: string[] = [];
 
     await page.route('**/api/moods**', async (route) => {
       const url = new URL(route.request().url());
+      const after = url.searchParams.get('after');
       const before = url.searchParams.get('before');
+      if (after) afterRequests.push(after);
       if (before) beforeRequests.push(before);
+
+      if (after === '1017') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            posts: [createMoodFeedPost('1019'), createMoodFeedPost('1018'), createMoodFeedPost('1017')],
+            channel,
+          }),
+        });
+        return;
+      }
 
       if (before === '1011') {
         await route.fulfill({
@@ -1189,6 +1213,22 @@ test.describe('Mood routes', () => {
 
     await expect(page.locator('[data-mood-id="999"]')).toBeVisible();
     expect(beforeRequests).toContain(anchorId);
+
+    await scrollPageTo(page, 0);
+    await expect(page.locator('[data-mood-id="1018"]')).toBeVisible();
+
+    const updatedOrder = await page.locator('[data-mood-list] .mood-item').evaluateAll((items) => (
+      items.map((item) => (item as HTMLElement).dataset.moodId)
+    ));
+    expect(updatedOrder.indexOf('1018')).toBeLessThan(updatedOrder.indexOf('1017'));
+    expect(afterRequests).toContain('1017');
+    // Newer posts come from `after=`, never from the bucket above the anchor's.
+    expect(beforeRequests).not.toContain('1021');
+
+    const dateGroupsHaveItems = await page.locator('.mood-date-group').evaluateAll((groups) => (
+      groups.every((group) => group.querySelectorAll('.mood-item').length > 0)
+    ));
+    expect(dateGroupsHaveItems).toBe(true);
   });
 
   test('loads older moods from intent captured before controller readiness', async ({ page }) => {
@@ -1852,8 +1892,10 @@ test.describe('Mood routes', () => {
     const video = page.locator(`[data-mood-id="${videoId}"] video`);
     await expect(video).toHaveCount(1);
     await expect(video).toHaveAttribute('data-mood-video-src', videoUrl);
+    // The visibility observer has reported by now; the off-screen video must
+    // still have no src, so nothing can have been requested.
+    await waitForFrames(page);
     expect(await video.getAttribute('src')).toBeNull();
-    await page.waitForTimeout(250);
     expect(requestedVideos).toHaveLength(0);
     await expect(video).not.toHaveAttribute('data-test-playback-state', 'playing');
 
@@ -2210,7 +2252,11 @@ test.describe('Mood routes', () => {
         element.textContent?.replace(/(.)\1+/g, '$1').replace(/\s+/g, ' ').trim() ?? ''
       )))
       .toContain('TOP');
-    await page.waitForTimeout(350);
+    await expect
+      .poll(() => page.locator('.timeline-notch.is-major.is-active').first().evaluate((element) => (
+        element.getBoundingClientRect().width
+      )))
+      .toBeGreaterThan(beforeHover.activeWidth);
 
     const afterHover = await page.evaluate(() => {
       const notches = Array.from(document.querySelectorAll<HTMLElement>('.timeline-notch.is-major'));
@@ -2412,6 +2458,8 @@ test.describe('Mood routes', () => {
       box.x + (box.width / 2),
       box.y + Math.min(box.height - 16, Math.max(16, box.height / 2))
     );
+    // Outlast the popover's 180ms close delay (feed-comments-popover.ts): the
+    // wait is the rule under test, not a settle sleep.
     await page.waitForTimeout(250);
     await expect(popover).toBeVisible();
 
@@ -3269,7 +3317,7 @@ test.describe('Mood routes', () => {
 
     const before = await readReactionStyle();
     await reaction.hover();
-    await page.waitForTimeout(200);
+    await waitForFrames(page);
     const after = await readReactionStyle();
 
     expect(after.background).toBe(before.background);
@@ -3289,69 +3337,71 @@ test.describe('Mood routes', () => {
     expect(redirected.searchParams.get('link')).toBe('false');
   });
 
-  test('applies embed query options to root attributes', async ({ page }) => {
-    await page.goto('/mood/embed?count=2&theme=dark&density=compact&font=system&frame=false&link=false');
+  test('embed honours theme, density and font options', async ({ page }) => {
+    await test.step('query options land on the root attributes', async () => {
+      await page.goto('/mood/embed?count=2&theme=dark&density=compact&font=system&frame=false&link=false');
 
-    await expect(page.locator('html')).toHaveAttribute('data-embed-theme', 'dark');
-    await expect(page.locator('html')).toHaveAttribute('data-embed-density', 'compact');
-    await expect(page.locator('html')).toHaveAttribute('data-embed-font', 'system');
-    await expect(page.locator('html')).toHaveAttribute('data-embed-frame', 'false');
+      await expect(page.locator('html')).toHaveAttribute('data-embed-theme', 'dark');
+      await expect(page.locator('html')).toHaveAttribute('data-embed-density', 'compact');
+      await expect(page.locator('html')).toHaveAttribute('data-embed-font', 'system');
+      await expect(page.locator('html')).toHaveAttribute('data-embed-frame', 'false');
 
-    await expect
-      .poll(async () => {
-        const cards = await page.locator('.embed-card').count();
-        if (cards > 0) return true;
-        return await page.locator('.empty-state').isVisible();
-      })
-      .toBe(true);
-  });
-
-  test('keeps embed channel and rich text on mono while honoring density', async ({ page }) => {
-    await page.goto('/mood/embed?count=1&theme=light&density=regular&link=false');
-    const regular = await page.locator('.mood-item-text, .mood-item-quote, .empty-state').first().evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        fontFamily: style.fontFamily,
-        fontSize: style.fontSize,
-      };
-    });
-    const channel = await page.locator('.channel-name').first().evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        fontFamily: style.fontFamily,
-        text: element.textContent?.trim() ?? '',
-      };
+      await expect
+        .poll(async () => {
+          const cards = await page.locator('.embed-card').count();
+          if (cards > 0) return true;
+          return await page.locator('.empty-state').isVisible();
+        })
+        .toBe(true);
     });
 
-    await page.goto('/mood/embed?count=1&theme=light&density=compact&font=mono&link=false');
-    const compact = await page.locator('.mood-item-text, .mood-item-quote, .empty-state').first().evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        fontFamily: style.fontFamily,
-        fontSize: style.fontSize,
-      };
+    await test.step('channel and rich text stay on mono while density sets the size', async () => {
+      await page.goto('/mood/embed?count=1&theme=light&density=regular&link=false');
+      const regular = await page.locator('.mood-item-text, .mood-item-quote, .empty-state').first().evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+        };
+      });
+      const channel = await page.locator('.channel-name').first().evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          fontFamily: style.fontFamily,
+          text: element.textContent?.trim() ?? '',
+        };
+      });
+
+      await page.goto('/mood/embed?count=1&theme=light&density=compact&font=mono&link=false');
+      const compact = await page.locator('.mood-item-text, .mood-item-quote, .empty-state').first().evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+        };
+      });
+
+      expect(channel.text.length).toBeGreaterThan(0);
+      expect(channel.fontFamily.toLowerCase()).toContain('jetbrains mono');
+      expect(regular.fontFamily.toLowerCase()).toContain('jetbrains mono');
+      expect(regular.fontSize).toBe('14px');
+      expect(compact.fontFamily.toLowerCase()).toContain('jetbrains mono');
+      expect(compact.fontSize).toBe('13px');
     });
 
-    expect(channel.text.length).toBeGreaterThan(0);
-    expect(channel.fontFamily.toLowerCase()).toContain('jetbrains mono');
-    expect(regular.fontFamily.toLowerCase()).toContain('jetbrains mono');
-    expect(regular.fontSize).toBe('14px');
-    expect(compact.fontFamily.toLowerCase()).toContain('jetbrains mono');
-    expect(compact.fontSize).toBe('13px');
-  });
+    await test.step('a transparent auto embed stays readable on a light host', async () => {
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await page.goto('/mood/embed?count=1&theme=auto&frame=false&link=false');
 
-  test('keeps transparent auto embeds readable on light hosts', async ({ page }) => {
-    await page.emulateMedia({ colorScheme: 'dark' });
-    await page.goto('/mood/embed?count=1&theme=auto&frame=false&link=false');
+      await expect(page.locator('html')).toHaveAttribute('data-embed-theme', 'auto');
+      await expect(page.locator('html')).toHaveAttribute('data-embed-frame', 'false');
 
-    await expect(page.locator('html')).toHaveAttribute('data-embed-theme', 'auto');
-    await expect(page.locator('html')).toHaveAttribute('data-embed-frame', 'false');
-
-    await expect
-      .poll(async () => page.locator('.embed-card, .empty-state').first().evaluate((element) => {
-        return getComputedStyle(element).color;
-      }))
-      .toBe('rgb(0, 0, 0)');
+      await expect
+        .poll(async () => page.locator('.embed-card, .empty-state').first().evaluate((element) => {
+          return getComputedStyle(element).color;
+        }))
+        .toBe('rgb(0, 0, 0)');
+    });
   });
 
   test('renders embed galleries with feed image styling', async ({ page }) => {
