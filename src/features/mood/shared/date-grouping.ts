@@ -125,13 +125,22 @@ export function rekeyMoodServerRenderedGroups(list: HTMLElement, options: RekeyO
   if (orderedItems.length === 0) return;
 
   // Rewrite every rendered time to local and collect each item's local key.
+  // An item without a parseable date joins the current run (or the first run
+  // when it leads the feed): skipping it would let the cleanup below remove
+  // it together with an emptied server group.
   const runs: Array<{ key: string; items: HTMLElement[] }> = [];
+  const leadingUndated: HTMLElement[] = [];
   orderedItems.forEach((item) => {
     const keySource = item.querySelector<HTMLTimeElement>('.mood-item-time')
       ?? item.querySelector<HTMLTimeElement>('time[datetime]');
     const datetime = keySource?.getAttribute('datetime') ?? '';
     const key = formatMoodDateKey(datetime);
-    if (!key) return;
+    if (!key) {
+      const currentRun = runs[runs.length - 1];
+      if (currentRun) currentRun.items.push(item);
+      else leadingUndated.push(item);
+      return;
+    }
 
     item.querySelectorAll<HTMLTimeElement>('time[datetime]').forEach((timeEl) => {
       const localTime = formatMoodTime(timeEl.getAttribute('datetime') ?? '');
@@ -147,6 +156,7 @@ export function rekeyMoodServerRenderedGroups(list: HTMLElement, options: RekeyO
   });
 
   if (runs.length === 0) return;
+  runs[0].items.unshift(...leadingUndated);
 
   // Reuse the existing group shells for the first runs, minting new ones only
   // when the local timezone produced more groups than the server rendered.
