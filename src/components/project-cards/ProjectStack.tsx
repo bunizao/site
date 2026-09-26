@@ -1134,20 +1134,21 @@ export default function ProjectStack({ className }: { className?: string }) {
     return () => window.clearTimeout(t);
   }, [shouldReduce]);
 
-  // Slow auto-advance, suspended while hovered or while the gallery is open.
+  // Slow auto-advance: only after the entrance, while the deck is on screen in
+  // a visible tab, and suspended while hovered or while the gallery is open.
+  // Rendered as `data-autoplay`, so the markup always states the pause rule.
+  const autoplay =
+    !shouldReduce &&
+    hasEntered &&
+    stackActive &&
+    !paused &&
+    galleryIndex == null &&
+    projects.length > 1;
   useEffect(() => {
-    if (
-      shouldReduce ||
-      !hasEntered ||
-      !stackActive ||
-      paused ||
-      galleryIndex != null ||
-      projects.length < 2
-    )
-      return;
+    if (!autoplay) return;
     const t = window.setTimeout(advance, autoAdvanceMs);
     return () => window.clearTimeout(t);
-  }, [shouldReduce, hasEntered, stackActive, paused, galleryIndex, order]);
+  }, [autoplay, order]);
 
   useEffect(() => () => window.clearTimeout(dealTimer.current), []);
 
@@ -1304,6 +1305,7 @@ export default function ProjectStack({ className }: { className?: string }) {
     <LazyMotion features={loadDomMax}>
       <div
         data-project-stack={mounted ? "hydrated" : "ssr"}
+        data-autoplay={autoplay ? "on" : "off"}
         className={cn("relative mx-auto w-full", className)}
         style={{ maxWidth: cardMax + 40 }}
         onPointerEnter={() => setPaused(true)}

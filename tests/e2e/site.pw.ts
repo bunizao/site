@@ -415,42 +415,32 @@ test.describe('Home page', () => {
     await expect(activeCard.locator('img[aria-hidden="true"][alt=""]')).not.toHaveCount(0);
   });
 
-  test('pauses and resumes homepage ambient animation offscreen', async ({ page }) => {
+  test('project deck autoplay pauses offscreen and resumes on return', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    const contributions = Array.from({ length: 30 }, (_, index) => ({
-      date: `2026-02-${String(index + 1).padStart(2, '0')}`,
-      count: (index % 5) + 1,
-      level: 1,
-    }));
-    await page.route('**/api/github/contributions**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ total: { lastYear: 321 }, contributions }),
-      });
-    });
+    // The fake clock still flows in real time; fastForward skips the 1s
+    // entrance and the 5.5s advance instead of sleeping through them.
+    await page.clock.install();
     await page.goto('/');
 
-    const contributionSection = page.locator('[data-contributions]');
-    await expect(contributionSection).toHaveClass(/is-breathing-active/, { timeout: 5_000 });
     const projects = page.locator('#projects-section');
+    const deck = projects.locator('[data-project-stack="hydrated"]');
     await projects.scrollIntoViewIfNeeded();
-    await expect(contributionSection).toHaveClass(/is-breathing/);
-    await expect(contributionSection).not.toHaveClass(/is-breathing-active/);
+    await expect(deck).toHaveCount(1);
+    await page.clock.fastForward(1_000);
+    await expect(deck).toHaveAttribute('data-autoplay', 'on');
 
-    const currentProject = projects.locator('[aria-current="true"]');
-    const projectBefore = await currentProject.getAttribute('aria-label');
+    const current = projects.locator('[aria-current="true"]');
+    const before = (await current.getAttribute('aria-label'))!;
+
     await page.locator('#writing-section').scrollIntoViewIfNeeded();
-    await page.waitForTimeout(5_800);
-    expect(await currentProject.getAttribute('aria-label')).toBe(projectBefore);
-
-    await contributionSection.scrollIntoViewIfNeeded();
-    await expect(contributionSection).toHaveClass(/is-breathing-active/);
+    await expect(deck).toHaveAttribute('data-autoplay', 'off');
+    await page.clock.fastForward(6_000);
+    await expect(current).toHaveAttribute('aria-label', before);
 
     await projects.scrollIntoViewIfNeeded();
-    await expect
-      .poll(() => currentProject.getAttribute('aria-label'), { timeout: 7_000 })
-      .not.toBe(projectBefore);
+    await expect(deck).toHaveAttribute('data-autoplay', 'on');
+    await page.clock.fastForward(6_000);
+    await expect(current).not.toHaveAttribute('aria-label', before);
   });
 
   test('cleans up theme transitions after switching', async ({ page }) => {
@@ -720,7 +710,7 @@ test.describe('Home page', () => {
     expect(maxVisibleSkeletons).toBe(1);
   });
 
-  test('loads GitHub contributions and shows tooltip details', async ({ page }) => {
+  test('renders contributions after the hero, shows tooltips and breathes only while in view', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.addInitScript(() => {
       const chain = {
@@ -792,6 +782,13 @@ test.describe('Home page', () => {
     await expect(tooltip).toHaveClass(/is-visible/);
     await expect(page.locator('[data-tooltip-count]')).toContainText('contribution');
     await expect(page.locator('[data-tooltip-date]')).not.toHaveText('');
+
+    await expect(section).toHaveClass(/is-breathing-active/);
+    await page.locator('#projects-section').scrollIntoViewIfNeeded();
+    await expect(section).toHaveClass(/is-breathing/);
+    await expect(section).not.toHaveClass(/is-breathing-active/);
+    await section.scrollIntoViewIfNeeded();
+    await expect(section).toHaveClass(/is-breathing-active/);
   });
 
   test('keeps listening metadata responsive for short and long tracks', async ({ page }) => {
