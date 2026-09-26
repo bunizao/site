@@ -30,10 +30,7 @@ interface AstroWorker {
 const siteWorker = astroWorker as AstroWorker;
 
 function createLocals(env: WorkerEnv): App.Locals {
-  return {
-    env,
-    runtime: { env },
-  } as App.Locals;
+  return { env } as App.Locals;
 }
 
 function resolveSiteUrl(request: Request, env: WorkerEnv): URL {

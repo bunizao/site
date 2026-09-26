@@ -35,24 +35,9 @@ export async function getApiServiceBinding(
   locals: RuntimeEnvLocals | undefined,
   readCloudflareEnv: CloudflareEnvReader = readCloudflareWorkersEnv
 ): Promise<ApiServiceBinding | null> {
-  const directBinding = locals?.env?.API;
+  const directBinding = readRuntimeEnvSource(locals)?.API;
   if (isApiServiceBinding(directBinding)) {
     return directBinding;
-  }
-
-  let binding: unknown;
-  try {
-    binding = locals?.runtime?.env?.API;
-  } catch {
-    binding = undefined;
-  }
-
-  if (!binding) {
-    binding = readRuntimeEnvSource(locals)?.API;
-  }
-
-  if (isApiServiceBinding(binding)) {
-    return binding;
   }
 
   const cloudflareBinding = (await readCloudflareEnv())?.API;

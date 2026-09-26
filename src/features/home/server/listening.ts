@@ -10,9 +10,6 @@ export interface ListeningResult {
 }
 
 interface RuntimeLocals {
-  runtime?: {
-    env?: Record<string, unknown>;
-  };
   env?: Record<string, unknown>;
 }
 

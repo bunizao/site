@@ -16,12 +16,8 @@ export interface RateLimitState {
   result: RateLimitResult;
 }
 
-export function withRateLimit(
-  request: Request,
-  options: RateLimitOptions,
-  locals?: any
-): RateLimitState {
-  const result = checkRateLimit(request, options, locals);
+export function withRateLimit(request: Request, options: RateLimitOptions): RateLimitState {
+  const result = checkRateLimit(request, options);
   return {
     allowed: result.allowed,
     headers: createRateLimitHeaders(result),

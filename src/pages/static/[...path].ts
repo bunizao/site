@@ -459,7 +459,6 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
   const rateLimit = checkRateLimit(
     request,
     { windowMs: 60_000, max: 240, prefix: 'api:static-proxy' },
-    locals
   );
   const rateLimitHeaders = createRateLimitHeaders(rateLimit);
   if (!rateLimit.allowed) {
@@ -520,7 +519,6 @@ export const HEAD: APIRoute = async ({ request, params, locals }) => {
   const rateLimit = checkRateLimit(
     request,
     { windowMs: 60_000, max: 240, prefix: 'api:static-proxy' },
-    locals
   );
   const rateLimitHeaders = createRateLimitHeaders(rateLimit);
   if (!rateLimit.allowed) {

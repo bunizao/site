@@ -5,11 +5,9 @@ import type { ChannelInfo, Post } from '../../src/features/mood/server/legacy-ty
 const context = {
   request: new Request('http://localhost:4321'),
   locals: {
-    runtime: {
-      env: {
-        CHANNEL: 'tutumood',
-        PUBLIC_HD_IMAGE_URL: 'https://image.buxx.me',
-      },
+    env: {
+      CHANNEL: 'tutumood',
+      PUBLIC_HD_IMAGE_URL: 'https://image.buxx.me',
     },
   },
 };
@@ -17,10 +15,8 @@ const context = {
 const contextWithoutHdImages = {
   request: new Request('http://localhost:4321'),
   locals: {
-    runtime: {
-      env: {
-        CHANNEL: 'tutumood',
-      },
+    env: {
+      CHANNEL: 'tutumood',
     },
   },
 };

@@ -250,19 +250,6 @@ describe('api service proxy', () => {
     }
   });
 
-  test('falls back to runtime env when direct locals env lacks the binding', async () => {
-    const api = createApiBinding(() => new Response('ok'));
-    const response = await proxyApiRequest(new Request('https://buxx.me/api/health'), {
-      env: {},
-      runtime: {
-        env: { API: api },
-      },
-    });
-
-    expect(response.status).toBe(200);
-    expect(await response.text()).toBe('ok');
-  });
-
   test('falls back to the Cloudflare Workers env binding', async () => {
     const api = createApiBinding(() => new Response('ok'));
     const binding = await getApiServiceBinding({ env: {} }, async () => ({ API: api }));
