@@ -268,7 +268,9 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
     email: identity.email,
     turnstileToken,
     website: readWebsite(box),
-    dwellToken: await mintDwellToken(),
+    // The held one, never a fresh mint: a token minted as the request leaves
+    // is milliseconds old, and the service silently drops a write that fast.
+    dwellToken,
     notifyReplies: false,
     locale: readLocale(box),
     ...(await submittedEvidence),
@@ -277,7 +279,6 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
   const response = await postJson<CommentCreateResult>('/api/v2/comments', input);
   releaseTurnstileToken(TURNSTILE_ACTION);
   warmTurnstileToken(turnstileSiteKey, TURNSTILE_ACTION);
-  void mintDwellToken(true);
   setSubmitEnabled(box, true);
 
   if (!response.ok) {
@@ -371,26 +372,24 @@ async function upgradeWhenVerdictLands(postId: string, commentId: string): Promi
 }
 
 // ---------------------------------------------------------------------------
-// Dwell token -- same 24h-lifetime, mint-once-per-page-load contract as the
-// blog's. A comment posted seconds after the page loaded is a real fast
-// reader, not a bot filling the box the instant it appeared, and only a
-// token minted at THIS page load can prove that.
+// Dwell token -- the blog's contract. Minted at page load and kept across
+// submits, so a fast follow-up comment still carries the page's real age.
+// The service refuses a token past 24h, so any focus in the box re-mints one
+// older than 20h: a tab left open overnight posts in the morning. Never at
+// submit -- a token that young is exactly what the silent drop catches.
 // ---------------------------------------------------------------------------
 
 let dwellToken = '';
 let dwellTokenMintedAt = 0;
 const DWELL_TOKEN_REFRESH_AGE_MS = 20 * 60 * 60 * 1000;
 
-async function mintDwellToken(force = false): Promise<string> {
-  if (!force && dwellToken && Date.now() - dwellTokenMintedAt < DWELL_TOKEN_REFRESH_AGE_MS) {
-    return dwellToken;
-  }
+async function mintDwellToken(): Promise<void> {
+  if (dwellToken && Date.now() - dwellTokenMintedAt < DWELL_TOKEN_REFRESH_AGE_MS) return;
   const result = await fetchJson<{ token: string }>('/api/v2/comments/dwell-token');
   if (result) {
     dwellToken = result.token;
     dwellTokenMintedAt = Date.now();
   }
-  return dwellToken;
 }
 
 // ---------------------------------------------------------------------------
@@ -454,6 +453,7 @@ export function initMoodCommentCompose(): void {
   box.addEventListener('pointerdown', warm, { once: true });
   box.addEventListener('focusin', warm, { once: true });
   box.addEventListener('focusin', armEvidence, { once: true });
+  box.addEventListener('focusin', () => void mintDwellToken());
 
   // `enterkeyhint="next"` promises the iOS keyboard moves on to the next
   // field. There is no <form> here, so nothing would honour that promise --

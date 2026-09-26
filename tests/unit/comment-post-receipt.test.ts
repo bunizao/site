@@ -51,9 +51,17 @@ describe('mood: the row is the receipt', () => {
       moodCompose.indexOf('const response = await postJson'),
     );
     expect(pressToPost).toContain('insertGhostComment(ghostKey');
-    // Both of these cost seconds and neither may come first.
     expect(pressToPost.indexOf('insertGhostComment')).toBeLessThan(pressToPost.indexOf('getTurnstileToken'));
-    expect(pressToPost.indexOf('insertGhostComment')).toBeLessThan(pressToPost.indexOf('mintDwellToken'));
+  });
+
+  test('the write sends the dwell token held since load, never one minted at submit', () => {
+    // A token minted as the request leaves is milliseconds old, and the
+    // service silently drops a write that fast.
+    const pressToPost = moodCompose.slice(
+      moodCompose.indexOf('async function handleSubmit'),
+      moodCompose.indexOf('const response = await postJson'),
+    );
+    expect(pressToPost).not.toContain('mintDwellToken');
   });
 
   test('the write carries the same browser evidence as the blog', () => {

@@ -336,6 +336,9 @@ export function initCommentsController(): void {
     warmCreate();
     armEvidence();
     void ensureOwnSeed();
+    // Free while the token is young. A tab left open past its day re-mints
+    // here, as the reader starts writing, never at Post.
+    void mintDwellToken();
   });
 
   // Build the "loaded" shell up front -- state="loading" carries neither the
@@ -609,7 +612,6 @@ export function initCommentsController(): void {
     // twice should not pay the widget's 2.3s again on the second comment.
     releaseTurnstileToken('blog_comment_create');
     warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
-    void mintDwellToken();
 
     setSubmitEnabled(box, true);
 
@@ -2023,7 +2025,8 @@ export function initCommentsController(): void {
   // filling the box the instant it loaded and got silently swallowed by the
   // server's fake-success tripwire. Keeping the original page-load token
   // across submits is what fixes that; only a token old enough to be near
-  // expiry -- a tab left open for most of a day -- is worth refreshing.
+  // expiry -- a tab left open for most of a day -- is worth refreshing, and
+  // only on a focus in the compose box, never at Post.
   const DWELL_TOKEN_REFRESH_AGE_MS = 20 * 60 * 60 * 1000;
 
   async function mintDwellToken(): Promise<void> {
