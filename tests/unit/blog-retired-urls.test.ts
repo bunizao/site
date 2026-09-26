@@ -41,7 +41,7 @@ async function redirect(url: string, locals: unknown): Promise<string | null> {
 beforeEach(() => resetI18nManifestForTests());
 afterEach(() => resetI18nManifestForTests());
 
-describe('legacy blog article URLs', () => {
+describe('retired blog URLs redirect once to the version URL', () => {
   test('sends a translation\'s Ghost slug to its locale URL', async () => {
     const locals = { env: { ASSETS: assets().binding } };
     expect(await redirect('https://buxx.me/blog/on-quiet-architecture', locals))
