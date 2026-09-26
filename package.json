@@ -41,7 +41,7 @@
     "preview:cloudflare": "bun run build:cloudflare && wrangler dev --config dist/server/wrangler.json",
     "tail:cloudflare": "wrangler tail",
     "types:cloudflare": "wrangler types",
-    "test:unit": "bun run contracts:build && bun test tests/unit",
+    "test:unit": "bun run contracts:build && bun test --preload ./tests/setup/isolate.ts tests/unit",
     "test:registry": "bun run contracts:build && bun scripts/verify-component-registry.ts",
     "test:ops": "bun run contracts:build && bun test tests/ops/*.test.ts",
     "test:e2e": "bun run test:e2e:site",
