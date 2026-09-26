@@ -61,27 +61,6 @@ function getPublicPages(pages: Page[]) {
 
 export interface GhostContentProvider extends ContentProvider {}
 
-export function getGhostImagePatterns(ghostUrl: string | null | undefined) {
-  if (!ghostUrl) {
-    return [];
-  }
-
-  try {
-    const url = new URL(ghostUrl);
-
-    return [
-      {
-        protocol: url.protocol.slice(0, -1),
-        hostname: url.hostname,
-        pathname: '/content/images/**',
-        ...(url.port ? { port: url.port } : {}),
-      },
-    ];
-  } catch {
-    return [];
-  }
-}
-
 export {
   rewriteGhostBlogImageHtml,
   rewriteGhostBlogImageSrcset,
@@ -339,9 +318,3 @@ export function createGhostContentProvider(
     getSearchDocuments,
   };
 }
-
-export type {
-  GhostAdapterOptions,
-  GhostRuntimeConfig,
-} from './ghost/config';
-export { getGhostRuntimeConfig } from './ghost/config';
