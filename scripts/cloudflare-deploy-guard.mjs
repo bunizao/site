@@ -17,12 +17,12 @@ const MOCK_POST_SLUGS = [
   'verification-beats-vibes',
 ];
 
-function readText(path) {
-  return readFileSync(resolve(path), 'utf8');
+function readText(root, path) {
+  return readFileSync(resolve(root, path), 'utf8');
 }
 
-function readConfig() {
-  return JSON.parse(readText(CONFIG_PATH));
+function readConfig(root) {
+  return JSON.parse(readText(root, CONFIG_PATH));
 }
 
 function findMockSlugs(html) {
@@ -31,24 +31,24 @@ function findMockSlugs(html) {
   ));
 }
 
-export function installCloudflareDeployGuard() {
-  const config = readConfig();
+export function installCloudflareDeployGuard(root = process.cwd()) {
+  const config = readConfig(root);
   delete config.legacy_env;
   config.build = {
     ...config.build,
     command: DEPLOY_GUARD_COMMAND,
   };
-  writeFileSync(resolve(CONFIG_PATH), `${JSON.stringify(config)}\n`);
+  writeFileSync(resolve(root, CONFIG_PATH), `${JSON.stringify(config)}\n`);
   console.log('Installed the Cloudflare production content deploy guard.');
 }
 
-export function verifyCloudflareDeployArtifacts() {
+export function verifyCloudflareDeployArtifacts(root = process.cwd()) {
   let config;
   let html;
 
   try {
-    config = readConfig();
-    html = readText(BLOG_ARTIFACT_PATH);
+    config = readConfig(root);
+    html = readText(root, BLOG_ARTIFACT_PATH);
   } catch (error) {
     console.error(`Cloudflare deploy guard could not read build artifacts: ${error.message}`);
     return false;
