@@ -11,8 +11,6 @@ export interface MoodFeedThumbnailInput {
   mediaKind?: 'image' | 'sticker' | 'video';
 }
 
-export type MoodFeedImageLayout = MoodImageLayout;
-
 const containedBoxByLayout = {
   portrait: [
     { name: '', maxWidth: 220, maxHeight: 280 },
@@ -30,16 +28,8 @@ function formatCssNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
 }
 
-export function resolveMoodFeedImageLayout(
-  value: unknown,
-  imageWidth?: number | null,
-  imageHeight?: number | null,
-): MoodFeedImageLayout | null {
-  return resolveMoodImageLayout(value, imageWidth, imageHeight);
-}
-
 export function getMoodFeedThumbnailStyle(input: MoodFeedThumbnailInput): string {
-  const layout = resolveMoodFeedImageLayout(input.imageLayout, input.imageWidth, input.imageHeight);
+  const layout = resolveMoodImageLayout(input.imageLayout, input.imageWidth, input.imageHeight);
   let ratio = getMoodImageRatio(input.imageWidth, input.imageHeight, layout);
   if (!ratio.exact && !layout && input.mediaKind === 'sticker') {
     ratio = { css: '1 / 1', value: 1, exact: false };

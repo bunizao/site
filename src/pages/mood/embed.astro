@@ -9,14 +9,12 @@ import {
 } from '@/features/mood/server/api-client';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
 import { renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
-import {
-  getMoodFeedThumbnailStyle,
-  resolveMoodFeedImageLayout,
-} from '@/features/mood/shared/feed-thumbnail';
+import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
 import {
   buildArchiveSrcSet,
   getMoodImagePlaceholderSrc,
   getMoodImageRatio,
+  resolveMoodImageLayout,
 } from '@/features/mood/shared/image-srcset';
 import { getMoodDetailHref, getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
 import { readMoodEmbedQuery } from '@/features/mood/server/embed-query';
@@ -131,7 +129,7 @@ function isExternalHref(value: string | undefined): boolean {
 }
 
 function getImageClassName(post: MoodFeedItem): string {
-  const layout = resolveMoodFeedImageLayout(post.imageLayout, post.imageWidth, post.imageHeight);
+  const layout = resolveMoodImageLayout(post.imageLayout, post.imageWidth, post.imageHeight);
   const ratio = getMoodImageRatio(post.imageWidth, post.imageHeight, layout);
   const isSticker = post.imageKind === 'sticker';
   return [
@@ -592,7 +590,7 @@ function getImageClassName(post: MoodFeedItem): string {
         const quoteHref = post.quote?.href;
         const QuoteElement = quoteHref ? 'a' : 'div';
         const quoteIsExternal = isExternalHref(quoteHref);
-        const imageLayout = resolveMoodFeedImageLayout(post.imageLayout, post.imageWidth, post.imageHeight);
+        const imageLayout = resolveMoodImageLayout(post.imageLayout, post.imageWidth, post.imageHeight);
         const imageStyle = getMoodFeedThumbnailStyle({
           imageWidth: post.imageWidth,
           imageHeight: post.imageHeight,
