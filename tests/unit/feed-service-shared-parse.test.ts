@@ -27,11 +27,9 @@ import type { MediaItem } from '@bunizao/contracts';
 const context = {
   request: new Request('http://localhost:4321'),
   locals: {
-    runtime: {
-      env: {
-        CHANNEL: 'tutumood',
-        PUBLIC_HD_IMAGE_URL: 'https://image.buxx.me',
-      },
+    env: {
+      CHANNEL: 'tutumood',
+      PUBLIC_HD_IMAGE_URL: 'https://image.buxx.me',
     },
   },
 };

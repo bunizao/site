@@ -1,5 +1,3 @@
-import { readRuntimeValue } from '@/lib/runtime/env';
-
 interface RateLimitConfig {
   windowMs: number;
   max: number;
@@ -24,69 +22,10 @@ export interface RateLimitResult {
 const rateLimitStore = new Map<string, RateLimitState>();
 const MAX_STORE_SIZE = 10000;
 
-function normalizeIpCandidate(
-  value: string | null,
-  { takeLast = false }: { takeLast?: boolean } = {}
-): string {
-  if (!value) return '';
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-
-  const parts = trimmed
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean);
-  const candidate = (takeLast ? parts[parts.length - 1] : parts[0]) ?? '';
-  if (!candidate) return '';
-
-  if (candidate.length > 128) return '';
-  if (!/^[a-z0-9:.[\]%-]+$/i.test(candidate)) return '';
-  return candidate.toLowerCase();
-}
-
-function getClientIp(request: Request, locals?: any): string {
-  let runtimeClientIp = '';
-  try {
-    runtimeClientIp = typeof locals?.runtime?.ip === 'string' ? locals.runtime.ip : '';
-  } catch {
-    runtimeClientIp = '';
-  }
-
-  const runtimeIp =
-    runtimeClientIp ||
-    readRuntimeValue(locals, 'REMOTE_ADDR') ||
-    '';
-  const normalizedRuntimeIp = normalizeIpCandidate(runtimeIp);
-  if (normalizedRuntimeIp) return normalizedRuntimeIp;
-
-  const trustedHeaderOrder = [
-    'cf-connecting-ip',
-    'x-real-ip',
-    'true-client-ip',
-    'fly-client-ip',
-  ];
-  for (const headerName of trustedHeaderOrder) {
-    const candidate = normalizeIpCandidate(request.headers.get(headerName));
-    if (candidate) return candidate;
-  }
-
-  const forwardedForIp = normalizeIpCandidate(request.headers.get('x-forwarded-for'), {
-    takeLast: true,
-  });
-  if (forwardedForIp) return forwardedForIp;
-
-  const fallbackIp = normalizeIpCandidate(request.headers.get('x-client-ip'));
-  if (fallbackIp) return fallbackIp;
-
-  return 'anonymous';
-}
-
-function cleanupExpiredEntries(now: number): void {
-  for (const [key, state] of rateLimitStore.entries()) {
-    if (state.resetAt <= now) {
-      rateLimitStore.delete(key);
-    }
-  }
+// Cloudflare sets cf-connecting-ip on every request and overwrites any client
+// value. Local dev has no such header, so every dev request shares one bucket.
+function getClientIp(request: Request): string {
+  return request.headers.get('cf-connecting-ip')?.trim() || 'anonymous';
 }
 
 function enforceStoreLimit(): void {
@@ -97,15 +36,9 @@ function enforceStoreLimit(): void {
   }
 }
 
-export function checkRateLimit(
-  request: Request,
-  config: RateLimitConfig,
-  locals?: any
-): RateLimitResult {
+export function checkRateLimit(request: Request, config: RateLimitConfig): RateLimitResult {
   const now = Date.now();
-  cleanupExpiredEntries(now);
-
-  const ip = getClientIp(request, locals);
+  const ip = getClientIp(request);
   const key = `${config.prefix}:${ip}`;
   const existing = rateLimitStore.get(key);
 

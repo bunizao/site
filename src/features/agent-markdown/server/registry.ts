@@ -197,7 +197,6 @@ async function renderMoodFeed(context: MarkdownRendererContext) {
   const rateLimit = withRateLimit(
     context.request,
     { windowMs: 60_000, max: 180, prefix: 'agent-markdown:mood' },
-    context.locals,
   );
 
   if (!rateLimit.allowed) {
@@ -226,7 +225,6 @@ async function renderMoodPost(context: MarkdownRendererContext) {
   const rateLimit = withRateLimit(
     context.request,
     { windowMs: 60_000, max: 180, prefix: 'agent-markdown:mood-post' },
-    context.locals,
   );
 
   if (!rateLimit.allowed) {

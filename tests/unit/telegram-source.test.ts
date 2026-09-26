@@ -63,11 +63,9 @@ mock.module('ofetch', () => ({
 const astro = {
   request: new Request('http://localhost:4321'),
   locals: {
-    runtime: {
-      env: {
-        CHANNEL: 'imagebuxx',
-        PUBLIC_HD_IMAGE_URL: 'https://image.buxx.me',
-      },
+    env: {
+      CHANNEL: 'imagebuxx',
+      PUBLIC_HD_IMAGE_URL: 'https://image.buxx.me',
     },
   },
 };

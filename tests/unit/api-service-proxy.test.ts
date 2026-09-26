@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
 import {
   createApiServiceRequest,
   getApiServiceBinding,
@@ -15,29 +14,17 @@ function createApiBinding(handler: (request: Request) => Response | Promise<Resp
 }
 
 describe('api service proxy', () => {
-  test('keeps the legacy login route as an Access handoff', () => {
-    const source = readFileSync(new URL('../../src/pages/oauth/login.ts', import.meta.url), 'utf8');
-
-    expect(source).toContain('normalizeNext');
-    expect(source).not.toContain('GitHub');
-  });
-
   test('rewrites public API URLs to the private API origin', () => {
     const url = rewriteApiServiceUrl('https://buxx.me/api/health?probe=1');
 
     expect(url.toString()).toBe('https://site-api.internal/api/health?probe=1');
   });
 
-  test('passes legacy login and private API routes through without version prefixing', () => {
-    expect(rewriteApiServiceUrl('https://buxx.me/oauth/login?next=%2Fdocs').toString())
-      .toBe('https://site-api.internal/oauth/login?next=%2Fdocs');
-    expect(rewriteApiServiceUrl('https://buxx.me/v2/admin/session').toString())
-      .toBe('https://site-api.internal/v2/admin/session');
-  });
-
-  test('never proxies public dev portal pages into the API worker', () => {
-    expect(rewriteApiServiceUrl('https://buxx.me/dev/portal').toString())
-      .toBe('https://site-api.internal/v2/dev/portal');
+  test('forwards OAuth and archive paths to site-api unchanged', () => {
+    expect(rewriteApiServiceUrl('https://buxx.me/oauth/reader/github?return=%2Fblog').toString())
+      .toBe('https://site-api.internal/oauth/reader/github?return=%2Fblog');
+    expect(rewriteApiServiceUrl('https://buxx.me/v2/mood?limit=20').toString())
+      .toBe('https://site-api.internal/v2/mood?limit=20');
   });
 
   test('passes method, body, and headers through to the service binding', async () => {
@@ -261,19 +248,6 @@ describe('api service proxy', () => {
       if (originalApiDevOrigin === undefined) delete process.env.API_DEV_ORIGIN;
       else process.env.API_DEV_ORIGIN = originalApiDevOrigin;
     }
-  });
-
-  test('falls back to runtime env when direct locals env lacks the binding', async () => {
-    const api = createApiBinding(() => new Response('ok'));
-    const response = await proxyApiRequest(new Request('https://buxx.me/api/health'), {
-      env: {},
-      runtime: {
-        env: { API: api },
-      },
-    });
-
-    expect(response.status).toBe(200);
-    expect(await response.text()).toBe('ok');
   });
 
   test('falls back to the Cloudflare Workers env binding', async () => {

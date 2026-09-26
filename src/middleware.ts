@@ -120,9 +120,8 @@ async function readAdminSession(context: {
   locals: unknown;
   allowDevBypass?: boolean;
 }): Promise<AdminSessionIdentity | null> {
-  const url = new URL(context.request.url);
   const locals = context.locals as RuntimeEnvLocals | undefined;
-  return (context.allowDevBypass ? readAdminDevBypassSession(locals, url.hostname) : null)
+  return (context.allowDevBypass ? readAdminDevBypassSession(locals, context.request) : null)
     ?? await readCloudflareAccessIdentity(context.request, locals);
 }
 

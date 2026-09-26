@@ -680,3 +680,76 @@ describe('static Telegram proxy', () => {
     expect(await response.text()).toBe('');
   });
 });
+
+describe('static proxy host allowlist (unsigned targets)', () => {
+  const hdLocals = { env: { PUBLIC_HD_IMAGE_URL: 'https://buxx.me/api/v2/images' } };
+
+  async function proxy(target: string, ip: string, locals: unknown = hdLocals): Promise<Response> {
+    const path = target.replace('://', ':/');
+    return GET({
+      request: new Request(`https://buxx.me/static/${path}`, {
+        headers: { 'CF-Connecting-IP': ip },
+      }),
+      params: { path },
+      locals,
+    } as never);
+  }
+
+  function recordFetches(response: () => Response): string[] {
+    const fetched: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetched.push(String(input));
+      return response();
+    }) as typeof fetch;
+    return fetched;
+  }
+
+  const image = () => new Response(new Uint8Array([1, 2, 3]), { headers: { 'Content-Type': 'image/png' } });
+
+  test('refuses a host outside the allowlist without fetching it', async () => {
+    const fetched = recordFetches(image);
+
+    const response = await proxy('https://example.com/payload.png', '192.0.2.40');
+
+    expect(response.status).toBe(400);
+    expect(fetched).toEqual([]);
+  });
+
+  test('admits the HD image host exactly but never its sibling subdomains', async () => {
+    const fetched = recordFetches(image);
+
+    expect((await proxy('https://buxx.me/api/v2/images/mood/1/0', '192.0.2.41')).status).toBe(200);
+    expect((await proxy('https://admin.buxx.me/payload.png', '192.0.2.41')).status).toBe(400);
+    expect((await proxy('https://api.buxx.me/payload.png', '192.0.2.41')).status).toBe(400);
+    expect(fetched).toEqual(['https://buxx.me/api/v2/images/mood/1/0']);
+  });
+
+  test('keeps the legacy image host and Telegram CDN subdomains reachable', async () => {
+    const fetched = recordFetches(image);
+
+    expect((await proxy('https://image.buxx.me/mood/3092/0', '192.0.2.42', {})).status).toBe(200);
+    expect((await proxy('https://cdn5.telesco.pe/file/photo.jpg', '192.0.2.42', {})).status).toBe(200);
+    expect(fetched).toEqual([
+      'https://image.buxx.me/mood/3092/0',
+      'https://cdn5.telesco.pe/file/photo.jpg',
+    ]);
+  });
+
+  test('re-validates every redirect hop against the allowlist', async () => {
+    const consoleError = spyOn(console, 'error').mockImplementation(() => {});
+    const fetched = recordFetches(() => new Response(null, {
+      status: 302,
+      headers: { Location: 'https://example.com/payload.png' },
+    }));
+
+    try {
+      const response = await proxy('https://cdn4.telegram-cdn.org/redirect.png', '192.0.2.43');
+
+      expect(response.status).toBe(502);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(fetched).toEqual(['https://cdn4.telegram-cdn.org/redirect.png']);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+});

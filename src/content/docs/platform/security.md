@@ -27,17 +27,14 @@ are reading headers.
 | Implementation | [`src/lib/security/rate-limit.ts`](https://github.com/bunizao/site/blob/main/src/lib/security/rate-limit.ts) — an in-memory bucket store | A Durable Object counter, or a counting-only observability mode |
 | Durability | Per isolate, resets with it | Strongly consistent in `durable` mode |
 | Really rejects? | Best effort | Only in `durable` mode — see [Rate limits](/docs/api/overview#rate-limits) |
-| Used by | `/static/*` | Nearly every `/api/*` route |
+| Used by | `/static/*` and Mood Markdown | Nearly every `/api/*` route |
 
-The `site` implementation keys on `{prefix}:{clientIp}`, cleans expired entries
-on access, and caps the store at 10,000 keys so a flood of unique IPs cannot
-grow it without bound. Client IP is resolved in this order:
-
-1. Runtime IP from platform locals
-2. Trusted proxy headers
-3. `x-forwarded-for`
-4. Fallback client headers
-5. `anonymous`
+The `site` implementation keys on `{prefix}:{clientIp}`, starts a fresh window
+when an expired bucket is next read, and caps the store at 10,000 keys, evicting
+the oldest first, so a flood of unique IPs cannot grow it without bound. The
+client IP is `cf-connecting-ip`, which Cloudflare sets on every request and
+overwrites when a client supplies it. Without that header (local dev) every
+request shares the `anonymous` bucket; other forwarding headers are ignored.
 
 Both Workers answer with `X-RateLimit-Limit`, `X-RateLimit-Remaining`,
 `X-RateLimit-Reset`, and `Retry-After` on rejection. The header contract and
@@ -82,8 +79,8 @@ File: [`src/pages/static/[...path].ts`](https://github.com/bunizao/site/blob/mai
 
 | Guard | Behavior |
 | --- | --- |
-| Host allowlist | Telegram family plus the YouTube poster and avatar hosts. Every redirect hop is re-checked. |
-| Private network block | Localhost and private-range targets are rejected. |
+| Host allowlist | Telegram family and its subdomains, plus exact matches for the `PUBLIC_HD_IMAGE_URL` host, the legacy `image.buxx.me` host, and the YouTube poster and avatar hosts. Every redirect hop is re-checked. |
+| Loopback block | `localhost` and `127.0.0.1` are rejected even when configured as the HD image host. |
 | Redirect depth | At most three hops. |
 | Content type | Only `image/*`, `video/*`, `audio/*`, `font/*`; anything else is `415`. |
 | Rate limit | The shared in-memory limiter above, 240 / 60s. |

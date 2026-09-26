@@ -32,8 +32,11 @@ its own.
 
 Allowlisted hosts are the Telegram family (`t.me`, `telegram.org`,
 `telegram.me`, `telegram.dog`, `telesco.pe`, `cdn-telegram.org`,
-`cdn1`–`cdn5.telegram-cdn.org`) plus `i.ytimg.com` for YouTube posters and
-`yt3.googleusercontent.com` / `yt3.ggpht.com` for channel avatars. Redirects are
+`cdn1`–`cdn5.telegram-cdn.org`), the `PUBLIC_HD_IMAGE_URL` host, the legacy
+`image.buxx.me` image host, plus `i.ytimg.com` for YouTube posters and
+`yt3.googleusercontent.com` / `yt3.ggpht.com` for channel avatars. Telegram
+hosts also admit their subdomains; every other host must match exactly, so the
+HD image host never admits its siblings. Redirects are
 followed at most three deep, and **every hop is re-checked against the
 allowlist** — an allowlisted host cannot bounce the proxy to somewhere else.
 
@@ -108,9 +111,9 @@ of this runs at all — Cloudflare route patterns send `/api/*` straight to
 
 `/oauth/login` is the one exception: it is answered locally, not forwarded. It
 `302`s to the `?next=` path with `Cache-Control: no-store, max-age=0`, defaulting
-to `/dev/portal`. `next` is rejected unless it is a same-site absolute path —
-values starting `//`, containing a backslash, or naming another origin fall back
-to the default rather than redirecting off-site.
+to `/dev/portal`. `next` is resolved against the site origin first, and any
+value that resolves to another origin falls back to the default rather than
+redirecting off-site.
 
 ## Dev portal
 
