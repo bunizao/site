@@ -192,7 +192,7 @@ test.describe('Home page', () => {
     expect(chain?.bioAnimatingAt).toBeGreaterThanOrEqual(chain?.bioReadyAt ?? Number.POSITIVE_INFINITY);
   });
 
-  test('renders core sections and persists selected theme', async ({ page }) => {
+  test('renders the home sections with links into the blog', async ({ page }) => {
     await page.goto('/');
 
     await expect(page).toHaveTitle('Lucian Bu — Student, Developer & Blogger');
@@ -213,28 +213,24 @@ test.describe('Home page', () => {
     await expect(page.locator('#writing-section .section-enter')).toHaveAttribute('href', '/blog');
     await expect(page.locator('#writing-section .section-enter')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
+  });
 
-    const themeToggle = page.locator('[data-theme-toggle]');
-    await expect(themeToggle).toHaveAttribute('aria-label', /mode$/);
-    const themeDropdown = page.locator('[data-theme-dropdown]');
-    await themeDropdown.hover();
+  // The theme control lives in the shared Layout, so these run on the light
+  // /privacy page instead of paying for the home page's islands and fetches.
+  test('persists the selected theme across a reload', async ({ page }) => {
+    await page.goto('/privacy');
+
+    await expect(page.locator('[data-theme-toggle]')).toHaveAttribute('aria-label', /mode$/);
+    await page.locator('[data-theme-dropdown]').hover();
     const darkOption = page.locator('[data-theme-option="dark"]');
     await expect(darkOption).toBeVisible();
     await darkOption.click();
-
-    await expect
-      .poll(async () => {
-        return await page.locator('html').evaluate((node) => node.classList.contains('dark'));
-      })
-      .toBe(true);
+    const isDark = () => page.locator('html').evaluate((node) => node.classList.contains('dark'));
+    await expect.poll(isDark).toBe(true);
 
     await page.reload();
 
-    await expect
-      .poll(async () => {
-        return await page.locator('html').evaluate((node) => node.classList.contains('dark'));
-      })
-      .toBe(true);
+    await expect.poll(isDark).toBe(true);
   });
 
   test('releases the spotlight compositor layer after its idle fade', async ({ page }) => {
@@ -242,7 +238,6 @@ test.describe('Home page', () => {
     await page.goto('/');
 
     const spotlight = page.locator('[data-spotlight-overlay]');
-    await page.waitForTimeout(1_000);
     await page.mouse.move(180, 180);
     await expect(spotlight).toHaveClass(/is-active/);
     await expect(spotlight).not.toHaveClass(/is-active/, { timeout: 3_000 });
@@ -313,7 +308,7 @@ test.describe('Home page', () => {
 
   test('cleans up theme transitions after switching', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.goto('/');
+    await page.goto('/privacy');
 
     const soundRequest = page.waitForRequest((request) => request.url().endsWith('/audio/theme-switch.mp3'));
     await page.locator('[data-theme-dropdown]').hover();
@@ -332,7 +327,7 @@ test.describe('Home page', () => {
 
   test('skips transient theme classes with reduced motion', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/');
+    await page.goto('/privacy');
     await page.locator('[data-theme-dropdown]').hover();
     await page.locator('[data-theme-option="dark"]').click();
 
@@ -341,10 +336,7 @@ test.describe('Home page', () => {
   });
 
   test('portal is dark only and carries no theme control', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('[data-theme-dropdown]').hover();
-    await page.locator('[data-theme-option="light"]').click();
-    await expect(page.locator('html')).not.toHaveClass(/dark/);
+    await page.addInitScript(() => localStorage.setItem('theme', 'light'));
 
     // The portal ignores the stored site theme: its surfaces are authored for a
     // near-black ground and it pins `dark` server-side.
@@ -722,7 +714,9 @@ test.describe('Home page', () => {
       collection: 'My Beautiful Dark Twisted Fantasy (Deluxe Edition)',
     });
 
-    await page.reload();
+    // The refocus refresh swaps the track in place, which must also drop the
+    // short title's inline layout.
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 
     await expect(page.locator('[data-listening-title-label]')).toHaveText(
       'Monster (feat. JAŸ-Z, Rick Ross, Nicki Minaj & Bon Iver)'

@@ -35,8 +35,12 @@ test.describe('Home publication wordmark', () => {
     await expect(wordmark.locator('.site-wordmark__latin')).toHaveCSS('clip-path', 'none');
   });
 
-  test('runs the wake from the homepage doorway only', async ({ page }) => {
+  test('doorway wake follows hover and keyboard focus', async ({ page }) => {
     await page.goto('/');
+    // The rule is which state hover and focus select, not the 1.05s easing.
+    await page.addStyleTag({
+      content: '.site-wordmark__wake{transition:none!important;animation:none!important}',
+    });
 
     const portal = page.locator('#writing-section .writing-portal');
     const wake = portal.locator('.site-wordmark__wake');
@@ -65,7 +69,7 @@ test.describe('Home publication wordmark on touch', () => {
 
     const portal = page.locator('#writing-section .writing-portal');
     await Promise.all([
-      page.waitForURL(/\/blog\/?$/),
+      page.waitForURL(/\/blog\/?$/, { waitUntil: 'commit' }),
       portal.tap(),
     ]);
   });

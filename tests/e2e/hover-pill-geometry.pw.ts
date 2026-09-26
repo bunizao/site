@@ -5,9 +5,6 @@ const PHONE = { width: 390, height: 844 };
 // Two layout regressions, both mechanically checkable:
 //   1. the hover pill keeps its corners (no scale() on a 1x1 box)
 //   2. the blog post footer reserves no void under the pledge line on phones
-//
-// Blog routes are prerendered, so point E2E_BASE_URL at a static server over
-// dist/client. The default webServer (astro dev) 404s the posts.
 
 test('blog list pill is a rounded rect, not an ellipse', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -16,7 +13,15 @@ test('blog list pill is a rounded rect, not an ellipse', async ({ page }) => {
   // .blog-row is the hover target PostHover.astro binds the pill to.
   const row = page.locator('.blog-row').first();
   await row.hover();
-  await page.waitForTimeout(200);
+  // Measure once the pill has grown into the size it was given.
+  await expect
+    .poll(() =>
+      page.locator('.blog-indicator').evaluate((el) => {
+        const target = Number.parseFloat((el as HTMLElement).style.height);
+        return Number.isFinite(target) && Math.abs(el.getBoundingClientRect().height - target) < 0.5;
+      })
+    )
+    .toBe(true);
 
   const pill = await page.evaluate(() => {
     const el = document.querySelector<HTMLElement>('.blog-indicator');
