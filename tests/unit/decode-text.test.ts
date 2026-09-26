@@ -1,13 +1,16 @@
-import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test';
-import { chromium, type Browser } from '@playwright/test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { chromium, type Browser, type Page } from '@playwright/test';
 import { join } from 'node:path';
+import type { prepareDecode } from '../../packages/decode-text/src/index';
 
-// These tests drive real multi-second animations in headless Chromium. Shared
-// CI runners vary about 2x in CPU speed, which pushed the 2s reveal past bun's
-// 5s default and the browser launch past 15s.
-setDefaultTimeout(30_000);
+declare global {
+  interface Window {
+    __dt: { prepareDecode: typeof prepareDecode; step: () => boolean };
+  }
+}
 
 let browser: Browser;
+let page: Page;
 let moduleSource = '';
 
 beforeAll(async () => {
@@ -25,99 +28,109 @@ beforeAll(async () => {
     channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL,
     headless: true,
   });
+  page = await browser.newPage();
 }, 60_000);
 
 afterAll(async () => {
   await browser?.close();
 });
 
-async function decodeCells(text: string, options: { segmenter?: boolean } = {}): Promise<string[]> {
-  const page = await browser.newPage();
-  try {
-    await page.setContent('<div id="target"></div>');
-    return await page.evaluate(
-      async ({ source, input, segmenter }) => {
-        if (!segmenter) {
-          Object.defineProperty(Intl, 'Segmenter', {
-            configurable: true,
-            value: undefined,
-          });
-        }
-        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-        try {
-          const { prepareDecode } = await import(moduleUrl);
-          const root = document.querySelector<HTMLElement>('#target');
-          if (!root) throw new Error('Missing decode target');
+/**
+ * Loads `html`, swaps rAF and performance.now for a manual 60fps clock, and
+ * imports a fresh copy of the engine as `window.__dt`. `step()` runs one frame
+ * and reports whether another is queued, so a multi-second reveal plays out
+ * synchronously instead of on the display clock.
+ */
+async function setup(html: string, { segmenter = true } = {}): Promise<void> {
+  await page.setContent(html);
+  await page.evaluate(
+    async ({ source, segmenter }) => {
+      const pending = new Map<number, FrameRequestCallback>();
+      let nextId = 1;
+      let now = 0;
+      window.requestAnimationFrame = (callback) => {
+        pending.set(nextId, callback);
+        return nextId++;
+      };
+      window.cancelAnimationFrame = (id) => {
+        pending.delete(id);
+      };
+      Object.defineProperty(performance, 'now', { configurable: true, value: () => now });
+      const step = () => {
+        now += 1000 / 60;
+        const due = [...pending.values()];
+        pending.clear();
+        for (const callback of due) callback(now);
+        return pending.size > 0;
+      };
 
-          root.textContent = input;
-          const controller = await prepareDecode(root, {
-            durationPerChar: 0,
-            fontTimeout: 0,
-            maxDuration: 0,
-            minDuration: 0,
-            order: 'ltr',
-            respectReducedMotion: false,
-          });
-          controller.start();
-          await controller.finished;
-
-          return Array.from(root.querySelectorAll<HTMLElement>('.dt-c'), (cell) => cell.textContent ?? '');
-        } finally {
-          URL.revokeObjectURL(moduleUrl);
-        }
-      },
-      { source: moduleSource, input: text, segmenter: options.segmenter ?? true }
-    );
-  } finally {
-    await page.close();
-  }
+      // The engine picks its grapheme splitter at import time.
+      const segmenterDescriptor = Object.getOwnPropertyDescriptor(Intl, 'Segmenter')!;
+      if (!segmenter) {
+        Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: undefined });
+      }
+      const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+      try {
+        const engine = await import(moduleUrl);
+        window.__dt = { prepareDecode: engine.prepareDecode, step };
+      } finally {
+        URL.revokeObjectURL(moduleUrl);
+        Object.defineProperty(Intl, 'Segmenter', segmenterDescriptor);
+      }
+    },
+    { source: moduleSource, segmenter }
+  );
 }
 
-async function firstScrambleGlyph(charset: string): Promise<string> {
-  const page = await browser.newPage();
-  try {
-    await page.setContent('<div id="target">AB</div>');
-    return await page.evaluate(
-      async ({ source, glyphs }) => {
-        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-        try {
-          const { prepareDecode } = await import(moduleUrl);
-          const root = document.querySelector<HTMLElement>('#target');
-          if (!root) throw new Error('Missing decode target');
+async function decodeCells(text: string, options: { segmenter?: boolean } = {}): Promise<string[]> {
+  await setup('<div id="target"></div>', options);
+  return page.evaluate(async (input) => {
+    const { prepareDecode, step } = window.__dt;
+    const root = document.querySelector<HTMLElement>('#target')!;
+    root.textContent = input;
+    const controller = await prepareDecode(root, {
+      durationPerChar: 0,
+      fontTimeout: 0,
+      maxDuration: 0,
+      minDuration: 0,
+      order: 'ltr',
+      respectReducedMotion: false,
+    });
+    controller.start();
+    while (step()) {}
+    await controller.finished;
 
-          const controller = await prepareDecode(root, {
-            charset: glyphs,
-            ease: (progress: number) => progress,
-            fontTimeout: 0,
-            maxDuration: 0.8,
-            minDuration: 0.8,
-            mutationHz: 18,
-            order: 'ltr',
-            respectReducedMotion: false,
-            scrambleFromText: false,
-          });
-          controller.start();
-          const glyph = await new Promise<string>((resolve, reject) => {
-            const deadline = performance.now() + 2_000;
-            const inspect = () => {
-              const cell = root.querySelector<HTMLElement>('.dt-c[data-state="scramble"]');
-              if (cell) resolve(cell.textContent ?? '');
-              else if (performance.now() >= deadline) reject(new Error('No scramble frame rendered'));
-              else requestAnimationFrame(inspect);
-            };
-            inspect();
-          });
-          controller.cancel();
-          return glyph;
-        } finally {
-          URL.revokeObjectURL(moduleUrl);
-        }
-      },
-      { source: moduleSource, glyphs: charset }
-    );
-  } finally {
-    await page.close();
-  }
+    return Array.from(root.querySelectorAll<HTMLElement>('.dt-c'), (cell) => cell.textContent ?? '');
+  }, text);
+}
+
+async function firstScrambleGlyph(charset: string): Promise<string | null> {
+  await setup('<div id="target">AB</div>');
+  return page.evaluate(async (glyphs) => {
+    const { prepareDecode, step } = window.__dt;
+    const root = document.querySelector<HTMLElement>('#target')!;
+    const controller = await prepareDecode(root, {
+      charset: glyphs,
+      ease: (progress: number) => progress,
+      fontTimeout: 0,
+      maxDuration: 0.8,
+      minDuration: 0.8,
+      mutationHz: 18,
+      order: 'ltr',
+      respectReducedMotion: false,
+      scrambleFromText: false,
+    });
+    controller.start();
+
+    let glyph: string | null = null;
+    let more = true;
+    while (more && glyph === null) {
+      more = step();
+      glyph = root.querySelector<HTMLElement>('.dt-c[data-state="scramble"]')?.textContent ?? null;
+    }
+    controller.cancel();
+    return glyph;
+  }, charset);
 }
 
 const INTERLEAVE_TEXT = 'ABCDEFGHIJKLMNOP';
@@ -130,58 +143,43 @@ const INTERLEAVE_TEXT = 'ABCDEFGHIJKLMNOP';
  * front is ordered there.
  */
 async function hasInterleavedSettlement(order: 'shuffle' | 'ltr'): Promise<boolean> {
-  const page = await browser.newPage();
-  try {
-    await page.setContent(`<div id="target">${INTERLEAVE_TEXT}</div>`);
-    return await page.evaluate(
-      async ({ source, input, queueOrder }) => {
-        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-        try {
-          const { prepareDecode } = await import(moduleUrl);
-          const root = document.querySelector<HTMLElement>('#target');
-          if (!root) throw new Error('Missing decode target');
+  await setup(`<div id="target">${INTERLEAVE_TEXT}</div>`);
+  return page.evaluate(
+    async ({ input, queueOrder }) => {
+      const { prepareDecode, step } = window.__dt;
+      const root = document.querySelector<HTMLElement>('#target')!;
+      const controller = await prepareDecode(root, {
+        charset: '#',
+        cursorChar: '-',
+        ease: (progress: number) => progress,
+        fontTimeout: 0,
+        maxDuration: 0.3,
+        minDuration: 0.3,
+        mutationHz: 18,
+        order: queueOrder,
+        respectReducedMotion: false,
+        scrambleFromText: false,
+      });
 
-          const controller = await prepareDecode(root, {
-            charset: '#',
-            cursorChar: '-',
-            ease: (progress: number) => progress,
-            fontTimeout: 0,
-            maxDuration: 0.3,
-            minDuration: 0.3,
-            mutationHz: 18,
-            order: queueOrder,
-            respectReducedMotion: false,
-            scrambleFromText: false,
-          });
+      const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
+      let interleaved = false;
+      controller.start();
 
-          const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
-          let finished = false;
-          let interleaved = false;
-          void controller.finished.then(() => {
-            finished = true;
-          });
-          controller.start();
+      let more = true;
+      while (more) {
+        more = step();
+        let sawUnsettled = false;
+        cells.forEach((cell, index) => {
+          const settled = !cell.dataset.state && cell.textContent === input[index];
+          if (!settled) sawUnsettled = true;
+          else if (sawUnsettled) interleaved = true;
+        });
+      }
 
-          while (!finished) {
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-            let sawUnsettled = false;
-            cells.forEach((cell, index) => {
-              const settled = !cell.dataset.state && cell.textContent === input[index];
-              if (!settled) sawUnsettled = true;
-              else if (sawUnsettled) interleaved = true;
-            });
-          }
-
-          return interleaved;
-        } finally {
-          URL.revokeObjectURL(moduleUrl);
-        }
-      },
-      { source: moduleSource, input: INTERLEAVE_TEXT, queueOrder: order }
-    );
-  } finally {
-    await page.close();
-  }
+      return interleaved;
+    },
+    { input: INTERLEAVE_TEXT, queueOrder: order }
+  );
 }
 
 const BURST_TEXT = 'ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGH';
@@ -192,55 +190,37 @@ const BURST_TEXT = 'ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGH
  * trickle; the old three-power-front schedule resolved most of a line at once.
  */
 async function largestSettleBurst(): Promise<{ burst: number; total: number }> {
-  const page = await browser.newPage();
-  try {
-    // Wide enough that the sample never wraps into a second visual line.
-    await page.setContent(`<div id="target" style="width:4000px">${BURST_TEXT}</div>`);
-    return await page.evaluate(
-      async ({ source, input }) => {
-        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-        try {
-          const { prepareDecode } = await import(moduleUrl);
-          const root = document.querySelector<HTMLElement>('#target');
-          if (!root) throw new Error('Missing decode target');
+  // Wide enough that the sample never wraps into a second visual line.
+  await setup(`<div id="target" style="width:4000px">${BURST_TEXT}</div>`);
+  return page.evaluate(async (input) => {
+    const { prepareDecode, step } = window.__dt;
+    const root = document.querySelector<HTMLElement>('#target')!;
+    const controller = await prepareDecode(root, {
+      charset: '#',
+      cursorChar: '-',
+      ease: (progress: number) => progress,
+      fontTimeout: 0,
+      maxDuration: 2,
+      minDuration: 2,
+      order: 'shuffle',
+      respectReducedMotion: false,
+      scrambleFromText: false,
+    });
 
-          const controller = await prepareDecode(root, {
-            charset: '#',
-            cursorChar: '-',
-            ease: (progress: number) => progress,
-            fontTimeout: 0,
-            maxDuration: 2,
-            minDuration: 2,
-            order: 'shuffle',
-            respectReducedMotion: false,
-            scrambleFromText: false,
-          });
+    const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
+    controller.start();
 
-          const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
-          let finished = false;
-          void controller.finished.then(() => {
-            finished = true;
-          });
-          controller.start();
-
-          let burst = 0;
-          let previous = 0;
-          while (!finished) {
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-            const settled = cells.filter((cell, i) => cell.textContent === input[i]).length;
-            burst = Math.max(burst, settled - previous);
-            previous = settled;
-          }
-          return { burst, total: cells.length };
-        } finally {
-          URL.revokeObjectURL(moduleUrl);
-        }
-      },
-      { source: moduleSource, input: BURST_TEXT }
-    );
-  } finally {
-    await page.close();
-  }
+    let burst = 0;
+    let previous = 0;
+    let more = true;
+    while (more) {
+      more = step();
+      const settled = cells.filter((cell, i) => cell.textContent === input[i]).length;
+      burst = Math.max(burst, settled - previous);
+      previous = settled;
+    }
+    return { burst, total: cells.length };
+  }, BURST_TEXT);
 }
 
 /**
@@ -250,62 +230,42 @@ async function largestSettleBurst(): Promise<{ burst: number; total: number }> {
  * against the lines being played back to back, which is what a per-line ease
  * produced — the first line finished a fifth of the way in and then sat there.
  */
-async function lineCompletions(
-  texts: string[]
-): Promise<{ order: number[]; firstAt: number }> {
-  const page = await browser.newPage();
-  try {
-    await page.setContent(`<div id="target" style="width:4000px">${texts.join('<br>')}</div>`);
-    return await page.evaluate(
-      async ({ source, expected }) => {
-        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-        try {
-          const { prepareDecode } = await import(moduleUrl);
-          const root = document.querySelector<HTMLElement>('#target');
-          if (!root) throw new Error('Missing decode target');
+async function lineCompletions(texts: string[]): Promise<{ order: number[]; firstAt: number }> {
+  await setup(`<div id="target" style="width:4000px">${texts.join('<br>')}</div>`);
+  return page.evaluate(async (expected) => {
+    const { prepareDecode, step } = window.__dt;
+    const root = document.querySelector<HTMLElement>('#target')!;
+    const controller = await prepareDecode(root, {
+      charset: '#',
+      cursorChar: '-',
+      fontTimeout: 0,
+      order: 'shuffle',
+      respectReducedMotion: false,
+      scrambleFromText: false,
+    });
 
-          const controller = await prepareDecode(root, {
-            charset: '#',
-            cursorChar: '-',
-            fontTimeout: 0,
-            order: 'shuffle',
-            respectReducedMotion: false,
-            scrambleFromText: false,
-          });
-
-          const lines = Array.from(root.querySelectorAll<HTMLElement>('.dt-line'), (block) =>
-            Array.from(block.querySelectorAll<HTMLElement>('.dt-c'))
-          );
-          const order: number[] = [];
-          let finished = false;
-          let firstFrame = 0;
-          let frames = 0;
-          void controller.finished.then(() => {
-            finished = true;
-          });
-          controller.start();
-
-          while (!finished) {
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-            frames += 1;
-            lines.forEach((cells, index) => {
-              if (order.includes(index)) return;
-              if (cells.every((cell, i) => cell.textContent === expected[index][i])) {
-                order.push(index);
-                if (order.length === 1) firstFrame = frames;
-              }
-            });
-          }
-          return { order, firstAt: firstFrame / frames };
-        } finally {
-          URL.revokeObjectURL(moduleUrl);
-        }
-      },
-      { source: moduleSource, expected: texts }
+    const lines = Array.from(root.querySelectorAll<HTMLElement>('.dt-line'), (block) =>
+      Array.from(block.querySelectorAll<HTMLElement>('.dt-c'))
     );
-  } finally {
-    await page.close();
-  }
+    const order: number[] = [];
+    let firstFrame = 0;
+    let frames = 0;
+    controller.start();
+
+    let more = true;
+    while (more) {
+      more = step();
+      frames += 1;
+      lines.forEach((cells, index) => {
+        if (order.includes(index)) return;
+        if (cells.every((cell, i) => cell.textContent === expected[index][i])) {
+          order.push(index);
+          if (order.length === 1) firstFrame = frames;
+        }
+      });
+    }
+    return { order, firstAt: firstFrame / frames };
+  }, texts);
 }
 
 describe('decode-text scheduling', () => {
@@ -340,19 +300,78 @@ describe('decode-text scheduling', () => {
 
     expect(firstAt).toBeGreaterThan(0.5);
   });
+
+  test('a settled cell never flickers back and the slot count holds', async () => {
+    // Hero bio shape: paragraphs, link atoms, wrapped lines, engine defaults.
+    await setup(
+      '<div id="target" style="width:420px">' +
+        '<p>I build <a href="/projects" data-decode-atom>projects</a> and study at ' +
+        '<a href="#" data-decode-atom>Monash University</a>.</p>' +
+        '<p>I also <a href="/blog" data-decode-atom>write</a>, about design engineering, ' +
+        'motion and the quiet parts of software.</p>' +
+        '</div>'
+    );
+    const result = await page.evaluate(async () => {
+      const random = Math.random;
+      let seed = 0x2f6e2b1;
+      Math.random = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 0x100000000;
+      };
+      try {
+        const { prepareDecode, step } = window.__dt;
+        const root = document.querySelector<HTMLElement>('#target')!;
+        const original = root.innerHTML;
+        const controller = await prepareDecode(root, {
+          fontTimeout: 0,
+          respectReducedMotion: false,
+          restore: true,
+        });
+
+        const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
+        const settled = new Map<HTMLElement, string>();
+        let regressed = 0;
+        let slotDrift = false;
+        controller.start();
+
+        let more = true;
+        while (more) {
+          more = step();
+          // `restore` swaps the cells back for the original markup at the end.
+          const live = root.querySelectorAll('.dt-c').length;
+          if (live === 0) break;
+          if (live !== cells.length) slotDrift = true;
+          for (const cell of cells) {
+            const final = settled.get(cell);
+            if (final !== undefined && (cell.dataset.state || cell.textContent !== final)) regressed += 1;
+            if (!cell.dataset.state && cell.textContent && cell.textContent !== ' ') {
+              settled.set(cell, cell.textContent);
+            }
+          }
+        }
+        await controller.finished;
+
+        return { regressed, slotDrift, restored: root.innerHTML === original };
+      } finally {
+        Math.random = random;
+      }
+    });
+
+    expect(result).toEqual({ regressed: 0, slotDrift: false, restored: true });
+  });
 });
 
 describe('decode-text grapheme handling', () => {
   test('reveals one cell per user-visible grapheme', async () => {
-    const cells = await decodeCells('A😀𠮷e\u0301👩‍💻');
+    const cells = await decodeCells('A😀𠮷é👩‍💻');
 
-    expect(cells).toEqual(['A', '😀', '𠮷', 'e\u0301', '👩‍💻']);
+    expect(cells).toEqual(['A', '😀', '𠮷', 'é', '👩‍💻']);
   });
 
   test('keeps graphemes intact when Intl.Segmenter is unavailable', async () => {
-    const cells = await decodeCells('A😀𠮷e\u0301👩‍💻', { segmenter: false });
+    const cells = await decodeCells('A😀𠮷é👩‍💻', { segmenter: false });
 
-    expect(cells).toEqual(['A', '😀', '𠮷', 'e\u0301', '👩‍💻']);
+    expect(cells).toEqual(['A', '😀', '𠮷', 'é', '👩‍💻']);
   });
 
   test('keeps emoji modifiers and regional flags intact in the fallback', async () => {
@@ -385,46 +404,35 @@ describe('decode-text markup', () => {
   const MARKUP =
     '<p>Study at <a class="pill" href="#" data-decode-atom><i class="icon"></i>Monash University</a>.</p>' +
     '<p>I <a class="link" href="/blog" data-decode-atom>write</a> things.</p>';
+  const TARGET = `<div id="target" style="width:240px;font:16px monospace">${MARKUP}</div>`;
 
   // Snapshot the DOM mid-reveal (prepared, before any frame runs) and after.
   async function decodeMarkup(restore: boolean) {
-    const page = await browser.newPage();
-    try {
-      await page.setContent(`<div id="target" style="width:240px;font:16px monospace">${MARKUP}</div>`);
-      return await page.evaluate(
-        async ({ source, restore }) => {
-          const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-          try {
-            const { prepareDecode } = await import(moduleUrl);
-            const root = document.querySelector<HTMLElement>('#target')!;
-            const original = root.innerHTML;
-            const controller = await prepareDecode(root, {
-              durationPerChar: 0,
-              fontTimeout: 0,
-              maxDuration: 0,
-              minDuration: 0,
-              respectReducedMotion: false,
-              restore,
-            });
-            const mid = {
-              paragraphs: root.querySelectorAll('p').length,
-              pill: root.querySelectorAll('.pill').length,
-              pillIcon: root.querySelectorAll('.pill > .icon').length,
-              pillCells: root.querySelectorAll('.pill .dt-c').length,
-              link: root.querySelectorAll('.link').length,
-            };
-            controller.start();
-            await controller.finished;
-            return { mid, restored: root.innerHTML === original, cellsAfter: root.querySelectorAll('.dt-c').length };
-          } finally {
-            URL.revokeObjectURL(moduleUrl);
-          }
-        },
-        { source: moduleSource, restore }
-      );
-    } finally {
-      await page.close();
-    }
+    await setup(TARGET);
+    return page.evaluate(async (restore) => {
+      const { prepareDecode, step } = window.__dt;
+      const root = document.querySelector<HTMLElement>('#target')!;
+      const original = root.innerHTML;
+      const controller = await prepareDecode(root, {
+        durationPerChar: 0,
+        fontTimeout: 0,
+        maxDuration: 0,
+        minDuration: 0,
+        respectReducedMotion: false,
+        restore,
+      });
+      const mid = {
+        paragraphs: root.querySelectorAll('p').length,
+        pill: root.querySelectorAll('.pill').length,
+        pillIcon: root.querySelectorAll('.pill > .icon').length,
+        pillCells: root.querySelectorAll('.pill .dt-c').length,
+        link: root.querySelectorAll('.link').length,
+      };
+      controller.start();
+      while (step()) {}
+      await controller.finished;
+      return { mid, restored: root.innerHTML === original, cellsAfter: root.querySelectorAll('.dt-c').length };
+    }, restore);
   }
 
   test('decodes every paragraph and keeps atoms whole', async () => {
@@ -436,5 +444,43 @@ describe('decode-text markup', () => {
   test('puts the original markup back when restore is on', async () => {
     expect(await decodeMarkup(true)).toMatchObject({ restored: true, cellsAfter: 0 });
     expect(await decodeMarkup(false)).toMatchObject({ restored: false });
+  });
+
+  test('a hidden tab force-finishes the reveal so text never stays scrambled', async () => {
+    await setup(TARGET);
+    const result = await page.evaluate(async () => {
+      const { prepareDecode, step } = window.__dt;
+      const root = document.querySelector<HTMLElement>('#target')!;
+      const original = root.innerHTML;
+      const controller = await prepareDecode(root, {
+        fontTimeout: 0,
+        respectReducedMotion: false,
+        restore: true,
+      });
+      controller.start();
+      for (let frame = 0; frame < 5; frame += 1) step();
+      const midReveal = root.classList.contains('dt-animating');
+
+      // A background tab stops rAF, so no further frame will ever arrive.
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+      try {
+        document.dispatchEvent(new Event('visibilitychange'));
+      } finally {
+        delete (document as unknown as { visibilityState?: string }).visibilityState;
+      }
+      const finished = await Promise.race([
+        controller.finished.then(() => true),
+        new Promise<boolean>((resolve) => window.setTimeout(() => resolve(false), 100)),
+      ]);
+
+      return {
+        midReveal,
+        finished,
+        restored: root.innerHTML === original,
+        animating: root.classList.contains('dt-animating'),
+      };
+    });
+
+    expect(result).toEqual({ midReveal: true, finished: true, restored: true, animating: false });
   });
 });

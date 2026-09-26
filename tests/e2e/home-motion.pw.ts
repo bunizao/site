@@ -52,47 +52,6 @@ test.describe('Home motion', () => {
     expect(timing.moodEnter).toEqual({ duration: '0.4s', delay: '0.36s' });
   });
 
-  test('reinitializes parallax across page lifecycles', async ({ page }) => {
-    await page.goto('/');
-
-    const expectDrift = async (top: number) => {
-      await page.evaluate((nextTop) => {
-        window.scrollTo({ top: nextTop, behavior: 'instant' });
-        window.dispatchEvent(new Event('scroll'));
-      }, top);
-      await expect.poll(() => page.evaluate(() => {
-        const sections = Array.from(
-          document.querySelectorAll<HTMLElement>('#parallax-container section:not(#projects-section)'),
-        );
-        const section = document.querySelector<HTMLElement>('#experience-section');
-        if (!section) return Number.POSITIVE_INFINITY;
-        const index = sections.indexOf(section);
-        const value = section.style.translate.split(/\s+/).at(-1) ?? '0';
-        const actual = Number.parseFloat(value);
-        const speed = 0.5 + (index % 3) * 0.2;
-        return Math.abs(actual - window.scrollY * speed * 0.02);
-      })).toBeLessThan(0.1);
-    };
-
-    await expectDrift(900);
-    await page.evaluate(() => document.dispatchEvent(new CustomEvent('astro:before-swap')));
-    await expect.poll(() =>
-      page.locator('#experience-section').evaluate((section) => (section as HTMLElement).style.translate),
-    ).toBe('');
-
-    await page.evaluate(() => document.dispatchEvent(new CustomEvent('astro:page-load')));
-    await expectDrift(1100);
-
-    await page.evaluate(() => {
-      document.dispatchEvent(new CustomEvent('astro:before-swap'));
-      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
-    });
-    await expectDrift(700);
-
-    await page.reload();
-    await expectDrift(1000);
-  });
-
   test('disables parallax when reduced motion is requested', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');

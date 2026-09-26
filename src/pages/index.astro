@@ -125,7 +125,4 @@ const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
   // which Safari holds until every lazy image and poster settles — sections sat
   // at opacity 0 for seconds before their reveal could even be scheduled.
   initHomeReveal();
-
-  // View transitions swap the DOM without re-running module scripts.
-  document.addEventListener('astro:page-load', initHomeReveal);
 </script>
