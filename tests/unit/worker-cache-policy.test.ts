@@ -138,7 +138,7 @@ describe('Worker response cache boundary', () => {
     expect(redirect.headers.get('Vary')).toBe(markdown.headers.get('Vary'));
   });
 
-  test('partitions native cache MISS and HIT responses by host', async () => {
+  test('serves a repeat home request from the edge cache without re-rendering', async () => {
     let renders = 0;
     const tasks: Promise<unknown>[] = [];
     const env = { ASSETS: { fetch: async () => {
@@ -156,6 +156,35 @@ describe('Worker response cache boundary', () => {
     expect(varyTokens(second)).toEqual(['accept', 'host']);
     expect(renders).toBe(1);
   });
+
+  // /dev pages sit behind the middleware's admin gate and /oauth hands off
+  // credentials, so neither may come from the asset layer or a cached copy.
+  test.each(['/dev/portal', '/oauth/login'])(
+    'renders %s through Astro on every request, never from assets or the edge cache',
+    async (path) => {
+      let renders = 0;
+      astroResponse = () => {
+        renders += 1;
+        return new Response('Rendered', {
+          headers: { 'Content-Type': 'text/html', 'Cache-Control': 'public, max-age=60' },
+        });
+      };
+      const tasks: Promise<unknown>[] = [];
+      const env = { ASSETS: { fetch: async () => new Response('Prerendered asset', {
+        headers: { 'Content-Type': 'text/html' },
+      }) } };
+      const request = new Request(`https://host-never-cache.example${path}`);
+      const first = await worker.fetch(request, env, { waitUntil: (task) => tasks.push(task) });
+      await Promise.all(tasks);
+      const second = await worker.fetch(request, env, context);
+
+      expect(await first.text()).toBe('Rendered');
+      expect(await second.text()).toBe('Rendered');
+      expect(first.headers.has('X-Buxx-Edge-Cache')).toBe(false);
+      expect(second.headers.has('X-Buxx-Edge-Cache')).toBe(false);
+      expect(renders).toBe(2);
+    },
+  );
 
   test.each([
     ['/', ['accept', 'host']],
