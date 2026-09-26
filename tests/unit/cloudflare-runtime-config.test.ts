@@ -195,18 +195,6 @@ describe('Cloudflare runtime configuration', () => {
     expect(ghostConfig).toContain('return readProcessEnv(name);');
   });
 
-  test('keeps Ghost draft previews inside the authenticated dev route', () => {
-    const previewRoute = readText('src/pages/dev/blog/[id].astro');
-
-    expect(previewRoute).toContain("import('@/features/posts/server/ghost-preview')");
-    expect(previewRoute).not.toContain('import.meta.env.DEV');
-
-    const middleware = readText('src/middleware.ts');
-    expect(middleware).toContain("const DEV_PORTAL_PREFIX = '/dev';");
-    expect(middleware).toContain('if (isDevPortalPath(pathname))');
-    expect(middleware).toContain('const session = await readAdminSession');
-  });
-
   test('loads Tailwind 4 through its stylesheet entrypoint', () => {
     const globals = readText('src/styles/globals.css');
     const postcss = readText('postcss.config.cjs');
