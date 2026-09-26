@@ -42,6 +42,9 @@ interface AmpTokenResult {
   expiresAtSeconds: number;
 }
 
+// Each Apple request is bounded, so a stalled endpoint degrades one card to
+// its embed instead of hanging the prerender.
+const LOOKUP_TIMEOUT_MS = 4_000;
 const lookupCache = new Map<string, AppleTrack | null>();
 const metadataLookupCache = new Map<string, AppleTrack | null>();
 let ampTokenPromise: Promise<AmpTokenResult | null> | null = null;
@@ -159,6 +162,7 @@ function discoverAmpChunkNames(entrySource: string): string[] {
 async function scrapeAmpWebToken(): Promise<AmpTokenResult | null> {
   const entryResponse = await fetch(AMP_ENTRY_URL, {
     headers: { Accept: 'application/javascript' },
+    signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
   });
   if (!entryResponse.ok) return null;
 
@@ -171,6 +175,7 @@ async function scrapeAmpWebToken(): Promise<AmpTokenResult | null> {
     chunkNames.map(async (chunkName) => {
       const chunkResponse = await fetch(`${AMP_BUILD_BASE}${chunkName}.entry.js`, {
         headers: { Accept: 'application/javascript' },
+        signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
       });
       return chunkResponse.ok ? chunkResponse.text() : '';
     }),
@@ -205,6 +210,7 @@ async function lookupExtendedPreviewUrl(id: string): Promise<string | null> {
         Authorization: `Bearer ${token}`,
         Origin: AMP_ORIGIN,
       },
+      signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
     });
     if (!response.ok) return null;
 
@@ -247,7 +253,10 @@ async function lookupAppleTrackMetadata(id: string): Promise<AppleTrack | null> 
     endpoint.searchParams.set('id', id);
     endpoint.searchParams.set('country', AMP_STOREFRONT);
     endpoint.searchParams.set('entity', 'song');
-    const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+    const response = await fetch(endpoint, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
+    });
     if (response.ok) {
       const data = (await response.json()) as { results?: ItunesResult[] };
       const result = data.results?.[0];
