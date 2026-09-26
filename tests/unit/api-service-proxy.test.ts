@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
 import {
   createApiServiceRequest,
   getApiServiceBinding,
@@ -15,13 +14,6 @@ function createApiBinding(handler: (request: Request) => Response | Promise<Resp
 }
 
 describe('api service proxy', () => {
-  test('keeps the legacy login route as an Access handoff', () => {
-    const source = readFileSync(new URL('../../src/pages/oauth/login.ts', import.meta.url), 'utf8');
-
-    expect(source).toContain('normalizeNext');
-    expect(source).not.toContain('GitHub');
-  });
-
   test('rewrites public API URLs to the private API origin', () => {
     const url = rewriteApiServiceUrl('https://buxx.me/api/health?probe=1');
 

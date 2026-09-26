@@ -108,9 +108,9 @@ of this runs at all — Cloudflare route patterns send `/api/*` straight to
 
 `/oauth/login` is the one exception: it is answered locally, not forwarded. It
 `302`s to the `?next=` path with `Cache-Control: no-store, max-age=0`, defaulting
-to `/dev/portal`. `next` is rejected unless it is a same-site absolute path —
-values starting `//`, containing a backslash, or naming another origin fall back
-to the default rather than redirecting off-site.
+to `/dev/portal`. `next` is resolved against the site origin first, and any
+value that resolves to another origin falls back to the default rather than
+redirecting off-site.
 
 ## Dev portal
 
