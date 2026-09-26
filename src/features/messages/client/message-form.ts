@@ -28,7 +28,10 @@ import { fitBubble } from '@/features/messages/client/fit-bubbles';
 import { messageCopy as t } from '@/features/messages/copy';
 
 const ACTION = 'owner_message_create' as const;
-const DWELL_TOKEN_REFRESH_AGE_MS = 20 * 60_000;
+// The service refuses a dwell token older than a day, so re-mint well inside
+// that. Never at submit: a token minted as the POST leaves is milliseconds old,
+// and the service silently drops a message written that fast.
+const DWELL_TOKEN_REFRESH_AGE_MS = 20 * 60 * 60 * 1000;
 // The last stretch of the field, where the count is worth showing. Anywhere
 // before it the number is noise.
 const COUNT_FROM = MESSAGE_MAX_BODY_LENGTH - 400;
@@ -91,21 +94,20 @@ export function initMessageForm(root: HTMLElement): void {
         dwellTokenMintedAt = Date.now();
       }
     } catch {
-      // Leave the token empty. The service treats a missing or bad dwell
-      // token as a silent drop, so failing here must not look like success:
-      // showError below runs when the submit comes back without one.
+      // Leave the token empty. The next focus tries again; a submit that still
+      // has none is refused with a 400, which shows the generic error.
     }
   }
 
-  // Both warm-ups fire on the reader's first contact with the form rather than
-  // on load: a Turnstile solve costs ~2.3s, and paying it for every visitor
-  // who only scrolls past is waste. By the time anyone has typed a sentence
-  // the token is long since ready.
+  // Both warm-ups fire on the reader's contact with the form rather than on
+  // load: a Turnstile solve costs ~2.3s, and paying it for every visitor who
+  // only scrolls past is waste. Every focus runs them, and both are no-ops
+  // while what they hold is fresh, so a tab left open re-mints on return.
   const warm = () => {
     void ensureDwellToken();
     if (siteKey) warmTurnstileToken(siteKey, ACTION);
   };
-  form.addEventListener('focusin', warm, { once: true });
+  form.addEventListener('focusin', warm);
 
   // Arrows, not function declarations: a hoisted declaration could in
   // principle run before the null guard above, so TypeScript refuses to carry
@@ -235,8 +237,6 @@ export function initMessageForm(root: HTMLElement): void {
     // flight. It represents a real wait, not a staged one.
     if (typing) typing.hidden = false;
     try {
-      await ensureDwellToken();
-
       let turnstileToken = '';
       if (siteKey) {
         try {
@@ -287,9 +287,6 @@ export function initMessageForm(root: HTMLElement): void {
       const result = (await response.json()) as CreateResult;
       releaseTurnstileToken(ACTION);
       dismissTurnstileChallenge(ACTION);
-      // A fresh dwell token per submission: the one just spent is burnt.
-      dwellToken = '';
-      dwellTokenMintedAt = 0;
 
       sentBody.textContent = result.verificationSent
         ? t.sentVerify
