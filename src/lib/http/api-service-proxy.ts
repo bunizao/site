@@ -65,23 +65,7 @@ export function rewriteApiServiceUrl(requestUrl: string, originUrl: string = API
   target.protocol = origin.protocol;
   target.hostname = origin.hostname;
   target.port = origin.port;
-  target.pathname = rewriteApiServicePath(target.pathname);
   return target;
-}
-
-function rewriteApiServicePath(pathname: string): string {
-  if (
-    pathname === '/oauth'
-    || pathname.startsWith('/oauth/')
-  ) {
-    return pathname;
-  }
-
-  if (pathname === '/api' || pathname.startsWith('/api/')) {
-    return pathname;
-  }
-
-  return pathname.startsWith('/v1') || pathname.startsWith('/v2') ? pathname : `/v2${pathname}`;
 }
 
 export function createApiServiceRequest(request: Request, originUrl: string = API_SERVICE_BINDING_ORIGIN): Request {
@@ -115,9 +99,9 @@ export function createApiServiceRequest(request: Request, originUrl: string = AP
   return new Request(target, init);
 }
 
-// Default origin for the dev HTTP fallback. buxx.me/* already routes /api,
-// /v2 and /oauth straight to the deployed site-api worker, so frontend-only
-// dev works with no extra setup. Override API_DEV_ORIGIN in .env.local to a
+// Default origin for the dev HTTP fallback. buxx.me routes /api/* straight to
+// the deployed site-api worker and proxies /oauth* to it, so frontend-only dev
+// works with no extra setup. Override API_DEV_ORIGIN in .env.local to a
 // local `wrangler dev` site-api (e.g. http://localhost:8787) or a preview URL
 // when you are debugging the API itself.
 const DEFAULT_DEV_API_ORIGIN = 'https://buxx.me';

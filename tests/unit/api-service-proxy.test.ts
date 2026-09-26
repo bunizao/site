@@ -20,16 +20,11 @@ describe('api service proxy', () => {
     expect(url.toString()).toBe('https://site-api.internal/api/health?probe=1');
   });
 
-  test('passes legacy login and private API routes through without version prefixing', () => {
-    expect(rewriteApiServiceUrl('https://buxx.me/oauth/login?next=%2Fdocs').toString())
-      .toBe('https://site-api.internal/oauth/login?next=%2Fdocs');
-    expect(rewriteApiServiceUrl('https://buxx.me/v2/admin/session').toString())
-      .toBe('https://site-api.internal/v2/admin/session');
-  });
-
-  test('never proxies public dev portal pages into the API worker', () => {
-    expect(rewriteApiServiceUrl('https://buxx.me/dev/portal').toString())
-      .toBe('https://site-api.internal/v2/dev/portal');
+  test('forwards OAuth and archive paths to site-api unchanged', () => {
+    expect(rewriteApiServiceUrl('https://buxx.me/oauth/reader/github?return=%2Fblog').toString())
+      .toBe('https://site-api.internal/oauth/reader/github?return=%2Fblog');
+    expect(rewriteApiServiceUrl('https://buxx.me/v2/mood?limit=20').toString())
+      .toBe('https://site-api.internal/v2/mood?limit=20');
   });
 
   test('passes method, body, and headers through to the service binding', async () => {
