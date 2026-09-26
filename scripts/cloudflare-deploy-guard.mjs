@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 const CONFIG_PATH = 'dist/server/wrangler.json';
 const BLOG_ARTIFACT_PATH = 'dist/client/blog.html';
 const DEPLOY_GUARD_COMMAND = 'node scripts/cloudflare-deploy-guard.mjs check';
-const MOCK_POST_SLUGS = [
+export const MOCK_POST_SLUGS = [
   'demo-effects',
   'quiet-architecture',
   'notes-from-the-links-lab',

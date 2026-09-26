@@ -3,6 +3,9 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { createGhostContentProvider } from '@/features/posts/adapter/provider';
+import { MOCK_POST_SLUGS } from '../../scripts/cloudflare-deploy-guard.mjs';
+
 const root = join(import.meta.dir, '../..');
 const guardScript = join(root, 'scripts/cloudflare-deploy-guard.mjs');
 const workspaces: string[] = [];
@@ -67,6 +70,14 @@ describe('Cloudflare deploy guard', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Cloudflare deploy blocked mock Ghost posts');
     expect(result.stderr).toContain('demo-effects, quiet-architecture');
+  });
+
+  // The guard keeps its own copy of the fixture slugs; a mock post renamed or
+  // added without it would reach production unnoticed.
+  test('recognises every post the mock blog index lists', async () => {
+    const listed = await createGhostContentProvider({ forceMockContent: true }).getListedPosts();
+
+    expect([...MOCK_POST_SLUGS].sort()).toEqual(listed.map((post) => post.slug).sort());
   });
 
   test('does not block a real slug that only shares a mock prefix', () => {
