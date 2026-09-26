@@ -1,9 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
-import {
-  getMoodFeedThumbnailStyle,
-  resolveMoodFeedImageLayout,
-} from '../../src/features/mood/shared/feed-thumbnail';
+import { getMoodFeedThumbnailStyle } from '../../src/features/mood/shared/feed-thumbnail';
+import { resolveMoodImageLayout } from '../../src/features/mood/shared/image-srcset';
 
 describe('mood feed thumbnails', () => {
   test('reserves a stable fallback box when image height is unknown', () => {
@@ -40,7 +38,7 @@ describe('mood feed thumbnails', () => {
   });
 
   test('derives the portrait box when image layout metadata is missing', () => {
-    expect(resolveMoodFeedImageLayout(null, 960, 1280)).toBe('portrait');
+    expect(resolveMoodImageLayout(null, 960, 1280)).toBe('portrait');
     expect(
       getMoodFeedThumbnailStyle({
         imageWidth: 960,

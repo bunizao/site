@@ -97,12 +97,18 @@
 
     const now = new Date();
     const runs = [];
+    const leadingUndated = [];
     orderedItems.forEach((item) => {
       const keySource = item.querySelector('.mood-item-time')
         || item.querySelector('time[datetime]');
       const datetime = (keySource && keySource.getAttribute('datetime')) || '';
       const key = formatDateKey(datetime);
-      if (!key) return;
+      if (!key) {
+        const currentRun = runs[runs.length - 1];
+        if (currentRun) currentRun.items.push(item);
+        else leadingUndated.push(item);
+        return;
+      }
 
       item.querySelectorAll('time[datetime]').forEach((timeEl) => {
         const localTime = formatTime(timeEl.getAttribute('datetime') || '');
@@ -117,6 +123,7 @@
       }
     });
     if (runs.length === 0) return;
+    runs[0].items.unshift(...leadingUndated);
 
     const anchor = existingGroups[0];
     const parent = anchor.parentNode;

@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { chromium, type Browser } from '@playwright/test';
+import { chromium, type Browser, type Page } from '@playwright/test';
 import { join } from 'node:path';
+
+import { formatMoodDateKey, formatMoodTime } from '../../src/features/mood/shared/date-grouping';
 
 let browser: Browser;
 let moduleSource = '';
@@ -29,9 +31,11 @@ beforeAll(async () => {
   });
 }, 15_000);
 
+// Closing Chromium can outlast bun's 5s default hook timeout on a loaded
+// machine and fail an otherwise green file.
 afterAll(async () => {
   await browser?.close();
-});
+}, 15_000);
 
 // SSR-shaped feed: each entry becomes a mood-date-group whose members carry a
 // `<time datetime>` so the client can recompute the local key.
@@ -50,39 +54,41 @@ function buildFeedHtml(groups: Array<{ key: string; posts: Array<{ id: string; d
   return `<div data-mood-list>${groupHtml}</div>`;
 }
 
+// One context per timezone, reused across tests; setContent resets the page.
+const pagesByTimezone = new Map<string, Page>();
+
+async function pageInTimezone(timezoneId: string): Promise<Page> {
+  let page = pagesByTimezone.get(timezoneId);
+  if (!page) {
+    const context = await browser.newContext({ timezoneId });
+    page = await context.newPage();
+    pagesByTimezone.set(timezoneId, page);
+  }
+  return page;
+}
+
 async function runInTimezone<T>(
   timezoneId: string,
   html: string,
   evaluate: (args: { source: string }) => T | Promise<T>
 ): Promise<T> {
-  const context = await browser.newContext({ timezoneId });
-  const page = await context.newPage();
-  try {
-    await page.setContent(html);
-    return await page.evaluate(evaluate, { source: moduleSource });
-  } finally {
-    await context.close();
-  }
+  const page = await pageInTimezone(timezoneId);
+  await page.setContent(html);
+  return page.evaluate(evaluate, { source: moduleSource });
 }
 
 describe('mood date grouping formatters', () => {
-  test('formats time and date key in the visitor timezone', async () => {
-    const result = await runInTimezone('Etc/GMT-2', '<div id="x"></div>', async ({ source }) => {
-      const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-      try {
-        const { formatMoodTime, formatMoodDateKey } = await import(moduleUrl);
-        return {
-          time: formatMoodTime('2026-06-14T23:30:00.000Z'),
-          key: formatMoodDateKey('2026-06-14T23:30:00.000Z'),
-        };
-      } finally {
-        URL.revokeObjectURL(moduleUrl);
-      }
-    });
-
-    // UTC+2: 23:30Z is 01:30 on the next local day.
-    expect(result.time).toBe('01:30');
-    expect(result.key).toBe('2026-06-15');
+  test('formats time and date key in the visitor timezone', () => {
+    // bun test runs every file in one process under UTC; restore it after.
+    const previousTimezone = process.env.TZ;
+    process.env.TZ = 'Etc/GMT-2';
+    try {
+      // UTC+2: 23:30Z is 01:30 on the next local day.
+      expect(formatMoodTime('2026-06-14T23:30:00.000Z')).toBe('01:30');
+      expect(formatMoodDateKey('2026-06-14T23:30:00.000Z')).toBe('2026-06-15');
+    } finally {
+      process.env.TZ = previousTimezone ?? 'Etc/UTC';
+    }
   });
 });
 
@@ -187,11 +193,13 @@ describe('rekeyMoodServerRenderedGroups', () => {
 describe('pre-paint inline rekey script', () => {
   // The inline script in rekey-server-groups-inline.js must regroup exactly
   // like the module, and the module pass that follows on hydration must find
-  // nothing left to change. Both fixtures exercise regrouping: a merge across
-  // a local midnight and a split of one UTC group.
+  // nothing left to change. The fixtures exercise a merge across a local
+  // midnight, a split of one UTC group, and a post without a parseable date
+  // whose SSR group the regroup empties.
   const fixtures = [
     {
       name: 'merge',
+      ids: ['2', '1'],
       html: buildFeedHtml([
         { key: '2026-06-15', posts: [{ id: '2', datetime: '2026-06-15T00:30:00.000Z' }] },
         { key: '2026-06-14', posts: [{ id: '1', datetime: '2026-06-14T23:30:00.000Z' }] },
@@ -199,6 +207,7 @@ describe('pre-paint inline rekey script', () => {
     },
     {
       name: 'split',
+      ids: ['2', '1'],
       html: buildFeedHtml([
         {
           key: '2026-06-14',
@@ -209,50 +218,59 @@ describe('pre-paint inline rekey script', () => {
         },
       ]),
     },
+    {
+      name: 'undated post',
+      ids: ['3', '2', '1'],
+      html: buildFeedHtml([
+        { key: '2026-06-15', posts: [{ id: '3', datetime: '2026-06-15T00:30:00.000Z' }] },
+        { key: '2026-06-14', posts: [{ id: '2', datetime: '2026-06-14T23:30:00.000Z' }] },
+        { key: '2026-06-13', posts: [{ id: '1', datetime: '' }] },
+      ]),
+    },
   ];
 
   for (const fixture of fixtures) {
-    test(`matches the module implementation and stays stable (${fixture.name})`, async () => {
-      const context = await browser.newContext({ timezoneId: 'Etc/GMT-2' });
-      const page = await context.newPage();
-      try {
-        // Module-only pass: the reference output.
-        await page.setContent(fixture.html);
-        const reference = await page.evaluate(async ({ source }) => {
-          const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-          try {
-            const { rekeyMoodServerRenderedGroups } = await import(moduleUrl);
-            const list = document.querySelector<HTMLElement>('[data-mood-list]')!;
-            rekeyMoodServerRenderedGroups(list);
-            return list.innerHTML;
-          } finally {
-            URL.revokeObjectURL(moduleUrl);
-          }
-        }, { source: moduleSource });
+    test(`matches the module, keeps every post, and stays stable (${fixture.name})`, async () => {
+      const page = await pageInTimezone('Etc/GMT-2');
+      // Module-only pass: the reference output.
+      await page.setContent(fixture.html);
+      const reference = await page.evaluate(async ({ source }) => {
+        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+        try {
+          const { rekeyMoodServerRenderedGroups } = await import(moduleUrl);
+          const list = document.querySelector<HTMLElement>('[data-mood-list]')!;
+          rekeyMoodServerRenderedGroups(list);
+          return list.innerHTML;
+        } finally {
+          URL.revokeObjectURL(moduleUrl);
+        }
+      }, { source: moduleSource });
 
-        // Production sequence: inline script first, module pass after.
-        await page.setContent(fixture.html);
-        await page.addScriptTag({ content: inlineSource });
-        const afterInline = await page.evaluate(
-          () => document.querySelector<HTMLElement>('[data-mood-list]')!.innerHTML,
-        );
-        const afterModule = await page.evaluate(async ({ source }) => {
-          const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-          try {
-            const { rekeyMoodServerRenderedGroups } = await import(moduleUrl);
-            const list = document.querySelector<HTMLElement>('[data-mood-list]')!;
-            rekeyMoodServerRenderedGroups(list);
-            return list.innerHTML;
-          } finally {
-            URL.revokeObjectURL(moduleUrl);
-          }
-        }, { source: moduleSource });
+      // Production sequence: inline script first, module pass after.
+      await page.setContent(fixture.html);
+      await page.addScriptTag({ content: inlineSource });
+      const afterInline = await page.evaluate(
+        () => document.querySelector<HTMLElement>('[data-mood-list]')!.innerHTML,
+      );
+      const afterModule = await page.evaluate(async ({ source }) => {
+        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+        try {
+          const { rekeyMoodServerRenderedGroups } = await import(moduleUrl);
+          const list = document.querySelector<HTMLElement>('[data-mood-list]')!;
+          rekeyMoodServerRenderedGroups(list);
+          return list.innerHTML;
+        } finally {
+          URL.revokeObjectURL(moduleUrl);
+        }
+      }, { source: moduleSource });
 
-        expect(afterInline).toBe(reference);
-        expect(afterModule).toBe(afterInline);
-      } finally {
-        await context.close();
-      }
+      expect(afterInline).toBe(reference);
+      expect(afterModule).toBe(afterInline);
+      const renderedIds = await page.evaluate(() => Array.from(
+        document.querySelectorAll<HTMLElement>('[data-mood-id]'),
+        (item) => item.dataset.moodId,
+      ));
+      expect(renderedIds).toEqual(fixture.ids);
     });
   }
 });

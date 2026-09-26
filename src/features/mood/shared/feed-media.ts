@@ -34,6 +34,14 @@ function safeUrl(value: unknown, kind: 'href' | 'media'): string {
   return '';
 }
 
+// Percent-encode the characters that can end a CSS url('') token. The HTML
+// parser decodes &#39; back to a quote before CSS reads the style attribute,
+// so escapeHtml alone does not keep the value inside url(). encodeURIComponent
+// leaves ' ( ) as they are, hence the explicit mapping.
+function cssUrl(value: string): string {
+  return value.replace(/['"()\\]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
 function dimension(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null;
   const rounded = Math.round(value);
@@ -253,7 +261,7 @@ function renderLocation(media: MediaItem): string {
   const image = safeUrl(media.thumbnailSrc || media.src, 'media');
   const tagName = href ? 'a' : 'div';
   const hrefAttr = href ? ` href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"` : '';
-  const imageStyle = image ? ` style="background-image:url('${escapeHtml(image)}');"` : '';
+  const imageStyle = image ? ` style="background-image:url('${escapeHtml(cssUrl(image))}');"` : '';
 
   return [
     `<${tagName} class="tgme_widget_message_location_wrap"${hrefAttr}>`,

@@ -72,7 +72,8 @@ Rendering rules that are not obvious from the markup:
 - Inline media stays expanded in the feed; long text-only posts clamp and link
   to detail.
 - Visible archive posts hydrate live comment and reaction counts through
-  `GET /api/v2/moods/live-counts`.
+  `GET /api/v2/moods/live-counts`. A failed batch is not requested again for
+  30 seconds.
 - Hovering a comments badge fetches `GET /api/comments?postId=…` and shows up to
   three comments, linking through to `/mood/{id}#comments`. The card reuses the
   detail bubble's token names one rung down the same ladder — see
