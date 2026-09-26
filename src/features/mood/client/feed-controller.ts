@@ -13,8 +13,10 @@ import {
   getMoodFeedAnchorWindowBeforeCursor,
   getMoodFeedPostIds,
   mergeMoodFeedWindowPosts,
+  MOOD_ARCHIVE_FEED_ENDPOINT,
   MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
   moodFeedElementHasId,
+  moodFeedEndpoints,
   moodFeedPostHasId,
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
@@ -271,19 +273,12 @@ export function initMoodFeedController(): void {
         if (feedTagFilter) {
           query.set('tag', feedTagFilter);
         }
-        // Tag filtering only exists on the archive route; tag mode always SSRs
-        // with readSource=archive, so both flags agree here.
-        const archiveRead = feedEl.dataset.moodReadSource === 'archive' || Boolean(feedTagFilter);
-        if (archiveRead) {
+        const endpoints = moodFeedEndpoints(feedTagFilter, feedEl.dataset.moodReadSource);
+        // Archive reads never ask site-api to complete content from t.me.
+        if (endpoints[0] === MOOD_ARCHIVE_FEED_ENDPOINT) {
           query.set('fallback', '0');
         }
         const queryString = query.toString();
-        // Archive reads degrade to the live mirror once /api/v2/mood exhausts
-        // its retries. Tag filters only exist on the archive route, so they
-        // stay strict.
-        const endpoints = archiveRead
-          ? (feedTagFilter ? ['/api/v2/mood'] : ['/api/v2/mood', '/api/moods'])
-          : ['/api/moods'];
         let lastError: unknown = new Error('Failed to load moods.');
 
         for (const endpoint of endpoints) {
