@@ -73,10 +73,5 @@
     };
   };
 
-  const stopParallax = () => cleanupParallax?.();
-
   initParallax();
-  document.addEventListener('astro:page-load', initParallax);
-  document.addEventListener('astro:before-swap', stopParallax);
-  window.addEventListener('pageshow', initParallax);
 </script>

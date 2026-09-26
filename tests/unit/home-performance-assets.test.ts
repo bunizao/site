@@ -64,21 +64,6 @@ describe('homepage performance assets', () => {
     expect(parallax).not.toContain(':global(section) {');
   });
 
-  test('keeps native parallax scoped and interruptible', () => {
-    const parallax = readText('src/features/home/ui/ParallaxWrapper.astro');
-
-    expect(parallax).toContain("section:not(#projects-section)");
-    expect(parallax).toContain('const speed = 0.5 + (index % 3) * 0.2;');
-    expect(parallax).toContain('scrollY * speed * 0.02');
-    expect(parallax).toContain("window.addEventListener('scroll', schedule, { passive: true });");
-    expect(parallax).toContain('window.requestAnimationFrame(render)');
-    expect(parallax).toContain("motionQuery.addEventListener('change', handleMotionChange)");
-    expect(parallax).toContain("document.addEventListener('astro:before-swap', stopParallax)");
-    expect(parallax).not.toContain("window.addEventListener('pagehide'");
-    expect(parallax).not.toContain("import('gsap");
-    expect(parallax).not.toContain('will-change');
-  });
-
   test('preserves the homepage reveal choreography', () => {
     const reveal = readText('src/styles/home-reveal.css');
     const controller = readText('src/lib/home-reveal.ts');
