@@ -373,10 +373,6 @@ function renderMusicCard(track: AppleTrack): string {
     .filter(Boolean)
     .map(escapeHtml)
     .join(' <span class="blog-music__dot" aria-hidden="true"></span> ');
-  const hasPreview = Boolean(track.previewUrl);
-  // Playable if it can stream the full track (catalog id) or at least the
-  // preview floor. MusicKit subscribers get the full song; everyone else preview.
-  const canPlay = hasPreview || Boolean(track.id);
   // crossorigin lets Prose.astro sample an accent off the artwork canvas, the
   // same trick the homepage widget uses. Falls back gracefully if it fails.
   const cover = track.artworkUrl
@@ -399,7 +395,7 @@ function renderMusicCard(track: AppleTrack): string {
     // Player chrome (title, "Full track", timestamps) is UI, not prose —
     // keep it out of the Pagefind excerpt index.
     `<figure class="kg-card blog-music" data-blog-music data-track-id="${escapeHtml(track.id)}" data-track-title="${title}" data-track-artist="${escapeHtml(track.artist)}" data-pagefind-ignore>`,
-    `<button class="blog-music__art" type="button" data-blog-music-play data-apple-catalog-id="${escapeHtml(track.id)}" data-preview-url="${escapeHtml(track.previewUrl)}"${canPlay ? '' : ' disabled'} aria-pressed="false" aria-label="${canPlay ? `Play ${title}` : `${title}`}">`,
+    `<button class="blog-music__art" type="button" data-blog-music-play data-apple-catalog-id="${escapeHtml(track.id)}" data-preview-url="${escapeHtml(track.previewUrl)}" aria-pressed="false" aria-label="Play ${title}">`,
     `<span class="blog-music__frame">`,
     RECORD,
     cover,

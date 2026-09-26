@@ -592,10 +592,6 @@
   cursor: pointer;
 }
 
-.blog-prose .blog-music__art:disabled {
-  cursor: default;
-}
-
 .blog-prose .blog-music__art:focus-visible {
   outline: none;
 }
