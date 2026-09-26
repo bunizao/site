@@ -18,6 +18,7 @@ import { messageCopy } from '@/features/messages/copy';
 import { postPath } from '@/features/posts/format';
 import { getListedPosts } from '@/features/posts/server/content';
 import { GitHubIcon, InstagramIcon, TelegramIcon } from '@/components/icons';
+import { API_PREFIX, INSTAGRAM_AVATAR_PATH } from '@bunizao/contracts/routes';
 
 const school = experience[0];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -25,10 +26,6 @@ const firstName = profile.name.split(' ')[0];
 
 // Expected graduation; the badge prints it as the card's expiry.
 const EXPIRES = '2028';
-const initials = profile.name
-  .split(' ')
-  .map((part) => part[0])
-  .join('');
 
 // The badge barcode is real Code 128 (set B) and scans to the site. Each
 // entry is one symbol's bar and space widths, bar first, by symbol value;
@@ -93,50 +90,13 @@ const readTotalStars = async (): Promise<string | null> => {
 };
 const totalStars = await readTotalStars();
 
-// The Instagram profile. Instagram answers link-preview crawlers without a
-// login: og:image names the picture and og:description carries the counts
-// ("33 Followers, 94 Following, 35 Posts"). The CDN signs the picture's
-// address and expires it within days, so its bytes are inlined, not linked.
-// It is read on every build; a failed read leaves the initials and no counts.
-type InstagramProfile = {
-  avatar: string | null;
-  counts: { label: string; value: string }[];
-};
-const readInstagram = async (profileUrl: string): Promise<InstagramProfile | null> => {
-  try {
-    const page = await fetch(profileUrl, {
-      headers: { 'user-agent': 'facebookexternalhit/1.1' },
-      signal: AbortSignal.timeout(4000),
-    });
-    if (!page.ok) return null;
-    const html = await page.text();
-    const meta = (name: string) =>
-      html.match(new RegExp(`<meta property="og:${name}" content="([^"]+)"`))?.[1]?.replaceAll('&amp;', '&');
+// The Instagram picture and counts come from site-api, which stores the last
+// profile read that passed validation (src/features/home/server/instagram.ts
+// there). The picture is its own route, so the page never names a signed
+// Instagram address; the counts load with the other live reads.
+const INSTAGRAM_AVATAR_URL = `${API_PREFIX}${INSTAGRAM_AVATAR_PATH}`;
+const INSTAGRAM_COUNT_LABELS = ['Posts', 'Followers', 'Following'] as const;
 
-    const summary = meta('description') ?? '';
-    const count = (label: string) => summary.match(new RegExp(`([\\d.,]+[KM]?) ${label}`, 'i'))?.[1];
-    const counts = [
-      { label: 'Posts', value: count('Posts') },
-      { label: 'Followers', value: count('Followers') },
-      { label: 'Following', value: count('Following') },
-    ].filter((item): item is { label: string; value: string } => Boolean(item.value));
-
-    let avatar: string | null = null;
-    const src = meta('image');
-    if (src) {
-      const image = await fetch(src, { signal: AbortSignal.timeout(4000) });
-      const type = image.headers.get('content-type') ?? '';
-      if (image.ok && type.startsWith('image/')) {
-        let binary = '';
-        for (const byte of new Uint8Array(await image.arrayBuffer())) binary += String.fromCharCode(byte);
-        avatar = `data:${type};base64,${btoa(binary)}`;
-      }
-    }
-    return { avatar, counts };
-  } catch {
-    return null;
-  }
-};
 // A hand of cards fanned from the middle, the outer ones lower and turned
 // further. The way to the whole list is the first card, under the others.
 const HAND = projects.length + 1;
@@ -157,7 +117,6 @@ const channel = (name: string) => {
 const github = channel('GitHub');
 const telegram = channel('Telegram');
 const instagram = channel('Instagram');
-const instagramProfile = instagram?.canonicalUrl ? await readInstagram(instagram.canonicalUrl) : null;
 const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 ---
 
@@ -357,20 +316,14 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   {instagram && (
     <div class="hc hc--instagram" data-card-id="instagram">
       <span class="ig-ring">
-        {instagramProfile?.avatar ? (
-          <img class="ig-avatar" src={instagramProfile.avatar} alt="" width="64" height="64" decoding="async" />
-        ) : (
-          <span class="hc-monogram">{initials}</span>
-        )}
+        <img class="ig-avatar" src={INSTAGRAM_AVATAR_URL} alt="" width="64" height="64" loading="lazy" decoding="async" />
       </span>
       <span class="hc-title">{instagram.handle}</span>
-      {instagramProfile && instagramProfile.counts.length > 0 && (
-        <dl class="ig-counts">
-          {instagramProfile.counts.map((item) => (
-            <div><dd class="hc-num">{item.value}</dd><dt>{item.label}</dt></div>
-          ))}
-        </dl>
-      )}
+      <dl class="ig-counts">
+        {INSTAGRAM_COUNT_LABELS.map((label) => (
+          <div><dd class="hc-num" data-ig-count={label.toLowerCase()}>—</dd><dt>{label}</dt></div>
+        ))}
+      </dl>
       <a class="ig-button" href={instagram.url} {...external}>
         <InstagramIcon className="ig-button-icon" />View profile
       </a>
@@ -553,22 +506,6 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     object-fit: cover;
     outline: 1px solid var(--home-image-outline);
     outline-offset: -1px;
-  }
-
-  /* Initials stand in for a face everywhere but GitHub, whose avatar is
-     the profile picture there. */
-  .hc-monogram {
-    display: grid;
-    place-items: center;
-    background: color-mix(in oklab, hsl(var(--foreground)) 8%, var(--home-surface));
-    font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--home-fg-primary);
-  }
-
-  .hc-avatar.hc-monogram {
-    font-size: 13px;
   }
 
   .hc-note {
@@ -1599,13 +1536,6 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     }
   }
 
-  .ig-ring .hc-monogram {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    font-size: 20px;
-  }
-
   .ig-avatar {
     width: 64px;
     height: 64px;
@@ -1683,6 +1613,9 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 </style>
 
 <script>
+  import type { InstagramProfile } from '@bunizao/contracts/instagram';
+  import { API_PREFIX, INSTAGRAM_PROFILE_PATH } from '@bunizao/contracts/routes';
+
   const layer = document.querySelector<HTMLElement>('[data-hero-cards]');
   const bio = document.querySelector<HTMLElement>('[data-hero-bio]');
 
@@ -1899,6 +1832,32 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     if (current === card) reposition();
   };
 
+  // ---------- Instagram ---------------------------------------------------
+
+  const compactCount = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+
+  let instagramRequested = false;
+  const loadInstagram = async (): Promise<void> => {
+    if (instagramRequested) return;
+    instagramRequested = true;
+    const card = cardById('instagram');
+    if (!card) return;
+    let counts: InstagramProfile['counts'] | null = null;
+    try {
+      const response = await fetch(`${API_PREFIX}${INSTAGRAM_PROFILE_PATH}`);
+      if (!response.ok) throw new Error(String(response.status));
+      counts = ((await response.json()) as Partial<InstagramProfile>).counts ?? null;
+    } catch {
+      // The counts keep their dashes; the picture is its own request.
+    }
+    if (!counts) return;
+    for (const [key, value] of Object.entries(counts)) {
+      const node = card.querySelector(`[data-ig-count="${key}"]`);
+      if (node && typeof value === 'number') node.textContent = compactCount.format(value);
+    }
+    if (current === card) reposition();
+  };
+
   // ---------- Open and close ----------------------------------------------
 
   const open = (link: HTMLElement): void => {
@@ -1943,6 +1902,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   const warm = (): void => {
     void loadMoods();
     void loadGitHub();
+    void loadInstagram();
   };
 
   if (layer && bio) {

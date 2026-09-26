@@ -1,11 +1,11 @@
 ---
 title: Content & Integrations
-description: Blog metadata, mood comments by post id, GitHub contributions, the MusicKit developer token, and the posts endpoint that is not switched on yet.
+description: Blog metadata, mood comments by post id, GitHub contributions, the Instagram profile, the MusicKit developer token, and the posts endpoint that is not switched on yet.
 group: API
 order: 4
 ---
 
-Five endpoints that pull something from outside the site and hand it back as
+Seven endpoints that pull something from outside the site and hand it back as
 JSON. They have almost nothing in common except that each one is a cache in
 front of a third party, and each one fails differently when that third party is
 having a bad day.
@@ -125,6 +125,61 @@ Any method other than `GET` gets a plain-text `405 Method Not Allowed`.
 Despite the `no-store` on the response, results are cached inside the Worker
 for 10 minutes per `(username, days)` pair, so hammering this endpoint does not
 hammer GitHub.
+
+## Instagram profile
+
+```
+GET /api/v2/instagram
+GET /api/v2/instagram/avatar
+```
+
+The picture and counts on the home page's Instagram card. No auth. The profile
+route is rate limited to 60 requests / 60s; the picture route is not.
+
+Neither route talks to Instagram. Instagram has no API for a private personal
+account, and the web app's own `web_profile_info` endpoint answers only over
+HTTP/2, which a Worker's outbound fetch does not speak. A scheduled GitHub
+Actions job in `site-api` (`.github/workflows/instagram-refresh.yml`, every
+three hours) reads it with curl and reports the answer to a signed internal
+route. `site-api` checks the report is this account with a picture on
+Instagram's photo CDN, downloads the picture, and stores both in KV. A report
+that fails any check stores nothing but its attempt record, so these routes
+always serve the last read that passed.
+
+```json
+{
+  "username": "bunizao_",
+  "fullName": "Lucian Bu",
+  "profileUrl": "https://www.instagram.com/bunizao_/",
+  "avatar": {
+    "url": "https://buxx.me/api/v2/instagram/avatar?v=3f1c0a9b2d4e5f60",
+    "contentType": "image/jpeg",
+    "bytes": 18412,
+    "sha256": "3f1c0a9b2d4e5f60…"
+  },
+  "counts": { "posts": 35, "followers": 34, "following": 89 },
+  "refreshedAt": "2026-09-25T12:41:07.000Z",
+  "lastAttempt": { "at": "2026-09-25T15:41:09.000Z", "ok": false, "error": "profile:401,profile:401,profile:401,profile:401" }
+}
+```
+
+`refreshedAt` is when the stored read was taken; `lastAttempt` is the most
+recent report, which may have failed without touching anything else. Read
+both: an old `refreshedAt` with a failing `lastAttempt` means Instagram has
+been refusing the job. Counts are exact integers. `Cache-Control: public,
+max-age=60, s-maxage=300, stale-while-revalidate=3600`.
+
+`/api/v2/instagram/avatar` serves the stored bytes with `ETag` set to their
+SHA-256 and answers `If-None-Match` with `304`. Without `v`, or with a `v`
+that is not the current picture's, it is `max-age=3600`; with the current
+`v` (the first 16 hex digits of `sha256`, as in `avatar.url`) it is
+`immutable`. The home page links the unversioned URL, so a new picture shows
+within the hour without a rebuild.
+
+**Errors:** `503` on both routes until the first read is stored, and when the
+KV binding is missing; the profile `503` carries the latest `lastAttempt`.
+`429 {"error":"Too Many Requests"}` on the profile route. Any other method gets
+a plain-text `405 Method Not Allowed`.
 
 ## MusicKit developer token
 

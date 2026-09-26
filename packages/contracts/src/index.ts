@@ -2,6 +2,7 @@ export * from './analytics';
 export * from './admin';
 export * from './comments';
 export * from './content';
+export * from './instagram';
 export * from './listening';
 export * from './messages';
 export * from './mood';
