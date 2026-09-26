@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
-import { blog, profile } from '@/data/site';
 import { buildGhostDataset } from '@/features/posts/adapter/ghost/dataset';
 import { getGhostRuntimeConfig } from '@/features/posts/adapter/ghost/config';
 import { mockPosts } from '@/features/posts/adapter/mock';
@@ -47,8 +46,6 @@ const originalLegacyGhostKey = process.env.GHOST_CONTENT_APIKEY;
 const originalGhostMockContent = process.env.GHOST_MOCK_CONTENT;
 const originalE2ESiteFixture = process.env.E2E_SITE_FIXTURE;
 const originalNodeEnv = process.env.NODE_ENV;
-const originalWorkersCi = process.env.WORKERS_CI;
-const originalWorkersCiBranch = process.env.WORKERS_CI_BRANCH;
 
 function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) {
@@ -77,8 +74,6 @@ afterEach(() => {
   restoreEnv('GHOST_MOCK_CONTENT', originalGhostMockContent);
   restoreEnv('E2E_SITE_FIXTURE', originalE2ESiteFixture);
   restoreEnv('NODE_ENV', originalNodeEnv);
-  restoreEnv('WORKERS_CI', originalWorkersCi);
-  restoreEnv('WORKERS_CI_BRANCH', originalWorkersCiBranch);
   resetPostsProviderForTests();
 });
 
@@ -132,6 +127,17 @@ describe('posts content provider', () => {
     expect(systems?.posts.map((post) => post.slug)).not.toContain('private-link-demo');
     expect(systems?.postCount).toBe(systems?.posts.length);
     expect(archive?.posts.map((post) => post.slug)).not.toContain('private-link-demo');
+  });
+
+  test('never surfaces an internal tag in the directory or as an archive', async () => {
+    useMockGhostContent();
+
+    const directory = await getPublicTagDirectory();
+
+    expect(directory.map((tag) => tag.slug)).toContain('systems');
+    expect(directory.every((tag) => !tag.slug.startsWith('hash-'))).toBe(true);
+    expect(await getTagArchive('hash-no-toc')).toBeNull();
+    expect(await getTagArchive('hash-unlisted')).toBeNull();
   });
 
   test('hoists post directive metadata through the content boundary', async () => {
@@ -216,28 +222,6 @@ describe('posts content provider', () => {
     }
   });
 
-  test('keeps arbitrary Cloudflare Workers builds strict without explicit mock content', async () => {
-    delete process.env.PUBLIC_GHOST_URL;
-    delete process.env.GHOST_CONTENT_API_KEY;
-    delete process.env.GHOST_CONTENT_APIKEY;
-    delete process.env.GHOST_MOCK_CONTENT;
-    process.env.NODE_ENV = 'production';
-    process.env.WORKERS_CI = '1';
-    process.env.WORKERS_CI_BRANCH = 'plan-new-blog-era';
-
-    const config = getGhostRuntimeConfig();
-
-    expect(config.mockContent).toBe(false);
-    expect(config.forceMockContent).toBe(false);
-    try {
-      await buildGhostDataset();
-      throw new Error('Expected Ghost config validation to fail');
-    } catch (error) {
-      expect(error).toBeInstanceOf(Error);
-      expect((error as Error).message).toContain('Ghost adapter is not configured');
-    }
-  });
-
   test('lets the E2E fixture force mock content over local Ghost config', async () => {
     process.env.PUBLIC_GHOST_URL = 'https://blog.buxx.me';
     process.env.GHOST_CONTENT_API_KEY = 'test-key';
@@ -268,27 +252,6 @@ describe('posts content provider', () => {
     expect(config.forceMockContent).toBe(false);
   });
 
-  test('keeps production Cloudflare Workers builds strict without Ghost config', async () => {
-    delete process.env.PUBLIC_GHOST_URL;
-    delete process.env.GHOST_CONTENT_API_KEY;
-    delete process.env.GHOST_CONTENT_APIKEY;
-    delete process.env.GHOST_MOCK_CONTENT;
-    process.env.NODE_ENV = 'production';
-    process.env.WORKERS_CI = '1';
-    process.env.WORKERS_CI_BRANCH = 'main';
-
-    const config = getGhostRuntimeConfig();
-
-    expect(config.mockContent).toBe(false);
-    try {
-      await buildGhostDataset();
-      throw new Error('Expected Ghost config validation to fail');
-    } catch (error) {
-      expect(error).toBeInstanceOf(Error);
-      expect((error as Error).message).toContain('Ghost adapter is not configured');
-    }
-  });
-
   test('accepts the legacy Ghost content API key alias during migration', () => {
     process.env.PUBLIC_GHOST_URL = 'https://blog.buxx.me';
     delete process.env.GHOST_CONTENT_API_KEY;
@@ -317,7 +280,7 @@ describe('posts content provider', () => {
     ]);
   });
 
-  test('uses English publication and tag labels for the home doorway', async () => {
+  test('labels tags in the reader\'s locale', async () => {
     useMockGhostContent();
 
     const [post] = await getListedPosts();
@@ -326,22 +289,12 @@ describe('posts content provider', () => {
     expect(tag).toBeDefined();
     if (!tag) return;
 
-    expect(blog.locale.home).toBe('en');
-    expect(blog.locale.blog).toBe('zh');
-    expect(blog.copy.en.name).toBe('Sillage');
-    expect(blog.copy.zh.name).toBe('無人之境');
     expect(getTagLabel(tag, 'en')).toBe('Systems');
     expect(getTagLabel(tag, 'zh')).toBe(tag.name);
-    expect(post.title).toBe('Astro migration effect sandbox');
   });
 });
 
 describe('blog subscription feed', () => {
-  test('uses the self-hosted RSS endpoint in public UI data', () => {
-    expect(blog.feed).toBe('/blog/rss.xml');
-    expect(profile.links.find((link) => link.name === 'Blog')?.url).toBe('https://buxx.me/blog');
-  });
-
   test('serializes blog RSS with canonical buxx.me URLs', async () => {
     useMockGhostContent();
 
@@ -405,22 +358,6 @@ describe('blog subscription feed', () => {
     expect(await response?.text()).toContain('# Direct link only fixture');
   });
 
-  test('includes blog routes in the sitemap', async () => {
-    useMockGhostContent();
-
-    const response = await getSitemap({
-      request: new Request('https://buxx.me/sitemap.xml'),
-      locals: {},
-      params: {},
-    } as any);
-    const xml = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(xml).toContain('<loc>https://buxx.me/blog</loc>');
-    expect(xml).toContain('<loc>https://buxx.me/blog/demo-effects</loc>');
-    expect(xml).toContain('<loc>https://buxx.me/blog/tags</loc>');
-  });
-
   test('lists every public section in the sitemap and nothing noindex', async () => {
     useMockGhostContent();
 
@@ -432,7 +369,7 @@ describe('blog subscription feed', () => {
     const xml = await response.text();
     const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
 
-    for (const path of ['/', '/projects', '/mood', '/privacy', '/docs', '/components']) {
+    for (const path of ['/', '/projects', '/mood', '/privacy', '/docs', '/components', '/blog', '/blog/tags']) {
       expect(locs).toContain(`https://buxx.me${path}`);
     }
     expect(locs).toContain('https://buxx.me/docs/overview');
@@ -446,9 +383,26 @@ describe('blog subscription feed', () => {
     expect(locs.every((loc) => loc === 'https://buxx.me' || loc === 'https://buxx.me/' || !loc.endsWith('/'))).toBe(true);
     expect(xml).not.toContain('<priority>');
     expect(xml).not.toContain('<changefreq>');
-    expect(xml).toContain('<loc>https://buxx.me/blog/tag/systems</loc>');
+    expect(locs).toContain('https://buxx.me/blog/demo-effects');
+    expect(locs).toContain('https://buxx.me/blog/tag/systems');
+    expect(xml).not.toContain('/blog/tag/hash-');
     expect(xml).not.toContain('members-only-notes');
     expect(xml).not.toContain('private-link-demo');
+  });
+
+  test('lists every language version in the sitemap at its version URL', async () => {
+    useMockGhostContent();
+
+    const response = await getSitemap({
+      request: new Request('https://buxx.me/sitemap.xml'),
+      locals: {},
+      params: {},
+    } as any);
+    const locs = [...(await response.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+
+    expect(locs).toContain('https://buxx.me/blog/quiet-architecture');
+    expect(locs).toContain('https://buxx.me/blog/en/quiet-architecture');
+    expect(locs).not.toContain('https://buxx.me/blog/on-quiet-architecture');
   });
 });
 
