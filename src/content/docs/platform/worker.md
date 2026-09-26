@@ -120,7 +120,7 @@ they carry a `PUBLIC_` prefix:
 | `PUBLIC_BLOG_OG_IMAGE_ENDPOINT` | OGIS endpoint for generated `/blog` Open Graph images. |
 | `PUBLIC_HD_IMAGE_URL` | HD mood image base URL served by `site-api`. |
 | `PUBLIC_TURNSTILE_SITE_KEY` | Turnstile widget on the subscribe form. |
-| `LASTFM_USER` | Whose scrobbles the listening card reads. |
+| `LASTFM_USER` | Nothing. Left over from the old in-Worker listening fetch; `site-api` serves the listening card now. |
 | `CHANNEL`, `TELEGRAM_HOST` | Telegram channel slug and host for embed lookups. |
 
 Secrets for notify, admin, the Telegram webhook, D1, R2, queues, and cron
