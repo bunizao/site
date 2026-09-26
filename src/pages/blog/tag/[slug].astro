@@ -24,7 +24,7 @@ const archive = await getTagArchive(slug!);
 // A public tag with zero posts has no static path, so a miss here is a genuine
 // 404 rather than an empty-state to render.
 if (!archive) {
-  return Astro.redirect('/blog/tags', 302);
+  return new Response(null, { status: 404 });
 }
 
 const { tag, posts } = archive;
