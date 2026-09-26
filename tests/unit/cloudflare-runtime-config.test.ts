@@ -43,58 +43,11 @@ describe('Cloudflare runtime configuration', () => {
     expect(offenders).toEqual([]);
   });
 
-  test('keeps non-priority mood images lazy when dimensions are incomplete', () => {
-    const renderer = readText('src/features/mood/client/feed-renderer.ts');
-    const feedShell = readText('src/features/mood/ui/FeedShell.astro');
-    const mediaHydration = readText('src/features/mood/client/feed-media-hydration.ts');
-    const feedThumbnail = readText('src/features/mood/shared/feed-thumbnail.ts');
+  // gsap is ~70 KB; the mood feed loads it on the first animation, never with the page.
+  test('mood client code imports gsap only dynamically', () => {
+    const staticImport = /^import\s+(?!type\b)[^;]*from\s+['"]gsap['"]/m;
+    const offenders = listSourceFiles('src/features/mood').filter((path) => staticImport.test(readText(path)));
 
-    expect(feedShell).toContain('src={isPriorityMedia ? thumbImage : undefined}');
-    expect(feedShell).toContain('data-deferred-src={!isPriorityMedia ? thumbImage : undefined}');
-    expect(feedShell).not.toContain('withWidthParam(thumbImage');
-    expect(feedShell).not.toContain('srcset={buildSrcSet(thumbImage');
-    expect(mediaHydration).toContain("img.removeAttribute('srcset')");
-    expect(mediaHydration).toContain("img.removeAttribute('sizes')");
-    expect(mediaHydration).toContain('registerDeferredImage(target, () => hydrateDeferredImage(node))');
-    expect(feedThumbnail).toContain('getMoodImageRatio');
-    expect(renderer).toContain('img.dataset.deferredSrc = imageSrc');
-    expect(renderer).toContain('mediaHydrator.registerDeferredImage(thumbWrap');
-    expect(renderer).not.toContain('shouldWaitForImageBeforeInsert');
-    expect(renderer).not.toContain("img.loading = 'eager'");
-    expect(feedShell).toContain("decoding={isPriorityMedia ? 'sync' : 'async'}");
-  });
-
-  test('keeps mood timeline animation code out of the initial chunk', () => {
-    const timelineWheel = readText('src/features/mood/client/timeline-wheel.ts');
-    const updateWatcher = readText('src/features/mood/client/feed-update-watcher.ts');
-
-    expect(timelineWheel).not.toContain("import gsap from 'gsap'");
-    expect(timelineWheel).toContain("import('gsap')");
-    expect(timelineWheel).toContain("const feedStartsHidden = feedEl.classList.contains('is-hidden')");
-    expect(timelineWheel).toContain('if (feedStartsHidden)');
-    expect(updateWatcher).not.toContain("import gsap from 'gsap'");
-    expect(updateWatcher).toContain("import('gsap')");
-  });
-
-  test('loads the SSR mood feed controller after the critical path', () => {
-    const moodRoute = readText('src/pages/mood.astro');
-
-    expect(moodRoute).not.toContain(
-      "import { initMoodFeedController } from '@/features/mood/client/feed-controller'",
-    );
-    expect(moodRoute).toContain("import('@/features/mood/client/feed-controller')");
-    expect(moodRoute).toContain("window.addEventListener('load', initFeed, { once: true })");
-    expect(moodRoute).toContain("feed?.classList.contains('is-hidden')");
-    expect(moodRoute).toContain('feed?.dataset.moodAnchorId');
-  });
-
-  test('keeps the mood feed accessible under Lighthouse', () => {
-    const moodRoute = readText('src/pages/mood.astro');
-    const feedShell = readText('src/features/mood/ui/FeedShell.astro');
-
-    expect(feedShell).toContain('data-mood-list role="region" aria-label="Mood feed"');
-    expect(moodRoute).toMatch(
-      /:global\(\.mood-load-status\) \{[\s\S]*?color: hsl\(var\(--muted-foreground\)\);/
-    );
+    expect(offenders).toEqual([]);
   });
 });

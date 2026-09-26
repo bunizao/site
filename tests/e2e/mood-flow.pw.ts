@@ -451,6 +451,47 @@ test.describe('Mood routes', () => {
     expect(await image.evaluate((node) => getComputedStyle(node).objectFit)).toBe('contain');
   });
 
+  test('feed thumbs far below the fold wait for the viewport before requesting bytes', async ({ page }) => {
+    const ids = ['9904008', '9904007', '9904006', '9904005', '9904004', '9904003', '9904002', '9904001'];
+    const lastId = ids.at(-1)!;
+    const payload = {
+      posts: ids.map((id) => createMoodFeedPost(id, `Deferred thumb ${id}`, {
+        image: `https://image.example.test/mood/${id}/0`,
+        imageHeight: 900,
+        imageLayout: null,
+        imageWidth: 1200,
+      })),
+      channel: { slug: 'e2e', title: 'E2E Channel' },
+    };
+    const tinyGif = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
+    const requested = new Set<string>();
+
+    await page.route('**/api/moods**', async (route) => {
+      const url = new URL(route.request().url());
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(url.searchParams.get('probe') === '1' ? { latestId: ids[0] } : payload),
+      });
+    });
+    await page.route('https://image.example.test/**', async (route) => {
+      requested.add(new URL(route.request().url()).pathname);
+      await route.fulfill({ status: 200, contentType: 'image/gif', body: tinyGif });
+    });
+
+    await page.goto('/mood', { waitUntil: 'domcontentloaded' });
+
+    const lastImage = page.locator(`[data-mood-id="${lastId}"] [data-mood-image-main]`);
+    await expect(lastImage).toHaveAttribute('data-deferred-src', new RegExp(`/${lastId}/0$`));
+    expect(await lastImage.getAttribute('src')).toBeNull();
+    expect(await lastImage.getAttribute('srcset')).toBeNull();
+    expect(requested.has(`/mood/${lastId}/0`)).toBe(false);
+
+    await lastImage.scrollIntoViewIfNeeded();
+    await expect(lastImage).toHaveAttribute('src', new RegExp(`/${lastId}/0`));
+    await expect.poll(() => requested.has(`/mood/${lastId}/0`)).toBe(true);
+  });
+
   test('keeps sticker thumbnails left-aligned at the tuned size', async ({ page }) => {
     const moodId = '9903669';
     const imageUrl = 'https://image.example.test/mood/9903669/sticker.webp';
@@ -582,7 +623,7 @@ test.describe('Mood routes', () => {
 
     await expect(page.locator('[data-mood-feed]')).toHaveAttribute('data-mood-read-source', 'archive');
     await expect(page.locator('[data-mood-feed]')).not.toHaveClass(/is-hidden/, { timeout: 30_000 });
-    await expect(page.locator('[data-mood-list] .mood-item').first()).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Mood feed' }).locator('.mood-item').first()).toBeVisible();
   });
 
   test('shows live comments on an archived post without reactions', async ({ page }) => {
