@@ -4,11 +4,7 @@ import type {
   TagDirectoryEntry,
 } from '../types/index';
 
-import {
-  buildGhostDataset,
-  isPublicContentRecord,
-  type Dataset,
-} from './ghost/dataset';
+import { buildGhostDataset, type Dataset } from './ghost/dataset';
 import { type GhostAdapterOptions } from './ghost/config';
 import { selectListedPosts } from '../i18n';
 import { isUnlistedPost } from '../unlisted';
@@ -26,8 +22,10 @@ export function createGhostContentProvider(
     return datasetPromise;
   }
 
+  // The dataset already holds only public posts: members-only content never
+  // leaves it.
   async function getAccessiblePosts() {
-    return (await getDataset()).posts.filter(isPublicContentRecord);
+    return (await getDataset()).posts;
   }
 
   // Two rules, one seam. Everything that shows a list of posts — the listing,
@@ -39,6 +37,8 @@ export function createGhostContentProvider(
     return selectListedPosts(listed);
   }
 
+  // Internal tags (#no-toc, #unlisted, ...) are dropped here, once, so no
+  // directory, archive or sitemap can surface one.
   async function getAllTags() {
     return (await getDataset()).tags.filter((tag) => tag.visibility === 'public');
   }

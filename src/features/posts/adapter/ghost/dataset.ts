@@ -18,7 +18,7 @@ export interface Dataset {
   posts: PostData[];
 }
 
-export function isPublicContentRecord(record: Pick<PostData, 'visibility' | 'access'>): boolean {
+function isPublicContentRecord(record: Pick<PostData, 'visibility' | 'access'>): boolean {
   return record.visibility === 'public' && record.access === true;
 }
 
