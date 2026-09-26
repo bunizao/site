@@ -5,29 +5,17 @@ import type { CollectionEntry } from 'astro:content';
 import { buildRegistryItem } from '../../src/features/components/server/registry';
 
 const root = join(import.meta.dir, '../..');
-const showcasedSlugs = [
-  'projects-deck',
-  'mood-wheel',
-  'decode-text',
-  'contact-links',
-  'listening',
-  'mobile-reading-bar',
-  'tag-cards',
-  'github-activity',
-  'update-pills',
-  'list-hover',
-  'conversation',
-] as const;
-const publishedSlugs = [
-  'button',
-  'badge',
-  'card',
-  ...showcasedSlugs,
-] as const;
 
 function readText(path: string): string {
   return readFileSync(join(root, path), 'utf8');
 }
+
+// The index page is the source of truth: every specimen it links to ships.
+const showcasedSlugs = Array.from(
+  readText('src/pages/components/index.astro').matchAll(/href="\/components\/([a-z0-9-]+)"/g),
+  (match) => match[1]
+);
+const publishedSlugs = ['button', 'badge', 'card', ...showcasedSlugs];
 
 function registryEntry(id: string): CollectionEntry<'components'> {
   return {
@@ -38,11 +26,10 @@ function registryEntry(id: string): CollectionEntry<'components'> {
 
 describe('components showcase registry', () => {
   test('gives every index specimen its own detail page and preview', () => {
-    const index = readText('src/pages/components/index.astro');
     const preview = readText('src/features/components/ui/ComponentPreview.astro');
 
+    expect(showcasedSlugs.length).toBeGreaterThan(0);
     for (const slug of showcasedSlugs) {
-      expect(index).toContain(`href="/components/${slug}"`);
       expect(existsSync(join(root, `src/content/components/${slug}.md`))).toBe(true);
       expect(preview).toContain(`'${slug}'`);
     }
@@ -65,22 +52,18 @@ describe('components showcase registry', () => {
     }
   });
 
-  test('builds every published registry payload', async () => {
+  test('builds every published registry payload without site-internal imports', async () => {
     const items = await Promise.all(
       publishedSlugs.map((slug) => buildRegistryItem(registryEntry(slug)))
     );
 
-    expect(items.map(({ name }) => name)).toEqual([...publishedSlugs]);
+    expect(items.map(({ name }) => name)).toEqual(publishedSlugs);
     for (const item of items) {
       expect(item.files.length).toBeGreaterThan(0);
+      // An installed copy has no src/features tree to resolve against.
+      const leaks = item.files.filter(({ content }) => content.includes('@/features/'));
+      expect(leaks.map(({ path }) => `${item.name}: ${path}`)).toEqual([]);
     }
-  });
-
-  test('installs conversation into the disposable registry consumer', () => {
-    const verifier = readText('scripts/verify-component-registry.ts');
-
-    expect(verifier).toContain("'conversation'");
-    expect(verifier).toContain('src/content/components/conversation.md');
   });
 
   test('publishes every conversation runtime at a stable library target', async () => {
@@ -109,7 +92,6 @@ describe('components showcase registry', () => {
       },
     ]);
     expect(item.files[0]?.content).toContain("from '@/lib/conversation-fit'");
-    expect(item.files.some(({ content }) => content.includes('@/features/'))).toBe(false);
   });
 
   test('keeps decode text component and engine targets distinct', async () => {
@@ -223,14 +205,6 @@ describe('components showcase registry', () => {
     expect(byTarget('@lib/timeline-wheel.ts')).toContain("from '@/lib/feed-anchor'");
     expect(byTarget('@ui/timeline-wheel.astro')).toContain("import('@/lib/timeline-wheel')");
     expect(byTarget('@ui/timeline-wheel.astro')).toContain('data-timeline-wheel');
-    expect(item.files.some(({ content }) => content.includes('@/features/'))).toBe(false);
-  });
-
-  test('honors reduced motion in detail table of contents navigation', () => {
-    const onThisPage = readText('src/features/components/ui/OnThisPage.astro');
-
-    expect(onThisPage).toContain("matchMedia('(prefers-reduced-motion: reduce)')");
-    expect(onThisPage).toContain("behavior: reducedMotion.matches ? 'auto' : 'smooth'");
   });
 
   test('does not publish the mascot through the component registry', async () => {

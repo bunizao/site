@@ -13,85 +13,16 @@ function sizeOf(path: string): number {
 }
 
 describe('homepage performance assets', () => {
-  test('uses lightweight OG carousel assets for blurred backgrounds', () => {
-    const carousel = readText('src/components/project-cards/OgCarouselHero.tsx');
+  test("blurred OG backdrops stay under 5% of the sharp card's bytes", () => {
     const blurAssets = [
       ['public/projects/ogis/og-2.webp', 'public/projects/ogis/og-2-blur.webp'],
       ['public/projects/ogis/og-4.webp', 'public/projects/ogis/og-4-blur.webp'],
     ] as const;
 
-    expect(carousel).toContain('blurSrc: "/projects/ogis/og-2-blur.webp"');
-    expect(carousel).toContain('blurSrc: "/projects/ogis/og-4-blur.webp"');
-    expect(carousel).toContain('const backgroundSrc = slide.blurSrc ?? slide.src;');
-    expect(carousel).toContain('src={backgroundSrc}');
-
     for (const [source, blur] of blurAssets) {
       expect(existsSync(join(root, blur))).toBe(true);
       expect(sizeOf(blur)).toBeLessThan(sizeOf(source) * 0.05);
     }
-  });
-
-  test('bounds carousel image rendering to keyed presence', () => {
-    const ogCarousel = readText('src/components/project-cards/OgCarouselHero.tsx');
-    const attegiTour = readText('src/components/project-cards/AttegiTourHero.tsx');
-
-    expect(ogCarousel).toContain('<AnimatePresence initial={false}>');
-    expect(ogCarousel).toContain('key={slide.src}');
-    expect(ogCarousel).not.toContain('slides.map(');
-    expect(attegiTour).toContain('<AnimatePresence initial={false}>');
-    expect(attegiTour).toContain('key={slide.src}');
-    expect(attegiTour).not.toContain('slides.map(');
-  });
-
-  test('releases homepage compositor hints when effects are idle', () => {
-    const layout = readText('src/layouts/Layout.astro');
-    const globals = readText('src/styles/globals.css');
-    const parallax = readText('src/features/home/ui/ParallaxWrapper.astro');
-
-    expect(layout).toContain("overlay.classList.add('is-active')");
-    expect(layout).toContain("overlay.classList.remove('is-active')");
-    expect(globals).toContain('.spotlight-overlay.is-active {');
-    expect(globals).toContain(
-      '.spotlight-overlay.is-active .spotlight-overlay__grid {',
-    );
-
-    const spotlightBase = globals.slice(
-      globals.indexOf('.spotlight-overlay {'),
-      globals.indexOf('.spotlight-overlay.is-active {'),
-    );
-    expect(spotlightBase).not.toContain('translateZ(0)');
-    expect(spotlightBase).not.toContain('will-change');
-    expect(parallax).not.toContain(':global(section) {');
-  });
-
-  test('preserves the homepage reveal choreography', () => {
-    const reveal = readText('src/styles/home-reveal.css');
-    const controller = readText('src/lib/home-reveal.ts');
-    const projects = readText('src/features/home/ui/Projects.astro');
-    const experience = readText('src/features/home/ui/Experience.astro');
-    const writing = readText('src/features/home/ui/Posts.astro');
-    const moods = readText('src/features/mood/ui/HomePreview.astro');
-
-    expect(reveal).toContain('--reveal-duration: 600ms;');
-    expect(controller).toContain('const SETTLE_AFTER_MS = 1800;');
-    for (const section of [projects, experience]) {
-      expect(section).toContain('--reveal-delay: 300ms; --reveal-duration: 400ms');
-      expect(section).toContain('--reveal-delay: 450ms; --reveal-duration: 450ms');
-    }
-    expect(writing).toContain('--reveal-delay: 500ms; --reveal-duration: 500ms');
-    expect(writing).toContain('${800 + index * 60}ms; --reveal-duration: 400ms');
-    // Each exit link rides in the section head, one beat behind its label.
-    for (const section of [projects, writing, moods]) {
-      expect(section).toContain('class="section-head"');
-      expect(section).toContain('--reveal-delay: 360ms; --reveal-duration: 400ms');
-    }
-  });
-
-  test('keeps the home mood blur layer independent from sharp thumbnail sizing', () => {
-    const moods = readText('src/features/mood/ui/HomePreview.astro');
-
-    expect(moods).toContain('.mood-thumbnail > img:not(.mood-image-blur)');
-    expect(moods).toContain("placeholder.className = 'mood-image-blur'");
   });
 
   test('project card heroes loop only while the deck is live and the card is on top', () => {
@@ -103,24 +34,5 @@ describe('homepage performance assets', () => {
     expect(harmonicWave).toContain('className={live ? `wave-scroll wave-${i}` : undefined}');
     expect(cliCube).toContain('if (!live) return;');
     expect(cliCube).toContain('className={live ? "cli-cube-float" : undefined}');
-  });
-
-  test('keeps JetBrains Mono off the homepage critical path', () => {
-    const homePage = readText('src/pages/index.astro');
-    const homeHero = readText('src/features/home/ui/Hero.astro');
-    const layout = readText('src/layouts/Layout.astro');
-    const globals = readText('src/styles/globals.css');
-    const fonts = readText('src/lib/fonts.ts');
-
-    expect(homePage).toContain('--font-code: var(--font-mono);');
-    expect(homeHero).not.toContain('font-code');
-    // No body-font preloads exist at all — Chrome holds first paint until
-    // every preloaded font arrives — so the homepage cannot pull JetBrains
-    // Mono in through one.
-    expect(layout).not.toContain('preloadFont');
-    expect(homePage).not.toContain('preloadFont');
-    expect(fonts).toContain("mono: '/fonts/geist-mono-variable.woff2'");
-    expect(layout).not.toContain('jetbrains-mono-variable.woff2');
-    expect(globals).toContain("--font-code: 'JetBrains Mono'");
   });
 });

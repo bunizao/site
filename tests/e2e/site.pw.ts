@@ -366,6 +366,18 @@ test.describe('Home page', () => {
     expect(html).toMatch(/data-mood-preview-initial[^>]*>\s*\[\]\s*<\/script>/);
   });
 
+  test('home HTML advertises the pixel logo and never requests JetBrains Mono up front', async ({ page }) => {
+    const response = await page.request.get('/');
+    expect(response.ok()).toBeTruthy();
+
+    const html = await response.text();
+    expect(html).toMatch(/<meta property="og:logo" content="[^"]*\/logo\/peek\.svg[^"]*"/);
+    // The home page maps --font-code to Geist Mono, so no JetBrains file may
+    // be pulled in ahead of first paint.
+    const headLinks = html.match(/<link\b[^>]*\brel="(?:preload|stylesheet|modulepreload)"[^>]*>/g) ?? [];
+    expect(headLinks.filter((link) => /jetbrains/i.test(link))).toEqual([]);
+  });
+
   test('loads mood preview and navigates to /mood', async ({ page }) => {
     await page.route('**/api/moods', async (route) => {
       await route.fulfill({
