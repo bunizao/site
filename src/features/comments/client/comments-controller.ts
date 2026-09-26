@@ -12,6 +12,7 @@
 // challenge box unless Turnstile actually needs one.
 
 import type {
+  ClientEvidence,
   Comment,
   CommentCreateInput,
   CommentCreateResult,
@@ -1338,10 +1339,14 @@ export function initCommentsController(): void {
       which is the right amount of friction for a heart. */
   async function likeComment(commentId: string, button: HTMLButtonElement): Promise<void> {
     burstHearts(button);
+    armEvidence();
     // Set before the first await, so presses arriving mid-flight stop here
     // rather than racing a second write.
     if (button.getAttribute('aria-pressed') === 'true') return;
-    await sendCommentLike(commentId, button, beginWriteTelemetry('reaction', 'blog_reaction'));
+    // The same optional evidence the post heart sends, collected once per
+    // press and reused by any resend. Never a gate: an empty one still sends.
+    const evidence = collectClientEvidence({ kind: 'reaction', armedAt, turnstileAction: 'blog_reaction' });
+    await sendCommentLike(commentId, button, beginWriteTelemetry('reaction', 'blog_reaction'), evidence);
   }
 
   /** The write itself, without the burst or the double-press guard, so the
@@ -1351,6 +1356,7 @@ export function initCommentsController(): void {
     commentId: string,
     button: HTMLButtonElement,
     telemetry: WriteTelemetry,
+    evidence: Promise<ClientEvidence>,
     options: { viaPass?: boolean; retried?: boolean } = {},
   ): Promise<void> {
     const article = button.closest<HTMLElement>('.blog-comment');
@@ -1381,6 +1387,7 @@ export function initCommentsController(): void {
       targetId: commentId,
       reacted: true,
       turnstileToken,
+      ...(await evidence),
     });
     if (!viaPass) releaseTurnstileToken('blog_reaction');
 
@@ -1392,7 +1399,7 @@ export function initCommentsController(): void {
       // once more the ordinary way.
       if (failure.code === 'BOT' && viaPass) {
         forgetReactionPass();
-        await sendCommentLike(commentId, button, telemetry, { viaPass: true, retried: options.retried });
+        await sendCommentLike(commentId, button, telemetry, evidence, { viaPass: true, retried: options.retried });
         return;
       }
       button.setAttribute('aria-pressed', 'false');
@@ -1403,7 +1410,7 @@ export function initCommentsController(): void {
       // rather than printing "one more step" beside nothing to press. One
       // automatic resend per press; the checkbox stays for the next one.
       if (failure.code === 'BOT' && article && !options.retried) {
-        void solveReactionChallengeAndResend(article, commentId, button, telemetry);
+        void solveReactionChallengeAndResend(article, commentId, button, telemetry, evidence);
       } else {
         telemetry.finish(response.status === 0 ? 'network_error' : failure.code === 'BOT' ? 'challenge_failed' : 'http_error');
       }
@@ -1439,6 +1446,7 @@ export function initCommentsController(): void {
     commentId: string,
     button: HTMLButtonElement,
     telemetry: WriteTelemetry,
+    evidence: Promise<ClientEvidence>,
   ): Promise<void> {
     const host = reactionChallengeHost(article);
     if (!host) {
@@ -1453,7 +1461,7 @@ export function initCommentsController(): void {
       telemetry.finish('challenge_failed');
       return;
     }
-    await sendCommentLike(commentId, button, telemetry, { retried: true });
+    await sendCommentLike(commentId, button, telemetry, evidence, { retried: true });
   }
 
   /** Three hearts up and out of the button, per press. Sized and timed to the
