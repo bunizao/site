@@ -30,10 +30,11 @@ The goal is full behavior coverage for the first-party public site surface under
 | `/mood/rss.xml` | RSS content type and XML output | `tests/e2e/api.pw.ts` |
 | `/mood`, `/mood/[id]` | Markdown for `Accept: text/markdown`, with no `/agent/*` alias | `tests/e2e/api.pw.ts` |
 | `/static/[...path]` | Invalid target rejection plus allowed Telegram and bounded YouTube poster proxy success | `tests/e2e/api.pw.ts` |
-| `/dev/portal` | Passive cards do not expose fake hover affordance | `tests/e2e/admin-portal.pw.ts` |
-| `/dev/portal/subscribers` | Subscriber table hydrates from API, passive rows stay still on hover, row menu opens without layout squeeze | `tests/e2e/admin-portal.pw.ts` |
-| `/dev/portal/mood-embed` | Mood embed iframe grows and shrinks from resize messages | `tests/e2e/admin-portal.pw.ts` |
-| `/dev/portal/newsletter` | Newsletter preview supports compacted, regular, and expanded card sizing | `tests/e2e/admin-portal.pw.ts` |
+| `/dev/portal/analytics` | Renders demo data in local dev without site-api | `tests/e2e/admin-portal.pw.ts` |
+| `/dev/portal/newsletter` | Template filters and a keyboard-reachable focus mode | `tests/e2e/admin-portal.pw.ts` |
+| `/dev/portal/subscribers` | Source filters, optional source counts, and the blog welcome send | `tests/e2e/admin-portal.pw.ts` |
+| `/dev/portal/broadcasts` | Preview and start against blog and mood sources | `tests/e2e/admin-portal.pw.ts` |
+| `/dev/portal/comments` | Owner session handoff and the refusal reason | `tests/e2e/admin-portal.pw.ts` |
 
 `/api/*` is answered by `site-api` and tested in that repo. Locally Playwright
 sees only fixtures for it, so this suite asserts no API contracts.
@@ -42,6 +43,7 @@ sees only fixtures for it, so this suite asserts no API contracts.
 
 - `E2E_SITE_FIXTURE=1` makes the site deterministic for Playwright.
 - Playwright starts its own fixture server by default. Set `E2E_REUSE_SERVER=1` only when the existing server was started with the same fixture environment.
+- `preview-smoke.pw.ts` runs only when `E2E_BASE_URL` points at a deployed preview; local runs skip it.
 - Public mood, comment, project, writing, preview, RSS, and static proxy fixtures avoid external network dependencies.
 - Browser-only third-party requests, such as GitHub contributions and YouTube playback, are mocked in the test itself when the behavior needs explicit control.
 
