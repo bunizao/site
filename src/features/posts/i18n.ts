@@ -21,7 +21,7 @@ import type { Post } from './types';
 
 const KNOWN_LOCALES = Object.keys(blog.copy) as BlogLocale[];
 
-function isKnownLocale(locale: string): locale is BlogLocale {
+export function isKnownLocale(locale: string): locale is BlogLocale {
   return (KNOWN_LOCALES as string[]).includes(locale);
 }
 
@@ -29,7 +29,7 @@ function isKnownLocale(locale: string): locale is BlogLocale {
 // tell a language tag from the site's other internal conventions. A colon can:
 // only a translation tag has one. A bare tag is a language tag only when it
 // names a language we actually publish.
-function readLocaleTag(post: Pick<Post, 'tags'>) {
+export function readLocaleTag(post: Pick<Post, 'tags'>) {
   for (const tag of post.tags) {
     if (tag.visibility !== 'internal') continue;
 

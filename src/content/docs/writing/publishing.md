@@ -112,7 +112,9 @@ To publish an English version of `/blog/lun-chenmo`:
 The build fails, rather than publishing something half-right, when the tag
 names a slug that does not exist, when two posts claim the same language for
 one article, or when the locale is not one the site has copy for
-(`blog.copy` in `src/data/site.ts`, today `zh` and `en`).
+(`blog.copy` in `src/data/site.ts`, today `zh` and `en`). A bare internal tag
+that names no language the site publishes — `#comments-off`, `#no-toc` — is
+not a language tag at all, and the build ignores it.
 
 What the reader and the crawler get:
 
