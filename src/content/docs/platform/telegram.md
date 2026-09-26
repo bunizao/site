@@ -16,6 +16,11 @@ The Telegram pipeline affects:
 - immediate email notify dispatch
 - public mood pages that still consume Telegram content during this migration wave
 
+## Two bots, one owner channel
+
+- **Ingest bot** (`TELEGRAM_BOT_TOKEN`) reads the channel: webhook updates, media files, chat info. It never messages the owner.
+- **Ops bot** (`TELEGRAM_OPS_BOT_TOKEN`) is the only bot that talks to the owner. Every unsolicited notification — comments, lockdowns, messages, notify gate, subscribe and unsubscribe notices, newsletter holds, ops alerts — goes through `sendOwnerAlert` in `site-api` to each id in `TELEGRAM_OPS_ALLOWED_USER_IDS`. It also mirrors web comments into the discussion group and answers commands.
+
 ## Current flow
 
 ```mermaid
