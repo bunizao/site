@@ -153,10 +153,45 @@ export function explicitMarkdownSourcePath(pathname: string): string | null {
   return normalized.slice(0, -MARKDOWN_PATH_SUFFIX.length) || '/';
 }
 
+// Click-ids and campaign tags a shared link picks up on the way to a
+// browser; they never change what a mood page renders, so they are
+// stripped before deciding whether the URL is cacheable.
+const MOOD_CACHE_IGNORED_QUERY_PARAMS = new Set([
+  'fbclid',
+  'gclid',
+  'igshid',
+  'si',
+  'ref',
+  'twclid',
+  'mc_cid',
+  'mc_eid',
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+]);
+
+function hasMoodTrackingParams(url: URL): boolean {
+  for (const key of MOOD_CACHE_IGNORED_QUERY_PARAMS) {
+    if (url.searchParams.has(key)) return true;
+  }
+  return false;
+}
+
+function withoutMoodTrackingParams(url: URL): URLSearchParams {
+  const params = new URLSearchParams(url.searchParams);
+  for (const key of MOOD_CACHE_IGNORED_QUERY_PARAMS) params.delete(key);
+  return params;
+}
+
 function normalizeMoodFeedCacheSearch(url: URL): string | null {
   if (!url.search) return '';
 
-  const entries = Array.from(url.searchParams.entries());
+  const strippedTracking = hasMoodTrackingParams(url);
+  const params = strippedTracking ? withoutMoodTrackingParams(url) : url.searchParams;
+  const entries = Array.from(params.entries());
+  if (entries.length === 0) return '';
   if (entries.length !== 1) return null;
 
   const [[key, value]] = entries;
@@ -174,7 +209,15 @@ function normalizeMoodFeedCacheSearch(url: URL): string | null {
       : '';
   if (!isMoodFeedAnchorId(anchorId)) return null;
 
-  return url.search;
+  if (!strippedTracking) return url.search;
+  return key === 'post' || key === 'id' ? `?${key}=${value}` : `?${key}`;
+}
+
+// Same tracking-param tolerance as the feed: a bare detail page carries no
+// other query params, so any leftover after stripping means "not cacheable".
+function normalizeMoodDetailCacheSearch(url: URL): string | null {
+  if (!url.search) return '';
+  return withoutMoodTrackingParams(url).size === 0 ? '' : null;
 }
 
 function markdownResult(body: string, status = 200, headers?: HeadersInit) {
@@ -529,7 +572,7 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
       cacheStaleWhileRevalidateSeconds: MOOD_DETAIL_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
       edgeCacheHtml: false,
       cacheHeaderName: EDGE_CACHE_HEADER,
-      normalizeHtmlCacheSearch: (url) => url.search ? null : '',
+      normalizeHtmlCacheSearch: normalizeMoodDetailCacheSearch,
     };
   }
 
