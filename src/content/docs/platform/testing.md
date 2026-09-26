@@ -27,17 +27,16 @@ The goal is full behavior coverage for the first-party public site surface under
 | `/mood/subscribe` | Redirect and auto-open notify panel | `tests/e2e/pages.pw.ts` |
 | `/privacy` | Page content and simplified home navigation | `tests/e2e/pages.pw.ts` |
 | `/blog/[slug]` | YouTube poster fallback, click-to-load playback, session-scoped timeout fallback, single-video errors, narrow viewport containment | `tests/e2e/blog-ui.pw.ts` |
-| `/api/moods` | Payload shape, cursor validation, probe mode | `tests/e2e/api.pw.ts` |
-| `/api/comments` | Param validation and payload shape | `tests/e2e/api.pw.ts` |
-| `/api/oembed.json` | Validation, list/detail payloads, OPTIONS | `tests/e2e/api.pw.ts` |
 | `/mood/rss.xml` | RSS content type and XML output | `tests/e2e/api.pw.ts` |
-| SVG APIs | `status`, `tech-stack`, `site-badge`, `project` response behavior | `tests/e2e/api.pw.ts` |
-| Notify APIs | Invalid methods, unauthorized flows, preview payload | `tests/e2e/api.pw.ts` |
+| `/mood`, `/mood/[id]` | Markdown for `Accept: text/markdown`, with no `/agent/*` alias | `tests/e2e/api.pw.ts` |
 | `/static/[...path]` | Invalid target rejection plus allowed Telegram and bounded YouTube poster proxy success | `tests/e2e/api.pw.ts` |
 | `/dev/portal` | Passive cards do not expose fake hover affordance | `tests/e2e/admin-portal.pw.ts` |
 | `/dev/portal/subscribers` | Subscriber table hydrates from API, passive rows stay still on hover, row menu opens without layout squeeze | `tests/e2e/admin-portal.pw.ts` |
 | `/dev/portal/mood-embed` | Mood embed iframe grows and shrinks from resize messages | `tests/e2e/admin-portal.pw.ts` |
 | `/dev/portal/newsletter` | Newsletter preview supports compacted, regular, and expanded card sizing | `tests/e2e/admin-portal.pw.ts` |
+
+`/api/*` is answered by `site-api` and tested in that repo. Locally Playwright
+sees only fixtures for it, so this suite asserts no API contracts.
 
 ## Fixture Rules
 

@@ -1,10 +1,9 @@
 import type { APIContext } from 'astro';
 import type { InstagramProfile } from '@bunizao/contracts/instagram';
 import { loadMoodComments, loadMoodFeed, loadMoodProbe } from '@/features/mood/server/api-client';
-import { json, jsonBadRequest, jsonError, jsonOk } from '@/lib/http/json-response';
+import { jsonBadRequest, jsonOk } from '@/lib/http/json-response';
 import {
   API_PREFIX,
-  HEALTH_PATH,
   INSTAGRAM_AVATAR_PATH,
   INSTAGRAM_PROFILE_PATH,
   MOOD_LIVE_COUNTS_PATH,
@@ -68,78 +67,6 @@ function liveCountsFixtureResponse(url: URL): Response {
   }, noStore());
 }
 
-function healthFixtureResponse(url: URL): Response {
-  if (url.searchParams.get('diagnostic') === '1') {
-    return jsonOk({
-      status: 'ok',
-      mode: url.searchParams.get('deep') === '1' ? 'deep' : 'diagnostic',
-      checkedAt: new Date(0).toISOString(),
-      checks: [
-        {
-          id: 'mood-image-worker',
-          label: 'Mood image worker',
-          status: 'ok',
-          critical: true,
-          durationMs: 1,
-        },
-      ],
-    }, noStore());
-  }
-
-  return jsonOk({
-    status: 'ok',
-    mode: 'ping',
-    checkedAt: new Date(0).toISOString(),
-    diagnostic: '/api/health?diagnostic=1',
-  }, noStore());
-}
-
-function oembedFixtureResponse(request: Request, url: URL): Response {
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: noStore({
-        Allow: 'GET, OPTIONS',
-      }),
-    });
-  }
-
-  const rawUrl = url.searchParams.get('url');
-  if (!rawUrl) {
-    return jsonBadRequest('Missing url', noStore());
-  }
-
-  let target: URL;
-  try {
-    target = new URL(rawUrl);
-  } catch {
-    return jsonBadRequest('Invalid url', noStore());
-  }
-
-  if (target.host !== url.host) {
-    return jsonError(403, 'Forbidden url host', noStore());
-  }
-
-  const path = target.pathname.replace(/\/+$/, '') || '/';
-  if (path !== '/mood' && !/^\/mood\/\d+$/.test(path)) {
-    return jsonError(404, 'Unsupported oEmbed url', noStore());
-  }
-
-  const idMatch = path.match(/^\/mood\/(\d+)$/);
-  const params = new URLSearchParams({ count: '3' });
-  if (idMatch) params.set('id', idMatch[1]);
-  const src = `/mood/embed?${params.toString()}`;
-
-  return jsonOk({
-    type: 'rich',
-    version: '1.0',
-    title: idMatch ? `Mood ${idMatch[1]}` : 'Mood Feed',
-    width: 400,
-    height: 520,
-    html: `<iframe src="${src}" title="Mood Embed"></iframe>`,
-  }, noStore());
-}
-
 function svgFixtureResponse(title: string): Response {
   const safeTitle = title.replace(/[<>&"]/g, '');
   const body = [
@@ -188,18 +115,6 @@ function musickitTokenFixtureResponse(): Response {
   return jsonOk({}, noStore());
 }
 
-function adminAuthStartFixtureResponse(url: URL): Response {
-  const next = url.searchParams.get('next');
-  const location = next?.startsWith('/') && !next.startsWith('//') ? next : '/dev/portal';
-
-  return new Response(null, {
-    status: 302,
-    headers: noStore({
-      Location: location,
-    }),
-  });
-}
-
 const INSTAGRAM_FIXTURE_SHA256 = '0'.repeat(64);
 
 function instagramProfileFixtureResponse(url: URL): Response {
@@ -228,27 +143,16 @@ export async function createE2EApiFixtureResponse(context: FixtureContext): Prom
   if (url.pathname === '/api/edge') {
     return edgeFixtureResponse();
   }
-  if (
-    url.pathname === '/api/listening'
-    || url.pathname === '/api/v2/listening'
-    || url.pathname === '/v2/listening'
-  ) {
+  if (url.pathname === '/api/listening' || url.pathname === '/api/v2/listening') {
     return listeningFixtureResponse();
   }
-  if (
-    url.pathname === '/api/musickit/token'
-    || url.pathname === '/api/v2/musickit/token'
-    || url.pathname === '/v2/musickit/token'
-  ) {
+  if (url.pathname === '/api/musickit/token' || url.pathname === '/api/v2/musickit/token') {
     return musickitTokenFixtureResponse();
   }
-  if (url.pathname === '/v2/admin/auth/start') {
-    return adminAuthStartFixtureResponse(url);
-  }
-  if (url.pathname === MOOD_PUBLIC_FEED_PATH || url.pathname === '/api/v2/mood' || url.pathname === '/v2/mood') {
+  if (url.pathname === MOOD_PUBLIC_FEED_PATH || url.pathname === '/api/v2/mood') {
     return moodFixtureResponse(context, url);
   }
-  if (url.pathname === `${API_PREFIX}${MOOD_LIVE_COUNTS_PATH}` || url.pathname === MOOD_LIVE_COUNTS_PATH) {
+  if (url.pathname === `${API_PREFIX}${MOOD_LIVE_COUNTS_PATH}`) {
     return liveCountsFixtureResponse(url);
   }
   if (url.pathname === MOOD_PUBLIC_COMMENTS_PATH) {
@@ -259,27 +163,6 @@ export async function createE2EApiFixtureResponse(context: FixtureContext): Prom
   }
   if (url.pathname === `${API_PREFIX}${INSTAGRAM_AVATAR_PATH}`) {
     return svgFixtureResponse('Instagram');
-  }
-  if (url.pathname === `${API_PREFIX}${HEALTH_PATH}`) {
-    return healthFixtureResponse(url);
-  }
-  if (url.pathname === '/api/oembed.json') {
-    return oembedFixtureResponse(context.request, url);
-  }
-  if (url.pathname === '/api/status.svg') {
-    return svgFixtureResponse('Status');
-  }
-  if (url.pathname === '/api/tech-stack.svg') {
-    return svgFixtureResponse('Tech Stack');
-  }
-  if (url.pathname === '/api/site-badge.svg') {
-    return svgFixtureResponse('Site Badge');
-  }
-  if (url.pathname === '/api/project.svg') {
-    if (url.searchParams.get('project') === 'does-not-exist') {
-      return json(404, { error: 'Project not found' }, noStore());
-    }
-    return svgFixtureResponse('Project');
   }
 
   return null;
