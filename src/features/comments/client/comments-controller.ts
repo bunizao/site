@@ -66,6 +66,7 @@ import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
 import { READER_ME_URL, blogCommentsUrl, reactionsUrl } from '@/features/comments/api-urls';
 import { fetchPrefetched } from '@/lib/api-prefetch';
+import { SLOW_VERDICT_MS, VERDICT_POLL_DELAYS_MS } from '@/features/comments/verdict-poll';
 
 const CLAIMED_STORAGE_KEY = 'buxx:reader';
 
@@ -744,27 +745,6 @@ export function initCommentsController(): void {
     await handleSubmit(box, telemetry);
   }
 
-  // The API waits up to 8s for the verdict -- the language model reading an
-  // anonymous comment takes most of that -- and past it the comment lands as
-  // held and flips to published in the background. Probe the list until the flip lands, so the writer sees it
-  // without reloading.
-  //
-  // The window used to be three probes over twelve seconds, which was sized
-  // for the round trip rather than for what actually has to finish inside it.
-  // The late verdict runs in the Worker's `waitUntil` continuation after the
-  // response is already sent -- a queued continuation, a retried fetch, or a
-  // cold check lands well past twelve seconds, and the row was being told it
-  // was invisible for a comment that went public moments later, permanently,
-  // with no way back short of a reload. Telling a reader the wrong thing
-  // forever is worse than a few more cheap `no-store` GETs, so the window is
-  // a backoff out to roughly a minute and a half. The gaps widen as the odds
-  // of a flip fall: eight probes total, five of them inside the first
-  // seventeen seconds, where nearly every verdict lands.
-  const VERDICT_POLL_DELAYS_MS = [1500, 2000, 3000, 4000, 6000, 15_000, 30_000, 30_000];
-  // When "Publishing" becomes "Still checking". Akismet alone answers in well
-  // under a second; past this the language model is the one still reading.
-  const SLOW_VERDICT_MS = 3000;
-
   /** The row was just written by this browser and came back held. Almost every
       one of those is the classifier still thinking, not a decision, and it
       resolves inside the poll window below -- so the row reads as posted and
@@ -834,6 +814,8 @@ export function initCommentsController(): void {
     if (note) note.textContent = t.held;
   }
 
+  // Probe the viewer-aware list until the held row's verdict lands, so the
+  // writer sees the flip without reloading. Window: verdict-poll.ts.
   async function upgradeWhenVerdictLands(
     commentId: string,
     parentId: string | null,
@@ -845,8 +827,11 @@ export function initCommentsController(): void {
       // there is nothing left to upgrade, and the remaining probes would be
       // spent on a detached node.
       if (!article.isConnected) return;
-      const page = await fetchJson<CommentListResult>(blogCommentsUrl(postId));
-      const match = page?.comments.find((c) => c.id === commentId);
+      const page = await fetchJson<CommentListResult>(blogCommentsUrl(postId, pageCursorFor(parentId)));
+      // A probe that failed (network blip, edge 5xx, 429) is no answer; only a
+      // listing without the row says the wait is over.
+      if (!page) continue;
+      const match = page.comments.find((c) => c.id === commentId);
       if (!match) {
         settlePending(article);
         return;
@@ -866,6 +851,18 @@ export function initCommentsController(): void {
       return;
     }
     settlePending(article);
+  }
+
+  /** The list pages by root and lists a reply only beside its root, so a
+      reply under an older root is on the page that starts at that root: the
+      page `before` the real root rendered just above it. */
+  function pageCursorFor(parentId: string | null): string {
+    let row = parentId ? list.querySelector(`#comment-${cssEscape(parentId)}`)?.previousElementSibling : null;
+    for (; row; row = row.previousElementSibling) {
+      const isRoot = row instanceof HTMLElement && row.matches('article.blog-comment') && !row.dataset.parentId;
+      if (isRoot && !row.id.startsWith('comment-pending-')) return row.id.slice('comment-'.length);
+    }
+    return '';
   }
 
   function insertNewRow(article: HTMLElement, parentId: string | null): void {

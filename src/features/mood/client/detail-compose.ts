@@ -36,6 +36,7 @@ import {
 import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import { copyFor } from '@/features/comments/copy';
+import { VERDICT_POLL_DELAYS_MS } from '@/features/comments/verdict-poll';
 import { createCommentReplyQuote, readCommentReplyTarget } from '@/features/mood/shared/comments';
 import {
   dropGhostComment,
@@ -339,9 +340,8 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
 // The verdict
 // ---------------------------------------------------------------------------
 
-// site-api waits up to 8s for the verdict and finishes the request without it
-// past that, so a slow verdict comes back `held` and lands seconds later in a
-// `waitUntil` continuation. Probe until it does.
+// A slow verdict comes back `held` and lands seconds later in a `waitUntil`
+// continuation. Probe until it does; the window is in verdict-poll.ts.
 //
 // The mood thread's own read path cannot answer this. `/api/comments` is
 // edge-cached, viewer-agnostic, and lists only published rows re-attributed
@@ -349,19 +349,15 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
 // `/api/v2/comments` is the viewer-aware one: `no-store`, and it serves a
 // writer their own held row (comments-data.ts's visibility clause). So the
 // poll asks there, and the thread on screen is patched in place.
-//
-// The gaps widen as the odds of a flip fall: eight probes out to roughly a
-// minute and a half, five of them inside the first seventeen seconds where
-// nearly every verdict lands.
-const VERDICT_POLL_DELAYS_MS = [1500, 2000, 3000, 4000, 6000, 15_000, 30_000, 30_000];
-
 async function upgradeWhenVerdictLands(postId: string, commentId: string): Promise<void> {
   for (const delay of VERDICT_POLL_DELAYS_MS) {
     await new Promise((resolve) => setTimeout(resolve, delay));
     const page = await fetchJson<CommentListResult>(
       `/api/v2/comments?surface=mood&post=${encodeURIComponent(postId)}&limit=20`,
     );
-    const match = page?.comments.find((row) => row.id === commentId);
+    // A failed probe is no answer; wait for the next one.
+    if (!page) continue;
+    const match = page.comments.find((row) => row.id === commentId);
     // Gone from a listing that would show it to its own writer: deleted under
     // us, or never ours to begin with. Either way the wait is over.
     if (!match) return settleOwnComment(commentId, true);
