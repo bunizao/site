@@ -778,8 +778,6 @@ export function initCommentsController(): void {
     if (note) note.textContent = t.awaitingEmail;
   }
 
-  /** No verdict inside the window, or one that was not `published`: this is a
-      real hold now, and the row says the real thing. */
   /** Add or remove a row's "only you can see this" note after its status has
       moved. `rejected` gets the same note as `held`: both mean the row is
       drawn for its writer and for nobody else, which is the whole claim the
@@ -937,15 +935,6 @@ export function initCommentsController(): void {
     return { displayName: name, email };
   }
 
-  /** The only thing about the compose box that still waits for the server.
-      Not a busy state: the field stays writable and `data-receipt` has
-      already moved on to `posted`, so nothing spins. This is a double-post
-      guard and nothing more -- one press of Post, one comment.
-
-      `submitting` is therefore a state the live thread no longer enters. It
-      is still in ComposeReceipt, still rendered by CommentForm.astro, and
-      still styled: /lab/comments draws every receipt on purpose, and a state
-      the lab documents is not dead just because the happy path outruns it. */
   /** The arrow leaves and a fresh one arrives -- the one piece of motion the
       press is owed, now that nothing else about the box waits.
 
@@ -968,12 +957,6 @@ export function initCommentsController(): void {
     if (submitBtn) submitBtn.disabled = !enabled;
   }
 
-  /** `data-receipt` still carries every state -- the send button's spinner and
-      its returning arrow are keyed off it (comments.css). What is *drawn*
-      below the box is one thing only: the subscribe offer. A posted comment is
-      announced by the comment; a failed one by the alert above the form; and
-      the two of them plus an identity line used to take turns in a single slot
-      under the box, which is what made the area unreadable. */
   /** Hands the subscribe offer to the panel the page already has, instead of
       answering it here. The nudge used to carry a bare checkbox: nothing read
       it, nothing submitted it, and there was no button in that row to submit
@@ -1009,6 +992,12 @@ export function initCommentsController(): void {
     });
   }
 
+  /** `data-receipt` still carries every state -- the send button's spinner and
+      its returning arrow are keyed off it (comments.css). What is *drawn*
+      below the box is one thing only: the subscribe offer. A posted comment is
+      announced by the comment; a failed one by the alert above the form; and
+      the two of them plus an identity line used to take turns in a single slot
+      under the box, which is what made the area unreadable. */
   function showComposeReceipt(box: HTMLElement, receipt: ComposeReceipt, awaitingEmail = false): void {
     box.dataset.receipt = receipt;
     box.querySelector('[data-compose-receipt]')?.remove();
@@ -1032,6 +1021,13 @@ export function initCommentsController(): void {
     box.append(el('div', { class: 'blog-compose__receipt', 'data-compose-receipt': '', 'aria-live': 'polite' }, [nudge]));
   }
 
+  /** Some refusals have a page under them and some are already fully
+      explained by their own sentence; comment-error.ts decides which. */
+  function helpFor(failure: CommentFailure): ComposeAlertHelp | null {
+    const href = commentErrorDocsHref(failure.code);
+    return href ? { href, label: t.errorHelp } : null;
+  }
+
   // --- Reply box --------------------------------------------------------
 
   // Mirrors the reply box in CommentsSection.astro: alert, identity, one
@@ -1044,13 +1040,6 @@ export function initCommentsController(): void {
   // used to see nothing where "Posting as X" should have been,
   // because `.blog-compose__who`/`.blog-compose__claim` only existed in
   // CommentForm.astro. `applyPhase()` already looks for those two elements on
-  /** Some refusals have a page under them and some are already fully
-      explained by their own sentence; comment-error.ts decides which. */
-  function helpFor(failure: CommentFailure): ComposeAlertHelp | null {
-    const href = commentErrorDocsHref(failure.code);
-    return href ? { href, label: t.errorHelp } : null;
-  }
-
   // whichever box it is given, so building them here is the whole fix.
   function buildReplyBox(): HTMLElement {
     const box = el('div', {
