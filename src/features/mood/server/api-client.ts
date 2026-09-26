@@ -264,6 +264,8 @@ export async function loadMoodDocument(
       quote: null,
       reactions: post.reactions,
       commentsCount: post.commentsCount ?? 0,
+      // Matches dev's live path below, so e2e renders the compose box.
+      discussionLinked: true,
       channel: {
         slug: 'tutumood',
         title: 'Levitating',
