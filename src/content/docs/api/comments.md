@@ -921,9 +921,9 @@ they own (`persisted: true`); their stored seed is the one replaced, whatever
 The client asks for the first seed once the reader focuses or types in a
 compose box, not on page load; until then the face beside the name field is
 a silhouette, and it never follows the name typed there. Pressing the
-reader's own face throws an offer's five faces out onto a fan that
-opens upwards, with a button at its pivot that asks for five more; the client
-restyles the five so neighbours on the fan differ (class and palette kept), and draws five
+reader's own face turns it into a button that asks for five more and
+throws an offer's five faces out onto an arc to its right; the client
+restyles the five so neighbours on the arc differ (class and palette kept), and draws five
 locally if the offer fails. The pick is shown and kept in the browser at
 once, then sent as `choose`.
 

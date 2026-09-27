@@ -897,14 +897,14 @@ test('the fan answers the keyboard and puts itself away', async ({ page }) => {
   await expect(page.locator('.blog-avatar-fan')).toHaveCount(0);
   await expect(face).toBeFocused();
 
-  // A press anywhere else dismisses it too, and a second press on the face.
+  // A press anywhere else dismisses it too. The face's own spot is the more
+  // button while the fan is out, so a second press there deals instead.
   await face.click();
   await expect(fan).toHaveCount(1);
+  const more = await fan.getByRole('button', { name: 'Show five more' }).boundingBox();
+  const own = await face.boundingBox();
+  expect(Math.abs(more!.x + more!.width / 2 - (own!.x + own!.width / 2))).toBeLessThan(1);
   await page.mouse.click(5, 5);
-  await expect(page.locator('.blog-avatar-fan')).toHaveCount(0);
-  await face.click();
-  await expect(fan).toHaveCount(1);
-  await face.click();
   await expect(page.locator('.blog-avatar-fan')).toHaveCount(0);
 });
 
@@ -930,7 +930,8 @@ test('on a phone the fan fits on screen and a drag from the face picks one', asy
   }
 
   // Put it away, then press, slide onto the fourth face and lift.
-  await face.tap();
+  const beside = await face.boundingBox();
+  await page.touchscreen.tap(4, beside!.y + 250);
   await expect(page.locator('.blog-avatar-fan')).toHaveCount(0);
   const from = await face.boundingBox();
   const cdp = await context.newCDPSession(page);

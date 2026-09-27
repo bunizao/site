@@ -1,13 +1,11 @@
-// The picker behind the reader's own face. Pressing the face throws five
-// candidates out of it onto a fan that opens upwards, with the button that
-// deals five more at the fan's pivot; picking one makes it the reader's face.
-// Upwards, because the finger that pressed is below: it never covers the
-// choices. (A full ring was tried and read as a flower.)
+// The picker behind the reader's own face. Pressing the face turns it into
+// the button that deals five more, and throws five candidates out of it onto
+// an arc to its right; picking one makes it the reader's face.
 //
-// The pivot is centred on the compose box rather than on the face, which
-// sits at the box's left edge: a fan from there ran diagonally across the
-// name and email fields and read as clutter on a phone. On a wide box it
-// stays within MAX_OFFSET of the face, so the fan never lands far from it.
+// Rightwards, because the face sits at the compose box's left edge and the
+// box's width is the one direction with room. (Tried and dropped: a full
+// ring, which read as a flower, and a fan opening upwards from the middle
+// of the box, which lost its tie to the face.)
 //
 // Built for a finger first (Apple HIG, the way the owner judges it on iPad):
 //
@@ -15,7 +13,8 @@
 //   finger is still down. Sliding onto a face and lifting picks it, the way a
 //   long-press menu works; a plain tap leaves the fan open for a second tap.
 // - Every target is 44px, the HIG minimum, and nothing depends on hover.
-// - Tapping anywhere else, or the face again, puts it away.
+// - Tapping anywhere else puts it away. The face itself is under the more
+//   button while the fan is out, so it cannot be the way to close.
 //
 // The layer is a manual popover: top layer, so no stacking context on the
 // page can clip it, and manual, so this file owns dismissal. An auto popover
@@ -40,17 +39,14 @@ export interface AvatarFanOptions {
   choose: (seed: number, trigger: HTMLElement) => void;
 }
 
-/** From the pivot to each face's centre: 40 degrees apart, neighbours clear
-    each other by about 9px. */
-const RADIUS = 78;
-/** Degrees clockwise from pointing right: left to right over the top. */
-const FACE_ANGLES = [-170, -130, -90, -50, -10];
+/** From the face's centre to each candidate's: 36 degrees apart, neighbours
+    clear each other by about 9px. */
+const RADIUS = 86;
+/** Degrees clockwise from pointing right: top to bottom down the right. */
+const FACE_ANGLES = [-72, -36, 0, 36, 72];
 const ITEM = 44;
-/** Room the fan needs beside and above the pivot, and below it. */
-const REACH = RADIUS + ITEM / 2 + 8;
-const BELOW = ITEM / 2 + 8;
-/** Furthest the pivot sits from the face on a wide screen. */
-const MAX_OFFSET = 160;
+/** Room the arc needs above and below the face. */
+const REACH = Math.ceil(RADIUS * Math.sin((72 * Math.PI) / 180) + ITEM / 2 + 8);
 /** Movement before a press counts as a drag rather than a tap. */
 const DRAG_SLOP = 8;
 /** Matches the close transition in comments.css. */
@@ -88,15 +84,8 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
       return;
     }
     const rect = fan.trigger.getBoundingClientRect();
-    const faceX = rect.left + rect.width / 2;
-    const faceY = rect.top + rect.height / 2;
-    const box = (fan.trigger.closest('.blog-compose') ?? document.documentElement).getBoundingClientRect();
-    const width = document.documentElement.clientWidth;
-    const x = Math.min(Math.max(Math.min(box.left + box.width / 2, faceX + MAX_OFFSET), REACH), width - REACH);
-    fan.layer.style.left = `${x}px`;
-    fan.layer.style.top = `${faceY}px`;
-    // Where the items start from and fold back to: the face itself.
-    fan.layer.style.setProperty('--fx', `${Math.round(faceX - x)}px`);
+    fan.layer.style.left = `${rect.left + rect.width / 2}px`;
+    fan.layer.style.top = `${rect.top + rect.height / 2}px`;
   };
 
   function itemAt(x: number, y: number): HTMLButtonElement | null {
@@ -119,7 +108,7 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
     const rect = trigger.getBoundingClientRect();
     const centre = rect.top + rect.height / 2;
     if (centre - REACH < top) window.scrollBy({ top: centre - REACH - top, behavior: 'instant' });
-    else if (centre + BELOW > bottom) window.scrollBy({ top: centre + BELOW - bottom, behavior: 'instant' });
+    else if (centre + REACH > bottom) window.scrollBy({ top: centre + REACH - bottom, behavior: 'instant' });
   }
 
   /** `angle` null is the centre. */
@@ -146,7 +135,8 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
     layer.setAttribute('role', 'group');
     layer.setAttribute('aria-label', options.labels.group);
 
-    // The pivot button first out, then the faces left to right.
+    // The more button first, growing out of the face it covers, then the
+    // faces top to bottom.
     const more = item('blog-avatar-fan__more', options.labels.more, null, 0);
     more.innerHTML = options.moreIcon;
     const items = FACE_ANGLES.map((angle, i) => {
