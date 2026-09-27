@@ -12,6 +12,11 @@
 // - It opens on press, not on release, so the fan is already out while the
 //   finger is still down. Sliding onto a face and lifting picks it, the way a
 //   long-press menu works; a plain tap leaves the fan open for a second tap.
+// - Pointer input is acted on at pointerup, never on click. The click that
+//   trails a tap is hit-tested at release, by which time the fan is out under
+//   the finger: the tap that opened it used to land on the more button and
+//   re-deal at once. It is swallowed; only keyboard and assistive-tech clicks,
+//   which have no press behind them, act.
 // - Every target is 44px, the HIG minimum, and nothing depends on hover.
 // - Tapping anywhere else puts it away. The face itself is under the more
 //   button while the fan is out, so it cannot be the way to close.
@@ -68,6 +73,9 @@ interface Press {
   x: number;
   y: number;
   moved: boolean;
+  /** The face that opened or closes the fan, or null for a press that
+      started on an item in the fan. */
+  trigger: HTMLElement | null;
   wasOpen: boolean;
 }
 
@@ -76,6 +84,8 @@ const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, 
 export function wireAvatarFan(selector: string, options: AvatarFanOptions): void {
   let fan: OpenFan | null = null;
   let press: Press | null = null;
+  /** Set at pointerup; the click the browser sends after it is dropped. */
+  let pointerClick = false;
 
   const place = () => {
     if (!fan) return;
@@ -84,8 +94,20 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
       return;
     }
     const rect = fan.trigger.getBoundingClientRect();
-    fan.layer.style.left = `${rect.left + rect.width / 2}px`;
-    fan.layer.style.top = `${rect.top + rect.height / 2}px`;
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const { style } = fan.layer;
+    style.left = `${x}px`;
+    style.top = `${y}px`;
+    // WebKit lays out fixed boxes from the layout viewport but reports client
+    // rects from the visual one, so while the two are apart (keyboard up,
+    // toolbars moving) the fan lands off the face by the gap. Measure where
+    // it went and take the gap back out; elsewhere this is a no-op.
+    const landed = fan.layer.getBoundingClientRect();
+    if (landed.left !== x || landed.top !== y) {
+      style.left = `${2 * x - landed.left}px`;
+      style.top = `${2 * y - landed.top}px`;
+    }
   };
 
   function itemAt(x: number, y: number): HTMLButtonElement | null {
@@ -161,7 +183,6 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
     window.visualViewport?.addEventListener('scroll', place);
     layer.addEventListener('keydown', onKeydown);
     layer.addEventListener('focusout', onFocusOut);
-    layer.addEventListener('click', onItemClick);
 
     void deal(false);
     if (fromKeyboard) items[0].focus({ preventScroll: true });
@@ -222,11 +243,6 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
     options.choose(seed, trigger);
   }
 
-  function onItemClick(event: MouseEvent): void {
-    const target = (event.target as Element).closest<HTMLButtonElement>('.blog-avatar-fan__item');
-    if (target) activate(target);
-  }
-
   function onKeydown(event: KeyboardEvent): void {
     if (!fan) return;
     if (event.key === 'Escape') {
@@ -252,14 +268,23 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
   }
 
   document.addEventListener('pointerdown', (event) => {
+    pointerClick = false;
     const target = event.target as Element;
     const trigger = target.closest?.<HTMLElement>(selector) ?? null;
-    if (fan && !trigger && !fan.layer.contains(target)) close(false);
-    if (!trigger || event.button !== 0) return;
+    const inFan = !!fan && fan.layer.contains(target);
+    if (fan && !trigger && !inFan) close(false);
+    if (event.button !== 0) return;
+    const start = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+
+    if (inFan) {
+      press = { ...start, trigger: null, wasOpen: true };
+      return;
+    }
+    if (!trigger) return;
 
     const wasOpen = fan?.trigger === trigger;
     if (!wasOpen) open(trigger, false);
-    press = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false, wasOpen };
+    press = { ...start, trigger, wasOpen };
     try {
       trigger.setPointerCapture(event.pointerId);
     } catch {
@@ -276,12 +301,15 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
 
   document.addEventListener('pointerup', (event) => {
     if (!press || event.pointerId !== press.id) return;
-    const { moved, wasOpen } = press;
+    const { moved, trigger, wasOpen } = press;
     press = null;
+    pointerClick = true;
     markHot(null);
-    const target = moved ? itemAt(event.clientX, event.clientY) : null;
+    // A press on an item acts wherever it lifts over one; a press on the face
+    // only after sliding off it, since lifting in place is the opening tap.
+    const target = moved || !trigger ? itemAt(event.clientX, event.clientY) : null;
     if (target) activate(target);
-    else if (wasOpen && !moved) close(false);
+    else if (trigger && wasOpen && !moved) close(false);
   });
 
   document.addEventListener('pointercancel', (event) => {
@@ -290,12 +318,29 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
     markHot(null);
   });
 
-  // Enter and Space arrive as a click with no pointer behind it (detail 0);
-  // pointer presses were already handled above.
+  // Keys start a sequence of their own, so a tap whose click never came
+  // cannot eat the next Enter.
+  document.addEventListener('keydown', () => {
+    pointerClick = false;
+  }, true);
+
+  // Enter, Space and assistive tech arrive as a click with no press behind
+  // it. A pointer press was already handled at pointerup; its click is not
+  // acted on twice.
   document.addEventListener('click', (event) => {
-    const trigger = (event.target as Element).closest?.<HTMLElement>(selector);
-    if (!trigger || event.detail !== 0) return;
+    if (pointerClick) {
+      pointerClick = false;
+      return;
+    }
+    const target = event.target as Element;
+    const item = target.closest?.<HTMLButtonElement>('.blog-avatar-fan__item');
+    if (item && fan?.layer.contains(item)) {
+      activate(item);
+      return;
+    }
+    const trigger = target.closest?.<HTMLElement>(selector);
+    if (!trigger) return;
     if (fan?.trigger === trigger) close(true);
     else open(trigger, true);
-  });
+  }, true);
 }
