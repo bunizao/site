@@ -128,15 +128,19 @@ async function readAdminSession(context: {
 export const onRequest = defineMiddleware(async (context, next) => {
   const url = new URL(context.request.url);
   const pathname = url.pathname;
-  const canonicalRedirect = redirectCanonicalUrl(context.request);
-  if (canonicalRedirect) return withRequestVary(context.request, canonicalRedirect);
+  // Dev runs without src/worker.ts. In production the Worker has already
+  // answered canonical redirects (every method), Markdown and legacy article
+  // redirects (GET/HEAD) before Astro sees the request.
+  if (import.meta.env.DEV) {
+    const canonicalRedirect = redirectCanonicalUrl(context.request);
+    if (canonicalRedirect) return withRequestVary(context.request, canonicalRedirect);
 
-  const markdownResponse = await renderMarkdownIfRequested(context);
-  if (markdownResponse) return withRequestVary(context.request, markdownResponse);
+    const markdownResponse = await renderMarkdownIfRequested(context);
+    if (markdownResponse) return withRequestVary(context.request, markdownResponse);
 
-  // Dev runs without src/worker.ts, so the legacy article redirect lives here too.
-  const legacyBlogRedirect = await redirectLegacyBlogUrl(context.request, context.locals);
-  if (legacyBlogRedirect) return withRequestVary(context.request, legacyBlogRedirect);
+    const legacyBlogRedirect = await redirectLegacyBlogUrl(context.request, context.locals);
+    if (legacyBlogRedirect) return withRequestVary(context.request, legacyBlogRedirect);
+  }
 
   // Admin portal: served by this worker, gated by Cloudflare Access in production.
   if (isDevPortalPath(pathname)) {

@@ -37,3 +37,20 @@ https://buxx.me/docs*
 
 https://www.buxx.me/docs*
   Cache-Control: public, max-age=0, s-maxage=300, stale-while-revalidate=86400
+
+https://buxx.me/message
+  Content-Security-Policy: script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.youtube.com https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'; frame-ancestors 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+https://www.buxx.me/message
+  Content-Security-Policy: script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.youtube.com https://js-cdn.music.apple.com https://static.cloudflareinsights.com https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*; base-uri 'self'; object-src 'none'; frame-ancestors 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Robots-Tag: noindex, nofollow
+
+https://buxx.me/_agent-markdown/*
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+
+https://www.buxx.me/_agent-markdown/*
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet

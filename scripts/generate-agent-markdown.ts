@@ -37,12 +37,15 @@ const [posts, accessiblePosts, tags] = await Promise.all([
   getAccessiblePosts({ outputTarget: 'agent-markdown' }),
   getPublicTagDirectory(),
 ]);
-// Translations are off every listing but have a page, so they get its Markdown
-// — unless the article is unlisted, in which case they render at request time
-// with the same robots directives the original does.
+// Translations are off every listing but have a page, so they get its Markdown.
+// Unlisted versions (originals and their translations) have a page too; they
+// go under a separate prefix the Worker serves with noindex robots directives.
+// The Worker never falls back to Ghost at runtime, so every accessible version
+// needs its asset here.
 const translations = accessiblePosts.filter(
   (post) => isTranslation(post) && !isUnlistedVersion(post, accessiblePosts),
 );
+const unlistedVersions = accessiblePosts.filter((post) => isUnlistedVersion(post, accessiblePosts));
 
 await rm(blogRoot, { recursive: true, force: true });
 
@@ -72,6 +75,17 @@ await Promise.all([
       buildPostAgentMarkdown(post, siteUrl),
     ),
   ),
+  ...unlistedVersions.map((post) =>
+    writeMarkdown(
+      builtBlogMarkdownAssetPath({
+        kind: 'post',
+        slug: getCanonicalSlug(post),
+        locale: isTranslation(post) ? getPostLocale(post) : undefined,
+        unlisted: true,
+      }),
+      buildPostAgentMarkdown(post, siteUrl),
+    ),
+  ),
 ]);
 
 await Promise.all(tags.map(async (tag) => {
@@ -84,4 +98,4 @@ await Promise.all(tags.map(async (tag) => {
   );
 }));
 
-console.log(`Generated agent Markdown for ${posts.length} blog posts, ${translations.length} translations and ${tags.length} tags.`);
+console.log(`Generated agent Markdown for ${posts.length} blog posts, ${translations.length} translations, ${unlistedVersions.length} unlisted versions and ${tags.length} tags.`);
