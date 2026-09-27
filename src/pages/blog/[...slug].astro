@@ -107,7 +107,12 @@ next ??= null;
 const featureStyle = featureBlur
   ? `aspect-ratio:${featureBlur.width} / ${featureBlur.height}`
   : undefined;
-const blogFeatureImageWidths = [640, 960, 1200, 1600] as const;
+// The blog image proxy resizes to a fixed ladder capped at 1200px (site-api
+// telegram-image-proxy.ts), so its srcset names only rungs it really serves:
+// a 960w or 1600w candidate would fetch 1200px bytes under another cache key.
+// Unsplash (imgix) resizes to any width, so it keeps the wider ladder.
+const blogProxyImageWidths = [640, 800, 1200] as const;
+const unsplashImageWidths = [640, 960, 1200, 1600] as const;
 const isBlogImageProxyUrl = (value: string | null) =>
   Boolean(value && value.includes('/api/v2/images/blog/'));
 // Ghost's Unsplash picker stores a fixed w=2000 JPEG. Unsplash is imgix, so
@@ -128,7 +133,10 @@ const featureImageSrc = featureImageBase && isResizableFeatureImage
   ? withWidthParam(featureImageBase, 1200)
   : featureImageBase;
 const featureImageSrcSet = featureImageBase && isResizableFeatureImage
-  ? buildSrcSet(featureImageBase, blogFeatureImageWidths)
+  ? buildSrcSet(
+      featureImageBase,
+      isUnsplashImageUrl(post.featureImage) ? unsplashImageWidths : blogProxyImageWidths,
+    )
   : undefined;
 const featureImageSizes = '(min-width: 960px) 920px, calc(100vw - 40px)';
 const hasNoTocTag = post.tags.some((tag) => tag.slug === 'hash-no-toc' || tag.name === '#no-toc');
@@ -170,8 +178,10 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
 // fixture withhold it, and both mean "do not hydrate at all".
 const liveCommentsPostId = isE2ESiteFixtureEnabled(Astro.locals) ? undefined : post.id;
 // The reads the reaction bar and comment thread make first, started by an
-// inline script while the page parses instead of after hydration; see
-// lib/api-prefetch.ts.
+// inline script instead of after hydration; see lib/api-prefetch.ts. Both
+// widgets sit after the whole article, so the script waits until the colophon
+// is near the viewport: a reader who never gets there costs no API request.
+// The comments controller gates its own bootstrap on the same margin.
 const earlyApiUrls = liveCommentsPostId
   ? [
       ...(commentPolicy.reactions ? [reactionsUrl([`post:${liveCommentsPostId}`])] : []),
@@ -214,7 +224,6 @@ const translated = isTranslation(post);
   } : undefined}
 >
   <ReadingTopbar slot="readingbar" noToc={hasNoTocTag} />
-  <ApiPrefetch urls={earlyApiUrls} />
   <a class="blog-back" href="/blog">{blog.copy[postLocale].back.index}</a>
 
   <div class="blog-article-wrap">
@@ -283,6 +292,8 @@ const translated = isTranslation(post);
           <ShareRow title={post.title} locale={postLocale} />
         </div>
       </Colophon>
+      {/* Observes the colophon just above it; must stay its next sibling. */}
+      <ApiPrefetch whenNear urls={earlyApiUrls} />
 
       {/* Last on the page, and open-ended: a thread has no fixed height, so
           anything under it is at an address that moves. */}

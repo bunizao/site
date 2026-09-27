@@ -66,10 +66,27 @@ import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
 import { READER_ME_URL, blogCommentsUrl, reactionsUrl } from '@/features/comments/api-urls';
-import { fetchPrefetched } from '@/lib/api-prefetch';
+import { NEAR_ROOT_MARGIN, fetchPrefetched } from '@/lib/api-prefetch';
 import { SLOW_VERDICT_MS, VERDICT_POLL_DELAYS_MS } from '@/features/comments/verdict-poll';
 
 const CLAIMED_STORAGE_KEY = 'buxx:reader';
+// GET /v2/reactions accepts at most this many targets per request.
+const MAX_REACTION_TARGETS = 50;
+
+/** Run `callback` once `target` is within NEAR_ROOT_MARGIN of the viewport,
+    or right away where IntersectionObserver is missing. */
+function whenNear(target: Element, callback: () => void): void {
+  if (typeof IntersectionObserver !== 'function') {
+    callback();
+    return;
+  }
+  const observer = new IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting)) return;
+    observer.disconnect();
+    callback();
+  }, { rootMargin: NEAR_ROOT_MARGIN });
+  observer.observe(target);
+}
 
 // ---------------------------------------------------------------------------
 // Small DOM builder -- attrs + children, everything through .append() /
@@ -349,7 +366,13 @@ export function initCommentsController(): void {
   // rows to show.
   buildLoadedShell();
 
-  void bootstrap();
+  // The thread sits after the whole article, so its first reads wait until
+  // the section is within NEAR_ROOT_MARGIN of the viewport -- the same gate
+  // the page's inline prefetch uses. A reader who never scrolls that far costs
+  // no API request; a deep link to #comments is already in view and fires on
+  // the observer's first callback. The lab opts out with data-load="eager".
+  if (section.dataset.load === 'eager') void bootstrap();
+  else whenNear(section, () => void bootstrap());
 
   async function bootstrap(): Promise<void> {
     const [meResult, pageResult] = await Promise.all([
@@ -502,14 +525,15 @@ export function initCommentsController(): void {
     setMoreVisible(page.hasMore);
   }
 
+  /** Rows wait on their like counts before they render -- never a flash of
+      zero likes patched in a moment later. Targets are chunked because
+      GET /v2/reactions caps how many it accepts in one request. */
   async function renderPage(comments: Comment[]): Promise<void> {
     if (comments.length === 0) return;
     const targets = comments
       .filter((c) => !c.tombstone)
       .map((c) => `comment:${c.id}`);
-    const reactions = targets.length > 0
-      ? (await fetchJson<ReactionBatchResult>(reactionsUrl(targets)))?.reactions ?? {}
-      : {};
+    const reactions = targets.length > 0 ? await fetchCommentReactions(targets) : {};
 
     for (const { comment, parentId } of orderForRender(comments)) {
       const row = toBlogComment(comment, reactions, t);
@@ -517,6 +541,17 @@ export function initCommentsController(): void {
       wireCommentRow(article, row, parentId);
       replyBox.before(article);
     }
+  }
+
+  async function fetchCommentReactions(targets: string[]): Promise<ReactionBatchResult['reactions']> {
+    const reactions: ReactionBatchResult['reactions'] = {};
+    for (let i = 0; i < targets.length; i += MAX_REACTION_TARGETS) {
+      const chunk = targets.slice(i, i + MAX_REACTION_TARGETS);
+      const result = await fetchJson<ReactionBatchResult>(reactionsUrl(chunk));
+      if (!result) continue;
+      Object.assign(reactions, result.reactions);
+    }
+    return reactions;
   }
 
   // --- Compose (root) submit ------------------------------------------------
