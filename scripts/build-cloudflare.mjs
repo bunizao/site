@@ -32,7 +32,7 @@ export function readBuildEnvError(env) {
   if (!hasValue(env.PUBLIC_GHOST_URL)) {
     missing.push('PUBLIC_GHOST_URL');
   }
-  if (!hasValue(env.GHOST_CONTENT_API_KEY) && !hasValue(env.GHOST_CONTENT_APIKEY)) {
+  if (!hasValue(env.GHOST_CONTENT_API_KEY)) {
     missing.push('GHOST_CONTENT_API_KEY');
   }
   if (missing.length > 0) {

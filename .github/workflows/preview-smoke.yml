@@ -81,7 +81,6 @@ jobs:
         env:
           PUBLIC_GHOST_URL: ${{ vars.PUBLIC_GHOST_URL || 'https://blog.buxx.me' }}
           GHOST_CONTENT_API_KEY: ${{ secrets.GHOST_CONTENT_API_KEY }}
-          GHOST_CONTENT_APIKEY: ${{ secrets.GHOST_CONTENT_APIKEY }}
         run: bun run build:cloudflare
 
       - name: Configure Cloudflare Access preview

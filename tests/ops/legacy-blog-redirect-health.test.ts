@@ -20,7 +20,7 @@ const PAGE_TARGETS: Record<string, string> = {
 };
 
 function contentApiKey(): string {
-  return (process.env.GHOST_CONTENT_API_KEY ?? process.env.GHOST_CONTENT_APIKEY ?? '').trim();
+  return (process.env.GHOST_CONTENT_API_KEY ?? '').trim();
 }
 
 async function request(url: string, init: RequestInit = {}): Promise<Response> {

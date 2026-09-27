@@ -42,7 +42,6 @@ const { GET: getSitemap } = await import('@/pages/sitemap.xml');
 
 const originalGhostUrl = process.env.PUBLIC_GHOST_URL;
 const originalGhostKey = process.env.GHOST_CONTENT_API_KEY;
-const originalLegacyGhostKey = process.env.GHOST_CONTENT_APIKEY;
 const originalGhostMockContent = process.env.GHOST_MOCK_CONTENT;
 const originalE2ESiteFixture = process.env.E2E_SITE_FIXTURE;
 const originalNodeEnv = process.env.NODE_ENV;
@@ -59,7 +58,6 @@ function restoreEnv(name: string, value: string | undefined): void {
 function useMockGhostContent(): void {
   delete process.env.PUBLIC_GHOST_URL;
   delete process.env.GHOST_CONTENT_API_KEY;
-  delete process.env.GHOST_CONTENT_APIKEY;
   process.env.GHOST_MOCK_CONTENT = '1';
 }
 
@@ -70,7 +68,6 @@ beforeEach(() => {
 afterEach(() => {
   restoreEnv('PUBLIC_GHOST_URL', originalGhostUrl);
   restoreEnv('GHOST_CONTENT_API_KEY', originalGhostKey);
-  restoreEnv('GHOST_CONTENT_APIKEY', originalLegacyGhostKey);
   restoreEnv('GHOST_MOCK_CONTENT', originalGhostMockContent);
   restoreEnv('E2E_SITE_FIXTURE', originalE2ESiteFixture);
   restoreEnv('NODE_ENV', originalNodeEnv);
@@ -209,8 +206,7 @@ describe('posts content provider', () => {
   test('fails production builds instead of silently shipping mock posts without Ghost config', async () => {
     delete process.env.PUBLIC_GHOST_URL;
     delete process.env.GHOST_CONTENT_API_KEY;
-    delete process.env.GHOST_CONTENT_APIKEY;
-    delete process.env.GHOST_MOCK_CONTENT;
+      delete process.env.GHOST_MOCK_CONTENT;
     process.env.NODE_ENV = 'production';
 
     try {
@@ -250,17 +246,6 @@ describe('posts content provider', () => {
     expect(config.isConfigured).toBe(true);
     expect(config.mockContent).toBe(true);
     expect(config.forceMockContent).toBe(false);
-  });
-
-  test('accepts the legacy Ghost content API key alias during migration', () => {
-    process.env.PUBLIC_GHOST_URL = 'https://blog.buxx.me';
-    delete process.env.GHOST_CONTENT_API_KEY;
-    process.env.GHOST_CONTENT_APIKEY = 'legacy-key';
-
-    const config = getGhostRuntimeConfig();
-
-    expect(config.isConfigured).toBe(true);
-    expect(config.key).toBe('legacy-key');
   });
 
   test('groups posts by published year in list order', async () => {
