@@ -17,7 +17,7 @@ Use `<picture>` + `<source media="(prefers-color-scheme: ...)">` to switch theme
 
 A stats panel displaying recent GitHub coding activity. Intended to sit alongside the GitHub Stats card.
 
-All values are passed as query parameters — the server renders them verbatim into the SVG. Actual data collection is handled separately by the `sync-recent-activity` GitHub Actions script.
+All values are passed as query parameters — the server renders them as text, XML-escaped, with no parsing. Actual data collection is handled separately by the `sync-recent-activity` GitHub Actions script.
 
 ### Parameters
 
@@ -45,7 +45,7 @@ All values are passed as query parameters — the server renders them verbatim i
 **Dimensions:** 330 × 142px (height is computed: `paddingY×2 + rows×22`)
 **Cache:** `public, max-age=300, s-maxage=300` (5 minutes)
 **Animation:** Each row fades in with a staggered 80ms delay
-**Auth:** When `ACTIVITY_PANEL_SIGNING_SECRET` is configured, requests must include valid `exp` and `sig` values.
+**Auth:** When `ACTIVITY_PANEL_SIGNING_SECRET` is configured, requests must include valid `exp` and `sig` values. `sig` is the base64url HMAC-SHA256 of the public path `/api/activity-panel.svg` plus the query sorted by key, `exp` included and `sig` left out. The host is not signed, so a URL signed for `buxx.me` also verifies on `api.buxx.me`. An `exp` in the past fails.
 
 ### Example (GitHub README)
 
@@ -232,7 +232,7 @@ might expect. Bad input almost never produces a `4xx`:
 
 | Endpoint | Bad input behavior |
 | --- | --- |
-| `activity-panel.svg` | Every value is rendered verbatim. No numeric parsing, no clamping. |
+| `activity-panel.svg` | Every value is rendered as escaped text. No numeric parsing, no clamping. |
 | `status.svg`, `tech-stack.svg`, `project.svg` | `theme` is `light` only on an exact match; every other value, including a typo like `Light`, silently means `dark`. |
 | `site-badge.svg` | Unknown `theme` falls back to `dark`; unknown `style` behaves as `default`. |
 | `project.svg` | Unknown `project` is the one real error: `404` with a plain-text `Project not found` body. |
@@ -240,8 +240,7 @@ might expect. Bad input almost never produces a `4xx`:
 `activity-panel.svg` returns `401 Unauthorized` (plain text,
 `Cache-Control: private, no-store`) when `ACTIVITY_PANEL_SIGNING_SECRET` is set
 and `sig`/`exp` do not verify. When that secret is **not** set the signature
-check is skipped entirely and the endpoint is open — which is the deployed
-state unless the secret has been configured.
+check is skipped entirely and the endpoint is open.
 
 Every SVG response carries a locked-down header set:
 
