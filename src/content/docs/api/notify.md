@@ -106,8 +106,9 @@ scanners that fetch the email URL therefore cannot activate a subscription.
 A missing `token` renders the same error page instead of a 400 status, because
 the only realistic caller is a person reading it in a browser.
 
-Rate limit: 30 requests / 10 min. A rate-limited request gets a plain
-`429 Too Many Requests` text response instead of the templated page.
+Rate limit: 30 requests / 10 min, observability only, so it never rejects
+today. If it ever rejects, the route returns a plain `429 Too Many Requests`
+text response instead of the templated page.
 
 ## Unsubscribe
 
@@ -148,7 +149,8 @@ in place. `token` always comes from the `?token=` query parameter, even on
 `PATCH`.
 
 **`GET`** returns the current subscription view (channels, delivery mode,
-timezone, status). Rate limit: 120 requests / 10 min, edge-counted.
+timezone, status). Rate limit: 120 requests / 10 min, observability only (it
+never rejects).
 
 **`PATCH`** applies a partial update. Send only the fields you're changing:
 
@@ -162,9 +164,10 @@ before forwarding, so an omitted key and an explicit `null` are different
 requests.
 
 Rate limit: **60 requests / 10 min, durable**. The durable limiter is a
-strongly consistent Durable Object counter, unlike the usual edge counter. This
-is the one place in the whole API that uses it specifically to stop a client's
-own rapid toggle requests from racing each other into an inconsistent state.
+strongly consistent Durable Object counter that rejects with `429`. Most notify
+routes use the observability limiter instead, which only sends headers. This
+is the only notify route that uses it to stop a client's own rapid toggle
+requests from racing each other into an inconsistent state.
 
 Both methods respond with `Cache-Control: no-store, max-age=0`.
 
@@ -211,9 +214,11 @@ The manage token stays in the query string, and the new address goes in the
 body. The body is capped at 16 KB. The route streams it and aborts mid-read
 once the cap is exceeded, so an oversized payload never lands in memory.
 
-Rate limit: **5 requests / 60 min, durable**. This is one of only three
-enforced limits in the notify API, because this endpoint puts mail in an inbox
-the caller has not proven any relationship to.
+Rate limit: **5 requests / 60 min, durable**. This endpoint puts mail in an
+inbox the caller has not proven any relationship to. It is one of three notify
+limits that reject requests: `manage` `PATCH`, `manage/email`, and
+`manage/delete`. Every other notify limit on this page is observability only:
+it sends `X-RateLimit-*` headers and never returns `429` today.
 
 Success is always:
 
@@ -249,8 +254,9 @@ the change and renders a confirmation form, and the form's `POST` commits it.
 The `POST` must be same-origin.
 
 The change token is separate from the manage token and expires after **1
-hour**. Rate limit: 30 / 10 min. A rate-limited request gets a plain
-`429 Too Many Requests` instead of the templated page.
+hour**. Rate limit: 30 / 10 min, observability only, so it never rejects
+today. If it ever rejects, the route returns a plain `429 Too Many Requests`
+instead of the templated page.
 
 Opening an already-used link renders a **success** page ("that address is
 already confirmed"). A mail client that prefetches links can open it a second

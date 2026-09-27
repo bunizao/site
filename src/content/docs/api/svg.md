@@ -119,7 +119,7 @@ A compact badge for linking to buxx.me, with an arrow icon.
 | `style`   | string | `default` | Visual style: `default`, `gradient`, `glass`, or `neon` |
 
 - **Size:** 130 × 32px.
-- **Cache:** `public, max-age=86400` (24 hours).
+- **Cache:** `public, max-age=86400, s-maxage=86400` (24 hours).
 - **Edge cache:** the Cloudflare edge header keeps `max-age=86400` and adds
   `stale-while-revalidate=3600, stale-if-error=3600`.
 
@@ -159,7 +159,7 @@ request time.
 | `always-attend`  | bunizao/always-attend           |
 
 - **Size:** 400 × 160px.
-- **Cache:** `public, max-age=3600` (1 hour).
+- **Cache:** `public, max-age=3600, s-maxage=3600` (1 hour).
 - **Edge cache:** the Cloudflare edge header is `max-age=21600` (6 hours) with
   `stale-while-revalidate=86400, stale-if-error=86400`. Each colo calls GitHub
   at most every six hours, so star counts can lag by that much.
@@ -208,9 +208,10 @@ stale-if-error=86400`. A deploy starts a fresh cache.
 ## `GET /logo/{id}.svg`
 
 The site's pixel-art marks, used as favicons and wherever the logo appears as
-an image. These are prerendered static files, unlike the SSR badges above.
-That is why they are the one SVG family served from `buxx.me` directly instead
-of through `/api`.
+an image. On `buxx.me` they are prerendered static files, unlike the SSR
+badges above. That is why they are the one SVG family served from `buxx.me`
+directly instead of through `/api`. `site-api` has the same route but renders
+it on request, so `api.buxx.me/logo/{id}.svg` is SSR.
 
 | `id` | Mark | Served by |
 | --- | --- | --- |
@@ -218,8 +219,11 @@ of through `/api`.
 | `peek` | Red accent (`oklch(0.62 0.13 25)`), 12 × 9 grid | both Workers |
 | `tutu-dev`, `peek-dev` | Same marks on a fixed amber tile (`#f59e0b`) | `site` only |
 
-**Cache:** `public, max-age=31536000, immutable`. The content never changes,
-so the files are cached for a year.
+**Cache:** the handler sets `public, max-age=31536000, immutable`, a year,
+because the content never changes. Only `api.buxx.me` sends it. On `buxx.me`,
+prerendering drops the handler's headers and `public/_headers` has no
+`/logo/*` rule, so the static asset layer sends its default
+`public, max-age=0, must-revalidate`.
 
 The `-dev` variants make a local dev tab easy to tell apart from production at
 favicon size. Only the `site` Worker builds them, so
@@ -237,7 +241,9 @@ If you embed these anywhere other than a favicon, two details matter:
   background that matches the viewer's theme. The `-dev` variants use fixed
   colors and do not switch.
 
-For any other `id`, the static asset layer returns a `404`. No handler runs.
+For any other `id`, `buxx.me` answers with the site's HTML `404` page, and no
+logo handler runs. On `api.buxx.me` the handler runs and returns `404` with a
+plain-text `Not found` body.
 
 ## Errors and validation
 
@@ -256,7 +262,7 @@ never produces a `4xx`:
 and `sig`/`exp` do not verify. When that secret is **not** set, the endpoint
 skips the signature check and is open to anyone.
 
-Every SVG response has the same locked-down headers:
+Every successful `/api/*.svg` response has the same locked-down headers:
 
 ```
 Content-Type: image/svg+xml; charset=utf-8

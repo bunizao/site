@@ -10,8 +10,8 @@ comments and reactions, email notifications, listening data, oEmbed, and SVG
 badges. Anyone can call the public endpoints, and most reads need no auth.
 
 This page covers the rules the endpoints share, and where they differ. Two
-Cloudflare Workers serve the API, endpoints are versioned three ways depending
-on when they were written, and errors come in two shapes. Each section says
+Cloudflare Workers serve the API, some current paths have a version prefix and
+some don't, and errors come in two shapes. Each section says
 which endpoints a rule applies to. For a single endpoint, go to
 its topic page, such as the [Mood API](/docs/api/mood) or the
 [Blog Comments API](/docs/api/comments).
@@ -20,8 +20,8 @@ its topic page, such as the [Mood API](/docs/api/mood) or the
 
 | Environment | What serves `/api/*`, `/v2/*`, `/oauth*` |
 | --- | --- |
-| Production (`buxx.me`) | Cloudflare route patterns send the request straight to the **`site-api`** Worker. The public `site` Worker never sees it. |
-| Preview and deploy builds | The `[...path].ts` catch-alls in `site` forward the request to `site-api` over the `API` service binding (`src/lib/http/api-service-proxy.ts`). |
+| Production (`buxx.me`) | The `buxx.me/api/*` and `www.buxx.me/api/*` route patterns send `/api/*` straight to the **`site-api`** Worker. The public `site` Worker never sees it. `/oauth*` and `/v2/*` reach `site` first and are handled as in the next row. |
+| Preview and deploy builds | The `api/[...path].ts` and `oauth` catch-alls in `site` forward the request to `site-api` over the `API` service binding (`src/lib/http/api-service-proxy.ts`). `v2/[...path].ts` answers `308` to the same path under `/api/v2`. |
 | Local dev (`astro dev`) | `site` proxies over plain HTTP to `API_DEV_ORIGIN` (default `https://buxx.me`, or a local `wrangler dev site-api` via `bun dev:api`). |
 
 `site-api` is a separate, private repository. It holds D1, KV, R2, queues,
@@ -56,14 +56,43 @@ break it.
 The version is part of the URL. There is no version negotiation through
 `Accept` or any other header.
 
-| Prefix | What it is | Status |
-| --- | --- | --- |
-| `/api/v1/mood*` | The live Telegram-mirror reader. It calls `t.me` on every cache miss, and the edge caches it for seconds. | Stable. Used as the freshness fallback. |
-| `/api/v2/*` | The current generation: D1-backed archive reads, KV-backed stats, admin, notify, OAuth. | Stable for `mood`, `moods`, `notify`, `comments`, `reactions`, `reader`. **`/v2/posts*` is a disabled placeholder.** It returns 404 with `{"error":{"code":"not_found"}}` until the `ENABLE_POSTS_API` flag ships. |
-| `/api/moods`, `/api/comments`, unversioned `/musickit/token`, `/ghost/webhook` | Routes from before `/v2`, kept as aliases (`LEGACY_*_PATH` in `@bunizao/contracts/routes`). | Stable. New integrations should use the `/v2` path where one exists. |
+A prefix doesn't tell you whether a path is current. Mood uses `/v1` and `/v2`
+for its two data sources. Notify, admin, the Ghost webhook, MusicKit, and
+health moved from `/v2` to unversioned paths, and listening moved the other
+way. Use the current path for each route family:
 
-When a route has both a legacy and a `/v2` form, both paths serve the same
-data. Use `/v2` unless you need the freshness of the live Telegram mirror.
+| Route family | Current path | Alias |
+| --- | --- | --- |
+| Mood archive | `/api/v2/mood*`, `/api/v2/moods/live-counts` | None |
+| Mood live reader | `/api/v1/mood*`, `/api/moods`, `/api/comments?postId=` | `/api/mood`, `/api/mood/{id}`, `/api/mood/{id}/comments` redirect to `/api/v1/mood*` |
+| Notify | `/api/notify/*` | `/api/v2/notify/*` |
+| Admin | `/admin/*` (on `admin.buxx.me`) | `/v2/admin/*` |
+| MusicKit token | `/api/musickit/token` | `/api/v2/musickit/token` |
+| Ghost webhook | `/api/webhooks/ghost` | `/api/v2/ghost/webhook`, `/api/ghost/webhook` |
+| Health | `/api/health` | `/api/v2/health` |
+| Listening | `/api/v2/listening` | `/api/listening` |
+| Blog comments, reactions, reader, messages, Instagram | `/api/v2/comments`, `/api/v2/reactions`, `/api/v2/reader/*`, `/api/v2/messages`, `/api/v2/instagram` | None |
+| Posts | `/api/v2/posts*` | None. **`/v2/posts*` is a disabled placeholder.** It returns 404 with `{"error":{"code":"not_found"}}` until the `ENABLE_POSTS_API` flag ships. |
+
+Every alias answers `308 Permanent Redirect` to the current path with
+`Cache-Control: no-store, max-age=0`, so the method and body survive the hop.
+The `LEGACY_*_PATH` constants in `@bunizao/contracts/routes` are the `/v2`
+aliases in this table. New integrations should call the current path and skip
+the extra round trip.
+
+The two mood prefixes return the same shape:
+
+- `/api/v1/mood*` is the live Telegram-mirror reader. It calls `t.me` on every
+  cache miss, and the edge caches it for seconds. It is stable and serves as
+  the freshness fallback.
+- `/api/v2/mood*` reads the D1 archive, and `/api/v2/mood/stats` reads a
+  KV-backed snapshot. This is what mood pages render by default.
+
+`/api/moods` and `/api/comments?postId=` (`MOOD_PUBLIC_FEED_PATH` and
+`MOOD_PUBLIC_COMMENTS_PATH`) are current public paths with no redirect. They
+run the same live handlers as `/api/v1/mood` and `/api/v1/mood/{id}/comments`,
+and the site's own mood pages call them. Use `/api/v2` unless you need the
+freshness of the live Telegram mirror.
 
 ## Auth
 
@@ -186,8 +215,9 @@ A request over a `durable` or `native` limit gets `429` with
 
 | Route family | Window | Max | Enforced |
 | --- | --- | --- | --- |
-| `moods`, `v2/mood` (normal) | 60s | 180 | No |
-| `moods`, `v2/mood` with `?fresh=1` (bypasses cache) | 60s | 30 | No |
+| Feed: `moods`, `v1/mood`, `v2/mood` (normal) | 60s | 180 | No |
+| Feed with `?fresh=1` (bypasses cache) | 60s | 30 | No |
+| Feed with `?probe` (checked before `fresh`) | 60s | 90 | No |
 | `v2/mood/search` | 60s | 30 | No |
 | `v2/moods/live-counts`, `v1/mood/meta` | 60s | 240 | No |
 | `v2/listening`, `writing`, `footer`, `github/contributions` | 60s | 60 | No |
@@ -238,19 +268,21 @@ shape.
 
 ## Caching
 
-Routes use one of three `Cache-Control` policies. The policy tells you how
-stale a response can be.
+Most routes use one of these `Cache-Control` policies. The policy tells you
+how stale a response can be.
 
 | Policy | Meaning | Example routes |
 | --- | --- | --- |
-| `no-store, max-age=0` | Never cached anywhere. Used for visitor-specific responses and writes. | `notify/*`, `edge`, `?fresh=1` on any mood route |
-| `public, max-age=0, s-maxage=N` | Not cached by the browser. Cached at the Cloudflare edge for `N` seconds. | `v2/mood` (30s latest / 300s history), `v2/moods/live-counts` (60s), `v2/mood/search` (300s) |
+| `no-store, max-age=0` | Never cached anywhere. Used for visitor-specific responses and writes. | `notify/*`, `?fresh=1` on the mood feed, detail, and comments routes. `edge` sends plain `no-store`. |
+| `public, max-age=0, s-maxage=N` | Not cached by the browser. Cached at the Cloudflare edge for `N` seconds. | `v2/moods/live-counts` (60s), `v2/mood/search` (300s) |
+| `public, max-age=0` plus a `Cloudflare-CDN-Cache-Control` header | Not cached by the browser. Only the Cloudflare edge reads the second header. | Mood feed and detail: `public, max-age=60, stale-while-revalidate=600, stale-if-error=600`. The in-worker cache also keeps `v2/mood` for 30s (latest) or 300s (history). See [Mood](/docs/api/mood#feed-caching). |
 | `public, max-age=N, stale-while-revalidate=M` | The browser can cache it too. | `v2/mood/stats` (300s, then served stale for up to an hour while it refreshes) |
 
-`?fresh=1` on any mood route forces `no-store` and skips the edge cache read
-for that one request. Use it for a freshness check, not for routine polling. It
-also moves you into the tighter `?fresh` rate limit (30/min instead of
-180/min).
+`?fresh=1` on the mood feed, detail, and comments routes forces `no-store` and
+skips the edge cache read for that one request. Use it for a freshness check,
+not for routine polling. On the feed routes it also moves you into the tighter
+`?fresh` rate limit (30/min instead of 180/min). Detail and comments have no
+rate limit.
 
 On the feed, `probe=1` skips the in-worker cache, but the CDN can still serve
 it for up to 15s (see [Mood](/docs/api/mood)). Add `fresh=1` when a probe must

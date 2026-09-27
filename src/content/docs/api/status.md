@@ -7,8 +7,10 @@ order: 3
 
 Four small endpoints that tell you whether the site is alive and which edge
 location you reach it through. Only the footer status is cached at the edge.
-Two of them never return an error by design, which matters if you build a
-status indicator on top of them.
+None of them returns an error status today, which matters if you build a
+status indicator on top of them. Health, ping, and edge have no rate limit and
+no dependency that can fail. The footer has a `429` path, but its rate limiter
+never rejects (see [Footer status](#footer-status)).
 
 ## Health
 
@@ -57,7 +59,7 @@ GET /api/footer
 ```
 
 The data behind the status pill in the site footer. Rate limit: 60 requests /
-60s.
+60s, in `observability` mode, so it never rejects today.
 
 ```json
 { "status": "operational", "provider": "betterstack", "updatedAt": "2026-08-23T05:12:44.310Z" }
@@ -83,8 +85,10 @@ unparseable, the handler logs a warning and still returns `200` with
 Render `unknown` as its own state. It means the status check itself failed. A
 UI that treats it as "no data yet" shows a stale-looking pill forever.
 
-The only non-`200` you will see is `429 {"error":"Too Many Requests"}` from the
-rate limiter.
+The handler has one non-`200` path: `429 {"error":"Too Many Requests"}` when
+the rate limiter rejects. The limiter runs in `observability` mode (see
+[Limiter modes](/docs/api/overview#limiter-modes)), so it never rejects and
+every request gets `200` today.
 
 ### Caching layers
 
@@ -111,8 +115,8 @@ into view.
 GET /api/edge
 ```
 
-What Cloudflare knows about the connection that made the request. `Cache-Control:
-no-store, max-age=0`, because these are per-visitor facts. Sharing them across
+What Cloudflare knows about the connection that made the request.
+`Cache-Control: no-store`, because these are per-visitor facts. Sharing them across
 requests would hand one visitor another's location.
 
 ```json

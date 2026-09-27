@@ -31,7 +31,7 @@ GET /api/v1/mood
 | `before` | string (post id) | None | Cursor: posts older than this id. Must match `^\d{1,20}$` or the request 400s. |
 | `after` | string (post id) | None | Cursor: posts newer than this id. Same validation as `before`. |
 | `tag` | string | None | Filters to one mood tag, normalized through `normalizeMoodTag`. |
-| `fresh` | boolean flag | `false` | Any value other than `0`/`false`/`no`/`off` counts as true. Forces `no-store` and skips the edge cache read. It has its own rate limit, see [Rate limits](/docs/api/overview#rate-limits). |
+| `fresh` | boolean flag | `false` | Any value other than `0`/`false`/`no`/`off` counts as true. Forces `no-store` and skips the edge cache read. It has its own rate limit (30 per 60s instead of 180), unless `probe` is also set. See [Rate limits](/docs/api/overview#rate-limits). |
 | `fallback` | boolean flag | `true` | `fallback=0` turns off t.me completion: an empty archive page returns as-is instead of being topped up from the live channel. It does not affect availability. When the archive itself fails, the read still degrades to the live reader (see [Degradation](#degradation)). Edge-cached under its own cache entry. The site SSR sends `fallback=0` on every archive read. |
 | `probe` | boolean flag | `false` | Returns `{"latestId": "..."}` instead of a page. Use it to check for new posts cheaply, without the full payload. |
 
@@ -225,10 +225,10 @@ top of the plain scrape:
 and offer edit/delete. See
 [Comments API § Mood surface](/docs/api/comments#mood-surface-the-telegram-bridge)
 for the full bridge and overlay rules, and
-[`/api/comments`](/docs/api/content#comments-by-post-id) for the legacy alias
-this route sits behind.
+[`/api/comments`](/docs/api/content#comments-by-post-id) for the live-thread
+path that takes the post id as `?postId=`.
 
-Responses use a 60s edge cache when not bypassed. The legacy live-thread routes
+Responses use a 60s edge cache when not bypassed. The live-thread routes
 (`/api/comments`, `/api/v1/mood/{id}/comments`) use a separate, shorter 15s
 cache. See [`/api/comments`](/docs/api/content#comments-by-post-id).
 
@@ -317,4 +317,16 @@ normal state right after a deploy and not necessarily an outage.
 
 Successful responses are browser-cacheable:
 `public, max-age=300, stale-while-revalidate=3600`. This is the only mood
-endpoint that sets `stale-while-revalidate`.
+endpoint that sends `stale-while-revalidate` in `Cache-Control`, where the
+browser sees it. Other mood routes send it only in
+`Cloudflare-CDN-Cache-Control`, which only the Cloudflare edge reads:
+
+| Endpoint | Header | `stale-while-revalidate` |
+| --- | --- | --- |
+| `/api/v2/mood/stats` | `Cache-Control` | 3600 |
+| Feed (`/api/v2/mood`, `/api/v1/mood`, `/api/moods`) and detail (`/api/v2/mood/{id}`, `/api/v1/mood/{id}`) | `Cloudflare-CDN-Cache-Control` | 600 |
+| Live-thread comments (`/api/comments`, `/api/v1/mood/{id}/comments`) | `Cloudflare-CDN-Cache-Control` | 30 |
+| `/api/v2/mood/{id}/comments`, search, live counts, live meta | None | None |
+
+The feed and detail drop the stale window when `X-Mood-Source` is `live`. A
+`fresh` read, a feed `probe`, and every `no-store` response send none.
