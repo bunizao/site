@@ -67,6 +67,60 @@ export function stripMoodRefreshParam(href: string): string | null {
   return url.toString();
 }
 
+const SCROLL_RESTORE_STORAGE_PREFIX = 'buxx:mood:scroll-restore:';
+
+/**
+ * sessionStorage key for the scroll position to restore after a refresh
+ * navigation, scoped to the canonical (refresh-marker-stripped) URL so the
+ * write before `navigateToFreshFeed` and the read in `init()` agree on the
+ * same key regardless of which side of the strip either of them saw it from.
+ */
+export function moodScrollRestoreKey(href: string): string {
+  return `${SCROLL_RESTORE_STORAGE_PREFIX}${stripMoodRefreshParam(href) ?? href}`;
+}
+
+/**
+ * Stash `scrollTop` for `takeMoodScrollAfterRefresh` to hand back once the
+ * refresh navigation `navigateToFreshFeed` is about to start has rendered.
+ * `storage` is injectable for tests; every real caller means sessionStorage.
+ * Private browsing can deny it -- the reader then just lands at the top,
+ * same as any other reload.
+ */
+export function stashMoodScrollForRefresh(
+  href: string,
+  scrollTop: number,
+  storage: Pick<Storage, 'setItem'> = sessionStorage,
+): void {
+  try {
+    storage.setItem(moodScrollRestoreKey(href), String(Math.round(scrollTop)));
+  } catch {
+    // Ignored -- see doc comment above.
+  }
+}
+
+/**
+ * Take back the scroll position `stashMoodScrollForRefresh` stashed for this
+ * URL, or null when there is none (an ordinary visit, or one already
+ * consumed). Removes the entry either way a stale value read once must not
+ * resurface on some later, unrelated visit to the same URL.
+ */
+export function takeMoodScrollAfterRefresh(
+  href: string,
+  storage: Pick<Storage, 'getItem' | 'removeItem'> = sessionStorage,
+): number | null {
+  const key = moodScrollRestoreKey(href);
+  let raw: string | null = null;
+  try {
+    raw = storage.getItem(key);
+    storage.removeItem(key);
+  } catch {
+    return null;
+  }
+  if (raw === null) return null;
+  const y = Number(raw);
+  return Number.isFinite(y) && y > 0 ? y : null;
+}
+
 export function createFeedUpdateWatcher({
   list,
   updateNoticeEl,
@@ -188,6 +242,12 @@ export function createFeedUpdateWatcher({
   };
 
   const navigateToFreshFeed = (): void => {
+    // A refresh replaces the URL rather than reloading it (see
+    // buildMoodRefreshUrl), so the browser has no history entry for the
+    // target and no scroll offset of its own to restore -- stash the one the
+    // reader is actually leaving, and init() below hands it back once the
+    // fresh feed has rendered.
+    stashMoodScrollForRefresh(window.location.href, scroll.el.scrollTop);
     window.location.replace(buildMoodRefreshUrl(window.location.href, pendingUpdateId));
   };
 
@@ -461,6 +521,15 @@ export function createFeedUpdateWatcher({
     });
   };
 
+  /** Hands back the scroll position `navigateToFreshFeed` stashed before
+      leaving, now that the fresh feed this navigation asked for is the page
+      actually on screen. Only reached from a refresh navigation (see call
+      site). */
+  const restorePreRefreshScroll = (strippedHref: string): void => {
+    const y = takeMoodScrollAfterRefresh(strippedHref);
+    if (y !== null) scroll.el.scrollTo(0, y);
+  };
+
   const init = (): void => {
     if (initialized) return;
     initialized = true;
@@ -468,6 +537,7 @@ export function createFeedUpdateWatcher({
     const strippedHref = stripMoodRefreshParam(window.location.href);
     if (strippedHref) {
       window.history.replaceState(window.history.state, '', strippedHref);
+      restorePreRefreshScroll(strippedHref);
     }
 
     if (updateNoticeEl) {
