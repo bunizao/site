@@ -612,7 +612,9 @@ function shouldHideQuoteAuthor(value?: string): boolean {
       ))}
     </div>
     {/* Regroups the SSR stream into the visitor's timezone during HTML parsing,
-        before first paint, so the hydrated rekey pass finds nothing to move. */}
+        before first paint, then reveals the list. The feed controller never
+        rekeys server groups, so this must stay inline and share the
+        hasCriticalInitialPosts gate with the visibility:hidden style above. */}
     {hasCriticalInitialPosts && <script is:inline set:html={rekeyServerGroupsInline}></script>}
     <div class="mood-load-controls">
       <p class="mood-load-status" data-load-status aria-live="polite"></p>
