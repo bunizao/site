@@ -1,31 +1,19 @@
 ---
 title: Mascot
-description: "peek, the site mascot: where the sprites live, how it is placed, and what it must never do."
+description: Where the peek mascot's data and sprites live, the rules for changing it, and how to add motions.
 group: Surfaces
 order: 5
 ---
 
-`peek` is the site mascot.
-
-This document exists to keep mascot work simple. It is not a deployment guide, not a migration diary, and not a place to design a framework around a cat.
+`peek` is the site mascot, a pixel-grid cat. Read this page when you change the
+mascot or add a pose, motion, look, or sticker.
 
 ## What `peek` does
 
-- Acts as the navbar brand mark.
-- Provides a small set of motion and expression states for the site UI.
-- Powers the mascot preview at `/dev/preview`.
-- Supplies the public SVG used by favicon and related consumers.
-
-## What matters
-
-When working on `peek`, keep these rules intact:
-
-- `peek` should stay easy to render and easy to reason about.
-- The mascot data should have one clear source of truth.
-- Consumers should use stable public data, not reach into random internal files.
-- Preview exists to show mascot states, not to become a second registry.
-
-If a mascot change needs a pile of ceremony, the design is probably wrong.
+- It is the navbar brand mark.
+- It provides a small set of motion and expression states for the site UI.
+- It powers the mascot preview at `/dev/preview`.
+- It supplies the public SVG used by the favicon and related consumers.
 
 ## Where it lives
 
@@ -38,33 +26,50 @@ If a mascot change needs a pile of ceremony, the design is probably wrong.
 | SVG route | [`src/pages/logo/[id].svg.ts`](https://github.com/bunizao/site/blob/main/src/pages/logo/[id].svg.ts) |
 | Sticker assets | [`public/mascot/peek/stickers/`](https://github.com/bunizao/site/blob/main/public/mascot/peek/stickers/), with dimensions in [`src/features/mascot/peek/stickers.ts`](https://github.com/bunizao/site/blob/main/src/features/mascot/peek/stickers.ts) |
 
+## Rules
+
+Keep mascot work simple. A mascot is branding content with some behavior, so
+don't build a framework around it. When you change `peek`, keep these rules:
+
+- `peek` stays easy to render and easy to reason about.
+- The mascot data has one clear source of truth.
+- Consumers read stable public data. They don't reach into internal files.
+- `/dev/preview` shows mascot states. It must not turn into a second registry.
+
+If a mascot change needs a lot of ceremony, the design is probably wrong.
+
 ## Current problem
 
-The mascot data is carrying too much in one place.
+The mascot data holds too much in one place:
 
-- Identity, motion data, extra looks, and preview grouping are too tightly mixed.
-- Preview knows too much about how mascot data is stored.
-- Adding more `peek` variants will get messy fast if this keeps growing sideways.
+- Identity, motion data, extra looks, and preview grouping are tightly mixed.
+- The preview knows too much about how mascot data is stored.
+- Adding more `peek` variants will get messy fast if the data keeps growing
+  sideways.
 
-That does not justify a CMS, database, or some overbuilt content system. It just means the mascot data should stay organized and explicit.
+None of this calls for a CMS, a database, or a content system. The mascot data
+needs to stay organized and explicit.
 
 ## Direction
 
-The right direction is animation-authoring first:
+Treat mascot work as animation authoring first:
 
 - Keep mascot data static and typed.
 - Give every source frame and runtime slot a stable name.
-- Prefer a small source-frame set plus timeline beats over duplicated frame arrays.
-- Use per-beat holds when timing matters; a flat FPS loop is only for truly even motion.
-- Keep SVG output as rectangles so the mascot can stay inspectable and easy to manipulate.
+- Prefer a small set of source frames plus timeline beats over duplicated frame
+  arrays.
+- Use per-beat holds when timing matters. Use a flat FPS loop only for truly
+  even motion.
+- Keep SVG output as rectangles, so the mascot stays inspectable and easy to
+  manipulate.
 - Keep rendering code separate from mascot content.
-- Make preview read from the same source of truth as the rest of the site.
+- Make the preview read from the same source of truth as the rest of the site.
 
-Low complexity wins here. A mascot is branding content with behavior, not infrastructure.
+## Author a new motion
 
-## Authoring new motions
-
-Pose and motion data lives in `src/features/mascot/peek/`. For repeated animation, define named source frames and schedule them with timeline beats.
+Pose and motion data lives in `src/features/mascot/peek/`. For repeated
+animation, define named source frames, then schedule them with timeline beats.
+A beat shows one frame for a set time.
 
 ```ts
 const OPEN = frame('open', PEEK_BASE.base);
@@ -82,13 +87,18 @@ export const PEEK_IDLE_MOTION = defineTimelineMotion('peek.motion.idle', 'idle',
 ], metadata);
 ```
 
-This is the default authoring model: draw the frames that actually exist, then tune rhythm through `beat(...)` or `beatMs(...)`. Do not copy the same frame eight times just to make it hold longer.
+This is the default way to author a motion. Draw each distinct frame once,
+then tune the rhythm with `beat(...)` (hold for a number of frames at the
+motion's FPS) or `beatMs(...)` (hold for a number of milliseconds). Don't copy
+the same frame eight times to make it hold longer.
 
-Sparse layers still exist, but only as a drawing shortcut for small deltas.
+Sparse layers still exist, but use them only as a drawing shortcut for small
+deltas.
 
 ### Layer sources
 
-Three forms cover all cases. Pick the one that fits the layer.
+A layer is a set of cells drawn over a base grid. Three forms cover every case,
+so pick the one that fits the layer.
 
 ```ts
 sparse([
@@ -107,7 +117,7 @@ rle(width, height, [    // run-length encoded
 ])
 ```
 
-### Composing
+### Compose a frame
 
 ```ts
 import { composeFrame } from '../timeline';
@@ -124,18 +134,26 @@ const WINK_LEFT = composeFrame(
 );
 ```
 
-Later layers overwrite earlier layers, pixel by pixel. Sparse pixels with `c = -1` paint cell 0 (background). Pixels that aren't listed are transparent — the underlying base or earlier layer shows through.
+Later layers overwrite earlier layers, pixel by pixel. Sparse pixels with
+`c = -1` paint cell 0 (background). Pixels that aren't listed are transparent,
+so the base or an earlier layer shows through.
 
-For motions where the silhouette stays put (idle, dart, purr), each source frame is a small sparse delta and the timeline holds or revisits it by index. For motions that reshape the silhouette (pop, hide, dissolve), pass full pipe-strings or `rows(...)` because the change covers most of the grid.
+Pick the layer form by how much of the silhouette changes:
 
-For motion with uneven rhythm, keep the frame set small and put timing in the timeline:
+| Motion | Examples | Source frames |
+| --- | --- | --- |
+| Silhouette stays put | idle, dart, purr | A small sparse delta each. The timeline holds or revisits it by index. |
+| Silhouette reshapes | pop, hide, dissolve | Full pipe-strings or `rows(...)`, because the change covers most of the grid. |
+
+For motion with uneven rhythm, keep the frame set small and put the timing in
+the timeline:
 
 ```ts
 beat(0, 2, 'wind-up');
 beatMs(1, 270, 'effort');
 ```
 
-### Visualizing
+### Preview in the terminal
 
 ```bash
 bun mascot:show peek.pose.track-center        # render one asset to the terminal
@@ -144,25 +162,32 @@ bun mascot:show peek.motion.curious -- --png  # also write PNGs to .tmp/mascot/
 bun mascot:diff peek.pose.left peek.pose.right
 ```
 
-The visualizer prints ANSI color blocks from the mascot cell palette. The `--png` flag is for human review only.
+The visualizer prints ANSI color blocks from the mascot cell palette. The
+`--png` flag is for human review only.
 
 ### Looks
 
-Looks (`expressions/`, `costumes/`) stay full grids since they're variable height and replace the head silhouette outright. Use `defineLook` with numeric rows.
+Looks (`expressions/`, `costumes/`) stay full grids. They vary in height and
+replace the head silhouette outright. Use `defineLook` with numeric rows.
 
 ### Stickers
 
-Sticker-style source art lives outside the grid catalog when exact raster fidelity matters. Keep each sticker on a stable public path and register its dimensions in `stickers.ts`.
+When exact raster fidelity matters, sticker-style source art lives outside the
+grid catalog. Keep each sticker on a stable public path and register its
+dimensions in `stickers.ts`.
 
-The current SVG stickers are self-contained wrappers around cropped source PNG data. That is deliberate: they preserve the supplied artwork exactly for review. Do not pretend these are pure vector assets until they have been redrawn or traced into editable paths or pixel rectangles.
+The current SVG stickers are self-contained wrappers around cropped source PNG
+data, so they keep the supplied artwork exact for review. Don't treat them as
+vector assets until someone redraws or traces them into editable paths or pixel
+rectangles.
 
 ## Definition of done
 
-A mascot change is in good shape when:
+A mascot change is done when:
 
-- the intended UI surface still works
-- `/dev/preview` still reflects the real mascot data
-- `/logo/peek.svg` still renders correctly
-- the data layout is easier to understand than before
+- The part of the UI it targets still works.
+- `/dev/preview` still reflects the real mascot data.
+- `/logo/peek.svg` still renders correctly.
+- The data layout is easier to understand than before.
 
-If a change makes mascot work harder to follow, it missed the point.
+If a change makes mascot work harder to follow, it isn't done.

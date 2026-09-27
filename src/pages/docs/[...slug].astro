@@ -146,6 +146,20 @@ const breadcrumbs = breadcrumbJsonLd([
       setTimeout(() => delete button.dataset.copied, 1600);
     });
   });
+
+  // A link mark on every section heading, shown on hover. Added here rather
+  // than at build because Astro assigns the heading ids after the markdown
+  // plugin runs. The mark sits in the left gutter, so it never rewraps a title.
+  const LINK_ICON =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
+  for (const heading of document.querySelectorAll<HTMLElement>('.docs-prose :is(h2, h3)[id]')) {
+    const link = document.createElement('a');
+    link.className = 'docs-heading-anchor';
+    link.href = `#${heading.id}`;
+    link.setAttribute('aria-label', `Link to ${heading.textContent?.trim() ?? 'this section'}`);
+    link.innerHTML = LINK_ICON;
+    heading.append(link);
+  }
 </script>
 
 <script>

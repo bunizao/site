@@ -10,50 +10,96 @@ import '@/styles/docs.css';
 export const prerender = true;
 
 const groups = await getDocsNav();
-const pageCount = groups.reduce((total, group) => total + group.entries.length, 0);
+const docIds = new Set(groups.flatMap((group) => group.entries.map((entry) => entry.id)));
 
-// Three doors, one per kind of reader: someone new to the codebase, someone
-// about to write a post, someone about to call an endpoint. The icon is the
-// card's only ornament — it gives the three an object each to lead with, which
-// a title and two lines of text on their own do not.
-const START_HERE = [
+interface HubCard {
+  id: string;
+  label: string;
+  note: string;
+  icon: string;
+}
+
+// Card copy is written for the hub rather than read from frontmatter: a card is
+// a door, so it names the job ("Embed a mood"), not the page. The id check
+// fails the build when a card points at a page that was moved or deleted.
+function cards(list: HubCard[]) {
+  for (const card of list) {
+    if (!docIds.has(card.id)) throw new Error(`Docs hub card points at a missing page: ${card.id}`);
+  }
+  return list.map((card) => ({ ...card, href: docPath(card.id) }));
+}
+
+const GET_STARTED = cards([
   {
-    href: '/docs/overview',
+    id: 'overview',
     label: 'Overview',
-    note: 'What buxx.me is and which surface owns what.',
-    icon: '<path d="M3 5.5 9 3l6 2.5L21 3v15.5L15 21l-6-2.5L3 21z"/><path d="M9 3v15.5M15 5.5V21"/>',
+    note: 'What buxx.me is made of, and which page covers each part.',
+    icon: '<circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36z"/>',
   },
   {
-    href: '/docs/writing/directives',
-    label: 'Directives',
-    note: 'The [!name] grammar every post is composed with.',
+    id: 'architecture',
+    label: 'Architecture',
+    note: 'How the two Workers, the data sources and the caches fit together.',
+    icon: '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>',
+  },
+  {
+    id: 'development',
+    label: 'Local development',
+    note: 'Install the toolchain, run the dev server, and point it at a local API.',
+    icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 11 2-2-2-2M11 13h4"/>',
+  },
+  {
+    id: 'api/overview',
+    label: 'API',
+    note: 'Every HTTP route on buxx.me, who can call it, and the limits.',
     icon: '<path d="M8 3H7a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1"/><path d="M16 3h1a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-1"/>',
   },
+]);
+
+const GUIDES = cards([
   {
-    href: '/docs/api/oembed',
+    id: 'writing/directives',
+    label: 'Compose a post',
+    note: 'Drop music, moods, videos and poems into a post with one-line markers.',
+    icon: '<path d="M12 20h9"/><path d="M16.38 3.62a1 1 0 0 1 3 3L7.37 18.64a2 2 0 0 1-.86.5l-2.87.84a.5.5 0 0 1-.62-.62l.84-2.87a2 2 0 0 1 .5-.86z"/>',
+  },
+  {
+    id: 'writing/publishing',
+    label: 'Publish a post',
+    note: 'What happens between Publish in Ghost and the post going live.',
+    icon: '<path d="M14.54 21.69a.5.5 0 0 0 .94-.03l6.5-19a.5.5 0 0 0-.64-.64l-19 6.5a.5.5 0 0 0-.03.94l7.93 3.18a2 2 0 0 1 1.11 1.11z"/><path d="m21.85 2.15-10.94 10.94"/>',
+  },
+  {
+    id: 'api/oembed',
     label: 'Embed a mood',
-    note: 'oEmbed, the iframe widget, and the postMessage contract.',
+    note: 'Show a mood post or the live feed on another site.',
     icon: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9.5 10.5 7.5 12l2 1.5M14.5 10.5l2 1.5-2 1.5"/>',
   },
-];
+  {
+    id: 'api/svg',
+    label: 'Add a README badge',
+    note: 'Server-rendered SVG cards for GitHub READMEs and other image-only places.',
+    icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>',
+  },
+]);
 
 const ELSEWHERE = [
-  { href: '/blog', label: 'Blog', note: 'Essays and notes — 無人之境' },
-  { href: '/mood', label: 'Mood', note: 'The running short-form feed' },
-  { href: '/components', label: 'Components', note: 'Installable pieces of this site' },
-  { href: '/projects', label: 'Projects', note: 'What I ship, and why' },
-  {
-    href: 'https://github.com/bunizao/site',
-    label: 'Source',
-    note: 'This site on GitHub',
-    external: true,
-  },
+  { href: '/blog', label: 'Blog' },
+  { href: '/mood', label: 'Mood' },
+  { href: '/components', label: 'Components' },
+  { href: '/projects', label: 'Projects' },
+  { href: 'https://github.com/bunizao/site', label: 'Source', external: true },
+];
+
+const sections = [
+  { id: 'get-started', label: 'Get started', cards: GET_STARTED },
+  { id: 'guides', label: 'Guides', cards: GUIDES },
 ];
 ---
 
 <Layout
   title="Docs"
-  description="Reference for buxx.me — architecture, the post composing syntax, public API endpoints, and how every surface is built."
+  description="Reference for buxx.me: how the site is built, how to write posts for it, and the public API."
   url="/docs"
   image="/docs-og.png"
   imageAlt="Docs — buxx.me/docs"
@@ -65,78 +111,66 @@ const ELSEWHERE = [
     <div class="docs-shell docs-shell--article docs-shell--hub">
       <DocsSidebar groups={groups} />
 
-      <div class="docs-article">
+      <div class="docs-article docs-hub">
         <header class="docs-hub-head">
-          <div class="docs-article-head">
-            <p class="docs-eyebrow"><span>Documentation</span></p>
+          <div class="docs-hub-title-row">
+            <h1 class="docs-hub-title">buxx.me Docs</h1>
             <DocsCopyPage markdownPath={markdownAlternatePath('/docs')} />
           </div>
-          <h1 class="docs-title">Everything this site does, written down.</h1>
-          <p class="docs-lede">
-            {pageCount} pages covering how buxx.me is built: the runtime and its
-            boundaries, the directive syntax posts are composed with, the public
-            endpoints anyone can call, and the rules each surface follows.
+          <p class="docs-hub-lede">
+            Learn how buxx.me is built, how to write posts for it, and how to use its public API.
           </p>
         </header>
 
-        <section class="docs-hub-section" aria-label="Start here">
-          <div class="docs-hub-start">
-            {START_HERE.map((item) => (
-              <a class="docs-card" href={item.href}>
-                <span class="docs-card-head">
-                  <svg class="docs-card-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={item.icon} />
-                  <svg class="docs-card-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
-                </span>
-                <span class="docs-card-title">{item.label}</span>
-                <span class="docs-card-desc">{item.note}</span>
-              </a>
+        {sections.map((section) => (
+          <section class="docs-hub-section" aria-labelledby={`hub-${section.id}`}>
+            <h2 class="docs-hub-heading" id={`hub-${section.id}`}>{section.label}</h2>
+            <div class="docs-hub-cards">
+              {section.cards.map((card) => (
+                <a class="docs-hub-card" href={card.href}>
+                  <svg class="docs-hub-card-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={card.icon} />
+                  <span class="docs-hub-card-text">
+                    <span class="docs-hub-card-title">{card.label}</span>
+                    <span class="docs-hub-card-note">{card.note}</span>
+                  </span>
+                </a>
+              ))}
+            </div>
+          </section>
+        ))}
+
+        <section class="docs-hub-section" aria-labelledby="hub-browse">
+          <h2 class="docs-hub-heading" id="hub-browse">All pages</h2>
+          <div class="docs-hub-browse">
+            {groups.map((group) => (
+              <div class="docs-hub-group">
+                <h3 class="docs-hub-group-label">{group.label}</h3>
+                <ul class="docs-hub-group-list">
+                  {group.entries.map((entry) => (
+                    <li>
+                      <a class="docs-hub-group-link" href={docPath(entry.id)} title={entry.data.description}>
+                        {entry.data.title}
+                        {entry.data.badge && <span class="docs-nav-badge">{entry.data.badge}</span>}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
           </div>
         </section>
 
-        {groups.map((group) => (
-          <section class="docs-hub-section">
-            <div class="docs-hub-section-head">
-              <h2 class="docs-hub-section-label">{group.label}</h2>
-              <p class="docs-hub-section-blurb">{group.blurb}</p>
-            </div>
-            <ul class="docs-hub-list">
-              {group.entries.map((entry) => (
-                <li>
-                  <a class="docs-hub-row" href={docPath(entry.id)}>
-                    <span class="docs-hub-row-title">
-                      {entry.data.title}
-                      {entry.data.badge && <span class="docs-nav-badge">{entry.data.badge}</span>}
-                    </span>
-                    <span class="docs-hub-row-desc">{entry.data.description}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-
-        {/* A panel, not a rule. The exits are the one block on the page that is
-            not part of the reference, and enclosing them says that without
-            hanging another hairline in the gap below the last section. */}
-        <section class="docs-hub-elsewhere">
-          <h2 class="docs-hub-section-label">Elsewhere</h2>
-          <ul class="docs-hub-elsewhere-list">
-            {ELSEWHERE.map((item) => (
-              <li>
-                <a class="docs-hub-elsewhere-link" href={item.href}>
-                  <span class="docs-hub-elsewhere-label">
-                    {item.label}
-                    {item.external && (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
-                    )}
-                  </span>
-                  <span class="docs-hub-elsewhere-note">{item.note}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <nav class="docs-hub-elsewhere" aria-label="Elsewhere on buxx.me">
+          <span class="docs-hub-elsewhere-label">Elsewhere</span>
+          {ELSEWHERE.map((item) => (
+            <a class="docs-hub-elsewhere-link" href={item.href}>
+              {item.label}
+              {item.external && (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+              )}
+            </a>
+          ))}
+        </nav>
       </div>
     </div>
   </main>

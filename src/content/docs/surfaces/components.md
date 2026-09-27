@@ -1,83 +1,94 @@
 ---
 title: Component register
-description: How /components is assembled, and how a piece is published to the shadcn registry at /r.
+description: How /components is built, and how to publish a component to the shadcn registry at /r.
 group: Surfaces
 order: 6
 ---
 
-`/components` is a register of the interactive pieces this site is built from. Each
-one is a live specimen — not a screenshot — and most of them can be installed into
-another project with one command.
+`/components` is a register of the interactive pieces this site is built from.
+Each one is a specimen: the real component, running live on the page. Most of
+them can be installed into another project with one command. Read this page
+when you add a component or publish one to the registry.
 
-## The two halves
+| Part | What it is |
+| --- | --- |
+| [Pages](#pages) | The `/components` grid and one detail page per component |
+| [Entries](#entries) | One Markdown file per component in `src/content/components/` |
+| [Tiers](#tiers) | `primitive`, `showpiece`, or `composition` |
+| [Registry](#registry) | shadcn registry items served from `/r` |
 
-The surface is split, and the split matters because the two halves have different
-jobs:
+## Pages
 
-- **`/components`** — a bento grid of live tiles. It exists to be looked at. Tiles
-  link to their detail page; some are iframed because they take over scroll or use
-  fixed positioning and would otherwise fight the page around them.
-- **`/components/<slug>`** — one specimen, its usage snippet, its install command,
-  and a link to the source.
+The register has two kinds of page, and each has its own job:
 
-## An entry
+- **`/components`** is a bento grid of live tiles, meant for browsing. Each tile
+  links to its detail page. Tiles that take over scroll or use fixed positioning
+  render in an iframe so they don't fight the page around them.
+- **`/components/<slug>`** shows one specimen, its usage snippet, its install
+  command, and a link to the source.
 
-One Markdown file per component in `src/content/components/`. The filename is the
-slug, so `decode-text.md` becomes `/components/decode-text` and registry name
-`decode-text`. The schema lives in [`src/content.config.ts`](https://github.com/bunizao/site/blob/main/src/content.config.ts):
+## Entries
+
+Each component has one Markdown file in `src/content/components/`. The filename
+is the slug, so `decode-text.md` becomes `/components/decode-text` and registry
+name `decode-text`. The schema is in [`src/content.config.ts`](https://github.com/bunizao/site/blob/main/src/content.config.ts):
 
 | Field | Meaning |
 | --- | --- |
 | `title` | Display name. |
 | `tagline` | One line, shown under the title and in the grid caption. |
-| `tier` | `primitive`, `showpiece`, or `composition`. Ordering and framing. |
+| `tier` | `primitive`, `showpiece`, or `composition`. Sets ordering and framing. |
 | `order` | Sort key within a tier. |
 | `install` | `{ type: 'registry' }` or `{ type: 'npm', pkg: '...' }`. |
 | `source` | Absolute URL to the source on GitHub. |
 | `credits` | Optional attribution line. |
 | `draft` | Hides the entry everywhere, including the registry. |
 
-The **body's first fenced code block is the usage snippet**. Nothing else in the
-body is special — write what a reader needs after the snippet.
+The **first fenced code block in the body is the usage snippet**. The rest of
+the body has no special meaning, so write whatever a reader needs after the
+snippet.
 
 ## Tiers
 
-`primitive` is a base UI piece (button, badge, card) that other things are built
-out of. `showpiece` is a self-contained specimen with its own behavior — the
-decode-text engine, the mood wheel. `composition` is several pieces wired
-together into a working block. The tier decides how the detail page frames the
-specimen and where it falls in the ordering, not what the component can do.
+| Tier | Meaning | Examples |
+| --- | --- | --- |
+| `primitive` | A base UI piece that other things are built from | Button, badge, card |
+| `showpiece` | A self-contained specimen with its own behavior | The decode-text engine, the mood wheel |
+| `composition` | Several pieces wired together into a working block | |
 
-## The registry
+The tier sets how the detail page frames the specimen and where it sorts. It
+doesn't limit what the component can do.
 
-Entries with `install.type === 'registry'` are also published as shadcn registry
-items at build time, by [`src/pages/r/[name].ts`](https://github.com/bunizao/site/blob/main/src/pages/r/%5Bname%5D.ts):
+## Registry
+
+At build time, [`src/pages/r/[name].ts`](https://github.com/bunizao/site/blob/main/src/pages/r/%5Bname%5D.ts)
+publishes every entry with `install.type === 'registry'` as a shadcn registry
+item. You install one like this:
 
 ```bash
 bunx shadcn@latest add https://buxx.me/r/decode-text
 ```
 
-The item is assembled by
-[`src/features/components/server/registry.ts`](https://github.com/bunizao/site/blob/main/src/features/components/server/registry.ts),
-which reads the real source files off disk — so a registry item can never drift
-from the component running on this page. It emits a
-`registry-item.json`-conforming object with `files`, `dependencies`,
-`registryDependencies`, and any `cssVars` the piece needs in both modes. A
-`utils` item is published alongside so `cn()` resolves.
+[`src/features/components/server/registry.ts`](https://github.com/bunizao/site/blob/main/src/features/components/server/registry.ts)
+builds each item from the real source files on disk, so a registry item always
+matches the component running on the page. It emits an object that conforms to
+`registry-item.json`, with `files`, `dependencies`, `registryDependencies`, and
+any `cssVars` the piece needs in both modes. A `utils` item is published
+alongside it so `cn()` resolves.
 
-Routes are prerendered, so the registry is static JSON on the CDN — there is no
-runtime component to keep alive.
+The routes are prerendered, so the registry is static JSON on the CDN. There is
+no runtime component to keep alive.
 
-## Adding one
+## Add a component
 
-1. Put the component under `src/components/ui/` (primitives) or its feature
+1. Put the component under `src/components/ui/` (primitives) or in its feature
    directory.
 2. If it needs a stripped-down demo, add a preview to
    `src/features/components/previews/`.
-3. Write the Markdown entry. First fence is the snippet.
-4. For a registry publish, register the file list in `registry.ts` — nothing is
-   inferred, and that is deliberate: a component's public file set is a decision,
-   not a directory listing.
+3. Write the Markdown entry. The first fence is the snippet.
+4. To publish it to the registry, list its files in `registry.ts`. Nothing is
+   inferred from the directory: you decide which files make up the component's
+   public set.
 5. Run `bun run test:registry`. It builds the site, serves `dist/client/r`, and
-   runs the real `shadcn` CLI against every published slug into a temp directory.
-   If the install breaks for a stranger, it breaks here first.
+   runs the real `shadcn` CLI against every published slug into a temp
+   directory. An install that would break for someone else breaks here first.

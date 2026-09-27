@@ -390,7 +390,7 @@ export const blog = {
 // 21:1, which haloes in long-form reading):
 //
 //   dai 黛 — primary.   Links, TOC progress, focus.   text-safe (6.8:1 / 8.0:1)
-//   dian 靛 — the mark.  AiCredit line, byline.        text-safe (10.3:1 / 8.2:1)
+//   dian 靛 — the mark.  Reserved; no surface uses it. text-safe (10.3:1 / 8.2:1)
 //   ji 霁 — highlight.   <mark>, selection. FILL ONLY  (3.6:1 fails AA as text)
 //
 // dai (远山黛) is the greyed slate-blue shanshui painters dilute to push a ridge
@@ -411,8 +411,8 @@ export interface BlogInk {
 
 export const blogPalette = {
   dai: { light: '#3C5D80', dark: '#7FA8D6', role: 'primary' },
-  /* The ink of the "Not by AI" pledge and the author byline, and of nothing
-     else -- it stands for the human behind the work. */
+  /* Reserved for the author's mark. Emitted as --blog-dian but currently read by
+     no surface: the pledge uses --blog-muted/--blog-ink, the credit --blog-body. */
   dian: { light: '#27406E', dark: '#6FA8FF', role: 'mark' },
   ji: { light: '#3E8BD8', dark: '#6FB2F2', role: 'highlight' },
 } as const satisfies Record<string, BlogInk>;

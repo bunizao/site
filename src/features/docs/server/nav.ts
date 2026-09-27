@@ -13,23 +13,23 @@ export interface DocsGroup {
 const GROUPS: Array<{ label: string; blurb: string }> = [
   {
     label: 'Start',
-    blurb: 'What this site is, how it is put together, and how to run it.',
+    blurb: 'What buxx.me is, how it fits together, and how to run it locally.',
   },
   {
     label: 'Writing',
-    blurb: 'Composing a post: the directive grammar, every directive, and tags.',
+    blurb: 'How to write a post: the directive syntax, every directive, and tags.',
   },
   {
     label: 'API',
-    blurb: 'Every HTTP route on buxx.me — public, gated, and internal.',
+    blurb: 'Every HTTP route on buxx.me, from public endpoints to internal ones.',
   },
   {
     label: 'Surfaces',
-    blurb: 'The pages themselves and the design rules each one follows.',
+    blurb: 'How each part of the site is built and the rules it follows.',
   },
   {
     label: 'Platform',
-    blurb: 'Workers, ingestion, delivery, auth, and what the tests cover.',
+    blurb: 'The Workers, data pipelines, delivery, auth, privacy, and tests.',
   },
 ];
 
