@@ -41,3 +41,23 @@ describe('mood comments live refresh', () => {
     expect(body).toContain('MIN_REFRESH_GAP_MS');
   });
 });
+
+describe('mood comments live refresh gating', () => {
+  test('polls only while the thread is near the viewport and the reader is active', () => {
+    const body = bodyOf('function startLiveRefresh');
+
+    expect(body).toContain('new IntersectionObserver');
+    expect(body).toContain('rootMargin: LIVE_REFRESH_ROOT_MARGIN');
+    expect(body).toContain('if (!inView || isIdle()) return;');
+    expect(body).toContain('lastRefreshAt = Date.now();');
+    expect(source).toContain("const LIVE_REFRESH_ROOT_MARGIN = '0px 0px 400px 0px';");
+    expect(source).toContain('const LIVE_REFRESH_IDLE_MS = 10 * 60_000;');
+  });
+
+  test('catches up at once when the thread comes back into view with stale data', () => {
+    const body = bodyOf('function startLiveRefresh');
+
+    expect(body).toContain('if (inView) tickIfStale();');
+    expect(body).toContain('Date.now() - lastRefreshAt >= REFRESH_INTERVAL_MS');
+  });
+});
