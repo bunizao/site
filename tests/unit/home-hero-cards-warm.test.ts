@@ -46,6 +46,27 @@ describe('home hero cards', () => {
     expect(heroCards).toContain('revealCardImage(card, link.dataset.card);');
   });
 
+  test('degrades the Instagram avatar to a placeholder glyph on a failed read', () => {
+    const heroCards = readText('src/features/home/ui/HeroCards.astro');
+
+    // The fallback glyph sits in the same grid cell as the avatar, so hiding
+    // the avatar never changes the ring's size (no CLS).
+    expect(heroCards).toContain(
+      '<span class="ig-avatar-fallback"><InstagramIcon className="ig-avatar-fallback-icon" /></span>',
+    );
+    expect(heroCards).toContain('<img class="ig-avatar" data-ig-avatar src={INSTAGRAM_AVATAR_URL}');
+
+    // Hidden on error, and on an avatar that already failed before this
+    // script ran — `loading="lazy"` can beat hydration to it.
+    expect(heroCards).toContain('const mountInstagramAvatar = (): void => {');
+    expect(heroCards).toContain("avatar.addEventListener('error', hide, { once: true });");
+    expect(heroCards).toContain('if (avatar.complete && avatar.naturalWidth === 0) hide();');
+    expect(heroCards).toContain('mountInstagramAvatar();');
+
+    // Counts keep their existing dash placeholder on a failed read.
+    expect(heroCards).toContain('if (!counts) return;');
+  });
+
   test('pauses the hero ambient CSS once it scrolls offscreen', () => {
     const hero = readText('src/features/home/ui/Hero.astro');
 

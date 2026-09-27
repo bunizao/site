@@ -138,9 +138,12 @@ Client behavior:
     follower and following counts, both from `site-api`
     ([Instagram profile](/docs/api/content#instagram-profile)). The picture
     is `/api/v2/instagram/avatar`, the stored copy of the last read that
-    passed validation, so the page never links a signed Instagram address and
-    never shows the Instagram logo in its place. The counts load with the
-    other live reads and keep their dashes until they arrive. Nothing about
+    passed validation, so the page never links a signed Instagram address. If
+    that read is unavailable — the avatar request errors, including one that
+    already failed before hydration — the ring falls back to a neutral
+    Instagram glyph instead of a broken image, at the same size, so nothing
+    shifts. The counts load with the other live reads and keep their dashes
+    until they arrive, whether or not the avatar loads. Nothing about
     the card is read at build. Ops Health
     (`tests/ops/instagram-profile-health.test.ts`) fails when the stored read
     is over a day old, when the served picture stops matching the profile,

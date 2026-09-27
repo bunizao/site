@@ -315,7 +315,8 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   {instagram && (
     <div class="hc hc--instagram" data-card-id="instagram">
       <span class="ig-ring">
-        <img class="ig-avatar" src={INSTAGRAM_AVATAR_URL} alt="" width="64" height="64" loading="lazy" decoding="async" />
+        <span class="ig-avatar-fallback"><InstagramIcon className="ig-avatar-fallback-icon" /></span>
+        <img class="ig-avatar" data-ig-avatar src={INSTAGRAM_AVATAR_URL} alt="" width="64" height="64" loading="lazy" decoding="async" />
       </span>
       <span class="hc-title">{instagram.handle}</span>
       <dl class="ig-counts">
@@ -1535,12 +1536,41 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     }
   }
 
+  /* The fallback sits under the avatar in the same grid cell (`ig-ring` is a
+     grid with centred items), so it shows through the moment the avatar is
+     hidden with no extra layout of its own — same shape as the YouTube
+     avatar fallback in src/lib/embed/youtube-controller.ts. */
+  .ig-avatar-fallback {
+    grid-area: 1 / 1;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: oklch(0 0 0 / 0.06);
+    color: var(--home-fg-faint);
+  }
+
+  :global(html.dark) .ig-avatar-fallback {
+    background: oklch(1 0 0 / 0.08);
+  }
+
+  .ig-avatar-fallback :global(.ig-avatar-fallback-icon) {
+    width: 26px;
+    height: 26px;
+  }
+
   .ig-avatar {
+    grid-area: 1 / 1;
     width: 64px;
     height: 64px;
     border-radius: 50%;
     outline: 1px solid oklch(0 0 0 / 0.1);
     outline-offset: -1px;
+  }
+
+  .ig-avatar[hidden] {
+    display: none;
   }
 
   :global(html.dark) .ig-avatar {
@@ -1857,6 +1887,22 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     if (current === card) reposition();
   };
 
+  // Unlike the Monash portrait and GitHub avatar below, the Instagram avatar
+  // ships with a real `src` from first paint, so it can fail on its own —
+  // Instagram's anonymous profile read is what serves it, and that read can
+  // be down. `loading="lazy"` means it may already have errored before this
+  // script runs, so a stale check backs up the event listener. Same shape as
+  // the YouTube avatar fallback in src/lib/embed/youtube-controller.ts.
+  const mountInstagramAvatar = (): void => {
+    const avatar = layer?.querySelector<HTMLImageElement>('[data-ig-avatar]');
+    if (!avatar) return;
+    const hide = () => {
+      avatar.hidden = true;
+    };
+    avatar.addEventListener('error', hide, { once: true });
+    if (avatar.complete && avatar.naturalWidth === 0) hide();
+  };
+
   // ---------- Deferred card images -----------------------------------------
 
   // The Monash portrait and GitHub avatar ship with no `src` in the markup
@@ -1939,6 +1985,8 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   };
 
   if (layer && bio) {
+    mountInstagramAvatar();
+
     bio.addEventListener('pointerover', (event) => {
       if (event.pointerType !== 'mouse') return;
       const link = linkFrom(event.target);
