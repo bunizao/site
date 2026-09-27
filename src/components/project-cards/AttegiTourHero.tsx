@@ -31,15 +31,29 @@ const slides: Slide[] = [
   },
 ];
 
+// Only a hero rendered above the fold (the first /projects panel) passes
+// `priority` and loads its first slide eagerly. Everywhere else, the home deck
+// included, it sits below the fold, so the first slide loads lazily at low
+// priority instead of competing with the page's hero for bandwidth. Later
+// slides only appear on hover and stay plain lazy.
+function imageLoading(priority: boolean, first: boolean) {
+  if (!first) return { loading: "lazy" } as const;
+  return priority
+    ? ({ loading: "eager" } as const)
+    : ({ loading: "lazy", fetchPriority: "low" } as const);
+}
+
 function TourImage({
   slide,
-  eager,
+  first,
+  priority,
   live,
   shouldReduce,
   intervalMs,
 }: {
   slide: Slide;
-  eager: boolean;
+  first: boolean;
+  priority: boolean;
   live: boolean;
   shouldReduce: boolean;
   intervalMs: number;
@@ -51,7 +65,7 @@ function TourImage({
       src={slide.src}
       alt={present ? slide.alt : ""}
       aria-hidden={present ? undefined : true}
-      loading={eager ? "eager" : "lazy"}
+      {...imageLoading(priority, first)}
       decoding="async"
       draggable={false}
       className="absolute inset-0 h-full w-full object-cover"
@@ -71,7 +85,13 @@ function TourImage({
   );
 }
 
-export default function AttegiTourHero({ hovered = false }: { hovered?: boolean }) {
+export default function AttegiTourHero({
+  hovered = false,
+  priority = false,
+}: {
+  hovered?: boolean;
+  priority?: boolean;
+}) {
   const reduced = usePrefersReducedMotion();
   const [mounted, setMounted] = useState(false);
   const [active, setActive] = useState(0);
@@ -123,7 +143,8 @@ export default function AttegiTourHero({ hovered = false }: { hovered?: boolean 
           <TourImage
             key={slide.src}
             slide={slide}
-            eager={active === 0}
+            first={active === 0}
+            priority={priority}
             live={live}
             shouldReduce={shouldReduce}
             intervalMs={intervalMs}

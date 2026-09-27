@@ -19,9 +19,12 @@ const loadDomAnimation = () =>
 export default function HeroPanel({
   hero,
   accent,
+  priority = false,
 }: {
   hero: ProjectHero;
   accent?: { light: string; dark: string };
+  /** Above the fold: load the hero's first image eagerly. */
+  priority?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const reduced = usePrefersReducedMotion();
@@ -58,7 +61,7 @@ export default function HeroPanel({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <LazyMotion features={loadDomAnimation}>{renderHero(hero, live)}</LazyMotion>
+      <LazyMotion features={loadDomAnimation}>{renderHero(hero, live, priority)}</LazyMotion>
     </div>
   );
 }

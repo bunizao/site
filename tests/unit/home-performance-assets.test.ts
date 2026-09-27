@@ -25,6 +25,29 @@ describe('homepage performance assets', () => {
     }
   });
 
+  test('loads project hero images eagerly only on the above-the-fold /projects panel', () => {
+    const ogCarousel = readText('src/components/project-cards/OgCarouselHero.tsx');
+    const attegiTour = readText('src/components/project-cards/AttegiTourHero.tsx');
+    const showcase = readText('src/components/project-cards/ProjectShowcaseCard.tsx');
+    const heroPanel = readText('src/components/project-cards/HeroPanel.tsx');
+    const projectStack = readText('src/components/project-cards/ProjectStack.tsx');
+    const projectsPage = readText('src/pages/projects.astro');
+
+    for (const hero of [ogCarousel, attegiTour]) {
+      expect(hero).toContain('priority = false,');
+      expect(hero).toContain('({ loading: "lazy", fetchPriority: "low" } as const)');
+      expect(hero).toContain('{...imageLoading(priority, ');
+      expect(hero).not.toContain('loading={eager ? "eager" : "lazy"}');
+      expect(hero).not.toContain('loading={active === 0 ? "eager" : "lazy"}');
+    }
+    expect(showcase).toContain('export function renderHero(hero: ProjectHero, hovered: boolean, priority = false)');
+    expect(heroPanel).toContain('renderHero(hero, live, priority)');
+    // The home deck sits below the fold and never passes priority.
+    expect(projectStack).not.toContain('priority');
+    expect(projectsPage).toContain('<HeroPanel client:load hero={project.hero} accent={project.accent} priority />');
+    expect(projectsPage).toContain('<HeroPanel client:visible hero={project.hero} accent={project.accent} />');
+  });
+
   test('project card heroes loop only while the deck is live and the card is on top', () => {
     const projectStack = readText('src/components/project-cards/ProjectStack.tsx');
     const harmonicWave = readText('src/components/project-cards/HarmonicWaveHero.tsx');
