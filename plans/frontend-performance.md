@@ -27,7 +27,7 @@ Remove the site-wide payload and loading inefficiencies identified in the audit'
    - The full initial-feed JSON (`data-mood-initial-feed`, including `mediaHtml` strings) is inlined while the critical posts are also SSR-rendered — the same content twice per response.
    - Trim the inline JSON to what the client renderer actually consumes (or embed only the non-SSR remainder); verify the hydration path against `feed-renderer.ts` expectations.
 2. **Layout script weight** (`src/layouts/Layout.astro`)
-   - Move the ~60-line inline `visualViewport` overscroll handler into a bundled script so it is HTTP-cached instead of repeated in every HTML response.
+   - Moot: the `visualViewport` overscroll handler and its `--visual-viewport-top` offset were deleted on 2026-09-26 (`offsetTop` is a pinch-zoom signal, not the iOS toolbar).
    - Review the four bundled blocks (spotlight overlay, theme dropdown, GSAP nav collapse, nav underline) for conditional loading where a page cannot use them; keep theme init inline (correct as-is).
 3. **Fonts**
    - JetBrains Mono (113 KB, largest single asset) overlaps Geist Mono (`--font-code` vs `--font-mono`). Subset JetBrains Mono to the character ranges code blocks use, or consolidate on one mono family. Keep Geist Mono's `preload` + `font-display: optional` treatment.
