@@ -106,17 +106,18 @@ four headers, success or failure:
 X-RateLimit-Limit: 180
 X-RateLimit-Remaining: 180
 X-RateLimit-Reset: 1755900000
-X-RateLimit-Mode: <observability|durable>
+X-RateLimit-Mode: <observability|durable|native>
 ```
 
 `X-RateLimit-Reset` is a Unix timestamp in seconds, not a delta.
 
 **Read `X-RateLimit-Mode` before you trust the other three.** It reports which
-limiter answered, and only one of the two actually enforces anything:
+limiter answered, and only two of the three actually enforce anything:
 
 | Mode | Behavior |
 | --- | --- |
 | `durable` | A single strongly-consistent counter backed by a Durable Object. Really counts, really rejects. |
+| `native` | Cloudflare's Workers Rate Limiting binding: a per-colo, eventually consistent counter. Really rejects, but only reports allow/deny, so the response carries `X-RateLimit-Limit` and `X-RateLimit-Mode` (plus `Retry-After` on a `429`) and omits `X-RateLimit-Remaining` and `X-RateLimit-Reset`. Where the binding is missing, the route falls back to `durable`. |
 | `observability` | Counts nothing and rejects nothing. The headers are computed from the route's configured limit and emitted for measurement; `X-RateLimit-Remaining` always equals `X-RateLimit-Limit`, and every request is admitted. |
 
 `durable` is used by `notify/manage`'s `PATCH`, `notify/manage/email`, and
@@ -124,19 +125,26 @@ limiter answered, and only one of the two actually enforces anything:
 a caller race their own state or put mail in an inbox — and by the whole
 [Blog Comments API](/docs/api/comments) surface, whose entire risk stack
 (spam, abuse, and bot resistance on a route with no login gate) depends on
-limits that actually reject. Everything else on the surface runs in
+limits that actually reject. The one exception is an anonymous, cookie-less
+read of `GET /v2/reactions`, which counts against the same per-colo binding
+as the two `native` routes below instead — a signed-in reader's own read of
+that route stays `durable`, for an exact count against the shared D1 budget;
+neither read path surfaces `X-RateLimit-Mode`. The two analytics beacons,
+`POST /api/analytics/event` and `POST /api/v2/analytics/listening`, run in
+`native` mode: a flood guard where a per-colo count is enough, charged only
+after their origin and bot checks pass. Everything else on the surface runs in
 `observability` mode.
 
 So the per-route limits below describe the *intended* budget and the numbers
 you will see in the headers, not necessarily a wall you will hit. A `429`
-from a route outside the `durable` rows above is currently unreachable, and
+from a route outside the `durable` and `native` rows above is currently unreachable, and
 client code that only handles `429` for backpressure is, in practice,
 unprotected there. Do not read the absence of `429`s as licence to poll hard
 — the mode can be switched per route without notice, and the underlying
 resources (Ghost, GitHub, Telegram, D1) have their own limits that this
 surface does not shield you from.
 
-A request that does exceed a `durable` limit gets `429` plus
+A request that does exceed a `durable` or `native` limit gets `429` plus
 `Retry-After: <seconds>`; the body is either `{"error":"Too Many Requests"}` or
 plain text depending on the route (see
 [Error shapes](#error-shapes-there-are-two)).
@@ -206,10 +214,12 @@ which one a route uses tells you how stale a response can be:
 | `public, max-age=0, s-maxage=N` | Not cached by the browser; cached at the Cloudflare edge for `N` seconds. | `v2/mood` (30s latest / 300s history), `v2/moods/live-counts` (60s), `v2/mood/search` (300s) |
 | `public, max-age=N, stale-while-revalidate=M` | Cacheable by the browser too. | `v2/mood/stats` (300s, then stale-served for up to an hour while it refreshes) |
 
-`?fresh=1` (or `probe=1`) on any mood route forces `no-store` and skips the
+`?fresh=1` on any mood route forces `no-store` and skips the
 edge cache read on that one request — use it for a freshness check, not for
 routine polling, since it also drops you into the tighter `?fresh` rate
-limit bucket (30/min instead of 180/min).
+limit bucket (30/min instead of 180/min). On the feed, `probe=1` skips the
+in-worker cache but may be served from the CDN for up to 15s (see
+[Mood](/docs/api/mood)); add `fresh=1` when a probe must read through.
 
 ## CORS
 

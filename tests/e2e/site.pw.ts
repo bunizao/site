@@ -1,6 +1,9 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
+// Home previews read the archive feed first and fall back to the live mirror.
+const homeMoodFeedRoute = /\/api\/(?:moods|v2\/mood)(?:\?|$)/;
+
 test.describe('Performance diagnostics', () => {
   test('loads only when requested and exposes an agent-readable snapshot', async ({ page }) => {
     await page.goto('/?debug=performance', { waitUntil: 'domcontentloaded' });
@@ -371,7 +374,7 @@ test.describe('Home page', () => {
   });
 
   test('loads mood preview and navigates to /mood', async ({ page }) => {
-    await page.route('**/api/moods', async (route) => {
+    await page.route(homeMoodFeedRoute, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -395,7 +398,7 @@ test.describe('Home page', () => {
       window.localStorage.removeItem('home-moods-preview-cache:v2');
     });
 
-    await page.route('**/api/moods', async (route) => {
+    await page.route(homeMoodFeedRoute, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -461,7 +464,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.route('**/api/moods', async (route) => {
+    await page.route(homeMoodFeedRoute, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -521,7 +524,7 @@ test.describe('Home page', () => {
       releaseResponse = resolve;
     });
 
-    await page.route('**/api/moods', async (route) => {
+    await page.route(homeMoodFeedRoute, async (route) => {
       await responseGate;
       await route.fulfill({
         status: 200,
@@ -615,7 +618,9 @@ test.describe('Home page', () => {
 
     await page.route('**/api/github/contributions**', async (route) => {
       const url = new URL(route.request().url());
-      expect(url.searchParams.get('days')).toBe('30');
+      // One 84-day request is shared with the hero card; the grid keeps 30.
+      expect(url.searchParams.get('days')).toBe('84');
+      expect(url.searchParams.has('username')).toBe(false);
 
       const contributions = Array.from({ length: 30 }, (_, index) => ({
         date: `2026-02-${String(index + 1).padStart(2, '0')}`,
@@ -748,7 +753,7 @@ test.describe('Home page', () => {
     expect(longLayout?.documentWidth).toBeLessThanOrEqual(longLayout?.viewportWidth ?? 0);
   });
 
-  test('falls back to legacy listening data when v2 is unavailable', async ({ page }) => {
+  test('keeps the placeholder without a legacy retry when v2 is unavailable', async ({ page }) => {
     let v2Requests = 0;
     let legacyRequests = 0;
 
@@ -760,6 +765,8 @@ test.describe('Home page', () => {
         body: JSON.stringify({ error: 'v2 unavailable' }),
       });
     });
+    // `/api/listening` only redirects to the v2 handler, so the client must
+    // not retry through it.
     await page.route('**/api/listening', async (route) => {
       legacyRequests += 1;
       await route.fulfill({
@@ -774,10 +781,9 @@ test.describe('Home page', () => {
 
     await page.goto('/');
 
-    await expect(page.locator('[data-listening-title-label]')).toHaveText('Legacy Listening Track');
-    await expect(page.locator('[data-listening-artist]')).toHaveText('Fallback Artist');
-    expect(v2Requests).toBeGreaterThan(0);
-    expect(legacyRequests).toBeGreaterThan(0);
+    await expect.poll(() => v2Requests).toBeGreaterThan(0);
+    await expect(page.locator('[data-listening-title-label]')).toHaveText('Loading track');
+    expect(legacyRequests).toBe(0);
   });
 
   test('pauses listening refreshes while hidden and refreshes once on refocus', async ({ page }) => {
@@ -1003,7 +1009,7 @@ test.describe('Home page', () => {
   });
 
   test('shows the empty state when the preview feed has no moods', async ({ page }) => {
-    await page.route('**/api/moods', async (route) => {
+    await page.route(homeMoodFeedRoute, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -1023,7 +1029,7 @@ test.describe('Home page', () => {
   });
 
   test('shows the error state when the preview feed request fails', async ({ page }) => {
-    await page.route('**/api/moods', async (route) => {
+    await page.route(homeMoodFeedRoute, async (route) => {
       await route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -1187,7 +1193,7 @@ test.describe('Home page mobile touch', () => {
   test('shows every experience row without a veil', async ({ page }) => {
     await page.goto('/');
     await page.locator('#experience-section').scrollIntoViewIfNeeded();
-    await expect(page.locator('[data-experience-timeline="hydrated"]')).toHaveCount(1);
+    await expect(page.locator('[data-experience-timeline="static"]')).toHaveCount(1);
 
     const rows = page.locator('#experience-section li');
     await expect(rows).toHaveCount(3);
@@ -1294,6 +1300,8 @@ test.describe('Footer edge popover', () => {
       await page.goto(path);
 
       const trigger = page.locator('[data-footer-region-trigger]');
+      // The footer fetches its status (and the region) only near the viewport.
+      await page.locator('[data-footer-status]').scrollIntoViewIfNeeded();
       await trigger.scrollIntoViewIfNeeded();
       await expect(trigger).toBeVisible();
       await trigger.hover();
@@ -1339,6 +1347,7 @@ test.describe('Footer edge popover', () => {
 
     const trigger = page.locator('[data-footer-region-trigger]');
     const pop = page.locator('[data-footer-edge-pop]');
+    await page.locator('[data-footer-status]').scrollIntoViewIfNeeded();
     await trigger.scrollIntoViewIfNeeded();
     await expect(trigger).toBeVisible();
 
@@ -1381,6 +1390,7 @@ test.describe('Footer edge popover', () => {
 
     const trigger = page.locator('[data-footer-region-trigger]');
     const pop = page.locator('[data-footer-edge-pop]');
+    await page.locator('[data-footer-status]').scrollIntoViewIfNeeded();
     await trigger.scrollIntoViewIfNeeded();
     await trigger.focus();
     await expect(pop.locator('.footer-edge-row')).toHaveCount(5);

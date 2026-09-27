@@ -2,6 +2,10 @@
 interface Props {
   username?: string;
   contributionDays?: number;
+  /** Window requested from the API. Defaults to the hero card's 84 days so
+      both widgets share one browser and edge cache entry; the grid keeps only
+      the last `contributionDays` of it. */
+  fetchDays?: number;
   endpoint?: string;
   /** Render a static synthetic wave and skip the live fetch — used by the
       components showcase, where every tile is a self-contained specimen. */
@@ -11,6 +15,7 @@ interface Props {
 const {
   username = 'bunizao',
   contributionDays = 30,
+  fetchDays = 84,
   endpoint = '/api/github/contributions',
   demo = false,
 } = Astro.props;
@@ -36,7 +41,7 @@ const placeholderBars = Array.from({ length: contributionDays });
   data-contribution-section
   data-contributions={demo ? undefined : true}
   data-username={username}
-  data-days={contributionDays}
+  data-days={Math.max(fetchDays, contributionDays)}
   data-endpoint={endpoint}
   aria-busy={demo ? 'false' : 'true'}
 >
@@ -81,6 +86,8 @@ const placeholderBars = Array.from({ length: contributionDays });
   type ContributionsPayload = { contributions?: ContributionDay[]; total?: { lastYear?: number } };
   type Callback = () => void;
 
+  // The API's default login, which the request leaves implicit.
+  const DEFAULT_USERNAME = 'bunizao';
   const heroWindow = window as Window & { __homeHeroGithubReady?: boolean };
   const sections = document.querySelectorAll<HTMLElement>('[data-contributions]');
   const contributionSections = document.querySelectorAll<HTMLElement>('[data-contribution-section]');
@@ -240,7 +247,13 @@ const placeholderBars = Array.from({ length: contributionDays });
 
     setupTooltip(section, visibleDays);
 
-    const totalContributions = data?.total?.lastYear ?? 0;
+    // The payload can cover a longer window than the bars (the fetch is shared
+    // with the hero card's 84 days), so its total would overcount; sum the
+    // days actually shown in that case.
+    const visibleTotal = visibleDays.reduce((sum, day) => sum + (day.count || 0), 0);
+    const totalContributions = contributions.length > bars.length
+      ? visibleTotal
+      : data?.total?.lastYear ?? visibleTotal;
     if (totalEl) {
       totalEl.innerHTML = `<strong>${totalContributions}</strong> contributions`;
     }
@@ -266,8 +279,10 @@ const placeholderBars = Array.from({ length: contributionDays });
     if (!username) return;
 
     try {
+      // The API defaults to this username; leaving it out keeps the URL
+      // identical to HeroCards' `?days=84` so both reuse one cached response.
       const params = new URLSearchParams({
-        username,
+        ...(username !== DEFAULT_USERNAME ? { username } : {}),
         ...(days ? { days } : {}),
       });
       const endpoint = section.getAttribute('data-endpoint') || '/api/github/contributions';

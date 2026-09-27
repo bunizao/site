@@ -7,7 +7,7 @@
 > `plans/README.md` unless a reviewer says they maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat 4b575c2a..HEAD -- packages/contracts package.json scripts/check-route-contracts.ts .github/workflows/pr-tests.yml tests/unit/contracts.test.ts && git -C ../site-api diff --stat 1be3ad9..HEAD -- packages/contracts scripts/sync-contracts.ts .github/workflows/ci.yml tests/unit/ci-workflow.test.ts`
+> `git diff --stat 4b575c2a..HEAD -- packages/contracts package.json .github/workflows/pr-tests.yml tests/unit/contracts.test.ts && git -C ../site-api diff --stat 1be3ad9..HEAD -- packages/contracts scripts/sync-contracts.ts .github/workflows/ci.yml tests/unit/ci-workflow.test.ts`
 > If an in-scope file changed, compare the current-state evidence below with
 > the live code. Any semantic mismatch is a STOP condition.
 
@@ -42,9 +42,10 @@ equality and a CI gate that catches future drift.
   `MoodLiveCountsResponse`; the backend mirror does not.
 - `site/packages/contracts/src/routes.ts` defines `MOOD_LIVE_COUNTS_PATH`; the
   backend mirror instead contains the CV route constants.
-- `site/scripts/check-route-contracts.ts` only compares `routes.ts` and assumes a
-  sibling checkout. `site-api` CI already checks the full mirror after checking
-  out canonical `site`.
+- `site/scripts/check-route-contracts.ts` (which only compared `routes.ts`
+  against a sibling checkout) was deleted 2026-09-27 -- `site-api` vendors
+  nothing to mirror anymore, it pins `@bunizao/contracts` by exact npm version
+  and verifies that pin at runtime with `scripts/check-contract-package.ts`.
 - Current proof of failure:
 
   ```text
@@ -76,7 +77,8 @@ never private backend logic.
 - `packages/contracts/src/routes.ts`
 - `packages/contracts/package.json`
 - `tests/unit/contracts.test.ts`
-- `scripts/check-route-contracts.ts` or a clearly named full-package successor
+- `../site-api/scripts/check-contract-package.ts` (the runtime pin check that
+  replaced `site/scripts/check-route-contracts.ts`, deleted 2026-09-27)
 - `package.json`
 - `.github/workflows/pr-tests.yml`
 - `../site-api/packages/contracts/**` only through the sync script

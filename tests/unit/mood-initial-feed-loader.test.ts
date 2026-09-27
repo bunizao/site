@@ -17,7 +17,7 @@ function createGroupedFeed(id: string, groupIds: string[]) {
 }
 
 describe('initial mood feed loader', () => {
-  test('loads focused and fallback anchor windows concurrently', async () => {
+  test('only reaches for the tight fallback window when the wide one misses the anchor', async () => {
     const started: string[] = [];
     const feed = await loadInitialMoodFeed({
       anchorId: '9999',
@@ -25,7 +25,6 @@ describe('initial mood feed loader', () => {
       fallbackBefore: '10000',
       loadFeed: async ({ before }) => {
         started.push(before ?? 'latest');
-        await new Promise((resolve) => setTimeout(resolve, 20));
         return before === '10011' ? createFeed(['10010']) : createFeed(['9999']);
       },
     });
@@ -35,16 +34,21 @@ describe('initial mood feed loader', () => {
     expect(feed?.value.posts.map((post) => post.id)).toEqual(['9999']);
   });
 
-  test('prefers the focused window when it contains the requested anchor', async () => {
+  test('prefers the focused window when it contains the requested anchor, skipping the fallback fetch', async () => {
+    const calls: string[] = [];
     const feed = await loadInitialMoodFeed({
       anchorId: '3640',
       focusedBefore: '3651',
       fallbackBefore: '3641',
-      loadFeed: async ({ before }) => before === '3651'
-        ? createFeed(['3641', '3640', '3639'])
-        : createFeed(['3640']),
+      loadFeed: async ({ before }) => {
+        calls.push(before ?? 'latest');
+        return before === '3651'
+          ? createFeed(['3641', '3640', '3639'])
+          : createFeed(['3640']);
+      },
     });
 
+    expect(calls).toEqual(['3651']);
     expect(feed?.cacheable).toBe(true);
     expect(feed?.value.posts.map((post) => post.id)).toEqual(['3641', '3640', '3639']);
   });

@@ -29,6 +29,8 @@ if (!archive) {
 
 const { tag, posts } = archive;
 const groups = groupPostsByYear(posts);
+// Slugs and tags are all mapOtherLanguages reads, so skip the rich-content
+// render: it would re-render every post once per tag page.
 const otherLanguages = mapOtherLanguages(await getAccessiblePosts());
 const accent = tag.accentColor ?? 'var(--blog-accent)';
 ---

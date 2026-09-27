@@ -26,12 +26,13 @@ const AUTO_REFRESH_MAX_SCROLL_Y = 120;
 const AUTO_REFRESH_CANCEL_SCROLL_Y = 220;
 const REFRESH_LABEL_IDLE = 'Refresh';
 const REFRESH_LABEL_PENDING = 'Refreshing...';
+const REFRESH_QUERY_PARAM = 'refresh';
 
 /**
  * Build the freshness-probe request for the active read source. Archive reads
- * use the D1-backed v2 probe (edge-cached ~30s); the live v1 route needs
- * fresh=1 to bypass its server cache. Sending fresh=1 to the archive would
- * defeat its cache, so it is scoped to the live source only.
+ * use the D1-backed v2 probe, which site-api lets the CDN hold for ~15s; the
+ * live v1 route needs fresh=1 to bypass its server cache. Sending fresh=1 to
+ * the archive would defeat that cache, so it is scoped to the live source only.
  */
 export function buildMoodProbeUrl(readSource?: string): string {
   const isArchive = readSource?.trim().toLowerCase() === 'archive';
@@ -41,6 +42,83 @@ export function buildMoodProbeUrl(readSource?: string): string {
   }
   query.set('fresh', '1');
   return `/api/moods?${query}`;
+}
+
+/**
+ * Build the navigation target for an update refresh. A plain reload of /mood
+ * is served from the page cache (minutes old) and would miss the new post, so
+ * the refresh carries `refresh=<id>`: the page treats it as a fresh read and
+ * the HTML cache never stores query variants it does not recognise.
+ */
+export function buildMoodRefreshUrl(href: string, pendingUpdateId: string): string {
+  const url = new URL(href);
+  url.searchParams.set(REFRESH_QUERY_PARAM, pendingUpdateId || '1');
+  return url.toString();
+}
+
+/**
+ * Return the current URL without the refresh marker, or null when there is
+ * nothing to strip. Keeps a later manual reload or shared link cacheable.
+ */
+export function stripMoodRefreshParam(href: string): string | null {
+  const url = new URL(href);
+  if (!url.searchParams.has(REFRESH_QUERY_PARAM)) return null;
+  url.searchParams.delete(REFRESH_QUERY_PARAM);
+  return url.toString();
+}
+
+const SCROLL_RESTORE_STORAGE_PREFIX = 'buxx:mood:scroll-restore:';
+
+/**
+ * sessionStorage key for the scroll position to restore after a refresh
+ * navigation, scoped to the canonical (refresh-marker-stripped) URL so the
+ * write before `navigateToFreshFeed` and the read in `init()` agree on the
+ * same key regardless of which side of the strip either of them saw it from.
+ */
+export function moodScrollRestoreKey(href: string): string {
+  return `${SCROLL_RESTORE_STORAGE_PREFIX}${stripMoodRefreshParam(href) ?? href}`;
+}
+
+/**
+ * Stash `scrollTop` for `takeMoodScrollAfterRefresh` to hand back once the
+ * refresh navigation `navigateToFreshFeed` is about to start has rendered.
+ * `storage` is injectable for tests; every real caller means sessionStorage.
+ * Private browsing can deny it -- the reader then just lands at the top,
+ * same as any other reload.
+ */
+export function stashMoodScrollForRefresh(
+  href: string,
+  scrollTop: number,
+  storage: Pick<Storage, 'setItem'> = sessionStorage,
+): void {
+  try {
+    storage.setItem(moodScrollRestoreKey(href), String(Math.round(scrollTop)));
+  } catch {
+    // Ignored -- see doc comment above.
+  }
+}
+
+/**
+ * Take back the scroll position `stashMoodScrollForRefresh` stashed for this
+ * URL, or null when there is none (an ordinary visit, or one already
+ * consumed). Removes the entry either way a stale value read once must not
+ * resurface on some later, unrelated visit to the same URL.
+ */
+export function takeMoodScrollAfterRefresh(
+  href: string,
+  storage: Pick<Storage, 'getItem' | 'removeItem'> = sessionStorage,
+): number | null {
+  const key = moodScrollRestoreKey(href);
+  let raw: string | null = null;
+  try {
+    raw = storage.getItem(key);
+    storage.removeItem(key);
+  } catch {
+    return null;
+  }
+  if (raw === null) return null;
+  const y = Number(raw);
+  return Number.isFinite(y) && y > 0 ? y : null;
 }
 
 export function createFeedUpdateWatcher({
@@ -163,12 +241,22 @@ export function createFeedUpdateWatcher({
     }
   };
 
+  const navigateToFreshFeed = (): void => {
+    // A refresh replaces the URL rather than reloading it (see
+    // buildMoodRefreshUrl), so the browser has no history entry for the
+    // target and no scroll offset of its own to restore -- stash the one the
+    // reader is actually leaving, and init() below hands it back once the
+    // fresh feed has rendered.
+    stashMoodScrollForRefresh(window.location.href, scroll.el.scrollTop);
+    window.location.replace(buildMoodRefreshUrl(window.location.href, pendingUpdateId));
+  };
+
   const triggerPageRefresh = async (): Promise<void> => {
     cancelAutoRefresh();
     clearRefreshMotion();
 
     if (!updateNoticeEl) {
-      window.setTimeout(() => window.location.reload(), 100);
+      window.setTimeout(navigateToFreshFeed, 100);
       return;
     }
 
@@ -236,9 +324,7 @@ export function createFeedUpdateWatcher({
       }, 0);
     }
 
-    noticeReloadCall = gsap.delayedCall(0.72, () => {
-      window.location.reload();
-    });
+    noticeReloadCall = gsap.delayedCall(0.72, navigateToFreshFeed);
   };
 
   const hideUpdateNotice = (): void => {
@@ -332,11 +418,10 @@ export function createFeedUpdateWatcher({
   };
 
   const fetchLatestMoodId = async (): Promise<string> => {
+    // Skip the browser cache only. No explicit revalidation header: the short
+    // CDN copy of the probe (at most ~15s old) is fresh enough for a 75s poll.
     const response = await fetch(buildMoodProbeUrl(readSource), {
       cache: 'no-store',
-      headers: {
-        'Cache-Control': 'no-cache',
-      },
     });
     if (!response.ok) {
       throw new Error('Failed to check mood updates.');
@@ -436,9 +521,24 @@ export function createFeedUpdateWatcher({
     });
   };
 
+  /** Hands back the scroll position `navigateToFreshFeed` stashed before
+      leaving, now that the fresh feed this navigation asked for is the page
+      actually on screen. Only reached from a refresh navigation (see call
+      site). */
+  const restorePreRefreshScroll = (strippedHref: string): void => {
+    const y = takeMoodScrollAfterRefresh(strippedHref);
+    if (y !== null) scroll.el.scrollTo(0, y);
+  };
+
   const init = (): void => {
     if (initialized) return;
     initialized = true;
+
+    const strippedHref = stripMoodRefreshParam(window.location.href);
+    if (strippedHref) {
+      window.history.replaceState(window.history.state, '', strippedHref);
+      restorePreRefreshScroll(strippedHref);
+    }
 
     if (updateNoticeEl) {
       updateNoticeEl.style.opacity = '0';

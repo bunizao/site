@@ -1,12 +1,16 @@
 ---
-/* Starts API requests during HTML parse; see lib/api-prefetch.ts. */
-import { prefetchScript } from '@/lib/api-prefetch';
+/* Starts API requests during HTML parse; see lib/api-prefetch.ts. With
+   `whenNear`, the requests wait until the element right before this tag is
+   near the viewport. */
+import { prefetchScript, prefetchScriptWhenNear } from '@/lib/api-prefetch';
 
 interface Props {
   urls: string[];
+  whenNear?: boolean;
 }
 
-const { urls } = Astro.props;
+const { urls, whenNear = false } = Astro.props;
+const script = whenNear ? prefetchScriptWhenNear(urls) : prefetchScript(urls);
 ---
 
-{urls.length > 0 && <script is:inline set:html={prefetchScript(urls)} />}
+{urls.length > 0 && <script is:inline set:html={script} />}

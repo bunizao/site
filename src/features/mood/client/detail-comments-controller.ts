@@ -56,6 +56,18 @@ interface DetailCommentsOptions {
 
 const REFRESH_INTERVAL_MS = 45_000;
 const MIN_REFRESH_GAP_MS = 5_000;
+// The live poll pauses while the thread is further than this below the
+// viewport, and slows down after this long with no pointer, key or scroll
+// input.
+const LIVE_REFRESH_ROOT_MARGIN = '0px 0px 400px 0px';
+const LIVE_REFRESH_IDLE_MS = 10 * 60_000;
+// Idle never means stopped -- a reader who is still on the tab, still
+// looking at the thread, but has not touched anything (no scroll left to
+// make, nothing to type) still gets replies within a few minutes rather than
+// never. Well above REFRESH_INTERVAL_MS so idle really does cost less, well
+// under LIVE_REFRESH_IDLE_MS so it has already ticked at least once before a
+// reader could plausibly have left instead.
+const LIVE_REFRESH_IDLE_INTERVAL_MS = 3 * 60_000;
 
 // Module-level rather than closed over by initMoodDetailComments: both the
 // page script and detail-compose.ts import this module, and ES modules are
@@ -353,15 +365,63 @@ async function refreshLiveComments(postId: string): Promise<void> {
   }
 }
 
-function startLiveRefresh(postId: string): void {
+/** Polls only while someone could see the result: the tab visible, the
+    thread within LIVE_REFRESH_ROOT_MARGIN of the viewport. Full speed while
+    the reader has done something in the last LIVE_REFRESH_IDLE_MS; once idle
+    it drops to LIVE_REFRESH_IDLE_INTERVAL_MS rather than stopping outright --
+    a reader who is still there, tab focused, just not touching anything,
+    fires none of visibilitychange/focus (both need a transition, and this
+    reader never left) or pointerdown/keydown/scroll/touchstart (nothing left
+    to scroll, nothing to type), so a hard stop here would never resume on
+    its own. Coming back -- scrolling the thread into view, returning to the
+    tab, any input after an idle stretch -- still refreshes at once when the
+    last fetch is older than one interval. */
+function startLiveRefresh(postId: string, section: Element): void {
+  // The initial load just ran; the next fetch is a full interval away.
+  lastRefreshAt = Date.now();
+  // Assume the thread is on screen until the observer says otherwise, so a
+  // missing IntersectionObserver never stops the poll.
+  let inView = true;
+  let lastActivityAt = Date.now();
+
+  const isIdle = (): boolean => Date.now() - lastActivityAt >= LIVE_REFRESH_IDLE_MS;
   const tick = (): void => {
+    if (!inView) return;
+    if (isIdle() && Date.now() - lastRefreshAt < LIVE_REFRESH_IDLE_INTERVAL_MS) return;
     void refreshLiveComments(postId);
   };
+  const tickIfStale = (): void => {
+    if (Date.now() - lastRefreshAt >= REFRESH_INTERVAL_MS) tick();
+  };
+  const markActive = (): void => {
+    const wasIdle = isIdle();
+    lastActivityAt = Date.now();
+    if (wasIdle) tickIfStale();
+  };
+
   window.setInterval(tick, REFRESH_INTERVAL_MS);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') tick();
+    if (document.visibilityState !== 'visible') return;
+    lastActivityAt = Date.now();
+    tick();
   });
-  window.addEventListener('focus', tick);
+  window.addEventListener('focus', () => {
+    lastActivityAt = Date.now();
+    tick();
+  });
+  for (const type of ['pointerdown', 'keydown', 'scroll', 'touchstart'] as const) {
+    window.addEventListener(type, markActive, { passive: true, capture: true });
+  }
+
+  if (typeof IntersectionObserver === 'function') {
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries.at(-1);
+      if (!entry) return;
+      inView = entry.isIntersecting;
+      if (inView) tickIfStale();
+    }, { rootMargin: LIVE_REFRESH_ROOT_MARGIN });
+    observer.observe(section);
+  }
 }
 
 /* --- The reader's own comment, from press to verdict --------------------
@@ -627,5 +687,5 @@ export async function initMoodDetailComments(
   }
 
   await loadComments();
-  startLiveRefresh(postId);
+  startLiveRefresh(postId, commentsSection);
 }

@@ -177,8 +177,7 @@ redirect".
 
 The same script **validates and fails the build**: unknown locale tags, `#tr`
 targets that do not resolve to a real post, two posts claiming the same locale
-in one group, a group whose canonical member does not exist. Precedent:
-`scripts/check-route-contracts.ts`.
+in one group, a group whose canonical member does not exist.
 
 Read it in the worker through the `ASSETS` binding, cached at module scope — the
 manifest ships with the build, so within one deployment it cannot change. Mirror

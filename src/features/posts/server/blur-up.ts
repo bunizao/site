@@ -143,7 +143,10 @@ function addStyle(tag: string, fragment: string): string {
 // The reading column is 920px at most; on phones the image spans the viewport
 // minus the shell padding. Content images ship from Ghost at full capture size
 // (2560px), so without a srcset a phone downloads ~8x the pixels it can show.
-const CONTENT_IMAGE_WIDTHS = [640, 960, 1200, 1600] as const;
+// Only rungs the image proxy actually serves (site-api telegram-image-proxy.ts
+// caps at 1200px): a 960w or 1600w candidate would download 1200px bytes under
+// a URL of its own, a second cache entry for the same image.
+const CONTENT_IMAGE_WIDTHS = [640, 800, 1200] as const;
 const CONTENT_IMAGE_SIZES = '(min-width: 960px) 920px, calc(100vw - 40px)';
 const CONTENT_IMAGE_DEFAULT_WIDTH = 1200;
 

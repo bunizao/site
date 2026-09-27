@@ -5,7 +5,7 @@ import { buildBlogRssXml } from '@/features/posts/server/rss';
 export const prerender = true;
 
 export const GET: APIRoute = async () => {
-  const posts = await getListedPosts({ outputTarget: 'rss' });
+  const posts = await getListedPosts();
 
   return new Response(buildBlogRssXml(posts), {
     headers: {

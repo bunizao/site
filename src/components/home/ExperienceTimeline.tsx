@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { experience, type ExperienceItem } from '@/data/site';
 
@@ -54,15 +53,11 @@ function RowBody({ item }: { item: ExperienceItem }) {
 const ROW_FLEX =
   'flex flex-wrap items-start gap-x-[14px] gap-y-0.5 py-4 min-[481px]:flex-nowrap';
 
+// Rendered to static HTML only (no client directive): nothing here is
+// interactive, so shipping React and the site data module for it is waste.
 export default function ExperienceTimeline() {
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
-
   return (
-    <ol className="m-0 list-none p-0" data-experience-timeline={hydrated ? 'hydrated' : 'ssr'}>
+    <ol className="m-0 list-none p-0" data-experience-timeline="static">
       {experience.map((item) => (
         <li
           key={item.org}
