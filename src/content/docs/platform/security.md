@@ -84,7 +84,6 @@ File: [`src/pages/static/[...path].ts`](https://github.com/bunizao/site/blob/mai
 | Redirect depth | At most three hops. |
 | Content type | Only `image/*`, `video/*`, `audio/*`, `font/*`; anything else is `415`. |
 | Rate limit | The shared in-memory limiter above, 240 / 60s. |
-| Signing | `STATIC_PROXY_MODE` decides whether an unsigned or badly signed URL is served or `403`ed — see [Request signing](/docs/api/site-routes#request-signing). |
 
 The YouTube route (`/static/youtube/<11-character-id>/<quality>.jpg`) accepts
 only `maxresdefault` and `hqdefault`, rejects query strings, and maps those

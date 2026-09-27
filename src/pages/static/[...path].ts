@@ -3,10 +3,6 @@ import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readEnv } from '@/lib/runtime/env';
 import { checkRateLimit, createRateLimitHeaders } from '@/lib/security/rate-limit';
 import {
-  readStaticProxyKeyRing,
-  verifyStaticProxyUrl,
-} from '@/lib/security/static-proxy-signing';
-import {
   resolveYouTubeChannelAvatarUrl,
   resolveYouTubeMetadata,
 } from '@/features/posts/server/youtube';
@@ -60,13 +56,10 @@ const confinedResponseHeaders = {
 };
 const MAX_REDIRECTS = 3;
 
-type StaticProxyMode = 'observe' | 'accept-both' | 'enforce';
-
 type ProxyTargetResolution =
   | { status: 'resolved'; targetUrl: string }
   | { status: 'invalid-target' }
-  | { status: 'upstream-unavailable' }
-  | { status: 'signature-rejected' };
+  | { status: 'upstream-unavailable' };
 
 const sanitizeContentType = (value: string | null): string | null => {
   const mediaType = value?.split(';', 1)[0]?.trim().toLowerCase() ?? '';
@@ -275,98 +268,12 @@ const resolveTargetUrl = (
   return url.toString();
 };
 
-const resolveExactTargetUrl = (
-  targetUrl: string,
-  allowedDomains: string[]
-): string | null => {
-  if (!/^https?:\/\//i.test(targetUrl)) return null;
-
-  try {
-    const target = new URL(targetUrl);
-    return isAllowedTargetHost(target, allowedDomains) ? targetUrl : null;
-  } catch {
-    return null;
-  }
-};
-
-const readStaticProxyMode = (locals: App.Locals): StaticProxyMode => {
-  const value = readEnv(locals, 'STATIC_PROXY_MODE');
-  return value === 'accept-both' || value === 'enforce' ? value : 'observe';
-};
-
-const isLegacyTargetPath = (rawPath: string): boolean => {
-  return /^https?:\/\//i.test(normalizeTarget(decodeTarget(rawPath)));
-};
-
-const recordSignatureObservation = (
-  mode: StaticProxyMode,
-  status: 'unsigned' | 'invalid',
-  targetUrl: string | null,
-  reason?: string
-): void => {
-  let routeFamily = 'invalid-target';
-  if (targetUrl) {
-    try {
-      routeFamily = new URL(targetUrl).hostname.toLowerCase() || routeFamily;
-    } catch {
-      // Keep the generic family when the target cannot be parsed.
-    }
-  }
-
-  console.info('Static proxy signature observation', {
-    mode,
-    status,
-    routeFamily,
-    ...(reason ? { reason } : {}),
-  });
-};
-
 const resolveProxyTarget = (
   request: Request,
   rawPath: string,
-  locals: App.Locals,
   allowedDomains: string[]
 ): ProxyTargetResolution => {
-  const mode = readStaticProxyMode(locals);
-  const keyRing = readStaticProxyKeyRing(locals);
-  const verification = isLegacyTargetPath(rawPath)
-    ? { status: 'unsigned' as const, targetUrl: null }
-    : verifyStaticProxyUrl(new URL(request.url), keyRing);
-
-  if (verification.status === 'valid') {
-    const targetUrl = resolveExactTargetUrl(verification.targetUrl, allowedDomains);
-    return targetUrl ? { status: 'resolved', targetUrl } : { status: 'invalid-target' };
-  }
-
-  if (
-    (verification.status === 'invalid' && mode !== 'observe')
-    || (verification.status === 'unsigned' && mode === 'enforce')
-  ) {
-    const observationTarget = verification.status === 'invalid'
-      ? verification.targetUrl
-      : resolveTargetUrl(request, rawPath, allowedDomains);
-    recordSignatureObservation(
-      mode,
-      verification.status,
-      observationTarget,
-      verification.status === 'invalid' ? verification.reason : undefined
-    );
-    return { status: 'signature-rejected' };
-  }
-
-  if (verification.status === 'invalid' && verification.targetUrl) {
-    const targetUrl = resolveExactTargetUrl(verification.targetUrl, allowedDomains);
-    recordSignatureObservation(mode, 'invalid', targetUrl, verification.reason);
-    return targetUrl ? { status: 'resolved', targetUrl } : { status: 'invalid-target' };
-  }
-
   const targetUrl = resolveTargetUrl(request, rawPath, allowedDomains);
-  recordSignatureObservation(
-    mode,
-    verification.status,
-    targetUrl,
-    verification.status === 'invalid' ? verification.reason : undefined
-  );
   return targetUrl ? { status: 'resolved', targetUrl } : { status: 'invalid-target' };
 };
 
@@ -411,16 +318,8 @@ const resolveRequestTarget = async (
   return {
     allowedDomains,
     targetResolution: youtubeAssetTarget
-      ?? resolveProxyTarget(request, rawPath, locals, allowedDomains),
+      ?? resolveProxyTarget(request, rawPath, allowedDomains),
   };
-};
-
-const createSignatureRejectedResponse = (headers: Headers, head = false): Response => {
-  headers.set('cache-control', 'no-store');
-  return new Response(head ? null : 'Invalid static proxy signature.', {
-    status: 403,
-    headers,
-  });
 };
 
 const createRateLimitedResponse = (headers: Headers): Response => {
@@ -476,9 +375,6 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
     return createYouTubeMetadataResponse(metadataId, rateLimitHeaders);
   }
   const { allowedDomains, targetResolution } = await resolveRequestTarget(request, rawPath, locals);
-  if (targetResolution.status === 'signature-rejected') {
-    return createSignatureRejectedResponse(rateLimitHeaders);
-  }
   if (targetResolution.status === 'invalid-target') {
     return new Response('Invalid target URL.', {
       status: 400,
@@ -536,9 +432,6 @@ export const HEAD: APIRoute = async ({ request, params, locals }) => {
     return createYouTubeMetadataResponse(metadataId, rateLimitHeaders, true);
   }
   const { allowedDomains, targetResolution } = await resolveRequestTarget(request, rawPath, locals);
-  if (targetResolution.status === 'signature-rejected') {
-    return createSignatureRejectedResponse(rateLimitHeaders, true);
-  }
   if (targetResolution.status === 'invalid-target') {
     return new Response(null, {
       status: 400,
