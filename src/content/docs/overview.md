@@ -9,9 +9,12 @@ buxx.me is a personal site: one Astro site deployed to Cloudflare Workers. It ha
 a home page, a blog, a short-form mood feed and a component register. A few
 public endpoints let other sites embed parts of it.
 
-These docs cover what you can reach from outside: what you can call, what it
-returns, and how it is cached. Internals that don't change what a caller sees
-are left out.
+These docs cover the public API (what you can call, what it returns, and how it
+is cached), how to write a post, and how the site and its two Workers are
+built. The one thing left out is the contract of internal routes: admin,
+webhook and cron routes are listed with path, purpose and auth tier only (see
+[Internal Endpoints](/docs/api/internal)). Their request and response shapes
+stay in the private `site-api` repository.
 
 ## Where to start
 
@@ -55,11 +58,12 @@ Two Workers serve buxx.me:
 
 | Worker | Visibility | What it does |
 | --- | --- | --- |
-| `site` | Public | Serves every route above. |
-| `site-api` | Private | Owns the database, queues, crons and the admin surface. Production traffic to `buxx.me/api/*` goes straight to it. |
+| `site` | Public | Renders the pages and static assets: the surfaces above, the `/mood/embed` widget, the feeds and `/logo/{id}.svg`. |
+| `site-api` | Private | Answers every request under `buxx.me/api/*`, including `/api/oembed.json`, the mood JSON and the `/api/*.svg` badges. Production traffic to `buxx.me/api/*` goes straight to it. It also runs OAuth and the admin surface, and owns the database, queues and crons. |
 
-The split is a security boundary. Everything a visitor or an embedder touches
-lives in the public half.
+The split is a security boundary. The database, queues, crons and admin routes
+live only in `site-api`, and the public `site` Worker talks to it through the
+`API` service binding. If you call anything under `/api/`, `site-api` answers.
 
 Blog posts take their own path, from Ghost through a deploy hook. See
 [Publishing](/docs/writing/publishing).

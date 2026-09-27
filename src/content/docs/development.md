@@ -49,9 +49,9 @@ route can skip work it doesn't need:
 
 `/dev/blog/<ghost-post-id>` renders the current Ghost draft through the same
 rich-source compiler that published posts use. Registered directive markers can
-be standalone paragraphs or exact, unlabelled Ghost code cards. Conversation,
-authors, listening, mood, and YouTube share one transform order, set by that
-compiler.
+be standalone paragraphs, or unlabelled Ghost code cards where every non-empty
+line is a marker. Conversation, authors, listening, mood, and YouTube share one
+transform order, set by that compiler.
 
 While its tab is visible, the preview checks the draft revision every 1.5
 seconds. When Ghost saves a newer revision, the page reloads and restores the
@@ -64,12 +64,15 @@ and retries with bounded backoff.
 
 `astro dev` runs on Astro's native Node SSR. The Cloudflare adapter applies only
 during `build`. The workerd runtime, its bindings, and the `API` service binding
-don't exist in dev.
+don't exist in dev. The binding resolves only in a deployed Worker or under
+`wrangler dev`.
 
 In practice:
 
-- In dev, `/api/*`, `/v2/*`, and `/oauth*` are proxied over plain HTTP to
-  `API_DEV_ORIGIN` (default `https://buxx.me`). A fresh `bun dev` talks to
+- In dev, `/api/*` and `/oauth*` are proxied over plain HTTP to
+  `API_DEV_ORIGIN` (default `https://buxx.me`). So are the server-side mood
+  archive reads. `/v2/*` answers with a `308` to `/api/v2/*`, which then takes
+  the same path. `/oauth/login` is answered locally. A fresh `bun dev` talks to
   **production** APIs unless you change that.
 - To develop against a local API, run `bun run dev` in `../site-api` (it boots
   wrangler on `127.0.0.1:8787`), then run `bun dev:api` here.
@@ -167,7 +170,7 @@ The site reads these through `import.meta.env.*`. Put local values in
 | `MOOD_READ_SOURCE` | `archive` (default) or `live` |
 | `CHANNEL`, `TELEGRAM_HOST` | Telegram channel slug and host |
 | `PUBLIC_SITE_URL`, `SITE_URL` | Canonical base URLs |
-| `API_DEV_ORIGIN` | Dev-only. Where `/api/*` is proxied |
+| `API_DEV_ORIGIN` | Dev-only. Where `/api/*` and `/oauth*` are proxied |
 
 Bindings and non-secret vars live in
 [`wrangler.jsonc`](https://github.com/bunizao/site/blob/main/wrangler.jsonc).
@@ -177,8 +180,11 @@ Bindings and non-secret vars live in
 This repo (`site`) is the **public** Worker. The private Worker `site-api` lives
 in the sibling repo `../site-api`. It owns D1, KV, R2, queues, crons, admin and
 OAuth, notify, the Telegram webhook, the image proxy, and the concrete public API
-implementations. Production `buxx.me/api/*` routes directly to `site-api`. This
-repo keeps only a thin service-binding fallback for preview environments.
+implementations. Production `buxx.me/api/*` routes directly to `site-api`, so
+the `site` Worker never sees it. This repo keeps only a thin `/api/*` fallback
+for everywhere else. On preview deployments and under `bun preview`
+(`wrangler dev`), it forwards over the `API` service binding. Under
+`astro dev`, it forwards over plain HTTP to `API_DEV_ORIGIN`.
 
 Keep the two repos split. The boundary between them is a security boundary.
 

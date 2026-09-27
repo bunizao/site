@@ -18,8 +18,18 @@ Two Cloudflare Workers serve the site.
 | `site` (public) | The Astro site on `buxx.me` and `www.buxx.me`. |
 | `site-api` (private) | `buxx.me/api/*`, through Cloudflare route patterns. Also machine traffic on `api.buxx.me`: webhooks, notify, image processing, archive reads and internal automation. |
 
-The public `site` Worker keeps a thin `/api/*` fallback over a service binding.
-Only local and preview environments use it.
+The public `site` Worker keeps a thin `/api/*` fallback
+(`src/pages/api/[...path].ts`). Whether it runs depends on the environment:
+
+| Environment | How the fallback reaches `site-api` |
+| --- | --- |
+| Production | Not used. Cloudflare routes `/api/*` straight to `site-api`. |
+| Preview deployments, `bun preview` (`wrangler dev`) | Over the `API` service binding. |
+| `astro dev` | No bindings exist, so it forwards over plain HTTP to `API_DEV_ORIGIN` (default `https://buxx.me`). See [Local development](/docs/development#how-dev-differs-from-production). |
+
+The `API` binding is still live in production. The `site` Worker uses it for
+`/oauth*`, the `/reader/*` pages, the `/dev/portal` pages and their API proxy,
+and server-side mood reads.
 
 Mood pages render their base content from the D1 archive by default
 (`MOOD_READ_SOURCE=archive`). The live Telegram reader is a bounded fallback, and
@@ -32,7 +42,7 @@ it also supplies the freshness-sensitive comments and reactions.
 | `src/pages/` | File-based routing: `index.astro` (home), `mood.astro` (feed shell and route bootstrap), `mood/[id].astro` (detail shell and route bootstrap), `mood/embed.astro` (embeddable widget), and `dev/blog/[id].astro` (authenticated Ghost draft preview). |
 | `src/pages/api/` | A thin catch-all proxy that falls back to `site-api`. The concrete API implementations live in the private `site-api` repo. |
 | `src/pages/dev/`, `src/pages/oauth*` | Compatibility proxy routes to the private admin and OAuth app in `site-api`. |
-| `src/middleware.ts` | Astro middleware. It negotiates agent Markdown, applies variant-aware edge caching, and gates protected docs by asking `site-api` for the admin session state over the `API` service binding. |
+| `src/middleware.ts` | Astro middleware. It sets security, cache and `Vary` headers, and gates `/dev` and `/dev/*` with a Cloudflare Access identity (or the dev bypass). Under `astro dev` it also answers canonical redirects, agent Markdown and legacy blog redirects, which `src/worker.ts` handles in production. |
 | `src/features/` | Feature-private code. `src/features/home/ui/` holds the home-route sections and their private UI helpers. `src/features/mood/` holds the mood client controllers, the feed renderer, media and update modules, server services, shared helpers, and private Astro UI shells in `ui/`. |
 | `src/features/logos/` | Pixel mascot definitions, SVG rendering helpers, and the animated logo UI used by the navbar and the favicon route. |
 | `src/lib/` | Shared utilities: `e2e.ts` (shared E2E fixture flag), `utils.ts` (cn/clsx utility), `fonts.ts` (server-side mirrors of the font tokens), `runtime/env.ts`, `http/*`, and `media/responsive-image.ts`. |
@@ -381,7 +391,8 @@ The site reads these through `import.meta.env.*`:
 
 Cloudflare Worker bindings and non-secret vars are defined in
 [`wrangler.jsonc`](https://github.com/bunizao/site/blob/main/wrangler.jsonc).
-The Worker has one binding: `API`, a service binding to `site-api`.
+The Worker has three bindings: `ASSETS` (static assets), `API` (a service
+binding to `site-api`) and `SESSION` (a KV namespace for Astro sessions).
 
 ## Key dependencies
 

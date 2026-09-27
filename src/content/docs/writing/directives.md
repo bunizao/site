@@ -14,9 +14,9 @@ metadata. This page covers the syntax every directive shares.
 ```
 
 Ghost wraps that line in a paragraph. At build time, any paragraph that contains
-only a marker is turned into the directive. An unlabelled Ghost code card whose
-entire content is one registered marker works the same way. Use the code card
-when the editor keeps joining your marker to nearby text.
+only a marker is turned into the directive. An unlabelled Ghost code card works
+the same way when every non-empty line in it is a registered marker. Use the
+code card when the editor keeps joining your marker to nearby text.
 
 ## Matching
 
@@ -41,15 +41,20 @@ Code cards follow their language label:
 | Label | What happens |
 | --- | --- |
 | `text` or another ordinary language | The card is masked before directives run and shows as code. Use one of these when the whole code sample is itself a valid marker. |
-| `directive` | The card opts into directive syntax. |
-| No label, content is exactly one marker | The card becomes the directive. This is the compatibility form. |
+| `directive` | The card opts into directive syntax, with the same line rule as an unlabelled card. |
+| No label, every non-empty line is a registered marker | Each line becomes its own directive, in order. This is the compatibility form. |
+
+A registered marker here is one for a block or meta directive: `mood`, `music`,
+`youtube` or `authors`. Blank lines and spaces around a line are ignored. If any
+line is something else (commentary, an unknown name, or two markers on one
+line), the whole card stays code.
 
 In the Ghost editor, put the marker in its own paragraph with a blank line above
 and below it. If it shows as normal text on the published page, it was almost
 certainly wrapped in formatting or joined to the paragraph before it.
 
-If paragraphs are awkward to author, use a code card that contains only the
-marker. Don't put commentary or a second marker in the same card.
+If paragraphs are awkward to author, use a code card that contains only
+markers, one per line. Don't put commentary in the same card.
 
 ## Names
 
