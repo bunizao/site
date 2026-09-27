@@ -8,7 +8,10 @@ test.describe('Developer reference', () => {
     expect(response?.ok()).toBeTruthy();
     await expect(page.getByRole('heading', { name: 'buxx.me Docs', level: 1 })).toBeVisible();
 
-    await page.getByRole('link', { name: 'API Overview', exact: true }).click();
+    await page
+      .getByRole('navigation', { name: 'Docs', exact: true })
+      .getByRole('link', { name: 'API Overview', exact: true })
+      .click();
     await expect(page).toHaveURL(/\/docs\/api\/overview$/);
     await expect(page.getByRole('heading', { level: 1, name: 'API Overview' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Docs', exact: true })).toBeVisible();
