@@ -1,11 +1,14 @@
 ---
 title: Telegram pipeline
-description: "How a Telegram post becomes a mood: ingestion, HD images, and the archive mirror."
+description: How a Telegram post becomes a mood, from the webhook to HD images, email, and the comment bridge.
 group: Platform
 order: 1
 ---
 
-This document describes the private Telegram ingestion pipeline for mood posts, HD images, and email notifications.
+This page covers the private Telegram pipeline in `site-api`: how a channel
+post becomes a mood with HD images and email notifications, and how web
+comments reach the post's Telegram discussion group. Read it when you debug
+ingestion, images, notify dispatch, or the comment bridge.
 
 ## Scope
 
@@ -17,6 +20,9 @@ The Telegram pipeline affects:
 - public mood pages that still consume Telegram content during this migration wave
 
 ## Current flow
+
+From the webhook, a new channel post takes two paths: image ingest into R2,
+and a queued notify dispatch.
 
 ```mermaid
 flowchart TD
@@ -33,13 +39,13 @@ flowchart TD
 
 ## The comment bridge
 
-A second, independent flow shares the same ops bot: a web reader's mood
-comment, bridged into the post's Telegram discussion group, and the read
-path that overlays the group's own scrape with the site's copy of what it
-sent. Gated by `MOOD_COMMENTS_ENABLED` — see
-[Comments platform](/docs/platform/comments) for the kill switch and the
-Phase 0 setup — and detailed end to end in
-[Comments API § Mood surface](/docs/api/comments#mood-surface-the-telegram-bridge).
+A second, independent flow uses the same ops bot. A web reader's mood comment
+is bridged into the post's Telegram discussion group. On read, the site lays
+its own copy of what it sent over the group's scrape.
+
+`MOOD_COMMENTS_ENABLED` gates the bridge. The kill switch and the Phase 0
+setup are in [Comments platform](/docs/platform/comments), and the full flow is
+in [Comments API § Mood surface](/docs/api/comments#mood-surface-the-telegram-bridge).
 
 ```mermaid
 flowchart TD
@@ -61,24 +67,27 @@ flowchart TD
 
 ### How a post finds its thread
 
-`discussion_message_id` is written by the ops bot when Telegram copies a
-channel post into the linked group (`is_automatic_forward`). Normally that
-copy's `forward_origin` names the channel and the post's own id, and the
-mapping is exact.
+The ops bot writes `discussion_message_id` when Telegram copies a channel post
+into the linked group (`is_automatic_forward`). Usually that copy's
+`forward_origin` names the channel and the post's own id, so the mapping is
+exact.
 
-A post that was *itself* a forward is the exception. Telegram flattens
-forward chains, so the group copy's `forward_origin` describes the original
-author — another channel, using its own message numbering, or a plain user,
-which carries no message id at all. MTProto keeps the immediate source in
-`saved_from_msg_id`; the Bot API does not expose it, so there is nothing in
-the copy that names our post. The bot therefore only trusts the origin's id
-when the origin chat is our own channel, and otherwise matches the newest
-still-unlinked post published within two minutes of the copy. An origin
-match overwrites whatever the column held; a date match only ever fills a
-blank.
+A post that was itself a forward is the exception. Telegram flattens forward
+chains, so the group copy's `forward_origin` describes the original author.
+That author is either another channel, with its own message numbering, or a
+plain user, which has no message id at all. MTProto keeps the immediate source
+in `saved_from_msg_id`, but the Bot API doesn't expose it, so nothing in the
+copy names the site's post.
 
-Posts forwarded before this landed (mood 3823, 3873) have no thread and
-render the "Leave a comment on Telegram" link instead of the compose box.
+The bot links the copy to a post like this:
+
+| Origin chat | How the bot picks the post | Effect on `discussion_message_id` |
+| --- | --- | --- |
+| The site's own channel | Trusts the origin's id | Overwrites whatever the column held |
+| Anything else | Matches the newest still-unlinked post published within two minutes of the copy | Only ever fills a blank |
+
+Posts forwarded before this landed (mood 3823, 3873) have no thread. They show
+the "Leave a comment on Telegram" link instead of the compose box.
 
 ## Who does what
 
@@ -87,8 +96,8 @@ render the "Leave a comment on Telegram" link instead of the compose box.
 | Validate the Telegram webhook secret | Render mood feed and detail pages |
 | Parse `channel_post` and resolve media-group image indexing | Consume `/api/moods` and `/api/comments` |
 | Ingest mood images into R2 | Use `PUBLIC_HD_IMAGE_URL` for primary image URLs |
-| Enqueue durable immediate notify dispatch jobs | Preserve the `/static/…` Telegram CDN fallback |
-| Dispatch notification email through `/v2/notify/dispatch` | — |
+| Enqueue durable immediate notify dispatch jobs | Keep the `/static/…` Telegram CDN fallback |
+| Dispatch notification email through `/v2/notify/dispatch` | |
 | Run the risk stack, bridge `published` mood comments (and `held` ones once approved) into the discussion group, overlay the scrape on read | Render the mood compose box only when `discussionLinked`, POST `/v2/comments` with `surface: 'mood'` |
 
 ## Key URLs
@@ -104,6 +113,6 @@ render the "Leave a comment on Telegram" link instead of the compose box.
 
 | What breaks | What happens |
 | --- | --- |
-| Webhook not configured | New posts never enter private ingest: R2 objects do not update and immediate notification dispatch never runs. |
-| Image ingest fails | Public mood pages fall back to the stored Telegram CDN URLs when `site-api` returns them. **Email cannot fall back** — a link is fixed at delivery. |
-| Notify queue handoff fails | The webhook returns a retryable failure so Telegram redelivers the update. |
+| Webhook not configured | New posts never enter private ingest. R2 objects don't update, and immediate notification dispatch never runs. |
+| Image ingest fails | Public mood pages fall back to the stored Telegram CDN URLs when `site-api` returns them. **Email can't fall back**, because a link is fixed at delivery. |
+| Notify queue handoff fails | The webhook returns a retryable failure, so Telegram redelivers the update. |
