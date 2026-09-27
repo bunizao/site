@@ -49,9 +49,14 @@ export const NEAR_ROOT_MARGIN = '0px 0px 150% 0px';
     the script tag comes within `NEAR_ROOT_MARGIN` of the viewport. A widget at
     the end of a long page then costs no request for readers who never get
     there; a short page is already in range and fires on first layout. Without
-    IntersectionObserver, or with nothing to observe, it fires at once. */
+    IntersectionObserver, or with nothing to observe, it fires at once. A
+    reply-notification link (`#comment-<id>`) or a bare `#comments` deep link
+    fires it at once too -- the reader is headed straight there and the warm-up
+    fetch has to be in flight before the controller that awaits it even asks,
+    not held back by a scroll they have no reason to make (comments-controller
+    .ts's own `hashTargetsThread` makes the same exception for its bootstrap). */
 export function prefetchScriptWhenNear(urls: string[]): string {
-  return `(function(u){var go=function(){${START_FETCHES}};var s=document.currentScript,t=s&&s.previousElementSibling;if(!t||!('IntersectionObserver' in window))return go();var io=new IntersectionObserver(function(e){for(var i=0;i<e.length;i++){if(e[i].isIntersecting){io.disconnect();go();return}}},{rootMargin:'${NEAR_ROOT_MARGIN}'});io.observe(t)})(${serializeUrls(urls)})`;
+  return `(function(u){var go=function(){${START_FETCHES}};var h=window.location.hash;if(h==='#comments'||h.indexOf('#comment-')===0)return go();var s=document.currentScript,t=s&&s.previousElementSibling;if(!t||!('IntersectionObserver' in window))return go();var io=new IntersectionObserver(function(e){for(var i=0;i<e.length;i++){if(e[i].isIntersecting){io.disconnect();go();return}}},{rootMargin:'${NEAR_ROOT_MARGIN}'});io.observe(t)})(${serializeUrls(urls)})`;
 }
 
 function serializeUrls(urls: string[]): string {

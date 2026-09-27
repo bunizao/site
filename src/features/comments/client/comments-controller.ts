@@ -88,6 +88,14 @@ function whenNear(target: Element, callback: () => void): void {
   observer.observe(target);
 }
 
+/** True when the hash points at this thread directly -- a reply-notification
+    link to one comment, or a bare deep link to the section. Neither can wait
+    on a scroll the reader has no reason to make; see the near-viewport gate
+    below and api-prefetch.ts's own copy of this check. */
+function hashTargetsThread(hash: string): boolean {
+  return hash === '#comments' || hash.startsWith('#comment-');
+}
+
 // ---------------------------------------------------------------------------
 // Small DOM builder -- attrs + children, everything through .append() /
 // .setAttribute() so dynamic strings (author names, comment bodies) are
@@ -368,10 +376,16 @@ export function initCommentsController(): void {
 
   // The thread sits after the whole article, so its first reads wait until
   // the section is within NEAR_ROOT_MARGIN of the viewport -- the same gate
-  // the page's inline prefetch uses. A reader who never scrolls that far costs
-  // no API request; a deep link to #comments is already in view and fires on
-  // the observer's first callback. The lab opts out with data-load="eager".
-  if (section.dataset.load === 'eager') void bootstrap();
+  // the page's inline prefetch uses (api-prefetch.ts's prefetchScriptWhenNear
+  // makes the same exception below). A reader who never scrolls that far
+  // costs no API request. The lab opts out with data-load="eager"; a
+  // reply-notification link to #comment-<id> (or a bare #comments deep link)
+  // opts out too -- the row it names does not exist in the SSR HTML (see the
+  // file header), so the browser's own fragment scroll has already given up
+  // by the time this module runs, and waiting for a scroll that already
+  // happened would mean it never runs at all.
+  const hashTargetsThisThread = hashTargetsThread(window.location.hash);
+  if (section.dataset.load === 'eager' || hashTargetsThisThread) void bootstrap();
   else whenNear(section, () => void bootstrap());
 
   async function bootstrap(): Promise<void> {
@@ -407,6 +421,22 @@ export function initCommentsController(): void {
     // stops "no one has been here yet" from sitting above a visible comment.
     toggleEmptyState(pageResult.comments.length === 0);
     setMoreVisible(pageResult.hasMore);
+    // The row a reply-notification link named is only in the DOM from this
+    // point on -- see hashTargetsThread above for why the browser's own
+    // fragment scroll could not have found it already.
+    if (hashTargetsThisThread) scrollHashCommentIntoView();
+  }
+
+  /** Scrolls a reply-notification link's target row into view once the
+      thread has actually rendered it. A bare #comments hash has nothing more
+      specific than the section itself to land on, which native fragment
+      scroll already handled on load. A comment on a page past the first
+      (still behind "load more") is left to the reader -- out of scope here,
+      same as the native browser behavior it is standing in for. */
+  function scrollHashCommentIntoView(): void {
+    const hash = window.location.hash;
+    if (!hash.startsWith('#comment-')) return;
+    document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'center' });
   }
 
   // The SSR skeleton is the only thing under the compose box while bootstrap()

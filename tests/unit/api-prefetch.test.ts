@@ -7,13 +7,23 @@ const realFetch = globalThis.fetch;
 const realWindow = (globalThis as { window?: unknown }).window;
 const realDocument = (globalThis as { document?: unknown }).document;
 const realObserver = (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
+const realLocation = (globalThis as { location?: unknown }).location;
 
 afterEach(() => {
   globalThis.fetch = realFetch;
   (globalThis as { window?: unknown }).window = realWindow;
   (globalThis as { document?: unknown }).document = realDocument;
   (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = realObserver;
+  (globalThis as { location?: unknown }).location = realLocation;
 });
+
+// `window` is stubbed as `globalThis` itself below, so `window.location` is
+// `globalThis.location` -- set before every test that runs the proximity
+// script, since it now reads `window.location.hash` up front (a reply
+// deep-link skips the observer entirely; see the hash tests below).
+function stubHash(hash: string): void {
+  (globalThis as { location?: unknown }).location = { hash };
+}
 
 function stubFetch(): string[] {
   const calls: string[] = [];
@@ -59,6 +69,7 @@ describe('api prefetch', () => {
     (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = FakeObserver;
     (globalThis as { window?: unknown }).window = globalThis;
     (globalThis as { document?: unknown }).document = { currentScript: { previousElementSibling: target } };
+    stubHash('');
     const url = blogCommentsUrl('near');
 
     new Function(prefetchScriptWhenNear([url]))();
@@ -77,11 +88,56 @@ describe('api prefetch', () => {
     const calls = stubFetch();
     (globalThis as { window?: unknown }).window = globalThis;
     (globalThis as { document?: unknown }).document = { currentScript: null };
+    stubHash('');
     const url = blogCommentsUrl('eager');
 
     new Function(prefetchScriptWhenNear([url]))();
     expect(calls).toEqual([url]);
     expect(prefetchScriptWhenNear(['/api/x?q=</script>'])).not.toContain('</script>');
+  });
+
+  test('a reply-notification or thread deep link fires the proximity-gated script at once', () => {
+    for (const hash of ['#comment-42', '#comments']) {
+      const calls = stubFetch();
+      (globalThis as { __apiPrefetch?: unknown }).__apiPrefetch = undefined;
+      const target = { id: 'colophon' };
+      let observed: unknown;
+      class FakeObserver {
+        observe(el: unknown) { observed = el; }
+        disconnect() {}
+      }
+      (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = FakeObserver;
+      (globalThis as { window?: unknown }).window = globalThis;
+      (globalThis as { document?: unknown }).document = { currentScript: { previousElementSibling: target } };
+      stubHash(hash);
+      // Unique per iteration -- the prefetch map is single-use per URL, and a
+      // repeated URL would look like the (correct) dedupe rather than proving
+      // each hash independently reaches `go()`.
+      const url = blogCommentsUrl(`deep-link-${hash}`);
+
+      new Function(prefetchScriptWhenNear([url]))();
+      expect(calls).toEqual([url]);
+      expect(observed).toBeUndefined(); // never reached the observer at all
+    }
+  });
+
+  test('an unrelated hash still waits for proximity', () => {
+    const calls = stubFetch();
+    const target = { id: 'colophon' };
+    let observed: unknown;
+    class FakeObserver {
+      observe(el: unknown) { observed = el; }
+      disconnect() {}
+    }
+    (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = FakeObserver;
+    (globalThis as { window?: unknown }).window = globalThis;
+    (globalThis as { document?: unknown }).document = { currentScript: { previousElementSibling: target } };
+    stubHash('#toc-heading');
+    const url = blogCommentsUrl('other-hash');
+
+    new Function(prefetchScriptWhenNear([url]))();
+    expect(calls).toEqual([]);
+    expect(observed).toBe(target);
   });
 
   test('blog posts gate their API reads on the reader nearing the end of the post', () => {
