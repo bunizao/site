@@ -435,11 +435,10 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
   border-radius: 0.4rem;
   cursor: pointer;
   list-style: none;
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  font-weight: 400;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.006em;
   color: var(--ink-faint);
   transition: color 0.15s ease, background-color 0.15s ease;
 }
@@ -590,12 +589,12 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
 }
 
 .docs-toc-label {
-  margin: 0 0 0.65rem;
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
+  margin: 0 0 0.6rem;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.006em;
+  color: var(--ink-strong);
 }
 
 .docs-toc-nav {
@@ -648,13 +647,20 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
 .docs-eyebrow {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   margin: 0 0 0.7rem;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  letter-spacing: -0.006em;
   color: var(--ink-faint);
+}
+
+.docs-eyebrow [aria-hidden] {
+  opacity: 0.5;
+}
+
+.docs-eyebrow > :last-child {
+  color: var(--ink-body);
 }
 
 .docs-eyebrow a {
@@ -670,24 +676,24 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
 
 .docs-title {
   max-width: 24ch;
-  margin: 0 0 0.7rem;
+  margin: 0 0 0.6rem;
   font-family: var(--font-display);
-  font-size: clamp(1.85rem, 3vw, 2.35rem);
-  font-weight: 700;
-  line-height: 1.08;
-  letter-spacing: -0.032em;
+  font-size: clamp(1.75rem, 2.6vw, 2rem);
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.028em;
   color: hsl(var(--foreground));
   text-wrap: balance;
 }
 
 .docs-lede {
   max-width: 44rem;
-  margin: 0 0 2.5rem;
+  margin: 0 0 2.25rem;
   font-family: var(--font-sans);
-  font-size: 1.0625rem;
-  line-height: 1.55;
-  letter-spacing: -0.014em;
-  color: var(--ink-lede);
+  font-size: 1rem;
+  line-height: 1.6;
+  letter-spacing: -0.011em;
+  color: hsl(var(--foreground) / 0.58);
   text-wrap: pretty;
 }
 
@@ -896,16 +902,16 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
 }
 
 /* --- Prose -------------------------------------------------------------- */
-/* Reference density: 15px on a 44rem column runs about 78 characters, which is
-   long for an essay and right for a page that is mostly parameter tables and
-   fenced examples — both of which scroll the moment the column narrows. */
+/* Reference density, on Linear's numbers: 15px on a 24px line, body ink a
+   step below the headings rather than two. 44rem runs about 78 characters,
+   long for an essay and right for pages of tables and fenced examples. */
 .docs-prose {
   max-width: 44rem;
   font-family: var(--font-sans);
   font-size: 0.9375rem;
-  line-height: 1.72;
-  letter-spacing: -0.006em;
-  color: var(--ink-body);
+  line-height: 1.6;
+  letter-spacing: -0.011em;
+  color: hsl(var(--foreground) / 0.78);
 }
 
 .docs-prose > :first-child {
@@ -913,36 +919,77 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
 }
 
 .docs-prose h2 {
-  margin: 3rem 0 0.9rem;
+  margin: 3.25rem 0 0.75rem;
   scroll-margin-top: var(--docs-anchor-offset);
   font-family: var(--font-display);
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   font-weight: 650;
-  line-height: 1.25;
-  letter-spacing: -0.026em;
+  line-height: 1.3;
+  letter-spacing: -0.024em;
   color: hsl(var(--foreground));
   text-wrap: balance;
 }
 
 .docs-prose h3 {
-  margin: 2.1rem 0 0.7rem;
+  margin: 2.25rem 0 0.5rem;
   scroll-margin-top: var(--docs-anchor-offset);
-  font-family: var(--font-sans);
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.35;
-  letter-spacing: -0.016em;
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 620;
+  line-height: 1.4;
+  letter-spacing: -0.018em;
   color: var(--ink-strong);
 }
 
+/* Hover link mark, injected by the article route. Parked in the gutter left
+   of the heading so it costs the title no width. */
+.docs-prose :is(h2, h3) {
+  position: relative;
+}
+
+.docs-prose .docs-heading-anchor {
+  position: absolute;
+  top: 0.5lh;
+  left: -1.5rem;
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.3rem;
+  color: var(--ink-faint);
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.docs-prose :is(h2, h3):hover .docs-heading-anchor,
+.docs-prose .docs-heading-anchor:focus-visible {
+  opacity: 1;
+}
+
+.docs-prose .docs-heading-anchor:hover {
+  color: var(--ink-strong);
+}
+
+@media (hover: none) {
+  .docs-prose .docs-heading-anchor {
+    display: none;
+  }
+}
+
+/* A heading straight after a heading already has the section break above it. */
+.docs-prose h2 + h3 {
+  margin-top: 1.25rem;
+}
+
 .docs-prose h4 {
-  margin: 1.5rem 0 0.5rem;
+  margin: 1.75rem 0 0.4rem;
   scroll-margin-top: var(--docs-anchor-offset);
   font-family: var(--font-sans);
   font-size: 0.9375rem;
   font-weight: 600;
-  letter-spacing: -0.012em;
-  color: var(--ink-lede);
+  letter-spacing: -0.011em;
+  color: var(--ink-strong);
 }
 
 .docs-prose p {
@@ -970,11 +1017,12 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
 }
 
 .docs-prose li + li {
-  margin-top: 0.4rem;
+  margin-top: 0.35rem;
 }
 
 .docs-prose li::marker {
-  color: hsl(var(--foreground) / 0.3);
+  color: hsl(var(--foreground) / 0.35);
+  font-variant-numeric: tabular-nums;
 }
 
 .docs-prose li > p {
@@ -996,7 +1044,7 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
   text-decoration: underline;
   text-decoration-color: hsl(var(--foreground) / 0.3);
   text-decoration-thickness: 1px;
-  text-underline-offset: 0.2em;
+  text-underline-offset: 0.22em;
   transition: text-decoration-color 0.18s ease;
 }
 
@@ -1014,10 +1062,10 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
 /* Blockquotes are used as callouts here, not as pull quotes. */
 .docs-prose blockquote {
   margin: 1.5rem 0;
-  padding: 0.9rem 1.1rem;
-  border-radius: 0.6rem;
-  border-left: 2px solid hsl(var(--foreground) / 0.28);
-  background: var(--docs-surface);
+  padding: 0.85rem 1.05rem;
+  border-radius: 0.5rem;
+  background: hsl(var(--foreground) / 0.045);
+  color: hsl(var(--foreground) / 0.78);
 }
 
 .docs-prose blockquote > :last-child {
@@ -1073,7 +1121,7 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
 
 .docs-prose th,
 .docs-prose td {
-  padding: 0.5rem 1.25rem 0.5rem 0;
+  padding: 0.65rem 1.5rem 0.65rem 0;
   text-align: left;
   vertical-align: top;
   white-space: normal;
@@ -1084,14 +1132,16 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
 }
 
 .docs-prose th {
-  padding-bottom: 0.6rem;
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  font-weight: 400;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
+  padding-top: 0.4rem;
+  padding-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--ink-strong);
   white-space: nowrap;
+}
+
+.docs-prose th:last-child,
+.docs-prose td:last-child {
+  padding-right: 0;
 }
 
 /* First column of a parameter table is the parameter itself — keep it on one
@@ -1103,9 +1153,10 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
 
 /* --- Code --------------------------------------------------------------- */
 .docs-prose :not(pre) > code {
-  padding: 0.14em 0.36em;
-  border-radius: 0.3rem;
-  background: hsl(var(--foreground) / 0.06);
+  padding: 0.1em 0.32em;
+  border-radius: 0.28rem;
+  background: hsl(var(--foreground) / 0.05);
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.08);
   font-family: var(--font-code);
   font-size: 0.86em;
   letter-spacing: -0.01em;
@@ -1160,7 +1211,7 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
      chains to the document and the whole page slides under the cursor. */
   overscroll-behavior-x: contain;
   font-size: 0.8125rem;
-  line-height: 1.62;
+  line-height: 1.6;
   tab-size: 2;
 }
 
@@ -1325,10 +1376,9 @@ html.dark .docs-prose pre.astro-code span {
 }
 
 .docs-pager-dir {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  letter-spacing: -0.004em;
   color: var(--ink-faint);
 }
 
