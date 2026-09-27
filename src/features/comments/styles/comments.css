@@ -421,9 +421,8 @@
   top: -170px;
   width: 300px;
   height: 340px;
-  background: hsl(var(--background) / 0.4);
-  -webkit-backdrop-filter: blur(22px);
-  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   --fan-blur-mask:
     radial-gradient(ellipse 110px 140px at 150px 172px, #000 50%, transparent),
     radial-gradient(circle 84px at 128px 82px, #000 25%, transparent),
