@@ -107,7 +107,7 @@ const ogImage = customOgImage
     });
 const resolvedOgImageAlt = ogImageAlt ?? fullTitle;
 const blogMarkAsset = blog.mark;
-const ogLogoUrl = new URL(blogMarkAsset, meta.siteUrl).href;
+const ogLogoUrl = new URL(blog.logo, meta.siteUrl).href;
 const articleTags = tags.map((tag) => tag.trim()).filter(Boolean);
 const resolvedAuthorName = authorName ?? blog.author.name;
 const isProfileAuthor = resolvedAuthorName === profileName

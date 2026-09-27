@@ -320,8 +320,13 @@ export const blog = {
   } satisfies Record<BlogLocale, BlogLocaleCopy>,
   /** Canonical publication name. Surfaces may opt into `copy[locale].name`. */
   name: '無人之境',
-  /** Publication mark (thinking-woman line art). Drop the asset at this path. */
-  mark: '/blog-mark.webp',
+  /**
+   * Publication mark (thinking-woman line art) as pages draw it. It never
+   * renders above 48 CSS px, so 144px covers 3x screens at half the bytes.
+   */
+  mark: '/blog-mark-144.webp',
+  /** Full-size 256px mark: og:logo, and the source the email and OG scripts embed. */
+  logo: '/blog-mark.webp',
   /** RSS feed for reader-app subscribers. Self-hosted so it does not bounce through the legacy Ghost subdomain. */
   feed: '/blog/rss.xml',
   /**
