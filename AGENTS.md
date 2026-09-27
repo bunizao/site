@@ -54,7 +54,7 @@ worktrees are the main offenders. Rules for agent sessions:
 - Dev scripts cap the Node heap at 1GB (`NODE_OPTIONS` in package.json), so a
   long-lived server GCs instead of ballooning.
 
-**Dev runtime note:** `astro dev` runs on Astro's native Node SSR — the Cloudflare adapter (and its workerd runner) only applies during `build`. In dev, `/api/*`, `/v2/*`, and `/oauth*` are proxied over HTTP via `API_DEV_ORIGIN` (default `https://buxx.me`). Use `bun dev:api` to redirect that proxy to a local `wrangler dev` site-api instead. Set `API_DEV_ORIGIN` in `.env.local` to target a preview deployment or any other origin.
+**Dev runtime note:** `astro dev` runs on Astro's native Node SSR — the Cloudflare adapter (and its workerd runner) only applies during `build`. In dev, `/api/*` and `/oauth*` are proxied over HTTP via `API_DEV_ORIGIN` (default `https://buxx.me`); `/v2/*` is a `308` to `/api/v2/*` and `/oauth/login` is answered locally. Use `bun dev:api` to redirect that proxy to a local `wrangler dev` site-api instead. Set `API_DEV_ORIGIN` in `.env.local` to target a preview deployment or any other origin.
 
 ## Related Repository (site-api)
 
