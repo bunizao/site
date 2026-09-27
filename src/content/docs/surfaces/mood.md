@@ -87,7 +87,9 @@ refresh on its own when the reader is near the top. The refresh navigates to
 `/mood?refresh=<latestId>` rather than reloading: the page cache never stores
 that variant and the page treats it as a fresh read, so the new post is there
 instead of a minutes-old cached copy that would re-trigger the notice. The
-watcher strips `refresh` from the address bar once the page has rendered.
+watcher strips `refresh` from the address bar once the page has rendered, and
+restores the reader's scroll position from before the navigation, since the
+replaced URL has no history entry or scroll offset of its own.
 
 ### The feed post shape
 
@@ -126,10 +128,11 @@ state rather than crashing. It composes [`DetailArticle.astro`](https://github.c
    still parsing (`src/lib/api-prefetch.ts`).
 2. [`detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts) takes that in-flight response for
    the first page; later pages and live refreshes fetch normally. The live
-   refresh re-reads the newest page every 45 seconds, but only while the tab
-   is visible, the thread is within 400px of the viewport, and the reader has
-   scrolled, clicked or typed in the last 10 minutes; coming back refreshes at
-   once when the last read is older than one interval.
+   refresh re-reads the newest page every 45 seconds while the tab is visible
+   and the thread is within 400px of the viewport. After 10 minutes with no
+   scroll, click, or keystroke it drops to a slower 3-minute poll rather than
+   stopping outright; coming back refreshes at once when the last read is
+   older than one interval.
 3. `site-api` validates `postId` and optional `before`, then reads the live
    Telegram mirror through the canonical v1 path.
 4. The client renders sanitized comments and pages with `before=<commentId>`.
