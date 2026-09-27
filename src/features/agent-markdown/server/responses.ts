@@ -25,6 +25,7 @@ import {
   hasMarkdownRenderer,
   markdownAlternatePath,
 } from './registry';
+import type { MarkdownRenderer } from './types';
 
 const EDGE_CACHE_VERSION = '2';
 
@@ -39,7 +40,8 @@ export function contentEdgeCacheVersion(
     || normalizedPath === '/docs'
     || normalizedPath.startsWith('/docs/')
     || normalizedPath === '/mood'
-    || normalizedPath.startsWith('/mood/');
+    || normalizedPath.startsWith('/mood/')
+    || normalizedPath === '/privacy';
 
   return isBuildBackedContent
     ? `${EDGE_CACHE_VERSION}:${buildId?.trim() || 'dev'}`
@@ -151,6 +153,17 @@ export function isNeverCachePath(pathname: string): boolean {
     || pathname.startsWith('/v2/');
 }
 
+// Worker-first paths that are server-rendered and have no file in the build
+// output. Probing ASSETS for them always misses, so they go straight to Astro.
+// Anything unlisted keeps the probe: a missed skip costs one lookup, a wrong
+// skip would route a static file through the slower adapter fallback. /dev,
+// /api, /oauth and /v2 never probe (see isNeverCachePath in src/worker.ts).
+const SSR_ONLY_PATH = /^\/(?:mood(?:\/(?:embed|rss\.xml|subscribe|\d+))?|reader\/[^/.]+)$/;
+
+export function isSsrOnlyPath(pathname: string): boolean {
+  return SSR_ONLY_PATH.test(pathname);
+}
+
 export function publicCacheControl(ttlSeconds: number, staleWhileRevalidateSeconds?: number): string {
   return [
     'public',
@@ -220,8 +233,9 @@ function setContentCacheHeaders(
   headers: Headers,
   ttlSeconds: number,
   staleWhileRevalidateSeconds?: number,
+  sharedCacheTtlSeconds = ttlSeconds,
 ): void {
-  headers.set('Cache-Control', publicCacheControl(ttlSeconds, staleWhileRevalidateSeconds));
+  headers.set('Cache-Control', publicCacheControl(sharedCacheTtlSeconds, staleWhileRevalidateSeconds));
   headers.set(
     CLOUDFLARE_CDN_CACHE_CONTROL_HEADER,
     cloudflareCdnCacheControl(ttlSeconds, staleWhileRevalidateSeconds),
@@ -266,6 +280,7 @@ export function withContentPolicy(request: Request, response: Response): Respons
       headers,
       policy.cacheTtlSeconds,
       policy.cacheStaleWhileRevalidateSeconds,
+      policy.sharedCacheTtlSeconds,
     );
   } else if (isHtml && !hasFreshnessOrBypassDirective(headers.get('Cache-Control'))) {
     headers.set(
@@ -291,12 +306,21 @@ function createMarkdownResponse(
   body: string,
   status: number,
   headersInit: HeadersInit | undefined,
-  ttlSeconds: number,
+  renderer: MarkdownRenderer,
 ): Response {
   const headers = new Headers(headersInit);
   headers.set('Content-Type', MARKDOWN_CONTENT_TYPE);
   if (status === 200) {
-    setContentCacheHeaders(headers, ttlSeconds);
+    setContentCacheHeaders(
+      headers,
+      renderer.cacheTtlSeconds,
+      undefined,
+      renderer.sharedCacheTtlSeconds,
+    );
+  } else if (status === 404 && renderer.notFoundCacheTtlSeconds) {
+    // Build-backed 404s cannot change before the next deploy, which starts
+    // the platform cache cold, so probes stop invoking the Worker.
+    setContentCacheHeaders(headers, renderer.notFoundCacheTtlSeconds);
   } else {
     setNoStoreHeaders(headers);
   }
@@ -332,19 +356,21 @@ export async function renderMarkdownIfRequested(context: {
   if (legacyRedirect) return legacyRedirect;
   const match = getMarkdownRenderer(sourcePath);
   if (!match) return null;
-  const cacheVersion = contentEdgeCacheVersion(sourcePath);
-
-  const cached = await readEdgeCache(context.request, {
+  const cacheOptions: Parameters<typeof readEdgeCache>[1] = {
     namespace: 'content',
     variant: 'markdown',
-    version: cacheVersion,
+    version: contentEdgeCacheVersion(sourcePath),
     ttlSeconds: match.renderer.cacheTtlSeconds,
     headerName: EDGE_CACHE_HEADER,
-    cacheControl: publicCacheControl(match.renderer.cacheTtlSeconds),
+    cacheControl: publicCacheControl(
+      match.renderer.sharedCacheTtlSeconds ?? match.renderer.cacheTtlSeconds,
+    ),
     cloudflareCacheControl: cloudflareCdnCacheControl(match.renderer.cacheTtlSeconds),
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown'),
-  });
+  };
+
+  const cached = await readEdgeCache(context.request, cacheOptions);
   // Markdown passes no staleWhileRevalidateSeconds, so a hit is always fresh.
   if (cached) return cached.response;
 
@@ -359,7 +385,7 @@ export async function renderMarkdownIfRequested(context: {
     result.body,
     result.status ?? 200,
     result.headers,
-    match.renderer.cacheTtlSeconds,
+    match.renderer,
   );
   // Search engines index text/markdown as a document of its own; the HTTP
   // canonical folds it into the HTML page the same way a PDF's would.
@@ -368,17 +394,7 @@ export async function renderMarkdownIfRequested(context: {
     response.headers.set('Link', `<${canonicalHtml}>; rel="canonical"`);
   }
 
-  return cacheEdgeResponse(context.request, response, {
-    namespace: 'content',
-    variant: 'markdown',
-    version: cacheVersion,
-    ttlSeconds: match.renderer.cacheTtlSeconds,
-    headerName: EDGE_CACHE_HEADER,
-    cacheControl: publicCacheControl(match.renderer.cacheTtlSeconds),
-    cloudflareCacheControl: cloudflareCdnCacheControl(match.renderer.cacheTtlSeconds),
-    isResponseCacheable: (candidate) =>
-      (candidate.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown'),
-  });
+  return cacheEdgeResponse(context.request, response, cacheOptions);
 }
 
 function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCache>[1] | null {
@@ -401,7 +417,7 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
     staleWhileRevalidateSeconds: policy.cacheStaleWhileRevalidateSeconds,
     headerName: policy.cacheHeaderName,
     cacheControl: publicCacheControl(
-      policy.cacheTtlSeconds,
+      policy.sharedCacheTtlSeconds ?? policy.cacheTtlSeconds,
       policy.cacheStaleWhileRevalidateSeconds,
     ),
     cloudflareCacheControl: cloudflareCdnCacheControl(

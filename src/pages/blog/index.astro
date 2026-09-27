@@ -22,7 +22,8 @@ const BATCH = 8;
 
 const [listedPosts, accessiblePosts] = await Promise.all([
   getListedPosts(),
-  getAccessiblePosts({ outputTarget: 'web' }),
+  // Only slugs and tags are read below, so no rich-content render.
+  getAccessiblePosts(),
 ]);
 const groups = groupPostsByYear(listedPosts);
 const ledger = writingLedger(listedPosts);

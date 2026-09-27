@@ -9,6 +9,7 @@ import {
 } from '@/features/agent-markdown/server/registry';
 import {
   cloudflareCdnCacheControl,
+  isSsrOnlyPath,
   publicCacheControl,
   redirectCanonicalUrl,
   renderMarkdownIfRequested,
@@ -81,15 +82,83 @@ describe('agent markdown registry', () => {
     expect(getMarkdownRenderer('/blog/tag/systems')?.renderer.id).toBe('blog-tag');
     expect(hasMarkdownRenderer('/blog/fr/quiet-architecture')).toBe(false);
     expect(hasMarkdownRenderer('/blog/zh/quiet-architecture')).toBe(false);
-    expect(getContentRoutePolicy('/blog/en/quiet-architecture')?.cacheTtlSeconds).toBe(300);
+    expect(getContentRoutePolicy('/blog/en/quiet-architecture')?.cacheTtlSeconds).toBe(86400);
   });
 
   test('declares cache policy for static discovery and content routes', () => {
-    expect(getContentRoutePolicy('/llms.txt')?.cacheTtlSeconds).toBe(300);
-    expect(getContentRoutePolicy('/projects')?.cacheTtlSeconds).toBe(300);
-    expect(getContentRoutePolicy('/sitemap.xml')?.cacheTtlSeconds).toBe(300);
-    expect(getContentRoutePolicy('/blog/rss.xml')?.cacheTtlSeconds).toBe(300);
+    // Build-backed: a deploy starts the platform cache cold, so the platform
+    // holds them for a day while outside shared caches keep a short TTL.
+    for (const path of [
+      '/',
+      '/llms.txt',
+      '/projects',
+      '/sitemap.xml',
+      '/blog/rss.xml',
+      '/blog',
+      '/blog/tags',
+      '/blog/tag/systems',
+      '/blog/quiet-architecture',
+    ]) {
+      expect(getContentRoutePolicy(path)?.cacheTtlSeconds).toBe(86400);
+      expect(getContentRoutePolicy(path)?.sharedCacheTtlSeconds).toBe(300);
+    }
+    expect(getContentRoutePolicy('/privacy')?.cacheTtlSeconds).toBe(86400);
+    expect(getContentRoutePolicy('/privacy')?.sharedCacheTtlSeconds).toBe(3600);
+    // The Mood feed is live.
     expect(getContentRoutePolicy('/mood/rss.xml')?.cacheTtlSeconds).toBe(300);
+    expect(getContentRoutePolicy('/mood/rss.xml')?.sharedCacheTtlSeconds).toBeUndefined();
+  });
+
+  test('gives build-backed Markdown renderers the deploy-bound TTL', () => {
+    for (const path of ['/', '/privacy', '/blog', '/blog/tags', '/blog/tag/systems', '/blog/quiet-architecture']) {
+      expect(getMarkdownRenderer(path)?.renderer.cacheTtlSeconds).toBe(86400);
+    }
+    expect(getMarkdownRenderer('/mood')?.renderer.cacheTtlSeconds).toBe(300);
+    expect(getMarkdownRenderer('/mood/990001')?.renderer.cacheTtlSeconds).toBe(300);
+  });
+
+  test('serves blog post Markdown from build assets only when a binding exists', async () => {
+    const assets: Record<string, string> = {
+      '/_agent-markdown/blog/unlisted/post/hidden.md': '# Hidden\n',
+    };
+    const requested: string[] = [];
+    const locals = { env: { ASSETS: { fetch: async (input: RequestInfo | URL) => {
+      const pathname = new URL(input instanceof Request ? input.url : String(input)).pathname;
+      requested.push(pathname);
+      if (pathname === '/_i18n/posts.json') return Response.json({});
+      const body = assets[pathname];
+      return body ? new Response(body) : new Response('Not found', { status: 404 });
+    } } } };
+
+    const unlisted = await renderMarkdownIfRequested({
+      request: new Request('https://buxx.me/blog/hidden/index.md'),
+      locals,
+    });
+    expect(unlisted?.status).toBe(200);
+    expect(unlisted?.headers.get('X-Robots-Tag')).toBe('noindex, nofollow, noarchive, nosnippet');
+    expect(await unlisted?.text()).toBe('# Hidden\n');
+
+    const missing = await renderMarkdownIfRequested({
+      request: new Request('https://buxx.me/blog/does-not-exist/index.md'),
+      locals,
+    });
+    expect(missing?.status).toBe(404);
+    expect(await missing?.text()).toBe('Blog post not found.\n');
+    // The build is authoritative, so the 404 is briefly cacheable.
+    expect(missing?.headers.get('Cache-Control')).toBe('public, max-age=0, s-maxage=300');
+    expect(missing?.headers.get('Cloudflare-CDN-Cache-Control'))
+      .toBe('public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400');
+    expect(requested).toContain('/_agent-markdown/blog/post/does-not-exist.md');
+    expect(requested).toContain('/_agent-markdown/blog/unlisted/post/does-not-exist.md');
+  });
+
+  test('skips the asset probe only for SSR-only worker-first paths', () => {
+    for (const path of ['/mood', '/mood/990001', '/mood/embed', '/mood/rss.xml', '/mood/subscribe', '/reader/confirm']) {
+      expect(isSsrOnlyPath(path)).toBe(true);
+    }
+    for (const path of ['/', '/blog', '/blog/example', '/privacy', '/projects', '/mood-og.png', '/mood/', '/mood/a/b', '/reader/x.css']) {
+      expect(isSsrOnlyPath(path)).toBe(false);
+    }
   });
 
   test('delegates public Mood detail HTML caching to the platform', () => {
@@ -171,7 +240,7 @@ describe('agent markdown registry', () => {
   });
 
   test('refreshes platform policy on static asset 304 responses', () => {
-    for (const [pathname, ttl] of [['/', 300], ['/blog', 120], ['/blog/example', 300]] as const) {
+    for (const pathname of ['/', '/blog', '/blog/example'] as const) {
       const response = withContentPolicy(
         new Request(`https://buxx.me${pathname}`),
         new Response(null, {
@@ -184,9 +253,9 @@ describe('agent markdown registry', () => {
       expect(response.body).toBeNull();
       expect(response.headers.get('ETag')).toBe('"asset-v1"');
       expect(response.headers.get('Vary')).toBe('Accept');
-      expect(response.headers.get('Cache-Control')).toBe(`public, max-age=0, s-maxage=${ttl}`);
+      expect(response.headers.get('Cache-Control')).toBe('public, max-age=0, s-maxage=300');
       expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
-        .toBe(`public, max-age=${ttl}, stale-while-revalidate=86400, stale-if-error=86400`);
+        .toBe('public, max-age=86400, stale-while-revalidate=86400, stale-if-error=86400');
     }
   });
 
@@ -229,7 +298,7 @@ describe('agent markdown registry', () => {
       }));
 
       expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
-        .toBe('public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400');
+        .toBe('public, max-age=86400, stale-while-revalidate=86400, stale-if-error=86400');
       expect(response.headers.get('Vary')).toBe('Accept');
     }
   });

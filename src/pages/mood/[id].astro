@@ -12,6 +12,7 @@ import '@/styles/mood-image.css';
 import '@/styles/mood-lightbox.css';
 import { renderMoodContentWithGalleries } from '@/features/mood/shared/gallery';
 import {
+  isMoodLinkPreviewPending,
   prioritizeMoodDetailMedia,
   splitMoodDetailParagraphs,
   renderStructuredMoodDetailContent,
@@ -78,11 +79,8 @@ if (!post) {
   Astro.response.status = 404;
 }
 
-const hasLinkPreview = post
-  ? post.hero?.type === 'link-preview' || post.media.some((item) => item.type === 'link-preview')
-  : false;
 const previewPending = moodReadSource === 'archive'
-  && Boolean(post && /https?:\/\//i.test(post.bodyHtml) && !hasLinkPreview);
+  && Boolean(post && isMoodLinkPreviewPending(post));
 if (previewPending) {
   Astro.response.headers.set('X-Buxx-Cache-Ready', '0');
 }

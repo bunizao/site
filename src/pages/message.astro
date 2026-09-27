@@ -45,8 +45,6 @@ import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 import { nameOnBackground, textOnAccent } from '@/features/content/conversation';
 
-export const prerender = false;
-
 const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
   ? ''
   : readTurnstileSiteKey(Astro.locals);

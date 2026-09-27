@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  MoodArchiveHttpError,
   loadMoodArchiveWithFallback,
   loadMoodComments,
   loadMoodDocument,
@@ -203,6 +204,67 @@ describe('mood API client', () => {
     // the archive call fails; the archive error itself must not surface.
     expect(liveUrls.length).toBeGreaterThanOrEqual(2);
     expect(liveUrls.every((url) => !url.includes('/v2/mood'))).toBe(true);
+  });
+
+  test('does not re-scrape Telegram after site-api reports its own fallbacks exhausted', async () => {
+    const originalFetch = globalThis.fetch;
+    let liveFetchCalls = 0;
+    globalThis.fetch = (async () => {
+      liveFetchCalls += 1;
+      return new Response('unexpected live read', { status: 503 });
+    }) as unknown as typeof fetch;
+    const context = createContext({
+      env: {
+        API: {
+          async fetch(request: Request) {
+            const code = new URL(request.url).pathname === '/v2/mood' ? 'mood_feed_failed' : 'mood_detail_failed';
+            return Response.json({ error: { code, message: 'unavailable' } }, { status: 500 });
+          },
+        },
+        CHANNEL: 'tutumood',
+      },
+    });
+    const errors: unknown[] = [];
+
+    try {
+      await loadMoodFeed(context, { limit: 20, source: 'archive' }).catch((error) => errors.push(error));
+      await loadMoodDocument(context, '3794', { source: 'archive' }).catch((error) => errors.push(error));
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    expect(liveFetchCalls).toBe(0);
+    expect(errors).toHaveLength(2);
+    expect(errors[0]).toBeInstanceOf(MoodArchiveHttpError);
+    expect(errors[0]).toMatchObject({ status: 500, code: 'mood_feed_failed' });
+    expect(errors[1]).toMatchObject({ status: 500, code: 'mood_detail_failed' });
+  });
+
+  test('still falls back to the live reader on an archive 404 (ingest lag)', async () => {
+    const warnings: unknown[][] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => warnings.push(args);
+
+    try {
+      expect(await loadMoodArchiveWithFallback(
+        'detail',
+        async () => {
+          throw new MoodArchiveHttpError(404, 'Not Found', 'mood_not_found');
+        },
+        async () => 'live result',
+      )).toBe('live result');
+      expect(await loadMoodArchiveWithFallback(
+        'detail',
+        async () => {
+          throw new MoodArchiveHttpError(503, 'Service Unavailable', 'mood_repository_unavailable');
+        },
+        async () => 'live result',
+      )).toBe('live result');
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    expect(warnings).toHaveLength(2);
   });
 
   test('keeps tag-filtered archive reads strict when the archive fails', async () => {

@@ -94,6 +94,71 @@ describe('listening analytics', () => {
     expect(events.at(-1)?.playbackId).not.toBe(events[0]?.playbackId);
   });
 
+  test('checkpoints uninterrupted playback once a minute by default', () => {
+    let currentNow = 0;
+    const events: ListeningAnalyticsEventInput[] = [];
+    const tracker = new ListeningPlaybackAnalytics({
+      metadata: () => ({
+        trackId: null,
+        trackTitle: 'Long track',
+        trackArtist: null,
+        pagePath: '/',
+        surface: 'home',
+      }),
+      createId: () => '33333333-3333-4333-8333-333333333333',
+      now: () => currentNow,
+      send: (event) => events.push(event),
+      visitorId: 'visitor-33333',
+      sessionId: 'session-33333',
+    });
+
+    tracker.requestPlay();
+    tracker.observe({ owned: true, isPlaying: true, currentTime: 0, duration: 240 });
+    currentNow = 30_000;
+    tracker.observe({ owned: true, isPlaying: true, currentTime: 30, duration: 240 });
+    expect(events.map((event) => event.action)).toEqual(['play_request', 'play']);
+
+    currentNow = 60_000;
+    tracker.observe({ owned: true, isPlaying: true, currentTime: 60, duration: 240 });
+    expect(events.map((event) => event.action)).toEqual(['play_request', 'play', 'progress']);
+
+    currentNow = 75_000;
+    tracker.flush();
+    expect(events.at(-1)).toMatchObject({ action: 'progress', listenedMs: 75_000 });
+  });
+
+  test('sends one progress event when hidden and pagehide flush back to back', () => {
+    let currentNow = 0;
+    const events: ListeningAnalyticsEventInput[] = [];
+    const tracker = new ListeningPlaybackAnalytics({
+      metadata: () => ({
+        trackId: null,
+        trackTitle: 'Exit track',
+        trackArtist: null,
+        pagePath: '/',
+        surface: 'home',
+      }),
+      createId: () => '44444444-4444-4444-8444-444444444444',
+      now: () => currentNow,
+      send: (event) => events.push(event),
+      visitorId: 'visitor-44444',
+      sessionId: 'session-44444',
+    });
+
+    tracker.requestPlay();
+    tracker.observe({ owned: true, isPlaying: true, currentTime: 0, duration: 90 });
+    currentNow = 20_000;
+    tracker.flush();
+    currentNow = 20_005;
+    tracker.flush();
+    expect(events.map((event) => event.action)).toEqual(['play_request', 'play', 'progress']);
+
+    currentNow = 40_000;
+    tracker.flush();
+    expect(events.map((event) => event.action)).toEqual(['play_request', 'play', 'progress', 'progress']);
+    expect(events.at(-1)).toMatchObject({ listenedMs: 40_000 });
+  });
+
   test('classifies the Listening surface from the page path', () => {
     expect(inferListeningSurface('/')).toBe('home');
     expect(inferListeningSurface('/blog/example/')).toBe('blog');

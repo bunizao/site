@@ -30,8 +30,12 @@ interface ListeningPlaybackAnalyticsOptions {
   checkpointMs?: number;
 }
 
-const DEFAULT_CHECKPOINT_MS = 15_000;
+// Each checkpoint is a beacon plus a D1 upsert. Pause, seek, completion,
+// pagehide and visibility-hidden already send the cumulative totals, so the
+// checkpoint only bounds what a session that dies without any of those loses.
+const DEFAULT_CHECKPOINT_MS = 60_000;
 const COMPLETION_RATIO = 0.98;
+const FLUSH_DEDUPE_MS = 1_000;
 
 export function inferListeningSurface(pathname: string): ListeningAnalyticsSurface {
   if (pathname === '/') return 'home';
@@ -119,6 +123,9 @@ export class ListeningPlaybackAnalytics {
 
   flush(): void {
     if (!this.playbackId || this.completed || !this.playing) return;
+    // visibilitychange→hidden and pagehide both flush on one page exit; the
+    // second would repeat the first with a few more milliseconds.
+    if (this.lastSentAt && this.now() - this.lastSentAt < FLUSH_DEDUPE_MS) return;
     this.captureHeardTime();
     this.emit('progress');
   }

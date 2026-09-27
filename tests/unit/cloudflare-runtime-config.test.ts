@@ -227,6 +227,7 @@ describe('Cloudflare runtime configuration', () => {
       };
       cache?: {
         enabled?: boolean;
+        cross_version_cache?: boolean;
       };
       assets?: {
         directory?: string;
@@ -265,7 +266,9 @@ describe('Cloudflare runtime configuration', () => {
     ]);
     expect(config.routes).toContainEqual({ pattern: 'buxx.me/*', zone_name: 'buxx.me' });
     expect(config.routes).toContainEqual({ pattern: 'www.buxx.me/*', zone_name: 'buxx.me' });
-    expect(config.cache).toEqual({ enabled: true });
+    // Build-backed routes hold a day-long platform TTL on the premise that a
+    // deploy starts the cache cold; pin that rather than rely on the default.
+    expect(config.cache).toEqual({ enabled: true, cross_version_cache: false });
     expect(config.routes?.some((route) => route.pattern?.startsWith('blog.buxx.me'))).toBe(false);
     expect(config.routes?.some((route) => route.custom_domain === true)).toBe(false);
     expect(config.routes?.some((route) => route.pattern === 'cf-migration.buxx.me')).toBe(false);
@@ -473,7 +476,8 @@ describe('Cloudflare runtime configuration', () => {
     expect(listeningStyles).toContain('content: attr(data-title);');
     expect(listeningController).toContain('titleLabel.dataset.title = nextTitle;');
     expect(listeningStyles).toContain('max-width: min(18ch, calc(100% - 48px));');
-    expect(experience).toContain('<ExperienceTimeline client:visible />');
+    expect(experience).toContain('<ExperienceTimeline />');
+    expect(experience).not.toContain('<ExperienceTimeline client:');
     expect(parallax).not.toContain("import('gsap/ScrollTrigger')");
     expect(parallax).not.toContain('scheduleSkatingEffects');
     expect(homeReveal).toContain('export const initHomeReveal');

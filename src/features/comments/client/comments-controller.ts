@@ -65,9 +65,26 @@ import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
 import { READER_ME_URL, blogCommentsUrl, reactionsUrl } from '@/features/comments/api-urls';
-import { fetchPrefetched } from '@/lib/api-prefetch';
+import { NEAR_ROOT_MARGIN, fetchPrefetched } from '@/lib/api-prefetch';
 
 const CLAIMED_STORAGE_KEY = 'buxx:reader';
+// GET /v2/reactions accepts at most this many targets per request.
+const MAX_REACTION_TARGETS = 50;
+
+/** Run `callback` once `target` is within NEAR_ROOT_MARGIN of the viewport,
+    or right away where IntersectionObserver is missing. */
+function whenNear(target: Element, callback: () => void): void {
+  if (typeof IntersectionObserver !== 'function') {
+    callback();
+    return;
+  }
+  const observer = new IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting)) return;
+    observer.disconnect();
+    callback();
+  }, { rootMargin: NEAR_ROOT_MARGIN });
+  observer.observe(target);
+}
 
 // ---------------------------------------------------------------------------
 // Small DOM builder -- attrs + children, everything through .append() /
@@ -344,7 +361,13 @@ export function initCommentsController(): void {
   // rows to show.
   buildLoadedShell();
 
-  void bootstrap();
+  // The thread sits after the whole article, so its first reads wait until
+  // the section is within NEAR_ROOT_MARGIN of the viewport -- the same gate
+  // the page's inline prefetch uses. A reader who never scrolls that far costs
+  // no API request; a deep link to #comments is already in view and fires on
+  // the observer's first callback. The lab opts out with data-load="eager".
+  if (section.dataset.load === 'eager') void bootstrap();
+  else whenNear(section, () => void bootstrap());
 
   async function bootstrap(): Promise<void> {
     const [meResult, pageResult] = await Promise.all([
@@ -371,7 +394,7 @@ export function initCommentsController(): void {
     }
 
     nextBefore = pageResult.nextBefore;
-    await renderPage(pageResult.comments);
+    renderPage(pageResult.comments);
     clearSkeleton();
     setTally(pageResult.total);
     // `total` counts published comments only, but the page also renders the
@@ -382,9 +405,9 @@ export function initCommentsController(): void {
   }
 
   // The SSR skeleton is the only thing under the compose box while bootstrap()
-  // waits on the list and its reactions. It is dropped once that round trip has
-  // something to put in its place -- never at build time, or the thread is a
-  // blank gap for the length of two fetches.
+  // waits on the list. It is dropped once that round trip has something to put
+  // in its place -- never at build time, or the thread is a blank gap for the
+  // length of the fetch. Like counts arrive after it (see renderPage).
   function clearSkeleton(): void {
     section.querySelector('.blog-comments__skeleton')?.remove();
   }
@@ -493,24 +516,46 @@ export function initCommentsController(): void {
     moreButton = null;
 
     nextBefore = page.nextBefore;
-    await renderPage(page.comments);
+    renderPage(page.comments);
     setMoreVisible(page.hasMore);
   }
 
-  async function renderPage(comments: Comment[]): Promise<void> {
+  /** Rows go in at once with zero likes; the like counts follow in a second
+      request and are patched in place, so the thread is not held back a
+      whole round trip waiting on hearts. */
+  function renderPage(comments: Comment[]): void {
     if (comments.length === 0) return;
     const targets = comments
       .filter((c) => !c.tombstone)
       .map((c) => `comment:${c.id}`);
-    const reactions = targets.length > 0
-      ? (await fetchJson<ReactionBatchResult>(reactionsUrl(targets)))?.reactions ?? {}
-      : {};
 
     for (const { comment, parentId } of orderForRender(comments)) {
-      const row = toBlogComment(comment, reactions, t);
+      const row = toBlogComment(comment, {}, t);
       const article = renderCommentRow(row, parentId);
       wireCommentRow(article, row, parentId);
       replyBox.before(article);
+    }
+
+    void patchCommentReactions(targets);
+  }
+
+  async function patchCommentReactions(targets: string[]): Promise<void> {
+    for (let i = 0; i < targets.length; i += MAX_REACTION_TARGETS) {
+      const chunk = targets.slice(i, i + MAX_REACTION_TARGETS);
+      const result = await fetchJson<ReactionBatchResult>(reactionsUrl(chunk));
+      if (!result) continue;
+      for (const target of chunk) {
+        const reaction = result.reactions[target]?.[0];
+        if (!reaction) continue;
+        const id = target.slice('comment:'.length);
+        const button = list.querySelector<HTMLButtonElement>(`#comment-${cssEscape(id)} [data-comment-like]`);
+        // A press that landed first owns the button: its own write reports
+        // the authoritative count when it returns.
+        if (!button || button.getAttribute('aria-pressed') === 'true') continue;
+        button.setAttribute('aria-pressed', reaction.reacted ? 'true' : 'false');
+        const countEl = button.querySelector<HTMLElement>('[data-like-count]');
+        if (countEl) countEl.textContent = String(reaction.count);
+      }
     }
   }
 

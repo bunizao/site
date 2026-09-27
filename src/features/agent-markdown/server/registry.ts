@@ -43,9 +43,22 @@ export const MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800;
 export const MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS = 300;
 export const MOOD_DETAIL_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800;
 export const MOOD_EMBED_CACHE_TTL_SECONDS = 300;
+// Prerendered pages and build-generated Markdown only change on deploy, and
+// both cache layers start cold on every deploy (Workers Cache keys by Worker
+// version; the in-worker key carries the build ID). A short platform TTL would
+// only buy background revalidations, so these routes hold for a day.
+export const BUILD_BACKED_TTL_SECONDS = 86400;
+// `Cache-Control: s-maxage` also reaches shared caches outside Cloudflare,
+// which a deploy cannot invalidate. They keep a short TTL so no stale page
+// outlives the previous build's carried-over `/_astro/*` files.
+export const BUILD_BACKED_SHARED_CACHE_TTL_SECONDS = 300;
+export const BUILT_BLOG_NOT_FOUND_TTL_SECONDS = 300;
 
 export interface ContentRoutePolicy {
   cacheTtlSeconds: number;
+  // Freshness for shared caches outside Cloudflare (`Cache-Control:
+  // s-maxage`). Defaults to cacheTtlSeconds.
+  sharedCacheTtlSeconds?: number;
   cacheStaleWhileRevalidateSeconds?: number;
   edgeCacheHtml: boolean;
   varyByLocale?: boolean;
@@ -292,6 +305,20 @@ async function renderBlogPost(context: MarkdownRendererContext) {
   const built = await readBuiltBlogMarkdown(context, { kind: 'post', slug, locale });
   if (built && built.status !== 404) return markdownResult(built.body, built.status);
 
+  // With an assets binding the build output is authoritative: it holds every
+  // accessible version, unlisted ones under their own prefix. Production never
+  // reaches the Ghost SDK here -- it cannot run in workerd.
+  if (built) {
+    const unlisted = await readBuiltBlogMarkdown(context, { kind: 'post', slug, locale, unlisted: true });
+    if (unlisted?.status === 200) {
+      return markdownResult(unlisted.body, 200, { 'X-Robots-Tag': UNLISTED_ROBOTS_DIRECTIVES });
+    }
+    if (unlisted && unlisted.status !== 404) return markdownResult(unlisted.body, unlisted.status);
+    return markdownResult('Blog post not found.\n', 404);
+  }
+
+  // Dev has no assets binding and renders from Ghost directly.
+
   const { getPostBySlug } = await import('@/features/posts/server/content');
   // A translation is addressed by its sibling's slug; the manifest turns that
   // back into the Ghost slug the Content API knows.
@@ -354,13 +381,15 @@ async function renderDocsPage(context: MarkdownRendererContext) {
 const renderers: MarkdownRenderer[] = [
   {
     id: 'home',
-    cacheTtlSeconds: 300,
+    cacheTtlSeconds: BUILD_BACKED_TTL_SECONDS,
+    sharedCacheTtlSeconds: BUILD_BACKED_SHARED_CACHE_TTL_SECONDS,
     match: matchExact('/'),
     render: (context) => markdownResult(buildHomeAgentMarkdown(context.site)),
   },
   {
     id: 'privacy',
-    cacheTtlSeconds: 3600,
+    cacheTtlSeconds: BUILD_BACKED_TTL_SECONDS,
+    sharedCacheTtlSeconds: 3600,
     match: matchExact('/privacy'),
     render: () => markdownResult(`${stripFrontmatter(privacyMarkdownRaw)}\n`),
   },
@@ -378,25 +407,33 @@ const renderers: MarkdownRenderer[] = [
   },
   {
     id: 'blog-index',
-    cacheTtlSeconds: 120,
+    cacheTtlSeconds: BUILD_BACKED_TTL_SECONDS,
+    sharedCacheTtlSeconds: BUILD_BACKED_SHARED_CACHE_TTL_SECONDS,
+    notFoundCacheTtlSeconds: BUILT_BLOG_NOT_FOUND_TTL_SECONDS,
     match: matchExact('/blog'),
     render: renderBlogIndex,
   },
   {
     id: 'blog-tags',
-    cacheTtlSeconds: 120,
+    cacheTtlSeconds: BUILD_BACKED_TTL_SECONDS,
+    sharedCacheTtlSeconds: BUILD_BACKED_SHARED_CACHE_TTL_SECONDS,
+    notFoundCacheTtlSeconds: BUILT_BLOG_NOT_FOUND_TTL_SECONDS,
     match: matchExact('/blog/tags'),
     render: renderBlogTags,
   },
   {
     id: 'blog-tag',
-    cacheTtlSeconds: 120,
+    cacheTtlSeconds: BUILD_BACKED_TTL_SECONDS,
+    sharedCacheTtlSeconds: BUILD_BACKED_SHARED_CACHE_TTL_SECONDS,
+    notFoundCacheTtlSeconds: BUILT_BLOG_NOT_FOUND_TTL_SECONDS,
     match: matchBlogTag,
     render: renderBlogTag,
   },
   {
     id: 'blog-post',
-    cacheTtlSeconds: 300,
+    cacheTtlSeconds: BUILD_BACKED_TTL_SECONDS,
+    sharedCacheTtlSeconds: BUILD_BACKED_SHARED_CACHE_TTL_SECONDS,
+    notFoundCacheTtlSeconds: BUILT_BLOG_NOT_FOUND_TTL_SECONDS,
     match: matchBlogPost,
     render: renderBlogPost,
   },
@@ -427,22 +464,37 @@ export function hasMarkdownRenderer(pathname: string): boolean {
   return Boolean(getMarkdownRenderer(pathname));
 }
 
+function buildBackedPolicy(options: {
+  edgeCacheHtml: boolean;
+  sharedCacheTtlSeconds?: number;
+}): ContentRoutePolicy {
+  return {
+    cacheTtlSeconds: BUILD_BACKED_TTL_SECONDS,
+    sharedCacheTtlSeconds: options.sharedCacheTtlSeconds ?? BUILD_BACKED_SHARED_CACHE_TTL_SECONDS,
+    edgeCacheHtml: options.edgeCacheHtml,
+    cacheHeaderName: EDGE_CACHE_HEADER,
+  };
+}
+
 export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | null {
   const normalized = normalizePathname(pathname);
 
   if (normalized === '/') {
-    return { cacheTtlSeconds: 300, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
+    return buildBackedPolicy({ edgeCacheHtml: true });
   }
   if (normalized === '/privacy') {
-    return { cacheTtlSeconds: 3600, edgeCacheHtml: false, cacheHeaderName: EDGE_CACHE_HEADER };
+    return buildBackedPolicy({ edgeCacheHtml: false, sharedCacheTtlSeconds: 3600 });
   }
-  if (normalized === '/llms.txt') {
-    return { cacheTtlSeconds: 300, edgeCacheHtml: false, cacheHeaderName: EDGE_CACHE_HEADER };
+  if (
+    normalized === '/llms.txt'
+    || normalized === '/projects'
+    || normalized === '/blog/rss.xml'
+    || normalized === '/sitemap.xml'
+  ) {
+    return buildBackedPolicy({ edgeCacheHtml: false });
   }
-  if (normalized === '/projects') {
-    return { cacheTtlSeconds: 300, edgeCacheHtml: false, cacheHeaderName: EDGE_CACHE_HEADER };
-  }
-  if (normalized === '/blog/rss.xml' || normalized === '/mood/rss.xml' || normalized === '/sitemap.xml') {
+  // The Mood feed is live, so its RSS keeps a short TTL.
+  if (normalized === '/mood/rss.xml') {
     return { cacheTtlSeconds: 300, edgeCacheHtml: false, cacheHeaderName: EDGE_CACHE_HEADER };
   }
   if (normalized === '/mood') {
@@ -463,11 +515,13 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
       normalizeHtmlCacheSearch: normalizeMoodEmbedCacheSearch,
     };
   }
-  if (matchBlogPost(normalized)) {
-    return { cacheTtlSeconds: 300, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
-  }
-  if (normalized === '/blog' || normalized === '/blog/tags' || matchBlogTag(normalized)) {
-    return { cacheTtlSeconds: 120, edgeCacheHtml: true, cacheHeaderName: EDGE_CACHE_HEADER };
+  if (
+    matchBlogPost(normalized)
+    || normalized === '/blog'
+    || normalized === '/blog/tags'
+    || matchBlogTag(normalized)
+  ) {
+    return buildBackedPolicy({ edgeCacheHtml: true });
   }
   if (matchMoodPost(normalized)) {
     return {

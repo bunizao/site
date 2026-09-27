@@ -72,7 +72,8 @@ export async function readI18nManifest(locals: unknown, origin: string): Promise
     return assetManifestPromise;
   }
   if (!builtManifestPromise) {
-    builtManifestPromise = getAccessiblePosts({ outputTarget: 'web' })
+    // createManifest reads slugs and tags only, so no rich-content render.
+    builtManifestPromise = getAccessiblePosts()
       .then(createManifest)
       .catch(() => null);
   }

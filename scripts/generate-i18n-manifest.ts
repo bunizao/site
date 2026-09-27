@@ -22,7 +22,8 @@ function postLocaleTag(post: { tags: Array<{ name: string; visibility: string }>
     ?? null;
 }
 
-const posts = await getAccessiblePosts({ outputTarget: 'web' });
+// Slugs and tags only: no rich-content render (and no embed metadata fetches).
+const posts = await getAccessiblePosts();
 const bySlug = new Map(posts.map((post) => [post.slug, post]));
 const manifest: I18nManifest = {};
 const groups = new Map<string, typeof posts>();

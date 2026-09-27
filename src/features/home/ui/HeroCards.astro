@@ -1615,6 +1615,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 <script>
   import type { InstagramProfile } from '@bunizao/contracts/instagram';
   import { API_PREFIX, INSTAGRAM_PROFILE_PATH } from '@bunizao/contracts/routes';
+  import { getSharedMoodPreviewPosts } from '@/features/mood/client/preview-feed';
 
   const layer = document.querySelector<HTMLElement>('[data-hero-cards]');
   const bio = document.querySelector<HTMLElement>('[data-hero-bio]');
@@ -1727,10 +1728,9 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     if (!card || !stream) return;
     let latest: MoodPost[] = [];
     try {
-      const response = await fetch('/api/moods');
-      if (!response.ok) throw new Error(String(response.status));
-      const data = (await response.json()) as { posts?: MoodPost[] };
-      latest = (data.posts ?? []).slice(0, 3).reverse();
+      // Same request as the mood section below (one URL, one cache entry);
+      // the card shows only the newest three.
+      latest = (await getSharedMoodPreviewPosts<MoodPost>()).slice(0, 3).reverse();
     } catch {
       // Falls through to the line below; the link still works.
     }

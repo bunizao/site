@@ -384,8 +384,29 @@ describe('blog subscription feed', () => {
   test('serves direct unlisted Markdown with crawler exclusion headers', async () => {
     useMockGhostContent();
 
+    // Without an assets binding (astro dev) blog Markdown renders from Ghost.
     const response = await renderMarkdownIfRequested({
       request: new Request('https://buxx.me/blog/private-link-demo/', {
+        headers: { Accept: 'text/markdown' },
+      }),
+      locals: {},
+      site: new URL('https://buxx.me'),
+    });
+
+    expect(response?.status).toBe(200);
+    expect(response?.headers.get('X-Robots-Tag')).toBe(
+      'noindex, nofollow, noarchive, nosnippet',
+    );
+    expect(await response?.text()).toContain('# Direct link only fixture');
+  });
+
+  test('treats build assets as authoritative for blog post Markdown', async () => {
+    useMockGhostContent();
+
+    // With an assets binding the Worker never falls back to Ghost at runtime.
+    // A separate origin keeps the previous test's cached copy out of the way.
+    const response = await renderMarkdownIfRequested({
+      request: new Request('https://assets-only.example/blog/private-link-demo/', {
         headers: { Accept: 'text/markdown' },
       }),
       locals: {
@@ -398,11 +419,8 @@ describe('blog subscription feed', () => {
       site: new URL('https://buxx.me'),
     });
 
-    expect(response?.status).toBe(200);
-    expect(response?.headers.get('X-Robots-Tag')).toBe(
-      'noindex, nofollow, noarchive, nosnippet',
-    );
-    expect(await response?.text()).toContain('# Direct link only fixture');
+    expect(response?.status).toBe(404);
+    expect(await response?.text()).toBe('Blog post not found.\n');
   });
 
   test('includes blog routes in the sitemap', async () => {

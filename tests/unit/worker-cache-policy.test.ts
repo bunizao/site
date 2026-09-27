@@ -52,9 +52,15 @@ describe('Worker response cache boundary', () => {
         } } },
       });
       try {
-        const env = { ASSETS: { fetch: async () => new Response('Mood HTML', { headers: {
+        // Mood pages are SSR-only: the Worker renders them without an asset probe.
+        const assetProbes: string[] = [];
+        astroResponse = () => new Response('Mood HTML', { headers: {
           'Content-Type': 'text/html', Vary: 'Accept-Language, Cookie',
-        } }) } };
+        } });
+        const env = { ASSETS: { fetch: async (input: RequestInfo | URL) => {
+          assetProbes.push(input instanceof Request ? input.url : String(input));
+          return new Response(null, { status: 404 });
+        } } };
         for (const accept of ['text/html', 'text/markdown', 'text/html', 'text/markdown']) {
           const response = await worker.fetch(new Request(`https://vary-contract.example${path}`, {
             headers: { Accept: accept, Cookie: 'blog_lang=en', 'Accept-Language': 'zh-CN' },
@@ -68,6 +74,7 @@ describe('Worker response cache boundary', () => {
             expect(await response.text()).toBe('Mood HTML');
           }
         }
+        expect(assetProbes).toEqual([]);
       } finally {
         if (originalCaches) Object.defineProperty(globalThis, 'caches', originalCaches);
         else Reflect.deleteProperty(globalThis, 'caches');
@@ -164,6 +171,7 @@ describe('Worker response cache boundary', () => {
     ['/mood', ['accept', 'accept-language', 'cookie', 'host']],
     ['/mood/999001', ['accept', 'accept-language', 'cookie', 'host']],
   ] as const)('retains complete variance on a bodyless %s 304', async (path, vary) => {
+    astroResponse = () => new Response(null, { status: 304, headers: { ETag: '"asset-v1"' } });
     const response = await worker.fetch(new Request(`https://host-304.example${path}`), {
       ASSETS: { fetch: async () => new Response(null, {
         status: 304,

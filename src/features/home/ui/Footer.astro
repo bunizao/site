@@ -370,8 +370,25 @@ const socials = socialNames
     mark.textContent = text.replace(/\d{4}(?:–\d{4})?/, range);
   }
 
+  // The pill sits below the fold, so fetch its status only when the footer is
+  // about to scroll into view instead of on every page load.
+  function scheduleFooterHydration() {
+    const root = document.querySelector<HTMLElement>('[data-footer-status]');
+    if (!root || typeof IntersectionObserver === 'undefined') {
+      void hydrateFooter();
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      void hydrateFooter();
+    }, { rootMargin: '600px 0px' });
+    observer.observe(root);
+  }
+
   function initFooter() {
-    hydrateFooter();
+    scheduleFooterHydration();
     setupEdgePopover();
     refreshCopyrightYear();
   }

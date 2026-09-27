@@ -27,6 +27,14 @@ describe('blog analytics beacon', () => {
     expect(source).not.toContain('google-analytics');
   });
 
+  test('skips a payload identical to the previous send', () => {
+    const source = readFileSync(new URL('../../src/features/posts/ui/BlogArticleBeacon.astro', import.meta.url), 'utf8');
+
+    expect(source).toContain("let lastSentKey = '';");
+    expect(source).toContain('if (key === lastSentKey) return;');
+    expect(source).toContain('const body = JSON.stringify(payload);');
+  });
+
   test('sanitizes referrers before sending analytics payload', () => {
     const source = readFileSync(new URL('../../src/features/posts/ui/BlogArticleBeacon.astro', import.meta.url), 'utf8');
 

@@ -97,7 +97,8 @@ export async function loadPortalOverview(
   locals: RuntimeEnvLocals | undefined,
 ): Promise<PortalOverview> {
   const [subs, audit, casts] = await Promise.all([
-    adminGet<SubscriberListResult>('/api/admin/subscribers?limit=1', request, locals),
+    // countsOnly skips the page query; limit=1 keeps an older site-api cheap.
+    adminGet<SubscriberListResult>('/api/admin/subscribers?countsOnly=1&limit=1', request, locals),
     adminGet<{ events: AuditEntry[] }>('/api/admin/audit?limit=12', request, locals),
     adminGet<{ broadcasts: BroadcastRecord[] }>('/api/admin/broadcasts?limit=5', request, locals),
   ]);

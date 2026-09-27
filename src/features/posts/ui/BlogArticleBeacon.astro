@@ -153,8 +153,18 @@ const {
       };
     }
 
+    // Browsers fire visibilitychange→hidden and then pagehide on the same
+    // exit. Once dwell is paused both payloads match, and the server keeps
+    // the max anyway, so an unchanged payload is not sent twice.
+    let lastSentKey = '';
+
     function sendBeacon(captureVisibleDwell = true) {
-      const body = JSON.stringify(createPayload(captureVisibleDwell));
+      const payload = createPayload(captureVisibleDwell);
+      const key = `${payload.dwellMs}|${payload.scrollDepth}|${payload.completed}`;
+      if (key === lastSentKey) return;
+      lastSentKey = key;
+
+      const body = JSON.stringify(payload);
       const blob = new Blob([body], { type: 'application/json' });
 
       if (navigator.sendBeacon && navigator.sendBeacon(endpoint, blob)) return;

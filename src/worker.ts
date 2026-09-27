@@ -2,11 +2,11 @@ import astroWorker from '@astrojs/cloudflare/entrypoints/server';
 import {
   cacheHtmlPageResponse,
   isNeverCachePath,
+  isSsrOnlyPath,
   readCachedHtmlPage,
   redirectCanonicalUrl,
   redirectLegacyBlogUrl,
   renderMarkdownIfRequested,
-  withContentPolicy,
   withRequestVary,
 } from '@/features/agent-markdown/server/responses';
 
@@ -46,6 +46,8 @@ function resolveSiteUrl(request: Request, env: WorkerEnv): URL {
 }
 
 async function fetchStaticAsset(request: Request, env: WorkerEnv): Promise<Response | null> {
+  if (isSsrOnlyPath(new URL(request.url).pathname)) return null;
+
   const response = await env.ASSETS?.fetch(request);
   if (!response || response.status === 404) return null;
   return response;
@@ -56,9 +58,10 @@ async function renderHtmlPage(
   env: WorkerEnv,
   context: WorkerExecutionContext,
 ): Promise<Response> {
+  // Undecorated: every caller passes the result through cacheHtmlPageResponse,
+  // which applies the content policy once.
   const assetResponse = await fetchStaticAsset(request, env);
-  const response = assetResponse ?? (await siteWorker.fetch(request, env, context));
-  return withContentPolicy(request, response);
+  return assetResponse ?? (await siteWorker.fetch(request, env, context));
 }
 
 async function revalidateHtmlPage(
