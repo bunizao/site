@@ -580,9 +580,11 @@ neither has `reacted: false` everywhere, so it gets the same short edge
 policy as the comment list (`public, max-age=0`, CDN `max-age=30,
 stale-while-revalidate=60`, `Vary: Cookie`). Every request that reaches the
 Worker is rate-limited: 120/minute per reader, or per hashed IP when there is
-no session. The count comes from the per-colo Workers Rate Limiting binding
-`REACTIONS_READ_LIMITER`, falling back to the durable limiter when the
-binding is absent.
+no session. An anonymous request (no reader session) is checked against the
+per-colo Workers Rate Limiting binding `REACTIONS_READ_LIMITER` when it is
+configured, falling back to the durable limiter otherwise; a signed-in
+reader's read always uses the durable limiter, for an exact count against the
+same D1 budget Mood shares.
 
 `reactors` is capped at 12 names per emoji; the `count` is the true total.
 A banned reader is filtered out of both — their name leaves the list and
@@ -975,7 +977,8 @@ unclaimed, and non-deleted conditions atomically. It changes ownership and
 claim metadata only; it never changes the original session or authentication
 evidence. A claimed comment still awaiting its email confirmation (step 5 of
 the risk stack) is then released through content moderation. Both methods return `401 reader_sign_in_required` without a valid
-reader session and use `Cache-Control: private, no-store`.
+reader session and use `Cache-Control: private, no-store`. Rate-limited at
+20/minute per reader, durably enforced.
 
 Automatic claiming after email verification, OAuth, or owner sign-in requires
 both the matching mailbox and an existing valid anonymous session cookie. After
