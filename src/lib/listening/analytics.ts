@@ -24,7 +24,10 @@ interface ListeningPlaybackAnalyticsOptions {
   metadata: () => ListeningAnalyticsMetadata;
   visitorId: string;
   sessionId: string | null;
-  send: (event: ListeningAnalyticsEventInput) => void;
+  /** Returns whether the event actually left the browser (sendBeacon
+      accepted it, or the fetch fallback was queued without throwing) -- see
+      emit() below. */
+  send: (event: ListeningAnalyticsEventInput) => boolean;
   now?: () => number;
   createId?: () => string;
   checkpointMs?: number;
@@ -49,7 +52,7 @@ export class ListeningPlaybackAnalytics {
   private readonly metadata: () => ListeningAnalyticsMetadata;
   private readonly visitorId: string;
   private readonly sessionId: string | null;
-  private readonly sendEvent: (event: ListeningAnalyticsEventInput) => void;
+  private readonly sendEvent: (event: ListeningAnalyticsEventInput) => boolean;
   private readonly now: () => number;
   private readonly createId: () => string;
   private readonly checkpointMs: number;
@@ -180,8 +183,7 @@ export class ListeningPlaybackAnalytics {
 
   private emit(action: ListeningAnalyticsAction): void {
     if (!this.playbackId || !this.sessionMetadata) return;
-    this.lastSentAt = this.now();
-    this.sendEvent({
+    const sent = this.sendEvent({
       playbackId: this.playbackId,
       visitorId: this.visitorId,
       sessionId: this.sessionId,
@@ -196,6 +198,10 @@ export class ListeningPlaybackAnalytics {
       seekCount: this.seekCount,
       completed: this.completed,
     });
+    // Only a send that actually left the browser counts against
+    // FLUSH_DEDUPE_MS -- a failed exit send must not swallow the pagehide
+    // retry landing right behind it.
+    if (sent) this.lastSentAt = this.now();
   }
 }
 
@@ -239,18 +245,25 @@ function bindBrowserLifecycle(): void {
   });
 }
 
-function sendBrowserEvent(event: ListeningAnalyticsEventInput): void {
+/** Returns whether the event actually left the browser -- see emit() on why
+    that has to be more than "we tried". */
+function sendBrowserEvent(event: ListeningAnalyticsEventInput): boolean {
   const body = JSON.stringify(event);
   const blob = new Blob([body], { type: 'application/json' });
-  if (navigator.sendBeacon?.(LISTENING_ANALYTICS_EVENT_ENDPOINT, blob)) return;
+  if (navigator.sendBeacon?.(LISTENING_ANALYTICS_EVENT_ENDPOINT, blob)) return true;
 
-  fetch(LISTENING_ANALYTICS_EVENT_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-    credentials: 'same-origin',
-    keepalive: true,
-  }).catch(() => undefined);
+  try {
+    fetch(LISTENING_ANALYTICS_EVENT_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      credentials: 'same-origin',
+      keepalive: true,
+    }).catch(() => undefined);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function readStoredId(storageName: 'localStorage' | 'sessionStorage', key: string): string {

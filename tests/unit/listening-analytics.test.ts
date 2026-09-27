@@ -21,7 +21,7 @@ describe('listening analytics', () => {
       }),
       createId: () => '11111111-1111-4111-8111-111111111111',
       now: () => currentNow,
-      send: (event) => events.push(event),
+      send: (event) => { events.push(event); return true; },
       visitorId: 'visitor-11111',
       sessionId: 'session-11111',
     });
@@ -60,7 +60,7 @@ describe('listening analytics', () => {
       }),
       createId: () => `22222222-2222-4222-8222-${String(nextId++).padStart(12, '0')}`,
       now: () => currentNow,
-      send: (event) => events.push(event),
+      send: (event) => { events.push(event); return true; },
       visitorId: 'visitor-22222',
       sessionId: 'session-22222',
       checkpointMs: 15_000,
@@ -107,7 +107,7 @@ describe('listening analytics', () => {
       }),
       createId: () => '33333333-3333-4333-8333-333333333333',
       now: () => currentNow,
-      send: (event) => events.push(event),
+      send: (event) => { events.push(event); return true; },
       visitorId: 'visitor-33333',
       sessionId: 'session-33333',
     });
@@ -140,7 +140,7 @@ describe('listening analytics', () => {
       }),
       createId: () => '44444444-4444-4444-8444-444444444444',
       now: () => currentNow,
-      send: (event) => events.push(event),
+      send: (event) => { events.push(event); return true; },
       visitorId: 'visitor-44444',
       sessionId: 'session-44444',
     });
