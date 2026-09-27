@@ -10,11 +10,12 @@ interface MoodFeedPostShape {
   media?: Array<{ type?: string }>;
 }
 
-// The reconcile prober (site-api scripts/mood-reconcile, a systemd timer on an
-// external server) unfurls link previews into the D1 archive. Ingest only
-// stores the bare URL, so until a probe reports back, pure-archive reads render
-// link posts without their bookmark card. Three days covers several probe
-// cycles plus transient scrape failures.
+// The mood-converge Durable Object (site-api workers/mood-converge) unfurls
+// link previews into the D1 archive by polling Telegram and reporting channel
+// differences back to /v2/mood/converge/report. Ingest only stores the bare
+// URL, so until converge reports back, pure-archive reads render link posts
+// without their bookmark card. Three days covers several converge cycles plus
+// transient scrape failures.
 const CONVERGENCE_GRACE_MS = 72 * 60 * 60 * 1000;
 
 async function fetchMoodFeedPosts(siteUrl: string, params: string): Promise<MoodFeedPostShape[]> {
@@ -59,8 +60,9 @@ describe('mood link preview health', () => {
     expect(
       stalled,
       'link previews the live mirror shows but the archive never unfurled'
-      + ' — check the mood-reconcile timer on the probe server'
-      + ' (systemctl status mood-reconcile.timer; journalctl -u mood-reconcile.service)',
+      + ' — check the mood-converge Worker: its /v2/mood/converge/report history'
+      + ' (or the Durable Object\'s own /status endpoint) for a stalled cursor,'
+      + ' and the mood-pipeline-monitor heartbeat/backlog alerts for a stuck pipeline',
     ).toEqual([]);
   });
 });
