@@ -32,8 +32,8 @@ If a mascot change needs a pile of ceremony, the design is probably wrong.
 | Piece | File |
 | --- | --- |
 | Navbar brand mark | [`src/layouts/Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro) |
-| Logo data | [`src/features/logos/data/peek.ts`](https://github.com/bunizao/site/blob/main/src/features/logos/data/peek.ts) |
-| Extra looks | [`src/features/logos/data/peek-looks.ts`](https://github.com/bunizao/site/blob/main/src/features/logos/data/peek-looks.ts) |
+| Mascot catalog (poses, motions, looks, slots) | [`src/features/mascot/peek/catalog.ts`](https://github.com/bunizao/site/blob/main/src/features/mascot/peek/catalog.ts) |
+| Runtime logo data | [`src/features/logos/data/peek-runtime.ts`](https://github.com/bunizao/site/blob/main/src/features/logos/data/peek-runtime.ts) |
 | Preview surface | [`src/pages/dev/preview.astro`](https://github.com/bunizao/site/blob/main/src/pages/dev/preview.astro) |
 | SVG route | [`src/pages/logo/[id].svg.ts`](https://github.com/bunizao/site/blob/main/src/pages/logo/[id].svg.ts) |
 | Sticker assets | [`public/mascot/peek/stickers/`](https://github.com/bunizao/site/blob/main/public/mascot/peek/stickers/), with dimensions in [`src/features/mascot/peek/stickers.ts`](https://github.com/bunizao/site/blob/main/src/features/mascot/peek/stickers.ts) |

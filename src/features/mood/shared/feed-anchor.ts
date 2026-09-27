@@ -44,6 +44,18 @@ export function getMoodFeedTopHref(url: URL): string {
   return `${target.pathname}${target.search}`;
 }
 
+export const MOOD_ARCHIVE_FEED_ENDPOINT = '/api/v2/mood';
+export const MOOD_LIVE_FEED_ENDPOINT = '/api/moods';
+
+// The endpoints a client feed read tries, in order. Archive reads degrade to
+// the live mirror once the archive route exhausts its retries. Tag filters
+// only exist on the archive route, so a tag read stays strict.
+export function moodFeedEndpoints(tag: string, readSource: string | undefined): string[] {
+  if (tag) return [MOOD_ARCHIVE_FEED_ENDPOINT];
+  if (readSource === 'archive') return [MOOD_ARCHIVE_FEED_ENDPOINT, MOOD_LIVE_FEED_ENDPOINT];
+  return [MOOD_LIVE_FEED_ENDPOINT];
+}
+
 export function getMoodFeedAnchorFragmentId(anchorId: string): string {
   const id = anchorId.trim();
   return isMoodFeedAnchorId(id) ? `mood-${id}` : '';

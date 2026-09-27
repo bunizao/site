@@ -45,6 +45,12 @@ describe('commentPolicyFromTags', () => {
     });
   });
 
+  test('conflicting mode tags keep the stricter mode, in either order', () => {
+    expect(commentPolicyFromTags([{ name: '#comments-off' }, { name: '#comments-readonly' }]).mode).toBe('off');
+    expect(commentPolicyFromTags([{ name: '#comments-readonly' }, { name: '#comments-off' }]).mode).toBe('off');
+    expect(commentPolicyFromTags([{ name: '#no-comments' }, { name: '#comments-off' }]).mode).toBe('off');
+  });
+
   test('tags combine, in any order', () => {
     const forwards = commentPolicyFromTags([
       { name: '#comments-readonly' },

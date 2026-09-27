@@ -13,6 +13,7 @@ import {
   selectListedPosts,
   type PostVersion,
 } from '@/features/posts/i18n';
+import { createManifest } from '@/features/posts/server/i18n-manifest';
 import { isUnlistedVersion } from '@/features/posts/unlisted';
 import type { Post } from '@/features/posts/types';
 
@@ -247,5 +248,38 @@ describe('isUnlistedVersion', () => {
     expect(isUnlistedVersion(en, [open, en])).toBe(false);
     expect(isUnlistedVersion(en, [])).toBe(false);
     expect(isUnlistedVersion(createPost('notes', 'Notes', ['#unlisted']), [])).toBe(true);
+  });
+});
+
+// The build writes the manifest with `strict`, so anything it throws on fails
+// the deploy. Only a translation the site cannot serve may throw; the other
+// internal tags share the `#<word>` shape and must pass through untouched.
+describe('build-time translation manifest', () => {
+  const zh = createPost('lun-chenmo', '论沉默', ['#comments-off']);
+  const en = createPost('on-silence', 'On Silence', ['#en:lun-chenmo']);
+
+  test('ignores every internal tag that does not name a published language', () => {
+    const tagged = createPost('night-boat', '夜航船', [
+      '#comments-off',
+      '#no-comments',
+      '#comments-readonly',
+      '#comments-verified',
+      '#no-toc',
+      '#unlisted',
+    ]);
+
+    expect(createManifest([tagged, zh, en], { strict: true })).toEqual({
+      'lun-chenmo': { translations: { en: 'on-silence' } },
+      'on-silence': { canonical: 'lun-chenmo', locale: 'en' },
+    });
+  });
+
+  test('fails the build on a translation the site cannot serve', () => {
+    expect(() => createManifest([zh, createPost('le-silence', 'Le Silence', ['#fr:lun-chenmo'])], { strict: true }))
+      .toThrow('Unknown blog translation locale on le-silence: fr');
+    expect(() => createManifest([en], { strict: true }))
+      .toThrow('Blog translation target does not exist: lun-chenmo');
+    expect(() => createManifest([zh, en, createPost('silence-again', 'Silence', ['#en:lun-chenmo'])], { strict: true }))
+      .toThrow('Duplicate en version in blog group lun-chenmo');
   });
 });

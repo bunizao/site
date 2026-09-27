@@ -15,6 +15,7 @@ import { resolveMoodCommentsCopy, type MoodCommentsCopy } from '@/features/comme
 import { initials } from '@/features/comments/identity';
 import { moodCommentsUrl } from '@/features/comments/api-urls';
 import { fetchPrefetched } from '@/lib/api-prefetch';
+import { SLOW_VERDICT_MS } from '@/features/comments/verdict-poll';
 
 interface CommentReactionData {
   emoji?: string;
@@ -485,10 +486,6 @@ export function settleOwnComment(siteCommentId: string, held: boolean, awaitingE
     server would recognise (the stand-in's is a throwaway) or has one whose
     thread nobody else can see. Offering the button would buy a THREAD
     refusal at best. settleOwnComment gives it back. */
-// When "Publishing" becomes "Still checking": past this the language model
-// reading an anonymous comment is what the row is waiting on.
-const SLOW_VERDICT_MS = 3000;
-
 function markPending(node: HTMLElement, since = Date.now()): void {
   node.dataset.pending = 'true';
   // Carried from the stand-in to the row that replaces it, so a long wait

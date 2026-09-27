@@ -32,8 +32,11 @@ its own.
 
 Allowlisted hosts are the Telegram family (`t.me`, `telegram.org`,
 `telegram.me`, `telegram.dog`, `telesco.pe`, `cdn-telegram.org`,
-`cdn1`–`cdn5.telegram-cdn.org`) plus `i.ytimg.com` for YouTube posters and
-`yt3.googleusercontent.com` / `yt3.ggpht.com` for channel avatars. Redirects are
+`cdn1`–`cdn5.telegram-cdn.org`), the `PUBLIC_HD_IMAGE_URL` host, the legacy
+`image.buxx.me` image host, plus `i.ytimg.com` for YouTube posters and
+`yt3.googleusercontent.com` / `yt3.ggpht.com` for channel avatars. Telegram
+hosts also admit their subdomains; every other host must match exactly, so the
+HD image host never admits its siblings. Redirects are
 followed at most three deep, and **every hop is re-checked against the
 allowlist** — an allowlisted host cannot bounce the proxy to somewhere else.
 
@@ -54,25 +57,13 @@ will not return you an HTML page or a JSON document no matter what you point it
 at.
 
 **Errors:** `400 Invalid target URL.` (not allowlisted, or unparseable);
-`403 Invalid static proxy signature.`; `429 Too Many Requests.`;
-`502 Upstream fetch failed.`; `415` for a disallowed content type. All are
-plain text, not JSON.
+`429 Too Many Requests.`; `502 Upstream fetch failed.`; `415` for a disallowed
+content type. All are plain text, not JSON.
 
-### Request signing
-
-Proxy URLs are signed. `STATIC_PROXY_MODE` decides how strictly that is
-enforced:
-
-| Mode | Unsigned URL | Invalid signature |
-| --- | --- | --- |
-| `observe` (default) | Served, logged | Served, logged |
-| `accept-both` | Served, logged | `403` |
-| `enforce` | `403` | `403` |
-
-The staged rollout is intentional: `observe` lets an already-published page's
-old unsigned URLs keep working while new ones ship signed. Build proxy URLs
-through the site's own helper rather than hand-assembling them, or they will
-break the day the mode advances.
+Proxy URLs are not signed. The upstreams are public media hosts anyone can
+fetch directly, so a signature would protect nothing; the host allowlist is the
+boundary. Unsigned URLs also stay stable, which matters because both Workers
+bake them into cached and archived HTML.
 
 ### YouTube metadata
 
@@ -108,9 +99,9 @@ of this runs at all — Cloudflare route patterns send `/api/*` straight to
 
 `/oauth/login` is the one exception: it is answered locally, not forwarded. It
 `302`s to the `?next=` path with `Cache-Control: no-store, max-age=0`, defaulting
-to `/dev/portal`. `next` is rejected unless it is a same-site absolute path —
-values starting `//`, containing a backslash, or naming another origin fall back
-to the default rather than redirecting off-site.
+to `/dev/portal`. `next` is resolved against the site origin first, and any
+value that resolves to another origin falls back to the default rather than
+redirecting off-site.
 
 ## Dev portal
 

@@ -80,7 +80,7 @@ await Promise.all(tags.map(async (tag) => {
 
   await writeMarkdown(
     builtBlogMarkdownAssetPath({ kind: 'tag', slug: tag.slug }),
-    buildTagArchiveAgentMarkdown(archive.tag, archive.archive.posts, siteUrl),
+    buildTagArchiveAgentMarkdown(archive.tag, archive.posts, siteUrl),
   );
 }));
 

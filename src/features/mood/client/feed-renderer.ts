@@ -12,13 +12,11 @@ import {
 } from '@/features/mood/shared/feed-anchor';
 import { buildMoodPreviewFragment } from '@/features/mood/shared/preview';
 import { findTooBigVideoMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
-import {
-  getMoodFeedThumbnailStyle,
-  resolveMoodFeedImageLayout,
-} from '@/features/mood/shared/feed-thumbnail';
+import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
 import {
   getMoodImagePlaceholderSrc,
   getMoodImageRatio,
+  resolveMoodImageLayout,
 } from '@/features/mood/shared/image-srcset';
 import { initMoodImageFrames } from '@/features/mood/client/image-frame';
 import { formatMoodDateHeader, formatMoodTime } from '@/features/mood/shared/date-grouping';
@@ -461,7 +459,7 @@ export function createFeedRenderer({
 
       const imageLayout = isTooBigVideoPreview
         ? null
-        : resolveMoodFeedImageLayout(mood.imageLayout, imageWidth, imageHeight);
+        : resolveMoodImageLayout(mood.imageLayout, imageWidth, imageHeight);
       const imageRatio = getMoodImageRatio(imageWidth, imageHeight, imageLayout);
       if (imageLayout === 'portrait') {
         thumbWrap.classList.add('mood-item-thumb--portrait');

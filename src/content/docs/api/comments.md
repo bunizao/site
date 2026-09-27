@@ -228,7 +228,11 @@ Bounds the server enforces before storing: strings at most 128 characters,
 `fonts` at most 32 entries, every number a bounded integer, the whole object
 under 4 KiB. The client never sends a hash of its own fingerprint — the
 server hashes the canonical component JSON itself, so a browser cannot claim
-to be a different device. `notifyReplies` sets the writer's reply-mail preference — see
+to be a different device. `notifyReplies` on this input is the **newsletter**
+opt-in, despite its name: site-api carries it into the verification link, and
+confirming the address activates a newsletter subscription. Both clients send
+`false`. The reply-mail preference is the reader's own `notifyReplies` switch
+(`/api/v2/reader/preferences`) — see
 [What `notifyReplies` actually sends](#what-notifyreplies-actually-sends).
 
 A comment written without an email serializes with `avatarUrl: ""`; the
@@ -479,13 +483,14 @@ GET /api/v2/comments/dwell-token
 { "token": "..." }
 ```
 
-Mints the risk stack's dwell-time stamp: a short-lived signed timestamp the
-client controller fetches once, at first interaction with the compose box,
-and holds until submit. `POST /api/v2/comments` rejects (silently — see
-above) a body whose `dwellToken` is missing, unsigned, or younger than 3
-seconds old. The stamp also carries a 24-hour expiry, which is the ceiling
-on how long a tab can sit open before its token has to be re-minted; the
-client refreshes at 20 hours rather than discovering the wall. Not rate-limited — it signs nothing but the current time, so
+Mints the risk stack's dwell-time stamp: a signed timestamp the client
+fetches when the page loads and holds until submit. `POST /api/v2/comments`
+answers a missing `dwellToken` with `400`, and drops (silently — see above)
+one that is unsigned or younger than 3 seconds. The stamp also carries a
+24-hour expiry, which is the ceiling on how long a tab can sit open; every
+focus in a compose box re-mints a token older than 20 hours, so a tab left
+open overnight still posts. The client never mints at submit: a token that
+young is exactly what the silent drop catches. Not rate-limited — it signs nothing but the current time, so
 there's no per-call cost worth gating; `POST /api/v2/comments`'s own limits
 apply regardless of how many tokens get minted.
 
@@ -724,6 +729,9 @@ POST /api/v2/reader/resend
 ```json
 { "ok": true }
 ```
+
+`notifyReplies` here is the same newsletter opt-in as on comment create,
+recovered from the stale link; it is not the reply-mail switch.
 
 Mail goes out only to an address with comment history or an existing verified
 reader identity. This also lets a verified reader sign in after changing their

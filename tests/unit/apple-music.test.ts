@@ -203,4 +203,46 @@ describe('Apple Music embed enrichment', () => {
     expect(output).toContain('data-preview-url="https://audio-ssl.itunes.apple.com/rotated.plus.aac.ep.m4a"');
     expect(output).not.toContain('rotated.plus.aac.p.m4a');
   });
+
+  // A real timeout takes seconds to fire, so the test checks that every request
+  // carries an abort signal, then plays the abort that signal would cause.
+  test('bounds every Apple request so a stalled endpoint cannot hang the build', async () => {
+    const html = '<iframe src="https://embed.music.apple.com/us/album/x/1888707282?i=1888707293"></iframe>';
+    const token = fakeToken(Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60);
+    const requested: string[] = [];
+    const unbounded: string[] = [];
+
+    setFetchMock(async (input, init) => {
+      const url = new URL(input.toString());
+      requested.push(url.hostname);
+      if (!(init?.signal instanceof AbortSignal)) unbounded.push(url.href);
+      if (url.hostname === 'itunes.apple.com') {
+        return Response.json({ results: [{ trackName: 'Bounded', trackViewUrl: 'https://music.apple.com/us/song/x/1888707293' }] });
+      }
+      if (url.href === 'https://embed.music.apple.com/build/web-embed.esm.js') {
+        return new Response('"p-feedf00d",[[1,"embed-root"', { status: 200 });
+      }
+      if (url.href === 'https://embed.music.apple.com/build/p-feedf00d.entry.js') {
+        return new Response(`const token="${token}";`, { status: 200 });
+      }
+      if (url.hostname === 'amp-api.music.apple.com') return Response.json({ data: [] });
+      throw new Error(`Unexpected lookup: ${url.href}`);
+    });
+
+    expect(await enrichAppleMusicEmbeds(html)).toContain('data-blog-music');
+    expect(requested.sort()).toEqual([
+      'amp-api.music.apple.com',
+      'embed.music.apple.com',
+      'embed.music.apple.com',
+      'itunes.apple.com',
+    ]);
+    expect(unbounded).toEqual([]);
+
+    resetAppleMusicEmbedLookupCacheForTests();
+    setFetchMock(async () => {
+      throw new DOMException('The operation timed out.', 'TimeoutError');
+    });
+
+    expect(await enrichAppleMusicEmbeds(html)).toBe(html);
+  });
 });

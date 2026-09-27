@@ -22,7 +22,7 @@ const BATCH = 8;
 
 const [listedPosts, accessiblePosts] = await Promise.all([
   getListedPosts(),
-  getAccessiblePosts({ outputTarget: 'web' }),
+  getAccessiblePosts(),
 ]);
 const groups = groupPostsByYear(listedPosts);
 const ledger = writingLedger(listedPosts);

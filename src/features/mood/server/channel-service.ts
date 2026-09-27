@@ -20,7 +20,6 @@ export interface LoadMoodChannelInput {
   before?: string;
   after?: string;
   skipCache?: boolean;
-  textOnly?: boolean;
 }
 
 export interface MoodChannelSnapshot {
@@ -37,12 +36,10 @@ function isPostResult(value: unknown): value is Post {
   return typeof value === 'object' && value !== null && 'id' in value && 'content' in value;
 }
 
-export function sortMoodPosts(posts: Post[], options: { textOnly?: boolean } = {}): Post[] {
-  const filtered = options.textOnly
-    ? posts.filter((post) => post?.id && post.type === 'text')
-    : posts.filter((post) => post?.id);
-
-  return [...filtered].sort((a, b) => getNumericId(b.id) - getNumericId(a.id));
+function sortMoodPosts(posts: Post[]): Post[] {
+  return posts
+    .filter((post) => post?.id)
+    .sort((a, b) => getNumericId(b.id) - getNumericId(a.id));
 }
 
 export async function loadMoodChannelSnapshot(
@@ -63,7 +60,7 @@ export async function loadMoodChannelSnapshot(
 
   return {
     channelInfo,
-    posts: sortMoodPosts(channelInfo.posts ?? [], { textOnly: input.textOnly }),
+    posts: sortMoodPosts(channelInfo.posts ?? []),
   };
 }
 
@@ -130,56 +127,6 @@ export function toMoodAvatarUrl(avatar: string, locals?: any): string {
   }
 
   return `/static/${normalized}`;
-}
-
-function normalizeAbsoluteUrl(value: string | undefined, baseUrl: string): string | undefined {
-  const raw = (value || '').trim();
-  if (!raw) return undefined;
-
-  if (raw.startsWith('//')) {
-    return `https:${raw}`;
-  }
-
-  try {
-    return new URL(raw, baseUrl).toString();
-  } catch {
-    return undefined;
-  }
-}
-
-export function toMoodEmailImageUrl(
-  value: string | undefined,
-  siteUrl: string,
-  locals?: any
-): string | undefined {
-  const absoluteUrl = normalizeAbsoluteUrl(value, siteUrl);
-  if (!absoluteUrl) return undefined;
-
-  let imageOrigin: string;
-  try {
-    imageOrigin = new URL(absoluteUrl).origin.toLowerCase();
-  } catch {
-    return absoluteUrl;
-  }
-
-  const hdImageOrigin = getMoodHdImageOrigin(locals);
-  if (hdImageOrigin && imageOrigin === hdImageOrigin) {
-    return absoluteUrl;
-  }
-
-  let siteOrigin: string;
-  try {
-    siteOrigin = new URL(siteUrl).origin.toLowerCase();
-  } catch {
-    return absoluteUrl;
-  }
-
-  const staticPrefix = `${siteOrigin}/static/`;
-  if (absoluteUrl.startsWith(staticPrefix) || imageOrigin === siteOrigin) {
-    return absoluteUrl;
-  }
-
-  return `${staticPrefix}${absoluteUrl}`;
 }
 
 export function loadMoodCommentsFixture(postId: string): MoodCommentsPage {

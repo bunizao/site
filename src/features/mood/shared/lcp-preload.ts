@@ -2,8 +2,7 @@ import type { MoodFeedItem } from '@bunizao/contracts/mood';
 import { getCriticalInitialPosts, hasLcpCandidateMedia } from '@/features/mood/shared/initial-feed';
 import { findTooBigVideoMedia, hasStructuredMoodFeedMedia } from '@/features/mood/shared/feed-media';
 import { getMoodGallerySizes } from '@/features/mood/shared/gallery-render';
-import { resolveMoodFeedImageLayout } from '@/features/mood/shared/feed-thumbnail';
-import { buildArchiveSrcSet, getMoodFeedThumbSizes } from '@/features/mood/shared/image-srcset';
+import { buildArchiveSrcSet, getMoodFeedThumbSizes, resolveMoodImageLayout } from '@/features/mood/shared/image-srcset';
 
 export interface MoodPreloadImage {
   href: string;
@@ -53,7 +52,7 @@ export function getMoodFeedPreloadImage(
 
   // Same sizes as the rendered thumb (FeedShell.astro), or the preload and the
   // <img> pick different responsive candidates and both get downloaded.
-  const thumbLayout = resolveMoodFeedImageLayout(
+  const thumbLayout = resolveMoodImageLayout(
     priorityPost.imageLayout,
     priorityPost.imageWidth,
     priorityPost.imageHeight,

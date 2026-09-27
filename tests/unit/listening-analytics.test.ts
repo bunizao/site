@@ -102,25 +102,6 @@ describe('listening analytics', () => {
     expect(inferListeningSurface('/projects')).toBe('other');
   });
 
-  test('wires playback requests, player snapshots, and seeks into the shared controller', () => {
-    const source = readFileSync(new URL('../../src/lib/listening/controller.ts', import.meta.url), 'utf8');
-
-    expect(source).toContain('createBrowserListeningAnalytics');
-    expect(source).toContain('listeningAnalytics?.requestPlay()');
-    expect(source).toContain('listeningAnalytics?.observe({');
-    expect(source).toContain('listeningAnalytics?.recordSeek()');
-  });
-
-  test('wires blog prose music cards into the shared playback tracker', () => {
-    const source = readFileSync(new URL('../../src/features/posts/client/prose.ts', import.meta.url), 'utf8');
-
-    expect(source).toContain('createBrowserListeningAnalytics');
-    expect(source).toContain('cardEl.dataset.trackTitle');
-    expect(source).toContain('listeningAnalytics?.requestPlay()');
-    expect(source).toContain('listeningAnalytics?.observe({');
-    expect(source).toContain('listeningAnalytics?.recordSeek()');
-  });
-
   test('emits the final media position before the preview player clears its source', () => {
     const source = readFileSync(new URL('../../src/lib/musickit/player.ts', import.meta.url), 'utf8');
     const endedHandler = source.match(/addEventListener\('ended', \(\) => \{(?<body>[\s\S]*?)\n\s*\}\);/u);

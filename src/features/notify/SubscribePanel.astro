@@ -626,8 +626,8 @@ const intro =
   }
 
   /* Reserves room only once Turnstile actually falls back to an interactive
-     widget (subscribe-panel.ts toggles `.has-widget`) -- the invisible case,
-     which is nearly all of them, takes zero layout space. */
+     widget (turnstile-token.ts sets `data-turnstile-interactive`) -- the
+     invisible case, which is nearly all of them, takes zero layout space. */
   .sub-turnstile {
     --sub-turnstile-scale: 0.92;
     margin-top: 12px;
@@ -638,11 +638,11 @@ const intro =
     transition: min-height 0.2s ease;
   }
 
-  .sub-turnstile.has-widget {
+  .sub-turnstile[data-turnstile-interactive] {
     min-height: 62px;
   }
 
-  .sub-turnstile.has-widget > div {
+  .sub-turnstile[data-turnstile-interactive] > div {
     transform: scale(var(--sub-turnstile-scale));
     transform-origin: center top;
     display: block;

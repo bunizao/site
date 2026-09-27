@@ -1,10 +1,6 @@
-function normalizeEnvironmentValue(input) {
-  return typeof input === 'string' ? input.trim() : '';
-}
-
+// Never derive the id from a commit SHA: Ghost deploy-hook rebuilds share a
+// commit, and build-backed edge cache keys must roll on every build.
 export function resolveCloudflareBuildId(env, now = Date.now()) {
-  return normalizeEnvironmentValue(env.PUBLIC_BUILD_ID)
-    || normalizeEnvironmentValue(env.CF_PAGES_COMMIT_SHA)
-    || normalizeEnvironmentValue(env.GITHUB_SHA)
-    || `build-${Math.max(0, Math.floor(now)).toString(36)}`;
+  const pinned = typeof env.PUBLIC_BUILD_ID === 'string' ? env.PUBLIC_BUILD_ID.trim() : '';
+  return pinned || `build-${Math.max(0, Math.floor(now)).toString(36)}`;
 }

@@ -12,6 +12,7 @@
 // challenge box unless Turnstile actually needs one.
 
 import type {
+  ClientEvidence,
   Comment,
   CommentCreateInput,
   CommentCreateResult,
@@ -66,6 +67,7 @@ import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
 import { READER_ME_URL, blogCommentsUrl, reactionsUrl } from '@/features/comments/api-urls';
 import { fetchPrefetched } from '@/lib/api-prefetch';
+import { SLOW_VERDICT_MS, VERDICT_POLL_DELAYS_MS } from '@/features/comments/verdict-poll';
 
 const CLAIMED_STORAGE_KEY = 'buxx:reader';
 
@@ -336,6 +338,9 @@ export function initCommentsController(): void {
     warmCreate();
     armEvidence();
     void ensureOwnSeed();
+    // Free while the token is young. A tab left open past its day re-mints
+    // here, as the reader starts writing, never at Post.
+    void mintDwellToken();
   });
 
   // Build the "loaded" shell up front -- state="loading" carries neither the
@@ -609,7 +614,6 @@ export function initCommentsController(): void {
     // twice should not pay the widget's 2.3s again on the second comment.
     releaseTurnstileToken('blog_comment_create');
     warmTurnstileToken(turnstileSiteKey, 'blog_comment_create');
-    void mintDwellToken();
 
     setSubmitEnabled(box, true);
 
@@ -742,27 +746,6 @@ export function initCommentsController(): void {
     await handleSubmit(box, telemetry);
   }
 
-  // The API waits up to 8s for the verdict -- the language model reading an
-  // anonymous comment takes most of that -- and past it the comment lands as
-  // held and flips to published in the background. Probe the list until the flip lands, so the writer sees it
-  // without reloading.
-  //
-  // The window used to be three probes over twelve seconds, which was sized
-  // for the round trip rather than for what actually has to finish inside it.
-  // The late verdict runs in the Worker's `waitUntil` continuation after the
-  // response is already sent -- a queued continuation, a retried fetch, or a
-  // cold check lands well past twelve seconds, and the row was being told it
-  // was invisible for a comment that went public moments later, permanently,
-  // with no way back short of a reload. Telling a reader the wrong thing
-  // forever is worse than a few more cheap `no-store` GETs, so the window is
-  // a backoff out to roughly a minute and a half. The gaps widen as the odds
-  // of a flip fall: eight probes total, five of them inside the first
-  // seventeen seconds, where nearly every verdict lands.
-  const VERDICT_POLL_DELAYS_MS = [1500, 2000, 3000, 4000, 6000, 15_000, 30_000, 30_000];
-  // When "Publishing" becomes "Still checking". Akismet alone answers in well
-  // under a second; past this the language model is the one still reading.
-  const SLOW_VERDICT_MS = 3000;
-
   /** The row was just written by this browser and came back held. Almost every
       one of those is the classifier still thinking, not a decision, and it
       resolves inside the poll window below -- so the row reads as posted and
@@ -795,8 +778,6 @@ export function initCommentsController(): void {
     if (note) note.textContent = t.awaitingEmail;
   }
 
-  /** No verdict inside the window, or one that was not `published`: this is a
-      real hold now, and the row says the real thing. */
   /** Add or remove a row's "only you can see this" note after its status has
       moved. `rejected` gets the same note as `held`: both mean the row is
       drawn for its writer and for nobody else, which is the whole claim the
@@ -832,6 +813,8 @@ export function initCommentsController(): void {
     if (note) note.textContent = t.held;
   }
 
+  // Probe the viewer-aware list until the held row's verdict lands, so the
+  // writer sees the flip without reloading. Window: verdict-poll.ts.
   async function upgradeWhenVerdictLands(
     commentId: string,
     parentId: string | null,
@@ -843,8 +826,11 @@ export function initCommentsController(): void {
       // there is nothing left to upgrade, and the remaining probes would be
       // spent on a detached node.
       if (!article.isConnected) return;
-      const page = await fetchJson<CommentListResult>(blogCommentsUrl(postId));
-      const match = page?.comments.find((c) => c.id === commentId);
+      const page = await fetchJson<CommentListResult>(blogCommentsUrl(postId, pageCursorFor(parentId)));
+      // A probe that failed (network blip, edge 5xx, 429) is no answer; only a
+      // listing without the row says the wait is over.
+      if (!page) continue;
+      const match = page.comments.find((c) => c.id === commentId);
       if (!match) {
         settlePending(article);
         return;
@@ -864,6 +850,18 @@ export function initCommentsController(): void {
       return;
     }
     settlePending(article);
+  }
+
+  /** The list pages by root and lists a reply only beside its root, so a
+      reply under an older root is on the page that starts at that root: the
+      page `before` the real root rendered just above it. */
+  function pageCursorFor(parentId: string | null): string {
+    let row = parentId ? list.querySelector(`#comment-${cssEscape(parentId)}`)?.previousElementSibling : null;
+    for (; row; row = row.previousElementSibling) {
+      const isRoot = row instanceof HTMLElement && row.matches('article.blog-comment') && !row.dataset.parentId;
+      if (isRoot && !row.id.startsWith('comment-pending-')) return row.id.slice('comment-'.length);
+    }
+    return '';
   }
 
   function insertNewRow(article: HTMLElement, parentId: string | null): void {
@@ -937,15 +935,6 @@ export function initCommentsController(): void {
     return { displayName: name, email };
   }
 
-  /** The only thing about the compose box that still waits for the server.
-      Not a busy state: the field stays writable and `data-receipt` has
-      already moved on to `posted`, so nothing spins. This is a double-post
-      guard and nothing more -- one press of Post, one comment.
-
-      `submitting` is therefore a state the live thread no longer enters. It
-      is still in ComposeReceipt, still rendered by CommentForm.astro, and
-      still styled: /lab/comments draws every receipt on purpose, and a state
-      the lab documents is not dead just because the happy path outruns it. */
   /** The arrow leaves and a fresh one arrives -- the one piece of motion the
       press is owed, now that nothing else about the box waits.
 
@@ -968,12 +957,6 @@ export function initCommentsController(): void {
     if (submitBtn) submitBtn.disabled = !enabled;
   }
 
-  /** `data-receipt` still carries every state -- the send button's spinner and
-      its returning arrow are keyed off it (comments.css). What is *drawn*
-      below the box is one thing only: the subscribe offer. A posted comment is
-      announced by the comment; a failed one by the alert above the form; and
-      the two of them plus an identity line used to take turns in a single slot
-      under the box, which is what made the area unreadable. */
   /** Hands the subscribe offer to the panel the page already has, instead of
       answering it here. The nudge used to carry a bare checkbox: nothing read
       it, nothing submitted it, and there was no button in that row to submit
@@ -1009,6 +992,12 @@ export function initCommentsController(): void {
     });
   }
 
+  /** `data-receipt` still carries every state -- the send button's spinner and
+      its returning arrow are keyed off it (comments.css). What is *drawn*
+      below the box is one thing only: the subscribe offer. A posted comment is
+      announced by the comment; a failed one by the alert above the form; and
+      the two of them plus an identity line used to take turns in a single slot
+      under the box, which is what made the area unreadable. */
   function showComposeReceipt(box: HTMLElement, receipt: ComposeReceipt, awaitingEmail = false): void {
     box.dataset.receipt = receipt;
     box.querySelector('[data-compose-receipt]')?.remove();
@@ -1032,6 +1021,13 @@ export function initCommentsController(): void {
     box.append(el('div', { class: 'blog-compose__receipt', 'data-compose-receipt': '', 'aria-live': 'polite' }, [nudge]));
   }
 
+  /** Some refusals have a page under them and some are already fully
+      explained by their own sentence; comment-error.ts decides which. */
+  function helpFor(failure: CommentFailure): ComposeAlertHelp | null {
+    const href = commentErrorDocsHref(failure.code);
+    return href ? { href, label: t.errorHelp } : null;
+  }
+
   // --- Reply box --------------------------------------------------------
 
   // Mirrors the reply box in CommentsSection.astro: alert, identity, one
@@ -1044,13 +1040,6 @@ export function initCommentsController(): void {
   // used to see nothing where "Posting as X" should have been,
   // because `.blog-compose__who`/`.blog-compose__claim` only existed in
   // CommentForm.astro. `applyPhase()` already looks for those two elements on
-  /** Some refusals have a page under them and some are already fully
-      explained by their own sentence; comment-error.ts decides which. */
-  function helpFor(failure: CommentFailure): ComposeAlertHelp | null {
-    const href = commentErrorDocsHref(failure.code);
-    return href ? { href, label: t.errorHelp } : null;
-  }
-
   // whichever box it is given, so building them here is the whole fix.
   function buildReplyBox(): HTMLElement {
     const box = el('div', {
@@ -1339,10 +1328,14 @@ export function initCommentsController(): void {
       which is the right amount of friction for a heart. */
   async function likeComment(commentId: string, button: HTMLButtonElement): Promise<void> {
     burstHearts(button);
+    armEvidence();
     // Set before the first await, so presses arriving mid-flight stop here
     // rather than racing a second write.
     if (button.getAttribute('aria-pressed') === 'true') return;
-    await sendCommentLike(commentId, button, beginWriteTelemetry('reaction', 'blog_reaction'));
+    // The same optional evidence the post heart sends, collected once per
+    // press and reused by any resend. Never a gate: an empty one still sends.
+    const evidence = collectClientEvidence({ kind: 'reaction', armedAt, turnstileAction: 'blog_reaction' });
+    await sendCommentLike(commentId, button, beginWriteTelemetry('reaction', 'blog_reaction'), evidence);
   }
 
   /** The write itself, without the burst or the double-press guard, so the
@@ -1352,6 +1345,7 @@ export function initCommentsController(): void {
     commentId: string,
     button: HTMLButtonElement,
     telemetry: WriteTelemetry,
+    evidence: Promise<ClientEvidence>,
     options: { viaPass?: boolean; retried?: boolean } = {},
   ): Promise<void> {
     const article = button.closest<HTMLElement>('.blog-comment');
@@ -1382,6 +1376,7 @@ export function initCommentsController(): void {
       targetId: commentId,
       reacted: true,
       turnstileToken,
+      ...(await evidence),
     });
     if (!viaPass) releaseTurnstileToken('blog_reaction');
 
@@ -1393,7 +1388,7 @@ export function initCommentsController(): void {
       // once more the ordinary way.
       if (failure.code === 'BOT' && viaPass) {
         forgetReactionPass();
-        await sendCommentLike(commentId, button, telemetry, { viaPass: true, retried: options.retried });
+        await sendCommentLike(commentId, button, telemetry, evidence, { viaPass: true, retried: options.retried });
         return;
       }
       button.setAttribute('aria-pressed', 'false');
@@ -1404,7 +1399,7 @@ export function initCommentsController(): void {
       // rather than printing "one more step" beside nothing to press. One
       // automatic resend per press; the checkbox stays for the next one.
       if (failure.code === 'BOT' && article && !options.retried) {
-        void solveReactionChallengeAndResend(article, commentId, button, telemetry);
+        void solveReactionChallengeAndResend(article, commentId, button, telemetry, evidence);
       } else {
         telemetry.finish(response.status === 0 ? 'network_error' : failure.code === 'BOT' ? 'challenge_failed' : 'http_error');
       }
@@ -1440,6 +1435,7 @@ export function initCommentsController(): void {
     commentId: string,
     button: HTMLButtonElement,
     telemetry: WriteTelemetry,
+    evidence: Promise<ClientEvidence>,
   ): Promise<void> {
     const host = reactionChallengeHost(article);
     if (!host) {
@@ -1454,7 +1450,7 @@ export function initCommentsController(): void {
       telemetry.finish('challenge_failed');
       return;
     }
-    await sendCommentLike(commentId, button, telemetry, { retried: true });
+    await sendCommentLike(commentId, button, telemetry, evidence, { retried: true });
   }
 
   /** Three hearts up and out of the button, per press. Sized and timed to the
@@ -1995,7 +1991,7 @@ export function initCommentsController(): void {
     // Also handed to the subscribe panel, which asks for the same address
     // (lib/reader-email.ts). The claim keeps the richer name+email record;
     // that one keeps the lowest common denominator both forms can use.
-    rememberReaderEmail(identity.email, 'comment');
+    rememberReaderEmail(identity.email);
     try {
       window.localStorage.setItem(CLAIMED_STORAGE_KEY, JSON.stringify(identity));
     } catch {
@@ -2012,7 +2008,7 @@ export function initCommentsController(): void {
     if (!known) return;
     for (const box of [compose, replyBox]) {
       const input = box?.querySelector<HTMLInputElement>('[data-compose-identity] input[type="email"]');
-      if (input && !input.value) input.value = known.email;
+      if (input && !input.value) input.value = known;
     }
   }
 
@@ -2023,7 +2019,8 @@ export function initCommentsController(): void {
   // filling the box the instant it loaded and got silently swallowed by the
   // server's fake-success tripwire. Keeping the original page-load token
   // across submits is what fixes that; only a token old enough to be near
-  // expiry -- a tab left open for most of a day -- is worth refreshing.
+  // expiry -- a tab left open for most of a day -- is worth refreshing, and
+  // only on a focus in the compose box, never at Post.
   const DWELL_TOKEN_REFRESH_AGE_MS = 20 * 60 * 60 * 1000;
 
   async function mintDwellToken(): Promise<void> {

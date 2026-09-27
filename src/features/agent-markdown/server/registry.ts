@@ -80,7 +80,7 @@ function matchBlogPost(pathname: string): Record<string, string> | null {
 
   const slug = safeDecode(match[2]);
   if (match[1] === undefined) {
-    if (slug === 'tags' || slug === 'rss.xml' || slug === 'search.json') return null;
+    if (slug === 'tags' || slug === 'rss.xml') return null;
     return { slug };
   }
 
@@ -197,7 +197,6 @@ async function renderMoodFeed(context: MarkdownRendererContext) {
   const rateLimit = withRateLimit(
     context.request,
     { windowMs: 60_000, max: 180, prefix: 'agent-markdown:mood' },
-    context.locals,
   );
 
   if (!rateLimit.allowed) {
@@ -226,7 +225,6 @@ async function renderMoodPost(context: MarkdownRendererContext) {
   const rateLimit = withRateLimit(
     context.request,
     { windowMs: 60_000, max: 180, prefix: 'agent-markdown:mood-post' },
-    context.locals,
   );
 
   if (!rateLimit.allowed) {
@@ -281,7 +279,7 @@ async function renderBlogTag(context: MarkdownRendererContext) {
 
   return markdownResult(buildTagArchiveAgentMarkdown(
     archive.tag,
-    archive.archive.posts,
+    archive.posts,
     context.site,
   ));
 }

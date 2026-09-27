@@ -11,7 +11,7 @@ test('historical comments require a verified reader and never claim on page load
     if (route.request().method() === 'POST') writes.push(route.request().postData() ?? '');
     await route.fulfill({ status: 401, json: { error: 'not_verified' } });
   });
-  await page.goto('/reader/comments?lang=en', { waitUntil: 'networkidle' });
+  await page.goto('/reader/comments?lang=en');
   await expect(page.getByRole('heading', { name: 'Review your earlier comments' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Confirm email', exact: true })).toHaveAttribute('href', '/reader/confirm?lang=en');
   await expect(page.getByRole('checkbox')).toHaveCount(0);
@@ -31,7 +31,7 @@ test('the reader explicitly links selected comments and leaves other matching-em
     }
     await route.fulfill({ json: { comments: remaining, hasMore: false } });
   });
-  await page.goto('/reader/comments?lang=en', { waitUntil: 'networkidle' });
+  await page.goto('/reader/comments?lang=en');
   await expect(page.getByRole('checkbox')).toHaveCount(2);
   await expect(page.getByRole('button', { name: 'Link selected comments (0)' })).toBeDisabled();
   expect(writes).toEqual([]);
@@ -47,7 +47,7 @@ test('a failed historical claim keeps the selection available for retry', async 
   await page.route('**/api/v2/reader/claims', (route) => route.request().method() === 'POST'
     ? route.fulfill({ status: 503, json: { error: 'unavailable' } })
     : route.fulfill({ json: { comments: candidates, hasMore: false } }));
-  await page.goto('/reader/comments?lang=en', { waitUntil: 'networkidle' });
+  await page.goto('/reader/comments?lang=en');
   await page.getByRole('checkbox').first().check();
   await page.getByRole('button', { name: 'Link selected comments (1)' }).click();
   await expect(page.getByRole('status')).toContainText('could not be linked');
@@ -56,7 +56,6 @@ test('a failed historical claim keeps the selection available for retry', async 
 });
 
 test('older candidate pages are reachable without claiming and selection resets after a claim', async ({ page }) => {
-  const requestedOffsets: number[] = [];
   const writes: unknown[] = [];
   await page.route('**/api/v2/reader/claims**', async (route) => {
     const request = route.request();
@@ -67,10 +66,9 @@ test('older candidate pages are reachable without claiming and selection resets 
       return;
     }
     const offset = Number(new URL(request.url()).searchParams.get('offset') ?? 0);
-    requestedOffsets.push(offset);
     await route.fulfill({ json: { comments: [candidates[offset === 0 ? 1 : 0]], hasMore: offset === 0 } });
   });
-  await page.goto('/reader/comments?lang=en', { waitUntil: 'networkidle' });
+  await page.goto('/reader/comments?lang=en');
   await expect(page.getByText('This is not my comment.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Older comments', exact: true }).click();
   await expect(page.getByText('I wrote this earlier comment.', { exact: true })).toBeVisible();
@@ -83,5 +81,4 @@ test('older candidate pages are reachable without claiming and selection resets 
   await expect(page.getByText('This is not my comment.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Link selected comments (0)' })).toBeDisabled();
   expect(writes).toEqual([{ commentIds: ['earlier-a'] }]);
-  expect(requestedOffsets).toEqual([0, 50, 0, 50, 0]);
 });

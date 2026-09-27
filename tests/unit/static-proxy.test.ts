@@ -1,22 +1,10 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
-import { mintStaticProxyUrl, type StaticProxyKeyRing } from '../../src/lib/security/static-proxy-signing';
+import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import { GET, HEAD } from '../../src/pages/static/[...path]';
 
 const originalFetch = globalThis.fetch;
-const originalConsoleInfo = console.info;
-let signatureObservations: unknown[][] = [];
-const signingKeyRing: StaticProxyKeyRing = {
-  current: { id: '2026-07', secret: 'current-secret' },
-};
-
-beforeEach(() => {
-  signatureObservations = [];
-  console.info = (...args: unknown[]) => signatureObservations.push(args);
-});
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
-  console.info = originalConsoleInfo;
 });
 
 describe('static Telegram proxy', () => {
@@ -38,6 +26,7 @@ describe('static Telegram proxy', () => {
 
     expect(response.status).toBe(415);
     expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox");
     expect(await response.text()).toBe('');
   });
 
@@ -137,7 +126,7 @@ describe('static Telegram proxy', () => {
     expect(response.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox");
   });
 
-  test('proxies only bounded YouTube poster paths without a client-side signature', async () => {
+  test('proxies only bounded YouTube poster paths', async () => {
     let fetchedUrl = '';
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       fetchedUrl = String(input);
@@ -152,13 +141,12 @@ describe('static Telegram proxy', () => {
         { headers: { 'CF-Connecting-IP': '192.0.2.31' } },
       ),
       params: { path: 'youtube/aqz-KE-bpKQ/maxresdefault.jpg' },
-      locals: { env: { STATIC_PROXY_MODE: 'enforce' } },
+      locals: {},
     } as never);
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('image/jpeg');
     expect(fetchedUrl).toBe('https://i.ytimg.com/vi/aqz-KE-bpKQ/maxresdefault.jpg');
-    expect(signatureObservations).toEqual([]);
   });
 
   test('resolves and proxies bounded YouTube channel avatars', async () => {
@@ -196,7 +184,7 @@ describe('static Telegram proxy', () => {
         { headers: { 'CF-Connecting-IP': '192.0.2.35' } },
       ),
       params: { path: 'youtube/fiX2TMzF1qk/metadata.json' },
-      locals: { env: { STATIC_PROXY_MODE: 'enforce' } },
+      locals: {},
     } as never);
     const response = await GET({
       request: new Request(
@@ -204,7 +192,7 @@ describe('static Telegram proxy', () => {
         { headers: { 'CF-Connecting-IP': '192.0.2.35' } },
       ),
       params: { path: 'youtube/fiX2TMzF1qk/avatar.jpg' },
-      locals: { env: { STATIC_PROXY_MODE: 'enforce' } },
+      locals: {},
     } as never);
 
     expect(metadataResponse.status).toBe(200);
@@ -220,7 +208,6 @@ describe('static Telegram proxy', () => {
       'https://yt3.googleusercontent.com/channel-avatar=s128-c-k-c0x00ffffff-no-rj',
     ]);
     expect(redirectModes).toEqual(['manual', 'manual', 'manual']);
-    expect(signatureObservations).toEqual([]);
   });
 
   test('rejects malformed YouTube poster paths before the upstream fetch', async () => {
@@ -245,7 +232,7 @@ describe('static Telegram proxy', () => {
           headers: { 'CF-Connecting-IP': '192.0.2.32' },
         }),
         params: { path },
-        locals: { env: { STATIC_PROXY_MODE: 'enforce' } },
+        locals: {},
       } as never);
 
       expect(response.status, path).toBe(400);
@@ -257,7 +244,7 @@ describe('static Telegram proxy', () => {
         { headers: { 'CF-Connecting-IP': '192.0.2.33' } },
       ),
       params: { path: 'youtube/aqz-KE-bpKQ/hqdefault.jpg' },
-      locals: { env: { STATIC_PROXY_MODE: 'enforce' } },
+      locals: {},
     } as never);
 
     const arbitraryTargetResponse = await GET({
@@ -266,7 +253,7 @@ describe('static Telegram proxy', () => {
         { headers: { 'CF-Connecting-IP': '192.0.2.34' } },
       ),
       params: { path: 'https:/i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg' },
-      locals: { env: { STATIC_PROXY_MODE: 'observe' } },
+      locals: {},
     } as never);
 
     expect(queryResponse.status).toBe(400);
@@ -393,131 +380,7 @@ describe('static Telegram proxy', () => {
     }
   });
 
-  test('accepts a valid signed target without forwarding signature fields upstream', async () => {
-    const targetUrl = 'https://cdn4.telegram-cdn.org/image.png?quality=80&format=webp';
-    const proxyPath = mintStaticProxyUrl(targetUrl, signingKeyRing);
-    let fetchedUrl = '';
-    globalThis.fetch = (async (input: RequestInfo | URL) => {
-      fetchedUrl = String(input);
-      return new Response(new Uint8Array([1, 2, 3]), {
-        headers: { 'Content-Type': 'image/png' },
-      });
-    }) as typeof fetch;
-
-    const response = await GET({
-      request: new Request(`https://buxx.me${proxyPath}`, {
-        headers: { 'CF-Connecting-IP': '192.0.2.20' },
-      }),
-      params: { path: new URL(proxyPath, 'https://buxx.me').pathname.slice('/static/'.length) },
-      locals: {
-        env: {
-          STATIC_PROXY_MODE: 'accept-both',
-          STATIC_PROXY_KEY_ID: signingKeyRing.current.id,
-          STATIC_PROXY_SECRET: signingKeyRing.current.secret,
-        },
-      },
-    } as never);
-
-    expect(response.status).toBe(200);
-    expect(fetchedUrl).toBe(targetUrl);
-  });
-
-  test('accept-both mode rejects an explicitly invalid signed request', async () => {
-    const proxyUrl = new URL(
-      mintStaticProxyUrl('https://cdn4.telegram-cdn.org/image.png', signingKeyRing),
-      'https://buxx.me'
-    );
-    const signature = proxyUrl.searchParams.get('s') ?? '';
-    const invalidFirstCharacter = signature.startsWith('A') ? 'B' : 'A';
-    proxyUrl.searchParams.set('s', `${invalidFirstCharacter}${signature.slice(1)}`);
-
-    const response = await GET({
-      request: new Request(proxyUrl, {
-        headers: { 'CF-Connecting-IP': '192.0.2.21' },
-      }),
-      params: { path: proxyUrl.pathname.slice('/static/'.length) },
-      locals: {
-        env: {
-          STATIC_PROXY_MODE: 'accept-both',
-          STATIC_PROXY_KEY_ID: signingKeyRing.current.id,
-          STATIC_PROXY_SECRET: signingKeyRing.current.secret,
-        },
-      },
-    } as never);
-
-    expect(response.status).toBe(403);
-    expect(response.headers.get('cache-control')).toBe('no-store');
-  });
-
-  test('observe mode accepts unsigned legacy targets and records only their route family', async () => {
-    globalThis.fetch = (async () => new Response(new Uint8Array([1, 2, 3]), {
-      headers: { 'Content-Type': 'image/png' },
-    })) as unknown as typeof fetch;
-
-    const response = await GET({
-      request: new Request(
-        'https://buxx.me/static/https:/t.me/private-channel/image.png?width=640',
-        { headers: { 'CF-Connecting-IP': '192.0.2.22' } }
-      ),
-      params: { path: 'https:/t.me/private-channel/image.png' },
-      locals: { env: { STATIC_PROXY_MODE: 'observe' } },
-    } as never);
-
-    expect(response.status).toBe(200);
-    expect(signatureObservations).toEqual([
-      [
-        'Static proxy signature observation',
-        { mode: 'observe', status: 'unsigned', routeFamily: 't.me' },
-      ],
-    ]);
-    expect(JSON.stringify(signatureObservations)).not.toContain('private-channel');
-  });
-
-  test('observe mode accepts invalid signatures without logging target details', async () => {
-    const targetUrl = 'https://cdn4.telegram-cdn.org/private/image.png?token=sensitive';
-    const proxyUrl = new URL(mintStaticProxyUrl(targetUrl, signingKeyRing), 'https://buxx.me');
-    const originalSignature = proxyUrl.searchParams.get('s') ?? '';
-    proxyUrl.searchParams.set('s', `${originalSignature.startsWith('A') ? 'B' : 'A'}${originalSignature.slice(1)}`);
-    let fetchedUrl = '';
-    globalThis.fetch = (async (input: RequestInfo | URL) => {
-      fetchedUrl = String(input);
-      return new Response(new Uint8Array([1, 2, 3]), {
-        headers: { 'Content-Type': 'image/png' },
-      });
-    }) as typeof fetch;
-
-    const response = await GET({
-      request: new Request(proxyUrl, {
-        headers: { 'CF-Connecting-IP': '192.0.2.23' },
-      }),
-      params: { path: proxyUrl.pathname.slice('/static/'.length) },
-      locals: {
-        env: {
-          STATIC_PROXY_MODE: 'observe',
-          STATIC_PROXY_KEY_ID: signingKeyRing.current.id,
-          STATIC_PROXY_SECRET: signingKeyRing.current.secret,
-        },
-      },
-    } as never);
-
-    expect(response.status).toBe(200);
-    expect(fetchedUrl).toBe(targetUrl);
-    expect(signatureObservations).toEqual([
-      [
-        'Static proxy signature observation',
-        {
-          mode: 'observe',
-          status: 'invalid',
-          routeFamily: 'cdn4.telegram-cdn.org',
-          reason: 'signature',
-        },
-      ],
-    ]);
-    expect(JSON.stringify(signatureObservations)).not.toContain('sensitive');
-    expect(JSON.stringify(signatureObservations)).not.toContain(originalSignature);
-  });
-
-  test('preserves signature-like query names on unsigned legacy targets', async () => {
+  test('forwards the request query to the upstream target', async () => {
     let fetchedUrl = '';
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       fetchedUrl = String(input);
@@ -528,155 +391,104 @@ describe('static Telegram proxy', () => {
 
     const response = await GET({
       request: new Request(
-        'https://buxx.me/static/https:/cdn4.telegram-cdn.org/image.png?quality=80&k=target-key&e=1&s=target-signature',
+        'https://buxx.me/static/https:/cdn4.telegram-cdn.org/image.png?quality=80&format=webp',
         { headers: { 'CF-Connecting-IP': '192.0.2.27' } }
       ),
       params: { path: 'https:/cdn4.telegram-cdn.org/image.png' },
-      locals: { env: { STATIC_PROXY_MODE: 'accept-both' } },
+      locals: {},
     } as never);
 
     expect(response.status).toBe(200);
-    expect(fetchedUrl).toBe(
-      'https://cdn4.telegram-cdn.org/image.png?quality=80&k=target-key&e=1&s=target-signature'
-    );
+    expect(fetchedUrl).toBe('https://cdn4.telegram-cdn.org/image.png?quality=80&format=webp');
   });
+});
 
-  test('accept-both mode keeps unsigned legacy targets working', async () => {
-    globalThis.fetch = (async () => new Response(new Uint8Array([1, 2, 3]), {
-      headers: { 'Content-Type': 'image/png' },
-    })) as unknown as typeof fetch;
+describe('static proxy host allowlist', () => {
+  const hdLocals = { env: { PUBLIC_HD_IMAGE_URL: 'https://buxx.me/api/v2/images' } };
 
-    const response = await GET({
-      request: new Request('https://buxx.me/static/https:/cdn4.telegram-cdn.org/image.png', {
-        headers: { 'CF-Connecting-IP': '192.0.2.24' },
+  async function proxy(target: string, ip: string, locals: unknown = hdLocals): Promise<Response> {
+    const path = target.replace('://', ':/');
+    return GET({
+      request: new Request(`https://buxx.me/static/${path}`, {
+        headers: { 'CF-Connecting-IP': ip },
       }),
-      params: { path: 'https:/cdn4.telegram-cdn.org/image.png' },
-      locals: { env: { STATIC_PROXY_MODE: 'accept-both' } },
-    } as never);
-
-    expect(response.status).toBe(200);
-  });
-
-  test('enforce mode accepts valid signatures and rejects unsigned legacy targets', async () => {
-    globalThis.fetch = (async () => new Response(new Uint8Array([1, 2, 3]), {
-      headers: { 'Content-Type': 'image/png' },
-    })) as unknown as typeof fetch;
-    const signedPath = mintStaticProxyUrl(
-      'https://cdn4.telegram-cdn.org/image.png',
-      signingKeyRing
-    );
-    const signedUrl = new URL(signedPath, 'https://buxx.me');
-    const locals = {
-      env: {
-        STATIC_PROXY_MODE: 'enforce',
-        STATIC_PROXY_KEY_ID: signingKeyRing.current.id,
-        STATIC_PROXY_SECRET: signingKeyRing.current.secret,
-      },
-    };
-
-    const signedResponse = await GET({
-      request: new Request(signedUrl, {
-        headers: { 'CF-Connecting-IP': '192.0.2.25' },
-      }),
-      params: { path: signedUrl.pathname.slice('/static/'.length) },
+      params: { path },
       locals,
     } as never);
-    const unsignedResponse = await GET({
-      request: new Request('https://buxx.me/static/https:/cdn4.telegram-cdn.org/image.png', {
-        headers: { 'CF-Connecting-IP': '192.0.2.26' },
-      }),
-      params: { path: 'https:/cdn4.telegram-cdn.org/image.png' },
-      locals,
-    } as never);
+  }
 
-    expect(signedResponse.status).toBe(200);
-    expect(unsignedResponse.status).toBe(403);
-    expect(unsignedResponse.headers.get('cache-control')).toBe('no-store');
+  function recordFetches(response: () => Response): string[] {
+    const fetched: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetched.push(String(input));
+      return response();
+    }) as typeof fetch;
+    return fetched;
+  }
+
+  const image = () => new Response(new Uint8Array([1, 2, 3]), { headers: { 'Content-Type': 'image/png' } });
+
+  test('refuses a host outside the allowlist without fetching it', async () => {
+    const fetched = recordFetches(image);
+
+    const response = await proxy('https://example.com/payload.png', '192.0.2.40');
+
+    expect(response.status).toBe(400);
+    expect(fetched).toEqual([]);
   });
 
-  test('keeps host and content confinement checks on valid signed targets', async () => {
-    const locals = {
-      env: {
-        STATIC_PROXY_MODE: 'enforce',
-        STATIC_PROXY_KEY_ID: signingKeyRing.current.id,
-        STATIC_PROXY_SECRET: signingKeyRing.current.secret,
-      },
-    };
-    const forbiddenPath = mintStaticProxyUrl('https://example.com/payload.png', signingKeyRing);
-    const forbiddenUrl = new URL(forbiddenPath, 'https://buxx.me');
+  test('admits the HD image host exactly but never its sibling subdomains', async () => {
+    const fetched = recordFetches(image);
 
-    const forbiddenResponse = await GET({
-      request: new Request(forbiddenUrl, {
-        headers: { 'CF-Connecting-IP': '192.0.2.28' },
-      }),
-      params: { path: forbiddenUrl.pathname.slice('/static/'.length) },
-      locals,
-    } as never);
-
-    expect(forbiddenResponse.status).toBe(400);
-
-    globalThis.fetch = (async () => new Response('<script>window.pwned = true</script>', {
-      headers: { 'Content-Type': 'text/html' },
-    })) as unknown as typeof fetch;
-    const htmlPath = mintStaticProxyUrl('https://t.me/untrusted-page', signingKeyRing);
-    const htmlUrl = new URL(htmlPath, 'https://buxx.me');
-    const htmlResponse = await GET({
-      request: new Request(htmlUrl, {
-        headers: { 'CF-Connecting-IP': '192.0.2.29' },
-      }),
-      params: { path: htmlUrl.pathname.slice('/static/'.length) },
-      locals,
-    } as never);
-
-    expect(htmlResponse.status).toBe(415);
-    expect(htmlResponse.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox");
+    expect((await proxy('https://buxx.me/api/v2/images/mood/1/0', '192.0.2.41')).status).toBe(200);
+    expect((await proxy('https://admin.buxx.me/payload.png', '192.0.2.41')).status).toBe(400);
+    expect((await proxy('https://api.buxx.me/payload.png', '192.0.2.41')).status).toBe(400);
+    expect(fetched).toEqual(['https://buxx.me/api/v2/images/mood/1/0']);
   });
 
-  test('keeps redirect host validation on valid signed targets', async () => {
+  test('keeps the legacy image host and Telegram CDN subdomains reachable', async () => {
+    const fetched = recordFetches(image);
+
+    expect((await proxy('https://image.buxx.me/mood/3092/0', '192.0.2.42', {})).status).toBe(200);
+    expect((await proxy('https://cdn5.telesco.pe/file/photo.jpg', '192.0.2.42', {})).status).toBe(200);
+    expect(fetched).toEqual([
+      'https://image.buxx.me/mood/3092/0',
+      'https://cdn5.telesco.pe/file/photo.jpg',
+    ]);
+  });
+
+  test('HEAD refuses a host outside the allowlist without a body or a fetch', async () => {
+    const fetched = recordFetches(image);
+
+    const response = await HEAD({
+      request: new Request('https://buxx.me/static/https:/example.com/payload.png', {
+        method: 'HEAD',
+        headers: { 'CF-Connecting-IP': '192.0.2.44' },
+      }),
+      params: { path: 'https:/example.com/payload.png' },
+      locals: hdLocals,
+    } as never);
+
+    expect(response.status).toBe(400);
+    expect(await response.text()).toBe('');
+    expect(fetched).toEqual([]);
+  });
+
+  test('re-validates every redirect hop against the allowlist', async () => {
     const consoleError = spyOn(console, 'error').mockImplementation(() => {});
-    globalThis.fetch = (async () => new Response(null, {
+    const fetched = recordFetches(() => new Response(null, {
       status: 302,
       headers: { Location: 'https://example.com/payload.png' },
-    })) as unknown as typeof fetch;
-    const proxyPath = mintStaticProxyUrl(
-      'https://cdn4.telegram-cdn.org/redirect.png',
-      signingKeyRing
-    );
-    const proxyUrl = new URL(proxyPath, 'https://buxx.me');
+    }));
 
     try {
-      const response = await GET({
-        request: new Request(proxyUrl, {
-          headers: { 'CF-Connecting-IP': '192.0.2.30' },
-        }),
-        params: { path: proxyUrl.pathname.slice('/static/'.length) },
-        locals: {
-          env: {
-            STATIC_PROXY_MODE: 'enforce',
-            STATIC_PROXY_KEY_ID: signingKeyRing.current.id,
-            STATIC_PROXY_SECRET: signingKeyRing.current.secret,
-          },
-        },
-      } as never);
+      const response = await proxy('https://cdn4.telegram-cdn.org/redirect.png', '192.0.2.43');
 
       expect(response.status).toBe(502);
       expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(fetched).toEqual(['https://cdn4.telegram-cdn.org/redirect.png']);
     } finally {
       consoleError.mockRestore();
     }
-  });
-
-  test('applies enforce mode to HEAD requests without returning a rejection body', async () => {
-    const response = await HEAD({
-      request: new Request('https://buxx.me/static/https:/cdn4.telegram-cdn.org/image.png', {
-        method: 'HEAD',
-        headers: { 'CF-Connecting-IP': '192.0.2.31' },
-      }),
-      params: { path: 'https:/cdn4.telegram-cdn.org/image.png' },
-      locals: { env: { STATIC_PROXY_MODE: 'enforce' } },
-    } as never);
-
-    expect(response.status).toBe(403);
-    expect(await response.text()).toBe('');
   });
 });

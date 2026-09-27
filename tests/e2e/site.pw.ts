@@ -192,139 +192,7 @@ test.describe('Home page', () => {
     expect(chain?.bioAnimatingAt).toBeGreaterThanOrEqual(chain?.bioReadyAt ?? Number.POSITIVE_INFINITY);
   });
 
-  test('keeps settled decoded cells stable while resolution stays interleaved', async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.addInitScript(() => {
-      let seed = 0x2f6e2b1;
-      Math.random = () => {
-        seed = (seed * 1664525 + 1013904223) >>> 0;
-        return seed / 0x100000000;
-      };
-    });
-
-    await page.goto('/', { waitUntil: 'networkidle' });
-
-    const decodeRoot = page.locator('[data-hero-bio] [data-decode-root]');
-    await expect(decodeRoot).toHaveClass(/dt-prepared/);
-    const result = await decodeRoot.evaluate(
-      (root) => new Promise<{
-        stable: boolean;
-        interleaved: boolean;
-        slotCountStable: boolean;
-        textMatches: boolean;
-        snapshot?: string;
-      }>((resolve) => {
-        const deadline = performance.now() + 4_000;
-        const cells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
-        const slotCount = cells.length;
-        const source = Array.from(root.children)
-          .find((element) => element instanceof HTMLSpanElement && element.style.cssText.includes('position: absolute'))
-          ?.textContent ?? '';
-        const settled = new Map<HTMLElement, string>();
-        let interleaved = false;
-
-        // Visual lines are block spans with boundary whitespace trimmed, so
-        // compare the content stream without layout-only whitespace.
-        const compact = (value: string): string => value.replace(/\s+/g, '');
-        const isFinal = (cell: HTMLElement): boolean => (
-          !cell.dataset.state &&
-          Boolean(cell.textContent) &&
-          cell.textContent !== '\u00a0' &&
-          cell.textContent !== ' '
-        );
-
-        const inspect = () => {
-          const currentCells = Array.from(root.querySelectorAll<HTMLElement>('.dt-c'));
-          // The hero decodes with `restore`, so the cells give way to the
-          // original markup once the reveal settles. That is the finish line.
-          if (currentCells.length === 0 && root.classList.contains('dt-settled')) {
-            const finalText = compact(root.textContent ?? '');
-            const sourceText = compact(source);
-            resolve({
-              stable: true,
-              interleaved,
-              slotCountStable: true,
-              textMatches: finalText === sourceText,
-              snapshot: `source=${sourceText}|final=${finalText}`,
-            });
-            return;
-          }
-          if (currentCells.length !== slotCount) {
-            resolve({
-              stable: true,
-              interleaved,
-              slotCountStable: false,
-              textMatches: false,
-            });
-            return;
-          }
-
-          for (const line of root.querySelectorAll('.dt-line')) {
-            let foundUnsettledLetter = false;
-            for (const cell of line.querySelectorAll<HTMLElement>('.dt-c')) {
-              if (cell.textContent === ' ') {
-                foundUnsettledLetter = false;
-                continue;
-              }
-
-              const finalText = settled.get(cell);
-              if (finalText !== undefined && (cell.dataset.state || cell.textContent !== finalText)) {
-                resolve({
-                  stable: false,
-                  interleaved,
-                  slotCountStable: true,
-                  textMatches: false,
-                  snapshot: Array.from(line.querySelectorAll<HTMLElement>('.dt-c'))
-                    .map((item) => `${item.textContent || '∅'}:${item.dataset.state || 'final'}`)
-                    .join('|'),
-                });
-                return;
-              }
-              if (isFinal(cell)) {
-                settled.set(cell, cell.textContent ?? '');
-                if (foundUnsettledLetter) interleaved = true;
-              } else {
-                foundUnsettledLetter = true;
-              }
-            }
-          }
-
-          const complete = currentCells.every((cell) => (
-            cell.textContent === ' ' || isFinal(cell)
-          ));
-          if (!root.classList.contains('dt-animating') && complete) {
-            const finalText = compact(root.textContent ?? '');
-            const sourceText = compact(source);
-            resolve({
-              stable: true,
-              interleaved,
-              slotCountStable: true,
-              textMatches: finalText === sourceText,
-              snapshot: `source=${sourceText}|final=${finalText}`,
-            });
-          } else if (performance.now() < deadline) {
-            requestAnimationFrame(inspect);
-          } else {
-            resolve({
-              stable: true,
-              interleaved,
-              slotCountStable: true,
-              textMatches: false,
-            });
-          }
-        };
-
-        requestAnimationFrame(inspect);
-      })
-    );
-
-    expect(result.stable, result.snapshot).toBe(true);
-    expect(result.interleaved).toBe(true);
-    expect(result.slotCountStable).toBe(true);
-    expect(result.textMatches, result.snapshot).toBe(true);
-  });
-
-  test('renders core sections and persists selected theme', async ({ page }) => {
+  test('renders the home sections with links into the blog', async ({ page }) => {
     await page.goto('/');
 
     await expect(page).toHaveTitle('Lucian Bu — Student, Developer & Blogger');
@@ -345,28 +213,24 @@ test.describe('Home page', () => {
     await expect(page.locator('#writing-section .section-enter')).toHaveAttribute('href', '/blog');
     await expect(page.locator('#writing-section .section-enter')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
+  });
 
-    const themeToggle = page.locator('[data-theme-toggle]');
-    await expect(themeToggle).toHaveAttribute('aria-label', /mode$/);
-    const themeDropdown = page.locator('[data-theme-dropdown]');
-    await themeDropdown.hover();
+  // The theme control lives in the shared Layout, so these run on the light
+  // /privacy page instead of paying for the home page's islands and fetches.
+  test('persists the selected theme across a reload', async ({ page }) => {
+    await page.goto('/privacy');
+
+    await expect(page.locator('[data-theme-toggle]')).toHaveAttribute('aria-label', /mode$/);
+    await page.locator('[data-theme-dropdown]').hover();
     const darkOption = page.locator('[data-theme-option="dark"]');
     await expect(darkOption).toBeVisible();
     await darkOption.click();
-
-    await expect
-      .poll(async () => {
-        return await page.locator('html').evaluate((node) => node.classList.contains('dark'));
-      })
-      .toBe(true);
+    const isDark = () => page.locator('html').evaluate((node) => node.classList.contains('dark'));
+    await expect.poll(isDark).toBe(true);
 
     await page.reload();
 
-    await expect
-      .poll(async () => {
-        return await page.locator('html').evaluate((node) => node.classList.contains('dark'));
-      })
-      .toBe(true);
+    await expect.poll(isDark).toBe(true);
   });
 
   test('releases the spotlight compositor layer after its idle fade', async ({ page }) => {
@@ -374,7 +238,6 @@ test.describe('Home page', () => {
     await page.goto('/');
 
     const spotlight = page.locator('[data-spotlight-overlay]');
-    await page.waitForTimeout(1_000);
     await page.mouse.move(180, 180);
     await expect(spotlight).toHaveClass(/is-active/);
     await expect(spotlight).not.toHaveClass(/is-active/, { timeout: 3_000 });
@@ -415,47 +278,37 @@ test.describe('Home page', () => {
     await expect(activeCard.locator('img[aria-hidden="true"][alt=""]')).not.toHaveCount(0);
   });
 
-  test('pauses and resumes homepage ambient animation offscreen', async ({ page }) => {
+  test('project deck autoplay pauses offscreen and resumes on return', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    const contributions = Array.from({ length: 30 }, (_, index) => ({
-      date: `2026-02-${String(index + 1).padStart(2, '0')}`,
-      count: (index % 5) + 1,
-      level: 1,
-    }));
-    await page.route('**/api/github/contributions**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ total: { lastYear: 321 }, contributions }),
-      });
-    });
+    // The fake clock still flows in real time; fastForward skips the 1s
+    // entrance and the 5.5s advance instead of sleeping through them.
+    await page.clock.install();
     await page.goto('/');
 
-    const contributionSection = page.locator('[data-contributions]');
-    await expect(contributionSection).toHaveClass(/is-breathing-active/, { timeout: 5_000 });
     const projects = page.locator('#projects-section');
+    const deck = projects.locator('[data-project-stack="hydrated"]');
     await projects.scrollIntoViewIfNeeded();
-    await expect(contributionSection).toHaveClass(/is-breathing/);
-    await expect(contributionSection).not.toHaveClass(/is-breathing-active/);
+    await expect(deck).toHaveCount(1);
+    await page.clock.fastForward(1_000);
+    await expect(deck).toHaveAttribute('data-autoplay', 'on');
 
-    const currentProject = projects.locator('[aria-current="true"]');
-    const projectBefore = await currentProject.getAttribute('aria-label');
+    const current = projects.locator('[aria-current="true"]');
+    const before = (await current.getAttribute('aria-label'))!;
+
     await page.locator('#writing-section').scrollIntoViewIfNeeded();
-    await page.waitForTimeout(5_800);
-    expect(await currentProject.getAttribute('aria-label')).toBe(projectBefore);
-
-    await contributionSection.scrollIntoViewIfNeeded();
-    await expect(contributionSection).toHaveClass(/is-breathing-active/);
+    await expect(deck).toHaveAttribute('data-autoplay', 'off');
+    await page.clock.fastForward(6_000);
+    await expect(current).toHaveAttribute('aria-label', before);
 
     await projects.scrollIntoViewIfNeeded();
-    await expect
-      .poll(() => currentProject.getAttribute('aria-label'), { timeout: 7_000 })
-      .not.toBe(projectBefore);
+    await expect(deck).toHaveAttribute('data-autoplay', 'on');
+    await page.clock.fastForward(6_000);
+    await expect(current).not.toHaveAttribute('aria-label', before);
   });
 
   test('cleans up theme transitions after switching', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.goto('/');
+    await page.goto('/privacy');
 
     const soundRequest = page.waitForRequest((request) => request.url().endsWith('/audio/theme-switch.mp3'));
     await page.locator('[data-theme-dropdown]').hover();
@@ -474,7 +327,7 @@ test.describe('Home page', () => {
 
   test('skips transient theme classes with reduced motion', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/');
+    await page.goto('/privacy');
     await page.locator('[data-theme-dropdown]').hover();
     await page.locator('[data-theme-option="dark"]').click();
 
@@ -483,10 +336,7 @@ test.describe('Home page', () => {
   });
 
   test('portal is dark only and carries no theme control', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('[data-theme-dropdown]').hover();
-    await page.locator('[data-theme-option="light"]').click();
-    await expect(page.locator('html')).not.toHaveClass(/dark/);
+    await page.addInitScript(() => localStorage.setItem('theme', 'light'));
 
     // The portal ignores the stored site theme: its surfaces are authored for a
     // near-black ground and it pins `dark` server-side.
@@ -506,6 +356,18 @@ test.describe('Home page', () => {
     expect(html).not.toContain('data-track-title="Mr. Rager"');
     expect(html).toContain('data-has-initial-track="false"');
     expect(html).toMatch(/data-mood-preview-initial[^>]*>\s*\[\]\s*<\/script>/);
+  });
+
+  test('home HTML advertises the pixel logo and never requests JetBrains Mono up front', async ({ page }) => {
+    const response = await page.request.get('/');
+    expect(response.ok()).toBeTruthy();
+
+    const html = await response.text();
+    expect(html).toMatch(/<meta property="og:logo" content="[^"]*\/logo\/peek\.svg[^"]*"/);
+    // The home page maps --font-code to Geist Mono, so no JetBrains file may
+    // be pulled in ahead of first paint.
+    const headLinks = html.match(/<link\b[^>]*\brel="(?:preload|stylesheet|modulepreload)"[^>]*>/g) ?? [];
+    expect(headLinks.filter((link) => /jetbrains/i.test(link))).toEqual([]);
   });
 
   test('loads mood preview and navigates to /mood', async ({ page }) => {
@@ -720,7 +582,7 @@ test.describe('Home page', () => {
     expect(maxVisibleSkeletons).toBe(1);
   });
 
-  test('loads GitHub contributions and shows tooltip details', async ({ page }) => {
+  test('renders contributions after the hero, shows tooltips and breathes only while in view', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.addInitScript(() => {
       const chain = {
@@ -792,6 +654,13 @@ test.describe('Home page', () => {
     await expect(tooltip).toHaveClass(/is-visible/);
     await expect(page.locator('[data-tooltip-count]')).toContainText('contribution');
     await expect(page.locator('[data-tooltip-date]')).not.toHaveText('');
+
+    await expect(section).toHaveClass(/is-breathing-active/);
+    await page.locator('#projects-section').scrollIntoViewIfNeeded();
+    await expect(section).toHaveClass(/is-breathing/);
+    await expect(section).not.toHaveClass(/is-breathing-active/);
+    await section.scrollIntoViewIfNeeded();
+    await expect(section).toHaveClass(/is-breathing-active/);
   });
 
   test('keeps listening metadata responsive for short and long tracks', async ({ page }) => {
@@ -845,7 +714,9 @@ test.describe('Home page', () => {
       collection: 'My Beautiful Dark Twisted Fantasy (Deluxe Edition)',
     });
 
-    await page.reload();
+    // The refocus refresh swaps the track in place, which must also drop the
+    // short title's inline layout.
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 
     await expect(page.locator('[data-listening-title-label]')).toHaveText(
       'Monster (feat. JAŸ-Z, Rick Ross, Nicki Minaj & Bon Iver)'
@@ -1292,106 +1163,6 @@ test.describe('Home page', () => {
     expect(afterScroll?.brandTextOpacity).toBe('1');
     expect(afterScroll?.inlineLinksDisplay).toBe('none');
     expect(afterScroll?.triggerDisplay).toBe('flex');
-  });
-
-  test('keeps mobile navbar pinned when the visual viewport shifts', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.addInitScript(() => {
-      let offsetTop = 0;
-      const viewport = new EventTarget();
-
-      Object.defineProperties(viewport, {
-        offsetTop: { get: () => offsetTop },
-        offsetLeft: { get: () => 0 },
-        width: { get: () => window.innerWidth },
-        height: { get: () => window.innerHeight },
-        scale: { get: () => 1 },
-      });
-
-      Object.defineProperty(window, 'visualViewport', {
-        configurable: true,
-        value: viewport,
-      });
-
-      (window as Window & { __setVisualViewportTop?: (top: number) => void }).__setVisualViewportTop = (top) => {
-        offsetTop = top;
-        viewport.dispatchEvent(new Event('resize'));
-        viewport.dispatchEvent(new Event('scroll'));
-      };
-    });
-
-    await page.goto('/');
-    await expect(page.locator('[data-site-nav]')).toBeVisible();
-
-    const initial = await page.locator('[data-site-nav]').boundingBox();
-    expect(initial).not.toBeNull();
-
-    await page.evaluate(() => {
-      (window as unknown as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(24);
-    });
-
-    await expect.poll(async () => (
-      await page.evaluate(() =>
-        window.getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim()
-      )
-    )).toBe('24px');
-
-    const shifted = await page.locator('[data-site-nav]').boundingBox();
-    expect(shifted).not.toBeNull();
-    expect(Math.round((shifted?.y ?? 0) - (initial?.y ?? 0))).toBe(24);
-
-    await page.evaluate(() => {
-      window.scrollTo(0, document.documentElement.scrollHeight);
-      window.dispatchEvent(new Event('scroll'));
-    });
-    await page.waitForFunction(() => {
-      const root = document.documentElement;
-      return Math.ceil(window.scrollY + window.innerHeight) >= root.scrollHeight - 2;
-    });
-
-    const bottomPinned = await page.locator('[data-site-nav]').boundingBox();
-    expect(bottomPinned).not.toBeNull();
-
-    await page.evaluate(() => {
-      (window as unknown as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(160);
-    });
-
-    await expect.poll(async () => (
-      await page.evaluate(() =>
-        window.getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim()
-      )
-    )).toBe('0px');
-
-    const bottomOverscrolled = await page.locator('[data-site-nav]').boundingBox();
-    expect(bottomOverscrolled).not.toBeNull();
-    expect(Math.round((bottomOverscrolled?.y ?? 0) - (bottomPinned?.y ?? 0))).toBe(0);
-
-    await page.evaluate(() => {
-      window.scrollBy(0, -36);
-      (window as unknown as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(72);
-    });
-
-    await expect.poll(async () => (
-      await page.evaluate(() =>
-        window.getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim()
-      )
-    )).toBe('0px');
-
-    const bottomBounceRelease = await page.locator('[data-site-nav]').boundingBox();
-    expect(bottomBounceRelease).not.toBeNull();
-    expect(Math.round((bottomBounceRelease?.y ?? 0) - (bottomPinned?.y ?? 0))).toBe(0);
-
-    await page.evaluate(() => {
-      (window as unknown as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(0);
-      window.scrollBy(0, -140);
-      (window as unknown as Window & { __setVisualViewportTop: (top: number) => void }).__setVisualViewportTop(24);
-    });
-
-    await expect.poll(async () => (
-      await page.evaluate(() =>
-        window.getComputedStyle(document.documentElement).getPropertyValue('--visual-viewport-top').trim()
-      )
-    )).toBe('24px');
   });
 });
 

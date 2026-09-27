@@ -1,37 +1,9 @@
 import type {
   AuthorData,
-  PageRecord,
   PostRecord,
-  SiteData,
   TagData,
-  TierData,
 } from '../types/index';
-
-const MOCK_SITE_URL = 'http://127.0.0.1:4321';
-
-export const mockSite: SiteData = {
-  title: 'Attegi Astro',
-  description: 'A headless Astro port of the Attegi Ghost theme, verified locally with mock content.',
-  url: MOCK_SITE_URL,
-  locale: 'en',
-  logo: '/mock/logo.svg',
-  icon: '/mock/icon.svg',
-  coverImage: '/mock/home-cover.svg',
-  accentColor: '#5EEAD4',
-  metaTitle: 'Attegi Astro',
-  metaDescription: 'Ghost content rendered directly in Astro with the original interaction layer intact.',
-  twitter: null,
-  facebook: null,
-  navigation: [
-    { label: 'Home', url: '/' },
-    { label: 'About', url: '/about/' },
-    { label: 'Links', url: '/links/' },
-    { label: 'Topics', url: '/tags/' },
-  ],
-  secondaryNavigation: [],
-  codeInjectionHead: null,
-  codeInjectionFoot: null,
-};
+import { readingTimeFromText, stripHtml } from '../reading-time';
 
 export const mockAuthors: AuthorData[] = [
   {
@@ -170,37 +142,6 @@ export const mockTags: TagData[] = [
   },
 ];
 
-export const mockTiers: TierData[] = [
-  {
-    id: 'tier-free',
-    slug: 'free',
-    name: 'Free',
-    description: 'Occasional essays, links, and public notes.',
-    active: true,
-    type: 'free',
-    welcomePageUrl: null,
-    monthlyPrice: null,
-    yearlyPrice: null,
-    currency: null,
-    benefits: ['Public posts', 'Search access'],
-    visibility: 'public',
-  },
-  {
-    id: 'tier-supporter',
-    slug: 'supporter',
-    name: 'Supporter',
-    description: 'A placeholder paid tier for headless member flows.',
-    active: true,
-    type: 'paid',
-    welcomePageUrl: null,
-    monthlyPrice: 500,
-    yearlyPrice: 5000,
-    currency: 'usd',
-    benefits: ['Everything in Free', 'Support the blog'],
-    visibility: 'public',
-  },
-];
-
 const demoCommentsHtml = `
 <div class="mock-comments-list">
   <article class="mock-comment">
@@ -335,68 +276,6 @@ you: ship it</code></pre>
 <p>[!authors ai="anthropic/claude-opus-4-6" note="translated it from Chinese"]</p>
 `.trim();
 
-const aboutPageHtml = `
-<p>About pages keep the standard page shell, Ghost HTML rendering, and the lighter page-specific runtime.</p>
-<figure class="kg-card kg-code-card">
-  <pre><code class="language-js">export const stance = 'preserve the contract first';</code></pre>
-</figure>
-<figure class="kg-card kg-embed-card">
-  <iframe width="560" height="315" src="https://www.youtube.com/embed/kPa7bsKwL-c" title="Astro intro" allowfullscreen loading="lazy"></iframe>
-</figure>
-`.trim();
-
-const linksPageHtml = `
-<figure class="kg-card kg-bookmark-card">
-  <a class="kg-bookmark-container" href="https://astro.build" target="_blank" rel="noopener noreferrer">
-    <div class="kg-bookmark-content">
-      <div class="kg-bookmark-title">Astro</div>
-      <div class="kg-bookmark-description">Content-focused frontend framework with an extremely healthy hatred of unnecessary JavaScript.</div>
-      <div class="kg-bookmark-metadata">
-        <img class="kg-bookmark-icon" src="/mock/icon.svg" alt="" />
-        <span class="kg-bookmark-author">Astro</span>
-        <span class="kg-bookmark-publisher">astro.build</span>
-      </div>
-    </div>
-    <div class="kg-bookmark-thumbnail">
-      <img src="/mock/gallery-aurora.svg" alt="Astro preview" loading="lazy" />
-    </div>
-  </a>
-</figure>
-<div class="link-card">
-  <a href="https://ghost.org/docs/content-api/" class="link-card-container" target="_blank" rel="noopener noreferrer">
-    <div class="link-card-content">
-      <div class="link-card-title">Ghost Content API</div>
-      <div class="link-card-description">The data source. No guessing, no scraping, no handcrafted markdown transforms.</div>
-      <div class="link-card-meta">
-        <img class="link-card-icon" src="/mock/icon.svg" alt="" />
-        <span class="link-card-author">Ghost</span>
-      </div>
-    </div>
-    <div class="link-card-image">
-      <img src="/mock/tag-systems.svg" alt="Ghost docs" loading="lazy" />
-    </div>
-  </a>
-</div>
-`.trim();
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-// CJK scripts have no inter-word spaces, so whitespace splitting collapses a
-// whole Chinese article to a handful of "words" and pins it at "1 min read".
-// Count CJK characters directly (~350/min) and the remaining Latin runs by
-// whitespace word (~220/min), then sum the two estimates.
-const CJK_RE = /[㐀-鿿豈-﫿぀-ヿ가-힯]/g;
-
-function readingTimeFromText(text: string): string {
-  const cjkChars = (text.match(CJK_RE) || []).length;
-  const words = text.replace(CJK_RE, ' ').split(/\s+/).filter(Boolean).length;
-  const minutes = Math.max(1, Math.round(cjkChars / 350 + words / 220));
-
-  return minutes === 1 ? '1 min read' : `${minutes} min read`;
-}
-
 function createPost(
   input: Omit<
     PostRecord,
@@ -428,26 +307,6 @@ function createPost(
     readingTime: readingTimeFromText(plaintext),
     commentsEnabled: input.commentsEnabled ?? false,
     commentsHtml: input.commentsHtml ?? null,
-  };
-}
-
-function createPage(
-  input: Omit<
-    PageRecord,
-    'type' | 'plaintext' | 'readingTime' | 'visibility' | 'access' | 'commentId'
-  > &
-    Partial<Pick<PageRecord, 'visibility' | 'access' | 'commentId'>>,
-): PageRecord {
-  const plaintext = stripHtml(input.html);
-
-  return {
-    ...input,
-    type: 'page',
-    visibility: input.visibility ?? 'public',
-    access: input.access ?? true,
-    commentId: input.commentId ?? null,
-    plaintext,
-    readingTime: readingTimeFromText(plaintext),
   };
 }
 
@@ -701,71 +560,5 @@ export const mockPosts: PostRecord[] = [
     tagSlugs: ['craft'],
     commentsEnabled: false,
     commentsHtml: null,
-  }),
-];
-
-export const mockPages: PageRecord[] = [
-  createPage({
-    id: 'page-about',
-    slug: 'about',
-    title: 'About this migration',
-    url: '/about/',
-    html: aboutPageHtml,
-    excerpt: 'A plain page template with embeds and code highlight.',
-    customExcerpt: 'The project structure, the rules, and the reason the migration stays boring.',
-    featureImage: '/mock/page-cover.svg',
-    featureImageAlt: 'Page cover',
-    featureImageCaption: null,
-    publishedAt: '2026-04-09T09:00:00.000Z',
-    updatedAt: '2026-04-09T09:00:00.000Z',
-    featured: false,
-    primaryAuthorSlug: 'iris-zhang',
-    primaryTagSlug: null,
-    authorSlugs: ['iris-zhang'],
-    tagSlugs: [],
-    template: 'default',
-    showTitleAndFeatureImage: true,
-  }),
-  createPage({
-    id: 'page-links',
-    slug: 'links',
-    title: 'Links',
-    url: '/links/',
-    html: linksPageHtml,
-    excerpt: 'A dedicated links page styled around bookmark cards and custom link cards.',
-    customExcerpt: 'A small set of references worth keeping around.',
-    featureImage: null,
-    featureImageAlt: null,
-    featureImageCaption: null,
-    publishedAt: '2026-04-09T09:10:00.000Z',
-    updatedAt: '2026-04-09T09:10:00.000Z',
-    featured: false,
-    primaryAuthorSlug: 'sam-lin',
-    primaryTagSlug: null,
-    authorSlugs: ['sam-lin'],
-    tagSlugs: [],
-    template: 'links',
-    showTitleAndFeatureImage: false,
-  }),
-  createPage({
-    id: 'page-tags',
-    slug: 'tags',
-    title: 'Topics',
-    url: '/tags/',
-    html: '',
-    excerpt: 'A dedicated tag directory page with icons, accent colors, and post previews.',
-    customExcerpt: null,
-    featureImage: null,
-    featureImageAlt: null,
-    featureImageCaption: null,
-    publishedAt: '2026-04-09T09:15:00.000Z',
-    updatedAt: '2026-04-09T09:15:00.000Z',
-    featured: false,
-    primaryAuthorSlug: 'iris-zhang',
-    primaryTagSlug: null,
-    authorSlugs: ['iris-zhang'],
-    tagSlugs: [],
-    template: 'tags',
-    showTitleAndFeatureImage: false,
   }),
 ];

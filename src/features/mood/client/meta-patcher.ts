@@ -21,6 +21,9 @@ const MAX_VISIBLE_IDS = 30;
 // changes offscreen (out of CLS) by the time the reader scrolls to them;
 // 320px left the patch racing the scroll and shifting visible items.
 const VIEWPORT_MARGIN_PX = 1200;
+// A failed batch waits this long before its ids are requested again, so a
+// failing endpoint is not hit on every intersection while the reader scrolls.
+const FAILED_RETRY_DELAY_MS = 30_000;
 const LIVE_COUNTS_ENDPOINT = '/api/v2/moods/live-counts';
 
 export function getMoodReactionKey(reaction: Pick<MoodReaction, 'emoji' | 'emojiId' | 'emojiImage' | 'isPaid'>): string {
@@ -40,7 +43,7 @@ function isInViewport(element: Element): boolean {
   return rect.bottom >= -VIEWPORT_MARGIN_PX && rect.top <= window.innerHeight + VIEWPORT_MARGIN_PX;
 }
 
-function collectVisibleMoodIds(root: ParentNode, excluded: ReadonlySet<string>): string[] {
+function collectVisibleMoodIds(root: ParentNode, isSkipped: (id: string) => boolean): string[] {
   // Near-viewport posts first so they always fit the batch cap; the rest of
   // the rendered feed fills the remainder. Patching posts while they are
   // still offscreen keeps count-driven height changes out of CLS.
@@ -50,7 +53,7 @@ function collectVisibleMoodIds(root: ParentNode, excluded: ReadonlySet<string>):
 
   root.querySelectorAll<HTMLElement>('[data-mood-id]').forEach((element) => {
     const id = element.dataset.moodId?.trim() ?? '';
-    if (!id || seen.has(id) || excluded.has(id)) return;
+    if (!id || seen.has(id) || isSkipped(id)) return;
 
     seen.add(id);
     (isInViewport(element) ? nearIds : farIds).push(id);
@@ -210,7 +213,10 @@ export function createMoodMetaPatcher({
   fetchCounts = fetchLiveCounts,
 }: MoodMetaPatcherOptions = {}): MoodMetaPatcher {
   const enabled = isArchiveSource(readSource);
-  const attemptedIds = new Set<string>();
+  // id -> time until which it is not requested again. Patched and in-flight
+  // ids never expire; a failed id expires after FAILED_RETRY_DELAY_MS.
+  const skipUntil = new Map<string, number>();
+  const isSkipped = (id: string): boolean => (skipUntil.get(id) ?? 0) > Date.now();
   const observed = new WeakSet<Element>();
   let pending: Promise<void> | null = null;
   let rerunWhenIdle = false;
@@ -224,28 +230,32 @@ export function createMoodMetaPatcher({
     // Marking them only on success let every caller queued behind a slow
     // request wake up, see the same unpatched ids, and fire its own copy.
     const ids = [...new Set(requestedIds.map((id) => id.trim()).filter(Boolean))]
-      .filter((id) => !attemptedIds.has(id))
+      .filter((id) => !isSkipped(id))
       .slice(0, MAX_VISIBLE_IDS);
     if (!ids.length) return;
-    ids.forEach((id) => attemptedIds.add(id));
+    ids.forEach((id) => skipUntil.set(id, Infinity));
 
-    pending = fetchCounts(ids)
+    const request: Promise<void> = fetchCounts(ids)
       .then((counts) => {
         Object.entries(counts).forEach(([id, count]) => patchMoodTarget(root, id, count));
       })
       .catch(() => {
-        // A failed batch stays retryable.
-        ids.forEach((id) => attemptedIds.delete(id));
+        // A failed batch becomes retryable after a delay, not immediately.
+        const retryAt = Date.now() + FAILED_RETRY_DELAY_MS;
+        ids.forEach((id) => skipUntil.set(id, retryAt));
       })
       .finally(() => {
-        pending = null;
+        // Two queued callers can each start a batch; only the latest one
+        // may clear the shared slot.
+        if (pending === request) pending = null;
         if (rerunWhenIdle) {
           rerunWhenIdle = false;
           void patchVisible();
         }
       });
+    pending = request;
 
-    await pending;
+    await request;
   };
 
   const observePosts = (): void => {
@@ -272,7 +282,7 @@ export function createMoodMetaPatcher({
     }
 
     observePosts();
-    const ids = collectVisibleMoodIds(root, attemptedIds);
+    const ids = collectVisibleMoodIds(root, isSkipped);
     await patch(ids);
   };
 

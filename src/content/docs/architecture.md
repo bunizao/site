@@ -222,7 +222,6 @@ Accessed via `import.meta.env.*`:
 | `MOOD_READ_SOURCE` | No | `archive` (default base render) or `live` (immediate rollback). `?source=live\|archive` overrides one request without caching it. |
 | `CHANNEL` | No | Telegram public channel slug used for media-group indexing. |
 | `TELEGRAM_HOST` | No | Telegram public host for embed lookups. Defaults to `t.me`. |
-| `LASTFM_API_KEY`, `LASTFM_USER` | No | Last.fm recent tracks for the home listening widget. |
 | `PUBLIC_SITE_URL`, `SITE_URL` | Yes | Canonical base URLs for email links, previews, and health checks. |
 
 Cloudflare Worker bindings and non-secret vars are defined in

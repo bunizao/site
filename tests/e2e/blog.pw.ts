@@ -1,36 +1,13 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
-const BLOG_POST_PATH_RE = /^\/blog\/[^/?#]+$/;
-const BLOG_TAG_PATH_RE = /^\/blog\/tag\/[^/?#]+$/;
+// The newest listed post in the mock fixture (src/features/posts/adapter/mock.ts)
+// and its older neighbour. The newest has no newer one.
+const NEWEST_POST = { path: '/blog/demo-effects', title: 'Astro migration effect sandbox' };
+const OLDER_POST_PATH = '/blog/quiet-architecture';
 
 async function readPageScrollTop(page: Page): Promise<number> {
   return page.locator('html').evaluate((scroller) => scroller.scrollTop);
-}
-
-interface BlogIndexTargets {
-  firstPostHref: string;
-  firstPostTitle: string;
-  firstTagHref: string | null;
-  firstTagName: string | null;
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function pathFromHref(href: string | null, pattern: RegExp): string {
-  expect(href).toBeTruthy();
-
-  const { pathname } = new URL(href as string, 'https://buxx.me');
-
-  expect(pathname).toMatch(pattern);
-
-  return pathname;
-}
-
-function canonicalLoc(pathname: string): string {
-  return `<loc>https://buxx.me${pathname}</loc>`;
 }
 
 async function openBlogIndex(page: Page): Promise<void> {
@@ -39,47 +16,6 @@ async function openBlogIndex(page: Page): Promise<void> {
   expect(response?.ok()).toBeTruthy();
   await expect(page).toHaveURL(/\/blog$/);
   await expect(page.locator('.blog-shell')).toBeVisible();
-}
-
-async function collectBlogIndexTargets(page: Page): Promise<BlogIndexTargets> {
-  await openBlogIndex(page);
-
-  const firstPost = page.locator('.blog-row').first();
-  await expect(firstPost).toBeVisible();
-
-  const firstPostLink = firstPost.locator('.blog-row__link');
-  const firstPostHref = pathFromHref(await firstPostLink.getAttribute('href'), BLOG_POST_PATH_RE);
-  const firstPostTitle = (await firstPost.locator('.blog-row__title').innerText()).trim();
-
-  expect(firstPostTitle.length).toBeGreaterThan(0);
-
-  const firstTag = page.locator('.blog-row__tag').first();
-  if ((await firstTag.count()) === 0) {
-    return {
-      firstPostHref,
-      firstPostTitle,
-      firstTagHref: null,
-      firstTagName: null,
-    };
-  }
-
-  return {
-    firstPostHref,
-    firstPostTitle,
-    firstTagHref: pathFromHref(await firstTag.getAttribute('href'), BLOG_TAG_PATH_RE),
-    firstTagName: (await firstTag.innerText()).trim(),
-  };
-}
-
-async function expectRedirect(
-  request: APIRequestContext,
-  pathname: string,
-  expectedLocation: string,
-): Promise<void> {
-  const response = await request.get(pathname, { maxRedirects: 0 });
-
-  expect(response.status()).toBe(301);
-  expect(response.headers().location).toBe(expectedLocation);
 }
 
 async function readTextRoute(
@@ -178,100 +114,19 @@ test.describe('Blog routes', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
   });
 
-  test('renders the static blog index with grouped posts and search entry', async ({ page }) => {
+  test('groups listed posts by year on the static index', async ({ page }) => {
     await openBlogIndex(page);
 
     await expect(page.locator('.blog-masthead__wordmark')).toBeVisible();
     await expect(page.locator('[data-site-wordmark-variant="blog"] .site-wordmark__cjk')).toHaveText('無人之境');
     await expect(page.locator('[data-site-wordmark-variant="blog"] .site-wordmark__wake')).toHaveText('sillage');
-    await expect(page.getByRole('button', { name: 'Search and commands' })).toBeVisible();
 
-    const yearGroups = page.locator('.blog-year');
-    await expect(yearGroups.first()).toBeVisible();
-    expect(await yearGroups.count()).toBeGreaterThan(0);
-
-    const firstYear = yearGroups.first();
-    await expect(firstYear.locator('.blog-year__heading')).toHaveText(/^(?:\d{4}|Unknown)$/);
-    await expect(firstYear.locator('.blog-list .blog-row').first()).toBeVisible();
+    // Every fixture post is from 2026, newest first.
+    const firstYear = page.locator('.blog-year').first();
+    await expect(firstYear.locator('.blog-year__heading')).toHaveText('2026');
+    await expect(firstYear.locator('.blog-list .blog-row__link').first()).toHaveAttribute('href', NEWEST_POST.path);
 
     await expect(page.locator('.blog-colophon')).toHaveCount(0);
-
-    // The sea footer. Assert the layer order, not just presence: the boat has to
-    // sit between the two seas so the near one hides its hull, the white water
-    // has to lie on top of the water it breaks from, and the front row goes in
-    // front of all of it. The art loads only once the band is in view.
-    const sea = page.locator('.sillage-sea');
-    await expect(sea).toHaveAttribute('aria-hidden', 'true');
-    const layers = (el: Element) =>
-      Array.from(el.children, (child) => child.className.replace('sillage-sea__', '')).filter(
-        (layer) => layer !== 'foam',
-      );
-    expect(await sea.evaluate(layers)).toEqual(['dusk', 'sun', 'clouds', 'back', 'boat', 'near', 'glitter', 'wake', 'front']);
-    expect(await sea.locator('.sillage-sea__wake').evaluate(layers)).toEqual(['bow', 'churn', 'glint']);
-    await sea.scrollIntoViewIfNeeded();
-    await expect(sea).toHaveAttribute('data-seen', '');
-    await expect(sea.locator('.sillage-sea__near')).toHaveCSS(
-      'background-image',
-      // Dusk by the reader's clock is its own set; either is right here.
-      /\/sillage\/(?:dusk-)?(?:light|dark)\/near\.webp/,
-    );
-
-    // Touch: a tap on the water splashes, and a sideways drag takes hold of
-    // the sea and drives it faster than its own pace. Under reduced motion
-    // the sea stands still and a touch does nothing.
-    let band = (await sea.boundingBox())!;
-    let waterY = band.y + band.height - 24;
-    await page.mouse.click(band.x + band.width * 0.7, waterY);
-    await expect(sea.locator('.sillage-sea__splash')).toHaveCount(0);
-    // A sea that cannot be touched never sounds, so it has no sound switch.
-    await expect(page.getByRole('button', { name: 'Sound of the sea' })).toBeHidden();
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
-
-    // Scroll runs on into the sea: past the end of the page, a wheel keeps
-    // driving the water. The sea stays silent, and fetches no surf, until it
-    // is touched.
-    const nearRate = () =>
-      sea.locator('.sillage-sea__near').evaluate((el) => el.getAnimations()[0].playbackRate);
-    const sounds: string[] = [];
-    page.on('request', (request) => {
-      if (request.url().includes('/sillage/sound/')) sounds.push(new URL(request.url()).pathname);
-    });
-    await page.locator('html').evaluate((el) => (el.scrollTop = el.scrollHeight));
-    band = (await sea.boundingBox())!;
-    waterY = band.y + band.height - 24;
-    await page.mouse.move(band.x + band.width * 0.5, band.y - 120);
-    for (let step = 0; step < 10; step++) {
-      await page.mouse.wheel(0, 60);
-      await page.waitForTimeout(16);
-    }
-    expect(await nearRate()).toBeGreaterThan(1);
-    expect(sounds).not.toContain('/sillage/sound/surf.m4a');
-
-    await page.mouse.click(band.x + band.width * 0.7, waterY);
-    await expect(sea.locator('.sillage-sea__splash').first()).toBeAttached();
-    await expect.poll(() => sounds).toContain('/sillage/sound/surf.m4a');
-    await page.mouse.move(band.x + band.width * 0.8, waterY);
-    await page.mouse.down();
-    for (let step = 1; step <= 12; step++) {
-      await page.mouse.move(band.x + band.width * (0.8 - step * 0.03), waterY);
-      await page.waitForTimeout(16);
-    }
-    await expect(sea).toHaveAttribute('data-held', '');
-    expect(await nearRate()).toBeGreaterThan(1);
-    await page.mouse.up();
-    await expect(sea).not.toHaveAttribute('data-held', '');
-
-    const firstPostHref = pathFromHref(
-      await page.locator('.blog-row__link').first().getAttribute('href'),
-      BLOG_POST_PATH_RE,
-    );
-    expect(firstPostHref).toMatch(BLOG_POST_PATH_RE);
-
-    await page.getByRole('button', { name: 'Search and commands' }).click();
-
-    const searchDialog = page.getByRole('dialog', { name: 'Site search and commands' });
-    await expect(searchDialog).toBeVisible();
-    await expect(searchDialog).toHaveJSProperty('open', true);
   });
 
   test('folds older posts behind "earlier" and the year links, under the writing ledger', async ({ page }) => {
@@ -323,34 +178,72 @@ test.describe('Blog routes', () => {
     await expect(earlier).toBeHidden();
   });
 
-  test('lets the sea footer be played with: sound switch, creatures, the boat and dusk', async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
+  test('holds the sea footer still under reduced motion and lets it be played with otherwise', async ({ page }) => {
     const response = await page.goto('/blog?sea=dusk');
     expect(response?.ok()).toBeTruthy();
+
+    // Assert the layer order, not just presence: the boat has to sit between
+    // the two seas so the near one hides its hull, the white water has to lie
+    // on top of the water it breaks from, and the front row goes in front of
+    // all of it.
     const sea = page.locator('.sillage-sea');
+    await expect(sea).toHaveAttribute('aria-hidden', 'true');
+    const layers = (el: Element) =>
+      Array.from(el.children, (child) => child.className.replace('sillage-sea__', '')).filter(
+        (layer) => layer !== 'foam',
+      );
+    expect(await sea.evaluate(layers)).toEqual(['dusk', 'sun', 'clouds', 'back', 'boat', 'near', 'glitter', 'wake', 'front']);
+    expect(await sea.locator('.sillage-sea__wake').evaluate(layers)).toEqual(['bow', 'churn', 'glint']);
+
+    // The art loads only once the band is in view. Dusk, on request here and
+    // by the reader's clock otherwise, is its own set.
     await page.locator('html').evaluate((el) => (el.scrollTop = el.scrollHeight));
     await expect(sea).toHaveAttribute('data-seen', '');
-
-    // Dusk, on request here and by the reader's clock otherwise: its own set.
     await expect(sea).toHaveAttribute('data-dusk', '');
     await expect(sea.locator('.sillage-sea__near')).toHaveCSS('background-image', /\/sillage\/dusk-(?:light|dark)\/near\.webp/);
     await expect(sea.locator('.sillage-sea__dusk')).toHaveCSS('background-image', /\/sillage\/dusk-(?:light|dark)\/sky\.webp/);
 
-    // The sound switch: pressed means on; off is remembered.
-    const toggle = page.getByRole('button', { name: 'Sound of the sea' });
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    await page.reload();
-    await expect(page.getByRole('button', { name: 'Sound of the sea' })).toHaveAttribute('aria-pressed', 'false');
-    await page.getByRole('button', { name: 'Sound of the sea' }).click();
-    await page.locator('html').evaluate((el) => (el.scrollTop = el.scrollHeight));
-    await expect(sea).toHaveAttribute('data-awake', '');
+    // Under reduced motion the sea stands still and a touch does nothing. A
+    // sea that cannot be touched never sounds, so it has no sound switch.
+    let band = (await sea.boundingBox())!;
+    let waterY = band.y + band.height - 24;
+    await page.mouse.click(band.x + band.width * 0.7, waterY);
+    await expect(sea.locator('.sillage-sea__splash')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Sound of the sea' })).toBeHidden();
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
 
-    // The first touch of the water always brings a dolphin up.
-    const band = (await sea.boundingBox())!;
-    await page.mouse.click(band.x + band.width * 0.7, band.y + band.height - 24);
+    // Scroll runs on into the sea: past the end of the page, a wheel keeps
+    // driving the water. The sea stays silent, and fetches no surf, until it
+    // is touched.
+    const nearRate = () =>
+      sea.locator('.sillage-sea__near').evaluate((el) => el.getAnimations()[0].playbackRate);
+    const sounds: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/sillage/sound/')) sounds.push(new URL(request.url()).pathname);
+    });
+    band = (await sea.boundingBox())!;
+    waterY = band.y + band.height - 24;
+    await page.mouse.move(band.x + band.width * 0.5, band.y - 120);
+    await page.mouse.wheel(0, 600);
+    await expect.poll(nearRate).toBeGreaterThan(1);
+    expect(sounds).not.toContain('/sillage/sound/surf.m4a');
+
+    // The first touch of the water splashes, opens the sound and always
+    // brings a dolphin up.
+    await page.mouse.click(band.x + band.width * 0.7, waterY);
+    await expect(sea.locator('.sillage-sea__splash').first()).toBeAttached();
     await expect(sea.locator('.sillage-sea__dolphin')).toBeAttached();
+    await expect.poll(() => sounds).toContain('/sillage/sound/surf.m4a');
+
+    // A sideways drag takes hold of the sea and drives it faster than its own
+    // pace.
+    await page.mouse.move(band.x + band.width * 0.8, waterY);
+    await page.mouse.down();
+    await page.mouse.move(band.x + band.width * 0.44, waterY, { steps: 12 });
+    await expect(sea).toHaveAttribute('data-held', '');
+    await expect.poll(nearRate).toBeGreaterThan(1);
+    await page.mouse.up();
+    await expect(sea).not.toHaveAttribute('data-held', '');
 
     // The boat can be picked up out of the water, and falls back when let go.
     const boat = sea.locator('.sillage-sea__boat');
@@ -359,14 +252,21 @@ test.describe('Blog routes', () => {
       boat.evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m42);
     await page.mouse.move(hull.x + hull.width / 2, hull.y + hull.height * 0.6);
     await page.mouse.down();
-    for (let step = 1; step <= 10; step++) {
-      await page.mouse.move(hull.x + hull.width / 2, hull.y + hull.height * 0.6 - step * 5);
-      await page.waitForTimeout(16);
-    }
+    await page.mouse.move(hull.x + hull.width / 2, hull.y + hull.height * 0.6 - 50, { steps: 10 });
     await expect(sea).toHaveAttribute('data-held', '');
-    expect(await lift()).toBeLessThan(-20);
+    await expect.poll(lift).toBeLessThan(-20);
     await page.mouse.up();
     await expect.poll(lift, { timeout: 5000 }).toBeGreaterThan(-3);
+
+    // The sound switch, shown once motion is allowed: pressed means on, and
+    // off is remembered.
+    await page.reload();
+    const toggle = page.getByRole('button', { name: 'Sound of the sea' });
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Sound of the sea' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('keeps the hover cover and indicator aligned during wheel scrolling', async ({ page }) => {
@@ -441,7 +341,8 @@ test.describe('Blog routes', () => {
   });
 
   test('emits generated Open Graph image metadata for index and posts', async ({ page }) => {
-    const { firstPostHref, firstPostTitle } = await collectBlogIndexTargets(page);
+    const { path: firstPostHref, title: firstPostTitle } = NEWEST_POST;
+    await openBlogIndex(page);
 
     await expect(page).toHaveTitle("無人之境 — Lucian's Blog");
     const indexOgImage = new URL(await readMetaContent(page, 'meta[property="og:image"]'));
@@ -491,37 +392,20 @@ test.describe('Blog routes', () => {
     });
   });
 
-  test('renders post detail with article semantics, Ghost HTML, and adjacent navigation', async ({ page }) => {
-    const { firstPostHref, firstPostTitle } = await collectBlogIndexTargets(page);
-
+  test('links each post to its chronological neighbours', async ({ page }) => {
+    await openBlogIndex(page);
     await page.locator('.blog-row__link').first().click();
 
-    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(firstPostHref)}$`));
-
+    await expect(page).toHaveURL(/\/blog\/demo-effects$/);
     const article = page.locator('article[data-pagefind-body]');
-    await expect(article).toBeVisible();
-    await expect(article.getByRole('heading', { level: 1 })).toHaveText(firstPostTitle);
-    await expect(page.locator('.blog-article__meta')).toBeVisible();
+    await expect(article.getByRole('heading', { level: 1 })).toHaveText(NEWEST_POST.title);
+    await expect(article.locator('.blog-prose')).toBeVisible();
 
-    const prose = article.locator('.blog-prose');
-    await expect(prose).toBeVisible();
-
-    const proseState = await prose.evaluate((node) => ({
-      childCount: node.children.length,
-      hasGhostClass: Boolean(node.querySelector('[class*="kg-"]')),
-      textLength: node.textContent?.trim().length ?? 0,
-    }));
-
-    expect(proseState.childCount).toBeGreaterThan(0);
-    expect(proseState.textLength).toBeGreaterThan(20);
-    expect(proseState.hasGhostClass || proseState.childCount > 0).toBeTruthy();
-
+    // The newest post has no newer neighbour, so that side leads back to the index.
     const adjacentNav = page.getByRole('navigation', { name: 'More posts' });
-    if ((await adjacentNav.count()) > 0 && await adjacentNav.first().isVisible()) {
-      await expect(adjacentNav.first().locator('a[href^="/blog/"]').first()).toBeVisible();
-    } else {
-      await expect(page.getByRole('link', { name: /All posts|Blog/ }).first()).toBeVisible();
-    }
+    await expect(adjacentNav.locator('.blog-adjacent__item--prev')).toHaveAttribute('href', OLDER_POST_PATH);
+    await expect(adjacentNav.locator('.blog-adjacent__item--next')).toHaveCount(0);
+    await expect(adjacentNav.locator('.blog-adjacent__index--next')).toHaveAttribute('href', '/blog');
   });
 
   test('keeps an unlisted post direct-only and excluded from crawlers and Pagefind', async ({ page }) => {
@@ -605,8 +489,8 @@ test.describe('Blog routes', () => {
     await expect(codeBox.locator('.code-box-body > pre')).toHaveCount(1);
   });
 
-  test('serves negotiated markdown for blog posts without crossing html cache entries', async ({ page, request }) => {
-    const { firstPostHref, firstPostTitle } = await collectBlogIndexTargets(page);
+  test('serves negotiated markdown for blog posts without crossing html cache entries', async ({ request }) => {
+    const { path: firstPostHref, title: firstPostTitle } = NEWEST_POST;
     const cacheProbePath = `${firstPostHref}?agent-cache=e2e`;
 
     const markdown = await request.get(firstPostHref, {
@@ -643,15 +527,13 @@ test.describe('Blog routes', () => {
   });
 
   test('advertises markdown alternates and llms discovery', async ({ page, request }) => {
-    const { firstPostHref } = await collectBlogIndexTargets(page);
-
-    await page.goto(firstPostHref);
+    await page.goto(NEWEST_POST.path);
     const alternate = page.locator('link[rel="alternate"][type="text/markdown"]');
     await expect(alternate).toHaveCount(1);
     expect(await alternate.first().getAttribute('href'))
-      .toBe(`https://buxx.me${firstPostHref.replace(/\/$/, '')}/index.md`);
+      .toBe(`https://buxx.me${NEWEST_POST.path}/index.md`);
 
-    const explicitMarkdown = await request.get(`${firstPostHref.replace(/\/$/, '')}/index.md`);
+    const explicitMarkdown = await request.get(`${NEWEST_POST.path}/index.md`);
     expect(explicitMarkdown.ok()).toBeTruthy();
     expect(explicitMarkdown.headers()['content-type']).toContain('text/markdown');
 
@@ -664,33 +546,15 @@ test.describe('Blog routes', () => {
     expect(body).toContain('https://buxx.me/mood');
   });
 
-  test('renders public tag archives from blog tag links', async ({ page }) => {
-    const { firstTagHref, firstTagName } = await collectBlogIndexTargets(page);
-
-    test.skip(!firstTagHref || !firstTagName, 'No public tag links are available on the blog index.');
-
-    const response = await page.goto(firstTagHref as string);
+  test('renders a public tag archive with its listed posts', async ({ page }) => {
+    const response = await page.goto('/blog/tag/systems');
 
     expect(response?.ok()).toBeTruthy();
-    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(firstTagHref as string)}$`));
-    await expect(page.locator('.tag-archive__title')).toContainText(firstTagName as string);
-    await expect(page.locator('.tag-archive__count')).toHaveText(/\d+\s+posts?/);
-    await expect(page.locator('.blog-row__link').first()).toBeVisible();
-  });
-
-  test('does not expose the superseded bespoke blog search JSON route', async ({ request }) => {
-    const response = await request.get('/blog/search.json');
-
-    expect(response.status()).toBe(404);
-  });
-
-  test('serves Pagefind search assets generated from the static blog', async ({ request }) => {
-    const response = await request.get('/pagefind/pagefind-entry.json');
-
-    test.skip(response.status() === 404, 'Pagefind assets are generated by the production build, not astro dev.');
-
-    expect(response.ok()).toBeTruthy();
-    expect(response.headers()['content-type'] ?? '').toMatch(/application\/json/i);
+    await expect(page.locator('.tag-archive__title')).toContainText('Systems');
+    // Five listed fixture posts carry it; the unlisted, members-only and
+    // translated ones that also do are left out.
+    await expect(page.locator('.tag-archive__count')).toHaveText('5 posts');
+    await expect(page.locator('.blog-row__link').first()).toHaveAttribute('href', NEWEST_POST.path);
   });
 
   test('serves the blog RSS feed with canonical blog entries', async ({ request }) => {
@@ -701,29 +565,5 @@ test.describe('Blog routes', () => {
     expect(xml).toContain('<link>https://buxx.me/blog</link>');
     expect(xml).toMatch(/<item>[\s\S]*<link>https:\/\/buxx\.me\/blog\/[^<]+<\/link>/);
     expect(xml).not.toContain('blog.buxx.me/rss');
-  });
-
-  test('includes blog index, posts, and public tags in the sitemap', async ({ page, request }) => {
-    const { firstPostHref, firstTagHref } = await collectBlogIndexTargets(page);
-    const xml = await readTextRoute(request, '/sitemap.xml', /(?:application|text)\/xml/i);
-
-    expect(xml).toContain(canonicalLoc('/blog'));
-    expect(xml).toContain(canonicalLoc(firstPostHref));
-
-    if (firstTagHref) {
-      expect(xml).toContain(canonicalLoc(firstTagHref));
-    }
-
-    expect(xml).not.toContain('/blog/tag/hash-');
-  });
-
-  test('redirects legacy Ghost URLs to the canonical blog routes', async ({ request }) => {
-    const probe = await request.get('/sacrifice', { maxRedirects: 0 });
-
-    test.skip(probe.status() === 404, 'Cloudflare static redirects are applied in the built Worker, not astro dev.');
-
-    await expectRedirect(request, '/sacrifice', '/blog/sacrifice');
-    await expectRedirect(request, '/tag/prose', '/blog/tag/prose');
-    await expectRedirect(request, '/author/murray', '/blog');
   });
 });

@@ -19,12 +19,16 @@ interface CreateAnswer {
 async function installMessageApi(
   page: Page,
   options: { status?: number; answer?: CreateAnswer; onPost?: (body: Record<string, unknown>) => void } = {},
-): Promise<void> {
-  await page.route('**/api/v2/comments/dwell-token', (route: Route) => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({ token: 'dwell-token-fixture' }),
-  }));
+): Promise<{ mints: () => number }> {
+  let mints = 0;
+  await page.route('**/api/v2/comments/dwell-token', (route: Route) => {
+    mints += 1;
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ token: 'dwell-token-fixture' }),
+    });
+  });
 
   await page.route('**/api/v2/messages', async (route: Route) => {
     const request = route.request();
@@ -54,6 +58,7 @@ async function installMessageApi(
       }),
     });
   });
+  return { mints: () => mints };
 }
 
 async function fillMessage(page: Page, fields: { name?: string; email?: string; body?: string } = {}): Promise<void> {
@@ -142,6 +147,28 @@ test.describe('/message', () => {
     expect(sent!.email).toBe('you@example.com');
     expect(sent!.dwellToken).toBe('dwell-token-fixture');
     expect(sent!.website).toBe('');
+  });
+
+  // The service silently drops a message whose dwell token is under three
+  // seconds old, behind a receipt that says Sent. So the token is minted when
+  // the writer starts and held; one minted as Send is pressed is always young.
+  test('the dwell token is minted when the writer starts, never at Send', async ({ page }) => {
+    await page.clock.install();
+    let sent: Record<string, unknown> | null = null;
+    const api = await installMessageApi(page, { onPost: (body) => { sent = body; } });
+    await page.goto('/message');
+
+    await page.locator('#message-name').focus();
+    await expect.poll(() => api.mints()).toBe(1);
+
+    // A slow writer: past the old twenty-minute refresh, well inside the day.
+    await page.clock.fastForward(21 * 60_000);
+    await fillMessage(page, { name: 'someone', email: 'you@example.com', body: 'Written slowly.' });
+    await page.locator('[data-message-submit]').click();
+
+    await expect(page.locator(sentView)).toBeVisible();
+    expect(api.mints()).toBe(1);
+    expect(sent!.dwellToken).toBe('dwell-token-fixture');
   });
 
   test('an unverified address gets the verification receipt, a known one gets the reply receipt', async ({ page }) => {
@@ -256,9 +283,7 @@ test.describe('/message', () => {
   // more specific one silently wins and the wave flattens into a pulse --
   // a defect nothing else here would catch, since the markup is unchanged.
   test('the typing dots travel rather than blink in unison', async ({ page }) => {
-    // networkidle, because a cold dev server reloads once while optimizing
-    // and a plain evaluate loses its execution context to that navigation.
-    await page.goto('/message', { waitUntil: 'networkidle' });
+    await page.goto('/message');
 
     const delays = (selector: string) =>
       page.locator(selector).evaluateAll((dots) => dots.map((dot) => getComputedStyle(dot).animationDelay));

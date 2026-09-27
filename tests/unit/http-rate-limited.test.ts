@@ -2,10 +2,10 @@ import { describe, expect, test } from 'bun:test';
 
 import { withRateLimit } from '../../src/lib/http/rate-limited';
 
-function createRequest(ip: string): Request {
+function createRequest(ip: string, headerName = 'cf-connecting-ip'): Request {
   return new Request('https://example.com/api/test', {
     headers: {
-      'x-real-ip': ip,
+      [headerName]: ip,
     },
   });
 }
@@ -24,23 +24,14 @@ describe('rate-limit helper', () => {
     expect(state.headers.get('Retry-After')).toBeNull();
   });
 
-  test('does not read removed Astro runtime env getter', () => {
-    const locals = {
-      runtime: {
-        get env() {
-          throw new Error('Astro.locals.runtime.env has been removed');
-        },
-      },
-    };
+  test('keys buckets by the Cloudflare client IP only', () => {
+    const prefix = `test:ip:${Date.now()}`;
+    const options = { windowMs: 60_000, max: 2, prefix };
 
-    const state = withRateLimit(
-      createRequest('203.0.113.12'),
-      { windowMs: 60_000, max: 2, prefix: `test:runtime:${Date.now()}` },
-      locals
-    );
-
-    expect(state.allowed).toBe(true);
-    expect(state.result.key).toContain('203.0.113.12');
+    expect(withRateLimit(createRequest('203.0.113.12'), options).result.key).toBe(`${prefix}:203.0.113.12`);
+    // A client-supplied forwarding header must not pick its own bucket.
+    expect(withRateLimit(createRequest('198.51.100.1', 'x-forwarded-for'), options).result.key)
+      .toBe(`${prefix}:anonymous`);
   });
 
   test('marks subsequent over-limit requests as blocked', () => {
@@ -61,5 +52,13 @@ describe('rate-limit helper', () => {
     expect(second.allowed).toBe(false);
     expect(second.headers.get('X-RateLimit-Remaining')).toBe('0');
     expect(second.headers.get('Retry-After')).not.toBeNull();
+  });
+
+  test('opens a fresh window once the previous one has expired', async () => {
+    const options = { windowMs: 1, max: 1, prefix: `test:window:${Date.now()}` };
+
+    expect(withRateLimit(createRequest('203.0.113.13'), options).allowed).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(withRateLimit(createRequest('203.0.113.13'), options).allowed).toBe(true);
   });
 });

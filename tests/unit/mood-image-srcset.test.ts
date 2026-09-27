@@ -118,7 +118,7 @@ describe('applyResponsiveImage DOM behavior', () => {
     await browser?.close();
   });
 
-  test('sets srcset for archive URLs and clears it on non-archive fallback swap', async () => {
+  test('sets srcset for archive URLs and swaps to a non-archive fallback at most once', async () => {
     const page = await browser.newPage();
     try {
       await page.setContent('<img data-fallback-src="https://cdn4.telesco.pe/file/fallback.jpg">');
@@ -144,7 +144,12 @@ describe('applyResponsiveImage DOM behavior', () => {
             sizes: img.getAttribute('sizes'),
           };
 
-          return { afterApply, afterFallback };
+          // A fallback that fails too must not be swapped again.
+          img.src = '/still-broken.jpg';
+          img.dispatchEvent(new Event('error'));
+          const afterSecondError = img.getAttribute('src');
+
+          return { afterApply, afterFallback, afterSecondError };
         } finally {
           URL.revokeObjectURL(moduleUrl);
         }
@@ -158,6 +163,7 @@ describe('applyResponsiveImage DOM behavior', () => {
       expect(result.afterFallback.src).toBe('https://cdn4.telesco.pe/file/fallback.jpg');
       expect(result.afterFallback.srcset).toBeNull();
       expect(result.afterFallback.sizes).toBeNull();
+      expect(result.afterSecondError).toBe('/still-broken.jpg');
     } finally {
       await page.close();
     }

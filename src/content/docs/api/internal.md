@@ -24,7 +24,7 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/auth/callback` | Completes owner sign-in. | Verified OAuth callback |
 | `/admin/auth/logout` | Ends the owner session. | Admin session |
 | `/admin/session` | Reads the current owner identity. | Admin session |
-| `/oauth/login` | Renders the sign-in landing page. | Public OAuth entry |
+| `/oauth/login` | Redirects to the public site's `/oauth/login`, keeping the query. | Public OAuth entry |
 
 ## Admin API
 

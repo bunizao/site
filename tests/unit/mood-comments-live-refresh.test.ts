@@ -1,9 +1,9 @@
-// The live-refresh path is DOM-driven and has no jsdom harness here, so it
-// is covered the way the repo covers other client scripts: by asserting on
-// the source. The regression this locks is a real one, seen on the page --
-// a thread that first rendered empty kept "No comments here yet..." on
-// screen after the 45 s tick brought in a Telegram-origin comment, because
-// only the initial-load and own-insert paths cleared the note.
+// Source assertions, kept on purpose: the rule is a 45 s timer interplaying
+// with visibilitychange, the detail-page e2e has no clock control to drive
+// it, and there is no jsdom harness here. The regression this locks is a real
+// one, seen on the page -- a thread that first rendered empty kept "No
+// comments here yet..." on screen after the tick brought in a Telegram-origin
+// comment, because only the initial-load and own-insert paths cleared the note.
 
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
@@ -23,14 +23,9 @@ function bodyOf(fnSignature: string): string {
 }
 
 describe('mood comments live refresh', () => {
-  test('clears the empty note once a tick adds a comment', () => {
-    const body = bodyOf('async function refreshLiveComments');
-
-    expect(body).toContain('addComments(comments, true)');
-    expect(body).toContain('emptyEl.hidden = true');
-  });
-
-  test('every path that adds comments to the thread clears the empty note', () => {
+  test('live refresh clears the empty note on the first new comment', () => {
+    expect(bodyOf('async function refreshLiveComments')).toContain('addComments(comments, true)');
+    // Every path that adds comments to the thread clears the note.
     for (const signature of [
       'async function refreshLiveComments',
       'export function insertGhostComment',
@@ -39,7 +34,7 @@ describe('mood comments live refresh', () => {
     }
   });
 
-  test('stays paused while the tab is hidden', () => {
+  test('live refresh pauses while the tab is hidden', () => {
     const body = bodyOf('async function refreshLiveComments');
 
     expect(body).toContain("document.visibilityState !== 'visible'");

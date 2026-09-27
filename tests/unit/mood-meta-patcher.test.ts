@@ -1,6 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-
-import { parseAbbreviatedCount } from '../../src/features/mood/server/telegram-source';
+import { afterAll, afterEach, beforeAll, describe, expect, setSystemTime, test } from 'bun:test';
 
 // Minimal DOM stubs: the patcher only needs innerHeight, CSS.escape, and a
 // ParentNode-like root. IntersectionObserver is intentionally absent so
@@ -63,7 +61,11 @@ async function importPatcher() {
 }
 
 describe('mood meta patcher live-count hydration', () => {
-  test('re-attempts ids after a failed live-counts fetch', async () => {
+  afterEach(() => {
+    setSystemTime();
+  });
+
+  test('a failed batch is not requested again for 30 seconds', async () => {
     const { createMoodMetaPatcher } = await importPatcher();
     const root = createRoot([createMoodElement('3196')]);
 
@@ -80,13 +82,47 @@ describe('mood meta patcher live-count hydration', () => {
 
     const patcher = createMoodMetaPatcher({ root, readSource: 'archive', fetchCounts });
 
+    setSystemTime(new Date('2026-09-26T00:00:00Z'));
     await patcher.patchVisible();
     await patcher.patchVisible();
+    expect(calls).toEqual([['3196']]);
 
+    setSystemTime(new Date('2026-09-26T00:00:31Z'));
+    await patcher.patchVisible();
     expect(calls).toEqual([['3196'], ['3196']]);
   });
 
-  test('marks ids attempted only after a successful fetch', async () => {
+  test('callers queued behind a request do not fetch the same ids twice', async () => {
+    const { createMoodMetaPatcher } = await importPatcher();
+    const root = createRoot([createMoodElement('1'), createMoodElement('2')]);
+
+    const calls: string[][] = [];
+    const releases: Array<() => void> = [];
+    const patcher = createMoodMetaPatcher({
+      root,
+      readSource: 'archive',
+      fetchCounts: (ids) => {
+        calls.push([...ids]);
+        return new Promise((resolve) => {
+          releases.push(() => resolve({}));
+        });
+      },
+    });
+
+    // Both queued callers wake together when the first request lands; the
+    // first to start marks '2' in flight, so the second finds nothing to do.
+    const first = patcher.patch(['1']);
+    const queued = [patcher.patch(['2']), patcher.patch(['2'])];
+    releases[0]();
+    await first;
+    await Promise.resolve();
+    releases.forEach((release) => release());
+    await Promise.all(queued);
+
+    expect(calls).toEqual([['1'], ['2']]);
+  });
+
+  test('does not refetch ids already patched', async () => {
     const { createMoodMetaPatcher } = await importPatcher();
     const root = createRoot([createMoodElement('42')]);
 
@@ -101,7 +137,6 @@ describe('mood meta patcher live-count hydration', () => {
     await patcher.patchVisible();
     await patcher.patchVisible();
 
-    // Second pass finds no new ids because the first fetch succeeded.
     expect(calls).toEqual([['42']]);
   });
 
@@ -160,23 +195,5 @@ describe('mood meta patcher live-count hydration', () => {
 
     // One batch, near-viewport id ordered ahead of the offscreen one.
     expect(calls).toEqual([['91', '90']]);
-  });
-});
-
-describe('parseAbbreviatedCount', () => {
-  test('parses plain integers', () => {
-    expect(parseAbbreviatedCount('12 comments')).toBe(12);
-  });
-
-  test('parses K suffix', () => {
-    expect(parseAbbreviatedCount('1.2K comments')).toBe(1200);
-  });
-
-  test('parses M suffix', () => {
-    expect(parseAbbreviatedCount('3M')).toBe(3000000);
-  });
-
-  test('returns null when no number present', () => {
-    expect(parseAbbreviatedCount('comments')).toBeNull();
   });
 });

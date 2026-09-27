@@ -1,31 +1,18 @@
 import { describe, expect, test } from 'bun:test';
+import * as cheerio from 'cheerio';
 import {
-  getFirstImage,
   getFirstImageMeta,
   getInlineMediaPreview,
   getQuotePreview,
-  getRelatedLinks,
   getTextPreview,
   getTextPreviewHtml,
 } from '../../src/features/mood/shared/utils';
 
-describe('getFirstImage', () => {
-  test('extracts video poster when no img exists', () => {
-    const content = `
-      <video
-        src="/static/https://cdn5.telesco.pe/file/example.mp4"
-        poster="/static/https://cdn5.telesco.pe/file/example-poster.jpg"
-        controls="true"
-      ></video>
-    `;
-
-    expect(getFirstImage(content)).toBe('/static/https://cdn5.telesco.pe/file/example-poster.jpg');
-  });
-
+describe('getFirstImageMeta', () => {
   test('marks sticker images as sticker media', () => {
     const content = '<img class="sticker" src="/static/sticker.webp" alt="Sticker" loading="lazy" />';
 
-    expect(getFirstImageMeta(content)).toMatchObject({
+    expect(getFirstImageMeta(cheerio.load(content))).toMatchObject({
       src: '/static/sticker.webp',
       kind: 'sticker',
     });
@@ -38,7 +25,7 @@ describe('getFirstImage', () => {
       '</a>',
     ].join('');
 
-    expect(getFirstImageMeta(content)).toMatchObject({
+    expect(getFirstImageMeta(cheerio.load(content))).toMatchObject({
       src: 'https://cdn5.telesco.pe/file/photo.jpg',
       width: 800,
       height: 165,
@@ -47,27 +34,7 @@ describe('getFirstImage', () => {
   });
 });
 
-describe('video-only feed preview heuristic', () => {
-  test('can prefer a static image for empty-text video posts', () => {
-    const content = `
-      <video
-        src="/static/https://cdn5.telesco.pe/file/example.mp4"
-        poster="/static/https://cdn5.telesco.pe/file/example-poster.jpg"
-        controls="true"
-      ></video>
-    `;
-
-    const mediaPreview = getInlineMediaPreview(content);
-    const previewText = getTextPreview({ text: '', content });
-    const firstImage = getFirstImage(content);
-    const preferStaticImagePreview = mediaPreview?.type === 'video' && !previewText.trim() && Boolean(firstImage);
-
-    expect(mediaPreview?.type).toBe('video');
-    expect(previewText).toBe('');
-    expect(firstImage).toBe('/static/https://cdn5.telesco.pe/file/example-poster.jpg');
-    expect(preferStaticImagePreview).toBe(true);
-  });
-
+describe('getInlineMediaPreview', () => {
   test('keeps audio documents ahead of generic document previews', () => {
     const content = `
       <a class="tgme_widget_message_document_wrap" href="https://t.me/tutumood/4106">
@@ -78,28 +45,28 @@ describe('video-only feed preview heuristic', () => {
       </a>
     `;
 
-    const mediaPreview = getInlineMediaPreview(content);
+    const mediaPreview = getInlineMediaPreview(cheerio.load(content));
 
     expect(mediaPreview?.type).toBe('audio');
     expect(mediaPreview?.html).toContain('voice.mp3');
   });
 
   test('extracts generic documents without affecting bookmark-only previews', () => {
-    const documentPreview = getInlineMediaPreview(`
+    const documentPreview = getInlineMediaPreview(cheerio.load(`
       <a class="tgme_widget_message_document_wrap" href="https://t.me/tutumood/4105">
         <div class="tgme_widget_message_document_icon accent_bg"></div>
         <div class="tgme_widget_message_document">
           <div class="tgme_widget_message_document_title accent_color">My Vibe.pdf</div>
         </div>
       </a>
-    `);
-    const bookmarkPreview = getInlineMediaPreview(`
+    `));
+    const bookmarkPreview = getInlineMediaPreview(cheerio.load(`
       <a class="bookmark-card" href="https://example.org/article">
         <span class="bookmark-card__content">
           <span class="bookmark-card__title">Article</span>
         </span>
       </a>
-    `);
+    `));
 
     expect(documentPreview?.type).toBe('document');
     expect(documentPreview?.html).toContain('My Vibe.pdf');
@@ -108,7 +75,7 @@ describe('video-only feed preview heuristic', () => {
   });
 
   test('extracts location cards as inline previews', () => {
-    const mediaPreview = getInlineMediaPreview(`
+    const mediaPreview = getInlineMediaPreview(cheerio.load(`
       <a class="tgme_widget_message_location_wrap" href="https://foursquare.com/v/example">
         <div class="tgme_widget_message_location" style="background-image:url('/static/map.jpg')"></div>
         <div class="tgme_widget_message_location_info">
@@ -116,7 +83,7 @@ describe('video-only feed preview heuristic', () => {
           <div class="tgme_widget_message_location_address">Macau</div>
         </div>
       </a>
-    `);
+    `));
 
     expect(mediaPreview?.type).toBe('location');
     expect(mediaPreview?.html).toContain('Mannings Venetian');
@@ -134,7 +101,7 @@ describe('getQuotePreview', () => {
       '卧槽记错时间了！',
     ].join('');
 
-    expect(getQuotePreview(content)).toEqual({
+    expect(getQuotePreview(cheerio.load(content))).toEqual({
       text: '哎想到今晚 meta 财报又睡不着了',
       href: '/mood/3420',
       thumbnailSrc: undefined,
@@ -156,8 +123,7 @@ describe('getQuotePreview', () => {
       '我是爱因斯坦',
     ].join('');
 
-    expect(getFirstImage(content)).toBe('https://image.buxx.me/mood/1000/0');
-    expect(getFirstImageMeta(content)).toMatchObject({
+    expect(getFirstImageMeta(cheerio.load(content))).toMatchObject({
       src: 'https://image.buxx.me/mood/1000/0',
       fallbackSrc: null,
       layout: null,
@@ -176,7 +142,7 @@ describe('getQuotePreview', () => {
       </a>
     `;
 
-    const quote = getQuotePreview(content, {
+    const quote = getQuotePreview(cheerio.load(content), {
       channel: 'tutumood',
       channelTitle: 'Levitating',
       hdImageBase: 'https://image.buxx.me',
@@ -200,7 +166,7 @@ describe('getQuotePreview', () => {
       </a>
     `;
 
-    const quote = getQuotePreview(content, {
+    const quote = getQuotePreview(cheerio.load(content), {
       channel: 'tutumood',
       channelTitle: 'Levitating',
       hdImageBase: 'https://image.buxx.me',
@@ -209,30 +175,5 @@ describe('getQuotePreview', () => {
     expect(quote).not.toBeNull();
     expect(quote?.href).toBe('/mood/3408');
     expect(quote?.thumbnailSrc).toBe('/static/https:/cdn5.telesco.pe/file/reply-video-thumb.jpg');
-  });
-});
-
-describe('getRelatedLinks', () => {
-  test('skips inline anchors and internal site links for newsletters', () => {
-    const links = getRelatedLinks(
-      {
-        content: [
-          '<p><a href="https://example.org/article">inline source</a></p>',
-          '<p>https://buxx.me/mood/123</p>',
-          '<p>https://example.net/plain</p>',
-          '<img src="https://image.buxx.me/mood/123/0" alt="" />',
-        ].join(''),
-      },
-      {
-        baseUrl: 'https://buxx.me',
-        excludeInlineAnchors: true,
-        excludeInternalLinks: true,
-      }
-    );
-
-    expect(links).toEqual([
-      { url: 'https://image.buxx.me/mood/123/0', type: 'image' },
-      { url: 'https://example.net/plain', type: 'link' },
-    ]);
   });
 });

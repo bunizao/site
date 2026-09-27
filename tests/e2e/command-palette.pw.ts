@@ -220,8 +220,9 @@ test.describe('Site command palette', () => {
     await expect(input).toHaveValue('g');
     await input.fill('');
 
+    // A lone g is held back, then typed after the 1200ms go-to window closes.
     await page.keyboard.press('g');
-    await page.waitForTimeout(1300);
+    await expect(input).toHaveValue('');
     await expect(input).toHaveValue('g');
     await input.fill('');
 

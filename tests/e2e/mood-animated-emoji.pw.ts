@@ -81,7 +81,14 @@ test('defers animated emoji work and preserves static fallbacks on failure', asy
   const failed = page.locator('#e2e-emoji-failed');
   await expect(good.locator('.tg-emoji-fallback')).toHaveCount(1);
   await expect(failed.locator('.tg-emoji-fallback')).toHaveCount(1);
-  await page.waitForTimeout(500);
+  // Two frames deliver the visibility observer's first callback. Hydration
+  // marks a node before it loads anything, so off-screen emoji that were
+  // loaded eagerly would already carry data-emoji-animated here.
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+  await expect(good).not.toHaveAttribute('data-emoji-animated');
+  await expect(failed).not.toHaveAttribute('data-emoji-animated');
   expect(goodMetadataRequests).toBe(0);
   expect(failedMetadataRequests).toBe(0);
 
