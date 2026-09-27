@@ -151,13 +151,20 @@ GET /api/v2/instagram/avatar
 The picture and counts on the home page's Instagram card. No auth. The profile
 route is rate limited to 60 requests / 60s; the picture route is not.
 
-Neither route talks to Instagram. Instagram has no API for a private personal
-account, and the web app's own `web_profile_info` endpoint answers only over
-HTTP/2, which a Worker's outbound fetch does not speak. A scheduled GitHub
-Actions job in `site-api` (`.github/workflows/instagram-refresh.yml`, every
-three hours) reads it with curl and reports the answer to a signed internal
-route. `site-api` checks the report is this account with a picture on
-Instagram's photo CDN, downloads the picture, and stores both in KV. A report
+Neither route talks to Instagram directly; both serve a stored copy that one
+of two producers keeps current. Instagram has no API for a private personal
+account, so historically the source was the web app's own `web_profile_info`
+endpoint, read by a scheduled GitHub Actions job in `site-api`
+(`.github/workflows/instagram-refresh.yml`, every three hours) and reported to
+a signed internal route, since that endpoint answers only over HTTP/2, which a
+Worker's outbound fetch does not speak. Since the account switched to a
+Creator/professional account, `site-api`'s own hourly cron can instead read
+the official "Instagram API with Instagram Login" (`graph.instagram.com`)
+directly, once the Worker secret `INSTAGRAM_ACCESS_TOKEN` is set
+(`src/features/home/server/instagram-graph.ts`); unset, the cron path is a
+no-op and the GitHub job remains the only source. Either producer validates
+the read is this account with a picture on Instagram's photo CDN, downloads
+the picture, and stores both in KV under the same record. A report or read
 that fails any check stores nothing but its attempt record, so these routes
 always serve the last read that passed.
 

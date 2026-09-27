@@ -111,6 +111,11 @@ has replaced both.
 | --- | --- | --- |
 | `/v2/instagram/refresh` | The Instagram refresh job reports a profile read, or the failures of its tries; `site-api` validates and stores it. | HMAC-signed with `INSTAGRAM_INGEST_SECRET` via `X-Instagram-Timestamp` / `X-Instagram-Signature` |
 
+This route has no cron counterpart to list here: `site-api`'s own hourly
+Worker cron can read the same profile directly from `graph.instagram.com`
+once the Worker secret `INSTAGRAM_ACCESS_TOKEN` is set, making this ingest
+route redundant but not removed.
+
 ## Scheduled notification routes
 
 | Path | Purpose | Auth tier |
