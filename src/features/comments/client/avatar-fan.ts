@@ -94,8 +94,20 @@ export function wireAvatarFan(selector: string, options: AvatarFanOptions): void
       return;
     }
     const rect = fan.trigger.getBoundingClientRect();
-    fan.layer.style.left = `${rect.left + rect.width / 2}px`;
-    fan.layer.style.top = `${rect.top + rect.height / 2}px`;
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const { style } = fan.layer;
+    style.left = `${x}px`;
+    style.top = `${y}px`;
+    // WebKit lays out fixed boxes from the layout viewport but reports client
+    // rects from the visual one, so while the two are apart (keyboard up,
+    // toolbars moving) the fan lands off the face by the gap. Measure where
+    // it went and take the gap back out; elsewhere this is a no-op.
+    const landed = fan.layer.getBoundingClientRect();
+    if (landed.left !== x || landed.top !== y) {
+      style.left = `${2 * x - landed.left}px`;
+      style.top = `${2 * y - landed.top}px`;
+    }
   };
 
   function itemAt(x: number, y: number): HTMLButtonElement | null {
