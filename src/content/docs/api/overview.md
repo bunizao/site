@@ -125,7 +125,11 @@ limiter answered, and only two of the three actually enforce anything:
 a caller race their own state or put mail in an inbox — and by the whole
 [Blog Comments API](/docs/api/comments) surface, whose entire risk stack
 (spam, abuse, and bot resistance on a route with no login gate) depends on
-limits that actually reject. The two analytics beacons,
+limits that actually reject. The one exception is an anonymous, cookie-less
+read of `GET /v2/reactions`, which counts against the same per-colo binding
+as the two `native` routes below instead — a signed-in reader's own read of
+that route stays `durable`, for an exact count against the shared D1 budget;
+neither read path surfaces `X-RateLimit-Mode`. The two analytics beacons,
 `POST /api/analytics/event` and `POST /api/v2/analytics/listening`, run in
 `native` mode: a flood guard where a per-colo count is enough, charged only
 after their origin and bot checks pass. Everything else on the surface runs in
