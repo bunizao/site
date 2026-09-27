@@ -77,7 +77,7 @@ Other outcomes:
 
 | Outcome | What you see |
 | --- | --- |
-| Held until you confirm your address | The row says so, and so does the nudge under the box. The link in your inbox publishes it. This is the one hold you can end yourself |
+| Held until you confirm your address | The row says so, and so does the nudge under the box. Opening the link in your inbox sends it through the checks again, and it publishes if they pass. This is the one hold you can end yourself |
 | Asked for an email (`NOMAIL`) | The email field gets focus. Anything you typed into the box while the request was out is kept after the returned draft |
 | Refused | The page undoes the post (see below) and names the refusal |
 
@@ -106,9 +106,10 @@ reader with an identity here got it from the mail. It's in the table because the
 data model and the routes already support it.
 
 The confirmation mail is sent automatically with your first comment from a new
-address. There is no separate signup step. Until you confirm, the comment is
-published and readable like any other. Verification controls what *you* can do
-later. It doesn't decide whether anyone can see what you wrote.
+address. There is no separate signup step. Most comments publish right away,
+confirmed or not, and verification only controls what *you* can do later. The
+exception is a comment the checks flag (see [`NOMAIL`](#comment-error-nomail)).
+If it came with an address, it waits, unseen, until you open the link.
 
 The anonymous cookie is weak by design. It marks rows as yours so the thread
 reads correctly. It never lets anyone edit or delete anything, because on a
@@ -229,8 +230,11 @@ email address to confirm. Signals include:
 - several posts in a few minutes
 - one browser writing under several names
 
-How the words were typed, dictated or pasted never counts. Nothing was stored,
-and your draft is still in the box.
+You can also get it during a site-wide lockdown after a flood of comments, or
+within 24 hours of this browser tripping a spam check. A verified reader
+posting from their own browser is never asked. How the words were typed,
+dictated or pasted never counts. Nothing was stored, and your draft is still
+in the box.
 
 Add an address and post again. The comment waits, unseen, until you open the
 link in the confirmation mail. Then it goes through the usual checks and

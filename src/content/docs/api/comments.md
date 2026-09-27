@@ -6,14 +6,17 @@ order: 5.5
 ---
 
 Use these routes to read and post comments on `/blog/[slug]`, react with
-hearts, and manage a reader's identity. Anyone can read. Posting a comment or
-reacting needs only a name; the email is optional.
+hearts, and manage a reader's identity. Anyone can read. Posting a comment
+needs only a name, and the email is optional. Reacting needs neither.
 
 An email gives the reader a persistent avatar and a way to claim their
 comments later. Without one, the comment belongs to its anonymous browser
 session alone. Email verification and OAuth sign-in are optional upgrades
-(grades L1 and L2, below), never a condition for taking part. The address
-itself never appears in a response body or public HTML.
+(grades L1 and L2, below). A confirmed address is needed in two cases:
+on a post that takes verified addresses only (see
+[Per-post policy](#per-post-policy)), and when the step-up flags an anonymous
+writer (step 6 of [the risk stack](#the-risk-stack)). The address itself never
+appears in a response body or public HTML.
 
 The same routes also serve `mood`'s comments, chosen with the `surface`
 parameter (see [Mood surface (the Telegram bridge)](#mood-surface-the-telegram-bridge)).
@@ -135,8 +138,10 @@ reader OAuth routes.
 
 ## Per-post policy
 
-Every write route first checks the post's comment policy. The policy comes
-from the post's internal tags in Ghost (`#comments-off`, `#comments-readonly`
+Every write route checks the post's comment policy. On
+`POST /api/v2/comments`, a closed thread is refused before Turnstile, and the
+verified-only rule is checked in step 3 of [the risk stack](#the-risk-stack).
+The policy comes from the post's internal tags in Ghost (`#comments-off`, `#comments-readonly`
 or the older `#no-comments`, `#reactions-off`, and `#comments-verified`),
 applied on top of a site-wide default. The full table is in
 [Internal tags](/docs/writing/tags#comment-policy).
@@ -342,15 +347,21 @@ the compose box, never on a page view.
 | `storageId` | A random 32-hex value the module keeps in IndexedDB. The server stores only its HMAC and never uses it to set, restore, or extend a cookie. |
 
 **Leaving them out is never a gate.** A body that omits them, sends the wrong
-type, or sends 40 KiB of nonsense is written exactly like one that sends them
-well. The server stores what survives its bounds and NULL for the rest, and
-none of it feeds a rate-limit budget.
+type, or sends an object over the bounds below is still written. The server
+stores what survives its bounds and NULL for the rest, and none of it feeds a
+rate-limit budget. From a browser, sending neither `clientFp` nor
+`interaction` adds 1 point to the step-up score (step 6), which can't trigger
+a step-up on its own. The whole request body is capped at 16 KiB, so a larger
+one gets `400` before any of this runs.
 
-Only what a well-formed `clientFp` says about the machine can count against a
-comment, through the automation check in step 3. `interaction` never does.
-Dictation, input methods and assistive technology all put text in the box
-without key presses, so the server records how the words got there and never
-judges it.
+Only `clientFp` can count against a comment. What it says about the machine
+feeds the step-up score in step 6: the Browser row (`navigator.webdriver`,
+WebGL, window shape, and contradictions with the request headers) and the
+time zone signal in the Network row. Its hash is also a key the ban list
+matches in step 5. The declared-automation check in step 3 reads request
+headers only. `interaction` never counts. Dictation, input methods and
+assistive technology all put text in the box without key presses, so the
+server records how the words got there and never judges it.
 
 Before storing, the server enforces these bounds:
 
@@ -369,9 +380,19 @@ Every submission runs the full risk stack, a fixed series of checks, in order.
 
 #### 1. Turnstile
 
-A failed or missing token gets a plain `400`/`503`. After this step, only the
-step-up (step 5) refuses in the open. Every other check either succeeds
-outright or fails silently.
+A failed or missing token gets a plain `400`/`503`. After this step, three
+checks can still refuse in the open, and nothing is stored:
+
+| Step | Refusal |
+| --- | --- |
+| 3. Heuristics | `403 email_verification_required`, on a post that takes verified addresses only |
+| 4. Rate limits | `429` |
+| 6. Email step-up | `403 email_required`, when the writer gave no address |
+
+Every other check answers `201`: the comment is published or held. A hold
+never says which check caused it, except that a step-up hold sets
+`awaitingEmail` (see [Response](#response)). The honeypot, the dwell time, a
+declared agent and a ban all hide behind that same `held` answer.
 
 #### 2. Honeypot and dwell time
 
@@ -379,21 +400,21 @@ Tripping either returns a fabricated `201 { "outcome": "held", ... }` envelope
 that is **never persisted**.
 
 A filled honeypot also quarantines the current session or account for 24
-hours (see step 5). An expired dwell token doesn't, since a tab left open
+hours (see step 6). An expired dwell token doesn't, since a tab left open
 overnight trips it too.
 
-Exact repeated bodies of 20+ characters within 24 hours are saved as held
-comments instead. This hold doesn't quarantine the writer or other readers on
-their network. The normalized body hash is only a clustering signal, so bodies
-that differ in links or punctuation don't trigger the duplicate hold.
-
 #### 3. Heuristics
+
+A post that takes verified addresses only refuses an anonymous writer here,
+with `403 email_verification_required` (see
+[Per-post policy](#per-post-policy)).
 
 A heuristic hit **holds** the comment: it is created, but only its writer can
 see it. A hit never drops the comment.
 
 | Check | Anonymous writer | Verified (L1/L2) writer |
 | --- | --- | --- |
+| Exact repeated body (20+ characters, within 24 hours) | Holds | Holds |
 | Disposable email domain | Holds | Skipped |
 | Keyword blocklist | Holds | Holds |
 | Link count | Ceiling of 3 | Ceiling of 6 |
@@ -401,6 +422,10 @@ see it. A hit never drops the comment.
 Verified writers skip the disposable-domain check because verification
 already priced out the throwaway identity. The exact-duplicate hold and the
 keyword blocklist apply to everyone.
+
+The duplicate hold doesn't quarantine the writer or other readers on their
+network. The normalized body hash is only a clustering signal, so bodies that
+differ in links or punctuation don't trigger the duplicate hold.
 
 A first comment with a link is fine. There's no first-session-link hold;
 Akismet judges it like anything else.
@@ -412,8 +437,8 @@ carries one:
 
 - is stored as `rejected` with reason `spam`,
 - gets the usual `held` envelope,
-- quarantines the session (step 5),
-- skips the external checks in step 6, and
+- quarantines the session (step 6),
+- skips the step-up and the external checks in step 7, and
 - as a first strike, sends the owner a card.
 
 The card for a rejected comment has an Approve action, and so does the
@@ -434,18 +459,31 @@ allowance follows the account instead of the network. The first exhausted
 limit returns `429` with the standard `X-RateLimit-*`/`Retry-After` headers
 (see [Rate limits](/docs/api/overview#rate-limits)).
 
-#### 5. Email step-up
+#### 5. Shadow-ban
+
+The ban list is read right after the rate limits. A banned writer is held on
+sight: the step-up and step 7 are skipped, so no external call is spent, and
+no per-comment card is sent. The row's note reads `Shadow-banned writer.` The
+writer sees their own comment as normal; nobody else ever does.
+
+The ban list holds nine kinds of key: the address, the session, the IP, its
+/24, the server-side and client-side fingerprints, the network, a link domain,
+and a mail domain. A write that matches any one of them is held. Nothing in
+the response says so.
+
+#### 6. Email step-up
 
 Anonymous writers only. A step-up means the writer has to confirm an email
-address before the comment goes anywhere. A score from four independent
-sources decides it:
+address before the comment goes anywhere. A writer already held or rejected
+by step 3 or step 5 skips it. A score from four independent sources decides
+it:
 
 | Source | Signals and weights | Cap |
 | --- | --- | --- |
 | Network | Hosting ASN 2, Tor 2, time zone differs from the IP's 1 | 2 |
 | Browser | `navigator.webdriver` 4; software WebGL, headless window shape, zero outer window, or a Worker's `cf-worker` header 2; each inconsistency (platform, client hints, touch, languages, plugins, missing client hints, priority or client evidence) 1 | 4 |
 | History | A third distinct post in 10 minutes 4; the same browser session under another name within 24 hours 2 | None |
-| Content | The AI gateway's authorship reading (step 6): `unclear` 2, `agent` 4 | None |
+| Content | The AI gateway's authorship reading (step 7): `unclear` 2, `agent` 4 | None |
 
 A score of 4 or more triggers the step-up. The caps keep any one weak source
 below that. A VPN, a laptop without GPU drivers, and a spoofed user agent are
@@ -456,7 +494,7 @@ the server-derived fingerprint (IP /24 and user agent), so rotating sessions
 doesn't reset the count. A rename reads the session only. How the text was
 entered (keystrokes, dictation, paste, pointer) is recorded and never scored.
 
-The content score arrives with the step 6 verdict and is added when that
+The content score arrives with the step 7 verdict and is added when that
 verdict lands. Inside the 8000ms window, a content step-up is refused or
 stored like any other. After the window, the stored row becomes an awaiting
 row (below), and the verification mail, which waits for the verdict, says so.
@@ -475,14 +513,14 @@ Ordinary owner hide/delete actions don't create a quarantine.
 with reason `ok` and a note beginning `Awaiting email`, and the verification
 mail says that confirming publishes the comment.
 
-Step 6 still judges an awaiting row. An adverse verdict (spam, a gateway hold,
+Step 7 still judges an awaiting row. An adverse verdict (spam, a gateway hold,
 a reject) replaces the wait and stands. A clean one is appended to the note.
 The owner gets the usual card once the verdict lands, except during a lockdown
 or quarantine.
 
 The writer confirms by opening the link in the same browser, or by selecting
 the comment in `POST /api/v2/reader/claims`. Confirming sends the comment
-through step 6 again, as a verified reader's comment, with a second opinion
+through step 7 again, as a verified reader's comment, with a second opinion
 from the gateway. A confirmed mailbox doesn't prove a person: if the gateway
 still reads the writer as an `agent`, the comment stays held with a note
 beginning `Email confirmed; still held.`, and the owner decides. The owner can
@@ -493,7 +531,7 @@ comments in 10 minutes, or when 3 of the last 5 anonymous comments are judged
 spam. It lifts automatically. Step-ups never engage it. See
 [Stopping somebody](/docs/platform/comments#stopping-somebody).
 
-#### 6. Content moderation
+#### 7. Content moderation
 
 Skipped after a heuristics hold, a declared agent, or a ban. A step-up row is
 still judged.
@@ -524,7 +562,7 @@ comments from the last hour. It answers two questions:
   confirms it) or `agent` (behaviour confirms it: bursts across posts, a
   numbered persona in a wave, a comment answering a different post, tool
   artifacts). Style alone is never `agent`, and dictation artifacts, typos,
-  slang and brevity are never evidence. This answer only feeds the step 5
+  slang and brevity are never evidence. This answer only feeds the step 6
   score and the note. It never holds a comment by itself.
 
 When the gateway is unavailable, the Akismet verdict stands alone. A spam
@@ -542,17 +580,6 @@ therefore not always final.
 Only anonymous writers feel the wait. Akismet alone answers in well under a
 second; the gateway, which reads the context as well, takes 3–7 seconds.
 
-#### 7. Shadow-ban
-
-A banned writer is held on sight, before step 6 spends an external call and
-without a per-comment card. The row's note reads `Shadow-banned writer.` The
-writer sees their own comment as normal; nobody else ever does.
-
-The ban list holds nine kinds of key: the address, the session, the IP, its
-/24, the server-side and client-side fingerprints, the network, a link domain,
-and a mail domain. A write that matches any one of them is held. Nothing in
-the response says so.
-
 ### Response
 
 ```json
@@ -563,7 +590,7 @@ the response says so.
 | --- | --- |
 | `outcome` | `"published"` or `"held"` |
 | `unverifiedEmail` | True when a supplied `email` doesn't already belong to a verified reader, so the client shows the verification nudge. Always false when no email was sent. |
-| `awaitingEmail` | True when the comment is held until that address is confirmed (the step-up in step 5). The client then says that confirming publishes it, instead of showing an ordinary hold. |
+| `awaitingEmail` | True when the comment is held until that address is confirmed (the step-up in step 6). The client then says that confirming publishes it, instead of showing an ordinary hold. |
 
 `awaitingEmail` is known only for a verdict that landed inside the 8000ms
 window. A later step-up reads as an ordinary `held`, and the verification mail
@@ -584,7 +611,7 @@ on that send. A create without an email never sends mail at all.
 | `503 comment_target_unavailable` | The Ghost registry can't be reached |
 | `403 comments_closed`, `403 email_verification_required` | From the [per-post policy](#per-post-policy) |
 | `400 turnstile_failed`, `503 turnstile_unavailable` | Turnstile failed or is unavailable. Both carry a `code` extra. |
-| `403 email_required` | The step-up (step 5) asks an anonymous writer for an address |
+| `403 email_required` | The step-up (step 6) asks an anonymous writer for an address |
 | `429 Too Many Requests` | A rate limit |
 
 The route is same-origin only and sends no CORS header.
@@ -838,7 +865,7 @@ trip.
 
 | Field | Description |
 | --- | --- |
-| `targetType`, `targetId` | What to react to. `targetType: 'comment'` targets a live (non-deleted) comment row directly; `targetType: 'post'` is validated against the same Ghost post registry `POST /api/v2/comments` uses. |
+| `targetType`, `targetId` | What to react to. `targetType: 'comment'` targets a published comment row directly. A held, rejected or deleted comment answers `404 not_found`, the same as an unknown id. `targetType: 'post'` is validated against the same Ghost post registry `POST /api/v2/comments` uses. |
 | `emoji` | Defaults to the one reaction shipped at launch (❤️) if omitted |
 | `reacted` | The desired final state. Repeating the same request is safe (idempotent). |
 | `turnstileToken` | Uses `expectedAction: 'blog_reaction'`. May be empty while the browser holds a reader pass (below). |
@@ -886,7 +913,7 @@ hourly network ceiling.
 | --- | --- |
 | `400` | Malformed body |
 | `400 turnstile_failed`, `503 turnstile_unavailable` | Turnstile failed or is unavailable |
-| `404 not_found` | Unknown target |
+| `404 not_found` | Unknown target, or a comment that isn't published |
 | `503 reaction_target_unavailable` | The Ghost post registry can't be reached |
 | `403 reactions_disabled` | The post's hearts are off |
 
@@ -1048,10 +1075,12 @@ seven days. The notify sweep keeps that promise: it nulls `email_hash` on any
 no new cron; it runs on the schedule that already handles the other notify
 maintenance.
 
-The comment itself stays published. It falls back to the shape a comment
-posted without an address has always had: anon-session ownership, a drawn
-face, and no claim-on-verify. Confirming afterwards mints a fresh reader and
-doesn't adopt the old comment.
+The sweep doesn't change the comment's status, so a published comment stays
+published. It falls back to the shape a comment posted without an address has
+always had: anon-session ownership, a drawn face, and no claim-on-verify.
+Confirming afterwards mints a fresh reader and doesn't adopt the old comment.
+A comment still awaiting its confirmation (step 6 of the risk stack) stays
+held, and from then on only the owner can release it.
 
 ## Reader preferences
 
@@ -1329,7 +1358,7 @@ through it claims nothing.
 IDs and returns `{ "claimedIds": ["..."] }`. The update repeats the mailbox,
 unclaimed, and non-deleted conditions atomically. It changes only ownership
 and claim metadata, never the original session or authentication evidence. A
-claimed comment still awaiting its email confirmation (step 5 of the risk
+claimed comment still awaiting its email confirmation (step 6 of the risk
 stack) is then released through content moderation.
 
 Both methods:

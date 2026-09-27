@@ -393,8 +393,10 @@ mood sentiment runs on. It reads two things:
 - **The text**, the way the owner would: VPN pitches, referral links, "contact
   me on Telegram". It can turn Akismet's ham into a hold, never the reverse.
 - **The writer**, with the writer's last day and the site's last hour as
-  context. An `unclear` or `agent` answer triggers a step-up, never a hold. An
-  `agent` answer keeps a comment held even after its email is confirmed.
+  context. An `agent` answer triggers a step-up on its own. An `unclear`
+  answer adds half as much to the step-up score, so it triggers one only
+  together with other signals. Neither answer is a moderation hold. An `agent`
+  answer keeps a comment held even after its email is confirmed.
 
 If the key is unset, the call times out, or the model refuses, the Akismet
 verdict stands alone. The create request waits 8000ms for both checks. If they
