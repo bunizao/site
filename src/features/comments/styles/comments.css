@@ -406,24 +406,38 @@
   z-index: 60;
 }
 
-/* A wash of page colour under the fan, so the form beneath stops reading
-   through the gaps between faces: an ellipse centred 50px right of the face,
-   solid over the arc and gone by its rim. */
+/* A pane of frosted glass under the fan, so the form beneath blurs out of
+   the gaps between faces instead of reading through them. A stadium centred
+   on the arc: its left edge stays 47px from the face, which keeps it on
+   screen when the face sits at a phone's gutter. (The pane replaced a
+   near-opaque radial wash of page colour, which read as a dark smudge.) */
 .blog-avatar-fan::before {
   content: '';
   position: absolute;
-  left: -100px;
-  top: -150px;
-  width: 300px;
-  height: 300px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, hsl(var(--background) / 0.96) 70%, hsl(var(--background) / 0));
+  left: -47px;
+  top: -128px;
+  width: 180px;
+  height: 256px;
+  border-radius: 999px;
+  background:
+    linear-gradient(160deg, hsl(0 0% 100% / 0.1), hsl(0 0% 100% / 0) 45%),
+    hsl(var(--background) / 0.42);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(18px) saturate(1.6);
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--foreground) / 0.1),
+    inset 0 1px 0 hsl(0 0% 100% / 0.14);
   opacity: 0;
-  transition: opacity 180ms ease;
+  transform: scale(0.9);
+  transform-origin: 47px 50%;
+  transition:
+    opacity 180ms ease,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .blog-avatar-fan.is-open::before {
   opacity: 1;
+  transform: none;
 }
 
 .blog-avatar-fan__item {
@@ -441,9 +455,8 @@
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
-  box-shadow:
-    0 0 0 2px hsl(var(--background)),
-    0 6px 16px -4px rgb(0 0 0 / 0.3);
+  /* A glass rim rather than a drop shadow: the pane already lifts the fan. */
+  box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.14);
   opacity: 0;
   transform: translate(0, 0) scale(0.4);
   /* Folding in: last out, first in. */
@@ -505,7 +518,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in oklab, hsl(var(--foreground)) 8%, hsl(var(--background)));
+  background: hsl(var(--foreground) / 0.08);
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--foreground) / 0.14),
+    inset 0 1px 0 hsl(0 0% 100% / 0.16);
   color: hsl(var(--foreground));
 }
 
@@ -522,6 +538,11 @@
   .blog-avatar-fan__more > svg {
     transition: none;
     animation: none;
+  }
+
+  .blog-avatar-fan::before {
+    transform: none;
+    transition: opacity 120ms ease;
   }
 
   .blog-avatar-fan__item,
