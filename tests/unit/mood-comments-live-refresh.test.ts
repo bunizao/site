@@ -48,7 +48,7 @@ describe('mood comments live refresh gating', () => {
 
     expect(body).toContain('new IntersectionObserver');
     expect(body).toContain('rootMargin: LIVE_REFRESH_ROOT_MARGIN');
-    expect(body).toContain('if (!inView || isIdle()) return;');
+    expect(body).toContain('if (!inView) return;');
     expect(body).toContain('lastRefreshAt = Date.now();');
     expect(source).toContain("const LIVE_REFRESH_ROOT_MARGIN = '0px 0px 400px 0px';");
     expect(source).toContain('const LIVE_REFRESH_IDLE_MS = 10 * 60_000;');
