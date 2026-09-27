@@ -67,9 +67,10 @@ carriers and the `400` versus `503` failure split are in
 
 ## Signed URLs
 
-Owned by `site-api`. Signs `pathname` plus normalized search params with
-HMAC-SHA256, excludes `sig` from the signing payload, requires a numeric `exp`,
-and rejects expired signatures. It currently protects the activity SVG endpoint
+Owned by `site-api`. Signs the public path (`/api/...`; ingress strips the
+prefix and the verifier puts it back) plus the search params sorted by key, with
+HMAC-SHA256. `sig` is excluded from the payload, `exp` is required, and expired
+signatures are rejected. It currently protects the activity SVG endpoint
 — and only when `ACTIVITY_PANEL_SIGNING_SECRET` is set, which is the caveat
 spelled out in [SVG Endpoints](/docs/api/svg#errors-and-validation).
 
