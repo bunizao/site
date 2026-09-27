@@ -657,18 +657,39 @@ export function seedInClass(cls: number, variety: number): number {
   return (Math.abs(Math.trunc(variety)) % span) * AVATAR_CLASSES + (Math.abs(Math.trunc(cls)) % AVATAR_CLASSES);
 }
 
-/** POST body for `READER_AVATAR_SEED_PATH`. */
+/** How many faces an `offer` holds. */
+export const AVATAR_OFFER_SIZE = 5;
+
+/** POST body for `READER_AVATAR_SEED_PATH`.
+
+    - `issue` (the default): one seed, handed out and counted. The first face
+      a browser gets.
+    - `offer`: AVATAR_OFFER_SIZE candidates to choose from, nothing counted
+      or kept -- a reader browsing faces has not taken one yet.
+    - `choose`: `seed` becomes the caller's face, counted and, for a verified
+      reader, kept. */
 export interface AvatarSeedInput {
-  /** The seed on screen now. The answer is always in a different colour
-      class, so every re-roll visibly changes the face. */
+  /** The seed on screen now. `issue` and `offer` always answer in other
+      colour classes, so every new face visibly changes. */
   current?: number | null;
+  mode?: 'issue' | 'offer' | 'choose';
+  /** Required for `choose`. */
+  seed?: number;
 }
 
+/** The answer to `issue` and `choose`. */
 export interface AvatarSeedResult {
-  /** In the least-used colour class across the site, never `current`'s. */
+  /** For `issue`, in the least-used colour class across the site, never
+      `current`'s. For `choose`, the seed that was sent. */
   seed: number;
   /** True when the caller is a verified reader and the seed is now theirs
       everywhere. False for anyone else: the client keeps it and sends it as
       `CommentCreateInput.avatarSeed`. */
   persisted: boolean;
+}
+
+/** The answer to `offer`: one seed in each of the AVATAR_OFFER_SIZE
+    least-used colour classes, none of them `current`'s. */
+export interface AvatarSeedOfferResult {
+  seeds: number[];
 }

@@ -887,12 +887,23 @@ POST /api/v2/reader/avatar-seed
 ```
 
 ```json
-{ "current": 1234567 }
+{ "current": 1234567, "mode": "issue" }
 ```
 
 ```json
 { "seed": 7654320, "persisted": false }
 ```
+
+`mode` is `issue` (the default), `offer`, or `choose`:
+
+| Mode | Body | Answer | Counts a class | Stores on a reader |
+| --- | --- | --- | --- | --- |
+| `issue` | `current` | `{ seed, persisted }` | yes | yes |
+| `offer` | `current` | `{ seeds }`, five seeds | no | no |
+| `choose` | `current`, `seed` | `{ seed, persisted }` | yes | yes |
+
+An unknown `mode` is `400 invalid_mode`; `choose` without a valid uint32
+`seed` is `400 invalid_seed`.
 
 Anyone without a picture gets a drawn face in one of three styles ported
 from Boring Avatars to `src/features/comments/drawn-avatar.ts` and drawn in
@@ -906,17 +917,27 @@ sit. `avatarSeed` on a comment author, a reactor chip, or `ReaderMe` is that
 seed, or `null` for anything older than the feature, which the client draws
 from the row id as before.
 
-This route hands out a seed in the least-issued colour class across the
-site, never the class of `current`, so a new face or a re-roll lands on a
-colour pair the fewest people already wear. It keeps a count per class
-rather than counting every reader and comment, so each call reads twenty rows.
-Open to anonymous writers: they get `persisted: false`, and the browser keeps
-the seed and posts it with each comment. A signed-in reader's pick is stored
-on their reader row and every comment they own (`persisted: true`); their
-stored seed is the one replaced, whatever `current` says. The client asks for
-the first seed on the first focus of a compose box, not on page load, and
-each tap on the reader's own face asks for another. `private, no-store`;
-rate-limited at 30/minute per IP.
+`issue` hands out a seed in the least-issued colour class across the site,
+never the class of `current`, so a new face lands on a colour pair the
+fewest people already wear. `offer` returns five seeds in the five
+least-issued classes, again never `current`'s, and counts none of them, so
+browsing batches costs the balance nothing; `choose` then counts the one
+picked, and gives back the class `current` was counted in. The route keeps a
+count per class rather than counting every reader and comment, so each call
+reads twenty rows. Open to anonymous writers: they get `persisted: false`,
+and the browser keeps the seed and posts it with each comment. A signed-in
+reader's `issue` or `choose` is stored on their reader row and every comment
+they own (`persisted: true`); their stored seed is the one replaced, whatever
+`current` says. `private, no-store`; rate-limited at 30/minute per IP.
+
+The client asks for the first seed once the reader focuses or types in a
+compose box, not on page load; until then the face beside the name field is
+a silhouette, and it never follows the name typed there. Pressing the
+reader's own face turns it into a button that asks for five more and
+throws an offer's five faces out onto an arc to its right; the client
+restyles the five so neighbours on the arc differ (class and palette kept), and draws five
+locally if the offer fails. The pick is shown and kept in the browser at
+once, then sent as `choose`.
 
 The like stack does its own avoidance on screen: likes with no reader
 behind them each wear their own palette and class, none that the named faces

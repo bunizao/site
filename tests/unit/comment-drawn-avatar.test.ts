@@ -6,6 +6,7 @@ import {
   avatarParts,
   AVATAR_STYLES,
   drawnAvatarSvg,
+  rotateStyles,
   seedOfParts,
   type AvatarStyle,
 } from '@/features/comments/drawn-avatar';
@@ -124,5 +125,21 @@ describe('anonymousSeeds', () => {
   test('covers all classes before repeating', () => {
     const classes = anonymousSeeds(AVATAR_CLASSES, [], 'post-1').map(avatarClass);
     expect(new Set(classes).size).toBe(AVATAR_CLASSES);
+  });
+});
+
+describe('rotateStyles', () => {
+  test('deals styles in turn and keeps class, palette and shape', () => {
+    const seeds = anonymousSeeds(5, [], 'offer:test');
+    const rotated = rotateStyles(seeds, 1);
+    expect(rotated.map((seed) => avatarParts(seed).style)).toEqual(
+      [1, 2, 3, 4, 5].map((i) => AVATAR_STYLES[i % AVATAR_STYLES.length]),
+    );
+    rotated.forEach((seed, i) => {
+      const { style: _before, ...kept } = avatarParts(seeds[i]);
+      const { style: _after, ...now } = avatarParts(seed);
+      expect(now).toEqual(kept);
+      expect(isAvatarSeed(seed)).toBe(true);
+    });
   });
 });

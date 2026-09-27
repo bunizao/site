@@ -180,3 +180,13 @@ export function anonymousSeeds(count: number, taken: readonly number[], basis: s
     shape: seedNumber(`${basis}:anon:${j}`),
   }));
 }
+
+/** The same seeds with their styles dealt in turn from `offset`, so a row of
+    candidates never shows two of one style side by side. Class, palette and
+    shape stay as they were -- the class is what the server balanced. */
+export function rotateStyles(seeds: readonly number[], offset: number): number[] {
+  return seeds.map((seed, i) => seedOfParts({
+    ...avatarParts(seed),
+    style: AVATAR_STYLES[(offset + i) % STYLES],
+  }));
+}

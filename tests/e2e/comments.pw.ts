@@ -839,3 +839,144 @@ test('a solved challenge earns a pass that the next like spends without a widget
   expect(bodies.map((body) => body.turnstileToken)).toEqual(['', 'good-token', '']);
   expect(await page.evaluate(() => (window as unknown as { __turnstileRenders: number }).__turnstileRenders)).toBe(rendersAfterChallenge);
 });
+
+/** The avatar-seed route: `issue` hands out one seed, `offer` a fresh five per
+    call, `choose` echoes the pick. Every body is kept for the assertions. */
+async function installAvatarSeedApi(page: import('@playwright/test').Page) {
+  const bodies: Array<{ mode?: string; seed?: number; current?: number | null }> = [];
+  let batch = 0;
+  await page.route('**/api/v2/reader/avatar-seed', async (route) => {
+    const body = JSON.parse(route.request().postData() ?? '{}');
+    bodies.push(body);
+    if (body.mode === 'offer') {
+      batch += 1;
+      const seeds = Array.from({ length: 5 }, (_, i) => 1_000_000 * batch + 104_729 * i + i);
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ seeds }) });
+      return;
+    }
+    const seed = body.mode === 'choose' ? body.seed : 424_242;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ seed, persisted: false }) });
+  });
+  return bodies;
+}
+
+const fanSeeds = (page: import('@playwright/test').Page) =>
+  page.locator('.blog-avatar-fan.is-open .blog-avatar-fan__item[data-seed]').evaluateAll(
+    (items) => items.map((item) => (item as HTMLElement).dataset.seed),
+  );
+
+test('the face beside the name field does not follow what is typed', async ({ page }) => {
+  await installCommentApi(page);
+  const bodies = await installAvatarSeedApi(page);
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+
+  const compose = page.locator('.blog-comments > .blog-compose');
+  const face = compose.locator('[data-compose-identity] [data-avatar-own]');
+  const name = compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])');
+  await name.pressSequentially('n');
+  await expect(face).not.toHaveClass(/is-empty/);
+  const first = await face.innerHTML();
+
+  await name.pressSequentially('nnn');
+  expect(await face.innerHTML()).toBe(first);
+  expect(bodies.filter((body) => !body.mode)).toHaveLength(1);
+});
+
+test('pressing your face fans out five to pick from, and more deals five others', async ({ page }) => {
+  await installCommentApi(page);
+  const bodies = await installAvatarSeedApi(page);
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+
+  const face = page.locator('.blog-comments > .blog-compose [data-compose-identity] [data-avatar-own]');
+  await face.click();
+  await expect(face).toHaveAttribute('aria-expanded', 'true');
+  const fan = page.locator('.blog-avatar-fan.is-open');
+  await expect(fan.locator('.blog-avatar-fan__item')).toHaveCount(6);
+  await expect(fan.locator('.blog-avatar-fan__item[data-seed]')).toHaveCount(5);
+  const firstBatch = await fanSeeds(page);
+
+  await fan.getByRole('button', { name: 'Show five more' }).click();
+  await expect.poll(() => fanSeeds(page)).not.toEqual(firstBatch);
+  const secondBatch = await fanSeeds(page);
+  expect(new Set(secondBatch).size).toBe(5);
+
+  await fan.getByRole('button', { name: 'Face 3' }).click();
+  await expect(page.locator('.blog-avatar-fan')).toHaveCount(0);
+  await expect(face).toHaveAttribute('aria-expanded', 'false');
+  await expect(face).toBeFocused();
+  expect(await page.evaluate(() => localStorage.getItem('blog:avatar-seed'))).toBe(secondBatch[2]);
+  await expect.poll(() => bodies.find((body) => body.mode === 'choose')?.seed).toBe(Number(secondBatch[2]));
+});
+
+test('the fan answers the keyboard and puts itself away', async ({ page }) => {
+  await installCommentApi(page);
+  await installAvatarSeedApi(page);
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+
+  const face = page.locator('.blog-comments > .blog-compose [data-compose-identity] [data-avatar-own]');
+  await face.focus();
+  await page.keyboard.press('Enter');
+  const fan = page.locator('.blog-avatar-fan.is-open');
+  await expect(fan.getByRole('button', { name: 'Face 1' })).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(fan.getByRole('button', { name: 'Show five more' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.blog-avatar-fan')).toHaveCount(0);
+  await expect(face).toBeFocused();
+
+  // A press anywhere else dismisses it too. The face's own spot is the more
+  // button while the fan is out, so a second press there deals instead.
+  await face.click();
+  await expect(fan).toHaveCount(1);
+  const more = await fan.getByRole('button', { name: 'Show five more' }).boundingBox();
+  const own = await face.boundingBox();
+  expect(Math.abs(more!.x + more!.width / 2 - (own!.x + own!.width / 2))).toBeLessThan(1);
+  await page.mouse.click(5, 5);
+  await expect(page.locator('.blog-avatar-fan')).toHaveCount(0);
+});
+
+test('on a phone the fan fits on screen and a drag from the face picks one', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, locale: 'en-US' });
+  const page = await context.newPage();
+  await installCommentApi(page);
+  const bodies = await installAvatarSeedApi(page);
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+
+  const face = page.locator('.blog-comments > .blog-compose [data-compose-identity] [data-avatar-own]');
+  await face.scrollIntoViewIfNeeded();
+  await face.tap();
+  const fan = page.locator('.blog-avatar-fan.is-open');
+  await expect(fan.locator('.blog-avatar-fan__item[data-seed]')).toHaveCount(5);
+  await page.waitForTimeout(500);
+  for (const box of await fan.locator('.blog-avatar-fan__item').evaluateAll((items) => items.map((item) => item.getBoundingClientRect().toJSON()))) {
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.left).toBeGreaterThanOrEqual(0);
+    expect(box.right).toBeLessThanOrEqual(390);
+    expect(box.top).toBeGreaterThanOrEqual(0);
+    expect(box.bottom).toBeLessThanOrEqual(844);
+  }
+
+  // Put it away, then press, slide onto the fourth face and lift.
+  const beside = await face.boundingBox();
+  await page.touchscreen.tap(4, beside!.y + 250);
+  await expect(page.locator('.blog-avatar-fan')).toHaveCount(0);
+  const from = await face.boundingBox();
+  const cdp = await context.newCDPSession(page);
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) =>
+    cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  await touch('touchStart', from!.x + from!.width / 2, from!.y + from!.height / 2);
+  const target = fan.getByRole('button', { name: 'Face 4' });
+  await expect(target).toHaveAttribute('data-seed', /\d+/);
+  await page.waitForTimeout(450);
+  const to = await target.boundingBox();
+  await touch('touchMove', from!.x + 20, from!.y + 10);
+  await touch('touchMove', to!.x + to!.width / 2, to!.y + to!.height / 2);
+  await expect(target).toHaveClass(/is-hot/);
+  const picked = await target.getAttribute('data-seed');
+  await touch('touchEnd', 0, 0);
+
+  await expect(page.locator('.blog-avatar-fan')).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('blog:avatar-seed'))).toBe(picked);
+  await expect.poll(() => bodies.find((body) => body.mode === 'choose')?.seed).toBe(Number(picked));
+  await context.close();
+});

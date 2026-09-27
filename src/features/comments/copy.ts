@@ -150,8 +150,12 @@ export interface CommentsCopy {
   reactError: string;
   /** Hover label on a stack face that stands in for an anonymous like. */
   reactAnonymous: string;
-  /** Label on the reader's own drawn face, which draws another when tapped. */
-  avatarShuffle: string;
+  /** Label on the reader's own drawn face, which opens the face picker. */
+  avatarChoose: string;
+  /** Label on each face the picker offers. */
+  avatarOption: (index: number) => string;
+  /** The picker's last button, which swaps the five faces for five more. */
+  avatarMore: string;
 
   /* --- Receipt -----------------------------------------------------------
      Success says nothing: the comment itself arrives in the list under the box
@@ -265,7 +269,9 @@ const zh: CommentsCopy = {
   reactDone: '已喜欢',
   reactError: '没能点上，稍后再试。',
   reactAnonymous: '匿名读者',
-  avatarShuffle: '换一个头像',
+  avatarChoose: '选一个头像',
+  avatarOption: (index) => `头像 ${index}`,
+  avatarMore: '换一批',
 
   submitError: {
     NET: '好像断网了，等网络回来再发一次吧。草稿都还在。',
@@ -362,7 +368,9 @@ const en: CommentsCopy = {
   reactDone: 'Liked',
   reactError: 'That like did not stick. Try again shortly.',
   reactAnonymous: 'Anonymous reader',
-  avatarShuffle: 'Draw another face',
+  avatarChoose: 'Choose a face',
+  avatarOption: (index) => `Face ${index}`,
+  avatarMore: 'Show five more',
 
   submitError: {
     NET: "Looks like you're offline. Post again once you're back — your draft's safe.",

@@ -23,6 +23,7 @@ import type {
   ReaderMe,
   ReaderMeResult,
 } from '@bunizao/contracts/comments';
+import { AVATAR_OFFER_SIZE } from '@bunizao/contracts/comments';
 import { collectClientEvidence, warmClientEvidence } from './client-evidence';
 import { beginWriteTelemetry, type WriteTelemetry } from './telemetry';
 import {
@@ -59,8 +60,9 @@ import { readCommentText, setCommentText } from '@/features/comments/comment-mar
 import { forgetReaderEmail, readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { wireSignOut } from '@/features/comments/client/sign-out';
 import { rowFaceSeed, seedNumber } from '@/features/comments/identity';
-import { drawnAvatarSvg } from '@/features/comments/drawn-avatar';
-import { readAvatarSeed, rememberAvatarSeed, requestAvatarSeed } from '@/features/comments/client/avatar-seed';
+import { AVATAR_STYLES, anonymousSeeds, drawnAvatarSvg, rotateStyles } from '@/features/comments/drawn-avatar';
+import { readAvatarSeed, rememberAvatarSeed, requestAvatarOffer, requestAvatarSeed, sendAvatarChoice } from '@/features/comments/client/avatar-seed';
+import { wireAvatarFan } from '@/features/comments/client/avatar-fan';
 import { ICONS, SIGNOUT_ICONS, iconSvg } from '@/features/comments/icons';
 import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
@@ -288,12 +290,24 @@ export function initCommentsController(): void {
   let replyBox: HTMLElement;
   let replyField: HTMLTextAreaElement;
   let moreButton: HTMLButtonElement | null = null;
+  // The reader's own face: the first-seed request in flight, and the fan's
+  // next batch, fetched one ahead.
+  let seedRequest: Promise<void> | null = null;
+  let nextOffer: Promise<number[]> | null = null;
 
   if (compose) {
     applyPhase(compose, phase, claimed, viewer);
     wireSignOut(compose, () => void signOut());
   }
   paintOwnFaces();
+  wireAvatarFan('[data-avatar-own]', {
+    host: section,
+    labels: { group: t.avatarChoose, option: t.avatarOption, more: t.avatarMore },
+    moreIcon: iconSvg(ICONS.refreshCw, 'stroke-width="2"'),
+    batch: takeOffer,
+    paint: paintFace,
+    choose: chooseOwnSeed,
+  });
   void mintDwellToken();
 
   // A Turnstile solve costs ~2.3s. Asked for at submit time it landed entirely
@@ -334,14 +348,22 @@ export function initCommentsController(): void {
     watcher.observe(section);
   }
   section.addEventListener('focusin', (event) => {
-    if (!(event.target as HTMLElement).closest('.blog-compose')) return;
+    const target = event.target as HTMLElement;
+    if (!target.closest('.blog-compose')) return;
     warmCreate();
     armEvidence();
-    void ensureOwnSeed();
+    // Pressing the face opens the picker; a seed issued behind it is waste.
+    if (!target.closest('[data-avatar-own]')) ensureOwnSeed();
     // Free while the token is young. A tab left open past its day re-mints
     // here, as the reader starts writing, never at Post.
     void mintDwellToken();
   });
+  // Focus can land before this script does (a reader typing while the page
+  // loads), so typing asks too; it is a no-op once a seed is known.
+  section.addEventListener('input', (event) => {
+    if ((event.target as HTMLElement).closest('.blog-compose')) ensureOwnSeed();
+  });
+  if (document.activeElement?.closest('.blog-compose') && section.contains(document.activeElement)) ensureOwnSeed();
 
   // Build the "loaded" shell up front -- state="loading" carries neither the
   // reply box nor the list container, so nothing below exists until this runs,
@@ -1084,11 +1106,12 @@ export function initCommentsController(): void {
     // renders that one and a live thread renders this one.
     const face = el('button', {
       type: 'button',
-      class: 'blog-compose__face blog-avatar-drawn blog-avatar-shuffle',
+      class: 'blog-compose__face blog-avatar-drawn blog-avatar-choose',
       'data-avatar-own': '',
       'data-avatar-name': '',
-      'aria-label': t.avatarShuffle,
-      title: t.avatarShuffle,
+      'aria-label': t.avatarChoose,
+      'aria-expanded': 'false',
+      title: t.avatarChoose,
     });
     paintOwnFace(face);
     return el('div', { class: 'blog-compose__identity', id, 'data-compose-identity': '' }, [
@@ -1825,24 +1848,30 @@ export function initCommentsController(): void {
 
   // --- Own drawn face ------------------------------------------------------
 
-  /** The face this browser posts under: a verified reader's stored seed, else
-      the one this browser was handed, else one drawn from the name until the
-      first focus asks the server for a real one. */
+  /** The seed this browser posts under, if it has one yet: a verified
+      reader's stored seed, else the one kept in this browser. */
+  function knownOwnSeed(): number | undefined {
+    return viewer?.avatarSeed ?? readAvatarSeed();
+  }
+
+  /** The same, falling back to a face drawn from `name` -- for the identity
+      strips and the pending row, which always have a settled name. */
   function ownSeed(name: string): number {
-    return viewer?.avatarSeed ?? readAvatarSeed() ?? seedNumber(name);
+    return knownOwnSeed() ?? seedNumber(name);
   }
 
   /** The drawn face both grades fall back to -- a claimed identity never has
       a picture, and a verified reader only has one once it resolved. It is
-      also the control: tapping your own face draws another. */
+      also the control: pressing your own face opens the picker. */
   function ownFace(name: string): HTMLElement {
     const face = el('button', {
       type: 'button',
-      class: 'blog-compose__whoface blog-avatar-drawn blog-avatar-shuffle',
+      class: 'blog-compose__whoface blog-avatar-drawn blog-avatar-choose',
       'data-avatar-own': '',
       'data-avatar-name': name,
-      'aria-label': t.avatarShuffle,
-      title: t.avatarShuffle,
+      'aria-label': t.avatarChoose,
+      'aria-expanded': 'false',
+      title: t.avatarChoose,
     });
     return paintFace(face, ownSeed(name));
   }
@@ -1855,10 +1884,10 @@ export function initCommentsController(): void {
 
   function paintOwnFace(face: HTMLElement): void {
     const name = face.dataset.avatarName ?? '';
-    // The face beside an empty name field has nothing to draw from yet: a
-    // silhouette until the first seed lands, rather than one face every new
-    // visitor shares.
-    if (!name && viewer?.avatarSeed == null && readAvatarSeed() === undefined) {
+    // The face beside the name field never follows what is typed there --
+    // it would redraw on every keystroke. A silhouette until a seed lands,
+    // rather than one face every new visitor shares.
+    if (!name && knownOwnSeed() === undefined) {
       face.replaceChildren(parseStaticSvg(iconSvg(ICONS.userRound)));
       face.classList.add('is-empty');
       return;
@@ -1867,47 +1896,57 @@ export function initCommentsController(): void {
     paintFace(face, ownSeed(name));
   }
 
-  let seedRequest: Promise<void> | null = null;
+  function takeOwnSeed(seed: number, persisted: boolean): void {
+    rememberAvatarSeed(seed);
+    if (viewer && persisted) viewer = { ...viewer, avatarSeed: seed };
+    paintOwnFaces();
+  }
 
   /** The first seed comes from the server, which picks a colour pair the site
-      is not already full of. Asked for on first focus rather than on load:
-      most readers never write, and each ask reads the tables it balances. */
-  function ensureOwnSeed(): Promise<void> {
-    if (viewer?.avatarSeed != null || readAvatarSeed() !== undefined) return Promise.resolve();
-    return shuffleOwnSeed(undefined);
-  }
-
-  function shuffleOwnSeed(current: number | undefined): Promise<void> {
-    seedRequest ??= requestAvatarSeed(current).then((result) => {
+      is not already full of. Asked for once the reader starts on the box
+      rather than on load: most readers never write, and each ask reads the
+      table it balances. */
+  function ensureOwnSeed(): void {
+    if (knownOwnSeed() !== undefined || seedRequest) return;
+    seedRequest = requestAvatarSeed(undefined).then((result) => {
       seedRequest = null;
-      if (!result) return;
-      if (viewer && result.persisted) viewer = { ...viewer, avatarSeed: result.seed };
-      paintOwnFaces();
+      // A face picked in the fan while this was in flight wins.
+      if (result && knownOwnSeed() === undefined) takeOwnSeed(result.seed, result.persisted);
     });
-    return seedRequest;
   }
 
-  // Until a seed lands, the face beside the name field follows the name, so a
-  // failed seed request still leaves a face rather than a silhouette.
-  document.addEventListener('input', (event) => {
-    const field = event.target as HTMLElement;
-    if (!field.matches('.blog-compose__input--name')) return;
-    const face = field.closest('[data-compose-identity]')?.querySelector<HTMLElement>('[data-avatar-own]');
-    if (!face) return;
-    face.dataset.avatarName = (field as HTMLInputElement).value.trim();
-    paintOwnFace(face);
-  });
-
-  document.addEventListener('click', (event) => {
-    const face = (event.target as HTMLElement).closest<HTMLElement>('[data-avatar-own]');
-    if (!face) return;
-    face.classList.remove('is-shuffled');
-    void shuffleOwnSeed(viewer?.avatarSeed ?? readAvatarSeed()).then(() => {
-      // Restarted on every tap, so a second tap still reads as one.
-      void face.offsetWidth;
-      face.classList.add('is-shuffled');
+  /** Five faces for the fan. The next batch is fetched as soon as one is
+      shown, so "more" answers without a wait. */
+  function takeOffer(): Promise<number[]> {
+    const offer = nextOffer ?? fetchOffer();
+    nextOffer = null;
+    void offer.then(() => {
+      nextOffer ??= fetchOffer();
     });
-  });
+    return offer;
+  }
+
+  /** The server's five, else five drawn here, so the fan never comes up
+      empty. Styles are dealt in turn so neighbours on the arc differ. */
+  async function fetchOffer(): Promise<number[]> {
+    const current = knownOwnSeed();
+    const seeds = await requestAvatarOffer(current)
+      ?? anonymousSeeds(AVATAR_OFFER_SIZE, current === undefined ? [] : [current], `offer:${Math.random()}`);
+    return rotateStyles(seeds, Math.floor(Math.random() * AVATAR_STYLES.length));
+  }
+
+  /** Optimistic: the face changes at once and is kept in this browser; the
+      server only has to count it, and keep it for a verified reader. */
+  function chooseOwnSeed(seed: number, trigger: HTMLElement): void {
+    const previous = knownOwnSeed();
+    nextOffer = null;
+    takeOwnSeed(seed, true);
+    trigger.classList.remove('is-chosen');
+    void trigger.offsetWidth;
+    trigger.classList.add('is-chosen');
+    void sendAvatarChoice(seed, previous);
+  }
+
 
   /** The name as the strip shows it, plus the sentence a screen reader hears
       instead -- which grade this is matters to someone who cannot see that the
