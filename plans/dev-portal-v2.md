@@ -120,6 +120,38 @@ read of both repos on `origin/main`).
 
 ## 6. Comments
 
+### 6.0 Journeys (revised 2026-09-28)
+
+Every page is rewritten on the coss primitives in `src/components/coss/`; no
+screen keeps `portal.css`. The comment tools are built around four jobs, each
+borrowed from a pattern that already works elsewhere:
+
+1. **Triage the held queue** (Linear triage, Superhuman). The inbox opens on
+   Held with the oldest wait visible. List on the left, reading pane on the
+   right; `j/k` moves, `a` / `u` / `d` / `b` decide, and the next row is
+   selected the moment the current one leaves the list. Inbox zero is an
+   explicit, calm state.
+2. **Decide without fear** (Gmail undo, NN/g "undo over confirm"). Approve and
+   Unpublish apply at once with an Undo toast; `z` undoes the last one. Delete
+   is held back for 6 s and only then sent, because the backend has no
+   undelete; closing the tab flushes it. Only bulk restores and bans ask first.
+3. **Understand one writer** (YouTube Studio, Discourse review). The pane
+   leads with "why it is here" (reason, parsed risk score, awaiting-email
+   state), then the body, then the writer, then keys and history behind
+   disclosures. Every key pivots the list to `?key=&value=`, where a profile
+   card sits above the filtered comments; the ban flow previews impact before
+   it writes.
+4. **Act on the go** (Apple Mail, HIG). On iPad and phone, rows swipe right to
+   approve and left to delete, following the finger; below `lg` the pane is a
+   bottom drawer with the decision bar under the thumb.
+
+Words are fixed: Held, Published, Rejected, Deleted; "Unpublish" moves a
+comment back to Held. Errors say how to recover. The Telegram Review button
+lands on `/dev/portal/comments#<id>`.
+
+Implementation is delegated to Opus subagents, one area each, reviewed and
+committed here in batches.
+
 ### 6.1 Queue
 
 - [ ] Three panes: filter rail | compact list | inspector. A list row is one
