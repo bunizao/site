@@ -23,6 +23,7 @@ describe('Cloudflare runtime configuration', () => {
   // middleware's admin gate, so these prefixes must reach the Worker first.
   test('routes /dev, /oauth, /v2 and /api through the Worker before static assets', () => {
     const config = readJson('wrangler.jsonc') as {
+      cache?: { enabled?: boolean; cross_version_cache?: boolean };
       assets?: { run_worker_first?: string[] };
       services?: Array<{ binding?: string; service?: string }>;
     };
@@ -30,7 +31,23 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.assets?.run_worker_first).toEqual(
       expect.arrayContaining(['/dev', '/dev/*', '/oauth*', '/v2/*', '/api/*']),
     );
+    // Build-backed routes hold a day-long platform TTL on the premise that a
+    // deploy starts the cache cold; pin that rather than rely on the default.
+    expect(config.cache).toEqual({ enabled: true, cross_version_cache: false });
     expect(config.services).toContainEqual({ binding: 'API', service: 'site-api' });
+  });
+
+  // A prerendered docs page served straight from the asset layer never runs
+  // the Worker's Accept negotiation, so an agent asking for text/markdown gets
+  // HTML back. Both the bare index and every nested page must route through.
+  test('routes /docs and /docs/* through the Worker before static assets', () => {
+    const config = readJson('wrangler.jsonc') as {
+      assets?: { run_worker_first?: string[] };
+    };
+
+    expect(config.assets?.run_worker_first).toEqual(
+      expect.arrayContaining(['/docs', '/docs/*']),
+    );
   });
 
   // import.meta.env values are inlined at build time: a Ghost secret would be
@@ -49,5 +66,14 @@ describe('Cloudflare runtime configuration', () => {
     const offenders = listSourceFiles('src/features/mood').filter((path) => staticImport.test(readText(path)));
 
     expect(offenders).toEqual([]);
+  });
+
+  // Nothing in the row markup is interactive, so it renders to static HTML
+  // instead of shipping React + the site data module for a client island.
+  test('keeps the home Experience timeline unhydrated', () => {
+    const experience = readText('src/features/home/ui/Experience.astro');
+
+    expect(experience).toContain('<ExperienceTimeline />');
+    expect(experience).not.toContain('<ExperienceTimeline client:');
   });
 });

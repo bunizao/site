@@ -14,11 +14,11 @@ out of the route frontmatter so the page can be served as static HTML.
 
 | Section | Component | Data | Rendered |
 | --- | --- | --- | --- |
-| Hero / intro | `home/ui/Hero.astro` | Local config, plus `/api/github/contributions?days=30` | Static; contributions fetched after DOM ready |
-| Listening | `home/ui/Listening.astro` | `/api/listening` | Neutral shell at build, hydrated on load, refreshed every 45s |
+| Hero / intro | `home/ui/Hero.astro` | Local config, plus `/api/github/contributions?days=84` | Static; contributions fetched after DOM ready |
+| Listening | `home/ui/Listening.astro` | `/api/v2/listening` | Neutral shell at build, hydrated on load, refreshed every 45s while on screen |
 | Projects | `home/ui/Projects.astro` | Local card data | Static, revealed on scroll |
 | Writing | `home/ui/Posts.astro` | Ghost Content API | **Build time** — needs build-env credentials |
-| Mood preview (`L0`) | `mood/ui/HomePreview.astro` | `/api/moods` | Skeleton at build, fetched when the section enters the viewport |
+| Mood preview (`L0`) | `mood/ui/HomePreview.astro` | `/api/v2/mood?limit=5`, `/api/moods` as fallback | Skeleton at build, fetched about one viewport before the section scrolls in |
 | Footer | `home/ui/Footer.astro` | `/api/footer`, `/api/edge` | Client |
 
 Everything under `src/features/home/` is home-private — `ui/` for components,
@@ -78,7 +78,7 @@ Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
   channels. Only links are bright; the rest of the prose stays muted. They are decode atoms, so they keep their boxes through the
   reveal, and the original markup comes back once it settles. No email
   address on the page, only `/message`.
-- GitHub activity is client-fetched from `/api/github/contributions?days=30` after DOM ready; the API keeps the last-year total but returns only the visible waveform window.
+- GitHub activity is client-fetched from `/api/github/contributions?days=84` after DOM ready — the same URL as the hero's GitHub card, so both share one cached response. The waveform keeps the last 30 days and sums its own total, since the payload's total covers all 84.
 - Tech rows are local arrays duplicated into CSS marquee tracks.
 
 Client behavior:
@@ -119,7 +119,9 @@ Client behavior:
     under the pointer.
   - Write: the blog's latest three posts as a page of contents, one corner
     turned down.
-  - Moods: the latest three moods as a channel, from `/api/moods`.
+  - Moods: the latest three moods as a channel. It shares the mood
+    preview's `/api/v2/mood?limit=5` request (falling back to `/api/moods`),
+    so the page makes at most one mood feed request.
   - Message: an open envelope holding a letter to me, a visitor's draft
     already started, under a Southern Cross stamp postmarked with the time
     in Melbourne.
@@ -141,10 +143,12 @@ Client behavior:
     would put the account at risk, so nothing refreshes it. The card never
     links a signed Instagram address (they expire within days) and never
     inlines anything from Instagram (its login wall serves the Instagram
-    logo). Ops Health (`tests/ops/instagram-profile-health.test.ts`) fails
-    when the card's picture or counts drift from the snapshot, when the
-    served picture differs from the committed file, or when the card links
-    or inlines Instagram directly.
+    logo). If the picture fails to load anyway, the ring shows a neutral
+    Instagram glyph at the same size instead of a broken image. Ops Health
+    (`tests/ops/instagram-profile-health.test.ts`) fails when the card's
+    picture or counts drift from the snapshot, when the served picture
+    differs from the committed file, or when the card links or inlines
+    Instagram directly.
 
   Cards name the short links (`tuu.cat/gh`), never the address behind them.
   GitHub and Instagram show profile pictures.
@@ -199,7 +203,14 @@ Rendering rules:
 
 Client behavior:
 
-- the widget refreshes live listening data every 45 seconds
+- the first fetch starts as soon as the script runs when the page has no
+  server-rendered track
+- the widget refreshes live listening data every 45 seconds while the tab is
+  visible and the card is within 200px of the viewport; scrolling back to it
+  refreshes at once if the last fetch is older than that, and refocusing the
+  tab refreshes at once
+- the client calls `/api/v2/listening` only — `/api/listening` is a redirect to
+  the same handler, so it is never used as a fallback
 - the preview button plays or pauses the current track's preview URL with the native `Audio` API
 - live refresh keeps the static fallback if the API is unavailable
 
@@ -237,8 +248,10 @@ Client behavior:
 
 ## Mood preview (`L0`)
 
-Astro renders skeleton rows only; the client fetches `GET /api/moods` once the
-section enters the viewport and keeps the latest five. It consumes the
+Astro renders skeleton rows only; the client fetches `GET /api/v2/mood?limit=5`
+(the cached D1 archive) once the section is about one viewport away, retries once
+against the live mirror `GET /api/moods` if that fails, and keeps the latest
+five ([`mood/client/preview-feed.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/preview-feed.ts)). It consumes the
 feed-optimized fields — `previewText`, `previewHtml`, `image`, `imageFallback`,
 `mediaHtml`, `needsDetailPage`, `reactions`, `commentsCount`.
 

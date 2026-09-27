@@ -627,30 +627,29 @@
   animation-delay: calc(var(--line-index) * 90ms);
 }
 
+/* No explicit `height` here: each pill sits in the same line box the real
+   text will occupy (font-size/line-height are unchanged from the populated
+   rules above), so applyTrack() flipping is-loading off never resizes the
+   card — the skeleton-to-live swap that used to be a guaranteed CLS hit. */
 .listening.is-loading .listening-eyebrow-text {
   --line-index: 0;
   min-width: 78px;
-  height: 8px;
 }
 
 .listening.is-loading .listening-title {
   --line-index: 1;
   min-width: 160px;
-  height: 14px;
-  padding-bottom: 0;
   transition: none;
 }
 
 .listening.is-loading .listening-artist {
   --line-index: 2;
   min-width: 94px;
-  height: 13px;
 }
 
 .listening.is-loading .listening-meta span:not(.listening-meta-dot) {
   --line-index: 3;
   min-width: 58px;
-  height: 10px;
 }
 
 .listening.is-loading .listening-sep,

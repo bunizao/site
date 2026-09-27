@@ -53,7 +53,7 @@ const linkLabel = (url: string) =>
         <li class="proj-entry">
           <div class="proj-visual">
             {index === 0 ? (
-              <HeroPanel client:load hero={project.hero} accent={project.accent} />
+              <HeroPanel client:load hero={project.hero} accent={project.accent} priority />
             ) : (
               <HeroPanel client:visible hero={project.hero} accent={project.accent} />
             )}

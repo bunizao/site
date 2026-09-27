@@ -88,7 +88,7 @@ async function fetchMoodArchiveApiJson<T>(
   if (api) {
     const response = await api.fetch(createMoodArchiveApiRequest(context, path, params));
     if (!response.ok) {
-      throw new Error(`Mood archive request failed: ${response.status} ${response.statusText}`);
+      throw await MoodArchiveHttpError.from(response);
     }
     return response.json() as Promise<T>;
   }
@@ -115,13 +115,57 @@ async function fetchMoodArchiveApiJson<T>(
     headers,
   }), devOrigin));
   if (!response.ok) {
-    throw new Error(`Mood archive request failed: ${response.status} ${response.statusText}`);
+    throw await MoodArchiveHttpError.from(response);
   }
 
   return response.json() as Promise<T>;
 }
 
-async function loadMoodArchiveWithFallback<T>(
+/** A non-2xx answer from the archive API, with site-api's `error.code` when
+    the body carried one. */
+export class MoodArchiveHttpError extends Error {
+  readonly status: number;
+  readonly code: string | null;
+
+  constructor(status: number, statusText: string, code: string | null) {
+    super(`Mood archive request failed: ${status} ${statusText}${code ? ` (${code})` : ''}`);
+    this.name = 'MoodArchiveHttpError';
+    this.status = status;
+    this.code = code;
+  }
+
+  static async from(response: Response): Promise<MoodArchiveHttpError> {
+    let code: string | null = null;
+    try {
+      const body = await response.json() as { error?: { code?: unknown } } | null;
+      if (typeof body?.error?.code === 'string') code = body.error.code;
+    } catch {
+      // Not JSON (a platform error page, say): the status alone decides.
+    }
+    return new MoodArchiveHttpError(response.status, response.statusText, code);
+  }
+}
+
+// site-api answers these only after its own availability chain has run: a
+// failed D1 read falls through to the live Telegram mirror, and the feed also
+// to its last-known-good copy. A 500 carrying one of them means t.me failed
+// there too -- but the site keeps its own independent live reader, so it is
+// still worth one more try here before giving up.
+const EXHAUSTED_ARCHIVE_ERROR_CODES = new Set(['mood_feed_failed', 'mood_detail_failed']);
+
+function isArchiveFallbackExhausted(error: unknown): boolean {
+  return error instanceof MoodArchiveHttpError
+    && error.status === 500
+    && error.code !== null
+    && EXHAUSTED_ARCHIVE_ERROR_CODES.has(error.code);
+}
+
+/** Archive first, the site's own live reader when the archive cannot answer.
+    Binding exceptions, 404s (ingest lag: a post already on t.me but not yet
+    in D1), 502/503/504, and a 500 site-api reports after exhausting its own
+    fallbacks all fall back here; only a failure of the live reader itself is
+    rethrown. */
+export async function loadMoodArchiveWithFallback<T>(
   resource: string,
   loadArchive: () => Promise<T>,
   loadLive: () => Promise<T>,
@@ -129,7 +173,11 @@ async function loadMoodArchiveWithFallback<T>(
   try {
     return await loadArchive();
   } catch (error) {
-    console.warn(`Mood archive ${resource} failed; falling back to live reader.`, error);
+    if (isArchiveFallbackExhausted(error)) {
+      console.warn(`Mood archive ${resource} exhausted its own fallback; trying the site's live reader.`, error);
+    } else {
+      console.warn(`Mood archive ${resource} failed; falling back to live reader.`, error);
+    }
     return loadLive();
   }
 }

@@ -19,8 +19,15 @@ export interface InitialMoodFeedResult<T> {
   cacheable: boolean;
 }
 
-function valueFrom<T>(result: PromiseSettledResult<T>): T | null {
-  return result.status === 'fulfilled' ? result.value : null;
+async function tryLoadFeed<T extends MoodFeedWindow>(
+  loadFeed: LoadInitialMoodFeedOptions<T>['loadFeed'],
+  before: string,
+): Promise<T | null> {
+  try {
+    return await loadFeed({ before });
+  } catch {
+    return null;
+  }
 }
 
 export async function loadInitialMoodFeed<T extends MoodFeedWindow>(
@@ -37,17 +44,17 @@ export async function loadInitialMoodFeed<T extends MoodFeedWindow>(
     return { value: await loadFeed({}), cacheable: true };
   }
 
-  const focusedLoad = focusedBefore ? loadFeed({ before: focusedBefore }) : Promise.resolve(null);
-  const fallbackLoad = fallbackBefore && fallbackBefore !== focusedBefore
-    ? loadFeed({ before: fallbackBefore })
-    : Promise.resolve(null);
-  const [focusedResult, fallbackResult] = await Promise.allSettled([focusedLoad, fallbackLoad]);
-  const focused = valueFrom(focusedResult);
-  const fallback = valueFrom(fallbackResult);
+  const focused = focusedBefore ? await tryLoadFeed(loadFeed, focusedBefore) : null;
 
   if (focused?.posts.some((post) => moodFeedPostHasId(post, anchorId))) {
     return { value: focused, cacheable: true };
   }
+
+  // The wide window missed the anchor (or failed) — only now is the tight
+  // anchor+1 window worth its own D1 read.
+  const fallback = fallbackBefore && fallbackBefore !== focusedBefore
+    ? await tryLoadFeed(loadFeed, fallbackBefore)
+    : null;
 
   if (fallback?.posts.length) {
     return { value: fallback, cacheable: false };

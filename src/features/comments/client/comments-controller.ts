@@ -68,10 +68,35 @@ import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
 import { READER_ME_URL, blogCommentsUrl, reactionsUrl } from '@/features/comments/api-urls';
-import { fetchPrefetched } from '@/lib/api-prefetch';
+import { NEAR_ROOT_MARGIN, fetchPrefetched } from '@/lib/api-prefetch';
 import { SLOW_VERDICT_MS, VERDICT_POLL_DELAYS_MS } from '@/features/comments/verdict-poll';
 
 const CLAIMED_STORAGE_KEY = 'buxx:reader';
+// GET /v2/reactions accepts at most this many targets per request.
+const MAX_REACTION_TARGETS = 50;
+
+/** Run `callback` once `target` is within NEAR_ROOT_MARGIN of the viewport,
+    or right away where IntersectionObserver is missing. */
+function whenNear(target: Element, callback: () => void): void {
+  if (typeof IntersectionObserver !== 'function') {
+    callback();
+    return;
+  }
+  const observer = new IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting)) return;
+    observer.disconnect();
+    callback();
+  }, { rootMargin: NEAR_ROOT_MARGIN });
+  observer.observe(target);
+}
+
+/** True when the hash points at this thread directly -- a reply-notification
+    link to one comment, or a bare deep link to the section. Neither can wait
+    on a scroll the reader has no reason to make; see the near-viewport gate
+    below and api-prefetch.ts's own copy of this check. */
+function hashTargetsThread(hash: string): boolean {
+  return hash === '#comments' || hash.startsWith('#comment-');
+}
 
 // ---------------------------------------------------------------------------
 // Small DOM builder -- attrs + children, everything through .append() /
@@ -371,7 +396,19 @@ export function initCommentsController(): void {
   // rows to show.
   buildLoadedShell();
 
-  void bootstrap();
+  // The thread sits after the whole article, so its first reads wait until
+  // the section is within NEAR_ROOT_MARGIN of the viewport -- the same gate
+  // the page's inline prefetch uses (api-prefetch.ts's prefetchScriptWhenNear
+  // makes the same exception below). A reader who never scrolls that far
+  // costs no API request. The lab opts out with data-load="eager"; a
+  // reply-notification link to #comment-<id> (or a bare #comments deep link)
+  // opts out too -- the row it names does not exist in the SSR HTML (see the
+  // file header), so the browser's own fragment scroll has already given up
+  // by the time this module runs, and waiting for a scroll that already
+  // happened would mean it never runs at all.
+  const hashTargetsThisThread = hashTargetsThread(window.location.hash);
+  if (section.dataset.load === 'eager' || hashTargetsThisThread) void bootstrap();
+  else whenNear(section, () => void bootstrap());
 
   async function bootstrap(): Promise<void> {
     const [meResult, pageResult] = await Promise.all([
@@ -406,6 +443,22 @@ export function initCommentsController(): void {
     // stops "no one has been here yet" from sitting above a visible comment.
     toggleEmptyState(pageResult.comments.length === 0);
     setMoreVisible(pageResult.hasMore);
+    // The row a reply-notification link named is only in the DOM from this
+    // point on -- see hashTargetsThread above for why the browser's own
+    // fragment scroll could not have found it already.
+    if (hashTargetsThisThread) scrollHashCommentIntoView();
+  }
+
+  /** Scrolls a reply-notification link's target row into view once the
+      thread has actually rendered it. A bare #comments hash has nothing more
+      specific than the section itself to land on, which native fragment
+      scroll already handled on load. A comment on a page past the first
+      (still behind "load more") is left to the reader -- out of scope here,
+      same as the native browser behavior it is standing in for. */
+  function scrollHashCommentIntoView(): void {
+    const hash = window.location.hash;
+    if (!hash.startsWith('#comment-')) return;
+    document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'center' });
   }
 
   // The SSR skeleton is the only thing under the compose box while bootstrap()
@@ -524,14 +577,15 @@ export function initCommentsController(): void {
     setMoreVisible(page.hasMore);
   }
 
+  /** Rows wait on their like counts before they render -- never a flash of
+      zero likes patched in a moment later. Targets are chunked because
+      GET /v2/reactions caps how many it accepts in one request. */
   async function renderPage(comments: Comment[]): Promise<void> {
     if (comments.length === 0) return;
     const targets = comments
       .filter((c) => !c.tombstone)
       .map((c) => `comment:${c.id}`);
-    const reactions = targets.length > 0
-      ? (await fetchJson<ReactionBatchResult>(reactionsUrl(targets)))?.reactions ?? {}
-      : {};
+    const reactions = targets.length > 0 ? await fetchCommentReactions(targets) : {};
 
     for (const { comment, parentId } of orderForRender(comments)) {
       const row = toBlogComment(comment, reactions, t);
@@ -539,6 +593,17 @@ export function initCommentsController(): void {
       wireCommentRow(article, row, parentId);
       replyBox.before(article);
     }
+  }
+
+  async function fetchCommentReactions(targets: string[]): Promise<ReactionBatchResult['reactions']> {
+    const reactions: ReactionBatchResult['reactions'] = {};
+    for (let i = 0; i < targets.length; i += MAX_REACTION_TARGETS) {
+      const chunk = targets.slice(i, i + MAX_REACTION_TARGETS);
+      const result = await fetchJson<ReactionBatchResult>(reactionsUrl(chunk));
+      if (!result) continue;
+      Object.assign(reactions, result.reactions);
+    }
+    return reactions;
   }
 
   // --- Compose (root) submit ------------------------------------------------

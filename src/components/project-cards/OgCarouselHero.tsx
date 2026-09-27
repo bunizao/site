@@ -28,7 +28,27 @@ const slides: Slide[] = [
   },
 ];
 
-function ForegroundImage({ slide, eager }: { slide: Slide; eager: boolean }) {
+// Only a hero rendered above the fold (the first /projects panel) passes
+// `priority` and loads its first slide eagerly. Everywhere else, the home deck
+// included, it sits below the fold, so the first slide loads lazily at low
+// priority instead of competing with the page's hero for bandwidth. Later
+// slides only appear on hover and stay plain lazy.
+function imageLoading(priority: boolean, first: boolean) {
+  if (!first) return { loading: "lazy" } as const;
+  return priority
+    ? ({ loading: "eager" } as const)
+    : ({ loading: "lazy", fetchPriority: "low" } as const);
+}
+
+function ForegroundImage({
+  slide,
+  first,
+  priority,
+}: {
+  slide: Slide;
+  first: boolean;
+  priority: boolean;
+}) {
   const present = useIsPresent();
 
   return (
@@ -36,7 +56,7 @@ function ForegroundImage({ slide, eager }: { slide: Slide; eager: boolean }) {
       src={slide.src}
       alt={present ? slide.alt : ""}
       aria-hidden={present ? undefined : true}
-      loading={eager ? "eager" : "lazy"}
+      {...imageLoading(priority, first)}
       decoding="async"
       draggable={false}
       className="absolute inset-0 h-full w-full object-contain"
@@ -48,7 +68,13 @@ function ForegroundImage({ slide, eager }: { slide: Slide; eager: boolean }) {
   );
 }
 
-export default function OgCarouselHero({ hovered = false }: { hovered?: boolean }) {
+export default function OgCarouselHero({
+  hovered = false,
+  priority = false,
+}: {
+  hovered?: boolean;
+  priority?: boolean;
+}) {
   const reduced = usePrefersReducedMotion();
   const [mounted, setMounted] = useState(false);
   const [active, setActive] = useState(0);
@@ -82,7 +108,7 @@ export default function OgCarouselHero({ hovered = false }: { hovered?: boolean 
           src={backgroundSrc}
           alt=""
           aria-hidden
-          loading={active === 0 ? "eager" : "lazy"}
+          {...imageLoading(priority, active === 0)}
           decoding="async"
           draggable={false}
           className="absolute inset-0 h-full w-full scale-[1.4] object-cover blur-3xl"
@@ -106,7 +132,8 @@ export default function OgCarouselHero({ hovered = false }: { hovered?: boolean 
           <ForegroundImage
             key={slide.src}
             slide={slide}
-            eager={active === 0}
+            first={active === 0}
+            priority={priority}
           />
         </AnimatePresence>
       </div>

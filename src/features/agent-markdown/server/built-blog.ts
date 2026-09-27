@@ -13,7 +13,7 @@ export type BuiltBlogMarkdownRoute =
   | { kind: 'index' }
   | { kind: 'tags' }
   | { kind: 'tag'; slug: string }
-  | { kind: 'post'; slug: string; locale?: string };
+  | { kind: 'post'; slug: string; locale?: string; unlisted?: boolean };
 
 function safeSegment(value: string): string {
   return encodeURIComponent(value).replace(/%2F/gi, '');
@@ -38,10 +38,13 @@ export function builtBlogMarkdownAssetPath(route: BuiltBlogMarkdownRoute): strin
   if (route.kind === 'index') return '/_agent-markdown/blog/index.md';
   if (route.kind === 'tags') return '/_agent-markdown/blog/tags/index.md';
   if (route.kind === 'tag') return `/_agent-markdown/blog/tag/${safeSegment(route.slug)}.md`;
+  // Unlisted versions sit under their own prefix so a listed lookup never
+  // returns one without its robots directives.
+  const root = route.unlisted ? '/_agent-markdown/blog/unlisted/post' : '/_agent-markdown/blog/post';
   // A translation's Markdown sits under its locale like its HTML does.
   return route.locale
-    ? `/_agent-markdown/blog/post/${safeSegment(route.locale)}/${safeSegment(route.slug)}.md`
-    : `/_agent-markdown/blog/post/${safeSegment(route.slug)}.md`;
+    ? `${root}/${safeSegment(route.locale)}/${safeSegment(route.slug)}.md`
+    : `${root}/${safeSegment(route.slug)}.md`;
 }
 
 export async function readBuiltBlogMarkdown(

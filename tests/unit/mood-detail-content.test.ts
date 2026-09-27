@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import * as cheerio from 'cheerio';
 import type { MoodContentDocument } from '@bunizao/contracts';
 import {
+  isMoodLinkPreviewPending,
   prioritizeMoodDetailMedia,
   renderStructuredMoodDetailContent,
   splitMoodDetailParagraphs,
@@ -241,5 +242,33 @@ describe('splitMoodDetailParagraphs', () => {
     ['a<br>b<blockquote>q</blockquote>', '<p>a<br>b</p><blockquote>q</blockquote>'],
   ])('a double break starts a paragraph, a single one stays soft, blocks stay outside: %p', (input, expected) => {
     expect(splitMoodDetailParagraphs(input)).toBe(expected);
+  });
+});
+
+describe('isMoodLinkPreviewPending', () => {
+  const now = Date.parse('2026-06-14T01:00:00.000Z');
+  const linkBody = '<p>See <a href="https://example.com/a">example.com/a</a></p>';
+
+  test('waits on a fresh text post with a link and no card', () => {
+    expect(isMoodLinkPreviewPending(createDocument({ bodyHtml: linkBody }), now)).toBe(true);
+  });
+
+  test('ignores posts without a link or with a card already', () => {
+    expect(isMoodLinkPreviewPending(createDocument(), now)).toBe(false);
+    expect(isMoodLinkPreviewPending(createDocument({
+      bodyHtml: linkBody,
+      media: [{ type: 'link-preview', url: 'https://example.com/a' } as MoodContentDocument['media'][number]],
+    }), now)).toBe(false);
+  });
+
+  test('stops waiting once the backfill window has passed', () => {
+    expect(isMoodLinkPreviewPending(createDocument({ bodyHtml: linkBody }), now + 6 * 60 * 60 * 1000)).toBe(false);
+  });
+
+  test('never waits on media captions, which the backfill does not resolve', () => {
+    expect(isMoodLinkPreviewPending(createDocument({
+      bodyHtml: linkBody,
+      media: [{ type: 'image', url: 'https://example.com/1.jpg' } as MoodContentDocument['media'][number]],
+    }), now)).toBe(false);
   });
 });

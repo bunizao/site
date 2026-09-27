@@ -153,19 +153,40 @@ const {
       };
     }
 
+    // Browsers fire visibilitychange→hidden and then pagehide on the same
+    // exit. Once dwell is paused both payloads match, and the server keeps
+    // the max anyway, so an unchanged payload is not sent twice -- but only
+    // once a send has actually left the browser. Marking it sent regardless
+    // would swallow the pagehide retry for the exact case it exists to catch:
+    // the first send failing.
+    let lastSentKey = '';
+
     function sendBeacon(captureVisibleDwell = true) {
-      const body = JSON.stringify(createPayload(captureVisibleDwell));
+      const payload = createPayload(captureVisibleDwell);
+      const key = `${payload.dwellMs}|${payload.scrollDepth}|${payload.completed}`;
+      if (key === lastSentKey) return;
+
+      const body = JSON.stringify(payload);
       const blob = new Blob([body], { type: 'application/json' });
 
-      if (navigator.sendBeacon && navigator.sendBeacon(endpoint, blob)) return;
+      if (navigator.sendBeacon && navigator.sendBeacon(endpoint, blob)) {
+        lastSentKey = key;
+        return;
+      }
 
-      fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-        credentials: 'same-origin',
-        keepalive: true,
-      }).catch(() => {});
+      try {
+        fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          credentials: 'same-origin',
+          keepalive: true,
+        }).catch(() => {});
+        lastSentKey = key;
+      } catch {
+        // Left unmarked -- pagehide right behind this is the retry, not a
+        // duplicate of a send that never left the browser.
+      }
     }
 
     // Capture, on document: an element's scroll event does not bubble, so this

@@ -100,8 +100,10 @@ cannot see it — a manually wired route has to be added to this table by hand.
 | Path | Purpose | Auth tier |
 | --- | --- | --- |
 | `/v2/mood/converge/report` | The converge Durable Object reports Telegram channel differences — deletions, verifications, gaps — to the archive. | HMAC-signed with the shared mood sync secret via `X-Mood-Timestamp` / `X-Mood-Signature` |
-| `/v2/mood/reconcile/due` | Legacy VPS reconciler: requests a batch of message ids to verify. Scheduled for retirement per `plans/039-mood-converge-landing.md`. | HMAC-signed with the shared mood sync secret via `X-Mood-Timestamp` / `X-Mood-Signature` |
-| `/v2/mood/reconcile/report` | Legacy VPS reconciler: reports verification results back to the archive. Scheduled for retirement per `plans/039-mood-converge-landing.md`. | HMAC-signed with the shared mood sync secret via `X-Mood-Timestamp` / `X-Mood-Signature` |
+
+The VPS mood-reconcile prober (`/v2/mood/reconcile/due`, `/v2/mood/reconcile/report`)
+and the mood-media-sync route it was paired with are retired: mood-converge above
+has replaced both.
 
 ## Instagram refresh route
 

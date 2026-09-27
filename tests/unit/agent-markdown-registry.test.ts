@@ -9,6 +9,7 @@ import {
 } from '@/features/agent-markdown/server/registry';
 import {
   cloudflareCdnCacheControl,
+  isSsrOnlyPath,
   publicCacheControl,
   redirectCanonicalUrl,
   renderMarkdownIfRequested,
@@ -44,6 +45,20 @@ describe('agent markdown registry', () => {
     expect(redirectCanonicalUrl(new Request('https://buxx.me/blog/sacrifice'))).toBeNull();
   });
 
+  // The redirect itself is path-agnostic, but it only runs when the Worker
+  // sees the request first -- /docs must be in run_worker_first for this to
+  // reach a real /docs request in production (see the Cloudflare runtime
+  // config test).
+  test('redirects the www host to the apex for docs pages too', () => {
+    const index = redirectCanonicalUrl(new Request('https://www.buxx.me/docs'));
+    expect(index?.status).toBe(301);
+    expect(index?.headers.get('Location')).toBe('https://buxx.me/docs');
+
+    const page = redirectCanonicalUrl(new Request('https://www.buxx.me/docs/overview'));
+    expect(page?.status).toBe(301);
+    expect(page?.headers.get('Location')).toBe('https://buxx.me/docs/overview');
+  });
+
   test('redirects alternate URL forms to slashless canonical paths', () => {
     const trailingSlash = redirectCanonicalUrl(
       new Request('https://buxx.me/docs/writing/authors/?view=full'),
@@ -73,6 +88,42 @@ describe('agent markdown registry', () => {
     expect(getContentRoutePolicy('/mood/subscribe')).toBeNull();
   });
 
+  test('matches docs pages but not the search index', () => {
+    expect(hasMarkdownRenderer('/docs')).toBe(true);
+    expect(hasMarkdownRenderer('/docs/overview')).toBe(true);
+    expect(hasMarkdownRenderer('/docs/search.json')).toBe(false);
+    expect(getMarkdownRenderer('/docs')?.renderer.id).toBe('docs-index');
+    expect(getMarkdownRenderer('/docs/overview')?.renderer.id).toBe('docs-page');
+    expect(getMarkdownRenderer('/docs/overview')?.params).toEqual({ slug: 'overview' });
+  });
+
+  // /docs is fully prerendered and served straight from the assets binding;
+  // it has no entry in getContentRoutePolicy because public/_headers already
+  // sets its Cache-Control there. Routing it through the Worker (so Accept
+  // negotiation can run) must not add a second caching layer on top of that.
+  test('leaves docs HTML caching to the asset layer, not the Worker policy', () => {
+    expect(getContentRoutePolicy('/docs')).toBeNull();
+    expect(getContentRoutePolicy('/docs/overview')).toBeNull();
+
+    const response = withContentPolicy(
+      new Request('https://buxx.me/docs'),
+      new Response('<!doctype html>', {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+        },
+      }),
+    );
+
+    // The asset layer's own Cache-Control passes through untouched.
+    expect(response.headers.get('Cache-Control')).toBe(
+      'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+    );
+    expect(response.headers.has('Cloudflare-CDN-Cache-Control')).toBe(false);
+    // Accept negotiation still needs to vary the cache key.
+    expect(response.headers.get('Vary')).toBe('Accept');
+  });
+
   test('matches a translation under its locale, not under a tag or an unknown language', () => {
     expect(getMarkdownRenderer('/blog/quiet-architecture')?.params).toEqual({ slug: 'quiet-architecture' });
     expect(getMarkdownRenderer('/blog/en/quiet-architecture')?.params)
@@ -81,15 +132,83 @@ describe('agent markdown registry', () => {
     expect(getMarkdownRenderer('/blog/tag/systems')?.renderer.id).toBe('blog-tag');
     expect(hasMarkdownRenderer('/blog/fr/quiet-architecture')).toBe(false);
     expect(hasMarkdownRenderer('/blog/zh/quiet-architecture')).toBe(false);
-    expect(getContentRoutePolicy('/blog/en/quiet-architecture')?.cacheTtlSeconds).toBe(300);
+    expect(getContentRoutePolicy('/blog/en/quiet-architecture')?.cacheTtlSeconds).toBe(86400);
   });
 
   test('declares cache policy for static discovery and content routes', () => {
-    expect(getContentRoutePolicy('/llms.txt')?.cacheTtlSeconds).toBe(300);
-    expect(getContentRoutePolicy('/projects')?.cacheTtlSeconds).toBe(300);
-    expect(getContentRoutePolicy('/sitemap.xml')?.cacheTtlSeconds).toBe(300);
-    expect(getContentRoutePolicy('/blog/rss.xml')?.cacheTtlSeconds).toBe(300);
+    // Build-backed: a deploy starts the platform cache cold, so the platform
+    // holds them for a day while outside shared caches keep a short TTL.
+    for (const path of [
+      '/',
+      '/llms.txt',
+      '/projects',
+      '/sitemap.xml',
+      '/blog/rss.xml',
+      '/blog',
+      '/blog/tags',
+      '/blog/tag/systems',
+      '/blog/quiet-architecture',
+    ]) {
+      expect(getContentRoutePolicy(path)?.cacheTtlSeconds).toBe(86400);
+      expect(getContentRoutePolicy(path)?.sharedCacheTtlSeconds).toBe(300);
+    }
+    expect(getContentRoutePolicy('/privacy')?.cacheTtlSeconds).toBe(86400);
+    expect(getContentRoutePolicy('/privacy')?.sharedCacheTtlSeconds).toBe(3600);
+    // The Mood feed is live.
     expect(getContentRoutePolicy('/mood/rss.xml')?.cacheTtlSeconds).toBe(300);
+    expect(getContentRoutePolicy('/mood/rss.xml')?.sharedCacheTtlSeconds).toBeUndefined();
+  });
+
+  test('gives build-backed Markdown renderers the deploy-bound TTL', () => {
+    for (const path of ['/', '/privacy', '/blog', '/blog/tags', '/blog/tag/systems', '/blog/quiet-architecture']) {
+      expect(getMarkdownRenderer(path)?.renderer.cacheTtlSeconds).toBe(86400);
+    }
+    expect(getMarkdownRenderer('/mood')?.renderer.cacheTtlSeconds).toBe(300);
+    expect(getMarkdownRenderer('/mood/990001')?.renderer.cacheTtlSeconds).toBe(300);
+  });
+
+  test('serves blog post Markdown from build assets only when a binding exists', async () => {
+    const assets: Record<string, string> = {
+      '/_agent-markdown/blog/unlisted/post/hidden.md': '# Hidden\n',
+    };
+    const requested: string[] = [];
+    const locals = { env: { ASSETS: { fetch: async (input: RequestInfo | URL) => {
+      const pathname = new URL(input instanceof Request ? input.url : String(input)).pathname;
+      requested.push(pathname);
+      if (pathname === '/_i18n/posts.json') return Response.json({});
+      const body = assets[pathname];
+      return body ? new Response(body) : new Response('Not found', { status: 404 });
+    } } } };
+
+    const unlisted = await renderMarkdownIfRequested({
+      request: new Request('https://buxx.me/blog/hidden/index.md'),
+      locals,
+    });
+    expect(unlisted?.status).toBe(200);
+    expect(unlisted?.headers.get('X-Robots-Tag')).toBe('noindex, nofollow, noarchive, nosnippet');
+    expect(await unlisted?.text()).toBe('# Hidden\n');
+
+    const missing = await renderMarkdownIfRequested({
+      request: new Request('https://buxx.me/blog/does-not-exist/index.md'),
+      locals,
+    });
+    expect(missing?.status).toBe(404);
+    expect(await missing?.text()).toBe('Blog post not found.\n');
+    // The build is authoritative, so the 404 is briefly cacheable.
+    expect(missing?.headers.get('Cache-Control')).toBe('public, max-age=0, s-maxage=300');
+    expect(missing?.headers.get('Cloudflare-CDN-Cache-Control'))
+      .toBe('public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400');
+    expect(requested).toContain('/_agent-markdown/blog/post/does-not-exist.md');
+    expect(requested).toContain('/_agent-markdown/blog/unlisted/post/does-not-exist.md');
+  });
+
+  test('skips the asset probe only for SSR-only worker-first paths', () => {
+    for (const path of ['/mood', '/mood/990001', '/mood/embed', '/mood/rss.xml', '/mood/subscribe', '/reader/confirm']) {
+      expect(isSsrOnlyPath(path)).toBe(true);
+    }
+    for (const path of ['/', '/blog', '/blog/example', '/privacy', '/projects', '/mood-og.png', '/mood/', '/mood/a/b', '/reader/x.css']) {
+      expect(isSsrOnlyPath(path)).toBe(false);
+    }
   });
 
   test('delegates public Mood detail HTML caching to the platform', () => {
@@ -116,7 +235,7 @@ describe('agent markdown registry', () => {
       .toBe('?3631');
     expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3640')))
       .toBe('?3640');
-    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?utm_source=x')))
+    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?source=archive')))
       .toBeNull();
     expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3631&source=archive')))
       .toBeNull();
@@ -171,7 +290,7 @@ describe('agent markdown registry', () => {
   });
 
   test('refreshes platform policy on static asset 304 responses', () => {
-    for (const [pathname, ttl] of [['/', 300], ['/blog', 120], ['/blog/example', 300]] as const) {
+    for (const pathname of ['/', '/blog', '/blog/example'] as const) {
       const response = withContentPolicy(
         new Request(`https://buxx.me${pathname}`),
         new Response(null, {
@@ -184,9 +303,9 @@ describe('agent markdown registry', () => {
       expect(response.body).toBeNull();
       expect(response.headers.get('ETag')).toBe('"asset-v1"');
       expect(response.headers.get('Vary')).toBe('Accept');
-      expect(response.headers.get('Cache-Control')).toBe(`public, max-age=0, s-maxage=${ttl}`);
+      expect(response.headers.get('Cache-Control')).toBe('public, max-age=0, s-maxage=300');
       expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
-        .toBe(`public, max-age=${ttl}, stale-while-revalidate=86400, stale-if-error=86400`);
+        .toBe('public, max-age=86400, stale-while-revalidate=86400, stale-if-error=86400');
     }
   });
 
@@ -229,7 +348,7 @@ describe('agent markdown registry', () => {
       }));
 
       expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
-        .toBe('public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400');
+        .toBe('public, max-age=86400, stale-while-revalidate=86400, stale-if-error=86400');
       expect(response.headers.get('Vary')).toBe('Accept');
     }
   });

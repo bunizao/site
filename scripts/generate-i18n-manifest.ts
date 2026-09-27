@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { getAccessiblePosts } from '@/features/posts/server/content';
 import { createManifest } from '@/features/posts/server/i18n-manifest';
 
+// Slugs and tags only: no rich-content render (and no embed metadata fetches).
 const output = join(process.cwd(), 'dist/client/_i18n/posts.json');
 const posts = await getAccessiblePosts();
 const manifest = createManifest(posts, { strict: true });

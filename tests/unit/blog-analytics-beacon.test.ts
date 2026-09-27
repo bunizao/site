@@ -35,4 +35,12 @@ describe('blog analytics beacon', () => {
     expect(beacon).toContain('referrer: sanitizedReferrer(),');
     expect(beacon).not.toContain('referrer: document.referrer');
   });
+
+  test('skips a payload identical to the previous send', () => {
+    const beacon = readSource('src/features/posts/ui/BlogArticleBeacon.astro');
+
+    expect(beacon).toContain("let lastSentKey = '';");
+    expect(beacon).toContain('if (key === lastSentKey) return;');
+    expect(beacon).toContain('const body = JSON.stringify(payload);');
+  });
 });

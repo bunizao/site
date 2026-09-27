@@ -9,7 +9,8 @@
     "mode": "smart"
   },
   "cache": {
-    "enabled": true
+    "enabled": true,
+    "cross_version_cache": false
   },
   "assets": {
     "directory": "./dist",
@@ -19,6 +20,8 @@
       "/",
       "/api/*",
       "/blog*",
+      "/docs",
+      "/docs/*",
       "/llms.txt",
       "/mood*",
       "/privacy*",
