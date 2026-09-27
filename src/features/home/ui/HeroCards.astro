@@ -13,12 +13,11 @@
 // They are a pointer enhancement: every destination is also the link itself,
 // so the cards stay out of the accessibility tree and the tab order.
 import { ArrowRight } from 'lucide-react';
-import { blog, experience, hero, profile, projects } from '@/data/site';
+import { blog, experience, hero, instagramSnapshot, profile, projects } from '@/data/site';
 import { messageCopy } from '@/features/messages/copy';
 import { postPath } from '@/features/posts/format';
 import { getListedPosts } from '@/features/posts/server/content';
 import { GitHubIcon, InstagramIcon, TelegramIcon } from '@/components/icons';
-import { API_PREFIX, INSTAGRAM_AVATAR_PATH } from '@bunizao/contracts/routes';
 
 const school = experience[0];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -90,12 +89,14 @@ const readTotalStars = async (): Promise<string | null> => {
 };
 const totalStars = await readTotalStars();
 
-// The Instagram picture and counts come from site-api, which stores the last
-// profile read that passed validation (src/features/home/server/instagram.ts
-// there). The picture is its own route, so the page never names a signed
-// Instagram address; the counts load with the other live reads.
-const INSTAGRAM_AVATAR_URL = `${API_PREFIX}${INSTAGRAM_AVATAR_PATH}`;
-const INSTAGRAM_COUNT_LABELS = ['Posts', 'Followers', 'Following'] as const;
+// The Instagram card is a hand-updated snapshot (instagramSnapshot in
+// src/data/site.ts): Instagram refuses logged-out reads from servers.
+const instagramCounts = [
+  { label: 'Posts', value: instagramSnapshot.counts.posts },
+  { label: 'Followers', value: instagramSnapshot.counts.followers },
+  { label: 'Following', value: instagramSnapshot.counts.following },
+];
+const compactCount = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
 
 // A hand of cards fanned from the middle, the outer ones lower and turned
 // further. The way to the whole list is the first card, under the others.
@@ -316,12 +317,12 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   {instagram && (
     <div class="hc hc--instagram" data-card-id="instagram">
       <span class="ig-ring">
-        <img class="ig-avatar" src={INSTAGRAM_AVATAR_URL} alt="" width="64" height="64" loading="lazy" decoding="async" />
+        <img class="ig-avatar" src={instagramSnapshot.avatar} alt="" width="64" height="64" loading="lazy" decoding="async" />
       </span>
       <span class="hc-title">{instagram.handle}</span>
       <dl class="ig-counts">
-        {INSTAGRAM_COUNT_LABELS.map((label) => (
-          <div><dd class="hc-num" data-ig-count={label.toLowerCase()}>—</dd><dt>{label}</dt></div>
+        {instagramCounts.map((item) => (
+          <div><dd class="hc-num">{compactCount.format(item.value)}</dd><dt>{item.label}</dt></div>
         ))}
       </dl>
       <a class="ig-button" href={instagram.url} {...external}>
@@ -1613,9 +1614,6 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 </style>
 
 <script>
-  import type { InstagramProfile } from '@bunizao/contracts/instagram';
-  import { API_PREFIX, INSTAGRAM_PROFILE_PATH } from '@bunizao/contracts/routes';
-
   const layer = document.querySelector<HTMLElement>('[data-hero-cards]');
   const bio = document.querySelector<HTMLElement>('[data-hero-bio]');
 
@@ -1832,32 +1830,6 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     if (current === card) reposition();
   };
 
-  // ---------- Instagram ---------------------------------------------------
-
-  const compactCount = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
-
-  let instagramRequested = false;
-  const loadInstagram = async (): Promise<void> => {
-    if (instagramRequested) return;
-    instagramRequested = true;
-    const card = cardById('instagram');
-    if (!card) return;
-    let counts: InstagramProfile['counts'] | null = null;
-    try {
-      const response = await fetch(`${API_PREFIX}${INSTAGRAM_PROFILE_PATH}`);
-      if (!response.ok) throw new Error(String(response.status));
-      counts = ((await response.json()) as Partial<InstagramProfile>).counts ?? null;
-    } catch {
-      // The counts keep their dashes; the picture is its own request.
-    }
-    if (!counts) return;
-    for (const [key, value] of Object.entries(counts)) {
-      const node = card.querySelector(`[data-ig-count="${key}"]`);
-      if (node && typeof value === 'number') node.textContent = compactCount.format(value);
-    }
-    if (current === card) reposition();
-  };
-
   // ---------- Open and close ----------------------------------------------
 
   const open = (link: HTMLElement): void => {
@@ -1902,7 +1874,6 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   const warm = (): void => {
     void loadMoods();
     void loadGitHub();
-    void loadInstagram();
   };
 
   if (layer && bio) {

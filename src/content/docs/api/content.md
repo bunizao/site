@@ -133,16 +133,23 @@ GET /api/v2/instagram
 GET /api/v2/instagram/avatar
 ```
 
-The picture and counts on the home page's Instagram card. No auth. The profile
-route is rate limited to 60 requests / 60s; the picture route is not.
+A stored Instagram profile: picture and counts. No auth. The profile route is
+rate limited to 60 requests / 60s; the picture route is not.
+
+The home page's Instagram card does not use these routes. It shows a
+hand-updated snapshot (`instagramSnapshot` in `src/data/site.ts`), because
+Instagram now refuses the logged-out read below from every server address we
+have tried (`401` with `require_login`, including GitHub Actions runners), so
+the store has never been filled in production. The refresh job runs only when
+dispatched by hand.
 
 Neither route talks to Instagram. Instagram has no API for a private personal
 account, and the web app's own `web_profile_info` endpoint answers only over
-HTTP/2, which a Worker's outbound fetch does not speak. A scheduled GitHub
-Actions job in `site-api` (`.github/workflows/instagram-refresh.yml`, every
-three hours) reads it with curl and reports the answer to a signed internal
-route. `site-api` checks the report is this account with a picture on
-Instagram's photo CDN, downloads the picture, and stores both in KV. A report
+HTTP/2, which a Worker's outbound fetch does not speak. A GitHub Actions job in
+`site-api` (`.github/workflows/instagram-refresh.yml`, manual dispatch only)
+reads it with curl and reports the answer to a signed internal route.
+`site-api` checks the report is this account with a picture on Instagram's
+photo CDN, downloads the picture, and stores both in KV. A report
 that fails any check stores nothing but its attempt record, so these routes
 always serve the last read that passed.
 

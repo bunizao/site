@@ -1,13 +1,10 @@
 import type { APIContext } from 'astro';
-import type { InstagramProfile } from '@bunizao/contracts/instagram';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
 import { loadMoodCommentsFixture } from '@/features/mood/server/channel-service';
 import { createE2EChannelInfo } from '@/features/mood/server/e2e-fixtures';
 import { jsonBadRequest, jsonOk } from '@/lib/http/json-response';
 import {
   API_PREFIX,
-  INSTAGRAM_AVATAR_PATH,
-  INSTAGRAM_PROFILE_PATH,
   MOOD_LIVE_COUNTS_PATH,
   MOOD_PUBLIC_COMMENTS_PATH,
   MOOD_PUBLIC_FEED_PATH,
@@ -115,26 +112,6 @@ function musickitTokenFixtureResponse(): Response {
   return jsonOk({}, noStore());
 }
 
-const INSTAGRAM_FIXTURE_SHA256 = '0'.repeat(64);
-
-function instagramProfileFixtureResponse(url: URL): Response {
-  const profile: InstagramProfile = {
-    username: 'bunizao_',
-    fullName: 'Lucian Bu',
-    profileUrl: 'https://www.instagram.com/bunizao_/',
-    avatar: {
-      url: `${url.origin}${API_PREFIX}${INSTAGRAM_AVATAR_PATH}?v=${INSTAGRAM_FIXTURE_SHA256.slice(0, 16)}`,
-      contentType: 'image/svg+xml',
-      bytes: 0,
-      sha256: INSTAGRAM_FIXTURE_SHA256,
-    },
-    counts: { posts: 35, followers: 34, following: 89 },
-    refreshedAt: '2026-09-25T12:00:00.000Z',
-    lastAttempt: { at: '2026-09-25T12:00:00.000Z', ok: true, error: null },
-  };
-  return jsonOk(profile, noStore());
-}
-
 export async function createE2EApiFixtureResponse(context: FixtureContext): Promise<Response | null> {
   const url = new URL(context.request.url);
   if (url.pathname === '/api/footer') {
@@ -157,12 +134,6 @@ export async function createE2EApiFixtureResponse(context: FixtureContext): Prom
   }
   if (url.pathname === MOOD_PUBLIC_COMMENTS_PATH) {
     return commentsFixtureResponse(url);
-  }
-  if (url.pathname === `${API_PREFIX}${INSTAGRAM_PROFILE_PATH}`) {
-    return instagramProfileFixtureResponse(url);
-  }
-  if (url.pathname === `${API_PREFIX}${INSTAGRAM_AVATAR_PATH}`) {
-    return svgFixtureResponse('Instagram');
   }
 
   return null;

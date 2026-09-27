@@ -133,21 +133,22 @@ Client behavior:
     them. The blue keeps them off the page in the dark theme, where the
     card surface is the page colour.
   - Instagram: the profile picture behind a story ring, with the post,
-    follower and following counts, both from `site-api`
-    ([Instagram profile](/docs/api/content#instagram-profile)). The picture
-    is `/api/v2/instagram/avatar`, the stored copy of the last read that
-    passed validation, so the page never links a signed Instagram address and
-    never shows the Instagram logo in its place. The counts load with the
-    other live reads and keep their dashes until they arrive. Nothing about
-    the card is read at build. Ops Health
-    (`tests/ops/instagram-profile-health.test.ts`) fails when the stored read
-    is over a day old, when the served picture stops matching the profile,
-    when the handle drifts from the site's link, or when the card links
-    anything but the stored picture.
+    follower and following counts. Both are a snapshot updated by hand:
+    `instagramSnapshot` in `src/data/site.ts` and
+    `public/instagram-avatar.jpg` (320×320 JPEG). Instagram refuses
+    logged-out reads from servers (`401` with `require_login` from build
+    runners, Workers and GitHub Actions alike), and reading while logged in
+    would put the account at risk, so nothing refreshes it. The card never
+    links a signed Instagram address (they expire within days) and never
+    inlines anything from Instagram (its login wall serves the Instagram
+    logo). Ops Health (`tests/ops/instagram-profile-health.test.ts`) fails
+    when the card's picture or counts drift from the snapshot, when the
+    served picture differs from the committed file, or when the card links
+    or inlines Instagram directly.
 
   Cards name the short links (`tuu.cat/gh`), never the address behind them.
   GitHub and Instagram show profile pictures.
-  The three network reads start on the first link hover. Cards open after
+  The two network reads start on the first link hover. Cards open after
   120ms of mouse hover or on keyboard focus. They swap instantly between
   links, sit above the word, and flip below it near the viewport top. The
   open card takes the pointer: it stays open while the pointer is on it and
