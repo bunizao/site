@@ -303,19 +303,20 @@ async function renderBlogPost(context: MarkdownRendererContext) {
   const built = await readBuiltBlogMarkdown(context, { kind: 'post', slug, locale });
   if (built && built.status !== 404) return markdownResult(built.body, built.status);
 
-  // With an assets binding the build output is authoritative: it holds every
-  // accessible version, unlisted ones under their own prefix. Production never
-  // reaches the Ghost SDK here -- it cannot run in workerd.
+  // With an assets binding, the build output holds every accessible version,
+  // unlisted ones under their own prefix -- check that prefix too before
+  // giving up on the build.
   if (built) {
     const unlisted = await readBuiltBlogMarkdown(context, { kind: 'post', slug, locale, unlisted: true });
     if (unlisted?.status === 200) {
       return markdownResult(unlisted.body, 200, { 'X-Robots-Tag': UNLISTED_ROBOTS_DIRECTIVES });
     }
     if (unlisted && unlisted.status !== 404) return markdownResult(unlisted.body, unlisted.status);
-    return markdownResult('Blog post not found.\n', 404);
+    // Neither prefix has this slug in the build output -- most likely a post
+    // published after the last build. Fall through to a live Ghost read
+    // instead of hard-404ing an endpoint the build just hasn't caught up to
+    // yet.
   }
-
-  // Dev has no assets binding and renders from Ghost directly.
 
   const { getPostBySlug } = await import('@/features/posts/server/content');
   // A translation is addressed by its sibling's slug; the manifest turns that

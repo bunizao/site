@@ -349,11 +349,13 @@ describe('blog subscription feed', () => {
     expect(await response?.text()).toContain('# Direct link only fixture');
   });
 
-  test('treats build assets as authoritative for blog post Markdown', async () => {
+  test('falls back to Ghost when the build has not caught up to a post yet', async () => {
     useMockGhostContent();
 
-    // With an assets binding the Worker never falls back to Ghost at runtime.
-    // A separate origin keeps the previous test's cached copy out of the way.
+    // A post published after the last build is missing from both the listed
+    // and unlisted build output; that must not hard-404 the endpoint -- it
+    // falls through to a live Ghost read. A separate origin keeps the
+    // previous test's cached copy out of the way.
     const response = await renderMarkdownIfRequested({
       request: new Request('https://assets-only.example/blog/private-link-demo/', {
         headers: { Accept: 'text/markdown' },
@@ -368,8 +370,8 @@ describe('blog subscription feed', () => {
       site: new URL('https://buxx.me'),
     });
 
-    expect(response?.status).toBe(404);
-    expect(await response?.text()).toBe('Blog post not found.\n');
+    expect(response?.status).toBe(200);
+    expect(await response?.text()).toContain('# Direct link only fixture');
   });
 
   test('lists every public section in the sitemap and nothing noindex', async () => {
