@@ -7,6 +7,7 @@ import {
   getPostBySlug,
   resetPostsProviderForTests,
 } from '@/features/posts/server/content';
+import { resetYouTubeMetadataCacheForTests } from '@/features/posts/server/youtube';
 
 // ST-7: dropping `{ outputTarget: 'web' | 'rss' }` from the metadata-only call
 // sites (blog index, tag archive, i18n manifest, RSS) is only safe as long as
@@ -15,6 +16,16 @@ import {
 // memoization added alongside it (a `Map` keyed by `${post.id}:${outputTarget}`)
 // actually collapses repeat transforms of the same post instead of silently
 // doing nothing. This file locks both invariants down.
+//
+// The `demo-effects` fixture's body embeds a real `[!youtube id="aqz-KE-bpKQ"]`
+// directive, and every `outputTarget: 'web'` test below runs it through the
+// real (unmocked) YouTube oEmbed lookup. That lookup keeps its own
+// process-lifetime cache keyed by video id (`src/features/posts/server/youtube.ts`),
+// shared by every test file in the run — so a successful real lookup here can
+// leave a resolved cache entry that a later, more careful test for that same
+// video id (`tests/unit/youtube-metadata.test.ts`) then hits instead of its
+// own mocked fetch. Reset that cache alongside the posts provider so nothing
+// leaks past this file.
 
 const originalGhostUrl = process.env.PUBLIC_GHOST_URL;
 const originalGhostKey = process.env.GHOST_CONTENT_API_KEY;
@@ -39,6 +50,7 @@ function useMockGhostContent(): void {
 
 beforeEach(() => {
   resetPostsProviderForTests();
+  resetYouTubeMetadataCacheForTests();
 });
 
 afterEach(() => {
@@ -47,6 +59,7 @@ afterEach(() => {
   restoreEnv('GHOST_CONTENT_APIKEY', originalLegacyGhostKey);
   restoreEnv('GHOST_MOCK_CONTENT', originalGhostMockContent);
   resetPostsProviderForTests();
+  resetYouTubeMetadataCacheForTests();
 });
 
 describe('blog build content cache', () => {
