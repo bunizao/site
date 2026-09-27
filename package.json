@@ -88,6 +88,7 @@
     "@bunizao/contracts": "workspace:*",
     "@bunizao/decode-text": "workspace:*",
     "@chenglou/pretext": "^0.0.9",
+    "@tanstack/react-query": "^5.104.0",
     "@tryghost/content-api": "^1.12.11",
     "astro": "^7.3.3",
     "cheerio": "1.2.0",
