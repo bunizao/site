@@ -1,15 +1,16 @@
 // Pre-paint local-timezone regroup of the SSR mood feed.
 //
-// The server groups posts by UTC day; the bundled controller regroups them in
-// the visitor's timezone, but by the time that module executes the feed has
-// painted, so minted or merged date groups register as layout shifts. This
-// file is injected verbatim as an inline <script> right after the feed markup
-// (see FeedShell.astro), so it runs during HTML parsing, before first paint.
+// The server groups posts by UTC day. This file is injected verbatim as an
+// inline <script> right after the feed markup (see FeedShell.astro), so it runs
+// during HTML parsing, before first paint and before the deferred feed
+// controller module reads the groups. It is the only pass that rekeys server
+// groups: moving painted groups later would register as layout shifts.
 //
-// KEEP IN SYNC with rekeyMoodServerRenderedGroups and the format helpers in
-// src/features/mood/shared/date-grouping.ts. The mood-date-grouping unit test
-// runs both implementations on the same fixtures and fails on divergence. The
-// module version still runs after hydration as an idempotent safety net.
+// Inline scripts cannot import, so the formatters below copy formatMoodTime,
+// formatMoodDateKey and formatMoodDateHeader from
+// src/features/mood/shared/date-grouping.ts. Client appends look groups up by
+// `data-date`, so the copies must agree; the mood-date-grouping unit test
+// checks this script's output against those functions.
 (() => {
   const feedList = document.querySelector('[data-mood-list]');
   if (!feedList) return;
@@ -159,7 +160,7 @@
       group.remove();
     });
   } catch {
-    // Leave the SSR grouping in place; the hydrated controller still rekeys.
+    // Leave the SSR grouping in place: UTC days beat a hidden feed.
   } finally {
     // The list is server-rendered with visibility:hidden so the regroup above
     // never mutates painted content. Reveal it whether or not the rekey ran.
