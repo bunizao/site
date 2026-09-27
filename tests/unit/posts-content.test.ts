@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
-import { buildGhostDataset } from '@/features/posts/adapter/ghost/dataset';
+import { buildGhostDataset, normalizePost } from '@/features/posts/adapter/ghost/dataset';
 import { getGhostRuntimeConfig } from '@/features/posts/adapter/ghost/config';
 import { mockPosts } from '@/features/posts/adapter/mock';
 import {
@@ -246,6 +246,17 @@ describe('posts content provider', () => {
     expect(config.isConfigured).toBe(true);
     expect(config.mockContent).toBe(true);
     expect(config.forceMockContent).toBe(false);
+  });
+
+  test('dates a Ghost post by its own timestamps, never the build clock', () => {
+    const base = { slug: 'dated', title: 'Dated', html: '<p>x</p>' };
+
+    expect(normalizePost({ ...base, published_at: '2026-01-02T00:00:00.000Z', created_at: '2025-12-30T00:00:00.000Z' }, null, [], [])?.publishedAt)
+      .toBe('2026-01-02T00:00:00.000Z');
+    const drafted = normalizePost({ ...base, created_at: '2025-12-30T00:00:00.000Z', updated_at: '2026-01-05T00:00:00.000Z' }, null, [], []);
+    expect(drafted?.publishedAt).toBe('2025-12-30T00:00:00.000Z');
+    expect(drafted?.updatedAt).toBe('2026-01-05T00:00:00.000Z');
+    expect(normalizePost(base, null, [], [])).toBeNull();
   });
 
   test('groups posts by published year in list order', async () => {

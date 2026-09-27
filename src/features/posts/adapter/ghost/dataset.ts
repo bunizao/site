@@ -231,7 +231,7 @@ function normalizeTag(
   };
 }
 
-function normalizePost(
+export function normalizePost(
   raw: RawObject,
   siteUrl: string | null,
   authors: AuthorData[],
@@ -240,8 +240,11 @@ function normalizePost(
   const slug = readString(raw.slug);
   const title = readString(raw.title);
   const html = rewriteGhostBlogImageHtml(readString(raw.html) ?? '', siteUrl);
+  // Ghost dates every record. A build-clock fallback would float a dateless
+  // post to the top of every list and move it again on each rebuild.
+  const publishedAt = readString(raw.published_at) ?? readString(raw.created_at);
 
-  if (!slug || !title) {
+  if (!slug || !title || !publishedAt) {
     return null;
   }
 
@@ -290,12 +293,8 @@ function normalizePost(
     featureImage: rewriteGhostBlogImageUrl(readString(raw.feature_image), siteUrl),
     featureImageAlt: readString(raw.feature_image_alt),
     featureImageCaption: readString(raw.feature_image_caption),
-    publishedAt:
-      readString(raw.published_at) ?? new Date().toISOString(),
-    updatedAt:
-      readString(raw.updated_at) ??
-      readString(raw.published_at) ??
-      new Date().toISOString(),
+    publishedAt,
+    updatedAt: readString(raw.updated_at) ?? publishedAt,
     featured: readBoolean(raw.featured),
     visibility,
     access,
