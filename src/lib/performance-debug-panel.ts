@@ -741,7 +741,7 @@ export function initPerformanceDebugPanel(): void {
     record('fcp-path', describeFcpPath(
       entry.startTime,
       performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined,
-      performance.getEntriesByType('resource') as FcpResource[],
+      performance.getEntriesByType('resource') as PerformanceResourceTiming[],
     ));
   });
 
