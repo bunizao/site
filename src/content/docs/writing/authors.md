@@ -61,12 +61,13 @@ from a published post without any visible sign.
 The `note` decides how a credit reads.
 
 **With a note**, the model gets its own sentence with the model as the
-subject, and your note completes it. Write only the predicate: `note="重写了
-迁移那一节的表格"`, not `note="Claude 重写了…"`. Notes support inline Markdown
-for emphasis, code, strikethrough, and links. Raw HTML stays escaped.
+subject, and your note completes it. Write only the predicate:
+`note="重写了迁移那一节的表格"`, not `note="Claude 重写了…"`. Notes support
+inline Markdown for emphasis, code, strikethrough, and links. Raw HTML stays
+escaped.
 
-**Without a note**, the credit joins one shared line, `本文在 A 和 B 的协
-助下完成。`, so "Written with" never repeats down the footer.
+**Without a note**, the credit joins one shared line,
+`本文在 A 和 B 的协助下完成。`, so "Written with" never repeats down the footer.
 
 The build adds the final punctuation for you. It follows the last character of
 the note, not the blog's locale, so an English note on a Chinese blog ends with

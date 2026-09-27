@@ -57,13 +57,15 @@ on:
 | Token | Job | Contrast (light / dark) | Safe as text |
 | --- | --- | --- | --- |
 | `{colors.dai}` 黛 | Primary: links, table-of-contents progress, focus rings, hover | 6.84:1 / 7.99:1 | Both modes |
-| `{colors.dian}` 靛 | The mark: the "Not by AI" pledge and the author byline | 10.27:1 / 8.22:1 | Both modes |
+| `{colors.dian}` 靛 | The mark, reserved for the human behind the work. Unused right now | 10.27:1 / 8.22:1 | Both modes |
 | `{colors.ji}` 霁 | Highlight wash on the reading surface | **3.57:1** / 8.79:1 | **No. Fill only** |
 
 - `dai` is the greyed slate-blue that shanshui painters dilute to push a ridge
   back into the haze.
 - `dian` is the firmest blue on the page because it stands for the human behind
-  the work. That's why it appears nowhere else.
+  the work. `BlogLayout.astro` emits `--blog-dian`, but no stylesheet reads it.
+  The "Not by AI" pledge is grey (`--blog-muted`, with `--blog-ink` on the
+  emphasis), and a credited model's name uses `--blog-body`.
 - `ji` fails AA as text on the light surface, so it can only be a background.
   The contrast constraint picks its role. Blog search now lives in the
   site-wide ⌘K palette with its own neutral mark, so `ji` is a reserved

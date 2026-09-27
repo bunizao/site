@@ -32,16 +32,21 @@ The shell mounts no third-party analytics script anywhere.
 
 ## Navbar variants
 
-The navbar is section-anchor based and doesn't know about routes. Its links are
-`#` anchors on the home page, so every other variant either drops them or
-replaces them. `navVariant` picks the shape:
+The navbar links come from `navLinks` in `@/data/site`. Each one is a real
+route (`/projects`, `/blog`, `/mood`, `/components`, `/docs`), and a click loads
+that page on every variant. The optional `section` field ties a link to a home
+page section (`projects`, `writing`, `moods`). On the home page, the link lights
+up while its section is on screen. On other pages those sections don't exist, so
+no link lights up. Components and Docs have no `section` and never light up.
+
+`navVariant` picks the shape:
 
 | `navVariant` | Brand | Links | Active indicator |
 | --- | --- | --- | --- |
-| `home` | 40px animated peek plus wordmark | `navLinks` from `@/data/site` | Yes |
-| `page` | Mark plus wordmark, linking `/` | None. The brand is the only way out | No |
+| `home` | 40px animated peek plus wordmark | `navLinks` | Yes. Follows the section on screen |
+| `page` | Mark plus wordmark, linking `/`. Add `brandVariant="home"` for the 40px animated peek, as `/privacy`, `/components`, `/message`, and `/subscribe/manage` do | None. The brand is the only way out | No |
 | `docs` | Mark alone, followed by a `/ Docs` breadcrumb | None. The rail beside the page is the navigation | No |
-| unset | 20px mark. Add `brandVariant="home"` for the full brand in a plain horizontal bar, as `/privacy` and `/components` do | `navLinks` | Yes |
+| unset | 20px mark | `navLinks` | Rendered, but no link lights up |
 
 Two more props control whether the bar shows at all:
 
@@ -54,8 +59,9 @@ On the home variants:
 
 - Nav labels are split into one span per character, so the mascot can react to
   individual letters.
-- Scrolling updates the active section. Client code handles smooth scrolling,
-  not CSS.
+- Scrolling updates the active link. The client click handler smooth-scrolls
+  only `#` links. Every current `navLinks` entry is a route, so a click
+  navigates.
 - An `IntersectionObserver` on the hero status element switches the bar between
   horizontal and vertical modes.
 - The active indicator animates in vertical mode only.
@@ -114,9 +120,16 @@ panel.
 ## Page template adaptation
 
 [`Page.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Page.astro)
-reuses the base layout for document-style pages such as `/privacy`. It adds
-`body.page-template-active`, keeps the first nav item as a `buxx.me` link to
-`/`, and removes the section indicator and extra separators.
+wraps the base layout for document-style pages, but no page imports it right
+now. Only `tests/unit/navbar-regressions.test.ts` reads its source. `/privacy`
+renders `Layout` directly with `navVariant="page"` and `brandVariant="home"`.
+
+A page that uses `Page.astro` gets:
+
+- `navVariant="page"`, so the bar keeps the `buxx.me` brand link to `/` and has
+  no section links, active indicator, or separators.
+- `body.page-template-active` and a `main.page-template` wrapper.
+- An optional "Updated:" line from its `updatedAt` prop.
 
 The shared layout is built for the home page first, then adapted for
 document-style pages. Chrome styles live in

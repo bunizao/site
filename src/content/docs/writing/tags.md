@@ -96,11 +96,18 @@ same three settings, so change them together.
 
 This tag is historical. It has no effect, whether a post has it or not.
 
-The human-authorship pledge it used to control has been removed. A post's
-colophon now names the models it credits via
-[`[!authors]`](/docs/writing/authors) and says nothing when there are none.
-This replaced a claim printed on every post that readers had no way to check.
-You don't need to add the tag to new posts.
+The tag used to opt a post into the human-authorship pledge. The pledge is now
+the default. A post's colophon (the footer under the article) always shows
+exactly one authorship line, and only
+[`[!authors]`](/docs/writing/authors) decides which:
+
+| The post credits | The colophon shows |
+| --- | --- |
+| One or more models | The credit line naming them (`AiCredit.astro`) |
+| No model | The pledge in the post's language, for example "This post is written by human(s), not by AI." (`NotByAI.astro`) |
+
+The result is the same with or without the tag. You don't need to add it to
+new posts.
 
 ## Add an internal tag
 
