@@ -1341,285 +1341,262 @@ html.dark .docs-prose pre.astro-code span {
 }
 
 /* --- Hub ---------------------------------------------------------------- */
+/* Modelled on Linear's developer hub: a plain title, a one-line lede, then
+   sections of tall cards whose icon sits at the top and whose text settles at
+   the bottom. The empty middle is the point — it lets four doors read as four
+   objects instead of a paragraph with borders. The full page index follows as
+   a sitemap of columns, since the rail already carries descriptions-free
+   navigation and a second copy of every description made the page a wall. */
+
 /* The hub renders no on-this-page column, so the article shell's third track
-   would sit empty and squeeze the content into a measure narrower than the one
-   it declares. Two tracks here; the sections cap themselves. */
+   would sit empty and squeeze the content. Two tracks here. */
 @media (min-width: 90rem) {
   .docs-shell--hub {
     grid-template-columns: 15rem minmax(0, 1fr);
   }
 }
 
-.docs-hub-head {
-  max-width: 44rem;
-  margin-bottom: 3rem;
+.docs-hub {
+  --hub-card-bg: hsl(var(--foreground) / 0.035);
+  --hub-card-bg-hover: hsl(var(--foreground) / 0.06);
+  --hub-card-line: hsl(var(--foreground) / 0.07);
+  --hub-card-line-hover: hsl(var(--foreground) / 0.13);
+
+  max-width: 62rem;
+  container-type: inline-size;
 }
 
-/* The lede's bottom margin is sized for an article, where prose follows it
-   directly. In the hub it is the last child of the header. */
-.docs-hub-head .docs-lede {
-  margin-bottom: 0;
+.dark .docs-hub {
+  --hub-card-bg: hsl(var(--foreground) / 0.045);
+  --hub-card-bg-hover: hsl(var(--foreground) / 0.075);
+  --hub-card-line: hsl(var(--foreground) / 0.06);
+  --hub-card-line-hover: hsl(var(--foreground) / 0.12);
 }
 
-.docs-hub-start {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
-  gap: 0.75rem;
-}
-
-/* Filled by default rather than on hover. An outlined card on a white page is a
-   rectangle of nothing until you point at it; a card that already reads as an
-   object only has to brighten. */
-.docs-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.9rem 1rem 1rem;
-  border-radius: 0.75rem;
-  background: var(--docs-surface);
-  box-shadow: inset 0 0 0 1px var(--docs-line);
-  text-decoration: none;
-  transition: background-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.docs-card:hover,
-.docs-card:focus-visible {
-  background: var(--docs-surface-hover);
-  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.2);
-}
-
-.docs-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.85rem;
-  color: var(--ink-faint);
-  transition: color 0.18s ease;
-}
-
-.docs-card:hover .docs-card-head {
-  color: var(--ink-strong);
-}
-
-.docs-card-icon {
-  flex: none;
-}
-
-/* Parked at the card's top corner with the icon rather than tucked after the
-   title: the title is a phrase of unknown length, so an arrow trailing it lands
-   somewhere different on every card. */
-.docs-card-arrow {
-  flex: none;
-  opacity: 0;
-  transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.2, 0, 0, 1);
-  transform: translate(-2px, 2px);
-}
-
-.docs-card:hover .docs-card-arrow,
-.docs-card:focus-visible .docs-card-arrow {
-  opacity: 1;
-  transform: translate(0, 0);
-}
-
-.docs-card-title {
-  font-family: var(--font-sans);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.016em;
-  color: var(--ink-strong);
-}
-
-.docs-card-desc {
-  font-family: var(--font-sans);
-  font-size: 0.84rem;
-  line-height: 1.5;
-  letter-spacing: -0.006em;
-  color: var(--ink-body);
-  text-wrap: pretty;
-}
-
-/* The index proper. Rows rather than cards: thirty-five cards is a wall, and a
-   reader scanning for one page wants a list they can run an eye down. */
-.docs-hub-section {
-  max-width: 56rem;
-}
-
-.docs-hub-section + .docs-hub-section {
-  margin-top: 3.25rem;
-}
-
-.docs-hub-section-head {
-  margin: 0 0 0.9rem;
-}
-
-/* A heading, not an eyebrow. Five uppercase mono labels at half the body's
-   size left the page with no visible structure — the sections were only
-   findable by the gaps between them. Matches .docs-prose h2 so the hub and the
-   article pages read at the same scale. */
-.docs-hub-section-label {
-  margin: 0 0 0.3rem;
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  font-weight: 650;
-  line-height: 1.25;
-  letter-spacing: -0.026em;
-  color: hsl(var(--foreground));
-}
-
-.docs-hub-section-blurb {
-  margin: 0;
-  max-width: 44rem;
-  font-family: var(--font-sans);
-  font-size: 0.875rem;
-  line-height: 1.5;
-  letter-spacing: -0.008em;
-  color: var(--ink-body);
-  text-wrap: pretty;
-}
-
-/* No rules between rows. Thirty-five hairlines stacked down the page read as a
-   table nobody asked for, and every one of them competed with the rail's
-   border and the section breaks for the same attention. The title column is
-   already a hard vertical edge; spacing and a hover pill do the rest. */
-.docs-hub-list {
-  margin: 0 -0.6rem;
-  padding: 0;
-  list-style: none;
-}
-
-.docs-hub-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.1rem;
-  padding: 0.5rem 0.6rem;
-  border-radius: 0.5rem;
-  text-decoration: none;
-  transition: background-color 0.15s ease;
-}
-
-@media (min-width: 40rem) {
-  .docs-hub-row {
-    grid-template-columns: 13rem minmax(0, 1fr);
-    align-items: baseline;
-    gap: 1.25rem;
+@media (min-width: 64rem) {
+  .docs-hub.docs-article {
+    padding-top: 3.5rem;
   }
 }
 
-.docs-hub-row:hover,
-.docs-hub-row:focus-visible {
-  background: var(--docs-surface);
+.docs-hub-head {
+  margin-bottom: 3rem;
 }
 
-.docs-hub-row-title {
+/* wrap-reverse: when the column is too narrow for both, the button moves to
+   a line above the title rather than squeezing it onto two lines. */
+.docs-hub-title-row {
   display: flex;
+  flex-wrap: wrap-reverse;
   align-items: center;
-  gap: 0.4rem;
-  font-family: var(--font-sans);
-  font-size: 0.9rem;
-  font-weight: 500;
-  letter-spacing: -0.014em;
-  color: var(--ink-strong);
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
 }
 
-.docs-hub-row-desc {
+.docs-hub-title-row .docs-copy-page {
+  margin-left: auto;
+}
+
+.docs-hub-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4cqi, 2.5rem);
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: hsl(var(--foreground));
+}
+
+.docs-hub-lede {
+  max-width: 40rem;
+  margin: 0;
   font-family: var(--font-sans);
-  font-size: 0.84rem;
-  line-height: 1.5;
-  letter-spacing: -0.006em;
+  font-size: 0.975rem;
+  line-height: 1.55;
+  letter-spacing: -0.011em;
   color: var(--ink-faint);
   text-wrap: pretty;
 }
 
-/* Outbound block — the aggregation half of the hub. These are places on the
-   site, not pages of the reference, so they are enclosed rather than divided:
-   a panel says "different kind of thing" without leaving a hairline floating
-   in the gap under the last section. */
-/* The extra .docs is load-bearing, not noise: the blanket `.docs section`
-   opt-out above outranks a lone class, so a bare .docs-hub-elsewhere loses its
-   padding and the heading lands on the panel's own border. */
-.docs .docs-hub-elsewhere {
-  max-width: 56rem;
-  margin-top: 4rem;
-  /* Short at the foot because the last row of pills carries 0.45rem of its own,
-     which would otherwise read as a deeper bottom edge than top. */
-  padding: 1.15rem 1.15rem 0.75rem;
-  border-radius: 0.9rem;
-  background: var(--docs-surface);
-  box-shadow: inset 0 0 0 1px var(--docs-line);
+.docs-hub-section + .docs-hub-section {
+  margin-top: 3rem;
 }
 
-.docs-hub-elsewhere .docs-hub-section-label {
-  margin: 0 0 0.25rem;
-  padding-left: 0.55rem;
-  font-size: 1rem;
+.docs-hub-heading {
+  margin: 0 0 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 650;
+  line-height: 1.3;
   letter-spacing: -0.02em;
+  color: hsl(var(--foreground));
 }
 
-/* A fixed count, not auto-fit. Auto-fit gave five items four tracks and left
-   Source alone on a second row; five tracks fit, but at 170px the notes broke
-   mid-phrase. Three is the widest count where every note still sits on one
-   line, and a short last row inside a panel costs nothing. */
-.docs-hub-elsewhere-list {
+/* One column of compact cards on a phone, two on a narrow column, four once
+   the column is wide enough that a card still holds a two-line note. Sized
+   off the hub's own width, not the viewport, because the rail takes a
+   different share of the screen at every breakpoint. */
+.docs-hub-cards {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 0.1rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  gap: 0.75rem;
 }
 
-@media (min-width: 30rem) {
-  .docs-hub-elsewhere-list {
+@container (min-width: 30rem) {
+  .docs-hub-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 48rem) {
-  .docs-hub-elsewhere-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+@container (min-width: 50rem) {
+  .docs-hub-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
   }
 }
 
-/* Stacked, not inline. Inline label-plus-note pairs wrap at whatever width is
-   left, which left "Projects" and "Source" orphaned on a ragged second line. */
-.docs-hub-elsewhere-link {
+.docs-hub-card {
   display: flex;
   flex-direction: column;
-  gap: 0.05rem;
-  /* 0.55 inner + 0.35 gap to the panel's own 1.15rem padding lands the pill's
-     radius concentric with the panel's. */
-  padding: 0.45rem 0.55rem;
-  border-radius: 0.55rem;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--hub-card-line);
+  border-radius: 0.625rem;
+  background: var(--hub-card-bg);
   text-decoration: none;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+@container (min-width: 30rem) {
+  .docs-hub-card {
+    min-height: 11.5rem;
+  }
+}
+
+@container (min-width: 50rem) {
+  .docs-hub-card {
+    min-height: 15rem;
+  }
+}
+
+.docs-hub-card:hover,
+.docs-hub-card:focus-visible {
+  border-color: var(--hub-card-line-hover);
+  background: var(--hub-card-bg-hover);
+}
+
+.docs-hub-card-icon {
+  flex: none;
+  color: var(--ink-strong);
+}
+
+.docs-hub-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.docs-hub-card-title {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 560;
+  line-height: 1.4;
+  letter-spacing: -0.011em;
+  color: var(--ink-strong);
+}
+
+.docs-hub-card-note {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  letter-spacing: -0.008em;
+  color: var(--ink-faint);
+  text-wrap: pretty;
+}
+
+/* Every page, as a sitemap. Five groups fit on one row at full width and two
+   on a phone; columns stay top-aligned so a short group never stretches to
+   match a long one. */
+.docs-hub-browse {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 2rem 1.25rem;
+  align-items: start;
+}
+
+.docs-hub-group-label {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 560;
+  letter-spacing: -0.006em;
+  color: var(--ink-strong);
+}
+
+.docs-hub-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-hub-group-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  letter-spacing: -0.008em;
+  color: var(--ink-faint);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.docs-hub-group-link:hover,
+.docs-hub-group-link:focus-visible {
+  color: var(--ink-strong);
+}
+
+/* Exits to the rest of the site: one quiet line under a hairline, since these
+   are places on buxx.me rather than pages of the reference. */
+.docs-hub-elsewhere {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1.25rem;
+  margin-top: 3.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--docs-line-soft);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+}
+
+.docs-hub-elsewhere-label {
+  color: var(--ink-faint);
+}
+
+.docs-hub-elsewhere-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--ink-body);
+  text-decoration: none;
+  transition: color 0.15s ease;
 }
 
 .docs-hub-elsewhere-link:hover,
 .docs-hub-elsewhere-link:focus-visible {
-  background: var(--docs-surface-hover);
-}
-
-.docs-hub-elsewhere-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-family: var(--font-sans);
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: -0.012em;
   color: var(--ink-strong);
 }
 
-.docs-hub-elsewhere-label svg {
-  opacity: 0.45;
-}
-
-.docs-hub-elsewhere-note {
-  font-family: var(--font-sans);
-  font-size: 0.8125rem;
-  line-height: 1.45;
-  letter-spacing: -0.006em;
-  color: var(--ink-faint);
+.docs-hub-elsewhere-link svg {
+  opacity: 0.5;
 }
 
 @media (max-width: 560px) {
@@ -1643,9 +1620,8 @@ html.dark .docs-prose pre.astro-code span {
 @media (prefers-reduced-motion: reduce) {
   .docs-nav-chevron,
   .docs-nav-link,
-  .docs-card,
-  .docs-card-head,
-  .docs-card-arrow,
+  .docs-hub-card,
+  .docs-hub-group-link,
   .docs-pager-link,
   .docs-prose a {
     transition: none;
