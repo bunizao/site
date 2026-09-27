@@ -228,7 +228,11 @@ Bounds the server enforces before storing: strings at most 128 characters,
 `fonts` at most 32 entries, every number a bounded integer, the whole object
 under 4 KiB. The client never sends a hash of its own fingerprint — the
 server hashes the canonical component JSON itself, so a browser cannot claim
-to be a different device. `notifyReplies` sets the writer's reply-mail preference — see
+to be a different device. `notifyReplies` on this input is the **newsletter**
+opt-in, despite its name: site-api carries it into the verification link, and
+confirming the address activates a newsletter subscription. Both clients send
+`false`. The reply-mail preference is the reader's own `notifyReplies` switch
+(`/api/v2/reader/preferences`) — see
 [What `notifyReplies` actually sends](#what-notifyreplies-actually-sends).
 
 A comment written without an email serializes with `avatarUrl: ""`; the
@@ -725,6 +729,9 @@ POST /api/v2/reader/resend
 ```json
 { "ok": true }
 ```
+
+`notifyReplies` here is the same newsletter opt-in as on comment create,
+recovered from the stale link; it is not the reply-mail switch.
 
 Mail goes out only to an address with comment history or an existing verified
 reader identity. This also lets a verified reader sign in after changing their
