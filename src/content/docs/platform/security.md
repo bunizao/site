@@ -13,7 +13,7 @@ request was rejected.
 | Mechanism | Owner | Protects |
 | --- | --- | --- |
 | Rate limiting | Both Workers, separate implementations | Every public API route, and the static media proxy |
-| Turnstile verification | `site-api` | Subscription intake |
+| Turnstile verification | `site-api` | Subscribe and manage-link requests, blog and mood comments, reactions, and owner messages |
 | Signed URLs | `site-api` | Selected generated resources, such as the activity SVG |
 | Static proxy allowlist | `site` | The `/static/*` media proxy |
 | Response hardening | Per response type | Embeds and SVG documents, not the site shell |
@@ -53,23 +53,35 @@ verifier:
 - posts to Cloudflare Turnstile, forwarding `remoteip` when available
 - validates the challenge hostname against the current request host
 - optionally validates `action`
+- optionally checks `cdata` against the anonymous session id (comments and
+  reactions)
 - returns structured result codes instead of throwing
 
-Four routes carry a check today:
+Five routes carry a check today. `POST /api/v2/comments` expects one of two
+actions, depending on the comment's `surface`:
 
 | Route | Expected action |
 | --- | --- |
 | `notify/subscribe` | `notify_subscribe` |
-| `notify/manage/request` | None |
-| `POST /api/v2/comments` | `blog_comment_create` |
+| `notify/manage/request` | `notify_manage` |
+| `POST /api/v2/comments` on a blog post | `blog_comment_create` |
+| `POST /api/v2/comments` with `surface: "mood"` | `mood_comment_create` |
 | `POST /api/v2/reactions/toggle` | `blog_reaction` |
+| `POST /api/v2/messages` | `owner_message_create` |
 
-The two comment routes solve invisibly in managed mode, so in practice a
-reader never sees a widget. A Turnstile failure there is the one step of the
-comment risk stack that answers plainly instead of silently (see
-[Post a comment](/docs/api/comments#post-a-comment)). The four accepted token
-carriers and the `400` versus `503` failure split are in
-[Notify API](/docs/api/notify#subscribe).
+A reaction skips the check when the browser holds a `__Host-reader_pass`
+cookie, which `site-api` issues after a verified token and which lasts one
+hour.
+
+The comment and reaction routes solve invisibly in managed mode, so in
+practice a reader never sees a widget. A failed Turnstile check on a comment
+gets a plain `400` or `503`. After it, three more checks can refuse in the
+open, with nothing stored: `403 email_verification_required`, `429`, and
+`403 email_required`. Every other check answers `201`, with the comment
+published or held (see [The risk stack](/docs/api/comments#the-risk-stack)).
+
+For the notify routes, the four accepted token carriers and the `400` versus
+`503` failure split are in [Notify API](/docs/api/notify#subscribe).
 
 ## Signed URLs
 

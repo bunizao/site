@@ -16,13 +16,19 @@ next to the handlers in the private `site-api` repository.
 Paths are shown in their bare `site-api` form. On `buxx.me`, add `/api` in
 front; see [Path forms](/docs/api/overview#path-forms).
 
+*Admin session* means a signed owner session cookie from GitHub OAuth or a
+verified Cloudflare Access JWT. See [Auth](/docs/platform/auth).
+
+Legacy alias rows below only redirect to the current path. They check no auth
+themselves; the current path does.
+
 ## Admin authentication
 
 | Path | Purpose | Auth tier |
 | --- | --- | --- |
 | `/admin/auth/start` | Starts owner sign-in. | Public OAuth entry |
 | `/admin/auth/callback` | Completes owner sign-in. | Verified OAuth callback |
-| `/admin/auth/logout` | Ends the owner session. | Admin session |
+| `/admin/auth/logout` | Ends the owner session. | Public, same-origin requests only |
 | `/admin/session` | Reads the current owner identity. | Admin session |
 | `/oauth/login` | Redirects to the public site's `/oauth/login`, keeping the query. | Public OAuth entry |
 
@@ -57,9 +63,13 @@ front; see [Path forms](/docs/api/overview#path-forms).
 | `/admin/mood/ai-config` | Manages mood AI configuration. | Admin session |
 | `/admin/notify-gate` | Reads the notification dispatch gate. | Admin session |
 | `/admin/notify-gate/release` | Releases queued notifications. | Admin session |
-| `/v2/admin/*` | Preserves the legacy admin API path. | Admin session |
+| `/v2/admin/*` | Legacy alias. Redirects to `/admin/*`. | None (redirect only) |
 
 ## Admin portal
+
+`site-api` serves these pages on `admin.buxx.me` only. Other hosts redirect
+there. The owner portal on the public site is `/dev/portal`, served by the
+`site` Worker (see [Site routes](/docs/api/site-routes#dev-portal)).
 
 | Path | Purpose | Auth tier |
 | --- | --- | --- |
@@ -70,7 +80,6 @@ front; see [Path forms](/docs/api/overview#path-forms).
 | `/admin/mood-embed` | Opens mood embed tools. | Admin session |
 | `/admin/oauth` | Opens OAuth management. | Admin session |
 | `/admin/svg` | Opens SVG tools. | Admin session |
-| `/admin/portal/comments` | Opens the comment moderation queue. | Admin session |
 | `/admin/portal/broadcasts` | Opens broadcast operations. | Admin session |
 | `/admin/portal/broadcasts/:id` | Opens one broadcast. | Admin session |
 | `/admin/portal/subscribers` | Opens subscriber operations. | Admin session |
@@ -82,8 +91,8 @@ front; see [Path forms](/docs/api/overview#path-forms).
 | --- | --- | --- |
 | `/webhooks/ghost` | Receives Ghost publication events. | Signed Ghost webhook |
 | `/webhooks/resend` | Receives Resend delivery events (bounces, complaints) and feeds the outbound-email suppression ledger. | Svix signature |
-| `/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
-| `/v2/ghost/webhook` | Preserves a legacy Ghost webhook path. | Signed Ghost webhook |
+| `/ghost/webhook` | Legacy alias. Redirects to `/webhooks/ghost`. | None (redirect only) |
+| `/v2/ghost/webhook` | Legacy alias. Redirects to `/webhooks/ghost`. | None (redirect only) |
 | `/webhooks/telegram` | Receives Telegram mood events. | Telegram secret token |
 | `/webhooks/telegram-ops` | Receives the ops bot's updates: the flood-gate decision keyboard, the bot command surface, comment moderation actions, and pending-action confirmations. | Its own Telegram secret token, plus a Telegram user id allowlist |
 

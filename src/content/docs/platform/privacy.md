@@ -41,7 +41,7 @@ the policy text is wrong and needs fixing.
 | YouTube embeds | A session-scoped `yes`/`no` reachability verdict. No country data | Poster and avatar bytes come through `/static/youtube/<id>/…`, so the browser contacts nothing until play | YouTube, only after the reader presses play |
 | Mood pages | Nothing from the visitor | Public Telegram-derived content through `site-api` | Telegram |
 | Mood subscription | Email address, channel and delivery preferences, delivery records | `NOTIFY_DB` in `site-api`, which also mints and verifies the tokens | Resend (delivery) |
-| Anti-abuse | A Turnstile token on subscribe, manage-request, comment create, and reaction toggle | Verified inside `site-api` before the handler runs | Cloudflare Turnstile |
+| Anti-abuse | A Turnstile token on subscribe, manage-link request, blog and mood comment create, reaction toggle, and owner message | Verified inside `site-api` before the handler runs | Cloudflare Turnstile |
 | Writing and contributions | Nothing from the visitor | Ghost at build time, `site-api /api/github/contributions` at runtime | Ghost, GitHub |
 
 No page mounts a third-party analytics script.
@@ -101,17 +101,18 @@ The short version of the policy can mislead on these points:
   reuse the reading-analytics session, and get an IP-derived location. There
   is one row per playback instead of one per event, but each row is still a
   per-visitor record.
-- **Mood content reads the archive first.** `MOOD_READ_SOURCE=archive` is the
-  default. The live Telegram mirror is the fallback, and the source for
-  comments and freshness. Both are public channel content.
-- **Reader sign-in is built but dormant, so the policy doesn't disclose it
-  yet.** `/oauth/reader/:provider` in `site-api` would send the reader on a
-  round trip to GitHub or Google and store the profile that comes back.
-  Nothing links to it, the credentials are unset, and the route answers `404`.
-  No reader data reaches either provider, so the policy should not claim it
-  does. When a sign-in button ships, add a row to the tables above and a clause
-  to the policy, and add the GitHub and Google avatar CDNs to the avatar row
-  next to Gravatar and QQ.
+- **Mood content reads the archive first.** Production sets
+  `MOOD_READ_SOURCE=archive` in `wrangler.jsonc` (the code default is `live`).
+  The live Telegram mirror is the fallback, and the source for comments and
+  freshness. Both are public channel content.
+- **The policy discloses reader sign-in, but the feature is dormant.**
+  `/oauth/reader/:provider` in `site-api` would send the reader on a round trip
+  to GitHub or Google and store the profile that comes back. Nothing on the
+  site links to it, and the route answers `404` while its provider credentials
+  are unset. So today no reader data reaches either provider. The policy
+  already describes sign-in as optional and only on the reader's choice. When
+  a sign-in button ships, add a row to the tables above, and add the GitHub and
+  Google avatar CDNs to the avatar row next to Gravatar and QQ.
 - **An anonymous comment still identifies its writer to the server.**
   "Anonymous" in the comments feature means *no account required*. The row
   still stores the IP, a fingerprint hash, a user agent, and, when the browser
@@ -138,8 +139,11 @@ As of 13 September 2026, the published policy covers blog comments. Its
 
 The disclosure, retention, and rights sections have the matching clauses.
 
-Reader OAuth is left out of the policy. No data reaches GitHub or Google while
-the feature has no entry point, so its clause lands with the sign-in button.
+The policy also covers optional GitHub and Google sign-in for comments. It
+names them under reader identity data, the *Signing in* and cookie sections,
+third-party content sources, and disclosure to service providers. The feature
+has no entry point yet, so those clauses describe what happens once a sign-in
+button ships.
 
 ## When to update the policy
 

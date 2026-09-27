@@ -14,9 +14,10 @@ error codes), see [Notify API](/docs/api/notify).
 
 The canonical base path is `/notify/*` (`NOTIFY_BASE_PATH` in
 `@bunizao/contracts/routes`). `/v2/notify/*` stays alive as a legacy alias
-(`LEGACY_NOTIFY_BASE_PATH`) and resolves to the same handlers. On the public
-site, `https://buxx.me/api/notify/*` reaches them through the `API` service
-binding.
+(`LEGACY_NOTIFY_BASE_PATH`) that redirects to the same path under `/notify/*`.
+On the public site, `https://buxx.me/api/notify/*` reaches them. In production
+a Cloudflare route sends it straight to `site-api`. On preview deployments the
+`site` Worker forwards it through the `API` service binding.
 
 | Route | Methods | Gate | Documented in |
 | --- | --- | --- | --- |
@@ -122,8 +123,8 @@ Bindings:
 | --- | --- |
 | Publication webhook (`immediate` subscribers) | Queue with a five-minute safety delay, then the consumer calls dispatch. |
 | Authenticated dispatch targeting only `immediate` | The same delayed queue. |
-| Scheduled digests | `/v2/notify/schedule`. |
-| Failed sends | `/v2/notify/retry`. |
+| Scheduled digests | `/notify/schedule`. |
+| Failed sends | `/notify/retry`. |
 
 ```text
 Telegram/Ghost -> site-api publication webhook -> Cloudflare Queue (5 minute delay)
@@ -131,16 +132,18 @@ Telegram/Ghost -> site-api publication webhook -> Cloudflare Queue (5 minute del
 ```
 
 The webhook and the queue worker never send email themselves.
-`/v2/notify/dispatch` handles delivery, idempotency, and retry scheduling.
+`/notify/dispatch` handles delivery, idempotency, and retry scheduling.
 
 ## Admin portal
 
-Admin pages and APIs live in `site-api`. The public site reaches them through
-these compatibility proxy routes:
+The subscriber and broadcast admin APIs live in `site-api` under `/admin/*`.
+The public site reaches them in two ways:
 
-- `/dev/*`
-- `/oauth*`
-- `/api/admin/*`
+| Path | How it reaches `site-api` |
+| --- | --- |
+| `/api/admin/*` | Like the rest of `/api/*`: straight to `site-api` in production. |
+| `/dev/portal/api/admin/*` | The `site` Worker forwards it to `/api/admin/*` through the `API` service binding. |
 
-Protected docs on the public site check `site-api /v2/admin/session` through
-the `API` service binding.
+The owner portal itself is `/dev/*`, rendered by the `site` Worker and gated by
+Cloudflare Access. `/oauth*` is forwarded to `site-api` the same way; see
+[Auth](/docs/platform/auth).
