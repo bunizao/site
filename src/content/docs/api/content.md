@@ -56,13 +56,12 @@ upstream look the same from the outside.
 GET /api/comments?postId=<id>
 ```
 
-A legacy alias for the mood comment thread of a single post. It reads the same
-data as `/api/mood/:id/comments` through the **live** Telegram mirror instead
-of the D1 archive. See [Mood API](/docs/api/mood) for the response shape and
-the freshness trade-off.
-
-New integrations should call the mood route directly. This one exists so old
-clients keep working.
+The public read path for one mood post's comment thread. It reads the
+**live** Telegram mirror instead of the D1 archive, and the site's own mood
+pages call it. It answers directly (no redirect) with the same handler as
+`/api/v1/mood/:id/comments`. The older `/api/mood/:id/comments` form is a
+redirect to that versioned route. See [Mood API](/docs/api/mood) for the
+response shape and the freshness trade-off.
 
 ### Caching
 
@@ -266,7 +265,7 @@ reuses a failure.
 - `429 {"error":"Too Many Requests"}` when rate limited.
 - A plain-text `405 Method Not Allowed` for non-`GET` methods.
 
-`/v2/musickit/token` is a legacy alias of the same handler.
+`/v2/musickit/token` is a legacy alias. It answers `308` to `/musickit/token`.
 
 ## Posts (not enabled)
 

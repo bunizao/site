@@ -163,7 +163,7 @@ Public JSON, served by `site-api` on `buxx.me/api/*`:
 | `GET /api/v2/mood*` | Archive feed, detail, comments, search and stats. This is the default base render. | [Mood](/docs/api/mood) |
 | `GET /api/v1/mood*`, `GET /api/moods` | Live Telegram mirror, for freshness probes and archive fallback. | [Mood](/docs/api/mood) |
 | `GET /api/v2/moods/live-counts`, `GET /api/v1/mood/meta` | Batched comment and reaction counts for posts already on the page. | [Mood](/docs/api/mood) |
-| `GET /api/comments` | Legacy alias of the live comments read path. | [Content](/docs/api/content#comments-by-post-id) |
+| `GET /api/comments` | Public live comments read path for one mood post, used by the site's mood pages. | [Content](/docs/api/content#comments-by-post-id) |
 | `GET /api/writing`, `GET /api/github/contributions`, `GET /api/musickit/token` | Ghost posts, the contribution grid, and the Apple MusicKit token. | [Content](/docs/api/content) |
 | `GET /api/v2/listening`, `POST /api/v2/analytics/listening` | The now-playing track, and the player's own playback events. | [Listening](/docs/api/listening) |
 | `GET /api/oembed.json` | oEmbed discovery for mood embeds. | [oEmbed](/docs/api/oembed) |

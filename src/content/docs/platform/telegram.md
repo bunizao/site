@@ -33,7 +33,7 @@ flowchart TD
   E --> F["site-api writes originals and variants to R2"]
   F --> G["Public reads use private image routes"]
   B --> H["site-api enqueues notify dispatch job"]
-  H --> I["Queue consumer calls /v2/notify/dispatch"]
+  H --> I["Queue consumer runs the /notify/dispatch handler"]
   I --> J["Resend sends immediate notify emails"]
 ```
 
@@ -97,7 +97,7 @@ the "Leave a comment on Telegram" link instead of the compose box.
 | Parse `channel_post` and resolve media-group image indexing | Consume `/api/moods` and `/api/comments` |
 | Ingest mood images into R2 | Use `PUBLIC_HD_IMAGE_URL` for primary image URLs |
 | Enqueue durable immediate notify dispatch jobs | Keep the `/static/…` Telegram CDN fallback |
-| Dispatch notification email through `/v2/notify/dispatch` | |
+| Dispatch notification email through the `/notify/dispatch` handler | |
 | Run the risk stack, bridge `published` mood comments (and `held` ones once approved) into the discussion group, overlay the scrape on read | Render the mood compose box only when `discussionLinked`, POST `/v2/comments` with `surface: 'mood'` |
 
 ## Key URLs
@@ -106,7 +106,7 @@ the "Leave a comment on Telegram" link instead of the compose box.
 | --- | --- |
 | `https://api.buxx.me/webhooks/telegram` | Webhook ingress. Private. |
 | `https://buxx.me/api/v2/images/*` | Public image reads, served from R2 |
-| `https://api.buxx.me/v2/notify/dispatch` | Queue consumer target for immediate notify |
+| `https://api.buxx.me/notify/dispatch` | Immediate notify dispatch. The queue consumer runs this handler in process instead of calling the URL. `/v2/notify/dispatch` is a `308` alias. |
 | `https://buxx.me/api/*` | Routed directly to `site-api` in production |
 
 ## Failure modes
