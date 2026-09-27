@@ -1,23 +1,27 @@
 ---
 title: Local development
-description: "Getting the site running: toolchain, commands, the dev-versus-production runtime gap, and environment variables."
+description: Install the toolchain, run the site locally, check your changes, and see where dev differs from production.
 group: Start
 order: 2
 ---
 
+How to get the site running on your machine and check your changes before a
+deploy. It also covers the places where local dev behaves differently from
+production.
+
 ## Toolchain
 
-**Bun** for packages and scripts, **Node.js >= 22.12** for everything that shells
-out to `wrangler`. `.node-version` pins 22. A Node 18 shell does not fail loudly —
-`wrangler` commands just silently misbehave, which is a worse outcome than a
-crash. Check before debugging anything Cloudflare-shaped:
+Use **Bun** for packages and scripts, and **Node.js >= 22.12** for anything that
+shells out to `wrangler`. `.node-version` pins 22. On Node 18, `wrangler`
+commands don't crash. They misbehave silently, which is harder to spot. Check
+your Node version before you debug anything Cloudflare-related:
 
 ```bash
 node --version   # must be >= 22.12
 bun install
 ```
 
-## Running
+## Run the dev server
 
 ```bash
 bun dev -- --background   # http://localhost:4321, does not hold the terminal
@@ -26,12 +30,11 @@ bunx astro dev logs --follow
 bunx astro dev stop
 ```
 
-The background form is the default because most work here needs the terminal free.
-Plain `bun dev` runs in the foreground when you actually want to watch the log
-stream.
+The background form is the default because it leaves your terminal free. Run
+plain `bun dev` in the foreground when you want to watch the log stream.
 
-Surface-scoped variants boot the same server with a `DEV_SURFACE` hint, which lets
-a route skip work it does not need:
+Surface-scoped variants boot the same server with a `DEV_SURFACE` hint, so a
+route can skip work it doesn't need:
 
 | Command | Surface |
 | --- | --- |
@@ -40,78 +43,88 @@ a route skip work it does not need:
 | `bun dev:richtext` | Mood with the rich-text fixture loaded |
 | `bun dev:preview` | Draft preview routes |
 | `bun dev:portal` | Admin portal with the auth bypass on |
-| `bun dev:api` | Proxy `/api/*` at a local `site-api` instead of production |
+| `bun dev:api` | Proxies `/api/*` to a local `site-api` instead of production |
 
-## Draft preview
+## Preview a draft
 
 `/dev/blog/<ghost-post-id>` renders the current Ghost draft through the same
-rich-source compiler used by published posts. Registered directive markers may
+rich-source compiler that published posts use. Registered directive markers can
 be standalone paragraphs or exact, unlabelled Ghost code cards. Conversation,
-authors, listening, mood, and YouTube share one transform order owned by that
+authors, listening, mood, and YouTube share one transform order, set by that
 compiler.
 
-The preview checks the draft revision every 1.5 seconds while its tab is visible.
-When Ghost saves a newer revision, the page reloads automatically and restores
-the contained reading scroll position. A full-page reload initializes listening,
-video, image, and embed behavior once and prevents partial replacement from
-duplicating event listeners. Failed probes keep the current preview visible and
-retry with bounded backoff.
+While its tab is visible, the preview checks the draft revision every 1.5
+seconds. When Ghost saves a newer revision, the page reloads and restores the
+contained reading scroll position. Because it is a full-page reload, listening,
+video, image, and embed behavior initialize once. A partial replacement could
+duplicate event listeners. If a probe fails, the current preview stays visible
+and retries with bounded backoff.
 
-## The dev/production runtime gap
+## How dev differs from production
 
-This trips people up, so it is worth stating plainly: **`astro dev` runs on Astro's
-native Node SSR. The Cloudflare adapter only applies during `build`.** The workerd
-runtime, its bindings, and the `API` service binding do not exist in dev.
+`astro dev` runs on Astro's native Node SSR. The Cloudflare adapter applies only
+during `build`. The workerd runtime, its bindings, and the `API` service binding
+don't exist in dev.
 
-What that means in practice:
+In practice:
 
-- `/api/*`, `/v2/*`, and `/oauth*` are proxied over plain HTTP in dev, to
-  `API_DEV_ORIGIN` (default `https://buxx.me`). So a fresh `bun dev` talks to
-  **production** APIs unless told otherwise.
-- To develop against a local API: run `bun run dev` in `../site-api` (it boots
-  wrangler on `127.0.0.1:8787`), then `bun dev:api` here.
-- Set `API_DEV_ORIGIN` in `.env.local` to point at a preview deployment instead.
-- Anything that depends on real Worker behavior — cache keys, headers, bindings —
-  must be checked with `bun preview`, which builds and runs `wrangler dev` on the
+- In dev, `/api/*`, `/v2/*`, and `/oauth*` are proxied over plain HTTP to
+  `API_DEV_ORIGIN` (default `https://buxx.me`). A fresh `bun dev` talks to
+  **production** APIs unless you change that.
+- To develop against a local API, run `bun run dev` in `../site-api` (it boots
+  wrangler on `127.0.0.1:8787`), then run `bun dev:api` here.
+- To use a preview deployment instead, set `API_DEV_ORIGIN` in `.env.local`.
+- Check anything that depends on real Worker behavior (cache keys, headers,
+  bindings) with `bun preview`. It builds the site and runs `wrangler dev` on the
   built Worker.
 
-There is a second gap worth knowing: mood pages read from the **live** source in
-dev and the **D1 archive** in production. Profiling or debugging `/mood` without
-`?source=archive` means measuring a code path that production never takes.
+Mood pages differ too. Dev reads from the **live** source, and production reads
+from the **D1 archive**. If you profile or debug `/mood` without
+`?source=archive`, you are measuring a code path production never takes.
 
 ## Performance diagnostics
 
-Append `?debug=performance` to any site page to load the opt-in performance
-panel. `debug=observe` is retained as an alias for older investigation links.
-The production build includes the diagnostic module, but ordinary visits do not
-load or run it.
+Add `?debug=performance` to any site page to load the opt-in performance panel.
+`debug=observe` still works as an alias for older investigation links. The
+production build includes the diagnostic module, but ordinary visits don't load
+or run it.
 
-The panel records layout shifts and their source nodes, LCP, long tasks, slow
-resources, frame gaps, image frame geometry, fonts, visual viewport changes,
-scroll calls, and meaningful element resizes. At first contentful paint it adds
-one `fcp-path` line naming what the paint waited for:
+The panel records:
+
+- layout shifts and their source nodes
+- LCP
+- long tasks
+- slow resources
+- frame gaps
+- image frame geometry
+- fonts
+- visual viewport changes
+- scroll calls
+- meaningful element resizes
+
+At first contentful paint (FCP), it adds one `fcp-path` line that names what the
+paint waited for:
 
 ```text
 fcp-path ttfb=45 doc=86 css=7/52KB font-preloads=1/3KB last=globals.css@122 render=16ms
 ```
 
-`last` is the render-blocking stylesheet or preloaded font that arrived last
-before FCP, and `render` is the time left for style, layout and paint after it.
-A large `render` means the main thread is the problem, not the network.
-`pending` lists preloaded fonts still downloading at FCP: Chrome held the paint
-for them (capped at about 100ms), then painted with the fallback face.
+| Field | Meaning |
+| --- | --- |
+| `last` | The render-blocking stylesheet or preloaded font that arrived last before FCP. |
+| `render` | The time left for style, layout and paint after `last` arrived. A large `render` points at the main thread instead of the network. |
+| `pending` | Preloaded fonts still downloading at FCP. Chrome held the paint for them (capped at about 100ms), then painted with the fallback face. |
 
-**Copy** exports the complete log;
-the visible panel keeps only the latest entries. Agents can read the same data
-without scraping the UI:
+**Copy** exports the complete log. The visible panel keeps only the latest
+entries. Agents can read the same data without scraping the UI:
 
 ```js
 window.__BUXX_PERF_DEBUG__.snapshot()
 window.__BUXX_PERF_DEBUG__.text()
 ```
 
-Resource entries contain only origins and paths. Page text and resource query
-parameters are deliberately excluded from the log.
+Resource entries contain only origins and paths. The log never includes page
+text or resource query parameters.
 
 ## Checks
 
@@ -125,28 +138,29 @@ bun run test:ops         # scheduled health checks
 bun run check:docs-coverage   # every HTTP route is named somewhere under /docs
 ```
 
-No linter is configured. That is on purpose — the type checker and the tests are
-the gate, and a third opinion about formatting was not earning its keep.
+No linter is configured. The type checker and the tests are the gate.
 
 `check:docs-coverage` walks `src/pages/**` in this repo and in the sibling
-`site-api` checkout, derives each public path, and fails when no page under
-`src/content/docs/` mentions it. Pass a different sibling as
-`bun scripts/check-docs-coverage.ts <path>` or `SITE_API_REPO=<path>`; from a
-worktree that is not beside `../site-api`, passing it is the difference between
-checking both halves and silently checking one. It sees only routes that exist
-as files: anything dispatched by hand in `worker.ts` — the Telegram webhooks,
-for instance — has to be documented by hand too.
+`site-api` checkout, and derives each public path. It fails when no page under
+`src/content/docs/` mentions a path.
+
+- To check a different sibling, pass it as
+  `bun scripts/check-docs-coverage.ts <path>` or `SITE_API_REPO=<path>`.
+- From a worktree that isn't beside `../site-api`, you must pass the path.
+  Without it, the guard silently checks only this repo's half.
+- The guard sees only routes that exist as files. Anything dispatched by hand in
+  `worker.ts`, such as the Telegram webhooks, has to be documented by hand too.
 
 ## Environment variables
 
-Read through `import.meta.env.*`. Put local values in `.env.local`; Worker secrets
-go in Cloudflare, never in the repo.
+The site reads these through `import.meta.env.*`. Put local values in
+`.env.local`. Worker secrets go in Cloudflare, never in the repo.
 
 | Variable | Purpose |
 | --- | --- |
 | `PUBLIC_GHOST_URL` | Ghost CMS origin (default `https://blog.buxx.me`) |
 | `GHOST_CONTENT_API_KEY` | Content API key. Required in the Cloudflare build env, or the Writing section prerenders empty |
-| `GHOST_ADMIN_API_KEY` | Server-only. Draft previews. Never prefix it `PUBLIC_` |
+| `GHOST_ADMIN_API_KEY` | Server-only. Used for draft previews. Never prefix it `PUBLIC_` |
 | `PUBLIC_BLOG_OG_IMAGE_ENDPOINT` | OGIS endpoint for generated blog OG images |
 | `GITHUB_TOKEN` | GitHub GraphQL token |
 | `PUBLIC_HD_IMAGE_URL` | HD mood image base URL served by `site-api` |
@@ -160,22 +174,27 @@ Bindings and non-secret vars live in
 
 ## Two repositories
 
-This repo (`site`) is the **public** Worker. The private Worker `site-api` lives in
-the sibling repo `../site-api` and owns D1, KV, R2, queues, crons, admin and OAuth,
-notify, the Telegram webhook, the image proxy, and the concrete public API
-implementations. Production `buxx.me/api/*` routes directly to `site-api`; this
+This repo (`site`) is the **public** Worker. The private Worker `site-api` lives
+in the sibling repo `../site-api`. It owns D1, KV, R2, queues, crons, admin and
+OAuth, notify, the Telegram webhook, the image proxy, and the concrete public API
+implementations. Production `buxx.me/api/*` routes directly to `site-api`. This
 repo keeps only a thin service-binding fallback for preview environments.
 
-Keep them split. The boundary is a security boundary, not an organizational
-preference.
+Keep the two repos split. The boundary between them is a security boundary.
+
+### Contracts package
 
 `@bunizao/contracts` is maintained in this public repo and released as a public
-npm package. The initial release is `@bunizao/contracts@0.1.0`; the package
-source and release metadata live in [`packages/contracts/`](https://github.com/bunizao/site/tree/main/packages/contracts).
-Consumers, including `site-api`, pin an exact package version and upgrade it
-deliberately. Local development in this repo keeps the workspace dependency so
-contract changes can be tested before a release. The root `check`, tests, and
-build commands prepare the workspace package automatically; run
-`bun run contracts:build` before starting a focused dev server. Publish a
-version only from a matching `contracts-v<version>` tag; the release workflow
-uses npm trusted publishing with provenance.
+npm package. The first release is `@bunizao/contracts@0.1.0`. The package source
+and release metadata live in
+[`packages/contracts/`](https://github.com/bunizao/site/tree/main/packages/contracts).
+
+- Consumers, including `site-api`, pin an exact package version and upgrade it
+  explicitly.
+- Local development in this repo uses the workspace dependency, so you can test
+  contract changes before a release.
+- The root `check`, tests, and build commands prepare the workspace package
+  automatically. Run `bun run contracts:build` before you start a focused dev
+  server.
+- Publish a version only from a matching `contracts-v<version>` tag. The release
+  workflow uses npm trusted publishing with provenance.

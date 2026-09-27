@@ -1,50 +1,50 @@
 ---
 title: How a post is built
-description: The path from a Ghost draft to rendered HTML, and the four things that happen to your markup on the way.
+description: How a Ghost draft becomes rendered HTML, and the four passes your markup goes through on the way.
 group: Writing
 order: 0
 ---
 
-Posts are written in Ghost. Ghost is the editor and the database; it never serves
-a reader. At build time this site pulls `post.html` — Ghost's own rendering of
-the Koenig editor — and runs it through one transform before it reaches a page.
+You write posts in Ghost, and the build turns them into pages on buxx.me. This
+page explains the transform in between and the warnings it prints when your
+markup has a problem.
 
-That transform is where everything on the rest of these pages happens.
+Ghost is the editor and the database. It never serves a reader. At build time,
+the site pulls `post.html` (Ghost's own rendering of the Koenig editor) and runs
+it through one transform before it reaches a page.
 
 ## The pipeline
 
 `transformPostDirectives(html, context)` in
-`src/features/posts/server/directives/index.ts` runs four passes, in this order.
+`src/features/posts/server/directives/index.ts` runs four passes, in this order:
 
-**1. Embed enrichment.** Bare `<iframe>` embeds and shortcodes are rewritten
-into this site's own components: Apple Music iframes become the listening card,
-YouTube iframes become the click-to-load facade, `[mood:123]` becomes a mood
-embed. This pass only runs for rich output targets — see below.
+1. **Embed enrichment.** Rewrites bare `<iframe>` embeds and shortcodes into
+   this site's own components. Apple Music iframes become the listening card,
+   YouTube iframes become the click-to-load facade, and `[mood:123]` becomes a
+   mood embed. This pass runs only for rich output targets (see
+   [Output targets](#output-targets)).
+2. **Masking.** Swaps everything inside `<code>`, `<pre>`, `<script>` and
+   `<style>` for a private-use-area token. Later passes can't see it, so a
+   fenced code block showing `[!poem]` stays a code block. The tokens go back in
+   at the very end. If a directive mangled one, the transform throws instead of
+   shipping broken markup.
+3. **Block and meta directives.** Matches any paragraph that contains only a
+   `[!name key=value]` marker. A *block* directive replaces the paragraph with
+   rendered HTML. A *meta* directive is removed from the body, and its
+   attributes go to the page instead.
+4. **Inline directives.** These get the whole document instead of one
+   paragraph, because they don't match a marker. `poem` reshapes blockquotes.
+   `footnotes` rewrites `[^label]` references and collects the definitions into
+   a list at the foot of the post.
 
-**2. Masking.** Everything inside `<code>`, `<pre>`, `<script>` and `<style>` is
-lifted out and replaced with a private-use-area token. Nothing in the following
-passes can see it, so a fenced code block showing `[!poem]` stays a code block.
-The tokens are put back at the very end, and if a directive somehow mangled one
-the transform throws rather than shipping broken markup.
-
-**3. Block and meta directives.** Any paragraph whose entire content is a
-`[!name key=value]` marker is matched. A *block* directive replaces the paragraph
-with rendered HTML; a *meta* directive is removed from the body and its
-attributes handed to the page instead.
-
-**4. Inline directives.** These get the whole document rather than one paragraph,
-because what they match is not a marker. `poem` reshapes blockquotes, `footnotes`
-rewrites `[^label]` references and collects the definitions into a list at the
-foot of the post.
-
-Anything still looking like `[!something]` after all that is reported as an
-unknown directive.
+Anything that still looks like `[!something]` after these passes is reported as
+an unknown directive.
 
 ## Output targets
 
-The same post is rendered for more than one destination, and a YouTube player is
-useless in an RSS reader. Every directive is handed the target and decides what
-to emit.
+The same post is rendered for several destinations, and a YouTube player is
+useless in an RSS reader. So every directive receives the target and decides
+what to emit.
 
 | Target | Used for | Embeds |
 | --- | --- | --- |
@@ -55,24 +55,27 @@ to emit.
 | `og` | Open Graph image text | Text only |
 | `excerpt` | List and card summaries | Text only |
 
-`web` and `preview` are the *rich* targets. Everywhere else, a `[!music]`
-directive degrades to "Listen on Apple Music" and a footnote reference becomes an
-inline parenthetical rather than a superscript pointing at an anchor that the
-consumer cannot follow.
+`web` and `preview` are the *rich* targets. On every other target, a `[!music]`
+directive falls back to "Listen on Apple Music". A footnote reference becomes an
+inline parenthetical, because a superscript would point at an anchor the
+consumer can't follow.
 
-## Warnings, not failures
+## Build warnings
 
-A malformed directive does not break the build. It is skipped, the marker is
-dropped, and a warning is printed:
+A malformed directive doesn't break the build. The build skips it, drops the
+marker, and prints a warning:
 
 ```
 [blog-directive:invalid-directive-attributes] Invalid "mood" directive in post "my-post": attribute "id" must be a positive integer.
 ```
 
-Watch the build output when you publish. The codes you will see are
-`unknown-directive`, `invalid-directive-attributes`, `invalid-directive-content`,
-and the four footnote codes.
+Watch the build output when you publish. These are the codes you'll see:
 
-There is exactly one exception. An unrecognised model in `[!authors]` throws and
-stops the build, because a typo there would silently drop an authorship credit
-off a published post — which is the one failure mode worth being loud about.
+- `unknown-directive`
+- `invalid-directive-attributes`
+- `invalid-directive-content`
+- the four footnote codes (see [Footnotes](/docs/writing/footnotes))
+
+There is one exception. An unrecognised model in `[!authors]` throws and stops
+the build. A typo there would silently drop an authorship credit from a
+published post, so the build fails loudly instead.
