@@ -150,9 +150,10 @@ export interface ReaderMuteResult {
     so this can never be used to probe which addresses have commented. */
 export interface ReaderResendInput {
   email: string;
-  /** Carries the original "notify me of replies" intent into the fresh
-      verification link, recovered from the stale token's payload. Optional;
-      a bare resend defaults to false. */
+  /** Newsletter opt-in, despite the name: carried into the fresh
+      verification link from the stale token's payload, and confirming the
+      address activates a newsletter subscription. Not the reply-mail switch
+      (that is `ReaderMe.notifyReplies`). Optional; a bare resend sends false. */
   notifyReplies?: boolean;
   locale?: CommentLocale;
 }
@@ -456,8 +457,10 @@ export interface CommentCreateInput {
   /** Signed server timestamp minted at first interaction with the compose
       box — see "The risk stack" step 4 (dwell time). */
   dwellToken: string;
-  /** Reader accepted the post-comment subscribe offer. Only takes effect
-      once the address is verified. */
+  /** Newsletter opt-in, despite the name: the reader accepted the
+      post-comment subscribe offer, and confirming the address activates a
+      newsletter subscription. Not the reply-mail switch (that is
+      `ReaderMe.notifyReplies`). Both clients send false. */
   notifyReplies?: boolean;
   locale?: CommentLocale;
   /** Client evidence, optional and never a gate -- see `ClientEvidence`. */
@@ -544,10 +547,16 @@ export const DEFAULT_COMMENT_POLICY: CommentPolicy = {
  *
  * `#no-comments` predates the others and is kept: it always meant "this post
  * takes no more comments", which is `readonly`. */
+// Two mode tags on one post resolve to the stricter one (COMMENTS_MODES runs
+// loosest to strictest), so Ghost's tag order never decides whether a thread
+// is drawn.
+const withStricterMode = (policy: CommentPolicy, mode: CommentsMode): CommentPolicy =>
+  COMMENTS_MODES.indexOf(mode) > COMMENTS_MODES.indexOf(policy.mode) ? { ...policy, mode } : policy;
+
 export const COMMENT_POLICY_TAGS = {
-  'comments-off': (policy: CommentPolicy) => ({ ...policy, mode: 'off' as CommentsMode }),
-  'comments-readonly': (policy: CommentPolicy) => ({ ...policy, mode: 'readonly' as CommentsMode }),
-  'no-comments': (policy: CommentPolicy) => ({ ...policy, mode: 'readonly' as CommentsMode }),
+  'comments-off': (policy: CommentPolicy) => withStricterMode(policy, 'off'),
+  'comments-readonly': (policy: CommentPolicy) => withStricterMode(policy, 'readonly'),
+  'no-comments': (policy: CommentPolicy) => withStricterMode(policy, 'readonly'),
   'reactions-off': (policy: CommentPolicy) => ({ ...policy, reactions: false }),
   'comments-verified': (policy: CommentPolicy) => ({ ...policy, requireVerifiedEmail: true }),
 } as const satisfies Record<string, (policy: CommentPolicy) => CommentPolicy>;
@@ -568,7 +577,8 @@ const policyKeyOf = (tag: CommentPolicyTagLike): string | null => {
 };
 
 /** Fold a post's tags onto the site-wide default. Order does not matter:
-    every tag sets one field, and a tag the map does not know is ignored. */
+    every tag sets one field, conflicting mode tags keep the stricter mode, and
+    a tag the map does not know is ignored. */
 export function commentPolicyFromTags(
   tags: readonly CommentPolicyTagLike[] | null | undefined,
   base: CommentPolicy = DEFAULT_COMMENT_POLICY,
