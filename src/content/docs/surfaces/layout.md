@@ -147,7 +147,7 @@ rendering:
 
 - `src/features/components/ui/OnThisPage.astro:72` — `--ease-out`
 - `src/pages/privacy.astro:334` — `--ease-out`
-- `src/components/CommandPalette.astro:1554-1556` — `--ease`
+- `src/styles/command-palette.css:581-583` — `--ease`
 - `src/features/admin/ui/AnalyticsCharts.tsx:158` — `--ease` (inline style, React island)
 
 `src/styles/code-box.css:11` and `src/styles/listening.css:655` already read

@@ -88,7 +88,20 @@ load or run it.
 
 The panel records layout shifts and their source nodes, LCP, long tasks, slow
 resources, frame gaps, image frame geometry, fonts, visual viewport changes,
-scroll calls, and meaningful element resizes. **Copy** exports the complete log;
+scroll calls, and meaningful element resizes. At first contentful paint it adds
+one `fcp-path` line naming what the paint waited for:
+
+```text
+fcp-path ttfb=45 doc=86 css=7/52KB font-preloads=1/3KB last=globals.css@122 render=16ms
+```
+
+`last` is the render-blocking stylesheet or preloaded font that arrived last
+before FCP, and `render` is the time left for style, layout and paint after it.
+A large `render` means the main thread is the problem, not the network.
+`pending` lists preloaded fonts still downloading at FCP: Chrome held the paint
+for them (capped at about 100ms), then painted with the fallback face.
+
+**Copy** exports the complete log;
 the visible panel keeps only the latest entries. Agents can read the same data
 without scraping the UI:
 
