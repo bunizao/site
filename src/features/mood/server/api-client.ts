@@ -149,7 +149,8 @@ export class MoodArchiveHttpError extends Error {
 // site-api answers these only after its own availability chain has run: a
 // failed D1 read falls through to the live Telegram mirror, and the feed also
 // to its last-known-good copy. A 500 carrying one of them means t.me failed
-// too, so scraping it again from here would only double the wait.
+// there too -- but the site keeps its own independent live reader, so it is
+// still worth one more try here before giving up.
 const EXHAUSTED_ARCHIVE_ERROR_CODES = new Set(['mood_feed_failed', 'mood_detail_failed']);
 
 function isArchiveFallbackExhausted(error: unknown): boolean {
@@ -159,10 +160,11 @@ function isArchiveFallbackExhausted(error: unknown): boolean {
     && EXHAUSTED_ARCHIVE_ERROR_CODES.has(error.code);
 }
 
-/** Archive first, the live reader when the archive cannot answer. Binding
-    exceptions, 404s (ingest lag: a post already on t.me but not yet in D1)
-    and 502/503/504 all fall back; a 500 site-api reports after exhausting its
-    own fallbacks is rethrown instead. */
+/** Archive first, the site's own live reader when the archive cannot answer.
+    Binding exceptions, 404s (ingest lag: a post already on t.me but not yet
+    in D1), 502/503/504, and a 500 site-api reports after exhausting its own
+    fallbacks all fall back here; only a failure of the live reader itself is
+    rethrown. */
 export async function loadMoodArchiveWithFallback<T>(
   resource: string,
   loadArchive: () => Promise<T>,
@@ -171,8 +173,11 @@ export async function loadMoodArchiveWithFallback<T>(
   try {
     return await loadArchive();
   } catch (error) {
-    if (isArchiveFallbackExhausted(error)) throw error;
-    console.warn(`Mood archive ${resource} failed; falling back to live reader.`, error);
+    if (isArchiveFallbackExhausted(error)) {
+      console.warn(`Mood archive ${resource} exhausted its own fallback; trying the site's live reader.`, error);
+    } else {
+      console.warn(`Mood archive ${resource} failed; falling back to live reader.`, error);
+    }
     return loadLive();
   }
 }

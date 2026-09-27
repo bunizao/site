@@ -172,13 +172,15 @@ describe('mood API client', () => {
     expect(liveUrls.every((url) => !url.includes('/v2/mood'))).toBe(true);
   });
 
-  test('does not re-scrape Telegram after site-api reports its own fallbacks exhausted', async () => {
+  test('still tries the site live reader after site-api reports its own fallbacks exhausted', async () => {
     const originalFetch = globalThis.fetch;
+    const originalWarn = console.warn;
     let liveFetchCalls = 0;
     globalThis.fetch = (async () => {
       liveFetchCalls += 1;
-      return new Response('unexpected live read', { status: 503 });
+      return new Response('live unavailable too', { status: 503 });
     }) as unknown as typeof fetch;
+    console.warn = () => {};
     const context = createContext({
       env: {
         API: {
@@ -197,13 +199,16 @@ describe('mood API client', () => {
       await loadMoodDocument(context, '3794', { source: 'archive' }).catch((error) => errors.push(error));
     } finally {
       globalThis.fetch = originalFetch;
+      console.warn = originalWarn;
     }
 
-    expect(liveFetchCalls).toBe(0);
+    // The exhaustion signal still routes through the site's own live reader --
+    // it does not short-circuit straight to an error -- and only a failure of
+    // that live reader itself surfaces.
+    expect(liveFetchCalls).toBeGreaterThanOrEqual(2);
     expect(errors).toHaveLength(2);
-    expect(errors[0]).toBeInstanceOf(MoodArchiveHttpError);
-    expect(errors[0]).toMatchObject({ status: 500, code: 'mood_feed_failed' });
-    expect(errors[1]).toMatchObject({ status: 500, code: 'mood_detail_failed' });
+    expect(errors[0]).not.toBeInstanceOf(MoodArchiveHttpError);
+    expect(errors[1]).not.toBeInstanceOf(MoodArchiveHttpError);
   });
 
   test('still falls back to the live reader on an archive 404 (ingest lag)', async () => {
