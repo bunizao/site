@@ -80,8 +80,8 @@ and all three are a `200`:
 
 | `configured` | `source` | What it means |
 | --- | --- | --- |
-| `true` | `"lastfm"` | Real data. A live scrobble, or a cache hit under 30s old. |
-| `true` | `"fallback"` | Last.fm **is** configured but the fetch threw. You are looking at the demo track. |
+| `true` | `"lastfm"` | Real data. A live scrobble, a cache hit, or — when Last.fm fails — the last track that was read successfully (up to 7 days old), with `isNowPlaying: false`. |
+| `true` | `"fallback"` | Last.fm **is** configured, the fetch threw, and no earlier track is cached. You are looking at the demo track, with `isNowPlaying: false`. |
 | `false` | `"fallback"` | Last.fm is not configured on this deployment at all. Demo track. |
 
 The demo track is a real, complete, plausible-looking track object. Nothing
@@ -105,9 +105,22 @@ Worker-Cache entry the response was built from, clamped to `0..30`. A response
 served from a 25-second-old entry advertises `s-maxage=5`. That keeps the edge
 TTL and the internal TTL from stacking into a 60-second staleness window.
 
-Behind the endpoint sits a Worker Cache entry (`listening:current`, 30s) plus a
+Two responses differ. A configured `source:"fallback"` answer is
+`Cache-Control: no-store, max-age=0`, so a Last.fm outage is never pinned at
+the edge. A last-known-good answer after a Last.fm failure advertises
+`s-maxage=0`.
+
+Behind the endpoint sits a Worker Cache entry (`listening:current`) plus a
 single-flight promise, so concurrent misses collapse into one Last.fm round
-trip rather than a thundering herd.
+trip rather than a thundering herd. The entry is fresh for 30s. Up to an hour
+old it is served as is while a background refresh runs, and once it is older
+than 10 minutes `isNowPlaying` is forced to `false`. Past an hour the request
+waits for Last.fm.
+
+The Apple Music enrichment (catalog id, artwork, preview, accent, year, genre,
+track number) is cached for 24 hours per artist, title and album, so a refresh
+while the same song plays costs one Last.fm call and nothing else. An
+enrichment without an Apple catalog id is not cached.
 
 ### Errors
 

@@ -40,11 +40,16 @@ This is an anti-spam measure, not a security boundary — `Origin` is a header
 and a non-browser client can send whatever it likes. It stops casual
 drive-by writes; it does not stop a determined one.
 
-After the gate, both endpoints apply the same two limits: the raw body must be
-**4096 bytes or fewer** (`413 {"error":"body_too_large"}`), and a request whose
-`User-Agent` matches `bot|spider|crawl|slurp|preview|facebookexternalhit|whatsapp|telegrambot`
-is **accepted and discarded** — `204`, no body, nothing written. A `204` is
-not an error; it means "understood, deliberately not recorded".
+Alongside the gate, a request whose `User-Agent` matches
+`bot|spider|crawl|slurp|preview|facebookexternalhit|whatsapp|telegrambot`
+is **accepted and discarded** — `204`, no body, nothing written, whatever the
+body held. A `204` is not an error; it means "understood, deliberately not
+recorded". Both checks read headers only and run before the rate limiter, so
+rejected and bot traffic never spends quota.
+
+Then comes the rate limit (`native` mode, see
+[Rate limits](/docs/api/overview#rate-limits)), and the raw body must be
+**4096 bytes or fewer** (`413 {"error":"body_too_large"}`).
 
 ## Record a reading event
 
@@ -52,7 +57,7 @@ not an error; it means "understood, deliberately not recorded".
 POST /api/analytics/event
 ```
 
-Rate limit: 600 / 60s. What the blog reader posts as someone scrolls a post.
+Rate limit: 600 / 60s per IP and colo (`native`). What the blog reader posts as someone scrolls a post.
 
 ```json
 {
@@ -89,12 +94,18 @@ re-sending.
 Alongside the body, the server records what it can see for itself: IP,
 country, region, city, ASN and AS org, Cloudflare colo, user agent, parsed
 browser / OS / device type, platform, and language. None of that comes from
-the payload, so a client cannot spoof it — and cannot suppress it either.
+the payload, so a client cannot spoof it — and cannot suppress it either. It
+is captured by the first post of an `eventId`; later posts only advance the
+progress columns and `updated_at`.
 
-Responses: `200 {"status":"ok"}` stored, `204` dropped as a bot, or a flat
+Responses: `200 {"status":"ok"}` accepted, `204` dropped as a bot, or a flat
 error — `400 {"error":"invalid_event_id"}`, `invalid_slug`,
 `invalid_visitor_id`, `invalid_body`, `invalid_json`; `403 origin_rejected`;
-`413 body_too_large`; `500 {"error":"analytics_event_failed"}`.
+`413 body_too_large`; `429` rate limited; `500 {"error":"analytics_event_failed"}`.
+The D1 write runs after the response (`waitUntil`) once the body has
+validated, so `200` means "valid and queued": a storage failure is logged
+server-side instead of surfacing as a `500`, which is left for failures before
+the write starts (such as a missing database binding).
 
 ## Record a playback event
 
@@ -102,7 +113,9 @@ error — `400 {"error":"invalid_event_id"}`, `invalid_slug`,
 POST /api/v2/analytics/listening
 ```
 
-Same gate, same caps, 600 / 60s. The payload and its enums are documented
+Same gate, same caps, same `native` 600 / 60s limit, same write-after-response
+behavior, and request metadata is likewise fixed by the first post of a
+`playbackId`. The payload and its enums are documented
 with the player itself — see
 [Listening API](/docs/api/listening#report-a-playback-event). Its unhandled
 failure code is `listening_analytics_event_failed`.

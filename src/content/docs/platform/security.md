@@ -24,9 +24,9 @@ are reading headers.
 
 | Property | `site` | `site-api` |
 | --- | --- | --- |
-| Implementation | [`src/lib/security/rate-limit.ts`](https://github.com/bunizao/site/blob/main/src/lib/security/rate-limit.ts) — an in-memory bucket store | A Durable Object counter, or a counting-only observability mode |
+| Implementation | [`src/lib/security/rate-limit.ts`](https://github.com/bunizao/site/blob/main/src/lib/security/rate-limit.ts) — an in-memory bucket store | A Durable Object counter, the Workers Rate Limiting binding (analytics beacons), or a counting-only observability mode |
 | Durability | Per isolate, resets with it | Strongly consistent in `durable` mode |
-| Really rejects? | Best effort | Only in `durable` mode — see [Rate limits](/docs/api/overview#rate-limits) |
+| Really rejects? | Best effort | Only in `durable` and `native` modes — see [Rate limits](/docs/api/overview#rate-limits) |
 | Used by | `/static/*` and Mood Markdown | Nearly every `/api/*` route |
 
 The `site` implementation keys on `{prefix}:{clientIp}`, starts a fresh window

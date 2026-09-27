@@ -59,6 +59,16 @@ data as `/api/mood/:id/comments` through the **live** Telegram mirror, not the
 D1 archive — see [Mood API](/docs/api/mood) for the response shape and the
 freshness trade-off.
 
+The payload is viewer-agnostic (published rows only), so the thread is shared
+across readers: a 15s in-worker cache entry per `postId`/`limit`/`before`,
+kept apart from the archive route's entries, and
+`Cloudflare-CDN-Cache-Control: public, max-age=15, stale-while-revalidate=30,
+stale-if-error=300` with browser `Cache-Control: public, max-age=0`. A new or
+deleted comment can therefore take up to about 45s to reach other readers;
+the writer's own row comes from the `no-store` `/api/v2/comments` poll, not
+from this route. `?fresh=1` or `?probe=1` bypasses both layers and returns
+`no-store`. `/api/v1/mood/{id}/comments` follows the same policy.
+
 Each comment carries the same fields as the mood route, including the
 optional `replyTo: { id, author, text }` block that names the parent comment
 when the comment is a reply. `text` is a plain-text preview (≤ 200 chars);
@@ -94,7 +104,11 @@ GET /api/github/contributions?username=bunizao&days=365
 ```
 
 The contribution grid on the home page. No auth. Rate limit: 60 requests / 60s.
-`Cache-Control: no-store, max-age=0` on every response.
+A `200` is `Cache-Control: public, max-age=300` with
+`Cloudflare-CDN-Cache-Control: public, max-age=600, stale-while-revalidate=86400, stale-if-error=86400`
+and no rate-limit headers: the grid is public and the same for every viewer,
+so the edge answers repeat views without running the Worker. Errors, and the
+E2E fixture, are `no-store, max-age=0`.
 
 | Parameter | Type | Default | Notes |
 | --- | --- | --- | --- |
@@ -122,9 +136,10 @@ contributions unavailable"}` when GitHub's API cannot be reached — this one is
 retryable, and unlike `/api/writing` and `/api/footer` it does surface the failure.
 Any method other than `GET` gets a plain-text `405 Method Not Allowed`.
 
-Despite the `no-store` on the response, results are cached inside the Worker
-for 10 minutes per `(username, days)` pair, so hammering this endpoint does not
-hammer GitHub.
+Behind the edge copy, results are also cached inside the Worker for 10 minutes
+per `(username, days)` pair, so hammering this endpoint does not hammer GitHub.
+The home page's grid and hero card both ask for `days=84` so they share one
+cached copy; the grid trims it to 30 days in the browser.
 
 ## Instagram profile
 
@@ -163,8 +178,11 @@ always serve the last read that passed.
 }
 ```
 
-`refreshedAt` is when the stored read was taken; `lastAttempt` is the most
-recent report, which may have failed without touching anything else. Read
+`refreshedAt` is when the stored read was last written; `lastAttempt` is the
+most recent report, which may have failed without touching anything else. A
+successful read identical to the stored one does not rewrite the profile or
+picture, so `refreshedAt` then advances only about once a day; use
+`lastAttempt.at` for when the job last ran. Read
 both: an old `refreshedAt` with a failing `lastAttempt` means Instagram has
 been refusing the job. Counts are exact integers. `Cache-Control: public,
 max-age=60, s-maxage=300, stale-while-revalidate=3600`.
@@ -190,7 +208,8 @@ GET /api/musickit/token
 Mints a short-lived Apple MusicKit developer token so the browser can talk to
 Apple Music directly. Rate limit: 30 requests / 60s.
 `Cache-Control: private, max-age=300` — `private`, because the token is
-credential material and must not land in a shared cache.
+credential material and must not land in a shared cache. Error responses
+(`429`, `500`, `503`) are `no-store`, so the browser never reuses a failure.
 
 **Errors:** `503 {"error":"MusicKit is not configured"}` when the signing key
 is absent from the environment, which is the normal state in local dev;

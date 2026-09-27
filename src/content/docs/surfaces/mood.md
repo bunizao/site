@@ -80,9 +80,14 @@ Rendering rules that are not obvious from the markup:
   [Comments](#comments) below.
 - The feed can run against E2E fixtures instead of the live source.
 
-Freshness: the page polls `GET /api/moods?probe=1&fresh=1` every 75 seconds,
-shows an update notice when a newer post exists, and can refresh on its own when
-the reader is near the top.
+Freshness: the page polls every 75 seconds — `GET /api/v2/mood?probe=1` when it
+reads the archive (CDN-cached for up to 15s), `GET /api/moods?probe=1&fresh=1`
+on the live source — shows an update notice when a newer post exists, and can
+refresh on its own when the reader is near the top. The refresh navigates to
+`/mood?refresh=<latestId>` rather than reloading: the page cache never stores
+that variant and the page treats it as a fresh read, so the new post is there
+instead of a minutes-old cached copy that would re-trigger the notice. The
+watcher strips `refresh` from the address bar once the page has rendered.
 
 ### The feed post shape
 
@@ -120,7 +125,11 @@ state rather than crashing. It composes [`DetailArticle.astro`](https://github.c
    and an inline script starts `GET /api/comments?postId=…` while the page is
    still parsing (`src/lib/api-prefetch.ts`).
 2. [`detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts) takes that in-flight response for
-   the first page; later pages and live refreshes fetch normally.
+   the first page; later pages and live refreshes fetch normally. The live
+   refresh re-reads the newest page every 45 seconds, but only while the tab
+   is visible, the thread is within 400px of the viewport, and the reader has
+   scrolled, clicked or typed in the last 10 minutes; coming back refreshes at
+   once when the last read is older than one interval.
 3. `site-api` validates `postId` and optional `before`, then reads the live
    Telegram mirror through the canonical v1 path.
 4. The client renders sanitized comments and pages with `before=<commentId>`.

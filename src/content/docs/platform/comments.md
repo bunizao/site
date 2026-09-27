@@ -82,17 +82,21 @@ a readable thread; the second makes the whole feature disappear.
 
 ## Scheduled work
 
-All of it runs from `/notify/schedule`, which fires on the site's
-15-minute cron (every scheduled trigger except the hourly mood-stats one).
-Each job is a bounded, idempotent sweep, so running it ninety-six times a day
-costs nothing beyond the four statements it issues.
+Every job is a bounded, idempotent sweep. The short-window ones run on the
+15-minute cron as part of the notify schedule. The 90-day retention sweeps
+run once a day, on the hourly trigger at 19:00 UTC. The 15-minute path never
+runs them, so the two cannot overlap. `/notify/schedule` also runs all of
+them when called by hand, for example to clear a backlog.
 
-| Job | What it removes |
-| --- | --- |
-| Unverified address sweep | An address that never confirmed, 7 days on |
-| Comment risk signals | Every actor column and both JSON blobs, nulled in place 90 days after the row was written, on `blog_comments`, `blog_reactions` and `owner_messages`. The comment itself stays |
-| Expired email-change requests | Tokens nobody used |
-| Expired delete requests | Same |
+| Job | Cadence | What it removes |
+| --- | --- | --- |
+| Unverified address sweep | 15 min | An address that never confirmed, 7 days on |
+| Expired email-change requests | 15 min | Tokens nobody used |
+| Expired delete requests | 15 min | Same |
+| Comment risk signals | Daily | Every actor column and both JSON blobs, nulled in place 90 days after the row was written, on `blog_comments`, `blog_reactions` and `owner_messages`. The comment itself stays |
+| Activity-log identities | Daily | `identity_key` and `reader_id` on `blog_activity_log`, 90 days on. The event itself stays |
+| Ban-operation snapshots | Daily | Risk columns inside snapshot rows, and snapshots past their 30-day restore window |
+| Comment quality metrics | Daily | Hourly `blog_comment_metrics` counters older than 90 days |
 
 The 90-day sweep is the retention promise behind
 [the privacy map](/docs/platform/privacy#what-the-policy-has-to-match). The
