@@ -669,7 +669,9 @@ or, when signed in:
 }
 ```
 
-Never includes email or its hash. `DELETE` signs out: clears the session
+Never includes email or its hash. `subscribed` is true only for an active
+subscription that includes the `blog` channel; a mood-only subscriber reads
+`false`. `DELETE` signs out: clears the session
 cookie and returns `204`. Idempotent — calling it with no session already
 set still succeeds, so the client never needs to check sign-in state first.
 Neither is rate-limited.
@@ -794,11 +796,13 @@ cookie alone — it takes no address, so it can never move a stranger's
 preferences by naming them, and answers `401 not_signed_in` without one.
 Every field is optional and independent; the client sends only the switch
 that moved, and a body carrying none of them is a `400`. `notifyReplies`
-writes the reader's own column; switching `subscribed` off invalidates pending
-newsletter confirmations. `subscribed` activates or unsubscribes the
-newsletter subscription without touching reply notifications, and vice
-versa — leaving the newsletter and muting your own replies are separate
-decisions. Rate-limited at 20/minute per reader, durably enforced. The
+writes the reader's own column. `subscribed` is the blog channel, matching
+the "latest posts" label: on adds `blog` to an active or pending
+subscription, or starts one on `["blog"]` for a reader with none; off removes
+`blog` and unsubscribes only when no other channel remains, and only that
+unsubscribe invalidates pending newsletter confirmations. Neither switch
+touches the other — leaving the newsletter and muting your own replies are
+separate decisions. Rate-limited at 20/minute per reader, durably enforced. The
 response carries the reader row as it now stands, in the same shape
 `/api/v2/reader/me` returns.
 
