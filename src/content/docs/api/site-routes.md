@@ -57,25 +57,13 @@ will not return you an HTML page or a JSON document no matter what you point it
 at.
 
 **Errors:** `400 Invalid target URL.` (not allowlisted, or unparseable);
-`403 Invalid static proxy signature.`; `429 Too Many Requests.`;
-`502 Upstream fetch failed.`; `415` for a disallowed content type. All are
-plain text, not JSON.
+`429 Too Many Requests.`; `502 Upstream fetch failed.`; `415` for a disallowed
+content type. All are plain text, not JSON.
 
-### Request signing
-
-Proxy URLs are signed. `STATIC_PROXY_MODE` decides how strictly that is
-enforced:
-
-| Mode | Unsigned URL | Invalid signature |
-| --- | --- | --- |
-| `observe` (default) | Served, logged | Served, logged |
-| `accept-both` | Served, logged | `403` |
-| `enforce` | `403` | `403` |
-
-The staged rollout is intentional: `observe` lets an already-published page's
-old unsigned URLs keep working while new ones ship signed. Build proxy URLs
-through the site's own helper rather than hand-assembling them, or they will
-break the day the mode advances.
+Proxy URLs are not signed. The upstreams are public media hosts anyone can
+fetch directly, so a signature would protect nothing; the host allowlist is the
+boundary. Unsigned URLs also stay stable, which matters because both Workers
+bake them into cached and archived HTML.
 
 ### YouTube metadata
 
