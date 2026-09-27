@@ -598,6 +598,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
   import { buildMoodPreviewFragment, formatUrlLabel } from '@/features/mood/shared/preview';
   import { getMoodImagePlaceholderSrc } from '@/features/mood/shared/image-srcset';
   import { initMoodImageFrames } from '@/features/mood/client/image-frame';
+  import { HOME_MOOD_PREVIEW_LIMIT, getSharedMoodPreviewPosts } from '@/features/mood/client/preview-feed';
   import { withWidthParam } from '@/lib/media/responsive-image';
 
   let pretextPromise: Promise<typeof import('@chenglou/pretext')> | null = null;
@@ -736,8 +737,6 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
     const HOME_THUMBNAIL_WIDTH = 480;
     const reservedCards = new Set<HTMLElement>();
     let renderedMoodSignature = '';
-
-    const getMoodFeedUrl = (): string => '/api/moods';
 
     interface MoodPreviewCacheEntry {
       id: string;
@@ -1455,12 +1454,8 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       hasLoaded = true;
 
       try {
-        const response = await fetch(getMoodFeedUrl());
-        if (!response.ok) {
-          throw new Error('Failed to fetch moods.');
-        }
-        const data = await response.json() as { posts?: unknown[] };
-        const posts = Array.isArray(data.posts) ? (data.posts.slice(0, MAX_MOODS) as MoodData[]) : [];
+        // Shared with the hero's mood card: one request per page.
+        const posts = (await getSharedMoodPreviewPosts<MoodData>(HOME_MOOD_PREVIEW_LIMIT)).slice(0, MAX_MOODS);
         writeCachedPreviewPosts(posts);
         const nextSignature = createMoodSignature(posts);
         const hasRenderedCards = Boolean(list.querySelector('.mood-card:not(.mood-card-skeleton)'));
@@ -1528,7 +1523,9 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
       const loadIfVisible = () => {
         const rect = moodsSection.getBoundingClientRect();
         const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-        if (rect.top <= viewportHeight * 0.85) {
+        // Start about a viewport early so the edge-cached archive response
+        // usually lands before the section scrolls in.
+        if (rect.top <= viewportHeight * 2) {
           void loadMoods();
         }
       };
@@ -1543,7 +1540,7 @@ const initialPreviewPostsJson = serializeScriptJson(initialPosts.slice(0, INITIA
             observer.disconnect();
             void loadMoods();
           },
-          { rootMargin: '0px 0px -15% 0px' },
+          { rootMargin: '0px 0px 100% 0px' },
         );
 
         observer.observe(moodsSection);

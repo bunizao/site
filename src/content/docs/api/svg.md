@@ -70,12 +70,15 @@ An animated badge showing a rotating status word with a pulsing green dot.
 | `theme`   | string | `dark`  | Color scheme: `dark` or `light` |
 
 **Dimensions:** 200 × 40px
-**Cache:** `public, max-age=10, s-maxage=10` (10 seconds)
+**Cache:** `public, max-age=3600, s-maxage=86400` (1 hour in the browser)
 
-Cloudflare-specific freshness uses `public, max-age=10,
-stale-while-revalidate=3600, stale-if-error=3600`, keeping the existing TTL while
-allowing background refresh. The private Worker's platform cache is enabled.
-**Animation:** Pulsing dot; status word rotates every 10 seconds based on server time (25 words in pool)
+Cloudflare-specific freshness uses `public, max-age=86400,
+stale-while-revalidate=604800, stale-if-error=86400`. The SVG no longer depends
+on the request time, so the edge can hold it for a day. The private Worker's
+platform cache is enabled.
+**Animation:** Pulsing dot; all 25 status words are in the SVG and a CSS
+animation shows each for 10 seconds in turn, starting from the first word when
+the image loads. A renderer that ignores CSS animation shows the first word only.
 
 ### Example
 
@@ -144,8 +147,9 @@ A project card with live GitHub star count, description, role badge, and technol
 **Dimensions:** 400 × 160px
 **Cache:** `public, max-age=3600` (1 hour)
 
-Cloudflare-specific freshness retains `max-age=3600` with
-`stale-while-revalidate=3600, stale-if-error=3600`.
+Cloudflare-specific freshness is `max-age=21600` (6 hours) with
+`stale-while-revalidate=86400, stale-if-error=86400`, so each colo calls GitHub
+at most every six hours; star counts can lag by that much.
 **Note:** Requires `GITHUB_TOKEN` env var with repository read access for live star counts.
 
 ### Example
@@ -171,10 +175,11 @@ An infinite-scrolling horizontal marquee of technology tags.
 | `theme`   | string | `dark`  | Color scheme: `dark` or `light` |
 
 **Dimensions:** 800 × 60px
-**Cache:** `public, max-age=3600` (1 hour)
+**Cache:** `public, max-age=86400, s-maxage=86400` (24 hours)
 
-Cloudflare-specific freshness retains `max-age=3600` with
-`stale-while-revalidate=3600, stale-if-error=3600`.
+The SVG is a pure function of `theme`, so Cloudflare-specific freshness is
+`max-age=604800` (7 days) with `stale-while-revalidate=86400,
+stale-if-error=86400`. A deploy starts a fresh cache.
 **Animation:** Continuous left scroll; the tag list is duplicated to ensure seamless looping
 
 ### Example

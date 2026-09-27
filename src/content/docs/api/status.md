@@ -1,12 +1,12 @@
 ---
 title: Status & Edge
-description: Liveness checks, the footer status pill, and the per-visitor edge facts — four small endpoints that never cache and never fail loudly.
+description: Liveness checks, the footer status pill, and the per-visitor edge facts — four small endpoints that barely cache and never fail loudly.
 group: API
 order: 3
 ---
 
 Four endpoints that answer "is anything alive, and where am I talking to it
-from". None of them are cached at the edge, and two of them are deliberately
+from". Only the footer status is cached at the edge, and two of them are deliberately
 incapable of returning an error — read on for why that matters when you build
 a status indicator on top of them.
 
@@ -58,7 +58,10 @@ GET /api/footer
 ```
 
 The data behind the status pill in the site footer. Rate limit: 60 requests /
-60s. `Cache-Control: no-store, max-age=0`.
+60s. A known status is `Cache-Control: public, max-age=30` with
+`Cloudflare-CDN-Cache-Control: public, max-age=45, stale-while-revalidate=120, stale-if-error=3600`
+and no rate-limit headers; `status: "unknown"` and `429` are
+`no-store, max-age=0`.
 
 ```json
 { "status": "operational", "provider": "betterstack", "updatedAt": "2026-08-23T05:12:44.310Z" }
@@ -80,14 +83,17 @@ state.
 The only non-`200` you will see is `429 {"error":"Too Many Requests"}` from the
 rate limiter.
 
-Two caching layers are at work and they are easy to confuse: the response you
-get is `no-store` and never cached, but the Better Stack probe behind it is
-cached inside the Worker for 45 seconds. So `updatedAt` can be up to 45s old on
-a response that was itself generated just now.
+Two caching layers are at work and they are easy to confuse: the edge keeps
+the response for 45 seconds (then serves it stale for up to two minutes while
+it revalidates), and the Better Stack probe behind it is cached inside the
+Worker for 45 seconds. So a pill can lag Better Stack by a few minutes at
+worst. A failed probe is never cached at either layer.
 
 Responses also carry `x-cloudflare-colo: <XXX>` when Cloudflare reports a
 three-letter colo for the request, which is the cheapest way to tell whether
-two callers are hitting the same edge location.
+two callers are hitting the same edge location. The edge cache is per colo, so
+a cached copy still names the colo that served it. The site footer fetches this
+route only when the footer is about to scroll into view.
 
 ## Edge
 

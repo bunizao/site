@@ -434,10 +434,16 @@ export const initListeningCards = (root: ParentNode = document): void => {
       return payload.track ?? null;
     };
 
+    // Last time a live fetch started, so a card scrolling back into view
+    // refreshes only when its data is older than one poll interval.
+    let lastFetchAt = hasInitialTrack ? Date.now() : 0;
+
     const refreshListening = async () => {
+      lastFetchAt = Date.now();
       try {
-        const track = await fetchListeningTrack('/api/v2/listening')
-          ?? await fetchListeningTrack('/api/listening');
+        // `/api/listening` only redirects back to this same handler, so a
+        // failure there would just repeat this one.
+        const track = await fetchListeningTrack('/api/v2/listening');
         if (track) applyTrack(track);
       } catch {
         // Keep the static fallback when live listening data is unavailable.
@@ -445,6 +451,10 @@ export const initListeningCards = (root: ParentNode = document): void => {
     };
 
     let listeningRefreshTimer: number | undefined;
+    // Assume the card is on screen until the observer below says otherwise,
+    // so the first fetch is never held back by the observer's first callback.
+    let inView = true;
+    const canRefresh = () => document.visibilityState === 'visible' && inView;
 
     const clearListeningRefresh = () => {
       if (listeningRefreshTimer === undefined) {
@@ -457,13 +467,13 @@ export const initListeningCards = (root: ParentNode = document): void => {
 
     const scheduleListeningRefresh = (delay: number) => {
       clearListeningRefresh();
-      if (document.visibilityState !== 'visible') {
+      if (!canRefresh()) {
         return;
       }
 
       listeningRefreshTimer = window.setTimeout(async () => {
         listeningRefreshTimer = undefined;
-        if (document.visibilityState !== 'visible') {
+        if (!canRefresh()) {
           return;
         }
 
@@ -474,7 +484,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
 
     const refreshListeningAndResume = async () => {
       clearListeningRefresh();
-      if (document.visibilityState !== 'visible') {
+      if (!canRefresh()) {
         return;
       }
 
@@ -497,7 +507,31 @@ export const initListeningCards = (root: ParentNode = document): void => {
       clearListeningRefresh();
     });
 
-    scheduleListeningRefresh(hasInitialTrack ? LISTENING_REFRESH_MS : 1000);
+    // Poll only while the card is (nearly) on screen. Coming back into view
+    // refreshes at once when the data is stale, or resumes the countdown.
+    if (typeof IntersectionObserver !== 'undefined') {
+      const observer = new IntersectionObserver((entries) => {
+        const entry = entries.at(-1);
+        if (!entry || entry.isIntersecting === inView) return;
+        inView = entry.isIntersecting;
+        if (!inView) {
+          clearListeningRefresh();
+          return;
+        }
+
+        const elapsed = Date.now() - lastFetchAt;
+        if (elapsed >= LISTENING_REFRESH_MS) {
+          void refreshListeningAndResume();
+        } else {
+          scheduleListeningRefresh(LISTENING_REFRESH_MS - elapsed);
+        }
+      }, { rootMargin: '200px 0px' });
+      observer.observe(root);
+    }
+
+    // Without a server-rendered track the card shows a placeholder, so fetch
+    // right away.
+    scheduleListeningRefresh(hasInitialTrack ? LISTENING_REFRESH_MS : 0);
   });
 };
 

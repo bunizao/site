@@ -73,8 +73,13 @@ advertise `Cloudflare-CDN-Cache-Control: public, max-age=60,
 stale-while-revalidate=600, stale-if-error=600`, while browsers keep
 `Cache-Control: public, max-age=0`. The private Worker's platform cache is
 enabled; a platform hit does not invoke its route handler or read D1.
-Fresh and probe reads, stale fallback responses, and errors remain `no-store`
-and do not receive the public CDN policy.
+Fresh reads, `probe=image`, stale fallback responses, and errors remain
+`no-store` and do not receive the public CDN policy. A plain `probe=1` read
+skips the in-worker cache but is not `no-store`: it keeps browser
+`Cache-Control: public, max-age=0` and advertises
+`Cloudflare-CDN-Cache-Control: public, max-age=15` (no stale-while-revalidate),
+so every open tab's update poll in a colo shares one invocation and a new post
+is visible to the probe within about 15s. `probe=1&fresh=1` stays `no-store`.
 
 **Errors:** `400 {"error": "Invalid cursor parameter"}` for a malformed
 `before`/`after`. `503 {"error":{"code":"mood_repository_unavailable", ...}}`
@@ -92,7 +97,7 @@ served it:
 | Value | Meaning |
 | --- | --- |
 | `archive` | The D1 archive answered, topped up from t.me unless `fallback=0`. |
-| `live` | The archive threw or is locked out, so the Telegram live reader served the page. Cached for 30s whatever the cursor. |
+| `live` | The archive threw or is locked out, so the Telegram live reader served the page. Cached for 30s whatever the cursor, and its CDN policy drops to `public, max-age=30, stale-if-error=600` (no long revalidation window) so the archive takes traffic back quickly. |
 | `stale` | Every reader failed. The body is the last successful default page, kept in KV for seven days, sent `no-store` with `X-Mood-Stale-Since` set to when it was captured. Only the cursorless, untagged feed page has a stale copy. |
 
 A D1 daily-quota error (code 7500) locks the archive in that Worker isolate
@@ -188,7 +193,10 @@ for the full bridge and overlay rules, and
 [`/api/comments`](/docs/api/content#comments-by-post-id) for the legacy alias
 this route sits behind.
 
-60s edge cache when not bypassed. Same `mood_id_required` (400) /
+60s edge cache when not bypassed. The legacy live-thread routes
+(`/api/comments`, `/api/v1/mood/{id}/comments`) use a separate, shorter
+15s cache — see [`/api/comments`](/docs/api/content#comments-by-post-id).
+Same `mood_id_required` (400) /
 `mood_not_found` (404) / `mood_comments_failed` (500) error family as detail.
 
 ## Live counts
@@ -225,7 +233,8 @@ an object keyed by id:
 ```
 
 `commentsCount: null` means the count is genuinely unknown (the Telegram
-window didn't include it and backfill couldn't resolve it) — a client should
+window didn't include it and backfill couldn't resolve it; backfill covers at
+most five ids per request, two at a time, within one shared 3s deadline) — a client should
 keep its last-known count rather than treating `null` as zero.
 
 ## Search

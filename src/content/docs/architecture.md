@@ -112,11 +112,18 @@ Telegram ingest is documented in [Telegram pipeline](/docs/platform/telegram);
 
 ## Agent Markdown and Edge Cache Policy
 
+None of this runs unless the Worker sees the request first. Cloudflare's
+Static Assets layer serves a matching file directly and skips the Worker
+entirely, so every path with a Markdown renderer — `/`, `/blog*`, `/docs*`,
+`/mood*`, `/privacy*`, `/projects*` — is also listed in `wrangler.jsonc`'s
+`assets.run_worker_first`. `/docs` and `/docs/*` are both listed there, matching the explicit split
+already used for `/dev` and `/dev/*`.
+
 Content routes with Markdown renderers expose an explicit `<page>/index.md` URL and also negotiate on `Accept` at the canonical URL. A request that explicitly ranks `text/markdown` at least as high as `text/html` receives `text/markdown; charset=utf-8`; browsers and wildcard-only clients receive HTML. Explicit Markdown URLs require no special header. Both variants set `Vary: Accept`, and Markdown responses also set `x-markdown-tokens` using the approximate `Math.ceil(chars / 4)` estimator. Documentation pages use their collection source as the Markdown body.
 
 Public page URLs are canonical without a trailing slash. Astro emits file-style HTML, Cloudflare Assets uses `drop-trailing-slash`, and the Worker returns a `308` for slash-suffixed requests while preserving the query string and HTTP method. Markdown alternates keep `/index.md`; the shorthand `<page>.md` redirects there.
 
-Blog Markdown is generated during `bun run build` under `dist/client/_agent-markdown/blog/*` and served through the Worker from static assets. Unlisted posts do not receive a generated Markdown asset; direct `Accept: text/markdown` access falls back to runtime rendering with `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`. Their HTML uses the same robots directives and `data-pagefind-ignore="all"`. Mood Markdown stays runtime-rendered because it reads the live feed/archive.
+Blog Markdown is generated during `bun run build` under `dist/client/_agent-markdown/blog/*` and served through the Worker from static assets. Unlisted posts and their translations are generated under `_agent-markdown/blog/unlisted/*`, which the Worker tries after the listed path and serves with `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`; the raw `/_agent-markdown/*` assets carry the same directives from `public/_headers`. With an assets binding the build output is authoritative for a post it holds: a post missing from both paths falls through to a live Ghost read rather than a hard `404`, covering a post published after the last build. A post absent from Ghost too still ends in a `404` that the platform may cache for 300 seconds. `astro dev`, which has no assets binding, renders blog Markdown from Ghost per request unconditionally. Their HTML uses the same robots directives and `data-pagefind-ignore="all"`. Mood Markdown stays runtime-rendered because it reads the live feed/archive.
 
 Workers Caching sits in front of the public Worker. A platform hit avoids a
 Worker invocation; the in-worker Cache API only avoids rendering after the
@@ -124,7 +131,7 @@ Worker has already been invoked. The platform uses the raw URL and `Vary`
 headers, including `Host`, `Cookie`, and `Accept-Language` where they affect
 the representation. The in-worker key includes the negotiated variant (`html` or
 `markdown`) plus path and normalized query, so HTML and Markdown cannot share
-an entry. Home, blog, docs, and Mood Markdown keys include the build ID so cached content
+an entry. Home, privacy, blog, docs, and Mood Markdown keys include the build ID so cached content
 cannot outlive the asset version it references.
 Workers Caching keys by Worker version as well (`cross_version_cache` stays
 off), so a deploy starts both layers cold. What remains is rollout skew: for a
@@ -146,23 +153,31 @@ to revalidate. Browsers still receive `max-age=0`. Background refresh can
 continue serving an old entry throughout its stale window when refreshes fail;
 the window does not guarantee a successful update after one request.
 
+Prerendered routes and build-generated Markdown change only on deploy, and a
+deploy starts both cache layers cold, so their platform TTL is 86400 seconds.
+`Cache-Control: s-maxage` also reaches shared caches outside Cloudflare, which
+a deploy cannot clear, so it stays at 300 seconds (3600 for `/privacy`): no
+outside copy outlives the previous build's carried-over `/_astro/*` files.
+
 | Route family | Cache-Control | In-worker cache |
 | --- | --- | --- |
 | `/mood` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML | Markdown only; HTML is owned by the platform |
 | `/mood/[id]` | `public, max-age=0, s-maxage=300, stale-while-revalidate=1800` for HTML; Markdown uses `s-maxage=300` | Markdown only; HTML is owned by the platform |
 | `/mood/embed` | `public, max-age=0, s-maxage=300` for supported embed parameters | HTML, query-keyed |
-| `/blog`, `/blog/tags`, `/blog/tag/[slug]` | `public, max-age=0, s-maxage=120` for HTML and Markdown | HTML and Markdown, variant-keyed |
-| `/blog/[slug]`, `/blog/[locale]/[slug]` | `public, max-age=0, s-maxage=300` for HTML and Markdown | HTML and Markdown, variant-keyed |
-| `/` | `public, max-age=0, s-maxage=300` for HTML and Markdown | HTML and Markdown, variant-keyed |
-| `/privacy` | `public, max-age=0, s-maxage=3600` for HTML and Markdown | Markdown only |
-| `/projects` | `public, max-age=0, s-maxage=300` | Cache-Control only |
-| `/llms.txt` | `public, max-age=0, s-maxage=300` | Cache-Control only |
-| `/blog/rss.xml`, `/mood/rss.xml`, `/sitemap.xml` | `public, max-age=0, s-maxage=300` | Cache-Control only |
+| `/blog`, `/blog/tags`, `/blog/tag/[slug]` | `public, max-age=0, s-maxage=300` for HTML and Markdown; platform `max-age=86400` | HTML and Markdown, variant-keyed |
+| `/blog/[slug]`, `/blog/[locale]/[slug]` | `public, max-age=0, s-maxage=300` for HTML and Markdown; platform `max-age=86400` | HTML and Markdown, variant-keyed |
+| `/` | `public, max-age=0, s-maxage=300` for HTML and Markdown; platform `max-age=86400` | HTML and Markdown, variant-keyed |
+| `/privacy` | `public, max-age=0, s-maxage=3600` for HTML and Markdown; platform `max-age=86400` | Markdown only |
+| `/docs`, `/docs/{path}` | HTML: `public, max-age=0, s-maxage=300, stale-while-revalidate=86400`, set by `public/_headers` on the asset layer, not `getContentRoutePolicy`; Markdown: `public, max-age=0, s-maxage=3600`, platform `max-age=3600` | Markdown only, variant-keyed |
+| `/projects`, `/llms.txt`, `/blog/rss.xml`, `/sitemap.xml` | `public, max-age=0, s-maxage=300`; platform `max-age=86400` | Cache-Control only |
+| `/mood/rss.xml` | `public, max-age=0, s-maxage=300` | Cache-Control only |
 | `/dev`, `/oauth*`, `/api*`, `/v2*` | `no-store, max-age=0` | None |
 
 Mood pages declare incomplete renders in page frontmatter, before streaming
 starts. Empty initial feeds, unavailable anchor windows, and details awaiting
-link previews become `no-store` in both layers. The internal readiness header
+link previews become `no-store` in both layers. A detail only counts as
+awaiting its preview while it is a text post under six hours old (the
+backfill's window); older posts and media captions are cached without one. The internal readiness header
 is consumed before the response leaves the Worker. Cache writes pass the
 response stream to the native Cache API without converting the entire HTML
 body into a string or scanning DOM markers. Mood feed/detail HTML bypass the
@@ -195,8 +210,11 @@ The private API Worker defaults responses without an explicit cache policy to
 `no-store, max-age=0`, including handlers outside Astro middleware. Public
 exceptions opt in explicitly. Workers Caching is enabled after route sweeps
 on an isolated deployment and production. Public Mood JSON and badge/oEmbed
-responses declare explicit CDN freshness; private routes and worker-generated
-errors stay uncached. Service-binding calls consult the callee's cache, with
+responses declare explicit CDN freshness, as do `GET /api/v2/comments` and
+`GET /api/v2/reactions` for requests with no reader session or `reader_anon`
+cookie (30 seconds, `Vary: Cookie`; see
+[Comments](/docs/api/comments#list-comments)); private routes and
+worker-generated errors stay uncached. Service-binding calls consult the callee's cache, with
 distinct entries when their raw paths or variance headers differ.
 
 Workers Cache does not include the hostname in its base key. The public

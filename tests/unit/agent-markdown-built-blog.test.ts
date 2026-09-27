@@ -11,6 +11,10 @@ describe('built blog agent markdown', () => {
     expect(builtBlogMarkdownAssetPath({ kind: 'tags' })).toBe('/_agent-markdown/blog/tags/index.md');
     expect(builtBlogMarkdownAssetPath({ kind: 'tag', slug: 'writing' })).toBe('/_agent-markdown/blog/tag/writing.md');
     expect(builtBlogMarkdownAssetPath({ kind: 'post', slug: 'demo-effects' })).toBe('/_agent-markdown/blog/post/demo-effects.md');
+    expect(builtBlogMarkdownAssetPath({ kind: 'post', slug: 'hidden', unlisted: true }))
+      .toBe('/_agent-markdown/blog/unlisted/post/hidden.md');
+    expect(builtBlogMarkdownAssetPath({ kind: 'post', slug: 'hidden', locale: 'en', unlisted: true }))
+      .toBe('/_agent-markdown/blog/unlisted/post/en/hidden.md');
   });
 
   test('reads generated markdown from the static assets binding', async () => {

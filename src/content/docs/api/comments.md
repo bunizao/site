@@ -30,8 +30,12 @@ from the post's own internal tags in Ghost — `#comments-off`,
 Both halves of the system derive it with one function,
 `commentPolicyFromTags` in `@bunizao/contracts/comments`: `/blog/[slug]`
 at build time from the Admin API, site-api per request from the Content API,
-which returns internal tags for `include=tags` and is cached with the post for
-60 seconds. So the page and the API cannot disagree, and a closed thread is
+which returns internal tags for `include=tags` and is cached with the post.
+The cached registry is fresh for 60 seconds; after that it still answers at
+once while a background fetch replaces it, so a tag change reaches
+enforcement on the first request after the 60 seconds plus that refresh. A
+post missing from a stale copy waits for the refresh instead of being
+refused. So the page and the API cannot disagree, and a closed thread is
 closed to `curl` too.
 
 Three refusals come out of it, all `403`:
@@ -141,7 +145,14 @@ own writer; a `deleted` row still appears as a tombstone (`body`/`author`
 blanked) when a published reply hangs underneath it, otherwise it's gone
 from the page entirely. `total` counts published comments only.
 
-Always `private, no-store` — visibility depends on who's asking.
+Visibility depends on who's asking, but only through the reader session
+and `reader_anon` cookies. A request carrying either is `private, no-store`.
+A request carrying neither gets the same page as every other such request,
+so it is shared at the edge: `Cache-Control: public, max-age=0`,
+`Cloudflare-CDN-Cache-Control: max-age=30, stale-while-revalidate=60` and
+`Vary: Cookie`. A new comment or an approval can take up to about 90s to
+reach cookie-less readers; the writer is never one of them, because every
+write sets `reader_anon`. Errors are always `private, no-store`.
 
 ## Post a comment
 
@@ -461,9 +472,11 @@ message whose text carries a `#c-<token>` link matching a published row is
 replaced with that row's author, avatar, and body and marked `origin: "web"`
 with `commentId` set (so the writer's own browser can mark it `mine` and
 offer edit/delete); a `mood` row not yet visible in the scrape (bridge
-pending, or the scrape's edge cache hasn't caught up) is appended instead,
-so a writer sees their own comment immediately rather than after the cache
-TTL. A row whose bridged message was removed directly in Telegram is
+pending, or Telegram's embed hasn't caught up) is appended instead. The
+assembled thread is shared across readers for about 15s (up to ~45s with
+revalidation, see [`/api/comments`](/docs/api/content#comments-by-post-id));
+the writer's own browser shows their comment straight away from the write
+response and the `no-store` `/api/v2/comments` verdict poll. A row whose bridged message was removed directly in Telegram is
 treated as deleted, never resurrected.
 
 Disabled entirely by `MOOD_COMMENTS_ENABLED` (site-api, default off) — while
@@ -560,11 +573,18 @@ and a held or deleted comment never lends its name.
 }
 ```
 
-`reacted` is specific to the calling browser, so this is always
-`private, no-store` — a shared cache entry here would show one reader's
-filled heart to another, which is why the batch read is uncacheable and
-rate-limited instead: 120/minute per reader, or per hashed IP when there is
-no session, durably enforced.
+`reacted` is specific to the calling browser, so a request with a reader
+session or `reader_anon` cookie is `private, no-store` — a shared cache entry
+there would show one reader's filled heart to another. A request with
+neither has `reacted: false` everywhere, so it gets the same short edge
+policy as the comment list (`public, max-age=0`, CDN `max-age=30,
+stale-while-revalidate=60`, `Vary: Cookie`). Every request that reaches the
+Worker is rate-limited: 120/minute per reader, or per hashed IP when there is
+no session. An anonymous request (no reader session) is checked against the
+per-colo Workers Rate Limiting binding `REACTIONS_READ_LIMITER` when it is
+configured, falling back to the durable limiter otherwise; a signed-in
+reader's read always uses the durable limiter, for an exact count against the
+same D1 budget Mood shares.
 
 `reactors` is capped at 12 names per emoji; the `count` is the true total.
 A banned reader is filtered out of both — their name leaves the list and
@@ -978,7 +998,8 @@ unclaimed, and non-deleted conditions atomically. It changes ownership and
 claim metadata only; it never changes the original session or authentication
 evidence. A claimed comment still awaiting its email confirmation (step 5 of
 the risk stack) is then released through content moderation. Both methods return `401 reader_sign_in_required` without a valid
-reader session and use `Cache-Control: private, no-store`.
+reader session and use `Cache-Control: private, no-store`. Rate-limited at
+20/minute per reader, durably enforced.
 
 Automatic claiming after email verification, OAuth, or owner sign-in requires
 both the matching mailbox and an existing valid anonymous session cookie. After

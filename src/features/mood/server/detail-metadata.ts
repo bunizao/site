@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import type { MediaItem, MoodContentDocument } from '@bunizao/contracts';
 import { profile } from '@/data/site';
+import { isArchiveImageUrl, withWidth } from '@/features/mood/shared/image-srcset';
 
 const DESCRIPTION_MAX_LENGTH = 220;
 
@@ -112,11 +113,15 @@ export function buildMoodDetailMetadata(
   }
 
   const hasImageDimensions = Boolean(imageMeta?.width && imageMeta?.height);
+  // Tag the proxy's own width so a crawler's og:image fetch lands on the
+  // already-built cache entry instead of a guaranteed R2 read. Non-proxy
+  // (legacy/external) URLs pass through untouched, same rule as srcset.
+  const ogImage = isArchiveImageUrl(postImage) ? withWidth(postImage, OG_IMAGE_WIDTH) : postImage;
 
   return {
     title: moodLabel,
     description,
-    image: postImage,
+    image: ogImage,
     imageAlt: description,
     imageWidth: hasImageDimensions ? imageMeta?.width ?? null : null,
     imageHeight: hasImageDimensions ? imageMeta?.height ?? null : null,

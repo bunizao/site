@@ -17,14 +17,16 @@ export { projects, type ShowcaseProject, type ProjectHero } from "@/data/site";
 // Hero renderers
 // ---------------------------------------------------------------------------
 
-export function renderHero(hero: ProjectHero, hovered: boolean) {
+// `priority` marks a hero rendered above the fold, whose first image should
+// load eagerly; every other hero lazy-loads its images.
+export function renderHero(hero: ProjectHero, hovered: boolean, priority = false) {
   switch (hero.kind) {
     case "waves":
       return <HarmonicWaveHero hovered={hovered} />;
     case "tour":
-      return <AttegiTourHero hovered={hovered} />;
+      return <AttegiTourHero hovered={hovered} priority={priority} />;
     case "carousel":
-      return <OgCarouselHero hovered={hovered} />;
+      return <OgCarouselHero hovered={hovered} priority={priority} />;
     case "cube":
       return <CliCubeHero hovered={hovered} />;
   }
