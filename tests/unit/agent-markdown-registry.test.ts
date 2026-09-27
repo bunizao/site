@@ -45,6 +45,20 @@ describe('agent markdown registry', () => {
     expect(redirectCanonicalUrl(new Request('https://buxx.me/blog/sacrifice'))).toBeNull();
   });
 
+  // The redirect itself is path-agnostic, but it only runs when the Worker
+  // sees the request first -- /docs must be in run_worker_first for this to
+  // reach a real /docs request in production (see the Cloudflare runtime
+  // config test).
+  test('redirects the www host to the apex for docs pages too', () => {
+    const index = redirectCanonicalUrl(new Request('https://www.buxx.me/docs'));
+    expect(index?.status).toBe(301);
+    expect(index?.headers.get('Location')).toBe('https://buxx.me/docs');
+
+    const page = redirectCanonicalUrl(new Request('https://www.buxx.me/docs/overview'));
+    expect(page?.status).toBe(301);
+    expect(page?.headers.get('Location')).toBe('https://buxx.me/docs/overview');
+  });
+
   test('redirects alternate URL forms to slashless canonical paths', () => {
     const trailingSlash = redirectCanonicalUrl(
       new Request('https://buxx.me/docs/writing/authors/?view=full'),
@@ -72,6 +86,42 @@ describe('agent markdown registry', () => {
     expect(hasMarkdownRenderer('/mood/subscribe')).toBe(false);
     expect(getContentRoutePolicy('/mood/embed')?.edgeCacheHtml).toBe(true);
     expect(getContentRoutePolicy('/mood/subscribe')).toBeNull();
+  });
+
+  test('matches docs pages but not the search index', () => {
+    expect(hasMarkdownRenderer('/docs')).toBe(true);
+    expect(hasMarkdownRenderer('/docs/overview')).toBe(true);
+    expect(hasMarkdownRenderer('/docs/search.json')).toBe(false);
+    expect(getMarkdownRenderer('/docs')?.renderer.id).toBe('docs-index');
+    expect(getMarkdownRenderer('/docs/overview')?.renderer.id).toBe('docs-page');
+    expect(getMarkdownRenderer('/docs/overview')?.params).toEqual({ slug: 'overview' });
+  });
+
+  // /docs is fully prerendered and served straight from the assets binding;
+  // it has no entry in getContentRoutePolicy because public/_headers already
+  // sets its Cache-Control there. Routing it through the Worker (so Accept
+  // negotiation can run) must not add a second caching layer on top of that.
+  test('leaves docs HTML caching to the asset layer, not the Worker policy', () => {
+    expect(getContentRoutePolicy('/docs')).toBeNull();
+    expect(getContentRoutePolicy('/docs/overview')).toBeNull();
+
+    const response = withContentPolicy(
+      new Request('https://buxx.me/docs'),
+      new Response('<!doctype html>', {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+        },
+      }),
+    );
+
+    // The asset layer's own Cache-Control passes through untouched.
+    expect(response.headers.get('Cache-Control')).toBe(
+      'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+    );
+    expect(response.headers.has('Cloudflare-CDN-Cache-Control')).toBe(false);
+    // Accept negotiation still needs to vary the cache key.
+    expect(response.headers.get('Vary')).toBe('Accept');
   });
 
   test('matches a translation under its locale, not under a tag or an unknown language', () => {

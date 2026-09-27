@@ -20,6 +20,8 @@
       "/",
       "/api/*",
       "/blog*",
+      "/docs",
+      "/docs/*",
       "/llms.txt",
       "/mood*",
       "/privacy*",

@@ -37,6 +37,19 @@ describe('Cloudflare runtime configuration', () => {
     expect(config.services).toContainEqual({ binding: 'API', service: 'site-api' });
   });
 
+  // A prerendered docs page served straight from the asset layer never runs
+  // the Worker's Accept negotiation, so an agent asking for text/markdown gets
+  // HTML back. Both the bare index and every nested page must route through.
+  test('routes /docs and /docs/* through the Worker before static assets', () => {
+    const config = readJson('wrangler.jsonc') as {
+      assets?: { run_worker_first?: string[] };
+    };
+
+    expect(config.assets?.run_worker_first).toEqual(
+      expect.arrayContaining(['/docs', '/docs/*']),
+    );
+  });
+
   // import.meta.env values are inlined at build time: a Ghost secret would be
   // bundled into the Worker, and a Turnstile key could not follow the
   // runtime environment. Neither failure is observable in a unit test.

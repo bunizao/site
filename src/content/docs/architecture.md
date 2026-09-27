@@ -112,6 +112,13 @@ Telegram ingest is documented in [Telegram pipeline](/docs/platform/telegram);
 
 ## Agent Markdown and Edge Cache Policy
 
+None of this runs unless the Worker sees the request first. Cloudflare's
+Static Assets layer serves a matching file directly and skips the Worker
+entirely, so every path with a Markdown renderer — `/`, `/blog*`, `/docs*`,
+`/mood*`, `/privacy*`, `/projects*` — is also listed in `wrangler.jsonc`'s
+`assets.run_worker_first`. `/docs` and `/docs/*` are both listed there, matching the explicit split
+already used for `/dev` and `/dev/*`.
+
 Content routes with Markdown renderers expose an explicit `<page>/index.md` URL and also negotiate on `Accept` at the canonical URL. A request that explicitly ranks `text/markdown` at least as high as `text/html` receives `text/markdown; charset=utf-8`; browsers and wildcard-only clients receive HTML. Explicit Markdown URLs require no special header. Both variants set `Vary: Accept`, and Markdown responses also set `x-markdown-tokens` using the approximate `Math.ceil(chars / 4)` estimator. Documentation pages use their collection source as the Markdown body.
 
 Public page URLs are canonical without a trailing slash. Astro emits file-style HTML, Cloudflare Assets uses `drop-trailing-slash`, and the Worker returns a `308` for slash-suffixed requests while preserving the query string and HTTP method. Markdown alternates keep `/index.md`; the shorthand `<page>.md` redirects there.
@@ -161,6 +168,7 @@ outside copy outlives the previous build's carried-over `/_astro/*` files.
 | `/blog/[slug]`, `/blog/[locale]/[slug]` | `public, max-age=0, s-maxage=300` for HTML and Markdown; platform `max-age=86400` | HTML and Markdown, variant-keyed |
 | `/` | `public, max-age=0, s-maxage=300` for HTML and Markdown; platform `max-age=86400` | HTML and Markdown, variant-keyed |
 | `/privacy` | `public, max-age=0, s-maxage=3600` for HTML and Markdown; platform `max-age=86400` | Markdown only |
+| `/docs`, `/docs/{path}` | HTML: `public, max-age=0, s-maxage=300, stale-while-revalidate=86400`, set by `public/_headers` on the asset layer, not `getContentRoutePolicy`; Markdown: `public, max-age=0, s-maxage=3600`, platform `max-age=3600` | Markdown only, variant-keyed |
 | `/projects`, `/llms.txt`, `/blog/rss.xml`, `/sitemap.xml` | `public, max-age=0, s-maxage=300`; platform `max-age=86400` | Cache-Control only |
 | `/mood/rss.xml` | `public, max-age=0, s-maxage=300` | Cache-Control only |
 | `/dev`, `/oauth*`, `/api*`, `/v2*` | `no-store, max-age=0` | None |
