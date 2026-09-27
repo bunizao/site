@@ -56,8 +56,8 @@ light and dark mode. The build also:
 
 `src/features/posts/server/rich-content.ts` is the shared rich-source compiler
 for published posts and authenticated Ghost draft previews. In one fixed order,
-it normalizes exact directive source cards (Ghost code cards that hold only a
-[directive](/docs/writing/directives) marker), runs registered directives, and
+it normalizes directive source cards (Ghost code cards in which every non-empty
+line is a [directive](/docs/writing/directives) marker), runs registered directives, and
 promotes conversation blocks. The compiler defines the feature list for both
 callers.
 

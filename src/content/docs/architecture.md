@@ -41,7 +41,8 @@ it also supplies the freshness-sensitive comments and reactions.
 | --- | --- |
 | `src/pages/` | File-based routing: `index.astro` (home), `mood.astro` (feed shell and route bootstrap), `mood/[id].astro` (detail shell and route bootstrap), `mood/embed.astro` (embeddable widget), and `dev/blog/[id].astro` (authenticated Ghost draft preview). |
 | `src/pages/api/` | A thin catch-all proxy that falls back to `site-api`. The concrete API implementations live in the private `site-api` repo. |
-| `src/pages/dev/`, `src/pages/oauth*` | Compatibility proxy routes to the private admin and OAuth app in `site-api`. |
+| `src/pages/dev/` | The owner's dev portal pages and Ghost draft preview, behind Cloudflare Access, plus a narrow `/dev/portal/api/*` proxy to the `site-api` admin API. |
+| `src/pages/oauth*` | `/oauth` and `/oauth/*` forward to `site-api` over the `API` binding (reader sign-in lives there). `/oauth/login` is answered here. |
 | `src/middleware.ts` | Astro middleware. It sets security, cache and `Vary` headers, and gates `/dev` and `/dev/*` with a Cloudflare Access identity (or the dev bypass). Under `astro dev` it also answers canonical redirects, agent Markdown and legacy blog redirects, which `src/worker.ts` handles in production. |
 | `src/features/` | Feature-private code. `src/features/home/ui/` holds the home-route sections and their private UI helpers. `src/features/mood/` holds the mood client controllers, the feed renderer, media and update modules, server services, shared helpers, and private Astro UI shells in `ui/`. |
 | `src/features/logos/` | Pixel mascot definitions, SVG rendering helpers, and the animated logo UI used by the navbar and the favicon route. |
@@ -175,7 +176,7 @@ Everything else on the URL surface:
 | --- | --- | --- |
 | `api.buxx.me` | `site-api` | Machine ingress for webhooks, notify, image processing, archive reads and ops. It is not the canonical public API host. |
 | Admin, OAuth, webhook, and image routes | `site-api` | Listed without contracts in [Internal Endpoints](/docs/api/internal). |
-| `GET /oauth` | `site` | Short public entry that redirects to the protected OAuth hub. The boundary itself is `src/middleware.ts` + `src/features/admin/server/access.ts`. See [Auth](/docs/platform/auth). |
+| `/oauth`, `/oauth/*` | `site` → `site-api` | The `site` Worker forwards these to `site-api` over the `API` binding, where the reader sign-in routes live. A bare `/oauth` has no page and returns `404`. `/oauth/login` is answered by `site`: a same-origin redirect to `?next=`, default `/dev/portal`. The `/dev` boundary itself is `src/middleware.ts` + `src/features/admin/server/access.ts`. See [Auth](/docs/platform/auth). |
 | `GET /dev/blog/<24-char post id>` | `site` | A Ghost draft rendered through the production pipeline, behind owner auth. Private and uncached. |
 | `GET`, `HEAD /static/*` | `site` | Allowlisted media proxy, including the fixed YouTube poster, avatar and metadata routes. |
 | SVG badges, `/logo/{id}.svg` | `site` | All of them take `?theme=light\|dark`. `project.svg` also needs `?project=`. See [SVG](/docs/api/svg). |

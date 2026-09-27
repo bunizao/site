@@ -114,8 +114,10 @@ vanish.
 When neither the service binding nor a dev origin resolves, the forwarder
 answers `503 {"error":"API service binding unavailable"}`.
 
-In production none of this runs. Cloudflare route patterns send `/api/*`
-straight to `site-api`, and the `site` Worker never sees the request.
+In production the `/api/*` forwarder never runs. Cloudflare route patterns send
+`buxx.me/api/*` straight to `site-api`, so the `site` Worker never sees those
+requests. The other two still run in production: `/oauth` and `/oauth/*` go
+over the `API` binding, and `/v2/*` answers its `308`.
 
 ### OAuth login
 
