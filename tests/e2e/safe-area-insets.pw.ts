@@ -214,34 +214,6 @@ test('legacy safe-area variables cannot shift the reading column', async ({ page
   expect(shellPadTop).toBe('40px');
 });
 
-test('the blog path never reads the pinch-zoom viewport signal', async ({ page }) => {
-  await openDemoPost(page);
-
-  const offenders = await page.evaluate(() => {
-    const found: string[] = [];
-    for (const sheet of Array.from(document.styleSheets)) {
-      let rules: CSSRuleList;
-      try {
-        rules = sheet.cssRules;
-      } catch {
-        continue;
-      }
-      for (const rule of Array.from(rules)) {
-        if (!(rule instanceof CSSStyleRule)) continue;
-        if (!/^\.(blog-|toc-)/.test(rule.selectorText)) continue;
-        // --visual-viewport-top is a pinch-zoom signal that stays 0 on iOS. It
-        // belongs to the site nav; in this path it means someone is chasing the
-        // band with JS again instead of covering it in CSS.
-        if (rule.cssText.includes('--visual-viewport-top')) found.push(rule.selectorText);
-      }
-    }
-    return found;
-  });
-
-  expect(offenders).toEqual([]);
-});
-
-
 // Docs carry a full-width opaque bar pinned to the top of a long reference page,
 // which is the exact shape that drifts when the root scroller moves. They were
 // built after Blog and Mood were contained and inherited neither the containment
@@ -280,37 +252,59 @@ test('docs contain their scroll instead of moving the root', async ({ page }) =>
   }
 });
 
-test('the pinch-zoom viewport signal cannot move the docs bar', async ({ page }) => {
+// visualViewport.offsetTop is a pinch-zoom signal: it reads 0 through an entire
+// iOS scroll, so the offset once added to the fixed chrome never corrected the
+// status-bar drift it was there for, and a pinch-zoom shoved every bar down by
+// it. No zone's chrome may follow it.
+test('a pinch-zoom viewport offset cannot move the fixed chrome', async ({ page }) => {
   await page.setViewportSize(PHONE);
-  await page.goto(DOCS_ARTICLE, { waitUntil: 'networkidle' });
-
-  const read = () =>
-    page.evaluate(() => ({
-      actionsTop: document
-        .querySelector<HTMLElement>('.global-header-actions')!
-        .getBoundingClientRect().top,
-      barTop: document.querySelector<HTMLElement>('.site-nav--docs')!.getBoundingClientRect().top,
-      shellPadTop: getComputedStyle(document.querySelector<HTMLElement>('.site-shell')!).paddingTop,
-    }));
-
-  const before = await read();
-  // The docs bar used to consume --site-nav-mobile-top, which adds this token.
-  // It reads 0 through an entire iOS scroll, so it never corrected the drift it
-  // was there for — and when it is non-zero it shoves the bar down by a
-  // toolbar's height. Contained scroll removes the drift at the source, so no
-  // docs chrome may chase the band any more, directly or through that alias.
-  const after = await page.evaluate((inset) => {
-    document.documentElement.style.setProperty('--visual-viewport-top', `${inset}px`);
-    return {
-      actionsTop: document
-        .querySelector<HTMLElement>('.global-header-actions')!
-        .getBoundingClientRect().top,
-      barTop: document.querySelector<HTMLElement>('.site-nav--docs')!.getBoundingClientRect().top,
-      shellPadTop: getComputedStyle(document.querySelector<HTMLElement>('.site-shell')!).paddingTop,
+  await page.addInitScript(() => {
+    let offsetTop = 0;
+    const viewport = new EventTarget();
+    Object.defineProperties(viewport, {
+      offsetTop: { get: () => offsetTop },
+      offsetLeft: { get: () => 0 },
+      width: { get: () => window.innerWidth },
+      height: { get: () => window.innerHeight },
+      scale: { get: () => 1 },
+    });
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
+    (window as Window & { __pinchZoom?: (top: number) => Promise<void> }).__pinchZoom = (top) => {
+      offsetTop = top;
+      viewport.dispatchEvent(new Event('resize'));
+      viewport.dispatchEvent(new Event('scroll'));
+      window.dispatchEvent(new Event('scroll'));
+      return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     };
-  }, FAKE_INSET);
+  });
 
-  expect(after.barTop).toBe(before.barTop);
-  expect(after.actionsTop).toBe(before.actionsTop);
-  expect(after.shellPadTop).toBe(before.shellPadTop);
+  const zones: Array<[string, string[]]> = [
+    ['/', ['.site-nav--home', '.global-header-actions']],
+    ['/privacy', ['.site-nav--brand-home', '.global-header-actions', '.site-shell']],
+    ['/mood', ['.mood-navbar']],
+    ['/blog/demo-effects', ['.toc-topbar', '.blog-shell']],
+    [DOCS_ARTICLE, ['.site-nav--docs', '.global-header-actions', '.site-shell']],
+  ];
+
+  for (const [path, selectors] of zones) {
+    await page.goto(path, { waitUntil: 'networkidle' });
+    const read = () =>
+      page.evaluate(
+        (list) =>
+          list.map((selector) => {
+            const el = document.querySelector<HTMLElement>(selector);
+            if (!el) return `${selector} missing`;
+            return `${selector} top=${el.getBoundingClientRect().top} pad=${getComputedStyle(el).paddingTop}`;
+          }),
+        selectors,
+      );
+
+    const before = await read();
+    expect(before.join('\n'), `${path} chrome`).not.toContain('missing');
+    await page.evaluate(
+      (inset) => (window as unknown as Window & { __pinchZoom: (top: number) => Promise<void> }).__pinchZoom(inset),
+      FAKE_INSET,
+    );
+    expect(await read(), `${path} chrome after a pinch-zoom offset`).toEqual(before);
+  }
 });

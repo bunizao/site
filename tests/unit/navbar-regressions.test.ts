@@ -6,22 +6,14 @@ const repoRoot = process.cwd();
 const read = (filePath: string): string => readFileSync(path.join(repoRoot, filePath), 'utf8');
 
 describe('navbar regression guards', () => {
-  test('layout compensates fixed mobile chrome for visual viewport movement', () => {
-    const layoutSource = read('src/layouts/Layout.astro');
-    const viewportSource = read('src/layouts/client/visual-viewport.ts');
+  test('fixed mobile chrome clears the safe-area inset', () => {
+    // Chromium resolves env() to 0, so no e2e run can see the notch offset.
     const chromeStyles = read('src/styles/site-chrome.css');
     const pageStyles = read('src/layouts/Page.astro');
 
-    expect(layoutSource).toContain("import('@/layouts/client/visual-viewport')");
-    expect(viewportSource).toContain('const viewport = window.visualViewport;');
-    expect(viewportSource).toContain('let bottomOverscrollLocked = false;');
-    expect(viewportSource).toContain('const bottomOverscrollReleaseDistance = 96;');
-    expect(viewportSource).toContain('const offsetTop = isBottomOverscrollOffset(rawOffsetTop) ? 0 : Math.round(rawOffsetTop);');
-    expect(viewportSource).toContain("window.addEventListener('scroll', requestSync");
-    expect(viewportSource).toContain("root.style.setProperty('--visual-viewport-top'");
-    expect(chromeStyles).toContain('--site-nav-mobile-top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px));');
+    expect(chromeStyles).toContain('--site-nav-mobile-top: env(safe-area-inset-top, 0px);');
     expect(chromeStyles).toContain('top: var(--site-nav-mobile-top);');
-    expect(chromeStyles).toContain('top: calc(env(safe-area-inset-top, 0px) + var(--visual-viewport-top, 0px) + 0.3rem);');
+    expect(chromeStyles).toContain('top: calc(env(safe-area-inset-top, 0px) + 0.3rem);');
     expect(pageStyles).toContain('top: var(--site-nav-mobile-top);');
   });
 
