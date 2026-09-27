@@ -1,7 +1,6 @@
 import {
   cacheEdgeResponse,
   readEdgeCache,
-  type EdgeCacheHit,
   type EdgeCacheWaitContext,
 } from '@/lib/http/edge-cache';
 import {
@@ -345,8 +344,7 @@ export async function renderMarkdownIfRequested(context: {
     isResponseCacheable: (response) =>
       (response.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown'),
   });
-  // Markdown passes no staleWhileRevalidateSeconds, so a hit is always fresh.
-  if (cached) return cached.response;
+  if (cached) return cached;
 
   const result = await match.renderer.render({
     request: context.request,
@@ -398,7 +396,6 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
     variant: 'html',
     version: contentEdgeCacheVersion(url.pathname),
     ttlSeconds: policy.cacheTtlSeconds,
-    staleWhileRevalidateSeconds: policy.cacheStaleWhileRevalidateSeconds,
     headerName: policy.cacheHeaderName,
     cacheControl: publicCacheControl(
       policy.cacheTtlSeconds,
@@ -416,7 +413,7 @@ function createHtmlCacheOptions(request: Request): Parameters<typeof readEdgeCac
   };
 }
 
-export async function readCachedHtmlPage(request: Request): Promise<EdgeCacheHit | null> {
+export async function readCachedHtmlPage(request: Request): Promise<Response | null> {
   const options = createHtmlCacheOptions(request);
   if (!options) return null;
 

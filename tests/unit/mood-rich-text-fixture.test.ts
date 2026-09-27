@@ -2,14 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   buildMoodRichTextFixtureDocument,
   isMoodRichTextFixtureEnabled,
-  MOOD_RICH_TEXT_FIXTURE_ID,
 } from '../../src/features/mood/server/rich-text-fixture';
-import {
-  loadMoodComments,
-  loadMoodDocument,
-  loadMoodFeed,
-  loadMoodProbe,
-} from '../../src/features/mood/server/api-client';
 import { renderStructuredMoodDetailContent } from '../../src/features/mood/shared/detail-content';
 
 describe('mood rich-text fixture', () => {
@@ -63,23 +56,5 @@ describe('mood rich-text fixture', () => {
     expect(isMoodRichTextFixtureEnabled({ env: { MOOD_RICHTEXT_FIXTURE: '0' } })).toBe(false);
     expect(isMoodRichTextFixtureEnabled({ env: { MOOD_RICHTEXT_FIXTURE: 'off' } })).toBe(false);
     expect(isMoodRichTextFixtureEnabled({ env: {} })).toBe(false);
-  });
-
-  test('fixture mode serves structured data through live reader helpers', async () => {
-    const locals = { env: { MOOD_RICHTEXT_FIXTURE: '1' } };
-    const context = {
-      request: new Request(`https://buxx.me/mood/${MOOD_RICH_TEXT_FIXTURE_ID}`),
-      locals,
-    };
-
-    const feed = await loadMoodFeed(context);
-    const document = await loadMoodDocument(context, MOOD_RICH_TEXT_FIXTURE_ID);
-    const probe = await loadMoodProbe(context);
-    const comments = await loadMoodComments(context, MOOD_RICH_TEXT_FIXTURE_ID);
-
-    expect(feed.posts[0]?.id).toBe(MOOD_RICH_TEXT_FIXTURE_ID);
-    expect(document?.id).toBe(MOOD_RICH_TEXT_FIXTURE_ID);
-    expect(probe.latestId).toBe(MOOD_RICH_TEXT_FIXTURE_ID);
-    expect(comments).toEqual({ comments: [], hasMore: false, nextBefore: '' });
   });
 });

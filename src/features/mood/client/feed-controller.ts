@@ -7,14 +7,16 @@ import { initMoodGalleries } from '@/features/mood/client/gallery';
 import { createMoodMetaPatcher } from '@/features/mood/client/meta-patcher';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
 import { pageScroll } from '@/lib/page-scroll';
-import { formatMoodDateKey, rekeyMoodServerRenderedGroups } from '@/features/mood/shared/date-grouping';
+import { formatMoodDateKey } from '@/features/mood/shared/date-grouping';
 import {
   getMoodFeedAnchorBeforeCursor,
   getMoodFeedAnchorWindowBeforeCursor,
   getMoodFeedPostIds,
   mergeMoodFeedWindowPosts,
+  MOOD_ARCHIVE_FEED_ENDPOINT,
   MOOD_FEED_RETURN_ANCHOR_STORAGE_KEY,
   moodFeedElementHasId,
+  moodFeedEndpoints,
   moodFeedPostHasId,
   readMoodFeedAnchorId,
 } from '@/features/mood/shared/feed-anchor';
@@ -271,19 +273,12 @@ export function initMoodFeedController(): void {
         if (feedTagFilter) {
           query.set('tag', feedTagFilter);
         }
-        // Tag filtering only exists on the archive route; tag mode always SSRs
-        // with readSource=archive, so both flags agree here.
-        const archiveRead = feedEl.dataset.moodReadSource === 'archive' || Boolean(feedTagFilter);
-        if (archiveRead) {
+        const endpoints = moodFeedEndpoints(feedTagFilter, feedEl.dataset.moodReadSource);
+        // Archive reads never ask site-api to complete content from t.me.
+        if (endpoints[0] === MOOD_ARCHIVE_FEED_ENDPOINT) {
           query.set('fallback', '0');
         }
         const queryString = query.toString();
-        // Archive reads degrade to the live mirror once /api/v2/mood exhausts
-        // its retries. Tag filters only exist on the archive route, so they
-        // stay strict.
-        const endpoints = archiveRead
-          ? (feedTagFilter ? ['/api/v2/mood'] : ['/api/v2/mood', '/api/moods'])
-          : ['/api/moods'];
         let lastError: unknown = new Error('Failed to load moods.');
 
         for (const endpoint of endpoints) {
@@ -753,13 +748,8 @@ export function initMoodFeedController(): void {
       const serverRenderedCount = list.querySelectorAll('.mood-item[data-mood-id]').length;
       if (serverRenderedCount > 0) {
         totalCount = serverRenderedCount;
-        // SSR grouped posts by UTC day; regroup them under the visitor's local
-        // timezone so per-post times read local and later client appends merge
-        // into the same date groups. Runs before any append or anchor reveal.
-        rekeyMoodServerRenderedGroups(list);
-        // The SSR list ships visibility:hidden until the inline pre-paint
-        // script reveals it; keep the feed usable if that script was stripped.
-        list.style.removeProperty('visibility');
+        // The inline script FeedShell ships after the list has already
+        // regrouped these posts under local date keys and revealed the list.
         mediaHydrator.applyMediaHints(list);
         initMoodGalleries(list);
         hydrateFeedEmbeds(list);

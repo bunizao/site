@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { getEmbedHeaders } from '@/lib/embed-response';
 
 // The middleware pulls in astro virtual modules through its import chain;
@@ -11,6 +12,13 @@ mock.module('astro:content', () => ({
 }));
 
 const { createHtmlScriptCsp, withHtmlSecurityHeaders } = await import('../../src/middleware');
+
+function parseCsp(value: string): Map<string, Set<string>> {
+  return new Map(value.split(';').map((directive) => {
+    const [name = '', ...sources] = directive.trim().split(/\s+/);
+    return [name, new Set(sources)];
+  }));
+}
 
 function htmlResponse(headers: Record<string, string> = {}): Response {
   return new Response('<!doctype html>', {
@@ -131,5 +139,33 @@ describe('html security headers', () => {
     expect(createHtmlScriptCsp()).not.toContain('frame-ancestors');
     expect(createHtmlScriptCsp({ frameAncestors: 'self' })).toContain("frame-ancestors 'self'");
     expect(createHtmlScriptCsp({ frameAncestors: 'none' })).toContain("frame-ancestors 'none'");
+  });
+});
+
+describe('static-asset CSP', () => {
+  // Prerendered pages get their CSP from public/_headers, Worker-rendered
+  // pages from the middleware. A source allowed in one but not the other
+  // breaks a script on half the site.
+  test('Worker HTML and static-asset CSP allow the same script sources', () => {
+    const worker = parseCsp(
+      withHtmlSecurityHeaders(new Request('https://buxx.me/'), htmlResponse())
+        .headers.get('Content-Security-Policy') ?? '',
+    );
+    const headersFile = readFileSync(new URL('../../public/_headers', import.meta.url), 'utf8');
+    const rules = [...headersFile.matchAll(/^(\S+)\n\s+Content-Security-Policy: (.+)$/gm)]
+      .map(([, path, csp]) => ({ path, csp: parseCsp(csp ?? '') }));
+
+    expect(rules.map((rule) => rule.path)).toContain('https://buxx.me/');
+    for (const { path, csp } of rules) {
+      const scriptSources = [...(csp.get('script-src') ?? [])];
+      // The blog omits the Apple Music player, so its list may be narrower,
+      // but a static page must never allow a source the Worker does not.
+      expect({ path, extra: scriptSources.filter((source) => !worker.get('script-src')?.has(source)) })
+        .toEqual({ path, extra: [] });
+      expect(csp.get('base-uri')).toEqual(worker.get('base-uri'));
+      expect(csp.get('object-src')).toEqual(worker.get('object-src'));
+    }
+    const home = rules.find((rule) => rule.path === 'https://buxx.me/');
+    expect(home?.csp.get('script-src')).toEqual(worker.get('script-src'));
   });
 });

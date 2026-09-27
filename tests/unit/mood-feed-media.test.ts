@@ -206,11 +206,15 @@ describe('structured mood feed media rendering', () => {
     expect(html).toContain('class="bookmark-card" href="https://example.test/explicit"');
   });
 
-  test('skips image convenience media and unsafe URLs', () => {
+  test('skips image and sticker convenience media and unsafe URLs', () => {
     const html = renderStructuredMoodFeedMediaMarkup([
       {
         type: 'image',
         src: 'https://image.example.test/mood/1/photo.jpg',
+      },
+      {
+        type: 'sticker',
+        src: 'https://image.example.test/mood/4107/sticker.webp',
       },
       {
         type: 'video',
@@ -245,5 +249,19 @@ describe('structured mood feed media rendering', () => {
     expect(html).toContain('Malaysia');
     expect(html).toContain('mood-unsupported-media-card');
     expect(html).toContain('Choose one');
+  });
+
+  test('a location thumbnail URL cannot break out of its CSS url()', () => {
+    const html = renderStructuredMoodFeedMediaMarkup([
+      {
+        type: 'location',
+        title: 'Somewhere',
+        thumbnailSrc: "https://image.example.test/a');background:url(https://evil.example/x",
+      },
+    ]);
+
+    expect(html).toContain(
+      "background-image:url('https://image.example.test/a%27%29;background:url%28https://evil.example/x');",
+    );
   });
 });

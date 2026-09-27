@@ -3,10 +3,7 @@ import Hero from '@/features/mood/ui/Hero.astro';
 import type { MoodFeedItem, MoodChannelSummary } from '@/features/mood/server/contracts';
 import { renderMoodGalleryMarkup } from '@/features/mood/shared/gallery-render';
 import { findTooBigVideoMedia, hasStructuredMoodFeedMedia, renderStructuredMoodFeedMediaMarkup } from '@/features/mood/shared/feed-media';
-import {
-  getMoodFeedThumbnailStyle,
-  resolveMoodFeedImageLayout,
-} from '@/features/mood/shared/feed-thumbnail';
+import { getMoodFeedThumbnailStyle } from '@/features/mood/shared/feed-thumbnail';
 import {
   getMoodDetailHref,
   getMoodFeedAnchorFragmentId,
@@ -23,6 +20,7 @@ import {
   getMoodFeedThumbSizes,
   getMoodImagePlaceholderSrc,
   getMoodImageRatio,
+  resolveMoodImageLayout,
 } from '@/features/mood/shared/image-srcset';
 import { getMoodTagHref, normalizeMoodTagSlug } from '@/features/mood/shared/tag-filter';
 import { getMoodReactionKey } from '@/features/mood/client/meta-patcher';
@@ -139,7 +137,7 @@ function getThumbClass(
     classes.push('mood-image-frame');
     if (!ratio.exact) classes.push('mood-image-frame--estimated');
 
-    const imageLayout = resolveMoodFeedImageLayout(post.imageLayout, post.imageWidth, post.imageHeight);
+    const imageLayout = resolveMoodImageLayout(post.imageLayout, post.imageWidth, post.imageHeight);
     if (imageLayout === 'portrait') {
       classes.push('mood-item-thumb--portrait');
     } else if (imageLayout === 'ultra-tall') {
@@ -352,7 +350,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
               const thumbWidth = isTooBigVideoPreview ? (post.imageWidth ?? tooBigVideoMedia?.width ?? null) : post.imageWidth;
               const thumbHeight = isTooBigVideoPreview ? (post.imageHeight ?? tooBigVideoMedia?.height ?? null) : post.imageHeight;
               const hasGalleryPreview = !hasStructuredMedia && !mediaHtml && !isTooBigVideoPreview && (post.gallery?.items.length ?? 0) > 1;
-              const thumbLayout = resolveMoodFeedImageLayout(
+              const thumbLayout = resolveMoodImageLayout(
                 isTooBigVideoPreview ? null : post.imageLayout,
                 thumbWidth,
                 thumbHeight,
@@ -614,7 +612,9 @@ function shouldHideQuoteAuthor(value?: string): boolean {
       ))}
     </div>
     {/* Regroups the SSR stream into the visitor's timezone during HTML parsing,
-        before first paint, so the hydrated rekey pass finds nothing to move. */}
+        before first paint, then reveals the list. The feed controller never
+        rekeys server groups, so this must stay inline and share the
+        hasCriticalInitialPosts gate with the visibility:hidden style above. */}
     {hasCriticalInitialPosts && <script is:inline set:html={rekeyServerGroupsInline}></script>}
     <div class="mood-load-controls">
       <p class="mood-load-status" data-load-status aria-live="polite"></p>

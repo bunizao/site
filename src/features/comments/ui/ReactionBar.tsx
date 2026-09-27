@@ -335,8 +335,9 @@ export default function ReactionBar({
             charged a reader an identity for one bit of feedback. It still turns
             over -- that was the good part -- but the far side is now the liked
             state itself, so the flip IS the feedback rather than a toll gate.
-            Anonymous presses are counted, and each one puts a nameless
-            generated face in the stack.
+            Anonymous presses are counted. One from a browser that has
+            commented wears that comment's name and face (the server matches
+            them); the rest put a nameless generated face in the stack.
 
             The turn happens once. Nothing here turns back: see like(). */}
         <div className="blog-react__pull" data-magnetic>
@@ -394,7 +395,8 @@ export default function ReactionBar({
           <AvatarGroup ref={stack} className="blog-react__stack -space-x-[9px]">
             {faces.map((reactor, i) => (
               <Avatar
-                key={reactor.name}
+                // Names are not unique: anonymous writers reuse a handful.
+                key={`${i}:${reactor.name}`}
                 size="default"
                 data-comb-item
                 className="blog-react__avatar"

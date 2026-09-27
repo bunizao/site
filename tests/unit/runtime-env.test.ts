@@ -8,10 +8,8 @@ describe('runtime env helpers', () => {
     process.env.SITE_URL = ' https://process.example ';
 
     const locals = {
-      runtime: {
-        env: {
-          SITE_URL: 'https://runtime.example',
-        },
+      env: {
+        SITE_URL: 'https://runtime.example',
       },
     };
 
@@ -32,10 +30,8 @@ describe('runtime env helpers', () => {
 
   test('prefers build-time values over runtime values', () => {
     const locals = {
-      runtime: {
-        env: {
-          SITE_URL: 'https://runtime.example',
-        },
+      env: {
+        SITE_URL: 'https://runtime.example',
       },
     };
 
@@ -56,27 +52,10 @@ describe('runtime env helpers', () => {
     expect(readEnv(locals, 'SITE_URL', {})).toBe('https://edge.example');
   });
 
-  test('does not read removed Astro runtime env getter', () => {
-    const locals: any = {
-      env: {
-        SITE_URL: ' https://edge.example ',
-      },
-      runtime: {
-        get env() {
-          throw new Error('Astro.locals.runtime.env has been removed');
-        },
-      },
-    };
-
-    expect(readEnv(locals, 'SITE_URL', {})).toBe('https://edge.example');
-  });
-
   test('reads public env values with the PUBLIC_ prefix', () => {
     const locals = {
-      runtime: {
-        env: {
-          PUBLIC_HD_IMAGE_URL: 'https://runtime-image.example',
-        },
+      env: {
+        PUBLIC_HD_IMAGE_URL: 'https://runtime-image.example',
       },
     };
 

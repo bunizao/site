@@ -30,10 +30,7 @@ interface AstroWorker {
 const siteWorker = astroWorker as AstroWorker;
 
 function createLocals(env: WorkerEnv): App.Locals {
-  return {
-    env,
-    runtime: { env },
-  } as App.Locals;
+  return { env } as App.Locals;
 }
 
 function resolveSiteUrl(request: Request, env: WorkerEnv): URL {
@@ -59,19 +56,6 @@ async function renderHtmlPage(
   const assetResponse = await fetchStaticAsset(request, env);
   const response = assetResponse ?? (await siteWorker.fetch(request, env, context));
   return withContentPolicy(request, response);
-}
-
-async function revalidateHtmlPage(
-  request: Request,
-  env: WorkerEnv,
-  context: WorkerExecutionContext,
-): Promise<void> {
-  try {
-    const response = await renderHtmlPage(request, env, context);
-    await cacheHtmlPageResponse(request, response);
-  } catch {
-    // The stale copy keeps serving; the next stale hit retries.
-  }
 }
 
 // Routes retaining the in-worker HTML cache use one read before rendering
@@ -114,12 +98,7 @@ async function fetchSiteRequest(
   }
 
   const cachedHtmlPage = await readCachedHtmlPage(request);
-  if (cachedHtmlPage) {
-    if (cachedHtmlPage.isStale) {
-      context.waitUntil(revalidateHtmlPage(request, env, context));
-    }
-    return cachedHtmlPage.response;
-  }
+  if (cachedHtmlPage) return cachedHtmlPage;
 
   const response = await renderHtmlPage(request, env, context);
   return cacheHtmlPageResponse(request, response, context);

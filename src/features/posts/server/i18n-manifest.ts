@@ -1,6 +1,13 @@
 import { readRuntimeEnvSource, type RuntimeEnvLocals } from '@/lib/runtime/env';
 import { getAccessiblePosts } from './content';
-import { getCanonicalSlug, getPostLocale, isTranslation } from '../i18n';
+import {
+  getCanonicalSlug,
+  getPostLocale,
+  isKnownLocale,
+  isTranslation,
+  readLocaleTag,
+} from '../i18n';
+import type { Post } from '../types';
 
 export interface I18nManifestEntry {
   translations?: Record<string, string>;
@@ -25,23 +32,42 @@ function assetsFromLocals(locals: unknown): AssetsBinding | null {
     : null;
 }
 
-function createManifest(posts: Awaited<ReturnType<typeof getAccessiblePosts>>): I18nManifest {
-  const bySlug = new Map(posts.map((post) => [post.slug, post]));
+/**
+ * Maps each translated article to its versions and each translation back to
+ * its original. The build runs it `strict`, so a translation tag the site
+ * cannot serve fails the deploy; the dev fallback maps what it can instead.
+ */
+export function createManifest(
+  posts: Array<Pick<Post, 'slug' | 'tags'>>,
+  { strict = false } = {},
+): I18nManifest {
+  const slugs = new Set(posts.map((post) => post.slug));
   const manifest: I18nManifest = {};
   const groups = new Map<string, typeof posts>();
   for (const post of posts) {
+    const tag = readLocaleTag(post);
+    if (strict && tag?.canonicalSlug && !isKnownLocale(tag.locale)) {
+      throw new Error(`Unknown blog translation locale on ${post.slug}: ${tag.locale}`);
+    }
     const canonical = getCanonicalSlug(post);
     const group = groups.get(canonical);
     if (group) group.push(post);
     else groups.set(canonical, [post]);
   }
   for (const [canonical, group] of groups) {
-    if (!bySlug.has(canonical)) continue;
+    if (!slugs.has(canonical)) {
+      if (strict) throw new Error(`Blog translation target does not exist: ${canonical}`);
+      continue;
+    }
     const translations: Record<string, string> = {};
+    const seenLocales = new Set<string>();
     for (const post of group) {
-      if (!isTranslation(post)) continue;
       const locale = getPostLocale(post);
-      if (translations[locale]) continue;
+      if (strict && seenLocales.has(locale)) {
+        throw new Error(`Duplicate ${locale} version in blog group ${canonical}`);
+      }
+      seenLocales.add(locale);
+      if (!isTranslation(post) || translations[locale]) continue;
       translations[locale] = post.slug;
     }
     if (!Object.keys(translations).length) continue;
@@ -72,8 +98,8 @@ export async function readI18nManifest(locals: unknown, origin: string): Promise
     return assetManifestPromise;
   }
   if (!builtManifestPromise) {
-    builtManifestPromise = getAccessiblePosts({ outputTarget: 'web' })
-      .then(createManifest)
+    builtManifestPromise = getAccessiblePosts()
+      .then((posts) => createManifest(posts))
       .catch(() => null);
   }
   return builtManifestPromise;
@@ -85,7 +111,7 @@ export function resetI18nManifestForTests(): void {
 }
 
 export function isBlogPostPath(pathname: string): boolean {
-  return /^\/blog\/[^/]+\/?$/.test(pathname) && !/^\/blog\/(tag|rss\.xml|search\.json)(?:\/|$)/.test(pathname);
+  return /^\/blog\/[^/]+\/?$/.test(pathname) && !/^\/blog\/(tag|rss\.xml)(?:\/|$)/.test(pathname);
 }
 
 export function manifestEntryForPath(manifest: I18nManifest, pathname: string): { slug: string; entry: I18nManifestEntry } | null {

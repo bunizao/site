@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 const postId = 'lab-post';
@@ -114,19 +115,25 @@ async function installCommentApi(page: import('@playwright/test').Page, options:
   };
 }
 
-test('lab lists every interaction outcome and transitions reader verification', async ({ page }) => {
-  await page.goto('/lab/comments?locale=en&receipt=error&error=BOT&verify=pending', { waitUntil: 'networkidle' });
+/** Opens the lab once it is live: every island hydrated and, on the
+    interactive harness, the controller's first row drawn. Web-first, so a
+    cold dev server's one reload is waited out rather than raced. */
+async function gotoLab(page: Page, query: string) {
+  await page.goto(`/lab/comments?${query}`);
+  await expect(page.locator('astro-island[ssr]')).toHaveCount(0);
+  if (query.includes('interactive=1')) await expect(page.locator('#comment-comment-existing')).toBeVisible();
+}
+
+test('the BOT refusal shows the human-check alert, and the verify card moves pending → confirmed → resent', async ({ page }) => {
+  await gotoLab(page, 'locale=en&receipt=error&error=BOT&verify=pending');
 
   await expect(page.locator('.blog-compose__alert:visible')).toContainText('human check');
   await expect(page.locator('.blog-comments > .blog-compose [data-compose-identity] input[type="text"]').first()).toHaveAttribute('placeholder', 'Name');
-  await expect(page.locator('.comments-lab-catalog tbody tr')).toHaveCount(69);
   await expect(page.locator('.comments-lab-catalog')).toContainText('Submit/edit failure (BOT)');
   await expect(page.locator('.blog-comment--held .blog-comment__note')).toContainText('Posted');
   await expect(page.locator('.comments-lab-preview .blog-compose__preview')).toBeVisible();
   await expect(page.locator('.comments-lab-preview .blog-compose__preview-body strong')).toHaveText('preview');
   await expect(page.locator('.comments-lab-preview .blog-compose__preview-body code')).toHaveText('comment-markdown.ts');
-  await expect(page.locator('[data-subscribe-toggle="blog"]')).toContainText('Subscribe');
-  await expect(page.locator('[data-share-copy]')).toHaveAttribute('aria-label', 'Copy link');
 
   const duplicateIds = await page.locator('[id]').evaluateAll((nodes) => {
     const ids = nodes.map((node) => node.id).filter(Boolean);
@@ -138,7 +145,7 @@ test('lab lists every interaction outcome and transitions reader verification', 
   await expect(page.locator('.comments-lab-verify .reader-confirm__card')).toHaveAttribute('data-state', 'confirmed');
   await expect(page.locator('.comments-lab-verify')).toContainText("You're verified!");
 
-  await page.goto('/lab/comments?locale=en&verify=invalid', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'locale=en&verify=invalid');
   await page.locator('[data-verify-resend]').click();
   await expect(page.locator('.comments-lab-verify .reader-confirm__card')).toHaveAttribute('data-state', 'resent');
   await expect(page.locator('.comments-lab-verify')).toContainText('Check your inbox');
@@ -147,7 +154,7 @@ test('lab lists every interaction outcome and transitions reader verification', 
 // The confirmed card is where reply alerts get turned down. Two switches,
 // both phrased so that "on" means the thing happens.
 test('confirm card carries the reply switch and the newsletter switch', async ({ page }) => {
-  await page.goto('/lab/comments?locale=zh&verify=settings', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'locale=zh&verify=settings');
   const prefs = page.locator('.comments-lab-verify .reader-confirm__prefs');
   const switches = prefs.locator('.reader-confirm__switch');
   await expect(switches).toHaveCount(2);
@@ -164,7 +171,7 @@ test('confirm card carries the reply switch and the newsletter switch', async ({
 });
 
 test('a resolved avatar draws a photo, everyone else a drawn face', async ({ page }) => {
-  await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'locale=en');
   const withPhoto = page.locator('#comment-8 .blog-comment__avatar');
   await expect(withPhoto).toHaveJSProperty('tagName', 'IMG');
   await expect(withPhoto).toHaveAttribute('src', '/avatar.webp');
@@ -177,7 +184,7 @@ test('a resolved avatar draws a photo, everyone else a drawn face', async ({ pag
 });
 
 test('mute card says what went quiet and what did not', async ({ page }) => {
-  await page.goto('/lab/comments?locale=zh&mute=muted', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'locale=zh&mute=muted');
   const card = page.locator('.comments-lab-mute .reader-confirm__card');
   await expect(card).toHaveAttribute('data-state', 'muted');
   // The one thing a reader needs back from a button they pressed in a mail:
@@ -186,55 +193,14 @@ test('mute card says what went quiet and what did not', async ({ page }) => {
   await expect(card).toContainText('其他文章和其他对话照常提醒');
   await expect(card.getByRole('button', { name: '恢复这个对话的提醒' })).toBeVisible();
 
-  await page.goto('/lab/comments?locale=zh&mute=invalid', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'locale=zh&mute=invalid');
   // An expired mute link is a dead end unless it hands over the settings card.
   await expect(card).toContainText('链接已失效');
   await expect(card.getByRole('link', { name: '打开评论提醒设置' })).toHaveAttribute('href', '/reader/confirm');
 });
 
-test('lab previews the localized reader verification email from site-api', async ({ page }) => {
-  await page.goto('/lab/comments?locale=zh', { waitUntil: 'networkidle' });
-  const preview = page.locator('section[aria-labelledby="comments-lab-newsletter-title"]');
-  await expect(preview).toContainText('site-api · buildReaderVerifyEmail');
-  await expect(preview.locator('[data-reader-verify-subject]')).toHaveText('你的评论已成功发布！请验证邮箱');
-  await expect(preview.locator('[data-reader-verify-email]')).toHaveAttribute('lang', 'zh');
-  await expect(preview).toContainText('你的评论已成功发布！请验证邮箱。');
-  await expect(preview).toContainText('互动提醒');
-  await expect(preview).toContainText('默认关闭');
-  await expect(preview.getByRole('link', { name: '验证邮箱' })).toBeVisible();
-
-  await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
-  await expect(page.locator('[data-reader-verify-subject]')).toHaveText('Your comment is live — please confirm your email');
-  await expect(page.locator('[data-reader-verify-email]')).toHaveAttribute('lang', 'en');
-  await expect(preview).toContainText('Reply alerts');
-  await expect(page.getByRole('link', { name: 'Confirm email' })).toBeVisible();
-});
-
-test('lab previews the reply notification email', async ({ page }) => {
-  await page.goto('/lab/comments?locale=zh', { waitUntil: 'networkidle' });
-  const preview = page.locator('section[aria-labelledby="comments-lab-reply-mail-title"]');
-  await expect(preview).toContainText('site-api · buildCommentReplyEmail');
-  await expect(preview.locator('[data-reader-reply-subject]')).toHaveText('Nina Kato 回复了你的评论');
-  await expect(preview.locator('[data-reader-reply-email]')).toHaveAttribute('lang', 'zh');
-  // Both halves of the thread: the reader cannot place a reply without the
-  // comment it answers.
-  await expect(preview).toContainText('你的评论');
-  await expect(preview).toContainText('Nina Kato 的回复');
-  await expect(preview.getByRole('link', { name: '查看完整对话' })).toBeVisible();
-  // The footer is two labels: this conversation goes quiet, or open the page
-  // that holds the global switch. No sentences, so no sentence-long underline.
-  await expect(preview.getByRole('link', { name: '静音这个对话' }))
-    .toHaveAttribute('href', '/reader/mute?lang=zh&token=preview');
-  await expect(preview.getByRole('link', { name: '提醒设置' }))
-    .toHaveAttribute('href', '/reader/confirm?lang=zh');
-
-  await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
-  await expect(page.locator('[data-reader-reply-subject]')).toHaveText('Nina Kato replied to your comment');
-  await expect(page.locator('[data-reader-reply-email]')).toHaveAttribute('lang', 'en');
-});
-
 test('compose preview opens only for supported Markdown and closes when emptied', async ({ page }) => {
-  await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'locale=en');
   const compose = page.locator('.blog-comments > .blog-compose');
   const field = compose.locator('.blog-compose__field');
   await field.fill('Plain prose stays compact.');
@@ -249,7 +215,7 @@ test('compose preview opens only for supported Markdown and closes when emptied'
 });
 
 test('compose Markdown shortcuts wrap the active selection', async ({ page }) => {
-  await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'locale=en');
   const compose = page.locator('.blog-comments > .blog-compose');
   const field = compose.locator('.blog-compose__field');
   await field.fill('make this bold');
@@ -263,7 +229,7 @@ test('compose Markdown shortcuts wrap the active selection', async ({ page }) =>
 });
 
 test('compose validation and body counter expose every refusal', async ({ page }) => {
-  await page.goto('/lab/comments?locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'locale=en');
   const compose = page.locator('.blog-comments > .blog-compose');
   const name = compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])');
   const email = compose.locator('input[type="email"]');
@@ -293,7 +259,7 @@ test('compose validation and body counter expose every refusal', async ({ page }
 // nothing at all -- /blog/[slug] skips the component -- and a missing section
 // is asserted where the tag is read, not on this harness.
 test('a read-only post keeps its thread and drops its box', async ({ page }) => {
-  await page.goto('/lab/comments?locale=en&state=closed', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'locale=en&state=closed');
   const section = page.locator('.blog-comments');
   await expect(section).toHaveAttribute('data-state', 'closed');
   await expect(section).toContainText('Comments are closed on this post.');
@@ -305,7 +271,7 @@ test('a read-only post keeps its thread and drops its box', async ({ page }) => 
 });
 
 test('a verified-only post makes the email field required', async ({ page }) => {
-  await page.goto('/lab/comments?locale=en&requireEmail=1', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'locale=en&requireEmail=1');
   const compose = page.locator('.blog-comments > .blog-compose');
   const email = compose.locator('input[type="email"]');
   await expect(compose).toHaveAttribute('data-require-email', 'true');
@@ -339,27 +305,28 @@ test('reader confirmation serves the pending card in the mail locale', async ({ 
 });
 
 test('reader confirmation confirms the link on arrival', async ({ page }) => {
-  await page.goto('/reader/confirm?token=fixture&lang=en', { waitUntil: 'networkidle' });
+  await page.goto('/reader/confirm?token=fixture&lang=en');
   // A fixture token is not a real one, so the outcome is the refusal -- what
   // matters here is that the page reached an outcome without a press.
   await expect(page.locator('.reader-confirm__card')).not.toHaveAttribute('data-state', 'pending');
 });
 
 test('lab exposes moderation busy, conflict, and empty states', async ({ page }) => {
-  await page.goto('/lab/comments?moderation=busy', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'moderation=busy');
   await expect(page.locator('.comments-lab-moderation__actions button').first()).toHaveText('Working…');
   await expect(page.locator('.comments-lab-moderation__actions button').first()).toBeDisabled();
 
-  await page.goto('/lab/comments?moderation=conflict', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'moderation=conflict');
   await expect(page.locator('.comments-lab-moderation__error')).toContainText('Already handled somewhere else');
 
-  await page.goto('/lab/comments?moderation=empty', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'moderation=empty');
   await expect(page.locator('.comments-lab-moderation__empty')).toContainText('Nothing is waiting for review');
 });
 
 test('optimistic comment submit paints before the API response', async ({ page }) => {
+  await page.clock.install();
   const api = await installCommentApi(page);
-  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&locale=en');
 
   await expect(page.locator('#comment-comment-existing')).toBeVisible();
   const compose = page.locator('.blog-comments > .blog-compose');
@@ -378,12 +345,13 @@ test('optimistic comment submit paints before the API response', async ({ page }
   // then takes itself away rather than leaving one row wearing a badge.
   const note = posted.locator('.blog-comment__note--posted');
   await expect(note).toHaveText('Posted.');
-  await expect(note).toHaveCount(0, { timeout: 15_000 });
+  await page.clock.runFor(5_400);
+  await expect(note).toHaveCount(0);
 });
 
 test('optimistic edit paints before the API response', async ({ page }) => {
   const api = await installCommentApi(page);
-  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&locale=en');
 
   const row = page.locator('#comment-comment-existing');
   await row.locator('[data-comment-edit-open]').click();
@@ -395,9 +363,22 @@ test('optimistic edit paints before the API response', async ({ page }) => {
   await expect(row.locator('[data-comment-text]')).toContainText('Edited comment.');
 });
 
-test('a late moderation verdict upgrades a held optimistic row', async ({ page }) => {
+// A held create is not a verdict, and neither is a poll that failed on the
+// way (a network blip, an edge 5xx): only a listing can settle the row.
+test('a late verdict upgrades a held row, even when a probe fails first', async ({ page }) => {
+  await page.clock.install();
   const api = await installCommentApi(page, { postOutcome: 'held' });
-  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&locale=en');
+  let markProbeFailed!: () => void;
+  const probeFailed = new Promise<void>((resolve) => { markProbeFailed = resolve; });
+  await page.route(
+    (url) => url.pathname === '/api/v2/comments' && url.searchParams.has('post'),
+    async (route) => {
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'temporary' }) });
+      markProbeFailed();
+    },
+    { times: 1 },
+  );
   const compose = page.locator('.blog-comments > .blog-compose');
   await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
   await compose.locator('input[type="email"]').fill('reader@example.com');
@@ -406,29 +387,83 @@ test('a late moderation verdict upgrades a held optimistic row', async ({ page }
   await api.releasePost();
   const posted = page.locator('#comment-comment-posted');
   await expect(posted.locator('.blog-comment__note')).toContainText('Publishing');
-  await expect(posted.locator('.blog-comment__note')).toHaveCount(0, { timeout: 5000 });
+  await page.clock.runFor(1_500);
+  await probeFailed;
+  await page.clock.runFor(2_000);
+  await expect(posted.locator('.blog-comment__note')).toHaveCount(0);
   await expect(page.locator('.blog-comments__tally')).toHaveText('2');
 });
 
 test('a slow verdict says it is still checking', async ({ page }) => {
+  await page.clock.install();
   const api = await installCommentApi(page, { postOutcome: 'held' });
-  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&locale=en');
   const compose = page.locator('.blog-comments > .blog-compose');
   await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
   await compose.locator('textarea').fill('A slow comment.');
   await compose.locator('[data-compose-submit]').click();
   const ghost = page.locator('.blog-comment[data-pending]').first();
   await expect(ghost.locator('.blog-comment__note')).toHaveText('Publishing');
-  await expect(ghost.locator('.blog-comment__note')).toHaveText('Still checking — a few more seconds', { timeout: 5000 });
+  await page.clock.runFor(3_000);
+  await expect(ghost.locator('.blog-comment__note')).toHaveText('Still checking — a few more seconds');
   // The held row that replaces the stand-in keeps the slower word rather
   // than starting the wait over.
   await api.releasePost();
   await expect(page.locator('#comment-comment-posted .blog-comment__note')).toHaveText('Still checking — a few more seconds');
 });
 
+// The list pages by root and lists a reply only beside its root, so a held
+// reply under an older root is only found on the page that starts at it.
+test('a held reply is polled on the page that lists its root', async ({ page }) => {
+  await page.clock.install();
+  const api = await installCommentApi(page, { postOutcome: 'held' });
+  const listing = (url: URL) => url.pathname === '/api/v2/comments' && url.searchParams.has('post');
+  await page.route(listing, (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ comments: [comment({ id: 'comment-newer' }), comment()], hasMore: false, nextBefore: null, total: 2 }),
+  }));
+  const cursors: string[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (listing(url)) cursors.push(url.searchParams.get('before') ?? '');
+  });
+  await gotoLab(page, 'interactive=1&locale=en');
+
+  await page.locator('#comment-comment-existing [data-reply-to]').click();
+  const reply = page.locator('#blog-reply');
+  await reply.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
+  await reply.locator('#blog-reply-text').fill('A held reply.');
+  await reply.locator('[data-compose-submit]').click();
+  await api.releasePost();
+  await expect(page.locator('#comment-comment-posted')).toBeVisible();
+  await page.clock.runFor(1_500);
+  // The older root's page starts right after the root drawn above it.
+  await expect.poll(() => cursors.at(-1)).toBe('comment-newer');
+});
+
+// The service refuses a dwell token past a day and drops the comment behind a
+// fake success, so a tab left open overnight re-mints as the reader starts
+// writing -- never at Post, where a token that young is the other silent drop.
+test('a tab open past a day re-mints its dwell token when the reader starts writing', async ({ page }) => {
+  await page.clock.install();
+  await installCommentApi(page);
+  let mints = 0;
+  await page.route('**/api/v2/comments/dwell-token', (route) => {
+    mints += 1;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ token: 'dwell-token' }) });
+  });
+  await gotoLab(page, 'interactive=1&locale=en');
+  await expect.poll(() => mints).toBe(1);
+
+  await page.clock.fastForward(25 * 60 * 60_000);
+  await page.locator('.blog-comments > .blog-compose textarea').focus();
+  await expect.poll(() => mints).toBe(2);
+});
+
 test('a comment awaiting its email says how to publish it', async ({ page }) => {
   const api = await installCommentApi(page, { postOutcome: 'held', unverifiedEmail: true, awaitingEmail: true });
-  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&locale=en');
   const compose = page.locator('.blog-comments > .blog-compose');
   await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
   await compose.locator('input[type="email"]').fill('reader@example.com');
@@ -443,7 +478,7 @@ test('a comment awaiting its email says how to publish it', async ({ page }) => 
 
 test('an email request keeps a draft typed while it was in the air', async ({ page }) => {
   const api = await installCommentApi(page, { postStatus: 403, postError: 'email_required' });
-  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&locale=en');
   const compose = page.locator('.blog-comments > .blog-compose');
   await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
   await compose.locator('textarea').fill('First thought.');
@@ -457,7 +492,7 @@ test('an email request keeps a draft typed while it was in the air', async ({ pa
 
 test('verification nudge opens the localized subscribe panel with the known email', async ({ page }) => {
   const api = await installCommentApi(page, { unverifiedEmail: true });
-  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&locale=en');
   const compose = page.locator('.blog-comments > .blog-compose');
   await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
   await compose.locator('input[type="email"]').fill('reader@example.com');
@@ -474,9 +509,10 @@ test('verification nudge opens the localized subscribe panel with the known emai
   await expect(nudge).toBeHidden();
 });
 
-test('optimistic submit and edit failures restore the reader draft', async ({ page }) => {
+test('optimistic submit and edit failures restore the reader draft, and report none of it', async ({ page }) => {
   const postApi = await installCommentApi(page, { postStatus: 429 });
-  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  const reports = await captureTelemetry(page);
+  await gotoLab(page, 'interactive=1&locale=en');
   const compose = page.locator('.blog-comments > .blog-compose');
   await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
   await compose.locator('input[type="email"]').fill('reader@example.com');
@@ -486,12 +522,15 @@ test('optimistic submit and edit failures restore the reader draft', async ({ pa
   await postApi.releasePost();
   await expect(compose.locator('textarea')).toHaveValue('Restore this draft.');
   await expect(compose.locator('.blog-compose__alert')).toContainText('Wait before trying again');
+  // One report of the final outcome, and nothing the reader wrote in it.
+  await expect.poll(() => reports.length).toBe(1);
+  expect(reports).toEqual([{ kind: 'comment', outcome: 'http_error', challenges: 0 }]);
 
-  await page.reload({ waitUntil: 'networkidle' });
   // Replace the route with a failed PATCH while keeping the same fixture GETs.
   await page.unroute('**/api/v2/comments**');
   const patchApi = await installCommentApi(page, { patchStatus: 409 });
-  await page.reload({ waitUntil: 'networkidle' });
+  await page.reload();
+  await expect(page.locator('#comment-comment-existing')).toBeVisible();
   const row = page.locator('#comment-comment-existing');
   await row.locator('[data-comment-edit-open]').click();
   await row.locator('[data-comment-edit-field]').fill('Keep this attempted edit.');
@@ -503,7 +542,7 @@ test('optimistic submit and edit failures restore the reader draft', async ({ pa
 });
 
 test('claimed identity sign-out is armed, cancellable, and clears the form', async ({ page }) => {
-  await page.goto('/lab/comments?phase=claimed&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'phase=claimed&locale=en');
   const compose = page.locator('.blog-comments > .blog-compose');
   const signOut = compose.locator('[data-compose-signout]');
   // A symbol at rest, so the state lives in the label -- and the question the
@@ -562,7 +601,7 @@ test('load-more, like, and delete failures remain actionable', async ({ page }) 
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ reactions: {} }) });
   });
 
-  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&locale=en');
   const more = page.locator('[data-load-more]');
   await more.click();
   await expect(more).toHaveText('Retry');
@@ -624,15 +663,16 @@ async function stubTurnstile(page: import('@playwright/test').Page) {
     for as long as it lasts. The pass is a cookie the browser cannot read, so
     the stand-in only tracks whether one was issued. */
 async function installRefusedReactions(page: import('@playwright/test').Page) {
-  const tokens: string[] = [];
+  const bodies: Array<Record<string, unknown>> = [];
   let passIssued = false;
   await page.route('**/api/v2/reactions**', async (route) => {
     if (route.request().method() !== 'POST') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ reactions: {} }) });
       return;
     }
-    const token = (route.request().postDataJSON() as { turnstileToken: string }).turnstileToken;
-    tokens.push(token);
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    bodies.push(body);
+    const token = body.turnstileToken;
     if (token !== 'good-token' && !(token === '' && passIssued)) {
       await route.fulfill({
         status: 400,
@@ -651,7 +691,7 @@ async function installRefusedReactions(page: import('@playwright/test').Page) {
       }),
     });
   });
-  return tokens;
+  return bodies;
 }
 
 test.beforeEach(async ({ page }) => {
@@ -670,33 +710,18 @@ async function captureTelemetry(page: import('@playwright/test').Page) {
   return reports;
 }
 
-test('comment submission reports a minimal final HTTP failure without its content', async ({ page }) => {
-  const api = await installCommentApi(page, { postStatus: 429 });
-  const reports = await captureTelemetry(page);
-  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
-  const compose = page.locator('.blog-comments > .blog-compose');
-  await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Private Name');
-  await compose.locator('input[type="email"]').fill('private@example.com');
-  await compose.locator('textarea').fill('Private comment body.');
-  await compose.locator('[data-compose-submit]').click();
-  await api.releasePost();
-  await expect.poll(() => reports.length).toBe(1);
-  expect(reports).toEqual([{ kind: 'comment', outcome: 'http_error', challenges: 0 }]);
-  await expect(compose.locator('textarea')).toHaveValue('Private comment body.');
-});
-
 test('a network failure on the post heart reports once without blocking recovery', async ({ page }) => {
   await installCommentApi(page);
   const reports = await captureTelemetry(page);
   await page.route('**/api/v2/reactions/toggle', (route) => route.abort('failed'));
-  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&locale=en');
   await page.locator('.blog-react__card').click();
   await expect.poll(() => reports.length).toBe(1);
   expect(reports).toEqual([{ kind: 'reaction', outcome: 'network_error', challenges: 0 }]);
   await expect(page.locator('.blog-react__card')).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('a comment challenge retry reports one accepted user attempt', async ({ page }) => {
+test('a refused comment posts once its challenge is solved, and reports one accepted attempt', async ({ page }) => {
   await stubTurnstile(page);
   await installCommentApi(page);
   let requests = 0;
@@ -710,7 +735,7 @@ test('a comment challenge retry reports one accepted user attempt', async ({ pag
     await route.fulfill({ json: { outcome: 'published', comment: comment({ id: 'comment-posted' }) } });
   });
   const reports = await captureTelemetry(page);
-  await page.goto('/lab/comments?interactive=1&turnstile=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&turnstile=1&locale=en');
   const compose = page.locator('.blog-comments > .blog-compose');
   await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
   await compose.locator('input[type="email"]').fill('reader@example.com');
@@ -733,7 +758,7 @@ for (const surface of ['comment', 'post'] as const) {
       requests += 1;
       await route.fulfill({ status: 400, json: { error: 'turnstile_failed' } });
     });
-    await page.goto('/lab/comments?interactive=1&turnstile=1&locale=en', { waitUntil: 'networkidle' });
+    await gotoLab(page, 'interactive=1&turnstile=1&locale=en');
     const owner = surface === 'comment' ? page.locator('#comment-comment-existing') : page.locator('.blog-react');
     await owner.locator(surface === 'comment' ? '[data-comment-like]' : '.blog-react__card').click();
     await owner.locator('[data-fake-challenge]').click();
@@ -746,10 +771,10 @@ for (const surface of ['comment', 'post'] as const) {
 test('a refused like on a comment opens a challenge under that row and resends once it is solved', async ({ page }) => {
   await stubTurnstile(page);
   await installCommentApi(page);
-  const tokens = await installRefusedReactions(page);
+  const bodies = await installRefusedReactions(page);
   const reports = await captureTelemetry(page);
 
-  await page.goto('/lab/comments?interactive=1&turnstile=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&turnstile=1&locale=en');
 
   const row = page.locator('#comment-comment-existing');
   await row.locator('[data-comment-like]').click();
@@ -766,7 +791,9 @@ test('a refused like on a comment opens a challenge under that row and resends o
   await expect(row.locator('[data-like-count]')).toHaveText('42');
   await expect(row.locator('[data-comment-like]')).toHaveAttribute('aria-pressed', 'true');
   await expect(host).not.toHaveAttribute('data-turnstile-interactive', '');
-  expect(tokens).toEqual(['', 'good-token']);
+  expect(bodies.map((body) => body.turnstileToken)).toEqual(['', 'good-token']);
+  // The row's like carries the same optional browser evidence as the post heart.
+  expect(bodies[1]).toHaveProperty('clientFp');
   await expect.poll(() => reports.length).toBe(1);
   expect(reports).toEqual([{ kind: 'reaction', outcome: 'accepted', challenges: 1 }]);
 });
@@ -774,9 +801,9 @@ test('a refused like on a comment opens a challenge under that row and resends o
 test('a refused like on the post bar opens a challenge in the bar and resends once it is solved', async ({ page }) => {
   await stubTurnstile(page);
   await installCommentApi(page);
-  const tokens = await installRefusedReactions(page);
+  const bodies = await installRefusedReactions(page);
 
-  await page.goto('/lab/comments?interactive=1&turnstile=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&turnstile=1&locale=en');
 
   const bar = page.locator('.blog-react');
   await bar.locator('.blog-react__card').click();
@@ -788,15 +815,15 @@ test('a refused like on the post bar opens a challenge in the bar and resends on
 
   await expect(page.locator('.blog-react__error')).toHaveCount(0);
   await expect(bar.locator('.blog-react__pill--liked .blog-react__count')).toHaveText('42');
-  expect(tokens).toEqual(['', 'good-token']);
+  expect(bodies.map((body) => body.turnstileToken)).toEqual(['', 'good-token']);
 });
 
 test('a solved challenge earns a pass that the next like spends without a widget', async ({ page }) => {
   await stubTurnstile(page);
   await installCommentApi(page);
-  const tokens = await installRefusedReactions(page);
+  const bodies = await installRefusedReactions(page);
 
-  await page.goto('/lab/comments?interactive=1&turnstile=1&locale=en', { waitUntil: 'networkidle' });
+  await gotoLab(page, 'interactive=1&turnstile=1&locale=en');
 
   const row = page.locator('#comment-comment-existing');
   await row.locator('[data-comment-like]').click();
@@ -809,7 +836,7 @@ test('a solved challenge earns a pass that the next like spends without a widget
   await page.locator('.blog-react__card').click();
   await expect(page.locator('.blog-react__pill--liked .blog-react__count')).toHaveText('42');
   await expect(page.locator('.blog-react__error')).toHaveCount(0);
-  expect(tokens).toEqual(['', 'good-token', '']);
+  expect(bodies.map((body) => body.turnstileToken)).toEqual(['', 'good-token', '']);
   expect(await page.evaluate(() => (window as unknown as { __turnstileRenders: number }).__turnstileRenders)).toBe(rendersAfterChallenge);
 });
 

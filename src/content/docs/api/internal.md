@@ -24,7 +24,7 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/auth/callback` | Completes owner sign-in. | Verified OAuth callback |
 | `/admin/auth/logout` | Ends the owner session. | Admin session |
 | `/admin/session` | Reads the current owner identity. | Admin session |
-| `/oauth/login` | Renders the sign-in landing page. | Public OAuth entry |
+| `/oauth/login` | Redirects to the public site's `/oauth/login`, keeping the query. | Public OAuth entry |
 
 ## Admin API
 
@@ -102,6 +102,12 @@ cannot see it — a manually wired route has to be added to this table by hand.
 | `/v2/mood/converge/report` | The converge Durable Object reports Telegram channel differences — deletions, verifications, gaps — to the archive. | HMAC-signed with the shared mood sync secret via `X-Mood-Timestamp` / `X-Mood-Signature` |
 | `/v2/mood/reconcile/due` | Legacy VPS reconciler: requests a batch of message ids to verify. Scheduled for retirement per `plans/039-mood-converge-landing.md`. | HMAC-signed with the shared mood sync secret via `X-Mood-Timestamp` / `X-Mood-Signature` |
 | `/v2/mood/reconcile/report` | Legacy VPS reconciler: reports verification results back to the archive. Scheduled for retirement per `plans/039-mood-converge-landing.md`. | HMAC-signed with the shared mood sync secret via `X-Mood-Timestamp` / `X-Mood-Signature` |
+
+## Instagram refresh route
+
+| Path | Purpose | Auth tier |
+| --- | --- | --- |
+| `/v2/instagram/refresh` | The Instagram refresh job reports a profile read, or the failures of its tries; `site-api` validates and stores it. | HMAC-signed with `INSTAGRAM_INGEST_SECRET` via `X-Instagram-Timestamp` / `X-Instagram-Signature` |
 
 ## Scheduled notification routes
 

@@ -263,12 +263,6 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
     <ViewTransitionReveal />
 
     <script>
-      // Dynamic import keeps the overscroll handler in a bundled, HTTP-cached
-      // chunk instead of Astro inlining it into every HTML response.
-      import('@/layouts/client/visual-viewport');
-    </script>
-
-    <script>
       // Outgoing half: decides which single element (if any) may morph across
       // the next navigation. Deferred is fine — it only has to beat a click.
       // The incoming half is <ViewTransitionReveal /> above, which must be

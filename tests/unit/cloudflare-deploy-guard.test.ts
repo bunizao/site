@@ -1,11 +1,17 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {
+  MOCK_POST_SLUGS,
+  installCloudflareDeployGuard,
+  verifyCloudflareDeployArtifacts,
+} from '../../scripts/cloudflare-deploy-guard.mjs';
 
-const root = join(import.meta.dir, '../..');
-const guardScript = join(root, 'scripts/cloudflare-deploy-guard.mjs');
+import { createGhostContentProvider } from '@/features/posts/adapter/provider';
+
 const workspaces: string[] = [];
+let errors: string[] = [];
 
 function createWorkspace(html = '<a href="/blog/email-philosophy">Real post</a>') {
   const workspace = mkdtempSync(join(tmpdir(), 'cloudflare-deploy-guard-'));
@@ -20,16 +26,17 @@ function createWorkspace(html = '<a href="/blog/email-philosophy">Real post</a>'
   return workspace;
 }
 
-function runGuard(workspace: string, mode: 'check' | 'install') {
-  const result = Bun.spawnSync(['node', guardScript, mode], { cwd: workspace });
-  return {
-    exitCode: result.exitCode,
-    stderr: result.stderr.toString(),
-    stdout: result.stdout.toString(),
-  };
-}
+beforeEach(() => {
+  errors = [];
+  spyOn(console, 'log').mockImplementation(() => {});
+  spyOn(console, 'error').mockImplementation((message: string) => {
+    errors.push(message);
+  });
+});
 
 afterEach(() => {
+  (console.log as unknown as { mockRestore(): void }).mockRestore();
+  (console.error as unknown as { mockRestore(): void }).mockRestore();
   while (workspaces.length > 0) {
     rmSync(workspaces.pop()!, { force: true, recursive: true });
   }
@@ -38,50 +45,61 @@ afterEach(() => {
 describe('Cloudflare deploy guard', () => {
   test('installs a Wrangler pre-upload build hook', () => {
     const workspace = createWorkspace();
-    const result = runGuard(workspace, 'install');
+    installCloudflareDeployGuard(workspace);
     const config = JSON.parse(
       readFileSync(join(workspace, 'dist/server/wrangler.json'), 'utf8'),
     );
 
-    expect(result.exitCode).toBe(0);
     expect(config.legacy_env).toBeUndefined();
     expect(config.build.command).toBe('node scripts/cloudflare-deploy-guard.mjs check');
   });
 
   test('accepts live blog artifacts after hook installation', () => {
     const workspace = createWorkspace();
-    runGuard(workspace, 'install');
-    const result = runGuard(workspace, 'check');
+    installCloudflareDeployGuard(workspace);
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('Cloudflare deploy guard passed');
+    expect(verifyCloudflareDeployArtifacts(workspace)).toBe(true);
   });
 
   test('blocks fixture blog artifacts before upload', () => {
     const workspace = createWorkspace(
       '<a href="/blog/demo-effects">Mock</a><a href="/blog/quiet-architecture">Mock</a>',
     );
-    runGuard(workspace, 'install');
-    const result = runGuard(workspace, 'check');
+    installCloudflareDeployGuard(workspace);
 
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('Cloudflare deploy blocked mock Ghost posts');
-    expect(result.stderr).toContain('demo-effects, quiet-architecture');
+    expect(verifyCloudflareDeployArtifacts(workspace)).toBe(false);
+    expect(errors.join('\n')).toContain('Cloudflare deploy blocked mock Ghost posts: demo-effects, quiet-architecture');
+  });
+
+  // The guard keeps its own copy of the fixture slugs; a mock post renamed or
+  // added without it would reach production unnoticed.
+  test('recognises every post the mock blog index lists', async () => {
+    const listed = await createGhostContentProvider({ forceMockContent: true }).getListedPosts();
+
+    expect([...MOCK_POST_SLUGS].sort()).toEqual(listed.map((post) => post.slug).sort());
   });
 
   test('does not block a real slug that only shares a mock prefix', () => {
     const workspace = createWorkspace('<a href="/blog/demo-effects-retrospective">Real post</a>');
-    runGuard(workspace, 'install');
-    const result = runGuard(workspace, 'check');
+    installCloudflareDeployGuard(workspace);
 
-    expect(result.exitCode).toBe(0);
+    expect(verifyCloudflareDeployArtifacts(workspace)).toBe(true);
+  });
+
+  // A Ghost outage at build time renders a blog index with tag links but no
+  // posts; shipping it would blank the live blog.
+  test('blocks a blog artifact that links only to tag pages', () => {
+    const workspace = createWorkspace('<a href="/blog/tag/notes">Notes</a><a href="/blog/tags">Tags</a>');
+    installCloudflareDeployGuard(workspace);
+
+    expect(verifyCloudflareDeployArtifacts(workspace)).toBe(false);
+    expect(errors.join('\n')).toContain('Cloudflare deploy blocked an empty blog artifact');
   });
 
   test('blocks artifacts that omit the upload hook', () => {
     const workspace = createWorkspace();
-    const result = runGuard(workspace, 'check');
 
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('missing the production content guard');
+    expect(verifyCloudflareDeployArtifacts(workspace)).toBe(false);
+    expect(errors.join('\n')).toContain('missing the production content guard');
   });
 });

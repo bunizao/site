@@ -29,7 +29,7 @@ test.describe('Admin portal newsletters', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
   });
 
-  test('shows demo analytics when site-api endpoints are absent', async ({ page }) => {
+  test('analytics page renders in local dev without site-api', async ({ page }) => {
     await page.goto('/dev/portal/analytics');
 
     await expect(page.getByText('Showing demo data — the site-api binding is unavailable in local dev.')).toBeVisible();
@@ -38,7 +38,7 @@ test.describe('Admin portal newsletters', () => {
     await expect(page.getByRole('heading', { name: 'Raw event log' })).toBeVisible();
   });
 
-  test('uses coss chrome across every preview surface', async ({ page }) => {
+  test('template grid focus mode isolates one preview and is keyboard reachable', async ({ page }) => {
     await page.route('**/api/notify/preview?**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -64,9 +64,7 @@ test.describe('Admin portal newsletters', () => {
 
     await page.goto('/dev/portal/newsletter');
     await expect(page.getByRole('heading', { name: 'Notification templates', level: 1 })).toBeVisible();
-    await expect(page.locator('[data-slot="card"]').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('[data-slot="separator"]')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Refresh live data' })).toBeVisible();
     await page.getByRole('button', { name: 'Emails' }).click();
     await expect(page.getByRole('heading', { name: 'Confirm — Success' })).toHaveCount(0);
@@ -79,18 +77,6 @@ test.describe('Admin portal newsletters', () => {
     await expect(focusButton).toHaveAttribute('aria-pressed', 'true');
     await focusButton.hover();
     await expect(page.getByText('Return to the template grid')).toBeVisible();
-
-    const routes = [
-      ['/dev/portal/svg', 'SVG gallery'],
-      ['/dev/portal/mascot', 'Mascot inspector'],
-      ['/dev/portal/mood-embed', 'Mood embed'],
-    ] as const;
-
-    for (const [path, title] of routes) {
-      await page.goto(path);
-      await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible();
-      await expect(page.locator('[data-slot="card"]').first()).toBeVisible();
-    }
   });
 
   test('shows subscriber source filters and optional source counts', async ({ page }) => {

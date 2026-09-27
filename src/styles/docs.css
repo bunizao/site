@@ -73,11 +73,8 @@ html:has(.docs) {
   --docs-chrome-inset: max(1.75rem, calc((100vw - 88rem) / 2));
 
   display: flex;
-  /* The plain inset, not --site-nav-mobile-top. That token adds
-     `visualViewport.offsetTop`, which is a pinch-zoom signal: it reads 0 through
-     an entire iOS scroll, so it never corrected the drift it was there for, and
-     the moment it is non-zero it pushes the bar down by a toolbar's height.
-     Contained scroll removes the drift at the source. */
+  /* The plain inset. Contained scroll keeps the root still, so the bar needs
+     no JS offset to stay under the status bar. */
   top: env(safe-area-inset-top, 0px);
   left: 0;
   right: 0;

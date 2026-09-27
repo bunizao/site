@@ -303,6 +303,19 @@ test.describe('component playgrounds', () => {
     await expect(page.locator('.docs-playground-link')).toHaveCSS('color', 'rgb(60, 93, 128)');
   });
 
+  test('table of contents jumps straight to the section under reduced motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/components/decode-text');
+
+    // Read scrollY in the same task as the click: a smooth scroll has not
+    // moved yet, an instant jump already has.
+    const scrolled = await page.locator('[data-otp-link="installation"]').evaluate((link) => {
+      (link as HTMLElement).click();
+      return window.scrollY;
+    });
+    expect(scrolled).toBeGreaterThan(0);
+  });
+
   test('playground controls keep keyboard focus and minimum target sizes', async ({ page }) => {
     await openConversationPlayground(page);
 

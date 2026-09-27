@@ -42,6 +42,9 @@ interface AmpTokenResult {
   expiresAtSeconds: number;
 }
 
+// Each Apple request is bounded, so a stalled endpoint degrades one card to
+// its embed instead of hanging the prerender.
+const LOOKUP_TIMEOUT_MS = 4_000;
 const lookupCache = new Map<string, AppleTrack | null>();
 const metadataLookupCache = new Map<string, AppleTrack | null>();
 let ampTokenPromise: Promise<AmpTokenResult | null> | null = null;
@@ -159,6 +162,7 @@ function discoverAmpChunkNames(entrySource: string): string[] {
 async function scrapeAmpWebToken(): Promise<AmpTokenResult | null> {
   const entryResponse = await fetch(AMP_ENTRY_URL, {
     headers: { Accept: 'application/javascript' },
+    signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
   });
   if (!entryResponse.ok) return null;
 
@@ -171,6 +175,7 @@ async function scrapeAmpWebToken(): Promise<AmpTokenResult | null> {
     chunkNames.map(async (chunkName) => {
       const chunkResponse = await fetch(`${AMP_BUILD_BASE}${chunkName}.entry.js`, {
         headers: { Accept: 'application/javascript' },
+        signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
       });
       return chunkResponse.ok ? chunkResponse.text() : '';
     }),
@@ -205,6 +210,7 @@ async function lookupExtendedPreviewUrl(id: string): Promise<string | null> {
         Authorization: `Bearer ${token}`,
         Origin: AMP_ORIGIN,
       },
+      signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
     });
     if (!response.ok) return null;
 
@@ -247,7 +253,10 @@ async function lookupAppleTrackMetadata(id: string): Promise<AppleTrack | null> 
     endpoint.searchParams.set('id', id);
     endpoint.searchParams.set('country', AMP_STOREFRONT);
     endpoint.searchParams.set('entity', 'song');
-    const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+    const response = await fetch(endpoint, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
+    });
     if (response.ok) {
       const data = (await response.json()) as { results?: ItunesResult[] };
       const result = data.results?.[0];
@@ -364,10 +373,6 @@ function renderMusicCard(track: AppleTrack): string {
     .filter(Boolean)
     .map(escapeHtml)
     .join(' <span class="blog-music__dot" aria-hidden="true"></span> ');
-  const hasPreview = Boolean(track.previewUrl);
-  // Playable if it can stream the full track (catalog id) or at least the
-  // preview floor. MusicKit subscribers get the full song; everyone else preview.
-  const canPlay = hasPreview || Boolean(track.id);
   // crossorigin lets Prose.astro sample an accent off the artwork canvas, the
   // same trick the homepage widget uses. Falls back gracefully if it fails.
   const cover = track.artworkUrl
@@ -390,7 +395,7 @@ function renderMusicCard(track: AppleTrack): string {
     // Player chrome (title, "Full track", timestamps) is UI, not prose —
     // keep it out of the Pagefind excerpt index.
     `<figure class="kg-card blog-music" data-blog-music data-track-id="${escapeHtml(track.id)}" data-track-title="${title}" data-track-artist="${escapeHtml(track.artist)}" data-pagefind-ignore>`,
-    `<button class="blog-music__art" type="button" data-blog-music-play data-apple-catalog-id="${escapeHtml(track.id)}" data-preview-url="${escapeHtml(track.previewUrl)}"${canPlay ? '' : ' disabled'} aria-pressed="false" aria-label="${canPlay ? `Play ${title}` : `${title}`}">`,
+    `<button class="blog-music__art" type="button" data-blog-music-play data-apple-catalog-id="${escapeHtml(track.id)}" data-preview-url="${escapeHtml(track.previewUrl)}" aria-pressed="false" aria-label="Play ${title}">`,
     `<span class="blog-music__frame">`,
     RECORD,
     cover,

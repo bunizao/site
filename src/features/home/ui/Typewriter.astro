@@ -122,11 +122,8 @@ const placeholderText = `${longestText}_`;
     _typewriterStarted?: boolean;
     _typewriterCycled?: boolean;
     _typewriterStartTimer?: number;
-    _typewriterLoopTimer?: number;
     _typewriterFrame?: number;
-    _typewriterAbort?: AbortController;
     _typewriterCurrentText?: string;
-    _typewriterResizeObserver?: ResizeObserver;
   };
 
   interface CanvasState {
@@ -295,9 +292,7 @@ const placeholderText = `${longestText}_`;
     // the first keystroke lands.
     visual.classList.add('is-enhanced');
 
-    const abort = new AbortController();
     let index = 0;
-    root._typewriterAbort = abort;
 
     const redrawSettledText = (): void => {
       const text = root._typewriterCurrentText;
@@ -310,8 +305,7 @@ const placeholderText = `${longestText}_`;
     };
 
     if ('ResizeObserver' in window) {
-      root._typewriterResizeObserver = new ResizeObserver(redrawSettledText);
-      root._typewriterResizeObserver.observe(visual);
+      new ResizeObserver(redrawSettledText).observe(visual);
     }
 
     document.fonts?.ready.then(redrawSettledText).catch(() => {});
@@ -397,14 +391,14 @@ const placeholderText = `${longestText}_`;
         if (texts.length < 2 || (index === 0 && root._typewriterCycled)) return;
 
         // Let the finished name sit before the carriage takes it back.
-        root._typewriterLoopTimer = window.setTimeout(() => {
+        window.setTimeout(() => {
           animate(text, length, 0, backspaceMs, () => {
             root._typewriterCurrentText = '';
             index = (index + 1) % texts.length;
             if (index === 0) root._typewriterCycled = true;
             // One empty beat, so the next name does not start on the same
             // frame the last one vanished.
-            root._typewriterLoopTimer = window.setTimeout(playName, keystrokeMs);
+            window.setTimeout(playName, keystrokeMs);
           });
         }, pauseDuration);
       });
@@ -417,34 +411,13 @@ const placeholderText = `${longestText}_`;
       playName();
     };
 
-    window.addEventListener(HERO_NAME_READY_EVENT, startFirstRun, {
-      once: true,
-      signal: abort.signal,
-    });
+    window.addEventListener(HERO_NAME_READY_EVENT, startFirstRun, { once: true });
     root._typewriterStartTimer = window.setTimeout(startFirstRun, delay + FALLBACK_START_MS);
   };
 
   const initAll = (): void => {
     document.querySelectorAll<TypewriterRoot>('[data-typewriter-root]').forEach(initOne);
   };
-
-  const cleanupAll = (): void => {
-    document.querySelectorAll<TypewriterRoot>('[data-typewriter-root]').forEach((root) => {
-      window.clearTimeout(root._typewriterStartTimer);
-      window.clearTimeout(root._typewriterLoopTimer);
-      cancelFrame(root);
-      root._typewriterAbort?.abort();
-      root._typewriterResizeObserver?.disconnect();
-      root._typewriterResizeObserver = undefined;
-      root._typewriterCurrentText = undefined;
-      root._typewriterReady = false;
-      root._typewriterStarted = false;
-      root._typewriterCycled = false;
-    });
-  };
-
-  document.addEventListener('astro:page-load', initAll);
-  document.addEventListener('astro:before-swap', cleanupAll);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initAll, { once: true });

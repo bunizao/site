@@ -27,12 +27,11 @@ const { class: className } = Astro.props;
 </style>
 
 <script>
-  import { prepareDecode, type DecodeController } from '@bunizao/decode-text';
+  import { prepareDecode } from '@bunizao/decode-text';
 
   type DecodeRoot = HTMLElement & {
     _decodeReady?: boolean;
     _decodeTimer?: number;
-    _decodeController?: DecodeController;
   };
 
   const BIO_READY_EVENT = 'home:hero-bio-ready';
@@ -47,7 +46,6 @@ const { class: className } = Astro.props;
     try {
       // `restore` hands the links back as real elements once the text lands.
       const controller = await prepareDecode(root, { restore: true });
-      root._decodeController = controller;
       // `dt-settled` cues what waits for the text, such as link underlines.
       // The reflow commits the restored markup first, so their transitions
       // run from the unsettled state instead of painting at the end.
@@ -90,18 +88,6 @@ const { class: className } = Astro.props;
       void initOne(root);
     });
   };
-
-  const cleanupAll = (): void => {
-    document.querySelectorAll<DecodeRoot>('[data-decode-root]').forEach((root) => {
-      window.clearTimeout(root._decodeTimer);
-      root._decodeController?.cancel();
-      root._decodeController = undefined;
-      root._decodeReady = false;
-    });
-  };
-
-  document.addEventListener('astro:page-load', initAll);
-  document.addEventListener('astro:before-swap', cleanupAll);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initAll, { once: true });

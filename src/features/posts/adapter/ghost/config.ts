@@ -58,7 +58,7 @@ export function getGhostRuntimeConfig(
 ): GhostRuntimeConfig {
   const url = normalizeUrl(options.url ?? readEnvVar('PUBLIC_GHOST_URL'));
   const key = readString(
-    options.key ?? readEnvVar('GHOST_CONTENT_API_KEY') ?? readEnvVar('GHOST_CONTENT_APIKEY'),
+    options.key ?? readEnvVar('GHOST_CONTENT_API_KEY'),
   );
   const version = readString(options.version) ?? GHOST_API_VERSION;
   const forceMockContent = options.forceMockContent

@@ -1,7 +1,6 @@
-// Turnstile -- one non-intrusive widget per expectedAction. Structurally the
-// same load/render/reset shape as subscribe-panel.ts's visible widget, but
-// rendered with `appearance: 'interaction-only'`: the widget stays invisible
-// unless Turnstile actually needs the reader to interact with it, rather than
+// Turnstile -- one non-intrusive widget per expectedAction, rendered with
+// `appearance: 'interaction-only'`: the widget stays invisible unless
+// Turnstile actually needs the reader to interact with it, rather than
 // the invalid `size: 'invisible'` this used to pass (Turnstile only accepts
 // compact/flexible/normal -- the bad value threw on every render).
 //
@@ -27,14 +26,16 @@
 
 import { loadTurnstileScript } from '@/lib/turnstile-script';
 
-// 'owner_message_create' is the /message form and 'mood_comment_create' the
-// mood thread. They share this module rather than growing their own because
-// the widget lifecycle -- warm early, read at submit, re-mint on expiry -- is
-// identical; only the action string differs.
+// 'owner_message_create' is the /message form, 'mood_comment_create' the mood
+// thread and 'notify_subscribe' the subscribe panel. They share this module
+// rather than growing their own because the widget lifecycle -- warm early,
+// read at submit, re-mint on expiry -- is identical; only the action string
+// differs.
 export type TurnstileAction =
   | 'blog_comment_create'
   | 'blog_reaction'
   | 'mood_comment_create'
+  | 'notify_subscribe'
   | 'owner_message_create';
 
 interface TurnstileWidgetState {

@@ -3,26 +3,18 @@ import { chromium, type Browser } from '@playwright/test';
 import { join } from 'node:path';
 
 let browser: Browser;
-let mediaHydrationSource = '';
 let popoverSource = '';
 
-async function buildModule(relativePath: string): Promise<string> {
+beforeAll(async () => {
   const build = await Bun.build({
-    entrypoints: [join(import.meta.dir, relativePath)],
+    entrypoints: [join(import.meta.dir, '../../src/features/mood/client/feed-comments-popover.ts')],
     format: 'esm',
     target: 'browser',
   });
   if (!build.success) {
-    throw new AggregateError(build.logs, `Could not build ${relativePath} for browser tests`);
+    throw new AggregateError(build.logs, 'Could not build feed-comments-popover for browser tests');
   }
-  return build.outputs[0].text();
-}
-
-beforeAll(async () => {
-  [mediaHydrationSource, popoverSource] = await Promise.all([
-    buildModule('../../src/features/mood/client/feed-media-hydration.ts'),
-    buildModule('../../src/features/mood/client/feed-comments-popover.ts'),
-  ]);
+  popoverSource = await build.outputs[0].text();
   browser = await chromium.launch({
     channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL,
     headless: true,
@@ -31,65 +23,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await browser?.close();
-});
-
-describe('mood feed image fallback', () => {
-  test('SSR-shaped img swaps to its fallback on error', async () => {
-    const page = await browser.newPage();
-    try {
-      await page.setContent('<div data-mood-list><img data-fallback-src="/fallback.jpg" src="/broken.jpg"></div>');
-      const result = await page.evaluate(async ({ source }) => {
-        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-        try {
-          const { createFeedMediaHydrator } = await import(moduleUrl);
-          const hydrator = createFeedMediaHydrator({ hydrate: async () => {} });
-          const list = document.querySelector<HTMLElement>('[data-mood-list]');
-          hydrator.applyMediaHints(list!);
-
-          const img = list!.querySelector('img') as HTMLImageElement;
-          img.dispatchEvent(new Event('error'));
-
-          return { src: img.getAttribute('src'), applied: img.dataset.fallbackApplied };
-        } finally {
-          URL.revokeObjectURL(moduleUrl);
-        }
-      }, { source: mediaHydrationSource });
-
-      expect(result.src).toBe('/fallback.jpg');
-      expect(result.applied).toBe('1');
-    } finally {
-      await page.close();
-    }
-  });
-
-  test('does not re-swap after the fallback already applied', async () => {
-    const page = await browser.newPage();
-    try {
-      await page.setContent('<div data-mood-list><img data-fallback-src="/fallback.jpg" src="/broken.jpg"></div>');
-      const src = await page.evaluate(async ({ source }) => {
-        const moduleUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-        try {
-          const { createFeedMediaHydrator } = await import(moduleUrl);
-          const hydrator = createFeedMediaHydrator({ hydrate: async () => {} });
-          const list = document.querySelector<HTMLElement>('[data-mood-list]');
-          hydrator.applyMediaHints(list!);
-
-          const img = list!.querySelector('img') as HTMLImageElement;
-          img.dispatchEvent(new Event('error'));
-          img.src = '/still-broken.jpg';
-          img.dispatchEvent(new Event('error'));
-          return img.getAttribute('src');
-        } finally {
-          URL.revokeObjectURL(moduleUrl);
-        }
-      }, { source: mediaHydrationSource });
-
-      // Second error must not overwrite the manually re-set src.
-      expect(src).toBe('/still-broken.jpg');
-    } finally {
-      await page.close();
-    }
-  });
 });
 
 describe('mood feed comments popover error state', () => {
@@ -125,23 +58,32 @@ describe('mood feed comments popover error state', () => {
             const trigger = wrapper.querySelector('.mood-item-comments') as HTMLElement;
             trigger.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
 
-            const readState = async () => {
-              await new Promise((resolve) => setTimeout(resolve, 30));
-              const popover = document.querySelector('.mood-comments-popover') as HTMLElement;
+            // Poll rather than sleep: the close timer and the fetch settle on
+            // their own schedule.
+            const waitFor = async (check: () => boolean): Promise<void> => {
+              for (let attempt = 0; attempt < 200; attempt += 1) {
+                if (check()) return;
+                await new Promise((resolve) => setTimeout(resolve, 5));
+              }
+              throw new Error('Timed out waiting for the popover');
+            };
+            const readState = () => {
+              const popover = document.querySelector('.mood-comments-popover') as HTMLElement | null;
               return {
-                text: popover.textContent ?? '',
-                hasError: Boolean(popover.querySelector('.mood-comments-popover-error')),
-                loaded: popover.dataset.loaded,
+                text: popover?.textContent ?? '',
+                hasError: Boolean(popover?.querySelector('.mood-comments-popover-error')),
               };
             };
 
-            const firstState = await readState();
+            await waitFor(() => readState().hasError);
+            const firstState = readState();
 
             // Simulate closing and re-hovering to trigger the retry.
             trigger.dispatchEvent(new PointerEvent('pointerout', { bubbles: true, relatedTarget: document.body }));
-            await new Promise((resolve) => setTimeout(resolve, 220));
+            await waitFor(() => !wrapper.classList.contains('is-popover-open'));
             trigger.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
-            const secondState = await readState();
+            await waitFor(() => readState().text.includes('No comments yet'));
+            const secondState = readState();
 
             return { attempts, firstState, secondState };
           } finally {

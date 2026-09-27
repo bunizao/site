@@ -139,7 +139,6 @@ go in Cloudflare, never in the repo.
 | `PUBLIC_HD_IMAGE_URL` | HD mood image base URL served by `site-api` |
 | `MOOD_READ_SOURCE` | `archive` (default) or `live` |
 | `CHANNEL`, `TELEGRAM_HOST` | Telegram channel slug and host |
-| `LASTFM_API_KEY`, `LASTFM_USER` | Home listening widget |
 | `PUBLIC_SITE_URL`, `SITE_URL` | Canonical base URLs |
 | `API_DEV_ORIGIN` | Dev-only. Where `/api/*` is proxied |
 

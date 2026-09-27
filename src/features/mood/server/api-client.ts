@@ -1,10 +1,8 @@
 import type {
   MediaItem,
-  MoodCommentsPage,
   MoodContentDocument,
   MoodFeedItem,
   MoodFeedResponse,
-  MoodProbeResult,
 } from '@bunizao/contracts';
 import { MOOD_ARCHIVE_FEED_PATH } from '@bunizao/contracts/routes';
 import {
@@ -26,12 +24,10 @@ import { getMoodGallery } from '../shared/gallery';
 import {
   loadMoodChannelSnapshot,
   loadMoodPostSnapshot,
-  loadMoodCommentsFixture,
   getMoodChannelSlug,
   toMoodAvatarUrl,
   type MoodServerContext,
 } from './channel-service';
-import { getPostComments } from './telegram-source';
 import {
   MOOD_RICH_TEXT_FIXTURE_ID,
   buildMoodRichTextFixtureDocument,
@@ -46,12 +42,6 @@ export interface MoodFeedQuery {
   limit?: number;
   source?: MoodApiSource;
   tag?: string;
-}
-
-export interface MoodCommentsQuery {
-  before?: string;
-  limit?: number;
-  source?: MoodApiSource;
 }
 
 export interface MoodDocumentQuery {
@@ -131,7 +121,7 @@ async function fetchMoodArchiveApiJson<T>(
   return response.json() as Promise<T>;
 }
 
-export async function loadMoodArchiveWithFallback<T>(
+async function loadMoodArchiveWithFallback<T>(
   resource: string,
   loadArchive: () => Promise<T>,
   loadLive: () => Promise<T>,
@@ -152,13 +142,6 @@ function moodFeedParams(query: MoodFeedQuery): URLSearchParams {
   if (query.fresh) params.set('fresh', 'true');
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
   if (query.fallback === false) params.set('fallback', '0');
-  return params;
-}
-
-function moodCommentsParams(query: MoodCommentsQuery): URLSearchParams {
-  const params = new URLSearchParams();
-  if (query.before) params.set('before', query.before);
-  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
   return params;
 }
 
@@ -258,33 +241,6 @@ export async function loadMoodFeed(
   return buildMoodFeedResponse(context, channelInfo, limitedPosts);
 }
 
-export async function loadMoodProbe(context: MoodServerContext, options: { source?: MoodApiSource } = {}): Promise<MoodProbeResult> {
-  if (isE2ESiteFixtureEnabled(context.locals)) {
-    const channelInfo = createE2EChannelInfo();
-    return { latestId: channelInfo.posts[0]?.id ?? '' };
-  }
-
-  if (isMoodRichTextFixtureEnabled(context.locals)) {
-    return { latestId: MOOD_RICH_TEXT_FIXTURE_ID };
-  }
-
-  const source = resolveMoodReadSource(context.locals, options.source);
-  if (source === 'archive') {
-    const params = new URLSearchParams({ probe: 'true', fresh: 'true' });
-    return loadMoodArchiveWithFallback(
-      'probe',
-      () => fetchMoodArchiveApiJson<MoodProbeResult>(context, MOOD_ARCHIVE_FEED_PATH, params),
-      async () => {
-        const { posts } = await loadMoodChannelSnapshot(context, { skipCache: true });
-        return { latestId: posts[0]?.id ?? '' };
-      },
-    );
-  }
-
-  const { posts } = await loadMoodChannelSnapshot(context, { skipCache: true });
-  return { latestId: posts[0]?.id ?? '' };
-}
-
 export async function loadMoodDocument(
   context: MoodServerContext,
   id: string,
@@ -308,6 +264,8 @@ export async function loadMoodDocument(
       quote: null,
       reactions: post.reactions,
       commentsCount: post.commentsCount ?? 0,
+      // Matches dev's live path below, so e2e renders the compose box.
+      discussionLinked: true,
       channel: {
         slug: 'tutumood',
         title: 'Levitating',
@@ -394,82 +352,6 @@ export async function loadMoodDocument(
       title: channelInfo?.title,
       avatar: toMoodAvatarUrl(channelInfo?.avatar || '', context.locals) || undefined,
     },
-  };
-}
-
-export async function loadMoodComments(
-  context: MoodServerContext,
-  postId: string,
-  query: MoodCommentsQuery = {},
-): Promise<MoodCommentsPage> {
-  if (isE2ESiteFixtureEnabled(context.locals)) {
-    return loadMoodCommentsFixture(postId);
-  }
-
-  if (isMoodRichTextFixtureEnabled(context.locals)) {
-    return { comments: [], hasMore: false, nextBefore: '' };
-  }
-
-  if (query.source === 'archive') {
-    return loadMoodArchiveWithFallback(
-      'comments',
-      () => fetchMoodArchiveApiJson<MoodCommentsPage>(
-        context,
-        `${MOOD_ARCHIVE_FEED_PATH}/${encodeURIComponent(postId)}/comments`,
-        moodCommentsParams(query),
-      ),
-      async () => {
-        const result = await getPostComments(
-          { request: context.request, locals: context.locals } as any,
-          { postId, before: query.before ?? '' },
-        );
-        return {
-          comments: result.comments.map((comment) => ({
-            id: comment.id,
-            author: comment.author,
-            authorAvatar: comment.authorAvatar,
-            datetime: comment.datetime,
-            content: comment.content,
-            reactions: comment.reactions.map((reaction) => ({
-              emoji: reaction.emoji,
-              emojiId: reaction.emojiId,
-              emojiImage: reaction.emojiImage,
-              count: reaction.count,
-              isPaid: reaction.isPaid,
-            })),
-          })),
-          hasMore: result.hasMore,
-          nextBefore: result.nextBefore || '',
-        };
-      },
-    );
-  }
-
-  const result = await getPostComments(
-    { request: context.request, locals: context.locals } as any,
-    {
-      postId,
-      before: query.before ?? '',
-    }
-  );
-
-  return {
-    comments: result.comments.map((comment) => ({
-      id: comment.id,
-      author: comment.author,
-      authorAvatar: comment.authorAvatar,
-      datetime: comment.datetime,
-      content: comment.content,
-      reactions: comment.reactions.map((reaction) => ({
-        emoji: reaction.emoji,
-        emojiId: reaction.emojiId,
-        emojiImage: reaction.emojiImage,
-        count: reaction.count,
-        isPaid: reaction.isPaid,
-      })),
-    })),
-    hasMore: result.hasMore,
-    nextBefore: result.nextBefore || '',
   };
 }
 

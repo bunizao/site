@@ -16,6 +16,9 @@ export const MOOD_MEDIA_PROXY_BASE_PATH = '/v2/media' as const;
 
 export const LISTENING_PATH = '/v2/listening' as const;
 
+export const INSTAGRAM_PROFILE_PATH = '/v2/instagram' as const;
+export const INSTAGRAM_AVATAR_PATH = '/v2/instagram/avatar' as const;
+
 // Blog comments, reactions, and reader identity. Reader-scoped, not
 // blog-scoped — plans/blog-comments.md "API surface (v2 namespace)": nothing
 // in the reader session or the reader table is blog-specific, so a future

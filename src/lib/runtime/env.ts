@@ -1,9 +1,6 @@
 export type EnvSource = Record<string, unknown>;
 
 export interface RuntimeEnvLocals {
-  runtime?: {
-    env?: EnvSource;
-  };
   env?: EnvSource;
 }
 
@@ -18,32 +15,7 @@ function readValue(source: EnvSource | undefined, name: string): string | undefi
 }
 
 export function readRuntimeEnvSource(locals: RuntimeEnvLocals | undefined): EnvSource | undefined {
-  const directEnv = locals?.env;
-  if (directEnv) {
-    return directEnv;
-  }
-
-  try {
-    return locals?.runtime?.env;
-  } catch {
-    return undefined;
-  }
-}
-
-export function readRuntimeValue(
-  locals: RuntimeEnvLocals | undefined,
-  name: string
-): string | undefined {
-  const directValue = readValue(locals?.env, name);
-  if (directValue) {
-    return directValue;
-  }
-
-  try {
-    return readValue(locals?.runtime?.env, name);
-  } catch {
-    return undefined;
-  }
+  return locals?.env;
 }
 
 function readProcessEnv(name: string): string | undefined {
@@ -63,7 +35,7 @@ export function readOptionalEnv(
 ): string | undefined {
   return readProcessEnv(name)
     ?? readValue(buildEnv, name)
-    ?? readRuntimeValue(locals, name);
+    ?? readValue(locals?.env, name);
 }
 
 export function readEnv(

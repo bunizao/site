@@ -4,7 +4,7 @@ import {
   rewriteGhostBlogImageHtml,
   rewriteGhostBlogImageSrcset,
   rewriteGhostBlogImageUrl,
-} from '@/features/posts/adapter/provider';
+} from '@/features/posts/adapter/ghost/dataset';
 
 const ghostUrl = 'https://blog.buxx.me';
 

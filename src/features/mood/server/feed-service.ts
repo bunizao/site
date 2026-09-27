@@ -71,8 +71,6 @@ export async function buildMoodFeedItem(
   const quoteTargetPost = quoteTargetId
     ? channelInfo.posts?.find((candidate) => candidate.id === quoteTargetId)
     : null;
-  // Parse the quote target's content once too, rather than letting
-  // getFirstVideoPosterSrc take the raw string.
   const quoteTargetDocument = quoteTargetPost ? cheerio.load(quoteTargetPost.content) : null;
   const quoteTargetVideoPoster = quoteTargetDocument ? getFirstVideoPosterSrc(quoteTargetDocument) : null;
   if (quote && quoteTargetVideoPoster) {

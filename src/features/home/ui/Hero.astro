@@ -5,16 +5,9 @@ import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import TechMarquee from '@/features/home/ui/TechMarquee.astro';
 import HeroCards from '@/features/home/ui/HeroCards.astro';
-import type { ListeningTrack } from '@/features/home/types';
 import { Mail } from 'lucide-react';
 import { GitHubIcon, InstagramIcon, TelegramIcon } from '@/components/icons';
 import { hero, tech, profile, experience } from '@/data/site';
-
-interface Props {
-  listeningTrack?: ListeningTrack;
-}
-
-const { listeningTrack } = Astro.props;
 
 const { socials, typewriterNames, infoChips } = hero;
 const lcpAnchorName = typewriterNames.reduce(
@@ -105,7 +98,7 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
     <HeroCards />
 
     <div class="hero-animate mt-10" style="--hero-i: 0" data-hero-motion data-hero-listening>
-      <Listening track={listeningTrack} />
+      <Listening />
     </div>
 
     <!-- GitHub Activity -->

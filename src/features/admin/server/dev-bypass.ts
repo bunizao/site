@@ -6,15 +6,24 @@ export interface AdminSessionIdentity {
   avatarUrl?: string;
 }
 
-function isLocalDevHost(hostname: string): boolean {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+const LOCAL_DEV_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+// A tunnel such as `dev:phone:tunnel` rewrites the Host header to localhost,
+// so the hostname alone cannot tell a local request from a public one.
+// Cloudflare stamps these headers on every request it forwards.
+function arrivedThroughCloudflare(request: Request): boolean {
+  return request.headers.has('cf-ray') || request.headers.has('cf-connecting-ip');
 }
 
 export function readAdminDevBypassSession(
   locals: RuntimeEnvLocals | undefined,
-  hostname: string,
+  request: Request,
 ): AdminSessionIdentity | null {
-  if (!isLocalDevHost(hostname) || readOptionalEnv(locals, 'ADMIN_DEV_BYPASS') !== '1') {
+  if (
+    !LOCAL_DEV_HOSTNAMES.has(new URL(request.url).hostname)
+    || arrivedThroughCloudflare(request)
+    || readOptionalEnv(locals, 'ADMIN_DEV_BYPASS') !== '1'
+  ) {
     return null;
   }
 
