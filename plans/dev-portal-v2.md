@@ -44,6 +44,14 @@ read of both repos on `origin/main`).
   every push, contracts release and merge waits for the owner's yes.
 - Reader-facing additions: pin a comment, lock a thread, per-post comment mode.
 - Dark theme only.
+- The bar: deliberately designed, easy to use, top-tier performance, clear
+  hierarchy, production-grade, feature-complete. Paths and feel come first,
+  and it must not be ugly. Each screen is judged by:
+  - its step count per job;
+  - click → next paint under 100 ms at 4× CPU throttle;
+  - nesting depth: at most two levels from the screen to any datum.
+- Comments are a chronological log table (who, what, fingerprint, IP,
+  location, device) with a flat detail panel one click away.
 
 ## 2. Principles
 
