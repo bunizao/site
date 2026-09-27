@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { jsonError } from '@/lib/http/json-response';
 import { proxyApiRequest } from '@/lib/http/api-service-proxy';
+import { isPortalDemo } from '@/features/portal/server/demo-mode';
 
 export const prerender = false;
 
@@ -23,6 +24,12 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
     return jsonError(404, 'Not found', {
       'Cache-Control': 'no-store, max-age=0',
     });
+  }
+
+  // The literal DEV check lets the build drop the demo module entirely.
+  if (import.meta.env.DEV && await isPortalDemo(locals)) {
+    const { handleDemoRequest } = await import('@/features/portal/server/demo-api');
+    return handleDemoRequest(request, targetPath.slice('/api/'.length));
   }
 
   const url = new URL(request.url);

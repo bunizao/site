@@ -60,7 +60,7 @@ const CLUSTER_KEYS: AdminClusterKey[] = [
    fixture exists so the layout can be designed against something, not so it
    can pretend to be a capture. `detail` and `client` stay null on two of the
    three rows, which is also what a swept row looks like. */
-function demoActor(overrides: Partial<Omit<AdminCommentActor, 'cluster' | 'keys'>> & {
+export function demoActor(overrides: Partial<Omit<AdminCommentActor, 'cluster' | 'keys'>> & {
   cluster?: Partial<Record<AdminClusterKey, AdminClusterCount>>;
   keys?: Partial<AdminCommentActor['keys']>;
 } = {}): AdminCommentActor {
