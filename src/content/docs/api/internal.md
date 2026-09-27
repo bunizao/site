@@ -1,20 +1,20 @@
 ---
 title: Internal Endpoints
-description: The admin, webhook, and cron-triggered routes — what exists at each path, how it is gated, and why this page lists them instead of specifying them.
+description: The admin, webhook, and cron-triggered routes, with each path's purpose and how it is gated.
 group: API
 order: 11
 badge: Gated
 ---
 
-Everything on this page is part of the URL surface of `buxx.me`, so it belongs
-in a complete route reference. None of it is a public API.
+These routes are part of the `buxx.me` URL space, so the route reference lists
+them. None of them is a public API.
 
-This page deliberately stops at path, purpose, and auth tier. Request fields,
-response shapes, status codes, limits, and implementation details stay beside
-the handlers in the private `site-api` repository.
+This page covers only each route's path, purpose, and auth tier. Request
+fields, response shapes, status codes, limits, and implementation details live
+next to the handlers in the private `site-api` repository.
 
-Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
-[Path forms](/docs/api/overview#path-forms-api-is-a-prefix-not-a-directory).
+Paths are shown in their bare `site-api` form. On `buxx.me`, add `/api` in
+front; see [Path forms](/docs/api/overview#path-forms).
 
 ## Admin authentication
 
@@ -43,7 +43,7 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/reactions` | Reads the reaction list with the actor block on each row. | Admin session |
 | `/admin/reactions/insights` | Reads the grouped reaction tables. | Admin session |
 | `/admin/sources/*/*` | Reads one key's profile (key type, then value): its rows, its spread, its link graph. | Admin session |
-| `/admin/bans` | Lists the ban list, and applies bans with an optional purge. | Admin session |
+| `/admin/bans` | Lists bans, and applies new bans with an optional purge. | Admin session |
 | `/admin/bans/preview` | Previews distinct affected accounts, sessions and content before a ban. | Admin session |
 | `/admin/bans/operations` | Lists recent purge operations and their recovery state. | Admin session |
 | `/admin/bans/operations/:id/restore` | Restores eligible content from one purge while leaving bans unchanged. | Admin session |
@@ -87,23 +87,24 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/webhooks/telegram` | Receives Telegram mood events. | Telegram secret token |
 | `/webhooks/telegram-ops` | Receives the ops bot's updates: the flood-gate decision keyboard, the bot command surface, comment moderation actions, and pending-action confirmations. | Its own Telegram secret token, plus a Telegram user id allowlist |
 
-`/webhooks/telegram-ops` is deliberately separate from `/webhooks/telegram`:
-a different path, a different secret header value, and an operator allowlist
-on top, so the bot that can act on the site is not the bot that ingests public
-channel content. It is dispatched from `worker.ts` rather than a file under
-`src/pages/`, which is why
-[`check:docs-coverage`](/docs/development#checks)
-cannot see it — a manually wired route has to be added to this table by hand.
+`/webhooks/telegram-ops` is kept apart from `/webhooks/telegram`. It uses a
+different path, a different secret header value, and an operator allowlist on
+top, so the bot that can act on the site is not the bot that ingests public
+channel content.
+
+`worker.ts` dispatches this route directly instead of through a file under
+`src/pages/`, so [`check:docs-coverage`](/docs/development#checks) cannot see
+it. Add a manually wired route like this one to this table by hand.
 
 ## Mood sync routes
 
 | Path | Purpose | Auth tier |
 | --- | --- | --- |
-| `/v2/mood/converge/report` | The converge Durable Object reports Telegram channel differences — deletions, verifications, gaps — to the archive. | HMAC-signed with the shared mood sync secret via `X-Mood-Timestamp` / `X-Mood-Signature` |
+| `/v2/mood/converge/report` | The converge Durable Object reports Telegram channel differences (deletions, verifications, gaps) to the archive. | HMAC-signed with the shared mood sync secret via `X-Mood-Timestamp` / `X-Mood-Signature` |
 
 The VPS mood-reconcile prober (`/v2/mood/reconcile/due`, `/v2/mood/reconcile/report`)
-and the mood-media-sync route it was paired with are retired: mood-converge above
-has replaced both.
+and the mood-media-sync route paired with it are retired. mood-converge, above,
+replaced both.
 
 ## Instagram refresh route
 
