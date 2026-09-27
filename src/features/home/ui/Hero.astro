@@ -273,6 +273,18 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
     }
   }
 
+  /* Pause-only: `animation-play-state` freezes each animation at its current
+     frame and resumes from that exact point, so scrolling the hero back into
+     view needs no state of its own to restore. The marquee and caret classes
+     belong to sibling components, hence `:global()`; `.status-dot` is scoped
+     here and needs the same specificity (three classes) as `.is-live`'s rule
+     above to win by source order once both classes are on the section at once. */
+  .hero-section.is-offscreen :global(.marquee-track),
+  .hero-section.is-offscreen :global(.typewriter-caret),
+  .hero-section.is-offscreen .status-dot {
+    animation-play-state: paused;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .hero-section.is-live .status-dot {
       animation: none;
@@ -442,6 +454,17 @@ const socialJoiner = (i: number): string => (i === 0 ? '' : i === socials.length
   const statusWords: string[] = JSON.parse(statusHost?.dataset.statusWords || '[]');
 
   const announce = (name: string) => window.dispatchEvent(new CustomEvent(name));
+
+  // The marquee drift, typewriter caret and status pulse keep animating,
+  // and costing main-thread time, long after the hero has scrolled out of
+  // view. `.is-offscreen` pauses them either direction; runs unconditionally,
+  // ahead of the reduced-motion gate below, since it costs nothing idle.
+  if (heroSection) {
+    const offscreenObserver = new IntersectionObserver(([entry]) => {
+      heroSection.classList.toggle('is-offscreen', !entry.isIntersecting);
+    });
+    offscreenObserver.observe(heroSection);
+  }
 
   const initEntrance = () => {
     if (!heroSection) return;
