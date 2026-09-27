@@ -27,6 +27,13 @@ export interface PostContentOptions {
 let provider: ContentProvider | null = null;
 const AUTHORSHIP_SOURCE_NAMES = new Set(['authors']);
 
+// Sanitizing and (when requested) running the Ghost directive/HTML pipeline is
+// the expensive part of serving a post; the same post+outputTarget pair is
+// routinely asked for more than once within a single build or request (e.g.
+// listed and accessible posts overlap, or a page reads accessible posts twice).
+// One process-lifetime cache keyed by post id avoids redoing that work.
+const preparedPostCache = new Map<string, Promise<Post>>();
+
 export function getPostsProvider(): ContentProvider {
   if (!provider) {
     const runtimeConfig = getGhostRuntimeConfig();
@@ -42,23 +49,39 @@ export function getPostsProvider(): ContentProvider {
 
 export function resetPostsProviderForTests(): void {
   provider = null;
+  preparedPostCache.clear();
+}
+
+async function preparePost(
+  post: Post,
+  outputTarget: DirectiveOutputTarget | undefined,
+): Promise<Post> {
+  const cacheKey = `${post.id}:${outputTarget ?? 'raw'}`;
+  const cached = preparedPostCache.get(cacheKey);
+  if (cached) return cached;
+
+  // Cache the in-flight promise, not the resolved post: callers routinely ask
+  // for the same post+outputTarget concurrently (e.g. getListedPosts and
+  // getAccessiblePosts in the same Promise.all), and caching only the
+  // resolved value would let both run the transform before either finishes.
+  const prepared = (async () => {
+    const sanitized = sanitizePostDerivedText(post);
+    return outputTarget ? await transformPostContent(sanitized, outputTarget) : sanitized;
+  })();
+  preparedPostCache.set(cacheKey, prepared);
+
+  return prepared;
 }
 
 async function preparePosts(
   posts: Post[],
   options: PostContentOptions,
 ): Promise<Post[]> {
-  const sanitizedPosts = posts.map(sanitizePostDerivedText);
-  const { outputTarget } = options;
-  if (!outputTarget) {
-    return [...sanitizedPosts].sort(comparePostsByPublishedDateDesc);
-  }
-
-  const transformed = await Promise.all(
-    sanitizedPosts.map((post) => transformPostContent(post, outputTarget)),
+  const prepared = await Promise.all(
+    posts.map((post) => preparePost(post, options.outputTarget)),
   );
 
-  return transformed.sort(comparePostsByPublishedDateDesc);
+  return prepared.sort(comparePostsByPublishedDateDesc);
 }
 
 export async function getListedPosts(options: PostContentOptions = {}): Promise<Post[]> {
@@ -74,9 +97,7 @@ export async function getPostBySlug(
   options: PostContentOptions = {},
 ): Promise<Post | null> {
   const rawPost = await getPostsProvider().getPostBySlug(slug);
-  const post = rawPost ? sanitizePostDerivedText(rawPost) : null;
-  if (!post || !options.outputTarget) return post;
-  return transformPostContent(post, options.outputTarget);
+  return rawPost ? preparePost(rawPost, options.outputTarget) : null;
 }
 
 // Tag directory limited to public tags that actually carry posts. The provider
