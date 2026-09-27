@@ -1,0 +1,41 @@
+---
+/* The portal as one client app. Every screen it knows lives under this rest
+   route; the static pages beside it win for their own paths until each one
+   is rebuilt here and deleted (plans/dev-portal-v2.md).
+
+   client:only on purpose: every screen is behind admin auth and reads live
+   data, so server HTML would be a skeleton either way. Rendering it in the
+   browser once is what makes moving between screens instant. */
+import '@/styles/globals.css';
+import PortalApp from '@/features/portal/app/PortalApp';
+import { isPortalDemo } from '@/features/portal/server/demo-mode';
+import { SITE_FAVICON } from '@/lib/favicon';
+
+export const prerender = false;
+
+const session = (Astro.locals as { adminSession?: { login?: string; email?: string; avatarUrl?: string } }).adminSession;
+const user = session?.login ? { login: session.login, email: session.email ?? null, avatarUrl: session.avatarUrl ?? null } : null;
+const demo = await isPortalDemo(Astro.locals as never);
+const sidebarOpen = Astro.cookies.get('sidebar_state')?.value !== 'false';
+---
+
+<!doctype html>
+<html lang="en" class="theme-portal dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" type="image/svg+xml" href={SITE_FAVICON} />
+    <link rel="preload" href="/fonts/geist-sans-variable.woff2" as="font" type="font/woff2" crossorigin />
+    <title>Dev Portal</title>
+  </head>
+  <body class="bg-background font-display text-foreground antialiased">
+    <PortalApp client:only="react" user={user} demo={demo} sidebarOpen={sidebarOpen}>
+      <div slot="fallback" class="flex min-h-svh">
+        <div class="hidden w-64 shrink-0 border-e bg-sidebar md:block"></div>
+        <div class="flex-1"></div>
+      </div>
+    </PortalApp>
+  </body>
+</html>

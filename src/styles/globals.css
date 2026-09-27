@@ -996,6 +996,13 @@ html.no-transition * {
   --success-foreground: 152 52% 70%;
   --warning: 38 88% 58%;
   --warning-foreground: 41 96% 70%;
+  /* coss <Sidebar>: one step below the page so the rail reads as chrome. */
+  --sidebar: 240 8% 5%;
+  --sidebar-foreground: 228 10% 78%;
+  --sidebar-accent: 240 5% 13%;
+  --sidebar-accent-foreground: 220 16% 96%;
+  --sidebar-border: 240 5% 12%;
+  --sidebar-ring: 234 60% 62%;
   --portal-accent: 234 60% 62%;
   --portal-success: 152 46% 50%;
   --portal-warning: 38 88% 58%;
