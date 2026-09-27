@@ -185,7 +185,7 @@ describe('agent markdown registry', () => {
       .toBe('?3631');
     expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3640')))
       .toBe('?3640');
-    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?utm_source=x')))
+    expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?source=archive')))
       .toBeNull();
     expect(policy?.normalizeHtmlCacheSearch?.(new URL('https://buxx.me/mood?3631&source=archive')))
       .toBeNull();
