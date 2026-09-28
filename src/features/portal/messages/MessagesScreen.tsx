@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { AdminOwnerMessage, AdminOwnerMessageAction, MessageState } from '@bunizao/contracts';
 import { ArrowUp } from 'lucide-react';
@@ -11,11 +12,12 @@ import { cn } from '@/lib/utils';
 import { HEAD, LINE, SMALL, SPACED, TABLE } from '../activity/table';
 import { ApiError, MISSING_ROUTE_MESSAGE, describeError, isMissingRoute } from '../app/api';
 import { useHotkeys } from '../app/hotkeys';
+import { lazyPart } from '../app/lazy-screen';
 import { mergeHistoryState, navigate, readHistoryState, useLocation } from '../app/router';
 import { ScreenHeader } from '../app/shell/ScreenHeader';
 import { undoLast } from '../app/undo';
 import { useStableView } from '../audience/stable-view';
-import { BanDialog, type BanTarget } from '../comments/BanDialog';
+import type { BanTarget } from '../comments/BanDialog';
 import { plural } from '../moderation/format';
 import { LoadError, StateTabs } from '../moderation/ui';
 import {
@@ -33,6 +35,10 @@ import {
 } from './data';
 import { MessageDetail } from './MessagePane';
 import { MSG_COLUMNS, MSG_GRID, MSG_MID, MessageRow } from './MessageRow';
+
+/* A key away and not part of the first paint: it loads with the idle
+   screens (app/lazy-screen.ts), so by the first B it has usually arrived. */
+const BanDialog = lazyPart(() => import('../comments/BanDialog').then((module) => module.BanDialog));
 
 /* Messages sent to the owner through the site, newest first, in three
    trays: Inbox, Archived, Spam. The query holds the tray (`?view=spam`)
@@ -260,8 +266,15 @@ export default function MessagesScreen() {
           : { type: 'info', title: 'Still loading the sender', description: 'Press B again in a moment.' });
         return;
       }
-      setBan({ kind: 'actor', actor: loaded.actor, messageId: message.id });
-      setBanOpen(true);
+      const target: BanTarget = { kind: 'actor', actor: loaded.actor, messageId: message.id };
+      BanDialog.preload().then(
+        () => {
+          // Mounted closed first: a dialog mounted open skips its enter transition.
+          flushSync(() => setBan(target));
+          setBanOpen(true);
+        },
+        () => toastManager.add({ type: 'error', title: 'That did not load', description: 'Check the connection, then press B again.' }),
+      );
     },
     [detail.data],
   );
@@ -563,7 +576,7 @@ export default function MessagesScreen() {
         </Drawer>
       )}
 
-      <BanDialog target={ban} open={banOpen} onOpenChange={setBanOpen} onFilesMessage={banFiles} />
+      {ban !== null && <BanDialog target={ban} open={banOpen} onOpenChange={setBanOpen} onFilesMessage={banFiles} />}
     </div>
   );
 }
