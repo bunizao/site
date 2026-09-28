@@ -371,6 +371,8 @@ test.describe('messages', () => {
     await expect(pane(page).getByText('Typed a reader’s address', { exact: true })).toBeVisible();
     await expect(pane(page).getByText('Signed-in reader', { exact: true })).toHaveCount(0);
     await expect(senderRow(page, 'Signed-in address')).toHaveCount(0);
+    // A reply still reaches Mira, so the pane says who it may reach instead.
+    await expect(pane(page).getByText(/typed it without signing in, so it may reach a reader who never wrote to you\.$/)).toBeVisible();
     const address = senderRow(page, 'Typed address');
     await expect(address).toContainText('mira.k@example.de');
     // The address is Mira's, and her three messages share it; the device is not.

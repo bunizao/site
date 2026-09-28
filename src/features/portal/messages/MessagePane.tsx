@@ -54,12 +54,15 @@ const WRAPPING_DOT = 'items-start whitespace-normal text-[13px] leading-5 [&>spa
 
 function Replyability({ detail }: { detail: DetailState }) {
   if (detail.data) {
-    const { sender } = detail.data;
+    const { sender, message } = detail.data;
     if (sender.replyable === 'ok') {
+      // A typed address still reaches its reader, who may not be the sender.
+      const typed = message.authAtWrite === 'anonymous';
       return (
-        <StatusDot tone="success" className={WRAPPING_DOT}>
+        <StatusDot tone={typed ? 'warning' : 'success'} className={WRAPPING_DOT}>
           <span>
             A reply goes by email to <span className="break-words font-mono text-xs tabular-nums">{sender.email}</span>
+            {typed && '. The sender typed it without signing in, so it may reach a reader who never wrote to you.'}
           </span>
         </StatusDot>
       );
