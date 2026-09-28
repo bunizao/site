@@ -439,6 +439,71 @@ describe('the manual ban dialog', () => {
       expect(daysAhead(writes(calls)[0]!.body.expiresAt)).toBe(7);
     }, { answer });
   });
+
+  /** Opens the dialog on the Bans screen with this key kind picked. */
+  async function openManual(page: Page, kind: string) {
+    await page.evaluate(() => window.portalHarness.bansScreen());
+    await page.getByRole('button', { name: /^Ban a key/ }).first().click();
+    const dialog = page.getByRole('dialog', { name: 'Ban a key' });
+    await dialog.waitFor();
+    await dialog.getByRole('button', { name: kind, exact: true }).click();
+    return dialog;
+  }
+
+  test('a shared key waits for its impact, and Enter writes nothing until it arrives', async () => {
+    for (const kind of ['Subnet', 'IP address']) {
+      await fixture('/dev/portal/comments/bans', async (page, calls) => {
+        let release!: () => void;
+        const answered = new Promise<void>((resolve) => (release = resolve));
+        await page.route('**/admin/bans/preview', async (route) => {
+          await answered;
+          await route.fulfill({ json: impact() });
+        });
+        const dialog = await openManual(page, kind);
+        await dialog.getByLabel('Value').fill('hash-typed');
+        const ban = dialog.getByRole('button', { name: /^Ban/ });
+        expect(await ban.isDisabled()).toBe(true);
+        expect(await dialog.locator('#manual-ban-impact').innerText()).toContain('Ban waits: others can share this key.');
+        await dialog.getByLabel('Value').press('Enter');
+        await Bun.sleep(100);
+        expect(writes(calls)).toEqual([]);
+
+        release();
+        await dialog.getByText(/^Matches 7 comments/).waitFor();
+        const written = page.waitForRequest((request) => request.method() === 'POST' && request.url().endsWith('/admin/bans'));
+        await dialog.getByLabel('Value').press('Enter');
+        await written;
+        expect(writes(calls)).toHaveLength(1);
+      }, { answer });
+    }
+  });
+
+  test('a failed impact check on a shared key still lets the ban through', async () => {
+    await fixture('/dev/portal/comments/bans', async (page, calls) => {
+      await page.route('**/admin/bans/preview', (route) => route.fulfill({ status: 500, json: { error: 'internal' } }));
+      const dialog = await openManual(page, 'Network');
+      await dialog.getByLabel('Value').fill('AS14061');
+      await dialog.getByText('Could not check what this matches. You can still ban it.').waitFor();
+      const written = page.waitForRequest((request) => request.method() === 'POST' && request.url().endsWith('/admin/bans'));
+      await dialog.getByRole('button', { name: /^Ban/ }).click();
+      await written;
+      expect(writes(calls)[0]!.body.keys).toEqual([{ type: 'asn', value: '14061' }]);
+    }, { answer });
+  });
+
+  test('a key that names one person goes at once, before its impact arrives', async () => {
+    for (const kind of ['Session', 'Email']) {
+      await fixture('/dev/portal/comments/bans', async (page, calls) => {
+        await page.route('**/admin/bans/preview', () => {}); // never answers
+        const dialog = await openManual(page, kind);
+        await dialog.getByLabel('Value').fill('hash-typed');
+        const written = page.waitForRequest((request) => request.method() === 'POST' && request.url().endsWith('/admin/bans'));
+        await dialog.getByLabel('Value').press('Enter');
+        await written;
+        expect(writes(calls)).toHaveLength(1);
+      }, { answer });
+    }
+  });
 });
 
 describe('restoring a removal', () => {

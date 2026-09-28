@@ -8,6 +8,7 @@ import { Label } from '@/components/coss/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/coss/toggle-group';
 import { cn } from '@/lib/utils';
 import { apiSend } from '../app/api';
+import { namesOnePerson } from '../comments/model';
 import { describeBanError, type BanDraft } from './data';
 import { BAN_TYPES, BAN_TYPE_LABELS, RAW_BAN_TYPES, expiryText, formatCount, plural } from './format';
 import { StatusDot } from './ui';
@@ -15,8 +16,10 @@ import { StatusDot } from './ui';
 /* Ban a key by hand: one form, no second step. What the key reaches is
    looked up while you type and shown under the field, so reading the impact
    costs no extra click, and a refusal the server would give (a protected
-   email domain) shows up before you press Ban. Pressing Ban closes the
-   dialog at once; the row is already in the list, with undo in the toast. */
+   email domain) shows up before you press Ban. A key other readers can
+   share waits for that impact, as in the comment ban dialog; a failed
+   check does not block it. Pressing Ban closes the dialog at once; the
+   row is already in the list, with undo in the toast. */
 
 const EXPIRY: Array<{ value: string; label: string; days: number | null }> = [
   { value: '7', label: '7 days', days: 7 },
@@ -83,24 +86,23 @@ type Impact =
   | { state: 'refused'; message: string }
   | { state: 'failed' };
 
-/** What the key reaches, fetched once typing pauses. */
+/** What the key reaches, fetched once typing pauses. An answer counts only
+    for the key it was asked about, so a new key reads as loading from its
+    first render, never as the last key's impact. */
 function useImpact(type: AdminBanKeyType, value: string | null): Impact {
-  const [impact, setImpact] = React.useState<Impact>({ state: 'idle' });
+  const key = value ? `${type}:${value}` : null;
+  const [answer, setAnswer] = React.useState<{ key: string; impact: Impact } | null>(null);
   React.useEffect(() => {
-    if (!value) {
-      setImpact({ state: 'idle' });
-      return;
-    }
+    if (!key) return;
     let live = true;
-    setImpact({ state: 'loading' });
     const timer = setTimeout(() => {
       apiSend<AdminBanPreview>('POST', 'admin/bans/preview', { keys: [{ type, value }], revokeReaderId: null }).then(
-        (preview) => live && setImpact({ state: 'ready', preview }),
+        (preview) => live && setAnswer({ key, impact: { state: 'ready', preview } }),
         (error: unknown) => {
           if (!live) return;
           const code = (error as { code?: string | null }).code;
-          if (code === 'protected_email_domain' || code === 'invalid_key') setImpact({ state: 'refused', message: describeBanError(error) });
-          else setImpact({ state: 'failed' });
+          const refused = code === 'protected_email_domain' || code === 'invalid_key';
+          setAnswer({ key, impact: refused ? { state: 'refused', message: describeBanError(error) } : { state: 'failed' } });
         },
       );
     }, 350);
@@ -108,8 +110,9 @@ function useImpact(type: AdminBanKeyType, value: string | null): Impact {
       live = false;
       clearTimeout(timer);
     };
-  }, [type, value]);
-  return impact;
+  }, [key]);
+  if (!key) return { state: 'idle' };
+  return answer?.key === key ? answer.impact : { state: 'loading' };
 }
 
 export function ManualBanDialog({ open, onOpenChange, initial, existing, onSubmit }: {
@@ -153,12 +156,15 @@ const BanForm = React.memo(function BanForm({ initial, existing, onSubmit, onCan
   const impact = useImpact(type, value);
   const current = value ? existing(type, value) : undefined;
   const refused = impact.state === 'refused';
+  // A pasted email hash counts as one person here: the dialog cannot know
+  // whether it was verified, and it bans that one address only.
+  const held = impact.state === 'loading' && !namesOnePerson(type, true);
   const valueError = 'error' in normalized && touched ? normalized.error : null;
 
   const submit = (event: React.SubmitEvent): void => {
     event.preventDefault();
     setTouched(true);
-    if (!value || refused) return;
+    if (!value || refused || held) return;
     onSubmit({ type, value, note, days: EXPIRY.find((choice) => choice.value === expiry)?.days ?? 7 });
   };
 
@@ -213,6 +219,7 @@ const BanForm = React.memo(function BanForm({ initial, existing, onSubmit, onCan
               hint={'hint' in normalized ? normalized.hint : null}
               normalized={value && value !== raw.trim() ? value : null}
               impact={impact}
+              held={held}
               current={current}
             />
           </div>
@@ -247,7 +254,7 @@ const BanForm = React.memo(function BanForm({ initial, existing, onSubmit, onCan
       </DialogPanel>
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" variant="destructive" disabled={refused}>
+        <Button type="submit" variant="destructive" disabled={refused || held}>
           {current ? 'Update ban' : 'Ban'}
           <Kbd className="max-sm:hidden bg-transparent text-current">↵</Kbd>
         </Button>
@@ -256,11 +263,12 @@ const BanForm = React.memo(function BanForm({ initial, existing, onSubmit, onCan
   );
 });
 
-function ImpactLine({ valueError, hint, normalized, impact, current }: {
+function ImpactLine({ valueError, hint, normalized, impact, held, current }: {
   valueError: string | null;
   hint: string | null;
   normalized: string | null;
   impact: Impact;
+  held: boolean;
   current: AdminBan | undefined;
 }) {
   if (valueError) return <StatusDot tone="danger" className="whitespace-normal">{valueError}</StatusDot>;
@@ -273,7 +281,13 @@ function ImpactLine({ valueError, hint, normalized, impact, current }: {
       </span>,
     );
   }
-  if (impact.state === 'loading') lines.push(<span key="i" className="text-muted-foreground">Checking what this matches…</span>);
+  if (impact.state === 'loading') {
+    lines.push(
+      <span key="i" className="text-muted-foreground">
+        {held ? 'Checking what this matches. Ban waits: others can share this key.' : 'Checking what this matches…'}
+      </span>,
+    );
+  }
   if (impact.state === 'failed') lines.push(<span key="i" className="text-muted-foreground">Could not check what this matches. You can still ban it.</span>);
   if (impact.state === 'refused') lines.push(<StatusDot key="i" tone="danger" className="whitespace-normal">{impact.message}</StatusDot>);
   if (impact.state === 'ready') {
