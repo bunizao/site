@@ -20,6 +20,7 @@ import {
   type MoodCommentsCopy,
 } from '@/features/comments/copy';
 import { initials } from '@/features/comments/identity';
+import { markEmailRequired } from '@/features/comments/compose-validate';
 import { moodCommentsUrl, moodSiteCommentsUrl } from '@/features/comments/api-urls';
 import { NO_THREAD_MARKS, readThreadMarks, type ThreadMarks } from '@/features/comments/thread-marks';
 import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
@@ -659,6 +660,12 @@ export async function initMoodDetailComments(
   // scrape: an `off` thread leaves before its rows ever would have arrived.
   applyMode(commentsSection, sitePage?.policy?.mode);
   if (commentsSection.hidden) return;
+  // The owner's site-wide email rule reaches the page only through this
+  // first page; the box then asks for an address, as the blog's does.
+  if (sitePage?.policy?.requireVerifiedEmail) {
+    const box = document.querySelector<HTMLElement>('[data-mood-compose]');
+    if (box) markEmailRequired(box);
+  }
   marks = readThreadMarks(sitePage?.comments ?? []);
   const pinnedRow = sitePage?.comments.find((comment) => comment.id === marks.pinnedId);
   const pinnedFallback = pinnedRow ? moodItemFromSiteComment(pinnedRow) : undefined;

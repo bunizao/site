@@ -108,3 +108,10 @@ test('the controller marks both boxes from the first page, before drawing the mo
   expect(bootstrap.slice(rule)).toMatch(/if \(compose\) markEmailRequired\(compose\);\s+markEmailRequired\(replyBox\);/);
   expect(rule).toBeLessThan(bootstrap.indexOf("if (mode === 'off')"));
 });
+
+test('the mood thread marks its box from the site page it already reads', () => {
+  const controller = readFileSync(new URL('../../src/features/mood/client/detail-comments-controller.ts', import.meta.url), 'utf8');
+  const rule = controller.indexOf('if (sitePage?.policy?.requireVerifiedEmail)');
+  expect(rule).toBeGreaterThan(controller.indexOf('applyMode(commentsSection, sitePage?.policy?.mode);'));
+  expect(controller.slice(rule)).toMatch(/querySelector<HTMLElement>\('\[data-mood-compose\]'\);\s+if \(box\) markEmailRequired\(box\);/);
+});
