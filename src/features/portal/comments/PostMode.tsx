@@ -35,7 +35,7 @@ export function PostModeLine({ comment }: { comment: PortalComment }) {
 
   // Two lines of fixed height, answered or not, so the text below stays put.
   return (
-    <div className="min-h-[3.75rem] pt-2 text-[13px]">
+    <div className="min-h-[4.75rem] pt-6 text-[13px]">
       {one.isError ? (
         <p className="flex min-h-7 items-center text-muted-foreground">
           {isMissingRoute(one.error) ? 'Post modes need the updated site-api.' : `Mode not read: ${describeModeError(one.error)}`}

@@ -125,7 +125,7 @@ function PivotAnchor({ pivot, keep, children, className }: {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="pt-7">
+    <div className="pt-10">
       <h3 className="pb-1 font-medium text-muted-foreground text-sm">{title}</h3>
       {children}
     </div>
@@ -142,7 +142,7 @@ function EmailBreak({ value }: { value: string }) {
 function Row({ row, keep }: { row: RecordRow; keep: string | null }) {
   const count = row.count;
   return (
-    <div className="grid grid-cols-[7.5rem_minmax(0,1fr)_auto] items-start gap-x-3 py-2 text-[13px] leading-5">
+    <div className="grid grid-cols-[7.5rem_minmax(0,1fr)_auto] items-start gap-x-3 py-2 text-[13px] leading-5 last:pb-0">
       <dt className="text-muted-foreground" title={row.explain}>{row.label}</dt>
       {/* Mono for a value only: "Not recorded" is a word, not a key. */}
       <dd className={cn('min-w-0 break-words', row.value ? 'text-foreground' : 'text-muted-foreground', row.value && row.mono && 'font-mono text-xs leading-5 tabular-nums')}>
@@ -234,7 +234,7 @@ function History({ commentId }: { commentId: string }) {
   return (
     <ol className="flex flex-col">
       {history.data.entries.map((entry) => (
-        <li key={entry.id} className="grid grid-cols-[9.5rem_minmax(0,1fr)] gap-x-3 py-2 text-[13px] leading-5">
+        <li key={entry.id} className="grid grid-cols-[9.5rem_minmax(0,1fr)] gap-x-3 py-2 text-[13px] leading-5 last:pb-0">
           <time className="font-mono text-muted-foreground text-xs leading-5 tabular-nums" dateTime={entry.createdAt}>
             {fullStamp(entry.createdAt)}
           </time>
@@ -259,7 +259,7 @@ function RestoreLine({ comment }: { comment: PortalComment }) {
   const left = restoreLeft(comment);
   if (left === null) {
     return (
-      <p className="pt-3 text-[13px] text-muted-foreground">
+      <p className="pt-6 text-[13px] text-muted-foreground">
         {comment.restorableUntil ? 'Cannot be restored: its 30 days are over.' : 'Cannot be restored: its writer removed it, or a ban purged it.'}
       </p>
     );
@@ -267,7 +267,7 @@ function RestoreLine({ comment }: { comment: PortalComment }) {
   const days = Math.floor(left / 86_400_000);
   const hours = Math.floor(left / 3_600_000);
   return (
-    <p className="pt-3 text-[13px] text-foreground">
+    <p className="pt-6 text-[13px] text-foreground">
       Restorable until <span className="font-mono text-xs tabular-nums">{stamp(comment.restorableUntil!)}</span>
       <span className="text-muted-foreground"> · {days >= 1 ? `${days} of ${RESTORE_DAYS} days left` : `${Math.max(1, hours)}h left`}</span>
     </p>
@@ -784,14 +784,14 @@ export function CommentDetail({
           )}
           {comment.editedAt && ` · edited ${fullStamp(comment.editedAt).slice(0, 16)}`}
         </p>
-        <PostModeLine comment={comment} />
         {decision && (
-          <div className="pt-3 text-[13px]">
+          <div className="pt-6 text-[13px]">
             <p className="text-foreground">{decision.summary}</p>
             {decision.detail && <p className="text-muted-foreground">{decision.detail}</p>}
           </div>
         )}
         <RestoreLine comment={comment} />
+        <PostModeLine comment={comment} />
 
         <ThreadSection comment={comment} thread={thread} focusRequest={replyFocus} variant={variant} locked={locked} onOpenComment={onOpenComment} />
 
@@ -814,7 +814,7 @@ export function CommentDetail({
                 keep={keep}
               />
             )}
-            <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-3 py-2 text-[13px] leading-5">
+            <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-3 py-2 text-[13px] leading-5 last:pb-0">
               <dt className="text-muted-foreground">Other comments</dt>
               <dd>
                 {writer && writerCluster && writerCluster.comments > 0 ? (
