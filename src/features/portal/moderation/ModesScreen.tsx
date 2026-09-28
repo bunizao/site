@@ -92,7 +92,7 @@ export default function ModesScreen() {
   const overrides = useModeOverrides();
   const set = useSetMode();
 
-  // A cleared row stays, showing None, until the screen is left.
+  // A cleared row stays, showing Default, until the screen is left.
   React.useEffect(() => () => pruneCleared(client), [client]);
 
   const byId = React.useMemo(() => new Map((overrides.data?.modes ?? []).map((state) => [modeId(state), state])), [overrides.data]);
@@ -224,7 +224,7 @@ export default function ModesScreen() {
           <ModeRow key={modeId(state)} state={state} title={state.title} slug={state.slug} onSet={onSet} />
         ))}
         <p className="px-3 py-3 text-muted-foreground text-xs">
-          {plural(listed.filter((state) => state.override).length, 'override')}. Clearing one (None) hands the post back to its tags.
+          {plural(listed.filter((state) => state.override).length, 'override')}. Clearing one (Default) hands the post back to its tags.
         </p>
       </div>
     );

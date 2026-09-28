@@ -555,7 +555,7 @@ test.describe('post modes', () => {
     }
   });
 
-  test('one click changes an override in place, Z undoes it, and None hands it back to its tags', async ({ page }) => {
+  test('one click changes an override in place, Z undoes it, and Default hands it back to its tags', async ({ page }) => {
     const state = (await modeList(page)).find((entry) => entry.slug === 'retry-budget');
     expect(state, 'the demo overrides retry-budget').toBeTruthy();
     const target = state!;
@@ -577,7 +577,7 @@ test.describe('post modes', () => {
       await expect.poll(() => overrideOf(page, target.surface, target.postId)).toBe(target.override);
 
       // Cleared, the row stays until the screen is left, showing its tags.
-      await radio(page, target, 'None').click();
+      await radio(page, target, 'Default').click();
       await expect(readersGet(page, target)).toHaveText(MODE_LABELS[target.tagMode!], INNER);
       const cleared = toast(page, `“${target.title}” follows its tags again`);
       await expect(cleared).toContainText(CACHE_NOTE);
@@ -600,7 +600,7 @@ test.describe('post modes', () => {
       await page.keyboard.press('/');
       await page.keyboard.insertText('sandbox');
       const found = modeRow(page, target);
-      await expect(found.getByRole('radio', { name: 'None', exact: true })).toHaveAttribute('aria-checked', 'true');
+      await expect(found.getByRole('radio', { name: 'Default', exact: true })).toHaveAttribute('aria-checked', 'true');
       await expect(found.getByRole('cell').nth(2)).toHaveText('Off', INNER);
 
       await found.getByRole('radio', { name: 'Read-only', exact: true }).click();
@@ -815,7 +815,7 @@ test.describe('pin, lock and mode in the comment pane', () => {
     const choice = (name: string) => group.getByRole('radio', { name, exact: true });
     try {
       await open(page, `/comments?status=all&c=${comment.id}`);
-      await expect(choice(start ? MODE_LABELS[start] : 'None')).toHaveAttribute('aria-checked', 'true');
+      await expect(choice(start ? MODE_LABELS[start] : 'Default')).toHaveAttribute('aria-checked', 'true');
       await expect(commentPane(page)).toContainText(/Tags give\s*(Open|Read-only|Off)/);
 
       await choice(label).click();
@@ -825,7 +825,7 @@ test.describe('pin, lock and mode in the comment pane', () => {
       await expect.poll(() => overrideOf(page, surface, comment.postId)).toBe(next);
 
       await receipt.getByRole('button', { name: 'Undo' }).click();
-      await expect(choice(start ? MODE_LABELS[start] : 'None')).toHaveAttribute('aria-checked', 'true');
+      await expect(choice(start ? MODE_LABELS[start] : 'Default')).toHaveAttribute('aria-checked', 'true');
       await expect.poll(() => overrideOf(page, surface, comment.postId)).toBe(start);
 
       // Set again, then Post modes shows it, and Back returns to the pane.

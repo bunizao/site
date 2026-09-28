@@ -16,7 +16,7 @@ import { Segmented, StatusDot } from '../moderation/ui';
 /* The comment pane's post line carries the post's comment mode: the same
    four-way override as Post modes, from the same cache entry, so a change
    in either shows in both. What the tags give sits beside it, which with
-   None is what readers get. The line keeps its height from the first frame
+   Default is what readers get. The line keeps its height from the first frame
    to the answer, so nothing under it moves. */
 
 /** Rows before P2 carry no surface: mood posts key on a numeric id and

@@ -25,10 +25,11 @@ export const CACHE_NOTE = 'Changes reach cookie-less readers within about 90s.';
 export const MODE_LABELS: Record<CommentsMode, string> = { open: 'Open', readonly: 'Read-only', off: 'Off' };
 export const MODE_TONE: Record<CommentsMode, Tone> = { open: 'neutral', readonly: 'warning', off: 'neutral' };
 
-/** The override switch: None hands the post back to its tags. */
+/** The override switch: Default drops the override, so the post follows
+    its tags (a mood post, the site default). */
 export type ModeChoice = CommentsMode | 'none';
 export const MODE_CHOICES = [
-  { value: 'none', label: 'None' },
+  { value: 'none', label: 'Default' },
   { value: 'open', label: MODE_LABELS.open },
   { value: 'readonly', label: MODE_LABELS.readonly },
   { value: 'off', label: MODE_LABELS.off },

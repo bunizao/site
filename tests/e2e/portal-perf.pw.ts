@@ -751,7 +751,7 @@ test.describe('portal click-to-paint', () => {
         }
       }
       const labels: Record<string, string> = { open: 'Open', readonly: 'Read-only', off: 'Off' };
-      const original = startMode ? labels[startMode] : 'None';
+      const original = startMode ? labels[startMode] : 'Default';
       const other = startMode === 'off' ? 'Open' : 'Off';
       const group = page.locator('aside[aria-label="Comment detail"] [role="radiogroup"]');
       for (let round = 0; round < 3; round += 1) {
