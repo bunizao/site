@@ -51,12 +51,12 @@ import {
 import {
   absoluteTime,
   commentPublicUrl,
+  decisionOf,
   fingerprintRecord,
   fullStamp,
   identityDetail,
   isHash,
   pivotHref,
-  reasonLine,
   stamp,
   writerPivot,
   type Pivot,
@@ -544,7 +544,7 @@ export function CommentDetail({
 }: CommentDetailProps) {
   const token = useAnchorToken(comment.id);
   const publicUrl = commentPublicUrl(comment, token);
-  const reason = reasonLine(comment);
+  const decision = decisionOf(comment);
   const record = React.useMemo(() => fingerprintRecord(comment), [comment]);
   const writer = writerPivot(comment.actor);
   const writerCluster = writer ? comment.actor.cluster[writer.type === 'email' ? 'email' : 'session'] : null;
@@ -785,7 +785,12 @@ export function CommentDetail({
           {comment.editedAt && ` · edited ${fullStamp(comment.editedAt).slice(0, 16)}`}
         </p>
         <PostModeLine comment={comment} />
-        {reason && <p className="pt-3 text-[13px] text-foreground">{reason}</p>}
+        {decision && (
+          <div className="pt-3 text-[13px]">
+            <p className="text-foreground">{decision.summary}</p>
+            {decision.detail && <p className="text-muted-foreground">{decision.detail}</p>}
+          </div>
+        )}
         <RestoreLine comment={comment} />
 
         <ThreadSection comment={comment} thread={thread} focusRequest={replyFocus} variant={variant} locked={locked} onOpenComment={onOpenComment} />

@@ -233,40 +233,81 @@ export function reasonLabel(reason: string | null): string | null {
 }
 
 const AWAITING_EMAIL = /^Awaiting email: (.*)$/s;
-const SCORE_NOTE = /^score (\d+) \((.*)\)\.?$/s;
+const SCORE_NOTE = /^score (\d+) \(([^)]*)\)/;
+const OWNER_NOTE = /^\w+ by the owner from (.+?)\.$/;
+const AI_NOTE = /AI: \w+ -- (.*?)(?: Authorship: (\w+) -- (.*))?$/s;
+
+const HEURISTICS: Record<string, string> = {
+  duplicate_body: 'Same text as an earlier comment.',
+  disposable_email: 'Throwaway email address.',
+  keyword_blocklist: 'Contains a blocked word.',
+  link_count: 'Too many links.',
+};
 
 export function isAwaitingEmail(comment: PortalComment): boolean {
   return comment.status === 'held' && (comment.moderationNote ?? '').startsWith('Awaiting email');
 }
 
-/** Why a held or rejected comment is where it is, as one plain line:
-    reason · score N · signals. Null for published and deleted rows. */
-export function reasonLine(comment: PortalComment): string | null {
+export interface Decision {
+  /** What happened and who decided: "Rejected as spam by Akismet". */
+  summary: string;
+  /** Only what the summary lacks, such as the AI's reason. */
+  detail: string | null;
+}
+
+const sentence = (text: string): string => {
+  const trimmed = text.trim();
+  return trimmed ? `${trimmed[0]!.toUpperCase()}${trimmed.slice(1)}${/[.!?)]$/.test(trimmed) ? '' : '.'}` : '';
+};
+
+/** Who decided and on what, from site-api's note. The note repeats the
+    reason and the checker ("Akismet: spam."), so only the parts the
+    summary lacks come back as detail. */
+function decided(note: string | null, model: string | null): { by: string | null; detail: string | null } {
+  const text = (note ?? '').replace(/^Email confirmed; still held\.\s*/, '');
+  const owner = OWNER_NOTE.exec(text);
+  if (owner) return { by: owner[1] === 'Telegram' ? 'by you in Telegram' : 'by you in the portal', detail: null };
+  if (text.startsWith('Heuristic: ')) {
+    const rule = text.slice('Heuristic: '.length).trim();
+    return { by: 'by a rule', detail: HEURISTICS[rule] ?? sentence(rule.replace(/_/g, ' ')) };
+  }
+  if (text.startsWith('Declared agent: ')) return { by: 'by a rule', detail: sentence(text.slice('Declared agent: '.length)) };
+  if (text === 'Shadow-banned writer.') return { by: 'because the writer is banned', detail: null };
+  const ai = AI_NOTE.exec(text);
+  if (ai) {
+    const authorship = ai[2] === 'agent' ? `Reads as written by an agent: ${ai[3]}` : ai[2] ? `Authorship unclear: ${ai[3]}` : null;
+    return { by: 'by AI', detail: [sentence(ai[1]!), authorship && sentence(authorship)].filter(Boolean).join(' ') || null };
+  }
+  const by = !model ? null : model === 'akismet' ? 'by Akismet' : 'by AI';
+  // "Akismet: spam." says nothing the summary does not.
+  if (/^Akismet: [\w ]+\.$/.test(text)) return { by: by ?? 'by Akismet', detail: null };
+  return { by, detail: text ? sentence(text) : null };
+}
+
+/** Why a held or rejected comment is where it is, each fact said once.
+    Null for published and deleted rows. */
+export function decisionOf(comment: PortalComment): Decision | null {
   if (comment.status === 'published' || comment.status === 'deleted') return null;
   const note = comment.moderationNote?.trim() || null;
-  const parts: string[] = [];
 
   const awaiting = note ? AWAITING_EMAIL.exec(note) : null;
   if (comment.status === 'held' && awaiting) {
-    parts.push('Waiting for the writer to confirm an email');
-    const scored = SCORE_NOTE.exec(awaiting[1].trim());
-    if (scored) {
-      parts.push(`score ${scored[1]}`);
-      const signals = scored[2].split(',').map((signal) => signal.trim()).filter(Boolean);
-      if (signals.length > 0) parts.push(signals.join(', '));
-    } else if (awaiting[1].trim()) {
-      parts.push(awaiting[1].trim());
-    }
-    return parts.join(' · ');
+    const rest = awaiting[1]!.trim();
+    const scored = SCORE_NOTE.exec(rest);
+    const why = scored ? `Score ${scored[1]}${scored[2] ? `: ${scored[2]}` : ''}.` : sentence(rest.replace(/ Akismet: .*$/s, ''));
+    const flagged = AI_NOTE.exec(rest);
+    return { summary: 'Waiting for the writer to confirm an email', detail: [why, flagged && sentence(flagged[1]!)].filter(Boolean).join(' ') || null };
   }
 
-  const reason = reasonLabel(comment.moderationReason);
   const verb = comment.status === 'rejected' ? 'Rejected' : 'Held';
-  parts.push(reason ? `${verb} as ${reason.toLowerCase()}` : comment.status === 'held' ? 'Held for review' : verb);
-  if (comment.moderationModel) parts.push(`by ${comment.moderationModel}`);
-  if (note) parts.push(note.replace(/\.$/, ''));
-  else if (!reason && comment.status === 'held') parts.push('the checks could not decide');
-  return parts.join(' · ');
+  if (note === 'AI verdict pending.') return { summary: 'Held until the AI check answers', detail: null };
+  const reason = reasonLabel(comment.moderationReason);
+  const { by, detail } = decided(note, comment.moderationModel);
+  if (!reason && !by && comment.status === 'held') {
+    return { summary: 'Held for review: the checks could not decide', detail: null };
+  }
+  const what = reason ? `${verb} as ${reason.toLowerCase()}` : verb;
+  return { summary: by ? `${what} ${by}` : what, detail };
 }
 
 const pad = (value: number): string => String(value).padStart(2, '0');
