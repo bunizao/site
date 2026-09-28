@@ -69,6 +69,7 @@ import {
 import { LockdownLine, prefetchLockdown } from './Lockdown';
 import { REASON_LABELS, SOURCE_TYPES, absoluteTime, pivotHref, shortHandle, sourceBanKey, sourceLabel, stamp, type Pivot } from './model';
 import { OwnerSignInDialog, openOwnerSignIn } from './OwnerSignIn';
+import { PivotProfile } from './PivotProfile';
 import { RejectMenu } from './RejectMenu';
 import { useStableRows } from './stable-rows';
 import type { SwipeDirection } from './swipe';
@@ -1380,59 +1381,64 @@ function PivotLine({ pivot, profile, rows, onBan }: {
   // Show a readable value where a loaded row carries it in plain text.
   const sample = rows.find((row) =>
     pivot.key === 'ip' ? row.actor.keys.ip === pivot.value : pivot.key === 'email' ? row.actor.keys.email === pivot.value : false);
-  const display = (pivot.key === 'ip' ? sample?.actor.ip : pivot.key === 'email' ? sample?.actor.email : null) ?? shortHandle(pivot.value);
+  const display = (pivot.key === 'ip' ? sample?.actor.ip : pivot.key === 'email' ? sample?.actor.email : null)
+    ?? (pivot.key === 'email' ? data?.addresses?.find((entry) => entry.emailHash === pivot.value)?.email : null)
+    ?? shortHandle(pivot.value);
   const byStatus = data?.comments.byStatus;
 
   return (
-    <div className="flex h-11 shrink-0 items-center gap-3 border-b px-4 text-[13px]">
-      <span className="flex min-w-0 shrink-0 items-center gap-1.5">
-        <span className="text-muted-foreground">{sourceLabel(pivot.key)}</span>
-        <code className="max-w-56 truncate font-mono text-foreground text-xs" title={pivot.value}>{display}</code>
-      </span>
-      <span className="flex min-w-0 flex-1 items-center gap-3 truncate text-muted-foreground">
-        {profile.isPending ? (
-          <Skeleton className="h-3.5 w-72" />
-        ) : profile.isError ? (
-          <span>
-            The profile did not load.{' '}
-            <button type="button" className="text-foreground underline underline-offset-2" onClick={() => void profile.refetch()}>
-              Try again
-            </button>
-          </span>
-        ) : data ? (
-          <span className="truncate tabular-nums">
-            {data.firstSeenAt ? `first ${stamp(data.firstSeenAt)}` : 'never seen'}
-            {data.lastSeenAt ? ` · last ${stamp(data.lastSeenAt)}` : ''}
-            {` · ${data.comments.total} ${data.comments.total === 1 ? 'comment' : 'comments'}`}
-            {byStatus
-              ? `: ${(['held', 'published', 'rejected', 'deleted'] as const)
-                  .filter((status) => byStatus[status] > 0)
-                  .map((status) => `${byStatus[status]} ${STATUS_LABELS[status].toLowerCase()}`)
-                  .join(', ')}`
-              : ''}
-            {data.reactions.total > 0 ? ` · ${data.reactions.total} reactions` : ''}
-          </span>
-        ) : null}
-      </span>
-      {banned ? (
-        <span className="inline-flex shrink-0 items-center gap-1 text-[hsl(var(--portal-danger))] text-xs">
-          <Ban className="size-3.5" aria-hidden />
-          Banned
+    <div className="shrink-0 border-b">
+      <div className="flex h-11 items-center gap-3 px-4 text-[13px]">
+        <span className="flex min-w-0 shrink-0 items-center gap-1.5">
+          <span className="text-muted-foreground">{sourceLabel(pivot.key)}</span>
+          <code className="max-w-56 truncate font-mono text-foreground text-xs" title={pivot.value}>{display}</code>
         </span>
-      ) : banKey ? (
-        <Button
-          size="sm"
-          variant="destructive-outline"
-          className={cn(SMALL, 'shrink-0')}
-          onClick={() => onBan({ kind: 'source', type: pivot.key, value: pivot.value, ban: banKey, display })}
-        >
-          <Ban />
-          Ban this {sourceLabel(pivot.key).toLowerCase()}
+        <span className="flex min-w-0 flex-1 items-center gap-3 truncate text-muted-foreground">
+          {profile.isPending ? (
+            <Skeleton className="h-3.5 w-72" />
+          ) : profile.isError ? (
+            <span>
+              The profile did not load.{' '}
+              <button type="button" className="text-foreground underline underline-offset-2" onClick={() => void profile.refetch()}>
+                Try again
+              </button>
+            </span>
+          ) : data ? (
+            <span className="truncate tabular-nums">
+              {data.firstSeenAt ? `first ${stamp(data.firstSeenAt)}` : 'never seen'}
+              {data.lastSeenAt ? ` · last ${stamp(data.lastSeenAt)}` : ''}
+              {` · ${data.comments.total} ${data.comments.total === 1 ? 'comment' : 'comments'}`}
+              {byStatus
+                ? `: ${(['held', 'published', 'rejected', 'deleted'] as const)
+                    .filter((status) => byStatus[status] > 0)
+                    .map((status) => `${byStatus[status]} ${STATUS_LABELS[status].toLowerCase()}`)
+                    .join(', ')}`
+                : ''}
+              {data.reactions.total > 0 ? ` · ${data.reactions.total} reactions` : ''}
+            </span>
+          ) : null}
+        </span>
+        {banned ? (
+          <span className="inline-flex shrink-0 items-center gap-1 text-[hsl(var(--portal-danger))] text-xs">
+            <Ban className="size-3.5" aria-hidden />
+            Banned
+          </span>
+        ) : banKey ? (
+          <Button
+            size="sm"
+            variant="destructive-outline"
+            className={cn(SMALL, 'shrink-0')}
+            onClick={() => onBan({ kind: 'source', type: pivot.key, value: pivot.value, ban: banKey, display })}
+          >
+            <Ban />
+            Ban this {sourceLabel(pivot.key).toLowerCase()}
+          </Button>
+        ) : null}
+        <Button size="icon-xs" variant="ghost" aria-label="Clear filter" className="shrink-0" onClick={() => setSearch({ key: null, value: null })}>
+          <X />
         </Button>
-      ) : null}
-      <Button size="icon-xs" variant="ghost" aria-label="Clear filter" className="shrink-0" onClick={() => setSearch({ key: null, value: null })}>
-        <X />
-      </Button>
+      </div>
+      {data && <PivotProfile pivot={pivot} profile={data} />}
     </div>
   );
 }
