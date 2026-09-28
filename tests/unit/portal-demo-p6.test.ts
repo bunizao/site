@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { AdminCommentRecord, AdminCommentStatus } from '@bunizao/contracts';
 import { demoActor } from '../../src/features/admin/server/portal-demo';
 import type { CommentAdminStore } from '../../src/features/portal/server/demo/comment-admin';
@@ -7,10 +7,12 @@ import { sourceProfile } from '../../src/features/portal/server/demo/comments';
 import { handleMessagesDemo, messagesMatching, seedMessages, type MessagesStore } from '../../src/features/portal/server/demo/messages';
 import { handleCommentModesDemo, seedModes, type DemoModePost, type ModesStore } from '../../src/features/portal/server/demo/modes';
 import { handleReadersDemo, seedReaders, type ReadersStore } from '../../src/features/portal/server/demo/readers';
+import { handleSitePolicyDemo, resetSitePolicyDemo } from '../../src/features/portal/server/demo/site-policy';
 
 /* The P6 demo routes against site-api's rules: the message state machine
-   and reply refusals, revoked-reader restore, per-post mode precedence, and
-   pin/lock. Every test builds its own store. */
+   and reply refusals, revoked-reader restore, per-post mode precedence, the
+   site-wide switches, and pin/lock. Every test builds its own store; the
+   site-wide switches are one module-level row, reset around each test. */
 
 type Handler = (request: Request, segments: string[]) => Promise<Response | null>;
 
@@ -295,6 +297,75 @@ describe('portal demo: per-post comment modes', () => {
     expect(stale).toMatchObject({ override: 'off', tagMode: null, effectiveMode: 'off' });
     const cleared = await call(modes(seeded), 'DELETE', `comment-modes/${stale.surface}/${stale.postId}`);
     expect(cleared.body.mode).toMatchObject({ override: null, tagMode: null, effectiveMode: null });
+  });
+});
+
+describe('portal demo: site-wide comment switches', () => {
+  const policy: Handler = (request, segments) => handleSitePolicyDemo(request, segments);
+  const POSTS: DemoModePost[] = [
+    { surface: 'blog', postId: 'b1', title: 'Tagged off', slug: 'tagged-off', tagMode: 'off' },
+    { surface: 'blog', postId: 'b2', title: 'Open by tags', slug: 'open', tagMode: 'open' },
+  ];
+  const modes = (store: ModesStore): Handler => (request, segments) => handleCommentModesDemo(request, segments, [], store);
+
+  beforeEach(resetSitePolicyDemo);
+  afterEach(resetSitePolicyDemo);
+
+  test('both switches start off, and a PUT changes only the fields it names', async () => {
+    const read = await call(policy, 'GET', 'comments/site-policy');
+    expect(read.body.policy).toEqual({ mode: null, modeSince: null, requireEmail: false, requireEmailSince: null });
+
+    const closed = await call(policy, 'PUT', 'comments/site-policy', { mode: 'readonly' });
+    expect(closed.body.policy).toMatchObject({ mode: 'readonly', requireEmail: false, requireEmailSince: null });
+    expect(closed.body.policy.modeSince).toBeString();
+
+    const email = await call(policy, 'PUT', 'comments/site-policy', { requireEmail: true });
+    expect(email.body.policy).toMatchObject({ mode: 'readonly', modeSince: closed.body.policy.modeSince, requireEmail: true });
+    expect(email.body.policy.requireEmailSince).toBeString();
+
+    const reopened = await call(policy, 'PUT', 'comments/site-policy', { mode: null });
+    expect(reopened.body.policy).toMatchObject({ mode: null, modeSince: null, requireEmail: true });
+  });
+
+  test('a stamp moves when its switch changes value, and stays when it is sent again', async () => {
+    const first = (await call(policy, 'PUT', 'comments/site-policy', { mode: 'readonly', requireEmail: true })).body.policy;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const again = (await call(policy, 'PUT', 'comments/site-policy', { mode: 'readonly', requireEmail: true })).body.policy;
+    expect([again.modeSince, again.requireEmailSince]).toEqual([first.modeSince, first.requireEmailSince]);
+    const off = (await call(policy, 'PUT', 'comments/site-policy', { mode: 'off' })).body.policy;
+    expect(off.modeSince > first.modeSince).toBe(true);
+    expect(off.requireEmailSince).toBe(first.requireEmailSince);
+  });
+
+  test('refusals: no field, a bad mode, a mode of open, a bad requireEmail, bad JSON', async () => {
+    for (const body of [{}, { mode: 'closed' }, { mode: 'open' }, { requireEmail: 'yes' }]) {
+      expect((await call(policy, 'PUT', 'comments/site-policy', body)).status).toBe(400);
+    }
+    expect((await call(policy, 'PUT', 'comments/site-policy', {})).body.error).toBe('nothing_to_change');
+    const request = new Request('http://localhost/x', { method: 'PUT', body: '{' });
+    expect((await handleSitePolicyDemo(request, ['comments', 'site-policy']))?.status).toBe(400);
+    expect((await call(policy, 'GET', 'comments/site-policy')).body.policy.mode).toBeNull();
+  });
+
+  test('the site mode is a floor under every post: it closes an open one and never opens one', async () => {
+    const store: ModesStore = { posts: POSTS, overrides: new Map() };
+    await call(modes(store), 'PUT', 'comment-modes/blog/b1', { mode: 'open' });
+    await call(policy, 'PUT', 'comments/site-policy', { mode: 'readonly' });
+    const listed = (await call(modes(store), 'GET', 'comment-modes')).body.modes;
+    expect(listed[0]).toMatchObject({ override: 'open', effectiveMode: 'readonly' });
+    expect((await call(modes(store), 'GET', 'comment-modes/blog/b2')).body.mode.effectiveMode).toBe('readonly');
+
+    await call(modes(store), 'PUT', 'comment-modes/blog/b2', { mode: 'off' });
+    expect((await call(modes(store), 'GET', 'comment-modes/blog/b2')).body.mode.effectiveMode).toBe('off');
+
+    await call(policy, 'PUT', 'comments/site-policy', { mode: null });
+    expect((await call(modes(store), 'GET', 'comment-modes/blog/b1')).body.mode.effectiveMode).toBe('open');
+  });
+
+  test('other comment paths are not this module’s', async () => {
+    const request = new Request('http://localhost/x');
+    expect(await handleSitePolicyDemo(request, ['comments', 'lockdown'])).toBeNull();
+    expect(await handleSitePolicyDemo(request, ['comments'])).toBeNull();
   });
 });
 

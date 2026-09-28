@@ -5,10 +5,12 @@
    (src/pages/admin/comment-modes/* and features/comments/server/
    comment-modes-admin.ts there). An override replaces the tag mode
    outright; clearing it hands the post back to its tags. A mood post has
-   no tags, so its tag mode is the site default. GET and PUT answer 404
-   `post_not_found` for a post the registry does not know; DELETE works on
-   any row, so a stale one can always be cleared. The demo never answers
-   503 `post_lookup_unavailable`: its registry is always there.
+   no tags, so its tag mode is the site default. What readers get is then
+   at least as strict as the site-wide switch (site-policy.ts). GET and PUT
+   answer 404 `post_not_found` for a post the registry does not know;
+   DELETE works on any row, so a stale one can always be cleared. The demo
+   never answers 503 `post_lookup_unavailable`: its registry is always
+   there.
 
    The registry is the demo Ghost list's published posts (what the portal's
    post search offers) plus every post the demo comments sit on.
@@ -27,6 +29,7 @@ import {
   type CommentSurface,
   type CommentsMode,
 } from '@bunizao/contracts';
+import { demoSiteMode, stricterMode } from './site-policy';
 import { demoGhostPosts } from './tools';
 
 const DAY = 86_400_000;
@@ -77,12 +80,13 @@ function findPost(store: ModesStore, surface: CommentSurface, postId: string): D
 /** site-api's toModeState. */
 function stateOf(surface: CommentSurface, postId: string, override: Override | null, post: DemoModePost | null): AdminCommentModeState {
   const tagMode = post?.tagMode ?? null;
+  const own = override?.mode ?? tagMode;
   return {
     surface,
     postId,
     override: override?.mode ?? null,
     tagMode,
-    effectiveMode: override?.mode ?? tagMode,
+    effectiveMode: own && stricterMode(own, demoSiteMode()),
     updatedAt: override?.updatedAt ?? null,
     title: post?.title ?? null,
     slug: post?.slug ?? null,

@@ -25,6 +25,7 @@ import { handleCommentModesDemo, resetCommentModesDemo } from './demo/modes';
 import { handleModerationDemo, resetModerationDemo } from './demo/moderation';
 import { handleOverviewDemo, resetOverviewDemo } from './demo/overview';
 import { handleReadersDemo, resetReadersDemo } from './demo/readers';
+import { handleSitePolicyDemo, resetSitePolicyDemo } from './demo/site-policy';
 import { handleToolsDemo, resetToolsDemo } from './demo/tools';
 
 const LATENCY_MS = 140;
@@ -179,6 +180,7 @@ function resetDemo(): void {
   resetToolsDemo();
   resetMessagesDemo();
   resetCommentModesDemo();
+  resetSitePolicyDemo();
   resetOwnerCode();
 }
 
@@ -376,6 +378,11 @@ export async function handleDemoRequest(request: Request, path: string): Promise
   // Mood operations and the AI model test live in their own module.
   const tools = await handleToolsDemo(request, segments.slice(1), params);
   if (tools) return tools;
+
+  // The site-wide switches, ahead of the queue module, which reads any
+  // other `comments/<segment>` as a comment id.
+  const sitePolicy = await handleSitePolicyDemo(request, segments.slice(1));
+  if (sitePolicy) return sitePolicy;
 
   // The comment queue, the owner's acts, replies, the lockdown and source
   // profiles live in their own module.
