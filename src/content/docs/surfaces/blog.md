@@ -137,6 +137,9 @@ opaque strip (`.toc-topbar__band`) over its row for the probe to land on:
   and a theme switch swaps the layer.
 - With the bar hidden, near the top of a post, the band shows the page, as on
   every other root-scrolling page.
+- The strip renders only under `@supports (-webkit-touch-callout: none)`, which
+  matches iOS WebKit alone. Chrome, Android and desktop Safari never sample the
+  band, and there the strip was a visible slab cutting the top of the glass.
 
 ## Elevation and depth
 
