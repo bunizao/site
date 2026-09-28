@@ -1,3 +1,4 @@
+import * as React from 'react';
 import type { AdminSourceKeyType, AdminSourceProfile, MessageState } from '@bunizao/contracts';
 import { shortHandle, stamp } from './model';
 import { PivotAnchor, PortalLink } from './RecordRows';
@@ -8,7 +9,8 @@ import { PivotAnchor, PortalLink } from './RecordRows';
    the counts muted. An address a signed-in reader wrote with says "signed
    in"; any other says "typed", and is never named as that reader. */
 
-/** Newest first; the Messages screen holds the rest behind each link. */
+/** Newest first. The rest of the rows the profile carries (at most 50)
+    open in place, so none is out of reach. */
 const MESSAGE_ROWS = 3;
 
 const STATE_ORDER: MessageState[] = ['new', 'read', 'replied', 'archived', 'spam'];
@@ -47,6 +49,7 @@ export function PivotProfile({ pivot, profile }: {
   const addresses = (profile.addresses ?? []).filter((entry) => !(pivot.key === 'email' && entry.emailHash === pivot.value));
   const devices = (profile.devices ?? []).filter((entry) => !(pivot.key === 'client_fp' && entry.clientFp === pivot.value));
   const messages = profile.messages && profile.messages.total > 0 ? profile.messages : null;
+  const [allMessages, setAllMessages] = React.useState(false);
   if (addresses.length === 0 && devices.length === 0 && !messages) return null;
 
   return (
@@ -84,13 +87,24 @@ export function PivotProfile({ pivot, profile }: {
           <span className="py-1 text-muted-foreground">
             {messages.total}: {STATE_ORDER.filter((state) => messages.byState[state] > 0).map((state) => `${messages.byState[state]} ${state}`).join(', ')}
           </span>
-          {messages.rows.slice(0, MESSAGE_ROWS).map((message) => (
+          {messages.rows.slice(0, allMessages ? undefined : MESSAGE_ROWS).map((message) => (
             <Item key={message.id} meta={stamp(message.createdAt)}>
-              <PortalLink to={`/messages?m=${encodeURIComponent(message.id)}`}>
+              {/* A sentence underlined end to end reads as a wall; the
+                  underline comes on pointing, like the feed's titles. */}
+              <PortalLink to={`/messages?m=${encodeURIComponent(message.id)}`} className="no-underline hover:underline">
                 {message.displayName}: {message.body.split('\n')[0]}
               </PortalLink>
             </Item>
           ))}
+          {!allMessages && messages.rows.length > MESSAGE_ROWS && (
+            <button
+              type="button"
+              className="self-start rounded-sm py-1 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setAllMessages(true)}
+            >
+              Show {messages.rows.length - MESSAGE_ROWS} more
+            </button>
+          )}
         </Line>
       )}
     </dl>

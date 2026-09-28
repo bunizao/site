@@ -1439,7 +1439,7 @@ function PivotLine({ pivot, profile, rows, onBan }: {
           <X />
         </Button>
       </div>
-      {data && <PivotProfile pivot={pivot} profile={data} />}
+      {data && <PivotProfile key={`${pivot.key}:${pivot.value}`} pivot={pivot} profile={data} />}
     </div>
   );
 }

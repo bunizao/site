@@ -387,6 +387,10 @@ test.describe('messages', () => {
     await open(page, `/comments?status=all&key=email&value=${typed.emailHash}`);
     await expect(page.locator('main code').filter({ hasText: 'mira.k@example.de' })).toBeVisible();
     await expect(profileLine(page, 'Messages').getByText(/^4: /)).toBeVisible();
+    // Three show; the fourth opens in place rather than hiding.
+    await expect(profileLine(page, 'Messages').getByRole('link')).toHaveCount(3);
+    await profileLine(page, 'Messages').getByRole('button', { name: 'Show 1 more' }).click();
+    await expect(profileLine(page, 'Messages').getByRole('link')).toHaveCount(4);
     await expect(profileLine(page, 'Devices').getByRole('link')).toHaveText(['Firefox 131 on macOS', 'Chrome 129 on Windows']);
 
     await profileLine(page, 'Devices').getByRole('link', { name: 'Chrome 129 on Windows' }).click();
