@@ -147,7 +147,9 @@ export interface AdminCommentRecord {
   country: string | null;
   createdAt: string;
   editedAt: string | null;
-  /** Filled from the post registry; null when it could not say. */
+  /** Filled from the post registry; null when it could not say. A mood
+      post has no slug: `postSlug` is always null for one, and `postPath`
+      carries the link. */
   postTitle: string | null;
   postSlug: string | null;
   actor: AdminCommentActor;
@@ -161,13 +163,20 @@ export interface AdminCommentRecord {
   /** A deleted row the owner can still restore: the last instant it can.
       Null for every other row. */
   restorableUntil?: string | null;
-  /* The owner's pin and thread lock, only ever set on a root. Optional
-     until site-api sends them; absent reads as neither. */
+  /* The owner's pin and thread lock, only ever set on a root. site-api
+     sends both; optional like the four above, and absent reads as neither. */
   /** When the owner pinned this root to the top of its post. A pin on a
       row that is no longer published stays set and shows again with it. */
   pinnedAt?: string | null;
   /** When the owner locked replies under this root. */
   lockedAt?: string | null;
+  /* site-api sends both below; optional like the four above. */
+  /** The post's page on the public site, as a path: `/blog/<slug>` or
+      `/mood/<id>`. Null when the post could not be looked up. */
+  postPath?: string | null;
+  /** The owner wrote it: the public `CommentAuthor.byAuthor` rule, a row
+      written signed in by the reader whose address is the owner's. */
+  byAuthor?: boolean;
 }
 
 /** One page of the moderation queue. */
@@ -186,7 +195,9 @@ export interface AdminCommentSummary {
   today: number;
   oldestHeldAt: string | null;
   reasons: Array<{ reason: string; count: number }>;
-  topPosts: Array<{ surface: CommentSurface; postId: string; count: number; title: string | null; slug: string | null }>;
+  /** `slug` and `path` as on AdminCommentRecord's `postSlug` and
+      `postPath`; `path` is optional only for the portal's demo api. */
+  topPosts: Array<{ surface: CommentSurface; postId: string; count: number; title: string | null; slug: string | null; path?: string | null }>;
   daily: Array<{ date: string; count: number }>;
 }
 
@@ -200,6 +211,9 @@ export type AdminCommentModelFilter = 'akismet' | 'llm' | 'none';
 export interface AdminCommentQueueWindow {
   from: string | null;
   to: string | null;
+  /** True when the window asked for was wider than 90 days and was cut to
+      the 90 before its end; `from` is then where the read started. */
+  clamped?: boolean;
 }
 
 /** GET /admin/comments. */
@@ -248,8 +262,9 @@ export interface AdminCommentBulkRequest {
   reason?: AdminCommentRejectReason;
 }
 
-/** One result per id, in the order sent; `status` is null for a row that
-    no longer exists. */
+/** One result per id, in the order sent. `status` is the row's status
+    after the call whatever the result, so a `not_available` row says where
+    it actually is; it is null only when no row has that id. */
 export interface AdminCommentBulkResponse {
   results: Array<{ id: string; result: AdminCommentActionResult; status: AdminCommentStatus | null }>;
 }
@@ -257,6 +272,11 @@ export interface AdminCommentBulkResponse {
 /** POST /admin/comments/:id/reply. */
 export interface AdminCommentReplyRequest {
   body: string;
+  /** A UUID made once per reply and sent again on every retry: it becomes
+      the reply's id, so a retry answers the first reply instead of posting
+      a second. The same id with another body or comment is a 409
+      `reply_id_collision`. Omitted, every call posts a new reply. */
+  replyId?: string;
 }
 
 /** `parentId` is the thread root the reply joined. */
@@ -312,7 +332,12 @@ export interface AdminCommentModeState {
   /** When the override was last set; null without one. */
   updatedAt: string | null;
   title: string | null;
+  /** Blog only; null for a mood post, which has no slug. */
   slug: string | null;
+  /** The post's page as a path, `/blog/<slug>` or `/mood/<id>`; null when
+      the post could not be looked up. Optional only for the portal's demo
+      api; site-api sends it. */
+  path?: string | null;
 }
 
 /** GET /admin/comment-modes: every overridden post. */
@@ -350,6 +375,10 @@ export interface AdminOwnerMessage {
   createdAt: string;
   updatedAt: string;
 }
+
+/** GET /admin/messages `state`: one state, or `inbox` for new, read and
+    replied together -- everything not archived or spam. */
+export type AdminOwnerMessageFilter = MessageState | 'inbox';
 
 /** GET /admin/messages. `counts` covers the whole inbox whatever the
     filter; `total` is the filtered count. */
