@@ -41,6 +41,10 @@ export const TOUCH_MENU = 'pointer-coarse:[&_[role^=menuitem]]:min-h-11 motion-r
 export const TOUCH_TARGET =
   'relative pointer-coarse:after:absolute pointer-coarse:after:top-1/2 pointer-coarse:after:left-1/2 pointer-coarse:after:h-11 pointer-coarse:after:w-full pointer-coarse:after:min-w-11 pointer-coarse:after:-translate-x-1/2 pointer-coarse:after:-translate-y-1/2';
 
+/** A coss ToggleGroupItem on a dialog: the popup surface all but hides the
+    pressed fill, so the unpressed labels step back, as in Segmented. */
+export const CHOICE_ITEM = 'text-muted-foreground hover:text-foreground data-pressed:text-foreground';
+
 export function commentsHref(type: string, value: string): string {
   return `/comments?${new URLSearchParams({ status: 'all', key: type, value })}`;
 }

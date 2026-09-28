@@ -11,7 +11,7 @@ import { apiSend } from '../app/api';
 import { namesOnePerson } from '../comments/model';
 import { describeBanError, type BanDraft } from './data';
 import { BAN_TYPES, BAN_TYPE_LABELS, RAW_BAN_TYPES, expiryText, formatCount, plural } from './format';
-import { StatusDot } from './ui';
+import { CHOICE_ITEM, StatusDot } from './ui';
 
 /* Ban a key by hand: one form, no second step. What the key reaches is
    looked up while you type and shown under the field, so reading the impact
@@ -186,7 +186,7 @@ const BanForm = React.memo(function BanForm({ initial, existing, onSubmit, onCan
             className="grid w-full grid-cols-2 gap-1 *:w-full sm:grid-cols-3"
           >
             {BAN_TYPES.map((kind) => (
-              <ToggleGroupItem key={kind} value={kind} className="justify-start rounded-md!">
+              <ToggleGroupItem key={kind} value={kind} className={cn(CHOICE_ITEM, 'justify-start rounded-md!')}>
                 {BAN_TYPE_LABELS[kind]}
               </ToggleGroupItem>
             ))}
@@ -235,7 +235,7 @@ const BanForm = React.memo(function BanForm({ initial, existing, onSubmit, onCan
             size="sm"
           >
             {EXPIRY.map((choice) => (
-              <ToggleGroupItem key={choice.value} value={choice.value}>{choice.label}</ToggleGroupItem>
+              <ToggleGroupItem key={choice.value} value={choice.value} className={CHOICE_ITEM}>{choice.label}</ToggleGroupItem>
             ))}
           </ToggleGroup>
         </div>
