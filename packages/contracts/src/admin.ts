@@ -363,8 +363,12 @@ export interface AdminOwnerMessage {
   displayName: string;
   body: string;
   locale: MessageLocale;
-  /** Set when a verified reader sent it. */
+  /** The reader the address resolves to. It proves who wrote the message
+      only when `authAtWrite` is `verified`. */
   readerId: string | null;
+  /** `verified` when a signed-in reader's session sent it; `anonymous` when
+      the address was typed. Missing on older responses means unknown. */
+  authAtWrite?: CommentAuthAtWrite;
   /** Null when the sender left no address. */
   emailHash: string | null;
   /** Why the risk stack filed it as spam, and which model said so. */
@@ -398,6 +402,10 @@ export interface AdminOwnerMessageDetail {
   message: AdminOwnerMessage;
   sender: { replyable: AdminOwnerMessageReplyability; email: string | null; readerId: string | null };
   history: AdminOwnerMessage[];
+  /** The sender's keys and signals, in the comment writer's shape; `cluster`
+      counts comments, reactions and messages. Absent from a site-api that
+      predates it. */
+  actor?: AdminCommentActor;
 }
 
 export type AdminOwnerMessageAction = 'read' | 'archive' | 'unarchive' | 'spam' | 'unspam';
@@ -541,6 +549,8 @@ export interface AdminClusterCount {
   comments: number;
   held: number;
   reactions: number;
+  /** Owner messages sharing the key. Absent from a site-api that predates it. */
+  messages?: number;
 }
 
 /** Where a row came from, as far as the write path could tell. Shared by
@@ -720,6 +730,26 @@ export interface AdminReaderRestoreResult {
 
 /** Everything about one key in one response --
     `GET /admin/sources/:type/:value`. */
+export interface AdminSourceAddress {
+  emailHash: string;
+  /** Plaintext while a row still holds it. */
+  email: string | null;
+  confirmed: boolean;
+  comments: number;
+  messages: number;
+  lastSeenAt: string;
+}
+
+export interface AdminSourceDevice {
+  clientFp: string;
+  browser: string | null;
+  os: string | null;
+  comments: number;
+  reactions: number;
+  messages: number;
+  lastSeenAt: string;
+}
+
 export interface AdminSourceProfile {
   key: { type: AdminSourceKeyType; value: string };
   identitySummary?: {
@@ -760,6 +790,19 @@ export interface AdminSourceProfile {
     held: number;
     reactions: number;
   };
+  /** Owner messages under this key. Absent from a site-api that predates it. */
+  messages?: {
+    total: number;
+    byState: Record<MessageState, number>;
+    /** Newest 50. */
+    rows: AdminOwnerMessage[];
+  };
+  /** Addresses written under this key, newest first, at most 10. `confirmed`
+      means a signed-in reader wrote with it; a typed address is evidence of
+      what this key claimed, never a link to that reader. */
+  addresses?: AdminSourceAddress[];
+  /** Device fingerprints seen under this key, newest first, at most 10. */
+  devices?: AdminSourceDevice[];
   /** Writes per hour over the source's last 7 days. */
   hourly: Array<{ hour: string; comments: number; reactions: number }>;
   behaviour: {
