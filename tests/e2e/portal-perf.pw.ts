@@ -636,15 +636,15 @@ test.describe('portal click-to-paint', () => {
         await target.locator('[data-row-button]').click();
         await page.waitForTimeout(600);
         archived.push(id);
-        const left = `!document.querySelector('[data-row-id="${id}"]') && location.pathname !== '/dev/portal/messages/${id}'`;
+        const left = `!document.querySelector('[data-row-id="${id}"]') && new URLSearchParams(location.search).get('m') !== '${id}'`;
         times.archive.push(ms(await timed(page, left, () => page.keyboard.press('e'))));
         await page.waitForTimeout(800);
       }
 
       // j walks down, away from the new messages at the top.
       for (let step = 0; step < 4; step += 1) {
-        const before = await page.evaluate(() => location.pathname);
-        const moved = `location.pathname !== ${JSON.stringify(before)} && document.querySelector('main [data-row-id][data-active]')?.getAttribute('data-row-id') === decodeURIComponent(location.pathname.split('/').pop())`;
+        const before = await page.evaluate(() => location.search);
+        const moved = `location.search !== ${JSON.stringify(before)} && document.querySelector('main [data-row-id][data-active]')?.getAttribute('data-row-id') === new URLSearchParams(location.search).get('m')`;
         times.j.push(ms(await timed(page, moved, () => page.keyboard.press('j'))));
         await page.waitForTimeout(300);
       }

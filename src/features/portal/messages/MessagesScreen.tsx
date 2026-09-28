@@ -8,9 +8,9 @@ import { Skeleton } from '@/components/coss/skeleton';
 import { useMediaQuery } from '@/components/coss/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import { HEAD, LINE, SMALL, SPACED, TABLE } from '../activity/table';
-import { MISSING_ROUTE_MESSAGE, describeError, isMissingRoute } from '../app/api';
+import { ApiError, MISSING_ROUTE_MESSAGE, describeError, isMissingRoute } from '../app/api';
 import { useHotkeys } from '../app/hotkeys';
-import { navigate, useLocation } from '../app/router';
+import { mergeHistoryState, navigate, readHistoryState, useLocation } from '../app/router';
 import { ScreenHeader } from '../app/shell/ScreenHeader';
 import { undoLast } from '../app/undo';
 import { useStableView } from '../audience/stable-view';
@@ -33,12 +33,14 @@ import { MessageDetail } from './MessagePane';
 import { MSG_COLUMNS, MSG_GRID, MSG_MID, MessageRow } from './MessageRow';
 
 /* Messages sent to the owner through the site, newest first, in three
-   trays: Inbox, Archived, Spam. The path holds the open message
-   (`/messages/<id>`) and the query the tray (`?view=spam`), so Back,
-   reload and a link all land on the same view. Opening a new message
-   marks it read; E and ! file it and move to the next one. */
+   trays: Inbox, Archived, Spam. The query holds the tray (`?view=spam`)
+   and the open message (`?m=<id>`), so Back, reload and a link all land
+   on the same view. Opening a new message marks it read; E and ! file it
+   and move to the next one. */
 
-const PATH = /^\/messages\/([^/]+)$/;
+/** Older forms of a message link: `/messages/<id>` and `#<id>`. */
+const LEGACY_PATH = /^\/messages\/([^/]+)$/;
+const HASH_ID = /^[\w-]+$/;
 
 const VIEW_LABELS: Record<MessageView, string> = { inbox: 'Inbox', archived: 'Archived', spam: 'Spam' };
 
@@ -47,8 +49,16 @@ function readView(search: URLSearchParams): MessageView {
   return view === 'archived' || view === 'spam' ? view : 'inbox';
 }
 
+function trayOf(state: MessageState): MessageView {
+  return state === 'archived' || state === 'spam' ? state : 'inbox';
+}
+
 function messagePath(id: string | null, view: MessageView): string {
-  return `/messages${id ? `/${encodeURIComponent(id)}` : ''}${view === 'inbox' ? '' : `?view=${view}`}`;
+  const params = new URLSearchParams();
+  if (view !== 'inbox') params.set('view', view);
+  if (id) params.set('m', id);
+  const query = params.toString();
+  return query ? `/messages?${query}` : '/messages';
 }
 
 function rowButton(id: string): HTMLElement | null {
@@ -94,8 +104,7 @@ export default function MessagesScreen() {
   const wide = useMediaQuery('(min-width: 1280px)');
 
   const view = readView(location.search);
-  const match = PATH.exec(location.path);
-  const selectedId = match ? decodeURIComponent(match[1]) : null;
+  const selectedId = location.search.get('m');
 
   /* Data. Each tray reads its own list, and warms the other two once idle.
      Rows keep their place while you work: a filed message leaves, and comes
@@ -141,13 +150,36 @@ export default function MessagesScreen() {
   const latest = React.useRef({ rows, selectedId, wide, view, stable });
   latest.current = { rows, selectedId, wide, view, stable };
 
-  // True while the open message sits on a history entry of its own (the
-  // phone drawer), so closing it goes Back instead of adding another.
-  const pushed = React.useRef(false);
-  React.useEffect(() => {
-    if (!selectedId) pushed.current = false;
-  }, [selectedId]);
+  /* A link names a message, not its tray (Telegram's is `?m=<id>`): it
+     lands in the tray that holds the message, once this tray's rows or the
+     message's own detail say which. The older forms become `?m=` first. */
+  const legacy = LEGACY_PATH.exec(location.path);
+  const linked = legacy ? decodeURIComponent(legacy[1]) : HASH_ID.test(location.hash) ? location.hash : null;
+  const [arrival, setArrival] = React.useState<string | null>(() => selectedId ?? linked);
+  React.useLayoutEffect(() => {
+    if (!linked) return;
+    setArrival(linked);
+    navigate(messagePath(linked, view), { replace: true });
+  }, [linked, view]);
 
+  React.useEffect(() => {
+    if (!arrival || !selectedId) return;
+    if (selectedId !== arrival) {
+      setArrival(null);
+      return;
+    }
+    const found = byId.get(arrival) ?? (detail.data?.message.id === arrival ? detail.data.message : null);
+    if (found) {
+      setArrival(null);
+      if (trayOf(found.state) !== view) navigate(messagePath(arrival, trayOf(found.state)), { replace: true });
+    } else if (detail.isError) {
+      setArrival(null);
+    }
+  }, [arrival, selectedId, byId, detail.data, detail.isError, view]);
+
+  /* Selection. On a wide screen it only replaces the URL; on a narrow one,
+     opening the drawer pushes an entry so the phone's Back closes it, and
+     marks it, so its X goes Back too (see comments/CommentsScreen.tsx). */
   const select = React.useCallback((id: string | null) => {
     navigate(messagePath(id, latest.current.view), { replace: true });
   }, []);
@@ -155,8 +187,8 @@ export default function MessagesScreen() {
   const openRow = React.useCallback((message: AdminOwnerMessage) => {
     const { wide: isWide, selectedId: open, view: tray } = latest.current;
     if (!isWide && !open) {
-      pushed.current = true;
       navigate(messagePath(message.id, tray));
+      mergeHistoryState({ drawer: true });
       return;
     }
     navigate(messagePath(message.id, tray), { replace: true });
@@ -164,12 +196,8 @@ export default function MessagesScreen() {
 
   const close = React.useCallback(() => {
     const id = latest.current.selectedId;
-    if (pushed.current) {
-      pushed.current = false;
-      window.history.back();
-    } else {
-      navigate(messagePath(null, latest.current.view), { replace: true });
-    }
+    if (readHistoryState().drawer === true) window.history.back();
+    else navigate(messagePath(null, latest.current.view), { replace: true });
     if (id) focusRow(id);
   }, []);
 
@@ -405,7 +433,9 @@ export default function MessagesScreen() {
       {missing && (
         <p role="status" className="flex min-h-11 shrink-0 items-center gap-2 border-b px-4 text-[13px]">
           <span className="min-w-0 flex-1">
-            {isMissingRoute(detail.error) ? MISSING_ROUTE_MESSAGE : `That message could not be opened. ${describeError(detail.error)}`}
+            {isMissingRoute(detail.error) ? MISSING_ROUTE_MESSAGE
+              : detail.error instanceof ApiError && detail.error.status === 404 ? 'There is no message with that id. The link may be cut short.'
+              : `That message could not be opened. ${describeError(detail.error)}`}
           </span>
           <Button size="sm" className={SMALL} variant="outline" onClick={() => select(null)}>
             Close

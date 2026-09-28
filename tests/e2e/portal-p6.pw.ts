@@ -101,7 +101,8 @@ const rows = (page: Page) => page.locator('main [data-row-id]');
 const row = (page: Page, id: string) => page.locator(`main [data-row-id="${id}"]`);
 const pane = (page: Page) => page.getByRole('complementary', { name: 'Message detail' });
 const idsOf = (page: Page): Promise<string[]> => rows(page).evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-row-id')!));
-const messagePath = (id: string) => `${PORTAL}/messages/${id}`;
+/** The open message, from `?m=`. */
+const openId = (page: Page): Promise<string | null> => page.evaluate(() => new URLSearchParams(location.search).get('m'));
 const inboxCount = (counts: Record<string, number>) => counts.new + counts.read + counts.replied;
 
 async function messageList(page: Page): Promise<MessageList> {
@@ -130,10 +131,6 @@ async function putBack(page: Page, message: DemoMessage): Promise<void> {
   if (now === 'spam') await post('unspam');
   if (message.state === 'archived') await post('archive');
   if (message.state === 'spam') await post('spam');
-}
-
-function trayQuery(state: string): string {
-  return state === 'archived' || state === 'spam' ? `?view=${state}` : '';
 }
 
 test.describe('messages', () => {
@@ -177,7 +174,7 @@ test.describe('messages', () => {
 
       // One step: the row leaves, the next message opens, the tray counts move.
       await expect(row(page, sam.id)).toHaveCount(0);
-      expect(await pathname(page)).toBe(messagePath(next));
+      expect(await openId(page)).toBe(next);
       await expect(row(page, next)).toHaveAttribute('data-active', 'true');
       await expect(toast(page, 'Archived')).toBeVisible();
       await expect(tab(page, 'Archived')).toHaveText(new RegExp(`^Archived\\s*${counts.archived + 1}$`));
@@ -266,7 +263,7 @@ test.describe('messages', () => {
     ];
     for (const { name, line, blocked } of cases) {
       const message = await findMessage(page, (entry) => entry.displayName === name && entry.state !== 'new');
-      await open(page, `/messages/${message.id}${trayQuery(message.state)}`);
+      await open(page, `/messages?m=${message.id}`);
       await expect(pane(page).getByRole('heading', { name })).toBeVisible();
       await expect(pane(page).getByText(line)).toBeVisible();
       const composer = pane(page).getByRole('textbox', { name: `Reply to ${name} by email` });
@@ -284,7 +281,7 @@ test.describe('messages', () => {
     // Léa's answered message: another reply keeps it Replied and only moves
     // its reply time, so there is nothing to put back.
     const lea = await findMessage(page, (message) => message.displayName === 'Léa' && message.state === 'replied');
-    await open(page, `/messages/${lea.id}`);
+    await open(page, `/messages?m=${lea.id}`);
     await expect(pane(page).getByText('A reply goes by email to lea.m@example.fr')).toBeVisible();
 
     const composer = pane(page).getByRole('textbox', { name: 'Reply to Léa by email' });
@@ -312,14 +309,14 @@ test.describe('messages', () => {
 
   test('an earlier message from the same address opens in the pane, from any tray', async ({ page }) => {
     const lea = await findMessage(page, (message) => message.displayName === 'Léa' && message.state === 'replied');
-    await open(page, `/messages/${lea.id}`);
+    await open(page, `/messages?m=${lea.id}`);
     const earlier = pane(page).getByRole('list', { name: 'Earlier from this address' });
     await expect(earlier.getByRole('button')).not.toHaveCount(0);
     const archived = earlier.getByRole('button').filter({ hasText: 'Archived' }).first();
     await archived.click();
 
     // The archived one is not an Inbox row, and still opens in place.
-    await expect.poll(() => pathname(page)).not.toBe(messagePath(lea.id));
+    await expect.poll(() => openId(page)).not.toBe(lea.id);
     await expect(pane(page).getByRole('heading', { name: 'Léa' })).toBeVisible();
     await expect(pane(page).getByRole('button', { name: /Move to Inbox/ })).toBeVisible();
     await expect(tab(page, 'Inbox')).toHaveAttribute('aria-pressed', 'true');
@@ -327,6 +324,43 @@ test.describe('messages', () => {
     await page.keyboard.press('Escape');
     await expect(pane(page)).toHaveCount(0);
     expect(await pathname(page)).toBe(`${PORTAL}/messages`);
+    expect(await openId(page)).toBeNull();
+  });
+
+  test('a link names a message and lands in the tray that holds it', async ({ page }) => {
+    // Telegram links `?m=<id>` alone; the pane opens in whichever tray holds it.
+    const inbox = await findMessage(page, (message) => message.state === 'read');
+    await open(page, `/messages?m=${inbox.id}`);
+    await expect(pane(page).getByRole('heading', { name: inbox.displayName })).toBeVisible();
+    await expect(row(page, inbox.id)).toHaveAttribute('data-active', 'true');
+    await expect(tab(page, 'Inbox')).toHaveAttribute('aria-pressed', 'true');
+
+    const archived = await findMessage(page, (message) => message.state === 'archived');
+    await open(page, `/messages?m=${archived.id}`);
+    await expect(tab(page, 'Archived')).toHaveAttribute('aria-pressed', 'true');
+    await expect(row(page, archived.id)).toHaveAttribute('data-active', 'true');
+    await expect(pane(page).getByRole('heading', { name: archived.displayName })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/messages\\?view=archived&m=${archived.id}$`));
+
+    // Closing drops `m` and keeps the tray.
+    await page.keyboard.press('Escape');
+    await expect(pane(page)).toHaveCount(0);
+    await expect(page).toHaveURL(/\/messages\?view=archived$/);
+
+    // The older forms, `/messages/<id>` and `#<id>`, become `?m=`.
+    await open(page, `/messages/${archived.id}`);
+    await expect(page).toHaveURL(new RegExp(`/messages\\?view=archived&m=${archived.id}$`));
+    await open(page, `/messages#${inbox.id}`);
+    await expect(page).toHaveURL(new RegExp(`/messages\\?m=${inbox.id}$`));
+    await expect(pane(page).getByRole('heading', { name: inbox.displayName })).toBeVisible();
+
+    // A message that is in no tray says so, in place of a pane.
+    await open(page, '/messages?m=01J9MSG9999NOSUCHMESSAGE00');
+    const note = page.getByRole('status').filter({ hasText: 'There is no message with that id.' });
+    await expect(note).toBeVisible();
+    await expect(pane(page)).toHaveCount(0);
+    await note.getByRole('button', { name: 'Close' }).click();
+    await expect(page).toHaveURL(/\/messages$/);
   });
 
   test('each tray asks site-api for its own state, Inbox for state=inbox, and the other two warm', async ({ page }) => {

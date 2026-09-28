@@ -303,7 +303,7 @@ export function MessageDetail({
               Copy their address
             </MenuItem>
           )}
-          <MenuItem onClick={() => copy(new URL(href(`/messages/${message.id}`), location.origin).toString(), 'Portal link')}>
+          <MenuItem onClick={() => copy(new URL(href(`/messages?m=${encodeURIComponent(message.id)}`), location.origin).toString(), 'Portal link')}>
             <Link2 />
             Copy portal link
           </MenuItem>
@@ -320,7 +320,7 @@ export function MessageDetail({
     <article aria-labelledby={`msg-${message.id}`} className="flex h-full min-h-0 flex-col bg-background">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
         {drawer && (
-          <Button size="icon-sm" variant="ghost" aria-label="Close" className="-ms-2" onClick={onClose}>
+          <Button size="icon-sm" variant="ghost" aria-label="Close" className="-ms-2 pointer-coarse:-ms-3.5 pointer-coarse:size-11" onClick={onClose}>
             <X />
           </Button>
         )}
@@ -334,14 +334,14 @@ export function MessageDetail({
               {position.index + 1}/{position.total}
             </span>
           )}
-          <Button size="icon-sm" variant="ghost" aria-label="Previous message (K)" disabled={!onPrev} onClick={onPrev ?? undefined}>
+          <Button size="icon-sm" variant="ghost" aria-label="Previous message (K)" className="pointer-coarse:size-11" disabled={!onPrev} onClick={onPrev ?? undefined}>
             <ChevronUp />
           </Button>
-          <Button size="icon-sm" variant="ghost" aria-label="Next message (J)" disabled={!onNext} onClick={onNext ?? undefined}>
+          <Button size="icon-sm" variant="ghost" aria-label="Next message (J)" className="pointer-coarse:size-11" disabled={!onNext} onClick={onNext ?? undefined}>
             <ChevronDown />
           </Button>
           {!drawer && (
-            <Button size="icon-sm" variant="ghost" aria-label="Close (Esc)" onClick={onClose}>
+            <Button size="icon-sm" variant="ghost" aria-label="Close (Esc)" className="pointer-coarse:size-11" onClick={onClose}>
               <X />
             </Button>
           )}
