@@ -75,24 +75,15 @@ if (hasRefreshParam) {
 // Determine theme class
 const themeClass = theme === 'light' ? '' : theme === 'dark' ? 'dark' : '';
 
-// Format datetime for display
+// The byline date reads like the detail page's ("February 25, 2023 · 04:09").
+// The inline script below repeats this in the reader's timezone; keep the two
+// in step.
 function formatDateTime(datetime: string): string {
   const date = new Date(datetime);
   if (isNaN(date.getTime())) return '';
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const isYesterday = date.toDateString() === yesterday.toDateString();
-
-  const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-
-  if (isToday) return `Today at ${time}`;
-  if (isYesterday) return `Yesterday at ${time}`;
-
-  const month = date.toLocaleString('en-US', { month: 'short' });
-  const day = date.getDate();
-  return `${month} ${day} at ${time}`;
+  const day = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  return `${day} · ${time}`;
 }
 
 function normalizeOrigin(value: string | null): string | null {
@@ -160,45 +151,77 @@ function getImageClassName(post: MoodFeedItem): string {
     <link
       rel="preload"
       as="font"
-      href="/fonts/jetbrains-mono-variable.woff2"
+      href="/fonts/inter-variable.woff2"
       type="font/woff2"
       crossorigin
     />
   )}
   <style is:inline>
+    /* Standalone document: globals.css never loads here, so the faces and
+       tokens the shared mood stylesheets expect are declared locally. They
+       mirror the site's: Inter reads, JetBrains Mono carries the channel name
+       the way /mood/[id] sets it. */
     @font-face {
-      font-family: 'JetBrains Mono';
+      font-family: 'Inter';
       src:
-        url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
-        url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
-      font-weight: 100 800;
+        url('/fonts/inter-variable.woff2') format('woff2-variations'),
+        url('/fonts/inter-variable.woff2') format('woff2');
+      font-weight: 100 900;
       font-style: normal;
       font-display: swap;
     }
 
+    @font-face {
+      font-family: 'JetBrains Mono';
+      src: url('/fonts/jetbrains-mono-latin.woff2') format('woff2');
+      font-weight: 100 800;
+      font-style: normal;
+      font-display: swap;
+      unicode-range: U+0000-024F, U+2000-206F;
+    }
+
+    @font-face {
+      font-family: 'JetBrains Mono';
+      src: url('/fonts/jetbrains-mono-rest.woff2') format('woff2');
+      font-weight: 100 800;
+      font-style: normal;
+      font-display: swap;
+      unicode-range: U+0250-1FFF, U+2070-2FFF, U+A700-A7FF, U+F8FF, U+FB00-FB4F,
+        U+FEFF, U+FFFD;
+    }
+
     :root {
-      --font-family: 'JetBrains Mono', monospace;
-      /* Standalone iframe: no globals.css cascade, so feed-rich-text.css's
-         var(--font-code) is sourced here. */
-      --font-code: 'JetBrains Mono', ui-monospace, monospace;
+      color-scheme: light;
+      --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo,
+        Consolas, monospace;
+      --font-mono: var(--font-code);
       --background: 0 0% 100%;
       --foreground: 0 0% 0%;
-      --muted: 0 0% 40%;
       --muted-foreground: 0 0% 40%;
-      --border: 0 0% 90%;
-      --card-bg: 0 0% 100%;
-      --card-border: 0 0% 88%;
-      --card-shadow: 0 0% 0% / 0.06;
+      --radius-sm: 0.5rem;
+      --ease: cubic-bezier(0.2, 0, 0, 1);
+      --dur-fast: 130ms;
+
+      /* Hairlines and fills are the foreground at low alpha, as in the blog's
+         prose cards, so both themes fall out of the three colours above. */
+      --line: hsl(var(--foreground) / 0.1);
+      --line-strong: hsl(var(--foreground) / 0.2);
+      --fill: hsl(var(--foreground) / 0.04);
+
+      /* Mirrored by --mood-embed-bleed in blog-prose.css: room for focus rings
+         at the frame edge, pulled back out by the host. */
       --body-padding: 8px;
+      --card-padding: 16px;
       --card-gap: 12px;
-      --card-radius: 12px;
-      --header-padding: 12px 14px;
-      --content-padding: 14px;
-      --footer-padding: 10px 14px;
-      --text-size: 14px;
-      --meta-size: 11px;
-      --view-more-size: 12px;
-      --reaction-size: 11px;
+      --card-radius: 16px;
+      --media-radius: 12px;
+      --stack-gap: 12px;
+      --avatar-size: 36px;
+      --name-size: 14px;
+      --meta-size: 12.5px;
+      --text-size: 15px;
       --image-max: 400px;
       --mood-item-text-size: var(--text-size);
       --mood-item-text-wide-size: var(--text-size);
@@ -209,25 +232,44 @@ function getImageClassName(post: MoodFeedItem): string {
     }
 
     .dark {
+      color-scheme: dark;
       --background: 0 0% 4%;
       --foreground: 0 0% 100%;
-      --muted: 0 0% 53%;
       --muted-foreground: 0 0% 53%;
-      --border: 0 0% 20%;
-      --card-bg: 0 0% 8%;
-      --card-border: 0 0% 18%;
-      --card-shadow: 0 0% 0% / 0.3;
     }
 
-    .light {
-      --background: 0 0% 100%;
-      --foreground: 0 0% 0%;
-      --muted: 0 0% 40%;
-      --muted-foreground: 0 0% 40%;
-      --border: 0 0% 90%;
-      --card-bg: 0 0% 100%;
-      --card-border: 0 0% 88%;
-      --card-shadow: 0 0% 0% / 0.06;
+    @media (prefers-color-scheme: dark) {
+      html[data-embed-theme="auto"][data-embed-frame="true"]:not(.light) {
+        color-scheme: dark;
+        --background: 0 0% 4%;
+        --foreground: 0 0% 100%;
+        --muted-foreground: 0 0% 53%;
+      }
+    }
+
+    html[data-embed-font="system"] {
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-code: var(--font-sans);
+    }
+
+    html[data-embed-density="compact"] {
+      --body-padding: 6px;
+      --card-padding: 12px;
+      --card-gap: 10px;
+      --card-radius: 14px;
+      --media-radius: 10px;
+      --stack-gap: 10px;
+      --avatar-size: 30px;
+      --name-size: 13px;
+      --meta-size: 12px;
+      --text-size: 14px;
+      --image-max: 320px;
+    }
+
+    html[data-embed-frame="false"] {
+      --body-padding: 0;
+      --card-padding: 0;
+      --card-gap: 16px;
     }
 
     * {
@@ -236,16 +278,26 @@ function getImageClassName(post: MoodFeedItem): string {
       box-sizing: border-box;
     }
 
-    html, body {
-      font-family: var(--font-family);
-      font-size: 14px;
-      line-height: 1.6;
+    /* A framed card brings its own surface, so the page around it stays
+       transparent and the bleed never shows as a strip on a host whose colour
+       differs. Frameless text sits on the theme background so it stays
+       legible wherever it lands. */
+    html {
+      background: transparent;
+    }
+
+    html[data-embed-frame="false"] {
       background: hsl(var(--background));
-      color: hsl(var(--foreground));
     }
 
     body {
       padding: var(--body-padding);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.6;
+      color: hsl(var(--foreground));
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     a {
@@ -253,37 +305,22 @@ function getImageClassName(post: MoodFeedItem): string {
       text-decoration: none;
     }
 
-    html[data-embed-font="system"] {
-      --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    a:focus-visible {
+      outline: 2px solid hsl(var(--foreground) / 0.5);
+      outline-offset: 2px;
+      border-radius: 4px;
     }
 
-    html[data-embed-density="compact"] {
-      --body-padding: 6px;
-      --card-gap: 10px;
-      --card-radius: 10px;
-      --header-padding: 10px 12px;
-      --content-padding: 12px;
-      --footer-padding: 8px 12px;
-      --text-size: 13px;
-      --meta-size: 10px;
-      --view-more-size: 11px;
-      --reaction-size: 10px;
-      --image-max: 320px;
-    }
-
-    html[data-embed-frame="false"] {
-      --body-padding: 0;
-      --card-gap: 16px;
-      --card-radius: 0;
-    }
-
-    /* Card container */
+    /* Card: a hairline and the page colour, no shadow -- the blog's bookmark
+       card, not a floating widget. */
     .embed-card {
-      background: hsl(var(--card-bg));
-      border: 1px solid hsl(var(--card-border));
+      display: flex;
+      flex-direction: column;
+      gap: var(--stack-gap);
+      padding: var(--card-padding);
+      background: hsl(var(--background));
+      border: 1px solid var(--line);
       border-radius: var(--card-radius);
-      overflow: hidden;
-      box-shadow: 0 2px 8px hsl(var(--card-shadow)), 0 1px 3px hsl(var(--card-shadow));
     }
 
     .embed-card + .embed-card {
@@ -294,115 +331,141 @@ function getImageClassName(post: MoodFeedItem): string {
       background: transparent;
       border: 0;
       border-radius: 0;
-      box-shadow: none;
     }
 
-    /* Header */
-    .card-header {
+    html[data-embed-frame="false"] .embed-card + .embed-card {
+      padding-top: var(--card-gap);
+      border-top: 1px solid var(--line);
+    }
+
+    /* Byline: /mood/[id]'s author block at embed scale. Name in the code face,
+       date as the sans meta line under it, and the date is the permalink. */
+    .embed-byline {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: var(--header-padding);
-      border-bottom: 1px solid hsl(var(--card-border));
-    }
-
-    .channel-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: hsl(var(--muted-foreground) / 0.15);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: 600;
-      color: hsl(var(--foreground));
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-
-    .channel-avatar img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .channel-info {
-      flex: 1;
       min-width: 0;
     }
 
-    .channel-name {
-      font-family: var(--font-family);
+    .embed-avatar {
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--avatar-size);
+      height: var(--avatar-size);
+      border-radius: 50%;
+      overflow: hidden;
+      background: var(--fill);
+      font-family: var(--font-code);
       font-size: 13px;
       font-weight: 600;
-      color: hsl(var(--foreground));
+    }
+
+    /* An inset shadow paints under an <img>'s pixels; an inset outline paints
+       over them, so the edge survives a light avatar on a light page. */
+    .embed-avatar img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      outline: 1px solid hsl(var(--foreground) / 0.1);
+      outline-offset: -1px;
+    }
+
+    .embed-who {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .embed-name {
+      font-family: var(--font-code);
+      font-size: var(--name-size);
+      font-weight: 600;
+      line-height: 18px;
+      letter-spacing: -0.01em;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .channel-name:hover {
-      text-decoration: underline;
-      text-underline-offset: 2px;
+    .embed-date {
+      font-size: var(--meta-size);
+      line-height: 16px;
+      color: hsl(var(--muted-foreground) / 0.8);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      transition: color var(--dur-fast) var(--ease);
     }
 
-    /* Content */
-    .card-content {
-      padding: var(--content-padding);
+    .embed-name:hover {
+      text-decoration: underline;
+      text-decoration-color: var(--line-strong);
+      text-underline-offset: 3px;
+    }
+
+    .embed-date:hover {
+      color: hsl(var(--foreground));
+    }
+
+    /* Body: the feed's content column -- one flex stack, one gap, so quote,
+       text and media space themselves the way .mood-item-content does. */
+    .embed-body {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .embed-body:empty {
+      display: none;
     }
 
     .mood-item-quote {
-      margin-bottom: 10px;
       max-width: 100%;
-    }
-
-    .mood-item-text {
-      font-size: var(--text-size);
     }
 
     .mood-item-media {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      margin-top: 12px;
     }
 
-    .mood-item-media :global(video) {
+    /* The feed's video sizes, minus its vh caps: this frame is as tall as its
+       content, so vh here would measure the video against itself. */
+    .mood-item-media video {
       display: block;
       width: 100%;
       max-width: 100%;
-      max-height: min(52vh, 400px);
+      max-height: 400px;
       height: auto;
-      border-radius: 12px;
+      border-radius: var(--media-radius);
       background: transparent;
       overflow: clip;
-      clip-path: inset(0 round 12px);
+      clip-path: inset(0 round var(--media-radius));
     }
 
-    .mood-item-media :global(video.video--portrait) {
+    .mood-item-media video.video--portrait {
       width: min(100%, 320px);
-      max-height: min(58vh, 460px);
+      max-height: 460px;
     }
 
-    .mood-item-media :global(video.video--ultra-tall) {
+    .mood-item-media video.video--ultra-tall {
       width: min(100%, 280px);
-      max-height: min(62vh, 500px);
+      max-height: 500px;
     }
 
-    .mood-item-media :global(audio) {
+    .mood-item-media audio {
       width: 100%;
-    }
-
-    .mood-item-thumb,
-    .mood-gallery {
-      margin-top: 12px;
     }
 
     .mood-item-thumb {
       width: 100%;
-      max-width: 400px;
-      border-radius: 12px;
+      max-width: var(--image-max);
+      border-radius: var(--media-radius);
       overflow: hidden;
       background: hsl(var(--foreground) / 0.02);
       position: relative;
@@ -416,6 +479,8 @@ function getImageClassName(post: MoodFeedItem): string {
       object-fit: contain;
     }
 
+    /* Same edge the feed draws (mood.astro), so a photo reads identically in
+       both places. */
     .mood-item-thumb:not(.mood-item-thumb--sticker) > img:not(.mood-image-blur) {
       box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.1);
     }
@@ -472,102 +537,94 @@ function getImageClassName(post: MoodFeedItem): string {
       object-fit: contain;
     }
 
-    /* Footer */
-    .card-footer {
+    /* Reactions: the feed's pills (globals.css .mood-reaction), restated for
+       the standalone document. */
+    .embed-reactions {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: var(--footer-padding);
-      border-top: 1px solid hsl(var(--card-border));
-      font-size: var(--meta-size);
-      color: hsl(var(--muted-foreground));
-    }
-
-    html[data-embed-frame="false"] .card-header,
-    html[data-embed-frame="false"] .card-content,
-    html[data-embed-frame="false"] .card-footer {
-      padding-left: 0;
-      padding-right: 0;
-    }
-
-    .footer-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .mood-reactions {
-      display: flex;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 6px;
     }
 
     .mood-reaction {
       display: inline-flex;
       align-items: center;
-      gap: 3px;
-      padding: 2px 6px;
-      background: hsl(var(--muted-foreground) / 0.08);
-      border-radius: 10px;
-      font-size: var(--reaction-size);
-    }
-
-    .reaction-emoji {
-      font-size: 12px;
-    }
-
-    .reaction-emoji-img {
-      width: 14px;
-      height: 14px;
-      vertical-align: middle;
-    }
-
-    .mood-datetime {
-      white-space: nowrap;
-    }
-
-    .mood-datetime:hover {
-      text-decoration: underline;
-      text-underline-offset: 2px;
-    }
-
-    /* View more link */
-    .view-more {
-      display: block;
-      text-align: center;
-      padding: 10px;
-      margin-top: 8px;
-      font-size: var(--view-more-size);
+      gap: 4px;
+      padding: 3px 9px 3px 7px;
+      border: 1px solid hsl(var(--foreground) / 0.08);
+      border-radius: 999px;
+      background: var(--fill);
       color: hsl(var(--muted-foreground));
-      transition: color 0.15s ease;
+      line-height: 1.2;
     }
 
-    .view-more:hover {
+    .mood-reaction--paid {
+      background: hsl(45 100% 50% / 0.08);
+      color: hsl(45 70% 40%);
+    }
+
+    .mood-reaction-emoji {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.15em;
+      height: 1.15em;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .mood-reaction-emoji img {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .mood-reaction-count {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: 'tnum' 1, 'zero' 1;
+      letter-spacing: 0.02em;
+      opacity: 0.85;
+    }
+
+    .embed-more {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: fit-content;
+      margin: 4px auto 0;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: hsl(var(--muted-foreground));
+      transition: color var(--dur-fast) var(--ease);
+    }
+
+    .embed-more__arrow {
+      transition: translate var(--dur-fast) var(--ease);
+    }
+
+    .embed-more:hover {
       color: hsl(var(--foreground));
     }
 
-    .view-more::after {
-      content: ' →';
+    .embed-more:hover .embed-more__arrow {
+      translate: 2px 0;
     }
 
     .empty-state {
-      text-align: center;
       padding: 32px 16px;
-      color: hsl(var(--muted-foreground));
+      text-align: center;
       font-size: 13px;
+      color: hsl(var(--muted-foreground));
     }
 
-    /* Auto theme detection */
-    @media (prefers-color-scheme: dark) {
-      html[data-embed-theme="auto"][data-embed-frame="true"]:not(.light) {
-        --background: 0 0% 4%;
-        --foreground: 0 0% 100%;
-        --muted: 0 0% 53%;
-        --muted-foreground: 0 0% 53%;
-        --border: 0 0% 20%;
-        --card-bg: 0 0% 8%;
-        --card-border: 0 0% 18%;
-        --card-shadow: 0 0% 0% / 0.3;
+    @media (prefers-reduced-motion: reduce) {
+      .embed-date,
+      .embed-more,
+      .embed-more__arrow {
+        transition: none;
       }
     }
   </style>
@@ -604,25 +661,30 @@ function getImageClassName(post: MoodFeedItem): string {
         const imageResponsive = image
           ? buildArchiveSrcSet(image, { sizes: embedImageSizes })
           : null;
+        const reactions = post.reactions ?? [];
 
         return (
           <article class="embed-card">
-            <header class="card-header">
-              <a href={channelUrl} target="_blank" rel="noopener" class="channel-avatar">
+            <header class="embed-byline">
+              {/* The name next to it is the same link; one tab stop is enough. */}
+              <a href={channelUrl} target="_blank" rel="noopener" class="embed-avatar" tabindex="-1" aria-hidden="true">
                 {channelAvatar ? (
-                  <img src={channelAvatar} alt={channelTitle} />
+                  <img src={channelAvatar} alt="" width="36" height="36" decoding="async" />
                 ) : (
                   initial
                 )}
               </a>
-              <div class="channel-info">
-                <a href={channelUrl} target="_blank" rel="noopener" class="channel-name">
+              <div class="embed-who">
+                <a href={channelUrl} target="_blank" rel="noopener" class="embed-name">
                   {channelTitle}
+                </a>
+                <a href={postUrl} target="_blank" rel="noopener" class="embed-date">
+                  <time datetime={post.datetime}>{datetime}</time>
                 </a>
               </div>
             </header>
 
-            <div class="card-content">
+            <div class="embed-body">
               {post.quote && (
                 <QuoteElement
                   href={quoteHref}
@@ -693,33 +755,26 @@ function getImageClassName(post: MoodFeedItem): string {
               )}
             </div>
 
-            <footer class="card-footer">
-              <div class="footer-left">
-                {post.reactions && post.reactions.length > 0 && (
-                  <div class="mood-reactions">
-                    {post.reactions.slice(0, 4).map((reaction: any) => (
-                      <span class="mood-reaction">
-                        {reaction.emojiImage ? (
-                          <img class="reaction-emoji-img" src={reaction.emojiImage} alt="" />
-                        ) : (
-                          <span class="reaction-emoji">{reaction.emoji}</span>
-                        )}
-                        <span>{reaction.count}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
+            {reactions.length > 0 && (
+              <div class="embed-reactions">
+                {reactions.map((reaction) => (
+                  <span class={reaction.isPaid ? 'mood-reaction mood-reaction--paid' : 'mood-reaction'}>
+                    <span class="mood-reaction-emoji">
+                      {reaction.isPaid ? '⭐' : reaction.emojiImage ? (
+                        <img src={reaction.emojiImage} alt={reaction.emoji || 'emoji'} width="16" height="16" loading="lazy" decoding="async" />
+                      ) : reaction.emoji}
+                    </span>
+                    <span class="mood-reaction-count">{reaction.count}</span>
+                  </span>
+                ))}
               </div>
-              <a href={postUrl} target="_blank" rel="noopener" class="mood-datetime" data-datetime={post.datetime}>
-                {datetime}
-              </a>
-            </footer>
+            )}
           </article>
         );
       })}
       {showLink && feedPosts.length > 0 && (
-        <a class="view-more" href="/mood" target="_blank" rel="noopener">
-          View all moods
+        <a class="embed-more" href="/mood" target="_blank" rel="noopener">
+          View all moods<span class="embed-more__arrow" aria-hidden="true">→</span>
         </a>
       )}
     </>
@@ -872,29 +927,17 @@ function getImageClassName(post: MoodFeedItem): string {
       }
     });
 
+    // Same shape as the server's formatDateTime, in the reader's timezone.
     function formatClientDateTime(datetime) {
       const date = new Date(datetime);
       if (Number.isNaN(date.getTime())) return '';
-      const now = new Date();
-      const isToday = date.toDateString() === now.toDateString();
-      const yesterday = new Date(now);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const isYesterday = date.toDateString() === yesterday.toDateString();
-      const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-
-      if (isToday) return `Today at ${time}`;
-      if (isYesterday) return `Yesterday at ${time}`;
-
-      const month = date.toLocaleString('en-US', { month: 'short' });
-      const day = date.getDate();
-      return `${month} ${day} at ${time}`;
+      const day = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+      return `${day} · ${time}`;
     }
 
-    // Update datetimes to client locale
-    document.querySelectorAll('.mood-datetime[data-datetime]').forEach((el) => {
-      const value = el.getAttribute('data-datetime');
-      if (!value) return;
-      const text = formatClientDateTime(value);
+    document.querySelectorAll('.embed-date time[datetime]').forEach((el) => {
+      const text = formatClientDateTime(el.getAttribute('datetime'));
       if (text) {
         el.textContent = text;
       }
