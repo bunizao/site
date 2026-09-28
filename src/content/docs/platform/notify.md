@@ -147,3 +147,6 @@ The public site reaches them in two ways:
 The owner portal itself is `/dev/*`, rendered by the `site` Worker and gated by
 Cloudflare Access. `/oauth*` is forwarded to `site-api` the same way; see
 [Auth](/docs/platform/auth).
+
+The old HTML pages that `site-api` served on `admin.buxx.me` are retired. Their
+paths redirect to the matching screen of `/dev/portal`.

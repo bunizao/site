@@ -125,6 +125,25 @@ on request.
 Deleting has no time limit. If a published reply sits under the deleted comment,
 the row stays as an empty placeholder so the thread keeps its shape.
 
+## Pinned and closed threads
+
+The owner can pin one comment per post. It leads the thread under a **Pinned**
+label, whatever its date, and a new comment lands just below its thread.
+
+The owner can also close one thread to replies. Its comment says **Replies
+closed** where the Reply button was, and nothing in that thread offers one.
+Everything already written stays, hearts still work, and the rest of the post
+stays open. A reply box opened before the close is refused with `NOREPLY`.
+
+A mood post's thread at `/mood/[id]` shows the same marks on comments written
+on the web. Messages written in the Telegram group can't be pinned or closed,
+and neither mark stops a reply written there.
+
+Whether a post takes comments at all can change without a rebuild of the page.
+So a thread that has just loaded may open or close its box, or appear or
+disappear, a moment after the page does. Readers who have never commented see
+these changes within about a minute and a half.
+
 ## Hearts
 
 Each person can give one heart per thing: the post, and each comment. Hearts are
@@ -164,7 +183,7 @@ is a link to one of the sections below.
 | `THREAD` | The comment you're replying to is gone | Refresh the thread |
 | [`CLOSED`](#comment-error-closed) | The claim on that comment ran out | Nothing to retry |
 | `LOCKED` | The post has stopped taking comments | Nothing to retry |
-| [`VERIFY`](#comment-error-verify) | The post only takes confirmed addresses | Confirm, then post |
+| `NOREPLY` | Replies under that one comment are closed | Nothing to retry. The rest of the post is open |
 | [`NOMAIL`](#comment-error-nomail) | This comment needs an address to confirm | Add one, post, then open the link |
 | [`NAME`](#comment-error-name) | The name was refused | Pick another |
 | [`EMAIL`](#comment-error-email) | The address was refused | Correct it, or leave it blank |
@@ -204,20 +223,6 @@ You can usually leave the field empty. An address gives you editing and reply
 mail later. The one time you need it to be heard now is
 [`NOMAIL`](#comment-error-nomail).
 
-<a id="comment-error-verify"></a>
-
-### This post takes confirmed addresses (`VERIFY`)
-
-A few posts only accept comments from confirmed addresses. This is a refusal,
-so nothing was stored and your draft is still in the box. It isn't a moderation
-hold.
-
-Open the confirmation link already in your inbox, or send a fresh one from
-[`/reader/confirm`](/reader/confirm). Then post again in the same tab. A link
-signs in one device and expires after 24 hours. A link from three weeks ago
-won't work, and neither will one already used on another device. Asking for a
-new one is free.
-
 <a id="comment-error-nomail"></a>
 
 ### This comment needs an address (`NOMAIL`)
@@ -231,7 +236,9 @@ email address to confirm. Signals include:
 - one browser writing under several names
 
 You can also get it during a site-wide lockdown after a flood of comments, or
-within 24 hours of this browser tripping a spam check. A verified reader
+within 24 hours of this browser tripping a spam check. A few posts, and at
+times the whole site, publish comments only from confirmed addresses. There
+the address field says it's required. A verified reader
 posting from their own browser is never asked. How the words were typed,
 dictated or pasted never counts. Nothing was stored, and your draft is still
 in the box.

@@ -174,8 +174,10 @@ const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals)
 // loading shell in those tests and let the dedicated comments lab opt into a
 // mocked live controller explicitly with `interactive=1`.
 // A read-only thread keeps its id: it still loads and still renders what was
-// already written, it just has no box under the heading. Only `off` and the
-// fixture withhold it, and both mean "do not hydrate at all".
+// already written, it just has no box under the heading. An `off` one keeps it
+// too, drawn hidden, so a portal override can bring it back (the one list read
+// that costs is not prefetched below). Only the fixture withholds it, meaning
+// "do not hydrate at all".
 const liveCommentsPostId = isE2ESiteFixtureEnabled(Astro.locals) ? undefined : post.id;
 // The reads the reaction bar and comment thread make first, started by an
 // inline script instead of after hydration; see lib/api-prefetch.ts. Both
@@ -298,16 +300,17 @@ const translated = isTranslation(post);
       <ApiPrefetch whenNear urls={earlyApiUrls} />
 
       {/* Last on the page, and open-ended: a thread has no fixed height, so
-          anything under it is at an address that moves. */}
-      {commentPolicy.mode !== 'off' && (
-        <CommentsSection
-          locale={postLocale}
-          state={commentPolicy.mode === 'readonly' ? 'closed' : 'loading'}
-          postId={liveCommentsPostId}
-          turnstileSiteKey={turnstileSiteKey}
-          requireEmail={commentPolicy.requireVerifiedEmail}
-        />
-      )}
+          anything under it is at an address that moves. A post tagged `off`
+          still gets the section, hidden: the portal can override the tags,
+          and the controller shows it when the first page's `policy` says so. */}
+      <CommentsSection
+        locale={postLocale}
+        state={commentPolicy.mode === 'readonly' ? 'closed' : 'loading'}
+        hidden={commentPolicy.mode === 'off'}
+        postId={liveCommentsPostId}
+        turnstileSiteKey={turnstileSiteKey}
+        requireEmail={commentPolicy.requireVerifiedEmail}
+      />
     </article>
   </div>
 

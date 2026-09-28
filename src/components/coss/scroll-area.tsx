@@ -11,8 +11,12 @@ export function ScrollArea({
   scrollbarGutter = false,
   fill = false,
   clampContentMinWidth = true,
+  overscrollContain: _overscrollContain = false,
   ...props
 }: ScrollAreaPrimitive.Root.Props & {
+  /** Newer coss components pass this; the viewport already contains
+      overscroll whenever it overflows, so it only needs to not leak. */
+  overscrollContain?: boolean;
   scrollFade?: boolean;
   scrollbarGutter?: boolean;
   fill?: boolean;

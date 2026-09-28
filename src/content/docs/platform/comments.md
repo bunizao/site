@@ -19,7 +19,7 @@ of these secrets.
 | [Kill switch](#kill-switch) | `COMMENTS_ENABLED`, which turns the whole feature off |
 | [Configuration](#configuration) | Env vars and bindings |
 | [Scheduled work](#scheduled-work) | Cron sweeps and the 90-day retention promise |
-| [Stopping somebody](#stopping-somebody) | Quarantine, lockdown, ban list, and reader ban |
+| [Stopping somebody](#stopping-somebody) | Quarantine, lockdown, the site-wide email rule, ban list, and reader ban |
 | [Moderation surfaces](#moderation-surfaces) | Identity labels, the Telegram ops bot, the admin portal, Akismet, and the AI gateway |
 | [Mood surface](#mood-surface) | The bridge into Telegram discussion groups |
 | [Claims and evidence](#claims-and-evidence) | How ownership is kept apart from authentication |
@@ -35,13 +35,14 @@ disabled" envelope, so a disabled feature looks absent instead of broken.
 
 Production currently has it set to `"false"`.
 
-The switch only covers the API. `site` decides whether to render the comment
-section from [`blog.comments`](https://github.com/bunizao/site/blob/main/src/data/site.ts)
-and the post's own tags, and it doesn't read the API's flag. If you turn the
-API off, the rendered box gets a `404`. The client reads that as `GONE` and
-shows "comments aren't available right now". That works as a degraded state,
-but don't leave it that way. If the switch is going to stay off, turn the
-section off in `site` too.
+The switch only covers the API. `site` decides whether to show the comment
+section from [`blog.comments`](https://github.com/bunizao/site/blob/main/src/data/site.ts),
+the post's own tags, the portal's per-post override and its site-wide
+switches. The last two reach the page through the thread's first read. `site`
+doesn't read the API's flag. If you turn the API off, the rendered box gets a
+`404`. The client reads that as `GONE` and shows "comments aren't available
+right now". That works as a degraded state, but don't leave it that way. If
+the switch is going to stay off, turn the section off in `site` too.
 
 ## Configuration
 
@@ -52,7 +53,7 @@ section off in `site` too.
 | `COMMENTS_ENABLED` | The [kill switch](#kill-switch). `"true"` or nothing |
 | `COMMENTS_MODE` | Site-wide default policy mode. A post's tags apply on top |
 | `COMMENTS_REACTIONS` | `"false"` turns hearts off everywhere |
-| `COMMENTS_REQUIRE_VERIFIED_EMAIL` | `"true"` makes verification the site-wide minimum |
+| `COMMENTS_REQUIRE_VERIFIED_EMAIL` | `"true"` makes every post behave as if tagged `#comments-verified` |
 | `COMMENTS_OWNER_EMAIL_HASH` | `sha256(normalizeEmail(ownerEmail))`. A row whose `email_hash` equals it gets the author badge. Unset means no badge, never a false one |
 | `COMMENTS_OWNER_DISPLAY_NAME` | The name the owner's replies post under |
 | `COMMENTS_TELEGRAM_DIRECT_REPLY` | `"true"` lets the ops bot post a reply straight from Telegram |
@@ -117,7 +118,7 @@ a backlog.
 
 | Job | Cadence | What it removes |
 | --- | --- | --- |
-| Unverified address sweep | 15 min | An address that never confirmed, 7 days on |
+| Unverified address sweep | 15 min | An address that never confirmed, 7 days on. The same sweep drops the address typed on a private message that no reader session sent |
 | Expired email-change requests | 15 min | Tokens nobody used |
 | Expired delete requests | 15 min | Same |
 | Comment risk signals | Daily | Every actor column and both JSON blobs on `blog_comments`, `blog_reactions` and `owner_messages`, nulled in place 90 days after the row was written. The comment itself stays |
@@ -158,21 +159,23 @@ The kept fields describe the request itself rather than who sent it.
 
 ## Stopping somebody
 
-There are two automatic ways to stop a writer and two manual ones. The
-automatic pair handles a 3am flood before the owner wakes up. The manual pair
-is for the owner to use afterwards.
+There are two automatic ways to stop a writer and three manual ones. The
+automatic pair handles a 3am flood before the owner wakes up. The manual ones
+are for the owner to use afterwards.
 
 | Mechanism | Kind | Scope | Stored in |
 | --- | --- | --- | --- |
 | [Identity quarantine](#identity-quarantine) | Automatic, 24 hours | The current account or anonymous session | KV, `comments:quarantine:` |
 | [Lockdown](#lockdown) | Automatic, one hour | Every anonymous writer, site-wide | KV, `comments:lockdown` |
+| [Site-wide email rule](#site-wide-email-rule) | Manual, until the owner turns it off | Every anonymous writer, site-wide | D1, `comment_site_policy` |
 | [Ban list](#ban-list) | Manual, shadow | One key per row | D1, `blog_bans` |
 | [Reader ban](#reader-ban) | Manual, visible | One reader | `notify_subscribers.banned` |
 
 Neither automatic mechanism holds or rejects a comment. Both ask the anonymous
 writer to confirm an email address. This is the same step-up (an extra check
 before the comment goes through) that a suspicious score triggers; see
-[the risk stack](/docs/api/comments#post-a-comment).
+[the risk stack](/docs/api/comments#post-a-comment). The site-wide email rule
+and a `#comments-verified` post ask the same.
 
 - A person gets through with one click. An agent without a mailbox never does.
 - Every waiting comment that included an address is in the queue with a note
@@ -223,6 +226,30 @@ While the lockdown lasts:
 `/comments` in the ops bot shows the status. A flood that outlasts the hour
 engages it again.
 
+### Site-wide email rule
+
+The owner turns this rule on and off with the portal's *Require a confirmed
+email* switch, on Home or on Post modes. It is stored in D1 and works like a
+lockdown that never ends:
+
+- Every anonymous comment and reply waits for a confirmed email.
+- A waiting row gets reason `ok`, and its card comes only when the writer
+  confirms. A comment held for any other reason gets its card at once.
+- Verified readers are not affected.
+
+While the rule is on, the lockdown has nothing to add, so Home shows a line
+instead of the lockdown control. The flood count of 8 in 10 minutes stops
+counting.
+
+A post tagged `#comments-verified` gets the same rule for that post alone:
+its anonymous comments wait for a confirmed email, with no card until the
+writer confirms. The flood count keeps counting, because a flood elsewhere on
+the site still needs it.
+
+Next to it, a *Comments everywhere* switch makes every post read-only or off,
+whichever is stricter than the post's own mode. See
+[Site-wide switches](/docs/api/comments#site-wide-switches).
+
 ### Ban list
 
 The `blog_bans` table holds one row per key, with an optional note and expiry.
@@ -237,10 +264,10 @@ A key is one of:
 - a link domain
 - a mail domain
 
-Both write paths (comments and hearts) check every key a request carries in one
-query.
+Every write path (comments, hearts, and private messages) checks every key a
+request carries in one query.
 
-A ban is shadow-only on both paths. It works differently on each:
+A ban is shadow-only on every path. It works differently on each:
 
 - **Comments.** A listed writer's comment is created and held with the note
   `Shadow-banned writer.`. It skips the Akismet call, the model call, and the
@@ -249,19 +276,35 @@ A ban is shadow-only on both paths. It works differently on each:
 - **Hearts.** A listed source's heart gets the ordinary envelope, with the
   `reacted` state it asked for and a count that didn't move. No row is written,
   there is no reader pass, and no error is returned.
+- **Private messages.** A listed sender's message is stored and filed as spam
+  with the note `Shadow-banned sender.`, and answered like any other. See
+  [Owner Messages API](/docs/api/messages#senders-and-bans).
 
-Neither response reveals the ban, because a ban that announces itself is one
+No response reveals the ban, because a ban that announces itself is one
 somebody can test around.
 
 You can apply a ban from the comment queue's actor strip, from the source
 profile, or from the Ban button on a held comment's Telegram card. Lift it from
 the ban list page.
 
+A ban raised from a comment deletes that comment by default, and the Telegram
+card's ban always does. The deletion is part of the same restorable operation.
+
 A ban can also **purge**. Purge soft-deletes the source's comments from the
 last 90 days with the note `Purged with ban.` and removes its reaction rows.
-Each affected row is written to the activity log first. Purge is off by
-default, and it is the only part of banning that touches rows that already
-exist.
+Each affected row is written to the activity log first. From a comment, the
+portal's *Same fingerprint* choice purges that comment's device fingerprint
+too, without banning it. Purge is off by default.
+
+A purge never takes:
+
+- a published comment that a reader other than the banned comment's writer
+  wrote while signed in
+- a reaction another reader left
+- the owner's own replies and comments
+
+A writer counts as that reader only if they were signed in when writing. A
+later claim doesn't count.
 
 #### Choose ban keys
 
@@ -297,8 +340,18 @@ Use a reader ban when an identity should lose its account. Use a shadow ban
 from the ban list when a source should stop being productive without learning
 why.
 
-Neither kind of ban deletes anything retroactively. Both leave existing
-published rows in place. Removing those is a separate moderation action.
+The portal lists every revoked reader and can restore one. Restoring clears
+the reader's ban flag and nothing else:
+
+- Key bans applied in the same act stay.
+- Purged rows come back only through the ban operation's own restore.
+- The reader's session cookie was never deleted, so they are signed in again
+  on their next request.
+
+Neither kind of ban deletes anything retroactively on its own. Both leave
+existing published rows in place. Removing those is a separate moderation
+action, even when the portal bundles it with the ban (the banned comment, or a
+purge).
 
 ## Moderation surfaces
 
@@ -309,7 +362,7 @@ the AI gateway judge submissions automatically.
 | --- | --- |
 | [Identity labels](#identity-labels) | How each comment's authentication is shown |
 | [Telegram ops bot](#telegram-ops-bot) | A card for each new or held comment, with decision buttons |
-| [Admin portal](#admin-portal) | The queue, insights, source profiles, and the ban list |
+| [Admin portal](#admin-portal) | The queue, insights, source profiles, the ban list, thread controls, and the site-wide switches |
 | [Akismet](#akismet) | Checks every submission |
 | [AI gateway](#ai-gateway) | A second opinion on anonymous submissions |
 
@@ -330,8 +383,8 @@ writing. It says nothing about trustworthiness or the account's current
 access. A passed browser challenge or a reader ID alone doesn't establish
 historical verification.
 
-The portal queue can filter by these labels within the loaded page, and its
-counts cover that page only. Actor strips on comments, reactions, and source
+The portal shows the label in each comment's detail pane. The queue doesn't
+filter by it. Actor strips on comments, reactions, and source
 profiles show the linked reader, the claim time and method, and active ban-key
 matches. A ban-key match describes the record's keys. It is not a full check
 of the account's status.
@@ -355,14 +408,39 @@ allowlist; see [Internal routes](/docs/api/internal#webhooks).
 The comment routes live under `/admin` and are listed on the same Internal
 routes page. The portal has four views:
 
-- **Queue.** Every row has an actor strip: where the write came from, what it
-  did, which keys it shares with other rows, and the two JSON blobs behind a
-  disclosure.
+- **Queue.** A one-line log. Its detail pane carries the actor record: where
+  the write came from, what it did, and which keys it shares with other rows.
+  Search and filters run on site-api, over the last 30 days unless a range
+  says otherwise. A range wider than 90 days keeps its latest 90. The queue's
+  acts are approve, hide, reject with a reason, delete, restore within 30
+  days, the owner's reply, and one act over up to 20 selected rows. It also
+  shows and lifts the lockdown.
 - **Insights.** Tables grouped by network, subnet, device, hint, link domain,
   and mail domain. Each shows the share the automatic pass held.
 - **Source profile.** One key, with its spread across other keys and a two-hop
   link graph over strong keys only.
 - **Ban list.**
+
+Next to these views sit the thread controls: pin one root per post, lock a
+thread against new replies, and override one post's comment mode (see
+[Blog Comments API](/docs/api/comments#pinned-and-locked-threads)). The log's
+detail pane carries all three: P pins, L locks the thread, and the post line
+switches the mode. The log marks a pinned or locked root in front of its text,
+and Post modes lists every override.
+
+Two site-wide switches sit on Home, next to the lockdown, and again at the top
+of Post modes:
+
+- *Comments everywhere*: open, read-only or off
+- *Require a confirmed email*
+
+A row in Post modes whose mode the site-wide one overrides says "everywhere",
+and the post line says the site-wide mode wins. The Comments header shows one
+line for each switch that is on, with a button that turns it back off. The ⌘K
+palette offers only the changes that apply.
+
+Cookie-less readers see each of these changes within about 90 seconds, the
+life of the edge's shared copy of the thread. Nothing purges it.
 
 ### Akismet
 
@@ -381,7 +459,8 @@ honeypot field, the owner's `administrator` role, a timestamp, and
 
 The owner's decisions go back to Akismet as feedback. Hiding or deleting an
 anonymous comment submits it as spam. Approving a flagged one submits it as
-ham. Rows keep the raw IP and referrer for 90 days, so the feedback repeats
+ham. Restoring a deleted one takes the spam report back with ham, unless the
+comment returns to a hold that still says spam. Rows keep the raw IP and referrer for 90 days, so the feedback repeats
 exactly what the check saw.
 
 ### AI gateway
@@ -479,9 +558,9 @@ merge those accounts or invent a confidence percentage.
 ## Preview and recovery
 
 Before a ban is applied, the portal previews what it would affect over the last
-90 days: distinct accounts, sessions, comments by status, and reactions. When
-you select several keys, they combine as a union, so overlapping rows count
-once.
+90 days: distinct accounts, sessions, comments by status, and reactions, plus
+the published comments a purge would spare. When you select several keys, they
+combine as a union, so overlapping rows count once.
 
 Broad bans are still possible after explicit selection. A purge, though, is
 refused when more than 500 comments and reactions would need backups. The

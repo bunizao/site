@@ -2143,6 +2143,19 @@
   color: var(--blog-ink);
 }
 
+/* Where a locked thread's Reply was. The same size and grey as the buttons
+   beside it and the same 8px inset, so the strip keeps its rhythm, but no
+   pill and no pointer: it is a fact about the thread, not a control. */
+.blog-comment__closed {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  color: var(--blog-faint);
+  font-size: var(--comment-meta);
+  font-weight: 500;
+}
+
 .blog-comment__act:focus-visible {
   outline: 2px solid var(--blog-accent);
   outline-offset: 1px;
@@ -2463,8 +2476,11 @@
 
 /* A closed thread is read-only, full stop. Rather than pick which of like,
    reply, edit and delete survive -- and defend that list later -- the whole
-   action row and the reply box go. `display: none` also takes them out of the
-   tab order, which hiding them any other way would not. */
+   action row and both boxes go. `display: none` also takes them out of the
+   tab order, which hiding them any other way would not. The compose box is
+   still in the markup so the portal can reopen the post without a reload
+   (comments-controller.ts `applyMode`). */
+.blog-comments[data-state='closed'] > .blog-compose,
 .blog-comments[data-state='closed'] .blog-comment__actions,
 .blog-comments[data-state='closed'] .blog-reply {
   display: none;

@@ -12,11 +12,11 @@ needs only a name, and the email is optional. Reacting needs neither.
 An email gives the reader a persistent avatar and a way to claim their
 comments later. Without one, the comment belongs to its anonymous browser
 session alone. Email verification and OAuth sign-in are optional upgrades
-(grades L1 and L2, below). A confirmed address is needed in two cases:
-on a post that takes verified addresses only (see
-[Per-post policy](#per-post-policy)), and when the step-up flags an anonymous
-writer (step 6 of [the risk stack](#the-risk-stack)). The address itself never
-appears in a response body or public HTML.
+(grades L1 and L2, below). An anonymous comment waits for a confirmed
+address in two cases: on a post that takes comments from confirmed addresses
+only (see [Per-post policy](#per-post-policy)), and when the step-up flags an
+anonymous writer (step 6 of [the risk stack](#the-risk-stack)). The address
+itself never appears in a response body or public HTML.
 
 The same routes also serve `mood`'s comments, chosen with the `surface`
 parameter (see [Mood surface (the Telegram bridge)](#mood-surface-the-telegram-bridge)).
@@ -109,8 +109,9 @@ The code is single-use, expires in ten minutes, and is stored only as a
 digest. Redeeming it is atomic, so each handoff produces exactly one session.
 The owner's first sign-in ever supplies their address so a reader row can be
 created. The address is checked against the hash, and a different address is
-refused. Every later sign-in reads the address from that row. The "Write as
-the owner" card on the portal's Comments page runs both steps. To sign out,
+refused. Every later sign-in reads the address from that row. *Write as the
+owner*, in the ⋯ menu of the portal's Comments screen or in ⌘K, runs both
+steps. To sign out,
 use the ordinary `DELETE /api/v2/reader/me`.
 
 ## Rate limits
@@ -140,11 +141,14 @@ reader OAuth routes.
 
 Every write route checks the post's comment policy. On
 `POST /api/v2/comments`, a closed thread is refused before Turnstile, and the
-verified-only rule is checked in step 3 of [the risk stack](#the-risk-stack).
+verified-only rule is an email step-up (step 6 of [the risk stack](#the-risk-stack)).
 The policy comes from the post's internal tags in Ghost (`#comments-off`, `#comments-readonly`
 or the older `#no-comments`, `#reactions-off`, and `#comments-verified`),
 applied on top of a site-wide default. The full table is in
-[Internal tags](/docs/writing/tags#comment-policy).
+[Internal tags](/docs/writing/tags#comment-policy). The owner can also
+override one post's mode from the portal, and two site-wide switches sit above
+both (see [The portal override](#the-portal-override) and
+[Site-wide switches](#site-wide-switches)).
 
 Both halves of the system derive the policy with one function,
 `commentPolicyFromTags` in `@bunizao/contracts/comments`:
@@ -154,8 +158,8 @@ Both halves of the system derive the policy with one function,
   API returns internal tags for `include=tags`, and site-api caches them with
   the post.
 
-The page and the API can't disagree, so a closed thread is closed to `curl`
-too.
+The page and the API can't disagree about the tags, so a closed thread is
+closed to `curl` too.
 
 site-api's cached registry is fresh for 60 seconds. After that it still
 answers at once while a background fetch replaces it. A tag change is
@@ -163,17 +167,89 @@ therefore enforced from the first request after those 60 seconds plus the
 refresh. A post missing from a stale copy waits for the refresh instead of
 being refused.
 
-The policy refuses a write in three ways, all `403`:
+The policy refuses a write in two ways, both `403`:
 
 | Slug | Cause |
 | --- | --- |
 | `comments_closed` | The post takes no new comments (`readonly` or `off`). Applies to create and edit. Delete is always allowed, since removing your own words adds nothing to a thread. |
-| `email_verification_required` | The post takes verified addresses only, and this writer has none. This is a plain refusal, not a moderation hold. |
 | `reactions_disabled` | Hearts are off for the post, both on the post and on its comments. |
 
-Reads are never gated, because a read-only thread has to stay readable. A
-post that renders no comment section offers no link to its thread. Only the
+`#comments-verified` refuses nothing by itself. It is the site-wide
+[email switch](#site-wide-switches) for one post: an anonymous comment with
+no `email` gets `403 email_required` and nothing is stored, and one with an
+address is stored `held` and publishes once the address is confirmed.
+Signed-in readers post as usual, and edits are unaffected.
+
+Reads are never gated, because a read-only thread has to stay readable. An
+`off` post draws its section hidden, and nothing links to its thread. Only the
 page tells `off` and `readonly` apart; to a write, both mean no.
+
+### The portal override
+
+The owner can set one post's mode from the admin portal without touching its
+tags. The override replaces the tag-derived `mode` in both directions: it can
+close an open post, or reopen one tagged `#comments-off`. `reactions` and
+`requireVerifiedEmail` still come from the tags. Clearing the override hands
+the post back to its tags. Every write route reads the override beside the tags
+(one primary-key read), so the refusals above follow it at once.
+
+The page is built from the tags alone, so it can draw the wrong mode until the
+thread loads. The first page of [List comments](#list-comments) carries
+`policy` whenever an override exists, and the client redraws from its `mode`:
+it opens or closes the compose box, and shows or hides the whole section. A
+post with no override gets no `policy` field while no
+[site-wide switch](#site-wide-switches) is on, and the page's own drawing
+stands.
+
+| Mode | When the client applies it |
+| --- | --- |
+| `off` | The moment the first page arrives, before any comment is drawn, so neither the rows nor their hearts are read |
+| `readonly` | Together with the rows |
+
+A section already on screen still disappears one round trip after first paint,
+because the HTML is cached and never reads the override. So a post meant to
+stay closed should carry the tag as well.
+
+A mood post takes the same `policy` from the first `mood` page of this route,
+which its thread reads beside the Telegram scrape (see
+[Mood surface (the Telegram bridge)](#mood-surface-the-telegram-bridge)).
+
+### Site-wide switches
+
+The owner has two more switches in the admin portal. Each one covers every
+post, blog and mood alike.
+
+**Comments everywhere: read-only or off.** Every post takes whichever is
+stricter, this mode or its own (tags, then any override), so a post that is
+already off stays off. From the moment the switch is set, a write is refused
+with `403 comments_closed`, the same as on a closed post. When the switch goes
+back to open, every post follows its own mode again.
+
+**Require a confirmed email.** Anonymous comments and replies wait until the
+writer confirms an address. This is the same step-up as a
+[lockdown](/docs/platform/comments#stopping-somebody), with no end:
+
+- A write with no `email` gets `403 email_required`, and nothing is stored.
+  The page keeps the draft and asks for an address.
+- A write that includes an email is stored `held`, and it publishes once the
+  address is confirmed.
+- Signed-in readers post as usual.
+
+The `#comments-verified` tag applies the same rule to a single post.
+
+While either switch is on, the first page of [List comments](#list-comments)
+carries `policy` with the switches folded in, and the page draws from both
+fields:
+
+| Field | Value | What the page does |
+| --- | --- | --- |
+| `mode` | The stricter of the two modes | The same as for an override |
+| `requireVerifiedEmail` | True while the email switch is on, or on a `#comments-verified` post | Marks the address field required and says so in its placeholder. The compose box then asks for an address before it sends |
+
+Under the email switch, the field only tells the page what to draw. What
+happens to a write is the hold described above. Cookie-less reads of that first
+page come from the edge cache, so a page follows a switch within about 90
+seconds. Writes follow it at once.
 
 ## List comments
 
@@ -215,6 +291,22 @@ Pages are counted by root comment. Every visible reply under a returned root
 comes back with it, unpaginated. Threads are one level deep, so a root's reply
 count stays bounded. `total` counts published comments only.
 
+### Owner marks
+
+Three owner-set fields are optional on the wire. A client treats each one as
+absent when it is missing.
+
+| Field | On | Meaning |
+| --- | --- | --- |
+| `pinned: true` | The pinned root only | The owner pinned it. The first page lists it ahead of every other root, with its replies, whatever its date. |
+| `locked: true` | A locked root only, never its replies | The owner closed replies under this thread. It stays readable and likable. |
+| `policy` | The first page only, when the portal overrides the post's mode or a [site-wide switch](#site-wide-switches) is on | The effective [per-post policy](#per-post-policy) with the site-wide switches folded in. The client acts on `policy.mode` and `policy.requireVerifiedEmail`. |
+
+A post has at most one pin. The pin is never one of the date-ordered roots, so
+the first page can carry `limit + 1` roots, and `nextBefore` and the later
+pages don't change. A pinned row that is hidden or deleted drops back to its
+place in date order, and returns to the top if it is published again.
+
 ### Ownership and visibility
 
 `mine` is computed against the calling browser's session cookie or
@@ -245,9 +337,20 @@ session and `reader_anon` cookies.
 | Any error | `private, no-store` |
 
 Every request with neither cookie gets the same page, so the edge shares it.
-A new comment or an approval can take up to about 90s to reach cookie-less
-readers. The writer never waits for this, because every write sets
-`reader_anon`.
+A new comment, a moderation decision, a pin, a lock, or a mode override can
+take up to about 90s to reach cookie-less readers. Nothing purges the cache.
+The writer never waits for this, because every write sets `reader_anon`.
+
+## Pinned and locked threads
+
+The owner sets both from the admin portal, and both apply to a root. A lock
+set on a reply lands on its root.
+
+A lock refuses a new reply under the thread with `403 thread_locked`. The rest
+of the post stays open, and edits, deletes and likes under the thread still
+work. The owner's own reply from the portal is not refused. Replies written in
+a mood post's Telegram discussion group arrive through the bridge, so the lock
+doesn't reach them.
 
 ## Post a comment
 
@@ -380,12 +483,11 @@ Every submission runs the full risk stack, a fixed series of checks, in order.
 
 #### 1. Turnstile
 
-A failed or missing token gets a plain `400`/`503`. After this step, three
+A failed or missing token gets a plain `400`/`503`. After this step, two
 checks can still refuse in the open, and nothing is stored:
 
 | Step | Refusal |
 | --- | --- |
-| 3. Heuristics | `403 email_verification_required`, on a post that takes verified addresses only |
 | 4. Rate limits | `429` |
 | 6. Email step-up | `403 email_required`, when the writer gave no address |
 
@@ -404,10 +506,6 @@ hours (see step 6). An expired dwell token doesn't, since a tab left open
 overnight trips it too.
 
 #### 3. Heuristics
-
-A post that takes verified addresses only refuses an anonymous writer here,
-with `403 email_verification_required` (see
-[Per-post policy](#per-post-policy)).
 
 A heuristic hit **holds** the comment: it is created, but only its writer can
 see it. A hit never drops the comment.
@@ -499,12 +597,16 @@ verdict lands. Inside the 8000ms window, a content step-up is refused or
 stored like any other. After the window, the stored row becomes an awaiting
 row (below), and the verification mail, which waits for the verdict, says so.
 
-Two more cases step up the same way:
+Four more cases step up the same way:
 
 - A session quarantined for 24 hours, after a filled honeypot, a declared
   agent, or a spam verdict. Account-backed keys refer to that account only,
   and IP and fingerprint matches don't share the quarantine.
 - Every anonymous writer during the site-wide one-hour lockdown.
+- Every anonymous writer while the owner's
+  [site-wide email switch](#site-wide-switches) is on.
+- Every anonymous writer on a post tagged `#comments-verified` (see
+  [Per-post policy](#per-post-policy)).
 
 Ordinary owner hide/delete actions don't create a quarantine.
 
@@ -516,19 +618,28 @@ mail says that confirming publishes the comment.
 Step 7 still judges an awaiting row. An adverse verdict (spam, a gateway hold,
 a reject) replaces the wait and stands. A clean one is appended to the note.
 The owner gets the usual card once the verdict lands, except during a lockdown
-or quarantine.
+or quarantine. Under the site-wide email switch or on a `#comments-verified`
+post there is no card while the comment still waits for its email. The card
+comes when the writer confirms.
 
 The writer confirms by opening the link in the same browser, or by selecting
 the comment in `POST /api/v2/reader/claims`. Confirming sends the comment
 through step 7 again, as a verified reader's comment, with a second opinion
 from the gateway. A confirmed mailbox doesn't prove a person: if the gateway
 still reads the writer as an `agent`, the comment stays held with a note
-beginning `Email confirmed; still held.`, and the owner decides. The owner can
-approve an awaiting row from the queue at any time.
+beginning `Email confirmed; still held.`, and the owner decides.
+
+Confirming never gets past what the create path refuses. If the post stopped
+taking comments, or the owner locked the thread, while the comment waited, the
+comment skips step 7 and stays held with a note beginning
+`Email confirmed; still held:` that names which. The owner can approve an
+awaiting row from the queue at any time.
 
 **Lockdown.** The lockdown engages automatically after more than 8 anonymous
 comments in 10 minutes, or when 3 of the last 5 anonymous comments are judged
-spam. It lifts automatically. Step-ups never engage it. See
+spam. It lifts automatically. Step-ups never engage it. While the site-wide
+email switch is on, the first trigger counts nothing, since every anonymous
+comment already waits. See
 [Stopping somebody](/docs/platform/comments#stopping-somebody).
 
 #### 7. Content moderation
@@ -607,11 +718,12 @@ on that send. A create without an email never sends mail at all.
 | --- | --- |
 | `400` | Malformed body (see the field list above for exact messages) |
 | `400 invalid_parent` | `parentId` doesn't exist, isn't a root comment, or belongs to a different post |
+| `403 thread_locked` | `parentId` is a thread the owner [locked](#pinned-and-locked-threads) |
 | `404 not_found` | Unknown `postId` |
 | `503 comment_target_unavailable` | The Ghost registry can't be reached |
-| `403 comments_closed`, `403 email_verification_required` | From the [per-post policy](#per-post-policy) |
+| `403 comments_closed` | From the [per-post policy](#per-post-policy) |
 | `400 turnstile_failed`, `503 turnstile_unavailable` | Turnstile failed or is unavailable. Both carry a `code` extra. |
-| `403 email_required` | The step-up (step 6) asks an anonymous writer for an address |
+| `403 email_required` | The step-up (step 6) asks an anonymous writer for an address, including on a `#comments-verified` post |
 | `429 Too Many Requests` | A rate limit |
 
 The route is same-origin only and sends no CORS header.
@@ -705,6 +817,21 @@ The assembled thread is shared across readers for about 15s (up to ~45s with
 revalidation, see [`/api/comments`](/docs/api/content#comments-by-post-id)).
 The writer's own browser shows their comment straight away, from the write
 response and the `no-store` `/api/v2/comments` verdict poll.
+
+The scrape carries none of the owner's marks. So a mood page linked to the
+group also prefetches `GET /api/v2/comments?surface=mood&post=<id>&limit=20`
+while it parses, and takes the pin, the locks and `policy` from that first
+page:
+
+- The pinned web comment leads the thread. It is drawn from that page when the
+  scrape's first page doesn't hold it.
+- A locked root says it is closed to replies.
+- `policy.mode` hides the section or closes the compose box.
+
+The thread draws once both reads land. Messages written in the group have no
+site row, so they are never pinned or locked, and a lock or a `readonly` post
+doesn't reach replies written there. A locked root beyond that first page is
+not marked, but the server's `thread_locked` refusal still covers it.
 
 ### Kill switch
 

@@ -44,7 +44,7 @@ route file.
 | --- | --- |
 | `buxx.me` (canonical) | `https://buxx.me/api/footer` |
 | `api.buxx.me` | `https://api.buxx.me/footer`. The whole hostname is the API, so there is no prefix. |
-| `admin.buxx.me` | Admin portal and `/admin/*` only. Public pages redirect back to `buxx.me`. |
+| `admin.buxx.me` | `/admin/*` only. Public pages redirect back to `buxx.me`, and the retired portal pages redirect to `buxx.me/dev/portal`. |
 
 The strip is unconditional, so both forms work on either host. Use the prefixed
 form on `buxx.me` and the bare form on `api.buxx.me`. A mixed form such as

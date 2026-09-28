@@ -13,7 +13,8 @@
    reader's own never-claimed anonymous comment is `own` with neither),
    editing (inline textarea swap), held (writer-only visibility note,
    renamed from `pending` to match the status enum), tombstone (kept for
-   thread shape), edited marker, by-author badge, reply-open, like. Four
+   thread shape), edited marker, by-author badge, pinned badge, locked (no
+   Reply anywhere in the thread; the root says so), reply-open, like. Four
    actions can hang under a row — like, reply, and independently-gated edit
    and delete — all vanilla: opening a box, swapping a paragraph for a
    textarea, and flipping a pressed state need no island. */
@@ -39,9 +40,14 @@ interface Props {
       footnote, and whatever was already written still renders below the
       notice -- server-rendered rows and, since the thread keeps its `postId`,
       whatever the controller fetches. It is the `readonly` half of the post's
-      comment policy; `off` is drawn by not rendering this component at all.
-      See copy.ts `closed`. */
+      comment policy. The box is still rendered, hidden by comments.css under
+      `closed`, because the portal can reopen a post its tags closed and the
+      controller then only has to flip this attribute. See copy.ts `closed`. */
   state?: 'loaded' | 'loading' | 'empty' | 'error' | 'closed';
+  /** The post's tags say `off`. The section is still drawn, hidden, so the
+      controller can show it if the portal overrode the tags -- see
+      `CommentListResult.policy`. */
+  hidden?: boolean;
   /** Reader standing and the current submission receipt, passed straight
       through to the compose box. */
   phase?: ReaderPhase;
@@ -58,10 +64,10 @@ interface Props {
       to. Omitted entirely in the lab/preview pages, which never hydrate a
       controller. */
   postId?: string;
-  /** The post takes verified addresses only (`#comments-verified`). Reaches
-      the compose box as a prop and the client-built reply box through
-      `data-require-email` on the section, so both halves of one policy come
-      from the same place. */
+  /** The post needs an address, and publishes the comment once it is
+      confirmed (`#comments-verified`). Reaches the compose box as a prop and
+      the client-built reply box through `data-require-email` on the section,
+      so both halves of one policy come from the same place. */
   requireEmail?: boolean;
   /** Cloudflare Turnstile site key, read by the controller the same way --
       empty when Turnstile is unconfigured (e2e fixtures, local dev without
@@ -89,6 +95,7 @@ const {
   turnstileSiteKey = '',
   errorCode,
   requireEmail = false,
+  hidden = false,
   loadEagerly = false,
 } = Astro.props;
 
@@ -113,6 +120,7 @@ const t = commentsCopy[locale];
   data-locale={locale}
   data-state={state}
   data-require-email={requireEmail ? 'true' : undefined}
+  hidden={hidden}
   data-load={loadEagerly ? 'eager' : undefined}
 >
   <div class="blog-comments__head">
@@ -122,9 +130,7 @@ const t = commentsCopy[locale];
     )}
   </div>
 
-  {state !== 'closed' && (
-    <CommentForm locale={locale} phase={phase} viewer={viewer} claimed={claimed} receipt={receipt} errorCode={errorCode} draftText={draftText} requireEmail={requireEmail} />
-  )}
+  <CommentForm locale={locale} phase={phase} viewer={viewer} claimed={claimed} receipt={receipt} errorCode={errorCode} draftText={draftText} requireEmail={requireEmail} />
 
   {state === 'loading' && (
     <div class="blog-comments__skeleton" aria-hidden="true">
@@ -207,6 +213,7 @@ const t = commentsCopy[locale];
            comment: `own` true, both of these false. */
         const canEdit = !comment.held && comment.editDeadline != null;
         const canDelete = comment.deletable === true;
+        const repliesClosed = comment.locked && !comment.isReply;
 
         return (
         <article
@@ -217,6 +224,8 @@ const t = commentsCopy[locale];
             { 'blog-comment--held': comment.held },
           ]}
           data-own={comment.own ? 'true' : undefined}
+          data-pinned={comment.pinned ? 'true' : undefined}
+          data-locked={comment.locked ? 'true' : undefined}
           data-editing={comment.editing ? 'true' : undefined}
           data-edit-deadline={canEdit ? comment.editDeadline : undefined}
         >
@@ -245,6 +254,7 @@ const t = commentsCopy[locale];
             <div class="blog-comment__meta">
               <span class="blog-comment__author">{comment.author}</span>
               {comment.byAuthor && <span class="blog-comment__badge">{t.authorBadge}</span>}
+              {comment.pinned && <span class="blog-comment__badge">{t.pinnedBadge}</span>}
               <span class="blog-comment__date">{comment.date}</span>
               {comment.edited && <span class="blog-comment__edited">{t.edited}</span>}
             </div>
@@ -323,15 +333,20 @@ const t = commentsCopy[locale];
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.heart} />
                     <span class="blog-comment__act-count" data-like-count>{comment.likes ?? 0}</span>
                   </button>
-                  <button
-                    type="button"
-                    class="blog-comment__act"
-                    data-reply-to={comment.id}
-                    data-reply-name={comment.author}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.reply} />
-                    {t.reply}
-                  </button>
+                  {/* A locked thread keeps its likes and loses every Reply;
+                      only its root says why, once. */}
+                  {!comment.locked && (
+                    <button
+                      type="button"
+                      class="blog-comment__act"
+                      data-reply-to={comment.id}
+                      data-reply-name={comment.author}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.reply} />
+                      {t.reply}
+                    </button>
+                  )}
+                  {repliesClosed && <span class="blog-comment__closed">{t.repliesClosed}</span>}
                   {/* The remaining window lives inside the button it belongs
                       to. As a separate "8:24 to edit" label beside an "Edit"
                       button it said the word twice and left the reader to

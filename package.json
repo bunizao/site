@@ -34,6 +34,7 @@
     "guard:cloudflare-deploy": "node scripts/cloudflare-deploy-guard.mjs check",
     "check": "bun run contracts:build && astro sync && node scripts/astro-check-legacy-typescript.mjs",
     "check:docs-coverage": "bun scripts/check-docs-coverage.ts",
+    "check:portal-bundle": "bun scripts/check-portal-bundle.ts",
     "preview": "bun run preview:cloudflare",
     "deploy:cloudflare": "bun run build:cloudflare && bun run guard:cloudflare-deploy && wrangler deploy --config dist/server/wrangler.json",
     "upload:cloudflare": "bun run guard:cloudflare-deploy && wrangler versions upload --config dist/server/wrangler.json",
@@ -87,6 +88,7 @@
     "@bunizao/contracts": "workspace:*",
     "@bunizao/decode-text": "workspace:*",
     "@chenglou/pretext": "^0.0.9",
+    "@tanstack/react-query": "^5.104.0",
     "@tryghost/content-api": "^1.12.11",
     "astro": "^7.3.3",
     "cheerio": "1.2.0",
@@ -108,7 +110,6 @@
     "prismjs-components-importer": "^0.2.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "recharts": "^3.10.1",
     "shiki": "^4.4.3",
     "slot-text": "^0.3.4",
     "tailwind-merge": "^3.7.0"

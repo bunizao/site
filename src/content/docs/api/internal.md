@@ -42,13 +42,26 @@ themselves; the current path does.
 | `/admin/broadcasts/:id` | Manages one broadcast. | Admin session |
 | `/admin/broadcasts/:id/progress` | Reads broadcast delivery progress. | Admin session |
 | `/admin/broadcasts/preview` | Renders a broadcast preview. | Admin session |
-| `/admin/comments` | Reads the comment moderation queue and its counts. | Admin session |
-| `/admin/comments/:id` | Approves, hides, or deletes one comment. | Admin session |
+| `/admin/comments` | Reads the comment moderation queue and its counts, with search, filters and sorting. | Admin session |
+| `/admin/comments/:id` | Approves, hides, rejects with a reason, deletes, or restores a deleted comment. | Admin session |
+| `/admin/comments/:id/reply` | Publishes the owner's reply to one comment; a retried reply publishes once. | Admin session |
+| `/admin/comments/bulk` | Applies one moderation action to a selection of comments. | Admin session |
+| `/admin/comments/lockdown` | Reads, engages, or lifts the site-wide lockdown on anonymous comments. | Admin session |
+| `/admin/comments/site-policy` | Reads or changes the owner's site-wide comment switches: a mode for every post, and a confirmed email for anonymous comments. | Admin session |
+| `/admin/comments/:id/pin` | Pins one root comment to the top of its thread, replacing the post's earlier pin, or unpins it. | Admin session |
+| `/admin/comments/:id/lock` | Closes or reopens replies under one thread. | Admin session |
+| `/admin/comment-modes` | Lists the posts whose comment mode the portal overrides. | Admin session |
+| `/admin/comment-modes/*/*` | Reads, sets, or clears one post's comment mode override (surface, then post id). | Admin session |
+| `/admin/readers/revoked` | Lists the readers whose account a ban revoked. | Admin session |
+| `/admin/readers/:readerId/restore` | Gives one revoked reader their account back; key bans stay. | Admin session |
+| `/admin/messages` | Reads the owner messages and their counts, by state or as the whole inbox. | Admin session |
+| `/admin/messages/:id` | Reads one message with its sender's earlier messages and actor record, or files it (read, archived, spam). | Admin session |
+| `/admin/messages/:id/reply` | Mails the owner's reply to one message's sender. | Admin session |
 | `/admin/comments/owner-code` | Mints the single-use code that signs the portal's browser in to the comment box as the owner. | Admin session |
 | `/admin/comments/insights` | Reads the grouped comment tables: networks, subnets, devices, hints, link and mail domains. | Admin session |
 | `/admin/reactions` | Reads the reaction list with the actor block on each row. | Admin session |
 | `/admin/reactions/insights` | Reads the grouped reaction tables. | Admin session |
-| `/admin/sources/*/*` | Reads one key's profile (key type, then value): its rows, its spread, its link graph. | Admin session |
+| `/admin/sources/*/*` | Reads one key's profile (key type, then value): its comments, reactions and messages, the addresses and devices seen under it, its spread, its link graph. | Admin session |
 | `/admin/bans` | Lists bans, and applies new bans with an optional purge. | Admin session |
 | `/admin/bans/preview` | Previews distinct affected accounts, sessions and content before a ban. | Admin session |
 | `/admin/bans/operations` | Lists recent purge operations and their recovery state. | Admin session |
@@ -65,25 +78,14 @@ themselves; the current path does.
 | `/admin/notify-gate/release` | Releases queued notifications. | Admin session |
 | `/v2/admin/*` | Legacy alias. Redirects to `/admin/*`. | None (redirect only) |
 
-## Admin portal
+## Retired admin portal pages
 
-`site-api` serves these pages on `admin.buxx.me` only. Other hosts redirect
-there. The owner portal on the public site is `/dev/portal`, served by the
-`site` Worker (see [Site routes](/docs/api/site-routes#dev-portal)).
-
-| Path | Purpose | Auth tier |
-| --- | --- | --- |
-| `/admin` | Opens the operator dashboard. | Admin session |
-| `/admin/analytics` | Opens analytics. | Admin session |
-| `/admin/newsletter` | Opens newsletter operations. | Admin session |
-| `/admin/mascot` | Opens mascot tools. | Admin session |
-| `/admin/mood-embed` | Opens mood embed tools. | Admin session |
-| `/admin/oauth` | Opens OAuth management. | Admin session |
-| `/admin/svg` | Opens SVG tools. | Admin session |
-| `/admin/portal/broadcasts` | Opens broadcast operations. | Admin session |
-| `/admin/portal/broadcasts/:id` | Opens one broadcast. | Admin session |
-| `/admin/portal/subscribers` | Opens subscriber operations. | Admin session |
-| `/admin/portal/subscribers/:hash` | Opens one subscriber. | Admin session |
+The HTML portal that `site-api` served on `admin.buxx.me` is retired. Its old
+page paths (`/admin`, `/admin/analytics`, `/admin/portal/*` and the rest) now
+redirect to the matching screen of the owner portal at `/dev/portal`, which the
+`site` Worker serves (see [Site routes](/docs/api/site-routes#dev-portal)). Old
+bookmarks and Telegram review links still land. The redirect checks no session;
+the portal checks its own.
 
 ## Webhooks
 

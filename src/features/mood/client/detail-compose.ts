@@ -34,16 +34,16 @@ import {
   warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
 import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
-import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import { copyFor } from '@/features/comments/copy';
+import { moodSiteCommentsUrl } from '@/features/comments/api-urls';
 import { VERDICT_POLL_DELAYS_MS } from '@/features/comments/verdict-poll';
 import { createCommentReplyQuote, readCommentReplyTarget } from '@/features/mood/shared/comments';
 import {
   dropGhostComment,
   insertGhostComment,
+  moodItemFromSiteComment,
   replaceGhostComment,
   settleOwnComment,
-  type CommentData,
 } from '@/features/mood/client/detail-comments-controller';
 
 const TURNSTILE_ACTION = 'mood_comment_create' as const;
@@ -317,17 +317,7 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
   const { outcome, comment } = response.data;
   box.dataset.receipt = 'posted';
 
-  replaceGhostComment(ghostKey, {
-    id: comment.id,
-    author: comment.author.name,
-    authorAvatar: safeReaderAvatarUrl(comment.author.avatarUrl) || undefined,
-    datetime: comment.createdAt,
-    content: commentMarkdownToHtml(comment.body),
-    reactions: [],
-    origin: 'web',
-    commentId: comment.id,
-    anchorToken: comment.anchorToken,
-  });
+  replaceGhostComment(ghostKey, moodItemFromSiteComment(comment));
 
   // A comment waiting on its address is settled now: confirming happens in a
   // mail client, far past anything the polls below would wait for.
@@ -353,9 +343,7 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
 async function upgradeWhenVerdictLands(postId: string, commentId: string): Promise<void> {
   for (const delay of VERDICT_POLL_DELAYS_MS) {
     await new Promise((resolve) => setTimeout(resolve, delay));
-    const page = await fetchJson<CommentListResult>(
-      `/api/v2/comments?surface=mood&post=${encodeURIComponent(postId)}&limit=20`,
-    );
+    const page = await fetchJson<CommentListResult>(moodSiteCommentsUrl(postId));
     // A failed probe is no answer; wait for the next one.
     if (!page) continue;
     const match = page.comments.find((row) => row.id === commentId);

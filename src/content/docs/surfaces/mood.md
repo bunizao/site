@@ -160,8 +160,10 @@ crashing. The page renders [`DetailArticle.astro`](https://github.com/bunizao/si
 1. [`CommentsSection.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/CommentsSection.astro) renders one skeleton row per known comment (at
    most three). When the post's count is `0`, it renders the collapsed empty
    thread instead. An inline script starts `GET /api/comments?postId=…` while
-   the page is still parsing (`src/lib/api-prefetch.ts`).
-2. [`detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts) uses that in-flight response for
+   the page is still parsing (`src/lib/api-prefetch.ts`). A post linked to the
+   discussion group also starts the first page of
+   `GET /api/v2/comments?surface=mood&post=…`, which carries the owner's marks.
+2. [`detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts) uses those in-flight responses for
    the first page. Later pages and live refreshes fetch normally.
 3. `site-api` validates `postId` and optional `before`, then reads the live
    Telegram mirror through the canonical v1 path.
@@ -184,6 +186,22 @@ input after an idle stretch.
 - Loose text nodes are wrapped in paragraphs.
 - Avatar and image URLs are sanitized before insertion.
 - Duplicate comment ids are filtered out on the client.
+
+### Owner marks
+
+The owner's marks work as they do on the blog. They go through the same
+[`thread-marks.ts`](https://github.com/bunizao/site/blob/main/src/features/comments/thread-marks.ts)
+and use the same copy:
+
+| Mark | What the reader sees |
+| --- | --- |
+| Pinned comment | The pinned web comment leads the first page under a **Pinned** badge (`pinFirst` in `shared/comments.ts`) |
+| Locked thread | The root says **Replies closed** where Reply was, and nothing under it offers Reply |
+| `readonly` post | A closed line of the same height replaces the compose capsule |
+| `off` post | The section hides as soon as the v2 page lands, without waiting for the scrape. Nothing sits below the section on an `L2` page, so hiding it shifts nothing |
+
+Messages written in the Telegram group never get a mark. See
+[Mood surface: the Telegram bridge](/docs/api/comments#mood-surface-the-telegram-bridge).
 
 ### Origin marker
 

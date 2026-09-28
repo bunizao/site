@@ -67,6 +67,13 @@ describe('html security headers', () => {
     expect(csp).toContain("frame-src 'self' https://www.youtube-nocookie.com");
   });
 
+  test('mood embeds allow the Cloudflare Web Analytics beacon the edge injects', () => {
+    const csp = getEmbedHeaders().get('Content-Security-Policy') ?? '';
+    const scriptSrc = csp.split('; ').find((directive) => directive.startsWith('script-src ')) ?? '';
+
+    expect(scriptSrc.split(' ')).toContain('https://static.cloudflareinsights.com');
+  });
+
   test('normal pages get frame-ancestors self, nosniff, and a referrer policy', () => {
     const response = withHtmlSecurityHeaders(
       new Request('https://buxx.me/blog/some-post'),

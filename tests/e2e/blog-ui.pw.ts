@@ -356,10 +356,9 @@ test.describe('Blog reading UI', () => {
   });
 
   test('walks the gallery from inside the lightbox', async ({ page }) => {
-    // The fixture post points at /mock/*.svg, which the repo does not ship. A
-    // broken image keeps its aspect ratio on some Chromium builds and collapses
-    // to a zero box on others, so the standalone card below the gallery is only
-    // clickable by luck. Serve the bytes and every card gets a real box.
+    // The fixture post points at /mock/*.svg. Serve fixed bytes of the sizes
+    // its markup declares, so every card gets a real box whatever the
+    // placeholder art in public/mock looks like.
     await page.route('**/mock/*.svg', async (route) => {
       const [width, height] = route.request().url().includes('portrait')
         ? [800, 1200]

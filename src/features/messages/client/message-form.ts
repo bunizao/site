@@ -16,6 +16,7 @@ import {
   MESSAGE_MAX_BODY_LENGTH,
   MESSAGE_MIN_BODY_LENGTH,
 } from '@bunizao/contracts/messages';
+import { collectClientEvidence, warmClientEvidence } from '@/features/comments/client/client-evidence';
 import {
   challengeTurnstile,
   dismissTurnstileChallenge,
@@ -80,6 +81,10 @@ export function initMessageForm(root: HTMLElement): void {
   // press: a refusal of that one leaves the checkbox open for the next press
   // instead of challenging again on its own.
   let resending = false;
+  // The same browser evidence the comment box sends, stamped on first intent,
+  // before the lazy import, so its network time is not counted as reading.
+  let armedAt: number | undefined;
+  let validationErrors = 0;
 
   async function ensureDwellToken(): Promise<void> {
     if (dwellToken && Date.now() - dwellTokenMintedAt < DWELL_TOKEN_REFRESH_AGE_MS) return;
@@ -104,6 +109,10 @@ export function initMessageForm(root: HTMLElement): void {
   // only scrolls past is waste. Every focus runs them, and both are no-ops
   // while what they hold is fresh, so a tab left open re-mints on return.
   const warm = () => {
+    if (armedAt === undefined) {
+      armedAt = Math.round(performance.now());
+      warmClientEvidence();
+    }
     void ensureDwellToken();
     if (siteKey) warmTurnstileToken(siteKey, ACTION);
   };
@@ -209,11 +218,13 @@ export function initMessageForm(root: HTMLElement): void {
     // people actually make, not to be the validation. The service re-checks
     // every one of them.
     if (!displayName) {
+      validationErrors += 1;
       showError(t.errorName);
       nameField.focus();
       return;
     }
     if (body.length < MESSAGE_MIN_BODY_LENGTH || body.length > MESSAGE_MAX_BODY_LENGTH) {
+      validationErrors += 1;
       showError(t.errorBody);
       bodyField.focus();
       return;
@@ -221,17 +232,27 @@ export function initMessageForm(root: HTMLElement): void {
     // An address is required now: a message nobody can answer is a message
     // with nowhere to go, and the service refuses one too.
     if (!email) {
+      validationErrors += 1;
       showError(t.errorEmailMissing);
       emailField.focus();
       return;
     }
     if (!EMAIL_RE.test(email)) {
+      validationErrors += 1;
       showError(t.errorEmail);
       emailField.focus();
       return;
     }
 
     setBusy(true);
+    // Started before the Turnstile wait so the two overlap; the collector
+    // settles within its own deadline and never holds the send past it.
+    const submittedEvidence = collectClientEvidence({
+      kind: 'comment',
+      armedAt,
+      validationErrors,
+      turnstileAction: ACTION,
+    });
     syncDraft();
     // The typing bubble is on screen for exactly as long as the request is in
     // flight. It represents a real wait, not a staged one.
@@ -264,6 +285,7 @@ export function initMessageForm(root: HTMLElement): void {
           // verification mail and of the owner's reply mail, both of which
           // answer something written under an English form.
           locale: 'en',
+          ...(await submittedEvidence),
         }),
       });
 

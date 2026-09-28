@@ -1,3 +1,4 @@
+import type { Comment, CommentListResult, CommentsMode } from '@bunizao/contracts/comments';
 import {
   asText,
   buildCommentContentFragment,
@@ -5,15 +6,25 @@ import {
   createCommentSourceChip,
   dedupeNewComments,
   formatRelativeCommentDate,
+  pinFirst,
   readCommentReplyTarget,
   sanitizeImageUrl,
   type CommentReplyTarget,
 } from '@/features/mood/shared/comments';
 import { readOwnCommentIds, rememberOwnCommentId } from '@/features/mood/shared/own-comments';
 import { hydrateMoodRichText } from '@/features/mood/client/rich-text';
-import { resolveMoodCommentsCopy, type MoodCommentsCopy } from '@/features/comments/copy';
+import {
+  resolveCommentsCopy,
+  resolveMoodCommentsCopy,
+  type CommentsCopy,
+  type MoodCommentsCopy,
+} from '@/features/comments/copy';
 import { initials } from '@/features/comments/identity';
-import { moodCommentsUrl } from '@/features/comments/api-urls';
+import { markEmailRequired } from '@/features/comments/compose-validate';
+import { moodCommentsUrl, moodSiteCommentsUrl } from '@/features/comments/api-urls';
+import { NO_THREAD_MARKS, readThreadMarks, type ThreadMarks } from '@/features/comments/thread-marks';
+import { commentMarkdownToHtml } from '@/features/comments/comment-markdown';
+import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import { fetchPrefetched } from '@/lib/api-prefetch';
 import { SLOW_VERDICT_MS } from '@/features/comments/verdict-poll';
 
@@ -83,6 +94,13 @@ let discussionRepliesEnabled = false;
 // it once, the same way it reads discussionRepliesEnabled.
 let locale = 'en';
 let t: MoodCommentsCopy = resolveMoodCommentsCopy(locale);
+// The pin and lock words are the blog's, so both threads say them the same way.
+let shared: CommentsCopy = resolveCommentsCopy(locale);
+// The owner's pin and locks, read off the site's first page (thread-marks.ts),
+// and whether the post takes new comments at all (`policy.mode`). Both are
+// known before the first row is drawn, so no row changes after it lands.
+let marks: ThreadMarks = NO_THREAD_MARKS;
+let repliesOpen = true;
 
 const loadedCommentIds = new Set<string>();
 const loadedSiteCommentIds = new Set<string>();
@@ -150,6 +168,12 @@ function renderComment(comment: CommentData): HTMLElement {
     root.dataset.siteCommentId = siteCommentId;
     if (ownCommentIds.has(siteCommentId)) root.classList.add('mood-comment--mine');
   }
+  // Only a site row can carry the owner's marks; a Telegram message never
+  // matches, since the marks are keyed by site comment id.
+  const pinned = siteCommentId !== '' && siteCommentId === marks.pinnedId;
+  const locked = siteCommentId !== '' && marks.lockedRoots.has(siteCommentId);
+  if (pinned) root.dataset.pinned = 'true';
+  if (locked) root.dataset.locked = 'true';
 
   const avatar = document.createElement('div');
   avatar.className = 'mood-comment-avatar';
@@ -188,6 +212,12 @@ function renderComment(comment: CommentData): HTMLElement {
     origin === 'web' ? t.sourceWeb : t.sourceTelegram;
 
   header.appendChild(authorEl);
+  if (pinned) {
+    const badge = document.createElement('span');
+    badge.className = 'mood-comment-badge';
+    badge.textContent = shared.pinnedBadge;
+    header.appendChild(badge);
+  }
   header.appendChild(dateEl);
   header.appendChild(createCommentSourceChip(origin, t.sourceAria(sourceLabel)));
   body.appendChild(header);
@@ -266,7 +296,14 @@ function renderComment(comment: CommentData): HTMLElement {
   // only accepts a reply once the read path has verified the scrape's ids
   // really are the group's message ids -- discussionRepliesEnabled, read off
   // MoodContentDocument by the page and passed down as a data attribute.
-  const canReply = origin === 'web' ? Boolean(siteCommentId) : discussionRepliesEnabled;
+  //
+  // Neither holds on a post the owner closed (`repliesOpen`), nor in a thread
+  // they locked: the root and every reply under it (thread-marks.ts). A lock
+  // reaches site replies only -- a Telegram message's Reply answers the
+  // message itself, which the server never checks against a lock.
+  const canReply = repliesOpen
+    && !(siteCommentId && marks.noReply.has(siteCommentId))
+    && (origin === 'web' ? Boolean(siteCommentId) : discussionRepliesEnabled);
   if (canReply && commentId) {
     const replyBtn = document.createElement('button');
     replyBtn.type = 'button';
@@ -276,6 +313,13 @@ function renderComment(comment: CommentData): HTMLElement {
     replyBtn.dataset.commentReplyAuthor = author;
     replyBtn.dataset.commentReplyText = plainTextPreview(contentHtml);
     footer.appendChild(replyBtn);
+  } else if (locked && repliesOpen) {
+    // Said once, on the root, where Reply would have been. On a closed post
+    // the capsule already says it for the whole thread.
+    const closed = document.createElement('span');
+    closed.className = 'mood-comment-closed';
+    closed.textContent = shared.repliesClosed;
+    footer.appendChild(closed);
   }
 
   if (footer.childElementCount > 0) body.appendChild(footer);
@@ -443,8 +487,9 @@ function startLiveRefresh(postId: string, section: Element): void {
 
 /** The stand-in, keyed by a throwaway id. Registered in the loaded-id sets
     like any other row so the refresh tick cannot render a second copy
-    underneath it. Inserted at the top: this is always the newest comment on
-    the page, and load-more only ever brings in older ones at the bottom.
+    underneath it. Inserted at the top, under the owner's pin if there is one:
+    this is always the newest comment on the page, and load-more only ever
+    brings in older ones at the bottom.
     No-ops if the thread never finished mounting (a `#comments-readonly` post
     has no compose box to call this from anyway). */
 export function insertGhostComment(key: string, comment: CommentData): void {
@@ -456,7 +501,7 @@ export function insertGhostComment(key: string, comment: CommentData): void {
   if (emptyEl) emptyEl.hidden = true;
   const node = renderComment({ ...comment, id: key, commentId: key });
   markPending(node);
-  commentsListEl.prepend(node);
+  prependRow(node);
   linkReplyQuotes();
   hydrateAnimatedEmoji?.(commentsListEl);
   hydrateMoodRichText(commentsListEl);
@@ -492,7 +537,7 @@ export function replaceGhostComment(key: string, comment: CommentData): void {
   const fresh = renderComment(comment);
   markPending(fresh, Number(node?.dataset.pendingSince) || Date.now());
   if (node) node.replaceWith(fresh);
-  else commentsListEl?.prepend(fresh);
+  else prependRow(fresh);
   linkReplyQuotes();
   if (commentsListEl) {
     hydrateAnimatedEmoji?.(commentsListEl);
@@ -569,6 +614,32 @@ function markPending(node: HTMLElement, since = Date.now()): void {
   if (reply) reply.hidden = true;
 }
 
+/** The top of the thread is the row under the pin: the pin leads whatever
+    is written after it, the way the blog thread keeps it. */
+function prependRow(node: HTMLElement): void {
+  const pin = commentsListEl?.querySelector(':scope > .mood-comment[data-pinned]');
+  if (pin) pin.after(node);
+  else commentsListEl?.prepend(node);
+}
+
+/** A site comment row as a thread item, in the shape the read path's overlay
+    gives a `web` row: the writer's own row once the create answers, and a
+    pinned row this page of the scrape does not carry. Its Telegram
+    reactions are not known here, so it has none. */
+export function moodItemFromSiteComment(comment: Comment): CommentData {
+  return {
+    id: comment.id,
+    author: comment.author.name,
+    authorAvatar: safeReaderAvatarUrl(comment.author.avatarUrl) || undefined,
+    datetime: comment.createdAt,
+    content: commentMarkdownToHtml(comment.body),
+    reactions: [],
+    origin: 'web',
+    commentId: comment.id,
+    anchorToken: comment.anchorToken,
+  };
+}
+
 function findOwnComment(key: string): HTMLElement | null {
   return commentsListEl?.querySelector<HTMLElement>(
     `.mood-comment[data-site-comment-id="${CSS.escape(key)}"]`,
@@ -579,6 +650,42 @@ function forgetOwnComment(key: string): void {
   loadedCommentIds.delete(key);
   loadedSiteCommentIds.delete(key);
   ownCommentIds.delete(key);
+}
+
+/** The site's first page of this thread: the owner's pin, locks and mode,
+    which the scrape behind `/api/comments` has no field for. Any failure
+    means none of them -- the thread draws as the scrape has it, and the
+    server still refuses a write the owner closed. */
+async function readSiteThread(postId: string): Promise<CommentListResult | null> {
+  try {
+    const response = await fetchPrefetched(moodSiteCommentsUrl(postId));
+    if (!response.ok) return null;
+    const page = await response.json() as Partial<CommentListResult>;
+    return Array.isArray(page.comments) ? page as CommentListResult : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The owner's portal override (`policy.mode`, absent when there is none).
+    The page draws every mood thread open, so two answers change it:
+      off      -- the section goes before a row is drawn into it;
+      readonly -- the capsule stays, closed and the same size, and says why
+                  (CommentCompose.astro); no row offers Reply.
+    Nothing under the capsule moves either way. */
+function applyMode(section: HTMLElement, mode: CommentsMode | undefined): void {
+  if (mode === 'off') {
+    section.hidden = true;
+    return;
+  }
+  if (mode !== 'readonly') return;
+  repliesOpen = false;
+  section.dataset.mode = 'readonly';
+  // Opened already only by a `#comments` arrival; a closed post has nothing
+  // to open it for.
+  section.querySelector('[data-compose-shell]')?.removeAttribute('data-open');
+  const seed = section.querySelector<HTMLButtonElement>('[data-compose-seed]');
+  if (seed) seed.disabled = true;
 }
 
 export async function initMoodDetailComments(
@@ -601,23 +708,44 @@ export async function initMoodDetailComments(
   discussionRepliesEnabled = commentsSection.dataset.discussionRepliesEnabled === 'true';
   locale = commentsSection.dataset.locale || 'en';
   t = resolveMoodCommentsCopy(locale);
+  shared = resolveCommentsCopy(locale);
 
   if (!commentsListEl) return;
+
+  // Both first reads were started by the section's inline prefetch. Taken
+  // together here, so they stay parallel even where that script did not run.
+  const firstPage = fetchPrefetched(moodCommentsUrl(postId));
+  const sitePage = commentsSection.dataset.siteThread === 'true' ? await readSiteThread(postId) : null;
+  // The mode lands as soon as the site page does, without waiting on the
+  // scrape: an `off` thread leaves before its rows ever would have arrived.
+  applyMode(commentsSection, sitePage?.policy?.mode);
+  if (commentsSection.hidden) return;
+  // The owner's site-wide email rule reaches the page only through this
+  // first page; the box then asks for an address, as the blog's does.
+  if (sitePage?.policy?.requireVerifiedEmail) {
+    const box = document.querySelector<HTMLElement>('[data-mood-compose]');
+    if (box) markEmailRequired(box);
+  }
+  marks = readThreadMarks(sitePage?.comments ?? []);
+  const pinnedRow = sitePage?.comments.find((comment) => comment.id === marks.pinnedId);
+  const pinnedFallback = pinnedRow ? moodItemFromSiteComment(pinnedRow) : undefined;
 
   let nextBefore = '';
 
   const loadComments = async (before = ''): Promise<void> => {
     try {
-      // The first page was started by the section's inline prefetch.
-      const url = moodCommentsUrl(postId, before);
-      const response = await (before ? fetch(url) : fetchPrefetched(url));
+      const response = await (before ? fetch(moodCommentsUrl(postId, before)) : firstPage);
       const data = await response.json() as {
         comments?: CommentData[];
         nextBefore?: string;
         hasMore?: boolean;
       };
 
-      const comments = data.comments ?? [];
+      const page = data.comments ?? [];
+      // The pin leads the first page: the scrape's copy of it, or the site's
+      // when this page does not reach back that far. Later pages only bring
+      // older rows, and dedupe drops the pin if one of them carries it.
+      const comments = before ? page : pinFirst(page, marks.pinnedId, pinnedFallback);
 
       if (comments.length > 0) {
         if (emptyEl) emptyEl.hidden = true;
@@ -629,7 +757,9 @@ export async function initMoodDetailComments(
         syncCommentsCount();
 
         const previousCursor = nextBefore;
-        const fallbackCursor = getOldestCommentId(comments);
+        // From the scrape's own rows: a pin drawn from the site page is no
+        // Telegram message, so it can never be a cursor.
+        const fallbackCursor = getOldestCommentId(page);
         nextBefore = data.nextBefore || fallbackCursor || '';
 
         const canLoadMore = Boolean(data.hasMore && nextBefore && nextBefore !== previousCursor);
