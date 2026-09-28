@@ -217,8 +217,8 @@
     );
 
     /* Motion vocabulary. One curve family, one duration scale, site-wide.
-       Adopted from the portal's scale (src/styles/portal.css), which was the
-       only part of the site that had one. UI stays under 300ms; --dur-enter is
+       Adopted from the first portal's scale, which was the only part of the
+       site that had one. UI stays under 300ms; --dur-enter is
        the only step allowed to breathe, and entrances are the only thing
        allowed to use it. */
     --ease: cubic-bezier(0.2, 0, 0, 1);
@@ -330,18 +330,20 @@
     text-decoration: none;
   }
 
-  section {
+  /* The site's page sections. The portal's <section>s are plain regions,
+     so it is excluded; :where() keeps the selector's weight at `section`. */
+  section:where(:not(.theme-portal section)) {
     padding: 32px 0;
     border-bottom: 1px solid hsl(var(--grid));
   }
 
   @media (min-width: 640px) {
-    section {
+    section:where(:not(.theme-portal section)) {
       padding: 48px 0;
     }
   }
 
-  section:last-of-type {
+  section:last-of-type:where(:not(.theme-portal section)) {
     border-bottom: none;
   }
 
@@ -957,8 +959,9 @@ html.no-transition * {
 
    Dark only. Every surface treatment below the token block — hairline borders
    at hsl(0 0% 100% / x), the card top highlight, the shadow ramp — is authored
-   against a near-black ground and has no light-mode equivalent. PortalLayout
-   pins `dark` on <html> so coss's `dark:` variants resolve the same way. */
+   against a near-black ground and has no light-mode equivalent. The portal
+   page (src/pages/dev/portal/[...path].astro) pins `dark` on <html> so coss's
+   `dark:` variants resolve the same way. */
 .theme-portal {
   color-scheme: dark;
   --background: 240 8% 6%;
@@ -1007,15 +1010,21 @@ html.no-transition * {
   --portal-success: 152 46% 50%;
   --portal-warning: 38 88% 58%;
   --portal-danger: 0 72% 60%;
+  /* Under a sticky column header, the one line a list keeps: half the step
+     --border takes from the page. Rows themselves part by space. */
+  --portal-rule: 240 6% 10%;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-display);
 }
 
-.theme-portal *,
-.theme-portal *::before,
-.theme-portal *::after {
-  border-color: hsl(var(--border));
+/* In the base layer, so a `border-*` color utility still wins over it. */
+@layer base {
+  .theme-portal *,
+  .theme-portal *::before,
+  .theme-portal *::after {
+    border-color: hsl(var(--border));
+  }
 }
 
 .theme-portal ::selection {

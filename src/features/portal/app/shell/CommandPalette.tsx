@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ArrowDown, ArrowUp, CornerDownLeft, ExternalLink, Filter, Keyboard, PanelLeft } from 'lucide-react';
+import { Archive, ArrowDown, ArrowUp, CornerDownLeft, ExternalLink, Filter, KeyRound, Keyboard, PanelLeft, ShieldAlert, UserX } from 'lucide-react';
 import {
   Command,
   CommandCollection,
@@ -18,6 +18,7 @@ import {
 import { Kbd, KbdGroup } from '@/components/coss/kbd';
 import { useSidebar } from '@/components/coss/sidebar';
 import { STATUS_FILTERS, STATUS_LABELS } from '../../comments/data';
+import { openOwnerSignIn } from '../../comments/OwnerSignIn';
 import { flatNav } from '../nav';
 import { navigate } from '../router';
 
@@ -56,14 +57,25 @@ export function CommandPalette({ open, onOpenChange, onShortcuts }: {
     },
     {
       value: 'Comments',
-      items: STATUS_FILTERS.map((status, index) => ({
-        value: `status:${status}`,
-        label: `Show ${STATUS_LABELS[status].toLowerCase()} comments`,
-        keywords: 'filter comments',
-        shortcut: String(index + 1),
-        Icon: Filter,
-        run: () => navigate(`/comments?status=${status}`),
-      })),
+      items: [
+        ...STATUS_FILTERS.map((status, index): PaletteItem => ({
+          value: `status:${status}`,
+          label: `Show ${STATUS_LABELS[status].toLowerCase()} comments`,
+          keywords: 'filter comments',
+          shortcut: String(index + 1),
+          Icon: Filter,
+          run: () => navigate(`/comments?status=${status}`),
+        })),
+        { value: 'owner-sign-in', label: 'Write as the owner', keywords: 'owner sign in blog badge', Icon: KeyRound, run: openOwnerSignIn },
+        { value: 'bans-readers', label: 'Blocked reader accounts', keywords: 'revoked readers restore unban', Icon: UserX, run: () => navigate('/comments/bans?view=readers') },
+      ],
+    },
+    {
+      value: 'Messages',
+      items: [
+        { value: 'messages-archived', label: 'Archived messages', keywords: 'messages filed', Icon: Archive, run: () => navigate('/messages?view=archived') },
+        { value: 'messages-spam', label: 'Spam messages', keywords: 'messages junk', Icon: ShieldAlert, run: () => navigate('/messages?view=spam') },
+      ],
     },
     {
       value: 'General',
