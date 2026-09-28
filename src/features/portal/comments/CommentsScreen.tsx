@@ -24,13 +24,13 @@ import { useMediaQuery } from '@/components/coss/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import type { PortalComment } from '@/features/admin/server/portal-client';
 import { HEAD, LINE, LINE_PX, SMALL, SPACED, TABLE } from '../activity/table';
-import { describeError, isMissingRoute } from '../app/api';
+import { isMissingRoute } from '../app/api';
 import { useHotkeys } from '../app/hotkeys';
 import { navigate, setSearch, useLocation } from '../app/router';
 import { padUnderBulkBar, useSavedScroll, useScrollRestoration } from '../app/scroll';
 import { ScreenHeader } from '../app/shell/ScreenHeader';
 import { undoLast } from '../app/undo';
-import { StateTabs, TOUCH_MENU, useSearchText } from '../moderation/ui';
+import { EDGE_FADE, LoadError, StateTabs, TOUCH_MENU, TOUCH_TARGET, useSearchText } from '../moderation/ui';
 import { BanDialog, type BanTarget } from './BanDialog';
 import { CommentDetail, type CommentDetailProps } from './CommentPane';
 import { CommentRow, LOG_COLUMNS, LOG_GRID, MID, WHILE_SELECTING, WIDE } from './CommentRow';
@@ -764,18 +764,18 @@ export default function CommentsScreen() {
   const body = list.isPending ? (
     <LoadingRows table={table} />
   ) : list.isError ? (
-    <p className="flex min-h-12 items-center gap-2 px-4 text-[13px] text-muted-foreground">
-      <span className="min-w-0">Comments did not load: {describeError(list.error)}</span>
-      {isMissingRoute(list.error) && narrowed ? (
-        <Button size="sm" variant="outline" className={cn(SMALL, 'shrink-0')} onClick={clearNarrowing}>
+    <LoadError
+      what="Comments"
+      error={list.error}
+      onRetry={() => void list.refetch()}
+      // An older site-api has no search or filters: asking again fails again.
+      action={isMissingRoute(list.error) && narrowed ? (
+        <Button size="sm" variant="outline" className={SMALL} onClick={clearNarrowing}>
+          <X />
           Clear search and filters
         </Button>
-      ) : (
-        <Button size="sm" variant="outline" className={cn(SMALL, 'shrink-0')} onClick={() => void list.refetch()}>
-          Try again
-        </Button>
-      )}
-    </p>
+      ) : undefined}
+    />
   ) : empty ? (
     <EmptyLine
       status={status}
@@ -865,16 +865,18 @@ export default function CommentsScreen() {
                 <div role="rowgroup" className="sticky top-0 z-30 bg-background">
                   <div role="row" className={cn(LOG_GRID, HEAD, 'items-center [&>*]:truncate [&>*]:px-3')}>
                     <div role="columnheader" className={cn('items-center justify-center', WHILE_SELECTING)}>
-                      <input
-                        type="checkbox"
-                        aria-label="Select all loaded"
-                        className="size-4 accent-[hsl(var(--portal-accent))]"
-                        checked={checkedRows.length === rows.length && rows.length > 0}
-                        ref={(node) => {
-                          if (node) node.indeterminate = checkedRows.length > 0 && checkedRows.length < rows.length;
-                        }}
-                        onChange={(event) => setChecked(event.target.checked ? new Set(rows.map((row) => row.id)) : new Set())}
-                      />
+                      <label className={cn(TOUCH_TARGET, 'flex')}>
+                        <input
+                          type="checkbox"
+                          aria-label="Select all loaded"
+                          className="size-4 accent-[hsl(var(--portal-accent))]"
+                          checked={checkedRows.length === rows.length && rows.length > 0}
+                          ref={(node) => {
+                            if (node) node.indeterminate = checkedRows.length > 0 && checkedRows.length < rows.length;
+                          }}
+                          onChange={(event) => setChecked(event.target.checked ? new Set(rows.map((row) => row.id)) : new Set())}
+                        />
+                      </label>
                     </div>
                     <div role="columnheader">Time</div>
                     <div role="columnheader">Status</div>
@@ -1332,7 +1334,7 @@ const Toolbar = React.memo(function Toolbar({
         {moreMenu}
       </ScreenHeader>
       {!wide && (
-        <div className="flex h-12 shrink-0 items-center gap-1.5 overflow-x-auto border-b px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className={cn('flex h-12 shrink-0 items-center gap-1.5 overflow-x-auto border-b ps-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', EDGE_FADE)}>
           {statusControl}
           {postPicker}
           {filters}

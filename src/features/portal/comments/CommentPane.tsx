@@ -33,7 +33,7 @@ import type { PortalActivity, PortalActivityEntry, PortalComment } from '@/featu
 import { SMALL } from '../activity/table';
 import { apiGet } from '../app/api';
 import { href, navigate } from '../app/router';
-import { HashValue } from '../moderation/ui';
+import { HashValue, TOUCH_TARGET } from '../moderation/ui';
 import { ControlMarks, OwnerBadge, StatusMark } from './CommentRow';
 import { canPin, lockHolder } from './controls';
 import {
@@ -93,7 +93,8 @@ function copy(text: string, what: string): void {
 }
 
 /** A pivot link: plain click stays on this screen with this comment open;
-    a modified click opens a new tab. */
+    a modified click opens a new tab. A control of its own, not prose, so
+    it gets the 44px touch target. */
 function PivotAnchor({ pivot, commentId, children, className }: {
   pivot: Pivot;
   commentId: string;
@@ -106,6 +107,7 @@ function PivotAnchor({ pivot, commentId, children, className }: {
       href={href(to)}
       data-astro-prefetch="false"
       className={cn(
+        TOUCH_TARGET,
         'rounded-sm underline decoration-[hsl(var(--muted-foreground))] underline-offset-[3px] outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring active:text-[hsl(var(--portal-accent))]',
         className,
       )}
@@ -134,7 +136,8 @@ function Row({ row, commentId }: { row: RecordRow; commentId: string }) {
   return (
     <div className="grid grid-cols-[7.5rem_minmax(0,1fr)_auto] items-start gap-x-3 py-2 text-[13px] leading-5">
       <dt className="text-muted-foreground" title={row.explain}>{row.label}</dt>
-      <dd className={cn('min-w-0 break-words', row.mono ? 'font-mono text-xs leading-5 tabular-nums' : '', row.value ? 'text-foreground' : 'text-muted-foreground')}>
+      {/* Mono for a value only: "Not recorded" is a word, not a key. */}
+      <dd className={cn('min-w-0 break-words', row.value ? 'text-foreground' : 'text-muted-foreground', row.value && row.mono && 'font-mono text-xs leading-5 tabular-nums')}>
         {row.value && row.mono && isHash(row.value) ? <HashValue key={row.value} value={row.value} /> : row.value ?? 'Not recorded'}
         {row.banned && (
           <span className="ms-2 inline-flex items-center gap-1 whitespace-nowrap font-sans text-[hsl(var(--portal-danger))] text-xs">

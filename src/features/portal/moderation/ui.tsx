@@ -32,12 +32,12 @@ export function StatusDot({ tone, children, className }: { tone: Tone; children:
   );
 }
 
-/** A 44px hit area on touch, centred on the element, from an ::after box,
-    so dense rows and bars keep their height. */
 /** Menu rows grow to 44px on touch screens (coss sizes them for a mouse),
     and the popup appears without its zoom when motion is reduced. */
 export const TOUCH_MENU = 'pointer-coarse:[&_[role^=menuitem]]:min-h-11 motion-reduce:transition-none';
 
+/** A 44px hit area on touch, centred on the element, from an ::after box,
+    so dense rows and bars keep their height. */
 export const TOUCH_TARGET =
   'relative pointer-coarse:after:absolute pointer-coarse:after:top-1/2 pointer-coarse:after:left-1/2 pointer-coarse:after:h-11 pointer-coarse:after:w-full pointer-coarse:after:min-w-11 pointer-coarse:after:-translate-x-1/2 pointer-coarse:after:-translate-y-1/2';
 
@@ -211,6 +211,14 @@ export function StateTabs<T extends string>({ label, value, options, onChange, c
   );
 }
 
+/** For a strip that scrolls sideways (the tabs row on a phone): a fade at
+    its right edge while more of it lies to the right. A sticky ::after, so
+    no script: it pins to the edge while the strip overflows, and rests past
+    the last item, over bare background, once it does not. It stands in for
+    the strip's end padding. */
+export const EDGE_FADE =
+  'scroll-pe-6 after:pointer-events-none after:sticky after:end-0 after:h-full after:w-6 after:shrink-0 after:bg-linear-to-r after:from-transparent after:to-background';
+
 export function SectionHeading({ children, meta, id }: { children: React.ReactNode; meta?: React.ReactNode; id?: string }) {
   return (
     <div className="mb-2 flex min-h-8 items-baseline gap-2 pt-1.5">
@@ -221,7 +229,14 @@ export function SectionHeading({ children, meta, id }: { children: React.ReactNo
 }
 
 /** A failed read, flat in the page: what failed, how to recover, Retry. */
-export function LoadError({ what, error, onRetry, className }: { what: string; error: unknown; onRetry: () => void; className?: string }) {
+export function LoadError({ what, error, onRetry, action, className }: {
+  what: string;
+  error: unknown;
+  onRetry: () => void;
+  /** In place of Try again, when trying again cannot help. */
+  action?: React.ReactNode;
+  className?: string;
+}) {
   return (
     <div role="alert" className={cn('flex flex-col items-start gap-2 px-4 py-6 text-sm', className)}>
       <p className="flex items-center gap-2 font-medium">
@@ -229,10 +244,12 @@ export function LoadError({ what, error, onRetry, className }: { what: string; e
         {what} did not load
       </p>
       <p className="text-muted-foreground">{describeError(error)}</p>
-      <Button size="sm" className={SMALL} variant="outline" onClick={onRetry}>
-        <RefreshCw />
-        Try again
-      </Button>
+      {action ?? (
+        <Button size="sm" className={SMALL} variant="outline" onClick={onRetry}>
+          <RefreshCw />
+          Try again
+        </Button>
+      )}
     </div>
   );
 }

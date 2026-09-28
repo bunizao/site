@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import type { PortalComment, PortalCommentStatus } from '@/features/admin/server/portal-client';
 import { CELLS, LINE, SPACED } from '../activity/table';
 import { href } from '../app/router';
-import { StatusDot } from '../moderation/ui';
+import { StatusDot, TOUCH_TARGET } from '../moderation/ui';
 import { STATUS_LABELS } from './data';
 import {
   deviceShort,
@@ -257,7 +257,7 @@ export const CommentRow = React.memo(function CommentRow({
         {swipe && <SwipeLayers canApprove={canApprove} />}
         <div ref={gesture.slideRef} className={cn(slideClass, 'flex gap-3 px-3 py-3')}>
           {open}
-          <span className={cn('relative z-10 items-center', WHILE_SELECTING)}>{box}</span>
+          <label className={cn(TOUCH_TARGET, 'z-10 items-center', WHILE_SELECTING)}>{box}</label>
           <div className="pointer-events-none relative min-w-0 flex-1 text-sm">
             <div className="flex items-center gap-2 leading-5">
               <span className="shrink-0 font-mono text-muted-foreground text-xs tabular-nums">{time}</span>
@@ -306,7 +306,7 @@ export const CommentRow = React.memo(function CommentRow({
         className={cn(slideClass, LOG_GRID, LINE, CELLS, 'items-center text-[13px] leading-5')}
       >
         <div role="cell" className={cn('items-center justify-center', WHILE_SELECTING)}>
-          {box}
+          <label className={cn(TOUCH_TARGET, 'z-10 flex')}>{box}</label>
         </div>
         <div role="cell" className="font-mono text-muted-foreground text-xs tabular-nums">
           {open}
