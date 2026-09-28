@@ -1,13 +1,14 @@
 ---
 title: Owner Messages API
-description: POST /api/v2/messages — the private inbox behind /message. One write route, no read route, and the Telegram reply path that answers it.
+description: POST /api/v2/messages — the private inbox behind /message. One public write route, no public read route, and the Telegram and portal reply paths that answer it.
 group: API
 order: 5.6
 ---
 
 `/message` is a form that writes to one person. What it stores never appears
-on the site, in a feed, in an OG image, or in any response body — there is no
-route that reads it back. The owner reads it in Telegram and answers there.
+on the site, in a feed, in an OG image, or in any public response body — no
+public route reads it back. The owner reads it in Telegram or in the admin
+portal's inbox, and answers from either.
 
 It is deliberately not a comment. [Blog comments](/docs/api/comments) are
 public by default and become visible by reaching `status = 'published'`;
@@ -161,6 +162,14 @@ the footer offers is "reply to this email to keep going".
 The bot says why a reply could not be sent rather than failing quietly:
 the message is gone, there is no address on it, the address was never
 confirmed, or it is suppressed.
+
+The portal inbox (`/admin/messages`, see
+[Internal routes](/docs/api/internal#admin-api)) is the second way in. It
+lists messages by state, or new, read and replied together as the inbox,
+shows one with the sender's earlier messages, files
+it as read, archived or spam, and replies through the same mailer with the
+same refusals. Fetching one message does not mark it read; the portal files
+a new message as read itself, the moment the owner opens it.
 
 ## Storage
 

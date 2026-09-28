@@ -98,6 +98,24 @@ as written — the owner can remove it on request.
 Deleting has no window. If a published reply is hanging underneath, the row
 stays as an empty placeholder so the thread keeps its shape.
 
+## Pinned and closed threads
+
+The owner can pin one comment per post. It leads the thread under a **Pinned**
+label, whatever its date, and a new comment lands just below its thread. The
+owner can also close one thread to replies: its comment says **Replies
+closed** where the Reply button was, and nothing in that thread offers one.
+Everything already written stays, hearts still work, and the rest of the post
+is open. A reply box opened before the close is refused with `NOREPLY`.
+
+A mood post's thread at `/mood/[id]` shows the same marks on comments written
+on the web. Messages written in the Telegram group can be neither pinned nor
+closed, and a reply written there is not stopped by either.
+
+Whether a post takes comments at all can change without the page being
+rebuilt, so a thread that has just loaded may open or close its box, or
+appear or disappear, a moment after the page does. Readers who have never
+commented see these changes within about a minute and a half.
+
 ## Hearts
 
 One per person per thing, on the post and on each comment, and they are
@@ -139,6 +157,7 @@ alert, the code is a link and lands on one of the sections below.
 | `THREAD` | The comment being replied to is gone | Refresh the thread |
 | [`CLOSED`](#comment-error-closed) | The claim on that comment ran out | Nothing to retry |
 | `LOCKED` | The post has stopped taking comments | Nothing to retry |
+| `NOREPLY` | Replies under that one comment are closed | Nothing to retry; the rest of the post is open |
 | [`VERIFY`](#comment-error-verify) | The post takes confirmed addresses only | Confirm, then post |
 | [`NOMAIL`](#comment-error-nomail) | This comment needs an address to confirm | Add one, post, confirm the link |
 | [`NAME`](#comment-error-name) | The name was refused | Pick another |

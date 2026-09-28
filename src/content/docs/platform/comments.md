@@ -23,9 +23,10 @@ purpose: an off feature should look absent, not broken-with-details.
 
 It is currently `"false"` in production.
 
-The switch is one-sided. `site` decides whether to render the section from
-[`blog.comments`](https://github.com/bunizao/site/blob/main/src/data/site.ts)
-and the post's own tags, and knows nothing about the API's flag, so turning the
+The switch is one-sided. `site` decides whether to show the section from
+[`blog.comments`](https://github.com/bunizao/site/blob/main/src/data/site.ts),
+the post's own tags and the portal's per-post override (which reaches the page
+through the thread's first read), and knows nothing about the API's flag, so turning the
 API off leaves a rendered box that answers `404` — which the client reads as
 `GONE` and shows as "comments aren't available right now". Adequate as a
 degraded state, and not something to leave standing: turn the section off in
@@ -193,6 +194,12 @@ reaction counts and reactor lists; and reply mail stops. It is the lever for an
 identity that should lose its account, where a shadow ban is the lever for a
 source that should stop being productive without learning why.
 
+The portal lists every revoked reader and can restore one. Restoring clears
+that flag and nothing else: key bans applied in the same act stay, purged
+rows come back only through the ban operation's own restore, and the
+reader's session cookie was never deleted, so they are signed in again on
+their next request.
+
 Neither retroactively deletes anything. Both leave existing published rows
 standing — removing those is a moderation action of its own.
 
@@ -205,8 +212,8 @@ evidence. Verification describes the session at writing, not trustworthiness
 or the account's current access. Passed browser challenges and reader IDs
 alone do not establish historical verification.
 
-The portal queue can filter these identities within the loaded page and
-shows page-local counts. Actor strips on comments, reactions, and source
+The portal shows the label in each comment's detail pane; the queue does not
+filter by it. Actor strips on comments, reactions, and source
 profiles show the linked reader, claim time and method, and active ban-key
 matches. Ban-key matches describe the record's keys, not a complete account
 status check. Every owner notification, including published comments, shows
@@ -219,21 +226,35 @@ and fingerprint matches name their basis and may include different readers.
   `COMMENTS_TELEGRAM_DIRECT_REPLY` is on. Separate path, separate secret, and
   an operator-id allowlist; see [Internal routes](/docs/api/internal#webhooks).
 - **Admin portal** — the comment routes under `/admin`, listed in the same
-  place. Four surfaces: the queue, where every row carries an actor strip
-  (where the write came from, what it did, which keys it shares with other
-  rows, and the two blobs behind a disclosure); the insights tables, grouped
-  by network, subnet, device, hint, link domain and mail domain, each with
-  the share the automatic pass held; one key's source profile, with its
+  place. Four surfaces: the queue, a one-line log whose detail pane carries
+  the actor record (where the write came from, what it did, which keys it
+  shares with other rows). Its search and filters run on site-api, over the
+  last 30 days unless a range says otherwise, and a range wider than 90 days
+  keeps its latest 90; its acts are approve, hide,
+  reject with a reason, delete, restore within 30 days, the owner's reply, and
+  one act over up to 20 selected rows; it also shows and lifts the lockdown.
+  Then the insights tables, grouped by network, subnet, device, hint, link
+  domain and mail domain, each with the share the automatic pass held; one
+  key's source profile, with its
   spread across other keys and a two-hop link graph over strong keys only;
-  and the ban list.
+  and the ban list. Beside them sit the thread controls: pin one root per
+  post, lock a thread against new replies, and override one post's comment
+  mode (see [Blog Comments API](/docs/api/comments#pinned-and-locked-threads)).
+  The log's detail pane carries all three (P pins, L locks the thread, and
+  the post line switches the mode), the log marks a pinned or locked root in
+  front of its text, and Post modes lists every override.
+  Cookie-less readers see each of these within about 90 seconds, the life of
+  the edge's shared copy of the thread; nothing purges it.
 - **Akismet** — every submission is checked; ham publishes, spam holds, and
   the "blatant" signal rejects. Any error, timeout, or unparseable answer
   holds. The check carries everything Akismet documents (site language and
   charset, honeypot field, the owner's `administrator` role, timestamp, and
   `recheck_reason=edit` on edits), and the owner's verdicts are fed back:
   hiding or deleting an anonymous comment submits it as spam, approving a
-  flagged one submits it as ham. Rows keep the raw IP and referrer for 90
-  days so that feedback repeats exactly what the check saw.
+  flagged one submits it as ham, and restoring a deleted one takes the spam
+  report back with ham unless it returns to a hold that still says spam.
+  Rows keep the raw IP and referrer for 90 days so that feedback repeats
+  exactly what the check saw.
 - **AI gateway** — a second opinion on anonymous submissions only, from
   the `task-guard` alias behind `AI_BASE_URL` / `AI_API_KEY`, the same gateway
   mood sentiment runs on. It reads the text the way the owner would (VPN

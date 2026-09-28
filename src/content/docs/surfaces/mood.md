@@ -118,12 +118,25 @@ state rather than crashing. It composes [`DetailArticle.astro`](https://github.c
 1. [`CommentsSection.astro`](https://github.com/bunizao/site/blob/main/src/features/mood/ui/CommentsSection.astro) renders one skeleton row per known comment (at
    most three), or the collapsed empty thread when the post's count is `0`,
    and an inline script starts `GET /api/comments?postId=…` while the page is
-   still parsing (`src/lib/api-prefetch.ts`).
-2. [`detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts) takes that in-flight response for
+   still parsing (`src/lib/api-prefetch.ts`). A post linked to the discussion
+   group also starts the first page of
+   `GET /api/v2/comments?surface=mood&post=…`, which carries the owner's marks.
+2. [`detail-comments-controller.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/detail-comments-controller.ts) takes those in-flight responses for
    the first page; later pages and live refreshes fetch normally.
 3. `site-api` validates `postId` and optional `before`, then reads the live
    Telegram mirror through the canonical v1 path.
 4. The client renders sanitized comments and pages with `before=<commentId>`.
+
+The owner's marks work as they do on the blog, through the same
+[`thread-marks.ts`](https://github.com/bunizao/site/blob/main/src/features/comments/thread-marks.ts) and the same copy: the pinned web comment
+leads the first page under a **Pinned** badge (`pinFirst` in `shared/comments.ts`),
+a locked root says **Replies closed** where Reply was and nothing under it
+offers Reply, a `readonly` post swaps the compose capsule for a closed line of
+the same height, and an `off` post hides the section as soon as the v2 page
+lands, without waiting for the scrape. Nothing sits below the section on an `L2`
+page, so hiding it shifts nothing. Messages written in the Telegram group are
+never marked. See
+[Mood surface: the Telegram bridge](/docs/api/comments#mood-surface-the-telegram-bridge).
 
 Normalization in [`shared/comments.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/shared/comments.ts): reply blocks become quote cards, loose text
 nodes are wrapped into paragraphs, avatar and image URLs are sanitized before

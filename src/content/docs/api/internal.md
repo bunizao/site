@@ -36,8 +36,20 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/broadcasts/:id` | Manages one broadcast. | Admin session |
 | `/admin/broadcasts/:id/progress` | Reads broadcast delivery progress. | Admin session |
 | `/admin/broadcasts/preview` | Renders a broadcast preview. | Admin session |
-| `/admin/comments` | Reads the comment moderation queue and its counts. | Admin session |
-| `/admin/comments/:id` | Approves, hides, or deletes one comment. | Admin session |
+| `/admin/comments` | Reads the comment moderation queue and its counts, with search, filters and sorting. | Admin session |
+| `/admin/comments/:id` | Approves, hides, rejects with a reason, deletes, or restores a deleted comment. | Admin session |
+| `/admin/comments/:id/reply` | Publishes the owner's reply to one comment; a retried reply publishes once. | Admin session |
+| `/admin/comments/bulk` | Applies one moderation action to a selection of comments. | Admin session |
+| `/admin/comments/lockdown` | Reads, engages, or lifts the site-wide lockdown on anonymous comments. | Admin session |
+| `/admin/comments/:id/pin` | Pins one root comment to the top of its thread, replacing the post's earlier pin, or unpins it. | Admin session |
+| `/admin/comments/:id/lock` | Closes or reopens replies under one thread. | Admin session |
+| `/admin/comment-modes` | Lists the posts whose comment mode the portal overrides. | Admin session |
+| `/admin/comment-modes/*/*` | Reads, sets, or clears one post's comment mode override (surface, then post id). | Admin session |
+| `/admin/readers/revoked` | Lists the readers whose account a ban revoked. | Admin session |
+| `/admin/readers/:readerId/restore` | Gives one revoked reader their account back; key bans stay. | Admin session |
+| `/admin/messages` | Reads the owner messages and their counts, by state or as the whole inbox. | Admin session |
+| `/admin/messages/:id` | Reads one message with its sender's earlier messages, or files it (read, archived, spam). | Admin session |
+| `/admin/messages/:id/reply` | Mails the owner's reply to one message's sender. | Admin session |
 | `/admin/comments/owner-code` | Mints the single-use code that signs the portal's browser in to the comment box as the owner. | Admin session |
 | `/admin/comments/insights` | Reads the grouped comment tables: networks, subnets, devices, hints, link and mail domains. | Admin session |
 | `/admin/reactions` | Reads the reaction list with the actor block on each row. | Admin session |

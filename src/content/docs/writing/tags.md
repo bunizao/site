@@ -58,13 +58,13 @@ section menu behind it.
 ### Comment policy
 
 Five tags, one knob each, folded onto the site-wide default in
-`blog.comments` (`src/data/site.ts`). They are the only per-post switch the
-comment section has: there is no settings table and no admin screen, because a
-tag is a field the author already edits in the same place they write the post.
+`blog.comments` (`src/data/site.ts`). They are the per-post switch the author
+reaches for first, because a tag is a field the author already edits in the
+same place they write the post. The one exception is below the table.
 
 | Tag | Effect |
 | --- | --- |
-| `#comments-off` | No comment section on the page at all. |
+| `#comments-off` | No comment section on the page. The section is still in the markup, hidden, so an override can show it. |
 | `#comments-readonly` | Everything already written stays readable; nothing new is accepted. The section says so where the box used to be. |
 | `#no-comments` | The older name for `#comments-readonly`, and the same thing. Kept because it is already on posts. |
 | `#reactions-off` | The heart disappears — on the post and on its comments. Independent of the three above: a post can take reactions with comments off, or refuse them with an open thread. |
@@ -76,6 +76,17 @@ policy at build time from the Admin API, and site-api derives it per request
 from the Content API, which returns internal tags when asked for
 `include=tags`. So the page and the API cannot disagree about a post — and a
 read-only thread is read-only to `curl` as well as to a reader.
+
+The admin portal can override the comment mode of one post (`open`,
+`readonly` or `off`) without a rebuild, and the override beats the three
+mode tags in both directions: it can close an open post or reopen one tagged
+`#comments-off`. `#reactions-off` and `#comments-verified` still come from the
+tags. The page is built from the tags, so the thread corrects itself once
+it loads; clearing the override hands the post back to its tags. That
+correction is visible: an `off` override on a post the tags leave open shows
+its section for one round trip before hiding it. Use the override to close a
+post now, and add `#comments-off` when it is meant to stay closed. The details
+are in [Blog Comments API](/docs/api/comments#the-portal-override).
 
 What the tags do *not* override is the site-wide default itself. `blog.comments`
 in this repo and `COMMENTS_MODE` / `COMMENTS_REACTIONS` /

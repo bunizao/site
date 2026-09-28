@@ -42,10 +42,33 @@ Three refusals come out of it, all `403`:
 | `email_verification_required` | The post takes verified addresses only, and this writer has none. An honest refusal, not a moderation hold. |
 | `reactions_disabled` | The post's hearts are off — on the post and on its comments. |
 
-Reads are never gated: a read-only thread has to stay readable, and a post
-with no section rendered is simply not linked to. The `off` and `readonly`
-difference is drawn by the page, not enforced by the API — to a write, both
-mean no.
+Reads are never gated: a read-only thread has to stay readable, and an `off`
+post draws its section hidden, with nothing linking to the thread. The `off`
+and `readonly` difference is drawn by the page, not enforced by the API — to
+a write, both mean no.
+
+### The portal override
+
+The owner can set one post's mode from the admin portal without touching its
+tags. The override replaces the tag-derived `mode` in both directions — it
+can close an open post, or reopen one tagged `#comments-off` — and leaves
+`reactions` and `requireVerifiedEmail` to the tags. Clearing it hands the
+post back to its tags. Every write route reads it beside the tags (one
+primary-key read), so the refusals above follow the override at once.
+
+The page is built from the tags alone, so it can draw the wrong mode until
+the thread loads. The first page of [List comments](#list-comments) carries
+`policy` whenever an override exists, and the client redraws from its `mode`:
+it opens or closes the compose box, and shows or hides the whole section.
+A post with no override gets no `policy` field, and the page's own drawing
+stands. `off` is applied the moment that page arrives, before any comment
+is drawn, so neither the rows nor their hearts are read; `readonly` lands
+together with the rows. A section already on screen still disappears one
+round trip after first paint — the HTML is cached and never reads the
+override — so a post meant to stay closed should carry the tag as well.
+A mood post takes the same `policy` from the first `mood` page of this
+route, which its thread reads beside the Telegram scrape (see
+[Mood surface: the Telegram bridge](#mood-surface-the-telegram-bridge)).
 
 ## Identity: three grades, one table
 
@@ -141,7 +164,37 @@ own writer; a `deleted` row still appears as a tombstone (`body`/`author`
 blanked) when a published reply hangs underneath it, otherwise it's gone
 from the page entirely. `total` counts published comments only.
 
-Always `private, no-store` — visibility depends on who's asking.
+Three owner-set fields are optional on the wire, and a client treats each one
+as absent when it is missing:
+
+| Field | On | Meaning |
+| --- | --- | --- |
+| `pinned: true` | the pinned root only | The owner pinned it. The first page lists it ahead of every other root, with its replies, whatever its date. |
+| `locked: true` | a locked root only, never its replies | The owner closed replies under this thread. It stays readable and likable. |
+| `policy` | the first page only, when the portal overrides the post's mode | The effective [per-post policy](#per-post-policy); the client acts on `policy.mode`. |
+
+A post has at most one pin. It is never one of the date-ordered roots, so the
+first page can carry `limit + 1` roots, and `nextBefore` and the later pages
+are unchanged by it. A pinned row that is hidden or deleted drops back to its
+place in date order, and returns to the top if it is published again.
+
+A request with no reader cookie gets a response that is the same for every
+such reader, so the edge shares it: `Cache-Control: public, max-age=0` with
+`Cloudflare-CDN-Cache-Control: max-age=30, stale-while-revalidate=60` and
+`Vary: Cookie`. A new comment, a moderation decision, a pin, a lock or a
+mode override therefore reaches cookie-less readers within about 90 seconds;
+nothing purges the cache. The writer is never among them — every write sets
+`reader_anon`, and any request carrying a reader cookie is
+`private, no-store`, since visibility depends on who's asking.
+
+## Pinned and locked threads
+
+Both are the owner's, set from the admin portal, and both apply to a root: a
+lock set on a reply lands on its root. A lock refuses a new reply under the
+thread with `403 thread_locked`; the rest of the post stays open, and edits,
+deletes and likes under the thread are unaffected. The owner's own reply from
+the portal is not refused. Replies written in a mood post's Telegram
+discussion group arrive through the bridge and are outside the lock's reach.
 
 ## Post a comment
 
@@ -335,7 +388,11 @@ Every submission runs the full risk stack, in order:
    again, as a verified reader's comment, with the gateway's second
    opinion. A mailbox is not a person: if the gateway still reads the
    writer as an `agent`, the comment stays held with a note beginning
-   `Email confirmed; still held.` for the owner to decide. The owner can
+   `Email confirmed; still held.` for the owner to decide. Confirming
+   never gets past what the create path refuses: if the post stopped
+   taking comments, or the owner locked the thread, while the comment
+   waited, it skips step 6 and stays held with a note beginning
+   `Email confirmed; still held:` that names which. The owner can
    approve an awaiting row from the queue at any time.
 
    The lockdown engages on its own after more than 8 anonymous comments in
@@ -405,7 +462,9 @@ send. A create without an email never sends mail at all.
 
 **Errors:** `400` for a malformed body (see the field list above for exact
 messages), `400 invalid_parent` for a `parentId` that doesn't exist, isn't a
-root comment, or belongs to a different post, `404 not_found` for an unknown
+root comment, or belongs to a different post, `403 thread_locked` for a
+`parentId` whose thread the owner [locked](#pinned-and-locked-threads),
+`404 not_found` for an unknown
 `postId`, `503 comment_target_unavailable` when the Ghost registry can't be
 reached, `403 comments_closed` and `403 email_verification_required` from the
 [per-post policy](#per-post-policy), `400 turnstile_failed` /
@@ -465,6 +524,17 @@ pending, or the scrape's edge cache hasn't caught up) is appended instead,
 so a writer sees their own comment immediately rather than after the cache
 TTL. A row whose bridged message was removed directly in Telegram is
 treated as deleted, never resurrected.
+
+The scrape carries none of the owner's marks. So a mood page linked to the
+group also prefetches `GET /api/v2/comments?surface=mood&post=<id>&limit=20`
+while it parses, and takes the pin, the locks and `policy` from that first
+page: the pinned web comment leads the thread — drawn from that page when
+the scrape's first page does not hold it — a locked root says it is closed
+to replies, and `policy.mode` hides the section or closes the compose box.
+The thread draws once both reads land. Messages written in the group have
+no site row, so they are never pinned or locked, and a lock or a `readonly`
+post does not reach replies written there. A locked root beyond that first
+page is not marked; the server's `thread_locked` refusal still covers it.
 
 Disabled entirely by `MOOD_COMMENTS_ENABLED` (site-api, default off) — while
 off, `surface: "mood"` on this route answers exactly like an unlinked post
