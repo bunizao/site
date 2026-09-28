@@ -1,5 +1,6 @@
 import * as React from 'react';
 import type { QueryClient } from '@tanstack/react-query';
+import { DEFAULT_REACTION_EMOJI } from '@bunizao/contracts/comments';
 import type {
   AdminReactionInsights,
   AdminReactionInsightsWindow,
@@ -38,7 +39,6 @@ import {
 } from './format';
 import { InsightTable, type InsightRowModel } from './InsightTable';
 import {
-  KeyLink,
   LoadError,
   TOUCH_MENU,
   TOUCH_TARGET,
@@ -132,7 +132,7 @@ function targetText(row: AdminReactionRecord): string {
 function haystack(row: AdminReactionRecord): string {
   const { actor } = row;
   return [
-    row.emoji, targetText(row), row.targetId, fromText(row), actor.asn ? `AS${actor.asn}` : '',
+    targetText(row), row.targetId, fromText(row), actor.asn ? `AS${actor.asn}` : '',
     actor.browser, actor.os, actor.keys.session, actor.keys.ip24, actor.ip,
   ].filter(Boolean).join(' ');
 }
@@ -199,7 +199,7 @@ export default function ReactionsScreen() {
   const banSession = React.useCallback(
     (row: AdminReactionRecord) => {
       if (!row.actor.keys.session) return;
-      addBan({ type: 'session', value: row.actor.keys.session, note: `Reaction ${row.emoji} on ${targetText(row)}`, days: 7 });
+      addBan({ type: 'session', value: row.actor.keys.session, note: `Reaction on ${targetText(row)}`, days: 7 });
     },
     [addBan],
   );
@@ -322,7 +322,7 @@ export default function ReactionsScreen() {
           className="pointer-coarse:*:h-10.5!"
           type="search"
           aria-label="Search loaded reactions"
-          placeholder="Search emoji, post, network"
+          placeholder="Search post, network, place"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
@@ -592,25 +592,24 @@ const Summary = React.memo(function Summary({ query, range }: {
 
 /* Stacked below 48rem of feed width; a log table above it. The meta group
    dissolves into cells (`contents`) when wide, and every cell names its
-   own column there, so the order in the source can stay reading order. */
+   own column there, so the order in the source can stay reading order.
+
+   A row says what was reacted to, when, and from where. The heart is the
+   only reaction shipped, so it is drawn only when a row carries another
+   one; the session and subnet hashes are unique per row to the eye, so
+   they live in the row menu as pivots rather than as columns. */
 /** A row's ROW height. */
 const SHORTEST_ROW_PX = LINE_PX;
 
-/** The keys are where a row came from, not what it is: muted until pointed at. */
-const KEY_MUTED = 'text-muted-foreground hover:text-foreground';
-
 const FEED_GRID =
-  'grid grid-cols-[1.75rem_minmax(0,1fr)_auto] gap-x-3 @3xl:grid-cols-[6rem_1.75rem_minmax(0,1.3fr)_minmax(0,1fr)_7rem_5.5rem_2rem] @3xl:gap-x-6';
+  'grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 @3xl:grid-cols-[6rem_minmax(0,1.4fr)_minmax(0,1fr)_2rem] @3xl:gap-x-6';
 
 function FeedHead() {
   return (
     <div role="row" className={cn(FEED_GRID, HEAD, 'sticky top-0 z-10 hidden items-center bg-background px-3 @3xl:grid')}>
       <span role="columnheader">Time</span>
-      <span role="columnheader"><span className="sr-only">Emoji</span></span>
       <span role="columnheader">On</span>
       <span role="columnheader">From</span>
-      <span role="columnheader">Session</span>
-      <span role="columnheader">Subnet</span>
       <span role="columnheader"><span className="sr-only">Actions</span></span>
     </div>
   );
@@ -624,6 +623,7 @@ const ReactionRow = React.memo(function ReactionRow({ row, active, menu }: {
   menu: RowMenuHandle;
 }) {
   const { actor } = row;
+  const from = fromText(row);
   return (
     <div
       role="row"
@@ -631,39 +631,33 @@ const ReactionRow = React.memo(function ReactionRow({ row, active, menu }: {
       data-active={active || undefined}
       className={cn(FEED_GRID, ROW, SPACED, 'items-center px-3 py-2.5 data-active:bg-accent @3xl:py-1')}
     >
-      <span role="cell" className="col-start-1 row-span-2 row-start-1 self-start text-center text-lg leading-7 @3xl:col-start-2 @3xl:row-span-1 @3xl:self-center @3xl:text-base">
-        {row.emoji}
-      </span>
-      <span role="cell" className="col-start-2 row-start-1 min-w-0 break-words text-sm @3xl:col-start-3 @3xl:truncate @3xl:text-[13px]">
+      <span role="cell" className="col-start-1 row-start-1 min-w-0 break-words text-sm @3xl:col-start-2 @3xl:truncate @3xl:text-[13px]">
         <Link
           to={reactionsHref({ targetId: row.targetId, target: row.targetType, key: null, value: null, q: null })}
           title={row.targetType === 'comment' ? `Only reactions on comment ${row.targetId}` : 'Only reactions on this post'}
           className={cn(TOUCH_TARGET, 'rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring')}
         >
+          {row.emoji !== DEFAULT_REACTION_EMOJI && <span className="me-1.5">{row.emoji}</span>}
           {row.targetType === 'comment' && <span className="text-muted-foreground">Comment on </span>}
           {row.postTitle ?? 'Untitled post'}
         </Link>
       </span>
-      <span className="col-start-2 row-start-2 flex min-w-0 flex-wrap items-baseline gap-x-2 text-muted-foreground text-xs @3xl:contents">
+      <span className="col-start-1 row-start-2 flex min-w-0 flex-wrap items-baseline gap-x-2 text-muted-foreground text-xs @3xl:contents">
         <span role="cell" className="font-mono text-[12px] tabular-nums @3xl:col-start-1 @3xl:row-start-1" title={fullTime(row.createdAt)}>
           {clock(row.createdAt)}
         </span>
-        <span role="cell" className="min-w-0 break-words @3xl:col-start-4 @3xl:row-start-1 @3xl:truncate @3xl:text-[13px]">
-          {fromText(row)}
-        </span>
-        <span role="cell" className="whitespace-nowrap @3xl:col-start-5 @3xl:row-start-1">
-          {actor.keys.session ? <KeyLink type="session" value={actor.keys.session} label="Session" className={KEY_MUTED} /> : '–'}
-          {actor.sessionNew && <span className="ms-1.5 text-muted-foreground text-xs" title="This reaction started the session">new</span>}
-        </span>
-        <span role="cell" className="@3xl:col-start-6 @3xl:row-start-1">
-          {actor.keys.ip24 ? <KeyLink type="ip24" value={actor.keys.ip24} label="Subnet" className={KEY_MUTED} /> : '–'}
+        <span role="cell" className="min-w-0 break-words @3xl:col-start-3 @3xl:row-start-1 @3xl:truncate @3xl:text-[13px]">
+          {from}
+          {actor.sessionNew && (
+            <span title="This reaction started the session">{from ? ' · ' : ''}new visitor</span>
+          )}
         </span>
       </span>
-      <span role="cell" className="col-start-3 row-span-2 row-start-1 flex justify-end @3xl:col-start-7 @3xl:row-span-1">
+      <span role="cell" className="col-start-2 row-span-2 row-start-1 flex justify-end @3xl:col-start-4 @3xl:row-span-1">
         <MenuTrigger
           handle={menu}
           payload={row}
-          render={<Button size="icon-sm" variant="ghost" aria-label={`Actions for the ${row.emoji} reaction at ${clock(row.createdAt)}`} />}
+          render={<Button size="icon-sm" variant="ghost" aria-label={`Actions for the reaction on ${targetText(row)} at ${clock(row.createdAt)}`} />}
         >
           <MoreHorizontal />
         </MenuTrigger>
@@ -718,7 +712,7 @@ function RowMenuPopup({ row, onBanSession, onBan }: {
       {actor.keys.session && (
         <MenuItem variant="destructive" onClick={() => onBanSession(row)}>
           <ShieldBan />
-          Ban this session for 30 days
+          Ban this session for 7 days
         </MenuItem>
       )}
       <MenuItem variant="destructive" onClick={() => onBan(row)}>
@@ -735,15 +729,12 @@ function FeedSkeleton() {
       <div className={cn('hidden @3xl:block', HEAD)} />
       {Array.from({ length: 14 }, (_, index) => (
         <div key={index} className={cn(FEED_GRID, ROW, SPACED, 'items-center px-3 py-2.5 @3xl:py-1')}>
-          <Skeleton className="col-start-1 row-span-2 row-start-1 size-5 self-start @3xl:col-start-2 @3xl:row-span-1 @3xl:self-center" />
-          <Skeleton className="col-start-2 row-start-1 h-3.5 w-48 max-w-full @3xl:col-start-3" />
-          <span className="col-start-2 row-start-2 flex gap-2 pt-1 @3xl:contents">
+          <Skeleton className="col-start-1 row-start-1 h-3.5 w-48 max-w-full @3xl:col-start-2" />
+          <span className="col-start-1 row-start-2 flex gap-2 pt-1 @3xl:contents">
             <Skeleton className="h-3 w-20 @3xl:col-start-1 @3xl:row-start-1" />
-            <Skeleton className="h-3 w-32 @3xl:col-start-4 @3xl:row-start-1" />
-            <Skeleton className="hidden h-3 w-14 @3xl:col-start-5 @3xl:row-start-1 @3xl:block" />
-            <Skeleton className="hidden h-3 w-14 @3xl:col-start-6 @3xl:row-start-1 @3xl:block" />
+            <Skeleton className="h-3 w-32 @3xl:col-start-3 @3xl:row-start-1" />
           </span>
-          <span className="col-start-3 row-span-2 row-start-1 size-7 @3xl:col-start-7 @3xl:row-span-1" />
+          <span className="col-start-2 row-span-2 row-start-1 size-7 @3xl:col-start-4 @3xl:row-span-1" />
         </div>
       ))}
     </div>
@@ -768,7 +759,7 @@ function FeedEmpty({ filtered, query, loaded, more, pending, onClearQuery, onCle
       <Empty className="py-14">
         <EmptyHeader>
           <EmptyTitle>None of the {formatCount(loaded)} loaded reactions match “{query}”</EmptyTitle>
-          <EmptyDescription>Search looks at the emoji, the post, the network and place, and the key values.</EmptyDescription>
+          <EmptyDescription>Search looks at the post, the network and place, and the key values.</EmptyDescription>
         </EmptyHeader>
         <EmptyContent className="flex-row justify-center">
           <Button size="sm" className={SMALL} variant="outline" onClick={onClearQuery}>Clear search</Button>
