@@ -23,6 +23,8 @@ interface View {
   source: readonly PortalComment[] | null;
   rows: PortalComment[];
   fresh: PortalComment[];
+  /** Take the server's rows at the next render. */
+  resync: boolean;
 }
 
 const MAX_VIEWS = 16;
@@ -40,7 +42,7 @@ function viewFor(key: string): View {
     views.set(key, view);
     return view;
   }
-  view = { ids: [], byId: new Map(), gone: new Map(), source: null, rows: [], fresh: [] };
+  view = { ids: [], byId: new Map(), gone: new Map(), source: null, rows: [], fresh: [], resync: false };
   views.set(key, view);
   if (views.size > MAX_VIEWS) views.delete(views.keys().next().value!);
   return view;
@@ -100,6 +102,10 @@ export interface StableRows {
   fresh: PortalComment[];
   /** Take the server's order now, new rows included. */
   merge: () => void;
+  /** Take the server's rows at the next render, once the list has
+      refetched after an act that changed rows the screen cannot name, such
+      as a ban's sweep. */
+  resync: () => void;
   /** Take rows out of the view; the returned function puts them back where
       they were: all of them, or only the ids it is given. */
   remove: (ids: readonly string[]) => (only?: readonly string[]) => void;
@@ -117,6 +123,10 @@ export function useStableRows(key: string, loaded: readonly PortalComment[] | un
   if (loaded && view.source !== loaded) {
     view.source = loaded;
     reconcile(view, loaded);
+  }
+  if (loaded && view.resync) {
+    view.resync = false;
+    merge(view);
   }
 
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
@@ -146,6 +156,11 @@ export function useStableRows(key: string, loaded: readonly PortalComment[] | un
 
   const mergeNow = React.useCallback(() => {
     merge(view);
+    bump();
+  }, [view]);
+
+  const resync = React.useCallback(() => {
+    view.resync = true;
     bump();
   }, [view]);
 
@@ -204,5 +219,5 @@ export function useStableRows(key: string, loaded: readonly PortalComment[] | un
     [view],
   );
 
-  return { rows: view.rows, fresh: view.fresh, merge: mergeNow, remove, patch, scrollRef };
+  return { rows: view.rows, fresh: view.fresh, merge: mergeNow, resync, remove, patch, scrollRef };
 }

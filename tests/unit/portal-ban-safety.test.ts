@@ -10,7 +10,15 @@ import { chromium, type Browser, type Page } from '@playwright/test';
 import { join } from 'node:path';
 import type { AdminCommentActor, AdminCommentQuality } from '@bunizao/contracts';
 import { DEMO_COMMENTS, DEMO_COMMENT_INSIGHTS, demoActor } from '@/features/admin/server/portal-demo';
-import { identityDetail, identityStatus, impactHold, sourceBanKey, type IdentityStatus } from '@/features/portal/comments/model';
+import {
+  deleteScope,
+  fingerprintSweepKey,
+  identityDetail,
+  identityStatus,
+  impactHold,
+  sourceBanKey,
+  type IdentityStatus,
+} from '@/features/portal/comments/model';
 import { formatShare } from '@/features/portal/moderation/format';
 
 // Each browser scenario mounts a fresh page; a cold Chromium needs more than bun's 5s.
@@ -102,7 +110,7 @@ async function fixture(
 }
 
 type BanTarget =
-  | { kind: 'actor'; actor: AdminCommentActor }
+  | { kind: 'actor'; actor: AdminCommentActor; commentId?: string | null }
   | { kind: 'source'; type: string; value: string; ban: string; emailDomainPublishedComments?: number | null };
 
 async function openBanDialog(page: Page, target: BanTarget): Promise<void> {
@@ -135,6 +143,10 @@ async function tick(page: Page, label: string): Promise<void> {
 /** Days from now to an ISO expiry, to the nearest day. */
 const daysAhead = (iso: string) => Math.round((Date.parse(iso) - Date.now()) / 86_400_000);
 const previews = (calls: Call[]) => calls.filter((call) => call.path.endsWith('/admin/bans/preview'));
+/** Picks what the ban deletes, by its label. */
+const deleting = (page: Page, label: string) => page.locator('[role="dialog"]').getByRole('button', { name: label, exact: true });
+/** Comment ids the dialog took off the screen, and those it put back. */
+const deletedIds = (page: Page) => page.evaluate(() => ({ deleted: window.portalHarness.deleted, putBack: window.portalHarness.putBack }));
 const writes = (calls: Call[]) => calls.filter((call) => call.method === 'POST' && call.path.endsWith('/admin/bans'));
 
 function writer(verified: boolean, overrides: Partial<AdminCommentActor> = {}): AdminCommentActor {
@@ -297,52 +309,52 @@ describe('the ban dialog', () => {
     });
   });
 
-  test('a removal over the limit must be narrowed or turned off before it can be written', async () => {
+  test('a sweep over the limit must be narrowed or turned off before it can be written', async () => {
     await fixture(DIALOG, async (page, calls) => {
       await openBanDialog(page, { kind: 'source', type: 'ip24', value: 'reviewed-subnet', ban: 'ip24' });
       await tick(page, 'Subnet');
-      await page.getByRole('switch').click();
-      await page.getByText('Too much to remove at once: the limit is 500.').waitFor();
-      const ban = page.getByRole('button', { name: 'Ban 1 key', exact: true });
+      await deleting(page, 'Everything matched').click();
+      await page.getByText('Too much to delete at once: the limit is 500. Untick a shared key or pick Nothing.').waitFor();
+      const ban = page.getByRole('button', { name: 'Ban 1 key and delete 7', exact: true });
       expect(await ban.getAttribute('aria-disabled')).toBe('true');
       await ban.press('Enter');
       await Bun.sleep(100);
       expect(writes(calls)).toEqual([]);
-      // Turning removal off makes the same keys bannable again.
-      await page.getByRole('switch').click();
-      await page.getByText('Too much to remove at once').waitFor({ state: 'detached' });
-      expect(await ban.getAttribute('aria-disabled')).toBeNull();
+      // Deleting nothing makes the same keys bannable again.
+      await deleting(page, 'Nothing').click();
+      await page.getByText('Too much to delete at once').waitFor({ state: 'detached' });
+      expect(await page.getByRole('button', { name: 'Ban 1 key', exact: true }).getAttribute('aria-disabled')).toBeNull();
     }, { purgeAllowed: false });
   });
 
-  test('a removal is never written before its impact is known', async () => {
+  test('a sweep is never written before its impact is known', async () => {
     // Pressed early, the receipt would say "Banned" and then flip to "not
-    // saved" when site-api refuses the removal with 409 impact_too_large.
+    // saved" when site-api refuses the sweep with 409 impact_too_large.
     await fixture(DIALOG, async (page, calls) => {
       await page.route('**/admin/bans/preview', () => {}); // never answers
       await openBanDialog(page, { kind: 'source', type: 'ip24', value: 'reviewed-subnet', ban: 'ip24' });
       await tick(page, 'Subnet');
-      await page.getByRole('switch').click();
-      const ban = page.getByRole('button', { name: 'Ban 1 key', exact: true });
+      await deleting(page, 'Everything matched').click();
+      const ban = page.getByRole('button', { name: 'Ban 1 key and delete', exact: true });
       expect(await ban.getAttribute('aria-disabled')).toBe('true');
-      expect(await ban.getAttribute('title')).toBe('Checking what the removal reaches.');
+      expect(await ban.getAttribute('title')).toBe('Checking what this deletes.');
       await ban.press('Enter');
       await Bun.sleep(100);
       expect(writes(calls)).toEqual([]);
     }, { purgeAllowed: false });
   });
 
-  test('a removal waits again when the ticked keys change, not on the last keys’ impact', async () => {
+  test('a sweep waits again when the ticked keys change, not on the last keys’ impact', async () => {
     await fixture(DIALOG, async (page, calls) => {
       await openBanDialog(page, { kind: 'actor', actor: writer(false) });
-      await page.getByRole('switch').click();
-      await page.getByText('Removes 7 comments').waitFor();
-      expect(await page.getByRole('button', { name: 'Ban 1 key', exact: true }).getAttribute('aria-disabled')).toBeNull();
+      await deleting(page, 'Same fingerprint').click();
+      await page.getByText('Deletes 7 comments').waitFor();
+      expect(await page.getByRole('button', { name: 'Ban 1 key and delete 7', exact: true }).getAttribute('aria-disabled')).toBeNull();
       // The next impact read hangs: the session's impact stays on screen, but
       // it is not the impact of the new set of keys.
       await page.route('**/admin/bans/preview', () => {});
       await tick(page, 'Device fingerprint');
-      const ban = page.getByRole('button', { name: 'Ban 2 keys', exact: true });
+      const ban = page.getByRole('button', { name: 'Ban 2 keys and delete', exact: true });
       expect(await ban.getAttribute('aria-disabled')).toBe('true');
       await ban.press('Enter');
       await Bun.sleep(100);
@@ -362,7 +374,7 @@ describe('the ban dialog', () => {
         await page.route('**/admin/bans/preview', () => {}); // never answers
         await openBanDialog(page, target);
         await tick(page, label);
-        expect(await page.getByRole('switch').getAttribute('aria-checked')).toBe('false');
+        expect(await deleting(page, 'Nothing').getAttribute('aria-pressed')).toBe('true');
         const ban = page.getByRole('button', { name: 'Ban 1 key', exact: true });
         expect(await ban.getAttribute('aria-disabled')).toBe('true');
         expect(await ban.getAttribute('title')).toBe('Checking what the ban reaches.');
@@ -398,6 +410,124 @@ describe('the ban dialog', () => {
       await ban.press('Enter');
       await Bun.sleep(100);
       expect(writes(calls)).toEqual([]);
+    });
+  });
+
+  test('a ban raised from a comment deletes it by default, at once, before its impact arrives', async () => {
+    await fixture(DIALOG, async (page, calls) => {
+      await page.route('**/admin/bans/preview', () => {}); // never answers
+      await openBanDialog(page, { kind: 'actor', actor: writer(false), commentId: 'comment-open' });
+      expect(await deleting(page, 'This comment').getAttribute('aria-pressed')).toBe('true');
+      const written = page.waitForRequest((request) => request.method() === 'POST' && request.url().endsWith('/admin/bans'));
+      // Focus is on Ban from the first frame: B then Enter.
+      await page.keyboard.press('Enter');
+      await written;
+      const body = writes(calls)[0]!.body;
+      expect(body.keys).toEqual([{ type: 'session', value: 'se55i0n0' }]);
+      expect(body).toMatchObject({ purge: false, removeCommentId: 'comment-open' });
+      expect(body.sweepKeys).toBeUndefined();
+      expect(await deletedIds(page)).toEqual({ deleted: ['comment-open'], putBack: [] });
+      await page.getByText('Banned 1 key and deleted the comment').waitFor();
+    }, {
+      // A site-api that deleted it answers with the operation.
+      answer: (call) => (call.method === 'POST' && call.path.endsWith('/admin/bans')
+        ? { bans: [], purged: { comments: 1, reactions: 0 }, operation: null }
+        : null),
+    });
+  });
+
+  test('the comment comes back when the ban is refused, or when site-api deleted nothing', async () => {
+    // A refusal, and an older site-api that bans without deleting.
+    for (const [receipt, refused] of [['The ban was not saved', true], ['The comment was not deleted. Press D to delete it.', false]] as const) {
+      await fixture(DIALOG, async (page) => {
+        if (refused) await page.route('**/admin/bans', (route) => route.fulfill({ status: 500, json: { error: 'internal' } }));
+        await openBanDialog(page, { kind: 'actor', actor: writer(false), commentId: 'comment-open' });
+        await page.getByRole('button', { name: 'Ban 1 key and delete', exact: true }).click();
+        await page.getByText(receipt).waitFor();
+        expect(await deletedIds(page)).toEqual({ deleted: ['comment-open'], putBack: ['comment-open'] });
+      });
+    }
+  });
+
+  test('same fingerprint sweeps the writer’s fingerprint too, and waits for exactly that impact', async () => {
+    await fixture(DIALOG, async (page, calls) => {
+      let release!: () => void;
+      const answered = new Promise<void>((resolve) => (release = resolve));
+      await openBanDialog(page, { kind: 'actor', actor: writer(false), commentId: 'comment-open' });
+      await page.getByText('Deletes this comment. Restorable for 30 days.').waitFor();
+      let asked: unknown = null;
+      await page.route('**/admin/bans/preview', async (route) => {
+        asked = route.request().postDataJSON();
+        await answered;
+        await route.fulfill({ json: { ...impact(), accounts: 3, spared: 2, purge: { comments: 7, reactions: 9, published: 1, sessions: 2, otherAccounts: 1 } } });
+      });
+      // 2 picks the second choice, as 1-5 pick a reject reason.
+      await page.keyboard.press('2');
+      expect(await deleting(page, 'Same fingerprint').getAttribute('aria-pressed')).toBe('true');
+      const ban = page.getByRole('button', { name: 'Ban 1 key and delete', exact: true });
+      expect(await ban.getAttribute('title')).toBe('Checking what this deletes.');
+      await page.keyboard.press('Enter');
+      await Bun.sleep(100);
+      expect(writes(calls)).toEqual([]);
+
+      release();
+      await page.getByText('Spares 2 published comments by signed-in readers.', { exact: false }).waitFor();
+      const text = await page.getByRole('dialog').innerText();
+      expect(text).toContain('Deletes 7 comments (1 published) and 9 reactions from 2 sessions.');
+      expect(text).toContain('Device fingerprint c11e0f9a.');
+      expect(text).toContain('Also deletes from 1 other reader account. Check they are the same person.');
+      const scope = { purge: true, sweepKeys: [{ type: 'client_fp', value: 'c11e0f9a' }], removeCommentId: 'comment-open' };
+      expect(asked).toMatchObject(scope);
+      const written = page.waitForRequest((request) => request.method() === 'POST' && request.url().endsWith('/admin/bans'));
+      await page.getByRole('button', { name: 'Ban 1 key and delete 7', exact: true }).press('Enter');
+      await written;
+      expect(writes(calls)[0]!.body).toMatchObject({ keys: [{ type: 'session', value: 'se55i0n0' }], ...scope });
+    });
+  });
+
+  test('the account warning counts what the purge removes, not what the keys reach', async () => {
+    // Accounts the spare rule protects, and the writer's own account, are
+    // site-api's to leave out of otherAccounts; the dialog repeats it.
+    for (const [otherAccounts, warning] of [[0, null], [2, 'Also deletes from 2 other reader accounts. Check they are the same person.']] as const) {
+      await fixture(DIALOG, async (page) => {
+        await page.route('**/admin/bans/preview', (route) =>
+          route.fulfill({ json: { ...impact(), accounts: 4, purge: { comments: 7, reactions: 9, published: 0, sessions: 2, otherAccounts } } }));
+        await openBanDialog(page, { kind: 'actor', actor: writer(false), commentId: 'comment-open' });
+        await page.keyboard.press('2');
+        await page.getByText('Deletes 7 comments and 9 reactions from 2 sessions.').waitFor();
+        const text = await page.getByRole('dialog').innerText();
+        if (warning) expect(text).toContain(warning);
+        else expect(text).not.toContain('Also deletes from');
+      });
+    }
+  });
+
+  test('a digit typed in the note is text, not a choice', async () => {
+    await fixture(DIALOG, async (page) => {
+      await openBanDialog(page, { kind: 'actor', actor: writer(false), commentId: 'comment-open' });
+      await page.getByLabel('Note to yourself').fill('');
+      await page.getByLabel('Note to yourself').press('3');
+      expect(await page.getByLabel('Note to yourself').inputValue()).toBe('3');
+      expect(await deleting(page, 'This comment').getAttribute('aria-pressed')).toBe('true');
+    });
+  });
+
+  test('without a fingerprint, same fingerprint is off and says why', async () => {
+    await fixture(DIALOG, async (page) => {
+      const actor = writer(false, { keys: { ...writer(false).keys, fp: null, clientFp: null, clientFpStable: null } });
+      await openBanDialog(page, { kind: 'actor', actor, commentId: 'comment-open' });
+      expect(await deleting(page, 'Same fingerprint').isDisabled()).toBe(true);
+      await page.getByText('Same fingerprint is off: this writer sent no fingerprint.').waitFor();
+      await page.keyboard.press('2');
+      expect(await deleting(page, 'This comment').getAttribute('aria-pressed')).toBe('true');
+    });
+  });
+
+  test('a ban raised from a reaction has no comment to delete, and deletes nothing unless asked', async () => {
+    await fixture(DIALOG, async (page) => {
+      await openBanDialog(page, { kind: 'actor', actor: writer(false) });
+      expect(await deleting(page, 'This comment').count()).toBe(0);
+      expect(await deleting(page, 'Nothing').getAttribute('aria-pressed')).toBe('true');
     });
   });
 
@@ -571,17 +701,46 @@ test('look-only keys offer no ban', () => {
 });
 
 test('only a ban on one person’s keys skips the impact check', () => {
-  // Session, and an address verified at writing: no wait unless it removes.
-  expect(impactHold(['session'], false, false)).toBeNull();
-  expect(impactHold(['session', 'email'], true, false)).toBeNull();
-  expect(impactHold(['session'], false, true)).toBe('removal');
-  // Any key other readers share waits, removal or not.
+  // Session, and an address verified at writing: no wait, deleting the
+  // open comment included, so B then Enter stays one motion.
+  expect(impactHold(['session'], false, 'none')).toBeNull();
+  expect(impactHold(['session'], false, 'comment')).toBeNull();
+  expect(impactHold(['session', 'email'], true, 'comment')).toBeNull();
+  // A sweep waits for its exact impact.
+  expect(impactHold(['session'], false, 'fingerprint')).toBe('removal');
+  expect(impactHold(['session'], false, 'matched')).toBe('removal');
+  // Any key other readers share waits, whatever it deletes.
   for (const shared of ['ip', 'ip24', 'fp', 'asn', 'client_fp', 'domain', 'email_domain'] as const) {
-    expect(impactHold([shared], false, false)).toBe('shared');
-    expect(impactHold(['session', shared], true, true)).toBe('shared');
+    expect(impactHold([shared], false, 'none')).toBe('shared');
+    expect(impactHold(['session', shared], true, 'comment')).toBe('shared');
+    expect(impactHold(['session', shared], true, 'fingerprint')).toBe('shared');
   }
   // An address nobody confirmed can be typed by anybody.
-  expect(impactHold(['email'], false, false)).toBe('shared');
+  expect(impactHold(['email'], false, 'none')).toBe('shared');
+});
+
+test('the fingerprint a sweep adds is the fingerprint column, under the ban type that matches it', () => {
+  const keys = (overrides: Partial<AdminCommentActor['keys']>) => demoActor({ keys: { fp: 'net-sig', ...overrides } });
+  expect(fingerprintSweepKey(keys({ clientFp: 'device', clientFpStable: 'stable' })))
+    .toEqual({ type: 'client_fp', value: 'device', label: 'Device fingerprint' });
+  // The stable column bans as client_fp, which matches either column.
+  expect(fingerprintSweepKey(keys({ clientFpStable: 'stable' })))
+    .toEqual({ type: 'client_fp', value: 'stable', label: 'Stable fingerprint' });
+  expect(fingerprintSweepKey(keys({}))).toEqual({ type: 'fp', value: 'net-sig', label: 'Network signature' });
+  expect(fingerprintSweepKey(keys({ fp: null }))).toBeNull();
+});
+
+test('each delete choice maps to the ban input the design names', () => {
+  const session = [{ type: 'session' as const, value: 's' }];
+  const sweep = { type: 'client_fp' as const, value: 'device' };
+  expect(deleteScope('comment', session, sweep, 'c1')).toEqual({ purge: false, removeCommentId: 'c1' });
+  expect(deleteScope('fingerprint', session, sweep, 'c1')).toEqual({ purge: true, sweepKeys: [sweep], removeCommentId: 'c1' });
+  expect(deleteScope('none', session, sweep, 'c1')).toEqual({ purge: false });
+  expect(deleteScope('matched', session, null, null)).toEqual({ purge: true });
+  // A ban from a reaction sweeps without a comment.
+  expect(deleteScope('fingerprint', session, sweep, null)).toEqual({ purge: true, sweepKeys: [sweep] });
+  // A fingerprint already ticked is banned, so the purge matches it anyway.
+  expect(deleteScope('fingerprint', [...session, sweep], sweep, 'c1')).toEqual({ purge: true, removeCommentId: 'c1' });
 });
 
 describe('measured outcomes', () => {

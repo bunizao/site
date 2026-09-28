@@ -9,6 +9,13 @@
    readership does not. Shapes and error codes follow site-api main
    (src/pages/admin/{bans,reactions,comments/insights}); keep them in step.
 
+   A ban's preview and purge read the demo comment store, so a ban that
+   deletes the comment it came from, or sweeps its writer's fingerprint,
+   takes real rows out of the queue, and restoring its operation puts them
+   back. The rules are site-api's: a purge never takes a published comment
+   another signed-in reader wrote, nor a reaction another reader left, and
+   the owner's own rows are never in scope.
+
    Imported only behind `import.meta.env.DEV`, like demo-api.ts. */
 
 import type {
@@ -22,6 +29,7 @@ import type {
   AdminCommentInsights,
   AdminCommentInsightsWindow,
   AdminCommentQuality,
+  AdminCommentRecord,
   AdminInsightRow,
   AdminReactionInsights,
   AdminReactionInsightsWindow,
@@ -29,6 +37,7 @@ import type {
   AdminSourceKeyType,
 } from '@bunizao/contracts';
 import { DEMO_BANS, DEMO_COMMENT_INSIGHTS, demoActor } from '@/features/admin/server/portal-demo';
+import { OWNER_SESSION, matchesKey } from './comment-admin';
 
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
@@ -113,7 +122,7 @@ const CIPHERS: Record<string, string> = {
   'Safari 18': 'JZtiTn8H', 'Chrome 128': 'Pq2Lw7Ra', 'Firefox 130': 'mF40cc1e', 'Edge 128': 'Pq2Lw7Ra', bot: 'QQ91xz02',
 };
 
-interface DemoReaction extends AdminReactionRecord {
+export interface DemoReaction extends AdminReactionRecord {
   /** Demo-only facts the insights read; stripped before a list answers. */
   facts: { os: string; bot: boolean; tapMs: number; auth: 'turnstile' | 'pass' | 'verified'; sampleIp: string };
 }
@@ -465,31 +474,90 @@ function seedOperations(now: number): AdminBanOperation[] {
   ];
 }
 
-/** Rows a key reaches: reactions from the demo set, comments from a hash of
-    the key so every value gets a stable, plausible count. */
-function reach(type: AdminBanKeyType, value: string): { comments: number; held: number; reactions: number; sessions: number } {
-  const reactions = store.reactions.filter((row) => reactionMatches(row.actor, type, value));
-  let hash = 0;
-  for (const char of `${type}:${value}`) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  const broad = type === 'asn' || type === 'ip24' || type === 'email_domain' || type === 'domain';
-  const comments = broad ? 3 + (hash % 20) : hash % 4;
-  const held = Math.min(comments, Math.round(comments * (0.4 + (hash % 5) / 10)));
+type BanKey = { type: AdminBanKeyType; value: string };
+
+const WINDOW_MS = 90 * DAY;
+const PURGE_LIMIT = 500;
+const PURGE_NOTE = 'Purged with ban.';
+
+export interface BanScope {
+  /** Comments the keys (and, on a purge, the sweep keys) reach in 90 days,
+      with the comment the ban came from counted once. */
+  comments: AdminCommentRecord[];
+  reactions: DemoReaction[];
+  /** Published comments the purge leaves: written signed in by someone
+      other than the writer of the comment the ban came from. */
+  spared: AdminCommentRecord[];
+  /** What the operation removes. */
+  purge: { comments: AdminCommentRecord[]; reactions: DemoReaction[] };
+  /** The comment the ban came from. */
+  target: AdminCommentRecord | null;
+}
+
+/** The owner's replies and signed-in comments, which no ban reaches.
+    site-api names the portal session 'portal:owner'; the demo's own
+    replies carry OWNER_SESSION. */
+export function isOwnerRow(row: AdminCommentRecord): boolean {
+  const session = row.actor.keys.session ?? '';
+  return row.byAuthor === true
+    || session === OWNER_SESSION
+    || session.startsWith('telegram:')
+    || (row.actor.authAtWrite === 'verified' && row.actor.readerId === 'reader-owner');
+}
+
+/** What a ban input reaches and removes, from the given rows. */
+export function banScope(
+  comments: readonly AdminCommentRecord[],
+  reactions: readonly DemoReaction[],
+  input: { keys: BanKey[]; sweepKeys?: BanKey[]; purge?: boolean; removeCommentId?: string | null },
+  now = Date.now(),
+): BanScope {
+  const purge = input.purge === true;
+  const keys = purge ? [...input.keys, ...(input.sweepKeys ?? [])] : input.keys;
+  const recent = (iso: string) => Date.parse(iso) >= now - WINDOW_MS;
+  const matched = comments.filter((row) => !isOwnerRow(row)
+    && recent(row.createdAt)
+    && keys.some((key) => matchesKey(row, key.type, key.value)));
+  const remove = input.removeCommentId ? comments.find((row) => row.id === input.removeCommentId) ?? null : null;
+  if (remove && !matched.includes(remove)) matched.push(remove);
+  const reached = reactions.filter((row) => recent(row.createdAt) && keys.some((key) => reactionMatches(row.actor, key.type, key.value)));
+  // A later claim does not make someone the writer: only a comment written
+  // signed in names the one reader a purge may take published rows from.
+  const writer = remove?.actor.authAtWrite === 'verified' ? remove.actor.readerId : null;
+  const other = (readerId: string | null) => readerId !== null && readerId !== writer;
+  const spared = purge
+    ? matched.filter((row) => row !== remove && row.status === 'published' && row.actor.authAtWrite === 'verified' && other(row.actor.readerId))
+    : [];
   return {
-    comments,
-    held,
-    reactions: reactions.length,
-    sessions: Math.max(distinct(reactions.map((row) => row.actor.keys.session)), comments > 0 ? 1 : 0),
+    comments: matched,
+    reactions: reached,
+    spared,
+    purge: {
+      comments: purge
+        ? matched.filter((row) => row.status !== 'deleted' && !spared.includes(row))
+        : remove && remove.status !== 'deleted' ? [remove] : [],
+      // Another reader's reaction is spared too, uncounted.
+      reactions: purge ? reached.filter((row) => !other(row.actor.readerId)) : [],
+    },
+    target: remove,
   };
 }
+
+const validKey = (key: Partial<BanKey> | null | undefined): boolean =>
+  BAN_TYPES.has(key?.type as string) && typeof key?.value === 'string' && key.value.length > 0 && key.value.length <= 512;
+const distinctKeys = (keys: BanKey[]) => [...new Map(keys.map((key) => [`${key.type}:${key.value}`, key])).values()];
 
 function readKeys(input: Partial<AdminBanInput> | null): Array<{ type: AdminBanKeyType; value: string }> | Response {
   const keys = Array.isArray(input?.keys) ? input.keys : [];
   if (keys.length === 0) return error(400, 'keys_required');
-  if (!keys.every((key) => BAN_TYPES.has(key?.type) && typeof key?.value === 'string' && key.value.length > 0 && key.value.length <= 512)) {
+  if (!keys.every(validKey)) {
     return error(400, 'invalid_key', 'Each ban key must have a supported type and a nonempty value.');
   }
-  const unique = [...new Map(keys.map((key) => [`${key.type}:${key.value}`, key])).values()];
-  if (unique.length > 20) return error(400, 'too_many_keys', 'Select at most 20 distinct ban keys.');
+  const sweep = input?.sweepKeys ?? [];
+  if (!Array.isArray(sweep) || !sweep.every(validKey)) return error(400, 'invalid_sweep_keys');
+  const unique = distinctKeys(keys);
+  // Sweep keys count toward the limit.
+  if (distinctKeys([...keys, ...sweep]).length > 20) return error(400, 'too_many_keys', 'Select at most 20 distinct ban keys.');
   for (const key of unique) {
     const published = key.type === 'email_domain' ? PROTECTED_DOMAINS[key.value] : undefined;
     if (published) {
@@ -499,30 +567,53 @@ function readKeys(input: Partial<AdminBanInput> | null): Array<{ type: AdminBanK
   return unique;
 }
 
-function preview(keys: Array<{ type: AdminBanKeyType; value: string }>): AdminBanPreview {
-  const parts = keys.map((key) => reach(key.type, key.value));
-  const comments = parts.reduce((sum, part) => sum + part.comments, 0);
-  const held = parts.reduce((sum, part) => sum + part.held, 0);
-  const reactions = parts.reduce((sum, part) => sum + part.reactions, 0);
-  const published = Math.max(0, comments - held - (comments > 2 ? 1 : 0));
-  const rejected = comments - held - published;
-  const purge = { comments, reactions };
+/** The input's scope, or the refusal site-api gives for its extra fields. */
+function scopeOf(comments: readonly AdminCommentRecord[], input: Partial<AdminBanInput> | null, keys: BanKey[]): BanScope | Response {
+  if (input?.purge !== undefined && typeof input.purge !== 'boolean') return error(400, 'invalid_purge');
+  const removeCommentId = input?.removeCommentId ?? null;
+  if (removeCommentId !== null && (typeof removeCommentId !== 'string' || removeCommentId === '')) return error(400, 'invalid_comment_id');
+  const remove = removeCommentId ? comments.find((row) => row.id === removeCommentId) : undefined;
+  if (removeCommentId && !remove) return error(404, 'comment_not_found');
+  if (remove && isOwnerRow(remove)) return error(400, 'owner_comment');
+  return banScope(comments, store.reactions, { keys, sweepKeys: input?.sweepKeys, purge: input?.purge, removeCommentId });
+}
+
+function preview(scope: BanScope, revokeReaderId: string | null | undefined): AdminBanPreview {
+  const byStatus = { held: 0, published: 0, rejected: 0, deleted: 0 };
+  for (const row of scope.comments) byStatus[row.status] += 1;
+  const actors = [...scope.comments.map((row) => row.actor), ...scope.reactions.map((row) => row.actor)];
+  const removed = [...scope.purge.comments.map((row) => row.actor), ...scope.purge.reactions.map((row) => row.actor)];
+  const targetReader = scope.target?.actor.readerId ?? null;
+  const purge = {
+    comments: scope.purge.comments.length,
+    reactions: scope.purge.reactions.length,
+    published: scope.purge.comments.filter((row) => row.status === 'published').length,
+    sessions: distinct(removed.map((actor) => actor.keys.session)),
+    otherAccounts: distinct(removed.map((actor) => (actor.readerId === targetReader ? null : actor.readerId))),
+  };
   return {
-    accounts: keys.some((key) => key.type === 'email') ? 1 : 0,
-    sessions: parts.reduce((sum, part) => sum + part.sessions, 0),
-    comments: { total: comments, published, held, rejected, deleted: 0 },
-    reactions,
+    accounts: distinct([...actors.map((actor) => actor.readerId), revokeReaderId ?? null]),
+    sessions: distinct(actors.map((actor) => actor.keys.session)),
+    comments: { total: scope.comments.length, ...byStatus },
+    reactions: scope.reactions.length,
     purge,
+    spared: scope.spared.length,
     windowDays: 90,
-    purgeLimit: 500,
-    purgeAllowed: purge.comments + purge.reactions <= 500,
+    purgeLimit: PURGE_LIMIT,
+    purgeAllowed: purge.comments + purge.reactions <= PURGE_LIMIT,
   };
 }
 
-async function createBans(request: Request): Promise<Response> {
+async function createBans(request: Request, comments: AdminCommentRecord[]): Promise<Response> {
   const input = (await request.json().catch(() => null)) as Partial<AdminBanInput> | null;
   const keys = readKeys(input);
   if (keys instanceof Response) return keys;
+  const scope = scopeOf(comments, input, keys);
+  if (scope instanceof Response) return scope;
+  const removing = scope.purge.comments.length + scope.purge.reactions.length;
+  if (removing > PURGE_LIMIT) {
+    return error(409, 'impact_too_large', 'This selection exceeds the 500-row purge limit. Choose narrower keys or apply the ban without purging.');
+  }
   const now = new Date();
   const expiresAt = input?.expiresAt === undefined ? new Date(now.getTime() + 7 * DAY).toISOString() : input.expiresAt;
   const note = typeof input?.note === 'string' ? input.note : null;
@@ -535,8 +626,8 @@ async function createBans(request: Request): Promise<Response> {
     createdAt: now.toISOString(),
     expiresAt,
     hits: (() => {
-      const part = reach(key.type, key.value);
-      return part.comments + part.reactions;
+      const reach = banScope(comments, store.reactions, { keys: [key] });
+      return reach.comments.length + reach.reactions.length;
     })(),
   }));
   // An existing pair keeps its created_at and takes the new note and expiry.
@@ -546,25 +637,34 @@ async function createBans(request: Request): Promise<Response> {
     else store.bans.unshift({ ...ban });
   }
 
+  // One operation holds every row removed, the one comment included, so a
+  // restore puts back exactly what this ban took.
   let operation: AdminBanOperation | null = null;
-  if (input?.purge === true) {
-    const impact = preview(keys);
-    if (!impact.purgeAllowed) {
-      return error(409, 'impact_too_large', 'This selection exceeds the 500-row purge limit. Choose narrower keys or apply the ban without purging.');
-    }
+  if (removing > 0) {
+    const stamp = now.toISOString();
+    const removed: Removed = {
+      comments: scope.purge.comments.map((row) => {
+        const before = { row, status: row.status, note: row.moderationNote, restorableUntil: row.restorableUntil, updatedAt: row.updatedAt };
+        Object.assign(row, { status: 'deleted', moderationNote: PURGE_NOTE, restorableUntil: null, updatedAt: stamp });
+        return before;
+      }),
+      reactions: scope.purge.reactions,
+    };
+    store.reactions = store.reactions.filter((row) => !removed.reactions.includes(row));
     operation = {
       id: crypto.randomUUID(),
-      createdAt: now.toISOString(),
+      createdAt: stamp,
       source: 'portal',
       keys,
       note,
-      purged: impact.purge,
+      purged: { comments: removed.comments.length, reactions: removed.reactions.length },
       restoredAt: null,
       restorableUntil: new Date(now.getTime() + 30 * DAY).toISOString(),
       restored: { comments: 0, reactions: 0 },
       skipped: { comments: 0, reactions: 0 },
     };
     store.operations.unshift(operation);
+    store.removed.set(operation.id, removed);
   }
   const result: AdminBanResult = { bans, purged: operation?.purged ?? { comments: 0, reactions: 0 }, operation };
   return json(result);
@@ -577,23 +677,39 @@ function restoreOperation(id: string): Response {
   if (operation.restorableUntil <= new Date().toISOString()) {
     return error(409, 'restore_expired', 'The 30-day content restore window has expired.');
   }
-  // One comment was deleted again by hand in the meantime, as happens.
-  const skippedComments = operation.purged.comments > 2 ? 1 : 0;
   operation.restoredAt = new Date().toISOString();
-  operation.restored = { comments: operation.purged.comments - skippedComments, reactions: operation.purged.reactions };
-  operation.skipped = { comments: skippedComments, reactions: 0 };
+  const removed = store.removed.get(id);
+  if (!removed) {
+    // A seeded operation has no rows behind it. One comment was deleted
+    // again by hand in the meantime, as happens.
+    const skippedComments = operation.purged.comments > 2 ? 1 : 0;
+    operation.restored = { comments: operation.purged.comments - skippedComments, reactions: operation.purged.reactions };
+    operation.skipped = { comments: skippedComments, reactions: 0 };
+    return json({ operation });
+  }
+  // Only rows still as the purge left them come back, as in site-api.
+  const back = removed.comments.filter((before) => before.row.status === 'deleted' && before.row.moderationNote === PURGE_NOTE);
+  for (const before of back) {
+    Object.assign(before.row, { status: before.status, moderationNote: before.note, restorableUntil: before.restorableUntil, updatedAt: before.updatedAt });
+  }
+  store.reactions = [...store.reactions, ...removed.reactions].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  store.removed.delete(id);
+  operation.restored = { comments: back.length, reactions: removed.reactions.length };
+  operation.skipped = { comments: removed.comments.length - back.length, reactions: 0 };
   return json({ operation });
 }
 
-async function bans(request: Request, method: string, rest: string[]): Promise<Response | null> {
+async function bans(request: Request, method: string, rest: string[], comments: AdminCommentRecord[]): Promise<Response | null> {
   if (rest.length === 0 && method === 'GET') {
     return json({ bans: [...store.bans].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 500) });
   }
-  if (rest.length === 0 && method === 'POST') return createBans(request);
+  if (rest.length === 0 && method === 'POST') return createBans(request, comments);
   if (rest[0] === 'preview' && method === 'POST') {
     const input = (await request.json().catch(() => null)) as Partial<AdminBanInput> | null;
     const keys = readKeys(input);
-    return keys instanceof Response ? keys : json(preview(keys));
+    if (keys instanceof Response) return keys;
+    const scope = scopeOf(comments, input, keys);
+    return scope instanceof Response ? scope : json(preview(scope, input?.revokeReaderId));
   }
   if (rest[0] === 'operations' && rest.length === 1 && method === 'GET') {
     return json({ operations: store.operations.slice(0, 50) });
@@ -752,14 +868,27 @@ function commentInsights(params: URLSearchParams): Response {
 
 // ---------------------------------------------------------------------------
 
+/** What one operation removed, as it was, for its restore. */
+interface Removed {
+  comments: Array<{
+    row: AdminCommentRecord;
+    status: AdminCommentRecord['status'];
+    note: string | null;
+    restorableUntil: AdminCommentRecord['restorableUntil'];
+    updatedAt: AdminCommentRecord['updatedAt'];
+  }>;
+  reactions: DemoReaction[];
+}
+
 interface ModerationStore {
   reactions: DemoReaction[];
   bans: AdminBan[];
   operations: AdminBanOperation[];
+  removed: Map<string, Removed>;
 }
 
 function seedStore(now = Date.now()): ModerationStore {
-  return { reactions: generateReactions(now), bans: seedBans(now), operations: seedOperations(now) };
+  return { reactions: generateReactions(now), bans: seedBans(now), operations: seedOperations(now), removed: new Map() };
 }
 
 let store = seedStore();
@@ -776,8 +905,14 @@ export function demoBans(): readonly AdminBan[] {
 }
 
 /** Answers the moderation routes, or null so demo-api.ts carries on.
-    `rest` is the path below `admin/`, already split and decoded. */
-export async function handleModerationDemo(request: Request, rest: string[], params: URLSearchParams): Promise<Response | null> {
+    `rest` is the path below `admin/`, already split and decoded;
+    `comments` is the demo comment store a ban reads and purges. */
+export async function handleModerationDemo(
+  request: Request,
+  rest: string[],
+  params: URLSearchParams,
+  comments: AdminCommentRecord[],
+): Promise<Response | null> {
   const method = request.method.toUpperCase();
   const [resource, ...tail] = rest;
   if (resource === 'reactions' && method === 'GET') {
@@ -785,6 +920,6 @@ export async function handleModerationDemo(request: Request, rest: string[], par
     if (tail[0] === 'insights') return reactionInsights(params);
   }
   if (resource === 'comments' && tail[0] === 'insights' && method === 'GET') return commentInsights(params);
-  if (resource === 'bans') return bans(request, method, tail);
+  if (resource === 'bans') return bans(request, method, tail, comments);
   return null;
 }

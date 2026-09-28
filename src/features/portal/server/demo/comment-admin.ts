@@ -560,7 +560,7 @@ async function actOnMany(store: CommentAdminStore, state: DemoState, request: Re
 /* ------------------------------------------------------------------ */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const OWNER_SESSION = 'portal-owner';
+export const OWNER_SESSION = 'portal-owner';
 
 /* Idempotent on `replyId` as in site-api (owner-reply.ts there): the id
    becomes the row's, so a retry finds the first reply and answers it again

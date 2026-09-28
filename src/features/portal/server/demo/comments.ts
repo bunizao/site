@@ -8,6 +8,8 @@
    DigitalOcean in Singapore, the same farm as `seo-growth-hub` in
    portal-demo.ts: a fresh session every time, one headless browser, one
    stable fingerprint. Pivot on its fingerprint and the whole wave shows.
+   One signed-in reader's device collides with that fingerprint, as device
+   fingerprints do: a ban that sweeps it must spare their published comment.
 
    Imported only behind `import.meta.env.DEV`, like demo-api.ts. */
 
@@ -106,6 +108,12 @@ const DEVICES: Record<string, Device> = {
 };
 
 const FARM_NAMES = ['growth-hub', 'moonpump', 'Anna Smith', 'best_seo_2026', 'Kevin'];
+/** The farm's device fingerprint, shared with seo-growth-hub in portal-demo.ts. */
+const FARM_FP = 'f00dcafe';
+/** The signed-in writer whose second comment was written on a device that
+    fingerprints as the farm's. Not the first: comment-admin.ts clones that
+    one into the mood comments. */
+const COLLIDES = 'jonas_k';
 const FARM_REASONS = new Set(['spam', 'promotional']);
 
 function detailFor(device: Pick<Device, 'colo' | 'region' | 'timezone' | 'languages' | 'browser' | 'os'>, rtt: number): ActorDetail {
@@ -174,7 +182,7 @@ function farmActor(row: AdminCommentRecord, n: number): AdminCommentActor {
       ip24: 'c0ffee02',
       fp: 'deadbeef',
       email: null,
-      clientFp: n % 3 === 0 ? digest(`farm-fp:${n}`) : 'f00dcafe',
+      clientFp: n % 3 === 0 ? digest(`farm-fp:${n}`) : FARM_FP,
       clientFpStable: 'f00dcaf0',
       storageId: null,
       emailDomain: null,
@@ -222,7 +230,7 @@ function writerActor(row: AdminCommentRecord, device: Device, n: number): AdminC
       ip24: digest(`ip24:${device.ipBase}`),
       fp: digest(`fp:${device.ua}`),
       email: verified && device.email ? digest(`email:${device.email}`) : null,
-      clientFp: digest(`client-fp:${row.author}:${device.gpu}`),
+      clientFp: row.author === COLLIDES && n === 1 ? FARM_FP : digest(`client-fp:${row.author}:${device.gpu}`),
       clientFpStable: digest(`client-fp-stable:${row.author}`),
       storageId: digest(`storage:${row.author}`),
       emailDomain,

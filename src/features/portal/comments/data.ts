@@ -477,6 +477,14 @@ function patchOf(row: PortalComment, status: PortalCommentStatus): RowPatch {
   return { status, restorableUntil: until };
 }
 
+/** The comment a ban deletes, moved in every cached list as D moves it.
+    The ban's operation restores it, not a row restore, so it carries no
+    restore window. Returns what puts it back. */
+export function patchBanDeleted(client: QueryClient, row: PortalComment): () => void {
+  patchLists(client, new Map([[row.id, row.restorableUntil === undefined ? { status: 'deleted' } : { status: 'deleted', restorableUntil: null }]]));
+  return () => patchLists(client, new Map([[row.id, { status: row.status, restorableUntil: row.restorableUntil }]]));
+}
+
 /** What site-api said of one row: the act's result, and where the row is
     after the call (null when no row has that id). */
 export interface Outcome {

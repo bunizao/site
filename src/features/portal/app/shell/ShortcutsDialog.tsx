@@ -37,6 +37,7 @@ const SCREENS: Array<{ path: RegExp } & Section> = [
       [['R'], 'Reply as the owner'],
       [['⌘', '↵'], 'Send the reply'],
       [['B'], 'Ban the writer'],
+      [['1', '–', '3'], 'Pick what the ban deletes, in the ban dialog'],
       [['P'], 'Pin to the top of its post, or unpin'],
       [['L'], 'Lock or unlock replies to the thread'],
       [['X'], 'Select for bulk'],

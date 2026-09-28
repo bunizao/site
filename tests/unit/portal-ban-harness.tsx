@@ -31,14 +31,26 @@ declare global {
   interface Window {
     portalHarness: {
       banDialog: (target: BanTarget) => void;
+      /** Comment ids the ban dialog took off the screen, and put back. */
+      deleted: string[];
+      putBack: string[];
       bansScreen: () => void;
       insightsScreen: () => void;
     };
   }
 }
 
+function onDeletesComment(id: string): () => void {
+  window.portalHarness.deleted.push(id);
+  return () => window.portalHarness.putBack.push(id);
+}
+
 window.portalHarness = {
-  banDialog: (target) => root.render(<Providers><BanDialog target={target} open onOpenChange={() => {}} /></Providers>),
+  banDialog: (target) => root.render(
+    <Providers><BanDialog target={target} open onOpenChange={() => {}} onDeletesComment={onDeletesComment} /></Providers>,
+  ),
+  deleted: [],
+  putBack: [],
   bansScreen: () => root.render(<Providers><BansScreen /></Providers>),
   insightsScreen: () => root.render(<Providers><InsightsScreen /></Providers>),
 };

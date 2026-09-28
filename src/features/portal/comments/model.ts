@@ -56,13 +56,49 @@ export function namesOnePerson(ban: AdminBanKeyType, verified: boolean): boolean
   return ban === 'session' || (ban === 'email' && verified);
 }
 
+/** What a ban deletes besides banning. `comment` is the one it was raised
+    from, `fingerprint` also sweeps 90 days of the ticked keys and the
+    writer's fingerprint, `matched` sweeps the ticked keys alone (a pivot
+    ban, which has no comment). */
+export type BanDelete = 'comment' | 'fingerprint' | 'matched' | 'none';
+
 /** Why a ban must wait for the impact of exactly its keys, or null when it
-    can go at once. A key other readers share waits with or without removal:
-    a subnet banned blind is the risk either way. A removal always waits. A
-    ban on one person's keys alone goes at once. */
-export function impactHold(bans: AdminBanKeyType[], verified: boolean, purge: boolean): 'shared' | 'removal' | null {
+    can go at once. A key other readers share waits whatever it deletes: a
+    subnet banned blind is the risk either way. A sweep always waits. One
+    person's keys and the open comment go at once, so B then Enter stays
+    one motion. */
+export function impactHold(bans: AdminBanKeyType[], verified: boolean, mode: BanDelete): 'shared' | 'removal' | null {
   if (bans.some((ban) => !namesOnePerson(ban, verified))) return 'shared';
-  return purge ? 'removal' : null;
+  return mode === 'fingerprint' || mode === 'matched' ? 'removal' : null;
+}
+
+export interface BanKey {
+  type: AdminBanKeyType;
+  value: string;
+}
+
+/** The key a "same fingerprint" sweep adds: the fingerprint column's value
+    under the ban type that matches it. Both device columns ban as
+    `client_fp`, which matches either. */
+export function fingerprintSweepKey(actor: AdminCommentActor): (BanKey & { label: string }) | null {
+  const pivot = fingerprintPivot(actor);
+  const type = pivot ? sourceBanKey(pivot.type) : null;
+  return pivot && type ? { type, value: pivot.value, label: pivot.label } : null;
+}
+
+/** The delete half of the ban and preview input. A sweep key already ticked
+    is left out: the purge matches ticked keys anyway. */
+export function deleteScope(
+  mode: BanDelete,
+  keys: BanKey[],
+  sweep: BanKey | null,
+  commentId: string | null,
+): { purge: boolean; sweepKeys?: BanKey[]; removeCommentId?: string } {
+  const remove = commentId && (mode === 'comment' || mode === 'fingerprint') ? { removeCommentId: commentId } : {};
+  if (mode === 'none' || mode === 'comment') return { purge: false, ...remove };
+  const fresh = mode === 'fingerprint' && sweep
+    && !keys.some((key) => key.type === sweep.type && key.value === sweep.value);
+  return { purge: true, ...(fresh ? { sweepKeys: [{ type: sweep.type, value: sweep.value }] } : {}), ...remove };
 }
 
 export const SOURCE_TYPES: ReadonlySet<string> = new Set<string>([

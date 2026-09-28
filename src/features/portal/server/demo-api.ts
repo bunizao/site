@@ -366,7 +366,7 @@ export async function handleDemoRequest(request: Request, path: string): Promise
   const [, resource, ...rest] = segments;
 
   // Reactions, bans and insights live in their own module.
-  const moderation = await handleModerationDemo(request, segments.slice(1), params);
+  const moderation = await handleModerationDemo(request, segments.slice(1), params, store.comments);
   if (moderation) return moderation;
 
   // Subscribers and broadcasts live in their own module.

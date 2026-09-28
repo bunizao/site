@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { COMMENT_SURFACES, type AdminSourceKeyType } from '@bunizao/contracts';
-import type { QueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { ArrowUp, Ban, Check, ChevronDown, KeyRound, ListFilter as FilterIcon, MoreHorizontal, RotateCcw, Search, Trash2, X, XCircle } from 'lucide-react';
 import { Button } from '@/components/coss/button';
 import { Drawer, DrawerPopup } from '@/components/coss/drawer';
@@ -22,7 +22,7 @@ import { Skeleton } from '@/components/coss/skeleton';
 import { toastManager } from '@/components/coss/toast';
 import { useMediaQuery } from '@/components/coss/hooks/use-media-query';
 import { cn } from '@/lib/utils';
-import type { PortalComment } from '@/features/admin/server/portal-client';
+import type { PortalComment, PortalCommentStatus } from '@/features/admin/server/portal-client';
 import { HEAD, LINE, LINE_PX, SMALL, SPACED, TABLE } from '../activity/table';
 import { isMissingRoute } from '../app/api';
 import { useHotkeys } from '../app/hotkeys';
@@ -46,6 +46,7 @@ import {
   canApply,
   listFilter,
   nextStatus,
+  patchBanDeleted,
   prefetchCommentList,
   prefetchSourceProfile,
   staysIn,
@@ -188,6 +189,7 @@ export default function CommentsScreen() {
   const wide = useMediaQuery('(min-width: 1280px)');
   const coarse = useMediaQuery('(pointer: coarse)');
 
+  const client = useQueryClient();
   const moderate = useModerate();
   const counts = useCommentCounts();
   const topPosts = useTopPosts();
@@ -365,8 +367,11 @@ export default function CommentsScreen() {
 
   const [ban, setBan] = React.useState<BanTarget | null>(null);
   const [banOpen, setBanOpen] = React.useState(false);
+  // The comment the open ban came from, for the delete it carries.
+  const banFrom = React.useRef<PortalComment | null>(null);
   const openBan = React.useCallback((comment: PortalComment) => {
-    setBan({ kind: 'actor', actor: comment.actor });
+    banFrom.current = comment;
+    setBan({ kind: 'actor', actor: comment.actor, commentId: comment.status === 'deleted' ? null : comment.id });
     setBanOpen(true);
   }, []);
   const controls = useCommentControls(view.patch);
@@ -375,14 +380,13 @@ export default function CommentsScreen() {
   const latest = React.useRef({ rows, selectedId, checked, status, wide, coarse, view });
   latest.current = { rows, selectedId, checked, status, wide, coarse, view };
 
-  /** One verdict on one comment. The row leaves (or changes in place) in
+  /** A comment moving to `to`. The row leaves (or changes in place) in
       this frame, the selection moves to the next row with it, and focus
-      stays in the list. */
-  const act = React.useCallback(
-    (comment: PortalComment, verdict: Verdict, reason?: RejectReason) => {
-      if (!canApply(comment, verdict) || (verdict === 'reject' && !reason)) return;
+      stays in the list. Returns what puts it back. */
+  const leave = React.useCallback(
+    (comment: PortalComment, to: PortalCommentStatus): (() => void) => {
       const { rows: current, selectedId: open, status: filter, view: stable } = latest.current;
-      const leaves = filter !== 'all' && nextStatus(comment, verdict) !== filter;
+      const leaves = filter !== 'all' && to !== filter;
       const at = current.findIndex((row) => row.id === comment.id);
       const wasOpen = open === comment.id;
       // Advance only when the row leaves this view (triaging Held); in All
@@ -391,11 +395,23 @@ export default function CommentsScreen() {
         ? (leaves ? current[at + 1] ?? current[at - 1] ?? null : comment)
         : null;
       const restore = leaves ? stable.remove([comment.id]) : () => {};
-      const back = (): void => {
+      setFailed((marks) => (marks.size > 0 ? new Map() : marks));
+      if (wasOpen && next?.id !== comment.id) select(next?.id ?? null);
+      if (next) focusRow(next.id);
+      return () => {
         restore();
         if (next && latest.current.selectedId === next.id) select(comment.id);
       };
-      setFailed((marks) => (marks.size > 0 ? new Map() : marks));
+    },
+    [select],
+  );
+
+  /** One verdict on one comment. */
+  const act = React.useCallback(
+    (comment: PortalComment, verdict: Verdict, reason?: RejectReason) => {
+      if (!canApply(comment, verdict) || (verdict === 'reject' && !reason)) return;
+      const filter = latest.current.status;
+      const back = leave(comment, nextStatus(comment, verdict));
       moderate([comment], verdict, {
         reason,
         onRevert: back,
@@ -408,10 +424,24 @@ export default function CommentsScreen() {
           setFailed(new Map(here.map((id) => [id, unchanged.get(id)!.line])));
         },
       });
-      if (wasOpen && next?.id !== comment.id) select(next?.id ?? null);
-      if (next) focusRow(next.id);
     },
-    [moderate, select],
+    [leave, moderate],
+  );
+
+  /** The ban deletes the comment it came from: off the screen as D takes
+      it, and back as one on an undo or a refused ban. */
+  const banDeletes = React.useCallback(
+    (id: string): (() => void) => {
+      const comment = banFrom.current;
+      if (comment?.id !== id) return () => {};
+      const unpatch = patchBanDeleted(client, comment);
+      const back = leave(comment, 'deleted');
+      return () => {
+        unpatch();
+        back();
+      };
+    },
+    [client, leave],
   );
 
   const actOnChecked = React.useCallback(
@@ -1003,7 +1033,7 @@ export default function CommentsScreen() {
         </Drawer>
       )}
 
-      <BanDialog target={ban} open={banOpen} onOpenChange={setBanOpen} />
+      <BanDialog target={ban} open={banOpen} onOpenChange={setBanOpen} onDeletesComment={banDeletes} onSwept={view.resync} />
       <OwnerSignInDialog open={location.search.get('dialog') === 'owner'} />
     </div>
   );

@@ -135,19 +135,88 @@ test.describe('comments', () => {
     await expect(row(page, target).locator('[data-row-button]')).toBeFocused();
   });
 
-  test('bans a writer from the reading pane after checking the impact, then undoes it', async ({ page }) => {
-    await openHeldQueue(page);
+  test('B then Enter bans the writer and deletes that comment, the pane moves on, and Undo brings it back', async ({ page }) => {
+    const [first, second] = await openHeldQueue(page);
+    await page.keyboard.press('b');
+    const dialog = page.getByRole('dialog', { name: 'Ban this writer' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'This comment', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+    // A ban on one person's keys goes at once; the row leaves as after d.
+    await page.keyboard.press('Enter');
+    await expect(dialog).toBeHidden();
+    await expect(row(page, first)).toHaveCount(0);
+    await expect.poll(() => openId(page)).toBe(second);
+    await expect(row(page, second).locator('[data-row-button]')).toBeFocused();
+
+    await undoOn(page, /^Banned \d+ keys? and deleted the comment$/).click();
+    await expect(toasts(page).getByText('Ban lifted and the comment restored')).toBeVisible();
+    await expect(row(page, first)).toBeVisible();
+    await expect.poll(() => openId(page)).toBe(first);
+  });
+
+  test('Same fingerprint sweeps the device, spares a signed-in reader, and Undo puts it all back', async ({ page }) => {
+    // seo-growth-hub shares its device fingerprint with two other held
+    // spammers and with one published comment jonas_k wrote signed in.
+    const target = '01J8QK3M7X';
+    const swept = ['01J9DEMO0009BFA407', '01J9DEMO0061EC98B0'];
+    const spared = '01J9DEMO000428DE5E';
+    const statusOf = async (id: string) => {
+      const answer = await page.request.get(`${PORTAL}/api/admin/comments?status=all&limit=200`);
+      const { comments } = (await answer.json()) as { comments: Array<{ id: string; status: string }> };
+      return comments.find((comment) => comment.id === id)?.status;
+    };
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await open(page, `/comments?status=held&c=${target}`);
+    await expect(row(page, target)).toHaveAttribute('data-active', 'true');
     await page.keyboard.press('b');
     const dialog = page.getByRole('dialog', { name: 'Ban this writer' });
     await expect(dialog).toBeVisible();
 
-    // The impact check answers before anything is written.
-    await expect(dialog.getByText(/^Matches \d+ comments? \(/)).toBeVisible();
-    await dialog.getByRole('button', { name: /^Ban \d+ keys?$/ }).click();
+    await page.keyboard.press('2');
+    await expect(dialog.getByRole('button', { name: 'Same fingerprint', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.getByText(/^Deletes 4 comments and \d+ reactions? from \d+ sessions?\.$/)).toBeVisible();
+    await expect(dialog.getByText(/Spares 1 published comment by signed-in readers\.$/)).toBeVisible();
+    // The spared reader keeps their comment, so nothing warns about their account.
+    await expect(dialog.getByText(/^Also deletes from/)).toHaveCount(0);
+    await dialog.getByRole('button', { name: /^Ban \d+ keys? and delete 4$/ }).click();
     await expect(dialog).toBeHidden();
 
-    await undoOn(page, /^Banned \d+ keys?$/).click();
-    await expect(toasts(page).getByText('Ban lifted')).toBeVisible();
+    for (const id of [target, ...swept]) await expect(row(page, id)).toHaveCount(0);
+    expect(await statusOf(spared)).toBe('published');
+
+    await undoOn(page, /^Banned \d+ keys? and deleted 4 comments/).click();
+    await expect(toasts(page).getByText(/^Ban lifted and 4 comments/)).toBeVisible();
+    for (const id of [target, ...swept]) await expect(row(page, id)).toBeVisible();
+    expect(await statusOf(spared)).toBe('published');
+  });
+
+  test('on a phone the ban sheet fits, and every delete choice is a 44px target', async ({ browser, baseURL }) => {
+    const context = await phone(browser, baseURL);
+    const page = await context.newPage();
+    try {
+      await open(page, '/comments?status=held&c=01J8QK3M7X');
+      const drawer = page.getByRole('dialog').first();
+      await drawer.getByRole('button', { name: 'More actions' }).tap();
+      await page.getByRole('menuitem', { name: 'Ban…' }).tap();
+      const sheet = page.getByRole('dialog', { name: 'Ban this writer' });
+      await expect(sheet).toBeVisible();
+      await sheet.getByRole('button', { name: 'Same fingerprint', exact: true }).tap();
+      await expect(sheet.getByText(/^Deletes 4 comments/)).toBeVisible();
+
+      const choices = sheet.getByRole('group', { name: 'Delete' }).getByRole('button');
+      for (const box of await choices.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().toJSON()))) {
+        expect(box.height).toBeGreaterThanOrEqual(44);
+      }
+      const fits = await sheet.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        return box.left >= 0 && box.right <= innerWidth && el.scrollWidth <= el.clientWidth && document.documentElement.scrollWidth <= innerWidth;
+      });
+      expect(fits).toBe(true);
+    } finally {
+      await context.close();
+    }
   });
 
   test('pivots to everything from one writer, and Back returns to the inbox', async ({ page }) => {
