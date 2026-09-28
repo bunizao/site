@@ -64,6 +64,7 @@ const KIND_CATEGORY: Record<string, RecordCategory> = {
   'long-task': 'warning',
   lcp: 'measure',
   fcp: 'measure',
+  'fcp-path': 'measure',
   navigation: 'measure',
   resource: 'measure',
   interaction: 'measure',
@@ -79,12 +80,12 @@ const KIND_CATEGORY: Record<string, RecordCategory> = {
 };
 
 // Which record kinds a metric chip filters the log to when toggled active.
-// FCP and LCP intentionally share one bucket: FCP itself only ever produces a
-// single log line, so its chip surfaces the paint/navigation timeline around
-// it instead of just that one line.
+// FCP and LCP intentionally share one bucket: FCP itself only produces its
+// value and its critical path, so its chip surfaces the paint/navigation
+// timeline around them too.
 const CHIP_FILTER_KINDS: Record<string, string[]> = {
   cls: ['cls'],
-  fcp: ['lcp', 'navigation'],
+  fcp: ['fcp', 'fcp-path', 'lcp', 'navigation'],
   lcp: ['lcp', 'navigation'],
   inp: ['interaction'],
   long: ['long-task', 'frame-gap'],
@@ -165,6 +166,62 @@ function timingTone(value: number, good: number, warn: number): 'good' | 'warn' 
 const fcpTone = (value: number) => timingTone(value, 1800, 3000);
 const lcpTone = (value: number) => timingTone(value, 2500, 4000);
 const inpTone = (value: number) => timingTone(value, 200, 500);
+
+export type FcpResource = Pick<
+  PerformanceResourceTiming,
+  'name' | 'initiatorType' | 'startTime' | 'responseEnd' | 'transferSize' | 'encodedBodySize'
+> & { renderBlockingStatus?: string };
+
+const FONT_FILE = /\.(?:woff2?|ttf|otf)(?:$|[?#])/i;
+const STYLESHEET_FILE = /\.css(?:$|[?#])/i;
+
+function fileName(url: string): string {
+  return url.split(/[?#]/)[0]?.split('/').pop() || url;
+}
+
+// Safari and Firefox do not report renderBlockingStatus; a <link>-initiated
+// stylesheet is the same thing there.
+function isBlockingStylesheet(entry: FcpResource): boolean {
+  if (entry.renderBlockingStatus) return entry.renderBlockingStatus === 'blocking';
+  return entry.initiatorType === 'link' && STYLESHEET_FILE.test(entry.name);
+}
+
+// Chrome paints nothing until every render-blocking stylesheet has arrived,
+// then holds up to ~100ms more for fonts still in flight from
+// <link rel=preload as=font> (those report "non-blocking", so they are matched
+// by initiator). This names the request that arrived last before FCP and the
+// time left for style, layout and paint after it, so a slow first paint points
+// at a file or at the main thread. `render` is measured from TTFB when nothing
+// blocked. A `pending` font was still downloading at FCP: the paint waited on
+// it for the capped hold, then went ahead with a fallback face.
+export function describeFcpPath(
+  fcp: number,
+  nav: Pick<PerformanceNavigationTiming, 'responseStart' | 'responseEnd'> | undefined,
+  resources: FcpResource[],
+): string {
+  const early = resources.filter((entry) => entry.startTime < fcp);
+  const stylesheets = early.filter(isBlockingStylesheet);
+  const fonts = early.filter((entry) => entry.initiatorType === 'link' && FONT_FILE.test(entry.name));
+  const arrived = [...stylesheets, ...fonts].filter((entry) => entry.responseEnd <= fcp);
+  const last = arrived.reduce<FcpResource | undefined>(
+    (latest, entry) => (!latest || entry.responseEnd > latest.responseEnd ? entry : latest),
+    undefined,
+  );
+  const pending = fonts.filter((entry) => entry.responseEnd > fcp);
+  const kb = (list: FcpResource[]) =>
+    Math.round(list.reduce((sum, entry) => sum + (entry.transferSize || entry.encodedBodySize || 0), 0) / 1024);
+  const gate = Math.max(last?.responseEnd ?? 0, nav?.responseStart ?? 0);
+
+  return [
+    `ttfb=${number(nav?.responseStart, 0)}`,
+    `doc=${number(nav?.responseEnd, 0)}`,
+    `css=${stylesheets.length}/${kb(stylesheets)}KB`,
+    `font-preloads=${fonts.length}/${kb(fonts)}KB`,
+    `last=${last ? `${fileName(last.name)}@${number(last.responseEnd, 0)}` : 'none'}`,
+    `render=${number(fcp - gate, 0)}ms`,
+    ...(pending.length ? [`pending=${pending.map((entry) => fileName(entry.name)).join(',')}`] : []),
+  ].join(' ');
+}
 
 type ShiftSource = { node?: Node | null; previousRect?: DOMRectReadOnly; currentRect?: DOMRectReadOnly };
 type RectLike = { x: number; y: number; width: number; height: number };
@@ -681,6 +738,11 @@ export function initPerformanceDebugPanel(): void {
     metrics.fcp = entry.startTime;
     milestoneTimes.set('fcp', entry.startTime);
     record('fcp', `${number(entry.startTime, 0)}ms`);
+    record('fcp-path', describeFcpPath(
+      entry.startTime,
+      performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined,
+      performance.getEntriesByType('resource') as PerformanceResourceTiming[],
+    ));
   });
 
   observe('largest-contentful-paint', (entry) => {

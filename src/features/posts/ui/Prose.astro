@@ -5,6 +5,8 @@
 // The remaining .kg-* markup stays verbatim and gets a small
 // progressive-enhancement layer for media and poem blocks.
 import '../../../styles/blog-prose.css';
+// Embeds only come from post content, so list pages never block on this.
+import '../../../styles/embed-youtube.css';
 import CodeBox from '@/features/components/ui/CodeBox.astro';
 import Conversation from '@/features/content/ui/Conversation.astro';
 import MermaidDiagram from '@/features/content/ui/MermaidDiagram.astro';

@@ -1,295 +1,383 @@
 ---
 title: Home page
-description: Every section on the landing page, the reveal choreography, and the fixtures the tests drive it with.
+description: What each home page section renders, where its data comes from, and how it animates.
 group: Surfaces
 order: 0
 ---
 
-`/` is a prerendered shell: [`src/pages/index.astro`](https://github.com/bunizao/site/blob/main/src/pages/index.astro)
-mounts the shared layout, wraps everything in `ParallaxWrapper.astro`, and
-renders six sections in a fixed order. Runtime-only data is deliberately kept
-out of the route frontmatter so the page can be served as static HTML.
+The home page at `/` is a prerendered shell. This page covers each of its
+sections: the component, the data it reads, when it renders, and what the
+client does. Read it before you change a section or its data source.
+
+[`src/pages/index.astro`](https://github.com/bunizao/site/blob/main/src/pages/index.astro) mounts the shared layout, wraps everything in
+`ParallaxWrapper.astro`, and renders six sections in a fixed order. Runtime-only
+data stays out of the route frontmatter so the page can be served as static
+HTML.
 
 ## Sections at a glance
 
 | Section | Component | Data | Rendered |
 | --- | --- | --- | --- |
-| Hero / intro | `home/ui/Hero.astro` | Local config, plus `/api/github/contributions?days=84` | Static; contributions fetched after DOM ready |
-| Listening | `home/ui/Listening.astro` | `/api/v2/listening` | Neutral shell at build, hydrated on load, refreshed every 45s while on screen |
-| Projects | `home/ui/Projects.astro` | Local card data | Static, revealed on scroll |
-| Writing | `home/ui/Posts.astro` | Ghost Content API | **Build time** — needs build-env credentials |
-| Mood preview (`L0`) | `mood/ui/HomePreview.astro` | `/api/v2/mood?limit=5`, `/api/moods` as fallback | Skeleton at build, fetched about one viewport before the section scrolls in |
+| [Hero](#hero) | `home/ui/Hero.astro` | Local config, plus `/api/github/contributions?days=84` | Static. Contributions fetched after DOM ready |
+| [Listening](#listening) | `home/ui/Listening.astro` | `/api/v2/listening` | Neutral shell at build, hydrated on load, refreshed every 45s while on screen |
+| [Projects](#projects) | `home/ui/Projects.astro` | Local card data | Static, revealed on scroll |
+| [Writing](#writing) | `home/ui/Posts.astro` | Ghost Content API | **Build time**. Needs build-env credentials |
+| [Mood preview (`L0`)](#mood-preview-l0) | `mood/ui/HomePreview.astro` | `/api/v2/mood?limit=5`, `/api/moods` as fallback | Skeleton at build, fetched about one viewport before the section scrolls in |
 | Footer | `home/ui/Footer.astro` | `/api/footer`, `/api/edge` | Client |
 
-Everything under `src/features/home/` is home-private — `ui/` for components,
-`server/` for helpers. Shared scaffolding lives in `src/layouts/`.
+Two more parts span sections: the [glyph field](#glyph-field) behind the hero,
+and the [shared home hooks](#shared-home-hooks) from the layout.
 
-The navbar owns three section anchors — `#projects-section`,
-`#writing-section`, `#moods-section`. The hero has none.
+Code under `src/features/home/` is private to the home page: `ui/` holds
+components and `server/` holds helpers. Shared scaffolding lives in
+`src/layouts/`.
+
+The navbar links to three section anchors: `#projects-section`,
+`#writing-section` and `#moods-section`. The hero has no anchor.
 
 ## Glyph field
 
-`home/ui/GlyphField.astro` mounts a monospace rain band behind the hero,
-painted on a canvas by `src/lib/glyph-field.ts` (decisions and tunables in
-`plans/home-background.md`). The canvas is sized to its host, so the engine
-only simulates cells that can be seen:
+`home/ui/GlyphField.astro` mounts a band of monospace "rain" (falling glyphs)
+behind the hero. `src/lib/glyph-field.ts` paints it on a canvas. Decisions and
+tunables are in `plans/home-background.md`. The canvas is sized to its host, so
+the engine only simulates cells you can see.
 
-- Wide screens (≥ 640px): a 560px band, at most 1200px wide, masked on both
-  sides so the field dissolves before the viewport edges. It is full behind
-  the status line and the name, drops to a faint floor (22%) by 270px where
-  the bio starts, and is gone at the band's end, so body text never sits in
-  full rain.
-- Phones: the same composition as wide screens (copy at the top, rain
-  behind it), on a 320px band with no side mask. The mask is full behind
-  the status line and the display name and dissolves through the chips and
-  the role, so it is gone where the bio starts. The rain is the same mono
-  face at nearly the bio's size, so it may sit behind display type but never
-  behind body text.
-- The band width snaps to the 24px lattice, a `ResizeObserver` rebuilds the
-  grid on resize, pointer-glow repaints are capped near 30fps, and the band
-  is sticky in a track that lets it condense and fade over the first 320px
-  of scroll.
-- The simulation ticks every 60ms; heads fall 6–12 cells/s (about 150px/s
-  on average), the pace of the typewriter's 11 keystrokes a second. One
-  fixed preset, no time-of-day variation. Trails linger about half a second,
-  and a gust crosses the band every 8–14s at under twice the resting speed.
-  Gust timing and glyph churn are written in wall-clock terms, so the tick
-  only sets smoothness. Review pins: `?speed=<multiplier>` scales the fall,
-  `?ink=<name>` picks the hue.
+| Screen | Band | Mask |
+| --- | --- | --- |
+| Wide (≥ 640px) | 560px tall, at most 1200px wide, masked on both sides so the field fades out before the viewport edges | Full behind the status line and the name, a faint floor (22%) by 270px where the bio starts, gone at the band's end |
+| Phones | 320px tall, no side mask. Same layout as wide screens (copy at the top, rain behind it) | Full behind the status line and the display name, fades through the chips and the role, gone where the bio starts |
 
-## Hero / intro
+On both, body text never sits in full rain. On phones the rain is the same mono
+face at nearly the bio's size, so it may sit behind display type but never
+behind body text.
 
-Supporting components: `Typewriter.astro`, `GitHubContributions.astro`,
-`TechMarquee.astro`.
+Layout:
 
-- Astro renders mostly static markup.
-- The displayed name uses `Typewriter.astro`, which renders a hidden longest-string placeholder to avoid layout shift during typing.
-  It paints on a canvas, positioning each glyph by the measured width of the
-  run before it, so kerning and the name's CSS tracking survive. It types one
-  pass through the names and rests on the first.
-- A faint `.hero-lcp-anchor` paints the longest name at first paint, since
-  canvas text does not count for LCP. The script removes it when typing
-  starts; left in place it showed through as a ghost behind the caret.
-- The bio is three short paragraphs of prose written in `Hero.astro`, and
-  all of it decodes: what I make, what I write,
-  and where I am. Every link
-  is a word in the sentence, in reading order: `projects`, `write`, `moods`,
-  Monash University, `Message me` (to `/message`) and the `hero.socials`
-  channels. Only links are bright; the rest of the prose stays muted. They are decode atoms, so they keep their boxes through the
-  reveal, and the original markup comes back once it settles. No email
-  address on the page, only `/message`.
-- GitHub activity is client-fetched from `/api/github/contributions?days=84` after DOM ready — the same URL as the hero's GitHub card, so both share one cached response. The waveform keeps the last 30 days and sums its own total, since the payload's total covers all 84.
-- Tech rows are local arrays duplicated into CSS marquee tracks.
+- The band width snaps to the 24px lattice.
+- A `ResizeObserver` rebuilds the grid on resize.
+- Pointer-glow repaints are capped near 30fps.
+- The band is sticky in a track that lets it condense and fade over the first
+  320px of scroll.
 
-Client behavior:
+Motion uses one fixed preset, with no time-of-day variation:
 
-- The entrance is CSS transitions, no GSAP: the script adds `is-live` to the
-  section and each `.hero-animate` element rises on its `--hero-i` stagger
-  (identity lines 80ms apart, widgets from 950ms in 70ms steps).
-- The script fires `home:hero-name-ready` and `home:hero-bio-ready` at 600ms
-  and `home:hero-github-ready` (plus `window.__homeHeroGithubReady`) when the
-  contributions widget lands. `Typewriter.astro` and `DecodeText.astro` start
-  on the first two; `GitHubContributions.astro` renders its bars on the third.
-- Status text runs a short random stretch (four swaps) of a fixed word list,
-  then rests; the dot pulses once the identity lines have landed.
-- Link underlines draw in one after another once the decode settles
-  (`dt-settled`). Hovering a link raises a highlight out of its underline.
-- Every link carries one mark. The prose words (`projects`, `write`,
-  `moods`) are underlined. The last paragraph's links lead with an icon
-  instead, with no underline, since both marks together crowded the lines:
-  the Monash crest (`/brands/monash-crest.svg`, cut from the full logo and
-  drawn as a CSS mask so it takes the link colour), an envelope for
-  `Message me`, and each channel's brand.
-- Each bio link names a hover card (`data-card`, rendered by
-  `HeroCards.astro` outside the decode root). Every card is its own object,
-  and the ones with a shape of their own float on the page with no card
-  under them:
-  - Monash: the student card on its lanyard, after the university's own:
-    the Monash M device beside the photo (its fixed 1:2.3 shape from the
-    brand book), the clip through a punched hole, a drawn portrait
-    (`public/badge/portrait-{128,256,384}.webp`, picked by pixel density
-    through `srcset`), the full logo
-    (`public/brands/monash-logo.svg`, crest in Monash blue), the degree, the
-    faculty and graduation as the expiry date. It hangs below
-    the word and swings once. The barcode is real Code 128 and scans to
-    `buxx.me`; no student number goes on the page.
-  - Projects: a loose hand of cards dealt on open (type, name, stars), with
-    the way to the whole list as the bottom card. Hovering a card lifts its
-    face; the fanned hit area stays put, so the card never slides out from
-    under the pointer.
-  - Write: the blog's latest three posts as a page of contents, one corner
-    turned down.
-  - Moods: the latest three moods as a channel. It shares the mood
-    preview's `/api/v2/mood?limit=5` request (falling back to `/api/moods`),
-    so the page makes at most one mood feed request.
-  - Message: an open envelope holding a letter to me, a visitor's draft
-    already started, under a Southern Cross stamp postmarked with the time
-    in Melbourne.
-  - GitHub: a twelve-week heatmap from
-    `/api/github/contributions?days=84`, with the year total, the streak and
-    the stars across every repo. Stars come from the self-hosted
-    github-readme-stats card (`gh-stats.buxx.me`), read at build time
-    because it serves SVG without CORS; a failed read shows a dash.
-  - Telegram: the chat itself, two sent messages in iMessage blue and a
-    reply box floating on the page, with no name, handle or window around
-    them. The blue keeps them off the page in the dark theme, where the
-    card surface is the page colour.
-  - Instagram: the profile picture behind a story ring, with the post,
-    follower and following counts. Both are a snapshot updated by hand:
-    `instagramSnapshot` in `src/data/site.ts` and
-    `public/instagram-avatar.jpg` (320×320 JPEG). Instagram refuses
-    logged-out reads from servers (`401` with `require_login` from build
-    runners, Workers and GitHub Actions alike), and reading while logged in
-    would put the account at risk, so nothing refreshes it. The card never
-    links a signed Instagram address (they expire within days) and never
-    inlines anything from Instagram (its login wall serves the Instagram
-    logo). If the picture fails to load anyway, the ring shows a neutral
-    Instagram glyph at the same size instead of a broken image. Ops Health
-    (`tests/ops/instagram-profile-health.test.ts`) fails when the card's
-    picture or counts drift from the snapshot, when the served picture
-    differs from the committed file, or when the card links or inlines
-    Instagram directly.
+| Setting | Value |
+| --- | --- |
+| Simulation tick | Every 60ms |
+| Head fall speed | 6–12 cells/s (about 150px/s on average), the pace of the typewriter's 11 keystrokes a second |
+| Trails | Linger about half a second |
+| Gusts | Cross the band every 8–14s at under twice the resting speed |
 
-  Cards name the short links (`tuu.cat/gh`), never the address behind them.
-  GitHub and Instagram show profile pictures.
-  The two network reads start on the first link hover. Cards open after
-  120ms of mouse hover or on keyboard focus. They swap instantly between
-  links, sit above the word, and flip below it near the viewport top. The
-  open card takes the pointer: it stays open while the pointer is on it and
-  closes 280ms after the pointer leaves. Escape closes it. On touch the
-  first tap on a link opens its card instead of navigating and marks the
-  word (`data-card-active`); tapping the card's object or the same word
-  again follows the link, and a tap anywhere else closes it. The layer is `aria-hidden`, and its links are out of the
-  tab order, because every destination is also the link itself.
-- The experience row for Monash carries the crest
-  (`public/brands/monash-crest.svg`, cut from the Wikimedia Commons logo),
-  drawn as a mask in the text colour.
-- Reduced-motion users skip the script entirely; the elements are visible
-  from the first paint.
+Gust timing and glyph churn are set in wall-clock time, so the tick only
+controls smoothness.
+
+To review the look, two query params pin it: `?speed=<multiplier>` scales the
+fall and `?ink=<name>` picks the hue.
+
+## Hero
+
+Astro renders the hero as mostly static markup. It uses three supporting
+components: `Typewriter.astro`, `GitHubContributions.astro` and
+`TechMarquee.astro`. Tech rows are local arrays duplicated into CSS marquee
+tracks.
+
+### Name
+
+The displayed name uses `Typewriter.astro`. It renders a hidden placeholder with
+the longest string, so typing doesn't shift the layout. It paints on a canvas
+and places each glyph by the measured width of the run before it, so kerning and
+the name's CSS tracking survive. It types one pass through the names and rests
+on the first.
+
+Canvas text doesn't count for LCP, so a faint `.hero-lcp-anchor` paints the
+longest name at first paint. The script removes it when typing starts. Left in
+place, it showed through as a ghost behind the caret.
+
+### Bio
+
+The bio is three short paragraphs of prose in `Hero.astro`: what the owner
+makes, what they write, and where they are. All of it decodes, using the
+scramble-then-settle text reveal from `DecodeText.astro`.
+
+Every link is a word in the sentence. In reading order:
+
+- `projects`, `write`, `moods`
+- Monash University
+- `Message me` (to `/message`)
+- the `hero.socials` channels
+
+Only links are bright. The rest of the prose stays muted. Links are decode
+atoms, so each keeps its box through the reveal, and the original markup comes
+back once the reveal settles. The page has no email address, only `/message`.
+
+### GitHub activity
+
+The client fetches GitHub activity from `/api/github/contributions?days=84`
+after DOM ready. The hero's GitHub card uses the same URL, so both share one
+cached response. The waveform keeps the last 30 days and sums its own total,
+because the payload's total covers all 84.
+
+### Entrance
+
+The entrance uses CSS transitions, with no GSAP. The script adds `is-live` to
+the section, and each `.hero-animate` element rises on its `--hero-i` stagger:
+identity lines 80ms apart, then widgets from 950ms in 70ms steps.
+
+The script fires three events:
+
+- `home:hero-name-ready` and `home:hero-bio-ready` at 600ms.
+  `Typewriter.astro` and `DecodeText.astro` start on these two.
+- `home:hero-github-ready` (plus `window.__homeHeroGithubReady`) when the
+  contributions widget lands. `GitHubContributions.astro` renders its bars on
+  this one.
+
+The status text makes four random swaps through a fixed word list, then rests.
+The status dot pulses once the identity lines have landed.
+
+### Link marks
+
+Link underlines draw in one after another once the decode settles
+(`dt-settled`). Hovering a link raises a highlight out of its underline.
+
+Each link has one mark:
+
+- The prose words (`projects`, `write`, `moods`) are underlined.
+- The last paragraph's links start with an icon and have no underline, because
+  both marks together crowded the lines. The icons are the Monash crest
+  (`/brands/monash-crest.svg`, cut from the full logo and drawn as a CSS mask so
+  it takes the link colour), an envelope for `Message me`, and each channel's
+  brand.
+
+The experience row for Monash also shows the crest
+(`public/brands/monash-crest.svg`, cut from the Wikimedia Commons logo), drawn
+as a mask in the text colour.
+
+### Hover cards
+
+Each bio link names a hover card with `data-card`. `HeroCards.astro` renders the
+cards outside the decode root. Each card is drawn as its own object. Cards with
+a shape of their own float on the page with no card under them.
+
+- **Monash.** The student card on its lanyard, modelled on the university's own.
+  It hangs below the word and swings once. It shows:
+  - the Monash M device beside the photo (its fixed 1:2.3 shape from the brand
+    book)
+  - the clip through a punched hole
+  - a drawn portrait (`public/badge/portrait-{128,256,384}.webp`, picked by
+    pixel density through `srcset`)
+  - the full logo (`public/brands/monash-logo.svg`, crest in Monash blue)
+  - the degree, the faculty, and graduation as the expiry date
+
+  The barcode is real Code 128 and scans to `buxx.me`. No student number goes on
+  the page.
+- **Projects.** A loose hand of cards dealt on open (type, name, stars). The
+  bottom card links to the whole list. Hovering a card lifts its face. The
+  fanned hit area stays put, so the card never slides out from under the
+  pointer.
+- **Write.** The blog's latest three posts as a page of contents, with one
+  corner turned down.
+- **Moods.** The latest three moods as a channel. It shares the mood preview's
+  `/api/v2/mood?limit=5` request (falling back to `/api/moods`), so the page
+  makes at most one mood feed request.
+- **Message.** An open envelope holding a letter to the owner, with a visitor's
+  draft already started, under a Southern Cross stamp postmarked with the time
+  in Melbourne.
+- **GitHub.** A twelve-week heatmap from `/api/github/contributions?days=84`,
+  with the year total, the streak, and the stars across every repo. Stars come
+  from the self-hosted github-readme-stats card (`gh-stats.buxx.me`). The build
+  reads it, because it serves SVG without CORS. A failed read shows a dash.
+- **Telegram.** The chat itself: two sent messages in iMessage blue and a reply
+  box floating on the page, with no name, handle or window around them. The
+  blue sets them apart from the page in the dark theme, where the card surface
+  is the page colour.
+- **Instagram.** The profile picture behind a story ring, with the post,
+  follower and following counts. Both are a snapshot updated by hand:
+  `instagramSnapshot` in `src/data/site.ts` and `public/instagram-avatar.jpg`
+  (320×320 JPEG). Nothing on this card is read at build or on hover.
+
+Instagram refuses logged-out reads from servers (`401` with `require_login`
+from build runners, Workers and GitHub Actions alike), and reading while
+logged in would put the account at risk, so nothing refreshes the snapshot.
+The card never links a signed Instagram address (they expire within days) and
+never inlines anything from Instagram (its login wall serves the Instagram
+logo). If the picture fails to load anyway, the ring shows a neutral Instagram
+glyph at the same size instead of a broken image, so nothing shifts.
+
+To update it, replace the picture and the counts.
+
+Ops Health (`tests/ops/instagram-profile-health.test.ts`) fails when:
+
+- the card's picture or counts drift from the snapshot
+- the served picture differs from the committed file
+- the card links or inlines Instagram directly
+
+Cards show the short links (`tuu.cat/gh`), never the address behind them.
+GitHub and Instagram show profile pictures. The two network reads start on the
+first link hover.
+
+| Input | Behaviour |
+| --- | --- |
+| Mouse | Opens after 120ms of hover. The open card takes the pointer: it stays open while the pointer is on it and closes 280ms after the pointer leaves |
+| Keyboard | Opens on focus. Escape closes it |
+| Touch | The first tap on a link opens its card instead of navigating, and marks the word (`data-card-active`). Tapping the card's object or the same word again follows the link. A tap anywhere else closes it |
+
+Cards swap instantly between links. They sit above the word and flip below it
+near the viewport top. The card layer is `aria-hidden` and its links are out of
+the tab order, because every destination is also the link itself.
+
+### Reduced motion
+
+With reduced motion on, the script doesn't run at all. The elements are visible
+from the first paint.
 
 ## Projects
 
-Cards come from local data, and the contribution waveform fetches
-`/api/github/contributions`. E2E mode swaps live data for fixtures through
-`home/server/e2e-fixtures.ts` and `lib/e2e.ts`.
+Cards come from local data. The contribution waveform fetches
+`/api/github/contributions`. In E2E mode, `home/server/e2e-fixtures.ts` and
+`lib/e2e.ts` swap live data for fixtures (fixed test data).
 
-Mapping rules:
+How repository data maps to a card:
 
-- tags are derived from `primaryLanguage + repositoryTopics`
-- tags are deduped and truncated to 3
-- ownership decides whether the card shows `Author` or `Contributor`
+- Tags come from `primaryLanguage + repositoryTopics`.
+- Tags are deduped and cut to 3.
+- Ownership decides whether the card shows `Author` or `Contributor`.
 
-Client behavior:
+In the browser:
 
-- GSAP `ScrollTrigger` reveals the section and cards.
-- Cards apply pointer-based 3D tilt.
-- Radial glare is driven by CSS variables on hover.
+- GSAP `ScrollTrigger` reveals the section and the cards.
+- Cards tilt in 3D with the pointer.
+- CSS variables drive a radial glare on hover.
 
 ## Listening
 
-The initial render is a neutral loading shell, so the static home page never
-freezes an old track into the HTML. Last.fm supplies the track; iTunes Search
-enriches it with preview audio and better artwork. Missing configuration keeps
-the fallback in place — the endpoint's three-state `source` contract is in
+The first render is a neutral loading shell, so the static home page never
+bakes an old track into the HTML. Last.fm supplies the track. iTunes Search adds
+preview audio and better artwork. If configuration is missing, the fallback
+stays in place. The endpoint's three-state `source` contract is in
 [Listening API](/docs/api/listening#read-source-before-rendering).
 
 Rendering rules:
 
-- the first track hydrates the compact widget on initial render
-- track metadata is carried through `data-*` attributes for client updates
-- outbound music links open in a new tab
-- title and artist render inline with a separator when they fit the available width
-- long titles switch to a constrained stacked layout; the title scrolls and the artist truncates without widening the page
+- The first track hydrates the compact widget on initial render.
+- Track metadata is kept in `data-*` attributes for client updates.
+- Outbound music links open in a new tab.
+- Title and artist render inline with a separator when they fit the available
+  width.
+- Long titles switch to a constrained stacked layout. The title scrolls and the
+  artist truncates, without widening the page.
 
-Client behavior:
+In the browser:
 
-- the first fetch starts as soon as the script runs when the page has no
-  server-rendered track
-- the widget refreshes live listening data every 45 seconds while the tab is
-  visible and the card is within 200px of the viewport; scrolling back to it
-  refreshes at once if the last fetch is older than that, and refocusing the
-  tab refreshes at once
-- the client calls `/api/v2/listening` only — `/api/listening` is a redirect to
-  the same handler, so it is never used as a fallback
-- the preview button plays or pauses the current track's preview URL with the native `Audio` API
-- live refresh keeps the static fallback if the API is unavailable
+- If the page has no server-rendered track, the first fetch starts as soon as
+  the script runs.
+- The client only calls `/api/v2/listening`. `/api/listening` is a redirect to
+  the same handler, so it is never used as a fallback.
+- The preview button plays or pauses the current track's preview URL with the
+  native `Audio` API.
+- If the API is unavailable, live refresh keeps the static fallback.
+
+The widget refreshes live listening data on this schedule:
+
+| When | What happens |
+| --- | --- |
+| Tab is visible and the card is within 200px of the viewport | Refreshes every 45 seconds |
+| You scroll back to the card and the last fetch is older than 45 seconds | Refreshes at once |
+| You refocus the tab | Refreshes at once |
 
 ## Writing
 
 The build fetches the latest five public Ghost posts from `PUBLIC_GHOST_URL`
 and keeps only `id`, `title`, `url`, `published_at`, and `tags`.
 
-**This is the one section that fails at build time rather than at runtime.**
+**This is the only section that fails at build time instead of at runtime.**
 `PUBLIC_GHOST_URL` and `GHOST_CONTENT_API_KEY` must exist in the *build*
-environment — Worker runtime secrets are not enough, because the page is
-prerendered into static HTML. Preview Workers have the same rule: GitHub
+environment. Worker runtime secrets aren't enough, because the page is
+prerendered into static HTML. Preview Workers follow the same rule: GitHub
 Actions must pass both into the build step before `wrangler versions upload`.
+
 Ghost's `Post published` webhook must call the Cloudflare Workers Builds deploy
-hook; the old Vercel hook does not rebuild this Worker.
+hook. The old Vercel hook doesn't rebuild this Worker.
 
 Rendering rules:
 
-- each row links to the external Ghost post
-- the first public tag is used as display metadata
-- publish date is formatted as `YYYY.MM`
-- fetch failure returns an empty list and shows `No posts yet.`
+- Each row links to the external Ghost post.
+- The first public tag is shown as metadata.
+- The publish date is formatted as `YYYY.MM`.
+- A fetch failure returns an empty list and shows `No posts yet.`
 
-Publishing flow:
+### Set up the publish hook
 
-1. Create a Workers Builds deploy hook for the `cloudflare-runtime` production branch.
-2. Replace the old Vercel deploy hook URL in Ghost with that one, keeping the event as `Post published`.
-3. After changing build variables or the hook URL, trigger a fresh build and confirm the deployed HTML no longer contains `No posts yet.` inside `#writing-section`.
+1. Create a Workers Builds deploy hook for the `cloudflare-runtime` production
+   branch.
+2. In Ghost, replace the old Vercel deploy hook URL with the new one. Keep the
+   event as `Post published`.
+3. After you change build variables or the hook URL, trigger a fresh build.
+   Confirm the deployed HTML no longer contains `No posts yet.` inside
+   `#writing-section`.
 
-Client behavior:
+In the browser:
 
 - GSAP reveals the section once.
-- list items slide in from the left.
-- the trailing link fades in last.
+- List items slide in from the left.
+- The trailing link fades in last.
 
 ## Mood preview (`L0`)
 
-Astro renders skeleton rows only; the client fetches `GET /api/v2/mood?limit=5`
-(the cached D1 archive) once the section is about one viewport away, retries once
-against the live mirror `GET /api/moods` if that fails, and keeps the latest
-five ([`mood/client/preview-feed.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/preview-feed.ts)). It consumes the
-feed-optimized fields — `previewText`, `previewHtml`, `image`, `imageFallback`,
-`mediaHtml`, `needsDetailPage`, `reactions`, `commentsCount`.
+`L0` is the first level of the mood surface: a short preview of the latest
+posts. The full feed is covered in [Mood](/docs/surfaces/mood).
+
+Astro renders skeleton rows only. The client code is
+[`mood/client/preview-feed.ts`](https://github.com/bunizao/site/blob/main/src/features/mood/client/preview-feed.ts):
+
+1. When the section is about one viewport away, it fetches
+   `GET /api/v2/mood?limit=5` (the cached D1 archive).
+2. If that fails, it retries once against the live mirror at `GET /api/moods`.
+3. It keeps the latest five.
+
+It reads the feed-optimized fields: `previewText`, `previewHtml`, `image`,
+`imageFallback`, `mediaHtml`, `needsDetailPage`, `reactions`, `commentsCount`.
 
 Rendering rules:
 
-- mood items are built with DOM APIs, not Astro templates
-- preview HTML keeps a very small safe subset
-- unsafe tags and unsafe image sources are dropped
-- image failure falls back to `imageFallback`
-- the card target is stored in `data-href="/mood/{id}"`
-- a bare URL shows as `host/path`, without scheme or query; past 32
-  characters it keeps the host and first segment (`x.com/ryolu_/…`), and the
-  full address moves to the link's `title`
-- an untitled photo or sticker renders its thumbnail alone; the type name
-  ("Photo") moves into the image's `alt`
-- the time stamp sits on the card's first-line baseline and the dot centres
-  on that line; the rail runs on to 4px short of the next dot, and the
-  skeleton blocks sit where the loaded lines will
-- a card is the page colour, opaque, so it cuts a clean window in the dot
-  lattice; a hairline draws the edge and a small tail points at the row's
-  dot. Hover darkens the edge, tail included
+- Mood items are built with DOM APIs, not Astro templates.
+- Preview HTML keeps a very small safe subset. Unsafe tags and unsafe image
+  sources are dropped.
+- If an image fails, it falls back to `imageFallback`.
+- The card target is stored in `data-href="/mood/{id}"`.
+- A bare URL shows as `host/path`, without scheme or query. Past 32 characters
+  it keeps the host and first segment (`x.com/ryolu_/…`), and the full address
+  moves to the link's `title`.
+- An untitled photo or sticker renders its thumbnail alone. The type name
+  ("Photo") moves into the image's `alt`.
 
-Client behavior:
+Layout:
 
-- loading is gated by `ScrollTrigger`
-- skeleton shimmer is CSS-only
-- loaded items use a heavier GSAP reveal than the other home sections
+- The time stamp sits on the card's first-line baseline, and the dot centres on
+  that line.
+- The rail runs on to 4px short of the next dot.
+- Skeleton blocks sit where the loaded lines will be.
+- A card is the page colour and opaque, so it cuts a clean window in the dot
+  lattice. A hairline draws the edge, and a small tail points at the row's dot.
+  Hover darkens the edge, tail included.
 
-Debug hook:
+In the browser:
 
-- `PUBLIC_DEBUG_ALWAYS_LOADING === 'true'` keeps the section in loading mode
+- `ScrollTrigger` gates loading.
+- The skeleton shimmer is CSS-only.
+- Loaded items use a heavier GSAP reveal than the other home sections.
+
+For debugging, `PUBLIC_DEBUG_ALWAYS_LOADING === 'true'` keeps the section in
+loading mode.
 
 ## Shared home hooks
 
-From `Layout.astro` and `ParallaxWrapper.astro`:
+These come from `Layout.astro` and `ParallaxWrapper.astro`:
 
-- theme is applied before paint from `localStorage.theme` or `prefers-color-scheme`
-- navbar is section-anchor based, not route-aware
-- navbar text is split into character spans and tracks active sections while scrolling
-- `ParallaxWrapper.astro` adds section drift without changing section ownership
-- the base layout does not mount a third-party analytics script
+- The theme is applied before paint, from `localStorage.theme` or
+  `prefers-color-scheme`.
+- The navbar links to section anchors and isn't route-aware.
+- Navbar text is split into character spans and tracks the active section as
+  you scroll.
+- `ParallaxWrapper.astro` adds section drift without changing section
+  ownership.
+- The base layout doesn't mount a third-party analytics script.

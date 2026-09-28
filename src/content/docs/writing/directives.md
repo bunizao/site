@@ -1,49 +1,60 @@
 ---
 title: Directive syntax
-description: The [!name key=value] grammar — how markers are matched, how attributes parse, and the three kinds of directive.
+description: "The [!name key=value] syntax: how markers are matched, how attributes parse, and the three directive kinds."
 group: Writing
 order: 1
 ---
 
-A directive is a marker written on a line of its own in the Ghost editor:
+A directive is a marker you write on a line of its own in the Ghost editor. The
+build replaces it with rendered output, such as an embed, or reads it as page
+metadata. This page covers the syntax every directive shares.
 
 ```md demo
 [!mood id=482 theme=dark]
 ```
 
-Ghost normally wraps that line in a paragraph, and the build matches paragraphs
-whose *entire* content is a marker. An unlabelled Ghost code card whose entire
-content is one registered marker is also an authoring carrier. This is useful
-when the editor will not keep a marker in its own paragraph.
+Ghost wraps that line in a paragraph. At build time, any paragraph that contains
+only a marker is turned into the directive. An unlabelled Ghost code card works
+the same way when every non-empty line in it is a registered marker. Use the
+code card when the editor keeps joining your marker to nearby text.
 
 ## Matching
 
-The marker must be alone in its paragraph. This is matched:
+The marker must be alone in its paragraph. This matches:
 
 ```html
 <p>[!youtube id=dQw4w9WgXcQ]</p>
 ```
 
-None of these are:
+None of these match:
 
 ```html
 <p>Try writing [!youtube id=dQw4w9WgXcQ] on its own line.</p>
 <p><strong>[!youtube id=dQw4w9WgXcQ]</strong></p>
 ```
 
-So you can write about the syntax in a post without triggering it, as long as the
-marker shares its paragraph with something. Code labelled `text` or with another
-ordinary language is also masked before directives run. Use one of those labels
-when the whole code sample is itself a valid marker. The special `directive`
-language opts a code card into authoring syntax; an unlabelled exact marker is
-the compatibility form.
+This lets you write about the syntax in a post without triggering it, as long as
+the marker shares its paragraph with something else.
+
+Code cards follow their language label:
+
+| Label | What happens |
+| --- | --- |
+| `text` or another ordinary language | The card is masked before directives run and shows as code. Use one of these when the whole code sample is itself a valid marker. |
+| `directive` | The card opts into directive syntax, with the same line rule as an unlabelled card. |
+| No label, every non-empty line is a registered marker | Each line becomes its own directive, in order. This is the compatibility form. |
+
+A registered marker here is one for a block or meta directive: `mood`, `music`,
+`youtube` or `authors`. Blank lines and spaces around a line are ignored. If any
+line is something else (commentary, an unknown name, or two markers on one
+line), the whole card stays code.
 
 In the Ghost editor, put the marker in its own paragraph with a blank line above
-and below it. If it renders as normal text on the published page, it was almost
+and below it. If it shows as normal text on the published page, it was almost
 certainly wrapped in formatting or joined to the paragraph before it.
 
-If paragraph authoring is awkward, use a code card containing only the marker.
-Do not put commentary or a second marker in the same card.
+If paragraphs are awkward to author, use a code card that contains only
+markers, one per line. Don't put commentary in the same card.
 
 ## Names
 
@@ -52,17 +63,17 @@ Do not put commentary or a second marker in the same card.
 [!name attributes]
 ```
 
-A name starts with a lowercase letter and continues with lowercase letters,
-digits, and hyphens: `[a-z][a-z0-9-]*`. Matching is case-insensitive, so
+A name starts with a lowercase letter, followed by lowercase letters, digits,
+and hyphens: `[a-z][a-z0-9-]*`. Matching is case-insensitive, so
 `[!Mood id=1]` works, but write it lowercase.
 
-An unrecognised name is left in the document and logged as `unknown-directive`.
-That is deliberate — a silent deletion of something you typed is worse than a
-visible `[!moood id=1]` on the page telling you what you got wrong.
+If the name isn't recognised, the marker stays on the page as plain text and the
+build logs `unknown-directive`. A typo like `[!moood id=1]` stays visible instead
+of disappearing.
 
 ## Attributes
 
-Attributes are `key=value` pairs separated by whitespace. Values may be bare,
+Attributes are `key=value` pairs separated by whitespace. Values can be bare,
 double-quoted, or single-quoted:
 
 ```md demo
@@ -71,42 +82,45 @@ double-quoted, or single-quoted:
 
 The rules:
 
-- Keys follow the same shape as names — lowercase, digits, hyphens.
-- Bare values run to the next whitespace. Quote anything containing a space.
-- A quoted value may contain the other quote character but not its own.
-- A repeated key is an error, not a last-one-wins.
-- An attribute the directive does not declare is an error.
-- An empty value must be written `key=""`. A bare `key=` is a parse error.
+- Keys use the same shape as names: lowercase letters, digits, hyphens.
+- A bare value runs to the next whitespace. Quote any value that contains a
+  space.
+- A quoted value can contain the other quote character, but not its own.
+- A repeated key is an error. The last one does not win.
+- An attribute the directive doesn't declare is an error.
+- Write an empty value as `key=""`. A bare `key=` is a parse error.
 
-Anything that fails to parse produces `invalid-directive-attributes` and the
-marker is dropped from the output.
+If anything fails to parse, the build logs `invalid-directive-attributes` and
+drops the marker from the output.
 
-## The three kinds
+## Directive kinds
 
-Which kind a directive is determines when it runs and what it can do.
+The kind decides when a directive runs and what it can do.
 
 ### Block
 
-Matched one paragraph at a time; replaces that paragraph with HTML. Blocks may be
-async, because several of them fetch metadata — the YouTube title, the Apple
-Music artwork. `mood`, `music`, and `youtube` are blocks.
+A block directive is matched one paragraph at a time and replaces that
+paragraph with HTML. Blocks can be async, because several of them fetch
+metadata, like the YouTube title or the Apple Music artwork. `mood`, `music`,
+and `youtube` are blocks.
 
 ### Meta
 
-Matched the same way, but produces no HTML. The paragraph is removed and the
-parsed attributes are collected into `result.meta` under the directive name, for
-the page template to use. `authors` is the only meta directive: the credit
-belongs in the post footer, not where you happened to type it.
+A meta directive is matched the same way but produces no HTML. The build removes
+the paragraph and collects the parsed attributes into `result.meta` under the
+directive name, for the page template to use. `authors` is the only meta
+directive, because the credit belongs in the post footer instead of wherever you
+typed it.
 
-Because a meta marker never renders, it would otherwise leak into anything
-derived from the raw source — the excerpt, the plaintext, the Markdown output.
-Those are scrubbed of standalone meta markers separately, with code fences
-respected.
+A meta marker never renders, so it would otherwise leak into anything built
+from the raw source: the excerpt, the plaintext, the Markdown output. The build
+scrubs standalone meta markers from those separately, and skips code fences
+while doing it.
 
 ### Inline
 
-Handed the entire document instead of a single paragraph, because what these
-match is not a marker at all. `poem` looks at the shape of blockquotes;
+An inline directive gets the entire document instead of a single paragraph,
+because it doesn't match a marker. `poem` looks at the shape of blockquotes.
 `footnotes` looks for `[^label]` anywhere in the text. Inline directives run
 after all the block directives, so they see the finished document.
 
@@ -121,7 +135,7 @@ after all the block directives, so they see the finished document.
 | [`[!poem]`](/docs/writing/poem) | inline | *(modifiers, not attributes)* |
 | [`[^label]`](/docs/writing/footnotes) | inline | *(no attributes)* |
 
-## Adding one
+## Add a directive
 
 Directives are registered in one frozen array in
 `src/features/posts/server/directives/index.ts`:
@@ -137,9 +151,13 @@ export const postDirectiveRegistry: readonly Directive[] = Object.freeze([
 ]);
 ```
 
-A new one is a file in that directory exporting an object matching
-`BlockDirective`, `MetaDirective`, or `InlineDirective`, added to the array.
-Order matters only among inline directives, which run in registry order. Use
-`parseKeyValueAttributes` and `rejectUnsupportedAttributes` from `./attributes`
-rather than writing a parser — throwing `DirectiveAttributeError` is what turns a
-bad marker into a warning instead of a crash.
+To add one:
+
+1. Create a file in that directory that exports an object matching
+   `BlockDirective`, `MetaDirective`, or `InlineDirective`.
+2. Add it to the array. Order matters only among inline directives, which run
+   in registry order.
+3. Parse attributes with `parseKeyValueAttributes` and
+   `rejectUnsupportedAttributes` from `./attributes` instead of writing your own
+   parser. Throwing `DirectiveAttributeError` is what turns a bad marker into a
+   warning instead of a crash.
