@@ -1408,7 +1408,8 @@ function PivotLine({ pivot, profile, rows, onBan }: {
               {data.firstSeenAt ? `first ${stamp(data.firstSeenAt)}` : 'never seen'}
               {data.lastSeenAt ? ` · last ${stamp(data.lastSeenAt)}` : ''}
               {` · ${data.comments.total} ${data.comments.total === 1 ? 'comment' : 'comments'}`}
-              {byStatus
+              {/* A key seen only on messages has no comments to break down. */}
+              {byStatus && data.comments.total > 0
                 ? `: ${(['held', 'published', 'rejected', 'deleted'] as const)
                     .filter((status) => byStatus[status] > 0)
                     .map((status) => `${byStatus[status]} ${STATUS_LABELS[status].toLowerCase()}`)
