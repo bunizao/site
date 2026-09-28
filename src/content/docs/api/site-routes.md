@@ -137,6 +137,12 @@ all behind the portal's Cloudflare Access gate, all `no-store`, GET-only
 | `/dev/portal/api/notify-preview` | Forwards to site-api's `/api/notify/preview`, passing only `mode`, `sample`, and `timezone` through. Exists because a direct browser fetch of `buxx.me/api/notify/preview` is rejected by edge access rules; the service binding path is not. Backs the email template screen. In local dev with portal demo mode on, it answers demo templates built locally (`X-Portal-Demo: 1`) and never reaches site-api. |
 | `/dev/portal/api/activity-panel-src` | Answered locally: `{signed, expiresAt, dark, light}`, the `/api/activity-panel.svg` paths for both themes signed with `ACTIVITY_PANEL_SIGNING_SECRET` for one hour. The secret stays on the server; the SVG gallery screen asks here. Without the secret the paths come back unsigned with `signed: false`, and the panel itself answers `401`. |
 
+The portal deep-links by query string. `/dev/portal/comments?status=held&c=<id>`
+opens one comment (a bare `#<id>` is turned into `c`), and
+`/dev/portal/messages?m=<id>` opens one message in whichever tray holds it (an
+older `/messages/<id>` or `#<id>` link is rewritten to `m`). site-api's
+Telegram owner cards build both links from its `PORTAL_URL` var.
+
 `/dev/portal/blog` is the blog preview workspace: a grouped Ghost post list
 (drafts, scheduled, published) that re-polls `/dev/portal/api/ghost-posts`
 every 5 seconds while visible, beside an iframe of the selected post's
