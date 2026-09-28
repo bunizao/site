@@ -30,7 +30,8 @@ The goal is full behavior coverage for the first-party public site surface under
 | `/mood/rss.xml` | RSS content type and XML output | `tests/e2e/api.pw.ts` |
 | `/mood`, `/mood/[id]` | Markdown for `Accept: text/markdown`, with no `/agent/*` alias | `tests/e2e/api.pw.ts` |
 | `/static/[...path]` | Invalid target rejection plus allowed Telegram and bounded YouTube poster proxy success | `tests/e2e/api.pw.ts` |
-| `/dev/portal/comments` | Held queue triage from the keyboard (approve, delete with Undo, auto-advance to the next comment), a Telegram `#<id>` deep link opening that comment, banning a writer from the reading pane after its impact check, pivoting to one writer and Back | `tests/e2e/admin-portal.pw.ts` (demo mode) |
+| `/dev/portal/comments` | Held queue triage from the keyboard (approve, delete with Undo, auto-advance to the next comment), a Telegram `#<id>` deep link opening that comment, pivoting to one writer and Back | `tests/e2e/admin-portal.pw.ts` (demo mode) |
+| `/dev/portal/comments` | Ban and delete: B then Enter banning the writer and deleting that comment, the pane moving on, Undo bringing both back; 2 picking Same fingerprint, whose sweep spares a signed-in reader's published comment and whose Undo restores every swept row; on a phone, the ban sheet fitting at 390px with 44px delete choices | `tests/e2e/admin-portal.pw.ts` (demo mode) |
 | `/dev/portal/comments` | A phone-width touch swipe deleting a held comment, and Undo; on a phone, a writer pivot landing on the filtered list with the drawer closed, Back reopening the drawer; an undo toast never covering the drawer's close button | `tests/e2e/admin-portal.pw.ts` (demo mode) |
 | `/dev/portal/comments/bans` | Lifting a ban, and Undo putting it back | `tests/e2e/admin-portal.pw.ts` (demo mode) |
 | `/dev/portal` | Releasing mood posts held by the notify gate as one digest | `tests/e2e/admin-portal.pw.ts` (demo mode) |

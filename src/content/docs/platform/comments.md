@@ -165,11 +165,19 @@ somebody can test around.
 
 Bans are applied from the comment queue's actor strip, from the source
 profile, or from the Ban button on a held comment's Telegram card, and lifted
-from the ban list page. Applying one can also **purge**: the source's
-comments from the last 90 days are soft-deleted with the note
-`Purged with ban.` and its reaction rows removed, each affected row written
-to the activity log first. Purge is off by default and is the only part of
-this that touches rows that already exist.
+from the ban list page. A ban raised from a comment deletes that comment by
+default, and the Telegram card's ban always does, inside the same restorable
+operation. Applying one can also **purge**: the source's comments from the
+last 90 days are soft-deleted with the note `Purged with ban.` and its
+reaction rows removed, each affected row written to the activity log first.
+From a comment, the portal's Same fingerprint choice purges that comment's
+device fingerprint too, without banning it. Purge is off by default.
+
+A purge never takes a published comment written signed in by a reader other
+than the writer of the comment the ban came from, nor a reaction another
+reader left. A writer is that reader only if they were signed in when
+writing; a later claim does not count. The owner's own replies and comments
+are never in scope.
 
 A comment-row dialog selects only its session and, for a comment verified
 at write time, its verified email. A later ownership claim does not qualify
@@ -334,7 +342,8 @@ those accounts or inventing a confidence percentage.
 ## Preview and recovery
 
 Before applying a ban, the portal previews distinct affected accounts,
-sessions, comments by status, and reactions over the last 90 days. Multiple
+sessions, comments by status, reactions over the last 90 days, and the
+published comments a purge spares. Multiple
 selected keys are combined as a union, so overlapping rows are counted once.
 Broad bans remain possible after explicit selection, but a purge is refused
 when more than 500 comments and reactions would need backups. The preview
