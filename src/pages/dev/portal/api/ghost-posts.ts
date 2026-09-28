@@ -4,6 +4,7 @@ import {
   createGhostAdminClient,
   GhostAdminClientError,
 } from '@/features/posts/server/ghost-admin';
+import { isPortalDemo } from '@/features/portal/server/demo-mode';
 
 // A static route beats the sibling [...path].ts rest route, which only
 // forwards `admin/*` paths to site-api. This one lists Ghost posts directly
@@ -26,6 +27,13 @@ export const GET: APIRoute = async ({ locals }) => {
 
       switch (error.code) {
         case 'invalid_configuration':
+          // Local dev with no Ghost key: the portal's demo list, so the
+          // preview screen has something to show. The literal DEV check lets
+          // the build drop the demo module.
+          if (import.meta.env.DEV && await isPortalDemo(locals)) {
+            const { demoGhostPosts } = await import('@/features/portal/server/demo/tools');
+            return jsonOk({ posts: demoGhostPosts() }, { ...NO_STORE_HEADERS, 'X-Portal-Demo': '1' });
+          }
           return jsonError(503, 'Ghost draft preview is unavailable.', NO_STORE_HEADERS, {
             hint: 'Set GHOST_ADMIN_API_KEY and PUBLIC_GHOST_URL to enable Ghost post previews.',
           });

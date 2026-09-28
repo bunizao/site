@@ -6,43 +6,19 @@ import type {
   AdminClusterKey,
   AdminCommentActor,
   AdminCommentInsights,
-  AdminReactionInsights,
   AdminReactionListResult,
   AdminReactionRecord,
   AdminSourceKeyType,
   AdminSourceProfile,
 } from '@bunizao/contracts';
-import type { PortalActivity, PortalComments, PortalOverview } from './portal-client';
+import type { PortalActivity, PortalComments } from './portal-client';
 
-// Local-dev fixture. When the site-api service binding is unavailable (running
-// `bun dev` without `bun dev:api`), the overview would otherwise render all
-// zeros and a red error banner — useless for design work. The page swaps in
-// this fixture behind `import.meta.env.DEV`, so it never reaches production.
+// Local-dev fixtures, the seed of the portal's demo API
+// (src/features/portal/server/demo-api.ts), which serves them in dev only, so
+// they never reach production.
 const now = Date.now();
 const minsAgo = (m: number): string => new Date(now - m * 60_000).toISOString();
 const hoursAgo = (h: number): string => new Date(now - h * 3_600_000).toISOString();
-
-export const DEMO_OVERVIEW: PortalOverview = {
-  subscriberStats: {
-    total: 1284,
-    activeCount: 1147,
-    pendingCount: 38,
-    unsubscribedCount: 99,
-  },
-  auditEvents: [
-    { id: 812, eventType: 'subscription_confirmed', email: 'lena.ortiz@fastmail.com', emailHash: 'd1', source: 'web', createdAt: minsAgo(4) },
-    { id: 811, eventType: 'subscribe_requested', email: 'devon@hey.com', emailHash: 'd2', source: 'web', createdAt: minsAgo(21) },
-    { id: 810, eventType: 'broadcast_sent', email: 'system', emailHash: 'd3', source: 'admin', createdAt: minsAgo(55) },
-    { id: 809, eventType: 'unsubscribed', email: 'm.tanaka@gmail.com', emailHash: 'd4', source: 'link', createdAt: hoursAgo(3) },
-    { id: 808, eventType: 'admin_update', email: 'priya@outlook.com', emailHash: 'd5', source: 'admin', createdAt: hoursAgo(6) },
-    { id: 807, eventType: 'subscription_confirmed', email: 'noah.kim@proton.me', emailHash: 'd6', source: 'web', createdAt: hoursAgo(9) },
-  ],
-  broadcasts: [
-    { id: 'bc_0f2a', subject: 'July dispatch — new writing and a mood recap', bodyHtml: '', bodyText: null, audience: { status: 'active', channels: ['announcement'] }, recipientCount: 1147, sentCount: 1147, failedCount: 0, status: 'sent', createdAt: hoursAgo(1), sentAt: minsAgo(55), sentBy: 'admin' },
-    { id: 'bc_0e91', subject: 'A quiet note about what I shipped this month', bodyHtml: '', bodyText: null, audience: { status: 'active', channels: ['blog'] }, recipientCount: 1103, sentCount: 1098, failedCount: 5, status: 'sent', createdAt: hoursAgo(74), sentAt: hoursAgo(72), sentBy: 'admin' },
-    { id: 'bc_0d77', subject: 'Privacy policy update', bodyHtml: '', bodyText: null, audience: { status: 'active', channels: ['privacy'] }, recipientCount: 1284, sentCount: 1284, failedCount: 0, status: 'sent', createdAt: hoursAgo(220), sentAt: hoursAgo(218), sentBy: 'admin' },
-  ],
-};
 
 /* The comment queue's fixture. Written to look like a real day rather than a
    clean one: two held rows the model disagreed about, one of them a link-spam
@@ -305,12 +281,10 @@ export const DEMO_ACTIVITY: PortalActivity = {
   nextOffset: null,
 };
 
-/* The three surfaces the queue's fixture does not cover: reactions, the two
-   insight pages, the ban list and one source profile. Same reason as above --
-   without these, `bun dev` renders four red error banners and the layouts
-   cannot be looked at. The numbers are written to tell one story across all
-   of them: a rented /24 in Singapore taps hearts all night and posts audit
-   spam, and an ordinary Melbourne readership does neither. */
+/* The ban list, the comment insights and one source profile, with the
+   reactions that profile shows. The numbers tell one story across all of
+   them: a rented /24 in Singapore taps hearts all night and posts audit spam,
+   and an ordinary Melbourne readership does neither. */
 
 const HOSTING_ACTOR = demoActor({
   ip: '198.51.100.24',
@@ -359,7 +333,7 @@ const reaction = (
   ...over,
 });
 
-export const DEMO_REACTIONS: AdminReactionListResult = {
+const DEMO_REACTIONS: AdminReactionListResult = {
   reactions: [
     reaction('01J8QR0001', minsAgo(3), HOSTING_ACTOR),
     reaction('01J8QR0002', minsAgo(4), HOSTING_ACTOR),
@@ -392,13 +366,11 @@ export const DEMO_BANS: AdminBanListResult = {
   ],
 };
 
-/* `held` is null on every reaction table -- a heart is recorded or it is not,
-    so there is nothing for the automatic pass to hold. The contract says so;
-    this helper has to say so too. */
-const row = (count: number, held: number | null, sessions: number) => ({
+/* One insights row, with the held rate worked out from its counts. */
+const row = (count: number, held: number, sessions: number) => ({
   count,
   held,
-  heldRate: held === null ? null : (count === 0 ? 0 : held / count),
+  heldRate: count === 0 ? 0 : held / count,
   sessions,
 });
 
@@ -502,70 +474,6 @@ export const DEMO_COMMENT_INSIGHTS: AdminCommentInsights = {
     { keyType: 'ip24', keyValue: 'c0ffee02', note: 'Audit-spam /24, rented', hits: 41 },
     { keyType: 'domain', keyValue: 'growth-hub.example', note: 'Outbound offer link', hits: 22 },
     { keyType: 'client_fp', keyValue: 'f00dcaf0', note: null, hits: 7 },
-  ],
-};
-
-export const DEMO_REACTION_INSIGHTS: AdminReactionInsights = {
-  window: '7d',
-  since: daysAgo(7),
-  hourly: Array.from({ length: 24 }, (_, hour) => ({
-    hour: `${daysAgo(0).slice(0, 10)}T${String(hour).padStart(2, '0')}`,
-    reactions: hour >= 2 && hour <= 5 ? 180 + hour * 7 : 4 + (hour % 5),
-    sessions: hour >= 2 && hour <= 5 ? 3 : 4 + (hour % 5),
-    subnets: hour >= 2 && hour <= 5 ? 1 : 3 + (hour % 4),
-  })),
-  authMix: Array.from({ length: 7 }, (_, index) => ({
-    day: daysAgo(6 - index).slice(0, 10),
-    turnstile: [12, 9, 14, 11, 18, 320, 22][index],
-    pass: [41, 38, 44, 39, 52, 47, 50][index],
-    verified: [8, 6, 9, 7, 11, 10, 12][index],
-  })),
-  targets: [
-    { targetType: 'post', targetId: '665f0a11', postTitle: 'The retry budget nobody wrote down', reactions: 341, subnets: 2, fps: 3 },
-    { targetType: 'post', targetId: '661c48d2', postTitle: 'One abstraction fewer', reactions: 64, subnets: 51, fps: 58 },
-    { targetType: 'comment', targetId: '01J8QK3M7Z', postTitle: 'One abstraction fewer', reactions: 12, subnets: 12, fps: 12 },
-  ],
-  networks: [
-    { ...row(318, null, 3), asn: 14061, asOrg: 'DigitalOcean' },
-    { ...row(96, null, 88), asn: 4764, asOrg: 'Aussie Broadband' },
-    { ...row(11, null, 11), asn: null, asOrg: null },
-  ],
-  countries: [
-    { ...row(320, null, 5), country: 'SG' },
-    { ...row(104, null, 96), country: 'AU' },
-    { ...row(9, null, 9), country: null },
-  ],
-  subnets: [
-    { ...row(316, null, 3), ip24: 'c0ffee02', sampleIp: '198.51.100.24' },
-    { ...row(42, null, 40), ip24: '55ee66ff', sampleIp: '203.0.113.91' },
-  ],
-  browsers: [
-    { ...row(318, null, 3), browser: 'Chrome 128', os: 'Linux' },
-    { ...row(97, null, 90), browser: 'Safari 18', os: 'macOS' },
-  ],
-  devices: [
-    { ...row(312, null, 3), clientFp: 'f00dcafe', renderer: 'SwiftShader', screen: '1280x1024', platform: 'Linux x86_64', subnets: 1 },
-    { ...row(58, null, 55), clientFp: 'ab77cd12', renderer: 'Apple M3', screen: '1728x1117', platform: 'MacIntel', subnets: 39 },
-  ],
-  botHints: [
-    { hint: 'no_input_events', count: 308 },
-    { hint: 'instant_tap', count: 291 },
-    { hint: 'webdriver', count: 24 },
-  ],
-  tlsStacks: [
-    { browser: 'Chrome 128', ciphersSha1: 'QQ91xz02', count: 316 },
-    { browser: 'Safari 18', ciphersSha1: 'JZtiTn8H', count: 97 },
-  ],
-  sessionAge: Array.from({ length: 7 }, (_, index) => ({
-    day: daysAgo(6 - index).slice(0, 10),
-    writes: [61, 55, 67, 58, 81, 377, 84][index],
-    newShare: [0.2, 0.2, 0.3, 0.2, 0.3, 0.97, 0.3][index],
-  })),
-  timeToTap: [
-    { bucket: '< 1s', count: 301, sessions: 3 },
-    { bucket: '1–5s', count: 44, sessions: 41 },
-    { bucket: '5–30s', count: 61, sessions: 58 },
-    { bucket: '> 30s', count: 38, sessions: 36 },
   ],
 };
 

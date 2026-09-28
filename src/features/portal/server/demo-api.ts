@@ -9,29 +9,23 @@
 
    Imported only behind `import.meta.env.DEV`, so none of this is in a build. */
 
-import type {
-  AdminBan,
-  AdminBanInput,
-  AdminBanResult,
-  AdminCommentRecord,
-  AdminSourceKeyType,
-} from '@bunizao/contracts';
-import {
-  DEMO_ACTIVITY,
-  DEMO_BANS,
-  DEMO_COMMENTS,
-  DEMO_COMMENT_INSIGHTS,
-  DEMO_OVERVIEW,
-  DEMO_REACTION_INSIGHTS,
-  DEMO_REACTIONS,
-  DEMO_SOURCE_PROFILE,
-  demoActor,
-} from '@/features/admin/server/portal-demo';
+import type { AdminCommentRecord, AdminSourceKeyType } from '@bunizao/contracts';
+import { DEMO_ACTIVITY, DEMO_COMMENTS, demoActor } from '@/features/admin/server/portal-demo';
 import type {
   PortalActivityEntry,
   PortalCommentStatus,
   PortalCommentSummary,
 } from '@/features/admin/server/portal-client';
+import { enrichComments, ownerCode, resetOwnerCode, sourceProfile, withClusters } from './demo/comments';
+import { handleAudienceDemo, resetAudienceDemo } from './demo/audience';
+import { handleCommentAdminDemo } from './demo/comment-admin';
+import { handleCommentControlsDemo } from './demo/controls';
+import { handleMessagesDemo, resetMessagesDemo } from './demo/messages';
+import { handleCommentModesDemo, resetCommentModesDemo } from './demo/modes';
+import { handleModerationDemo, resetModerationDemo } from './demo/moderation';
+import { handleOverviewDemo, resetOverviewDemo } from './demo/overview';
+import { handleReadersDemo, resetReadersDemo } from './demo/readers';
+import { handleToolsDemo, resetToolsDemo } from './demo/tools';
 
 const LATENCY_MS = 140;
 const HOUR = 3_600_000;
@@ -158,17 +152,35 @@ function generateComments(): AdminCommentRecord[] {
 interface DemoStore {
   comments: AdminCommentRecord[];
   activity: PortalActivityEntry[];
-  bans: AdminBan[];
+}
+
+function seedStore(): DemoStore {
+  return {
+    comments: enrichComments([...structuredClone(DEMO_COMMENTS.comments), ...generateComments()]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))),
+    activity: structuredClone(DEMO_ACTIVITY.entries),
+  };
 }
 
 /* One store per dev-server process. Hot reload of this module re-seeds it,
    which is the behaviour a designer wants after editing the fixture. */
-const store: DemoStore = {
-  comments: [...structuredClone(DEMO_COMMENTS.comments), ...generateComments()]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-  activity: structuredClone(DEMO_ACTIVITY.entries),
-  bans: structuredClone(DEMO_BANS.bans),
-};
+let store = seedStore();
+
+/* `POST admin/__demo/reset` puts every demo module back to its seed, so an
+   e2e spec can leave the store as it found it. The modules keyed by the
+   store object (comment-admin, overview's activity seed) start over with
+   the fresh one; the rest re-seed on their next request. */
+function resetDemo(): void {
+  store = seedStore();
+  resetOverviewDemo();
+  resetModerationDemo();
+  resetReadersDemo();
+  resetAudienceDemo();
+  resetToolsDemo();
+  resetMessagesDemo();
+  resetCommentModesDemo();
+  resetOwnerCode();
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -266,7 +278,7 @@ function listComments(params: URLSearchParams): Response {
 
   return json({
     summary: summarize(scoped),
-    comments: page,
+    comments: withClusters(page, store.comments),
     total: filtered.length,
     nextOffset: offset + page.length < filtered.length ? offset + page.length : null,
   });
@@ -324,95 +336,72 @@ async function actOnComment(id: string, request: Request): Promise<Response> {
   return error(400, 'invalid_action');
 }
 
-function listActivity(params: URLSearchParams): Response {
-  const targetId = params.get('targetId');
-  const family = params.get('family') ?? 'all';
-  const limit = clampInt(params.get('limit'), 50, 1, 200);
-  const offset = clampInt(params.get('offset'), 0, 0, 100_000);
-  let rows = store.activity;
-  if (targetId) rows = rows.filter((row) => row.targetId === targetId);
-  if (family !== 'all') rows = rows.filter((row) => row.event.startsWith(family === 'comments' ? 'comment.' : 'reaction.'));
-  const page = rows.slice(offset, offset + limit);
-  return json({
-    summary: DEMO_ACTIVITY.summary,
-    entries: page,
-    total: rows.length,
-    nextOffset: offset + page.length < rows.length ? offset + page.length : null,
-  });
-}
-
-async function createBan(request: Request): Promise<Response> {
-  const input = await request.json().catch(() => null) as AdminBanInput | null;
-  if (!input?.keys?.length) return error(400, 'keys_required');
-  const created: AdminBan[] = input.keys.map((key) => ({
-    keyType: key.type,
-    keyValue: key.value,
-    note: input.note ?? null,
-    source: 'portal',
-    createdAt: new Date().toISOString(),
-    expiresAt: input.expiresAt ?? null,
-    hits: 0,
-  }));
-  store.bans = [...created, ...store.bans.filter((ban) => !created.some((c) => c.keyType === ban.keyType && c.keyValue === ban.keyValue))];
-  const result: AdminBanResult = { bans: created, purged: { comments: 0, reactions: 0 } };
-  return json(result);
-}
-
 /** Answers one demo request, or null for a path it does not know. `path` is
     relative to `/api/`, e.g. `admin/comments`. */
 export async function handleDemoRequest(request: Request, path: string): Promise<Response> {
-  await new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
+  // A test fixture, not a product route: no latency, no injected failure.
+  if (path === 'admin/__demo/reset' && request.method.toUpperCase() === 'POST') {
+    resetDemo();
+    return json({ reset: true });
+  }
+  // `?demoDelay=<ms>` and `?demoFail=<path prefix>` on the portal URL; the
+  // client forwards them as these headers in dev only (app/api.ts).
+  const delay = clampInt(request.headers.get('x-portal-demo-delay'), LATENCY_MS, 0, 30_000);
+  await new Promise((resolve) => setTimeout(resolve, delay));
+  const failing = request.headers.get('x-portal-demo-fail')?.replace(/^\/+/, '');
+  if (failing && (failing === '*' || path.startsWith(failing))) {
+    // The shape site-api sends when a handler throws, so the UI is tested
+    // against the real thing. `*` fails every path.
+    return json({ error: 'Internal Server Error' }, 500);
+  }
   const params = new URL(request.url).searchParams;
   const method = request.method.toUpperCase();
   const segments = path.split('/').filter(Boolean).map(decodeURIComponent);
 
+  // Home, activity, audit, the notify gate and analytics live in their own module.
+  const overview = await handleOverviewDemo(request, segments, store);
+  if (overview) return overview;
+
   if (segments[0] !== 'admin') return error(404, 'not_found');
   const [, resource, ...rest] = segments;
+
+  // Reactions, bans and insights live in their own module.
+  const moderation = await handleModerationDemo(request, segments.slice(1), params);
+  if (moderation) return moderation;
+
+  // Subscribers and broadcasts live in their own module.
+  const audience = await handleAudienceDemo(request, segments.slice(1), params);
+  if (audience) return audience;
+
+  // Mood operations and the AI model test live in their own module.
+  const tools = await handleToolsDemo(request, segments.slice(1), params);
+  if (tools) return tools;
+
+  // The comment queue, the owner's acts, replies, the lockdown and source
+  // profiles live in their own module.
+  const commentAdmin = await handleCommentAdminDemo(request, segments.slice(1), store);
+  if (commentAdmin) return commentAdmin;
+
+  // P6: the owner's pin and lock, per-post modes, messages, revoked readers.
+  const p6 =
+    (await handleCommentControlsDemo(request, segments.slice(1), store)) ??
+    (await handleCommentModesDemo(request, segments.slice(1), store.comments)) ??
+    (await handleMessagesDemo(request, segments.slice(1))) ??
+    (await handleReadersDemo(request, segments.slice(1)));
+  if (p6) return p6;
 
   if (resource === 'session' && method === 'GET') return json({ login: 'admin', avatarUrl: null });
 
   if (resource === 'comments') {
     if (rest.length === 0 && method === 'GET') return listComments(params);
-    if (rest[0] === 'insights' && method === 'GET') return json(DEMO_COMMENT_INSIGHTS);
-    if (rest[0] === 'owner-code' && method === 'POST') return error(503, 'owner_identity_unavailable', 'Demo mode has no owner identity.');
+    if (rest[0] === 'owner-code' && method === 'POST') return ownerCode(request, json);
     if (rest.length === 1 && method === 'POST') return actOnComment(rest[0], request);
   }
 
-  if (resource === 'reactions') {
-    if (rest[0] === 'insights') return json(DEMO_REACTION_INSIGHTS);
-    return json(DEMO_REACTIONS);
-  }
-
   if (resource === 'sources' && rest.length === 2) {
-    return json({ ...DEMO_SOURCE_PROFILE, type: rest[0], value: rest[1] });
+    const [type, value] = rest as [AdminSourceKeyType, string];
+    return json(sourceProfile(type, value, store.comments.filter((row) => matchesKey(row, type, value))));
   }
-
-  if (resource === 'bans') {
-    if (rest.length === 0 && method === 'GET') return json({ bans: store.bans });
-    if (rest.length === 0 && method === 'POST') return createBan(request);
-    if (rest[0] === 'operations' && method === 'GET') return json({ operations: [] });
-    if (rest[0] === 'preview' && method === 'POST') {
-      return json({
-        accounts: 0, sessions: 1,
-        comments: { published: 0, held: 1, rejected: 0, deleted: 0, total: 1 },
-        reactions: 0, purge: { comments: 1, reactions: 0 },
-        windowDays: 90, purgeLimit: 500, purgeAllowed: true,
-      });
-    }
-    if (rest.length === 2 && method === 'DELETE') {
-      const before = store.bans.length;
-      store.bans = store.bans.filter((ban) => !(ban.keyType === rest[0] && ban.keyValue === rest[1]));
-      return before === store.bans.length ? error(404, 'ban_not_found') : json({ removed: true });
-    }
-  }
-
-  if (resource === 'activity' && method === 'GET') return listActivity(params);
-
-  if (resource === 'subscribers' && method === 'GET' && rest.length === 0) {
-    return json({ rows: [], ...DEMO_OVERVIEW.subscriberStats });
-  }
-  if (resource === 'audit') return json({ events: DEMO_OVERVIEW.auditEvents });
-  if (resource === 'broadcasts' && method === 'GET' && rest.length === 0) return json({ broadcasts: DEMO_OVERVIEW.broadcasts });
 
   return error(404, 'demo_not_implemented', `The demo API does not answer ${method} ${path} yet.`);
 }

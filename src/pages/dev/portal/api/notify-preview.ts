@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { jsonError } from '@/lib/http/json-response';
 import { proxyApiRequest } from '@/lib/http/api-service-proxy';
+import { isPortalDemo } from '@/features/portal/server/demo-mode';
 
 export const prerender = false;
 
@@ -18,6 +19,15 @@ export const GET: APIRoute = async ({ request, locals }) => {
     if (value !== null) {
       forwardedParams.set(key, value);
     }
+  }
+
+  // Local dev with no site-api: a fixture in the real response shape. The
+  // literal DEV check lets the build drop the demo module.
+  if (import.meta.env.DEV && await isPortalDemo(locals)) {
+    const { demoNotifyPreview } = await import('@/features/portal/server/demo/tools');
+    return new Response(JSON.stringify(demoNotifyPreview(forwardedParams, url.origin)), {
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Portal-Demo': '1' },
+    });
   }
 
   url.pathname = '/api/notify/preview';
