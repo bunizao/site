@@ -191,27 +191,28 @@ a shape of their own float on the page with no card under them.
   blue sets them apart from the page in the dark theme, where the card surface
   is the page colour.
 - **Instagram.** The profile picture behind a story ring, with the post,
-  follower and following counts. Both come from `site-api`
-  ([Instagram profile](/docs/api/content#instagram-profile)). Nothing on this
-  card is read at build.
+  follower and following counts. Both are a snapshot updated by hand:
+  `instagramSnapshot` in `src/data/site.ts` and `public/instagram-avatar.jpg`
+  (320×320 JPEG). Nothing on this card is read at build or on hover.
 
-The Instagram picture is `/api/v2/instagram/avatar`, the stored copy of the last
-read that passed validation, so the page never links a signed Instagram address.
-If that read is unavailable (the avatar request errors, including one that
-already failed before hydration), the ring shows a neutral Instagram glyph at
-the same size instead of a broken image, so nothing shifts. The counts load
-with the other live reads and show dashes until they arrive, whether or not the
-avatar loads.
+Instagram refuses logged-out reads from servers (`401` with `require_login`
+from build runners, Workers and GitHub Actions alike), and reading while
+logged in would put the account at risk, so nothing refreshes the snapshot.
+The card never links a signed Instagram address (they expire within days) and
+never inlines anything from Instagram (its login wall serves the Instagram
+logo). If the picture fails to load anyway, the ring shows a neutral Instagram
+glyph at the same size instead of a broken image, so nothing shifts.
+
+To update it, replace the picture and the counts.
 
 Ops Health (`tests/ops/instagram-profile-health.test.ts`) fails when:
 
-- the stored read is over a day old
-- the served picture stops matching the profile
-- the handle drifts from the site's link
-- the card links anything but the stored picture
+- the card's picture or counts drift from the snapshot
+- the served picture differs from the committed file
+- the card links or inlines Instagram directly
 
 Cards show the short links (`tuu.cat/gh`), never the address behind them.
-GitHub and Instagram show profile pictures. The three network reads start on the
+GitHub and Instagram show profile pictures. The two network reads start on the
 first link hover.
 
 | Input | Behaviour |

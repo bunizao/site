@@ -48,6 +48,16 @@ export const profile = {
   ] satisfies ProfileLink[],
 } as const;
 
+// The Instagram card: a snapshot, updated by hand. Instagram refuses logged-out
+// reads from servers (401 "require_login" from build runners, Workers and
+// GitHub Actions alike), so nothing refreshes it automatically. To update,
+// replace public/instagram-avatar.jpg (320x320 JPEG) and the counts below.
+export const instagramSnapshot = {
+  avatar: '/instagram-avatar.jpg',
+  counts: { posts: 35, followers: 34, following: 89 },
+  takenAt: '2026-09-25',
+} as const;
+
 // --- Site meta --------------------------------------------------------------
 // Site-level identity strings: page titles, og:site_name, and the default
 // OG/meta description. seo.ts and Layout.astro read these instead of inlining.

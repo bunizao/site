@@ -19,7 +19,8 @@ describe('home hero cards', () => {
     expect(heroCards).toContain('const warm = (id: string | undefined): void => {');
     expect(heroCards).toContain("if (id === 'moods') void loadMoods();");
     expect(heroCards).toContain("else if (id === 'github') void loadGitHub();");
-    expect(heroCards).toContain("else if (id === 'instagram') void loadInstagram();");
+    // The Instagram card is a static snapshot; it has nothing to fetch.
+    expect(heroCards).not.toContain('loadInstagram');
 
     // Every call site — pointer hover, keyboard focus, and touch tap — passes
     // the hovered/focused/tapped link's own card id, so hover cards still
@@ -46,7 +47,7 @@ describe('home hero cards', () => {
     expect(heroCards).toContain('revealCardImage(card, link.dataset.card);');
   });
 
-  test('degrades the Instagram avatar to a placeholder glyph on a failed read', () => {
+  test('degrades the Instagram avatar to a placeholder glyph if the snapshot fails to load', () => {
     const heroCards = readText('src/features/home/ui/HeroCards.astro');
 
     // The fallback glyph sits in the same grid cell as the avatar, so hiding
@@ -54,7 +55,7 @@ describe('home hero cards', () => {
     expect(heroCards).toContain(
       '<span class="ig-avatar-fallback"><InstagramIcon className="ig-avatar-fallback-icon" /></span>',
     );
-    expect(heroCards).toContain('<img class="ig-avatar" data-ig-avatar src={INSTAGRAM_AVATAR_URL}');
+    expect(heroCards).toContain('<img class="ig-avatar" data-ig-avatar src={instagramSnapshot.avatar}');
 
     // Hidden on error, and on an avatar that already failed before this
     // script ran — `loading="lazy"` can beat hydration to it.
@@ -63,8 +64,9 @@ describe('home hero cards', () => {
     expect(heroCards).toContain('if (avatar.complete && avatar.naturalWidth === 0) hide();');
     expect(heroCards).toContain('mountInstagramAvatar();');
 
-    // Counts keep their existing dash placeholder on a failed read.
-    expect(heroCards).toContain('if (!counts) return;');
+    // The counts render from the snapshot at build; nothing reads them live.
+    expect(heroCards).toContain('instagramSnapshot.counts.followers');
+    expect(heroCards).not.toContain('INSTAGRAM_PROFILE_PATH');
   });
 
   test('pauses the hero ambient CSS once it scrolls offscreen', () => {

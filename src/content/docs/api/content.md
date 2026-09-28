@@ -176,9 +176,15 @@ GET /api/v2/instagram
 GET /api/v2/instagram/avatar
 ```
 
-These routes serve the picture and counts on the home page's Instagram card.
-No auth. The profile route is rate limited to 60 requests / 60s; the picture
-route is not rate limited.
+These routes serve a stored Instagram profile: picture and counts. No auth. The
+profile route is rate limited to 60 requests / 60s; the picture route is not
+rate limited.
+
+The home page's Instagram card doesn't use them. It shows a hand-updated
+snapshot (`instagramSnapshot` in `src/data/site.ts`), because Instagram now
+refuses the logged-out read below from every server address tried (`401` with
+`require_login`, GitHub Actions runners included), so the store has never been
+filled in production.
 
 ### Where the data comes from
 
@@ -186,8 +192,8 @@ Neither route talks to Instagram. Instagram has no API for a private personal
 account, and the web app's own `web_profile_info` endpoint answers only over
 HTTP/2, which a Worker's outbound fetch does not speak.
 
-Instead, a scheduled GitHub Actions job in `site-api`
-(`.github/workflows/instagram-refresh.yml`, every three hours) reads the
+Instead, a GitHub Actions job in `site-api`
+(`.github/workflows/instagram-refresh.yml`, manual dispatch only) reads the
 profile with curl and reports the answer to a signed internal route. `site-api`
 checks that the report is for this account and has a picture on Instagram's
 photo CDN, downloads the picture, and stores both in KV. A report that fails
@@ -233,8 +239,8 @@ SHA-256, and answers `If-None-Match` with `304`.
 | No `v`, or a `v` that is not the current picture's | `max-age=3600` |
 | The current `v` (the first 16 hex digits of `sha256`, as in `avatar.url`) | `immutable` |
 
-The home page links the unversioned URL, so a new picture shows up within the
-hour without a rebuild.
+A client that links the unversioned URL sees a new picture within the hour
+without a rebuild.
 
 ### Errors
 
