@@ -310,19 +310,14 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
   .docs-nav-tree {
     flex: 1 1 auto;
     min-height: 0;
-    /* macOS overlay scrollbars paint over content rather than displacing it, so
-       the rows have to stand back far enough that the thumb reads as a separate
-       object instead of a stripe welded to the edge of the hover pill. The
-       standoff is what buys that air; the thumb's own shape cannot, because
-       Chrome drops every ::-webkit-scrollbar rule the moment scrollbar-width is
-       set. scrollbar-gutter keeps classic scrollbars from shifting the rows. */
+    /* No scrollbar. Any thumb here lands in the air between the rows and the
+       rail's hairline and floats there, belonging to neither; the fades below
+       already say which end has more rows, as the on-this-page column does. */
     padding-right: 1rem;
     padding-bottom: 1.3rem;
-    scrollbar-gutter: stable;
     overflow-y: auto;
     overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--foreground) / 0.13) transparent;
+    scrollbar-width: none;
     /* Both ends of the tree are hard edges — the search field above, the exits'
        hairline below — so a row scrolled halfway past either one gets guillotined
        and reads as a rendering fault. Dissolve the last 1.5rem instead. The two
@@ -356,8 +351,8 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
     --tree-fade-bottom: 1.5rem;
   }
 
-  .docs-nav-tree:hover {
-    scrollbar-color: hsl(var(--foreground) / 0.22) transparent;
+  .docs-nav-tree::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -399,8 +394,7 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
 
 @media (min-width: 64rem) {
   /* Search and the foot stop where the tree's rows stop, so the rail keeps one
-     right edge and the scrollbar gutter is not a notch in the middle of it.
-     width:auto because an over-constrained block ignores its own right margin,
+     right edge. width:auto because an over-constrained block ignores its own right margin,
      which is why this has to undo the 100% above. */
   .docs-nav-search {
     width: auto;
@@ -408,7 +402,7 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
   }
 
   /* The foot's rule is the only one of the three that has a right end, so it
-     has to land on the rail's border rather than on the tree's gutter: out
+     has to land on the rail's border rather than where the rows stop: out
      0.75rem past the rail's padding, with the inset put back as padding so the
      links stay where the rows are. */
   .docs-nav-foot {
