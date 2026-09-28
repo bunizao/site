@@ -27,7 +27,6 @@ export type CommentErrorCode =
   | 'CLOSED'
   | 'LOCKED'
   | 'NOREPLY'
-  | 'VERIFY'
   | 'NOMAIL'
   | 'NAME'
   | 'EMAIL'
@@ -113,16 +112,15 @@ function classify(status: number, slug: string): CommentErrorCode {
     || slug.includes('postid is required')
     || slug.includes('parentid must be')
     || slug.includes('invalid json')) return 'STALE';
-  // All three are the post's policy answering, not the comment: the post takes
-  // no more writes, one thread under it takes no more replies, or it takes
-  // them only from a verified address. They are read ahead of the 403 below
-  // because that one means "your claim on this row ran out", which is a
-  // different next move -- and all three of these arrive as 403.
+  // Both are the post's policy answering, not the comment: the post takes no
+  // more writes, or one thread under it takes no more replies. They are read
+  // ahead of the 403 below because that one means "your claim on this row ran
+  // out", which is a different next move -- and both of these arrive as 403.
   if (slug.includes('comments_closed')) return 'LOCKED';
   if (slug.includes('thread_locked')) return 'NOREPLY';
-  if (slug.includes('email_verification_required')) return 'VERIFY';
-  // The writer, not the post: this request looked enough like automation
-  // that it goes nowhere without an address to confirm. Nothing was stored.
+  // This comment goes nowhere without an address to confirm: the request
+  // looked enough like automation, or the post (or the whole site) publishes
+  // only once an address is confirmed. Nothing was stored.
   if (slug.includes('email_required')) return 'NOMAIL';
   // 403 not_owner and 409 edit_window_closed both mean the reader's claim on
   // this comment has run out. Retrying either is a guaranteed second refusal.
@@ -160,15 +158,15 @@ export function failureTag(failure: CommentFailure): string {
    pointing at a page underneath it just tells the reader we did not trust
    them to read two words. What earns a link is a refusal whose *reason* is
    invisible from the message: a name or an address rejected for a rule the
-   reader cannot see, a post demanding something they have not been asked for
-   yet, a deadline whose length nobody stated, and a thread that is "not
-   available right now" without saying whether their draft died with it.
+   reader cannot see, a comment that needs an address they were not asked for,
+   a deadline whose length nobody stated, and a thread that is "not available
+   right now" without saying whether their draft died with it.
 
    Each link lands on a section of the reader-facing comments page, under an
    `id="comment-error-<anchor>"` marker. The section spells out the rule the
-   message has no room for (which names and addresses are refused, what a
-   confirmation link can and cannot do, what makes a comment need an address,
-   how long the edit window lasts, the two meanings of "not available") and
+   message has no room for (which names and addresses are refused, what makes
+   a comment need an address, how long the edit window lasts, the two
+   meanings of "not available") and
    the reader's next step. The sections are English only, like the rest of
    the docs, although the comment box speaks both English and Chinese. */
 const DOCS_ERROR_PAGE = '/docs/surfaces/comments';
@@ -176,7 +174,6 @@ const DOCS_ERROR_PAGE = '/docs/surfaces/comments';
 const EXPLAINED: Partial<Record<CommentErrorCode, string>> = {
   NAME: 'name',
   EMAIL: 'email',
-  VERIFY: 'verify',
   NOMAIL: 'nomail',
   CLOSED: 'closed',
   GONE: 'gone',

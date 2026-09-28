@@ -85,7 +85,7 @@ describe('site-wide email rule on the public page', () => {
 
       expect(await validate(page)).toBe(false);
       expect(await email.getAttribute('aria-invalid')).toBe('true');
-      expect(await page.locator('[data-compose-error-text]').textContent()).toContain('verified addresses only');
+      expect(await page.locator('[data-compose-error-text]').textContent()).toContain('This post needs an email');
 
       await email.fill('ada@example.com');
       expect(await validate(page)).toBe(true);

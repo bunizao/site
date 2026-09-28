@@ -45,7 +45,6 @@ const REFUSALS: Array<[number, unknown, CommentErrorCode]> = [
   // The owner locked one thread: a 403 that is neither the post closing nor
   // the reader's claim running out.
   [403, { error: 'thread_locked' }, 'NOREPLY'],
-  [403, { error: 'email_verification_required' }, 'VERIFY'],
   [403, { error: 'email_required' }, 'NOMAIL'],
   [400, { error: 'displayName must be 1-32 characters and cannot use control characters or reserved names' }, 'NAME'],
   // Resend and create phrase a refused address differently.
@@ -87,7 +86,7 @@ describe('failureTag', () => {
 describe('commentErrorDocsHref', () => {
   test('only the refusals whose reason is invisible from the message link', () => {
     const linked = ALL_CODES.filter((code) => commentErrorDocsHref(code) !== null);
-    expect(linked.sort()).toEqual(['CLOSED', 'EMAIL', 'GONE', 'NAME', 'NOMAIL', 'VERIFY']);
+    expect(linked.sort()).toEqual(['CLOSED', 'EMAIL', 'GONE', 'NAME', 'NOMAIL']);
   });
 
   test('every linked refusal lands on an anchor that exists in the comments docs', () => {
