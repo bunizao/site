@@ -3,7 +3,7 @@ import type { AdminCommentSiteMode, AdminCommentSitePolicy } from '@bunizao/cont
 import { Button } from '@/components/coss/button';
 import { Switch } from '@/components/coss/switch';
 import { cn } from '@/lib/utils';
-import { Dot, SMALL } from '../activity/table';
+import { Dot, SMALL, STATUS_LINE, statusLinePx } from '../activity/table';
 import { Segmented } from '../moderation/segmented';
 import { sinceText, useSetSitePolicy, useSitePolicy } from './site-policy';
 
@@ -45,7 +45,6 @@ export function RequireEmailSwitch({ policy, describedBy }: { policy: AdminComme
   );
 }
 
-const LINE_PX = 36;
 
 const since = (iso: string | null, what: string): string => (iso ? `since ${sinceText(iso)} · ${what}` : what);
 
@@ -94,11 +93,11 @@ export function SitePolicyLines({ scrollRef }: { scrollRef: React.RefObject<HTML
     wasCount.current = count;
     const node = scrollRef.current;
     if (!node || node.scrollTop <= 0) return;
-    node.scrollTop += delta * LINE_PX;
+    node.scrollTop += delta * statusLinePx();
   }, [count, scrollRef]);
 
   return lines.map((line) => (
-    <div key={line.key} role="status" className="flex h-9 shrink-0 items-center gap-3 border-b px-3 text-[13px]">
+    <div key={line.key} role="status" className={STATUS_LINE}>
       <span className="flex shrink-0 items-center gap-2">
         <Dot tone="attention" />
         <span className="font-medium">{line.label}</span>

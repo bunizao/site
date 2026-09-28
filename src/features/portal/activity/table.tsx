@@ -48,6 +48,16 @@ export const HEAD = 'h-9 border-b border-[hsl(var(--portal-rule))] text-muted-fo
     44px under a finger. Goes on every size="sm" button. */
 export const SMALL = 'h-8 text-sm sm:h-8 pointer-coarse:h-11';
 
+/** A status line over a list (the lockdown, the site-wide switches): 36px,
+    and 44px under a finger, where its 36px button keeps 4px either side
+    instead of filling the band edge to edge. */
+export const STATUS_LINE = 'flex h-9 shrink-0 items-center gap-3 border-b px-3 text-[13px] pointer-coarse:h-11';
+
+/** STATUS_LINE's height now, for moving a scroll offset by one line. */
+export function statusLinePx(): number {
+  return window.matchMedia('(pointer: coarse)').matches ? 44 : 36;
+}
+
 /** Pressed state that shows on the first frame of a press, touch included. */
 export const PRESSABLE = 'hover:bg-accent/60 active:bg-accent';
 

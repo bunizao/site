@@ -3,7 +3,7 @@ import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-quer
 import type { AdminCommentLockdown, AdminCommentLockdownResponse } from '@bunizao/contracts';
 import { Button } from '@/components/coss/button';
 import { cn } from '@/lib/utils';
-import { Dot, SMALL } from '../activity/table';
+import { Dot, SMALL, STATUS_LINE, statusLinePx } from '../activity/table';
 import { MISSING_ROUTE_MESSAGE, apiGet, apiSend, describeError, isMissingRoute } from '../app/api';
 import { backendIsBehind } from './data';
 import { stamp } from './model';
@@ -127,8 +127,6 @@ export function useLockdownActions() {
   return { engage, lift };
 }
 
-const LINE_PX = 36;
-
 /** The Comments header's lockdown line: only while one is in force. Its
     arrival or departure mid-session moves the list's scroll offset by its
     own height, so the rows on screen stay where they were. */
@@ -146,12 +144,12 @@ export function LockdownLine({ scrollRef }: { scrollRef: React.RefObject<HTMLEle
     wasShown.current = shown;
     const node = scrollRef.current;
     if (!node || node.scrollTop <= 0) return;
-    node.scrollTop += shown ? LINE_PX : -LINE_PX;
+    node.scrollTop += shown ? statusLinePx() : -statusLinePx();
   }, [shown, scrollRef]);
 
   if (!shown) return null;
   return (
-    <div role="status" className="flex h-9 shrink-0 items-center gap-3 border-b px-3 text-[13px]">
+    <div role="status" className={STATUS_LINE}>
       <span className="flex shrink-0 items-center gap-2">
         <Dot tone={error ? 'danger' : 'attention'} />
         <span className="font-medium">Lockdown</span>
