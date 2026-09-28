@@ -52,6 +52,12 @@ read of both repos on `origin/main`).
   - nesting depth: at most two levels from the screen to any datum.
 - Comments are a chronological log table (who, what, fingerprint, IP,
   location, device) with a flat detail panel one click away.
+- Density is moderate, not tight (owner, 2026-09-28: "too compact, my eyes
+  feel messy"):
+  - List rows are 44 px, about 17 per 900 px screen.
+  - Rows are separated by space or a subtle separator, not hard rules.
+  - A line uses at most two text styles.
+  - Home is calm and airy, with one clear first thing.
 
 ## 2. Principles
 
@@ -319,3 +325,98 @@ Verification per phase: `bun run check`, `bun run test:unit`, browser check in
 demo mode (desktop, iPad touch, phone), `check:docs-coverage` whenever a route
 changes. Backend phases also run site-api's tests; nothing is pushed or
 merged without the owner's yes (a merge to `main` is a release).
+
+## 14. Screen briefs
+
+Each screen states its job, primary path (steps), what sits at level 1 and 2,
+its states, and measured click → next paint at 4× CPU (dev build unless
+noted). A screen without a brief is not done.
+
+**Comments** `/comments`
+- **Job:** clear Held fast, and answer "who is this writer and what else did
+  they do" in one click.
+- **Paths:**
+  - Keyboard triage is one key per comment, with auto-advance.
+  - From Telegram to a decision: open, then 1 tap.
+  - Ban: `b` then `Enter`.
+  - A writer's whole history: 1 click, and Back restores place.
+  - The full fingerprint: 1 click.
+- **L1:**
+  - A toolbar line: status with counts, post picker, search, ⋯.
+  - A chronological log, 37 px rows, 22 visible at 1440×900. Columns: time,
+    status, writer, comment, post, fingerprint, IP, location, device.
+- **L2:** a flat 440 px panel with actions, text, reason line, writer, the
+  full fingerprint record (copy + count pivots) and history. On a phone it is
+  a full-screen drawer.
+- **Touch:** swipe right approves, left deletes (with undo); long-press
+  selects.
+- **Measured** (ms):
+
+  | Action | Time |
+  | --- | --- |
+  | j | 79 |
+  | a | 82 |
+  | d | 73 |
+  | z | 68 |
+  | Tab | 149 |
+  | Pivot | 150 |
+  | Back | 268 |
+
+  Tab, pivot and Back are over budget; wave 2 shell work fixes that.
+
+**Bans** `/comments/bans`
+- **Job:** see what is blocked, find a ban, lift it safely, add one by hand.
+- **Paths:** lift in 1 click (undo inline, toast or `z`); find by typing;
+  manual ban with `n`.
+- **L1:** Active / Expired / Removals tabs, search, filter menu.
+- **L2:** rows (key → comments pivot, note, hits, expiry, source, Lift).
+- **Measured** (ms):
+
+  | Action | Time |
+  | --- | --- |
+  | Lift | 46 |
+  | Undo | 32 |
+  | Search keystroke | 31 |
+  | Manual-ban dialog | 78 (207 on first open) |
+
+**Reactions** `/comments/reactions`
+- **Job:** who reacts to what; spot stuffing runs.
+- **Paths:** pivot or ban in 2 steps; a session or subnet cell reaches its
+  comments in 1 click.
+- **L1:** hourly chart, "Crowded" targets, feed with filters and search.
+- **L2:** row menu.
+- **Measured:** search 29 ms.
+
+**Insights** `/comments/insights`
+- **Job:** what a 7, 30 or 90-day window looks like.
+- **Path:** any row reaches its comments in 1 click.
+- **L1:** KPIs with deltas, a daily chart, and ranked tables with inline bars.
+- **L2:** row menu.
+- **Measured:** window switch 51 ms. Tables finish in a deferred render
+  (~196 ms after).
+
+**Home** `/`
+- **Job:** what needs you now, and one move to get there.
+- **Paths:** oldest held comment is 2 steps (open, then decide), inside the
+  Held queue. Gate release is click, then confirm (no backend undo).
+- **L1:** Needs you, Last 14 days, Recent activity.
+- **L2:** one line per item.
+- **Measured:** Activity → Home 43 ms.
+
+**Activity** `/activity`
+- **Job:** one log of comment and reaction events.
+- **Paths:** an entry to its comment in 1 click; filter by reader in 1 click.
+- **L1:** filter bar and day headings.
+- **L2:** rows.
+- **Measured:** Home → Activity 60 ms. Back 82 ms, with scroll restored.
+
+**Analytics** `/analytics`, `/analytics/:slug`
+- **Job:** readership by range, and one article without leaving the list.
+- **Paths:** article open and Back are 1 click each; range is 1 click.
+- **Measured** (ms, prod React build):
+
+  | Action | Time |
+  | --- | --- |
+  | Range switch | 30 |
+  | Article open | 46 (119 the first time) |
+  | Back | 34–43 |

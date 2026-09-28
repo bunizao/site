@@ -15,7 +15,8 @@ footer behavior that comes with it.
 | --- | --- | --- |
 | [`Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro) | The HTML shell, canonical/OG/Twitter metadata, RSS and oEmbed discovery links, the navbar, the site menu, the theme dropdown, the command palette, and the spotlight overlay | Nearly every page, directly |
 | [`Page.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Page.astro) | `Layout` with `navVariant="page"` plus `body.page-template-active` and a `main.page-template` wrapper | Nothing right now — `/privacy` composes `Layout` itself |
-| [`BlogLayout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/BlogLayout.astro), [`PortalLayout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/PortalLayout.astro) | Reading chrome for `/blog`, and the admin portal shell | `/blog/*`, `/dev/portal/*` |
+| [`BlogLayout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/BlogLayout.astro) | Reading chrome for `/blog` | `/blog/*` |
+| [`[...path].astro`](https://github.com/bunizao/site/blob/main/src/pages/dev/portal/%5B...path%5D.astro) | The admin portal's own HTML shell, which mounts the client app in `src/features/portal/` and uses no layout | `/dev/portal/*` |
 | [`Footer.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Footer.astro) | The shared footer | Composed per page, not injected by the shell |
 
 No third-party analytics script is mounted anywhere in the shell.
@@ -125,9 +126,7 @@ curve family, one duration scale, site-wide:
 | `--dur-enter` | `240ms` |
 
 The scale was adopted from the portal, which was the only part of the site that
-had one; [`src/styles/portal.css`](https://github.com/bunizao/site/blob/main/src/styles/portal.css) now aliases its
-`--portal-*` names to these so its existing rules keep reading their own
-vocabulary.
+had one.
 
 **Rule: new motion uses a token. A literal curve needs a comment saying why it
 is not one.**
@@ -148,7 +147,6 @@ rendering:
 - `src/features/components/ui/OnThisPage.astro:72` — `--ease-out`
 - `src/pages/privacy.astro:334` — `--ease-out`
 - `src/components/CommandPalette.astro:1554-1556` — `--ease`
-- `src/features/admin/ui/AnalyticsCharts.tsx:158` — `--ease` (inline style, React island)
 
 `src/styles/code-box.css:11` and `src/styles/listening.css:655` already read
 `var(--ease-out, …)` with a literal fallback; that form is deliberate for
