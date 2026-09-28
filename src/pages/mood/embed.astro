@@ -488,13 +488,21 @@ function getImageClassName(post: MoodFeedItem): string {
        become real paragraphs (split server-side) two thirds of a line apart
        instead of a whole line-height, and wrapping avoids a lone last word.
 
-       The negative margins trim the half-leading off the block's first and
-       last line, so the flex gap and card padding measure to the text itself
-       rather than to air inside its line box; otherwise the body sits a few
-       pixels lower and the card's bottom looks heavier than its top. */
+       The half-leading is trimmed only where the text meets the byline or the
+       card's bottom edge, so those gaps measure to the text itself and the
+       card's bottom stops looking heavier than its top. Against a quote or
+       media box it stays: a hard edge needs that air, and without it the
+       text crowds the box. */
     .mood-item-text {
-      margin-block: calc((1em - 1lh) / 2);
       text-wrap: pretty;
+    }
+
+    .mood-item-text:first-child {
+      margin-top: calc((1em - 1lh) / 2);
+    }
+
+    .embed-body:last-child > .mood-item-text:last-child {
+      margin-bottom: calc((1em - 1lh) / 2);
     }
 
     .mood-item-text p + p {
