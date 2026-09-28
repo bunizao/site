@@ -122,6 +122,24 @@ async function stateOf(page: Page, id: string): Promise<string> {
   return body.message.state;
 }
 
+/** The pane's Sender section, and one of its rows by label. */
+const senderSection = (page: Page) => pane(page).locator('section').filter({ has: page.getByRole('heading', { name: 'Sender', exact: true }) });
+const senderRow = (page: Page, label: string) =>
+  senderSection(page).locator('dl > div').filter({ has: page.locator('dt').filter({ hasText: new RegExp(`^${label}$`) }) });
+/** What a pivot key also reached: its addresses, devices and messages. */
+const pivotProfile = (page: Page) => page.locator('dl[aria-label="Also under this key"]');
+const profileLine = (page: Page, label: string) =>
+  pivotProfile(page).locator('div').filter({ has: page.locator('dt').filter({ hasText: new RegExp(`^${label}$`) }) });
+
+/** Answers the `read` a new message sends when opened, so it stays new. */
+async function keepNew(page: Page, message: DemoMessage): Promise<void> {
+  await page.route(apiPath(`messages/${message.id}`), (route) =>
+    route.request().method() === 'POST'
+      ? route.fulfill({ json: { message: { ...message, state: 'read' }, changed: true } })
+      : route.fallback(),
+  );
+}
+
 /** Files a message back into the tray it started in. */
 async function putBack(page: Page, message: DemoMessage): Promise<void> {
   const now = await stateOf(page, message.id);
@@ -325,6 +343,90 @@ test.describe('messages', () => {
     await expect(pane(page)).toHaveCount(0);
     expect(await pathname(page)).toBe(`${PORTAL}/messages`);
     expect(await openId(page)).toBeNull();
+  });
+
+  test('the Sender section shows each key and what shares it, and the device pivot lists her addresses', async ({ page }) => {
+    const mira = await findMessage(page, (message) => message.displayName === 'Mira' && message.state === 'read');
+    await open(page, `/messages?m=${mira.id}`);
+    await expect(pane(page).getByText('Signed-in reader', { exact: true })).toBeVisible();
+    await expect(senderRow(page, 'Signed-in address')).toContainText('mira.k@example.de');
+    await expect(senderRow(page, 'Device')).toContainText('Firefox 131 on macOS');
+    await expect(senderRow(page, 'Network')).toContainText('AS3320 Deutsche Telekom');
+
+    // Her comments come from the same device: one link, both kinds counted.
+    const device = senderRow(page, 'Device fingerprint').getByRole('link', { name: /^\d+ comments? · 3 messages$/ });
+    await device.click();
+    await expect(page).toHaveURL(/\/comments\?status=all&key=client_fp&value=/);
+    await expect(profileLine(page, 'Addresses')).toContainText('mira.k@example.de');
+    await expect(profileLine(page, 'Addresses')).toContainText('mira@posteo.de');
+    await expect(profileLine(page, 'Addresses').getByText(/^signed in · 3 messages$/)).toBeVisible();
+    await expect(profileLine(page, 'Messages').getByRole('link')).toHaveCount(3);
+    await expect(profileLine(page, 'Devices')).toHaveCount(0);
+  });
+
+  test('a sender who typed a reader’s address is labelled typed, and never as that reader', async ({ page }) => {
+    const typed = await findMessage(page, (message) => message.displayName === 'Mira K.');
+    await keepNew(page, typed);
+    await open(page, `/messages?m=${typed.id}`);
+    await expect(pane(page).getByText('Typed a reader’s address', { exact: true })).toBeVisible();
+    await expect(pane(page).getByText('Signed-in reader', { exact: true })).toHaveCount(0);
+    await expect(senderRow(page, 'Signed-in address')).toHaveCount(0);
+    const address = senderRow(page, 'Typed address');
+    await expect(address).toContainText('mira.k@example.de');
+    // The address is Mira's, and her three messages share it; the device is not.
+    await expect(address.getByRole('link', { name: '4 messages' })).toBeVisible();
+    await expect(senderRow(page, 'Device')).toContainText('Chrome 129 on Windows');
+    await expect(senderRow(page, 'Device fingerprint')).toContainText('only this');
+  });
+
+  test('a pivot on an address lists the devices that typed it, and a device that typed it is not the reader', async ({ page }) => {
+    const typed = await findMessage(page, (message) => message.displayName === 'Mira K.');
+    await keepNew(page, typed);
+    await open(page, `/comments?status=all&key=email&value=${typed.emailHash}`);
+    await expect(page.locator('main code').filter({ hasText: 'mira.k@example.de' })).toBeVisible();
+    await expect(profileLine(page, 'Messages').getByText(/^4: /)).toBeVisible();
+    await expect(profileLine(page, 'Devices').getByRole('link')).toHaveText(['Firefox 131 on macOS', 'Chrome 129 on Windows']);
+
+    await profileLine(page, 'Devices').getByRole('link', { name: 'Chrome 129 on Windows' }).click();
+    await expect(page).toHaveURL(/\/comments\?status=all&key=client_fp&value=/);
+    await expect(profileLine(page, 'Addresses').getByRole('link', { name: 'mira.k@example.de' })).toBeVisible();
+    await expect(profileLine(page, 'Addresses').getByText('typed · 1 message', { exact: true })).toBeVisible();
+
+    await profileLine(page, 'Messages').getByRole('link', { name: /^Mira K\.: / }).click();
+    await expect(pane(page).getByRole('heading', { name: 'Mira K.' })).toBeVisible();
+    expect(await openId(page)).toBe(typed.id);
+  });
+
+  test('B bans the sender and files the message as spam, and Undo lifts both', async ({ page }) => {
+    const jie = await findMessage(page, (message) => message.displayName === '阿杰' && message.state === 'replied');
+    const addressBanned = async () => {
+      const { bans } = (await (await page.request.get(`${API}/bans`)).json()) as { bans: Array<{ keyValue: string }> };
+      return bans.some((ban) => ban.keyValue === jie.emailHash);
+    };
+    try {
+      await open(page, `/messages?m=${jie.id}`);
+      // B needs the sender, which comes with the detail.
+      await expect(senderSection(page)).toBeVisible();
+      await page.keyboard.press('b');
+      const dialog = page.getByRole('dialog', { name: 'Ban this sender' });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByText(/^Files this message as spam\./)).toBeVisible();
+      await expect(dialog.getByRole('button', { name: 'This comment', exact: true })).toHaveCount(0);
+
+      await page.keyboard.press('Enter');
+      await expect(dialog).toBeHidden();
+      await expect(row(page, jie.id)).toHaveCount(0);
+      await expect.poll(() => stateOf(page, jie.id)).toBe('spam');
+      expect(await addressBanned()).toBe(true);
+
+      await toast(page, /^Banned \d+ keys? and filed the message as spam$/).getByRole('button', { name: 'Undo' }).click();
+      await expect(toast(page, 'Ban lifted and the message taken out of spam')).toBeVisible();
+      await expect.poll(() => stateOf(page, jie.id)).toBe('replied');
+      await expect.poll(addressBanned).toBe(false);
+      await expect(row(page, jie.id)).toBeVisible();
+    } finally {
+      await putBack(page, jie);
+    }
   });
 
   test('a link names a message and lands in the tray that holds it', async ({ page }) => {
