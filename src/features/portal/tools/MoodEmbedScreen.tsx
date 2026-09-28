@@ -46,7 +46,7 @@ const SEGMENTS: Array<{ key: EmbedKey; label: string; options: Array<{ value: st
     key: 'font',
     label: 'Font',
     options: [
-      { value: 'mono', label: 'Mono' },
+      { value: 'mono', label: 'Site' },
       { value: 'system', label: 'System' },
     ],
   },

@@ -333,8 +333,31 @@ describe('blog subscription feed', () => {
   test('serves direct unlisted Markdown with crawler exclusion headers', async () => {
     useMockGhostContent();
 
+    // Without an assets binding (astro dev) blog Markdown renders from Ghost.
     const response = await renderMarkdownIfRequested({
       request: new Request('https://buxx.me/blog/private-link-demo/', {
+        headers: { Accept: 'text/markdown' },
+      }),
+      locals: {},
+      site: new URL('https://buxx.me'),
+    });
+
+    expect(response?.status).toBe(200);
+    expect(response?.headers.get('X-Robots-Tag')).toBe(
+      'noindex, nofollow, noarchive, nosnippet',
+    );
+    expect(await response?.text()).toContain('# Direct link only fixture');
+  });
+
+  test('falls back to Ghost when the build has not caught up to a post yet', async () => {
+    useMockGhostContent();
+
+    // A post published after the last build is missing from both the listed
+    // and unlisted build output; that must not hard-404 the endpoint -- it
+    // falls through to a live Ghost read. A separate origin keeps the
+    // previous test's cached copy out of the way.
+    const response = await renderMarkdownIfRequested({
+      request: new Request('https://assets-only.example/blog/private-link-demo/', {
         headers: { Accept: 'text/markdown' },
       }),
       locals: {
@@ -348,9 +371,6 @@ describe('blog subscription feed', () => {
     });
 
     expect(response?.status).toBe(200);
-    expect(response?.headers.get('X-Robots-Tag')).toBe(
-      'noindex, nofollow, noarchive, nosnippet',
-    );
     expect(await response?.text()).toContain('# Direct link only fixture');
   });
 

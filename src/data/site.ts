@@ -48,6 +48,16 @@ export const profile = {
   ] satisfies ProfileLink[],
 } as const;
 
+// The Instagram card: a snapshot, updated by hand. Instagram refuses logged-out
+// reads from servers (401 "require_login" from build runners, Workers and
+// GitHub Actions alike), so nothing refreshes it automatically. To update,
+// replace public/instagram-avatar.jpg (320x320 JPEG) and the counts below.
+export const instagramSnapshot = {
+  avatar: '/instagram-avatar.jpg',
+  counts: { posts: 35, followers: 34, following: 89 },
+  takenAt: '2026-09-25',
+} as const;
+
 // --- Site meta --------------------------------------------------------------
 // Site-level identity strings: page titles, og:site_name, and the default
 // OG/meta description. seo.ts and Layout.astro read these instead of inlining.
@@ -114,10 +124,9 @@ export interface BlogLocaleCopy {
   };
   subscribe: SubscribeCopy;
   share: ShareCopy;
-  /** The two ways off a post: the inline link above the title on narrow
-      screens, and the rail in the gutter that replaces it on wide ones. Both
-      say the same thing at different lengths. */
-  back: { index: string; rail: string };
+  /** The inline link above the title on narrow screens. Wide screens carry
+      the publication mark in the gutter rail instead, which needs no words. */
+  back: { index: string };
   /** The writing ledger closing the index. `{n}`, `{year}`, `{month}`,
       `{posts}` and `{words}` are filled in; word counts come whole from
       `formatWords`. */
@@ -241,7 +250,7 @@ export const blog = {
         linkCopied: '链接已复制',
         share: '分享',
       },
-      back: { index: '← 全部文章', rail: '← 博客' },
+      back: { index: '← 全部文章' },
       ledger: {
         posts: '{n} 篇',
         since: '始于 {year}',
@@ -303,7 +312,7 @@ export const blog = {
         linkCopied: 'Link copied',
         share: 'Share',
       },
-      back: { index: '← All posts', rail: '← Blog' },
+      back: { index: '← All posts' },
       ledger: {
         posts: '{n} posts',
         since: 'since {year}',
@@ -320,8 +329,13 @@ export const blog = {
   } satisfies Record<BlogLocale, BlogLocaleCopy>,
   /** Canonical publication name. Surfaces may opt into `copy[locale].name`. */
   name: '無人之境',
-  /** Publication mark (thinking-woman line art). Drop the asset at this path. */
-  mark: '/blog-mark.webp',
+  /**
+   * Publication mark (thinking-woman line art) as pages draw it. It never
+   * renders above 48 CSS px, so 144px covers 3x screens at half the bytes.
+   */
+  mark: '/blog-mark-144.webp',
+  /** Full-size 256px mark: og:logo, and the source the email and OG scripts embed. */
+  logo: '/blog-mark.webp',
   /** RSS feed for reader-app subscribers. Self-hosted so it does not bounce through the legacy Ghost subdomain. */
   feed: '/blog/rss.xml',
   /**
@@ -385,7 +399,7 @@ export const blog = {
 // 21:1, which haloes in long-form reading):
 //
 //   dai 黛 — primary.   Links, TOC progress, focus.   text-safe (6.8:1 / 8.0:1)
-//   dian 靛 — the mark.  AiCredit line, byline.        text-safe (10.3:1 / 8.2:1)
+//   dian 靛 — the mark.  Reserved; no surface uses it. text-safe (10.3:1 / 8.2:1)
 //   ji 霁 — highlight.   <mark>, selection. FILL ONLY  (3.6:1 fails AA as text)
 //
 // dai (远山黛) is the greyed slate-blue shanshui painters dilute to push a ridge
@@ -406,8 +420,8 @@ export interface BlogInk {
 
 export const blogPalette = {
   dai: { light: '#3C5D80', dark: '#7FA8D6', role: 'primary' },
-  /* The ink of the "Not by AI" pledge and the author byline, and of nothing
-     else -- it stands for the human behind the work. */
+  /* Reserved for the author's mark. Emitted as --blog-dian but currently read by
+     no surface: the pledge uses --blog-muted/--blog-ink, the credit --blog-body. */
   dian: { light: '#27406E', dark: '#6FA8FF', role: 'mark' },
   ji: { light: '#3E8BD8', dark: '#6FB2F2', role: 'highlight' },
 } as const satisfies Record<string, BlogInk>;

@@ -1195,9 +1195,10 @@
    the canonical /mood/embed iframe; the wrapper just bounds it. The embed
    carries its own card frame and posts its height back to Prose.astro. */
 .blog-prose .blog-mood-embed {
-  /* Mirrors --body-padding in src/pages/mood/embed.astro, which keeps the card's
-     shadow from clipping inside the frame. That padding is bleed, not layout, so
-     pull the frame back out and let the card's border sit on the prose column. */
+  /* Mirrors --body-padding in src/pages/mood/embed.astro, which keeps focus
+     rings at the card's edge from clipping inside the frame. That padding is
+     bleed, not layout, so pull the frame back out and let the card's border sit
+     on the prose column. */
   --mood-embed-bleed: 8px;
   margin: var(--blog-block-card-gap) 0;
   max-width: min(100%, 460px);
@@ -1236,6 +1237,31 @@
 
 .blog-prose .footnotes-sep {
   display: none;
+}
+
+/* Footnote jumps are native fragment navigation, which aligns the target to
+   the viewport top: under the fixed reading bar, and at the edge of vision.
+   The margin lands both directions (reference → note, ↩ → reference) a little
+   above centre instead, with the cited sentence still in view. svh keeps it
+   stable while iOS toolbars collapse. Two markup shapes reach the page:
+   Ghost's markdown card (a#fnref1, li#fn1.footnote-item) and our footnote
+   directive (sup#fnref-1.blog-fn-ref, li#fn-1). */
+.blog-prose :is(.footnote-ref a, .footnote-item, .blog-fn-ref, .blog-footnotes li) {
+  scroll-margin-top: 40svh;
+}
+
+/* Mark where the jump landed. It holds until the next hash change, so the eye
+   can find the spot after an instant jump across the page. */
+.blog-prose :is(.footnote-ref a, .footnote-item, .blog-fn-ref, .blog-footnotes li):target {
+  --fn-target-fill: hsl(var(--foreground) / 0.07);
+  color: var(--blog-ink);
+  background: var(--fn-target-fill);
+  box-shadow: 0 0 0 3px var(--fn-target-fill);
+  border-radius: 3px;
+}
+
+.blog-prose :is(.footnote-item, .blog-footnotes li):target {
+  box-shadow: 0 0 0 6px var(--fn-target-fill);
 }
 
 /* The fixture marks footnotes as a trailing <hr> + <ol>; tone the rule down. */

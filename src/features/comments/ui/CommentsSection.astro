@@ -74,6 +74,10 @@ interface Props {
       a key), in which case the controller skips minting a widget and lets
       site-api's own `not_configured` response decide what happens. */
   turnstileSiteKey?: string;
+  /** Fetch the thread as soon as the controller runs instead of waiting for
+      the section to come near the viewport. For the lab, whose thread sits
+      under a long catalog and whose tests read it without scrolling. */
+  loadEagerly?: boolean;
 }
 
 const {
@@ -92,6 +96,7 @@ const {
   errorCode,
   requireEmail = false,
   hidden = false,
+  loadEagerly = false,
 } = Astro.props;
 
 const tally = comments.filter((comment) => !comment.held && !comment.tombstone).length;
@@ -116,6 +121,7 @@ const t = commentsCopy[locale];
   data-state={state}
   data-require-email={requireEmail ? 'true' : undefined}
   hidden={hidden}
+  data-load={loadEagerly ? 'eager' : undefined}
 >
   <div class="blog-comments__head">
     <h2 class="blog-comments__title">{t.title}</h2>

@@ -154,7 +154,7 @@ export function failureTag(failure: CommentFailure): string {
 
 /* Which refusals are worth explaining at length, and where.
 
-   Not all fourteen. A link is a promise that there is more to say, and on
+   Not all fifteen. A link is a promise that there is more to say, and on
    "you're offline" or "that's a bit long (2000 characters max)" there is not
    -- the message already names the whole problem and the whole fix, and
    pointing at a page underneath it just tells the reader we did not trust
@@ -164,10 +164,13 @@ export function failureTag(failure: CommentFailure): string {
    yet, a deadline whose length nobody stated, and a thread that is "not
    available right now" without saying whether their draft died with it.
 
-   The docs are English and the box speaks both, so each of these sections
-   carries a one-line Chinese gloss. That is the honest version of the
-   trade-off: a zh reader clicking through to a wall of English would be worse
-   than no link at all. */
+   Each link lands on a section of the reader-facing comments page, under an
+   `id="comment-error-<anchor>"` marker. The section spells out the rule the
+   message has no room for (which names and addresses are refused, what a
+   confirmation link can and cannot do, what makes a comment need an address,
+   how long the edit window lasts, the two meanings of "not available") and
+   the reader's next step. The sections are English only, like the rest of
+   the docs, although the comment box speaks both English and Chinese. */
 const DOCS_ERROR_PAGE = '/docs/surfaces/comments';
 
 const EXPLAINED: Partial<Record<CommentErrorCode, string>> = {

@@ -64,28 +64,31 @@ test('no fixed layer at the screen top is fully opaque', async ({ page }) => {
 
 // Safari 26 colours the status-bar band from a hit test about 8px inside the
 // top edge: fixed and sticky layers only, first plain background-color up to
-// the fixed ancestor. The bar's controls sit over the same point, so this
-// checks what the probe actually lands on.
-test('the reading bar gives Safari an opaque colour at the top-edge probe', async ({ page }) => {
+// the fixed ancestor. The bar carries an opaque strip for that probe, gated to
+// iOS WebKit. Chromium cannot run the iOS branch, so this checks the gate holds
+// the strip out of every other engine and that the iOS rule still exists.
+test('the reading bar keeps the Safari probe strip out of other engines', async ({ page }) => {
   await openDemoPost(page);
   await scrollPageTo(page, 800);
   await expect(page.locator('.toc-topbar')).toHaveClass(/is-visible/);
 
   const probe = await page.evaluate(() => {
     const hit = document.elementFromPoint(window.innerWidth / 2, 8);
-    return {
-      className: hit?.className ?? null,
-      background: hit ? getComputedStyle(hit).backgroundColor : null,
-    };
+    const gated = Array.from(document.styleSheets).some((sheet) => {
+      try {
+        return Array.from(sheet.cssRules).some((rule) =>
+          rule instanceof CSSSupportsRule
+          && rule.conditionText.includes('-webkit-touch-callout')
+          && rule.cssText.includes('.toc-topbar__band--light'));
+      } catch {
+        return false;
+      }
+    });
+    return { className: hit?.className ?? '', gated };
   });
 
-  expect(probe.className).toBe('toc-topbar__band toc-topbar__band--light');
-  expect(probe.background).toMatch(/^rgb\(/);
-
-  await scrollPageTo(page, 0);
-  await expect(page.locator('.toc-topbar')).not.toHaveClass(/is-visible/);
-  const atTop = await page.evaluate(() => document.elementFromPoint(window.innerWidth / 2, 8)?.className ?? null);
-  expect(atTop).not.toContain('toc-topbar__band');
+  expect(probe.className).not.toContain('toc-topbar__band');
+  expect(probe.gated).toBe(true);
 });
 
 test('the blog scrolls the root and keeps the reading chrome at the viewport origin', async ({ page }) => {

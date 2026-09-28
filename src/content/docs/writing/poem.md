@@ -1,13 +1,13 @@
 ---
 title: Poems
-description: Verse blocks — the [!poem] marker, the two modifiers, stanza and attribution handling, and the three ways a blockquote becomes a poem on its own.
+description: "Verse blocks: the [!poem] marker, two modifiers, stanzas, attribution, and the three auto-detection rules."
 group: Writing
 order: 2
 ---
 
-Verse is written as a blockquote. The `poem` directive promotes it into a card:
-a soft rounded panel with an oversized opening quote, italic lines, stanza
-breaks, and a signature line for the attribution.
+Write verse as a blockquote. The `poem` directive turns it into a card: a soft
+rounded panel with an oversized opening quote, italic lines, stanza breaks, and
+a signature line for the attribution.
 
 ```md demo
 > [!poem] 雨巷
@@ -22,68 +22,69 @@ breaks, and a signature line for the attribution.
 > — 戴望舒
 ```
 
-Everything after `[!poem]` on the marker line is the title, rendered above the
-verse in small letter-spaced caps. The title is optional; `[!poem]` alone is
-fine.
+Everything after `[!poem]` on the marker line is the title. It renders above the
+verse in small letter-spaced caps. The title is optional, so `[!poem]` on its
+own works.
 
 ## Modifiers
 
-Two bracketed words may appear anywhere in the title line. They are stripped out
-of the title itself, so `[!poem] 雨巷 [center]` has the title `雨巷`.
+Two bracketed words can go anywhere in the title line. The build strips them
+out of the title, so `[!poem] 雨巷 [center]` has the title `雨巷`.
 
 | Modifier | Effect |
 | --- | --- |
 | `[center]` | Centers the stanzas, the attribution, and the quote glyph. |
-| `[plain]` | Drops the italics — verse stays upright. |
+| `[plain]` | Drops the italics, so the verse stays upright. |
 
-They combine: `[!poem] Sea Fever [center] [plain]`.
+You can combine them: `[!poem] Sea Fever [center] [plain]`.
 
 ## Stanzas
 
-How the body is split depends on what the editor produced.
+How the body splits depends on what the editor produced:
 
-If the blockquote contains paragraphs, each `<p>` is one stanza. If it is one
-paragraph of hand-broken lines, stanzas split on **two or more consecutive line
-breaks** — a single break is a line within a stanza. In the Ghost editor that
-means `Shift+Enter` for a new line and a blank line for a new stanza.
+- If the blockquote contains paragraphs, each `<p>` is one stanza.
+- If it is one paragraph of hand-broken lines, stanzas split on **two or more
+  consecutive line breaks**. A single break is a new line within a stanza.
+
+In the Ghost editor, press `Shift+Enter` for a new line and leave a blank line
+for a new stanza.
 
 ## Attribution
 
 A trailing attribution is lifted out of the verse and rendered as a `<cite>`
-under it. It is found two ways.
+under it. The build finds it in one of two ways.
 
-**As its own stanza.** If the last stanza is nothing but a dash and a short name
-— `— 戴望舒`, `-- Masefield` — the whole stanza becomes the attribution. This
+**As its own stanza.** If the last stanza is only a dash and a short name
+(`— 戴望舒`, `-- Masefield`), the whole stanza becomes the attribution. This
 needs at least one other stanza, so a one-line blockquote that happens to start
 with a dash is left alone.
 
-**At the end of the last line.** Otherwise the last stanza is split on a trailing
-`—`, `–`, or `--` followed by up to 40 characters, and only that tail becomes the
-attribution.
+**At the end of the last line.** Otherwise, the build splits the last stanza on
+a trailing `—`, `–`, or `--` followed by up to 40 characters. Only that tail
+becomes the attribution.
 
-Both forms cap the attribution at 40 characters. A long final line beginning with
-an em dash is prose, not a signature, and stays in the verse.
+Both forms cap the attribution at 40 characters. A long final line that starts
+with an em dash is treated as prose and stays in the verse.
 
-## Detection without the marker
+## Poems without the marker
 
-The marker is not the only way in. A blockquote is treated as verse if **any** of
-these hold:
+A blockquote is treated as verse if **any** of these is true:
 
 1. It opens with `[!poem]`.
-2. Its text ends with an attribution — `—` or `–` followed by 1–40 characters.
+2. Its text ends with an attribution: `—` or `–` followed by 1–40 characters.
 3. It contains two or more `<br>` breaks, and no list, heading, or preformatted
    block.
 
-Rule 2 is why a quotation ending `— Ursula K. Le Guin` gets the card treatment
-without being asked. Rule 3 is why hand-broken verse pasted into a blockquote
-works. Both were chosen so that the common cases need no syntax at all.
+Rule 2 gives a quotation ending `— Ursula K. Le Guin` the card without any
+syntax. Rule 3 makes hand-broken verse pasted into a blockquote work. Both rules
+exist so the common cases need no syntax at all.
 
-If you want a plain blockquote that trips one of these, break the pattern:
-put the attribution in the sentence rather than after a dash, or give the
+To keep a plain blockquote that matches one of these rules, break the pattern.
+Put the attribution inside the sentence instead of after a dash, or give the
 blockquote a `<ul>`, heading, or code block.
 
-Code inside a blockquote is masked before any of this runs, and a masked `<pre>`
-suppresses rule 3 outright — a fenced block among the lines means it is not
+Code inside a blockquote is masked before any of this runs. A masked `<pre>`
+turns off rule 3 completely: a fenced block among the lines means it isn't
 verse.
 
 ## Output
@@ -97,12 +98,12 @@ verse.
 </blockquote>
 ```
 
-The card classes are applied for `web`, `preview`, **and** `rss`. Feed readers
-strip the class attribute but keep the structure, so the stanza breaks and the
-`<cite>` survive; only the panel is lost. For `og` and `excerpt` the plain
-`<blockquote>` is emitted with no classes at all.
+The card classes apply to `web`, `preview`, **and** `rss`. Feed readers strip
+the class attribute but keep the structure, so the stanza breaks and the
+`<cite>` survive and only the panel is lost. For `og` and `excerpt`, the build
+emits a plain `<blockquote>` with no classes.
 
-A blockquote already carrying `blog-poem` is skipped, so the transform is safe to
-run twice over the same document.
+A blockquote that already has `blog-poem` is skipped, so running the transform
+twice over the same document is safe.
 
 Styles live in `src/styles/blog-prose.css` under *Poem card*.

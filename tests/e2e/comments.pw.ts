@@ -1136,3 +1136,36 @@ test('on a phone the fan fits on screen and a drag from the face picks one', asy
   await expect.poll(() => bodies.find((body) => body.mode === 'choose')?.seed).toBe(Number(picked));
   await context.close();
 });
+
+test('a finger tap opens the fan without its click landing on it, and a second tap picks', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, locale: 'en-US' });
+  const page = await context.newPage();
+  await installCommentApi(page);
+  const bodies = await installAvatarSeedApi(page);
+  await page.goto('/lab/comments?interactive=1&locale=en', { waitUntil: 'networkidle' });
+
+  const face = page.locator('.blog-comments > .blog-compose [data-compose-identity] [data-avatar-own]');
+  await face.scrollIntoViewIfNeeded();
+  const cdp = await context.newCDPSession(page);
+  // A real finger rests for a moment: long enough for the fan to come out
+  // under it before the browser hit-tests the tap's click.
+  const tap = async (box: { x: number; y: number; width: number; height: number }) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] });
+    await page.waitForTimeout(150);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+
+  await tap((await face.boundingBox())!);
+  const fan = page.locator('.blog-avatar-fan.is-open');
+  await expect(fan.locator('.blog-avatar-fan__item[data-seed]')).toHaveCount(5);
+  await page.waitForTimeout(300);
+  expect(bodies.filter((body) => body.mode === 'offer').length).toBeLessThanOrEqual(2);
+  await expect(fan.locator('.blog-avatar-fan__more')).not.toHaveAttribute('style', /--turns/);
+
+  const target = fan.getByRole('button', { name: 'Face 2' });
+  const picked = await target.getAttribute('data-seed');
+  await tap((await target.boundingBox())!);
+  await expect(page.locator('.blog-avatar-fan')).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('blog:avatar-seed'))).toBe(picked);
+  await context.close();
+});

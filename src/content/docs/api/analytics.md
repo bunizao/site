@@ -1,50 +1,56 @@
 ---
 title: Analytics API
-description: Seven routes that split cleanly in two — same-origin write endpoints the site's own pages call, and Cloudflare Access-gated read endpoints only the admin portal can reach.
+description: Same-origin write endpoints the site's own pages call, plus Cloudflare Access-gated reads for the admin portal.
 group: API
 order: 9
 ---
 
-Seven routes, two halves that behave nothing alike:
+The analytics routes record how people read and listen on the site, and let
+the admin portal read the results back. The seven routes fall into three groups
+that authenticate in different ways:
 
-- **Writes** (`event`, `v2/analytics/listening`) are open to anyone whose
-  request looks like it came from a page on `buxx.me`. No token, no session —
-  an `Origin`/`Referer` check and a bot filter.
-- **Reads** (`events`, `summary`, `article/{slug}`) are gated by
-  **Cloudflare Access only**. An admin session cookie does not open them.
-- **Newsletter pixels** (`newsletter/open`, `newsletter/click`) authenticate
-  the *event*, not the caller, with an HMAC token minted into the email.
+| Group | Routes | Auth |
+| --- | --- | --- |
+| Writes | `event`, `v2/analytics/listening` | Open to any request that looks like it came from a page on `buxx.me`. No token or session, only an `Origin`/`Referer` check and a bot filter. |
+| Reads | `events`, `summary`, `article/{slug}` | **Cloudflare Access only.** An admin session cookie does not open them. |
+| Newsletter pixels | `newsletter/open`, `newsletter/click` | An HMAC token minted into the email authenticates the *event*, not the caller. |
 
-Nothing here is a general-purpose analytics ingest. The write endpoints exist
-so the site can measure itself, and the origin gate is what keeps them from
-becoming a public write surface into D1.
+These routes are not a general-purpose analytics ingest. The write endpoints
+exist so the site can measure itself, and the origin gate keeps them from
+becoming a public way to write into D1.
 
 ## The same-origin gate
 
-Both write endpoints start with the same check, and it rejects more than you
-might expect:
+Both write endpoints run the same check first. It rejects more than you might
+expect:
 
-1. Collect `Origin` and `Referer`. **If both are absent, reject** — this is
-   the opposite of the usual CSRF pattern, where a missing `Origin` is
-   treated as same-origin. A bare `curl` with no headers gets `403`.
+1. The Worker collects `Origin` and `Referer`. **If both are absent, it
+   rejects the request.** The usual CSRF pattern treats a missing `Origin` as
+   same-origin; this gate does the opposite. A bare `curl` with no headers gets
+   `403`.
 2. A `localhost` / `127.0.0.1` origin is accepted **only** when the request
-   itself arrived on `localhost` / `127.0.0.1`. You cannot claim a local
-   origin against production.
+   itself arrived on `localhost` / `127.0.0.1`. You cannot claim a local origin
+   against production.
 3. Otherwise the origin must exactly match `https://buxx.me`,
    `https://www.buxx.me`, or the deployment's own `PUBLIC_SITE_URL` /
    `SITE_URL`.
 
-Failure is `403 {"error":"origin_rejected"}`.
+A failed check returns `403 {"error":"origin_rejected"}`.
 
-This is an anti-spam measure, not a security boundary — `Origin` is a header
-and a non-browser client can send whatever it likes. It stops casual
-drive-by writes; it does not stop a determined one.
+The gate is an anti-spam measure. It is not a security boundary: `Origin` is a
+header, and a non-browser client can send any value it likes. The gate stops
+casual drive-by writes but not a determined one.
 
-After the gate, both endpoints apply the same two limits: the raw body must be
-**4096 bytes or fewer** (`413 {"error":"body_too_large"}`), and a request whose
-`User-Agent` matches `bot|spider|crawl|slurp|preview|facebookexternalhit|whatsapp|telegrambot`
-is **accepted and discarded** — `204`, no body, nothing written. A `204` is
-not an error; it means "understood, deliberately not recorded".
+The bot filter runs alongside the gate. If the `User-Agent` matches
+`bot|spider|crawl|slurp|preview|facebookexternalhit|whatsapp|telegrambot`, the
+Worker **accepts the request and discards it**: `204`, no body, nothing
+written, whatever the body held. A `204` is not an error. It means the event
+was understood and intentionally not recorded.
+
+Both checks read headers only and run before the rate limiter, so rejected and
+bot traffic never uses quota. After them come the rate limit (`native` mode,
+see [Rate limits](/docs/api/overview#rate-limits)) and the body size check: the
+raw body must be **4096 bytes or fewer** (`413 {"error":"body_too_large"}`).
 
 ## Record a reading event
 
@@ -52,7 +58,8 @@ not an error; it means "understood, deliberately not recorded".
 POST /api/analytics/event
 ```
 
-Rate limit: 600 / 60s. What the blog reader posts as someone scrolls a post.
+The blog reader posts this event as someone scrolls a post. Rate limit: 600 /
+60s per IP and colo (`native`).
 
 ```json
 {
@@ -67,34 +74,47 @@ Rate limit: 600 / 60s. What the blog reader posts as someone scrolls a post.
 }
 ```
 
-**Required:** `eventId` (a v1–v8 UUID), `slug` (no `/`, no control
-characters), `visitorId` (8 characters or more). `dwellMs` is clamped to
-`0`–`7200000` (2 hours) and `scrollDepth` to `0`–`1`.
+| Field | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes | A v1–v8 UUID |
+| `slug` | yes | No `/`, no control characters |
+| `visitorId` | yes | 8 characters or more |
+| `dwellMs` | no | Clamped to `0`–`7200000` (2 hours) |
+| `scrollDepth` | no | Clamped to `0`–`1` |
+| `completed` | no | Stored as `true` if you send `completed: true` **or** if `scrollDepth >= 0.9`. Sending `completed: false` with a scroll depth of `0.95` still stores `true`. |
+| `referrer` | no | Falls back to the request's own `Referer` header when omitted |
 
-`completed` is computed, not just accepted: it is `true` if you send
-`completed: true` **or** if `scrollDepth >= 0.9`. Sending `completed: false`
-alongside a scroll depth of `0.95` still stores `true`.
+### Repeat posts for one page view
 
-`referrer` falls back to the request's own `Referer` header when omitted.
+The write is an upsert keyed on `eventId`. The numeric columns merge with
+`max()`, so `dwell_ms`, `scroll_depth`, and `completed` only ever go up.
 
-### Repeat posts merge, they don't duplicate
+Generate one `eventId` per page view and post it again as the reader
+progresses. A later post with a *lower* dwell or scroll value does nothing,
+which also means you cannot correct an inflated number by re-sending.
 
-The write is an upsert keyed on `eventId`, and the numeric columns merge with
-`max()` — `dwell_ms`, `scroll_depth`, and `completed` only ever go up. So the
-intended client pattern is to generate one `eventId` per page view and post it
-repeatedly as the reader progresses. Posting a *lower* dwell or scroll value
-later is a no-op, which also means you cannot correct an inflated number by
-re-sending.
+The server also records what it can see for itself: IP, country, region, city,
+ASN and AS org, Cloudflare colo, user agent, parsed browser / OS / device type,
+platform, and language. None of this comes from the payload, so a client can
+neither spoof it nor suppress it. The first post of an `eventId` captures these
+values; later posts only advance the progress columns and `updated_at`.
 
-Alongside the body, the server records what it can see for itself: IP,
-country, region, city, ASN and AS org, Cloudflare colo, user agent, parsed
-browser / OS / device type, platform, and language. None of that comes from
-the payload, so a client cannot spoof it — and cannot suppress it either.
+### Responses
 
-Responses: `200 {"status":"ok"}` stored, `204` dropped as a bot, or a flat
-error — `400 {"error":"invalid_event_id"}`, `invalid_slug`,
-`invalid_visitor_id`, `invalid_body`, `invalid_json`; `403 origin_rejected`;
-`413 body_too_large`; `500 {"error":"analytics_event_failed"}`.
+| Response | Meaning |
+| --- | --- |
+| `200 {"status":"ok"}` | Accepted |
+| `204` | Dropped as a bot |
+| `400 {"error":"invalid_event_id"}`, `invalid_slug`, `invalid_visitor_id`, `invalid_body`, `invalid_json` | Validation failed |
+| `403 origin_rejected` | Failed the origin gate |
+| `413 body_too_large` | Body over 4096 bytes |
+| `429` | Rate limited |
+| `500 {"error":"analytics_event_failed"}` | A failure before the write starts |
+
+Errors use the flat error shape. Once the body validates, the D1 write runs after the response (`waitUntil`).
+A `200` therefore means "valid and queued". If storage fails, the error is
+logged server-side instead of returned as a `500`. The `500` is left for
+failures before the write starts, such as a missing database binding.
 
 ## Record a playback event
 
@@ -102,12 +122,14 @@ error — `400 {"error":"invalid_event_id"}`, `invalid_slug`,
 POST /api/v2/analytics/listening
 ```
 
-Same gate, same caps, 600 / 60s. The payload and its enums are documented
-with the player itself — see
-[Listening API](/docs/api/listening#report-a-playback-event). Its unhandled
+This route works like the reading event: same gate, same caps, same `native`
+600 / 60s limit, and the same write after the response. The first post of a
+`playbackId` fixes the request metadata. The payload and its enums are
+documented with the player in
+[Listening API](/docs/api/listening#report-a-playback-event). The unhandled
 failure code is `listening_analytics_event_failed`.
 
-## Reads are Cloudflare Access only
+## Read analytics
 
 ```
 GET /api/analytics/events?limit=50
@@ -116,61 +138,65 @@ GET /api/analytics/article/{slug}?days=30
 ```
 
 All three call `requireCloudflareAccessIdentity` and answer
-`401 {"error":"unauthorized"}` without it. This is worth stating plainly
-because it is the one place on the surface where the two admin gates diverge:
-**the admin session cookie that opens `/api/admin/*` does not open these.**
-They need a Cloudflare Access JWT (`cf-access-jwt-assertion`). If a request
-works against `/api/admin/subscribers` and `401`s here, that is why — see
+`401 {"error":"unauthorized"}` without it.
+
+This is the one place in the API where the two admin gates differ. **The admin
+session cookie that opens `/api/admin/*` does not open these routes.** They need
+a Cloudflare Access JWT (`cf-access-jwt-assertion`). If a request works against
+`/api/admin/subscribers` but gets `401` here, that is why. See
 [Internal Endpoints](/docs/api/internal#admin-authentication).
 
-`limit` and `days` are read with `Number()` and fall back to `50` / `30` when
-the result is not finite, then clamped inside the query layer — `limit` to
-1-200, `days` to 1-365. An out-of-range value is silently clamped rather than
-rejected, so `?days=100000` returns 365 days and no error.
-`article/{slug}` additionally returns `400 {"error":"slug_required"}` for an
-empty slug.
+| Parameter | Default | Range |
+| --- | --- | --- |
+| `limit` | `50` | 1–200 |
+| `days` | `30` | 1–365 |
 
-Response bodies are admin-facing aggregates and are not specified here, on the
-same grounds as the rest of [Internal Endpoints](/docs/api/internal).
+The Worker reads both with `Number()` and uses the default when the result is
+not finite. The query layer then clamps the value. An out-of-range value is
+clamped without an error, so `?days=100000` returns 365 days.
+`article/{slug}` also returns `400 {"error":"slug_required"}` for an empty slug.
 
-Note there is no `405` on any of these: only `GET` is exported, so any other
-method falls through to Astro's router and returns a bare `404`. That is true
-of the write endpoints too — `GET /api/analytics/event` is a `404`, not a
-`405`.
+The response bodies are admin-facing aggregates. Like the rest of
+[Internal Endpoints](/docs/api/internal), they are not specified here.
 
-## Newsletter open and click tracking
+None of these routes return `405`. Only `GET` is exported, so any other method
+falls through to Astro's router and gets a bare `404`. The write endpoints
+behave the same way: `GET /api/analytics/event` is a `404`, not a `405`.
+
+## Track newsletter opens and clicks
 
 ```
 GET /api/analytics/newsletter/open?t={token}
 GET /api/analytics/newsletter/click?t={token}
 ```
 
-These are embedded in outgoing email, so they are built to be harmless when
-anything goes wrong. `t` is an HMAC token signed with `EMAIL_NOTIFY_SECRET`
-carrying the event type, email type, message and campaign ids, subscriber
-hash, and — for a click — the destination URL. The token authenticates the
-event; there is no caller auth, because the caller is a stranger's mail
-client.
+These URLs are embedded in outgoing email, so they are built to stay harmless
+when anything goes wrong.
 
-**Both fail open, and neither ever reports an error:**
+`t` is an HMAC token signed with `EMAIL_NOTIFY_SECRET`. It holds the event
+type, email type, message and campaign ids, subscriber hash, and, for a click,
+the destination URL. The token authenticates the event. There is no caller
+auth, because the caller is a stranger's mail client.
+
+**Both routes fail open and never report an error:**
 
 | Route | Always returns | On a missing, invalid, expired, or wrong-type token |
 | --- | --- | --- |
-| `newsletter/open` | `200`, a 43-byte transparent GIF, `Content-Type: image/gif`, `Cache-Control: no-store, max-age=0` | The same pixel. A broken token is indistinguishable from a good one. |
+| `newsletter/open` | `200`, a 43-byte transparent GIF, `Content-Type: image/gif`, `Cache-Control: no-store, max-age=0` | The same pixel. A broken token looks the same as a good one. |
 | `newsletter/click` | `302` | Redirects to `PUBLIC_SITE_URL` / `SITE_URL`, or `/blog` as a last resort, instead of the intended target. |
 
-A D1 write failure is caught and logged on both — the pixel still renders and
-the click still redirects. The reasoning is that a tracking failure must never
-show a broken image in someone's inbox or strand them on an error page from a
-link they clicked in good faith.
+Both routes catch and log a D1 write failure, so the pixel still renders and
+the click still redirects. A tracking failure should never put a broken image
+in someone's inbox or strand them on an error page after clicking a link.
 
-The click redirect target comes out of the signed token, never from a query
-parameter, so this is not an open redirect: minting a new destination requires
+The click route takes its redirect target from the signed token, never from a
+query parameter. It is not an open redirect: minting a new destination requires
 `EMAIL_NOTIFY_SECRET`.
 
-Since these are `GET`s in email, expect inflated counts from mail clients and
-security scanners that prefetch links and images. Neither route runs the
-user-agent bot filter that the write endpoints use, so nothing strips those
-out. The recorder does drop an event whose `subscriberCreatedAt` does not
-match the stored subscriber, which catches replayed tokens from a since-deleted
-record but not a scanner following a live link.
+Because these are `GET` requests in email, expect inflated counts from mail
+clients and security scanners that prefetch links and images. Neither route
+runs the user-agent bot filter from the write endpoints, so nothing strips
+those requests out. The recorder does drop an event whose
+`subscriberCreatedAt` does not match the stored subscriber. That catches
+replayed tokens from a since-deleted record, but not a scanner following a
+live link.

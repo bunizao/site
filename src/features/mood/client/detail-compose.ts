@@ -334,8 +334,9 @@ async function handleSubmit(box: HTMLElement, resend = false): Promise<void> {
 // continuation. Probe until it does; the window is in verdict-poll.ts.
 //
 // The mood thread's own read path cannot answer this. `/api/comments` is
-// edge-cached, viewer-agnostic, and lists only published rows re-attributed
-// from the Telegram scrape -- by design, since everyone gets the same thread.
+// shared-cached for ~15s (edge revalidation up to ~45s), viewer-agnostic, and
+// lists only published rows re-attributed from the Telegram scrape -- by
+// design, since everyone gets the same thread.
 // `/api/v2/comments` is the viewer-aware one: `no-store`, and it serves a
 // writer their own held row (comments-data.ts's visibility clause). So the
 // poll asks there, and the thread on screen is patched in place.

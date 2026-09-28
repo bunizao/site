@@ -5,7 +5,6 @@
 // dark mode stays in sync with the rest of buxx.me.
 import '../styles/globals.css';
 import '../styles/blog.css';
-import '../styles/embed-youtube.css';
 import { meta, blog, blogPalette, type BlogLocale } from '@/data/site';
 import {
   BLOG_OG_IMAGE_HEIGHT,
@@ -59,6 +58,8 @@ interface Props {
   languageAlternates?: { locale: string; href: string }[];
   /** Preload hint for the page's LCP image (e.g. the post feature image). */
   preloadImage?: { href: string; srcset?: string; sizes?: string };
+  /** Set by the page that paints the WenKai masthead lockup above the fold. */
+  preloadWordmark?: boolean;
 }
 
 const {
@@ -77,6 +78,7 @@ const {
   excludeFromSearch = false,
   languageAlternates = [],
   preloadImage,
+  preloadWordmark = false,
 } = Astro.props;
 const canonical = new URL(path, meta.siteUrl).href;
 // x-default is "the version for a reader we have no better answer for", which
@@ -105,7 +107,7 @@ const ogImage = customOgImage
     });
 const resolvedOgImageAlt = ogImageAlt ?? fullTitle;
 const blogMarkAsset = blog.mark;
-const ogLogoUrl = new URL(blogMarkAsset, meta.siteUrl).href;
+const ogLogoUrl = new URL(blog.logo, meta.siteUrl).href;
 const articleTags = tags.map((tag) => tag.trim()).filter(Boolean);
 const resolvedAuthorName = authorName ?? blog.author.name;
 const isProfileAuthor = resolvedAuthorName === profileName
@@ -246,21 +248,22 @@ const paletteCss = [
       />
     )}
 
-    <link
-      rel="preload"
-      href="/fonts/inter-variable.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
-    <link
-      rel="preload"
-      href="/fonts/wenkai-wordmark.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-      fetchpriority="high"
-    />
+    <!-- Body faces are never preloaded: Chrome holds first paint (up to
+         ~100ms) for any preloaded font still in flight, and the 48KB Inter
+         file competes with the stylesheets for the first round trips. The
+         metric-matched fallbacks in globals.css cover the swap. The 2.6KB
+         wordmark is the exception, on the one page that paints it: it is
+         font-display: block, so without the preload the lockup stays blank. -->
+    {preloadWordmark && (
+      <link
+        rel="preload"
+        href="/fonts/wenkai-wordmark.woff2"
+        as="font"
+        type="font/woff2"
+        crossorigin
+        fetchpriority="high"
+      />
+    )}
 
     <!-- No-FOUC theme init. Mirrors the global contract (storageKey 'theme',
          data-theme-setting, .dark class) so a choice made here or on the main

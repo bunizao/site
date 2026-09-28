@@ -292,6 +292,45 @@ test.describe('Blog reading UI', () => {
     }
   });
 
+  test('docks the masthead mark into the gutter rail on wide screens', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.setViewportSize({ width: 1440, height: 920 });
+    await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });
+
+    const mark = page.locator('.blog-mark');
+    const rail = page.locator('.blog-back-rail');
+    const ghost = page.locator('.toc-logo-ghost');
+    await expect(ghost).toHaveCount(1);
+
+    // At the top the masthead is the one way home: the rail holds no second
+    // link, visible or focusable.
+    await expect(mark).toBeVisible();
+    await expect(rail).toHaveClass(/rail-dock/);
+    await expect(rail).toBeHidden();
+
+    await scrollPageTo(page, 400);
+    await expect(rail).toBeVisible();
+    await expect(mark).toBeHidden();
+    await expect.poll(() => ghost.evaluate((element) => {
+      const ghostRect = element.getBoundingClientRect();
+      const targetRect = document.querySelector('.blog-back-rail img')?.getBoundingClientRect();
+      if (!targetRect) throw new Error('Blog rail mark target is missing');
+      return Math.max(
+        Math.abs(ghostRect.x - targetRect.x),
+        Math.abs(ghostRect.y - targetRect.y),
+        Math.abs(ghostRect.width - targetRect.width),
+        Math.abs(ghostRect.height - targetRect.height),
+      );
+    })).toBeLessThanOrEqual(1.5);
+    await expect.poll(() => rail.locator('img').evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).opacity)
+    )).toBe(1);
+
+    await scrollPageTo(page, 0);
+    await expect(rail).toBeHidden();
+    await expect(mark).toBeVisible();
+  });
+
   test('remeasures the TOC after preceding media changes height', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
     await page.goto('/blog/demo-effects', { waitUntil: 'domcontentloaded' });

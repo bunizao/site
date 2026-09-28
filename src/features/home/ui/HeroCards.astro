@@ -13,12 +13,11 @@
 // They are a pointer enhancement: every destination is also the link itself,
 // so the cards stay out of the accessibility tree and the tab order.
 import { ArrowRight } from 'lucide-react';
-import { blog, experience, hero, profile, projects } from '@/data/site';
+import { blog, experience, hero, instagramSnapshot, profile, projects } from '@/data/site';
 import { messageCopy } from '@/features/messages/copy';
 import { postPath } from '@/features/posts/format';
 import { getListedPosts } from '@/features/posts/server/content';
 import { GitHubIcon, InstagramIcon, TelegramIcon } from '@/components/icons';
-import { API_PREFIX, INSTAGRAM_AVATAR_PATH } from '@bunizao/contracts/routes';
 
 const school = experience[0];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -90,12 +89,14 @@ const readTotalStars = async (): Promise<string | null> => {
 };
 const totalStars = await readTotalStars();
 
-// The Instagram picture and counts come from site-api, which stores the last
-// profile read that passed validation (src/features/home/server/instagram.ts
-// there). The picture is its own route, so the page never names a signed
-// Instagram address; the counts load with the other live reads.
-const INSTAGRAM_AVATAR_URL = `${API_PREFIX}${INSTAGRAM_AVATAR_PATH}`;
-const INSTAGRAM_COUNT_LABELS = ['Posts', 'Followers', 'Following'] as const;
+// The Instagram card is a hand-updated snapshot (instagramSnapshot in
+// src/data/site.ts): Instagram refuses logged-out reads from servers.
+const instagramCounts = [
+  { label: 'Posts', value: instagramSnapshot.counts.posts },
+  { label: 'Followers', value: instagramSnapshot.counts.followers },
+  { label: 'Following', value: instagramSnapshot.counts.following },
+];
+const compactCount = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
 
 // A hand of cards fanned from the middle, the outer ones lower and turned
 // further. The way to the whole list is the first card, under the others.
@@ -146,8 +147,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
           <span class="mo-hole"></span>
           <img
             class="mo-portrait"
-            src="/badge/portrait-256.webp"
-            srcset="/badge/portrait-128.webp 128w, /badge/portrait-256.webp 256w, /badge/portrait-384.webp 384w"
+            data-mo-portrait
             sizes="128px"
             alt=""
             width="128"
@@ -279,7 +279,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   {github && (
     <div class="hc hc--github" data-card-id="github">
       <a class="hc-head hc-head--avatar" href={github.url} {...external}>
-        <img class="hc-avatar" src="/avatar.webp" alt="" width="36" height="36" loading="lazy" decoding="async" />
+        <img class="hc-avatar" data-gh-avatar alt="" width="36" height="36" loading="lazy" decoding="async" />
         <span class="hc-id">
           <span class="hc-title">{github.handle}</span>
           <span class="hc-sub">{github.short}</span>
@@ -316,12 +316,13 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   {instagram && (
     <div class="hc hc--instagram" data-card-id="instagram">
       <span class="ig-ring">
-        <img class="ig-avatar" src={INSTAGRAM_AVATAR_URL} alt="" width="64" height="64" loading="lazy" decoding="async" />
+        <span class="ig-avatar-fallback"><InstagramIcon className="ig-avatar-fallback-icon" /></span>
+        <img class="ig-avatar" data-ig-avatar src={instagramSnapshot.avatar} alt="" width="64" height="64" loading="lazy" decoding="async" />
       </span>
       <span class="hc-title">{instagram.handle}</span>
       <dl class="ig-counts">
-        {INSTAGRAM_COUNT_LABELS.map((label) => (
-          <div><dd class="hc-num" data-ig-count={label.toLowerCase()}>—</dd><dt>{label}</dt></div>
+        {instagramCounts.map((item) => (
+          <div><dd class="hc-num">{compactCount.format(item.value)}</dd><dt>{item.label}</dt></div>
         ))}
       </dl>
       <a class="ig-button" href={instagram.url} {...external}>
@@ -1536,12 +1537,41 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     }
   }
 
+  /* The fallback sits under the avatar in the same grid cell (`ig-ring` is a
+     grid with centred items), so it shows through the moment the avatar is
+     hidden with no extra layout of its own — same shape as the YouTube
+     avatar fallback in src/lib/embed/youtube-controller.ts. */
+  .ig-avatar-fallback {
+    grid-area: 1 / 1;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: oklch(0 0 0 / 0.06);
+    color: var(--home-fg-faint);
+  }
+
+  :global(html.dark) .ig-avatar-fallback {
+    background: oklch(1 0 0 / 0.08);
+  }
+
+  .ig-avatar-fallback :global(.ig-avatar-fallback-icon) {
+    width: 26px;
+    height: 26px;
+  }
+
   .ig-avatar {
+    grid-area: 1 / 1;
     width: 64px;
     height: 64px;
     border-radius: 50%;
     outline: 1px solid oklch(0 0 0 / 0.1);
     outline-offset: -1px;
+  }
+
+  .ig-avatar[hidden] {
+    display: none;
   }
 
   :global(html.dark) .ig-avatar {
@@ -1613,8 +1643,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
 </style>
 
 <script>
-  import type { InstagramProfile } from '@bunizao/contracts/instagram';
-  import { API_PREFIX, INSTAGRAM_PROFILE_PATH } from '@bunizao/contracts/routes';
+  import { getSharedMoodPreviewPosts } from '@/features/mood/client/preview-feed';
 
   const layer = document.querySelector<HTMLElement>('[data-hero-cards]');
   const bio = document.querySelector<HTMLElement>('[data-hero-bio]');
@@ -1727,10 +1756,9 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     if (!card || !stream) return;
     let latest: MoodPost[] = [];
     try {
-      const response = await fetch('/api/moods');
-      if (!response.ok) throw new Error(String(response.status));
-      const data = (await response.json()) as { posts?: MoodPost[] };
-      latest = (data.posts ?? []).slice(0, 3).reverse();
+      // Same request as the mood section below (one URL, one cache entry);
+      // the card shows only the newest three.
+      latest = (await getSharedMoodPreviewPosts<MoodPost>()).slice(0, 3).reverse();
     } catch {
       // Falls through to the line below; the link still works.
     }
@@ -1832,30 +1860,50 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     if (current === card) reposition();
   };
 
-  // ---------- Instagram ---------------------------------------------------
+  // Unlike the Monash portrait and GitHub avatar below, the Instagram avatar
+  // ships with a real `src` from first paint, so it can fail on its own (a
+  // missing or renamed snapshot file). `loading="lazy"` means it may already
+  // have errored before this script runs, so a stale check backs up the event
+  // listener. Same shape as the YouTube avatar fallback in
+  // src/lib/embed/youtube-controller.ts.
+  const mountInstagramAvatar = (): void => {
+    const avatar = layer?.querySelector<HTMLImageElement>('[data-ig-avatar]');
+    if (!avatar) return;
+    const hide = () => {
+      avatar.hidden = true;
+    };
+    avatar.addEventListener('error', hide, { once: true });
+    if (avatar.complete && avatar.naturalWidth === 0) hide();
+  };
 
-  const compactCount = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+  // ---------- Deferred card images -----------------------------------------
 
-  let instagramRequested = false;
-  const loadInstagram = async (): Promise<void> => {
-    if (instagramRequested) return;
-    instagramRequested = true;
-    const card = cardById('instagram');
-    if (!card) return;
-    let counts: InstagramProfile['counts'] | null = null;
-    try {
-      const response = await fetch(`${API_PREFIX}${INSTAGRAM_PROFILE_PATH}`);
-      if (!response.ok) throw new Error(String(response.status));
-      counts = ((await response.json()) as Partial<InstagramProfile>).counts ?? null;
-    } catch {
-      // The counts keep their dashes; the picture is its own request.
+  // The Monash portrait and GitHub avatar ship with no `src` in the markup
+  // (see the template above) so they never load on a homepage view that
+  // never opens the card. Each is filled in once, the first time its card
+  // actually opens, the same lazy-reveal shape `loadMoods()` uses for its
+  // thumbnails.
+  const revealedImages = new WeakSet<HTMLElement>();
+  const revealImage = (card: HTMLElement, selector: string, src: string, srcset?: string): void => {
+    if (revealedImages.has(card)) return;
+    const img = card.querySelector<HTMLImageElement>(selector);
+    if (!img) return;
+    img.src = src;
+    if (srcset) img.srcset = srcset;
+    revealedImages.add(card);
+  };
+
+  const revealCardImage = (card: HTMLElement, id: string | undefined): void => {
+    if (id === 'monash') {
+      revealImage(
+        card,
+        '[data-mo-portrait]',
+        '/badge/portrait-256.webp',
+        '/badge/portrait-128.webp 128w, /badge/portrait-256.webp 256w, /badge/portrait-384.webp 384w',
+      );
+    } else if (id === 'github') {
+      revealImage(card, '[data-gh-avatar]', '/avatar.webp');
     }
-    if (!counts) return;
-    for (const [key, value] of Object.entries(counts)) {
-      const node = card.querySelector(`[data-ig-count="${key}"]`);
-      if (node && typeof value === 'number') node.textContent = compactCount.format(value);
-    }
-    if (current === card) reposition();
   };
 
   // ---------- Open and close ----------------------------------------------
@@ -1863,6 +1911,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   const open = (link: HTMLElement): void => {
     const card = cardById(link.dataset.card);
     if (!card) return;
+    revealCardImage(card, link.dataset.card);
     currentLink?.removeAttribute('data-card-active');
     link.dataset.cardActive = '';
     currentLink = link;
@@ -1899,20 +1948,24 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
   const linkFrom = (target: EventTarget | null): HTMLElement | null =>
     target instanceof Element ? target.closest<HTMLElement>('a[data-card]') : null;
 
-  const warm = (): void => {
-    void loadMoods();
-    void loadGitHub();
-    void loadInstagram();
+  // Only the hovered/focused link's own card has anything to fetch; the
+  // other five bio links (projects, write, monash, message, telegram) have
+  // no matching loader at all.
+  const warm = (id: string | undefined): void => {
+    if (id === 'moods') void loadMoods();
+    else if (id === 'github') void loadGitHub();
   };
 
   if (layer && bio) {
+    mountInstagramAvatar();
+
     bio.addEventListener('pointerover', (event) => {
       if (event.pointerType !== 'mouse') return;
       const link = linkFrom(event.target);
       if (!link) return;
-      // Any link hover is intent to explore; start the network reads now so
-      // the live cards rarely open on a placeholder.
-      warm();
+      // Any link hover is intent to explore; start that link's own network
+      // read now so its card rarely opens on a placeholder.
+      warm(link.dataset.card);
       window.clearTimeout(closeTimer);
       window.clearTimeout(openTimer);
       if (current) open(link);
@@ -1952,7 +2005,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
     bio.addEventListener('focusin', (event) => {
       const link = linkFrom(event.target);
       if (!link?.matches(':focus-visible')) return;
-      warm();
+      warm(link.dataset.card);
       open(link);
     });
 
@@ -1974,7 +2027,7 @@ const external = { target: '_blank', rel: 'noopener noreferrer', tabindex: -1 };
       // Compared by id: the decode swaps the link elements when it settles.
       if (!card || (tapped && current === card)) return;
       event.preventDefault();
-      warm();
+      warm(link.dataset.card);
       window.clearTimeout(openTimer);
       window.clearTimeout(closeTimer);
       open(link);

@@ -406,20 +406,34 @@
   z-index: 60;
 }
 
-/* A wash of page colour under the fan, so the form beneath stops reading
-   through the gaps between faces: an ellipse centred 50px right of the face,
-   solid over the arc and gone by its rim. */
+/* A progressive blur under the fan, so the form beneath softens out of the
+   gaps between faces instead of reading through them. No edge and no
+   regular shape: the mask is a handful of feathered blobs of different sizes
+   strewn along the arc, and their union fades from full blur over the faces
+   to nothing, like breath on glass. The face's centre sits at 110px 170px
+   in this box. It may run off a phone's left edge -- with no rim, that
+   shows as nothing. (Replaced a near-opaque wash of page colour, which read
+   as a dark smudge, and then a framed glass pane, which read as a box.) */
 .blog-avatar-fan::before {
   content: '';
   position: absolute;
-  left: -100px;
-  top: -150px;
+  left: -110px;
+  top: -170px;
   width: 300px;
-  height: 300px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, hsl(var(--background) / 0.96) 70%, hsl(var(--background) / 0));
+  height: 340px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  --fan-blur-mask:
+    radial-gradient(ellipse 110px 140px at 150px 172px, #000 50%, transparent),
+    radial-gradient(circle 84px at 128px 82px, #000 25%, transparent),
+    radial-gradient(ellipse 96px 72px at 206px 128px, #000 20%, transparent),
+    radial-gradient(circle 66px at 92px 196px, #000 30%, transparent),
+    radial-gradient(ellipse 80px 104px at 168px 262px, #000 25%, transparent),
+    radial-gradient(circle 58px at 222px 214px, #000 15%, transparent);
+  -webkit-mask-image: var(--fan-blur-mask);
+  mask-image: var(--fan-blur-mask);
   opacity: 0;
-  transition: opacity 180ms ease;
+  transition: opacity 200ms ease;
 }
 
 .blog-avatar-fan.is-open::before {
@@ -441,9 +455,6 @@
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
-  box-shadow:
-    0 0 0 2px hsl(var(--background)),
-    0 6px 16px -4px rgb(0 0 0 / 0.3);
   opacity: 0;
   transform: translate(0, 0) scale(0.4);
   /* Folding in: last out, first in. */
@@ -505,7 +516,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in oklab, hsl(var(--foreground)) 8%, hsl(var(--background)));
+  background: hsl(var(--foreground) / 0.1);
   color: hsl(var(--foreground));
 }
 

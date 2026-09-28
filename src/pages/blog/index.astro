@@ -22,6 +22,7 @@ const BATCH = 8;
 
 const [listedPosts, accessiblePosts] = await Promise.all([
   getListedPosts(),
+  // Only slugs and tags are read below, so no rich-content render.
   getAccessiblePosts(),
 ]);
 const groups = groupPostsByYear(listedPosts);
@@ -37,6 +38,7 @@ const earlier = blog.copy[blog.locale.blog].earlier;
   title={`${blog.name} — Lucian's Blog`}
   ogImage="/blog-og.jpg"
   ogImageAlt="無人之境 — Sillage"
+  preloadWordmark
 >
 
   <BlogMasthead />

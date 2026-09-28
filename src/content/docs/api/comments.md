@@ -1,143 +1,104 @@
 ---
 title: Blog Comments API
-description: Reading and posting comments on a blog post, reacting, lazy email verification, reader OAuth, and the avatar proxy — the anonymous-first identity model behind /blog/[slug].
+description: Read, post and react to comments on blog and mood posts. Posting needs only a name; email is optional.
 group: API
 order: 5.5
 ---
 
-Comments on `/blog/[slug]` are anonymous-first: reading is open to everyone,
-and posting a comment or reacting needs only a name — the email is optional.
-An address buys a persistent avatar and the claiming
-path; leaving it empty just means the comment belongs to its anonymous
-session alone. Email verification and OAuth sign-in are upgrade paths
-(grades L1/L2 below), never a door charge, and the address itself never
+Use these routes to read and post comments on `/blog/[slug]`, react with
+hearts, and manage a reader's identity. Anyone can read. Posting a comment
+needs only a name, and the email is optional. Reacting needs neither.
+
+An email gives the reader a persistent avatar and a way to claim their
+comments later. Without one, the comment belongs to its anonymous browser
+session alone. Email verification and OAuth sign-in are optional upgrades
+(grades L1 and L2, below). A confirmed address is needed in two cases:
+on a post that takes verified addresses only (see
+[Per-post policy](#per-post-policy)), and when the step-up flags an anonymous
+writer (step 6 of [the risk stack](#the-risk-stack)). The address itself never
 appears in a response body or public HTML.
 
-This route family also carries `mood`'s comments, on the `surface` parameter
-below — see [Mood surface: the Telegram bridge](#mood-surface-the-telegram-bridge).
-It is not `mood`'s read-only per-post comment count (see
-[Mood API](/docs/api/mood#comments)), which stays the plain Telegram scrape
-this route bridges into.
+The same routes also serve `mood`'s comments, chosen with the `surface`
+parameter (see [Mood surface (the Telegram bridge)](#mood-surface-the-telegram-bridge)).
+They don't serve `mood`'s read-only per-post comment count (see
+[Mood API](/docs/api/mood#comments)). That count is still the plain Telegram
+scrape this route bridges into.
 
-## Per-post policy
+## Endpoints
 
-Every write route below asks the post one question first, and the answer comes
-from the post's own internal tags in Ghost — `#comments-off`,
-`#comments-readonly` (or the older `#no-comments`), `#reactions-off`,
-`#comments-verified` — folded onto a site-wide default. The full table is in
-[Internal tags](/docs/writing/tags#comment-policy).
+| Method | Path | Purpose | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/v2/comments` | [List comments](#list-comments) | None |
+| `POST` | `/api/v2/comments` | [Post a comment](#post-a-comment) | Turnstile and a dwell token |
+| `GET` | `/api/v2/comments/dwell-token` | [Get a dwell-time token](#get-a-dwell-time-token) | None |
+| `PATCH`, `DELETE` | `/api/v2/comments/:id` | [Edit or delete a comment](#edit-or-delete-a-comment) | Reader session that owns the row |
+| `GET` | `/api/v2/reactions` | [Read reactions](#read-reactions) | None |
+| `POST` | `/api/v2/reactions/toggle` | [Toggle a reaction](#toggle-a-reaction) | Turnstile or a reader pass |
+| `GET`, `DELETE` | `/api/v2/reader/me` | [Reader session](#reader-session) | Reader session, optional |
+| `POST` | `/api/v2/reader/verify` | [Confirm an email](#lazy-email-verification) | Emailed token |
+| `POST` | `/api/v2/reader/resend` | [Resend the link](#resend-the-verification-link) | None |
+| `POST` | `/api/v2/reader/preferences` | [Reader preferences](#reader-preferences) | Reader session |
+| `POST` | `/api/v2/reader/mute` | [Mute a conversation](#mute-a-conversation) | Token from the reply mail |
+| `GET` | `/api/v2/reader/avatar/:key` | [Reader avatar](#reader-avatar) | None |
+| `POST` | `/api/v2/reader/avatar-seed` | [Drawn avatars](#drawn-avatars) | None |
+| `GET`, `POST` | `/api/v2/reader/claims` | [Claim earlier comments](#review-and-claim-earlier-comments) | Reader session |
+| `POST` | `/api/v2/reader/owner-sign-in` | [Owner sign-in](#the-owner) | One-time owner code |
+| `GET` | `/api/oauth/reader/:provider` and `/api/oauth/reader/:provider/callback` | [Reader OAuth](#reader-oauth-github-google) | None |
+| `POST` | `/api/v2/comments/telemetry` | [Client telemetry](#client-telemetry) | None |
 
-Both halves of the system derive it with one function,
-`commentPolicyFromTags` in `@bunizao/contracts/comments`: `/blog/[slug]`
-at build time from the Admin API, site-api per request from the Content API,
-which returns internal tags for `include=tags` and is cached with the post for
-60 seconds. So the page and the API cannot disagree, and a closed thread is
-closed to `curl` too.
+## Reader identity
 
-Three refusals come out of it, all `403`:
+Every browser has one of three identity grades. The grade decides what it can
+do with its own comments.
 
-| Slug | Cause |
-| --- | --- |
-| `comments_closed` | The post takes no new comments (`readonly` or `off`). Applies to create and to edit; delete is always allowed, since removing your own words is not adding to a thread. |
-| `email_verification_required` | The post takes verified addresses only, and this writer has none. An honest refusal, not a moderation hold. |
-| `reactions_disabled` | The post's hearts are off — on the post and on its comments. |
-
-Reads are never gated: a read-only thread has to stay readable, and an `off`
-post draws its section hidden, with nothing linking to the thread. The `off`
-and `readonly` difference is drawn by the page, not enforced by the API — to
-a write, both mean no.
-
-### The portal override
-
-The owner can set one post's mode from the admin portal without touching its
-tags. The override replaces the tag-derived `mode` in both directions — it
-can close an open post, or reopen one tagged `#comments-off` — and leaves
-`reactions` and `requireVerifiedEmail` to the tags. Clearing it hands the
-post back to its tags. Every write route reads it beside the tags (one
-primary-key read), so the refusals above follow the override at once.
-
-The page is built from the tags alone, so it can draw the wrong mode until
-the thread loads. The first page of [List comments](#list-comments) carries
-`policy` whenever an override exists, and the client redraws from its `mode`:
-it opens or closes the compose box, and shows or hides the whole section.
-A post with no override gets no `policy` field while no
-[site-wide switch](#site-wide-switches) is on, and the page's own drawing
-stands. `off` is applied the moment that page arrives, before any comment
-is drawn, so neither the rows nor their hearts are read; `readonly` lands
-together with the rows. A section already on screen still disappears one
-round trip after first paint — the HTML is cached and never reads the
-override — so a post meant to stay closed should carry the tag as well.
-A mood post takes the same `policy` from the first `mood` page of this
-route, which its thread reads beside the Telegram scrape (see
-[Mood surface: the Telegram bridge](#mood-surface-the-telegram-bridge)).
-
-### Site-wide switches
-
-The owner has two more switches in the admin portal, and each one covers
-every post, blog and mood alike:
-
-- **Comments everywhere: read-only or off.** Every post takes whichever is
-  stricter, this mode or its own (tags, then any override), so a post that
-  is already off stays off. A write is refused with `403 comments_closed`,
-  the same as on a closed post, from the moment the switch is set. When the
-  switch goes back to open, every post follows its own mode again.
-- **Require a confirmed email.** Anonymous comments and replies wait until
-  the writer confirms an address, the same step-up as a
-  [lockdown](/docs/platform/comments#stopping-somebody) with no end. A write
-  with no `email` gets `403 email_required` and nothing is stored. The page
-  keeps the draft and asks for an address. A write that includes an email is
-  stored `held`, and it publishes once the address is confirmed. Signed-in
-  readers post as usual. This is not the `#comments-verified` tag, which
-  refuses an unverified writer outright.
-
-While either switch is on, the first page of [List comments](#list-comments)
-carries `policy` with the switches folded in:
-- `mode` is the stricter of the two modes;
-- `requireVerifiedEmail` is true while the email switch is on.
-
-The page draws from both fields:
-- `mode` works as it does for an override;
-- `requireVerifiedEmail` marks the address field required and says so in its
-  placeholder. The compose box then asks for an address before it sends.
-
-Under the email switch, the field only tells the page what to draw. What
-happens to a write is the hold described above. Cookie-less reads of that
-first page come from the edge cache, so a page follows a switch within about
-90 seconds. Writes follow it at once.
-
-## Identity: three grades, one table
-
-Authentication at submission is recorded independently from current ownership.
-`auth_at_write` is `verified`, `anonymous`, or `unknown` for records without
-historical evidence. It never changes after a claim. A later claim records
-`claimed_at` and `claim_method` (`session` or `confirmed`) instead. An author
-badge requires verified-at-write evidence; an old or claimed row is not
-silently upgraded into an authenticated statement.
-
-| Grade | How it's reached | What it unlocks |
+| Grade | How a reader gets it | What it unlocks |
 | --- | --- | --- |
-| L0 | Nothing — a `reader_anon` cookie, set automatically on first comment or reaction | Post and react; your own rows show as `mine` by cookie match, but cannot be edited or deleted |
-| L1 | Click the link in the lazy-verification email | The comment's `reader_id` attaches; past comments matching both the verified address and this browser session get claimed; a persistent avatar and display name; edit and delete on rows the `reader_id` owns |
-| L2 | Sign in with GitHub or Google (`/oauth/reader/...`) | Same as L1, `provider` reflects the OAuth provider instead of `email` |
+| L0 | Nothing. A `reader_anon` cookie is set automatically on the first comment or reaction. | Post and react. Your own rows show as `mine` by cookie match, but you can't edit or delete them. |
+| L1 | Click the link in the lazy-verification email | The comment's `reader_id` attaches. Past comments that match both the verified address and this browser session are claimed. A persistent avatar and display name. Edit and delete on rows the `reader_id` owns. |
+| L2 | Sign in with GitHub or Google (`/oauth/reader/...`) | Same as L1, but `provider` is the OAuth provider instead of `email`. |
 
-**L2 is not reachable today.** The routes are built and work, but nothing on
-the site links to them — there is no sign-in button in the comment box and no
-client calls the route — and the provider credentials are not configured, so
+**L2 isn't reachable today.** The routes are built and work, but nothing on
+the site links to them: the comment box has no sign-in button, and no client
+calls the route. The provider credentials aren't configured either, so
 `/oauth/reader/:provider` answers `404`. Every reader who verifies today is
-L1. Treat L2 as a shape the data model already accommodates, not a path
-anybody is walking.
+L1. The data model supports L2, but no reader reaches it yet.
 
-`GET /api/v2/reader/me` reports the calling browser's current grade (`null`
-when it's L0). There is no L0 sign-in call — the cookie is minted as a side
-effect of the first `POST /api/v2/comments` or
-`POST /api/v2/reactions/toggle`, never on a bare `GET`.
+`GET /api/v2/reader/me` returns the calling browser's current grade (`null`
+at L0). L0 has no sign-in call. The first `POST /api/v2/comments` or
+`POST /api/v2/reactions/toggle` sets the cookie; a bare `GET` never does.
+
+Each comment also records how its writer was authenticated when they wrote
+it, separately from who owns it now:
+
+- `auth_at_write` is `verified`, `anonymous`, or `unknown` (for records
+  without historical evidence). It never changes, even after a claim.
+- A later claim sets `claimed_at` and `claim_method` (`session` or
+  `confirmed`) instead.
+
+The author badge needs verified-at-write evidence. An old or claimed row is
+never upgraded to count as authenticated.
+
+### Cookies
+
+Both cookies are `__Host-` prefixed, `Secure`, `HttpOnly`, and
+`SameSite=Lax`, with path `/`.
+
+| Cookie | Lifetime | Contents |
+| --- | --- | --- |
+| `__Host-reader_session` | 180 days | The signed L1/L2 session: `reader_id`, provider, and the reader row's creation stamp, which acts as a generation counter |
+| `__Host-reader_anon` | 365 days | An opaque keyed session id, set on the first write. Marks rows as `mine`; never grants mutation |
+
+A browser that still sends the old unprefixed `reader_session` cookie gets it
+cleared. A session whose reader row is missing, banned, or has lost its
+`reader_id` is refused on sight, so a ban takes effect on the next request
+instead of at the next expiry.
 
 ### The owner
 
 The blog owner is an L1 reader whose address matches the configured owner
-hash; rows they write carry `author.byAuthor: true` and the owner badge. There
-is no admin login in the comment box. Instead the admin portal hands the
-owner's own browser a reader session:
+hash. Rows they write carry `author.byAuthor: true` and the owner badge. The
+comment box has no admin login. Instead, the admin portal gives the owner's
+own browser a reader session in two steps:
 
 ```
 POST /api/admin/comments/owner-code      → { "code", "expiresAt" }   (admin session)
@@ -145,12 +106,146 @@ POST /api/v2/reader/owner-sign-in { code } → { "reader" } + Set-Cookie   (publ
 ```
 
 The code is single-use, expires in ten minutes, and is stored only as a
-digest; redeeming it is atomic, so exactly one session comes out of each
-handoff. The first sign-in ever supplies the owner's address (checked against
-the hash — a different address is refused) so a reader row can be created;
-every later one reads it from that row. The "Write as the owner" card on the
-portal's Comments page runs both hops. Signing out is the ordinary
-`DELETE /api/v2/reader/me`.
+digest. Redeeming it is atomic, so each handoff produces exactly one session.
+The owner's first sign-in ever supplies their address so a reader row can be
+created. The address is checked against the hash, and a different address is
+refused. Every later sign-in reads the address from that row. *Write as the
+owner*, in the ⋯ menu of the portal's Comments screen or in ⌘K, runs both
+steps. To sign out,
+use the ordinary `DELETE /api/v2/reader/me`.
+
+## Rate limits
+
+The comment routes are the only rate-limited route family on this site that
+runs in durable mode instead of observability mode.
+
+| Route | Limit | Counted per |
+| --- | --- | --- |
+| `POST /api/v2/comments` | Anonymous: 5/minute and 20/hour. Verified: 10/minute and 60/hour | Anonymous session, IP, and server-derived fingerprint; verified readers also per `reader_id` |
+| `PATCH /api/v2/comments/:id` | 10/minute | Reader or session |
+| `GET /api/v2/reactions` | 120/minute | Reader, or hashed IP without a session |
+| `POST /api/v2/reactions/toggle` | 30/minute, plus 30/minute and 120/hour per IP | Identity (reader or anonymous session), then hashed IP |
+| `POST /api/v2/reader/verify` | 10/minute | Email hash |
+| `POST /api/v2/reader/resend` | 5/minute, plus a silent per-address send limit | IP, then address |
+| `POST /api/v2/reader/preferences` | 20/minute | Reader |
+| `POST /api/v2/reader/mute` | 20/minute | Reader |
+| `GET`/`POST /api/v2/reader/claims` | 20/minute | Reader |
+| `POST /api/v2/reader/avatar-seed` | 30/minute | IP |
+| `POST /api/v2/comments/telemetry` | 60/minute | Hashed IP |
+
+These routes aren't rate-limited: `GET /api/v2/comments/dwell-token`,
+`GET`/`DELETE /api/v2/reader/me`, `GET /api/v2/reader/avatar/:key`, and the
+reader OAuth routes.
+
+## Per-post policy
+
+Every write route checks the post's comment policy. On
+`POST /api/v2/comments`, a closed thread is refused before Turnstile, and the
+verified-only rule is checked in step 3 of [the risk stack](#the-risk-stack).
+The policy comes from the post's internal tags in Ghost (`#comments-off`, `#comments-readonly`
+or the older `#no-comments`, `#reactions-off`, and `#comments-verified`),
+applied on top of a site-wide default. The full table is in
+[Internal tags](/docs/writing/tags#comment-policy). The owner can also
+override one post's mode from the portal, and two site-wide switches sit above
+both (see [The portal override](#the-portal-override) and
+[Site-wide switches](#site-wide-switches)).
+
+Both halves of the system derive the policy with one function,
+`commentPolicyFromTags` in `@bunizao/contracts/comments`:
+
+- `/blog/[slug]` runs it at build time, with tags from the Admin API.
+- site-api runs it per request, with tags from the Content API. The Content
+  API returns internal tags for `include=tags`, and site-api caches them with
+  the post.
+
+The page and the API can't disagree about the tags, so a closed thread is
+closed to `curl` too.
+
+site-api's cached registry is fresh for 60 seconds. After that it still
+answers at once while a background fetch replaces it. A tag change is
+therefore enforced from the first request after those 60 seconds plus the
+refresh. A post missing from a stale copy waits for the refresh instead of
+being refused.
+
+The policy refuses a write in three ways, all `403`:
+
+| Slug | Cause |
+| --- | --- |
+| `comments_closed` | The post takes no new comments (`readonly` or `off`). Applies to create and edit. Delete is always allowed, since removing your own words adds nothing to a thread. |
+| `email_verification_required` | The post takes verified addresses only, and this writer has none. This is a plain refusal, not a moderation hold. |
+| `reactions_disabled` | Hearts are off for the post, both on the post and on its comments. |
+
+Reads are never gated, because a read-only thread has to stay readable. An
+`off` post draws its section hidden, and nothing links to its thread. Only the
+page tells `off` and `readonly` apart; to a write, both mean no.
+
+### The portal override
+
+The owner can set one post's mode from the admin portal without touching its
+tags. The override replaces the tag-derived `mode` in both directions: it can
+close an open post, or reopen one tagged `#comments-off`. `reactions` and
+`requireVerifiedEmail` still come from the tags. Clearing the override hands
+the post back to its tags. Every write route reads the override beside the tags
+(one primary-key read), so the refusals above follow it at once.
+
+The page is built from the tags alone, so it can draw the wrong mode until the
+thread loads. The first page of [List comments](#list-comments) carries
+`policy` whenever an override exists, and the client redraws from its `mode`:
+it opens or closes the compose box, and shows or hides the whole section. A
+post with no override gets no `policy` field while no
+[site-wide switch](#site-wide-switches) is on, and the page's own drawing
+stands.
+
+| Mode | When the client applies it |
+| --- | --- |
+| `off` | The moment the first page arrives, before any comment is drawn, so neither the rows nor their hearts are read |
+| `readonly` | Together with the rows |
+
+A section already on screen still disappears one round trip after first paint,
+because the HTML is cached and never reads the override. So a post meant to
+stay closed should carry the tag as well.
+
+A mood post takes the same `policy` from the first `mood` page of this route,
+which its thread reads beside the Telegram scrape (see
+[Mood surface (the Telegram bridge)](#mood-surface-the-telegram-bridge)).
+
+### Site-wide switches
+
+The owner has two more switches in the admin portal. Each one covers every
+post, blog and mood alike.
+
+**Comments everywhere: read-only or off.** Every post takes whichever is
+stricter, this mode or its own (tags, then any override), so a post that is
+already off stays off. From the moment the switch is set, a write is refused
+with `403 comments_closed`, the same as on a closed post. When the switch goes
+back to open, every post follows its own mode again.
+
+**Require a confirmed email.** Anonymous comments and replies wait until the
+writer confirms an address. This is the same step-up as a
+[lockdown](/docs/platform/comments#stopping-somebody), with no end:
+
+- A write with no `email` gets `403 email_required`, and nothing is stored.
+  The page keeps the draft and asks for an address.
+- A write that includes an email is stored `held`, and it publishes once the
+  address is confirmed.
+- Signed-in readers post as usual.
+
+This is not the `#comments-verified` tag, which refuses an unverified writer
+outright.
+
+While either switch is on, the first page of [List comments](#list-comments)
+carries `policy` with the switches folded in, and the page draws from both
+fields:
+
+| Field | Value | What the page does |
+| --- | --- | --- |
+| `mode` | The stricter of the two modes | The same as for an override |
+| `requireVerifiedEmail` | True while the email switch is on | Marks the address field required and says so in its placeholder. The compose box then asks for an address before it sends |
+
+Under the email switch, the field only tells the page what to draw. What
+happens to a write is the hold described above. Cookie-less reads of that first
+page come from the edge cache, so a page follows a switch within about 90
+seconds. Writes follow it at once.
 
 ## List comments
 
@@ -158,9 +253,11 @@ portal's Comments page runs both hops. Signing out is the ordinary
 GET /api/v2/comments?post=<postId>&before=<cursor>&limit=20
 ```
 
-`post` is Ghost's `post.id` (stable across slug renames), required. `before`
-is a root comment id cursor; omit it for the first page. `limit` defaults to
-20, capped server-side at 50.
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `post` | Yes | Ghost's `post.id`, which is stable across slug renames |
+| `before` | No | A root comment id cursor. Omit it for the first page. |
+| `limit` | No | Defaults to 20. The server caps it at 50. |
 
 ```json
 {
@@ -186,50 +283,70 @@ is a root comment id cursor; omit it for the first page. `limit` defaults to
 }
 ```
 
-Pagination is by root comment: every visible reply under a returned root
-comes back alongside it, unpaginated (threading is one level deep, so a
-root's reply count stays bounded). `mine` is computed against the calling
-browser's session cookie / `reader_id` — a plain `GET` never mints a
-`reader_anon` cookie, so a first-time visitor with no cookie yet simply owns
-nothing. `editableUntil` and `deletable` are stricter than `mine`: both
-require the verified `reader_id` match, so an anonymous writer sees their
-row flagged `mine` with no mutation rights, and clients must key edit/delete
-affordances off these two fields, never off `mine`. `held`/`rejected` rows are visible only to their
-own writer; a `deleted` row still appears as a tombstone (`body`/`author`
-blanked) when a published reply hangs underneath it, otherwise it's gone
-from the page entirely. `total` counts published comments only.
+Pages are counted by root comment. Every visible reply under a returned root
+comes back with it, unpaginated. Threads are one level deep, so a root's reply
+count stays bounded. `total` counts published comments only.
 
-Three owner-set fields are optional on the wire, and a client treats each one
-as absent when it is missing:
+### Owner marks
+
+Three owner-set fields are optional on the wire. A client treats each one as
+absent when it is missing.
 
 | Field | On | Meaning |
 | --- | --- | --- |
-| `pinned: true` | the pinned root only | The owner pinned it. The first page lists it ahead of every other root, with its replies, whatever its date. |
-| `locked: true` | a locked root only, never its replies | The owner closed replies under this thread. It stays readable and likable. |
-| `policy` | the first page only, when the portal overrides the post's mode or a [site-wide switch](#site-wide-switches) is on | The effective [per-post policy](#per-post-policy) with the site-wide switches folded in; the client acts on `policy.mode` and `policy.requireVerifiedEmail`. |
+| `pinned: true` | The pinned root only | The owner pinned it. The first page lists it ahead of every other root, with its replies, whatever its date. |
+| `locked: true` | A locked root only, never its replies | The owner closed replies under this thread. It stays readable and likable. |
+| `policy` | The first page only, when the portal overrides the post's mode or a [site-wide switch](#site-wide-switches) is on | The effective [per-post policy](#per-post-policy) with the site-wide switches folded in. The client acts on `policy.mode` and `policy.requireVerifiedEmail`. |
 
-A post has at most one pin. It is never one of the date-ordered roots, so the
-first page can carry `limit + 1` roots, and `nextBefore` and the later pages
-are unchanged by it. A pinned row that is hidden or deleted drops back to its
+A post has at most one pin. The pin is never one of the date-ordered roots, so
+the first page can carry `limit + 1` roots, and `nextBefore` and the later
+pages don't change. A pinned row that is hidden or deleted drops back to its
 place in date order, and returns to the top if it is published again.
 
-A request with no reader cookie gets a response that is the same for every
-such reader, so the edge shares it: `Cache-Control: public, max-age=0` with
-`Cloudflare-CDN-Cache-Control: max-age=30, stale-while-revalidate=60` and
-`Vary: Cookie`. A new comment, a moderation decision, a pin, a lock or a
-mode override therefore reaches cookie-less readers within about 90 seconds;
-nothing purges the cache. The writer is never among them — every write sets
-`reader_anon`, and any request carrying a reader cookie is
-`private, no-store`, since visibility depends on who's asking.
+### Ownership and visibility
+
+`mine` is computed against the calling browser's session cookie or
+`reader_id`. A plain `GET` never mints a `reader_anon` cookie, so a
+first-time visitor with no cookie yet owns nothing.
+
+`editableUntil` and `deletable` are stricter than `mine`: both require a
+verified `reader_id` match. An anonymous writer sees their row flagged `mine`
+with no rights to change it. Clients must decide whether to show edit and
+delete controls from these two fields, never from `mine`.
+
+Some rows are hidden or blanked:
+
+- `held`/`rejected` rows are visible only to their own writer.
+- A `deleted` row with a published reply under it still appears as a
+  tombstone, with `body`/`author` blanked. Without such a reply, it's gone
+  from the page entirely.
+
+### Caching
+
+What a reader sees depends on who's asking, but only through the reader
+session and `reader_anon` cookies.
+
+| Request | Cache headers |
+| --- | --- |
+| Carries either cookie | `private, no-store` |
+| Carries neither cookie | `Cache-Control: public, max-age=0`, `Cloudflare-CDN-Cache-Control: max-age=30, stale-while-revalidate=60`, and `Vary: Cookie` |
+| Any error | `private, no-store` |
+
+Every request with neither cookie gets the same page, so the edge shares it.
+A new comment, a moderation decision, a pin, a lock, or a mode override can
+take up to about 90s to reach cookie-less readers. Nothing purges the cache.
+The writer never waits for this, because every write sets `reader_anon`.
 
 ## Pinned and locked threads
 
-Both are the owner's, set from the admin portal, and both apply to a root: a
-lock set on a reply lands on its root. A lock refuses a new reply under the
-thread with `403 thread_locked`; the rest of the post stays open, and edits,
-deletes and likes under the thread are unaffected. The owner's own reply from
-the portal is not refused. Replies written in a mood post's Telegram
-discussion group arrive through the bridge and are outside the lock's reach.
+The owner sets both from the admin portal, and both apply to a root. A lock
+set on a reply lands on its root.
+
+A lock refuses a new reply under the thread with `403 thread_locked`. The rest
+of the post stays open, and edits, deletes and likes under the thread still
+work. The owner's own reply from the portal is not refused. Replies written in
+a mood post's Telegram discussion group arrive through the bridge, so the lock
+doesn't reach them.
 
 ## Post a comment
 
@@ -257,268 +374,393 @@ POST /api/v2/comments
 }
 ```
 
-`surface` is `"blog"` (default) or `"mood"` — one table, one route, two
-callers. Sending `mood` requires the post to exist in the mood archive,
-not be soft-deleted, and have a linked Telegram discussion thread
-(`discussion_message_id` set — surfaced to the reader as
-`MoodContentDocument.discussionLinked`, see
-[Mood API](/docs/api/mood#detail)); anything else is the same
-`404 not_found` / `503 comment_target_unavailable` a bad blog `postId`
-gets. `parentId` on `mood` is either another `mood` comment's own row id, or
-— once [`discussionRepliesEnabled`](/docs/api/mood#detail) — the Telegram
-message id of a `telegram`-origin comment; see
-[Mood surface: the Telegram bridge](#mood-surface-the-telegram-bridge) for
-what happens to a `mood` write next. `turnstileToken` uses a distinct
-`expectedAction` per surface (`blog_comment_create` / `mood_comment_create`),
-everything below Turnstile in the risk stack runs unchanged and shares its
-counters across both surfaces (one person, one budget). `locale` on `mood`
-is the language the page negotiated for the reader (`?lang`, then the
-`blog_lang` cookie, then `Accept-Language`), the same as on `blog`.
+### Request fields
 
-`body` is 1-2000 characters. `displayName` is 1-32 characters, no control
-characters, can't collide with a small reserved list (the blog owner's own
-names), and can't carry a blocked term — profanity, and the role names an
-impersonator reaches for. Both checks fold lookalike letters from other
-alphabets, so a term spelled in a second script is refused too; the term list
-itself is not published. A name already stored on a signed-in reader is
-checked for shape only, so a later edit to the term list never locks an
-existing account out — the owner renames those from the moderation queue. `email` is optional — omitted or empty means an anonymous
-comment (session-owned, drawn avatar, never
-claimable); a non-empty value must be a valid address (`400` otherwise).
-`turnstileToken` uses `expectedAction: 'blog_comment_create'`.
-`locale` is the post page language (`zh` or `en`) and keeps the verification
-mail aligned with the page where the comment was written.
-`dwellToken` is minted by `GET /api/v2/comments/dwell-token` (see below) —
-required. `website` is a visually-hidden honeypot field; a human never fills
-it in.
+| Field | Required | Description |
+| --- | --- | --- |
+| `surface` | No | `"blog"` (default) or `"mood"`. See [Mood surface (the Telegram bridge)](#mood-surface-the-telegram-bridge). |
+| `postId` | Yes | The post to comment on |
+| `body` | Yes | 1-2000 characters |
+| `parentId` | No | The root comment this replies to, or `null` for a root comment |
+| `displayName` | Yes | 1-32 characters. See [Display names](#display-names). |
+| `email` | No | Omitted or empty means an anonymous comment. See [Email and identity](#email-and-identity). |
+| `turnstileToken` | Yes | Uses `expectedAction: 'blog_comment_create'` |
+| `dwellToken` | Yes | Minted by `GET /api/v2/comments/dwell-token` (see [Get a dwell-time token](#get-a-dwell-time-token)) |
+| `website` | No | A visually-hidden honeypot field. A human never fills it in. |
+| `notifyReplies` | No | The newsletter opt-in, despite its name (see below) |
+| `avatarSeed` | No | The drawn face the writer picked. See [Email and identity](#email-and-identity). |
+| `locale` | No | The post page language (`zh` or `en`). Keeps the verification mail in the language of the page where the comment was written. |
+| `clientFp`, `interaction`, `storageId` | No | Optional client evidence. See [Client evidence](#client-evidence). |
 
-`clientFp`, `interaction` and `storageId` are the optional client evidence,
-collected by a module the page loads on the first focus inside the compose
-box and never on a page view. **Leaving them out is never a gate.** A body
-that omits them, sends the wrong type, or sends 40 KiB of nonsense is written
-exactly like one that sends them well: the server stores what survives its
-bounds and NULL for the rest, and none of it feeds a rate-limit budget. Only
-what a well-formed `clientFp` says about the machine can count against a
-comment, through the automation check in step 3. `interaction` never does:
-dictation, input methods and assistive technology all put text in the box
-without key presses, so how the words got there is recorded, never judged.
+`notifyReplies` on this input is the **newsletter** opt-in, despite its name.
+site-api carries it into the verification link, and confirming the address
+activates a newsletter subscription. Both clients send `false`. The reply-mail
+preference is the reader's own `notifyReplies` switch
+(`/api/v2/reader/preferences`); see
+[Reply notifications](#reply-notifications).
 
-`clientFp` is what the browser says about itself — platform, screen, time
-zone, a canvas and audio hash, the font families a width probe found, media
-queries. `interaction` is how the form was filled, as aggregates only:
-counts, one spread figure for the gaps between keystrokes (per mille), and a
-few timings. Never the key sequence, never the intervals themselves, never
-what was typed. `storageId` is a random 32-hex value the module keeps in
-IndexedDB; the server stores only its HMAC and never uses it to set,
-restore, or extend a cookie.
+### Display names
 
-Bounds the server enforces before storing: strings at most 128 characters,
-`fonts` at most 32 entries, every number a bounded integer, the whole object
-under 4 KiB. The client never sends a hash of its own fingerprint — the
-server hashes the canonical component JSON itself, so a browser cannot claim
-to be a different device. `notifyReplies` on this input is the **newsletter**
-opt-in, despite its name: site-api carries it into the verification link, and
-confirming the address activates a newsletter subscription. Both clients send
-`false`. The reply-mail preference is the reader's own `notifyReplies` switch
-(`/api/v2/reader/preferences`) — see
-[What `notifyReplies` actually sends](#what-notifyreplies-actually-sends).
+`displayName` is 1-32 characters, with no control characters. It can't
+collide with a small reserved list (the blog owner's own names), and it can't
+contain a blocked term: profanity, or the role names an impersonator reaches
+for. Both checks fold lookalike letters from other alphabets, so a term
+spelled in a second script is refused too. The term list itself isn't
+published.
 
-A comment written without an email serializes with `avatarUrl: ""`; the
+A name already stored on a signed-in reader is checked for shape only, so a
+later edit to the term list never locks an existing account out. The owner
+renames those from the moderation queue.
+
+### Email and identity
+
+`email` is optional. Omitted or empty means an anonymous comment: owned by the
+session, with a drawn avatar, and never claimable. A non-empty value must be a
+valid address (`400` otherwise).
+
+A comment written without an email serializes with `avatarUrl: ""`, and the
 client draws a face for it instead (see [Drawn avatars](#drawn-avatars)).
 `avatarSeed` is the face the writer picked, a uint32 from
-`/api/v2/reader/avatar-seed`; anything else is dropped rather than refused. A
-verified reader's stored seed wins over the one sent, and a reader who has
-none yet adopts the one sent, so a face picked before signing in is the one
-kept.
+`/api/v2/reader/avatar-seed`. Any other value is dropped; the request isn't
+refused. A verified reader's stored seed wins over the one sent. A reader with
+no stored seed yet adopts the one sent, so a face picked before signing in is
+the one kept.
 
 An `email` that belongs to a verified reader does **not** by itself attach
 that reader's `reader_id` to the row. The identity comes from the session
 cookie, and the address only has to agree with it. Typing somebody else's
-verified address writes an ordinary unbound comment, exactly as any other
-address would — the avatar, the author badge, and the ability to edit all
-follow the session, never the typed field.
+verified address writes an ordinary unbound comment, like any other address.
+The avatar, the author badge, and the ability to edit all follow the session,
+never the typed field.
 
-Every submission runs the full risk stack, in order:
+### Client evidence
 
-1. **Turnstile.** A failed or missing token answers plainly with
-   `400`/`503`. Below this line only the step-up (step 5) refuses in the
-   open; everything else either succeeds outright or fails silently.
-2. **Honeypot and dwell time.** Tripping either returns a fabricated
-   `201 { "outcome": "held", ... }` envelope that is **never persisted**.
-   A filled honeypot also quarantines the current session or account for
-   24 hours (see step 5); an expired dwell token does not, since a tab left
-   open overnight trips it too. Exact repeated bodies of 20+ characters
-   within 24 hours are instead saved as held comments, without quarantining
-   the writer or other readers on their network. The normalized body hash
-   is a clustering signal only: differences in links or punctuation do not
-   trigger the duplicate hold.
-3. **Heuristics** (disposable email domain, keyword blocklist, link count) —
-   a hit **holds** the comment (it is created, but only its writer can see
-   it) rather than dropping it. A first comment carrying a link is fine —
-   there is deliberately no first-session-link hold; Akismet judges it like
-   anything else. A verified (L1/L2) writer skips the disposable-domain
-   check — verification already priced out the throwaway identity — and
-   gets a higher link ceiling (6 instead of 3). The exact-duplicate hold
-   and the keyword blocklist apply to everyone.
+`clientFp`, `interaction` and `storageId` are optional client evidence. A
+module collects them, and the page loads that module on the first focus inside
+the compose box, never on a page view.
 
-   **Declared automation** (anonymous writers only). A request carrying a
-   header a person's browser never sends — Cloudflare Browser Run's
-   `cf-brapi-devtools` or `cf-biso-devtools`, or Web Bot Auth's
-   `Signature-Agent` — is stored as `rejected` with reason `spam`, answered
-   with the usual `held` envelope, quarantines the session (step 5), skips
-   the external checks in step 6 and, as a first strike, sends the owner a
-   card. The card for a rejected comment carries Approve, and so does the
-   portal, so a false positive can be put back.
-4. **Rate limits**, durably enforced across three dimensions (anonymous
-   session, IP, server-derived fingerprint) and two windows each: 5/minute
-   and 20/hour for anonymous writers; 10/minute and 60/hour for verified
-   readers, who are additionally budgeted on a fourth per-`reader_id`
-   dimension so their allowance follows the account rather than the
-   network. The first exhausted limit returns `429` with the standard
-   `X-RateLimit-*`/`Retry-After` headers (see
-   [Rate limits](/docs/api/overview#rate-limits)) — the only rate-limited
-   route family on this whole site running in durable, not observability,
-   mode.
-5. **Step-up: confirm an email** (anonymous writers only). A score from
-   four independent sources decides whether this writer has to confirm an
-   address before the comment goes anywhere:
+| Field | What it holds |
+| --- | --- |
+| `clientFp` | What the browser says about itself: platform, screen, time zone, a canvas and audio hash, the font families a width probe found, and media queries |
+| `interaction` | How the form was filled, as aggregates only: counts, one spread figure for the gaps between keystrokes (per mille), and a few timings. Never the key sequence, the intervals themselves, or what was typed. |
+| `storageId` | A random 32-hex value the module keeps in IndexedDB. The server stores only its HMAC and never uses it to set, restore, or extend a cookie. |
 
-   | Source | Signals and weights | Cap |
-   | --- | --- | --- |
-   | Network | hosting ASN 2, Tor 2, timezone differs from the IP's 1 | 2 |
-   | Browser | `navigator.webdriver` 4; software WebGL, headless window shape, zero outer window, a Worker's `cf-worker` header 2; each inconsistency (platform, client hints, touch, languages, plugins, missing client hints, priority or client evidence) 1 | 4 |
-   | History | a third distinct post in 10 minutes 4; the same browser session under another name within 24 hours 2 | — |
-   | Content | the AI gateway's authorship reading (step 6): `unclear` 2, `agent` 4 | — |
+**Leaving them out is never a gate.** A body that omits them, sends the wrong
+type, or sends an object over the bounds below is still written. The server
+stores what survives its bounds and NULL for the rest, and none of it feeds a
+rate-limit budget. From a browser, sending neither `clientFp` nor
+`interaction` adds 1 point to the step-up score (step 6), which can't trigger
+a step-up on its own. The whole request body is capped at 16 KiB, so a larger
+one gets `400` before any of this runs.
 
-   A score of 4 or more steps up. The caps keep any one weak source below
-   it — a VPN, a laptop without GPU drivers and a spoofed user agent are
-   each ordinary — so a step-up takes two sources, or one that is
-   unambiguous. The writer for post hops is the browser session or the
-   server-derived fingerprint (IP /24 and user agent), so rotating sessions
-   does not reset it; a rename reads the session only. How the text was
-   entered — keystrokes, dictation, paste, pointer — is recorded and never
-   scored.
+Only `clientFp` can count against a comment. What it says about the machine
+feeds the step-up score in step 6: the Browser row (`navigator.webdriver`,
+WebGL, window shape, and contradictions with the request headers) and the
+time zone signal in the Network row. Its hash is also a key the ban list
+matches in step 5. The declared-automation check in step 3 reads request
+headers only. `interaction` never counts. Dictation, input methods and
+assistive technology all put text in the box without key presses, so the
+server records how the words got there and never judges it.
 
-   The content source arrives with the step 6 verdict, so it is added
-   when that verdict does. Within the 8000ms window a content step-up is
-   refused or stored like any other; after it, the stored row becomes an
-   awaiting one (below) and the verification mail, which waits for the
-   verdict, says so.
+Before storing, the server enforces these bounds:
 
-   A session quarantined for 24 hours (a filled honeypot, a declared agent
-   or a spam verdict; account-backed keys refer to that account only, and
-   IP and fingerprint matches do not share one) steps up the same way. So
-   does every anonymous writer during the site-wide one-hour lockdown, and
-   while the owner's [site-wide email switch](#site-wide-switches) is on.
-   Ordinary owner hide/delete actions do not create a quarantine.
+- Strings: at most 128 characters.
+- `fonts`: at most 32 entries.
+- Numbers: bounded integers.
+- The whole object: under 4 KiB.
 
-   A step-up without an `email` is refused with `403 email_required` and
-   nothing is stored. With one, the row is stored `held` with reason `ok`
-   and a note beginning `Awaiting email`, and the verification mail says
-   confirming publishes the comment. Step 6 still judges it: an adverse
-   verdict (spam, a gateway hold, a reject) replaces the wait and stands,
-   and a clean one is appended to the note. The owner gets the usual card
-   once the verdict lands. There is no card during a lockdown or in
-   quarantine. Under the site-wide email switch there is none while the
-   comment still waits for its email; the card comes when the writer
-   confirms. Confirming — the link opened in the same browser, or the
-   comment selected in `POST /api/v2/reader/claims` — sends it through step 6
-   again, as a verified reader's comment, with the gateway's second
-   opinion. A mailbox is not a person: if the gateway still reads the
-   writer as an `agent`, the comment stays held with a note beginning
-   `Email confirmed; still held.` for the owner to decide. Confirming
-   never gets past what the create path refuses: if the post stopped
-   taking comments, or the owner locked the thread, while the comment
-   waited, it skips step 6 and stays held with a note beginning
-   `Email confirmed; still held:` that names which. The owner can
-   approve an awaiting row from the queue at any time.
+The client never sends a hash of its own fingerprint. The server hashes the
+canonical component JSON itself, so a browser can't claim to be a different
+device.
 
-   The lockdown engages on its own after more than 8 anonymous comments in
-   10 minutes or 3 of the last 5 anonymous comments judged spam, and lifts
-   on its own; step-ups never engage it. While the site-wide email switch is
-   on, the first trigger counts nothing, since every anonymous comment
-   already waits. See
-   [Stopping somebody](/docs/platform/comments#stopping-somebody).
-6. **Content moderation** (skipped after a heuristics hold, a declared agent or a ban; a step-up row is still judged) — one
-   Akismet `comment-check` carrying the body, author fields, IP, user
-   agent, referrer, post permalink, site language, honeypot field, and the
-   owner's `administrator` role when it is the owner writing. Ham
-   publishes; spam holds (the owner can rescue a false positive); Akismet's
-   "blatant spam" signal rejects so a spam wave never floods the
-   moderation queue — the owner can still approve a rejected row. Fails closed to `hold` on any error, timeout, or
-   non-verdict response; the HTTP call itself is abandoned after 10
-   seconds.
+### The risk stack
 
-   For an **anonymous** writer, a language model behind the owner's AI
-   gateway (`task-guard` via `AI_BASE_URL` / `AI_API_KEY`) reads the text at
-   the same time, beside the post's title and excerpt, this writer's
-   comments from the last 24 hours and other anonymous comments from the
-   last hour. It answers two questions. What the comment is: it can turn
-   Akismet's ham into a hold with reason `spam`, `promotional`, `abuse` or
-   `personal_info`, never a hold into a publish. Who wrote it: `person`,
-   `unclear` (reads machine-written, nothing confirms it) or `agent`
-   (behaviour confirms it — bursts across posts, a numbered persona in a
-   wave, a comment answering a different post, tool artifacts). Style alone
-   is never `agent`, and dictation artifacts, typos, slang and brevity are
-   never evidence. The authorship answer only feeds the step 5 score and
-   the note; it never holds a comment by itself. When the gateway is
-   unavailable the Akismet verdict stands alone. A spam verdict from either
-   quarantines the writer's identity for 24 hours. Verified readers get
-   Akismet only.
+Every submission runs the full risk stack, a fixed series of checks, in order.
 
-   The request does not wait the full ten seconds. After **8000ms** the
-   create returns with the row stored as `held` and finishes the check in
-   the background — a late verdict then upgrades the row, notifies the
-   owner with the real outcome, and sends the reply alert if it published.
-   The upgrade is guarded on `updated_at`, so a writer who edits in the
-   meantime keeps their row held rather than having it clobbered by a
-   stale verdict. A `held` response is therefore not always final. Only
-   anonymous writers feel the wait: Akismet alone answers in well under a
-   second, and the gateway, reading the context as well, takes 3–7 seconds.
-7. **Shadow-ban.** A banned writer is held on sight with the note
-   `Shadow-banned writer.`, before step 6 spends an external call and
-   without a per-comment card — they see their own comment as normal;
-   nobody else ever does. The ban list holds nine kinds of key: the address,
-   the session, the IP, its /24, the server-side and client-side
-   fingerprints, the network, a link domain and a mail domain. A write
-   matching any one of them is held. Nothing in the response says so.
+#### 1. Turnstile
+
+A failed or missing token gets a plain `400`/`503`. After this step, three
+checks can still refuse in the open, and nothing is stored:
+
+| Step | Refusal |
+| --- | --- |
+| 3. Heuristics | `403 email_verification_required`, on a post that takes verified addresses only |
+| 4. Rate limits | `429` |
+| 6. Email step-up | `403 email_required`, when the writer gave no address |
+
+Every other check answers `201`: the comment is published or held. A hold
+never says which check caused it, except that a step-up hold sets
+`awaitingEmail` (see [Response](#response)). The honeypot, the dwell time, a
+declared agent and a ban all hide behind that same `held` answer.
+
+#### 2. Honeypot and dwell time
+
+Tripping either returns a fabricated `201 { "outcome": "held", ... }` envelope
+that is **never persisted**.
+
+A filled honeypot also quarantines the current session or account for 24
+hours (see step 6). An expired dwell token doesn't, since a tab left open
+overnight trips it too.
+
+#### 3. Heuristics
+
+A post that takes verified addresses only refuses an anonymous writer here,
+with `403 email_verification_required` (see
+[Per-post policy](#per-post-policy)).
+
+A heuristic hit **holds** the comment: it is created, but only its writer can
+see it. A hit never drops the comment.
+
+| Check | Anonymous writer | Verified (L1/L2) writer |
+| --- | --- | --- |
+| Exact repeated body (20+ characters, within 24 hours) | Holds | Holds |
+| Disposable email domain | Holds | Skipped |
+| Keyword blocklist | Holds | Holds |
+| Link count | Ceiling of 3 | Ceiling of 6 |
+
+Verified writers skip the disposable-domain check because verification
+already priced out the throwaway identity. The exact-duplicate hold and the
+keyword blocklist apply to everyone.
+
+The duplicate hold doesn't quarantine the writer or other readers on their
+network. The normalized body hash is only a clustering signal, so bodies that
+differ in links or punctuation don't trigger the duplicate hold.
+
+A first comment with a link is fine. There's no first-session-link hold;
+Akismet judges it like anything else.
+
+**Declared automation** (anonymous writers only). Some headers never come from
+a person's browser: Cloudflare Browser Run's `cf-brapi-devtools` or
+`cf-biso-devtools`, and Web Bot Auth's `Signature-Agent`. A request that
+carries one:
+
+- is stored as `rejected` with reason `spam`,
+- gets the usual `held` envelope,
+- quarantines the session (step 6),
+- skips the step-up and the external checks in step 7, and
+- as a first strike, sends the owner a card.
+
+The card for a rejected comment has an Approve action, and so does the
+portal, so the owner can put back a false positive.
+
+#### 4. Rate limits
+
+Limits are durably enforced across three dimensions (anonymous session, IP,
+and server-derived fingerprint), each with two windows:
+
+| Writer | Per minute | Per hour |
+| --- | --- | --- |
+| Anonymous | 5 | 20 |
+| Verified reader | 10 | 60 |
+
+Verified readers also have a fourth budget, per `reader_id`, so their
+allowance follows the account instead of the network. The first exhausted
+limit returns `429` with the standard `X-RateLimit-*`/`Retry-After` headers
+(see [Rate limits](/docs/api/overview#rate-limits)).
+
+#### 5. Shadow-ban
+
+The ban list is read right after the rate limits. A banned writer is held on
+sight: the step-up and step 7 are skipped, so no external call is spent, and
+no per-comment card is sent. The row's note reads `Shadow-banned writer.` The
+writer sees their own comment as normal; nobody else ever does.
+
+The ban list holds nine kinds of key: the address, the session, the IP, its
+/24, the server-side and client-side fingerprints, the network, a link domain,
+and a mail domain. A write that matches any one of them is held. Nothing in
+the response says so.
+
+#### 6. Email step-up
+
+Anonymous writers only. A step-up means the writer has to confirm an email
+address before the comment goes anywhere. A writer already held or rejected
+by step 3 or step 5 skips it. A score from four independent sources decides
+it:
+
+| Source | Signals and weights | Cap |
+| --- | --- | --- |
+| Network | Hosting ASN 2, Tor 2, time zone differs from the IP's 1 | 2 |
+| Browser | `navigator.webdriver` 4; software WebGL, headless window shape, zero outer window, or a Worker's `cf-worker` header 2; each inconsistency (platform, client hints, touch, languages, plugins, missing client hints, priority or client evidence) 1 | 4 |
+| History | A third distinct post in 10 minutes 4; the same browser session under another name within 24 hours 2 | None |
+| Content | The AI gateway's authorship reading (step 7): `unclear` 2, `agent` 4 | None |
+
+A score of 4 or more triggers the step-up. The caps keep any one weak source
+below that. A VPN, a laptop without GPU drivers, and a spoofed user agent are
+each ordinary, so a step-up takes two sources, or one that is unambiguous.
+
+For the post hops in the History row, the writer is the browser session or
+the server-derived fingerprint (IP /24 and user agent), so rotating sessions
+doesn't reset the count. A rename reads the session only. How the text was
+entered (keystrokes, dictation, paste, pointer) is recorded and never scored.
+
+The content score arrives with the step 7 verdict and is added when that
+verdict lands. Inside the 8000ms window, a content step-up is refused or
+stored like any other. After the window, the stored row becomes an awaiting
+row (below), and the verification mail, which waits for the verdict, says so.
+
+Three more cases step up the same way:
+
+- A session quarantined for 24 hours, after a filled honeypot, a declared
+  agent, or a spam verdict. Account-backed keys refer to that account only,
+  and IP and fingerprint matches don't share the quarantine.
+- Every anonymous writer during the site-wide one-hour lockdown.
+- Every anonymous writer while the owner's
+  [site-wide email switch](#site-wide-switches) is on.
+
+Ordinary owner hide/delete actions don't create a quarantine.
+
+**What a step-up does.** Without an `email`, the request is refused with
+`403 email_required` and nothing is stored. With one, the row is stored `held`
+with reason `ok` and a note beginning `Awaiting email`, and the verification
+mail says that confirming publishes the comment.
+
+Step 7 still judges an awaiting row. An adverse verdict (spam, a gateway hold,
+a reject) replaces the wait and stands. A clean one is appended to the note.
+The owner gets the usual card once the verdict lands, except during a lockdown
+or quarantine. Under the site-wide email switch there is no card while the
+comment still waits for its email. The card comes when the writer confirms.
+
+The writer confirms by opening the link in the same browser, or by selecting
+the comment in `POST /api/v2/reader/claims`. Confirming sends the comment
+through step 7 again, as a verified reader's comment, with a second opinion
+from the gateway. A confirmed mailbox doesn't prove a person: if the gateway
+still reads the writer as an `agent`, the comment stays held with a note
+beginning `Email confirmed; still held.`, and the owner decides.
+
+Confirming never gets past what the create path refuses. If the post stopped
+taking comments, or the owner locked the thread, while the comment waited, the
+comment skips step 7 and stays held with a note beginning
+`Email confirmed; still held:` that names which. The owner can approve an
+awaiting row from the queue at any time.
+
+**Lockdown.** The lockdown engages automatically after more than 8 anonymous
+comments in 10 minutes, or when 3 of the last 5 anonymous comments are judged
+spam. It lifts automatically. Step-ups never engage it. While the site-wide
+email switch is on, the first trigger counts nothing, since every anonymous
+comment already waits. See
+[Stopping somebody](/docs/platform/comments#stopping-somebody).
+
+#### 7. Content moderation
+
+Skipped after a heuristics hold, a declared agent, or a ban. A step-up row is
+still judged.
+
+site-api makes one Akismet `comment-check` call with the body, author fields,
+IP, user agent, referrer, post permalink, site language, honeypot field, and
+the owner's `administrator` role when the owner is writing.
+
+| Akismet answer | Result |
+| --- | --- |
+| Ham | Publishes |
+| Spam | Holds. The owner can rescue a false positive. |
+| The "blatant spam" signal | Rejects, so a spam wave never floods the moderation queue. The owner can still approve a rejected row. |
+| Any error, timeout, or non-verdict response | Fails closed to `hold` |
+
+The HTTP call itself is abandoned after 10 seconds.
+
+**AI gateway review** (anonymous writers only). A language model behind the
+owner's AI gateway (`task-guard` via `AI_BASE_URL` / `AI_API_KEY`) reads the
+text at the same time. Besides the comment, it sees the post's title and
+excerpt, this writer's comments from the last 24 hours, and other anonymous
+comments from the last hour. It answers two questions:
+
+- **What the comment is.** It can turn Akismet's ham into a hold with reason
+  `spam`, `promotional`, `abuse` or `personal_info`. It can never turn a hold
+  into a publish.
+- **Who wrote it.** `person`, `unclear` (reads machine-written, but nothing
+  confirms it) or `agent` (behaviour confirms it: bursts across posts, a
+  numbered persona in a wave, a comment answering a different post, tool
+  artifacts). Style alone is never `agent`, and dictation artifacts, typos,
+  slang and brevity are never evidence. This answer only feeds the step 6
+  score and the note. It never holds a comment by itself.
+
+When the gateway is unavailable, the Akismet verdict stands alone. A spam
+verdict from either quarantines the writer's identity for 24 hours. Verified
+readers get Akismet only.
+
+**Timing.** The request doesn't wait the full ten seconds. After **8000ms**,
+the create returns with the row stored as `held` and finishes the check in the
+background. A late verdict then upgrades the row, notifies the owner with the
+real outcome, and sends the reply alert if the comment published. The upgrade
+is guarded on `updated_at`, so a writer who edits in the meantime keeps their
+row held instead of having a stale verdict overwrite it. A `held` response is
+therefore not always final.
+
+Only anonymous writers feel the wait. Akismet alone answers in well under a
+second; the gateway, which reads the context as well, takes 3–7 seconds.
+
+### Response
 
 ```json
 { "outcome": "held", "comment": { "...": "..." }, "unverifiedEmail": true, "awaitingEmail": true }
 ```
 
-`outcome` is `"published"` or `"held"`. `unverifiedEmail` is true when a
-supplied `email` doesn't already belong to a verified reader — the client
-shows the verification nudge. It is always false when no email was sent.
-`awaitingEmail` is true when the comment is held until that address is
-confirmed (the step-up in step 5), so the client says confirming publishes
-it rather than showing an ordinary hold. It is known only for a verdict that
-landed inside the 8000ms window; a later step-up reads as an ordinary
-`held`, and the verification mail still says the right thing. Clients treat
-an absent field as false.
+| Field | Meaning |
+| --- | --- |
+| `outcome` | `"published"` or `"held"` |
+| `unverifiedEmail` | True when a supplied `email` doesn't already belong to a verified reader, so the client shows the verification nudge. Always false when no email was sent. |
+| `awaitingEmail` | True when the comment is held until that address is confirmed (the step-up in step 6). The client then says that confirming publishes it, instead of showing an ordinary hold. |
+
+`awaitingEmail` is known only for a verdict that landed inside the 8000ms
+window. A later step-up reads as an ordinary `held`, and the verification mail
+still says the right thing. Clients treat an absent field as false.
+
 On the true first comment from an unverified address, a lazy-verification
-email goes out automatically (see below); this call never waits on that
-send. A create without an email never sends mail at all.
+email goes out automatically (see
+[Lazy email verification](#lazy-email-verification)). This call never waits
+on that send. A create without an email never sends mail at all.
 
-**Errors:** `400` for a malformed body (see the field list above for exact
-messages), `400 invalid_parent` for a `parentId` that doesn't exist, isn't a
-root comment, or belongs to a different post, `403 thread_locked` for a
-`parentId` whose thread the owner [locked](#pinned-and-locked-threads),
-`404 not_found` for an unknown
-`postId`, `503 comment_target_unavailable` when the Ghost registry can't be
-reached, `403 comments_closed` and `403 email_verification_required` from the
-[per-post policy](#per-post-policy), `400 turnstile_failed` /
-`503 turnstile_unavailable` (with a `code` extra) for Turnstile,
-`403 email_required` for an anonymous writer the step-up asks for an address
-(step 5), `429 Too Many Requests` for a rate limit.
+### Errors
 
-Same-origin only — no CORS header.
+| Error | When |
+| --- | --- |
+| `400` | Malformed body (see the field list above for exact messages) |
+| `400 invalid_parent` | `parentId` doesn't exist, isn't a root comment, or belongs to a different post |
+| `403 thread_locked` | `parentId` is a thread the owner [locked](#pinned-and-locked-threads) |
+| `404 not_found` | Unknown `postId` |
+| `503 comment_target_unavailable` | The Ghost registry can't be reached |
+| `403 comments_closed`, `403 email_verification_required` | From the [per-post policy](#per-post-policy) |
+| `400 turnstile_failed`, `503 turnstile_unavailable` | Turnstile failed or is unavailable. Both carry a `code` extra. |
+| `403 email_required` | The step-up (step 6) asks an anonymous writer for an address |
+| `429 Too Many Requests` | A rate limit |
 
-## Mood surface: the Telegram bridge
+The route is same-origin only and sends no CORS header.
 
-A `mood` write runs the full risk stack above unchanged, then — as a side
-effect, never blocking the response — bridges into the post's Telegram
-discussion group:
+## Mood surface (the Telegram bridge)
+
+Mood posts use the same comment table and the same route as the blog. Send
+`surface: "mood"` to `POST /api/v2/comments`, and once the comment is
+published, site-api also posts it into the post's Telegram discussion group.
+
+### Post to a mood post
+
+A `mood` write needs a post that:
+
+- exists in the mood archive,
+- isn't soft-deleted, and
+- has a linked Telegram discussion thread (`discussion_message_id` set, which
+  readers see as `MoodContentDocument.discussionLinked`; see
+  [Mood API](/docs/api/mood#detail)).
+
+Anything else gets the same `404 not_found` / `503 comment_target_unavailable`
+a bad blog `postId` gets.
+
+A few fields behave differently on `mood`:
+
+| Field | On `mood` |
+| --- | --- |
+| `parentId` | Either another `mood` comment's own row id, or, once [`discussionRepliesEnabled`](/docs/api/mood#detail) is on, the Telegram message id of a `telegram`-origin comment |
+| `turnstileToken` | Each surface has its own `expectedAction` (`blog_comment_create` / `mood_comment_create`) |
+| `locale` | The language the page negotiated for the reader (`?lang`, then the `blog_lang` cookie, then `Accept-Language`), the same as on `blog` |
+
+Everything after Turnstile in the risk stack runs unchanged and shares its
+counters across both surfaces, so one person has one budget.
+
+### Bridge to Telegram
+
+A `mood` write runs the full risk stack above unchanged. Then, as a side
+effect that never blocks the response, site-api bridges it into the post's
+Telegram discussion group:
 
 - **`published`** sends an HTML message into the group, replying to the
   post's own copy there (or to the parent comment's Telegram message when
@@ -531,59 +773,74 @@ discussion group:
   ```
 
   `commentUrl` is `https://buxx.me/mood/<postId>#c-<token>`, where `token`
-  is `commentAnchorToken(commentId)` — the first 12 hex characters of
-  `sha256(commentId)` (`@bunizao/contracts/comments`). The link, not visible
-  text, is what a Telegram reader sees; it is also the read path's match key
-  (below), so the two sides never depend on Telegram's own message ids
-  agreeing with anything the site chose. On success the row remembers the
-  group's `message_id`; on failure it is retried hourly for the next 24h.
-  The bridge send failing never fails the create — the comment is already
-  published on the site (`outcome` in the response is unaffected either
-  way).
-- **`held`** and **`rejected`** never reach Telegram. Approving either
-  (card or portal) runs the same bridge step then, at that point — not
-  before.
+  is `commentAnchorToken(commentId)`: the first 12 hex characters of
+  `sha256(commentId)` (`@bunizao/contracts/comments`). In Telegram the URL
+  sits behind the link instead of showing as text. It is also the read path's
+  match key (below), so neither side depends on Telegram's own message ids
+  agreeing with anything the site chose.
+
+  On success, the row stores the group's `message_id`. On failure, the send
+  is retried hourly for the next 24h. A failed bridge send never fails the
+  create: the comment is already published on the site, and `outcome` in the
+  response is the same either way.
+- **`held`** and **`rejected`** never reach Telegram. Approving either (card
+  or portal) runs the same bridge step at that point, not before.
 - **Edit** (the same 15-minute, verified-reader-only window as the blog)
-  edits the bridged message in place; Telegram shows "edited". **Delete** —
-  by the reader, or by the owner — deletes the bridged message. Both are
-  logged and retried on failure rather than blocking; the site is the
-  source of truth for whether a row is gone, not the group.
+  edits the bridged message in place, and Telegram shows "edited". **Delete**,
+  by the reader or by the owner, deletes the bridged message. Both are logged
+  and retried on failure instead of blocking. Whether a row is gone is decided
+  by the site, not the group.
+
+### Read a mood thread
 
 Reading a `mood` thread (`GET /api/comments?postId=` /
-`GET /api/v2/mood/{id}/comments`, see
-[Mood API](/docs/api/mood#comments) and
+`GET /api/v2/mood/{id}/comments`, see [Mood API](/docs/api/mood#comments) and
 [`/api/comments`](/docs/api/content#comments-by-post-id)) still scrapes the
-group's public embed — the bridge does not change how mood comments are
-read, only what a web reader can add to them. The scrape is overlaid with
-the site's own `mood`-surface rows before it reaches a client: a scraped
-message whose text carries a `#c-<token>` link matching a published row is
-replaced with that row's author, avatar, and body and marked `origin: "web"`
-with `commentId` set (so the writer's own browser can mark it `mine` and
-offer edit/delete); a `mood` row not yet visible in the scrape (bridge
-pending, or the scrape's edge cache hasn't caught up) is appended instead,
-so a writer sees their own comment immediately rather than after the cache
-TTL. A row whose bridged message was removed directly in Telegram is
-treated as deleted, never resurrected.
+group's public embed. The bridge changes only what a web reader can add to
+mood comments, not how they're read.
+
+Before the scrape reaches a client, the site's own `mood`-surface rows are
+laid over it:
+
+- A scraped message whose text carries a `#c-<token>` link matching a
+  published row is replaced with that row's author, avatar, and body. It is
+  marked `origin: "web"` with `commentId` set, so the writer's own browser
+  can mark it `mine` and offer edit and delete.
+- A `mood` row not yet visible in the scrape (bridge pending, or Telegram's
+  embed hasn't caught up) is appended.
+- A row whose bridged message was removed directly in Telegram is treated as
+  deleted and never resurrected.
+
+The assembled thread is shared across readers for about 15s (up to ~45s with
+revalidation, see [`/api/comments`](/docs/api/content#comments-by-post-id)).
+The writer's own browser shows their comment straight away, from the write
+response and the `no-store` `/api/v2/comments` verdict poll.
 
 The scrape carries none of the owner's marks. So a mood page linked to the
 group also prefetches `GET /api/v2/comments?surface=mood&post=<id>&limit=20`
 while it parses, and takes the pin, the locks and `policy` from that first
-page: the pinned web comment leads the thread — drawn from that page when
-the scrape's first page does not hold it — a locked root says it is closed
-to replies, and `policy.mode` hides the section or closes the compose box.
-The thread draws once both reads land. Messages written in the group have
-no site row, so they are never pinned or locked, and a lock or a `readonly`
-post does not reach replies written there. A locked root beyond that first
-page is not marked; the server's `thread_locked` refusal still covers it.
+page:
 
-Disabled entirely by `MOOD_COMMENTS_ENABLED` (site-api, default off) — while
-off, `surface: "mood"` on this route answers exactly like an unlinked post
-(`discussion_message_id` unset): `resolveCommentablePost` finds nothing to
-write into, and no bridge call (send, edit, delete, sweep) reaches Telegram.
-See [Comments platform](/docs/platform/comments) for the kill switch and the
-Phase 0 setup it gates.
+- The pinned web comment leads the thread. It is drawn from that page when the
+  scrape's first page doesn't hold it.
+- A locked root says it is closed to replies.
+- `policy.mode` hides the section or closes the compose box.
 
-## Dwell-time token
+The thread draws once both reads land. Messages written in the group have no
+site row, so they are never pinned or locked, and a lock or a `readonly` post
+doesn't reach replies written there. A locked root beyond that first page is
+not marked, but the server's `thread_locked` refusal still covers it.
+
+### Kill switch
+
+`MOOD_COMMENTS_ENABLED` (site-api, default off) disables the whole feature.
+While it's off, `surface: "mood"` on this route answers exactly like an
+unlinked post (`discussion_message_id` unset). `resolveCommentablePost` finds
+nothing to write into, and no bridge call (send, edit, delete, sweep) reaches
+Telegram. See [Comments platform](/docs/platform/comments) for the kill switch
+and the Phase 0 setup it gates.
+
+## Get a dwell-time token
 
 ```
 GET /api/v2/comments/dwell-token
@@ -593,16 +850,21 @@ GET /api/v2/comments/dwell-token
 { "token": "..." }
 ```
 
-Mints the risk stack's dwell-time stamp: a signed timestamp the client
-fetches when the page loads and holds until submit. `POST /api/v2/comments`
-answers a missing `dwellToken` with `400`, and drops (silently — see above)
-one that is unsigned or younger than 3 seconds. The stamp also carries a
-24-hour expiry, which is the ceiling on how long a tab can sit open; every
-focus in a compose box re-mints a token older than 20 hours, so a tab left
-open overnight still posts. The client never mints at submit: a token that
-young is exactly what the silent drop catches. Not rate-limited — it signs nothing but the current time, so
-there's no per-call cost worth gating; `POST /api/v2/comments`'s own limits
-apply regardless of how many tokens get minted.
+Returns the risk stack's dwell-time stamp: a signed timestamp. The client
+fetches it when the page loads and holds it until submit.
+
+`POST /api/v2/comments` answers a missing `dwellToken` with `400`. It silently
+drops (see step 2 of the risk stack) a token that is unsigned or younger than
+3 seconds. The client never mints a token at submit, because a token that
+young is exactly what the silent drop catches.
+
+The stamp also carries a 24-hour expiry, which caps how long a tab can sit
+open. Every focus in a compose box re-mints a token older than 20 hours, so a
+tab left open overnight still posts.
+
+The route isn't rate-limited. It signs nothing but the current time, so a call
+costs nothing worth gating, and `POST /api/v2/comments`'s own limits apply
+however many tokens get minted.
 
 ## Edit or delete a comment
 
@@ -613,21 +875,30 @@ DELETE /api/v2/comments/:id
 
 Both require **verified ownership**: the calling browser's `reader_id` must
 match the row's writer. The `reader_anon` session cookie never grants
-mutation — it is a bearer key a shared or public machine hands to its next
-user, so it makes rows visible as `mine` but never editable or deletable.
+mutation. It is a bearer key that a shared or public machine hands to its next
+user, so it shows rows as `mine` but never makes them editable or deletable.
+
 An anonymous row written *with* an email becomes mutable once that address
-verifies (claiming attaches the `reader_id`); a row posted with no email is
-never claimable, so it is permanently frozen as written — deletion requests
-go to the site owner. `PATCH` body:
+verifies, because claiming attaches the `reader_id`. A row posted with no
+email is never claimable, so it stays frozen as written. Deletion requests for
+it go to the site owner.
+
+### Edit
+
+`PATCH` body:
 
 ```json
 { "body": "..." }
 ```
 
-Edits are only allowed within **15 minutes** of `createdAt`, inclusive of
-the exact boundary. An edit re-runs moderation against the new body (same
-post-title/excerpt context) and the row's `editedAt` gets set — the client
+You can edit within **15 minutes** of `createdAt`, including the exact
+boundary. An edit re-runs moderation against the new body (with the same
+post-title/excerpt context) and sets the row's `editedAt`, so the client
 should show an "edited" marker. Response: `{ "comment": { "...": "..." } }`.
+
+`PATCH` is rate-limited at 10/minute per reader/session, durably enforced.
+
+### Delete
 
 `DELETE` has no time window. It's always a soft delete:
 
@@ -635,30 +906,44 @@ should show an "edited" marker. Response: `{ "comment": { "...": "..." } }`.
 { "ok": true, "tombstone": true }
 ```
 
-`tombstone: true` means a published reply hangs underneath it, so the row
-stays as a shape-preserving placeholder (`body`/`author` blanked at read
-time) instead of disappearing.
+`tombstone: true` means a published reply hangs under the row. The row then
+stays as a placeholder that keeps the thread's shape (`body`/`author` blanked
+at read time) instead of disappearing.
 
-**Errors (both methods):** `404 not_found` (missing, or already deleted),
-`403 not_owner`. `PATCH` additionally: `409 edit_window_closed`,
-`403 comments_closed` on a post that has stopped taking comments, `400` for a
-malformed body. `PATCH` is rate-limited at 10/minute per reader/session,
-durably enforced.
+### Errors
+
+| Error | Method | When |
+| --- | --- | --- |
+| `404 not_found` | Both | The comment is missing, or already deleted |
+| `403 not_owner` | Both | The caller doesn't own the row |
+| `409 edit_window_closed` | `PATCH` | The 15-minute edit window has passed |
+| `403 comments_closed` | `PATCH` | The post has stopped taking comments |
+| `400` | `PATCH` | Malformed body |
 
 ## Reactions
+
+Reactions are hearts on a post or a comment. Anyone can read them and anyone
+can react.
+
+### Read reactions
 
 ```
 GET /api/v2/reactions?targets=post:<id>,comment:<id>,...
 ```
 
-`targets` is a comma-separated list of `type:id` pairs, up to 50. Anonymous
-counts, identified faces: every reaction is visible to anyone, but only a
-reaction with an identity behind it shows up in `reactors`. That is a
-verified reader, or an anonymous reaction from a browser that has published a
-comment: it carries the name, avatar and `avatarSeed` of that browser's most
-recent published comment, so a like and a comment from the same person show
-the same face. A browser that has only ever liked stays out of `reactors`,
-and a held or deleted comment never lends its name.
+`targets` is a comma-separated list of `type:id` pairs, up to 50.
+
+Counts are anonymous; faces need an identity. Anyone can see every reaction
+in the count, but only a reaction with an identity behind it shows up in
+`reactors`. That means:
+
+- a verified reader, or
+- an anonymous reaction from a browser that has published a comment. It uses
+  the name, avatar and `avatarSeed` of that browser's most recent published
+  comment, so a like and a comment from the same person show the same face.
+
+A browser that has only ever liked stays out of `reactors`, and a held or
+deleted comment never lends its name.
 
 ```json
 {
@@ -670,15 +955,27 @@ and a held or deleted comment never lends its name.
 }
 ```
 
-`reacted` is specific to the calling browser, so this is always
-`private, no-store` — a shared cache entry here would show one reader's
-filled heart to another, which is why the batch read is uncacheable and
-rate-limited instead: 120/minute per reader, or per hashed IP when there is
-no session, durably enforced.
+`reactors` is capped at 12 names per emoji; the `count` is the true total. A
+banned reader is filtered out of both: their name leaves the list and their
+heart leaves the count.
 
-`reactors` is capped at 12 names per emoji; the `count` is the true total.
-A banned reader is filtered out of both — their name leaves the list and
-their heart leaves the number.
+`reacted` is specific to the calling browser. A request with a reader session
+or `reader_anon` cookie is therefore `private, no-store`, because a shared
+cache entry would show one reader's filled heart to another. A request with
+neither has `reacted: false` everywhere, so it gets the same short edge policy
+as the comment list (`public, max-age=0`, CDN
+`max-age=30, stale-while-revalidate=60`, `Vary: Cookie`).
+
+Every request that reaches the Worker is rate-limited at 120/minute per
+reader, or per hashed IP when there is no session:
+
+- An anonymous request (no reader session) is checked against the per-colo
+  Workers Rate Limiting binding `REACTIONS_READ_LIMITER` when it is
+  configured, and against the durable limiter otherwise.
+- A signed-in reader's read always uses the durable limiter, for an exact
+  count against the same D1 budget Mood shares.
+
+### Toggle a reaction
 
 ```
 POST /api/v2/reactions/toggle
@@ -688,14 +985,19 @@ POST /api/v2/reactions/toggle
 { "targetType": "post", "targetId": "abc123", "emoji": "❤️", "reacted": true, "turnstileToken": "...", "clientFp": {}, "interaction": {}, "storageId": "..." }
 ```
 
-No sign-in required — anyone can react, no prompt, no round trip of their
-own. `turnstileToken` uses `expectedAction: 'blog_reaction'` and is expected
-to solve invisibly (managed/widget mode), so in practice this never costs
-the reader anything extra. `emoji` defaults to the one reaction shipped at
-launch (❤️) if omitted. `reacted` is the desired final state — repeating the
-same request is safe (idempotent). `targetType: 'comment'` targets a live
-(non-deleted) comment row directly; `targetType: 'post'` is validated
-against the same Ghost post registry `POST /api/v2/comments` uses.
+No sign-in is needed: anyone can react, with no prompt and no extra round
+trip.
+
+| Field | Description |
+| --- | --- |
+| `targetType`, `targetId` | What to react to. `targetType: 'comment'` targets a published comment row directly. A held, rejected or deleted comment answers `404 not_found`, the same as an unknown id. `targetType: 'post'` is validated against the same Ghost post registry `POST /api/v2/comments` uses. |
+| `emoji` | Defaults to the one reaction shipped at launch (❤️) if omitted |
+| `reacted` | The desired final state. Repeating the same request is safe (idempotent). |
+| `turnstileToken` | Uses `expectedAction: 'blog_reaction'`. May be empty while the browser holds a reader pass (below). |
+| `clientFp`, `interaction`, `storageId` | Optional [client evidence](#client-evidence), as on comment create |
+
+The Turnstile token is expected to solve invisibly (managed/widget mode), so
+in practice it never costs the reader anything extra.
 
 ```json
 { "reaction": { "emoji": "❤️", "count": 4, "reacted": true, "reactors": [] }, "passUntil": 1789120800000 }
@@ -703,30 +1005,42 @@ against the same Ghost post registry `POST /api/v2/comments` uses.
 
 **A banned source's heart.** A reaction from a source on the ban list gets
 this same envelope, with the `reacted` state it asked for and a `count` that
-did not move. No row is written and no reader pass is issued. There is no
-error and no hint: a ban that announced itself would be a ban somebody could
-test around.
+didn't move. No row is written and no reader pass is issued. There is no error
+and no hint, since a ban that announced itself could be tested around.
 
 **Reader pass.** An accepted reaction also sets an HttpOnly
-`__Host-reader_pass` cookie, signed against the `reader_anon` session and
-good for one hour (renewed on every accepted reaction). While a browser holds
-one, `turnstileToken` may be the empty string: the route verifies the pass
-locally instead of calling Turnstile, so a reader who likes several comments
-solves once rather than once per heart — a run of solves from one IP is what
-made Cloudflare escalate to an interactive challenge. `passUntil` (epoch ms)
-tells the client when to start minting tokens again; a `400 turnstile_failed`
-on a pass-backed request means the pass is gone. The pass grants nothing the
-token did not: identity and IP budgets below apply unchanged.
+`__Host-reader_pass` cookie, signed against the `reader_anon` session and good
+for one hour (renewed on every accepted reaction). While a browser holds one,
+`turnstileToken` may be the empty string: the route verifies the pass locally
+instead of calling Turnstile. A reader who likes several comments then solves
+once instead of once per heart. Before the pass, a run of solves from one IP
+made Cloudflare escalate to an interactive challenge.
 
-Rate-limited at 30/minute per identity (reader, or a keyed hash of the
-anonymous session), durably enforced, plus hashed-IP network budgets that
-exist to stop anonymous cookie churn: 30/minute and 120/hour per IP.
-A verified reader — whose identity cannot churn — is exempt from the
-per-minute IP cap and bound only by their own identity budget and the
-hourly network ceiling. **Errors:** `400` for a malformed
-body, `400 turnstile_failed` / `503 turnstile_unavailable`, `404 not_found`
-for an unknown target, `503 reaction_target_unavailable`,
-`403 reactions_disabled` on a post whose hearts are off.
+`passUntil` (epoch ms) tells the client when to start minting tokens again. A
+`400 turnstile_failed` on a pass-backed request means the pass is gone. The
+pass grants nothing the token didn't: the identity and IP budgets below still
+apply.
+
+**Rate limits.**
+
+| Budget | Limit |
+| --- | --- |
+| Per identity (the reader, or a keyed hash of the anonymous session) | 30/minute, durably enforced |
+| Per hashed IP, to stop anonymous cookie churn | 30/minute and 120/hour |
+
+A verified reader's identity can't churn, so they're exempt from the
+per-minute IP cap. They're bound only by their own identity budget and the
+hourly network ceiling.
+
+**Errors**
+
+| Error | When |
+| --- | --- |
+| `400` | Malformed body |
+| `400 turnstile_failed`, `503 turnstile_unavailable` | Turnstile failed or is unavailable |
+| `404 not_found` | Unknown target, or a comment that isn't published |
+| `503 reaction_target_unavailable` | The Ghost post registry can't be reached |
+| `403 reactions_disabled` | The post's hearts are off |
 
 ## Reader session
 
@@ -735,14 +1049,13 @@ GET    /api/v2/reader/me
 DELETE /api/v2/reader/me
 ```
 
-`GET` always answers `200` — a signed-out reader is a normal state, not an
-error:
+`GET` always answers `200`. A signed-out reader is a normal state:
 
 ```json
 { "reader": null }
 ```
 
-or, when signed in:
+When the reader is signed in:
 
 ```json
 {
@@ -759,25 +1072,19 @@ or, when signed in:
 }
 ```
 
-Never includes email or its hash. `DELETE` signs out: clears the session
-cookie and returns `204`. Idempotent — calling it with no session already
-set still succeeds, so the client never needs to check sign-in state first.
-Neither is rate-limited.
+The response never includes the email or its hash.
 
-Two cookies, both `__Host-` prefixed, `Secure`, `HttpOnly`, `SameSite=Lax`,
-path `/`:
+`DELETE` signs out: it clears the session cookie and returns `204`. It's
+idempotent, so calling it with no session set still succeeds, and the client
+never needs to check sign-in state first.
 
-| Cookie | Lifetime | Carries |
-| --- | --- | --- |
-| `__Host-reader_session` | 180 days | The signed L1/L2 session: `reader_id`, provider, and the reader row's creation stamp, which acts as a generation counter |
-| `__Host-reader_anon` | 365 days | An opaque keyed session id, minted on the first write. Marks rows as `mine`; never grants mutation |
-
-An unprefixed legacy `reader_session` cookie is cleared wherever one is
-still presented. A session whose reader row is missing, banned, or has lost
-its `reader_id` is refused on sight, so a ban takes effect on the next
-request rather than at the next expiry.
+Neither method is rate-limited. The cookies behind the session are described
+in [Cookies](#cookies).
 
 ## Lazy email verification
+
+After a reader's first comment from an unverified address, site-api mails them
+a confirmation link. Confirming makes them an L1 reader.
 
 ```
 POST /api/v2/reader/verify
@@ -787,46 +1094,56 @@ POST /api/v2/reader/verify
 { "token": "...", "subscribe": false }
 ```
 
-This is the confirm button's `POST` — the click target of the link mailed
-after a first unverified comment (or resent via the endpoint below). `GET`
-on the equivalent page is deliberately not part of this API: the confirm
-page itself is a small SSR page in the public `site` Worker at
-`/reader/confirm`, and only its button's `POST` ever consumes the token, so
-a mail client's link-prefetch `GET` can never silently burn it.
+This is the `POST` behind the confirm button. The reader gets there from the
+link mailed after a first unverified comment, or from a resent link (see
+[Resend the verification link](#resend-the-verification-link)).
+
+The link opens `/reader/confirm`, a small SSR page in the public `site`
+Worker. This API has no `GET` for it, and only the button's `POST` ever
+consumes the token, so a mail client's link-prefetch `GET` can never burn it.
+The page submits the `POST` on load instead of waiting for a press. A browser
+runs the page's script and a mail scanner doesn't, so a prefetch still can't
+burn the token and a real reader never has to click twice. The button stays in
+the served HTML as the no-JS path.
 
 ```json
 { "outcome": "confirmed", "reader": { "...": "..." } }
 ```
 
-`outcome` is one of `confirmed`, `already_confirmed`, or `invalid` — a
-malformed and an expired token both currently report `invalid`; the
-contract also defines an `expired` outcome, but nothing produces it yet. On
-`confirmed`, this
-also binds every past anonymous comment from the same browser matching the
-verified email hash to the new `reader_id`, turns reply notifications on
-(the mail that carried the link promises them, and a first confirmation is
-the only place they're switched on unasked — see the endpoint below for
-moving them afterwards), and — when the token itself was minted with a
-subscribe intent — activates the newsletter subscription in the same
-request, without a second confirmation round trip. The request body's own
-`subscribe` field is not honoured on its own: it would let whoever holds a
-token add that address to the newsletter, which the address's owner never
-asked for. Rate-limited at 10/minute per email hash, durably enforced.
+`outcome` is one of `confirmed`, `already_confirmed`, or `invalid`. A
+malformed token and an expired token both currently report `invalid`. The
+contract also defines an `expired` outcome, but nothing produces it yet.
+
+On `confirmed`, the same request also:
+
+- binds every past anonymous comment from the same browser that matches the
+  verified email hash to the new `reader_id`;
+- turns reply notifications on, because the mail that carried the link
+  promises them. A first confirmation is the only place they're switched on
+  without asking; to change them later, see
+  [Reader preferences](#reader-preferences);
+- activates the newsletter subscription when the token itself was minted with
+  a subscribe intent, without a second confirmation round trip.
+
+The request body's own `subscribe` field isn't honoured on its own. It would
+let whoever holds a token add that address to the newsletter, which the
+address's owner never asked for.
+
+Rate-limited at 10/minute per email hash, durably enforced.
 
 **The session is minted once.** Only a `confirmed` outcome sets the reader
-cookie; replaying the same token afterwards answers `already_confirmed` and
-signs in nobody. Consumption and subscription intent are applied atomically;
-a replay changes neither preferences nor the timestamp used by a newer link.
-So a link forwarded, quoted in a reply, or sitting in a
-mailbox somebody else can read is not a way into the account — it signs in
-the one device that redeemed it first, and a device left out gets a fresh
-link rather than a second use of the old one. The token still expires 24
-hours after it is minted.
+cookie. Replaying the same token afterwards answers `already_confirmed` and
+signs in nobody. Consumption and subscription intent are applied atomically,
+and a replay changes neither preferences nor the timestamp used by a newer
+link.
 
-The confirm page submits this on load rather than waiting for a press: a
-browser runs the page's script, a mail scanner does not, so the token still
-cannot be burned by a prefetch and a real reader never has to click twice.
-The button stays in the served HTML as the no-JS path.
+So a link that is forwarded, quoted in a reply, or sitting in a mailbox
+somebody else can read is not a way into the account. It signs in only the
+first device that redeems it. A device left out gets a fresh link instead of a
+second use of the old one. The token still expires 24 hours after it is
+minted.
+
+### Resend the verification link
 
 ```
 POST /api/v2/reader/resend
@@ -841,29 +1158,54 @@ POST /api/v2/reader/resend
 ```
 
 `notifyReplies` here is the same newsletter opt-in as on comment create,
-recovered from the stale link; it is not the reply-mail switch.
+recovered from the stale link. It isn't the reply-mail switch.
 
 Mail goes out only to an address with comment history or an existing verified
 reader identity. This also lets a verified reader sign in after changing their
-email address. The monthly unconfirmed-address limit does not apply to a
-verified reader; the short, daily, and global limits still apply. Always answers the same shape and status
-either way, and regardless of whether the address is currently suppressed
-by the per-address send limit below — this can never be used to probe which addresses have
-commented. Two independent rate limits apply, both durably enforced: a
-per-IP route limit (5/minute, answers `429` — this one carries no address
-information, so it's safe to surface) and a per-address send suppression (1
-mail per 10 minutes, 5 per day, 8 per 30 days — enforced silently inside
-the send path, never surfaced as a `429` here).
+email address.
 
-Beyond the counters, the send path itself refuses two classes of address
-outright, equally silently: anything on the suppression ledger (an address
-that ever hard-bounced or raised a spam complaint — fed by the Resend
-delivery webhook, see [internal routes](/docs/api/internal)), and anything
-whose domain verifiably cannot receive mail (no MX and no fallback address
-record, checked over DNS-over-HTTPS with a per-domain cache; DNS trouble
-fails open). Both guards protect the sending domain's bounce and complaint
-rates — the numbers mail providers score reputation on — from the fake
-addresses a no-account comment box inevitably collects.
+The route always answers with the same shape and status. That holds whether
+or not mail went out, and whether or not the per-address send limit below is
+currently suppressing the address. The route can never be used to probe which
+addresses have commented.
+
+Two independent rate limits apply, both durably enforced:
+
+| Limit | Value | Surfaced to the caller |
+| --- | --- | --- |
+| Per-IP route limit | 5/minute | Yes, as `429`. It carries no address information, so it's safe to surface. |
+| Per-address send suppression | 1 mail per 10 minutes, 5 per day, 8 per 30 days | No. Enforced silently inside the send path, never surfaced as a `429` here. |
+
+The monthly unconfirmed-address limit doesn't apply to a verified reader; the
+short, daily, and global limits still apply.
+
+The send path also refuses two kinds of address outright, equally silently:
+
+- Anything on the suppression ledger: an address that ever hard-bounced or
+  raised a spam complaint. The Resend delivery webhook feeds the ledger (see
+  [internal routes](/docs/api/internal)).
+- Anything whose domain verifiably can't receive mail: no MX and no fallback
+  address record, checked over DNS-over-HTTPS with a per-domain cache. DNS
+  trouble fails open.
+
+Both guards protect the sending domain's bounce and complaint rates, which
+mail providers use to score its reputation, from the fake addresses a
+no-account comment box inevitably collects.
+
+### Unverified addresses expire
+
+The verification mail promises that unconfirmed records are cleared within
+seven days. The notify sweep keeps that promise: it nulls `email_hash` on any
+`blog_comments` row older than that which still has no `reader_id`. It needs
+no new cron; it runs on the schedule that already handles the other notify
+maintenance.
+
+The sweep doesn't change the comment's status, so a published comment stays
+published. It falls back to the shape a comment posted without an address has
+always had: anon-session ownership, a drawn face, and no claim-on-verify.
+Confirming afterwards mints a fresh reader and doesn't adopt the old comment.
+A comment still awaiting its confirmation (step 6 of the risk stack) stays
+held, and from then on only the owner can release it.
 
 ## Reader preferences
 
@@ -879,41 +1221,61 @@ POST /api/v2/reader/preferences
 { "reader": { "...": "..." } }
 ```
 
-The switches on the confirm page. Authenticated by the reader session
-cookie alone — it takes no address, so it can never move a stranger's
-preferences by naming them, and answers `401 not_signed_in` without one.
-Every field is optional and independent; the client sends only the switch
-that moved, and a body carrying none of them is a `400`. `notifyReplies`
-writes the reader's own column; switching `subscribed` off invalidates pending
-newsletter confirmations. `subscribed` activates or unsubscribes the
-newsletter subscription without touching reply notifications, and vice
-versa — leaving the newsletter and muting your own replies are separate
-decisions. Rate-limited at 20/minute per reader, durably enforced. The
-response carries the reader row as it now stands, in the same shape
-`/api/v2/reader/me` returns.
+These are the switches on the confirm page. The reader session cookie alone
+authenticates the route. It takes no address, so it can never change a
+stranger's preferences by naming them. Without a session it answers
+`401 not_signed_in`.
 
-`GET /reader/confirm` with no token is the page these switches live on: a
+Every field is optional and independent. The client sends only the switch
+that moved, and a body with none of them is a `400`.
+
+| Field | Effect |
+| --- | --- |
+| `notifyReplies` | Writes the reader's own column (reply mail, see [Reply notifications](#reply-notifications)) |
+| `subscribed` | Activates or unsubscribes the newsletter subscription. Switching it off also invalidates pending newsletter confirmations. |
+
+`subscribed` never touches reply notifications, and `notifyReplies` never
+touches the newsletter. Leaving the newsletter and muting your own replies are
+separate decisions.
+
+Rate-limited at 20/minute per reader, durably enforced. The response carries
+the reader row as it now stands, in the same shape `/api/v2/reader/me`
+returns.
+
+`GET /reader/confirm` with no token is the page these switches live on. A
 signed-in reader gets the preference card, and everyone else gets the
-expired-link card. That is where the reply mail's settings link points, so the
-switch is always one click from the mail that prompted it.
+expired-link card. The reply mail's settings link points there, so the switch
+is always one click from the mail that prompted it.
 
-### What `notifyReplies` actually sends
+### Reply notifications
 
-A published reply to a comment mails that comment's author, once, saying
-that there is a reply and where — with the author's own comment quoted, and
-**never** the reply's text or the replier's name. The mail is unattended
-outbound to an address a stranger chose to write under; quoting the stranger
-would turn the site's sender reputation into a relay. It goes out only when
-the author is a verified reader (an anonymous comment carries no address
-anyone may reuse), still has `notify_replies` set, has not muted this
-thread, is not banned, and is not the person who just replied. Held and
-rejected replies send nothing — mailing about one would leak the moderation
-queue. Capped at 12 per reader per hour, and at 3 per reader per hour when
-the replier is anonymous; keyed on the reply id, so a retried write cannot
-mail the same reply twice; suppressed addresses are skipped like every other
-outbound.
+A published reply to a comment mails that comment's author, once. The mail
+says there is a reply and where, and quotes the author's own comment. It
+**never** includes the reply's text or the replier's name. The mail goes out
+unattended, to an address someone chose to write under, so quoting the
+replier would let any stranger use the site's sender reputation as a relay.
 
-## Muting one conversation
+The mail goes out only when the comment's author:
+
+- is a verified reader (an anonymous comment carries no address anyone may
+  reuse),
+- still has `notify_replies` set,
+- hasn't muted this thread,
+- isn't banned, and
+- isn't the person who wrote the reply.
+
+Held and rejected replies send nothing, since mailing about one would leak the
+moderation queue.
+
+| Cap | Value |
+| --- | --- |
+| Per reader | 12 per hour |
+| Per reader, when the replier is anonymous | 3 per hour |
+
+Sends are keyed on the reply id, so a retried write can't mail the same reply
+twice. Suppressed addresses are skipped like every other outbound mail.
+
+## Mute a conversation
 
 ```
 POST /api/v2/reader/mute
@@ -927,42 +1289,34 @@ POST /api/v2/reader/mute
 { "outcome": "muted", "postId": "..." }
 ```
 
-The reply mail's own mute button, and the only mute there is: this
-**conversation** goes quiet, or the global switch turns **every** reply alert
-off. A single argument in one thread is the usual reason someone reaches for
-an off switch, and if the only switch in reach is the global one, that is the
-one they pull. (A third, per-article scope shipped briefly on the settings
-card and was removed — a reader done with an article stops reading it, so the
-switch answered a question nobody was asking.)
+This is the reply mail's own mute button, and the only mute there is. It
+silences this **conversation**. The other option is the global switch, which
+turns **every** reply alert off. A single argument in one thread is the usual
+reason someone reaches for an off switch, and if the global switch is the only
+one in reach, that's the one they pull.
 
-A mute stays until it is undone — a reader who has left a conversation has
-left it, and an alert that quietly turns itself back on is worse than one that
-was never offered. The landing page carries the undo. `outcome` is `muted`, `unmuted` (that undo, sent as `muted: false`), or
-`invalid` for an expired, tampered, or unknown token — one flat answer, so the
-endpoint cannot be used to probe which tokens are real. Rate-limited at
+A third, per-article scope shipped briefly on the settings card and was
+removed. A reader done with an article stops reading it, so the switch
+answered a question nobody was asking.
+
+A mute stays until it is undone, because an alert that turns itself back on
+is worse than one that was never offered. The landing page has the undo.
+
+`outcome` is `muted`, `unmuted` (that undo, sent as `muted: false`), or
+`invalid` for an expired, tampered, or unknown token. It's one flat answer, so
+the endpoint can't be used to probe which tokens are real. Rate-limited at
 20/minute per reader.
 
-Authenticated by the token alone, never a session: the mail is usually open on
-a device that has never signed in here, and an off switch that starts with a
-sign-in is one people replace with the spam button. The token is a bearer
-capability naming a reader, a thread, and a post, valid 90 days, and it can do
-nothing but mute or unmute that one thread. `GET` answers `405`; the page that
-carries the button lives in the public Worker.
+The token alone authenticates the request, never a session. The mail is
+usually open on a device that has never signed in here, and if an off switch
+starts with a sign-in, people press the spam button instead. The token is a
+bearer capability naming a reader, a thread, and a post. It's valid for 90
+days and can do nothing but mute or unmute that one thread.
 
-`GET /reader/mute?token=…` is that page. Like `/reader/confirm`, the GET only
-renders and the POST does the writing, so a mail scanner prefetching every URL
-in the message cannot silence a conversation on the reader's behalf.
-
-### Unverified addresses expire
-
-The verification mail promises that unconfirmed records are cleared within
-seven days, and the notify sweep keeps that promise: it nulls `email_hash` on
-any `blog_comments` row older than that which still has no `reader_id`. No new
-cron — it rides the schedule that already runs the other notify maintenance.
-The comment itself stays published; it simply degrades to the shape a comment
-posted without an address has always had, meaning anon-session ownership, an
-drawn face, and no claim-on-verify. Confirming afterwards mints a fresh reader
-and does not adopt the old comment.
+`GET` answers `405`. The page with the button lives in the public Worker at
+`GET /reader/mute?token=…`. As with `/reader/confirm`, the `GET` only renders
+and the `POST` does the writing, so a mail scanner that prefetches every URL
+in the message can't silence a conversation for the reader.
 
 ## Reader avatar
 
@@ -970,27 +1324,59 @@ and does not adopt the old comment.
 GET /api/v2/reader/avatar/:key
 ```
 
-A comment row, reactor chip, or `ReaderMe` carries this path only when an
-avatar has actually resolved for that address; otherwise the field is empty
-and the client draws its own generated one. The endpoint answers an identicon
-for any key it does not recognise, so handing out the path for every address
-made every face an identicon. Avatars resolve on both sign-in paths — the
-OAuth callback and email verification, each being a moment the plaintext
-address exists — through the chain in `avatar.ts`: the OAuth picture, then QQ,
-then the Gravatar-protocol mirrors.
+Serves a reader's avatar image, looked up by a hash of their address. `:key`
+is `sha256(normalized email)`, the same hash notify uses, never the plaintext
+address.
 
-`:key` is `sha256(normalized email)` — the same hash notify uses, never the
-plaintext address. Serves the reader's cached avatar from R2 when one
-exists (`ETag`/`If-None-Match` supported, `304` on a match), otherwise falls
-back to a deterministic SVG identicon seeded from the hash — including for
-a malformed or unrecognized key, so this endpoint can never be used to
-distinguish a real hash from a made-up one beyond what the hash already
-reveals (something any client could compute for any address itself).
-`?s=<pixels>` requests an identicon size, snapped up to the nearest of
-40/80/120/160. `Content-Security-Policy: default-src 'none'; sandbox` on
-every response. Not rate-limited (cacheable image proxy).
+The endpoint serves the reader's cached avatar from R2 when one exists
+(`ETag`/`If-None-Match` supported, `304` on a match). Otherwise it falls back
+to a deterministic SVG identicon seeded from the hash. It does the same for a
+malformed or unrecognized key, so the endpoint can never be used to tell a
+real hash from a made-up one beyond what the hash already reveals (which any
+client could compute for any address itself).
+
+- `?s=<pixels>` requests an identicon size, snapped up to the nearest of
+  40/80/120/160.
+- Every response sends `Content-Security-Policy: default-src 'none'; sandbox`.
+- Not rate-limited (cacheable image proxy).
+
+A comment row, reactor chip, or `ReaderMe` carries this path only when an
+avatar has actually resolved for that address. Otherwise the field is empty
+and the client draws its own generated face. Handing out the path for every
+address would make every face an identicon, since the endpoint answers an
+identicon for any key it doesn't recognise.
+
+Avatars resolve on both sign-in paths, the OAuth callback and email
+verification, because those are the moments the plaintext address exists.
+They go through the chain in `avatar.ts`: the OAuth picture, then QQ, then the
+Gravatar-protocol mirrors.
 
 ## Drawn avatars
+
+Anyone without a picture gets a face drawn in the browser. The three styles
+are ported from Boring Avatars to `src/features/comments/drawn-avatar.ts`:
+
+| Style | Look |
+| --- | --- |
+| `beam` | A cartoon face |
+| `marble` | A blurred wash |
+| `mist` | The wash, with its palette lifted halfway to white |
+
+Colours come from 653 five-colour sets of Nice Color Palettes, the ones whose
+colours all stay clearly apart.
+
+A seed is a uint32:
+
+- `seed % 20` is its colour class: which two of the palette's five colours are
+  base and accent (never the same one).
+- The rest of the seed picks, in turn, the style, the palette, and where the
+  shapes sit.
+
+`avatarSeed` on a comment author, a reactor chip, or `ReaderMe` is that seed.
+It is `null` for anything older than the feature, and the client draws those
+from the row id as before.
+
+### Get a seed
 
 ```
 POST /api/v2/reader/avatar-seed
@@ -1015,45 +1401,43 @@ POST /api/v2/reader/avatar-seed
 An unknown `mode` is `400 invalid_mode`; `choose` without a valid uint32
 `seed` is `400 invalid_seed`.
 
-Anyone without a picture gets a drawn face in one of three styles ported
-from Boring Avatars to `src/features/comments/drawn-avatar.ts` and drawn in
-the browser: `beam` (a cartoon face), `marble` (a blurred wash), and `mist`
-(the wash with its palette lifted halfway to white). Colours come from 653
-five-colour sets of Nice Color Palettes, the ones whose colours all stay
-clearly apart. A seed is a uint32: `seed % 20` is its colour class (which
-two of the palette's five colours are base and accent, never the same one),
-and the rest picks, in turn, the style, the palette, and where the shapes
-sit. `avatarSeed` on a comment author, a reactor chip, or `ReaderMe` is that
-seed, or `null` for anything older than the feature, which the client draws
-from the row id as before.
+- `issue` hands out a seed in the least-issued colour class across the site,
+  never the class of `current`. A new face lands on a colour pair the fewest
+  people already wear.
+- `offer` returns five seeds in the five least-issued classes, again never
+  `current`'s. It counts none of them, so browsing batches costs the balance
+  nothing.
+- `choose` then counts the one picked, and gives back the class `current` was
+  counted in.
 
-`issue` hands out a seed in the least-issued colour class across the site,
-never the class of `current`, so a new face lands on a colour pair the
-fewest people already wear. `offer` returns five seeds in the five
-least-issued classes, again never `current`'s, and counts none of them, so
-browsing batches costs the balance nothing; `choose` then counts the one
-picked, and gives back the class `current` was counted in. The route keeps a
-count per class rather than counting every reader and comment, so each call
-reads twenty rows. Open to anonymous writers: they get `persisted: false`,
-and the browser keeps the seed and posts it with each comment. A signed-in
-reader's `issue` or `choose` is stored on their reader row and every comment
-they own (`persisted: true`); their stored seed is the one replaced, whatever
-`current` says. `private, no-store`; rate-limited at 30/minute per IP.
+The route keeps a count per class instead of counting every reader and
+comment, so each call reads twenty rows.
+
+Anonymous writers can call it too. They get `persisted: false`, and the
+browser keeps the seed and posts it with each comment. A signed-in reader's
+`issue` or `choose` is stored on their reader row and every comment they own
+(`persisted: true`). Their stored seed is the one replaced, whatever `current`
+says.
+
+Responses are `private, no-store`. Rate-limited at 30/minute per IP.
+
+### Picking a face in the browser
 
 The client asks for the first seed once the reader focuses or types in a
-compose box, not on page load; until then the face beside the name field is
-a silhouette, and it never follows the name typed there. Pressing the
-reader's own face turns it into a button that asks for five more and
-throws an offer's five faces out onto an arc to its right; the client
-restyles the five so neighbours on the arc differ (class and palette kept), and draws five
-locally if the offer fails. The pick is shown and kept in the browser at
-once, then sent as `choose`.
+compose box, not on page load. Until then, the face beside the name field is a
+silhouette. It never follows the name typed there.
 
-The like stack does its own avoidance on screen: likes with no reader
-behind them each wear their own palette and class, none that the named faces
-beside them wear, and no two neighbours share a style. The server balances
-only the colour class; the style and palette of a seed it issues are left to
-chance, which spreads evenly.
+Pressing the reader's own face throws an offer's five faces out onto an arc to
+its right, and turns the face into a button that asks for five more. The
+client restyles the five so neighbours on the arc differ (class and palette
+kept), and draws five locally if the offer fails. The pick is shown and kept
+in the browser at once, then sent as `choose`.
+
+The like stack avoids clashes on screen by itself. Likes with no reader behind
+them each wear their own palette and class, none that the named faces beside
+them wear, and no two neighbours share a style. The server balances only the
+colour class. It leaves the style and palette of a seed it issues to chance,
+which spreads evenly.
 
 ## Reader OAuth (GitHub, Google)
 
@@ -1062,57 +1446,82 @@ GET /api/oauth/reader/:provider
 GET /api/oauth/reader/:provider/callback
 ```
 
-`:provider` is `github` or `google`. The first starts a sign-in redirect
-(optionally `?return=/blog/some-post` to land back somewhere other than the
-homepage); the second completes it. Both are plain `302` redirects, never
-JSON — an unconfigured or unknown provider is a clean `404` rather than a
-crash, so the site still boots with only one provider configured. Every
-callback failure (bad state, a provider error, an unverified email upstream,
-missing config) redirects to `/?signin=failed` with no detail in the URL or
-body; the real reason is only ever logged server-side. Neither is
-rate-limited.
+These routes serve L2 sign-in, which no reader reaches today (see
+[Reader identity](#reader-identity)).
 
+`:provider` is `github` or `google`. The first route starts a sign-in
+redirect. Add `?return=/blog/some-post` to land back somewhere other than the
+homepage. The second route completes the sign-in.
+
+Both answer plain `302` redirects, never JSON. An unconfigured or unknown
+provider gets a clean `404` instead of a crash, so the site still boots with
+only one provider configured. Every callback failure (bad state, a provider
+error, an unverified email upstream, missing config) redirects to
+`/?signin=failed`, with no detail in the URL or body. The real reason is only
+logged server-side. Neither route is rate-limited.
 
 ## Review and claim earlier comments
 
-`GET /api/v2/reader/claims?offset=0` accepts a non-negative offset up to 10000, requires a valid reader session, and returns
-`{ "comments": [...], "hasMore": false }`. It lists up to 50 unclaimed,
-non-deleted comments matching the authenticated mailbox. Each item carries
-`id`, `surface`, `postId`, `body`, `createdAt`, and `authorName` so the reader
-can recognize their own words. The `/reader/comments` page makes that
-selection explicit; opening it or paging through it claims nothing.
+A signed-in reader can list unclaimed comments written under their address
+and choose which ones to claim.
+
+### List claimable comments
+
+`GET /api/v2/reader/claims?offset=0` lists up to 50 unclaimed, non-deleted
+comments that match the authenticated mailbox. It requires a valid reader
+session, accepts a non-negative offset up to 10000, and returns
+`{ "comments": [...], "hasMore": false }`.
+
+Each item carries `id`, `surface`, `postId`, `body`, `createdAt`, and
+`authorName`, so the reader can recognize their own words. The
+`/reader/comments` page makes that selection explicit. Opening it or paging
+through it claims nothing.
+
+### Claim comments
 
 `POST /api/v2/reader/claims` accepts `{ "commentIds": ["..."] }` with 1–50
 IDs and returns `{ "claimedIds": ["..."] }`. The update repeats the mailbox,
-unclaimed, and non-deleted conditions atomically. It changes ownership and
-claim metadata only; it never changes the original session or authentication
-evidence. A claimed comment still awaiting its email confirmation (step 5 of
-the risk stack) is then released through content moderation. Both methods return `401 reader_sign_in_required` without a valid
-reader session and use `Cache-Control: private, no-store`.
+unclaimed, and non-deleted conditions atomically. It changes only ownership
+and claim metadata, never the original session or authentication evidence. A
+claimed comment still awaiting its email confirmation (step 6 of the risk
+stack) is then released through content moderation.
 
-Automatic claiming after email verification, OAuth, or owner sign-in requires
-both the matching mailbox and an existing valid anonymous session cookie. After
-email verification, claimed comments awaiting confirmation are released the
-same way.
-Comments from another browser remain unclaimed until selected explicitly.
+Both methods:
 
-## Operational measurements
+- return `401 reader_sign_in_required` without a valid reader session,
+- use `Cache-Control: private, no-store`, and
+- are rate-limited at 20/minute per reader, durably enforced.
 
-`POST /api/v2/comments/telemetry` accepts a small optional browser report:
+### Automatic claiming
+
+Email verification, OAuth, and owner sign-in claim comments automatically only
+when both the mailbox matches and the browser has an existing valid anonymous
+session cookie. After email verification, claimed comments awaiting
+confirmation are released the same way. Comments from another browser stay
+unclaimed until the reader selects them explicitly.
+
+## Client telemetry
+
+`POST /api/v2/comments/telemetry` accepts a small, optional report from the
+browser:
 
 ```json
 { "kind": "comment", "outcome": "network_error", "challenges": 2 }
 ```
 
-`kind` is `comment` or `reaction`; `outcome` is `accepted`, `http_error`,
-`network_error`, or `challenge_failed`; `challenges` is an integer from 0 to
-10. Reports contain no comment text, email, account/session identifier or
-fingerprint. The endpoint answers `204` and never controls a comment's
-outcome. Invalid or rate-limited reports are ignored. Its independent
-report budget is 60 per minute per hashed IP, separate from write budgets.
+| Field | Values |
+| --- | --- |
+| `kind` | `comment` or `reaction` |
+| `outcome` | `accepted`, `http_error`, `network_error`, or `challenge_failed` |
+| `challenges` | An integer from 0 to 10 |
 
-Reports are unverified and incomplete when a browser cannot deliver them.
-Server request counters separately measure accepted HTTP responses, invalid
+Reports contain no comment text, email, account/session identifier or
+fingerprint. The endpoint answers `204` and never controls a comment's
+outcome. Invalid or rate-limited reports are ignored. Reports have their own
+budget of 60 per minute per hashed IP, separate from the write budgets.
+
+Reports are unverified, and incomplete when a browser can't deliver them.
+Separately, server request counters measure accepted HTTP responses, invalid
 requests, rate limits, challenge failures and unavailable services, including
 retries. An accepted HTTP response is not proof of publication or of benign
 traffic. Hourly aggregate counters expire after 90 days.

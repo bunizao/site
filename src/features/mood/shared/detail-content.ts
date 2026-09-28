@@ -16,6 +16,26 @@ import {
   resolveMoodImageLayout,
 } from './image-srcset';
 
+// Matches the site-api pipeline monitor's preview-backlog threshold: past
+// this, the backfill (every 15 min, text posts only) has given up.
+const LINK_PREVIEW_PENDING_WINDOW_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Whether an archive document is still waiting on its link-preview card, and
+ * so must not be cached yet. Only text posts are ever resolved, and a post
+ * the backfill gave up on never gets a card -- without these bounds such
+ * pages stayed uncacheable forever.
+ */
+export function isMoodLinkPreviewPending(document: MoodContentDocument, nowMs = Date.now()): boolean {
+  if (!/https?:\/\//i.test(document.bodyHtml)) return false;
+  const hasLinkPreview = document.hero?.type === 'link-preview'
+    || document.media.some((item) => item.type === 'link-preview');
+  if (hasLinkPreview) return false;
+  if (document.media.some((item) => item.type === 'image' || item.type === 'video')) return false;
+  const publishedAt = Date.parse(document.datetime);
+  return Number.isFinite(publishedAt) && nowMs - publishedAt < LINK_PREVIEW_PENDING_WINDOW_MS;
+}
+
 function imageDetailMedia(document: MoodContentDocument): MoodContentDocument['media'] {
   return document.media.filter((item) => item.type === 'image');
 }

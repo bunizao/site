@@ -1,17 +1,21 @@
 ---
 title: Test coverage
-description: The behavior surface the Playwright suite covers, and what it deliberately does not.
+description: What the Playwright suite covers, the fixture rules that keep it deterministic, and what it leaves out.
 group: Platform
 order: 6
 ---
 
-This document defines the public behavior surface covered by the Playwright suite.
+This page lists the public site behavior that the Playwright suite covers, and
+which spec file covers it.
 
-The goal is full behavior coverage for the first-party public site surface under deterministic E2E fixtures. This is a behavior matrix, not a promise that every internal code branch is covered by browser instrumentation.
+The goal is full behavior coverage of the first-party public site, run against
+deterministic E2E fixtures (fixed test data that stands in for live services).
+The table tracks behavior. It does not promise that browser tests reach every
+internal code branch.
 
-## Covered Surface
+## Covered behavior
 
-| Surface | Behavior | Coverage |
+| Route | Behavior | Spec file |
 | --- | --- | --- |
 | `/` | Hero, theme persistence, projects, writing, moods preview, footer links | `tests/e2e/site.pw.ts` |
 | `/` | GitHub contributions success state and tooltip rendering | `tests/e2e/site.pw.ts` |
@@ -46,22 +50,38 @@ The goal is full behavior coverage for the first-party public site surface under
 | `/dev/portal`, `/dev/portal/comments`, `/dev/portal/comments/modes` | Site-wide switches: comments closed from Home, the Comments header's line with Reopen, and Undo; a row whose mode the site-wide one overrides saying so; the email rule turned on from Post modes and stopped from ⌘K, which offers only the changes that apply; a site-api without the route, and a refused change rolling back | `tests/e2e/portal-p6.pw.ts` (demo mode) |
 | `/dev/portal/*` | Click-to-paint budgets at 4x CPU | `tests/e2e/portal-perf.pw.ts` (demo mode) |
 
-`/api/*` is answered by `site-api` and tested in that repo. Locally Playwright
-sees only fixtures for it, so this suite asserts no API contracts.
+`site-api` answers `/api/*`, and that repo tests it. Locally, Playwright sees
+only fixtures for `/api/*`, so this suite asserts no API contracts.
 
-## Fixture Rules
+## Fixture rules
 
-- `E2E_SITE_FIXTURE=1` makes the site deterministic for Playwright.
-- Playwright starts its own fixture server by default. Set `E2E_REUSE_SERVER=1` only when the existing server was started with the same fixture environment.
-- `preview-smoke.pw.ts` runs only when `E2E_BASE_URL` points at a deployed preview; local runs skip it.
-- The portal specs need demo mode: `astro dev` with no site-api, where the portal answers from an in-memory demo API. They skip anywhere else. That state lasts as long as the dev server, so each test undoes what it changes or asserts relative to what it found, and a reused server stays usable run after run. An act the demo has no way back from, such as reading a new message or restoring a reader, is answered in the test with `page.route` instead of reaching the demo.
-- Public mood, comment, project, writing, preview, RSS, and static proxy fixtures avoid external network dependencies.
-- Browser-only third-party requests, such as GitHub contributions and YouTube playback, are mocked in the test itself when the behavior needs explicit control.
+Playwright starts its own fixture server by default. These variables change how
+the suite runs:
 
-## Out of Scope
+| Variable | Effect |
+| --- | --- |
+| `E2E_SITE_FIXTURE=1` | Makes the site deterministic for Playwright. |
+| `E2E_REUSE_SERVER=1` | Reuses the existing server. Set it only when that server was started with the same fixture environment. |
+| `E2E_BASE_URL` | `preview-smoke.pw.ts` runs only when this points at a deployed preview. Local runs skip it. |
 
-- Third-party service uptime and their live data quality.
+- Public mood, comment, project, writing, preview, RSS, and static proxy
+  fixtures avoid external network dependencies.
+- Browser-only third-party requests, such as GitHub contributions and YouTube
+  playback, are mocked in the test itself when the behavior needs explicit
+  control.
+- The portal specs need demo mode: `astro dev` with no `site-api`, where the
+  portal answers from an in-memory demo API. They skip anywhere else. The demo
+  state lasts as long as the dev server, so each test undoes what it changes or
+  asserts relative to what it found. A reused server then stays usable run after
+  run. When the demo has no way to undo an action, such as reading a new
+  message or restoring a reader, the test answers it with `page.route` instead
+  of reaching the demo.
+
+## Out of scope
+
+- Third-party service uptime and the quality of their live data.
 - Visual regressions or screenshot snapshot testing.
 - Exhaustive internal branch coverage across every browser-only helper.
 
-If the public site surface changes, update this matrix and add the missing Playwright case in the same change.
+When public site behavior changes, update this table and add the missing
+Playwright case in the same change.

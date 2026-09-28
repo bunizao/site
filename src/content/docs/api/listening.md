@@ -1,18 +1,17 @@
 ---
 title: Listening API
-description: The now-playing track behind the home page — how the Last.fm read is cached, why a response can be real or a hardcoded demo, and how playback events are reported back.
+description: The home page's now-playing track, how its Last.fm read is cached, and how the player reports playback.
 group: API
 order: 2
 ---
 
-One read endpoint and one write endpoint. The read returns whatever the site
-thinks is currently playing; the write is how the site's own audio player
-reports what a visitor did with it.
+The Listening API has one read endpoint and one write endpoint. The read
+returns the track the site thinks is playing now. The write is how the site's
+own audio player reports what a visitor did with it.
 
 The read endpoint **always returns a track**. It has no empty state and no
-`404` — when Last.fm is unconfigured or unreachable it serves a hardcoded
-demo track with a `200`. Read the `source` field before you trust the
-content.
+`404`. When Last.fm is unconfigured or unreachable, it serves a hardcoded demo
+track with a `200`. Check the `source` field before you trust the content.
 
 ## Now playing
 
@@ -20,7 +19,7 @@ content.
 GET /api/v2/listening
 ```
 
-No parameters, no auth. Rate limit: 60 requests / 60s (advertised — see
+No parameters, no auth. Rate limit: 60 requests / 60s (advertised only; see
 [Rate limits](/docs/api/overview#rate-limits)).
 
 ```json
@@ -51,46 +50,48 @@ No parameters, no auth. Rate limit: 60 requests / 60s (advertised — see
 }
 ```
 
-Every scalar `track` field is a string except `isNowPlaying` (boolean) and
-`releaseKind` (`"album"` | `"single"`). The numeric-looking ones —
-`trackNumber`, `trackCount`, `year` — are strings, not numbers. `playedAt` is
-`""` when the track is playing right now rather than a past scrobble, so treat
-empty as "now", not as missing.
+### Track fields
 
-`accent` is either `null` or a server-selected colour:
+Every scalar `track` field is a string except `isNowPlaying` (boolean) and
+`releaseKind` (`"album"` | `"single"`). The numeric-looking fields
+`trackNumber`, `trackCount`, and `year` are strings too. `playedAt` is `""`
+when the track is playing right now instead of being a past scrobble. Treat an
+empty value as "now". It does not mean the field is missing.
+
+`accent` is either `null` or a colour chosen by the server:
 
 ```json
 { "hue": 229.6, "chromaLight": 0.037, "chromaDark": 0.037 }
 ```
 
-The Worker extracts it once from Apple artwork and caches the result for a
-week. `null` is a deliberate instruction to render the neutral foreground —
-usually because the cover is monochrome — not a missing field and not a signal
-to sample the image again in the browser.
+The Worker extracts it once from the Apple artwork and caches the result for a
+week. `null` tells you to render the neutral foreground, usually because the
+cover is monochrome. It is not a missing field, and it is not a signal to
+sample the image again in the browser.
 
-The identifiers come from Apple Music, not Last.fm: Last.fm supplies the
-artist and title, and the handler resolves that pair against Apple's catalog
-to get artwork, a preview stream, a linkable URL, and the artwork palette used
-as a bounded fallback when image extraction is unavailable.
+The identifiers come from Apple Music. Last.fm supplies the artist and title,
+and the handler looks that pair up in Apple's catalog. That lookup returns the
+artwork, a preview stream, a linkable URL, and the artwork palette. The palette
+is a bounded fallback for when image extraction is unavailable.
 
 ### Read `source` before rendering
 
-`configured` and `source` together tell you which of three things happened,
-and all three are a `200`:
+`configured` and `source` together tell you which of three cases happened. All
+three return `200`:
 
 | `configured` | `source` | What it means |
 | --- | --- | --- |
-| `true` | `"lastfm"` | Real data. A live scrobble, or a cache hit under 30s old. |
-| `true` | `"fallback"` | Last.fm **is** configured but the fetch threw. You are looking at the demo track. |
+| `true` | `"lastfm"` | Real data. A live scrobble, a cache hit, or, when Last.fm fails, the last track read successfully (up to 7 days old) with `isNowPlaying: false`. |
+| `true` | `"fallback"` | Last.fm **is** configured, but the fetch threw and no earlier track is cached. This is the demo track, with `isNowPlaying: false`. |
 | `false` | `"fallback"` | Last.fm is not configured on this deployment at all. Demo track. |
 
-The demo track is a real, complete, plausible-looking track object. Nothing
-about its shape marks it as filler — if you render the response without
-checking `source`, a Last.fm outage silently turns into a confident claim that
-someone is listening to a specific Kanye West song. Check `source === "lastfm"`
-before presenting it as fact.
+The demo track is a complete, real-looking track object. Nothing in its shape
+marks it as filler. If you render the response without checking `source`, a
+Last.fm outage turns into a confident claim that someone is listening to a
+specific Kanye West song. Check `source === "lastfm"` before you present it as
+fact.
 
-`cacheTtlSeconds` exists internally but is **not** in the response body; it
+`cacheTtlSeconds` exists internally but is **not** in the response body. It
 only sets the `s-maxage` below.
 
 ### Caching
@@ -99,40 +100,57 @@ only sets the `s-maxage` below.
 Cache-Control: public, s-maxage=<0..30>, stale-while-revalidate=300
 ```
 
-There is no `max-age`, so a browser never caches this — only the Cloudflare
-edge does. `s-maxage` is not a constant: it is the *remaining* life of the
-Worker-Cache entry the response was built from, clamped to `0..30`. A response
-served from a 25-second-old entry advertises `s-maxage=5`. That keeps the edge
-TTL and the internal TTL from stacking into a 60-second staleness window.
+There is no `max-age`, so browsers never cache this. Only the Cloudflare edge
+does. `s-maxage` changes per response: it is the *remaining* life of the
+Worker Cache entry the response was built from, clamped to `0..30`. A response
+built from a 25-second-old entry advertises `s-maxage=5`. This keeps the edge
+TTL and the internal TTL from adding up to a 60-second staleness window.
 
-Behind the endpoint sits a Worker Cache entry (`listening:current`, 30s) plus a
-single-flight promise, so concurrent misses collapse into one Last.fm round
-trip rather than a thundering herd.
+Two responses are different:
+
+- A configured `source:"fallback"` response sends
+  `Cache-Control: no-store, max-age=0`, so the edge never pins a Last.fm
+  outage.
+- A last-known-good response after a Last.fm failure advertises `s-maxage=0`.
+
+Behind the endpoint is a Worker Cache entry (`listening:current`) plus a
+single-flight promise. Concurrent misses share one Last.fm round trip instead
+of each making their own. How the entry is used depends on its age:
+
+- **Up to 30s:** fresh.
+- **Up to an hour:** served as is while a background refresh runs. Once the
+  entry is older than 10 minutes, `isNowPlaying` is forced to `false`.
+- **Over an hour:** the request waits for Last.fm.
+
+The Apple Music enrichment (catalog id, artwork, preview, accent, year, genre,
+track number) is cached for 24 hours per artist, title and album. A refresh
+while the same song plays costs one Last.fm call and nothing else. An
+enrichment without an Apple catalog id is not cached.
 
 ### Errors
 
 | Status | Body | When |
 | --- | --- | --- |
-| `429` | `{"error":"Too Many Requests"}` | Over the limit. Currently unreachable — this route runs in observability mode. |
-| `500` | `{"error":"Listening data unavailable"}` | Only if the handler itself throws. An upstream failure does not reach here; it returns `200` with `source:"fallback"`. |
+| `429` | `{"error":"Too Many Requests"}` | Over the limit. Unreachable today, because this route runs in observability mode. |
+| `500` | `{"error":"Listening data unavailable"}` | Only when the handler itself throws. An upstream failure never gets here; it returns `200` with `source:"fallback"`. |
 | `405` | `Method Not Allowed` (plain text) | Any method other than `GET`. |
 
-Both error responses switch to `Cache-Control: no-store, max-age=0`.
+The `429` and `500` responses switch to `Cache-Control: no-store, max-age=0`.
 
-### The legacy alias
+### Legacy alias
 
 ```
 GET /api/listening   →  308  →  /api/v2/listening
 ```
 
-`/api/listening` is a `308` to `LISTENING_PATH`. The redirect helper re-adds the
-`/api` prefix when the request came in on `buxx.me` or `www.buxx.me`, so the
-`Location` is a path the same host actually serves. On `api.buxx.me` there is no
-prefix in play and `api.buxx.me/listening` redirects to
+`/api/listening` is a `308` to `LISTENING_PATH`. When the request came in on
+`buxx.me` or `www.buxx.me`, the redirect helper adds the `/api` prefix back, so
+the `Location` is a path that host actually serves. On `api.buxx.me` there is
+no prefix, and `api.buxx.me/listening` redirects to
 `api.buxx.me/v2/listening`.
 
-One hop either way, but `308` preserves the method and a client that does not
-follow redirects sees nothing. Call `/api/v2/listening` directly.
+It is one hop either way. A `308` keeps the method, but a client that does not
+follow redirects gets nothing. Call `/api/v2/listening` directly.
 
 ## Report a playback event
 
@@ -140,11 +158,11 @@ follow redirects sees nothing. Call `/api/v2/listening` directly.
 POST /api/v2/analytics/listening
 ```
 
-What the site's own player calls as someone plays the preview clip. Rate
-limit: 600 requests / 60s. This is a same-origin endpoint, not a public
-ingest — see [Analytics API](/docs/api/analytics#the-same-origin-gate) for the
-`Origin`/`Referer` check that gates it, the 4096-byte body cap, and the
-bot-user-agent rule that silently drops an event with a `204`.
+The site's own player calls this while someone plays the preview clip. Rate
+limit: 600 requests / 60s. The endpoint accepts same-origin calls only and is
+not a public ingest. See [Analytics API](/docs/api/analytics#the-same-origin-gate)
+for the `Origin`/`Referer` check that gates it, the 4096-byte body cap, and the
+bot user-agent rule that drops an event with a `204`.
 
 ```json
 {
@@ -168,20 +186,30 @@ bot-user-agent rule that silently drops an event with a `204`.
 }
 ```
 
-**Required:** `playbackId` (a v1–v8 UUID), `visitorId` (8 characters or more),
-`trackTitle`, `pagePath` (must start with `/`), plus `action` and `surface`
-from the sets below.
+### Required fields
 
-- `action`: `play_request` | `play` | `progress` | `pause` | `seek` | `complete`
-- `surface`: `home` | `blog` | `mood` | `components` | `other`
+| Field | Rule |
+| --- | --- |
+| `playbackId` | A v1–v8 UUID. |
+| `visitorId` | 8 characters or more. |
+| `trackTitle` | Must not be empty. |
+| `pagePath` | Must start with `/`. |
+| `action` | `play_request` \| `play` \| `progress` \| `pause` \| `seek` \| `complete` |
+| `surface` | The part of the site the player is on: `home` \| `blog` \| `mood` \| `components` \| `other` |
 
-Every `*Ms` value is clamped to `0`–`43200000` (12 hours) and rounded;
+### Number limits
+
+Every `*Ms` value is clamped to `0`–`43200000` (12 hours) and rounded.
 `requestCount`, `playCount`, `pauseCount`, and `seekCount` are clamped to
-`0`–`1000`. Out-of-range numbers are pinned to the bound, not rejected, so a
-malformed duration degrades the data instead of failing the request.
+`0`–`1000`. An out-of-range number is set to the nearest bound instead of
+being rejected, so a malformed duration degrades the data but does not fail
+the request.
 
-Success is `200 {"status":"ok"}`, or a bare `204` with no body when the event
-was accepted and deliberately dropped (bot user agent). Errors are flat
-strings — `403 {"error":"origin_rejected"}`, `413 {"error":"body_too_large"}`,
-`400 {"error":"invalid_playback_id"}` and friends. The full code list is in
-[Analytics API](/docs/api/analytics).
+### Responses
+
+Success is `200 {"status":"ok"}`. A bare `204` with no body means the event
+was accepted and then dropped because it came from a bot user agent.
+
+Errors are flat strings, such as `403 {"error":"origin_rejected"}`,
+`413 {"error":"body_too_large"}`, and `400 {"error":"invalid_playback_id"}`.
+The full code list is in [Analytics API](/docs/api/analytics).
