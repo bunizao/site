@@ -33,6 +33,7 @@ import {
   sayComposeAlert,
   buildErrorCode,
   type ComposeAlertHelp,
+  markEmailRequired,
   validateCompose,
   wireBodyCounter,
 } from '@/features/comments/compose-validate';
@@ -403,6 +404,12 @@ export function initCommentsController(): void {
     }
 
     nextBefore = pageResult.nextBefore;
+    // The owner's site-wide email rule is not in the tags the page was
+    // built from, so the first page says so. Both boxes exist by now.
+    if (pageResult.policy?.requireVerifiedEmail && !requireEmail) {
+      if (compose) markEmailRequired(compose);
+      markEmailRequired(replyBox);
+    }
     const mode = pageResult.policy?.mode;
     // Off goes the moment the page says so. Waiting for the rows meant
     // waiting on their reactions read too, one more round trip of a section

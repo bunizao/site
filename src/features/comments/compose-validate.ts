@@ -136,6 +136,21 @@ function requiresEmail(compose: HTMLElement): boolean {
   return compose.dataset.requireEmail === 'true';
 }
 
+/** Draw a box's address as required after the page was built with it
+    optional: the three marks IdentityRow.astro draws for the tag (the box's
+    `data-require-email`, the input's `required`, the `emailRequired`
+    placeholder). The controller calls it when the first page's policy asks
+    for an address the build did not know about -- the owner's site-wide
+    rule, which reaches the page through the API, never through the tags. */
+export function markEmailRequired(compose: HTMLElement): void {
+  const t = copyFor(compose);
+  compose.dataset.requireEmail = 'true';
+  compose.querySelectorAll<HTMLInputElement>('[data-compose-identity] .blog-compose__input[type="email"]').forEach((input) => {
+    input.required = true;
+    input.placeholder = t.emailRequired;
+  });
+}
+
 function messageFor(field: ComposeField, t: CommentsCopy, requireEmail: boolean): string | null {
   const value = field.value.trim();
   if (!value) {
