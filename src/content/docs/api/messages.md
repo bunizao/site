@@ -18,8 +18,9 @@ separation is the whole design — everything below follows from it.
 
 What it *does* share with comments is the machinery: the same reader identity,
 the same Turnstile action pipeline, the same dwell token, the same durable
-rate limiter, the same Akismet client, and the same kill switch. A message is
-a different kind of writing, not a different kind of request.
+rate limiter, the same Akismet client, the same actor record and ban list, and
+the same kill switch. A message is a different kind of writing, not a
+different kind of request.
 
 ## POST /api/v2/messages
 
@@ -34,7 +35,10 @@ silent drops described under [Tripwires](#tripwires).
   "turnstileToken": "0.abc…",
   "dwellToken": "1738…:9f2…",
   "website": "",
-  "locale": "en"
+  "locale": "en",
+  "clientFp": { "navigator": {}, "screen": {}, "canvas": "..." },
+  "interaction": { "composeMs": 42000, "keyEvents": 180 },
+  "storageId": "0123456789abcdef0123456789abcdef"
 }
 ```
 
@@ -47,6 +51,14 @@ silent drops described under [Tripwires](#tripwires).
 | `dwellToken` | yes | Minted by `GET /api/v2/comments/dwell-token` — the same endpoint, because it signs the same timestamp with the same secret |
 | `website` | no | Honeypot. Must be empty |
 | `locale` | no | `zh` or `en`; anything else falls back to `zh`. Chooses the language of the verification mail and of the owner's reply. `/message` is English only and always sends `en` |
+| `clientFp`, `interaction`, `storageId` | no | The comment box's client evidence, with the same shapes and bounds — see [Post a comment](/docs/api/comments#post-a-comment) |
+
+The client evidence is collected by the same module the compose box uses,
+loaded on the first interaction with the form and never on a page view, and
+it is never a gate here either: a body without it, or with a malformed one,
+is written exactly the same and stores NULL. The form sends it without
+waiting past the module's two-second deadline, so a slow browser costs a
+missing fingerprint, not a slow send.
 
 ```json
 {
@@ -166,17 +178,41 @@ confirmed, or it is suppressed.
 The portal inbox (`/admin/messages`, see
 [Internal routes](/docs/api/internal#admin-api)) is the second way in. It
 lists messages by state, or new, read and replied together as the inbox,
-shows one with the sender's earlier messages, files
-it as read, archived or spam, and replies through the same mailer with the
-same refusals. Fetching one message does not mark it read; the portal files
-a new message as read itself, the moment the owner opens it.
+shows one with the sender's earlier messages and the sender's actor record,
+files it as read, archived or spam, and replies through the same mailer with
+the same refusals. Fetching one message does not mark it read; the portal
+files a new message as read itself, the moment the owner opens it.
+
+## Senders and bans
+
+A message is resolved to the same actor record as a comment, before the rate
+limits, and checked against the whole [ban list](/docs/api/comments#post-a-comment) on every
+key it carries. A banned sender's message is still stored, filed as `spam`
+with the note `Shadow-banned sender.`, and answered `201` like any other.
+
+Only a signed-in write ties a message to a reader. `reader_id` is whoever the
+typed address resolves to, which a reply needs, and anybody can type a
+reader's address; `auth_at_write` records whether a live reader session sent
+it (`verified`), or not (`anonymous`). Rows written before the column say
+`unknown`. The portal names a sender as a signed-in reader only for
+`verified`, and a typed address never links a device to that reader.
+
+Banning a sender from the portal bans the keys the owner ticks and then files
+that message as spam; undoing it lifts both. Earlier messages stay where they
+are: messages are private, so a ban has nothing of theirs to take down.
 
 ## Storage
 
-`owner_messages` keeps the body, the display name, a hashed address (never the
-address itself), the locale, a state of `new` / `read` / `replied` /
-`archived` / `spam`, and the same request-shape columns the comments table
-keeps for abuse work: hashed IP, User-Agent, country, ASN, and fingerprint
-hash.
+`owner_messages` keeps the body, the display name, the address hash, the
+locale, a state of `new` / `read` / `replied` / `archived` / `spam`,
+`auth_at_write`, and the same actor columns a comment keeps for abuse work:
+the IP and its hashes, User-Agent, browser and OS, country, city and ASN, the
+server-side and client-side fingerprint hashes, the storage-id hash, and the
+client evidence. It also keeps the address as typed, so the owner can read it
+in the portal.
 
-There is no retention job. Messages are kept until deleted by hand.
+The message itself is kept until deleted by hand. The anti-abuse columns are
+nulled 90 days after the row was written, on the same sweep as comments, and
+an address typed without a reader session is removed 7 days on. Its hash
+stays: it is how a reply finds the sender once they confirm.
+

@@ -48,13 +48,13 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/readers/revoked` | Lists the readers whose account a ban revoked. | Admin session |
 | `/admin/readers/:readerId/restore` | Gives one revoked reader their account back; key bans stay. | Admin session |
 | `/admin/messages` | Reads the owner messages and their counts, by state or as the whole inbox. | Admin session |
-| `/admin/messages/:id` | Reads one message with its sender's earlier messages, or files it (read, archived, spam). | Admin session |
+| `/admin/messages/:id` | Reads one message with its sender's earlier messages and actor record, or files it (read, archived, spam). | Admin session |
 | `/admin/messages/:id/reply` | Mails the owner's reply to one message's sender. | Admin session |
 | `/admin/comments/owner-code` | Mints the single-use code that signs the portal's browser in to the comment box as the owner. | Admin session |
 | `/admin/comments/insights` | Reads the grouped comment tables: networks, subnets, devices, hints, link and mail domains. | Admin session |
 | `/admin/reactions` | Reads the reaction list with the actor block on each row. | Admin session |
 | `/admin/reactions/insights` | Reads the grouped reaction tables. | Admin session |
-| `/admin/sources/*/*` | Reads one key's profile (key type, then value): its rows, its spread, its link graph. | Admin session |
+| `/admin/sources/*/*` | Reads one key's profile (key type, then value): its comments, reactions and messages, the addresses and devices seen under it, its spread, its link graph. | Admin session |
 | `/admin/bans` | Lists the ban list, and applies bans with an optional purge. | Admin session |
 | `/admin/bans/preview` | Previews distinct affected accounts, sessions and content before a ban. | Admin session |
 | `/admin/bans/operations` | Lists recent purge operations and their recovery state. | Admin session |
