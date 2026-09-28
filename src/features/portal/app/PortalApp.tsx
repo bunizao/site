@@ -13,6 +13,7 @@ import { flatNav } from './nav';
 import { Outlet } from './Outlet';
 import { navigate, registerAppRoutes } from './router';
 import { AppSidebar, type PortalUser } from './shell/AppSidebar';
+import { BottomTabs } from './shell/BottomTabs';
 import { ScreenHeader } from './shell/ScreenHeader';
 
 /* Screens this app renders. A path not listed here is still a server page,
@@ -24,7 +25,7 @@ const ROUTES: ScreenRoute[] = [
   { pattern: /^\/comments\/bans$/, Screen: lazyScreen(() => import('../moderation/BansScreen')) },
   { pattern: /^\/comments\/insights$/, Screen: lazyScreen(() => import('../moderation/InsightsScreen')) },
   { pattern: /^\/comments\/modes$/, Screen: lazyScreen(() => import('../moderation/ModesScreen')) },
-  // The open message is part of the path, so the list stays mounted.
+  // The open message is ?m=; an old /messages/<id> link is rewritten to it.
   { pattern: /^\/messages(\/[^/]+)?$/, Screen: lazyScreen(() => import('../messages/MessagesScreen')) },
   { pattern: /^\/$/, Screen: lazyScreen(() => import('../home/HomeScreen')) },
   { pattern: /^\/activity$/, Screen: lazyScreen(() => import('../activity/ActivityScreen')) },
@@ -120,9 +121,14 @@ function Shell({ user, demo }: { user: PortalUser | null; demo: boolean }) {
   return (
     <>
       <AppSidebar user={user} demo={demo} onSearch={openPalette} />
-      <SidebarInset className="min-w-0">
+      {/* Every screen is h-svh; on a phone the cap ends it above the tab bar,
+          so its last row scrolls into view. Nothing inside a screen is under
+          the bar, so there the variable reads 0px: a bar placed at
+          bottom: var(--portal-tabbar-h) in a screen sits right on the tab bar. */}
+      <SidebarInset className="h-[calc(100svh-var(--portal-tabbar-h))] min-w-0 *:max-h-full *:[--portal-tabbar-h:0px]">
         <Outlet routes={ROUTES} notFound={notFound} />
       </SidebarInset>
+      <BottomTabs />
       {palette !== null && <CommandPalette open={palette} onOpenChange={setPalette} onShortcuts={openShortcuts} />}
       {shortcuts !== null && <ShortcutsDialog open={shortcuts} onOpenChange={setShortcuts} />}
       <HeldTitle />
@@ -140,11 +146,24 @@ function HeldTitle() {
 }
 
 /* Below 1280px the bottom-right corner is where the thumb and the detail
-   drawer are, so toasts drop in from the top instead. A wrapper, so a
-   breakpoint change re-renders the provider and not the app under it. */
+   drawer are, so toasts drop in from the top instead, below the 52px header
+   and a drawer's top row (close, previous, next). They are clipped at that
+   line too: sliding in and out they would pass over those buttons and take
+   a tap meant for one. On touch only the newest shows: a tap on a stack
+   expands it and pauses it, and the expanded stack covered the list. A
+   wrapper, so a breakpoint change re-renders the provider and not the app
+   under it. */
+const BELOW_HEADER =
+  '[&>[data-slot=toast-viewport][data-position*=top]]:top-[calc(3.5rem+env(safe-area-inset-top))] [&>[data-slot=toast-viewport][data-position*=top]]:[clip-path:inset(0_-100vw_-100vh)]';
+
 function Toasts({ children }: { children: React.ReactNode }) {
   const wide = useMediaQuery('min-xl');
-  return <ToastProvider position={wide ? 'bottom-right' : 'top-center'}>{children}</ToastProvider>;
+  const coarse = useMediaQuery('(pointer: coarse)');
+  return (
+    <ToastProvider position={wide ? 'bottom-right' : 'top-center'} limit={coarse ? 1 : 3} portalProps={{ className: BELOW_HEADER }}>
+      {children}
+    </ToastProvider>
+  );
 }
 
 export default function PortalApp({ user, demo, sidebarOpen }: { user: PortalUser | null; demo: boolean; sidebarOpen: boolean }) {
@@ -153,7 +172,11 @@ export default function PortalApp({ user, demo, sidebarOpen }: { user: PortalUse
     <QueryClientProvider client={client}>
       <TooltipProvider delay={400}>
         <Toasts>
-          <SidebarProvider defaultOpen={sidebarOpen}>
+          {/* The phone tab bar's height, safe area included; 0px where there is none. */}
+          <SidebarProvider
+            defaultOpen={sidebarOpen}
+            className="[--portal-tabbar-h:0px] max-md:[--portal-tabbar-h:calc(3.5rem+env(safe-area-inset-bottom))]"
+          >
             <Shell user={user} demo={demo} />
           </SidebarProvider>
         </Toasts>

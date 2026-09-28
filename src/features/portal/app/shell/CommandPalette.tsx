@@ -1,11 +1,25 @@
 import * as React from 'react';
-import { Archive, ArrowDown, ArrowUp, CornerDownLeft, ExternalLink, Filter, KeyRound, Keyboard, PanelLeft, ShieldAlert, UserX } from 'lucide-react';
+import {
+  Archive,
+  ArrowDown,
+  ArrowUp,
+  CornerDownLeft,
+  ExternalLink,
+  Filter,
+  KeyRound,
+  Keyboard,
+  MessagesSquare,
+  PanelLeft,
+  ShieldAlert,
+  UserX,
+  Users,
+} from 'lucide-react';
+import { useAutocompleteFilter } from '@/components/coss/autocomplete';
 import {
   Command,
   CommandCollection,
   CommandDialog,
   CommandDialogPopup,
-  CommandEmpty,
   CommandFooter,
   CommandGroup,
   CommandGroupLabel,
@@ -29,6 +43,8 @@ interface PaletteItem {
   shortcut?: string;
   Icon: React.ComponentType<{ className?: string }>;
   run: () => void;
+  /** Shown for any query: it acts on the query rather than matching it. */
+  search?: boolean;
 }
 
 interface PaletteGroup {
@@ -36,12 +52,49 @@ interface PaletteGroup {
   items: PaletteItem[];
 }
 
+/** The Search group for a typed query: open a screen's list with its own
+    search set to it (`?q=`, as each screen's search box writes it). Only a
+    navigation; the screen reads when it opens. An address goes to
+    Subscribers first. */
+export function searchGroup(query: string): PaletteGroup | null {
+  const q = query.trim();
+  if (!q) return null;
+  const comments: PaletteItem = {
+    value: 'search:comments',
+    label: `Comments matching “${q}”`,
+    Icon: MessagesSquare,
+    search: true,
+    run: () => navigate(`/comments?${new URLSearchParams({ q })}`),
+  };
+  const subscribers: PaletteItem = {
+    value: 'search:subscribers',
+    label: `Subscribers matching “${q}”`,
+    Icon: Users,
+    search: true,
+    run: () => navigate(`/subscribers?${new URLSearchParams({ q })}`),
+  };
+  return { value: 'Search', items: q.includes('@') ? [subscribers, comments] : [comments, subscribers] };
+}
+
 export function CommandPalette({ open, onOpenChange, onShortcuts }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onShortcuts: () => void;
 }) {
-  const { toggleSidebar } = useSidebar();
+  return (
+    <CommandDialog open={open} onOpenChange={onOpenChange}>
+      <CommandDialogPopup>
+        <Palette onClose={() => onOpenChange(false)} onShortcuts={onShortcuts} />
+      </CommandDialogPopup>
+    </CommandDialog>
+  );
+}
+
+/** Inside the popup, so the query starts empty on every open. */
+function Palette({ onClose, onShortcuts }: { onClose: () => void; onShortcuts: () => void }) {
+  const { toggleSidebar, setOpenMobile } = useSidebar();
+  const { contains } = useAutocompleteFilter();
+  const [query, setQuery] = React.useState('');
 
   const groups = React.useMemo<PaletteGroup[]>(() => [
     {
@@ -87,62 +140,68 @@ export function CommandPalette({ open, onOpenChange, onShortcuts }: {
     },
   ], [toggleSidebar, onShortcuts]);
 
+  // Last, so a screen or command the query names stays on top.
+  const search = searchGroup(query);
+  const items = search ? [...groups, search] : groups;
+
   const run = (item: PaletteItem): void => {
-    onOpenChange(false);
+    onClose();
+    // On a phone the palette may sit over the sidebar sheet; the sheet goes
+    // too, except for the item that toggles it.
+    if (item.value !== 'sidebar') setOpenMobile(false);
     item.run();
   };
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandDialogPopup>
-        <Command
-          items={groups}
-          itemToStringValue={(item: unknown) => {
-            const entry = item as PaletteItem;
-            return `${entry.label} ${entry.keywords ?? ''}`;
-          }}
-        >
-          <CommandInput placeholder="Jump to a screen or run a command" />
-          <CommandPanel>
-            <CommandEmpty>Nothing matches. Try a screen name like “bans”.</CommandEmpty>
-            <CommandList>
-              {(group: PaletteGroup) => (
-                <CommandGroup key={group.value} items={group.items}>
-                  <CommandGroupLabel>{group.value}</CommandGroupLabel>
-                  <CommandCollection>
-                    {(item: PaletteItem) => (
-                      <CommandItem key={item.value} value={item} className="gap-2" onClick={() => run(item)}>
-                        <item.Icon className="size-4 text-muted-foreground" />
-                        <span className="flex-1">{item.label}</span>
-                        {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
-                      </CommandItem>
-                    )}
-                  </CommandCollection>
-                </CommandGroup>
-              )}
-            </CommandList>
-          </CommandPanel>
-          <CommandFooter>
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-2">
-                <KbdGroup>
-                  <Kbd><ArrowUp /></Kbd>
-                  <Kbd><ArrowDown /></Kbd>
-                </KbdGroup>
-                Move
-              </span>
-              <span className="flex items-center gap-2">
-                <Kbd><CornerDownLeft /></Kbd>
-                Open
-              </span>
-            </div>
-            <span className="flex items-center gap-2">
-              <Kbd>Esc</Kbd>
-              Close
-            </span>
-          </CommandFooter>
-        </Command>
-      </CommandDialogPopup>
-    </CommandDialog>
+    <Command
+      items={items}
+      value={query}
+      onValueChange={setQuery}
+      itemToStringValue={(item: unknown) => {
+        const entry = item as PaletteItem;
+        return `${entry.label} ${entry.keywords ?? ''}`;
+      }}
+      filter={(item: unknown, text: string, toString?: (item: unknown) => string) => Boolean((item as PaletteItem).search) || contains(item, text, toString)}
+    >
+      <CommandInput placeholder="Jump to a screen, run a command or search" />
+      <CommandPanel>
+        <CommandList>
+          {(group: PaletteGroup) => (
+            <CommandGroup key={group.value} items={group.items}>
+              <CommandGroupLabel>{group.value}</CommandGroupLabel>
+              <CommandCollection>
+                {(item: PaletteItem) => (
+                  <CommandItem key={item.value} value={item} className="gap-2 pointer-coarse:min-h-11" onClick={() => run(item)}>
+                    <item.Icon className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
+                  </CommandItem>
+                )}
+              </CommandCollection>
+            </CommandGroup>
+          )}
+        </CommandList>
+      </CommandPanel>
+      {/* Key hints mean nothing on a phone. */}
+      <CommandFooter className="max-md:hidden">
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-2">
+            <KbdGroup>
+              <Kbd><ArrowUp /></Kbd>
+              <Kbd><ArrowDown /></Kbd>
+            </KbdGroup>
+            Move
+          </span>
+          <span className="flex items-center gap-2">
+            <Kbd><CornerDownLeft /></Kbd>
+            Open
+          </span>
+        </div>
+        <span className="flex items-center gap-2">
+          <Kbd>Esc</Kbd>
+          Close
+        </span>
+      </CommandFooter>
+    </Command>
   );
 }
