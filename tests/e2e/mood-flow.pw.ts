@@ -3443,7 +3443,7 @@ test.describe('Mood routes', () => {
         .toBe(true);
     });
 
-    await test.step('channel and rich text stay on mono while density sets the size', async () => {
+    await test.step('channel stays on mono, rich text reads in Inter, density sets the size', async () => {
       await page.goto('/mood/embed?count=1&theme=light&density=regular&link=false');
       const regular = await page.locator('.mood-item-text, .mood-item-quote, .empty-state').first().evaluate((element) => {
         const style = getComputedStyle(element);
@@ -3452,7 +3452,7 @@ test.describe('Mood routes', () => {
           fontSize: style.fontSize,
         };
       });
-      const channel = await page.locator('.channel-name').first().evaluate((element) => {
+      const channel = await page.locator('.embed-name').first().evaluate((element) => {
         const style = getComputedStyle(element);
         return {
           fontFamily: style.fontFamily,
@@ -3471,10 +3471,10 @@ test.describe('Mood routes', () => {
 
       expect(channel.text.length).toBeGreaterThan(0);
       expect(channel.fontFamily.toLowerCase()).toContain('jetbrains mono');
-      expect(regular.fontFamily.toLowerCase()).toContain('jetbrains mono');
-      expect(regular.fontSize).toBe('14px');
-      expect(compact.fontFamily.toLowerCase()).toContain('jetbrains mono');
-      expect(compact.fontSize).toBe('13px');
+      expect(regular.fontFamily.toLowerCase()).toContain('inter');
+      expect(regular.fontSize).toBe('15px');
+      expect(compact.fontFamily.toLowerCase()).toContain('inter');
+      expect(compact.fontSize).toBe('14px');
     });
 
     await test.step('a transparent auto embed stays readable on a light host', async () => {

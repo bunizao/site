@@ -1,23 +1,30 @@
 ---
 title: SVG Endpoints
-description: Server-rendered badges and cards for GitHub READMEs and anywhere else that only accepts a static image.
+description: Server-rendered SVG badges and cards for GitHub READMEs and anywhere that only accepts a static image.
 group: API
 order: 8
 badge: SSR
 ---
 
 
-All SVG endpoints are server-side rendered Astro API routes exposed at `buxx.me`. They're designed to be embedded in GitHub READMEs and other Markdown files that only support static images.
+These endpoints are Astro API routes that render SVG badges and cards on the
+server, served at `buxx.me`. Use them in GitHub READMEs and other Markdown files
+that only support static images.
 
-Use `<picture>` + `<source media="(prefers-color-scheme: ...)">` to switch themes automatically based on the viewer's OS preference (supported by GitHub).
-
----
+To follow the viewer's OS theme, wrap the image in `<picture>` and add a
+`<source media="(prefers-color-scheme: ...)">` for each theme. GitHub supports
+this.
 
 ## `GET /api/activity-panel.svg`
 
-A stats panel displaying recent GitHub coding activity. Intended to sit alongside the GitHub Stats card.
+A stats panel of recent GitHub coding activity, made to sit next to the GitHub
+Stats card.
 
-All values are passed as query parameters — the server renders them as text, XML-escaped, with no parsing. Actual data collection is handled separately by the `sync-recent-activity` GitHub Actions script.
+The panel does not fetch live data. Every value comes from the query string,
+and the server renders it as XML-escaped text with no parsing. The
+`sync-recent-activity` GitHub Actions script collects the data. The GitHub
+Actions workflow in `bunizao/bunizao` computes the values and writes them into
+the URL on a schedule.
 
 ### Parameters
 
@@ -31,21 +38,32 @@ All values are passed as query parameters — the server renders them as text, X
 | `removed`  | string | `0`      | Lines removed (e.g. `-12,388`)           |
 | `net`      | string | `0`      | Net line delta (e.g. `+26,113`)          |
 | `lph`      | string | `0`      | Average lines per hour (e.g. `+155`)     |
-| `exp`      | string | —        | Unix expiry timestamp for signed access when auth is enabled |
-| `sig`      | string | —        | HMAC signature for signed access when auth is enabled |
+| `exp`      | string | None     | Unix expiry timestamp, when signing is on |
+| `sig`      | string | None     | HMAC signature, when signing is on       |
 
 ### Rows rendered
 
-1. `activity scan` — `last {days} days`
-2. `active projects` — `{projects}`
-3. `total commits` — `{commits}`
-4. `code delta` — `{added}` / `{removed}` / net `{net}` (green/red/neutral colored)
-5. `avg output` — `{lph} lines/hr`
+| Row | Value |
+| --- | --- |
+| `activity scan` | `last {days} days` |
+| `active projects` | `{projects}` |
+| `total commits` | `{commits}` |
+| `code delta` | `{added}` / `{removed}` / net `{net}`, colored green, red and neutral |
+| `avg output` | `{lph} lines/hr` |
 
-**Dimensions:** 330 × 142px (height is computed: `paddingY×2 + rows×22`)
-**Cache:** `public, max-age=300, s-maxage=300` (5 minutes)
-**Animation:** Each row fades in with a staggered 80ms delay
-**Auth:** When `ACTIVITY_PANEL_SIGNING_SECRET` is configured, requests must include valid `exp` and `sig` values. `sig` is the base64url HMAC-SHA256 of the public path `/api/activity-panel.svg` plus the query sorted by key, `exp` included and `sig` left out. The host is not signed, so a URL signed for `buxx.me` also verifies on `api.buxx.me`. An `exp` in the past fails.
+- **Size:** 330 × 142px. The height is computed as `paddingY×2 + rows×22`.
+- **Cache:** `public, max-age=300, s-maxage=300` (5 minutes).
+- **Animation:** each row fades in, staggered by 80ms.
+
+### Signed URLs
+
+When `ACTIVITY_PANEL_SIGNING_SECRET` is configured, every request must include
+valid `exp` and `sig` values. `sig` is the base64url HMAC-SHA256 of the public
+path `/api/activity-panel.svg` plus the query sorted by key, with `exp`
+included and `sig` left out.
+
+The host is not signed, so a URL signed for `buxx.me` also verifies on
+`api.buxx.me`. An `exp` in the past fails.
 
 ### Example (GitHub README)
 
@@ -57,11 +75,9 @@ All values are passed as query parameters — the server renders them as text, X
 </picture>
 ```
 
----
-
 ## `GET /api/status.svg`
 
-An animated badge showing a rotating status word with a pulsing green dot.
+An animated badge: a pulsing green dot next to a rotating status word.
 
 ### Parameters
 
@@ -69,16 +85,17 @@ An animated badge showing a rotating status word with a pulsing green dot.
 |-----------|--------|---------|---------------------------------|
 | `theme`   | string | `dark`  | Color scheme: `dark` or `light` |
 
-**Dimensions:** 200 × 40px
-**Cache:** `public, max-age=3600, s-maxage=86400` (1 hour in the browser)
+- **Size:** 200 × 40px.
+- **Cache:** `public, max-age=3600, s-maxage=86400` (1 hour in the browser).
+- **Animation:** the dot pulses. All 25 status words are in the SVG, and a CSS
+  animation shows each one for 10 seconds in turn, starting from the first
+  word when the image loads. A renderer that ignores CSS animation shows only
+  the first word.
 
-Cloudflare-specific freshness uses `public, max-age=86400,
+The Cloudflare edge header (`Cloudflare-CDN-Cache-Control`) is `public, max-age=86400,
 stale-while-revalidate=604800, stale-if-error=86400`. The SVG no longer depends
-on the request time, so the edge can hold it for a day. The private Worker's
+on the request time, so the edge can keep it for a day. The private Worker's
 platform cache is enabled.
-**Animation:** Pulsing dot; all 25 status words are in the SVG and a CSS
-animation shows each for 10 seconds in turn, starting from the first word when
-the image loads. A renderer that ignores CSS animation shows the first word only.
 
 ### Example
 
@@ -90,24 +107,21 @@ the image loads. A renderer that ignores CSS animation shows the first word only
 </picture>
 ```
 
----
-
 ## `GET /api/site-badge.svg`
 
-A compact badge linking to buxx.me, with an arrow icon.
+A compact badge for linking to buxx.me, with an arrow icon.
 
 ### Parameters
 
 | Parameter | Type   | Default   | Description                                        |
 |-----------|--------|-----------|----------------------------------------------------|
 | `theme`   | string | `dark`    | Color scheme: `dark`, `light`, `glass`, or `neon`  |
-| `style`   | string | `default` | Visual style: `default`, `gradient`, `glass`, `neon` |
+| `style`   | string | `default` | Visual style: `default`, `gradient`, `glass`, or `neon` |
 
-**Dimensions:** 130 × 32px
-**Cache:** `public, max-age=86400` (24 hours)
-
-Cloudflare-specific freshness retains `max-age=86400` with
-`stale-while-revalidate=3600, stale-if-error=3600`.
+- **Size:** 130 × 32px.
+- **Cache:** `public, max-age=86400, s-maxage=86400` (24 hours).
+- **Edge cache:** the Cloudflare edge header keeps `max-age=86400` and adds
+  `stale-while-revalidate=3600, stale-if-error=3600`.
 
 ### Example
 
@@ -121,17 +135,17 @@ Cloudflare-specific freshness retains `max-age=86400` with
 </a>
 ```
 
----
-
 ## `GET /api/project.svg`
 
-A project card with live GitHub star count, description, role badge, and technology tags. Fetches data from the GitHub GraphQL API at request time.
+A project card with a live GitHub star count, description, role badge, and
+technology tags. The endpoint fetches data from the GitHub GraphQL API at
+request time.
 
 ### Parameters
 
 | Parameter | Type   | Default | Description                     |
 |-----------|--------|---------|---------------------------------|
-| `project` | string | —       | Project key (required, see below) |
+| `project` | string | None    | Project key. Required; see below. |
 | `theme`   | string | `dark`  | Color scheme: `dark` or `light` |
 
 ### Available project keys
@@ -144,13 +158,13 @@ A project card with live GitHub star count, description, role badge, and technol
 | `ogis`           | bunizao/ogis                    |
 | `always-attend`  | bunizao/always-attend           |
 
-**Dimensions:** 400 × 160px
-**Cache:** `public, max-age=3600` (1 hour)
-
-Cloudflare-specific freshness is `max-age=21600` (6 hours) with
-`stale-while-revalidate=86400, stale-if-error=86400`, so each colo calls GitHub
-at most every six hours; star counts can lag by that much.
-**Note:** Requires `GITHUB_TOKEN` env var with repository read access for live star counts.
+- **Size:** 400 × 160px.
+- **Cache:** `public, max-age=3600, s-maxage=3600` (1 hour).
+- **Edge cache:** the Cloudflare edge header is `max-age=21600` (6 hours) with
+  `stale-while-revalidate=86400, stale-if-error=86400`. Each colo calls GitHub
+  at most every six hours, so star counts can lag by that much.
+- **Requires:** a `GITHUB_TOKEN` env var with repository read access for live
+  star counts.
 
 ### Example
 
@@ -162,11 +176,9 @@ at most every six hours; star counts can lag by that much.
 </picture>
 ```
 
----
-
 ## `GET /api/tech-stack.svg`
 
-An infinite-scrolling horizontal marquee of technology tags.
+A horizontal marquee of technology tags that scrolls forever.
 
 ### Parameters
 
@@ -174,13 +186,14 @@ An infinite-scrolling horizontal marquee of technology tags.
 |-----------|--------|---------|---------------------------------|
 | `theme`   | string | `dark`  | Color scheme: `dark` or `light` |
 
-**Dimensions:** 800 × 60px
-**Cache:** `public, max-age=86400, s-maxage=86400` (24 hours)
+- **Size:** 800 × 60px.
+- **Cache:** `public, max-age=86400, s-maxage=86400` (24 hours).
+- **Animation:** scrolls left continuously. The tag list is duplicated so the
+  loop has no visible seam.
 
-The SVG is a pure function of `theme`, so Cloudflare-specific freshness is
+The SVG depends only on `theme`, so the Cloudflare edge header is
 `max-age=604800` (7 days) with `stale-while-revalidate=86400,
 stale-if-error=86400`. A deploy starts a fresh cache.
-**Animation:** Continuous left scroll; the tag list is duplicated to ensure seamless looping
 
 ### Example
 
@@ -192,14 +205,13 @@ stale-if-error=86400`. A deploy starts a fresh cache.
 </picture>
 ```
 
----
-
 ## `GET /logo/{id}.svg`
 
 The site's pixel-art marks, used as favicons and wherever the logo appears as
-an image. Prerendered static files, not SSR like the badges above — which is
-why they are the one SVG family served from `buxx.me` directly rather than
-through `/api`.
+an image. On `buxx.me` they are prerendered static files, unlike the SSR
+badges above. That is why they are the one SVG family served from `buxx.me`
+directly instead of through `/api`. `site-api` has the same route but renders
+it on request, so `api.buxx.me/logo/{id}.svg` is SSR.
 
 | `id` | Mark | Served by |
 | --- | --- | --- |
@@ -207,47 +219,50 @@ through `/api`.
 | `peek` | Red accent (`oklch(0.62 0.13 25)`), 12 × 9 grid | both Workers |
 | `tutu-dev`, `peek-dev` | Same marks on a fixed amber tile (`#f59e0b`) | `site` only |
 
-**Cache:** `public, max-age=31536000, immutable` — they are content-stable and
-cached for a year.
+**Cache:** the handler sets `public, max-age=31536000, immutable`, a year,
+because the content never changes. Only `api.buxx.me` sends it. On `buxx.me`,
+prerendering drops the handler's headers and `public/_headers` has no
+`/logo/*` rule, so the static asset layer sends its default
+`public, max-age=0, must-revalidate`.
 
-The `-dev` variants exist so a local dev tab is visually distinguishable from
-production at favicon size. They are only built by the `site` Worker;
+The `-dev` variants make a local dev tab easy to tell apart from production at
+favicon size. Only the `site` Worker builds them, so
 `api.buxx.me/logo/tutu-dev.svg` does not exist.
 
-Two details matter if you embed these anywhere other than a favicon:
+If you embed these anywhere other than a favicon, two details matter:
 
-- **No `width` or `height` attributes.** Only a `viewBox`, so the mark scales to
-  whatever box you put it in and will happily render enormous inside a
-  container with no constraint. Set a size on the `<img>`.
-- **The non-`dev` marks are theme-reactive.** The foreground is a
-  `var(--favicon-fg)` driven by a `prefers-color-scheme` media query inside the
-  SVG, flipping between `#0a0a0a` and `#fafafa`. That means they invert with the
-  viewer's OS theme with no `<picture>` element needed — but also that they will
-  disappear against a background matching the viewer's theme. The `-dev`
-  variants are fixed-color and do not do this.
+- **No `width` or `height` attributes.** The SVG has only a `viewBox`, so the
+  mark scales to whatever box you put it in. In a container with no size limit
+  it renders very large. Set a size on the `<img>`.
+- **The non-`dev` marks follow the theme.** The foreground is a
+  `var(--favicon-fg)` set by a `prefers-color-scheme` media query inside the
+  SVG, which switches between `#0a0a0a` and `#fafafa`. The mark inverts with
+  the viewer's OS theme without a `<picture>` element. It also disappears on a
+  background that matches the viewer's theme. The `-dev` variants use fixed
+  colors and do not switch.
 
-Any other `id` is a `404` from the static asset layer, not from a handler.
-
----
+For any other `id`, `buxx.me` answers with the site's HTML `404` page, and no
+logo handler runs. On `api.buxx.me` the handler runs and returns `404` with a
+plain-text `Not found` body.
 
 ## Errors and validation
 
-None of the badge endpoints validate their query parameters in the way you
-might expect. Bad input almost never produces a `4xx`:
+The badge endpoints barely validate their query parameters. Bad input almost
+never produces a `4xx`:
 
 | Endpoint | Bad input behavior |
 | --- | --- |
 | `activity-panel.svg` | Every value is rendered as escaped text. No numeric parsing, no clamping. |
-| `status.svg`, `tech-stack.svg`, `project.svg` | `theme` is `light` only on an exact match; every other value, including a typo like `Light`, silently means `dark`. |
-| `site-badge.svg` | Unknown `theme` falls back to `dark`; unknown `style` behaves as `default`. |
-| `project.svg` | Unknown `project` is the one real error: `404` with a plain-text `Project not found` body. |
+| `status.svg`, `tech-stack.svg`, `project.svg` | `theme` is `light` only on an exact match. Any other value, including a typo like `Light`, means `dark`. |
+| `site-badge.svg` | An unknown `theme` falls back to `dark`. An unknown `style` behaves as `default`. |
+| `project.svg` | An unknown `project` is the one real error: `404` with a plain-text `Project not found` body. |
 
 `activity-panel.svg` returns `401 Unauthorized` (plain text,
 `Cache-Control: private, no-store`) when `ACTIVITY_PANEL_SIGNING_SECRET` is set
-and `sig`/`exp` do not verify. When that secret is **not** set the signature
-check is skipped entirely and the endpoint is open.
+and `sig`/`exp` do not verify. When that secret is **not** set, the endpoint
+skips the signature check and is open to anyone.
 
-Every SVG response carries a locked-down header set:
+Every successful `/api/*.svg` response has the same locked-down headers:
 
 ```
 Content-Type: image/svg+xml; charset=utf-8
@@ -256,15 +271,15 @@ Referrer-Policy: no-referrer
 Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; font-src 'self';
 ```
 
-No `Access-Control-Allow-Origin`, no `ETag`, no `Vary`. The CSP is what makes
-it safe to serve caller-influenced text inside an SVG document: no script, no
-external fetches, inline styles only.
+There is no `Access-Control-Allow-Origin`, no `ETag`, and no `Vary`. The CSP is
+what makes it safe to put caller-supplied text inside an SVG document: no
+script, no external fetches, inline styles only.
 
 `project.svg` fetches its star count from GitHub on every cache miss and
-swallows every failure — an outage, a rate limit, or a missing token all
-produce a card with the star count simply absent, never an error response.
+swallows every failure. An outage, a rate limit, or a missing token all produce
+a card without the star count, never an error response.
 
-## Theme Colors
+## Theme colors
 
 ### Dark
 
@@ -288,14 +303,16 @@ produce a card with the star count simply absent, never an error response.
 | Green      | `#16a34a` |
 | Red        | `#dc2626` |
 
-> Note: `tech-stack.svg` and `site-badge.svg` use slightly different palettes internally (`#0a0a0a` bg, `#262626` border).
+`tech-stack.svg` and `site-badge.svg` use slightly different palettes
+internally (`#0a0a0a` background, `#262626` border).
 
----
+## Common notes
 
-## Common Notes
-
-- All endpoints are SSR — no prerendering, no static files.
-- SVGs use the shared `FONT_CODE` server stack from `src/lib/fonts.ts`, the server-side mirror of the CSS `--font-code` token.
-- GitHub proxies embedded images through [Camo](https://github.com/atmos/camo), which respects `Cache-Control` headers. A 5-minute TTL means updates propagate within ~5 minutes.
-- SVG animations (`@keyframes`) work in GitHub's Markdown renderer as of 2024, but may not display in some third-party Markdown viewers.
-- The `activity-panel.svg` endpoint does **not** fetch live data — all values come from query parameters. The GitHub Actions workflow in `bunizao/bunizao` is responsible for computing and injecting the correct values on a schedule.
+- The `/api` endpoints are all SSR: no prerendering, no static files.
+- SVGs use the shared `FONT_CODE` server font stack from `src/lib/fonts.ts`,
+  the server-side mirror of the CSS `--font-code` token.
+- GitHub proxies embedded images through [Camo](https://github.com/atmos/camo),
+  which respects `Cache-Control` headers. With a 5-minute TTL, updates show up
+  within about 5 minutes.
+- SVG animations (`@keyframes`) work in GitHub's Markdown renderer as of 2024.
+  Some third-party Markdown viewers may not show them.

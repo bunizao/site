@@ -1,14 +1,16 @@
 ---
 title: Status & Edge
-description: Liveness checks, the footer status pill, and the per-visitor edge facts — four small endpoints that barely cache and never fail loudly.
+description: Liveness checks, the footer status pill, and what the Cloudflare edge knows about your connection.
 group: API
 order: 3
 ---
 
-Four endpoints that answer "is anything alive, and where am I talking to it
-from". Only the footer status is cached at the edge, and two of them are deliberately
-incapable of returning an error — read on for why that matters when you build
-a status indicator on top of them.
+Four small endpoints that tell you whether the site is alive and which edge
+location you reach it through. Only the footer status is cached at the edge.
+None of them returns an error status today, which matters if you build a
+status indicator on top of them. Health, ping, and edge have no rate limit and
+no dependency that can fail. The footer has a `429` path, but its rate limiter
+never rejects (see [Footer status](#footer-status)).
 
 ## Health
 
@@ -24,17 +26,16 @@ No auth, no rate limit, no query parameters. Always `200`:
 ```
 
 `HEAD` returns the same headers with an empty body. `checkedAt` is generated
-per request, so a changing timestamp is your proof the response is not coming
-from a cache. `Cache-Control: no-store, max-age=0`.
+per request, so a changing timestamp proves the response did not come from a
+cache. `Cache-Control: no-store, max-age=0`.
 
-This endpoint proves the Worker booted and can run a handler. It does **not**
-touch D1, KV, R2, or the queue — a `200` here tells you nothing about whether
-the mood archive is readable. Nothing behind this route can fail, which is the
-point: it is the check that isolates "the Worker is down" from "a dependency
-is down".
+A `200` proves the Worker booted and can run a handler. The endpoint does
+**not** touch D1, KV, R2, or the queue, so it tells you nothing about whether
+the mood archive is readable. Nothing behind this route can fail, which lets it
+separate "the Worker is down" from "a dependency is down".
 
-`/api/v2/health` is a legacy alias and answers `GET`/`HEAD` with a redirect
-to `/api/health`.
+`/api/v2/health` is a legacy alias. It answers `GET`/`HEAD` with a redirect to
+`/api/health`.
 
 ## Ping
 
@@ -46,10 +47,10 @@ HEAD /ping
 `204 No Content`, empty body, `Cache-Control: no-store, max-age=0`. No auth,
 no rate limit.
 
-Cheaper than `/api/health` — there is no JSON to serialize — so it is the better
-target for a latency probe or an uptime monitor polling every few seconds. Use
-`/api/health` when you want to read something back, `/api/ping` when you only want the
-round-trip time.
+Ping is cheaper than `/api/health` because there is no JSON to serialize. Use
+it for a latency probe or an uptime monitor that polls every few seconds. Use
+`/api/health` when you want to read something back, and `/api/ping` when you
+only want the round-trip time.
 
 ## Footer status
 
@@ -58,42 +59,55 @@ GET /api/footer
 ```
 
 The data behind the status pill in the site footer. Rate limit: 60 requests /
-60s. A known status is `Cache-Control: public, max-age=30` with
-`Cloudflare-CDN-Cache-Control: public, max-age=45, stale-while-revalidate=120, stale-if-error=3600`
-and no rate-limit headers; `status: "unknown"` and `429` are
-`no-store, max-age=0`.
+60s, in `observability` mode, so it never rejects today.
 
 ```json
 { "status": "operational", "provider": "betterstack", "updatedAt": "2026-08-23T05:12:44.310Z" }
 ```
 
 `status` is one of `operational`, `degraded`, `down`, `maintenance`, or
-`unknown`. Upstream is Better Stack's public status JSON, whose
-`aggregate_state` maps across almost verbatim — the one rename is Better
+`unknown`. The upstream is Better Stack's public status JSON. Its
+`aggregate_state` maps across almost unchanged. The one rename is Better
 Stack's `downtime`, which becomes `down` here.
 
+| Response | Cache headers |
+| --- | --- |
+| A known status | `Cache-Control: public, max-age=30` with `Cloudflare-CDN-Cache-Control: public, max-age=45, stale-while-revalidate=120, stale-if-error=3600`, and no rate-limit headers |
+| `status: "unknown"` or `429` | `no-store, max-age=0` |
+
+### Handle `unknown`
+
 **This endpoint never returns an error for an upstream failure.** If Better
-Stack is unreachable, times out (there is a 5s abort), or answers with
-something unparseable, the handler logs a warning and still returns `200` with
-`status: "unknown"`. So `unknown` is not a null value you can skip — it is the
-signal that the status check itself failed, and a UI that treats it as "no
-data yet" will silently show a stale-looking pill forever. Render it as its own
-state.
+Stack is unreachable, times out (there is a 5s abort), or sends something
+unparseable, the handler logs a warning and still returns `200` with
+`status: "unknown"`.
 
-The only non-`200` you will see is `429 {"error":"Too Many Requests"}` from the
-rate limiter.
+Render `unknown` as its own state. It means the status check itself failed. A
+UI that treats it as "no data yet" shows a stale-looking pill forever.
 
-Two caching layers are at work and they are easy to confuse: the edge keeps
-the response for 45 seconds (then serves it stale for up to two minutes while
-it revalidates), and the Better Stack probe behind it is cached inside the
-Worker for 45 seconds. So a pill can lag Better Stack by a few minutes at
-worst. A failed probe is never cached at either layer.
+The handler has one non-`200` path: `429 {"error":"Too Many Requests"}` when
+the rate limiter rejects. The limiter runs in `observability` mode (see
+[Limiter modes](/docs/api/overview#limiter-modes)), so it never rejects and
+every request gets `200` today.
 
-Responses also carry `x-cloudflare-colo: <XXX>` when Cloudflare reports a
-three-letter colo for the request, which is the cheapest way to tell whether
-two callers are hitting the same edge location. The edge cache is per colo, so
-a cached copy still names the colo that served it. The site footer fetches this
-route only when the footer is about to scroll into view.
+### Caching layers
+
+Two caching layers sit in front of Better Stack, and they are easy to confuse:
+
+- The edge keeps the response for 45 seconds, then serves it stale for up to
+  two minutes while it revalidates.
+- The Worker caches the Better Stack probe for 45 seconds.
+
+At worst, the pill lags Better Stack by a few minutes. A failed probe is never
+cached at either layer.
+
+When Cloudflare reports a three-letter colo for the request, the response also
+has `x-cloudflare-colo: <XXX>`. This is the cheapest way to tell whether two
+callers hit the same edge location. The edge cache is per colo, so a cached
+copy still names the colo that served it.
+
+The site footer fetches this route only when the footer is about to scroll
+into view.
 
 ## Edge
 
@@ -101,8 +115,8 @@ route only when the footer is about to scroll into view.
 GET /api/edge
 ```
 
-What Cloudflare knows about the connection that asked. `Cache-Control:
-no-store, max-age=0` — these are per-visitor facts and sharing them across
+What Cloudflare knows about the connection that made the request.
+`Cache-Control: no-store`, because these are per-visitor facts. Sharing them across
 requests would hand one visitor another's location.
 
 ```json
@@ -118,13 +132,16 @@ requests would hand one visitor another's location.
 }
 ```
 
-Every field is nullable and frequently null — `city`, `region`, and `network`
-are absent for plenty of real networks, `rtt` is missing on a connection
-Cloudflare has not measured yet, and everything is null when the request did
-not arrive through Cloudflare at all (local `astro dev`, for instance). Type
-the response as `Partial` and render around the gaps rather than asserting
+Every field is nullable, and nulls are common:
+
+- `city`, `region`, and `network` are absent for plenty of real networks.
+- `rtt` is missing on a connection Cloudflare has not measured yet.
+- Everything is null when the request did not come through Cloudflare at all
+  (local `astro dev`, for example).
+
+Type the response as `Partial` and render around the gaps instead of asserting
 them.
 
-`colo` is validated against `/^[A-Z]{3}$/` before it is returned, and `rtt` is
-rounded to a whole millisecond and clamped at zero, so neither can surprise you
-with a malformed value — they are either well-formed or `null`.
+`colo` is validated against `/^[A-Z]{3}$/` before it is returned. `rtt` is
+rounded to a whole millisecond and clamped at zero. Both are either
+well-formed or `null`.

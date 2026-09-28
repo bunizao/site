@@ -45,22 +45,51 @@ const { items } = Astro.props;
       .filter((el): el is HTMLElement => Boolean(el));
     if (headings.length === 0) return;
 
-    const setActive = (id: string) => {
+    // The column is capped at the viewport and scrolls on its own, so a long
+    // reference page walks the active link off its bottom unless the column
+    // follows. It stays put while the link sits clear of both edges and
+    // recentres it once the link comes within EDGE of one: a few half-column
+    // steps per page instead of a crawl, with the next entries always in view.
+    // Moved by hand because scrollIntoView would also scroll .page-scroller,
+    // yanking the page the reader is in the middle of scrolling.
+    const toc = nav.closest<HTMLElement>('.docs-toc');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const EDGE = 48;
+    const follow = (link: HTMLElement, smooth: boolean) => {
+      if (!toc) return;
+      // Relative to the column (sticky makes it the offsetParent), so the
+      // numbers do not move as the column scrolls.
+      const top = link.offsetTop;
+      const bottom = top + link.offsetHeight;
+      const view = toc.scrollTop;
+      if (top >= view + EDGE && bottom <= view + toc.clientHeight - EDGE) return;
+      toc.scrollTo({
+        top: top - (toc.clientHeight - link.offsetHeight) / 2,
+        behavior: smooth && !reduceMotion.matches ? 'smooth' : 'auto',
+      });
+    };
+
+    let activeId = '';
+    const setActive = (id: string, smooth: boolean) => {
+      if (id === activeId) return;
+      activeId = id;
       links.forEach((el, key) => el.classList.toggle('is-active', key === id));
+      const link = links.get(id);
+      if (link) follow(link, smooth);
     };
 
     // Last heading whose top has passed the reading line. An IntersectionObserver
     // alone goes blank between two widely spaced headings; this always has an
     // answer, and the observer is only here to decide when it is worth recomputing.
     const readingLine = () => window.innerHeight * 0.28;
-    const sync = () => {
+    const sync = (smooth = true) => {
       const line = readingLine();
       let current = headings[0];
       for (const heading of headings) {
         if (heading.getBoundingClientRect().top - line > 0) break;
         current = heading;
       }
-      setActive(current.id);
+      setActive(current.id, smooth);
     };
 
     let queued = false;
@@ -73,10 +102,17 @@ const { items } = Astro.props;
       });
     };
 
-    sync();
+    // Instant on load: a restored or deep-linked position should open with the
+    // column already there, not glide into place.
+    sync(false);
     // Docs contain their scroll, so scroll events land on the scroller, not on
     // window. Reading the rect stays viewport-relative either way.
     pageScroll().events.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('resize', schedule);
+    // A resize changes the column's height, and can reveal it from display:none,
+    // so the current link has to be placed again even if it did not change.
+    window.addEventListener('resize', () => {
+      activeId = '';
+      schedule();
+    });
   })();
 </script>

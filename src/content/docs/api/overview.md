@@ -1,106 +1,161 @@
 ---
 title: API Overview
-description: Who serves buxx.me/api, how versions and auth work, and the response conventions every endpoint on this site follows — or doesn't.
+description: What buxx.me/api is, who can call it, and how versions, auth, rate limits, errors and CORS work.
 group: API
 order: -1
 ---
 
-`buxx.me/api/*` looks like one API. It is served by two Cloudflare Workers,
-versioned three different ways depending on when an endpoint was written, and
-does not agree with itself on how it shapes an error. This page is the map —
-each convention says which endpoints actually follow it, because several
-don't.
+`buxx.me/api/*` is the HTTP API behind this site. It serves mood posts, blog
+comments and reactions, email notifications, listening data, oEmbed, and SVG
+badges. Anyone can call the public endpoints, and most reads need no auth.
+
+This page covers the rules the endpoints share, and where they differ. Two
+Cloudflare Workers serve the API, some current paths have a version prefix and
+some don't, and errors come in two shapes. Each section says
+which endpoints a rule applies to. For a single endpoint, go to
+its topic page, such as the [Mood API](/docs/api/mood) or the
+[Blog Comments API](/docs/api/comments).
 
 ## Who answers a request
 
 | Environment | What serves `/api/*`, `/v2/*`, `/oauth*` |
 | --- | --- |
-| Production (`buxx.me`) | Cloudflare route patterns point directly at the **`site-api`** Worker. The public `site` Worker never sees the request. |
-| Preview / deploy builds | `site`'s `[...path].ts` catch-alls forward the request to `site-api` over the `API` service binding (`src/lib/http/api-service-proxy.ts`). |
+| Production (`buxx.me`) | The `buxx.me/api/*` and `www.buxx.me/api/*` route patterns send `/api/*` straight to the **`site-api`** Worker. The public `site` Worker never sees it. `/oauth*` and `/v2/*` reach `site` first and are handled as in the next row. |
+| Preview and deploy builds | The `api/[...path].ts` and `oauth` catch-alls in `site` forward the request to `site-api` over the `API` service binding (`src/lib/http/api-service-proxy.ts`). `v2/[...path].ts` answers `308` to the same path under `/api/v2`. |
 | Local dev (`astro dev`) | `site` proxies over plain HTTP to `API_DEV_ORIGIN` (default `https://buxx.me`, or a local `wrangler dev site-api` via `bun dev:api`). |
 
-`site-api` is a separate, private repository — it owns D1, KV, R2, queues,
-crons, the Telegram webhook, and every concrete handler under `/api`, `/v1`,
-`/v2`, `/notify`, `/admin`, and `/oauth`. `site` never re-implements a
-handler, it only forwards. That split is deliberate: `site-api` is where
-secrets and write access live, so keeping it a separate deploy target is the
-actual public/private security boundary, not just a code-organization
-choice.
+`site-api` is a separate, private repository. It holds D1, KV, R2, queues,
+crons, the Telegram webhook, and every handler under `/api`, `/v1`, `/v2`,
+`/notify`, `/admin`, and `/oauth`. `site` never reimplements a handler. It only
+forwards requests.
 
-## Path forms: `/api` is a prefix, not a directory
+Secrets and write access live in `site-api`, so keeping it a separate deploy
+target is what makes it the public/private security boundary.
 
-Every path in this reference is written the way you call it on `buxx.me` — with
-the `/api` prefix. Inside `site-api` that prefix does not exist: the Worker
-strips a leading `/api` at ingress (`normalizeApiIngressRequest`) before its
-router sees the request, so `buxx.me/api/footer` is handled by the route file
-that also answers `api.buxx.me/footer`.
+## Path forms
+
+Every path in this reference is written the way you call it on `buxx.me`, with
+the `/api` prefix. `site-api` itself has no such prefix. The Worker strips a
+leading `/api` at ingress (`normalizeApiIngressRequest`) before its router sees
+the request, so `buxx.me/api/footer` and `api.buxx.me/footer` reach the same
+route file.
 
 | Origin | How to call `footer` |
 | --- | --- |
 | `buxx.me` (canonical) | `https://buxx.me/api/footer` |
-| `api.buxx.me` | `https://api.buxx.me/footer` — the whole hostname is the API, so no prefix |
-| `admin.buxx.me` | Admin portal and `/admin/*` only; public pages redirect back to `buxx.me` |
+| `api.buxx.me` | `https://api.buxx.me/footer`. The whole hostname is the API, so there is no prefix. |
+| `admin.buxx.me` | Admin portal and `/admin/*` only. Public pages redirect back to `buxx.me`. |
 
-Both prefixed and bare forms work on either host — the strip is unconditional —
-but use the prefixed form on `buxx.me` and the bare form on `api.buxx.me`.
-Mixing them (`api.buxx.me/api/footer`) resolves, and is a coin-flip against a
-future ingress change.
+The strip is unconditional, so both forms work on either host. Use the prefixed
+form on `buxx.me` and the bare form on `api.buxx.me`. A mixed form such as
+`api.buxx.me/api/footer` resolves today, but a future ingress change could
+break it.
 
-## Versioning: three generations, one worker
+## Versioning
 
-| Prefix | What it is | Status |
+The version is part of the URL. There is no version negotiation through
+`Accept` or any other header.
+
+A prefix doesn't tell you whether a path is current. Mood uses `/v1` and `/v2`
+for its two data sources. Notify, admin, the Ghost webhook, MusicKit, and
+health moved from `/v2` to unversioned paths, and listening moved the other
+way. Use the current path for each route family:
+
+| Route family | Current path | Alias |
 | --- | --- | --- |
-| `/api/v1/mood*` | The live Telegram-mirror reader. Talks to `t.me` on every miss, cached at the edge in seconds. | Stable, used as the freshness fallback |
-| `/api/v2/*` | The current generation: D1-backed archive reads, KV-backed stats, admin, notify, OAuth. | Stable for `mood`, `moods`, `notify`, `comments`, `reactions`, `reader`; **`/v2/posts*` is a disabled placeholder** — it 404s with `{"error":{"code":"not_found"}}` until the `ENABLE_POSTS_API` flag ships |
-| `/api/moods`, `/api/comments`, unversioned `/musickit/token`, `/ghost/webhook` | Pre-`/v2` routes kept alive as aliases (`LEGACY_*_PATH` in `@bunizao/contracts/routes`) | Stable, but new integrations should use the `/v2` path where one exists |
+| Mood archive | `/api/v2/mood*`, `/api/v2/moods/live-counts` | None |
+| Mood live reader | `/api/v1/mood*`, `/api/moods`, `/api/comments?postId=` | `/api/mood`, `/api/mood/{id}`, `/api/mood/{id}/comments` redirect to `/api/v1/mood*` |
+| Notify | `/api/notify/*` | `/api/v2/notify/*` |
+| Admin | `/admin/*` (on `admin.buxx.me`) | `/v2/admin/*` |
+| MusicKit token | `/api/musickit/token` | `/api/v2/musickit/token` |
+| Ghost webhook | `/api/webhooks/ghost` | `/api/v2/ghost/webhook`, `/api/ghost/webhook` |
+| Health | `/api/health` | `/api/v2/health` |
+| Listening | `/api/v2/listening` | `/api/listening` |
+| Blog comments, reactions, reader, messages, Instagram | `/api/v2/comments`, `/api/v2/reactions`, `/api/v2/reader/*`, `/api/v2/messages`, `/api/v2/instagram` | None |
+| Posts | `/api/v2/posts*` | None. **`/v2/posts*` is a disabled placeholder.** It returns 404 with `{"error":{"code":"not_found"}}` until the `ENABLE_POSTS_API` flag ships. |
 
-There is no `Accept`-based or header-based version negotiation — the version
-is the URL. A route that has both a legacy and a `/v2` form serves the same
-data through two paths; pick `/v2` unless you specifically need the live
-Telegram mirror's freshness.
+Every alias answers `308 Permanent Redirect` to the current path with
+`Cache-Control: no-store, max-age=0`, so the method and body survive the hop.
+The `LEGACY_*_PATH` constants in `@bunizao/contracts/routes` are the `/v2`
+aliases in this table. New integrations should call the current path and skip
+the extra round trip.
+
+The two mood prefixes return the same shape:
+
+- `/api/v1/mood*` is the live Telegram-mirror reader. It calls `t.me` on every
+  cache miss, and the edge caches it for seconds. It is stable and serves as
+  the freshness fallback.
+- `/api/v2/mood*` reads the D1 archive, and `/api/v2/mood/stats` reads a
+  KV-backed snapshot. This is what mood pages render by default.
+
+`/api/moods` and `/api/comments?postId=` (`MOOD_PUBLIC_FEED_PATH` and
+`MOOD_PUBLIC_COMMENTS_PATH`) are current public paths with no redirect. They
+run the same live handlers as `/api/v1/mood` and `/api/v1/mood/{id}/comments`,
+and the site's own mood pages call them. Use `/api/v2` unless you need the
+freshness of the live Telegram mirror.
 
 ## Auth
 
-Four tiers, and most of the public JSON surface is the first one:
+The API has four auth tiers. Most public JSON endpoints are in the first one.
+There is no API-key tier: nothing public accepts a long-lived bearer credential
+from a third party.
 
-1. **None.** `mood`, `moods`, `comments`, `oembed.json`, the SVG badges, RSS,
-   `health`, `ping`, and reading the [Blog Comments API](/docs/api/comments)
-   (`v2/comments` `GET`, `v2/reactions`, `v2/reader/me`,
-   `v2/reader/avatar/*`). Anyone can call these; they're rate-limited, not
-   gated. A `reader_anon` cookie is minted automatically on a blog comment's
-   first write — it scopes *ownership* of anonymous rows, not access; it is
-   not an auth tier of its own.
-2. **Turnstile token.** `notify/subscribe`, `notify/manage/request`,
-   `v2/comments` `POST` (`expectedAction: 'blog_comment_create'`),
-   `v2/reactions/toggle` (`expectedAction: 'blog_reaction'`), and
-   `v2/messages` (`expectedAction: 'owner_message_create'`) require a
-   Cloudflare Turnstile token before the handler runs at all — the comments
-   trio take it as a `turnstileToken` body field only, notify also accepts
-   `cfTurnstileResponse`, `captchaToken`, or the `cf-turnstile-response`
-   header. A missing or failing token returns `400`; Turnstile itself being
-   unreachable returns `503`, not `400` — a client should treat those
-   differently. `v2/reactions/toggle` alone also accepts a one-hour
-   `__Host-reader_pass` cookie it issued after an earlier verified token in
-   place of a fresh one (see [Reactions](/docs/api/comments#reactions)).
-3. **Bearer token in the URL or body.** `notify/confirm`, `notify/unsubscribe`,
-   `notify/manage` (`GET`/`PATCH`), and `v2/reader/verify` take a
-   single-purpose token issued by email. It authorizes one record (a
-   subscriber, or a comment writer's address), nothing else. The notify
-   routes take it as `?token=` and mostly render an HTML result page — see
-   [Notify API](/docs/api/notify). `v2/reader/verify` takes it as a JSON
-   body field and always answers JSON — see
-   [Blog Comments API](/docs/api/comments#lazy-email-verification).
-4. **Admin session / Cloudflare Access.** Everything under `/admin/*` and the
-   OAuth hub. Out of scope for this reference — see
-   [Auth and OAuth hub](/docs/platform/auth).
+### No auth
 
-There is no API-key tier. Nothing on the public surface accepts a
-long-lived bearer credential from a third party.
+Anyone can call these. They are rate-limited but not gated.
+
+- `mood`, `moods`, `comments`, `oembed.json`
+- the SVG badges, RSS, `health`, `ping`
+- reads from the [Blog Comments API](/docs/api/comments): `v2/comments` `GET`,
+  `v2/reactions`, `v2/reader/me`, `v2/reader/avatar/*`
+
+The first time someone writes a blog comment, the API sets a `reader_anon`
+cookie automatically. The cookie marks who owns their anonymous rows. It does
+not grant access and is not an auth tier of its own.
+
+### Turnstile token
+
+These routes need a Cloudflare Turnstile token. The token is checked before the
+handler runs.
+
+| Route | Turnstile action | Where to send the token |
+| --- | --- | --- |
+| `notify/subscribe` | `expectedAction: 'notify_subscribe'` | `turnstileToken`, `cfTurnstileResponse`, or `captchaToken` body field, or the `cf-turnstile-response` header |
+| `notify/manage/request` | `expectedAction: 'notify_manage'` | Same as `notify/subscribe` |
+| `v2/comments` `POST` | `expectedAction: 'blog_comment_create'` | `turnstileToken` body field only |
+| `v2/reactions/toggle` | `expectedAction: 'blog_reaction'` | `turnstileToken` body field only |
+| `v2/messages` | `expectedAction: 'owner_message_create'` | `turnstileToken` body field only |
+
+A missing or failing token returns `400`. If Turnstile itself is unreachable,
+the route returns `503` instead, so your client should handle the two
+differently.
+
+`v2/reactions/toggle` also accepts a one-hour `__Host-reader_pass` cookie in
+place of a fresh token. The route issues that cookie after an earlier verified
+token (see [Reactions](/docs/api/comments#reactions)).
+
+### Email token
+
+`notify/confirm`, `notify/unsubscribe`, `notify/manage` (`GET`/`PATCH`), and
+`v2/reader/verify` take a single-purpose bearer token sent by email. Each token
+authorizes one record (a subscriber, or a comment writer's address) and nothing
+else.
+
+- The notify routes take it as `?token=` and mostly render an HTML result page.
+  See [Notify API](/docs/api/notify).
+- `v2/reader/verify` takes it as a JSON body field and always answers in JSON.
+  See [Blog Comments API](/docs/api/comments#lazy-email-verification).
+
+### Admin session or Cloudflare Access
+
+Everything under `/admin/*` and the OAuth hub. This reference doesn't cover
+them. See [Auth and OAuth hub](/docs/platform/auth).
 
 ## Rate limits
 
-Every rate-limited route (which is nearly all of them) answers with the same
-four headers, success or failure:
+Nearly every route is rate-limited. Limits are set per route; there is no
+account-wide budget. Every rate-limited route sends the same four headers, on
+success and on failure:
 
 ```
 X-RateLimit-Limit: 180
@@ -111,50 +166,58 @@ X-RateLimit-Mode: <observability|durable|native>
 
 `X-RateLimit-Reset` is a Unix timestamp in seconds, not a delta.
 
-**Read `X-RateLimit-Mode` before you trust the other three.** It reports which
-limiter answered, and only two of the three actually enforce anything:
+### Limiter modes
+
+**Read `X-RateLimit-Mode` before you trust the other three headers.** It tells
+you which limiter answered. Only two of the three modes enforce anything.
 
 | Mode | Behavior |
 | --- | --- |
-| `durable` | A single strongly-consistent counter backed by a Durable Object. Really counts, really rejects. |
-| `native` | Cloudflare's Workers Rate Limiting binding: a per-colo, eventually consistent counter. Really rejects, but only reports allow/deny, so the response carries `X-RateLimit-Limit` and `X-RateLimit-Mode` (plus `Retry-After` on a `429`) and omits `X-RateLimit-Remaining` and `X-RateLimit-Reset`. Where the binding is missing, the route falls back to `durable`. |
-| `observability` | Counts nothing and rejects nothing. The headers are computed from the route's configured limit and emitted for measurement; `X-RateLimit-Remaining` always equals `X-RateLimit-Limit`, and every request is admitted. |
+| `durable` | One strongly consistent counter backed by a Durable Object. It counts and rejects. |
+| `native` | Cloudflare's Workers Rate Limiting binding: a per-colo, eventually consistent counter. It rejects, but only reports allow or deny. The response has `X-RateLimit-Limit` and `X-RateLimit-Mode` (plus `Retry-After` on a `429`), and no `X-RateLimit-Remaining` or `X-RateLimit-Reset`. If the binding is missing, the route falls back to `durable`. |
+| `observability` | Counts nothing and rejects nothing. The headers are computed from the route's configured limit and sent for measurement. `X-RateLimit-Remaining` always equals `X-RateLimit-Limit`, and every request is let through. |
 
-`durable` is used by `notify/manage`'s `PATCH`, `notify/manage/email`, and
-`notify/manage/delete` — the three places where double-admitting would let
-a caller race their own state or put mail in an inbox — and by the whole
-[Blog Comments API](/docs/api/comments) surface, whose entire risk stack
-(spam, abuse, and bot resistance on a route with no login gate) depends on
-limits that actually reject. The one exception is an anonymous, cookie-less
-read of `GET /v2/reactions`, which counts against the same per-colo binding
-as the two `native` routes below instead — a signed-in reader's own read of
-that route stays `durable`, for an exact count against the shared D1 budget;
-neither read path surfaces `X-RateLimit-Mode`. The two analytics beacons,
-`POST /api/analytics/event` and `POST /api/v2/analytics/listening`, run in
-`native` mode: a flood guard where a per-colo count is enough, charged only
-after their origin and bot checks pass. Everything else on the surface runs in
-`observability` mode.
+Which routes use which mode:
 
-So the per-route limits below describe the *intended* budget and the numbers
-you will see in the headers, not necessarily a wall you will hit. A `429`
-from a route outside the `durable` and `native` rows above is currently unreachable, and
-client code that only handles `429` for backpressure is, in practice,
-unprotected there. Do not read the absence of `429`s as licence to poll hard
-— the mode can be switched per route without notice, and the underlying
-resources (Ghost, GitHub, Telegram, D1) have their own limits that this
-surface does not shield you from.
+- **`durable`**: `notify/manage`'s `PATCH`, `notify/manage/email`, and
+  `notify/manage/delete`. On these three, letting a request through twice would
+  let a caller race their own state or send mail to an inbox. The whole
+  [Blog Comments API](/docs/api/comments) is `durable` too. It has no login
+  gate, so its spam, abuse, and bot defenses depend on limits that reject.
+- **The `GET /v2/reactions` exception**: an anonymous, cookie-less read counts
+  against the same per-colo binding as the two `native` routes. A signed-in
+  reader's own read stays `durable`, which keeps an exact count against the
+  shared D1 budget. Neither read path sends `X-RateLimit-Mode`.
+- **`native`**: the two analytics beacons, `POST /api/analytics/event` and
+  `POST /api/v2/analytics/listening`. They need a flood guard, and a per-colo
+  count is enough for that. A request is charged only after the origin and bot
+  checks pass.
+- **`observability`**: everything else.
 
-A request that does exceed a `durable` or `native` limit gets `429` plus
-`Retry-After: <seconds>`; the body is either `{"error":"Too Many Requests"}` or
-plain text depending on the route (see
-[Error shapes](#error-shapes-there-are-two)).
+### Handle 429 responses
 
-Limits are per-route, not a single account-wide budget:
+The limits in the table below are the intended budget and the numbers you see
+in the headers. They are not always a wall you will hit. A route outside the
+`durable` and `native` lists above can't return `429` today, so a client that
+relies on `429` for backpressure has no protection on those routes.
+
+Don't read the absence of `429`s as permission to poll hard. The mode can
+change per route without notice. The services behind the API (Ghost, GitHub,
+Telegram, D1) also have their own limits, and this API doesn't shield you from
+them.
+
+A request over a `durable` or `native` limit gets `429` with
+`Retry-After: <seconds>`. Depending on the route, the body is
+`{"error":"Too Many Requests"}` or plain text (see
+[Error shapes](#error-shapes)).
+
+### Limits by route
 
 | Route family | Window | Max | Enforced |
 | --- | --- | --- | --- |
-| `moods`, `v2/mood` (normal) | 60s | 180 | No |
-| `moods`, `v2/mood` with `?fresh=1` (bypasses cache) | 60s | 30 | No |
+| Feed: `moods`, `v1/mood`, `v2/mood` (normal) | 60s | 180 | No |
+| Feed with `?fresh=1` (bypasses cache) | 60s | 30 | No |
+| Feed with `?probe` (checked before `fresh`) | 60s | 90 | No |
 | `v2/mood/search` | 60s | 30 | No |
 | `v2/moods/live-counts`, `v1/mood/meta` | 60s | 240 | No |
 | `v2/listening`, `writing`, `footer`, `github/contributions` | 60s | 60 | No |
@@ -174,15 +237,15 @@ Limits are per-route, not a single account-wide budget:
 | **`v2/comments/:id` `PATCH`** | 1 min | 10 | **Yes** |
 | **`v2/reactions/toggle`** | 1 min | 30 | **Yes** |
 | **`v2/reader/verify`** | 1 min | 10 | **Yes** |
-| **`v2/reader/resend`** | 1 min | 5 | **Yes** (per IP; a separate per-address send suppression is enforced silently, never as a `429`) |
+| **`v2/reader/resend`** | 1 min | 5 | **Yes** (per IP; a separate per-address send suppression applies silently and never returns `429`) |
 | **`v2/messages` `POST`** | 10 min / 24 h | 3 / 8 | **Yes** (3 dimensions: session, IP, fingerprint) |
 
-## Error shapes — there are two
+## Error shapes
 
-This is the sharpest edge on the whole surface: the mood-feed family and
-everything else disagree about what an error body looks like.
+Error bodies come in two shapes: one for the mood feed family and one for
+everything else.
 
-**Mood feed / detail / comments / stats** (`mood-api-routes.ts`,
+**Mood feed, detail, comments, and stats** (`mood-api-routes.ts`,
 `v2/mood/stats.ts`) return a nested object:
 
 ```json
@@ -191,46 +254,54 @@ everything else disagree about what an error body looks like.
 
 **Notify, search, and everything built on `jsonError()`**
 (`lib/http/json-response.ts`) return a flat string, sometimes with an extra
-`code` field bolted on:
+`code` field:
 
 ```json
 { "error": "Invalid JSON body" }
 { "error": "Turnstile verification failed", "code": "verify_unavailable" }
 ```
 
-Check `typeof body.error` before reading `.message` or `.code` off it — one
-family's `error` is a string, the other's is an object. There is no
-version-wide error schema in `@bunizao/contracts`; each feature owns its own
+Check `typeof body.error` before you read `.message` or `.code` from it. In one
+family `error` is a string, and in the other it is an object. There is no
+version-wide error schema in `@bunizao/contracts`. Each feature defines its own
 shape.
 
-## Caching tiers
+## Caching
 
-Three different `Cache-Control` policies show up across the surface, and
-which one a route uses tells you how stale a response can be:
+Most routes use one of these `Cache-Control` policies. The policy tells you
+how stale a response can be.
 
 | Policy | Meaning | Example routes |
 | --- | --- | --- |
-| `no-store, max-age=0` | Never cached, anywhere. Visitor-specific, or a write. | `notify/*`, `edge`, `?fresh=1` on any mood route |
-| `public, max-age=0, s-maxage=N` | Not cached by the browser; cached at the Cloudflare edge for `N` seconds. | `v2/mood` (30s latest / 300s history), `v2/moods/live-counts` (60s), `v2/mood/search` (300s) |
-| `public, max-age=N, stale-while-revalidate=M` | Cacheable by the browser too. | `v2/mood/stats` (300s, then stale-served for up to an hour while it refreshes) |
+| `no-store, max-age=0` | Never cached anywhere. Used for visitor-specific responses and writes. | `notify/*`, `?fresh=1` on the mood feed, detail, and comments routes. `edge` sends plain `no-store`. |
+| `public, max-age=0, s-maxage=N` | Not cached by the browser. Cached at the Cloudflare edge for `N` seconds. | `v2/moods/live-counts` (60s), `v2/mood/search` (300s) |
+| `public, max-age=0` plus a `Cloudflare-CDN-Cache-Control` header | Not cached by the browser. Only the Cloudflare edge reads the second header. | Mood feed and detail: `public, max-age=60, stale-while-revalidate=600, stale-if-error=600`. The in-worker cache also keeps `v2/mood` for 30s (latest) or 300s (history). See [Mood](/docs/api/mood#feed-caching). |
+| `public, max-age=N, stale-while-revalidate=M` | The browser can cache it too. | `v2/mood/stats` (300s, then served stale for up to an hour while it refreshes) |
 
-`?fresh=1` on any mood route forces `no-store` and skips the
-edge cache read on that one request — use it for a freshness check, not for
-routine polling, since it also drops you into the tighter `?fresh` rate
-limit bucket (30/min instead of 180/min). On the feed, `probe=1` skips the
-in-worker cache but may be served from the CDN for up to 15s (see
-[Mood](/docs/api/mood)); add `fresh=1` when a probe must read through.
+`?fresh=1` on the mood feed, detail, and comments routes forces `no-store` and
+skips the edge cache read for that one request. Use it for a freshness check,
+not for routine polling. On the feed routes it also moves you into the tighter
+`?fresh` rate limit (30/min instead of 180/min). Detail and comments have no
+rate limit.
+
+On the feed, `probe=1` skips the in-worker cache, but the CDN can still serve
+it for up to 15s (see [Mood](/docs/api/mood)). Add `fresh=1` when a probe must
+read through.
 
 ## CORS
 
-Only four things on `site-api` set `Access-Control-Allow-Origin`: the two
-Telegram media/image proxies, the Telegram webhook, and the oEmbed
-`html`/embed-widget response (`lib/embed-response.ts`, both `*`). Every JSON
-endpoint documented in [Mood API](/docs/api/mood) and
-[Notify API](/docs/api/notify) — `mood`, `v2/mood`, `search`, `stats`,
-`live-counts`, `notify/*` — sets no CORS header at all. `fetch()` from
-browser JS on another origin will be blocked by the browser even though the
-same request works fine from `curl` or a server. If you need this data in a
-page hosted elsewhere, use the [oEmbed](/docs/api/oembed) endpoint, proxy the
-request through your own backend, or ask for the route to be added to the
-CORS allowlist rather than routing around it client-side.
+Only four things on `site-api` set `Access-Control-Allow-Origin`:
+
+- the two Telegram media/image proxies
+- the Telegram webhook
+- the oEmbed `html`/embed-widget response (`lib/embed-response.ts`, both `*`)
+
+Every JSON endpoint in the [Mood API](/docs/api/mood) and
+[Notify API](/docs/api/notify) (`mood`, `v2/mood`, `search`, `stats`,
+`live-counts`, `notify/*`) sends no CORS headers. The browser blocks a
+`fetch()` to them from another origin, even though the same request works from
+`curl` or a server.
+
+To use this data on a page hosted elsewhere, use the [oEmbed](/docs/api/oembed)
+endpoint, proxy the request through your own backend, or ask for the route to
+be added to the CORS allowlist. Don't try to route around it client-side.

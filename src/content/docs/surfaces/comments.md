@@ -1,235 +1,275 @@
 ---
 title: Comments
-description: The comment box on a blog post from the reader's side — what it asks for, what it keeps, what it refuses, and what each refusal code means.
+description: What the blog comment box asks for, what it keeps and refuses, and what each refusal code means.
 group: Surfaces
 order: 7
 ---
 
-Every post at `/blog/[slug]` ends with a thread. This page is the reader's half
-of it: what the box asks for, what it does with the answer, and what to do when
-it says no. The wire contract behind all of it — routes, payloads, statuses,
-the risk stack — is [Blog Comments API](/docs/api/comments).
+Every post at `/blog/[slug]` ends with a comment thread. This page covers the
+reader's side: what the comment box asks for, what happens after you post, and
+what to do when it refuses. For routes, payloads, statuses and the risk stack,
+see [Blog Comments API](/docs/api/comments).
 
-## Writing one
+| Topic | Section |
+| --- | --- |
+| Fields, limits and formatting | [Write a comment](#write-a-comment) |
+| Publishing and holds | [What happens when you press Post](#what-happens-when-you-press-post) |
+| Anonymous, verified and signed-in readers | [Who you are](#who-you-are) |
+| The 15-minute edit window | [Edit and delete](#edit-and-delete) |
+| Reactions | [Hearts](#hearts) |
+| Confirmation and reply mail | [Mail](#mail) |
+| Refusal codes | [When a comment is refused](#comment-errors) |
 
-A name and a comment. The email field is optional and stays optional; leaving
-it blank posts a real comment that a real person can read and reply to.
+## Write a comment
+
+A comment needs a name and some text. The email field is optional. If you leave
+it blank, you still post a real comment that people can read and reply to.
 
 | Field | Limit | Notes |
 | --- | --- | --- |
 | Name | 1–32 characters | No control characters, and not one of the owner's own names |
-| Email | optional | Buys an avatar, editing, and reply mail — see [Who you are](#who-you-are) |
-| Comment | 1–2000 characters | A small Markdown grammar, below |
+| Email | optional | Gives you an avatar, editing, and reply mail. See [Who you are](#who-you-are) |
+| Comment | 1–2000 characters | A small Markdown subset, below |
 
-The counter under the box only appears near the end. Formatting is deliberately
-partial: `**bold**`, `*italic*`, `` `code` ``, fenced blocks, `> quotes`,
-lists, `[links](url)`, and bare URLs. No headings, no tables, no images — a
-comment should not be able to out-shout the post above it, and an image in a
-comment is a remote URL every other reader's browser would then fetch.
+A character counter appears under the box only when you get near the limit.
 
-Nothing typed is lost to a stray reload. The top box is backed up to this
-browser's local storage and restored on the next visit to the same post, and
-any box holding words asks before the page closes. The reply box gets only the
-second half: it is one travelling element with no memory of which comment it
-was answering, so restoring it would park a stray reply under nothing.
+Comments support part of Markdown: `**bold**`, `*italic*`, `` `code` ``, fenced
+blocks, `> quotes`, lists, `[links](url)`, and bare URLs. Headings, tables and
+images aren't supported. A comment shouldn't be able to out-shout the post above
+it, and an image would be a remote URL that every other reader's browser fetches.
+
+A stray reload doesn't lose your text:
+
+- The top box is saved to this browser's local storage and restored the next
+  time you open the same post.
+- Any box with text in it asks before the page closes.
+
+The reply box only gets the close warning. It is one element that moves around
+the thread and doesn't remember which comment it was answering, so restoring it
+would leave a reply under nothing.
 
 ## What happens when you press Post
 
-The comment appears in the thread immediately, before anything has been asked
-of the server. Both surfaces do this, and both mean it: the words are already
-written, and a form that visibly stops working for the two to four seconds a
-bot check plus a spam check takes is charging the reader for a comment that
-was going to be accepted anyway.
+Your comment shows up in the thread right away, before the server has answered.
+The blog and mood threads both do this. A bot check plus a spam check takes two
+to four seconds, and the comment was going to be accepted anyway, so the form
+doesn't make you wait for it.
 
-For a moment the new row breathes and says *Publishing*. That is not a review
-— for an anonymous writer the API waits up to eight seconds while a language
-model reads the comment, and after three the word becomes *Still checking — a
-few more seconds*, so a wait that long never looks stuck. A verdict slower
-than that comes back formally held and goes public a moment later.
-The page watches for the flip and stops breathing when it lands, and keeps
+For a moment the new row pulses and says *Publishing*. This isn't a review
+queue:
+
+- For an anonymous writer, the API waits up to eight seconds while a language
+  model reads the comment.
+- After three seconds the label changes to *Still checking — a few more
+  seconds*, so a long wait never looks stuck.
+- A verdict slower than eight seconds comes back formally held and goes public
+  a moment later.
+
+The page watches for that change and stops the pulse when it lands. It keeps
 watching for about a minute and a half, which is longer than a slow verdict
 takes.
 
-Only a wait that genuinely ends without a publish leaves a note behind, and
-it says the one thing that matters: everyone else is looking at a thread this
-row is not in. It is rare, and it is never the ordinary case dressed up as
-one. A comment held until its address is confirmed says so instead — the
-link in the inbox publishes it — and the nudge under the box says the same,
-because that is the one hold the reader can end on their own. A request for
-an email (`NOMAIL`) focuses the email field; anything typed into the box
-while the request was out is kept after the returned draft.
+The row only leaves a note when the wait really ends without a publish. The note
+tells you that everyone else sees a thread without this row. This is rare, and
+the page never shows it for the ordinary case.
 
-A refused write takes it all back in the order it was given — the row goes,
-the words return to the box, and a reply goes back to being a reply to the
-comment it was under — and then says which refusal it was, because a rate
-limit and a dropped connection want opposite next moves.
+Other outcomes:
+
+| Outcome | What you see |
+| --- | --- |
+| Held until you confirm your address | The row says so, and so does the nudge under the box. Opening the link in your inbox sends it through the checks again, and it publishes if they pass. This is the one hold you can end yourself |
+| Asked for an email (`NOMAIL`) | The email field gets focus. Anything you typed into the box while the request was out is kept after the returned draft |
+| Refused | The page undoes the post (see below) and names the refusal |
+
+When a write is refused, the page undoes it in order:
+
+1. The row is removed.
+2. Your text goes back into the box.
+3. A reply goes back to being a reply to the comment it was under.
+
+Then the alert names the refusal, because a rate limit and a dropped connection
+need opposite next steps. See [When a comment is refused](#comment-errors).
 
 ## Who you are
 
-Three grades, and the box climbs them on its own rather than asking anyone to
-make an account.
+There are three levels. The box moves you up them on its own, so nobody has to
+create an account.
 
-| | How you get there | What it buys |
+| Level | How you get there | What you get |
 | --- | --- | --- |
 | **Anonymous** | Nothing. A cookie appears when you first post or react | Posting, reacting, and seeing your own rows marked as yours |
 | **Verified** | Click the link in the confirmation mail | A persistent avatar, your name remembered, editing and deleting, reply mail |
-| **Signed in** | GitHub or Google — built, but not offered yet | The same as verified, with that account's avatar |
+| **Signed in** | GitHub or Google. Built, but not offered yet | The same as verified, with that account's avatar |
 
-The third row is not on offer today: there is no sign-in button anywhere in
-the comment box, so every reader who has an identity here got it from the
-mail. It is in the table because the data model and the routes already
-accommodate it.
+Signed in isn't offered today. The comment box has no sign-in button, so every
+reader with an identity here got it from the mail. It's in the table because the
+data model and the routes already support it.
 
-The confirmation mail goes out by itself on the first comment carrying a new
-address — no separate signup step. Until it is confirmed, the comment is
-published and readable like any other; verification is about what *you* can do
-later, not about whether anyone can see what you wrote.
+The confirmation mail is sent automatically with your first comment from a new
+address. There is no separate signup step. Most comments publish right away,
+confirmed or not, and verification only controls what *you* can do later. The
+exception is a comment the checks flag (see [`NOMAIL`](#comment-error-nomail)).
+If it came with an address, it waits, unseen, until you open the link.
 
-The anonymous cookie is deliberately weak. It marks rows as yours so the thread
-reads correctly, and it will never let anyone edit or delete anything: on a
-shared machine that cookie is handed straight to the next person who sits down.
+The anonymous cookie is weak by design. It marks rows as yours so the thread
+reads correctly. It never lets anyone edit or delete anything, because on a
+shared machine the next person who sits down gets the same cookie.
 
-## Editing and deleting
+## Edit and delete
 
-Fifteen minutes from posting, and only on a comment a verified identity owns.
-A comment written without an email is never claimable, so it is frozen exactly
-as written — the owner can remove it on request.
+You can edit or delete only a comment that a verified identity owns. Editing is
+open for fifteen minutes after posting. A comment written without an email can
+never be claimed, so it stays exactly as written. The site owner can remove it
+on request.
 
-Deleting has no window. If a published reply is hanging underneath, the row
-stays as an empty placeholder so the thread keeps its shape.
+Deleting has no time limit. If a published reply sits under the deleted comment,
+the row stays as an empty placeholder so the thread keeps its shape.
 
 ## Hearts
 
-One per person per thing, on the post and on each comment, and they are
-one-way on purpose: a heart already given is not taken back. Reacting needs
-nothing at all — no name, no address.
+Each person can give one heart per thing: the post, and each comment. Hearts are
+one-way by design, so you can't take one back. Reacting needs no name and no
+address.
 
 ## Mail
 
-Two kinds, both switchable.
+The comment box sends two kinds of mail. Both are switchable.
 
-- **Confirm your address** — sent once, automatically, on your first comment
-  from an unrecognised address. Resendable from the same box or from
-  [`/reader/confirm`](/reader/confirm) if the link has gone stale.
-- **Someone replied** — turned on when you confirm, because the mail that
-  carried the link says so, and turned off from the preferences link in any of
-  them. A single conversation can also be muted on its own.
+| Mail | When it's sent | Notes |
+| --- | --- | --- |
+| **Confirm your address** | Once, automatically, on your first comment from an unrecognised address | Resend it from the same box or from [`/reader/confirm`](/reader/confirm) if the link has gone stale |
+| **Someone replied** | Turned on when you confirm. The confirmation mail tells you this | Turn it off from the preferences link in any of them. You can also mute a single conversation |
 
-The confirmation link signs in exactly one device — whichever opens it first —
-and expires after 24 hours. Opening it again later confirms nothing and signs
-in nobody, which is what keeps a forwarded or quoted link from being a way into
-the account. A device left out gets a fresh link; that is the whole repair.
+The confirmation link signs in exactly one device (whichever opens it first) and
+expires after 24 hours. Opening it again later confirms nothing and signs in
+nobody, so a forwarded or quoted link can't be used to get into the account. To
+sign in a device that was left out, request a fresh link. That's the whole fix.
 
 <a id="comment-errors"></a>
 
 ## When a comment is refused
 
-Every refusal prints one sentence naming the next move, and a short code in the
-corner of the alert. The code is for the moment the sentence is not enough —
-it survives translation, retelling, and a photo of a screen, and it is the
-thing worth quoting in a report. Where there is more to say than fits in the
-alert, the code is a link and lands on one of the sections below.
+Every refusal shows one sentence that names your next step, plus a short code
+in the corner of the alert. The code helps when the sentence isn't enough. It
+survives translation, retelling and a photo of a screen, and it's the thing to
+quote in a report. When there's more to explain than fits in the alert, the code
+is a link to one of the sections below.
 
-| Code | What happened | Next move |
+| Code | What happened | What to do |
 | --- | --- | --- |
-| `NET` | The request never left the browser | Reconnect and post again; the draft is safe |
-| `RATE` | Too many writes too quickly | Wait. Retrying immediately only deepens it |
-| `BOT` | The invisible human check could not settle it | Answer the challenge that opens under the box |
-| [`GONE`](#comment-error-gone) | The thread or the comment is not there | Refresh |
-| `THREAD` | The comment being replied to is gone | Refresh the thread |
+| `NET` | The request never left the browser | Reconnect and post again. The draft is safe |
+| `RATE` | Too many writes too quickly | Wait. Retrying right away only makes it worse |
+| `BOT` | The invisible human check couldn't decide | Answer the challenge that opens under the box |
+| [`GONE`](#comment-error-gone) | The thread or the comment isn't there | Refresh |
+| `THREAD` | The comment you're replying to is gone | Refresh the thread |
 | [`CLOSED`](#comment-error-closed) | The claim on that comment ran out | Nothing to retry |
 | `LOCKED` | The post has stopped taking comments | Nothing to retry |
-| [`VERIFY`](#comment-error-verify) | The post takes confirmed addresses only | Confirm, then post |
-| [`NOMAIL`](#comment-error-nomail) | This comment needs an address to confirm | Add one, post, confirm the link |
+| [`VERIFY`](#comment-error-verify) | The post only takes confirmed addresses | Confirm, then post |
+| [`NOMAIL`](#comment-error-nomail) | This comment needs an address to confirm | Add one, post, then open the link |
 | [`NAME`](#comment-error-name) | The name was refused | Pick another |
 | [`EMAIL`](#comment-error-email) | The address was refused | Correct it, or leave it blank |
 | `LONG` | Over 2000 characters | Trim it |
-| `STALE` | The page sat open long enough to go stale | Refresh; the draft is saved |
-| `INPUT` | A refusal this page has no name for | Refresh and try once more |
-| `SERVER` | Something failed on our end | Try again shortly |
+| `STALE` | The page sat open long enough to go stale | Refresh. The draft is saved |
+| `INPUT` | A refusal the page has no name for | Refresh and try once more |
+| `SERVER` | Something failed on the server side | Try again shortly |
 
-A code is often followed by a number — `RATE 429`, `STALE 400`. That is the
-HTTP status the refusal arrived with, and it narrows a report to one route. A
-code with no number means the request never reached a server at all.
+A code is often followed by a number, like `RATE 429` or `STALE 400`. The
+number is the HTTP status of the refusal, and it narrows a report to one route.
+A code with no number means the request never reached a server.
 
 <a id="comment-error-name"></a>
 
-### `NAME` — that name will not work
+### That name won't work (`NAME`)
 
-A display name is 1–32 characters with no control characters, and it cannot be
-one of a small reserved list: the names the site owner writes under. That list
-is matched after folding lookalike letters, so a Cyrillic **а** or a Greek
-**ο** standing in for the Latin one is refused as the same name. Nothing else
-about a name is filtered — it is a name, not a comment.
+A display name must be 1–32 characters with no control characters. It also
+can't be on a small reserved list: the names the site owner writes under. The
+list is matched after folding lookalike letters, so a Cyrillic **а** or a Greek
+**ο** in place of the Latin letter counts as the same name. Nothing else about a
+name is filtered.
 
 <a id="comment-error-email"></a>
 
-### `EMAIL` — that address will not work
+### That address won't work (`EMAIL`)
 
-The address has to be a real, deliverable one. Placeholder domains that a
-browser's own validation is perfectly happy with — `example.com`,
-`localhost`, anything at `.test` or `.invalid` — are refused here, which is the
-usual reason a well-formed address comes back rejected.
+The address must be real and deliverable. Some placeholder domains pass the
+browser's own validation but are refused here:
 
-Leaving the field empty is usually allowed. An address is what buys editing
-and reply mail later; the one time it is a condition of being heard now is
+- `example.com`
+- `localhost`
+- anything at `.test` or `.invalid`
+
+That's the usual reason a well-formed address is rejected.
+
+You can usually leave the field empty. An address gives you editing and reply
+mail later. The one time you need it to be heard now is
 [`NOMAIL`](#comment-error-nomail).
 
 <a id="comment-error-verify"></a>
 
-### `VERIFY` — this post takes confirmed addresses
+### This post takes confirmed addresses (`VERIFY`)
 
-A handful of posts are set to accept comments only from confirmed addresses.
-This is a refusal, not a moderation hold — nothing was stored, and the draft is
-still in the box.
+A few posts only accept comments from confirmed addresses. This is a refusal,
+so nothing was stored and your draft is still in the box. It isn't a moderation
+hold.
 
-Confirm the link already sitting in the inbox, or send a fresh one from
-[`/reader/confirm`](/reader/confirm), then post again in the same tab. A link
-signs in one device and expires after 24 hours, so the one from three weeks ago
-will not work and neither will one already used elsewhere; asking for another
-is free.
+Open the confirmation link already in your inbox, or send a fresh one from
+[`/reader/confirm`](/reader/confirm). Then post again in the same tab. A link
+signs in one device and expires after 24 hours. A link from three weeks ago
+won't work, and neither will one already used on another device. Asking for a
+new one is free.
 
 <a id="comment-error-nomail"></a>
 
-### `NOMAIL` — this comment needs an address
+### This comment needs an address (`NOMAIL`)
 
-The request looked enough like automation — a data-centre network, a browser
-without a graphics card, several posts in a few minutes, one browser writing
-under several names — that it goes nowhere without an email address to
-confirm. How the words were typed, dictated or pasted never counts toward
-this. Nothing was stored, and the draft is still in the box.
+The request looked enough like automation that it can't go through without an
+email address to confirm. Signals include:
 
-Add an address and post again. The comment waits, unseen, until the link in
-the confirmation mail is opened; then it goes through the usual checks and
-appears. An agent without a mailbox never gets further, and a person gets
-through with one click. The same thing happens, with no refusal first, to
-anyone who already gave an address.
+- a data-centre network
+- a browser without a graphics card
+- several posts in a few minutes
+- one browser writing under several names
+
+You can also get it during a site-wide lockdown after a flood of comments, or
+within 24 hours of this browser tripping a spam check. A verified reader
+posting from their own browser is never asked. How the words were typed,
+dictated or pasted never counts. Nothing was stored, and your draft is still
+in the box.
+
+Add an address and post again. The comment waits, unseen, until you open the
+link in the confirmation mail. Then it goes through the usual checks and
+appears. An agent without a mailbox gets no further, and a person gets through
+with one click. Anyone who already gave an address gets the same treatment,
+without the refusal first.
 
 <a id="comment-error-closed"></a>
 
-### `CLOSED` — the window has passed
+### The edit window has passed (`CLOSED`)
 
-A comment can be edited for fifteen minutes after it is posted, and only by the
-verified identity that owns it. Past that, the row is final — retrying is a
-guaranteed second refusal.
+You can edit a comment for fifteen minutes after posting it, and only as the
+verified identity that owns it. After that the comment is final, and a retry
+will be refused again.
 
-Two things commonly look like an expired window and are not: a comment written
-with no address is owned by nobody, so it was never editable; and a browser
-that has been signed out no longer holds the identity that wrote it, which
-signing back in restores.
+Two cases look like an expired window but aren't:
 
-Deleting is not on this clock. If a comment needs to come down long after it
-went up, the delete button still works — and where the identity is gone for
-good, [the owner can remove it](/docs/platform/privacy).
+- A comment written with no address has no owner, so it was never editable.
+- A signed-out browser no longer holds the identity that wrote the comment.
+  Signing back in restores it.
+
+Deleting has no time limit. If a comment needs to come down long after it went
+up, the delete button still works. If the identity is gone for good,
+[the owner can remove it](/docs/platform/privacy).
 
 <a id="comment-error-gone"></a>
 
-### `GONE` — that thread is not available
+### That thread isn't available (`GONE`)
 
-Either the target genuinely no longer exists — a deleted comment, a post that
-has been unpublished — or the service that answers "does this post exist" was
-briefly unreachable. The alert cannot tell the two apart, which is why it says
-"not available right now" rather than guessing.
+This means one of two things:
 
-Refreshing separates them: a thread that comes back was the second case, and
-posting again will work. The draft survives either way.
+- The target no longer exists, for example a deleted comment or an unpublished
+  post.
+- The service that checks whether a post exists was briefly unreachable.
+
+The alert can't tell these apart, so it says "not available right now" instead
+of guessing. Refresh to find out: if the thread comes back, it was the second
+case, and posting again will work. Your draft survives either way.
