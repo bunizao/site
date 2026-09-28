@@ -79,10 +79,10 @@ const GOOD_BODIES = [
 
 const BAD_BODIES: Array<{ body: string; reason: string; note: string; model: string | null }> = [
   { body: 'Best crypto signals group!!! Join t.me/moonpumpsignals now, 300% guaranteed', reason: 'spam', note: 'Akismet: spam.', model: 'akismet' },
-  { body: 'Nice post. Check my site https://cheap-backlinks.example for SEO packages starting at $5.', reason: 'promotional', note: 'Unsolicited service pitch with an outbound link.', model: 'task-guard' },
-  { body: '这种垃圾文章也好意思发出来？作者脑子有问题吧', reason: 'abuse', note: 'Personal insult aimed at the author.', model: 'task-guard' },
-  { body: 'What is the weather like in Melbourne today?', reason: 'off_topic', note: 'Unrelated to the post.', model: 'task-guard' },
-  { body: 'My number is +61 400 000 000, call me to discuss', reason: 'personal_info', note: 'Contains a phone number.', model: 'task-guard' },
+  { body: 'Nice post. Check my site https://cheap-backlinks.example for SEO packages starting at $5.', reason: 'promotional', note: 'Akismet: ham. AI: promotional -- Unsolicited service pitch with an outbound link.', model: 'akismet+task-guard' },
+  { body: '这种垃圾文章也好意思发出来？作者脑子有问题吧', reason: 'abuse', note: 'Akismet: ham. AI: abuse -- Personal insult aimed at the author.', model: 'akismet+task-guard' },
+  { body: 'What is the weather like in Melbourne today?', reason: 'off_topic', note: 'Akismet: ham. AI: off_topic -- Unrelated to the post.', model: 'akismet+task-guard' },
+  { body: 'My number is +61 400 000 000, call me to discuss', reason: 'personal_info', note: 'Akismet: ham. AI: personal_info -- Contains a phone number.', model: 'akismet+task-guard' },
 ];
 
 function generateComments(): AdminCommentRecord[] {
@@ -115,7 +115,7 @@ function generateComments(): AdminCommentRecord[] {
       status,
       moderationAction: bad ? (status === 'rejected' ? 'reject' : 'hold') : status === 'held' ? 'unsure' : 'publish',
       moderationReason: bad?.reason ?? (status === 'held' ? null : 'ok'),
-      moderationNote: bad?.note ?? (status === 'held' ? 'Model timed out; held by the fail-closed default.' : null),
+      moderationNote: bad?.note ?? (status === 'held' ? 'Moderation could not reach a verdict; held for manual review.' : null),
       moderationModel: bad?.model ?? (status === 'held' ? null : 'task-guard'),
       country: writer.country,
       createdAt,
