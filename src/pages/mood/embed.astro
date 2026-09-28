@@ -256,11 +256,16 @@ function getImageClassName(post: MoodFeedItem): string {
       /* Mirrored by --mood-embed-bleed in blog-prose.css: room for focus rings
          at the frame edge, pulled back out by the host. */
       --body-padding: 8px;
-      --card-padding: 16px;
-      --card-gap: 12px;
+      /* One spacing ladder, measured to the text: line (~10px of leading) <
+         paragraph (0.6em + leading) ~ block (--body-gap + half-leading) <
+         section (--stack-gap, byline / body / reactions) = card padding. */
+      --card-padding: 20px;
+      --card-gap: 16px;
       --card-radius: 16px;
       --media-radius: 12px;
-      --stack-gap: 12px;
+      --stack-gap: 20px;
+      --body-gap: 14px;
+      --byline-gap: 12px;
       /* The byline's two lines stack to exactly the avatar's height
          (name-line + 2px + meta-line), so the circle and the text share a top
          and a bottom. Name to body is /mood/[id]'s ratio (15:17). */
@@ -303,11 +308,13 @@ function getImageClassName(post: MoodFeedItem): string {
 
     html[data-embed-density="compact"] {
       --body-padding: 6px;
-      --card-padding: 12px;
-      --card-gap: 10px;
+      --card-padding: 14px;
+      --card-gap: 12px;
       --card-radius: 14px;
       --media-radius: 10px;
-      --stack-gap: 10px;
+      --stack-gap: 14px;
+      --body-gap: 10px;
+      --byline-gap: 10px;
       --avatar-size: 32px;
       --name-size: 12.5px;
       --name-line: 16px;
@@ -320,7 +327,7 @@ function getImageClassName(post: MoodFeedItem): string {
     html[data-embed-frame="false"] {
       --body-padding: 0;
       --card-padding: 0;
-      --card-gap: 16px;
+      --card-gap: 20px;
     }
 
     * {
@@ -396,7 +403,7 @@ function getImageClassName(post: MoodFeedItem): string {
     .embed-byline {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: var(--byline-gap);
       min-width: 0;
     }
 
@@ -472,7 +479,7 @@ function getImageClassName(post: MoodFeedItem): string {
     .embed-body {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: var(--body-gap);
       min-width: 0;
     }
 
@@ -482,6 +489,13 @@ function getImageClassName(post: MoodFeedItem): string {
 
     .mood-item-quote {
       max-width: 100%;
+    }
+
+    /* A text-only quote gets a little more room than the feed's 8px 10px:
+       here it is a card inside a card and needs to read as one. The thumb
+       and media-only variants keep their own padding. */
+    .embed-body .mood-item-quote:not(.mood-item-quote--with-media, .mood-item-quote--media-only) {
+      padding: 10px 12px;
     }
 
     /* /mood/[id]'s reading settings at embed size: Telegram's blank lines
