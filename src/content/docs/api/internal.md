@@ -41,6 +41,7 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/comments/:id/reply` | Publishes the owner's reply to one comment; a retried reply publishes once. | Admin session |
 | `/admin/comments/bulk` | Applies one moderation action to a selection of comments. | Admin session |
 | `/admin/comments/lockdown` | Reads, engages, or lifts the site-wide lockdown on anonymous comments. | Admin session |
+| `/admin/comments/site-policy` | Reads or changes the owner's site-wide comment switches: a mode for every post, and a confirmed email for anonymous comments. | Admin session |
 | `/admin/comments/:id/pin` | Pins one root comment to the top of its thread, replacing the post's earlier pin, or unpins it. | Admin session |
 | `/admin/comments/:id/lock` | Closes or reopens replies under one thread. | Admin session |
 | `/admin/comment-modes` | Lists the posts whose comment mode the portal overrides. | Admin session |

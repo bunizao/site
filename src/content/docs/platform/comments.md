@@ -25,8 +25,8 @@ It is currently `"false"` in production.
 
 The switch is one-sided. `site` decides whether to show the section from
 [`blog.comments`](https://github.com/bunizao/site/blob/main/src/data/site.ts),
-the post's own tags and the portal's per-post override (which reaches the page
-through the thread's first read), and knows nothing about the API's flag, so turning the
+the post's own tags, the portal's per-post override and its site-wide
+switches (both reach the page through the thread's first read), and knows nothing about the API's flag, so turning the
 API off leaves a rendered box that answers `404` — which the client reads as
 `GONE` and shows as "comments aren't available right now". Adequate as a
 degraded state, and not something to leave standing: turn the section off in
@@ -112,9 +112,9 @@ session was new. Those describe a request, not a requester.
 
 ## Stopping somebody
 
-Two automatic mechanisms and two manual ones. The automatic pair exists so a
-flood at 3am is handled by the time the owner wakes up; the manual pair is
-the owner's own lever afterwards. Neither automatic one holds or rejects:
+Two automatic mechanisms and three manual ones. The automatic pair exists so
+a flood at 3am is handled by the time the owner wakes up; the manual ones are
+the owner's own levers afterwards. Neither automatic one holds or rejects:
 both ask the anonymous writer to confirm an email address, the same step-up
 a suspicious score triggers (see
 [the risk stack](/docs/api/comments#post-a-comment)). A person gets through
@@ -145,6 +145,20 @@ replaces the wait), no per-comment cards are sent, and the owner gets
 exactly one card saying when it lifts. `/comments` in the ops
 bot shows the status. Verified readers are never affected. A flood that
 outlasts the hour re-engages it.
+
+**Site-wide email rule**: the owner turns it on and off with the portal's
+*Require a confirmed email* switch, on Home or Post modes. It is stored in
+D1, and it acts like a lockdown that never ends:
+- every anonymous comment and reply waits for a confirmed email;
+- a waiting row carries reason `ok`, and its card comes only when the
+  writer confirms; a comment held for anything else gets its card at once;
+- verified readers are not affected.
+
+While it is on, the lockdown has nothing to add, so Home shows a line
+instead of its control. The flood count of 8 in 10 minutes stops counting.
+Beside it, a *Comments everywhere* switch makes every post read-only or
+off, whichever is stricter than the post's own mode. See
+[Site-wide switches](/docs/api/comments#site-wide-switches).
 
 **Ban list** — the `blog_bans` table, one row per key, with an optional note
 and expiry. A key is one of: the address hash, the session, the IP hash, its
@@ -251,6 +265,15 @@ and fingerprint matches name their basis and may include different readers.
   The log's detail pane carries all three (P pins, L locks the thread, and
   the post line switches the mode), the log marks a pinned or locked root in
   front of its text, and Post modes lists every override.
+  Two site-wide switches sit on Home, next to the lockdown, and again at
+  the top of Post modes:
+  - *Comments everywhere*, which is open, read-only or off;
+  - *Require a confirmed email*.
+
+  A row in Post modes whose mode the site-wide one overrides says
+  "everywhere". The post line says the site-wide mode wins. The Comments
+  header shows one line for each switch that is on, with a button that
+  turns it back off. The ⌘K palette offers only the changes that apply.
   Cookie-less readers see each of these within about 90 seconds, the life of
   the edge's shared copy of the thread; nothing purges it.
 - **Akismet** — every submission is checked; ham publishes, spam holds, and

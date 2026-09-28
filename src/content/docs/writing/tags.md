@@ -88,6 +88,13 @@ its section for one round trip before hiding it. Use the override to close a
 post now, and add `#comments-off` when it is meant to stay closed. The details
 are in [Blog Comments API](/docs/api/comments#the-portal-override).
 
+Above both sit the portal's two site-wide switches. One is a mode that every
+post must be at least as strict as, so it beats an `open` tag or override.
+The other is a confirmed-email rule for anonymous comments. Unlike
+`#comments-verified`, that rule holds such a comment until the address is
+confirmed; it does not refuse it. See
+[Site-wide switches](/docs/api/comments#site-wide-switches).
+
 What the tags do *not* override is the site-wide default itself. `blog.comments`
 in this repo and `COMMENTS_MODE` / `COMMENTS_REACTIONS` /
 `COMMENTS_REQUIRE_VERIFIED_EMAIL` in site-api's `wrangler.jsonc` are two copies

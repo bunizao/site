@@ -60,7 +60,8 @@ The page is built from the tags alone, so it can draw the wrong mode until
 the thread loads. The first page of [List comments](#list-comments) carries
 `policy` whenever an override exists, and the client redraws from its `mode`:
 it opens or closes the compose box, and shows or hides the whole section.
-A post with no override gets no `policy` field, and the page's own drawing
+A post with no override gets no `policy` field while no
+[site-wide switch](#site-wide-switches) is on, and the page's own drawing
 stands. `off` is applied the moment that page arrives, before any comment
 is drawn, so neither the rows nor their hearts are read; `readonly` lands
 together with the rows. A section already on screen still disappears one
@@ -69,6 +70,40 @@ override — so a post meant to stay closed should carry the tag as well.
 A mood post takes the same `policy` from the first `mood` page of this
 route, which its thread reads beside the Telegram scrape (see
 [Mood surface: the Telegram bridge](#mood-surface-the-telegram-bridge)).
+
+### Site-wide switches
+
+The owner has two more switches in the admin portal, and each one covers
+every post, blog and mood alike:
+
+- **Comments everywhere: read-only or off.** Every post takes whichever is
+  stricter, this mode or its own (tags, then any override), so a post that
+  is already off stays off. A write is refused with `403 comments_closed`,
+  the same as on a closed post, from the moment the switch is set. When the
+  switch goes back to open, every post follows its own mode again.
+- **Require a confirmed email.** Anonymous comments and replies wait until
+  the writer confirms an address, the same step-up as a
+  [lockdown](/docs/platform/comments#stopping-somebody) with no end. A write
+  with no `email` gets `403 email_required` and nothing is stored. The page
+  keeps the draft and asks for an address. A write that includes an email is
+  stored `held`, and it publishes once the address is confirmed. Signed-in
+  readers post as usual. This is not the `#comments-verified` tag, which
+  refuses an unverified writer outright.
+
+While either switch is on, the first page of [List comments](#list-comments)
+carries `policy` with the switches folded in:
+- `mode` is the stricter of the two modes;
+- `requireVerifiedEmail` is true while the email switch is on.
+
+The page draws from both fields:
+- `mode` works as it does for an override;
+- `requireVerifiedEmail` marks the address field required and says so in its
+  placeholder. The compose box then asks for an address before it sends.
+
+Under the email switch, the field only tells the page what to draw. What
+happens to a write is the hold described above. Cookie-less reads of that
+first page come from the edge cache, so a page follows a switch within about
+90 seconds. Writes follow it at once.
 
 ## Identity: three grades, one table
 
@@ -171,7 +206,7 @@ as absent when it is missing:
 | --- | --- | --- |
 | `pinned: true` | the pinned root only | The owner pinned it. The first page lists it ahead of every other root, with its replies, whatever its date. |
 | `locked: true` | a locked root only, never its replies | The owner closed replies under this thread. It stays readable and likable. |
-| `policy` | the first page only, when the portal overrides the post's mode | The effective [per-post policy](#per-post-policy); the client acts on `policy.mode`. |
+| `policy` | the first page only, when the portal overrides the post's mode or a [site-wide switch](#site-wide-switches) is on | The effective [per-post policy](#per-post-policy) with the site-wide switches folded in; the client acts on `policy.mode` and `policy.requireVerifiedEmail`. |
 
 A post has at most one pin. It is never one of the date-ordered roots, so the
 first page can carry `limit + 1` roots, and `nextBefore` and the later pages
@@ -372,9 +407,10 @@ Every submission runs the full risk stack, in order:
 
    A session quarantined for 24 hours (a filled honeypot, a declared agent
    or a spam verdict; account-backed keys refer to that account only, and
-   IP and fingerprint matches do not share one) and every anonymous writer
-   during the site-wide one-hour lockdown step up the same way. Ordinary
-   owner hide/delete actions do not create a quarantine.
+   IP and fingerprint matches do not share one) steps up the same way. So
+   does every anonymous writer during the site-wide one-hour lockdown, and
+   while the owner's [site-wide email switch](#site-wide-switches) is on.
+   Ordinary owner hide/delete actions do not create a quarantine.
 
    A step-up without an `email` is refused with `403 email_required` and
    nothing is stored. With one, the row is stored `held` with reason `ok`
@@ -382,9 +418,11 @@ Every submission runs the full risk stack, in order:
    confirming publishes the comment. Step 6 still judges it: an adverse
    verdict (spam, a gateway hold, a reject) replaces the wait and stands,
    and a clean one is appended to the note. The owner gets the usual card
-   once the verdict lands, except during a lockdown or quarantine.
-   Confirming — the link opened in the same browser, or the comment
-   selected in `POST /api/v2/reader/claims` — sends it through step 6
+   once the verdict lands. There is no card during a lockdown or in
+   quarantine. Under the site-wide email switch there is none while the
+   comment still waits for its email; the card comes when the writer
+   confirms. Confirming — the link opened in the same browser, or the
+   comment selected in `POST /api/v2/reader/claims` — sends it through step 6
    again, as a verified reader's comment, with the gateway's second
    opinion. A mailbox is not a person: if the gateway still reads the
    writer as an `agent`, the comment stays held with a note beginning
@@ -397,7 +435,9 @@ Every submission runs the full risk stack, in order:
 
    The lockdown engages on its own after more than 8 anonymous comments in
    10 minutes or 3 of the last 5 anonymous comments judged spam, and lifts
-   on its own; step-ups never engage it. See
+   on its own; step-ups never engage it. While the site-wide email switch is
+   on, the first trigger counts nothing, since every anonymous comment
+   already waits. See
    [Stopping somebody](/docs/platform/comments#stopping-somebody).
 6. **Content moderation** (skipped after a heuristics hold, a declared agent or a ban; a step-up row is still judged) — one
    Akismet `comment-check` carrying the body, author fields, IP, user
