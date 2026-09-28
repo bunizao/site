@@ -2,10 +2,12 @@ import type {
   ClientFingerprint,
   CommentAuthAtWrite,
   CommentClaimMethod,
+  CommentsMode,
   CommentStatus,
   CommentSurface,
   Interaction,
 } from './comments';
+import type { MessageLocale, MessageState } from './messages';
 import type {
   DeliveryMode,
   NotifyAuditEventType,
@@ -159,6 +161,13 @@ export interface AdminCommentRecord {
   /** A deleted row the owner can still restore: the last instant it can.
       Null for every other row. */
   restorableUntil?: string | null;
+  /* The owner's pin and thread lock, only ever set on a root. Optional
+     until site-api sends them; absent reads as neither. */
+  /** When the owner pinned this root to the top of its post. A pin on a
+      row that is no longer published stays set and shows again with it. */
+  pinnedAt?: string | null;
+  /** When the owner locked replies under this root. */
+  lockedAt?: string | null;
 }
 
 /** One page of the moderation queue. */
@@ -274,6 +283,118 @@ export interface AdminCommentLockdownRequest {
 /** GET, POST and DELETE /admin/comments/lockdown. */
 export interface AdminCommentLockdownResponse {
   lockdown: AdminCommentLockdown | null;
+}
+
+/** PUT and DELETE /admin/comments/:id/pin. `replaced` is the comment the
+    PUT took the post's pin from, or null; always null on DELETE. */
+export interface AdminCommentPinResponse {
+  comment: { id: string; surface: CommentSurface; postId: string; pinnedAt: string | null };
+  replaced: string | null;
+}
+
+/** PUT and DELETE /admin/comments/:id/lock. `comment` is the thread root,
+    which is not the id in the path when that was a reply. */
+export interface AdminCommentLockResponse {
+  comment: { id: string; surface: CommentSurface; postId: string; lockedAt: string | null };
+}
+
+/** One post's comment mode as the portal shows it: the portal's override
+    beside what the post's tags give (the site default for a mood post). */
+export interface AdminCommentModeState {
+  surface: CommentSurface;
+  postId: string;
+  /** Null when the tags decide. */
+  override: CommentsMode | null;
+  /** Null when the post could not be looked up. */
+  tagMode: CommentsMode | null;
+  /** What readers get: `override`, else `tagMode`. */
+  effectiveMode: CommentsMode | null;
+  /** When the override was last set; null without one. */
+  updatedAt: string | null;
+  title: string | null;
+  slug: string | null;
+}
+
+/** GET /admin/comment-modes: every overridden post. */
+export interface AdminCommentModeListResult {
+  modes: AdminCommentModeState[];
+}
+
+/** PUT /admin/comment-modes/:surface/:postId. */
+export interface AdminCommentModeRequest {
+  mode: CommentsMode;
+}
+
+/** GET, PUT and DELETE /admin/comment-modes/:surface/:postId. */
+export interface AdminCommentModeResponse {
+  mode: AdminCommentModeState;
+}
+
+/** One message sent through /message, as the owner's inbox shows it. The
+    body is private: it never leaves the admin routes. */
+export interface AdminOwnerMessage {
+  id: string;
+  state: MessageState;
+  displayName: string;
+  body: string;
+  locale: MessageLocale;
+  /** Set when a verified reader sent it. */
+  readerId: string | null;
+  /** Null when the sender left no address. */
+  emailHash: string | null;
+  /** Why the risk stack filed it as spam, and which model said so. */
+  spamNote: string | null;
+  spamModel: string | null;
+  repliedAt: string | null;
+  country: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** GET /admin/messages. `counts` covers the whole inbox whatever the
+    filter; `total` is the filtered count. */
+export interface AdminOwnerMessageListResult {
+  messages: AdminOwnerMessage[];
+  counts: Record<MessageState, number>;
+  total: number;
+  nextOffset: number | null;
+}
+
+/** Whether a reply would reach the sender, and if not, why. */
+export type AdminOwnerMessageReplyability = 'ok' | 'no_address' | 'unverified' | 'suppressed';
+
+/** GET /admin/messages/:id. `history` is what else the same address sent,
+    newest first; `sender.email` is set only when a reply can reach it. */
+export interface AdminOwnerMessageDetail {
+  message: AdminOwnerMessage;
+  sender: { replyable: AdminOwnerMessageReplyability; email: string | null; readerId: string | null };
+  history: AdminOwnerMessage[];
+}
+
+export type AdminOwnerMessageAction = 'read' | 'archive' | 'unarchive' | 'spam' | 'unspam';
+
+/** POST /admin/messages/:id. */
+export interface AdminOwnerMessageActionRequest {
+  action: AdminOwnerMessageAction;
+}
+
+/** `changed` is false when the message was already past the act; `message`
+    is then what it is now. */
+export interface AdminOwnerMessageActionResponse {
+  message: AdminOwnerMessage;
+  changed: boolean;
+}
+
+/** POST /admin/messages/:id/reply: 2 to 4000 characters. */
+export interface AdminOwnerMessageReplyRequest {
+  body: string;
+}
+
+/** `recipientEmail` is masked. */
+export interface AdminOwnerMessageReplyResponse {
+  message: AdminOwnerMessage;
+  recipientName: string;
+  recipientEmail: string;
 }
 
 /** What a ban can hold onto. Values are hashes (or the ASN as text) for
@@ -521,8 +642,13 @@ export interface AdminBanListResult {
   bans: AdminBan[];
 }
 
+/** A reader a ban revoked -- `GET /admin/readers/revoked`. `emailHash` is
+    the value of an `email` ban key, for finding the key bans that outlive
+    a restore. `updatedAt` is when the row last changed: the revocation,
+    unless something touched the reader since. */
 export interface AdminBannedReader {
   readerId: string;
+  emailHash: string;
   email: string;
   displayName: string | null;
   updatedAt: string;
@@ -530,6 +656,12 @@ export interface AdminBannedReader {
 
 export interface AdminBannedReaderListResult {
   readers: AdminBannedReader[];
+}
+
+/** POST /admin/readers/:readerId/restore. */
+export interface AdminReaderRestoreResult {
+  readerId: string;
+  restoredAt: string;
 }
 
 /** Everything about one key in one response --

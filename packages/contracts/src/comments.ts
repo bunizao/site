@@ -423,15 +423,30 @@ export interface Comment {
   /** Soft-deleted but kept as a shape-preserving placeholder because a reply
       hangs underneath it. `body`/`author` are empty on a tombstone. */
   tombstone: boolean;
+  /** The owner pinned this root above the thread. At most one per post;
+      absent on every other row, replies included, and on every row from a
+      server that predates pins. */
+  pinned?: boolean;
+  /** The owner closed this root's thread to new replies; a reply under it
+      is refused with `403 thread_locked`. Set on the root only; absent
+      means open. */
+  locked?: boolean;
 }
 
 export interface CommentListResult {
+  /** The page's roots, newest first, then their replies. The first page
+      (no `before`) puts the post's pinned root ahead of the other roots when
+      it has one, on top of `limit` roots; no later page repeats it. */
   comments: Comment[];
   hasMore: boolean;
   /** Cursor for the next page, or null when `hasMore` is false. */
   nextBefore: string | null;
   /** Published comments on the post (excludes held/rejected/deleted). */
   total: number;
+  /** The post's policy when the owner overrode its mode in the portal, on
+      the first page only. Absent means the post follows its tags, which the
+      page was drawn from -- nothing to reconcile. The page acts on `mode`. */
+  policy?: CommentPolicy;
 }
 
 export interface CommentCreateInput {
