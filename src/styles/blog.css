@@ -1395,17 +1395,47 @@ html:not(.js) .blog-lang__noscript a {
   padding-right: 30px;
 }
 
+/* The way home on wide screens is the publication mark itself, docked at the
+   bar size (30px, as .toc-topbar__logo) where a "← Blog" label used to sit.
+   A label here plus the masthead mark above it were two links to one place,
+   both on screen at once. */
 .blog-back-rail {
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--blog-faint);
-  transition: color 0.15s ease;
+  width: 30px;
+  height: 30px;
+  transition: opacity 0.15s ease;
 }
 
 .blog-back-rail:hover {
-  color: var(--blog-ink);
+  opacity: 0.65;
+}
+
+.blog-back-rail img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.dark .blog-back-rail img {
+  filter: invert(1);
+}
+
+/* With script, the rail's mark is where the masthead mark docks on the way down
+   (TableOfContents.astro), so at the very top the masthead is the one way home
+   and the rail holds nothing — not even a focusable ghost of a link. The rail
+   hosts its own scroll dock on the same run as the flight. Without a flight
+   (reduced motion) it simply fades in over that run; with one it cedes the
+   pixels to the ghost until the last 6%, like the reading bar's logo. */
+.blog-back-rail.rail-dock:not(.is-live) {
+  visibility: hidden;
+}
+
+.blog-back-rail.rail-dock img {
+  opacity: var(--dock-ride);
+}
+
+.blog-back-rail.rail-dock.logo-handoff img {
+  opacity: clamp(0, (var(--dock-ride) - 0.94) / 0.06, 1);
 }
 
 /* Gap the dotted rail below the back link only when a TOC actually follows. */
@@ -1772,12 +1802,25 @@ html:not(.js) .blog-lang__noscript a {
   --l2-y: 0;
   --logo-scale: 1;
 
-  --lg-x: calc((var(--l1-x) + (var(--l2-x) - var(--l1-x)) * var(--dock-ride)) * 1px);
-  --lg-y: calc((var(--l1-y) + (var(--l2-y) - var(--l1-y)) * var(--dock-ride)) * 1px);
-  --lg-scale: calc(1 + (var(--logo-scale) - 1) * var(--dock-ride));
+  /* Progress along the path. The bar hop is a few px, so straight is fine. */
+  --lg-t: var(--dock-ride);
+  --lg-x: calc((var(--l1-x) + (var(--l2-x) - var(--l1-x)) * var(--lg-t)) * 1px);
+  --lg-y: calc((var(--l1-y) + (var(--l2-y) - var(--l1-y)) * var(--lg-t)) * 1px);
+  --lg-scale: calc(1 + (var(--logo-scale) - 1) * var(--lg-t));
   width: calc(var(--l1-size) * 1px);
   height: calc(var(--l1-size) * 1px);
   transform: translate(var(--lg-x), var(--lg-y)) scale(var(--lg-scale));
+}
+
+/* Wide screens dock into the gutter rail instead, ~250px to the side. At a
+   constant rate that trip starts and stops with a jolt, so it rides smoothstep:
+   the mark lifts off gently as the page begins to move under it, and settles
+   into the rail rather than hitting it. Ease lives in the path, not the
+   scroll, so the mark still follows the finger and reverses exactly. */
+@media (min-width: 1280px) {
+  .toc-logo-ghost {
+    --lg-t: calc(var(--dock-ride) * var(--dock-ride) * (3 - 2 * var(--dock-ride)));
+  }
 }
 
 /* JS owns only the binary question — is the flight running at all. The fade-out
