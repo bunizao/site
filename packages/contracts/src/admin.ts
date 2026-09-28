@@ -626,8 +626,19 @@ export interface AdminBanInput {
   note?: string;
   expiresAt?: string | null;
   purge?: boolean;
+  /** Keys a purge also matches without banning them, such as the writer's
+      device fingerprint. Ignored unless `purge` is set. */
+  sweepKeys?: Array<{ type: AdminBanKeyType; value: string }>;
+  /** The comment the ban was raised from. It is removed in the same
+      restorable operation whatever `purge` says, and its writer is the one
+      signed-in reader a purge may remove published comments from. */
+  removeCommentId?: string | null;
   revokeReaderId?: string | null;
 }
+
+/** `POST /admin/bans/preview`: the scope `POST /admin/bans` would reach with
+    the same fields. */
+export type AdminBanPreviewInput = Pick<AdminBanInput, 'keys' | 'revokeReaderId' | 'purge' | 'sweepKeys' | 'removeCommentId'>;
 
 export interface AdminBanResult {
   bans: AdminBan[];
@@ -640,7 +651,21 @@ export interface AdminBanPreview {
   sessions: number;
   comments: Record<AdminCommentStatus | 'total', number>;
   reactions: number;
-  purge: { comments: number; reactions: number };
+  /** What the ban would really remove. The optional fields are absent from
+      a site-api that predates them. */
+  purge: {
+    comments: number;
+    reactions: number;
+    /** Of `comments`, the ones readers can see now. */
+    published?: number;
+    /** Distinct sessions the removed rows came from. */
+    sessions?: number;
+    /** Reader accounts, other than the target comment's own, that lose a row. */
+    otherAccounts?: number;
+  };
+  /** Published comments a purge leaves alone because another signed-in
+      reader wrote them. Absent from a site-api that predates the rule. */
+  spared?: number;
   windowDays: 90;
   purgeLimit: number;
   purgeAllowed: boolean;
