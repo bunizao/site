@@ -71,22 +71,14 @@ Paths use their bare `site-api` form. The public `buxx.me` form adds `/api`; see
 | `/admin/notify-gate/release` | Releases queued notifications. | Admin session |
 | `/v2/admin/*` | Preserves the legacy admin API path. | Admin session |
 
-## Admin portal
+## Retired admin portal pages
 
-| Path | Purpose | Auth tier |
-| --- | --- | --- |
-| `/admin` | Opens the operator dashboard. | Admin session |
-| `/admin/analytics` | Opens analytics. | Admin session |
-| `/admin/newsletter` | Opens newsletter operations. | Admin session |
-| `/admin/mascot` | Opens mascot tools. | Admin session |
-| `/admin/mood-embed` | Opens mood embed tools. | Admin session |
-| `/admin/oauth` | Opens OAuth management. | Admin session |
-| `/admin/svg` | Opens SVG tools. | Admin session |
-| `/admin/portal/comments` | Opens the comment moderation queue. | Admin session |
-| `/admin/portal/broadcasts` | Opens broadcast operations. | Admin session |
-| `/admin/portal/broadcasts/:id` | Opens one broadcast. | Admin session |
-| `/admin/portal/subscribers` | Opens subscriber operations. | Admin session |
-| `/admin/portal/subscribers/:hash` | Opens one subscriber. | Admin session |
+The HTML portal `site-api` served on `admin.buxx.me` is retired. Its old page
+paths (`/admin`, `/admin/analytics`, `/admin/portal/*` and the rest) now
+redirect to the matching screen of the owner portal at
+[`/dev/portal`](/docs/api/site-routes#dev-portal), so old bookmarks and
+Telegram review links still land. The redirect needs no session; the portal
+gates itself.
 
 ## Webhooks
 

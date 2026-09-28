@@ -39,7 +39,7 @@ that also answers `api.buxx.me/footer`.
 | --- | --- |
 | `buxx.me` (canonical) | `https://buxx.me/api/footer` |
 | `api.buxx.me` | `https://api.buxx.me/footer` — the whole hostname is the API, so no prefix |
-| `admin.buxx.me` | Admin portal and `/admin/*` only; public pages redirect back to `buxx.me` |
+| `admin.buxx.me` | `/admin/*` only; public pages redirect back to `buxx.me`, and the retired portal pages to `buxx.me/dev/portal` |
 
 Both prefixed and bare forms work on either host — the strip is unconditional —
 but use the prefixed form on `buxx.me` and the bare form on `api.buxx.me`.

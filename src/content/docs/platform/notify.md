@@ -134,7 +134,7 @@ The webhook and queue worker do not send email directly. `/v2/notify/dispatch` o
 
 ## Admin portal
 
-Admin pages and APIs now live in `site-api` and are reached from the public site through compatibility proxy routes:
+Admin APIs live in `site-api`; the portal UI is the public site's `/dev/portal`, and the old pages `site-api` served on `admin.buxx.me` redirect there. The public site reaches `site-api` through compatibility proxy routes:
 
 - `/dev/*`
 - `/oauth*`
