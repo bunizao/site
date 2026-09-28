@@ -272,7 +272,8 @@ function decided(note: string | null, model: string | null): { by: string | null
     return { by: 'by a rule', detail: HEURISTICS[rule] ?? sentence(rule.replace(/_/g, ' ')) };
   }
   if (text.startsWith('Declared agent: ')) return { by: 'by a rule', detail: sentence(text.slice('Declared agent: '.length)) };
-  if (text === 'Shadow-banned writer.') return { by: 'because the writer is banned', detail: null };
+  const shadow = /^Shadow-banned (writer|sender)\.$/.exec(text);
+  if (shadow) return { by: `because the ${shadow[1]} is banned`, detail: null };
   const ai = AI_NOTE.exec(text);
   if (ai) {
     const authorship = ai[2] === 'agent' ? `Reads as written by an agent: ${ai[3]}` : ai[2] ? `Authorship unclear: ${ai[3]}` : null;
@@ -308,6 +309,15 @@ export function decisionOf(comment: PortalComment): Decision | null {
   }
   const what = reason ? `${verb} as ${reason.toLowerCase()}` : verb;
   return { summary: by ? `${what} ${by}` : what, detail };
+}
+
+/** Why a message sits in spam, in the comment decision's words. Every
+    automatic filing writes a note; the owner's own filing writes none. */
+export function spamDecision(note: string | null, model: string | null): Decision {
+  const text = note?.trim() || null;
+  if (!text && !model) return { summary: 'Filed as spam by you', detail: null };
+  const { by, detail } = decided(text, model);
+  return { summary: by ? `Filed as spam ${by}` : 'Filed as spam', detail };
 }
 
 const pad = (value: number): string => String(value).padStart(2, '0');
@@ -395,6 +405,9 @@ export interface RecordRow {
   /** Comments sharing the key, this one included; null when not counted. */
   count: number | null;
   held: number | null;
+  /** Replaces `count` where rows of several kinds share the key: the text
+      the pivot link reads, or null when this row is the only one. */
+  tally?: string | null;
   banned: boolean;
   mono: boolean;
 }
@@ -404,7 +417,32 @@ export interface RecordGroup {
   rows: RecordRow[];
 }
 
-function keyRow(actor: AdminCommentActor, name: AdminClusterKey, value: string | null = actor.keys[name]): RecordRow {
+/** A key as a moderator reads it: the address, IP or subnet in plain text
+    while the row still holds it, else the hash. */
+export function keyValue(actor: AdminCommentActor, name: AdminClusterKey): string | null {
+  if (name === 'email') return actor.email ?? actor.keys.email;
+  if (name === 'ip') return actor.ip ?? actor.keys.ip;
+  if (name === 'ip24') return subnetOf(actor.ip) ?? actor.keys.ip24;
+  return actor.keys[name];
+}
+
+/** The network operator, pivoting on its number. Not a cluster key, so
+    nothing counts it. */
+export function asnRow(actor: AdminCommentActor): RecordRow {
+  return {
+    id: 'asn',
+    label: 'Network',
+    value: actor.asn ? `AS${actor.asn}${actor.asOrg ? ` ${actor.asOrg}` : ''}` : actor.asOrg,
+    pivot: actor.asn ? { type: 'asn', value: String(actor.asn) } : null,
+    count: null,
+    held: null,
+    banned: actor.asn !== null && actor.banned.includes('asn'),
+    mono: false,
+  };
+}
+
+function keyRow(actor: AdminCommentActor, name: AdminClusterKey): RecordRow {
+  const value = keyValue(actor, name);
   const kind = KEY_KINDS[name];
   const key = actor.keys[name];
   const cluster = actor.cluster[name];
@@ -440,7 +478,7 @@ export function fingerprintRecord(comment: PortalComment): RecordGroup[] {
 
   const keys: RecordRow[] = [
     keyRow(actor, 'session'),
-    keyRow(actor, 'email', actor.email ?? actor.keys.email),
+    keyRow(actor, 'email'),
     keyRow(actor, 'clientFp'),
     keyRow(actor, 'clientFpStable'),
     keyRow(actor, 'storageId'),
@@ -462,20 +500,11 @@ export function fingerprintRecord(comment: PortalComment): RecordGroup[] {
   ];
 
   const network: RecordRow[] = [
-    keyRow(actor, 'ip', actor.ip ?? actor.keys.ip),
-    keyRow(actor, 'ip24', subnetOf(actor.ip) ?? actor.keys.ip24),
+    keyRow(actor, 'ip'),
+    keyRow(actor, 'ip24'),
     keyRow(actor, 'fp'),
     keyRow(actor, 'emailDomain'),
-    {
-      id: 'asn',
-      label: 'Network',
-      value: actor.asn ? `AS${actor.asn}${actor.asOrg ? ` ${actor.asOrg}` : ''}` : actor.asOrg,
-      pivot: actor.asn ? { type: 'asn', value: String(actor.asn) } : null,
-      count: null,
-      held: null,
-      banned: actor.asn !== null && actor.banned.includes('asn'),
-      mono: false,
-    },
+    asnRow(actor),
     plainRow('colo', 'Edge', detail ? [detail.colo, detail.httpProtocol, detail.tlsVersion].filter(Boolean).join(' · ') || null : null),
     plainRow('rtt', 'Round trip', detail?.rttMs !== null && detail?.rttMs !== undefined ? `${detail.rttMs} ms` : null),
   ];

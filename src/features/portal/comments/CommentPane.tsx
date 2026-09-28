@@ -27,13 +27,11 @@ import { Button } from '@/components/coss/button';
 import { Kbd } from '@/components/coss/kbd';
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from '@/components/coss/menu';
 import { Skeleton } from '@/components/coss/skeleton';
-import { toastManager } from '@/components/coss/toast';
 import { cn } from '@/lib/utils';
 import type { PortalActivity, PortalActivityEntry, PortalComment } from '@/features/admin/server/portal-client';
 import { SMALL } from '../activity/table';
 import { apiGet } from '../app/api';
 import { href, navigate } from '../app/router';
-import { HashValue, TOUCH_TARGET } from '../moderation/ui';
 import { ControlMarks, OwnerBadge, StatusMark } from './CommentRow';
 import { canPin, lockHolder } from './controls';
 import {
@@ -55,14 +53,11 @@ import {
   fingerprintRecord,
   fullStamp,
   identityDetail,
-  isHash,
-  pivotHref,
   stamp,
   writerPivot,
-  type Pivot,
-  type RecordRow,
 } from './model';
 import { PostModeLine } from './PostMode';
+import { PivotAnchor, Row, copy } from './RecordRows';
 import { RejectMenu } from './RejectMenu';
 
 /* The detail of one comment, flat: a header line, the actions, the text,
@@ -85,99 +80,11 @@ function useAnchorToken(id: string): string | null {
   return anchor?.id === id ? anchor.token : null;
 }
 
-function copy(text: string, what: string): void {
-  void navigator.clipboard?.writeText(text).then(
-    () => toastManager.add({ title: `${what} copied`, timeout: 1500 }),
-    () => toastManager.add({ type: 'error', title: 'Copy failed', description: 'Select the value and copy it by hand.' }),
-  );
-}
-
-/** A pivot link: plain click stays on this screen, a modified click opens
-    a new tab. `keep` is the comment left open across it: the panel's, which
-    sits beside the filtered list; never the drawer's, which would cover it.
-    A control of its own, not prose, so it gets the 44px touch target. */
-function PivotAnchor({ pivot, keep, children, className }: {
-  pivot: Pivot;
-  keep: string | null;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const to = pivotHref(pivot.type, pivot.value, keep);
-  return (
-    <a
-      href={href(to)}
-      data-astro-prefetch="false"
-      className={cn(
-        TOUCH_TARGET,
-        'rounded-sm underline decoration-[hsl(var(--muted-foreground))] underline-offset-[3px] outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring active:text-[hsl(var(--portal-accent))]',
-        className,
-      )}
-      onClick={(event) => {
-        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        navigate(to);
-      }}
-    >
-      {children}
-    </a>
-  );
-}
-
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="pt-10">
       <h3 className="pb-1 font-medium text-muted-foreground text-sm">{title}</h3>
       {children}
-    </div>
-  );
-}
-
-/** A narrow pane wraps an address after its @, not mid-word. */
-function EmailBreak({ value }: { value: string }) {
-  const at = value.indexOf('@');
-  if (at <= 0) return <>{value}</>;
-  return <>{value.slice(0, at + 1)}<wbr />{value.slice(at + 1)}</>;
-}
-
-function Row({ row, keep }: { row: RecordRow; keep: string | null }) {
-  const count = row.count;
-  return (
-    <div className="grid grid-cols-[7.5rem_minmax(0,1fr)_auto] items-start gap-x-3 py-2 text-[13px] leading-5 last:pb-0">
-      <dt className="text-muted-foreground" title={row.explain}>{row.label}</dt>
-      {/* Mono for a value only: "Not recorded" is a word, not a key. */}
-      <dd className={cn('min-w-0 break-words', row.value ? 'text-foreground' : 'text-muted-foreground', row.value && row.mono && 'font-mono text-xs leading-5 tabular-nums')}>
-        {row.value && row.mono && isHash(row.value) ? <HashValue key={row.value} value={row.value} /> : row.value ? <EmailBreak value={row.value} /> : 'Not recorded'}
-        {row.banned && (
-          <span className="ms-2 inline-flex items-center gap-1 whitespace-nowrap font-sans text-[hsl(var(--portal-danger))] text-xs">
-            <Ban className="size-3" aria-hidden />
-            Banned
-          </span>
-        )}
-      </dd>
-      <dd className="flex items-center gap-1 whitespace-nowrap text-xs">
-        {row.pivot && count !== null && count > 1 && (
-          <PivotAnchor pivot={row.pivot} keep={keep} className="tabular-nums">
-            {count} comments
-          </PivotAnchor>
-        )}
-        {row.pivot && count === 1 && <span className="text-muted-foreground">only this</span>}
-        {row.pivot && count === null && (
-          <PivotAnchor pivot={row.pivot} keep={keep}>
-            Show all
-          </PivotAnchor>
-        )}
-        {row.value && row.mono && (
-          // A plain button: thirty coss Buttons cost a visible slice of every j.
-          <button
-            type="button"
-            aria-label={`Copy ${row.label.toLowerCase()}`}
-            className="relative inline-flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:bg-accent pointer-coarse:after:absolute pointer-coarse:after:size-11"
-            onClick={() => copy(row.value!, row.label)}
-          >
-            <Copy className="size-3.5" aria-hidden />
-          </button>
-        )}
-      </dd>
     </div>
   );
 }

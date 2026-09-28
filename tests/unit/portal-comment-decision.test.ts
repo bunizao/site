@@ -1,7 +1,7 @@
 /* The pane's "why is this here" line, from every note site-api writes:
    each fact once, the note's echo of the reason and checker dropped. */
 import { describe, expect, test } from 'bun:test';
-import { decisionOf } from '@/features/portal/comments/model';
+import { decisionOf, spamDecision } from '@/features/portal/comments/model';
 import type { PortalComment } from '@/features/admin/server/portal-client';
 
 function comment(status: PortalComment['status'], reason: string | null, note: string | null, model: string | null): PortalComment {
@@ -60,5 +60,21 @@ describe('decisionOf', () => {
   test('published and deleted rows need no reason', () => {
     expect(decisionOf(comment('published', 'ok', 'Akismet: ham. AI: ok.', 'akismet+task-guard'))).toBeNull();
     expect(decisionOf(comment('deleted', 'spam', 'Deleted by the owner from the admin portal.', null))).toBeNull();
+  });
+});
+
+/* A message in spam reads through the same parser, so the pane says who
+   filed it and why in the comment pane's words. */
+describe('spamDecision', () => {
+  test('says who filed a message and why, once', () => {
+    const cases: Array<[string | null, string | null, string, string | null]> = [
+      ['Akismet: spam.', 'akismet', 'Filed as spam by Akismet', null],
+      ['Heuristic: link_count', null, 'Filed as spam by a rule', 'Too many links.'],
+      ['Shadow-banned sender.', null, 'Filed as spam because the sender is banned', null],
+      ['Akismet: ham. AI: spam -- Crypto pitch.', 'akismet+task-guard', 'Filed as spam by AI', 'Crypto pitch.'],
+      ['Pitch for paid guest posts.', 'akismet+task-guard', 'Filed as spam by AI', 'Pitch for paid guest posts.'],
+      [null, null, 'Filed as spam by you', null],
+    ];
+    for (const [note, model, summary, detail] of cases) expect(spamDecision(note, model)).toEqual({ summary, detail });
   });
 });
