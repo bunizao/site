@@ -2,7 +2,7 @@ import * as React from 'react';
 import type { BroadcastRecord } from '@bunizao/contracts';
 import { cn } from '@/lib/utils';
 import { CELLS, LINE, SPACED } from '../activity/table';
-import { fullStamp } from '../comments/model';
+import { stamp } from '../comments/model';
 import { formatCount } from '../moderation/format';
 import { StatusDot } from '../moderation/ui';
 import { STATE_LABELS, STATE_TONE, audienceText, broadcastState, percent } from './broadcast-model';
@@ -12,17 +12,13 @@ import { STATE_LABELS, STATE_TONE, audienceText, broadcastState, percent } from 
 
 /** Columns, narrowest container first. Hidden cells take no track. */
 export const BC_COLUMNS =
-  '[--bc-cols:minmax(0,1fr)_7.5rem_9.5rem_8.5rem] ' +
-  '@min-[56rem]/log:[--bc-cols:minmax(0,1fr)_7.5rem_12rem_9.5rem_4.5rem_8.5rem] ' +
-  '@min-[68rem]/log:[--bc-cols:minmax(0,1fr)_7.5rem_12rem_6rem_9.5rem_4.5rem_8.5rem]';
+  '[--bc-cols:minmax(0,1fr)_7.5rem_9.5rem_7rem] ' +
+  '@min-[56rem]/log:[--bc-cols:minmax(0,1fr)_7.5rem_12rem_9.5rem_4.5rem_7rem] ' +
+  '@min-[68rem]/log:[--bc-cols:minmax(0,1fr)_7.5rem_12rem_6rem_9.5rem_4.5rem_7rem]';
 
 export const BC_GRID = 'grid grid-cols-(--bc-cols)';
 export const BC_MID = 'hidden @min-[56rem]/log:block';
 export const BC_WIDE = 'hidden @min-[68rem]/log:block';
-
-export function when(row: BroadcastRecord): string {
-  return fullStamp(row.createdAt).slice(0, 16);
-}
 
 /** The share of recipients attempted, in the accent colour. The width
     eases across the 2s poll so it reads as motion, not jumps. */
@@ -100,7 +96,7 @@ export const BroadcastRow = React.memo(function BroadcastRow({ row, layout, acti
           <div className="mt-1 flex items-center gap-2 text-muted-foreground text-xs">
             <span className="min-w-0 flex-1 truncate">{audienceText(row.audience)}</span>
             <span className="shrink-0 tabular-nums">
-              {formatCount(row.sentCount)}/{formatCount(row.recipientCount)} · <span className="font-mono">{when(row)}</span>
+              {formatCount(row.sentCount)}/{formatCount(row.recipientCount)} · <time className="font-mono" dateTime={row.createdAt}>{stamp(row.createdAt)}</time>
             </span>
           </div>
           {sending && <SendBar row={row} className="mt-1.5" />}
@@ -140,7 +136,9 @@ export const BroadcastRow = React.memo(function BroadcastRow({ row, layout, acti
       >
         {formatCount(row.failedCount)}
       </div>
-      <div role="cell" className="pointer-events-none relative font-mono text-muted-foreground text-xs tabular-nums">{when(row)}</div>
+      <div role="cell" className="pointer-events-none relative font-mono text-muted-foreground text-xs tabular-nums">
+        <time dateTime={row.createdAt}>{stamp(row.createdAt)}</time>
+      </div>
     </div>
   );
 });

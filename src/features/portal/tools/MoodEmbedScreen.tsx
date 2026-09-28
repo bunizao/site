@@ -171,7 +171,7 @@ function Controls({ state, backdrop, changed }: { state: EmbedState; backdrop: B
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-x-4 gap-y-3">
         {SEGMENTS.map((segment) => (
-          <div key={segment.key} className="flex flex-col gap-1.5">
+          <div key={segment.key} className="flex flex-col items-start gap-1.5">
             <span className="text-[13px] text-muted-foreground" aria-hidden>
               {segment.label}
             </span>

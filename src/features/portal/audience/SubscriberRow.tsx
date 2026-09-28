@@ -123,8 +123,9 @@ export const SubscriberRow = React.memo(function SubscriberRow({
       data-checked={checked || undefined}
       className={cn(rowClass, SUB_GRID, LINE, CELLS, 'items-center text-[13px] leading-5 [contain-intrinsic-size:auto_44px]')}
     >
-      {/* Not positioned, so the open button spans the whole row. */}
-      <div role="cell" className="flex items-center justify-center">
+      {/* Not positioned, so the open button spans the whole row. Full row
+          height, so the cell's clip leaves the box its touch target. */}
+      <div role="cell" className="flex items-center justify-center self-stretch">
         {open}
         {box}
       </div>

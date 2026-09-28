@@ -636,7 +636,7 @@ export default function SubscribersScreen() {
             {table && (
               <div role="rowgroup" className="sticky top-0 z-30 bg-background">
                 <div role="row" className={cn(SUB_GRID, HEAD, 'items-center [&>*]:truncate [&>*]:px-3')}>
-                  <div role="columnheader" className="flex items-center justify-center">
+                  <div role="columnheader" className="flex items-center justify-center self-stretch">
                     <input
                       type="checkbox"
                       aria-label="Select every shown subscriber"

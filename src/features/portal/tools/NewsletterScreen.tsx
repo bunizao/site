@@ -159,7 +159,7 @@ const TemplateRow = React.memo(function TemplateRow({
       )}
     >
       <Mono className="w-6 shrink-0 text-muted-foreground text-xs">{template.index}</Mono>
-      <span className="min-w-0 truncate">{template.label}</span>
+      <span className="min-w-0 truncate" title={template.label}>{template.label}</span>
     </button>
   );
 });

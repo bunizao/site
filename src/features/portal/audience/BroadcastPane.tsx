@@ -230,7 +230,7 @@ export function BroadcastDetail({ row, variant, position, onPrev, onNext, onClos
             <Field label="Sent" mono>{formatCount(row.sentCount)}</Field>
             <Field label="Failed" mono>{formatCount(row.failedCount)}</Field>
             <Field label="Started" mono>{fullStamp(row.createdAt)}</Field>
-            <Field label="Finished" mono>{state === 'sending' ? 'Still sending' : fullStamp(row.sentAt)}</Field>
+            <Field label="Finished" mono={state !== 'sending'}>{state === 'sending' ? 'Still sending' : fullStamp(row.sentAt)}</Field>
             <Field label="Sent by" mono>{row.sentBy}</Field>
             <Field label="ID" mono copyable={row.id}>
               <HashValue key={row.id} value={row.id} />

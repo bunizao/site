@@ -74,7 +74,8 @@ export function Field({ label, children, mono, copyable }: { label: string; chil
   return (
     <div className="grid grid-cols-[8.5rem_minmax(0,1fr)_auto] items-start gap-x-3 py-2 text-[13px] leading-5 @max-[20rem]/pane:grid-cols-[minmax(0,1fr)_auto]">
       <dt className="text-muted-foreground @max-[20rem]/pane:col-span-2">{label}</dt>
-      <dd className={cn('min-w-0 break-words', mono && 'font-mono text-xs leading-5 tabular-nums', empty ? 'text-muted-foreground' : 'text-foreground')}>
+      {/* The placeholder is words, not a value: it stays sans. */}
+      <dd className={cn('min-w-0 break-words', empty ? 'text-muted-foreground' : 'text-foreground', mono && !empty && 'font-mono text-xs leading-5 tabular-nums')}>
         {empty ? 'Not recorded' : children}
       </dd>
       <dd className="flex items-center">

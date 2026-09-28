@@ -125,7 +125,9 @@ const PostRow = React.memo(function PostRow({
         changed && !selected && 'bg-[hsl(var(--portal-accent)/0.14)]',
       )}
     >
-      <span className={cn('min-w-0 flex-1 truncate', !post.title && 'text-muted-foreground italic')}>{post.title || 'Untitled'}</span>
+      <span className={cn('min-w-0 flex-1 truncate', !post.title && 'text-muted-foreground italic')} title={post.title || undefined}>
+        {post.title || 'Untitled'}
+      </span>
       <Mono className="shrink-0 text-muted-foreground text-xs">
         <span title={time.title}>{changed ? 'just now' : time.text}</span>
       </Mono>

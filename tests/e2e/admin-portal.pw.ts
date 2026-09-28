@@ -291,6 +291,8 @@ test.describe('audience', () => {
   test('composes a broadcast, sends it, and follows its progress', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await open(page, '/broadcasts');
+    // Started reads as a short time, like every other list.
+    await expect(rows(page).first().locator('time')).toHaveText(/^\d{2}-\d{2} \d{2}:\d{2}$/);
     await page.keyboard.press('n');
     const composer = page.getByRole('dialog', { name: 'New broadcast' });
     await expect(composer).toBeVisible();
