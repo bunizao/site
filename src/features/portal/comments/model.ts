@@ -21,7 +21,7 @@ export const KEY_KINDS: Record<AdminClusterKey, KeyKind> = {
   session: { source: 'session', ban: 'session', label: 'Session', explain: 'Same browser session. A shared browser can be used by more than one person.' },
   email: { source: 'email', ban: 'email', label: 'Email', explain: 'Same address on the record. Check whether it was verified when written or claimed later.' },
   clientFp: { source: 'client_fp', ban: 'client_fp', label: 'Device fingerprint', explain: 'Similar browser environment. Matches can occur on unrelated devices.' },
-  clientFpStable: { source: 'client_fp_stable', ban: 'client_fp', label: 'Device fingerprint (stable)', explain: 'Similar browser environment across updates. Not a verified identity.' },
+  clientFpStable: { source: 'client_fp_stable', ban: 'client_fp', label: 'Stable fingerprint', explain: 'Similar browser environment across updates. Not a verified identity.' },
   storageId: { source: 'storage_id', ban: null, label: 'Browser storage', explain: 'Shared browser storage. A shared device, not necessarily one person.' },
   ip: { source: 'ip', ban: 'ip', label: 'IP address', explain: 'Shared network address. Other readers may use the same connection.' },
   ip24: { source: 'ip24', ban: 'ip24', label: 'Subnet', explain: 'Shared /24 subnet. Offices, campuses and carriers put many readers here.' },
@@ -34,6 +34,75 @@ export const KEY_KINDS: Record<AdminClusterKey, KeyKind> = {
 export const KEY_ORDER: AdminClusterKey[] = [
   'session', 'email', 'clientFp', 'clientFpStable', 'storageId', 'ip', 'fp', 'ip24', 'emailDomain', 'bodyHash',
 ];
+
+const EXTRA_SOURCES: Partial<Record<AdminSourceKeyType, { label: string; ban: AdminBanKeyType }>> = {
+  asn: { label: 'Network', ban: 'asn' },
+  domain: { label: 'Link domain', ban: 'domain' },
+};
+
+export function sourceLabel(type: AdminSourceKeyType): string {
+  return EXTRA_SOURCES[type]?.label ?? Object.values(KEY_KINDS).find((kind) => kind.source === type)?.label ?? type;
+}
+
+/** The ban key a pivot can be banned by, or null for look-only keys. */
+export function sourceBanKey(type: AdminSourceKeyType): AdminBanKeyType | null {
+  if (EXTRA_SOURCES[type]) return EXTRA_SOURCES[type]!.ban;
+  return Object.values(KEY_KINDS).find((kind) => kind.source === type)?.ban ?? null;
+}
+
+/** The keys that name one person: a session, and an address verified at
+    writing. Every other key can reach readers who share it. */
+export function namesOnePerson(ban: AdminBanKeyType, verified: boolean): boolean {
+  return ban === 'session' || (ban === 'email' && verified);
+}
+
+/** Why a ban must wait for the impact of exactly its keys, or null when it
+    can go at once. A key other readers share waits with or without removal:
+    a subnet banned blind is the risk either way. A removal always waits. A
+    ban on one person's keys alone goes at once. */
+export function impactHold(bans: AdminBanKeyType[], verified: boolean, purge: boolean): 'shared' | 'removal' | null {
+  if (bans.some((ban) => !namesOnePerson(ban, verified))) return 'shared';
+  return purge ? 'removal' : null;
+}
+
+export const SOURCE_TYPES: ReadonlySet<string> = new Set<string>([
+  ...Object.values(KEY_KINDS).map((kind) => kind.source),
+  'asn',
+  'domain',
+]);
+
+/** Every comment sharing one key, on the same screen. `c` keeps a comment
+    open across the pivot. */
+export function pivotHref(type: AdminSourceKeyType, value: string, c?: string | null): string {
+  const params = new URLSearchParams({ status: 'all', key: type, value });
+  if (c) params.set('c', c);
+  return `/comments?${params}`;
+}
+
+export interface Pivot {
+  type: AdminSourceKeyType;
+  value: string;
+}
+
+/** The writer column pivots on the narrowest key that names a person. */
+export function writerPivot(actor: AdminCommentActor): Pivot | null {
+  if (actor.keys.email) return { type: 'email', value: actor.keys.email };
+  if (actor.keys.session) return { type: 'session', value: actor.keys.session };
+  return null;
+}
+
+/** The fingerprint column: the device hash when the browser sent one,
+    otherwise the network signature every row has. */
+export function fingerprintPivot(actor: AdminCommentActor): (Pivot & { label: string }) | null {
+  if (actor.keys.clientFp) return { type: 'client_fp', value: actor.keys.clientFp, label: 'Device fingerprint' };
+  if (actor.keys.clientFpStable) return { type: 'client_fp_stable', value: actor.keys.clientFpStable, label: 'Stable fingerprint' };
+  if (actor.keys.fp) return { type: 'fp', value: actor.keys.fp, label: 'Network signature' };
+  return null;
+}
+
+export function ipPivot(actor: AdminCommentActor): Pivot | null {
+  return actor.keys.ip ? { type: 'ip', value: actor.keys.ip } : null;
+}
 
 export interface ActorKey {
   id: string;
@@ -76,9 +145,13 @@ export function actorKeys(actor: AdminCommentActor): ActorKey[] {
   return keys;
 }
 
+export function isHash(value: string): boolean {
+  return /^[0-9a-f]{16,}$/i.test(value);
+}
+
 /** A hash is unreadable; eight characters are enough to see two as one. */
 export function shortHandle(value: string): string {
-  if (/^[0-9a-f]{16,}$/i.test(value)) return value.slice(0, 8);
+  if (isHash(value)) return value.slice(0, 8);
   return value.length > 28 ? `${value.slice(0, 27)}…` : value;
 }
 
@@ -99,13 +172,13 @@ export function identityStatus(actor: AdminCommentActor): IdentityStatus {
 
 export function identityDetail(actor: AdminCommentActor): string {
   const status = identityStatus(actor);
-  if (status === 'verified') return 'A signed-in reader wrote this. That was checked when it was written, not now.';
+  if (status === 'verified') return 'Signed in when writing';
   if (status === 'claimed') {
-    const how = actor.claimMethod === 'confirmed' ? 'by confirming their email' : actor.claimMethod === 'session' ? 'from the same browser session' : 'by an unknown method';
-    return `Written anonymously, then linked to a reader account ${how}.`;
+    const how = actor.claimMethod === 'confirmed' ? 'by confirming an email' : actor.claimMethod === 'session' ? 'from the same session' : 'by an unknown method';
+    return `Anonymous, claimed later ${how}`;
   }
-  if (status === 'anonymous') return 'Written without signing in.';
-  return 'Written before identity was recorded, so it is not known whether the writer was signed in.';
+  if (status === 'anonymous') return 'Anonymous, not signed in';
+  return 'Not recorded (written before identity was kept)';
 }
 
 export const REASON_LABELS: Record<string, string> = {
@@ -123,16 +196,6 @@ export function reasonLabel(reason: string | null): string | null {
   return REASON_LABELS[reason] ?? reason.replace(/_/g, ' ');
 }
 
-/** Why a comment is not simply published, in the moderator's terms. */
-export interface WhyHere {
-  tone: 'danger' | 'warning' | 'info';
-  title: string;
-  detail: string | null;
-  /** 0..100 when the writer-risk score is known. */
-  score: number | null;
-  signals: string[];
-}
-
 const AWAITING_EMAIL = /^Awaiting email: (.*)$/s;
 const SCORE_NOTE = /^score (\d+) \((.*)\)\.?$/s;
 
@@ -140,51 +203,49 @@ export function isAwaitingEmail(comment: PortalComment): boolean {
   return comment.status === 'held' && (comment.moderationNote ?? '').startsWith('Awaiting email');
 }
 
-export function whyHere(comment: PortalComment): WhyHere | null {
+/** Why a held or rejected comment is where it is, as one plain line:
+    reason · score N · signals. Null for published and deleted rows. */
+export function reasonLine(comment: PortalComment): string | null {
   if (comment.status === 'published' || comment.status === 'deleted') return null;
   const note = comment.moderationNote?.trim() || null;
-  const reason = reasonLabel(comment.moderationReason);
-  const model = comment.moderationModel ? ` (${comment.moderationModel})` : '';
+  const parts: string[] = [];
 
   const awaiting = note ? AWAITING_EMAIL.exec(note) : null;
   if (comment.status === 'held' && awaiting) {
-    const rest = awaiting[1].trim();
-    const scored = SCORE_NOTE.exec(rest);
+    parts.push('Waiting for the writer to confirm an email');
+    const scored = SCORE_NOTE.exec(awaiting[1].trim());
     if (scored) {
-      return {
-        tone: 'info',
-        title: 'Waiting for the writer to confirm an email',
-        detail: 'Their risk score asked for an email. It publishes by itself once they confirm, or you can approve it now.',
-        score: Number(scored[1]),
-        signals: scored[2].split(',').map((signal) => signal.trim()).filter(Boolean),
-      };
+      parts.push(`score ${scored[1]}`);
+      const signals = scored[2].split(',').map((signal) => signal.trim()).filter(Boolean);
+      if (signals.length > 0) parts.push(signals.join(', '));
+    } else if (awaiting[1].trim()) {
+      parts.push(awaiting[1].trim());
     }
-    return {
-      tone: 'info',
-      title: 'Waiting for the writer to confirm an email',
-      detail: `${rest.charAt(0).toUpperCase()}${rest.slice(1)} It publishes by itself once they confirm, or you can approve it now.`,
-      score: null,
-      signals: [],
-    };
+    return parts.join(' · ');
   }
 
-  if (comment.status === 'rejected') {
-    return {
-      tone: 'danger',
-      title: reason ? `Rejected as ${reason.toLowerCase()}${model}` : `Rejected${model}`,
-      detail: note,
-      score: null,
-      signals: [],
-    };
-  }
+  const reason = reasonLabel(comment.moderationReason);
+  const verb = comment.status === 'rejected' ? 'Rejected' : 'Held';
+  parts.push(reason ? `${verb} as ${reason.toLowerCase()}` : comment.status === 'held' ? 'Held for review' : verb);
+  if (comment.moderationModel) parts.push(`by ${comment.moderationModel}`);
+  if (note) parts.push(note.replace(/\.$/, ''));
+  else if (!reason && comment.status === 'held') parts.push('the checks could not decide');
+  return parts.join(' · ');
+}
 
-  return {
-    tone: 'warning',
-    title: reason ? `Held as possible ${reason.toLowerCase()}${model}` : `Held for review${model}`,
-    detail: note ?? (reason ? null : 'The automatic checks could not decide, so it waits for you.'),
-    score: null,
-    signals: [],
-  };
+const pad = (value: number): string => String(value).padStart(2, '0');
+
+/** `09-28 14:03`, local time: fixed width, sorts by eye. */
+export function stamp(iso: string): string {
+  const date = new Date(iso);
+  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** `2026-09-28 14:03:22`, for the detail header and history. */
+export function fullStamp(iso: string | null): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 export function relativeTime(iso: string | null, now = Date.now()): string {
@@ -200,17 +261,182 @@ export function relativeTime(iso: string | null, now = Date.now()): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: days > 330 ? 'numeric' : undefined });
 }
 
+// One formatter: building an Intl formatter per call costs more than the format.
+const ABSOLUTE = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
 export function absoluteTime(iso: string | null): string {
   if (!iso) return '';
-  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  return ABSOLUTE.format(new Date(iso));
 }
 
-/** Where the comment lives on the public site. Blog rows key on Ghost ids
-    and carry a slug; mood rows key on the numeric channel message id. The
-    token is `commentAnchorToken(id)`, the row's `id="c-<token>"`. */
+const OS_SHORT: Record<string, string> = {
+  Windows: 'Win',
+  macOS: 'Mac',
+  'Mac OS': 'Mac',
+  'Mac OS X': 'Mac',
+  Android: 'Android',
+  iOS: 'iOS',
+  iPadOS: 'iPadOS',
+  Linux: 'Linux',
+  'Chrome OS': 'ChromeOS',
+};
+
+/** `Chrome 128 · Win` */
+export function deviceShort(actor: AdminCommentActor): string {
+  const os = actor.os ? (OS_SHORT[actor.os] ?? actor.os) : null;
+  return [actor.browser, os].filter(Boolean).join(' · ');
+}
+
+/** `DE Berlin` */
+export function locationShort(actor: AdminCommentActor): string {
+  return [actor.country, actor.city].filter(Boolean).join(' ');
+}
+
+function duration(ms: number | null | undefined): string | null {
+  if (ms === null || ms === undefined) return null;
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)} s`;
+  const minutes = Math.floor(ms / 60_000);
+  const seconds = Math.round((ms % 60_000) / 1000);
+  return seconds ? `${minutes} min ${seconds} s` : `${minutes} min`;
+}
+
+function subnetOf(ip: string | null): string | null {
+  const match = ip ? /^(\d+\.\d+\.\d+)\.\d+$/.exec(ip) : null;
+  return match ? `${match[1]}.0/24` : null;
+}
+
+/** One line of the fingerprint record: a label, the whole value, and how
+    many comments share it (this one included), which pivots. */
+export interface RecordRow {
+  id: string;
+  label: string;
+  value: string | null;
+  /** Explanation of what a match on this key does and does not mean. */
+  explain?: string;
+  pivot: Pivot | null;
+  /** Comments sharing the key, this one included; null when not counted. */
+  count: number | null;
+  held: number | null;
+  banned: boolean;
+  mono: boolean;
+}
+
+export interface RecordGroup {
+  title: string;
+  rows: RecordRow[];
+}
+
+function keyRow(actor: AdminCommentActor, name: AdminClusterKey, value: string | null = actor.keys[name]): RecordRow {
+  const kind = KEY_KINDS[name];
+  const key = actor.keys[name];
+  const cluster = actor.cluster[name];
+  return {
+    id: name,
+    label: kind.label,
+    value,
+    explain: kind.explain,
+    pivot: key ? { type: kind.source, value: key } : null,
+    count: key && cluster ? cluster.comments + 1 : null,
+    held: key && cluster ? cluster.held : null,
+    banned: Boolean(key) && kind.ban !== null && actor.banned.includes(kind.ban),
+    mono: true,
+  };
+}
+
+function plainRow(id: string, label: string, value: string | null | undefined, mono = false): RecordRow {
+  return { id, label, value: value ?? null, pivot: null, count: null, held: null, banned: false, mono };
+}
+
+/** The whole fingerprint of a comment, flat: three groups of rows, each row
+    readable without opening anything. */
+export function fingerprintRecord(comment: PortalComment): RecordGroup[] {
+  const actor = comment.actor;
+  const detail = actor.detail;
+  const client = actor.client;
+  const components = client?.components ?? null;
+  const screen = components?.screen;
+  const hints = [
+    ...(client?.botHints ?? []).map((hint) => `bot: ${hint}`),
+    ...(client?.vpnHints ?? []).map((hint) => `vpn: ${hint}`),
+  ];
+
+  const keys: RecordRow[] = [
+    keyRow(actor, 'session'),
+    keyRow(actor, 'email', actor.email ?? actor.keys.email),
+    keyRow(actor, 'clientFp'),
+    keyRow(actor, 'clientFpStable'),
+    keyRow(actor, 'storageId'),
+    keyRow(actor, 'bodyHash'),
+    ...actor.keys.linkDomains.map((domain): RecordRow => {
+      const cluster = actor.domainCluster.find((entry) => entry.domain === domain);
+      return {
+        id: `domain:${domain}`,
+        label: 'Link domain',
+        value: domain,
+        explain: 'A domain linked in the comment body.',
+        pivot: { type: 'domain', value: domain },
+        count: cluster ? cluster.comments + 1 : null,
+        held: cluster?.held ?? null,
+        banned: cluster?.banned ?? false,
+        mono: true,
+      };
+    }),
+  ];
+
+  const network: RecordRow[] = [
+    keyRow(actor, 'ip', actor.ip ?? actor.keys.ip),
+    keyRow(actor, 'ip24', subnetOf(actor.ip) ?? actor.keys.ip24),
+    keyRow(actor, 'fp'),
+    keyRow(actor, 'emailDomain'),
+    {
+      id: 'asn',
+      label: 'Network',
+      value: actor.asn ? `AS${actor.asn}${actor.asOrg ? ` ${actor.asOrg}` : ''}` : actor.asOrg,
+      pivot: actor.asn ? { type: 'asn', value: String(actor.asn) } : null,
+      count: null,
+      held: null,
+      banned: actor.asn !== null && actor.banned.includes('asn'),
+      mono: false,
+    },
+    plainRow('colo', 'Edge', detail ? [detail.colo, detail.httpProtocol, detail.tlsVersion].filter(Boolean).join(' · ') || null : null),
+    plainRow('rtt', 'Round trip', detail?.rttMs !== null && detail?.rttMs !== undefined ? `${detail.rttMs} ms` : null),
+  ];
+
+  const device: RecordRow[] = [
+    plainRow('location', 'Location', [actor.city, detail?.region, actor.country].filter(Boolean).join(', ') || null),
+    plainRow('device', 'Browser and OS', [actor.browser, actor.os].filter(Boolean).join(' on ') || null),
+    plainRow('screen', 'Screen', screen?.width && screen.height
+      ? `${screen.width}×${screen.height}${screen.dprPct ? ` @${screen.dprPct / 100}x` : ''}`
+      : null),
+    plainRow('languages', 'Languages', components?.navigator?.languages?.join(', ') ?? detail?.acceptLanguage ?? null),
+    plainRow('timezone', 'Time zone', components?.timezone ?? detail?.timezone ?? null),
+    plainRow('gpu', 'GPU', components?.webgl?.renderer ?? null),
+    plainRow('dwell', 'Time on page', duration(actor.behaviour.dwellMs)),
+    plainRow('turnstile', 'Turnstile age', duration(actor.behaviour.turnstileAgeMs)),
+    plainRow('typing', 'Typing', client?.interaction
+      ? [
+          client.interaction.keyEvents !== undefined ? `${client.interaction.keyEvents} keys` : null,
+          client.interaction.pasteEvents ? `${client.interaction.pasteEvents} pastes` : null,
+          client.interaction.pointerType ? `sent by ${client.interaction.pointerType}` : null,
+        ].filter(Boolean).join(', ') || null
+      : null),
+    plainRow('hints', 'Bot and VPN hints', hints.length > 0 ? hints.join(', ') : actor.botHints > 0 ? `${actor.botHints} bot hints` : 'None'),
+    plainRow('ua', 'User agent', actor.ua, true),
+  ];
+
+  return [
+    { title: 'Fingerprint', rows: keys },
+    { title: 'Network', rows: network },
+    { title: 'Device', rows: device },
+  ];
+}
+
+/** Where the comment lives on the public site: the post's page as site-api
+    names it (`/blog/<slug>`, `/mood/<id>`), at the comment's anchor. Null
+    when site-api could not look the post up. The token is
+    `commentAnchorToken(id)`, the row's `id="c-<token>"`. */
 export function commentPublicUrl(comment: PortalComment, token: string | null): string | null {
-  const anchor = token ? `#c-${token}` : '';
-  if (comment.postSlug) return `/blog/${comment.postSlug}${anchor}`;
-  if (/^\d+$/.test(comment.postId)) return `/mood/${comment.postId}${anchor}`;
-  return null;
+  if (!comment.postPath) return null;
+  return `${comment.postPath}${token ? `#c-${token}` : ''}`;
 }
