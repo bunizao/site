@@ -12,11 +12,11 @@ needs only a name, and the email is optional. Reacting needs neither.
 An email gives the reader a persistent avatar and a way to claim their
 comments later. Without one, the comment belongs to its anonymous browser
 session alone. Email verification and OAuth sign-in are optional upgrades
-(grades L1 and L2, below). A confirmed address is needed in two cases:
-on a post that takes verified addresses only (see
-[Per-post policy](#per-post-policy)), and when the step-up flags an anonymous
-writer (step 6 of [the risk stack](#the-risk-stack)). The address itself never
-appears in a response body or public HTML.
+(grades L1 and L2, below). An anonymous comment waits for a confirmed
+address in two cases: on a post that takes comments from confirmed addresses
+only (see [Per-post policy](#per-post-policy)), and when the step-up flags an
+anonymous writer (step 6 of [the risk stack](#the-risk-stack)). The address
+itself never appears in a response body or public HTML.
 
 The same routes also serve `mood`'s comments, chosen with the `surface`
 parameter (see [Mood surface (the Telegram bridge)](#mood-surface-the-telegram-bridge)).
@@ -141,7 +141,7 @@ reader OAuth routes.
 
 Every write route checks the post's comment policy. On
 `POST /api/v2/comments`, a closed thread is refused before Turnstile, and the
-verified-only rule is checked in step 3 of [the risk stack](#the-risk-stack).
+verified-only rule is an email step-up (step 6 of [the risk stack](#the-risk-stack)).
 The policy comes from the post's internal tags in Ghost (`#comments-off`, `#comments-readonly`
 or the older `#no-comments`, `#reactions-off`, and `#comments-verified`),
 applied on top of a site-wide default. The full table is in
@@ -167,13 +167,18 @@ therefore enforced from the first request after those 60 seconds plus the
 refresh. A post missing from a stale copy waits for the refresh instead of
 being refused.
 
-The policy refuses a write in three ways, all `403`:
+The policy refuses a write in two ways, both `403`:
 
 | Slug | Cause |
 | --- | --- |
 | `comments_closed` | The post takes no new comments (`readonly` or `off`). Applies to create and edit. Delete is always allowed, since removing your own words adds nothing to a thread. |
-| `email_verification_required` | The post takes verified addresses only, and this writer has none. This is a plain refusal, not a moderation hold. |
 | `reactions_disabled` | Hearts are off for the post, both on the post and on its comments. |
+
+`#comments-verified` refuses nothing by itself. It is the site-wide
+[email switch](#site-wide-switches) for one post: an anonymous comment with
+no `email` gets `403 email_required` and nothing is stored, and one with an
+address is stored `held` and publishes once the address is confirmed.
+Signed-in readers post as usual, and edits are unaffected.
 
 Reads are never gated, because a read-only thread has to stay readable. An
 `off` post draws its section hidden, and nothing links to its thread. Only the
@@ -230,8 +235,7 @@ writer confirms an address. This is the same step-up as a
   address is confirmed.
 - Signed-in readers post as usual.
 
-This is not the `#comments-verified` tag, which refuses an unverified writer
-outright.
+The `#comments-verified` tag applies the same rule to a single post.
 
 While either switch is on, the first page of [List comments](#list-comments)
 carries `policy` with the switches folded in, and the page draws from both
@@ -240,7 +244,7 @@ fields:
 | Field | Value | What the page does |
 | --- | --- | --- |
 | `mode` | The stricter of the two modes | The same as for an override |
-| `requireVerifiedEmail` | True while the email switch is on | Marks the address field required and says so in its placeholder. The compose box then asks for an address before it sends |
+| `requireVerifiedEmail` | True while the email switch is on, or on a `#comments-verified` post | Marks the address field required and says so in its placeholder. The compose box then asks for an address before it sends |
 
 Under the email switch, the field only tells the page what to draw. What
 happens to a write is the hold described above. Cookie-less reads of that first
@@ -479,12 +483,11 @@ Every submission runs the full risk stack, a fixed series of checks, in order.
 
 #### 1. Turnstile
 
-A failed or missing token gets a plain `400`/`503`. After this step, three
+A failed or missing token gets a plain `400`/`503`. After this step, two
 checks can still refuse in the open, and nothing is stored:
 
 | Step | Refusal |
 | --- | --- |
-| 3. Heuristics | `403 email_verification_required`, on a post that takes verified addresses only |
 | 4. Rate limits | `429` |
 | 6. Email step-up | `403 email_required`, when the writer gave no address |
 
@@ -503,10 +506,6 @@ hours (see step 6). An expired dwell token doesn't, since a tab left open
 overnight trips it too.
 
 #### 3. Heuristics
-
-A post that takes verified addresses only refuses an anonymous writer here,
-with `403 email_verification_required` (see
-[Per-post policy](#per-post-policy)).
 
 A heuristic hit **holds** the comment: it is created, but only its writer can
 see it. A hit never drops the comment.
@@ -598,7 +597,7 @@ verdict lands. Inside the 8000ms window, a content step-up is refused or
 stored like any other. After the window, the stored row becomes an awaiting
 row (below), and the verification mail, which waits for the verdict, says so.
 
-Three more cases step up the same way:
+Four more cases step up the same way:
 
 - A session quarantined for 24 hours, after a filled honeypot, a declared
   agent, or a spam verdict. Account-backed keys refer to that account only,
@@ -606,6 +605,8 @@ Three more cases step up the same way:
 - Every anonymous writer during the site-wide one-hour lockdown.
 - Every anonymous writer while the owner's
   [site-wide email switch](#site-wide-switches) is on.
+- Every anonymous writer on a post tagged `#comments-verified` (see
+  [Per-post policy](#per-post-policy)).
 
 Ordinary owner hide/delete actions don't create a quarantine.
 
@@ -617,8 +618,9 @@ mail says that confirming publishes the comment.
 Step 7 still judges an awaiting row. An adverse verdict (spam, a gateway hold,
 a reject) replaces the wait and stands. A clean one is appended to the note.
 The owner gets the usual card once the verdict lands, except during a lockdown
-or quarantine. Under the site-wide email switch there is no card while the
-comment still waits for its email. The card comes when the writer confirms.
+or quarantine. Under the site-wide email switch or on a `#comments-verified`
+post there is no card while the comment still waits for its email. The card
+comes when the writer confirms.
 
 The writer confirms by opening the link in the same browser, or by selecting
 the comment in `POST /api/v2/reader/claims`. Confirming sends the comment
@@ -719,9 +721,9 @@ on that send. A create without an email never sends mail at all.
 | `403 thread_locked` | `parentId` is a thread the owner [locked](#pinned-and-locked-threads) |
 | `404 not_found` | Unknown `postId` |
 | `503 comment_target_unavailable` | The Ghost registry can't be reached |
-| `403 comments_closed`, `403 email_verification_required` | From the [per-post policy](#per-post-policy) |
+| `403 comments_closed` | From the [per-post policy](#per-post-policy) |
 | `400 turnstile_failed`, `503 turnstile_unavailable` | Turnstile failed or is unavailable. Both carry a `code` extra. |
-| `403 email_required` | The step-up (step 6) asks an anonymous writer for an address |
+| `403 email_required` | The step-up (step 6) asks an anonymous writer for an address, including on a `#comments-verified` post |
 | `429 Too Many Requests` | A rate limit |
 
 The route is same-origin only and sends no CORS header.

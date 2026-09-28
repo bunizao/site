@@ -53,7 +53,7 @@ the switch is going to stay off, turn the section off in `site` too.
 | `COMMENTS_ENABLED` | The [kill switch](#kill-switch). `"true"` or nothing |
 | `COMMENTS_MODE` | Site-wide default policy mode. A post's tags apply on top |
 | `COMMENTS_REACTIONS` | `"false"` turns hearts off everywhere |
-| `COMMENTS_REQUIRE_VERIFIED_EMAIL` | `"true"` makes verification the site-wide minimum |
+| `COMMENTS_REQUIRE_VERIFIED_EMAIL` | `"true"` makes every post behave as if tagged `#comments-verified` |
 | `COMMENTS_OWNER_EMAIL_HASH` | `sha256(normalizeEmail(ownerEmail))`. A row whose `email_hash` equals it gets the author badge. Unset means no badge, never a false one |
 | `COMMENTS_OWNER_DISPLAY_NAME` | The name the owner's replies post under |
 | `COMMENTS_TELEGRAM_DIRECT_REPLY` | `"true"` lets the ops bot post a reply straight from Telegram |
@@ -175,7 +175,7 @@ Neither automatic mechanism holds or rejects a comment. Both ask the anonymous
 writer to confirm an email address. This is the same step-up (an extra check
 before the comment goes through) that a suspicious score triggers; see
 [the risk stack](/docs/api/comments#post-a-comment). The site-wide email rule
-asks the same.
+and a `#comments-verified` post ask the same.
 
 - A person gets through with one click. An agent without a mailbox never does.
 - Every waiting comment that included an address is in the queue with a note
@@ -240,6 +240,11 @@ lockdown that never ends:
 While the rule is on, the lockdown has nothing to add, so Home shows a line
 instead of the lockdown control. The flood count of 8 in 10 minutes stops
 counting.
+
+A post tagged `#comments-verified` gets the same rule for that post alone:
+its anonymous comments wait for a confirmed email, with no card until the
+writer confirms. The flood count keeps counting, because a flood elsewhere on
+the site still needs it.
 
 Next to it, a *Comments everywhere* switch makes every post read-only or off,
 whichever is stricter than the post's own mode. See

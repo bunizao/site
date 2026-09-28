@@ -71,7 +71,7 @@ on top of the site-wide default in `blog.comments` (`src/data/site.ts`).
 | `#comments-readonly` | Existing comments stay readable, but no new ones are accepted. The section says so where the comment box used to be. |
 | `#no-comments` | Older name for `#comments-readonly`, with the same effect. Kept because posts already use it. |
 | `#reactions-off` | Removes the heart from the post and its comments. Works independently of the three tags above: a post can take reactions with comments off, or refuse them on an open thread. |
-| `#comments-verified` | Only a verified email address can comment. The email field becomes required, and the API rejects anonymous and unverified writers instead of holding them for moderation. |
+| `#comments-verified` | Comments publish only from a confirmed email address. The email field becomes required. An anonymous comment is held until its writer confirms the address, then it publishes. Signed-in readers post as usual. |
 
 Reach for these tags first, because the author already edits tags in the same
 place they write the post. The only other per-post comment setting is the
@@ -104,9 +104,8 @@ Above both sit the portal's two site-wide switches:
 
 - A mode that every post must be at least as strict as. It beats an `open` tag
   or override.
-- A confirmed-email rule for anonymous comments. Unlike `#comments-verified`,
-  it holds such a comment until the address is confirmed instead of refusing
-  it.
+- A confirmed-email rule for anonymous comments. It is `#comments-verified`
+  for every post: such a comment is held until the address is confirmed.
 
 See [Site-wide switches](/docs/api/comments#site-wide-switches).
 

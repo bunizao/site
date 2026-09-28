@@ -184,7 +184,6 @@ is a link to one of the sections below.
 | [`CLOSED`](#comment-error-closed) | The claim on that comment ran out | Nothing to retry |
 | `LOCKED` | The post has stopped taking comments | Nothing to retry |
 | `NOREPLY` | Replies under that one comment are closed | Nothing to retry. The rest of the post is open |
-| [`VERIFY`](#comment-error-verify) | The post only takes confirmed addresses | Confirm, then post |
 | [`NOMAIL`](#comment-error-nomail) | This comment needs an address to confirm | Add one, post, then open the link |
 | [`NAME`](#comment-error-name) | The name was refused | Pick another |
 | [`EMAIL`](#comment-error-email) | The address was refused | Correct it, or leave it blank |
@@ -224,20 +223,6 @@ You can usually leave the field empty. An address gives you editing and reply
 mail later. The one time you need it to be heard now is
 [`NOMAIL`](#comment-error-nomail).
 
-<a id="comment-error-verify"></a>
-
-### This post takes confirmed addresses (`VERIFY`)
-
-A few posts only accept comments from confirmed addresses. This is a refusal,
-so nothing was stored and your draft is still in the box. It isn't a moderation
-hold.
-
-Open the confirmation link already in your inbox, or send a fresh one from
-[`/reader/confirm`](/reader/confirm). Then post again in the same tab. A link
-signs in one device and expires after 24 hours. A link from three weeks ago
-won't work, and neither will one already used on another device. Asking for a
-new one is free.
-
 <a id="comment-error-nomail"></a>
 
 ### This comment needs an address (`NOMAIL`)
@@ -251,7 +236,9 @@ email address to confirm. Signals include:
 - one browser writing under several names
 
 You can also get it during a site-wide lockdown after a flood of comments, or
-within 24 hours of this browser tripping a spam check. A verified reader
+within 24 hours of this browser tripping a spam check. A few posts, and at
+times the whole site, publish comments only from confirmed addresses. There
+the address field says it's required. A verified reader
 posting from their own browser is never asked. How the words were typed,
 dictated or pasted never counts. Nothing was stored, and your draft is still
 in the box.
