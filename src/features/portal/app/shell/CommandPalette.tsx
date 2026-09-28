@@ -111,7 +111,7 @@ export function CommandPalette({ open, onOpenChange, onShortcuts }: {
                   <CommandGroupLabel>{group.value}</CommandGroupLabel>
                   <CommandCollection>
                     {(item: PaletteItem) => (
-                      <CommandItem key={item.value} value={item} onClick={() => run(item)}>
+                      <CommandItem key={item.value} value={item} className="gap-2" onClick={() => run(item)}>
                         <item.Icon className="size-4 text-muted-foreground" />
                         <span className="flex-1">{item.label}</span>
                         {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
