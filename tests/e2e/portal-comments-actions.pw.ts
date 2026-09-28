@@ -393,11 +393,11 @@ test.describe('comment lockdown', () => {
       await page.getByRole('button', { name: 'Lock down for 1 hour' }).click();
       await expect(home).toContainText('On');
       await expect(home).toContainText('On, by you: e2e flood');
-      await expect(home).toContainText(/ends \d\d:\d\d, in (1h|60m|59m)/);
+      await expect(home).toContainText(/ends (\d\d-\d\d )?\d\d:\d\d, in (1h|60m|59m)/);
 
       await open(page, '/comments');
       await expect(lockdownLine(page)).toContainText('by you: e2e flood');
-      await expect(lockdownLine(page)).toContainText(/ends \d\d:\d\d, in (1h|60m|59m)/);
+      await expect(lockdownLine(page)).toContainText(/ends (\d\d-\d\d )?\d\d:\d\d, in (1h|60m|59m)/);
       await lockdownLine(page).getByRole('button', { name: 'Lift' }).click();
       await expect(lockdownLine(page)).toHaveCount(0);
       await expect.poll(async () => (await (await page.request.get(`${API}/lockdown`)).json()).lockdown).toBeNull();
