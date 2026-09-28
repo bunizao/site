@@ -1612,7 +1612,11 @@ html:not(.js) .blog-lang__noscript a {
 
    Safari keeps the colour for as long as the same element answers the probe,
    so a theme switch would leave the old band behind. One strip per theme makes
-   the switch swap the element, and Safari samples again. */
+   the switch swap the element, and Safari samples again.
+
+   Only iOS WebKit (the one engine with -webkit-touch-callout) samples the
+   band. Elsewhere nothing reads the strip, and over dark content it shows as
+   an opaque slab that cuts the top of the glass. */
 .toc-topbar__band {
   position: fixed;
   top: 0;
@@ -1620,17 +1624,20 @@ html:not(.js) .blog-lang__noscript a {
   right: 0;
   height: 10px;
   z-index: 2;
+  display: none;
   background-color: hsl(var(--background));
   pointer-events: auto;
 }
 
-.toc-topbar__band--dark,
-.dark .toc-topbar__band--light {
-  display: none;
-}
+@supports (-webkit-touch-callout: none) {
+  .toc-topbar__band--light,
+  .dark .toc-topbar__band--dark {
+    display: block;
+  }
 
-.dark .toc-topbar__band--dark {
-  display: block;
+  .dark .toc-topbar__band--light {
+    display: none;
+  }
 }
 
 /* The single progressive surface behind row + menu, sized inset:0 to the whole
