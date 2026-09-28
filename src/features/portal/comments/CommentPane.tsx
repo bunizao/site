@@ -92,16 +92,17 @@ function copy(text: string, what: string): void {
   );
 }
 
-/** A pivot link: plain click stays on this screen with this comment open;
-    a modified click opens a new tab. A control of its own, not prose, so
-    it gets the 44px touch target. */
-function PivotAnchor({ pivot, commentId, children, className }: {
+/** A pivot link: plain click stays on this screen, a modified click opens
+    a new tab. `keep` is the comment left open across it: the panel's, which
+    sits beside the filtered list; never the drawer's, which would cover it.
+    A control of its own, not prose, so it gets the 44px touch target. */
+function PivotAnchor({ pivot, keep, children, className }: {
   pivot: Pivot;
-  commentId: string;
+  keep: string | null;
   children: React.ReactNode;
   className?: string;
 }) {
-  const to = pivotHref(pivot.type, pivot.value, commentId);
+  const to = pivotHref(pivot.type, pivot.value, keep);
   return (
     <a
       href={href(to)}
@@ -131,14 +132,21 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Row({ row, commentId }: { row: RecordRow; commentId: string }) {
+/** A narrow pane wraps an address after its @, not mid-word. */
+function EmailBreak({ value }: { value: string }) {
+  const at = value.indexOf('@');
+  if (at <= 0) return <>{value}</>;
+  return <>{value.slice(0, at + 1)}<wbr />{value.slice(at + 1)}</>;
+}
+
+function Row({ row, keep }: { row: RecordRow; keep: string | null }) {
   const count = row.count;
   return (
     <div className="grid grid-cols-[7.5rem_minmax(0,1fr)_auto] items-start gap-x-3 py-2 text-[13px] leading-5">
       <dt className="text-muted-foreground" title={row.explain}>{row.label}</dt>
       {/* Mono for a value only: "Not recorded" is a word, not a key. */}
       <dd className={cn('min-w-0 break-words', row.value ? 'text-foreground' : 'text-muted-foreground', row.value && row.mono && 'font-mono text-xs leading-5 tabular-nums')}>
-        {row.value && row.mono && isHash(row.value) ? <HashValue key={row.value} value={row.value} /> : row.value ?? 'Not recorded'}
+        {row.value && row.mono && isHash(row.value) ? <HashValue key={row.value} value={row.value} /> : row.value ? <EmailBreak value={row.value} /> : 'Not recorded'}
         {row.banned && (
           <span className="ms-2 inline-flex items-center gap-1 whitespace-nowrap font-sans text-[hsl(var(--portal-danger))] text-xs">
             <Ban className="size-3" aria-hidden />
@@ -148,13 +156,13 @@ function Row({ row, commentId }: { row: RecordRow; commentId: string }) {
       </dd>
       <dd className="flex items-center gap-1 whitespace-nowrap text-xs">
         {row.pivot && count !== null && count > 1 && (
-          <PivotAnchor pivot={row.pivot} commentId={commentId} className="tabular-nums">
+          <PivotAnchor pivot={row.pivot} keep={keep} className="tabular-nums">
             {count} comments
           </PivotAnchor>
         )}
         {row.pivot && count === 1 && <span className="text-muted-foreground">only this</span>}
         {row.pivot && count === null && (
-          <PivotAnchor pivot={row.pivot} commentId={commentId}>
+          <PivotAnchor pivot={row.pivot} keep={keep}>
             Show all
           </PivotAnchor>
         )}
@@ -540,8 +548,12 @@ export function CommentDetail({
   const record = React.useMemo(() => fingerprintRecord(comment), [comment]);
   const writer = writerPivot(comment.actor);
   const writerCluster = writer ? comment.actor.cluster[writer.type === 'email' ? 'email' : 'session'] : null;
-  const postFilter = `/comments?${new URLSearchParams({ status: 'all', post: comment.postId, c: comment.id })}`;
   const drawer = variant === 'drawer';
+  // What a pivot or the post filter keeps open: see PivotAnchor.
+  const keep = drawer ? null : comment.id;
+  const postParams = new URLSearchParams({ status: 'all', post: comment.postId });
+  if (keep) postParams.set('c', keep);
+  const postFilter = `/comments?${postParams}`;
   const pinned = Boolean(comment.pinnedAt);
   // A reply shows its thread's lock when the log has its root; an unloaded
   // root reads as unlocked, and the lock's answer corrects it.
@@ -696,9 +708,11 @@ export function CommentDetail({
 
   return (
     <article aria-labelledby={`detail-${comment.id}`} className="flex h-full min-h-0 flex-col bg-background">
+      {/* The icon buttons grow to 44px on touch rather than take a wider
+          hit area: the arrows sit side by side, and theirs would overlap. */}
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
         {drawer && (
-          <Button size="icon-sm" variant="ghost" aria-label="Close" className="-ms-2" onClick={onClose}>
+          <Button size="icon-sm" variant="ghost" aria-label="Close" className="-ms-2 pointer-coarse:-ms-3.5 pointer-coarse:size-11" onClick={onClose}>
             <X />
           </Button>
         )}
@@ -724,14 +738,14 @@ export function CommentDetail({
           <span className="me-1 min-w-[4.5ch] text-end text-muted-foreground text-xs tabular-nums">
             {position.index + 1}/{position.total}
           </span>
-          <Button size="icon-sm" variant="ghost" aria-label="Previous comment (K)" disabled={!onPrev} onClick={onPrev ?? undefined}>
+          <Button size="icon-sm" variant="ghost" aria-label="Previous comment (K)" className="pointer-coarse:size-11" disabled={!onPrev} onClick={onPrev ?? undefined}>
             <ChevronUp />
           </Button>
-          <Button size="icon-sm" variant="ghost" aria-label="Next comment (J)" disabled={!onNext} onClick={onNext ?? undefined}>
+          <Button size="icon-sm" variant="ghost" aria-label="Next comment (J)" className="pointer-coarse:size-11" disabled={!onNext} onClick={onNext ?? undefined}>
             <ChevronDown />
           </Button>
           {!drawer && (
-            <Button size="icon-sm" variant="ghost" aria-label="Close (Esc)" onClick={onClose}>
+            <Button size="icon-sm" variant="ghost" aria-label="Close (Esc)" className="pointer-coarse:size-11" onClick={onClose}>
               <X />
             </Button>
           )}
@@ -778,8 +792,8 @@ export function CommentDetail({
 
         <Section title="Writer">
           <dl>
-            <Row row={{ id: 'name', label: 'Name', value: comment.author, pivot: null, count: null, held: null, banned: false, mono: false }} commentId={comment.id} />
-            <Row row={{ id: 'identity', label: 'Identity', value: identityDetail(comment.actor), pivot: null, count: null, held: null, banned: false, mono: false }} commentId={comment.id} />
+            <Row row={{ id: 'name', label: 'Name', value: comment.author, pivot: null, count: null, held: null, banned: false, mono: false }} keep={keep} />
+            <Row row={{ id: 'identity', label: 'Identity', value: identityDetail(comment.actor), pivot: null, count: null, held: null, banned: false, mono: false }} keep={keep} />
             {comment.actor.readerId && (
               <Row
                 row={{
@@ -792,14 +806,14 @@ export function CommentDetail({
                   banned: false,
                   mono: true,
                 }}
-                commentId={comment.id}
+                keep={keep}
               />
             )}
             <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-3 py-2 text-[13px] leading-5">
               <dt className="text-muted-foreground">Other comments</dt>
               <dd>
                 {writer && writerCluster && writerCluster.comments > 0 ? (
-                  <PivotAnchor pivot={writer} commentId={comment.id} className="tabular-nums">
+                  <PivotAnchor pivot={writer} keep={keep} className="tabular-nums">
                     {writerCluster.comments} more by this {writer.type === 'email' ? 'address' : 'session'}
                     {writerCluster.held > 0 ? `, ${writerCluster.held} held` : ''}
                   </PivotAnchor>
@@ -817,7 +831,7 @@ export function CommentDetail({
           <Section key={group.title} title={group.title}>
             <dl>
               {group.rows.map((row) => (
-                <Row key={row.id} row={row} commentId={comment.id} />
+                <Row key={row.id} row={row} keep={keep} />
               ))}
             </dl>
           </Section>

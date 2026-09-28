@@ -64,6 +64,11 @@ async function open(page: Page, path: string): Promise<void> {
   await expect(page.locator('main h1').first()).toBeVisible({ timeout: 30_000 });
 }
 
+/** A phone of its own, not test.use(): that would start a second worker
+    and warm up again. */
+const phone = (browser: Browser, baseURL: string | undefined) =>
+  browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' });
+
 const rows = (page: Page) => page.locator('main [data-row-id]');
 const row = (page: Page, id: string) => page.locator(`main [data-row-id="${id}"]`);
 const toasts = (page: Page) => page.getByRole('region', { name: 'Notifications' });
@@ -162,6 +167,46 @@ test.describe('comments', () => {
     await expect(page.getByRole('button', { name: 'Clear filter' })).toBeHidden();
     await expect.poll(() => page.evaluate(() => location.pathname + location.search)).toBe(before);
     await expect(rows(page).first()).toBeVisible();
+  });
+
+  test('on a phone, a pivot from the drawer lands on the list, and Back returns to the drawer', async ({ browser, baseURL }) => {
+    const context = await browser.newContext({
+      baseURL,
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+      isMobile: true,
+      reducedMotion: 'reduce',
+    });
+    const page = await context.newPage();
+    try {
+      await open(page, '/comments?status=held');
+      // Léa's address wrote more than one comment, so her drawer offers the pivot.
+      const lea = rows(page).filter({ hasText: 'Léa' }).first();
+      await expect(lea).toBeVisible();
+      const id = (await lea.getAttribute('data-row-id'))!;
+      await lea.locator('[data-row-button]').tap();
+      const drawer = page.getByRole('dialog', { name: 'Comment' });
+      await expect(drawer).toBeVisible();
+
+      // The drawer would cover the list the pivot opens, so it closes.
+      await drawer.getByRole('link', { name: /more by this address/ }).tap();
+      await expect(drawer).toBeHidden();
+      await expect(page.getByRole('button', { name: 'Clear filter' })).toBeVisible();
+      await expect(rows(page).first()).toBeVisible();
+      expect(await openId(page)).toBeNull();
+
+      // Back undoes the pivot and brings the drawer back; its X then closes
+      // the drawer, and goes no further.
+      await page.goBack();
+      await expect(drawer).toBeVisible();
+      await expect.poll(() => openId(page)).toBe(id);
+      await expect(page.getByRole('button', { name: 'Clear filter' })).toBeHidden();
+      await drawer.getByRole('button', { name: 'Close', exact: true }).tap();
+      await expect(drawer).toBeHidden();
+      await expect(page).toHaveURL(/\/comments\?status=held$/);
+    } finally {
+      await context.close();
+    }
   });
 
   test('on a phone, a left swipe deletes a held comment and Undo brings it back', async ({ browser, baseURL }) => {
@@ -390,6 +435,88 @@ test.describe('shell', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Bans', exact: true })).toBeVisible();
     await expect(page).toHaveURL(/\/comments\/bans$/);
     await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+
+  test('⌘K searches comments for what was typed, without a read per keystroke', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await open(page, '/activity');
+    const searches: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/api/') && request.url().includes('moonpump')) searches.push(request.url());
+    });
+    await page.keyboard.press('ControlOrMeta+k');
+    const input = page.getByRole('dialog').getByRole('combobox');
+    await input.pressSequentially('moonpump');
+    await expect(page.getByRole('option', { name: 'Subscribers matching “moonpump”' })).toBeVisible();
+    expect(searches, 'typing only filters the palette').toEqual([]);
+
+    await page.getByRole('option', { name: 'Comments matching “moonpump”' }).click();
+    await expect(page).toHaveURL(/\/comments\?q=moonpump$/);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(rows(page).first()).toBeVisible();
+    for (const text of await rows(page).allTextContents()) expect(text).toMatch(/moonpump/i);
+  });
+
+  test('on a phone, the tab bar reaches a screen in one tap, and More opens the rest', async ({ browser, baseURL }) => {
+    const context = await phone(browser, baseURL);
+    const page = await context.newPage();
+    try {
+      await open(page, '');
+      const tabs = page.getByRole('navigation', { name: 'Tab bar' });
+      // The held count is the sidebar's own query, so it costs no read.
+      const comments = tabs.getByRole('link', { name: /^Comments \d+ held$/ });
+      await comments.tap();
+      await expect(page).toHaveURL(/\/comments$/);
+      await expect(page.getByRole('heading', { level: 1, name: 'Comments', exact: true })).toBeVisible();
+      await expect(comments).toHaveAttribute('aria-current', 'page');
+
+      await tabs.getByRole('link', { name: 'Subscribers' }).tap();
+      await expect(page.getByRole('heading', { level: 1, name: 'Subscribers', exact: true })).toBeVisible();
+
+      // A screen under a tab keeps it lit.
+      await open(page, '/comments/bans');
+      await expect(comments).toHaveAttribute('aria-current', 'page');
+
+      await tabs.getByRole('button', { name: 'More' }).tap();
+      const sheet = page.locator('[data-mobile="true"][data-sidebar="sidebar"]');
+      await sheet.getByRole('link', { name: 'Analytics' }).tap();
+      await expect(page.getByRole('heading', { level: 1, name: 'Analytics', exact: true })).toBeVisible();
+      await expect(sheet).toBeHidden();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("on a phone, a toast leaves the comment drawer's close button uncovered", async ({ browser, baseURL }) => {
+    const context = await phone(browser, baseURL);
+    const page = await context.newPage();
+    try {
+      await open(page, '/comments?status=held');
+      const first = rows(page).first();
+      const id = (await first.getAttribute('data-row-id'))!;
+      await first.locator('[data-row-button]').tap();
+      const drawer = page.getByRole('dialog');
+      const close = drawer.getByRole('button', { name: 'Close', exact: true });
+      await expect(close).toBeVisible();
+
+      await drawer.getByRole('button', { name: /^Approve/ }).tap();
+      const undo = undoOn(page, /^Approved/);
+      await expect(undo).toBeVisible();
+      // What a tap at the X's centre lands on while the toast shows.
+      const tapHitsClose = await close.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        const at = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return at !== null && el.contains(at);
+      });
+      expect(tapHitsClose).toBe(true);
+
+      await undo.tap();
+      await close.tap();
+      await expect(drawer).toHaveCount(0);
+      await expect(row(page, id)).toBeVisible();
+    } finally {
+      await context.close();
+    }
   });
 
   test('a failed read says so, and Try again recovers', async ({ page }) => {

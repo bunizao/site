@@ -26,7 +26,7 @@ import type { PortalComment } from '@/features/admin/server/portal-client';
 import { HEAD, LINE, LINE_PX, SMALL, SPACED, TABLE } from '../activity/table';
 import { isMissingRoute } from '../app/api';
 import { useHotkeys } from '../app/hotkeys';
-import { navigate, setSearch, useLocation } from '../app/router';
+import { mergeHistoryState, navigate, readHistoryState, setSearch, useLocation } from '../app/router';
 import { padUnderBulkBar, useSavedScroll, useScrollRestoration } from '../app/scroll';
 import { ScreenHeader } from '../app/shell/ScreenHeader';
 import { undoLast } from '../app/undo';
@@ -255,12 +255,9 @@ export default function CommentsScreen() {
   const panel = deferred && panelSource && deferred.comment.id === panelSource.comment.id ? panelSource : deferred;
 
   /* Selection. On a wide screen it only replaces the URL; on a narrow one,
-     opening the drawer pushes an entry so the phone's Back closes it. */
-  const drawerPushed = React.useRef(false);
-  React.useEffect(() => {
-    if (!selectedId) drawerPushed.current = false;
-  }, [selectedId]);
-
+     opening the drawer pushes an entry so the phone's Back closes it. The
+     entry is marked, so its X goes Back even after Back from a pivot has
+     returned to it, instead of leaving a copy of the list to step through. */
   const select = React.useCallback((id: string | null) => {
     setSearch({ c: id });
   }, []);
@@ -268,8 +265,8 @@ export default function CommentsScreen() {
   const openRow = React.useCallback(
     (id: string) => {
       if (!wide && !new URLSearchParams(location.search).get('c')) {
-        drawerPushed.current = true;
         setSearch({ c: id }, { push: true });
+        mergeHistoryState({ drawer: true });
         return;
       }
       setSearch({ c: id });
@@ -279,12 +276,8 @@ export default function CommentsScreen() {
 
   const closeDetail = React.useCallback(() => {
     const id = new URLSearchParams(location.search).get('c');
-    if (drawerPushed.current) {
-      drawerPushed.current = false;
-      history.back();
-    } else {
-      setSearch({ c: null });
-    }
+    if (readHistoryState().drawer === true) history.back();
+    else setSearch({ c: null });
     if (id) focusRow(id);
   }, []);
 
@@ -924,12 +917,13 @@ export default function CommentsScreen() {
           )}
           </div>
 
+          {/* Clear of the home indicator; on a phone, of the tab bar, which takes the home indicator's space itself. */}
           {selecting && (
             <div
               ref={padUnderBulkBar}
               role="toolbar"
               aria-label="Bulk actions"
-              className="absolute inset-x-0 bottom-4 z-40 mx-auto flex w-fit max-w-[calc(100%-1.5rem)] flex-wrap items-center justify-center gap-2 rounded-xl border bg-popover px-3 py-2 text-sm shadow-lg"
+              className="absolute inset-x-0 bottom-[max(env(safe-area-inset-bottom),1rem)] max-md:bottom-[calc(var(--portal-tabbar-h,0px)+1rem)] z-40 mx-auto flex w-fit max-w-[calc(100%-1.5rem)] flex-wrap items-center justify-center gap-2 rounded-xl border bg-popover px-3 py-2 text-sm shadow-lg"
             >
               <span className="me-1 tabular-nums max-sm:basis-full max-sm:text-center">
                 {checkedRows.length} selected

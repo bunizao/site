@@ -19,7 +19,7 @@ import { padUnderBulkBar } from '../app/scroll';
 import { ScreenHeader } from '../app/shell/ScreenHeader';
 import { undoLast } from '../app/undo';
 import { formatCount, plural } from '../moderation/format';
-import { LoadError, StateTabs, TOUCH_MENU, TOUCH_TARGET, useSearchText } from '../moderation/ui';
+import { EDGE_FADE, LoadError, StateTabs, TOUCH_MENU, TOUCH_TARGET, useSearchText } from '../moderation/ui';
 import {
   LOCAL_CAP,
   PAGE,
@@ -678,12 +678,13 @@ export default function SubscribersScreen() {
             </div>
           )}
 
+          {/* Clear of the home indicator; on a phone, of the tab bar, which takes the home indicator's space itself. */}
           {checkedRows.length > 0 && (
             <div
               ref={padUnderBulkBar}
               role="toolbar"
               aria-label="Bulk actions"
-              className="absolute inset-x-3 bottom-[max(env(safe-area-inset-bottom),1rem)] z-40 mx-auto flex w-fit max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-xl border bg-popover px-3 py-2 text-sm shadow-lg"
+              className="absolute inset-x-3 bottom-[max(env(safe-area-inset-bottom),1rem)] max-md:bottom-[calc(var(--portal-tabbar-h,0px)+1rem)] z-40 mx-auto flex w-fit max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-xl border bg-popover px-3 py-2 text-sm shadow-lg"
             >
               <span className="me-1 tabular-nums">{formatCount(checkedRows.length)} selected</span>
               <Button size="sm" className={SMALL} variant="outline" onClick={() => unsubscribe(checkedRows)}>
@@ -952,7 +953,7 @@ const Toolbar = React.memo(function Toolbar({
         )}
       </ScreenHeader>
       {!wide && (
-        <div className="flex h-12 shrink-0 items-center gap-2 overflow-x-auto border-b px-4 [scrollbar-width:none] pointer-coarse:h-13 [&::-webkit-scrollbar]:hidden">
+        <div className={cn('flex h-12 shrink-0 items-center gap-2 overflow-x-auto border-b ps-4 [scrollbar-width:none] pointer-coarse:h-13 [&::-webkit-scrollbar]:hidden', EDGE_FADE)}>
           {filters}
           {matched !== null && (
             <span className="ms-auto shrink-0 ps-2 text-muted-foreground text-xs tabular-nums" aria-live="polite">

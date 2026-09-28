@@ -289,7 +289,7 @@ export function SubscriberDetail({
     <article aria-labelledby={`sub-${row.emailHash}`} className="flex h-full min-h-0 flex-col bg-background">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
         {drawer && (
-          <Button size="icon-sm" variant="ghost" aria-label="Close" className="-ms-2" onClick={onClose}>
+          <Button size="icon-sm" variant="ghost" aria-label="Close" className="-ms-2 pointer-coarse:-ms-3.5 pointer-coarse:size-11" onClick={onClose}>
             <X />
           </Button>
         )}
@@ -303,14 +303,14 @@ export function SubscriberDetail({
               {position.index + 1}/{position.total}
             </span>
           )}
-          <Button size="icon-sm" variant="ghost" aria-label="Previous subscriber (K)" disabled={!onPrev} onClick={onPrev ?? undefined}>
+          <Button size="icon-sm" variant="ghost" aria-label="Previous subscriber (K)" className="pointer-coarse:size-11" disabled={!onPrev} onClick={onPrev ?? undefined}>
             <ChevronUp />
           </Button>
-          <Button size="icon-sm" variant="ghost" aria-label="Next subscriber (J)" disabled={!onNext} onClick={onNext ?? undefined}>
+          <Button size="icon-sm" variant="ghost" aria-label="Next subscriber (J)" className="pointer-coarse:size-11" disabled={!onNext} onClick={onNext ?? undefined}>
             <ChevronDown />
           </Button>
           {!drawer && (
-            <Button size="icon-sm" variant="ghost" aria-label="Close (Esc)" onClick={onClose}>
+            <Button size="icon-sm" variant="ghost" aria-label="Close (Esc)" className="pointer-coarse:size-11" onClick={onClose}>
               <X />
             </Button>
           )}

@@ -371,7 +371,7 @@ function BanForm({ target, confirmRef, onDone }: {
         )}
       </DialogPanel>
       <DialogFooter>
-        <Button type="button" variant="ghost" onClick={onDone}>
+        <Button type="button" variant="ghost" className="pointer-coarse:h-11" onClick={onDone}>
           Cancel
         </Button>
         <Button
@@ -380,7 +380,7 @@ function BanForm({ target, confirmRef, onDone }: {
           variant="destructive"
           aria-disabled={blocked ? true : undefined}
           title={blocked ?? undefined}
-          className="aria-disabled:opacity-64"
+          className="aria-disabled:opacity-64 pointer-coarse:h-11"
         >
           Ban {plural(keys.length, 'key')}
         </Button>
