@@ -67,10 +67,10 @@ interface Props {
   /** The body text to preserve across `submitting` and `error` — the two
       states where the draft is still the reader's, not gone yet. */
   draftText?: string;
-  /** The post takes verified addresses only (`#comments-verified`). Passed
-      down to the identity row, and stamped on the box so compose-validate.ts
-      and the controller's reply box read one attribute rather than a prop
-      each. */
+  /** The post needs an address, and publishes the comment once it is
+      confirmed (`#comments-verified`). Passed down to the identity row, and
+      stamped on the box so compose-validate.ts and the controller's reply box
+      read one attribute rather than a prop each. */
   requireEmail?: boolean;
 }
 

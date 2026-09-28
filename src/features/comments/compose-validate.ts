@@ -127,11 +127,12 @@ function requiredFields(compose: HTMLElement): ComposeField[] {
   return [...identity, ...(body ? [body] : [])];
 }
 
-/** True on a post tagged `#comments-verified`, where site-api refuses a
-    comment that does not come from a verified address. Stamped on the box by
-    whoever built it -- CommentForm.astro for the compose box, the controller
-    for the travelling reply box -- so this module reads one attribute instead
-    of being told twice. */
+/** True on a post tagged `#comments-verified` (or under the owner's
+    site-wide email rule), where site-api refuses an anonymous comment with no
+    address and publishes one only once its address is confirmed. Stamped on
+    the box by whoever built it -- CommentForm.astro for the compose box, the
+    controller for the travelling reply box -- so this module reads one
+    attribute instead of being told twice. */
 function requiresEmail(compose: HTMLElement): boolean {
   return compose.dataset.requireEmail === 'true';
 }
@@ -156,9 +157,9 @@ function messageFor(field: ComposeField, t: CommentsCopy, requireEmail: boolean)
   if (!value) {
     if (field instanceof HTMLTextAreaElement) return t.needBody;
     // Email is optional -- an empty address is never a validation failure.
-    // Unless the post takes verified addresses only, in which case the server
-    // would refuse this, so the box does, here, before the press costs a
-    // round trip.
+    // Unless the post needs one to publish, in which case the server would
+    // refuse this, so the box does, here, before the press costs a round
+    // trip.
     if (field instanceof HTMLInputElement && field.type === 'email') {
       return requireEmail ? t.needEmail : null;
     }

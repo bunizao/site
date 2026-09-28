@@ -22,11 +22,11 @@
 
    Email is optional on most posts -- name is the only field Post actually
    needs. A post tagged `#comments-verified` is the exception: `requireEmail`
-   flips this field to required, because site-api will refuse the comment
-   without a verified address and a form should not collect a comment it knows
-   is going to bounce. Everywhere else, leaving it empty and pressing Post
-   sends the comment -- one press, no argument about the field the reader
-   just declined. */
+   flips this field to required, because site-api refuses a comment there
+   without an address and publishes one only once that address is confirmed,
+   and a form should not collect a comment it knows is going to bounce.
+   Everywhere else, leaving it empty and pressing Post sends the comment --
+   one press, no argument about the field the reader just declined. */
 
 import { blog, type BlogLocale } from '@/data/site';
 import { commentsCopy } from '@/features/comments/copy';
@@ -34,10 +34,11 @@ import { ICONS, iconSvg } from '@/features/comments/icons';
 
 interface Props {
   locale?: BlogLocale;
-  /** The post takes verified addresses only (`#comments-verified`). Flips the
-      email field from optional to required: its placeholder says so, and
-      compose-validate.ts refuses an empty one rather than posting
-      anonymously the way every other post does. */
+  /** The post needs an address, and publishes the comment once it is
+      confirmed (`#comments-verified`). Flips the email field from optional to
+      required: its placeholder says so, and compose-validate.ts refuses an
+      empty one rather than posting anonymously the way every other post
+      does. */
   requireEmail?: boolean;
   /** Base id for this mount's two inputs (`${id}-name` / `${id}-email`) and
       for the row itself, so the compose box and the reply box — both on

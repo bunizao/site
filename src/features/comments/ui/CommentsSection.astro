@@ -64,10 +64,10 @@ interface Props {
       to. Omitted entirely in the lab/preview pages, which never hydrate a
       controller. */
   postId?: string;
-  /** The post takes verified addresses only (`#comments-verified`). Reaches
-      the compose box as a prop and the client-built reply box through
-      `data-require-email` on the section, so both halves of one policy come
-      from the same place. */
+  /** The post needs an address, and publishes the comment once it is
+      confirmed (`#comments-verified`). Reaches the compose box as a prop and
+      the client-built reply box through `data-require-email` on the section,
+      so both halves of one policy come from the same place. */
   requireEmail?: boolean;
   /** Cloudflare Turnstile site key, read by the controller the same way --
       empty when Turnstile is unconfigured (e2e fixtures, local dev without

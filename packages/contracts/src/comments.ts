@@ -543,8 +543,9 @@ export interface CommentPolicy {
       Independent of `mode`: a post can take reactions with comments off, and
       an open thread can refuse them. */
   reactions: boolean;
-  /** Accept a comment only from an address that has been verified. Anonymous
-      and unverified-email writers are refused rather than held. */
+  /** Publish a comment only from an address that has been verified. An
+      anonymous writer must give an address, and the comment is held until
+      they confirm it; one with no address is refused. */
   requireVerifiedEmail: boolean;
 }
 
