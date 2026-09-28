@@ -195,7 +195,9 @@ typed address resolves to, which a reply needs, and anybody can type a
 reader's address; `auth_at_write` records whether a live reader session sent
 it (`verified`), or not (`anonymous`). Rows written before the column say
 `unknown`. The portal names a sender as a signed-in reader only for
-`verified`, and a typed address never links a device to that reader.
+`verified`, and a typed address never links a device to that reader. A reply
+to an `anonymous` message still goes to that reader's address, so the reply
+box warns that it may reach someone who never wrote.
 
 Banning a sender from the portal bans the keys the owner ticks and then files
 that message as spam; undoing it lifts both. Earlier messages stay where they
