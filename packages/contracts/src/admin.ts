@@ -1,4 +1,11 @@
-import type { ClientFingerprint, CommentAuthAtWrite, CommentClaimMethod, CommentStatus, Interaction } from './comments';
+import type {
+  ClientFingerprint,
+  CommentAuthAtWrite,
+  CommentClaimMethod,
+  CommentStatus,
+  CommentSurface,
+  Interaction,
+} from './comments';
 import type {
   DeliveryMode,
   NotifyAuditEventType,
@@ -142,6 +149,16 @@ export interface AdminCommentRecord {
   postTitle: string | null;
   postSlug: string | null;
   actor: AdminCommentActor;
+  /* site-api always sends the four below. They are optional only so
+     records built elsewhere (the portal's demo api) keep compiling until
+     they fill them; make them required then. */
+  surface?: CommentSurface;
+  /** When the latest verdict, automatic or the owner's, was written. */
+  moderatedAt?: string | null;
+  updatedAt?: string;
+  /** A deleted row the owner can still restore: the last instant it can.
+      Null for every other row. */
+  restorableUntil?: string | null;
 }
 
 /** One page of the moderation queue. */
@@ -151,6 +168,112 @@ export interface AdminCommentListResult {
   total: number;
   /** `offset + comments.length`, or null on the last page. */
   nextOffset: number | null;
+}
+
+/** The numbers drawn above the queue. */
+export interface AdminCommentSummary {
+  byStatus: Record<AdminCommentStatus, number>;
+  /** Comments written in the last 24 hours. */
+  today: number;
+  oldestHeldAt: string | null;
+  reasons: Array<{ reason: string; count: number }>;
+  topPosts: Array<{ surface: CommentSurface; postId: string; count: number; title: string | null; slug: string | null }>;
+  daily: Array<{ date: string; count: number }>;
+}
+
+export type AdminCommentQueueSort = 'newest' | 'oldest' | 'risk';
+/** `akismet` alone, `llm` for Akismet plus the second opinion, `none` for
+    rows no model judged. */
+export type AdminCommentModelFilter = 'akismet' | 'llm' | 'none';
+
+/** The created-at window a queue page was read over. Search and the risk
+    sort always read one (30 days unless asked, 90 at most). */
+export interface AdminCommentQueueWindow {
+  from: string | null;
+  to: string | null;
+}
+
+/** GET /admin/comments. */
+export interface AdminCommentQueueResult extends AdminCommentListResult {
+  summary: AdminCommentSummary;
+  window: AdminCommentQueueWindow | null;
+}
+
+export type AdminCommentAction = 'approve' | 'hide' | 'reject' | 'delete' | 'restore';
+
+export const ADMIN_COMMENT_REJECT_REASONS = ['spam', 'promotional', 'abuse', 'off_topic', 'personal_info'] as const;
+export type AdminCommentRejectReason = (typeof ADMIN_COMMENT_REJECT_REASONS)[number];
+
+/** What one act did to one row. `already_*` is a repeat that changed
+    nothing; `not_restorable` is a deleted row past its window or removed in
+    a way restore cannot undo; `not_available` is a row gone, or in a state
+    the act cannot leave. */
+export type AdminCommentActionResult =
+  | 'approved'
+  | 'hidden'
+  | 'rejected'
+  | 'deleted'
+  | 'restored'
+  | 'already_approved'
+  | 'already_hidden'
+  | 'already_rejected'
+  | 'already_deleted'
+  | 'not_restorable'
+  | 'not_available';
+
+/** POST /admin/comments/:id. `reason` is required for `reject`. */
+export interface AdminCommentActionRequest {
+  action: AdminCommentAction;
+  reason?: AdminCommentRejectReason;
+}
+
+export interface AdminCommentActionResponse {
+  result: AdminCommentActionResult;
+  comment: { id: string; status: AdminCommentStatus };
+}
+
+/** POST /admin/comments/bulk: at most 20 ids, applied as one batch. */
+export interface AdminCommentBulkRequest {
+  ids: string[];
+  action: AdminCommentAction;
+  reason?: AdminCommentRejectReason;
+}
+
+/** One result per id, in the order sent; `status` is null for a row that
+    no longer exists. */
+export interface AdminCommentBulkResponse {
+  results: Array<{ id: string; result: AdminCommentActionResult; status: AdminCommentStatus | null }>;
+}
+
+/** POST /admin/comments/:id/reply. */
+export interface AdminCommentReplyRequest {
+  body: string;
+}
+
+/** `parentId` is the thread root the reply joined. */
+export interface AdminCommentReplyResponse {
+  comment: { id: string; parentId: string; status: AdminCommentStatus };
+}
+
+/** The site-wide lockdown: every anonymous comment waits for an email
+    until `until`. */
+export interface AdminCommentLockdown {
+  reason: string;
+  since: string;
+  until: string;
+  by: 'auto' | 'owner';
+}
+
+/** POST /admin/comments/lockdown: 1 to 10080 minutes, note up to 200
+    characters. */
+export interface AdminCommentLockdownRequest {
+  minutes: number;
+  note?: string;
+}
+
+/** GET, POST and DELETE /admin/comments/lockdown. */
+export interface AdminCommentLockdownResponse {
+  lockdown: AdminCommentLockdown | null;
 }
 
 /** What a ban can hold onto. Values are hashes (or the ASN as text) for
@@ -565,4 +688,61 @@ export interface AdminReactionInsights {
   tlsStacks: Array<{ browser: string | null; ciphersSha1: string | null; count: number }>;
   sessionAge: Array<{ day: string; writes: number; newShare: number }>;
   timeToTap: Array<{ bucket: string; count: number; sessions: number }>;
+}
+
+// ---------------------------------------------------------------------------
+//
+// The comment and reaction activity log (GET /admin/activity).
+
+/** Reject and restore are logged as `comment.moderate`, with the status
+    they left the row in. */
+export const ADMIN_ACTIVITY_EVENTS = [
+  'comment.create',
+  'comment.edit',
+  'comment.remove',
+  'comment.moderate',
+  'comment.approve',
+  'comment.hide',
+  'comment.delete',
+  'reaction.add',
+  'reaction.remove',
+] as const;
+export type AdminActivityEvent = (typeof ADMIN_ACTIVITY_EVENTS)[number];
+export type AdminActivityActor = 'reader' | 'model' | 'owner';
+export type AdminActivitySource = 'web' | 'portal' | 'telegram' | 'cron';
+export type AdminActivityTargetType = 'comment' | 'post';
+export type AdminActivityFamily = 'comments' | 'reactions';
+
+export interface AdminActivityRecord {
+  id: string;
+  createdAt: string;
+  event: AdminActivityEvent;
+  actor: AdminActivityActor;
+  source: AdminActivitySource;
+  targetType: AdminActivityTargetType;
+  targetId: string;
+  postId: string | null;
+  postTitle: string | null;
+  postSlug: string | null;
+  displayName: string | null;
+  readerId: string | null;
+  anonymous: boolean;
+  emoji: string | null;
+  status: string | null;
+  reason: string | null;
+  note: string | null;
+}
+
+export interface AdminActivitySummary {
+  byEvent: Record<AdminActivityEvent, number>;
+  today: number;
+  reactionsNet: number;
+  daily: Array<{ date: string; comments: number; reactions: number }>;
+}
+
+export interface AdminActivityListResult {
+  summary: AdminActivitySummary;
+  entries: AdminActivityRecord[];
+  total: number;
+  nextOffset: number | null;
 }
