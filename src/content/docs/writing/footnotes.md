@@ -19,6 +19,9 @@ The build removes the definition paragraph from where you wrote it and collects
 all notes into an ordered list at the foot of the post. Each note has a `↩`
 backlink to where it was cited.
 
+A jump in either direction lands the target a little above the middle of the
+screen, clear of the reading bar, and tints it until the next jump.
+
 ## Labels
 
 A label is any text without a `]` or a newline, so `[^1]`, `[^billing]`, and
