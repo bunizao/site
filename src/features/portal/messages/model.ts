@@ -17,17 +17,17 @@ function plural(count: number, one: string): string {
   return `${count} ${one}${count === 1 ? '' : 's'}`;
 }
 
-/** What shares a key, this message included: the pivot link's text, null
+/** What shares a key, this message included: the pivot link's lines, null
     when this message is the only one, undefined when nothing counted it. */
-export function tally(cluster: AdminClusterCount | undefined): string | null | undefined {
+export function tally(cluster: AdminClusterCount | undefined): string[] | null | undefined {
   if (!cluster) return undefined;
   const messages = (cluster.messages ?? 0) + 1;
   const parts = [
     cluster.comments > 0 && plural(cluster.comments, 'comment'),
     cluster.reactions > 0 && plural(cluster.reactions, 'reaction'),
     messages > 1 && plural(messages, 'message'),
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(' · ') : null;
+  ].filter((part) => part !== false);
+  return parts.length > 0 ? parts : null;
 }
 
 function keyRow(actor: AdminCommentActor, name: (typeof KEY_ORDER)[number], label = KEY_KINDS[name].label, explain = KEY_KINDS[name].explain): RecordRow | null {

@@ -19,10 +19,11 @@ export function copy(text: string, what: string): void {
 /** A link to another portal screen: plain click stays in the app, a
     modified click opens a new tab. A control of its own, not prose, so it
     gets the 44px touch target. */
-export function PortalLink({ to, children, className }: { to: string; children: React.ReactNode; className?: string }) {
+export function PortalLink({ to, children, className, label }: { to: string; children: React.ReactNode; className?: string; label?: string }) {
   return (
     <a
       href={href(to)}
+      aria-label={label}
       data-astro-prefetch="false"
       className={cn(
         TOUCH_TARGET,
@@ -43,13 +44,14 @@ export function PortalLink({ to, children, className }: { to: string; children: 
 /** A pivot link. `keep` is the comment left open across it: the panel's,
     which sits beside the filtered list; never the drawer's, which would
     cover it. */
-export function PivotAnchor({ pivot, keep, children, className }: {
+export function PivotAnchor({ pivot, keep, children, className, label }: {
   pivot: Pivot;
   keep: string | null;
   children: React.ReactNode;
   className?: string;
+  label?: string;
 }) {
-  return <PortalLink to={pivotHref(pivot.type, pivot.value, keep)} className={className}>{children}</PortalLink>;
+  return <PortalLink to={pivotHref(pivot.type, pivot.value, keep)} className={className} label={label}>{children}</PortalLink>;
 }
 
 /** A narrow pane wraps an address after its @, not mid-word. */
@@ -59,14 +61,18 @@ export function EmailBreak({ value }: { value: string }) {
   return <>{value.slice(0, at + 1)}<wbr />{value.slice(at + 1)}</>;
 }
 
-/** What the count cell says: a row's `tally` when it has one (text links,
-    null is "only this"), else the comment count. */
+/** What the count cell says: a row's `tally` when it has one (one line a
+    kind, null is "only this"), else the comment count. */
 function Count({ row, keep }: { row: RecordRow; keep: string | null }) {
   if (!row.pivot) return null;
   if (row.tally !== undefined) {
-    return row.tally
-      ? <PivotAnchor pivot={row.pivot} keep={keep} className="tabular-nums">{row.tally}</PivotAnchor>
-      : <span className="text-muted-foreground">only this</span>;
+    if (!row.tally) return <span className="text-muted-foreground">only this</span>;
+    // Stacked, not joined: side by side they squeeze a phone's value column to a few characters.
+    return (
+      <PivotAnchor pivot={row.pivot} keep={keep} label={row.tally.join(' · ')} className="flex flex-col items-end tabular-nums">
+        {row.tally.map((line) => <span key={line}>{line}</span>)}
+      </PivotAnchor>
+    );
   }
   if (row.count === null) return <PivotAnchor pivot={row.pivot} keep={keep}>Show all</PivotAnchor>;
   if (row.count === 1) return <span className="text-muted-foreground">only this</span>;
@@ -87,7 +93,8 @@ export function Row({ row, keep }: { row: RecordRow; keep: string | null }) {
           </span>
         )}
       </dd>
-      <dd className="flex items-center gap-1 whitespace-nowrap text-xs">
+      {/* Top-aligned, so a stacked count's first line sits beside the label. */}
+      <dd className="flex items-start gap-1 whitespace-nowrap text-xs leading-5">
         <Count row={row} keep={keep} />
         {row.value && row.mono && (
           // A plain button: thirty coss Buttons cost a visible slice of every j.

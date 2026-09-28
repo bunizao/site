@@ -28,10 +28,10 @@ describe('senderLabel', () => {
 });
 
 describe('tally', () => {
-  test('counts what shares a key, this message included', () => {
-    expect(tally({ comments: 3, held: 1, reactions: 0, messages: 2 })).toBe('3 comments · 3 messages');
-    expect(tally({ comments: 1, held: 0, reactions: 2, messages: 0 })).toBe('1 comment · 2 reactions');
-    expect(tally({ comments: 0, held: 0, reactions: 0, messages: 1 })).toBe('2 messages');
+  test('counts what shares a key, this message included, one line a kind', () => {
+    expect(tally({ comments: 3, held: 1, reactions: 0, messages: 2 })).toEqual(['3 comments', '3 messages']);
+    expect(tally({ comments: 1, held: 0, reactions: 2, messages: 0 })).toEqual(['1 comment', '2 reactions']);
+    expect(tally({ comments: 0, held: 0, reactions: 0, messages: 1 })).toEqual(['2 messages']);
   });
 
   test('null when this message is alone, undefined when nothing counted', () => {
@@ -59,8 +59,8 @@ describe('senderRows', () => {
     expect(rows.find((row) => row.id === 'device')?.value).toBe('Firefox 131 on macOS');
     expect(rows.find((row) => row.id === 'asn')?.value).toBe('AS3320 Deutsche Telekom');
     const email = rows.find((row) => row.id === 'email')!;
-    expect(email).toMatchObject({ label: 'Signed-in address', value: 'mira.k@example.de', tally: '4 messages', pivot: { type: 'email', value: 'hash-mira' } });
-    expect(rows.find((row) => row.id === 'clientFp')?.tally).toBe('2 comments');
+    expect(email).toMatchObject({ label: 'Signed-in address', value: 'mira.k@example.de', tally: ['4 messages'], pivot: { type: 'email', value: 'hash-mira' } });
+    expect(rows.find((row) => row.id === 'clientFp')?.tally).toEqual(['2 comments']);
     expect(rows.find((row) => row.id === 'session')?.tally).toBeNull();
   });
 

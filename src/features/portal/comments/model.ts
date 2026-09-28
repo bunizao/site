@@ -405,9 +405,9 @@ export interface RecordRow {
   /** Comments sharing the key, this one included; null when not counted. */
   count: number | null;
   held: number | null;
-  /** Replaces `count` where rows of several kinds share the key: the text
-      the pivot link reads, or null when this row is the only one. */
-  tally?: string | null;
+  /** Replaces `count` where rows of several kinds share the key: the pivot
+      link's lines, one count a kind, or null when this row is the only one. */
+  tally?: string[] | null;
   banned: boolean;
   mono: boolean;
 }
