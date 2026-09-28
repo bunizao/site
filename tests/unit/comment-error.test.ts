@@ -42,6 +42,9 @@ const REFUSALS: Array<[number, unknown, CommentErrorCode]> = [
   [409, { error: 'edit_window_closed' }, 'CLOSED'],
   [403, { error: 'not_owner' }, 'CLOSED'],
   [403, { error: 'comments_closed' }, 'LOCKED'],
+  // The owner locked one thread: a 403 that is neither the post closing nor
+  // the reader's claim running out.
+  [403, { error: 'thread_locked' }, 'NOREPLY'],
   [403, { error: 'email_verification_required' }, 'VERIFY'],
   [403, { error: 'email_required' }, 'NOMAIL'],
   [400, { error: 'displayName must be 1-32 characters and cannot use control characters or reserved names' }, 'NAME'],

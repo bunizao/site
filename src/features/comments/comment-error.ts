@@ -26,6 +26,7 @@ export type CommentErrorCode =
   | 'THREAD'
   | 'CLOSED'
   | 'LOCKED'
+  | 'NOREPLY'
   | 'VERIFY'
   | 'NOMAIL'
   | 'NAME'
@@ -112,11 +113,13 @@ function classify(status: number, slug: string): CommentErrorCode {
     || slug.includes('postid is required')
     || slug.includes('parentid must be')
     || slug.includes('invalid json')) return 'STALE';
-  // Both are the post's policy answering, not the comment: the thread takes no
-  // more writes, or it takes them only from a verified address. They are read
-  // ahead of the 403 below because that one means "your claim on this row ran
-  // out", which is a different next move -- and both of these arrive as 403.
+  // All three are the post's policy answering, not the comment: the post takes
+  // no more writes, one thread under it takes no more replies, or it takes
+  // them only from a verified address. They are read ahead of the 403 below
+  // because that one means "your claim on this row ran out", which is a
+  // different next move -- and all three of these arrive as 403.
   if (slug.includes('comments_closed')) return 'LOCKED';
+  if (slug.includes('thread_locked')) return 'NOREPLY';
   if (slug.includes('email_verification_required')) return 'VERIFY';
   // The writer, not the post: this request looked enough like automation
   // that it goes nowhere without an address to confirm. Nothing was stored.

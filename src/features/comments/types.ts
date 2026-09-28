@@ -95,6 +95,13 @@ export interface BlogComment {
   /** Soft-deleted but kept as a shape-preserving placeholder, because replies
       hang underneath it and one-level threading has nowhere else to put them. */
   tombstone?: boolean;
+  /** The root the owner pinned (`Comment.pinned`). The list already puts it
+      first; this draws the label that says why. Never set on a reply. */
+  pinned?: boolean;
+  /** The owner closed replies under this thread (`Comment.locked`, which the
+      wire sets on the root only). Carried onto the root's replies too, so no
+      row in a locked thread offers a Reply; only the root says so. */
+  locked?: boolean;
   /** Dev/lab-only: render this row with its inline edit textarea already open,
       so the `editing` toggle is on screen without a click. Real toggles happen
       client-side in the DOM (see the script in CommentsSection.astro), never

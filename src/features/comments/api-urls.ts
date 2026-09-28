@@ -14,6 +14,13 @@ export function reactionsUrl(targets: string[]): string {
   return `/api/v2/reactions?targets=${encodeURIComponent(targets.join(','))}`;
 }
 
+/** The mood thread's site rows, first page only. `/api/comments` (below) is
+    the thread a reader sees; this is where the owner's pin, lock and mode
+    for it live, and where a writer's own held row shows up. */
+export function moodSiteCommentsUrl(postId: string): string {
+  return `/api/v2/comments?surface=mood&post=${encodeURIComponent(postId)}&limit=${COMMENTS_PAGE_SIZE}`;
+}
+
 export function moodCommentsUrl(postId: string, before = ''): string {
   const query = new URLSearchParams({ postId });
   if (before) query.set('before', before);

@@ -198,6 +198,22 @@ export const dedupeNewComments = <T extends { id?: unknown; commentId?: unknown 
     return true;
   });
 
+/** The owner's pinned comment first, everything else in the order it came.
+    `pinnedId` is a site comment id, so only a `web` item (matched on its
+    `commentId`) can be the pin -- a Telegram message never is. `fallback`
+    stands in when this page of the scrape does not carry the pinned row:
+    the pin leads the thread whether it is recent or not. */
+export const pinFirst = <T extends { commentId?: unknown }>(
+  comments: T[],
+  pinnedId: string | null,
+  fallback?: T,
+): T[] => {
+  if (!pinnedId) return comments;
+  const index = comments.findIndex((comment) => asText(comment?.commentId).trim() === pinnedId);
+  if (index === -1) return fallback ? [fallback, ...comments] : comments;
+  return [comments[index], ...comments.slice(0, index), ...comments.slice(index + 1)];
+};
+
 export const sanitizeImageUrl = (value: unknown): string => {
   const raw = asText(value).trim();
   if (!raw) return '';
