@@ -305,6 +305,37 @@ export interface AdminCommentLockdownResponse {
   lockdown: AdminCommentLockdown | null;
 }
 
+/** A site-wide mode: every post at least this strict. */
+export type AdminCommentSiteMode = Exclude<CommentsMode, 'open'>;
+
+/** The owner's standing site-wide comment switches, on top of every post's
+    own mode (tags, then the portal's per-post override). Neither expires. */
+export interface AdminCommentSitePolicy {
+  /** Null: each post's own mode decides. Otherwise every post, on every
+      surface, is at least this strict (open < readonly < off); a post that
+      is already stricter stays so. */
+  mode: AdminCommentSiteMode | null;
+  /** When `mode` was last set; null while it is null. */
+  modeSince: string | null;
+  /** Every anonymous comment waits for its writer to confirm an email, as
+      in a lockdown, until switched off. A writer who gives no address is
+      asked for one. Signed-in readers post as usual. */
+  requireEmail: boolean;
+  /** When `requireEmail` was turned on; null while it is off. */
+  requireEmailSince: string | null;
+}
+
+/** PUT /admin/comments/site-policy: the fields to change, at least one. */
+export interface AdminCommentSitePolicyRequest {
+  mode?: AdminCommentSiteMode | null;
+  requireEmail?: boolean;
+}
+
+/** GET and PUT /admin/comments/site-policy. */
+export interface AdminCommentSitePolicyResponse {
+  policy: AdminCommentSitePolicy;
+}
+
 /** PUT and DELETE /admin/comments/:id/pin. `replaced` is the comment the
     PUT took the post's pin from, or null; always null on DELETE. */
 export interface AdminCommentPinResponse {

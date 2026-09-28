@@ -443,9 +443,11 @@ export interface CommentListResult {
   nextBefore: string | null;
   /** Published comments on the post (excludes held/rejected/deleted). */
   total: number;
-  /** The post's policy when the owner overrode its mode in the portal, on
-      the first page only. Absent means the post follows its tags, which the
-      page was drawn from -- nothing to reconcile. The page acts on `mode`. */
+  /** The post's policy when the owner overrode its mode in the portal or a
+      site-wide switch applies, on the first page only. Absent means the post
+      follows its tags, which the page was drawn from -- nothing to
+      reconcile. The page acts on `mode`, and on `requireVerifiedEmail` by
+      drawing the address as required. */
   policy?: CommentPolicy;
 }
 
