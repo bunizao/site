@@ -1,25 +1,28 @@
 import * as React from 'react';
 import type { AdminOwnerMessage, AdminOwnerMessageDetail, AdminOwnerMessageReplyability } from '@bunizao/contracts';
-import { Archive, ChevronDown, ChevronUp, CornerDownLeft, Hash, Inbox, Link2, Mail, MoreHorizontal, ShieldAlert, ShieldCheck, X } from 'lucide-react';
+import { Archive, Ban, ChevronDown, ChevronUp, CornerDownLeft, Hash, Inbox, Link2, Mail, MoreHorizontal, ShieldAlert, ShieldCheck, X } from 'lucide-react';
 import { Button } from '@/components/coss/button';
 import { Kbd } from '@/components/coss/kbd';
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from '@/components/coss/menu';
+import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from '@/components/coss/menu';
 import { Skeleton } from '@/components/coss/skeleton';
 import { cn } from '@/lib/utils';
 import { describeError, isMissingRoute } from '../app/api';
 import { href } from '../app/router';
 import { copy, Section } from '../audience/SubscriberPane';
-import { fullStamp, stamp } from '../comments/model';
+import { fullStamp, spamDecision, stamp } from '../comments/model';
+import { Row } from '../comments/RecordRows';
 import { countryName } from '../moderation/format';
 import { StatusDot, TOUCH_MENU, type Tone } from '../moderation/ui';
 import { discardReply, useRepliesTo, useSendReply, type PendingReply } from './data';
+import { senderLabel, senderRows } from './model';
 import { STATE_LABELS, STATE_TONE, firstLine } from './MessageRow';
 import { SMALL } from '../activity/table';
 
 /* One message, flat: a header line, the two filing acts, the message, who
-   a reply reaches and the composer, then everything else the same address
-   sent. It renders from the list row, so opening it never waits on the
-   network; only the sender line and the history load. */
+   a reply reaches and the composer, everything else the same address sent,
+   then the sender's keys. It renders from the list row, so opening it never
+   waits on the network; only the sender line, the history and the keys
+   load. */
 
 const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 const SEND_MOD = MAC ? '⌘' : 'Ctrl';
@@ -245,6 +248,8 @@ export interface MessageDetailProps {
   onClose: () => void;
   onArchive: () => void;
   onSpam: () => void;
+  /** Ban the sender and file this as spam (B). */
+  onBan: () => void;
   onOpenMessage: (message: AdminOwnerMessage) => void;
 }
 
@@ -259,6 +264,7 @@ export function MessageDetail({
   onClose,
   onArchive,
   onSpam,
+  onBan,
   onOpenMessage,
 }: MessageDetailProps) {
   const drawer = variant === 'drawer';
@@ -266,9 +272,12 @@ export function MessageDetail({
   const spam = message.state === 'spam';
   // A detail still showing the previous message reads as loading.
   const current: DetailState = detail.data && detail.data.message.id !== message.id ? { isPending: true, error: null } : detail;
-  const sender = current.data?.sender ?? null;
-  const blocked = Boolean(sender && sender.replyable !== 'ok');
+  const recipient = current.data?.sender ?? null;
+  const blocked = Boolean(recipient && recipient.replyable !== 'ok');
   const history = current.data?.history.length ?? 0;
+  const actor = current.data?.actor ?? null;
+  const decision = spam ? spamDecision(message.spamNote, message.spamModel) : null;
+  const sender = React.useMemo(() => (actor ? senderRows(message, actor) : null), [message, actor]);
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
   React.useLayoutEffect(() => {
@@ -297,8 +306,18 @@ export function MessageDetail({
           <MoreHorizontal />
         </MenuTrigger>
         <MenuPopup align="end" className={TOUCH_MENU}>
-          {sender?.email && (
-            <MenuItem onClick={() => copy(sender.email!, 'Address')}>
+          {actor && (
+            <>
+              <MenuItem onClick={onBan}>
+                <Ban />
+                Ban sender…
+                <Kbd className="ms-auto pointer-coarse:hidden">B</Kbd>
+              </MenuItem>
+              <MenuSeparator />
+            </>
+          )}
+          {recipient?.email && (
+            <MenuItem onClick={() => copy(recipient.email!, 'Address')}>
               <Mail />
               Copy their address
             </MenuItem>
@@ -357,16 +376,13 @@ export function MessageDetail({
           </time>
           {message.country && <span>{countryName(message.country)}</span>}
           <span>{LOCALE_LABELS[message.locale] ?? message.locale}</span>
-          <span>{message.readerId ? 'Signed-in reader' : message.emailHash ? 'Gave an address' : 'No address'}</span>
+          <span>{senderLabel(message)}</span>
         </p>
-        {message.spamNote && (
-          <p className="pt-2 text-[13px]">
-            <StatusDot tone="danger" className="whitespace-normal">
-              <span>
-                Filed as spam{message.spamModel ? <> by <span className="font-mono text-xs">{message.spamModel}</span></> : null}: {message.spamNote}
-              </span>
-            </StatusDot>
-          </p>
+        {decision && (
+          <div className="pt-3 text-[13px]">
+            <p className="text-foreground">{decision.summary}</p>
+            {decision.detail && <p className="text-muted-foreground">{decision.detail}</p>}
+          </div>
         )}
         <p className="whitespace-pre-wrap break-words pt-3 text-[14px] leading-6">{message.body}</p>
 
@@ -383,6 +399,16 @@ export function MessageDetail({
         <Section title="Earlier from this address" meta={history > 0 ? history : undefined}>
           <History detail={current} onOpen={onOpenMessage} />
         </Section>
+
+        {sender && (
+          <Section title="Sender">
+            <dl>
+              {sender.map((row) => (
+                <Row key={row.id} row={row} keep={null} />
+              ))}
+            </dl>
+          </Section>
+        )}
       </div>
 
       {drawer && actions}

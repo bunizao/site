@@ -64,9 +64,11 @@ export const EXPIRY = [
 ];
 
 /** `commentId` is the comment the ban was raised from, which it deletes by
-    default; a ban raised from a reaction has none. */
+    default; a ban raised from a reaction has none. `messageId` is the message
+    it was raised from, which it files as spam instead: messages are private,
+    so nothing of theirs needs deleting. */
 export type BanTarget =
-  | { kind: 'actor'; actor: AdminCommentActor; commentId?: string | null }
+  | { kind: 'actor'; actor: AdminCommentActor; commentId?: string | null; messageId?: string | null }
   | { kind: 'source'; type: AdminSourceKeyType; value: string; ban: AdminBanKeyType; display?: string | null; emailDomainPublishedComments?: number | null };
 
 const DELETE_LABELS: Record<BanDelete, string> = {
@@ -80,6 +82,7 @@ const DELETE_LABELS: Record<BanDelete, string> = {
     everywhere, so the digit for it moves least. */
 function deleteModes(target: BanTarget): BanDelete[] {
   if (target.kind === 'source') return ['matched', 'none'];
+  if (target.messageId) return [];
   return target.commentId ? ['comment', 'fingerprint', 'none'] : ['fingerprint', 'none'];
 }
 
@@ -118,14 +121,16 @@ function choicesFor(target: BanTarget): Choice[] {
 
 /** Memoized: the comment log re-renders on every j, and a closed dialog
     should not. `onDeletesComment` takes the target's comment off the screen
-    the way D does, and returns what puts it back. `onSwept` runs once the
-    lists have refetched after a sweep or its undo: rows the screen cannot
-    name left or came back. */
-export const BanDialog = React.memo(function BanDialog({ target, open, onOpenChange, onDeletesComment, onSwept }: {
+    the way D does, and returns what puts it back. `onFilesMessage` files the
+    target's message as spam once `banned` lands, and returns what takes it
+    back out. `onSwept` runs once the lists have refetched after a sweep or
+    its undo: rows the screen cannot name left or came back. */
+export const BanDialog = React.memo(function BanDialog({ target, open, onOpenChange, onDeletesComment, onFilesMessage, onSwept }: {
   target: BanTarget | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDeletesComment?: (id: string) => () => void;
+  onFilesMessage?: (id: string, banned: Promise<unknown>) => () => void;
   onSwept?: () => void;
 }) {
   const confirmRef = React.useRef<HTMLButtonElement>(null);
@@ -142,13 +147,17 @@ export const BanDialog = React.memo(function BanDialog({ target, open, onOpenCha
       <DialogPopup className="sm:max-w-lg" initialFocus={confirmRef} finalFocus={finalFocus}>
         {target && (
           <BanForm
-            key={JSON.stringify(target.kind === 'actor' ? [target.actor.keys, target.commentId ?? null] : target)}
+            key={JSON.stringify(target.kind === 'actor' ? [target.actor.keys, target.commentId ?? null, target.messageId ?? null] : target)}
             target={target}
             open={open}
             confirmRef={confirmRef}
             onDeletesComment={onDeletesComment && ((id) => {
               deleted.current = true;
               return onDeletesComment(id);
+            })}
+            onFilesMessage={onFilesMessage && ((id, banned) => {
+              deleted.current = true;
+              return onFilesMessage(id, banned);
             })}
             onSwept={onSwept}
             onDone={() => onOpenChange(false)}
@@ -186,6 +195,8 @@ function useBanPreview(input: AdminBanPreviewInput) {
 
 interface ImpactProps {
   mode: BanDelete;
+  /** Raised from a message, which the ban files as spam. */
+  message: boolean;
   sweep: { label: string; value: string } | null;
   /** The mode to suggest when a sweep is refused. */
   fallback: BanDelete;
@@ -229,7 +240,7 @@ function statusMix(comments: AdminBanPreview['comments']): string {
   return parts.length ? ` (${parts.join(', ')})` : '';
 }
 
-function ImpactLines({ data, fetching, mode, sweep, fallback }: ImpactProps & {
+function ImpactLines({ data, fetching, mode, sweep, fallback, message }: ImpactProps & {
   data: AdminBanPreview;
   fetching: boolean;
 }) {
@@ -250,7 +261,9 @@ function ImpactLines({ data, fetching, mode, sweep, fallback }: ImpactProps & {
             ? 'Deletes this comment. Restorable for 30 days.'
             : data.comments.published > 3
               ? `${data.comments.published} published comments is a lot for one person. Check no key is shared.`
-              : 'Existing comments stay. New ones are held silently.'}
+              : message
+                ? 'Files this message as spam. Existing comments stay.'
+                : 'Existing comments stay. New ones are held silently.'}
         </p>
       </>
     );
@@ -292,17 +305,19 @@ function ImpactLines({ data, fetching, mode, sweep, fallback }: ImpactProps & {
   );
 }
 
-function BanForm({ target, open, confirmRef, onDeletesComment, onSwept, onDone }: {
+function BanForm({ target, open, confirmRef, onDeletesComment, onFilesMessage, onSwept, onDone }: {
   target: BanTarget;
   open: boolean;
   confirmRef: React.RefObject<HTMLButtonElement | null>;
   onDeletesComment?: (id: string) => () => void;
+  onFilesMessage?: (id: string, banned: Promise<unknown>) => () => void;
   onSwept?: () => void;
   onDone: () => void;
 }) {
   const client = useQueryClient();
   const actor = target.kind === 'actor' ? target.actor : null;
   const commentId = target.kind === 'actor' ? target.commentId ?? null : null;
+  const messageId = target.kind === 'actor' ? target.messageId ?? null : null;
   const verified = actor?.authAtWrite === 'verified';
   const choices = React.useMemo(() => choicesFor(target), [target]);
   const published = target.kind === 'source' ? target.emailDomainPublishedComments : actor?.emailDomainPublishedComments;
@@ -384,15 +399,20 @@ function BanForm({ target, open, confirmRef, onDeletesComment, onSwept, onDone }
     const putBack = input.removeCommentId ? onDeletesComment?.(input.removeCommentId) ?? null : null;
     onDone();
     const request = apiSend<AdminBanResult>('POST', 'admin/bans', input);
+    // The message goes to Spam in this frame too; its request waits for
+    // the ban, and a refused ban takes it back.
+    const unfile = messageId ? onFilesMessage?.(messageId, request) ?? null : null;
     const banned = `Banned ${plural(keys.length, 'key')}`;
     const expected = mode === 'comment' ? 'the comment' : sweeping && exact ? deletedText(exact.purge) : null;
     let undone = false;
     const toastId: string = toastManager.add({
       type: 'success',
-      title: expected ? `${banned} and deleted ${expected}` : banned,
-      description: mode === 'none'
-        ? 'Their next comments are held silently.'
-        : 'Restorable for 30 days. Their next comments are held silently.',
+      title: expected ? `${banned} and deleted ${expected}` : messageId ? `${banned} and filed the message as spam` : banned,
+      description: messageId
+        ? 'Their next messages go to Spam and their comments are held, silently.'
+        : mode === 'none'
+          ? 'Their next comments are held silently.'
+          : 'Restorable for 30 days. Their next comments are held silently.',
       timeout: 8000,
       actionProps: {
         children: 'Undo',
@@ -403,13 +423,15 @@ function BanForm({ target, open, confirmRef, onDeletesComment, onSwept, onDone }
     // Everything a ban or its undo changes, refetched; then a sweep hands
     // the screen the server's rows.
     const refresh = (): void => {
-      void Promise.all(['comments', 'reactions', 'bans'].map((key) => client.invalidateQueries({ queryKey: [key] })))
+      const keys = messageId ? [['comments'], ['reactions'], ['bans'], ['messages', 'detail']] : [['comments'], ['reactions'], ['bans']];
+      void Promise.all(keys.map((queryKey) => client.invalidateQueries({ queryKey })))
         .then(() => sweeping && onSwept?.());
     };
     const undo = (): void => {
       if (undone) return;
       undone = true;
       putBack?.();
+      unfile?.();
       void request
         .then(async (result) => {
           await Promise.all(result.bans.map((ban) =>
@@ -422,7 +444,9 @@ function BanForm({ target, open, confirmRef, onDeletesComment, onSwept, onDone }
           const back = restored ? deletedText(restored.operation.restored) : null;
           toastManager.add({
             type: 'success',
-            title: back ? `Ban lifted and ${mode === 'comment' ? 'the comment' : back} restored` : 'Ban lifted',
+            title: back
+              ? `Ban lifted and ${mode === 'comment' ? 'the comment' : back} restored`
+              : messageId ? 'Ban lifted and the message taken out of spam' : 'Ban lifted',
             description: input.revokeReaderId ? 'The reader account stays banned. Unban it from Bans.' : undefined,
             timeout: 4000,
           });
@@ -451,7 +475,7 @@ function BanForm({ target, open, confirmRef, onDeletesComment, onSwept, onDone }
     );
   }
 
-  const title = target.kind === 'source' ? `Ban this ${sourceLabel(target.type).toLowerCase()}` : 'Ban this writer';
+  const title = target.kind === 'source' ? `Ban this ${sourceLabel(target.type).toLowerCase()}` : messageId ? 'Ban this sender' : 'Ban this writer';
   const deletes = sweeping && exact ? exact.purge.comments : 0;
 
   return (
@@ -464,12 +488,16 @@ function BanForm({ target, open, confirmRef, onDeletesComment, onSwept, onDone }
     >
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>Their comments are held and their reactions go nowhere. Nothing tells them.</DialogDescription>
+        <DialogDescription>
+          {messageId
+            ? 'Their messages go to Spam, their comments are held and their reactions go nowhere. Nothing tells them.'
+            : 'Their comments are held and their reactions go nowhere. Nothing tells them.'}
+        </DialogDescription>
       </DialogHeader>
       <DialogPanel className="flex flex-col gap-4">
         <fieldset className="flex flex-col">
           <legend className="sr-only">Keys to ban</legend>
-          {choices.length === 0 && <p className="text-muted-foreground text-sm">This comment carries no key a ban can hold.</p>}
+          {choices.length === 0 && <p className="text-muted-foreground text-sm">This {messageId ? 'message' : 'comment'} carries no key a ban can hold.</p>}
           {choices.map((choice) => {
             const locked = choice.ban === 'email_domain' && domainLocked;
             const warning = choice.ban === 'email' && verified
@@ -508,35 +536,38 @@ function BanForm({ target, open, confirmRef, onDeletesComment, onSwept, onDone }
           })}
         </fieldset>
 
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Label id="ban-delete-label" className="gap-2 text-[13px]">
-              Delete
-              <Kbd className="pointer-coarse:hidden">1–{modes.length}</Kbd>
-            </Label>
-            <ToggleGroup
-              aria-labelledby="ban-delete-label"
-              value={[mode]}
-              onValueChange={(value) => value[0] && setMode(value[0] as BanDelete)}
-              variant="outline"
-              size="sm"
-            >
-              {modes.map((each) => (
-                <ToggleGroupItem
-                  key={each}
-                  value={each}
-                  disabled={!enabled.includes(each)}
-                  className={cn(CHOICE_ITEM, 'pointer-coarse:h-11')}
-                >
-                  {DELETE_LABELS[each]}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+        {/* A message has nothing to delete: the ban files it as spam. */}
+        {modes.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <Label id="ban-delete-label" className="gap-2 text-[13px]">
+                Delete
+                <Kbd className="pointer-coarse:hidden">1–{modes.length}</Kbd>
+              </Label>
+              <ToggleGroup
+                aria-labelledby="ban-delete-label"
+                value={[mode]}
+                onValueChange={(value) => value[0] && setMode(value[0] as BanDelete)}
+                variant="outline"
+                size="sm"
+              >
+                {modes.map((each) => (
+                  <ToggleGroupItem
+                    key={each}
+                    value={each}
+                    disabled={!enabled.includes(each)}
+                    className={cn(CHOICE_ITEM, 'pointer-coarse:h-11')}
+                  >
+                    {DELETE_LABELS[each]}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+            {modes.includes('fingerprint') && !sweepKey && (
+              <p className="text-muted-foreground text-xs">Same fingerprint is off: this writer sent no fingerprint.</p>
+            )}
           </div>
-          {modes.includes('fingerprint') && !sweepKey && (
-            <p className="text-muted-foreground text-xs">Same fingerprint is off: this writer sent no fingerprint.</p>
-          )}
-        </div>
+        )}
 
         <Impact
           keys={keys}
@@ -544,6 +575,7 @@ function BanForm({ target, open, confirmRef, onDeletesComment, onSwept, onDone }
           mode={mode}
           sweep={sweepKey}
           fallback={fallback}
+          message={messageId !== null}
         />
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">

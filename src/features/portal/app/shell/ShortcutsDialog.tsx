@@ -97,6 +97,7 @@ const SCREENS: Array<{ path: RegExp } & Section> = [
       ...MOVE,
       [['E'], 'Archive, or move back to Inbox'],
       [['!'], 'Spam, or not spam'],
+      [['B'], 'Ban the sender and file as spam'],
       UNDO,
       [['R'], 'Reply by email'],
       [['⌘', '↵'], 'Send the reply'],

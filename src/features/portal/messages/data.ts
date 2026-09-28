@@ -234,10 +234,18 @@ export function useMessageAction() {
   const pending = React.useRef(0);
 
   return React.useCallback(
-    async function act(message: AdminOwnerMessage, action: AdminOwnerMessageAction, options: { quiet?: boolean } = {}): Promise<void> {
+    /** Moves the message at once and says whether the move stuck. `after`
+        holds the request until another write lands (a ban files its message
+        this way); if that write fails, the move goes back without a word,
+        since the other write reports its own failure. */
+    async function act(
+      message: AdminOwnerMessage,
+      action: AdminOwnerMessageAction,
+      options: { quiet?: boolean; after?: Promise<unknown> } = {},
+    ): Promise<boolean> {
       const state = nextState(message, action);
-      if (!state) return;
-      if (action === 'read' && readUnsupported) return;
+      if (!state) return false;
+      if (action === 'read' && readUnsupported) return false;
       const guess: AdminOwnerMessage = { ...message, state, updatedAt: new Date().toISOString() };
       pending.current += 1;
       await client.cancelQueries({ queryKey: messageKeys.lists });
@@ -263,8 +271,13 @@ export function useMessageAction() {
       }
 
       try {
+        if (options.after && !(await options.after.then(() => true, () => false))) {
+          applyMove(client, guess, message);
+          return false;
+        }
         const response = await apiSend<AdminOwnerMessageActionResponse>('POST', `admin/messages/${encodeURIComponent(message.id)}`, { action });
         applyMove(client, guess, response.message);
+        return true;
       } catch (error) {
         applyMove(client, guess, message);
         if (toastId) toastManager.close(toastId);
@@ -272,13 +285,14 @@ export function useMessageAction() {
           // Opening a message never shouts; a backend without the route just
           // leaves it unread.
           if (isMissingRoute(error)) readUnsupported = true;
-          return;
+          return false;
         }
         toastManager.add({
           type: 'error',
           title: `${DONE[action] ?? 'That'} did not go through`,
           description: isMissingRoute(error) ? MISSING_ROUTE_MESSAGE : error instanceof ApiError && error.status === 404 ? 'That message no longer exists.' : describeError(error),
         });
+        return false;
       } finally {
         pending.current -= 1;
         // Offsets move with every act; one refetch once the burst settles.

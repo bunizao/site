@@ -5,6 +5,7 @@ import { ArrowUp } from 'lucide-react';
 import { Button } from '@/components/coss/button';
 import { Drawer, DrawerPopup } from '@/components/coss/drawer';
 import { Skeleton } from '@/components/coss/skeleton';
+import { toastManager } from '@/components/coss/toast';
 import { useMediaQuery } from '@/components/coss/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import { HEAD, LINE, SMALL, SPACED, TABLE } from '../activity/table';
@@ -14,6 +15,7 @@ import { mergeHistoryState, navigate, readHistoryState, useLocation } from '../a
 import { ScreenHeader } from '../app/shell/ScreenHeader';
 import { undoLast } from '../app/undo';
 import { useStableView } from '../audience/stable-view';
+import { BanDialog, type BanTarget } from '../comments/BanDialog';
 import { plural } from '../moderation/format';
 import { LoadError, StateTabs } from '../moderation/ui';
 import {
@@ -36,7 +38,7 @@ import { MSG_COLUMNS, MSG_GRID, MSG_MID, MessageRow } from './MessageRow';
    trays: Inbox, Archived, Spam. The query holds the tray (`?view=spam`)
    and the open message (`?m=<id>`), so Back, reload and a link all land
    on the same view. Opening a new message marks it read; E and ! file it
-   and move to the next one. */
+   and move to the next one. B bans its sender and files it as spam. */
 
 /** Older forms of a message link: `/messages/<id>` and `#<id>`. */
 const LEGACY_PATH = /^\/messages\/([^/]+)$/;
@@ -224,23 +226,60 @@ export default function MessagesScreen() {
   /** E or !: the message changes tray, so it leaves these rows, and the
       selection and focus move to the next row with it. */
   const file = React.useCallback(
-    (message: AdminOwnerMessage, key: 'file' | 'spam') => {
+    (message: AdminOwnerMessage, key: 'file' | 'spam', options?: { quiet?: boolean; after?: Promise<unknown> }): Promise<boolean> => {
       const action = actionFor(message, key);
       const state = nextState(message, action);
-      if (!state) return;
+      if (!state) return Promise.resolve(false);
       const { rows: current, selectedId: open, view: tray } = latest.current;
       const at = current.findIndex((row) => row.id === message.id);
       const leaves = at >= 0 && !inView(tray, state);
       const wasOpen = open === message.id;
       const next = leaves && (wasOpen || focusedRowId() === message.id) ? current[at + 1] ?? current[at - 1] ?? null : null;
-      void act(message, action);
+      const done = act(message, action, options);
       if (wasOpen && leaves) {
         if (next) select(next.id);
         else close();
       }
       if (next) focusRow(next.id);
+      return done;
     },
     [act, select, close],
+  );
+
+  /* B: the sender's keys, in the comment ban dialog. Only the detail
+     carries them, so B bans the open message's sender; a site-api that
+     does not record senders has nothing to ban by, and says so. */
+  const [ban, setBan] = React.useState<BanTarget | null>(null);
+  const [banOpen, setBanOpen] = React.useState(false);
+  const openBan = React.useCallback(
+    (message: AdminOwnerMessage) => {
+      const loaded = detail.data?.message.id === message.id ? detail.data : null;
+      if (!loaded?.actor) {
+        toastManager.add(loaded
+          ? { type: 'info', title: 'Nothing to ban this sender by', description: 'This site-api does not record who sent a message yet.' }
+          : { type: 'info', title: 'Still loading the sender', description: 'Press B again in a moment.' });
+        return;
+      }
+      setBan({ kind: 'actor', actor: loaded.actor, messageId: message.id });
+      setBanOpen(true);
+    },
+    [detail.data],
+  );
+
+  /** The ban files its message as spam: it leaves the tray as ! takes it,
+      its request waits for the ban, and an undo takes it back out. */
+  const banFiles = React.useCallback(
+    (id: string, banned: Promise<unknown>): (() => void) => {
+      const message = latest.current.rows.find((row) => row.id === id) ?? (detail.data?.message.id === id ? detail.data.message : null);
+      // Banned from the Spam tray: the message is already where it goes.
+      if (!message || message.state === 'spam') return () => {};
+      const filed = file(message, 'spam', { quiet: true, after: banned });
+      return () => {
+        // Once the filing lands, or the unspam could overtake it.
+        void filed.then((ok) => ok && act({ ...message, state: 'spam' }, 'unspam', { quiet: true }));
+      };
+    },
+    [file, act, detail.data],
   );
 
   // Focus the open row once the list exists, so the keys work at once.
@@ -290,6 +329,9 @@ export default function MessagesScreen() {
       if (!message) return;
       if (message.id !== selectedId) openRow(message);
       setReplyRequest({ id: message.id, at: Date.now() });
+    },
+    b: () => {
+      if (selected) openBan(selected);
     },
     z: () => undoLast(),
   };
@@ -399,6 +441,7 @@ export default function MessagesScreen() {
     onClose: close,
     onArchive: () => file(message, 'file'),
     onSpam: () => file(message, 'spam'),
+    onBan: () => openBan(message),
     onOpenMessage: openFromHistory,
   });
 
@@ -519,6 +562,8 @@ export default function MessagesScreen() {
           </DrawerPopup>
         </Drawer>
       )}
+
+      <BanDialog target={ban} open={banOpen} onOpenChange={setBanOpen} onFilesMessage={banFiles} />
     </div>
   );
 }
