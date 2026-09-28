@@ -947,7 +947,9 @@ When the reader is signed in:
 }
 ```
 
-The response never includes the email or its hash.
+The response never includes the email or its hash. `subscribed` is true only
+for an active subscription that includes the `blog` channel, so a mood-only
+subscriber reads `false`.
 
 `DELETE` signs out: it clears the session cookie and returns `204`. It's
 idempotent, so calling it with no session set still succeeds, and the client
@@ -1107,7 +1109,7 @@ that moved, and a body with none of them is a `400`.
 | Field | Effect |
 | --- | --- |
 | `notifyReplies` | Writes the reader's own column (reply mail, see [Reply notifications](#reply-notifications)) |
-| `subscribed` | Activates or unsubscribes the newsletter subscription. Switching it off also invalidates pending newsletter confirmations. |
+| `subscribed` | The `blog` channel, matching the "latest posts" label. On adds `blog` to an active or pending subscription, or starts one on `["blog"]` for a reader with none. Off removes `blog` and unsubscribes only when no other channel remains; only that unsubscribe invalidates pending newsletter confirmations. |
 
 `subscribed` never touches reply notifications, and `notifyReplies` never
 touches the newsletter. Leaving the newsletter and muting your own replies are
