@@ -338,10 +338,13 @@ const SEED: SeedRow[] = [
   { sender: 'impostor', hoursAgo: 1.2, state: 'new', body: 'Your retry budget post is a lazy rewrite of somebody else\'s talk. I will be saying so under every post you publish from now on.' },
 ];
 
+/** site-api's sweepTypedMessageEmails: a typed address goes a week on. */
+const TYPED_EMAIL_DAYS = 7;
+
 /** The sender's actor: on their comment device when they have one, else
     on the device named here. The email key is the message's address hash,
     and only a signed-in write names a reader. */
-function senderActor(key: SenderKey, sender: Sender, message: AdminOwnerMessage): AdminCommentActor {
+function senderActor(key: SenderKey, sender: Sender, message: AdminOwnerMessage, now: number): AdminCommentActor {
   const verified = message.authAtWrite === 'verified';
   const ip = sender.device?.ip ?? '203.0.113.7';
   const base = demoActor({
@@ -363,7 +366,9 @@ function senderActor(key: SenderKey, sender: Sender, message: AdminOwnerMessage)
     },
   });
   const actor = writerDeviceActor(sender.name, base, message.body, verified) ?? base;
-  const email = sender.reader?.email ?? sender.address ?? null;
+  const kept = verified || now - Date.parse(message.createdAt) < TYPED_EMAIL_DAYS * DAY;
+  const address = sender.reader?.email ?? sender.address ?? null;
+  const email = kept ? address : null;
   return {
     ...actor,
     readerId: verified ? message.readerId : null,
@@ -372,7 +377,7 @@ function senderActor(key: SenderKey, sender: Sender, message: AdminOwnerMessage)
     keys: {
       ...actor.keys,
       email: sender.hash,
-      emailDomain: email?.split('@')[1] ?? null,
+      emailDomain: address?.split('@')[1] ?? null,
       bodyHash: digest(`body:${message.body}`),
     },
   };
@@ -411,7 +416,7 @@ export function seedMessages(now = Date.now()): MessagesStore {
       createdAt,
       updatedAt: touched,
     };
-    actors.set(message.id, senderActor(row.sender, sender, message));
+    actors.set(message.id, senderActor(row.sender, sender, message, now));
     return message;
   });
   return { messages: messages.sort((a, b) => b.createdAt.localeCompare(a.createdAt)), actors, readers, suppressed };
