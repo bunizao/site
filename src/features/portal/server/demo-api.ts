@@ -386,7 +386,7 @@ export async function handleDemoRequest(request: Request, path: string): Promise
   const p6 =
     (await handleCommentControlsDemo(request, segments.slice(1), store)) ??
     (await handleCommentModesDemo(request, segments.slice(1), store.comments)) ??
-    (await handleMessagesDemo(request, segments.slice(1))) ??
+    (await handleMessagesDemo(request, segments.slice(1), store.comments)) ??
     (await handleReadersDemo(request, segments.slice(1)));
   if (p6) return p6;
 

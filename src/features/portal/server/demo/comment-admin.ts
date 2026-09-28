@@ -31,7 +31,8 @@ import {
   type CommentSurface,
 } from '@bunizao/contracts';
 import type { PortalActivityEntry, PortalActivityEvent } from '@/features/admin/server/portal-client';
-import { sourceProfile, withClusters } from './comments';
+import { actorMatchesKey, sourceProfile, withClusters } from './comments';
+import { messagesMatching } from './messages';
 
 export interface CommentAdminStore {
   comments: AdminCommentRecord[];
@@ -216,22 +217,7 @@ function isOneOf<T extends string>(values: readonly T[], value: unknown): value 
 }
 
 export function matchesKey(comment: AdminCommentRecord, type: AdminSourceKeyType, value: string): boolean {
-  const { actor } = comment;
-  switch (type) {
-    case 'session': return actor.keys.session === value;
-    case 'ip': return actor.keys.ip === value;
-    case 'ip24': return actor.keys.ip24 === value;
-    case 'fp': return actor.keys.fp === value;
-    case 'email': return actor.keys.email === value;
-    case 'client_fp': return actor.keys.clientFp === value || actor.keys.clientFpStable === value;
-    case 'client_fp_stable': return actor.keys.clientFpStable === value;
-    case 'storage_id': return actor.keys.storageId === value;
-    case 'email_domain': return actor.keys.emailDomain === value;
-    case 'body_hash': return actor.keys.bodyHash === value;
-    case 'asn': return String(actor.asn ?? '') === value;
-    case 'domain': return actor.keys.linkDomains.includes(value);
-    default: return false;
-  }
+  return actorMatchesKey(comment.actor, type, value);
 }
 
 class QueueInputError extends Error {
@@ -729,7 +715,7 @@ export async function handleCommentAdminDemo(
   if (resource === 'sources') {
     if (rest.length !== 2 || method !== 'GET') return null;
     const [type, value] = rest as [AdminSourceKeyType, string];
-    return json(sourceProfile(type, value, store.comments.filter((row) => matchesKey(row, type, value))));
+    return json(sourceProfile(type, value, store.comments.filter((row) => matchesKey(row, type, value)), messagesMatching(type, value)));
   }
 
   if (rest.length === 0) return method === 'GET' ? listQueue(store, new URL(request.url).searchParams) : null;

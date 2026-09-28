@@ -16,6 +16,12 @@
    files the message as replied unless it is archived (site-api's
    markOwnerMessageReplied guards on that), and no mail leaves the demo.
 
+   Every message carries its sender's actor, the comment writer block.
+   A sender who also comments writes from that writer's device, so the
+   device pivot finds both. One sender typed Mira's address without being
+   signed in: the address resolves to her reader, the device is nobody's
+   she uses, and only a signed-in write would make it hers.
+
    Dispatched from demo-api.ts. A unit test passes its own store; the dev
    server uses the one seeded below. Only imported behind
    `import.meta.env.DEV`. */
@@ -24,13 +30,20 @@ import {
   MESSAGE_MAX_BODY_LENGTH,
   MESSAGE_MIN_BODY_LENGTH,
   MESSAGE_STATES,
+  type AdminClusterCount,
+  type AdminClusterKey,
+  type AdminCommentActor,
+  type AdminCommentRecord,
   type AdminOwnerMessage,
   type AdminOwnerMessageAction,
   type AdminOwnerMessageDetail,
   type AdminOwnerMessageListResult,
   type AdminOwnerMessageReplyability,
+  type AdminSourceKeyType,
   type MessageState,
 } from '@bunizao/contracts';
+import { demoActor } from '@/features/admin/server/portal-demo';
+import { CLUSTER_KEYS, actorMatchesKey, digest, writerDeviceActor, type MatchedMessage } from './comments';
 
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
@@ -50,6 +63,8 @@ export interface DemoMessageReader {
 export interface MessagesStore {
   /** Newest first. */
   messages: AdminOwnerMessage[];
+  /** Who sent each message, by message id. */
+  actors: Map<string, AdminCommentActor>;
   /** Verified readers by email hash: who a reply can reach. */
   readers: Map<string, DemoMessageReader>;
   /** Email hashes that bounced or complained. */
@@ -149,9 +164,30 @@ function list(store: MessagesStore, params: URLSearchParams): Response {
   return json(result);
 }
 
-function detail(store: MessagesStore, id: string): Response {
+/** What else shares each of the sender's keys: comments (and how many are
+    held) from the comment store, other messages from this one. Reactions
+    live in the moderation module and count nothing here. */
+function clustersOf(store: MessagesStore, id: string, actor: AdminCommentActor, comments: readonly AdminCommentRecord[]) {
+  const cluster: Partial<Record<AdminClusterKey, AdminClusterCount>> = {};
+  for (const key of CLUSTER_KEYS) {
+    const value = actor.keys[key];
+    if (!value) continue;
+    const alike = comments.filter((row) => row.actor.keys[key] === value);
+    const messages = [...store.actors].filter(([other, entry]) => other !== id && entry.keys[key] === value);
+    cluster[key] = {
+      comments: alike.length,
+      held: alike.filter((row) => row.status === 'held').length,
+      reactions: 0,
+      messages: messages.length,
+    };
+  }
+  return { ...actor.cluster, ...cluster };
+}
+
+function detail(store: MessagesStore, id: string, comments: readonly AdminCommentRecord[]): Response {
   const message = store.messages.find((entry) => entry.id === id);
   if (!message) return fail(404, 'message_not_found');
+  const actor = store.actors.get(id);
   const recipient = recipientOf(store, message);
   const history = message.emailHash
     ? store.messages
@@ -165,6 +201,7 @@ function detail(store: MessagesStore, id: string): Response {
       ? { replyable: 'ok', email: recipient.reader.email, readerId: recipient.reader.readerId }
       : { replyable: recipient.reason, email: null, readerId: message.readerId },
     history: structuredClone(history),
+    ...(actor && { actor: structuredClone({ ...actor, cluster: clustersOf(store, id, actor, comments) }) }),
   };
   return json(result);
 }
@@ -229,27 +266,37 @@ async function reply(store: MessagesStore, id: string, request: Request): Promis
 interface Sender {
   name: string;
   hash: string | null;
-  /** A verified reader behind the address, if any. */
+  /** A verified reader behind the address, if any. Their messages are
+      written signed in. */
   reader?: { readerId: string; email: string; banned?: boolean };
+  /** The address typed, for a sender no reader account stands behind. */
+  address?: string;
   suppressed?: boolean;
   country: string | null;
   locale: 'en' | 'zh';
+  city: string;
+  asn: number;
+  asOrg: string;
+  /** Where a sender with no comment device (demo/comments.ts) wrote from. */
+  device?: { browser: string; os: string; ip: string };
 }
 
 const SENDERS = {
-  mira: { name: 'Mira', hash: 'a1f0c3e9d2b47a10', reader: { readerId: 'reader-3f9a1c', email: 'mira.k@example.de' }, country: 'DE', locale: 'en' },
-  kobayashi: { name: '小林', hash: 'b27d91c04e3a5f62', country: 'JP', locale: 'zh' },
-  anonymous: { name: 'A reader', hash: null, country: 'AU', locale: 'en' },
-  priya: { name: 'Priya', hash: 'c93e0a7b15d2f804', reader: { readerId: 'reader-81c2d0', email: 'priya.r@example.in' }, suppressed: true, country: 'IN', locale: 'en' },
-  jie: { name: '阿杰', hash: 'd40b6f28a9c1e375', reader: { readerId: 'reader-5e7b33', email: 'ajie@example.tw' }, country: 'TW', locale: 'zh' },
-  sam: { name: 'Sam Carter', hash: 'e5c17d3f02b8a946', reader: { readerId: 'reader-c0a915', email: 'sam.carter@example.com' }, country: 'US', locale: 'en' },
-  tomasz: { name: 'tomasz', hash: 'f6a28e4c13d9b057', reader: { readerId: 'reader-77d0e2', email: 'tomasz.w@example.pl', banned: true }, country: 'PL', locale: 'en' },
-  lea: { name: 'Léa', hash: '07b39f5d24e0c168', reader: { readerId: 'reader-2b4f86', email: 'lea.m@example.fr' }, country: 'FR', locale: 'en' },
-  anna: { name: 'Anna', hash: '18c40a6e35f1d279', reader: { readerId: 'reader-9d13a7', email: 'anna.s@example.edu' }, country: 'AT', locale: 'en' },
-  seo: { name: 'SEO Growth Team', hash: '29d51b7f46a2e38a', country: 'US', locale: 'en' },
-  signals: { name: 'Crypto Signals VIP', hash: '3ae62c8057b3f49b', country: 'NL', locale: 'en' },
-  guest: { name: 'Editorial Outreach', hash: '4bf73d9168c4a5ac', country: 'GB', locale: 'en' },
-  nanfeng: { name: '南风', hash: '5c084eaa79d5b6bd', reader: { readerId: 'reader-4a60f1', email: 'nanfeng@example.cn' }, country: 'CN', locale: 'zh' },
+  mira: { name: 'Mira', hash: 'a1f0c3e9d2b47a10', reader: { readerId: 'reader-3f9a1c', email: 'mira.k@example.de' }, country: 'DE', locale: 'en', city: 'Berlin', asn: 3320, asOrg: 'Deutsche Telekom' },
+  kobayashi: { name: '小林', hash: 'b27d91c04e3a5f62', address: 'kobayashi.h@example.jp', country: 'JP', locale: 'zh', city: 'Tokyo', asn: 2516, asOrg: 'KDDI' },
+  anonymous: { name: 'A reader', hash: null, country: 'AU', locale: 'en', city: 'Melbourne', asn: 1221, asOrg: 'Telstra', device: { browser: 'Safari 18', os: 'iOS', ip: '1.144.108.23' } },
+  priya: { name: 'Priya', hash: 'c93e0a7b15d2f804', reader: { readerId: 'reader-81c2d0', email: 'priya.r@example.in' }, suppressed: true, country: 'IN', locale: 'en', city: 'Bengaluru', asn: 24560, asOrg: 'Bharti Airtel' },
+  jie: { name: '阿杰', hash: 'd40b6f28a9c1e375', reader: { readerId: 'reader-5e7b33', email: 'ajie@example.tw' }, country: 'TW', locale: 'zh', city: 'Taipei', asn: 3462, asOrg: 'Chunghwa Telecom' },
+  sam: { name: 'Sam Carter', hash: 'e5c17d3f02b8a946', reader: { readerId: 'reader-c0a915', email: 'sam.carter@example.com' }, country: 'US', locale: 'en', city: 'Portland', asn: 7922, asOrg: 'Comcast' },
+  tomasz: { name: 'tomasz', hash: 'f6a28e4c13d9b057', reader: { readerId: 'reader-77d0e2', email: 'tomasz.w@example.pl', banned: true }, country: 'PL', locale: 'en', city: 'Warsaw', asn: 5617, asOrg: 'Orange Polska' },
+  lea: { name: 'Léa', hash: '07b39f5d24e0c168', reader: { readerId: 'reader-2b4f86', email: 'lea.m@example.fr' }, country: 'FR', locale: 'en', city: 'Lyon', asn: 3215, asOrg: 'Orange' },
+  anna: { name: 'Anna', hash: '18c40a6e35f1d279', reader: { readerId: 'reader-9d13a7', email: 'anna.s@example.edu' }, country: 'AT', locale: 'en', city: 'Vienna', asn: 8447, asOrg: 'A1 Telekom Austria', device: { browser: 'Chrome 129', os: 'Windows', ip: '84.115.201.9' } },
+  seo: { name: 'SEO Growth Team', hash: '29d51b7f46a2e38a', address: 'team@seo-growth.example', country: 'US', locale: 'en', city: 'New York', asn: 14061, asOrg: 'DigitalOcean', device: { browser: 'Chrome 128', os: 'Linux', ip: '167.99.41.12' } },
+  signals: { name: 'Crypto Signals VIP', hash: '3ae62c8057b3f49b', address: 'vip@moonsignals.example', country: 'NL', locale: 'en', city: 'Amsterdam', asn: 60781, asOrg: 'LeaseWeb', device: { browser: 'Chrome 128', os: 'Windows', ip: '37.48.87.14' } },
+  guest: { name: 'Editorial Outreach', hash: '4bf73d9168c4a5ac', address: 'outreach@editorial-links.example', country: 'GB', locale: 'en', city: 'London', asn: 20473, asOrg: 'Vultr', device: { browser: 'Firefox 131', os: 'Windows', ip: '45.77.63.8' } },
+  nanfeng: { name: '南风', hash: '5c084eaa79d5b6bd', reader: { readerId: 'reader-4a60f1', email: 'nanfeng@example.cn' }, country: 'CN', locale: 'zh', city: 'Hangzhou', asn: 4134, asOrg: 'China Telecom' },
+  // Mira's address, typed signed out through a VPN exit in Frankfurt.
+  impostor: { name: 'Mira K.', hash: 'a1f0c3e9d2b47a10', address: 'mira.k@example.de', country: 'DE', locale: 'en', city: 'Frankfurt', asn: 9009, asOrg: 'M247', device: { browser: 'Chrome 129', os: 'Windows', ip: '185.206.224.67' } },
 } satisfies Record<string, Sender>;
 
 type SenderKey = keyof typeof SENDERS;
@@ -287,7 +334,49 @@ const SEED: SeedRow[] = [
   { sender: 'kobayashi', hoursAgo: 480, state: 'archived', body: '新年快乐！谢谢你一直在写。' },
   { sender: 'nanfeng', hoursAgo: 600, state: 'replied', repliedAfter: 30, body: '博客的暗色模式在 iPad 上顶部有一条白边，不知道是不是 Safari 的问题。' },
   { sender: 'priya', hoursAgo: 700, state: 'read', body: 'Do you have a talk recording of the Workers cold start numbers? Would love to share it with the meetup.' },
+  // Last, so the rows above keep their ids.
+  { sender: 'impostor', hoursAgo: 1.2, state: 'new', body: 'Your retry budget post is a lazy rewrite of somebody else\'s talk. I will be saying so under every post you publish from now on.' },
 ];
+
+/** The sender's actor: on their comment device when they have one, else
+    on the device named here. The email key is the message's address hash,
+    and only a signed-in write names a reader. */
+function senderActor(key: SenderKey, sender: Sender, message: AdminOwnerMessage): AdminCommentActor {
+  const verified = message.authAtWrite === 'verified';
+  const ip = sender.device?.ip ?? '203.0.113.7';
+  const base = demoActor({
+    country: sender.country,
+    city: sender.city,
+    asn: sender.asn,
+    asOrg: sender.asOrg,
+    browser: sender.device?.browser ?? null,
+    os: sender.device?.os ?? null,
+    ip,
+    keys: {
+      session: digest(`message-session:${key}`),
+      ip: digest(`ip:${ip}`),
+      ip24: digest(`ip24:${ip.split('.').slice(0, 3).join('.')}`),
+      fp: digest(`message-fp:${key}`),
+      clientFp: digest(`message-client-fp:${key}`),
+      clientFpStable: digest(`message-client-fp-stable:${key}`),
+      storageId: digest(`message-storage:${key}`),
+    },
+  });
+  const actor = writerDeviceActor(sender.name, base, message.body, verified) ?? base;
+  const email = sender.reader?.email ?? sender.address ?? null;
+  return {
+    ...actor,
+    readerId: verified ? message.readerId : null,
+    authAtWrite: message.authAtWrite ?? 'unknown',
+    email,
+    keys: {
+      ...actor.keys,
+      email: sender.hash,
+      emailDomain: email?.split('@')[1] ?? null,
+      bodyHash: digest(`body:${message.body}`),
+    },
+  };
+}
 
 export function seedMessages(now = Date.now()): MessagesStore {
   const readers = new Map<string, DemoMessageReader>();
@@ -297,19 +386,23 @@ export function seedMessages(now = Date.now()): MessagesStore {
     if (sender.reader) readers.set(sender.hash, { readerId: sender.reader.readerId, email: sender.reader.email, banned: sender.reader.banned ?? false });
     if (sender.suppressed) suppressed.add(sender.hash);
   }
+  const actors = new Map<string, AdminCommentActor>();
   const messages = SEED.map((row, index): AdminOwnerMessage => {
     const sender: Sender = SENDERS[row.sender];
     const createdAt = new Date(now - row.hoursAgo * HOUR).toISOString();
     const repliedAt = row.repliedAfter === undefined ? null : new Date(now - (row.hoursAgo - row.repliedAfter) * HOUR).toISOString();
     const touched = row.state === 'new' ? createdAt : new Date(Math.min(now, Date.parse(repliedAt ?? createdAt) + DAY / 4)).toISOString();
-    return {
+    // site-api's findReaderByEmailHash: whoever the address resolves to,
+    // signed in or not. Only a live reader session makes it `verified`.
+    const reader = sender.hash ? readers.get(sender.hash) : undefined;
+    const message: AdminOwnerMessage = {
       id: `01J9MSG${String(index + 1).padStart(4, '0')}A7Q3W8E2R4T6Y9Z`,
       state: row.state,
       displayName: sender.name,
       body: row.body,
       locale: sender.locale,
-      // Set at write time only for an address already confirmed then.
-      readerId: sender.reader && !sender.reader.banned ? sender.reader.readerId : null,
+      readerId: reader && !reader.banned ? reader.readerId : null,
+      authAtWrite: sender.reader && !sender.reader.banned ? 'verified' : 'anonymous',
       emailHash: sender.hash,
       spamNote: row.spam?.note ?? null,
       spamModel: row.spam?.model ?? null,
@@ -318,8 +411,10 @@ export function seedMessages(now = Date.now()): MessagesStore {
       createdAt,
       updatedAt: touched,
     };
+    actors.set(message.id, senderActor(row.sender, sender, message));
+    return message;
   });
-  return { messages: messages.sort((a, b) => b.createdAt.localeCompare(a.createdAt)), readers, suppressed };
+  return { messages: messages.sort((a, b) => b.createdAt.localeCompare(a.createdAt)), actors, readers, suppressed };
 }
 
 /* One store per dev-server process, like demo-api.ts's. */
@@ -330,18 +425,29 @@ export function resetMessagesDemo(): void {
   devStore = seedMessages();
 }
 
+/** The messages a pivot key reaches, with their senders, for the source
+    profile in demo/comment-admin.ts. */
+export function messagesMatching(type: AdminSourceKeyType, value: string, store: MessagesStore = devStore): MatchedMessage[] {
+  return store.messages.flatMap((message) => {
+    const actor = store.actors.get(message.id);
+    return actor && actorMatchesKey(actor, type, value) ? [{ message: structuredClone(message), actor }] : [];
+  });
+}
+
 /** Answers `admin/messages[/…]`, or null for a path this module does not
-    own. `segments` starts after `admin`. */
+    own. `segments` starts after `admin`; `comments` is the demo comment
+    store a sender's keys are counted against. */
 export async function handleMessagesDemo(
   request: Request,
   segments: string[],
+  comments: readonly AdminCommentRecord[] = [],
   store: MessagesStore = devStore,
 ): Promise<Response | null> {
   const [resource, ...rest] = segments;
   if (resource !== 'messages') return null;
   const method = request.method.toUpperCase();
   if (rest.length === 0 && method === 'GET') return list(store, new URL(request.url).searchParams);
-  if (rest.length === 1 && method === 'GET') return detail(store, rest[0]);
+  if (rest.length === 1 && method === 'GET') return detail(store, rest[0], comments);
   if (rest.length === 1 && method === 'POST') return act(store, rest[0], request);
   if (rest.length === 2 && rest[1] === 'reply' && method === 'POST') return reply(store, rest[0], request);
   return null;

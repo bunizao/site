@@ -10,6 +10,8 @@
    stable fingerprint. Pivot on its fingerprint and the whole wave shows.
    One signed-in reader's device collides with that fingerprint, as device
    fingerprints do: a ban that sweeps it must spare their published comment.
+   A writer who also sends a message sends it from the same device
+   (demo/messages.ts), so a pivot on it finds both.
 
    Imported only behind `import.meta.env.DEV`, like demo-api.ts. */
 
@@ -18,14 +20,18 @@ import type {
   AdminClusterKey,
   AdminCommentActor,
   AdminCommentRecord,
+  AdminOwnerMessage,
+  AdminSourceAddress,
+  AdminSourceDevice,
   AdminSourceKeyType,
   AdminSourceProfile,
+  MessageState,
 } from '@bunizao/contracts';
 import { DEMO_SOURCE_PROFILE } from '@/features/admin/server/portal-demo';
 
 /** A stable hex digest of a string, as long as asked. Not a real HMAC; it
     only has to be the same on every restart and differ between inputs. */
-function digest(input: string, length = 64): string {
+export function digest(input: string, length = 64): string {
   let out = '';
   let seed = 2_166_136_261;
   while (out.length < length) {
@@ -190,7 +196,7 @@ function farmActor(row: AdminCommentRecord, n: number): AdminCommentActor {
   };
 }
 
-function writerActor(row: AdminCommentRecord, device: Device, n: number): AdminCommentActor {
+function writerActor(row: Pick<AdminCommentRecord, 'actor' | 'author' | 'body' | 'verified'>, device: Device, n: number): AdminCommentActor {
   const verified = row.verified;
   // Phones hop between two addresses; desktops keep one.
   const ip = `${device.ipBase}.${device.pointer === 'touch' && n % 2 ? 77 : 14}`;
@@ -238,6 +244,13 @@ function writerActor(row: AdminCommentRecord, device: Device, n: number): AdminC
   };
 }
 
+/** `base` as seen from a demo writer's device: the network, browser and
+    keys their comments carry. Null for a name with no device. */
+export function writerDeviceActor(author: string, base: AdminCommentActor, body: string, verified: boolean): AdminCommentActor | null {
+  const device = DEVICES[author];
+  return device ? writerActor({ actor: base, author, body, verified }, device, 0) : null;
+}
+
 /** Gives every generated comment a complete, per-writer fingerprint record.
     Hand-written fixture rows (ids not starting `01J9DEMO`) keep theirs. */
 export function enrichComments(rows: AdminCommentRecord[]): AdminCommentRecord[] {
@@ -257,7 +270,7 @@ export function enrichComments(rows: AdminCommentRecord[]): AdminCommentRecord[]
   });
 }
 
-const CLUSTER_KEYS: AdminClusterKey[] = [
+export const CLUSTER_KEYS: AdminClusterKey[] = [
   'session', 'ip', 'ip24', 'fp', 'email', 'clientFp', 'clientFpStable', 'storageId', 'emailDomain', 'bodyHash',
 ];
 
@@ -291,11 +304,79 @@ export function withClusters(page: AdminCommentRecord[], all: readonly AdminComm
   });
 }
 
-/** `GET admin/sources/:type/:value`, from the rows the key matches. */
-export function sourceProfile(type: AdminSourceKeyType, value: string, matching: AdminCommentRecord[]): AdminSourceProfile {
+/** Whether a pivot on `type`/`value` reaches this actor: site-api's
+    SOURCE_KEY_COLUMNS, read off the demo's actor block. */
+export function actorMatchesKey(actor: AdminCommentActor, type: AdminSourceKeyType, value: string): boolean {
+  switch (type) {
+    case 'session': return actor.keys.session === value;
+    case 'ip': return actor.keys.ip === value;
+    case 'ip24': return actor.keys.ip24 === value;
+    case 'fp': return actor.keys.fp === value;
+    case 'email': return actor.keys.email === value;
+    case 'client_fp': return actor.keys.clientFp === value || actor.keys.clientFpStable === value;
+    case 'client_fp_stable': return actor.keys.clientFpStable === value;
+    case 'storage_id': return actor.keys.storageId === value;
+    case 'email_domain': return actor.keys.emailDomain === value;
+    case 'body_hash': return actor.keys.bodyHash === value;
+    case 'asn': return String(actor.asn ?? '') === value;
+    case 'domain': return actor.keys.linkDomains.includes(value);
+    default: return false;
+  }
+}
+
+/** A message a key matched, with the actor that sent it. */
+export interface MatchedMessage {
+  message: AdminOwnerMessage;
+  actor: AdminCommentActor;
+}
+
+const PROFILE_LIST_LIMIT = 10;
+
+/** The addresses and devices seen under a key across comments and
+    messages, newest first. An address is confirmed when any of its rows
+    was written signed in; browser and os come from the newest row. */
+function addressesAndDevices(comments: AdminCommentRecord[], messages: readonly MatchedMessage[]) {
+  const seen = [
+    ...comments.map((row) => ({ at: row.createdAt, actor: row.actor, table: 'comments' as const })),
+    ...messages.map(({ message, actor }) => ({ at: message.createdAt, actor, table: 'messages' as const })),
+  ].sort((a, b) => b.at.localeCompare(a.at));
+  const addresses = new Map<string, AdminSourceAddress>();
+  const devices = new Map<string, AdminSourceDevice>();
+  for (const { at, actor, table } of seen) {
+    const hash = actor.keys.email;
+    if (hash) {
+      const entry = addresses.get(hash) ?? { emailHash: hash, email: null, confirmed: false, comments: 0, messages: 0, lastSeenAt: at };
+      entry.email ??= actor.email;
+      entry.confirmed ||= actor.authAtWrite === 'verified';
+      entry[table] += 1;
+      addresses.set(hash, entry);
+    }
+    const fp = actor.keys.clientFp;
+    if (fp) {
+      const entry = devices.get(fp) ?? { clientFp: fp, browser: actor.browser, os: actor.os, comments: 0, reactions: 0, messages: 0, lastSeenAt: at };
+      entry[table] += 1;
+      devices.set(fp, entry);
+    }
+  }
+  return {
+    addresses: [...addresses.values()].slice(0, PROFILE_LIST_LIMIT),
+    devices: [...devices.values()].slice(0, PROFILE_LIST_LIMIT),
+  };
+}
+
+/** `GET admin/sources/:type/:value`, from the comments and messages the key
+    matches. Reactions live in the moderation module and count nothing here. */
+export function sourceProfile(
+  type: AdminSourceKeyType,
+  value: string,
+  matching: AdminCommentRecord[],
+  messages: readonly MatchedMessage[] = [],
+): AdminSourceProfile {
   const byStatus = { held: 0, published: 0, rejected: 0, deleted: 0 };
   for (const row of matching) byStatus[row.status] += 1;
-  const times = matching.map((row) => row.createdAt).sort();
+  const byState: Record<MessageState, number> = { new: 0, read: 0, replied: 0, archived: 0, spam: 0 };
+  for (const { message } of messages) byState[message.state] += 1;
+  const times = [...matching.map((row) => row.createdAt), ...messages.map(({ message }) => message.createdAt)].sort();
   const distinct = (pick: (actor: AdminCommentActor) => string | number | null) =>
     new Set(matching.map((row) => pick(row.actor)).filter((v) => v !== null && v !== '')).size;
   const hints = new Map<string, { hint: string; kind: 'bot' | 'vpn'; count: number }>();
@@ -310,6 +391,12 @@ export function sourceProfile(type: AdminSourceKeyType, value: string, matching:
     lastSeenAt: times.at(-1) ?? null,
     comments: { total: matching.length, byStatus, rows: matching.slice(0, 50) },
     reactions: { total: 0, byTarget: [], rows: [] },
+    messages: {
+      total: messages.length,
+      byState,
+      rows: messages.map(({ message }) => message).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 50),
+    },
+    ...addressesAndDevices(matching, messages),
     spread: {
       session: distinct((a) => a.keys.session),
       ip: distinct((a) => a.keys.ip),

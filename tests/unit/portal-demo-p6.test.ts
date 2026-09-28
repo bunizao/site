@@ -3,7 +3,8 @@ import type { AdminCommentRecord, AdminCommentStatus } from '@bunizao/contracts'
 import { demoActor } from '../../src/features/admin/server/portal-demo';
 import type { CommentAdminStore } from '../../src/features/portal/server/demo/comment-admin';
 import { handleCommentControlsDemo } from '../../src/features/portal/server/demo/controls';
-import { handleMessagesDemo, seedMessages, type MessagesStore } from '../../src/features/portal/server/demo/messages';
+import { sourceProfile } from '../../src/features/portal/server/demo/comments';
+import { handleMessagesDemo, messagesMatching, seedMessages, type MessagesStore } from '../../src/features/portal/server/demo/messages';
 import { handleCommentModesDemo, seedModes, type DemoModePost, type ModesStore } from '../../src/features/portal/server/demo/modes';
 import { handleReadersDemo, seedReaders, type ReadersStore } from '../../src/features/portal/server/demo/readers';
 
@@ -25,7 +26,7 @@ async function call(handler: Handler, method: string, path: string, body?: unkno
 /* ------------------------------------------------------------------ */
 
 describe('portal demo: owner messages', () => {
-  const messages = (store: MessagesStore): Handler => (request, segments) => handleMessagesDemo(request, segments, store);
+  const messages = (store: MessagesStore): Handler => (request, segments) => handleMessagesDemo(request, segments, [], store);
   const idOf = (store: MessagesStore, predicate: (message: MessagesStore['messages'][number]) => boolean) =>
     store.messages.find(predicate)!.id;
 
@@ -77,7 +78,10 @@ describe('portal demo: owner messages', () => {
     const mira = store.messages.filter((message) => message.displayName === 'Mira');
     const detail = await call(messages(store), 'GET', `messages/${mira[0].id}`);
     expect(detail.body.sender).toEqual({ replyable: 'ok', email: 'mira.k@example.de', readerId: 'reader-3f9a1c' });
-    expect(detail.body.history.map((message: { id: string }) => message.id)).toEqual(mira.slice(1).map((message) => message.id));
+    // By address, not by name: whoever typed it is in the history too.
+    const sameAddress = store.messages.filter((message) => message.emailHash === mira[0].emailHash && message.id !== mira[0].id);
+    expect(sameAddress.some((message) => message.displayName !== 'Mira')).toBe(true);
+    expect(detail.body.history.map((message: { id: string }) => message.id)).toEqual(sameAddress.map((message) => message.id));
 
     const reasons = async (name: string) =>
       (await call(messages(store), 'GET', `messages/${idOf(store, (message) => message.displayName === name)}`)).body.sender;
@@ -137,6 +141,76 @@ describe('portal demo: owner messages', () => {
     expect(sent.body.recipientEmail).toBe('m***@example.de');
     expect(sent.body.message.state).toBe('replied');
     expect(sent.body.message.repliedAt).toBeString();
+  });
+
+  test('an address typed signed out resolves to its reader, but the sender is not them', async () => {
+    const store = seedMessages();
+    const typed = store.messages.find((message) => message.displayName === 'Mira K.')!;
+    const signedIn = store.messages.find((message) => message.displayName === 'Mira')!;
+    expect(typed).toMatchObject({ emailHash: signedIn.emailHash, readerId: 'reader-3f9a1c', authAtWrite: 'anonymous' });
+    expect(signedIn.authAtWrite).toBe('verified');
+
+    const { body } = await call(messages(store), 'GET', `messages/${typed.id}`);
+    expect(body.message.authAtWrite).toBe('anonymous');
+    expect(body.actor).toMatchObject({ readerId: null, authAtWrite: 'anonymous', email: 'mira.k@example.de' });
+    expect(body.actor.keys.email).toBe(typed.emailHash);
+    // Nothing of Mira's device: only the address is shared.
+    const mira = store.actors.get(signedIn.id)!;
+    expect(body.actor.keys.clientFp).not.toBe(mira.keys.clientFp);
+    expect(body.actor.keys.session).not.toBe(mira.keys.session);
+  });
+
+  test('the sender block counts comments and other messages on each key', async () => {
+    const store = seedMessages();
+    const mira = store.messages.filter((message) => message.displayName === 'Mira');
+    const actor = store.actors.get(mira[0].id)!;
+    const comment = (status: AdminCommentStatus, clientFp: string | null) =>
+      ({ id: `c-${status}`, status, actor: demoActor({ keys: { clientFp } }) }) as AdminCommentRecord;
+    const comments = [comment('published', actor.keys.clientFp), comment('held', actor.keys.clientFp), comment('published', 'someone-else')];
+    const handler: Handler = (request, segments) => handleMessagesDemo(request, segments, comments, store);
+
+    const { body } = await call(handler, 'GET', `messages/${mira[0].id}`);
+    // Her other two messages share the device; this one is not counted.
+    expect(body.actor.cluster.clientFp).toEqual({ comments: 2, held: 1, reactions: 0, messages: mira.length - 1 });
+    // The address also reaches the message typed with it.
+    expect(body.actor.cluster.email.messages).toBe(mira.length);
+    expect(body.actor.cluster.email.comments).toBe(0);
+    // A message with no actor, as from a site-api that predates it, has no block.
+    store.actors.delete(mira[1].id);
+    expect((await call(handler, 'GET', `messages/${mira[1].id}`)).body).not.toHaveProperty('actor');
+  });
+
+  test('a pivot profile lists addresses by how they were written and devices across comments and messages', async () => {
+    const store = seedMessages();
+    const signedIn = store.messages.find((message) => message.displayName === 'Mira')!;
+    const typed = store.messages.find((message) => message.displayName === 'Mira K.')!;
+    const device = store.actors.get(signedIn.id)!.keys.clientFp!;
+    const comment = {
+      id: 'c-1', status: 'published', createdAt: new Date(0).toISOString(),
+      actor: demoActor({ authAtWrite: 'verified', email: 'mira@posteo.de', browser: 'Firefox 131', os: 'macOS', keys: { clientFp: device, email: 'posteo-hash' } }),
+    } as AdminCommentRecord;
+
+    // One device: both of her addresses, each confirmed, and the device itself.
+    const byDevice = sourceProfile('client_fp', device, [comment], messagesMatching('client_fp', device, store));
+    expect(byDevice.messages?.total).toBe(3);
+    expect(byDevice.messages?.byState.new).toBe(1);
+    expect(byDevice.addresses?.map(({ email, confirmed, comments, messages: sent }) => ({ email, confirmed, comments, messages: sent }))).toEqual([
+      { email: 'mira.k@example.de', confirmed: true, comments: 0, messages: 3 },
+      { email: 'mira@posteo.de', confirmed: true, comments: 1, messages: 0 },
+    ]);
+    expect(byDevice.devices).toEqual([
+      expect.objectContaining({ clientFp: device, browser: 'Firefox 131', os: 'macOS', comments: 1, messages: 3 }),
+    ]);
+
+    // One address: her device and the one that typed it.
+    const byAddress = sourceProfile('email', typed.emailHash!, [], messagesMatching('email', typed.emailHash!, store));
+    expect(byAddress.messages?.total).toBe(4);
+    expect(byAddress.devices?.map((entry) => [entry.os, entry.messages])).toEqual([['macOS', 3], ['Windows', 1]]);
+
+    // An address nobody signed in with stays typed.
+    const kobayashi = store.messages.find((message) => message.displayName === '小林')!;
+    const typedOnly = sourceProfile('email', kobayashi.emailHash!, [], messagesMatching('email', kobayashi.emailHash!, store));
+    expect(typedOnly.addresses).toEqual([expect.objectContaining({ confirmed: false, messages: 2 })]);
   });
 
   test('a reply to an archived message leaves it archived', async () => {
