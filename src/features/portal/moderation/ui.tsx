@@ -6,10 +6,15 @@ import { describeError } from '../app/api';
 import { Link } from '../app/router';
 import { formatCount, keyText } from './format';
 import { SMALL } from '../activity/table';
+import { TOUCH_TARGET } from './touch-target';
 
 /* The small pieces the three moderation screens share: a flat, dense,
    tool-like vocabulary. Status is a dot plus a word, values are mono, and a
    key always links to the comments it matches. */
+
+/* The segmented switch lives in segmented.tsx: import it from there, so a
+   screen that uses only this file does not load it too. */
+export { TOUCH_TARGET } from './touch-target';
 
 export type Tone = 'neutral' | 'accent' | 'warning' | 'danger' | 'success';
 
@@ -35,11 +40,6 @@ export function StatusDot({ tone, children, className }: { tone: Tone; children:
 /** Menu rows grow to 44px on touch screens (coss sizes them for a mouse),
     and the popup appears without its zoom when motion is reduced. */
 export const TOUCH_MENU = 'pointer-coarse:[&_[role^=menuitem]]:min-h-11 motion-reduce:transition-none';
-
-/** A 44px hit area on touch, centred on the element, from an ::after box,
-    so dense rows and bars keep their height. */
-export const TOUCH_TARGET =
-  'relative pointer-coarse:after:absolute pointer-coarse:after:top-1/2 pointer-coarse:after:left-1/2 pointer-coarse:after:h-11 pointer-coarse:after:w-full pointer-coarse:after:min-w-11 pointer-coarse:after:-translate-x-1/2 pointer-coarse:after:-translate-y-1/2';
 
 /** A coss ToggleGroupItem on a dialog: the popup surface all but hides the
     pressed fill, so the unpressed labels step back, as in Segmented. */
@@ -95,59 +95,6 @@ export function HashValue({ value }: { value: string }) {
     >
       {open ? value : `${value.slice(0, HASH_PREFIX)}…`}
     </button>
-  );
-}
-
-/* A small switch of our own instead of coss ToggleGroup: a switch pressed
-   many times a minute should change in the frame it is pressed. */
-export interface SwitchOption<T extends string> {
-  value: T;
-  label: string;
-}
-
-function arrowTo<T extends string>(event: React.KeyboardEvent, options: SwitchOption<T>[], value: T, onChange: (value: T) => void): void {
-  if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
-  event.preventDefault();
-  const index = options.findIndex((option) => option.value === value);
-  const next = options[(index + (event.key === 'ArrowRight' ? 1 : options.length - 1)) % options.length];
-  onChange(next.value);
-  const group = event.currentTarget.parentElement;
-  requestAnimationFrame(() => group?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
-}
-
-export function Segmented<T extends string>({ label, value, options, onChange, onIntent, className }: {
-  label: string;
-  value: T;
-  options: SwitchOption<T>[];
-  onChange: (value: T) => void;
-  /** Pointer-down on an option: time to start fetching what it will show. */
-  onIntent?: (value: T) => void;
-  className?: string;
-}) {
-  return (
-    <div role="radiogroup" aria-label={label} className={cn('inline-flex h-8 shrink-0 items-center gap-0.5 rounded-lg border p-0.5', className)}>
-      {options.map((option) => {
-        const checked = option.value === value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={checked}
-            tabIndex={checked ? 0 : -1}
-            onPointerDown={() => onIntent?.(option.value)}
-            onClick={() => onChange(option.value)}
-            onKeyDown={(event) => arrowTo(event, options, value, onChange)}
-            className={cn(
-              'relative h-full rounded-md px-2.5 text-muted-foreground text-xs tabular-nums outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:bg-accent aria-checked:bg-accent aria-checked:text-foreground',
-              TOUCH_TARGET,
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 

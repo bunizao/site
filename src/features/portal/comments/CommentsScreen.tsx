@@ -67,6 +67,8 @@ import {
   type Verdict,
 } from './data';
 import { LockdownLine, prefetchLockdown } from './Lockdown';
+import { prefetchSitePolicy } from './site-policy';
+import { SitePolicyLines } from './SitePolicy';
 import { REASON_LABELS, SOURCE_TYPES, absoluteTime, pivotHref, shortHandle, sourceBanKey, sourceLabel, stamp, type Pivot } from './model';
 import { OwnerSignInDialog, openOwnerSignIn } from './OwnerSignIn';
 import { PivotProfile } from './PivotProfile';
@@ -131,6 +133,7 @@ export function prefetch(client: QueryClient, search: URLSearchParams): Promise<
     prefetchCommentList(client, filter),
     pivot && prefetchSourceProfile(client, pivot.key, pivot.value),
     prefetchLockdown(client),
+    prefetchSitePolicy(client),
   ]);
 }
 
@@ -873,6 +876,7 @@ export default function CommentsScreen() {
       <div className="flex min-h-0 flex-1">
         {/* data-selecting shows the checkbox column in every row by CSS (CommentRow's LOG_GRID). */}
         <div data-selecting={selecting || undefined} className="@container/log group/sel relative flex min-w-0 flex-1 flex-col">
+          <SitePolicyLines scrollRef={view.scrollRef} />
           <LockdownLine scrollRef={view.scrollRef} />
           {pivotLine}
           <div className="relative flex min-h-0 flex-1 flex-col">

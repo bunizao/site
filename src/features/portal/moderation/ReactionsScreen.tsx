@@ -38,12 +38,12 @@ import {
   subnetName,
 } from './format';
 import { InsightTable, type InsightRowModel } from './InsightTable';
+import { Segmented } from './segmented';
 import {
   LoadError,
   TOUCH_MENU,
   TOUCH_TARGET,
   SectionHeading,
-  Segmented,
   StateTabs,
   StatusDot,
   commentsHref,

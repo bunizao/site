@@ -785,6 +785,131 @@ test.describe('post modes', () => {
 });
 
 /* ------------------------------------------------------------------ */
+/* Site-wide switches                                                  */
+/* ------------------------------------------------------------------ */
+
+interface DemoSitePolicy {
+  mode: string | null;
+  requireEmail: boolean;
+}
+
+const SITE_POLICY = `${API}/comments/site-policy`;
+const siteModes = (page: Page) => page.getByRole('radiogroup', { name: 'Comments everywhere' });
+const siteMode = (page: Page, label: string) => siteModes(page).getByRole('radio', { name: label, exact: true });
+const emailSwitch = (page: Page) => page.getByRole('switch', { name: 'Require a confirmed email' });
+/** The Comments header's line for one switch. */
+const policyLine = (page: Page, label: string) => page.locator('main [role="status"]').filter({ hasText: label });
+
+async function sitePolicy(page: Page): Promise<DemoSitePolicy> {
+  return ((await (await page.request.get(SITE_POLICY)).json()) as { policy: DemoSitePolicy }).policy;
+}
+
+async function sitePolicyOff(page: Page): Promise<void> {
+  await page.request.put(SITE_POLICY, { data: { mode: null, requireEmail: false } });
+}
+
+test.describe('site-wide switches', () => {
+  test('closed from Home, the Comments header says so, Reopen there, and Undo closes again', async ({ page }) => {
+    await sitePolicyOff(page);
+    try {
+      await open(page, '');
+      await expect(siteMode(page, 'Open')).toHaveAttribute('aria-checked', 'true');
+      await siteMode(page, 'Read-only').click();
+      await expect(siteMode(page, 'Read-only')).toHaveAttribute('aria-checked', 'true');
+      await expect(page.locator('main li').filter({ has: siteModes(page) })).toContainText(/Since \d\d:\d\d, nobody can add a comment/);
+      await expect(toast(page, 'Comments are read-only everywhere')).toContainText(CACHE_NOTE);
+      await expect.poll(async () => (await sitePolicy(page)).mode).toBe('readonly');
+
+      await open(page, '/comments');
+      const line = policyLine(page, 'Read-only everywhere');
+      await expect(line).toBeVisible();
+      await line.getByRole('button', { name: 'Reopen' }).click();
+      await expect(line).toHaveCount(0);
+      await expect.poll(async () => (await sitePolicy(page)).mode).toBeNull();
+
+      await toast(page, 'Comments reopened everywhere').getByRole('button', { name: 'Undo' }).click();
+      await expect(line).toBeVisible();
+      await expect.poll(async () => (await sitePolicy(page)).mode).toBe('readonly');
+    } finally {
+      await sitePolicyOff(page);
+    }
+  });
+
+  test('a post whose mode the site-wide one makes stricter says so in its row', async ({ page }) => {
+    const shell = (await modeList(page)).find((entry) => entry.slug === 'shell-work-before-polish');
+    const retry = (await modeList(page)).find((entry) => entry.slug === 'retry-budget');
+    expect(shell?.override, 'the demo opens shell-work-before-polish').toBe('open');
+    expect(retry?.override, 'the demo closes retry-budget').toBe('readonly');
+    await page.request.put(SITE_POLICY, { data: { mode: 'readonly' } });
+    try {
+      await open(page, '/comments/modes');
+      await expect(readersGet(page, shell!)).toHaveText('Read-only everywhere', INNER);
+      await expect(readersGet(page, retry!)).toHaveText('Read-only', INNER);
+      // Reopened here, the row goes back to its own mode in the same frame.
+      await siteMode(page, 'Open').click();
+      await expect(readersGet(page, shell!)).toHaveText('Open', INNER);
+    } finally {
+      await sitePolicyOff(page);
+    }
+  });
+
+  test('the email rule is required from Post modes, and the palette stops it', async ({ page }) => {
+    await sitePolicyOff(page);
+    try {
+      await open(page, '/comments/modes');
+      await expect(emailSwitch(page)).toHaveAttribute('aria-checked', 'false');
+      await emailSwitch(page).click();
+      await expect(emailSwitch(page)).toHaveAttribute('aria-checked', 'true');
+      await expect(page.locator('main section[aria-labelledby="everywhere"]')).toContainText(/Since \d\d:\d\d, anonymous comments wait for an email/);
+      await expect(toast(page, 'A confirmed email is required everywhere')).toBeVisible();
+      await expect.poll(async () => (await sitePolicy(page)).requireEmail).toBe(true);
+
+      // Only the transitions that apply: the mode is open, the rule is on.
+      await page.keyboard.press('ControlOrMeta+k');
+      await page.keyboard.insertText('everywhere');
+      const palette = page.getByRole('dialog');
+      await expect(palette.getByRole('option', { name: 'Close comments everywhere' })).toBeVisible();
+      await expect(palette.getByRole('option', { name: 'Hide comments everywhere' })).toBeVisible();
+      await expect(palette.getByRole('option', { name: 'Reopen comments everywhere' })).toHaveCount(0);
+      await expect(palette.getByRole('option', { name: 'Require a confirmed email everywhere' })).toHaveCount(0);
+      await palette.getByRole('option', { name: 'Stop requiring an email everywhere' }).click();
+
+      await expect(emailSwitch(page)).toHaveAttribute('aria-checked', 'false');
+      await expect(toast(page, 'An email is optional again')).toBeVisible();
+      await expect.poll(async () => (await sitePolicy(page)).requireEmail).toBe(false);
+    } finally {
+      await sitePolicyOff(page);
+    }
+  });
+
+  test('a site-api without the route says so inline, and a refused change rolls back with the reason', async ({ page }) => {
+    await sitePolicyOff(page);
+    const route = apiPath('comments/site-policy');
+    await page.route(route, (request) => request.fulfill(missingRoute(404)));
+    await open(page, '');
+    await expect(page.locator('main li').filter({ hasText: 'Comments everywhere' })).toContainText(MISSING);
+    await expect(page.locator('main li').filter({ hasText: 'comment lockdown' }).getByRole('button', { name: 'Lock down…' })).toBeVisible();
+
+    await open(page, '/comments/modes');
+    await expect(page.getByRole('status').filter({ hasText: MISSING })).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Overridden posts' })).toBeVisible();
+
+    await open(page, '/comments?status=all');
+    await expect(page.locator('main [data-row-id]').first()).toBeVisible();
+    await expect(policyLine(page, 'everywhere')).toHaveCount(0);
+    await page.unroute(route);
+
+    // Read, but the change is refused: the switch goes back and says why.
+    await page.route(route, (request) => (request.request().method() === 'GET' ? request.fallback() : request.fulfill(missingRoute(405))));
+    await open(page, '');
+    await siteMode(page, 'Off').click();
+    await expect(toast(page, 'Comments everywhere did not change')).toContainText(MISSING);
+    await expect(siteMode(page, 'Open')).toHaveAttribute('aria-checked', 'true');
+    expect((await sitePolicy(page)).mode).toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------ */
 /* Pin, lock and mode from the comment pane                            */
 /* ------------------------------------------------------------------ */
 

@@ -11,6 +11,7 @@ import { toastManager } from '@/components/coss/toast';
 import { ApiError, MISSING_ROUTE_MESSAGE, apiGet, apiSend, describeError, isMissingRoute } from '../app/api';
 import { shareRowsById } from '../app/share-rows';
 import { forgetUndo, registerUndo } from '../app/undo';
+import { CACHE_NOTE } from '../comments/cache-note';
 import type { Tone } from './ui';
 
 /* Per-post comment modes: the owner's override beside what the post's
@@ -19,8 +20,6 @@ import type { Tone } from './ui';
    the change at once, the edge cache serves everyone else within about
    90 seconds, and every place a mode changes says so. Post modes and the
    comment pane both draw from here, so the two stay in step. */
-
-export const CACHE_NOTE = 'Changes reach cookie-less readers within about 90s.';
 
 export const MODE_LABELS: Record<CommentsMode, string> = { open: 'Open', readonly: 'Read-only', off: 'Off' };
 export const MODE_TONE: Record<CommentsMode, Tone> = { open: 'neutral', readonly: 'warning', off: 'neutral' };

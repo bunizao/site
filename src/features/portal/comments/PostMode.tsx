@@ -1,8 +1,8 @@
 import type { AdminCommentModeState, CommentSurface } from '@bunizao/contracts';
 import type { PortalComment } from '@/features/admin/server/portal-client';
 import { isMissingRoute } from '../app/api';
+import { CACHE_NOTE } from './cache-note';
 import {
-  CACHE_NOTE,
   MODE_CHOICES,
   MODE_LABELS,
   MODE_TONE,
@@ -11,12 +11,15 @@ import {
   useSetMode,
   type ModeChoice,
 } from '../moderation/modes-data';
-import { Segmented, StatusDot } from '../moderation/ui';
+import { Segmented } from '../moderation/segmented';
+import { StatusDot } from '../moderation/ui';
+import { underSiteMode, useSitePolicy } from './site-policy';
 
 /* The comment pane's post line carries the post's comment mode: the same
    four-way override as Post modes, from the same cache entry, so a change
    in either shows in both. What the tags give sits beside it, which with
-   Default is what readers get. The line keeps its height from the first frame
+   Default is what readers get, unless the site-wide mode is stricter,
+   which the line then says. The line keeps its height from the first frame
    to the answer, so nothing under it moves. */
 
 /** Rows before P2 carry no surface: mood posts key on a numeric id and
@@ -32,6 +35,9 @@ export function PostModeLine({ comment }: { comment: PortalComment }) {
   const set = useSetMode();
   const state: AdminCommentModeState | undefined = one.data;
   const from = surface === 'mood' ? 'Site default' : 'Tags give';
+  const siteMode = useSitePolicy().data?.policy.mode ?? null;
+  const own = state ? (state.override ?? state.tagMode) : null;
+  const bySite = own !== null && underSiteMode(own, siteMode) !== own;
 
   // Two lines of fixed height, answered or not, so the text below stays put.
   return (
@@ -62,7 +68,11 @@ export function PostModeLine({ comment }: { comment: PortalComment }) {
               <>
                 {from}
                 {state.tagMode ? <StatusDot tone={MODE_TONE[state.tagMode]}>{MODE_LABELS[state.tagMode]}</StatusDot> : 'nothing: the post was not found'}
-                {state.override && <span>· the override wins</span>}
+                {bySite && siteMode ? (
+                  <span>· {MODE_LABELS[siteMode]} everywhere wins</span>
+                ) : (
+                  state.override && <span>· the override wins</span>
+                )}
               </>
             )}
           </p>

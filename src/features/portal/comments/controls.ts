@@ -5,7 +5,7 @@ import { toastManager } from '@/components/coss/toast';
 import type { PortalComment, PortalComments } from '@/features/admin/server/portal-client';
 import { ApiError, apiSend, describeError } from '../app/api';
 import { forgetUndo, registerUndo } from '../app/undo';
-import { CACHE_NOTE } from '../moderation/modes-data';
+import { CACHE_NOTE } from './cache-note';
 import { commentKeys } from './data';
 import { stamp } from './model';
 

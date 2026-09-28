@@ -24,7 +24,8 @@ import {
   subnetName,
 } from './format';
 import { InsightTable, type InsightRowModel } from './InsightTable';
-import { LoadError, SectionHeading, Segmented } from './ui';
+import { Segmented } from './segmented';
+import { LoadError, SectionHeading } from './ui';
 
 /* What the comment pipeline did over a window, as flat ranked tables. Every
    row that names a key opens the matching comments in one click; the row

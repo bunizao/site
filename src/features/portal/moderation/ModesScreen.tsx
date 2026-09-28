@@ -1,23 +1,26 @@
 import * as React from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { AdminCommentModeState, CommentSurface, CommentsMode } from '@bunizao/contracts';
+import type { AdminCommentModeState, AdminCommentSiteMode, CommentSurface, CommentsMode } from '@bunizao/contracts';
 import { Search } from 'lucide-react';
+import { Button } from '@/components/coss/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/coss/input-group';
 import { Kbd } from '@/components/coss/kbd';
 import { Skeleton } from '@/components/coss/skeleton';
 import { cn } from '@/lib/utils';
-import { HEAD, ROW, SPACED, TABLE } from '../activity/table';
-import { isMissingRoute } from '../app/api';
+import { Dot, HEAD, PRESSABLE, ROW, SMALL, SPACED, TABLE } from '../activity/table';
+import { describeError, isMissingRoute } from '../app/api';
 import { useHotkeys } from '../app/hotkeys';
 import { setSearch, useLocation } from '../app/router';
 import { ScreenHeader } from '../app/shell/ScreenHeader';
 import { undoLast } from '../app/undo';
 import { useStableView } from '../audience/stable-view';
+import { CACHE_NOTE } from '../comments/cache-note';
 import { stamp } from '../comments/model';
+import { emailCaption, modeCaption, prefetchSitePolicy, underSiteMode, useSitePolicy } from '../comments/site-policy';
+import { RequireEmailSwitch, SiteModeSwitch } from '../comments/SitePolicy';
 import { ghostPostsOptions } from '../tools/data';
 import { fullTime, plural } from './format';
 import {
-  CACHE_NOTE,
   MODE_CHOICES as CHOICES,
   MODE_LABELS,
   MODE_TONE as TONE,
@@ -30,14 +33,17 @@ import {
   useSetMode,
   type ModeChoice as Choice,
 } from './modes-data';
-import { LoadError, Segmented, StatusDot, matchesWords, useSearchText } from './ui';
+import { Segmented } from './segmented';
+import { LoadError, StatusDot, matchesWords, useSearchText } from './ui';
 
-/* Per-post comment modes. With no search, every post whose mode the owner
-   overrode, latest change first; a search finds any published post (or a
-   pasted id) to override. Each row shows what the post's tags give, the
-   override as one four-way switch, and what readers get. A change is one
-   click, shows at once, and is undone from the toast or with Z. The comment
-   pane's switch (comments/PostMode.tsx) shares this data. */
+/* Per-post comment modes. With no search, the site-wide switches first
+   (Everywhere), then every post whose mode the owner overrode, latest
+   change first; a search finds any published post (or a pasted id) to
+   override. Each row shows what the post's tags give, the override as one
+   four-way switch, and what readers get, which the site-wide mode can make
+   stricter: the row says so. A change is one click, shows at once, and is
+   undone from the toast or with Z. The comment pane's switch
+   (comments/PostMode.tsx) shares this data. */
 
 const SURFACE_LABELS: Record<CommentSurface, string> = { blog: 'Blog', mood: 'Mood' };
 /* Each result reads its post's state, and site-api asks Ghost for each
@@ -65,9 +71,9 @@ function idTarget(query: string): Target | null {
   return null;
 }
 
-/** The overrides (see app/lazy-screen.ts). */
+/** The overrides and the site-wide switches (see app/lazy-screen.ts). */
 export function prefetch(client: QueryClient): Promise<unknown> {
-  return prefetchModeOverrides(client);
+  return Promise.all([prefetchModeOverrides(client), prefetchSitePolicy(client)]);
 }
 
 function rowFocus(id: string): void {
@@ -91,6 +97,7 @@ export default function ModesScreen() {
 
   const overrides = useModeOverrides();
   const set = useSetMode();
+  const siteMode = useSitePolicy().data?.policy.mode ?? null;
 
   // A cleared row stays, showing Default, until the screen is left.
   React.useEffect(() => () => pruneCleared(client), [client]);
@@ -182,7 +189,7 @@ export default function ModesScreen() {
       <div role="table" className={TABLE} aria-label="Matching posts">
         {header}
         {shown.map((target) => (
-          <SearchRow key={modeId(target)} target={target} listed={byId.get(modeId(target)) ?? null} onSet={onSet} />
+          <SearchRow key={modeId(target)} target={target} listed={byId.get(modeId(target)) ?? null} siteMode={siteMode} onSet={onSet} />
         ))}
         <p className="px-3 py-3 text-muted-foreground text-xs">
           {results.length > RESULT_LIMIT ? `First ${RESULT_LIMIT} of ${results.length}. Add a word to narrow it.` : plural(results.length, 'post')}
@@ -221,7 +228,7 @@ export default function ModesScreen() {
           </button>
         )}
         {listed.map((state) => (
-          <ModeRow key={modeId(state)} state={state} title={state.title} slug={state.slug} onSet={onSet} />
+          <ModeRow key={modeId(state)} state={state} title={state.title} slug={state.slug} siteMode={siteMode} onSet={onSet} />
         ))}
         <p className="px-3 py-3 text-muted-foreground text-xs">
           {plural(listed.filter((state) => state.override).length, 'override')}. Clearing one (Default) hands the post back to its tags.
@@ -262,6 +269,13 @@ export default function ModesScreen() {
       </div>
 
       <div className="@container min-h-0 flex-1 overflow-y-auto overscroll-contain" ref={stable.scrollRef}>
+        {/* A search is for one post: its results start under the box. */}
+        {!searching && <Everywhere />}
+        {!searching && (
+          <h2 className={cn(HEADING, 'mt-6')} id="per-post">
+            Per post
+          </h2>
+        )}
         {body}
       </div>
     </div>
@@ -273,13 +287,19 @@ function ModeWord({ mode, unknown }: { mode: CommentsMode | null; unknown: strin
   return <StatusDot tone={TONE[mode]}>{MODE_LABELS[mode]}</StatusDot>;
 }
 
-const ModeRow = React.memo(function ModeRow({ state, title, slug, onSet }: {
+const ModeRow = React.memo(function ModeRow({ state, title, slug, siteMode, onSet }: {
   state: AdminCommentModeState;
   title: string | null;
   slug: string | null;
+  siteMode: AdminCommentSiteMode | null;
   onSet: (state: AdminCommentModeState, choice: Choice) => void;
 }) {
   const name = title ?? state.title;
+  // Folded here from the post's own mode, not taken from the row, so the
+  // row follows a site-wide change the moment it is made.
+  const own = state.override ?? state.tagMode;
+  const readersGet = underSiteMode(own, siteMode);
+  const bySite = own !== null && readersGet !== own;
   return (
     <div
       role="row"
@@ -309,9 +329,14 @@ const ModeRow = React.memo(function ModeRow({ state, title, slug, onSet }: {
         />
       </span>
       <span className="flex flex-wrap items-center gap-x-3 text-xs @3xl:contents">
-        <span role="cell" className="font-medium">
+        <span
+          role="cell"
+          className="font-medium"
+          title={bySite && own ? `Set by the site-wide switch. This post's own mode is ${MODE_LABELS[own]}.` : undefined}
+        >
           <span className="@3xl:hidden font-normal text-muted-foreground">Readers get </span>
-          <ModeWord mode={state.effectiveMode} unknown="Unknown" />
+          <ModeWord mode={readersGet} unknown="Unknown" />
+          {bySite && <span className="font-normal text-muted-foreground @3xl:block @3xl:ps-3"> everywhere</span>}
         </span>
         <span role="cell" className="font-mono text-[12px] text-muted-foreground tabular-nums" title={state.updatedAt ? fullTime(state.updatedAt) : undefined}>
           {state.updatedAt ? stamp(state.updatedAt) : '—'}
@@ -324,9 +349,10 @@ const ModeRow = React.memo(function ModeRow({ state, title, slug, onSet }: {
 /** A search result. Its state is read once the row has stayed on screen
     for a moment, so typing does not fire a lookup per keystroke; the list
     answers at once for a post that already has an override. */
-function SearchRow({ target, listed, onSet }: {
+function SearchRow({ target, listed, siteMode, onSet }: {
   target: Target;
   listed: AdminCommentModeState | null;
+  siteMode: AdminCommentSiteMode | null;
   onSet: (state: AdminCommentModeState, choice: Choice) => void;
 }) {
   const [settled, setSettled] = React.useState(false);
@@ -336,7 +362,7 @@ function SearchRow({ target, listed, onSet }: {
   }, []);
   const one = useModeState(target.surface, target.postId, settled);
   const state = one.data ?? listed;
-  if (state) return <ModeRow state={state} title={target.title} slug={target.slug} onSet={onSet} />;
+  if (state) return <ModeRow state={state} title={target.title} slug={target.slug} siteMode={siteMode} onSet={onSet} />;
   return (
     <div role="row" data-mode-row={modeId(target)} className={cn(GRID, ROW, SPACED, 'items-center px-3 py-3 @3xl:py-1')}>
       <span role="cell" className="flex min-w-0 items-baseline gap-2">
@@ -361,6 +387,86 @@ function SearchRow({ target, listed, onSet }: {
         </>
       )}
     </div>
+  );
+}
+
+const HEADING = 'flex min-h-8 items-center px-4 font-medium text-muted-foreground text-sm';
+/** A line of the Everywhere section: what it is and what readers get,
+    then its control; a phone puts a wide control under the words. */
+const SWITCH_LINE = 'grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 rounded-lg px-3 py-2';
+
+function SwitchText({ label, on, caption, captionId }: { label: string; on: boolean; caption: string; captionId?: string }) {
+  return (
+    <span className="min-w-0">
+      <span className="block text-sm">{label}</span>
+      <span id={captionId} className={cn('flex items-center gap-2 text-[13px]', on ? 'text-foreground' : 'text-muted-foreground')}>
+        {on && <Dot tone="attention" />}
+        <span className="min-w-0 [overflow-wrap:anywhere]">{caption}</span>
+      </span>
+    </span>
+  );
+}
+
+/** The site-wide switches, on top of the per-post list: the mode every
+    post is at least as strict as, and the email rule. */
+function Everywhere() {
+  const query = useSitePolicy();
+  const captionId = React.useId();
+  const policy = query.data?.policy;
+
+  let body: React.ReactNode;
+  if (query.isPending) {
+    body = (
+      <div aria-busy="true" aria-label="Loading the site-wide switches">
+        {[0, 1].map((index) => (
+          <div key={index} className={SWITCH_LINE}>
+            <span className="flex flex-col gap-2 py-0.5">
+              <Skeleton className="h-3.5 w-40" />
+              <Skeleton className="h-3 w-56 max-w-full" />
+            </span>
+            <Skeleton className="h-8 w-40 max-sm:hidden" />
+          </div>
+        ))}
+      </div>
+    );
+  } else if (!policy) {
+    body = isMissingRoute(query.error) ? (
+      <p role="status" className="px-3 py-3 text-[13px] text-muted-foreground">
+        Site-wide switches need the updated site-api, which is not deployed yet. Nothing was changed.
+      </p>
+    ) : (
+      <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 text-[13px]">
+        <span className="min-w-0 flex-1 text-muted-foreground">The site-wide switches did not load. {describeError(query.error)}</span>
+        <Button size="sm" variant="outline" className={SMALL} onClick={() => void query.refetch()}>
+          Try again
+        </Button>
+      </div>
+    );
+  } else {
+    body = (
+      <ul>
+        <li className={cn(SWITCH_LINE, 'max-sm:grid-cols-1')}>
+          <SwitchText label="Comments everywhere" on={policy.mode !== null} caption={modeCaption(policy)} />
+          <SiteModeSwitch policy={policy} className="max-sm:flex max-sm:w-full max-sm:[&>button]:flex-1 pointer-coarse:h-10" />
+        </li>
+        <li>
+          {/* The whole line toggles it. */}
+          <label className={cn(SWITCH_LINE, PRESSABLE, 'cursor-pointer')}>
+            <SwitchText label="Require a confirmed email" on={policy.requireEmail} caption={emailCaption(policy)} captionId={captionId} />
+            <RequireEmailSwitch policy={policy} describedBy={captionId} />
+          </label>
+        </li>
+      </ul>
+    );
+  }
+
+  return (
+    <section aria-labelledby="everywhere" className={cn(TABLE, 'pt-3')}>
+      <h2 id="everywhere" className={cn(HEADING, '-mx-1')}>
+        Everywhere
+      </h2>
+      {body}
+    </section>
   );
 }
 

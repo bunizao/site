@@ -1,4 +1,5 @@
 import * as React from 'react';
+import type { AdminCommentSitePolicy } from '@bunizao/contracts';
 import {
   Archive,
   ArrowDown,
@@ -8,6 +9,11 @@ import {
   Filter,
   KeyRound,
   Keyboard,
+  Lock,
+  LockOpen,
+  MailCheck,
+  MailX,
+  MessageSquareOff,
   MessagesSquare,
   PanelLeft,
   ShieldAlert,
@@ -33,6 +39,7 @@ import { Kbd, KbdGroup } from '@/components/coss/kbd';
 import { useSidebar } from '@/components/coss/sidebar';
 import { STATUS_FILTERS, STATUS_LABELS } from '../../comments/data';
 import { openOwnerSignIn } from '../../comments/OwnerSignIn';
+import { useSetSitePolicy, useSitePolicy } from '../../comments/site-policy';
 import { flatNav } from '../nav';
 import { navigate } from '../router';
 
@@ -90,11 +97,37 @@ export function CommandPalette({ open, onOpenChange, onShortcuts }: {
   );
 }
 
+/** The site-wide switches' transitions from where they stand now: none
+    until the switches are read, so a command never names a state the site
+    is already in. */
+function sitePolicyItems(policy: AdminCommentSitePolicy | undefined, set: ReturnType<typeof useSetSitePolicy>): PaletteItem[] {
+  if (!policy) return [];
+  const items: PaletteItem[] = [];
+  const keywords = 'site-wide all posts';
+  if (policy.mode !== null) {
+    items.push({ value: 'site-open', label: 'Reopen comments everywhere', keywords: `${keywords} open unlock`, Icon: LockOpen, run: () => void set({ mode: null }) });
+  }
+  if (policy.mode !== 'readonly') {
+    items.push({ value: 'site-readonly', label: 'Close comments everywhere', keywords: `${keywords} read-only lock freeze`, Icon: Lock, run: () => void set({ mode: 'readonly' }) });
+  }
+  if (policy.mode !== 'off') {
+    items.push({ value: 'site-off', label: 'Hide comments everywhere', keywords: `${keywords} off disable`, Icon: MessageSquareOff, run: () => void set({ mode: 'off' }) });
+  }
+  items.push(
+    policy.requireEmail
+      ? { value: 'site-email-off', label: 'Stop requiring an email everywhere', keywords: `${keywords} anonymous address optional`, Icon: MailX, run: () => void set({ requireEmail: false }) }
+      : { value: 'site-email-on', label: 'Require a confirmed email everywhere', keywords: `${keywords} anonymous address verify`, Icon: MailCheck, run: () => void set({ requireEmail: true }) },
+  );
+  return items;
+}
+
 /** Inside the popup, so the query starts empty on every open. */
 function Palette({ onClose, onShortcuts }: { onClose: () => void; onShortcuts: () => void }) {
   const { toggleSidebar, setOpenMobile } = useSidebar();
   const { contains } = useAutocompleteFilter();
   const [query, setQuery] = React.useState('');
+  const policy = useSitePolicy().data?.policy;
+  const setSitePolicy = useSetSitePolicy();
 
   const groups = React.useMemo<PaletteGroup[]>(() => [
     {
@@ -121,6 +154,7 @@ function Palette({ onClose, onShortcuts }: { onClose: () => void; onShortcuts: (
         })),
         { value: 'owner-sign-in', label: 'Write as the owner', keywords: 'owner sign in blog badge', Icon: KeyRound, run: openOwnerSignIn },
         { value: 'bans-readers', label: 'Blocked reader accounts', keywords: 'revoked readers restore unban', Icon: UserX, run: () => navigate('/comments/bans?view=readers') },
+        ...sitePolicyItems(policy, setSitePolicy),
       ],
     },
     {
@@ -138,7 +172,7 @@ function Palette({ onClose, onShortcuts }: { onClose: () => void; onShortcuts: (
         { value: 'site', label: 'Open the public site', keywords: 'blog home', Icon: ExternalLink, run: () => window.open('/', '_blank', 'noreferrer') },
       ],
     },
-  ], [toggleSidebar, onShortcuts]);
+  ], [toggleSidebar, onShortcuts, policy, setSitePolicy]);
 
   // Last, so a screen or command the query names stays on top.
   const search = searchGroup(query);

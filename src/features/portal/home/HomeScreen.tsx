@@ -36,6 +36,8 @@ import {
   useNow,
 } from '../comments/Lockdown';
 import { absoluteTime, isAwaitingEmail, relativeTime } from '../comments/model';
+import { emailCaption, modeCaption, prefetchSitePolicy, useSitePolicy } from '../comments/site-policy';
+import { RequireEmailSwitch, SiteModeSwitch } from '../comments/SitePolicy';
 import { useMoodHealth } from '../tools/data';
 import { ALL_ACTIVITY, flattenFeed, prefetchActivityFeed, useActivityFeed } from '../activity/data';
 import { entryTarget, targetTitle } from '../activity/model';
@@ -65,6 +67,7 @@ export function prefetch(client: QueryClient): Promise<unknown> {
     prefetchSummary(client, DEFAULT_RANGE),
     prefetchActivityFeed(client, ALL_ACTIVITY),
     prefetchLockdown(client),
+    prefetchSitePolicy(client),
   ]);
 }
 
@@ -457,11 +460,12 @@ function NeedsYou() {
 /* Systems                                                             */
 /* ------------------------------------------------------------------ */
 
-/* Three lines that are always there, so nothing below moves when one of
-   them changes: the comment lockdown (with its switch), the mood archive
+/* Lines that are always there, so nothing below moves when one of them
+   changes, in two groups. Comments everywhere: the site-wide mode, the
+   email rule and the lockdown, each with its switch. Then the mood archive
    against the live channel, and signups still waiting on their email.
-   A healthy line is a name and a muted value. A line that needs a look
-   gets a dot and a value in full strength. */
+   A healthy line is a name and a muted value. A line that needs a look,
+   or a switch that is on, gets a dot and a value in full strength. */
 
 const SYSTEM = cn('grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2 text-sm', BLEED);
 
@@ -490,7 +494,54 @@ function LinkSystem({ to, label, tone, value }: { to: string; label: string; ton
 
 const valueSkeleton = <Skeleton className="my-1 h-3 w-32" />;
 
-function LockdownSystem({ query }: { query: ReturnType<typeof useLockdown> }) {
+/** The site-wide mode and the email rule. One click each, no confirm:
+    the receipt carries Undo. */
+function SiteSystems({ query }: { query: ReturnType<typeof useSitePolicy> }) {
+  const captionId = React.useId();
+  const policy = query.data?.policy;
+  if (query.isPending) {
+    return (
+      <>
+        <li className={SYSTEM} aria-busy>
+          <SystemText label="Comments everywhere" value={valueSkeleton} />
+        </li>
+        <li className={SYSTEM} aria-busy>
+          <SystemText label="Require a confirmed email" value={valueSkeleton} />
+        </li>
+      </>
+    );
+  }
+  if (!policy) {
+    // A failed read is the section's error line; a missing route is said here.
+    return (
+      <li className={SYSTEM}>
+        <SystemText label="Comments everywhere" value={isMissingRoute(query.error) ? 'Unavailable, needs the updated site-api' : 'Not loaded'} />
+      </li>
+    );
+  }
+  return (
+    <>
+      {/* A phone puts the three choices under the line, full width. */}
+      <li className={cn(SYSTEM, 'max-sm:grid-cols-1 max-sm:gap-y-2')}>
+        <SystemText label="Comments everywhere" tone={policy.mode ? 'attention' : null} value={modeCaption(policy)} />
+        <SiteModeSwitch policy={policy} className="max-sm:flex max-sm:w-full max-sm:[&>button]:flex-1 pointer-coarse:h-10" />
+      </li>
+      <li>
+        {/* The whole line toggles it. */}
+        <label className={cn(SYSTEM, PRESS, 'cursor-pointer')}>
+          <SystemText
+            label="Require a confirmed email"
+            tone={policy.requireEmail ? 'attention' : null}
+            value={<span id={captionId}>{emailCaption(policy)}</span>}
+          />
+          <RequireEmailSwitch policy={policy} describedBy={captionId} />
+        </label>
+      </li>
+    </>
+  );
+}
+
+function LockdownSystem({ query, emailRequired }: { query: ReturnType<typeof useLockdown>; emailRequired: boolean }) {
   const { engage, lift } = useLockdownActions();
   const now = useNow(30_000);
   const [open, setOpen] = React.useState(false);
@@ -516,6 +567,15 @@ function LockdownSystem({ query }: { query: ReturnType<typeof useLockdown> }) {
     return (
       <li className={SYSTEM}>
         <SystemText label={label} value={isMissingRoute(query.error) ? 'Unavailable, needs the updated site-api' : 'Not loaded'} />
+      </li>
+    );
+  }
+
+  // The email rule already asks what a lockdown would, and never ends.
+  if (emailRequired && !lockdown && !error) {
+    return (
+      <li className={SYSTEM}>
+        <SystemText label={label} value="Email already required everywhere" />
       </li>
     );
   }
@@ -611,32 +671,40 @@ function MoodSystem({ query }: { query: ReturnType<typeof useMoodHealth> }) {
 }
 
 function Systems() {
+  const site = useSitePolicy();
   const lockdown = useLockdown();
   const mood = useMoodHealth();
   const signups = useSubscriberCounts();
   const pending = signups.data?.pendingCount;
   const failed = failedReads([
-    // A site-api without the lockdown route is not a failure; its line says so.
+    // A site-api without a comment route is not a failure; its line says so.
+    ...(isMissingRoute(site.error) ? [] : [{ what: 'the comment switches', query: site }]),
     ...(isMissingRoute(lockdown.error) ? [] : [{ what: 'the comment lockdown', query: lockdown }]),
     { what: 'mood ingest', query: mood },
     { what: 'subscriber counts', query: signups },
   ]);
-  // Three lines of "Not loaded" over the error line would say it four
-  // times. A missing lockdown route is not a failure, so its line stays.
-  const blank = failed.length === 3;
+  // Four lines of "Not loaded" over the error line would say it five
+  // times. A missing comment route is not a failure, so its line stays.
+  const blank = failed.length === 4;
 
   return (
     <Block id="systems" title="Systems">
       {!blank && (
-        <ul className="flex flex-col">
-          <LockdownSystem query={lockdown} />
-          <MoodSystem query={mood} />
-          <LinkSystem
-            to="/subscribers?status=pending"
-            label="Unconfirmed signups"
-            value={pending !== undefined ? (pending === 0 ? 'None' : formatCount(pending)) : signups.isPending ? valueSkeleton : 'Not loaded'}
-          />
-        </ul>
+        <>
+          <ul aria-label="Comments everywhere" className="flex flex-col">
+            <SiteSystems query={site} />
+            <LockdownSystem query={lockdown} emailRequired={Boolean(site.data?.policy.requireEmail)} />
+          </ul>
+          {/* Twice the space between two groups as between two lines. */}
+          <ul className="mt-8 flex flex-col">
+            <MoodSystem query={mood} />
+            <LinkSystem
+              to="/subscribers?status=pending"
+              label="Unconfirmed signups"
+              value={pending !== undefined ? (pending === 0 ? 'None' : formatCount(pending)) : signups.isPending ? valueSkeleton : 'Not loaded'}
+            />
+          </ul>
+        </>
       )}
       <SectionError reads={failed} />
     </Block>
