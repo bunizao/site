@@ -1,7 +1,7 @@
 /* Demo answers for the owner's site-wide comment switches: read them, and
    change one or both.
 
-   Same path, validation and bookkeeping as site-api
+   Same path, validation, error codes and bookkeeping as site-api
    (src/pages/admin/comments/site-policy.ts and comments/server/
    comment-site-policy.ts there): a PUT names at least one field, a field
    left out keeps its value, and a `*Since` stamp moves only when its switch
@@ -57,11 +57,12 @@ async function change(request: Request): Promise<Response> {
   } catch {
     return fail(400, 'invalid_json');
   }
-  if (!body || typeof body !== 'object') return fail(400, 'invalid_json');
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return fail(400, 'invalid_body');
+  if (Object.keys(body).some((key) => key !== 'mode' && key !== 'requireEmail')) return fail(400, 'unknown_field');
   const { mode, requireEmail } = body;
-  if (mode === undefined && requireEmail === undefined) return fail(400, 'nothing_to_change');
   if (mode !== undefined && mode !== null && mode !== 'readonly' && mode !== 'off') return fail(400, 'invalid_mode');
   if (requireEmail !== undefined && typeof requireEmail !== 'boolean') return fail(400, 'invalid_require_email');
+  if (mode === undefined && requireEmail === undefined) return fail(400, 'empty_change');
 
   const now = new Date().toISOString();
   const nextMode = mode === undefined ? policy.mode : (mode as AdminCommentSiteMode | null);

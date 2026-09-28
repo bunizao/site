@@ -337,11 +337,11 @@ describe('portal demo: site-wide comment switches', () => {
     expect(off.requireEmailSince).toBe(first.requireEmailSince);
   });
 
-  test('refusals: no field, a bad mode, a mode of open, a bad requireEmail, bad JSON', async () => {
-    for (const body of [{}, { mode: 'closed' }, { mode: 'open' }, { requireEmail: 'yes' }]) {
+  test('refusals: no field, an unknown field, a bad mode, a mode of open, a bad requireEmail, bad JSON', async () => {
+    for (const body of [{}, { enabled: true }, { mode: 'closed' }, { mode: 'open' }, { requireEmail: 'yes' }]) {
       expect((await call(policy, 'PUT', 'comments/site-policy', body)).status).toBe(400);
     }
-    expect((await call(policy, 'PUT', 'comments/site-policy', {})).body.error).toBe('nothing_to_change');
+    expect((await call(policy, 'PUT', 'comments/site-policy', {})).body.error).toBe('empty_change');
     const request = new Request('http://localhost/x', { method: 'PUT', body: '{' });
     expect((await handleSitePolicyDemo(request, ['comments', 'site-policy']))?.status).toBe(400);
     expect((await call(policy, 'GET', 'comments/site-policy')).body.policy.mode).toBeNull();
