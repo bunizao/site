@@ -100,7 +100,8 @@ export interface ReaderMe {
       has been handed out -- the client then draws from the name. */
   avatarSeed: number | null;
   notifyReplies: boolean;
-  /** Whether this address holds an active newsletter subscription. */
+  /** Whether this address holds an active subscription that includes the blog
+      channel -- the reader switch is "latest posts", so mood alone reads false. */
   subscribed: boolean;
 }
 

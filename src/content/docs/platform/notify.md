@@ -102,7 +102,7 @@ Cloudflare Worker secrets and vars on `site-api`:
 | `PUBLIC_SITE_URL` | Yes | Base URL for every link in an email. |
 | `PUBLIC_TURNSTILE_SITE_KEY` | No | Client-side widget key. |
 | `TURNSTILE_SECRET_KEY` or `CLOUDFLARE_TURNSTILE_SECRET_KEY` | No | Server-side verification key. Without it the Turnstile gate can't verify. See the `503` branch in [Notify API](/docs/api/notify#subscribe). |
-| `NOTIFY_ADMIN_TELEGRAM_CHAT_ID` | No | Where operational alerts go. |
+| `TELEGRAM_OPS_BOT_TOKEN`, `TELEGRAM_OPS_ALLOWED_USER_IDS` | No | The ops bot. Subscribe and unsubscribe notices, like every other owner notification, go to each allowlisted user from this bot; unset means no notice. |
 | `TELEGRAM_WEBHOOK_SECRET` | Yes | Verifies Telegram's own secret-token header. |
 | `TELEGRAM_BOT_TOKEN` | Yes | Bot API credential for media fetches. |
 | `TELEGRAM_CHANNEL_ID` | Yes | The channel mood posts come from. |

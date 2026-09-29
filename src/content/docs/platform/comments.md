@@ -196,6 +196,10 @@ It applies to the current account or anonymous session only.
 - Shared IP, subnet, and fingerprint values never spread it to other readers.
 - Ordinary owner hide or delete actions don't add a quarantine.
 - Approving a flagged comment lifts it.
+- An expired dwell token (a tab left open past 24 hours) is no spam signal. An
+  anonymous writer's clean comment is stored held, with a note in the queue, and
+  neither quarantines the session nor counts toward the lockdown's hold ratio.
+  A verified reader's stale tab publishes as usual.
 
 Network rate limits and the site-wide lockdown are independent of it and stay
 in place.

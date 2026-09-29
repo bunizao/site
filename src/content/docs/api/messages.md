@@ -90,6 +90,8 @@ The fields that matter are `replyable` and `verificationSent`. The receipt on
 | `400` | `displayName must be 1-32 characters…` | Empty, too long, control characters, or a reserved name |
 | `400` | `email is required and must be a valid address` | Missing or malformed |
 | `400` | `turnstileToken is required` / `dwellToken is required` | Missing |
+| `400` | `invalid_dwell_token` | The dwell token's signature did not verify, for instance a page left open across a secret rotation. Reload and send again |
+| `500` | `messages_not_configured` | The comments session secret is missing. Nothing is acknowledged |
 | `400` | `turnstile_failed` | The token did not verify, or carried the wrong action |
 | `413` | `body is too large` | Over 32 KB, whatever the character count says |
 | `429` | `Too Many Requests` | See [Rate limits](#rate-limits) |
@@ -140,10 +142,14 @@ after remembering something, is not treated as an attack.
 
 ## Tripwires
 
-A tripped honeypot, an unsigned dwell token, or a `drop` heuristic verdict each
-return `201` with a well-formed body, and nothing is stored. The response must
-look exactly like a real success. A response that looks different teaches a bot
-which field to leave alone.
+A tripped honeypot, a signed dwell token younger than three seconds, or a `drop`
+heuristic verdict each return `201` with a well-formed body, and nothing is
+stored. The response must look exactly like a real success. A response that
+looks different teaches a bot which field to leave alone.
+
+An expired dwell token is a form left open past a day, not a bot: the message
+is filed like any other. A token that does not verify is refused with
+`400 invalid_dwell_token` rather than swallowed.
 
 Akismet then judges every message that gets through, with
 `comment_type: contact-form`. That is what a private note to a site owner is,

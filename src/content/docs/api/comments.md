@@ -320,7 +320,11 @@ delete controls from these two fields, never from `mine`.
 
 Some rows are hidden or blanked:
 
-- `held`/`rejected` rows are visible only to their own writer.
+- `held`/`rejected` rows are visible only to their own writer. A row that
+  belongs to a reader account needs that account's session; the anonymous
+  cookie it was written under does not reveal it, so a shared browser cannot
+  read a signed-in reader's private comments. The cookie matches only rows
+  that never had an account.
 - A `deleted` row with a published reply under it still appears as a
   tombstone, with `body`/`author` blanked. Without such a reply, it's gone
   from the page entirely.
@@ -498,12 +502,20 @@ declared agent and a ban all hide behind that same `held` answer.
 
 #### 2. Honeypot and dwell time
 
-Tripping either returns a fabricated `201 { "outcome": "held", ... }` envelope
-that is **never persisted**.
+A filled honeypot, or a signed dwell token younger than three seconds, returns
+a fabricated `201 { "outcome": "held", ... }` envelope that is **never
+persisted**.
 
 A filled honeypot also quarantines the current session or account for 24
-hours (see step 6). An expired dwell token doesn't, since a tab left open
-overnight trips it too.
+hours (see step 6). A dwell token past its 24-hour expiry is no bot: a tab
+left open overnight carries one. It goes on to moderation and is stored. An
+anonymous writer's clean comment is held for review with a note saying so
+(reason `ok`, like a step-up hold, so the flood detector, the quarantine and
+Akismet feedback never count it as spam); a real spam verdict keeps its own
+reason. A verified reader's stale tab publishes as usual. A token whose
+signature does not verify answers `400 invalid_dwell_token`, and a missing
+comments session secret answers `500 comments_not_configured`; neither is
+acknowledged as a write.
 
 #### 3. Heuristics
 
@@ -855,14 +867,16 @@ GET /api/v2/comments/dwell-token
 Returns the risk stack's dwell-time stamp: a signed timestamp. The client
 fetches it when the page loads and holds it until submit.
 
-`POST /api/v2/comments` answers a missing `dwellToken` with `400`. It silently
-drops (see step 2 of the risk stack) a token that is unsigned or younger than
-3 seconds. The client never mints a token at submit, because a token that
-young is exactly what the silent drop catches.
+`POST /api/v2/comments` answers a missing `dwellToken` with `400`, and one
+whose signature does not verify with `400 invalid_dwell_token`. It silently
+drops (see step 2 of the risk stack) a signed token younger than 3 seconds.
+The client never mints a token at submit, because a token that young is
+exactly what the silent drop catches.
 
-The stamp also carries a 24-hour expiry, which caps how long a tab can sit
-open. Every focus in a compose box re-mints a token older than 20 hours, so a
-tab left open overnight still posts.
+The stamp also carries a 24-hour expiry. Every focus in a compose box
+re-mints a token older than 20 hours, so a tab left open overnight still
+posts. A tab that outlives the expiry without a new focus is not lost: the
+server stores its comment for review instead of dropping it (step 2).
 
 The route isn't rate-limited. It signs nothing but the current time, so a call
 costs nothing worth gating, and `POST /api/v2/comments`'s own limits apply
@@ -1074,7 +1088,9 @@ When the reader is signed in:
 }
 ```
 
-The response never includes the email or its hash.
+The response never includes the email or its hash. `subscribed` is true only
+for an active subscription that includes the `blog` channel, so a mood-only
+subscriber reads `false`.
 
 `DELETE` signs out: it clears the session cookie and returns `204`. It's
 idempotent, so calling it with no session set still succeeds, and the client
@@ -1234,7 +1250,7 @@ that moved, and a body with none of them is a `400`.
 | Field | Effect |
 | --- | --- |
 | `notifyReplies` | Writes the reader's own column (reply mail, see [Reply notifications](#reply-notifications)) |
-| `subscribed` | Activates or unsubscribes the newsletter subscription. Switching it off also invalidates pending newsletter confirmations. |
+| `subscribed` | The `blog` channel, matching the "latest posts" label. On adds `blog` to an active or pending subscription, or starts one on `["blog"]` for a reader with none. Off removes `blog` and unsubscribes only when no other channel remains; only that unsubscribe invalidates pending newsletter confirmations. |
 
 `subscribed` never touches reply notifications, and `notifyReplies` never
 touches the newsletter. Leaving the newsletter and muting your own replies are

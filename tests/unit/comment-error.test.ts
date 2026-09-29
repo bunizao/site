@@ -54,6 +54,7 @@ const REFUSALS: Array<[number, unknown, CommentErrorCode]> = [
   [400, { error: 'body must be 1-2000 characters' }, 'LONG'],
   [400, { error: 'body is required (1-2000 characters)' }, 'LONG'],
   [400, { error: 'dwellToken is required' }, 'STALE'],
+  [400, { error: 'invalid_dwell_token' }, 'STALE'],
   [400, { error: 'postId is required' }, 'STALE'],
   [400, { error: 'parentId must be a string or null' }, 'STALE'],
   [400, { error: 'Invalid JSON body' }, 'STALE'],
