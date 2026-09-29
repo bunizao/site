@@ -1051,6 +1051,12 @@ test.describe('Post title shared-element morph', () => {
     await page.goto('/blog');
 
     const { name, href } = await firstRowTarget(page);
+    // A slow parser reaches the first render opportunity, and so `pagereveal`,
+    // before the headline exists. CI runners hit that only sometimes; throttled,
+    // every run does, so a destination that stops holding its first render
+    // fails here every time instead of flaking.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
     await Promise.all([
       page.waitForURL(`**${href}`),
       page.locator('.blog-row__title').first().click(),
