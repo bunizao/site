@@ -185,10 +185,12 @@ type YouTubeApiOutcome = 'error' | 'ready' | 'silent';
 async function installYouTubePlayerApiFixture(
   page: Page,
   outcome: () => YouTubeApiOutcome,
-  onRequest: () => void = () => undefined,
+  // Awaited before the script is served, so a test can hold the card in
+  // `is-loading` for as long as it needs to observe it.
+  onRequest: () => void | Promise<void> = () => undefined,
 ): Promise<void> {
   await page.route('https://www.youtube.com/iframe_api', async (route) => {
-    onRequest();
+    await onRequest();
     const result = outcome();
     const callback = result === 'ready'
       ? 'options.events.onReady()'
@@ -610,7 +612,17 @@ test.describe('Blog reading UI', () => {
 
   test('keeps a player error local to one video', async ({ page }) => {
     let playerRequests = 0;
-    await installYouTubePlayerApiFixture(page, () => 'error');
+    // `is-loading` lasts only until the API answers, ~50ms after it is served;
+    // a slow runner missed that window entirely. Hold each API request until
+    // the loading state has been seen.
+    const heldApi: Array<() => void> = [];
+    await installYouTubePlayerApiFixture(page, () => 'error', () => new Promise<void>((resolve) => {
+      heldApi.push(resolve);
+    }));
+    const releaseApi = async () => {
+      await expect.poll(() => heldApi.length).toBe(1);
+      heldApi.shift()!();
+    };
     await page.route('**/static/youtube/**', async (route) => {
       await route.fulfill({
         contentType: 'image/svg+xml',
@@ -632,6 +644,7 @@ test.describe('Blog reading UI', () => {
     const player = card.locator('[data-yt-player]');
     await card.locator('[data-yt-frame]').click();
     await expect(card).toHaveClass(/is-loading/u);
+    await releaseApi();
 
     await expect(card).toHaveClass(/is-unreachable/u);
     await expect(player).not.toHaveAttribute('src', /.+/u);
@@ -640,6 +653,7 @@ test.describe('Blog reading UI', () => {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('[data-yt-frame]').click();
     await expect(page.locator('[data-yt]')).toHaveClass(/is-loading/u);
+    await releaseApi();
     await expect.poll(() => playerRequests).toBe(2);
   });
 
