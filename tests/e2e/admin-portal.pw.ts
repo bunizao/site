@@ -307,6 +307,10 @@ test.describe('comments', () => {
         await touch('touchMove', from - step * box.width * 0.07);
         await page.waitForTimeout(16);
       }
+      // Hold still before lifting: the row is past its commit share, so this
+      // is a drag, not a flick. A flick leaves Chrome flinging, and it takes
+      // the next tap (on Undo) as the one that stops the fling, with no click.
+      await page.waitForTimeout(150);
       await touch('touchEnd', from - box.width * 0.7);
 
       await expect(row(page, id)).toHaveCount(0);
