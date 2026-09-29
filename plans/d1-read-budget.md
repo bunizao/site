@@ -8,9 +8,27 @@ account) is not possible for now.
 
 ## State
 
-**Phase 0 in review** (bunizao/site-api#90). Phases 1–3 not started. Cache
-max age decided by the owner: **60 s**. unicorn is out of scope here; the
-owner is handling it in its own repository.
+**Phases 0–3 built.** Phase 0 is bunizao/site-api#90 and phases 1–3 are
+bunizao/site-api#91. Cache max age, decided by the owner: **60 s**. unicorn
+is out of scope here; the owner is handling it in its own repository.
+
+Left open:
+- Record the real reduction against the phase 0 baseline (see phase 2):
+  `wrangler tail site-api --format json | grep d1_request` over a portal
+  session, before and after.
+- The alert needs the `CLOUDFLARE_ANALYTICS_TOKEN` secret (Account
+  Analytics Read only). Until it is set, the hourly check skips.
+
+As built, versus the plan below:
+- Metering wraps the D1 bindings in the admin middleware (`locals.env`),
+  not the two client factories, so every reader in a request is counted.
+- The triggered tables are `blog_comments`, `blog_reactions`, `blog_bans`,
+  `owner_messages`, `blog_activity_log` and `blog_comment_metrics`: the
+  set the cached reads actually touch, which `tests/unit/read-cache.test.ts`
+  derives from their SQL and checks.
+- `data_versions` carries a random `epoch` per database, part of the key.
+- Alert dedupe uses the existing KV stamp (`sendOpsAlertOnce`), not a
+  `settings` row, and only the highest crossed threshold is pushed.
 
 ## What the numbers say (GraphQL `d1AnalyticsAdaptiveGroups`, `d1 insights`)
 
