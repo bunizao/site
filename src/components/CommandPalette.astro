@@ -303,7 +303,12 @@ const stylesheetHref = (await import('@/styles/command-palette.css?url')).defaul
 
 <script>
   import { getMoodFeedAnchorHref } from '@/features/mood/shared/feed-anchor';
-  import { formatMoodResultTime, isSafeSnippetHtml, searchMoods } from '@/features/mood/shared/search';
+  import {
+    formatMoodResultTime,
+    isSafeSnippetHtml,
+    isSearchableMoodQuery,
+    searchMoods,
+  } from '@/features/mood/shared/search';
   import { feedback } from '@/lib/feedback';
 
   interface WritingHit {
@@ -534,7 +539,6 @@ const stylesheetHref = (await import('@/styles/command-palette.css?url')).defaul
     // back to substring-matching the recent-post list and the group still
     // responds while typing.
     const SEARCH_DEBOUNCE_MS = 200;
-    const REMOTE_MIN_LENGTH = 2;
     const RESULT_LIMIT = 6;
     let recentPosts: Array<{ title: string; path: string }> = [];
     let searchTimer: number | undefined;
@@ -656,7 +660,8 @@ const stylesheetHref = (await import('@/styles/command-palette.css?url')).defaul
     const runRemoteSearch = (raw: string) => {
       const query = raw.trim();
       window.clearTimeout(searchTimer);
-      if (query.length < REMOTE_MIN_LENGTH) {
+      // Two characters, or one CJK character ("砸"), which is already a word.
+      if (!isSearchableMoodQuery(query)) {
         clearRemote();
         collectItems();
         filter();

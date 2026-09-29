@@ -33,9 +33,11 @@ describe('searchMoods', () => {
     expect(requested).toHaveLength(0);
     expect(await searchMoods('calm', { limit: 6 })).toHaveLength(1);
     expect(requested[0]).toContain('q=calm');
+    expect(await searchMoods('砸')).toHaveLength(1);
+    expect(requested[1]).toContain(`q=${encodeURIComponent('砸')}`);
     expect(requested[0]).toContain('limit=6');
     fail = true;
     await expect(searchMoods('anger')).rejects.toThrow('Mood search failed (500)');
-    expect(requested).toHaveLength(2);
+    expect(requested).toHaveLength(3);
   });
 });
