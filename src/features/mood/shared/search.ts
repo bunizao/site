@@ -13,6 +13,14 @@ export const MOOD_SEARCH_ENDPOINT = '/api/v2/mood/search';
 export const MOOD_MIN_QUERY_LENGTH = 2;
 export const MOOD_MAX_QUERY_LENGTH = 64;
 
+// The server accepts one CJK character as a query ("砸"), mirroring site-api's
+// search-text rules; one Latin letter still falls below the floor.
+const SINGLE_CJK_CHARACTER = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]$/u;
+
+export function isSearchableMoodQuery(query: string): boolean {
+  return query.length >= MOOD_MIN_QUERY_LENGTH || SINGLE_CJK_CHARACTER.test(query);
+}
+
 export interface MoodSearchResultData {
   id: string;
   datetime: string;
@@ -52,7 +60,7 @@ export async function searchMoods(
   options: SearchMoodsOptions = {},
 ): Promise<MoodSearchResultData[]> {
   const query = rawQuery.trim().slice(0, MOOD_MAX_QUERY_LENGTH);
-  if (query.length < MOOD_MIN_QUERY_LENGTH) return [];
+  if (!isSearchableMoodQuery(query)) return [];
 
   const limit = options.limit ?? 6;
   const url = `${MOOD_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&limit=${limit}`;

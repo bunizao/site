@@ -284,11 +284,15 @@ GET /api/v2/mood/search?q=keyword
 
 | Parameter | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `q` | string | None | Required. 2–64 chars after whitespace collapsing. Control characters reject the request. |
+| `q` | string | None | Required. 2–64 chars after whitespace collapsing, or a single CJK character. Control characters reject the request. |
 | `limit` | integer | 10 | Clamped to 1–20, a tighter ceiling than the feed's 100. |
 
-Search runs against a D1 FTS index. Matched terms come back wrapped in `<mark>`
-inside an HTML-escaped snippet, so you can inject the field directly:
+Search runs against a D1 FTS5 index. Each whitespace-separated term must match,
+and each matches as a prefix (`ocean` finds `oceans`). The index splits CJK text
+into single characters and a CJK term matches those characters in order, so
+`耐用` finds 电池比我想象中耐用 even though Chinese has no spaces between words.
+Results are ranked by relevance, not date. Matched terms come back wrapped in
+`<mark>` inside an HTML-escaped snippet, so you can inject the field directly:
 
 ```json
 { "results": [{ "id": "4821", "datetime": "...", "snippet": "...<mark>keyword</mark>...", "tags": [], "sentiment_label": "calm" }] }
