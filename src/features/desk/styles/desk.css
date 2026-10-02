@@ -619,7 +619,8 @@ body:has(.desk) .spotlight-overlay {
   display: none;
 }
 
-.win.is-dragging {
+.win.is-dragging,
+.win.is-gliding {
   transition: none;
 }
 

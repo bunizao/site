@@ -1,10 +1,14 @@
 // Floating windows. Anything with `data-open="<id>"` opens the window rendered
 // with `data-win="<id>"`. On desktop windows are non-modal and stack like
 // paper: they unfold out of whatever opened them, in its colour, drag by the
-// mat around the card (and tilt a little with the speed of the drag), and
-// come to the front when touched. Below 640px a window is a modal sheet that follows the finger down
+// mat around the card (and tilt a little with the speed of the drag), glide
+// on when flicked, and come to the front when touched. Below 640px a window is a modal sheet that follows the finger down
 // and closes past a threshold. Esc closes the window holding focus, or the top
 // one, and focus goes back to the opener.
+
+import type gsap from 'gsap';
+
+type Gsap = typeof gsap;
 
 const EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
 const EASE_IN = 'cubic-bezier(0.4, 0, 1, 1)';
@@ -14,6 +18,10 @@ const EDGE = 16;
 const CASCADE = 28;
 // How much of a window has to stay on screen while it is dragged around.
 const KEEP_VISIBLE = 120;
+// Slower than this when the hand lets go (px/ms) is a put-down, not a throw.
+const THROW_MIN_SPEED = 0.3;
+// A hand that stopped this long before letting go has no speed left.
+const THROW_STALE_MS = 60;
 
 interface DeskWindow {
   id: string;
@@ -27,9 +35,27 @@ interface DeskWindow {
   placed: boolean;
   opener: HTMLElement | null;
   closing: Animation[] | null;
+  glide: gsap.core.Tween | null;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+// GSAP and its inertia plugin load on the first grab, so a throw on release
+// finds them ready. A failed load only means a window stops where it is let go,
+// and the next grab tries again.
+let gsapLoad: Promise<Gsap | null> | null = null;
+let loadedGsap: Gsap | null = null;
+const loadGsap = () =>
+  (gsapLoad ??= Promise.all([import('gsap'), import('gsap/InertiaPlugin')])
+    .then(([{ default: core }, { InertiaPlugin }]) => {
+      core.registerPlugin(InertiaPlugin);
+      loadedGsap = core;
+      return core;
+    })
+    .catch(() => {
+      gsapLoad = null;
+      return null;
+    }));
 
 const onScreen = (rect: DOMRect) =>
   rect.width > 0 && rect.bottom > 0 && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth;
@@ -51,7 +77,7 @@ export function initWindows(): () => void {
     const body = el.querySelector<HTMLElement>('[data-win-body]');
     if (!mat || !bar || !body) return;
     const id = el.dataset.win ?? '';
-    wins.set(id, { id, el, mat, bar, body, x: 0, y: 0, placed: false, opener: null, closing: null });
+    wins.set(id, { id, el, mat, bar, body, x: 0, y: 0, placed: false, opener: null, closing: null, glide: null });
   });
 
   const isOpen = (w: DeskWindow) => !w.el.hidden && !w.closing;
@@ -61,10 +87,18 @@ export function initWindows(): () => void {
     return el ? wins.get(el.dataset.win ?? '') ?? null : null;
   };
 
+  // Where a window may sit: partly off either side, never off the top.
+  const bounds = (w: DeskWindow) => ({
+    minX: KEEP_VISIBLE - w.el.offsetWidth,
+    maxX: innerWidth - KEEP_VISIBLE,
+    minY: EDGE / 2,
+    maxY: innerHeight - 56,
+  });
+
   const setPos = (w: DeskWindow, x: number, y: number) => {
-    const width = w.el.offsetWidth;
-    w.x = clamp(x, KEEP_VISIBLE - width, innerWidth - KEEP_VISIBLE);
-    w.y = clamp(y, EDGE / 2, innerHeight - 56);
+    const { minX, maxX, minY, maxY } = bounds(w);
+    w.x = clamp(x, minX, maxX);
+    w.y = clamp(y, minY, maxY);
     w.el.style.setProperty('--x', `${Math.round(w.x)}px`);
     w.el.style.setProperty('--y', `${Math.round(w.y)}px`);
   };
@@ -225,6 +259,45 @@ export function initWindows(): () => void {
   };
 
   // --- Open / close --------------------------------------------------------
+  // --- Throw ---------------------------------------------------------------
+  // A flick keeps going: the window carries the speed it left the hand with,
+  // slows like paper sliding on a desk, and comes to rest inside the same
+  // bounds a drag has. It leans with its speed until it stops.
+  const settle = (w: DeskWindow) => {
+    if (!w.glide) return;
+    w.glide.kill();
+    w.glide = null;
+    w.el.classList.remove('is-gliding');
+    w.el.style.setProperty('--tilt', '0deg');
+  };
+
+  const fling = (w: DeskWindow, vx: number, vy: number) => {
+    if (!loadedGsap || reduced.matches || Math.hypot(vx, vy) < THROW_MIN_SPEED) return false;
+    const { minX, maxX, minY, maxY } = bounds(w);
+    const at = { x: w.x, y: w.y };
+    let lastX = at.x;
+    let lastT = performance.now();
+    w.el.classList.add('is-gliding');
+    w.glide = loadedGsap.to(at, {
+      inertia: {
+        x: { velocity: vx * 1000, min: minX, max: maxX },
+        y: { velocity: vy * 1000, min: minY, max: maxY },
+        resistance: 2400,
+        duration: { min: 0.3, max: 1.2 },
+      },
+      onUpdate: () => {
+        const now = performance.now();
+        const speed = (at.x - lastX) / Math.max(1, now - lastT);
+        lastX = at.x;
+        lastT = now;
+        setPos(w, at.x, at.y);
+        w.el.style.setProperty('--tilt', `${clamp(speed * 2.4, -5, 5).toFixed(2)}deg`);
+      },
+      onComplete: () => settle(w),
+    });
+    return true;
+  };
+
   const finishClose = (w: DeskWindow) => {
     w.closing?.forEach((animation) => animation.cancel());
     w.closing = null;
@@ -233,6 +306,7 @@ export function initWindows(): () => void {
 
   const close = (w: DeskWindow, { restoreFocus = true } = {}) => {
     if (!isOpen(w)) return;
+    settle(w);
     stack.splice(stack.indexOf(w), 1);
     const animations = fold(w);
     w.closing = animations;
@@ -311,6 +385,8 @@ export function initWindows(): () => void {
   const onPointerDown = (event: PointerEvent) => {
     const w = windowOf(event.target);
     if (!w || !isOpen(w)) return;
+    // A window in flight stops under the hand that catches it.
+    settle(w);
     if (stack.at(-1) !== w) {
       toFront(w);
       syncHash();
@@ -334,6 +410,7 @@ export function initWindows(): () => void {
 
     w.mat.setPointerCapture(event.pointerId);
     w.el.classList.add('is-dragging');
+    if (!asSheet) void loadGsap();
 
     const move = (e: PointerEvent) => {
       const dt = Math.max(1, e.timeStamp - lastT);
@@ -355,7 +432,7 @@ export function initWindows(): () => void {
       w.el.style.setProperty('--tilt', `${clamp(velocityX * 2.4, -5, 5).toFixed(2)}deg`);
     };
 
-    const end = () => {
+    const end = (e: PointerEvent) => {
       w.mat.removeEventListener('pointermove', move);
       w.mat.removeEventListener('pointerup', end);
       w.mat.removeEventListener('pointercancel', end);
@@ -372,8 +449,9 @@ export function initWindows(): () => void {
         }
         return;
       }
-      w.el.style.setProperty('--tilt', '0deg');
       if (Math.abs(lastX - startX) + Math.abs(lastY - startY) > 3) w.placed = true;
+      const moving = e.type === 'pointerup' && e.timeStamp - lastT < THROW_STALE_MS;
+      if (!moving || !fling(w, velocityX, velocityY)) w.el.style.setProperty('--tilt', '0deg');
     };
 
     w.mat.addEventListener('pointermove', move);
