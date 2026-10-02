@@ -1,6 +1,6 @@
-// What the desk shows at request time: the newest few moods for the channel,
-// and the newest posts for the contents page. Everything else on the desk is
-// static data from site.ts.
+// What the desk shows at request time: the newest few moods and the channel
+// they come from, and the newest posts for the contents page. Everything else
+// on the desk is static data from site.ts.
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
 import type { MoodServerContext } from '@/features/mood/server/channel-service';
@@ -30,9 +30,16 @@ export interface DeskPost {
   date: string;
 }
 
+export interface DeskChannel {
+  /** "Levitating". */
+  title: string;
+  avatar?: string;
+}
+
 export interface DeskContent {
   /** Oldest first, so the newest sits at the bottom like a chat. */
   moods: DeskMood[];
+  channel: DeskChannel;
   posts: DeskPost[];
   postCount: number;
 }
@@ -77,12 +84,16 @@ const toMood = (item: MoodFeedItem): DeskMood => {
 
 export async function loadDeskContent(context: MoodServerContext): Promise<DeskContent> {
   // Either source failing leaves its object empty; the rest of the desk stands.
-  const [moods, posts] = await Promise.all([
-    loadMoodFeed(context, { limit: 12 }).then((feed) => feed.posts).catch(() => []),
+  const [feed, posts] = await Promise.all([
+    loadMoodFeed(context, { limit: 12 }).catch(() => null),
     getListedPosts().catch(() => []),
   ]);
   return {
-    moods: moods.filter(isMood).slice(0, MOODS).map(toMood).reverse(),
+    moods: (feed?.posts ?? []).filter(isMood).slice(0, MOODS).map(toMood).reverse(),
+    channel: {
+      title: feed?.channel?.title?.trim() || 'Levitating',
+      ...(feed?.channel?.avatar ? { avatar: feed.channel.avatar } : {}),
+    },
     posts: posts.slice(0, POSTS).map((post) => ({
       href: postPath(post.slug),
       title: post.title,

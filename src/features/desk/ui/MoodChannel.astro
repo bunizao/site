@@ -1,17 +1,19 @@
 ---
 // The newest moods as the channel they come from: the moods hover card from
-// home, grouped the way Telegram groups one sender, with my face beside the
-// last bubble and the reactions and time inside each one. `links` makes each
-// bubble a link to its mood (in the window); without it the channel is a
-// still object inside a frame that is already a button.
-import type { DeskMood } from '@/features/desk/server/content';
+// home, grouped the way Telegram groups one sender, with the channel's name
+// on the first bubble, its picture beside the last, and the reactions and
+// time inside each one. `links` makes each bubble a link to its mood (in the
+// window); without it the channel is a still object inside a frame that is
+// already a button.
+import type { DeskChannel, DeskMood } from '@/features/desk/server/content';
 
 interface Props {
   moods: DeskMood[];
+  channel: DeskChannel;
   links?: boolean;
 }
 
-const { moods, links = false } = Astro.props;
+const { moods, channel, links = false } = Astro.props;
 const Bubble = links ? 'a' : 'span';
 
 // A mood that is only a link reads as its host and path, like the feed.
@@ -25,11 +27,16 @@ const shorten = (text: string): string => {
 <span class="mc">
   {moods.length > 0 ? (
     <span class="mc-thread">
-      <img class="mc-avatar" src="/badge/portrait-128.webp" alt="" width="28" height="28" loading="lazy" decoding="async" />
+      {channel.avatar ? (
+        <img class="mc-avatar" src={channel.avatar} alt="" width="28" height="28" loading="lazy" decoding="async" />
+      ) : (
+        <span class="mc-avatar" aria-hidden="true">{channel.title.slice(0, 1)}</span>
+      )}
       <span class="mc-stream">
-        {moods.map((mood) => (
+        {moods.map((mood, i) => (
           <Bubble class="mc-bubble" href={links ? mood.href : undefined}>
             <span class="mc-body">
+              {i === 0 && <span class="mc-from">{channel.title}</span>}
               <span class="mc-text" lang={mood.lang}>{mood.text ? shorten(mood.text) : 'A photo, no words.'}</span>
               <span class="mc-meta">
                 {mood.reactions.map((reaction) => <span class="mc-react">{reaction}</span>)}
@@ -70,11 +77,16 @@ const shorten = (text: string): string => {
   }
 
   .mc-avatar {
+    display: grid;
     flex: none;
+    place-items: center;
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background: #dde6f1;
+    background: var(--d-bubble);
+    color: var(--d-note);
+    font-size: 13px;
+    font-weight: 600;
     object-fit: cover;
     box-shadow: 0 0 0 1px var(--d-line);
   }
@@ -122,6 +134,13 @@ const shorten = (text: string): string => {
     display: flex;
     min-width: 0;
     flex-direction: column;
+  }
+
+  .mc-from {
+    margin-bottom: 1px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--d-ink);
   }
 
   .mc-text {

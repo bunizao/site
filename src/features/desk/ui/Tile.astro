@@ -45,7 +45,7 @@ const attrs = {
     {kind === 'projects' && <Hand />}
     {kind === 'about' && <Badge uid={copy} />}
     {kind === 'writing' && <Contents posts={content.posts.slice(0, 3)} total={content.postCount} />}
-    {kind === 'moods' && <MoodChannel moods={content.moods} />}
+    {kind === 'moods' && <MoodChannel moods={content.moods} channel={content.channel} />}
     {kind === 'hello' && <Chat />}
   </span>
 </Tag>
