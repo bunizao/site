@@ -768,6 +768,12 @@ body:has(.desk) .spotlight-overlay {
   rotate: -0.5deg;
 }
 
+/* A sheet straight on the canvas takes its full width: a panel shrinks its
+   children to fit, and a fluid chart has no width of its own to fit. */
+.easel-panel > .easel-paper {
+  width: 100%;
+}
+
 .easel-paper::before,
 .easel-paper::after {
   content: '';
