@@ -20,6 +20,7 @@ import Works from '@/features/desk/ui/Works.astro';
 import { loadDeskContent } from '@/features/desk/server/content';
 import { GitHubIcon, InstagramIcon, MonashCrestIcon, TelegramIcon } from '@/components/icons';
 import { copyrightMark, experience, footer, navLinks, profile, projects } from '@/data/site';
+import { DESK_FAVICON } from '@/lib/favicon';
 import '@/features/desk/styles/desk.css';
 
 // Request-time, for the latest moods and posts.
@@ -153,6 +154,9 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
   description={`${profile.name}'s desk: projects, writing, moods and the rest, on one page.`}
   url="/new"
   robots="noindex"
+  image="/desk/og.jpg"
+  favicon={DESK_FAVICON}
+  touchIcon="/desk/touch-icon.png"
   hideSiteNav
 >
   <nav slot="header-actions" class="desk-nav" aria-label="Site">

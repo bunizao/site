@@ -1,11 +1,12 @@
-// Regenerate the painted favicons and OG card. Run from the repo root:
+// Regenerate the desk's painted favicons and OG card. Run from the repo root:
 //
 //   node scripts/brand/generate.mjs
 //
 // Bundles paint.ts with bun, paints it in headless Chromium with the desk's
-// knife engine, and writes public/og.jpg, public/favicon-{light,dark}.png and
-// public/apple-touch-icon.png. Strokes are seeded, so a rerun on the same
-// Chromium reproduces the committed files byte for byte.
+// knife engine, and writes og.jpg, favicon-{light,dark}.png and touch-icon.png
+// into public/desk/. Only /new uses them; the rest of the site keeps og.png
+// and /logo/peek.svg. Strokes are seeded, so a rerun on the same Chromium
+// reproduces the committed files byte for byte.
 import { chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -27,6 +28,6 @@ const files = await page.evaluate(() => window.paintBrand());
 await browser.close();
 
 for (const [name, url] of Object.entries(files)) {
-  writeFileSync(resolve(root, 'public', name), Buffer.from(url.split(',')[1], 'base64'));
-  console.log('wrote public/' + name);
+  writeFileSync(resolve(root, 'public/desk', name), Buffer.from(url.split(',')[1], 'base64'));
+  console.log('wrote public/desk/' + name);
 }

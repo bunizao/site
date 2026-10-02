@@ -1,6 +1,6 @@
-// Paints the site's favicons and OG card with the desk's palette knife.
+// Paints the desk's favicons and OG card with its own palette knife.
 // Browser entry for scripts/brand/generate.mjs, which bundles it, runs it in
-// headless Chromium and writes what window.paintBrand returns into public/.
+// headless Chromium and writes what window.paintBrand returns into public/desk/.
 //
 // Every stroke is seeded, so a run on the same Chromium is pixel-identical.
 
@@ -347,7 +347,7 @@ function resize(src: HTMLCanvasElement, size: number) {
 
 declare global {
   interface Window {
-    /** Painted files keyed by their path under public/, as data URLs. */
+    /** Painted files keyed by their path under public/desk/, as data URLs. */
     paintBrand: () => Promise<Record<string, string>>;
   }
 }
@@ -359,7 +359,7 @@ window.paintBrand = async () => {
     const painted = await paintedPeek(night);
     files[`favicon-${night ? 'dark' : 'light'}.png`] = (await tabPeek(night, painted)).toDataURL('image/png');
     // iOS home screens and Google results take one icon with no scheme, so only the day tile ships big.
-    if (!night) files['apple-touch-icon.png'] = resize(painted, 180).toDataURL('image/png');
+    if (!night) files['touch-icon.png'] = resize(painted, 180).toDataURL('image/png');
   }
   // JPEG: the knife grain makes a 1.4 MB PNG, past what chat apps will preview.
   files['og.jpg'] = resize(await ogPeek(), OW).toDataURL('image/jpeg', 0.9);

@@ -177,31 +177,7 @@ meta tags. `tests/e2e/blog.pw.ts` pins that structure, so a rename fails CI
 instead of degrading links already shared into chats.
 `config/instant-view/README.md` has the publishing steps and the last rhash.
 
-## Favicons and the share card
-
-The site's tab icon, touch icon and default Open Graph card are painted, not
-drawn: `scripts/brand/paint.ts` runs the desk's palette-knife engine
-(`knife.ts` + `painterly.ts`) over peek's base grid. Regenerate them with
-`node scripts/brand/generate.mjs`, which writes:
-
-| File | Use |
-| --- | --- |
-| `public/favicon-light.png`, `public/favicon-dark.png` | 32px tab icons. Knife marks vanish at this size, so peek's cells are snapped to 3px squares in the colours the knife left on them. |
-| `public/apple-touch-icon.png` | The 180px painted close-up, for iOS home screens. Google also reads it as a favicon. |
-| `public/og.jpg` | The default `og:image`. JPEG, because the knife grain makes a 1.4 MB PNG. |
-
-Strokes are seeded, so a rerun on the same Chromium reproduces the committed
-files exactly.
-
-Tab icons follow the browser's colour scheme, not the site's theme toggle.
-Browsers rasterise a favicon once per URL, so an SVG that switches on its own
-`prefers-color-scheme` query keeps whichever scheme it loaded in.
-`src/components/Favicon.astro` gives each scheme its own URL and swaps the
-`href` when the scheme changes. The URL pairs live in `src/lib/favicon.ts`;
-the Blog's pair is `blog-mark.svg` and its inverted twin `blog-mark-dark.svg`.
-`astro dev` uses the amber `-dev` marks for both schemes.
-
-### Search favicons
+## Search favicons
 
 The Blog keeps its thinking-woman favicon in browser chrome. Search engines
 usually pick one favicon per hostname, so `/blog/*` can't reliably show a

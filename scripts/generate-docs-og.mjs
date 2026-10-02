@@ -2,7 +2,7 @@
 // Editorial split on the site's dot grid: the newspaper glyph and the word Docs
 // are one lockup on the left with the path hanging under it, peek reading its
 // notes as the counterweight on the right. Three elements, no ornament — the
-// mascot is the only colour.
+// mascot is the only colour, same as og.png.
 import { chromium } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

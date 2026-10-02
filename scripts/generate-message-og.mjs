@@ -24,8 +24,9 @@ const sansB64 = read('public/fonts/geist-sans-variable.woff2');
 
 const WIDTH = 1200;
 const HEIGHT = 630;
-// Brighter than the paper docs-og sits on. That card is an object on a desk;
-// this one is a screen, and the page it stands for is white under the bubbles.
+// Brighter than the paper og.png and docs-og share. Those cards are objects on
+// a desk; this one is a screen, and the page it stands for is white under the
+// bubbles.
 const PAPER = '#faf9f6';
 const INK = '#1b1917';
 

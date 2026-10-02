@@ -13,8 +13,7 @@ mascot or add a pose, motion, look, or sticker.
 - It is the navbar brand mark.
 - It provides a small set of motion and expression states for the site UI.
 - It powers the mascot preview at `/dev/preview`.
-- It supplies the public SVG used by the mask icon, emails and `og:logo`, and
-  the grid the painted favicon and OG card are drawn from.
+- It supplies the public SVG used by the favicon and related consumers.
 
 ## Where it lives
 
@@ -189,8 +188,6 @@ A mascot change is done when:
 - The part of the UI it targets still works.
 - `/dev/preview` still reflects the real mascot data.
 - `/logo/peek.svg` still renders correctly.
-- If the base grid changed, the favicon and OG card are regenerated with
-  `node scripts/brand/generate.mjs`.
 - The data layout is easier to understand than before.
 
 If a change makes mascot work harder to follow, it isn't done.
