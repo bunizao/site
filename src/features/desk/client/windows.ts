@@ -39,6 +39,7 @@ export function initWindows(): () => void {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const desk = document.querySelector<HTMLElement>('[data-desk]');
   const scrim = document.querySelector<HTMLElement>('[data-desk-scrim]');
+  const header = document.querySelector<HTMLElement>('[data-header-actions]');
   const wins = new Map<string, DeskWindow>();
   /** Open windows, back to front. */
   const stack: DeskWindow[] = [];
@@ -106,9 +107,17 @@ export function initWindows(): () => void {
     if (location.hash !== hash) history.replaceState(history.state, '', `${location.pathname}${location.search}${hash}`);
   };
 
+  // Echo copies of the matrix are aria-hidden; focus never comes back to one.
+  const liveTwin = (opener: HTMLElement | null) => {
+    if (!opener?.closest('[data-mx-copy="echo"]')) return opener;
+    return document.querySelector<HTMLElement>(`[data-mx-copy="live"] [data-open="${opener.dataset.open}"]`) ?? opener;
+  };
+
   const syncModal = () => {
     const modal = sheet() && stack.length > 0;
     if (desk) desk.inert = modal;
+    // The sheet's scrim covers the nav card, so it leaves the tab order too.
+    if (header) header.inert = modal;
     scrim?.classList.toggle('is-on', modal);
     wins.forEach((w) => (modal ? w.el.setAttribute('aria-modal', 'true') : w.el.removeAttribute('aria-modal')));
   };
@@ -234,7 +243,7 @@ export function initWindows(): () => void {
     syncHash();
 
     if (!restoreFocus) return;
-    const opener = w.opener;
+    const opener = liveTwin(w.opener);
     if (opener?.isConnected && !opener.closest('[inert]')) opener.focus({ preventScroll: true });
     else stack.at(-1)?.el.focus({ preventScroll: true });
   };

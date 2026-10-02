@@ -20,9 +20,9 @@ const Row = links ? 'a' : 'span';
   <span class="wr-page">
     <span class="wr-head">
       <span class="wr-mark"><img src={blog.mark} alt="" width="28" height="28" loading="lazy" decoding="async" /></span>
-      <span class="wr-id">
-        <span class="wr-name" lang="zh">{copy.name}</span>
-        <span class="wr-tagline" lang="zh">{copy.tagline}</span>
+      <span class="wr-id" lang={blog.locale.home}>
+        <span class="wr-name">{copy.name}</span>
+        <span class="wr-tagline">{copy.tagline}</span>
       </span>
     </span>
     {posts.length > 0 ? (
@@ -31,7 +31,7 @@ const Row = links ? 'a' : 'span';
           <li>
             <Row class="wr-row" href={links ? post.href : undefined}>
               <span class="wr-num">{String(i + 1).padStart(2, '0')}</span>
-              <span class="wr-title">{post.title}</span>
+              <span class="wr-title" lang={post.lang}>{post.title}</span>
               <span class="wr-leader" aria-hidden="true"></span>
               <span class="wr-date">{post.date}</span>
             </Row>
@@ -39,7 +39,10 @@ const Row = links ? 'a' : 'span';
         ))}
       </ol>
     ) : (
-      <span class="wr-empty">The posts didn't load just now.</span>
+      <span class="wr-empty">
+        The posts didn't load just now.
+        {links && <a href="/blog">Read them on the blog</a>}
+      </span>
     )}
     {total > 0 && <span class="wr-count">{total} posts in all</span>}
   </span>
@@ -191,6 +194,12 @@ const Row = links ? 'a' : 'span';
   .wr-empty {
     display: block;
     margin-top: 14px;
+  }
+
+  .wr-empty a {
+    color: var(--d-ink);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
   }
 
   /* The folio at the foot of the page. */

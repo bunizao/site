@@ -12,6 +12,8 @@ export interface DeskMood {
   id: string;
   href: string;
   text: string;
+  /** "zh" when the text is Chinese, so assistive tech picks the right voice. */
+  lang?: string;
   datetime: string;
   /** "1 Oct", in Melbourne time, where every one of these was posted. */
   date: string;
@@ -23,6 +25,7 @@ export interface DeskMood {
 export interface DeskPost {
   href: string;
   title: string;
+  lang?: string;
   /** "Sep 2026". */
   date: string;
 }
@@ -51,12 +54,17 @@ const isMood = (item: MoodFeedItem) => {
   return (text || item.image) && text !== 'Channel photo updated';
 };
 
+// Moods and post titles are mostly Chinese on an English page; one Han
+// character is enough to pick the voice.
+const langOf = (text: string) => (/\p{Script=Han}/u.test(text) ? 'zh' : undefined);
+
 const toMood = (item: MoodFeedItem): DeskMood => {
   const thumb = item.image && item.imageKind !== 'sticker' ? buildArchiveSrcSet(item.image, { widths: [96, 160] }) : null;
   return {
     id: item.id,
     href: `/mood/${item.id}`,
     text: item.previewText.trim(),
+    lang: langOf(item.previewText),
     datetime: item.datetime,
     date: format(melbourneDay, item.datetime),
     ...(thumb ? { thumb: { src: thumb.src, srcset: thumb.srcset } } : {}),
@@ -78,6 +86,7 @@ export async function loadDeskContent(context: MoodServerContext): Promise<DeskC
     posts: posts.slice(0, POSTS).map((post) => ({
       href: postPath(post.slug),
       title: post.title,
+      lang: langOf(post.title),
       date: format(monthYear, post.publishedAt),
     })),
     postCount: posts.length,

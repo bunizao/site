@@ -30,7 +30,7 @@ const shorten = (text: string): string => {
         {moods.map((mood) => (
           <Bubble class="mc-bubble" href={links ? mood.href : undefined}>
             <span class="mc-body">
-              <span class="mc-text">{mood.text ? shorten(mood.text) : 'A photo, no words.'}</span>
+              <span class="mc-text" lang={mood.lang}>{mood.text ? shorten(mood.text) : 'A photo, no words.'}</span>
               <span class="mc-meta">
                 {mood.reactions.map((reaction) => <span class="mc-react">{reaction}</span>)}
                 <time class="mc-time" datetime={mood.datetime}>{mood.date}</time>
@@ -44,7 +44,10 @@ const shorten = (text: string): string => {
       </span>
     </span>
   ) : (
-    <span class="mc-empty">The channel didn't load just now.</span>
+    <span class="mc-empty">
+      The channel didn't load just now.
+      {links && <a href="/mood">Read it on the mood page</a>}
+    </span>
   )}
 </span>
 
@@ -136,8 +139,8 @@ const shorten = (text: string): string => {
     justify-content: flex-end;
     gap: 4px;
     margin-top: 4px;
-    font-size: 11px;
-    color: var(--d-faint);
+    font-size: 12px;
+    color: var(--d-note);
   }
 
   .mc-react {
@@ -166,5 +169,11 @@ const shorten = (text: string): string => {
 
   .mc-empty {
     color: var(--d-note);
+  }
+
+  .mc-empty a {
+    color: var(--d-ink);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
   }
 </style>

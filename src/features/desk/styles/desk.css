@@ -375,8 +375,14 @@ body:has(.desk) .spotlight-overlay {
   font: 400 12.5px/1.5 var(--d-sans);
 }
 
-.desk-foot span {
-  margin-right: auto;
+/* The links wrap as one group, never one at a time. */
+.desk-foot {
+  justify-content: space-between;
+}
+
+.desk-foot-links {
+  display: flex;
+  gap: 18px;
 }
 
 .desk-foot a {

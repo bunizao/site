@@ -85,9 +85,11 @@ const tone = (hue: number, chroma: number) => `--h: ${hue}; --c: ${chroma}`;
 
     <footer class="desk-foot">
       <span>{copyrightMark(new Date().getFullYear())}</span>
-      <a href="/privacy">privacy</a>
-      <a href={footer.statusUrl} {...external}>status</a>
-      <a href={footer.links[0].url} {...external}>source</a>
+      <span class="desk-foot-links">
+        <a href="/privacy">privacy</a>
+        <a href={footer.statusUrl} {...external}>status</a>
+        <a href={footer.links[0].url} {...external}>source</a>
+      </span>
     </footer>
   </main>
 
