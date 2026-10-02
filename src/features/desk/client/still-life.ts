@@ -672,6 +672,23 @@ const FINISH: Partial<Record<ThingId, Study>> = {
       line(b, x, 0.418, x, 0.44, 0.0014 + b.rand() * 0.0018, { l: 0.36, c: 0.01, h: 250 }, 0.3);
     }
   },
+  // The grooves are finer than any blade; the window shows in them as two
+  // wedges of short bright ticks, upper left and lower right.
+  record: (b) => {
+    const [cx, cy] = RECORD;
+    const sheen: Tone = { l: 0.6, c: 0.01, h: 250, a: b.night ? 0.2 : 0.36 };
+    for (let r = 0.044; r < 0.101; r += 0.0028 + b.rand() * 0.0016) {
+      for (const middle of [-2.25, 0.89]) {
+        // Widest at the rim, where the grooves run longest under the light.
+        const sweep = (0.1 + b.rand() * 0.12) * (r / 0.1);
+        const at = middle - sweep / 2 + (b.rand() - 0.5) * 0.16;
+        const [x1, y1] = [cx + Math.cos(at) * r, cy + Math.sin(at) * r];
+        const [x2, y2] = [cx + Math.cos(at + sweep) * r, cy + Math.sin(at + sweep) * r];
+        // The lower wedge sits inside the sleeve.
+        if (Math.max(y1, y2) < 0.6) line(b, x1, y1, x2, y2, 0.0012, sheen, 0.2);
+      }
+    }
+  },
   books: (b) => {
     for (const y of [0.925, 0.931, 0.937, 0.942]) line(b, 0.13, y, 0.336, y, 0.0009, { l: 0.8, c: 0.02, h: 85, a: 0.6 }, 0.3);
   },
@@ -723,7 +740,7 @@ function styleOf(id: ThingId, u: number): Style {
 // --- Painting --------------------------------------------------------------------------
 
 /** The wall, the table and every shadow, onto a canvas `u` wide whose context is scaled to CSS pixels. */
-export function paintBackdrop(ctx: CanvasRenderingContext2D, u: number, night: boolean) {
+export async function paintBackdrop(ctx: CanvasRenderingContext2D, u: number, night: boolean, signal?: AbortSignal) {
   const study = document.createElement('canvas');
   study.width = Math.round(u);
   study.height = Math.round(u * ASPECT);
@@ -733,7 +750,7 @@ export function paintBackdrop(ctx: CanvasRenderingContext2D, u: number, night: b
   // The study is the underpainting; long flat drags go over it, and smaller
   // ones only where the shadows' edges need them.
   ctx.drawImage(study, 0, 0, u, u * ASPECT);
-  paintOver(
+  await paintOver(
     ctx,
     study,
     [0, 0],
@@ -748,6 +765,7 @@ export function paintBackdrop(ctx: CanvasRenderingContext2D, u: number, night: b
       whiteShare: 0.22,
     },
     seeded(11),
+    signal,
   );
 }
 
@@ -755,7 +773,7 @@ export function paintBackdrop(ctx: CanvasRenderingContext2D, u: number, night: b
  * One thing, onto its own canvas: the thing's box plus BLEED on every side,
  * with `ctx` set to draw in the painting's CSS pixels.
  */
-export function paintThing(ctx: CanvasRenderingContext2D, thing: Thing, u: number, night: boolean) {
+export async function paintThing(ctx: CanvasRenderingContext2D, thing: Thing, u: number, night: boolean, signal?: AbortSignal) {
   const [x, y, w, h] = thing.box;
   const left = (x - BLEED) * u;
   const top = (y - BLEED) * u;
@@ -767,6 +785,6 @@ export function paintThing(ctx: CanvasRenderingContext2D, thing: Thing, u: numbe
   studyCtx.translate(-left, -top);
   const seed = seedOf(thing.id);
   STUDIES[thing.id](brush(studyCtx, u, night, seed));
-  paintOver(ctx, study, [left, top], styleOf(thing.id, u), seeded(seed ^ 0x9e3779b9));
-  FINISH[thing.id]?.(brush(ctx, u, night, seed + 1));
+  await paintOver(ctx, study, [left, top], styleOf(thing.id, u), seeded(seed ^ 0x9e3779b9), signal);
+  if (!signal?.aborted) FINISH[thing.id]?.(brush(ctx, u, night, seed + 1));
 }

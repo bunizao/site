@@ -38,7 +38,6 @@ const SCRAPE_MS = 460;
 const DRAG_SHARE = 0.34;
 
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
-const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
 const scaleOf = () => Math.min(devicePixelRatio || 1, 2);
 
@@ -111,9 +110,9 @@ export function initEasel(): () => void {
     }
   };
 
-  // Each thing takes a few dozen milliseconds of knife work, so the painting
-  // goes on one thing per frame; a newer pass (a resize, the theme) stops it.
-  let paintPass = 0;
+  // The knife work takes the best part of a second and gives the page room
+  // as it goes; a newer pass (a resize, the theme) stops the one before.
+  let paintJob: AbortController | null = null;
   const paint = async () => {
     if (easel.classList.contains('is-full')) return;
     const width = still.clientWidth;
@@ -121,16 +120,16 @@ export function initEasel(): () => void {
     if (!width || (width === painted.width && night === painted.night)) return;
     painted = { width, night };
     const scale = scaleOf();
-    const mine = ++paintPass;
+    paintJob?.abort();
+    const { signal } = (paintJob = new AbortController());
 
     const ctx = sized(backdrop, width, width * ASPECT, scale);
     if (!ctx) return;
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    paintBackdrop(ctx, width, night);
+    await paintBackdrop(ctx, width, night, signal);
 
     for (const el of things) {
-      await nextFrame();
-      if (mine !== paintPass) return;
+      if (signal.aborted) return;
       const thing = THINGS.find((entry) => entry.id === el.dataset.thing);
       if (!thing) continue;
       let canvas = el.querySelector<HTMLCanvasElement>('canvas.sl-paint');
@@ -147,8 +146,9 @@ export function initEasel(): () => void {
       if (!thingCtx) continue;
       thingCtx.setTransform(scale, 0, 0, scale, -(x - BLEED) * width * scale, -(y - BLEED) * width * scale);
       thingCtx.clearRect((x - BLEED) * width, (y - BLEED) * width, (w + BLEED * 2) * width, (h + BLEED * 2) * width);
-      paintThing(thingCtx, thing, width, night);
+      await paintThing(thingCtx, thing, width, night, signal);
     }
+    if (signal.aborted) return;
     paintThumb(width);
     easel.classList.add('is-painted');
   };

@@ -41,6 +41,11 @@ export interface Style {
 
 type Sat = Uint32Array;
 
+// A painting is thousands of strokes; lay them a few milliseconds at a time
+// so the page keeps answering while the picture comes in.
+const BUDGET_MS = 10;
+const breathe = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
 /** Summed-area tables of premultiplied red, green, blue and alpha. */
 function summed(data: Uint8ClampedArray, w: number, h: number): Sat[] {
   const stride = w + 1;
@@ -96,9 +101,10 @@ function shuffle<T>(rand: Rand, list: T[]) {
 /**
  * Paints `study` over with knife strokes onto `ctx`. The study is a 1× canvas
  * whose (0, 0) sits at `origin` in the coordinates `ctx` draws in; `ctx`'s
- * own canvas must cover the same area, at any pixel density.
+ * own canvas must cover the same area, at any pixel density. Stops between
+ * strokes once `signal` aborts.
  */
-export function paintOver(ctx: CanvasRenderingContext2D, study: HTMLCanvasElement, origin: [number, number], style: Style, rand: Rand) {
+export async function paintOver(ctx: CanvasRenderingContext2D, study: HTMLCanvasElement, origin: [number, number], style: Style, rand: Rand, signal?: AbortSignal) {
   const w = study.width;
   const h = study.height;
   const studyCtx = study.getContext('2d');
@@ -180,7 +186,8 @@ export function paintOver(ctx: CanvasRenderingContext2D, study: HTMLCanvasElemen
     return stroke(rand, ox + startX, oy + startY, forward ? angle : angle + Math.PI, length, blade * (0.8 + rand() * 0.35), tone, grain, white);
   };
 
-  style.layers.forEach((layer, index) => {
+  for (const [index, layer] of style.layers.entries()) {
+    if (signal?.aborted) return;
     const grid = Math.max(2, Math.round(layer.size));
     const r = Math.max(1, layer.size * 0.45);
     const first = index === 0;
@@ -188,10 +195,16 @@ export function paintOver(ctx: CanvasRenderingContext2D, study: HTMLCanvasElemen
     // the stray colours read as flecks rather than broken colour.
     const mixed = index < style.layers.length - 1;
     const painted = first ? null : ctx.getImageData(0, 0, device.width, device.height).data;
-    const sample = Math.max(1, Math.floor(grid / 5));
+    const sample = Math.max(1, Math.floor(grid / 3));
     const strokes: Stroke[] = [];
+    let since = performance.now();
 
     for (let cy = 0; cy < h; cy += grid) {
+      if (performance.now() - since > BUDGET_MS) {
+        await breathe();
+        if (signal?.aborted) return;
+        since = performance.now();
+      }
       for (let cx = 0; cx < w; cx += grid) {
         let total = 0;
         let count = 0;
@@ -222,7 +235,13 @@ export function paintOver(ctx: CanvasRenderingContext2D, study: HTMLCanvasElemen
       }
     }
 
-    for (const s of shuffle(rand, strokes)) draw(ctx, s);
+    for (const s of shuffle(rand, strokes)) {
+      draw(ctx, s);
+      if (performance.now() - since < BUDGET_MS) continue;
+      await breathe();
+      if (signal?.aborted) return;
+      since = performance.now();
+    }
 
     // The widest blade overshoots the most; trim it back to the silhouette,
     // with a little room so its edge stays a knife's edge.
@@ -244,5 +263,5 @@ export function paintOver(ctx: CanvasRenderingContext2D, study: HTMLCanvasElemen
       ctx.drawImage(mask, 0, 0);
       ctx.restore();
     }
-  });
+  }
 }
