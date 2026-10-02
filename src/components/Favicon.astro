@@ -1,9 +1,7 @@
 ---
-// The tab icon, kept on the browser's colour scheme. Tab strips follow the
+// A tab icon that follows the browser's colour scheme. Tab strips follow the
 // browser, not the site's theme toggle, and never re-render an icon in place,
 // so the script swaps the href whenever prefers-color-scheme changes.
-//
-// Both tags persist across ClientRouter swaps, so the script runs once.
 import type { FaviconPair } from '@/lib/favicon';
 
 interface Props {
@@ -13,20 +11,13 @@ interface Props {
 const { icon } = Astro.props;
 ---
 
-<link
-  rel="icon"
-  type={icon.type}
-  href={icon.light}
-  data-light={icon.light}
-  data-dark={icon.dark}
-  data-astro-transition-persist="favicon"
-/>
-<script is:inline data-astro-transition-persist="favicon-scheme">
+<link rel="icon" type={icon.type} href={icon.light} data-light={icon.light} data-dark={icon.dark} />
+<script is:inline>
   (() => {
+    const link = document.querySelector('link[rel="icon"][data-dark]');
+    if (!link) return;
     const dark = matchMedia('(prefers-color-scheme: dark)');
     const apply = () => {
-      const link = document.querySelector('link[rel="icon"][data-dark]');
-      if (!link) return;
       const href = dark.matches ? link.dataset.dark : link.dataset.light;
       if (link.getAttribute('href') !== href) link.setAttribute('href', href);
     };

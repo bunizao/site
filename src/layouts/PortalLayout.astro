@@ -13,7 +13,6 @@ interface Props {
 
 import '@/styles/globals.css';
 import '@/styles/portal.css';
-import Favicon from '@/components/Favicon.astro';
 import PerformanceDebugPanel from '@/components/PerformanceDebugPanel.astro';
 import { ClientRouter } from 'astro:transitions';
 import { ExternalLink, LogOut } from 'lucide-react';
@@ -54,7 +53,7 @@ const user = userProp
         document.documentElement.classList.add('ua-webkit');
       }
     </script>
-    <Favicon icon={SITE_FAVICON} />
+    <link rel="icon" type="image/svg+xml" href={SITE_FAVICON} />
     <link rel="preload" href="/fonts/geist-sans-variable.woff2" as="font" type="font/woff2" crossorigin />
     <title>{title}</title>
     {description && <meta name="description" content={description} />}
