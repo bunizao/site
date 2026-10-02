@@ -1,8 +1,9 @@
-/* The desk: one screen of prose on the left, one drifting column of frames on
-   the right, and windows that open out of either. Colour lives in the prose
-   chips and nowhere else; every surface is a neutral. Everything here is
-   scoped to pages that render `.desk`, so the stylesheet never leaks onto the
-   rest of the site even when the bundler shares a chunk. */
+/* The desk: one screen of prose on the left and an easel on the right, a
+   palette knife painting of the desk that each coloured word in the prose
+   points into. Colour lives in the paint, the prose swatches and the tabs;
+   every other surface is a neutral. Everything here is scoped to pages that
+   render `.desk`, so the stylesheet never leaks onto the rest of the site even
+   when the bundler shares a chunk. */
 
 @font-face {
   font-family: 'Space Grotesk';
@@ -89,8 +90,7 @@ body:has(.desk) .spotlight-overlay {
 }
 
 /* The base stylesheet pads and rules every <section>. */
-.mx,
-.win {
+.easel {
   padding: 0;
   border: 0;
 }
@@ -98,7 +98,7 @@ body:has(.desk) .spotlight-overlay {
 /* --- The letterhead ---------------------------------------------------------
    Layout's header actions (search and theme) plus the site links, set as one
    quiet line of type at the head of the letter: over the prose, never over
-   the matrix. It scrolls with the page. Phones fold
+   the easel. It scrolls with the page. Phones fold
    the links into a menu and keep the line in a small card in the corner. */
 .global-header-actions:has(.desk-nav) {
   gap: 2px;
@@ -213,31 +213,39 @@ body:has(.desk) .spotlight-overlay {
   font-size: 15px;
 }
 
+
+:root:has(.desk) {
+  /* Paper taped to the canvas, and the tape. */
+  --d-sheet: #fffdf8;
+  --d-sheet-shadow: 0 0 0 1px rgb(60 40 10 / 0.05), 0 1px 1px rgb(60 40 10 / 0.06), 0 16px 30px -18px rgb(60 40 10 / 0.45);
+  --d-tape: rgb(246 238 214 / 0.78);
+  /* The canvas hangs off the wall by its stretcher bars. */
+  --d-hang-shadow: 0 1px 1px rgb(20 20 18 / 0.08), 0 4px 8px -4px rgb(20 20 18 / 0.14), 0 28px 48px -28px rgb(20 20 18 / 0.4);
+  /* Before the paint dries: the wall and the table as flat fields. */
+  --d-wall: oklch(0.885 0.028 232);
+  --d-table: oklch(0.925 0.022 80);
+}
+
+:root.dark:has(.desk) {
+  --d-sheet: #262521;
+  --d-sheet-shadow: 0 0 0 1px rgb(255 250 235 / 0.06), 0 16px 30px -16px rgb(0 0 0 / 0.7);
+  --d-tape: rgb(255 248 225 / 0.16);
+  --d-hang-shadow: 0 0 0 1px rgb(255 255 250 / 0.05), 0 28px 48px -26px rgb(0 0 0 / 0.85);
+  --d-wall: oklch(0.3 0.03 250);
+  --d-table: oklch(0.345 0.02 65);
+}
+
 /* --- Frame ---------------------------------------------------------------- */
 .desk {
-  --mx-w: 380px;
-  --mx-pad: 48px;
-  /* Objects are drawn at their natural size and scaled to the frame; this is
-     the frame's width over the 380px they were scaled for. */
-  --kw: 1;
-
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) calc(var(--mx-w) + var(--mx-pad) * 2 + 24px);
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: minmax(0, 1fr) auto;
   min-height: 100svh;
   color: var(--d-ink);
   background: var(--d-page);
   font-family: var(--d-sans);
   -webkit-font-smoothing: antialiased;
-}
-
-@media (min-width: 900px) and (max-width: 1279px) {
-  .desk {
-    --mx-w: 330px;
-    --mx-pad: 36px;
-    --kw: 0.868;
-  }
 }
 
 /* One screen on desktop. The prose keeps its own scroll as a safety valve, so
@@ -270,9 +278,9 @@ body:has(.desk) .spotlight-overlay {
 
 /* --- Prose ---------------------------------------------------------------- */
 .desk-prose {
-  max-width: 27em;
+  max-width: 25em;
   margin-block: auto;
-  font: 500 clamp(24px, 1.9vw, 30px) / 1.42 var(--d-display);
+  font: 500 clamp(23px, 1.8vw, 29px) / 1.48 var(--d-display);
   letter-spacing: -0.014em;
   text-wrap: pretty;
 }
@@ -289,116 +297,89 @@ body:has(.desk) .spotlight-overlay {
   margin-top: 1.5em;
 }
 
-.desk-note {
-  color: var(--d-note);
-}
-
-/* A chip is one hue, set inline as --h and --c. The fill is a soft vertical
-   sheen of it, the text is the same hue taken dark, and on hover it glows in
-   its own colour. The window it opens unfolds from --tone-bg. */
+/* A word that is a thing in the painting: a drag of its paint behind it.
+   The swatch is painted by client/easel.ts as --swatch; until then, and
+   without the script, a flat dab of the same colour stands in. */
 .desk-chip {
-  --tone-bg: oklch(0.94 var(--c) var(--h));
-  display: inline-block;
-  margin: 0 0.02em;
-  padding: 0 0.28em 0.03em;
+  position: relative;
+  display: inline;
+  white-space: nowrap;
+  isolation: isolate;
+  padding: 0 0.12em 0.04em;
   border: 0;
-  border-radius: 0.32em;
-  background: linear-gradient(180deg, oklch(0.968 calc(var(--c) * 0.55) var(--h)), oklch(0.918 var(--c) var(--h)));
-  box-shadow:
-    inset 0 0 0 1px oklch(0.55 var(--c) var(--h) / 0.16),
-    inset 0 1px 0 oklch(1 0 0 / 0.7),
-    0 1px 2px oklch(0.45 var(--c) var(--h) / 0.1);
-  color: oklch(0.4 calc(var(--c) * 1.25) var(--h));
+  background: none;
+  color: oklch(0.33 calc(var(--c) * 1.4) var(--h));
   font: inherit;
-  line-height: 1.22;
+  line-height: 1.24;
   text-decoration: none;
   cursor: pointer;
+}
+
+.desk-chip::before {
+  content: '';
+  position: absolute;
+  inset: -0.03em -0.14em;
+  z-index: -1;
+  border-radius: 0.14em 0.34em 0.18em 0.3em;
+  background: oklch(0.87 calc(var(--c) * 1.3) var(--h));
   transition:
-    translate 0.25s var(--d-ease),
-    box-shadow 0.25s var(--d-ease);
+    rotate 0.4s var(--d-ease),
+    scale 0.4s var(--d-ease);
+}
+
+.desk-chip.has-swatch::before {
+  border-radius: 0;
+  background: var(--swatch) center / 100% 100% no-repeat;
 }
 
 :root.dark .desk-chip {
-  --tone-bg: oklch(0.32 calc(var(--c) * 0.8) var(--h));
-  background: linear-gradient(180deg, oklch(0.35 calc(var(--c) * 0.7) var(--h)), oklch(0.29 calc(var(--c) * 0.8) var(--h)));
-  box-shadow:
-    inset 0 0 0 1px oklch(0.7 var(--c) var(--h) / 0.16),
-    inset 0 1px 0 oklch(1 0 0 / 0.08);
-  color: oklch(0.9 calc(var(--c) * 0.9) var(--h));
+  color: oklch(0.93 calc(var(--c) * 0.8) var(--h));
+}
+
+:root.dark .desk-chip:not(.has-swatch)::before {
+  background: oklch(0.42 calc(var(--c) * 1.15) var(--h));
 }
 
 @media (hover: hover) {
-  .desk-chip:hover {
-    translate: 0 -1px;
-    box-shadow:
-      inset 0 0 0 1px oklch(0.55 var(--c) var(--h) / 0.2),
-      inset 0 1px 0 oklch(1 0 0 / 0.7),
-      0 8px 18px -8px oklch(0.62 calc(var(--c) * 1.8) var(--h) / 0.6);
-  }
-
-  :root.dark .desk-chip:hover {
-    box-shadow:
-      inset 0 0 0 1px oklch(0.7 var(--c) var(--h) / 0.24),
-      inset 0 1px 0 oklch(1 0 0 / 0.08),
-      0 8px 20px -8px oklch(0.6 calc(var(--c) * 1.8) var(--h) / 0.45);
+  .desk-chip:hover::before {
+    rotate: -1.2deg;
+    scale: 1.05 1.1;
   }
 }
 
-.desk-chip:active {
-  translate: 0 0;
-}
-
-/* A named place: its mark, then its name in ink, quietly underlined. */
-.desk-brand {
-  display: inline;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--d-ink);
-  font: inherit;
+.desk-link {
+  color: inherit;
   text-decoration: underline 0.06em var(--d-line);
   text-underline-offset: 0.2em;
-  cursor: pointer;
   transition: text-decoration-color 0.2s ease;
 }
 
 @media (hover: hover) {
-  .desk-brand:hover {
+  .desk-link:hover {
     text-decoration-color: currentColor;
   }
-}
-
-.desk-brand-icon {
-  display: inline-block;
-  width: 0.78em;
-  height: 0.78em;
-  margin-right: 0.22em;
-  vertical-align: -0.06em;
 }
 
 .desk :is(a, button):focus-visible {
   outline: 2px solid var(--d-focus);
   outline-offset: 3px;
-  border-radius: 0.32em;
+  border-radius: 0.2em;
 }
 
 /* --- Footer: one quiet line under the prose ------------------------------- */
 .desk-foot {
   display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
   gap: 4px 18px;
   grid-column: 1;
   grid-row: 2;
-  padding: 0 clamp(28px, 6.4vw, 104px) 28px;
+  padding: 0 var(--d-gutter) 28px;
   color: var(--d-faint);
   font: 400 12.5px/1.5 var(--d-sans);
 }
 
 /* The links wrap as one group, never one at a time. */
-.desk-foot {
-  justify-content: space-between;
-}
-
 .desk-foot-links {
   display: flex;
   gap: 18px;
@@ -416,127 +397,327 @@ body:has(.desk) .spotlight-overlay {
   }
 }
 
-/* --- Matrix --------------------------------------------------------------- */
-.mx {
-  position: relative;
+/* --- The easel -----------------------------------------------------------------
+   A 4:5 canvas, as large as the column allows with room for its label. */
+.easel {
   grid-column: 2;
   grid-row: 1 / span 2;
-  height: 100svh;
-  min-height: 0;
-}
-
-.mx-col {
-  --mx-axis: y;
-  height: 100%;
-  padding-inline: var(--mx-pad) calc(var(--mx-pad) + 24px);
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
-  /* Frames dissolve into the top and bottom edges instead of being cut by
-     them. */
-  mask-image: linear-gradient(transparent, #000 48px, #000 calc(100% - 48px), transparent);
-}
-
-.mx-col::-webkit-scrollbar {
-  display: none;
-}
-
-.mx-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 44px;
-  padding-block: 22px;
-}
-
-.mx-cell {
-  flex: none;
-  width: var(--mx-w);
-}
-
-/* The arc: frames ride the rim of a wheel whose hub is off the right edge.
-   They bow towards the prose at mid-height and lean the way the rim turns
-   at either end. Driven by the column's own scroll, on the compositor. */
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .mx-cell {
-      animation: mx-arc linear both;
-      animation-timeline: view(block);
-    }
-  }
-}
-
-@keyframes mx-arc {
-  0% { translate: 36px 0; rotate: -3.5deg; }
-  50% { translate: 0 0; rotate: 0deg; }
-  100% { translate: 36px 0; rotate: 3.5deg; }
-}
-
-/* --- Frames --------------------------------------------------------------- */
-.tile {
-  --k: 1;
-  --tone-bg: var(--d-frame-top);
-  /* Frames are the wallpaper a channel's bubbles sit on. */
-  --d-bubble: var(--d-paper);
-
-  position: relative;
-  display: block;
-  width: 100%;
-  aspect-ratio: var(--ar, 5 / 4);
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  border-radius: 24px;
-  background: radial-gradient(120% 95% at 50% 28%, var(--d-frame-top), var(--d-frame-edge));
-  box-shadow: var(--d-frame-shadow);
-  color: var(--d-ink);
-  font: inherit;
-  text-decoration: none;
-  cursor: pointer;
-  transition:
-    translate 0.4s var(--d-ease),
-    box-shadow 0.4s var(--d-ease);
-}
-
-.tile-obj {
-  position: absolute;
-  inset: 0;
   display: grid;
   place-items: center;
+  width: min(50vw, 760px);
+  height: 100svh;
+  padding: 32px clamp(28px, 4vw, 64px) 24px 8px;
+  container-type: size;
+}
+
+.easel-hang {
+  width: min(100cqw, calc((100cqh - 64px) / 1.25));
+}
+
+.easel-frame {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: linear-gradient(var(--d-wall) 60.8%, var(--d-table) 60.8%);
+  box-shadow: var(--d-hang-shadow);
+}
+
+.easel.is-covered .easel-frame {
+  background: var(--coat, var(--d-page));
+}
+
+.sl,
+.sl-backdrop,
+.easel-ground {
+  position: absolute;
+  inset: 0;
+}
+
+.sl-backdrop,
+.easel-ground {
+  width: 100%;
+  height: 100%;
+}
+
+.easel-ground {
+  z-index: 2;
   pointer-events: none;
 }
 
-.tile-obj > * {
-  scale: calc(var(--k) * var(--kw));
+/* A thing is its own canvas over the backdrop, under a link the size of the
+   thing. Pointed at (here or in the prose), it lifts off the table and the
+   rest of the room steps back. */
+.sl-thing {
+  position: absolute;
+  display: block;
+  transition:
+    translate 0.5s var(--d-ease),
+    rotate 0.6s var(--d-ease),
+    opacity 0.4s ease,
+    filter 0.4s ease;
 }
 
-.tile--projects {
-  --k: 0.68;
+.sl-thing canvas {
+  position: absolute;
+  pointer-events: none;
 }
 
-/* The pile is wider than the frame before it scales; keep it centred. */
-.tile--projects .tile-obj {
-  place-content: center;
+.sl-thing.is-hot {
+  translate: 0 -1.4%;
 }
 
-/* The badge hangs from above the frame, its strap running off the top. */
-.tile--about {
-  --ar: 9 / 10;
-  --k: 0.8;
+/* The card swings on its nail; the record leans back on the wall. */
+.sl-thing[data-thing='badge'] {
+  transform-origin: 50% 10%;
 }
 
-.tile--about .tile-obj {
+.sl-thing[data-thing='badge'].is-hot {
+  translate: none;
+  rotate: 4deg;
+}
+
+.sl-thing[data-thing='record'] {
+  transform-origin: 50% 100%;
+}
+
+.sl-thing[data-thing='record'].is-hot {
+  translate: none;
+  rotate: -2.5deg;
+}
+
+.easel[data-hot] .sl-thing:not(.is-hot) {
+  opacity: 0.72;
+  filter: saturate(0.45);
+}
+
+.sl-thing:focus-visible {
+  outline: 2px solid var(--d-ink);
+  outline-offset: 4px;
+}
+
+/* --- Tabs: swatches tested on the wall ------------------------------------- */
+.easel-tabs {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  left: 14px;
+  z-index: 4;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.easel-tabs[hidden] {
+  display: none;
+}
+
+.easel-home {
+  flex: none;
+  width: 26px;
+  height: 32.5px;
+  padding: 0;
+  border: 0;
+  background: var(--d-wall);
+  box-shadow: 0 0 0 1px rgb(20 20 18 / 0.12), 0 3px 8px -3px rgb(20 20 18 / 0.35);
+  cursor: pointer;
+  transition: translate 0.3s var(--d-ease), box-shadow 0.3s var(--d-ease);
+}
+
+.easel-home-thumb {
+  display: block;
+  width: 26px;
+  height: 32.5px;
+}
+
+.easel-home.is-active {
+  box-shadow: 0 0 0 2px var(--d-ink);
+}
+
+@media (hover: hover) {
+  .easel-home:hover {
+    translate: 0 -2px;
+  }
+}
+
+.easel-tablist {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px 4px;
+}
+
+.easel-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  isolation: isolate;
+  height: 32px;
+  padding-left: 9px;
+  color: oklch(0.33 calc(var(--c) * 1.4) var(--h));
+  font: 600 13.5px/1 var(--d-sans);
+}
+
+.easel-tab[hidden] {
+  display: none;
+}
+
+.easel-tab::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: oklch(0.87 calc(var(--c) * 1.3) var(--h));
+  opacity: 0.5;
+  transition: opacity 0.25s ease;
+}
+
+.easel-tab.has-swatch::before {
+  background: var(--swatch) center / 100% 100% no-repeat;
+}
+
+.easel-tab.is-active::before {
+  opacity: 1;
+}
+
+:root.dark .easel-tab {
+  color: oklch(0.93 calc(var(--c) * 0.8) var(--h));
+}
+
+.easel-tab-name,
+.easel-tab-close {
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.easel-tab:not(.is-active) .easel-tab-name {
+  opacity: 0.72;
+}
+
+.easel-tab-close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+.easel-tab-close svg {
+  width: 11px;
+  height: 11px;
+}
+
+@media (hover: hover) {
+  .easel-tab-close:hover {
+    opacity: 1;
+  }
+}
+
+.easel-tabs :is(button):focus-visible {
+  outline: 2px solid var(--d-ink);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+/* --- Panels: a section on the wet ground ----------------------------------- */
+/* A short section sits in the middle of the canvas; a long one starts at the
+   top and scrolls. */
+.easel-panel {
+  position: absolute;
+  inset: 60px 0 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+  padding: 10px clamp(18px, 5%, 32px) 32px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  outline: none;
+  color: var(--d-note);
+  font-size: 14.5px;
+  line-height: 1.55;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(20 20 18 / 0.18) transparent;
+}
+
+.easel-panel[hidden] {
+  display: none;
+}
+
+.easel-panel > * {
+  flex: none;
+  margin-inline: auto;
+}
+
+/* The contents page is drawn at 320px; on the canvas it is read at arm's
+   length, so it scales as a whole. */
+.easel-panel .wr {
+  zoom: 1.3;
+}
+
+.easel-panel .mc {
+  max-width: 460px;
+}
+
+/* A sheet taped to the canvas. */
+.easel-paper {
+  position: relative;
+  max-width: 440px;
+  margin-top: 16px;
+  padding: 20px 20px 18px;
+  background: var(--d-sheet);
+  box-shadow: var(--d-sheet-shadow);
+  rotate: -0.5deg;
+}
+
+.easel-paper::before,
+.easel-paper::after {
+  content: '';
+  position: absolute;
+  top: -11px;
+  width: 68px;
+  height: 22px;
+  background: var(--d-tape);
+  box-shadow: 0 0 0 0.5px rgb(60 40 10 / 0.06);
+}
+
+.easel-paper::before {
+  left: 18px;
+  rotate: -6deg;
+}
+
+.easel-paper::after {
+  right: 18px;
+  rotate: 5deg;
+}
+
+/* About: the card hangs over a sheet of where I've been. */
+.ab {
+  display: flex;
+  max-width: 440px;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* The card is scaled, so its box keeps the full size: the height here is the
+   scaled card, lanyard to hem, and the sheet starts below it. */
+.ab-badge {
+  display: grid;
   place-items: start center;
+  height: 404px;
+  margin-top: -48px;
 }
 
-.tile--about .tile-obj > * {
-  margin-top: -8px;
+.ab-badge .mo {
+  scale: 0.84;
   transform-origin: 50% 0;
 }
 
-/* The card turns on the clip it hangs from, by the pointer's tilt
-   (client/foil.ts). */
-.tile--about .tile-obj .mo-badge {
+.ab-badge .mo-badge {
   transform-origin: 50% -10px;
   transform: perspective(800px) rotateX(calc(var(--tilt-y, 0) * 9deg)) rotateY(calc(var(--tilt-x, 0) * 14deg));
 }
@@ -551,222 +732,11 @@ body:has(.desk) .spotlight-overlay {
   pointer-events: none;
 }
 
-.tile--writing {
-  --ar: 1 / 1;
-  --k: 0.94;
+.ab .easel-paper {
+  align-self: stretch;
 }
 
-.tile--moods {
-  --ar: 8 / 7;
-  --k: 0.94;
-}
-
-.tile--moods .tile-obj .mc {
-  width: 300px;
-}
-
-.tile--moods .mc-bubble {
-  box-shadow: 0 1px 1px rgb(0 0 0 / 0.06);
-}
-
-.tile--hello {
-  --ar: 16 / 10;
-}
-
-/* Each object answers a hover in its own way: the deck thumbs open (Deck.astro),
-   the badge swings on its strap, the journal opens (Journal.astro), the send
-   button leans in. */
-.ch-send {
-  transition:
-    translate 0.45s var(--d-ease),
-    rotate 0.45s var(--d-ease),
-    scale 0.3s var(--d-ease);
-}
-
-@media (hover: hover) {
-  .tile:hover {
-    translate: 0 -4px;
-    box-shadow: var(--d-frame-shadow), 0 36px 60px -34px rgb(20 20 18 / 0.3);
-  }
-
-  .tile--hello:hover .ch-send {
-    scale: 1.12;
-  }
-}
-
-.tile:active {
-  translate: 0 -1px;
-}
-
-.tile:focus-visible {
-  outline: 2px solid var(--d-focus);
-  outline-offset: 4px;
-  border-radius: 24px;
-}
-
-/* --- Windows -------------------------------------------------------------- */
-.desk-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  color: var(--d-ink);
-  font-family: var(--d-sans);
-  -webkit-font-smoothing: antialiased;
-  pointer-events: none;
-}
-
-.win {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: min(var(--win-w, 480px), calc(100vw - 32px));
-  translate: var(--x, 0px) var(--y, 0px);
-  rotate: var(--tilt, 0deg);
-  pointer-events: auto;
-  outline: none;
-  transition: rotate 0.5s var(--d-ease);
-}
-
-.win[hidden] {
-  display: none;
-}
-
-.win.is-dragging,
-.win.is-gliding {
-  transition: none;
-}
-
-/* The shadow sits on its own layer: the mat is clipped while it unfolds, and a
-   clipped box-shadow would pop in at the last frame. */
-.win::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 22px;
-  box-shadow: var(--d-shadow);
-  pointer-events: none;
-}
-
-/* The mat is the handle: grab it anywhere outside the card. */
-.win-mat {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  padding: 0 6px 6px;
-  border-radius: 22px;
-  background: var(--d-mat);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.win.is-dragging .win-mat {
-  cursor: grabbing;
-}
-
-.win:focus-visible .win-mat {
-  outline: 2px solid var(--d-focus);
-  outline-offset: 2px;
-}
-
-.win-bar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 42px;
-  padding-left: 12px;
-}
-
-.win-title {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  color: var(--d-ink);
-  font: 600 13.5px/1.3 var(--d-sans);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.win-link,
-.win-close {
-  display: inline-flex;
-  align-items: center;
-  height: 30px;
-  border: 0;
-  border-radius: 9px;
-  background: none;
-  color: var(--d-note);
-  cursor: pointer;
-  font: 500 13px/1 var(--d-sans);
-  text-decoration: none;
-  transition: color 0.15s ease, background-color 0.15s ease;
-}
-
-.win-link {
-  gap: 4px;
-  padding: 0 8px;
-}
-
-.win-link svg {
-  width: 11px;
-  height: 11px;
-}
-
-.win-close {
-  justify-content: center;
-  width: 30px;
-}
-
-.win-close svg {
-  width: 12px;
-  height: 12px;
-}
-
-@media (hover: hover) {
-  .win-link:hover,
-  .win-close:hover {
-    background: var(--d-hover);
-    color: var(--d-ink);
-  }
-}
-
-.win-link:focus-visible,
-.win-close:focus-visible {
-  outline: 2px solid var(--d-focus);
-  outline-offset: -2px;
-}
-
-.win-card {
-  max-height: calc(100svh - 120px);
-  padding: 16px 18px 18px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  border-radius: 16px;
-  background: var(--d-card);
-  box-shadow: 0 0 0 1px var(--d-hair);
-  color: var(--d-note);
-  font-size: 14.5px;
-  line-height: 1.55;
-  cursor: auto;
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-/* A bare window shows its object straight on the mat. */
-.win--bare .win-card {
-  padding: 6px 6px 8px;
-  background: none;
-  box-shadow: none;
-}
-
-.win--bare .win-card .wr {
-  width: 100%;
-}
-
-/* About: one row per place. */
-.win-rows {
+.paper-rows {
   display: flex;
   flex-direction: column;
   margin: -6px -10px;
@@ -774,64 +744,63 @@ body:has(.desk) .spotlight-overlay {
   list-style: none;
 }
 
-.win-row {
+.paper-row {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px;
-  border-radius: 12px;
   color: inherit;
   text-decoration: none;
   transition: background-color 0.15s ease;
 }
 
 @media (hover: hover) {
-  .win-row:hover {
+  .paper-row:hover {
     background: var(--d-hover);
   }
 }
 
-.win-row:focus-visible {
+.paper-row:focus-visible {
   outline: 2px solid var(--d-focus);
   outline-offset: -2px;
 }
 
-.win-row-icon {
+.paper-row-icon {
   display: grid;
   flex: none;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   background: var(--d-paper);
   box-shadow: 0 0 0 1px var(--d-line);
   color: var(--d-ink);
 }
 
-.win-row-glyph {
-  width: 20px;
-  height: 20px;
+.paper-row-glyph {
+  width: 19px;
+  height: 19px;
 }
 
-.win-row-main {
+.paper-row-main {
   display: flex;
   min-width: 0;
   flex: 1;
   flex-direction: column;
 }
 
-.win-row-title {
+.paper-row-title {
   color: var(--d-ink);
   font-weight: 600;
   line-height: 1.3;
 }
 
-.win-row-sub {
+.paper-row-sub {
   font-size: 13px;
   line-height: 1.4;
 }
 
-.win-row-end {
+.paper-row-end {
   flex: none;
   align-self: flex-start;
   margin-top: 2px;
@@ -840,33 +809,205 @@ body:has(.desk) .spotlight-overlay {
   font-variant-numeric: tabular-nums;
 }
 
-.desk-scrim {
-  position: fixed;
+/* Listening: the record off the wall, turning, wearing the cover of the
+   song; the light on it stays where it is. */
+.lp {
+  display: flex;
+  width: 100%;
+  max-width: 440px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.lp-record {
+  position: relative;
+  width: min(330px, 78%);
+  aspect-ratio: 1;
+  filter: drop-shadow(10px 14px 0 rgb(60 30 40 / 0.1));
+}
+
+.lp-spin,
+.lp-disc,
+.lp-shine {
+  position: absolute;
   inset: 0;
-  z-index: 79;
-  background: rgb(20 20 18 / 0.3);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  opacity: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.lp-spin {
+  animation: lp-spin 7.2s linear infinite;
+}
+
+.lp-label {
+  position: absolute;
+  inset: 34%;
+  width: 32%;
+  height: 32%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.lp-label[hidden] {
+  display: none;
+}
+
+.lp-spin::after {
+  content: '';
+  position: absolute;
+  inset: calc(50% - 4px);
+  border-radius: 50%;
+  background: oklch(0.2 0.01 280);
+}
+
+.lp-shine {
   pointer-events: none;
-  transition: opacity 0.3s var(--d-ease);
 }
 
-.desk-scrim.is-on {
-  opacity: 1;
-  pointer-events: auto;
+.lp .easel-paper {
+  align-self: stretch;
+  margin-top: 26px;
 }
 
-/* --- Phones and tablets: the page scrolls, the column turns into a drifting
-   row under the prose, and the nav links fold into a menu. ---------------- */
+@keyframes lp-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+/* Projects: a wall of small studies, each matted like a print. */
+.works {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 26px 20px;
+  max-width: 520px;
+  margin: 8px auto 0;
+  padding: 0;
+  list-style: none;
+}
+
+.work {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--d-note);
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+.work-mat {
+  display: block;
+  margin-bottom: 9px;
+  padding: 7%;
+  background: var(--d-sheet);
+  box-shadow: var(--d-sheet-shadow);
+  transition:
+    translate 0.4s var(--d-ease),
+    rotate 0.4s var(--d-ease);
+}
+
+.work-study {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(var(--d-wall) 66%, var(--d-table) 66%);
+}
+
+.work-name {
+  color: var(--d-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.work-medium {
+  display: flex;
+  gap: 8px;
+}
+
+.work-stars {
+  color: var(--d-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.work-blurb {
+  margin-top: 2px;
+  text-wrap: pretty;
+}
+
+@media (hover: hover) {
+  .work:hover .work-mat {
+    translate: 0 -3px;
+    rotate: -0.6deg;
+  }
+}
+
+.work:focus-visible {
+  outline: 2px solid var(--d-focus);
+  outline-offset: 4px;
+}
+
+/* --- The gallery label ------------------------------------------------------- */
+.easel-label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1px 16px;
+  min-height: 2.9em;
+  margin: 14px 0 0;
+  color: var(--d-note);
+  font: 400 12.5px/1.45 var(--d-sans);
+}
+
+.easel-label-head {
+  color: var(--d-ink);
+}
+
+.easel-label-head b {
+  font-weight: 600;
+}
+
+.easel-label-medium {
+  grid-row: 2;
+  font-style: italic;
+}
+
+.easel-label-link {
+  display: inline-flex;
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  align-items: center;
+  gap: 4px;
+  color: var(--d-ink);
+  font-weight: 500;
+  text-decoration: underline 1px var(--d-line);
+  text-underline-offset: 3px;
+}
+
+.easel-label-link[hidden] {
+  display: none;
+}
+
+.easel-label-link svg {
+  width: 11px;
+  height: 11px;
+}
+
+@media (hover: hover) {
+  .easel-label-link:hover {
+    text-decoration-color: currentColor;
+  }
+}
+
+/* --- Phones and tablets: the page scrolls, the easel hangs under the prose,
+   and the nav links fold into a menu. ------------------------------------- */
 @media (max-width: 899px) {
   :root:has(.desk) {
     --d-gutter: 20px;
   }
 
   .desk {
-    --mx-w: 280px;
-    --kw: 0.737;
     display: flex;
     flex-direction: column;
   }
@@ -880,53 +1021,20 @@ body:has(.desk) .spotlight-overlay {
     font-size: clamp(20px, 5.4vw, 26px);
   }
 
-  .mx {
+  .easel {
+    width: 100%;
     height: auto;
+    padding: 36px var(--d-gutter) 40px;
+    container-type: normal;
   }
 
-  .mx-col {
-    --mx-axis: x;
-    padding: 28px 0 40px;
-    mask-image: none;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-
-  .mx-track {
-    display: flex;
-    width: max-content;
-  }
-
-  .mx-copy {
-    flex-direction: row;
-    align-items: center;
-    gap: 18px;
-    padding-block: 0;
-    padding-inline: 9px;
-  }
-
-  .mx-cell {
-    animation: none;
+  .easel-hang {
+    width: min(100%, 560px);
   }
 
   .desk-foot {
     padding: 0 20px calc(env(safe-area-inset-bottom, 0px) + 28px);
   }
-}
-
-@media (max-width: 899px) and (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
-    .mx-cell {
-      animation: mx-bob linear both;
-      animation-timeline: view(inline);
-    }
-  }
-}
-
-@keyframes mx-bob {
-  0% { translate: 0 -8px; rotate: -2.5deg; }
-  50% { translate: 0 6px; rotate: 0deg; }
-  100% { translate: 0 -8px; rotate: 2.5deg; }
 }
 
 @media (max-width: 639px) {
@@ -938,60 +1046,60 @@ body:has(.desk) .spotlight-overlay {
     display: block;
   }
 
-  /* A sheet is modal: it and its scrim cover the nav card (z-index 100). */
-  .desk-scrim {
-    z-index: 101;
+  /* With a section on it, the canvas takes the screen. The painting stays
+     behind on the page; the coat and the label come along. */
+  :root.easel-locked,
+  :root.easel-locked body {
+    overflow: hidden;
   }
 
-  .desk-layer {
+  .easel.is-full .easel-frame {
+    position: fixed;
+    inset: 0;
     z-index: 102;
+    aspect-ratio: auto;
+    background: transparent;
+    box-shadow: none;
   }
 
-  .win {
-    top: auto;
+  .easel.is-full .sl {
+    visibility: hidden;
+  }
+
+  .easel.is-full .easel-tabs {
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+  }
+
+  .easel.is-full .easel-panel {
+    top: calc(env(safe-area-inset-top, 0px) + 58px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
+  }
+
+  .easel.is-full .easel-label {
+    position: fixed;
+    right: 0;
     bottom: 0;
-    width: 100%;
-    translate: 0 var(--sheet-y, 0px);
-    rotate: none;
+    left: 0;
+    z-index: 103;
+    margin: 0;
+    padding: 12px 20px calc(env(safe-area-inset-bottom, 0px) + 14px);
+    background: var(--coat);
   }
 
-  .win::before {
-    border-radius: 24px 24px 0 0;
-  }
-
-  .win-mat {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
-    border-radius: 24px 24px 0 0;
-  }
-
-  /* The grabber says the sheet moves with a finger. */
-  .win-bar {
-    position: relative;
-    padding-top: 10px;
-  }
-
-  .win-bar::before {
-    content: '';
-    position: absolute;
-    top: 6px;
-    left: 50%;
-    width: 36px;
-    height: 4px;
-    translate: -50% 0;
-    border-radius: 2px;
-    background: var(--d-line);
-  }
-
-  .win-card {
-    max-height: 76svh;
+  .works {
+    gap: 22px 14px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .desk-chip,
-  .tile,
-  .win,
-  .ch-send {
+  .lp-spin {
+    animation: none;
+  }
+
+  .desk-chip::before,
+  .sl-thing,
+  .easel-home,
+  .work-mat {
     transition: none;
   }
 }

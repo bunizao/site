@@ -1,8 +1,8 @@
-// Boot for the desk at /new: the matrix drift, the windows, the foil on the
-// student card and the notebook, and the phone menu in the nav card.
+// Boot for the desk at /new: the easel, the clock in it, the foil on the
+// student card, and the phone menu in the nav card.
+import { initClock } from './clock';
+import { initEasel } from './easel';
 import { initFoil } from './foil';
-import { initMatrix } from './matrix';
-import { initWindows } from './windows';
 
 // A native <details> stays open until its summary is pressed again. A menu
 // should also close on a press anywhere else, on Esc, and once a link in it
@@ -22,8 +22,8 @@ function initMenu() {
   });
 }
 
-initMatrix();
-initWindows();
+initEasel();
+initClock();
 initMenu();
 // The shader compiles once the page is idle, not on the critical path.
 (window.requestIdleCallback ?? ((callback: () => void) => setTimeout(callback, 200)))(() => initFoil());
