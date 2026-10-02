@@ -510,6 +510,23 @@ body:has(.desk) .spotlight-overlay {
   transform-origin: 50% 0;
 }
 
+/* The card turns on the clip it hangs from (client/foil.ts). */
+.tile--about .tile-obj .mo-badge {
+  transform-origin: 50% -10px;
+}
+
+/* The foil canvas lies exactly over the M and is cut to its shape, under the
+   punched hole and the portrait. */
+.mo-foil {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  aspect-ratio: 100 / 230;
+  pointer-events: none;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 230' preserveAspectRatio='none'%3E%3Cpath d='M0 0 H44 L50 74 L56 0 H100 V230 H72.8 V136 L64.4 230 H35.6 L27.2 136 V230 H0 Z'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 230' preserveAspectRatio='none'%3E%3Cpath d='M0 0 H44 L50 74 L56 0 H100 V230 H72.8 V136 L64.4 230 H35.6 L27.2 136 V230 H0 Z'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
+}
+
 .tile--writing {
   --k: 0.9;
 }
@@ -555,10 +572,6 @@ body:has(.desk) .spotlight-overlay {
     transform: translate(calc(-50% + var(--fx) * 1.22), calc(var(--fy) * 1.3 - 10px)) rotate(calc(var(--fr) * 1.35));
   }
 
-  .tile--about:hover .mo {
-    animation: desk-swing 1100ms ease-in-out;
-  }
-
   .tile--writing:hover .wr {
     translate: 0 -6px;
     rotate: -2deg;
@@ -577,15 +590,6 @@ body:has(.desk) .spotlight-overlay {
   outline: 2px solid var(--d-focus);
   outline-offset: 4px;
   border-radius: 24px;
-}
-
-@keyframes desk-swing {
-  0% { rotate: 0deg; }
-  18% { rotate: 4deg; }
-  42% { rotate: -2.4deg; }
-  64% { rotate: 1.1deg; }
-  84% { rotate: -0.4deg; }
-  100% { rotate: 0deg; }
 }
 
 /* --- Windows -------------------------------------------------------------- */
@@ -974,9 +978,5 @@ body:has(.desk) .spotlight-overlay {
   .wr,
   .ch-send {
     transition: none;
-  }
-
-  .tile--about:hover .mo {
-    animation: none;
   }
 }
