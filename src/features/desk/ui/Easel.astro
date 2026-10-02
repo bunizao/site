@@ -1,0 +1,129 @@
+---
+// The easel: one 4:5 canvas holding "Still life with a desk". Each thing in
+// the painting is a link or a button over the paint. Opening a section tones
+// the whole canvas over in its colour with a palette knife and sets the
+// section on the wet ground; every section opened stays as a swatch tab at
+// the top, and the small painting at the start of the row goes back to the
+// still life. Under the canvas, a gallery label names whatever is on it.
+//
+// A pendant lamp hangs over the desk; it switches, and swings. Its light is
+// two canvases over the paint, blended in (client/lamp.ts).
+//
+// Without the script the things are plain links to their pages; the panels
+// stay hidden.
+import { LAMP, THINGS } from '@/features/desk/shared/still-life';
+
+export interface EaselSection {
+  id: string;
+  /** The tab's name. */
+  tab: string;
+  /** The gallery label: a title, a date, and a medium. */
+  title: string;
+  date: string;
+  medium: string;
+  hue: number;
+  chroma: number;
+  /** The page behind it; a section without a panel is only this link. */
+  href?: string;
+  hrefLabel?: string;
+  /** Hint for the accessible name of the thing in the painting. */
+  thing: string;
+  panel?: boolean;
+}
+
+interface Props {
+  sections: EaselSection[];
+  /** The painting's own label, while nothing else is on the canvas. */
+  painting: { title: string; date: string; medium: string };
+}
+
+const { sections, painting } = Astro.props;
+const byId = new Map(sections.map((section) => [section.id, section]));
+const panels = sections.filter((section) => section.panel);
+const pct = (value: number) => `${(value * 100).toFixed(2)}%`;
+const tone = (section: EaselSection) => `--h: ${section.hue}; --c: ${section.chroma}`;
+const boxStyle = ([x, y, w, h]: [number, number, number, number]) => `left: ${pct(x)}; top: ${pct(y / 1.25)}; width: ${pct(w)}; height: ${pct(h / 1.25)}`;
+const lamp = byId.get('lamp');
+---
+
+<section class="easel" data-easel aria-label="Still life with a desk">
+  <div class="easel-hang">
+    <div class="easel-frame" data-easel-frame>
+      <div class="sl" data-sl>
+        {THINGS.map((thing) => {
+          const section = byId.get(thing.section);
+          if (!section) return null;
+          const style = `${boxStyle(thing.box)}; ${tone(section)}`;
+          return section.panel ? (
+            <a
+              class="sl-thing"
+              href={section.href ?? `#${section.id}`}
+              data-thing={thing.id}
+              data-open={section.id}
+              aria-controls={`easel-${section.id}`}
+              aria-label={section.thing}
+              style={style}
+            ></a>
+          ) : section.href ? (
+            <a class="sl-thing" href={section.href} data-thing={thing.id} data-hint={section.id} aria-label={section.thing} style={style}></a>
+          ) : (
+            <span class="sl-thing" data-thing={thing.id} data-hint={section.id} role="img" aria-label={section.thing} style={style}></span>
+          );
+        })}
+        {lamp && (
+          <button
+            class="sl-thing sl-lamp"
+            type="button"
+            data-thing="lamp"
+            data-hint="lamp"
+            data-lamp
+            aria-pressed="true"
+            aria-label={lamp.thing}
+            style={`${boxStyle(LAMP.box)}; ${tone(lamp)}`}
+          ></button>
+        )}
+        <canvas class="sl-lit" data-sl-lit aria-hidden="true"></canvas>
+        <canvas class="sl-air" data-sl-air aria-hidden="true"></canvas>
+      </div>
+
+      <canvas class="easel-ground" data-ground aria-hidden="true"></canvas>
+
+      <div class="easel-tabs" data-tabs hidden>
+        <button class="easel-home" type="button" data-home aria-label="Back to the painting">
+          <canvas class="easel-home-thumb" data-home-thumb aria-hidden="true"></canvas>
+        </button>
+        <div class="easel-tablist" role="tablist" aria-label="Open on the canvas">
+          {panels.map((section) => (
+            <span class="easel-tab" data-tab={section.id} style={tone(section)} hidden>
+              <button
+                class="easel-tab-name"
+                type="button"
+                role="tab"
+                id={`easel-tab-${section.id}`}
+                aria-controls={`easel-${section.id}`}
+                aria-selected="false"
+                data-tab-select
+              >{section.tab}</button>
+              <button class="easel-tab-close" type="button" data-tab-close aria-label={`Close ${section.tab}`}>
+                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 3 9 9M9 3 3 9" /></svg>
+              </button>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <slot />
+    </div>
+
+    <p class="easel-label" data-label aria-live="polite">
+      <span class="easel-label-head"><b data-label-title>{painting.title}</b>, <span data-label-date>{painting.date}</span></span>
+      <span class="easel-label-medium" data-label-medium>{painting.medium}</span>
+      <a class="easel-label-link" data-label-link hidden>
+        <span data-label-link-text></span>
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5 8.5 3.5M4.5 3.5h4v4" /></svg>
+      </a>
+    </p>
+  </div>
+
+  <script is:inline type="application/json" data-easel-sections set:html={JSON.stringify({ painting, sections })} />
+</section>

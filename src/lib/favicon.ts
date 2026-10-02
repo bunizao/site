@@ -9,3 +9,17 @@ export const SITE_FAVICON = import.meta.env.DEV
 export const BLOG_FAVICON = import.meta.env.DEV
   ? '/blog-mark-dev.svg'
   : '/blog-mark.svg?v=2';
+
+// One URL per browser colour scheme. Browsers rasterise a favicon once per
+// URL, so an icon that adapts by its own media query never follows a live
+// scheme change; Favicon.astro swaps between these instead.
+export interface FaviconPair {
+  light: string;
+  dark: string;
+  type: string;
+}
+
+// The desk's painted peek (scripts/brand). Only /new uses it for now.
+export const DESK_FAVICON: FaviconPair = import.meta.env.DEV
+  ? { light: '/logo/peek-dev.svg', dark: '/logo/peek-dev.svg', type: 'image/svg+xml' }
+  : { light: '/desk/favicon-light.png', dark: '/desk/favicon-dark.png', type: 'image/png' };

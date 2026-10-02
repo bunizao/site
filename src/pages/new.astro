@@ -1,0 +1,271 @@
+---
+// /new — the desk. A prototype of the next home page: one screen, prose on
+// the left and an easel on the right holding a palette knife painting of the
+// desk itself. Every coloured word in the prose is a thing in the painting;
+// pointing at one lifts it off the table, and opening one paints its section
+// onto the canvas. Where a real page exists the opener is a link to it, so a
+// modified click, a crawler or a script failure still lands somewhere.
+//
+// Unlisted while it is a prototype: noindex, and nothing links here.
+import { Menu, Volume2, VolumeX } from 'lucide-react';
+import Layout from '@/layouts/Layout.astro';
+import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
+import Listening from '@/features/home/ui/Listening.astro';
+import Badge from '@/features/desk/ui/Badge.astro';
+import Contents from '@/features/desk/ui/Contents.astro';
+import Easel, { type EaselSection } from '@/features/desk/ui/Easel.astro';
+import MoodChannel from '@/features/desk/ui/MoodChannel.astro';
+import Panel from '@/features/desk/ui/Panel.astro';
+import Works from '@/features/desk/ui/Works.astro';
+import { loadDeskContent } from '@/features/desk/server/content';
+import { GitHubIcon, InstagramIcon, MonashCrestIcon, TelegramIcon } from '@/components/icons';
+import { copyrightMark, experience, footer, navLinks, profile, projects } from '@/data/site';
+import { DESK_FAVICON } from '@/lib/favicon';
+import '@/features/desk/styles/desk.css';
+
+// Request-time, for the latest moods and posts.
+export const prerender = false;
+
+const content = await loadDeskContent({ request: Astro.request, locals: Astro.locals });
+
+const firstName = profile.name.split(' ')[0];
+const external = { target: '_blank', rel: 'noopener noreferrer' };
+const linkOf = (name: string) => profile.links.find((link) => link.name === name)?.url ?? '#';
+
+// One hue per section: its word in the prose, its thing in the painting, its
+// tab, and the coat the canvas takes when it opens.
+const sections: EaselSection[] = [
+  {
+    id: 'projects',
+    tab: 'projects',
+    title: 'Projects',
+    date: '2023–ongoing',
+    medium: `TypeScript on GitHub, ${projects.length} works`,
+    hue: 92,
+    chroma: 0.1,
+    href: '/projects',
+    hrefLabel: 'all projects',
+    thing: 'Projects: the small works on the wall',
+    panel: true,
+  },
+  {
+    id: 'about',
+    tab: 'about',
+    title: 'Self-portrait as a student card',
+    date: '2024',
+    medium: 'PVC and pearl foil, Monash University',
+    hue: 285,
+    chroma: 0.07,
+    thing: 'About me: the student card on the wall',
+    panel: true,
+  },
+  {
+    id: 'writing',
+    tab: 'writing',
+    title: 'Writing',
+    date: 'ongoing',
+    medium: `Ink on Ghost, ${content.postCount} entries`,
+    hue: 250,
+    chroma: 0.07,
+    href: '/blog',
+    hrefLabel: 'read the blog',
+    thing: 'Writing: the stack of books',
+    panel: true,
+  },
+  {
+    id: 'moods',
+    tab: 'moods',
+    title: 'Moods',
+    date: 'daily',
+    medium: 'Telegram on glass, short thoughts',
+    hue: 45,
+    chroma: 0.09,
+    href: '/mood',
+    hrefLabel: 'all moods',
+    thing: 'Moods: the cup of coffee',
+    panel: true,
+  },
+  {
+    id: 'listening',
+    tab: 'listening',
+    title: 'A song on repeat',
+    date: 'right now',
+    medium: 'Sound, duration variable',
+    hue: 350,
+    chroma: 0.07,
+    thing: 'Listening: the record',
+    panel: true,
+  },
+  {
+    id: 'github',
+    tab: 'github',
+    title: 'Contributions',
+    date: 'the last year',
+    medium: 'Green on grey, daily',
+    hue: 150,
+    chroma: 0.08,
+    href: 'https://github.com/bunizao',
+    hrefLabel: 'profile',
+    thing: 'GitHub: the plant',
+    panel: true,
+  },
+  {
+    id: 'clock',
+    tab: 'clock',
+    title: 'Desk clock',
+    date: 'Melbourne, always now',
+    medium: 'Seven segments of oil, kept wet',
+    hue: 84,
+    chroma: 0.12,
+    thing: 'A desk clock showing the time in Melbourne',
+  },
+  {
+    id: 'lamp',
+    tab: 'lamp',
+    title: 'Pendant lamp',
+    date: 'after dark',
+    medium: 'Enamel and brass, on a pull chain',
+    hue: 165,
+    chroma: 0.06,
+    thing: 'The lamp over the desk',
+  },
+  {
+    id: 'note',
+    tab: 'note',
+    title: 'Letter, unanswered',
+    date: 'any day',
+    medium: 'Paper, waiting for yours',
+    hue: 20,
+    chroma: 0.1,
+    href: '/message',
+    thing: 'Leave me a note: the letter',
+  },
+];
+
+const byId = new Map(sections.map((section) => [section.id, section]));
+// The chips in reading order, which their paint is laid behind on arrival.
+const READING = ['projects', 'about', 'writing', 'moods', 'listening', 'github', 'note'];
+const tone = (id: string) => `--h: ${byId.get(id)?.hue}; --c: ${byId.get(id)?.chroma}; --i: ${READING.indexOf(id)}`;
+const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`, style: tone(id) });
+---
+
+<Layout
+  title={`${profile.name} — desk`}
+  description={`${profile.name}'s desk: projects, writing, moods and the rest, on one page.`}
+  url="/new"
+  robots="noindex"
+  image="/desk/og.jpg"
+  favicon={DESK_FAVICON}
+  touchIcon="/desk/touch-icon.png"
+  hideSiteNav
+>
+  <nav slot="header-actions" class="desk-nav" aria-label="Site">
+    {navLinks.map((link) => <a href={link.href}>{link.label.toLowerCase()}</a>)}
+  </nav>
+  <details slot="header-actions" class="desk-menu">
+    <summary class="header-action-btn" aria-label="Menu"><Menu aria-hidden="true" /></summary>
+    <nav class="desk-menu-links" aria-label="Site">
+      {navLinks.map((link) => <a href={link.href}>{link.label.toLowerCase()}</a>)}
+    </nav>
+  </details>
+  <button slot="header-actions" class="header-action-btn desk-sound" type="button" data-sound aria-pressed="true" aria-label="Sound">
+    <Volume2 className="desk-sound-on" aria-hidden="true" />
+    <VolumeX className="desk-sound-off" aria-hidden="true" />
+  </button>
+
+  <main class="desk" data-desk>
+    <div class="desk-left">
+      <h1 class="sr-only">{profile.name}</h1>
+      <div class="desk-prose">
+        <p>
+          Hi, I'm {firstName}. I make interesting things<span class="desk-note">, orchestrating AI agents from an idea all
+          the way to a product.</span> The ones I'm proud of are in
+          <a class="desk-chip" href="/projects" {...opens('projects')}>projects</a>.
+        </p>
+        <p>
+          I study computer science at
+          <button class="desk-chip" type="button" {...opens('about')}><MonashCrestIcon className="desk-icon desk-icon-crest" />Monash</button><span class="desk-note"> in Melbourne.</span>
+          I <a class="desk-chip" href="/blog" {...opens('writing')}>write</a> about being alive, and shorter thoughts go to
+          <a class="desk-chip" href="/mood" {...opens('moods')}>moods</a>.
+          <span class="desk-note">There's usually</span>
+          <button class="desk-chip" type="button" {...opens('listening')}>a song</button>
+          <span class="desk-note">on repeat, and too many tabs open on</span>
+          <a class="desk-chip" href="https://github.com/bunizao" {...opens('github')}><GitHubIcon className="desk-icon" />GitHub</a><span class="desk-note">. Elsewhere, I'm on</span>
+          <a class="desk-link" href={linkOf('Telegram')} {...external}><TelegramIcon className="desk-icon" />Telegram</a>
+          <span class="desk-note">and</span>
+          <a class="desk-link" href={linkOf('Instagram')} {...external}><InstagramIcon className="desk-icon" />Instagram</a><span class="desk-note">.</span>
+        </p>
+        <p class="desk-cta">
+          <span class="desk-note">Everything in the painting opens. Or just</span>
+          <a class="desk-chip" href="/message" style={tone('note')}>leave me a note</a><span class="desk-note">.</span>
+        </p>
+      </div>
+    </div>
+
+    <Easel sections={sections} painting={{ title: 'Still life with a desk', date: '2026', medium: 'Palette knife on canvas element' }}>
+      <Panel id="projects">
+        <Works />
+      </Panel>
+
+      <Panel id="about">
+        <div class="ab">
+          <div class="ab-badge"><Badge /></div>
+          <div class="easel-paper">
+            <ul class="paper-rows">
+              {experience.map((item) => (
+                <li>
+                  <a class="paper-row" href={item.url} {...external}>
+                    <span class="paper-row-icon" aria-hidden="true"><item.icon className="paper-row-glyph" strokeWidth={item.strokeWidth} /></span>
+                    <span class="paper-row-main">
+                      <span class="paper-row-title">{item.org}</span>
+                      <span class="paper-row-sub">{item.description ?? item.role}</span>
+                    </span>
+                    <span class="paper-row-end">{item.period.replace(' — Present', ' –')}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </Panel>
+
+      <Panel id="writing">
+        <Contents posts={content.posts} total={content.postCount} />
+      </Panel>
+
+      <Panel id="moods">
+        <MoodChannel moods={content.moods} channel={content.channel} links />
+      </Panel>
+
+      <Panel id="listening">
+        <div class="lp">
+          <div class="lp-record" aria-hidden="true">
+            <div class="lp-spin" data-turn>
+              <canvas class="lp-disc" data-study="vinyl" data-seed="vinyl"></canvas>
+              <img class="lp-label" alt="" referrerpolicy="no-referrer" data-vinyl-label hidden />
+            </div>
+            <canvas class="lp-shine" data-study="shine" data-seed="shine"></canvas>
+          </div>
+          <div class="easel-paper"><Listening /></div>
+        </div>
+      </Panel>
+
+      <Panel id="github" paper>
+        <GitHubContributions />
+      </Panel>
+    </Easel>
+
+    <footer class="desk-foot">
+      <span>{copyrightMark(new Date().getFullYear())}</span>
+      <span class="desk-foot-links">
+        <a href="/privacy">privacy</a>
+        <a href={footer.statusUrl} {...external}>status</a>
+        <a href={footer.links[0].url} {...external}>source</a>
+      </span>
+    </footer>
+  </main>
+</Layout>
+
+<script>
+  import '@/features/desk/client/desk';
+</script>

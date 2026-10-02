@@ -1,0 +1,27 @@
+---
+// The projects as a wall of small studies: one knife painting per project,
+// matted like a print, with its label under it. The studies are painted by
+// client/studies.ts from the project's hero kind; until then each mat shows
+// the study's ground colour.
+import { projects } from '@/data/site';
+
+const external = { target: '_blank', rel: 'noopener noreferrer' };
+---
+
+<ul class="works">
+  {projects.map((project) => (
+    <li>
+      <a class="work" href={project.url} {...external}>
+        <span class="work-mat">
+          <canvas class="work-study" data-study={project.hero.kind} data-seed={project.id} aria-hidden="true"></canvas>
+        </span>
+        <span class="work-name">{project.name}</span>
+        <span class="work-medium">
+          {project.type}
+          {project.stars ? <span class="work-stars">★ {project.stars}</span> : null}
+        </span>
+        <span class="work-blurb">{project.blurb}</span>
+      </a>
+    </li>
+  ))}
+</ul>

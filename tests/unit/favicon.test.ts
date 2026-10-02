@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { blog } from '@/data/site';
+import { DESK_FAVICON } from '@/lib/favicon';
+
+const publicFile = (path: string) => new URL(`../../public${path}`, import.meta.url);
+
+// PNG IHDR: width and height are big-endian at bytes 16 and 20.
+function pngSize(path: string) {
+  const png = readFileSync(publicFile(path));
+  return [png.readUInt32BE(16), png.readUInt32BE(20)];
+}
 
 function readEmbeddedWebp(source: string): Buffer {
   const match = source.match(/data:image\/webp;base64,([^"']+)/);
@@ -31,6 +40,26 @@ describe('favicons', () => {
 
     expect(mark.subarray(0, 4).toString()).toBe('RIFF');
     expect(mark.subarray(8, 12).toString()).toBe('WEBP');
+  });
+});
+
+describe('desk icons', () => {
+  test('each scheme has its own shipped URL', () => {
+    expect(DESK_FAVICON.light).not.toBe(DESK_FAVICON.dark);
+    expect(existsSync(publicFile(DESK_FAVICON.light))).toBe(true);
+    expect(existsSync(publicFile(DESK_FAVICON.dark))).toBe(true);
+  });
+
+  test('tab icons are 32px, the touch icon 180px', () => {
+    expect(pngSize(DESK_FAVICON.light)).toEqual([32, 32]);
+    expect(pngSize(DESK_FAVICON.dark)).toEqual([32, 32]);
+    expect(pngSize('/desk/touch-icon.png')).toEqual([180, 180]);
+  });
+
+  test('stay off the root, where iOS and crawlers look for site-wide icons', () => {
+    for (const name of ['apple-touch-icon.png', 'favicon-light.png', 'favicon-dark.png', 'og.jpg']) {
+      expect(existsSync(publicFile(`/${name}`))).toBe(false);
+    }
   });
 });
 

@@ -1,0 +1,233 @@
+---
+// The Monash student card on its lanyard, the one from the home hover cards.
+// A real card is white plastic whatever the room, so it keeps its own light
+// palette in both themes and only dims in the dark. Static markup: on the
+// desk it sits inside a frame that is itself the button.
+import { profile } from '@/data/site';
+import { code128 } from '@/lib/code128';
+
+interface Props {
+  /** Keeps the gradient id unique when the badge renders more than once. */
+  uid?: string | number;
+}
+
+const { uid = 0 } = Astro.props;
+const inkId = `desk-mo-ink-${uid}`;
+
+// Expected graduation; the badge prints it as the card's expiry.
+const EXPIRES = '2028';
+// The bars run flush with the text. The badge margin either side is the
+// quiet zone a scanner needs, about ten modules at this width.
+const barcode = code128('buxx.me');
+---
+
+<span class="mo">
+  <svg class="mo-lanyard" viewBox="-36 0 280 80" aria-hidden="true">
+    <path class="mo-strap mo-strap--back" d="M142 -8 L110 34" />
+    <path class="mo-strap" d="M66 -8 L98 34" />
+    <rect class="mo-clamp" x="89" y="28" width="30" height="12" rx="3" />
+    <circle class="mo-ring" cx="104" cy="49" r="6" />
+    <rect class="mo-hook" x="99.5" y="53" width="9" height="24" rx="4.5" />
+  </svg>
+  <span class="mo-badge">
+    <span class="mo-photo">
+      <svg class="mo-m" viewBox="0 0 100 230" aria-hidden="true">
+        <defs>
+          <linearGradient id={inkId} x1="0" y1="0" x2="0.5" y2="1">
+            <stop offset="0" stop-color="#c4d9f2" />
+            <stop offset="1" stop-color="#e3eaf4" />
+          </linearGradient>
+        </defs>
+        <rect width="100" height="230" fill="#fafbfd" />
+        <path d="M0 0 H44 L50 74 L56 0 H100 V230 H72.8 V136 L64.4 230 H35.6 L27.2 136 V230 H0 Z" fill={`url(#${inkId})`} />
+      </svg>
+      <span class="mo-hole"></span>
+      <img
+        class="mo-portrait"
+        src="/badge/portrait-256.webp"
+        srcset="/badge/portrait-128.webp 128w, /badge/portrait-256.webp 256w, /badge/portrait-384.webp 384w"
+        sizes="128px"
+        alt=""
+        width="128"
+        height="128"
+        loading="lazy"
+        decoding="async"
+      />
+    </span>
+    <span class="mo-info">
+      <img class="mo-logo" src="/brands/monash-logo.svg" alt="" width="146" height="43" loading="lazy" decoding="async" />
+      <svg class="mo-barcode" viewBox={`0 0 ${barcode.width} 1`} preserveAspectRatio="none" shape-rendering="crispEdges" aria-hidden="true">
+        {barcode.bars.map((bar) => <rect x={bar.x} width={bar.w} height="1" />)}
+      </svg>
+      <span class="mo-name">{profile.name}</span>
+      <span class="mo-course">Bachelor of Computer Science (Honours)</span>
+      <span class="mo-faculty">Faculty of Information Technology</span>
+      <span class="mo-expiry"><span>Expiry date</span><span>{EXPIRES}</span></span>
+    </span>
+  </span>
+</span>
+
+<style>
+  .mo {
+    --mo-ink: #1c2430;
+    display: block;
+    width: 280px;
+    font-family: var(--d-sans);
+    transform-origin: 140px 0;
+  }
+
+  /* The strap runs off the top and fades there. */
+  .mo-lanyard {
+    position: relative;
+    z-index: 2;
+    display: block;
+    width: 280px;
+    height: 80px;
+    margin-bottom: -16px;
+    overflow: visible;
+    mask: linear-gradient(transparent, #000 24px);
+  }
+
+  .mo-strap {
+    fill: none;
+    stroke: #2a6fc4;
+    stroke-width: 20;
+  }
+
+  .mo-strap--back {
+    stroke: #1d5599;
+  }
+
+  .mo-clamp {
+    fill: #d3d9e1;
+  }
+
+  .mo-ring {
+    fill: none;
+    stroke: #aab4c0;
+    stroke-width: 3.5;
+  }
+
+  .mo-hook {
+    fill: #b6bfcb;
+  }
+
+  .mo-badge {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow:
+      0 0 0 1px oklch(0 0 0 / 0.06),
+      0 4px 10px -4px oklch(0 0 0 / 0.16),
+      0 20px 36px -14px oklch(0 0 0 / 0.34);
+    color: var(--mo-ink);
+    text-align: left;
+  }
+
+  :global(html.dark) .mo-badge {
+    filter: brightness(0.92);
+  }
+
+  /* The M is the university's M device, one shape at 1:2.3 and never
+     stretched, so its height sets its width. */
+  .mo-photo {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 196px;
+    overflow: hidden;
+    background: #f1f3f7;
+  }
+
+  .mo-m {
+    position: absolute;
+    inset: 0 auto 0 0;
+    height: 100%;
+    width: auto;
+  }
+
+  /* The punched hole the clip goes through. */
+  .mo-hole {
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #3a414b;
+    box-shadow: inset 0 1px 2px oklch(0 0 0 / 0.5);
+    translate: -50% 0;
+  }
+
+  .mo-portrait {
+    position: relative;
+    display: block;
+    width: 128px;
+    height: 128px;
+    margin-top: 12px;
+    border-radius: 50%;
+    background: #dde6f1;
+    box-shadow: 0 0 0 5px #fff;
+    object-fit: cover;
+  }
+
+  .mo-info {
+    display: flex;
+    flex-direction: column;
+    padding: 14px 20px 18px;
+  }
+
+  .mo-logo {
+    display: block;
+    width: 112px;
+    height: auto;
+  }
+
+  .mo-barcode {
+    display: block;
+    width: 100%;
+    height: 28px;
+    margin-top: 14px;
+    fill: var(--mo-ink);
+  }
+
+  .mo-name {
+    margin-top: 12px;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+
+  .mo-course {
+    margin-top: 3px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  .mo-faculty {
+    margin-top: 2px;
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  .mo-expiry {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed #dde2e9;
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  .mo-expiry span:last-child {
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--mo-ink);
+  }
+</style>
