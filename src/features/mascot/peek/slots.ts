@@ -40,7 +40,7 @@ export const PEEK_SLOTS: ReadonlyArray<MascotSlot> = [
     id: 'favicon.default',
     label: 'Favicon Default',
     assetId: 'peek.pose.base',
-    notes: 'Static SVG route source for the favicon and mask icon.',
+    notes: 'Static SVG route source for the mask icon and the dev favicon; scripts/brand paints the prod favicon from this grid.',
   },
   {
     id: 'preview.tracker.default',

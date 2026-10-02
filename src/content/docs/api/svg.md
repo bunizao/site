@@ -207,9 +207,12 @@ stale-if-error=86400`. A deploy starts a fresh cache.
 
 ## `GET /logo/{id}.svg`
 
-The site's pixel-art marks, used as favicons and wherever the logo appears as
-an image. On `buxx.me` they are prerendered static files, unlike the SSR
-badges above. That is why they are the one SVG family served from `buxx.me`
+The site's pixel-art marks, used as the mask icon, `og:logo`, the `astro dev`
+favicon, and wherever the logo appears as an image. (The production tab icons
+are painted PNGs; see
+[Favicons and the share card](/docs/platform/seo#favicons-and-the-share-card).)
+On `buxx.me` the marks are prerendered static files, unlike the SSR badges
+above. That is why they are the one SVG family served from `buxx.me`
 directly instead of through `/api`. `site-api` has the same route but renders
 it on request, so `api.buxx.me/logo/{id}.svg` is SSR.
 

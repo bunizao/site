@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { blog } from '@/data/site';
+import { BLOG_FAVICON, SITE_FAVICON } from '@/lib/favicon';
+
+const publicFile = (path: string) => new URL(`../../public${path.split('?')[0]}`, import.meta.url);
+
+// PNG IHDR: width and height are big-endian at bytes 16 and 20.
+function pngSize(path: string) {
+  const png = readFileSync(publicFile(path));
+  return [png.readUInt32BE(16), png.readUInt32BE(20)];
+}
 
 function readEmbeddedWebp(source: string): Buffer {
   const match = source.match(/data:image\/webp;base64,([^"']+)/);
@@ -24,6 +33,29 @@ describe('favicons', () => {
       expect(mark.includes(Buffer.from('EXIF'))).toBe(false);
       expect(source).not.toContain('data:image/png;base64,');
     }
+  });
+
+  test('the dark blog mark is the same WebP, always inverted', () => {
+    const prod = readFileSync(publicFile('/blog-mark.svg'), 'utf8');
+    const dark = readFileSync(publicFile('/blog-mark-dark.svg'), 'utf8');
+
+    expect(dark).toContain('invert(1)');
+    expect(dark).not.toContain('prefers-color-scheme');
+    expect(readEmbeddedWebp(dark).equals(readEmbeddedWebp(prod))).toBe(true);
+  });
+
+  test('every scheme has its own URL, and each one is shipped', () => {
+    for (const icon of [SITE_FAVICON, BLOG_FAVICON]) {
+      expect(icon.light).not.toBe(icon.dark);
+      expect(existsSync(publicFile(icon.light))).toBe(true);
+      expect(existsSync(publicFile(icon.dark))).toBe(true);
+    }
+  });
+
+  test('site tab icons are 32px, the touch icon 180px', () => {
+    expect(pngSize(SITE_FAVICON.light)).toEqual([32, 32]);
+    expect(pngSize(SITE_FAVICON.dark)).toEqual([32, 32]);
+    expect(pngSize('/apple-touch-icon.png')).toEqual([180, 180]);
   });
 
   test('keeps the shared blog mark asset encoded as WebP', () => {

@@ -120,6 +120,6 @@ describe('search indexing policy', () => {
     expect(layout).toContain("'@id': `${meta.siteUrl}/#person`");
     expect(layout).toContain('{ alternateName: resolvedAuthorName }');
     expect(layout).toContain("name: blog.name");
-    expect(layout).toContain('url: new URL(BLOG_FAVICON, meta.siteUrl).href');
+    expect(layout).toContain('url: new URL(BLOG_FAVICON.light, meta.siteUrl).href');
   });
 });
