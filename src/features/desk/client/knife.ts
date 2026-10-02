@@ -1,7 +1,9 @@
 // Palette knife strokes on a 2D canvas. A stroke is a slab of paint dragged
 // along its length: a crisp leading edge, a ragged tail where the paint ran
 // out, streaks along the drag where the blade's edge scraped it thin, and a
-// ridge of light on one lip. Every stroke is built once from a seeded random
+// ridge of light on one lip and a line of shade under the other. A knife can
+// carry a second, lighter paint, which shows as streaks through the first.
+// Every stroke is built once from a seeded random
 // source, so a painting comes out the same on every visit and a stroke can be
 // redrawn at any point of its drag while it animates.
 
@@ -52,6 +54,8 @@ interface Streak {
   dl: number;
   alpha: number;
   width: number;
+  /** Drawn in the stroke's second paint, not its first. */
+  mixed?: boolean;
 }
 
 export interface Stroke {
@@ -63,11 +67,14 @@ export interface Stroke {
   tone: Tone;
   outline: number[];
   top: number[];
+  bottom: number[];
   /** Scrape marks inside the body of paint. */
   streaks: Streak[];
   /** The tail, where the paint ran thin and broke into threads. */
   threads: Streak[];
   grain: number;
+  /** A second paint on the blade, streaked through the first. */
+  mix?: Tone;
   path?: Path2D;
 }
 
@@ -76,7 +83,7 @@ export interface Stroke {
  * drags `length` along `angle`. `grain` scales how much the scrape marks show:
  * 1 for an object, lower for a flat field of colour.
  */
-export function stroke(rand: Rand, x: number, y: number, angle: number, length: number, width: number, tone: Tone, grain = 1): Stroke {
+export function stroke(rand: Rand, x: number, y: number, angle: number, length: number, width: number, tone: Tone, grain = 1, mix?: Tone): Stroke {
   const half = width / 2;
   const wobble = width * 0.04;
   const steps = 5;
@@ -94,7 +101,9 @@ export function stroke(rand: Rand, x: number, y: number, angle: number, length: 
     const reach = topEnd + (bottomEnd - topEnd) * t;
     outline.push(reach - rand() * width * 0.3, -half + width * t + (rand() - 0.5) * width * 0.1);
   }
-  for (let i = steps; i >= 0; i--) outline.push((bottomEnd * i) / steps, half + (rand() - 0.5) * 2 * wobble);
+  const bottom: number[] = [];
+  for (let i = steps; i >= 0; i--) bottom.push((bottomEnd * i) / steps, half + (rand() - 0.5) * 2 * wobble);
+  outline.push(...bottom);
   // The leading edge bows a touch, the shape of the blade.
   outline.push(-width * 0.05, 0);
 
@@ -109,6 +118,7 @@ export function stroke(rand: Rand, x: number, y: number, angle: number, length: 
       dl: sign * (0.012 + rand() * 0.035) * grain,
       alpha: 0.18 + rand() * 0.3,
       width: 0.4 + rand() * Math.min(1.4, width / 14),
+      mixed: mix !== undefined && rand() < 0.3,
     });
   }
 
@@ -128,7 +138,7 @@ export function stroke(rand: Rand, x: number, y: number, angle: number, length: 
     });
   }
 
-  return { x, y, angle, length, width, tone, outline, top, streaks, threads, grain };
+  return { x, y, angle, length, width, tone, outline, top, bottom, streaks, threads, grain, mix };
 }
 
 /** A stroke laid through (cx, cy) rather than starting there. */
@@ -148,7 +158,9 @@ const pathOf = (s: Stroke) => {
 
 const lines = (ctx: CanvasRenderingContext2D, s: Stroke, marks: Streak[]) => {
   for (const mark of marks) {
-    ctx.strokeStyle = css({ ...s.tone, a: (s.tone.a ?? 1) * mark.alpha }, mark.dl);
+    const paint = mark.mixed && s.mix ? s.mix : s.tone;
+    const alpha = mark.mixed ? Math.min(1, mark.alpha * 1.8) : mark.alpha;
+    ctx.strokeStyle = css({ ...paint, a: (paint.a ?? 1) * alpha }, mark.dl);
     ctx.lineWidth = mark.width;
     ctx.beginPath();
     ctx.moveTo(mark.from, mark.y);
@@ -183,13 +195,23 @@ export function draw(ctx: CanvasRenderingContext2D, s: Stroke, progress = 1) {
   lines(ctx, s, s.streaks);
   ctx.restore();
 
-  // Light catches the lip the blade pushed up.
+  // The blade pushes the paint up into a lip along each side. The lip facing
+  // the window, up and to the left, catches the light; the other throws a
+  // hair of shade. Turned square to the light, a stroke shows both the most.
   if (s.grain > 0.5) {
-    const lip = Math.min(1.2, s.width / 16);
+    const lip = Math.min(1.4, s.width / 14);
+    const facing = -0.6 * Math.sin(s.angle) + 0.8 * Math.cos(s.angle);
+    const [lit, shaded] = facing > 0 ? [s.top, s.bottom] : [s.bottom, s.top];
+    const inward = (edge: number[]) => (edge === s.top ? lip / 2 : -lip / 2);
+    const strength = (0.45 + Math.abs(facing) * 0.55) * s.grain * (s.tone.a ?? 1);
     ctx.lineWidth = lip;
-    ctx.strokeStyle = css({ ...s.tone, a: (s.tone.a ?? 1) * 0.3 * s.grain }, 0.06);
+    ctx.strokeStyle = css({ ...s.tone, c: s.tone.c * 0.8, a: 0.42 * strength }, 0.085);
     ctx.beginPath();
-    for (let i = 0; i < s.top.length; i += 2) ctx.lineTo(s.top[i], s.top[i + 1] + lip / 2);
+    for (let i = 0; i < lit.length; i += 2) ctx.lineTo(lit[i], lit[i + 1] + inward(lit));
+    ctx.stroke();
+    ctx.strokeStyle = css({ ...s.tone, a: 0.3 * strength }, -0.1);
+    ctx.beginPath();
+    for (let i = 0; i < shaded.length; i += 2) ctx.lineTo(shaded[i], shaded[i + 1] + inward(shaded));
     ctx.stroke();
   }
   ctx.restore();
