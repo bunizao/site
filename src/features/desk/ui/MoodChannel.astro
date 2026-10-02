@@ -4,7 +4,8 @@
 // on the first bubble, its picture beside the last, and the reactions and
 // time inside each one. `links` makes each bubble a link to its mood (in the
 // window); without it the channel is a still object inside a frame that is
-// already a button.
+// already a button. On the easel each bubble is a slab of paint (`data-slab`,
+// painted by the easel script); until then it is a flat bubble.
 import type { DeskChannel, DeskMood } from '@/features/desk/server/content';
 
 interface Props {
@@ -28,13 +29,13 @@ const shorten = (text: string): string => {
   {moods.length > 0 ? (
     <span class="mc-thread">
       {channel.avatar ? (
-        <img class="mc-avatar" src={channel.avatar} alt="" width="28" height="28" loading="lazy" decoding="async" />
+        <img class="mc-avatar" src={channel.avatar} alt="" width="34" height="34" loading="lazy" decoding="async" />
       ) : (
         <span class="mc-avatar" aria-hidden="true">{channel.title.slice(0, 1)}</span>
       )}
       <span class="mc-stream">
         {moods.map((mood, i) => (
-          <Bubble class="mc-bubble" href={links ? mood.href : undefined}>
+          <Bubble class="mc-bubble" href={links ? mood.href : undefined} data-slab>
             <span class="mc-body">
               {i === 0 && <span class="mc-from">{channel.title}</span>}
               <span class="mc-text" lang={mood.lang}>{mood.text ? shorten(mood.text) : 'A photo, no words.'}</span>
@@ -44,7 +45,7 @@ const shorten = (text: string): string => {
               </span>
             </span>
             {mood.thumb && (
-              <img class="mc-thumb" src={mood.thumb.src} srcset={mood.thumb.srcset} sizes="40px" alt="" width="40" height="40" loading="lazy" decoding="async" />
+              <img class="mc-thumb" src={mood.thumb.src} srcset={mood.thumb.srcset} sizes="48px" alt="" width="48" height="48" loading="lazy" decoding="async" />
             )}
           </Bubble>
         ))}
@@ -64,7 +65,7 @@ const shorten = (text: string): string => {
     width: 100%;
     max-width: 340px;
     font-family: var(--d-sans);
-    font-size: 13.5px;
+    font-size: 15px;
     line-height: 1.45;
     text-align: left;
     color: var(--d-ink);
@@ -80,8 +81,8 @@ const shorten = (text: string): string => {
     display: grid;
     flex: none;
     place-items: center;
-    width: 28px;
-    height: 28px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     background: var(--d-bubble);
     color: var(--d-note);
@@ -96,7 +97,7 @@ const shorten = (text: string): string => {
     min-width: 0;
     flex-direction: column;
     align-items: flex-start;
-    gap: 3px;
+    gap: 5px;
   }
 
   /* One sender, grouped the iOS way: the corners facing the avatar close up
@@ -125,6 +126,33 @@ const shorten = (text: string): string => {
     background: var(--d-bubble-hover);
   }
 
+  /* Painted: the slab is the bubble, a little bigger than the text it holds,
+     and it shifts under the pointer the way the prose chips do. */
+  .mc-bubble.has-swatch {
+    position: relative;
+    isolation: isolate;
+    background: none;
+  }
+
+  .mc-bubble.has-swatch::before {
+    content: '';
+    position: absolute;
+    inset: -4px -6px;
+    z-index: -1;
+    background: var(--swatch) center / 100% 100% no-repeat;
+    filter: drop-shadow(0 1px 1.5px oklch(0.3 0.03 50 / 0.12));
+    transition:
+      rotate 0.3s var(--d-ease),
+      scale 0.3s var(--d-ease);
+  }
+
+  @media (hover: hover) {
+    a.mc-bubble.has-swatch:hover::before {
+      rotate: -0.6deg;
+      scale: 1.015 1.04;
+    }
+  }
+
   a.mc-bubble:focus-visible {
     outline: 2px solid var(--d-focus);
     outline-offset: 2px;
@@ -138,7 +166,7 @@ const shorten = (text: string): string => {
 
   .mc-from {
     margin-bottom: 1px;
-    font-size: 12.5px;
+    font-size: 13.5px;
     font-weight: 600;
     color: var(--d-ink);
   }
@@ -158,7 +186,7 @@ const shorten = (text: string): string => {
     justify-content: flex-end;
     gap: 4px;
     margin-top: 4px;
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--d-note);
   }
 
@@ -179,8 +207,8 @@ const shorten = (text: string): string => {
   .mc-thumb {
     flex: none;
     align-self: center;
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     border-radius: 9px;
     object-fit: cover;
     box-shadow: 0 0 0 1px var(--d-line);
