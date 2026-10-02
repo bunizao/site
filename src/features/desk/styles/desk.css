@@ -297,6 +297,28 @@ body:has(.desk) .spotlight-overlay {
   margin-top: 1.5em;
 }
 
+/* The prose has two voices: what it says in ink, and the asides in note
+   grey. The coloured words are the third: things in the painting. */
+.desk-note {
+  color: var(--d-note);
+}
+
+/* A named place carries its mark, in the colour of the word. */
+.desk-icon {
+  display: inline-block;
+  width: 0.78em;
+  height: 0.78em;
+  margin-right: 0.22em;
+  vertical-align: -0.06em;
+}
+
+/* The crest's fine lines read small at the glyphs' size. */
+.desk-icon-crest {
+  width: 0.86em !important;
+  height: 0.94em !important;
+  vertical-align: -0.12em;
+}
+
 /* A word that is a thing in the painting: a drag of its paint behind it.
    The swatch is painted by client/easel.ts as --swatch; until then, and
    without the script, a flat dab of the same colour stands in. */
@@ -349,6 +371,7 @@ body:has(.desk) .spotlight-overlay {
 
 .desk-link {
   color: inherit;
+  white-space: nowrap;
   text-decoration: underline 0.06em var(--d-line);
   text-underline-offset: 0.2em;
   transition: text-decoration-color 0.2s ease;

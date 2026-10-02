@@ -18,6 +18,7 @@ import MoodChannel from '@/features/desk/ui/MoodChannel.astro';
 import Panel from '@/features/desk/ui/Panel.astro';
 import Works from '@/features/desk/ui/Works.astro';
 import { loadDeskContent } from '@/features/desk/server/content';
+import { GitHubIcon, InstagramIcon, MonashCrestIcon, TelegramIcon } from '@/components/icons';
 import { copyrightMark, experience, footer, navLinks, profile, projects } from '@/data/site';
 import '@/features/desk/styles/desk.css';
 
@@ -157,21 +158,26 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
       <h1 class="sr-only">{profile.name}</h1>
       <div class="desk-prose">
         <p>
-          Hi, I'm {firstName}. I make interesting things, orchestrating AI agents from an idea all the way to a
-          product. The ones I'm proud of are in <a class="desk-chip" href="/projects" {...opens('projects')}>projects</a>.
+          Hi, I'm {firstName}. I make interesting things<span class="desk-note">, orchestrating AI agents from an idea all
+          the way to a product.</span> The ones I'm proud of are in
+          <a class="desk-chip" href="/projects" {...opens('projects')}>projects</a>.
         </p>
         <p>
-          I study computer science at <button class="desk-chip" type="button" {...opens('about')}>Monash</button> in
-          Melbourne. I <a class="desk-chip" href="/blog" {...opens('writing')}>write</a> about being alive, and shorter
-          thoughts go to <a class="desk-chip" href="/mood" {...opens('moods')}>moods</a>. There's usually
-          <button class="desk-chip" type="button" {...opens('listening')}>a song</button> on repeat, and too many tabs
-          open on <a class="desk-chip" href="https://github.com/bunizao" {...opens('github')}>GitHub</a>. Elsewhere,
-          I'm on <a class="desk-link" href={linkOf('Telegram')} {...external}>Telegram</a> and
-          <a class="desk-link" href={linkOf('Instagram')} {...external}>Instagram</a>.
+          I study computer science at
+          <button class="desk-chip" type="button" {...opens('about')}><MonashCrestIcon className="desk-icon desk-icon-crest" />Monash</button><span class="desk-note"> in Melbourne.</span>
+          I <a class="desk-chip" href="/blog" {...opens('writing')}>write</a> about being alive, and shorter thoughts go to
+          <a class="desk-chip" href="/mood" {...opens('moods')}>moods</a>.
+          <span class="desk-note">There's usually</span>
+          <button class="desk-chip" type="button" {...opens('listening')}>a song</button>
+          <span class="desk-note">on repeat, and too many tabs open on</span>
+          <a class="desk-chip" href="https://github.com/bunizao" {...opens('github')}><GitHubIcon className="desk-icon" />GitHub</a><span class="desk-note">. Elsewhere, I'm on</span>
+          <a class="desk-link" href={linkOf('Telegram')} {...external}><TelegramIcon className="desk-icon" />Telegram</a>
+          <span class="desk-note">and</span>
+          <a class="desk-link" href={linkOf('Instagram')} {...external}><InstagramIcon className="desk-icon" />Instagram</a><span class="desk-note">.</span>
         </p>
         <p class="desk-cta">
-          Everything in the painting opens. Or just
-          <a class="desk-chip" href="/message" style={tone('note')}>leave me a note</a>.
+          <span class="desk-note">Everything in the painting opens. Or just</span>
+          <a class="desk-chip" href="/message" style={tone('note')}>leave me a note</a><span class="desk-note">.</span>
         </p>
       </div>
     </div>
