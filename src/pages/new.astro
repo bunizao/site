@@ -7,7 +7,7 @@
 // modified click, a crawler or a script failure still lands somewhere.
 //
 // Unlisted while it is a prototype: noindex, and nothing links here.
-import { Menu } from 'lucide-react';
+import { Menu, Volume2, VolumeX } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
@@ -81,7 +81,7 @@ const sections: EaselSection[] = [
     chroma: 0.09,
     href: '/mood',
     hrefLabel: 'all moods',
-    thing: 'Moods: the cup of tea',
+    thing: 'Moods: the cup of coffee',
     panel: true,
   },
   {
@@ -119,6 +119,16 @@ const sections: EaselSection[] = [
     thing: 'A desk clock showing the time in Melbourne',
   },
   {
+    id: 'lamp',
+    tab: 'lamp',
+    title: 'Pendant lamp',
+    date: 'after dark',
+    medium: 'Enamel and brass, on a pull chain',
+    hue: 165,
+    chroma: 0.06,
+    thing: 'The lamp over the desk',
+  },
+  {
     id: 'note',
     tab: 'note',
     title: 'Letter, unanswered',
@@ -152,6 +162,10 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
       {navLinks.map((link) => <a href={link.href}>{link.label.toLowerCase()}</a>)}
     </nav>
   </details>
+  <button slot="header-actions" class="header-action-btn desk-sound" type="button" data-sound aria-pressed="true" aria-label="Sound">
+    <Volume2 className="desk-sound-on" aria-hidden="true" />
+    <VolumeX className="desk-sound-off" aria-hidden="true" />
+  </button>
 
   <main class="desk" data-desk>
     <div class="desk-left">
@@ -220,7 +234,7 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
       <Panel id="listening">
         <div class="lp">
           <div class="lp-record" aria-hidden="true">
-            <div class="lp-spin">
+            <div class="lp-spin" data-turn>
               <canvas class="lp-disc" data-study="vinyl" data-seed="vinyl"></canvas>
               <img class="lp-label" alt="" referrerpolicy="no-referrer" data-vinyl-label hidden />
             </div>

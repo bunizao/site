@@ -6,9 +6,12 @@
 // the top, and the small painting at the start of the row goes back to the
 // still life. Under the canvas, a gallery label names whatever is on it.
 //
+// A pendant lamp hangs over the desk; it switches, and swings. Its light is
+// two canvases over the paint, blended in (client/lamp.ts).
+//
 // Without the script the things are plain links to their pages; the panels
 // stay hidden.
-import { THINGS } from '@/features/desk/shared/still-life';
+import { LAMP, THINGS } from '@/features/desk/shared/still-life';
 
 export interface EaselSection {
   id: string;
@@ -39,18 +42,18 @@ const byId = new Map(sections.map((section) => [section.id, section]));
 const panels = sections.filter((section) => section.panel);
 const pct = (value: number) => `${(value * 100).toFixed(2)}%`;
 const tone = (section: EaselSection) => `--h: ${section.hue}; --c: ${section.chroma}`;
+const boxStyle = ([x, y, w, h]: [number, number, number, number]) => `left: ${pct(x)}; top: ${pct(y / 1.25)}; width: ${pct(w)}; height: ${pct(h / 1.25)}`;
+const lamp = byId.get('lamp');
 ---
 
 <section class="easel" data-easel aria-label="Still life with a desk">
   <div class="easel-hang">
     <div class="easel-frame" data-easel-frame>
       <div class="sl" data-sl>
-        <canvas class="sl-backdrop" data-sl-backdrop aria-hidden="true"></canvas>
         {THINGS.map((thing) => {
           const section = byId.get(thing.section);
           if (!section) return null;
-          const [x, y, w, h] = thing.box;
-          const style = `left: ${pct(x)}; top: ${pct(y / 1.25)}; width: ${pct(w)}; height: ${pct(h / 1.25)}; ${tone(section)}`;
+          const style = `${boxStyle(thing.box)}; ${tone(section)}`;
           return section.panel ? (
             <a
               class="sl-thing"
@@ -67,6 +70,20 @@ const tone = (section: EaselSection) => `--h: ${section.hue}; --c: ${section.chr
             <span class="sl-thing" data-thing={thing.id} data-hint={section.id} role="img" aria-label={section.thing} style={style}></span>
           );
         })}
+        {lamp && (
+          <button
+            class="sl-thing sl-lamp"
+            type="button"
+            data-thing="lamp"
+            data-hint="lamp"
+            data-lamp
+            aria-pressed="true"
+            aria-label={lamp.thing}
+            style={`${boxStyle(LAMP.box)}; ${tone(lamp)}`}
+          ></button>
+        )}
+        <canvas class="sl-lit" data-sl-lit aria-hidden="true"></canvas>
+        <canvas class="sl-air" data-sl-air aria-hidden="true"></canvas>
       </div>
 
       <canvas class="easel-ground" data-ground aria-hidden="true"></canvas>

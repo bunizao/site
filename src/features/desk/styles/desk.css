@@ -147,6 +147,11 @@ body:has(.desk) .spotlight-overlay {
   }
 }
 
+.desk-sound[aria-pressed='true'] .desk-sound-off,
+.desk-sound[aria-pressed='false'] .desk-sound-on {
+  display: none;
+}
+
 .desk-nav {
   display: flex;
   gap: 2px;
@@ -456,10 +461,26 @@ body:has(.desk) .spotlight-overlay {
   inset: 0;
 }
 
+/* The lamp's light blends into the paint, and only into the paint. */
+.sl {
+  isolation: isolate;
+}
+
 .sl-backdrop,
 .easel-ground {
   width: 100%;
   height: 100%;
+}
+
+/* Each part of the painting comes up on a fresh canvas over the one before,
+   once its paint is laid (client/easel.ts). */
+.sl-backdrop,
+.sl-paint {
+  transition: opacity 0.7s ease;
+}
+
+.sl canvas.is-wet {
+  opacity: 0;
 }
 
 .easel-ground {
@@ -506,6 +527,56 @@ body:has(.desk) .spotlight-overlay {
 .sl-thing[data-thing='record'].is-hot {
   translate: none;
   rotate: -2.5deg;
+}
+
+/* The disc turns under its sleeve, about its own centre (client/turntable.ts). */
+.sl-turn {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* The lamp hangs from its cord at the top middle of its box, and swings
+   there (client/lamp.ts); pointed at, it stays where it hangs. */
+.sl-lamp {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: grab;
+  touch-action: none;
+  transform-origin: 50% 0;
+  rotate: var(--swing, 0rad);
+  transition:
+    opacity 0.4s ease,
+    filter 0.4s ease;
+}
+
+.sl-lamp.is-hot {
+  translate: none;
+}
+
+.sl-lamp:active {
+  cursor: grabbing;
+}
+
+/* Its light: what it falls on, by colour-dodge, and the cone in the air, by
+   screen. Both swing with the lamp, about its cord. */
+.sl-lit,
+.sl-air {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  opacity: 0;
+  transform-origin: 49% 0;
+  rotate: var(--swing, 0rad);
+}
+
+.sl-lit {
+  mix-blend-mode: color-dodge;
+}
+
+.sl-air {
+  mix-blend-mode: screen;
 }
 
 .easel[data-hot] .sl-thing:not(.is-hot) {
@@ -859,10 +930,6 @@ body:has(.desk) .spotlight-overlay {
   height: 100%;
 }
 
-.lp-spin {
-  animation: lp-spin 7.2s linear infinite;
-}
-
 .lp-label {
   position: absolute;
   inset: 34%;
@@ -891,12 +958,6 @@ body:has(.desk) .spotlight-overlay {
 .lp .easel-paper {
   align-self: stretch;
   margin-top: 26px;
-}
-
-@keyframes lp-spin {
-  to {
-    rotate: 1turn;
-  }
 }
 
 /* Projects: a wall of small studies, each matted like a print. */
@@ -1115,14 +1176,78 @@ body:has(.desk) .spotlight-overlay {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lp-spin {
-    animation: none;
-  }
-
   .desk-chip::before,
+  .sl-backdrop,
+  .sl-paint,
   .sl-thing,
   .easel-home,
   .work-mat {
     transition: none;
+  }
+}
+
+/* --- Arrival ----------------------------------------------------------------
+   The page comes in the way the desk is set: the letterhead, the prose a
+   paragraph at a time with the paint dabbed behind its words, while the
+   canvas is hung. The painting comes up piece by piece as its paint dries,
+   and the lamp comes on last (client/easel.ts, client/lamp.ts). Leaving, the
+   site's view transition takes the page out. Nothing holds its end state:
+   a lingering translate on the hang would trap the phone's full-screen
+   canvas inside it. */
+@media (prefers-reduced-motion: no-preference) {
+  .global-header-actions:has(.desk-nav) {
+    animation: desk-in 0.8s ease 0.1s backwards;
+  }
+
+  .desk-prose > p {
+    --at: 0.1s;
+    animation: desk-rise 0.9s var(--d-ease) var(--at) backwards;
+  }
+
+  .desk-prose > p:nth-child(2) {
+    --at: 0.2s;
+  }
+
+  .desk-prose > p:nth-child(3) {
+    --at: 0.32s;
+  }
+
+  .desk-prose > p .desk-chip::before {
+    animation: desk-dab 0.6s var(--d-ease) calc(var(--at) + 0.3s) backwards;
+  }
+
+  .easel-hang {
+    animation: desk-hang 1s var(--d-ease) 0.14s backwards;
+  }
+
+  .desk-foot {
+    animation: desk-in 0.9s ease 0.55s backwards;
+  }
+}
+
+@keyframes desk-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes desk-rise {
+  from {
+    opacity: 0;
+    translate: 0 0.45em;
+  }
+}
+
+/* Left to right, the way the knife lays it. */
+@keyframes desk-dab {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
+@keyframes desk-hang {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
   }
 }

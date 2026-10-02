@@ -7,10 +7,17 @@
 // the same knife. Below 640px the canvas takes the whole screen while a
 // section is on it. Esc, or the small painting at the start of the tabs, goes
 // back to the still life.
+//
+// Every part of the painting comes in on a fresh canvas laid over the one on
+// show, so the still life fades in piece by piece on the first visit and
+// fades from day to night when the theme turns. The easel says when it starts
+// a painting and when the paint is dry (`easel:painting`, `easel:painted`),
+// which is when the lamp may come on.
 
-import { ASPECT, THINGS } from '@/features/desk/shared/still-life';
+import { ASPECT, DISC, LAMP, THINGS, type Piece } from '@/features/desk/shared/still-life';
 import { coat, css, draw, seedOf, seeded, swatch, type Tone } from './knife';
-import { BLEED, paintBackdrop, paintThing } from './still-life';
+import { play, type Sound } from './sound';
+import { BLEED, paintBackdrop, paintLight, paintPiece } from './still-life';
 import { paintStudies } from './studies';
 
 interface Section {
@@ -34,6 +41,26 @@ interface Painting {
 
 const COVER_MS = 620;
 const SCRAPE_MS = 460;
+// A fresh canvas takes this long to come up over the one before it.
+const FADE_MS = 700;
+
+// What a thing sounds like when it is the one opened.
+const VOICES: Record<string, Sound> = {
+  projects: 'knock',
+  about: 'card',
+  writing: 'pages',
+  moods: 'clink',
+  listening: 'needle',
+  github: 'leaves',
+};
+
+/** A part of the painting, where its canvases go, and where that is on the painting. */
+interface Layer {
+  piece: Piece;
+  holder: HTMLElement;
+  /** The holder's top left, in canvas widths. */
+  origin: [number, number];
+}
 // How much of the pass one stroke takes to drag; the rest is the stagger.
 const DRAG_SHARE = 0.34;
 
@@ -57,13 +84,14 @@ export function initEasel(): () => void {
   const easel = document.querySelector<HTMLElement>('[data-easel]');
   const frame = easel?.querySelector<HTMLElement>('[data-easel-frame]');
   const still = easel?.querySelector<HTMLElement>('[data-sl]');
-  const backdrop = easel?.querySelector<HTMLCanvasElement>('[data-sl-backdrop]');
+  const lit = easel?.querySelector<HTMLCanvasElement>('[data-sl-lit]');
+  const air = easel?.querySelector<HTMLCanvasElement>('[data-sl-air]');
   const ground = easel?.querySelector<HTMLCanvasElement>('[data-ground]');
   const tabBar = easel?.querySelector<HTMLElement>('[data-tabs]');
   const homeButton = easel?.querySelector<HTMLElement>('[data-home]');
   const thumb = easel?.querySelector<HTMLCanvasElement>('[data-home-thumb]');
   const dataEl = easel?.querySelector('[data-easel-sections]');
-  if (!easel || !frame || !still || !backdrop || !ground || !tabBar || !homeButton || !thumb || !dataEl) return () => {};
+  if (!easel || !frame || !still || !lit || !air || !ground || !tabBar || !homeButton || !thumb || !dataEl) return () => {};
 
   const { painting, sections: list } = JSON.parse(dataEl.textContent ?? '{}') as { painting: Painting; sections: Section[] };
   const sections = new Map(list.map((section) => [section.id, section]));
@@ -94,20 +122,91 @@ export function initEasel(): () => void {
   let pass = 0;
 
   // --- The still life --------------------------------------------------------
-  const paintThumb = (width: number) => {
+  // The things, back to front; the disc turns inside the record, under its
+  // sleeve, and the lamp hangs in front of everything.
+  const holders = new Map(things.map((el) => [el.dataset.thing, el]));
+  const turntable = document.createElement('span');
+  turntable.className = 'sl-turn';
+  turntable.dataset.turn = '';
+  turntable.setAttribute('aria-hidden', 'true');
+  const recordHolder = holders.get('record');
+  const record = THINGS.find((thing) => thing.id === 'record');
+  if (recordHolder && record) {
+    const [rx, ry, rw, rh] = record.box;
+    const [dx, dy, dw, dh] = DISC.box;
+    const pct = (v: number) => `${(v * 100).toFixed(3)}%`;
+    Object.assign(turntable.style, {
+      left: pct((dx - BLEED - rx) / rw),
+      top: pct((dy - BLEED - ry) / rh),
+      width: pct((dw + BLEED * 2) / rw),
+      height: pct((dh + BLEED * 2) / rh),
+    });
+    recordHolder.prepend(turntable);
+  }
+  const layers: Layer[] = [];
+  for (const piece of [...THINGS, LAMP]) {
+    const holder = holders.get(piece.id);
+    if (piece.id === 'record' && recordHolder) layers.push({ piece: DISC, holder: turntable, origin: [DISC.box[0] - BLEED, DISC.box[1] - BLEED] });
+    if (holder) layers.push({ piece, holder, origin: [piece.box[0], piece.box[1]] });
+  }
+
+  /** The canvas a holder shows for `className`: the newest that has come up. */
+  const shown = (holder: HTMLElement, className: string) => {
+    const all = holder.querySelectorAll<HTMLCanvasElement>(`:scope > canvas.${className}:not(.is-wet)`);
+    return all[all.length - 1] ?? null;
+  };
+
+  /**
+   * Paints a fresh canvas over the one on show and brings it up; the old one
+   * goes once it is covered. `place` sizes the fresh one and gives back its
+   * context, ready for `work`.
+   */
+  const layOver = async (
+    holder: HTMLElement,
+    className: string,
+    place: (canvas: HTMLCanvasElement) => CanvasRenderingContext2D | null,
+    work: (ctx: CanvasRenderingContext2D) => Promise<void>,
+    signal: AbortSignal,
+  ) => {
+    const old = [...holder.querySelectorAll<HTMLCanvasElement>(`:scope > canvas.${className}`)];
+    const fresh = document.createElement('canvas');
+    fresh.className = `${className} is-wet`;
+    fresh.setAttribute('aria-hidden', 'true');
+    // Over the last of its kind; the first goes under everything else in
+    // the holder but the disc's turntable.
+    const under = old[old.length - 1] ?? holder.querySelector(':scope > .sl-turn');
+    if (under) under.after(fresh);
+    else holder.prepend(fresh);
+    const ctx = place(fresh);
+    if (ctx) await work(ctx);
+    if (signal.aborted || !ctx) {
+      fresh.remove();
+      return;
+    }
+    fresh.classList.remove('is-wet');
+    window.setTimeout(() => old.forEach((canvas) => canvas.remove()), reduced.matches ? 0 : FADE_MS + 80);
+  };
+
+  const paintThumb = () => {
+    const width = still.clientWidth;
     const ctx = sized(thumb, thumb.clientWidth || 26, (thumb.clientWidth || 26) * ASPECT, scaleOf());
-    if (!ctx) return;
-    const k = thumb.width / backdrop.width;
+    const backdrop = shown(still, 'sl-backdrop');
+    if (!ctx || !width || !backdrop) return;
+    const k = thumb.width / width;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(backdrop, 0, 0, thumb.width, thumb.height);
-    for (const el of things) {
-      const canvas = el.querySelector<HTMLCanvasElement>('canvas.sl-paint');
-      const thing = THINGS.find((entry) => entry.id === el.dataset.thing);
-      if (!canvas || !thing) continue;
-      const x = (thing.box[0] - BLEED) * width * scaleOf() * k;
-      const y = (thing.box[1] - BLEED) * width * scaleOf() * k;
-      ctx.drawImage(canvas, x, y, canvas.width * k, canvas.height * k);
+    for (const { piece, holder } of layers) {
+      const canvas = shown(holder, 'sl-paint');
+      if (!canvas) continue;
+      const [x, y, w, h] = piece.box;
+      ctx.drawImage(canvas, (x - BLEED) * width * k, (y - BLEED) * width * k, (w + BLEED * 2) * width * k, (h + BLEED * 2) * width * k);
     }
+    if (!easel.classList.contains('is-lit')) return;
+    ctx.globalCompositeOperation = 'color-dodge';
+    ctx.drawImage(lit, 0, 0, thumb.width, thumb.height);
+    ctx.globalCompositeOperation = 'screen';
+    ctx.drawImage(air, 0, 0, thumb.width, thumb.height);
+    ctx.globalCompositeOperation = 'source-over';
   };
 
   // The knife work takes the best part of a second and gives the page room
@@ -122,35 +221,50 @@ export function initEasel(): () => void {
     const scale = scaleOf();
     paintJob?.abort();
     const { signal } = (paintJob = new AbortController());
+    easel.dispatchEvent(new CustomEvent('easel:painting'));
 
-    const ctx = sized(backdrop, width, width * ASPECT, scale);
-    if (!ctx) return;
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    await paintBackdrop(ctx, width, night, signal);
+    await layOver(
+      still,
+      'sl-backdrop',
+      (canvas) => {
+        const ctx = sized(canvas, width, width * ASPECT, scale);
+        ctx?.setTransform(scale, 0, 0, scale, 0, 0);
+        return ctx;
+      },
+      (ctx) => paintBackdrop(ctx, width, night, signal),
+      signal,
+    );
 
-    for (const el of things) {
+    for (const { piece, holder, origin } of layers) {
       if (signal.aborted) return;
-      const thing = THINGS.find((entry) => entry.id === el.dataset.thing);
-      if (!thing) continue;
-      let canvas = el.querySelector<HTMLCanvasElement>('canvas.sl-paint');
-      if (!canvas) {
-        canvas = el.insertBefore(document.createElement('canvas'), el.firstChild);
-        canvas.className = 'sl-paint';
-        canvas.setAttribute('aria-hidden', 'true');
-      }
-      const [x, y, w, h] = thing.box;
-      const bleed = BLEED * width;
-      canvas.style.left = `${-bleed}px`;
-      canvas.style.top = `${-bleed}px`;
-      const thingCtx = sized(canvas, (w + BLEED * 2) * width, (h + BLEED * 2) * width, scale);
-      if (!thingCtx) continue;
-      thingCtx.setTransform(scale, 0, 0, scale, -(x - BLEED) * width * scale, -(y - BLEED) * width * scale);
-      thingCtx.clearRect((x - BLEED) * width, (y - BLEED) * width, (w + BLEED * 2) * width, (h + BLEED * 2) * width);
-      await paintThing(thingCtx, thing, width, night, signal);
+      const [x, y, w, h] = piece.box;
+      await layOver(
+        holder,
+        'sl-paint',
+        (canvas) => {
+          canvas.style.left = `${(x - BLEED - origin[0]) * width}px`;
+          canvas.style.top = `${(y - BLEED - origin[1]) * width}px`;
+          const ctx = sized(canvas, (w + BLEED * 2) * width, (h + BLEED * 2) * width, scale);
+          ctx?.setTransform(scale, 0, 0, scale, -(x - BLEED) * width * scale, -(y - BLEED) * width * scale);
+          return ctx;
+        },
+        (ctx) => paintPiece(ctx, piece, width, night, signal),
+        signal,
+      );
     }
     if (signal.aborted) return;
-    paintThumb(width);
+
+    // The light is soft; one pixel per CSS pixel is plenty.
+    const litCtx = sized(lit, width, width * ASPECT, 1);
+    const airCtx = sized(air, width, width * ASPECT, 1);
+    if (litCtx && airCtx) {
+      litCtx.clearRect(0, 0, lit.width, lit.height);
+      airCtx.clearRect(0, 0, air.width, air.height);
+      paintLight(litCtx, airCtx, width, night);
+    }
     easel.classList.add('is-painted');
+    easel.dispatchEvent(new CustomEvent('easel:painted'));
+    paintThumb();
   };
 
   // --- Swatches ----------------------------------------------------------------
@@ -204,6 +318,7 @@ export function initEasel(): () => void {
     const { width, height, scale, ctx } = groundSize();
     if (!ctx) return Promise.resolve();
     const scrape = tone === null;
+    play(scrape ? 'scrape' : 'lay');
     const strokes = coat(seeded(token * 7919 + 1), width, height, tone ?? { l: 0.5, c: 0, h: 0 });
     const base = document.createElement('canvas');
     base.width = ground.width;
@@ -351,6 +466,9 @@ export function initEasel(): () => void {
       panels.get(id)?.focus({ preventScroll: true });
       return;
     }
+    if (from && VOICES[id]) play(VOICES[id]);
+    // The small painting in the tabs shows the room as it was left.
+    if (active === null) paintThumb();
     hot(null);
     active = id;
     syncTabs();

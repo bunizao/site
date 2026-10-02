@@ -9,10 +9,11 @@
 //
 // The palette is the room's: a powder-blue wall, a pale table, and things
 // mixed with white, so the knife's broken colour carries the life. At night
-// the room goes dark and only the clock keeps its light.
+// the room goes dark and the clock and the lamp keep their light. The lamp's
+// light is painted apart from the room (paintLight), so it can be switched.
 
-import { ASPECT, CLOCK_FACE, HORIZON, WALL_WORK, type Thing, type ThingId } from '@/features/desk/shared/still-life';
-import { css, draw, seedOf, seeded, stroke, type Rand, type Tone } from './knife';
+import { ASPECT, CLOCK_FACE, HORIZON, LAMP_PIVOT, RECORD_DISC, WALL_WORK, type Piece, type PieceId } from '@/features/desk/shared/still-life';
+import { css, draw, seedOf, seeded, stroke, strokeAt, vary, type Rand, type Tone } from './knife';
 import { paintOver, type Style } from './painterly';
 
 /** Paint margin around a thing's box, in canvas widths: strokes overshoot. */
@@ -313,7 +314,7 @@ function backdropStudy(b: Brush) {
   ctx.stroke();
   ctx.restore();
   // The record and its sleeve lean on the wall.
-  soft(room, oval(b, RECORD[0] + 0.024, RECORD[1] + 0.006, RECORD[2], RECORD[2]), onWall, 0.013);
+  soft(room, oval(b, RECORD_DISC[0] + 0.024, RECORD_DISC[1] + 0.006, RECORD_DISC[2], RECORD_DISC[2]), onWall, 0.013);
   soft(room, sleeveShape(b, 0.028, -0.004), onWall, 0.014);
   // The plant throws its leaves on the wall, faintly.
   for (const leaf of leaves(b)) {
@@ -321,6 +322,11 @@ function backdropStudy(b: Brush) {
     shifted.addPath(leaf.outline, new DOMMatrix().translate(U(0.05), U(0.012)));
     soft(room, shifted, { ...onWall, a: 0.55 }, 0.012);
   }
+  // The lamp hangs well off the wall: its shadow is faint and falls far.
+  const shade = new Path2D();
+  shade.addPath(shadePath(b), new DOMMatrix().translate(U(0.034), U(0.03)));
+  soft(room, shade, { ...onWall, a: 0.5 }, 0.016);
+  soft(room, box(b, LAMP_X + 0.032, 0, 0.004, 0.1), { ...onWall, a: 0.35 }, 0.004);
 
   // On the table, each thing's footprint and height.
   cast(room, [0.18, 0.893, 0.046, 0.006], 0.11, onTable);
@@ -332,9 +338,6 @@ function backdropStudy(b: Brush) {
   // At night the clock is the lamp: a warm pool of its light on the table.
   if (night) soft(room, oval(b, 0.485, 0.895, 0.12, 0.016), { l: 0.5, c: 0.06, h: 55, a: 0.18 }, 0.02);
 }
-
-/** The record's centre and radius. */
-const RECORD = [0.752, 0.568, 0.105] as const;
 
 /** The record sleeve's outline, nudged by (dx, dy). */
 function sleeveShape(b: Brush, dx = 0, dy = 0) {
@@ -493,23 +496,15 @@ const plant: Study = (b) => {
   front.forEach(leaf);
 };
 
-// A record leaning on the wall, half out of its sleeve.
-const record: Study = (b) => {
+// The record's disc, on a canvas of its own so it can turn while a song
+// plays. The window's reflection on its grooves does not turn with it; that
+// is laid on the sleeve's canvas, over the disc (FINISH.record).
+const disc: Study = (b) => {
   const { ctx, U } = b;
-  const [cx, cy, r] = RECORD;
+  const [cx, cy, r] = RECORD_DISC;
   const vinyl: Tone = { l: 0.21, c: 0.01, h: 280 };
-  const disc = oval(b, cx, cy, r, r);
-  fillPath(b, disc, paint(b, vinyl));
-  // Two wedges of sheen across the grooves, opposite each other.
-  if (ctx.createConicGradient) {
-    const sheen = ctx.createConicGradient(-0.5, U(cx), U(cy));
-    const dark = paint(b, vinyl);
-    const light = paint(b, { l: 0.48, c: 0.012, h: 255 });
-    for (const [at, colour] of [[0, dark], [0.07, light], [0.15, dark], [0.5, dark], [0.57, paint(b, { l: 0.4, c: 0.012, h: 255 })], [0.65, dark], [1, dark]] as const) {
-      sheen.addColorStop(at, colour);
-    }
-    fillPath(b, disc, sheen);
-  }
+  const face = oval(b, cx, cy, r, r);
+  fillPath(b, face, paint(b, vinyl));
   ctx.lineWidth = U(0.0011);
   for (let ring = 0.044; ring < 0.1; ring += 0.0052) {
     ctx.strokeStyle = paint(b, { l: 0.34, c: 0.01, h: 270, a: 0.55 });
@@ -520,22 +515,29 @@ const record: Study = (b) => {
   ctx.lineWidth = U(0.0022);
   ctx.strokeStyle = paint(b, { l: 0.38, c: 0.01, h: 270 });
   ctx.stroke(oval(b, cx, cy, r - 0.0012, r - 0.0012));
-  const label = ctx.createRadialGradient(U(cx - 0.012), U(cy - 0.012), 0, U(cx), U(cy), U(0.036));
-  label.addColorStop(0, paint(b, { l: 0.9, c: 0.09, h: 86 }));
-  label.addColorStop(1, paint(b, { l: 0.78, c: 0.11, h: 76 }));
-  fillPath(b, oval(b, cx, cy, 0.034, 0.034), label);
+  // The label is lit evenly, so nothing on it gives the turning away but
+  // its print: a red band across the top and a line of type under the hole.
+  const label = oval(b, cx, cy, 0.034, 0.034);
+  const yellow = ctx.createRadialGradient(U(cx), U(cy), 0, U(cx), U(cy), U(0.036));
+  yellow.addColorStop(0, paint(b, { l: 0.89, c: 0.09, h: 86 }));
+  yellow.addColorStop(1, paint(b, { l: 0.8, c: 0.11, h: 78 }));
+  fillPath(b, label, yellow);
+  ctx.save();
+  ctx.clip(label);
+  fillPath(b, box(b, cx - 0.04, cy - 0.04, 0.08, 0.024), paint(b, { l: 0.6, c: 0.15, h: 28 }));
+  fillPath(b, box(b, cx - 0.013, cy + 0.011, 0.026, 0.004, 0.001), paint(b, { l: 0.45, c: 0.06, h: 40 }));
+  fillPath(b, box(b, cx - 0.008, cy + 0.019, 0.016, 0.003, 0.001), paint(b, { l: 0.55, c: 0.06, h: 50 }));
+  ctx.restore();
   ctx.lineWidth = U(0.0012);
   ctx.strokeStyle = paint(b, { l: 0.7, c: 0.1, h: 70 });
   ctx.stroke(oval(b, cx, cy, 0.026, 0.026));
   fillPath(b, oval(b, cx, cy, 0.0035, 0.0035), paint(b, { l: 0.3, c: 0.02, h: 250 }));
-  // The disc darkens where it goes into the sleeve.
-  ctx.save();
-  ctx.clip(disc);
-  ctx.fillStyle = gradient(b, 0, 0.59, 0, 0.62, [[0, { l: 0.1, c: 0, h: 0, a: 0 }], [1, { l: 0.1, c: 0, h: 0, a: 0.6 }]]);
-  ctx.fillRect(U(cx - r), U(0.59), U(r * 2), U(0.03));
-  ctx.restore();
+};
 
-  // The sleeve: printed card, a sun over a line, worn pale at the edges.
+// The record's sleeve, the disc half out of it: printed card, a sun over a
+// line, worn pale at the edges.
+const record: Study = (b) => {
+  const { ctx, U } = b;
   const sleeve = sleeveShape(b);
   fillPath(b, sleeve, gradient(b, 0.62, 0.61, 0.87, 0.86, [[0, { l: 0.92, c: 0.045, h: 14 }], [0.6, { l: 0.87, c: 0.055, h: 12 }], [1, { l: 0.8, c: 0.06, h: 10 }]]));
   ctx.save();
@@ -630,7 +632,7 @@ const books: Study = (b) => {
   ctx.stroke();
 };
 
-// A cup of tea, still warm.
+// A cup of black coffee. Its steam is not painted; it rises (client/steam.ts).
 const cup: Study = (b) => {
   const { ctx, U } = b;
   const glaze: Tone = { l: 0.8, c: 0.075, h: 40 };
@@ -657,50 +659,139 @@ const cup: Study = (b) => {
 
   fillPath(b, oval(b, 0.7125, 0.936, 0.051, 0.0105), paint(b, mix(glaze, 0.1, -0.02)));
   fillPath(b, oval(b, 0.7125, 0.9365, 0.0465, 0.0084), gradient(b, 0.666, 0, 0.759, 0, [[0, mix(glaze, -0.14)], [1, mix(glaze, 0.02)]]));
-  const tea = oval(b, 0.7125, 0.938, 0.043, 0.0066);
-  fillPath(b, tea, gradient(b, 0.67, 0, 0.756, 0, [[0, { l: 0.36, c: 0.06, h: 55 }], [1, { l: 0.48, c: 0.08, h: 60 }]]));
-  fillPath(b, oval(b, 0.7, 0.9375, 0.011, 0.0018), paint(b, { l: 0.8, c: 0.04, h: 75, a: 0.8 }));
+  // Coffee, a ring of crema where it meets the cup, the window on it.
+  fillPath(b, oval(b, 0.7125, 0.938, 0.043, 0.0066), paint(b, { l: 0.6, c: 0.075, h: 62 }));
+  fillPath(b, oval(b, 0.7125, 0.9383, 0.039, 0.0055), gradient(b, 0.674, 0, 0.751, 0, [[0, { l: 0.24, c: 0.035, h: 45 }], [1, { l: 0.33, c: 0.045, h: 52 }]]));
+  fillPath(b, oval(b, 0.701, 0.9375, 0.01, 0.0016), paint(b, { l: 0.78, c: 0.03, h: 75, a: 0.7 }));
 };
 
-const STUDIES: Record<ThingId, Study> = { works, badge, plant, record, clock, books, cup };
+// A pendant lamp in green enamel, white inside, on a cloth cord out of the
+// top of the canvas. We look up at it, so the opening shows as an ellipse,
+// the near rim at its top, with the bulb hanging in it.
+const LAMP_X = LAMP_PIVOT[0];
+/** The shade's opening: centre and radii. */
+const MOUTH = [LAMP_X, 0.145, 0.07, 0.016] as const;
+
+function shadePath(b: Brush) {
+  const { U } = b;
+  const [x, y, rx, ry] = MOUTH;
+  const path = new Path2D();
+  path.moveTo(U(x - 0.019), U(0.084));
+  path.bezierCurveTo(U(x - 0.024), U(0.11), U(x - 0.056), U(0.12), U(x - rx), U(y));
+  path.ellipse(U(x), U(y), U(rx), U(ry), 0, Math.PI, Math.PI * 2);
+  path.bezierCurveTo(U(x + 0.056), U(0.12), U(x + 0.024), U(0.11), U(x + 0.019), U(0.084));
+  path.quadraticCurveTo(U(x), U(0.078), U(x - 0.019), U(0.084));
+  return path;
+}
+
+const lamp: Study = (b) => {
+  const { ctx, U } = b;
+  const [x, y, rx, ry] = MOUTH;
+  const enamel: Tone = { l: 0.5, c: 0.075, h: 165 };
+  const brass: Tone = { l: 0.74, c: 0.09, h: 82 };
+  fillPath(b, box(b, x - 0.0095, 0.064, 0.019, 0.024, 0.003), gradient(b, x - 0.0095, 0, x + 0.0095, 0, turning(brass)));
+  fillPath(b, box(b, x - 0.012, 0.082, 0.024, 0.005, 0.002), gradient(b, x - 0.012, 0, x + 0.012, 0, turning(mix(brass, -0.06))));
+
+  const shade = shadePath(b);
+  fillPath(b, shade, gradient(b, x - rx, 0, x + rx, 0, turning(enamel)));
+  ctx.save();
+  ctx.clip(shade);
+  // The enamel is glossy: the window lies on the near shoulder as a streak.
+  ctx.lineCap = 'round';
+  ctx.lineWidth = U(0.006);
+  ctx.strokeStyle = paint(b, { l: 0.96, c: 0.02, h: 160, a: 0.5 });
+  ctx.beginPath();
+  ctx.moveTo(U(x - 0.016), U(0.091));
+  ctx.quadraticCurveTo(U(x - 0.03), U(0.118), U(x - 0.052), U(0.131));
+  ctx.stroke();
+  // The crown, turned away from the light.
+  ctx.fillStyle = gradient(b, 0, 0.078, 0, 0.1, [[0, { ...mix(enamel, -0.12), a: 0.7 }], [1, { ...mix(enamel, -0.12), a: 0 }]]);
+  ctx.fill(shade);
+  ctx.restore();
+
+  // Inside, white enamel: darker deep in, toward the socket.
+  fillPath(b, oval(b, x, y, rx, ry), gradient(b, 0, y - ry, 0, y + ry, [[0, { l: 0.74, c: 0.03, h: 88 }], [0.6, { l: 0.92, c: 0.025, h: 92 }], [1, { l: 0.86, c: 0.03, h: 88 }]]));
+  // The rolled rim along the near side.
+  ctx.lineWidth = U(0.003);
+  ctx.strokeStyle = paint(b, { l: 0.95, c: 0.02, h: 100 });
+  ctx.beginPath();
+  ctx.ellipse(U(x), U(y), U(rx - 0.0012), U(ry - 0.0008), 0, Math.PI, Math.PI * 2);
+  ctx.stroke();
+  // The bulb, frosted glass, hanging a little below the rim.
+  const glass = ctx.createRadialGradient(U(x - 0.006), U(0.151), 0, U(x), U(0.156), U(0.02));
+  glass.addColorStop(0, paint(b, { l: 0.98, c: 0.012, h: 90 }));
+  glass.addColorStop(1, paint(b, { l: 0.8, c: 0.02, h: 85 }));
+  fillPath(b, oval(b, x, 0.156, 0.0175, 0.0185), glass);
+};
+
+const STUDIES: Record<PieceId, Study> = { works, badge, plant, disc, record, clock, books, cup, lamp };
 
 // --- Finishing marks, laid with the knife's edge after the painting ------------------
 
-const FINISH: Partial<Record<ThingId, Study>> = {
+const FINISH: Partial<Record<PieceId, Study>> = {
   badge: (b) => {
     for (let x = 0.312; x < 0.388; x += 0.0042 + b.rand() * 0.004) {
       line(b, x, 0.418, x, 0.44, 0.0014 + b.rand() * 0.0018, { l: 0.36, c: 0.01, h: 250 }, 0.3);
     }
   },
-  // The grooves are finer than any blade; the window shows in them as two
-  // wedges of short bright ticks, upper left and lower right.
+  // Over the disc, on the sleeve's canvas so it stays put while the disc
+  // turns: the window in the grooves, two wedges of light with short bright
+  // ticks through them, and the shade where the disc goes into the sleeve.
   record: (b) => {
-    const [cx, cy] = RECORD;
-    const sheen: Tone = { l: 0.6, c: 0.01, h: 250, a: b.night ? 0.2 : 0.36 };
-    for (let r = 0.044; r < 0.101; r += 0.0028 + b.rand() * 0.0016) {
+    const { ctx, U, night } = b;
+    const [cx, cy, r] = RECORD_DISC;
+    const face = oval(b, cx, cy, r, r);
+    ctx.save();
+    ctx.clip(face);
+    if (ctx.createConicGradient) {
+      const sheen = ctx.createConicGradient(-2.69, U(cx), U(cy));
+      const clear = paint(b, { l: 0.55, c: 0.012, h: 255, a: 0 });
+      for (const [at, a] of [[0, 0], [0.07, night ? 0.16 : 0.28], [0.15, 0], [0.5, 0], [0.57, night ? 0.12 : 0.2], [0.65, 0], [1, 0]] as const) {
+        sheen.addColorStop(at, a ? paint(b, { l: 0.55, c: 0.012, h: 255, a }) : clear);
+      }
+      fillPath(b, face, sheen);
+    }
+    ctx.fillStyle = gradient(b, 0, 0.59, 0, 0.62, [[0, { l: 0.1, c: 0, h: 0, a: 0 }], [1, { l: 0.1, c: 0, h: 0, a: 0.6 }]]);
+    ctx.fillRect(U(cx - r), U(0.59), U(r * 2), U(0.03));
+    ctx.restore();
+    const tick: Tone = { l: 0.6, c: 0.01, h: 250, a: night ? 0.2 : 0.36 };
+    for (let ring = 0.044; ring < 0.101; ring += 0.0028 + b.rand() * 0.0016) {
       for (const middle of [-2.25, 0.89]) {
         // Widest at the rim, where the grooves run longest under the light.
-        const sweep = (0.1 + b.rand() * 0.12) * (r / 0.1);
+        const sweep = (0.1 + b.rand() * 0.12) * (ring / 0.1);
         const at = middle - sweep / 2 + (b.rand() - 0.5) * 0.16;
-        const [x1, y1] = [cx + Math.cos(at) * r, cy + Math.sin(at) * r];
-        const [x2, y2] = [cx + Math.cos(at + sweep) * r, cy + Math.sin(at + sweep) * r];
+        const [x1, y1] = [cx + Math.cos(at) * ring, cy + Math.sin(at) * ring];
+        const [x2, y2] = [cx + Math.cos(at + sweep) * ring, cy + Math.sin(at + sweep) * ring];
         // The lower wedge sits inside the sleeve.
-        if (Math.max(y1, y2) < 0.6) line(b, x1, y1, x2, y2, 0.0012, sheen, 0.2);
+        if (Math.max(y1, y2) < 0.6) line(b, x1, y1, x2, y2, 0.0012, tick, 0.2);
       }
     }
   },
   books: (b) => {
     for (const y of [0.925, 0.931, 0.937, 0.942]) line(b, 0.13, y, 0.336, y, 0.0009, { l: 0.8, c: 0.02, h: 85, a: 0.6 }, 0.3);
   },
-  cup: (b) => {
-    const steam: Tone = { l: 0.99, c: 0.004, h: 250, a: b.night ? 0.12 : 0.32 };
-    for (const [x, sway] of [[0.703, 1], [0.727, -1]] as const) {
-      for (let i = 0; i < 4; i++) {
-        const y = 0.918 - i * 0.011;
-        const dx = Math.sin(i * 1.4) * 0.004 * sway;
-        line(b, x + dx, y, x - dx * 0.4, y - 0.012, 0.0042 - i * 0.0006, steam, 0.25);
-      }
+  // The cord, and the pull chain hanging out of the shade beside the bulb:
+  // finer than any blade.
+  lamp: (b) => {
+    const { ctx, U } = b;
+    const cord: Tone = { l: 0.3, c: 0.02, h: 60 };
+    ctx.lineCap = 'butt';
+    ctx.lineWidth = U(0.0034);
+    ctx.strokeStyle = paint(b, cord);
+    ctx.beginPath();
+    ctx.moveTo(U(LAMP_X), U(-0.06));
+    ctx.lineTo(U(LAMP_X), U(0.066));
+    ctx.stroke();
+    line(b, LAMP_X - 0.0006, -0.06, LAMP_X - 0.0006, 0.066, 0.0012, mix(cord, 0.16), 0.2);
+    const brass: Tone = { l: 0.78, c: 0.09, h: 82 };
+    for (let y = 0.152; y < 0.2; y += 0.0042) {
+      const x = LAMP_X + 0.03 + (y - 0.152) * 0.04;
+      fillPath(b, oval(b, x, y, 0.0015, 0.0015), paint(b, mix(brass, (y * 1000) % 2 > 1 ? 0.04 : -0.04)));
     }
+    const knob = ctx.createRadialGradient(U(LAMP_X + 0.0315), U(0.205), 0, U(LAMP_X + 0.032), U(0.207), U(0.006));
+    knob.addColorStop(0, paint(b, mix(brass, 0.12, -0.02)));
+    knob.addColorStop(1, paint(b, mix(brass, -0.18)));
+    fillPath(b, oval(b, LAMP_X + 0.032, 0.207, 0.0036, 0.0058), knob);
   },
 };
 
@@ -711,7 +802,7 @@ function knives(u: number, sizes: number[], thresholds: number[]) {
   return sizes.map((size, i) => ({ size: Math.max(2, size * u), threshold: thresholds[i] }));
 }
 
-function styleOf(id: ThingId, u: number): Style {
+function styleOf(id: PieceId, u: number): Style {
   const common: Style = {
     layers: knives(u, [0.019, 0.0105, 0.0058], [0, 26, 20]),
     stretch: [1.5, 3.2],
@@ -725,6 +816,7 @@ function styleOf(id: ThingId, u: number): Style {
   switch (id) {
     case 'works':
     case 'badge':
+    case 'lamp':
       return { ...common, layers: knives(u, [0.013, 0.0072, 0.0039], [0, 22, 18]), spill: 0.002 * u };
     case 'plant':
       return { ...common, layers: knives(u, [0.016, 0.009, 0.005], [0, 24, 18]), spill: 0.005 * u, accentShare: 0.06, whiteShare: 0.3 };
@@ -773,8 +865,8 @@ export async function paintBackdrop(ctx: CanvasRenderingContext2D, u: number, ni
  * One thing, onto its own canvas: the thing's box plus BLEED on every side,
  * with `ctx` set to draw in the painting's CSS pixels.
  */
-export async function paintThing(ctx: CanvasRenderingContext2D, thing: Thing, u: number, night: boolean, signal?: AbortSignal) {
-  const [x, y, w, h] = thing.box;
+export async function paintPiece(ctx: CanvasRenderingContext2D, piece: Piece, u: number, night: boolean, signal?: AbortSignal) {
+  const [x, y, w, h] = piece.box;
   const left = (x - BLEED) * u;
   const top = (y - BLEED) * u;
   const study = document.createElement('canvas');
@@ -783,8 +875,143 @@ export async function paintThing(ctx: CanvasRenderingContext2D, thing: Thing, u:
   const studyCtx = study.getContext('2d', { willReadFrequently: true });
   if (!studyCtx) return;
   studyCtx.translate(-left, -top);
-  const seed = seedOf(thing.id);
-  STUDIES[thing.id](brush(studyCtx, u, night, seed));
-  await paintOver(ctx, study, [left, top], styleOf(thing.id, u), seeded(seed ^ 0x9e3779b9), signal);
-  if (!signal?.aborted) FINISH[thing.id]?.(brush(ctx, u, night, seed + 1));
+  const seed = seedOf(piece.id);
+  STUDIES[piece.id](brush(studyCtx, u, night, seed));
+  await paintOver(ctx, study, [left, top], styleOf(piece.id, u), seeded(seed ^ 0x9e3779b9), signal);
+  if (!signal?.aborted) FINISH[piece.id]?.(brush(ctx, u, night, seed + 1));
+}
+
+
+// --- The lamp's light -------------------------------------------------------------------
+
+/** Lamplight at intensity `i` (0..1), as the colour of a light layer's pixel. */
+const lamplight = (i: number) => {
+  const v = Math.max(0, Math.min(1, i)) * 255;
+  return `rgb(${Math.round(v)} ${Math.round(v * 0.8)} ${Math.round(v * 0.52)})`;
+};
+
+/** An elliptical glow with its intensity at each stop. */
+function glow(b: Brush, cx: number, cy: number, rx: number, ry: number, stops: [number, number][]) {
+  const { ctx, U } = b;
+  ctx.save();
+  ctx.translate(U(cx), U(cy));
+  ctx.scale(1, ry / rx);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, U(rx));
+  for (const [at, i] of stops) g.addColorStop(at, lamplight(i));
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, U(rx), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// The cone runs from the shade's opening down to a pool on the table; its
+// sides, carried up, meet at APEX.
+const POOL = [LAMP_X, 0.935, 0.32, 0.105] as const;
+const APEX: [number, number] = [LAMP_X, -0.05];
+
+/** The cone as it shows through the air: down from the rim, round the near edge of the pool. */
+function conePath(b: Brush) {
+  const { U } = b;
+  const [mx, my, mrx] = MOUTH;
+  const [px, py, prx, pry] = POOL;
+  const path = new Path2D();
+  path.moveTo(U(mx - mrx * 0.92), U(my + 0.004));
+  path.lineTo(U(px - prx), U(py));
+  path.ellipse(U(px), U(py), U(prx), U(pry), 0, Math.PI, 0, true);
+  path.lineTo(U(mx + mrx * 0.92), U(my + 0.004));
+  path.closePath();
+  return path;
+}
+
+/**
+ * The lamp's light, onto two canvases the size of the painting (`ctx`s scaled
+ * to its CSS pixels). `lit` is what the light falls on, and is laid over the
+ * painting with colour-dodge, which brightens the paint the way light does:
+ * dark stays dark, and colour comes up warm. `air` is the cone the light draws
+ * through the room, laid on with screen; its knife strokes run down the rays.
+ * By day the window outshines it, and it is weaker.
+ */
+export function paintLight(lit: CanvasRenderingContext2D, air: CanvasRenderingContext2D, u: number, night: boolean) {
+  const k = night ? 1 : 0.22;
+  // Light is not a paint the night darkens.
+  const bright = (ctx: CanvasRenderingContext2D, seed: number): Brush => ({ ...brush(ctx, u, night, seed), t: (tone) => tone });
+  const b = bright(lit, 29);
+  const [mx, my, mrx, mry] = MOUTH;
+  const [px, py, prx, pry] = POOL;
+  lit.globalCompositeOperation = 'lighter';
+  // The pool on the table, its edge the shade's rim, a little soft.
+  glow(b, px, py, prx, pry, [[0, 0.5 * k], [0.55, 0.42 * k], [0.82, 0.18 * k], [1, 0]]);
+  // A lower wash down the cone, for whatever on the wall stands in it.
+  const wash = lit.createLinearGradient(0, b.U(my), 0, b.U(py));
+  wash.addColorStop(0, lamplight(0.22 * k));
+  wash.addColorStop(0.7, lamplight(0.1 * k));
+  wash.addColorStop(1, lamplight(0));
+  lit.fillStyle = wash;
+  lit.fill(conePath(b));
+  // The wall round the lamp, from the light off the shade.
+  glow(b, mx, my + 0.01, 0.22, 0.17, [[0, 0.16 * k], [1, 0]]);
+  // Inside the shade, and the bulb: bright by day as well.
+  glow(b, mx, my, mrx, mry, [[0, 0.8], [0.7, 0.62], [1, 0.3]]);
+  glow(b, mx, 0.156, 0.034, 0.034, [[0, 0.95], [0.5, 0.6], [1, 0]]);
+  // What stands in the pool throws a shadow of the lamp's own, away from it.
+  lit.globalCompositeOperation = 'destination-out';
+  soft(b, oval(b, 0.488, 0.9, 0.1, 0.011), { l: 0, c: 0, h: 0, a: 0.55 }, 0.012);
+  soft(b, oval(b, 0.79, 1.034, 0.045, 0.011, 0.25), { l: 0, c: 0, h: 0, a: 0.5 }, 0.012);
+  soft(b, oval(b, 0.2, 1.012, 0.09, 0.009), { l: 0, c: 0, h: 0, a: 0.35 }, 0.012);
+  lit.globalCompositeOperation = 'source-over';
+
+  // The air: painted at one pixel per CSS pixel, which is as fine as a haze needs.
+  const width = Math.round(u);
+  const height = Math.round(u * ASPECT);
+  const haze = document.createElement('canvas');
+  haze.width = width;
+  haze.height = height;
+  const hazeCtx = haze.getContext('2d');
+  if (!hazeCtx) return;
+  const h = bright(hazeCtx, 31);
+  // Warm enough to stay amber where it screens over the blue night wall.
+  const beam: Tone = { l: 0.9, c: 0.11, h: 72 };
+  soft(h, conePath(h), { ...beam, a: 0.42 }, 0.02);
+  // A brighter core, under the bulb.
+  const core = new Path2D();
+  core.addPath(conePath(h), new DOMMatrix().translate(h.U(LAMP_X), h.U(my)).scale(0.55, 1).translate(-h.U(LAMP_X), -h.U(my)));
+  soft(h, core, { ...beam, a: 0.28 }, 0.03);
+  // Knife strokes down the rays: the light laid on with the blade's edge.
+  const spread = Math.atan((prx - mrx) / (py - my));
+  for (let i = 0; i < 90; i++) {
+    const ray = (h.rand() - 0.5) * 2 * spread * 0.95;
+    const along = 0.24 + h.rand() * 0.86;
+    const [x, y] = [APEX[0] + Math.sin(ray) * along, APEX[1] + Math.cos(ray) * along];
+    const width = h.U(0.008 + h.rand() * 0.02);
+    const tone = { ...vary(h.rand, beam), a: 0.06 + h.rand() * 0.12 };
+    draw(hazeCtx, strokeAt(h.rand, h.U(x), h.U(y), Math.PI / 2 - ray, width * (4 + h.rand() * 5), width, tone, 0.35));
+  }
+  // Only inside the cone, and thinning as the light spreads. The soft edge
+  // goes on a mask first: a shadow drawn with destination-in would clear the
+  // canvas for the shape held off it.
+  const mask = document.createElement('canvas');
+  mask.width = width;
+  mask.height = height;
+  const maskCtx = mask.getContext('2d');
+  if (!maskCtx) return;
+  soft(bright(maskCtx, 0), conePath(h), { l: 1, c: 0, h: 0 }, 0.016);
+  hazeCtx.globalCompositeOperation = 'destination-in';
+  hazeCtx.drawImage(mask, 0, 0);
+  const thin = hazeCtx.createLinearGradient(0, h.U(my), 0, h.U(py + pry));
+  for (const [at, a] of [[0, 0.2], [0.04, 1], [0.35, 0.62], [0.7, 0.32], [0.88, 0.16], [1, 0]] as const) thin.addColorStop(at, `rgb(0 0 0 / ${a})`);
+  hazeCtx.fillStyle = thin;
+  hazeCtx.fillRect(0, 0, width, height);
+
+  air.save();
+  air.globalAlpha = night ? 0.7 : 0.3;
+  air.drawImage(haze, 0, 0, u, u * ASPECT);
+  air.restore();
+  // The bulb's bloom.
+  const bloom = air.createRadialGradient(b.U(mx), b.U(0.156), 0, b.U(mx), b.U(0.156), b.U(0.075));
+  bloom.addColorStop(0, `rgb(255 236 200 / ${night ? 0.75 : 0.45})`);
+  bloom.addColorStop(0.35, `rgb(255 220 160 / ${night ? 0.3 : 0.16})`);
+  bloom.addColorStop(1, 'rgb(255 210 150 / 0)');
+  air.fillStyle = bloom;
+  air.fillRect(0, 0, b.U(1), b.U(ASPECT));
 }
