@@ -19,6 +19,8 @@
    note 6.9:1 and faint 5.6:1 (dark). The note grey is the prose's second
    voice and the phone sizes are not large text, so it passes as body text. */
 :root:has(.desk) {
+  /* The left column's side margin: the prose and the letterhead share it. */
+  --d-gutter: clamp(28px, 6.4vw, 104px);
   --d-page: #fbfbfa;
   --d-ink: #141413;
   --d-note: #6b6b66;
@@ -93,18 +95,37 @@ body:has(.desk) .spotlight-overlay {
   border: 0;
 }
 
-/* --- The floating nav card -------------------------------------------------
-   Layout's header actions (search and theme) plus the site links, in one
-   small card in the corner. */
+/* --- The letterhead ---------------------------------------------------------
+   Layout's header actions (search and theme) plus the site links, set as one
+   quiet line of type at the head of the letter: over the prose, never over
+   the matrix. It scrolls with the page. Phones fold
+   the links into a menu and keep the line in a small card in the corner. */
 .global-header-actions:has(.desk-nav) {
   gap: 2px;
-  padding: 4px;
-  border-radius: 14px;
-  background: color-mix(in oklab, var(--d-paper) 80%, transparent);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  backdrop-filter: blur(14px) saturate(1.4);
-  box-shadow: 0 0 0 1px var(--d-line), 0 12px 32px -16px rgb(0 0 0 / 0.3);
   font-family: var(--d-sans);
+}
+
+@media (min-width: 640px) {
+  .global-header-actions:has(.desk-nav) {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 28px);
+    right: auto;
+    /* The first link's text, not its hover pill, lines up with the prose. */
+    left: calc(var(--d-gutter) - 10px);
+    /* Above the site shell (z-index 1), which comes later and paints the page. */
+    z-index: 2;
+  }
+}
+
+@media (max-width: 639px) {
+  .global-header-actions:has(.desk-nav) {
+    padding: 4px;
+    border-radius: 14px;
+    background: color-mix(in oklab, var(--d-paper) 80%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    backdrop-filter: blur(14px) saturate(1.4);
+    box-shadow: 0 0 0 1px var(--d-line), 0 12px 32px -16px rgb(0 0 0 / 0.3);
+  }
 }
 
 .global-header-actions:has(.desk-nav) .header-action-btn {
@@ -129,9 +150,7 @@ body:has(.desk) .spotlight-overlay {
 .desk-nav {
   display: flex;
   gap: 2px;
-  margin-right: 2px;
-  padding-right: 4px;
-  border-right: 1px solid var(--d-hair);
+  margin-right: 10px;
 }
 
 .desk-nav a,
@@ -240,7 +259,7 @@ body:has(.desk) .spotlight-overlay {
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  padding: 96px clamp(28px, 6.4vw, 104px) 24px;
+  padding: 96px var(--d-gutter) 24px;
   overflow-y: auto;
   scrollbar-width: none;
 }
@@ -414,9 +433,9 @@ body:has(.desk) .spotlight-overlay {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;
-  /* Frames dissolve under the nav card and into the bottom edge instead of
-     being cut by them. */
-  mask-image: linear-gradient(transparent, #000 112px, #000 calc(100% - 56px), transparent);
+  /* Frames dissolve into the top and bottom edges instead of being cut by
+     them. */
+  mask-image: linear-gradient(transparent, #000 48px, #000 calc(100% - 48px), transparent);
 }
 
 .mx-col::-webkit-scrollbar {
@@ -841,6 +860,10 @@ body:has(.desk) .spotlight-overlay {
 /* --- Phones and tablets: the page scrolls, the column turns into a drifting
    row under the prose, and the nav links fold into a menu. ---------------- */
 @media (max-width: 899px) {
+  :root:has(.desk) {
+    --d-gutter: 20px;
+  }
+
   .desk {
     --mx-w: 280px;
     --kw: 0.737;
@@ -850,7 +873,7 @@ body:has(.desk) .spotlight-overlay {
 
   .desk-left {
     overflow: visible;
-    padding: calc(env(safe-area-inset-top, 0px) + 92px) 20px 8px;
+    padding: calc(env(safe-area-inset-top, 0px) + 92px) var(--d-gutter) 8px;
   }
 
   .desk-prose {
