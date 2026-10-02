@@ -75,9 +75,9 @@ hour.
 
 The comment and reaction routes solve invisibly in managed mode, so in
 practice a reader never sees a widget. A failed Turnstile check on a comment
-gets a plain `400` or `503`. After it, three more checks can refuse in the
-open, with nothing stored: `403 email_verification_required`, `429`, and
-`403 email_required`. Every other check answers `201`, with the comment
+gets a plain `400` or `503`. After it, two more checks can refuse in the
+open, with nothing stored: `429`, and `403 email_required`. Every other check
+answers `201`, with the comment
 published or held (see [The risk stack](/docs/api/comments#the-risk-stack)).
 
 For the notify routes, the four accepted token carriers and the `400` versus

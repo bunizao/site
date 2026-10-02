@@ -90,7 +90,7 @@ latest mood post.
 | `link` | string | No | Show the "View all" link, `true` or `false`. Default `true`. |
 | `frame` | string | No | Card framing, `true` or `false`. Default `true`. |
 | `density` | string | No | `regular` or `compact`. Default `regular`. |
-| `font` | string | No | `mono` or `system`. Default `mono`. |
+| `font` | string | No | `mono` sets the site's type: Inter for the post, JetBrains Mono for the channel name. `system` uses the platform's UI font throughout. Default `mono`. |
 | `origin` | string | No | The only parent origin that receives postMessage, for example `https://example.com`. |
 
 ### Examples

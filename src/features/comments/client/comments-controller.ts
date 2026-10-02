@@ -19,6 +19,7 @@ import type {
   CommentEditInput,
   CommentEditResult,
   CommentListResult,
+  CommentsMode,
   ReactionBatchResult,
   ReaderMe,
   ReaderMeResult,
@@ -32,6 +33,7 @@ import {
   sayComposeAlert,
   buildErrorCode,
   type ComposeAlertHelp,
+  markEmailRequired,
   validateCompose,
   wireBodyCounter,
 } from '@/features/comments/compose-validate';
@@ -68,6 +70,7 @@ import { copyFor, type CommentsCopy } from '@/features/comments/copy';
 import { safeReaderAvatarUrl } from '@/features/comments/reader-avatar';
 import type { BlogComment, ClaimedIdentity, ComposeReceipt, ReaderPhase } from '@/features/comments/types';
 import { READER_ME_URL, blogCommentsUrl, reactionsUrl } from '@/features/comments/api-urls';
+import { readThreadMarks } from '@/features/comments/thread-marks';
 import { NEAR_ROOT_MARGIN, fetchPrefetched } from '@/lib/api-prefetch';
 import { SLOW_VERDICT_MS, VERDICT_POLL_DELAYS_MS } from '@/features/comments/verdict-poll';
 
@@ -88,6 +91,17 @@ function whenNear(target: Element, callback: () => void): void {
     callback();
   }, { rootMargin: NEAR_ROOT_MARGIN });
   observer.observe(target);
+}
+
+/** What `whenNear` watches for the section. One the tags hid (`off`) has no
+    box, so it would never intersect, and a portal override that reopens it
+    would never load; the element drawn above it stands in, as the colophon
+    does for the page's inline prefetch. */
+function nearTarget(section: HTMLElement): Element {
+  if (!section.hidden) return section;
+  let node = section.previousElementSibling;
+  while (node && node.tagName === 'SCRIPT') node = node.previousElementSibling;
+  return node ?? section.parentElement ?? section;
 }
 
 /** True when the hash points at this thread directly -- a reply-notification
@@ -144,6 +158,7 @@ const POSTED_NOTE_FADE_MS = 400;
 
 const NUDGE_MAIL_SVG = iconSvg(ICONS.mail, 'class="blog-compose__nudge-mark" stroke-width="1.6"');
 const THREAD_ERROR_MARK_SVG = iconSvg(ICONS.messageSquareWarning, 'class="blog-comments__mark" stroke-width="1.5"');
+const THREAD_CLOSED_MARK_SVG = iconSvg(ICONS.messageSquareOff, 'class="blog-comments__mark" stroke-width="1.5"');
 
 function heartIcon(): SVGElement {
   return parseStaticSvg(iconSvg(ICONS.heart));
@@ -199,6 +214,8 @@ function toBlogComment(
     deletable: comment.deletable,
     edited: Boolean(comment.editedAt),
     tombstone: comment.tombstone,
+    pinned: comment.parentId === null && comment.pinned === true,
+    locked: comment.locked === true,
   };
 }
 
@@ -408,7 +425,7 @@ export function initCommentsController(): void {
   // happened would mean it never runs at all.
   const hashTargetsThisThread = hashTargetsThread(window.location.hash);
   if (section.dataset.load === 'eager' || hashTargetsThisThread) void bootstrap();
-  else whenNear(section, () => void bootstrap());
+  else whenNear(nearTarget(section), () => void bootstrap());
 
   async function bootstrap(): Promise<void> {
     const [meResult, pageResult] = await Promise.all([
@@ -435,8 +452,24 @@ export function initCommentsController(): void {
     }
 
     nextBefore = pageResult.nextBefore;
+    // The owner's site-wide email rule is not in the tags the page was
+    // built from, so the first page says so. Both boxes exist by now.
+    if (pageResult.policy?.requireVerifiedEmail && !requireEmail) {
+      if (compose) markEmailRequired(compose);
+      markEmailRequired(replyBox);
+    }
+    const mode = pageResult.policy?.mode;
+    // Off goes the moment the page says so. Waiting for the rows meant
+    // waiting on their reactions read too, one more round trip of a section
+    // on screen that was never going to stay -- and nobody sees rows drawn
+    // into a hidden section, so neither is fetched.
+    if (mode === 'off') {
+      applyMode(mode);
+      return;
+    }
     await renderPage(pageResult.comments);
     clearSkeleton();
+    applyMode(mode);
     setTally(pageResult.total);
     // `total` counts published comments only, but the page also renders the
     // viewer's own held ones -- keying the empty state off the rendered rows
@@ -503,12 +536,42 @@ export function initCommentsController(): void {
     section.append(error);
   }
 
+  /** The page was drawn from the post's tags; the owner can override the
+      mode in the portal, and the first page says so in `policy` (absent when
+      the tags stand). Reconciled here, once, after the rows are in:
+        off      -- the section goes away;
+        readonly -- the box closes and the notice says why, rows stay;
+        open     -- a section the tags drew closed or hidden opens.
+      The box is always in the markup (CommentsSection.astro), so opening is
+      a flip of `data-state`; comments.css does the rest. */
+  function applyMode(mode: CommentsMode | undefined): void {
+    if (!mode) return;
+    section.hidden = mode === 'off';
+    if (mode === 'off') return;
+    const notice = section.querySelector('.blog-comments__notice:not(.blog-comments__error)');
+    if (mode === 'readonly') {
+      closeReplyBox();
+      section.dataset.state = 'closed';
+      if (!notice) {
+        const closedNotice = el('div', { class: 'blog-comments__notice' }, [
+          parseStaticSvg(THREAD_CLOSED_MARK_SVG),
+          el('p', {}, [t.closed]),
+        ]);
+        (compose ?? head)?.after(closedNotice);
+      }
+    } else if (section.dataset.state === 'closed') {
+      section.dataset.state = 'loaded';
+      notice?.remove();
+    }
+    toggleEmptyState(!list.querySelector('.blog-comment'));
+  }
+
   function toggleEmptyState(empty: boolean): void {
     let node = section.querySelector('.blog-comments__empty');
     // "Be the first to say something" is an invitation, and a read-only thread
     // has nothing to invite anyone to. It already says why it is empty, one
     // line above, next to the crossed-out bubble.
-    if (empty && !compose) {
+    if (empty && section.dataset.state === 'closed') {
       node?.remove();
       return;
     }
@@ -587,8 +650,12 @@ export function initCommentsController(): void {
       .map((c) => `comment:${c.id}`);
     const reactions = targets.length > 0 ? await fetchCommentReactions(targets) : {};
 
+    // The wire marks a locked root only; thread-marks.ts carries the lock to
+    // its replies, the same rule the mood thread reads.
+    const marks = readThreadMarks(comments);
     for (const { comment, parentId } of orderForRender(comments)) {
       const row = toBlogComment(comment, reactions, t);
+      row.locked = marks.noReply.has(comment.id);
       const article = renderCommentRow(row, parentId);
       wireCommentRow(article, row, parentId);
       replyBox.before(article);
@@ -941,23 +1008,29 @@ export function initCommentsController(): void {
 
   /** The list pages by root and lists a reply only beside its root, so a
       reply under an older root is on the page that starts at that root: the
-      page `before` the real root rendered just above it. */
+      page `before` the real root rendered just above it. The pinned root is
+      not a page boundary -- it rides on the first page, out of date order --
+      so the walk goes past it, and a thread just under the pin is on page one. */
   function pageCursorFor(parentId: string | null): string {
     let row = parentId ? list.querySelector(`#comment-${cssEscape(parentId)}`)?.previousElementSibling : null;
     for (; row; row = row.previousElementSibling) {
-      const isRoot = row instanceof HTMLElement && row.matches('article.blog-comment') && !row.dataset.parentId;
+      const isRoot = row instanceof HTMLElement && row.matches('article.blog-comment') && !row.dataset.parentId && !row.dataset.pinned;
       if (isRoot && !row.id.startsWith('comment-pending-')) return row.id.slice('comment-'.length);
     }
     return '';
   }
 
   function insertNewRow(article: HTMLElement, parentId: string | null): void {
-    if (!parentId) {
+    // A new root is the newest, so it goes first -- under the pinned thread,
+    // which stays on top whatever arrives after it.
+    const pin = parentId ? null : list.querySelector<HTMLElement>(':scope > article.blog-comment[data-pinned]');
+    const threadId = parentId ?? pin?.id.slice('comment-'.length);
+    if (!threadId) {
       list.prepend(article);
     } else {
-      const parentRow = list.querySelector(`#comment-${cssEscape(parentId)}`);
+      const parentRow = list.querySelector(`#comment-${cssEscape(threadId)}`);
       let anchor: Element | null = parentRow;
-      while (anchor?.nextElementSibling && (anchor.nextElementSibling as HTMLElement).dataset.parentId === parentId) {
+      while (anchor?.nextElementSibling && (anchor.nextElementSibling as HTMLElement).dataset.parentId === threadId) {
         anchor = anchor.nextElementSibling;
       }
       if (anchor) anchor.after(article);
@@ -1270,6 +1343,7 @@ export function initCommentsController(): void {
 
     const meta = el('div', { class: 'blog-comment__meta' }, [el('span', { class: 'blog-comment__author' }, [comment.author])]);
     if (comment.byAuthor) meta.append(el('span', { class: 'blog-comment__badge' }, [t.authorBadge]));
+    if (comment.pinned) meta.append(el('span', { class: 'blog-comment__badge' }, [t.pinnedBadge]));
     meta.append(el('span', { class: 'blog-comment__date' }, [comment.date]));
     if (comment.edited) meta.append(el('span', { class: 'blog-comment__edited' }, [t.edited]));
 
@@ -1311,8 +1385,14 @@ export function initCommentsController(): void {
           type: 'button', class: 'blog-comment__act blog-comment__act--like', 'data-comment-like': '',
           'aria-pressed': comment.liked ? 'true' : 'false', 'aria-label': t.likeLabel(comment.author),
         }, [heartIcon(), el('span', { class: 'blog-comment__act-count', 'data-like-count': '' }, [String(comment.likes ?? 0)])]),
-        el('button', { type: 'button', class: 'blog-comment__act', 'data-reply-to': comment.id, 'data-reply-name': comment.author }, [parseStaticSvg(REPLY_ICON_SVG), t.reply]),
       ]);
+      // A locked thread keeps its likes and loses every Reply; only its root
+      // says why, once, where the button was.
+      if (!comment.locked) {
+        acts.append(el('button', { type: 'button', class: 'blog-comment__act', 'data-reply-to': comment.id, 'data-reply-name': comment.author }, [parseStaticSvg(REPLY_ICON_SVG), t.reply]));
+      } else if (!comment.isReply) {
+        acts.append(el('span', { class: 'blog-comment__closed' }, [t.repliesClosed]));
+      }
       const actions = el('div', { class: 'blog-comment__actions' }, [acts]);
       // Edit and delete are gated independently -- a verified owner past the
       // 15-minute window keeps delete without edit.
@@ -1353,6 +1433,8 @@ export function initCommentsController(): void {
     // `data-own` is "mine" only -- kept for the row highlight, never read to
     // decide whether an edit/delete button exists.
     if (comment.own) article.dataset.own = 'true';
+    if (comment.pinned) article.dataset.pinned = 'true';
+    if (comment.locked) article.dataset.locked = 'true';
     if (canEdit && comment.editDeadline) article.dataset.editDeadline = String(comment.editDeadline);
     if (parentId) article.dataset.parentId = parentId;
     return article;

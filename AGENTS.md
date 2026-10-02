@@ -36,6 +36,8 @@ bun preview              # Preview production build locally (wrangler dev on bui
 
 No separate linter is configured.
 
+`bun run test:unit` preloads `tests/setup/isolate.ts`: it strips secrets and app config from `process.env` and makes `fetch` throw `UnmockedNetworkError` for any non-loopback host, so a shell that exported `.env.local` cannot send live traffic or change test results. Mock `globalThis.fetch` for the host a test needs. `test:ops` probes production on purpose and skips the preload.
+
 ## Dev Server & Worktree Hygiene
 
 RAM is the scarce resource on this machine; leaked dev servers and stale

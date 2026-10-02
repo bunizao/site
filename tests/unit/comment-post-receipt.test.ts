@@ -13,6 +13,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 import { VERDICT_POLL_DELAYS_MS } from '@/features/comments/verdict-poll';
+import { moodSiteCommentsUrl } from '@/features/comments/api-urls';
 
 const read = (path: string): string =>
   readFileSync(new URL(`../../src/${path}`, import.meta.url), 'utf8');
@@ -48,7 +49,8 @@ describe('mood: the row is the receipt', () => {
     expect(moodCompose).toContain("if (outcome === 'held') void upgradeWhenVerdictLands(");
     // The mood thread's own read path is edge-cached, viewer-agnostic, and
     // published-only, so it can never answer "is my held row public yet".
-    expect(moodCompose).toContain('/api/v2/comments?surface=mood&post=');
+    expect(moodCompose).toContain('fetchJson<CommentListResult>(moodSiteCommentsUrl(postId))');
+    expect(moodSiteCommentsUrl('42')).toBe('/api/v2/comments?surface=mood&post=42&limit=20');
     expect(moodCompose).not.toContain("fetchJson<CommentListResult>('/api/comments");
   });
 

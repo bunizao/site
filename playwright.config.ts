@@ -7,13 +7,17 @@ const baseURL = remoteBaseURL || `http://${host}:${port}`;
 const browserChannel = process.env.PLAYWRIGHT_BROWSER_CHANNEL?.trim() || undefined;
 const shouldUseWebServer = !remoteBaseURL;
 const shouldReuseWebServer = process.env.E2E_REUSE_SERVER === '1';
+// Preview smoke targets a deployed preview; locally it would only re-run
+// other specs against fixtures.
+const ignored = remoteBaseURL ? [] : ['**/preview-smoke.pw.ts'];
+// The portal specs share the dev server's in-memory demo store and reset it
+// to the seed before and after each file, so they run one file at a time.
+const PORTAL_SPECS = /(admin-portal|portal-[\w-]+)\.pw\.ts$/;
 
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.pw.ts',
-  // Preview smoke targets a deployed preview; locally it would only re-run
-  // other specs against fixtures.
-  testIgnore: remoteBaseURL ? [] : ['**/preview-smoke.pw.ts'],
+  testIgnore: ignored,
   globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: false,
   workers: Number(process.env.E2E_WORKERS || 1),
@@ -56,6 +60,16 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: [...ignored, PORTAL_SPECS],
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: browserChannel,
+      },
+    },
+    {
+      name: 'portal',
+      testMatch: PORTAL_SPECS,
+      workers: 1,
       use: {
         ...devices['Desktop Chrome'],
         channel: browserChannel,

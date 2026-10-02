@@ -42,7 +42,9 @@ const REFUSALS: Array<[number, unknown, CommentErrorCode]> = [
   [409, { error: 'edit_window_closed' }, 'CLOSED'],
   [403, { error: 'not_owner' }, 'CLOSED'],
   [403, { error: 'comments_closed' }, 'LOCKED'],
-  [403, { error: 'email_verification_required' }, 'VERIFY'],
+  // The owner locked one thread: a 403 that is neither the post closing nor
+  // the reader's claim running out.
+  [403, { error: 'thread_locked' }, 'NOREPLY'],
   [403, { error: 'email_required' }, 'NOMAIL'],
   [400, { error: 'displayName must be 1-32 characters and cannot use control characters or reserved names' }, 'NAME'],
   // Resend and create phrase a refused address differently.
@@ -52,6 +54,7 @@ const REFUSALS: Array<[number, unknown, CommentErrorCode]> = [
   [400, { error: 'body must be 1-2000 characters' }, 'LONG'],
   [400, { error: 'body is required (1-2000 characters)' }, 'LONG'],
   [400, { error: 'dwellToken is required' }, 'STALE'],
+  [400, { error: 'invalid_dwell_token' }, 'STALE'],
   [400, { error: 'postId is required' }, 'STALE'],
   [400, { error: 'parentId must be a string or null' }, 'STALE'],
   [400, { error: 'Invalid JSON body' }, 'STALE'],
@@ -84,7 +87,7 @@ describe('failureTag', () => {
 describe('commentErrorDocsHref', () => {
   test('only the refusals whose reason is invisible from the message link', () => {
     const linked = ALL_CODES.filter((code) => commentErrorDocsHref(code) !== null);
-    expect(linked.sort()).toEqual(['CLOSED', 'EMAIL', 'GONE', 'NAME', 'NOMAIL', 'VERIFY']);
+    expect(linked.sort()).toEqual(['CLOSED', 'EMAIL', 'GONE', 'NAME', 'NOMAIL']);
   });
 
   test('every linked refusal lands on an anchor that exists in the comments docs', () => {

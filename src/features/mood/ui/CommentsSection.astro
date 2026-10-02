@@ -3,7 +3,7 @@ import CommentCompose from '@/features/mood/ui/CommentCompose.astro';
 import { resolveMoodCommentsCopy } from '@/features/comments/copy';
 import type { BlogLocale } from '@/data/site';
 import ApiPrefetch from '@/components/ApiPrefetch.astro';
-import { moodCommentsUrl } from '@/features/comments/api-urls';
+import { moodCommentsUrl, moodSiteCommentsUrl } from '@/features/comments/api-urls';
 
 interface Props {
   postId: string;
@@ -44,6 +44,11 @@ const SKELETON_ROWS = [
   { delay: '0.3s', author: '92px', date: '52px', content: '76px' },
 ];
 const skeletonRows = SKELETON_ROWS.slice(0, commentsCount === undefined ? 2 : Math.min(commentsCount, SKELETON_ROWS.length));
+// A linked post can hold site rows, and with them the owner's pin, locks and
+// mode, which only the site's own list carries. An unlinked one has none.
+const prefetchUrls = discussionLinked
+  ? [moodCommentsUrl(postId), moodSiteCommentsUrl(postId)]
+  : [moodCommentsUrl(postId)];
 ---
 
 <section
@@ -52,10 +57,12 @@ const skeletonRows = SKELETON_ROWS.slice(0, commentsCount === undefined ? 2 : Ma
   data-post-id={postId}
   data-locale={locale}
   data-discussion-replies-enabled={discussionRepliesEnabled ? 'true' : 'false'}
+  data-site-thread={discussionLinked ? 'true' : undefined}
 >
-  {/* The thread's first page, requested while the page parses; the controller
-      only runs after load and two frames. See lib/api-prefetch.ts. */}
-  <ApiPrefetch urls={[moodCommentsUrl(postId)]} />
+  {/* The thread's first page, and the site's first page beside it, requested
+      while the page parses; the controller only runs after two frames. See
+      lib/api-prefetch.ts. */}
+  <ApiPrefetch urls={prefetchUrls} />
   {discussionLinked && (
     <CommentCompose
       postId={postId}
@@ -396,6 +403,27 @@ const skeletonRows = SKELETON_ROWS.slice(0, commentsCount === undefined ? 2 : Ma
     color: hsl(var(--muted-foreground) / 0.75);
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  /* The owner's pin, beside the name it vouches for: the blog's badge in
+     this thread's monochrome. 20px tall, under the name's line, so a pinned
+     header is no taller than any other. */
+  .mood-comment-badge {
+    padding: 0 7px;
+    border: 1px solid var(--comment-bubble-border);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 18px;
+    color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  /* A locked thread's root says so where its Reply would have been, at
+     Reply's own size, one step quieter since it is not a control. */
+  .mood-comment-closed {
+    font-size: var(--comment-meta);
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.6);
   }
 
   .mood-comment-content {

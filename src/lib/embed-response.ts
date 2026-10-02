@@ -30,7 +30,10 @@ export function getEmbedHeaders(options: EmbedResponseOptions = {}): Headers {
       "font-src 'self'",
       "img-src 'self' data: https: blob:",
       "media-src 'self' https:",
-      "script-src 'self' 'unsafe-inline' https://www.youtube.com",
+      // Cloudflare Web Analytics injects its beacon into every HTML page on
+      // the zone, this one included; without its host the embed logs a CSP
+      // violation in every page that frames it.
+      "script-src 'self' 'unsafe-inline' https://www.youtube.com https://static.cloudflareinsights.com",
       "frame-src 'self' https://www.youtube-nocookie.com",
       "frame-ancestors *",
     ].join('; ')

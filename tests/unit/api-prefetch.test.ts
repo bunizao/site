@@ -149,7 +149,9 @@ describe('api prefetch', () => {
 
     expect(page).toMatch(/<\/Colophon>\s*\{\/\*[\s\S]*?\*\/\}\s*<ApiPrefetch whenNear urls=\{earlyApiUrls\} \/>/);
     expect(page.match(/<ApiPrefetch /g)?.length).toBe(1);
-    expect(controller).toContain('whenNear(section, () => void bootstrap());');
+    expect(controller).toContain('whenNear(nearTarget(section), () => void bootstrap());');
+    // A section the tags hid never intersects; the element above it stands in.
+    expect(controller).toContain('if (!section.hidden) return section;');
     expect(controller).toContain('rootMargin: NEAR_ROOT_MARGIN');
     // Rows wait on their like counts before they render -- never a flash of
     // zero likes patched in a moment later.

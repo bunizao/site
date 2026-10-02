@@ -8,7 +8,7 @@
 //
 // The dwell token comes from /api/v2/comments/dwell-token. That is not a
 // borrowed endpoint -- it signs nothing but a timestamp with the shared
-// comments session secret, which is exactly what verifyDwellToken checks on
+// comments session secret, which is exactly what inspectDwellToken checks on
 // the message path too. A second endpoint minting the same token from the
 // same secret would be a second name for one thing.
 
@@ -16,6 +16,7 @@ import {
   MESSAGE_MAX_BODY_LENGTH,
   MESSAGE_MIN_BODY_LENGTH,
 } from '@bunizao/contracts/messages';
+import { collectClientEvidence, warmClientEvidence } from '@/features/comments/client/client-evidence';
 import {
   challengeTurnstile,
   dismissTurnstileChallenge,
@@ -29,9 +30,11 @@ import { messageCopy as t } from '@/features/messages/copy';
 
 const ACTION = 'owner_message_create' as const;
 // The service refuses a dwell token older than a day, so re-mint well inside
-// that. Never at submit: a token minted as the POST leaves is milliseconds old,
-// and the service silently drops a message written that fast.
+// that. The service silently drops a token younger than three seconds, so a
+// send waits until the token is past that floor (dwellTokenReady).
 const DWELL_TOKEN_REFRESH_AGE_MS = 20 * 60 * 60 * 1000;
+// Just past the service's three-second floor, with room for clock skew.
+const DWELL_TOKEN_MIN_AGE_MS = 3_500;
 // The last stretch of the field, where the count is worth showing. Anywhere
 // before it the number is noise.
 const COUNT_FROM = MESSAGE_MAX_BODY_LENGTH - 400;
@@ -80,6 +83,10 @@ export function initMessageForm(root: HTMLElement): void {
   // press: a refusal of that one leaves the checkbox open for the next press
   // instead of challenging again on its own.
   let resending = false;
+  // The same browser evidence the comment box sends, stamped on first intent,
+  // before the lazy import, so its network time is not counted as reading.
+  let armedAt: number | undefined;
+  let validationErrors = 0;
 
   async function ensureDwellToken(): Promise<void> {
     if (dwellToken && Date.now() - dwellTokenMintedAt < DWELL_TOKEN_REFRESH_AGE_MS) return;
@@ -99,11 +106,25 @@ export function initMessageForm(root: HTMLElement): void {
     }
   }
 
+  /** A token re-minted by the focus that pressed Send, or after a refused
+      signature, is younger than the service's floor and would vanish into
+      its silent drop. Wait the floor out; the common case (a token minted on
+      first contact, long before anyone finished typing) does not wait. */
+  async function dwellTokenReady(): Promise<void> {
+    await ensureDwellToken();
+    const wait = dwellTokenMintedAt + DWELL_TOKEN_MIN_AGE_MS - Date.now();
+    if (dwellToken && wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  }
+
   // Both warm-ups fire on the reader's contact with the form rather than on
   // load: a Turnstile solve costs ~2.3s, and paying it for every visitor who
   // only scrolls past is waste. Every focus runs them, and both are no-ops
   // while what they hold is fresh, so a tab left open re-mints on return.
   const warm = () => {
+    if (armedAt === undefined) {
+      armedAt = Math.round(performance.now());
+      warmClientEvidence();
+    }
     void ensureDwellToken();
     if (siteKey) warmTurnstileToken(siteKey, ACTION);
   };
@@ -209,11 +230,13 @@ export function initMessageForm(root: HTMLElement): void {
     // people actually make, not to be the validation. The service re-checks
     // every one of them.
     if (!displayName) {
+      validationErrors += 1;
       showError(t.errorName);
       nameField.focus();
       return;
     }
     if (body.length < MESSAGE_MIN_BODY_LENGTH || body.length > MESSAGE_MAX_BODY_LENGTH) {
+      validationErrors += 1;
       showError(t.errorBody);
       bodyField.focus();
       return;
@@ -221,22 +244,34 @@ export function initMessageForm(root: HTMLElement): void {
     // An address is required now: a message nobody can answer is a message
     // with nowhere to go, and the service refuses one too.
     if (!email) {
+      validationErrors += 1;
       showError(t.errorEmailMissing);
       emailField.focus();
       return;
     }
     if (!EMAIL_RE.test(email)) {
+      validationErrors += 1;
       showError(t.errorEmail);
       emailField.focus();
       return;
     }
 
     setBusy(true);
+    // Started before the Turnstile wait so the two overlap; the collector
+    // settles within its own deadline and never holds the send past it.
+    const submittedEvidence = collectClientEvidence({
+      kind: 'comment',
+      armedAt,
+      validationErrors,
+      turnstileAction: ACTION,
+    });
     syncDraft();
     // The typing bubble is on screen for exactly as long as the request is in
     // flight. It represents a real wait, not a staged one.
     if (typing) typing.hidden = false;
     try {
+      await dwellTokenReady();
+
       let turnstileToken = '';
       if (siteKey) {
         try {
@@ -264,6 +299,7 @@ export function initMessageForm(root: HTMLElement): void {
           // verification mail and of the owner's reply mail, both of which
           // answer something written under an English form.
           locale: 'en',
+          ...(await submittedEvidence),
         }),
       });
 
@@ -274,6 +310,12 @@ export function initMessageForm(root: HTMLElement): void {
           showError(t.errorRateLimited);
         } else if (response.status === 400 || response.status === 503) {
           const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+          // A refused signature means the secret moved under an open page;
+          // the next attempt mints afresh instead of failing the same way.
+          if (detail?.error === 'invalid_dwell_token') {
+            dwellToken = '';
+            dwellTokenMintedAt = 0;
+          }
           const refused = detail?.error === 'turnstile_failed';
           showError(refused ? t.errorTurnstile : t.errorGeneric);
           if (refused && siteKey && !isResend) void challengeAndResend();

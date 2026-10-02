@@ -416,7 +416,7 @@ export function storageId(): Promise<string | undefined> {
 // Interaction
 // ---------------------------------------------------------------------------
 
-const COMPOSE_SELECTOR = '.blog-compose, [data-comment-compose]';
+const COMPOSE_SELECTOR = '.blog-compose, [data-comment-compose], [data-message-form]';
 
 const counts = {
   keyEvents: 0,

@@ -772,7 +772,7 @@ one of them is about the words the reader wrote:
 | slug | code | next move |
 | --- | --- | --- |
 | `body must be 1-2000 characters`, `body is required (1-2000 characters)` | `LONG` | shorten it — the message names the cap |
-| `dwellToken is required`, `postId is required`, `parentId must be…`, `Invalid JSON body` | `STALE` | refresh; nothing about the comment is wrong |
+| `dwellToken is required`, `invalid_dwell_token`, `postId is required`, `parentId must be…`, `Invalid JSON body` | `STALE` | refresh; nothing about the comment is wrong |
 | `displayName must be…` | `NAME` | fix the name field |
 | `A valid email is required` | `EMAIL` | fix the email field |
 | `turnstile_failed` | `BOT` | refresh |

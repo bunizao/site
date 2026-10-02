@@ -15,11 +15,13 @@ const [
   { default: Colophon },
   { formatPostDate },
   { resolveGhostDraftPreview, resolveGhostDraftRevision },
+  { blog },
 ] = await Promise.all([
   import('@/layouts/BlogLayout.astro'),
   import('@/features/posts/ui/Colophon.astro'),
   import('@/features/posts/format'),
   import('@/features/posts/server/ghost-preview'),
+  import('@/data/site'),
 ]);
 
 const postId = Astro.params.id ?? '';
@@ -81,7 +83,9 @@ const title = post.title.trim() || 'Untitled draft';
   >
     <aside class="blog-aside">
       <div class="blog-aside__sticky">
-        <a class="blog-back-rail" href="/blog">← Blog</a>
+        <a class="blog-back-rail" href="/blog" aria-label={blog.name}>
+          <img src={blog.mark} alt={blog.name} width="30" height="30" />
+        </a>
       </div>
     </aside>
 

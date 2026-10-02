@@ -13,10 +13,32 @@
 // {name, key}, where `key` is the destination's pathname (no trailing slash)
 // plus search, normalised by the sender. sessionStorage is already origin-
 // scoped, so the key is the whole identity check.
+//
+// Being early is not enough on its own: `pagereveal` fires at the first render
+// opportunity, which a slow parser can reach before the target element exists
+// (measured at 4x CPU throttling: readyState "loading", headline not yet
+// parsed). So when a handoff is addressed to this page, first render is held
+// with `<link rel="expect" blocking="render">` until the target is parsed. The
+// link resolves by id, which is why every morph destination carries
+// `id="vt-<name>"` next to its `data-vt-name`.
 ---
 
 <script is:inline>
   (() => {
+    const here = location.pathname.replace(/\/$/, '') + location.search;
+
+    // Peek, don't take: `pagereveal` below still has to read the handoff.
+    try {
+      const pending = JSON.parse(sessionStorage.getItem('vt-morph') || 'null');
+      if (pending && pending.name && pending.key === here) {
+        const expect = document.createElement('link');
+        expect.rel = 'expect';
+        expect.href = '#vt-' + pending.name;
+        expect.setAttribute('blocking', 'render');
+        document.head.appendChild(expect);
+      }
+    } catch (e) {}
+
     // Read-and-clear on every reveal, transition or not. The sender also clears
     // after an outgoing transition settles without reaching this document.
     const take = () => {
@@ -39,7 +61,7 @@
     window.addEventListener('pagereveal', (event) => {
       const handoff = take();
       if (!event.viewTransition || !handoff) return;
-      if (handoff.key !== location.pathname.replace(/\/$/, '') + location.search) return;
+      if (handoff.key !== here) return;
       const target = document.querySelector('[data-vt-name="' + CSS.escape(handoff.name) + '"]');
       if (target) target.style.viewTransitionName = handoff.name;
     });

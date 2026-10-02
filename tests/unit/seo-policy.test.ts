@@ -61,7 +61,7 @@ describe('search indexing policy', () => {
       'src/pages/mood/embed.astro',
       'src/pages/message.astro',
       'src/pages/subscribe/manage.astro',
-      'src/layouts/PortalLayout.astro',
+      'src/pages/dev/portal/[...path].astro',
     ];
 
     for (const page of noindexPages) {

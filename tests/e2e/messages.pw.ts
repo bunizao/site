@@ -147,6 +147,9 @@ test.describe('/message', () => {
     expect(sent!.email).toBe('you@example.com');
     expect(sent!.dwellToken).toBe('dwell-token-fixture');
     expect(sent!.website).toBe('');
+    // The same optional browser evidence the comment box sends.
+    expect(sent).toHaveProperty('clientFp');
+    expect(sent).toHaveProperty('interaction');
   });
 
   // The service silently drops a message whose dwell token is under three

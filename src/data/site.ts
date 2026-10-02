@@ -124,10 +124,9 @@ export interface BlogLocaleCopy {
   };
   subscribe: SubscribeCopy;
   share: ShareCopy;
-  /** The two ways off a post: the inline link above the title on narrow
-      screens, and the rail in the gutter that replaces it on wide ones. Both
-      say the same thing at different lengths. */
-  back: { index: string; rail: string };
+  /** The inline link above the title on narrow screens. Wide screens carry
+      the publication mark in the gutter rail instead, which needs no words. */
+  back: { index: string };
   /** The writing ledger closing the index. `{n}`, `{year}`, `{month}`,
       `{posts}` and `{words}` are filled in; word counts come whole from
       `formatWords`. */
@@ -251,7 +250,7 @@ export const blog = {
         linkCopied: '链接已复制',
         share: '分享',
       },
-      back: { index: '← 全部文章', rail: '← 博客' },
+      back: { index: '← 全部文章' },
       ledger: {
         posts: '{n} 篇',
         since: '始于 {year}',
@@ -313,7 +312,7 @@ export const blog = {
         linkCopied: 'Link copied',
         share: 'Share',
       },
-      back: { index: '← All posts', rail: '← Blog' },
+      back: { index: '← All posts' },
       ledger: {
         posts: '{n} posts',
         since: 'since {year}',

@@ -1195,9 +1195,10 @@
    the canonical /mood/embed iframe; the wrapper just bounds it. The embed
    carries its own card frame and posts its height back to Prose.astro. */
 .blog-prose .blog-mood-embed {
-  /* Mirrors --body-padding in src/pages/mood/embed.astro, which keeps the card's
-     shadow from clipping inside the frame. That padding is bleed, not layout, so
-     pull the frame back out and let the card's border sit on the prose column. */
+  /* Mirrors --body-padding in src/pages/mood/embed.astro, which keeps focus
+     rings at the card's edge from clipping inside the frame. That padding is
+     bleed, not layout, so pull the frame back out and let the card's border sit
+     on the prose column. */
   --mood-embed-bleed: 8px;
   margin: var(--blog-block-card-gap) 0;
   max-width: min(100%, 460px);

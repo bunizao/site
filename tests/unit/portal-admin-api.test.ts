@@ -70,4 +70,36 @@ describe('portal admin API proxy', () => {
     expect(response.status).toBe(404);
     expect(called).toBe(false);
   });
+  test('forwards the three analytics reads, GET only', async () => {
+    const requests: Request[] = [];
+    const api = createApiBinding((request) => {
+      requests.push(request);
+      return Response.json({});
+    });
+    const call = (path: string, method = 'GET') => ALL({
+      request: new Request(`https://buxx.me/dev/portal/api/${path}`, { method }),
+      params: { path },
+      locals: { env: { API: api } },
+    } as never);
+
+    expect((await call('analytics/summary')).status).toBe(200);
+    expect((await call('analytics/events')).status).toBe(200);
+    expect((await call('analytics/article/retry-budget')).status).toBe(200);
+    expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+      '/api/analytics/summary',
+      '/api/analytics/events',
+      '/api/analytics/article/retry-budget',
+    ]);
+
+    for (const [path, method] of [
+      ['analytics/summary', 'POST'],
+      ['analytics/event', 'GET'],
+      ['analytics/article/..', 'GET'],
+      ['analytics/article/a/b', 'GET'],
+      ['analytics/newsletter/open', 'GET'],
+    ]) {
+      expect((await call(path, method)).status).toBe(404);
+    }
+    expect(requests).toHaveLength(3);
+  });
 });

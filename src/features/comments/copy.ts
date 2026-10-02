@@ -29,11 +29,13 @@ export interface CommentsCopy {
       written below this. A post tagged `#comments-off` renders no section at
       all and so never reaches this line. */
   closed: string;
-  /** Replaces `emailPlaceholder` when the post takes verified addresses only
-      (`#comments-verified`). Same shape as the placeholder it stands in for,
-      with the parenthetical flipped: it is the one time this form asks for
-      something it cannot do without, and the field itself is where that
-      belongs -- not a sentence above the box, and not a refused press. */
+  /** Replaces `emailPlaceholder` when the post needs an address
+      (`#comments-verified`, or the owner's site-wide email rule), and the
+      comment publishes once that address is confirmed. Same shape as the
+      placeholder it stands in for, with the parenthetical flipped: it is the
+      one time this form asks for something it cannot do without, and the
+      field itself is where that belongs -- not a sentence above the box, and
+      not a refused press. */
   emailRequired: string;
   loadMore: string;
   loading: string;
@@ -78,6 +80,14 @@ export interface CommentsCopy {
 
   /* --- A comment row ----------------------------------------------------- */
   authorBadge: string;
+  /** The one root the owner pinned to the top of the thread (from the
+      portal). Same pill as `authorBadge`: it says why this row is first, not
+      that it matters more. */
+  pinnedBadge: string;
+  /** Where a locked thread's Reply button was. The owner closed replies under
+      this one comment; the rest of the post is still open. Plain text, not a
+      notice: the thread itself is still there to read. */
+  repliesClosed: string;
   edited: string;
   tombstone: string;
   /** Shown on a row the moderation pass held back, and only ever to its
@@ -202,8 +212,10 @@ export interface CommentsCopy {
       field is never a validation failure. A malformed one still is: see
       badEmail. */
   badEmail: string;
-  /** Only reachable under `#comments-verified`, where the address stops being
-      optional. Everywhere else an empty email is not a failure at all. */
+  /** Only reachable where the address stops being optional --
+      `#comments-verified`, or the owner's site-wide email rule -- and the
+      comment waits for it to be confirmed. Everywhere else an empty email is
+      not a failure at all. */
   needEmail: string;
 }
 
@@ -238,6 +250,8 @@ const zh: CommentsCopy = {
   signOutConfirm: '确定退出？',
 
   authorBadge: '作者',
+  pinnedBadge: '置顶',
+  repliesClosed: '已关闭回复',
   edited: '已编辑',
   tombstone: '这条评论已删除。',
   held: '这条评论已发出，暂时只有你能看到。',
@@ -281,7 +295,7 @@ const zh: CommentsCopy = {
     THREAD: '要回复的那条评论已经不在了，刷新一下看看？',
     CLOSED: '过了可以修改的时间，这条改不了啦。',
     LOCKED: '这篇的评论区已经打烊了，不收新评论啦。',
-    VERIFY: '这篇只收验证过的邮箱。去收件箱点一下确认链接，再回来发。',
+    NOREPLY: '这条评论已经关闭回复了。',
     NOMAIL: '这条需要留个邮箱。填上再发，去收件箱点一下确认，评论就会出现。草稿还在。',
     NAME: '这个名字用不了，换一个试试？',
     EMAIL: '这个邮箱地址用不了，换一个试试？',
@@ -303,7 +317,7 @@ const zh: CommentsCopy = {
   needBody: '还空着呢，写点什么再发吧。',
   needName: '参与讨论的人，值得一个好名字。',
   badEmail: '这个邮箱看起来不太对，检查一下？',
-  needEmail: '这篇只收验证过的邮箱，留一个吧。',
+  needEmail: '这篇需要留个邮箱，确认之后评论就会公开。',
 };
 
 const en: CommentsCopy = {
@@ -337,6 +351,8 @@ const en: CommentsCopy = {
   signOutConfirm: 'Sign out?',
 
   authorBadge: 'Author',
+  pinnedBadge: 'Pinned',
+  repliesClosed: 'Replies closed',
   edited: 'edited',
   tombstone: 'This comment was deleted.',
   held: 'Posted — for now, only you can see it.',
@@ -380,7 +396,7 @@ const en: CommentsCopy = {
     THREAD: "The comment you're replying to is gone. Refresh to see the thread?",
     CLOSED: "The edit window has closed — this one can't be changed now.",
     LOCKED: 'This post has stopped taking new comments.',
-    VERIFY: 'This post takes verified addresses only. Confirm the link in your inbox, then post.',
+    NOREPLY: 'Replies to this comment are closed.',
     NOMAIL: "This one needs an email. Add it, post again, and confirm the link we send — your draft's safe.",
     NAME: "That name won't work here. Try another?",
     EMAIL: "That email address won't work. Try another?",
@@ -402,7 +418,7 @@ const en: CommentsCopy = {
   needBody: 'Nothing there yet — write something first.',
   needName: 'Everyone in a conversation deserves a name.',
   badEmail: "That email doesn't look right. Mind checking it?",
-  needEmail: 'This post takes verified addresses only. Leave one here.',
+  needEmail: 'This post needs an email — your comment goes public once you confirm it.',
 };
 
 export const commentsCopy = { zh, en } satisfies Record<BlogLocale, CommentsCopy>;
