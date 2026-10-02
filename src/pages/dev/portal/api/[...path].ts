@@ -1,12 +1,19 @@
 import type { APIRoute } from 'astro';
 import { jsonError } from '@/lib/http/json-response';
 import { proxyApiRequest } from '@/lib/http/api-service-proxy';
+import { isPortalDemo } from '@/features/portal/server/demo-mode';
 
 export const prerender = false;
 
-function normalizePortalApiPath(path: string | undefined): string | null {
+/* The three analytics reads the portal draws. They sit outside site-api's
+   `/api/admin/*` but behind the same Access identity, and are read-only. */
+const ANALYTICS_READS = /^analytics\/(summary|events|article\/[^/]+)$/;
+
+function normalizePortalApiPath(path: string | undefined, method: string): string | null {
   const cleanPath = (path ?? '').replace(/^\/+/, '');
-  if (cleanPath !== 'admin' && !cleanPath.startsWith('admin/')) {
+  const admin = cleanPath === 'admin' || cleanPath.startsWith('admin/');
+  const analytics = method === 'GET' && ANALYTICS_READS.test(cleanPath);
+  if (!admin && !analytics) {
     return null;
   }
   // The prefix check above runs before `url.pathname` collapses dot segments,
@@ -18,11 +25,17 @@ function normalizePortalApiPath(path: string | undefined): string | null {
 }
 
 export const ALL: APIRoute = async ({ request, params, locals }) => {
-  const targetPath = normalizePortalApiPath(params.path);
+  const targetPath = normalizePortalApiPath(params.path, request.method);
   if (!targetPath) {
     return jsonError(404, 'Not found', {
       'Cache-Control': 'no-store, max-age=0',
     });
+  }
+
+  // The literal DEV check lets the build drop the demo module entirely.
+  if (import.meta.env.DEV && await isPortalDemo(locals)) {
+    const { handleDemoRequest } = await import('@/features/portal/server/demo-api');
+    return handleDemoRequest(request, targetPath.slice('/api/'.length));
   }
 
   const url = new URL(request.url);

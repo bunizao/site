@@ -3112,6 +3112,185 @@ test.describe('Mood routes', () => {
     await expect(compose.locator('[data-compose-error-code]')).toHaveText('RATE 429');
   });
 
+  // The owner's pin, locks and mode live on the site's own list
+  // (`/api/v2/comments?surface=mood`), read beside the scrape; the thread
+  // draws them the way the blog thread does (thread-marks.ts).
+  test.describe('owner controls on the mood thread', () => {
+    const webItem = (id: string, commentId: string, content: string) => ({
+      ...createComment({ id, content: `<p>${content}</p>` }),
+      origin: 'web',
+      commentId,
+    });
+
+    const siteRow = (overrides: Record<string, unknown>) => ({
+      id: 'site-row',
+      surface: 'mood',
+      postId: 'mood',
+      anchorToken: 'token',
+      parentId: null,
+      author: { name: 'Web Reader', avatarUrl: '', byAuthor: false },
+      body: 'A site comment.',
+      status: 'published',
+      createdAt: '2026-02-10T13:00:00.000Z',
+      editedAt: null,
+      mine: false,
+      editableUntil: null,
+      deletable: false,
+      tombstone: false,
+      ...overrides,
+    });
+
+    async function routeThread(
+      page: Page,
+      scrape: unknown[],
+      site: Record<string, unknown>,
+      siteGate: Promise<void> = Promise.resolve(),
+    ): Promise<void> {
+      await page.route('**/api/comments?postId=*', (route) => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ comments: scrape, hasMore: false, nextBefore: '' }),
+      }));
+      await page.route(
+        (url) => url.pathname === '/api/v2/comments' && url.searchParams.get('surface') === 'mood',
+        async (route) => {
+          await siteGate;
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ comments: [], hasMore: false, nextBefore: null, total: 0, ...site }),
+          });
+        },
+      );
+    }
+
+    const rows = (page: Page) => page.locator('[data-comments-list] > .mood-comment[data-comment-id]');
+    const policy = (mode: string) => ({ mode, reactions: true, requireVerifiedEmail: false });
+
+    test('the pin leads the thread under a label, and a locked thread offers no Reply', async ({ page, request }) => {
+      const latestMoodId = await getLatestMoodId(request);
+      test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+      await routeThread(page, [
+        createComment({ id: '9001', content: '<p>From the group.</p>' }),
+        webItem('9002', 'site-lock', 'Locked by the owner.'),
+        webItem('9003', 'site-lock-reply', 'Said before the lock.'),
+        webItem('9004', 'site-pin', 'The pinned one.'),
+      ], {
+        comments: [
+          siteRow({ id: 'site-pin', pinned: true }),
+          siteRow({ id: 'site-lock', locked: true }),
+          siteRow({ id: 'site-lock-reply', parentId: 'site-lock' }),
+        ],
+      });
+      await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
+
+      await expect(rows(page)).toHaveCount(4, { timeout: 30_000 });
+      const pinned = rows(page).nth(0);
+      await expect(pinned).toHaveAttribute('data-site-comment-id', 'site-pin');
+      await expect(pinned.locator('.mood-comment-badge')).toHaveText('Pinned');
+      await expect(pinned.locator('.mood-comment-reply-btn')).toBeVisible();
+      await expect(rows(page).nth(1)).toHaveAttribute('data-comment-id', '9001');
+      await expect(page.locator('.mood-comment-badge')).toHaveCount(1);
+
+      const locked = page.locator('.mood-comment[data-site-comment-id="site-lock"]');
+      await expect(locked).toHaveAttribute('data-locked', 'true');
+      await expect(locked.locator('.mood-comment-reply-btn')).toHaveCount(0);
+      await expect(locked.locator('.mood-comment-closed')).toHaveText('Replies closed');
+      const lockedReply = page.locator('.mood-comment[data-site-comment-id="site-lock-reply"]');
+      await expect(lockedReply.locator('.mood-comment-reply-btn')).toHaveCount(0);
+      await expect(lockedReply.locator('.mood-comment-closed')).toHaveCount(0);
+    });
+
+    test('a pin older than the scrape page is drawn from the site page, and a new row lands under it', async ({ page, request }) => {
+      const latestMoodId = await getLatestMoodId(request);
+      test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+      await routeThread(page, [createComment({ id: '9001', content: '<p>From the group.</p>' })], {
+        comments: [siteRow({ id: 'site-old-pin', pinned: true, body: 'Pinned long ago.' })],
+      });
+      let releasePost!: () => void;
+      const postGate = new Promise<void>((resolve) => { releasePost = resolve; });
+      await page.route('**/api/v2/comments**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/dwell-token')) {
+          await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ token: 'dwell-token' }) });
+          return;
+        }
+        if (route.request().method() !== 'POST') {
+          await route.fallback();
+          return;
+        }
+        await postGate;
+        await route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'Too Many Requests' }) });
+      });
+      await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
+
+      await expect(rows(page)).toHaveCount(2, { timeout: 30_000 });
+      await expect(rows(page).nth(0)).toHaveAttribute('data-site-comment-id', 'site-old-pin');
+      await expect(rows(page).nth(0)).toContainText('Pinned long ago.');
+      await expect(rows(page).nth(0).locator('.mood-comment-badge')).toHaveText('Pinned');
+
+      const compose = page.locator('[data-mood-compose]');
+      await expect(compose).toHaveAttribute('data-validate-wired', 'true');
+      await compose.locator('[data-compose-seed]').click();
+      await compose.locator('#mood-compose-name').fill('Reader');
+      await compose.locator('#mood-compose-text').fill('Under the pin.');
+      await compose.locator('[data-compose-submit]').click();
+      // Newest, but the pin stays on top.
+      await expect(rows(page).nth(0)).toHaveAttribute('data-site-comment-id', 'site-old-pin');
+      await expect(rows(page).nth(1)).toContainText('Under the pin.');
+
+      releasePost();
+      await expect(page.locator('[data-comments-list] .mood-comment').filter({ hasText: 'Under the pin.' })).toHaveCount(0);
+    });
+
+    test('a post the owner closed keeps its thread and closes the capsule in place', async ({ page, request }) => {
+      const latestMoodId = await getLatestMoodId(request);
+      test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+      let releaseSite!: () => void;
+      const siteGate = new Promise<void>((resolve) => { releaseSite = resolve; });
+      await routeThread(page, [webItem('9002', 'site-a', 'Said while it was open.')], {
+        comments: [siteRow({ id: 'site-a' })],
+        policy: policy('readonly'),
+      }, siteGate);
+      await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
+
+      const section = page.locator('.mood-comments');
+      const shell = page.locator('[data-compose-shell]');
+      // Drawn open: the compose init has run and the site page is held.
+      await expect(page.locator('[data-mood-compose]')).toHaveAttribute('data-validate-wired', 'true');
+      await expect(page.locator('[data-compose-seed]')).toBeVisible();
+      const drawn = await shell.boundingBox();
+
+      releaseSite();
+      await expect(section).toHaveAttribute('data-mode', 'readonly');
+      await expect(page.locator('.mood-compose-closed')).toHaveText('Comments are closed on this post.');
+      await expect(page.locator('[data-compose-seed]')).toBeHidden();
+      // Same box, same place: nothing under the capsule moved.
+      expect(await shell.boundingBox()).toEqual(drawn);
+
+      await expect(rows(page)).toHaveCount(1);
+      await expect(page.locator('.mood-comment-reply-btn')).toHaveCount(0);
+      await expect(page.locator('.mood-comment-closed')).toHaveCount(0);
+    });
+
+    test('a post the owner turned off hides its thread before drawing a row', async ({ page, request }) => {
+      const latestMoodId = await getLatestMoodId(request);
+      test.skip(!latestMoodId, 'No mood id available from /api/moods');
+
+      await routeThread(page, [webItem('9002', 'site-a', 'Never shown.')], {
+        comments: [siteRow({ id: 'site-a' })],
+        policy: policy('off'),
+      });
+      await page.goto(`/mood/${latestMoodId}`, { waitUntil: 'domcontentloaded' });
+
+      await expect(page.locator('.mood-comments')).toBeHidden({ timeout: 30_000 });
+      await expect(rows(page)).toHaveCount(0);
+    });
+  });
+
   test('loads more comments without duplicating existing entries', async ({ page, request }) => {
     const latestMoodId = await getLatestMoodId(request);
     test.skip(!latestMoodId, 'No mood id available from /api/moods');
@@ -3443,7 +3622,7 @@ test.describe('Mood routes', () => {
         .toBe(true);
     });
 
-    await test.step('channel and rich text stay on mono while density sets the size', async () => {
+    await test.step('channel stays on mono, rich text reads in Inter, density sets the size', async () => {
       await page.goto('/mood/embed?count=1&theme=light&density=regular&link=false');
       const regular = await page.locator('.mood-item-text, .mood-item-quote, .empty-state').first().evaluate((element) => {
         const style = getComputedStyle(element);
@@ -3452,7 +3631,7 @@ test.describe('Mood routes', () => {
           fontSize: style.fontSize,
         };
       });
-      const channel = await page.locator('.channel-name').first().evaluate((element) => {
+      const channel = await page.locator('.embed-name').first().evaluate((element) => {
         const style = getComputedStyle(element);
         return {
           fontFamily: style.fontFamily,
@@ -3471,10 +3650,10 @@ test.describe('Mood routes', () => {
 
       expect(channel.text.length).toBeGreaterThan(0);
       expect(channel.fontFamily.toLowerCase()).toContain('jetbrains mono');
-      expect(regular.fontFamily.toLowerCase()).toContain('jetbrains mono');
-      expect(regular.fontSize).toBe('14px');
-      expect(compact.fontFamily.toLowerCase()).toContain('jetbrains mono');
-      expect(compact.fontSize).toBe('13px');
+      expect(regular.fontFamily.toLowerCase()).toContain('inter');
+      expect(regular.fontSize).toBe('15px');
+      expect(compact.fontFamily.toLowerCase()).toContain('inter');
+      expect(compact.fontSize).toBe('14px');
     });
 
     await test.step('a transparent auto embed stays readable on a light host', async () => {

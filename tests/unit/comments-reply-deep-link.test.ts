@@ -40,7 +40,7 @@ describe('comments reply deep link', () => {
       "if (section.dataset.load === 'eager' || hashTargetsThisThread) void bootstrap();",
     );
     // Still the fallback for every other case.
-    expect(source).toContain('else whenNear(section, () => void bootstrap());');
+    expect(source).toContain('else whenNear(nearTarget(section), () => void bootstrap());');
   });
 
   test('bootstrap scrolls the named comment into view once the first page has rendered', () => {

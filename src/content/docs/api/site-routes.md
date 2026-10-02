@@ -133,35 +133,50 @@ site.
 ```
 ALL /dev                                → 302 /dev/portal
 ALL /dev/blog                           → 302 /dev/portal/blog
-GET /dev/portal/api/analytics-events    → site-api /api/analytics/events, JWT forwarded
 GET /dev/portal/api/ghost-posts         → Ghost Admin API post list, answered locally
 GET /dev/portal/api/notify-preview      → site-api /api/notify/preview, params whitelisted
-ALL /dev/portal/api/*                   → forwarded to site-api, admin paths only
+GET /dev/portal/api/activity-panel-src  → signed activity panel SVG paths, answered locally
+ALL /dev/portal/api/*                   → forwarded to site-api, admin paths and three analytics reads
 ```
 
-The `/dev/portal/api/*` forwarder is registered as a catch-all but only
-forwards paths under `admin` (to site-api's `/api/admin/*`). Anything else gets
-`404 {"error":"Not found"}` with `no-store`. It is a narrow window onto the
-admin API and not a second general proxy. See
-[Internal Endpoints](/docs/api/internal).
+The `/dev/portal/api/*` forwarder is registered as a catch-all but narrows
+itself. It forwards any method on paths under `admin` (to site-api's
+`/api/admin/*`), plus three `GET` reads that the analytics and home screens
+draw: `analytics/summary`, `analytics/events` and `analytics/article/:slug` (to
+the same paths under site-api's `/api/analytics/`). Request headers, the Access
+JWT included, pass through. Any other path or method, and any path with a `.`
+or `..` segment, gets `404 {"error":"Not found"}` with `no-store`. It is a
+narrow window onto the admin API and not a second general proxy. See
+[Internal Endpoints](/docs/api/internal). In local dev with portal demo mode
+on, an in-memory demo API answers the same paths instead.
 
 Three static sibling routes take priority over the catch-all, because literal
 paths win over the rest parameter. They are the same-origin data sources for
-portal islands. All three sit behind the portal's Cloudflare Access gate, send
+portal screens. All three sit behind the portal's Cloudflare Access gate, send
 `no-store`, and accept only GET (`405` otherwise):
 
 | Path | Behavior |
 | --- | --- |
-| `/dev/portal/api/analytics-events` | Forwards to site-api's `/api/analytics/events` over the service binding with the `cf-access-jwt-assertion` header, clamping `limit` to 1–200. Backs the auto-refresh of the analytics event log. In dev without the binding it answers with demo fixture events. Otherwise failures are `503 {"error":"analytics_events_unavailable"}`. |
-| `/dev/portal/api/ghost-posts` | Answered locally. Lists up to 100 Ghost posts (id, uuid, slug, title, status, updated/published timestamps) straight from the Ghost Admin API, using `GHOST_ADMIN_API_KEY` + `PUBLIC_GHOST_URL`. Backs the live list in the blog preview workspace. Missing configuration is `503` with a hint, an upstream timeout is `504`, and other upstream failures are `502`. |
-| `/dev/portal/api/notify-preview` | Forwards to site-api's `/api/notify/preview`, passing through only `mode`, `sample`, and `timezone`. Edge access rules reject a direct browser fetch of `buxx.me/api/notify/preview`, but not the service binding path. Backs the email template preview page. |
+| `/dev/portal/api/ghost-posts` | Answered locally. Lists up to 100 Ghost posts (id, uuid, slug, title, status, updated/published timestamps) straight from the Ghost Admin API, using `GHOST_ADMIN_API_KEY` + `PUBLIC_GHOST_URL`. Backs the live list in the blog preview workspace. Missing configuration is `503` with a hint, an upstream timeout is `504`, and other upstream failures are `502`. In local dev with portal demo mode on, missing configuration answers a fixed demo list (mock blog slugs, `X-Portal-Demo: 1`) instead of the `503`. |
+| `/dev/portal/api/notify-preview` | Forwards to site-api's `/api/notify/preview`, passing through only `mode`, `sample`, and `timezone`. Edge access rules reject a direct browser fetch of `buxx.me/api/notify/preview`, but not the service binding path. Backs the email template screen. In local dev with portal demo mode on, it answers demo templates built locally (`X-Portal-Demo: 1`) and never reaches site-api. |
+| `/dev/portal/api/activity-panel-src` | Answered locally. Signs the `/api/activity-panel.svg` paths for both themes with `ACTIVITY_PANEL_SIGNING_SECRET`, valid for one hour, so the secret stays on the server. Backs the SVG gallery screen. Without the secret the paths come back unsigned, and the panel itself answers `401`. |
+
+The portal deep-links by query string:
+
+- `/dev/portal/comments?status=held&c=<id>` opens one comment. A bare `#<id>`
+  is turned into `c`.
+- `/dev/portal/messages?m=<id>` opens one message in whichever tray holds it.
+  An older `/messages/<id>` or `#<id>` link is rewritten to `m`.
+
+site-api's Telegram owner cards build both links from its `PORTAL_URL` var.
 
 `/dev/portal/blog` is the blog preview workspace. It shows a Ghost post list
 grouped into drafts, scheduled, and published, and re-polls
 `/dev/portal/api/ghost-posts` every 5 seconds while visible. Beside the list,
-an iframe shows the selected post's `/dev/blog/<id>` live preview. `/dev/blog/*`
-pages send `frame-ancestors 'self'` so that iframe can load them. Every other
-`/dev` path keeps `frame-ancestors 'none'`.
+an iframe shows the selected post's `/dev/blog/<id>` live preview, at desktop
+or phone width (`?post=<id>&width=phone`). `/dev/blog/*` pages send
+`frame-ancestors 'self'` so that iframe can load them. Every other `/dev` path
+keeps `frame-ancestors 'none'`.
 
 ## Static JSON
 

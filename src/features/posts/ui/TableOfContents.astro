@@ -220,13 +220,15 @@ import '@/styles/scroll-dock.css';
       });
     }
 
-    // --- Shared-element logo handoff (mobile reading bar only) ------------
-    // The page header's mark (logo1) and the reading bar's mark (logo2) sit a
-    // short hop apart, both top-left. As you scroll, a fixed "ghost" mark lifts
-    // off logo1's spot, sticks near the top while the article scrolls beneath
-    // it, shrinks to logo2's size, and docks into logo2's slot just as the bar
-    // assembles around it — a scroll-driven FLIP: one moving node between two
-    // measured endpoints. Desktop (no bar) and reduced-motion skip it.
+    // --- Shared-element logo handoff ---------------------------------------
+    // The page header's mark (logo1) has one docked home per layout (logo2):
+    // the reading bar's slot below 1280px, a short hop away, and the gutter
+    // rail's slot at and above it, ~250px to the side. As you scroll, a fixed
+    // "ghost" mark lifts off logo1's spot, sticks near the top while the
+    // article scrolls beneath it, shrinks to logo2's size, and docks into
+    // logo2's slot — a scroll-driven FLIP: one moving node between two
+    // measured endpoints. Reduced motion skips the flight; logo2 then just
+    // fades in over the same run.
     //
     // The travel itself is CSS: the ghost hosts a scroll dock, JS publishes the
     // two endpoints as numbers, and blog.css lerps between them (see
@@ -248,6 +250,21 @@ import '@/styles/scroll-dock.css';
     const handoffMql = window.matchMedia('(max-width: 1279px)');
     const canHandoff = !reduceMotion && !!mark && !!barLogo && !!barLogoImg;
 
+    // Wide-screen dock: the rail's mark, in the sticky gutter column. Its run
+    // is longer than the bar's because the trip is — and never shorter than
+    // the scroll it takes the sticky column to pin, or the ghost would land on
+    // a slot that is still moving.
+    const RAIL_RUN = 160;
+    const railLink = document.querySelector<HTMLElement>('.blog-back-rail');
+    const railImg = railLink?.querySelector<HTMLImageElement>('img') ?? null;
+    const railSticky = railLink?.closest<HTMLElement>('.blog-aside__sticky') ?? null;
+    let railRun = RAIL_RUN;
+    let railDock: ScrollDock | null = null;
+    if (railLink && railImg && railSticky) {
+      railDock = createScrollDock(railLink, ['dock'], scroll);
+      railLink.classList.add('rail-dock');
+    }
+
     let ghost: HTMLElement | null = null;
     let logoDock: ScrollDock | null = null;
 
@@ -255,15 +272,36 @@ import '@/styles/scroll-dock.css';
       el.style.setProperty(name, value.toFixed(3));
 
     const measureLogos = () => {
-      if (!ghost || !handoffMql.matches) return;
+      const wide = !handoffMql.matches;
+      if (wide && railDock) {
+        // The slot's viewport position once the column has pinned: the sticky
+        // offset plus the link's place inside the column. Reading the link's
+        // own rect instead is only right after the pin, and the reader may be
+        // anywhere when this runs. The aside is the column's unstuck box.
+        const aside = railSticky!.parentElement!.getBoundingClientRect();
+        const pinTop = parseFloat(getComputedStyle(railSticky!).top) || 0;
+        railRun = Math.max(RAIL_RUN, aside.top + scroll.el.scrollTop - pinTop);
+        railDock.setRun('dock', railRun);
+      }
+      if (!ghost) return;
+      if (wide && !railDock) return;
       const a = mark!.getBoundingClientRect();
       // logo1 scrolls with the page; anchor to its at-rest position in the
       // scroller's own coordinate space, so the ghost holds steady near the top
       // regardless of where the page happens to be when we measure.
-      const b = barLogo!.getBoundingClientRect();
       setNum(ghost, '--l1-x', a.left);
       setNum(ghost, '--l1-y', a.top + scroll.el.scrollTop);
       setNum(ghost, '--l1-size', a.width);
+      if (wide) {
+        const b = railImg!.getBoundingClientRect();
+        const column = railSticky!.getBoundingClientRect();
+        const pinTop = parseFloat(getComputedStyle(railSticky!).top) || 0;
+        setNum(ghost, '--l2-x', b.left);
+        setNum(ghost, '--l2-y', pinTop + b.top - column.top);
+        setNum(ghost, '--logo-scale', b.width / Math.max(1, a.width));
+        logoDock?.setRun('dock', railRun);
+        return;
+      }
       // The dock target is a VIEWPORT coordinate, because the ghost is fixed.
       // Measuring it against the bar's own box instead (b.top - barRect.top)
       // looks more robust and is the bug that emptied the bar's left slot: it
@@ -271,26 +309,25 @@ import '@/styles/scroll-dock.css';
       // it silently becomes an offset of exactly the bar's own displacement the
       // moment anything moves the bar. The bar is a lid at the viewport edge
       // (blog.css) — read the slot where it actually is.
+      const b = barLogo!.getBoundingClientRect();
       setNum(ghost, '--l2-x', b.left);
       setNum(ghost, '--l2-y', b.top);
       setNum(ghost, '--logo-scale', b.width / Math.max(1, a.width));
+      logoDock?.setRun('dock', REVEAL);
     };
 
     const updateGhost = () => {
       if (!ghost) return;
-      // Past the breakpoint there is no bar to dock into: stand everything down.
-      if (!handoffMql.matches) {
-        ghost.classList.remove('is-flying');
-        mark!.style.visibility = '';
-        topbar.classList.remove('logo-handoff');
-        return;
-      }
-      topbar.classList.add('logo-handoff');
+      // The dock that receives the mark at this width, if any. Its own logo
+      // cedes the pixels to the ghost until the landing (blog.css).
+      const dock = handoffMql.matches ? topbar : railDock ? railLink : null;
+      topbar.classList.toggle('logo-handoff', dock === topbar);
+      railLink?.classList.toggle('logo-handoff', dock === railLink);
       // At the very top the real header mark owns the stage. Past that the ghost
       // takes over and logo1 keeps its layout box (visibility, not display) so
-      // the header never reflows. Opacity is CSS's (it crossfades into the bar's
-      // own logo on --dock-ride); this only decides who is on stage.
-      const flying = scroll.el.scrollTop > 0;
+      // the header never reflows. Opacity is CSS's (it crossfades into the
+      // dock's own logo on --dock-ride); this only decides who is on stage.
+      const flying = !!dock && scroll.el.scrollTop > 0;
       ghost.classList.toggle('is-flying', flying);
       mark!.style.visibility = flying ? 'hidden' : '';
     };
@@ -305,9 +342,36 @@ import '@/styles/scroll-dock.css';
       ghost.appendChild(img);
       document.body.appendChild(ghost);
       logoDock = createScrollDock(ghost, ['dock'], scroll);
-      logoDock.setRun('dock', REVEAL);
-      measureLogos();
     }
+    measureLogos();
+
+    // The masthead mark keeps a static view-transition name (BlogLayout) so it
+    // holds still between blog pages. Once it has docked, though, its real box
+    // is scrolled far above the viewport, and a morph from there drops the mark
+    // into the next page from out of sight. For the capture, the name goes to
+    // the docked copy the reader can actually see — clicking it flies the mark
+    // home — or, if that copy has scrolled away too, to nobody, so the mark
+    // arrives with the page instead.
+    window.addEventListener('pageswap', (event) => {
+      const transition = (event as Event & { viewTransition?: { finished: Promise<unknown> } | null })
+        .viewTransition;
+      if (!transition || !mark) return;
+      const wide = !handoffMql.matches;
+      const dock = wide ? (railDock ? railLink : null) : barLogo;
+      if (!dock || scroll.el.scrollTop < (wide ? railRun : REVEAL)) return;
+      const box = dock.getBoundingClientRect();
+      mark.style.viewTransitionName = 'none';
+      if (box.bottom > 0 && box.top < window.innerHeight) {
+        dock.style.viewTransitionName = 'blog-mark';
+      }
+      // Settles after the swap, or when the navigation is stopped and this
+      // document survives — either way the names go back to rest.
+      const restore = () => {
+        dock.style.removeProperty('view-transition-name');
+        mark.style.viewTransitionName = 'blog-mark';
+      };
+      void transition.finished.then(restore, restore);
+    });
 
     // --- Shared-element title handoff (the iOS "large title" collapse) -----
     // The article H1 is the title's home. As you scroll it rises with the page,
@@ -442,6 +506,7 @@ import '@/styles/scroll-dock.css';
       // Armed from the first scrolled pixel so visibility is never the thing
       // holding back an already-opaque bar.
       topbar.classList.toggle('is-visible', scrolled > 0);
+      if (railDock) railLink!.classList.toggle('is-live', scrolled > 0);
       updateGhost();
       updateTitleGhost();
       if (!hasToc || !wrapper || !fill || !pill || !headingTops.length) return;

@@ -41,14 +41,14 @@ it also supplies the freshness-sensitive comments and reactions.
 | --- | --- |
 | `src/pages/` | File-based routing: `index.astro` (home), `mood.astro` (feed shell and route bootstrap), `mood/[id].astro` (detail shell and route bootstrap), `mood/embed.astro` (embeddable widget), and `dev/blog/[id].astro` (authenticated Ghost draft preview). |
 | `src/pages/api/` | A thin catch-all proxy that falls back to `site-api`. The concrete API implementations live in the private `site-api` repo. |
-| `src/pages/dev/` | The owner's dev portal pages and Ghost draft preview, behind Cloudflare Access, plus a narrow `/dev/portal/api/*` proxy to the `site-api` admin API. |
+| `src/pages/dev/` | The owner's dev portal and Ghost draft preview, behind Cloudflare Access, plus a narrow `/dev/portal/api/*` proxy to the `site-api` admin API. The portal is one client app: `dev/portal/[...path].astro` mounts it from `src/features/portal/`. |
 | `src/pages/oauth*` | `/oauth` and `/oauth/*` forward to `site-api` over the `API` binding (reader sign-in lives there). `/oauth/login` is answered here. |
 | `src/middleware.ts` | Astro middleware. It sets security, cache and `Vary` headers, and gates `/dev` and `/dev/*` with a Cloudflare Access identity (or the dev bypass). Under `astro dev` it also answers canonical redirects, agent Markdown and legacy blog redirects, which `src/worker.ts` handles in production. |
 | `src/features/` | Feature-private code. `src/features/home/ui/` holds the home-route sections and their private UI helpers. `src/features/mood/` holds the mood client controllers, the feed renderer, media and update modules, server services, shared helpers, and private Astro UI shells in `ui/`. |
 | `src/features/logos/` | Pixel mascot definitions, SVG rendering helpers, and the animated logo UI used by the navbar and the favicon route. |
 | `src/lib/` | Shared utilities: `e2e.ts` (shared E2E fixture flag), `utils.ts` (cn/clsx utility), `fonts.ts` (server-side mirrors of the font tokens), `runtime/env.ts`, `http/*`, and `media/responsive-image.ts`. |
-| `src/components/coss/` | Primitives built on Base UI, used by the admin portal. Shared portal-specific Astro components live in `src/components/portal/`. |
-| `src/layouts/` | `Layout.astro`, the base layout for the public site, and `PortalLayout.astro`, the admin portal shell (sidebar and topbar, scoped under `.theme-portal`). |
+| `src/components/coss/` | Primitives built on Base UI, used by the admin portal. |
+| `src/layouts/` | `Layout.astro`, the base layout for the public site. The admin portal uses no layout: its page, `src/pages/dev/portal/[...path].astro`, mounts the client app under `.theme-portal`. |
 | `src/styles/` | `globals.css`: Tailwind directives, the HSL CSS-variable color system, the shared font tokens (`--font-mono`, `--font-code`, `--font-sans`, `--font-display`), and the `.theme-portal` token scope. |
 
 ## Component patterns

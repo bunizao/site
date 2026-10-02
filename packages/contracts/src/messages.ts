@@ -13,6 +13,8 @@
  * features/messages/server/message-service.ts.
  */
 
+import type { ClientEvidence } from './comments';
+
 export const MESSAGE_LOCALES = ['zh', 'en'] as const;
 export type MessageLocale = (typeof MESSAGE_LOCALES)[number];
 
@@ -35,7 +37,9 @@ export const MESSAGE_MAX_NAME_LENGTH = 32;
 export const MESSAGE_STATES = ['new', 'read', 'replied', 'archived', 'spam'] as const;
 export type MessageState = (typeof MESSAGE_STATES)[number];
 
-export interface OwnerMessageCreateInput {
+/** The fingerprint fields are the comment box's own evidence
+    (`ClientEvidence`): optional, bounded, and never a gate. */
+export interface OwnerMessageCreateInput extends ClientEvidence {
   /** Plain text, MESSAGE_MIN_BODY_LENGTH–MESSAGE_MAX_BODY_LENGTH characters. */
   body: string;
   displayName: string;

@@ -24,6 +24,7 @@ tiers fit into the site-wide auth picture.
 | `/api/notify/change-email` | `GET`, `POST` | HTML |
 | `/api/notify/manage/delete` | `POST` | JSON |
 | `/api/notify/delete-record` | `GET`, `POST` | HTML |
+| `/api/notify/redirect` | `GET` | `302` |
 
 Dispatch, scheduling, retry, and preview are gated by cron and secrets, so they
 are not public. They are listed in
@@ -305,6 +306,26 @@ POST /api/notify/delete-record
 **HTML, not JSON.** `GET` renders the confirmation form, and the same-origin
 `POST` performs the deletion. The delete token expires after **1 hour** and
 works only once. Rate limit: 30 / 10 min.
+
+## Outbound link redirect
+
+```
+GET /api/notify/redirect?url=...&sig=...
+```
+
+Mood emails don't link straight to other sites. Every external `href` in
+the HTML part points here, and the route forwards with a `302` to `url`.
+The plain-text part keeps the real URLs. Short `youtu.be` links are expanded
+to `youtube.com/watch` before signing.
+
+`sig` is an HMAC-SHA256 of the exact target URL, keyed by the notify secret.
+The route only forwards to URLs that this service signed, so it can't be used
+as an open redirect. A missing or forged signature, or a target that isn't
+`http(s)`, redirects to `/mood` instead. Links have no expiry, so old emails
+keep working.
+
+Responses set `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+No click is recorded.
 
 ## Response headers
 

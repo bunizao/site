@@ -254,10 +254,9 @@ test('compose validation and body counter expose every refusal', async ({ page }
   await expect(compose.locator('.blog-compose__alert')).toContainText('2000 characters max');
 });
 
-// The three per-post comment states a page can be in, from the tags in
-// src/content/docs/writing/tags.md. `off` is not here because it renders
-// nothing at all -- /blog/[slug] skips the component -- and a missing section
-// is asserted where the tag is read, not on this harness.
+// The per-post comment states a page can be in, from the tags in
+// src/content/docs/writing/tags.md. `off` renders the section hidden, so a
+// portal override can show it; that case lives with the overrides below.
 test('a read-only post keeps its thread and drops its box', async ({ page }) => {
   await gotoLab(page, 'locale=en&state=closed');
   const section = page.locator('.blog-comments');
@@ -265,9 +264,166 @@ test('a read-only post keeps its thread and drops its box', async ({ page }) => 
   await expect(section).toContainText('Comments are closed on this post.');
   // The point of read-only rather than off: what was written is still there.
   await expect(section.locator('.blog-comment').first()).toBeVisible();
-  await expect(section.locator('> .blog-compose')).toHaveCount(0);
+  // Still in the markup, so a portal override can reopen it without a reload.
+  await expect(section.locator('> .blog-compose')).toBeHidden();
   // No way in through a row either -- reply, edit and delete all go with it.
   await expect(section.locator('.blog-comment__actions:visible')).toHaveCount(0);
+});
+
+// Pin, lock and the per-post mode are the owner's, set in the portal. The
+// list carries them (`pinned`, `locked`, `policy`); these check what the
+// thread makes of them. The route below is registered after
+// installCommentApi's, so it answers the list reads.
+function listWith(page: Page, body: Record<string, unknown>) {
+  return page.route((url) => url.pathname === '/api/v2/comments' && url.searchParams.has('post'), (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ hasMore: false, nextBefore: null, total: 1, ...body }),
+  }));
+}
+
+test('the pinned root leads the thread under a label, and a new root lands under it', async ({ page }) => {
+  const api = await installCommentApi(page);
+  await listWith(page, {
+    comments: [
+      comment({ id: 'comment-pin', body: 'The pinned one.', pinned: true, createdAt: new Date(Date.now() - 86_400_000).toISOString() }),
+      comment(),
+      comment({ id: 'comment-pin-reply', parentId: 'comment-pin', body: 'A reply under the pin.' }),
+    ],
+    total: 3,
+  });
+  await gotoLab(page, 'interactive=1&locale=en');
+
+  const rows = page.locator('.blog-comments__list > article.blog-comment');
+  await expect(rows.nth(0)).toHaveAttribute('id', 'comment-comment-pin');
+  await expect(rows.nth(0).locator('.blog-comment__badge')).toHaveText('Pinned');
+  await expect(rows.nth(1)).toHaveAttribute('id', 'comment-comment-pin-reply');
+  await expect(rows.nth(2)).toHaveAttribute('id', 'comment-comment-existing');
+  await expect(rows.nth(2).locator('.blog-comment__badge')).toHaveCount(0);
+
+  const compose = page.locator('.blog-comments > .blog-compose');
+  await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
+  await compose.locator('textarea').fill('Optimistic comment.');
+  await compose.locator('[data-compose-submit]').click();
+  await api.releasePost();
+  // Newest root, but the pin and its thread stay on top.
+  await expect(page.locator('#comment-comment-posted')).toBeVisible();
+  await expect(rows.nth(0)).toHaveAttribute('id', 'comment-comment-pin');
+  await expect(rows.nth(2)).toHaveAttribute('id', 'comment-comment-posted');
+});
+
+// The pin rides on page one out of date order, so it is no page boundary: a
+// held reply under the root just below it is polled on the first page.
+test('a held reply under the root below the pin is polled on the first page', async ({ page }) => {
+  await page.clock.install();
+  const api = await installCommentApi(page, { postOutcome: 'held' });
+  await listWith(page, { comments: [comment({ id: 'comment-pin', pinned: true }), comment()], total: 2 });
+  const cursors: string[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === '/api/v2/comments' && url.searchParams.has('post')) cursors.push(url.searchParams.get('before') ?? '');
+  });
+  await gotoLab(page, 'interactive=1&locale=en');
+
+  await page.locator('#comment-comment-existing [data-reply-to]').click();
+  const reply = page.locator('#blog-reply');
+  await reply.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
+  await reply.locator('#blog-reply-text').fill('A held reply.');
+  await reply.locator('[data-compose-submit]').click();
+  await api.releasePost();
+  await expect(page.locator('#comment-comment-posted')).toBeVisible();
+  await page.clock.runFor(1_500);
+  await expect.poll(() => cursors.length).toBeGreaterThan(1);
+  expect(cursors.at(-1)).toBe('');
+});
+
+test('a locked thread offers no Reply and says so once, and a late reply is told why', async ({ page }) => {
+  const api = await installCommentApi(page, { postStatus: 403, postError: 'thread_locked' });
+  await listWith(page, {
+    comments: [
+      comment({ id: 'comment-locked', body: 'Locked by the owner.', locked: true, mine: false, editableUntil: null, deletable: false }),
+      comment(),
+      comment({ id: 'comment-locked-reply', parentId: 'comment-locked', body: 'Said before the lock.', mine: false, editableUntil: null, deletable: false }),
+    ],
+    total: 3,
+  });
+  await gotoLab(page, 'interactive=1&locale=en');
+
+  const locked = page.locator('#comment-comment-locked');
+  await expect(locked).toHaveAttribute('data-locked', 'true');
+  await expect(locked.locator('[data-reply-to]')).toHaveCount(0);
+  await expect(locked.locator('.blog-comment__closed')).toHaveText('Replies closed');
+  // Likes stay: a lock stops new replies, nothing else.
+  await expect(locked.locator('[data-comment-like]')).toBeVisible();
+  await expect(page.locator('#comment-comment-locked-reply [data-reply-to]')).toHaveCount(0);
+  await expect(page.locator('#comment-comment-locked-reply .blog-comment__closed')).toHaveCount(0);
+
+  // A box opened before the lock landed: the refusal names it.
+  await page.locator('#comment-comment-existing [data-reply-to]').click();
+  const reply = page.locator('#blog-reply');
+  await reply.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
+  await reply.locator('#blog-reply-text').fill('Too late.');
+  await reply.locator('[data-compose-submit]').click();
+  await api.releasePost();
+  await expect(reply.locator('[data-compose-error-text]')).toHaveText('Replies to this comment are closed.');
+  await expect(reply.locator('[data-compose-error-code]')).toHaveText('NOREPLY 403');
+  await expect(reply.locator('#blog-reply-text')).toHaveValue('Too late.');
+});
+
+test.describe('a portal override of the post mode', () => {
+  const policy = (mode: string) => ({ mode, reactions: true, requireVerifiedEmail: false });
+
+  test('reopens a post its tags closed', async ({ page }) => {
+    await installCommentApi(page);
+    await listWith(page, { comments: [comment()], policy: policy('open') });
+    await gotoLab(page, 'interactive=1&locale=en&mode=readonly');
+    const section = page.locator('.blog-comments');
+    await expect(section).toHaveAttribute('data-state', 'loaded');
+    await expect(section.locator('> .blog-compose')).toBeVisible();
+    await expect(section.locator('.blog-comments__notice')).toHaveCount(0);
+    await expect(page.locator('#comment-comment-existing [data-reply-to]')).toBeVisible();
+  });
+
+  test('closes an open post and keeps its thread', async ({ page }) => {
+    await installCommentApi(page);
+    await listWith(page, { comments: [comment()], policy: policy('readonly') });
+    await gotoLab(page, 'interactive=1&locale=en');
+    const section = page.locator('.blog-comments');
+    await expect(section).toHaveAttribute('data-state', 'closed');
+    await expect(section.locator('.blog-comments__notice')).toContainText('Comments are closed on this post.');
+    await expect(section.locator('> .blog-compose')).toBeHidden();
+    await expect(page.locator('#comment-comment-existing')).toBeVisible();
+    await expect(section.locator('.blog-comment__actions:visible')).toHaveCount(0);
+  });
+
+  test('shows a section its tags turned off', async ({ page }) => {
+    await installCommentApi(page);
+    await listWith(page, { comments: [comment()], policy: policy('open') });
+    await page.goto('/lab/comments?interactive=1&locale=en&mode=off');
+    await expect(page.locator('.blog-comments')).toBeVisible();
+    await expect(page.locator('#comment-comment-existing')).toBeVisible();
+  });
+
+  test('hides the section when turned off, and the tags alone leave it hidden', async ({ page }) => {
+    await installCommentApi(page);
+    await listWith(page, { comments: [comment()], policy: policy('off') });
+    const rowReactionReads: string[] = [];
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (url.pathname === '/api/v2/reactions' && url.searchParams.get('targets')?.startsWith('comment:')) rowReactionReads.push(url.search);
+    });
+    await page.goto('/lab/comments?interactive=1&locale=en');
+    // Gone the moment the first page says off: no rows drawn into a hidden
+    // section, and no reactions read for them first.
+    await expect(page.locator('.blog-comments')).toBeHidden();
+    await expect(page.locator('#comment-comment-existing')).toHaveCount(0);
+    expect(rowReactionReads).toEqual([]);
+
+    await listWith(page, { comments: [comment()] });
+    await page.goto('/lab/comments?interactive=1&locale=en&mode=off');
+    await expect(page.locator('#comment-comment-existing')).toBeAttached();
+    await expect(page.locator('.blog-comments')).toBeHidden();
+  });
 });
 
 test('a verified-only post makes the email field required', async ({ page }) => {
@@ -278,12 +434,13 @@ test('a verified-only post makes the email field required', async ({ page }) => 
   await expect(email).toHaveAttribute('placeholder', 'Email (required)');
   await expect(email).toHaveAttribute('required', '');
 
-  // Anonymous posting is not offered here: an empty address is a refusal.
-  // Everywhere else it is simply left blank and the comment goes.
+  // Anonymous posting is not offered here: the box asks for the address the
+  // comment will wait on. Everywhere else it is simply left blank and the
+  // comment goes.
   await compose.locator('[data-compose-identity] input[type="text"]:not([data-honeypot])').fill('Reader');
   await compose.locator('.blog-compose__field').fill('A complete comment.');
   await compose.locator('[data-compose-submit]').click();
-  await expect(compose.locator('.blog-compose__alert')).toContainText('verified addresses only');
+  await expect(compose.locator('.blog-compose__alert')).toContainText('This post needs an email');
 });
 
 // The served HTML, not the rendered page: a browser confirms the link on

@@ -71,6 +71,13 @@ const shared = resolveCommentsCopy(locale);
       the placeholder appears to stay put while the frame grows around it. */}
   <div class="mood-compose-shell" data-compose-shell>
     <button type="button" class="mood-compose-seed" data-compose-seed>{shared.bodyPlaceholder}</button>
+    {/* The seed's stand-in on a post the owner closed in the portal. Shown by
+        `.mood-comments[data-mode='readonly']`, which
+        detail-comments-controller.ts sets once the site page says so. */}
+    <p class="mood-compose-closed">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.messageSquareOff} />
+      <span>{shared.closed}</span>
+    </p>
     <div class="mood-compose-reveal">
       <div class="mood-compose-reveal__in">
   <p class="mood-compose__alert" data-compose-error role="alert" hidden>
@@ -295,6 +302,56 @@ const shared = resolveCommentsCopy(locale);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.12s var(--compose-ease);
+  }
+
+  /* A post the owner closed. The read-only override lands after first paint,
+     so the capsule keeps its closed size and place -- nothing under it moves
+     -- and only its line changes: the invitation goes, the reason takes the
+     seed's exact box, and the dashes turn solid because there is nothing to
+     put in it any more. */
+  .mood-compose-closed {
+    display: none;
+  }
+
+  .mood-comments[data-mode='readonly'] .mood-compose-seed {
+    display: none;
+  }
+
+  .mood-comments[data-mode='readonly'] .mood-compose-closed {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 12px 18px;
+    font-size: 14px;
+    line-height: 24px;
+    color: hsl(var(--muted-foreground) / 0.8);
+  }
+
+  /* One line at any width: the capsule's height is fixed, so a second line
+     would spill out of it rather than grow it. */
+  .mood-compose-closed span {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .mood-compose-closed svg {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    opacity: 0.7;
+  }
+
+  .mood-comments[data-mode='readonly'] .mood-compose-shell,
+  .mood-comments[data-mode='readonly'] .mood-compose-shell:hover {
+    border-style: solid;
+    border-color: hsl(var(--foreground) / 0.1);
   }
 
   /* 0fr -> 1fr, so the height animation stays interruptible. */

@@ -55,7 +55,7 @@ on the site's own API.
 | --- | --- | --- | --- |
 | Blog comments | Display name, comment body, and an optional email address, stored in plaintext next to its hash. Every row also stores the raw IP and referrer, a hashed IP, a server-derived fingerprint hash, the user agent, country, and ASN | `NOTIFY_DB` in `site-api` (`blog_comments`, `notify_subscribers`) | Akismet (moderation), the owner's AI gateway (moderation, anonymous comments only), Resend (verification and reply mail) |
 | Comment client evidence | What the browser reports about itself: platform, screen, time zone, a canvas and audio hash, font families, media queries. How the form was filled, as aggregates only: counts, timings, and one spread figure for the gaps between keystrokes. Never the key sequence and never the typed text. A random id the page keeps in IndexedDB, stored only as its HMAC and never written back to a cookie | Two JSON columns on the same row in `NOTIFY_DB`. The collecting module loads on the first focus in the compose box, never on a page view. Every part is optional: a missing or malformed object stores NULL and the write still goes through | First-party |
-| Comment ban list | One row per banned key (an address hash, a session, an IP or /24 hash, a fingerprint, a device hash, an ASN, a link domain, or a mail domain), with an optional note and expiry | `blog_bans` in `NOTIFY_DB`, checked on both write paths. A ban is silent: the comment is held, or a heart answers normally and moves no count | First-party |
+| Comment ban list | One row per banned key (an address hash, a session, an IP or /24 hash, a fingerprint, a device hash, an ASN, a link domain, or a mail domain), with an optional note and expiry | `blog_bans` in `NOTIFY_DB`, checked on every write path. A ban is silent: the comment is held, a heart answers normally and moves no count, or a private message is filed as spam | First-party |
 | Comment quarantine and lockdown | The account or anonymous session identifier of a writer who tripped a spam signal, and a site-wide lockdown flag | `CACHE` KV in `site-api`, as expiring keys (see [How long data is kept](#how-long-data-is-kept)) | First-party |
 | Comment moderation | Body, author name and email, IP, user agent, referrer, and the post permalink, on every submission. The same values again when the owner overrules a verdict | Akismet: one `comment-check` per comment, and one `submit-spam` / `submit-ham` per owner verdict on an anonymous comment | Akismet (Automattic) |
 | Comment moderation, second opinion | Body, display name, and post title of an anonymous submission | The owner's AI gateway (`AI_BASE_URL`), one classification per anonymous comment | The gateway's model provider |
@@ -69,6 +69,17 @@ attach the other browser's comments to the account.
 Optional browser reports send no identity or text. The server does not treat
 them as verified observations.
 
+### Private messages
+
+| Feature | What is collected | Where it goes | Third parties |
+| --- | --- | --- | --- |
+| Private messages | Name, message body, the address hash, and the address as typed. Every row also stores the same actor columns and client evidence as a comment, and `auth_at_write` (whether a signed-in reader sent it) | `owner_messages` in `NOTIFY_DB`. The owner reads it in the portal and in an ops-bot alert | Akismet (moderation), Resend (verification and reply mail), Telegram (owner alert) |
+
+The hash stays for as long as the message does: a reply finds the sender
+through it once they confirm the verification mail. The typed address is only
+a claim about who was at the keyboard, so it is dropped after 7 days unless a
+signed-in reader sent the message.
+
 ### How long data is kept
 
 Risk signals exist to catch abuse while it happens, so the comment data that
@@ -77,6 +88,7 @@ identifies a writer has a fixed lifetime.
 | Data | Kept for |
 | --- | --- |
 | Comment risk signals | 90 days after the row was written. A cron then nulls them in place across `blog_comments`, `blog_reactions` and `owner_messages` |
+| The address typed on a private message | 7 days, unless a signed-in reader sent it |
 | Quarantine on a writer who tripped a spam signal | 24 hours |
 | Site-wide comment lockdown flag | 1 hour |
 | Ban-removal backups | 30 days |
