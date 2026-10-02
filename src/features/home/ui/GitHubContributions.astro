@@ -243,6 +243,9 @@ const placeholderBars = Array.from({ length: contributionDays });
       bar.style.transitionDelay = `${growDelay}s`;
       bar.style.setProperty('--height', `${height}px`);
       bar.style.height = `${height}px`;
+      // 0..1, for a host that shades the bars by the day (the desk does). A
+      // square root, so a few big days don't wash the rest out.
+      bar.style.setProperty('--level', Math.sqrt((day.count || 0) / maxCount).toFixed(3));
     });
 
     setupTooltip(section, visibleDays);
