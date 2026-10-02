@@ -1,8 +1,10 @@
-// The student card catches the light. One WebGL canvas paints the card's M
-// as holographic foil, in whichever copy of the card is on screen. The light
-// comes from where the frame sits in the column, so the M shimmers as it
-// drifts past, and under a mouse also from the pointer, which tilts the card
-// on its lanyard. It draws only when the light moves, never on a timer.
+// The desk's foiled objects catch the light: the student card's M as pearl
+// security foil, the notebook's title as holographic film. Each object gets
+// one WebGL canvas, moved into whichever copy of it is on screen and cut to
+// the foil's shape by a mask painted once per copy. The light comes from where
+// the frame sits in the column, so the foil shimmers as it drifts past, and
+// under a mouse also from the pointer, which tilts the object. It draws only
+// when the light moves, never on a timer.
 
 const VERTEX = `
 attribute vec2 a_pos;
@@ -12,15 +14,17 @@ void main() {
   gl_Position = vec4(a_pos, 0.0, 1.0);
 }`;
 
-// Pearl foil: the M keeps its own pale ink, and one soft streak of pastel
-// thin-film colour crosses it where the light lands, so the card catches the
-// light rather than glowing. A scatter of flakes flashes at its own angles,
-// brightest inside the streak.
+// Both are thin film: one soft streak of pastel colour where the light lands,
+// and a scatter of flakes flashing at their own angles. Pearl lays it over the
+// M's own pale ink; film is the whole foil, a cool mirror silver away from the
+// light.
 const FRAGMENT = `
 precision mediump float;
 varying vec2 v_uv;
+uniform sampler2D u_mask;
 uniform vec2 u_light;
 uniform float u_aspect;
+uniform float u_film;
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -39,28 +43,51 @@ vec3 pearl(float t) {
 }
 
 void main() {
+  float mask = texture2D(u_mask, v_uv).a;
   vec2 q = vec2(v_uv.x * u_aspect, v_uv.y);
   float t = dot(q, vec2(0.55, 0.85)) + (noise(q * 3.0 + u_light * 0.4) - 0.5) * 0.16;
   float centre = 0.55 + u_light.x * 0.45 - u_light.y * 0.35;
-  float d = (t - centre) * 4.2;
-  float streak = exp(-d * d);
   float h = hash(floor(gl_FragCoord.xy / 2.0));
-  float flake = step(0.975, h) * max(0.0, sin(h * 80.0 + u_light.x * 7.0 + u_light.y * 5.0)) * (0.15 + streak);
-  float alpha = 0.06 + streak * 0.66;
-  gl_FragColor = vec4(min(pearl(t * 1.6 + u_light.x * 0.25) + flake * 0.6, 1.0) * alpha, alpha);
+  float flake = step(0.975, h) * max(0.0, sin(h * 80.0 + u_light.x * 7.0 + u_light.y * 5.0));
+  vec3 film = pearl(t * 1.6 + u_light.x * 0.25);
+  if (u_film > 0.5) {
+    float d = (t - centre) * 3.0;
+    float streak = exp(-d * d);
+    vec3 silver = vec3(0.5, 0.51, 0.55) + (noise(q * 18.0) - 0.5) * 0.05;
+    vec3 colour = mix(silver, film, streak * 0.9) + flake * 0.35 * (0.3 + streak);
+    gl_FragColor = vec4(min(colour, 1.0) * mask, mask);
+  } else {
+    float d = (t - centre) * 4.2;
+    float streak = exp(-d * d);
+    float alpha = (0.06 + streak * 0.66) * mask;
+    gl_FragColor = vec4(min(film + flake * (0.15 + streak) * 0.6, 1.0) * alpha, alpha);
+  }
 }`;
 
-// The M device is drawn at 100:230 (Badge.astro).
+// The M device (Badge.astro), drawn at 100:230.
+const M_PATH = 'M0 0 H44 L50 74 L56 0 H100 V230 H72.8 V136 L64.4 230 H35.6 L27.2 136 V230 H0 Z';
 const M_ASPECT = 100 / 230;
-// Degrees the card turns at the frame's edge.
-const TILT_X_DEG = 14;
-const TILT_Y_DEG = 9;
 // Time constant of the tilt easing towards the pointer.
 const EASE_MS = 110;
 
 interface Light {
   x: number;
   y: number;
+}
+
+type Paint = (ctx: CanvasRenderingContext2D, host: HTMLElement, scale: number) => void;
+
+interface Surface {
+  /** The frames holding the object, one per copy of the matrix. */
+  tiles: string;
+  /** The element the canvas covers, inside a frame. */
+  host: string;
+  /** The child of the host the canvas goes in front of. */
+  before?: string;
+  /** The canvas's width over its height; the host's own box when omitted. */
+  aspect?: number;
+  material: 'pearl' | 'film';
+  paint: Paint;
 }
 
 const clamp = (value: number) => Math.min(1, Math.max(-1, value));
@@ -84,13 +111,38 @@ function link(gl: WebGLRenderingContext) {
   return gl.getProgramParameter(program, gl.LINK_STATUS) ? program : null;
 }
 
-export function initFoil(): () => void {
-  const column = document.querySelector<HTMLElement>('[data-mx-col]');
-  const tiles = [...document.querySelectorAll<HTMLElement>('.tile--about')];
-  if (!column || !tiles.length) return () => {};
+const paintM: Paint = (ctx, host, scale) => {
+  const height = host.offsetHeight * scale;
+  ctx.scale((height * M_ASPECT) / 100, height / 230);
+  ctx.fill(new Path2D(M_PATH));
+};
+
+// Draws each [data-foil] element of the host into its own box: text in its own
+// font, anything else as a solid rule.
+const paintMarks: Paint = (ctx, host, scale) => {
+  for (const el of host.querySelectorAll<HTMLElement>('[data-foil]')) {
+    const x = el.offsetLeft * scale;
+    const y = el.offsetTop * scale;
+    const width = el.offsetWidth * scale;
+    const height = el.offsetHeight * scale;
+    if (el.dataset.foil === 'text') {
+      const style = getComputedStyle(el);
+      ctx.font = `${style.fontStyle} ${style.fontWeight} ${parseFloat(style.fontSize) * scale}px ${style.fontFamily}`;
+      ctx.letterSpacing = `${(parseFloat(style.letterSpacing) || 0) * scale}px`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(el.textContent?.trim() ?? '', x, y + height / 2);
+    } else {
+      ctx.fillRect(x, y, width, height);
+    }
+  }
+};
+
+function foil(column: HTMLElement, surface: Surface): () => void {
+  const tiles = [...document.querySelectorAll<HTMLElement>(surface.tiles)];
+  if (!tiles.length) return () => {};
 
   const canvas = document.createElement('canvas');
-  canvas.className = 'mo-foil';
+  canvas.className = surface.material === 'pearl' ? 'mo-foil' : 'jr-foil';
   canvas.setAttribute('aria-hidden', 'true');
   const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, powerPreference: 'low-power' });
   const program = gl && link(gl);
@@ -103,8 +155,17 @@ export function initFoil(): () => void {
   const position = gl.getAttribLocation(program, 'a_pos');
   gl.enableVertexAttribArray(position);
   gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-  gl.uniform1f(gl.getUniformLocation(program, 'u_aspect'), M_ASPECT);
+  gl.uniform1f(gl.getUniformLocation(program, 'u_film'), surface.material === 'film' ? 1 : 0);
+  const uAspect = gl.getUniformLocation(program, 'u_aspect');
   const uLight = gl.getUniformLocation(program, 'u_light');
+
+  gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  // The mask is painted top down; the shader reads bottom up.
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  const mask = document.createElement('canvas');
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   let host: HTMLElement | null = null;
@@ -117,23 +178,34 @@ export function initFoil(): () => void {
     drawn = light;
   };
 
-  // The canvas moves into the card it paints; the copies are far enough apart
+  const release = () => {
+    host?.style.removeProperty('--tilt-x');
+    host?.style.removeProperty('--tilt-y');
+    host?.classList.remove('has-foil');
+  };
+
+  // The canvas moves into the copy it paints; the copies are far enough apart
   // that only one is ever on screen.
   const attach = (tile: HTMLElement) => {
     if (host === tile) return;
-    const photo = tile.querySelector<HTMLElement>('.mo-photo');
-    if (!photo) return;
-    host?.querySelector<HTMLElement>('.mo-badge')?.style.removeProperty('transform');
+    const target = tile.querySelector<HTMLElement>(surface.host);
+    if (!target) return;
+    release();
     host = tile;
-    photo.insertBefore(canvas, photo.querySelector('.mo-hole'));
-    const dpr = Math.min(devicePixelRatio, 2);
-    canvas.height = Math.round(photo.offsetHeight * dpr);
-    canvas.width = Math.round(photo.offsetHeight * M_ASPECT * dpr);
+    target.insertBefore(canvas, surface.before ? target.querySelector(surface.before) : null);
+    const scale = Math.min(devicePixelRatio, 2);
+    canvas.height = mask.height = Math.round(target.offsetHeight * scale);
+    canvas.width = mask.width = Math.round((surface.aspect ? target.offsetHeight * surface.aspect : target.offsetWidth) * scale);
+    const ctx = mask.getContext('2d');
+    if (ctx) surface.paint(ctx, target, scale);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, gl.ALPHA, gl.UNSIGNED_BYTE, mask);
+    gl.uniform1f(uAspect, canvas.width / canvas.height);
     gl.viewport(0, 0, canvas.width, canvas.height);
+    tile.classList.add('has-foil');
     drawn = { x: Number.NaN, y: Number.NaN };
   };
 
-  // The card nearest the middle of the column.
+  // The copy nearest the middle of the column.
   const nearest = () => {
     const view = column.getBoundingClientRect();
     let best: HTMLElement | null = null;
@@ -165,12 +237,12 @@ export function initFoil(): () => void {
   let frame = 0;
   let last = 0;
 
+  // The object's CSS turns it by the tilt; the light follows either way.
   const render = () => {
     if (!host) return;
-    const badge = host.querySelector<HTMLElement>('.mo-badge');
-    if (badge && !reduced.matches) {
-      badge.style.transform =
-        tilt.x || tilt.y ? `perspective(800px) rotateX(${(tilt.y * TILT_Y_DEG).toFixed(2)}deg) rotateY(${(tilt.x * TILT_X_DEG).toFixed(2)}deg)` : '';
+    if (!reduced.matches) {
+      host.style.setProperty('--tilt-x', tilt.x.toFixed(3));
+      host.style.setProperty('--tilt-y', tilt.y.toFixed(3));
     }
     const along = passing(host);
     draw({ x: along.x + tilt.x, y: along.y + tilt.y });
@@ -220,12 +292,18 @@ export function initFoil(): () => void {
     ease();
   };
 
+  // A lost context takes the canvas with it, and the flat foil comes back.
+  const onLost = () => {
+    release();
+    canvas.remove();
+  };
+
   column.addEventListener('scroll', onScroll, { passive: true });
   tiles.forEach((tile) => {
     tile.addEventListener('pointermove', onMove);
     tile.addEventListener('pointerleave', onLeave);
   });
-  canvas.addEventListener('webglcontextlost', () => canvas.remove());
+  canvas.addEventListener('webglcontextlost', onLost);
   onScroll();
 
   return () => {
@@ -235,6 +313,16 @@ export function initFoil(): () => void {
       tile.removeEventListener('pointermove', onMove);
       tile.removeEventListener('pointerleave', onLeave);
     });
-    canvas.remove();
+    onLost();
   };
+}
+
+export function initFoil(): () => void {
+  const column = document.querySelector<HTMLElement>('[data-mx-col]');
+  if (!column) return () => {};
+  const stops = [
+    foil(column, { tiles: '.tile--about', host: '.mo-photo', before: '.mo-hole', aspect: M_ASPECT, material: 'pearl', paint: paintM }),
+    foil(column, { tiles: '.tile--writing', host: '.jr-face', material: 'film', paint: paintMarks }),
+  ];
+  return () => stops.forEach((stop) => stop());
 }

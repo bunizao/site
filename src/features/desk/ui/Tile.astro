@@ -6,8 +6,8 @@
 // them half the time) but leave the tab order and the accessibility tree.
 import Badge from './Badge.astro';
 import Chat from './Chat.astro';
-import Contents from './Contents.astro';
 import Deck from './Deck.astro';
+import Journal from './Journal.astro';
 import MoodChannel from './MoodChannel.astro';
 import type { DeskContent } from '@/features/desk/server/content';
 
@@ -44,7 +44,7 @@ const attrs = {
   <span class="tile-obj" aria-hidden="true">
     {kind === 'projects' && <Deck />}
     {kind === 'about' && <Badge uid={copy} />}
-    {kind === 'writing' && <Contents posts={content.posts.slice(0, 3)} total={content.postCount} />}
+    {kind === 'writing' && <Journal posts={content.posts.slice(0, 3)} total={content.postCount} />}
     {kind === 'moods' && <MoodChannel moods={content.moods} channel={content.channel} />}
     {kind === 'hello' && <Chat />}
   </span>

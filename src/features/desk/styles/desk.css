@@ -515,25 +515,26 @@ body:has(.desk) .spotlight-overlay {
   transform-origin: 50% 0;
 }
 
-/* The card turns on the clip it hangs from (client/foil.ts). */
+/* The card turns on the clip it hangs from, by the pointer's tilt
+   (client/foil.ts). */
 .tile--about .tile-obj .mo-badge {
   transform-origin: 50% -10px;
+  transform: perspective(800px) rotateX(calc(var(--tilt-y, 0) * 9deg)) rotateY(calc(var(--tilt-x, 0) * 14deg));
 }
 
-/* The foil canvas lies exactly over the M and is cut to its shape, under the
-   punched hole and the portrait. */
+/* The foil canvas lies exactly over the M, under the punched hole and the
+   portrait; its shader cuts it to the M's shape. */
 .mo-foil {
   position: absolute;
   inset: 0 auto 0 0;
   height: 100%;
   aspect-ratio: 100 / 230;
   pointer-events: none;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 230' preserveAspectRatio='none'%3E%3Cpath d='M0 0 H44 L50 74 L56 0 H100 V230 H72.8 V136 L64.4 230 H35.6 L27.2 136 V230 H0 Z'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 230' preserveAspectRatio='none'%3E%3Cpath d='M0 0 H44 L50 74 L56 0 H100 V230 H72.8 V136 L64.4 230 H35.6 L27.2 136 V230 H0 Z'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
 }
 
 .tile--writing {
-  --k: 0.9;
+  --ar: 1 / 1;
+  --k: 0.94;
 }
 
 .tile--moods {
@@ -554,9 +555,8 @@ body:has(.desk) .spotlight-overlay {
 }
 
 /* Each object answers a hover in its own way: the deck thumbs open (Deck.astro),
-   the badge swings on its strap, the page lifts off the desk, the send button
-   leans in. */
-.wr,
+   the badge swings on its strap, the journal opens (Journal.astro), the send
+   button leans in. */
 .ch-send {
   transition:
     translate 0.45s var(--d-ease),
@@ -568,11 +568,6 @@ body:has(.desk) .spotlight-overlay {
   .tile:hover {
     translate: 0 -4px;
     box-shadow: var(--d-frame-shadow), 0 36px 60px -34px rgb(20 20 18 / 0.3);
-  }
-
-  .tile--writing:hover .wr {
-    translate: 0 -6px;
-    rotate: -2deg;
   }
 
   .tile--hello:hover .ch-send {
@@ -973,7 +968,6 @@ body:has(.desk) .spotlight-overlay {
   .desk-chip,
   .tile,
   .win,
-  .wr,
   .ch-send {
     transition: none;
   }

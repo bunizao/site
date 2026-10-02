@@ -1,5 +1,5 @@
 // Boot for the desk at /new: the matrix drift, the windows, the foil on the
-// student card, and the phone menu in the nav card.
+// student card and the notebook, and the phone menu in the nav card.
 import { initFoil } from './foil';
 import { initMatrix } from './matrix';
 import { initWindows } from './windows';
