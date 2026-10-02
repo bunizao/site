@@ -757,6 +757,25 @@ body:has(.desk) .spotlight-overlay {
   max-width: 460px;
 }
 
+/* GitHub: the bars in the plant's green, deeper the busier the day. By night
+   a busy day glows instead, the way GitHub's dark graph does. */
+.easel-panel .wave-bar,
+.easel-panel .wave-bar:hover {
+  --quiet: oklch(0.9 0.05 150);
+  --busy: oklch(0.5 0.13 150);
+  background: color-mix(in oklab, var(--busy) calc(var(--level, 0) * 100%), var(--quiet));
+}
+
+:root.dark .easel-panel .wave-bar,
+:root.dark .easel-panel .wave-bar:hover {
+  --quiet: oklch(0.34 0.05 150);
+  --busy: oklch(0.76 0.17 150);
+}
+
+.easel-panel .wave-bar:hover {
+  filter: brightness(1.12);
+}
+
 /* A sheet taped to the canvas. */
 .easel-paper {
   position: relative;
