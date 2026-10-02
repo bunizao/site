@@ -142,7 +142,9 @@ const sections: EaselSection[] = [
 ];
 
 const byId = new Map(sections.map((section) => [section.id, section]));
-const tone = (id: string) => `--h: ${byId.get(id)?.hue}; --c: ${byId.get(id)?.chroma}`;
+// The chips in reading order, which their paint is laid behind on arrival.
+const READING = ['projects', 'about', 'writing', 'moods', 'listening', 'github', 'note'];
+const tone = (id: string) => `--h: ${byId.get(id)?.hue}; --c: ${byId.get(id)?.chroma}; --i: ${READING.indexOf(id)}`;
 const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`, style: tone(id) });
 ---
 

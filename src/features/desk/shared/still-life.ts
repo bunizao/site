@@ -47,6 +47,8 @@ export const CLOCK_FACE: [number, number, number, number] = [0.385, 0.785, 0.2, 
 export const LAMP: Piece = { id: 'lamp', box: [0.42, 0, 0.14, 0.215] };
 /** Where the lamp's cord hangs from. */
 export const LAMP_PIVOT: [number, number] = [0.49, 0];
+/** The bulb's centre, where the light comes from. */
+export const LAMP_BULB: [number, number] = [LAMP_PIVOT[0], 0.156];
 
 /** The record's disc: centre and radius. It turns, under its sleeve, while a song plays. */
 export const RECORD_DISC = [0.752, 0.568, 0.105] as const;

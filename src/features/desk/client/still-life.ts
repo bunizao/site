@@ -12,7 +12,7 @@
 // the room goes dark and the clock and the lamp keep their light. The lamp's
 // light is painted apart from the room (paintLight), so it can be switched.
 
-import { ASPECT, CLOCK_FACE, HORIZON, LAMP_PIVOT, RECORD_DISC, WALL_WORK, type Piece, type PieceId } from '@/features/desk/shared/still-life';
+import { ASPECT, CLOCK_FACE, HORIZON, LAMP_BULB, LAMP_PIVOT, RECORD_DISC, WALL_WORK, type Piece, type PieceId } from '@/features/desk/shared/still-life';
 import { css, draw, seedOf, seeded, stroke, strokeAt, vary, type Rand, type Tone } from './knife';
 import { paintOver, type Style } from './painterly';
 
@@ -718,10 +718,10 @@ const lamp: Study = (b) => {
   ctx.ellipse(U(x), U(y), U(rx - 0.0012), U(ry - 0.0008), 0, Math.PI, Math.PI * 2);
   ctx.stroke();
   // The bulb, frosted glass, hanging a little below the rim.
-  const glass = ctx.createRadialGradient(U(x - 0.006), U(0.151), 0, U(x), U(0.156), U(0.02));
+  const glass = ctx.createRadialGradient(U(x - 0.006), U(0.151), 0, U(x), U(LAMP_BULB[1]), U(0.02));
   glass.addColorStop(0, paint(b, { l: 0.98, c: 0.012, h: 90 }));
   glass.addColorStop(1, paint(b, { l: 0.8, c: 0.02, h: 85 }));
-  fillPath(b, oval(b, x, 0.156, 0.0175, 0.0185), glass);
+  fillPath(b, oval(b, x, LAMP_BULB[1], 0.0175, 0.0185), glass);
 };
 
 const STUDIES: Record<PieceId, Study> = { works, badge, plant, disc, record, clock, books, cup, lamp };
@@ -953,7 +953,7 @@ export function paintLight(lit: CanvasRenderingContext2D, air: CanvasRenderingCo
   glow(b, mx, my + 0.01, 0.22, 0.17, [[0, 0.16 * k], [1, 0]]);
   // Inside the shade, and the bulb: bright by day as well.
   glow(b, mx, my, mrx, mry, [[0, 0.8], [0.7, 0.62], [1, 0.3]]);
-  glow(b, mx, 0.156, 0.034, 0.034, [[0, 0.95], [0.5, 0.6], [1, 0]]);
+  glow(b, mx, LAMP_BULB[1], 0.034, 0.034, [[0, 0.95], [0.5, 0.6], [1, 0]]);
   // What stands in the pool throws a shadow of the lamp's own, away from it.
   lit.globalCompositeOperation = 'destination-out';
   soft(b, oval(b, 0.488, 0.9, 0.1, 0.011), { l: 0, c: 0, h: 0, a: 0.55 }, 0.012);
@@ -1008,7 +1008,7 @@ export function paintLight(lit: CanvasRenderingContext2D, air: CanvasRenderingCo
   air.drawImage(haze, 0, 0, u, u * ASPECT);
   air.restore();
   // The bulb's bloom.
-  const bloom = air.createRadialGradient(b.U(mx), b.U(0.156), 0, b.U(mx), b.U(0.156), b.U(0.075));
+  const bloom = air.createRadialGradient(b.U(mx), b.U(LAMP_BULB[1]), 0, b.U(mx), b.U(LAMP_BULB[1]), b.U(0.075));
   bloom.addColorStop(0, `rgb(255 236 200 / ${night ? 0.75 : 0.45})`);
   bloom.addColorStop(0.35, `rgb(255 220 160 / ${night ? 0.3 : 0.16})`);
   bloom.addColorStop(1, 'rgb(255 210 150 / 0)');

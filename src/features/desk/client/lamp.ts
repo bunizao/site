@@ -4,8 +4,12 @@
 // was let go with. The light only comes on once the paint is dry: it goes
 // out while the room is repainted and flickers back when the easel is done.
 // Whether it is on is kept for the next visit.
+//
+// The first time it comes on by night, it is lit the way a lamp in a dark
+// room is: a beat of dark, the chain pulled, the filament catching in the
+// bulb with a stutter, and the light spreading from the bulb to the table.
 
-import { LAMP_PIVOT } from '@/features/desk/shared/still-life';
+import { ASPECT, LAMP_BULB, LAMP_PIVOT } from '@/features/desk/shared/still-life';
 import { play } from './sound';
 
 const KEY = 'desk-lamp';
@@ -17,7 +21,19 @@ const REACH = 0.32;
 // Moved less than this, a press is a pull on the chain, not a drag.
 const TAP_PX = 5;
 
+// First light, after the paint is dry: the room sits dark this long, then the
+// chain is pulled and the filament catches a moment after.
+const BEAT_MS = 320;
+// Nor before the prose has come in (its last stroke of paint is down by then,
+// styles/desk.css), so the eye is free to go to the painting.
+const ARRIVAL_MS = 2100;
+const CATCH_MS = 110;
+/** How long the filament stutters and settles; the light spreads meanwhile. */
+const STUTTER_MS = 1150;
+const SPREAD_MS = 1900;
+
 const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
+const isNight = () => document.documentElement.classList.contains('dark');
 
 export function initLamp() {
   const easel = document.querySelector<HTMLElement>('[data-easel]');
@@ -36,6 +52,9 @@ export function initLamp() {
   })();
   let dry = false;
   let shining = false;
+  /** Whether it last shone by night or by day, so a repaint at the same hour only strikes it. */
+  let shoneBy: 'night' | 'day' | null = null;
+  let pending = 0;
 
   // A filament stutters as it catches, and glows a moment after it is cut.
   const STRIKE: Keyframe[] = [
@@ -48,19 +67,61 @@ export function initLamp() {
   ];
   const COOL: Keyframe[] = [{ opacity: 1 }, { opacity: 0.3, offset: 0.12 }, { opacity: 0 }];
 
-  const shine = (value: boolean) => {
+  // The first light stutters in the bulb, catches, breathes once as the
+  // filament settles, and holds.
+  const STUTTER: Keyframe[] = [
+    { opacity: 0 },
+    { opacity: 0.6, offset: 0.04 },
+    { opacity: 0.08, offset: 0.1 },
+    { opacity: 0.82, offset: 0.18 },
+    { opacity: 0.3, offset: 0.25 },
+    { opacity: 1, offset: 0.36 },
+    { opacity: 1, offset: 0.7 },
+    { opacity: 0.88, offset: 0.8 },
+    { opacity: 1 },
+  ];
+  // Meanwhile a mask opens from the bulb (`--reach`, in canvas widths): it
+  // holds round the bulb while the filament stutters, then goes out quickly
+  // and slows as it reaches the far wall.
+  const SPREAD: Keyframe[] = [
+    { '--reach': 0.05 },
+    { '--reach': 0.1, offset: 0.24, easing: 'cubic-bezier(0.3, 0.65, 0.2, 1)' },
+    { '--reach': 1.8 },
+  ];
+  const [bulbX, bulbY] = LAMP_BULB;
+  const SPREAD_MASK = `radial-gradient(ellipse calc(var(--reach) * 100%) calc(var(--reach) * ${(100 / ASPECT).toFixed(3)}%) at ${bulbX * 100}% ${((bulbY / ASPECT) * 100).toFixed(3)}%, #000 60%, transparent)`;
+
+  const shine = (value: boolean, first = false) => {
     if (value === shining) return;
     shining = value;
+    if (value) shoneBy = isNight() ? 'night' : 'day';
     easel.classList.toggle('is-lit', value);
     for (const light of lights) {
       light.getAnimations().forEach((animation) => animation.cancel());
+      light.style.removeProperty('mask-image');
       light.style.opacity = value ? '1' : '0';
       if (reduced.matches) continue;
-      light.animate(value ? STRIKE : COOL, { duration: value ? 560 : 420, easing: 'linear' });
+      if (!first) {
+        light.animate(value ? STRIKE : COOL, { duration: value ? 560 : 420, easing: 'linear' });
+        continue;
+      }
+      light.style.maskImage = SPREAD_MASK;
+      light.animate(STUTTER, { duration: STUTTER_MS, delay: CATCH_MS, fill: 'backwards', easing: 'linear' });
+      light.animate(SPREAD, { duration: SPREAD_MS, delay: CATCH_MS, fill: 'backwards' }).finished.then(
+        () => light.style.removeProperty('mask-image'),
+        // Cancelled: whatever cancelled it has cleared the mask.
+        () => {},
+      );
     }
   };
 
+  const wait = () => {
+    clearTimeout(pending);
+    pending = 0;
+  };
+
   const sync = () => {
+    wait();
     button.setAttribute('aria-pressed', String(on));
     shine(on && dry);
   };
@@ -105,6 +166,14 @@ export function initLamp() {
     if (reduced.matches) return;
     speed = clamp(speed + push, 3);
     run();
+  };
+
+  const firstLight = () => {
+    pending = 0;
+    if (!on || !dry) return;
+    // The chain is pulled; the light catches as the lamp starts to swing.
+    nudge(0.2);
+    shine(true, true);
   };
 
   // --- Hands on it ----------------------------------------------------------------
@@ -166,6 +235,13 @@ export function initLamp() {
       dragged = false;
       return;
     }
+    // Still dark before its first light, it looks off, so a pull lights it.
+    if (pending) {
+      play('chain', { on: true });
+      nudge(0.2);
+      sync();
+      return;
+    }
     on = !on;
     try {
       localStorage.setItem(KEY, on ? 'on' : 'off');
@@ -192,6 +268,13 @@ export function initLamp() {
   });
   easel.addEventListener('easel:painted', () => {
     dry = true;
+    // Lit by night for the first time, since the visit began or the room went dark.
+    if (on && !shining && isNight() && shoneBy !== 'night' && !reduced.matches) {
+      button.setAttribute('aria-pressed', 'true');
+      wait();
+      pending = window.setTimeout(firstLight, Math.max(BEAT_MS, ARRIVAL_MS - performance.now()));
+      return;
+    }
     sync();
   });
   sync();

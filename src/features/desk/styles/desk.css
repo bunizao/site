@@ -571,6 +571,13 @@ body:has(.desk) .spotlight-overlay {
   rotate: var(--swing, 0rad);
 }
 
+/* How far the first light has spread from the bulb (client/lamp.ts). */
+@property --reach {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1.8;
+}
+
 .sl-lit {
   mix-blend-mode: color-dodge;
 }
@@ -1213,9 +1220,10 @@ body:has(.desk) .spotlight-overlay {
 
 /* --- Arrival ----------------------------------------------------------------
    The page comes in the way the desk is set: the letterhead, the prose a
-   paragraph at a time with the paint dabbed behind its words, while the
-   canvas is hung. The painting comes up piece by piece as its paint dries,
-   and the lamp comes on last (client/easel.ts, client/lamp.ts). Leaving, the
+   paragraph at a time, then the paint laid behind its words one stroke
+   after another, while the canvas is hung. The painting comes up piece by
+   piece as its paint dries, and the lamp comes on last; by night the room
+   sits dark a beat first (client/easel.ts, client/lamp.ts). Leaving, the
    site's view transition takes the page out. Nothing holds its end state:
    a lingering translate on the hang would trap the phone's full-screen
    canvas inside it. */
@@ -1237,8 +1245,15 @@ body:has(.desk) .spotlight-overlay {
     --at: 0.32s;
   }
 
-  .desk-prose > p .desk-chip::before {
-    animation: desk-dab 0.6s var(--d-ease) calc(var(--at) + 0.3s) backwards;
+  /* The paint goes behind the words once they have settled, one stroke at a
+     time in reading order. */
+  .desk-prose .desk-chip::before {
+    animation: desk-dab 0.52s cubic-bezier(0.5, 0, 0.2, 1) calc(0.62s + var(--i, 0) * 0.11s) backwards;
+  }
+
+  /* The long one takes a longer pull. */
+  .desk-cta .desk-chip::before {
+    animation-duration: 0.78s;
   }
 
   .easel-hang {
@@ -1263,10 +1278,17 @@ body:has(.desk) .spotlight-overlay {
   }
 }
 
-/* Left to right, the way the knife lays it. */
+/* Left to right, the way the knife lays it: the blade comes down light,
+   leans into the stroke so its leading edge slants, and presses the paint
+   flat by the end. */
 @keyframes desk-dab {
   from {
-    clip-path: inset(0 100% 0 0);
+    clip-path: polygon(0 0, 0 0, 0 100%, 0 100%);
+    scale: 1 0.72;
+  }
+
+  to {
+    clip-path: polygon(0 0, calc(100% + 0.6em) 0, 100% 100%, 0 100%);
   }
 }
 
