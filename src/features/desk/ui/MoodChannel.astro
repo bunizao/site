@@ -1,0 +1,170 @@
+---
+// The newest moods as the channel they come from: the moods hover card from
+// home, grouped the way Telegram groups one sender, with my face beside the
+// last bubble and the reactions and time inside each one. `links` makes each
+// bubble a link to its mood (in the window); without it the channel is a
+// still object inside a frame that is already a button.
+import type { DeskMood } from '@/features/desk/server/content';
+
+interface Props {
+  moods: DeskMood[];
+  links?: boolean;
+}
+
+const { moods, links = false } = Astro.props;
+const Bubble = links ? 'a' : 'span';
+
+// A mood that is only a link reads as its host and path, like the feed.
+const shorten = (text: string): string => {
+  if (!/^https?:\/\/\S+$/.test(text)) return text;
+  const bare = text.replace(/^https?:\/\/(www\.)?/, '').replace(/[?#].*$/, '');
+  return bare.length > 30 ? `${bare.slice(0, 29)}…` : bare;
+};
+---
+
+<span class="mc">
+  {moods.length > 0 ? (
+    <span class="mc-thread">
+      <img class="mc-avatar" src="/badge/portrait-128.webp" alt="" width="28" height="28" loading="lazy" decoding="async" />
+      <span class="mc-stream">
+        {moods.map((mood) => (
+          <Bubble class="mc-bubble" href={links ? mood.href : undefined}>
+            <span class="mc-body">
+              <span class="mc-text">{mood.text ? shorten(mood.text) : 'A photo, no words.'}</span>
+              <span class="mc-meta">
+                {mood.reactions.map((reaction) => <span class="mc-react">{reaction}</span>)}
+                <time class="mc-time" datetime={mood.datetime}>{mood.date}</time>
+              </span>
+            </span>
+            {mood.thumb && (
+              <img class="mc-thumb" src={mood.thumb.src} srcset={mood.thumb.srcset} sizes="40px" alt="" width="40" height="40" loading="lazy" decoding="async" />
+            )}
+          </Bubble>
+        ))}
+      </span>
+    </span>
+  ) : (
+    <span class="mc-empty">The channel didn't load just now.</span>
+  )}
+</span>
+
+<style>
+  .mc {
+    display: block;
+    width: 100%;
+    max-width: 340px;
+    font-family: var(--d-sans);
+    font-size: 13.5px;
+    line-height: 1.45;
+    text-align: left;
+    color: var(--d-ink);
+  }
+
+  .mc-thread {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .mc-avatar {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #dde6f1;
+    object-fit: cover;
+    box-shadow: 0 0 0 1px var(--d-line);
+  }
+
+  .mc-stream {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+
+  /* One sender, grouped the iOS way: the corners facing the avatar close up
+     between bubbles, and only the last one is tucked. */
+  .mc-bubble {
+    display: flex;
+    max-width: 100%;
+    gap: 10px;
+    padding: 8px 11px 7px;
+    border-radius: 6px 18px 18px 6px;
+    background: var(--d-bubble);
+    color: inherit;
+    text-decoration: none;
+    transition: background-color 150ms ease;
+  }
+
+  .mc-bubble:first-child {
+    border-top-left-radius: 18px;
+  }
+
+  .mc-bubble:last-child {
+    border-bottom-left-radius: 4px;
+  }
+
+  a.mc-bubble:hover {
+    background: var(--d-bubble-hover);
+  }
+
+  a.mc-bubble:focus-visible {
+    outline: 2px solid var(--d-focus);
+    outline-offset: 2px;
+  }
+
+  .mc-body {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+  }
+
+  .mc-text {
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .mc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--d-faint);
+  }
+
+  .mc-react {
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--d-react);
+    font-variant-numeric: tabular-nums;
+    line-height: 18px;
+    color: var(--d-note);
+  }
+
+  .mc-time {
+    margin-left: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mc-thumb {
+    flex: none;
+    align-self: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 9px;
+    object-fit: cover;
+    box-shadow: 0 0 0 1px var(--d-line);
+  }
+
+  .mc-empty {
+    color: var(--d-note);
+  }
+</style>

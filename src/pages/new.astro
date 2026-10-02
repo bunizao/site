@@ -1,0 +1,138 @@
+---
+// /new — the desk. A prototype of the next home page: one screen, prose on
+// the left with a few pastel chips, one drifting column of frames on the
+// right, each holding one object. Chips and frames open windows instead of
+// leaving the page; where a real page exists the opener is a link to it, so a
+// modified click, a crawler or a script failure still lands somewhere.
+//
+// Unlisted while it is a prototype: noindex, and nothing links here.
+import { Menu } from 'lucide-react';
+import Layout from '@/layouts/Layout.astro';
+import ProjectStack from '@/components/project-cards/ProjectStack';
+import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
+import Listening from '@/features/home/ui/Listening.astro';
+import Contents from '@/features/desk/ui/Contents.astro';
+import Matrix from '@/features/desk/ui/Matrix.astro';
+import MoodChannel from '@/features/desk/ui/MoodChannel.astro';
+import Window from '@/features/desk/ui/Window.astro';
+import { loadDeskContent } from '@/features/desk/server/content';
+import { GitHubIcon, InstagramIcon, MonashCrestIcon, TelegramIcon } from '@/components/icons';
+import { copyrightMark, experience, footer, navLinks, profile } from '@/data/site';
+import '@/features/desk/styles/desk.css';
+
+// Request-time, for the latest moods and posts.
+export const prerender = false;
+
+const content = await loadDeskContent({ request: Astro.request, locals: Astro.locals });
+
+const firstName = profile.name.split(' ')[0].toLowerCase();
+const external = { target: '_blank', rel: 'noopener noreferrer' };
+const linkOf = (name: string) => profile.links.find((link) => link.name === name)?.url ?? '#';
+const opens = (id: string) => ({ 'data-open': id, 'aria-haspopup': 'dialog' as const });
+// Each chip is one hue; the chip, its glow and the window it unfolds into
+// are all drawn from it.
+const tone = (hue: number, chroma: number) => `--h: ${hue}; --c: ${chroma}`;
+---
+
+<Layout
+  title={`${profile.name} — desk`}
+  description={`${profile.name}'s desk: projects, writing, moods and the rest, on one page.`}
+  url="/new"
+  robots="noindex"
+  hideSiteNav
+>
+  <nav slot="header-actions" class="desk-nav" aria-label="Site">
+    {navLinks.map((link) => <a href={link.href}>{link.label.toLowerCase()}</a>)}
+  </nav>
+  <details slot="header-actions" class="desk-menu">
+    <summary class="header-action-btn" aria-label="Menu"><Menu aria-hidden="true" /></summary>
+    <nav class="desk-menu-links" aria-label="Site">
+      {navLinks.map((link) => <a href={link.href}>{link.label.toLowerCase()}</a>)}
+    </nav>
+  </details>
+
+  <main class="desk" data-desk>
+    <div class="desk-left">
+      <h1 class="sr-only">{profile.name}</h1>
+      <div class="desk-prose">
+        <p>
+          hi, i'm {firstName}. i make interesting things<span class="desk-note">, orchestrating ai agents from an idea all the way to a product.</span>
+          the ones i'm proud of end up in
+          <a class="desk-chip" href="/projects" style={tone(92, 0.1)} {...opens('projects')}>projects</a>.
+        </p>
+        <p>
+          i study computer science at
+          <button class="desk-brand" type="button" {...opens('about')}><MonashCrestIcon className="desk-brand-icon" />monash</button><span class="desk-note">, in melbourne.</span>
+          i <a class="desk-chip" href="/blog" style={tone(250, 0.06)} {...opens('writing')}>write</a>
+          about being alive, and shorter thoughts go to
+          <a class="desk-chip" href="/mood" style={tone(160, 0.07)} {...opens('moods')}>moods</a>.
+          <span class="desk-note">there's usually</span>
+          <button class="desk-chip" type="button" style={tone(350, 0.06)} {...opens('listening')}>a song</button>
+          <span class="desk-note">on repeat and too many tabs open on</span>
+          <a class="desk-brand" href="https://github.com/bunizao" {...opens('github')}><GitHubIcon className="desk-brand-icon" />github</a><span class="desk-note">. elsewhere, i'm on</span>
+          <a class="desk-brand" href={linkOf('Telegram')} {...external}><TelegramIcon className="desk-brand-icon" />telegram</a>
+          <span class="desk-note">and</span>
+          <a class="desk-brand" href={linkOf('Instagram')} {...external}><InstagramIcon className="desk-brand-icon" />instagram</a><span class="desk-note">.</span>
+        </p>
+        <p class="desk-cta">
+          <span class="desk-note">got something in mind?</span>
+          <a class="desk-chip" href="/message" style={tone(40, 0.08)}>say hi</a>
+        </p>
+      </div>
+    </div>
+
+    <Matrix content={content} />
+
+    <footer class="desk-foot">
+      <span>{copyrightMark(new Date().getFullYear())}</span>
+      <a href="/privacy">privacy</a>
+      <a href={footer.statusUrl} {...external}>status</a>
+      <a href={footer.links[0].url} {...external}>source</a>
+    </footer>
+  </main>
+
+  <div class="desk-scrim" data-desk-scrim aria-hidden="true"></div>
+
+  <div class="desk-layer">
+    <Window id="projects" title="projects" width={520} href="/projects" hrefLabel="all projects" bare>
+      <ProjectStack client:visible />
+    </Window>
+
+    <Window id="about" title="about" width={440}>
+      <ul class="win-rows">
+        {experience.map((item) => (
+          <li>
+            <a class="win-row" href={item.url} {...external}>
+              <span class="win-row-icon" aria-hidden="true"><item.icon className="win-row-glyph" strokeWidth={item.strokeWidth} /></span>
+              <span class="win-row-main">
+                <span class="win-row-title">{item.org}</span>
+                <span class="win-row-sub">{item.description ?? item.role}</span>
+              </span>
+              <span class="win-row-end">{item.period.replace(' — Present', ' –')}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </Window>
+
+    <Window id="writing" title="writing" width={420} href="/blog" hrefLabel="blog" bare>
+      <Contents posts={content.posts} total={content.postCount} links />
+    </Window>
+
+    <Window id="moods" title="moods" width={400} href="/mood" hrefLabel="all moods">
+      <MoodChannel moods={content.moods} links />
+    </Window>
+
+    <Window id="listening" title="listening" width={440} bare>
+      <Listening />
+    </Window>
+
+    <Window id="github" title="github" width={460} href="https://github.com/bunizao" hrefLabel="profile">
+      <GitHubContributions />
+    </Window>
+  </div>
+</Layout>
+
+<script>
+  import '@/features/desk/client/desk';
+</script>

@@ -1,0 +1,976 @@
+/* The desk: one screen of prose on the left, one drifting column of frames on
+   the right, and windows that open out of either. Colour lives in the prose
+   chips and nowhere else; every surface is a neutral. Everything here is
+   scoped to pages that render `.desk`, so the stylesheet never leaks onto the
+   rest of the site even when the bundler shares a chunk. */
+
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/space-grotesk-latin-variable.woff2') format('woff2');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* --- Tokens ---------------------------------------------------------------
+   Contrast on the page ground: ink 17:1, note 5.1:1, faint 4.6:1 (light);
+   note 6.9:1 and faint 5.6:1 (dark). The note grey is the prose's second
+   voice and the phone sizes are not large text, so it passes as body text. */
+:root:has(.desk) {
+  --d-page: #fbfbfa;
+  --d-ink: #141413;
+  --d-note: #6b6b66;
+  --d-faint: #73736e;
+  --d-line: rgb(20 20 18 / 0.1);
+  --d-hair: rgb(20 20 18 / 0.06);
+  --d-hover: rgb(20 20 18 / 0.05);
+  --d-focus: #141413;
+  --d-paper: #ffffff;
+  --d-paper-shadow: 0 0 0 1px rgb(0 0 0 / 0.05), 0 1px 2px rgb(0 0 0 / 0.05), 0 12px 24px -14px rgb(0 0 0 / 0.3);
+  --d-frame-top: #f8f8f6;
+  --d-frame-edge: #ededea;
+  --d-frame-shadow: inset 0 0 0 1px rgb(20 20 18 / 0.05), 0 1px 1px rgb(0 0 0 / 0.03),
+    0 30px 50px -36px rgb(20 20 18 / 0.32);
+  --d-mat: #efefec;
+  --d-card: #ffffff;
+  --d-shadow: 0 0 0 1px rgb(20 20 18 / 0.06), 0 18px 44px -14px rgb(20 20 18 / 0.22),
+    0 44px 90px -40px rgb(20 20 18 / 0.24);
+  --d-bubble: #f0f0ed;
+  --d-bubble-hover: #e7e7e3;
+  --d-react: rgb(20 20 18 / 0.06);
+  /* iMessage blue, deepened until white on it passes as body text (4.65:1),
+     the same blue /message uses. */
+  --d-sent: #0070eb;
+
+  --d-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --d-cjk: 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Microsoft YaHei';
+  --d-display: 'Space Grotesk', 'Geist', ui-sans-serif, system-ui, -apple-system, var(--d-cjk), sans-serif;
+  --d-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, var(--d-cjk), sans-serif;
+}
+
+:root.dark:has(.desk) {
+  --d-page: #111110;
+  --d-ink: #f1f1ee;
+  --d-note: #9d9d97;
+  --d-faint: #8f8f89;
+  --d-line: rgb(255 255 250 / 0.1);
+  --d-hair: rgb(255 255 250 / 0.06);
+  --d-hover: rgb(255 255 250 / 0.06);
+  --d-focus: #f1f1ee;
+  --d-paper: #1d1d1c;
+  --d-paper-shadow: 0 0 0 1px rgb(255 255 250 / 0.08), 0 12px 24px -12px rgb(0 0 0 / 0.7);
+  --d-frame-top: #1e1e1d;
+  --d-frame-edge: #161615;
+  --d-frame-shadow: inset 0 0 0 1px rgb(255 255 250 / 0.06), 0 30px 50px -30px rgb(0 0 0 / 0.8);
+  --d-mat: #232322;
+  --d-card: #171716;
+  --d-shadow: 0 0 0 1px rgb(255 255 250 / 0.07), 0 18px 44px -14px rgb(0 0 0 / 0.6),
+    0 44px 90px -40px rgb(0 0 0 / 0.7);
+  --d-bubble: #262625;
+  --d-bubble-hover: #2f2f2d;
+  --d-react: rgb(255 255 250 / 0.08);
+  /* Deeper than Apple's dark blue, so the one lit fill does not glare. */
+  --d-sent: #0a5fc9;
+}
+
+/* The site-wide dot lattice and pointer spotlight belong to the old home's
+   language. The desk is a clean sheet. */
+body:has(.desk) {
+  background: var(--d-page);
+}
+
+body:has(.desk)::before,
+body:has(.desk) .spotlight-overlay {
+  display: none;
+}
+
+/* The base stylesheet pads and rules every <section>. */
+.mx,
+.win {
+  padding: 0;
+  border: 0;
+}
+
+/* --- The floating nav card -------------------------------------------------
+   Layout's header actions (search and theme) plus the site links, in one
+   small card in the corner. */
+.global-header-actions:has(.desk-nav) {
+  gap: 2px;
+  padding: 4px;
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--d-paper) 80%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: 0 0 0 1px var(--d-line), 0 12px 32px -16px rgb(0 0 0 / 0.3);
+  font-family: var(--d-sans);
+}
+
+.global-header-actions:has(.desk-nav) .header-action-btn {
+  height: 32px;
+  min-width: 32px;
+  border-color: transparent;
+  border-radius: 10px;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: var(--d-note);
+}
+
+@media (hover: hover) {
+  .global-header-actions:has(.desk-nav) .header-action-btn:hover {
+    border-color: transparent;
+    background: var(--d-hover);
+    color: var(--d-ink);
+  }
+}
+
+.desk-nav {
+  display: flex;
+  gap: 2px;
+  margin-right: 2px;
+  padding-right: 4px;
+  border-right: 1px solid var(--d-hair);
+}
+
+.desk-nav a,
+.desk-menu-links a {
+  border-radius: 10px;
+  color: var(--d-note);
+  font: 500 13.5px/20px var(--d-sans);
+  text-decoration: none;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.desk-nav a {
+  padding: 6px 10px;
+}
+
+@media (hover: hover) {
+  .desk-nav a:hover,
+  .desk-menu-links a:hover {
+    background: var(--d-hover);
+    color: var(--d-ink);
+  }
+}
+
+.desk-nav a:focus-visible,
+.desk-menu-links a:focus-visible,
+.desk-menu summary:focus-visible {
+  outline: 2px solid var(--d-focus);
+  outline-offset: -2px;
+}
+
+/* Phones fold the links into a menu inside the same card. */
+.desk-menu {
+  position: relative;
+  display: none;
+}
+
+.desk-menu summary {
+  list-style: none;
+}
+
+.desk-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.desk-menu-links {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: -4px;
+  display: flex;
+  min-width: 180px;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--d-paper);
+  box-shadow: var(--d-shadow);
+}
+
+.desk-menu-links a {
+  padding: 10px 12px;
+  font-size: 15px;
+}
+
+/* --- Frame ---------------------------------------------------------------- */
+.desk {
+  --mx-w: 380px;
+  --mx-pad: 48px;
+  /* Objects are drawn at their natural size and scaled to the frame; this is
+     the frame's width over the 380px they were scaled for. */
+  --kw: 1;
+
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) calc(var(--mx-w) + var(--mx-pad) * 2 + 24px);
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 100svh;
+  color: var(--d-ink);
+  background: var(--d-page);
+  font-family: var(--d-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (min-width: 900px) and (max-width: 1279px) {
+  .desk {
+    --mx-w: 330px;
+    --mx-pad: 36px;
+    --kw: 0.868;
+  }
+}
+
+/* One screen on desktop. The prose keeps its own scroll as a safety valve, so
+   a short window never clips the text it cannot fit. */
+@media (min-width: 900px) {
+  :root:has(.desk),
+  :root:has(.desk) body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .desk {
+    height: 100svh;
+  }
+}
+
+.desk-left {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  padding: 96px clamp(28px, 6.4vw, 104px) 24px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.desk-left::-webkit-scrollbar {
+  display: none;
+}
+
+/* --- Prose ---------------------------------------------------------------- */
+.desk-prose {
+  max-width: 27em;
+  margin-block: auto;
+  font: 500 clamp(24px, 1.9vw, 30px) / 1.42 var(--d-display);
+  letter-spacing: -0.014em;
+  text-wrap: pretty;
+}
+
+.desk-prose p {
+  margin: 0;
+}
+
+.desk-prose p + p {
+  margin-top: 0.85em;
+}
+
+.desk-prose .desk-cta {
+  margin-top: 1.5em;
+}
+
+.desk-note {
+  color: var(--d-note);
+}
+
+/* A chip is one hue, set inline as --h and --c. The fill is a soft vertical
+   sheen of it, the text is the same hue taken dark, and on hover it glows in
+   its own colour. The window it opens unfolds from --tone-bg. */
+.desk-chip {
+  --tone-bg: oklch(0.94 var(--c) var(--h));
+  display: inline-block;
+  margin: 0 0.02em;
+  padding: 0 0.28em 0.03em;
+  border: 0;
+  border-radius: 0.32em;
+  background: linear-gradient(180deg, oklch(0.968 calc(var(--c) * 0.55) var(--h)), oklch(0.918 var(--c) var(--h)));
+  box-shadow:
+    inset 0 0 0 1px oklch(0.55 var(--c) var(--h) / 0.16),
+    inset 0 1px 0 oklch(1 0 0 / 0.7),
+    0 1px 2px oklch(0.45 var(--c) var(--h) / 0.1);
+  color: oklch(0.4 calc(var(--c) * 1.25) var(--h));
+  font: inherit;
+  line-height: 1.22;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    translate 0.25s var(--d-ease),
+    box-shadow 0.25s var(--d-ease);
+}
+
+:root.dark .desk-chip {
+  --tone-bg: oklch(0.32 calc(var(--c) * 0.8) var(--h));
+  background: linear-gradient(180deg, oklch(0.35 calc(var(--c) * 0.7) var(--h)), oklch(0.29 calc(var(--c) * 0.8) var(--h)));
+  box-shadow:
+    inset 0 0 0 1px oklch(0.7 var(--c) var(--h) / 0.16),
+    inset 0 1px 0 oklch(1 0 0 / 0.08);
+  color: oklch(0.9 calc(var(--c) * 0.9) var(--h));
+}
+
+@media (hover: hover) {
+  .desk-chip:hover {
+    translate: 0 -1px;
+    box-shadow:
+      inset 0 0 0 1px oklch(0.55 var(--c) var(--h) / 0.2),
+      inset 0 1px 0 oklch(1 0 0 / 0.7),
+      0 8px 18px -8px oklch(0.62 calc(var(--c) * 1.8) var(--h) / 0.6);
+  }
+
+  :root.dark .desk-chip:hover {
+    box-shadow:
+      inset 0 0 0 1px oklch(0.7 var(--c) var(--h) / 0.24),
+      inset 0 1px 0 oklch(1 0 0 / 0.08),
+      0 8px 20px -8px oklch(0.6 calc(var(--c) * 1.8) var(--h) / 0.45);
+  }
+}
+
+.desk-chip:active {
+  translate: 0 0;
+}
+
+/* A named place: its mark, then its name in ink, quietly underlined. */
+.desk-brand {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--d-ink);
+  font: inherit;
+  text-decoration: underline 0.06em var(--d-line);
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  transition: text-decoration-color 0.2s ease;
+}
+
+@media (hover: hover) {
+  .desk-brand:hover {
+    text-decoration-color: currentColor;
+  }
+}
+
+.desk-brand-icon {
+  display: inline-block;
+  width: 0.78em;
+  height: 0.78em;
+  margin-right: 0.22em;
+  vertical-align: -0.06em;
+}
+
+.desk :is(a, button):focus-visible {
+  outline: 2px solid var(--d-focus);
+  outline-offset: 3px;
+  border-radius: 0.32em;
+}
+
+/* --- Footer: one quiet line under the prose ------------------------------- */
+.desk-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  grid-column: 1;
+  grid-row: 2;
+  padding: 0 clamp(28px, 6.4vw, 104px) 28px;
+  color: var(--d-faint);
+  font: 400 12.5px/1.5 var(--d-sans);
+}
+
+.desk-foot span {
+  margin-right: auto;
+}
+
+.desk-foot a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .desk-foot a:hover {
+    color: var(--d-ink);
+  }
+}
+
+/* --- Matrix --------------------------------------------------------------- */
+.mx {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  height: 100svh;
+  min-height: 0;
+}
+
+.mx-col {
+  --mx-axis: y;
+  height: 100%;
+  padding-inline: var(--mx-pad) calc(var(--mx-pad) + 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  /* Frames dissolve under the nav card and into the bottom edge instead of
+     being cut by them. */
+  mask-image: linear-gradient(transparent, #000 112px, #000 calc(100% - 56px), transparent);
+}
+
+.mx-col::-webkit-scrollbar {
+  display: none;
+}
+
+.mx-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+  padding-block: 22px;
+}
+
+.mx-cell {
+  flex: none;
+  width: var(--mx-w);
+}
+
+/* The arc: frames ride the rim of a wheel whose hub is off the right edge.
+   They bow towards the prose at mid-height and lean the way the rim turns
+   at either end. Driven by the column's own scroll, on the compositor. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .mx-cell {
+      animation: mx-arc linear both;
+      animation-timeline: view(block);
+    }
+  }
+}
+
+@keyframes mx-arc {
+  0% { translate: 36px 0; rotate: -3.5deg; }
+  50% { translate: 0 0; rotate: 0deg; }
+  100% { translate: 36px 0; rotate: 3.5deg; }
+}
+
+/* --- Frames --------------------------------------------------------------- */
+.tile {
+  --k: 1;
+  --tone-bg: var(--d-frame-top);
+  /* Frames are the wallpaper a channel's bubbles sit on. */
+  --d-bubble: var(--d-paper);
+
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--ar, 5 / 4);
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 24px;
+  background: radial-gradient(120% 95% at 50% 28%, var(--d-frame-top), var(--d-frame-edge));
+  box-shadow: var(--d-frame-shadow);
+  color: var(--d-ink);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    translate 0.4s var(--d-ease),
+    box-shadow 0.4s var(--d-ease);
+}
+
+.tile-obj {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.tile-obj > * {
+  scale: calc(var(--k) * var(--kw));
+}
+
+.tile--projects {
+  --k: 0.98;
+}
+
+/* The badge hangs from above the frame, its strap running off the top. */
+.tile--about {
+  --ar: 9 / 10;
+  --k: 0.8;
+}
+
+.tile--about .tile-obj {
+  place-items: start center;
+}
+
+.tile--about .tile-obj > * {
+  margin-top: -8px;
+  transform-origin: 50% 0;
+}
+
+.tile--writing {
+  --k: 0.9;
+}
+
+.tile--moods {
+  --ar: 8 / 7;
+  --k: 0.94;
+}
+
+.tile--moods .tile-obj .mc {
+  width: 300px;
+}
+
+.tile--moods .mc-bubble {
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.06);
+}
+
+.tile--hello {
+  --ar: 16 / 10;
+}
+
+/* Each object answers a hover in its own way: the hand fans wider, the badge
+   swings on its strap, the page lifts off the desk, the send button leans in. */
+.tile .tile-obj .pj-card {
+  transition-delay: calc(var(--i) * 24ms);
+}
+
+.wr,
+.ch-send {
+  transition:
+    translate 0.45s var(--d-ease),
+    rotate 0.45s var(--d-ease),
+    scale 0.3s var(--d-ease);
+}
+
+@media (hover: hover) {
+  .tile:hover {
+    translate: 0 -4px;
+    box-shadow: var(--d-frame-shadow), 0 36px 60px -34px rgb(20 20 18 / 0.3);
+  }
+
+  .tile--projects:hover .pj-card {
+    transform: translate(calc(-50% + var(--fx) * 1.22), calc(var(--fy) * 1.3 - 10px)) rotate(calc(var(--fr) * 1.35));
+  }
+
+  .tile--about:hover .mo {
+    animation: desk-swing 1100ms ease-in-out;
+  }
+
+  .tile--writing:hover .wr {
+    translate: 0 -6px;
+    rotate: -2deg;
+  }
+
+  .tile--hello:hover .ch-send {
+    scale: 1.12;
+  }
+}
+
+.tile:active {
+  translate: 0 -1px;
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--d-focus);
+  outline-offset: 4px;
+  border-radius: 24px;
+}
+
+@keyframes desk-swing {
+  0% { rotate: 0deg; }
+  18% { rotate: 4deg; }
+  42% { rotate: -2.4deg; }
+  64% { rotate: 1.1deg; }
+  84% { rotate: -0.4deg; }
+  100% { rotate: 0deg; }
+}
+
+/* --- Windows -------------------------------------------------------------- */
+.desk-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  color: var(--d-ink);
+  font-family: var(--d-sans);
+  -webkit-font-smoothing: antialiased;
+  pointer-events: none;
+}
+
+.win {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: min(var(--win-w, 480px), calc(100vw - 32px));
+  translate: var(--x, 0px) var(--y, 0px);
+  rotate: var(--tilt, 0deg);
+  pointer-events: auto;
+  outline: none;
+  transition: rotate 0.5s var(--d-ease);
+}
+
+.win[hidden] {
+  display: none;
+}
+
+.win.is-dragging {
+  transition: none;
+}
+
+/* The shadow sits on its own layer: the mat is clipped while it unfolds, and a
+   clipped box-shadow would pop in at the last frame. */
+.win::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  box-shadow: var(--d-shadow);
+  pointer-events: none;
+}
+
+/* The mat is the handle: grab it anywhere outside the card. */
+.win-mat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0 6px 6px;
+  border-radius: 22px;
+  background: var(--d-mat);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.win.is-dragging .win-mat {
+  cursor: grabbing;
+}
+
+.win:focus-visible .win-mat {
+  outline: 2px solid var(--d-focus);
+  outline-offset: 2px;
+}
+
+.win-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 42px;
+  padding-left: 12px;
+}
+
+.win-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--d-ink);
+  font: 600 13.5px/1.3 var(--d-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.win-link,
+.win-close {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--d-note);
+  cursor: pointer;
+  font: 500 13px/1 var(--d-sans);
+  text-decoration: none;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.win-link {
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.win-link svg {
+  width: 11px;
+  height: 11px;
+}
+
+.win-close {
+  justify-content: center;
+  width: 30px;
+}
+
+.win-close svg {
+  width: 12px;
+  height: 12px;
+}
+
+@media (hover: hover) {
+  .win-link:hover,
+  .win-close:hover {
+    background: var(--d-hover);
+    color: var(--d-ink);
+  }
+}
+
+.win-link:focus-visible,
+.win-close:focus-visible {
+  outline: 2px solid var(--d-focus);
+  outline-offset: -2px;
+}
+
+.win-card {
+  max-height: calc(100svh - 120px);
+  padding: 16px 18px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 16px;
+  background: var(--d-card);
+  box-shadow: 0 0 0 1px var(--d-hair);
+  color: var(--d-note);
+  font-size: 14.5px;
+  line-height: 1.55;
+  cursor: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* A bare window shows its object straight on the mat. */
+.win--bare .win-card {
+  padding: 6px 6px 8px;
+  background: none;
+  box-shadow: none;
+}
+
+.win--bare .win-card .wr {
+  width: 100%;
+}
+
+/* About: one row per place. */
+.win-rows {
+  display: flex;
+  flex-direction: column;
+  margin: -6px -10px;
+  padding: 0;
+  list-style: none;
+}
+
+.win-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .win-row:hover {
+    background: var(--d-hover);
+  }
+}
+
+.win-row:focus-visible {
+  outline: 2px solid var(--d-focus);
+  outline-offset: -2px;
+}
+
+.win-row-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--d-paper);
+  box-shadow: 0 0 0 1px var(--d-line);
+  color: var(--d-ink);
+}
+
+.win-row-glyph {
+  width: 20px;
+  height: 20px;
+}
+
+.win-row-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.win-row-title {
+  color: var(--d-ink);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.win-row-sub {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.win-row-end {
+  flex: none;
+  align-self: flex-start;
+  margin-top: 2px;
+  color: var(--d-faint);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.desk-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 79;
+  background: rgb(20 20 18 / 0.3);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s var(--d-ease);
+}
+
+.desk-scrim.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* --- Phones and tablets: the page scrolls, the column turns into a drifting
+   row under the prose, and the nav links fold into a menu. ---------------- */
+@media (max-width: 899px) {
+  .desk {
+    --mx-w: 280px;
+    --kw: 0.737;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .desk-left {
+    overflow: visible;
+    padding: calc(env(safe-area-inset-top, 0px) + 92px) 20px 8px;
+  }
+
+  .desk-prose {
+    font-size: clamp(20px, 5.4vw, 26px);
+  }
+
+  .mx {
+    height: auto;
+  }
+
+  .mx-col {
+    --mx-axis: x;
+    padding: 28px 0 40px;
+    mask-image: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .mx-track {
+    display: flex;
+    width: max-content;
+  }
+
+  .mx-copy {
+    flex-direction: row;
+    align-items: center;
+    gap: 18px;
+    padding-block: 0;
+    padding-inline: 9px;
+  }
+
+  .mx-cell {
+    animation: none;
+  }
+
+  .desk-foot {
+    padding: 0 20px calc(env(safe-area-inset-bottom, 0px) + 28px);
+  }
+}
+
+@media (max-width: 899px) and (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .mx-cell {
+      animation: mx-bob linear both;
+      animation-timeline: view(inline);
+    }
+  }
+}
+
+@keyframes mx-bob {
+  0% { translate: 0 -8px; rotate: -2.5deg; }
+  50% { translate: 0 6px; rotate: 0deg; }
+  100% { translate: 0 -8px; rotate: 2.5deg; }
+}
+
+@media (max-width: 639px) {
+  .desk-nav {
+    display: none;
+  }
+
+  .desk-menu {
+    display: block;
+  }
+
+  /* A sheet is modal: it and its scrim cover the nav card (z-index 100). */
+  .desk-scrim {
+    z-index: 101;
+  }
+
+  .desk-layer {
+    z-index: 102;
+  }
+
+  .win {
+    top: auto;
+    bottom: 0;
+    width: 100%;
+    translate: 0 var(--sheet-y, 0px);
+    rotate: none;
+  }
+
+  .win::before {
+    border-radius: 24px 24px 0 0;
+  }
+
+  .win-mat {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
+    border-radius: 24px 24px 0 0;
+  }
+
+  /* The grabber says the sheet moves with a finger. */
+  .win-bar {
+    position: relative;
+    padding-top: 10px;
+  }
+
+  .win-bar::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    translate: -50% 0;
+    border-radius: 2px;
+    background: var(--d-line);
+  }
+
+  .win-card {
+    max-height: 76svh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desk-chip,
+  .tile,
+  .win,
+  .pj-card,
+  .wr,
+  .ch-send {
+    transition: none;
+  }
+
+  .tile--about:hover .mo {
+    animation: none;
+  }
+}

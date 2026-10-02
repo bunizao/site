@@ -1,0 +1,35 @@
+---
+// One column of frames that drifts forever. The column renders its frames
+// three times: the middle copy is the real one (in the tab order, read by
+// assistive tech), the outer two are stand-ins that let the loop wrap without
+// a visible seam. The drift itself lives in client/matrix.ts.
+import Tile, { type DeskTileKind } from './Tile.astro';
+import type { DeskContent } from '@/features/desk/server/content';
+
+interface Props {
+  content: DeskContent;
+}
+
+const { content } = Astro.props;
+// The home page's order: the work, the person, the writing, the moods, and
+// the way to say hi.
+const TILES: DeskTileKind[] = ['projects', 'about', 'writing', 'moods', 'hello'];
+const COPIES = [0, 1, 2];
+const LIVE = 1;
+---
+
+<section class="mx" data-matrix aria-label="On my desk">
+  <div class="mx-col" data-mx-col data-dir="1">
+    <div class="mx-track">
+      {COPIES.map((copy) => (
+        <div class="mx-copy" data-mx-copy={copy === LIVE ? 'live' : 'echo'} aria-hidden={copy === LIVE ? undefined : 'true'}>
+          {TILES.map((kind) => (
+            <div class="mx-cell">
+              <Tile kind={kind} content={content} copy={copy} echo={copy !== LIVE} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

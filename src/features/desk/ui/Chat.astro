@@ -1,0 +1,86 @@
+---
+// The opening of the /message thread: the visitor's line, my answer, and an
+// empty reply box. A still object; the frame around it is the link.
+import { ArrowUp } from 'lucide-react';
+import { messageCopy } from '@/features/messages/copy';
+---
+
+<span class="ch">
+  <span class="ch-thread">
+    <span class="ch-bubble ch-bubble--me">{messageCopy.opener}</span>
+    <span class="ch-bubble ch-bubble--them">{messageCopy.intro}</span>
+  </span>
+  <span class="ch-composer">
+    <span>Message</span>
+    <span class="ch-send"><ArrowUp className="ch-arrow" strokeWidth={2.4} aria-hidden="true" /></span>
+  </span>
+</span>
+
+<style>
+  .ch {
+    display: flex;
+    width: 272px;
+    flex-direction: column;
+    gap: 12px;
+    font-family: var(--d-sans);
+    font-size: 14px;
+    line-height: 1.35;
+    text-align: left;
+  }
+
+  .ch-thread {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ch-bubble {
+    max-width: 220px;
+    padding: 7px 13px;
+  }
+
+  /* Sent side, iMessage blue, deepened until white on it passes as body
+     text (4.65:1), the same blue /message uses. */
+  .ch-bubble--me {
+    align-self: flex-end;
+    border-radius: 18px 18px 4px 18px;
+    background: var(--d-sent);
+    color: #fff;
+    box-shadow: 0 10px 20px -12px oklch(0.45 0.18 255 / 0.6);
+  }
+
+  .ch-bubble--them {
+    align-self: flex-start;
+    border-radius: 18px 18px 18px 4px;
+    background: var(--d-paper);
+    color: var(--d-ink);
+    box-shadow: var(--d-paper-shadow);
+  }
+
+  .ch-composer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 5px 5px 16px;
+    border-radius: 999px;
+    background: var(--d-paper);
+    box-shadow: inset 0 0 0 1px var(--d-line), 0 10px 20px -14px oklch(0 0 0 / 0.35);
+    color: var(--d-faint);
+  }
+
+  .ch-send {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--d-sent);
+    color: #fff;
+  }
+
+  .ch-send :global(.ch-arrow) {
+    width: 16px;
+    height: 16px;
+  }
+</style>

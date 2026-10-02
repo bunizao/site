@@ -1,0 +1,51 @@
+---
+// One frame in the matrix: a neutral backdrop holding one still object. The
+// frame is the control. It opens that object's window, and where a real page
+// exists it is a link to it, so a modified click, a crawler or a script
+// failure still lands somewhere. Echo copies stay clickable (the loop shows
+// them half the time) but leave the tab order and the accessibility tree.
+import Badge from './Badge.astro';
+import Chat from './Chat.astro';
+import Contents from './Contents.astro';
+import Hand from './Hand.astro';
+import MoodChannel from './MoodChannel.astro';
+import type { DeskContent } from '@/features/desk/server/content';
+
+export type DeskTileKind = 'projects' | 'about' | 'writing' | 'moods' | 'hello';
+
+interface Props {
+  kind: DeskTileKind;
+  content: DeskContent;
+  /** Which of the matrix's copies this is; only one of them is live. */
+  copy: number;
+  echo?: boolean;
+}
+
+const { kind, content, copy, echo = false } = Astro.props;
+
+const TILES: Record<DeskTileKind, { label: string; href?: string; open?: string }> = {
+  projects: { label: 'Projects', href: '/projects', open: 'projects' },
+  about: { label: 'About me: my Monash student card', open: 'about' },
+  writing: { label: 'Writing', href: '/blog', open: 'writing' },
+  moods: { label: 'Moods', href: '/mood', open: 'moods' },
+  hello: { label: 'Say hi', href: '/message' },
+};
+
+const tile = TILES[kind];
+const Tag = tile.href ? 'a' : 'button';
+const attrs = {
+  ...(tile.href ? { href: tile.href } : { type: 'button' as const }),
+  ...(tile.open ? { 'data-open': tile.open, 'aria-haspopup': 'dialog' as const } : {}),
+  ...(echo ? { tabindex: -1 } : {}),
+};
+---
+
+<Tag class:list={['tile', `tile--${kind}`]} aria-label={tile.label} {...attrs}>
+  <span class="tile-obj" aria-hidden="true">
+    {kind === 'projects' && <Hand />}
+    {kind === 'about' && <Badge uid={copy} />}
+    {kind === 'writing' && <Contents posts={content.posts.slice(0, 3)} total={content.postCount} />}
+    {kind === 'moods' && <MoodChannel moods={content.moods} />}
+    {kind === 'hello' && <Chat />}
+  </span>
+</Tag>
