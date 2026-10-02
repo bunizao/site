@@ -22,7 +22,7 @@ export interface Thing {
 export const THINGS: Thing[] = [
   { id: 'works', section: 'projects', box: [0.565, 0.155, 0.29, 0.23] },
   { id: 'badge', section: 'about', box: [0.27, 0.15, 0.16, 0.33] },
-  { id: 'plant', section: 'github', box: [0.07, 0.5, 0.22, 0.42] },
+  { id: 'plant', section: 'github', box: [0.03, 0.48, 0.3, 0.44] },
   { id: 'record', section: 'listening', box: [0.6, 0.48, 0.29, 0.41] },
   { id: 'clock', section: 'clock', box: [0.35, 0.74, 0.27, 0.17] },
   { id: 'books', section: 'writing', box: [0.08, 0.89, 0.3, 0.13] },

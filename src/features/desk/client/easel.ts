@@ -10,7 +10,7 @@
 
 import { ASPECT, THINGS } from '@/features/desk/shared/still-life';
 import { coat, css, draw, seedOf, seeded, swatch, type Tone } from './knife';
-import { paintBackdrop, paintThing } from './still-life';
+import { BLEED, paintBackdrop, paintThing } from './still-life';
 import { paintStudies } from './studies';
 
 interface Section {
@@ -36,10 +36,9 @@ const COVER_MS = 620;
 const SCRAPE_MS = 460;
 // How much of the pass one stroke takes to drag; the rest is the stagger.
 const DRAG_SHARE = 0.34;
-// Paint margin around a thing's box, in canvas widths: strokes overshoot.
-const BLEED = 0.05;
 
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
+const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
 const scaleOf = () => Math.min(devicePixelRatio || 1, 2);
 
@@ -112,13 +111,17 @@ export function initEasel(): () => void {
     }
   };
 
-  const paint = () => {
+  // Each thing takes a few dozen milliseconds of knife work, so the painting
+  // goes on one thing per frame; a newer pass (a resize, the theme) stops it.
+  let paintPass = 0;
+  const paint = async () => {
     if (easel.classList.contains('is-full')) return;
     const width = still.clientWidth;
     const night = isNight();
     if (!width || (width === painted.width && night === painted.night)) return;
     painted = { width, night };
     const scale = scaleOf();
+    const mine = ++paintPass;
 
     const ctx = sized(backdrop, width, width * ASPECT, scale);
     if (!ctx) return;
@@ -126,6 +129,8 @@ export function initEasel(): () => void {
     paintBackdrop(ctx, width, night);
 
     for (const el of things) {
+      await nextFrame();
+      if (mine !== paintPass) return;
       const thing = THINGS.find((entry) => entry.id === el.dataset.thing);
       if (!thing) continue;
       let canvas = el.querySelector<HTMLCanvasElement>('canvas.sl-paint');
@@ -141,7 +146,8 @@ export function initEasel(): () => void {
       const thingCtx = sized(canvas, (w + BLEED * 2) * width, (h + BLEED * 2) * width, scale);
       if (!thingCtx) continue;
       thingCtx.setTransform(scale, 0, 0, scale, -(x - BLEED) * width * scale, -(y - BLEED) * width * scale);
-      paintThing(thingCtx, thing.id, width, night, seedOf(thing.id));
+      thingCtx.clearRect((x - BLEED) * width, (y - BLEED) * width, (w + BLEED * 2) * width, (h + BLEED * 2) * width);
+      paintThing(thingCtx, thing, width, night);
     }
     paintThumb(width);
     easel.classList.add('is-painted');
@@ -461,7 +467,7 @@ export function initEasel(): () => void {
   const onResize = () => {
     clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(() => {
-      paint();
+      void paint();
       const section = active ? sections.get(active) : null;
       if (!section) return;
       // Going full screen on a phone resizes the frame before the coat starts,
@@ -478,7 +484,7 @@ export function initEasel(): () => void {
   const themeObserver = new MutationObserver(() => {
     if (isNight() === night) return;
     night = isNight();
-    paint();
+    void paint();
     paintSwatches();
     const section = active ? sections.get(active) : null;
     if (section) refill(section);
@@ -496,7 +502,7 @@ export function initEasel(): () => void {
   phone.addEventListener('change', onPhoneChange);
 
   // The painting waits for an idle moment; the chips wait for their font.
-  (window.requestIdleCallback ?? ((callback: () => void) => setTimeout(callback, 60)))(() => paint());
+  (window.requestIdleCallback ?? ((callback: () => void) => setTimeout(callback, 60)))(() => void paint());
   void document.fonts.ready.then(paintSwatches);
 
   // A shared link to /new#writing opens with the writing on the canvas.
