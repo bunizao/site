@@ -1,25 +1,22 @@
 ---
-// The blog as a page of contents, corner turned down: the write hover card
-// from home. `links` makes each row a link (in the window); without it the
-// page is a still object inside a frame that is already a button.
+// The blog as a page of contents, corner turned down: the writing window,
+// the notebook's first leaf laid flat.
 import { blog } from '@/data/site';
 import type { DeskPost } from '@/features/desk/server/content';
 
 interface Props {
   posts: DeskPost[];
   total: number;
-  links?: boolean;
 }
 
-const { posts, total, links = false } = Astro.props;
+const { posts, total } = Astro.props;
 const copy = blog.copy[blog.locale.home];
-const Row = links ? 'a' : 'span';
 ---
 
 <span class="wr">
   <span class="wr-page">
     <span class="wr-head">
-      <span class="wr-mark"><img src={blog.mark} alt="" width="28" height="28" loading="lazy" decoding="async" /></span>
+      <img class="wr-mark" src={blog.mark} alt="" width="36" height="36" loading="lazy" decoding="async" />
       <span class="wr-id" lang={blog.locale.home}>
         <span class="wr-name">{copy.name}</span>
         <span class="wr-tagline">{copy.tagline}</span>
@@ -29,19 +26,19 @@ const Row = links ? 'a' : 'span';
       <ol class="wr-toc">
         {posts.map((post, i) => (
           <li>
-            <Row class="wr-row" href={links ? post.href : undefined}>
+            <a class="wr-row" href={post.href}>
               <span class="wr-num">{String(i + 1).padStart(2, '0')}</span>
               <span class="wr-title" lang={post.lang}>{post.title}</span>
               <span class="wr-leader" aria-hidden="true"></span>
               <span class="wr-date">{post.date}</span>
-            </Row>
+            </a>
           </li>
         ))}
       </ol>
     ) : (
       <span class="wr-empty">
         The posts didn't load just now.
-        {links && <a href="/blog">Read them on the blog</a>}
+        <a href="/blog">Read them on the blog</a>
       </span>
     )}
     {total > 0 && <span class="wr-count">{total} posts in all</span>}
@@ -93,24 +90,15 @@ const Row = links ? 'a' : 'span';
     padding-right: 12px;
   }
 
+  /* The mark straight on the page, as the notebook prints it. */
   .wr-mark {
-    display: grid;
     flex: none;
-    place-items: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: var(--d-paper);
-    box-shadow: 0 0 0 1px var(--d-line);
+    width: 36px;
+    height: 36px;
+    margin: -2px 0 0 -4px;
   }
 
-  .wr-mark img {
-    width: 28px;
-    height: 28px;
-    object-fit: contain;
-  }
-
-  :global(html.dark) .wr-mark img {
+  :global(html.dark) .wr-mark {
     filter: invert(1);
   }
 
@@ -122,8 +110,8 @@ const Row = links ? 'a' : 'span';
   }
 
   .wr-name {
-    font-size: 15px;
-    font-weight: 600;
+    font: 500 19px / 1.15 var(--d-display);
+    letter-spacing: -0.02em;
     color: var(--d-ink);
   }
 
@@ -151,11 +139,13 @@ const Row = links ? 'a' : 'span';
     transition: background-color 150ms ease;
   }
 
-  a.wr-row:hover {
-    background: var(--d-hover);
+  @media (hover: hover) {
+    .wr-row:hover {
+      background: var(--d-hover);
+    }
   }
 
-  a.wr-row:focus-visible {
+  .wr-row:focus-visible {
     outline: 2px solid var(--d-focus);
     outline-offset: -2px;
   }
