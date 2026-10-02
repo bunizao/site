@@ -492,7 +492,12 @@ body:has(.desk) .spotlight-overlay {
 }
 
 .tile--projects {
-  --k: 0.98;
+  --k: 0.68;
+}
+
+/* The pile is wider than the frame before it scales; keep it centred. */
+.tile--projects .tile-obj {
+  place-content: center;
 }
 
 /* The badge hangs from above the frame, its strap running off the top. */
@@ -548,12 +553,9 @@ body:has(.desk) .spotlight-overlay {
   --ar: 16 / 10;
 }
 
-/* Each object answers a hover in its own way: the hand fans wider, the badge
-   swings on its strap, the page lifts off the desk, the send button leans in. */
-.tile .tile-obj .pj-card {
-  transition-delay: calc(var(--i) * 24ms);
-}
-
+/* Each object answers a hover in its own way: the deck thumbs open (Deck.astro),
+   the badge swings on its strap, the page lifts off the desk, the send button
+   leans in. */
 .wr,
 .ch-send {
   transition:
@@ -566,10 +568,6 @@ body:has(.desk) .spotlight-overlay {
   .tile:hover {
     translate: 0 -4px;
     box-shadow: var(--d-frame-shadow), 0 36px 60px -34px rgb(20 20 18 / 0.3);
-  }
-
-  .tile--projects:hover .pj-card {
-    transform: translate(calc(-50% + var(--fx) * 1.22), calc(var(--fy) * 1.3 - 10px)) rotate(calc(var(--fr) * 1.35));
   }
 
   .tile--writing:hover .wr {
@@ -975,7 +973,6 @@ body:has(.desk) .spotlight-overlay {
   .desk-chip,
   .tile,
   .win,
-  .pj-card,
   .wr,
   .ch-send {
     transition: none;

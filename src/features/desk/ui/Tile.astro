@@ -7,7 +7,7 @@
 import Badge from './Badge.astro';
 import Chat from './Chat.astro';
 import Contents from './Contents.astro';
-import Hand from './Hand.astro';
+import Deck from './Deck.astro';
 import MoodChannel from './MoodChannel.astro';
 import type { DeskContent } from '@/features/desk/server/content';
 
@@ -42,7 +42,7 @@ const attrs = {
 
 <Tag class:list={['tile', `tile--${kind}`]} aria-label={tile.label} {...attrs}>
   <span class="tile-obj" aria-hidden="true">
-    {kind === 'projects' && <Hand />}
+    {kind === 'projects' && <Deck />}
     {kind === 'about' && <Badge uid={copy} />}
     {kind === 'writing' && <Contents posts={content.posts.slice(0, 3)} total={content.postCount} />}
     {kind === 'moods' && <MoodChannel moods={content.moods} channel={content.channel} />}

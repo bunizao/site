@@ -1,0 +1,120 @@
+---
+// The project deck from home as a still object: the same four cards with their
+// real heroes, in the deck's own peeking pile. A hover thumbs the pile open,
+// the front card lifting off it; the live deck opens in the projects window.
+import DeckHero from './DeckHero';
+import { projects } from '@/data/site';
+
+// The hero frame resolves --hero-accent from these (globals.css), as it does
+// in the live deck.
+const accent = (project: (typeof projects)[number]) =>
+  project.accent ? `--ha-l: ${project.accent.light}; --ha-d: ${project.accent.dark}` : undefined;
+---
+
+<div class="dk">
+  {projects.map((project, i) => (
+    <div class="dk-card" style={`--d: ${i}`}>
+      <div class="dk-hero" data-hero-accent={project.accent ? '' : undefined} style={accent(project)}>
+        <DeckHero hero={project.hero} />
+      </div>
+      <div class="dk-foot">
+        <span class="dk-name">{project.name}</span>
+        {project.stars !== null && <span class="dk-stars">★ {project.stars}</span>}
+      </div>
+    </div>
+  ))}
+</div>
+
+<style>
+  /* The live deck's card (ProjectStack CardFace) at its natural 400px, and its
+     L0 pose: each card behind sits a step right and down and turns a little
+     further. The box is the pile's footprint; the frame scales it down. */
+  .dk {
+    position: relative;
+    width: 478px;
+    height: 344px;
+    font-family: var(--d-sans);
+    text-align: left;
+  }
+
+  .dk-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: calc(4 - var(--d));
+    width: 400px;
+    padding: 8px;
+    border-radius: 22px;
+    background: #fbfaf7;
+    box-shadow:
+      0 0 0 1px rgb(28 25 23 / 0.055),
+      0 1px 1px rgb(28 25 23 / 0.04),
+      0 5px 10px -4px rgb(28 25 23 / 0.06),
+      0 20px 44px -18px rgb(28 25 23 / 0.2);
+    color: #1c1917;
+    transform: translate(calc(var(--d) * 22px), calc(var(--d) * 5px)) rotate(calc(var(--d) * 3.2deg)) scale(calc(1 - var(--d) * 0.015));
+    transition: transform 0.45s var(--d-ease) calc(var(--d) * 24ms);
+  }
+
+  @media (hover: hover) {
+    :global(.tile:hover) .dk-card {
+      transform: translate(calc(var(--d) * 32px - 12px), calc(var(--d) * 6px - 6px)) rotate(calc(var(--d) * 4.4deg - 2deg)) scale(calc(1 - var(--d) * 0.015));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dk-card {
+      transition: none;
+    }
+  }
+
+  :global(html.dark) .dk-card {
+    background: #141518;
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.05),
+      0 1px 2px rgb(0 0 0 / 0.5),
+      0 14px 30px -12px rgb(0 0 0 / 0.6);
+    color: #f5f5f4;
+  }
+
+  .dk-hero {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    border-radius: 15px;
+    /* An outline paints over the hero, where an inset shadow would sit
+       under it. */
+    outline: 1px solid rgb(0 0 0 / 0.08);
+    outline-offset: -1px;
+    pointer-events: none;
+  }
+
+  :global(html.dark) .dk-hero {
+    outline-color: rgb(255 255 255 / 0.08);
+  }
+
+  .dk-foot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 14px 10px;
+  }
+
+  .dk-name {
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.015em;
+  }
+
+  .dk-stars {
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    color: #78716c;
+  }
+
+  :global(html.dark) .dk-stars {
+    color: rgb(255 255 255 / 0.55);
+  }
+</style>
