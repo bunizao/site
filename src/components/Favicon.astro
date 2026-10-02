@@ -1,0 +1,37 @@
+---
+// A tab icon that follows the browser's colour scheme. Tab strips follow the
+// browser, not the site's theme toggle, and never re-render an icon in place,
+// so the script swaps the href whenever prefers-color-scheme changes.
+import type { FaviconPair } from '@/lib/favicon';
+
+interface Props {
+  icon: FaviconPair;
+}
+
+const { icon } = Astro.props;
+---
+
+<link rel="icon" type={icon.type} href={icon.light} data-light={icon.light} data-dark={icon.dark} />
+<script is:inline>
+  (() => {
+    const link = document.querySelector('link[rel="icon"][data-dark]');
+    if (!link) return;
+    const dark = matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const href = dark.matches ? link.dataset.dark : link.dataset.light;
+      if (link.getAttribute('href') !== href) link.setAttribute('href', href);
+    };
+    // The change event waits for a rendered frame, which a background tab
+    // never gets, so its icon would sit stale in the tab strip until visited.
+    // `matches` is live, so poll it while hidden.
+    let poll = 0;
+    const watch = () => {
+      clearInterval(poll);
+      if (document.hidden) poll = setInterval(apply, 1000);
+      apply();
+    };
+    dark.addEventListener('change', apply);
+    document.addEventListener('visibilitychange', watch);
+    watch();
+  })();
+</script>
