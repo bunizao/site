@@ -37,15 +37,15 @@ const brush = (ctx: CanvasRenderingContext2D, u: number, night: boolean, seed: n
   night,
 });
 
-const WALL: Tone = { l: 0.855, c: 0.04, h: 246 };
-const TABLE: Tone = { l: 0.9, c: 0.02, h: 74 };
-const NIGHT_WALL: Tone = { l: 0.3, c: 0.03, h: 250 };
-const NIGHT_TABLE: Tone = { l: 0.345, c: 0.02, h: 65 };
+export const WALL: Tone = { l: 0.855, c: 0.04, h: 246 };
+export const TABLE: Tone = { l: 0.9, c: 0.02, h: 74 };
+export const NIGHT_WALL: Tone = { l: 0.3, c: 0.03, h: 250 };
+export const NIGHT_TABLE: Tone = { l: 0.345, c: 0.02, h: 65 };
 const wall = (night: boolean) => (night ? NIGHT_WALL : WALL);
 const table = (night: boolean) => (night ? NIGHT_TABLE : TABLE);
 
 // The things' own colours, which the knife now and then carries elsewhere.
-const PALETTE: Tone[] = [
+export const PALETTE: Tone[] = [
   { l: 0.8, c: 0.06, h: 246 },
   { l: 0.84, c: 0.07, h: 18 },
   { l: 0.86, c: 0.1, h: 88 },
