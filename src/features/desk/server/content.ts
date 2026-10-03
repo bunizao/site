@@ -2,9 +2,7 @@
 // they come from, the newest posts for the contents page and what the blog
 // adds up to, and the week on GitHub (server/github.ts). Everything else on
 // the desk is static data from site.ts.
-//
-// The reads on the blog are made up until site-api serves them
-// (plans/desk-backend.md), marked MOCK below.
+import type { BlogStats } from '@bunizao/contracts/content';
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
 import type { MoodServerContext } from '@/features/mood/server/channel-service';
@@ -14,6 +12,7 @@ import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
 import { writingLedger } from '@/features/posts/ledger';
 import { getListedPosts } from '@/features/posts/server/content';
 import { postPath } from '@/features/posts/format';
+import { proxyApiRequest } from '@/lib/http/api-service-proxy';
 
 export interface DeskMood {
   id: string;
@@ -45,7 +44,7 @@ export interface DeskWriting {
   since: number;
   /** Reads of every post since the counting began ("June 2026"). Nothing
       before it was kept, so the figure never claims more than that. */
-  reads: { count: number; since: string };
+  reads?: { count: number; since: string };
   /** The post read the most. */
   top?: { title: string; href: string; lang?: string };
 }
@@ -72,16 +71,6 @@ const POSTS = 5;
 const melbourneTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false });
 const monthYear = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', month: 'short', year: 'numeric' });
 const longMonthYear = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', month: 'long', year: 'numeric' });
-
-// MOCK until GET /api/v2/blog/stats (plans/desk-backend.md): reads per post,
-// made up from the slug so they hold still between visits, and the day the
-// counting began (site-api's blog_analytics_events, migration 0003).
-const MOCK_READS_SINCE = '2026-06-28T00:00:00Z';
-const mockReads = (slug: string) => {
-  let hash = 0;
-  for (const char of slug) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-  return 80 + (Math.abs(hash) % 2400);
-};
 
 const format = (formatter: Intl.DateTimeFormat, iso: string) => {
   const date = new Date(iso);
@@ -117,26 +106,46 @@ const toMood = (item: MoodFeedItem): DeskMood => {
 
 type ListedPost = Awaited<ReturnType<typeof getListedPosts>>[number];
 
-const summarise = (posts: ListedPost[]): DeskWriting | null => {
+export const summariseDeskWriting = (posts: ListedPost[], stats: BlogStats | null): DeskWriting | null => {
   const ledger = writingLedger(posts);
   if (!ledger) return null;
-  const read = posts.map((post) => ({ post, reads: mockReads(post.slug) }));
-  const top = read.reduce((a, b) => (b.reads > a.reads ? b : a)).post;
+  const since = stats?.since ? format(longMonthYear, stats.since) : '';
+  const counts = new Map(stats?.posts.map((post) => [post.slug, post.reads]));
+  const top = posts.filter((post) => (counts.get(post.slug) ?? 0) > 0)
+    .sort((a, b) => (counts.get(b.slug) ?? 0) - (counts.get(a.slug) ?? 0))[0];
   return {
     posts: ledger.posts,
     words: ledger.words,
     since: ledger.since,
-    reads: { count: read.reduce((sum, { reads }) => sum + reads, 0), since: format(longMonthYear, MOCK_READS_SINCE) },
-    top: { title: top.title, href: postPath(top.slug), lang: langOf(top.title) },
+    ...(since && stats ? { reads: { count: stats.totals.reads, since } } : {}),
+    ...(since && top ? { top: { title: top.title, href: postPath(top.slug), lang: langOf(top.title) } } : {}),
   };
 };
 
+export async function loadDeskBlogStats(context: MoodServerContext): Promise<BlogStats | null> {
+  if (isE2ESiteFixtureEnabled(context.locals)) return null;
+  try {
+    const url = new URL('/api/v2/blog/stats', context.request.url);
+    const response = await proxyApiRequest(new Request(url), context.locals);
+    if (!response.ok) return null;
+    const stats = await response.json() as BlogStats;
+    if (!stats || !Array.isArray(stats.posts) || !Number.isFinite(stats.totals?.reads)
+      || stats.totals.reads < 0 || (stats.since !== null && typeof stats.since !== 'string')
+      || stats.posts.some((post) => !post || typeof post.slug !== 'string'
+        || !Number.isFinite(post.reads) || post.reads < 0)) return null;
+    return stats;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadDeskContent(context: MoodServerContext): Promise<DeskContent> {
   // Any source failing leaves its object empty; the rest of the desk stands.
-  const [feed, posts, github] = await Promise.all([
+  const [feed, posts, github, stats] = await Promise.all([
     loadMoodFeed(context, { limit: 12 }).catch(() => null),
     getListedPosts().catch(() => []),
     isE2ESiteFixtureEnabled(context.locals) ? null : loadGitHubWeek(),
+    loadDeskBlogStats(context),
   ]);
   return {
     moods: (feed?.posts ?? []).filter(isMood).slice(0, MOODS).map(toMood).reverse(),
@@ -151,7 +160,7 @@ export async function loadDeskContent(context: MoodServerContext): Promise<DeskC
       date: format(monthYear, post.publishedAt),
     })),
     postCount: posts.length,
-    writing: summarise(posts),
+    writing: summariseDeskWriting(posts, stats),
     github,
   };
 }

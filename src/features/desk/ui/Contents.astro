@@ -50,9 +50,9 @@ const copy = blog.copy[blog.locale.home];
 {writing && (
   <p class="tally">
     <strong>{figure(writing.posts)}</strong> posts and <strong>{figure(writing.words)}</strong> words since {writing.since}.
-    Read <strong>{figure(writing.reads.count)}</strong> times since I started counting in {writing.reads.since}{writing.top ? (
+    {writing.reads && <>Read <strong>{figure(writing.reads.count)}</strong> times since I started counting in {writing.reads.since}{writing.top ? (
       <>; the most read is <a href={writing.top.href} lang={writing.top.lang}>{writing.top.title}</a>.</>
-    ) : '.'}
+    ) : '.'}</>}
   </p>
 )}
 

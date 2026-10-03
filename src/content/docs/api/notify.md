@@ -59,6 +59,14 @@ Body:
 `deliveryMode` is `immediate` | `every_5h` | `daily`. `dailyHour` only matters
 when `deliveryMode` is `daily`.
 
+Optional `website` is a honeypot: a filled value returns the same successful
+response and sends no mail. Optional `dwellToken` comes from
+`GET /api/v2/comments/dwell-token`. The optional flat `clientFp`,
+`interaction`, and `storageId` fields carry the same browser evidence as
+comments. Missing or young dwell tokens and browser evidence contribute
+risk hints; they do not reject older clients or any input method. Unknown
+fields are ignored.
+
 The handler looks for the Turnstile token in four places before it rejects the
 request:
 
@@ -77,6 +85,10 @@ was already subscribed:
 The public route always returns `confirmation_sent`. Existing subscriptions and
 addresses suppressed after a permanent bounce or complaint get the same
 response, so it does not prove that a new message was sent.
+Confirmation mail has a six-hour per-address cooldown across synchronous
+and queued delivery. Repeated requests during that window return the same
+`200` without sending another confirmation, including requests that change
+the requested preferences.
 
 Blog newsletters reach all active Blog subscribers regardless of the Mood
 delivery mode.
