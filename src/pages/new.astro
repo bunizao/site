@@ -9,7 +9,6 @@
 // Unlisted while it is a prototype: noindex, and nothing links here.
 import { Activity, BookOpen, Disc3, LayoutGrid, Volume2, VolumeX } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
-import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import Badge from '@/features/desk/ui/Badge.astro';
 import Contents from '@/features/desk/ui/Contents.astro';
@@ -20,7 +19,7 @@ import MoodChannel from '@/features/desk/ui/MoodChannel.astro';
 import Panel from '@/features/desk/ui/Panel.astro';
 import Subscribe from '@/features/desk/ui/Subscribe.astro';
 import Turntable from '@/features/desk/ui/Turntable.astro';
-import Year from '@/features/desk/ui/Year.astro';
+import GitHub from '@/features/desk/ui/GitHub.astro';
 import Works from '@/features/desk/ui/Works.astro';
 import { loadDeskContent } from '@/features/desk/server/content';
 import { GitHubIcon, InstagramIcon, MonashCrestIcon, TelegramIcon } from '@/components/icons';
@@ -274,10 +273,7 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
       </Panel>
 
       <Panel id="github">
-        <div class="easel-paper gh">
-          <GitHubContributions fetchDays={365} />
-          <Year repos={content.repos} />
-        </div>
+        <div class="easel-paper gh"><GitHub week={content.github} /></div>
         <Door href="https://github.com/bunizao" label="bunizao on GitHub" style={tone('github')} external />
       </Panel>
 

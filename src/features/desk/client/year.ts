@@ -1,72 +1,18 @@
-// The painted year on the GitHub panel (ui/Year.astro). The first time the
+// The painted year on the GitHub panel (ui/GitHub.astro). The first time the
 // panel opens it asks for the year, puts it on the canvas for the `year`
-// study to paint, and says what the year adds up to. The pointer, or a finger
-// run along it, reads out the day under it.
+// study to paint, and puts the year's total in the card's corner. The
+// pointer, or a finger run along it, reads out the day under it.
 const ENDPOINT = '/api/github/contributions?days=365';
 
-export interface ContributionDay {
+interface ContributionDay {
   date: string;
   count: number;
   level: number;
 }
 
-export interface YearReading {
-  total: number;
-  /** Days in a row with something on them, up to the latest. */
-  current: number;
-  longest: number;
-  busiest: ContributionDay;
-  /** 0 is Sunday. */
-  weekday: number;
-}
-
 const dateOf = (day: ContributionDay) => new Date(`${day.date}T00:00:00Z`);
-
-/** What a year of contributions adds up to; null for an empty one. */
-export function readYear(days: ContributionDay[]): YearReading | null {
-  if (days.length === 0) return null;
-  let run = 0;
-  let longest = 0;
-  const byWeekday = [0, 0, 0, 0, 0, 0, 0];
-  for (const day of days) {
-    run = day.count > 0 ? run + 1 : 0;
-    longest = Math.max(longest, run);
-    byWeekday[dateOf(day).getUTCDay()] += day.count;
-  }
-  // The latest day may be today, still empty: the run going now is counted
-  // up to the day before, the way GitHub counts it.
-  let i = days.length - 1;
-  if (days[i].count === 0) i--;
-  let current = 0;
-  for (; i >= 0 && days[i].count > 0; i--) current++;
-  return {
-    total: days.reduce((sum, day) => sum + day.count, 0),
-    current,
-    longest,
-    busiest: days.reduce((a, b) => (b.count > a.count ? b : a)),
-    weekday: byWeekday.indexOf(Math.max(...byWeekday)),
-  };
-}
-
-const WEEKDAYS = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
 const longDay = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
-const dayMonth = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 const shortMonth = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' });
-const monthYear = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-const figure = (n: number) => `<strong>${n.toLocaleString('en-US')}</strong>`;
-
-function say(reading: YearReading) {
-  const run =
-    reading.current > 1
-      ? `A run of ${figure(reading.current)} days is going now; the longest was ${figure(reading.longest)}.`
-      : `The longest run was ${figure(reading.longest)} days.`;
-  return [
-    `${figure(reading.total)} contributions in the last year.`,
-    run,
-    `The busiest day was <strong>${dayMonth.format(dateOf(reading.busiest))}</strong>, with ${reading.busiest.count.toLocaleString('en-US')};`,
-    `${WEEKDAYS[reading.weekday]} are the busiest of the week.`,
-  ].join(' ');
-}
 
 export function initYear() {
   const easel = document.querySelector<HTMLElement>('[data-easel]');
@@ -76,13 +22,13 @@ export function initYear() {
   const mark = root?.querySelector<HTMLElement>('[data-year-mark]');
   const months = root?.querySelector<HTMLElement>('[data-year-months]');
   const read = root?.querySelector<HTMLElement>('[data-year-read]');
-  const summary = root?.nextElementSibling;
-  if (!easel || !root || !canvas || !grid || !mark || !months || !read || !(summary instanceof HTMLElement)) return;
+  const total = root?.querySelector<HTMLElement>('[data-year-total]');
+  if (!easel || !root || !canvas || !grid || !mark || !months || !read || !total) return;
 
+  const resting = matchMedia('(hover: none)').matches ? 'Run a finger along the year to read a day.' : 'Point at a day to read it.';
   let year: ContributionDay[] = [];
   let first = 0;
   let weeks = 53;
-  let resting = '';
 
   const lay = (data: ContributionDay[]) => {
     year = data;
@@ -107,13 +53,8 @@ export function initYear() {
       }),
     );
 
-    resting = `${monthYear.format(dateOf(data[0]))} to ${monthYear.format(dateOf(data[data.length - 1]))}, a dab a day.`;
+    total.textContent = data.reduce((sum, day) => sum + day.count, 0).toLocaleString('en-US');
     read.textContent = resting;
-    const reading = readYear(data);
-    if (reading) {
-      summary.innerHTML = say(reading);
-      summary.hidden = false;
-    }
     root.classList.add('is-ready');
     root.dispatchEvent(new CustomEvent('easel:repaint', { bubbles: true }));
   };
