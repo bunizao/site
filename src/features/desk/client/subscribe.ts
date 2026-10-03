@@ -15,6 +15,7 @@ import {
   warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
 import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
+import { subscriptionEvidence } from '@/features/notify/subscribe-evidence';
 
 const ACTION = 'notify_subscribe';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -37,6 +38,7 @@ function wire(toggle: HTMLButtonElement, form: HTMLFormElement) {
   if (!email || !submit || !status || !host) return;
   const note = status.innerHTML;
   const siteKey = form.dataset.turnstileSiteKey ?? '';
+  const evidence = subscriptionEvidence();
   let sending = false;
   // The send that follows a ticked box. One per press: a refusal of that one
   // leaves the box up for the next press instead of asking again on its own.
@@ -52,6 +54,7 @@ function wire(toggle: HTMLButtonElement, form: HTMLFormElement) {
     form.hidden = !open;
     toggle.setAttribute('aria-expanded', String(open));
     if (!open) return;
+    evidence.open();
     // Both slips ask for the one check; it lives in whichever is open.
     setTurnstileHost(ACTION, host);
     if (siteKey) warmTurnstileToken(siteKey, ACTION);
@@ -102,6 +105,8 @@ function wire(toggle: HTMLButtonElement, form: HTMLFormElement) {
           deliveryMode: mode ?? 'instant',
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           turnstileToken: await getTurnstileToken(siteKey, ACTION),
+          website: (form.elements.namedItem('website') as HTMLInputElement | null)?.value ?? '',
+          ...await evidence.collect(),
         }),
       });
       const data = (await response.json().catch(() => ({}))) as { status?: string; error?: string };

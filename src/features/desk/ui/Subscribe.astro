@@ -33,6 +33,7 @@ const paces = [
 </button>
 
 <form class="slip" id={id} data-desk-subscribe data-channel={channel} data-turnstile-site-key={turnstileSiteKey} hidden novalidate>
+  <label hidden aria-hidden="true">Website<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
   <p class="slip-say">{say}</p>
   {channel === 'mood' && (
     <fieldset class="slip-paces">

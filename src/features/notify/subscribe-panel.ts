@@ -8,6 +8,7 @@
 
 import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
 import { loadTurnstileScript } from '@/lib/turnstile-script';
+import { subscriptionEvidence } from '@/features/notify/subscribe-evidence';
 import {
   getTurnstileToken,
   releaseTurnstileToken,
@@ -75,6 +76,7 @@ function setupPanel(panel: HTMLElement): void {
 
   const anchor = panel.dataset.anchor === 'left' ? 'left' : 'right';
   const siteKey = panel.dataset.turnstileSiteKey || '';
+  const evidence = subscriptionEvidence();
   const supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   setTurnstileHost(TURNSTILE_ACTION, turnstileContainer);
 
@@ -176,6 +178,7 @@ function setupPanel(panel: HTMLElement): void {
   };
 
   const openPanel = ({ focusEmail = true } = {}) => {
+    evidence.open();
     isOpen = true;
     if (!email.value) {
       email.value = readReaderEmail() ?? '';
@@ -270,6 +273,7 @@ function setupPanel(panel: HTMLElement): void {
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (isSubmitting) return;
     const value = email.value.trim();
     if (!EMAIL_RE.test(value)) {
       errorMsg.textContent = t.invalidEmail;
@@ -300,6 +304,8 @@ function setupPanel(panel: HTMLElement): void {
           deliveryMode: getDeliveryMode(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           turnstileToken: token,
+          website: (form.elements.namedItem('website') as HTMLInputElement | null)?.value ?? '',
+          ...await evidence.collect(),
         }),
       });
       const data = (await response.json().catch(() => ({}))) as { status?: string; code?: string; error?: string };
