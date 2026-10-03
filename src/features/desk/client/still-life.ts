@@ -579,7 +579,7 @@ function printCover(b: Brush, cover: CanvasImageSource, sleeve: Path2D) {
   ctx.rotate(lean);
   ctx.drawImage(cover, U(-half), U(-half), U(half * 2), U(half * 2));
   ctx.restore();
-  ctx.fillStyle = css({ l: 0.97, c: 0.012, h: 80, a: 0.42 });
+  ctx.fillStyle = css({ l: 0.97, c: 0.012, h: 80, a: 0.32 });
   ctx.fill(sleeve);
   ctx.fillStyle = gradient(b, x - half, y - half, x + half, y + half, [
     [0, { l: 1, c: 0, h: 0, a: 0.2 }],
@@ -592,6 +592,29 @@ function printCover(b: Brush, cover: CanvasImageSource, sleeve: Path2D) {
   ctx.fillStyle = css({ l: 0.56, c: 0.02, h: 250 });
   ctx.fill(sleeve);
   ctx.globalCompositeOperation = 'source-over';
+}
+
+// How strongly the cover is printed through the knife's paint.
+const PRINT_THROUGH = 0.45;
+
+/**
+ * The cover once more, printed through the knife's paint at the canvas's
+ * full resolution. Multiplied, so the strokes keep their light and their
+ * texture, and the cover's darks, a face and its lettering, come back sharp,
+ * which no blade can paint at this size. Not at full strength: nothing in it
+ * goes much darker than the paint it is printed on.
+ */
+function printThrough(b: Brush, cover: CanvasImageSource) {
+  const { ctx, U } = b;
+  const { x, y, half, lean } = SLEEVE;
+  ctx.save();
+  ctx.clip(sleeveShape(b));
+  ctx.translate(U(x), U(y));
+  ctx.rotate(lean);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalAlpha = PRINT_THROUGH;
+  ctx.drawImage(cover, U(-half), U(-half), U(half * 2), U(half * 2));
+  ctx.restore();
 }
 
 // The record's sleeve, the disc half out of it: printed card, worn pale at
@@ -804,7 +827,8 @@ const FINISH: Partial<Record<PieceId, Study>> = {
   // Over the disc, on the sleeve's canvas so it stays put while the disc
   // turns: the window in the grooves, two wedges of light with short bright
   // ticks through them, and the shade where the disc goes into the sleeve.
-  record: (b) => {
+  record: (b, song) => {
+    if (song?.cover) printThrough(b, song.cover);
     const { ctx, U, night } = b;
     const [cx, cy, r] = RECORD_DISC;
     const face = oval(b, cx, cy, r, r);
@@ -892,10 +916,13 @@ function styleOf(id: PieceId, u: number, printed = false): Style {
       return { ...common, layers: knives(u, [0.017, 0.009, 0.005], [0, 22, 16]), spill: 0.003 * u };
     case 'books':
       return { ...common, angle: 0, jitter: 0.12, spill: 0.003 * u };
-    // A cover is a picture someone else made: a little finer blades keep it
-    // legible, and the knife still carries the room's white into it.
+    // A cover is a picture someone else made, and it should read as the one
+    // it is: a fourth, finest blade goes over its faces and lettering, and
+    // the knife carries less of the room's white into it.
     case 'record':
-      return printed ? { ...common, layers: knives(u, [0.016, 0.009, 0.0048], [0, 24, 18]), spill: 0.002 * u } : common;
+      return printed
+        ? { ...common, layers: knives(u, [0.016, 0.009, 0.0048, 0.0024], [0, 22, 14, 10]), stretch: [1.3, 2.6], spill: 0.002 * u, whiteShare: 0.15 }
+        : common;
     default:
       return common;
   }
@@ -952,7 +979,7 @@ export async function paintPiece(ctx: CanvasRenderingContext2D, piece: Piece, u:
   const seed = seedOf(piece.id);
   STUDIES[piece.id](brush(studyCtx, u, night, seed), song);
   await paintOver(ctx, study, [left, top], styleOf(piece.id, u, Boolean(song)), seeded(seed ^ 0x9e3779b9), signal);
-  if (!signal?.aborted) FINISH[piece.id]?.(brush(ctx, u, night, seed + 1));
+  if (!signal?.aborted) FINISH[piece.id]?.(brush(ctx, u, night, seed + 1), song);
 }
 
 
