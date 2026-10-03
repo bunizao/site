@@ -1784,6 +1784,10 @@ body:has(.desk) .spotlight-overlay {
   align-items: center;
 }
 
+.mx-form {
+  display: contents;
+}
+
 .mx-letter {
   position: relative;
   z-index: 3;
@@ -1830,11 +1834,11 @@ body:has(.desk) .spotlight-overlay {
   box-shadow: 0 1px 2px rgb(40 20 20 / 0.08), 0 14px 26px -18px rgb(40 20 20 / 0.4);
 }
 
+/* The knife's ragged ends are cut off: a sheet of writing paper has
+   straight edges, and the paint is only its grain. */
 .mx-paper.has-swatch::before {
-  inset: -4px -6px;
-  background: var(--swatch) center / 100% 100% no-repeat;
-  box-shadow: none;
-  filter: drop-shadow(0 8px 10px rgb(40 20 20 / 0.12));
+  background: var(--swatch) center / 118% 114% no-repeat;
+  box-shadow: 0 1px 2px rgb(40 20 20 / 0.06), 0 14px 26px -18px rgb(40 20 20 / 0.35);
 }
 
 :root.dark .mx-paper:not(.has-swatch)::before {
@@ -1845,6 +1849,15 @@ body:has(.desk) .spotlight-overlay {
 .mx-letter[hidden] .mx-paper {
   translate: 0 104%;
   rotate: 0deg;
+}
+
+/* Dated in the corner, the day it was written. */
+.mx-date {
+  margin: -6px 0 2px;
+  color: var(--d-note);
+  font: 400 13px/1.4 var(--d-sans);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .mx-dear {
@@ -1964,9 +1977,10 @@ body:has(.desk) .spotlight-overlay {
 
 .mx-return {
   position: absolute;
-  right: 8%;
+  /* Inside the lines the side flaps make, which meet the bottom corners. */
+  right: 14%;
   bottom: 10%;
-  left: 8%;
+  left: 14%;
   z-index: 2;
   display: flex;
   align-items: baseline;
@@ -1977,9 +1991,24 @@ body:has(.desk) .spotlight-overlay {
   font: 500 14px/1 var(--d-display);
 }
 
+.mx-return label {
+  white-space: nowrap;
+}
+
 .mx-return .mx-line {
   flex: 1;
+  min-width: 0;
   max-width: 16em;
+}
+
+/* A phone's envelope is narrow: the line runs a little closer to the corners. */
+@media (max-width: 639px) {
+  .mx-return {
+    right: 9%;
+    left: 12%;
+    gap: 8px;
+    font-size: 13px;
+  }
 }
 
 /* The envelope is paper by lamplight too, so what is written on it stays in dark ink. */
@@ -2025,6 +2054,29 @@ body:has(.desk) .spotlight-overlay {
   width: 100%;
   height: 100%;
   filter: drop-shadow(1px 2px 1px rgb(60 10 10 / 0.3));
+  transition: filter 0.5s ease;
+}
+
+/* The wax is cool until the letter has all it needs to go: written, signed,
+   and somewhere to write back to (client/letter.ts). Then it warms, and
+   rises once to say so. */
+.mx:not(.is-ready) .mx-seal canvas {
+  filter: saturate(0.45) brightness(1.08) drop-shadow(1px 1px 0 rgb(60 10 10 / 0.18));
+}
+
+.mx:not(.is-ready) .mx-seal-mark {
+  opacity: 0.7;
+}
+
+.mx.is-ready .mx-seal {
+  animation: seal-warm 0.6s var(--d-ease);
+}
+
+@keyframes seal-warm {
+  40% {
+    scale: 1.1;
+    rotate: -4deg;
+  }
 }
 
 .mx-seal-mark {
@@ -2095,11 +2147,26 @@ body:has(.desk) .spotlight-overlay {
     scale 0.35s var(--d-ease) 1.3s;
 }
 
-.mx-turnstile:empty {
-  display: none;
+/* Cloudflare's checkbox, for when it wants a person: shut until then, and
+   opened under the error line that asks for it. The same 0fr/1fr grid as
+   .blog-compose__turnstile, for the same reasons: the challenge is whatever
+   size Cloudflare renders, and the opening still animates. */
+.mx-check {
+  display: grid;
+  grid-template-rows: minmax(0, 0fr);
+  justify-items: center;
+  transition:
+    grid-template-rows 0.3s var(--d-ease),
+    margin-top 0.3s var(--d-ease);
 }
 
-.mx-turnstile {
+.mx-check > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.mx-check:has(> [data-turnstile-interactive]) {
+  grid-template-rows: 1fr;
   margin-top: 14px;
 }
 
@@ -2121,7 +2188,8 @@ body:has(.desk) .spotlight-overlay {
   text-align: center;
 }
 
-.mx:has(.mx-letter[hidden]) .mx-hint {
+.mx:has(.mx-letter[hidden]) .mx-hint,
+.mx:has([data-turnstile-interactive]) .mx-hint {
   display: none;
 }
 
@@ -2152,9 +2220,14 @@ body:has(.desk) .spotlight-overlay {
   .mx-paper,
   .mx-flap,
   .mx-letter,
-  .mx-stamp {
+  .mx-stamp,
+  .mx-check {
     transition-duration: 0s !important;
     transition-delay: 0s !important;
+  }
+
+  .mx.is-ready .mx-seal {
+    animation: none;
   }
 }
 
