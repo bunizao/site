@@ -8,15 +8,17 @@
 // section is on it, as a step in the history. Esc, the back gesture, or the
 // small painting at the start of the tabs goes back to the still life.
 //
-// Every part of the painting comes in on a fresh canvas laid over the one on
-// show, so the still life fades in piece by piece on the first visit and
-// fades from day to night when the theme turns. The easel says when it starts
+// Every part of the painting is painted out of sight on a fresh canvas. The
+// first time, once the painting is in view, each comes up under the knife,
+// the wall row by row and then the things one drag after another; after
+// that, a fresh canvas fades up over the one on show, from day to night when
+// the theme turns. The easel says when it starts
 // a painting and when the paint is dry (`easel:painting`, `easel:painted`),
 // which is when the lamp may come on, and which section it has just set on
 // the canvas (`easel:shown`).
 
 import { ASPECT, DISC, LAMP, THINGS, type Piece } from '@/features/desk/shared/still-life';
-import { coat, css, draw, seedOf, seeded, swatch, type Tone } from './knife';
+import { coat, css, draw, seedOf, seeded, swatch, type Stroke, type Tone } from './knife';
 import { breathe } from './painterly';
 import { play, type Sound } from './sound';
 import { BLEED, paintBackdrop, paintLight, paintPiece } from './still-life';
@@ -45,6 +47,11 @@ const COVER_MS = 620;
 const SCRAPE_MS = 460;
 // A fresh canvas takes this long to come up over the one before it.
 const FADE_MS = 700;
+// The first painting comes up under the knife: the wall in this long, each
+// thing in this long, and each starts once the one before is this far along.
+const RISE_WALL_MS = 620;
+const RISE_THING_MS = 420;
+const RISE_NEXT_AT = 0.3;
 // A tapped thing's name stays this long, unless the next tap takes it first.
 const NAME_MS = 4000;
 // The nudge waits this long once the painting is in view; then each thing
@@ -77,6 +84,15 @@ const DRAG_SHARE = 0.34;
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
 const scaleOf = () => Math.min(devicePixelRatio || 1, 2);
+
+/** Draws a coat's strokes as far as `t` (0..1) of the pass has dragged them. */
+const dragTo = (ctx: CanvasRenderingContext2D, strokes: { stroke: Stroke; at: number }[], t: number) => {
+  for (const { stroke, at } of strokes) {
+    const progress = clamp01((t - at * (1 - DRAG_SHARE)) / DRAG_SHARE);
+    if (progress <= 0) break;
+    draw(ctx, stroke, easeOut(progress));
+  }
+};
 
 function sized(canvas: HTMLCanvasElement, width: number, height: number, scale: number) {
   const w = Math.round(width * scale);
@@ -168,6 +184,73 @@ export function initEasel(): () => void {
     return all[all.length - 1] ?? null;
   };
 
+  // Below a phone's fold the first painting would come up for no one; it
+  // waits until it is well in view.
+  let onSeen = () => {};
+  const seen = new Promise<void>((resolve) => (onSeen = resolve));
+  const seenWatch = new IntersectionObserver(([entry]) => {
+    if (!entry.isIntersecting) return;
+    seenWatch.disconnect();
+    onSeen();
+  }, { threshold: 0.4 });
+  seenWatch.observe(still);
+
+  /** When the next drag may start, and when every drag so far is done. */
+  let nextUp = 0;
+  let up: Promise<unknown> = Promise.resolve();
+
+  /**
+   * Brings a dry first coat up under knife drags, `ms` long, once the one
+   * before is far enough along: the strokes of a coat are a stencil, and the
+   * paint shows through them as they are dragged.
+   */
+  const bringUp = (canvas: HTMLCanvasElement, ms: number) =>
+    seen.then(
+      () =>
+        new Promise<void>((resolve) => {
+          const ctx = canvas.getContext('2d');
+          const dry = document.createElement('canvas');
+          dry.width = canvas.width;
+          dry.height = canvas.height;
+          dry.getContext('2d')?.drawImage(canvas, 0, 0);
+          if (!ctx) return resolve();
+          const scale = scaleOf();
+          const strokes = coat(seeded(canvas.width * 7919 + canvas.height), canvas.width / scale, canvas.height / scale, { l: 0.5, c: 0, h: 0 });
+          const start = Math.max(performance.now(), nextUp);
+          nextUp = start + ms * RISE_NEXT_AT;
+
+          const render = (t: number) => {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (t >= 1) {
+              ctx.drawImage(dry, 0, 0);
+              return;
+            }
+            ctx.setTransform(scale, 0, 0, scale, 0, 0);
+            dragTo(ctx, strokes, t);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.globalCompositeOperation = 'source-in';
+            ctx.drawImage(dry, 0, 0);
+            ctx.globalCompositeOperation = 'source-over';
+          };
+
+          render(0);
+          canvas.classList.add('is-rising');
+          const step = (now: number) => {
+            if (now >= start) {
+              const t = Math.min(1, (now - start) / ms);
+              render(t);
+              if (t >= 1) {
+                canvas.classList.remove('is-wet', 'is-rising');
+                return resolve();
+              }
+            }
+            requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        }),
+    );
+
   /**
    * Paints a fresh canvas over the one on show and brings it up; the old one
    * goes once it is covered. `place` sizes the fresh one and gives back its
@@ -193,6 +276,10 @@ export function initEasel(): () => void {
     if (ctx) await work(ctx);
     if (signal.aborted || !ctx) {
       fresh.remove();
+      return;
+    }
+    if (!old.length && !reduced.matches) {
+      up = Promise.all([up, bringUp(fresh, className === 'sl-backdrop' ? RISE_WALL_MS : RISE_THING_MS)]);
       return;
     }
     fresh.classList.remove('is-wet');
@@ -275,6 +362,9 @@ export function initEasel(): () => void {
       airCtx.clearRect(0, 0, air.width, air.height);
       paintLight(litCtx, airCtx, width, night);
     }
+    // Dry is not done until the knife has brought every part up.
+    await up;
+    if (signal.aborted) return;
     easel.classList.add('is-painted');
     easel.dispatchEvent(new CustomEvent('easel:painted'));
     paintThumb();
@@ -354,11 +444,7 @@ export function initEasel(): () => void {
       ctx.drawImage(base, 0, 0);
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
       ctx.globalCompositeOperation = scrape ? 'destination-out' : 'source-over';
-      for (const { stroke, at } of strokes) {
-        const progress = clamp01((t - at * (1 - DRAG_SHARE)) / DRAG_SHARE);
-        if (progress <= 0) break;
-        draw(ctx, stroke, easeOut(progress));
-      }
+      dragTo(ctx, strokes, t);
       ctx.globalCompositeOperation = 'source-over';
       if (t >= 1 && tone) {
         // The finished coat owns the whole ground: whatever the knife skipped
@@ -806,6 +892,7 @@ export function initEasel(): () => void {
     clearTimeout(nameTimer);
     nudgeTimers.forEach(clearTimeout);
     nudgeWatch.disconnect();
+    seenWatch.disconnect();
     resizeObserver.disconnect();
     tabsObserver.disconnect();
     themeObserver.disconnect();

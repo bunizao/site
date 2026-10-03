@@ -476,15 +476,20 @@ body:has(.desk) .spotlight-overlay {
   height: 100%;
 }
 
-/* Each part of the painting comes up on a fresh canvas over the one before,
-   once its paint is laid (client/easel.ts). */
+/* Each part of the painting is painted out of sight, then comes up on a
+   fresh canvas over the one before. The first coat instead rises under the
+   knife, which draws it in as it goes (client/easel.ts). */
 .sl-backdrop,
 .sl-paint {
   transition: opacity 0.7s ease;
 }
 
-.sl canvas.is-wet {
+.sl canvas.is-wet:not(.is-rising) {
   opacity: 0;
+}
+
+.sl canvas.is-rising {
+  transition: none;
 }
 
 .easel-ground {
@@ -1294,8 +1299,9 @@ body:has(.desk) .spotlight-overlay {
 /* --- Arrival ----------------------------------------------------------------
    The page comes in the way the desk is set: the letterhead, the prose a
    paragraph at a time, then the paint laid behind its words one stroke
-   after another, while the canvas is hung. The painting comes up piece by
-   piece as its paint dries, and the lamp comes on last; by night the room
+   after another, while the canvas is hung. Once in view, the painting comes
+   up under the knife, the wall and then each thing, and the lamp comes on
+   last; by night the room
    sits dark a beat first (client/easel.ts, client/lamp.ts). Leaving, the
    site's view transition takes the page out. Nothing holds its end state:
    a lingering translate on the hang would trap the phone's full-screen
