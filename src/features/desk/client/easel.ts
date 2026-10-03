@@ -122,6 +122,8 @@ export function initEasel(): () => void {
   const opened: string[] = [];
   let active: string | null = null;
   let opener: HTMLElement | null = null;
+  /** Whether the last press was a finger rather than a key or a mouse. */
+  let byFinger = false;
   let painted = { width: 0, night: false };
   let pass = 0;
 
@@ -540,6 +542,9 @@ export function initEasel(): () => void {
       // Focus goes back to what opened the section. Without one (the page
       // came in on a link to a section), the keyboard is given the first
       // thing in the painting; a back gesture is no keyboard, so nothing is.
+      // Nor is a finger: Safari would ring the thing and the room would dim
+      // around its name.
+      if (byFinger) return;
       const back = opener?.isConnected && !opener.closest('[inert]') ? opener : byHistory ? null : things[0];
       back?.focus({ preventScroll: true });
     });
@@ -602,6 +607,8 @@ export function initEasel(): () => void {
     hot(shown);
     if (shown) nameTimer = window.setTimeout(() => hot(null), NAME_MS);
   };
+
+  const onPress = (event: Event) => (byFinger = event instanceof PointerEvent && event.pointerType === 'touch');
 
   // A finger cannot hover, so a tap is the only way it reads a label. A touch
   // that turns into a scroll ends in pointercancel, never here; and the clock
@@ -715,6 +722,8 @@ export function initEasel(): () => void {
   document.addEventListener('pointerover', onOver);
   document.addEventListener('pointerout', onOut);
   document.addEventListener('pointerup', onTap);
+  document.addEventListener('pointerdown', onPress);
+  document.addEventListener('keydown', onPress);
   document.addEventListener('focusin', onOver);
   document.addEventListener('focusout', onOut);
   window.addEventListener('popstate', onPop);
@@ -738,6 +747,8 @@ export function initEasel(): () => void {
     document.removeEventListener('pointerover', onOver);
     document.removeEventListener('pointerout', onOut);
     document.removeEventListener('pointerup', onTap);
+    document.removeEventListener('pointerdown', onPress);
+    document.removeEventListener('keydown', onPress);
     document.removeEventListener('focusin', onOver);
     document.removeEventListener('focusout', onOut);
     window.removeEventListener('popstate', onPop);
