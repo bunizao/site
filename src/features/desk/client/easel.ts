@@ -16,10 +16,16 @@
 // a painting and when the paint is dry (`easel:painting`, `easel:painted`),
 // which is when the lamp may come on, and which section it has just set on
 // the canvas (`easel:shown`).
+//
+// The record wears the song on it: each new cover from the listening card is
+// painted onto the sleeve, brought up under the knife over the one before,
+// and the gallery label names the song.
 
 import { ASPECT, DISC, LAMP, THINGS, type Piece } from '@/features/desk/shared/still-life';
+import { LISTENING_TRACK_EVENT, type ListeningTrackPayload } from '@/lib/listening/controller';
 import { coat, css, draw, seedOf, seeded, swatch, type Stroke, type Tone } from './knife';
 import { breathe } from './painterly';
+import { coverOf, labelOf, loadCover } from './record';
 import { play, type Sound } from './sound';
 import { BLEED, paintBackdrop, paintLight, paintPiece } from './still-life';
 import { paintStudies } from './studies';
@@ -148,6 +154,13 @@ export function initEasel(): () => void {
   let byFinger = false;
   let painted = { width: 0, night: false };
   let pass = 0;
+  /** Whether some paint is still going on: the whole painting, or the record. */
+  let busy = false;
+  /** The song's cover, once loaded, and the one the record was last painted with. */
+  let cover: HTMLImageElement | null = null;
+  let coverOnRecord: HTMLImageElement | null = null;
+  /** The section the gallery label names, and whether it shows its link. */
+  let labelled: { id: string | null; withLink: boolean } = { id: null, withLink: false };
 
   // --- The still life --------------------------------------------------------
   // The things, back to front; the disc turns inside the record, under its
@@ -177,6 +190,7 @@ export function initEasel(): () => void {
     if (piece.id === 'record' && recordHolder) layers.push({ piece: DISC, holder: turntable, origin: [DISC.box[0] - BLEED, DISC.box[1] - BLEED] });
     if (holder) layers.push({ piece, holder, origin: [piece.box[0], piece.box[1]] });
   }
+  const recordLayer = layers.find((layer) => layer.piece.id === 'record');
 
   /** The canvas a holder shows for `className`: the newest that has come up. */
   const shown = (holder: HTMLElement, className: string) => {
@@ -254,7 +268,8 @@ export function initEasel(): () => void {
   /**
    * Paints a fresh canvas over the one on show and brings it up; the old one
    * goes once it is covered. `place` sizes the fresh one and gives back its
-   * context, ready for `work`.
+   * context, ready for `work`. A fresh canvas fades up over an old one,
+   * unless `rise` brings it up under the knife like a first coat.
    */
   const layOver = async (
     holder: HTMLElement,
@@ -262,6 +277,7 @@ export function initEasel(): () => void {
     place: (canvas: HTMLCanvasElement) => CanvasRenderingContext2D | null,
     work: (ctx: CanvasRenderingContext2D) => Promise<void>,
     signal: AbortSignal,
+    rise = false,
   ) => {
     const old = [...holder.querySelectorAll<HTMLCanvasElement>(`:scope > canvas.${className}`)];
     const fresh = document.createElement('canvas');
@@ -278,12 +294,25 @@ export function initEasel(): () => void {
       fresh.remove();
       return;
     }
-    if (!old.length && !reduced.matches) {
-      up = Promise.all([up, bringUp(fresh, className === 'sl-backdrop' ? RISE_WALL_MS : RISE_THING_MS)]);
+    if ((!old.length || rise) && !reduced.matches) {
+      const rising = bringUp(fresh, className === 'sl-backdrop' ? RISE_WALL_MS : RISE_THING_MS);
+      up = Promise.all([up, rising]);
+      void rising.then(() => old.forEach((canvas) => canvas.remove()));
       return;
     }
     fresh.classList.remove('is-wet');
     window.setTimeout(() => old.forEach((canvas) => canvas.remove()), reduced.matches ? 0 : FADE_MS + 80);
+  };
+
+  /** Sizes a fresh canvas for a part of the painting `width` wide, and sets it to draw in the painting's CSS pixels. */
+  const placer = ({ piece, origin }: Layer, width: number) => (canvas: HTMLCanvasElement) => {
+    const [x, y, w, h] = piece.box;
+    const scale = scaleOf();
+    canvas.style.left = `${(x - BLEED - origin[0]) * width}px`;
+    canvas.style.top = `${(y - BLEED - origin[1]) * width}px`;
+    const ctx = sized(canvas, (w + BLEED * 2) * width, (h + BLEED * 2) * width, scale);
+    ctx?.setTransform(scale, 0, 0, scale, -(x - BLEED) * width * scale, -(y - BLEED) * width * scale);
+    return ctx;
   };
 
   const paintThumb = () => {
@@ -320,6 +349,7 @@ export function initEasel(): () => void {
     const scale = scaleOf();
     paintJob?.abort();
     const { signal } = (paintJob = new AbortController());
+    busy = true;
     easel.dispatchEvent(new CustomEvent('easel:painting'));
 
     await layOver(
@@ -334,22 +364,11 @@ export function initEasel(): () => void {
       signal,
     );
 
-    for (const { piece, holder, origin } of layers) {
+    for (const layer of layers) {
       if (signal.aborted) return;
-      const [x, y, w, h] = piece.box;
-      await layOver(
-        holder,
-        'sl-paint',
-        (canvas) => {
-          canvas.style.left = `${(x - BLEED - origin[0]) * width}px`;
-          canvas.style.top = `${(y - BLEED - origin[1]) * width}px`;
-          const ctx = sized(canvas, (w + BLEED * 2) * width, (h + BLEED * 2) * width, scale);
-          ctx?.setTransform(scale, 0, 0, scale, -(x - BLEED) * width * scale, -(y - BLEED) * width * scale);
-          return ctx;
-        },
-        (ctx) => paintPiece(ctx, piece, width, night, signal),
-        signal,
-      );
+      const art = layer === recordLayer ? cover : null;
+      if (layer === recordLayer) coverOnRecord = art;
+      await layOver(layer.holder, 'sl-paint', placer(layer, width), (ctx) => paintPiece(ctx, layer.piece, width, night, signal, art ?? undefined), signal);
     }
     await breathe();
     if (signal.aborted) return;
@@ -368,6 +387,25 @@ export function initEasel(): () => void {
     easel.classList.add('is-painted');
     easel.dispatchEvent(new CustomEvent('easel:painted'));
     paintThumb();
+    busy = false;
+    // A cover that came in after the knife passed the record.
+    void repaintRecord();
+  };
+
+  /** Repaints only the record, when its song's cover is not the one on it. */
+  const repaintRecord = async () => {
+    const { width, night } = painted;
+    if (busy || !width || !recordLayer || coverOnRecord === cover) return;
+    busy = true;
+    const { signal } = (paintJob = new AbortController());
+    const art = cover;
+    coverOnRecord = art;
+    await layOver(recordLayer.holder, 'sl-paint', placer(recordLayer, width), (ctx) => paintPiece(ctx, recordLayer.piece, width, night, signal, art ?? undefined), signal, true);
+    await up;
+    if (signal.aborted) return;
+    busy = false;
+    paintThumb();
+    void repaintRecord();
   };
 
   // --- Swatches ----------------------------------------------------------------
@@ -483,6 +521,7 @@ export function initEasel(): () => void {
 
   // --- Label, tabs, panels ---------------------------------------------------------
   const setLabel = (section: Section | null, withLink: boolean) => {
+    labelled = { id: section?.id ?? null, withLink };
     const shown = section ?? painting;
     if (label.title) label.title.textContent = shown.title;
     if (label.date) label.date.textContent = shown.date;
@@ -859,6 +898,31 @@ export function initEasel(): () => void {
 
   const onPhoneChange = () => setFull(phone.matches && active !== null);
 
+  // --- The song on the record --------------------------------------------------------
+  const vinylLabel = easel.querySelector<HTMLImageElement>('[data-vinyl-label]');
+  let coverUrl = '';
+  const onTrack = (event: Event) => {
+    const track = (event as CustomEvent<ListeningTrackPayload>).detail;
+    const listening = sections.get('listening');
+    const named = labelOf(track);
+    if (listening && named) {
+      Object.assign(listening, named);
+      if (labelled.id === 'listening') setLabel(listening, labelled.withLink);
+    }
+    // The record on the listening panel wears the cover too, once it is shown.
+    const thumb = track.thumbUrl?.trim() || track.artworkUrl?.trim();
+    if (vinylLabel && !vinylLabel.hidden && thumb) vinylLabel.src = thumb;
+
+    const url = coverOf(track);
+    if (url === coverUrl) return;
+    coverUrl = url;
+    void (url ? loadCover(url) : Promise.resolve(null)).then((image) => {
+      if (url !== coverUrl) return;
+      cover = image;
+      void repaintRecord();
+    });
+  };
+
   document.addEventListener('click', onClick);
   document.addEventListener('keydown', onKey);
   document.addEventListener('pointerover', onOver);
@@ -870,6 +934,7 @@ export function initEasel(): () => void {
   document.addEventListener('focusout', onOut);
   window.addEventListener('popstate', onPop);
   phone.addEventListener('change', onPhoneChange);
+  document.addEventListener(LISTENING_TRACK_EVENT, onTrack);
 
   // The painting waits for an idle moment. The chips are painted just after
   // the first frame, when the page is already laid out and measuring them
@@ -907,5 +972,6 @@ export function initEasel(): () => void {
     document.removeEventListener('focusout', onOut);
     window.removeEventListener('popstate', onPop);
     phone.removeEventListener('change', onPhoneChange);
+    document.removeEventListener(LISTENING_TRACK_EVENT, onTrack);
   };
 }

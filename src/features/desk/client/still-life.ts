@@ -339,20 +339,23 @@ function backdropStudy(b: Brush) {
   if (night) soft(room, oval(b, 0.485, 0.895, 0.12, 0.016), { l: 0.5, c: 0.06, h: 55, a: 0.18 }, 0.02);
 }
 
+/** The record sleeve: a square card, its centre, half its side, and how far it leans. */
+const SLEEVE = { x: 0.745, y: 0.735, half: 0.122, lean: -0.04 };
+
 /** The record sleeve's outline, nudged by (dx, dy). */
 function sleeveShape(b: Brush, dx = 0, dy = 0) {
-  const lean = -0.04;
-  const half = 0.122;
+  const { x: cx, y: cy, half, lean } = SLEEVE;
   const corner = (x: number, y: number): [number, number] => [
-    0.745 + dx + x * Math.cos(lean) - y * Math.sin(lean),
-    0.735 + dy + x * Math.sin(lean) + y * Math.cos(lean),
+    cx + dx + x * Math.cos(lean) - y * Math.sin(lean),
+    cy + dy + x * Math.sin(lean) + y * Math.cos(lean),
   ];
   return shape(b, [corner(-half, -half), corner(half, -half), corner(half, half), corner(-half, half)]);
 }
 
 // --- Studies of the things ---------------------------------------------------------
 
-type Study = (b: Brush) => void;
+/** `cover` is the art of the song on the record, for the sleeve to print. */
+type Study = (b: Brush, cover?: CanvasImageSource) => void;
 
 // A small oil on the wall in a pale oak frame, matted: a cube on a table, the
 // first of the projects.
@@ -534,24 +537,56 @@ const disc: Study = (b) => {
   fillPath(b, oval(b, cx, cy, 0.0035, 0.0035), paint(b, { l: 0.3, c: 0.02, h: 250 }));
 };
 
-// The record's sleeve, the disc half out of it: printed card, a sun over a
-// line, worn pale at the edges.
-const record: Study = (b) => {
+/**
+ * The cover, square on the leaning card, in the room's light: the window
+ * lifts the upper left and the far corner falls into shade. At night the
+ * room's dimness goes over it, the way `Brush.t` dims every other paint.
+ */
+function printCover(b: Brush, cover: CanvasImageSource, sleeve: Path2D) {
+  const { ctx, U } = b;
+  const { x, y, half, lean } = SLEEVE;
+  ctx.save();
+  ctx.translate(U(x), U(y));
+  ctx.rotate(lean);
+  ctx.drawImage(cover, U(-half), U(-half), U(half * 2), U(half * 2));
+  ctx.restore();
+  ctx.fillStyle = gradient(b, x - half, y - half, x + half, y + half, [
+    [0, { l: 1, c: 0, h: 0, a: 0.2 }],
+    [0.45, { l: 1, c: 0, h: 0, a: 0 }],
+    [1, { l: 0.2, c: 0.02, h: 250, a: 0.16 }],
+  ]);
+  ctx.fill(sleeve);
+  if (!b.night) return;
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = css({ l: 0.56, c: 0.02, h: 250 });
+  ctx.fill(sleeve);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// The record's sleeve, the disc half out of it: printed card, worn pale at
+// the edges. It is printed with the cover of the song on the record, which
+// the knife then paints like anything else in the room; with no song to
+// look at, a sun over a line.
+const record: Study = (b, cover) => {
   const { ctx, U } = b;
   const sleeve = sleeveShape(b);
   fillPath(b, sleeve, gradient(b, 0.62, 0.61, 0.87, 0.86, [[0, { l: 0.92, c: 0.045, h: 14 }], [0.6, { l: 0.87, c: 0.055, h: 12 }], [1, { l: 0.8, c: 0.06, h: 10 }]]));
   ctx.save();
   ctx.clip(sleeve);
-  const sun = ctx.createRadialGradient(U(0.716), U(0.73), 0, U(0.73), U(0.745), U(0.05));
-  sun.addColorStop(0, paint(b, { l: 0.9, c: 0.1, h: 80 }));
-  sun.addColorStop(1, paint(b, { l: 0.8, c: 0.12, h: 66 }));
-  fillPath(b, oval(b, 0.73, 0.745, 0.048, 0.048), sun);
-  ctx.lineWidth = U(0.006);
-  ctx.strokeStyle = paint(b, { l: 0.7, c: 0.08, h: 18 });
-  ctx.beginPath();
-  ctx.moveTo(U(0.668), U(0.821));
-  ctx.lineTo(U(0.828), U(0.815));
-  ctx.stroke();
+  if (cover) {
+    printCover(b, cover, sleeve);
+  } else {
+    const sun = ctx.createRadialGradient(U(0.716), U(0.73), 0, U(0.73), U(0.745), U(0.05));
+    sun.addColorStop(0, paint(b, { l: 0.9, c: 0.1, h: 80 }));
+    sun.addColorStop(1, paint(b, { l: 0.8, c: 0.12, h: 66 }));
+    fillPath(b, oval(b, 0.73, 0.745, 0.048, 0.048), sun);
+    ctx.lineWidth = U(0.006);
+    ctx.strokeStyle = paint(b, { l: 0.7, c: 0.08, h: 18 });
+    ctx.beginPath();
+    ctx.moveTo(U(0.668), U(0.821));
+    ctx.lineTo(U(0.828), U(0.815));
+    ctx.stroke();
+  }
   // The card's edge, thick on the far side.
   fillPath(b, shape(b, [[0.862, 0.608], [0.868, 0.608], [0.876, 0.852], [0.869, 0.853]]), paint(b, { l: 0.74, c: 0.05, h: 12 }));
   ctx.restore();
@@ -802,7 +837,8 @@ function knives(u: number, sizes: number[], thresholds: number[]) {
   return sizes.map((size, i) => ({ size: Math.max(2, size * u), threshold: thresholds[i] }));
 }
 
-function styleOf(id: PieceId, u: number): Style {
+/** `printed`: the record's sleeve carries a song's cover. */
+function styleOf(id: PieceId, u: number, printed = false): Style {
   const common: Style = {
     layers: knives(u, [0.019, 0.0105, 0.0058], [0, 26, 20]),
     stretch: [1.5, 3.2],
@@ -824,6 +860,10 @@ function styleOf(id: PieceId, u: number): Style {
       return { ...common, layers: knives(u, [0.017, 0.009, 0.005], [0, 22, 16]), spill: 0.003 * u };
     case 'books':
       return { ...common, angle: 0, jitter: 0.12, spill: 0.003 * u };
+    // A cover is a picture someone else made: finer blades keep it legible,
+    // and the knife carries less of the room's palette into it.
+    case 'record':
+      return printed ? { ...common, layers: knives(u, [0.013, 0.0068, 0.0036], [0, 20, 14]), spill: 0.002 * u, accentShare: 0.02, whiteShare: 0.22 } : common;
     default:
       return common;
   }
@@ -863,9 +903,11 @@ export async function paintBackdrop(ctx: CanvasRenderingContext2D, u: number, ni
 
 /**
  * One thing, onto its own canvas: the thing's box plus BLEED on every side,
- * with `ctx` set to draw in the painting's CSS pixels.
+ * with `ctx` set to draw in the painting's CSS pixels. `cover` is the song's
+ * art for the record's sleeve; it must be readable (CORS-clean), since the
+ * knife takes its colours from the study.
  */
-export async function paintPiece(ctx: CanvasRenderingContext2D, piece: Piece, u: number, night: boolean, signal?: AbortSignal) {
+export async function paintPiece(ctx: CanvasRenderingContext2D, piece: Piece, u: number, night: boolean, signal?: AbortSignal, cover?: CanvasImageSource) {
   const [x, y, w, h] = piece.box;
   const left = (x - BLEED) * u;
   const top = (y - BLEED) * u;
@@ -876,8 +918,8 @@ export async function paintPiece(ctx: CanvasRenderingContext2D, piece: Piece, u:
   if (!studyCtx) return;
   studyCtx.translate(-left, -top);
   const seed = seedOf(piece.id);
-  STUDIES[piece.id](brush(studyCtx, u, night, seed));
-  await paintOver(ctx, study, [left, top], styleOf(piece.id, u), seeded(seed ^ 0x9e3779b9), signal);
+  STUDIES[piece.id](brush(studyCtx, u, night, seed), cover);
+  await paintOver(ctx, study, [left, top], styleOf(piece.id, u, Boolean(cover)), seeded(seed ^ 0x9e3779b9), signal);
   if (!signal?.aborted) FINISH[piece.id]?.(brush(ctx, u, night, seed + 1));
 }
 
