@@ -11,6 +11,10 @@ export const prerender = false;
 
 const YOUTUBE_POSTER_HOST = 'i.ytimg.com';
 const YOUTUBE_AVATAR_HOSTS = ['yt3.googleusercontent.com', 'yt3.ggpht.com'];
+const GITHUB_AVATAR_HOST = 'avatars.githubusercontent.com';
+// The site's own account, the same allowlist as /api/github/contributions:
+// the proxy does not serve other people's faces from this origin.
+const GITHUB_LOGINS = new Set(['bunizao']);
 
 // Whitelist of allowed Telegram-related domains.
 const TELEGRAM_ALLOWED_DOMAINS = [
@@ -299,13 +303,22 @@ const resolveYouTubeAssetTarget = async (
   return targetUrl ? { status: 'resolved', targetUrl } : { status: 'upstream-unavailable' };
 };
 
+const resolveGitHubAvatarTarget = (request: Request, rawPath: string): ProxyTargetResolution | null => {
+  if (!rawPath.startsWith('github/')) return null;
+  const login = /^github\/([A-Za-z0-9-]{1,39})\/avatar$/u.exec(rawPath)?.[1];
+  if (!login || !GITHUB_LOGINS.has(login) || new URL(request.url).search) return { status: 'invalid-target' };
+  return { status: 'resolved', targetUrl: `https://${GITHUB_AVATAR_HOST}/${login}?s=160` };
+};
+
 const resolveRequestTarget = async (
   request: Request,
   rawPath: string,
   locals: App.Locals,
 ): Promise<{ allowedDomains: string[]; targetResolution: ProxyTargetResolution }> => {
   const youtubeAssetTarget = await resolveYouTubeAssetTarget(request, rawPath);
+  const githubAvatarTarget = resolveGitHubAvatarTarget(request, rawPath);
   const allowedDomains = getAllowedDomains(locals);
+  if (githubAvatarTarget?.status === 'resolved') allowedDomains.push(GITHUB_AVATAR_HOST);
   if (youtubeAssetTarget?.status === 'resolved') {
     const hostname = new URL(youtubeAssetTarget.targetUrl).hostname.toLowerCase();
     if (hostname === YOUTUBE_POSTER_HOST) {
@@ -318,6 +331,7 @@ const resolveRequestTarget = async (
   return {
     allowedDomains,
     targetResolution: youtubeAssetTarget
+      ?? githubAvatarTarget
       ?? resolveProxyTarget(request, rawPath, allowedDomains),
   };
 };

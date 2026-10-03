@@ -149,6 +149,30 @@ describe('static Telegram proxy', () => {
     expect(fetchedUrl).toBe('https://i.ytimg.com/vi/aqz-KE-bpKQ/maxresdefault.jpg');
   });
 
+  test('proxies the site account\'s GitHub avatar and no one else\'s', async () => {
+    const fetchedUrls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchedUrls.push(String(input));
+      return new Response('jpeg', { headers: { 'Content-Type': 'image/jpeg' } });
+    }) as unknown as typeof fetch;
+
+    const call = (path: string, search = '') => GET({
+      request: new Request(`https://buxx.me/static/${path}${search}`, { headers: { 'CF-Connecting-IP': '192.0.2.41' } }),
+      params: { path },
+      locals: {},
+    } as never);
+
+    const own = await call('github/bunizao/avatar');
+    expect(own.status).toBe(200);
+    expect(own.headers.get('content-type')).toBe('image/jpeg');
+    expect(fetchedUrls).toEqual(['https://avatars.githubusercontent.com/bunizao?s=160']);
+
+    expect((await call('github/torvalds/avatar')).status).toBe(400);
+    expect((await call('github/bunizao/avatar', '?s=4000')).status).toBe(400);
+    expect((await call('https:/avatars.githubusercontent.com/torvalds')).status).toBe(400);
+    expect(fetchedUrls).toHaveLength(1);
+  });
+
   test('resolves and proxies bounded YouTube channel avatars', async () => {
     const fetchedUrls: string[] = [];
     const redirectModes: Array<RequestRedirect | undefined> = [];
