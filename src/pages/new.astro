@@ -159,6 +159,12 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
   touchIcon="/desk/touch-icon.png"
   hideSiteNav
 >
+  <script slot="head" is:inline>
+    // A reload or a step back finds the desk already set: no arrival (desk.css).
+    if (/^(reload|back_forward)$/.test(performance.getEntriesByType('navigation')[0]?.type ?? '')) {
+      document.documentElement.classList.add('desk-set');
+    }
+  </script>
   <nav slot="header-actions" class="desk-nav" aria-label="Site">
     {navLinks.map((link) => <a href={link.href}>{link.label.toLowerCase()}</a>)}
   </nav>

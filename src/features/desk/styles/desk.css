@@ -5,12 +5,16 @@
    render `.desk`, so the stylesheet never leaks onto the rest of the site even
    when the bundler shares a chunk. */
 
+/* The prose's face. A swap paints the prose in a stand-in first, even when
+   the face is cached, and every paragraph re-wraps a frame later; a reload
+   flashed. A short wait covers a cached face and a fast network, and a slow
+   one still gets the stand-in. */
 @font-face {
   font-family: 'Space Grotesk';
   src: url('/fonts/space-grotesk-latin-variable.woff2') format('woff2');
   font-weight: 300 700;
   font-style: normal;
-  font-display: swap;
+  font-display: fallback;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
     U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
@@ -49,8 +53,8 @@
 
   --d-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --d-cjk: 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Microsoft YaHei';
-  --d-display: 'Space Grotesk', 'Geist', ui-sans-serif, system-ui, -apple-system, var(--d-cjk), sans-serif;
-  --d-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, var(--d-cjk), sans-serif;
+  --d-display: 'Space Grotesk', 'Geist', 'Geist Fallback', ui-sans-serif, system-ui, -apple-system, var(--d-cjk), sans-serif;
+  --d-sans: 'Geist', 'Geist Fallback', ui-sans-serif, system-ui, -apple-system, var(--d-cjk), sans-serif;
 }
 
 :root.dark:has(.desk) {
@@ -351,7 +355,8 @@ body:has(.desk) .spotlight-overlay {
   background: oklch(0.87 calc(var(--c) * 1.3) var(--h));
   transition:
     rotate 0.4s var(--d-ease),
-    scale 0.4s var(--d-ease);
+    scale 0.4s var(--d-ease),
+    opacity 0.3s ease;
 }
 
 .desk-chip.has-swatch::before {
@@ -1324,6 +1329,19 @@ body:has(.desk) .spotlight-overlay {
   .desk-foot {
     animation: desk-in 0.9s ease 0.55s backwards;
   }
+
+  /* A reload or a step back finds the desk already set (new.astro). */
+  :root.desk-set :is(.global-header-actions, .desk-prose > p, .easel-hang, .desk-foot),
+  :root.desk-set .desk-chip::before {
+    animation: none;
+  }
+}
+
+/* With no arrival to hide it, the stand-in dab would show and then change
+   shape under the reader when the swatch lands a moment later; the paint
+   behind a word waits for its swatch instead. */
+:root.desk-set .desk-chip:not(.has-swatch)::before {
+  opacity: 0;
 }
 
 @keyframes desk-in {
