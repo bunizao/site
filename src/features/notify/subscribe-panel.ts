@@ -310,7 +310,8 @@ function setupPanel(panel: HTMLElement): void {
         showView('success');
       } else if (response.status === 429) {
         errorMsg.textContent = t.rateLimited;
-      } else if (data.code?.startsWith('turnstile')) {
+      } else if (response.status === 400 && data.error === 'Turnstile verification failed') {
+        // site-api's refusal; `code` says why (missing_token, invalid_token, …).
         errorMsg.textContent = t.verifyFailed;
       } else {
         errorText.textContent = data.error || t.error;
