@@ -363,16 +363,17 @@ body:has(.desk) .spotlight-overlay {
 }
 
 /* --- Footer: one quiet line under the prose ------------------------------- */
+/* One line of small print under the prose, the link at the end of it. */
 .desk-foot {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 4px 18px;
   grid-column: 1;
   grid-row: 2;
   padding: 0 var(--d-gutter) 28px;
   color: var(--d-faint);
   font: 400 12.5px/1.5 var(--d-sans);
+}
+
+.desk-foot-dot {
+  margin-inline: 7px;
 }
 
 .desk-foot a {

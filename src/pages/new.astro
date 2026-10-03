@@ -296,8 +296,7 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
     </Easel>
 
     <footer class="desk-foot">
-      <span>{copyrightMark(new Date().getFullYear())}</span>
-      <a href="/privacy">privacy</a>
+      {copyrightMark(new Date().getFullYear())}<span class="desk-foot-dot" aria-hidden="true">·</span><a href="/privacy">privacy</a>
     </footer>
   </main>
 </Layout>
