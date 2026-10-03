@@ -1,20 +1,18 @@
-// The pendant lamp over the desk. Pressing it pulls the chain, which switches
-// it; dragging it swings it on its cord, and its light swings with it, a
-// damped pendulum that follows the finger while held and keeps the speed it
-// was let go with. The light only comes on once the paint is dry: it goes
-// out while the room is repainted and flickers back when the easel is done.
-// By day it starts off, as a lamp in daylight only burns power; by night, on.
-// A switch is kept for the next visit at the same time of day.
+// The pendant lamp over the desk, which is the switch between day and night.
+// Pressing it pulls the chain: the room turns to night with the lamp lit, or
+// back to day with it out, and so does the site's theme. Dragging it swings
+// it on its cord, and its light swings with it, a damped pendulum that
+// follows the finger while held and keeps the speed it was let go with. The
+// light only comes on once the paint is dry: it goes out while the room is
+// repainted and flickers back when the easel is done.
 //
-// The first time it comes on by night, it is lit the way a lamp in a dark
-// room is: a beat of dark, the chain pulled, the filament catching in the
-// bulb with a stutter, and the light spreading from the bulb to the table.
+// Each time night falls, the lamp is lit the way a lamp in a dark room is: a
+// beat of dark, the filament catching in the bulb with a stutter, and the
+// light spreading from the bulb to the table.
 
 import { ASPECT, LAMP_BULB, LAMP_PIVOT } from '@/features/desk/shared/still-life';
 import { play } from './sound';
 
-// Night keeps the key the lamp had before day and night were apart.
-const KEYS = { day: 'desk-lamp-day', night: 'desk-lamp' } as const;
 // A cord a little over a metre long.
 const PERIOD_S = 2.2;
 const DAMPING = 0.09;
@@ -24,7 +22,7 @@ const REACH = 0.32;
 const TAP_PX = 5;
 
 // First light, after the paint is dry: the room sits dark this long, then the
-// chain is pulled and the filament catches a moment after.
+// filament catches a moment after.
 const BEAT_MS = 320;
 // Nor before the prose has come in (its last stroke of paint is down by then,
 // styles/desk.css), so the eye is free to go to the painting.
@@ -36,18 +34,18 @@ const SPREAD_MS = 1900;
 
 const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
 const isNight = () => document.documentElement.classList.contains('dark');
-const timeOfDay = (): keyof typeof KEYS => (isNight() ? 'night' : 'day');
+const systemIsDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-/** The switch as last left at this time of day. */
-const stored = () => {
-  try {
-    const value = localStorage.getItem(KEYS[timeOfDay()]);
-    if (value) return value === 'on';
-  } catch {
-    // Not kept: the time of day decides.
-  }
-  return isNight();
-};
+/**
+ * The theme setting a pull on the chain leaves behind (Layout.astro keeps it):
+ * 'light' or 'dark' holds the site there on every page and visit, 'system'
+ * lets it follow the device again.
+ */
+function settingAfterPull(night: boolean, systemDark: boolean): 'light' | 'dark' | 'system' {
+  // Back where the device already is: hand the theme back to it.
+  if (night === systemDark) return 'system';
+  return night ? 'dark' : 'light';
+}
 
 export function initLamp() {
   const easel = document.querySelector<HTMLElement>('[data-easel]');
@@ -57,12 +55,13 @@ export function initLamp() {
   if (!easel || !still || !button || lights.length !== 2) return;
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let time = timeOfDay();
-  let on = stored();
+  let on = isNight();
   let dry = false;
   let shining = false;
-  /** Whether it last shone by night or by day, so a repaint at the same hour only strikes it. */
-  let shoneBy: 'night' | 'day' | null = null;
+  /** Whether it has shone since night fell, so a repaint in the same night only strikes it. */
+  let litTonight = false;
+  /** Whether the chain was just pulled, which already set the lamp swinging. */
+  let pulled = false;
   let pending = 0;
 
   // A filament stutters as it catches, and glows a moment after it is cut.
@@ -103,7 +102,7 @@ export function initLamp() {
   const shine = (value: boolean, first = false) => {
     if (value === shining) return;
     shining = value;
-    if (value) shoneBy = isNight() ? 'night' : 'day';
+    if (value) litTonight = true;
     easel.classList.toggle('is-lit', value);
     for (const light of lights) {
       light.getAnimations().forEach((animation) => animation.cancel());
@@ -180,8 +179,10 @@ export function initLamp() {
   const firstLight = () => {
     pending = 0;
     if (!on || !dry) return;
-    // The chain is pulled; the light catches as the lamp starts to swing.
-    nudge(0.2);
+    // The chain is pulled, if no one has; the light catches as the lamp
+    // starts to swing.
+    if (!pulled) nudge(0.2);
+    pulled = false;
     shine(true, true);
   };
 
@@ -251,16 +252,13 @@ export function initLamp() {
       sync();
       return;
     }
-    on = !on;
-    try {
-      localStorage.setItem(KEYS[time], on ? 'on' : 'off');
-    } catch {
-      // Kept for this visit only.
-    }
-    play('chain', { on });
+    const night = !isNight();
+    play('chain', { on: night });
     // The chain tugs it.
-    nudge(on ? 0.2 : -0.2);
-    sync();
+    nudge(night ? 0.2 : -0.2);
+    pulled = night;
+    // The room follows once the theme has turned (easel:painted).
+    document.dispatchEvent(new CustomEvent('theme:set', { detail: settingAfterPull(night, systemIsDark()) }));
   };
 
   button.addEventListener('pointerdown', onDown);
@@ -273,17 +271,19 @@ export function initLamp() {
   // The light waits for the paint, and goes out while the room is repainted.
   easel.addEventListener('easel:painting', () => {
     dry = false;
-    // Day turned to night or back: the switch as left at the new time.
-    if (timeOfDay() !== time) {
-      time = timeOfDay();
-      on = stored();
-    }
     sync();
   });
+  // Night or day as the theme now is, however it turned: the chain, the
+  // command palette, or the device.
   easel.addEventListener('easel:painted', () => {
     dry = true;
-    // Lit by night for the first time, since the visit began or the room went dark.
-    if (on && !shining && isNight() && shoneBy !== 'night' && !reduced.matches) {
+    on = isNight();
+    if (!on) {
+      litTonight = false;
+      pulled = false;
+    }
+    // Lit for the first time since the visit began or night fell.
+    if (on && !shining && !litTonight && !reduced.matches) {
       button.setAttribute('aria-pressed', 'true');
       wait();
       pending = window.setTimeout(firstLight, Math.max(BEAT_MS, ARRIVAL_MS - performance.now()));

@@ -492,6 +492,35 @@ body:has(.desk) .spotlight-overlay {
   transition: none;
 }
 
+/* The painting is kept by day and by night; the theme says which shows. */
+:root:not(.dark) .sl canvas[data-time='night'],
+:root.dark .sl canvas[data-time='day'] {
+  opacity: 0;
+}
+
+/* With both paintings ready, the theme turns the way the light in a room
+   does: all of it at once, slowly, not a wipe across the page. The night
+   comes in a little slower than the day, and the lamp catches in it. */
+:root.theme-wipe:has(.desk)::view-transition-group(root) {
+  animation-duration: 0.9s;
+}
+
+:root.theme-wipe:has(.desk)::view-transition-new(root) {
+  mask-image: none;
+  animation: desk-light-turns 0.9s cubic-bezier(0.4, 0, 0.2, 1) both;
+  will-change: opacity;
+}
+
+:root.theme-wipe.dark:has(.desk)::view-transition-new(root) {
+  animation-duration: 1.1s;
+}
+
+@keyframes desk-light-turns {
+  from {
+    opacity: 0;
+  }
+}
+
 .easel-ground {
   z-index: 2;
   pointer-events: none;

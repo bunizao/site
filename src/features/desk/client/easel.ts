@@ -11,11 +11,13 @@
 // Every part of the painting is painted out of sight on a fresh canvas. The
 // first time, once the painting is in view, each comes up under the knife,
 // the wall row by row and then the things one drag after another; after
-// that, a fresh canvas fades up over the one on show, from day to night when
-// the theme turns. The easel says when it starts
-// a painting and when the paint is dry (`easel:painting`, `easel:painted`),
-// which is when the lamp may come on, and which section it has just set on
-// the canvas (`easel:shown`).
+// that, a fresh canvas fades up over the one on show. The painting is kept
+// by day and by night: once the one on show is dry, the other is painted out
+// of sight while the page is idle, so a turn of the theme only swaps which
+// canvases show (desk.css). The easel says when it starts a painting and
+// when the paint is dry (`easel:painting`, `easel:painted`), which is when
+// the lamp may come on, and which section it has just set on the canvas
+// (`easel:shown`).
 //
 // The record wears the song on it: each new cover from the listening card is
 // painted onto the sleeve and its colour onto the disc's label, brought up
@@ -91,6 +93,16 @@ const easeOut = (t: number) => 1 - (1 - t) ** 3;
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
 const scaleOf = () => Math.min(devicePixelRatio || 1, 2);
 
+/** The painting's time of day, which is the theme's. */
+type Time = 'day' | 'night';
+const timeNow = (): Time => (document.documentElement.classList.contains('dark') ? 'night' : 'day');
+const otherTime = (time: Time): Time => (time === 'day' ? 'night' : 'day');
+
+const idle = () =>
+  new Promise<void>((resolve) =>
+    window.requestIdleCallback ? window.requestIdleCallback(() => resolve(), { timeout: 2000 }) : setTimeout(resolve, 60),
+  );
+
 /** Draws a coat's strokes as far as `t` (0..1) of the pass has dragged them. */
 const dragTo = (ctx: CanvasRenderingContext2D, strokes: { stroke: Stroke; at: number }[], t: number) => {
   for (const { stroke, at } of strokes) {
@@ -152,13 +164,16 @@ export function initEasel(): () => void {
   let opener: HTMLElement | null = null;
   /** Whether the last press was a finger rather than a key or a mouse. */
   let byFinger = false;
-  let painted = { width: 0, night: false };
   let pass = 0;
-  /** Whether some paint is still going on: the whole painting, or the record. */
-  let busy = false;
-  /** The song once its cover is in, and the one the record was last painted with. */
+  /** The width each time of day was last painted whole at, and the song its record wears. */
+  const painted: Record<Time, number> = { day: 0, night: 0 };
+  const songOn: Record<Time, Song | null> = { day: null, night: null };
+  /** The time of day the paint was last said to be dry for. */
+  let onShow: Time | null = null;
+  /** The paint going on, one job at a time: which time of day, how wide, and whether out of sight. */
+  let job: { time: Time; width: number; quiet: boolean; stop: AbortController } | null = null;
+  /** The song once its cover is in. */
   let song: Song | null = null;
-  let songOnRecord: Song | null = null;
   /** The section the gallery label names, and whether it shows its link. */
   let labelled: { id: string | null; withLink: boolean } = { id: null, withLink: false };
 
@@ -193,9 +208,9 @@ export function initEasel(): () => void {
   /** The parts of the painting that show the song: the disc, then its sleeve. */
   const songLayers = layers.filter((layer) => layer.piece.id === 'disc' || layer.piece.id === 'record');
 
-  /** The canvas a holder shows for `className`: the newest that has come up. */
-  const shown = (holder: HTMLElement, className: string) => {
-    const all = holder.querySelectorAll<HTMLCanvasElement>(`:scope > canvas.${className}:not(.is-wet)`);
+  /** The canvas a holder shows for `className` at `time`: the newest that has come up. */
+  const shown = (holder: HTMLElement, className: string, time = timeNow()) => {
+    const all = holder.querySelectorAll<HTMLCanvasElement>(`:scope > canvas.${className}[data-time="${time}"]:not(.is-wet)`);
     return all[all.length - 1] ?? null;
   };
 
@@ -267,10 +282,12 @@ export function initEasel(): () => void {
     );
 
   /**
-   * Paints a fresh canvas over the one on show and brings it up; the old one
-   * goes once it is covered. `place` sizes the fresh one and gives back its
-   * context, ready for `work`. A fresh canvas fades up over an old one,
-   * unless `rise` brings it up under the knife like a first coat.
+   * Paints a fresh canvas for `time` over the one on show and brings it up;
+   * the old one goes once it is covered. `place` sizes the fresh one and
+   * gives back its context, ready for `work`. A fresh canvas fades up over an
+   * old one, unless `rise` brings it up under the knife like a first coat.
+   * A `quiet` one is for the time of day not on show: it only takes the old
+   * one's place, out of sight.
    */
   const layOver = async (
     holder: HTMLElement,
@@ -278,21 +295,28 @@ export function initEasel(): () => void {
     place: (canvas: HTMLCanvasElement) => CanvasRenderingContext2D | null,
     work: (ctx: CanvasRenderingContext2D) => Promise<void>,
     signal: AbortSignal,
-    rise = false,
+    { time, rise = false, quiet = false }: { time: Time; rise?: boolean; quiet?: boolean },
   ) => {
-    const old = [...holder.querySelectorAll<HTMLCanvasElement>(`:scope > canvas.${className}`)];
+    const all = [...holder.querySelectorAll<HTMLCanvasElement>(`:scope > canvas.${className}`)];
+    const old = all.filter((canvas) => canvas.dataset.time === time);
     const fresh = document.createElement('canvas');
     fresh.className = `${className} is-wet`;
+    fresh.dataset.time = time;
     fresh.setAttribute('aria-hidden', 'true');
     // Over the last of its kind; the first goes under everything else in
     // the holder but the disc's turntable.
-    const under = old[old.length - 1] ?? holder.querySelector(':scope > .sl-turn');
+    const under = all[all.length - 1] ?? holder.querySelector(':scope > .sl-turn');
     if (under) under.after(fresh);
     else holder.prepend(fresh);
     const ctx = place(fresh);
     if (ctx) await work(ctx);
     if (signal.aborted || !ctx) {
       fresh.remove();
+      return;
+    }
+    if (quiet) {
+      fresh.classList.remove('is-wet');
+      old.forEach((canvas) => canvas.remove());
       return;
     }
     if ((!old.length || rise) && !reduced.matches) {
@@ -340,19 +364,9 @@ export function initEasel(): () => void {
 
   // The knife work takes the best part of a second and gives the page room
   // as it goes; a newer pass (a resize, the theme) stops the one before.
-  let paintJob: AbortController | null = null;
-  const paint = async () => {
-    if (easel.classList.contains('is-full')) return;
-    const width = still.clientWidth;
-    const night = isNight();
-    if (!width || (width === painted.width && night === painted.night)) return;
-    painted = { width, night };
+  const paintWhole = async (time: Time, width: number, signal: AbortSignal, quiet: boolean) => {
+    const night = time === 'night';
     const scale = scaleOf();
-    paintJob?.abort();
-    const { signal } = (paintJob = new AbortController());
-    busy = true;
-    easel.dispatchEvent(new CustomEvent('easel:painting'));
-
     await layOver(
       still,
       'sl-backdrop',
@@ -363,78 +377,126 @@ export function initEasel(): () => void {
       },
       (ctx) => paintBackdrop(ctx, width, night, signal),
       signal,
+      { time, quiet },
     );
 
     // One song for the whole pass, though a new one may come in during it.
-    const playing = (songOnRecord = song);
+    const playing = (songOn[time] = song);
     for (const layer of layers) {
       if (signal.aborted) return;
       const art = songLayers.includes(layer) ? playing : null;
-      await layOver(layer.holder, 'sl-paint', placer(layer, width), (ctx) => paintPiece(ctx, layer.piece, width, night, signal, art), signal);
+      await layOver(layer.holder, 'sl-paint', placer(layer, width), (ctx) => paintPiece(ctx, layer.piece, width, night, signal, art), signal, { time, quiet });
     }
     await breathe();
-    if (signal.aborted) return;
-
-    // The light is soft; one pixel per CSS pixel is plenty.
+    // The lamp is the night: only the night has its light. It is soft; one
+    // pixel per CSS pixel is plenty.
+    if (signal.aborted || !night) return;
     const litCtx = sized(lit, width, width * ASPECT, 1);
     const airCtx = sized(air, width, width * ASPECT, 1);
-    if (litCtx && airCtx) {
-      litCtx.clearRect(0, 0, lit.width, lit.height);
-      airCtx.clearRect(0, 0, air.width, air.height);
-      paintLight(litCtx, airCtx, width, night);
+    if (!litCtx || !airCtx) return;
+    litCtx.clearRect(0, 0, lit.width, lit.height);
+    airCtx.clearRect(0, 0, air.width, air.height);
+    paintLight(litCtx, airCtx, width, true);
+  };
+
+  /** Repaints only the disc and its sleeve, with the song playing. */
+  const paintRecord = async (time: Time, width: number, signal: AbortSignal, quiet: boolean) => {
+    const playing = (songOn[time] = song);
+    for (const layer of songLayers) {
+      if (signal.aborted) return;
+      await layOver(layer.holder, 'sl-paint', placer(layer, width), (ctx) => paintPiece(ctx, layer.piece, width, time === 'night', signal, playing), signal, {
+        time,
+        rise: true,
+        quiet,
+      });
     }
-    // Dry is not done until the knife has brought every part up.
-    await up;
-    if (signal.aborted) return;
+  };
+
+  /** The paint for `time` is dry: the lamp may come on, and the small painting in the tabs takes it. */
+  const dry = (time: Time) => {
+    onShow = time;
     easel.classList.add('is-painted');
     easel.dispatchEvent(new CustomEvent('easel:painted'));
     paintThumb();
-    busy = false;
-    // A song that came in during the pass.
-    void repaintRecord();
   };
 
-  /** Repaints only the disc and its sleeve, when the song on them is not the one playing. */
-  const repaintRecord = async () => {
-    const { width, night } = painted;
-    if (busy || !width || songOnRecord === song) return;
-    busy = true;
-    const { signal } = (paintJob = new AbortController());
-    const playing = (songOnRecord = song);
-    for (const layer of songLayers) {
-      if (signal.aborted) return;
-      await layOver(layer.holder, 'sl-paint', placer(layer, width), (ctx) => paintPiece(ctx, layer.piece, width, night, signal, playing), signal, true);
-    }
-    await up;
+  /**
+   * Starts the next job, if nothing is being painted: the time of day on show
+   * first, then the song on its record; then, once the page is idle and out
+   * of sight, the same for the other time.
+   */
+  const settle = () => {
+    const width = still.clientWidth;
+    if (job || !width || easel.classList.contains('is-full')) return;
+    const time = timeNow();
+    const other = otherTime(time);
+    if (painted[time] !== width) return void run(time, width, false, paintWhole);
+    // Painted already, out of sight: the theme has only swapped the canvases.
+    if (onShow !== time) dry(time);
+    if (songOn[time] !== song) return void run(time, width, false, paintRecord);
+    if (painted[other] !== width) return void run(other, width, true, paintWhole);
+    if (songOn[other] !== song) return void run(other, width, true, paintRecord);
+  };
+
+  const run = async (time: Time, width: number, quiet: boolean, work: typeof paintWhole) => {
+    const stop = new AbortController();
+    const { signal } = stop;
+    job = { time, width, quiet, stop };
+    if (quiet) await idle();
     if (signal.aborted) return;
-    busy = false;
-    paintThumb();
-    void repaintRecord();
+    if (work === paintWhole && !quiet) easel.dispatchEvent(new CustomEvent('easel:painting'));
+    await work(time, width, signal, quiet);
+    // Dry is not done until the knife has brought every part up.
+    if (!quiet) await up;
+    if (signal.aborted) return;
+    job = null;
+    if (work === paintWhole) painted[time] = width;
+    if (quiet) paintAllSwatches(time);
+    else if (work === paintWhole) dry(time);
+    else paintThumb();
+    settle();
+  };
+
+  /** A new size or theme: stops the paint going on, unless it is still the right job. */
+  const repaint = () => {
+    const width = still.clientWidth;
+    const time = timeNow();
+    if (job && job.width === width && (job.time === time) !== job.quiet) return;
+    job?.stop.abort();
+    job = null;
+    settle();
   };
 
   // --- Swatches ----------------------------------------------------------------
-  const swatchTone = (el: HTMLElement): Tone => {
+  const swatchTone = (el: HTMLElement, time: Time): Tone => {
     const style = getComputedStyle(el);
     const h = Number(style.getPropertyValue('--h')) || 0;
     const c = Number(style.getPropertyValue('--c')) || 0;
-    return isNight() ? { l: 0.42, c: c * 1.15, h } : { l: 0.87, c: c * 1.3, h };
+    return time === 'night' ? { l: 0.42, c: c * 1.15, h } : { l: 0.87, c: c * 1.3, h };
   };
 
-  // What each swatch was painted for: the same size in the same theme keeps it.
-  const swatchKeys = new WeakMap<HTMLElement, string>();
+  // Each swatch as painted for each time of day, and at what size: a turn of
+  // the theme only swaps them.
+  const swatches = new WeakMap<HTMLElement, Partial<Record<Time, { size: string; url: string }>>>();
 
-  /** Paints the swatch behind each of `els`, measuring all of them before
-      painting any: a write between two reads would lay the page out again. */
-  const paintSwatches = (els: HTMLElement[]) => {
-    const night = isNight();
-    const measured = els.map((el) => ({ el, width: el.offsetWidth, height: el.offsetHeight, tone: swatchTone(el) }));
+  /** Paints the swatch behind each of `els` for `time`, measuring all of them
+      before painting any: a write between two reads would lay the page out
+      again. Only the time on show is put on. */
+  const paintSwatches = (els: HTMLElement[], time = timeNow()) => {
+    const measured = els.map((el) => ({ el, width: el.offsetWidth, height: el.offsetHeight, tone: swatchTone(el, time) }));
     for (const { el, width, height, tone } of measured) {
-      const key = `${width}x${height}x${night}`;
-      if (!width || swatchKeys.get(el) === key) continue;
-      const url = swatch(width * 1.08 + 8, height + 4, tone, seedOf(el.textContent ?? ''));
-      if (!url) continue;
-      swatchKeys.set(el, key);
-      el.style.setProperty('--swatch', `url(${url})`);
+      if (!width) continue;
+      const size = `${width}x${height}`;
+      const kept = swatches.get(el) ?? {};
+      let url = kept[time]?.size === size ? kept[time].url : '';
+      if (!url) {
+        url = swatch(width * 1.08 + 8, height + 4, tone, seedOf(el.textContent ?? ''));
+        if (!url) continue;
+        swatches.set(el, { ...kept, [time]: { size, url } });
+      }
+      const value = `url(${url})`;
+      if (time !== timeNow() || el.style.getPropertyValue('--swatch') === value) continue;
+      el.style.setProperty('--swatch', value);
       el.classList.add('has-swatch');
     }
   };
@@ -452,8 +514,8 @@ export function initEasel(): () => void {
     });
   };
 
-  const paintAllSwatches = () =>
-    paintSwatches([...document.querySelectorAll<HTMLElement>('.desk-chip'), ...[...tabs.values()].filter((tab) => !tab.hidden)]);
+  const paintAllSwatches = (time = timeNow()) =>
+    paintSwatches([...document.querySelectorAll<HTMLElement>('.desk-chip'), ...[...tabs.values()].filter((tab) => !tab.hidden)], time);
 
   // --- The coat ------------------------------------------------------------------
   const coatTone = (section: Section): Tone =>
@@ -867,7 +929,7 @@ export function initEasel(): () => void {
   const onResize = () => {
     clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(() => {
-      void paint();
+      repaint();
       const section = active ? sections.get(active) : null;
       if (!section) return;
       // Going full screen on a phone resizes the frame before the coat starts,
@@ -889,11 +951,11 @@ export function initEasel(): () => void {
   });
   tabsObserver.observe(tabBar);
 
-  let night = isNight();
+  let themeTime = timeNow();
   const themeObserver = new MutationObserver(() => {
-    if (isNight() === night) return;
-    night = isNight();
-    void paint();
+    if (timeNow() === themeTime) return;
+    themeTime = timeNow();
+    repaint();
     paintAllSwatches();
     const section = active ? sections.get(active) : null;
     if (section) refill(section);
@@ -924,7 +986,12 @@ export function initEasel(): () => void {
     void (url ? loadCover(url) : Promise.resolve(null)).then((image) => {
       if (url !== coverUrl) return;
       song = image ? { cover: image, tint: tintOf(image) } : null;
-      void repaintRecord();
+      // The record on show goes first; paint out of sight can wait.
+      if (job?.quiet) {
+        job.stop.abort();
+        job = null;
+      }
+      settle();
     });
   };
 
@@ -944,10 +1011,10 @@ export function initEasel(): () => void {
   // The painting waits for an idle moment. The chips are painted just after
   // the first frame, when the page is already laid out and measuring them
   // costs nothing, and again for any their font resizes once it is in.
-  (window.requestIdleCallback ?? ((callback: () => void) => setTimeout(callback, 60)))(() => void paint());
+  void idle().then(settle);
   requestAnimationFrame(() => setTimeout(() => {
     paintAllSwatches();
-    void document.fonts.ready.then(paintAllSwatches);
+    void document.fonts.ready.then(() => paintAllSwatches());
   }));
 
   if (window.matchMedia('(hover: none)').matches && !reduced.matches && !nudged()) {
@@ -959,6 +1026,7 @@ export function initEasel(): () => void {
   if (initial && panels.has(initial)) open(initial);
 
   return () => {
+    job?.stop.abort();
     clearTimeout(nameTimer);
     nudgeTimers.forEach(clearTimeout);
     nudgeWatch.disconnect();
