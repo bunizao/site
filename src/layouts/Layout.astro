@@ -277,6 +277,8 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
       import { initViewTransitionNames } from '@/lib/view-transition-names';
       initViewTransitionNames();
     </script>
+    {/* A page's own head, for what has to run before first paint. */}
+    <slot name="head" />
   </head>
   <body>
     <PerformanceDebugPanel />
