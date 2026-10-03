@@ -1,3 +1,5 @@
+import type { ClientEvidence } from './comments';
+
 export type SubscriberStatus = 'pending' | 'active' | 'unsubscribed';
 export type DeliveryMode = 'immediate' | 'every_5h' | 'daily';
 export type NotifyChannel = 'mood' | 'blog' | 'privacy' | 'announcement';
@@ -14,6 +16,18 @@ export type NotifyAuditEventType =
   | 'broadcast_sent';
 
 export const NOTIFY_CHANNELS: readonly NotifyChannel[] = ['mood', 'blog', 'privacy', 'announcement'];
+
+/** Optional risk evidence preserves compatibility with existing clients. */
+export interface SubscribeRequest extends ClientEvidence {
+  email: string;
+  turnstileToken?: string;
+  channels?: NotifyChannel[];
+  deliveryMode?: DeliveryMode;
+  timezone?: string;
+  dailyHour?: number;
+  website?: string;
+  dwellToken?: string;
+}
 
 export interface SubscriberRecord {
   email: string;
