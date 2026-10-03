@@ -20,6 +20,7 @@ import MoodChannel from '@/features/desk/ui/MoodChannel.astro';
 import Panel from '@/features/desk/ui/Panel.astro';
 import Subscribe from '@/features/desk/ui/Subscribe.astro';
 import Turntable from '@/features/desk/ui/Turntable.astro';
+import Year from '@/features/desk/ui/Year.astro';
 import Works from '@/features/desk/ui/Works.astro';
 import { loadDeskContent } from '@/features/desk/server/content';
 import { GitHubIcon, InstagramIcon, MonashCrestIcon, TelegramIcon } from '@/components/icons';
@@ -273,7 +274,10 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
       </Panel>
 
       <Panel id="github">
-        <div class="easel-paper"><GitHubContributions /></div>
+        <div class="easel-paper gh">
+          <GitHubContributions fetchDays={365} />
+          <Year repos={content.repos} />
+        </div>
         <Door href="https://github.com/bunizao" label="bunizao on GitHub" style={tone('github')} external />
       </Panel>
 

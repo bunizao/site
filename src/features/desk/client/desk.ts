@@ -1,7 +1,7 @@
 // Boot for the desk at /new: the easel and what moves in its painting (the
 // clock, the lamp, the record and the music off it, the coffee's steam), the
-// turntable's arm, the subscriptions and the letter in the panels, the
-// speaker in the letterhead, and the foil on the student card.
+// turntable's arm, the subscriptions, the letter and the painted year in the
+// panels, the speaker in the letterhead, and the foil on the student card.
 import { initClock } from './clock';
 import { initEasel } from './easel';
 import { initFoil } from './foil';
@@ -14,6 +14,7 @@ import { initSubscribe } from './subscribe';
 import { initSteam } from './steam';
 import { initTonearm } from './tonearm';
 import { initTurntable } from './turntable';
+import { initYear } from './year';
 
 // The foil's shader compiles the first time the card is on the canvas, once
 // the page is idle, not on every visit. The foil finds the card by where it
@@ -43,4 +44,5 @@ initNotes();
 initMoods();
 initSubscribe();
 initLetter();
+initYear();
 initSoundToggle();

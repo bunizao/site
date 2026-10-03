@@ -5,9 +5,10 @@
 // record it turns and the light that sits on the record.
 
 import { DECK } from '../shared/deck';
-import { draw, ellipse, fill, polygon, rect, ring, seedOf, seeded, stroke, vary, type Rand, type Tone } from './knife';
+import { draw, ellipse, fill, polygon, rect, ring, seedOf, seeded, stroke, strokeAt, vary, type Rand, type Tone } from './knife';
 
-type Study = (ctx: CanvasRenderingContext2D, rand: Rand, w: number, h: number, t: (l: number, c: number, h: number) => Tone) => void;
+/** `data` is the canvas's own dataset, for a study painted from figures rather than from life. */
+type Study = (ctx: CanvasRenderingContext2D, rand: Rand, w: number, h: number, t: (l: number, c: number, h: number) => Tone, data: DOMStringMap) => void;
 
 const groundOf = (ctx: CanvasRenderingContext2D, rand: Rand, w: number, h: number, wall: Tone, table: Tone) => {
   const horizon = h * 0.66;
@@ -333,13 +334,45 @@ const seal: Study = (ctx, rand, w, _h, t) => {
   }
 };
 
-const STUDIES: Record<string, Study> = { cube, carousel, tour, waves, vinyl, shine, deck, arm, key, envelope, flap, seal };
+// A year of GitHub contributions (ui/Year.astro), laid out the way GitHub lays
+// it, a week to a column with Sunday on top, and each day one dab of the
+// knife: grey where nothing happened, green as deep as the day was busy. The
+// year comes on the canvas: `data-levels` is one digit a day (GitHub's own
+// 0–4), oldest first, and `data-weekday` is the first day's.
+const GREEN = 150;
+
+const year: Study = (ctx, rand, w, h, t, data) => {
+  const levels = data.levels ?? '';
+  const first = Number(data.weekday) || 0;
+  const weeks = Math.ceil((first + levels.length) / 7);
+  if (!weeks) return;
+  const cell = w / weeks;
+  const row = h / 7;
+  // By lamplight the busy days get lighter, not darker, so they still stand out.
+  const night = t(1, 0, 0).l < 1;
+  for (let i = 0; i < levels.length; i++) {
+    const level = Number(levels[i]) || 0;
+    const day = first + i;
+    const tone: Tone =
+      level === 0
+        ? { l: night ? 0.36 : 0.87, c: 0.008, h: GREEN }
+        : night
+          ? { l: 0.42 + level * 0.08, c: 0.06 + level * 0.03, h: GREEN }
+          : { l: 0.84 - level * 0.1, c: 0.06 + level * 0.032, h: GREEN };
+    const size = level === 0 ? 0.6 : 0.8 + level * 0.04;
+    const x = (Math.floor(day / 7) + 0.5 + (rand() - 0.5) * 0.12) * cell;
+    const y = ((day % 7) + 0.5 + (rand() - 0.5) * 0.12) * row;
+    draw(ctx, strokeAt(rand, x, y, -0.35 + (rand() - 0.5) * 0.5, cell * size * 1.15, row * size * 0.72, vary(rand, tone, 0.025, 0.01, 6), 0.6));
+  }
+};
+
+const STUDIES: Record<string, Study> = { cube, carousel, tour, waves, vinyl, shine, deck, arm, key, envelope, flap, seal, year };
 
 const shade = (night: boolean) => (l: number, c: number, h: number): Tone => (night ? { l: 0.12 + l * 0.6, c: c * 0.85, h } : { l, c, h });
 
 /** One study, painted from the origin into a w × h box. */
 export function paintStudy(ctx: CanvasRenderingContext2D, kind: string, w: number, h: number, night: boolean, seed: number) {
-  STUDIES[kind]?.(ctx, seeded(seed), w, h, shade(night));
+  STUDIES[kind]?.(ctx, seeded(seed), w, h, shade(night), {});
 }
 
 export function paintStudies(root: ParentNode, night: boolean) {
@@ -355,7 +388,7 @@ export function paintStudies(root: ParentNode, night: boolean) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.scale(scale, scale);
-    study(ctx, seeded(seedOf(canvas.dataset.seed ?? '')), width, height, t);
+    study(ctx, seeded(seedOf(canvas.dataset.seed ?? '')), width, height, t, canvas.dataset);
     canvas.dataset.painted = night ? 'night' : 'day';
   });
   // The record wears the cover of whatever the listening card shows now.

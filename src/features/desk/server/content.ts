@@ -1,9 +1,11 @@
 // What the desk shows at request time: the newest few moods and the channel
-// they come from, and the newest posts for the contents page and what the
-// blog adds up to. Everything else on the desk is static data from site.ts.
+// they come from, the newest posts for the contents page and what the blog
+// adds up to, and the repositories pushed to lately. Everything else on the
+// desk is static data from site.ts.
 //
-// The reads on the blog are made up until site-api serves them
-// (plans/desk-backend.md), marked MOCK below.
+// Two of these are made up until site-api serves them (plans/desk-backend.md):
+// the reads on the blog and the repositories pushed to. Both are marked MOCK
+// below.
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
 import type { MoodServerContext } from '@/features/mood/server/channel-service';
@@ -46,6 +48,13 @@ export interface DeskWriting {
   top?: { title: string; href: string; lang?: string };
 }
 
+export interface DeskRepo {
+  name: string;
+  href: string;
+  /** "2 days ago". */
+  when: string;
+}
+
 export interface DeskChannel {
   /** "Levitating". */
   title: string;
@@ -59,6 +68,7 @@ export interface DeskContent {
   posts: DeskPost[];
   postCount: number;
   writing: DeskWriting | null;
+  repos: DeskRepo[];
 }
 
 const MOODS = 3;
@@ -67,6 +77,11 @@ const POSTS = 5;
 const melbourneTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false });
 const monthYear = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', month: 'short', year: 'numeric' });
 
+const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+/** "yesterday", "3 days ago", "last week", "2 weeks ago". */
+const ago = (days: number) => (days < 7 ? relative.format(-days, 'day') : relative.format(-Math.round(days / 7), 'week'));
+
 // MOCK until GET /api/v2/writing/stats (plans/desk-backend.md): reads per
 // post, made up from the slug so they hold still between visits.
 const mockReads = (slug: string) => {
@@ -74,6 +89,14 @@ const mockReads = (slug: string) => {
   for (const char of slug) hash = (hash * 31 + char.charCodeAt(0)) | 0;
   return 80 + (Math.abs(hash) % 2400);
 };
+
+// MOCK until GET /api/v2/github/activity (plans/desk-backend.md): public
+// repositories from the projects list, pushed to some days ago.
+const MOCK_REPOS: { name: string; days: number }[] = [
+  { name: 'ogis', days: 1 },
+  { name: 'Attegi', days: 4 },
+  { name: 'TutuBetterRules', days: 12 },
+];
 
 const format = (formatter: Intl.DateTimeFormat, iso: string) => {
   const date = new Date(iso);
@@ -143,5 +166,6 @@ export async function loadDeskContent(context: MoodServerContext): Promise<DeskC
     })),
     postCount: posts.length,
     writing: summarise(posts),
+    repos: MOCK_REPOS.map(({ name, days }) => ({ name, href: `https://github.com/bunizao/${name}`, when: ago(days) })),
   };
 }

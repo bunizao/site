@@ -1231,6 +1231,80 @@ body:has(.desk) .spotlight-overlay {
   text-align: center;
 }
 
+/* GitHub: the bars of the last month, and under them the year, painted a dab
+   a day (client/year.ts). */
+.easel-paper.gh {
+  max-width: 560px;
+}
+
+/* The bars' total is the bars' month, and the year's own total is under it. */
+.gh [data-total]::after {
+  content: ' in 30 days';
+}
+
+.yr {
+  margin: 22px 0 0;
+}
+
+.yr-grid {
+  position: relative;
+  aspect-ratio: var(--weeks, 53) / 7;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+
+.yr-grid canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The day being read, ringed. */
+.yr-mark {
+  position: absolute;
+  left: calc((var(--col) + 0.5) / var(--weeks, 53) * 100%);
+  top: calc((var(--row) + 0.5) / 7 * 100%);
+  width: calc(100% / var(--weeks, 53) * 1.7);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--d-ink);
+  pointer-events: none;
+}
+
+.yr-mark[hidden] {
+  display: none;
+}
+
+.yr-months {
+  position: relative;
+  height: 14px;
+  margin-top: 6px;
+  font-family: var(--d-sans);
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--d-faint);
+}
+
+.yr-months span {
+  position: absolute;
+  left: calc(var(--col) / var(--weeks, 53) * 100%);
+}
+
+.yr-read {
+  min-height: 1.5em;
+  margin-top: 8px;
+  font-family: var(--d-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  color: var(--d-note);
+}
+
+.gh .tally {
+  margin-top: 10px;
+}
+
 /* The way through to a section's own page: a stroke of its colour at the
    foot of its panel, painted like its word in the prose (client/easel.ts). */
 .door-row {

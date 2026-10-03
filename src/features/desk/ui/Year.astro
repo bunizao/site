@@ -1,0 +1,30 @@
+---
+// The last year on GitHub, painted a dab a day (studies.ts `year`); run a
+// finger or the pointer along it to read a day. Under it, what the year adds
+// up to and the repositories pushed to lately. client/year.ts fetches the
+// year the first time the panel opens: the bars above have asked for the
+// same one by then, so it comes out of the browser's cache.
+import type { DeskRepo } from '@/features/desk/server/content';
+
+interface Props {
+  repos: DeskRepo[];
+}
+
+const { repos } = Astro.props;
+const joint = (i: number) => (i === 0 ? '' : i === repos.length - 1 ? ' and ' : ', ');
+---
+
+<figure class="yr" data-year>
+  <div class="yr-grid">
+    <canvas data-study="year" data-seed="year" data-year-canvas data-grip aria-hidden="true"></canvas>
+    <span class="yr-mark" data-year-mark hidden></span>
+  </div>
+  <div class="yr-months" data-year-months aria-hidden="true"></div>
+  <figcaption class="yr-read" data-year-read aria-live="polite"></figcaption>
+</figure>
+<p class="tally" data-year-say hidden></p>
+{repos.length > 0 && (
+  <p class="tally">
+    Lately pushed to {repos.map((repo, i) => <>{joint(i)}<a href={repo.href} target="_blank" rel="noopener noreferrer">{repo.name}</a> {repo.when}</>)}.
+  </p>
+)}
