@@ -5,13 +5,20 @@
 //
 // Pages never render more than one panel, but the controller loops so a panel
 // + trigger pair are matched by id, keeping it placement-agnostic.
+//
+// Turnstile, as the letter and the comment box run it: it starts settling
+// when the panel opens, invisibly. When site-api refuses that token, the panel
+// opens Cloudflare's checkbox above the submit row and sends again, once, the
+// moment it is ticked; a subscription that goes through takes the box away.
 
 import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
-import { loadTurnstileScript } from '@/lib/turnstile-script';
 import {
+  challengeTurnstile,
+  dismissTurnstileChallenge,
   getTurnstileToken,
   releaseTurnstileToken,
   setTurnstileHost,
+  warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
 
 const TURNSTILE_ACTION = 'notify_subscribe';
@@ -28,7 +35,7 @@ function panelCopy(panel: HTMLElement) {
     needChannel: read('copyNeedChannel', 'Pick at least one.'),
     rateLimited: read('copyRateLimited', 'Too many tries. Wait before trying again.'),
     network: read('copyNetwork', 'Network trouble — check your connection.'),
-    verifyFailed: read('copyVerifyFailed', 'That check failed. Try again.'),
+    verifyFailed: read('copyVerifyFailed', 'One more step: tick the box above and it goes.'),
   };
 }
 
@@ -81,6 +88,9 @@ function setupPanel(panel: HTMLElement): void {
 
   let isSubmitting = false;
   let isOpen = false;
+  // The send that follows a ticked box. One per press: a refusal of that one
+  // leaves the box up for the next press instead of asking again on its own.
+  let resending = false;
   let hoverCloseTimer: number | null = null;
 
   const clearHoverTimer = () => {
@@ -172,7 +182,6 @@ function setupPanel(panel: HTMLElement): void {
     errorMsg.textContent = '';
     successText.textContent = t.success;
     isSubmitting = false;
-    releaseTurnstileToken(TURNSTILE_ACTION);
     submitSpinner.classList.add('is-hidden');
     submit.removeAttribute('aria-busy');
     syncGate();
@@ -191,7 +200,7 @@ function setupPanel(panel: HTMLElement): void {
     toggle.setAttribute('aria-expanded', 'true');
     toggle.classList.add('is-active');
     if (focusEmail) email.focus();
-    void loadTurnstileScript();
+    if (siteKey) warmTurnstileToken(siteKey, TURNSTILE_ACTION);
   };
 
   const closePanel = () => {
@@ -276,8 +285,21 @@ function setupPanel(panel: HTMLElement): void {
     window.history.replaceState({}, '', `${url.pathname}${search ? `?${search}` : ''}${url.hash}`);
   }
 
+  // Resolves only once the box is solved, so nothing the reader needs waits on
+  // it. A panel closed in the meantime keeps the token for the next press
+  // instead of sending behind the reader's back.
+  const challengeAndResend = async () => {
+    const token = await challengeTurnstile(siteKey, TURNSTILE_ACTION);
+    if (!token || isSubmitting || !isOpen) return;
+    resending = true;
+    form.requestSubmit();
+  };
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (isSubmitting) return;
+    const isResend = resending;
+    resending = false;
     const value = email.value.trim();
     if (!EMAIL_RE.test(value)) {
       errorMsg.textContent = t.invalidEmail;
@@ -297,6 +319,7 @@ function setupPanel(panel: HTMLElement): void {
     submit.setAttribute('aria-busy', 'true');
     submitSpinner.classList.remove('is-hidden');
     const token = await getTurnstileToken(siteKey, TURNSTILE_ACTION);
+    let next: 'challenge' | 'warm' | null = null;
 
     try {
       const response = await fetch('/api/notify/subscribe', {
@@ -313,28 +336,39 @@ function setupPanel(panel: HTMLElement): void {
       const data = (await response.json().catch(() => ({}))) as { status?: string; code?: string; error?: string };
 
       if (response.ok) {
+        dismissTurnstileChallenge(TURNSTILE_ACTION);
         rememberReaderEmail(value);
         successText.textContent = data.status === 'already_subscribed' ? t.already : t.success;
         showView('success');
       } else if (response.status === 429) {
         errorMsg.textContent = t.rateLimited;
+        next = 'warm';
       } else if (response.status === 400 && data.error === 'Turnstile verification failed') {
         // site-api's refusal; `code` says why (missing_token, invalid_token, …).
         errorMsg.textContent = t.verifyFailed;
+        if (!isResend) next = 'challenge';
       } else {
         errorText.textContent = data.error || t.error;
         showView('error');
+        next = 'warm';
       }
     } catch {
       errorText.textContent = t.network;
       showView('error');
+      next = 'warm';
     } finally {
+      // A token is spent whatever the answer was. Released before the
+      // challenge below, which would otherwise read the spent one back.
       releaseTurnstileToken(TURNSTILE_ACTION);
       isSubmitting = false;
       submit.removeAttribute('aria-busy');
       submitSpinner.classList.add('is-hidden');
       syncGate();
     }
+    if (!siteKey) return;
+    if (next === 'challenge') void challengeAndResend();
+    // Settle the next token now, so trying again does not wait on a solve.
+    else if (next === 'warm') warmTurnstileToken(siteKey, TURNSTILE_ACTION);
   });
 }
 

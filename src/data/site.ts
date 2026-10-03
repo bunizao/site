@@ -242,7 +242,7 @@ export const blog = {
         needChannel: '至少选一样。',
         rateLimited: '太频繁了，稍后再试。',
         network: '网络不太好，检查下连接。',
-        verifyFailed: '校验失败，重试一下。',
+        verifyFailed: '还差一步：勾一下上方的方框就好。',
       },
       share: {
         copyLink: '复制链接',
@@ -304,7 +304,7 @@ export const blog = {
         needChannel: 'Pick at least one.',
         rateLimited: 'Too many tries. Give it a minute.',
         network: 'Network trouble — check your connection.',
-        verifyFailed: 'That check failed. Try again.',
+        verifyFailed: 'One more step: tick the box above and it goes.',
       },
       share: {
         copyLink: 'Copy link',
