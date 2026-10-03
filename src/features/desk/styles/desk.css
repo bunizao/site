@@ -506,6 +506,16 @@ body:has(.desk) .spotlight-overlay {
   pointer-events: none;
 }
 
+/* The time is painted on the clock's glass, so it waits for the clock and
+   comes up with it; alone on the bare wall it was only a number. */
+.sl-clock {
+  transition: opacity 0.7s ease;
+}
+
+.sl-thing:not(:has(> .sl-paint:not(.is-wet))) > .sl-clock {
+  opacity: 0;
+}
+
 .sl-thing.is-hot {
   translate: 0 -1.4%;
 }
