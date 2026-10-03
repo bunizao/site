@@ -183,10 +183,11 @@ const intro =
           </div>
         </div>
 
-        {/* Mount point for the Turnstile widget. It renders invisibly and is
-            executed at submit time; the widget itself only takes visible
-            space when Cloudflare falls back to an interactive challenge --
-            see subscribe-panel.ts and its interaction-only render mode. */}
+        {/* Mount point for the Turnstile widget. It settles invisibly when the
+            panel opens and only takes visible space when Cloudflare falls
+            back to an interactive challenge, or when site-api refuses the
+            token and the panel puts the checkbox here -- see
+            subscribe-panel.ts. */}
         <div data-sub-turnstile class="sub-turnstile"></div>
 
         {/* One line, no incidental whitespace: broken across three the markup

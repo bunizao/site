@@ -997,6 +997,80 @@ test('a solved challenge earns a pass that the next like spends without a widget
   expect(await page.evaluate(() => (window as unknown as { __turnstileRenders: number }).__turnstileRenders)).toBe(rendersAfterChallenge);
 });
 
+/* The subscribe panel runs the same escalation against site-api's own
+   refusal shape. Every other write is aborted, so nothing leaves for a real
+   API even when the run reuses a server that proxies to production. */
+async function installRefusedSubscribe(page: Page, { accept }: { accept: boolean }) {
+  const tokens: unknown[] = [];
+  await page.route('**/api/**', (route) =>
+    route.request().method() === 'GET' ? route.fallback() : route.abort('blockedbyclient'));
+  await page.route('**/api/notify/subscribe', async (route) => {
+    const token = (route.request().postDataJSON() as Record<string, unknown>).turnstileToken;
+    tokens.push(token);
+    if (accept && token === 'good-token') {
+      await route.fulfill({ json: { status: 'confirm_sent' } });
+      return;
+    }
+    await route.fulfill({ status: 400, json: { error: 'Turnstile verification failed', code: 'invalid_token' } });
+  });
+  return tokens;
+}
+
+async function openSubscribePanel(page: Page) {
+  await page.locator('[data-subscribe-toggle="blog"]').focus();
+  await page.keyboard.press('Enter');
+  const panel = page.locator('[data-subscribe-panel][data-subscribe-id="blog"]');
+  await expect(panel).toHaveClass(/is-open/);
+  await panel.locator('[data-sub-email]').fill('reader@example.com');
+  return panel;
+}
+
+test('a refused subscription opens the checkbox in the panel and sends once it is ticked', async ({ page }) => {
+  await stubTurnstile(page);
+  const tokens = await installRefusedSubscribe(page, { accept: true });
+  await gotoLab(page, 'turnstile=1&locale=en');
+
+  const panel = await openSubscribePanel(page);
+  const host = panel.locator('[data-sub-turnstile]');
+  // Warmed on open: the widget sits in its host before anything is sent.
+  await expect(host.locator('> div')).toHaveCount(1);
+
+  await panel.locator('[data-sub-submit]').click();
+  await expect(panel.locator('[data-sub-error]')).toHaveText('One more step: tick the box above and it goes.');
+  await expect(host).toHaveAttribute('data-turnstile-interactive', '');
+
+  await host.locator('[data-fake-challenge]').click();
+  await expect(panel.locator('[data-sub-success-view]')).toBeVisible();
+  await expect(host).not.toHaveAttribute('data-turnstile-interactive', '');
+  expect(tokens).toEqual(['', 'good-token']);
+});
+
+test('a refused resend leaves the checkbox up and sends nothing until the next press', async ({ page }) => {
+  await stubTurnstile(page);
+  const tokens = await installRefusedSubscribe(page, { accept: false });
+  await gotoLab(page, 'turnstile=1&locale=en');
+
+  const panel = await openSubscribePanel(page);
+  const host = panel.locator('[data-sub-turnstile]');
+  const challenge = host.locator('[data-fake-challenge]');
+  await panel.locator('[data-sub-submit]').click();
+  await challenge.click();
+  await expect.poll(() => tokens.length).toBe(2);
+  await expect(panel.locator('[data-sub-submit]')).not.toHaveAttribute('aria-busy', 'true');
+
+  // A second tick must not send on its own: the resend already had its turn.
+  await challenge.click();
+  await page.waitForTimeout(300);
+  expect(tokens).toHaveLength(2);
+  await expect(host).toHaveAttribute('data-turnstile-interactive', '');
+  await expect(panel.locator('[data-sub-error]')).toHaveText('One more step: tick the box above and it goes.');
+
+  // The next press waits on the box and goes out with what it solves.
+  await panel.locator('[data-sub-submit]').click();
+  await challenge.click();
+  await expect.poll(() => tokens).toEqual(['', 'good-token', 'good-token']);
+});
+
 /** The avatar-seed route: `issue` hands out one seed, `offer` a fresh five per
     call, `choose` echoes the pick. Every body is kept for the assertions. */
 async function installAvatarSeedApi(page: import('@playwright/test').Page) {
