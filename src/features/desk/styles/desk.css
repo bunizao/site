@@ -102,8 +102,8 @@ body:has(.desk) .spotlight-overlay {
 /* --- The letterhead ---------------------------------------------------------
    Layout's header actions (search and theme) plus the site links, set as one
    quiet line of type at the head of the letter: over the prose, never over
-   the easel. It scrolls with the page. Phones fold
-   the links into a menu and keep the line in a small card in the corner. */
+   the easel. It scrolls with the page. Phones fold the links into a menu
+   and set the line at the top right. */
 .global-header-actions:has(.desk-nav) {
   gap: 2px;
   font-family: var(--d-sans);
@@ -121,14 +121,13 @@ body:has(.desk) .spotlight-overlay {
   }
 }
 
+/* No card: one floating over the prose sat on the words as they scrolled
+   under it. The last icon, not its button, ends at the prose's edge. */
 @media (max-width: 639px) {
   .global-header-actions:has(.desk-nav) {
-    padding: 4px;
-    border-radius: 14px;
-    background: color-mix(in oklab, var(--d-paper) 80%, transparent);
-    -webkit-backdrop-filter: blur(14px) saturate(1.4);
-    backdrop-filter: blur(14px) saturate(1.4);
-    box-shadow: 0 0 0 1px var(--d-line), 0 12px 32px -16px rgb(0 0 0 / 0.3);
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 20px);
+    right: calc(var(--d-gutter) - 8px);
   }
 }
 
