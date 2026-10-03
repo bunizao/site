@@ -51,12 +51,15 @@ export function loadCover(url: string): Promise<HTMLImageElement | null> {
 
 // The cover is read small; its colour does not need its detail.
 const SAMPLE = 32;
+/** No colour at all: a black-and-white cover's. */
+const NEUTRAL: Tint = { h: 0, c: 0 };
 
 /**
  * The cover's colour, picked the way site-api picks the listening card's
  * accent: pixels grouped by hue and chroma, and the group that covers the
- * most of the cover wins, the more colourful the better. Null for a cover
- * with next to no colour, which keeps the desk's own.
+ * most of the cover wins, the more colourful the better. A cover with next
+ * to no colour gives none, and its label is black and white; the desk's own
+ * label is only for a record without a song.
  */
 export function tintOf(cover: HTMLImageElement): Tint | null {
   const canvas = document.createElement('canvas');
@@ -81,7 +84,7 @@ export function tintOf(cover: HTMLImageElement): Tint | null {
     group.n++;
     groups.set(key, group);
   }
-  if (grey > total * 0.9) return null;
+  if (grey > total * 0.9) return NEUTRAL;
 
   let best: Tint | null = null;
   let bestScore = 0;
@@ -95,7 +98,7 @@ export function tintOf(cover: HTMLImageElement): Tint | null {
     const h = (Math.atan2(b, a) * 180) / Math.PI;
     best = { h: h < 0 ? h + 360 : h, c };
   }
-  return best;
+  return best ?? NEUTRAL;
 }
 
 /**
