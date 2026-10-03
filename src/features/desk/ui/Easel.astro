@@ -11,6 +11,9 @@
 //
 // Without the script the things are plain links to their pages; the panels
 // stay hidden.
+//
+// The listening card waits in its hidden panel, but its song is on the
+// record in the painting, so it polls while the easel is in view.
 import { LAMP, THINGS } from '@/features/desk/shared/still-life';
 
 export interface EaselSection {
@@ -46,7 +49,7 @@ const boxStyle = ([x, y, w, h]: [number, number, number, number]) => `left: ${pc
 const lamp = byId.get('lamp');
 ---
 
-<section class="easel" data-easel aria-label="Still life with a desk">
+<section class="easel" data-easel data-listening-watch aria-label="Still life with a desk">
   <div class="easel-hang">
     <div class="easel-frame" data-easel-frame>
       <div class="sl" data-sl>
