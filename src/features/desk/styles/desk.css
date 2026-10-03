@@ -1764,8 +1764,32 @@ body:has(.desk) .spotlight-overlay {
   color: oklch(0.75 0.12 25);
 }
 
-.slip-turnstile:empty {
-  display: none;
+/* Cloudflare's checkbox, shut until it wants a person (as .mx-check). Shut,
+   it gives back the slip's gap above it too. */
+.slip-check {
+  display: grid;
+  margin-top: -14px;
+  grid-template-rows: minmax(0, 0fr);
+  justify-items: center;
+  transition:
+    grid-template-rows 0.3s var(--d-ease),
+    margin-top 0.3s var(--d-ease);
+}
+
+.slip-check > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.slip-check:has(> [data-turnstile-interactive]) {
+  margin-top: 0;
+  grid-template-rows: 1fr;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slip-check {
+    transition: none;
+  }
 }
 
 /* --- The letter ---------------------------------------------------------------------

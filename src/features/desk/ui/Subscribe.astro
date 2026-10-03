@@ -4,7 +4,8 @@
 // unfolds a slip under them (client/subscribe.ts). The field is a slab of
 // paper laid with the knife, and the button and the chosen pace are daubs of
 // the section's colour, like its word in the prose. It posts to the same
-// pool as the blog's and the mood feed's own panels.
+// pool as the blog's and the mood feed's own panels. Cloudflare's checkbox,
+// when it wants one, opens under the line that asks for it.
 interface Props {
   channel: 'blog' | 'mood';
   turnstileSiteKey: string;
@@ -51,6 +52,6 @@ const paces = [
     </label>
     <button class="door" type="submit" data-daub>Subscribe</button>
   </div>
-  <div class="slip-turnstile" data-subscribe-turnstile></div>
   <p class="slip-note" data-subscribe-status role="status">One click to leave, any time. <a href="/privacy">Privacy</a></p>
+  <div class="slip-check"><div class="slip-turnstile" data-subscribe-turnstile></div></div>
 </form>
