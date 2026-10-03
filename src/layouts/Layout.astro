@@ -802,6 +802,15 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
           });
         });
 
+        // A page may switch the theme with a control and a sound of its own
+        // (the desk's lamp): the same switch, without the toggle's click.
+        document.addEventListener('theme:set', (event) => {
+          const theme = (event as CustomEvent<string>).detail;
+          if (theme !== 'light' && theme !== 'dark' && theme !== 'system') return;
+          setStoredTheme(theme);
+          transitionTheme(theme);
+        });
+
         document.addEventListener('click', (e) => {
           if (dropdown && !dropdown.contains(e.target as Node)) {
             closeDropdown();
