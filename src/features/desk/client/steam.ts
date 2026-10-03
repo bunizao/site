@@ -1,13 +1,17 @@
 // Steam off the coffee. Three wisps, each a ribbon that rises from the cup,
 // sways as a wave runs up it, spreads and thins out. Each is laid soft on a
 // canvas a third the size and drawn up, so its edges blur, then given a fine
-// brighter core. It runs at thirty frames a second while the cup is in view,
+// brighter core. It runs at twenty frames a second while the cup is in view,
 // the canvas is uncovered and the paint is dry, and holds still for reduced
 // motion.
 
 import { CUP_MOUTH, THINGS } from '@/features/desk/shared/still-life';
 
-const FPS = 30;
+// Each frame costs the same whatever it draws, so the rate is the cost. The
+// steam is slow: a wisp sways at most 0.04 painting widths a second, under
+// 1.5px a frame on the largest painting at this rate. Twenty also divides
+// 60Hz and 120Hz, so every frame lasts the same.
+const FPS = 20;
 /** How high the steam goes, in canvas widths. */
 const TOP = 0.79;
 /** Half the width of the canvas it rises in. */
@@ -138,20 +142,19 @@ export function initSteam() {
 
   let dry = false;
   let inView = true;
+  /** The next draw: a timer, then a frame. */
   let frame = 0;
-  let drawn = 0;
   const live = () => dry && inView && !document.hidden && !easel.classList.contains('is-covered') && !reduced.matches;
 
+  // A timer sleeps through most of the gap and a frame callback lands the
+  // draw on the screen's beat, so the frames between draws wake nothing. The
+  // timer ends a few ms early: the next beat after it is the one a twentieth
+  // of a second on, at 60Hz and at 120Hz alike.
   const tick = (now: number) => {
-    if (!live()) {
-      frame = 0;
-      return;
-    }
-    if (now - drawn >= 1000 / FPS - 2) {
-      drawn = now;
-      render(now / 1000);
-    }
-    frame = requestAnimationFrame(tick);
+    frame = 0;
+    if (!live()) return;
+    render(now / 1000);
+    frame = window.setTimeout(() => (frame = requestAnimationFrame(tick)), 1000 / FPS - 6);
   };
 
   const wake = () => {
