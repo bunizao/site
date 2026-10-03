@@ -18,14 +18,15 @@
 // the canvas (`easel:shown`).
 //
 // The record wears the song on it: each new cover from the listening card is
-// painted onto the sleeve, brought up under the knife over the one before,
-// and the gallery label names the song.
+// painted onto the sleeve and its colour onto the disc's label, brought up
+// under the knife over the one before. The song's word in the prose, its tab
+// and its coat take the same colour, and the gallery label names the song.
 
 import { ASPECT, DISC, LAMP, THINGS, type Piece } from '@/features/desk/shared/still-life';
 import { LISTENING_TRACK_EVENT, type ListeningTrackPayload } from '@/lib/listening/controller';
 import { coat, css, draw, seedOf, seeded, swatch, type Stroke, type Tone } from './knife';
 import { breathe } from './painterly';
-import { coverOf, labelOf, loadCover } from './record';
+import { coverOf, labelOf, loadCover, tintOf, type Song } from './record';
 import { play, type Sound } from './sound';
 import { BLEED, paintBackdrop, paintLight, paintPiece } from './still-life';
 import { paintStudies } from './studies';
@@ -156,9 +157,9 @@ export function initEasel(): () => void {
   let pass = 0;
   /** Whether some paint is still going on: the whole painting, or the record. */
   let busy = false;
-  /** The song's cover, once loaded, and the one the record was last painted with. */
-  let cover: HTMLImageElement | null = null;
-  let coverOnRecord: HTMLImageElement | null = null;
+  /** The song once its cover is in, and the one the record was last painted with. */
+  let song: Song | null = null;
+  let songOnRecord: Song | null = null;
   /** The section the gallery label names, and whether it shows its link. */
   let labelled: { id: string | null; withLink: boolean } = { id: null, withLink: false };
 
@@ -190,7 +191,8 @@ export function initEasel(): () => void {
     if (piece.id === 'record' && recordHolder) layers.push({ piece: DISC, holder: turntable, origin: [DISC.box[0] - BLEED, DISC.box[1] - BLEED] });
     if (holder) layers.push({ piece, holder, origin: [piece.box[0], piece.box[1]] });
   }
-  const recordLayer = layers.find((layer) => layer.piece.id === 'record');
+  /** The parts of the painting that show the song: the disc, then its sleeve. */
+  const songLayers = layers.filter((layer) => layer.piece.id === 'disc' || layer.piece.id === 'record');
 
   /** The canvas a holder shows for `className`: the newest that has come up. */
   const shown = (holder: HTMLElement, className: string) => {
@@ -364,11 +366,12 @@ export function initEasel(): () => void {
       signal,
     );
 
+    // One song for the whole pass, though a new one may come in during it.
+    const playing = (songOnRecord = song);
     for (const layer of layers) {
       if (signal.aborted) return;
-      const art = layer === recordLayer ? cover : null;
-      if (layer === recordLayer) coverOnRecord = art;
-      await layOver(layer.holder, 'sl-paint', placer(layer, width), (ctx) => paintPiece(ctx, layer.piece, width, night, signal, art ?? undefined), signal);
+      const art = songLayers.includes(layer) ? playing : null;
+      await layOver(layer.holder, 'sl-paint', placer(layer, width), (ctx) => paintPiece(ctx, layer.piece, width, night, signal, art), signal);
     }
     await breathe();
     if (signal.aborted) return;
@@ -388,19 +391,21 @@ export function initEasel(): () => void {
     easel.dispatchEvent(new CustomEvent('easel:painted'));
     paintThumb();
     busy = false;
-    // A cover that came in after the knife passed the record.
+    // A song that came in during the pass.
     void repaintRecord();
   };
 
-  /** Repaints only the record, when its song's cover is not the one on it. */
+  /** Repaints only the disc and its sleeve, when the song on them is not the one playing. */
   const repaintRecord = async () => {
     const { width, night } = painted;
-    if (busy || !width || !recordLayer || coverOnRecord === cover) return;
+    if (busy || !width || songOnRecord === song) return;
     busy = true;
     const { signal } = (paintJob = new AbortController());
-    const art = cover;
-    coverOnRecord = art;
-    await layOver(recordLayer.holder, 'sl-paint', placer(recordLayer, width), (ctx) => paintPiece(ctx, recordLayer.piece, width, night, signal, art ?? undefined), signal, true);
+    const playing = (songOnRecord = song);
+    for (const layer of songLayers) {
+      if (signal.aborted) return;
+      await layOver(layer.holder, 'sl-paint', placer(layer, width), (ctx) => paintPiece(ctx, layer.piece, width, night, signal, playing), signal, true);
+    }
     await up;
     if (signal.aborted) return;
     busy = false;
@@ -425,7 +430,7 @@ export function initEasel(): () => void {
     const night = isNight();
     const measured = els.map((el) => ({ el, width: el.offsetWidth, height: el.offsetHeight, tone: swatchTone(el) }));
     for (const { el, width, height, tone } of measured) {
-      const key = `${width}x${height}x${night}`;
+      const key = `${width}x${height}x${night}x${tone.h}x${tone.c}`;
       if (!width || swatchKeys.get(el) === key) continue;
       const url = swatch(width * 1.08 + 8, height + 4, tone, seedOf(el.textContent ?? ''));
       if (!url) continue;
@@ -900,10 +905,29 @@ export function initEasel(): () => void {
 
   // --- The song on the record --------------------------------------------------------
   const vinylLabel = easel.querySelector<HTMLImageElement>('[data-vinyl-label]');
+  const chipCover = document.querySelector<HTMLImageElement>('[data-song-cover]');
+  const listening = sections.get('listening');
+  const listeningTone = listening && { hue: listening.hue, chroma: listening.chroma };
   let coverUrl = '';
+
+  /** Gives the song's word, its thing, its tab and its coat the song's colour; or back their own. */
+  const tintListening = () => {
+    if (!listening || !listeningTone) return;
+    const tint = song?.tint;
+    const hue = tint ? Math.round(tint.h) : listeningTone.hue;
+    const chroma = tint ? Math.round(Math.min(0.11, Math.max(0.05, tint.c * 0.6)) * 1000) / 1000 : listeningTone.chroma;
+    if (hue === listening.hue && chroma === listening.chroma) return;
+    Object.assign(listening, { hue, chroma });
+    document.querySelectorAll<HTMLElement>('[data-open="listening"], [data-tab="listening"]').forEach((el) => {
+      el.style.setProperty('--h', String(hue));
+      el.style.setProperty('--c', String(chroma));
+    });
+    paintAllSwatches();
+    if (active === 'listening') refill(listening);
+  };
+
   const onTrack = (event: Event) => {
     const track = (event as CustomEvent<ListeningTrackPayload>).detail;
-    const listening = sections.get('listening');
     const named = labelOf(track);
     if (listening && named) {
       Object.assign(listening, named);
@@ -913,12 +937,20 @@ export function initEasel(): () => void {
     const thumb = track.thumbUrl?.trim() || track.artworkUrl?.trim();
     if (vinylLabel && !vinylLabel.hidden && thumb) vinylLabel.src = thumb;
 
+    // The small record by the song's word keeps the last cover until the next is in.
+    if (chipCover && thumb && chipCover.getAttribute('src') !== thumb) {
+      chipCover.onload = () => (chipCover.hidden = false);
+      chipCover.onerror = () => (chipCover.hidden = true);
+      chipCover.src = thumb;
+    }
+
     const url = coverOf(track);
     if (url === coverUrl) return;
     coverUrl = url;
     void (url ? loadCover(url) : Promise.resolve(null)).then((image) => {
       if (url !== coverUrl) return;
-      cover = image;
+      song = image ? { cover: image, tint: tintOf(image) } : null;
+      tintListening();
       void repaintRecord();
     });
   };

@@ -1,6 +1,6 @@
 // The record turns while a song plays, now on Apple Music or as a preview:
-// the disc in the painting, under its sleeve, and the one on the listening
-// panel. It runs up to 33⅓ like a turntable does, in under a second, and
+// the disc in the painting, under its sleeve, the one on the listening
+// panel, and the small one by the song's word in the prose. It runs up to 33⅓ like a turntable does, in under a second, and
 // coasts to a stop when the music does.
 
 const TURN_MS = 1800;

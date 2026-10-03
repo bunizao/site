@@ -194,7 +194,7 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
           I <a class="desk-chip" href="/blog" {...opens('writing')}>write</a> about being alive, and shorter thoughts go to
           <a class="desk-chip" href="/mood" {...opens('moods')}>moods</a>.
           <span class="desk-note">There's usually</span>
-          <button class="desk-chip" type="button" {...opens('listening')}>a song</button>
+          <button class="desk-chip" type="button" {...opens('listening')}><span class="desk-icon desk-disc" data-turn aria-hidden="true"><img class="desk-disc-label" alt="" referrerpolicy="no-referrer" data-song-cover hidden /></span>a song</button>
           <span class="desk-note">on repeat, and too many tabs open on</span>
           <a class="desk-chip" href="https://github.com/bunizao" {...opens('github')}><GitHubIcon className="desk-icon" />GitHub</a><span class="desk-note">. Elsewhere, I'm on</span>
           <a class="desk-link" href={linkOf('Telegram')} {...external}><TelegramIcon className="desk-icon" />Telegram</a>

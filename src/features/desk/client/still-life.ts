@@ -15,6 +15,7 @@
 import { ASPECT, CLOCK_FACE, HORIZON, LAMP_BULB, LAMP_PIVOT, RECORD_DISC, WALL_WORK, type Piece, type PieceId } from '@/features/desk/shared/still-life';
 import { css, draw, seedOf, seeded, stroke, strokeAt, vary, type Rand, type Tone } from './knife';
 import { paintOver, type Style } from './painterly';
+import type { Song } from './record';
 
 /** Paint margin around a thing's box, in canvas widths: strokes overshoot. */
 export const BLEED = 0.05;
@@ -354,8 +355,8 @@ function sleeveShape(b: Brush, dx = 0, dy = 0) {
 
 // --- Studies of the things ---------------------------------------------------------
 
-/** `cover` is the art of the song on the record, for the sleeve to print. */
-type Study = (b: Brush, cover?: CanvasImageSource) => void;
+/** `song` is the one on the record: its cover for the sleeve, its colour for the disc's label. */
+type Study = (b: Brush, song?: Song | null) => void;
 
 // A small oil on the wall in a pale oak frame, matted: a cube on a table, the
 // first of the projects.
@@ -499,10 +500,35 @@ const plant: Study = (b) => {
   front.forEach(leaf);
 };
 
+/**
+ * The disc's label in the song's colour: the paper, the band printed across
+ * it, the type and the ring, all one ink. Without a song, butter yellow with
+ * a red band.
+ */
+function labelInks(song?: Song | null) {
+  const tint = song?.tint;
+  if (!tint) {
+    return {
+      paper: [{ l: 0.89, c: 0.09, h: 86 }, { l: 0.8, c: 0.11, h: 78 }] as const,
+      band: { l: 0.6, c: 0.15, h: 28 },
+      type: [{ l: 0.45, c: 0.06, h: 40 }, { l: 0.55, c: 0.06, h: 50 }] as const,
+      ring: { l: 0.7, c: 0.1, h: 70 },
+    };
+  }
+  const { h } = tint;
+  const c = Math.min(tint.c, 0.13);
+  return {
+    paper: [{ l: 0.88, c: c * 0.6, h }, { l: 0.79, c: c * 0.75, h: h - 6 }] as const,
+    band: { l: 0.56, c: c * 1.05, h },
+    type: [{ l: 0.4, c: c * 0.45, h }, { l: 0.5, c: c * 0.45, h }] as const,
+    ring: { l: 0.68, c: c * 0.7, h },
+  };
+}
+
 // The record's disc, on a canvas of its own so it can turn while a song
 // plays. The window's reflection on its grooves does not turn with it; that
 // is laid on the sleeve's canvas, over the disc (FINISH.record).
-const disc: Study = (b) => {
+const disc: Study = (b, song) => {
   const { ctx, U } = b;
   const [cx, cy, r] = RECORD_DISC;
   const vinyl: Tone = { l: 0.21, c: 0.01, h: 280 };
@@ -519,20 +545,21 @@ const disc: Study = (b) => {
   ctx.strokeStyle = paint(b, { l: 0.38, c: 0.01, h: 270 });
   ctx.stroke(oval(b, cx, cy, r - 0.0012, r - 0.0012));
   // The label is lit evenly, so nothing on it gives the turning away but
-  // its print: a red band across the top and a line of type under the hole.
+  // its print: a band across the top and a line of type under the hole.
+  const inks = labelInks(song);
   const label = oval(b, cx, cy, 0.034, 0.034);
-  const yellow = ctx.createRadialGradient(U(cx), U(cy), 0, U(cx), U(cy), U(0.036));
-  yellow.addColorStop(0, paint(b, { l: 0.89, c: 0.09, h: 86 }));
-  yellow.addColorStop(1, paint(b, { l: 0.8, c: 0.11, h: 78 }));
-  fillPath(b, label, yellow);
+  const sheet = ctx.createRadialGradient(U(cx), U(cy), 0, U(cx), U(cy), U(0.036));
+  sheet.addColorStop(0, paint(b, inks.paper[0]));
+  sheet.addColorStop(1, paint(b, inks.paper[1]));
+  fillPath(b, label, sheet);
   ctx.save();
   ctx.clip(label);
-  fillPath(b, box(b, cx - 0.04, cy - 0.04, 0.08, 0.024), paint(b, { l: 0.6, c: 0.15, h: 28 }));
-  fillPath(b, box(b, cx - 0.013, cy + 0.011, 0.026, 0.004, 0.001), paint(b, { l: 0.45, c: 0.06, h: 40 }));
-  fillPath(b, box(b, cx - 0.008, cy + 0.019, 0.016, 0.003, 0.001), paint(b, { l: 0.55, c: 0.06, h: 50 }));
+  fillPath(b, box(b, cx - 0.04, cy - 0.04, 0.08, 0.024), paint(b, inks.band));
+  fillPath(b, box(b, cx - 0.013, cy + 0.011, 0.026, 0.004, 0.001), paint(b, inks.type[0]));
+  fillPath(b, box(b, cx - 0.008, cy + 0.019, 0.016, 0.003, 0.001), paint(b, inks.type[1]));
   ctx.restore();
   ctx.lineWidth = U(0.0012);
-  ctx.strokeStyle = paint(b, { l: 0.7, c: 0.1, h: 70 });
+  ctx.strokeStyle = paint(b, inks.ring);
   ctx.stroke(oval(b, cx, cy, 0.026, 0.026));
   fillPath(b, oval(b, cx, cy, 0.0035, 0.0035), paint(b, { l: 0.3, c: 0.02, h: 250 }));
 };
@@ -567,7 +594,8 @@ function printCover(b: Brush, cover: CanvasImageSource, sleeve: Path2D) {
 // the edges. It is printed with the cover of the song on the record, which
 // the knife then paints like anything else in the room; with no song to
 // look at, a sun over a line.
-const record: Study = (b, cover) => {
+const record: Study = (b, song) => {
+  const cover = song?.cover;
   const { ctx, U } = b;
   const sleeve = sleeveShape(b);
   fillPath(b, sleeve, gradient(b, 0.62, 0.61, 0.87, 0.86, [[0, { l: 0.92, c: 0.045, h: 14 }], [0.6, { l: 0.87, c: 0.055, h: 12 }], [1, { l: 0.8, c: 0.06, h: 10 }]]));
@@ -903,11 +931,11 @@ export async function paintBackdrop(ctx: CanvasRenderingContext2D, u: number, ni
 
 /**
  * One thing, onto its own canvas: the thing's box plus BLEED on every side,
- * with `ctx` set to draw in the painting's CSS pixels. `cover` is the song's
- * art for the record's sleeve; it must be readable (CORS-clean), since the
- * knife takes its colours from the study.
+ * with `ctx` set to draw in the painting's CSS pixels. `song` is the one on
+ * the record; its cover must be readable (CORS-clean), since the knife takes
+ * its colours from the study.
  */
-export async function paintPiece(ctx: CanvasRenderingContext2D, piece: Piece, u: number, night: boolean, signal?: AbortSignal, cover?: CanvasImageSource) {
+export async function paintPiece(ctx: CanvasRenderingContext2D, piece: Piece, u: number, night: boolean, signal?: AbortSignal, song?: Song | null) {
   const [x, y, w, h] = piece.box;
   const left = (x - BLEED) * u;
   const top = (y - BLEED) * u;
@@ -918,8 +946,8 @@ export async function paintPiece(ctx: CanvasRenderingContext2D, piece: Piece, u:
   if (!studyCtx) return;
   studyCtx.translate(-left, -top);
   const seed = seedOf(piece.id);
-  STUDIES[piece.id](brush(studyCtx, u, night, seed), cover);
-  await paintOver(ctx, study, [left, top], styleOf(piece.id, u, Boolean(cover)), seeded(seed ^ 0x9e3779b9), signal);
+  STUDIES[piece.id](brush(studyCtx, u, night, seed), song);
+  await paintOver(ctx, study, [left, top], styleOf(piece.id, u, Boolean(song)), seeded(seed ^ 0x9e3779b9), signal);
   if (!signal?.aborted) FINISH[piece.id]?.(brush(ctx, u, night, seed + 1));
 }
 
