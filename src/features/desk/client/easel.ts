@@ -1062,7 +1062,7 @@ export function initEasel(): () => void {
     coverUrl = url;
     void (url ? loadCover(url) : Promise.resolve(null)).then((image) => {
       if (url !== coverUrl) return;
-      song = image ? { cover: image, tint: tintOf(image) } : null;
+      song = image ? { cover: image, tint: tintOf(track.accent) } : null;
       // The record on show goes first; paint out of sight can wait.
       if (job?.quiet) {
         job.stop.abort();
