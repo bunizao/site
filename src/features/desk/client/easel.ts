@@ -16,6 +16,7 @@
 
 import { ASPECT, DISC, LAMP, THINGS, type Piece } from '@/features/desk/shared/still-life';
 import { coat, css, draw, seedOf, seeded, swatch, type Tone } from './knife';
+import { breathe } from './painterly';
 import { play, type Sound } from './sound';
 import { BLEED, paintBackdrop, paintLight, paintPiece } from './still-life';
 import { paintStudies } from './studies';
@@ -252,6 +253,7 @@ export function initEasel(): () => void {
         signal,
       );
     }
+    await breathe();
     if (signal.aborted) return;
 
     // The light is soft; one pixel per CSS pixel is plenty.
