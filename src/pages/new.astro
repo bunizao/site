@@ -7,7 +7,7 @@
 // modified click, a crawler or a script failure still lands somewhere.
 //
 // Unlisted while it is a prototype: noindex, and nothing links here.
-import { Menu, Volume2, VolumeX } from 'lucide-react';
+import { Disc3, Menu, Volume2, VolumeX } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
@@ -194,7 +194,7 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
           I <a class="desk-chip" href="/blog" {...opens('writing')}>write</a> about being alive, and shorter thoughts go to
           <a class="desk-chip" href="/mood" {...opens('moods')}>moods</a>.
           <span class="desk-note">There's usually</span>
-          <button class="desk-chip" type="button" {...opens('listening')}><span class="desk-icon desk-disc" data-turn aria-hidden="true"><img class="desk-disc-label" alt="" referrerpolicy="no-referrer" data-song-cover hidden /></span>a song</button>
+          <button class="desk-chip" type="button" {...opens('listening')}><Disc3 className="desk-icon" data-turn aria-hidden="true" />a song</button>
           <span class="desk-note">on repeat, and too many tabs open on</span>
           <a class="desk-chip" href="https://github.com/bunizao" {...opens('github')}><GitHubIcon className="desk-icon" />GitHub</a><span class="desk-note">. Elsewhere, I'm on</span>
           <a class="desk-link" href={linkOf('Telegram')} {...external}><TelegramIcon className="desk-icon" />Telegram</a>

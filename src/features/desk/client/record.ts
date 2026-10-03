@@ -1,8 +1,8 @@
 // The song on the record. The listening card in its panel polls it
 // (lib/listening/controller.ts) and says so with LISTENING_TRACK_EVENT; here
 // it becomes what the painting needs: a cover the knife can read for the
-// sleeve, its colour for the disc's label and the song's word in the prose,
-// and the words on the gallery label under the canvas.
+// sleeve, its colour for the disc's label, and the words on the gallery
+// label under the canvas.
 import type { ListeningTrackPayload } from '@/lib/listening/controller';
 import { toneOf } from './painterly';
 

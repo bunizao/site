@@ -565,9 +565,11 @@ const disc: Study = (b, song) => {
 };
 
 /**
- * The cover, square on the leaning card, in the room's light: the window
- * lifts the upper left and the far corner falls into shade. At night the
- * room's dimness goes over it, the way `Brush.t` dims every other paint.
+ * The cover, square on the leaning card, mixed with white like every other
+ * paint in the room, so no black survives and its colours go pastel; then
+ * the room's light: the window lifts the upper left and the far corner falls
+ * into shade. At night the room's dimness goes over it, the way `Brush.t`
+ * dims every other paint.
  */
 function printCover(b: Brush, cover: CanvasImageSource, sleeve: Path2D) {
   const { ctx, U } = b;
@@ -577,6 +579,8 @@ function printCover(b: Brush, cover: CanvasImageSource, sleeve: Path2D) {
   ctx.rotate(lean);
   ctx.drawImage(cover, U(-half), U(-half), U(half * 2), U(half * 2));
   ctx.restore();
+  ctx.fillStyle = css({ l: 0.97, c: 0.012, h: 80, a: 0.42 });
+  ctx.fill(sleeve);
   ctx.fillStyle = gradient(b, x - half, y - half, x + half, y + half, [
     [0, { l: 1, c: 0, h: 0, a: 0.2 }],
     [0.45, { l: 1, c: 0, h: 0, a: 0 }],
@@ -888,10 +892,10 @@ function styleOf(id: PieceId, u: number, printed = false): Style {
       return { ...common, layers: knives(u, [0.017, 0.009, 0.005], [0, 22, 16]), spill: 0.003 * u };
     case 'books':
       return { ...common, angle: 0, jitter: 0.12, spill: 0.003 * u };
-    // A cover is a picture someone else made: finer blades keep it legible,
-    // and the knife carries less of the room's palette into it.
+    // A cover is a picture someone else made: a little finer blades keep it
+    // legible, and the knife still carries the room's white into it.
     case 'record':
-      return printed ? { ...common, layers: knives(u, [0.013, 0.0068, 0.0036], [0, 20, 14]), spill: 0.002 * u, accentShare: 0.02, whiteShare: 0.22 } : common;
+      return printed ? { ...common, layers: knives(u, [0.016, 0.009, 0.0048], [0, 24, 18]), spill: 0.002 * u } : common;
     default:
       return common;
   }

@@ -19,8 +19,7 @@
 //
 // The record wears the song on it: each new cover from the listening card is
 // painted onto the sleeve and its colour onto the disc's label, brought up
-// under the knife over the one before. The song's word in the prose, its tab
-// and its coat take the same colour, and the gallery label names the song.
+// under the knife over the one before, and the gallery label names the song.
 
 import { ASPECT, DISC, LAMP, THINGS, type Piece } from '@/features/desk/shared/still-life';
 import { LISTENING_TRACK_EVENT, type ListeningTrackPayload } from '@/lib/listening/controller';
@@ -430,7 +429,7 @@ export function initEasel(): () => void {
     const night = isNight();
     const measured = els.map((el) => ({ el, width: el.offsetWidth, height: el.offsetHeight, tone: swatchTone(el) }));
     for (const { el, width, height, tone } of measured) {
-      const key = `${width}x${height}x${night}x${tone.h}x${tone.c}`;
+      const key = `${width}x${height}x${night}`;
       if (!width || swatchKeys.get(el) === key) continue;
       const url = swatch(width * 1.08 + 8, height + 4, tone, seedOf(el.textContent ?? ''));
       if (!url) continue;
@@ -905,26 +904,8 @@ export function initEasel(): () => void {
 
   // --- The song on the record --------------------------------------------------------
   const vinylLabel = easel.querySelector<HTMLImageElement>('[data-vinyl-label]');
-  const chipCover = document.querySelector<HTMLImageElement>('[data-song-cover]');
   const listening = sections.get('listening');
-  const listeningTone = listening && { hue: listening.hue, chroma: listening.chroma };
   let coverUrl = '';
-
-  /** Gives the song's word, its thing, its tab and its coat the song's colour; or back their own. */
-  const tintListening = () => {
-    if (!listening || !listeningTone) return;
-    const tint = song?.tint;
-    const hue = tint ? Math.round(tint.h) : listeningTone.hue;
-    const chroma = tint ? Math.round(Math.min(0.11, Math.max(0.05, tint.c * 0.6)) * 1000) / 1000 : listeningTone.chroma;
-    if (hue === listening.hue && chroma === listening.chroma) return;
-    Object.assign(listening, { hue, chroma });
-    document.querySelectorAll<HTMLElement>('[data-open="listening"], [data-tab="listening"]').forEach((el) => {
-      el.style.setProperty('--h', String(hue));
-      el.style.setProperty('--c', String(chroma));
-    });
-    paintAllSwatches();
-    if (active === 'listening') refill(listening);
-  };
 
   const onTrack = (event: Event) => {
     const track = (event as CustomEvent<ListeningTrackPayload>).detail;
@@ -937,20 +918,12 @@ export function initEasel(): () => void {
     const thumb = track.thumbUrl?.trim() || track.artworkUrl?.trim();
     if (vinylLabel && !vinylLabel.hidden && thumb) vinylLabel.src = thumb;
 
-    // The small record by the song's word keeps the last cover until the next is in.
-    if (chipCover && thumb && chipCover.getAttribute('src') !== thumb) {
-      chipCover.onload = () => (chipCover.hidden = false);
-      chipCover.onerror = () => (chipCover.hidden = true);
-      chipCover.src = thumb;
-    }
-
     const url = coverOf(track);
     if (url === coverUrl) return;
     coverUrl = url;
     void (url ? loadCover(url) : Promise.resolve(null)).then((image) => {
       if (url !== coverUrl) return;
       song = image ? { cover: image, tint: tintOf(image) } : null;
-      tintListening();
       void repaintRecord();
     });
   };

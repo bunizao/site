@@ -327,30 +327,6 @@ body:has(.desk) .spotlight-overlay {
   vertical-align: -0.12em;
 }
 
-/* The song's word carries a record, in the song's colour until its cover
-   is in, and turning while it plays like the one in the painting
-   (client/turntable.ts). */
-.desk-disc {
-  position: relative;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle, oklch(0.84 calc(var(--c) * 1.4) var(--h)) 0 31%, transparent 32%),
-    repeating-radial-gradient(circle, oklch(0.24 0.01 280) 0 0.05em, oklch(0.3 0.01 280) 0.05em 0.07em);
-}
-
-.desk-disc-label {
-  position: absolute;
-  inset: 27%;
-  width: 46%;
-  height: 46%;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.desk-disc-label[hidden] {
-  display: none;
-}
-
 /* A word that is a thing in the painting: a drag of its paint behind it.
    The swatch is painted by client/easel.ts as --swatch; until then, and
    without the script, a flat dab of the same colour stands in. */
