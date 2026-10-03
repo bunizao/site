@@ -2,11 +2,13 @@
 // thing off the table while its word in the prose (or the thing itself) is
 // pointed at, and names it on the gallery label. Opening a section drags a
 // coat of its colour over the whole canvas, row by row like a painter toning
-// a ground, and sets the section on it halfway through; every opened section
-// stays as a swatch tab. Going back to the painting scrapes the coat off with
-// the same knife. Below 640px the canvas takes the whole screen while a
-// section is on it, as a step in the history. Esc, the back gesture, or the
-// small painting at the start of the tabs goes back to the still life.
+// a ground, and sets the section on it halfway through. While one is on the
+// canvas, every section is a tab along its top, the one on show in its
+// swatch, so the next is one click (or an arrow key) away. Going back to the
+// painting scrapes the coat off with the same knife. Below 640px the canvas
+// takes the whole screen while a section is on it, as a step in the history.
+// Esc, the back gesture, or the small painting at the start of the tabs goes
+// back to the still life.
 //
 // Every part of the painting is painted out of sight on a fresh canvas. The
 // first time, once the painting is in view, each comes up under the knife,
@@ -158,8 +160,8 @@ export function initEasel(): () => void {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const isNight = () => document.documentElement.classList.contains('dark');
 
-  /** Open sections, in the order they were opened. */
-  const opened: string[] = [];
+  /** Whether anything has been opened this visit. */
+  let openedAny = false;
   let active: string | null = null;
   let opener: HTMLElement | null = null;
   /** Whether the last press was a finger rather than a key or a mouse. */
@@ -602,18 +604,13 @@ export function initEasel(): () => void {
   };
 
   const syncTabs = () => {
-    tabBar.hidden = opened.length === 0;
-    const appeared: HTMLElement[] = [];
+    const appeared = tabBar.hidden && active !== null;
+    tabBar.hidden = active === null;
     tabs.forEach((tab, id) => {
-      const at = opened.indexOf(id);
-      const wasHidden = tab.hidden;
-      tab.hidden = at === -1;
-      tab.style.order = String(at);
       tab.classList.toggle('is-active', id === active);
       tab.querySelector('[data-tab-select]')?.setAttribute('aria-selected', String(id === active));
-      if (wasHidden && !tab.hidden) appeared.push(tab);
     });
-    paintSwatches(appeared);
+    if (appeared) paintSwatches([...tabs.values()]);
     // Under a finger the tabs slide in one row; the active one stays in sight.
     // By hand, not scrollIntoView, which would also scroll the page.
     const shown = active ? tabs.get(active) : null;
@@ -702,11 +699,11 @@ export function initEasel(): () => void {
     setLabel(id ? sections.get(id) ?? null : null, false);
   };
 
-  // --- Open, switch, close ------------------------------------------------------------
+  // --- Open, switch, go back ----------------------------------------------------------
   const open = (id: string, from: HTMLElement | null = null) => {
     const section = sections.get(id);
     if (!section?.panel || !panels.has(id)) return;
-    if (!opened.includes(id)) opened.push(id);
+    openedAny = true;
     if (from) opener = from;
     if (active === id) {
       panels.get(id)?.focus({ preventScroll: true });
@@ -756,23 +753,6 @@ export function initEasel(): () => void {
       const back = opener?.isConnected && !opener.closest('[inert]') ? opener : byHistory ? null : things[0];
       back?.focus({ preventScroll: true });
     });
-  };
-
-  const close = (id: string) => {
-    const at = opened.indexOf(id);
-    if (at === -1) return;
-    opened.splice(at, 1);
-    if (active !== id) {
-      syncTabs();
-      return;
-    }
-    const next = opened[Math.min(at, opened.length - 1)];
-    if (next) {
-      active = null;
-      open(next);
-    } else {
-      home();
-    }
   };
 
   // --- Input -------------------------------------------------------------------------
@@ -850,7 +830,7 @@ export function initEasel(): () => void {
       if (!entry.isIntersecting) return;
       nudgeWatch.disconnect();
       // Whoever has opened something has found the things already.
-      if (opened.length) return;
+      if (openedAny) return;
       try {
         sessionStorage.setItem(NUDGE_KEY, '1');
       } catch {
@@ -871,11 +851,6 @@ export function initEasel(): () => void {
   const onClick = (event: MouseEvent) => {
     if (event.defaultPrevented || event.button !== 0) return;
     const target = event.target as Element;
-    const closer = target.closest<HTMLElement>('[data-tab-close]');
-    if (closer) {
-      close(closer.closest<HTMLElement>('[data-tab]')?.dataset.tab ?? '');
-      return;
-    }
     const select = target.closest<HTMLElement>('[data-tab-select]');
     if (select) {
       open(select.closest<HTMLElement>('[data-tab]')?.dataset.tab ?? '');
@@ -892,12 +867,29 @@ export function initEasel(): () => void {
     open(trigger.dataset.open ?? '', trigger);
   };
 
+  /** The section `step` along the tabs from the one on show, round the ends. */
+  const along = (step: number) => {
+    const ids = [...tabs.keys()];
+    return ids[(ids.indexOf(active ?? '') + step + ids.length) % ids.length];
+  };
+
   const onKey = (event: KeyboardEvent) => {
-    if (event.key !== 'Escape' || event.defaultPrevented || !active) return;
-    // Another dialog (the command palette) owns its own Escape.
+    if (event.defaultPrevented || !active) return;
+    // Another dialog (the command palette) owns its own keys.
     if (document.activeElement?.closest('[role="dialog"]')) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      home();
+      return;
+    }
+    // The arrows go along the tabs from the tabs themselves, or from a
+    // section, which holds the focus once shown; not from inside one, where
+    // they may be scrolling or typing.
+    const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+    const from = event.target as Element;
+    if (!step || event.altKey || event.metaKey || event.ctrlKey || !(tabBar.contains(from) || from.hasAttribute('data-panel'))) return;
     event.preventDefault();
-    home();
+    open(along(step));
   };
 
   // Back out of the full-screen canvas; any other step through the history

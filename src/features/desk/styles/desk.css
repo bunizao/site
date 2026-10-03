@@ -652,7 +652,10 @@ body:has(.desk) .spotlight-overlay {
   outline-offset: 4px;
 }
 
-/* --- Tabs: swatches tested on the wall ------------------------------------- */
+/* --- Tabs: swatches tested on the wall -------------------------------------
+   While a section is on the canvas, every section is a tab. Only the one on
+   show wears its swatch; the rest are its neighbours' names in ink, quiet
+   over the coat, and a pointer over one tries its swatch at half strength. */
 .easel-tabs {
   position: absolute;
   top: var(--tabs-top);
@@ -700,7 +703,7 @@ body:has(.desk) .spotlight-overlay {
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
-  gap: 6px 4px;
+  gap: 6px 2px;
 }
 
 .easel-tab {
@@ -709,13 +712,8 @@ body:has(.desk) .spotlight-overlay {
   align-items: center;
   isolation: isolate;
   height: 32px;
-  padding-left: 9px;
   color: oklch(0.33 calc(var(--c) * 1.4) var(--h));
   font: 600 13.5px/1 var(--d-sans);
-}
-
-.easel-tab[hidden] {
-  display: none;
 }
 
 .easel-tab::before {
@@ -724,7 +722,7 @@ body:has(.desk) .spotlight-overlay {
   inset: 0;
   z-index: -1;
   background: oklch(0.87 calc(var(--c) * 1.3) var(--h));
-  opacity: 0.5;
+  opacity: 0;
   transition: opacity 0.25s ease;
 }
 
@@ -736,14 +734,19 @@ body:has(.desk) .spotlight-overlay {
   opacity: 1;
 }
 
+@media (hover: hover) {
+  .easel-tab:not(.is-active):hover::before {
+    opacity: 0.5;
+  }
+}
+
 :root.dark .easel-tab {
   color: oklch(0.93 calc(var(--c) * 0.8) var(--h));
 }
 
-.easel-tab-name,
-.easel-tab-close {
+.easel-tab-name {
   height: 100%;
-  padding: 0;
+  padding: 0 9px;
   border: 0;
   background: none;
   color: inherit;
@@ -752,24 +755,12 @@ body:has(.desk) .spotlight-overlay {
 }
 
 .easel-tab:not(.is-active) .easel-tab-name {
-  opacity: 0.72;
-}
-
-.easel-tab-close {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  opacity: 0.55;
+  opacity: 0.62;
   transition: opacity 0.15s ease;
 }
 
-.easel-tab-close svg {
-  width: 11px;
-  height: 11px;
-}
-
 @media (hover: hover) {
-  .easel-tab-close:hover {
+  .easel-tab:not(.is-active):hover .easel-tab-name {
     opacity: 1;
   }
 }
@@ -780,11 +771,10 @@ body:has(.desk) .spotlight-overlay {
   border-radius: 2px;
 }
 
-/* A fingertip needs about 40px. The cross gets the widest share: a finger
-   that misses it lands on the tab's name and selects instead of closing.
-   The tabs keep to one row that slides under the finger, as a second row
-   would push the section down; a mouse cannot slide, so it keeps the wrap.
-   The padding keeps a focus ring inside the scroller's clip. */
+/* A fingertip needs about 40px. The tabs keep to one row that slides under
+   the finger, as a second row would push the section down; a mouse cannot
+   slide, so it keeps the wrap. The padding keeps a focus ring inside the
+   scroller's clip. */
 @media (pointer: coarse) {
   .easel-tablist {
     flex-wrap: nowrap;
@@ -808,11 +798,10 @@ body:has(.desk) .spotlight-overlay {
   .easel-tab {
     flex: none;
     height: 40px;
-    padding-left: 12px;
   }
 
-  .easel-tab-close {
-    width: 36px;
+  .easel-tab-name {
+    padding: 0 12px;
   }
 }
 

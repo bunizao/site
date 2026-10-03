@@ -2,12 +2,12 @@
 // The easel: one 4:5 canvas holding "Still life with a desk". Each thing in
 // the painting is a link or a button over the paint. Opening a section tones
 // the whole canvas over in its colour with a palette knife and sets the
-// section on the wet ground; every section opened stays as a swatch tab at
+// section on the wet ground; while one is on it, every section is a tab at
 // the top, and the small painting at the start of the row goes back to the
 // still life. Under the canvas, a gallery label names whatever is on it.
 //
-// A pendant lamp hangs over the desk; it switches, and swings. Its light is
-// two canvases over the paint, blended in (client/lamp.ts).
+// A pendant lamp hangs over the desk; it turns day to night, and swings. Its
+// light is two canvases over the paint, blended in (client/lamp.ts).
 //
 // Without the script the things are plain links to their pages; the panels
 // stay hidden.
@@ -97,7 +97,7 @@ const lamp = byId.get('lamp');
         </button>
         <div class="easel-tablist" role="tablist" aria-label="Open on the canvas">
           {panels.map((section) => (
-            <span class="easel-tab" data-tab={section.id} style={tone(section)} hidden>
+            <span class="easel-tab" data-tab={section.id} style={tone(section)}>
               <button
                 class="easel-tab-name"
                 type="button"
@@ -107,9 +107,6 @@ const lamp = byId.get('lamp');
                 aria-selected="false"
                 data-tab-select
               >{section.tab}</button>
-              <button class="easel-tab-close" type="button" data-tab-close aria-label={`Close ${section.tab}`}>
-                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 3 9 9M9 3 3 9" /></svg>
-              </button>
             </span>
           ))}
         </div>
