@@ -15,8 +15,9 @@ export interface DeskMood {
   /** "zh" when the text is Chinese, so assistive tech picks the right voice. */
   lang?: string;
   datetime: string;
-  /** "1 Oct", in Melbourne time, where every one of these was posted. */
-  date: string;
+  /** "21:51", in Melbourne time, where every one of these was posted; the
+      page puts it in the reader's own time (client/moods.ts). */
+  time: string;
   thumb?: { src: string; srcset?: string };
   /** The two biggest, as "❤️ 3". */
   reactions: string[];
@@ -47,7 +48,7 @@ export interface DeskContent {
 const MOODS = 3;
 const POSTS = 5;
 
-const melbourneDay = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short' });
+const melbourneTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false });
 const monthYear = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', month: 'short', year: 'numeric' });
 
 const format = (formatter: Intl.DateTimeFormat, iso: string) => {
@@ -73,7 +74,7 @@ const toMood = (item: MoodFeedItem): DeskMood => {
     text: item.previewText.trim(),
     lang: langOf(item.previewText),
     datetime: item.datetime,
-    date: format(melbourneDay, item.datetime),
+    time: format(melbourneTime, item.datetime),
     ...(thumb ? { thumb: { src: thumb.src, srcset: thumb.srcset } } : {}),
     reactions: [...item.reactions]
       .sort((a, b) => Number(b.count) - Number(a.count))
