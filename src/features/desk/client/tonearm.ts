@@ -21,6 +21,10 @@ const SPRING = 60;
 const SETTLED = 0.3;
 /** How far the groove may move from under a lowered arm before it lifts again. */
 const DRIFT = 1.5;
+/** Set once a record has been played on the desk; the slip by the start key stays away after. */
+const PLAYED = 'desk-played';
+/** How long the panel is open before the slip comes. */
+const HINT_MS = 1200;
 
 interface Aim {
   angle: number;
@@ -29,12 +33,14 @@ interface Aim {
 }
 
 export function initTonearm() {
+  const easel = document.querySelector<HTMLElement>('[data-easel]');
   const deck = document.querySelector<HTMLElement>('[data-deck]');
   const arm = deck?.querySelector<HTMLElement>('[data-arm]');
   const start = deck?.querySelector<HTMLButtonElement>('[data-deck-start]');
+  const hint = deck?.querySelector<HTMLElement>('[data-deck-hint]');
   const listening = document.querySelector<HTMLElement>('[data-listening]');
   const playButton = listening?.querySelector<HTMLButtonElement>('[data-listening-play]');
-  if (!deck || !arm || !start || !listening || !playButton) return;
+  if (!easel || !deck || !arm || !start || !hint || !listening || !playButton) return;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   let snap: PlaybackSnapshot = musicKitPlayer.snapshot();
@@ -110,12 +116,58 @@ export function initTonearm() {
     const pressed = snap.owner !== null && (snap.isPlaying || snap.isLoading);
     start.setAttribute('aria-pressed', String(pressed));
     start.setAttribute('aria-label', pressed ? 'Pause' : 'Play');
+    if (listening.classList.contains('has-no-playback')) deck.classList.remove('is-hinting');
     wake();
   };
 
+  // --- The first time ----------------------------------------------------------------
+  // Nothing on a turntable says which key starts it. The first few seconds
+  // on the panel, a slip by the key says so and the key calls softly; once
+  // anything has played here, neither comes back.
+  let played = (() => {
+    try {
+      return localStorage.getItem(PLAYED) === '1';
+    } catch {
+      return false;
+    }
+  })();
+  let hintTimer = 0;
+
+  const offerHint = () => {
+    window.clearTimeout(hintTimer);
+    deck.classList.remove('is-hinting');
+    if (played) return;
+    hintTimer = window.setTimeout(() => {
+      if (!played && !listening.classList.contains('has-no-playback')) deck.classList.add('is-hinting');
+    }, HINT_MS);
+  };
+
+  const learned = () => {
+    window.clearTimeout(hintTimer);
+    deck.classList.remove('is-hinting');
+    if (played) return;
+    played = true;
+    try {
+      localStorage.setItem(PLAYED, '1');
+    } catch {
+      // A private window asks again next visit.
+    }
+  };
+
+  easel.addEventListener('easel:shown', (event) => {
+    if ((event as CustomEvent<string>).detail === 'listening') offerHint();
+    else window.clearTimeout(hintTimer);
+  });
+  if (!deck.closest<HTMLElement>('[data-panel]')?.hidden) offerHint();
+  // The slip is a bigger key, for a finger that went for the words.
+  hint.addEventListener('click', () => start.click());
+
   musicKitPlayer.subscribe((next) => {
     snap = next;
-    if (snap.isPlaying) parked = false;
+    if (snap.isPlaying) {
+      parked = false;
+      learned();
+    }
     if (pending !== null) {
       if (snap.isPlaying && snap.duration > 0) {
         // Seeking says so to every listener, this one too.
@@ -136,6 +188,7 @@ export function initTonearm() {
 
   start.addEventListener('click', () => {
     parked = false;
+    learned();
     playButton.click();
   });
 

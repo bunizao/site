@@ -3,6 +3,8 @@
 // knife (client/studies.ts): the record turns on its platter while the song
 // plays, and the tonearm is its progress bar (client/tonearm.ts). The start
 // key is the one control a keyboard reaches; the arm is for a hand to drag.
+// Until a record has been played here once, a slip beside the key says what
+// it is for.
 // Every position comes from DECK, in plinth widths.
 import { DECK } from '@/features/desk/shared/deck';
 
@@ -49,4 +51,5 @@ const vars = [
   <button class="tt-start" type="button" aria-label="Play" aria-pressed="false" data-deck-start>
     <canvas data-study="key" data-seed="key"></canvas>
   </button>
+  <span class="tt-hint" aria-hidden="true" data-deck-hint>Press to listen</span>
 </div>
