@@ -466,11 +466,21 @@ export function initEasel(): () => void {
   // page. The step is marked in its state, and a reload keeps it.
   const isFullStep = () => (history.state as { easelFull?: boolean } | null)?.easelFull === true;
 
+  // Under a laid coat the page is out of sight anyway. iOS still shows what
+  // is scrolled under its status bar; with the page hidden, the bar takes the
+  // body's colour, which is the coat's.
+  const conceal = (on: boolean) => outside.forEach((el) => (el.style.visibility = on ? 'hidden' : ''));
+
   const setFull = (on: boolean) => {
     if (easel.classList.contains('is-full') === on) return;
+    // The frame and label leave the page's flow; the section holds their
+    // place, or the page would shorten under the reader and pull the scroll
+    // up with it, never to give it back.
+    easel.style.minHeight = on ? `${easel.offsetHeight}px` : '';
     easel.classList.toggle('is-full', on);
     document.documentElement.classList.toggle('easel-locked', on);
     outside.forEach((el) => (el.inert = on));
+    if (!on) conceal(false);
     if (on && !isFullStep()) history.pushState({ ...history.state, easelFull: true }, '', location.href);
   };
 
@@ -505,7 +515,9 @@ export function initEasel(): () => void {
     setCoat(section);
     still.inert = true;
     hidePanels();
-    void lay(coatTone(section), () => showPanel(id));
+    void lay(coatTone(section), () => showPanel(id)).then(() => {
+      if (active === id && easel.classList.contains('is-full')) conceal(true);
+    });
   };
 
   /** Back to the still life. `byHistory` when the back gesture asked, not the canvas's own controls. */
@@ -519,6 +531,7 @@ export function initEasel(): () => void {
     if (isFullStep()) history.back();
     else syncHash();
     hidePanels();
+    conceal(false);
     void lay(null).then(() => {
       if (active !== null) return;
       easel.classList.remove('is-covered');
