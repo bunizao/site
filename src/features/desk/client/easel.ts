@@ -654,16 +654,21 @@ export function initEasel(): () => void {
     });
   };
 
+  /** Everything painted in a panel: its studies, its slabs and its daubs. */
+  const paintPanel = (panel: HTMLElement) => {
+    paintStudies(panel, isNight());
+    const section = sections.get(panel.dataset.panel ?? '');
+    if (section) paintSlabs(panel, section);
+    paintSwatches([...panel.querySelectorAll<HTMLElement>('[data-daub]')]);
+  };
+
   const showPanel = (id: string) => {
     const panel = panels.get(id);
     if (!panel || active !== id) return;
     panels.forEach((other) => other !== panel && (other.hidden = true));
     panel.hidden = false;
     panel.scrollTop = 0;
-    paintStudies(panel, isNight());
-    const section = sections.get(id);
-    if (section) paintSlabs(panel, section);
-    paintSwatches([...panel.querySelectorAll<HTMLElement>('[data-daub]')]);
+    paintPanel(panel);
     if (!reduced.matches) {
       panel.animate(
         [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }],
@@ -970,6 +975,13 @@ export function initEasel(): () => void {
     open(along(step));
   };
 
+  // Part of a panel that was out of sight comes into it, a form opening: it
+  // is painted now, as the rest was when the panel opened.
+  const onRepaint = (event: Event) => {
+    const panel = (event.target as Element).closest<HTMLElement>('[data-panel]');
+    if (panel && !panel.hidden) paintPanel(panel);
+  };
+
   // Back out of the full-screen canvas; any other step through the history
   // keeps the hash saying what is on the canvas.
   const onPop = () => {
@@ -989,10 +1001,7 @@ export function initEasel(): () => void {
     // A cancelled coat never reached its halfway mark.
     const panel = panels.get(section.id);
     if (panel?.hidden) showPanel(section.id);
-    else if (panel) {
-      paintStudies(panel, isNight());
-      paintSlabs(panel, section);
-    }
+    else if (panel) paintPanel(panel);
   };
 
   let resizeTimer = 0;
@@ -1081,6 +1090,7 @@ export function initEasel(): () => void {
   window.addEventListener('popstate', onPop);
   phone.addEventListener('change', onPhoneChange);
   document.addEventListener(LISTENING_TRACK_EVENT, onTrack);
+  easel.addEventListener('easel:repaint', onRepaint);
 
   // The painting waits for an idle moment. The chips are painted just after
   // the first frame, when the page is already laid out and measuring them
@@ -1124,5 +1134,6 @@ export function initEasel(): () => void {
     window.removeEventListener('popstate', onPop);
     phone.removeEventListener('change', onPhoneChange);
     document.removeEventListener(LISTENING_TRACK_EVENT, onTrack);
+    easel.removeEventListener('easel:repaint', onRepaint);
   };
 }
