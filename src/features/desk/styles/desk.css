@@ -1337,16 +1337,16 @@ body:has(.desk) .spotlight-overlay {
     animation: desk-in 0.9s ease 0.55s backwards;
   }
 
-  /* A reload or a step back finds the desk already set (new.astro). */
-  :root.desk-set :is(.global-header-actions, .desk-prose > p, .easel-hang, .desk-foot),
-  :root.desk-set .desk-chip::before {
+  /* A reload or a step back finds the desk already set (new.astro), all but
+     the paint behind the words, which is laid again. */
+  :root.desk-set :is(.global-header-actions, .desk-prose > p, .easel-hang, .desk-foot) {
     animation: none;
   }
 }
 
-/* With no arrival to hide it, the stand-in dab would show and then change
-   shape under the reader when the swatch lands a moment later; the paint
-   behind a word waits for its swatch instead. */
+/* On a reload the stand-in dab would show and then change shape under the
+   reader when the swatch lands a moment later; the paint behind a word
+   waits for its swatch instead. */
 :root.desk-set .desk-chip:not(.has-swatch)::before {
   opacity: 0;
 }
