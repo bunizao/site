@@ -1261,8 +1261,30 @@ body:has(.desk) .spotlight-overlay {
     --tabs-top: calc(env(safe-area-inset-top, 0px) + 12px);
   }
 
+  /* Sideways is the swipe to the next section (client/easel.ts). */
   .easel.is-full .easel-panel {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
+    touch-action: pan-y pinch-zoom;
+  }
+
+  /* On a phone the tabs are swatches on the wall, side by side: the one on
+     show wears its name, the rest only their colour, so all of them fit
+     across the screen and none slides under the small painting. The label
+     below names the section; a swipe goes along them. */
+  .easel-tablist {
+    gap: 6px;
+  }
+
+  .easel-tab:not(.is-active) .easel-tab-name {
+    width: 34px;
+    padding: 0;
+    overflow: hidden;
+    color: transparent;
+  }
+
+  .easel-tab:not(.is-active)::before {
+    inset: 9px 5px;
+    opacity: 0.9;
   }
 
   .easel.is-full .easel-label {

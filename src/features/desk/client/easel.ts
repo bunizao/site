@@ -4,7 +4,8 @@
 // coat of its colour over the whole canvas, row by row like a painter toning
 // a ground, and sets the section on it halfway through. While one is on the
 // canvas, every section is a tab along its top, the one on show in its
-// swatch, so the next is one click (or an arrow key) away. Going back to the
+// swatch, so the next is one click (or an arrow key, or on a phone a swipe)
+// away. Going back to the
 // painting scrapes the coat off with the same knife. Below 640px the canvas
 // takes the whole screen while a section is on it, as a step in the history.
 // Esc, the back gesture, or the small painting at the start of the tabs goes
@@ -70,6 +71,13 @@ const NUDGE_DELAY_MS = 700;
 const NUDGE_STEP_MS = 120;
 const NUDGE_HOLD_MS = 450;
 const NUDGE_KEY = 'desk-nudged';
+// A swipe turns to the next section once dragged this far, or thrown this
+// fast (px/ms); it starts once the finger has gone this far across, and not
+// this near the screen's edges.
+const SWIPE_PX = 80;
+const SWIPE_FLICK = 0.45;
+const SWIPE_SLOP = 10;
+const SWIPE_EDGE = 20;
 
 // What a thing sounds like when it is the one opened.
 const VOICES: Record<string, Sound> = {
@@ -478,9 +486,9 @@ export function initEasel(): () => void {
     return time === 'night' ? { l: 0.42, c: c * 1.15, h } : { l: 0.87, c: c * 1.3, h };
   };
 
-  // Each swatch as painted for each time of day, and at what size: a turn of
-  // the theme only swaps them.
-  const swatches = new WeakMap<HTMLElement, Partial<Record<Time, { size: string; url: string }>>>();
+  // Each swatch as painted for each time of day and size: a turn of the
+  // theme only swaps them, and so does a phone's tab growing to show its name.
+  const swatches = new WeakMap<HTMLElement, Map<string, string>>();
 
   /** Paints the swatch behind each of `els` for `time`, measuring all of them
       before painting any: a write between two reads would lay the page out
@@ -489,13 +497,13 @@ export function initEasel(): () => void {
     const measured = els.map((el) => ({ el, width: el.offsetWidth, height: el.offsetHeight, tone: swatchTone(el, time) }));
     for (const { el, width, height, tone } of measured) {
       if (!width) continue;
-      const size = `${width}x${height}`;
-      const kept = swatches.get(el) ?? {};
-      let url = kept[time]?.size === size ? kept[time].url : '';
+      const key = `${time} ${width}x${height}`;
+      const kept = swatches.get(el) ?? new Map<string, string>();
+      let url = kept.get(key);
       if (!url) {
         url = swatch(width * 1.08 + 8, height + 4, tone, seedOf(el.textContent ?? ''));
         if (!url) continue;
-        swatches.set(el, { ...kept, [time]: { size, url } });
+        swatches.set(el, kept.set(key, url));
       }
       const value = `url(${url})`;
       if (time !== timeNow() || el.style.getPropertyValue('--swatch') === value) continue;
@@ -608,13 +616,13 @@ export function initEasel(): () => void {
   };
 
   const syncTabs = () => {
-    const appeared = tabBar.hidden && active !== null;
     tabBar.hidden = active === null;
     tabs.forEach((tab, id) => {
       tab.classList.toggle('is-active', id === active);
       tab.querySelector('[data-tab-select]')?.setAttribute('aria-selected', String(id === active));
     });
-    if (appeared) paintSwatches([...tabs.values()]);
+    // Every time: on a phone the one on show is wider than the rest.
+    if (active !== null) paintSwatches([...tabs.values()]);
     // Under a finger the tabs slide in one row; the active one stays in sight.
     // By hand, not scrollIntoView, which would also scroll the page.
     const shown = active ? tabs.get(active) : null;
@@ -877,6 +885,71 @@ export function initEasel(): () => void {
     return ids[(ids.indexOf(active ?? '') + step + ids.length) % ids.length];
   };
 
+  // --- A swipe, on a phone ---------------------------------------------------------------
+  // On the full-screen canvas the section follows a finger sideways. Let go
+  // far enough along, or flicked, it goes on the way it was thrown and the
+  // next section along the tabs is laid in its place; otherwise it comes back.
+  // Up and down stay the browser's, to scroll the section.
+  let swipe: { id: number; x: number; y: number; dx: number; vx: number; at: number; on: boolean; panel: HTMLElement } | null = null;
+
+  /** Whether something between `el` and `panel` scrolls sideways itself. */
+  const scrollsSideways = (el: Element | null, panel: HTMLElement) => {
+    for (; el && el !== panel; el = el.parentElement) {
+      if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
+    }
+    return false;
+  };
+
+  const onSwipeStart = (event: PointerEvent) => {
+    if (event.pointerType !== 'touch' || !active || !easel.classList.contains('is-full')) return;
+    const panel = panels.get(active);
+    const target = event.target as Element;
+    // The screen's edges are the browser's back and forward.
+    if (!panel || !panel.contains(target) || event.clientX < SWIPE_EDGE || event.clientX > innerWidth - SWIPE_EDGE) return;
+    if (scrollsSideways(target, panel)) return;
+    swipe = { id: event.pointerId, x: event.clientX, y: event.clientY, dx: 0, vx: 0, at: event.timeStamp, on: false, panel };
+  };
+
+  const onSwipeMove = (event: PointerEvent) => {
+    if (!swipe || event.pointerId !== swipe.id) return;
+    const dx = event.clientX - swipe.x;
+    if (!swipe.on) {
+      // More down than across: a scroll, which the browser has by now.
+      if (Math.abs(event.clientY - swipe.y) > Math.abs(dx)) {
+        if (Math.abs(event.clientY - swipe.y) > SWIPE_SLOP) swipe = null;
+        return;
+      }
+      if (Math.abs(dx) < SWIPE_SLOP) return;
+      swipe.on = true;
+    }
+    const dt = event.timeStamp - swipe.at;
+    if (dt > 0) swipe.vx = swipe.vx * 0.4 + ((dx - swipe.dx) / dt) * 0.6;
+    swipe.at = event.timeStamp;
+    swipe.dx = dx;
+    swipe.panel.style.translate = `${dx}px 0`;
+    swipe.panel.style.opacity = String(1 - Math.min(0.5, Math.abs(dx) / innerWidth));
+  };
+
+  const onSwipeEnd = (event: PointerEvent) => {
+    if (!swipe || event.pointerId !== swipe.id) return;
+    const { panel, dx, vx, on, at } = swipe;
+    swipe = null;
+    if (!on) return;
+    const from = { translate: `${dx}px 0`, opacity: panel.style.opacity };
+    panel.style.translate = '';
+    panel.style.opacity = '';
+    // A finger held still before it lifts has stopped the throw.
+    const thrown = event.timeStamp - at < 80 && Math.abs(vx) > SWIPE_FLICK && Math.sign(vx) === Math.sign(dx);
+    if (event.type !== 'pointerup' || (Math.abs(dx) < SWIPE_PX && !thrown)) {
+      panel.animate([from, { translate: '0 0', opacity: 1 }], { duration: 320, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+      return;
+    }
+    open(along(dx < 0 ? 1 : -1));
+    // Over the fade the next section's coat starts with (hidePanels).
+    panel.animate([from, { translate: `${Math.sign(dx) * innerWidth * 0.4}px 0`, opacity: 0 }], { duration: 140, easing: 'ease-out', fill: 'forwards' })
+      .finished.then((away) => away.cancel(), () => {});
+  };
+
   const onKey = (event: KeyboardEvent) => {
     if (event.defaultPrevented || !active) return;
     // Another dialog (the command palette) owns its own keys.
@@ -993,6 +1066,10 @@ export function initEasel(): () => void {
 
   document.addEventListener('click', onClick);
   document.addEventListener('keydown', onKey);
+  frame.addEventListener('pointerdown', onSwipeStart);
+  frame.addEventListener('pointermove', onSwipeMove);
+  frame.addEventListener('pointerup', onSwipeEnd);
+  frame.addEventListener('pointercancel', onSwipeEnd);
   document.addEventListener('pointerover', onOver);
   document.addEventListener('pointerout', onOut);
   document.addEventListener('pointerup', onTap);
@@ -1032,6 +1109,10 @@ export function initEasel(): () => void {
     themeObserver.disconnect();
     document.removeEventListener('click', onClick);
     document.removeEventListener('keydown', onKey);
+    frame.removeEventListener('pointerdown', onSwipeStart);
+    frame.removeEventListener('pointermove', onSwipeMove);
+    frame.removeEventListener('pointerup', onSwipeEnd);
+    frame.removeEventListener('pointercancel', onSwipeEnd);
     document.removeEventListener('pointerover', onOver);
     document.removeEventListener('pointerout', onOut);
     document.removeEventListener('pointerup', onTap);
