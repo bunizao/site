@@ -7,7 +7,7 @@
 // modified click, a crawler or a script failure still lands somewhere.
 //
 // Unlisted while it is a prototype: noindex, and nothing links here.
-import { Disc3, Menu, Volume2, VolumeX } from 'lucide-react';
+import { Activity, BookOpen, Disc3, LayoutGrid, Volume2, VolumeX } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
 import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
@@ -19,7 +19,7 @@ import Panel from '@/features/desk/ui/Panel.astro';
 import Works from '@/features/desk/ui/Works.astro';
 import { loadDeskContent } from '@/features/desk/server/content';
 import { GitHubIcon, InstagramIcon, MonashCrestIcon, TelegramIcon } from '@/components/icons';
-import { copyrightMark, experience, footer, navLinks, profile, projects } from '@/data/site';
+import { copyrightMark, experience, footer, profile, projects } from '@/data/site';
 import { DESK_FAVICON } from '@/lib/favicon';
 import '@/features/desk/styles/desk.css';
 
@@ -140,6 +140,27 @@ const sections: EaselSection[] = [
     href: '/message',
     thing: 'Leave me a note: the letter',
   },
+  // Not in the painting: the gallery label opens it, and it has no tab.
+  {
+    id: 'colophon',
+    title: 'Colophon',
+    date: '2023–ongoing',
+    medium: 'Astro and React on Cloudflare Workers',
+    hue: 75,
+    chroma: 0.03,
+    href: footer.links[0].url,
+    hrefLabel: 'source',
+    thing: 'How this site is made',
+    panel: true,
+  },
+];
+
+// How the site is made, and where the rest of it is.
+const colophon = [
+  { title: 'Source', sub: 'This site, on GitHub', href: footer.links[0].url, icon: GitHubIcon, external: true },
+  { title: 'Docs', sub: 'How it is built, and every route', href: '/docs', icon: BookOpen },
+  { title: 'Components', sub: 'The parts it is made of', href: '/components', icon: LayoutGrid },
+  { title: 'Status', sub: 'Whether it is up', href: footer.statusUrl, icon: Activity, external: true },
 ];
 
 const byId = new Map(sections.map((section) => [section.id, section]));
@@ -165,15 +186,6 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
       document.documentElement.classList.add('desk-set');
     }
   </script>
-  <nav slot="header-actions" class="desk-nav" aria-label="Site">
-    {navLinks.map((link) => <a href={link.href}>{link.label.toLowerCase()}</a>)}
-  </nav>
-  <details slot="header-actions" class="desk-menu">
-    <summary class="header-action-btn" aria-label="Menu"><Menu aria-hidden="true" /></summary>
-    <nav class="desk-menu-links" aria-label="Site">
-      {navLinks.map((link) => <a href={link.href}>{link.label.toLowerCase()}</a>)}
-    </nav>
-  </details>
   <button slot="header-actions" class="header-action-btn desk-sound" type="button" data-sound aria-pressed="true" aria-label="Sound">
     <Volume2 className="desk-sound-on" aria-hidden="true" />
     <VolumeX className="desk-sound-off" aria-hidden="true" />
@@ -259,15 +271,33 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
       <Panel id="github" paper>
         <GitHubContributions />
       </Panel>
+
+      <Panel id="colophon" label="Colophon">
+        <div class="easel-paper colophon">
+          <p class="colophon-note">
+            The still life is laid on with a palette knife in a canvas element, fresh in your browser on every visit,
+            by day and by night. The rest is Astro and React, served from Cloudflare's edge.
+          </p>
+          <ul class="paper-rows">
+            {colophon.map((row) => (
+              <li>
+                <a class="paper-row" href={row.href} {...(row.external ? external : {})}>
+                  <span class="paper-row-icon" aria-hidden="true"><row.icon className="paper-row-glyph" /></span>
+                  <span class="paper-row-main">
+                    <span class="paper-row-title">{row.title}</span>
+                    <span class="paper-row-sub">{row.sub}</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Panel>
     </Easel>
 
     <footer class="desk-foot">
       <span>{copyrightMark(new Date().getFullYear())}</span>
-      <span class="desk-foot-links">
-        <a href="/privacy">privacy</a>
-        <a href={footer.statusUrl} {...external}>status</a>
-        <a href={footer.links[0].url} {...external}>source</a>
-      </span>
+      <a href="/privacy">privacy</a>
     </footer>
   </main>
 </Layout>

@@ -100,38 +100,50 @@ body:has(.desk) .spotlight-overlay {
 }
 
 /* --- The letterhead ---------------------------------------------------------
-   Layout's header actions (search and theme) plus the site links, set as one
-   quiet line of type at the head of the letter: over the prose, never over
-   the easel. It scrolls with the page. Phones fold the links into a menu
-   and set the line at the top right. */
-.global-header-actions:has(.desk-nav) {
+   Layout's header actions, cut down to the two the desk cannot do without:
+   search, and the sound the desk makes. The site's links live in the prose
+   (projects, writing, moods), the colophon and the palette; the theme is the
+   lamp's (client/lamp.ts), and the palette's. The theme dropdown stays in
+   the page for the palette to press, out of sight. On a desk it sits at the
+   head of the letter, over the prose; on a phone, at the top right. */
+.global-header-actions:has(.desk-sound) {
   gap: 2px;
   font-family: var(--d-sans);
 }
 
+.global-header-actions:has(.desk-sound) [data-theme-dropdown] {
+  display: none;
+}
+
+/* Search first: the sound comes in the slot, before it. */
+.desk-sound {
+  order: 1;
+}
+
 @media (min-width: 640px) {
-  .global-header-actions:has(.desk-nav) {
+  .global-header-actions:has(.desk-sound) {
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 28px);
     right: auto;
-    /* The first link's text, not its hover pill, lines up with the prose. */
-    left: calc(var(--d-gutter) - 10px);
+    /* The search glyph, not its pill, lines up with the prose. */
+    left: calc(var(--d-gutter) - 9px);
     /* Above the site shell (z-index 1), which comes later and paints the page. */
     z-index: 2;
   }
 }
 
 /* No card: one floating over the prose sat on the words as they scrolled
-   under it. The last icon, not its button, ends at the prose's edge. */
+   under it. The last glyph, not its button, ends at the prose's edge. */
 @media (max-width: 639px) {
-  .global-header-actions:has(.desk-nav) {
+  .global-header-actions:has(.desk-sound) {
     position: absolute;
-    top: calc(env(safe-area-inset-top, 0px) + 20px);
-    right: calc(var(--d-gutter) - 8px);
+    top: calc(env(safe-area-inset-top, 0px) + 14px);
+    right: calc(var(--d-gutter) - 12px);
+    gap: 0;
   }
 }
 
-.global-header-actions:has(.desk-nav) .header-action-btn {
+.global-header-actions:has(.desk-sound) .header-action-btn {
   height: 32px;
   min-width: 32px;
   border-color: transparent;
@@ -142,85 +154,37 @@ body:has(.desk) .spotlight-overlay {
   color: var(--d-note);
 }
 
+/* Two glyphs of one size, each a fingertip wide. */
+@media (max-width: 639px) {
+  .global-header-actions:has(.desk-sound) .header-action-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  .global-header-actions:has(.desk-sound) .header-action-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
 @media (hover: hover) {
-  .global-header-actions:has(.desk-nav) .header-action-btn:hover {
+  .global-header-actions:has(.desk-sound) .header-action-btn:hover {
     border-color: transparent;
     background: var(--d-hover);
     color: var(--d-ink);
   }
 }
 
-.desk-sound[aria-pressed='true'] .desk-sound-off,
-.desk-sound[aria-pressed='false'] .desk-sound-on {
-  display: none;
-}
-
-.desk-nav {
-  display: flex;
-  gap: 2px;
-  margin-right: 10px;
-}
-
-.desk-nav a,
-.desk-menu-links a {
-  border-radius: 10px;
-  color: var(--d-note);
-  font: 500 13.5px/20px var(--d-sans);
-  text-decoration: none;
-  transition: color 0.15s ease, background-color 0.15s ease;
-}
-
-.desk-nav a {
-  padding: 6px 10px;
-}
-
-@media (hover: hover) {
-  .desk-nav a:hover,
-  .desk-menu-links a:hover {
-    background: var(--d-hover);
-    color: var(--d-ink);
-  }
-}
-
-.desk-nav a:focus-visible,
-.desk-menu-links a:focus-visible,
-.desk-menu summary:focus-visible {
+.global-header-actions:has(.desk-sound) .header-action-btn:focus-visible {
   outline: 2px solid var(--d-focus);
   outline-offset: -2px;
 }
 
-/* Phones fold the links into a menu inside the same card. */
-.desk-menu {
-  position: relative;
+.desk-sound[aria-pressed='true'] .desk-sound-off,
+.desk-sound[aria-pressed='false'] .desk-sound-on {
   display: none;
 }
-
-.desk-menu summary {
-  list-style: none;
-}
-
-.desk-menu summary::-webkit-details-marker {
-  display: none;
-}
-
-.desk-menu-links {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: -4px;
-  display: flex;
-  min-width: 180px;
-  flex-direction: column;
-  padding: 6px;
-  border-radius: 14px;
-  background: var(--d-paper);
-  box-shadow: var(--d-shadow);
-}
-
-.desk-menu-links a {
-  padding: 10px 12px;
-  font-size: 15px;
-}
-
 
 :root:has(.desk) {
   /* Paper taped to the canvas, and the tape. */
@@ -409,12 +373,6 @@ body:has(.desk) .spotlight-overlay {
   padding: 0 var(--d-gutter) 28px;
   color: var(--d-faint);
   font: 400 12.5px/1.5 var(--d-sans);
-}
-
-/* The links wrap as one group, never one at a time. */
-.desk-foot-links {
-  display: flex;
-  gap: 18px;
 }
 
 .desk-foot a {
@@ -948,6 +906,13 @@ body:has(.desk) .spotlight-overlay {
   align-self: stretch;
 }
 
+/* The colophon: a line on how the painting is made, over the way out to
+   the rest of the site. */
+.colophon-note {
+  margin: 0 0 14px;
+  text-wrap: pretty;
+}
+
 .paper-rows {
   display: flex;
   flex-direction: column;
@@ -1187,8 +1152,29 @@ body:has(.desk) .spotlight-overlay {
   text-underline-offset: 3px;
 }
 
-.easel-label-link[hidden] {
+.easel-label-link[hidden],
+.easel-label-colophon[hidden] {
   display: none;
+}
+
+/* By the painting's own label, in its voice: the label's grey, until a
+   pointer finds it. */
+.easel-label-colophon {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  color: var(--d-note);
+  font-style: italic;
+  text-decoration: underline 1px var(--d-line);
+  text-underline-offset: 3px;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .easel-label-colophon:hover {
+    color: var(--d-ink);
+    text-decoration-color: currentColor;
+  }
 }
 
 .easel-label-link svg {
@@ -1202,8 +1188,8 @@ body:has(.desk) .spotlight-overlay {
   }
 }
 
-/* --- Phones and tablets: the page scrolls, the easel hangs under the prose,
-   and the nav links fold into a menu. ------------------------------------- */
+/* --- Phones and tablets: the page scrolls, and the easel hangs under the
+   prose. ------------------------------------------------------------------ */
 @media (max-width: 899px) {
   :root:has(.desk) {
     --d-gutter: 20px;
@@ -1240,14 +1226,6 @@ body:has(.desk) .spotlight-overlay {
 }
 
 @media (max-width: 639px) {
-  .desk-nav {
-    display: none;
-  }
-
-  .desk-menu {
-    display: block;
-  }
-
   /* With a section on it, the canvas takes the screen. The painting stays
      behind on the page; the coat and the label come along. */
   :root.easel-locked,
@@ -1260,9 +1238,9 @@ body:has(.desk) .spotlight-overlay {
     background: var(--coat, var(--d-page));
   }
 
-  /* The letterhead is inert under the canvas; a menu that cannot be pressed
-     should not show. */
-  :root.easel-locked .global-header-actions:has(.desk-nav) {
+  /* The letterhead is inert under the canvas; a button that cannot be
+     pressed should not show. */
+  :root.easel-locked .global-header-actions:has(.desk-sound) {
     visibility: hidden;
   }
 
@@ -1325,7 +1303,7 @@ body:has(.desk) .spotlight-overlay {
    a lingering translate on the hang would trap the phone's full-screen
    canvas inside it. */
 @media (prefers-reduced-motion: no-preference) {
-  .global-header-actions:has(.desk-nav) {
+  .global-header-actions:has(.desk-sound) {
     animation: desk-in 0.8s ease 0.1s backwards;
   }
 

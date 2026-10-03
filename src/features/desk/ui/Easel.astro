@@ -4,7 +4,8 @@
 // the whole canvas over in its colour with a palette knife and sets the
 // section on the wet ground; while one is on it, every section is a tab at
 // the top, and the small painting at the start of the row goes back to the
-// still life. Under the canvas, a gallery label names whatever is on it.
+// still life. Under the canvas, a gallery label names whatever is on it; by
+// the painting's own label, the colophon opens how the site is made.
 //
 // A pendant lamp hangs over the desk; it turns day to night, and swings. Its
 // light is two canvases over the paint, blended in (client/lamp.ts).
@@ -18,8 +19,8 @@ import { LAMP, THINGS } from '@/features/desk/shared/still-life';
 
 export interface EaselSection {
   id: string;
-  /** The tab's name. */
-  tab: string;
+  /** The tab's name; a section without one is opened from elsewhere. */
+  tab?: string;
   /** The gallery label: a title, a date, and a medium. */
   title: string;
   date: string;
@@ -42,7 +43,8 @@ interface Props {
 
 const { sections, painting } = Astro.props;
 const byId = new Map(sections.map((section) => [section.id, section]));
-const panels = sections.filter((section) => section.panel);
+const tabbed = sections.filter((section) => section.panel && section.tab);
+const colophon = byId.get('colophon');
 const pct = (value: number) => `${(value * 100).toFixed(2)}%`;
 const tone = (section: EaselSection) => `--h: ${section.hue}; --c: ${section.chroma}`;
 const boxStyle = ([x, y, w, h]: [number, number, number, number]) => `left: ${pct(x)}; top: ${pct(y / 1.25)}; width: ${pct(w)}; height: ${pct(h / 1.25)}`;
@@ -96,7 +98,7 @@ const lamp = byId.get('lamp');
           <canvas class="easel-home-thumb" data-home-thumb aria-hidden="true"></canvas>
         </button>
         <div class="easel-tablist" role="tablist" aria-label="Open on the canvas">
-          {panels.map((section) => (
+          {tabbed.map((section) => (
             <span class="easel-tab" data-tab={section.id} style={tone(section)}>
               <button
                 class="easel-tab-name"
@@ -122,6 +124,9 @@ const lamp = byId.get('lamp');
         <span data-label-link-text></span>
         <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5 8.5 3.5M4.5 3.5h4v4" /></svg>
       </a>
+      {colophon && (
+        <a class="easel-label-colophon" href="/docs" data-open="colophon" data-label-colophon aria-controls="easel-colophon">colophon</a>
+      )}
     </p>
   </div>
 

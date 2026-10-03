@@ -36,7 +36,7 @@ import { paintStudies } from './studies';
 
 interface Section {
   id: string;
-  tab: string;
+  tab?: string;
   title: string;
   date: string;
   medium: string;
@@ -152,6 +152,7 @@ export function initEasel(): () => void {
     medium: easel.querySelector<HTMLElement>('[data-label-medium]'),
     link: easel.querySelector<HTMLAnchorElement>('[data-label-link]'),
     linkText: easel.querySelector<HTMLElement>('[data-label-link-text]'),
+    colophon: easel.querySelector<HTMLElement>('[data-label-colophon]'),
   };
   // Everything a full-screen canvas covers leaves the tab order.
   const outside = [...document.querySelectorAll<HTMLElement>('.desk-left, .desk-foot, [data-header-actions]')];
@@ -594,6 +595,9 @@ export function initEasel(): () => void {
     if (label.title) label.title.textContent = shown.title;
     if (label.date) label.date.textContent = shown.date;
     if (label.medium) label.medium.textContent = shown.medium;
+    // The colophon waits by the label while nothing is open; pointing at it
+    // only names it.
+    if (label.colophon) label.colophon.hidden = withLink;
     if (!label.link || !label.linkText) return;
     const href = withLink ? section?.href : undefined;
     label.link.hidden = !href;
