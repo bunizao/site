@@ -29,7 +29,7 @@ subscription controls are not yet active in production. Item 3 remains
 unnecessary while the README supplies the GitHub week; item 5 remains deferred
 pending the owner's choice.
 
-Validation: site unit tests 1,064 passed; site-api unit tests 2,036 passed;
+Validation: site unit tests 1,068 passed; site-api unit tests 2,036 passed;
 site-api integration tests 36 passed. Both repositories passed type/content
 checks, production builds and Worker upload dry-runs; documentation coverage
 passed for all 150 routes. Existing diagnostic hints remain.
