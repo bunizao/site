@@ -550,6 +550,25 @@ body:has(.desk) .spotlight-overlay {
   pointer-events: none;
 }
 
+/* Music off the record while it plays (client/notes.ts). */
+.sl-notes {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sl-note {
+  position: absolute;
+  aspect-ratio: 1;
+}
+
+.sl-note canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 /* The lamp hangs from its cord at the top middle of its box, and swings
    there (client/lamp.ts); pointed at, it stays where it hangs. */
 .sl-lamp {

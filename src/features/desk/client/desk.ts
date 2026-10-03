@@ -1,10 +1,11 @@
 // Boot for the desk at /new: the easel and what moves in its painting (the
-// clock, the lamp, the record, the coffee's steam), the speaker in the
-// letterhead, and the foil on the student card.
+// clock, the lamp, the record and the music off it, the coffee's steam), the
+// speaker in the letterhead, and the foil on the student card.
 import { initClock } from './clock';
 import { initEasel } from './easel';
 import { initFoil } from './foil';
 import { initLamp } from './lamp';
+import { initNotes } from './notes';
 import { initSoundToggle } from './sound';
 import { initSteam } from './steam';
 import { initTurntable } from './turntable';
@@ -32,4 +33,5 @@ initSteam();
 initLamp();
 initEasel();
 initTurntable();
+initNotes();
 initSoundToggle();
