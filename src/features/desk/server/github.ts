@@ -1,54 +1,50 @@
-// The week on GitHub, for the desk's GitHub panel. It comes from the activity
-// block in the profile README (bunizao/bunizao), which that repository's own
-// workflow rewrites five times a day: how many commits went into how many
-// projects over the last days, and which repositories they were, private
-// ones already left unnamed. Read from there until site-api serves it
-// (plans/desk-backend.md).
-const README = 'https://raw.githubusercontent.com/bunizao/bunizao/HEAD/README.md';
-const TIMEOUT_MS = 1500;
-/** The README changes five times a day; an isolate rereads it at most this often. */
-const KEEP_MS = 30 * 60_000;
-const SHOWN = 3;
-
-export interface DeskRepo {
-  name: string;
-  href: string;
-}
-
-export interface DeskGitHubWeek {
-  days: number;
-  commits: number;
-  projects: number;
-  repos: DeskRepo[];
-}
-
-/** The figures and repositories in the README's activity block; null when it has none. */
-export function readActivityBlock(readme: string): DeskGitHubWeek | null {
-  const block = readme.split('<!-- RECENT_ACTIVITY:START -->')[1]?.split('<!-- RECENT_ACTIVITY:END -->')[0];
-  const query = block && /activity-panel\.svg\?([^"\s]+)/.exec(block)?.[1];
-  if (!query) return null;
-  const params = new URLSearchParams(query.replaceAll('&amp;', '&'));
-  const [days, commits, projects] = ['days', 'commits', 'projects'].map((key) => Number(params.get(key)));
-  if (![days, commits, projects].every((n) => Number.isInteger(n) && n >= 0)) return null;
-  // Only linked entries: the workflow names a private repository without a link.
-  const repos = [...block.matchAll(/<a href="https:\/\/github\.com\/bunizao\/([A-Za-z0-9._-]+)">/g)]
-    .map((match) => match[1])
-    .filter((name) => name !== 'bunizao')
-    .slice(0, SHOWN)
-    .map((name) => ({ name, href: `https://github.com/bunizao/${name}` }));
-  return { days, commits, projects, repos };
-}
-
-let kept: { at: number; week: DeskGitHubWeek | null } | null = null;
-
-export async function loadGitHubWeek(): Promise<DeskGitHubWeek | null> {
-  if (kept && Date.now() - kept.at < KEEP_MS) return kept.week;
-  try {
-    const response = await fetch(README, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-    const week = response.ok ? readActivityBlock(await response.text()) : null;
-    kept = { at: Date.now(), week };
-    return week;
-  } catch {
-    return kept?.week ?? null;
-  }
-}
+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

@@ -1,291 +1,221 @@
-// The student card's M catches the light as pearl security foil. The card
-// gets one WebGL canvas, cut to the foil's shape by a mask painted once. The
-// light comes from where the card sits on the easel and, under a mouse, from
-// the pointer, which tilts the card. It draws only when the light moves, never
-// on a timer.
-
-const VERTEX = `
-attribute vec2 a_pos;
-varying vec2 v_uv;
-void main() {
-  v_uv = a_pos * 0.5 + 0.5;
-  gl_Position = vec4(a_pos, 0.0, 1.0);
-}`;
-
-// Thin film: one soft streak of pastel colour where the light lands, and a
-// scatter of flakes flashing at their own angles, laid over the M's own pale
-// ink.
-const FRAGMENT = `
-precision mediump float;
-varying vec2 v_uv;
-uniform sampler2D u_mask;
-uniform vec2 u_light;
-uniform float u_aspect;
-
-float hash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
-
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
-}
-
-// Lilac, rose and ice: a narrow cosine palette around a light base.
-vec3 pearl(float t) {
-  return vec3(0.84, 0.83, 0.94) + vec3(0.16, 0.15, 0.06) * cos(6.28318 * (t + vec3(0.0, 0.33, 0.67)));
-}
-
-void main() {
-  float mask = texture2D(u_mask, v_uv).a;
-  vec2 q = vec2(v_uv.x * u_aspect, v_uv.y);
-  float t = dot(q, vec2(0.55, 0.85)) + (noise(q * 3.0 + u_light * 0.4) - 0.5) * 0.16;
-  float centre = 0.55 + u_light.x * 0.45 - u_light.y * 0.35;
-  float h = hash(floor(gl_FragCoord.xy / 2.0));
-  float flake = step(0.975, h) * max(0.0, sin(h * 80.0 + u_light.x * 7.0 + u_light.y * 5.0));
-  vec3 film = pearl(t * 1.6 + u_light.x * 0.25);
-  float d = (t - centre) * 4.2;
-  float streak = exp(-d * d);
-  float alpha = (0.06 + streak * 0.66) * mask;
-  gl_FragColor = vec4(min(film + flake * (0.15 + streak) * 0.6, 1.0) * alpha, alpha);
-}`;
-
-// The M device (Badge.astro), drawn at 100:230.
-const M_PATH = 'M0 0 H44 L50 74 L56 0 H100 V230 H72.8 V136 L64.4 230 H35.6 L27.2 136 V230 H0 Z';
-const M_ASPECT = 100 / 230;
-// Time constant of the tilt easing towards the pointer.
-const EASE_MS = 110;
-
-interface Light {
-  x: number;
-  y: number;
-}
-
-type Paint = (ctx: CanvasRenderingContext2D, host: HTMLElement, scale: number) => void;
-
-interface Surface {
-  /** The elements holding the object. */
-  tiles: string;
-  /** The element the canvas covers, inside one of them. */
-  host: string;
-  /** The child of the host the canvas goes in front of. */
-  before?: string;
-  /** The canvas's width over its height; the host's own box when omitted. */
-  aspect?: number;
-  paint: Paint;
-}
-
-const clamp = (value: number) => Math.min(1, Math.max(-1, value));
-
-function compile(gl: WebGLRenderingContext, type: number, source: string) {
-  const shader = gl.createShader(type);
-  if (!shader) return null;
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  return gl.getShaderParameter(shader, gl.COMPILE_STATUS) ? shader : null;
-}
-
-function link(gl: WebGLRenderingContext) {
-  const vertex = compile(gl, gl.VERTEX_SHADER, VERTEX);
-  const fragment = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
-  const program = gl.createProgram();
-  if (!vertex || !fragment || !program) return null;
-  gl.attachShader(program, vertex);
-  gl.attachShader(program, fragment);
-  gl.linkProgram(program);
-  return gl.getProgramParameter(program, gl.LINK_STATUS) ? program : null;
-}
-
-const paintM: Paint = (ctx, host, scale) => {
-  const height = host.offsetHeight * scale;
-  ctx.scale((height * M_ASPECT) / 100, height / 230);
-  ctx.fill(new Path2D(M_PATH));
-};
-
-function foil(column: HTMLElement, surface: Surface): () => void {
-  const tiles = [...document.querySelectorAll<HTMLElement>(surface.tiles)];
-  if (!tiles.length) return () => {};
-
-  const canvas = document.createElement('canvas');
-  canvas.className = 'mo-foil';
-  canvas.setAttribute('aria-hidden', 'true');
-  const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, powerPreference: 'low-power' });
-  const program = gl && link(gl);
-  if (!gl || !program) return () => {};
-
-  gl.useProgram(program);
-  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-  // One triangle that covers the whole canvas.
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-  const position = gl.getAttribLocation(program, 'a_pos');
-  gl.enableVertexAttribArray(position);
-  gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-  const uAspect = gl.getUniformLocation(program, 'u_aspect');
-  const uLight = gl.getUniformLocation(program, 'u_light');
-
-  gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  // The mask is painted top down; the shader reads bottom up.
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-  const mask = document.createElement('canvas');
-
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let host: HTMLElement | null = null;
-  let drawn: Light = { x: Number.NaN, y: Number.NaN };
-
-  const draw = (light: Light) => {
-    if (Math.abs(light.x - drawn.x) < 0.002 && Math.abs(light.y - drawn.y) < 0.002) return;
-    gl.uniform2f(uLight, light.x, light.y);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    drawn = light;
-  };
-
-  const release = () => {
-    host?.style.removeProperty('--tilt-x');
-    host?.style.removeProperty('--tilt-y');
-    host?.classList.remove('has-foil');
-  };
-
-  // The canvas moves into the copy it paints; the copies are far enough apart
-  // that only one is ever on screen.
-  const attach = (tile: HTMLElement) => {
-    if (host === tile) return;
-    const target = tile.querySelector<HTMLElement>(surface.host);
-    if (!target) return;
-    release();
-    host = tile;
-    target.insertBefore(canvas, surface.before ? target.querySelector(surface.before) : null);
-    const scale = Math.min(devicePixelRatio, 2);
-    canvas.height = mask.height = Math.round(target.offsetHeight * scale);
-    canvas.width = mask.width = Math.round((surface.aspect ? target.offsetHeight * surface.aspect : target.offsetWidth) * scale);
-    const ctx = mask.getContext('2d');
-    if (ctx) surface.paint(ctx, target, scale);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, gl.ALPHA, gl.UNSIGNED_BYTE, mask);
-    gl.uniform1f(uAspect, canvas.width / canvas.height);
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    tile.classList.add('has-foil');
-    drawn = { x: Number.NaN, y: Number.NaN };
-  };
-
-  // The copy nearest the middle of the column.
-  const nearest = () => {
-    const view = column.getBoundingClientRect();
-    let best: HTMLElement | null = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    for (const tile of tiles) {
-      const rect = tile.getBoundingClientRect();
-      if (rect.bottom < view.top || rect.top > view.bottom || rect.right < view.left || rect.left > view.right) continue;
-      const distance = Math.hypot(rect.left + rect.width / 2 - (view.left + view.width / 2), rect.top + rect.height / 2 - (view.top + view.height / 2));
-      if (distance < bestDistance) {
-        best = tile;
-        bestDistance = distance;
-      }
-    }
-    return best;
-  };
-
-  // -1..1 across the column: where the frame is on its way past.
-  const passing = (tile: HTMLElement): Light => {
-    const view = column.getBoundingClientRect();
-    const rect = tile.getBoundingClientRect();
-    return {
-      x: clamp((view.left + view.width / 2 - (rect.left + rect.width / 2)) / (view.width / 2)),
-      y: clamp((view.top + view.height / 2 - (rect.top + rect.height / 2)) / (view.height / 2)),
-    };
-  };
-
-  let pointer: Light | null = null;
-  const tilt: Light = { x: 0, y: 0 };
-  let frame = 0;
-  let last = 0;
-
-  // The object's CSS turns it by the tilt; the light follows either way.
-  const render = () => {
-    if (!host) return;
-    if (!reduced.matches) {
-      host.style.setProperty('--tilt-x', tilt.x.toFixed(3));
-      host.style.setProperty('--tilt-y', tilt.y.toFixed(3));
-    }
-    const along = passing(host);
-    draw({ x: along.x + tilt.x, y: along.y + tilt.y });
-  };
-
-  const step = (now: number) => {
-    frame = 0;
-    const dt = Math.min(48, now - (last || now));
-    last = now;
-    const blend = 1 - Math.exp(-dt / EASE_MS);
-    const target = pointer ?? { x: 0, y: 0 };
-    tilt.x += (target.x - tilt.x) * blend;
-    tilt.y += (target.y - tilt.y) * blend;
-    const settled = Math.abs(target.x - tilt.x) + Math.abs(target.y - tilt.y) < 0.001;
-    if (settled) Object.assign(tilt, target);
-    render();
-    if (settled) last = 0;
-    else frame = requestAnimationFrame(step);
-  };
-
-  const ease = () => {
-    if (!frame) frame = requestAnimationFrame(step);
-  };
-
-  const onScroll = () => {
-    const tile = nearest();
-    if (!tile) return;
-    attach(tile);
-    render();
-  };
-
-  // Touch has no hover; a finger on the frame is a scroll or a tap.
-  const onMove = (event: PointerEvent) => {
-    if (event.pointerType === 'touch') return;
-    const tile = event.currentTarget as HTMLElement;
-    const rect = tile.getBoundingClientRect();
-    attach(tile);
-    pointer = {
-      x: clamp(((event.clientX - rect.left) / rect.width) * 2 - 1),
-      y: clamp(1 - ((event.clientY - rect.top) / rect.height) * 2),
-    };
-    ease();
-  };
-
-  const onLeave = () => {
-    pointer = null;
-    ease();
-  };
-
-  // A lost context takes the canvas with it, and the flat foil comes back.
-  const onLost = () => {
-    release();
-    canvas.remove();
-  };
-
-  column.addEventListener('scroll', onScroll, { passive: true });
-  tiles.forEach((tile) => {
-    tile.addEventListener('pointermove', onMove);
-    tile.addEventListener('pointerleave', onLeave);
-  });
-  canvas.addEventListener('webglcontextlost', onLost);
-  onScroll();
-
-  return () => {
-    if (frame) cancelAnimationFrame(frame);
-    column.removeEventListener('scroll', onScroll);
-    tiles.forEach((tile) => {
-      tile.removeEventListener('pointermove', onMove);
-      tile.removeEventListener('pointerleave', onLeave);
-    });
-    onLost();
-  };
-}
-
-export function initFoil(): () => void {
-  // The card scrolls with the About panel, and the light follows it there.
-  const panel = document.querySelector<HTMLElement>('[data-panel="about"]');
-  if (!panel) return () => {};
-  return foil(panel, { tiles: '.ab-badge', host: '.mo-photo', before: '.mo-hole', aspect: M_ASPECT, paint: paintM });
-}
+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
+AElx+Bo185z03THvJ722xQ==

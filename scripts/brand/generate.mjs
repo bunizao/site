@@ -1,33 +1,37 @@
-// Regenerate the desk's painted favicons and OG card. Run from the repo root:
-//
-//   node scripts/brand/generate.mjs
-//
-// Bundles paint.ts with bun, paints it in headless Chromium with the desk's
-// knife engine, and writes og.jpg, favicon-{light,dark}.png and touch-icon.png
-// into public/desk/. Only /new uses them; the rest of the site keeps og.png
-// and /logo/peek.svg. Strokes are seeded, so a rerun on the same Chromium
-// reproduces the committed files byte for byte.
-import { chromium } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const bundle = execFileSync('bun', ['build', resolve(root, 'scripts/brand/paint.ts'), '--target', 'browser'], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 });
-const font = readFileSync(resolve(root, 'public/fonts/space-grotesk-latin-variable.woff2')).toString('base64');
-
-const browser = await chromium.launch();
-const page = await browser.newPage();
-page.on('pageerror', (e) => console.error('[page]', e.message));
-await page.setContent(`<!doctype html><meta charset="utf-8"><style>
-@font-face{font-family:'Space Grotesk';src:url(data:font/woff2;base64,${font}) format('woff2');font-weight:300 700}
-</style><body>`);
-await page.addScriptTag({ content: bundle });
-const files = await page.evaluate(() => window.paintBrand());
-await browser.close();
-
-for (const [name, url] of Object.entries(files)) {
-  writeFileSync(resolve(root, 'public/desk', name), Buffer.from(url.split(',')[1], 'base64'));
-  console.log('wrote public/desk/' + name);
-}
+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

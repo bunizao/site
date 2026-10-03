@@ -1,75 +1,75 @@
-// The letter on the desk (ui/Letter.astro), run by the /message form's own
-// client. That client and what it brings (Turnstile, the browser evidence)
-// load the first time the letter is on the canvas, not with the page: most
-// visits never open it, and the seal stays unpressable until then. Opening
-// the letter is a plain wish to write one, so Turnstile starts settling
-// then, not at the first key: a short note goes without waiting on it, and a
-// visitor Cloudflare wants to see is asked before writing, not after.
-//
-// The client flips the hooks; this listens for two of them, to make the
-// noise of the letter going in and to paint what a sent letter shows. It
-// also dates the letter by the writer's own day, and warms the seal once the
-// letter has all it needs to go.
-import { MESSAGE_MAX_BODY_LENGTH, MESSAGE_MIN_BODY_LENGTH } from '@bunizao/contracts/messages';
-import { play } from './sound';
-
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function initLetter() {
-  const easel = document.querySelector<HTMLElement>('[data-easel]');
-  const root = document.querySelector<HTMLElement>('.mx[data-message-root]');
-  const form = root?.querySelector<HTMLFormElement>('[data-message-form]');
-  const typing = root?.querySelector<HTMLElement>('[data-message-typing]');
-  const sent = root?.querySelector<HTMLElement>('[data-message-sent-view]');
-  if (!easel || !root || !form || !typing || !sent) return;
-
-  const siteKey = root.dataset.turnstileSiteKey ?? '';
-  let loaded = false;
-  const load = () => {
-    if (loaded) return;
-    loaded = true;
-    void Promise.all([
-      import('@/features/messages/client/message-form'),
-      import('@/features/comments/client/turnstile-token'),
-    ]).then(([{ initMessageForm }, { warmTurnstileToken }]) => {
-      initMessageForm(root);
-      if (siteKey) warmTurnstileToken(siteKey, 'owner_message_create');
-    });
-  };
-  easel.addEventListener('easel:shown', (event) => {
-    if ((event as CustomEvent<string>).detail === 'note') load();
-  });
-  if (!root.closest<HTMLElement>('[data-panel]')?.hidden) load();
-
-  const date = root.querySelector<HTMLElement>('[data-letter-date]');
-  const stamp = root.querySelector<HTMLElement>('[data-letter-stamp]');
-  const today = (month: 'long' | 'short') => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month, year: 'numeric' }).format(new Date());
-  if (date) date.textContent = today('long');
-
-  // Ready: written, signed, and somewhere to write back to. The seal is
-  // pressable either way, and says what is missing when pressed too soon.
-  const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | null;
-  const check = () => {
-    const body = field('body')?.value.trim().length ?? 0;
-    const ready =
-      body >= MESSAGE_MIN_BODY_LENGTH &&
-      body <= MESSAGE_MAX_BODY_LENGTH &&
-      Boolean(field('displayName')?.value.trim()) &&
-      EMAIL.test(field('email')?.value.trim() ?? '');
-    root.classList.toggle('is-ready', ready);
-  };
-  form.addEventListener('input', check);
-  form.addEventListener('reset', () => requestAnimationFrame(check));
-  check();
-
-  new MutationObserver(() => {
-    if (typing.hidden) return;
-    if (stamp) stamp.textContent = today('short');
-    play('pages');
-  }).observe(typing, { attributes: true, attributeFilter: ['hidden'] });
-  new MutationObserver(() => {
-    if (sent.hidden) return;
-    play('knock');
-    root.dispatchEvent(new CustomEvent('easel:repaint', { bubbles: true }));
-  }).observe(sent, { attributes: true, attributeFilter: ['hidden'] });
-}
+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

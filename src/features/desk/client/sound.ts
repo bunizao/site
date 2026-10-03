@@ -1,219 +1,188 @@
-// The desk's sounds, made on the spot with Web Audio, so there are no files
-// to fetch. A palette knife drags wet paint across the canvas when a section
-// opens and scrapes it off on the way back, and the thing that was opened
-// makes its own small noise: the needle going down on the record, a spoon on
-// the cup, pages, a card on its lanyard, leaves, a frame knocked against the
-// wall. The lamp's chain clicks.
-//
-// Nothing plays before the page has been touched, so nothing ever plays on
-// its own, and the speaker in the letterhead turns it all off, for this visit
-// and the next.
-
-export type Sound = 'lay' | 'scrape' | 'chain' | 'needle' | 'clink' | 'pages' | 'card' | 'leaves' | 'knock' | 'tick';
-
-interface Options {
-  /** For the chain: which way the switch went. */
-  on?: boolean;
-}
-
-const KEY = 'desk-sound';
-const LEVEL = 0.5;
-
-let audio: AudioContext | null = null;
-let out: GainNode | null = null;
-let noise: AudioBuffer | null = null;
-let muted = (() => {
-  try {
-    return localStorage.getItem(KEY) === 'off';
-  } catch {
-    return false;
-  }
-})();
-
-export const isMuted = () => muted;
-
-export function setMuted(value: boolean) {
-  muted = value;
-  try {
-    localStorage.setItem(KEY, value ? 'off' : 'on');
-  } catch {
-    // A private window keeps the choice for this visit only.
-  }
-}
-
-function context() {
-  if (audio) return audio;
-  const Context = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!Context) return null;
-  audio = new Context();
-  // A gentle limiter: a dozen crackles landing together stay civil.
-  const limiter = audio.createDynamicsCompressor();
-  limiter.threshold.value = -16;
-  limiter.ratio.value = 4;
-  out = audio.createGain();
-  out.gain.value = LEVEL;
-  out.connect(limiter).connect(audio.destination);
-  noise = audio.createBuffer(1, audio.sampleRate * 2, audio.sampleRate);
-  const data = noise.getChannelData(0);
-  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-  return audio;
-}
-
-interface Band {
-  type: BiquadFilterType;
-  from: number;
-  /** Where the filter has swept to by the end. */
-  to?: number;
-  q?: number;
-}
-
-/**
- * Noise through a filter, `length` seconds long. `grain` (0..1) flutters the
- * level the way a blade catches on the canvas's weave.
- */
-function hiss(a: AudioContext, at: number, length: number, band: Band, level: number, attack = 0.01, grain = 0) {
-  if (!noise || !out) return;
-  // A jittered start can fall before the clock of a context that has just
-  // begun, and scheduling in the past throws.
-  at = Math.max(at, a.currentTime);
-  const source = a.createBufferSource();
-  source.buffer = noise;
-  source.loop = true;
-  const filter = a.createBiquadFilter();
-  filter.type = band.type;
-  filter.frequency.setValueAtTime(band.from, at);
-  if (band.to) filter.frequency.exponentialRampToValueAtTime(band.to, at + length);
-  filter.Q.value = band.q ?? 1;
-  const gain = a.createGain();
-  gain.gain.setValueAtTime(0, at);
-  gain.gain.linearRampToValueAtTime(level, at + attack);
-  const fade = at + Math.max(attack, length * 0.7);
-  if (grain) {
-    for (let t = at + attack; t < fade; t += 0.009 + Math.random() * 0.014) gain.gain.setTargetAtTime(level * (1 - grain * Math.random()), t, 0.003);
-  }
-  gain.gain.setTargetAtTime(0, fade, Math.max(0.002, (at + length - fade) / 3));
-  source.connect(filter).connect(gain).connect(out);
-  source.start(at, Math.random() * 1.5);
-  source.stop(at + length + 0.2);
-}
-
-/** A struck tone ringing down over `decay` seconds. */
-function ring(a: AudioContext, at: number, frequency: number, decay: number, level: number, type: OscillatorType = 'sine') {
-  if (!out) return;
-  const tone = a.createOscillator();
-  tone.type = type;
-  tone.frequency.value = frequency;
-  const gain = a.createGain();
-  gain.gain.setValueAtTime(0, at);
-  gain.gain.linearRampToValueAtTime(level, at + 0.002);
-  gain.gain.exponentialRampToValueAtTime(0.0001, at + decay);
-  tone.connect(gain).connect(out);
-  tone.start(at);
-  tone.stop(at + decay + 0.05);
-}
-
-const jitter = (spread: number) => (Math.random() - 0.5) * 2 * spread;
-
-const SOUNDS: Record<Sound, (a: AudioContext, at: number, options: Options) => void> = {
-  // Four passes of the knife through wet paint, over the length of the coat:
-  // a soft, rising swish over a low squelch.
-  lay: (a, at) => {
-    for (let i = 0; i < 4; i++) {
-      const from = 620 + i * 90 + jitter(60);
-      hiss(a, at + i * 0.13 + jitter(0.02), 0.24 + Math.random() * 0.08, { type: 'bandpass', from, to: from * 2.3, q: 0.9 }, 0.26, 0.03, 0.35);
-    }
-    hiss(a, at, 0.58, { type: 'lowpass', from: 360 }, 0.12, 0.05, 0.25);
-  },
-  // Three dry drags, higher and grittier: the coat coming off.
-  scrape: (a, at) => {
-    for (let i = 0; i < 3; i++) {
-      hiss(a, at + i * 0.12 + jitter(0.015), 0.18 + Math.random() * 0.05, { type: 'bandpass', from: 2100 + jitter(200), to: 3400, q: 1.4 }, 0.2, 0.008, 0.6);
-    }
-    hiss(a, at, 0.42, { type: 'highpass', from: 5000 }, 0.05, 0.02, 0.5);
-  },
-  // The beads of the chain, then the switch, a tock lower going off. A bulb
-  // coming on gives a faint ping as its filament heats.
-  chain: (a, at, { on = true }) => {
-    for (let i = 0; i < 6; i++) hiss(a, at + i * 0.011 + Math.random() * 0.006, 0.006, { type: 'bandpass', from: 5200 + Math.random() * 1600, q: 7 }, 0.2, 0.001);
-    const click = at + 0.075;
-    ring(a, click, on ? 2100 : 1650, 0.035, 0.22, 'triangle');
-    hiss(a, click, 0.012, { type: 'highpass', from: 2400 }, 0.3, 0.001);
-    if (on) ring(a, click + 0.03, 3900, 0.16, 0.025);
-  },
-  // The needle going down: a thump through the tonearm, then the crackle of
-  // the lead-in groove, thinning out.
-  needle: (a, at) => {
-    ring(a, at, 64, 0.2, 0.4);
-    hiss(a, at, 0.01, { type: 'lowpass', from: 2400 }, 0.25, 0.001);
-    hiss(a, at + 0.04, 1.6, { type: 'bandpass', from: 4200, q: 0.5 }, 0.022, 0.15);
-    for (let i = 0; i < 42; i++) {
-      const t = Math.random() ** 1.5 * 1.6;
-      hiss(a, at + 0.05 + t, 0.002 + Math.random() * 0.003, { type: 'bandpass', from: 1600 + Math.random() * 3600, q: 1.5 }, 0.32 * (1 - t / 1.7) * Math.random(), 0.0005);
-    }
-  },
-  // A spoon against the cup, and a smaller bounce: a few inharmonic
-  // partials, the high ones dying first.
-  clink: (a, at) => {
-    for (const [delay, level] of [[0, 1], [0.12, 0.45]] as const) {
-      const pitch = 1 + jitter(0.012);
-      for (const [frequency, decay, gain] of [[2480, 0.34, 0.2], [3910, 0.22, 0.1], [5650, 0.13, 0.05], [7020, 0.08, 0.025]] as const) {
-        ring(a, at + delay, frequency * pitch, decay, gain * level);
-      }
-      hiss(a, at + delay, 0.006, { type: 'highpass', from: 4000 }, 0.12 * level, 0.0005);
-    }
-  },
-  // Pages riffled under a thumb, and the book falling open.
-  pages: (a, at) => {
-    for (let i = 0; i < 6; i++) {
-      hiss(a, at + i * 0.034 + jitter(0.006), 0.05, { type: 'bandpass', from: 1800 + Math.random() * 1200, to: 3200, q: 1.1 }, 0.16 * (1 - i * 0.1), 0.004, 0.2);
-    }
-    hiss(a, at + 0.24, 0.08, { type: 'lowpass', from: 480 }, 0.24, 0.004);
-  },
-  // A plastic card clacking on its clip, the clip jingling.
-  card: (a, at) => {
-    for (const [delay, level] of [[0, 1], [0.06, 0.45]] as const) {
-      hiss(a, at + delay, 0.014, { type: 'bandpass', from: 1500, q: 3 }, 0.34 * level, 0.001);
-      ring(a, at + delay, 960, 0.045, 0.08 * level, 'triangle');
-    }
-    ring(a, at + 0.03, 4700, 0.07, 0.03);
-    ring(a, at + 0.035, 6100, 0.05, 0.02);
-  },
-  // Leaves brushed past.
-  leaves: (a, at) => {
-    for (let i = 0; i < 3; i++) hiss(a, at + i * 0.07 + jitter(0.02), 0.34, { type: 'bandpass', from: 3200 + Math.random() * 2400, q: 0.8 }, 0.11, 0.04, 0.85);
-  },
-  // The frame knocking the wall as it swings on its nail, twice.
-  knock: (a, at) => {
-    for (const [delay, level] of [[0, 1], [0.14, 0.4]] as const) {
-      ring(a, at + delay, 185, 0.1, 0.34 * level);
-      ring(a, at + delay, 420, 0.06, 0.1 * level);
-      hiss(a, at + delay, 0.02, { type: 'lowpass', from: 1300 }, 0.28 * level, 0.001);
-    }
-  },
-  tick: (a, at) => {
-    ring(a, at, 1500, 0.03, 0.14, 'triangle');
-  },
-};
-
-export function play(name: Sound, options: Options = {}) {
-  if (muted) return;
-  // Before any gesture an AudioContext only refuses, with a console warning.
-  const activation = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
-  if (activation && !activation.hasBeenActive) return;
-  const a = context();
-  if (!a) return;
-  if (a.state === 'suspended') void a.resume();
-  SOUNDS[name](a, a.currentTime + 0.012, options);
-}
-
-/** The speaker in the letterhead. */
-export function initSoundToggle() {
-  const button = document.querySelector<HTMLButtonElement>('[data-sound]');
-  if (!button) return;
-  button.setAttribute('aria-pressed', String(!muted));
-  button.addEventListener('click', () => {
-    setMuted(!muted);
-    button.setAttribute('aria-pressed', String(!muted));
-    play('tick');
-  });
-}
+U2FsdGVkX19NoyveU6chkBNEKsM95KC0NYLA1ni45Zeb2XyhrCkTww4zQINRZYf2
+yqzslCTO3QZy3s4QWCqsNEYNVsgUTfHjuRBgt5Plq9NuJ5Qp0+tgKc4pPoNBcVEb
+BeUjvvTGWGZv5+YaxbXWAroS44t5DVJ6PqfmUU3mO4GWBQZEbMgW1Rv+OLfthV1c
+WlSHqW+2iz/9nfP56mHHNRWpZ+1989YLcNxtytnCLZmRQ4aiK4tPbc2HF0D/02hj
+vihaWOxyvbW0tfSCIKQpeQTrB9a+/ZbzCV7wZoV/ReqWk7dKiKqncsID2t5c+XNi
++bznQWjbgRQp34jWQeuNu1YdEYpdtGFBARP3tiNUx37YF/A2ZYXNQAfyXLN6/3eu
+Zcks7XDMy2uCuJuuecMmz51BiBWxxrm/usTxqRtlul+jToMp93Os2URsDCA/h3YT
+rrgL3am4A1q80H5WQfWcipc1L7xlJ/IkbK181JYNN6/3KR+5/O4cr37oJLRgOkEs
+67bELR0IjW2uNNZLl4fG3DMgiHgs82WP5x18v1QI5+F5u25uFghfGw55l9QV+U0q
+9qwvzLuDpemo7Gu8vEBpO/KYDyovkLe/SJMgCSRaE8lJgW5Wb8+i7vx0trvduhTX
+4+L4UPBdzW7LoO9lbg6Kg9zTqt1cuEGi4pLhIiFOp+u7aqixmY0ww7gRw0qtUac7
+IZvs0ly2Y9mENSKR2QLJsfAYCfhleo7RiZNlmw31TulGyrFfmCt/TaeOsRxyEPWq
+XIGCp+DlGBmeK9yh1oTblxh2D0WB82EOhwKkw/FJIvD9nTDFypEBmURO30Qfd4r3
+G1k86wDpBMFOoiDs9icHF2N/sCxnJnSXOvEbeNHhvF2by+bi9/2MMkEa2LO3cIno
+FeF02hc+xPEH3KbepzhKsxed4cU+3Ww6Yx1f/PQ+hbEE9rdGusMR5Gi5CPdXMSZL
+0ncDF6awIxb/HNEzMtB+nEdOQ0PfTX2VojWCMzyILv0UJ0ymlyjSse+KiNqtEnK2
+Ab2U3C6PYkDv0sKxtc0ITbhQJA1JKt6TEB9mJ+Zc+R4qk05/ZS7REJVk1Hrv8TOn
+3+Xgjgdxxt7h8ko/HDASsmtYxmXKs4hmZiZVJAfNEoo7swrofdU8jFB75l7q0Olq
+VT24mK6sGeTivwwAywtf32lmCXJCcZMjBsR4twgwGZPZejDna+yDnwF9X+hvWLgF
+5o9FYkH/9Lt8Y73GgzBXBDh1ZiwCKWb0efcVNtd94TqszX/365JcqCnELTt6T+GA
+HP2Ujy+ph71BaLGXW0JUsEAKiMT8ZB+6B9OGRZKNCcU9ioP10OVtbhNRLCppwATx
+wcE6YJwRZTPms/SwnW9LZMqkQXdgl7kMV0NtOFegrRs4CcvVMvtNVlWcJeXA3Q2A
+iTEh6OxXMNfLyb7go21BwgwW8bZu2A2t3DJvmoWr5tVCTt7X75ilnV6yH/11CmH9
+nzD9kqY5VYceOr5IR+3QlTv6Piu3/T68YQkXEGA1i3Q70ZK7/R+1T+IcOhILDpVn
+7fCMQvOK+i5YS0oRskFTqZCtf33/ng3Wk5NDJXLEVwxQavMbQ5W/JDhTxSsHdbnf
+JhnGPfwsWn4JdyN2kphjnOv4SEcZM1rtFeAYg7zLpZ+QGGHHMJIwWStQE+BaLzdM
+91r5eXte16Ok1a1+KeQAHNuvK7dH+czvtK3vls6zcxByinL5RI2734NLAHCbZB+0
+5wVyYlbgPInMcxz+TkOUF8zEsTqnxanQLprtvOJrQFSu5uIdZVqppRiAyBnUgip0
+x+e6PANrG6n2JF6ePaTsdi4LvPCg1EyaOBkosI5h4OmV26ztpe+Uffnl5lDNNAQw
+uQR1Hf0lV4sdvi0wAZt7FogGBXETeq8Bh8TaK1gKYL0uGU8HSu+8UVP8mt7UcGc4
+GL6UjeP/lN0JdfGVMLm7dy0QCOfBxrTj77xtetQ2B0KJa+ix0TKD8EOXyOPI8PME
+85w+3TQrmGeDvaOgxxUI8DFg6yom4izGTGdHHDX6BAIsO/wvZFKWX1buJWP1ZpcX
+wPByWkFXHxUSLWs0vJqV7vujvyOVhCXeHQwxxZdiHot19LzBhZE7+peljVTzv15m
+s9djHM6EXfTqOtCqx2Z60Mt9ZixwaoiX2JfFb+WJNWd5yLz77+ggD4O6p63MF1mB
+lhIw+fyK6D+xJfDN9usMstOqaRmwMpEhJKSAO1BJ9bM36QhnFHeFhx5PTt1012nZ
+vVLNm2QwsoXsbuD9PjRV5auBOKLjw2VIKZbDC/opR2UbRJNistEzHBatTJ2cvXr0
+0nfPd0THB/1iIKv0OdHixsRMwv8GxMYjIy2Ef1WualhhKsqbf1Zt6bQYALNb+iuN
+LC+AcI0YKJ9A5uvU7rZ71aBe1ETdZFJTjGdaUZts+iWpTSfzm2Sp6WGGSHRmGXY6
+cZIJmofxgNn1V6GTb2wqzBikqsrRCaEVB5oT0UaKvPpbGv2gEiIe/RCSwFj0vvIr
+RYQzthr7GM0DGOjl73qa7AvIQlE7ewAPpKMWctP7GqBzDoC5i6OyKRQ8avqobi5x
+0bTsxNjm+26hzh00gUsQn4LPXjgQ0Zc9+DoZotIQ23i95ZNpX7ncXGqCHSZZT+mR
+fCcN8UvKp/xTOO02a1Zxc8VZk1DlzyoDfsHkjEuPy7EXY3q5WPa6t0E46c3ycl/i
+xfoeWXj93ScD4AdwxA+61YZdae0knLibLuWTnRrFSazdRCFi/UrBxVhQiIgpvO4x
+VqaFJ0dGaep8vNc1POayjCLC1m9aiAJG9A55FPwo9TmYP8l4vX0oXxwY2qforGq7
+FfOU/2lCqb6AJFSuXUepkiqVebFO9CaWkQQGyUC3V1ntVljQWCImFcOB71vFc1OF
+jgJcmSpOqLJ16rDRQGvYoYl1ylDTKQJHwPuHLmC6hyQiu7odsY1cwcDwyesqqvzK
+YNNZexr5vAegr1ZAuu9fZOpxCSzQQPOylllqLaJgTZPjv0ovyPuk+wUJK3H4svUJ
+Q+3GckCr+1lrULCqtUY3JbRaptB0kuj1KmS7OuGz96YK/u5joekQPlEt7b5Wtq7T
+HAQWRa2Un6HpPKktvNAMc74LmRw8JRWZDdmZVIrvweVQzuA4k1/qIRnhyJxlItg2
+TmEL5qth3pJ11DpIB3oAgBaJLVS/TpHpVxeO31fgEeR4mM8jP1pYMXd07y9XAUJC
+BYDy/fP4onk4A4Gszb6XPFUciyg6Mtq48DDURWTXN11jDNxq2j6A3uwrsFsp0WN3
+powgoNkeLBVTWfadIW/CKW0f3gp06b4ymf9r1P4Fk6WEzyJ1VdmiYYiQsz3BRwUe
+/pjBH5WDL1bavevkCUwUbermG16jIUvlQ9NE3rr+2u0slQRta6TJUcUHFWcDBGd8
+LbrqIuNIqLI+0hAM/zUf/J8quiblsiYA7Gg6AQnJ6tWflBmkRLF62cAjhVYjWrWH
+wfaDSuNl50lYzkCy+8gsUZCjGL4eRfISZQoLTeqVqdpBhabIuXPBJBfRMDzpSacl
+r/3ck8BKZE8kEUCCqT/wXUM1dSpEGhtCgVixDP1E/fol4gbetq4QEMfcSTwqkE35
+fa5LBOMxaa/kj7skrkf2XXEj1fH0KcsMGq56mzL2GrhQ2hnWNm43gQsqPqKD/g/W
+Wtnt51KoCaCiy8/Pz6zT9MP2HAVLpedpi0zpqHEb1HUv9IsRcCFGouWyfxxOBp3n
+rD4uY6RcGxJOxEI62rLUaom/EPqj+tj7QtT7+t6Hp2D+RB6NB/RIAT0n3kZFSBdK
+QVhXETSHFABnDS75Vl/IcNs0XwTsu5m7d/dpYD3kGhC6mwG+eK9IggWMwpUbVjQc
+wiRezVnDmYiMAaeh0X9fV9udpNdplp0Uw3+MKxyAmuvbK7Jh0Iku6ig4x+zTZChf
+wYGquZd6cymPjPOxYS33l2RUp/IJEp4LkS7/TAR+6qBicZp7Sk5UjLnkMj9cTxoV
+fdbHp8Vq4B5kOJyXBiV6y1k2pSLUFt+Tk8eNnVBfo1P0FXgn31+7/QYEeEwQVyvl
+WdulOEqZe8aN5j+pTf1ULBYntUPq0ABjtr5bvMXeM+iy31HHyPnrHUggxesIro7u
+w2aQN5NjByDGIg8xdhK+YSPmQ+qyb5tHVjiZ4eOCpxPUPd7op9JqbRpK4EtX4y6r
+/9WaxqmX72lcTaEAbubCHqwk+oHq7KCcOvpnZ7hPDMUwZaZni+pRH1ZcA7WFfy1C
+dv0dYpC2DlFXze8ROZ7IDEPl1lJDOMzulfGtJQnx0zAQHfZnd5EnDFM2Poi9o385
+ihzvZkxknpm7/TREQyoKcGoefBP79RKtQVRvFEEWBpc/tMSj4GMXtVpAYXBNAFzP
+/0BjKcf/t3BZcDnYQ2Hu+LkdiWb7JldIL1rXgMzHvEBOh2FH4PM1it662mIrnqQd
+cqk1CQcTi8IfsOxV3qPKXaf/eLaJPqRIesBguSZcR4uzNABI6fy9b5FhkWoOxOpt
+BzvKZ9fNYGC18c4eyM3brtmv7uUgLOcHzJkktW4jRie/EkEX4SkaRuhwO0oyb63R
+kc+S9EH/FONiTIMb/b/5sywIUuffmR4QKZjjzU/y3KnR7wbZQDS+tdAg4thJ4E05
+fao+tiKliBOKBr9Y04lDg+ixWhdHcawAkNAOBJlskVHktEIC4KFO6qokpt9q6bBV
+c59m7ks+oEHcaaOhnIodF9mj5g5fdG7IsMOlJUnLDzRsPofNJIjrBdb5zbsd0NJ7
+Jopi1ES3Ltv+UMaXfk8JXVH9XHWDliROYbphx4385qPKfPxuhbqHEhRf25IyaiLI
++0T14IgnV/+1LDDN0AOQNiqqbP+ZR+SG9Bixec+IoojFzLdM31Mspyu/Ctsyj8Hf
+dYp9Q+8F4SrNieEwofVaMJEHJw5dBjx5yK2qv/jwLr05CGVqr1y0IfsvID1yvEfn
+cEFWaSlwGf0YS/eupBc3Lw0tIf7+zjV6vUpdaxiAfNnslAJ50daMVUv6SWgFE4ml
+LiiTmI82+FcaLPy/avwawXjXJ3imcJhzjUY9FdvrFmPUfoMH9CSCzdxwJWe1DLud
+2Dxg2htQy8jRFyyNHgkMECyqfx6Dng+vw/VNPpXTO5aKvRTfZXu0vI5FuzHETYvH
+PC2yWz2zjib5pyZFXAXyaNyscL8yHQ5glePdh+9gFpE+4vZ0OhxgHYB11wSrC91G
+OOoe9gdZqi+R2oKLkxyF3OZnWGk1ri6P4SA1FB1MeVbG5RWuAJfyoXilzVioEy5d
+JJ0y1bX8ywMdabRdvkvd/JVXpbQWR6iXrCoJVAWeO4ekNkEuLWBWwYiZXxp/miIn
+ERJ+RMdlKwgwr4syIZKVU0JQ0vjAmGGGZA6AzsXEE+ZPo5RkG62g5H3PG0V6kpZx
+xTmjyyGNKEUBdPJiMGuZtVR/ppL9xDTMJw9AuCSSlXD6lG46EzEJGpIySE9YXXwG
+Z2nHZQA8gt24fOJ3ZVHeT7BzB1W8mgGhaB9QVYJ24nXSnDnf7dfS5hjw7JY3NA6x
+jJ5BLil1pmzZ9RLDKuIEZSJ4UKK4w9pKcXNu4EtdKC9Kq0GPrT+nO4H1NsTRSw9+
+tBm7LOu75pN/UzyZsxzGZSZFyTMe7dx0zJ6aifrBMDEmv7RptROAPbsia+/8+PY/
+ZeiuS0HjgirobNWxKIn/6B0X45LZ8o+oY3a4MJIabWTqN99c90g+/dPoD1RNSTdQ
+c7KzxwRjGzcmpcG+Md9K6UrUyDhp8qK8uC16RihbOQHs8HcYlwg1r2ku4kSVUhnu
+AU5CP7xr8RWZkwaZ1Cysk/J2ZbHP7X9183zKBRmfTh206MER9uOrVuzjjLlwsRun
+vdB74vWo/Nx6cU6T7z0pkz/21osq9fh8cRu7T/OLxub4l4IHdTMP2tg697GzsaVc
+1/LCNPHvrhYhzlnf+5qqszrZFGbI2YRkkSsdUDCQvHZldL++ShO7pvGfofQp9gxt
+7iQfbCCqHUpVwFHmOCg9dtlMgE/Jj6GtVwqErQK0SsyyVK2dAYM5iOuaYFeIEStX
+Dr/NP5MjXkni2Erk/UzK3nP+JQHkXRz0gtCNIHxgagcNYedxwrCaqkx4ML9j4VVT
+ovtUUBoEwkCvnL5X0c3ThmGtuxPM32vwa1NTQDJdKPdK2RxUmRO+HHAJC9USyIKE
+dR6U1sAHk1m0IEHewd29bBg+gmrSxkSKyyiX7WsjAVnes+mKvtDfWLnNG1QEhZ6d
+br/VQCL+yIiKcZ4QS+MXQl06Ws+LZ7hQJ16pknysFBp4BV3Jhr7+yRE5dChP7ecf
+obUBHXKLv1YlZlt0Xa+pI0qmvT0l2v6zREelHeFIyTwT4v/NuvAgtEICsKd51IOI
+MK5ZsEcmZEwvaD4DzuaaaZibJcbVjCu6CwAogz2YT/crN1P9j+B1uA5njVLjHVMj
+gK48HO7BNxHpne29UW6K4lRW+Q0Q4vVwJTPstTdNRkQ1pRbzUBVwKGL+eUT3v1nr
+X+Ob78NWlIL78gy3oyFknFjcoQ7+qQY795SToqoN1iFQs3ZU94x1Kq4/Rl/FcI7F
+z2oM6tKcmHRQzVgu3W4fso1Jy3v81efv5IDHoydMRV7IwV5OdAEILUVQNJy9cvH/
+BerBjAC/DaLogj4c0FFJ0ejQO2af+DX0NFuMljNSO0sdl89Afv7JmhwTDkWlhqrM
+4i1lh18i4N6y+aVAX85vqDAfdZbmfMxDt/KEsSEoW9nOj5sucdS4l3F0K+WIUyKf
+leevJiCf45IhykW6lU1EI1j0Y0nFotUebfwaGxrW4RCkfablOO/2v0XRKkBH6TE5
+xxo7WlYdRnK9aSpV8GmbkS6WOYOO3MbsZ44BjiPLYqIMzjLWucmShlzpAFj2AvVZ
+Ag1ACBkSn51ihqHx4DxWs7eaeuDzlOKcUJ4Naf+Opc8UdupAGuHtJSldMZc74dw1
+yY7owUfS2tWWHoJ605oLgi9yvLYw5xCm9N0FCRMw0jfnq+OUPuB1qr2mhtXAATCr
+ebJwdRpZ/e0oLIrI0lQF41j8xbqeIe6dK6iSSg4dArp7LaR7/MR+I4UEXWpoLTQN
+5GK4dFTS1336S5b4k8j9ESgkAr0WrnE0VbEVMrE5E+j/gI9A4POGIPtoAHwfdiMA
+trQOQ4f/uMgKi6QN/Y9oY7UGxz6/UbXOyvKQAQV9ec2dGm9r1Rl5QibiaKNGWH2Z
+Gv2oUoPAZJFmX9xua8Gv9ch/eb9rJAvE5QRcOu86Z9k6KBtW7mn4U+mXZAzTEQtU
+P618gvBMwEA/hDTF11feVOkrDfa7isI7SgGv/1azTWxwSTXh7J12Iwiv+Gma6gFO
+1wZZ3zJHP0jVWWxAzYQHtKc0cnRjJ/qlbnO0QouPL4viyvoz8i+tw8sIvjGoFaGp
+bonQNwa2zQ4gqdLMtjrg6jIDzS7mZjPvaw51r596hRe267rN9dHqNzUeH2SUfIhX
+RHuyZGxkxqyPw8772qDZQV0C/Tn0fOboZmESzePq5apmD1I/Yx6/Bm1QfTVv3gWc
+p2WLuHruXtyklL8SAKbictmcU1fYZO6Mdn8uylezw/NgOwaRMIHmCeBwznXGKsk4
+5yV16SPTCvZNoI/P6a0z7gezkwTRtRfXKIg5ai2tndZdzgcdrcs5KB0hgQT7xZd0
+JTJiphUpj5a7TnJ+Jy1IBOvB4IVu1EkvHOA+D19Kprg7eFHEnKkyImMzBbSy/mqj
+XpNujobdaD4cHqtGyy6BS42IxX6gtH93SKmVeA1c5Rw1s2Xoq+XgD8qO/da+DjHi
+UJSPokvxMHAwBocBEOw3iG+D4fJSDj5JpiEHTWh2o4hy5m5FHom6tBUmIpARDxto
+AOHkJBMERPRiVFZ+2EkkI9XoVRu88kRzOP/CHCLd6Oq9lFnqdz8cokbQ1ZIjN+vk
+y0Fikq4VgXtrOm0ChWEst4G7+nWYJFRfT2baiLoRtCNwpZ6k7Cc20CkOD/vb1b8r
+tdrJs7BjsfbCrrmMd2mTRkJVDhZgnrinAzQXX5XlDXcEqLhYi/YQxHKcwCjJ3PF4
+bwELMY/0qETrONSRzcMwIjfe5jUpe0jvhgTU4Gs6Wz0HmK41jCzMCS8eJWr6Csj3
+zKGsQPYpr8om3BzPLQn3H/+UQBEBHnUDdTHga+VgVP7KT6+GJefBqE87UKBVHXt+
+RZp221gI8oQeTy7kG9Do4fUY+u3vd/3teDdXz3ReqOolBxgnxretmzwfbwnzu9CO
+g0dGpQv5ldcGabHbVgEyMlM4aIMjEUppmMXNOJ/uqIUm+r3wWsuu4FpKNQvGV12y
+SPdm00sdJivQe4XdP8KcR34my+Kzov1ghdMwBgsUAaysaWQ+q7OuzT1avddrqD5I
+iG56MRTiDCdw1zH/nF15OfwxwjgruDCCIU5iOR5BSECFu8y81rI2cI4VsM3AB1KH
+jOD6kMti/OQXy7A34YSZD8r6ikvkbpdvfwYI2JCYgys0+78yWOTsQwDh2T8r0Vjs
+BovcvAPiFd4UKDLxltm8DPYK4GTk6R355bf/xedw5umVpr+WXPhRNrqUMKpIGrnP
+TEhy0Yk9k7yC/WhECUO2Wps2zth8W1A6xmgC0R1RSBXxOybpMQgZDKwE9V0A+NPT
+jVGSeKdJj72SjjGYP+9yHoyu1ev95SgAWM88SoxnCXYUm9bu4b5r8HKlsZS7FOw6
+UGXabxwSG4gdMk0kQ4aSkb5RUpU2o82t5acU+gaXexkpfH4rN7uS2HrJqPsgWQR5
+Y69iI8du+Zl2YZwBlUJ6lBdNFabXDaP2SmMuXMNcgHZ1F5avLuqdP5iKGPz4KHL1
+YNkUj7AI2MjPWHOzFkxO6BZexPcEkGM9cnVGk09Qf16JeBbAHpGDxKyvralcfpXl
+P1/VBI+mjz2zUBZf21HfRfewbVoQQ0YDwEvL04PWXn2A6iObOSay2wrPcbAKoeC6
+bN6dZGbARJIjGWtjSHHbBvhsgo1gJhQaIddyABzJvVnoFyMk78V7qXwSo9eN7yqp
+nfpviVDN6iNZpuBNPZnXVr0ghK7c4UVTDNT2FAglLOJ3yFbVgqTcfD0qZcqzOkZ+
+lJMvi3fb0zJZg4TH5Bluc3iSwwUoxpxSEqABoQsQFwcKoOHyCoAKDgr8CZBexqTG
+YvhK3bt1QiaZT1AuD64+03Q9d8O+dq+Wft7/MIA9ik/f7S89ptyjZx3O7tdw9rhO
+is+poXStbgjke675ljCnW9jFGCM5xMjol7Xt1ivp47iqFqLY3zpdCHbijoH2tC1G
+RH3Cp2iefDp4T9/6YULqChuU8mdGWqsTKe6lD/hxw/DbKU/M2FAI7QwoAQLm12xf
+YaYAtailjIKpg7/WXSudnJVzaMuzM7s/UpVo/OwWzlL0mpOfnjjKU9Z81OOa5Buu
+/ecJXkKFfeMYbydvinPz6GxriiNUGc9wvwBkJfgzIiP01lDuJEpnDTbZLDLpwuKK
+XwwuNJKF6LLLfS0GFhLdE+5H4ZG+2LtB8ZDhSEnWa6hb/aJ1Li3xwJAS7YyjyaIB
+Bm7mYRrFHyb+PQ68gnTBPQtkwjo/YkUw+xoQ1v5Dj0X6JnBv3Sg2DLKXvbD+3CeP
+A8UIkenb9UQ2V7nuW4XhbpXxn2lihQcJq7jeUd77g8Psa3xIJ8As3B/T4smlt87v
+PBAvd5DmgUzghsAx3rQEGfcIIZwpdzdvPlFIpYslnaXtf8m+m+vlI1ryhvMqZI69
+8fOVA8BNa9HVYRLhjyUarioMcRqJ0/tn3/hCvPPXrWiY3NbZM+cKWztpqB9B9TOM
+4zv1LGA8M83s0mbWTRWkivyqmLFmA7oIvlMslqWo9vhUcjwzgwTxGemSTQqPHDSX
+z+uS8IQyuhntBUDxR2fkS/19moP2nn07lflrZ2Wskor5am2ck7ImX9UcsEKh7gDc
+3TmwWMc5rp3pbhjx9/uxgvmmaDbmgAGygfgcvf11RVVXV98DaJ+0bbvqIPu1IuxF
+cfy9Jhy7PM9gGEQYVCIK6w+NhwDD4+Z65iAmmOBf0ivRjOZAdo8EUjNen4E1lSgj
+Gva2ED7SqcQrVHIR4K6dhvkZ8Saw9eG8M5hyOdYcPDNGxbWrHwAy5HcLpU1jYX86
+TJMiHhEo1YYXFxKL8Y6OQtmej697ue9AFjvBpnjCObNuQodwQCfAL5SHaAKMgTsk
+XHLiR8CPCoJzBGbonf1t3Wk+yNedtQMryC36KiQ56SwaX8Xtj14Mj2ni9KrXYcng
+S5BvUhokd4Ik9xZCSyg8xC8WxW0giolwlX+OO6QC7tD0tzRiJDGLe1mz49T+vuw0
+SBHHNqb3KkJ+Yu+FIBh2JhL7P0PHLbXanW34wuKpKCIfLK0P6AinuC5eeahO5FfI
+4fGtmBXj/1Y4O/raXLjLKbqGSiqiV9kz649bQ9P4B1R6ywFR8fQdJn+Mkw0u/1Z7
+4/pCDCF4736xEkt0R4HEvsMr47+Ner8Ht/Gh9ky61TUtdITRwYFt3Y3f7Cx3YwI+
+OdOC04Tc7mFBV4Co01MfFrEhoBnzkhHn21B6gEVlh+O9tfCanrnZ3Qr90eBVc0bM
+Bb8/YxBjaRsRJ2boWSJItyqdaIUCA4cCqmkDpjrAMYDtKSNq2W5fB+oHjjAmWSN+
+EPQhS3jdhKtf/mZASefHnCCJ4muS/TvA7wmc/eWwPBnbnGzu2GoS35HouD7Uaz29
+MwFXNicFlsbLryLVTrWvRXCkUXrH01gW84diyIY88uG98V2SPqcDs2/QKkvoj8cx
+/6rT5ZiB9rZx/CRS9q6OiEt+0Nvn6PLUc9y56PXVI3po5eK9+L2/1NPyy/3nJsXv
+dvi6063E3nZwvDzoSCfrceu7i4osfAjG90B8dnXXonLUFzuUU2KrOX8UoNguvll0
+TDesBio74cQJfJSL70WV2n9DkkRPhGe+80VCiHF1S5qNKlcqAaa9FP9ICb1h7jmU
+hSL8nmM97tLlYNTqL/OJ6/yaskQNhk2DXDMeUTCsIIm6KvSut8X7aipMfE9xQdD0
+Fy/1sbZz1FHMw4knkI4sK/klD9HNwatioALCMAsOxKxImXKgDXKcW9JkIVYMzZrh
+Z1+AvmiJiDeFpivim8KrA+K2R1Lr16QnfAODA/8c2WyioHL2ErutCKiswjX52BYP
+jAFigjgdU2o8KDTOiAlUS1VHWuyRvoHDw0BJM1hczJnoSiXPq4/UHDVL6Sax75Sc
+6A6fsug2qSsVhpp+J3vJ9ZJi/MQm2S2886UcmsR+HXKjBidMYr39Bptt7yz5LXnJ
+9mgSvvWomz1n/7UexHoZpz1N5OVPJ9esMiEZTfXs5CuF7mYl1/6LNLacP1Da4YbO
+R9x1KPhw6UH7dMAcuBABInjx+uONqiDqd06iBJnvTYzQaXa0jDBYrwNGrKMg6HY+
+JkQPOuNc3Yk8JAhtWQN6JCuPUq51cJKdh8KvXNwqZXCe+au5/238y0g66DL/+imM
++7yUR0NdQ1WYFf+isNXvXT2XT8sCEZ0od193msFYVVHmh5CblV0fXdAs+xilZVcO
+sY3X/qP/7FMbalCqUqnN2sPJa3MKNbbgeJSaSyv/No97Lsw4srAB7KtGxVr0aR0c
+lOeTsXSPflS5ocIzBMQfssV0ujZYrjuDKpDt4gSf4Ch8J08L9RvwVSn6d7jXBvm0
+qpL5lfD64SzapnEVHIU0AJjRVF5skXXVY9bbTB/HOUWKb3jpQiNpDJg3dovZQIJm
+TDIOygorWAYXVYjL5Bxomr7bKqcCKV54karYYdnByYK9SP43EMWD6AKb8XL37f5E
+IUROjK9D2mu1KFafxn8LP+N0ZSxxJ5swh41Y/HP45LOB/jAcCCiUSVydhrqyszzw
+XQkxSHUenYWSMfCL4DfA0GBxn0sKrMn1926qFJkB6lpGlmjfbdpsAKOyJKgMLll3
+ipkFPwCjz5PSxpigeRjt3gw9/cxU5vzQ9ul+kau3e8U1v59kfZMLVrz3w7t7TRbV
+qEO7wAqiG6XrUxflkwe9X6XhYCowZ1Lea/lSvD6PUZgTSDuMT+klDEvNgUq5X7TV
+QrfaPXiSVSCNYqWmRahtpoQQVxqzsnA5Y2n9PEQJw+wXQjgsaLFaKEN5xYg5n7V1

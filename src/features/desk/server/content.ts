@@ -1,157 +1,125 @@
-// What the desk shows at request time: the newest few moods and the channel
-// they come from, the newest posts for the contents page and what the blog
-// adds up to, and the week on GitHub (server/github.ts). Everything else on
-// the desk is static data from site.ts.
-//
-// The reads on the blog are made up until site-api serves them
-// (plans/desk-backend.md), marked MOCK below.
-import type { MoodFeedItem } from '@/features/mood/server/contracts';
-import { loadMoodFeed } from '@/features/mood/server/api-client';
-import type { MoodServerContext } from '@/features/mood/server/channel-service';
-import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
-import { loadGitHubWeek, type DeskGitHubWeek } from '@/features/desk/server/github';
-import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
-import { writingLedger } from '@/features/posts/ledger';
-import { getListedPosts } from '@/features/posts/server/content';
-import { postPath } from '@/features/posts/format';
-
-export interface DeskMood {
-  id: string;
-  href: string;
-  text: string;
-  /** "zh" when the text is Chinese, so assistive tech picks the right voice. */
-  lang?: string;
-  datetime: string;
-  /** "21:51", in Melbourne time, where every one of these was posted; the
-      page puts it in the reader's own time (client/moods.ts). */
-  time: string;
-  thumb?: { src: string; srcset?: string };
-  /** The two biggest, as "❤️ 3". */
-  reactions: string[];
-}
-
-export interface DeskPost {
-  href: string;
-  title: string;
-  lang?: string;
-  /** "Sep 2026". */
-  date: string;
-}
-
-export interface DeskWriting {
-  posts: number;
-  words: number;
-  /** The year of the first post. */
-  since: number;
-  /** Reads of every post since the counting began ("June 2026"). Nothing
-      before it was kept, so the figure never claims more than that. */
-  reads: { count: number; since: string };
-  /** The post read the most. */
-  top?: { title: string; href: string; lang?: string };
-}
-
-export interface DeskChannel {
-  /** "Levitating". */
-  title: string;
-  avatar?: string;
-}
-
-export interface DeskContent {
-  /** Oldest first, so the newest sits at the bottom like a chat. */
-  moods: DeskMood[];
-  channel: DeskChannel;
-  posts: DeskPost[];
-  postCount: number;
-  writing: DeskWriting | null;
-  github: DeskGitHubWeek | null;
-}
-
-const MOODS = 3;
-const POSTS = 5;
-
-const melbourneTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false });
-const monthYear = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', month: 'short', year: 'numeric' });
-const longMonthYear = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', month: 'long', year: 'numeric' });
-
-// MOCK until GET /api/v2/blog/stats (plans/desk-backend.md): reads per post,
-// made up from the slug so they hold still between visits, and the day the
-// counting began (site-api's blog_analytics_events, migration 0003).
-const MOCK_READS_SINCE = '2026-06-28T00:00:00Z';
-const mockReads = (slug: string) => {
-  let hash = 0;
-  for (const char of slug) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-  return 80 + (Math.abs(hash) % 2400);
-};
-
-const format = (formatter: Intl.DateTimeFormat, iso: string) => {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '' : formatter.format(date);
-};
-
-// Channel housekeeping is not a mood.
-const isMood = (item: MoodFeedItem) => {
-  const text = item.previewText.trim();
-  return (text || item.image) && text !== 'Channel photo updated';
-};
-
-// Moods and post titles are mostly Chinese on an English page; one Han
-// character is enough to pick the voice.
-const langOf = (text: string) => (/\p{Script=Han}/u.test(text) ? 'zh' : undefined);
-
-const toMood = (item: MoodFeedItem): DeskMood => {
-  const thumb = item.image && item.imageKind !== 'sticker' ? buildArchiveSrcSet(item.image, { widths: [96, 160] }) : null;
-  return {
-    id: item.id,
-    href: `/mood/${item.id}`,
-    text: item.previewText.trim(),
-    lang: langOf(item.previewText),
-    datetime: item.datetime,
-    time: format(melbourneTime, item.datetime),
-    ...(thumb ? { thumb: { src: thumb.src, srcset: thumb.srcset } } : {}),
-    reactions: [...item.reactions]
-      .sort((a, b) => Number(b.count) - Number(a.count))
-      .slice(0, 2)
-      .map((reaction) => `${reaction.emoji} ${reaction.count}`),
-  };
-};
-
-type ListedPost = Awaited<ReturnType<typeof getListedPosts>>[number];
-
-const summarise = (posts: ListedPost[]): DeskWriting | null => {
-  const ledger = writingLedger(posts);
-  if (!ledger) return null;
-  const read = posts.map((post) => ({ post, reads: mockReads(post.slug) }));
-  const top = read.reduce((a, b) => (b.reads > a.reads ? b : a)).post;
-  return {
-    posts: ledger.posts,
-    words: ledger.words,
-    since: ledger.since,
-    reads: { count: read.reduce((sum, { reads }) => sum + reads, 0), since: format(longMonthYear, MOCK_READS_SINCE) },
-    top: { title: top.title, href: postPath(top.slug), lang: langOf(top.title) },
-  };
-};
-
-export async function loadDeskContent(context: MoodServerContext): Promise<DeskContent> {
-  // Any source failing leaves its object empty; the rest of the desk stands.
-  const [feed, posts, github] = await Promise.all([
-    loadMoodFeed(context, { limit: 12 }).catch(() => null),
-    getListedPosts().catch(() => []),
-    isE2ESiteFixtureEnabled(context.locals) ? null : loadGitHubWeek(),
-  ]);
-  return {
-    moods: (feed?.posts ?? []).filter(isMood).slice(0, MOODS).map(toMood).reverse(),
-    channel: {
-      title: feed?.channel?.title?.trim() || 'Levitating',
-      ...(feed?.channel?.avatar ? { avatar: feed.channel.avatar } : {}),
-    },
-    posts: posts.slice(0, POSTS).map((post) => ({
-      href: postPath(post.slug),
-      title: post.title,
-      lang: langOf(post.title),
-      date: format(monthYear, post.publishedAt),
-    })),
-    postCount: posts.length,
-    writing: summarise(posts),
-    github,
-  };
-}
+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

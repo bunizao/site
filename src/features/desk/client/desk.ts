@@ -1,48 +1,40 @@
-// Boot for the desk at /new: the easel and what moves in its painting (the
-// clock, the lamp, the record and the music off it, the coffee's steam), the
-// turntable's arm, the subscriptions, the letter and the painted year in the
-// panels, the speaker in the letterhead, and the foil on the student card.
-import { initClock } from './clock';
-import { initEasel } from './easel';
-import { initFoil } from './foil';
-import { initLamp } from './lamp';
-import { initLetter } from './letter';
-import { initMoods } from './moods';
-import { initNotes } from './notes';
-import { initSoundToggle } from './sound';
-import { initSubscribe } from './subscribe';
-import { initSteam } from './steam';
-import { initTonearm } from './tonearm';
-import { initTurntable } from './turntable';
-import { initYear } from './year';
-
-// The foil's shader compiles the first time the card is on the canvas, once
-// the page is idle, not on every visit. The foil finds the card by where it
-// is on screen, so it cannot start while the card is hidden.
-function initFoilOnShow() {
-  const easel = document.querySelector('[data-easel]');
-  const onShown = (event: Event) => {
-    if ((event as CustomEvent<string>).detail !== 'about') return;
-    easel?.removeEventListener('easel:shown', onShown);
-    (window.requestIdleCallback ?? ((callback: () => void) => setTimeout(callback, 200)))(() => initFoil());
-  };
-  easel?.addEventListener('easel:shown', onShown);
-}
-
-// The clock, the steam and the lamp hang their canvases in the painting
-// before the easel paints it; the easel makes the record's turntable. A
-// link to /new#about shows the card as the easel starts, so the foil listens
-// first.
-initFoilOnShow();
-initClock();
-initSteam();
-initLamp();
-initEasel();
-initTurntable();
-initTonearm();
-initNotes();
-initMoods();
-initSubscribe();
-initLetter();
-initYear();
-initSoundToggle();
+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
+M7ChmFD/1RbbxZRXfnNlbQ==

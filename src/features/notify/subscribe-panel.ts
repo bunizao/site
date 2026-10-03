@@ -55,6 +55,7 @@ function setupPanel(panel: HTMLElement): void {
   if (scrim && scrim.parentElement !== document.body) document.body.append(scrim);
   if (panel.parentElement !== document.body) document.body.append(panel);
 
+  const inner = panel.querySelector<HTMLElement>('[data-sub-inner]')!;
   const formView = panel.querySelector<HTMLElement>('[data-sub-form-view]')!;
   const successView = panel.querySelector<HTMLElement>('[data-sub-success-view]')!;
   const errorView = panel.querySelector<HTMLElement>('[data-sub-error-view]')!;
@@ -129,7 +130,9 @@ function setupPanel(panel: HTMLElement): void {
     const minTop = isMobile ? MOBILE_PANEL_MIN_TOP : edge;
     const spaceBelow = vh - rect.bottom - gap - edge;
     const spaceAbove = rect.top - gap - minTop;
-    const panelH = panel.offsetHeight;
+    // The content's height, not the panel's: a clamped panel reports the
+    // clamp, and the next pass would read that as fitting and unclamp it.
+    const panelH = inner.offsetHeight;
     const openUp = panelH > spaceBelow && spaceAbove > spaceBelow;
 
     // Clamp height to the chosen side and let the body scroll if it still spills.
@@ -254,6 +257,11 @@ function setupPanel(panel: HTMLElement): void {
   };
   window.addEventListener('scroll', handleReposition, { passive: true });
   window.addEventListener('resize', handleReposition, { passive: true });
+  // The content grows while open -- an error line, the Turnstile checkbox --
+  // and a panel placed for its old height runs off the viewport, taking the
+  // submit row with it. Watching the content, not the panel, keeps the clamp
+  // positionPanel writes out of the loop.
+  new ResizeObserver(handleReposition).observe(inner);
 
   syncGate();
 

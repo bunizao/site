@@ -1,256 +1,138 @@
----
-// The newest moods as the channel they come from: the moods hover card from
-// home, grouped the way Telegram groups one sender, with the channel's name
-// on the first bubble, its picture beside the last, and the reactions and
-// time inside each one. `links` makes each bubble a link to its mood (in the
-// window); without it the channel is a still object inside a frame that is
-// already a button. On the easel each bubble is a slab of paint (`data-slab`,
-// painted by the easel script); until then it is a flat bubble. The times
-// are dated the way the mood feed dates them, in the reader's own time, with
-// a day over the first of each day (client/moods.ts).
-import type { DeskChannel, DeskMood } from '@/features/desk/server/content';
-
-interface Props {
-  moods: DeskMood[];
-  channel: DeskChannel;
-  links?: boolean;
-}
-
-const { moods, channel, links = false } = Astro.props;
-const Bubble = links ? 'a' : 'span';
-
-// A mood that is only a link reads as its host and path, like the feed.
-const shorten = (text: string): string => {
-  if (!/^https?:\/\/\S+$/.test(text)) return text;
-  const bare = text.replace(/^https?:\/\/(www\.)?/, '').replace(/[?#].*$/, '');
-  return bare.length > 30 ? `${bare.slice(0, 29)}…` : bare;
-};
----
-
-<span class="mc">
-  {moods.length > 0 ? (
-    <span class="mc-thread">
-      {channel.avatar ? (
-        <img class="mc-avatar" src={channel.avatar} alt="" width="34" height="34" loading="lazy" decoding="async" />
-      ) : (
-        <span class="mc-avatar" aria-hidden="true">{channel.title.slice(0, 1)}</span>
-      )}
-      <span class="mc-stream">
-        {moods.map((mood, i) => (
-          <Bubble class="mc-bubble" href={links ? mood.href : undefined} data-slab>
-            <span class="mc-body">
-              {i === 0 && <span class="mc-from">{channel.title}</span>}
-              <span class="mc-text" lang={mood.lang}>{mood.text ? shorten(mood.text) : 'A photo, no words.'}</span>
-              <span class="mc-meta">
-                {mood.reactions.map((reaction) => <span class="mc-react">{reaction}</span>)}
-                <time class="mc-time" datetime={mood.datetime}>{mood.time}</time>
-              </span>
-            </span>
-            {mood.thumb && (
-              <img class="mc-thumb" src={mood.thumb.src} srcset={mood.thumb.srcset} sizes="48px" alt="" width="48" height="48" loading="lazy" decoding="async" />
-            )}
-          </Bubble>
-        ))}
-      </span>
-    </span>
-  ) : (
-    <span class="mc-empty">
-      The channel didn't load just now.
-      {links && <a href="/mood">Read it on the mood page</a>}
-    </span>
-  )}
-</span>
-
-<style>
-  .mc {
-    display: block;
-    width: 100%;
-    max-width: 340px;
-    font-family: var(--d-sans);
-    font-size: 15px;
-    line-height: 1.45;
-    text-align: left;
-    color: var(--d-ink);
-  }
-
-  .mc-thread {
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-  }
-
-  .mc-avatar {
-    display: grid;
-    flex: none;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: var(--d-bubble);
-    color: var(--d-note);
-    font-size: 13px;
-    font-weight: 600;
-    object-fit: cover;
-    box-shadow: 0 0 0 1px var(--d-line);
-  }
-
-  .mc-stream {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 5px;
-  }
-
-  /* One sender, grouped the iOS way: the corners facing the avatar close up
-     between bubbles, and only the last one is tucked. */
-  .mc-bubble {
-    display: flex;
-    max-width: 100%;
-    gap: 10px;
-    padding: 8px 11px 7px;
-    border-radius: 6px 18px 18px 6px;
-    background: var(--d-bubble);
-    color: inherit;
-    text-decoration: none;
-    transition: background-color 150ms ease;
-  }
-
-  .mc-bubble:first-child {
-    border-top-left-radius: 18px;
-  }
-
-  .mc-bubble:last-child {
-    border-bottom-left-radius: 4px;
-  }
-
-  /* A day starts a group of its own, the way Telegram breaks one. */
-  .mc-stream :global(.mc-day + .mc-bubble) {
-    border-top-left-radius: 18px;
-  }
-
-  .mc-stream :global(.mc-bubble:has(+ .mc-day)) {
-    border-bottom-left-radius: 18px;
-  }
-
-  /* The day, as the mood feed heads it: "Today", "Yesterday", "October 1". */
-  .mc-stream :global(.mc-day) {
-    position: relative;
-    isolation: isolate;
-    align-self: center;
-    margin: 6px 0 3px;
-    padding: 1px 9px;
-    border-radius: 999px;
-    background: var(--d-react);
-    color: var(--d-note);
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 18px;
-  }
-
-  .mc-stream :global(.mc-day:first-child) {
-    margin-top: 0;
-  }
-
-  a.mc-bubble:hover {
-    background: var(--d-bubble-hover);
-  }
-
-  /* Painted: the slab is the bubble, a little bigger than the text it holds,
-     and it shifts under the pointer the way the prose chips do. */
-  .mc-bubble.has-swatch {
-    position: relative;
-    isolation: isolate;
-    background: none;
-  }
-
-  .mc-bubble.has-swatch::before {
-    content: '';
-    position: absolute;
-    inset: -4px -6px;
-    z-index: -1;
-    background: var(--swatch) center / 100% 100% no-repeat;
-    filter: drop-shadow(0 1px 1.5px oklch(0.3 0.03 50 / 0.12));
-    transition:
-      rotate 0.3s var(--d-ease),
-      scale 0.3s var(--d-ease);
-  }
-
-  @media (hover: hover) {
-    a.mc-bubble.has-swatch:hover::before {
-      rotate: -0.6deg;
-      scale: 1.015 1.04;
-    }
-  }
-
-  a.mc-bubble:focus-visible {
-    outline: 2px solid var(--d-focus);
-    outline-offset: 2px;
-  }
-
-  .mc-body {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-  }
-
-  .mc-from {
-    margin-bottom: 1px;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: var(--d-ink);
-  }
-
-  .mc-text {
-    display: -webkit-box;
-    overflow: hidden;
-    overflow-wrap: anywhere;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-  }
-
-  .mc-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 4px;
-    margin-top: 4px;
-    font-size: 12.5px;
-    color: var(--d-note);
-  }
-
-  .mc-react {
-    padding: 0 6px;
-    border-radius: 999px;
-    background: var(--d-react);
-    font-variant-numeric: tabular-nums;
-    line-height: 18px;
-    color: var(--d-note);
-  }
-
-  .mc-time {
-    margin-left: 2px;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .mc-thumb {
-    flex: none;
-    align-self: center;
-    width: 48px;
-    height: 48px;
-    border-radius: 9px;
-    object-fit: cover;
-    box-shadow: 0 0 0 1px var(--d-line);
-  }
-
-  .mc-empty {
-    color: var(--d-note);
-  }
-
-  .mc-empty a {
-    color: var(--d-ink);
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
-  }
-</style>
+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

@@ -1,57 +1,52 @@
----
-// A subscription by email, at the foot of the writing and of the moods. It
-// goes in its section's Door: a second door, quieter than the first, that
-// unfolds a slip under them (client/subscribe.ts). The field is a slab of
-// paper laid with the knife, and the button and the chosen pace are daubs of
-// the section's colour, like its word in the prose. It posts to the same
-// pool as the blog's and the mood feed's own panels. Cloudflare's checkbox,
-// when it wants one, opens under the line that asks for it.
-interface Props {
-  channel: 'blog' | 'mood';
-  turnstileSiteKey: string;
-}
-
-const { channel, turnstileSiteKey } = Astro.props;
-const id = `subscribe-${channel}`;
-const say =
-  channel === 'blog'
-    ? 'New writing in your inbox, the day it goes up. Nothing else.'
-    : 'Moods in your inbox, as often as you like them.';
-const paces = [
-  ['instant', 'as they come'],
-  ['every_5h', 'every five hours'],
-  ['daily', 'once a day'],
-] as const;
----
-
-<button class="door door-quiet" type="button" aria-expanded="false" aria-controls={id} data-subscribe-open data-daub>
-  Subscribe
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <rect x="2" y="3.5" width="12" height="9" rx="1.5" />
-    <path d="m2.5 4.5 5.5 4 5.5-4" />
-  </svg>
-</button>
-
-<form class="slip" id={id} data-desk-subscribe data-channel={channel} data-turnstile-site-key={turnstileSiteKey} hidden novalidate>
-  <p class="slip-say">{say}</p>
-  {channel === 'mood' && (
-    <fieldset class="slip-paces">
-      <legend class="sr-only">How often</legend>
-      {paces.map(([value, label], i) => (
-        <label class="slip-pace">
-          <input class="sr-only" type="radio" name="deliveryMode" value={value} checked={i === 0} />
-          <span data-daub>{label}</span>
-        </label>
-      ))}
-    </fieldset>
-  )}
-  <div class="slip-row">
-    <label class="kf-field" data-slab>
-      <span class="sr-only">Email</span>
-      <input type="email" name="email" placeholder="you@example.com" autocomplete="email" inputmode="email" required />
-    </label>
-    <button class="door" type="submit" data-daub>Subscribe</button>
-  </div>
-  <p class="slip-note" data-subscribe-status role="status">One click to leave, any time. <a href="/privacy">Privacy</a></p>
-  <div class="slip-check"><div class="slip-turnstile" data-subscribe-turnstile></div></div>
-</form>
+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
+NNx0kw4DzEgzvEKGRTh6Qg==

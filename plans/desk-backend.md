@@ -1,173 +1,217 @@
-# Desk backend: what /new needs from site-api
-
-Written 2026-10-04 from the `agent/desk-home-prototype` branch of `site`
-(head `9ad0c321`), after the desk gained subscriptions, a letter panel, the
-painted GitHub year and the blog tally; revised the same day after the
-GitHub card moved to the profile README and the forms took the comment
-box's Turnstile flow. Facts about `site-api` are read from its
-`origin/main`, not from the local checkout, which is stale.
-
-The desk renders today without any of this. Where a figure has no source yet
-it is **mocked in `src/features/desk/server/content.ts`** (search for `MOCK`).
-Each item below names what the mock stands in for, so the executor can delete
-it in the same PR that wires the real source.
-
-## Already served, nothing to build
-
-| Desk feature | Endpoint | Notes |
-| --- | --- | --- |
-| Subscribe slips (writing, moods) | `POST /api/notify/subscribe` | Same payload as the blog and mood panels: `channels: ['blog' \| 'mood']`, `deliveryMode`, Turnstile action `notify_subscribe`. A refusal (`400 "Turnstile verification failed"`) opens Cloudflare's checkbox and sends again once. See 4 for what the route does not check yet. |
-| Letter panel | `POST /api/v2/messages` + `/api/v2/comments/dwell-token` | Runs the /message form client: dwell token, browser evidence, honeypot, Turnstile with the checkbox fallback. |
-| Painted GitHub year | `GET /api/github/contributions?days=365` | Real data: 365 days with GitHub levels; the total and the day under the pointer are read in the browser (`client/year.ts`). About ten minutes behind GitHub (Worker cache, 600s at the edge). |
-| GitHub week line | `raw.githubusercontent.com/bunizao/bunizao/HEAD/README.md` | Real data: the activity block the profile's `activity.yml` rewrites five times a day (00/05/10/15/20 UTC); an isolate rereads it at most every 30 minutes (`server/github.ts`). Private repositories are already unnamed there. |
-| GitHub avatar | `/static/github/bunizao/avatar` | The site's media proxy, one allowlisted login. |
-| Blog posts and words | Ghost, via `getListedPosts` + `writingLedger` | Real, computed at request time in `site`. |
-
-## 1. Restart the mood stats snapshot (P0, ops + one flag)
-
-`GET /api/v2/mood/stats` serves a KV snapshot generated **2026-07-15T19:00Z**.
-The hourly refresh was switched off on 2026-07-16 (site-api `57a08b0`,
-`scheduledMoodStatsRefreshEnabled = false` in `src/worker-tasks.ts`, with the
-note "paused until the Mood stats UI ships"). Everything it says is now
-eleven weeks old: `totals.posts`, `lastPostAt` and `streaks.current` are wrong.
-
-- Turn the scheduled refresh back on, but daily, not hourly. The snapshot
-  aggregates over all of `mood_posts`; at 24 runs a day it spends D1 reads
-  (Free tier, 5M rows/day, shared with every other site DB) for figures that
-  move a few times a day. Measure one run's rows read
-  (`meta.rows_read` per query) before choosing the cadence.
-- **`media.photo` is 0**: the aggregation reads the `media` JSON column, but
-  about 970 archived photo rows have `media = NULL` while their objects sit
-  at R2 `mood/<id>/0`. Count photos by `type = 'photo'` instead
-  (`aggregateMedia` in `src/features/mood/server/mood-stats.ts`).
-- **`sentimentTimeline` is empty**: the query needs `sentiment_label` /
-  `sentiment_score`, and nothing has written them. Either backfill them
-  (through the tuuhub gateway, alias `task-guard` or a new alias, never a
-  vendor SDK) or drop the field from the contract. Don't ship an empty
-  chart.
-- Acceptance: `generatedAt` is less than 25h old, and `totals.posts` matches
-  `SELECT COUNT(*) FROM mood_posts WHERE is_deleted = 0` within a day.
-
-## 2. `GET /api/v2/blog/stats` (P1, new public route)
-
-Replaces the `mockReads` MOCK. Named for what it counts: everything else
-about these figures already says *blog* (the `/blog` routes, the
-`blog_analytics_events` table, the notify channel `blog`, the portal's
-blog analytics). The desk calls the section "writing"; the API does not
-need to follow the desk's prose.
-
-The source is `blog_analytics_events` (written by `POST
-/api/analytics/event`, table since site-api migration 0003, 2026-06-28). The
-admin portal already aggregates it in `getBlogAnalyticsSummary` /
-`getBlogAnalyticsArticleDetail`
-(`src/features/analytics/server/blog-analytics.ts`); reuse those queries,
-but expose only the public aggregates.
-
-```json
-{
-  "generatedAt": "2026-10-04T00:00:00.000Z",
-  "since": "2026-06-28T09:14:00.000Z",
-  "totals": { "reads": 12765, "readers": 4210, "completed": 3100 },
-  "posts": [
-    { "slug": "some-post", "reads": 2400, "completed": 610, "medianDwellMs": 182000 }
-  ]
-}
-```
-
-- **There is no backfill, so the figures carry their start.** Nothing was
-  counted before the table existed, and nothing can be recovered for
-  posts read before then. `since` is `MIN(opened_at)` over the table, kept
-  in the snapshot (not recomputed per request). Every figure means "since
-  `since`", never "all time".
-- The desk says exactly that: "Read 12,765 times since I started counting
-  in June 2026". It already renders this sentence from the mock
-  (`DeskWriting.reads.since` in `server/content.ts`). A post published
-  after `since` has its whole life counted; one published before has only
-  its tail. Neither is labelled per post on the desk, so no per-post
-  `since` is needed.
-- **Don't mix sources.** If older page views exist elsewhere (GA4,
-  Cloudflare Web Analytics), they are views, not reads, measured
-  differently and with bots counted another way. Never add them to
-  `reads`. If the owner wants them shown, a separate one-off import into a
-  separate `views` figure with its own label, and only on the owner's say.
-- A **read** is one distinct `eventId` (one page view). `readers` is distinct
-  `visitorId`. `completed` counts `completed = 1`. Bots never reach the table.
-- Public data only. Never return referrers, countries, user agents, visitor
-  ids or anything per event: `/docs` is public and so is this route.
-- Precompute into KV like the mood snapshot (daily or 6-hourly), with the
-  route reading only KV. No D1 work per request.
-- Cache: `public, max-age=300`, CDN `max-age=3600, stale-while-revalidate=86400`.
-- Contract: add `BlogStats` to `packages/contracts` in `site` (canonical),
-  publish by tag (`contracts-vX.Y.Z`), then raise the pin in `site-api`.
-- Docs: a "Blog stats" section in `src/content/docs/api/content.md`, then
-  `bun run check:docs-coverage` with `SITE_API_REPO=../site-api`.
-- Site side (after it ships): `loadDeskContent` fetches it through the same
-  service binding as the mood feed, joins by slug, takes `since` from it,
-  and drops `mockReads` and `MOCK_READS_SINCE`. The tally keeps working
-  without it: a missing snapshot hides the "Read N times" sentence, it
-  does not fail the page.
-
-## 3. `GET /api/v2/github/activity` (P3, only if the README stops being enough)
-
-The desk no longer needs this. The week line ("484 commits in 8 projects
-this week, among them site, moodle-cli and Attegi") is read from the
-profile README's activity block (see the table above), which already
-leaves private repositories unnamed. The `MOCK_REPOS` mock is gone.
-
-Build it only if the desk wants what the README does not have (languages,
-push times), or if the profile workflow is retired. Then:
-
-- **Public, non-fork, non-archived repositories only**, ordered by
-  `pushedAt`, at most 5. Private repos (the Koenig fork, site-api) must never
-  appear, not even by name; filter with `privacy: PUBLIC` in the query, not
-  afterwards. `src/lib/github.ts` already talks to GitHub's GraphQL with a
-  token for the contributions grid; extend it.
-- Same allowlist (`bunizao` only), rate limit and cache tiers as
-  `/api/github/contributions` (10 min in the Worker, 600s at the edge).
-- Docs: next to "GitHub contributions" in `content.md`.
-
-## 4. Subscribe risk parity (P2, site-api + contract)
-
-The letter and the comment box send four signals; `POST
-/api/notify/subscribe` takes one. Today it checks Turnstile and a rate limit,
-and double opt-in means nobody is subscribed without clicking the mail.
-What it still allows is using the form to send confirmation mail to
-someone else's inbox. Turnstile makes that slow, not impossible.
-
-- **Per-address cooldown on the confirmation mail** (do this first, and
-  check whether it already exists): an address that was sent a
-  confirmation in the last N hours gets the same `200` but no new mail.
-  This is the control that actually caps mail to a victim.
-- **Honeypot**: accept an optional `website` field. Filled means a bot:
-  answer the normal `200` and drop it, as the message route does.
-- **Dwell token**: accept an optional `dwellToken` from
-  `/api/v2/comments/dwell-token`, checked with `inspectDwellToken` like
-  messages. Missing or young: score it, don't refuse (old clients and the
-  blog/mood panels must keep working).
-- **Browser evidence**: `collectClientEvidence` output, scored the way
-  comments score it. Never refuse on the input method (owner's rule from
-  the comments flood work).
-- All additive and optional in the contract; unknown fields ignored, so
-  the desk slips can start sending them before the route reads them.
-  Site side: the slips mint the dwell token on open and send the honeypot
-  and evidence; the blog and mood panels follow in the same PR.
-
-## 5. Optional, the owner's call before anyone builds them
-
-- **Subscriber counts** ("212 readers get the moods by email") under the
-  slips. Social proof, but it publishes the size of the list; the owner
-  decides. Source: confirmed rows in the notify subscriber table, by channel.
-  Aggregate counts only.
-- **Listening counts** (plays this week, top artist) from
-  `listening_analytics_events`, for a line under the turntable.
-- **Where a subscription came from**: an optional `source: 'desk' | 'blog' |
-  'mood'` on `POST /api/notify/subscribe`, stored on the subscriber row, so
-  the portal can say whether the desk slips convert. It is a contract change.
-  Unknown values must be ignored, not rejected, so an old client never breaks.
-
-## Order
-
-1 is a flag and a query fix and unblocks the mood figures; do it first and
-alone. 2 needs a contracts release; 4's contract fields can ride in the
-same version. 4's cooldown needs no contract and can go any time. 3 waits
-until the README is not enough; 5 waits for a yes.
+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
+do3YnlI1RdKA1eqst91BIA==

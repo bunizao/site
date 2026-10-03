@@ -1,64 +1,60 @@
-// "Still life with a desk": where each thing in the painting stands. Shared
-// by the server, which renders a link or button over each thing, and the
-// client, which paints it. Every measure is a share of the canvas width; the
-// canvas is always 4:5, so the bottom edge sits at y = 1.25.
-
-export const ASPECT = 1.25;
-/** Where the wall meets the table. */
-export const HORIZON = 0.76;
-
-export type ThingId = 'works' | 'badge' | 'plant' | 'record' | 'clock' | 'books' | 'cup';
-/** Everything painted on a canvas of its own: the things, and two parts that move. */
-export type PieceId = ThingId | 'lamp' | 'disc';
-
-type Box = [number, number, number, number];
-
-export interface Piece {
-  id: PieceId;
-  /** x, y, width, height: the box it is painted in, and grabbed by. */
-  box: Box;
-}
-
-export interface Thing extends Piece {
-  id: ThingId;
-  /** The desk section it opens, or the page it links to. */
-  section: string;
-}
-
-// Back to front: the order they are painted in and stacked in. Two things on
-// the wall, five on the table, and the rest of the canvas left to the light.
-export const THINGS: Thing[] = [
-  { id: 'works', section: 'projects', box: [0.565, 0.155, 0.29, 0.23] },
-  { id: 'badge', section: 'about', box: [0.27, 0.15, 0.16, 0.33] },
-  { id: 'plant', section: 'github', box: [0.03, 0.48, 0.3, 0.44] },
-  { id: 'record', section: 'listening', box: [0.6, 0.48, 0.29, 0.41] },
-  { id: 'clock', section: 'clock', box: [0.35, 0.74, 0.27, 0.17] },
-  { id: 'books', section: 'writing', box: [0.08, 0.89, 0.3, 0.13] },
-  { id: 'cup', section: 'moods', box: [0.63, 0.86, 0.19, 0.19] },
-];
-
-/** The clock's window, where the time is painted live: x, y, width, height. */
-export const CLOCK_FACE: [number, number, number, number] = [0.385, 0.785, 0.2, 0.072];
-
-/**
- * A pendant lamp hung from above the canvas, its cord down the middle of its
- * box, so it swings about the top middle. It opens nothing; it switches.
- */
-export const LAMP: Piece = { id: 'lamp', box: [0.42, 0, 0.14, 0.215] };
-/** Where the lamp's cord hangs from. */
-export const LAMP_PIVOT: [number, number] = [0.49, 0];
-/** The bulb's centre, where the light comes from. */
-export const LAMP_BULB: [number, number] = [LAMP_PIVOT[0], 0.156];
-
-/** The record's disc: centre and radius. It turns, under its sleeve, while a song plays. */
-export const RECORD_DISC = [0.752, 0.568, 0.105] as const;
-export const DISC: Piece = {
-  id: 'disc',
-  box: [RECORD_DISC[0] - RECORD_DISC[2], RECORD_DISC[1] - RECORD_DISC[2], RECORD_DISC[2] * 2, RECORD_DISC[2] * 2],
-};
-
-/** The cup's mouth, where its steam rises from: centre x, rim y, half width. */
-export const CUP_MOUTH = [0.7125, 0.936, 0.046] as const;
-
-/** The work hung on the wall, by the study it shows. */
-export const WALL_WORK = { study: 'cube', box: [0.58, 0.17, 0.26, 0.195] as [number, number, number, number] };
+U2FsdGVkX18UFY/7LizuDm/IeZvtTMvFbOAVLIcsMm7lOENDcDS9tRQ1ur+VRC9S
+k9r5JfJNMarXOKb676Xyv71YdmckKOE2DTTpEjXvOHOfjMa0x+p8VNwHUZGKH6Ps
+ht4crb5DUIeyXGlU0lBNguFviOcJd6rzBKtpyY6fFi/STeZ/vMXctIn3CAhfOg4a
+DYhe43ceSjHfHBYuAMkvC8XOWUkOzAN3E1yKJFUgSTRWHshIic5HVnTN2RN4EOeJ
+qFfeHhP7EeGDLOnhfy6g1rQRMvaVs34Sw7v62QLLdYFNrHZVWuvbGfkfyfINZJ+C
+QxLyIkMA4U6QjccO3EiFA8KUncESdV/i0NxmN5aE3TpihCOOTHxNiGYy9qVuWrzo
+BrBs4gMGsXoXKSZWqKqIPGTkXDiUyxr9svFuOsJo8hZi2UD2DV/aT6oY7MaldlGx
+Pokc74enb1k3zOZJCbvglhjFpfpIkzySomsucuuCwvTb/FR1zLhM88Qb7w8SyDIK
+YfGYPwELgxAhz4Jqbo1x8+oszN5K1w5PCj0JdtPd+JWSRg0WpD9HnaEHjxwh4jG+
+rYVteaFq2gqSA4fhKQOlNehTREGP3bfpa7sGsAeG/nnNNT0BANwRaXoMYSXAYlFK
+w9jBH2/S3f6IMzfVzESwGKkaR4f/+IAmxE0Ld4o1g5fgzteoKCaERtqS8qT4CqWR
+BVo6+iGLjYLYHYbiwqcKeJKEivDJ8UPz0xDYWbo2UVGunXZamBUZfvsYajFqD7SW
+eGxbXRH/PXJPU62VmpVSd0u/dP1lL/wRPNqT9Lgr34pyKjr+5dC634A/o781CdlE
+7zJ8D6VMYzs9HReWQt29eM6zsOHhPsF7R4VxqwDZiBFRsRKrz2jNZY2AmeMfspi+
+D/GCaEhfvSpCJkUMecUlNiE1MT0/7fJuMGAEkokXzZnLYHgVVhibQxKkwb/8vK3H
+w6nmt9/AEq6NGnDddTwGZYV2NNUsYhA05k1Dx5HSvDKU2fz7vEdilflxKQD5mZuP
+stT1mcKe2kh+5SGTDlrEPJaXcxFiHzm0HFL+bWaI7keEZPGyNeFA3AuAl4hHfww1
+PW+U8LzBQbRY5+WavQ1hI9Jpj3oPDJA/ws2LkEa7DHmZxZhgdITY9UplCWtpcHfh
+FTvSjeRDtVfMmHxkXBcwPdd4/aY2NjOay3DkMuYlAOpb0wSNYZlAl7fNEdlaIKmR
+EJFXtJNUfnA7krATseAWuxXSYHie5RljWpfQvgPAnsb5pZOgQKGv8f7IhC8tScqD
+4a0QwacndmaSplhq85y6GwvYySDzUD4oWMy669jBqL4cCRA7EzLqkp/mQdckQMLr
+raVU1W52y105KexjVeOjHe75MxS/cyqoSSc65X9mszIVnysGFn0e59vwyGKh51aK
+eSJwZsw1oOKhpK48WdYRxcLwx4L2/KNHa6DqwB5D+cBhTBBbMSlYHvhT3xHrX6Pk
+4MCNvr+oZ506iEZYInpxMBo034PdaY3Q4MIJcIdTk4in/OkJZJXtSjTVBsWwC+Vy
+k3XfCVGil1zw582WRP1wtcvaV7SGLbygMzkP5XfIDXumirI7n8qGvRfqpJj/gfxI
+5DqvPggwRBebbZ9NeomX6GSs3DTCuaVjj3z4Ikp6BACLofyDzZOiQ1lRQoUk7Bbi
+c6pnnGKbsEM/kbTCPBF2SwPGnzv8WsFdIIoYM0mtW/Vc8/rWn0w4sK0jtABJiXW6
+lnB8m78Go16870ETQD1TqnDtEZXfolhwi/i+p5sAnKuVQr7d22iB6PomSZAymvQi
+D0lB1Z4X1ToVWX4XGze+0mi6y4TGAunoBLv+idsHn9ObP1Cd/KPTGRj/lSFMFC6Z
+H/khbuLA8cEjxIKe8AU8T4pJeaebEnUbNT7jBvgcMbZOmwAFRfZlFLmeukLC2o2j
+0cxxlyoBcNtiMuRx3OMy9GarBE7t0G2XhUYPGUiqcGjzfEsjz0MNSYSwLhpcLeJU
+9+S+CgKigu6wK8ts5zmMp2iYaSNEdZl4BG9tzndvy4nLGlWxjKa5PYuPqMhO7xrC
+pSXQFfKt09qoYmYusawOS1ZasaYckin0/ogO2Um+WGJ9sn8/Frwdo6k0jQpsrDQo
++hB9e7sIOFVfBpoUsZ4tcXxdi1fx92I3DQlOrBkHpitUhAjR0O5VYIINH+GqZXdH
+J481MoLlW1xRuiafdrgZ+rwb8MbNAAGO56qT4gezbUnqjKKn6ufpux8xU0UmyJY/
+rMdhk0iBC934Ypdha97i7D5jwOBCXrfjsMuKHgrGs7kCljLAHwl6V2TOuK3mSuwL
+upgURSHwxaLmfBDpmRiEN7Hx2uAmYyDlMYxOLIi6Lfc2d3xGxGkIyxONhOXmf/qI
+mc5x4QGQJr07Tm5SSyX1F14m889bBk9LzLa8CPSy/6VLEAIii6GGKWy3ML8eu7No
+S6C4g35t8NTlQemY9tMdBQ0xzhQmi+IHy/r1gETT4bJVPRWbF9Oc8t+IluYA4BFD
+jTyW2xBJPPwI6YhXKiuKcNu64c1VKms74QQw8jnKUHfLAnwLU9lY+o4oooWgWiKJ
+vFRMzMXi4EwRl14ga7GpoRjJh3IGr3ZFS73msBtB4zvZM2fP5XOdzHqZqbgs+SuG
+R46d188+lNGRmTcOGntD7Dzx7ssFkFGI6KYj6aduJ+K3P8j+TQUS0I6zKv2uNzL7
+2ZiYTNObL9psarrbb+wDsVqalD39q/ieb3WiRewOUuM3dQfLEpURUbEP8vQx/iEa
+MNiHBraviDvuHawdnDG98L0I1UdkSz8DDsUHRRb0xrpWNdf+sM2Piq6/TfHdUXGR
++TCKlP/5xlmrmWj6b80Md4vVYz+S7WRTdPY5gCIBzgiYvc/ptAgKTI0RtuvIUzro
+8dODz1LRa2TkJoUY0COACIkoD0uRNOp0exUb89NdDMwEZpxhNu50X7QG+TB4UMWL
+puvkg8rVinsUlVhYb/EOWrZGdA/8y6tfgZiVO8RuNiSOmM98T09HR7Q6OeiXvRDG
+XuE6deYjp4trd78Rnga4qVggLtEVBeERTdytJR9ti2X+cPs+kwZ4g+gE1usQDFio
+n4ILMQFzk6VWX22f9rJYH+VDSk8Q5yvAutr3UwK4dBSV+cMw/BdFpQBI2V/s7qCf
+bkC8soJ/RLLsGjT2D21A4dxenz8+KKkLjcY3LOBQVazWeA2pXkA74jUk+pHVbQCe
+7gxwd8l2EwMWecSzNsMJ6wLmrsQ4VOQcadHKh9yjsdDecMWbRt9KzJ5QJMCkB4kr
+47s6GErE/hZkDQYsHvV1aO4beTS9tD2CdaB3KHPqxacKrU5hEVErArKr4nBUx8UO
+hIrTDP3hIQVhNGkQHxrXyK6AXL+5WhRKilk2xFHi+GxBEJjrmgxQA9KIWRF7aK2Y
+DuizxK/liIA84/f0X58pb7UFkCwJkZh3+4qfJD/K6f1toUvSTrcWHVjcyolQbHez
++ZdKv+qVVwLids+Sf2Qu8vt7S2jD7LJCcsi2a4RWD+q4M5RQeqSPm9bR3x5guV+o
+6m7yJaVOoXkEGCF2awJ1EV2yG2shGl7/e6NtOo9JdD8hSxHwVH05LyTTG1F9TrEZ
+KuiItOZOi2b7AGT4Hz18GnqnUaaWPxfo3yIKYb+GLKc2JoHCfhR8h7w3OgbKewKw
+FMRLFTHOpwduEITbxJ7Xr+00grCu7nbrq6oD+o28MiIH4zv1vUxH7ZAn9Er2boKH
+DETuVtAXH3/OJ8vObBwB47CbOlhEThF+R5/ZRKolfWgWSJyftjyQyfA3AibOoEo1
+bXi9eSJ+YAEKyufY5zbhrAUoP5vXQR2WCehvM2inr2o=

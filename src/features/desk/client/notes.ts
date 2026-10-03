@@ -1,172 +1,151 @@
-// Music off the record. While the song on it plays, now and then a note
-// lifts off the disc's upper edge and drifts up the wall, swaying, and
-// fades. Each is painted once with the knife; after that only the compositor
-// moves it, rising on its wrapper and swaying on the note itself, so nothing
-// is drawn frame by frame. Only while the paint is dry, the record in view
-// and the canvas uncovered; never for reduced motion.
-
-import { RECORD_DISC } from '@/features/desk/shared/still-life';
-import { draw, seeded, stroke, strokeAt, vary, type Rand, type Tone } from './knife';
-
-/** A note's box, in painting widths. */
-const SIZE = 0.04;
-/** The painting's height over its width. */
-const ASPECT = 1.25;
-/** The first note comes once the disc is up to speed (client/turntable.ts). */
-const FIRST_MS = 900;
-const EVERY_MS = [1300, 2100] as const;
-const RISE_MS = [3800, 4800] as const;
-const PEAK = 0.85;
-
-type Glyph = 'eighth' | 'quarter' | 'pair';
-const GLYPHS: Glyph[] = ['eighth', 'quarter', 'pair'];
-
-// Ink by day, the lamp's warm light by night.
-const INK: Record<'day' | 'night', Tone> = {
-  day: { l: 0.34, c: 0.03, h: 255 },
-  night: { l: 0.88, c: 0.045, h: 85 },
-};
-
-/** Paints `glyph` into a square `s` pixels a side, with the knife. */
-function paintGlyph(ctx: CanvasRenderingContext2D, glyph: Glyph, s: number, ink: Tone, rand: Rand) {
-  const tone = () => vary(rand, ink, 0.03, 0.006, 4);
-  const head = (x: number, y: number) => {
-    draw(ctx, strokeAt(rand, x * s, y * s, -0.42, 0.34 * s, 0.22 * s, tone()));
-    draw(ctx, strokeAt(rand, (x + 0.01) * s, (y + 0.02) * s, -0.3, 0.24 * s, 0.14 * s, tone()));
-  };
-  const stem = (x: number, from: number, to: number) => draw(ctx, stroke(rand, x * s, from * s, -Math.PI / 2, (from - to) * s, 0.07 * s, tone(), 0.6));
-  const bar = (x0: number, y0: number, x1: number, y1: number, width: number) =>
-    draw(ctx, stroke(rand, x0 * s, y0 * s, Math.atan2(y1 - y0, x1 - x0), Math.hypot(x1 - x0, y1 - y0) * s, width * s, tone(), 0.6));
-
-  if (glyph === 'pair') {
-    head(0.2, 0.82);
-    head(0.66, 0.74);
-    stem(0.34, 0.8, 0.16);
-    stem(0.8, 0.72, 0.08);
-    bar(0.31, 0.19, 0.84, 0.1, 0.12);
-    return;
-  }
-  const x = glyph === 'eighth' ? 0.34 : 0.42;
-  head(x, 0.8);
-  stem(x + 0.14, 0.78, 0.1);
-  if (glyph === 'eighth') bar(x + 0.12, 0.1, x + 0.36, 0.42, 0.1);
-}
-
-export function initNotes() {
-  const easel = document.querySelector<HTMLElement>('[data-easel]');
-  const still = easel?.querySelector<HTMLElement>('[data-sl]');
-  const host = easel?.querySelector<HTMLElement>('[data-thing="record"]');
-  const lit = still?.querySelector<HTMLElement>('[data-sl-lit]');
-  const listening = document.querySelector<HTMLElement>('[data-listening]');
-  if (!easel || !still || !host || !lit || !listening) return;
-
-  // Over the things, under the lamp's light.
-  const layer = document.createElement('div');
-  layer.className = 'sl-notes';
-  layer.setAttribute('aria-hidden', 'true');
-  lit.before(layer);
-
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const isNight = () => document.documentElement.classList.contains('dark');
-  const rand = seeded(Date.now() & 0xffff);
-  const between = ([least, most]: readonly [number, number]) => least + rand() * (most - least);
-  const pct = (v: number) => `${(v * 100).toFixed(3)}%`;
-
-  // Each glyph painted once per time of day and size.
-  const sprites = new Map<string, HTMLCanvasElement>();
-  const spriteOf = (glyph: Glyph, night: boolean, px: number) => {
-    const key = `${glyph} ${night} ${px}`;
-    let sprite = sprites.get(key);
-    if (!sprite) {
-      sprite = document.createElement('canvas');
-      sprite.width = px;
-      sprite.height = px;
-      const ctx = sprite.getContext('2d');
-      if (ctx) paintGlyph(ctx, glyph, px, INK[night ? 'night' : 'day'], seeded(GLYPHS.indexOf(glyph) + 1));
-      sprites.set(key, sprite);
-    }
-    return sprite;
-  };
-
-  let last: Glyph | null = null;
-  const spawn = () => {
-    const u = layer.clientWidth;
-    if (!u) return;
-    const choices = GLYPHS.filter((glyph) => glyph !== last);
-    const glyph = (last = choices[Math.floor(rand() * choices.length)]);
-    const px = Math.round(SIZE * u * Math.min(devicePixelRatio || 1, 2));
-    const note = document.createElement('canvas');
-    note.width = px;
-    note.height = px;
-    note.getContext('2d')?.drawImage(spriteOf(glyph, isNight(), px), 0, 0);
-
-    // Off the disc's upper right, and up the bare wall right of the works.
-    const [cx, cy, r] = RECORD_DISC;
-    const at = ((-55 + rand() * 30) * Math.PI) / 180;
-    const wrap = document.createElement('span');
-    wrap.className = 'sl-note';
-    wrap.style.width = pct(SIZE);
-    wrap.style.left = pct(cx + r * Math.cos(at) - SIZE / 2);
-    wrap.style.top = pct((cy + r * Math.sin(at) - SIZE * 0.8) / ASPECT);
-    wrap.append(note);
-    layer.append(wrap);
-
-    const duration = between(RISE_MS);
-    const dx = (0.06 + rand() * 0.04) * u;
-    const dy = -(0.12 + rand() * 0.05) * u;
-    const sway = (0.01 + rand() * 0.01) * u * (rand() < 0.5 ? -1 : 1);
-    const tilt = 8 + rand() * 10;
-    // A lift off the record that slows as it floats.
-    const rise = wrap.animate(
-      [
-        { translate: '0 0', scale: 0.55, opacity: 0 },
-        { offset: 0.16, scale: 1, opacity: PEAK },
-        { offset: 0.6, opacity: PEAK },
-        { translate: `${dx}px ${dy}px`, scale: 1.06, opacity: 0 },
-      ],
-      { duration, easing: 'cubic-bezier(0.25, 0.6, 0.45, 1)' },
-    );
-    // Side to side on the way, leaning into each turn.
-    note.animate(
-      [
-        { translate: '0 0', rotate: '0deg', easing: 'ease-in-out' },
-        { translate: `${sway}px 0`, rotate: `${Math.sign(sway) * tilt}deg`, easing: 'ease-in-out' },
-        { translate: `${-sway * 0.7}px 0`, rotate: `${-Math.sign(sway) * tilt * 0.7}deg`, easing: 'ease-in-out' },
-        { translate: `${sway * 0.4}px 0`, rotate: `${Math.sign(sway) * tilt * 0.4}deg` },
-      ],
-      { duration },
-    );
-    void rise.finished.then(() => wrap.remove(), () => wrap.remove());
-  };
-
-  let dry = false;
-  let inView = true;
-  let timer = 0;
-  const playing = () => listening.classList.contains('is-live') || listening.classList.contains('is-preview-playing');
-  const live = () => dry && inView && playing() && !document.hidden && !easel.classList.contains('is-covered') && !reduced.matches;
-
-  // A note now and then while the music plays; when it stops, the ones in
-  // the air finish their way up and no more come.
-  const next = () => {
-    timer = 0;
-    if (!live()) return;
-    spawn();
-    timer = window.setTimeout(next, between(EVERY_MS));
-  };
-  const wake = () => {
-    if (!timer && live()) timer = window.setTimeout(next, FIRST_MS);
-  };
-
-  easel.addEventListener('easel:painted', () => {
-    dry = true;
-    wake();
-  });
-  new IntersectionObserver(([entry]) => {
-    inView = entry.isIntersecting;
-    wake();
-  }).observe(host);
-  new MutationObserver(wake).observe(easel, { attributes: true, attributeFilter: ['class'] });
-  new MutationObserver(wake).observe(listening, { attributes: true, attributeFilter: ['class'] });
-  document.addEventListener('visibilitychange', wake);
-  reduced.addEventListener('change', wake);
-}
+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

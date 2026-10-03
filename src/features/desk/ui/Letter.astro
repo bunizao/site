@@ -1,110 +1,104 @@
----
-// A note to the owner, as a letter: a sheet of paper with the owner's name
-// at the top and yours at the foot, written on its ruled lines, and an envelope
-// under it with the flap open and a line on the back for where to write back
-// to. The wax seal is the send button. Sending slides the letter in and
-// shuts the flap; a refusal takes it out again; a letter that went stays
-// sealed, stamped with the day.
-//
-// It is the /message form in other clothes: the same fields and hooks, run
-// by the same client (features/messages/client/message-form.ts), with the
-// same risk stack behind it: the dwell token, the browser evidence, the
-// honeypot and Turnstile. The form holds the envelope as well as the sheet,
-// so a hand on the envelope's line counts as one on the form; the sheet is
-// the form's view, which goes into the envelope without taking it along.
-// The states are read from the hooks the client already flips, in desk.css:
-// the typing hook is shown while the letter is in the post, and the form's
-// view is hidden once it has gone.
-//
-// Turnstile settles invisibly; when Cloudflare wants a person, its checkbox
-// opens under the error line, and a letter refused for want of one goes again
-// once it is ticked.
-import { MESSAGE_MAX_BODY_LENGTH, MESSAGE_MAX_NAME_LENGTH } from '@bunizao/contracts/messages';
-import { messageCopy as t } from '@/features/messages/copy';
-
-interface Props {
-  to: string;
-  turnstileSiteKey: string;
-  /** The section's tone, `--h` and `--c`. */
-  style: string;
-}
-
-const { to, turnstileSiteKey, style } = Astro.props;
-// A letter is dated by the day it is written where it is written: these are
-// Melbourne's, until the browser puts in its own (client/letter.ts).
-const now = new Date();
-const dated = (month: 'long' | 'short') => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month, year: 'numeric', timeZone: 'Australia/Melbourne' }).format(now);
----
-
-<div class="mx" style={style} data-message-root data-turnstile-site-key={turnstileSiteKey}>
-  <form class="mx-form" id="desk-letter" data-message-form novalidate>
-    <div class="mx-letter" data-message-form-view>
-      <div class="mx-paper" data-slab>
-        <p class="mx-date" data-letter-date>{dated('long')}</p>
-        <p class="mx-dear" aria-hidden="true">Dear {to},</p>
-        <label class="sr-only" for="desk-letter-body">{t.bodyLabel}</label>
-        <textarea
-          class="mx-body"
-          id="desk-letter-body"
-          name="body"
-          rows="4"
-          maxlength={MESSAGE_MAX_BODY_LENGTH}
-          placeholder="Write anything. Nobody reads it but me."
-          required></textarea>
-        <p class="mx-sign">
-          <span aria-hidden="true">Yours,</span>
-          <label class="sr-only" for="desk-letter-name">{t.nameLabel}</label>
-          <input
-            class="mx-line"
-            id="desk-letter-name"
-            name="displayName"
-            type="text"
-            maxlength={MESSAGE_MAX_NAME_LENGTH}
-            autocomplete="nickname"
-            placeholder="your name"
-            required
-          />
-        </p>
-        <span class="mx-count" data-message-count aria-hidden="true" hidden></span>
-        <div class="message-trap" aria-hidden="true">
-          <label for="desk-letter-website">Website</label>
-          <input id="desk-letter-website" name="website" type="text" tabindex="-1" autocomplete="off" />
-        </div>
-      </div>
-    </div>
-
-    <div class="mx-envelope">
-      <canvas class="mx-flap" data-study="flap" data-seed="flap" aria-hidden="true"></canvas>
-      <canvas class="mx-back" data-study="envelope" data-seed="envelope" aria-hidden="true"></canvas>
-      <p class="mx-return">
-        <label for="desk-letter-email">Write back to</label>
-        <input
-          class="mx-line"
-          id="desk-letter-email"
-          name="email"
-          type="email"
-          autocomplete="email"
-          inputmode="email"
-          placeholder="your email"
-          required
-        />
-      </p>
-      <button class="mx-seal" type="submit" data-message-submit disabled>
-        <canvas data-study="seal" data-seed="seal" aria-hidden="true"></canvas>
-        <span class="mx-seal-mark" aria-hidden="true">{to.charAt(0)}</span>
-        <span class="sr-only" data-message-submit-label>{t.submit}</span>
-      </button>
-      <span class="mx-stamp" aria-hidden="true">Sent<br /><span data-letter-stamp>{dated('short')}</span></span>
-    </div>
-  </form>
-
-  <p class="mx-error" data-message-error hidden role="alert"></p>
-  <div class="mx-check"><div class="mx-turnstile" data-message-turnstile></div></div>
-  <p class="mx-hint">Press the seal to send it. {t.privacy}</p>
-
-  <span data-message-typing hidden></span>
-  <div class="mx-sent" data-message-sent-view hidden tabindex="-1">
-    <p data-message-sent-body></p>
-    <button class="door" type="button" data-message-again data-daub>{t.sendAnother}</button>
-  </div>
-</div>
+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
+3Qp4EanVU7auHFrrj+A/ag==

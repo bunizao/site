@@ -1,179 +1,155 @@
-// Steam off the coffee. Three wisps, each a ribbon that rises from the cup,
-// sways as a wave runs up it, spreads and thins out. Each is laid soft on a
-// canvas a third the size and drawn up, so its edges blur, then given a fine
-// brighter core. It runs at twenty frames a second while the cup is in view,
-// the canvas is uncovered and the paint is dry, and holds still for reduced
-// motion.
-
-import { CUP_MOUTH, THINGS } from '@/features/desk/shared/still-life';
-
-// Each frame costs the same whatever it draws, so the rate is the cost. The
-// steam is slow: a wisp sways at most 0.04 painting widths a second, under
-// 1.5px a frame on the largest painting at this rate. Twenty also divides
-// 60Hz and 120Hz, so every frame lasts the same.
-const FPS = 20;
-/** How high the steam goes, in canvas widths. */
-const TOP = 0.79;
-/** Half the width of the canvas it rises in. */
-const SIDE = 0.075;
-const SOFT = 3;
-
-interface Wisp {
-  /** Across the mouth, -1..1. */
-  at: number;
-  phase: number;
-  speed: number;
-  /** How far up it gets, as a share of the canvas. */
-  reach: number;
-}
-
-const WISPS: Wisp[] = [
-  { at: -0.42, phase: 0, speed: 1, reach: 0.86 },
-  { at: 0.08, phase: 2.2, speed: 0.82, reach: 1 },
-  { at: 0.5, phase: 4.1, speed: 1.16, reach: 0.72 },
-];
-
-const smooth = (edge0: number, edge1: number, x: number) => {
-  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
-};
-
-export function initSteam() {
-  const easel = document.querySelector<HTMLElement>('[data-easel]');
-  const host = easel?.querySelector<HTMLElement>('[data-thing="cup"]');
-  const cup = THINGS.find((thing) => thing.id === 'cup');
-  if (!easel || !host || !cup) return;
-  const [mx, rim, half] = CUP_MOUTH;
-  const [bx, by, bw, bh] = cup.box;
-  const canvas = document.createElement('canvas');
-  canvas.className = 'sl-steam';
-  canvas.setAttribute('aria-hidden', 'true');
-  const pct = (v: number) => `${(v * 100).toFixed(3)}%`;
-  Object.assign(canvas.style, {
-    left: pct((mx - SIDE - bx) / bw),
-    top: pct((TOP - by) / bh),
-    width: pct((SIDE * 2) / bw),
-    height: pct((rim - TOP) / bh),
-  });
-  host.append(canvas);
-  const blur = document.createElement('canvas');
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const isNight = () => document.documentElement.classList.contains('dark');
-
-  /** A wisp's centre line at time `t` (seconds), in canvas widths, rim first. */
-  const lineOf = (wisp: Wisp, t: number) => {
-    const points: [number, number, number][] = [];
-    const steps = 22;
-    for (let i = 0; i <= steps; i++) {
-      const s = i / steps;
-      const y = rim - 0.004 - s * (rim - 0.004 - TOP) * wisp.reach;
-      const sway = (0.0025 + 0.017 * s ** 1.3) * Math.sin(Math.PI * 2 * 1.15 * s - t * 1.7 * wisp.speed + wisp.phase);
-      const drift = 0.012 * s * s * Math.sin(t * 0.33 * wisp.speed + wisp.phase);
-      points.push([mx + wisp.at * half * 0.5 + sway + drift, y, 0.004 + 0.022 * s]);
-    }
-    return points;
-  };
-
-  const ribbon = (ctx: CanvasRenderingContext2D, points: [number, number, number][], u: number, ox: number, oy: number, widthScale: number) => {
-    const left: [number, number][] = [];
-    const right: [number, number][] = [];
-    points.forEach(([x, y, w], i) => {
-      const [nx, ny] = points[Math.min(points.length - 1, i + 1)];
-      const [px, py] = points[Math.max(0, i - 1)];
-      const dx = nx - px;
-      const dy = ny - py;
-      const n = Math.hypot(dx, dy) || 1;
-      const off = (w * widthScale) / 2;
-      left.push([(x - (dy / n) * off - ox) * u, (y + (dx / n) * off - oy) * u]);
-      right.push([(x + (dy / n) * off - ox) * u, (y - (dx / n) * off - oy) * u]);
-    });
-    ctx.beginPath();
-    [...left, ...right.reverse()].forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-    ctx.closePath();
-  };
-
-  const render = (t: number) => {
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
-    if (!width || !height) return;
-    const scale = Math.min(devicePixelRatio || 1, 2);
-    if (canvas.width !== Math.round(width * scale)) {
-      canvas.width = Math.round(width * scale);
-      canvas.height = Math.round(height * scale);
-      blur.width = Math.max(1, Math.round(width / SOFT));
-      blur.height = Math.max(1, Math.round(height / SOFT));
-    }
-    const ctx = canvas.getContext('2d');
-    const soft = blur.getContext('2d');
-    if (!ctx || !soft) return;
-    const night = isNight();
-    const colour = night ? '232 236 244' : '255 255 255';
-    const peak = night ? 0.3 : 0.62;
-    const u = width / (SIDE * 2);
-    const ox = mx - SIDE;
-    soft.setTransform(1, 0, 0, 1, 0, 0);
-    soft.clearRect(0, 0, blur.width, blur.height);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (const wisp of WISPS) {
-      const points = lineOf(wisp, t);
-      // Each wisp comes and goes on its own breath.
-      const breath = 0.6 + 0.4 * Math.sin(t * 0.55 * wisp.speed + wisp.phase * 1.7);
-      const fade = (target: CanvasRenderingContext2D, k: number, alpha: number) => {
-        const g = target.createLinearGradient(0, (rim - TOP) * k, 0, (rim - TOP) * k * (1 - wisp.reach));
-        for (const s of [0, 0.08, 0.25, 0.5, 0.75, 1]) g.addColorStop(s, `rgb(${colour} / ${(alpha * breath * smooth(0, 0.12, s) * (1 - s) ** 1.3).toFixed(3)})`);
-        return g;
-      };
-      soft.setTransform(1 / SOFT, 0, 0, 1 / SOFT, 0, 0);
-      ribbon(soft, points, u, ox, TOP, 1);
-      soft.fillStyle = fade(soft, u, peak);
-      soft.fill();
-      ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      ribbon(ctx, points, u, ox, TOP, 0.22);
-      ctx.fillStyle = fade(ctx, u, peak * 0.55);
-      ctx.fill();
-    }
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalCompositeOperation = 'destination-over';
-    ctx.drawImage(blur, 0, 0, canvas.width, canvas.height);
-    ctx.globalCompositeOperation = 'source-over';
-  };
-
-  let dry = false;
-  let inView = true;
-  /** The next draw: a timer, then a frame. */
-  let frame = 0;
-  const live = () => dry && inView && !document.hidden && !easel.classList.contains('is-covered') && !reduced.matches;
-
-  // A timer sleeps through most of the gap and a frame callback lands the
-  // draw on the screen's beat, so the frames between draws wake nothing. The
-  // timer ends a few ms early: the next beat after it is the one a twentieth
-  // of a second on, at 60Hz and at 120Hz alike.
-  const tick = (now: number) => {
-    frame = 0;
-    if (!live()) return;
-    render(now / 1000);
-    frame = window.setTimeout(() => (frame = requestAnimationFrame(tick)), 1000 / FPS - 6);
-  };
-
-  const wake = () => {
-    if (!dry) return;
-    if (reduced.matches) render(2.4);
-    else if (!frame && live()) frame = requestAnimationFrame(tick);
-  };
-
-  easel.addEventListener('easel:painted', () => {
-    dry = true;
-    wake();
-  });
-  new IntersectionObserver(([entry]) => {
-    inView = entry.isIntersecting;
-    wake();
-  }).observe(host);
-  new MutationObserver(wake).observe(easel, { attributes: true, attributeFilter: ['class'] });
-  // A still frame takes the theme's colour too.
-  new MutationObserver(() => reduced.matches && wake()).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-  document.addEventListener('visibilitychange', wake);
-  reduced.addEventListener('change', wake);
-}
+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
+039uYhY4gL3xCpEW+eVrGA==

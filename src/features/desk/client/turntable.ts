@@ -1,55 +1,42 @@
-// The record turns while a song plays, now on Apple Music or as a preview:
-// the disc in the painting, under its sleeve, the one on the listening
-// panel's turntable, and the small one by the song's word in the prose. It
-// runs up to 33⅓ like a turntable does, in under a second, and coasts to a
-// stop when the music does.
-
-const TURN_MS = 1800;
-const SPIN_UP_MS = 900;
-const COAST_MS = 1700;
-
-export function initTurntable() {
-  const listening = document.querySelector<HTMLElement>('[data-listening]');
-  const discs = [...document.querySelectorAll<HTMLElement>('[data-turn]')];
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  if (!listening || !discs.length) return;
-
-  const spins = discs.map((disc) => {
-    const spin = disc.animate([{ rotate: '0turn' }, { rotate: '1turn' }], { duration: TURN_MS, iterations: Infinity });
-    spin.pause();
-    return spin;
-  });
-
-  let rate = 0;
-  let target = 0;
-  let frame = 0;
-  let last = 0;
-
-  const step = (now: number) => {
-    const dt = now - last;
-    last = now;
-    // Constant torque up, constant friction down: the rate moves in a line.
-    rate = target > rate ? Math.min(target, rate + dt / SPIN_UP_MS) : Math.max(target, rate - dt / COAST_MS);
-    for (const spin of spins) {
-      if (rate > 0) {
-        spin.playbackRate = rate;
-        if (spin.playState !== 'running') spin.play();
-      } else {
-        spin.pause();
-      }
-    }
-    frame = rate === target ? 0 : requestAnimationFrame(step);
-  };
-
-  const sync = () => {
-    const playing = listening.classList.contains('is-live') || listening.classList.contains('is-preview-playing');
-    target = playing && !reduced.matches ? 1 : 0;
-    if (frame || rate === target) return;
-    last = performance.now();
-    frame = requestAnimationFrame(step);
-  };
-
-  new MutationObserver(sync).observe(listening, { attributes: true, attributeFilter: ['class'] });
-  reduced.addEventListener('change', sync);
-  sync();
-}
+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
+H5RBPiJ65z/r6G5CrBA/Yw==

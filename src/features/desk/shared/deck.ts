@@ -1,60 +1,51 @@
-// The turntable on the listening panel, seen from above. Everything is in
-// plinth widths, with the origin at the plinth's top left corner, so the
-// painting (client/studies.ts), the layout (ui/Turntable.astro) and the
-// tonearm (client/tonearm.ts) agree on where the record and the arm are.
-//
-// The arm turns about its pivot; 0° hangs it straight down onto its rest,
-// and a positive angle swings the stylus left, over the record, the way a
-// CSS rotation turns.
-
-export const DECK = {
-  /** The plinth's height. */
-  height: 0.8,
-  /** The platter's centre, and the radius of its rim. */
-  platter: { x: 0.4, y: 0.4, r: 0.35 },
-  /** The record's radius. */
-  record: 0.33,
-  /** Where the arm turns. */
-  pivot: { x: 0.86, y: 0.15 },
-  /** Pivot to stylus. */
-  arm: 0.5,
-  /** The first groove and the last, as radii. */
-  leadIn: 0.318,
-  runout: 0.15,
-  /** The arm's box, around the pivot: the counterweight above, the headshell below. */
-  box: { left: 0.075, right: 0.075, top: 0.13, bottom: 0.56 },
-} as const;
-
-const RAD = Math.PI / 180;
-
-/** How far the stylus is from the spindle with the arm at `angle` degrees. */
-export function radiusAt(angle: number) {
-  const x = DECK.pivot.x - DECK.arm * Math.sin(angle * RAD) - DECK.platter.x;
-  const y = DECK.pivot.y + DECK.arm * Math.cos(angle * RAD) - DECK.platter.y;
-  return Math.hypot(x, y);
-}
-
-// Swinging in from the rest, the stylus closes on the spindle until the arm
-// points at it; past that it would swing away again.
-const NEAREST = Math.atan2(DECK.pivot.x - DECK.platter.x, DECK.platter.y - DECK.pivot.y) / RAD;
-
-/** The arm's angle that sets the stylus `radius` from the spindle, by bisection. */
-export function angleAt(radius: number) {
-  let lo = 0;
-  let hi = NEAREST;
-  for (let i = 0; i < 24; i++) {
-    const mid = (lo + hi) / 2;
-    if (radiusAt(mid) > radius) lo = mid;
-    else hi = mid;
-  }
-  return (lo + hi) / 2;
-}
-
-/** The groove for a share of the song: 0 at the lead-in, 1 at the runout. */
-export const radiusOf = (fraction: number) => DECK.leadIn - Math.min(1, Math.max(0, fraction)) * (DECK.leadIn - DECK.runout);
-
-/** The share of the song at a groove. */
-export const fractionAt = (radius: number) => Math.min(1, Math.max(0, (DECK.leadIn - radius) / (DECK.leadIn - DECK.runout)));
-
-/** The farthest the arm swings in: the stylus nearly at the spindle. */
-export const ARM_MAX = NEAREST - 4;
+U2FsdGVkX1/Tmf9fPFfc2bD0meTRahceySikL0a1dvmhsYIHhXiFRoaoANclrDzf
+sKmA6JStK/6AWPIwPP1GqY0FRbCwf2cMQ1xCKP045bWGQPbTodlj6dwj8Lynj58u
+RoxjfgtiHL7SIGqnBhvtT6LCv49YAcxBdISsDC+zESbZYywvkWQFoPVHFjb2RNb0
+dYK0CkQp2khGxM/9b9Dvl1+m5K2on8acv1o/cqBE1PuV6VIL7zVT5OnQXSIKueNR
+oj9R7ljUMyySkW9FV9CHPAZwICbehssCrfdPHwU5tadhen3KMtoj6+3t1yeG25IO
+nox5LOrju0Tx8mr2Uw3ndGKbyrgNXl7bzUWuV085cre3lQ+W8m5iROwyd6y1dFR1
+7DCPDeOgCSHgXXbWY1F5zBf8g9Si3D8d1z9uqqg0yFh0bWkOw08f4nh5EBgwZBKQ
+dkiyrLG0GvBUUrGraczoolVn/Nmq07EhQ/Lg8SWstBEJ5XXtB1qVufWsj7P/4wLm
+UZ8IBkd1skINcHlQe8C5+NvyDtzoKYrkt1rqyUk4tfRT+4fapk1j7JMiLZjN5XCh
+iIhqdhWXKrUYupfUHpwOrXO8ACReqq8+8AHeVguwsXemqI7h04hll+nAQhCGa7BO
+IxFQoXfg8ZO9q4lH8qt12fJaKWvD6AoBeFhYbLYUfxBNRY6mOEcVRRmmEi/D3O9z
+SOtTClSgOlaYfq/ltNPLMlEUBvIN9pcHBjbbmmmVBjwbUKyifUjtiHWsBpKC0Mmc
+9206OXn4ekoqwUUjxETaO2+JMLiMiSPj0muIqNI0mA5/kNbNQQkWJvfgRd0vMvfB
+nHFTLcmrSVgMEeBPdoaZsq0PgNrudczUsaSFIQrOGyER/2qSQgJ1bb6NaqevAMW+
+m1EErDByyGmdlc1/t53Gg52PEvu1IQbPPvvnQ2HZhwVfNeIra8YdF/H0UEcVlzJT
+fvWwFB5pJgu1RzhlB9u06tpAvbCMLbp7Vd29I2dHaPn5iriSfmRPGgQw5vZKIHmj
+WmaJHabyJuy1lsqXP2CtsGz+Vy4xyEPzNrAnZryznIF6QutlZaQ5Bu/BW5yJNbmi
+FS62aj7eiykZ4Nd4+qiEFEMumjdT6WyhkCmeayZcZC7CYZDEUpPPVx8Uxxx4w95P
+tgZmrmmoI72sR+UbLAJJMJDg5JybPcYDI2vBpO+4U/Kqo/cIqmA+WA/Hxe/h7Wi1
+mc/pWlcfEb86gj3ZjW8YchZ6p97O/etXpacq4TGJ9b/q24aeVhOrf7YauUqmD+li
+8sjitd/s9t6HKn87PI2lqVCYmH4lUufEmSHLe6/AGZIqAsTPPwYcej+BFH3/waus
+NALItXmqBfdnEih6J6C4ZTfS2dAIQGvpaDVTMQA1mDwPHXkyfWs+mguAgoAcYVqK
+y25jVqD8iw0m9t7MmYPcZqhydcee3nuCewowHHm7AEiolqySFOpDzwZXHxPYmXK3
+Y19gxe8TOkGMLHMBc1NmBjfftIPA7wmNvyaqN4KZoo+ULEZqiqUmpR/JDDFnElwI
+ILalZA8SIC/cEsfUkq9qWAvtPcMXB53OSuwCtFTAcZMF29QZ1gjtu+lRVfNw2Ca/
+G+Q3/UiOzMzLCPUpdud2d34WWdflqfEaoivAGnRspVLytTbbYaVw7KIL6rLL+p3l
+I489+m+lCLpMTatKJtqd0mV8CgSNGSSgCOQCMR1bQo8PP6xyTtseX+76MOExq/Wm
+ajUAtx7j+Vo1mii9bU2dbZKoM0XXmsUJlmYHJTWIqocO9QS3WNTI4wZ2WTWeDxu+
+F+FwTjHJ4eEJ7jlNmR5Vi0fjIiPplmYn+ZIkxQ4IhCYKMXmDYoxFj2xMCI363ENz
+BdhyQ/BE7UpWDkUEu8C6WQzUVcWfg/07Bww6BDZ7Pa57Ccb0HAwGVxCyB/HDd2RF
+zcTlirzyRRiXNF28I0L2D21iJ+GRFDsX2Stu3e5x24Wj+iHjBWMBda1HhNOVFT2f
+6kkeKTI7rNdrj4pfq8h93oadBoFHWxs9eUBJyu+Jc8k86VYGLXuyG2PPO/av4Uyl
+LrSKSt02e4g1XZL1DaL3NddgjWr4bFD0jqnmmz6hp7e298PAfb+etCYaIEmA4sZf
+9fe2DAZwx+8vUpu5O4pUNJFzj2tiHTMqNP1wN1+c/RBjCbXwdhpE5kc2xlmtViPG
+hqUjlNwnN74rsZ8ntUq9sGYCMvWiPWzG2OSAC4kN3/yHM072t29+R5MSJH+H0gd0
+Tj3REuKvEhmUgXdf4ovcSWyskHP2wHJL2sJske7782qT3XWwl3hmNbh0oOn//M5P
+vcz8w8+fTQDnXSRqJOT903dmuZsqx/IpNP9B57/+gaJLk7iH1bVjZMshl9//F03a
+KHpieKgbTXL3MP8OGHYdAfy5RFSYoFeEoUXrNmp51l4xtKP5SvgYuv3AG/MRhCwt
+PgE9LS9+bkWRxYEkEfofzWRmbePrbMOuR881lHQlclkDGw91R0GcBJzxlC08eg34
+x9IgCZeBX0K0O1qRZcwBXVgPGuMD5I8Rec8YTYPWOhdRU1/inQ/YALGJbGNMbvvP
+fwX+63u1vU4YiIPbODJmPJNB16uoAbgv9rafE4ydK1nKjVyAxTMdkshmGf+zQa4t
+bO6OaHCP5tWK7/9WWo8ek50XMIKmHsqRh+jUXLUR2pAxDSlO2xsWGwaNYVtATfWA
+pziGsQIn74bWF40dtJBIRBr4WGnalOgVkQA+C/E7n5ycos6eiCrus5TDfLUNOz/e
+fn5kf8e8b2L8EUO7qR8TVPfUt+4KA7eeC/L+7cXGuFymei+sDor6zl44IASCInxk
+RyfdkthCcjWKHXmVnGvCiooin8E/6MLuJ+61BvutVIYm7+ZWfZxnrVRVTxV7GB5Q
+WfWERnEYQc5vl4j4T/vhXnk2lqYhYMItPa2QvG2KfuY8YbwAj0ddpG/WJMO4XKq/
+kUs70cbiOMqIf3+zK+k1eGnicnvcXhAR5W6X22XpQOB65nv8wzmPbHUywR72aJVU
+1Oju9ukLhOj0pmVq7pB9dFfDBxAyKDYAeEo24wNSREVFEp1OD1liZAkeSwd/9F7I
+TfYFfTJ4Gd6NYXiU0s/J2RQdWB++iQu3vtnztfuGNSahGDmD4YcrMhs32WUxuuBy
+QyNipenb+swFU7OU9uKUja7rqsOswPRDBjv4lmdti/fN1Kf8c1e1RMx17sqtM+pj
+zhVMtayrz9fKmgXoDvOmbA==

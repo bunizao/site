@@ -1,129 +1,112 @@
----
-// The easel: one 4:5 canvas holding "Still life with a desk". Each thing in
-// the painting is a link or a button over the paint. Opening a section tones
-// the whole canvas over in its colour with a palette knife and sets the
-// section on the wet ground; while one is on it, every section is a tab at
-// the top, and the small painting at the start of the row goes back to the
-// still life. Under the canvas, a gallery label names whatever is on it; by
-// the painting's own label, the colophon opens how the site is made.
-//
-// A pendant lamp hangs over the desk; it turns day to night, and swings. Its
-// light is two canvases over the paint, blended in (client/lamp.ts).
-//
-// Without the script the things are plain links to their pages; the panels
-// stay hidden.
-//
-// The listening card waits in its hidden panel, but its song is on the
-// record in the painting, so it polls while the easel is in view.
-import { LAMP, THINGS } from '@/features/desk/shared/still-life';
-
-export interface EaselSection {
-  id: string;
-  /** The tab's name; a section without one is opened from elsewhere. */
-  tab?: string;
-  /** The gallery label: a title, a date, and a medium. */
-  title: string;
-  date: string;
-  medium: string;
-  hue: number;
-  chroma: number;
-  /** The page behind it; a section without a panel is only this link. */
-  href?: string;
-  /** Hint for the accessible name of the thing in the painting. */
-  thing: string;
-  panel?: boolean;
-}
-
-interface Props {
-  sections: EaselSection[];
-  /** The painting's own label, while nothing else is on the canvas. */
-  painting: { title: string; date: string; medium: string };
-}
-
-const { sections, painting } = Astro.props;
-const byId = new Map(sections.map((section) => [section.id, section]));
-const tabbed = sections.filter((section) => section.panel && section.tab);
-const colophon = byId.get('colophon');
-const pct = (value: number) => `${(value * 100).toFixed(2)}%`;
-const tone = (section: EaselSection) => `--h: ${section.hue}; --c: ${section.chroma}`;
-const boxStyle = ([x, y, w, h]: [number, number, number, number]) => `left: ${pct(x)}; top: ${pct(y / 1.25)}; width: ${pct(w)}; height: ${pct(h / 1.25)}`;
-const lamp = byId.get('lamp');
----
-
-<section class="easel" data-easel data-listening-watch aria-label="Still life with a desk">
-  <div class="easel-hang">
-    <div class="easel-frame" data-easel-frame>
-      <div class="sl" data-sl>
-        {THINGS.map((thing) => {
-          const section = byId.get(thing.section);
-          if (!section) return null;
-          const style = `${boxStyle(thing.box)}; ${tone(section)}`;
-          return section.panel ? (
-            <a
-              class="sl-thing"
-              href={section.href ?? `#${section.id}`}
-              data-thing={thing.id}
-              data-open={section.id}
-              aria-controls={`easel-${section.id}`}
-              aria-label={section.thing}
-              style={style}
-            ></a>
-          ) : section.href ? (
-            <a class="sl-thing" href={section.href} data-thing={thing.id} data-hint={section.id} aria-label={section.thing} style={style}></a>
-          ) : (
-            <span class="sl-thing" data-thing={thing.id} data-hint={section.id} role="img" aria-label={section.thing} style={style}></span>
-          );
-        })}
-        {lamp && (
-          <button
-            class="sl-thing sl-lamp"
-            type="button"
-            data-thing="lamp"
-            data-hint="lamp"
-            data-lamp
-            aria-pressed="true"
-            aria-label={lamp.thing}
-            style={`${boxStyle(LAMP.box)}; ${tone(lamp)}`}
-          ></button>
-        )}
-        <canvas class="sl-lit" data-sl-lit aria-hidden="true"></canvas>
-        <canvas class="sl-air" data-sl-air aria-hidden="true"></canvas>
-      </div>
-
-      <canvas class="easel-ground" data-ground aria-hidden="true"></canvas>
-
-      <div class="easel-tabs" data-tabs hidden>
-        <button class="easel-home" type="button" data-home aria-label="Back to the painting">
-          <canvas class="easel-home-thumb" data-home-thumb aria-hidden="true"></canvas>
-        </button>
-        <div class="easel-tablist" role="tablist" aria-label="Open on the canvas">
-          {tabbed.map((section) => (
-            <span class="easel-tab" data-tab={section.id} style={tone(section)}>
-              <button
-                class="easel-tab-name"
-                type="button"
-                role="tab"
-                id={`easel-tab-${section.id}`}
-                aria-controls={`easel-${section.id}`}
-                aria-selected="false"
-                data-tab-select
-              >{section.tab}</button>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <slot />
-    </div>
-
-    <p class="easel-label" data-label aria-live="polite">
-      <span class="easel-label-head"><b data-label-title>{painting.title}</b>, <span data-label-date>{painting.date}</span></span>
-      <span class="easel-label-medium" data-label-medium>{painting.medium}</span>
-      {colophon && (
-        <a class="easel-label-colophon" href="/docs" data-open="colophon" data-label-colophon aria-controls="easel-colophon">colophon</a>
-      )}
-    </p>
-  </div>
-
-  <script is:inline type="application/json" data-easel-sections set:html={JSON.stringify({ painting, sections })} />
-</section>
+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
