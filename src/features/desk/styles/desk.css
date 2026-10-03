@@ -1266,6 +1266,262 @@ body:has(.desk) .spotlight-overlay {
   scale: 0.97;
 }
 
+.door:focus-visible {
+  outline: 2px solid var(--d-focus);
+  outline-offset: 2px;
+}
+
+/* A second door, for something the section offers besides its page: the
+   paint goes on thin until it is asked for. */
+.door-quiet::before {
+  opacity: 0.42;
+  transition:
+    opacity 0.3s var(--d-ease),
+    rotate 0.4s var(--d-ease),
+    scale 0.4s var(--d-ease);
+}
+
+.door-quiet[aria-expanded='true']::before {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .door-quiet:hover::before {
+    opacity: 0.7;
+  }
+}
+
+/* --- Forms, laid with the knife ----------------------------------------------------
+   A field is a slab of lighter paint (`data-slab`), the text written on
+   it; a choice is a daub of the section's colour, put on thin until it is
+   chosen; the action is a door. Focus draws a line of the section's ink
+   under the field, left to right, the way the knife would. */
+.kf-field {
+  position: relative;
+  display: flex;
+  flex: 1 1 200px;
+  min-width: 0;
+  isolation: isolate;
+}
+
+.kf-field::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 4px 10px 6px 9px;
+  background: oklch(0.99 calc(var(--c) * 0.15) var(--h));
+  box-shadow: 0 1px 2px oklch(0.3 0.03 var(--h) / 0.1);
+  transition:
+    rotate 0.3s var(--d-ease),
+    scale 0.3s var(--d-ease);
+}
+
+.kf-field.has-swatch::before {
+  inset: -4px -6px;
+  border-radius: 0;
+  background: var(--swatch) center / 100% 100% no-repeat;
+  box-shadow: none;
+  filter: drop-shadow(0 1px 1.5px oklch(0.3 0.03 50 / 0.12));
+}
+
+.kf-field::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  bottom: 8px;
+  left: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: oklch(0.45 calc(var(--c) * 1.4) var(--h));
+  scale: 0 1;
+  transform-origin: left;
+  transition: scale 0.45s var(--d-ease);
+}
+
+.kf-field:focus-within::before {
+  rotate: -0.4deg;
+  scale: 1.01 1.04;
+}
+
+.kf-field:focus-within::after {
+  scale: 1 1;
+}
+
+.kf-field input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 0;
+  background: none;
+  color: var(--d-ink);
+  font: 400 16px/1.2 var(--d-sans);
+  outline: none;
+}
+
+.kf-field input::placeholder {
+  color: var(--d-faint);
+}
+
+:root.dark .kf-field:not(.has-swatch)::before {
+  background: oklch(0.35 calc(var(--c) * 0.6) var(--h));
+}
+
+:root.dark .kf-field::after {
+  background: oklch(0.85 calc(var(--c) * 1.2) var(--h));
+}
+
+/* The slip: what a subscription asks, under the doors. */
+.slip {
+  display: flex;
+  width: 100%;
+  max-width: 440px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  margin-top: 6px;
+  text-align: center;
+  animation: slip-in 0.5s var(--d-ease);
+}
+
+.slip[hidden] {
+  display: none;
+}
+
+@keyframes slip-in {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}
+
+.slip-say {
+  margin: 0;
+  color: var(--d-ink);
+  font: 500 15px/1.5 var(--d-sans);
+  text-wrap: balance;
+}
+
+.slip-paces {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.slip-pace span {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  isolation: isolate;
+  color: var(--d-note);
+  font: 500 14px/1 var(--d-sans);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.slip-pace span::before {
+  content: '';
+  position: absolute;
+  inset: 6px 0;
+  z-index: -1;
+  border-radius: 3px 9px 4px 8px;
+  background: oklch(0.87 calc(var(--c) * 1.3) var(--h));
+  opacity: 0;
+  scale: 0.6 0.8;
+  transition:
+    opacity 0.25s ease,
+    scale 0.4s var(--d-ease);
+}
+
+.slip-pace span.has-swatch::before {
+  inset: 4px -4px;
+  border-radius: 0;
+  background: var(--swatch) center / 100% 100% no-repeat;
+}
+
+.slip-pace input:checked + span {
+  color: oklch(0.33 calc(var(--c) * 1.4) var(--h));
+}
+
+.slip-pace input:checked + span::before {
+  opacity: 1;
+  scale: 1;
+}
+
+.slip-pace input:focus-visible + span {
+  outline: 2px solid var(--d-focus);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .slip-pace input:not(:checked) + span:hover::before {
+    opacity: 0.35;
+    scale: 1;
+  }
+}
+
+:root.dark .slip-pace input:checked + span {
+  color: oklch(0.93 calc(var(--c) * 0.8) var(--h));
+}
+
+.slip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 18px;
+}
+
+.slip.is-sending .slip-row .door::before {
+  animation: daub-wet 0.9s var(--d-ease) infinite alternate;
+}
+
+@keyframes daub-wet {
+  to {
+    rotate: -1.5deg;
+    scale: 1.06 1.12;
+  }
+}
+
+.slip.is-done .slip-row,
+.slip.is-done .slip-paces {
+  display: none;
+}
+
+.slip-note {
+  margin: 0;
+  color: var(--d-faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.slip-note a {
+  color: inherit;
+}
+
+.slip[data-tone='error'] .slip-note {
+  color: oklch(0.5 0.14 25);
+}
+
+.slip[data-tone='done'] .slip-note {
+  color: var(--d-ink);
+  font-size: 15px;
+}
+
+:root.dark .slip[data-tone='error'] .slip-note {
+  color: oklch(0.75 0.12 25);
+}
+
+.slip-turnstile:empty {
+  display: none;
+}
+
 /* Projects: a wall of small studies, each matted like a print. */
 .works {
   display: grid;

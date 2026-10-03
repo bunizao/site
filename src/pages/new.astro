@@ -17,18 +17,22 @@ import Door from '@/features/desk/ui/Door.astro';
 import Easel, { type EaselSection } from '@/features/desk/ui/Easel.astro';
 import MoodChannel from '@/features/desk/ui/MoodChannel.astro';
 import Panel from '@/features/desk/ui/Panel.astro';
+import Subscribe from '@/features/desk/ui/Subscribe.astro';
 import Turntable from '@/features/desk/ui/Turntable.astro';
 import Works from '@/features/desk/ui/Works.astro';
 import { loadDeskContent } from '@/features/desk/server/content';
 import { GitHubIcon, InstagramIcon, MonashCrestIcon, TelegramIcon } from '@/components/icons';
 import { copyrightMark, experience, footer, profile, projects } from '@/data/site';
 import { DESK_FAVICON } from '@/lib/favicon';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 import '@/features/desk/styles/desk.css';
 
 // Request-time, for the latest moods and posts.
 export const prerender = false;
 
 const content = await loadDeskContent({ request: Astro.request, locals: Astro.locals });
+const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals) ? '' : readTurnstileSiteKey(Astro.locals);
 
 const firstName = profile.name.split(' ')[0];
 const external = { target: '_blank', rel: 'noopener noreferrer' };
@@ -247,12 +251,16 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
 
       <Panel id="writing">
         <Contents posts={content.posts} total={content.postCount} />
-        <Door href="/blog" label="Read the blog" style={tone('writing')} />
+        <Door href="/blog" label="Read the blog" style={tone('writing')}>
+          <Subscribe channel="blog" turnstileSiteKey={turnstileSiteKey} />
+        </Door>
       </Panel>
 
       <Panel id="moods">
         <MoodChannel moods={content.moods} channel={content.channel} links />
-        <Door href="/mood" label="All moods" style={tone('moods')} />
+        <Door href="/mood" label="All moods" style={tone('moods')}>
+          <Subscribe channel="mood" turnstileSiteKey={turnstileSiteKey} />
+        </Door>
       </Panel>
 
       <Panel id="listening">
