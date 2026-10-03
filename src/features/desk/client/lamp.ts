@@ -3,7 +3,8 @@
 // damped pendulum that follows the finger while held and keeps the speed it
 // was let go with. The light only comes on once the paint is dry: it goes
 // out while the room is repainted and flickers back when the easel is done.
-// Whether it is on is kept for the next visit.
+// By day it starts off, as a lamp in daylight only burns power; by night, on.
+// A switch is kept for the next visit at the same time of day.
 //
 // The first time it comes on by night, it is lit the way a lamp in a dark
 // room is: a beat of dark, the chain pulled, the filament catching in the
@@ -12,7 +13,8 @@
 import { ASPECT, LAMP_BULB, LAMP_PIVOT } from '@/features/desk/shared/still-life';
 import { play } from './sound';
 
-const KEY = 'desk-lamp';
+// Night keeps the key the lamp had before day and night were apart.
+const KEYS = { day: 'desk-lamp-day', night: 'desk-lamp' } as const;
 // A cord a little over a metre long.
 const PERIOD_S = 2.2;
 const DAMPING = 0.09;
@@ -34,6 +36,18 @@ const SPREAD_MS = 1900;
 
 const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
 const isNight = () => document.documentElement.classList.contains('dark');
+const timeOfDay = (): keyof typeof KEYS => (isNight() ? 'night' : 'day');
+
+/** The switch as last left at this time of day. */
+const stored = () => {
+  try {
+    const value = localStorage.getItem(KEYS[timeOfDay()]);
+    if (value) return value === 'on';
+  } catch {
+    // Not kept: the time of day decides.
+  }
+  return isNight();
+};
 
 export function initLamp() {
   const easel = document.querySelector<HTMLElement>('[data-easel]');
@@ -43,13 +57,8 @@ export function initLamp() {
   if (!easel || !still || !button || lights.length !== 2) return;
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let on = (() => {
-    try {
-      return localStorage.getItem(KEY) !== 'off';
-    } catch {
-      return true;
-    }
-  })();
+  let time = timeOfDay();
+  let on = stored();
   let dry = false;
   let shining = false;
   /** Whether it last shone by night or by day, so a repaint at the same hour only strikes it. */
@@ -244,7 +253,7 @@ export function initLamp() {
     }
     on = !on;
     try {
-      localStorage.setItem(KEY, on ? 'on' : 'off');
+      localStorage.setItem(KEYS[time], on ? 'on' : 'off');
     } catch {
       // Kept for this visit only.
     }
@@ -264,6 +273,11 @@ export function initLamp() {
   // The light waits for the paint, and goes out while the room is repainted.
   easel.addEventListener('easel:painting', () => {
     dry = false;
+    // Day turned to night or back: the switch as left at the new time.
+    if (timeOfDay() !== time) {
+      time = timeOfDay();
+      on = stored();
+    }
     sync();
   });
   easel.addEventListener('easel:painted', () => {
