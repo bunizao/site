@@ -402,6 +402,16 @@ export function initEasel(): () => void {
       tab.querySelector('[data-tab-select]')?.setAttribute('aria-selected', String(id === active));
       if (wasHidden && !tab.hidden) paintSwatch(tab);
     });
+    // Under a finger the tabs slide in one row; the active one stays in sight.
+    // By hand, not scrollIntoView, which would also scroll the page.
+    const shown = active ? tabs.get(active) : null;
+    const list = shown?.parentElement;
+    if (shown && list) {
+      const box = list.getBoundingClientRect();
+      const { left, right } = shown.getBoundingClientRect();
+      if (left < box.left) list.scrollLeft += left - box.left;
+      else if (right > box.right) list.scrollLeft += right - box.right;
+    }
     homeButton.classList.toggle('is-active', active === null);
     homeButton.setAttribute('aria-pressed', String(active === null));
   };
@@ -443,6 +453,10 @@ export function initEasel(): () => void {
     panel.focus({ preventScroll: true });
     easel.dispatchEvent(new CustomEvent('easel:shown', { detail: id }));
   };
+
+  // The coat's colour, on the root: the frame under the canvas and the label
+  // take it, and on a phone so do the system bars (desk.css).
+  const setCoat = (section: Section) => document.documentElement.style.setProperty('--coat', css(coatTone(section)));
 
   // --- Full screen, for phones -------------------------------------------------------
   // The full-screen canvas is a place of its own: going there adds a step to
@@ -486,7 +500,7 @@ export function initEasel(): () => void {
     syncHash();
     if (phone.matches) setFull(true);
     easel.classList.add('is-covered');
-    easel.style.setProperty('--coat', css(coatTone(section)));
+    setCoat(section);
     still.inert = true;
     hidePanels();
     void lay(coatTone(section), () => showPanel(id));
@@ -605,7 +619,7 @@ export function initEasel(): () => void {
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.fillStyle = css(coatTone(section));
     ctx.fillRect(0, 0, width, height);
-    easel.style.setProperty('--coat', css(coatTone(section)));
+    setCoat(section);
     // A cancelled coat never reached its halfway mark.
     const panel = panels.get(section.id);
     if (panel?.hidden) showPanel(section.id);
@@ -631,6 +645,15 @@ export function initEasel(): () => void {
   };
   const resizeObserver = new ResizeObserver(onResize);
   resizeObserver.observe(frame);
+
+  // A second row of tabs pushes the section down (desk.css). The observer
+  // reports before the frame paints, so the panel never shows under them.
+  // Hidden tabs measure nothing; the last section fades out where it stood.
+  const tabsObserver = new ResizeObserver(([entry]) => {
+    const height = entry.borderBoxSize[0].blockSize;
+    if (height) easel.style.setProperty('--tabs-h', `${height}px`);
+  });
+  tabsObserver.observe(tabBar);
 
   let night = isNight();
   const themeObserver = new MutationObserver(() => {
@@ -664,6 +687,7 @@ export function initEasel(): () => void {
 
   return () => {
     resizeObserver.disconnect();
+    tabsObserver.disconnect();
     themeObserver.disconnect();
     document.removeEventListener('click', onClick);
     document.removeEventListener('keydown', onKey);

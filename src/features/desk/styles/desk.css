@@ -599,7 +599,7 @@ body:has(.desk) .spotlight-overlay {
 /* --- Tabs: swatches tested on the wall ------------------------------------- */
 .easel-tabs {
   position: absolute;
-  top: 14px;
+  top: var(--tabs-top);
   right: 14px;
   left: 14px;
   z-index: 4;
@@ -724,12 +724,53 @@ body:has(.desk) .spotlight-overlay {
   border-radius: 2px;
 }
 
+/* A fingertip needs about 40px. The cross gets the widest share: a finger
+   that misses it lands on the tab's name and selects instead of closing.
+   The tabs keep to one row that slides under the finger, as a second row
+   would push the section down; a mouse cannot slide, so it keeps the wrap.
+   The padding keeps a focus ring inside the scroller's clip. */
+@media (pointer: coarse) {
+  .easel-tablist {
+    flex-wrap: nowrap;
+    margin: -4px;
+    padding: 4px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .easel-tablist::-webkit-scrollbar {
+    display: none;
+  }
+
+  .easel-home,
+  .easel-home-thumb {
+    width: 32px;
+    height: 40px;
+  }
+
+  .easel-tab {
+    flex: none;
+    height: 40px;
+    padding-left: 12px;
+  }
+
+  .easel-tab-close {
+    width: 36px;
+  }
+}
+
 /* --- Panels: a section on the wet ground ----------------------------------- */
 /* A short section sits in the middle of the canvas; a long one starts at the
-   top and scrolls. */
+   top and scrolls. It starts under the tabs, however many rows they take
+   (--tabs-h, client/easel.ts). */
+.easel {
+  --tabs-top: 14px;
+}
+
 .easel-panel {
   position: absolute;
-  inset: 60px 0 0;
+  inset: calc(var(--tabs-top) + var(--tabs-h, 32px) + 14px) 0 0;
   z-index: 3;
   display: flex;
   flex-direction: column;
@@ -1169,6 +1210,17 @@ body:has(.desk) .spotlight-overlay {
     overflow: hidden;
   }
 
+  /* iOS paints its status bar and toolbar strips with the body's colour. */
+  :root.easel-locked body {
+    background: var(--coat, var(--d-page));
+  }
+
+  /* The letterhead is inert under the canvas; a menu that cannot be pressed
+     should not show. */
+  :root.easel-locked .global-header-actions:has(.desk-nav) {
+    visibility: hidden;
+  }
+
   .easel.is-full .easel-frame {
     position: fixed;
     inset: 0;
@@ -1182,12 +1234,11 @@ body:has(.desk) .spotlight-overlay {
     visibility: hidden;
   }
 
-  .easel.is-full .easel-tabs {
-    top: calc(env(safe-area-inset-top, 0px) + 12px);
+  .easel.is-full {
+    --tabs-top: calc(env(safe-area-inset-top, 0px) + 12px);
   }
 
   .easel.is-full .easel-panel {
-    top: calc(env(safe-area-inset-top, 0px) + 58px);
     bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
   }
 
