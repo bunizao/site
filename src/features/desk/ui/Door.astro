@@ -1,0 +1,25 @@
+---
+// The way through to a section's own page, at the foot of its panel: a
+// stroke of the section's colour, laid when the panel opens (`data-daub`,
+// client/easel.ts), like its word in the prose. Whatever else the section
+// offers there (a subscription) comes in the slot, beside it.
+interface Props {
+  href: string;
+  label: string;
+  /** The section's tone, `--h` and `--c`. */
+  style: string;
+  external?: boolean;
+}
+
+const { href, label, style, external = false } = Astro.props;
+---
+
+<div class="door-row" style={style}>
+  <a class="door" href={href} data-daub {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+    {label}
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      {external ? <path d="M5 11 11 5M6 5h5v5" /> : <path d="M3 8h10M9 4l4 4-4 4" />}
+    </svg>
+  </a>
+  <slot />
+</div>

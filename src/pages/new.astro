@@ -13,6 +13,7 @@ import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import Badge from '@/features/desk/ui/Badge.astro';
 import Contents from '@/features/desk/ui/Contents.astro';
+import Door from '@/features/desk/ui/Door.astro';
 import Easel, { type EaselSection } from '@/features/desk/ui/Easel.astro';
 import MoodChannel from '@/features/desk/ui/MoodChannel.astro';
 import Panel from '@/features/desk/ui/Panel.astro';
@@ -44,7 +45,6 @@ const sections: EaselSection[] = [
     hue: 92,
     chroma: 0.1,
     href: '/projects',
-    hrefLabel: 'all projects',
     thing: 'Projects: the small works on the wall',
     panel: true,
   },
@@ -68,7 +68,6 @@ const sections: EaselSection[] = [
     hue: 250,
     chroma: 0.07,
     href: '/blog',
-    hrefLabel: 'read the blog',
     thing: 'Writing: the stack of books',
     panel: true,
   },
@@ -81,7 +80,6 @@ const sections: EaselSection[] = [
     hue: 45,
     chroma: 0.09,
     href: '/mood',
-    hrefLabel: 'all moods',
     thing: 'Moods: the cup of coffee',
     panel: true,
   },
@@ -105,7 +103,6 @@ const sections: EaselSection[] = [
     hue: 150,
     chroma: 0.08,
     href: 'https://github.com/bunizao',
-    hrefLabel: 'profile',
     thing: 'GitHub: the plant',
     panel: true,
   },
@@ -149,7 +146,6 @@ const sections: EaselSection[] = [
     hue: 75,
     chroma: 0.03,
     href: footer.links[0].url,
-    hrefLabel: 'source',
     thing: 'How this site is made',
     panel: true,
   },
@@ -223,6 +219,7 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
     <Easel sections={sections} painting={{ title: 'Still life with a desk', date: '2026', medium: 'Palette knife on canvas element' }}>
       <Panel id="projects">
         <Works />
+        <Door href="/projects" label="All projects" style={tone('projects')} />
       </Panel>
 
       <Panel id="about">
@@ -249,10 +246,12 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
 
       <Panel id="writing">
         <Contents posts={content.posts} total={content.postCount} />
+        <Door href="/blog" label="Read the blog" style={tone('writing')} />
       </Panel>
 
       <Panel id="moods">
         <MoodChannel moods={content.moods} channel={content.channel} links />
+        <Door href="/mood" label="All moods" style={tone('moods')} />
       </Panel>
 
       <Panel id="listening">
@@ -268,8 +267,9 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
         </div>
       </Panel>
 
-      <Panel id="github" paper>
-        <GitHubContributions />
+      <Panel id="github">
+        <div class="easel-paper"><GitHubContributions /></div>
+        <Door href="https://github.com/bunizao" label="bunizao on GitHub" style={tone('github')} external />
       </Panel>
 
       <Panel id="colophon" label="Colophon">

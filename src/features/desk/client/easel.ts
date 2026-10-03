@@ -44,7 +44,6 @@ interface Section {
   hue: number;
   chroma: number;
   href?: string;
-  hrefLabel?: string;
   panel?: boolean;
 }
 
@@ -158,8 +157,6 @@ export function initEasel(): () => void {
     title: easel.querySelector<HTMLElement>('[data-label-title]'),
     date: easel.querySelector<HTMLElement>('[data-label-date]'),
     medium: easel.querySelector<HTMLElement>('[data-label-medium]'),
-    link: easel.querySelector<HTMLAnchorElement>('[data-label-link]'),
-    linkText: easel.querySelector<HTMLElement>('[data-label-link-text]'),
     colophon: easel.querySelector<HTMLElement>('[data-label-colophon]'),
   };
   // Everything a full-screen canvas covers leaves the tab order.
@@ -193,7 +190,7 @@ export function initEasel(): () => void {
   /** The song once its cover is in. */
   let song: Song | null = null;
   /** The section the gallery label names, and whether it shows its link. */
-  let labelled: { id: string | null; withLink: boolean } = { id: null, withLink: false };
+  let labelled: { id: string | null; open: boolean } = { id: null, open: false };
 
   // --- The still life --------------------------------------------------------
   // The things, back to front; the disc turns inside the record, under its
@@ -604,22 +601,16 @@ export function initEasel(): () => void {
   };
 
   // --- Label, tabs, panels ---------------------------------------------------------
-  const setLabel = (section: Section | null, withLink: boolean) => {
-    labelled = { id: section?.id ?? null, withLink };
+  /** Names `section` on the label, or the painting; `open` while it is on the canvas. */
+  const setLabel = (section: Section | null, open: boolean) => {
+    labelled = { id: section?.id ?? null, open };
     const shown = section ?? painting;
     if (label.title) label.title.textContent = shown.title;
     if (label.date) label.date.textContent = shown.date;
     if (label.medium) label.medium.textContent = shown.medium;
     // The colophon waits by the label while nothing is open; pointing at it
-    // only names it.
-    if (label.colophon) label.colophon.hidden = withLink;
-    if (!label.link || !label.linkText) return;
-    const href = withLink ? section?.href : undefined;
-    label.link.hidden = !href;
-    if (href) {
-      label.link.href = href;
-      label.linkText.textContent = section?.hrefLabel ?? 'open the page';
-    }
+    // only names it. The way to a section's own page is in its panel.
+    if (label.colophon) label.colophon.hidden = open;
   };
 
   const syncTabs = () => {
@@ -672,6 +663,7 @@ export function initEasel(): () => void {
     paintStudies(panel, isNight());
     const section = sections.get(id);
     if (section) paintSlabs(panel, section);
+    paintSwatches([...panel.querySelectorAll<HTMLElement>('[data-daub]')]);
     if (!reduced.matches) {
       panel.animate(
         [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }],
@@ -1051,7 +1043,7 @@ export function initEasel(): () => void {
     const named = labelOf(track);
     if (listening && named) {
       Object.assign(listening, named);
-      if (labelled.id === 'listening') setLabel(listening, labelled.withLink);
+      if (labelled.id === 'listening') setLabel(listening, labelled.open);
     }
     // The record on the listening panel wears the cover too, once it is shown.
     const thumb = track.thumbUrl?.trim() || track.artworkUrl?.trim();

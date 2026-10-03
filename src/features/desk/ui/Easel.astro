@@ -29,7 +29,6 @@ export interface EaselSection {
   chroma: number;
   /** The page behind it; a section without a panel is only this link. */
   href?: string;
-  hrefLabel?: string;
   /** Hint for the accessible name of the thing in the painting. */
   thing: string;
   panel?: boolean;
@@ -120,10 +119,6 @@ const lamp = byId.get('lamp');
     <p class="easel-label" data-label aria-live="polite">
       <span class="easel-label-head"><b data-label-title>{painting.title}</b>, <span data-label-date>{painting.date}</span></span>
       <span class="easel-label-medium" data-label-medium>{painting.medium}</span>
-      <a class="easel-label-link" data-label-link hidden>
-        <span data-label-link-text></span>
-        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5 8.5 3.5M4.5 3.5h4v4" /></svg>
-      </a>
       {colophon && (
         <a class="easel-label-colophon" href="/docs" data-open="colophon" data-label-colophon aria-controls="easel-colophon">colophon</a>
       )}
