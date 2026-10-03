@@ -1267,6 +1267,12 @@ body:has(.desk) .spotlight-overlay {
     touch-action: pan-y pinch-zoom;
   }
 
+  /* At 1.3 the contents page is wider than a phone; 1.1 fits from 391px
+     across, less than that takes it as drawn. */
+  .easel-panel .wr {
+    zoom: 1.1;
+  }
+
   /* On a phone the tabs are swatches on the wall, side by side: the one on
      show wears its name, the rest only their colour, so all of them fit
      across the screen and none slides under the small painting. The label
@@ -1300,6 +1306,12 @@ body:has(.desk) .spotlight-overlay {
 
   .works {
     gap: 22px 14px;
+  }
+}
+
+@media (max-width: 390px) {
+  .easel-panel .wr {
+    zoom: 1;
   }
 }
 
