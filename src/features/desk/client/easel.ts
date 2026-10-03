@@ -5,8 +5,8 @@
 // a ground, and sets the section on it halfway through; every opened section
 // stays as a swatch tab. Going back to the painting scrapes the coat off with
 // the same knife. Below 640px the canvas takes the whole screen while a
-// section is on it. Esc, or the small painting at the start of the tabs, goes
-// back to the still life.
+// section is on it, as a step in the history. Esc, the back gesture, or the
+// small painting at the start of the tabs goes back to the still life.
 //
 // Every part of the painting comes in on a fresh canvas laid over the one on
 // show, so the still life fades in piece by piece on the first visit and
@@ -445,11 +445,17 @@ export function initEasel(): () => void {
   };
 
   // --- Full screen, for phones -------------------------------------------------------
+  // The full-screen canvas is a place of its own: going there adds a step to
+  // the history, so the back gesture comes out of it instead of leaving the
+  // page. The step is marked in its state, and a reload keeps it.
+  const isFullStep = () => (history.state as { easelFull?: boolean } | null)?.easelFull === true;
+
   const setFull = (on: boolean) => {
     if (easel.classList.contains('is-full') === on) return;
     easel.classList.toggle('is-full', on);
     document.documentElement.classList.toggle('easel-locked', on);
     outside.forEach((el) => (el.inert = on));
+    if (on && !isFullStep()) history.pushState({ ...history.state, easelFull: true }, '', location.href);
   };
 
   // --- Pointing at things --------------------------------------------------------------
@@ -486,19 +492,26 @@ export function initEasel(): () => void {
     void lay(coatTone(section), () => showPanel(id));
   };
 
-  const home = () => {
+  /** Back to the still life. `byHistory` when the back gesture asked, not the canvas's own controls. */
+  const home = (byHistory = false) => {
     if (active === null) return;
     active = null;
     syncTabs();
     setLabel(null, false);
-    syncHash();
+    // Left by the canvas's own controls, the full-screen step is spent; the
+    // step under it takes the hash once it is back (onPop).
+    if (isFullStep()) history.back();
+    else syncHash();
     hidePanels();
     void lay(null).then(() => {
       if (active !== null) return;
       easel.classList.remove('is-covered');
       still.inert = false;
       setFull(false);
-      const back = opener?.isConnected && !opener.closest('[inert]') ? opener : things[0];
+      // Focus goes back to what opened the section. Without one (the page
+      // came in on a link to a section), the keyboard is given the first
+      // thing in the painting; a back gesture is no keyboard, so nothing is.
+      const back = opener?.isConnected && !opener.closest('[inert]') ? opener : byHistory ? null : things[0];
       back?.focus({ preventScroll: true });
     });
   };
@@ -524,12 +537,22 @@ export function initEasel(): () => void {
   const pointedAt = (target: EventTarget | null) =>
     target instanceof Element ? target.closest<HTMLElement>('[data-open], [data-hint]') : null;
 
+  // Pointing is a mouse or a pen over a thing, or the keyboard on it. A finger
+  // has no hover: one landing on the painting is a scroll or a tap, and the
+  // focus a tap leaves on a button is not pointing either.
+  const pointing = (event: Event) =>
+    event instanceof PointerEvent
+      ? event.pointerType !== 'touch'
+      : event.type === 'focusout' || (event.target instanceof Element && event.target.matches(':focus-visible'));
+
   const onOver = (event: Event) => {
+    if (!pointing(event)) return;
     const el = pointedAt(event.target);
     if (el) hot(el.dataset.open ?? el.dataset.hint ?? null);
   };
 
   const onOut = (event: Event) => {
+    if (!pointing(event)) return;
     const from = pointedAt(event.target);
     const to = pointedAt((event as FocusEvent | PointerEvent).relatedTarget);
     if (from && from !== to) hot(to ? to.dataset.open ?? to.dataset.hint ?? null : null);
@@ -565,6 +588,13 @@ export function initEasel(): () => void {
     if (document.activeElement?.closest('[role="dialog"]')) return;
     event.preventDefault();
     home();
+  };
+
+  // Back out of the full-screen canvas; any other step through the history
+  // keeps the hash saying what is on the canvas.
+  const onPop = () => {
+    if (active !== null && !isFullStep()) home(true);
+    else syncHash();
   };
 
   // A new size or theme repaints whatever is on the canvas, without the knife.
@@ -621,6 +651,7 @@ export function initEasel(): () => void {
   document.addEventListener('pointerout', onOut);
   document.addEventListener('focusin', onOver);
   document.addEventListener('focusout', onOut);
+  window.addEventListener('popstate', onPop);
   phone.addEventListener('change', onPhoneChange);
 
   // The painting waits for an idle moment; the chips wait for their font.
@@ -640,6 +671,7 @@ export function initEasel(): () => void {
     document.removeEventListener('pointerout', onOut);
     document.removeEventListener('focusin', onOver);
     document.removeEventListener('focusout', onOut);
+    window.removeEventListener('popstate', onPop);
     phone.removeEventListener('change', onPhoneChange);
   };
 }
