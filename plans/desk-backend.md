@@ -1,5 +1,39 @@
 # Desk backend: what /new needs from site-api
 
+## Implementation status (2026-10-04)
+
+Items 1, 2 and 4 are implemented on `feat/desk-backend` in both repositories.
+The canonical contracts package was published as `@bunizao/contracts@0.12.0`
+through `contracts-v0.12.0`, and site-api now pins that release.
+
+- Mood and blog snapshots refresh daily at 19:00 UTC on the existing hourly
+  trigger. Mood photos use the archived post type; inactive current streaks
+  expire; the unpopulated sentiment timeline was removed.
+- `/api/v2/blog/stats` reads only KV and exposes aggregate events since the
+  first recorded opening. The desk uses it without mock reads and keeps its
+  writing ledger when the snapshot is unavailable.
+- Subscription confirmation has an atomic six-hour address cooldown across
+  synchronous and queued delivery. Optional honeypot, dwell token and browser
+  evidence are wired through the desk and shared blog/mood panels. Honeypots
+  return the normal success response without mail or Turnstile verification.
+- `site-api/scripts/refresh-stats.ts` supports a read-only budget report and
+  an explicit `--apply` that writes only the two public snapshot keys.
+
+The one-shot refresh was applied at `2026-10-03T17:19:14.732Z`. The public
+Mood endpoint returned that timestamp, 3,430 active posts and 1,191 photo posts.
+The blog snapshot contains 1,133 reads, 301 readers and 413 completions.
+Measured daily aggregation cost is 43,781 D1 rows: 34,646 Mood and 9,135 blog.
+
+Worker deployment is still pending, so the new route, daily schedule and
+subscription controls are not yet active in production. Item 3 remains
+unnecessary while the README supplies the GitHub week; item 5 remains deferred
+pending the owner's choice.
+
+Validation: site unit tests 1,064 passed; site-api unit tests 2,036 passed;
+site-api integration tests 36 passed. Both repositories passed type/content
+checks, production builds and Worker upload dry-runs; documentation coverage
+passed for all 150 routes. Existing diagnostic hints remain.
+
 Written 2026-10-04 from the `agent/desk-home-prototype` branch of `site`
 (head `9ad0c321`), after the desk gained subscriptions, a letter panel, the
 painted GitHub year and the blog tally; revised the same day after the
