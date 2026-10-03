@@ -169,6 +169,13 @@ export function initEasel(): () => void {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const isNight = () => document.documentElement.classList.contains('dark');
 
+  // On a phone a section takes the screen, and the painting's frame with it;
+  // the painting goes on being made for the page, at the width it has there,
+  // so it is ready, and the small painting in the tabs has it, when the
+  // section closes.
+  let pageWidth = 0;
+  const paintWidth = () => (easel.classList.contains('is-full') ? pageWidth : (pageWidth = still.clientWidth));
+
   /** Whether anything has been opened this visit. */
   let openedAny = false;
   let active: string | null = null;
@@ -437,8 +444,8 @@ export function initEasel(): () => void {
    * of sight, the same for the other time.
    */
   const settle = () => {
-    const width = still.clientWidth;
-    if (job || !width || easel.classList.contains('is-full')) return;
+    const width = paintWidth();
+    if (job || !width) return;
     const time = timeNow();
     const other = otherTime(time);
     if (painted[time] !== width) return void run(time, width, false, paintWhole);
@@ -470,7 +477,7 @@ export function initEasel(): () => void {
 
   /** A new size or theme: stops the paint going on, unless it is still the right job. */
   const repaint = () => {
-    const width = still.clientWidth;
+    const width = paintWidth();
     const time = timeNow();
     if (job && job.width === width && (job.time === time) !== job.quiet) return;
     job?.stop.abort();
@@ -696,6 +703,7 @@ export function initEasel(): () => void {
     // place, or the page would shorten under the reader and pull the scroll
     // up with it, never to give it back.
     easel.style.minHeight = on ? `${easel.offsetHeight}px` : '';
+    if (on) pageWidth = still.clientWidth;
     easel.classList.toggle('is-full', on);
     document.documentElement.classList.toggle('easel-locked', on);
     outside.forEach((el) => (el.inert = on));
