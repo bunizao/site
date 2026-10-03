@@ -15,6 +15,7 @@
 import { ASPECT, CLOCK_FACE, HORIZON, LAMP_BULB, LAMP_PIVOT, RECORD_DISC, WALL_WORK, type Piece, type PieceId } from '@/features/desk/shared/still-life';
 import { css, draw, seedOf, seeded, stroke, strokeAt, vary, type Rand, type Tone } from './knife';
 import { paintOver, type Style } from './painterly';
+import type { Song } from './record';
 
 /** Paint margin around a thing's box, in canvas widths: strokes overshoot. */
 export const BLEED = 0.05;
@@ -339,20 +340,23 @@ function backdropStudy(b: Brush) {
   if (night) soft(room, oval(b, 0.485, 0.895, 0.12, 0.016), { l: 0.5, c: 0.06, h: 55, a: 0.18 }, 0.02);
 }
 
+/** The record sleeve: a square card, its centre, half its side, and how far it leans. */
+const SLEEVE = { x: 0.745, y: 0.735, half: 0.122, lean: -0.04 };
+
 /** The record sleeve's outline, nudged by (dx, dy). */
 function sleeveShape(b: Brush, dx = 0, dy = 0) {
-  const lean = -0.04;
-  const half = 0.122;
+  const { x: cx, y: cy, half, lean } = SLEEVE;
   const corner = (x: number, y: number): [number, number] => [
-    0.745 + dx + x * Math.cos(lean) - y * Math.sin(lean),
-    0.735 + dy + x * Math.sin(lean) + y * Math.cos(lean),
+    cx + dx + x * Math.cos(lean) - y * Math.sin(lean),
+    cy + dy + x * Math.sin(lean) + y * Math.cos(lean),
   ];
   return shape(b, [corner(-half, -half), corner(half, -half), corner(half, half), corner(-half, half)]);
 }
 
 // --- Studies of the things ---------------------------------------------------------
 
-type Study = (b: Brush) => void;
+/** `song` is the one on the record: its cover for the sleeve, its colour for the disc's label. */
+type Study = (b: Brush, song?: Song | null) => void;
 
 // A small oil on the wall in a pale oak frame, matted: a cube on a table, the
 // first of the projects.
@@ -496,10 +500,35 @@ const plant: Study = (b) => {
   front.forEach(leaf);
 };
 
+/**
+ * The disc's label in the song's colour: the paper, the band printed across
+ * it, the type and the ring, all one ink. Without a song, butter yellow with
+ * a red band.
+ */
+function labelInks(song?: Song | null) {
+  const tint = song?.tint;
+  if (!tint) {
+    return {
+      paper: [{ l: 0.89, c: 0.09, h: 86 }, { l: 0.8, c: 0.11, h: 78 }] as const,
+      band: { l: 0.6, c: 0.15, h: 28 },
+      type: [{ l: 0.45, c: 0.06, h: 40 }, { l: 0.55, c: 0.06, h: 50 }] as const,
+      ring: { l: 0.7, c: 0.1, h: 70 },
+    };
+  }
+  const { h } = tint;
+  const c = Math.min(tint.c, 0.13);
+  return {
+    paper: [{ l: 0.88, c: c * 0.6, h }, { l: 0.79, c: c * 0.75, h: h - 6 }] as const,
+    band: { l: 0.56, c: c * 1.05, h },
+    type: [{ l: 0.4, c: c * 0.45, h }, { l: 0.5, c: c * 0.45, h }] as const,
+    ring: { l: 0.68, c: c * 0.7, h },
+  };
+}
+
 // The record's disc, on a canvas of its own so it can turn while a song
 // plays. The window's reflection on its grooves does not turn with it; that
 // is laid on the sleeve's canvas, over the disc (FINISH.record).
-const disc: Study = (b) => {
+const disc: Study = (b, song) => {
   const { ctx, U } = b;
   const [cx, cy, r] = RECORD_DISC;
   const vinyl: Tone = { l: 0.21, c: 0.01, h: 280 };
@@ -516,42 +545,103 @@ const disc: Study = (b) => {
   ctx.strokeStyle = paint(b, { l: 0.38, c: 0.01, h: 270 });
   ctx.stroke(oval(b, cx, cy, r - 0.0012, r - 0.0012));
   // The label is lit evenly, so nothing on it gives the turning away but
-  // its print: a red band across the top and a line of type under the hole.
+  // its print: a band across the top and a line of type under the hole.
+  const inks = labelInks(song);
   const label = oval(b, cx, cy, 0.034, 0.034);
-  const yellow = ctx.createRadialGradient(U(cx), U(cy), 0, U(cx), U(cy), U(0.036));
-  yellow.addColorStop(0, paint(b, { l: 0.89, c: 0.09, h: 86 }));
-  yellow.addColorStop(1, paint(b, { l: 0.8, c: 0.11, h: 78 }));
-  fillPath(b, label, yellow);
+  const sheet = ctx.createRadialGradient(U(cx), U(cy), 0, U(cx), U(cy), U(0.036));
+  sheet.addColorStop(0, paint(b, inks.paper[0]));
+  sheet.addColorStop(1, paint(b, inks.paper[1]));
+  fillPath(b, label, sheet);
   ctx.save();
   ctx.clip(label);
-  fillPath(b, box(b, cx - 0.04, cy - 0.04, 0.08, 0.024), paint(b, { l: 0.6, c: 0.15, h: 28 }));
-  fillPath(b, box(b, cx - 0.013, cy + 0.011, 0.026, 0.004, 0.001), paint(b, { l: 0.45, c: 0.06, h: 40 }));
-  fillPath(b, box(b, cx - 0.008, cy + 0.019, 0.016, 0.003, 0.001), paint(b, { l: 0.55, c: 0.06, h: 50 }));
+  fillPath(b, box(b, cx - 0.04, cy - 0.04, 0.08, 0.024), paint(b, inks.band));
+  fillPath(b, box(b, cx - 0.013, cy + 0.011, 0.026, 0.004, 0.001), paint(b, inks.type[0]));
+  fillPath(b, box(b, cx - 0.008, cy + 0.019, 0.016, 0.003, 0.001), paint(b, inks.type[1]));
   ctx.restore();
   ctx.lineWidth = U(0.0012);
-  ctx.strokeStyle = paint(b, { l: 0.7, c: 0.1, h: 70 });
+  ctx.strokeStyle = paint(b, inks.ring);
   ctx.stroke(oval(b, cx, cy, 0.026, 0.026));
   fillPath(b, oval(b, cx, cy, 0.0035, 0.0035), paint(b, { l: 0.3, c: 0.02, h: 250 }));
 };
 
-// The record's sleeve, the disc half out of it: printed card, a sun over a
-// line, worn pale at the edges.
-const record: Study = (b) => {
+/**
+ * The cover, square on the leaning card, mixed with white like every other
+ * paint in the room, so no black survives and its colours go pastel; then
+ * the room's light: the window lifts the upper left and the far corner falls
+ * into shade. At night the room's dimness goes over it, the way `Brush.t`
+ * dims every other paint.
+ */
+function printCover(b: Brush, cover: CanvasImageSource, sleeve: Path2D) {
+  const { ctx, U } = b;
+  const { x, y, half, lean } = SLEEVE;
+  ctx.save();
+  ctx.translate(U(x), U(y));
+  ctx.rotate(lean);
+  ctx.drawImage(cover, U(-half), U(-half), U(half * 2), U(half * 2));
+  ctx.restore();
+  ctx.fillStyle = css({ l: 0.97, c: 0.012, h: 80, a: 0.32 });
+  ctx.fill(sleeve);
+  ctx.fillStyle = gradient(b, x - half, y - half, x + half, y + half, [
+    [0, { l: 1, c: 0, h: 0, a: 0.2 }],
+    [0.45, { l: 1, c: 0, h: 0, a: 0 }],
+    [1, { l: 0.2, c: 0.02, h: 250, a: 0.16 }],
+  ]);
+  ctx.fill(sleeve);
+  if (!b.night) return;
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = css({ l: 0.56, c: 0.02, h: 250 });
+  ctx.fill(sleeve);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// How strongly the cover is printed through the knife's paint.
+const PRINT_THROUGH = 0.45;
+
+/**
+ * The cover once more, printed through the knife's paint at the canvas's
+ * full resolution. Multiplied, so the strokes keep their light and their
+ * texture, and the cover's darks, a face and its lettering, come back sharp,
+ * which no blade can paint at this size. Not at full strength: nothing in it
+ * goes much darker than the paint it is printed on.
+ */
+function printThrough(b: Brush, cover: CanvasImageSource) {
+  const { ctx, U } = b;
+  const { x, y, half, lean } = SLEEVE;
+  ctx.save();
+  ctx.clip(sleeveShape(b));
+  ctx.translate(U(x), U(y));
+  ctx.rotate(lean);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalAlpha = PRINT_THROUGH;
+  ctx.drawImage(cover, U(-half), U(-half), U(half * 2), U(half * 2));
+  ctx.restore();
+}
+
+// The record's sleeve, the disc half out of it: printed card, worn pale at
+// the edges. It is printed with the cover of the song on the record, which
+// the knife then paints like anything else in the room; with no song to
+// look at, a sun over a line.
+const record: Study = (b, song) => {
+  const cover = song?.cover;
   const { ctx, U } = b;
   const sleeve = sleeveShape(b);
   fillPath(b, sleeve, gradient(b, 0.62, 0.61, 0.87, 0.86, [[0, { l: 0.92, c: 0.045, h: 14 }], [0.6, { l: 0.87, c: 0.055, h: 12 }], [1, { l: 0.8, c: 0.06, h: 10 }]]));
   ctx.save();
   ctx.clip(sleeve);
-  const sun = ctx.createRadialGradient(U(0.716), U(0.73), 0, U(0.73), U(0.745), U(0.05));
-  sun.addColorStop(0, paint(b, { l: 0.9, c: 0.1, h: 80 }));
-  sun.addColorStop(1, paint(b, { l: 0.8, c: 0.12, h: 66 }));
-  fillPath(b, oval(b, 0.73, 0.745, 0.048, 0.048), sun);
-  ctx.lineWidth = U(0.006);
-  ctx.strokeStyle = paint(b, { l: 0.7, c: 0.08, h: 18 });
-  ctx.beginPath();
-  ctx.moveTo(U(0.668), U(0.821));
-  ctx.lineTo(U(0.828), U(0.815));
-  ctx.stroke();
+  if (cover) {
+    printCover(b, cover, sleeve);
+  } else {
+    const sun = ctx.createRadialGradient(U(0.716), U(0.73), 0, U(0.73), U(0.745), U(0.05));
+    sun.addColorStop(0, paint(b, { l: 0.9, c: 0.1, h: 80 }));
+    sun.addColorStop(1, paint(b, { l: 0.8, c: 0.12, h: 66 }));
+    fillPath(b, oval(b, 0.73, 0.745, 0.048, 0.048), sun);
+    ctx.lineWidth = U(0.006);
+    ctx.strokeStyle = paint(b, { l: 0.7, c: 0.08, h: 18 });
+    ctx.beginPath();
+    ctx.moveTo(U(0.668), U(0.821));
+    ctx.lineTo(U(0.828), U(0.815));
+    ctx.stroke();
+  }
   // The card's edge, thick on the far side.
   fillPath(b, shape(b, [[0.862, 0.608], [0.868, 0.608], [0.876, 0.852], [0.869, 0.853]]), paint(b, { l: 0.74, c: 0.05, h: 12 }));
   ctx.restore();
@@ -737,7 +827,8 @@ const FINISH: Partial<Record<PieceId, Study>> = {
   // Over the disc, on the sleeve's canvas so it stays put while the disc
   // turns: the window in the grooves, two wedges of light with short bright
   // ticks through them, and the shade where the disc goes into the sleeve.
-  record: (b) => {
+  record: (b, song) => {
+    if (song?.cover) printThrough(b, song.cover);
     const { ctx, U, night } = b;
     const [cx, cy, r] = RECORD_DISC;
     const face = oval(b, cx, cy, r, r);
@@ -802,7 +893,8 @@ function knives(u: number, sizes: number[], thresholds: number[]) {
   return sizes.map((size, i) => ({ size: Math.max(2, size * u), threshold: thresholds[i] }));
 }
 
-function styleOf(id: PieceId, u: number): Style {
+/** `printed`: the record's sleeve carries a song's cover. */
+function styleOf(id: PieceId, u: number, printed = false): Style {
   const common: Style = {
     layers: knives(u, [0.019, 0.0105, 0.0058], [0, 26, 20]),
     stretch: [1.5, 3.2],
@@ -824,6 +916,13 @@ function styleOf(id: PieceId, u: number): Style {
       return { ...common, layers: knives(u, [0.017, 0.009, 0.005], [0, 22, 16]), spill: 0.003 * u };
     case 'books':
       return { ...common, angle: 0, jitter: 0.12, spill: 0.003 * u };
+    // A cover is a picture someone else made, and it should read as the one
+    // it is: a fourth, finest blade goes over its faces and lettering, and
+    // the knife carries less of the room's white into it.
+    case 'record':
+      return printed
+        ? { ...common, layers: knives(u, [0.016, 0.009, 0.0048, 0.0024], [0, 22, 14, 10]), stretch: [1.3, 2.6], spill: 0.002 * u, whiteShare: 0.15 }
+        : common;
     default:
       return common;
   }
@@ -863,9 +962,11 @@ export async function paintBackdrop(ctx: CanvasRenderingContext2D, u: number, ni
 
 /**
  * One thing, onto its own canvas: the thing's box plus BLEED on every side,
- * with `ctx` set to draw in the painting's CSS pixels.
+ * with `ctx` set to draw in the painting's CSS pixels. `song` is the one on
+ * the record; its cover must be readable (CORS-clean), since the knife takes
+ * its colours from the study.
  */
-export async function paintPiece(ctx: CanvasRenderingContext2D, piece: Piece, u: number, night: boolean, signal?: AbortSignal) {
+export async function paintPiece(ctx: CanvasRenderingContext2D, piece: Piece, u: number, night: boolean, signal?: AbortSignal, song?: Song | null) {
   const [x, y, w, h] = piece.box;
   const left = (x - BLEED) * u;
   const top = (y - BLEED) * u;
@@ -876,9 +977,9 @@ export async function paintPiece(ctx: CanvasRenderingContext2D, piece: Piece, u:
   if (!studyCtx) return;
   studyCtx.translate(-left, -top);
   const seed = seedOf(piece.id);
-  STUDIES[piece.id](brush(studyCtx, u, night, seed));
-  await paintOver(ctx, study, [left, top], styleOf(piece.id, u), seeded(seed ^ 0x9e3779b9), signal);
-  if (!signal?.aborted) FINISH[piece.id]?.(brush(ctx, u, night, seed + 1));
+  STUDIES[piece.id](brush(studyCtx, u, night, seed), song);
+  await paintOver(ctx, study, [left, top], styleOf(piece.id, u, Boolean(song)), seeded(seed ^ 0x9e3779b9), signal);
+  if (!signal?.aborted) FINISH[piece.id]?.(brush(ctx, u, night, seed + 1), song);
 }
 
 

@@ -5,12 +5,16 @@
    render `.desk`, so the stylesheet never leaks onto the rest of the site even
    when the bundler shares a chunk. */
 
+/* The prose's face. A swap paints the prose in a stand-in first, even when
+   the face is cached, and every paragraph re-wraps a frame later; a reload
+   flashed. A short wait covers a cached face and a fast network, and a slow
+   one still gets the stand-in. */
 @font-face {
   font-family: 'Space Grotesk';
   src: url('/fonts/space-grotesk-latin-variable.woff2') format('woff2');
   font-weight: 300 700;
   font-style: normal;
-  font-display: swap;
+  font-display: fallback;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
     U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
@@ -49,8 +53,8 @@
 
   --d-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --d-cjk: 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Microsoft YaHei';
-  --d-display: 'Space Grotesk', 'Geist', ui-sans-serif, system-ui, -apple-system, var(--d-cjk), sans-serif;
-  --d-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, var(--d-cjk), sans-serif;
+  --d-display: 'Space Grotesk', 'Geist', 'Geist Fallback', ui-sans-serif, system-ui, -apple-system, var(--d-cjk), sans-serif;
+  --d-sans: 'Geist', 'Geist Fallback', ui-sans-serif, system-ui, -apple-system, var(--d-cjk), sans-serif;
 }
 
 :root.dark:has(.desk) {
@@ -96,39 +100,50 @@ body:has(.desk) .spotlight-overlay {
 }
 
 /* --- The letterhead ---------------------------------------------------------
-   Layout's header actions (search and theme) plus the site links, set as one
-   quiet line of type at the head of the letter: over the prose, never over
-   the easel. It scrolls with the page. Phones fold
-   the links into a menu and keep the line in a small card in the corner. */
-.global-header-actions:has(.desk-nav) {
+   Layout's header actions, cut down to the two the desk cannot do without:
+   search, and the sound the desk makes. The site's links live in the prose
+   (projects, writing, moods), the colophon and the palette; the theme is the
+   lamp's (client/lamp.ts), and the palette's. The theme dropdown stays in
+   the page for the palette to press, out of sight. On a desk it sits at the
+   head of the letter, over the prose; on a phone, at the top right. */
+.global-header-actions:has(.desk-sound) {
   gap: 2px;
   font-family: var(--d-sans);
 }
 
+.global-header-actions:has(.desk-sound) [data-theme-dropdown] {
+  display: none;
+}
+
+/* Search first: the sound comes in the slot, before it. */
+.desk-sound {
+  order: 1;
+}
+
 @media (min-width: 640px) {
-  .global-header-actions:has(.desk-nav) {
+  .global-header-actions:has(.desk-sound) {
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 28px);
     right: auto;
-    /* The first link's text, not its hover pill, lines up with the prose. */
-    left: calc(var(--d-gutter) - 10px);
+    /* The search glyph, not its pill, lines up with the prose. */
+    left: calc(var(--d-gutter) - 9px);
     /* Above the site shell (z-index 1), which comes later and paints the page. */
     z-index: 2;
   }
 }
 
+/* No card: one floating over the prose sat on the words as they scrolled
+   under it. The last glyph, not its button, ends at the prose's edge. */
 @media (max-width: 639px) {
-  .global-header-actions:has(.desk-nav) {
-    padding: 4px;
-    border-radius: 14px;
-    background: color-mix(in oklab, var(--d-paper) 80%, transparent);
-    -webkit-backdrop-filter: blur(14px) saturate(1.4);
-    backdrop-filter: blur(14px) saturate(1.4);
-    box-shadow: 0 0 0 1px var(--d-line), 0 12px 32px -16px rgb(0 0 0 / 0.3);
+  .global-header-actions:has(.desk-sound) {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 14px);
+    right: calc(var(--d-gutter) - 12px);
+    gap: 0;
   }
 }
 
-.global-header-actions:has(.desk-nav) .header-action-btn {
+.global-header-actions:has(.desk-sound) .header-action-btn {
   height: 32px;
   min-width: 32px;
   border-color: transparent;
@@ -139,85 +154,37 @@ body:has(.desk) .spotlight-overlay {
   color: var(--d-note);
 }
 
+/* Two glyphs of one size, each a fingertip wide. */
+@media (max-width: 639px) {
+  .global-header-actions:has(.desk-sound) .header-action-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  .global-header-actions:has(.desk-sound) .header-action-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
 @media (hover: hover) {
-  .global-header-actions:has(.desk-nav) .header-action-btn:hover {
+  .global-header-actions:has(.desk-sound) .header-action-btn:hover {
     border-color: transparent;
     background: var(--d-hover);
     color: var(--d-ink);
   }
 }
 
-.desk-sound[aria-pressed='true'] .desk-sound-off,
-.desk-sound[aria-pressed='false'] .desk-sound-on {
-  display: none;
-}
-
-.desk-nav {
-  display: flex;
-  gap: 2px;
-  margin-right: 10px;
-}
-
-.desk-nav a,
-.desk-menu-links a {
-  border-radius: 10px;
-  color: var(--d-note);
-  font: 500 13.5px/20px var(--d-sans);
-  text-decoration: none;
-  transition: color 0.15s ease, background-color 0.15s ease;
-}
-
-.desk-nav a {
-  padding: 6px 10px;
-}
-
-@media (hover: hover) {
-  .desk-nav a:hover,
-  .desk-menu-links a:hover {
-    background: var(--d-hover);
-    color: var(--d-ink);
-  }
-}
-
-.desk-nav a:focus-visible,
-.desk-menu-links a:focus-visible,
-.desk-menu summary:focus-visible {
+.global-header-actions:has(.desk-sound) .header-action-btn:focus-visible {
   outline: 2px solid var(--d-focus);
   outline-offset: -2px;
 }
 
-/* Phones fold the links into a menu inside the same card. */
-.desk-menu {
-  position: relative;
+.desk-sound[aria-pressed='true'] .desk-sound-off,
+.desk-sound[aria-pressed='false'] .desk-sound-on {
   display: none;
 }
-
-.desk-menu summary {
-  list-style: none;
-}
-
-.desk-menu summary::-webkit-details-marker {
-  display: none;
-}
-
-.desk-menu-links {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: -4px;
-  display: flex;
-  min-width: 180px;
-  flex-direction: column;
-  padding: 6px;
-  border-radius: 14px;
-  background: var(--d-paper);
-  box-shadow: var(--d-shadow);
-}
-
-.desk-menu-links a {
-  padding: 10px 12px;
-  font-size: 15px;
-}
-
 
 :root:has(.desk) {
   /* Paper taped to the canvas, and the tape. */
@@ -351,7 +318,8 @@ body:has(.desk) .spotlight-overlay {
   background: oklch(0.87 calc(var(--c) * 1.3) var(--h));
   transition:
     rotate 0.4s var(--d-ease),
-    scale 0.4s var(--d-ease);
+    scale 0.4s var(--d-ease),
+    opacity 0.3s ease;
 }
 
 .desk-chip.has-swatch::before {
@@ -395,11 +363,8 @@ body:has(.desk) .spotlight-overlay {
 }
 
 /* --- Footer: one quiet line under the prose ------------------------------- */
+/* One line of small print under the prose, the link at the end of it. */
 .desk-foot {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 4px 18px;
   grid-column: 1;
   grid-row: 2;
   padding: 0 var(--d-gutter) 28px;
@@ -407,10 +372,8 @@ body:has(.desk) .spotlight-overlay {
   font: 400 12.5px/1.5 var(--d-sans);
 }
 
-/* The links wrap as one group, never one at a time. */
-.desk-foot-links {
-  display: flex;
-  gap: 18px;
+.desk-foot-dot {
+  margin-inline: 7px;
 }
 
 .desk-foot a {
@@ -472,15 +435,49 @@ body:has(.desk) .spotlight-overlay {
   height: 100%;
 }
 
-/* Each part of the painting comes up on a fresh canvas over the one before,
-   once its paint is laid (client/easel.ts). */
+/* Each part of the painting is painted out of sight, then comes up on a
+   fresh canvas over the one before. The first coat instead rises under the
+   knife, which draws it in as it goes (client/easel.ts). */
 .sl-backdrop,
 .sl-paint {
   transition: opacity 0.7s ease;
 }
 
-.sl canvas.is-wet {
+.sl canvas.is-wet:not(.is-rising) {
   opacity: 0;
+}
+
+.sl canvas.is-rising {
+  transition: none;
+}
+
+/* The painting is kept by day and by night; the theme says which shows. */
+:root:not(.dark) .sl canvas[data-time='night'],
+:root.dark .sl canvas[data-time='day'] {
+  opacity: 0;
+}
+
+/* With both paintings ready, the theme turns the way the light in a room
+   does: all of it at once, slowly, not a wipe across the page. The night
+   comes in a little slower than the day, and the lamp catches in it. */
+:root.theme-wipe:has(.desk)::view-transition-group(root) {
+  animation-duration: 0.9s;
+}
+
+:root.theme-wipe:has(.desk)::view-transition-new(root) {
+  mask-image: none;
+  animation: desk-light-turns 0.9s cubic-bezier(0.4, 0, 0.2, 1) both;
+  will-change: opacity;
+}
+
+:root.theme-wipe.dark:has(.desk)::view-transition-new(root) {
+  animation-duration: 1.1s;
+}
+
+@keyframes desk-light-turns {
+  from {
+    opacity: 0;
+  }
 }
 
 .easel-ground {
@@ -506,8 +503,26 @@ body:has(.desk) .spotlight-overlay {
   pointer-events: none;
 }
 
+/* The time is painted on the clock's glass, so it waits for the clock and
+   comes up with it; alone on the bare wall it was only a number. */
+.sl-clock {
+  transition: opacity 0.7s ease;
+}
+
+.sl-thing:not(:has(> .sl-paint:not(.is-wet))) > .sl-clock {
+  opacity: 0;
+}
+
 .sl-thing.is-hot {
   translate: 0 -1.4%;
+}
+
+/* Nudged, it makes the same move for a moment, so a finger, which cannot
+   hover, learns that it can tap (client/easel.ts). It goes a fixed height:
+   on a phone 1.4% is a pixel or two, and the room does not step back around
+   it to make up the difference. */
+.sl-thing.is-nudged {
+  translate: 0 -5px;
 }
 
 /* The card swings on its nail; the record leans back on the wall. */
@@ -515,7 +530,7 @@ body:has(.desk) .spotlight-overlay {
   transform-origin: 50% 10%;
 }
 
-.sl-thing[data-thing='badge'].is-hot {
+.sl-thing[data-thing='badge']:is(.is-hot, .is-nudged) {
   translate: none;
   rotate: 4deg;
 }
@@ -524,7 +539,7 @@ body:has(.desk) .spotlight-overlay {
   transform-origin: 50% 100%;
 }
 
-.sl-thing[data-thing='record'].is-hot {
+.sl-thing[data-thing='record']:is(.is-hot, .is-nudged) {
   translate: none;
   rotate: -2.5deg;
 }
@@ -533,6 +548,25 @@ body:has(.desk) .spotlight-overlay {
 .sl-turn {
   position: absolute;
   pointer-events: none;
+}
+
+/* Music off the record while it plays (client/notes.ts). */
+.sl-notes {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sl-note {
+  position: absolute;
+  aspect-ratio: 1;
+}
+
+.sl-note canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 /* The lamp hangs from its cord at the top middle of its box, and swings
@@ -596,10 +630,13 @@ body:has(.desk) .spotlight-overlay {
   outline-offset: 4px;
 }
 
-/* --- Tabs: swatches tested on the wall ------------------------------------- */
+/* --- Tabs: swatches tested on the wall -------------------------------------
+   While a section is on the canvas, every section is a tab. Only the one on
+   show wears its swatch; the rest are its neighbours' names in ink, quiet
+   over the coat, and a pointer over one tries its swatch at half strength. */
 .easel-tabs {
   position: absolute;
-  top: 14px;
+  top: var(--tabs-top);
   right: 14px;
   left: 14px;
   z-index: 4;
@@ -644,7 +681,7 @@ body:has(.desk) .spotlight-overlay {
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
-  gap: 6px 4px;
+  gap: 6px 2px;
 }
 
 .easel-tab {
@@ -653,13 +690,8 @@ body:has(.desk) .spotlight-overlay {
   align-items: center;
   isolation: isolate;
   height: 32px;
-  padding-left: 9px;
   color: oklch(0.33 calc(var(--c) * 1.4) var(--h));
   font: 600 13.5px/1 var(--d-sans);
-}
-
-.easel-tab[hidden] {
-  display: none;
 }
 
 .easel-tab::before {
@@ -668,7 +700,7 @@ body:has(.desk) .spotlight-overlay {
   inset: 0;
   z-index: -1;
   background: oklch(0.87 calc(var(--c) * 1.3) var(--h));
-  opacity: 0.5;
+  opacity: 0;
   transition: opacity 0.25s ease;
 }
 
@@ -680,14 +712,19 @@ body:has(.desk) .spotlight-overlay {
   opacity: 1;
 }
 
+@media (hover: hover) {
+  .easel-tab:not(.is-active):hover::before {
+    opacity: 0.5;
+  }
+}
+
 :root.dark .easel-tab {
   color: oklch(0.93 calc(var(--c) * 0.8) var(--h));
 }
 
-.easel-tab-name,
-.easel-tab-close {
+.easel-tab-name {
   height: 100%;
-  padding: 0;
+  padding: 0 9px;
   border: 0;
   background: none;
   color: inherit;
@@ -696,24 +733,12 @@ body:has(.desk) .spotlight-overlay {
 }
 
 .easel-tab:not(.is-active) .easel-tab-name {
-  opacity: 0.72;
-}
-
-.easel-tab-close {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  opacity: 0.55;
+  opacity: 0.62;
   transition: opacity 0.15s ease;
 }
 
-.easel-tab-close svg {
-  width: 11px;
-  height: 11px;
-}
-
 @media (hover: hover) {
-  .easel-tab-close:hover {
+  .easel-tab:not(.is-active):hover .easel-tab-name {
     opacity: 1;
   }
 }
@@ -724,12 +749,51 @@ body:has(.desk) .spotlight-overlay {
   border-radius: 2px;
 }
 
+/* A fingertip needs about 40px. The tabs keep to one row that slides under
+   the finger, as a second row would push the section down; a mouse cannot
+   slide, so it keeps the wrap. The padding keeps a focus ring inside the
+   scroller's clip. */
+@media (pointer: coarse) {
+  .easel-tablist {
+    flex-wrap: nowrap;
+    margin: -4px;
+    padding: 4px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .easel-tablist::-webkit-scrollbar {
+    display: none;
+  }
+
+  .easel-home,
+  .easel-home-thumb {
+    width: 32px;
+    height: 40px;
+  }
+
+  .easel-tab {
+    flex: none;
+    height: 40px;
+  }
+
+  .easel-tab-name {
+    padding: 0 12px;
+  }
+}
+
 /* --- Panels: a section on the wet ground ----------------------------------- */
 /* A short section sits in the middle of the canvas; a long one starts at the
-   top and scrolls. */
+   top and scrolls. It starts under the tabs, however many rows they take
+   (--tabs-h, client/easel.ts). */
+.easel {
+  --tabs-top: 14px;
+}
+
 .easel-panel {
   position: absolute;
-  inset: 60px 0 0;
+  inset: calc(var(--tabs-top) + var(--tabs-h, 32px) + 14px) 0 0;
   z-index: 3;
   display: flex;
   flex-direction: column;
@@ -762,25 +826,6 @@ body:has(.desk) .spotlight-overlay {
 
 .easel-panel .mc {
   max-width: 460px;
-}
-
-/* GitHub: the bars in the plant's green, deeper the busier the day. By night
-   a busy day glows instead, the way GitHub's dark graph does. */
-.easel-panel .wave-bar,
-.easel-panel .wave-bar:hover {
-  --quiet: oklch(0.9 0.05 150);
-  --busy: oklch(0.5 0.13 150);
-  background: color-mix(in oklab, var(--busy) calc(var(--level, 0) * 100%), var(--quiet));
-}
-
-:root.dark .easel-panel .wave-bar,
-:root.dark .easel-panel .wave-bar:hover {
-  --quiet: oklch(0.34 0.05 150);
-  --busy: oklch(0.76 0.17 150);
-}
-
-.easel-panel .wave-bar:hover {
-  filter: brightness(1.12);
 }
 
 /* A sheet taped to the canvas. */
@@ -862,6 +907,13 @@ body:has(.desk) .spotlight-overlay {
   align-self: stretch;
 }
 
+/* The colophon: a line on how the painting is made, over the way out to
+   the rest of the site. */
+.colophon-note {
+  margin: 0 0 14px;
+  text-wrap: pretty;
+}
+
 .paper-rows {
   display: flex;
   flex-direction: column;
@@ -935,8 +987,9 @@ body:has(.desk) .spotlight-overlay {
   font-variant-numeric: tabular-nums;
 }
 
-/* Listening: the record off the wall, turning, wearing the cover of the
-   song; the light on it stays where it is. */
+/* Listening: a turntable from above (ui/Turntable.astro). The record turns
+   under a light that stays where it is, and the tonearm lifts while it
+   swings and settles into the groove (client/tonearm.ts). */
 .lp {
   display: flex;
   width: 100%;
@@ -946,23 +999,41 @@ body:has(.desk) .spotlight-overlay {
   gap: 4px;
 }
 
-.lp-record {
+.tt {
   position: relative;
-  width: min(330px, 78%);
-  aspect-ratio: 1;
+  width: min(420px, 100%);
+  aspect-ratio: var(--tt-ratio);
   filter: drop-shadow(10px 14px 0 rgb(60 30 40 / 0.1));
 }
 
-.lp-spin,
-.lp-disc,
-.lp-shine {
+.tt canvas {
   position: absolute;
   inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
 }
 
-.lp-label {
+.tt-deck {
+  border-radius: 2.4% / 3%;
+}
+
+.tt-spin,
+.tt .tt-shine {
+  position: absolute;
+  inset: auto;
+  left: var(--tt-disc-x);
+  top: var(--tt-disc-y);
+  width: var(--tt-disc);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.tt-shine {
+  pointer-events: none;
+}
+
+.tt-label {
   position: absolute;
   inset: 34%;
   width: 32%;
@@ -971,25 +1042,1217 @@ body:has(.desk) .spotlight-overlay {
   object-fit: cover;
 }
 
-.lp-label[hidden] {
+.tt-label[hidden] {
   display: none;
 }
 
-.lp-spin::after {
+.tt-spin::after {
   content: '';
   position: absolute;
-  inset: calc(50% - 4px);
+  inset: calc(50% - 3px);
   border-radius: 50%;
-  background: oklch(0.2 0.01 280);
+  background: oklch(0.82 0.006 250);
+  box-shadow: 0 0 0 1.5px oklch(0.3 0.01 260 / 0.5);
 }
 
-.lp-shine {
+/* The arm's shadow is cast in the page's frame, not the arm's: the wrapper
+   holds the filter, so the shadow falls the same way however the arm turns. */
+.tt-arm-shade {
+  position: absolute;
+  inset: 0;
   pointer-events: none;
+  filter: drop-shadow(3px 4px 0 rgb(40 20 30 / 0.16));
+  transition: filter 0.24s var(--d-ease);
+}
+
+.tt.is-cued .tt-arm-shade {
+  filter: drop-shadow(9px 13px 1px rgb(40 20 30 / 0.12));
+}
+
+.tt-arm {
+  position: absolute;
+  left: var(--tt-arm-x);
+  top: var(--tt-arm-y);
+  width: var(--tt-arm-w);
+  height: var(--tt-arm-h);
+  transform-origin: var(--tt-pivot-x) var(--tt-pivot-y);
+  scale: 1;
+  transition: scale 0.24s var(--d-ease);
+}
+
+.tt.is-cued .tt-arm {
+  scale: 1.02;
+}
+
+.tt-grip {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
+
+.tt.is-held .tt-grip {
+  cursor: grabbing;
+}
+
+.tt-grip-head {
+  top: var(--tt-grip-y);
+  width: 48px;
+  height: 48px;
+  margin-top: -24px;
+  border-radius: 50%;
+}
+
+.tt-grip-tube {
+  top: var(--tt-tube-y);
+  width: 28px;
+  height: var(--tt-tube-h);
+}
+
+.tt-start {
+  position: absolute;
+  left: 4.6%;
+  top: 85.6%;
+  width: 10.5%;
+  height: 6.5%;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  box-shadow: 1px 2px 0 rgb(40 20 30 / 0.22);
+  cursor: pointer;
+  transition: translate 0.12s var(--d-ease), box-shadow 0.12s var(--d-ease);
+}
+
+/* A key that small still takes a whole fingertip. */
+.tt-start::before {
+  content: '';
+  position: absolute;
+  inset: -14px -10px;
+}
+
+.tt-start[aria-pressed='true'] {
+  translate: 0 1px;
+  box-shadow: 0 0 0 rgb(40 20 30 / 0.22);
+}
+
+.tt-start:focus-visible {
+  outline: 2px solid var(--d-ink);
+  outline-offset: 4px;
+}
+
+.tt-lamp {
+  position: absolute;
+  left: 5.3%;
+  top: 74.1%;
+  width: 4.4%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, oklch(0.86 0.16 70 / 0.95), oklch(0.7 0.18 45 / 0.5) 45%, transparent 72%);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+
+.tt.is-on .tt-lamp {
+  opacity: 1;
+}
+
+/* The first time: a slip beside the start key, pointing at it, and the key
+   calling in the lamp's amber (client/tonearm.ts). */
+.tt-hint {
+  position: absolute;
+  left: 18%;
+  top: 88.8%;
+  padding: 5px 10px 6px;
+  font-family: var(--d-sans);
+  font-size: 12px;
+  line-height: 15px;
+  white-space: nowrap;
+  color: var(--d-ink);
+  background: var(--d-sheet);
+  box-shadow: 1px 2px 3px rgb(40 20 30 / 0.16);
+  transform: translateY(-50%) rotate(-2deg);
+  opacity: 0;
+  translate: 8px 0;
+  pointer-events: none;
+  cursor: pointer;
+  transition: opacity 0.3s var(--d-ease), translate 0.5s var(--d-ease);
+}
+
+.tt-hint::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: calc(50% - 4px);
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  rotate: 45deg;
+}
+
+.tt.is-hinting .tt-hint {
+  opacity: 1;
+  translate: 0 0;
+  pointer-events: auto;
+}
+
+.tt.is-hinting .tt-start::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1.5px oklch(0.72 0.17 58), 0 0 10px 2px oklch(0.8 0.16 70 / 0.5);
+  pointer-events: none;
+  animation: tt-call 2.4s ease-in-out infinite;
+}
+
+/* It lights, holds a beat, then spreads out and fades, like a ring in water. */
+@keyframes tt-call {
+  0% { opacity: 0; scale: 1; }
+  15%, 30% { opacity: 0.85; scale: 1; }
+  80%, 100% { opacity: 0; scale: 1.25 1.6; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt.is-hinting .tt-start::after { animation: none; opacity: 0.7; }
+}
+
+/* On the desk the turntable is the record: the card keeps its words, its
+   progress and its time, and gives up its own small disc. */
+.lp .listening-art {
+  display: none;
+}
+
+.lp .listening {
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .lp .easel-paper {
   align-self: stretch;
-  margin-top: 26px;
+  margin-top: 22px;
+}
+
+/* What a section adds up to, said in a sentence or two under it, the
+   figures in ink. */
+.tally {
+  max-width: 440px;
+  margin: 14px 0 0;
+  font-family: var(--d-sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--d-note);
+  text-wrap: pretty;
+}
+
+.tally strong {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--d-ink);
+}
+
+.tally a {
+  color: var(--d-ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 30%, transparent);
+  text-underline-offset: 0.2em;
+}
+
+.tally a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Under the contents page, a caption to it. */
+.wr + .tally {
+  max-width: 340px;
+  margin-inline: auto;
+  text-align: center;
+}
+
+/* GitHub: a card with who it is and the year's total over the year, painted
+   a dab a day (ui/GitHub.astro, client/year.ts), and the week under it. */
+.easel-paper.gh {
+  max-width: 560px;
+}
+
+.gh-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  font-family: var(--d-sans);
+}
+
+.gh-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.gh-face {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--d-bubble);
+  box-shadow: 0 0 0 1px var(--d-line);
+}
+
+.gh-id {
+  display: grid;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.gh-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--d-ink);
+}
+
+.gh-login {
+  font-size: 12px;
+  color: var(--d-note);
+}
+
+.gh-who:hover .gh-login {
+  color: var(--d-ink);
+}
+
+.gh-total {
+  display: grid;
+  justify-items: end;
+  line-height: 1.25;
+}
+
+.gh-total strong {
+  min-height: 1.25em;
+  font-family: var(--d-display);
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--d-ink);
+}
+
+.gh-total span {
+  font-size: 11px;
+  color: var(--d-faint);
+}
+
+.gh-card .yr {
+  grid-column: 1 / -1;
+}
+
+.yr {
+  margin: 20px 0 0;
+}
+
+.yr-grid {
+  position: relative;
+  aspect-ratio: var(--weeks, 53) / 7;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+
+.yr-grid canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The day being read, ringed. */
+.yr-mark {
+  position: absolute;
+  left: calc((var(--col) + 0.5) / var(--weeks, 53) * 100%);
+  top: calc((var(--row) + 0.5) / 7 * 100%);
+  width: calc(100% / var(--weeks, 53) * 1.7);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--d-ink);
+  pointer-events: none;
+}
+
+.yr-mark[hidden] {
+  display: none;
+}
+
+.yr-months {
+  position: relative;
+  height: 14px;
+  margin-top: 6px;
+  font-family: var(--d-sans);
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--d-faint);
+}
+
+.yr-months span {
+  position: absolute;
+  left: calc(var(--col) / var(--weeks, 53) * 100%);
+}
+
+/* A phone's year is too narrow for twelve names; every other month reads cleanly. */
+@media (max-width: 639px) {
+  .yr-months span:nth-child(even) { display: none; }
+}
+
+.yr-read {
+  min-height: 1.5em;
+  margin-top: 8px;
+  font-family: var(--d-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  color: var(--d-note);
+}
+
+.gh-week {
+  grid-column: 1 / -1;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--d-hair);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--d-note);
+  text-wrap: pretty;
+}
+
+.gh-week strong {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--d-ink);
+}
+
+.gh-week a {
+  color: var(--d-ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 30%, transparent);
+  text-underline-offset: 0.2em;
+}
+
+.gh-week a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* The way through to a section's own page: a stroke of its colour at the
+   foot of its panel, painted like its word in the prose (client/easel.ts). */
+.door-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 20px;
+  margin-top: 28px;
+}
+
+.door {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  isolation: isolate;
+  min-height: 44px;
+  padding: 0 18px;
+  color: oklch(0.33 calc(var(--c) * 1.4) var(--h));
+  font: 600 15px/1 var(--d-sans);
+  text-decoration: none;
+}
+
+.door::before {
+  content: '';
+  position: absolute;
+  inset: 4px -2px;
+  z-index: -1;
+  border-radius: 3px 9px 4px 8px;
+  background: oklch(0.87 calc(var(--c) * 1.3) var(--h));
+  transition:
+    rotate 0.4s var(--d-ease),
+    scale 0.4s var(--d-ease);
+}
+
+.door.has-swatch::before {
+  inset: 2px -6px;
+  border-radius: 0;
+  background: var(--swatch) center / 100% 100% no-repeat;
+}
+
+:root.dark .door {
+  color: oklch(0.93 calc(var(--c) * 0.8) var(--h));
+}
+
+:root.dark .door:not(.has-swatch)::before {
+  background: oklch(0.42 calc(var(--c) * 1.15) var(--h));
+}
+
+.door svg {
+  width: 15px;
+  height: 15px;
+  transition: translate 0.3s var(--d-ease);
+}
+
+@media (hover: hover) {
+  .door:hover::before {
+    rotate: -1.2deg;
+    scale: 1.04 1.1;
+  }
+
+  .door:hover svg {
+    translate: 2px 0;
+  }
+}
+
+.door:active::before {
+  scale: 0.97;
+}
+
+.door:focus-visible {
+  outline: 2px solid var(--d-focus);
+  outline-offset: 2px;
+}
+
+/* A second door, for something the section offers besides its page: the
+   paint goes on thin until it is asked for. */
+.door-quiet::before {
+  opacity: 0.42;
+  transition:
+    opacity 0.3s var(--d-ease),
+    rotate 0.4s var(--d-ease),
+    scale 0.4s var(--d-ease);
+}
+
+.door-quiet[aria-expanded='true']::before {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .door-quiet:hover::before {
+    opacity: 0.7;
+  }
+}
+
+/* --- Forms, laid with the knife ----------------------------------------------------
+   A field is a slab of lighter paint (`data-slab`), the text written on
+   it; a choice is a daub of the section's colour, put on thin until it is
+   chosen; the action is a door. Focus draws a line of the section's ink
+   under the field, left to right, the way the knife would. */
+.kf-field {
+  position: relative;
+  display: flex;
+  flex: 1 1 200px;
+  min-width: 0;
+  isolation: isolate;
+}
+
+.kf-field::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 4px 10px 6px 9px;
+  background: oklch(0.99 calc(var(--c) * 0.15) var(--h));
+  box-shadow: 0 1px 2px oklch(0.3 0.03 var(--h) / 0.1);
+  transition:
+    rotate 0.3s var(--d-ease),
+    scale 0.3s var(--d-ease);
+}
+
+.kf-field.has-swatch::before {
+  inset: -4px -6px;
+  border-radius: 0;
+  background: var(--swatch) center / 100% 100% no-repeat;
+  box-shadow: none;
+  filter: drop-shadow(0 1px 1.5px oklch(0.3 0.03 50 / 0.12));
+}
+
+.kf-field::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  bottom: 8px;
+  left: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: oklch(0.45 calc(var(--c) * 1.4) var(--h));
+  scale: 0 1;
+  transform-origin: left;
+  transition: scale 0.45s var(--d-ease);
+}
+
+.kf-field:focus-within::before {
+  rotate: -0.4deg;
+  scale: 1.01 1.04;
+}
+
+.kf-field:focus-within::after {
+  scale: 1 1;
+}
+
+.kf-field input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 0;
+  background: none;
+  color: var(--d-ink);
+  font: 400 16px/1.2 var(--d-sans);
+  outline: none;
+}
+
+.kf-field input::placeholder {
+  color: var(--d-faint);
+}
+
+:root.dark .kf-field:not(.has-swatch)::before {
+  background: oklch(0.35 calc(var(--c) * 0.6) var(--h));
+}
+
+:root.dark .kf-field::after {
+  background: oklch(0.85 calc(var(--c) * 1.2) var(--h));
+}
+
+/* The slip: what a subscription asks, under the doors. */
+.slip {
+  display: flex;
+  width: 100%;
+  max-width: 440px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  margin-top: 6px;
+  text-align: center;
+  animation: slip-in 0.5s var(--d-ease);
+}
+
+.slip[hidden] {
+  display: none;
+}
+
+@keyframes slip-in {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}
+
+.slip-say {
+  margin: 0;
+  color: var(--d-ink);
+  font: 500 15px/1.5 var(--d-sans);
+  text-wrap: balance;
+}
+
+.slip-paces {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.slip-pace span {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  isolation: isolate;
+  color: var(--d-note);
+  font: 500 14px/1 var(--d-sans);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.slip-pace span::before {
+  content: '';
+  position: absolute;
+  inset: 6px 0;
+  z-index: -1;
+  border-radius: 3px 9px 4px 8px;
+  background: oklch(0.87 calc(var(--c) * 1.3) var(--h));
+  opacity: 0;
+  scale: 0.6 0.8;
+  transition:
+    opacity 0.25s ease,
+    scale 0.4s var(--d-ease);
+}
+
+.slip-pace span.has-swatch::before {
+  inset: 4px -4px;
+  border-radius: 0;
+  background: var(--swatch) center / 100% 100% no-repeat;
+}
+
+.slip-pace input:checked + span {
+  color: oklch(0.33 calc(var(--c) * 1.4) var(--h));
+}
+
+.slip-pace input:checked + span::before {
+  opacity: 1;
+  scale: 1;
+}
+
+.slip-pace input:focus-visible + span {
+  outline: 2px solid var(--d-focus);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .slip-pace input:not(:checked) + span:hover::before {
+    opacity: 0.35;
+    scale: 1;
+  }
+}
+
+:root.dark .slip-pace input:checked + span {
+  color: oklch(0.93 calc(var(--c) * 0.8) var(--h));
+}
+
+.slip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 18px;
+}
+
+.slip.is-sending .slip-row .door::before {
+  animation: daub-wet 0.9s var(--d-ease) infinite alternate;
+}
+
+@keyframes daub-wet {
+  to {
+    rotate: -1.5deg;
+    scale: 1.06 1.12;
+  }
+}
+
+.slip.is-done .slip-row,
+.slip.is-done .slip-paces {
+  display: none;
+}
+
+.slip-note {
+  margin: 0;
+  color: var(--d-faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.slip-note a {
+  color: inherit;
+}
+
+.slip[data-tone='error'] .slip-note {
+  color: oklch(0.5 0.14 25);
+}
+
+.slip[data-tone='done'] .slip-note {
+  color: var(--d-ink);
+  font-size: 15px;
+}
+
+:root.dark .slip[data-tone='error'] .slip-note {
+  color: oklch(0.75 0.12 25);
+}
+
+/* Cloudflare's checkbox, shut until it wants a person (as .mx-check). Shut,
+   it gives back the slip's gap above it too. */
+.slip-check {
+  display: grid;
+  margin-top: -14px;
+  grid-template-rows: minmax(0, 0fr);
+  justify-items: center;
+  transition:
+    grid-template-rows 0.3s var(--d-ease),
+    margin-top 0.3s var(--d-ease);
+}
+
+.slip-check > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.slip-check:has(> [data-turnstile-interactive]) {
+  margin-top: 0;
+  grid-template-rows: 1fr;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slip-check {
+    transition: none;
+  }
+}
+
+/* --- The letter ---------------------------------------------------------------------
+   A sheet on top, written on its ruled lines; the envelope's back under
+   it, flap up behind the sheet. In the post (the typing hook showing) the
+   sheet slides down into the envelope, cut off at its mouth, and the flap
+   shuts under the seal; a refusal brings it back out. Gone (the form's view
+   hidden), the flap stays shut, the stamp lands, and the sheet's room folds
+   away. */
+.mx {
+  --mx-ruled: oklch(0.82 0.05 var(--h) / 0.45);
+  display: flex;
+  width: 100%;
+  max-width: 440px;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mx-form {
+  display: contents;
+}
+
+.mx-letter {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  width: 92%;
+  grid-template-rows: 1fr;
+  /* Cut off at the bottom only: the envelope's mouth. */
+  clip-path: inset(-60px -60px 0 -60px);
+  transition: grid-template-rows 0.5s var(--d-ease) 0.7s;
+}
+
+/* In the post its room folds away under the envelope; gone, it stays folded. */
+.mx:has([data-message-typing]:not([hidden])) .mx-letter {
+  grid-template-rows: 0fr;
+}
+
+.mx-letter[hidden] {
+  display: grid;
+  visibility: hidden;
+  grid-template-rows: 0fr;
+  transition:
+    grid-template-rows 0.5s var(--d-ease) 0.7s,
+    visibility 0s 1.2s;
+}
+
+.mx-paper {
+  position: relative;
+  min-height: 0;
+  margin: 0 0 6px;
+  padding: 26px 26px 22px;
+  isolation: isolate;
+  rotate: -0.6deg;
+  transition:
+    translate 0.7s cubic-bezier(0.55, 0, 0.3, 1),
+    rotate 0.7s var(--d-ease);
+}
+
+.mx-paper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: oklch(0.993 0.012 var(--h));
+  box-shadow: 0 1px 2px rgb(40 20 20 / 0.08), 0 14px 26px -18px rgb(40 20 20 / 0.4);
+}
+
+/* The knife's ragged ends are cut off: a sheet of writing paper has
+   straight edges, and the paint is only its grain. */
+.mx-paper.has-swatch::before {
+  background: var(--swatch) center / 118% 114% no-repeat;
+  box-shadow: 0 1px 2px rgb(40 20 20 / 0.06), 0 14px 26px -18px rgb(40 20 20 / 0.35);
+}
+
+:root.dark .mx-paper:not(.has-swatch)::before {
+  background: oklch(0.35 0.03 var(--h));
+}
+
+.mx:has([data-message-typing]:not([hidden])) .mx-paper,
+.mx-letter[hidden] .mx-paper {
+  translate: 0 104%;
+  rotate: 0deg;
+}
+
+/* Dated in the corner, the day it was written. */
+.mx-date {
+  margin: -6px 0 2px;
+  color: var(--d-note);
+  font: 400 13px/1.4 var(--d-sans);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.mx-dear {
+  margin: 0 0 6px;
+  color: var(--d-ink);
+  font: 600 22px/1.3 var(--d-display);
+  letter-spacing: -0.01em;
+}
+
+/* The body is written on the sheet's lines, with the margin rule down the left. */
+.mx-body {
+  display: block;
+  width: 100%;
+  min-height: calc(28px * 4 + 4px);
+  max-height: 340px;
+  padding: 0 0 0 14px;
+  border: 0;
+  background:
+    linear-gradient(to right, oklch(0.7 0.12 var(--h) / 0.35) 1px, transparent 1px) 2px 0 / 100% 100% no-repeat,
+    repeating-linear-gradient(to bottom, transparent 0 27px, var(--mx-ruled) 27px 28px);
+  color: var(--d-ink);
+  font: 400 16px/28px var(--d-sans);
+  resize: none;
+  outline: none;
+}
+
+.mx-body::placeholder,
+.mx-line::placeholder {
+  color: var(--d-faint);
+}
+
+.mx-sign {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 14px 0 0;
+  color: var(--d-note);
+  font: 500 15px/1 var(--d-display);
+}
+
+/* A line to write on: the ink's own colour drawn under it when it has the pen. */
+.mx-line {
+  width: 11em;
+  max-width: 60%;
+  min-height: 36px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1.5px solid var(--mx-ruled);
+  border-radius: 0;
+  background: none;
+  color: var(--d-ink);
+  font: 500 16px/1.2 var(--d-sans);
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.mx-line:focus {
+  border-bottom-color: oklch(0.5 0.14 var(--h));
+}
+
+.mx-count {
+  position: absolute;
+  right: 26px;
+  bottom: 8px;
+  color: var(--d-faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mx-count[data-full] {
+  color: oklch(0.5 0.14 25);
+}
+
+.message-trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.mx-envelope {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  aspect-ratio: 1 / 0.6;
+  perspective: 900px;
+  filter: drop-shadow(6px 10px 0 rgb(60 30 40 / 0.1));
+}
+
+.mx-back {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Shut it points down over the back; open it is turned up over the top edge, behind the sheet. */
+.mx-flap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: 100%;
+  height: 56%;
+  transform-origin: top;
+  transform: rotateX(180deg);
+  transition: transform 0.6s var(--d-ease);
+}
+
+.mx:has([data-message-typing]:not([hidden])) .mx-flap,
+.mx:has(.mx-letter[hidden]) .mx-flap {
+  transform: rotateX(0deg);
+  transition-delay: 0.55s;
+}
+
+.mx-return {
+  position: absolute;
+  /* Inside the lines the side flaps make, which meet the bottom corners. */
+  right: 14%;
+  bottom: 10%;
+  left: 14%;
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--d-note);
+  font: 500 14px/1 var(--d-display);
+}
+
+.mx-return label {
+  white-space: nowrap;
+}
+
+.mx-return .mx-line {
+  flex: 1;
+  min-width: 0;
+  max-width: 16em;
+}
+
+/* A phone's envelope is narrow: the line runs a little closer to the corners. */
+@media (max-width: 639px) {
+  .mx-return {
+    right: 9%;
+    left: 12%;
+    gap: 8px;
+    font-size: 13px;
+  }
+}
+
+/* The envelope is paper by lamplight too, so what is written on it stays in dark ink. */
+.mx-return,
+.mx-return .mx-line::placeholder {
+  color: oklch(0.42 0.02 60);
+}
+
+.mx-return .mx-line {
+  border-bottom-color: oklch(0.42 0.04 60 / 0.35);
+  color: oklch(0.22 0.02 60);
+}
+
+.mx:has(.mx-letter[hidden]) .mx-return .mx-line {
+  pointer-events: none;
+  border-bottom-color: transparent;
+}
+
+/* The seal sits where the flap's point comes down. */
+.mx-seal {
+  position: absolute;
+  top: 56%;
+  left: 50%;
+  z-index: 3;
+  display: grid;
+  width: 66px;
+  height: 66px;
+  margin: -33px 0 0 -33px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition:
+    scale 0.3s var(--d-ease),
+    rotate 0.3s var(--d-ease);
+}
+
+.mx-seal canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(1px 2px 1px rgb(60 10 10 / 0.3));
+  transition: filter 0.5s ease;
+}
+
+/* The wax is cool until the letter has all it needs to go: written, signed,
+   and somewhere to write back to (client/letter.ts). Then it warms, and
+   rises once to say so. */
+.mx:not(.is-ready) .mx-seal canvas {
+  filter: saturate(0.45) brightness(1.08) drop-shadow(1px 1px 0 rgb(60 10 10 / 0.18));
+}
+
+.mx:not(.is-ready) .mx-seal-mark {
+  opacity: 0.7;
+}
+
+.mx.is-ready .mx-seal {
+  animation: seal-warm 0.6s var(--d-ease);
+}
+
+@keyframes seal-warm {
+  40% {
+    scale: 1.1;
+    rotate: -4deg;
+  }
+}
+
+.mx-seal-mark {
+  position: relative;
+  color: oklch(0.32 0.12 22);
+  font: 700 24px/1 var(--d-display);
+  text-shadow: 0 1px 0 oklch(0.62 0.13 22 / 0.7);
+}
+
+@media (hover: hover) {
+  .mx-seal:hover {
+    rotate: -6deg;
+    scale: 1.05;
+  }
+}
+
+.mx-seal:active,
+.mx:has([data-message-typing]:not([hidden])) .mx-seal {
+  scale: 0.92;
+}
+
+.mx-seal:disabled {
+  cursor: default;
+}
+
+.mx-seal:focus-visible {
+  outline: 2px solid var(--d-focus);
+  outline-offset: 3px;
+}
+
+/* Pressed shut: the seal comes down hard once the flap is under it. */
+.mx:has(.mx-letter[hidden]) .mx-seal {
+  animation: seal-press 0.5s var(--d-ease) 0.9s backwards;
+  pointer-events: none;
+}
+
+@keyframes seal-press {
+  from {
+    scale: 1.35;
+    opacity: 0;
+  }
+}
+
+.mx-stamp {
+  position: absolute;
+  top: 9%;
+  right: 6%;
+  z-index: 3;
+  padding: 6px 10px;
+  border: 2px solid oklch(0.5 0.13 var(--h) / 0.75);
+  border-radius: 6px;
+  color: oklch(0.5 0.13 var(--h) / 0.85);
+  font: 700 11px/1.25 var(--d-display);
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  opacity: 0;
+  rotate: -9deg;
+  scale: 1.4;
+  pointer-events: none;
+}
+
+.mx:has(.mx-letter[hidden]) .mx-stamp {
+  opacity: 1;
+  scale: 1;
+  transition:
+    opacity 0.2s ease 1.3s,
+    scale 0.35s var(--d-ease) 1.3s;
+}
+
+/* Cloudflare's checkbox, for when it wants a person: shut until then, and
+   opened under the error line that asks for it. The same 0fr/1fr grid as
+   .blog-compose__turnstile, for the same reasons: the challenge is whatever
+   size Cloudflare renders, and the opening still animates. */
+.mx-check {
+  display: grid;
+  grid-template-rows: minmax(0, 0fr);
+  justify-items: center;
+  transition:
+    grid-template-rows 0.3s var(--d-ease),
+    margin-top 0.3s var(--d-ease);
+}
+
+.mx-check > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.mx-check:has(> [data-turnstile-interactive]) {
+  grid-template-rows: 1fr;
+  margin-top: 14px;
+}
+
+.mx-error {
+  margin: 14px 0 0;
+  color: oklch(0.5 0.14 25);
+  font-size: 14px;
+  text-align: center;
+}
+
+:root.dark .mx-error {
+  color: oklch(0.75 0.12 25);
+}
+
+.mx-hint {
+  margin: 14px 0 0;
+  color: var(--d-faint);
+  font-size: 13px;
+  text-align: center;
+}
+
+.mx:has(.mx-letter[hidden]) .mx-hint,
+.mx:has([data-turnstile-interactive]) .mx-hint {
+  display: none;
+}
+
+.mx-sent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 22px;
+  outline: none;
+  text-align: center;
+  animation: slip-in 0.5s var(--d-ease) 1.2s backwards;
+}
+
+.mx-sent[hidden] {
+  display: none;
+}
+
+.mx-sent p {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--d-ink);
+  font: 500 15px/1.5 var(--d-sans);
+  text-wrap: pretty;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mx-paper,
+  .mx-flap,
+  .mx-letter,
+  .mx-stamp,
+  .mx-check {
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
+
+  .mx.is-ready .mx-seal {
+    animation: none;
+  }
 }
 
 /* Projects: a wall of small studies, each matted like a print. */
@@ -1088,36 +2351,32 @@ body:has(.desk) .spotlight-overlay {
   font-style: italic;
 }
 
-.easel-label-link {
-  display: inline-flex;
-  grid-row: 1 / span 2;
-  grid-column: 2;
-  align-self: center;
-  align-items: center;
-  gap: 4px;
-  color: var(--d-ink);
-  font-weight: 500;
-  text-decoration: underline 1px var(--d-line);
-  text-underline-offset: 3px;
-}
-
-.easel-label-link[hidden] {
+.easel-label-colophon[hidden] {
   display: none;
 }
 
-.easel-label-link svg {
-  width: 11px;
-  height: 11px;
+/* By the painting's own label, in its voice: the label's grey, until a
+   pointer finds it. */
+.easel-label-colophon {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  color: var(--d-note);
+  font-style: italic;
+  text-decoration: underline 1px var(--d-line);
+  text-underline-offset: 3px;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
 }
 
 @media (hover: hover) {
-  .easel-label-link:hover {
+  .easel-label-colophon:hover {
+    color: var(--d-ink);
     text-decoration-color: currentColor;
   }
 }
 
-/* --- Phones and tablets: the page scrolls, the easel hangs under the prose,
-   and the nav links fold into a menu. ------------------------------------- */
+/* --- Phones and tablets: the page scrolls, and the easel hangs under the
+   prose. ------------------------------------------------------------------ */
 @media (max-width: 899px) {
   :root:has(.desk) {
     --d-gutter: 20px;
@@ -1154,19 +2413,22 @@ body:has(.desk) .spotlight-overlay {
 }
 
 @media (max-width: 639px) {
-  .desk-nav {
-    display: none;
-  }
-
-  .desk-menu {
-    display: block;
-  }
-
   /* With a section on it, the canvas takes the screen. The painting stays
      behind on the page; the coat and the label come along. */
   :root.easel-locked,
   :root.easel-locked body {
     overflow: hidden;
+  }
+
+  /* iOS paints its status bar and toolbar strips with the body's colour. */
+  :root.easel-locked body {
+    background: var(--coat, var(--d-page));
+  }
+
+  /* The letterhead is inert under the canvas; a button that cannot be
+     pressed should not show. */
+  :root.easel-locked .global-header-actions:has(.desk-sound) {
+    visibility: hidden;
   }
 
   .easel.is-full .easel-frame {
@@ -1182,13 +2444,40 @@ body:has(.desk) .spotlight-overlay {
     visibility: hidden;
   }
 
-  .easel.is-full .easel-tabs {
-    top: calc(env(safe-area-inset-top, 0px) + 12px);
+  .easel.is-full {
+    --tabs-top: calc(env(safe-area-inset-top, 0px) + 12px);
   }
 
+  /* Sideways is the swipe to the next section (client/easel.ts). */
   .easel.is-full .easel-panel {
-    top: calc(env(safe-area-inset-top, 0px) + 58px);
     bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
+    touch-action: pan-y pinch-zoom;
+  }
+
+  /* At 1.3 the contents page is wider than a phone; 1.1 fits from 391px
+     across, less than that takes it as drawn. */
+  .easel-panel .wr {
+    zoom: 1.1;
+  }
+
+  /* On a phone the tabs are swatches on the wall, side by side: the one on
+     show wears its name, the rest only their colour, so all of them fit
+     across the screen and none slides under the small painting. The label
+     below names the section; a swipe goes along them. */
+  .easel-tablist {
+    gap: 6px;
+  }
+
+  .easel-tab:not(.is-active) .easel-tab-name {
+    width: 34px;
+    padding: 0;
+    overflow: hidden;
+    color: transparent;
+  }
+
+  .easel-tab:not(.is-active)::before {
+    inset: 9px 5px;
+    opacity: 0.9;
   }
 
   .easel.is-full .easel-label {
@@ -1207,6 +2496,12 @@ body:has(.desk) .spotlight-overlay {
   }
 }
 
+@media (max-width: 390px) {
+  .easel-panel .wr {
+    zoom: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .desk-chip::before,
   .sl-backdrop,
@@ -1221,14 +2516,15 @@ body:has(.desk) .spotlight-overlay {
 /* --- Arrival ----------------------------------------------------------------
    The page comes in the way the desk is set: the letterhead, the prose a
    paragraph at a time, then the paint laid behind its words one stroke
-   after another, while the canvas is hung. The painting comes up piece by
-   piece as its paint dries, and the lamp comes on last; by night the room
+   after another, while the canvas is hung. Once in view, the painting comes
+   up under the knife, the wall and then each thing, and the lamp comes on
+   last; by night the room
    sits dark a beat first (client/easel.ts, client/lamp.ts). Leaving, the
    site's view transition takes the page out. Nothing holds its end state:
    a lingering translate on the hang would trap the phone's full-screen
    canvas inside it. */
 @media (prefers-reduced-motion: no-preference) {
-  .global-header-actions:has(.desk-nav) {
+  .global-header-actions:has(.desk-sound) {
     animation: desk-in 0.8s ease 0.1s backwards;
   }
 
@@ -1263,6 +2559,19 @@ body:has(.desk) .spotlight-overlay {
   .desk-foot {
     animation: desk-in 0.9s ease 0.55s backwards;
   }
+
+  /* A reload or a step back finds the desk already set (new.astro), all but
+     the paint behind the words, which is laid again. */
+  :root.desk-set :is(.global-header-actions, .desk-prose > p, .easel-hang, .desk-foot) {
+    animation: none;
+  }
+}
+
+/* On a reload the stand-in dab would show and then change shape under the
+   reader when the swatch lands a moment later; the paint behind a word
+   waits for its swatch instead. */
+:root.desk-set .desk-chip:not(.has-swatch)::before {
+  opacity: 0;
 }
 
 @keyframes desk-in {

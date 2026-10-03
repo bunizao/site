@@ -7,26 +7,33 @@
 // modified click, a crawler or a script failure still lands somewhere.
 //
 // Unlisted while it is a prototype: noindex, and nothing links here.
-import { Menu, Volume2, VolumeX } from 'lucide-react';
+import { Activity, BookOpen, Disc3, LayoutGrid, Volume2, VolumeX } from 'lucide-react';
 import Layout from '@/layouts/Layout.astro';
-import GitHubContributions from '@/features/home/ui/GitHubContributions.astro';
 import Listening from '@/features/home/ui/Listening.astro';
 import Badge from '@/features/desk/ui/Badge.astro';
 import Contents from '@/features/desk/ui/Contents.astro';
+import Door from '@/features/desk/ui/Door.astro';
 import Easel, { type EaselSection } from '@/features/desk/ui/Easel.astro';
+import Letter from '@/features/desk/ui/Letter.astro';
 import MoodChannel from '@/features/desk/ui/MoodChannel.astro';
 import Panel from '@/features/desk/ui/Panel.astro';
+import Subscribe from '@/features/desk/ui/Subscribe.astro';
+import Turntable from '@/features/desk/ui/Turntable.astro';
+import GitHub from '@/features/desk/ui/GitHub.astro';
 import Works from '@/features/desk/ui/Works.astro';
 import { loadDeskContent } from '@/features/desk/server/content';
 import { GitHubIcon, InstagramIcon, MonashCrestIcon, TelegramIcon } from '@/components/icons';
-import { copyrightMark, experience, footer, navLinks, profile, projects } from '@/data/site';
+import { copyrightMark, experience, footer, profile, projects } from '@/data/site';
 import { DESK_FAVICON } from '@/lib/favicon';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { readTurnstileSiteKey } from '@/lib/turnstile-site-key';
 import '@/features/desk/styles/desk.css';
 
 // Request-time, for the latest moods and posts.
 export const prerender = false;
 
 const content = await loadDeskContent({ request: Astro.request, locals: Astro.locals });
+const turnstileSiteKey = isE2ESiteFixtureEnabled(Astro.locals) ? '' : readTurnstileSiteKey(Astro.locals);
 
 const firstName = profile.name.split(' ')[0];
 const external = { target: '_blank', rel: 'noopener noreferrer' };
@@ -44,7 +51,6 @@ const sections: EaselSection[] = [
     hue: 92,
     chroma: 0.1,
     href: '/projects',
-    hrefLabel: 'all projects',
     thing: 'Projects: the small works on the wall',
     panel: true,
   },
@@ -68,7 +74,6 @@ const sections: EaselSection[] = [
     hue: 250,
     chroma: 0.07,
     href: '/blog',
-    hrefLabel: 'read the blog',
     thing: 'Writing: the stack of books',
     panel: true,
   },
@@ -81,7 +86,6 @@ const sections: EaselSection[] = [
     hue: 45,
     chroma: 0.09,
     href: '/mood',
-    hrefLabel: 'all moods',
     thing: 'Moods: the cup of coffee',
     panel: true,
   },
@@ -105,7 +109,6 @@ const sections: EaselSection[] = [
     hue: 150,
     chroma: 0.08,
     href: 'https://github.com/bunizao',
-    hrefLabel: 'profile',
     thing: 'GitHub: the plant',
     panel: true,
   },
@@ -127,7 +130,7 @@ const sections: EaselSection[] = [
     medium: 'Enamel and brass, on a pull chain',
     hue: 165,
     chroma: 0.06,
-    thing: 'The lamp over the desk',
+    thing: 'The lamp over the desk, which turns the page to night',
   },
   {
     id: 'note',
@@ -139,7 +142,28 @@ const sections: EaselSection[] = [
     chroma: 0.1,
     href: '/message',
     thing: 'Leave me a note: the letter',
+    panel: true,
   },
+  // Not in the painting: the gallery label opens it, and it has no tab.
+  {
+    id: 'colophon',
+    title: 'Colophon',
+    date: '2023–ongoing',
+    medium: 'Astro and React on Cloudflare Workers',
+    hue: 75,
+    chroma: 0.03,
+    href: footer.links[0].url,
+    thing: 'How this site is made',
+    panel: true,
+  },
+];
+
+// How the site is made, and where the rest of it is.
+const colophon = [
+  { title: 'Source', sub: 'This site, on GitHub', href: footer.links[0].url, icon: GitHubIcon, external: true },
+  { title: 'Docs', sub: 'How it is built, and every route', href: '/docs', icon: BookOpen },
+  { title: 'Components', sub: 'The parts it is made of', href: '/components', icon: LayoutGrid },
+  { title: 'Status', sub: 'Whether it is up', href: footer.statusUrl, icon: Activity, external: true },
 ];
 
 const byId = new Map(sections.map((section) => [section.id, section]));
@@ -159,15 +183,12 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
   touchIcon="/desk/touch-icon.png"
   hideSiteNav
 >
-  <nav slot="header-actions" class="desk-nav" aria-label="Site">
-    {navLinks.map((link) => <a href={link.href}>{link.label.toLowerCase()}</a>)}
-  </nav>
-  <details slot="header-actions" class="desk-menu">
-    <summary class="header-action-btn" aria-label="Menu"><Menu aria-hidden="true" /></summary>
-    <nav class="desk-menu-links" aria-label="Site">
-      {navLinks.map((link) => <a href={link.href}>{link.label.toLowerCase()}</a>)}
-    </nav>
-  </details>
+  <script slot="head" is:inline>
+    // A reload or a step back finds the desk already set: no arrival (desk.css).
+    if (/^(reload|back_forward)$/.test(performance.getEntriesByType('navigation')[0]?.type ?? '')) {
+      document.documentElement.classList.add('desk-set');
+    }
+  </script>
   <button slot="header-actions" class="header-action-btn desk-sound" type="button" data-sound aria-pressed="true" aria-label="Sound">
     <Volume2 className="desk-sound-on" aria-hidden="true" />
     <VolumeX className="desk-sound-off" aria-hidden="true" />
@@ -188,7 +209,7 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
           I <a class="desk-chip" href="/blog" {...opens('writing')}>write</a> about being alive, and shorter thoughts go to
           <a class="desk-chip" href="/mood" {...opens('moods')}>moods</a>.
           <span class="desk-note">There's usually</span>
-          <button class="desk-chip" type="button" {...opens('listening')}>a song</button>
+          <button class="desk-chip" type="button" {...opens('listening')}><Disc3 className="desk-icon" data-turn aria-hidden="true" />a song</button>
           <span class="desk-note">on repeat, and too many tabs open on</span>
           <a class="desk-chip" href="https://github.com/bunizao" {...opens('github')}><GitHubIcon className="desk-icon" />GitHub</a><span class="desk-note">. Elsewhere, I'm on</span>
           <a class="desk-link" href={linkOf('Telegram')} {...external}><TelegramIcon className="desk-icon" />Telegram</a>
@@ -197,7 +218,7 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
         </p>
         <p class="desk-cta">
           <span class="desk-note">Everything in the painting opens. Or just</span>
-          <a class="desk-chip" href="/message" style={tone('note')}>leave me a note</a><span class="desk-note">.</span>
+          <a class="desk-chip" href="/message" {...opens('note')}>leave me a note</a><span class="desk-note">.</span>
         </p>
       </div>
     </div>
@@ -205,6 +226,7 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
     <Easel sections={sections} painting={{ title: 'Still life with a desk', date: '2026', medium: 'Palette knife on canvas element' }}>
       <Panel id="projects">
         <Works />
+        <Door href="/projects" label="All projects" style={tone('projects')} />
       </Panel>
 
       <Panel id="about">
@@ -230,38 +252,60 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
       </Panel>
 
       <Panel id="writing">
-        <Contents posts={content.posts} total={content.postCount} />
+        <Contents posts={content.posts} total={content.postCount} writing={content.writing} />
+        <Door href="/blog" label="Read the blog" style={tone('writing')}>
+          <Subscribe channel="blog" turnstileSiteKey={turnstileSiteKey} />
+        </Door>
       </Panel>
 
       <Panel id="moods">
         <MoodChannel moods={content.moods} channel={content.channel} links />
+        <Door href="/mood" label="All moods" style={tone('moods')}>
+          <Subscribe channel="mood" turnstileSiteKey={turnstileSiteKey} />
+        </Door>
       </Panel>
 
       <Panel id="listening">
         <div class="lp">
-          <div class="lp-record" aria-hidden="true">
-            <div class="lp-spin" data-turn>
-              <canvas class="lp-disc" data-study="vinyl" data-seed="vinyl"></canvas>
-              <img class="lp-label" alt="" referrerpolicy="no-referrer" data-vinyl-label hidden />
-            </div>
-            <canvas class="lp-shine" data-study="shine" data-seed="shine"></canvas>
-          </div>
+          <Turntable />
           <div class="easel-paper"><Listening /></div>
         </div>
       </Panel>
 
-      <Panel id="github" paper>
-        <GitHubContributions />
+      <Panel id="github">
+        <div class="easel-paper gh"><GitHub week={content.github} /></div>
+        <Door href="https://github.com/bunizao" label="bunizao on GitHub" style={tone('github')} external />
+      </Panel>
+
+      <Panel id="note">
+        <Letter to={firstName} turnstileSiteKey={turnstileSiteKey} style={tone('note')} />
+      </Panel>
+
+      <Panel id="colophon" label="Colophon">
+        <div class="easel-paper colophon">
+          <p class="colophon-note">
+            The still life is laid on with a palette knife in a canvas element, fresh in your browser on every visit,
+            by day and by night. The rest is Astro and React, served from Cloudflare's edge.
+          </p>
+          <ul class="paper-rows">
+            {colophon.map((row) => (
+              <li>
+                <a class="paper-row" href={row.href} {...(row.external ? external : {})}>
+                  <span class="paper-row-icon" aria-hidden="true"><row.icon className="paper-row-glyph" /></span>
+                  <span class="paper-row-main">
+                    <span class="paper-row-title">{row.title}</span>
+                    <span class="paper-row-sub">{row.sub}</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
       </Panel>
     </Easel>
 
     <footer class="desk-foot">
-      <span>{copyrightMark(new Date().getFullYear())}</span>
-      <span class="desk-foot-links">
-        <a href="/privacy">privacy</a>
-        <a href={footer.statusUrl} {...external}>status</a>
-        <a href={footer.links[0].url} {...external}>source</a>
-      </span>
+      {copyrightMark(new Date().getFullYear())}<span class="desk-foot-dot" aria-hidden="true">·</span><a href="/privacy">privacy</a>
     </footer>
   </main>
 </Layout>

@@ -10,7 +10,7 @@ import {
 } from '@/lib/listening/analytics';
 import type { ListeningAccent } from '@/features/home/types';
 
-type ListeningTrackPayload = {
+export type ListeningTrackPayload = {
   id?: string;
   appleCatalogId?: string;
   catalogId?: string;
@@ -29,6 +29,13 @@ type ListeningTrackPayload = {
 };
 
 const LISTENING_REFRESH_MS = 45_000;
+
+/**
+ * Fired on a card (and bubbling) each time it takes a fresh track from the
+ * live API, with the track as `detail`, so a page can show the song
+ * elsewhere too.
+ */
+export const LISTENING_TRACK_EVENT = 'listening:track';
 const playedAtDateFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',
@@ -337,6 +344,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
       }
 
       syncTitleMarquee();
+      root.dispatchEvent(new CustomEvent<ListeningTrackPayload>(LISTENING_TRACK_EVENT, { detail: track, bubbles: true }));
     };
 
     setLiveState(isLive);
@@ -509,6 +517,8 @@ export const initListeningCards = (root: ParentNode = document): void => {
 
     // Poll only while the card is (nearly) on screen. Coming back into view
     // refreshes at once when the data is stale, or resumes the countdown.
+    // A card kept out of sight whose song shows elsewhere (the record on the
+    // desk's easel) polls while the [data-listening-watch] around it is.
     if (typeof IntersectionObserver !== 'undefined') {
       const observer = new IntersectionObserver((entries) => {
         const entry = entries.at(-1);
@@ -526,7 +536,7 @@ export const initListeningCards = (root: ParentNode = document): void => {
           scheduleListeningRefresh(LISTENING_REFRESH_MS - elapsed);
         }
       }, { rootMargin: '200px 0px' });
-      observer.observe(root);
+      observer.observe(root.closest('[data-listening-watch]') ?? root);
     }
 
     // Without a server-rendered track the card shows a placeholder, so fetch

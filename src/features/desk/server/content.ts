@@ -1,10 +1,17 @@
 // What the desk shows at request time: the newest few moods and the channel
-// they come from, and the newest posts for the contents page. Everything else
-// on the desk is static data from site.ts.
+// they come from, the newest posts for the contents page and what the blog
+// adds up to, and the week on GitHub (server/github.ts). Everything else on
+// the desk is static data from site.ts.
+//
+// The reads on the blog are made up until site-api serves them
+// (plans/desk-backend.md), marked MOCK below.
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
 import type { MoodServerContext } from '@/features/mood/server/channel-service';
 import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
+import { loadGitHubWeek, type DeskGitHubWeek } from '@/features/desk/server/github';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { writingLedger } from '@/features/posts/ledger';
 import { getListedPosts } from '@/features/posts/server/content';
 import { postPath } from '@/features/posts/format';
 
@@ -15,8 +22,9 @@ export interface DeskMood {
   /** "zh" when the text is Chinese, so assistive tech picks the right voice. */
   lang?: string;
   datetime: string;
-  /** "1 Oct", in Melbourne time, where every one of these was posted. */
-  date: string;
+  /** "21:51", in Melbourne time, where every one of these was posted; the
+      page puts it in the reader's own time (client/moods.ts). */
+  time: string;
   thumb?: { src: string; srcset?: string };
   /** The two biggest, as "❤️ 3". */
   reactions: string[];
@@ -28,6 +36,18 @@ export interface DeskPost {
   lang?: string;
   /** "Sep 2026". */
   date: string;
+}
+
+export interface DeskWriting {
+  posts: number;
+  words: number;
+  /** The year of the first post. */
+  since: number;
+  /** Reads of every post since the counting began ("June 2026"). Nothing
+      before it was kept, so the figure never claims more than that. */
+  reads: { count: number; since: string };
+  /** The post read the most. */
+  top?: { title: string; href: string; lang?: string };
 }
 
 export interface DeskChannel {
@@ -42,13 +62,26 @@ export interface DeskContent {
   channel: DeskChannel;
   posts: DeskPost[];
   postCount: number;
+  writing: DeskWriting | null;
+  github: DeskGitHubWeek | null;
 }
 
 const MOODS = 3;
 const POSTS = 5;
 
-const melbourneDay = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short' });
+const melbourneTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false });
 const monthYear = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', month: 'short', year: 'numeric' });
+const longMonthYear = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', month: 'long', year: 'numeric' });
+
+// MOCK until GET /api/v2/blog/stats (plans/desk-backend.md): reads per post,
+// made up from the slug so they hold still between visits, and the day the
+// counting began (site-api's blog_analytics_events, migration 0003).
+const MOCK_READS_SINCE = '2026-06-28T00:00:00Z';
+const mockReads = (slug: string) => {
+  let hash = 0;
+  for (const char of slug) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return 80 + (Math.abs(hash) % 2400);
+};
 
 const format = (formatter: Intl.DateTimeFormat, iso: string) => {
   const date = new Date(iso);
@@ -73,7 +106,7 @@ const toMood = (item: MoodFeedItem): DeskMood => {
     text: item.previewText.trim(),
     lang: langOf(item.previewText),
     datetime: item.datetime,
-    date: format(melbourneDay, item.datetime),
+    time: format(melbourneTime, item.datetime),
     ...(thumb ? { thumb: { src: thumb.src, srcset: thumb.srcset } } : {}),
     reactions: [...item.reactions]
       .sort((a, b) => Number(b.count) - Number(a.count))
@@ -82,11 +115,28 @@ const toMood = (item: MoodFeedItem): DeskMood => {
   };
 };
 
+type ListedPost = Awaited<ReturnType<typeof getListedPosts>>[number];
+
+const summarise = (posts: ListedPost[]): DeskWriting | null => {
+  const ledger = writingLedger(posts);
+  if (!ledger) return null;
+  const read = posts.map((post) => ({ post, reads: mockReads(post.slug) }));
+  const top = read.reduce((a, b) => (b.reads > a.reads ? b : a)).post;
+  return {
+    posts: ledger.posts,
+    words: ledger.words,
+    since: ledger.since,
+    reads: { count: read.reduce((sum, { reads }) => sum + reads, 0), since: format(longMonthYear, MOCK_READS_SINCE) },
+    top: { title: top.title, href: postPath(top.slug), lang: langOf(top.title) },
+  };
+};
+
 export async function loadDeskContent(context: MoodServerContext): Promise<DeskContent> {
-  // Either source failing leaves its object empty; the rest of the desk stands.
-  const [feed, posts] = await Promise.all([
+  // Any source failing leaves its object empty; the rest of the desk stands.
+  const [feed, posts, github] = await Promise.all([
     loadMoodFeed(context, { limit: 12 }).catch(() => null),
     getListedPosts().catch(() => []),
+    isE2ESiteFixtureEnabled(context.locals) ? null : loadGitHubWeek(),
   ]);
   return {
     moods: (feed?.posts ?? []).filter(isMood).slice(0, MOODS).map(toMood).reverse(),
@@ -101,5 +151,7 @@ export async function loadDeskContent(context: MoodServerContext): Promise<DeskC
       date: format(monthYear, post.publishedAt),
     })),
     postCount: posts.length,
+    writing: summarise(posts),
+    github,
   };
 }

@@ -1,15 +1,26 @@
 ---
 // One section on the easel's canvas, hidden until its tab is open. `paper`
 // sets the contents on a sheet taped to the canvas; without it they sit on
-// the paint, for things that bring their own surface.
+// the paint, for things that bring their own surface. A section without a
+// tab names itself with `label`.
 interface Props {
   id: string;
   paper?: boolean;
+  label?: string;
 }
 
-const { id, paper = false } = Astro.props;
+const { id, paper = false, label } = Astro.props;
 ---
 
-<div class="easel-panel" id={`easel-${id}`} data-panel={id} role="tabpanel" aria-labelledby={`easel-tab-${id}`} tabindex="-1" hidden>
+<div
+  class="easel-panel"
+  id={`easel-${id}`}
+  data-panel={id}
+  role={label ? 'region' : 'tabpanel'}
+  aria-label={label}
+  aria-labelledby={label ? undefined : `easel-tab-${id}`}
+  tabindex="-1"
+  hidden
+>
   {paper ? <div class="easel-paper"><slot /></div> : <slot />}
 </div>

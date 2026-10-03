@@ -44,7 +44,18 @@ type Sat = Uint32Array;
 // A painting is thousands of strokes; lay them a few milliseconds at a time
 // so the page keeps answering while the picture comes in.
 const BUDGET_MS = 10;
-const breathe = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+/**
+ * Gives the page a turn: input and a frame go first, then the work carries
+ * on. A message, not a timeout: a chain of timeouts this long waits at
+ * least 4ms a link, a message does not.
+ */
+export const breathe = () =>
+  new Promise<void>((resolve) => {
+    const { port1, port2 } = new MessageChannel();
+    port1.onmessage = () => resolve();
+    port2.postMessage(null);
+  });
 
 /** Summed-area tables of premultiplied red, green, blue and alpha. */
 function summed(data: Uint8ClampedArray, w: number, h: number): Sat[] {
@@ -187,6 +198,9 @@ export async function paintOver(ctx: CanvasRenderingContext2D, study: HTMLCanvas
   };
 
   for (const [index, layer] of style.layers.entries()) {
+    // Reading the paint back and trimming the first layer are the heaviest
+    // single steps; each gets a task of its own.
+    await breathe();
     if (signal?.aborted) return;
     const grid = Math.max(2, Math.round(layer.size));
     const r = Math.max(1, layer.size * 0.45);
@@ -246,6 +260,8 @@ export async function paintOver(ctx: CanvasRenderingContext2D, study: HTMLCanvas
     // The widest blade overshoots the most; trim it back to the silhouette,
     // with a little room so its edge stays a knife's edge.
     if (first && Number.isFinite(spill)) {
+      await breathe();
+      if (signal?.aborted) return;
       const mask = document.createElement('canvas');
       mask.width = device.width;
       mask.height = device.height;

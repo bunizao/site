@@ -13,6 +13,7 @@
 // nothing local matches, the palette collapses to just the Ask AI group, which
 // doubles as the empty state ("no result? ask an assistant instead").
 import {
+  BookOpen,
   Home,
   Layers,
   FileText,
@@ -68,6 +69,7 @@ const navIcons: Record<string, IconComponent> = {
   '/blog': FileText,
   '/mood': Smile,
   '/components': LayoutGrid,
+  '/docs': BookOpen,
 };
 const navKeywords: Record<string, string> = {
   '/': 'home start 主页',
@@ -75,6 +77,7 @@ const navKeywords: Record<string, string> = {
   '/blog': 'blog writing posts 博客 無人之境',
   '/mood': 'moods timeline feed 心情',
   '/components': 'components ui specimens 组件',
+  '/docs': 'docs documentation reference api 文档',
 };
 
 // Vim-style "go to" shortcuts (GitHub's g-then-key): press g, then the letter,

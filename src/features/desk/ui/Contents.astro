@@ -1,15 +1,17 @@
 ---
 // The blog as a page of contents, corner turned down: the writing window,
-// the notebook's first leaf laid flat.
+// the notebook's first leaf laid flat. Under it, what the blog adds up to.
 import { blog } from '@/data/site';
-import type { DeskPost } from '@/features/desk/server/content';
+import type { DeskPost, DeskWriting } from '@/features/desk/server/content';
 
 interface Props {
   posts: DeskPost[];
   total: number;
+  writing: DeskWriting | null;
 }
 
-const { posts, total } = Astro.props;
+const { posts, total, writing } = Astro.props;
+const figure = (n: number) => n.toLocaleString('en-US');
 const copy = blog.copy[blog.locale.home];
 ---
 
@@ -45,6 +47,14 @@ const copy = blog.copy[blog.locale.home];
   </span>
   <span class="wr-fold" aria-hidden="true"></span>
 </span>
+{writing && (
+  <p class="tally">
+    <strong>{figure(writing.posts)}</strong> posts and <strong>{figure(writing.words)}</strong> words since {writing.since}.
+    Read <strong>{figure(writing.reads.count)}</strong> times since I started counting in {writing.reads.since}{writing.top ? (
+      <>; the most read is <a href={writing.top.href} lang={writing.top.lang}>{writing.top.title}</a>.</>
+    ) : '.'}
+  </p>
+)}
 
 <style>
   /* The drop shadow follows the turned-down corner, because the corner is

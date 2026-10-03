@@ -73,6 +73,9 @@ interface Band {
  */
 function hiss(a: AudioContext, at: number, length: number, band: Band, level: number, attack = 0.01, grain = 0) {
   if (!noise || !out) return;
+  // A jittered start can fall before the clock of a context that has just
+  // begun, and scheduling in the past throws.
+  at = Math.max(at, a.currentTime);
   const source = a.createBufferSource();
   source.buffer = noise;
   source.loop = true;
