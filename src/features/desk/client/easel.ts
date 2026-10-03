@@ -282,12 +282,23 @@ export function initEasel(): () => void {
     return isNight() ? { l: 0.42, c: c * 1.15, h } : { l: 0.87, c: c * 1.3, h };
   };
 
-  const paintSwatch = (el: HTMLElement) => {
-    if (!el.offsetWidth) return;
-    const url = swatch(el.offsetWidth * 1.08 + 8, el.offsetHeight + 4, swatchTone(el), seedOf(el.textContent ?? ''));
-    if (!url) return;
-    el.style.setProperty('--swatch', `url(${url})`);
-    el.classList.add('has-swatch');
+  // What each swatch was painted for: the same size in the same theme keeps it.
+  const swatchKeys = new WeakMap<HTMLElement, string>();
+
+  /** Paints the swatch behind each of `els`, measuring all of them before
+      painting any: a write between two reads would lay the page out again. */
+  const paintSwatches = (els: HTMLElement[]) => {
+    const night = isNight();
+    const measured = els.map((el) => ({ el, width: el.offsetWidth, height: el.offsetHeight, tone: swatchTone(el) }));
+    for (const { el, width, height, tone } of measured) {
+      const key = `${width}x${height}x${night}`;
+      if (!width || swatchKeys.get(el) === key) continue;
+      const url = swatch(width * 1.08 + 8, height + 4, tone, seedOf(el.textContent ?? ''));
+      if (!url) continue;
+      swatchKeys.set(el, key);
+      el.style.setProperty('--swatch', `url(${url})`);
+      el.classList.add('has-swatch');
+    }
   };
 
   // Whatever in a panel is marked `data-slab` (the mood bubbles) is painted as
@@ -303,10 +314,8 @@ export function initEasel(): () => void {
     });
   };
 
-  const paintSwatches = () => {
-    document.querySelectorAll<HTMLElement>('.desk-chip').forEach(paintSwatch);
-    tabs.forEach((tab) => !tab.hidden && paintSwatch(tab));
-  };
+  const paintAllSwatches = () =>
+    paintSwatches([...document.querySelectorAll<HTMLElement>('.desk-chip'), ...[...tabs.values()].filter((tab) => !tab.hidden)]);
 
   // --- The coat ------------------------------------------------------------------
   const coatTone = (section: Section): Tone =>
@@ -397,6 +406,7 @@ export function initEasel(): () => void {
 
   const syncTabs = () => {
     tabBar.hidden = opened.length === 0;
+    const appeared: HTMLElement[] = [];
     tabs.forEach((tab, id) => {
       const at = opened.indexOf(id);
       const wasHidden = tab.hidden;
@@ -404,8 +414,9 @@ export function initEasel(): () => void {
       tab.style.order = String(at);
       tab.classList.toggle('is-active', id === active);
       tab.querySelector('[data-tab-select]')?.setAttribute('aria-selected', String(id === active));
-      if (wasHidden && !tab.hidden) paintSwatch(tab);
+      if (wasHidden && !tab.hidden) appeared.push(tab);
     });
+    paintSwatches(appeared);
     // Under a finger the tabs slide in one row; the active one stays in sight.
     // By hand, not scrollIntoView, which would also scroll the page.
     const shown = active ? tabs.get(active) : null;
@@ -709,7 +720,7 @@ export function initEasel(): () => void {
     if (isNight() === night) return;
     night = isNight();
     void paint();
-    paintSwatches();
+    paintAllSwatches();
     const section = active ? sections.get(active) : null;
     if (section) refill(section);
   });
@@ -729,9 +740,14 @@ export function initEasel(): () => void {
   window.addEventListener('popstate', onPop);
   phone.addEventListener('change', onPhoneChange);
 
-  // The painting waits for an idle moment; the chips wait for their font.
+  // The painting waits for an idle moment. The chips are painted just after
+  // the first frame, when the page is already laid out and measuring them
+  // costs nothing, and again for any their font resizes once it is in.
   (window.requestIdleCallback ?? ((callback: () => void) => setTimeout(callback, 60)))(() => void paint());
-  void document.fonts.ready.then(paintSwatches);
+  requestAnimationFrame(() => setTimeout(() => {
+    paintAllSwatches();
+    void document.fonts.ready.then(paintAllSwatches);
+  }));
 
   // A shared link to /new#writing opens with the writing on the canvas.
   const initial = decodeURIComponent(location.hash.slice(1));
