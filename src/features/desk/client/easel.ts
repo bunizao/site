@@ -12,7 +12,8 @@
 // show, so the still life fades in piece by piece on the first visit and
 // fades from day to night when the theme turns. The easel says when it starts
 // a painting and when the paint is dry (`easel:painting`, `easel:painted`),
-// which is when the lamp may come on.
+// which is when the lamp may come on, and which section it has just set on
+// the canvas (`easel:shown`).
 
 import { ASPECT, DISC, LAMP, THINGS, type Piece } from '@/features/desk/shared/still-life';
 import { coat, css, draw, seedOf, seeded, swatch, type Tone } from './knife';
@@ -440,6 +441,7 @@ export function initEasel(): () => void {
       );
     }
     panel.focus({ preventScroll: true });
+    easel.dispatchEvent(new CustomEvent('easel:shown', { detail: id }));
   };
 
   // --- Full screen, for phones -------------------------------------------------------

@@ -27,8 +27,24 @@ function initMenu() {
   });
 }
 
+// The foil's shader compiles the first time the card is on the canvas, once
+// the page is idle, not on every visit. The foil finds the card by where it
+// is on screen, so it cannot start while the card is hidden.
+function initFoilOnShow() {
+  const easel = document.querySelector('[data-easel]');
+  const onShown = (event: Event) => {
+    if ((event as CustomEvent<string>).detail !== 'about') return;
+    easel?.removeEventListener('easel:shown', onShown);
+    (window.requestIdleCallback ?? ((callback: () => void) => setTimeout(callback, 200)))(() => initFoil());
+  };
+  easel?.addEventListener('easel:shown', onShown);
+}
+
 // The clock, the steam and the lamp hang their canvases in the painting
-// before the easel paints it; the easel makes the record's turntable.
+// before the easel paints it; the easel makes the record's turntable. A
+// link to /new#about shows the card as the easel starts, so the foil listens
+// first.
+initFoilOnShow();
 initClock();
 initSteam();
 initLamp();
@@ -36,5 +52,3 @@ initEasel();
 initTurntable();
 initSoundToggle();
 initMenu();
-// The shader compiles once the page is idle, not on the critical path.
-(window.requestIdleCallback ?? ((callback: () => void) => setTimeout(callback, 200)))(() => initFoil());
