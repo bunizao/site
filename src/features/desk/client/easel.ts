@@ -45,6 +45,8 @@ const COVER_MS = 620;
 const SCRAPE_MS = 460;
 // A fresh canvas takes this long to come up over the one before it.
 const FADE_MS = 700;
+// A tapped thing's name stays this long, unless the next tap takes it first.
+const NAME_MS = 4000;
 
 // What a thing sounds like when it is the one opened.
 const VOICES: Record<string, Sound> = {
@@ -572,6 +574,33 @@ export function initEasel(): () => void {
     if (from && from !== to) hot(to ? to.dataset.open ?? to.dataset.hint ?? null : null);
   };
 
+  /**
+   * A finger's way of pointing: `id` is the thing just tapped that has a name
+   * and nothing else to do (the clock, the lamp), or null for a tap anywhere
+   * else. The name goes on the next tap or after NAME_MS, whichever is first,
+   * so a dimmed room never waits on a finger that has moved on.
+   */
+  let nameTimer = 0;
+  const nameByTouch = (id: string | null) => {
+    clearTimeout(nameTimer);
+    // A second tap on the same thing takes its name away.
+    const again = id !== null && things.some((el) => el.dataset.hint === id && el.classList.contains('is-hot'));
+    const shown = again ? null : id;
+    hot(shown);
+    if (shown) nameTimer = window.setTimeout(() => hot(null), NAME_MS);
+  };
+
+  // A finger cannot hover, so a tap is the only way it reads a label. A touch
+  // that turns into a scroll ends in pointercancel, never here; and the clock
+  // is a bare span, which iOS sends no click for.
+  const onTap = (event: PointerEvent) => {
+    if (event.pointerType !== 'touch' || active) return;
+    const el = pointedAt(event.target);
+    // A link leaves the page, and a thing with a section opens it.
+    const named = el && !el.dataset.open && !(el instanceof HTMLAnchorElement) ? el.dataset.hint ?? null : null;
+    nameByTouch(named);
+  };
+
   const onClick = (event: MouseEvent) => {
     if (event.defaultPrevented || event.button !== 0) return;
     const target = event.target as Element;
@@ -672,6 +701,7 @@ export function initEasel(): () => void {
   document.addEventListener('keydown', onKey);
   document.addEventListener('pointerover', onOver);
   document.addEventListener('pointerout', onOut);
+  document.addEventListener('pointerup', onTap);
   document.addEventListener('focusin', onOver);
   document.addEventListener('focusout', onOut);
   window.addEventListener('popstate', onPop);
@@ -686,6 +716,7 @@ export function initEasel(): () => void {
   if (initial && panels.has(initial)) open(initial);
 
   return () => {
+    clearTimeout(nameTimer);
     resizeObserver.disconnect();
     tabsObserver.disconnect();
     themeObserver.disconnect();
@@ -693,6 +724,7 @@ export function initEasel(): () => void {
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('pointerover', onOver);
     document.removeEventListener('pointerout', onOut);
+    document.removeEventListener('pointerup', onTap);
     document.removeEventListener('focusin', onOver);
     document.removeEventListener('focusout', onOut);
     window.removeEventListener('popstate', onPop);
