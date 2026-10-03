@@ -524,12 +524,20 @@ body:has(.desk) .spotlight-overlay {
   translate: 0 -1.4%;
 }
 
+/* Nudged, it makes the same move for a moment, so a finger, which cannot
+   hover, learns that it can tap (client/easel.ts). It goes a fixed height:
+   on a phone 1.4% is a pixel or two, and the room does not step back around
+   it to make up the difference. */
+.sl-thing.is-nudged {
+  translate: 0 -5px;
+}
+
 /* The card swings on its nail; the record leans back on the wall. */
 .sl-thing[data-thing='badge'] {
   transform-origin: 50% 10%;
 }
 
-.sl-thing[data-thing='badge'].is-hot {
+.sl-thing[data-thing='badge']:is(.is-hot, .is-nudged) {
   translate: none;
   rotate: 4deg;
 }
@@ -538,7 +546,7 @@ body:has(.desk) .spotlight-overlay {
   transform-origin: 50% 100%;
 }
 
-.sl-thing[data-thing='record'].is-hot {
+.sl-thing[data-thing='record']:is(.is-hot, .is-nudged) {
   translate: none;
   rotate: -2.5deg;
 }

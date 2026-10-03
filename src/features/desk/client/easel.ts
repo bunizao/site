@@ -47,6 +47,12 @@ const SCRAPE_MS = 460;
 const FADE_MS = 700;
 // A tapped thing's name stays this long, unless the next tap takes it first.
 const NAME_MS = 4000;
+// The nudge waits this long once the painting is in view; then each thing
+// lifts this long after the one to its left, and holds this long.
+const NUDGE_DELAY_MS = 700;
+const NUDGE_STEP_MS = 120;
+const NUDGE_HOLD_MS = 450;
+const NUDGE_KEY = 'desk-nudged';
 
 // What a thing sounds like when it is the one opened.
 const VOICES: Record<string, Sound> = {
@@ -632,6 +638,45 @@ export function initEasel(): () => void {
     nameByTouch(named);
   };
 
+  // --- A nudge, for fingers -------------------------------------------------------------
+  // Nothing hovers under a finger, so nothing says the painting can be
+  // tapped. The first time the dry painting is well in view on such a screen,
+  // its things lift in turn, left to right, once a session. The lamp is left
+  // out: it swings when touched, which says enough.
+  const nudgeTimers: number[] = [];
+  const nudge = () => {
+    const lifting = things.filter((el) => !el.hasAttribute('data-lamp')).sort((a, b) => a.offsetLeft - b.offsetLeft);
+    lifting.forEach((el, i) => {
+      const at = NUDGE_DELAY_MS + i * NUDGE_STEP_MS;
+      nudgeTimers.push(
+        window.setTimeout(() => el.classList.add('is-nudged'), at),
+        window.setTimeout(() => el.classList.remove('is-nudged'), at + NUDGE_HOLD_MS),
+      );
+    });
+  };
+  const nudgeWatch = new IntersectionObserver(
+    ([entry]) => {
+      if (!entry.isIntersecting) return;
+      nudgeWatch.disconnect();
+      // Whoever has opened something has found the things already.
+      if (opened.length) return;
+      try {
+        sessionStorage.setItem(NUDGE_KEY, '1');
+      } catch {
+        /* Not kept: the next visit nudges again. */
+      }
+      nudge();
+    },
+    { threshold: 0.6 },
+  );
+  const nudged = () => {
+    try {
+      return sessionStorage.getItem(NUDGE_KEY) !== null;
+    } catch {
+      return false;
+    }
+  };
+
   const onClick = (event: MouseEvent) => {
     if (event.defaultPrevented || event.button !== 0) return;
     const target = event.target as Element;
@@ -749,12 +794,18 @@ export function initEasel(): () => void {
     void document.fonts.ready.then(paintAllSwatches);
   }));
 
+  if (window.matchMedia('(hover: none)').matches && !reduced.matches && !nudged()) {
+    easel.addEventListener('easel:painted', () => nudgeWatch.observe(still), { once: true });
+  }
+
   // A shared link to /new#writing opens with the writing on the canvas.
   const initial = decodeURIComponent(location.hash.slice(1));
   if (initial && panels.has(initial)) open(initial);
 
   return () => {
     clearTimeout(nameTimer);
+    nudgeTimers.forEach(clearTimeout);
+    nudgeWatch.disconnect();
     resizeObserver.disconnect();
     tabsObserver.disconnect();
     themeObserver.disconnect();
