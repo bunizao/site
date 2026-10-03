@@ -1,0 +1,99 @@
+---
+// A note to the owner, as a letter: a sheet of paper with the owner's name
+// at the top and yours at the foot, written on its ruled lines, and an envelope
+// under it with the flap open and a line on the back for where to write back
+// to. The wax seal is the send button. Sending slides the letter in and
+// shuts the flap; a refusal takes it out again; a letter that went stays
+// sealed, stamped with the day.
+//
+// It is the /message form in other clothes: the same fields and hooks, run
+// by the same client (features/messages/client/message-form.ts). The
+// envelope's field and the seal belong to the form by its id, so the letter
+// can go into the envelope without taking them with it. The states are read
+// from the hooks the client already flips, in desk.css: the typing hook is
+// shown while the letter is in the post, and the form's view is hidden once
+// it has gone.
+import { MESSAGE_MAX_BODY_LENGTH, MESSAGE_MAX_NAME_LENGTH } from '@bunizao/contracts/messages';
+import { messageCopy as t } from '@/features/messages/copy';
+
+interface Props {
+  to: string;
+  turnstileSiteKey: string;
+  /** The section's tone, `--h` and `--c`. */
+  style: string;
+}
+
+const { to, turnstileSiteKey, style } = Astro.props;
+const today = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Australia/Melbourne' }).format(new Date());
+---
+
+<div class="mx" style={style} data-message-root data-turnstile-site-key={turnstileSiteKey}>
+  <div class="mx-letter" data-message-form-view>
+    <form class="mx-paper" id="desk-letter" data-message-form data-slab novalidate>
+      <p class="mx-dear" aria-hidden="true">Dear {to},</p>
+      <label class="sr-only" for="desk-letter-body">{t.bodyLabel}</label>
+      <textarea
+        class="mx-body"
+        id="desk-letter-body"
+        name="body"
+        rows="4"
+        maxlength={MESSAGE_MAX_BODY_LENGTH}
+        placeholder="Write anything. Nobody reads it but me."
+        required></textarea>
+      <p class="mx-sign">
+        <span aria-hidden="true">Yours,</span>
+        <label class="sr-only" for="desk-letter-name">{t.nameLabel}</label>
+        <input
+          class="mx-line"
+          id="desk-letter-name"
+          name="displayName"
+          type="text"
+          maxlength={MESSAGE_MAX_NAME_LENGTH}
+          autocomplete="nickname"
+          placeholder="your name"
+          required
+        />
+      </p>
+      <span class="mx-count" data-message-count aria-hidden="true" hidden></span>
+      <div class="message-trap" aria-hidden="true">
+        <label for="desk-letter-website">Website</label>
+        <input id="desk-letter-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+      </div>
+    </form>
+  </div>
+
+  <div class="mx-envelope">
+    <canvas class="mx-flap" data-study="flap" data-seed="flap" aria-hidden="true"></canvas>
+    <canvas class="mx-back" data-study="envelope" data-seed="envelope" aria-hidden="true"></canvas>
+    <p class="mx-return">
+      <label for="desk-letter-email">Write back to</label>
+      <input
+        class="mx-line"
+        id="desk-letter-email"
+        form="desk-letter"
+        name="email"
+        type="email"
+        autocomplete="email"
+        inputmode="email"
+        placeholder="your email"
+        required
+      />
+    </p>
+    <button class="mx-seal" type="submit" form="desk-letter" data-message-submit disabled>
+      <canvas data-study="seal" data-seed="seal" aria-hidden="true"></canvas>
+      <span class="mx-seal-mark" aria-hidden="true">{to.charAt(0)}</span>
+      <span class="sr-only" data-message-submit-label>{t.submit}</span>
+    </button>
+    <span class="mx-stamp" aria-hidden="true">Sent<br />{today}</span>
+  </div>
+
+  <div class="mx-turnstile" data-message-turnstile></div>
+  <p class="mx-error" data-message-error hidden role="alert"></p>
+  <p class="mx-hint">Press the seal to send it. {t.privacy}</p>
+
+  <span data-message-typing hidden></span>
+  <div class="mx-sent" data-message-sent-view hidden tabindex="-1">
+    <p data-message-sent-body></p>
+    <button class="door" type="button" data-message-again data-daub>{t.sendAnother}</button>
+  </div>
+</div>

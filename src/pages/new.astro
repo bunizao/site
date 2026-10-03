@@ -15,6 +15,7 @@ import Badge from '@/features/desk/ui/Badge.astro';
 import Contents from '@/features/desk/ui/Contents.astro';
 import Door from '@/features/desk/ui/Door.astro';
 import Easel, { type EaselSection } from '@/features/desk/ui/Easel.astro';
+import Letter from '@/features/desk/ui/Letter.astro';
 import MoodChannel from '@/features/desk/ui/MoodChannel.astro';
 import Panel from '@/features/desk/ui/Panel.astro';
 import Subscribe from '@/features/desk/ui/Subscribe.astro';
@@ -141,6 +142,7 @@ const sections: EaselSection[] = [
     chroma: 0.1,
     href: '/message',
     thing: 'Leave me a note: the letter',
+    panel: true,
   },
   // Not in the painting: the gallery label opens it, and it has no tab.
   {
@@ -216,7 +218,7 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
         </p>
         <p class="desk-cta">
           <span class="desk-note">Everything in the painting opens. Or just</span>
-          <a class="desk-chip" href="/message" style={tone('note')}>leave me a note</a><span class="desk-note">.</span>
+          <a class="desk-chip" href="/message" {...opens('note')}>leave me a note</a><span class="desk-note">.</span>
         </p>
       </div>
     </div>
@@ -273,6 +275,10 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
       <Panel id="github">
         <div class="easel-paper"><GitHubContributions /></div>
         <Door href="https://github.com/bunizao" label="bunizao on GitHub" style={tone('github')} external />
+      </Panel>
+
+      <Panel id="note">
+        <Letter to={firstName} turnstileSiteKey={turnstileSiteKey} style={tone('note')} />
       </Panel>
 
       <Panel id="colophon" label="Colophon">

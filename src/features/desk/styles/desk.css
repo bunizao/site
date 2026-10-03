@@ -1522,6 +1522,396 @@ body:has(.desk) .spotlight-overlay {
   display: none;
 }
 
+/* --- The letter ---------------------------------------------------------------------
+   A sheet on top, written on its ruled lines; the envelope's back under
+   it, flap up behind the sheet. In the post (the typing hook showing) the
+   sheet slides down into the envelope, cut off at its mouth, and the flap
+   shuts under the seal; a refusal brings it back out. Gone (the form's view
+   hidden), the flap stays shut, the stamp lands, and the sheet's room folds
+   away. */
+.mx {
+  --mx-ruled: oklch(0.82 0.05 var(--h) / 0.45);
+  display: flex;
+  width: 100%;
+  max-width: 440px;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mx-letter {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  width: 92%;
+  grid-template-rows: 1fr;
+  /* Cut off at the bottom only: the envelope's mouth. */
+  clip-path: inset(-60px -60px 0 -60px);
+  transition: grid-template-rows 0.5s var(--d-ease) 0.7s;
+}
+
+/* In the post its room folds away under the envelope; gone, it stays folded. */
+.mx:has([data-message-typing]:not([hidden])) .mx-letter {
+  grid-template-rows: 0fr;
+}
+
+.mx-letter[hidden] {
+  display: grid;
+  visibility: hidden;
+  grid-template-rows: 0fr;
+  transition:
+    grid-template-rows 0.5s var(--d-ease) 0.7s,
+    visibility 0s 1.2s;
+}
+
+.mx-paper {
+  position: relative;
+  min-height: 0;
+  margin: 0 0 6px;
+  padding: 26px 26px 22px;
+  isolation: isolate;
+  rotate: -0.6deg;
+  transition:
+    translate 0.7s cubic-bezier(0.55, 0, 0.3, 1),
+    rotate 0.7s var(--d-ease);
+}
+
+.mx-paper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: oklch(0.993 0.012 var(--h));
+  box-shadow: 0 1px 2px rgb(40 20 20 / 0.08), 0 14px 26px -18px rgb(40 20 20 / 0.4);
+}
+
+.mx-paper.has-swatch::before {
+  inset: -4px -6px;
+  background: var(--swatch) center / 100% 100% no-repeat;
+  box-shadow: none;
+  filter: drop-shadow(0 8px 10px rgb(40 20 20 / 0.12));
+}
+
+:root.dark .mx-paper:not(.has-swatch)::before {
+  background: oklch(0.35 0.03 var(--h));
+}
+
+.mx:has([data-message-typing]:not([hidden])) .mx-paper,
+.mx-letter[hidden] .mx-paper {
+  translate: 0 104%;
+  rotate: 0deg;
+}
+
+.mx-dear {
+  margin: 0 0 6px;
+  color: var(--d-ink);
+  font: 600 22px/1.3 var(--d-display);
+  letter-spacing: -0.01em;
+}
+
+/* The body is written on the sheet's lines, with the margin rule down the left. */
+.mx-body {
+  display: block;
+  width: 100%;
+  min-height: calc(28px * 4 + 4px);
+  max-height: 340px;
+  padding: 0 0 0 14px;
+  border: 0;
+  background:
+    linear-gradient(to right, oklch(0.7 0.12 var(--h) / 0.35) 1px, transparent 1px) 2px 0 / 100% 100% no-repeat,
+    repeating-linear-gradient(to bottom, transparent 0 27px, var(--mx-ruled) 27px 28px);
+  color: var(--d-ink);
+  font: 400 16px/28px var(--d-sans);
+  resize: none;
+  outline: none;
+}
+
+.mx-body::placeholder,
+.mx-line::placeholder {
+  color: var(--d-faint);
+}
+
+.mx-sign {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 14px 0 0;
+  color: var(--d-note);
+  font: 500 15px/1 var(--d-display);
+}
+
+/* A line to write on: the ink's own colour drawn under it when it has the pen. */
+.mx-line {
+  width: 11em;
+  max-width: 60%;
+  min-height: 36px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1.5px solid var(--mx-ruled);
+  border-radius: 0;
+  background: none;
+  color: var(--d-ink);
+  font: 500 16px/1.2 var(--d-sans);
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.mx-line:focus {
+  border-bottom-color: oklch(0.5 0.14 var(--h));
+}
+
+.mx-count {
+  position: absolute;
+  right: 26px;
+  bottom: 8px;
+  color: var(--d-faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mx-count[data-full] {
+  color: oklch(0.5 0.14 25);
+}
+
+.message-trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.mx-envelope {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  aspect-ratio: 1 / 0.6;
+  perspective: 900px;
+  filter: drop-shadow(6px 10px 0 rgb(60 30 40 / 0.1));
+}
+
+.mx-back {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Shut it points down over the back; open it is turned up over the top edge, behind the sheet. */
+.mx-flap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: 100%;
+  height: 56%;
+  transform-origin: top;
+  transform: rotateX(180deg);
+  transition: transform 0.6s var(--d-ease);
+}
+
+.mx:has([data-message-typing]:not([hidden])) .mx-flap,
+.mx:has(.mx-letter[hidden]) .mx-flap {
+  transform: rotateX(0deg);
+  transition-delay: 0.55s;
+}
+
+.mx-return {
+  position: absolute;
+  right: 8%;
+  bottom: 10%;
+  left: 8%;
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--d-note);
+  font: 500 14px/1 var(--d-display);
+}
+
+.mx-return .mx-line {
+  flex: 1;
+  max-width: 16em;
+}
+
+/* The envelope is paper by lamplight too, so what is written on it stays in dark ink. */
+.mx-return,
+.mx-return .mx-line::placeholder {
+  color: oklch(0.42 0.02 60);
+}
+
+.mx-return .mx-line {
+  border-bottom-color: oklch(0.42 0.04 60 / 0.35);
+  color: oklch(0.22 0.02 60);
+}
+
+.mx:has(.mx-letter[hidden]) .mx-return .mx-line {
+  pointer-events: none;
+  border-bottom-color: transparent;
+}
+
+/* The seal sits where the flap's point comes down. */
+.mx-seal {
+  position: absolute;
+  top: 56%;
+  left: 50%;
+  z-index: 3;
+  display: grid;
+  width: 66px;
+  height: 66px;
+  margin: -33px 0 0 -33px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition:
+    scale 0.3s var(--d-ease),
+    rotate 0.3s var(--d-ease);
+}
+
+.mx-seal canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(1px 2px 1px rgb(60 10 10 / 0.3));
+}
+
+.mx-seal-mark {
+  position: relative;
+  color: oklch(0.32 0.12 22);
+  font: 700 24px/1 var(--d-display);
+  text-shadow: 0 1px 0 oklch(0.62 0.13 22 / 0.7);
+}
+
+@media (hover: hover) {
+  .mx-seal:hover {
+    rotate: -6deg;
+    scale: 1.05;
+  }
+}
+
+.mx-seal:active,
+.mx:has([data-message-typing]:not([hidden])) .mx-seal {
+  scale: 0.92;
+}
+
+.mx-seal:disabled {
+  cursor: default;
+}
+
+.mx-seal:focus-visible {
+  outline: 2px solid var(--d-focus);
+  outline-offset: 3px;
+}
+
+/* Pressed shut: the seal comes down hard once the flap is under it. */
+.mx:has(.mx-letter[hidden]) .mx-seal {
+  animation: seal-press 0.5s var(--d-ease) 0.9s backwards;
+  pointer-events: none;
+}
+
+@keyframes seal-press {
+  from {
+    scale: 1.35;
+    opacity: 0;
+  }
+}
+
+.mx-stamp {
+  position: absolute;
+  top: 9%;
+  right: 6%;
+  z-index: 3;
+  padding: 6px 10px;
+  border: 2px solid oklch(0.5 0.13 var(--h) / 0.75);
+  border-radius: 6px;
+  color: oklch(0.5 0.13 var(--h) / 0.85);
+  font: 700 11px/1.25 var(--d-display);
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  opacity: 0;
+  rotate: -9deg;
+  scale: 1.4;
+  pointer-events: none;
+}
+
+.mx:has(.mx-letter[hidden]) .mx-stamp {
+  opacity: 1;
+  scale: 1;
+  transition:
+    opacity 0.2s ease 1.3s,
+    scale 0.35s var(--d-ease) 1.3s;
+}
+
+.mx-turnstile:empty {
+  display: none;
+}
+
+.mx-turnstile {
+  margin-top: 14px;
+}
+
+.mx-error {
+  margin: 14px 0 0;
+  color: oklch(0.5 0.14 25);
+  font-size: 14px;
+  text-align: center;
+}
+
+:root.dark .mx-error {
+  color: oklch(0.75 0.12 25);
+}
+
+.mx-hint {
+  margin: 14px 0 0;
+  color: var(--d-faint);
+  font-size: 13px;
+  text-align: center;
+}
+
+.mx:has(.mx-letter[hidden]) .mx-hint {
+  display: none;
+}
+
+.mx-sent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 22px;
+  outline: none;
+  text-align: center;
+  animation: slip-in 0.5s var(--d-ease) 1.2s backwards;
+}
+
+.mx-sent[hidden] {
+  display: none;
+}
+
+.mx-sent p {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--d-ink);
+  font: 500 15px/1.5 var(--d-sans);
+  text-wrap: pretty;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mx-paper,
+  .mx-flap,
+  .mx-letter,
+  .mx-stamp {
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
+}
+
 /* Projects: a wall of small studies, each matted like a print. */
 .works {
   display: grid;

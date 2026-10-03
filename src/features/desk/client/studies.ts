@@ -293,7 +293,47 @@ const key: Study = (ctx, rand, w, h, t) => {
   draw(ctx, stroke(rand, w * 0.06, h * 0.86, 0, w * 0.88, h * 0.1, metal(t, 0.5), 0.3));
 };
 
-const STUDIES: Record<string, Study> = { cube, carousel, tour, waves, vinyl, shine, deck, arm, key };
+// The back of an envelope (ui/Letter.astro): its paper, the bottom flap and
+// the side flaps folded in, and the seams between them. The top flap is its
+// own canvas, which opens and shuts over it.
+const PAPER = (t: (l: number, c: number, h: number) => Tone, dl = 0) => t(0.93 + dl, 0.03, 78);
+
+const envelope: Study = (ctx, rand, w, h, t) => {
+  fill(ctx, rand, rect(0, 0, w, h), { size: h * 0.12, stretch: [3, 5], jitter: 0.06, density: 2, hold: 1, tone: () => vary(rand, PAPER(t), 0.012, 0.006, 3) });
+  // The bottom flap, folded up over the side flaps, a shade lighter where it catches the light.
+  const tip = h * 0.42;
+  fill(ctx, rand, polygon([[0, h], [w * 0.5, tip], [w, h]]), { size: h * 0.1, stretch: [3, 5], angle: -0.3, jitter: 0.1, density: 2.2, hold: 0.98, tone: () => vary(rand, PAPER(t, 0.025), 0.01, 0.005, 3) });
+  for (const [x0, y0, x1, y1] of [[0, h, w * 0.5, tip], [w, h, w * 0.5, tip]]) {
+    const angle = Math.atan2(y1 - y0, x1 - x0);
+    draw(ctx, stroke(rand, x0, y0, angle, Math.hypot(x1 - x0, y1 - y0), h * 0.012, PAPER(t, -0.12), 0.3));
+  }
+};
+
+// The top flap, shut, pointing down from the envelope's top edge.
+const flap: Study = (ctx, rand, w, h, t) => {
+  fill(ctx, rand, polygon([[0, 0], [w, 0], [w * 0.5, h]]), { size: h * 0.16, stretch: [3, 5], angle: 0.25, jitter: 0.1, density: 2.4, hold: 0.98, tone: () => vary(rand, PAPER(t, -0.015), 0.012, 0.005, 3) });
+  for (const [x0, x1] of [[0, w * 0.5], [w, w * 0.5]]) {
+    const angle = Math.atan2(h, x1 - x0);
+    draw(ctx, stroke(rand, x0, h * 0.01, angle, Math.hypot(x1 - x0, h), h * 0.02, PAPER(t, -0.1), 0.3));
+  }
+};
+
+// A seal of red wax, pressed: a blob with a rim pushed up round the die.
+const seal: Study = (ctx, rand, w, _h, t) => {
+  const c = w / 2;
+  const r = w * 0.46;
+  const wax = t(0.46, 0.15, 22);
+  const around = (x: number, y: number) => Math.atan2(y - c, x - c) + Math.PI / 2;
+  fill(ctx, rand, ellipse(c, c, r, r * 0.96, rand()), { size: r * 0.22, stretch: [1.4, 2.4], jitter: 0.8, density: 2.6, hold: 0.82, tone: () => vary(rand, wax, 0.04, 0.02, 4) });
+  fill(ctx, rand, ring(c, c, r * 0.8, r * 0.62), { size: r * 0.1, stretch: [3, 5], jitter: 0.05, density: 2, hold: 1, under: false, angleAt: around, tone: () => vary(rand, { ...wax, l: wax.l - 0.08 }, 0.03, 0.02, 4) });
+  fill(ctx, rand, ellipse(c, c, r * 0.62, r * 0.62), { size: r * 0.14, stretch: [1.4, 2.4], jitter: 0.6, density: 2.4, hold: 0.96, tone: () => vary(rand, { ...wax, l: wax.l + 0.04 }, 0.03, 0.02, 4) });
+  for (let i = 0; i < 4; i++) {
+    const at = -2.4 + (rand() - 0.5) * 0.6;
+    draw(ctx, stroke(rand, c + Math.cos(at) * r * 0.72, c + Math.sin(at) * r * 0.72, at + Math.PI / 2, r * 0.3, r * 0.06, { l: 1, c: 0, h: 0, a: 0.28 }, 0.3));
+  }
+};
+
+const STUDIES: Record<string, Study> = { cube, carousel, tour, waves, vinyl, shine, deck, arm, key, envelope, flap, seal };
 
 const shade = (night: boolean) => (l: number, c: number, h: number): Tone => (night ? { l: 0.12 + l * 0.6, c: c * 0.85, h } : { l, c, h });
 
