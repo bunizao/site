@@ -83,6 +83,7 @@ TODO; if you are about to act on a row here, confirm it in the code first.
 | [apple-music-v2.md](apple-music-v2.md) | MusicKit full-track playback (draft PRD). |
 | [mood-comments-bridge.md](mood-comments-bridge.md) | A compose box on `/mood/[id]` whose comments the ops bot posts into the Telegram discussion group; thin bridge over the existing scrape and the blog comments risk stack. |
 | [comment-actor-identity.md](comment-actor-identity.md) | Multi-key actor identity on every comment and reaction, a D1 ban list both write paths consult, and a portal that shows the source and can ban or purge by key. Revises decision 7 of blog-comments.md and reverses its exclusion of client-side fingerprinting. |
+| [desk-backend.md](desk-backend.md) | What the /new desk needs from `site-api`: restarting the mood stats snapshot, public writing stats, GitHub recent activity, and the optional counts. Replaces the desk's MOCK figures. |
 
 ## Dependency notes
 
