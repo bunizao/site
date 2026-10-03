@@ -906,7 +906,8 @@ export function initEasel(): () => void {
     const target = event.target as Element;
     // The screen's edges are the browser's back and forward.
     if (!panel || !panel.contains(target) || event.clientX < SWIPE_EDGE || event.clientX > innerWidth - SWIPE_EDGE) return;
-    if (scrollsSideways(target, panel)) return;
+    // The tonearm is dragged across, not swiped.
+    if (scrollsSideways(target, panel) || target.closest('[data-grip]')) return;
     swipe = { id: event.pointerId, x: event.clientX, y: event.clientY, dx: 0, vx: 0, at: event.timeStamp, on: false, panel };
   };
 

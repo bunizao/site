@@ -17,6 +17,7 @@ import Door from '@/features/desk/ui/Door.astro';
 import Easel, { type EaselSection } from '@/features/desk/ui/Easel.astro';
 import MoodChannel from '@/features/desk/ui/MoodChannel.astro';
 import Panel from '@/features/desk/ui/Panel.astro';
+import Turntable from '@/features/desk/ui/Turntable.astro';
 import Works from '@/features/desk/ui/Works.astro';
 import { loadDeskContent } from '@/features/desk/server/content';
 import { GitHubIcon, InstagramIcon, MonashCrestIcon, TelegramIcon } from '@/components/icons';
@@ -256,13 +257,7 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
 
       <Panel id="listening">
         <div class="lp">
-          <div class="lp-record" aria-hidden="true">
-            <div class="lp-spin" data-turn>
-              <canvas class="lp-disc" data-study="vinyl" data-seed="vinyl"></canvas>
-              <img class="lp-label" alt="" referrerpolicy="no-referrer" data-vinyl-label hidden />
-            </div>
-            <canvas class="lp-shine" data-study="shine" data-seed="shine"></canvas>
-          </div>
+          <Turntable />
           <div class="easel-paper"><Listening /></div>
         </div>
       </Panel>

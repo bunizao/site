@@ -1,0 +1,52 @@
+---
+// The listening panel's turntable, seen from above and painted with the
+// knife (client/studies.ts): the record turns on its platter while the song
+// plays, and the tonearm is its progress bar (client/tonearm.ts). The start
+// key is the one control a keyboard reaches; the arm is for a hand to drag.
+// Every position comes from DECK, in plinth widths.
+import { DECK } from '@/features/desk/shared/deck';
+
+const pct = (n: number) => `${(n * 100).toFixed(3)}%`;
+const { platter, pivot, box, height } = DECK;
+// The record's canvas is a little wider than the record: the study paints it at 0.98 of half its width.
+const disc = (DECK.record / 0.98) * 2;
+const boxWidth = box.left + box.right;
+const boxHeight = box.top + box.bottom;
+
+const vars = [
+  `--tt-ratio: ${1 / height}`,
+  `--tt-disc-x: ${pct(platter.x - disc / 2)}`,
+  `--tt-disc-y: ${pct((platter.y - disc / 2) / height)}`,
+  `--tt-disc: ${pct(disc)}`,
+  `--tt-arm-x: ${pct(pivot.x - box.left)}`,
+  `--tt-arm-y: ${pct((pivot.y - box.top) / height)}`,
+  `--tt-arm-w: ${pct(boxWidth)}`,
+  `--tt-arm-h: ${pct(boxHeight / height)}`,
+  `--tt-pivot-x: ${pct(box.left / boxWidth)}`,
+  `--tt-pivot-y: ${pct(box.top / boxHeight)}`,
+  // The headshell's grip, around the stylus, and the tube's, along the arm.
+  `--tt-grip-y: ${pct((box.top + DECK.arm - 0.03) / boxHeight)}`,
+  `--tt-tube-y: ${pct((box.top + 0.06) / boxHeight)}`,
+  `--tt-tube-h: ${pct((DECK.arm - 0.12) / boxHeight)}`,
+].join('; ');
+---
+
+<div class="tt" style={vars} data-deck>
+  <canvas class="tt-deck" data-study="deck" data-seed="deck" aria-hidden="true"></canvas>
+  <span class="tt-lamp" aria-hidden="true"></span>
+  <div class="tt-spin" data-turn aria-hidden="true">
+    <canvas data-study="vinyl" data-seed="vinyl"></canvas>
+    <img class="tt-label" alt="" referrerpolicy="no-referrer" data-vinyl-label hidden />
+  </div>
+  <canvas class="tt-shine" data-study="shine" data-seed="shine" aria-hidden="true"></canvas>
+  <div class="tt-arm-shade" aria-hidden="true">
+    <div class="tt-arm" data-arm>
+      <canvas data-study="arm" data-seed="arm"></canvas>
+      <span class="tt-grip tt-grip-tube" data-grip></span>
+      <span class="tt-grip tt-grip-head" data-grip></span>
+    </div>
+  </div>
+  <button class="tt-start" type="button" aria-label="Play" aria-pressed="false" data-deck-start>
+    <canvas data-study="key" data-seed="key"></canvas>
+  </button>
+</div>

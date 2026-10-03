@@ -1006,8 +1006,9 @@ body:has(.desk) .spotlight-overlay {
   font-variant-numeric: tabular-nums;
 }
 
-/* Listening: the record off the wall, turning, wearing the cover of the
-   song; the light on it stays where it is. */
+/* Listening: a turntable from above (ui/Turntable.astro). The record turns
+   under a light that stays where it is, and the tonearm lifts while it
+   swings and settles into the groove (client/tonearm.ts). */
 .lp {
   display: flex;
   width: 100%;
@@ -1017,23 +1018,41 @@ body:has(.desk) .spotlight-overlay {
   gap: 4px;
 }
 
-.lp-record {
+.tt {
   position: relative;
-  width: min(330px, 78%);
-  aspect-ratio: 1;
+  width: min(420px, 100%);
+  aspect-ratio: var(--tt-ratio);
   filter: drop-shadow(10px 14px 0 rgb(60 30 40 / 0.1));
 }
 
-.lp-spin,
-.lp-disc,
-.lp-shine {
+.tt canvas {
   position: absolute;
   inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
 }
 
-.lp-label {
+.tt-deck {
+  border-radius: 2.4% / 3%;
+}
+
+.tt-spin,
+.tt .tt-shine {
+  position: absolute;
+  inset: auto;
+  left: var(--tt-disc-x);
+  top: var(--tt-disc-y);
+  width: var(--tt-disc);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.tt-shine {
+  pointer-events: none;
+}
+
+.tt-label {
   position: absolute;
   inset: 34%;
   width: 32%;
@@ -1042,25 +1061,138 @@ body:has(.desk) .spotlight-overlay {
   object-fit: cover;
 }
 
-.lp-label[hidden] {
+.tt-label[hidden] {
   display: none;
 }
 
-.lp-spin::after {
+.tt-spin::after {
   content: '';
   position: absolute;
-  inset: calc(50% - 4px);
+  inset: calc(50% - 3px);
   border-radius: 50%;
-  background: oklch(0.2 0.01 280);
+  background: oklch(0.82 0.006 250);
+  box-shadow: 0 0 0 1.5px oklch(0.3 0.01 260 / 0.5);
 }
 
-.lp-shine {
+/* The arm's shadow is cast in the page's frame, not the arm's: the wrapper
+   holds the filter, so the shadow falls the same way however the arm turns. */
+.tt-arm-shade {
+  position: absolute;
+  inset: 0;
   pointer-events: none;
+  filter: drop-shadow(3px 4px 0 rgb(40 20 30 / 0.16));
+  transition: filter 0.24s var(--d-ease);
+}
+
+.tt.is-cued .tt-arm-shade {
+  filter: drop-shadow(9px 13px 1px rgb(40 20 30 / 0.12));
+}
+
+.tt-arm {
+  position: absolute;
+  left: var(--tt-arm-x);
+  top: var(--tt-arm-y);
+  width: var(--tt-arm-w);
+  height: var(--tt-arm-h);
+  transform-origin: var(--tt-pivot-x) var(--tt-pivot-y);
+  scale: 1;
+  transition: scale 0.24s var(--d-ease);
+}
+
+.tt.is-cued .tt-arm {
+  scale: 1.02;
+}
+
+.tt-grip {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
+
+.tt.is-held .tt-grip {
+  cursor: grabbing;
+}
+
+.tt-grip-head {
+  top: var(--tt-grip-y);
+  width: 48px;
+  height: 48px;
+  margin-top: -24px;
+  border-radius: 50%;
+}
+
+.tt-grip-tube {
+  top: var(--tt-tube-y);
+  width: 28px;
+  height: var(--tt-tube-h);
+}
+
+.tt-start {
+  position: absolute;
+  left: 4.6%;
+  top: 85.6%;
+  width: 10.5%;
+  height: 6.5%;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  box-shadow: 1px 2px 0 rgb(40 20 30 / 0.22);
+  cursor: pointer;
+  transition: translate 0.12s var(--d-ease), box-shadow 0.12s var(--d-ease);
+}
+
+/* A key that small still takes a whole fingertip. */
+.tt-start::before {
+  content: '';
+  position: absolute;
+  inset: -14px -10px;
+}
+
+.tt-start[aria-pressed='true'] {
+  translate: 0 1px;
+  box-shadow: 0 0 0 rgb(40 20 30 / 0.22);
+}
+
+.tt-start:focus-visible {
+  outline: 2px solid var(--d-ink);
+  outline-offset: 4px;
+}
+
+.tt-lamp {
+  position: absolute;
+  left: 5.3%;
+  top: 74.1%;
+  width: 4.4%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, oklch(0.86 0.16 70 / 0.95), oklch(0.7 0.18 45 / 0.5) 45%, transparent 72%);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+
+.tt.is-on .tt-lamp {
+  opacity: 1;
+}
+
+/* On the desk the turntable is the record: the card keeps its words, its
+   progress and its time, and gives up its own small disc. */
+.lp .listening-art {
+  display: none;
+}
+
+.lp .listening {
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .lp .easel-paper {
   align-self: stretch;
-  margin-top: 26px;
+  margin-top: 22px;
 }
 
 /* The way through to a section's own page: a stroke of its colour at the

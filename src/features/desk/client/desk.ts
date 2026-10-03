@@ -9,6 +9,7 @@ import { initMoods } from './moods';
 import { initNotes } from './notes';
 import { initSoundToggle } from './sound';
 import { initSteam } from './steam';
+import { initTonearm } from './tonearm';
 import { initTurntable } from './turntable';
 
 // The foil's shader compiles the first time the card is on the canvas, once
@@ -34,6 +35,7 @@ initSteam();
 initLamp();
 initEasel();
 initTurntable();
+initTonearm();
 initNotes();
 initMoods();
 initSoundToggle();

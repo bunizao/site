@@ -1,8 +1,10 @@
 // Small knife studies for the projects: each project's hero, reduced to a
 // few slabs of paint. A cube for the CLI tools, a fan of share cards for
 // ogis, a typeset page for Attegi, and waves for the proxy rules. Also the
-// record the listening tab turns, and the light that sits on it.
+// turntable on the listening tab: its deck, its arm, its start key, the
+// record it turns and the light that sits on the record.
 
+import { DECK } from '../shared/deck';
 import { draw, ellipse, fill, polygon, rect, ring, seedOf, seeded, stroke, vary, type Rand, type Tone } from './knife';
 
 type Study = (ctx: CanvasRenderingContext2D, rand: Rand, w: number, h: number, t: (l: number, c: number, h: number) => Tone) => void;
@@ -163,7 +165,135 @@ const shine: Study = (ctx, rand, w) => {
   }
 };
 
-const STUDIES: Record<string, Study> = { cube, carousel, tour, waves, vinyl, shine };
+// The turntable the record sits on, from above: a walnut plinth, a bone
+// enamel top plate, the platter's rim with its strobe dots, the arm's base
+// and rest, the cue lever, the speed keys and the strobe lamp. The record,
+// the arm and the start key are their own canvases over it (ui/Turntable.astro).
+const metal = (t: (l: number, c: number, h: number) => Tone, l: number) => t(l, 0.006, 250);
+/** Where the arm's tube meets the headshell, from the pivot. */
+const ARM_JOINT: [number, number] = [0.03, 0.4];
+
+const deck: Study = (ctx, rand, w, h, t) => {
+  const u = (n: number) => n * w;
+  const { platter, pivot } = DECK;
+  fill(ctx, rand, rect(0, 0, w, h), { size: u(0.03), stretch: [5, 9], jitter: 0.03, density: 1.8, hold: 1, tone: () => vary(rand, t(0.42, 0.07, 50), 0.05, 0.015, 6) });
+  const inset = u(0.026);
+  fill(ctx, rand, rect(inset, inset, w - inset * 2, h - inset * 2), { size: u(0.04), stretch: [3, 6], jitter: 0.03, density: 1.8, hold: 1, tone: () => vary(rand, t(0.9, 0.018, 85), 0.014, 0.006, 4) });
+
+  // The platter stands proud of the plate, and the light comes from the top left.
+  const cast = (x: number, y: number, r: number) =>
+    fill(ctx, rand, ellipse(u(x + 0.008), u(y + 0.012), u(r), u(r)), {
+      size: u(0.014),
+      stretch: [3, 5],
+      jitter: 0.05,
+      density: 1.6,
+      hold: 0.97,
+      under: false,
+      angleAt: (px, py) => Math.atan2(py - u(y), px - u(x)) + Math.PI / 2,
+      tone: () => vary(rand, t(0.8, 0.02, 75), 0.012, 0.004, 4),
+    });
+  cast(platter.x, platter.y, platter.r + 0.004);
+  const around = (x: number, y: number) => Math.atan2(y - u(platter.y), x - u(platter.x)) + Math.PI / 2;
+  fill(ctx, rand, ring(u(platter.x), u(platter.y), u(platter.r), u(DECK.record - 0.006)), {
+    size: u(0.012),
+    stretch: [4, 7],
+    jitter: 0.04,
+    density: 2.4,
+    hold: 1,
+    angleAt: around,
+    tone: () => vary(rand, metal(t, 0.66), 0.03, 0.004, 6),
+  });
+  // The strobe dots, which stand still when the speed is right.
+  for (let i = 0; i < 90; i++) {
+    const at = (i / 90) * Math.PI * 2;
+    const x = u(platter.x) + Math.cos(at) * u(platter.r - 0.008);
+    const y = u(platter.y) + Math.sin(at) * u(platter.r - 0.008);
+    draw(ctx, stroke(rand, x, y, at + Math.PI / 2, u(0.006), u(0.006), metal(t, 0.4), 0.2));
+  }
+  for (let i = 0; i < 14; i++) {
+    const at = -2.3 + (rand() - 0.5) * 0.7;
+    const x = u(platter.x) + Math.cos(at) * u(platter.r - 0.012);
+    const y = u(platter.y) + Math.sin(at) * u(platter.r - 0.012);
+    draw(ctx, stroke(rand, x, y, at + Math.PI / 2, u(0.03 + rand() * 0.04), u(0.006), { l: 1, c: 0, h: 0, a: 0.35 + rand() * 0.3 }, 0.3));
+  }
+
+  // The arm's base, and the rest it hangs on.
+  cast(pivot.x, pivot.y, 0.068);
+  fill(ctx, rand, ellipse(u(pivot.x), u(pivot.y), u(0.066), u(0.066)), { size: u(0.014), stretch: [2, 4], jitter: 0.2, density: 2.4, hold: 0.96, tone: () => vary(rand, metal(t, 0.78), 0.03, 0.004, 6) });
+  fill(ctx, rand, ring(u(pivot.x), u(pivot.y), u(0.066), u(0.056)), { size: u(0.008), stretch: [3, 5], jitter: 0.04, density: 1.4, hold: 1, under: false, angleAt: (x, y) => Math.atan2(y - u(pivot.y), x - u(pivot.x)) + Math.PI / 2, tone: () => vary(rand, metal(t, 0.6), 0.03, 0.004, 6) });
+  // Under the tube, which leans out a little (see `arm`).
+  const rest = { x: pivot.x + ARM_JOINT[0] * 0.9, y: pivot.y + ARM_JOINT[1] * 0.9 };
+  fill(ctx, rand, ellipse(u(rest.x), u(rest.y), u(0.02), u(0.02)), { size: u(0.008), stretch: [1.4, 2.4], jitter: 0.5, density: 2.4, hold: 0.95, tone: () => vary(rand, metal(t, 0.3), 0.03, 0.004, 6) });
+  for (const side of [-1, 1]) draw(ctx, stroke(rand, u(rest.x + side * 0.016), u(rest.y - 0.016), Math.PI / 2, u(0.03), u(0.007), metal(t, 0.24), 0.3));
+
+  // The cue lever.
+  fill(ctx, rand, rect(u(0.928), u(0.255), u(0.032), u(0.07)), { size: u(0.008), stretch: [2, 3], angle: Math.PI / 2, jitter: 0.06, density: 2.4, hold: 1, tone: () => vary(rand, metal(t, 0.74), 0.03, 0.004, 6) });
+  draw(ctx, stroke(rand, u(0.944), u(0.29), -0.5, u(0.04), u(0.008), metal(t, 0.28), 0.3));
+
+  // The speed keys, 33 and 45, under the headshell at rest.
+  for (const x of [0.836, 0.9]) {
+    fill(ctx, rand, rect(u(x), u(0.712), u(0.052), u(0.03)), { size: u(0.008), stretch: [3, 5], jitter: 0.03, density: 2.4, hold: 1, tone: () => vary(rand, metal(t, 0.8), 0.03, 0.004, 6) });
+    draw(ctx, stroke(rand, u(x + 0.004), u(0.738), 0, u(0.044), u(0.005), metal(t, 0.5), 0.3));
+  }
+
+  // The strobe lamp's bezel; its light is a layer over it.
+  fill(ctx, rand, ellipse(u(0.075), u(0.615), u(0.024), u(0.024)), { size: u(0.008), stretch: [1.4, 2.4], jitter: 0.5, density: 2.4, hold: 0.95, tone: () => vary(rand, metal(t, 0.3), 0.03, 0.004, 6) });
+  fill(ctx, rand, ellipse(u(0.075), u(0.615), u(0.014), u(0.014)), { size: u(0.006), stretch: [1.2, 2], jitter: 0.6, density: 2.4, hold: 0.95, tone: () => vary(rand, t(0.5, 0.06, 40), 0.03, 0.01, 6) });
+};
+
+// The tonearm, hanging straight down from its pivot: the counterweight
+// behind, the bearing, the tube, and the headshell turned in toward the
+// spindle with the cartridge on it and the finger lift off its side. The
+// stylus is exactly an arm's length below the pivot.
+const arm: Study = (ctx, rand, w, _h, t) => {
+  const { box } = DECK;
+  const u = w / (box.left + box.right);
+  const at = (x: number, y: number): [number, number] => [(box.left + x) * u, (box.top + y) * u];
+  const slab = (points: [number, number][], tone: Tone, angle: number, size = 0.006) =>
+    fill(ctx, rand, polygon(points.map(([x, y]) => at(x, y))), { size: size * u, stretch: [3, 6], angle, jitter: 0.04, density: 2.6, hold: 1, tone: () => vary(rand, tone, 0.025, 0.004, 6) });
+
+  // The counterweight, ridged, on its stub.
+  slab([[-0.007, -0.07], [0.007, -0.07], [0.007, 0], [-0.007, 0]], metal(t, 0.7), Math.PI / 2);
+  slab([[-0.034, -0.118], [0.034, -0.118], [0.034, -0.058], [-0.034, -0.058]], metal(t, 0.26), 0, 0.01);
+  for (let i = 0; i < 5; i++) {
+    const [x, y] = at(-0.03, -0.108 + i * 0.011);
+    draw(ctx, stroke(rand, x, y, 0, u * 0.06, u * 0.003, metal(t, 0.42), 0.2));
+  }
+
+  // The tube, leaning a little out so the headshell can turn back in.
+  const joint = ARM_JOINT;
+  const stylus: [number, number] = [0, DECK.arm];
+  const lean = Math.atan2(joint[1], joint[0]);
+  const half = 0.0075;
+  const nx = Math.sin(lean) * half;
+  const ny = -Math.cos(lean) * half;
+  slab([[-nx, -ny], [nx, ny], [joint[0] + nx, joint[1] + ny], [joint[0] - nx, joint[1] - ny]], metal(t, 0.8), lean);
+  const [hx, hy] = at(-nx * 0.5, 0.02);
+  draw(ctx, stroke(rand, hx, hy, lean, u * 0.36, u * 0.0035, { l: 1, c: 0, h: 0, a: 0.6 }, 0.3));
+
+  // The headshell, from the end of the tube to a little past the stylus.
+  const dx = stylus[0] - joint[0];
+  const dy = stylus[1] - joint[1];
+  const length = Math.hypot(dx, dy);
+  const along = (s: number, side: number): [number, number] => [joint[0] + (dx / length) * s - (dy / length) * side, joint[1] + (dy / length) * s + (dx / length) * side];
+  const turn = Math.atan2(dy, dx);
+  slab([along(-0.008, -0.017), along(-0.008, 0.017), along(length + 0.018, 0.019), along(length + 0.018, -0.019)], metal(t, 0.3), turn, 0.008);
+  slab([along(0.012, -0.004), along(0.012, -0.016), along(0.04, -0.034), along(0.046, -0.028)], metal(t, 0.72), turn + 0.6, 0.005);
+  slab([along(length - 0.044, -0.013), along(length - 0.044, 0.013), along(length + 0.008, 0.013), along(length + 0.008, -0.013)], t(0.4, 0.08, 25), turn, 0.006);
+
+  // The bearing, over everything.
+  fill(ctx, rand, ellipse(...at(0, 0), u * 0.03, u * 0.03), { size: u * 0.008, stretch: [1.4, 2.4], jitter: 0.6, density: 2.6, hold: 0.95, tone: () => vary(rand, metal(t, 0.84), 0.03, 0.004, 6) });
+  fill(ctx, rand, ellipse(...at(0, 0), u * 0.013, u * 0.013), { size: u * 0.005, stretch: [1.2, 2], jitter: 0.6, density: 2.4, hold: 0.95, tone: () => vary(rand, metal(t, 0.3), 0.03, 0.004, 6) });
+};
+
+// The start key: a slab of brushed metal, pressed in while the record turns.
+const key: Study = (ctx, rand, w, h, t) => {
+  fill(ctx, rand, rect(0, 0, w, h), { size: h * 0.3, stretch: [3, 6], jitter: 0.03, density: 2.4, hold: 1, tone: () => vary(rand, metal(t, 0.8), 0.03, 0.004, 6) });
+  draw(ctx, stroke(rand, w * 0.08, h * 0.16, 0, w * 0.84, h * 0.08, { l: 1, c: 0, h: 0, a: 0.5 }, 0.3));
+  draw(ctx, stroke(rand, w * 0.06, h * 0.86, 0, w * 0.88, h * 0.1, metal(t, 0.5), 0.3));
+};
+
+const STUDIES: Record<string, Study> = { cube, carousel, tour, waves, vinyl, shine, deck, arm, key };
 
 const shade = (night: boolean) => (l: number, c: number, h: number): Tone => (night ? { l: 0.12 + l * 0.6, c: c * 0.85, h } : { l, c, h });
 
