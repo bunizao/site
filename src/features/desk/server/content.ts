@@ -43,8 +43,9 @@ export interface DeskWriting {
   words: number;
   /** The year of the first post. */
   since: number;
-  /** Every reader of every post, all time. */
-  reads: number;
+  /** Reads of every post since the counting began ("June 2026"). Nothing
+      before it was kept, so the figure never claims more than that. */
+  reads: { count: number; since: string };
   /** The post read the most. */
   top?: { title: string; href: string; lang?: string };
 }
@@ -70,9 +71,12 @@ const POSTS = 5;
 
 const melbourneTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false });
 const monthYear = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', month: 'short', year: 'numeric' });
+const longMonthYear = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', month: 'long', year: 'numeric' });
 
-// MOCK until GET /api/v2/writing/stats (plans/desk-backend.md): reads per
-// post, made up from the slug so they hold still between visits.
+// MOCK until GET /api/v2/blog/stats (plans/desk-backend.md): reads per post,
+// made up from the slug so they hold still between visits, and the day the
+// counting began (site-api's blog_analytics_events, migration 0003).
+const MOCK_READS_SINCE = '2026-06-28T00:00:00Z';
 const mockReads = (slug: string) => {
   let hash = 0;
   for (const char of slug) hash = (hash * 31 + char.charCodeAt(0)) | 0;
@@ -122,7 +126,7 @@ const summarise = (posts: ListedPost[]): DeskWriting | null => {
     posts: ledger.posts,
     words: ledger.words,
     since: ledger.since,
-    reads: read.reduce((sum, { reads }) => sum + reads, 0),
+    reads: { count: read.reduce((sum, { reads }) => sum + reads, 0), since: format(longMonthYear, MOCK_READS_SINCE) },
     top: { title: top.title, href: postPath(top.slug), lang: langOf(top.title) },
   };
 };
