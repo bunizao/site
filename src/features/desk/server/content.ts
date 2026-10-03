@@ -1,10 +1,14 @@
 // What the desk shows at request time: the newest few moods and the channel
-// they come from, and the newest posts for the contents page. Everything else
-// on the desk is static data from site.ts.
+// they come from, and the newest posts for the contents page and what the
+// blog adds up to. Everything else on the desk is static data from site.ts.
+//
+// The reads on the blog are made up until site-api serves them
+// (plans/desk-backend.md), marked MOCK below.
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
 import type { MoodServerContext } from '@/features/mood/server/channel-service';
 import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
+import { writingLedger } from '@/features/posts/ledger';
 import { getListedPosts } from '@/features/posts/server/content';
 import { postPath } from '@/features/posts/format';
 
@@ -31,6 +35,17 @@ export interface DeskPost {
   date: string;
 }
 
+export interface DeskWriting {
+  posts: number;
+  words: number;
+  /** The year of the first post. */
+  since: number;
+  /** Every reader of every post, all time. */
+  reads: number;
+  /** The post read the most. */
+  top?: { title: string; href: string; lang?: string };
+}
+
 export interface DeskChannel {
   /** "Levitating". */
   title: string;
@@ -43,6 +58,7 @@ export interface DeskContent {
   channel: DeskChannel;
   posts: DeskPost[];
   postCount: number;
+  writing: DeskWriting | null;
 }
 
 const MOODS = 3;
@@ -50,6 +66,14 @@ const POSTS = 5;
 
 const melbourneTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false });
 const monthYear = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', month: 'short', year: 'numeric' });
+
+// MOCK until GET /api/v2/writing/stats (plans/desk-backend.md): reads per
+// post, made up from the slug so they hold still between visits.
+const mockReads = (slug: string) => {
+  let hash = 0;
+  for (const char of slug) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return 80 + (Math.abs(hash) % 2400);
+};
 
 const format = (formatter: Intl.DateTimeFormat, iso: string) => {
   const date = new Date(iso);
@@ -83,6 +107,22 @@ const toMood = (item: MoodFeedItem): DeskMood => {
   };
 };
 
+type ListedPost = Awaited<ReturnType<typeof getListedPosts>>[number];
+
+const summarise = (posts: ListedPost[]): DeskWriting | null => {
+  const ledger = writingLedger(posts);
+  if (!ledger) return null;
+  const read = posts.map((post) => ({ post, reads: mockReads(post.slug) }));
+  const top = read.reduce((a, b) => (b.reads > a.reads ? b : a)).post;
+  return {
+    posts: ledger.posts,
+    words: ledger.words,
+    since: ledger.since,
+    reads: read.reduce((sum, { reads }) => sum + reads, 0),
+    top: { title: top.title, href: postPath(top.slug), lang: langOf(top.title) },
+  };
+};
+
 export async function loadDeskContent(context: MoodServerContext): Promise<DeskContent> {
   // Either source failing leaves its object empty; the rest of the desk stands.
   const [feed, posts] = await Promise.all([
@@ -102,5 +142,6 @@ export async function loadDeskContent(context: MoodServerContext): Promise<DeskC
       date: format(monthYear, post.publishedAt),
     })),
     postCount: posts.length,
+    writing: summarise(posts),
   };
 }

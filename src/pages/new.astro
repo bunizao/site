@@ -252,7 +252,7 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
       </Panel>
 
       <Panel id="writing">
-        <Contents posts={content.posts} total={content.postCount} />
+        <Contents posts={content.posts} total={content.postCount} writing={content.writing} />
         <Door href="/blog" label="Read the blog" style={tone('writing')}>
           <Subscribe channel="blog" turnstileSiteKey={turnstileSiteKey} />
         </Door>

@@ -1195,6 +1195,42 @@ body:has(.desk) .spotlight-overlay {
   margin-top: 22px;
 }
 
+/* What a section adds up to, said in a sentence or two under it, the
+   figures in ink. */
+.tally {
+  max-width: 440px;
+  margin: 14px 0 0;
+  font-family: var(--d-sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--d-note);
+  text-wrap: pretty;
+}
+
+.tally strong {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--d-ink);
+}
+
+.tally a {
+  color: var(--d-ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 30%, transparent);
+  text-underline-offset: 0.2em;
+}
+
+.tally a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Under the contents page, a caption to it. */
+.wr + .tally {
+  max-width: 340px;
+  margin-inline: auto;
+  text-align: center;
+}
+
 /* The way through to a section's own page: a stroke of its colour at the
    foot of its panel, painted like its word in the prose (client/easel.ts). */
 .door-row {
