@@ -459,7 +459,7 @@ run_safety_checks() {
 	fi
 
 	# check for dependencies
-	for cmd in {column,grep,mktemp,"${openssl_path}",sed,tee}; do
+	for cmd in {grep,mktemp,"${openssl_path}",sed,tee}; do
 		command -v "$cmd" >/dev/null || die 'required command "%s" was not found' "$cmd"
 	done
 
@@ -502,7 +502,11 @@ validate_cipher() {
 	if [[ ! $supported ]]; then
 		if [[ $interactive ]]; then
 			printf '"%s" is not a valid cipher; choose one of the following:\n\n' "$cipher"
-			$list_cipher_commands | column -c 80
+			if command -v column >/dev/null; then
+				$list_cipher_commands | column -c 80
+			else
+				$list_cipher_commands
+			fi
 			printf '\n'
 			cipher=''
 		else
