@@ -1,3 +1,2 @@
 src/features/desk/** filter=crypt diff=crypt merge=crypt
 plans/desk-*.md filter=crypt diff=crypt merge=crypt
-tests/unit/subscribe-evidence.test.ts filter=crypt diff=crypt merge=crypt
