@@ -97,6 +97,42 @@ describe('desk initialization', () => {
     expect(git(worktree, ['status', '--porcelain']).toString()).toBe('');
   }, 30_000);
 
+  test('cherry-picks encrypted branches without modifying tracked files before checkout', () => {
+    const dir = fixture();
+    const file = join(dir, 'src/features/desk/index.ts');
+    const lines = Array.from({ length: 12 }, (_, i) => `export const item${i} = 0;`);
+    writeFileSync(file, lines.join('\n') + '\n');
+    git(dir, ['add', '.']);
+    git(dir, ['-c', 'commit.gpgsign=false', 'commit', '-qm', 'test: merge fixture']);
+    expect(unlock(dir, randomBytes(32).toString('hex')).status).toBe(0);
+    git(dir, ['add', '--renormalize', '.']);
+    git(dir, ['-c', 'commit.gpgsign=false', 'commit', '-qm', 'test: encrypted base']);
+    git(dir, ['checkout', '-qb', 'right']);
+    writeFileSync(file, lines.map((line, i) => i === 11 ? line.replace('= 0', '= 200000') : line).join('\n') + '\n');
+    git(dir, ['add', '.']);
+    git(dir, ['-c', 'commit.gpgsign=false', 'commit', '-qm', 'test: right edit']);
+    git(dir, ['checkout', '-qb', 'left', 'HEAD~1']);
+    writeFileSync(file, lines.map((line, i) => i === 0 ? line.replace('= 0', '= 1') : line).join('\n') + '\n');
+    git(dir, ['add', '.']);
+    git(dir, ['-c', 'commit.gpgsign=false', 'commit', '-qm', 'test: left edit']);
+    git(dir, ['-c', 'commit.gpgsign=false', 'cherry-pick', 'right']);
+    expect(readFileSync(file, 'utf8')).toContain('item0 = 1');
+    expect(readFileSync(file, 'utf8')).toContain('item11 = 200000');
+    expect(git(dir, ['status', '--porcelain']).toString()).toBe('');
+    expect(git(dir, ['cat-file', 'blob', 'HEAD:src/features/desk/index.ts']).subarray(0, 10).toString()).toBe('U2FsdGVkX1');
+  }, 30_000);
+
+  test('cleans temporary binary input using a logical path without a working file', () => {
+    const dir = fixture();
+    expect(unlock(dir, randomBytes(32).toString('hex')).status).toBe(0);
+    const bytes = Buffer.from([0, 128, 255, 1]);
+    const helper = join(dir, '.git/crypt/transcrypt');
+    const cipher = execFileSync('bash', [helper, 'clean', 'context=default', 'src/features/desk/missing.png'], { cwd: dir, input: bytes, stdio: ['pipe', 'pipe', 'pipe'] });
+    expect(cipher.subarray(0, 10).toString()).toBe('U2FsdGVkX1');
+    const restored = execFileSync('bash', [helper, 'smudge', 'context=default'], { cwd: dir, input: cipher, stdio: ['pipe', 'pipe', 'pipe'] });
+    expect(restored).toEqual(bytes);
+  }, 30_000);
+
   test('refuses dirty source without installing configuration', () => {
     const dir = fixture();
     writeFileSync(join(dir, 'src/features/desk/index.ts'), 'owner edit\n');
