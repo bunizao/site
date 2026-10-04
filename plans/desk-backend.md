@@ -40,12 +40,21 @@ the preceding seven days. The top artist is Cheer Chen with 4 plays.
 Their aggregation read 18 and 35 D1 rows
 respectively. No subscriber records or historical playback events were written.
 
-Worker deployment is still pending, so the new routes, daily schedule and
-subscription controls are not yet active in production. Migration 0042
-has not been applied and must precede the new Worker code. Item 3 remains
-unnecessary while the README supplies the GitHub week.
+Production activation on 2026-10-04 applied migration 0042 and merged site-api
+PR #95 and site PR #263. The API Worker serves all four stats routes, the daily
+refresh is enabled, and the desk displays subscriber and playback counts.
+All snapshots were refreshed at `2026-10-04T11:40:06.672Z`: 3,435 active moods,
+1,193 photo moods, 1,135 blog reads, 302 reader identifiers and 413 completions.
+Subscriber counts remain blog 9 and mood 6; site playback remains 10 plays.
 
-Validation: site unit tests 1,075 passed; site-api unit tests 2,083 passed;
+The live acceptance check exposed a pre-existing Ghost SSR failure: the SDK
+Axios transport explicitly sets `cache: default`, which workerd rejects.
+The follow-up native-fetch transport preserves the SDK response shape and
+bounds requests to ten seconds. Failed dataset loads can retry instead of
+poisoning an isolate. A real workerd reproduction and regression tests verify
+the transport. Item 3 remains unnecessary while the README supplies the week.
+
+Validation: site unit tests 1,082 passed; site-api unit tests 2,083 passed;
 site-api integration tests 36 passed. Both repositories passed type/content
 checks, production builds and Worker upload dry-runs; documentation coverage
 passed for all 152 routes. Existing diagnostic hints remain.
