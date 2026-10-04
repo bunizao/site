@@ -58,6 +58,22 @@ describe('desk initialization', () => {
     expect(result.stderr).toContain('requires a terminal');
   });
 
+  test('initializes without the optional column formatter', () => {
+    const dir = fixture();
+    const key = randomBytes(32).toString('hex');
+    const command = `command() {
+      if [[ "$1" == '-v' && "\${2:-}" == 'column' ]]; then return 1; fi
+      builtin command "$@"
+    }
+    export -f command
+    exec bash scripts/desk-unlock.sh`;
+    const result = spawnSync('bash', ['-c', command], {
+      cwd: dir, encoding: 'utf8', env: { ...process.env, DESK_KEY: key },
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout + result.stderr).not.toContain(key);
+  }, 30_000);
+
   test('refuses dirty source without installing configuration', () => {
     const dir = fixture();
     writeFileSync(join(dir, 'src/features/desk/index.ts'), 'owner edit\n');
