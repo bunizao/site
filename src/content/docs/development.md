@@ -65,6 +65,9 @@ For Workers Builds, prefix the existing build command with
 `DESK_REQUIRED=1` in the **build** environment. A locked required build fails
 instead of silently shipping the public home. Preview builds omit both values.
 GitHub Actions uses its `DESK_KEY` repository secret; fork PRs run locked.
+Unlocked validation output and browser reports are withheld from public Actions
+logs/artifacts because diagnostics can include decrypted source. Reproduce a
+failing step locally in an unlocked checkout. Locked checks keep normal output.
 Provisioning those secrets is an owner operation. The local helper configures
 both providers without displaying or copying the desk key into command history:
 

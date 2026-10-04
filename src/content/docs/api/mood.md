@@ -310,10 +310,13 @@ rate limit is 30 requests per 60s, the tightest on the mood API.
 GET /api/v2/mood/stats
 ```
 
-Returns one precomputed snapshot: activity buckets, sentiment timeline,
+Returns one precomputed snapshot: activity buckets,
 streaks, and media-type totals. There are no parameters. A background job
-refreshes the snapshot, and the route reads it straight from KV instead of
-computing it per request.
+refreshes the snapshot daily at 19:00 UTC, and the route reads it straight
+from KV instead of computing it per request. `generatedAt` records the
+refresh time. Photo totals count archived posts with `type = 'photo'`,
+including older rows without media JSON. The former `sentimentTimeline`
+field was removed because the archive has no populated sentiment history.
 
 If the snapshot hasn't been generated yet, the route returns `503
 {"error":{"code":"mood_stats_unavailable"},"unavailable":true}`. That is a

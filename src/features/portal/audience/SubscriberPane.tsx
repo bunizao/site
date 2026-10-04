@@ -401,6 +401,7 @@ export function SubscriberDetail({
             <Field label="Email" mono copyable={row.email}>{row.email}</Field>
             <Field label="Status">{STATUS_LABELS[status]}</Field>
             <Field label="Channels">{channelsText(row.channels)}</Field>
+            <Field label="Origin">{row.source ?? 'Unknown'}</Field>
             <Field label="Delivery">
               {row.deliveryMode ? `${DELIVERY_LABELS[row.deliveryMode]}${row.deliveryMode === 'daily' ? ` at ${hourText(row.dailyHour)} ${row.timezone ?? 'UTC'}` : ''}` : deliveryText(row)}
             </Field>
