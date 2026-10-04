@@ -28,6 +28,11 @@ files and `plans/desk-*.md` through the vendored transcrypt 2.3.2 filter.
 A clone without a key builds the public home; `/new` redirects to `/`.
 The normal check, build and unit-test commands work in either state.
 
+The same filter and key cover `src/content/internal-docs/`, the owner-only
+reference behind Access at [`/dev/docs`](/docs/api/site-routes#dev-portal). A
+clone without the key leaves that collection empty, and `desk:verify` checks
+its blobs alongside the desk's.
+
 Owner setup requires Node.js, Bash, Git and OpenSSL. On a clean checkout, run
 `bash scripts/desk-unlock.sh --interactive` and paste the password at its hidden
 prompt. The key exists only in that process and the local Git configuration.
