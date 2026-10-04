@@ -5,13 +5,46 @@ group: API
 order: 2
 ---
 
-The Listening API has one read endpoint and one write endpoint. The read
-returns the track the site thinks is playing now. The write is how the site's
-own audio player reports what a visitor did with it.
+The Listening API returns the current track and a snapshot of visitor playback
+counts. Its write endpoint records what a visitor did with the site's player.
 
-The read endpoint **always returns a track**. It has no empty state and no
+The now-playing endpoint **always returns a track**. It has no empty state and no
 `404`. When Last.fm is unconfigured or unreachable, it serves a hardcoded demo
 track with a `200`. Check the `source` field before you trust the content.
+
+## Playback counts
+
+```
+GET /api/v2/listening/stats
+```
+
+Public aggregates of playback in the site's own player, not the owner's
+Apple Music or Last.fm listening history. The snapshot uses sessions started
+in the rolling seven days before `generatedAt`: `window.from` is inclusive
+and `window.to` is exclusive. Future sessions are excluded.
+
+```json
+{
+  "generatedAt": "2026-10-04T19:00:00.000Z",
+  "window": { "from": "2026-09-27T19:00:00.000Z", "to": "2026-10-04T19:00:00.000Z" },
+  "totals": { "plays": 83 },
+  "topArtist": { "name": "Example artist", "plays": 21 }
+}
+```
+
+`plays` sums the stored cumulative `play_count` per playback session.
+Checkpoints update that session's maximum, so repeated beacons do not
+duplicate plays. Requests that never reached playback contribute zero.
+`topArtist` groups these plays by trimmed artist name, breaking tied counts
+by name. Missing or blank names contribute to the total but not the ranking;
+`topArtist` is `null` when there is no eligible named artist.
+
+The request reads only KV, refreshed daily at 19:00 UTC. Successful responses
+use `Cache-Control: public, max-age=300` and `Cloudflare-CDN-Cache-Control:
+public, max-age=3600, stale-while-revalidate=86400`. Missing, invalid or
+unavailable snapshots return uncached `503` with `error.code:
+"listening_stats_unavailable"`. Only the window, counts and top artist are
+public; no visitor identifiers, locations, IPs or playback records are exposed.
 
 ## Now playing
 

@@ -34,6 +34,31 @@ Every destructive change takes **two steps across two requests**. A JSON route
 mails a confirmation link, and the recipient opens an HTML route to commit the
 change. The first call never changes a subscriber record.
 
+## Subscriber counts
+
+```
+GET /api/v2/notify/stats
+```
+
+Public aggregate counts of active, email-confirmed subscribers by the two
+published feeds. Suppressed addresses, pending subscriptions, unsubscribed
+records, and admin-created active records without confirmation are excluded.
+An address subscribed to both feeds counts once in each feed.
+
+```json
+{
+  "generatedAt": "2026-10-04T19:00:00.000Z",
+  "channels": { "blog": 42, "mood": 51 }
+}
+```
+
+The route reads only KV. A scheduled job refreshes the snapshot daily at
+19:00 UTC. Successful responses use `Cache-Control: public, max-age=300` and
+`Cloudflare-CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400`.
+An absent, invalid or unavailable snapshot returns uncached `503` with
+`error.code: "subscriber_counts_unavailable"`. No addresses, identities,
+subscription origins or individual records are exposed.
+
 ## Subscribe
 
 ```
@@ -66,6 +91,13 @@ response and sends no mail. Optional `dwellToken` comes from
 comments. Missing or young dwell tokens and browser evidence contribute
 risk hints; they do not reject older clients or any input method. Unknown
 fields are ignored.
+
+Optional `source` accepts `desk`, `blog`, or `mood`, naming the page where the
+subscription began rather than the chosen email channels. Unknown values
+are ignored. The first accepted signup records this origin; later requests,
+preference changes and confirmation retries preserve it. Existing subscribers
+without recorded origins stay unknown, and an address change preserves the
+original origin. This is private metadata shown only in the admin portal.
 
 The handler looks for the Turnstile token in four places before it rejects the
 request:
