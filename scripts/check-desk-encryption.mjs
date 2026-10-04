@@ -12,7 +12,7 @@ const refs = unpublished
   ? execFileSync('git', ['rev-list', target, '--not', '--remotes'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean)
   : [staged ? ':' : target];
 const privatePath = (path) => path.startsWith('src/features/desk/') || /^plans\/desk-.*\.md$/.test(path);
-const historicalPath = (path) => path.startsWith('public/desk/') || path.startsWith('scripts/brand/') || path === 'tests/unit/desk-github-week.test.ts';
+const historicalPath = (path) => path.startsWith('public/desk/') || path.startsWith('scripts/brand/') || ['desk-github-week.test.ts', 'desk-audience-listening.test.ts', 'desk-blog-stats.test.ts'].some((name) => path === `tests/unit/${name}`);
 const shell = /^---\s+import \{ DeskPage \} from '@desk';\s+export const prerender = false;\s+if \(!DeskPage\) return Astro.redirect\('\/'\);\s+---\s+<DeskPage \/>\s*$/;
 let failures = 0;
 

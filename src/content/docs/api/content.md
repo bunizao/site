@@ -5,9 +5,46 @@ group: API
 order: 4
 ---
 
-These seven endpoints fetch something from a third party and return it as
-JSON. Each one is a cache in front of that third party, and each one fails
-differently when the third party is down.
+These endpoints return content metadata and integration data. Third-party
+integrations cache upstream responses; blog stats read a precomputed snapshot.
+
+## Blog stats
+
+```
+GET /api/v2/blog/stats
+```
+
+Public aggregate reads from the site's blog analytics, refreshed daily at
+19:00 UTC. The request reads only KV; it never queries D1.
+
+```json
+{
+  "generatedAt": "2026-10-04T19:00:00.000Z",
+  "since": "2026-06-28T09:14:00.000Z",
+  "totals": { "reads": 12765, "readers": 4210, "completed": 3100 },
+  "posts": [
+    { "slug": "some-post", "reads": 2400, "completed": 610, "medianDwellMs": 182000 }
+  ]
+}
+```
+
+One distinct event id counts as one read, distinct visitor ids count as
+readers, and completed events count toward `completed`. Dwell time is the
+stored maximum per event; the per-post median includes all recorded events.
+This route counts every recorded page view, unlike the portal's dwell-time
+threshold for reads. Bots filtered during ingestion do not reach the table.
+
+`since` is the earliest recorded opening time across the table, kept in the
+snapshot. It is `null` when the table is empty. These are figures since
+collection began, with no historic backfill or imported third-party views.
+Only post slugs and aggregates are public: no visitor ids, referrers,
+countries, user agents, or event records are returned.
+
+Successful responses use `Cache-Control: public, max-age=300` and
+`Cloudflare-CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400`.
+A missing snapshot returns an uncached `503` with
+`error.code: "blog_stats_unavailable"`. The desk keeps its writing tally
+and hides the reading sentence until a snapshot is available.
 
 ## Writing
 

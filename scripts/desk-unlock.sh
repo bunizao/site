@@ -15,4 +15,11 @@ if [[ "${1:-}" == '--interactive' ]]; then
   export DESK_KEY
 fi
 
+for command in git openssl; do
+  if ! command -v "$command" >/dev/null 2>&1; then
+    printf 'desk build runtime requires %s\n' "$command" >&2
+    exit 1
+  fi
+done
+printf 'desk build runtime verified (Git and OpenSSL)\n'
 exec node scripts/desk-unlock.mjs "$@"
