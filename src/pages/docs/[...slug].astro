@@ -2,16 +2,18 @@
 import type { CollectionEntry } from 'astro:content';
 import Layout from '@/layouts/Layout.astro';
 import DocsArticle from '@/features/docs/ui/DocsArticle.astro';
-import { docPath, getDocsNav, type DocsGroup } from '@/features/docs/server/nav';
+import { docPath, getDocsNav, isInternalDoc, type DocsGroup } from '@/features/docs/server/nav';
 import { markdownAlternatePath } from '@/features/agent-markdown/server/registry';
 import { breadcrumbJsonLd } from '@/lib/seo';
 
 export const prerender = true;
 
+// The rail lists the locked pages too, but only public pages become static
+// files; the locked ones are routed per request (LockedDocPage.astro).
 export async function getStaticPaths() {
-  const groups = await getDocsNav();
+  const groups = await getDocsNav({ includeInternal: true });
   return groups.flatMap((group) =>
-    group.entries.map((entry) => ({
+    group.entries.filter((entry) => !isInternalDoc(entry)).map((entry) => ({
       params: { slug: entry.id },
       props: { entry, groups },
     })),

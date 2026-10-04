@@ -83,10 +83,10 @@ function OwnerLine({ dialogOpen }: { dialogOpen: boolean }) {
 
 const DOCS: Array<{ href: string; title: string; what: string }> = [
   { href: '/docs', title: 'Docs home', what: 'The living reference for the site and site-api' },
-  { href: '/dev/docs/api/endpoints', title: 'Admin routes', what: 'Every route this portal calls, with its auth tier' },
+  { href: '/docs/api/endpoints', title: 'Admin routes', what: 'Every route this portal calls, with its auth tier' },
   { href: '/docs/api/site-routes', title: 'Site routes', what: 'What the public Worker answers itself, the portal included' },
-  { href: '/dev/docs/platform/comments', title: 'Comments', what: 'Moderation, bans, sweeps and recovery' },
-  { href: '/dev/docs/api/comments-risk', title: 'Risk stack', what: 'The checks, weights and thresholds every comment runs' },
+  { href: '/docs/platform/comments', title: 'Comments', what: 'Moderation, bans, sweeps and recovery' },
+  { href: '/docs/api/comments-risk', title: 'Risk stack', what: 'The checks, weights and thresholds every comment runs' },
   { href: '/docs/platform/notify', title: 'Newsletter', what: 'Subscriptions, templates and delivery' },
   { href: '/docs/surfaces/mood', title: 'Mood', what: 'Ingest, archive and the AI classifier' },
   { href: '/docs/surfaces/mascot', title: 'Mascot', what: 'Peek poses, runtime slots and stickers' },

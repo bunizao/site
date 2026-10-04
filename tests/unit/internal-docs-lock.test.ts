@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { isInternalDocsUnlocked } from '@/features/docs/server/internal-lock';
+import { internalDocIds, isInternalDocsUnlocked } from '@/features/docs/server/internal-lock';
 
 const dirs: string[] = [];
 
@@ -40,5 +40,21 @@ describe('isInternalDocsUnlocked', () => {
   test('reads a missing directory or one without internal pages as locked', () => {
     expect(isInternalDocsUnlocked(join(tmpdir(), `absent-internal-docs-${process.pid}`))).toBe(false);
     expect(isInternalDocsUnlocked(docsDir({ 'a.md': '---\ntitle: A\n---\n' }))).toBe(false);
+  });
+});
+
+// Each id becomes a /docs/<id> route, so it must match the collection's id.
+describe('internalDocIds', () => {
+  test('drops the suffix and keeps the folder', () => {
+    const dir = docsDir({
+      'a.md': '',
+      'api/b.internal.md': '',
+      'platform/c.internal.md': '',
+    });
+    expect(internalDocIds(dir)).toEqual(['api/b', 'platform/c']);
+  });
+
+  test('returns nothing for a missing directory', () => {
+    expect(internalDocIds(join(tmpdir(), `absent-internal-docs-${process.pid}`))).toEqual([]);
   });
 });

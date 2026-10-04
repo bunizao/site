@@ -1,7 +1,7 @@
 ---
-// One docs page with its rail, pager and table of contents. The public /docs
-// route and the owner's /dev/docs view both render through this, so the two
-// views of the tree cannot drift apart in layout or behavior.
+// One docs page with its rail, pager and table of contents. The prerendered
+// public route and the per-request locked route both render through this, so a
+// locked page reads exactly like the rest of the tree once it opens.
 import { render } from 'astro:content';
 import { ArrowUpRight } from 'lucide-react';
 import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
@@ -9,14 +9,7 @@ import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
 import DocsToc, { type DocsTocItem } from '@/features/docs/ui/DocsToc.astro';
 import DocsCopyPage from '@/features/docs/ui/DocsCopyPage.astro';
 import DocsDemo from '@/features/docs/ui/DocsDemo.astro';
-import {
-  OWNER_DOCS_BASE,
-  PUBLIC_DOCS_BASE,
-  docPath,
-  getDocsSiblings,
-  type DocsEntry,
-  type DocsGroup,
-} from '@/features/docs/server/nav';
+import { docPath, getDocsSiblings, type DocsEntry, type DocsGroup } from '@/features/docs/server/nav';
 import { splitDocsFragments } from '@/features/docs/server/demo';
 import '@/styles/blog-prose.css';
 import '@/styles/embed-youtube.css';
@@ -25,26 +18,19 @@ import '@/styles/docs.css';
 interface Props {
   entry: DocsEntry;
   groups: DocsGroup[];
-  base?: string;
-  // The page's Markdown alternate. Public pages only: /dev has no Markdown route.
+  // The page's Markdown alternate. Public pages only: a locked page has no
+  // Markdown copy, since that route answers anyone.
   markdownPath?: string;
 }
-const { entry, groups, base = PUBLIC_DOCS_BASE, markdownPath } = Astro.props as Props;
+const { entry, groups, markdownPath } = Astro.props as Props;
 const { title, description, group, playground } = entry.data;
 const { Content, headings } = await render(entry);
-
-// The owner's view keeps prose links to other docs pages inside itself, so a
-// hop from an internal page to its public half doesn't drop the internal rail.
-const ownerView = base === OWNER_DOCS_BASE;
-const sourceHtml = entry.rendered?.html ?? '';
-const renderedHtml = ownerView
-  ? sourceHtml.replaceAll(`href="${PUBLIC_DOCS_BASE}/`, `href="${OWNER_DOCS_BASE}/`)
-  : sourceHtml;
 
 // Fences tagged `demo` leave a slot behind (see markdown-plugin.ts) that only a
 // route can fill, because a demo may need a component rather than a string.
 // Nothing to fill means nothing to do — fall back to <Content /> so a page
 // without demos never pays for the split.
+const renderedHtml = entry.rendered?.html ?? '';
 const fragments = renderedHtml.includes('data-docs-demo')
   ? splitDocsFragments(renderedHtml)
   : null;
@@ -59,17 +45,17 @@ const toc: DocsTocItem[] = headings
     depth: heading.depth as 2 | 3,
   }));
 
-const { prev, next } = getDocsSiblings(groups, entry.id);
+const { prev, next } = getDocsSiblings(groups, entry);
 ---
 
 <main class="docs docs--article">
   <div class="docs-shell docs-shell--article">
-    <DocsSidebar groups={groups} current={entry.id} base={base} />
+    <DocsSidebar groups={groups} current={entry.id} />
 
     <article class="docs-article">
       <div class="docs-article-head">
         <p class="docs-eyebrow">
-          <a href={base}>Docs</a>
+          <a href="/docs">Docs</a>
           <span aria-hidden="true">/</span>
           <span>{group}</span>
         </p>
@@ -93,18 +79,18 @@ const { prev, next } = getDocsSiblings(groups, entry.id);
                 <Fragment set:html={fragment.html} />
               ),
             )
-          : ownerView ? <Fragment set:html={renderedHtml} /> : <Content />}
+          : <Content />}
       </div>
 
       <nav class="docs-pager" aria-label="Docs pagination">
         {prev ? (
-          <a class="docs-pager-link docs-pager-link--prev" href={docPath(prev.id, base)} rel="prev">
+          <a class="docs-pager-link docs-pager-link--prev" href={docPath(prev.id)} rel="prev">
             <span class="docs-pager-dir">Previous</span>
             <span class="docs-pager-title">{prev.data.title}</span>
           </a>
         ) : <span class="docs-pager-gap"></span>}
         {next && (
-          <a class="docs-pager-link docs-pager-link--next" href={docPath(next.id, base)} rel="next">
+          <a class="docs-pager-link docs-pager-link--next" href={docPath(next.id)} rel="next">
             <span class="docs-pager-dir">Next</span>
             <span class="docs-pager-title">{next.data.title}</span>
           </a>
@@ -116,7 +102,7 @@ const { prev, next } = getDocsSiblings(groups, entry.id);
   </div>
 </main>
 
-<DocsSearch base={base} />
+<DocsSearch />
 
 <script>
   // The head strip is injected by the markdown plugin, so the handler lives with

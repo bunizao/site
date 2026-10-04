@@ -8,11 +8,6 @@ export interface DocsGroup {
   entries: DocsEntry[];
 }
 
-// /docs is the public view. /dev/docs is the owner's view of the same tree:
-// every public page plus the *.internal.md ones, behind the /dev Access gate.
-export const PUBLIC_DOCS_BASE = '/docs';
-export const OWNER_DOCS_BASE = '/dev/docs';
-
 // Sidebar sections, in the order they render. A group listed here but with no
 // entries is dropped; an entry whose `group` is missing from this list lands in
 // a trailing catch-all rather than disappearing, so a typo in frontmatter is
@@ -42,16 +37,20 @@ const GROUPS: Array<{ label: string; blurb: string }> = [
 
 const UNGROUPED = { label: 'More', blurb: 'Everything else.' };
 
-export const docPath = (id: string, base = PUBLIC_DOCS_BASE): string => `${base}/${id}`;
+export const docPath = (id: string): string => `/docs/${id}`;
 
+// A *.internal.md page: listed in the rail with a lock, readable by the owner
+// only (LockedDocPage.astro).
 export const isInternalDoc = (entry: DocsEntry): boolean => entry.collection === 'internalDocs';
 
+// Public pages only by default: that is what gets prerendered, indexed and
+// listed in the sitemap. The rail passes includeInternal to show the locked ones.
 export async function getDocsNav({ includeInternal = false } = {}): Promise<DocsGroup[]> {
   const entries: DocsEntry[] = await getCollection('docs', ({ data }) => !data.draft);
   if (includeInternal) {
     const ids = new Set(entries.map((entry) => entry.id));
     for (const entry of await getCollection('internalDocs', ({ data }) => !data.draft)) {
-      // api/foo.md and api/foo.internal.md would both claim /dev/docs/api/foo.
+      // api/foo.md and api/foo.internal.md would both claim /docs/api/foo.
       if (ids.has(entry.id)) throw new Error(`Internal doc shadows a public page: ${entry.id}`);
       entries.push(entry);
     }
@@ -77,10 +76,13 @@ export async function getDocsNav({ includeInternal = false } = {}): Promise<Docs
 }
 
 // Previous/next across the flattened sidebar order, so a reader can walk the
-// whole tree without going back to the index.
-export function getDocsSiblings(groups: DocsGroup[], id: string) {
-  const flat = groups.flatMap((group) => group.entries);
-  const index = flat.findIndex((entry) => entry.id === id);
+// whole tree without going back to the index. Walking the public pages never
+// steps onto a locked one; only the owner, already on a locked page, sees them.
+export function getDocsSiblings(groups: DocsGroup[], current: DocsEntry) {
+  const flat = groups
+    .flatMap((group) => group.entries)
+    .filter((entry) => isInternalDoc(current) || !isInternalDoc(entry));
+  const index = flat.findIndex((entry) => entry.id === current.id);
   return {
     prev: index > 0 ? flat[index - 1] : null,
     next: index >= 0 && index < flat.length - 1 ? flat[index + 1] : null,

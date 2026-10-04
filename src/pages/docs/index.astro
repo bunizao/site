@@ -3,14 +3,19 @@ import Layout from '@/layouts/Layout.astro';
 import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
 import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
 import DocsCopyPage from '@/features/docs/ui/DocsCopyPage.astro';
-import { docPath, getDocsNav } from '@/features/docs/server/nav';
+import DocsLockIcon from '@/features/docs/ui/DocsLockIcon.astro';
+import { docPath, getDocsNav, isInternalDoc } from '@/features/docs/server/nav';
 import { markdownAlternatePath } from '@/features/agent-markdown/server/registry';
 import '@/styles/docs.css';
 
 export const prerender = true;
 
-const groups = await getDocsNav();
-const docIds = new Set(groups.flatMap((group) => group.entries.map((entry) => entry.id)));
+const groups = await getDocsNav({ includeInternal: true });
+// Public pages only: a card must exist in every build, and a locked page is
+// missing from any checkout without the transcrypt key.
+const docIds = new Set(
+  groups.flatMap((group) => group.entries.filter((entry) => !isInternalDoc(entry)).map((entry) => entry.id)),
+);
 
 interface HubCard {
   id: string;
@@ -148,9 +153,16 @@ const sections = [
                 <ul class="docs-hub-group-list">
                   {group.entries.map((entry) => (
                     <li>
-                      <a class="docs-hub-group-link" href={docPath(entry.id)} title={entry.data.description}>
+                      <a
+                        class="docs-hub-group-link"
+                        href={docPath(entry.id)}
+                        title={entry.data.description}
+                        data-astro-prefetch={isInternalDoc(entry) ? 'false' : undefined}
+                      >
                         {entry.data.title}
-                        {entry.data.badge && <span class="docs-nav-badge">{entry.data.badge}</span>}
+                        {isInternalDoc(entry)
+                          ? <DocsLockIcon />
+                          : entry.data.badge && <span class="docs-nav-badge">{entry.data.badge}</span>}
                       </a>
                     </li>
                   ))}

@@ -56,7 +56,8 @@ const docs = defineCollection({
   schema: docsSchema,
 });
 
-// Owner-only pages, rendered only by the gated /dev/docs view. Their id drops
+// Owner-only pages, rendered per request at /docs/<id> for the owner and as a
+// lock screen for everyone else (LockedDocPage.astro). Their id drops
 // the suffix, so api/endpoints.internal.md becomes api/endpoints. They are
 // transcrypt ciphertext in any checkout without the key, so the collection
 // stays empty there instead of failing the schema on encrypted frontmatter.

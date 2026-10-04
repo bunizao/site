@@ -1,7 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
 import { meta } from '@/data/site';
-import { readCloudflareAccessIdentity } from '@/features/admin/server/access';
-import type { RuntimeEnvLocals } from '@/lib/runtime/env';
+import { readAdminSession } from '@/features/admin/server/session';
 import {
   isNeverCachePath,
   redirectCanonicalUrl,
@@ -10,10 +9,6 @@ import {
   withContentPolicy,
   withRequestVary,
 } from '@/features/agent-markdown/server/responses';
-import {
-  readAdminDevBypassSession,
-  type AdminSessionIdentity,
-} from '@/features/admin/server/dev-bypass';
 
 const DEV_PORTAL_PREFIX = '/dev';
 const CANONICAL_HOSTNAME = new URL(meta.siteUrl).hostname;
@@ -115,16 +110,6 @@ function accessRequired(): Response {
   });
 }
 
-async function readAdminSession(context: {
-  request: Request;
-  locals: unknown;
-  allowDevBypass?: boolean;
-}): Promise<AdminSessionIdentity | null> {
-  const locals = context.locals as RuntimeEnvLocals | undefined;
-  return (context.allowDevBypass ? readAdminDevBypassSession(locals, context.request) : null)
-    ?? await readCloudflareAccessIdentity(context.request, locals);
-}
-
 export const onRequest = defineMiddleware(async (context, next) => {
   const url = new URL(context.request.url);
   const pathname = url.pathname;
@@ -144,7 +129,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   // Admin portal: served by this worker, gated by Cloudflare Access in production.
   if (isDevPortalPath(pathname)) {
-    const session = await readAdminSession({ ...context, allowDevBypass: true });
+    const session = await readAdminSession(context.request, context.locals);
     if (!session) {
       return withRequestVary(context.request, accessRequired());
     }

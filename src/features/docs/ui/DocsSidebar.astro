@@ -1,14 +1,14 @@
 ---
 import Kbd from '@/components/Kbd.astro';
+import DocsLockIcon from '@/features/docs/ui/DocsLockIcon.astro';
 import type { DocsGroup } from '@/features/docs/server/nav';
-import { PUBLIC_DOCS_BASE, docPath, isInternalDoc } from '@/features/docs/server/nav';
+import { docPath, isInternalDoc } from '@/features/docs/server/nav';
 
 interface Props {
   groups: DocsGroup[];
   current?: string;
-  base?: string;
 }
-const { groups, current, base = PUBLIC_DOCS_BASE } = Astro.props;
+const { groups, current } = Astro.props;
 
 const currentEntry = current
   ? groups.flatMap((group) => group.entries).find((entry) => entry.id === current)
@@ -22,10 +22,6 @@ const ELSEWHERE = [
   { href: '/components', label: 'Components' },
   { href: 'https://github.com/bunizao/site', label: 'Source', external: true },
 ];
-// The owner's view needs a way back to what everyone else sees.
-const footLinks = base === PUBLIC_DOCS_BASE
-  ? ELSEWHERE
-  : [{ href: PUBLIC_DOCS_BASE, label: 'Public docs', external: false }, ...ELSEWHERE];
 ---
 
 {/* One markup tree for both breakpoints. It renders open so a no-JS or wide
@@ -65,14 +61,17 @@ const footLinks = base === PUBLIC_DOCS_BASE
           <ul class="docs-nav-list">
             {group.entries.map((entry) => (
               <li>
+                {/* A locked page renders per request; a passing pointer should
+                    not cost a Worker render. */}
                 <a
                   class="docs-nav-link"
-                  href={docPath(entry.id, base)}
+                  href={docPath(entry.id)}
                   aria-current={entry.id === current ? 'page' : undefined}
+                  data-astro-prefetch={isInternalDoc(entry) ? 'false' : undefined}
                 >
                   <span class="docs-nav-link-text">{entry.data.title}</span>
                   {isInternalDoc(entry)
-                    ? <span class="docs-nav-badge">Internal</span>
+                    ? <DocsLockIcon />
                     : entry.data.badge && <span class="docs-nav-badge">{entry.data.badge}</span>}
                 </a>
               </li>
@@ -83,7 +82,7 @@ const footLinks = base === PUBLIC_DOCS_BASE
     </nav>
 
     <div class="docs-nav-foot">
-      {footLinks.map((item) => (
+      {ELSEWHERE.map((item) => (
         <a class="docs-nav-foot-link" href={item.href}>
           {item.label}
           {item.external && (

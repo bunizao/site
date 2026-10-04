@@ -6,7 +6,7 @@ function getSiteUrl(): string {
 
 // This is a deploy guard, not a correctness check: the converge Durable
 // Object's only write path into the archive is `POST /v2/mood/converge/report`
-// on site-api (documented at /dev/docs/api/endpoints). An unsigned request is
+// on site-api (documented at /docs/api/endpoints). An unsigned request is
 // expected to be rejected — 401 — because it fails the HMAC check in
 // `isAuthorizedMoodSyncRequest`. A 404 means something different and worse:
 // the route itself is gone from the deployed Worker. That exact regression

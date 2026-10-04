@@ -10,6 +10,7 @@ import cloudflare from '@astrojs/cloudflare';
 import { satteri } from '@astrojs/markdown-satteri';
 
 import { contentCodePlugin } from './src/features/docs/server/markdown-plugin.ts';
+import { internalDocIds, isInternalDocsUnlocked } from './src/features/docs/server/internal-lock.ts';
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 
@@ -112,6 +113,25 @@ export default defineConfig({
           }
 
           route.prerender = false;
+        },
+      },
+    },
+    {
+      // Locked docs pages live at their own /docs/<page> URLs, but per request:
+      // only the owner may read them, and the prerendered docs route would ship
+      // them as public static files. Without the transcrypt key there is
+      // nothing to route, so a locked checkout gets plain 404s.
+      name: 'buxx-locked-docs',
+      hooks: {
+        'astro:config:setup': ({ injectRoute }) => {
+          if (!isInternalDocsUnlocked()) return;
+          for (const id of internalDocIds()) {
+            injectRoute({
+              pattern: `/docs/${id}`,
+              entrypoint: './src/features/docs/ui/LockedDocPage.astro',
+              prerender: false,
+            });
+          }
         },
       },
     },
