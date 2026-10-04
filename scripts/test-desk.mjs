@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
+import { prepareDeskCheckout } from './desk-checkout.mjs';
 import { isDeskUnlocked } from './desk-lock.mjs';
 
+prepareDeskCheckout();
 if (!isDeskUnlocked()) {
   console.log('desk locked, skipped');
 } else {

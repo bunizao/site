@@ -34,7 +34,11 @@ prompt. The key exists only in that process and the local Git configuration.
 For CI, supply `DESK_KEY` through its secret environment and run
 `bash scripts/desk-unlock.sh`.
 Do not place the key in command history, `.env` files, logs or Git. Worktrees
-inherit the common repository's filter configuration. Normal edits, diffs and
+inherit the common repository's filter configuration. Managed worktree
+creation can bypass smudge filters; Astro configuration, desk tests and
+Playwright prepare those pristine encrypted checkouts automatically with the
+existing local key. The preparation verifies ciphertext round-trips and refuses
+to overwrite edited files. Normal edits, diffs and
 commits then use plaintext locally and ciphertext in Git. Run
 `bun run desk:verify -- --staged` before committing encrypted changes and
 `bun run desk:verify -- --unpublished` before a first push. These inspect raw
