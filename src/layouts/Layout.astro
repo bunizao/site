@@ -43,6 +43,9 @@ interface Props {
     href: string;
     title?: string;
   };
+  /** False on a page whose path has a Markdown renderer but no public Markdown
+      copy, such as a locked docs page. */
+  markdownAlternate?: boolean;
 }
 
 import '../styles/globals.css';
@@ -96,6 +99,7 @@ const {
   preloadImages = [],
   rss,
   oembed,
+  markdownAlternate = true,
 } = Astro.props;
 
 const isHomeNav = navVariant === 'home';
@@ -118,7 +122,7 @@ const useHomeHeaderActions = isHomeNav || headerActionsVariant === 'home';
 const site = Astro.site ?? new URL('https://buxx.me');
 const siteName = meta.siteName;
 const canonicalUrl = new URL(url ?? Astro.url?.pathname ?? '/', site).href;
-const markdownAlternateUrl = hasMarkdownRenderer(new URL(canonicalUrl).pathname)
+const markdownAlternateUrl = markdownAlternate && hasMarkdownRenderer(new URL(canonicalUrl).pathname)
   ? new URL(markdownAlternatePath(new URL(canonicalUrl).pathname), site).href
   : null;
 const ogImageUrl = new URL(image, site).href;

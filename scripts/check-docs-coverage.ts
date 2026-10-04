@@ -4,7 +4,9 @@
 // The published /docs reference is the only description of this API, so a route
 // added without a doc line is a route nobody outside the repo can discover. This
 // walks the route files in both Workers, derives the public path of each, and
-// checks that some doc page names it.
+// checks that some doc page names it. Owner-only routes are documented in the
+// transcrypt-encrypted *.internal.md pages, which count only when this checkout
+// holds the key.
 //
 // Scope is route modules (.ts/.js under src/pages) — the things with a request
 // and response contract. .astro pages are rendered UI and are out of scope.
@@ -13,6 +15,7 @@
 
 import { readFile, readdir } from 'node:fs/promises';
 import { join, resolve, relative } from 'node:path';
+import { isInternalDocsUnlocked } from '../src/features/docs/server/internal-lock';
 
 const requestedApiRepo = process.argv[2] ?? process.env.SITE_API_REPO;
 const apiRepo = resolve(requestedApiRepo ?? '../site-api');
@@ -128,6 +131,10 @@ async function main(): Promise<void> {
     console.error(`  ${path.padEnd(44)} ${file}`);
   }
   console.error('\nDocument each under src/content/docs/api/, or add it to EXEMPT in this script with a reason.');
+  if (!isInternalDocsUnlocked()) {
+    console.error('\nThe *.internal.md pages are encrypted in this checkout, so routes documented only');
+    console.error('there show as missing. Unlock them with transcrypt, or drop the site-api path.');
+  }
   process.exit(1);
 }
 

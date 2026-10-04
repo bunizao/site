@@ -295,6 +295,13 @@ GET /api/musickit/token
 Mints a short-lived Apple MusicKit developer token so the browser can talk to
 Apple Music directly. Rate limit: 30 requests / 60s.
 
+The token carries an `origin` claim listing `https://buxx.me`,
+`https://www.buxx.me` and `http://localhost:4321`. Apple Music refuses it
+from a browser on any other site. A non-browser client can still forge the
+`Origin` header, so the claim stops other pages from borrowing the token, not
+a determined script. Server-side Apple Music reads use a separate token
+without the claim, which never leaves `site-api`.
+
 The token response is `Cache-Control: private, max-age=300`. It is `private`
 because the token is credential material and must not land in a shared cache.
 Error responses (`429`, `500`, `503`) are `no-store`, so the browser never

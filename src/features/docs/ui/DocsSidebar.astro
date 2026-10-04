@@ -1,7 +1,8 @@
 ---
 import Kbd from '@/components/Kbd.astro';
+import DocsLockIcon from '@/features/docs/ui/DocsLockIcon.astro';
 import type { DocsGroup } from '@/features/docs/server/nav';
-import { docPath } from '@/features/docs/server/nav';
+import { docPath, isInternalDoc } from '@/features/docs/server/nav';
 
 interface Props {
   groups: DocsGroup[];
@@ -60,13 +61,18 @@ const ELSEWHERE = [
           <ul class="docs-nav-list">
             {group.entries.map((entry) => (
               <li>
+                {/* A locked page renders per request; a passing pointer should
+                    not cost a Worker render. */}
                 <a
                   class="docs-nav-link"
                   href={docPath(entry.id)}
                   aria-current={entry.id === current ? 'page' : undefined}
+                  data-astro-prefetch={isInternalDoc(entry) ? 'false' : undefined}
                 >
                   <span class="docs-nav-link-text">{entry.data.title}</span>
-                  {entry.data.badge && <span class="docs-nav-badge">{entry.data.badge}</span>}
+                  {isInternalDoc(entry)
+                    ? <DocsLockIcon />
+                    : entry.data.badge && <span class="docs-nav-badge">{entry.data.badge}</span>}
                 </a>
               </li>
             ))}

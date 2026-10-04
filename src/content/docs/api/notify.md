@@ -27,8 +27,8 @@ tiers fit into the site-wide auth picture.
 | `/api/notify/redirect` | `GET` | `302` |
 
 Dispatch, scheduling, retry, and preview are gated by cron and secrets, so they
-are not public. They are listed in
-[Internal Endpoints](/docs/api/internal#scheduled-notification-routes).
+are not public. They are listed in the owner-only
+[Internal endpoints](/docs/api/endpoints#scheduled-notification-routes).
 
 Every destructive change takes **two steps across two requests**. A JSON route
 mails a confirmation link, and the recipient opens an HTML route to commit the
