@@ -123,7 +123,7 @@ jobs:
         run: bunx playwright install ffmpeg
 
       - name: Run site e2e tests
-        run: bash scripts/desk-ci.sh bun run test:e2e:site -- --fully-parallel --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+        run: bash scripts/desk-ci.sh bun run test:e2e:site -- --fully-parallel --shard=${{ matrix.shard }}/${{ strategy.job-total }} --reporter=list,./scripts/desk-ci-reporter.mjs
 
       - name: Upload Playwright report
         if: failure() && steps.desk.outputs.unlocked != 'true'
