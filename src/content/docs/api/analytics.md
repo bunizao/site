@@ -58,8 +58,9 @@ raw body must be **4096 bytes or fewer** (`413 {"error":"body_too_large"}`).
 POST /api/analytics/event
 ```
 
-The blog reader posts this event as someone scrolls a post. Rate limit: 600 /
-60s per IP and colo (`native`).
+The blog reader posts this event as someone scrolls a post. Rate limit: 60 /
+60s per IP and colo (`native`). A reader sends about one post a minute; the
+rest is headroom for tab switches and a household behind one IP.
 
 ```json
 {
@@ -79,7 +80,7 @@ The blog reader posts this event as someone scrolls a post. Rate limit: 600 /
 | `eventId` | yes | A v1–v8 UUID |
 | `slug` | yes | No `/`, no control characters |
 | `visitorId` | yes | 8 characters or more |
-| `dwellMs` | no | Clamped to `0`–`7200000` (2 hours) |
+| `dwellMs` | no | Clamped to `0`–`7200000` (2 hours), then to the server's own clock (below) |
 | `scrollDepth` | no | Clamped to `0`–`1` |
 | `completed` | no | Stored as `true` if you send `completed: true` **or** if `scrollDepth >= 0.9`. Sending `completed: false` with a scroll depth of `0.95` still stores `true`. |
 | `referrer` | no | Falls back to the request's own `Referer` header when omitted |
@@ -93,6 +94,10 @@ Generate one `eventId` per page view and post it again as the reader
 progresses. A later post with a *lower* dwell or scroll value does nothing,
 which also means you cannot correct an inflated number by re-sending.
 
+The stored dwell never exceeds the time the server has seen pass since the
+first post of that `eventId`, plus two minutes. A client can claim any
+`dwellMs`; it cannot make a page view last longer than the clock allows.
+
 The server also records what it can see for itself: IP, country, region, city,
 ASN and AS org, Cloudflare colo, user agent, parsed browser / OS / device type,
 platform, and language. None of this comes from the payload, so a client can
@@ -104,7 +109,7 @@ values; later posts only advance the progress columns and `updated_at`.
 | Response | Meaning |
 | --- | --- |
 | `200 {"status":"ok"}` | Accepted |
-| `204` | Dropped as a bot |
+| `204` | Dropped: a bot, or the site already wrote its daily share of reading events |
 | `400 {"error":"invalid_event_id"}`, `invalid_slug`, `invalid_visitor_id`, `invalid_body`, `invalid_json` | Validation failed |
 | `403 origin_rejected` | Failed the origin gate |
 | `413 body_too_large` | Body over 4096 bytes |
@@ -123,7 +128,7 @@ POST /api/v2/analytics/listening
 ```
 
 This route works like the reading event: same gate, same caps, same `native`
-600 / 60s limit, and the same write after the response. The first post of a
+60 / 60s limit, and the same write after the response. The first post of a
 `playbackId` fixes the request metadata. The payload and its enums are
 documented with the player in
 [Listening API](/docs/api/listening#report-a-playback-event). The unhandled

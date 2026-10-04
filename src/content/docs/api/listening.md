@@ -192,7 +192,7 @@ POST /api/v2/analytics/listening
 ```
 
 The site's own player calls this while someone plays the preview clip. Rate
-limit: 600 requests / 60s. The endpoint accepts same-origin calls only and is
+limit: 60 requests / 60s. The endpoint accepts same-origin calls only and is
 not a public ingest. See [Analytics API](/docs/api/analytics#the-same-origin-gate)
 for the `Origin`/`Referer` check that gates it, the 4096-byte body cap, and the
 bot user-agent rule that drops an event with a `204`.
@@ -238,10 +238,17 @@ Every `*Ms` value is clamped to `0`–`43200000` (12 hours) and rounded.
 being rejected, so a malformed duration degrades the data but does not fail
 the request.
 
+Two caps come from the server rather than the payload. `mediaTimeMs` never
+exceeds a positive `durationMs`. `listenedMs` never exceeds the time the
+server has seen pass since the first post of that `playbackId`, plus two
+minutes, so a client can't report more listening than wall-clock time
+allows.
+
 ### Responses
 
 Success is `200 {"status":"ok"}`. A bare `204` with no body means the event
-was accepted and then dropped because it came from a bot user agent.
+was accepted and then dropped: it came from a bot user agent, or the site
+already wrote its daily share of playback events.
 
 Errors are flat strings, such as `403 {"error":"origin_rejected"}`,
 `413 {"error":"body_too_large"}`, and `400 {"error":"invalid_playback_id"}`.
