@@ -36,9 +36,9 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   if (directory) await rm(directory, { recursive: true, force: true });
-});
+}, 30_000);
 
-function markup(surface: 'desk' | 'panel'): string {
+function markup(surface: 'desk' | 'blog' | 'mood'): string {
   const honey = '<label hidden aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>';
   if (surface === 'desk') return `
     <button data-subscribe-open aria-controls="subscribe" aria-expanded="false">Open</button>
@@ -48,7 +48,7 @@ function markup(surface: 'desk' | 'panel'): string {
     </form>`;
   return `
     <button data-subscribe-toggle="blog">Open</button>
-    <div data-subscribe-panel data-subscribe-id="blog">
+    <div data-subscribe-panel data-subscribe-id="blog" data-subscribe-source="${surface}">
       <button data-sub-close>Close</button><div data-sub-form-view>
         <form data-sub-form>${honey}<input data-sub-email />
           <input type="checkbox" value="blog" checked data-sub-channel />
@@ -63,7 +63,7 @@ function markup(surface: 'desk' | 'panel'): string {
 }
 
 describe('subscription form evidence', () => {
-  for (const surface of ['desk', 'panel'] as const) {
+  for (const surface of ['desk', 'blog', 'mood'] as const) {
     for (const mintFails of [false, true]) {
       test(`${surface} sends optional evidence when token mint ${mintFails ? 'fails' : 'succeeds'}`, async () => {
         const context = await browser.newContext();
@@ -98,7 +98,7 @@ describe('subscription form evidence', () => {
           await response;
           expect(mints).toBeGreaterThan(0);
           expect(posts).toHaveLength(1);
-          expect(posts[0]).toMatchObject({ email: 'reader@example.com', channels: ['blog'], website: 'bot-field' });
+          expect(posts[0]).toMatchObject({ email: 'reader@example.com', channels: ['blog'], website: 'bot-field', source: surface });
           if (mintFails) expect(posts[0]).not.toHaveProperty('dwellToken');
           else expect(posts[0]?.dwellToken).toBe('minted-token');
           expect(posts[0]).not.toHaveProperty('clientEvidence');

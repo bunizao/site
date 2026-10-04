@@ -101,6 +101,7 @@ function wire(toggle: HTMLButtonElement, form: HTMLFormElement) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: address,
+          source: 'desk',
           channels: [form.dataset.channel],
           deliveryMode: mode ?? 'instant',
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
