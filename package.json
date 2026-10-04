@@ -41,7 +41,7 @@
     "preview:cloudflare": "bun run build:cloudflare && wrangler dev --config dist/server/wrangler.json",
     "tail:cloudflare": "wrangler tail",
     "types:cloudflare": "wrangler types",
-    "test:unit": "bun run contracts:build && bun test --preload ./tests/setup/isolate.ts tests/unit",
+    "test:unit": "bun run contracts:build && bun test --preload ./tests/setup/isolate.ts ./tests/unit && bun run test:desk",
     "test:registry": "bun run contracts:build && bun scripts/verify-component-registry.ts",
     "test:ops": "bun run contracts:build && bun test tests/ops/*.test.ts",
     "test:e2e": "bun run test:e2e:site",
@@ -54,7 +54,10 @@
     "test:e2e:report": "playwright show-report",
     "mascot:show": "bun scripts/mascot.ts show",
     "mascot:diff": "bun scripts/mascot.ts diff",
-    "doctor": "npx react-doctor@latest"
+    "doctor": "npx react-doctor@latest",
+    "test:desk": "node scripts/test-desk.mjs",
+    "desk:brand": "node src/features/desk/scripts/generate.mjs",
+    "desk:verify": "node scripts/check-desk-encryption.mjs"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

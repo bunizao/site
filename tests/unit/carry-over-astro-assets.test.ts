@@ -39,7 +39,7 @@ describe('carryOverAstroAssets', () => {
       '/_astro/index.OLD.css': () => new Response('old css'),
     });
 
-    const result = await carryOverAstroAssets({ origin: ORIGIN, clientDir, fetchImpl });
+    const result = await carryOverAstroAssets({ origin: ORIGIN, clientDir, fetchImpl, deskUnlocked: true });
 
     expect(result).toEqual({ carried: 1, failed: 0 });
     expect(readFileSync(join(clientDir, '_astro/index.OLD.css'), 'utf8')).toBe('old css');
@@ -53,7 +53,7 @@ describe('carryOverAstroAssets', () => {
     const clientDir = createBuild(['index.NEW.css']);
     const { fetchImpl } = liveSite({});
 
-    const result = await carryOverAstroAssets({ origin: ORIGIN, clientDir, fetchImpl });
+    const result = await carryOverAstroAssets({ origin: ORIGIN, clientDir, fetchImpl, deskUnlocked: true });
 
     expect(result).toEqual({ carried: 0, failed: 0 });
     expect(readdirSync(join(clientDir, '_astro'))).toEqual(['index.NEW.css']);
@@ -66,10 +66,18 @@ describe('carryOverAstroAssets', () => {
       [`/${ASSET_LIST_FILE}`]: () => Response.json(['../escape.js', '..', 'gone.OLD.js', 42]),
     });
 
-    const result = await carryOverAstroAssets({ origin: ORIGIN, clientDir, fetchImpl });
+    const result = await carryOverAstroAssets({ origin: ORIGIN, clientDir, fetchImpl, deskUnlocked: true });
 
     expect(result).toEqual({ carried: 0, failed: 1 });
     expect(requested).toEqual([`/${ASSET_LIST_FILE}`, '/_astro/gone.OLD.js']);
     expect(readdirSync(join(clientDir, '_astro'))).toEqual(['index.NEW.css']);
   });
+});
+
+test('locked builds never download previous public assets', async () => {
+  const clientDir = createBuild(['current.js']);
+  const { fetchImpl, requested } = liveSite({});
+  expect(await carryOverAstroAssets({ origin: ORIGIN, clientDir, fetchImpl, deskUnlocked: false })).toEqual({ carried: 0, failed: 0 });
+  expect(requested).toEqual([]);
+  expect(JSON.parse(readFileSync(join(clientDir, ASSET_LIST_FILE), 'utf8'))).toEqual(['current.js']);
 });

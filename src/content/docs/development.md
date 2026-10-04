@@ -21,6 +21,44 @@ node --version   # must be >= 22.12
 bun install
 ```
 
+## Encrypted source
+
+The optional `/new` surface lives under `src/features/desk/`. Git stores those
+files and `plans/desk-*.md` through the vendored transcrypt 2.3.2 filter.
+A clone without a key builds the public home; `/new` redirects to `/`.
+The normal check, build and unit-test commands work in either state.
+
+Owner setup requires Bash, Git and OpenSSL. Supply `DESK_KEY` through a secure
+shell environment, then run `bash scripts/desk-unlock.sh` on a clean checkout.
+Do not place the key in command history, `.env` files, logs or Git. Worktrees
+inherit the common repository's filter configuration. Normal edits, diffs and
+commits then use plaintext locally and ciphertext in Git. Run
+`bun run desk:verify -- --staged` before committing encrypted changes and
+`bun run desk:verify -- --unpublished` before a first push. These inspect raw
+Git blobs and report paths only. Restart a dev server
+after unlocking so it resolves the appropriate module alias.
+
+Keep the dedicated key in a password manager with a recoverable backup.
+Transcrypt stores its configuration in the local Git config, so protect that
+checkout and never upload its `.git` directory. The unlock script refuses to
+replace an existing key or discard tracked changes. `bun run test:desk` skips
+when locked; `bun run desk:brand` regenerates the imported image assets in an
+unlocked checkout. Development retains readable CSS identifiers, while builds
+rename the surface's own identifiers and reject any that survive.
+
+For Workers Builds, prefix the existing build command with
+`bash scripts/desk-unlock.sh && `. Set the production secret `DESK_KEY` and
+`DESK_REQUIRED=1` in the **build** environment. A locked required build fails
+instead of silently shipping the public home. Preview builds omit both values.
+GitHub Actions uses its `DESK_KEY` repository secret; fork PRs run locked.
+Provisioning those secrets is an owner operation. Confirm OpenSSL is available
+in the actual Workers Builds image before enabling a required deployment.
+
+Locked Cloudflare builds skip previous asset carry-over, since a prior build
+may contain this surface. Its imported images are emitted only when unlocked.
+Encryption covers repository source, not HTML, CSS, JavaScript or images sent
+to a browser, and does not remove plaintext from already-published Git history.
+
 ## Run the dev server
 
 ```bash
