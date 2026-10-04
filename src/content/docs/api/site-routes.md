@@ -200,6 +200,12 @@ or phone width (`?post=<id>&width=phone`). `/dev/blog/*` pages send
 `frame-ancestors 'self'` so that iframe can load them. Every other `/dev` path
 keeps `frame-ancestors 'none'`.
 
+`/dev/docs` and `/dev/docs/<page>` render the owner-only reference from
+`src/content/internal-docs`, server-side on every request so the `/dev` gate
+and `no-store` apply. Those pages are transcrypt-encrypted in the repository.
+A build without the key has none of them: the index says so, and every page
+path is `404`.
+
 ## Static JSON
 
 The build prerenders these files, and the edge serves them as static assets.
