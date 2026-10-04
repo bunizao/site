@@ -14,9 +14,9 @@ is cached), how to write a post, and how the site and its two Workers are
 built. Two things are left out. Admin, webhook and cron routes, and the
 moderation internals (the comment risk stack, its thresholds and the ban
 tooling), are internal pages of this same reference. They are encrypted in the
-public repository and shown only in the owner's view at [`/dev/docs`](/dev/docs),
-behind Cloudflare Access. Internal request and
-response shapes stay in the private `site-api` repository.
+public repository and locked in place: the sidebar lists them with a lock, and
+only the owner can open them. Internal request and response shapes stay in the
+private `site-api` repository.
 
 ## Where to start
 

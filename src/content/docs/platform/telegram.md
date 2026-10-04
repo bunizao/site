@@ -50,7 +50,7 @@ its own copy of what it sent over the group's scrape.
 
 `MOOD_COMMENTS_ENABLED` gates the bridge. The kill switch and the Phase 0
 setup are in the owner-only
-[comments platform](/dev/docs/platform/comments#mood-surface) reference,
+[comments platform](/docs/platform/comments#mood-surface) reference,
 and the full flow is
 in [Comments API § Mood surface](/docs/api/comments#mood-surface-the-telegram-bridge).
 

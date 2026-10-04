@@ -653,7 +653,7 @@ While it's off, `surface: "mood"` on this route answers exactly like an
 unlinked post (`discussion_message_id` unset). `resolveCommentablePost` finds
 nothing to write into, and no bridge call (send, edit, delete, sweep) reaches
 Telegram. The kill switch and the setup it gates are in the owner-only
-[comments platform](/dev/docs/platform/comments#mood-surface) reference.
+[comments platform](/docs/platform/comments#mood-surface) reference.
 
 ## Get a dwell-time token
 

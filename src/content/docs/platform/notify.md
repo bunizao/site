@@ -28,10 +28,10 @@ a Cloudflare route sends it straight to `site-api`. On preview deployments the
 | `/notify/manage/request` | `POST` | Turnstile | [Notify API](/docs/api/notify#request-a-manage-link) |
 | `/notify/manage/email` | `POST` | Manage token | [Notify API](/docs/api/notify#change-the-subscribed-address) |
 | `/notify/change-email` | `GET`, `POST` | Change token | [Notify API](/docs/api/notify#change-the-subscribed-address) |
-| `/notify/dispatch` | `POST` | Shared secret | [Internal](/dev/docs/api/endpoints#scheduled-notification-routes) |
-| `/notify/schedule` | `GET`, `POST` | Shared secret | [Internal](/dev/docs/api/endpoints#scheduled-notification-routes) |
-| `/notify/retry` | `GET`, `POST` | Shared secret | [Internal](/dev/docs/api/endpoints#scheduled-notification-routes) |
-| `/webhooks/telegram` | `POST` | Telegram secret header | [Internal](/dev/docs/api/endpoints#webhooks) |
+| `/notify/dispatch` | `POST` | Shared secret | [Internal](/docs/api/endpoints#scheduled-notification-routes) |
+| `/notify/schedule` | `GET`, `POST` | Shared secret | [Internal](/docs/api/endpoints#scheduled-notification-routes) |
+| `/notify/retry` | `GET`, `POST` | Shared secret | [Internal](/docs/api/endpoints#scheduled-notification-routes) |
+| `/webhooks/telegram` | `POST` | Telegram secret header | [Internal](/docs/api/endpoints#webhooks) |
 
 Callback pages can't be cached or framed, and they use a restrictive content
 security policy. Browser forms have bounded request bodies.
