@@ -5,6 +5,9 @@
     "paths": {
       "@/*": [
         "src/*"
+      ],
+      "@desk": [
+        "src/features/desk/index.ts"
       ]
     },
     "strictNullChecks": true

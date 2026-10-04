@@ -21,6 +21,78 @@ node --version   # must be >= 22.12
 bun install
 ```
 
+## Encrypted source
+
+The optional `/new` surface lives under `src/features/desk/`. Git stores those
+files and `plans/desk-*.md` through the vendored transcrypt 2.3.2 filter.
+A clone without a key builds the public home; `/new` redirects to `/`.
+The normal check, build and unit-test commands work in either state.
+
+Owner setup requires Node.js, Bash, Git and OpenSSL. On a clean checkout, run
+`bash scripts/desk-unlock.sh --interactive` and paste the password at its hidden
+prompt. The key exists only in that process and the local Git configuration.
+For CI, supply `DESK_KEY` through its secret environment and run
+`bash scripts/desk-unlock.sh`.
+Do not place the key in command history, `.env` files, logs or Git. Worktrees
+inherit the common repository's filter configuration. Managed worktree
+creation can bypass smudge filters; Astro configuration, desk tests and
+Playwright prepare those pristine encrypted checkouts automatically with the
+existing local key. The preparation verifies ciphertext round-trips and refuses
+to overwrite edited files. Normal edits, diffs and
+commits then use plaintext locally and ciphertext in Git. Run
+`bun run desk:verify -- --staged` before committing encrypted changes and
+`bun run desk:verify -- --unpublished` before a first push. These inspect raw
+Git blobs and report paths only. Restart a dev server
+after unlocking so it resolves the appropriate module alias.
+
+Keep the dedicated key in a password manager with a recoverable backup.
+Transcrypt stores its configuration in the local Git config, so protect that
+checkout and never upload its `.git` directory. The unlock script refuses to
+replace an existing key or discard tracked changes. Initializing plaintext
+source can make Git report expected encryption changes; the wrapper verifies
+original file bytes before accepting that bootstrap state. Failed fresh
+initialization restores both protected files and their original index entries.
+`bash scripts/desk-unlock.sh --reset-bootstrap` removes an unused bootstrap
+configuration only when HEAD, index and working source are identical plaintext
+and no reachable desk history is encrypted. It leaves source and Git history
+intact. `bun run test:desk` skips
+when locked; `bun run desk:brand` regenerates the imported image assets in an
+unlocked checkout. Development retains readable CSS identifiers, while builds
+rename the surface's own identifiers and reject any that survive.
+
+For Workers Builds, prefix the existing build command with
+`bash scripts/desk-unlock.sh && `. Set the production secret `DESK_KEY` and
+`DESK_REQUIRED=1` in the **build** environment. A locked required build fails
+instead of silently shipping the public home. Preview builds omit both values.
+GitHub Actions uses its `DESK_KEY` repository secret; fork PRs run locked.
+Unlocked validation output and browser reports are withheld from public Actions
+logs/artifacts because diagnostics can include decrypted source. Reproduce a
+failing step locally in an unlocked checkout. Locked checks keep normal output.
+Provisioning those secrets is an owner operation. The local helper configures
+both providers without displaying or copying the desk key into command history:
+
+```bash
+node --env-file=.env.local scripts/desk-hosted-setup.mjs --check
+node --env-file=.env.local scripts/desk-hosted-setup.mjs --apply
+```
+
+The env file supplies `CLOUDFLARE_API_TOKEN`; the desk key comes from local Git
+configuration. Authenticate GitHub with `gh auth login` if needed. The
+Cloudflare user token needs **Workers Builds Configuration: Edit** and
+**Workers Scripts: Read**. The helper targets this site's account, requires
+production to match only `main`, keeps existing build/deploy settings and other
+variables, and leaves previews without the desk key. It does not start a build.
+It uses the [Workers Builds API](https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/)
+because Wrangler runtime secrets do not configure build-time secrets.
+
+ Confirm OpenSSL is available
+in the actual Workers Builds image before enabling a required deployment.
+
+Locked Cloudflare builds skip previous asset carry-over, since a prior build
+may contain this surface. Its imported images are emitted only when unlocked.
+Encryption covers repository source, not HTML, CSS, JavaScript or images sent
+to a browser, and does not remove plaintext from already-published Git history.
+
 ## Run the dev server
 
 ```bash

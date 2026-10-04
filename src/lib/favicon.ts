@@ -1,23 +1,20 @@
-U2FsdGVkX1956WkdsTqzWkrNUYjjDJTowePpUpu0OCtQQlXQNB+TphoXO8+dbIJh
-MVviJO+2qF0zjikh6fJ+Xs7J/YJKdCyeC+Gxu8389AM2ldcuAQ+ZriYsuB4eto1P
-eo3RNSaU6zfasQWp5MTnq3p1Qxg2rtxpQ0iv00AZiNva2ZiroNAPvXXDQU3vqu4J
-b84xGm8Bm76fY5CdF0iR/mJB/SL4qDxH7IBxv4MYUERoY/5KJmpalnoKlj4lYbfH
-OTT9Cp02t1CCkwUFENUYbAu1EJ2ZE24yqgbHnW4USGEWHH61DryZS0StY16g7WOs
-L/yYXPac2DP/2izbWg6cjZ+LsYLm0MWQp7Z4+z/XPtTIeXb2ocGhQTQh/wMrT9KH
-Fj5NvYcB0s3IxjEeW9XyovyakQ6IKDLMtqXDHP9liN8xGzZOKt1bZho86S8EXBFT
-ijz0aujhSTCWIOBxjlFERVjlB7GRBLojvNZphofmaB/Lj9MtLVhOKnWYrdprjOXk
-ojgKAuzrJAPUj2NS6KIVInkzXs4DhyH5MUqowx/NrN9j0SVBJMpX/3b9d1y0Rydb
-s6LrPqsnxSszlucocImVjGX+v5kw/LBiOx1LQE1CtTdT8bkXtIqB1mGQzdVrlsia
-6Df+grUz2MrQFWybg4SCPLYTYeiIHGtXn7kZqplM1sTQbdqnZersDLcvVRNHOJvw
-AT76rQJF9uw6YbXeKLcKvKtDjlM+UW1Uuk1rRLcNr2+XzD4g3D89hSKP7K5QTS2I
-W61a3JGtIUVGK6Ktn7eR86e5+FlDbdKEtMX4bde9UHXGYX254gBUt5FDPT4HEwbU
-43iqJsctXT/Wo4r4zX2r8zF8bf2umzjoAVgDA4pVTsaa1VfaH9/wNndzyBSnDrEi
-vXpm41TuvhQt9Zb0I3LDAbNR9JgvpSrO3PmWIdqcqUrnJDzk/B0BWq6PWUSAOd+L
-UA9L5lXlLM4vGv/LGGL2fAGLlPcBM4LkKNQhLpeNOupClfORkwm8soAASJpy/rao
-eN/yT57VXxQcBGTeqOkWZ8xLVC0fVnph4tYFUSEHN1t8YxPei97Cummwiril9cLr
-sGsKTK69QaNWxMsgZ8/HihTzvu/AYcQ1D+uiDhHNYbOXyfTN+FFP4P/l4GzwXkxW
-hlLc5n4xOO9xwILJiHNx9R08Js+/HC7GNM1USmqGEvypM30PKqrUIRa3sisgePSz
-y27b/fWYk3sDFgcRQ1bDwsV2GtNtQ7uqVyMBdZs++iSzoDQOOibRXO9Bgupk0lHO
-satV+XqQjde6E3x2FqFGpWVU9M98Q6B+ws64xiUV/n9NJVV4+S0Fca0HYfSr4z+O
-tFZaGlXZnzJr5HBcpvax0Y4vuA03aNPpi6tOq+adB7ekMvb6cbiC9On2MMClV8ve
-L+otyfiTusjIJuJHkRAuuQN51rjWsQbwKw1VmZq4U/16jHwPuw9WPnloq00rS3KS
+// Favicon hrefs switch on the runtime: `astro dev` serves badged variants
+// (mark on an amber tile) so local tabs are distinguishable from prod at a
+// glance. `import.meta.env.DEV` is false for builds, so preview and prod
+// deployments always get the canonical marks.
+export const SITE_FAVICON = import.meta.env.DEV
+  ? '/logo/peek-dev.svg'
+  : '/logo/peek.svg?v=3';
+
+export const BLOG_FAVICON = import.meta.env.DEV
+  ? '/blog-mark-dev.svg'
+  : '/blog-mark.svg?v=2';
+
+// One URL per browser colour scheme. Browsers rasterise a favicon once per
+// URL, so an icon that adapts by its own media query never follows a live
+// scheme change; Favicon.astro swaps between these instead.
+export interface FaviconPair {
+  light: string;
+  dark: string;
+  type: string;
+}

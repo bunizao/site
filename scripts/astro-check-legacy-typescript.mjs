@@ -1,3 +1,4 @@
+import { isDeskUnlocked } from './desk-lock.mjs';
 import { createRequire } from 'node:module';
 import Module from 'node:module';
 
@@ -14,7 +15,8 @@ Module._resolveFilename = function resolveLegacyTypescript(request, parent, isMa
 };
 
 const { check, parseArgsAsCheckConfig } = await import('@astrojs/check');
-const config = parseArgsAsCheckConfig(process.argv);
+const args = isDeskUnlocked() ? process.argv : [...process.argv, '--tsconfig', 'tsconfig.locked.json'];
+const config = parseArgsAsCheckConfig(args);
 const failed = await check(config);
 
 process.exit(failed ? 1 : 0);
