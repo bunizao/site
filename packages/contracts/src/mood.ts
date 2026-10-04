@@ -35,17 +35,9 @@ export interface MoodStatsActivityBucket {
   count: number;
 }
 
-export interface MoodStatsSentimentBucket {
-  bucketStart: string;
-  avgValence: number | null;
-  dominantLabel: MoodSentimentLabel | null;
-  scoredCount: number;
-}
-
 export interface MoodStatsSnapshot {
   activity: MoodStatsActivityBucket[];
   rhythm: number[][];
-  sentimentTimeline: MoodStatsSentimentBucket[];
   streaks: {
     current: number;
     longest: number;

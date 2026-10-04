@@ -1,3 +1,11 @@
+/** Site playback totals in a rolling seven-day window, not Apple Music history. */
+export interface ListeningStats {
+  generatedAt: string;
+  window: { from: string; to: string };
+  totals: { plays: number };
+  topArtist: { name: string; plays: number } | null;
+}
+
 export interface ListeningAccent {
   hue: number;
   chromaLight: number;

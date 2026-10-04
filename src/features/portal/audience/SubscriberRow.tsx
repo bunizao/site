@@ -104,7 +104,7 @@ export const SubscriberRow = React.memo(function SubscriberRow({
           </div>
           <div className="mt-1 flex items-center gap-2 text-muted-foreground text-xs">
             <span className="min-w-0 flex-1 truncate">
-              {channelsText(row.channels)} · {deliveryText(row)}
+              {channelsText(row.channels)} · {deliveryText(row)} · Origin: {row.source ?? 'Unknown'}
             </span>
             <span className="shrink-0 tabular-nums">
               {eventText} <span className="font-mono">{stamp(event.at)}</span>
@@ -130,7 +130,8 @@ export const SubscriberRow = React.memo(function SubscriberRow({
         {box}
       </div>
       <div role="cell" className={cn('pointer-events-none relative', gone ? 'text-muted-foreground' : 'text-foreground')}>
-        {row.email}
+        <span>{row.email}</span>
+        <span className="ms-2 text-muted-foreground text-xs">Origin: {row.source ?? 'Unknown'}</span>
       </div>
       <div role="cell" className="pointer-events-none relative">
         <StatusDot tone={STATUS_TONE[status]}>{STATUS_LABELS[status]}</StatusDot>

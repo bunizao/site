@@ -277,6 +277,8 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
       import { initViewTransitionNames } from '@/lib/view-transition-names';
       initViewTransitionNames();
     </script>
+    {/* A page's own head, for what has to run before first paint. */}
+    <slot name="head" />
   </head>
   <body>
     <PerformanceDebugPanel />
@@ -798,6 +800,15 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
               transitionTheme(theme);
             }
           });
+        });
+
+        // A page may switch the theme with a control and a sound of its own
+        // (the desk's lamp): the same switch, without the toggle's click.
+        document.addEventListener('theme:set', (event) => {
+          const theme = (event as CustomEvent<string>).detail;
+          if (theme !== 'light' && theme !== 'dark' && theme !== 'system') return;
+          setStoredTheme(theme);
+          transitionTheme(theme);
         });
 
         document.addEventListener('click', (e) => {

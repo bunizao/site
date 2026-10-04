@@ -2,6 +2,20 @@ export const CONTENT_DOCUMENT_SOURCES = ['mood', 'post'] as const;
 
 export type ContentDocumentSource = (typeof CONTENT_DOCUMENT_SOURCES)[number];
 
+/** Public read aggregates since analytics collection began. */
+export interface BlogStats {
+  generatedAt: string;
+  /** Null until the first event has been recorded. */
+  since: string | null;
+  totals: { reads: number; readers: number; completed: number };
+  posts: {
+    slug: string;
+    reads: number;
+    completed: number;
+    medianDwellMs: number;
+  }[];
+}
+
 export interface PostLocaleTag {
   locale: string;
   canonicalSlug?: string;

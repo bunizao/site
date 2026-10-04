@@ -40,6 +40,7 @@ its own.
 | `image.buxx.me` | Legacy image host | Exact |
 | `i.ytimg.com` | YouTube posters | Exact |
 | `yt3.googleusercontent.com` / `yt3.ggpht.com` | YouTube channel avatars | Exact |
+| `avatars.githubusercontent.com` | The site account's GitHub avatar, through `/static/github/bunizao/avatar` only | Exact |
 
 Only Telegram hosts admit their subdomains. Every other host must match
 exactly, so the HD image host never admits its siblings.
@@ -95,6 +96,19 @@ If the lookup fails, it returns `502 YouTube channel avatar unavailable.`
 
 The path must have no query string. With one, the proxy treats it as a normal
 proxy target instead.
+
+### GitHub avatar
+
+```
+GET /static/github/bunizao/avatar
+```
+
+Proxies the site account's GitHub picture at 160px, which the desk at `/new`
+shows on its GitHub panel. The login is an allowlist (`bunizao`, as on
+[GitHub contributions](/docs/api/content#github-contributions)); any other
+login, a query string, or a direct `avatars.githubusercontent.com` target
+returns `400 Invalid target URL.`. The upstream's own `Cache-Control`
+(GitHub sends `max-age=300`) passes through.
 
 ## API forwarders
 
