@@ -300,6 +300,7 @@ function setupPanel(panel: HTMLElement): void {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: value,
+          source: panel.dataset.subscribeSource,
           channels,
           deliveryMode: getDeliveryMode(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
