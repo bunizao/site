@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 const ACCOUNT = '545faed61bc6b0c8ef2c417303555d6f';
 const PREFIX = 'bash scripts/desk-unlock.sh && ';
 
-export async function configureDeskHosted({ api, apply = false, setGitHubSecret, deskKey }) {
+export async function configureDeskHosted({ api, apply = false, setGitHubSecret, deskKey = '' }) {
   const workers = await api('/workers/scripts');
   const site = workers.find((worker) => worker.id === 'site');
   if (!site?.tag) throw new Error('The site Worker was not found in the configured Cloudflare account.');
