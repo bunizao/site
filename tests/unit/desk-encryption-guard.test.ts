@@ -48,7 +48,7 @@ for (const [name, content] of Object.entries({
   'tests/unit/desk-github-week.test.ts': 'private test',
   'tests/unit/favicon.test.ts': "describe('desk icons', () => {});",
   'src/lib/favicon.ts': 'export const DESK_FAVICON = {};',
-  'src/content/internal-docs/endpoints.md': '# Private endpoint list',
+  'src/content/docs/api/endpoints.internal.md': '# Private endpoint list',
 })) {
   test(`rejects plaintext in ${name}`, () => {
     const dir = fixture({ [name]: content });

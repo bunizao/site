@@ -13,8 +13,9 @@ These docs cover the public API (what you can call, what it returns, and how it
 is cached), how to write a post, and how the site and its two Workers are
 built. Two things are left out. Admin, webhook and cron routes, and the
 moderation internals (the comment risk stack, its thresholds and the ban
-tooling), live in an owner-only reference at [`/dev/docs`](/dev/docs) behind
-Cloudflare Access, encrypted in the public repository. Internal request and
+tooling), are internal pages of this same reference. They are encrypted in the
+public repository and shown only in the owner's view at [`/dev/docs`](/dev/docs),
+behind Cloudflare Access. Internal request and
 response shapes stay in the private `site-api` repository.
 
 ## Where to start

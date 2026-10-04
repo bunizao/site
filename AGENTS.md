@@ -71,7 +71,7 @@ This is the public Worker. The private Worker `site-api` lives in the sibling re
 
 - `@` maps to `./src` (configured in `astro.config.mjs`). Use `@/lib/utils` instead of relative paths.
 - The living reference is published at `/docs` and authored in `src/content/docs/`. `src/content/docs/architecture.md` has the full directory structure, API endpoints, data sources, and environment variables.
-- Owner-only reference pages live in `src/content/internal-docs/`, are transcrypt-encrypted in git (`.gitattributes`), and render at `/dev/docs` behind Cloudflare Access. Put anything a bot could tune against there: abuse signals, weights and thresholds, ban mechanics, and the admin/webhook/cron route list. Public pages keep only what a client can observe. They share the desk's transcrypt key and setup (see `src/content/docs/development.md`, "Encrypted source"). A checkout without the key sees ciphertext; the collection is then empty and the build still passes. `bun run desk:verify -- --staged` checks these blobs too; run it before committing and `-- --unpublished` before a first push.
+- Owner-only pages sit in the same tree, next to their public halves, as `<page>.internal.md` (e.g. `api/comments-risk.internal.md` beside `api/comments.md`). `.gitattributes` transcrypt-encrypts that suffix. They form a separate `internalDocs` collection, so `/docs`, its search, the sitemap and Markdown alternates never see them; `/dev/docs` renders the whole tree with them marked Internal, behind Cloudflare Access. Put anything a bot could tune against there: abuse signals, weights and thresholds, ban mechanics, and the admin/webhook/cron route list. Public pages keep only what a client can observe. They share the desk's transcrypt key and setup (see `src/content/docs/development.md`, "Encrypted source"). A checkout without the key sees ciphertext; the collection is then empty and the build still passes. `bun run desk:verify -- --staged` checks these blobs too; run it before committing and `-- --unpublished` before a first push.
 - Work that is not reference material lives outside it: active plans in `plans/`, written-once records in `notes/` (see `notes/README.md`). When a code change makes a published doc wrong, fix the doc in the same PR; never update anything in `notes/archive/`.
 
 ## Keeping the API reference current
@@ -81,10 +81,10 @@ This is the public Worker. The private Worker `site-api` lives in the sibling re
 renaming, or deleting anything under `src/pages/` in **either** repo.
 
 - The guard walks `src/pages/**/*.{ts,js}` in `site` and `../site-api`, derives
-  each public path, and checks that some page under `src/content/docs/` or
-  `src/content/internal-docs/` names it. Without the transcrypt key the
-  internal pages are ciphertext, so a run with the `site-api` half reports
-  owner-only routes as missing. Pass a different sibling path as `bun scripts/check-docs-coverage.ts <path>`
+  each public path, and checks that some page under `src/content/docs/`
+  names it. Without the transcrypt key the `*.internal.md` pages are
+  ciphertext, so a run with the `site-api` half reports owner-only routes as
+  missing. Pass a different sibling path as `bun scripts/check-docs-coverage.ts <path>`
   or via `SITE_API_REPO`; without the sibling repo it checks the `site` half and
   says so. An explicitly supplied path is strict: if it does not contain
   `site-api` routes, the command fails instead of silently checking one repo.
@@ -98,7 +98,7 @@ renaming, or deleting anything under `src/pages/` in **either** repo.
   accepts either.
 - Which page: public JSON by topic (`mood`, `listening`, `status`, `content`,
   `notify`, `analytics`), `site-routes` for routes the public Worker answers
-  itself, and `internal-docs/endpoints.md` for admin, webhook, and cron routes —
+  itself, and `api/endpoints.internal.md` for admin, webhook, and cron routes —
   those get path, purpose, and auth tier only, never request or response
   contracts, because `site-api` is the private half of the boundary and the
   encrypted page still sits in a public repository.

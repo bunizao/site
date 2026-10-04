@@ -1,143 +1,97 @@
 ---
-// Owner-only reference. The middleware gates every /dev path with Cloudflare
-// Access and marks it no-store, so this page must render per request: a
-// prerendered copy would be served as a static asset and skip that gate.
-import { getCollection, render, type CollectionEntry } from 'astro:content';
+// The owner's view of the docs tree: every public page plus the
+// *.internal.md ones, in one rail. The middleware gates every /dev path with
+// Cloudflare Access and marks it no-store, so this page must render per
+// request: a prerendered copy would be served as a static asset and skip that
+// gate.
 import Layout from '@/layouts/Layout.astro';
-import DocsToc, { type DocsTocItem } from '@/features/docs/ui/DocsToc.astro';
-import '@/styles/blog-prose.css';
+import DocsArticle from '@/features/docs/ui/DocsArticle.astro';
+import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
+import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
+import { OWNER_DOCS_BASE, docPath, getDocsNav, isInternalDoc } from '@/features/docs/server/nav';
 import '@/styles/docs.css';
 
 export const prerender = false;
 
-type InternalDoc = CollectionEntry<'internalDocs'>;
-
-const entries = (await getCollection('internalDocs', ({ data }) => !data.draft))
-  .sort((a, b) => a.data.order - b.data.order || a.data.title.localeCompare(b.data.title));
-const groups = [...new Set(entries.map((entry) => entry.data.group))]
-  .sort((a, b) => a.localeCompare(b))
-  .map((label) => ({ label, entries: entries.filter((entry) => entry.data.group === label) }));
-
+const groups = await getDocsNav({ includeInternal: true });
 const slug = Astro.params.slug ?? '';
-const entry: InternalDoc | undefined = slug ? entries.find((candidate) => candidate.id === slug) : undefined;
+const entry = slug
+  ? groups.flatMap((group) => group.entries).find((candidate) => candidate.id === slug)
+  : undefined;
 if (slug && !entry) {
   return new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 }
 
-const rendered = entry ? await render(entry) : null;
-const toc: DocsTocItem[] = (rendered?.headings ?? [])
-  .filter((heading) => heading.depth === 2 || heading.depth === 3)
-  .map((heading) => ({ id: heading.slug, label: heading.text, depth: heading.depth as 2 | 3 }));
-const title = entry ? entry.data.title : 'Internal docs';
-const description = entry
-  ? entry.data.description
-  : 'Owner-only reference: moderation internals and the admin, webhook and cron routes.';
-const Content = rendered?.Content;
+const internalGroups = groups
+  .map((group) => ({ label: group.label, entries: group.entries.filter(isInternalDoc) }))
+  .filter((group) => group.entries.length > 0);
 ---
 
 <Layout
-  title={title}
-  description={description}
-  url={entry ? `/dev/docs/${entry.id}` : '/dev/docs'}
+  title={entry ? entry.data.title : 'Owner docs'}
+  description={entry ? entry.data.description : 'The docs tree with its owner-only pages.'}
+  url={entry ? docPath(entry.id, OWNER_DOCS_BASE) : OWNER_DOCS_BASE}
   robots="noindex, nofollow"
   navVariant="docs"
   containedScroll
 >
-  <main class="docs docs--article">
-    <div class="docs-shell docs-shell--article">
-      <nav class="docs-nav internal-docs-nav" aria-label="Internal docs">
-        {groups.map((group) => (
-          <section class="internal-docs-group">
-            <p class="docs-nav-group-label">{group.label}</p>
-            <ul class="docs-nav-list">
-              {group.entries.map((item) => (
-                <li>
-                  <a
-                    class="docs-nav-link"
-                    href={`/dev/docs/${item.id}`}
-                    aria-current={item.id === entry?.id ? 'page' : undefined}
-                  >
-                    <span class="docs-nav-link-text">{item.data.title}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-        <a class="docs-nav-foot-link internal-docs-public" href="/docs">Public docs</a>
-      </nav>
-
-      <article class="docs-article">
-        <p class="docs-eyebrow">
-          <a href="/dev/docs">Internal docs</a>
-          {entry && <span aria-hidden="true">/</span>}
-          {entry && <span>{entry.data.group}</span>}
-        </p>
-        <h1 class="docs-title">{title}</h1>
-        <p class="docs-lede">{description}</p>
-
-        {Content ? (
-          <div class="docs-prose"><Content /></div>
-        ) : entries.length > 0 ? (
-          <div class="internal-docs-index">
-            {groups.map((group) => (
-              <section>
-                <h2>{group.label}</h2>
-                <ul>
-                  {group.entries.map((item) => (
-                    <li>
-                      <a href={`/dev/docs/${item.id}`}>{item.data.title}</a>
-                      <span>{item.data.description}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-        ) : (
+  {entry ? (
+    <DocsArticle entry={entry} groups={groups} base={OWNER_DOCS_BASE} />
+  ) : (
+    <main class="docs docs--article">
+      <div class="docs-shell docs-shell--article">
+        <DocsSidebar groups={groups} base={OWNER_DOCS_BASE} />
+        <article class="docs-article">
+          <h1 class="docs-title">Owner docs</h1>
           <p class="docs-lede">
-            This build has no decrypted internal docs. They are transcrypt
-            ciphertext in any checkout without the key; run the site from one
-            that holds it.
+            The full tree: every public page, plus the ones marked Internal that
+            /docs leaves out.
           </p>
-        )}
-      </article>
-
-      {toc.length > 1 && <DocsToc items={toc} />}
-    </div>
-  </main>
+          {internalGroups.length > 0 ? (
+            <div class="owner-docs-index">
+              {internalGroups.map((group) => (
+                <section>
+                  <h2>{group.label}</h2>
+                  <ul>
+                    {group.entries.map((item) => (
+                      <li>
+                        <a href={docPath(item.id, OWNER_DOCS_BASE)}>{item.data.title}</a>
+                        <span>{item.data.description}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <p class="docs-lede">
+              This build has no decrypted internal pages. They are transcrypt
+              ciphertext in any checkout without the key, so only the public
+              ones are listed.
+            </p>
+          )}
+        </article>
+      </div>
+    </main>
+    <DocsSearch base={OWNER_DOCS_BASE} />
+  )}
 </Layout>
 
 <style>
-  .internal-docs-nav {
-    display: grid;
-    align-content: start;
-    gap: 1rem;
-    padding: 1rem;
-  }
-
-  .internal-docs-group .docs-nav-group-label {
-    margin: 0 0 0.35rem;
-  }
-
-  .internal-docs-public {
-    justify-self: start;
-  }
-
-  .internal-docs-index {
+  .owner-docs-index {
     display: grid;
     gap: 2rem;
     font-family: var(--font-sans);
   }
 
-  .internal-docs-index h2 {
+  .owner-docs-index h2 {
     margin: 0 0 0.75rem;
     font-size: 0.8125rem;
     font-weight: 500;
     color: var(--ink-faint);
   }
 
-  .internal-docs-index ul {
+  .owner-docs-index ul {
     display: grid;
     gap: 1rem;
     margin: 0;
@@ -145,22 +99,22 @@ const Content = rendered?.Content;
     list-style: none;
   }
 
-  .internal-docs-index li {
+  .owner-docs-index li {
     display: grid;
     gap: 0.2rem;
   }
 
-  .internal-docs-index a {
+  .owner-docs-index a {
     font-weight: 600;
     color: hsl(var(--foreground));
     text-decoration: none;
   }
 
-  .internal-docs-index a:hover {
+  .owner-docs-index a:hover {
     text-decoration: underline;
   }
 
-  .internal-docs-index span {
+  .owner-docs-index span {
     font-size: 0.9375rem;
     line-height: 1.5;
     color: var(--ink-body);

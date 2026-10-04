@@ -1,10 +1,17 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 
+export type DocsEntry = CollectionEntry<'docs'> | CollectionEntry<'internalDocs'>;
+
 export interface DocsGroup {
   label: string;
   blurb: string;
-  entries: CollectionEntry<'docs'>[];
+  entries: DocsEntry[];
 }
+
+// /docs is the public view. /dev/docs is the owner's view of the same tree:
+// every public page plus the *.internal.md ones, behind the /dev Access gate.
+export const PUBLIC_DOCS_BASE = '/docs';
+export const OWNER_DOCS_BASE = '/dev/docs';
 
 // Sidebar sections, in the order they render. A group listed here but with no
 // entries is dropped; an entry whose `group` is missing from this list lands in
@@ -21,7 +28,7 @@ const GROUPS: Array<{ label: string; blurb: string }> = [
   },
   {
     label: 'API',
-    blurb: 'Every HTTP route on buxx.me, from public endpoints to internal ones.',
+    blurb: 'Every public HTTP route on buxx.me, who can call it, and its limits.',
   },
   {
     label: 'Surfaces',
@@ -35,11 +42,22 @@ const GROUPS: Array<{ label: string; blurb: string }> = [
 
 const UNGROUPED = { label: 'More', blurb: 'Everything else.' };
 
-export const docPath = (id: string): string => `/docs/${id}`;
+export const docPath = (id: string, base = PUBLIC_DOCS_BASE): string => `${base}/${id}`;
 
-export async function getDocsNav(): Promise<DocsGroup[]> {
-  const entries = await getCollection('docs', ({ data }) => !data.draft);
-  const byGroup = new Map<string, CollectionEntry<'docs'>[]>();
+export const isInternalDoc = (entry: DocsEntry): boolean => entry.collection === 'internalDocs';
+
+export async function getDocsNav({ includeInternal = false } = {}): Promise<DocsGroup[]> {
+  const entries: DocsEntry[] = await getCollection('docs', ({ data }) => !data.draft);
+  if (includeInternal) {
+    const ids = new Set(entries.map((entry) => entry.id));
+    for (const entry of await getCollection('internalDocs', ({ data }) => !data.draft)) {
+      // api/foo.md and api/foo.internal.md would both claim /dev/docs/api/foo.
+      if (ids.has(entry.id)) throw new Error(`Internal doc shadows a public page: ${entry.id}`);
+      entries.push(entry);
+    }
+  }
+
+  const byGroup = new Map<string, DocsEntry[]>();
   for (const entry of entries) {
     const key = GROUPS.some((g) => g.label === entry.data.group)
       ? entry.data.group

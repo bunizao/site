@@ -169,7 +169,7 @@ JWT included, pass through. Any other path or method, and any path with a `.`
 or `..` segment, gets `404 {"error":"Not found"}` with `no-store`. It is a
 narrow window onto the admin API and not a second general proxy. The admin
 routes are listed in the owner-only
-[Internal endpoints](/dev/docs/endpoints). In local dev with portal demo mode
+[Internal endpoints](/dev/docs/api/endpoints). In local dev with portal demo mode
 on, an in-memory demo API answers the same paths instead.
 
 Three static sibling routes take priority over the catch-all, because literal
@@ -200,10 +200,12 @@ or phone width (`?post=<id>&width=phone`). `/dev/blog/*` pages send
 `frame-ancestors 'self'` so that iframe can load them. Every other `/dev` path
 keeps `frame-ancestors 'none'`.
 
-`/dev/docs` and `/dev/docs/<page>` render the owner-only reference from
-`src/content/internal-docs`, server-side on every request so the `/dev` gate
-and `no-store` apply. Those pages are transcrypt-encrypted in the repository.
-A build without the key has none of them: the index says so, and every page
+`/dev/docs` and `/dev/docs/<page>` are the owner's view of the docs: every
+public page plus the internal ones that `/docs` leaves out, in one sidebar.
+`/dev/docs/search.json` is that view's search index. All three render
+server-side on every request, so the `/dev` gate and `no-store` apply. The
+internal pages are transcrypt-encrypted in the repository. A build without the
+key has only the public pages there: the index says so, and an internal page
 path is `404`.
 
 ## Static JSON

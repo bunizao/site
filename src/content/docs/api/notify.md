@@ -28,7 +28,7 @@ tiers fit into the site-wide auth picture.
 
 Dispatch, scheduling, retry, and preview are gated by cron and secrets, so they
 are not public. They are listed in the owner-only
-[Internal endpoints](/dev/docs/endpoints#scheduled-notification-routes).
+[Internal endpoints](/dev/docs/api/endpoints#scheduled-notification-routes).
 
 Every destructive change takes **two steps across two requests**. A JSON route
 mails a confirmation link, and the recipient opens an HTML route to commit the

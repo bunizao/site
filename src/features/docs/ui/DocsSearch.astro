@@ -2,15 +2,23 @@
 // Docs-scoped search dialog. Same shell architecture as the site-wide
 // CommandPalette (native <dialog>, top layer, focus trap and Esc for free)
 // but its own instance: results are docs pages/headings only, built from
-// /docs/search.json rather than the palette's mixed sources. Kept separate
+// <base>/search.json rather than the palette's mixed sources. Kept separate
 // instead of teaching CommandPalette a "docs mode" because the two have
 // nothing else in common — different data, different result shape, no
 // navigation/actions/socials groups to reuse.
 import Kbd from '@/components/Kbd.astro';
+import { PUBLIC_DOCS_BASE } from '@/features/docs/server/nav';
 import '@/styles/docs-search.css';
+
+interface Props {
+  // /docs searches the public index; /dev/docs searches the owner's, which
+  // includes the internal pages.
+  base?: string;
+}
+const { base = PUBLIC_DOCS_BASE } = Astro.props;
 ---
 
-<dialog id="docs-search" class="docs-search" data-docs-search aria-label="Search documentation">
+<dialog id="docs-search" class="docs-search" data-docs-search data-docs-base={base} aria-label="Search documentation">
   <div class="docs-search-panel">
     <div class="docs-search-input-row">
       <svg class="docs-search-input-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -84,6 +92,7 @@ import '@/styles/docs-search.css';
   (() => {
     const dialog = document.querySelector<HTMLDialogElement>('[data-docs-search]');
     if (!dialog) return;
+    const base = dialog.dataset.docsBase ?? '/docs';
     const input = dialog.querySelector<HTMLInputElement>('[data-docs-search-input]');
     const listEl = dialog.querySelector<HTMLElement>('[data-docs-search-list]');
     const statusEl = dialog.querySelector<HTMLElement>('[data-docs-search-status]');
@@ -150,7 +159,7 @@ import '@/styles/docs-search.css';
           const list = byGroup.get(entry.group) ?? [];
           if (list.length >= SUGGESTIONS_PER_GROUP) continue;
           list.push({
-            href: `/docs/${entry.id}`,
+            href: `${base}/${entry.id}`,
             titleHtml: escapeHtml(entry.title),
             snippetHtml: escapeHtml(entry.description),
             score: 0,
@@ -162,7 +171,7 @@ import '@/styles/docs-search.css';
 
       const lowerQuery = query.toLowerCase();
       for (const entry of entries) {
-        const href = `/docs/${entry.id}`;
+        const href = `${base}/${entry.id}`;
         const lowerTitle = entry.title.toLowerCase();
         const lowerDesc = entry.description.toLowerCase();
         const lowerBody = entry.text.toLowerCase();
@@ -233,7 +242,7 @@ import '@/styles/docs-search.css';
     // life — a page you never search on should never pay for the index.
     const ensureIndex = (): Promise<DocsSearchEntry[]> => {
       if (!indexPromise) {
-        indexPromise = fetch('/docs/search.json')
+        indexPromise = fetch(`${base}/search.json`)
           .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`search.json ${res.status}`))))
           .catch(() => [] as DocsSearchEntry[]);
       }

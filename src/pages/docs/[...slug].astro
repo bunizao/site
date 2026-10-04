@@ -1,19 +1,10 @@
 ---
-import { render, type CollectionEntry } from 'astro:content';
-import { ArrowUpRight } from 'lucide-react';
+import type { CollectionEntry } from 'astro:content';
 import Layout from '@/layouts/Layout.astro';
-import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
-import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
-import DocsToc, { type DocsTocItem } from '@/features/docs/ui/DocsToc.astro';
-import DocsCopyPage from '@/features/docs/ui/DocsCopyPage.astro';
-import DocsDemo from '@/features/docs/ui/DocsDemo.astro';
-import { docPath, getDocsNav, getDocsSiblings, type DocsGroup } from '@/features/docs/server/nav';
-import { splitDocsFragments } from '@/features/docs/server/demo';
+import DocsArticle from '@/features/docs/ui/DocsArticle.astro';
+import { docPath, getDocsNav, type DocsGroup } from '@/features/docs/server/nav';
 import { markdownAlternatePath } from '@/features/agent-markdown/server/registry';
 import { breadcrumbJsonLd } from '@/lib/seo';
-import '@/styles/blog-prose.css';
-import '@/styles/embed-youtube.css';
-import '@/styles/docs.css';
 
 export const prerender = true;
 
@@ -32,29 +23,7 @@ interface Props {
   groups: DocsGroup[];
 }
 const { entry, groups } = Astro.props as Props;
-const { title, description, group, playground } = entry.data;
-const { Content, headings } = await render(entry);
-
-// Fences tagged `demo` leave a slot behind (see markdown-plugin.ts) that only a
-// route can fill, because a demo may need a component rather than a string.
-// Nothing to fill means nothing to do — fall back to <Content /> so a page
-// without demos never pays for the split.
-const renderedHtml = entry.rendered?.html ?? '';
-const fragments = renderedHtml.includes('data-docs-demo')
-  ? splitDocsFragments(renderedHtml)
-  : null;
-
-// Two depths. H4 is used inside a directive's own subsections and would turn the
-// rail into a second copy of the page.
-const toc: DocsTocItem[] = headings
-  .filter((heading) => heading.depth === 2 || heading.depth === 3)
-  .map((heading) => ({
-    id: heading.slug,
-    label: heading.text,
-    depth: heading.depth as 2 | 3,
-  }));
-
-const { prev, next } = getDocsSiblings(groups, entry.id);
+const { title, description } = entry.data;
 const breadcrumbs = breadcrumbJsonLd([
   { name: 'buxx.me', path: '/' },
   { name: 'Docs', path: '/docs' },
@@ -73,100 +42,5 @@ const breadcrumbs = breadcrumbJsonLd([
   scrollRestorationKey="docs-scroll"
   structuredData={breadcrumbs}
 >
-  <main class="docs docs--article">
-    <div class="docs-shell docs-shell--article">
-      <DocsSidebar groups={groups} current={entry.id} />
-
-      <article class="docs-article">
-        <div class="docs-article-head">
-          <p class="docs-eyebrow">
-            <a href="/docs">Docs</a>
-            <span aria-hidden="true">/</span>
-            <span>{group}</span>
-          </p>
-          <DocsCopyPage markdownPath={markdownAlternatePath(docPath(entry.id))} />
-        </div>
-        <h1 class="docs-title">{title}</h1>
-        <p class="docs-lede">{description}</p>
-        {playground && (
-          <a class="docs-playground-link" href={playground}>
-            Playground
-            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </a>
-        )}
-
-        <div class="docs-prose">
-          {fragments
-            ? fragments.map((fragment) =>
-                fragment.kind === 'demo' ? (
-                  <DocsDemo lang={fragment.lang} source={fragment.source} />
-                ) : (
-                  <Fragment set:html={fragment.html} />
-                ),
-              )
-            : <Content />}
-        </div>
-
-        <nav class="docs-pager" aria-label="Docs pagination">
-          {prev ? (
-            <a class="docs-pager-link docs-pager-link--prev" href={docPath(prev.id)} rel="prev">
-              <span class="docs-pager-dir">Previous</span>
-              <span class="docs-pager-title">{prev.data.title}</span>
-            </a>
-          ) : <span class="docs-pager-gap"></span>}
-          {next && (
-            <a class="docs-pager-link docs-pager-link--next" href={docPath(next.id)} rel="next">
-              <span class="docs-pager-dir">Next</span>
-              <span class="docs-pager-title">{next.data.title}</span>
-            </a>
-          )}
-        </nav>
-      </article>
-
-      {toc.length > 1 && <DocsToc items={toc} />}
-    </div>
-  </main>
-
-  <DocsSearch />
+  <DocsArticle entry={entry} groups={groups} markdownPath={markdownAlternatePath(docPath(entry.id))} />
 </Layout>
-
-<script>
-  // The head strip is injected by the markdown plugin, so the handler lives with
-  // the route rather than with a component. One listener, delegated. Visual
-  // feedback is the shared copy button's: [data-copied] drives the icon swap and
-  // the "Copied" bubble (styles/copy-button.css).
-  document.addEventListener('click', (event) => {
-    const button = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-docs-copy]');
-    if (!button || button.dataset.copied !== undefined) return;
-    const code = button.closest('.docs-code-head')?.nextElementSibling;
-    if (!code) return;
-
-    void navigator.clipboard.writeText(code.textContent ?? '').then(() => {
-      button.dataset.copied = '';
-      setTimeout(() => delete button.dataset.copied, 1600);
-    });
-  });
-
-  // A link mark on every section heading, shown on hover. Added here rather
-  // than at build because Astro assigns the heading ids after the markdown
-  // plugin runs. The mark sits in the left gutter, so it never rewraps a title.
-  const LINK_ICON =
-    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
-  for (const heading of document.querySelectorAll<HTMLElement>('.docs-prose :is(h2, h3)[id]')) {
-    const link = document.createElement('a');
-    link.className = 'docs-heading-anchor';
-    link.href = `#${heading.id}`;
-    link.setAttribute('aria-label', `Link to ${heading.textContent?.trim() ?? 'this section'}`);
-    link.innerHTML = LINK_ICON;
-    heading.append(link);
-  }
-</script>
-
-<script>
-  // A `demo` fence renders the real embed markup, so the docs page is a mood
-  // embed host too — without this the frame keeps its fallback height and
-  // ignores the theme, and the demo stops matching what a post looks like.
-  import { wireMoodEmbeds } from '@/features/posts/client/mood-embeds';
-
-  wireMoodEmbeds(document);
-</script>
