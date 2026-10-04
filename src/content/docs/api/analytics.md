@@ -143,8 +143,7 @@ All three call `requireCloudflareAccessIdentity` and answer
 This is the one place in the API where the two admin gates differ. **The admin
 session cookie that opens `/api/admin/*` does not open these routes.** They need
 a Cloudflare Access JWT (`cf-access-jwt-assertion`). If a request works against
-`/api/admin/subscribers` but gets `401` here, that is why. See
-[Internal Endpoints](/docs/api/internal#admin-authentication).
+`/api/admin/subscribers` but gets `401` here, that is why.
 
 | Parameter | Default | Range |
 | --- | --- | --- |
@@ -156,8 +155,8 @@ not finite. The query layer then clamps the value. An out-of-range value is
 clamped without an error, so `?days=100000` returns 365 days.
 `article/{slug}` also returns `400 {"error":"slug_required"}` for an empty slug.
 
-The response bodies are admin-facing aggregates. Like the rest of
-[Internal Endpoints](/docs/api/internal), they are not specified here.
+The response bodies are admin-facing aggregates. Like every admin route,
+they are not specified here.
 
 None of these routes return `405`. Only `GET` is exported, so any other method
 falls through to Astro's router and gets a bare `404`. The write endpoints

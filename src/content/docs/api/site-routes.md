@@ -167,8 +167,9 @@ draw: `analytics/summary`, `analytics/events` and `analytics/article/:slug` (to
 the same paths under site-api's `/api/analytics/`). Request headers, the Access
 JWT included, pass through. Any other path or method, and any path with a `.`
 or `..` segment, gets `404 {"error":"Not found"}` with `no-store`. It is a
-narrow window onto the admin API and not a second general proxy. See
-[Internal Endpoints](/docs/api/internal). In local dev with portal demo mode
+narrow window onto the admin API and not a second general proxy. The admin
+routes are listed in the owner-only
+[Internal endpoints](/dev/docs/endpoints). In local dev with portal demo mode
 on, an in-memory demo API answers the same paths instead.
 
 Three static sibling routes take priority over the catch-all, because literal

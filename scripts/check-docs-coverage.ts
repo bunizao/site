@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
-// Fails when an HTTP route exists that no page under src/content/docs mentions.
+// Fails when an HTTP route exists that no docs page mentions.
 //
-// The published /docs reference is the only description of this API, so a route
-// added without a doc line is a route nobody outside the repo can discover. This
+// The /docs reference is the only description of this API, so a route added
+// without a doc line is a route nobody outside the repo can discover. This
 // walks the route files in both Workers, derives the public path of each, and
-// checks that some doc page names it.
+// checks that some doc page names it. Owner-only routes are documented in the
+// transcrypt-encrypted src/content/internal-docs, which counts only when this
+// checkout holds the key.
 //
 // Scope is route modules (.ts/.js under src/pages) — the things with a request
 // and response contract. .astro pages are rendered UI and are out of scope.
@@ -13,10 +15,11 @@
 
 import { readFile, readdir } from 'node:fs/promises';
 import { join, resolve, relative } from 'node:path';
+import { INTERNAL_DOCS_DIR, isInternalDocsUnlocked } from '../src/features/docs/server/internal-lock';
 
 const requestedApiRepo = process.argv[2] ?? process.env.SITE_API_REPO;
 const apiRepo = resolve(requestedApiRepo ?? '../site-api');
-const docsDir = resolve('src/content/docs');
+const docsDirs = [resolve('src/content/docs'), resolve(INTERNAL_DOCS_DIR)];
 
 // Routes that exist but are deliberately not documented, each with the reason.
 // Add to this rather than loosening the matcher — an entry here is a decision,
@@ -70,7 +73,7 @@ function normalize(path: string): string {
 const PATH_TOKEN = /(?<![\w.\-/])\/[A-Za-z0-9][A-Za-z0-9._/*-]*(?:\{[^}\s]*\}|<[^>\s]*>|:[A-Za-z]+|\[[^\]\s]*\])?[A-Za-z0-9._/*-]*/g;
 
 async function documentedPaths(): Promise<Set<string>> {
-  const files = (await walk(docsDir)).filter((file) => file.endsWith('.md'));
+  const files = (await Promise.all(docsDirs.map(walk))).flat().filter((file) => file.endsWith('.md'));
   const paths = new Set<string>();
   for (const file of files) {
     const text = await readFile(file, 'utf8');
@@ -119,15 +122,20 @@ async function main(): Promise<void> {
 
   const total = apiRoutes.size + siteRoutes.size;
   if (missing.length === 0) {
-    console.log(`All ${total} routes are documented under src/content/docs.`);
+    console.log(`All ${total} routes are documented under src/content.`);
     return;
   }
 
-  console.error(`${missing.length} of ${total} routes are not mentioned anywhere in src/content/docs:\n`);
+  console.error(`${missing.length} of ${total} routes are not mentioned in any docs page:\n`);
   for (const { path, file } of missing.sort((a, b) => a.path.localeCompare(b.path))) {
     console.error(`  ${path.padEnd(44)} ${file}`);
   }
-  console.error('\nDocument each under src/content/docs/api/, or add it to EXEMPT in this script with a reason.');
+  console.error('\nDocument each under src/content/docs/api/ (owner-only routes under');
+  console.error(`${INTERNAL_DOCS_DIR}/), or add it to EXEMPT in this script with a reason.`);
+  if (!isInternalDocsUnlocked()) {
+    console.error(`\n${INTERNAL_DOCS_DIR} is encrypted in this checkout, so routes documented`);
+    console.error('only there show as missing. Unlock it with transcrypt, or drop the site-api path.');
+  }
   process.exit(1);
 }
 

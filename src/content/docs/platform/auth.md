@@ -60,8 +60,9 @@ admin access.
 
 These run on `site-api` and reach `buxx.me` through the `/oauth/*` forwarder.
 Nothing on the site links to them yet. They answer `404` when comments are
-off, the provider is unknown, or its credentials are unset. See
-[Comments](/docs/platform/comments#reader-oauth).
+off, the provider is unknown, or its credentials are unset. Their
+configuration is in the owner-only
+[comments operations](/dev/docs/comments-operations#reader-oauth) reference.
 
 ## Design rules
 

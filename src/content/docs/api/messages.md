@@ -142,14 +142,13 @@ after remembering something, is not treated as an attack.
 
 ## Tripwires
 
-A tripped honeypot, a signed dwell token younger than three seconds, or a `drop`
-heuristic verdict each return `201` with a well-formed body, and nothing is
-stored. The response must look exactly like a real success. A response that
-looks different teaches a bot which field to leave alone.
+Some refusals return `201` with a well-formed body and store nothing. The
+response must look exactly like a real success, because a response that looks
+different teaches a bot which check it tripped. Which checks drop silently is
+not published.
 
-An expired dwell token is a form left open past a day, not a bot: the message
-is filed like any other. A token that does not verify is refused with
-`400 invalid_dwell_token` rather than swallowed.
+A dwell token that does not verify is refused with `400 invalid_dwell_token`
+rather than swallowed.
 
 Akismet then judges every message that gets through, with
 `comment_type: contact-form`. That is what a private note to a site owner is,
@@ -189,8 +188,8 @@ When a reply cannot be sent, the bot says why:
 - the address was never confirmed
 - the address is suppressed
 
-The portal inbox (`/admin/messages`, see
-[Internal routes](/docs/api/internal#admin-api)) is the second way to answer.
+The portal inbox (`/admin/messages`, an owner-only admin route) is the second
+way to answer.
 It can:
 
 - list messages by state, or new, read and replied together as the inbox
@@ -203,11 +202,9 @@ read itself, the moment the owner opens it.
 
 ## Senders and bans
 
-A message resolves to the same actor record as a comment, before the rate
-limits run. It is checked against the whole
-[ban list](/docs/api/comments#post-a-comment) on every key it carries. A banned
-sender's message is still stored, filed as `spam` with the note
-`Shadow-banned sender.`, and answered `201` like any other.
+A message resolves to the same actor record as a comment, and the owner can
+ban a sender from the portal. A ban never announces itself: a banned sender's
+message is answered like any other.
 
 Only a signed-in write ties a message to a reader. `reader_id` is whoever the
 typed address resolves to, which a reply needs, and anybody can type a
@@ -224,9 +221,8 @@ typed address never links a device to that reader. A reply to an `anonymous`
 message still goes to that reader's address, so the reply box warns that it
 may reach someone who never wrote.
 
-Banning a sender from the portal bans the keys the owner ticks, then files that
-message as spam. Undoing it lifts both. Earlier messages stay where they are:
-messages are private, so a ban has nothing of theirs to take down.
+A ban takes nothing down. Messages are private, so a banned sender's earlier
+messages stay where they are.
 
 ## Storage
 
