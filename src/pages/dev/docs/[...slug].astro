@@ -1,0 +1,168 @@
+---
+// Owner-only reference. The middleware gates every /dev path with Cloudflare
+// Access and marks it no-store, so this page must render per request: a
+// prerendered copy would be served as a static asset and skip that gate.
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import Layout from '@/layouts/Layout.astro';
+import DocsToc, { type DocsTocItem } from '@/features/docs/ui/DocsToc.astro';
+import '@/styles/blog-prose.css';
+import '@/styles/docs.css';
+
+export const prerender = false;
+
+type InternalDoc = CollectionEntry<'internalDocs'>;
+
+const entries = (await getCollection('internalDocs', ({ data }) => !data.draft))
+  .sort((a, b) => a.data.order - b.data.order || a.data.title.localeCompare(b.data.title));
+const groups = [...new Set(entries.map((entry) => entry.data.group))]
+  .sort((a, b) => a.localeCompare(b))
+  .map((label) => ({ label, entries: entries.filter((entry) => entry.data.group === label) }));
+
+const slug = Astro.params.slug ?? '';
+const entry: InternalDoc | undefined = slug ? entries.find((candidate) => candidate.id === slug) : undefined;
+if (slug && !entry) {
+  return new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+}
+
+const rendered = entry ? await render(entry) : null;
+const toc: DocsTocItem[] = (rendered?.headings ?? [])
+  .filter((heading) => heading.depth === 2 || heading.depth === 3)
+  .map((heading) => ({ id: heading.slug, label: heading.text, depth: heading.depth as 2 | 3 }));
+const title = entry ? entry.data.title : 'Internal docs';
+const description = entry
+  ? entry.data.description
+  : 'Owner-only reference: moderation internals and the admin, webhook and cron routes.';
+const Content = rendered?.Content;
+---
+
+<Layout
+  title={title}
+  description={description}
+  url={entry ? `/dev/docs/${entry.id}` : '/dev/docs'}
+  robots="noindex, nofollow"
+  navVariant="docs"
+  containedScroll
+>
+  <main class="docs docs--article">
+    <div class="docs-shell docs-shell--article">
+      <nav class="docs-nav internal-docs-nav" aria-label="Internal docs">
+        {groups.map((group) => (
+          <section class="internal-docs-group">
+            <p class="docs-nav-group-label">{group.label}</p>
+            <ul class="docs-nav-list">
+              {group.entries.map((item) => (
+                <li>
+                  <a
+                    class="docs-nav-link"
+                    href={`/dev/docs/${item.id}`}
+                    aria-current={item.id === entry?.id ? 'page' : undefined}
+                  >
+                    <span class="docs-nav-link-text">{item.data.title}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+        <a class="docs-nav-foot-link internal-docs-public" href="/docs">Public docs</a>
+      </nav>
+
+      <article class="docs-article">
+        <p class="docs-eyebrow">
+          <a href="/dev/docs">Internal docs</a>
+          {entry && <span aria-hidden="true">/</span>}
+          {entry && <span>{entry.data.group}</span>}
+        </p>
+        <h1 class="docs-title">{title}</h1>
+        <p class="docs-lede">{description}</p>
+
+        {Content ? (
+          <div class="docs-prose"><Content /></div>
+        ) : entries.length > 0 ? (
+          <div class="internal-docs-index">
+            {groups.map((group) => (
+              <section>
+                <h2>{group.label}</h2>
+                <ul>
+                  {group.entries.map((item) => (
+                    <li>
+                      <a href={`/dev/docs/${item.id}`}>{item.data.title}</a>
+                      <span>{item.data.description}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <p class="docs-lede">
+            This build has no decrypted internal docs. They are transcrypt
+            ciphertext in any checkout without the key; run the site from one
+            that holds it.
+          </p>
+        )}
+      </article>
+
+      {toc.length > 1 && <DocsToc items={toc} />}
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .internal-docs-nav {
+    display: grid;
+    align-content: start;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .internal-docs-group .docs-nav-group-label {
+    margin: 0 0 0.35rem;
+  }
+
+  .internal-docs-public {
+    justify-self: start;
+  }
+
+  .internal-docs-index {
+    display: grid;
+    gap: 2rem;
+    font-family: var(--font-sans);
+  }
+
+  .internal-docs-index h2 {
+    margin: 0 0 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--ink-faint);
+  }
+
+  .internal-docs-index ul {
+    display: grid;
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .internal-docs-index li {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .internal-docs-index a {
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    text-decoration: none;
+  }
+
+  .internal-docs-index a:hover {
+    text-decoration: underline;
+  }
+
+  .internal-docs-index span {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--ink-body);
+  }
+</style>

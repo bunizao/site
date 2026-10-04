@@ -1,6 +1,7 @@
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
+import { INTERNAL_DOCS_DIR, isInternalDocsUnlocked } from './features/docs/server/internal-lock';
 
 const pages = defineCollection({
   type: 'content',
@@ -35,23 +36,36 @@ const components = defineCollection({
 // (`api/oembed.md` -> /docs/api/oembed), so the folder layout is the route
 // layout. `group` decides which sidebar section it lands in; the group order
 // itself lives in features/docs/server/nav.ts.
+const docsSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  group: z.string(),
+  order: z.number().default(0),
+  // Optional one-word label rendered next to the sidebar entry (e.g. "SSR").
+  badge: z.string().optional(),
+  // Optional live tool linked beside the page introduction.
+  playground: z.string().regex(/^\/[^\s]+$/u).optional(),
+  draft: z.boolean().default(false),
+});
+
 const docs = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/docs' }),
-  schema: z.object({
-    title: z.string(),
-    description: z.string(),
-    group: z.string(),
-    order: z.number().default(0),
-    // Optional one-word label rendered next to the sidebar entry (e.g. "SSR").
-    badge: z.string().optional(),
-    // Optional live tool linked beside the page introduction.
-    playground: z.string().regex(/^\/[^\s]+$/u).optional(),
-    draft: z.boolean().default(false),
-  }),
+  schema: docsSchema,
+});
+
+// Owner-only pages rendered at /dev/docs. They are transcrypt ciphertext in
+// any checkout without the key, so the collection stays empty there instead of
+// failing the schema on encrypted frontmatter.
+const internalDocs = defineCollection({
+  loader: isInternalDocsUnlocked()
+    ? glob({ pattern: '**/*.md', base: `./${INTERNAL_DOCS_DIR}` })
+    : async () => [],
+  schema: docsSchema,
 });
 
 export const collections = {
   pages,
   components,
   docs,
+  internalDocs,
 };
