@@ -9,9 +9,10 @@
 interface Props {
   channel: 'blog' | 'mood';
   turnstileSiteKey: string;
+  subscriberCount?: number;
 }
 
-const { channel, turnstileSiteKey } = Astro.props;
+const { channel, turnstileSiteKey, subscriberCount } = Astro.props;
 const id = `subscribe-${channel}`;
 const say =
   channel === 'blog'
@@ -56,3 +57,8 @@ const paces = [
   <p class="slip-note" data-subscribe-status role="status">One click to leave, any time. <a href="/privacy">Privacy</a></p>
   <div class="slip-check"><div class="slip-turnstile" data-subscribe-turnstile></div></div>
 </form>
+{subscriberCount !== undefined && (
+  <p class="tally">
+    <strong>{subscriberCount.toLocaleString('en-US')}</strong> {subscriberCount === 1 ? 'reader gets' : 'readers get'} {channel === 'mood' ? 'the moods' : 'new writing'} by email.
+  </p>
+)}

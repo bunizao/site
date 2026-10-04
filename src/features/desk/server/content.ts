@@ -3,6 +3,8 @@
 // adds up to, and the week on GitHub (server/github.ts). Everything else on
 // the desk is static data from site.ts.
 import type { BlogStats } from '@bunizao/contracts/content';
+import type { ListeningStats } from '@bunizao/contracts/listening';
+import type { SubscriberCounts } from '@bunizao/contracts/notify';
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
 import type { MoodServerContext } from '@/features/mood/server/channel-service';
@@ -63,6 +65,8 @@ export interface DeskContent {
   postCount: number;
   writing: DeskWriting | null;
   github: DeskGitHubWeek | null;
+  subscribers: SubscriberCounts | null;
+  listening: ListeningStats | null;
 }
 
 const MOODS = 3;
@@ -122,30 +126,54 @@ export const summariseDeskWriting = (posts: ListedPost[], stats: BlogStats | nul
   };
 };
 
-export async function loadDeskBlogStats(context: MoodServerContext): Promise<BlogStats | null> {
+async function loadDeskSnapshot(context: MoodServerContext, path: string): Promise<unknown> {
   if (isE2ESiteFixtureEnabled(context.locals)) return null;
   try {
-    const url = new URL('/api/v2/blog/stats', context.request.url);
+    const url = new URL(path, context.request.url);
     const response = await proxyApiRequest(new Request(url), context.locals);
     if (!response.ok) return null;
-    const stats = await response.json() as BlogStats;
-    if (!stats || !Array.isArray(stats.posts) || !Number.isFinite(stats.totals?.reads)
-      || stats.totals.reads < 0 || (stats.since !== null && typeof stats.since !== 'string')
-      || stats.posts.some((post) => !post || typeof post.slug !== 'string'
-        || !Number.isFinite(post.reads) || post.reads < 0)) return null;
-    return stats;
+    return await response.json();
   } catch {
     return null;
   }
 }
 
+const isCount = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+const isTimestamp = (value: unknown): value is string => typeof value === 'string' && Number.isFinite(Date.parse(value));
+
+export async function loadDeskBlogStats(context: MoodServerContext): Promise<BlogStats | null> {
+  const stats = await loadDeskSnapshot(context, '/api/v2/blog/stats') as BlogStats | null;
+  if (!stats || !Array.isArray(stats.posts) || !isCount(stats.totals?.reads)
+    || (stats.since !== null && typeof stats.since !== 'string')
+    || stats.posts.some((post) => !post || typeof post.slug !== 'string' || !isCount(post.reads))) return null;
+  return stats;
+}
+
+export async function loadDeskSubscriberCounts(context: MoodServerContext): Promise<SubscriberCounts | null> {
+  const stats = await loadDeskSnapshot(context, '/api/v2/notify/stats') as SubscriberCounts | null;
+  if (!stats || !isTimestamp(stats.generatedAt) || !isCount(stats.channels?.blog) || !isCount(stats.channels?.mood)) return null;
+  return stats;
+}
+
+export async function loadDeskListeningStats(context: MoodServerContext): Promise<ListeningStats | null> {
+  const stats = await loadDeskSnapshot(context, '/api/v2/listening/stats') as ListeningStats | null;
+  if (!stats || !isTimestamp(stats.generatedAt) || !isTimestamp(stats.window?.from)
+    || !isTimestamp(stats.window?.to) || !isCount(stats.totals?.plays)
+    || Date.parse(stats.window.from) >= Date.parse(stats.window.to)
+    || (stats.topArtist !== null && (!stats.topArtist || typeof stats.topArtist.name !== 'string'
+      || !stats.topArtist.name.trim() || !isCount(stats.topArtist.plays)))) return null;
+  return stats;
+}
+
 export async function loadDeskContent(context: MoodServerContext): Promise<DeskContent> {
   // Any source failing leaves its object empty; the rest of the desk stands.
-  const [feed, posts, github, stats] = await Promise.all([
+  const [feed, posts, github, stats, subscribers, listening] = await Promise.all([
     loadMoodFeed(context, { limit: 12 }).catch(() => null),
     getListedPosts().catch(() => []),
     isE2ESiteFixtureEnabled(context.locals) ? null : loadGitHubWeek(),
     loadDeskBlogStats(context),
+    loadDeskSubscriberCounts(context),
+    loadDeskListeningStats(context),
   ]);
   return {
     moods: (feed?.posts ?? []).filter(isMood).slice(0, MOODS).map(toMood).reverse(),
@@ -162,5 +190,7 @@ export async function loadDeskContent(context: MoodServerContext): Promise<DeskC
     postCount: posts.length,
     writing: summariseDeskWriting(posts, stats),
     github,
+    subscribers,
+    listening,
   };
 }

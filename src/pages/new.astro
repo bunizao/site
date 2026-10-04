@@ -254,14 +254,14 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
       <Panel id="writing">
         <Contents posts={content.posts} total={content.postCount} writing={content.writing} />
         <Door href="/blog" label="Read the blog" style={tone('writing')}>
-          <Subscribe channel="blog" turnstileSiteKey={turnstileSiteKey} />
+          <Subscribe channel="blog" turnstileSiteKey={turnstileSiteKey} subscriberCount={content.subscribers?.channels.blog} />
         </Door>
       </Panel>
 
       <Panel id="moods">
         <MoodChannel moods={content.moods} channel={content.channel} links />
         <Door href="/mood" label="All moods" style={tone('moods')}>
-          <Subscribe channel="mood" turnstileSiteKey={turnstileSiteKey} />
+          <Subscribe channel="mood" turnstileSiteKey={turnstileSiteKey} subscriberCount={content.subscribers?.channels.mood} />
         </Door>
       </Panel>
 
@@ -270,6 +270,13 @@ const opens = (id: string) => ({ 'data-open': id, 'aria-controls': `easel-${id}`
           <Turntable />
           <div class="easel-paper"><Listening /></div>
         </div>
+        {content.listening && (
+          <p class="tally">
+            Played here <strong>{content.listening.totals.plays.toLocaleString('en-US')}</strong> {content.listening.totals.plays === 1 ? 'time' : 'times'} in the past seven days{content.listening.topArtist ? (
+              <>; most often <strong>{content.listening.topArtist.name}</strong>.</>
+            ) : '.'}
+          </p>
+        )}
       </Panel>
 
       <Panel id="github">

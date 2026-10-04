@@ -49,6 +49,7 @@ import {
   STATUS_FILTERS,
   STATUS_LABELS,
   countFacets,
+  countSubscriptionOrigins,
   csvFilename,
   emailHash,
   filterKey,
@@ -515,6 +516,10 @@ export default function SubscribersScreen() {
      is here; past the cap, only what site-api can count. */
   const facets = React.useMemo(() => (complete && baseRows ? countFacets(baseRows, filter) : null), [complete, baseRows, filter]);
   const summary = counts.data ?? base.data?.pages[0];
+  const acquisitionCounts = React.useMemo(
+    () => complete && baseRows ? countSubscriptionOrigins(baseRows) : summary?.acquisitionCounts,
+    [complete, baseRows, summary],
+  );
   const statusCounts = React.useMemo((): Counts<StatusFilter> => {
     if (facets) return facets.status;
     if (!summary || filter.delivery) return null;
@@ -612,6 +617,32 @@ export default function SubscribersScreen() {
         onExport={toolbarActions.exportCsv}
         onAdd={toolbarActions.openAdd}
       />
+
+      {acquisitionCounts && (
+        <details className="shrink-0 border-b px-4 py-2 text-[13px]">
+          <summary className="cursor-pointer text-muted-foreground">Subscription origins</summary>
+          <div className="overflow-x-auto pt-2">
+            <table className="w-full max-w-xl text-start tabular-nums">
+              <caption className="pb-2 text-start text-xs text-muted-foreground">Current subscription status by first recorded origin. Historical origins are unknown.</caption>
+              <thead><tr className="text-muted-foreground">
+                <th scope="col" className="py-1 text-start font-normal">Origin</th>
+                <th scope="col" className="text-end font-normal">Active</th>
+                <th scope="col" className="text-end font-normal">Pending</th>
+                <th scope="col" className="text-end font-normal">Unsubscribed</th>
+              </tr></thead>
+              <tbody>{(['desk', 'blog', 'mood', 'unknown'] as const).map((origin) => {
+                const count = acquisitionCounts[origin];
+                return <tr key={origin}>
+                  <th scope="row" className="py-1 text-start font-normal capitalize">{origin}</th>
+                  <td className="text-end">{formatCount(count.activeCount)}</td>
+                  <td className="text-end">{formatCount(count.pendingCount)}</td>
+                  <td className="text-end">{formatCount(count.unsubscribedCount)}</td>
+                </tr>;
+              })}</tbody>
+            </table>
+          </div>
+        </details>
+      )}
 
       {missing && (
         <p role="status" className="flex min-h-11 shrink-0 items-center gap-2 border-b px-4 text-[13px]">
