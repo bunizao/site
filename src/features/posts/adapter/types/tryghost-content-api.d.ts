@@ -3,6 +3,14 @@ declare module '@tryghost/content-api' {
     url: string;
     key: string;
     version: string;
+    makeRequest?: (options: GhostRequestOptions) => Promise<{ data: unknown }>;
+  }
+
+  export interface GhostRequestOptions {
+    url: string;
+    method: string;
+    params: Record<string, unknown>;
+    headers: Record<string, string>;
   }
 
   export interface GhostBrowseOptions {

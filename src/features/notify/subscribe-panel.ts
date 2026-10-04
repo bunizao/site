@@ -12,6 +12,7 @@
 // moment it is ticked; a subscription that goes through takes the box away.
 
 import { readReaderEmail, rememberReaderEmail } from '@/lib/reader-email';
+import { subscriptionEvidence } from '@/features/notify/subscribe-evidence';
 import {
   challengeTurnstile,
   dismissTurnstileChallenge,
@@ -83,6 +84,7 @@ function setupPanel(panel: HTMLElement): void {
 
   const anchor = panel.dataset.anchor === 'left' ? 'left' : 'right';
   const siteKey = panel.dataset.turnstileSiteKey || '';
+  const evidence = subscriptionEvidence();
   const supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   setTurnstileHost(TURNSTILE_ACTION, turnstileContainer);
 
@@ -188,6 +190,7 @@ function setupPanel(panel: HTMLElement): void {
   };
 
   const openPanel = ({ focusEmail = true } = {}) => {
+    evidence.open();
     isOpen = true;
     if (!email.value) {
       email.value = readReaderEmail() ?? '';
@@ -327,10 +330,13 @@ function setupPanel(panel: HTMLElement): void {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: value,
+          source: panel.dataset.subscribeSource,
           channels,
           deliveryMode: getDeliveryMode(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           turnstileToken: token,
+          website: (form.elements.namedItem('website') as HTMLInputElement | null)?.value ?? '',
+          ...await evidence.collect(),
         }),
       });
       const data = (await response.json().catch(() => ({}))) as { status?: string; code?: string; error?: string };

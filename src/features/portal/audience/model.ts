@@ -5,6 +5,7 @@ import type {
   NotifyChannel,
   SubscriberRecord,
   SubscriberStatus,
+  SubscriberListResult,
 } from '@bunizao/contracts';
 import { fullStamp } from '../comments/model';
 import type { Tone } from '../moderation/ui';
@@ -72,6 +73,19 @@ export interface Filter {
 }
 
 export const ALL: Filter = { status: 'all', channel: null, delivery: null };
+
+/** Current states by first subscription origin, including unrecorded history. */
+export function countSubscriptionOrigins(rows: readonly SubscriberRecord[]): NonNullable<SubscriberListResult['acquisitionCounts']> {
+  const counts = Object.fromEntries(['desk', 'blog', 'mood', 'unknown'].map((origin) =>
+    [origin, { total: 0, activeCount: 0, pendingCount: 0, unsubscribedCount: 0 }],
+  )) as NonNullable<SubscriberListResult['acquisitionCounts']>;
+  for (const row of rows) {
+    const count = counts[row.source ?? 'unknown'];
+    count.total += 1;
+    count[`${row.status}Count`] += 1;
+  }
+  return counts;
+}
 
 export function readFilter(search: URLSearchParams): Filter {
   const status = search.get('status');

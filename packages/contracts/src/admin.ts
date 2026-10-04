@@ -14,6 +14,7 @@ import type {
   NotifyChannel,
   SubscriberRecord,
   SubscriberStatus,
+  SubscriptionSource,
 } from './notify';
 
 export interface SubscriberChannelCount {
@@ -42,6 +43,8 @@ export interface SubscriberListResult {
   activeCount: number;
   unsubscribedCount: number;
   channelCounts?: SubscriberChannelCounts;
+  /** Acquisition counts, kept separate from the subscribed channels. */
+  acquisitionCounts?: Record<SubscriptionSource | 'unknown', SubscriberChannelCount>;
 }
 
 export interface AuditEntry {
