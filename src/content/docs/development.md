@@ -65,7 +65,24 @@ For Workers Builds, prefix the existing build command with
 `DESK_REQUIRED=1` in the **build** environment. A locked required build fails
 instead of silently shipping the public home. Preview builds omit both values.
 GitHub Actions uses its `DESK_KEY` repository secret; fork PRs run locked.
-Provisioning those secrets is an owner operation. Confirm OpenSSL is available
+Provisioning those secrets is an owner operation. The local helper configures
+both providers without displaying or copying the desk key into command history:
+
+```bash
+node --env-file=.env.local scripts/desk-hosted-setup.mjs --check
+node --env-file=.env.local scripts/desk-hosted-setup.mjs --apply
+```
+
+The env file supplies `CLOUDFLARE_API_TOKEN`; the desk key comes from local Git
+configuration. Authenticate GitHub with `gh auth login` if needed. The
+Cloudflare user token needs **Workers Builds Configuration: Edit** and
+**Workers Scripts: Read**. The helper targets this site's account, requires
+production to match only `main`, keeps existing build/deploy settings and other
+variables, and leaves previews without the desk key. It does not start a build.
+It uses the [Workers Builds API](https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/)
+because Wrangler runtime secrets do not configure build-time secrets.
+
+ Confirm OpenSSL is available
 in the actual Workers Builds image before enabling a required deployment.
 
 Locked Cloudflare builds skip previous asset carry-over, since a prior build
