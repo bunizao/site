@@ -25,7 +25,7 @@ describe('Ghost Content native fetch transport', () => {
       expect(init?.signal).toBeInstanceOf(AbortSignal);
       requests.push(new Request(input, init));
       return Response.json({ posts: [{ id: 'one' }], meta: { pagination: { total: 1 } } });
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const posts = await client().posts.browse({ include: 'authors,tags', formats: ['html', 'plaintext'], limit: 'all', order: 'published_at desc' });
     expect(posts).toHaveLength(1);
@@ -48,7 +48,7 @@ describe('Ghost Content native fetch transport', () => {
   });
 
   test('preserves SDK settings normalization', async () => {
-    globalThis.fetch = (async () => Response.json({ settings: { title: 'Public blog', url: 'https://blog.example' } })) as typeof fetch;
+    globalThis.fetch = (async () => Response.json({ settings: { title: 'Public blog', url: 'https://blog.example' } })) as unknown as typeof fetch;
     expect(await client().settings.browse()).toEqual({ title: 'Public blog', url: 'https://blog.example' });
   });
 
@@ -58,7 +58,7 @@ describe('Ghost Content native fetch transport', () => {
         message: `Bad key ${syntheticKey}`, type: 'NotFoundError', code: 'NOT_FOUND',
         context: `https://ghost.test.invalid/?key=${syntheticKey}`,
       }],
-    }, { status: 404 })) as typeof fetch;
+    }, { status: 404 })) as unknown as typeof fetch;
     const error = await client().posts.browse().catch((value) => value);
     expect(error).toBeInstanceOf(Error);
     expect(error.name).toBe('NotFoundError');
@@ -71,9 +71,9 @@ describe('Ghost Content native fetch transport', () => {
   });
 
   test('hides network exception URLs and rejects invalid success bodies', async () => {
-    globalThis.fetch = (async () => { throw new Error(`Request https://ghost.test.invalid/?key=${syntheticKey} failed`); }) as typeof fetch;
+    globalThis.fetch = (async () => { throw new Error(`Request https://ghost.test.invalid/?key=${syntheticKey} failed`); }) as unknown as typeof fetch;
     await expect(client().posts.browse()).rejects.toThrow('Ghost Content request failed.');
-    globalThis.fetch = (async () => new Response('invalid JSON')) as typeof fetch;
+    globalThis.fetch = (async () => new Response('invalid JSON')) as unknown as typeof fetch;
     await expect(client().posts.browse()).rejects.toThrow('Ghost Content returned an invalid response.');
   });
 
@@ -82,7 +82,7 @@ describe('Ghost Content native fetch transport', () => {
     controller.abort();
     const timeoutSpy = spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal);
     try {
-      globalThis.fetch = (async () => { throw new Error('aborted'); }) as typeof fetch;
+      globalThis.fetch = (async () => { throw new Error('aborted'); }) as unknown as typeof fetch;
       await expect(client().posts.browse()).rejects.toThrow('Ghost Content request timed out.');
       expect(timeoutSpy).toHaveBeenCalledWith(10_000);
     } finally {
@@ -97,7 +97,7 @@ test('a transient dataset failure does not poison the provider permanently', asy
     mockContent: false, forceMockContent: false,
   });
   let requests = 0;
-  globalThis.fetch = (async () => { requests += 1; throw new Error('temporary upstream failure'); }) as typeof fetch;
+  globalThis.fetch = (async () => { requests += 1; throw new Error('temporary upstream failure'); }) as unknown as typeof fetch;
   await expect(provider.getListedPosts()).rejects.toThrow('Ghost Content request failed.');
   expect(requests).toBe(4);
 
@@ -105,7 +105,7 @@ test('a transient dataset failure does not poison the provider permanently', asy
     requests += 1;
     const resource = new URL(input instanceof Request ? input.url : String(input)).pathname.split('/').filter(Boolean).at(-1)!;
     return Response.json(resource === 'settings' ? { settings: { url: 'https://retry-ghost.test.invalid' } } : { [resource]: [], meta: {} });
-  }) as typeof fetch;
+  }) as unknown as typeof fetch;
   expect(await provider.getListedPosts()).toEqual([]);
   expect(requests).toBe(8);
   expect(await provider.getListedPosts()).toEqual([]);
