@@ -17,6 +17,15 @@ export type NotifyAuditEventType =
 
 export const NOTIFY_CHANNELS: readonly NotifyChannel[] = ['mood', 'blog', 'privacy', 'announcement'];
 
+export const SUBSCRIPTION_SOURCES = ['desk', 'blog', 'mood'] as const;
+export type SubscriptionSource = (typeof SUBSCRIPTION_SOURCES)[number];
+
+/** Public counts of active, confirmed, deliverable email subscriptions. */
+export interface SubscriberCounts {
+  generatedAt: string;
+  channels: { blog: number; mood: number };
+}
+
 /** Optional risk evidence preserves compatibility with existing clients. */
 export interface SubscribeRequest extends ClientEvidence {
   email: string;
@@ -27,6 +36,8 @@ export interface SubscribeRequest extends ClientEvidence {
   dailyHour?: number;
   website?: string;
   dwellToken?: string;
+  /** First subscription surface. Unknown values are ignored by the server. */
+  source?: SubscriptionSource;
 }
 
 export interface SubscriberRecord {
@@ -46,6 +57,8 @@ export interface SubscriberRecord {
   updatedAt: string;
   confirmedAt?: string;
   lastConfirmSentAt?: string;
+  /** First recorded subscription surface; absent for historical subscribers. */
+  source?: SubscriptionSource;
 }
 
 export interface RetryRecord {
