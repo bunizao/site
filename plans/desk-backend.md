@@ -2,11 +2,11 @@
 
 ## Implementation status (2026-10-04)
 
-Items 1, 2 and 4 are implemented on `feat/desk-backend` in both repositories.
-The canonical contracts package was published as `@bunizao/contracts@0.12.0`
-through `contracts-v0.12.0`, and site-api now pins that release.
+Items 1, 2, 4 and 5 are implemented on `feat/desk-backend` in both repositories.
+The canonical contracts package was published as `@bunizao/contracts@0.13.0`
+through `contracts-v0.13.0`, and site-api now pins that release.
 
-- Mood and blog snapshots refresh daily at 19:00 UTC on the existing hourly
+- Mood, blog, subscriber and listening snapshots refresh daily at 19:00 UTC on the existing hourly
   trigger. Mood photos use the archived post type; inactive current streaks
   expire; the unpopulated sentiment timeline was removed.
 - `/api/v2/blog/stats` reads only KV and exposes aggregate events since the
@@ -17,22 +17,38 @@ through `contracts-v0.12.0`, and site-api now pins that release.
   evidence are wired through the desk and shared blog/mood panels. Honeypots
   return the normal success response without mail or Turnstile verification.
 - `site-api/scripts/refresh-stats.ts` supports a read-only budget report and
-  an explicit `--apply` that writes only the two public snapshot keys.
+  an explicit `--apply` that writes only the selected public snapshot keys.
+- `/api/v2/notify/stats` counts active, confirmed, unsuppressed blog/mood
+  subscriptions. `/api/v2/listening/stats` counts site playback sessions
+  started in the rolling seven days before the snapshot and names the most
+  played artist. Both read only KV, and the desk hides absent figures.
+- Subscribe accepts optional `source: 'desk' | 'blog' | 'mood'`. Migration
+  `0042_subscription_source.sql` adds nullable first-touch provenance without
+  assigning origins to historical subscribers. Unknown values are ignored;
+  retries, preferences and address changes preserve the original source.
+  The portal displays Origin and current subscription states by origin.
 
 The one-shot refresh was applied at `2026-10-03T17:19:14.732Z`. The public
 Mood endpoint returned that timestamp, 3,430 active posts and 1,191 photo posts.
 The blog snapshot contains 1,133 reads, 301 readers and 413 completions.
 Measured daily aggregation cost is 43,781 D1 rows: 34,646 Mood and 9,135 blog.
 
-Worker deployment is still pending, so the new route, daily schedule and
-subscription controls are not yet active in production. Item 3 remains
-unnecessary while the README supplies the GitHub week; item 5 remains deferred
-pending the owner's choice.
+The item 5 snapshots were seeded and read back on 2026-10-04 at
+`03:21:55.942Z` (subscriber counts) and `03:22:00.256Z` (listening).
+They contain 9 blog subscribers, 6 mood subscribers and 10 site plays in
+the preceding seven days. The top artist is Cheer Chen with 4 plays.
+Their aggregation read 18 and 35 D1 rows
+respectively. No subscriber records or historical playback events were written.
 
-Validation: site unit tests 1,068 passed; site-api unit tests 2,036 passed;
+Worker deployment is still pending, so the new routes, daily schedule and
+subscription controls are not yet active in production. Migration 0042
+has not been applied and must precede the new Worker code. Item 3 remains
+unnecessary while the README supplies the GitHub week.
+
+Validation: site unit tests 1,075 passed; site-api unit tests 2,083 passed;
 site-api integration tests 36 passed. Both repositories passed type/content
 checks, production builds and Worker upload dry-runs; documentation coverage
-passed for all 150 routes. Existing diagnostic hints remain.
+passed for all 152 routes. Existing diagnostic hints remain.
 
 Written 2026-10-04 from the `agent/desk-home-prototype` branch of `site`
 (head `9ad0c321`), after the desk gained subscriptions, a letter panel, the
@@ -186,7 +202,7 @@ someone else's inbox. Turnstile makes that slow, not impossible.
   Site side: the slips mint the dwell token on open and send the honeypot
   and evidence; the blog and mood panels follow in the same PR.
 
-## 5. Optional, the owner's call before anyone builds them
+## 5. Additional desk metrics (approved and implemented)
 
 - **Subscriber counts** ("212 readers get the moods by email") under the
   slips. Social proof, but it publishes the size of the list; the owner
@@ -204,4 +220,5 @@ someone else's inbox. Turnstile makes that slow, not impossible.
 1 is a flag and a query fix and unblocks the mood figures; do it first and
 alone. 2 needs a contracts release; 4's contract fields can ride in the
 same version. 4's cooldown needs no contract and can go any time. 3 waits
-until the README is not enough; 5 waits for a yes.
+until the README is not enough. Item 5 is now approved and implemented;
+apply its nullable Notify migration before deploying the API and then the site.

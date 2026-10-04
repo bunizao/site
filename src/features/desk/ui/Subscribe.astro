@@ -58,7 +58,16 @@ const paces = [
   <div class="slip-check"><div class="slip-turnstile" data-subscribe-turnstile></div></div>
 </form>
 {subscriberCount !== undefined && (
-  <p class="tally">
+  <p class="tally subscriber-count">
     <strong>{subscriberCount.toLocaleString('en-US')}</strong> {subscriberCount === 1 ? 'reader gets' : 'readers get'} {channel === 'mood' ? 'the moods' : 'new writing'} by email.
   </p>
 )}
+
+<style>
+  .subscriber-count {
+    flex-basis: 100%;
+    max-width: none;
+    margin: 0;
+    text-align: center;
+  }
+</style>

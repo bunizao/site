@@ -1272,6 +1272,11 @@ body:has(.desk) .spotlight-overlay {
   text-align: center;
 }
 
+.lp + .tally {
+  margin-inline: auto;
+  text-align: center;
+}
+
 /* GitHub: a card with who it is and the year's total over the year, painted
    a dab a day (ui/GitHub.astro, client/year.ts), and the week under it. */
 .easel-paper.gh {
