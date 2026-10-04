@@ -2,6 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { isDeskUnlocked } from './desk-lock.mjs';
+import { prepareDeskCheckout } from './desk-checkout.mjs';
 
 const magic = Buffer.from('U2FsdGVkX1');
 const encrypted = (bytes) => bytes.subarray(0, magic.length).equals(magic);
@@ -94,12 +95,12 @@ try {
     resetBootstrap();
   } else {
     const key = process.env.DESK_KEY;
-    if (!key) {
+    if (!key && !config('transcrypt.version')) {
       console.log('desk locked (no DESK_KEY)');
       process.exit(0);
     }
     if (config('transcrypt.version')) {
-      if (config('transcrypt.password') !== key) {
+      if (key && config('transcrypt.password') !== key) {
         throw new Error('desk unlock refused: this checkout already uses a different key');
       }
       if (!filtersReady()) throw new Error('desk unlock refused: transcrypt configuration is incomplete');
@@ -130,6 +131,7 @@ try {
         throw new Error('desk unlock failed: initialization rolled back; source files preserved (check the key and dependencies)');
       }
     }
+    if (!isDeskUnlocked()) prepareDeskCheckout();
     if (!isDeskUnlocked()) throw new Error('desk unlock failed: source is still locked (check the key)');
     rollback = undefined;
     console.log('desk unlocked');
@@ -144,7 +146,7 @@ try {
   }
   // Only our fixed messages are safe to display; child-process errors may
   // include sensitive command arguments, so never print their raw messages.
-  const message = error instanceof Error && /^desk /.test(error.message)
+  const message = error instanceof Error && /^(desk |Desk checkout )/.test(error.message)
     ? error.message : 'desk unlock failed: Git or OpenSSL operation could not complete';
   console.error(message);
   process.exit(1);

@@ -14,7 +14,7 @@ function fixture() {
   fixtures.push(dir);
   mkdirSync(join(dir, 'scripts/vendor'), { recursive: true });
   mkdirSync(join(dir, 'src/features/desk'), { recursive: true });
-  for (const name of ['desk-unlock.sh', 'desk-unlock.mjs', 'desk-lock.mjs', 'vendor/transcrypt']) {
+  for (const name of ['desk-unlock.sh', 'desk-unlock.mjs', 'desk-lock.mjs', 'desk-checkout.mjs', 'vendor/transcrypt']) {
     copyFileSync(join(process.cwd(), 'scripts', name), join(dir, 'scripts', name));
   }
   writeFileSync(join(dir, '.gitattributes'), 'src/features/desk/** filter=crypt diff=crypt merge=crypt\n');
@@ -72,6 +72,29 @@ describe('desk initialization', () => {
     });
     expect(result.status).toBe(0);
     expect(result.stdout + result.stderr).not.toContain(key);
+  }, 30_000);
+
+  test('prepares a managed worktree without another key prompt and preserves edited ciphertext', () => {
+    const dir = fixture();
+    const key = randomBytes(32).toString('hex');
+    expect(unlock(dir, key).status).toBe(0);
+    const original = bytes(dir);
+    git(dir, ['add', '--renormalize', '.']);
+    git(dir, ['-c', 'commit.gpgsign=false', 'commit', '-qm', 'test: ciphertext']);
+    const worktree = mkdtempSync(join(tmpdir(), 'desk-managed-worktree-'));
+    fixtures.push(worktree);
+    git(dir, ['-c', 'filter.crypt.smudge=cat', 'worktree', 'add', '--detach', worktree, 'HEAD']);
+    const file = join(worktree, 'src/features/desk/index.ts');
+    const cipher = readFileSync(file);
+    expect(cipher.subarray(0, 10).toString()).toBe('U2FsdGVkX1');
+    const edited = Buffer.concat([cipher, Buffer.from('owner edit')]);
+    writeFileSync(file, edited);
+    expect(unlock(worktree).status).toBe(1);
+    expect(readFileSync(file)).toEqual(edited);
+    writeFileSync(file, cipher);
+    expect(unlock(worktree).status).toBe(0);
+    expect(bytes(worktree)).toEqual(original);
+    expect(git(worktree, ['status', '--porcelain']).toString()).toBe('');
   }, 30_000);
 
   test('refuses dirty source without installing configuration', () => {

@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import { isDeskUnlocked } from './scripts/desk-lock.mjs';
+import { prepareDeskCheckout } from './scripts/desk-checkout.mjs';
 import { deskCssPlugin } from './scripts/desk-css.mjs';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -27,6 +28,7 @@ function dependencyRoots() {
   return roots;
 }
 
+prepareDeskCheckout();
 const deskUnlocked = isDeskUnlocked();
 if (!deskUnlocked && process.env.DESK_REQUIRED === '1') {
   throw new Error('Desk is locked. Unlock this checkout before building with DESK_REQUIRED=1.');
