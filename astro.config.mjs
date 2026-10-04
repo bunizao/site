@@ -1,4 +1,6 @@
 import { defineConfig } from 'astro/config';
+import { isDeskUnlocked } from './scripts/desk-lock.mjs';
+import { deskCssPlugin } from './scripts/desk-css.mjs';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,6 +25,11 @@ function dependencyRoots() {
     if (dir === dirname(dir)) break;
   }
   return roots;
+}
+
+const deskUnlocked = isDeskUnlocked();
+if (!deskUnlocked && process.env.DESK_REQUIRED === '1') {
+  throw new Error('Desk is locked. Unlock this checkout before building with DESK_REQUIRED=1.');
 }
 
 const isCoverageEnabled = process.env.COVERAGE === '1';
@@ -140,7 +147,7 @@ export default defineConfig({
     strictPort: isE2EStrictPort,
   },
   vite: {
-    plugins: coveragePlugins,
+    plugins: [...coveragePlugins, ...(deskUnlocked ? [deskCssPlugin()] : [])],
     server: {
       fs: { allow: [projectRoot, ...dependencyRoots()] },
     },
@@ -159,6 +166,7 @@ export default defineConfig({
     },
     resolve: {
       alias: {
+        '@desk': fileURLToPath(new URL(deskUnlocked ? './src/features/desk/index.ts' : './src/features/desk-locked.ts', import.meta.url)),
         '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },

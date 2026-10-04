@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@desk": [
+        "src/features/desk-locked.ts"
+      ]
+    }
+  },
+  "exclude": [
+    "src/features/desk/**",
+    "node_modules",
+    "dist"
+  ]
+}

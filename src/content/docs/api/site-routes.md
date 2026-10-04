@@ -14,6 +14,13 @@ Knowing the split helps when you debug. A `404` from `/static/…` and a `404`
 from `/api/…` come from different deploys, and only one of them is in this
 repository. See [who answers a request](/docs/api/overview#who-answers-a-request).
 
+## Optional page
+
+`GET /new` renders the optional surface when its source is unlocked at build
+time. In a clone or preview without the key it returns a `302` to `/`.
+The root home is unchanged. Imported assets from the encrypted directory are
+absent from locked builds; the former `/desk/*` public asset paths are removed.
+
 ## Media proxy
 
 ```

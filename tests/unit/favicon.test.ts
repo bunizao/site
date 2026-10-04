@@ -1,69 +1,52 @@
-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
+import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { blog } from '@/data/site';
+
+function readEmbeddedWebp(source: string): Buffer {
+  const match = source.match(/data:image\/webp;base64,([^"']+)/);
+  if (!match) throw new Error('Embedded WebP favicon payload is missing');
+  return Buffer.from(match[1], 'base64');
+}
+
+describe('favicons', () => {
+  test('keeps embedded blog marks metadata-free WebP', () => {
+    const prod = readFileSync(new URL('../../public/blog-mark.svg', import.meta.url), 'utf8');
+    const dev = readFileSync(new URL('../../public/blog-mark-dev.svg', import.meta.url), 'utf8');
+
+    expect(prod).toContain('prefers-color-scheme: dark');
+    expect(prod).toContain('invert(1)');
+    expect(dev).toContain('<rect width="128" height="128" rx="24" fill="#f59e0b"/>');
+
+    for (const source of [prod, dev]) {
+      const mark = readEmbeddedWebp(source);
+      expect(mark.subarray(0, 4).toString()).toBe('RIFF');
+      expect(mark.subarray(8, 12).toString()).toBe('WEBP');
+      expect(mark.includes(Buffer.from('EXIF'))).toBe(false);
+      expect(source).not.toContain('data:image/png;base64,');
+    }
+  });
+
+  test('keeps the shared blog mark asset encoded as WebP', () => {
+    const mark = readFileSync(new URL('../../public/blog-mark.webp', import.meta.url));
+
+    expect(mark.subarray(0, 4).toString()).toBe('RIFF');
+    expect(mark.subarray(8, 12).toString()).toBe('WEBP');
+  });
+});
+
+describe('blog mark on pages', () => {
+  test('pages draw the 144px copy, og:logo keeps the full-size mark', () => {
+    expect(blog.mark).toBe('/blog-mark-144.webp');
+    expect(blog.logo).toBe('/blog-mark.webp');
+  });
+
+  test('the page copy is a 144px WebP, 3x the largest 48px slot', () => {
+    const mark = readFileSync(new URL('../../public/blog-mark-144.webp', import.meta.url));
+
+    expect(mark.subarray(0, 4).toString()).toBe('RIFF');
+    expect(mark.subarray(8, 12).toString()).toBe('WEBP');
+    // VP8X canvas size: 24-bit little-endian width-1 and height-1.
+    expect(mark.readUIntLE(24, 3) + 1).toBe(144);
+    expect(mark.readUIntLE(27, 3) + 1).toBe(144);
+  });
+});

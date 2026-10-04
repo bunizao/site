@@ -15,6 +15,7 @@
 // after. Any failure warns and continues: a missed carry-over must never
 // block a deploy.
 
+import { isDeskUnlocked } from './desk-lock.mjs';
 import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -39,13 +40,14 @@ async function readLiveAssetList(origin, fetchImpl) {
 }
 
 /**
- * @param {{ origin: string, clientDir?: string, fetchImpl?: typeof fetch }} options
+ * @param {{ origin: string, clientDir?: string, fetchImpl?: typeof fetch, deskUnlocked?: boolean }} options
  * @returns {Promise<{ carried: number, failed: number }>}
  */
 export async function carryOverAstroAssets({
   origin,
   clientDir = CLIENT_DIR,
   fetchImpl = fetch,
+  deskUnlocked = isDeskUnlocked(),
 }) {
   const astroDir = resolve(clientDir, '_astro');
   if (!existsSync(astroDir)) {
@@ -55,6 +57,11 @@ export async function carryOverAstroAssets({
 
   const ownFiles = readdirSync(astroDir).sort();
   writeFileSync(resolve(clientDir, ASSET_LIST_FILE), `${JSON.stringify(ownFiles)}\n`);
+
+  if (!deskUnlocked) {
+    console.log('Asset carry-over skipped: desk locked; previous assets may contain desk code.');
+    return { carried: 0, failed: 0 };
+  }
 
   let liveFiles;
   try {
